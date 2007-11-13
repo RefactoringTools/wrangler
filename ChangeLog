@@ -1,0 +1,52 @@
+
+2007-11-13: Huiqing Li(hl@kent.ac.uk).
+* Added new module refac_expr_search.erl, which provides functionalities for 
+expression clones search within a singlw module.
+
+& Bug fixed within refac_util.er with in do_add_range for the case of fun expression.
+
+2007-11-07: Huiqing Li(hl@kent.ac.uk).
+
+* Reorgnised the wrangler directory by putting .erl files into the erl directory, and .hrl files to the hrl directory.
+
+* Changes to Makefile.in to refect the changes with the wrangler directory structure.  
+
+* create file wrangler.hrl.src, which is used to created wrangler.hrl during the make process, so that we can detect the path to the side-effect table correctly.
+
+* It seems that Windows vista does not support distel-3.3 very welll, especially the dec32.exe, so I am now using the cvs version of distel from distel.google.code.
+
+2007-10-31: Huiqing Li(hl@kent,ac,uk).
+
+* Added functionality for duplicated code detection among mulitiple modules.
+
+2007-10-30: Huiqing Li(hl@kent.ac.uk).
+* Added new functionality: duplicated code detection. 
+The current duplicated code detection only works with a single module.
+
+*In Refac_util.erl, a new version of add_range/1 has been created in order 
+to take into account those keywords/brackets/... surrounding a syntax phrase. 
+
+2007-10-19: Huiqing Li (hl@kent.ac.uk).
+
+* Refactoring: move the part in distel.erl that belong to Wrangler into a sperate module 'Wranlger_distel.erl', so that we can keep the distel.erl from distel 
+relase untouched.
+
+*  Bug fix with 'move a definition to another module'. Bug was: when the target module does not exist, Wrangler does not create it correctly.
+
+2007-10-16: Huiqing Li (hl@kent.ac.uk).
+
+*Bug fix within function scan/6 in file refac_scan.erl to get the column number of '_' correct.
+
+*Bug fix within functions has_side_effect/3 and build_sideeffect_ab/3. 
+Now use macro ?WRANGLER_DIR to remember the directory of wrangler.          
+NOTE: currently ?WRANGLER_DIR is hard-coded in wrangler.hrl. This must be 
+changed with the next release.
+
+
+2007-10-08: Huiqing Li (hl@kent.ac.uk). 
+
+* bug fix with function try_evaluation/1. This function occurs in several modules with the same definition, so moved it to refac_util.erl. I have also 
+renamed the parameter name from Parse to Expr. This is actually a very good 
+refactoring example involving a few basic refactorings.  
+
+* Added '\n' to the end of the warning message in refac_gen.erl and refac_move_fun.erl.
