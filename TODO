@@ -1,0 +1,31 @@
+
+2007-11-14 Huiqing Li
+
+1. Merge module refac_duplicated_code and refac_duplicated_code_in_files.
+
+2007-10-30  Huiqing Li
+
+1. in refac_util.erl, check add_range/2 function for completeness
+
+2007-10-24 Huiqing Li
+
+1. Add the testing code to the implementation of refactorings. 
+
+2007-10-20 Huiqing Li
+
+1. The checking of side-effect is too slow, have a check!
+
+2. Wrangler should  NOT allow another refactoring to be applied to the 
+program, while the current refactoring has not finished.
+
+2007-10-16 Huiqing Li
+
+1. Refactoing: move a definition between modules, when the target module does 
+not exist, Wrangler should check whether the new module name conflicts with 
+library modules. 
+
+2. When a new file is created during the refactoring process, undo the refactoring should also remove the file.
+
+2007-10-16 Huiqing Li
+
+1. modify the Makefile to set ?WRANGLER_DIR in wrangler.hrl automatically.(DONE) 
