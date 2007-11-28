@@ -1,0 +1,140 @@
+PACKAGE := distel4.0pre-wrangler
+VERSION := 0.2 
+
+prefix      = @prefix@
+exec_prefix = @exec_prefix@
+bindir      = @bindir@
+datadir     = @datadir@
+infodir     = @infodir@
+erlc        = @erlc@
+emacs       = @emacs@
+
+ELISP_DIR = ${datadir}/${emacs}/site-lisp/distel
+EBIN_DIR = ${datadir}/distel/ebin
+ERL_SRC_DIR = ${datadir}/distel/src
+WRANGLER_DIR = ${datadir}/distel/wrangler
+WRANGLER_SRC_DIR = ${WRANGLER_DIR}/src
+WRANGLER_PLT_DIR = ${WRANGLER_DIR}/plt
+########################################
+## Main part
+
+ERL_SRC := $(wildcard src/*.erl)
+ERL_OBJ := $(patsubst src/%.erl,ebin/%.beam,${ERL_SRC})
+
+WRANGLER_SRC := $(wildcard wrangler/erl/*.erl)
+WRANGLER_OBJ := $(patsubst wrangler/erl/%.erl, ebin/%.beam,${WRANGLER_SRC})
+
+SRC := ${ERL_SRC} ${WRANGLER_SRC}
+
+ELISP_SRC := elisp/erlext.el
+ELISP_OBJ := $(patsubst %.el,%.elc,${ELISP_SRC})
+
+
+DOC_SRC  := doc/distel.texi
+INFO_OBJ := doc/distel.info
+PS_OBJ   := doc/distel.ps
+
+OBJECTS := ${ERL_OBJ} ${WRANGLER_OBJ} ${ELISP_OBJ} ${C_OBJ} ${INFO_OBJ} ${PS_OBJ}
+
+default: prepare ${ERL_OBJ} ${WRANGLER_OBJ} ${ELISP_OBJ} ${C_OBJ} 
+base: ${ERL_OBJ} ${WRANGLER_OBJ} ${ELISP_OBJ} ${C_OBJ}
+info: ${INFO_OBJ}
+postscript: ${PS_OBJ}
+all: prepare base info postscript
+
+erl: ${ERL_OBJ} ${WRANGLER_OBJ}
+
+########################################
+## Rules
+
+## Erlang
+ebin/%.beam: ${SRC}  
+	erlc -I wrangler/hrl -W -o ebin +debug_info ${SRC} 
+
+## Elisp
+elisp/%.elc: elisp/%.el
+	${emacs} -batch -f batch-byte-compile $<
+
+
+prepare:
+	cp wrangler/diffs/elisp/*.el elisp 
+	@case 'uname' in \
+          CYGWIN*) \
+              sed -e "s;%WRANGLER_DIR%;\"`cygpath -m ${WRANGLER_DIR}`\";" \
+                  wrangler/hrl/wrangler.hrl.src>wrangler/hrl/wrangler.hrl  \
+              ;; \
+              *) \
+              sed -e "s;%WRANGLER_DIR%;\"${WRANGLER_DIR}\";" \
+                  wrangler/hrl/wrangler.hrl.src>wrangler/hrl/wrangler.hrl \
+              ;; \
+         esac
+
+## Info documentation
+doc/distel.info: ${DOC_SRC}
+	makeinfo -o $@ $<
+
+## Postscript documentation
+doc/distel.ps: doc/distel.dvi
+	dvips -o $@ $<
+
+doc/distel.dvi: ${DOC_SRC}
+	(cd doc; texi2dvi distel.texi)
+
+
+########################################
+
+configure: configure.in Makefile.in
+	autoconf
+
+Makefile: Makefile.in config.status
+	./config.status
+
+clean:
+	-rm -f ${OBJECTS} 2>/dev/null
+
+distclean: clean
+	-rm -f config.* configure.scan Makefile *~ */*~ 2>/dev/null
+
+install: base
+	@echo "* Installing Emacs Lisp Library"
+	install -m 775 -d ${ELISP_DIR} 
+	install -m 775 elisp/*.el elisp/*.elc ${ELISP_DIR}
+	@echo
+	@echo "* Installing Erlang Library"
+	install -m 775 -d ${EBIN_DIR} ${ERL_SRC_DIR}
+	install -m 775 -d ${WRANGLER_SRC_DIR} ${WRANGLER_PLT_DIR}
+	install -m 775 ebin/*.beam ${EBIN_DIR}
+	install -m 775 src/*.erl ${ERL_SRC_DIR}
+	install -m 775 wrangler/erl/*.erl ${WRANGLER_SRC_DIR}
+	install -m 775 wrangler/hrl/*.hrl ${WRANGLER_SRC_DIR}
+	install -m 775 wrangler/plt/side_effect_plt ${WRANGLER_PLT_DIR}
+	@echo
+	@echo "*** Successfully installed. See README for usage instructions."
+	@echo
+
+info_install: info
+	  @echo "* Installing Info documentation"
+	  cp doc/distel.info ${infodir}
+# NB: Debian's not-GNU-compatible install-info needs "--section Emacs Emacs"
+	  install-info --info-dir=${infodir} --section Emacs \
+		       ${infodir}/distel.info
+
+dist: always distclean configure
+	cd .. && ln -sf ${PACKAGE} ${PACKAGE}-${VERSION}
+	cd .. && (find ${PACKAGE}-${VERSION} -follow -type f | \
+		  egrep -v '(^attic/)|/CVS/|\.cvsignore|\.rej|\.orig|\#' | \
+		  xargs tar czf ${PACKAGE}-${VERSION}.tar.gz)
+	rm ../${PACKAGE}-${VERSION}
+
+wc:
+	@echo "* Emacs Lisp"
+	@wc -l */*.el | sort -nr
+	@echo "* Erlang"
+	@wc -l */*.erl | sort -nr
+	@echo "* C"
+	@wc -l */*.c | sort -nr
+
+
+.INTERMEDIATE: doc/distel.dvi
+.PHONY: always
+
