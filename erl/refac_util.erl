@@ -414,7 +414,7 @@ do_add_range(Node, Toks) ->
              refac_syntax:add_ann({range, {{L,C}, {L, C}}}, Node);
 	 eof_marker -> 
 	     refac_syntax:add_ann({range, {{L,C},{L,C}}}, Node);
-	 nil ->refac_syntax:add_ann({range, {{L,C}, {L, C}}}, Node);
+	 nil ->refac_syntax:add_ann({range, {{L,C}, {L, C+1}}}, Node);
          module_qualifier -> M = refac_syntax:module_qualifier_argument(Node),
 			     F = refac_syntax:module_qualifier_body(Node),
 			     {S1, _E1} = get_range(M),
@@ -426,7 +426,7 @@ do_add_range(Node, Toks) ->
 		   Node1 = case refac_syntax:list_suffix(Node) of
 			       none -> refac_syntax:add_ann({range, {{L1, C1-1}, {L2, C2+1}}}, Node);
 			       Tail -> {_S2, {L3,C3}} = get_range(Tail),
-				       refac_syntax:add_ann({range, {{L1,C1-1},{L3, C3+1}}}, Node)
+				       refac_syntax:add_ann({range, {{L1,C1-1},{L3, C3}}}, Node)
 			   end,
 	           Node1;
 	 application -> O = refac_syntax:application_operator(Node),
@@ -468,7 +468,9 @@ do_add_range(Node, Toks) ->
 		      La = glast("refac_util:do_add_range, cond_expr", Cs),
 		      {S1, _E1} = get_range(Hd),
 		      {_S2, E2} = get_range(La),
-		      refac_syntax:add_ann({range, {S1, E2}}, Node);
+		      S11 = extend_forwards(Toks,S1, 'cond'),
+		      E21 = extend_backwards(Toks, E2, 'end'),
+		      refac_syntax:add_ann({range, {S11, E21}}, Node);
 	 infix_expr -> Left = refac_syntax:infix_expr_left(Node),
 		       Right = refac_syntax:infix_expr_right(Node),
 		       {S1, _E1} = get_range(Left),
@@ -478,7 +480,8 @@ do_add_range(Node, Toks) ->
 			Ar = refac_syntax:prefix_expr_argument(Node),
 			{S1, _E1} = get_range(Op),
 			{_S2, E2} = get_range(Ar),
-			refac_syntax:add_ann({range, {S1, E2}}, Node);
+			E21 = extend_backwards(Toks, E2, ')'),
+			refac_syntax:add_ann({range, {S1, E21}}, Node);
 	 conjunction -> B = refac_syntax:conjunction_body(Node),
 			H =ghead("refac_util:do_add_range,conjunction",B),
 			La = glast("refac_util:do_add_range,conjunction",B),
@@ -501,8 +504,7 @@ do_add_range(Node, Toks) ->
 		     S = refac_syntax:get_pos(Node),
 		     Lc = glast("refac_util:do_add_range, fun_expr", Cs),
 		     {_S1, E1} = get_range(Lc),
-		     S11 = extend_forwards(Toks, S, 'fun'),
-		     E11 = extend_backwards(Toks, E1, 'end'),
+		     E11 = extend_backwards(Toks, E1, 'end'),   %% S starts from 'fun', so there is no need to extend forwards/
 		     refac_syntax:add_ann({range, {S, E11}}, Node);
 	arity_qualifier -> B = refac_syntax:arity_qualifier_body(Node),
 			   A = refac_syntax:arity_qualifier_argument(Node),
@@ -538,13 +540,17 @@ do_add_range(Node, Toks) ->
 		      B = glast("refac_util:do_add_range,list_comp", refac_syntax:list_comp_body(Node)),
                       {S1, _E1} = get_range(T),
 		      {_S2, E2} = get_range(B),
-		      refac_syntax:add_ann({range, {S1, E2}}, Node);
+		      S11 = extend_forwards(Toks, S1, '['),
+		      E21 = extend_backwards(Toks, E2, ']'),
+		      refac_syntax:add_ann({range, {S11, E21}}, Node);
 	 block_expr ->Es = refac_syntax:block_expr_body(Node),
 		      Hd = ghead("refac_util:do_add_range, block_expr", Es),
 		      La = glast("refac_util:do_add_range, block_expr", Es),
 		      {S1, _E1}= get_range(Hd),
 		      {_S2, E2} = get_range(La),
-		      refac_syntax:add_ann({range, {S1, E2}}, Node);
+		      S11 = extend_forwards(Toks, S1, 'begin'),
+		      E21 = extend_backwards(Toks, E2, 'end'),
+		      refac_syntax:add_ann({range, {S11, E21}}, Node);
 	 receive_expr -> case refac_syntax:receive_expr_timeout(Node) of 
 			     none -> Cs = refac_syntax:receive_expr_clauses(Node),
 				     case length(Cs) of 
@@ -578,7 +584,9 @@ do_add_range(Node, Toks) ->
 			    La = glast("refac_util:do_add_range, binary",Fs),
 			    {S1, _E1} = get_range(Hd),
 			    {_S2, E2} = get_range(La),
-			    refac_syntax:add_ann({range, {S1, E2}}, Node)
+			    S11 = extend_forwards(Toks, S1, '<<'),
+			    E21 = extend_backwards(Toks, E2, '>>'),
+			    refac_syntax:add_ann({range, {S11, E21}}, Node)
 		   end;
 	 binary_field -> Body = refac_syntax:binary_field_body(Node),
 			 Types =refac_syntax:binary_field_types(Node),
@@ -633,9 +641,12 @@ do_add_range(Node, Toks) ->
 				       _    -> get_range(Arg)
 				   end,
                         case Fields of 
-			    [] -> refac_syntax:add_ann({range, {S1,E1}}, Node);
+			    [] ->
+				 E11 = extend_backwards(Toks, E1, '}'),
+				 refac_syntax:add_ann({range, {S1,E11}}, Node);
 			    _  -> {_S2, E2} = get_range(glast("refac_util:do_add_range,record_expr", Fields)),
-                                  refac_syntax:add_ann({range, {S1, E2}}, Node)
+				   E21 = extend_backwards(Toks, E2, '}'),
+                                  refac_syntax:add_ann({range, {S1, E21}}, Node)
 			end;
 	 record_access -> Arg = refac_syntax:record_access_argument(Node),
 			  Field = refac_syntax:record_access_field(Node),
@@ -1196,10 +1207,12 @@ get_client_files(File, SearchPaths) ->
 	true -> ok;
 	false -> exit("One of the directories sepecified in the search paths does not exist, please check the customization!")
     end,
-    Callgraph = filename:join([filename:dirname(File), "callgraph"]),
-    File1 = normalise_file_name(File),
-    Callgraph1= refac_module_graph:module_callgraph([{files, SearchPaths}, {module_graph, Callgraph}]),
-    ClientFiles =case lists:keysearch(File1, 1, Callgraph1) of 
+    ModuleGraphFile = filename:join([filename:dirname(File), "modulegraph"]),
+    File1 = filename:absname(normalise_file_name(File)),
+    Dir = filename:dirname(File1),
+    WranglerOptions = #options{},   %% TODO: This should be changed to a globe one.
+    ModuleGraph= refac_module_graph:module_graph(lists:usort([Dir|SearchPaths]), ModuleGraphFile, WranglerOptions),
+    ClientFiles =case lists:keysearch(File1, 1, ModuleGraph) of 
 		       {value, {_, Clients}} ->
 			   lists:delete(File1, Clients);
 		       _ -> 
@@ -1207,7 +1220,7 @@ get_client_files(File, SearchPaths) ->
 		 end,
     
     case ClientFiles of 
-	[] -> io:format("\nWARNING: this module does not have any client modules, please check the search aths to ensure that this is correct!\n");
+	[] -> io:format("\nWARNING: this module does not have any client modules, please check the search paths to ensure that this is correct!\n");
 	_ -> ok
     end,
     HeaderFiles =expand_files(SearchPaths, ".hrl"),
@@ -1429,7 +1442,7 @@ get_modules_by_file([], Acc) ->
 %% @doc Return true if the subtree has side effect.
 
 has_side_effect(Node,Info, FileName) ->
-    File = filename:join(?WRANGLER_DIR, "wrangler/plt/side_effect_plt"),
+    File = filename:join(?WRANGLER_DIR, "/plt/side_effect_plt"),
     Plt = from_dets(side_effect_plt, File),
     Res = has_side_effect(Node,Plt),
     case Res of 
@@ -1446,7 +1459,7 @@ has_side_effect(Node,Info, FileName) ->
 			    
 
 build_sideeffect_tab(_Node, _Info, FileName) ->   %% TODO: REMOVE UNUSED PARAMETERS!!!
-     File = filename:join(?WRANGLER_DIR, "wrangler/plt/side_effect_plt"),
+     File = filename:join(?WRANGLER_DIR, "/plt/side_effect_plt"),
      Plt = from_dets(side_effect_plt, File), 
      Dir = filename:dirname(FileName),
      {Sccs, _E} = build_call_graph([Dir]), %%(Node, Info, FileName),
@@ -1458,7 +1471,7 @@ build_sideeffect_tab(Dirs) ->
     true = ets:insert(Plt, side_effect_table()),
     {Sccs, _E} =build_call_graph(Dirs),
     side_effect_tab1(Sccs,Plt),
-    File = filename:join(?WRANGLER_DIR, "wrangler/plt/side_effect_plt"),
+    File = filename:join(?WRANGLER_DIR, "/plt/side_effect_plt"),
     to_dets(Plt, File).
    
 side_effect_tab1([Scc|Left], Side_Effect_Table) ->

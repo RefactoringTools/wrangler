@@ -248,7 +248,7 @@ move_fun(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths) ->
 %% @spec duplicated_code(FileName::filename(),MinLines::integer(),MinClones::integer()) -> term().
 %%                
 duplicated_code(FileName, MinLines, MinClones) -> 
-    refac_duplicated_code:duplicated_code(FileName, MinLines, MinClones).
+    refac_duplicated_code:duplicated_code([FileName], MinLines, MinClones).
     
 
 

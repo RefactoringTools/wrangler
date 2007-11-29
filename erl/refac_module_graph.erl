@@ -18,165 +18,125 @@
 %%======================================================================
 
 -module(refac_module_graph).
--export([module_callgraph/1]). 
+-export([module_graph/3]). 
 
--define(OPTS, 
-	[type_only, no_type_warnings,
-	 {use_callgraph, fixpoint}, get_called_modules,no_inline_fp, {pmatch, no_duplicates}, {target, x86}]).
+-include("../hrl/wrangler.hrl").
 
--define(SRC_COMPILE_OPTS, 
-	[to_core, binary,report_errors, no_inline]).
+module_graph(Files, ModuleGraphFile, WranglerOptions) ->
+     Ext = ".erl",
+     NewFiles = refac_util:expand_files(Files, Ext),
+     ModMap = refac_util:get_modules_by_file(NewFiles),
+     case file:read_file(ModuleGraphFile) of 
+	 {ok, Res} -> {module_graph, _, List} = analyze_all_files(ModMap, [], {ModuleGraphFile, binary_to_term(Res)}, WranglerOptions),
+		      List;
+	 _ -> {module_graph, _, List} = analyze_all_files(ModMap, [], {ModuleGraphFile, []}, WranglerOptions),
+	      List
+     end.
+	     
 
--include("wrangler.hrl").
-
-module_callgraph(Options) when is_list(Options) ->
-    WranglerOptions = wrangler_options:build(Options),
-    InitAnalysis = build_analysis_record(WranglerOptions),
-    case run_analysis(InitAnalysis) of
-       {module_callgraph, _List1, List2} ->
- 	  List2;
-       _  -> []
-   end.
-
-build_analysis_record(WranglerOptions) ->
-  IncludeDirs = WranglerOptions#options.include_dirs,
-  Defines = WranglerOptions#options.defines,
-  Files = ordsets:from_list(WranglerOptions#options.files),
-  CoreTransform = WranglerOptions#options.core_transform,
-  ModuleGraph = WranglerOptions#options.module_graph,
-  #analysis{fixpoint=first, core_transform=CoreTransform,
-	    defines=Defines, granularity=module,
-	    include_dirs=IncludeDirs,  
-	    files=Files, module_graph=ModuleGraph}.
-
-
-run_analysis(Analysis) ->
-  Files = Analysis#analysis.files,
-  Ext = ".erl",
-  NewAnalysis = case refac_util:expand_files(Files, Ext) of
-		    [] ->
-		%% 	io:format("WARNING: Wrangler could not find any .erl files in the specified searchpaths to caluate the client modules, please ensure the searchpaths have been set correctly."),
-                        Analysis#analysis{files=[]};
-		    NewFiles ->
-			Analysis#analysis{files=NewFiles}
-		end,
-  analyze_all_files(NewAnalysis).
-
-
-analyze_mod({Mod, Dir},Analysis) ->
-   Res =analyze_core_file(Dir, Mod, Analysis),
-   case Res of
-    {error, _What} ->
-      error; 
-    AnalysisRes ->
-      case AnalysisRes of
-	{{ok, _}, {called_modules, Called}} ->
- 	  {called_modules, Called};
-	{ok, _} ->
-	  ok;
-	{'EXIT', _Why} ->
-	  error 
-      end
-  end.
-
-analyze_core_file(Dir, Mod, Analysis) ->  
-  DefaultIncl1 = ["..", "../incl", "../inc", "../include"],
-  DefaultIncl2 = [{i, filename:join(Dir,X)} || X <- DefaultIncl1],
-  UserIncludes = [{i, X} || X <- Analysis#analysis.include_dirs],
-  Includes = UserIncludes++DefaultIncl2,
-  Defines = [{d, M, V} || {M,V} <- Analysis#analysis.defines],
-  CompOpts = [{i, Dir} | ?SRC_COMPILE_OPTS] ++ Defines ++ Includes,
-  ModPath = filename:join(Dir, Mod),
-  case compile:file(ModPath, CompOpts) of
-    {ok, _, Core} ->
-      catch hipe:compile_core(list_to_atom(Mod), Core, [], ?OPTS);
-    {error, Errors, _} ->
-      FormatedErrors = format_errors(Errors),
-      {error, lgts:flatten(FormatedErrors)}
-  end.
-
-
-format_errors([{Mod, Errors}|Left])->
-  FormatedError = 
-    [io_lib:format("~s:~w: ~s\n", [Mod, Line,apply(M,format_error, [Desc])])
-     || {Line, M, Desc} <- Errors],
-  [lists:flatten(FormatedError) | format_errors(Left)];
-format_errors([]) ->
-  [].
-
-analyze_all_files(Analysis) ->
-  Files = Analysis#analysis.files,
-  ModMap = refac_util:get_modules_by_file(Files),
-  Callgraph = Analysis#analysis.module_graph,
-  case file:read_file(Callgraph) of 
-      {ok, Res} -> analyze_all_files(ModMap, Analysis, [], {filelib:last_modified(Callgraph),binary_to_term(Res)});
-      _ -> analyze_all_files(ModMap, Analysis, [],{{0,0,0},[]})
-  end.
-
-analyze_all_files([{Mod, Dir}|Left], Analysis, Acc, {CallgraphModifiedTime, Callgraph}) ->
-  FileName = Dir++"/"++Mod++".erl",
+analyze_all_files([{Mod, Dir}|Left], Acc, {ModuleGraphFile, ModuleGraph}, WranglerOptions) ->  
+  ModuleGraphModifiedTime = filelib:last_modified(ModuleGraphFile),
+  FileName = filename:join(Dir,Mod++".erl"),
   FileModifiedTime = filelib:last_modified(FileName),
-  R = lists:keysearch({Mod, Dir},1, Callgraph),
-  if (FileModifiedTime < CallgraphModifiedTime) and (R /= false) ->
+  R = lists:keysearch({Mod, Dir},1, ModuleGraph),
+  if (FileModifiedTime < ModuleGraphModifiedTime) and (R /= false) ->
 	  {value, R1} = R,
-	  analyze_all_files(Left, Analysis, [R1|Acc], {CallgraphModifiedTime, Callgraph});
+	  analyze_all_files(Left, [R1|Acc], {ModuleGraphFile, ModuleGraph}, WranglerOptions);
      true -> 
-	  case analyze_mod({Mod, Dir}, Analysis) of
-		 error ->
-		     analyze_all_files(Left, Analysis, Acc, {CallgraphModifiedTime, Callgraph});
-		 ok ->
-		     analyze_all_files(Left, Analysis, Acc, {CallgraphModifiedTime, Callgraph});
-		 {called_modules, Called} ->
-		     ImportedMods = imported_modules(FileName),
-		     Called1 = lists:usort(Called++ImportedMods),
-		     analyze_all_files(Left, Analysis, [{{Mod,Dir}, Called1}|lists:keydelete({Mod, Dir}, 1, Acc)],
-							{CallgraphModifiedTime, Callgraph})
+	  case analyze_mod({Mod, Dir}, WranglerOptions) of
+	      {error, _Reason} ->
+		  analyze_all_files(Left, Acc, {ModuleGraphFile, ModuleGraph}, WranglerOptions);
+	      {called_modules, Called} ->
+		  analyze_all_files(Left, [{{Mod,Dir}, Called}|lists:keydelete({Mod, Dir}, 1, Acc)],
+				    {ModuleGraphFile, ModuleGraph}, WranglerOptions)
 	  end
   end; 	   
-
   
-analyze_all_files([], Analysis, Acc, _Callgraph) ->
-  Callgraph = Analysis#analysis.module_graph,    
-  case Acc of
-    [] ->
-      ok;
-    List when is_list(List) ->
-      case file:open(Callgraph,[write,binary]) of 
-	  {ok, File} -> file:write_file(Callgraph, term_to_binary(List)),
-			file:close(File);
-	  {error, Reason} ->  io:format("Could not open module callgraph output file, Reason ~p\n",
-					[Reason])
-      end,
-      {module_callgraph, List, reverse_module_callgraph(List)}
-  end.
+analyze_all_files([], Acc, {ModuleGraphFile, _ModuleGraph}, _WranglerOptions)->
+    case file:open(ModuleGraphFile,[write,binary]) of 
+	{ok, File} -> file:write_file(ModuleGraphFile, term_to_binary(Acc)),
+		      file:close(File);
+	{error, Reason} ->  io:format("Could not open the module graph output file, Reason ~p\n",
+				      [Reason])
+    end,
+    {module_graph, Acc, reverse_module_graph(Acc)}.
 
-reverse_module_callgraph(List) ->
-    reverse_module_callgraph_1(List,List, []).
-reverse_module_callgraph_1([], _List,Acc) ->
+
+analyze_mod({Mod, Dir}, WranglerOptions) ->
+    DefaultIncl1 = [".","..", "../hrl", "../incl", "../inc", "../include"],
+    DefaultIncl2 = [filename:join(Dir, X) || X <- DefaultIncl1],
+    UserIncludes = WranglerOptions#options.include_dirs,
+    Includes = UserIncludes ++ DefaultIncl2, 
+    File = filename:join(Dir, Mod++".erl"),
+    case refac_util:parse_annotate_file(File, 0, false, Includes) of 
+	{ok, {AnnAST, Info}} ->
+	    ImportedMods = case lists:keysearch(imports,1, Info) of 
+			       {value, {imports, Imps}} -> lists:map(fun({M, _Funs}) -> M end, Imps);
+			       _  -> []
+			   end,
+	    CalledMods = collect_called_modules(AnnAST),
+	    {called_modules, ImportedMods++CalledMods};
+	{error, Reason} -> 
+	    {error, Reason}
+    end.
+
+
+collect_called_modules(AnnAST) ->
+    Fun = fun(T, S) -> 
+ 		 case refac_syntax:type(T) of 
+ 		     application -> 
+ 			 Operator = refac_syntax:application_operator(T),
+ 			 case refac_syntax:type(Operator) of 
+			     module_qualifier ->
+				 Mod  = refac_syntax:module_qualifier_argument(Operator),
+				 case refac_syntax:type(Mod) of 
+				     atom ->  ordsets:add_element(refac_syntax:atom_value(Mod), S);
+				     _ ->  S 
+				 end;
+			     atom -> 
+				 Op = refac_syntax:atom_value(Operator),
+				 Arguments = refac_syntax:application_arguments(T),
+				 Arity = length(Arguments),
+				 SpecialFuns = [{apply,3},{spawn,3},{spawn,4},{spawn_link,3},{spawn_link,4}],
+				 case lists:member({Op, Arity},SpecialFuns) of 
+				     true ->
+					 Mod = hd(Arguments),
+					 Mod1 = refac_util:try_evaluation([refac_syntax:revert(Mod)]),
+					 case Mod1 of 
+					     {value, M} -> ordsets:add_element(M, S);
+					     _ -> S
+					 end;
+				     _  -> S
+				 end;	 
+			     _ -> S
+			 end;
+		     _ -> S
+		 end
+	 end,
+     lists:usort(refac_syntax_lib:fold(Fun, [], AnnAST)).
+
+
+reverse_module_graph(List) ->
+    reverse_module_graph_1(List,List, []).
+reverse_module_graph_1([], _List,Acc) ->
     Acc;
-reverse_module_callgraph_1([{{Mod, Dir},_Called_Mods}|T], List, Acc) ->
+reverse_module_graph_1([{{Mod, Dir},_Called_Mods}|T], List, Acc) ->
     Client_Modules = get_client_modules({Mod,Dir}, List),
-    reverse_module_callgraph_1(T,List, [Client_Modules|Acc]).
+    reverse_module_graph_1(T,List, [Client_Modules|Acc]).
 
 get_client_modules({Mod,Dir}, List) ->
     F = fun({{M,Dir1},Called_Modules}) ->
 		case lists:member(list_to_atom(Mod), Called_Modules) of 
-		    true -> [filename:join([Dir1, M++".erl"])];
+		    true -> case filelib:is_file(filename:join(Dir1, Mod++".erl")) andalso (Dir =/=Dir1) of 
+				true -> 
+				    [];
+				_ ->[filename:join([Dir1, M++".erl"])]
+			    end;
 		    false -> []
 		end
 	end,
     {filename:join([Dir, Mod++".erl"]), lists:flatmap(F, List)}.
 
-imported_modules(File) ->
-      case  epp_dodger:parse_file(File) of 
-	  {ok, Forms} ->
-	      Info = refac_syntax_lib:analyze_forms(Forms),
-	      case lists:keysearch(imports,1, Info) of 
-		  {value, {imports, Imps}} -> lists:map(fun({M, _Funs}) -> M end, Imps);
-		  _  -> []
-	      end;
-	  _ -> []           
-      end.					  
 
 
     

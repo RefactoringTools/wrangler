@@ -18,7 +18,7 @@
 %% 
 -module(refac_expr_search).
 
--export([expr_search/3]).
+-export([expr_search/3, var_binding_structure/1]).
 
 -compile(export_all).
 
@@ -55,11 +55,12 @@ expr_search(FileName, Start, End) ->
 			     {ok, []};
 			1 -> io:format("No identical expression has been found. \n"),
 			     {ok, []};
-			2 -> io:format(" One expression which is identical (up to variable renaming and literal substitution) to the selected"
-				       " expression has been found. \n"), 
-			     {ok, Res};				      
-			N -> io:format("~p expressions which are identical (up to variable renaming and literal substitution) to the selected"
-				       " expression have been fould. \n", [N-1]),
+		  %%	2 -> io:format(" One expression which is identical (up to variable renaming and literal substitution) to the selected"
+ 			%%	       " expression has been found. \n"), 
+ 			  %%   {ok, Res};	
+	  
+			N -> io:format("~p expressions, including the selected expression, which are identical (up to variable renaming and literal substitution) to "
+				       " the selected expression have been fould. \n", [N]),
 			     {ok, Res}
 		    end;
 		_   -> {error, "You have not selected an expression!"}
@@ -241,43 +242,47 @@ var_binding_structure(ASTList) ->
     %% collect all variables including their defining and occuring locations. 
     B = lists:concat(lists:map(fun(T) -> refac_syntax_lib:fold(Fun1, ordsets:new(), T) end, ASTList)),
     %% collect defining locations.
-    DefLocs = lists:usort(lists:map(fun ({_Name, _SrcLoc,
+    DefLocs = lists:usort(lists:flatten(lists:map(fun ({_Name, _SrcLoc,
 					  DefLoc}) ->
 					    DefLoc
 				    end,
-				    B)),
+				    B))),
     %% collect occuring locations.
     SrcLocs = lists:map(fun ({_Name, SrcLoc, _DefLoc}) ->
 				SrcLoc
 			end,
 			B),
-    Locs = lists:usort(DefLocs ++ SrcLocs),
-    case Locs of 
-	[] -> [];
-	_ ->  IndexedLocs = lists:zip(Locs, lists:seq(1, length(Locs))),
-	      B1 = lists:usort(lists:map(fun ({_Name, SrcLoc, DefLoc}) ->
-						 {value, {SrcLoc, Index1}} = lists:keysearch(SrcLoc, 1, IndexedLocs),
-						 {value, {DefLoc, Index2}} = lists:keysearch(DefLoc, 1, IndexedLocs),
-						 {Index1, Index2}
-					 end,
-					 B)),
-	      lists:sort(groupby(2, B1))
-    end.
+    Locs = lists:usort(lists:flatten(DefLocs ++ SrcLocs)),
+    Res = case Locs of 
+	      [] -> 
+		  [];
+	      _ ->  IndexedLocs = lists:zip(Locs, lists:seq(1, length(Locs))),
+		    B1 = lists:usort(lists:map(fun ({_Name, SrcLoc, DefLoc}) ->
+						       DefLoc1 = hd(DefLoc),             %% DefLoc is  a list, does this cause problems? CHECK IT.
+						       {value, {SrcLoc, Index1}} = lists:keysearch(SrcLoc, 1, IndexedLocs),
+						       {value, {DefLoc1, Index2}} = lists:keysearch(DefLoc1, 1, IndexedLocs),
+						       {Index1, Index2}
+					       end,
+					       B)),
+		    lists:keysort(1, B1)
+	  end,
+    Res.
 
-groupby(N, TupleList) ->
-    TupleList1 = lists:keysort(N, TupleList),
-    groupby_1(N, TupleList1, []).
 
-groupby_1(_N, [], Acc) ->
-    Acc;
-groupby_1(N,TupleList=[T|_Ts], Acc) ->
-    E = element(N, T),
-    {TupleList1, TupleList2} = lists:partition(fun(T1) ->
-						       element(N,T1) == E end, TupleList),
-    TupleList3 = lists:map(fun(L) -> {L1, L2} = lists:split(N-1, tuple_to_list(L)),
-				    L1 ++ [0] ++ tl(L2)
-			  end, TupleList1),
-    groupby_1(N, TupleList2, Acc++[TupleList3]).
+%% groupby(N, TupleList) ->
+%%     TupleList1 = lists:keysort(N, TupleList),
+%%     groupby_1(N, TupleList1, []).
+
+%% groupby_1(_N, [], Acc) ->
+%%     Acc;
+%% groupby_1(N,TupleList=[T|_Ts], Acc) ->
+%%     E = element(N, T),
+%%     {TupleList1, TupleList2} = lists:partition(fun(T1) ->
+%% 						       element(N,T1) == E end, TupleList),
+%%     TupleList3 = lists:map(fun(L) -> {L1, L2} = lists:split(N-1, tuple_to_list(L)),
+%% 				    L1 ++ [0] ++ tl(L2)
+%% 			  end, TupleList1),
+%%     groupby_1(N, TupleList2, Acc++[TupleList3]).
 			     
 		    
 %% get the location of a token.
