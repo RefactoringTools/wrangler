@@ -58,7 +58,7 @@ elisp/%.elc: elisp/%.el
 
 prepare:
 	cp wrangler/diffs/elisp/*.el elisp 
-	@case 'uname' in \
+	@case `uname` in \
           CYGWIN*) \
               sed -e "s;%WRANGLER_DIR%;\"`cygpath -m ${WRANGLER_DIR}`\";" \
                   wrangler/hrl/wrangler.hrl.src>wrangler/hrl/wrangler.hrl  \
