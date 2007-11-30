@@ -1442,7 +1442,9 @@ get_modules_by_file([], Acc) ->
 %% @doc Return true if the subtree has side effect.
 
 has_side_effect(Node,Info, FileName) ->
-    File = filename:join(?WRANGLER_DIR, "/plt/side_effect_plt"),
+    File = filename:join(?WRANGLER_DIR, "plt/side_effect_plt"),
+    io:format("Wrangler_dir:\n~p\n", [?WRANGLER_DIR]),
+    io:format("File:\n~p\n", [File]),
     Plt = from_dets(side_effect_plt, File),
     Res = has_side_effect(Node,Plt),
     case Res of 
@@ -1459,7 +1461,7 @@ has_side_effect(Node,Info, FileName) ->
 			    
 
 build_sideeffect_tab(_Node, _Info, FileName) ->   %% TODO: REMOVE UNUSED PARAMETERS!!!
-     File = filename:join(?WRANGLER_DIR, "/plt/side_effect_plt"),
+     File = filename:join(?WRANGLER_DIR, "plt/side_effect_plt"),
      Plt = from_dets(side_effect_plt, File), 
      Dir = filename:dirname(FileName),
      {Sccs, _E} = build_call_graph([Dir]), %%(Node, Info, FileName),
@@ -1471,7 +1473,7 @@ build_sideeffect_tab(Dirs) ->
     true = ets:insert(Plt, side_effect_table()),
     {Sccs, _E} =build_call_graph(Dirs),
     side_effect_tab1(Sccs,Plt),
-    File = filename:join(?WRANGLER_DIR, "/plt/side_effect_plt"),
+    File = filename:join(?WRANGLER_DIR, "plt/side_effect_plt"),
     to_dets(Plt, File).
    
 side_effect_tab1([Scc|Left], Side_Effect_Table) ->
