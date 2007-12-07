@@ -82,6 +82,8 @@ cache, give a prefix argument with C-u before using the command.
 \\[erl-refactor-generalisation]  - Generalise a function definition.
 \\[erl-refactor-move-fun]  - Move a function definition from one module to another.
 \\[erl-refactor-undo]    -Undo the latest refactoring.
+\\[erl-refactor-function-extraction] -- Extract a function definition
+\\[erl-refactor-fold-expression] -- Fold an expression against a function definition.
 \\[erl-refactor-duplicated-code] -Detect code clones in the current file.
 \\[erl-refactor-expression-search] - search an expression in the current file
 
@@ -282,12 +284,14 @@ Please see the documentation of `erlang-menu-base-items'.")
       ("Rename Function Name" erl-refactor-rename-fun)
       ("Rename Module Name" erl-refactor-rename-mod)
       ("Generalise Function Definition" erl-refactor-generalisation)
-      ("Move a Function to Another Module" erl-refactor-move-fun)
-      ("Duplicated Code"
-       (("Detect Duplicated Code in this Buffer"  erl-refactor-duplicated-code)
-	("Expression Search" erl-refactor-expression-search)
-	)
-      )
+      ("Move Function to Another Module" erl-refactor-move-fun)
+     ;; ("Duplicated Code"
+      ("Function Extraction" erl-refactor-fun-extraction)
+      ("Fold Expression Against Function" erl-refactor-fold-expression)
+      nil
+      ("Detect Duplicated Code"  erl-refactor-duplicated-code)
+      ("Expression Search" erl-refactor-expression-search)
+       nil
   ;;  ("From Tuple To Record" erl-refactor-tuple-to-record)
       nil
       ("Undo" erl-refactor-undo)
