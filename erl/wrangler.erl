@@ -42,7 +42,9 @@
 	 generalise/4,
 	 move_fun/6,
 	 duplicated_code/3,
-	 expression_search/3]).
+	 expression_search/3,
+	 fun_extraction/4,
+	 fold_expression/3]).
 
 %% ====================================================================================================
 %% @doc Rename a variable name with a user-supplied new name.
@@ -254,7 +256,7 @@ duplicated_code(FileName, MinLines, MinClones) ->
 
 %% @doc Search a user-selected expression or a sequence of expressions from an Erlang source file.
 %%
-%% <p> This functionality allows the user to search an selected expression or a sequence of expressions
+%% <p> This functionality allows the user to search a selected expression or a sequence of expressions
 %% from the current Erlang buffer. The searching ignores variables names and literals, but it takes
 %% the binding structure of variables into account. Therefore the found expressions are the same to the 
 %% highlighted expression up to variable renaming and literal substitution. Layout and comments are ignored 
@@ -269,3 +271,24 @@ duplicated_code(FileName, MinLines, MinClones) ->
 %%   
 expression_search(FileName, Start, End) ->
     refac_expr_search:expr_search(FileName, Start, End).
+
+
+%%@doc Introduce a new function to represent an user-selected expression sequence.
+%% <p> This refactoring allows the user to introduce a new function to represent a selected expression/expression 
+%% sequence, and replace the selected expression with a call to the newly introduced function.  Those free variables
+%% within the expression become the formal parameters of the function.
+%% </p>
+%% <p> In the case that selected expression is duplicated multiple times within the current file, the 
+%% refactorer will show the user where the expression is duplicated, and ask whether the user wants to 
+%% replace that this function-call as well.
+%% </p>
+%% =====================================================================================================
+%% @spec fun_extraction(FileName::filename(), Start::Pos, End::Pos, FunName:string()) -> term().
+%%
+fun_extraction(FileName, Start, End, FunName) ->
+    refac_new_fun:fun_extraction(FileName, Start, End, FunName).
+
+%%@doc Fold an expression against a function definition.
+%% @spec fold_expression(FileName::filename(), Line::integer(), Col::integer()) -> term().
+fold_expression(FileName, Line, Col) ->
+    refac_fold_expression:fold_expression(FileName, Line, Col).

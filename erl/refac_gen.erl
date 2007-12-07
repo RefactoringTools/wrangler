@@ -90,7 +90,7 @@ generalise(FileName, Start, End, ParName) ->
 	    case refac_util:parse_annotate_file(FileName,2) of 
 		{ok, {AnnAST, Info}} ->
 		    case refac_util:pos_to_expr(AnnAST, Start, End) of 
-			[Exp1|_T] -> Fun = hd(refac_util:expr_to_fun(AnnAST, Exp1)),
+			[Exp1|_T] -> Fun = refac_util:expr_to_fun(AnnAST, Exp1),
 				 FunName = refac_syntax:data(refac_syntax:function_name(Fun)),
 				 FunArity = refac_syntax:function_arity(Fun),
 				 Inscope_Funs = lists:map(fun({_M1,F, A})->{F, A} end, 
@@ -502,7 +502,7 @@ pre_cond_checking({AnnAST,Info}, {_FileName, {Start, End}, ParName, _SearthPaths
 pre_cond_checking_1(AnnAST, {Start, End}, ParName, Info) ->
     case refac_util:is_var_name(ParName) of 
 	true ->  case refac_util:pos_to_expr(AnnAST, Start, End) of 
-		     [Exp] -> Fun = hd(refac_util:expr_to_fun(AnnAST, Exp)),
+		     [Exp] -> Fun = refac_util:expr_to_fun(AnnAST, Exp),
 			      FunName = refac_syntax:data(refac_syntax:function_name(Fun)),
 			      FunArity = refac_syntax:function_arity(Fun),
 			      Inscope_Funs = lists:map(fun({_M1,F, A})->{F, A} end, 
@@ -521,7 +521,7 @@ pre_cond_checking_1(AnnAST, {Start, End}, ParName, Info) ->
 
 do_generalisation(FileName,AnnAST, {Start, End}, ParName,Info)->
     [Exp1] = refac_util:pos_to_expr(AnnAST, Start, End),
-    Fun = hd(refac_util:expr_to_fun(AnnAST, Exp1)),
+    Fun =  refac_util:expr_to_fun(AnnAST, Exp1),
     FunName = refac_syntax:data(refac_syntax:function_name(Fun)),
     FunArity = refac_syntax:function_arity(Fun),
     Side_Effect = refac_util:has_side_effect(Exp1, Info, FileName),

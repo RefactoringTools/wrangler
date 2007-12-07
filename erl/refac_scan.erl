@@ -13,7 +13,7 @@
 %% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
 %% AB. All Rights Reserved.''
 %%
-%%     $Id: refac_scan.erl,v 1.1.1.1 2007-11-11 16:59:54 hl Exp $
+%%     $Id: refac_scan.erl,v 1.2 2007-12-07 23:06:12 hl Exp $
 %%
 %% Modified: 17 Jan 2007 by  Huiqing Li <hl@kent.ac.uk>
 %%
@@ -250,7 +250,7 @@ scan([$' | Cs], _Stack, Toks, {Line, Col}, State,
 	       State, Errors);
 scan([$" | Cs], _Stack, Toks, {Line, Col}, State,
      Errors) ->      % String
-    scan_string(Cs, [$", {Line, Col}], Toks, {Line, Col+2},
+    scan_string(Cs, [$", {Line, Col}], Toks, {Line, Col+1},
 		State, Errors);
 scan([$% | Cs], Stack, Toks, {Line, Col}, State,
      Errors) ->       % Comment

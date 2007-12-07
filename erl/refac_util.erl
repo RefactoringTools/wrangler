@@ -186,7 +186,7 @@ pos_to_fun_name_1(Node,Pos={Ln,Col}) ->
 
 pos_to_fun_def(Node, Pos) ->
     case once_tdTU(fun pos_to_fun_def_1/2, Node, Pos) of
-	{_, false} -> {error, "You have not selected a function definition."};
+	{_, false} -> {error, none};
 	{R, true} -> {ok, R}
     end.
 
@@ -267,7 +267,7 @@ pos_to_var_name_1(Node, Pos={Ln, Col}) ->
 %% @spec pos_to_expr(Tree::syntaxTree(), Start::Pos, End::Pos) -> {ok, syntaxTree()} | {error, string()}
 %%    
 %% @doc Get the largest, left-most expression enclosed by the start and end positions.
-%% @see pos_to_fun_name/2
+%% @see pos_to_name/2
 %% @see pos_to_var_name/2 
 
 %% TODO: CHANGE THE RETURN TYPE OF THIS FUNCTION.
@@ -1065,6 +1065,10 @@ is_pattern(Node) ->
 %% @doc Return the the syntaxTree of the function that contains the expression. 
 %% TODO: CHANGE THE RETURN TYPE OF THIS FUNCTION.
 expr_to_fun(Tree, Exp) ->
+    Res = expr_to_fun_1(Tree, Exp),
+    ghead("fun:expr_to_fun/2", Res).
+
+expr_to_fun_1(Tree, Exp) ->
     {Start, End} = get_range(Exp),
     {S, E} = get_range(Tree),
     if (S <Start) and (E >= End) ->
@@ -1072,7 +1076,7 @@ expr_to_fun(Tree, Exp) ->
 		 function ->
 		     [Tree];
 		 _  -> Ts = refac_syntax:subtrees(Tree),
-		       R0 = [[expr_to_fun(T, Exp) || T <-G] || G <- Ts],
+		       R0 = [[expr_to_fun_1(T, Exp) || T <-G] || G <- Ts],
 		      lists:flatten(R0)
 	     end;
        true -> []

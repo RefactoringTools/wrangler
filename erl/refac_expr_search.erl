@@ -18,9 +18,8 @@
 %% 
 -module(refac_expr_search).
 
--export([expr_search/3, var_binding_structure/1]).
+-export([expr_search/3, var_binding_structure/1, pos_to_expr/3]).
 
--compile(export_all).
 
 %% ================================================================================================
 %% @doc Search a user-selected expression or a sequence of expressions from an Erlang source file.

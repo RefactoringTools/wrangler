@@ -21,7 +21,7 @@
 -module(wrangler_distel).
 
 -export([ rename_fun/5, rename_var/5, rename_mod/3, generalise/6, move_fun/6, %% tuple_to_record/5,
-         duplicated_code/3, expression_search/5,
+         duplicated_code/3, expression_search/5, fun_extraction/6, fold_expression/3,
          undo/0, start_undo_process/0, stop_undo_process/0, undo_init/0]).
 
 
@@ -66,6 +66,13 @@ duplicated_code(FName, MinLines,  MinClones) ->
 
 expression_search(FName, StartLine, StartCol, EndLine, EndCol) ->
     wrangler:expression_search(FName, {StartLine, StartCol}, {EndLine, EndCol}).
+
+fun_extraction(FName, StartLine, StartCol, EndLine, EndCol, FunName) ->
+    wrangler:fun_extraction(FName, {StartLine, StartCol}, {EndLine, EndCol}, FunName).
+
+fold_expression(FName, Line, Col) ->
+    wrangler:fold_expression(FName, Line, Col).
+
 
 %% tuple_to_record(Fname, StartLine, StartCol, EndLine, EndCol) ->
 %%     refac_record:tuple_to_record(Fname, {StartLine, StartCol}, {EndLine, EndCol}).
