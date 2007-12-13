@@ -1,5 +1,5 @@
 %% ============================================================================================
-%% Refactoring: Fold expression(s) against a function definition.
+%% Refactoring: Fold expression(s) against a function clause definition.
 %%
 %% Copyright (C) 2006-2008  Huiqing Li, Simon Thompson
 
@@ -17,36 +17,53 @@
 %% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
 %% 
 %% =============================================================================================
- 
+%% @doc This refactoring replaces instances of the right-hand side of a function clause definition by
+%% the corresponding left-hand side with necessary parameter substitutions.
+
+%% <p> To apply this refactoring, move the cursor to the function clause against with expressions 
+%% will be folded, then select <em> Fold Expression Against Function</em> from the <em> Refactor</em>
+%% menu, after that the refactor will search the current module for expressions which are instances 
+%% of the right-hand side of the selected function clause.
+%%
+%% <p> If no candidate expression has been found, a message will be given, and the refactoring 
+%% finishes; otherwise, Wrangler will go through the found candidate expressions one by one asking 
+%% the user whether she/he wants to replace the expression with an application of selected function.
+%% If the user answers 'yes' to one instance,  that instance will be replaced by function application,
+%% otherwise it will remain unchanged.
+%%
+%% <p> In the case that a candidate expression/expression sequence  need to export some variables with 
+%% are used by the following code, that expression/expression sequence will be replaced by a match 
+%% expression, whose left-hand side it the exported variable(s), and right-hand side is the function
+%% application.
+%% 
+%% <p> This refactoring does not support folding against function clauses with guard expressions, and 
+%% function clauses with complex formal parameters, such as tuples, lists, or records.
 %% =============================================================================================
 -module(refac_fold_expression).
 
--export([fold_expression/3]).
-
--compile(export_all).
+-export([fold_expression/3, fold_expression_1/7]).
 
 
-%% ThingsTODO:
-%% 1. side effect.
-%% 3. fold against more one function clause.
+
 %% =============================================================================================
 %% @spec fold_expression(FileName::filename(), Line::integer(), Col::integer())-> term()
-%%         
+%% =============================================================================================        
 fold_expression(FileName, Line, Col) ->
     io:format("\n[CMD: fold_expression(~p, ~p,~p)]\n", [FileName, Line, Col]),
     case refac_util:parse_annotate_file(FileName,2) of 
 	{ok, {AnnAST, _Info}} ->
-	    case refac_util:pos_to_fun_def(AnnAST, {Line, Col}) of 
-		{ok, {_Mod, _FunName, _Arity, FunDef}} ->
-		    case side_condition_analysis(FunDef) of 
-			ok ->  Candidates = search_candidate_exprs(AnnAST, FunDef),
-			       case Candidates of 
-				   [] -> io:format("No expressions that are suitable for folding against the selected function have been found!"),
-					 {ok, []};				   
-				   _ -> Regions = lists:map(fun({{{StartLine, StartCol}, {EndLine, EndCol}},NewExp}) ->
-								    {StartLine, StartCol, EndLine,EndCol, NewExp, FunDef} end, Candidates),
-					{ok, Regions}
-			       end;				 
+	    case pos_to_fun_clause(AnnAST, {Line, Col}) of 
+		{ok, {_Mod, FunName, _Arity, FunClauseDef, ClauseIndex}} ->
+		    case side_condition_analysis(FunClauseDef) of 
+			ok ->			    
+			    Candidates = search_candidate_exprs(AnnAST, FunName, FunClauseDef),
+			    case Candidates of 
+				[] -> io:format("No expressions that are suitable for folding against the selected function have been found!"),
+				      {ok, []};				   
+				_ -> Regions = lists:map(fun({{{StartLine, StartCol}, {EndLine, EndCol}},NewExp}) ->
+								 {StartLine, StartCol, EndLine,EndCol, NewExp, {FunClauseDef, ClauseIndex}} end, Candidates),
+				     {ok, Regions}
+			    end;				 
 			{error, Reason} -> {error, Reason}
 		    end;
 		{error, _} ->
@@ -55,8 +72,12 @@ fold_expression(FileName, Line, Col) ->
 	{error, Reason} -> {error, Reason}
     end.
 
-
-fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, FunDef) -> 
+%% =============================================================================================
+%% @spec fold_expression_1(FileName::filename(), StartLine::integer(), StartCol::integer(),
+%%                        (EndLine::integer(), EndCol::integer(), NewExp::term(),
+%%                        {FunClauseDef, ClauseIndex}::{term(), integer()) -> term()
+%% =============================================================================================  
+fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunClauseDef, ClauseIndex}) -> 
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, 2),
     FunCall = case refac_syntax:type(NewExp) of 
 		  application -> NewExp;
@@ -64,42 +85,56 @@ fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, FunDef
 	      end,
     FunName = refac_syntax:atom_value(refac_syntax:application_operator(FunCall)),
     Arity = length(refac_syntax:application_arguments(FunCall)),		   
-    C = hd(refac_syntax:function_clauses(FunDef)),
-    Body = refac_syntax:clause_body(C),
+    Body = refac_syntax:clause_body(FunClauseDef),
     AnnAST1 = refac_util:stop_tdTP(fun do_replace_expr_with_fun_call/2, AnnAST, {Body, NewExp, {{StartLine, StartCol}, {EndLine, EndCol}}}),
     refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1}]),
     {ok, {AnnAST2, _Info1}} = refac_util:parse_annotate_file(FileName,2),
-    case get_fun_def(AnnAST2, FunName, Arity) of 
-	{ok, {_Mod, _FunName, _Arity, FunDef1}} ->
-	    Candidates = search_candidate_exprs(AnnAST2, FunDef1),
-	    Regions = [{StartLine1, StartCol1, EndLine1, EndCol1, FunCall1, FunDef1} || {{{StartLine1, StartCol1}, {EndLine1, EndCol1}}, FunCall1}<-Candidates,
-									      StartLine1 >= StartLine],
+    case get_fun_clause_def(AnnAST2, FunName, Arity, ClauseIndex) of 
+	{ok, {_Mod, _FunName, _Arity, FunClauseDef1}} ->
+	    Candidates = search_candidate_exprs(AnnAST2, FunName, FunClauseDef1),
+	    Regions = [{StartLine1, StartCol1, EndLine1, EndCol1, FunCall1, {FunClauseDef1, ClauseIndex}} 
+		       || {{{StartLine1, StartCol1}, {EndLine1, EndCol1}}, FunCall1}<-Candidates,
+			  StartLine1 >= StartLine],
 	    {ok, Regions};
 	{error, reason} ->
 	     {error, "You have not selected a function definition."}  %% THIS SHOULD NOT HAPPEN.
     end.
-	    
 
+
+
+%% =============================================================================================
+%% Side condition analysis.
+%% =============================================================================================   
     
-get_fun_def(Node, FunName, Arity) ->
-    case refac_util:once_tdTU(fun get_fun_def_1/2, Node, {FunName, Arity}) of
-	{_, false} -> {error, none};
-	{R, true} -> {ok, R}
+side_condition_analysis(FunClauseDef) ->
+    G = refac_syntax:clause_guard(FunClauseDef),
+    case G of 
+	none -> 
+	    Pats = refac_syntax:clause_patterns(FunClauseDef),
+	    AllSimplePats = lists:all(fun(P) -> case refac_syntax:type(P) of 
+						    variable -> true;
+						    atom -> true;
+						    operator  -> true;
+						    char -> true;
+						    integer -> true;
+						    string -> true;
+						    underscore -> true;
+						    nil -> true;
+						    _ -> false
+						end
+				      end, Pats), %% TODO: OTHER SIMPLE PARAMETERS SHOULD ALSO Be ALLOWED.
+	    case AllSimplePats of 
+		true -> ok;
+		_ -> {error, "Wrangler does not support folding against functions with complex parameters."}
+	    end;
+	_  -> {error, "Wrangler does not support folding against functions with guards."}
     end.
 
-get_fun_def_1(Node, {FunName, Arity}) ->
-    case refac_syntax:type(Node) of 
-	function ->
-	    As = refac_syntax:get_ann(Node),
-	    case lists:keysearch(fun_def, 1, As) of 
-		{value, {fun_def, {Mod, FunName, Arity, _Pos1, _Pos2}}} ->
-		    {{Mod,FunName, Arity, Node}, true};
-		_ -> {[], false}
-	    end;
-	_ ->
-	    {[], false}
-    end.
-	
+
+%% ==========================================================================================================================
+%% Replace an expression/expression sequence with a function call/match expression whose right-hand side is the function call.
+%% ==========================================================================================================================
+ 						    	
 do_replace_expr_with_fun_call(Tree, {Expr,NewExp, Range})->
     case length(Expr) of 
 	1 -> do_replace_expr_with_fun_call_1(Tree, {NewExp, Range});
@@ -145,75 +180,18 @@ do_replace_expr_with_fun_call_2(Tree, {NewExp, {StartLoc, EndLoc}}) ->
 	_  -> {Tree, false}
     end.
 
-    
-side_condition_analysis(FunDef) ->
-    Cs = refac_syntax:function_clauses(FunDef),
-    case length(Cs) of 
-	1 -> C = hd(Cs), 
-	     G = refac_syntax:clause_guard(C),
-	     case G of 
-		 none -> 
-		     Pats = refac_syntax:clause_patterns(C),
-		     AllSimplePats = lists:all(fun(P) -> case refac_syntax:type(P) of 
-							     variable -> true;
-							     atom -> true;
-							     operator  -> true;
-							     char -> true;
-							     integer -> true;
-							     string -> true;
-							     underscore -> true;
-							     nil -> true;
-							     _ -> false
-							 end
-					       end, Pats), %% TODO: OTHER SIMPLE PARAMETERS SHOULD ALSO Be ALLOWED.
-		     case AllSimplePats of 
-			 true -> ok;
-			 _ -> {error, "Wrangler does not support folding against functions with complex parameters."}
-			 end;
-		 _  -> {error, "Wrangler does not support folding against functions with guards."}
-	     end;
-	_  -> {error, "Wrangler does not support folding against functions with multiple clauses."}
-    end.
-     
-
-search_candidate_exprs(AnnAST, FunDef) ->
-    C = hd(refac_syntax:function_clauses(FunDef)),
-    Body = refac_syntax:clause_body(C),
-    Pats = refac_syntax:clause_patterns(C),
-    FunName = refac_syntax:function_name(FunDef),
+%% =============================================================================================
+%% Search expression/expression sequence with are instances of of the selected function clause.
+%% ============================================================================================= 
+search_candidate_exprs(AnnAST, FunName,FunClauseDef) ->
+    Body = refac_syntax:clause_body(FunClauseDef),
+    Pats = refac_syntax:clause_patterns(FunClauseDef),
     Res = do_search_candidate_exprs(AnnAST,Body),
     lists:map(fun(R) -> case R of 
 			    {Range, Subst} -> {Range, make_fun_call(FunName, Pats, Subst)};
 			    {Range, Subst, VarsToExport} -> {Range, make_match_expr(FunName, Pats, Subst, VarsToExport)}
 			end
 	      end, Res).
-
-
-make_fun_call(FunName, Pats, Subst) -> 
-    Pars = lists:map(fun(P) -> case refac_syntax:type(P) of 
-				   variable -> PName = refac_syntax:variable_name(P), 
-					       case lists:keysearch(PName, 1, Subst) of 
-						   {value, {PName, Par}} -> Par;
-						   _ -> refac_syntax:atom(undefined)
-					       end;
-				   _  -> P
-			       end
-		     end, Pats),
-    FunCall = refac_syntax:application(FunName, Pars),
-    FunCall.
-
-make_match_expr(FunName, Pats, Subst, VarsToExport) ->
-    FunCall = make_fun_call(FunName, Pats, Subst),
-    case VarsToExport of 
-	[] ->
-	    FunCall;
-	[V] -> P = refac_syntax:variable(V),
-	       refac_syntax:match_expr(P, FunCall);
-	[_V|_VS] -> P =refac_syntax:tuple([refac_syntax:variable(V) || V <-VarsToExport]),
-		    refac_syntax:match_expr(P, FunCall)
-    end.
-	    
- 
 
 
 do_search_candidate_exprs(AnnAST, ExpList) ->
@@ -325,7 +303,6 @@ expr_unification(Exp1, Exp2) ->
 						expr_unification(E1,E2) end, lists:zip(Exp1, Exp2)),
 			Unifiable = lists:all(fun(E) -> case E of 
 							    {true, _} -> true;
-							    true -> true;
 							    _ -> false
 							end
 					      end, Res),
@@ -345,16 +322,33 @@ expr_unification(Exp1, Exp2) ->
 	    T2 = refac_syntax:type(Exp2),
 	    case T1 == T2 of 
 		true -> 
-		    case T1 of 
+		   case T1 of 
 			variable -> {true, [{refac_syntax:variable_name(Exp1), set_default_ann(Exp2)}]} ;
-			atom -> refac_syntax:atom_value(Exp1) == refac_syntax:atom_value(Exp2);
-			operator -> refac_syntax:atom_value(Exp1) == refac_syntax:atom_value(Exp2);
-			char -> refac_syntax:char_value(Exp1) == refac_syntax:char_value(Exp2);
-			integer -> refac_syntax:integer_value(Exp1) ==refac_syntax:integer_value(Exp2);
-			string -> refac_syntax:string_value(Exp1) == refac_syntax:string_value(Exp2);
-			float -> refac_syntax:float_value(Exp1) == refac_syntax:float_value(Exp2);
-			underscore -> true;
-			nil -> true;
+			atom -> case refac_syntax:atom_value(Exp1) == refac_syntax:atom_value(Exp2) of 
+				    true -> {true, []};
+				    _ -> false
+				end;
+			operator -> case refac_syntax:atom_value(Exp1) == refac_syntax:atom_value(Exp2) of
+					true -> {true, []};
+					_ -> false
+				    end;
+			char -> case refac_syntax:char_value(Exp1) == refac_syntax:char_value(Exp2) of 
+				    true -> {true, []};
+				    _ -> false
+				end;
+		       integer -> case refac_syntax:integer_value(Exp1) ==refac_syntax:integer_value(Exp2) of 
+				      true -> {true, []};
+				      _ -> false
+				  end;
+		       string -> case refac_syntax:string_value(Exp1) == refac_syntax:string_value(Exp2) of 
+				      true -> {true, []};
+				     _ -> false
+				 end;
+		       float -> case refac_syntax:float_value(Exp1) == refac_syntax:float_value(Exp2) of 
+				    true -> {true, []}
+				end;
+		       underscore -> {true, []};
+		       nil -> {true, []};
 			_ -> 
 			    SubTrees1 = erl_syntax:subtrees(Exp1),
 			    SubTrees2 = erl_syntax:subtrees(Exp2),
@@ -378,8 +372,36 @@ expr_unification(Exp1, Exp2) ->
 	   false      %% an actual parameter cannot be a list of expressions.
     end.
 	    
-  
-		
+
+%% =============================================================================================
+%% Some Utility Functions.
+%% =============================================================================================   
+
+make_fun_call(FunName, Pats, Subst) -> 
+    Pars = lists:map(fun(P) -> case refac_syntax:type(P) of 
+				   variable -> PName = refac_syntax:variable_name(P), 
+					       case lists:keysearch(PName, 1, Subst) of 
+						   {value, {PName, Par}} -> Par;
+						   _ -> refac_syntax:atom(undefined)
+					       end;
+				   _  -> P
+			       end
+		     end, Pats),
+    FunCall = refac_syntax:application(refac_syntax:atom(FunName), Pars),
+    FunCall.
+
+make_match_expr(FunName, Pats, Subst, VarsToExport) ->
+    FunCall = make_fun_call(FunName, Pats, Subst),
+    case VarsToExport of 
+	[] ->
+	    FunCall;
+	[V] -> P = refac_syntax:variable(V),
+	       refac_syntax:match_expr(P, FunCall);
+	[_V|_VS] -> P =refac_syntax:tuple([refac_syntax:variable(V) || V <-VarsToExport]),
+		    refac_syntax:match_expr(P, FunCall)
+    end.
+	    
+ 		
  
 sublists(List, Len) ->
     L = length(List),
@@ -401,8 +423,6 @@ collect_prime_expr_ranges(Tree) ->
 		   end
 	end,
     refac_syntax_lib:fold(F, [], Tree).
-
-
 
 
 set_default_ann(Node) ->
@@ -437,3 +457,54 @@ vars_to_export(WholeExpList, SubExpList) ->
 			      SourcePos > SubExpListEndPos,
 			      lists:subtract(DefPos, SubExpListBdVarPoses) == []],
     VarsToExport.
+
+
+    
+get_fun_clause_def(Node, FunName, Arity, ClauseIndex) ->
+    case refac_util:once_tdTU(fun get_fun_def_1/2, Node, {FunName, Arity, ClauseIndex}) of
+	{_, false} -> {error, none};
+	{R, true} -> {ok, R}
+    end.
+
+get_fun_def_1(Node, {FunName, Arity, ClauseIndex}) ->
+    case refac_syntax:type(Node) of 
+	function ->
+	    As = refac_syntax:get_ann(Node),
+	    case lists:keysearch(fun_def, 1, As) of 
+		{value, {fun_def, {Mod, FunName, Arity, _Pos1, _Pos2}}} ->
+		    C = lists:nth(ClauseIndex, refac_syntax:function_clauses(Node)),
+		    {{Mod,FunName, Arity, C}, true};
+		_ -> {[], false}
+	    end;
+	_ ->
+	    {[], false}
+    end.
+
+
+pos_to_fun_clause(Node, Pos) ->
+    case refac_util:once_tdTU(fun pos_to_fun_clause_1/2, Node, Pos) of
+	{_, false} -> {error, none};
+	{R, true} -> {ok, R}
+    end.
+
+pos_to_fun_clause_1(Node, Pos) ->
+    case refac_syntax:type(Node) of 
+	function ->
+	    {S, E} = refac_util:get_range(Node),
+	    if (S=<Pos) and (Pos =< E) ->
+		    Cs  = refac_syntax:function_clauses(Node),
+		    NoOfCs = length(Cs),
+		    [{Index, C}] = [{I1,C1} || {I1, C1} <- lists:zip(lists:seq(1,NoOfCs), Cs), {S1, E1} <- [refac_util:get_range(C1)],S1=<Pos, Pos=<E1],
+		     As = refac_syntax:get_ann(Node),
+		    case lists:keysearch(fun_def, 1, As) of 
+			{value, {fun_def, {Mod, FunName, Arity, _Pos1, _Pos2}}} ->
+			    {{Mod,FunName, Arity, C, Index}, true};
+			_ -> {[], false}
+		    end;
+	       true -> {[], false}
+	    end;
+	_ ->
+	    {[], false}
+    end.
+
+

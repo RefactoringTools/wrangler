@@ -1,5 +1,5 @@
 %% =====================================================================
-%% Reactoring Interface Functions.
+%% Refactoring Interface Functions.
 %%
 %% Copyright (C) 2006-2008  Huiqing Li, Simon Thompson
 
@@ -216,7 +216,7 @@ generalise(FileName, Start, End, ParName) ->
 %% <p> This refactoring has a global effect, i.e., it affects all the modules in which 
 %%     the function is imported/used.
 %% </p>
-%% <p> This refactoring assumes that an erlang module name always matches it file name.
+%% <p> This refactoring assumes that an Erlang module name always matches it file name.
 %% </p>
 %% <p> Suppose we move functin <em> foo/n </em> from its current module <em> M </em> 
 %%     to module <em> N </em>, then the following <em> side-conditions </em> apply to 
@@ -264,31 +264,51 @@ duplicated_code(FileName, MinLines, MinClones) ->
 %% </p>
 %% <p> When the selected code contains multiple, but non-continuous sequence of, expressions, the first
 %% continuous sequence of expressions is taken as the user-selected expression. A continuous sequence of
-%% expressions is a sequence of expressions separated by ','.
-%% <p>
+%% expressions is a sequence of expressions separated by ','. </p>
 %% =====================================================================================
 %% @spec expr_search(FileName::filename(),Start::Pos, End::Pos) -> term().
-%%   
+
 expression_search(FileName, Start, End) ->
     refac_expr_search:expr_search(FileName, Start, End).
 
 
+
+%% =====================================================================================================
 %%@doc Introduce a new function to represent an user-selected expression sequence.
 %% <p> This refactoring allows the user to introduce a new function to represent a selected expression/expression 
 %% sequence, and replace the selected expression with a call to the newly introduced function.  Those free variables
-%% within the expression become the formal parameters of the function.
-%% </p>
-%% <p> In the case that selected expression is duplicated multiple times within the current file, the 
-%% refactorer will show the user where the expression is duplicated, and ask whether the user wants to 
-%% replace that this function-call as well.
-%% </p>
+%% within the expression become the formal parameters of the function. </p>
 %% =====================================================================================================
 %% @spec fun_extraction(FileName::filename(), Start::Pos, End::Pos, FunName:string()) -> term().
-%%
-fun_extraction(FileName, Start, End, FunName) ->
+
+fun_extraction(FileName, Start, End, FunName) -> 
     refac_new_fun:fun_extraction(FileName, Start, End, FunName).
 
-%%@doc Fold an expression against a function definition.
-%% @spec fold_expression(FileName::filename(), Line::integer(), Col::integer()) -> term().
+
+%% =============================================================================================
+%% @doc This refactoring replaces instances of the right-hand side of a function clause definition by
+%% the corresponding left-hand side with necessary parameter substitutions.
+
+%% <p> To apply this refactoring, move the cursor to the function clause against with expressions 
+%% will be folded, then select <em> Fold Expression Against Function</em> from the <em> Refactor</em>
+%% menu, after that the refactor will search the current module for expressions which are instances 
+%% of the right-hand side of the selected function clause. </p>
+%%
+%% <p> If no candidate expression has been found, a message will be given, and the refactoring 
+%% finishes; otherwise, Wrangler will go through the found candidate expressions one by one asking 
+%% the user whether she/he wants to replace the expression with an application of selected function.
+%% If the user answers 'yes' to one instance,  that instance will be replaced by function application,
+%% otherwise it will remain unchanged. </p>
+%%
+%% <p> In the case that a candidate expression/expression sequence  need to export some variables with 
+%% are used by the following code, that expression/expression sequence will be replaced by a match 
+%% expression, whose left-hand side it the exported variable(s), and right-hand side is the function
+%% application.</p>
+%% 
+%% <p> This refactoring does not support folding against function clauses with guard expressions, and 
+%% function clauses with complex formal parameters, such as tuples, lists, or records. </p>
+%% =============================================================================================
+%% @spec fold_expression(FileName::filename(), Line::integer(), Col::integer())-> term()
+
 fold_expression(FileName, Line, Col) ->
     refac_fold_expression:fold_expression(FileName, Line, Col).
