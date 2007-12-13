@@ -68,10 +68,20 @@ expression_search(FName, StartLine, StartCol, EndLine, EndCol) ->
     wrangler:expression_search(FName, {StartLine, StartCol}, {EndLine, EndCol}).
 
 fun_extraction(FName, StartLine, StartCol, EndLine, EndCol, FunName) ->
-    wrangler:fun_extraction(FName, {StartLine, StartCol}, {EndLine, EndCol}, FunName).
+    case check_undo_process() of 
+	ok -> wrangler:fun_extraction(FName, {StartLine, StartCol}, {EndLine, EndCol}, FunName);
+	{error, Reason} ->
+	    {error, Reason}
+    end.
+
 
 fold_expression(FName, Line, Col) ->
-    wrangler:fold_expression(FName, Line, Col).
+    case check_undo_process() of 
+	ok ->  wrangler:fold_expression(FName, Line, Col);
+	{error, Reason} ->
+	    {error, Reason}
+    end.
+	       
 
 
 %% tuple_to_record(Fname, StartLine, StartCol, EndLine, EndCol) ->

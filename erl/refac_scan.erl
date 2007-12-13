@@ -13,7 +13,7 @@
 %% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
 %% AB. All Rights Reserved.''
 %%
-%%     $Id: refac_scan.erl,v 1.2 2007-12-07 23:06:12 hl Exp $
+%%     $Id: refac_scan.erl,v 1.3 2007-12-13 09:54:51 hl Exp $
 %%
 %% Modified: 17 Jan 2007 by  Huiqing Li <hl@kent.ac.uk>
 %%
@@ -246,7 +246,7 @@ scan([$$ | Cs], Stack, Toks, {Line, Col}, State,
     scan_char(Cs, Stack, Toks, {Line, Col+2}, State, Errors);
 scan([$' | Cs], _Stack, Toks, {Line, Col}, State,
      Errors) ->      % Quoted atom
-    scan_qatom(Cs, [$', {Line, Col}], Toks, {Line, Col+2},
+    scan_qatom(Cs, [$', {Line, Col}], Toks, {Line, Col+1},
 	       State, Errors);
 scan([$" | Cs], _Stack, Toks, {Line, Col}, State,
      Errors) ->      % String
@@ -479,7 +479,7 @@ scan_string([$" | Cs], Stack, Toks, {Line, Col}, State,
 	    Errors) ->
     [StartPos, $" | S] = reverse(Stack),
     scan(Cs, [], [{string, StartPos, S} | Toks],
-	 {Line, Col + length(S) + 2}, State, Errors);
+	 {Line, Col + length(S) + 1}, State, Errors);
 scan_string([$\n | Cs], Stack, Toks, {Line, _Col}, State,
 	    Errors) ->
     scan_string(Cs, [$\n | Stack], Toks, {Line + 1, 1},
@@ -524,7 +524,7 @@ scan_qatom([$' | Cs], Stack, Toks, {Line, Col}, State,
     case catch list_to_atom(S) of
       A when is_atom(A) ->
 	  scan(Cs, [], [{atom, StartPos, A} | Toks],
-	       {Line, Col + length(S) + 2}, State, Errors);
+	       {Line, Col + length(S) + 1}, State, Errors);
       _ ->
 	  scan(Cs, [], Toks, {Line, Col}, State,
 	       [{{illegal, atom}, StartPos} | Errors])

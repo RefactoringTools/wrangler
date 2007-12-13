@@ -26,25 +26,25 @@
 -compile(export_all).
 
 
-%% ToThink: 1. what about unused parameters.
+%% ThingsTODO:
+%% 1. side effect.
+%% 3. fold against more one function clause.
 %% =============================================================================================
 %% @spec fold_expression(FileName::filename(), Line::integer(), Col::integer())-> term()
 %%         
 fold_expression(FileName, Line, Col) ->
     io:format("\n[CMD: fold_expression(~p, ~p,~p)]\n", [FileName, Line, Col]),
     case refac_util:parse_annotate_file(FileName,2) of 
-	{ok, {AnnAST, Info}} ->
+	{ok, {AnnAST, _Info}} ->
 	    case refac_util:pos_to_fun_def(AnnAST, {Line, Col}) of 
-		{ok, {Mod, _FunName, _Arity, FunDef}} ->
+		{ok, {_Mod, _FunName, _Arity, FunDef}} ->
 		    case side_condition_analysis(FunDef) of 
 			ok ->  Candidates = search_candidate_exprs(AnnAST, FunDef),
-			       %% io:format("Candidates:\n~p\n", [Candidates]),
 			       case Candidates of 
-				   [] -> io:format("No expressions that are suitable for folding against the selected function have been found!");
-				   _ -> %% io:format("~p canidate expressions which can be folded against the selected function have been found!", [length(Candidates)]),
-					Regions = lists:map(fun({{{StartLine, StartCol}, {EndLine, EndCol}},FunCall}) ->
-								    {StartLine, StartCol, EndLine,EndCol, FunCall} end, Candidates),
-					%% io:format("Regions:\n~p\n", [Regions]),
+				   [] -> io:format("No expressions that are suitable for folding against the selected function have been found!"),
+					 {ok, []};				   
+				   _ -> Regions = lists:map(fun({{{StartLine, StartCol}, {EndLine, EndCol}},NewExp}) ->
+								    {StartLine, StartCol, EndLine,EndCol, NewExp, FunDef} end, Candidates),
 					{ok, Regions}
 			       end;				 
 			{error, Reason} -> {error, Reason}
@@ -56,18 +56,23 @@ fold_expression(FileName, Line, Col) ->
     end.
 
 
-fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, FunCall) -> 
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, 2),
+fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, FunDef) -> 
+    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, 2),
+    FunCall = case refac_syntax:type(NewExp) of 
+		  application -> NewExp;
+		  match_expr -> refac_syntax:match_expr_body(NewExp)
+	      end,
     FunName = refac_syntax:atom_value(refac_syntax:application_operator(FunCall)),
     Arity = length(refac_syntax:application_arguments(FunCall)),		   
-    AnnAST1 = refac_util:stop_tdTP(fun do_replace_expr_with_fun_call/2, AnnAST, {FunCall, {{StartLine, StartCol}, {EndLine, EndCol}}}),
+    C = hd(refac_syntax:function_clauses(FunDef)),
+    Body = refac_syntax:clause_body(C),
+    AnnAST1 = refac_util:stop_tdTP(fun do_replace_expr_with_fun_call/2, AnnAST, {Body, NewExp, {{StartLine, StartCol}, {EndLine, EndCol}}}),
     refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1}]),
     {ok, {AnnAST2, _Info1}} = refac_util:parse_annotate_file(FileName,2),
-    %% io:format("AnnAST2:\n~p\n", [AnnAST2]),
     case get_fun_def(AnnAST2, FunName, Arity) of 
-	{ok, {Mod, _FunName, _Arity, FunDef}} ->
-	    Candidates = search_candidate_exprs(AnnAST2, FunDef),
-	    Regions = [{StartLine1, StartCol1, EndLine1, EndCol1, FunCall1} || {{{StartLine1, StartCol1}, {EndLine1, EndCol1}}, FunCall1}<-Candidates,
+	{ok, {_Mod, _FunName, _Arity, FunDef1}} ->
+	    Candidates = search_candidate_exprs(AnnAST2, FunDef1),
+	    Regions = [{StartLine1, StartCol1, EndLine1, EndCol1, FunCall1, FunDef1} || {{{StartLine1, StartCol1}, {EndLine1, EndCol1}}, FunCall1}<-Candidates,
 									      StartLine1 >= StartLine],
 	    {ok, Regions};
 	{error, reason} ->
@@ -75,8 +80,6 @@ fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, FunCall) ->
     end.
 	    
 
-
-    
     
 get_fun_def(Node, FunName, Arity) ->
     case refac_util:once_tdTU(fun get_fun_def_1/2, Node, {FunName, Arity}) of
@@ -97,17 +100,51 @@ get_fun_def_1(Node, {FunName, Arity}) ->
 	    {[], false}
     end.
 	
+do_replace_expr_with_fun_call(Tree, {Expr,NewExp, Range})->
+    case length(Expr) of 
+	1 -> do_replace_expr_with_fun_call_1(Tree, {NewExp, Range});
+	_  -> do_replace_expr_with_fun_call_2(Tree, {NewExp, Range})
+    end.
+	    
 
-
-do_replace_expr_with_fun_call(Tree, {FunCall, Range}) ->
-    case refac_util:get_range(Tree) of 
-	Range ->
-	    {FunCall, true};
+do_replace_expr_with_fun_call_1(Tree, {NewExp, Range}) ->
+     case refac_util:get_range(Tree) of 
+ 	Range ->
+	    {NewExp, true};
+ 	_  -> {Tree, false}
+     end.
+    
+do_replace_expr_with_fun_call_2(Tree, {NewExp, {StartLoc, EndLoc}}) -> 
+   case refac_syntax:type(Tree) of
+	clause ->
+	    Exprs = refac_syntax:clause_body(Tree),
+	    {Exprs1, Exprs2} = lists:splitwith(fun(E) -> element(1,refac_util:get_range(E)) =/= StartLoc end, Exprs),
+	    {NewBody, Modified} = case Exprs2 of 
+				      [] -> {Exprs, false};
+				      _ -> {_Exprs21, Exprs22} = lists:splitwith(fun(E) -> element(2, refac_util:get_range(E)) =/= EndLoc end, Exprs),
+					   case Exprs22 of 
+					       [] -> {Exprs, false};  %% THIS SHOULD NOT HAPPEN.
+					       _ -> {Exprs1++[NewExp|tl(Exprs22)], true}
+					   end
+				  end,
+	    Pats = refac_syntax:clause_patterns(Tree),
+	    G = refac_syntax:clause_guard(Tree),
+	    {refac_syntax:copy_pos(Tree, refac_syntax:copy_attrs(Tree, refac_syntax:clause(Pats, G, NewBody))), Modified};
+	block_expr ->
+	    Exprs = refac_syntax:block_expr_body(Tree),
+	    {Exprs1, Exprs2} = lists:splitwith(fun(E) -> element(1,refac_util:get_range(E)) =/= StartLoc end, Exprs),
+	    {NewBody, Modified} = case Exprs2 of 
+				      [] -> {Exprs, false};
+				      _ -> {_Exprs21, Exprs22} = lists:splitwith(fun(E) -> element(2, refac_util:get_range(E)) =/= EndLoc end, Exprs),
+					   case Exprs22 of 
+					       [] -> {Exprs, false};  %% THIS SHOULD NOT HAPPEN.
+					       _ -> {Exprs1++[NewExp|tl(Exprs22)], true}
+					   end
+				  end,
+	    {refac_syntax:copy_pos(Tree, refac_syntax:copy_attrs(Tree, refac_syntax:block_expr(NewBody))), Modified};	 
 	_  -> {Tree, false}
     end.
-    
-    
-    
+
     
 side_condition_analysis(FunDef) ->
     Cs = refac_syntax:function_clauses(FunDef),
@@ -117,8 +154,19 @@ side_condition_analysis(FunDef) ->
 	     case G of 
 		 none -> 
 		     Pats = refac_syntax:clause_patterns(C),
-		     AllVars = lists:all(fun(P) -> refac_syntax:type(P) == variable end, Pats), %% TODO: OTHER SIMPLE PARAMETERS SHOULD ALSO Be ALLOWED.
-		     case AllVars of 
+		     AllSimplePats = lists:all(fun(P) -> case refac_syntax:type(P) of 
+							     variable -> true;
+							     atom -> true;
+							     operator  -> true;
+							     char -> true;
+							     integer -> true;
+							     string -> true;
+							     underscore -> true;
+							     nil -> true;
+							     _ -> false
+							 end
+					       end, Pats), %% TODO: OTHER SIMPLE PARAMETERS SHOULD ALSO Be ALLOWED.
+		     case AllSimplePats of 
 			 true -> ok;
 			 _ -> {error, "Wrangler does not support folding against functions with complex parameters."}
 			 end;
@@ -134,19 +182,37 @@ search_candidate_exprs(AnnAST, FunDef) ->
     Pats = refac_syntax:clause_patterns(C),
     FunName = refac_syntax:function_name(FunDef),
     Res = do_search_candidate_exprs(AnnAST,Body),
-    lists:map(fun({Range, Subst}) -> {Range, make_fun_call(FunName, Pats, Subst)} end, Res).
+    lists:map(fun(R) -> case R of 
+			    {Range, Subst} -> {Range, make_fun_call(FunName, Pats, Subst)};
+			    {Range, Subst, VarsToExport} -> {Range, make_match_expr(FunName, Pats, Subst, VarsToExport)}
+			end
+	      end, Res).
 
 
 make_fun_call(FunName, Pats, Subst) -> 
-   %% io:format("Subst:\n~p\n", [Subst]),
-    Pars = lists:map(fun(P) -> PName = refac_syntax:variable_name(P), 
-			      %% io:format("PName:~p\n", [PName]),
-			       {value, {PName, Par}} = lists:keysearch(PName, 1, Subst),
-			       Par
+    Pars = lists:map(fun(P) -> case refac_syntax:type(P) of 
+				   variable -> PName = refac_syntax:variable_name(P), 
+					       case lists:keysearch(PName, 1, Subst) of 
+						   {value, {PName, Par}} -> Par;
+						   _ -> refac_syntax:atom(undefined)
+					       end;
+				   _  -> P
+			       end
 		     end, Pats),
     FunCall = refac_syntax:application(FunName, Pars),
     FunCall.
-    
+
+make_match_expr(FunName, Pats, Subst, VarsToExport) ->
+    FunCall = make_fun_call(FunName, Pats, Subst),
+    case VarsToExport of 
+	[] ->
+	    FunCall;
+	[V] -> P = refac_syntax:variable(V),
+	       refac_syntax:match_expr(P, FunCall);
+	[_V|_VS] -> P =refac_syntax:tuple([refac_syntax:variable(V) || V <-VarsToExport]),
+		    refac_syntax:match_expr(P, FunCall)
+    end.
+	    
  
 
 
@@ -159,37 +225,92 @@ do_search_candidate_exprs(AnnAST, ExpList) ->
 
 
 do_search_candidate_exprs_1(AnnAST, Exp) ->
-   Fun = fun(T,S) ->
+    PrimExprRanges=collect_prime_expr_ranges(AnnAST),
+    Fun = fun(T,S) ->
 		 As = refac_syntax:get_ann(T),
 		 case lists:keysearch(category, 1, As) of 
 		     {value, {category, expression}} ->
 			 case T=/=Exp of 
-			     true ->case expr_unification(Exp, T) of 
-					{true, Subst} -> S++[{refac_util:get_range(T), Subst}];
-					_ -> S
-				    end;			
+			     true -> 
+				 R = refac_util:get_range(T),
+				 case lists:member(R, PrimExprRanges) of
+				     false ->  case expr_unification(Exp, T) of 
+						   {true, Subst} -> S++[{refac_util:get_range(T), Subst}];
+						   _ -> S
+					       end;
+				     _ -> S
+				 end;
 			     _ -> S
 			 end;
 		      _  -> S
 		 end		     
 	 end,
     refac_syntax_lib:fold(Fun, [], AnnAST).
-
+ 
 
 do_search_candidate_exprs_2(AnnAST, ExpList) ->
     Len = length(ExpList),
-    Fun = fun(T, S) ->
+    LastExp = lists:last(ExpList),
+    HasExportExp = case refac_syntax:type(LastExp) of 
+		      variable -> true;
+		      tuple -> lists:all(fun(E) -> refac_syntax:type(E) == variable end, 
+					 refac_syntax:tuple_elements(LastExp));
+		      _  -> false
+		  end,
+      Fun = fun(T, S) ->
 		  case refac_syntax:type(T) of 
 		      clause ->
-			  Exprs = refac_syntax:clause_body(AnnAST),
+			  Exprs = refac_syntax:clause_body(T),
 			  SubExprs = sublists(Exprs, Len),
-		          CandidateExprs = lists:map(fun(E) -> expr_unification(E, ExpList) end, SubExprs),
-			  S ++ CandidateExprs;
+		          CandidateExprs1 = 
+			      lists:map(fun(E) -> case ExpList =/= E of 
+						      true ->case expr_unification(ExpList, E) of 
+								 {true,Subst} -> {StartLoc1, _EndLoc1} = refac_util:get_range(hd(E)),
+										 {_StartLoc2, EndLoc2} = refac_util:get_range(lists:last(E)),
+										 {{StartLoc1, EndLoc2}, Subst};
+								 _ -> false
+							     end;
+						      _ -> false
+						  end							       
+					end, SubExprs),
+			  CandidateExprs2 = 
+			      case HasExportExp of 
+				  true ->
+				      SubExprs1 = sublists(Exprs, Len-1),
+				      lists:map(fun(E) -> case hd(ExpList) =/= hd(E) of 
+							      true -> VarsToExport = vars_to_export(Exprs, E),
+								      E1 = case VarsToExport of 
+									       [] -> E;
+									       [V] ->  E ++ [refac_syntax:variable(V)];
+									       [_V|_VS] -> E++[refac_syntax:tuple([refac_syntax:variable(V) || V <-VarsToExport])]
+									   end,
+								      case expr_unification(ExpList, E1) of 
+									  {true, Subst} ->
+									      {StartLoc1, _EndLoc1} = refac_util:get_range(hd(E)),
+									      {_StartLoc2, EndLoc2} = refac_util:get_range(lists:last(E)),
+									      {{StartLoc1, EndLoc2}, Subst, VarsToExport};
+									  _ -> false
+								      end;
+							      _ -> false
+							  end
+						end, SubExprs1);
+				  _ -> []
+			      end,
+			  S ++ lists:filter(fun(C) -> C =/= false end, CandidateExprs1++CandidateExprs2);
 		      block_expr ->
 			  Exprs = refac_syntax:block_expr_body(T),
 			  SubExprs = sublists(Exprs, Len),
-			  CandidateExprs = lists:map(fun(E) -> expr_unification(E, ExpList) end, SubExprs),
-			  S ++ CandidateExprs;     
+			  CandidateExprs = lists:map(fun(E) -> case ExpList =/= E of 
+								   true ->case expr_unification(ExpList, E) of 
+									      {true, Subst} -> {StartLoc1, _EndLoc1} = refac_util:get_range(hd(E)),
+											       {_StartLoc2, EndLoc2} = refac_util:get_range(lists:last(E)),
+											       {{StartLoc1, EndLoc2}, Subst};
+									      _ -> false
+									  end;
+								   _ -> false
+							       end
+						     end, SubExprs),
+			  S ++ lists:filter(fun(C) -> C =/= false end, CandidateExprs);
 		      _  -> S
 		  end
 	  end,
@@ -219,30 +340,35 @@ expr_unification(Exp1, Exp2) ->
 			end;
 		_ -> false
 	    end;
-	{false, false} ->  %% both are single expression.
+	{false, false} ->  %% both are single expressions.
 	    T1 = refac_syntax:type(Exp1),
 	    T2 = refac_syntax:type(Exp2),
 	    case T1 == T2 of 
 		true -> 
 		    case T1 of 
-			    variable -> {true, [{refac_syntax:variable_name(Exp1), set_default_ann(Exp2)}]} ;
-			    atom -> refac_syntax:atom_value(Exp1) == refac_syntax:atom_value(Exp2);
-			    operator -> refac_syntax:atom_value(Exp1) == refac_syntax:atom_value(Exp2);
-			    char -> refac_syntax:char_value(Exp1) == refac_syntax:char_value(Exp2);
-			    integer -> refac_syntax:integer_value(Exp1) ==refac_syntax:integer_value(Exp2);
-			    string -> refac_syntax:string_value(Exp1) == refac_syntax:string_value(Exp2);
-			    float -> refac_syntax:float_value(Exp1) == refac_syntax:float_value(Exp2);
-			    underscore -> true;
-			    nil -> true;
-			    _ -> SubTrees1 = erl_syntax:subtrees(Exp1),
-				 SubTrees2 = erl_syntax:subtrees(Exp2),
-				 case length(SubTrees1) == length(SubTrees2) of 
-				     true -> expr_unification(SubTrees1, SubTrees2);
-				     _ -> false
-				 end 
-			    end;
+			variable -> {true, [{refac_syntax:variable_name(Exp1), set_default_ann(Exp2)}]} ;
+			atom -> refac_syntax:atom_value(Exp1) == refac_syntax:atom_value(Exp2);
+			operator -> refac_syntax:atom_value(Exp1) == refac_syntax:atom_value(Exp2);
+			char -> refac_syntax:char_value(Exp1) == refac_syntax:char_value(Exp2);
+			integer -> refac_syntax:integer_value(Exp1) ==refac_syntax:integer_value(Exp2);
+			string -> refac_syntax:string_value(Exp1) == refac_syntax:string_value(Exp2);
+			float -> refac_syntax:float_value(Exp1) == refac_syntax:float_value(Exp2);
+			underscore -> true;
+			nil -> true;
+			_ -> 
+			    SubTrees1 = erl_syntax:subtrees(Exp1),
+			    SubTrees2 = erl_syntax:subtrees(Exp2),
+			    case length(SubTrees1) == length(SubTrees2) of 
+				true -> 
+				    expr_unification(SubTrees1, SubTrees2);				    
+				_ -> false
+			    end 
+		    end;
 		_ -> case T1 of 
-			 variable -> {true, [{refac_syntax:variable_name(Exp1), set_default_ann(Exp2)}]};
+			 variable -> case T2 of 
+					 match_expr -> false;  %% ANY OTHER CASES?
+					 _  -> {true, [{refac_syntax:variable_name(Exp1), set_default_ann(Exp2)}]}
+				     end;
 			 _ -> false
 		     end
 	    end;
@@ -264,6 +390,50 @@ sublists(List, Len) ->
     end.
 
 
+collect_prime_expr_ranges(Tree) ->
+     F= fun(T, S) ->
+ 		   case refac_syntax:type(T) of 
+ 		       application ->
+			   Operator = refac_syntax:application_operator(T),
+			   Range = refac_util:get_range(Operator),
+		           S++[Range];
+		       _ -> S
+		   end
+	end,
+    refac_syntax_lib:fold(F, [], Tree).
+
+
+
 
 set_default_ann(Node) ->
     refac_syntax:set_pos(refac_syntax:remove_comments(refac_syntax:set_ann(Node, [])), {0,0}).
+
+
+vars_to_export(WholeExpList, SubExpList) ->
+    F1= fun(T, S) ->
+	       case refac_syntax:type(T) of 
+		   variable ->
+		       SourcePos = refac_syntax:get_pos(T),
+		       case lists:keysearch(def, 1, refac_syntax:get_ann(T)) of 
+			   {value, {def, DefinePos}} ->
+			       VarName = refac_syntax:variable_name(T),
+			       S ++ [{VarName, SourcePos, DefinePos}];
+			   _ ->
+			       S
+		       end;
+		   _  -> S
+	       end
+	end,
+    AllVars = lists:usort(lists:concat(lists:map(fun(E)->refac_syntax_lib:fold(F1, [], E) end,  WholeExpList))),
+    SubExpListBdVars = lists:concat(lists:map(fun(E) -> As = refac_syntax:get_ann(E),
+							    case lists:keysearch(bound,1, As) of
+								{value, {bound, BdVars1}} -> BdVars1;
+								_ -> []
+							    end
+						  end, SubExpList)),
+    SubExpListBdVarPoses = lists:map(fun({_Var, Pos}) -> Pos end, SubExpListBdVars),
+    SubExpListEndPos = element(2, refac_util:get_range(lists:last(SubExpList))),
+    VarsToExport = [V || {V, SourcePos, DefPos} <- AllVars,
+			      SourcePos > SubExpListEndPos,
+			      lists:subtract(DefPos, SubExpListBdVarPoses) == []],
+    VarsToExport.

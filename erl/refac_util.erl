@@ -1447,8 +1447,6 @@ get_modules_by_file([], Acc) ->
 
 has_side_effect(Node,Info, FileName) ->
     File = filename:join(?WRANGLER_DIR, "plt/side_effect_plt"),
-    io:format("Wrangler_dir:\n~p\n", [?WRANGLER_DIR]),
-    io:format("File:\n~p\n", [File]),
     Plt = from_dets(side_effect_plt, File),
     Res = has_side_effect(Node,Plt),
     case Res of 

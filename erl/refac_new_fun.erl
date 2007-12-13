@@ -170,17 +170,13 @@ do_replace_expr_with_fun_call_2(Tree, {NewExpr, ExpList}) ->
     case refac_syntax:type(Tree) of
 	clause ->
 	    Exprs = refac_syntax:clause_body(Tree),
-	    {Exprs1, Exprs2} = lists:splitwith(fun(E) -> refac_util:get_range(E) < Range1 end, Exprs),
-	    {NewBody, Modified} = case Exprs1 of 
-				      [] ->  {Exprs21, Exprs22} = lists:splitwith(fun(E) -> refac_util:get_range(E) =<Range2 end, Exprs2),
-					     case Exprs21 of 
-						 [] -> {Exprs22, false};
-			 			 _ -> {[NewExpr|Exprs22], true}
-					     end;
-				      _ -> case Exprs2 of 
-					       [] -> {Exprs1, false};
-					       _ -> {_Exprs21, Exprs22} = lists:splitwith(fun(E) -> refac_util:get_range(E)=<Range2 end, Exprs2),
-						    {Exprs1++[NewExpr|Exprs22], true}
+	    {Exprs1, Exprs2} = lists:splitwith(fun(E) -> refac_util:get_range(E) =/= Range1 end, Exprs),
+	    {NewBody, Modified} = case Exprs2 of 
+				      [] -> {Exprs, false};
+				      _ -> {_Exprs21, Exprs22} = lists:splitwith(fun(E) -> refac_util:get_range(E) =/= Range2 end, Exprs2),
+					   case Exprs22 of 
+					       [] -> {Exprs, false}; %% THIS SHOULD NOT HAPPEN.
+					       _ -> {Exprs1 ++ [NewExpr|tl(Exprs22)], true}
 					   end
 				  end,
 	    Pats = refac_syntax:clause_patterns(Tree),
@@ -188,17 +184,13 @@ do_replace_expr_with_fun_call_2(Tree, {NewExpr, ExpList}) ->
 	    {refac_syntax:copy_pos(Tree, refac_syntax:copy_attrs(Tree, refac_syntax:clause(Pats, G, NewBody))), Modified};
 	block_expr -> 
 	    Exprs = refac_syntax:block_expr_body(Tree),
-	    {Exprs1, Exprs2} = lists:splitwith(fun(E) -> refac_util:get_range(E) < Range1 end, Exprs),
-	    {NewBody, Modified} = case Exprs1 of 
-				      [] ->  {Exprs21, Exprs22} = lists:splitwith(fun(E) -> refac_util:get_range(E) =<Range2 end, Exprs2),
-					     case Exprs21 of 
-						 [] -> {Exprs22, false};
-						 _ -> {[NewExpr|Exprs22], true}
-					     end;
-				      _ -> case Exprs2 of 
-					       [] -> {Exprs1, false};
-					       _ -> {_Exprs21, Exprs22} = lists:splitwith(fun(E) -> refac_util:get_range(E) =<Range2 end, Exprs2),
-						    {Exprs1++[NewExpr|Exprs22], true}
+	    {Exprs1, Exprs2} = lists:splitwith(fun(E) -> refac_util:get_range(E) =/= Range1 end, Exprs),
+	    {NewBody, Modified} = case Exprs2 of 
+				      [] -> {Exprs, false};
+				      _ -> {_Exprs21, Exprs22} = lists:splitwith(fun(E) -> refac_util:get_range(E) =/= Range2 end, Exprs2),
+					   case Exprs22 of 
+					       [] -> {Exprs, false}; %% THIS SHOULD NOT HAPPEN.
+					       _ -> {Exprs1 ++ [NewExpr|tl(Exprs22)], true}
 					   end
 				  end,
 	    {refac_syntax:copy_pos(Tree, refac_syntax:copy_attrs(Tree, refac_syntax:block_expr(NewBody))), Modified};	    
