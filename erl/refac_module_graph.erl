@@ -20,39 +20,40 @@
 -module(refac_module_graph).
 -export([module_graph/3]). 
 
--include("../hrl/wrangler.hrl").
+-include("wrangler.hrl").
 
-module_graph(Files, ModuleGraphFile, WranglerOptions) ->
+module_graph(Files, ModuleGraphFile, SearchPaths) ->
      Ext = ".erl",
      NewFiles = refac_util:expand_files(Files, Ext),
      ModMap = refac_util:get_modules_by_file(NewFiles),
      case file:read_file(ModuleGraphFile) of 
-	 {ok, Res} -> {module_graph, _, List} = analyze_all_files(ModMap, [], {ModuleGraphFile, binary_to_term(Res)}, WranglerOptions),
+	 {ok, Res} -> {module_graph, _, List} = analyze_all_files(ModMap, [], {ModuleGraphFile, binary_to_term(Res)}, SearchPaths),
 		      List;
-	 _ -> {module_graph, _, List} = analyze_all_files(ModMap, [], {ModuleGraphFile, []}, WranglerOptions),
+	 _ -> {module_graph, _, List} = analyze_all_files(ModMap, [], {ModuleGraphFile, []},SearchPaths),
 	      List
      end.
 	     
 
-analyze_all_files([{Mod, Dir}|Left], Acc, {ModuleGraphFile, ModuleGraph}, WranglerOptions) ->  
+analyze_all_files([{Mod, Dir}|Left], Acc, {ModuleGraphFile, ModuleGraph}, SearchPaths) ->  
   ModuleGraphModifiedTime = filelib:last_modified(ModuleGraphFile),
   FileName = filename:join(Dir,Mod++".erl"),
   FileModifiedTime = filelib:last_modified(FileName),
   R = lists:keysearch({Mod, Dir},1, ModuleGraph),
   if (FileModifiedTime < ModuleGraphModifiedTime) and (R /= false) ->
 	  {value, R1} = R,
-	  analyze_all_files(Left, [R1|Acc], {ModuleGraphFile, ModuleGraph}, WranglerOptions);
-     true -> 
-	  case analyze_mod({Mod, Dir}, WranglerOptions) of
-	      {error, _Reason} ->
-		  analyze_all_files(Left, Acc, {ModuleGraphFile, ModuleGraph}, WranglerOptions);
+	  analyze_all_files(Left, [R1|Acc], {ModuleGraphFile, ModuleGraph}, SearchPaths);
+     true ->
+	  case analyze_mod({Mod, Dir}, SearchPaths) of
+	      {error, Reason} ->
+		  erlang:error(Reason);
+		  %% analyze_all_files(Left, Acc, {ModuleGraphFile, ModuleGraph}, SearchPaths);
 	      {called_modules, Called} ->
 		  analyze_all_files(Left, [{{Mod,Dir}, Called}|lists:keydelete({Mod, Dir}, 1, Acc)],
-				    {ModuleGraphFile, ModuleGraph}, WranglerOptions)
+				    {ModuleGraphFile, ModuleGraph}, SearchPaths)
 	  end
   end; 	   
   
-analyze_all_files([], Acc, {ModuleGraphFile, _ModuleGraph}, _WranglerOptions)->
+analyze_all_files([], Acc, {ModuleGraphFile, _ModuleGraph}, _SearchPaths)->
     case file:open(ModuleGraphFile,[write,binary]) of 
 	{ok, File} -> file:write_file(ModuleGraphFile, term_to_binary(Acc)),
 		      file:close(File);
@@ -62,11 +63,10 @@ analyze_all_files([], Acc, {ModuleGraphFile, _ModuleGraph}, _WranglerOptions)->
     {module_graph, Acc, reverse_module_graph(Acc)}.
 
 
-analyze_mod({Mod, Dir}, WranglerOptions) ->
+analyze_mod({Mod, Dir}, SearchPaths) ->
     DefaultIncl1 = [".","..", "../hrl", "../incl", "../inc", "../include"],
     DefaultIncl2 = [filename:join(Dir, X) || X <- DefaultIncl1],
-    UserIncludes = WranglerOptions#options.include_dirs,
-    Includes = UserIncludes ++ DefaultIncl2, 
+    Includes = SearchPaths ++ DefaultIncl2, 
     File = filename:join(Dir, Mod++".erl"),
     case refac_util:parse_annotate_file(File, 0, false, Includes) of 
 	{ok, {AnnAST, Info}} ->

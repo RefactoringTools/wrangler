@@ -273,9 +273,14 @@ Please see the documentation of `erlang-menu-base-items'.")
 (defgroup erlang-refac '() "Erlang refactoring options")
 
 (defcustom erlang-refac-search-paths (cons (expand-file-name ".") nil )
-	"*List of directories to search for files to refactor."
+	"*List of directories to search for .erl and .hrl files to refactor."
 	:type '(repeat directory)
 	:group 'erlang-refac)
+
+;;(defcustom erlang-refac-include-dirs(cons (expand-file-name ".") nil )
+  ;;     "*List of directories to search for .hrl files."
+  ;;     :type '(repeat directory)
+  ;;     :group 'erlang-refac)
 
 (defvar refactor-menu-items
   '(nil

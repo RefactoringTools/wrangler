@@ -75,44 +75,50 @@
 
 -module(refac_gen).
 
--export([generalise/4]).
+-export([generalise/5]).
 
 %% temporally exported for testing purposed.
--export([pre_cond_checking/2, do_generalisation/5, application_info/1]).
+-export([pre_cond_checking/2, do_generalisation/6, application_info/1, gen_fun_1/9]).
 
 %% =====================================================================
-%% @spec generalise(FileName::filename(), Start::Pos, End::Pos, ParName::string())-> term()
+%% @spec generalise(FileName::filename(), Start::Pos, End::Pos, ParName::string(), SearchPaths::[string()])-> term()
 %%         Pos = {integer(), integer()}
-generalise(FileName, Start, End, ParName) ->
+generalise(FileName, Start, End, ParName, SearchPaths) ->
     io:format("\n[CMD: gen_fun, ~p, ~p, ~p, ~p]\n", [FileName, Start, End, ParName]),
     case refac_util:is_var_name(ParName) of 
 	true ->
 	    case refac_util:parse_annotate_file(FileName,2) of 
 		{ok, {AnnAST, Info}} ->
-		    case refac_util:pos_to_expr(AnnAST, Start, End) of 
+		    case refac_util:pos_to_expr(AnnAST, Start, End) of  
 			[Exp1|_T] -> Fun = refac_util:expr_to_fun(AnnAST, Exp1),
-				 FunName = refac_syntax:data(refac_syntax:function_name(Fun)),
-				 FunArity = refac_syntax:function_arity(Fun),
-				 Inscope_Funs = lists:map(fun({_M1,F, A})->{F, A} end, 
-							  refac_util:inscope_funs(Info)),
-				 Side_Effect = refac_util:has_side_effect(Exp1, Info, FileName),
-				 Exp = case Side_Effect of  
-					   true -> exp_to_fun_expr(Exp1);
-					   false -> Exp1
-				       end,
-				  case lists:member({FunName, FunArity+1}, Inscope_Funs) of 
-				      true ->{error, "Function "++ atom_to_list(FunName)++"/"++
-					      integer_to_list(FunArity+1)++" is already in scope!"};
-				      _   -> FunDefPos =get_fun_def_loc(Fun), 
-					     ParName1 = list_to_atom(ParName),
-					     case gen_cond_analysis(Fun, Exp, ParName1) of 
-						 ok -> AnnAST1=gen_fun(AnnAST, ParName1, 
-								       FunName, FunArity, FunDefPos,Info, Exp, Side_Effect),
-						       refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
-						       {ok, "Refactor succeeded"};
-						 {error, Reason} -> {error, Reason}
-					     end 
-				  end;
+				     FunName = refac_syntax:data(refac_syntax:function_name(Fun)),
+				     FunArity = refac_syntax:function_arity(Fun),
+				     Inscope_Funs = lists:map(fun({_M1,F, A})->{F, A} end, 
+							      refac_util:inscope_funs(Info)),
+				     case lists:member({FunName, FunArity+1}, Inscope_Funs) of 
+					 true ->{error, "Function "++ atom_to_list(FunName)++"/"++
+						 integer_to_list(FunArity+1)++" is already in scope!"};
+					 _   -> FunDefPos =get_fun_def_loc(Fun), 
+						ParName1 = list_to_atom(ParName),
+						case gen_cond_analysis(Fun, Exp1, ParName1) of 
+						    ok -> 
+							Side_Effect = refac_util:has_side_effect(FileName, Exp1, SearchPaths),
+							case Side_Effect of  
+							    false -> 	AnnAST1=gen_fun(AnnAST, ParName1, 
+											FunName, FunArity, FunDefPos,Info, Exp1, Side_Effect),
+									refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
+									{ok, "Refactor succeeded"};
+							    true -> Exp = exp_to_fun_expr(Exp1),
+								    AnnAST1=gen_fun(AnnAST, ParName1, 
+										    FunName, FunArity, FunDefPos,Info, Exp, Side_Effect),
+								    refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
+								    {ok, "Refactor succeeded"};
+							    unknown ->
+								{unknown_side_effect, [AnnAST, ParName1, FunName, FunArity, FunDefPos, Info, Exp1]}
+							end;	     
+						    {error, Reason} -> {error, Reason}
+						end 
+				     end;
 			_   -> {error, "You have not selected an expression!"}
 		    end;
 		{error, Reason} -> {error, Reason}
@@ -166,6 +172,23 @@ gen_fun(Tree, ParName, FunName, Arity, DefPos,Info, Exp, Side_Effect) ->
 		 true -> Tree
 	      end,		       
       refac_util:stop_tdTP(fun do_gen_fun/2, Tree1, {ParName, FunName, Arity, DefPos,Info, Exp,Side_Effect}).
+
+
+
+gen_fun_1(SideEffect, FileName, Tree, ParName, FunName, Arity, DefPos, Info, Exp) ->
+    Exp1 = case SideEffect of 
+	       true -> exp_to_fun_expr(Exp);
+	       _  -> Exp
+	   end,
+    R = refac_util:is_exported({FunName, Arity}, Info),
+    Tree1 = if R  -> add_function(Tree, FunName,DefPos, Exp);
+	       true -> Tree
+	    end,		       
+    AnnAST1 = refac_util:stop_tdTP(fun do_gen_fun/2, Tree1, {ParName, FunName, Arity, DefPos,Info, Exp1,SideEffect}),
+    refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
+    {ok, "Refactor succeeded"}.
+
+    
 
 %% =====================================================================
 %% @spec add_function(Tree::syntaxTree(),FunName::atom(),DefPos::Pos, Exp::expression()) ->syntaxTree()
@@ -227,9 +250,9 @@ do_replace_exp_with_var(Tree, {ParName, Exp, Side_Effect}) ->
     case refac_util:get_range(Tree) of 
 	Range ->
 	    case Side_Effect of 
-		true ->  Op1 = refac_syntax:operator(ParName),
-			 {refac_syntax:application(Op1, []),true};
-		false -> {refac_syntax:variable(ParName),true}
+		false -> {refac_syntax:variable(ParName), true};
+	        _ ->  Op1 = refac_syntax:operator(ParName),
+			 {refac_syntax:application(Op1, []),true}
 	    end;
 	_ -> {Tree, false}
     end.
@@ -519,15 +542,15 @@ pre_cond_checking_1(AnnAST, {Start, End}, ParName, Info) ->
     end.  
 
 
-do_generalisation(FileName,AnnAST, {Start, End}, ParName,Info)->
+do_generalisation(FileName,AnnAST, {Start, End}, ParName,Info, SearchPaths)->
     [Exp1] = refac_util:pos_to_expr(AnnAST, Start, End),
     Fun =  refac_util:expr_to_fun(AnnAST, Exp1),
     FunName = refac_syntax:data(refac_syntax:function_name(Fun)),
     FunArity = refac_syntax:function_arity(Fun),
-    Side_Effect = refac_util:has_side_effect(Exp1, Info, FileName),
+    Side_Effect = refac_util:has_side_effect(FileName, Exp1, SearchPaths),
     Exp = case Side_Effect of  
-	      true -> exp_to_fun_expr(Exp1);
-	      false -> Exp1
+	      false -> Exp1;
+	      _ -> exp_to_fun_expr(Exp1)
 	  end,
     FunDefPos =get_fun_def_loc(Fun), 
     ParName1 = list_to_atom(ParName),

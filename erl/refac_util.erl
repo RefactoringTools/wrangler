@@ -25,7 +25,7 @@
 
 -module(refac_util).
 
--export([ build_sideeffect_tab/3, build_sideeffect_tab/1,side_effect_table/0,
+-export([ build_lib_side_effect_tab/1, build_local_side_effect_tab/2,
 	 expr_to_fun/2, envs_bounds_frees/1, 
 	 full_buTP/2,full_buTP/3, get_bound_vars/1, 
 	 get_free_vars/1, get_range/1, get_var_exports/1, 
@@ -40,16 +40,11 @@
 	 callback_funs/1, expand_files/2, get_modules_by_file/1,
 	 to_lower/1, to_upper/1,
 	 post_refac_check/3,
-	 try_evaluation/1]).
+	 try_evaluation/1,
+	 build_call_graph/1, auto_imported_bifs/0]).
        
--define(DEFAULT_LOC, 
-        {0, 0}).  %% default defining location.
--define(DEFAULT_MODULE,
-	unknown).  %% default module name.
 
--record(attr, {pos = {0,0}, ann = [], com = none}).
-
--include("../hrl/wrangler.hrl").
+-include("wrangler.hrl").
 
 
 ghead(Info, []) ->
@@ -980,7 +975,7 @@ envs_bounds_frees(Node) ->
 %% =====================================================================
 %% @spec write_refactored_files([FileName:: filename(), AST::syntaxTree()])-> ok
 %%    
-%% @doc Pretty-print the abstract syntax trees to a files, and add the previous version to history for undo purpose.
+%% @doc Pretty-print the abstract syntax trees to a files, and add the previous version to history for undo purpose
 
 write_refactored_files(Files) ->
     F = fun({{File1, File2}, AST}) ->
@@ -1214,8 +1209,7 @@ get_client_files(File, SearchPaths) ->
     ModuleGraphFile = filename:join([filename:dirname(File), "modulegraph"]),
     File1 = filename:absname(normalise_file_name(File)),
     Dir = filename:dirname(File1),
-    WranglerOptions = #options{},   %% TODO: This should be changed to a globe one.
-    ModuleGraph= refac_module_graph:module_graph(lists:usort([Dir|SearchPaths]), ModuleGraphFile, WranglerOptions),
+    ModuleGraph= refac_module_graph:module_graph(lists:usort([Dir|SearchPaths]), ModuleGraphFile, SearchPaths),
     ClientFiles =case lists:keysearch(File1, 1, ModuleGraph) of 
 		       {value, {_, Clients}} ->
 			   lists:delete(File1, Clients);
@@ -1325,30 +1319,78 @@ to_lower([C|Cs], Acc) ->
 to_lower([], Acc) ->
     lists:reverse(Acc).
 	   
-	   
+
+build_local_side_effect_tab(File,SearchPaths) ->
+    ValidSearchPaths= lists:all(fun(X)->filelib:is_dir(X) end, SearchPaths),
+    case ValidSearchPaths of 
+	true -> ok;
+	false -> exit("One of the directories sepecified in the search paths does not exist, please check the customization!")
+    end,
+    CurrentDir = filename:dirname(normalise_file_name(File)),
+    SideEffectFile = filename:join(CurrentDir, "local_side_effect_tab"),
+    LibSideEffectFile = filename:join(?WRANGLER_DIR, "plt/side_effect_plt"),
+    LibPlt = from_dets(lib_side_effect_plt, LibSideEffectFile),
+    Dirs = lists:usort([CurrentDir|SearchPaths]),
+    Files = refac_util:expand_files(Dirs, ".erl"),
+    SideEffectFileModifiedTime = filelib:last_modified(SideEffectFile),
+    FilesToAnalyse = [F || F<-Files,  SideEffectFileModifiedTime < filelib:last_modified(F)],
+    LocalPlt =  case filelib:is_file(SideEffectFile) of 
+	       true -> from_dets(local_side_effect_tab, SideEffectFile);
+	       _ -> ets:new(local_side_effect_tab, [set, public])
+	   end,
+    {Sccs, _E} = build_call_graph(FilesToAnalyse),
+    build_side_effect_tab(Sccs,LocalPlt,LibPlt ),
+    to_dets(LocalPlt, SideEffectFile),
+    dets:close(LibSideEffectFile),
+    ets:delete(LocalPlt),
+    ets:delete(LibPlt).
+    
+
+has_side_effect(File, Node, SearchPaths) ->
+    LibSideEffectFile = filename:join(?WRANGLER_DIR, "plt/side_effect_plt"),
+    LibPlt = from_dets(lib_side_effect_plt, LibSideEffectFile),
+    CurrentDir = filename:dirname(normalise_file_name(File)),
+    LocalSideEffectFile = filename:join(CurrentDir, "local_side_effect_tab"),
+    build_local_side_effect_tab(LocalSideEffectFile, SearchPaths),
+    LocalPlt = from_dets(local_side_effect_plt, LocalSideEffectFile),
+    Res=check_side_effect(Node,LibPlt, LocalPlt),
+    dets:close(LibSideEffectFile),
+    dets:close(LocalSideEffectFile),
+    ets:delete(LocalPlt),
+    ets:delete(LibPlt),
+    Res.
+	    
+
+%% Build the side effect table for Erlang files specificed in Dirs, and 
+%% put the result to the dets file: side_effect_plt.
+build_lib_side_effect_tab(FileOrDirs) ->
+    Plt = ets:new(side_effect_table, [set,public]),
+    true = ets:insert(Plt, bifs_side_effect_table()),
+    {Sccs, _E} =build_call_graph(FileOrDirs),
+    build_side_effect_tab(Sccs,Plt,ets:new(dummy_tab, [set_public])),
+    File = filename:join(?WRANGLER_DIR, "plt/side_effect_plt"),
+    to_dets(Plt, File),
+    ets:delete(Plt).
+   
+build_side_effect_tab([Scc|Left], Side_Effect_Tab, OtherTab) ->
+     R= side_effect_scc(Scc, Side_Effect_Tab, OtherTab),
+     true = ets:insert(Side_Effect_Tab, [{{Mod, Fun, Arg}, R} ||
+					      {{Mod, Fun, Arg}, _F}<-Scc]),
+     build_side_effect_tab(Left, Side_Effect_Tab, OtherTab);
+build_side_effect_tab([], Side_Effect_Tab, _) ->
+     Side_Effect_Tab.
+
+side_effect_scc([{{_M, _F, _A}, Def}, F |Left],Side_Effect_Tab, OtherTab) ->
+    case check_side_effect(Def,Side_Effect_Tab, OtherTab ) of
+        true -> true;
+        _ -> side_effect_scc([F|Left], Side_Effect_Tab, OtherTab)  
+     end;
+side_effect_scc([{{_M, _F, _A}, Def}], Side_Effect_Tab, OtherTab) -> 
+    check_side_effect(Def, Side_Effect_Tab, OtherTab).
+
+
 %%=================================================================	
-from_dets(Name, Dets) when is_atom(Name) ->
-  Plt = ets:new(Name, [set, public]),
-  {ok, D} = dets:open_file(Dets, [{access, read}]),
-  true = ets:from_dets(Plt, D),
-  ok = dets:close(D),
-  Plt.
-
-to_dets(Plt, Dets) ->
-  file:delete(Dets),
-  MinSize = ets:info(Plt, size),
-  {ok, Dets} = dets:open_file(Dets, [{min_no_slots, MinSize}]),
-  ok = dets:from_ets(Dets, Plt),
-  ok = dets:sync(Dets),
-  ok = dets:close(Dets).
-
-lookup(Plt, {M, F, A}) ->
-  case ets:lookup(Plt, {M, F, A}) of
-    [] -> none;
-    [{_MFA, S}] -> {value, S}
-  end.
-
-has_side_effect(Node,Side_Effect_Table) ->
+check_side_effect(Node,LibPlt, LocalPlt) ->
     case refac_syntax:type(Node) of 
 	receive_expr -> true;
 	infix_expr -> Op = refac_syntax:operator_literal(refac_syntax:infix_expr_operator(Node)),
@@ -1361,9 +1403,12 @@ has_side_effect(Node,Side_Effect_Table) ->
 		    Op = refac_syntax:atom_value(Operator),
 		    {value, {fun_def, {M, _N, _A, _P1, _P}}} 
 			= lists:keysearch(fun_def, 1, refac_syntax:get_ann(Operator)),
-		    case lookup(Side_Effect_Table, {M, Op, Arity}) of 
+		    case lookup(LibPlt, {M, Op, Arity}) of 
 			{value, S} -> S;
-			_ -> unknown
+			_ -> case lookup(LocalPlt, {M, Op, Arity}) of 
+				 {value, S} -> S;
+				 _ ->  unknown
+			     end
 		    end;
 		module_qualifier ->
 		    Mod = refac_syntax:module_qualifier_argument(Operator),
@@ -1372,15 +1417,18 @@ has_side_effect(Node,Side_Effect_Table) ->
 			{atom, atom} ->
 			    M = refac_syntax:atom_value(Mod),
 			    Op = refac_syntax:atom_value(Body),
-			    case lookup(Side_Effect_Table, {M, Op, Arity}) of 
+			    case lookup(LibPlt, {M, Op, Arity}) of 
 				{value, S} -> S;
-				_ -> unknown 
+				_ -> case lookup(LocalPlt, {M, Op, Arity}) of 
+					 {value, S} -> S;
+					 _ -> unknown 
+				     end					 
 			    end;
-			_ -> true %% QUESTION: SHOULD THIS BE FALSE OR TRUE?
+			_ -> unknown
 		    end;
-		_ -> true   %% IS THIS CORRECT?
+		_ -> unknown  
 	    end;
-	arity_qualifier ->
+		arity_qualifier ->
 	    Fun = refac_syntax:arity_qualifier_body(Node),
 	    A = refac_syntax:arity_qualifier_argument(Node),
 	    case {refac_syntax:type(Fun), refac_syntax:type(A)} of 
@@ -1389,15 +1437,18 @@ has_side_effect(Node,Side_Effect_Table) ->
 		    Arity = refac_syntax:integer_value(A),
 		    {value, {fun_def, {M, _N, _A, _P1, _P}}} = 
 			lists:keysearch(fun_def, 1, refac_syntax:get_ann(Node)),
-		    case lookup(Side_Effect_Table, {M, FunName, Arity}) of
+		    case lookup(LibPlt, {M, FunName, Arity}) of
 			{value, S} -> S;
-			_ -> unknown
+			_ -> case lookup(LocalPlt, {M, FunName, Arity}) of 
+				 {value, S} -> S;
+				 _ ->unknown
+			     end
 		    end;		
-		_ ->  true  %% IS THIS CORRECT?
+		_ -> unknown 
 	    end;
  	 _ -> case refac_syntax:subtrees(Node) of 
  		  [] -> false;
- 		  Ts  -> Res =lists:flatten([[has_side_effect(T, Side_Effect_Table) || T <-G] || G <- Ts]),
+ 		  Ts  -> Res =lists:flatten([[check_side_effect(T, LibPlt, LocalPlt) || T <-G] || G <- Ts]),
 			 case lists:member(true, Res) of
 			     true -> true;
 			     false -> case lists:member(unknown, Res) of 
@@ -1408,6 +1459,130 @@ has_side_effect(Node,Side_Effect_Table) ->
  	      end
     end.
 
+
+%%====================================================================================
+build_call_graph(DirList) ->
+    Files = refac_util:expand_files(DirList, ".erl"),
+    CallGraph=build_call_graph(Files, []),
+    #callgraph{scc_order=Sccs,external_calls=E}=refac_callgraph:construct(CallGraph),
+    {Sccs, E}.
+
+build_call_graph([FileName|Left], Acc) ->
+    case refac_util:parse_annotate_file(FileName,1) of 
+	{ok, {AnnAST, Info}} ->
+	    G1 = build_call_graph(AnnAST, Info, FileName),
+	    Acc1= Acc++ G1,
+	    build_call_graph(Left, Acc1);
+	{error, Reason} -> erlang:error(Reason)
+    end;
+build_call_graph([], Acc) ->
+    Acc.
+    
+build_call_graph(Node, Info, _FileName) ->
+    {value,{module, ModName}} = lists:keysearch(module, 1, Info),
+     Inscope_Funs = [{erlang, Fun, Arity} || {Fun, Arity} <-auto_imported_bifs()] ++ refac_util:inscope_funs(Info),  %% NOTE: orders matters here.
+     HandleSpecialFuns = 
+	fun(Arguments, S) ->
+		case Arguments of 
+		    [F, A] -> 
+			case {refac_syntax:type(F), refac_syntax:type(A)} of
+			    {atom, list} ->
+				FunName = refac_syntax:atom_value(F),
+				Arity = refac_syntax:list_length(A),
+				ordsets:add_element({ModName, FunName, Arity}, S);
+			    _ -> S
+			end;
+		    [M, F, A] -> 
+			case {refac_syntax:type(M),refac_syntax:type(F), refac_syntax:type(A)} of
+			    {atom, atom, list} ->
+				ModName = refac_syntax:atom_value(M),
+				FunName = refac_syntax:atom_value(F),
+				Arity = refac_syntax:list_length(A),
+				ordsets:add_element({ModName, FunName, Arity}, S);
+			    _ -> S
+			end;
+		    [M, F, A, _O] -> 
+			case {refac_syntax:type(M),refac_syntax:type(F), refac_syntax:type(A)} of
+			    {atom, atom, list} ->
+				ModName = refac_syntax:atom_value(M),
+				FunName = refac_syntax:atom_value(F),
+				Arity = refac_syntax:list_length(A),
+				ordsets:add_element({ModName, FunName, Arity}, S);
+			    _ -> S
+			end
+		end
+	end,
+     F2 = fun(T, S) -> 
+ 		 case refac_syntax:type(T) of 
+ 		     application -> 
+ 			 Operator = refac_syntax:application_operator(T),
+			 Arguments = refac_syntax:application_arguments(T),
+ 			 Arity = length(Arguments),
+ 			 case refac_syntax:type(Operator) of 
+ 			     atom ->
+ 				 Op = refac_syntax:atom_value(Operator),
+				 R = lists:filter(fun({_M, F, A})-> (F ==Op) and (A == Arity) end, Inscope_Funs),
+				 if R == [] -> ordsets:add_element({unknown, Op, Arity}, S);  %% Should we give an error message here?
+				    true -> {M, Op, Arity} = hd(R),
+					    S1 = ordsets:add_element({M, Op, Arity}, S),
+	                                    case {Op, Arity} of                  
+						{apply,2} -> HandleSpecialFuns(Arguments, S1);							     
+						{apply,3} -> HandleSpecialFuns(Arguments, S1);
+						{spawn,3} -> HandleSpecialFuns(Arguments, S1);						   
+						{spawn,4} -> HandleSpecialFuns(Arguments, S1);						   
+						{spawn_link,3} -> HandleSpecialFuns(Arguments, S1); 
+						{spawn_link,4} -> HandleSpecialFuns(Arguments, S1); 
+						_  -> S1
+					    
+					    end			 
+				 end;
+			     module_qualifier ->
+				 Mod  = refac_syntax:module_qualifier_argument(Operator),
+				 Body = refac_syntax:module_qualifier_body(Operator),
+				 case {refac_syntax:type(Mod), refac_syntax:type(Body)} of 
+				     {atom, atom} -> Mod1 = refac_syntax:atom_value(Mod),
+						     Op = refac_syntax:atom_value(Body),
+						     S1 = ordsets:add_element({Mod1, Op, Arity}, S),
+						     case {Mod1, Op, Arity} of 
+							 {erlang, apply,2} -> HandleSpecialFuns(Arguments, S1);
+							 {erlang, apply,3} -> HandleSpecialFuns(Arguments, S1);
+							 {erlang, spawn,3} -> HandleSpecialFuns(Arguments, S1);
+							 {erlang, spawn,4} -> HandleSpecialFuns(Arguments, S1);
+							 {erlang, spawn_link,3} -> HandleSpecialFuns(Arguments, S1);
+							 {erlang, spawn_link, 4} -> HandleSpecialFuns(Arguments, S1);
+							 _ -> S1
+						     end;							 
+				    _ ->  S 
+				 end;
+			     _ -> S
+			 end;
+		     arity_qualifier ->
+			 Fun = refac_syntax:arity_qualifier_body(T),
+			 A = refac_syntax:arity_qualifier_argument(T),
+			 case {refac_syntax:type(Fun), refac_syntax:type(A)} of 
+			     {atom, integer} ->
+				 FunName = refac_syntax:atom_value(Fun),
+				 Arity = refac_syntax:integer_value(A),
+				 ordsets:add_element({ModName, FunName, Arity}, S);
+			     _ -> S
+			 end;
+		    _  -> S
+		 end
+	  end,
+     F1 = fun(T, S) ->
+ 		case refac_syntax:type(T) of 
+ 		    function -> FunName = refac_syntax:data(refac_syntax:function_name(T)),
+ 				Arity = refac_syntax:function_arity(T),
+ 				Caller = {{ModName, FunName, Arity},T},
+ 				CalledFuns =lists:usort(refac_syntax_lib:fold(F2, [], T)),
+ 				ordsets:add_element({Caller, CalledFuns}, S);
+ 		    _ -> S 
+ 		end
+ 	end,
+    lists:usort(refac_syntax_lib:fold(F1, [], Node)).
+
+
+%%====================================================================================
 expand_files(Files, Ext) ->
   expand_files(Files, Ext, []).
 
@@ -1440,324 +1615,31 @@ get_modules_by_file([File|Left], Acc)->
 get_modules_by_file([], Acc) ->
   lists:reverse(Acc).
 
+from_dets(Name, Dets) when is_atom(Name) ->
+  Plt = ets:new(Name, [set, public]),
+  case dets:open_file(Dets, [{access, read}]) of 
+      {ok, D} -> true = ets:from_dets(Plt, D),
+		 ok = dets:close(D),
+		 Plt;
+      {error, Reason} -> erlang:error(Reason)
+  end.
 
-%% @spec has_side_effect(Node:: syntaxTree)-> bool()
-%%    
-%% @doc Return true if the subtree has side effect.
+to_dets(Plt, Dets) ->
+  file:delete(Dets),
+  MinSize = ets:info(Plt, size),
+  {ok, Dets} = dets:open_file(Dets, [{min_no_slots, MinSize}]),
+  ok = dets:from_ets(Dets, Plt),
+  ok = dets:sync(Dets),
+  ok = dets:close(Dets).
 
-has_side_effect(Node,Info, FileName) ->
-    File = filename:join(?WRANGLER_DIR, "plt/side_effect_plt"),
-    Plt = from_dets(side_effect_plt, File),
-    Res = has_side_effect(Node,Plt),
-    case Res of 
-	true -> true;
-	false -> false;
-	unknown -> Plt1 = build_sideeffect_tab(Node, Info, FileName),
-		   Res1 = has_side_effect(Node, Plt1),
-		   case Res1 of 
-		       true -> true;
-		       false -> false;
-		       unknown -> true  %% TODO: THINK ABOUT THIS AGAIN.
-		   end
-    end.
-			    
+lookup(Plt, {M, F, A}) ->
+  case ets:lookup(Plt, {M, F, A}) of
+    [] -> none;
+    [{_MFA, S}] -> {value, S}
+  end.
 
-build_sideeffect_tab(_Node, _Info, FileName) ->   %% TODO: REMOVE UNUSED PARAMETERS!!!
-     File = filename:join(?WRANGLER_DIR, "plt/side_effect_plt"),
-     Plt = from_dets(side_effect_plt, File), 
-     Dir = filename:dirname(FileName),
-     {Sccs, _E} = build_call_graph([Dir]), %%(Node, Info, FileName),
-     side_effect_tab1(Sccs, Plt).
-
-
-build_sideeffect_tab(Dirs) ->
-    Plt = ets:new(side_effect_table, [set,public]),
-    true = ets:insert(Plt, side_effect_table()),
-    {Sccs, _E} =build_call_graph(Dirs),
-    side_effect_tab1(Sccs,Plt),
-    File = filename:join(?WRANGLER_DIR, "plt/side_effect_plt"),
-    to_dets(Plt, File).
-   
-side_effect_tab1([Scc|Left], Side_Effect_Table) ->
-     R= side_effect_scc(Scc, Side_Effect_Table),
-     true = ets:insert(Side_Effect_Table, [{{Mod, Fun, Arg}, R} ||
-					      {{Mod, Fun, Arg}, _F}<-Scc]),
-     side_effect_tab1(Left, Side_Effect_Table);
-side_effect_tab1([], Side_Effect_Table) ->
-     Side_Effect_Table.
-
-side_effect_scc([{{_M, _F, _As}, {_File,Def}}|Left],Side_Effect_Table) ->
-    case has_side_effect(Def,Side_Effect_Table) of
-        true -> true;
-        _ -> side_effect_scc(Left, Side_Effect_Table)  %% Check this again: true, false. unknown.
-     end;
-side_effect_scc([], _Side_Effect_Table) -> false.
-	    
-side_effect_table() ->
-   [{{erlang, abs, 1}, false},
-    {{erlang, append_element, 2}, false},
-    {{erlang, atom_to_list, 1}, false},
-    {{erlang, binary_to_list,1}, false},
-    {{erlang, binary_to_list,3}, false},
-    {{erlang, binary_to_term, 1}, false},
-    {{erlang, bump_reductions, 1}, false},
-    {{erlang, cancel_timer, 1}, true},
-    {{erlang, check_process_code,1}, false},
-    {{erlang, concat_binary, 1}, false},
-    {{erlang, data, 3}, false},
-    {{erlang, delete_module, 1}, true},
-    {{erlang, demonitor, 1}, false},
-    {{erlang, disconnect_node, 1}, true},
-    {{erlang, display, 1}, true},
-    {{erlang, element, 2}, false},
-    {{erlang, erase, 0}, true},
-    {{erlang, erase, 1}, true},
-    {{erlang, error, 1}, true},
-    {{erlang, error, 2}, true},
-    {{erlang, exit, 1}, true},
-    {{erlang, exit, 2}, true},
-    {{erlang, fault, 1}, true},
-    {{erlang, fault, 2}, true},
-    {{erlang, float, 1}, false},
-    {{erlang, float_to_list, 1}, false},
-    {{erlang, fun_info, 2}, false},
-    {{erlang, fun_info,1}, false},
-    {{erlang, fun_to_list, 1}, false},
-    {{erlang, function_exported, 3},true},
-    {{erlang, garbage_collect,1}, true},
-    {{erlang, garbage_collect, 0}, true},
-    {{erlang, get, 0}, true},
-    {{erlang, get, 1}, true},
-    {{erlang, get_cookie, 0}, true},
-    {{erlang, get_keys, 1}, true},
-    {{erlang, get_stacktrace, 0}, true},
-    {{erlang, group_leader, 0}, true},
-    {{erlang, group_leader, 2}, true},
-    {{erlang, halt, 0}, true},
-    {{erlang, halt, 1}, true},
-    {{erlang, hash, 2}, false},
-    {{erlang, hd, 1}, false},
-    {{erlang, hibernate, 3}, true},
-    {{erlang, info, 1}, true},
-    {{erlang, integer_to_list, 1}, false},
-    {{erlang, iolist_to_binary, 1}, false},
-    {{erlang, iolist_size, 1},false},
-    {{erlang, is_atom, 1}, false},
-    {{erlang, is_binary, 1}, false},
-    {{erlang, is_boolean, 1}, false},
-    {{erlang, is_builtin, 3}, false},
-    {{erlang, is_float, 1}, false},
-    {{erlang, is_function, 1}, false},
-    {{erlang, is_function, 2}, false},
-    {{erlang, is_integer, 1}, false},
-    {{erlang, is_list, 1}, false},
-    {{erlang, is_number, 1}, false},
-    {{erlang, is_pid, 1}, true},
-    {{erlang, is_port, 1}, false},
-    {{erlang, is_process_alive, 1}, true},
-    {{erlang, is_record, 2}, false},
-    {{erlang, is_record, 3}, false},
-    {{erlang, is_reference, 1}, false},
-    {{erlang, is_tuple, 1}, false},
-    {{erlang, length, 1}, false},
-    {{erlang, link, 1}, true},
-    {{erlang, list_to_atom, 1}, false},
-    {{erlang, list_to_binary, 1}, false},
-    {{erlang, list_to_existing_atom, 1},false},
-    {{erlang, list_to_float, 1}, false},
-    {{erlang, list_to_integer, 1}, false},
-    {{erlang, list_to_integer, 2}, false},
-    {{erlang, list_to_pid, 1}, false},
-    {{erlang, list_to_tuple, 1}, false},
-    {{erlang, load_module, 2}, true},
-    {{erlang, loaded, 0}, true},
-    {{erlang, localtime, 0}, true},
-    {{erlang, localtime_to_universaltime, 1}, false},
-    {{erlang, localtime_to_iniversaltime, 2}, false},
-    {{erlang, make_ref, 0}, true},
-    {{erlang, make_tuple, 2}, true},
-    {{erlang, md5, 1}, false},
-    {{erlang, md5_final, 1}, false},
-    {{erlang, md5_init, 0, false},
-    {{erlang, md5_update, 2}, false},
-    {{erlang, memory, 0}, true},
-    {{erlang, memory, 1}, true},
-    {{erlang, module_loaded, 1}, true},
-    {{erlang, monitor, 2}, true},
-    {{erlang, monitor_node, 2}, true},
-    {{erlang, node, 0}, true},
-    {{erlang, node, 1}, true}, 
-    {{erlang, nodes, 0}, true},
-    {{erlang, nodes, 1}, true},
-    {{erlang, now, 0}, true},
-    {{erlang, open_port, 2}, true},
-    {{erlang, phash, 2}, false},
-    {{erlang, phash2, 2}, false},
-    {{erlang, pid_to_list, 1}, true},
-    {{erlang, port_close, 1}, true},
-    {{erlang, port_command, 2}, true},
-    {{erlang, port_connect, 2}, true},
-    {{erlang, port_control, 3}, true},
-    {{erlang, port_call, 3}, true},
-    {{erlang, port_info, 1}, true},
-    {{erlang, port_info, 2}, true}, 
-    {{erlang, port_to_list, 1}, true},
-    {{erlang, ports, 0}, true},
-    {{erlang, pre_loaded, 0}, true},
-    {{erlang, process_diaplay, 2}, true},
-    {{erlang, process_flag, 2}, true},
-    {{erlang, process_flag, 3}, true},
-    {{erlang, process_info, 1}, true},
-    {{erlang, process_info, 2}, true},
-    {{erlang, processes, 0}, true},
-    {{erlang, purge_module, 1}, true},
-    {{erlang, put, 2}, true},
-    {{erlang, raise, 3}, true},
-    {{erlang, read_timer, 1}, true},
-    {{erlang, ref_to_list, 1}, false},
-    {{erlang, register, 2}, true},
-    {{erlang, registered, 0}, true},
-    {{erlang, resume_process, 1}, true},
-    {{erlang, round, 1}, false},
-    {{erlang, self, 0}, true},
-    {{erlang, send, 2}, true},
-    {{erlang, send, 3}, true},
-    {{erlang, send_after, 3}, true},
-    {{erlang, send_nosuspend, 2}, true},
-    {{erlang, send_nosuspend, 3}, true},
-    {{erlang, set_cookie, 2}, true},
-    {{erlang, setelement, 3}, false},
-    {{erlang, size, 1}, false},
-    {{erlang, spawn, 1}, true},
-    {{erlang, spawn, 2}, true},
-    {{erlang, spawn, 3}, true},
-    {{erlang, spawn, 4}, true},
-    {{erlang, spawn_link, 1}, true},
-    {{erlang, spawn_link, 2}, true},
-    {{erlang, spawn_link, 3}, true},
-    {{erlang, spawn_link, 4}, true},
-    {{erlang, spawn_opt, 2}, true},
-    {{erlang, spawn_opt, 3}, true},
-    {{erlang, spawn_opt, 4}, true},
-    {{erlang, spawn_opt, 5}, true},
-    {{erlang, aplit_binary, 2}, false},
-    {{erlang, start_timer, 3}, true},
-    {{erlang, statistics, 1}, true},
-    {{erlang, suspend_process, 1}, false},
-    {{erlang, system_flag, 2}, true},
-    {{erlang, system_info, 1}, true},
-    {{erlang, system_monitor, 0}, true},
-    {{erlang, system_monitor, 1}, true},
-    {{erlang, system_monitor, 2}, true},
-    {{erlang, term_to_binary, 1}, false},
-    {{erlang, term_to_binary, 2}, false},
-    {{erlang, throw, 1}, true},
-    {{erlang, time, 1}, true},
-    {{erlang, tl, 1}, false},
-    {{erlang, trace, 1}}, true},
-    {{erlang, trace_info, 2}, true},
-    {{erlang, trace_pattern,2}, true},
-    {{erlang, trace_pattern,3},true},
-    {{erlang, trunc, 1}, false},
-    {{erlang, unregister, 1}, false}, 
-    {{erlang, unregister, 1}, true},
-    {{erlang, tuple_to_list, 1}, false},
-    {{erlang,universaltime, 1}, false},
-    {{erlang, universaltime_to_localtime, 1}, false},
-    {{erlang, unlink, 1}, true},
-    {{erlang, whereis, 1}, true},
-    {{erlang, yield, 1}, true}].
+%%====================================================================================
  
-
-build_call_graph(Dir) ->
-    Files = refac_util:expand_files(Dir, ".erl"),
-    CallGraph=build_call_graph1(Files, []),
-    #callgraph{scc_order=Sccs,external_calls=E}=refac_callgraph:construct(CallGraph),
-    {Sccs, E}.
-
-build_call_graph1([FileName|Left], Acc) ->
-    case refac_util:parse_annotate_file(FileName,1) of 
-	{ok, {AnnAST, Info}} ->
-	    G1 = build_call_graph(AnnAST, Info, FileName),
-	    Acc1= Acc++ G1,
-	    build_call_graph1(Left, Acc1);
-	{error, Reason} -> {error, Reason}
-    end;
-build_call_graph1([], Acc) ->
-    Acc.
-    
-build_call_graph(Node, Info, FileName) ->
-    {value,{module, ModName}} = lists:keysearch(module, 1, Info),
-     Inscope_Funs = refac_util:inscope_funs(Info),  %% QUESTION: HOW ABOUT THE BUILT IN FUNCTIONS?
-     F2 = fun(T, S) -> 
- 		 case refac_syntax:type(T) of 
- 		     application -> 
- 			 Operator = refac_syntax:application_operator(T),
- 			 Arity = length(refac_syntax:application_arguments(T)),
- 			 case refac_syntax:type(Operator) of 
- 			     atom ->
- 				 Op = refac_syntax:atom_value(Operator),
-				 R = lists:filter(fun({_M, F, A})-> (F ==Op) and (A == Arity) end, Inscope_Funs),
-				 if R == [] -> ordsets:add_element({erlang, Op, Arity}, S);
-				    true -> {M, Op, Arity} = hd(R),
-					    ordsets:add_element({M, Op, Arity}, S)
-				 end;
-			     module_qualifier ->
-				 Mod  = refac_syntax:module_qualifier_argument(Operator),
-				 Body = refac_syntax:module_qualifier_body(Operator),
-				 case {refac_syntax:type(Mod), refac_syntax:type(Body)} of 
-				     {atom, atom} -> Mod1 = refac_syntax:atom_value(Mod),
-						     Op = refac_syntax:atom_value(Body),
-						     ordsets:add_element({Mod1, Op, Arity}, S);
-				    _ ->  S 
-				 end;
-			     _ -> S
-			 end;
-		     arity_qualifier ->
-			 Fun = refac_syntax:arity_qualifier_body(T),
-			 A = refac_syntax:arity_qualifier_argument(T),
-			 case {refac_syntax:type(Fun), refac_syntax:type(A)} of 
-			     {atom, integer} ->
-				 FunName = refac_syntax:atom_value(Fun),
-				 Arity = refac_syntax:integer_value(A),
-				 ordsets:add_element({ModName, FunName, Arity}, S);
-			     _ -> S
-			 end;
-		    _  -> S
-		 end
-	  end,
-     F1 = fun(T, S) ->
- 		case refac_syntax:type(T) of 
- 		    function -> FunName = refac_syntax:data(refac_syntax:function_name(T)),
- 				Arity = refac_syntax:function_arity(T),
- 				Caller = {{ModName, FunName, Arity},{FileName, T}},
- 				CalledFuns =lists:usort(refac_syntax_lib:fold(F2, [], T)),
- 				ordsets:add_element({Caller, CalledFuns}, S);
- 		    _ -> S 
- 		end
- 	end,
-    lists:usort(refac_syntax_lib:fold(F1, [], Node)).
-
-
-try_evaluation(Expr) ->
-    case catch erl_eval:exprs(Expr, []) of
-      {value, V, _} -> {value, V};
-      _ -> {error, "Error with evaluation"}
-    end. 
-    
- 
-token_val(T) ->
-    case T of 
-	{_, _, V} -> V;
-	{V, _} -> V
-    end.
-
-token_loc(T) ->
-      case T of 
-	{_, L, _V} -> L;
-	{_, L1} -> L1
-      end.
-
 extend_forwards (Toks, StartLoc, Val) ->
     Toks1 = lists:takewhile(fun(T) -> token_loc(T)  < StartLoc end, Toks),
     Toks2 = lists:dropwhile(fun(T) -> token_val(T) =/= Val end, lists:reverse(Toks1)),
@@ -1775,7 +1657,159 @@ extend_backwards(Toks, EndLoc, Val) ->
 	_ -> {Ln, Col} = token_loc(hd(Toks2)),
 	     {Ln, Col+length(atom_to_list(Val))-1}
     end.
-  
+
+
+token_loc(T) ->
+      case T of 
+	{_, L, _V} -> L;
+	{_, L1} -> L1
+      end.
+
+token_val(T) ->
+    case T of 
+	{_, _, V} -> V;
+	{V, _} -> V
+    end.
+
+
+try_evaluation(Expr) ->
+    case catch erl_eval:exprs(Expr, []) of
+      {value, V, _} -> {value, V};
+      _ -> {error, "Error with evaluation"}
+    end. 
+    
+
+%%================================================================================
+
+
+
+bifs_side_effect_table() ->
+   [{{erlang, abs, 1}, false},               {{erlang, append_element, 2}, false},
+    {{erlang, atom_to_list, 1}, false},      {{erlang, binary_to_list,1}, false},
+    {{erlang, binary_to_list,3}, false},     {{erlang, binary_to_term, 1}, false},
+    {{erlang, bump_reductions, 1}, false},   {{erlang, cancel_timer, 1}, true},
+    {{erlang, check_process_code,1}, false}, {{erlang, concat_binary, 1}, false},
+    {{erlang, data, 3}, false},              {{erlang, delete_module, 1}, true},
+    {{erlang, demonitor, 1}, false},         {{erlang, disconnect_node, 1}, true},
+    {{erlang, display, 1}, true},            {{erlang, element, 2}, false},
+    {{erlang, erase, 0}, true},              {{erlang, erase, 1}, true},
+    {{erlang, error, 1}, true},              {{erlang, error, 2}, true},
+    {{erlang, exit, 1}, true},               {{erlang, exit, 2}, true},
+    {{erlang, fault, 1}, true},              {{erlang, fault, 2}, true},
+    {{erlang, float, 1}, false},             {{erlang, float_to_list, 1}, false},
+    {{erlang, fun_info, 2}, false},          {{erlang, fun_info,1}, false},
+    {{erlang, fun_to_list, 1}, false},       {{erlang, function_exported, 3},true},
+    {{erlang, garbage_collect,1}, true},     {{erlang, garbage_collect, 0}, true},
+    {{erlang, get, 0}, true},                {{erlang, get, 1}, true},
+    {{erlang, get_cookie, 0}, true},         {{erlang, get_keys, 1}, true},
+    {{erlang, get_stacktrace, 0}, true},     {{erlang, group_leader, 0}, true},
+    {{erlang, group_leader, 2}, true},       {{erlang, halt, 0}, true},
+    {{erlang, halt, 1}, true},               {{erlang, hash, 2}, false},
+    {{erlang, hd, 1}, false},                {{erlang, hibernate, 3}, true},
+    {{erlang, info, 1}, true},               {{erlang, integer_to_list, 1}, false},
+    {{erlang, iolist_to_binary, 1}, false},  {{erlang, iolist_size, 1},false},
+    {{erlang, is_atom, 1}, false},           {{erlang, is_binary, 1}, false},
+    {{erlang, is_boolean, 1}, false},        {{erlang, is_builtin, 3}, false},
+    {{erlang, is_float, 1}, false},          {{erlang, is_function, 1}, false},
+    {{erlang, is_function, 2}, false},       {{erlang, is_integer, 1}, false},
+    {{erlang, is_list, 1}, false},           {{erlang, is_number, 1}, false},
+    {{erlang, is_pid, 1}, true},             {{erlang, is_port, 1}, false},
+    {{erlang, is_process_alive, 1}, true},   {{erlang, is_record, 2}, false},
+    {{erlang, is_record, 3}, false},         {{erlang, is_reference, 1}, false},
+    {{erlang, is_tuple, 1}, false},          {{erlang, length, 1}, false},
+    {{erlang, link, 1}, true},               {{erlang, list_to_atom, 1}, false},
+    {{erlang, list_to_binary, 1}, false},    {{erlang, list_to_existing_atom, 1},false},
+    {{erlang, list_to_float, 1}, false},     {{erlang, list_to_integer, 1}, false},
+    {{erlang, list_to_integer, 2}, false},   {{erlang, list_to_pid, 1}, false},
+    {{erlang, list_to_tuple, 1}, false},     {{erlang, load_module, 2}, true},
+    {{erlang, loaded, 0}, true},             {{erlang, localtime, 0}, true},
+    {{erlang, localtime_to_universaltime, 1}, false},  {{erlang, localtime_to_iniversaltime, 2}, false},
+    {{erlang, make_ref, 0}, true},           {{erlang, make_tuple, 2}, true},
+    {{erlang, md5, 1}, false},               {{erlang, md5_final, 1}, false},
+    {{erlang, md5_init, 0, false},           {{erlang, md5_update, 2}, false},
+    {{erlang, memory, 0}, true},             {{erlang, memory, 1}, true},
+    {{erlang, module_loaded, 1}, true},      {{erlang, monitor, 2}, true},
+    {{erlang, monitor_node, 2}, true},       {{erlang, node, 0}, true},
+    {{erlang, node, 1}, true},               {{erlang, nodes, 0}, true},
+    {{erlang, nodes, 1}, true},              {{erlang, now, 0}, true},
+    {{erlang, open_port, 2}, true},          {{erlang, phash, 2}, false},
+    {{erlang, phash2, 2}, false},            {{erlang, pid_to_list, 1}, true},
+    {{erlang, port_close, 1}, true},         {{erlang, port_command, 2}, true},
+    {{erlang, port_connect, 2}, true},       {{erlang, port_control, 3}, true},
+    {{erlang, port_call, 3}, true},          {{erlang, port_info, 1}, true},
+    {{erlang, port_info, 2}, true},          {{erlang, port_to_list, 1}, true},
+    {{erlang, ports, 0}, true},              {{erlang, pre_loaded, 0}, true},
+    {{erlang, process_diaplay, 2}, true},    {{erlang, process_flag, 2}, true},
+    {{erlang, process_flag, 3}, true},       {{erlang, process_info, 1}, true},
+    {{erlang, process_info, 2}, true},       {{erlang, processes, 0}, true},
+    {{erlang, purge_module, 1}, true},       {{erlang, put, 2}, true},
+    {{erlang, raise, 3}, true},              {{erlang, read_timer, 1}, true},
+    {{erlang, ref_to_list, 1}, false},       {{erlang, register, 2}, true},
+    {{erlang, registered, 0}, true},         {{erlang, resume_process, 1}, true},
+    {{erlang, round, 1}, false},             {{erlang, self, 0}, true},
+    {{erlang, send, 2}, true},               {{erlang, send, 3}, true},
+    {{erlang, send_after, 3}, true},         {{erlang, send_nosuspend, 2}, true},
+    {{erlang, send_nosuspend, 3}, true},     {{erlang, set_cookie, 2}, true},
+    {{erlang, setelement, 3}, false},        {{erlang, size, 1}, false},
+    {{erlang, spawn, 1}, true},              {{erlang, spawn, 2}, true},
+    {{erlang, spawn, 3}, true},              {{erlang, spawn, 4}, true},
+    {{erlang, spawn_link, 1}, true},         {{erlang, spawn_link, 2}, true},
+    {{erlang, spawn_link, 3}, true},         {{erlang, spawn_link, 4}, true},
+    {{erlang, spawn_opt, 2}, true},          {{erlang, spawn_opt, 3}, true},
+    {{erlang, spawn_opt, 4}, true},          {{erlang, spawn_opt, 5}, true},
+    {{erlang, aplit_binary, 2}, false},      {{erlang, start_timer, 3}, true},
+    {{erlang, statistics, 1}, true},         {{erlang, suspend_process, 1}, false},
+    {{erlang, system_flag, 2}, true},        {{erlang, system_info, 1}, true},
+    {{erlang, system_monitor, 0}, true},     {{erlang, system_monitor, 1}, true},
+    {{erlang, system_monitor, 2}, true},     {{erlang, term_to_binary, 1}, false},
+    {{erlang, term_to_binary, 2}, false},    {{erlang, throw, 1}, true},
+    {{erlang, time, 1}, true},               {{erlang, tl, 1}, false},
+    {{erlang, trace, 1}}, true},             {{erlang, trace_info, 2}, true},
+    {{erlang, trace_pattern,2}, true},       {{erlang, trace_pattern,3},true},
+    {{erlang, trunc, 1}, false},             {{erlang, unregister, 1}, false}, 
+    {{erlang, unregister, 1}, true},         {{erlang, tuple_to_list, 1}, false},
+    {{erlang,universaltime, 1}, false},      {{erlang, universaltime_to_localtime, 1}, false},
+    {{erlang, unlink, 1}, true},             {{erlang, whereis, 1}, true},
+    {{erlang, yield, 1}, true}].
+   
+
+auto_imported_bifs() ->
+    [{abs, 1}, {apply, 2}, {apply, 3}, {atom_to_list, 1},
+     {binary_to_list, 1}, {binary_to_list, 3},
+     {binary_to_term, 1}, {check_process_code, 2},
+     {concat_binary, 1}, {data, 3}, {delete_module, 1},
+     {disconnect_node, 1}, {element, 2}, {erase, 0},
+     {erase, 1}, {exit, 1}, {exit, 2}, {float, 1},
+     {float_to_list, 1}, {garbage_collect, 1},
+     {garbage_collect, 0}, {get, 0}, {get, 1}, {get_keys, 1},
+     {group_leader, 0}, {group_leader, 2}, {halt, 0},
+     {halt, 1}, {hd, 1}, {integer_to_list, 1},
+     {iolist_to_binary, 1}, {iolist_size, 1}, {is_atom, 1},
+     {is_binary, 1}, {is_boolean, 1}, {is_float, 1},
+     {is_function, 1}, {is_function, 2}, {is_integer, 1},
+     {is_list, 1}, {is_number, 1}, {is_pid, 1}, {is_port, 1},
+     {is_process_alive, 1}, {is_record, 2}, {is_record, 3},
+     {is_reference, 1}, {is_tuple, 1}, {length, 1},
+     {link, 1}, {list_to_atom, 1}, {list_to_binary, 1},
+     {list_to_existing_atom, 1}, {list_to_float, 1},
+     {list_to_integer, 1}, {list_to_pid, 1},
+     {list_to_tuple, 1}, {load_module, 2}, {make_ref, 0},
+     {module_loaded, 1}, {monitor_node, 2}, {node, 0},
+     {node, 1}, {nodes, 0}, {nodes, 1}, {now, 0},
+     {open_port, 2}, {pid_to_list, 1}, {port_close, 1},
+     {port_command, 2}, {port_connect, 2}, {port_control, 3},
+     {pre_loaded, 0}, {process_flag, 2}, {process_flag, 3},
+     {process_info, 1}, {process_info, 2}, {processes, 0},
+     {purge_module, 1}, {put, 2}, {register, 2},
+     {registered, 0}, {round, 1}, {self, 0}, {setelement, 3},
+     {size, 1}, {spawn, 1}, {spawn, 2}, {spawn, 3},
+     {spawn, 4}, {spawn_link, 1}, {spawn_link, 2},
+     {spawn_link, 3}, {spawn_link, 4}, {spawn_opt, 2},
+     {spawn_opt, 3}, {spawn_opt, 4}, {spawn_opt, 5},
+     {aplit_binary, 2}, {statistics, 1}, {term_to_binary, 1},
+     {term_to_binary, 2}, {throw, 1}, {time, 1}, {tl, 1},
+     {trunc, 1}, {unregister, 1}, {unregister, 1},
+     {tuple_to_list, 1}, {unlink, 1}, {whereis, 1}].
 
 
     

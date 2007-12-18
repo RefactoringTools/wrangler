@@ -62,7 +62,7 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths) ->
 			       true ->
 				   case lists:member({NewName1, Arity}, Inscope_Funs)
 					  or
-					  lists:member({NewName1, Arity},auto_imported_bifs())
+					  lists:member({NewName1, Arity},refac_util:auto_imported_bifs())
 				       of
 				     true ->
 					 {error,  NewName ++  "/" ++
@@ -119,9 +119,7 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths) ->
 			     end;
 			 true ->
 			     {error,
-			      "This function is defined in module: " ++
-				atom_to_list(Mod) ++
-				  ", please go to that module for renaming."}
+			      "This function is not defined in this module; please go to the module where it is defined for renaming."}
 		      end;
 		  {error, Reason} -> {error, Reason}
 		end;
@@ -682,45 +680,6 @@ application_info(Node) ->
 	    end;
 	_ -> erlang:fault(not_an_application)
     end.
-
-auto_imported_bifs() ->
-    [{abs, 1}, {apply, 2}, {apply, 3}, {atom_to_list, 1},
-     {binary_to_list, 1}, {binary_to_list, 3},
-     {binary_to_term, 1}, {check_process_code, 2},
-     {concat_binary, 1}, {data, 3}, {delete_module, 1},
-     {disconnect_node, 1}, {element, 2}, {erase, 0},
-     {erase, 1}, {exit, 1}, {exit, 2}, {float, 1},
-     {float_to_list, 1}, {garbage_collect, 1},
-     {garbage_collect, 0}, {get, 0}, {get, 1}, {get_keys, 1},
-     {group_leader, 0}, {group_leader, 2}, {halt, 0},
-     {halt, 1}, {hd, 1}, {integer_to_list, 1},
-     {iolist_to_binary, 1}, {iolist_size, 1}, {is_atom, 1},
-     {is_binary, 1}, {is_boolean, 1}, {is_float, 1},
-     {is_function, 1}, {is_function, 2}, {is_integer, 1},
-     {is_list, 1}, {is_number, 1}, {is_pid, 1}, {is_port, 1},
-     {is_process_alive, 1}, {is_record, 2}, {is_record, 3},
-     {is_reference, 1}, {is_tuple, 1}, {length, 1},
-     {link, 1}, {list_to_atom, 1}, {list_to_binary, 1},
-     {list_to_existing_atom, 1}, {list_to_float, 1},
-     {list_to_integer, 1}, {list_to_pid, 1},
-     {list_to_tuple, 1}, {load_module, 2}, {make_ref, 0},
-     {module_loaded, 1}, {monitor_node, 2}, {node, 0},
-     {node, 1}, {nodes, 0}, {nodes, 1}, {now, 0},
-     {open_port, 2}, {pid_to_list, 1}, {port_close, 1},
-     {port_command, 2}, {port_connect, 2}, {port_control, 3},
-     {pre_loaded, 0}, {process_flag, 2}, {process_flag, 3},
-     {process_info, 1}, {process_info, 2}, {processes, 0},
-     {purge_module, 1}, {put, 2}, {register, 2},
-     {registered, 0}, {round, 1}, {self, 0}, {setelement, 3},
-     {size, 1}, {spawn, 1}, {spawn, 2}, {spawn, 3},
-     {spawn, 4}, {spawn_link, 1}, {spawn_link, 2},
-     {spawn_link, 3}, {spawn_link, 4}, {spawn_opt, 2},
-     {spawn_opt, 3}, {spawn_opt, 4}, {spawn_opt, 5},
-     {aplit_binary, 2}, {statistics, 1}, {term_to_binary, 1},
-     {term_to_binary, 2}, {throw, 1}, {time, 1}, {tl, 1},
-     {trunc, 1}, {unregister, 1}, {unregister, 1},
-     {tuple_to_list, 1}, {unlink, 1}, {whereis, 1}].
-
 
 %% The following are here temporally for testing purpose, and will be refactored.
 

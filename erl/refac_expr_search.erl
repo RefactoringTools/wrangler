@@ -58,8 +58,8 @@ expr_search(FileName, Start, End) ->
  			%%	       " expression has been found. \n"), 
  			  %%   {ok, Res};	
 	  
-			N -> io:format("~p expressions, including the selected expression, which are identical (up to variable renaming and literal substitution) to "
-				       " the selected expression have been fould. \n", [N]),
+			N -> io:format("~p identical expressions (including the selected expression,and up to variable renaming and literal substitution) "
+				       " have been fould. \n", [N]),
 			     {ok, Res}
 		    end;
 		_   -> {error, "You have not selected an expression!"}

@@ -84,7 +84,6 @@ move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths) ->
 							   io:format("\nChecking client modules in the following search paths: \n~p\n",[SearchPaths]),
 							    ClientFiles = lists:delete(TargetFName, 
 								      refac_util:get_client_files(FName, SearchPaths)),
-							    io:format("ClientFiles:\n~p\n", [ClientFiles]),
 							    Results = refactor_in_client_modules(ClientFiles,
 										{ModName, FunName, Arity}, TargetModName),
 							    refac_util:write_refactored_files([{{FName,FName}, AnnAST1},

@@ -11,43 +11,42 @@
 
 -export([construct/1]).
 
--include("wrangler.hrl").
+-include("../hrl/wrangler.hrl").
 
 construct(List) ->
-  {Calls, ModToDirMap, ExternalCalls} = preprocess(List),
+  {Calls, FunDefMap, ExternalCalls} = preprocess(List),
   Edges = get_edges(Calls),  
   Nodes = gb_trees:keys(Calls),
   {SCCs, SccMap} = get_sccs(Nodes, Edges),
   SCCEdges = get_scc_edges(Nodes, SccMap, Calls),
   SCCOrder = order_sccs(SCCs, SCCEdges),
-  FinalOrder = finalize_order(SCCOrder, SCCs, ModToDirMap), 
+  FinalOrder = finalize_order(SCCOrder, SCCs, FunDefMap), 
   #callgraph{scc_order=FinalOrder, external_calls=ExternalCalls}.
 
 preprocess(List1) ->
-  List2 = [{Mod, C} || {{Mod, _Dir}, C} <- List1],
-  ModCallsOrdDict = orddict:from_list(List2),
-  Modules = ordsets:from_list([X || {X, _} <- ModCallsOrdDict]),
-  List3 = [{Mod, Dir} || {{Mod, Dir}, _Calls} <- List1],
-  ModDirOrdDict = gb_trees:from_orddict(orddict:from_list(List3)),
-  ExternalCalls = find_ext_called_mods(Modules, ModCallsOrdDict),
-  {filter_calls(ModCallsOrdDict, Modules), ModDirOrdDict, ExternalCalls}.
+  List2 = [{Fun, CalledFuns} || {{Fun, _FunDef}, CalledFuns} <- List1],
+  FunCallsOrdDict = orddict:from_list(List2),
+  Funs = ordsets:from_list([X || {X, _} <- FunCallsOrdDict]),
+  List3 = [{Fun, FunDef} || {{Fun, FunDef}, _CalledFuns} <- List1],
+  FunDefOrdDict = gb_trees:from_orddict(orddict:from_list(List3)),
+  ExternalCalls = find_ext_called_funs(Funs, FunCallsOrdDict),
+  {filter_calls(FunCallsOrdDict, Funs), FunDefOrdDict, ExternalCalls}.
 
-filter_calls(OrdDict, Modules) ->
-  FilterFun = fun(X)->ordsets:is_element(X, Modules)end,
+filter_calls(FunCallsOrdDict, Funs) ->
+  FilterFun = fun(X)->ordsets:is_element(X, Funs)end,
   MapFun = fun(_Mod, Calls)-> ordsets:filter(FilterFun,Calls)end,
-  Filtered = orddict:map(MapFun, OrdDict),
+  Filtered = orddict:map(MapFun, FunCallsOrdDict),
   gb_trees:from_orddict(Filtered).
 
-find_ext_called_mods(Modules, ModCallsOrdDict) ->
-  find_ext_called_mods(Modules, ModCallsOrdDict, []).
+find_ext_called_funs(Funs, FunCallsOrdDict) ->
+  find_ext_called_funs(Funs, FunCallsOrdDict, []).
 
-find_ext_called_mods(Modules, [{_, Calls}|Left], Acc) ->
+find_ext_called_funs(Funs, [{_, Calls}|Left], Acc) ->
   ExtCalls = 
-    ordsets:filter(fun(X)-> not ordsets:is_element(X, Modules)end, Calls),
+    ordsets:filter(fun(X)-> not ordsets:is_element(X, Funs)end, Calls),
   NewAcc = ordsets:union(ExtCalls, Acc),
-  find_ext_called_mods(Modules, Left, NewAcc);
-find_ext_called_mods(_Modules, [], Acc) ->
-  ordsets:del_element("hipe_bifs", Acc). 
+  find_ext_called_funs(Funs, Left, NewAcc);
+find_ext_called_funs(_Funs, [], Acc) -> Acc.
 
 %%---------------------------------------------------------------------
 %% Find the edges in the callgraph.
@@ -120,11 +119,11 @@ order_sccs_1([], _Edges, _Visited) ->
 %%---------------------------------------------------------------------
 %% Put the actual function names in the order to process them.
 
-finalize_order([Id|Left], SCCs, ModToDirMap)->
-  Mods = gb_trees:get(Id, SCCs),
-  ModDirs = [{Mod, gb_trees:get(Mod, ModToDirMap)} || Mod <- Mods],
-  [ModDirs | finalize_order(Left, SCCs, ModToDirMap)];
-finalize_order([], _SCCs, _ModToDirMap) ->
+finalize_order([Id|Left], SCCs, FunToDefMap)->
+  Funs = gb_trees:get(Id, SCCs),
+  FunDefs = [{Fun, gb_trees:get(Fun, FunToDefMap)} || Fun <- Funs],
+  [FunDefs | finalize_order(Left, SCCs, FunToDefMap)];
+finalize_order([], _SCCs, _FunToDefMap) ->
   [].
 
 

@@ -39,7 +39,7 @@
 	 rename_fun/5, 
 	 rename_mod/3, 
 	 rename_mod_batch/3,
-	 generalise/4,
+	 generalise/5,
 	 move_fun/6,
 	 duplicated_code/3,
 	 expression_search/3,
@@ -201,11 +201,11 @@ rename_mod_batch(OldNamePattern, NewNamePattern, SearchPaths) ->
 %% @end
 
 %% ==============================================================================
-%% @spec generalise(FileName::filename(), Start::Pos, End::Pos, ParName::string())-> term()
+%% @spec generalise(FileName::filename(), Start::Pos, End::Pos, ParName::string(), SearchPaths::[string()])-> term()
 %%         Pos = {integer(), integer()}
 
-generalise(FileName, Start, End, ParName) ->
-    refac_gen:generalise(FileName, Start, End, ParName).
+generalise(FileName, Start, End, ParName, SearchPaths) ->
+    refac_gen:generalise(FileName, Start, End, ParName,  SearchPaths).
 
 %% ================================================================================
 %% @doc Move a function definition from its current module to another module.

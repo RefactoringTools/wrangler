@@ -1,3 +1,89 @@
+from the current code base, but they are available from the previous Wrangler 
+releases/snapshots.2007-12-18: hl(hl@kent.ac.uk).
+
+Some modules regarding to the analysis of atom information have been removed 
+from the current code base, but they are available from the previous Wrangler 
+releases/snapshots.2007-12-18: hl(hl@kent.ac.uk).
+
+Some modules regarding to the analysis of atom information have been removed 
+from the current code base, but they are available from the previous Wrangler 
+releases/snapshots.2007-12-18: hl(hl@kent.ac.uk).
+
+Some modules regarding to the analysis of atom information have been removed 
+from the current code base, but they are available from the previous Wrangler 
+releases/snapshots.2007-12-18: hl(hl@kent.ac.uk).
+
+Some modules regarding to the analysis of atom information have been removed 
+from the current code base, but they are available from the previous Wrangler 
+releases/snapshots.2007-12-18: hl(hl@kent.ac.uk).
+
+Some modules regarding to the analysis of atom information have been removed 
+from the current code base, but they are available from the previous Wrangler 
+releases/snapshots.2007-12-18: hl(hl@kent.ac.uk).
+
+Some modules regarding to the analysis of atom information have been removed 
+from the current code base, but they are available from the previous Wrangler 
+releases/snapshots.2007-12-18: hl(hl@kent.ac.uk).
+
+Some modules regarding to the analysis of atom information have been removed 
+from the current code base, but they are available from the previous Wrangler 
+releases/snapshots.2007-12-18: hl(hl@kent.ac.uk).
+
+Some modules regarding to the analysis of atom information have been removed 
+from the current code base, but they are available from the previous Wrangler 
+releases/snapshots.2007-12-18: hl(hl@kent.ac.uk).
+
+Some modules regarding to the analysis of atom information have been removed 
+2007-12-18: hl(hl@kent.ac.uk).
+
+Some modules regarding to the analysis of atom information have been removed 
+from the current code base, but they are available from the previous Wrangler 
+releases/snapshots.
+
+2007-12-18: hl(hl@kent.ac.uk).
+
+
+With 'generalisation a function definition', Wrangler now asks the user 
+whether the selected expression has side effect or not in the case that 
+Wrangler itself can not infer it.
+
+2007-12-16: hl(hl@kent.ac.uk).
+
+Refactored the side-effect checking part. The current implementation 
+uses two side-effect tables: one for the libraries from Erlang release;
+the other for the program under refactoring. The local side side-effect 
+table is incrementally built. 
+
+2007-12-14: HL(hl@kent.ac.uk).
+
+Removed modules refac_compile.erl and refac_atom_info.erl, as they are 
+not used by the current Wrangler. (we might need them later, so keep a 
+copy of them somewhere else.)
+
+2007-12-12: Hl(hl@kent.ac.uk).
+
+New refactoring added: folding against a function definition.
+
+2007-12-04: HL(hl@kent.ac.uk).
+
+Introduce a function definition to represent a selected expression/expression sequence.
+
+2007-11-29: HL (hl@kent.ac.uk).
+
+* Rrimplemented the module graph calculation part. The new version no longer 
+depends on the Erlang compiler.
+
+2007-11-28:Huiqing Li (hl@kent.ac.uk).
+
+* Updated Makefile.in to take system info into account.
+
+2007-11-18:Huiqing Li (hl@kent.ac.uk).
+
+* Merged refac_duplicated_code.erl and refac_duplicated_code_in_files.erl
+
+2007-11-14: Huiqing Li (hl@kent.ac.uk).
+
+* Created a new cvs repository due to the re-construction of Wrangler.
 
 2007-11-13: Huiqing Li(hl@kent.ac.uk).
 * Added new module refac_expr_search.erl, which provides functionalities for 

@@ -20,7 +20,7 @@
 
 -module(wrangler_distel).
 
--export([ rename_fun/5, rename_var/5, rename_mod/3, generalise/6, move_fun/6, %% tuple_to_record/5,
+-export([ rename_fun/5, rename_var/5, rename_mod/3, generalise/7, move_fun/6, %% tuple_to_record/5,
          duplicated_code/3, expression_search/5, fun_extraction/6, fold_expression/3,
          undo/0, start_undo_process/0, stop_undo_process/0, undo_init/0]).
 
@@ -46,9 +46,9 @@ rename_mod(Fname, NewName,SearchPaths) ->
 	    {error, Reason}
     end.
 
-generalise(Fname, StartLine, StartCol, EndLine, EndCol, ParName)->
+generalise(Fname, StartLine, StartCol, EndLine, EndCol, ParName, SearchPaths)->
     case check_undo_process() of 
-	ok -> wrangler:generalise(Fname, {StartLine, StartCol}, {EndLine, EndCol}, ParName);
+	ok -> wrangler:generalise(Fname, {StartLine, StartCol}, {EndLine, EndCol}, ParName, SearchPaths);
 	{error, Reason} ->
 	    {error, Reason}
     end.
