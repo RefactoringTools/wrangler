@@ -67,12 +67,12 @@ rename_var(Fname, Line, Col, NewName, SearchPaths) ->
 						   {error, "New name could cause name shadowing."};
 					       _    -> 
 						   {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
-						   case refac_util:post_refac_check(Fname, AnnAST2,SearchPaths) of 
-						       ok -> 
+						   %% case refac_util:post_refac_check(Fname, AnnAST2,SearchPaths) of 
+%% 						       ok -> 
 							   refac_util:write_refactored_files([{{Fname,Fname}, AnnAST2}]),
-							   {ok, "Refactor succeeded"};
-						       error -> {error, "Sorry, wrangler could not rename this variable."}
-						   end
+							   {ok, "Refactor succeeded"}
+						    %%    error -> {error, "Sorry, wrangler could not rename this variable."}
+%% 						   end
 					     end
 				   end;
 				   true -> 

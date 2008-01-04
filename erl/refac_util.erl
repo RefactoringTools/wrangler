@@ -333,10 +333,11 @@ parse_annotate_file(FName,AnnotateLevel,ByPassPreP,SearchPaths) ->
 	      _ -> AnnAST = annotate_bindings(FName, SyntaxTree, Info, AnnotateLevel),
 		   if ByPassPreP ->
 			   {ok, {AnnAST, Info}};
-		      true -> case analyze_free_vars(AnnAST) of 
-				  {error, Reason} -> {error, Reason};
-				  _ -> {ok, {AnnAST, Info}}
-			      end
+		      true -> {ok, {AnnAST, Info}}
+			  %%  case analyze_free_vars(AnnAST) of 
+%% 			       {error, Reason} -> {error, Reason};
+%% 			       _ -> {ok, {AnnAST, Info}}
+%% 			   end
 		   end
 	  end;
 	{error, Reason} -> {error, Reason}                               

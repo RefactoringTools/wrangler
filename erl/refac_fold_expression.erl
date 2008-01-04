@@ -43,8 +43,6 @@
 
 -export([fold_expression/3, fold_expression_1/7]).
 
-
-
 %% =============================================================================================
 %% @spec fold_expression(FileName::filename(), Line::integer(), Col::integer())-> term()
 %% =============================================================================================        
@@ -213,7 +211,8 @@ do_search_candidate_exprs_1(AnnAST, Exp) ->
 				 R = refac_util:get_range(T),
 				 case lists:member(R, PrimExprRanges) of
 				     false ->  case expr_unification(Exp, T) of 
-						   {true, Subst} -> S++[{refac_util:get_range(T), Subst}];
+						   {true, Subst} -> 
+						       S++[{refac_util:get_range(T), Subst}];
 						   _ -> S
 					       end;
 				     _ -> S
@@ -296,7 +295,7 @@ do_search_candidate_exprs_2(AnnAST, ExpList) ->
     
 
 expr_unification(Exp1, Exp2) ->
-    case {is_list(Exp1), is_list(Exp2)} of 
+   Res1 = case {is_list(Exp1), is_list(Exp2)} of 
 	{true, true} ->   %% both are list of expressions
 	    case length(Exp1) == length(Exp2) of
 		true -> Res = lists:map(fun({E1,E2}) ->			      
@@ -370,6 +369,16 @@ expr_unification(Exp1, Exp2) ->
 	    false;
 	{false, true} ->  %% Exp1 is a single expression, but Exp2 is not.
 	   false      %% an actual parameter cannot be a list of expressions.
+    end,
+    case Res1 of 
+	{true, Subst} ->
+	    Subst1 = lists:usort(lists:map(fun({E1,E2}) -> {E1, refac_prettypr:format(E2)} end, Subst)),
+	    Len1 = length(lists:usort(lists:map(fun({E1,_E2}) -> E1 end, Subst1))),
+	    case Len1 == length(Subst1) of 
+		true -> {true, Subst};
+		_ -> false
+	    end;
+	_ -> false
     end.
 	    
 
