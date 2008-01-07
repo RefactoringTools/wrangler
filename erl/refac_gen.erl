@@ -78,7 +78,7 @@
 -export([generalise/5]).
 
 %% temporally exported for testing purposed.
--export([pre_cond_checking/2, do_generalisation/6, application_info/1, gen_fun_1/9]).
+-export([pre_cond_checking/2, do_generalisation/6, application_info/1, gen_fun_1/7, gen_fun_2/7]).
 
 %% =====================================================================
 %% @spec generalise(FileName::filename(), Start::Pos, End::Pos, ParName::string(), SearchPaths::[string()])-> term()
@@ -102,20 +102,19 @@ generalise(FileName, Start, End, ParName, SearchPaths) ->
 						ParName1 = list_to_atom(ParName),
 						case gen_cond_analysis(Fun, Exp1, ParName1) of 
 						    ok -> 
-							Side_Effect = refac_util:has_side_effect(FileName, Exp1, SearchPaths),
-							case Side_Effect of  
-							    false -> 	AnnAST1=gen_fun(AnnAST, ParName1, 
-											FunName, FunArity, FunDefPos,Info, Exp1, Side_Effect),
-									refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
-									{ok, "Refactor succeeded"};
-							    true -> Exp = exp_to_fun_expr(Exp1),
-								    AnnAST1=gen_fun(AnnAST, ParName1, 
-										    FunName, FunArity, FunDefPos,Info, Exp, Side_Effect),
-								    refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
-								    {ok, "Refactor succeeded"};
-							    unknown ->
-								{unknown_side_effect, [AnnAST, ParName1, FunName, FunArity, FunDefPos, Info, Exp1]}
-							end;	     
+							Exp_Free_Vars = refac_util:get_free_vars(Exp1),
+							case Exp_Free_Vars==[] of 
+							    true -> SideEffect = refac_util:has_side_effect(FileName, Exp1, SearchPaths),
+								    case SideEffect of  
+									unknown -> {unknown_side_effect, [ParName1, FunName, FunArity, FunDefPos,Exp1]};
+									_ ->AnnAST1=gen_fun(AnnAST, ParName1, 
+											    FunName, FunArity, FunDefPos,Info, Exp1, SideEffect),
+									    refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
+									    {ok, "Refactor succeeded"}
+									end;	     
+							    false ->
+								{free_vars, [ParName1, FunName, FunArity, FunDefPos, Exp1]}
+							end;
 						    {error, Reason} -> {error, Reason}
 						end 
 				     end;
@@ -130,21 +129,31 @@ generalise(FileName, Start, End, ParName, SearchPaths) ->
 %% @spec_to_fun_expr(Exp::expression())->expression()
 
 %% TODO: make the free variables as parameters.
-exp_to_fun_expr(Exp) ->
-    case refac_syntax:type(Exp) of 
-	fun_expr -> Exp;
-	_ -> C = refac_syntax:clause([],[],[Exp]),
-	     refac_syntax:copy_attrs(Exp, refac_syntax:fun_expr([C]))
-    end.
+make_actual_parameter(Exp, SideEffect) ->
+    FreeVars = lists:map(fun({V,_}) -> V end, refac_util:get_free_vars(Exp)),
+    case FreeVars==[] of 
+	true -> case SideEffect of 
+		    true -> case refac_syntax:type(Exp) of
+				fun_expr -> Exp;
+				_ -> C = refac_syntax:clause([],[],[Exp]),
+				     refac_syntax:copy_attrs(Exp, refac_syntax:fun_expr([C]))
+			    end;
+		    _ -> Exp
+		end;
+	false -> Pars  = lists:map(fun(P) ->refac_syntax:variable(P) end, FreeVars),
+		 C = refac_syntax:clause(Pars,[],[Exp]),
+		 refac_syntax:copy_attrs(Exp, refac_syntax:fun_expr([C]))
 
+    end.
+	    
 %% =====================================================================
 %% @spec gen_cond_analysis(Fun::function(), Exp::expression(), ParName::atom())-> term()
 %%
 gen_cond_analysis(Fun, Exp, ParName) ->
     Exp_Free_Vars = refac_util:get_free_vars(Exp),
     Exp_Export_Vars =refac_util:get_var_exports(Exp),
-    if (Exp_Free_Vars /= []) or (Exp_Export_Vars /=[]) ->
-       {error, "The selected expression contains locally declared variable(s)!"};
+    if (Exp_Export_Vars /=[]) ->
+       {error, "The selected expression exports locally declared variable(s)!"};
        true -> Cs = refac_syntax:function_clauses(Fun),
 	       Vars0 = lists:foldl(fun(C,Accum)->Accum++
 		       refac_syntax_lib:fold(fun(C1, A) -> A++refac_util:get_bound_vars(C1) end, [],C)
@@ -161,33 +170,48 @@ gen_cond_analysis(Fun, Exp, ParName) ->
 
 %% =====================================================================
 %% @spec gen_fun(Tree::syntaxTree(),ParName::atom(), FunName::atom(), Arity::integer(), DefPos::Pos,
-%% Info::[{Key, term()}], Exp::expression(),Side_Effect::bool()) -> syntaxTree()
+%% Info::[{Key, term()}], Exp::expression(),SideEffect::bool()) -> syntaxTree()
 %%
 %%          Key = attributes | errors | exports | functions | imports
 %%                | module | records | rules | warnings
 %%    
-gen_fun(Tree, ParName, FunName, Arity, DefPos,Info, Exp, Side_Effect) ->
+gen_fun(Tree, ParName, FunName, Arity, DefPos,Info, Exp, SideEffect) ->
       R = refac_util:is_exported({FunName, Arity}, Info),
       Tree1 = if R  -> add_function(Tree, FunName,DefPos, Exp);
 		 true -> Tree
-	      end,		       
-      refac_util:stop_tdTP(fun do_gen_fun/2, Tree1, {ParName, FunName, Arity, DefPos,Info, Exp,Side_Effect}).
+	      end,		  
+       refac_util:stop_tdTP(fun do_gen_fun/2, Tree1, {ParName, FunName, Arity, DefPos,Info, Exp,SideEffect}).
 
 
 
-gen_fun_1(SideEffect, FileName, Tree, ParName, FunName, Arity, DefPos, Info, Exp) ->
-    Exp1 = case SideEffect of 
-	       true -> exp_to_fun_expr(Exp);
-	       _  -> Exp
-	   end,
+gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp) ->
+    %% somehow I couldn't pass AST to elisp part, as some occurrences of 'nil' were turned into '[]'.
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName,2),  
     R = refac_util:is_exported({FunName, Arity}, Info),
-    Tree1 = if R  -> add_function(Tree, FunName,DefPos, Exp);
-	       true -> Tree
+    AnnAST1 = if R  -> add_function(AnnAST, FunName,DefPos, Exp);
+	       true -> AnnAST
 	    end,		       
-    AnnAST1 = refac_util:stop_tdTP(fun do_gen_fun/2, Tree1, {ParName, FunName, Arity, DefPos,Info, Exp1,SideEffect}),
-    refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
+    AnnAST2 = refac_util:stop_tdTP(fun do_gen_fun/2, AnnAST1, {ParName, FunName, Arity, DefPos,Info, Exp,SideEffect}),
+    refac_util:write_refactored_files([{{FileName,FileName}, AnnAST2}]),
     {ok, "Refactor succeeded"}.
 
+gen_fun_2(FileName, ParName1, FunName, FunArity, FunDefPos, Exp, SearchPaths) ->
+    %% somehow I couldn't pass AST to elisp part, as some occurrences of 'nil' were turned into '[]'.
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName,2),
+    SideEffect = refac_util:has_side_effect(FileName, Exp, SearchPaths),
+    case SideEffect of  
+	false ->AnnAST1=gen_fun(AnnAST, ParName1, 
+				FunName, FunArity, FunDefPos,Info, Exp, SideEffect),
+		refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
+		{ok, "Refactor succeeded"};
+	true -> AnnAST1=gen_fun(AnnAST, ParName1, 
+				FunName, FunArity, FunDefPos,Info, Exp, SideEffect),
+		refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
+		{ok, "Refactor succeeded"};
+	unknown ->
+	    {unknown_side_effect, [ParName1, FunName, FunArity, FunDefPos,Exp]}
+    end.	  
+    
     
 
 %% =====================================================================
@@ -219,8 +243,9 @@ add_function(Tree, FunName, DefPos, Exp) ->
 
 %% =====================================================================
 %%
-do_gen_fun(Tree, {ParName, FunName, Arity, DefPos,Info, Exp, Side_Effect}) ->
-     case  refac_syntax:type(Tree) of 
+do_gen_fun(Tree, {ParName, FunName, Arity, DefPos,Info, Exp, SideEffect}) ->    
+     Exp1 =  make_actual_parameter(Exp, SideEffect),
+    case  refac_syntax:type(Tree) of 
 	function -> 
 	    case get_fun_def_loc(Tree) of 
 		DefPos -> 
@@ -229,30 +254,37 @@ do_gen_fun(Tree, {ParName, FunName, Arity, DefPos,Info, Exp, Side_Effect}) ->
 			    Name = refac_syntax:function_name(Tree),
 			    NewPar= refac_syntax:variable(ParName),
 			    Cs=[add_parameter(C1, NewPar) 
-				||  C1 <-[ add_actual_parameter(replace_exp_with_var(C, {ParName, Exp, Side_Effect}),
+				||  C1 <-[ add_actual_parameter(replace_exp_with_var(C, {ParName, Exp, SideEffect}),
 								{FunName, Arity , NewPar, Info})
 					   || C <- refac_syntax:function_clauses(Tree)]],
 			    {refac_syntax:copy_pos(Tree, 
 						   refac_syntax:copy_attrs(Tree, refac_syntax:function(Name, Cs))), true};
-		       true -> {add_actual_parameter(Tree, {FunName, Arity, Exp, Info}), true}
+		       true -> 		    
+			    {add_actual_parameter(Tree, {FunName, Arity, Exp1, Info}), true}
 		    end;
-		_ ->{add_actual_parameter(Tree, {FunName, Arity, Exp, Info}), false}
+		_ -> {add_actual_parameter(Tree, {FunName, Arity, Exp1, Info}), true}
 	    end;
 	_ -> {Tree, false}
     end.
 
 
-replace_exp_with_var(Tree, {ParName, Exp, Side_Effect}) ->
-    refac_util:stop_tdTP(fun do_replace_exp_with_var/2, Tree, {ParName, Exp, Side_Effect}).
+replace_exp_with_var(Tree, {ParName, Exp, SideEffect}) ->
+    refac_util:stop_tdTP(fun do_replace_exp_with_var/2, Tree, {ParName, Exp, SideEffect}).
 
-do_replace_exp_with_var(Tree, {ParName, Exp, Side_Effect}) ->
+do_replace_exp_with_var(Tree, {ParName, Exp, SideEffect}) ->
     Range = refac_util:get_range(Exp),
     case refac_util:get_range(Tree) of 
 	Range ->
-	    case Side_Effect of 
-		false -> {refac_syntax:variable(ParName), true};
+	    FreeVars = lists:map(fun({V,_}) -> V end, refac_util:get_free_vars(Exp)),
+	    Pars  = lists:map(fun(P) ->refac_syntax:variable(P) end, FreeVars),
+	    case SideEffect of 
+		false -> case FreeVars==[] of 
+			     true ->{refac_syntax:variable(ParName), true};
+			     _ -> Op1 = refac_syntax:operator(ParName),
+				  {refac_syntax:application(Op1, Pars), true}
+			 end;
 	        _ ->  Op1 = refac_syntax:operator(ParName),
-			 {refac_syntax:application(Op1, []),true}
+		      {refac_syntax:application(Op1, Pars),true}
 	    end;
 	_ -> {Tree, false}
     end.
@@ -547,14 +579,14 @@ do_generalisation(FileName,AnnAST, {Start, End}, ParName,Info, SearchPaths)->
     Fun =  refac_util:expr_to_fun(AnnAST, Exp1),
     FunName = refac_syntax:data(refac_syntax:function_name(Fun)),
     FunArity = refac_syntax:function_arity(Fun),
-    Side_Effect = refac_util:has_side_effect(FileName, Exp1, SearchPaths),
-    Exp = case Side_Effect of  
+    SideEffect = refac_util:has_side_effect(FileName, Exp1, SearchPaths),
+    Exp = case SideEffect of  
 	      false -> Exp1;
-	      _ -> exp_to_fun_expr(Exp1)
+	      _ -> make_actual_parameter(Exp1, SideEffect)
 	  end,
     FunDefPos =get_fun_def_loc(Fun), 
     ParName1 = list_to_atom(ParName),
-    gen_fun(AnnAST, ParName1, FunName, FunArity, FunDefPos,Info, Exp, Side_Effect).
+    gen_fun(AnnAST, ParName1, FunName, FunArity, FunDefPos,Info, Exp, SideEffect).
 
     
 get_module_name(ModInfo) ->				      

@@ -11,7 +11,7 @@
 
 -export([construct/1]).
 
--include("../hrl/wrangler.hrl").
+-include("wrangler.hrl").
 
 construct(List) ->
   {Calls, FunDefMap, ExternalCalls} = preprocess(List),

@@ -126,7 +126,8 @@ scan_file(Ifile, Path, Predefs) ->
 
 scan_file(Epp) ->
     case epp_request(Epp, scan_erl_form) of
-      {ok, Toks} -> Toks ++  scan_file(Epp);
+      {ok, Toks} -> 
+	    Toks ++  scan_file(Epp);
       {error, _E} -> scan_file(Epp);
       {eof, _Line} -> []
     end.	    

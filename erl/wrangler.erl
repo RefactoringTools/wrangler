@@ -23,7 +23,7 @@
 %% @author Huiqing Li <hl@kent.ac.uk>
 %%   [http://www.cs.kent.ac.uk/projects/forse]
 
-%% @version  0.2
+%% @version  0.3
 %% @end
 
 %%
@@ -42,6 +42,7 @@
 	 generalise/5,
 	 move_fun/6,
 	 duplicated_code/3,
+	 clone_detector/3,
 	 expression_search/3,
 	 fun_extraction/4,
 	 fold_expression/3]).
@@ -60,9 +61,7 @@
 %% of existing variables in the inner scopes, i.e., renaming to the new name should not change the semantics of the 
 %% program.</li>
 %% </p>
-%% @end
-
-%% =====================================================================
+%% ================================================================================================
 %% @spec rename_var(FileName::filename(), Line::integer(), Col::integer(), NewName::string(),SearchPaths::[string()])
 %% -> term()
 %%    
@@ -87,13 +86,9 @@ rename_var(FileName, Line, Col, NewName, SearchPaths) ->
 %% <li> In the case that the function to be renamed is imported by another module, the new function name (with the same 
 %% arity) should not be already in scope (either defined or imported) in that module. </li>
 %% </p>
-%% @end
-
-%% =====================================================================
+%% ========================================================================================
 %% @spec rename_fun(FileName::filename(), Line::integer(), Col::integer(), NewName::string(), SearchPaths::[string()])
 %% -> term()
-%% @end
-%%======================================================================
 rename_fun(FileName, Line, Col, NewName, SearchPaths) ->
     refac_rename_fun:rename_fun(FileName, Line, Col, NewName, SearchPaths).
 
@@ -113,7 +108,6 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths) ->
 %% <li> This refactoring assume that the file basename is always the same as the module name, therefore this 
 %% refactoring changes the filename as well. </li>
 %% </p>
-%% @end
 %% =====================================================================
 %% @spec rename_mod(FileName::filename(), NewName::string(), SearchPaths::[string()])-> term()
 %%   
@@ -122,7 +116,7 @@ rename_mod(FileName, NewName, SearchPaths) ->
 
 
 %% =====================================================================
-%% @doc Rename a collect of module names in batch mode. 
+%% @doc Rename a collection of module names in batch mode. 
 %% <p> This refactoring is supposed to be run from the Erlang shell. For example, 
 %% to rename all those module names which match the regular expression "foo_*" to 
 %% "foo_*_1_0" in the directory <code> c:/wrangler/test </code>, just type the following command:
@@ -134,7 +128,6 @@ rename_mod(FileName, NewName, SearchPaths) ->
 %% in the same scope which will not be renamed. </li>
 %% <li> This refactorings assumes that the file basename is always the same as the module name. </li>
 %% </p>
-%% @end
 %% =====================================================================
 %% @spec rename_mod_batch(OldNamePattern::string(), NewNamePattern::string(), 
 %%                        SearchPaths::[string()])-> ok | {error, string()}
@@ -144,9 +137,10 @@ rename_mod_batch(OldNamePattern, NewNamePattern, SearchPaths) ->
 
 
 %% ==========================================================================================
-%% @doc Generalise a function definition by selecting a sub-expression of its right-hand 
+%% @doc  Generalise a function definition.
+%% <p>Generalise a function definition by selecting a sub-expression of its right-hand 
 %% side and making this the value of a new argument added to the definition of the function. 
-%% The sub-expression becomes the actual parameter at the call sites. 
+%% The sub-expression becomes the actual parameter at the call sites. </p>
 %%
 %% <p> To apply this refactoring, highlight the expression first, then  select 
 %% <em> Generalise Function Definition </em> from the <em>Refactor</em> menu, after 
@@ -198,8 +192,6 @@ rename_mod_batch(OldNamePattern, NewNamePattern, SearchPaths) ->
 %% <li> The user-provided parameter name should not conflict with the existing parameters or
 %% change the semantics of the function to be generalised. </li>
 %% </p>
-%% @end
-
 %% ==============================================================================
 %% @spec generalise(FileName::filename(), Start::Pos, End::Pos, ParName::string(), SearchPaths::[string()])-> term()
 %%         Pos = {integer(), integer()}
@@ -228,8 +220,6 @@ generalise(FileName, Start, End, ParName, SearchPaths) ->
 %% collection of modules together to another module will be supported by another refactoring).
 %% </li>
 %% </p>
-%% @end
-
 %% ===================================================================================
 %% @spec move_fun(FileName::filename(),Line::integer(),Col::integer(),ModName::string(), 
 %%                CreateNewFile::boolean(),SearchPaths::[string()])-> term()
@@ -240,33 +230,53 @@ move_fun(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths) ->
 
 
 %% ==================================================================================
-%% @doc Find duplicated code in a Erlang source file.
-%% <p> This function only reports the duplicated code fragments found in the current source file. It does 
-%% not remove those duplicated code. Two parameters can be provided by the user to specify the minimum code clones 
-%% to report, and they are:  \emph{the  minimum number of lines of a code clone} and \emph{the minimum number of 
-%% duplicated times}, the default values are 5 and 2 respectively.
+%% @doc The duplicated code detector that only works with the current Erlang buffer.
+%% <p> This function reports the duplicated code fragments found in the current Erlang buffer. It does 
+%% not remove those code clones. The user will be prompted for two parameters: the minimum number of 
+%% tokens the a code clone should have, and the minimum number of the times a code fragment has been 
+%% duplicated.
+%% </p>
+%% <p> The current version of the duplicated code detector can report clones that are syntactically 
+%% identical after consistent variable renaming, except for variations in literals, layout and comments.
 %% </p>
 %% =====================================================================================
-%% @spec duplicated_code(FileName::filename(),MinLines::integer(),MinClones::integer()) -> term().
+%% @spec duplicated_code(FileName::filename(),MinToks::integer(),MinClones::integer()) -> term()
 %%                
-duplicated_code(FileName, MinLines, MinClones) -> 
-    refac_duplicated_code:duplicated_code([FileName], MinLines, MinClones).
+duplicated_code(FileName, MinToks, MinClones) -> 
+    refac_duplicated_code:duplicated_code([FileName], MinToks, MinClones).
+
+
+%% =====================================================================================
+%% @doc The duplicated code detector that works with multiple Erlang modules.
+%% <p> This is the duplicated code detector that works with multiple Erlang modules, which should be used from 
+%% the command line.</p>
+%% <p> This function only reports the found duplicated code fragments. It does not remove them.
+%% The user have to  will supply three parameters: the lists of Erlang files to check,  the minimum number of 
+%% tokens the a code clone should have, and the minimum number of the times a code fragment has been 
+%% duplicated.
+%% </p>
+%% <p> The current version of the duplicated code detector can report clones that are syntactically 
+%% identical after consistent variable renaming, except for variations in literals, layout and comments.
+%% </p>
+%%======================================================================================
+%% @spec clone_detector(FileNameList::[filename()], MinToks::integer(), MinClones::integer()) -> term()
+
+clone_detector(FileNameList, MinToks, MinClones) ->
+    refac_duplicated_code:duplicated_code(FileNameList, MinToks, MinClones).
     
 
-
-%% @doc Search a user-selected expression or a sequence of expressions from an Erlang source file.
-%%
-%% <p> This functionality allows the user to search a selected expression or a sequence of expressions
-%% from the current Erlang buffer. The searching ignores variables names and literals, but it takes
-%% the binding structure of variables into account. Therefore the found expressions are the same to the 
-%% highlighted expression up to variable renaming and literal substitution. Layout and comments are ignored 
-%% by the searching.
+%% ==================================================================================================
+%% @doc Search for clones of a user-selected expression/expression sequence in the current file.
+%% 
+%% <p> This functionality allows to search for clones of a selected expression or expression 
+%% sequence.  The found clones are syntactically identical to the user-selected code fragment after consistent variable 
+%% renaming, except for variations in literals, layout and comments. 
 %% </p>
 %% <p> When the selected code contains multiple, but non-continuous sequence of, expressions, the first
 %% continuous sequence of expressions is taken as the user-selected expression. A continuous sequence of
 %% expressions is a sequence of expressions separated by ','. </p>
-%% =====================================================================================
-%% @spec expr_search(FileName::filename(),Start::Pos, End::Pos) -> term().
+%% ==================================================================================================
+%% @spec expression_search(FileName::filename(),Start::Pos, End::Pos) -> term()
 
 expression_search(FileName, Start, End) ->
     refac_expr_search:expr_search(FileName, Start, End).
@@ -274,41 +284,42 @@ expression_search(FileName, Start, End) ->
 
 
 %% =====================================================================================================
-%%@doc Introduce a new function to represent an user-selected expression sequence.
-%% <p> This refactoring allows the user to introduce a new function to represent a selected expression/expression 
-%% sequence, and replace the selected expression with a call to the newly introduced function.  Those free variables
-%% within the expression become the formal parameters of the function. </p>
+%%@doc Introduce a new function to represent a user-selected expression or expression sequence.
+%% <p> This refactoring allows the user to introduce a new function to represent a selected expression or expression 
+%% sequence, and replace the selected expression/expression sequence with a call to the newly introduced function.  Those free variables
+%% within the expression/expression sequence become the formal parameters of the function. </p>
 %% =====================================================================================================
-%% @spec fun_extraction(FileName::filename(), Start::Pos, End::Pos, FunName:string()) -> term().
-
+%% @spec fun_extraction(FileName::filename(), Start::Pos, End::Pos, FunName::string()) -> term()
 fun_extraction(FileName, Start, End, FunName) -> 
     refac_new_fun:fun_extraction(FileName, Start, End, FunName).
 
 
 %% =============================================================================================
-%% @doc This refactoring replaces instances of the right-hand side of a function clause definition by
+%% @doc Fold expressions against a function definition.
+%% This refactoring replaces instances of the right-hand side of a function clause definition by
 %% the corresponding left-hand side with necessary parameter substitutions.
 
-%% <p> To apply this refactoring, move the cursor to the function clause against with expressions 
+%% <p> To apply this refactoring, move the cursor to the function clause against which expressions 
 %% will be folded, then select <em> Fold Expression Against Function</em> from the <em> Refactor</em>
 %% menu, after that the refactor will search the current module for expressions which are instances 
 %% of the right-hand side of the selected function clause. </p>
 %%
 %% <p> If no candidate expression has been found, a message will be given, and the refactoring 
-%% finishes; otherwise, Wrangler will go through the found candidate expressions one by one asking 
+%% finishes; otherwise, Wrangler will go through the found candidate expressions one by one, and ask 
 %% the user whether she/he wants to replace the expression with an application of selected function.
 %% If the user answers 'yes' to one instance,  that instance will be replaced by function application,
 %% otherwise it will remain unchanged. </p>
 %%
-%% <p> In the case that a candidate expression/expression sequence  need to export some variables with 
+%% <p> In the case that a candidate expression/expression sequence  need to export some variables which 
 %% are used by the following code, that expression/expression sequence will be replaced by a match 
 %% expression, whose left-hand side it the exported variable(s), and right-hand side is the function
 %% application.</p>
 %% 
-%% <p> This refactoring does not support folding against function clauses with guard expressions, and 
+%% <p> This refactoring does not support folding against function clauses with guard expressions, or 
 %% function clauses with complex formal parameters, such as tuples, lists, or records. </p>
+
+%% This refactoring currrently only works with a single module, but will be extended to multiple modules.
 %% =============================================================================================
 %% @spec fold_expression(FileName::filename(), Line::integer(), Col::integer())-> term()
-
 fold_expression(FileName, Line, Col) ->
     refac_fold_expression:fold_expression(FileName, Line, Col).

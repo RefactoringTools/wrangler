@@ -21,7 +21,7 @@
 %% Author contact: richardc@csd.uu.se
 %%
 %% Modified: 17 Jan 2007 by  Huiqing Li <hl@kent.ac.uk>
-%% $Id: refac_syntax_lib.erl,v 1.1.1.1 2007-11-07 21:56:10 hl Exp $
+%% $Id: refac_syntax_lib.erl,v 1.2 2008-01-07 16:01:48 hl Exp $
 %%
 %% =====================================================================
 %%
@@ -582,20 +582,27 @@ vann_receive_expr(Tree, Env) ->
     %% Bindings in the expiry expression are local only.
     Cs = refac_syntax:receive_expr_clauses(Tree),
     Es = refac_syntax:receive_expr_action(Tree),
-    C = refac_syntax:clause([], Es),
-    {[C1 | Cs1], {Bound, Free1}} = vann_clauses([C | Cs],
-						Env),
-    Es1 = refac_syntax:clause_body(C1),
-    {T1, _, Free2} = case
+    case Es of 
+	[] ->
+	    {Cs1,{Bound, Free}} = vann_clauses(Cs, Env),
+	    Tree1 = rewrite(Tree, refac_syntax:receive_expr(Cs1, none, [])),
+	    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free};
+	_ ->
+	    C = refac_syntax:clause([], Es),
+	    {[C1 | Cs1], {Bound, Free1}} = vann_clauses([C | Cs],
+							Env),
+	    Es1 = refac_syntax:clause_body(C1),
+	    {T1, _, Free2} = case
 		       refac_syntax:receive_expr_timeout(Tree)
 			 of
 		       none -> {none, [], []};
 		       T -> vann(T, Env)
 		     end,
-    Free = ordsets:union(Free1, Free2),
-    Tree1 = rewrite(Tree,
-		    refac_syntax:receive_expr(Cs1, T1, Es1)),
-    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+	    Free = ordsets:union(Free1, Free2),
+	    Tree1 = rewrite(Tree,
+			    refac_syntax:receive_expr(Cs1, T1, Es1)),
+	    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}
+    end.
 
 vann_list_comp(Tree, Env) ->
     Es = refac_syntax:list_comp_body(Tree),

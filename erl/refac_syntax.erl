@@ -20,7 +20,7 @@
 %%
 %% Author contact: richardc@csd.uu.se
 %%
-%% $Id: refac_syntax.erl,v 1.1.1.1 2007-11-12 15:34:19 hl Exp $
+%% $Id: refac_syntax.erl,v 1.2 2008-01-07 16:01:48 hl Exp $
 %%
 %% Modified: 17 Jan 2007 by  Huiqing Li <hl@kent.ac.uk>
 %% =====================================================================
@@ -5382,7 +5382,7 @@ revert_forms_1([]) -> [].
 %% @see copy_attrs/2
 
 subtrees(T) ->
-    case is_leaf(T) of
+      case is_leaf(T) of
       true -> [];
       false ->
 	  case type(T) of

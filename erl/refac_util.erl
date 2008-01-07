@@ -40,11 +40,11 @@
 	 callback_funs/1, expand_files/2, get_modules_by_file/1,
 	 to_lower/1, to_upper/1,
 	 post_refac_check/3,
-	 try_evaluation/1,
+	 try_evaluation/1, bifs_side_effect_table/0,
 	 build_call_graph/1, auto_imported_bifs/0]).
        
 
--include("wrangler.hrl").
+-include("../hrl/wrangler.hrl").
 
 
 ghead(Info, []) ->
@@ -333,11 +333,10 @@ parse_annotate_file(FName,AnnotateLevel,ByPassPreP,SearchPaths) ->
 	      _ -> AnnAST = annotate_bindings(FName, SyntaxTree, Info, AnnotateLevel),
 		   if ByPassPreP ->
 			   {ok, {AnnAST, Info}};
-		      true -> {ok, {AnnAST, Info}}
-			  %%  case analyze_free_vars(AnnAST) of 
-%% 			       {error, Reason} -> {error, Reason};
-%% 			       _ -> {ok, {AnnAST, Info}}
-%% 			   end
+		      true -> case analyze_free_vars(AnnAST) of 
+ 			       {error, Reason} -> {error, Reason};
+ 			       _ -> {ok, {AnnAST, Info}}
+ 			   end
 		   end
 	  end;
 	{error, Reason} -> {error, Reason}                               
@@ -779,7 +778,8 @@ do_add_category(Node, C) ->
 %% Qn: Any other cases in need of location adjustment?
 
 adjust_locations(FName, AST) ->
-    {ok, Toks} = refac_epp:scan_file(FName, [],[]),
+    %% {ok, Toks} =  refac_epp:scan_file(FName, [],[]),
+    Toks = tokenize(FName),
     F = fun(T) -> case refac_syntax:type(T) of
 		    implicit_fun -> 
 			Pos = refac_syntax:get_pos(T),
@@ -787,7 +787,7 @@ adjust_locations(FName, AST) ->
 			case refac_syntax:type(Name) of 
 			    arity_qualifier ->
 				Fun = refac_syntax:arity_qualifier_body(Name),
-				A = refac_syntax:arity_qualifier_argument(Name),
+				A = refac_syntax:arity_qualifier_argument(Name),				
 				case {refac_syntax:type(Fun), refac_syntax:type(A)} of 
 				    {atom, integer} -> 
 					Toks1 = lists:dropwhile(fun(B) ->element(2, B) =/= Pos end, Toks),
@@ -796,10 +796,10 @@ adjust_locations(FName, AST) ->
 									case B of {atom, _, Fun1} -> false;
 									    _ -> true
 									end
-								end, Toks1),				 
+								end, Toks1),
 					P = element(2, ghead("refac_util: adjust_locations,P",Toks2)),
 					Fun2 = refac_syntax:set_pos(Fun, P),
-					Toks3 = lists:dropwhile(fun(B) ->
+			 		Toks3 = lists:dropwhile(fun(B) ->
 									case B of {integer, _, _} ->false;
 									    _ -> true
 									end
@@ -996,6 +996,15 @@ write_refactored_files(Files) ->
     end,
     lists:map(F, Files).
 
+
+tokenize(File) ->
+    {ok, Bin} = file:read_file(File),
+    S = erlang:binary_to_list(Bin),
+    case refac_scan:string(S) of 
+	{ok, Toks, _} -> Toks;
+	_ -> []
+    end.
+ 
 %% =====================================================================
 %% @spec is_fun_name(Name:: string())-> Bool
 %%    
@@ -1366,9 +1375,9 @@ has_side_effect(File, Node, SearchPaths) ->
 %% put the result to the dets file: side_effect_plt.
 build_lib_side_effect_tab(FileOrDirs) ->
     Plt = ets:new(side_effect_table, [set,public]),
-    true = ets:insert(Plt, bifs_side_effect_table()),
     {Sccs, _E} =build_call_graph(FileOrDirs),
-    build_side_effect_tab(Sccs,Plt,ets:new(dummy_tab, [set_public])),
+    build_side_effect_tab(Sccs,Plt,ets:new(dummy_tab, [set,public])),
+    ets:insert(Plt, bifs_side_effect_table()),
     File = filename:join(?WRANGLER_DIR, "plt/side_effect_plt"),
     to_dets(Plt, File),
     ets:delete(Plt).
@@ -1469,7 +1478,7 @@ build_call_graph(DirList) ->
     {Sccs, E}.
 
 build_call_graph([FileName|Left], Acc) ->
-    case refac_util:parse_annotate_file(FileName,1) of 
+     case refac_util:parse_annotate_file(FileName,1) of 
 	{ok, {AnnAST, Info}} ->
 	    G1 = build_call_graph(AnnAST, Info, FileName),
 	    Acc1= Acc++ G1,
@@ -1680,7 +1689,7 @@ try_evaluation(Expr) ->
     end. 
     
 
-%%================================================================================
+%% true = ets:insert(Plt, bifs_side_effect_table()),================================================================================
 
 
 
@@ -1727,7 +1736,7 @@ bifs_side_effect_table() ->
     {{erlang, localtime_to_universaltime, 1}, false},  {{erlang, localtime_to_iniversaltime, 2}, false},
     {{erlang, make_ref, 0}, true},           {{erlang, make_tuple, 2}, true},
     {{erlang, md5, 1}, false},               {{erlang, md5_final, 1}, false},
-    {{erlang, md5_init, 0, false},           {{erlang, md5_update, 2}, false},
+    {{erlang, md5_init, 0}, false},           {{erlang, md5_update, 2}, false},
     {{erlang, memory, 0}, true},             {{erlang, memory, 1}, true},
     {{erlang, module_loaded, 1}, true},      {{erlang, monitor, 2}, true},
     {{erlang, monitor_node, 2}, true},       {{erlang, node, 0}, true},
@@ -1765,7 +1774,7 @@ bifs_side_effect_table() ->
     {{erlang, system_monitor, 2}, true},     {{erlang, term_to_binary, 1}, false},
     {{erlang, term_to_binary, 2}, false},    {{erlang, throw, 1}, true},
     {{erlang, time, 1}, true},               {{erlang, tl, 1}, false},
-    {{erlang, trace, 1}}, true},             {{erlang, trace_info, 2}, true},
+    {{erlang, trace, 1}, true},             {{erlang, trace_info, 2}, true},
     {{erlang, trace_pattern,2}, true},       {{erlang, trace_pattern,3},true},
     {{erlang, trunc, 1}, false},             {{erlang, unregister, 1}, false}, 
     {{erlang, unregister, 1}, true},         {{erlang, tuple_to_list, 1}, false},
