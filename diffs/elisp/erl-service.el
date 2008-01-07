@@ -1412,22 +1412,20 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
     (erl-spawn
       (erl-send-rpc node 'wrangler_distel 'generalise
 		    (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name erlang-refac-search-paths))
-      (erl-receive (buffer node current-file-name)
+      (erl-receive (buffer node current-file-name erlang-refac-search-paths)
 	  ((['rex ['badrpc rsn]]
 	    (message "Refactoring failed: %S" rsn))
 	   (['rex ['error rsn]]
 	    (message "Refactoring failed: %s" rsn))
 	   (['rex ['unknown_side_effect pars]]	        
-                 (setq ast (elt pars 0))
-		 (setq  parname (elt pars 1))
-		 (setq funname (elt pars 2))
-		 (setq arity (elt pars 3))
-		 (setq defpos (elt pars 4))
-		 (setq info (elt pars 5))
-		 (setq exp (elt pars 6))
+		 (setq  parname (elt pars 0))
+		 (setq funname (elt pars 1))
+		 (setq arity (elt pars 2))
+		 (setq defpos (elt pars 3))
+		 (setq exp (elt pars 4))
 	    	(if (yes-or-no-p "Does the selected expression has side effect?")
 		    (erl-spawn
-		      (erl-send-rpc node 'refac_gen 'gen_fun_1 (list 'true current-file-name ast parname funname arity defpos info exp))
+		      (erl-send-rpc node 'refac_gen 'gen_fun_1 (list 'true current-file-name parname funname arity defpos exp))
 		      (erl-receive (buffer)
 			  ((['rex ['badrpc rsn]]
 			    (message "Refactoring failed: %S" rsn))
@@ -1437,7 +1435,7 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 			    (with-current-buffer buffer (revert-buffer nil t t))
 			    (message "Refactoring succeeded!")))))
 		  (erl-spawn
-		      (erl-send-rpc node 'refac_gen 'gen_fun_1 (list 'false current-file-name ast parname funname arity defpos info exp))
+		      (erl-send-rpc node 'refac_gen 'gen_fun_1 (list 'false current-file-name parname funname arity defpos exp))
 		      (erl-receive (buffer)
 			  ((['rex ['badrpc rsn]]
 			    (message "Refactoring failed: %S" rsn))
@@ -1445,7 +1443,52 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 			    (message "Refactoring failed: %s" rsn))
 			   (['rex ['ok refac-generalisation]]
 			    (with-current-buffer buffer (revert-buffer nil t t))
-			    (message "Refactoring succeeded!")))))))		       
+			    (message "Refactoring succeeded!")))))))
+	   (['rex ['free_vars pars]]	        
+		 (setq  parname (elt pars 0))
+		 (setq funname (elt pars 1))
+		 (setq arity (elt pars 2))
+		 (setq defpos (elt pars 3))
+		 (setq exp (elt pars 4))
+	    	(if (yes-or-no-p "The selected expression has free variables, do you want to continue the refactoring?")
+		    (erl-spawn
+		      (erl-send-rpc node 'refac_gen 'gen_fun_2 (list current-file-name parname funname arity defpos exp erlang-refac-search-paths))
+		      (erl-receive (buffer node current-file-name)
+			  ((['rex ['badrpc rsn]]
+			    (message "Refactoring failed: %S" rsn))
+			   (['rex ['error rsn]]
+			    (message "Refactoring failed: %s" rsn))
+			     (['rex ['unknown_side_effect pars]]	        
+			      (setq  parname (elt pars 0))
+			      (setq funname (elt pars 1))
+			      (setq arity (elt pars 2))
+			      (setq defpos (elt pars 3))
+			      (setq exp (elt pars 4))
+			      (if (yes-or-no-p "Does the selected expression has side effect?")
+				  (erl-spawn
+				    (erl-send-rpc node 'refac_gen 'gen_fun_1 (list 'true current-file-name parname funname arity defpos exp))
+				    (erl-receive (buffer)
+					((['rex ['badrpc rsn]]
+					  (message "Refactoring failed: %S" rsn))
+					 (['rex ['error rsn]]
+					  (message "Refactoring failed: %s" rsn))
+					 (['rex ['ok refac-generalisation]]
+					  (with-current-buffer buffer (revert-buffer nil t t))
+					  (message "Refactoring succeeded!")))))
+				(erl-spawn
+				  (erl-send-rpc node 'refac_gen 'gen_fun_1 (list 'false current-file-name  parname funname arity defpos exp))
+				  (erl-receive (buffer)
+				      ((['rex ['badrpc rsn]]
+					(message "Refactoring failed: %S" rsn))
+				       (['rex ['error rsn]]
+					(message "Refactoring failed: %s" rsn))
+				       (['rex ['ok refac-generalisation]]
+					(with-current-buffer buffer (revert-buffer nil t t))
+					(message "Refactoring succeeded!")))))))
+			     (['rex ['ok refac-generalisation]]
+			      (with-current-buffer buffer (revert-buffer nil t t))
+			      (message "Refactoring succeeded!")))))
+		  (message "Refactoring aborted!")))		 
 	   (['rex ['ok refac-generalisation]]
 	    (with-current-buffer buffer (revert-buffer nil t t))
             (message "Refactoring succeeded!")))))))
