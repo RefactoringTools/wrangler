@@ -20,8 +20,7 @@
 
 -module(refac_duplicated_code).
 
--export([duplicated_code/3]).
--compile(export_all).
+-export([duplicated_code/3, suffix_tree/2, remove_var_literals/1, test/0,test1/0]).
 
 %% TODO:  
 %% 1) does recusive function calls affect the result?
@@ -32,8 +31,26 @@
 -define(DEFAULT_MIN_CLONE_LEN, 5).  %% in the number of tokens.
 
 test() ->
-    duplicated_code(["../../test/test.erl"], "30", "2").
-%%    duplicated_code(["refac_util.erl", "refac_expr_search.erl"], "30","2").
+    duplicated_code(["refac_batch_rename_mod.erl", "refac_callgraph.erl", 
+		      "refac_duplicated_code.erl",
+                    %%  "refac_epp_dodger.erl", 
+		      "refac_expr_search.erl", "refac_util.erl",
+		      "refac_epp.erl",
+ 		     "refac_fold_expression.erl", "refac_gen.erl",
+ 		     "refac_io.erl", "refac_module_graph.erl",
+ 		     "refac_move_fun.erl", "refac_new_fun.erl",
+%% 		     "refac_parse.erl",
+ 		     "refac_prettypr.erl", "refac_recomment.erl",
+ 		     "refac_rename_fun.erl", "refac_rename_mod.erl",
+ 		     "refac_rename_var.erl", 
+		     "refac_scan.erl", 
+ 		     "refac_syntax.erl",
+                    "refac_syntax_lib.erl", 
+		    "wrangler.erl", "wrangler_distel.erl", "wrangler_options.erl"], "30", "2").
+
+
+test1()->
+   duplicated_code(["refac_duplicated_code.erl"], "30","2").
 
 
 %% ==================================================================================
@@ -53,7 +70,7 @@ duplicated_code(FileNames, MinLength1, MinClones1) ->
     MinClones = list_to_integer(MinClones1),
     %% tokenize Erlang source files and concat them into a single list.
     {Toks, ProcessedToks} = tokenize(FileNames),
-    %% Suffix tree construction.
+ %%    Suffix tree construction.
     %%io:format("Suffix Tree construction\n"),
     Tree = suffix_tree(alphabet()++"&",ProcessedToks++"&"),  %% '&' does not occur in program source.
     %% Clone collection from the suffix tree.
@@ -62,16 +79,19 @@ duplicated_code(FileNames, MinLength1, MinClones1) ->
     %% filter out sub-clones.
     %%io:format("Filter out sub clones\n"),
     Cs1 = filter_out_sub_clones(Cs),
+    %%io:format("CloneNumbers:\n~p\n", [length(Cs1)]),
     %% put atom names back into the token streams, and get the new clones.
     %%io:format("put atoms back\n"),
     Cs2 = clones_with_atoms(Cs1, Toks, MinLength, MinClones),
+    %%io:format("Cs2:\n~p\n", [Cs2]),
     %%io:format("Filter out sub clones\n"),
     Cs3 = filter_out_sub_clones(Cs2),
     %% combine clones which are next to each other. (ideally a fixpoint should be reached).
     %%io:format("Combine with neighbours\n"),
     Cs4 = combine_neighbour_clones(Cs3, MinLength, MinClones),
     %% Trim both ends of the clones to remove those parts that does not form a meaningful syntax phrases.
-    %% io:format("Trim clones\n"),
+    %%io:format("Before Trimming:\n~p\n", [length(Cs4)]),
+    %%io:format("Trim clones\n"),
     %%io:format("Before trimming \n"),
     %%io:format("Cs5:\n~p\n", [Cs4]),
     Cs5 = trim_clones(FileNames, Cs4, MinLength, MinClones),
@@ -88,7 +108,7 @@ duplicated_code(FileNames, MinLength1, MinClones1) ->
 %% tokennization of an Erlang file.
 
 tokenize(FileList) ->
-    TokLists = lists:map(fun(F) -> {ok, Toks}= refac_epp:scan_file(F, [],[]),
+    TokLists = lists:map(fun(F) -> Toks= refac_util:tokenize(F),
 			    lists:map(fun(T)->add_filename_to_token(F,T) end, Toks)			    
 		  end, FileList),
     Toks = lists:concat(TokLists),
@@ -193,12 +213,15 @@ combine_range(Prev_Range, {StartLoc, EndLoc}) ->
 %% Problem: here 'Len' refers to the no. of tokens instead of no. of lines.
 collect_clones(MinLength, MinFreq, {branch, {Range, {Len, F}}, Others}) -> 
     MinLength1 = case (MinLength >=?DEFAULT_MIN_CLONE_LEN) of    
-		    true -> ?DEFAULT_MIN_CLONE_LEN;
-		    _ -> MinLength    %% in the case that the user-specified length is less t
-		 end,		 
+		    true -> MinLength;
+		    _ -> ?DEFAULT_MIN_CLONE_LEN    %% in the case that the user-specified length is less t
+		 end,	
     C = case (F >= MinFreq) andalso (Len>= MinLength1) of 
-	    true   -> [{Range,Len, F}];
-	    false  -> []
+	    true   -> 
+		%%io:format("C:\n~p\n", [{Range, Len, F}]),
+		[{Range,Len, F}];
+	    false  ->
+		[]
 	end,
     case Others of 
 	leaf -> C;
@@ -290,20 +313,32 @@ get_sub_cs(ZippedToks, [H|L], Acc) ->
 
 
 %% remove variables and literals (leaving atom names unchanged) from the token stream.
+
 remove_var_literals(Toks) ->
-    [remove_var_literals_1(T) || T <- Toks].
+     lists:reverse(remove_var_literals(Toks, [])).
+
+remove_var_literals([], NewToks) -> NewToks;
+remove_var_literals([T],NewToks) -> [remove_var_literals_1(T)|NewToks];
+remove_var_literals([T1, T2|Ts], NewToks) ->
+    case {T1, T2} of 
+	{{atom, _L, _V}, {'(', _L1}} -> remove_var_literals([T2|Ts], [T1|NewToks]);
+	_ -> remove_var_literals([T2|Ts], [remove_var_literals_1(T1)|NewToks])
+    end.
+
+%% remove_var_literals(Toks) ->
+%%     [remove_var_literals_1(T) || T <- Toks].
 
 remove_var_literals_1(T) ->
-    case T of 
-	{var, L, _} -> {var, L, 'V'};
-	{integer, L, _} -> {integer, L, 0};
-	{string, L, _} -> {string, L, "_"};
-	{float, L, _} -> {float, L, 0}; 
-	{char, L, _}  -> {char, L, 'C'};
-	{atom, L, V} -> {atom, L, V};
-	{A, L} ->{A, L};
-	Other  -> erlang:error(io:format("Unhandled token:\n~p\n", [Other]))
-    end.    
+     case T of 
+ 	{var, L, _} -> {var, L, 'V'};
+ 	{integer, L, _} -> {integer, L, 0};
+ 	{string, L, _} -> {string, L, "_"};
+ 	{float, L, _} -> {float, L, 0}; 
+ 	{char, L, _}  -> {char, L, 'C'};
+ 	{atom, L, _} -> {atom, L, 'A'};
+ 	{A, L} ->{A, L};
+ 	Other  -> erlang:error(io:format("Unhandled token:\n~p\n", [Other]))
+     end.    
     
 %% use locations intead of tokens to represent the clones.
 simplify_filter_results([],Acc, _MinLength, _MinClones) ->
@@ -343,19 +378,22 @@ connect_clones(C1={Range1, Len1, F1}, {Range2, Len2, F2}) ->  %% assume F1=<F2.
      StartLocs2 = lists:map(fun({S,_E}) -> S  end, Range2),
      EndLocs2 = lists:map(fun({_S, E}) -> E end, Range2),
      case F1 =< F2 of 
-	 true -> case lists:subtract(StartLocs1, EndLocs2) of 
-		     [] -> R1 = lists:filter(fun({_S, E}) -> lists:member(E, StartLocs1) end, Range2),
-		           R2= lists:map(fun({S, _E}) -> S end, R1),
-			   {lists:zip(R2, EndLocs1), Len1+Len2, F1};
-		     _ -> case lists:subtract(EndLocs1, StartLocs2) of 
-			      [] -> R3= lists:filter(fun({S,_E}) ->lists:member(S, EndLocs1) end, Range2),
-				    R4 = lists:map(fun({_S,E}) -> E end, R3),
-				    {lists:zip(StartLocs1, R4), Len1+Len2, F1};
-			      _ -> C1
-			  end
-		 end; 
+	 true
+	   -> case lists:subtract(StartLocs1, EndLocs2) of 
+		  [] -> R1 = lists:filter(fun({_S, E}) -> lists:member(E, StartLocs1) end, Range2),
+			R2= lists:map(fun({S, _E}) -> S end, R1),
+			{lists:zip(R2, EndLocs1), Len1+Len2, F1};
+		  _  -> 
+		      case lists:subtract(EndLocs1, StartLocs2) of 
+			  [] -> R3= lists:filter(fun({S,_E}) ->lists:member(S, EndLocs1) end, Range2),
+				R4 = lists:map(fun({_S,E}) -> E end, R3),
+				{lists:zip(StartLocs1, R4), Len1+Len2, F1};
+			  _ -> C1
+		      end
+	      end; 
 	 _  -> C1
      end.
+
 
 
 remove_sub_clones(Cs) ->
@@ -390,7 +428,7 @@ tokenize_files(Files) ->
 tokenize_files([], Acc) ->
      Acc;
 tokenize_files([F|Fs], Acc) ->
-     {ok, Toks}= refac_epp:scan_file(F, [],[]),
+     Toks= refac_util:tokenize(F),
      tokenize_files(Fs, [{F, Toks}|Acc]).
     
     
@@ -399,54 +437,57 @@ trim_clones(FileNames, Cs, MinLength, MinClones) ->
     ToksLists = tokenize_files(FileNames),
     Fun0 = fun(R={{File, StartLn, StartCol},{File, EndLn, EndCol}})->
 		  case lists:keysearch(File, 1, AnnASTs) of
-		      {value, {File, AnnAST}} -> Phrases =  pos_to_syntax_trees(AnnAST, {{StartLn, StartCol}, {EndLn, EndCol}}),
+		      {value, {File, AnnAST}} -> Phrases =  pos_to_expr_or_fun(AnnAST, {{StartLn, StartCol}, {EndLn, EndCol}}),
 						 BdStruct = refac_expr_search:var_binding_structure(Phrases),
 						 {R, BdStruct};	   
 			 _  -> {R, []}
 		  end
 	  end,
-    Fun = fun ({Range, Len, F}) ->
+    Fun = fun ({Range, _Len, F}) ->
 		  {{File1, L1, C1}, {File2, L2, C2}}= hd(Range),
 		  case File1 =/= File2 of 
-		      true -> {false, {Range, Len, F}};
+		      true -> [];
 		      _ ->  S = {L1, C1},
 			    E = {L2, C2},
 			    case lists:keysearch(File1, 1, AnnASTs) of
 				{value, {File1, AnnAST}} ->
 				    {value, {File1, Toks}} = lists:keysearch(File1, 1, ToksLists),
-				    {ok, Toks}= refac_epp:scan_file(File1, [],[]),
-  				    Phrases = pos_to_syntax_phrases(AnnAST, Toks, {{L1, C1},{L2, C2}}), 
-				    case Phrases =/= [] of 
-					true -> {StartLoc, _} = hd(Phrases),
-						{_, EndLoc} = lists:last(Phrases),			       
-						Toks1 =lists:dropwhile(fun(T) ->token_loc(T)=< S end, Toks),
-						Toks11 = lists:takewhile(fun(T) ->token_loc(T) =< StartLoc end, Toks1),
-						Toks2 = lists:dropwhile(fun(T) ->token_loc(T) =< EndLoc end, Toks1),
-						Toks21 = lists:takewhile(fun(T) ->token_loc(T) =< E end, Toks2),
-						{Len1, Len2} ={length(Toks11), length(Toks21)},
-					%%	io:format("Range, Len:\n~p\n", [{Range, {StartLoc, EndLoc}, {Len1, Len2}}]),
-						NewRange = trim_range(tl(Range), {Len1, Len2}),
-						Toks3 = lists:dropwhile(fun(T) -> token_loc(T) < StartLoc end, Toks1),
-						Toks31= lists:takewhile(fun(T)-> token_loc(T) =< EndLoc end, Toks3),
-						NewLen = length(Toks31),
-						case NewLen >= MinLength of
-						    true ->
-							{StartLn, StartCol} = StartLoc,
-							{EndLn, EndCol} = EndLoc,
-							{true, {[{{File1, StartLn, StartCol}, {File1, EndLn, EndCol}}|NewRange], NewLen, F}};
-						    _ -> {false, {Range, Len, F}}
-						end;							  
-					_ -> {false, {Range, Len, F}}
+				    Units = pos_to_syntax_units(AnnAST, Toks, {{L1, C1},{L2, C2}}), 
+				    case Units =/= [] of 
+					true -> 
+					    Fun2 = fun(U) ->
+							   {StartLoc, _} = hd(U),
+							   {_, EndLoc} = lists:last(U),
+							   Toks1 =lists:dropwhile(fun(T) ->token_loc(T)=< S end, Toks),
+							   Toks11 = lists:takewhile(fun(T) ->token_loc(T) =< StartLoc end, Toks1),
+							   Toks2 = lists:dropwhile(fun(T) ->token_loc(T) =< EndLoc end, Toks1),
+							   Toks21 = lists:takewhile(fun(T) ->token_loc(T) =< E end, Toks2),
+							   {Len1, Len2} ={length(Toks11), length(Toks21)},
+							   Toks3 = lists:dropwhile(fun(T) -> token_loc(T) < StartLoc end, Toks1),
+							   Toks31= lists:takewhile(fun(T)-> token_loc(T) =< EndLoc end, Toks3),
+							   NewLen = length(Toks31),
+							   case NewLen >=MinLength of 
+							       true ->  NewRange = trim_range(tl(Range), {Len1, Len2}),
+									{StartLn, StartCol} = StartLoc,
+									{EndLn, EndCol} = EndLoc,
+									[{[{{File1, StartLn, StartCol}, {File1, EndLn, EndCol}}|NewRange], NewLen, F}];
+							       false -> []
+							   end
+						   end,
+					      lists:concat(lists:map(Fun2, Units));
+					_ -> []
 				    end;
-				{error, _Reason} -> {false, {Range, Len, F}}
+				{error, _Reason} -> []
 			    end	
 		  end
 	  end,
-    Cs2= lists:map(Fun, Cs),
-    %%io:format("Before bding:\n"),
-    %% display_clones(Cs2),
+    Cs2= lists:concat(lists:map(Fun, Cs)),
+    %%io:format("Cs2:\n~p\n", [Cs2]),
+    %%Cs22= remove_sub_clones(Cs2),
+    %%io:format("Before binding checking:\n~p\n", [length(Cs2)]),
     Cs3 =[lists:map(fun(C) -> {C, Len, length(C)} end, group_by(2, lists:map(Fun0, Range)))
-		    || {Cons, {Range, Len, F}} <- Cs2, Cons==true, Len>=MinLength, F>=MinClones],
+		    || {Range, Len, _F}<- Cs2],
+    %%io:format("Cs3:\n~p\n",[Cs3]),
     Cs4 = lists:concat(Cs3),
     Cs5 =[{[R||{R,_Bd} <-Range], Len, F} || {Range, Len, F} <- Cs4, Len>=MinLength, F>=MinClones],
     lists:usort(Cs5).
@@ -467,7 +508,7 @@ trim_range(Range, {Len1, Len2}) ->
 trim_range_1({{File, StartLn, StartCol}, {File, EndLn, EndCol}}, {Len1, Len2}) ->
     S = {StartLn, StartCol},
     E = {EndLn, EndCol},
-    {ok, Toks}= refac_epp:scan_file(File, [],[]),
+    Toks= refac_util:tokenize(File),
     Toks1 = lists:dropwhile(fun(T) -> token_loc(T) =/=S end, Toks),
     Toks2 = lists:nthtail(Len1, Toks1),
     Toks3 = lists:takewhile(fun(T) -> token_loc(T) =/=E end, Toks1) ++
@@ -579,120 +620,90 @@ add_filename_to_token(FileName,T) ->
 	    {V, {FileName, Ln, Col}}
     end.
 	    				
-%% returns true if a token represents an atom or a variable.      
-%% is_atom_or_var(T) ->  
-%%     case T of
-%% 	{var, _L, _V} -> true;
-%% 	{atom, _L1, _V1} ->true;    
-%% 	_  -> false
-%%     end. 
 
-is_valid_syntax_phrase(Node) ->
+pos_to_syntax_units(Tree, Toks, {Start,End}) ->    
+    ExprOrFuns = pos_to_expr_or_fun(Tree, {Start, End}),
+    Res = group_syntax_units(Toks, ExprOrFuns),
+    lists:filter(fun(E) -> E =/=[] end, Res).
+
+
+pos_to_expr_or_fun(Tree, {Start, End}) ->
+    {S, E} = refac_util:get_range(Tree),
+    if (S >= Start) and (E =< End) ->
+	     case is_expr_or_fun(Tree) of
+		true -> [Tree];
+		_ ->
+		    Ts = refac_syntax:subtrees(Tree),
+		    R0 = [[pos_to_expr_or_fun(T, {Start, End}) || T <- G]
+			  || G <- Ts],
+		    lists:flatten(R0)
+	    end;
+       (S > End) or (E < Start) -> [];
+       (S < Start) or (E > End) ->
+	    Ts = refac_syntax:subtrees(Tree),
+	    R0 = [[pos_to_expr_or_fun(T, {Start, End}) || T <- G]
+		  || G <- Ts],
+	    lists:flatten(R0);
+       true -> []
+    end.
+
+is_expr(Node) ->
+    As = refac_syntax:get_ann(Node),
+    case lists:keysearch(category,1, As) of 
+	{value, {category, C}} ->case C of
+				     expression -> true;
+				     guard_expression -> true;
+				     match_expression -> true;
+				     _  -> false
+				 end;
+	_ -> false
+    end. 
+is_expr_or_fun(Node) ->
     case refac_syntax:type(Node) of 
 	function -> true;
-	clause  -> true;
-	_ -> refac_util:is_expr(Node) 
-		%%  orelse refac_util:is_pattern(Node)
+	_ -> is_expr(Node) 
     end.
-
-pos_to_syntax_phrases(Tree, Toks, {Start, End}) ->
-    Es = pos_to_syntax_phrases(Tree, {Start, End}),
     
-   %% io:format("Es:\n~p\n", [Es]),
-    Res =filter_syntax_phrases(Toks, Es),
-   %% io:format("Es after filtering:\n~p\n", [Res]),
-    Res.
-
-   
-pos_to_syntax_trees(Tree, {Start, End}) ->
-    {S, E} = refac_util:get_range(Tree),   %% End Range refers to the end of the token
-    if (S >= Start) and (E =< End) ->
-	    case is_valid_syntax_phrase(Tree) of 
-	     true -> [Tree];
-	     _ ->
-		 Ts = refac_syntax:subtrees(Tree),
-		 R0 = [[pos_to_syntax_trees(T, {Start, End}) || T <- G]
-		       || G <- Ts],
-		 lists:flatten(R0)
-	   end;
-       (S > End) or (E < Start) -> [];
-       (S < Start) or (E > End) ->
-	   Ts = refac_syntax:subtrees(Tree),
-	   R0 = [[pos_to_syntax_trees(T, {Start, End}) || T <- G]
-		 || G <- Ts],
-	   lists:flatten(R0);
-       true -> []
-    end.
- 
-pos_to_syntax_phrases(Tree, {Start, End}) ->
-    {S, E} = refac_util:get_range(Tree),   %% End Range refers to the end of the token
-    if (S >= Start) and (E =< End) ->
-	    case is_valid_syntax_phrase(Tree) of 
-	     true -> [{S,E}];
-	     _ ->
-		 Ts = refac_syntax:subtrees(Tree),
-		 R0 = [[pos_to_syntax_phrases(T, {Start, End}) || T <- G]
-		       || G <- Ts],
-		 lists:flatten(R0)
-	   end;
-       (S > End) or (E < Start) -> [];
-       (S < Start) or (E > End) ->
-	   Ts = refac_syntax:subtrees(Tree),
-	   R0 = [[pos_to_syntax_phrases(T, {Start, End}) || T <- G]
-		 || G <- Ts],
-	   lists:flatten(R0);
-       true -> []
-    end.
-
-filter_syntax_phrases(_Toks, []) ->
-    [];
-filter_syntax_phrases(_Toks, [E]) ->
-    [E];
-filter_syntax_phrases(Toks, Es) ->    
-   %% io:format("Es:\n~p\n", [Es]),
-    {Es1, Es2} = lists:splitwith(fun({_StartLoc, EndLoc}) ->
-				     Toks1 = lists:dropwhile(fun(T) ->
-								     token_loc(T) =< EndLoc end, Toks),
-				     
-				     V = token_val(hd(Toks1)),
-				     %% io:format("V:\n~p\n", [V]),
-				    (V == ',') orelse (V == ';') orelse (V == '.')
-			     end, Es),
-    {Es11, Es21}  = case Es2 of 
-			[] -> {Es1, Es2};
-			_ -> {Es1++[hd(Es2)], tl(Es2)}
-		    end,
-    %% io:format("Es1Es2:\n~p\n", [{Es11, Es21}]),
-    case Es11 of 
-	[] -> Es21;
-	_ ->
-	    case Es21 of 
-		[] -> Es11;
-		_ -> Es11Len = token_length(Toks, element(1, hd(Es11)), element(2, lists:last(Es11))),
-		     Es21Len = token_length(Toks, element(1, hd(Es21)), element(2, lists:last(Es21))),	
-		     %% io:format("Lenghths:\n~p\n", [{Es11Len, Es21Len}]),
-		     case Es11Len > Es21Len of 
-			 true ->
-			     Es11;
-			 _ -> Es21
-		     end
+get_expr_or_fun_seq(_Toks, []) ->
+     [];
+get_expr_or_fun_seq(_Toks, [E]) ->
+    [refac_util:get_range(E)];
+get_expr_or_fun_seq(Toks, [E1,E2|Es]) ->
+    case is_expr(E1)of 
+	true ->
+	    {StartLoc, EndLoc} = refac_util:get_range(E1),
+	    {StartLoc1, _EndLoc} = refac_util:get_range(E2),
+	    Toks1 = lists:dropwhile(fun(T) -> token_loc(T) =< EndLoc end, Toks),
+	    Toks2 = lists:takewhile(fun(T) -> token_loc(T) < StartLoc1 end, Toks1),
+	    case lists:any(fun(T) -> token_val(T) =/= ',' end, Toks2) or not(is_expr(E2)) of 
+		true  -> [{StartLoc, EndLoc}];
+		_ -> [{StartLoc, EndLoc}]++ get_expr_or_fun_seq(Toks, [E2|Es])
+	    end;
+	false  -> 
+	    case refac_syntax:type(E1) of 
+		function ->  {StartLoc, EndLoc} = refac_util:get_range(E1),
+			     {StartLoc1, _EndLoc} = refac_util:get_range(E2),
+			     Toks1 = lists:dropwhile(fun(T) -> token_loc(T) =< EndLoc end, Toks),
+			     Toks2 = lists:takewhile(fun(T) -> token_loc(T) < StartLoc1 end, Toks1),
+			     case lists:any(fun(T) -> token_val(T) =/= '.' end, Toks2) or not(refac_syntax:type(E2)==function) of 
+				 true  -> [{StartLoc, EndLoc}];
+				 _ -> [{StartLoc, EndLoc}]++ get_expr_or_fun_seq(Toks, [E2|Es])
+			     end;
+		_ ->
+		    get_expr_or_fun_seq(Toks, [E2|Es])
 	    end
     end.
-		
-       
+  
+			 
+group_syntax_units(Toks, Es) ->
+    Seq = get_expr_or_fun_seq(Toks, Es), 
+    Es1 = lists:nthtail(length(Seq), Es),
+    case  Es1 of 
+	[] ->
+	     [Seq];
+	_  -> [Seq|group_syntax_units(Toks, Es1)]
+   end.
 
-
-          
-token_length(Toks, Loc1, Loc2) ->
-    case Loc1 <Loc2 of
-	true ->
-	    Toks1 = lists:dropwhile(fun(T) ->
-					    token_loc(T) < Loc1 end, Toks),
-	    Toks2 = lists:takewhile(fun(T) ->
-				    token_loc(T) =< Loc2 end, Toks1),
-	    length(Toks2);
-	_  -> 0
-    end.
     
 %% =====================================================================
 %% get the alphabet on which the suffix tree is going to be built.

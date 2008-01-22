@@ -31,7 +31,7 @@
 	 get_free_vars/1, get_range/1, get_var_exports/1, 
 	 has_side_effect/3, inscope_funs/1, 
 	 is_expr/1,is_pattern/1,is_fun_name/1, is_var_name/1, once_tdTU/3, 
-	 parse_annotate_file/2,
+	 parse_annotate_file/2, tokenize/1,
 	 parse_annotate_file/4,
 	 pos_to_expr/3, pos_to_fun_name/2, pos_to_fun_def/2, fun_to_def_pos/2,
 	 pos_to_var_name/2, reset_attrs/1, stop_tdTP/3, stop_tdTP1/3,
@@ -728,7 +728,7 @@ do_add_category(Node, C) ->
 			       P1 = add_category(P, pattern),
 			       B1 = add_category(B, expression),
 		 	       Node1 = refac_syntax:copy_attrs(Node, refac_syntax:match_expr(P1, B1)),
-			       {refac_syntax:add_ann({category, C}, Node1), true};
+			       {refac_syntax:add_ann({category, match_expression}, Node1), true};
 		 operator -> {refac_syntax:add_ann({category, operator}, Node), true}; %% added to fix bug 13/09/2008.
                  arity_qualifier ->  Fun = add_category(refac_syntax:arity_qualifier_body(Node), arity_qualifier),
 				     A =  add_category(refac_syntax:arity_qualifier_argument(Node), arity_qualifier),
