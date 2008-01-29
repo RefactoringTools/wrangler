@@ -1,10 +1,19 @@
 
+2008-01-29: hl@(hl@kent.ac.uk).
 
-2007-11-15 Huiqing Li
+To fix bug: whihin refac_fold_expression, the AST passed from elisp to 
+wrangler changes nil to [], and this causes problems with AST traversal.
 
-********LAYOUT PRESERVATION*********************
-It seems that not-preserving layout is preventing even myself from using 
-Wranlger.  SOLVE THIS PROBLEM AS SOON AS POSSIBLE************ 
+2008-01-22: hl@(hl@kent.ac.uk).
+
+Extend the 'fold against function' refactoring to work with multiple modules.
+
+2008-01-07: hl(hl@kent.ac.uk).
+
+
+It seems that Wrangler can not parse a few files with stdlib, try to find the 
+reasons! 
+
 
 2007-10-24 Huiqing Li
 

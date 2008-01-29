@@ -1,41 +1,47 @@
-from the current code base, but they are available from the previous Wrangler 
-releases/snapshots.2007-12-18: hl(hl@kent.ac.uk).
+2008-01-29 hl(hl@kent.ac.uk).
 
-Some modules regarding to the analysis of atom information have been removed 
-from the current code base, but they are available from the previous Wrangler 
-releases/snapshots.2007-12-18: hl(hl@kent.ac.uk).
 
-Some modules regarding to the analysis of atom information have been removed 
-from the current code base, but they are available from the previous Wrangler 
-releases/snapshots.2007-12-18: hl(hl@kent.ac.uk).
+Modified the pretty-printer to take the original program layout (Paper and 
+Ribbon width) into account. The result seems very pretty good.
 
-Some modules regarding to the analysis of atom information have been removed 
-from the current code base, but they are available from the previous Wrangler 
-releases/snapshots.2007-12-18: hl(hl@kent.ac.uk).
 
-Some modules regarding to the analysis of atom information have been removed 
-from the current code base, but they are available from the previous Wrangler 
-releases/snapshots.2007-12-18: hl(hl@kent.ac.uk).
+2008-01-22 hl(hl@kent.ac.uk).
 
-Some modules regarding to the analysis of atom information have been removed 
-from the current code base, but they are available from the previous Wrangler 
-releases/snapshots.2007-12-18: hl(hl@kent.ac.uk).
 
-Some modules regarding to the analysis of atom information have been removed 
-from the current code base, but they are available from the previous Wrangler 
-releases/snapshots.2007-12-18: hl(hl@kent.ac.uk).
+Change the clone detector so that the reported clones are eith expression 
+sequence or function sequence, that is true candidates for clone removal.
 
-Some modules regarding to the analysis of atom information have been removed 
-from the current code base, but they are available from the previous Wrangler 
-releases/snapshots.2007-12-18: hl(hl@kent.ac.uk).
 
-Some modules regarding to the analysis of atom information have been removed 
-from the current code base, but they are available from the previous Wrangler 
-releases/snapshots.2007-12-18: hl(hl@kent.ac.uk).
+2008-01-07 hl:
 
-Some modules regarding to the analysis of atom information have been removed 
-2007-12-18: hl(hl@kent.ac.uk).
+Newly create plt table fro stdlib.
 
+bugfix within refac_util:bifs_side_effect_table().
+
+
+2008-01-07: hl(hl@kent.ac.uk).
+
+added function refac_util:tokenize/1 to replace the used of refac_epp:scan/3, 
+because the later has problems when macros are used.
+
+2008-01-07: hl(hl@kent.ac.uk).
+
+Change to 'generalisation': when the selected expression contains free variables, asks the user whether she/he wants to continue the refactoring. If the 
+answer is 'yes', then the selected expression will be wrapped in a fun-expression, the the free variables serve as the parameter. 
+
+
+
+2008-01-04: hl(hl@kent.ac.uk)
+
+bug fix within refac_syntax_lib:vann_receive_expr/2 regarding to the exported 
+variables. This is a bug from SyntaxTools, and we should report it. 
+
+2008-01-04: hl (hl@kent.ac.uk)
+
+Bug fix within refac_fold_expression.erl to filter out those false positive 
+from the initial result of expr_unificaiton/2.
+
+2007-12-18 :HL (hl@kent.ac.uk)
 Some modules regarding to the analysis of atom information have been removed 
 from the current code base, but they are available from the previous Wrangler 
 releases/snapshots.
