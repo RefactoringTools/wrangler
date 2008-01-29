@@ -20,7 +20,7 @@
 %%
 %% Author contact: richardc@csd.uu.se
 %%
-%% $Id: refac_prettypr.erl,v 1.1.1.1 2007-11-07 21:56:10 hl Exp $
+%% $Id: refac_prettypr.erl,v 1.2 2008-01-29 14:20:45 hl Exp $
 %%
 %% Modified: 17 Jan 2007 by  Huiqing Li <hl@kent.ac.uk>
 %% =====================================================================
@@ -37,7 +37,8 @@
 	 get_ctxt_precedence/1, set_ctxt_precedence/2,
 	 get_ctxt_paperwidth/1, set_ctxt_paperwidth/2,
 	 get_ctxt_linewidth/1, set_ctxt_linewidth/2, get_ctxt_hook/1,
-	 set_ctxt_hook/2, get_ctxt_user/1, set_ctxt_user/2]).
+	 set_ctxt_hook/2, get_ctxt_user/1, set_ctxt_user/2, print_ast/1]).
+
 
 -import(prettypr, [text/1, nest/2, above/2, beside/2, sep/1, par/1,
 		   par/2, floating/3, floating/1, break/1, follow/2,
@@ -62,6 +63,94 @@
 	       user = ?NOUSER}).
 
 
+%% Start of added by HL
+%% ====================================================================
+%% user-program guided pretty-printing of an abstract syntax tree which
+%% must be a form list.
+print_ast(AST) ->
+    print_ast(AST, []).
+
+print_ast(AST, Options) ->
+    Ctxt= #ctxt{hook = proplists:get_value(hook, Options, ?NOHOOK),
+		paper = proplists:get_value(paper, Options, ?PAPER),
+		ribbon = proplists:get_value(ribbon, Options, ?RIBBON),
+		user = proplists:get_value(user, Options)},
+    Es = seq_pr(erl_syntax:form_list_elements(AST), none, reset_prec(Ctxt), fun lay/2), 
+    LayoutedEs = lists:map(fun(E) -> refac_prettypr_0:layout(E) end, Es),
+    vertical_concat(LayoutedEs).
+
+seq_pr([H | T], Separator, Ctxt, Fun) ->
+    {Paper, Ribbon} = get_paper_ribbon_width(H),
+    case T of
+	[] ->
+	    [prettypr:best(Fun(H, Ctxt),Paper,Ribbon)];
+	_ ->
+	    [maybe_append(Separator, prettypr:best(Fun(H, Ctxt),Paper,Ribbon))
+	     | seq_pr(T, Separator, Ctxt, Fun)]
+    end;
+seq_pr([], _, _, _) ->
+    [].
+
+
+vertical_concat(Es) ->
+    vertical_concat(Es,"").
+vertical_concat([], Acc) ->
+    Acc;
+vertical_concat([H|T], Acc) ->
+    Acc1 = case Acc of 
+	       "" -> Acc;
+	       _ -> Acc++"\n\n"
+	   end,
+    case T of 
+	[] -> Acc1++H;   
+	_  -> vertical_concat(T, Acc1++H)
+    end.
+    
+
+get_paper_ribbon_width(Form) ->    
+    case refac_syntax:type(Form) of
+	attribute -> {?PAPER, ?RIBBON};
+	_ -> Fun = fun(T,Acc) -> 
+			   {S, E} = refac_util:get_range(T),
+			   [S,E]++ Acc
+		   end,
+	     AllRanges =refac_syntax_lib:fold(Fun, [], Form), 
+	     {Start,End} = refac_util:get_range(Form),
+	     GroupedRanges = group_by(1, (lists:filter(fun(Loc) ->
+							    (Loc>= Start) and (Loc=<End) end, AllRanges))),
+	     MinMaxCols=lists:map(fun(Rs) ->Cols = lists:map(fun({_Ln, Col}) -> Col end, Rs),
+					   {lists:min(Cols),lists:max(Cols)}
+				  end,  GroupedRanges),
+	     Paper = lists:max(lists:map(fun({_Min, Max}) ->
+						 Max end, MinMaxCols)),
+	     Ribbon = lists:max(lists:map(fun({Min, Max}) ->
+						 Max-Min+1 end, MinMaxCols)),
+	     Paper1 = case Paper =< 1 of
+			  true -> 80;
+			  _ -> Paper
+		      end,
+	     Ribbon1 = case Ribbon =< 1 of 
+			  true -> 56;
+			  _  -> Ribbon
+		      end,	
+	     {Paper1+5, Ribbon1+5}  %% adjustion to take the ending tokens such as brackets/commas into account.
+    end.
+
+		
+group_by(N, TupleList) ->
+     SortedTupleList = lists:keysort(N, TupleList),
+     group_by(N, SortedTupleList, []).
+
+group_by(_N, [], Acc) ->
+     Acc;
+group_by(N,TupleList=[T|_Ts], Acc) ->
+     E = element(N, T),
+     {TupleList1, TupleList2} = lists:partition(fun(T1) ->
+ 						       element(N,T1) == E end, TupleList),
+      group_by(N, TupleList2, Acc++[TupleList1]).
+			    
+%% End of added by HL.
+%% =====================================================================
 %% =====================================================================
 %% The following functions examine and modify contexts:
 

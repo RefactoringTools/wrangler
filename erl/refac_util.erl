@@ -42,11 +42,9 @@
 	 post_refac_check/3,
 	 try_evaluation/1, bifs_side_effect_table/0,
 	 build_call_graph/1, auto_imported_bifs/0]).
-       
 
 -include("../hrl/wrangler.hrl").
-
-
+    
 ghead(Info, []) ->
     erlang:error(Info);
 ghead(_Info, L ) -> hd(L).
@@ -286,7 +284,7 @@ pos_to_expr(Tree, Start, End) ->
 post_refac_check(FileName, AST, SearchPaths) ->
     TempFileName = filename:join([filename:dirname(FileName),
 				  filename:rootname(filename:basename(FileName))++"_refac_temp"]),
-    file:write_file(TempFileName, list_to_binary(refac_prettypr:format(AST))),
+    file:write_file(TempFileName, list_to_binary(refac_prettypr:print_ast(AST))),
     case refac_epp:parse_file(TempFileName, SearchPaths,[]) of
 	{ok,  Forms1} 
 	  -> Forms = refac_syntax:form_list(tl(Forms1)),
@@ -370,13 +368,14 @@ annotate_bindings(FName, AST, Info, AnnotateLevel) ->
     AnnAST1 = update_var_define_locations(AnnAST0),
     AnnAST2 = add_category(AnnAST1),
     case AnnotateLevel of 
-	0 -> AnnAST2;
-	1 -> AnnAST3 =adjust_locations(FName, AnnAST2),
-	     add_fun_define_locations(AnnAST3, Info);
-	2 ->AnnAST3 =adjust_locations(FName, AnnAST2),
-	    AnnAST4 = add_fun_define_locations(AnnAST3, Info),
-	    add_range(FName,AnnAST4)
-    end.
+ 	0 -> add_range(FName,AnnAST2);
+ 	1 -> AnnAST3 =adjust_locations(FName, AnnAST2),
+ 	     AnnAST4 =add_fun_define_locations(AnnAST3, Info),
+	     add_range(FName, AnnAST4);
+ 	2 ->AnnAST3 =adjust_locations(FName, AnnAST2),
+ 	    AnnAST4 = add_fun_define_locations(AnnAST3, Info),
+ 	    add_range(FName,AnnAST4)
+     end.
 
 add_range(FName, AST) ->
       {ok, Toks} = refac_epp:scan_file(FName, [],[]),
@@ -417,13 +416,20 @@ do_add_range(Node, Toks) ->
 			     refac_syntax:add_ann({range,{S1, E2}}, Node);
 
 	 list  ->  LP = ghead("refac_util:do_add_range,list",refac_syntax:list_prefix(Node)),
-		   {{L1,C1}, {L2,C2}} = get_range(LP),
+		    {{L1,C1}, {L2,C2}} = get_range(LP),
+		  %%  Es = refac_syntax:list_elements(Node),
+%% 		   case Es of 
+%% 		       [] -> refac_syntax:add_ann({range,{{L,C},{L,C}}}, Node);
+%% 		       _ -> {S1,_E1} = get_range(hd(Es)),
+%% 			    {_S2,E2} = get_range(lists:last(Es)),
+%% 			    refac_syntax:add_ann({range, {S1,E2}}, Node)
+%% 		   end;
 		   Node1 = case refac_syntax:list_suffix(Node) of
-			       none -> refac_syntax:add_ann({range, {{L1, C1-1}, {L2, C2+1}}}, Node);
-			       Tail -> {_S2, {L3,C3}} = get_range(Tail),
-				       refac_syntax:add_ann({range, {{L1,C1-1},{L3, C3}}}, Node)
-			   end,
-	           Node1;
+ 			       none -> refac_syntax:add_ann({range, {{L1, C1-1}, {L2, C2+1}}}, Node);
+ 			       Tail -> {_S2, {L3,C3}} = get_range(Tail),
+ 				       refac_syntax:add_ann({range, {{L1,C1-1},{L3, C3}}}, Node)
+ 			   end,
+ 	           Node1;
 	 application -> O = refac_syntax:application_operator(Node),
 			Args = refac_syntax:application_arguments(Node),
 			{S1, E1} = get_range(O),
@@ -512,7 +518,7 @@ do_add_range(Node, Toks) ->
 			 refac_syntax:add_ann({range, {S, E1}}, Node);
 	 attribute -> Name = refac_syntax:attribute_name(Node),
 		      Arg = glast("refac_util:do_add_range,attribute",refac_syntax:attribute_arguments(Node)),
- 		      {S1, _E1} = get_range(Name),
+		      {S1, _E1} = get_range(Name),
 		      {_S2, E2} = get_range(Arg),
 		      refac_syntax:add_ann({range, {S1, E2}},Node);
 	 generator -> P = refac_syntax:generator_pattern(Node),
@@ -728,7 +734,7 @@ do_add_category(Node, C) ->
 			       P1 = add_category(P, pattern),
 			       B1 = add_category(B, expression),
 		 	       Node1 = refac_syntax:copy_attrs(Node, refac_syntax:match_expr(P1, B1)),
-			       {refac_syntax:add_ann({category, match_expression}, Node1), true};
+			       {refac_syntax:add_ann({category,C}, Node1), true};
 		 operator -> {refac_syntax:add_ann({category, operator}, Node), true}; %% added to fix bug 13/09/2008.
                  arity_qualifier ->  Fun = add_category(refac_syntax:arity_qualifier_body(Node), arity_qualifier),
 				     A =  add_category(refac_syntax:arity_qualifier_argument(Node), arity_qualifier),
@@ -982,8 +988,9 @@ write_refactored_files(Files) ->
     F = fun({{File1, File2}, AST}) ->
 		if File1 /= File2 ->
 			file:delete(File1),
-			file:write_file(File2, list_to_binary(refac_prettypr:format(AST)));
-		   true -> file:write_file(File2, list_to_binary(refac_prettypr:format(AST)))
+			file:write_file(File2, list_to_binary(refac_prettypr:print_ast(AST)));  %% refac_prettypr:format(AST)
+		   true ->
+			file:write_file(File2, list_to_binary(refac_prettypr:print_ast(AST)))
 		end
 	end,
     Files1 = lists:map((fun({{OldFileName, NewFileName}, _}) -> 
@@ -1184,7 +1191,7 @@ get_range(Node) ->
       {value, {range, {S, E}}} ->
 	    {S,E};
       _ ->  %%io:format("range_not_found:\n~p\n", [Node]),
-	    {{?DEFAULT_LOC, ?DEFAULT_LOC}} %% erlang:fault(range_not_found)
+	    {?DEFAULT_LOC, ?DEFAULT_LOC} %% erlang:fault(range_not_found)
     end.
 
 

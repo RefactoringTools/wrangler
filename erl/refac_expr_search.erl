@@ -141,7 +141,10 @@ do_simplify_expr(Node) ->
 		    refac_syntax:default_literals_vars(Node, '%');
 		string ->
 		    refac_syntax:default_literals_vars(Node, "*");
-		atom ->refac_syntax:default_literals_vars(Node, refac_syntax:atom_value(Node));
+		atom -> case lists:keysearch(fun_def,1,refac_syntax:get_ann(Node)) of 
+			    false ->refac_syntax:default_literals_vars(Node, '%');
+			    _ ->  refac_syntax:default_literals_vars(Node, refac_syntax:atom_value(Node))
+			end;
 		nil -> refac_syntax:default_literals_vars(Node, nil);
 		underscore ->refac_syntax:default_literals_vars(Node, '&');
 		_ ->
@@ -198,7 +201,6 @@ filter_exprs(Toks, [E1,E2|Es]) ->
 	_  -> [E1]
     end.
 
-  
 %% get the list of expressions contained in Tree between locations Start and End.		
 pos_to_expr(Tree, {Start, End}) ->
     {S, E} = refac_util:get_range(Tree),

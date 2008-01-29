@@ -70,7 +70,6 @@ duplicated_code(FileNames, MinLength1, MinClones1) ->
     MinClones = list_to_integer(MinClones1),
     %% tokenize Erlang source files and concat them into a single list.
     {Toks, ProcessedToks} = tokenize(FileNames),
- %%    Suffix tree construction.
     %%io:format("Suffix Tree construction\n"),
     Tree = suffix_tree(alphabet()++"&",ProcessedToks++"&"),  %% '&' does not occur in program source.
     %% Clone collection from the suffix tree.
@@ -96,8 +95,7 @@ duplicated_code(FileNames, MinLength1, MinClones1) ->
     %%io:format("Cs5:\n~p\n", [Cs4]),
     Cs5 = trim_clones(FileNames, Cs4, MinLength, MinClones),
     Cs6 = remove_sub_clones(Cs5),
-    %% io:format("Cs5:\n~p\n", [Cs5]),
-     case length(FileNames) of 
+    case length(FileNames) of 
 	  1 ->  display_clones(Cs6);
 	 _ -> display_clones1(Cs6)
      end,

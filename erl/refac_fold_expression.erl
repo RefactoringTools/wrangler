@@ -397,6 +397,7 @@ make_fun_call(FunName, Pats, Subst) ->
 			       end
 		     end, Pats),
     FunCall = refac_syntax:application(refac_syntax:atom(FunName), Pars),
+    io:format("FunCall:\n~p\n", [FunCall]),
     FunCall.
 
 make_match_expr(FunName, Pats, Subst, VarsToExport) ->
