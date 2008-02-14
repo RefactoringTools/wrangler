@@ -46,7 +46,7 @@ rename_mod(FileName, NewName,SearchPaths) ->
     io:format("\n[CMD: rename_mod, ~p, ~p]\n", [FileName, NewName]),
     case refac_util:is_fun_name(NewName) of   %% module name and function name follow the same rules.
       true ->
-          case refac_util:parse_annotate_file(FileName,0) of
+          case refac_util:parse_annotate_file(FileName,true, SearchPaths) of
 	    {ok, {AnnAST, Info}} ->
 		  case get_module_name(Info) of 
 		      {ok, OldModName} ->
@@ -65,7 +65,7 @@ rename_mod(FileName, NewName,SearchPaths) ->
 						  ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
 
 						  Results = rename_mod_in_client_modules(ClientFiles, 
-						  		     OldModName, NewModName),
+						  		     OldModName, NewModName,SearchPaths),
 						  refac_util:write_refactored_files([{{FileName, NewFileName}, AnnAST1}|Results]),
 						  ChangedClientFiles = lists:map(fun({{F, _F}, _AST}) -> F end, Results),
 						  ChangedFiles = [FileName | ChangedClientFiles],
@@ -105,7 +105,8 @@ get_module_name(ModInfo) ->
 %%            {DefinePos,NewName}::{{integer(),integer{},atom()
 %%   
 rename_mod_1(Tree, OldModName, NewModName) ->
-    refac_util:stop_tdTP(fun do_rename_mod/2, Tree, {OldModName, NewModName}).
+    {Tree1, _} =refac_util:stop_tdTP(fun do_rename_mod/2, Tree, {OldModName, NewModName}),
+    Tree1.
 
 do_rename_mod(Tree, {OldModName, NewModName}) ->
     case refac_syntax:type(Tree) of
@@ -159,24 +160,24 @@ do_rename_mod(Tree, {OldModName, NewModName}) ->
 	    end;
 	_ -> {Tree, false}
     end.
-rename_mod_in_client_modules(Files, OldModName, NewModName) ->
+rename_mod_in_client_modules(Files, OldModName, NewModName, SearchPaths) ->
     case Files of 
         [] -> [];
         [F|Fs] ->  io:format("The current file under refactoring is:\n~p\n",[F]), 
-                   case refac_util:parse_annotate_file(F,0) of
+                   case refac_util:parse_annotate_file(F,true, SearchPaths) of
                        {ok, {AnnAST, _Info}} ->
 			   {AnnAST1, Changed} = rename_mod_in_client_module_1(AnnAST, OldModName, NewModName),
 			   check_atoms(AnnAST1, OldModName),
 			   if Changed ->
-				   [{{F,F}, AnnAST1}|rename_mod_in_client_modules(Fs, OldModName, NewModName)];
-			      true -> rename_mod_in_client_modules(Fs, OldModName, NewModName)
+				   [{{F,F}, AnnAST1}|rename_mod_in_client_modules(Fs, OldModName, NewModName, SearchPaths)];
+			      true -> rename_mod_in_client_modules(Fs, OldModName, NewModName, SearchPaths)
 			   end;
   		     {error, Reason} -> {error, Reason}
   		 end 
     end.    
 
 rename_mod_in_client_module_1(Tree, OldModName, NewModName) ->
-    refac_util:stop_tdTP1(fun do_rename_mod/2, Tree, {OldModName, NewModName}).
+    refac_util:stop_tdTP(fun do_rename_mod/2, Tree, {OldModName, NewModName}).
 
 
 transform_apply_call(Node,OldModName, NewModName) ->

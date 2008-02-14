@@ -20,7 +20,7 @@
 %%
 %% Author contact: richardc@csd.uu.se
 %%
-%% $Id: refac_syntax.erl,v 1.3 2008-01-22 14:33:01 hl Exp $
+%% $Id: refac_syntax.erl,v 1.4 2008-02-14 16:12:19 hl Exp $
 %%
 %% Modified: 17 Jan 2007 by  Huiqing Li <hl@kent.ac.uk>
 %% =====================================================================
@@ -442,7 +442,7 @@ type(Node) ->
 %% =====================================================================
 %% @spec is_leaf(Node::syntaxTree()) -> bool()
 %%
-%% @doc Returns <acode>true</code> if <code>Node</code> is a leaf node,
+%% @doc Returns <code>true</code> if <code>Node</code> is a leaf node,
 %% otherwise <code>false</code>. The currently recognised leaf node
 %% types are:
 %% <p><center><table border="1">
@@ -5842,9 +5842,12 @@ unwrap(Node) ->
 %% @doc Returns <code>true</code> if the argument is a wrapper
 %% structure, otherwise <code>false</code>.
 
-%% -ifndef(NO_UNUSED).   %% Commented out by HL
-
-%% -endif.
+-ifndef(NO_UNUSED).
+is_wrapper(#wrapper{}) ->
+    true;
+is_wrapper(_) ->
+    false.
+-endif.
 
 %% =====================================================================
 %% General utility functions for internal use

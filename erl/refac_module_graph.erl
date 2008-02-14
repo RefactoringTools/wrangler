@@ -68,7 +68,7 @@ analyze_mod({Mod, Dir}, SearchPaths) ->
     DefaultIncl2 = [filename:join(Dir, X) || X <- DefaultIncl1],
     Includes = SearchPaths ++ DefaultIncl2, 
     File = filename:join(Dir, Mod++".erl"),
-    case refac_util:parse_annotate_file(File, 0, false, Includes) of 
+    case refac_util:parse_annotate_file(File, false, Includes) of 
 	{ok, {AnnAST, Info}} ->
 	    ImportedMods = case lists:keysearch(imports,1, Info) of 
 			       {value, {imports, Imps}} -> lists:map(fun({M, _Funs}) -> M end, Imps);

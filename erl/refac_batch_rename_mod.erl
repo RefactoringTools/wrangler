@@ -69,7 +69,7 @@ batch_rename_mod(Files, Old_New_Mod_Names) ->
 	[] -> [];
 	[F|Fs] ->  
 	    io:format("The current file under refactoring is:\n~p\n",[F]),
-	    case refac_util:parse_annotate_file(F,1) of
+	    case refac_util:parse_annotate_file(F,true, []) of
 		{ok, {AnnAST, Info}} ->
 		    {AnnAST1, Changed} = do_rename_mod(AnnAST, Old_New_Mod_Names),
 		    if Changed ->
@@ -93,7 +93,7 @@ batch_rename_mod(Files, Old_New_Mod_Names) ->
 
 
 do_rename_mod(Tree, Old_New_Mod_Names) ->
-     refac_util:stop_tdTP1(fun do_rename_mod_1/2, Tree, Old_New_Mod_Names).
+     refac_util:stop_tdTP(fun do_rename_mod_1/2, Tree, Old_New_Mod_Names).
 
 do_rename_mod_1(Tree, Old_New_Mod_Names) ->
     case refac_syntax:type(Tree) of

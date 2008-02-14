@@ -30,12 +30,12 @@ fun_extraction(FileName, Start, End, NewFunName) ->
     io:format("\n[CMD: fun_extraction, ~p, ~p, ~p, ~p]\n", [FileName, Start, End, NewFunName]),
     case refac_util:is_fun_name(NewFunName) of 
 	true ->
-	    case refac_util:parse_annotate_file(FileName,2) of 
+	    case refac_util:parse_annotate_file(FileName,true, []) of 
 		{ok, {AnnAST, Info}} ->
 		    case pos_to_expr(FileName, AnnAST, {Start, End}) of 
 			[] -> {error, "You have not selected an expression!"};
 			ExpList ->
-			     Fun = refac_util:expr_to_fun(AnnAST, hd(ExpList)),
+			     {ok,Fun} = refac_util:expr_to_fun(AnnAST, hd(ExpList)),
 			     case side_cond_analysis(Info, Fun, ExpList, list_to_atom(NewFunName)) of 
 				 {ok, {BdVars, FrVars}} ->
 				     FunName = refac_syntax:atom_value(refac_syntax:function_name(Fun)),
@@ -149,8 +149,11 @@ replace_expr_with_fun_call(Form, ExpList, NewFunName, ParNames, VarsToExport) ->
 		       refac_syntax:match_expr(Pats, FunCall)
 	      end,
     case (length(ExpList)==1) andalso (refac_syntax:type(hd(ExpList))=/=match_expr) of
-	true -> refac_util:stop_tdTP(fun do_replace_expr_with_fun_call_1/2, Form, {NewExpr, hd(ExpList)});
-	_ ->    refac_util:stop_tdTP(fun do_replace_expr_with_fun_call_2/2, Form, {NewExpr, ExpList})
+	true -> {Form1, _} =refac_util:stop_tdTP(fun do_replace_expr_with_fun_call_1/2, Form, {NewExpr, hd(ExpList)}),
+		Form1;
+	_ ->    {Form1, _} =refac_util:stop_tdTP(fun do_replace_expr_with_fun_call_2/2, Form, {NewExpr, ExpList}),
+		Form1
+
     end.
     
 do_replace_expr_with_fun_call_1(Tree, {NewExpr, Expr}) ->

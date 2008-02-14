@@ -38,7 +38,7 @@
 %% @spec serch(FileName::filename(), Start::Pos, End::Pos)-> term().
 %% =================================================================================================         
 expr_search(FileName, Start, End) ->
-    case refac_util:parse_annotate_file(FileName,2) of 
+    case refac_util:parse_annotate_file(FileName,true, []) of 
 	{ok, {AnnAST, _Info}} -> 
 	      case pos_to_expr(FileName, AnnAST, {Start, End}) of 
 		[E|Es] -> 
@@ -127,7 +127,7 @@ get_clone(List1, List2) ->
 %% simplify an expression by masking variable names and literal variables, and also replace
 %% the concrete location values with the default value.
 simplify_expr(Exp) ->
-    refac_util:full_buTP(fun do_simplify_expr/1, Exp).
+    refac_util:full_buTP(fun(Node,_Others)->do_simplify_expr(Node) end, Exp,{}).
 
 do_simplify_expr(Node) ->
     Node1 = case refac_syntax:type(Node) of 
@@ -142,8 +142,9 @@ do_simplify_expr(Node) ->
 		string ->
 		    refac_syntax:default_literals_vars(Node, "*");
 		atom -> case lists:keysearch(fun_def,1,refac_syntax:get_ann(Node)) of 
-			    false ->refac_syntax:default_literals_vars(Node, '%');
-			    _ ->  refac_syntax:default_literals_vars(Node, refac_syntax:atom_value(Node))
+			    %% or  refac_syntax:default_literals_vars(Node, '%')?  TODO: Think again.
+			    false ->refac_syntax:default_literals_vars(Node, refac_syntax:atom_value(Node)) ;
+			    _ ->    refac_syntax:default_literals_vars(Node, refac_syntax:atom_value(Node))
 			end;
 		nil -> refac_syntax:default_literals_vars(Node, nil);
 		underscore ->refac_syntax:default_literals_vars(Node, '&');

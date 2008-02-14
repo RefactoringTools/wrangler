@@ -48,7 +48,7 @@
 %% =============================================================================================        
 fold_expression(FileName, Line, Col) ->
     io:format("\n[CMD: fold_expression(~p, ~p,~p)]\n", [FileName, Line, Col]),
-    case refac_util:parse_annotate_file(FileName,2) of 
+    case refac_util:parse_annotate_file(FileName,true, []) of 
 	{ok, {AnnAST, _Info}} ->
 	    case pos_to_fun_clause(AnnAST, {Line, Col}) of 
 		{ok, {_Mod, FunName, _Arity, FunClauseDef, ClauseIndex}} ->
@@ -76,7 +76,7 @@ fold_expression(FileName, Line, Col) ->
 %%                        {FunClauseDef, ClauseIndex}::{term(), integer()) -> term()
 %% =============================================================================================  
 fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunClauseDef, ClauseIndex}) -> 
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, 2),
+    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, []),
     FunCall = case refac_syntax:type(NewExp) of 
 		  application -> NewExp;
 		  match_expr -> refac_syntax:match_expr_body(NewExp)
@@ -84,9 +84,9 @@ fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunCl
     FunName = refac_syntax:atom_value(refac_syntax:application_operator(FunCall)),
     Arity = length(refac_syntax:application_arguments(FunCall)),		   
     Body = refac_syntax:clause_body(FunClauseDef),
-    AnnAST1 = refac_util:stop_tdTP(fun do_replace_expr_with_fun_call/2, AnnAST, {Body, NewExp, {{StartLine, StartCol}, {EndLine, EndCol}}}),
+    {AnnAST1,_} = refac_util:stop_tdTP(fun do_replace_expr_with_fun_call/2, AnnAST, {Body, NewExp, {{StartLine, StartCol}, {EndLine, EndCol}}}),
     refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1}]),
-    {ok, {AnnAST2, _Info1}} = refac_util:parse_annotate_file(FileName,2),
+    {ok, {AnnAST2, _Info1}} = refac_util:parse_annotate_file(FileName,true, []),
     case get_fun_clause_def(AnnAST2, FunName, Arity, ClauseIndex) of 
 	{ok, {_Mod, _FunName, _Arity, FunClauseDef1}} ->
 	    Candidates = search_candidate_exprs(AnnAST2, FunName, FunClauseDef1),
@@ -397,7 +397,6 @@ make_fun_call(FunName, Pats, Subst) ->
 			       end
 		     end, Pats),
     FunCall = refac_syntax:application(refac_syntax:atom(FunName), Pars),
-    io:format("FunCall:\n~p\n", [FunCall]),
     FunCall.
 
 make_match_expr(FunName, Pats, Subst, VarsToExport) ->

@@ -87,10 +87,10 @@ generalise(FileName, Start, End, ParName, SearchPaths) ->
     io:format("\n[CMD: gen_fun, ~p, ~p, ~p, ~p]\n", [FileName, Start, End, ParName]),
     case refac_util:is_var_name(ParName) of 
 	true ->
-	    case refac_util:parse_annotate_file(FileName,2) of 
+	    case refac_util:parse_annotate_file(FileName,true, SearchPaths) of 
 		{ok, {AnnAST, Info}} ->
 		    case refac_util:pos_to_expr(AnnAST, Start, End) of  
-			[Exp1|_T] -> Fun = refac_util:expr_to_fun(AnnAST, Exp1),
+			{ok, Exp1} ->{ok, Fun} = refac_util:expr_to_fun(AnnAST, Exp1),
 				     FunName = refac_syntax:data(refac_syntax:function_name(Fun)),
 				     FunArity = refac_syntax:function_arity(Fun),
 				     Inscope_Funs = lists:map(fun({_M1,F, A})->{F, A} end, 
@@ -118,7 +118,7 @@ generalise(FileName, Start, End, ParName, SearchPaths) ->
 						    {error, Reason} -> {error, Reason}
 						end 
 				     end;
-			_   -> {error, "You have not selected an expression!"}
+			{error, none} -> {error, "You have not selected an expression!"}
 		    end;
 		{error, Reason} -> {error, Reason}
 	    end;
@@ -177,27 +177,28 @@ gen_cond_analysis(Fun, Exp, ParName) ->
 %%    
 gen_fun(Tree, ParName, FunName, Arity, DefPos,Info, Exp, SideEffect) ->
       R = refac_util:is_exported({FunName, Arity}, Info),
-      Tree1 = if R  -> add_function(Tree, FunName,DefPos, Exp);
+      Tree1 = if R  -> add_function(Tree, FunName,DefPos, Exp, SideEffect);
 		 true -> Tree
 	      end,		  
-       refac_util:stop_tdTP(fun do_gen_fun/2, Tree1, {ParName, FunName, Arity, DefPos,Info, Exp,SideEffect}).
+       {Tree2, _} = refac_util:stop_tdTP(fun do_gen_fun/2, Tree1, {ParName, FunName, Arity, DefPos,Info, Exp,SideEffect}),
+       Tree2.
 
 
 
 gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp) ->
     %% somehow I couldn't pass AST to elisp part, as some occurrences of 'nil' were turned into '[]'.
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName,2),  
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName,true, []),  
     R = refac_util:is_exported({FunName, Arity}, Info),
-    AnnAST1 = if R  -> add_function(AnnAST, FunName,DefPos, Exp);
+    AnnAST1 = if R  -> add_function(AnnAST, FunName,DefPos, Exp, SideEffect);
 	       true -> AnnAST
 	    end,		       
-    AnnAST2 = refac_util:stop_tdTP(fun do_gen_fun/2, AnnAST1, {ParName, FunName, Arity, DefPos,Info, Exp,SideEffect}),
+    {AnnAST2, _} = refac_util:stop_tdTP(fun do_gen_fun/2, AnnAST1, {ParName, FunName, Arity, DefPos,Info, Exp,SideEffect}),
     refac_util:write_refactored_files([{{FileName,FileName}, AnnAST2}]),
     {ok, "Refactor succeeded"}.
 
 gen_fun_2(FileName, ParName1, FunName, FunArity, FunDefPos, Exp, SearchPaths) ->
     %% somehow I couldn't pass AST to elisp part, as some occurrences of 'nil' were turned into '[]'.
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName,2),
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName,true, SearchPaths),
     SideEffect = refac_util:has_side_effect(FileName, Exp, SearchPaths),
     case SideEffect of  
 	false ->AnnAST1=gen_fun(AnnAST, ParName1, 
@@ -217,7 +218,8 @@ gen_fun_2(FileName, ParName1, FunName, FunArity, FunDefPos, Exp, SearchPaths) ->
 %% =====================================================================
 %% @spec add_function(Tree::syntaxTree(),FunName::atom(),DefPos::Pos, Exp::expression()) ->syntaxTree()
 %%
-add_function(Tree, FunName, DefPos, Exp) -> 				
+add_function(Tree, FunName, DefPos, Exp, SideEffect) -> 				
+    Exp1 =  make_actual_parameter(Exp, SideEffect),
     Forms = refac_syntax:form_list_elements(Tree),
     MakeClause = fun(C, Expr, Name) ->
 			  Pats = refac_syntax:clause_patterns(C),
@@ -227,13 +229,13 @@ add_function(Tree, FunName, DefPos, Exp) ->
 			  Body = [refac_syntax:application(Op, Args)],
 			  refac_syntax:clause(Pats, G, Body)
 		  end,
-    F = fun (Form) ->
+    F = fun(Form) ->
 		case refac_syntax:type(Form) of 
 		    function -> case get_fun_def_loc(Form) of 
 				    DefPos -> NewForm = refac_syntax:function(refac_syntax:atom(FunName), 
-						 [MakeClause(C, Exp,FunName) 
+						 [MakeClause(C, Exp1,FunName) 
 						  || C <- refac_syntax:function_clauses(Form)]),
-					     [refac_util:reset_attrs(NewForm), Form];
+					      [refac_util:reset_attrs(NewForm), Form];
 				    _ -> [Form]
 				end;
 		    _ -> [Form] 
@@ -269,7 +271,8 @@ do_gen_fun(Tree, {ParName, FunName, Arity, DefPos,Info, Exp, SideEffect}) ->
 
 
 replace_exp_with_var(Tree, {ParName, Exp, SideEffect}) ->
-    refac_util:stop_tdTP(fun do_replace_exp_with_var/2, Tree, {ParName, Exp, SideEffect}).
+    {Tree1, _} =refac_util:stop_tdTP(fun do_replace_exp_with_var/2, Tree, {ParName, Exp, SideEffect}),
+    Tree1.
 
 do_replace_exp_with_var(Tree, {ParName, Exp, SideEffect}) ->
     Range = refac_util:get_range(Exp),
@@ -291,7 +294,9 @@ do_replace_exp_with_var(Tree, {ParName, Exp, SideEffect}) ->
    
 		
 add_actual_parameter(Tree, {FunName, Arity,Exp, Info})->
-   refac_util:stop_tdTP(fun do_add_actual_parameter/2, Tree, {FunName, Arity, Exp, Info}).
+   {Tree1, _} =refac_util:stop_tdTP(fun do_add_actual_parameter/2, Tree, {FunName, Arity, Exp, Info}),
+    Tree1.
+    
 
 do_add_actual_parameter(Tree, {FunName, Arity, Exp, Info}) ->
   {ok, ModName} = get_module_name(Info),
@@ -557,7 +562,7 @@ pre_cond_checking({AnnAST,Info}, {_FileName, {Start, End}, ParName, _SearthPaths
 pre_cond_checking_1(AnnAST, {Start, End}, ParName, Info) ->
     case refac_util:is_var_name(ParName) of 
 	true ->  case refac_util:pos_to_expr(AnnAST, Start, End) of 
-		     [Exp] -> Fun = refac_util:expr_to_fun(AnnAST, Exp),
+		     {ok, Exp} ->{ok, Fun} = refac_util:expr_to_fun(AnnAST, Exp),
 			      FunName = refac_syntax:data(refac_syntax:function_name(Fun)),
 			      FunArity = refac_syntax:function_arity(Fun),
 			      Inscope_Funs = lists:map(fun({_M1,F, A})->{F, A} end, 
@@ -568,15 +573,15 @@ pre_cond_checking_1(AnnAST, {Start, End}, ParName, Info) ->
 				  _   ->  ParName1 = list_to_atom(ParName),
 					  gen_cond_analysis(Fun, Exp, ParName1)
 			      end;
-		     _   -> {error, "You have not selected an expression!"}
+		     {error, none}  -> {error, "You have not selected an expression!"}
 		 end;
     	false  -> {error, "Invalid parameter name!"}
     end.  
 
 
 do_generalisation(FileName,AnnAST, {Start, End}, ParName,Info, SearchPaths)->
-    [Exp1] = refac_util:pos_to_expr(AnnAST, Start, End),
-    Fun =  refac_util:expr_to_fun(AnnAST, Exp1),
+    {ok, Exp1} = refac_util:pos_to_expr(AnnAST, Start, End),
+    {ok, Fun} =  refac_util:expr_to_fun(AnnAST, Exp1),
     FunName = refac_syntax:data(refac_syntax:function_name(Fun)),
     FunArity = refac_syntax:function_arity(Fun),
     SideEffect = refac_util:has_side_effect(FileName, Exp1, SearchPaths),

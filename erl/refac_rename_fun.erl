@@ -8,13 +8,15 @@
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved via the world wide web at http://www.erlang.org/.
 
+
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
 
+
 %% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
-%% 
+%%
 %% =====================================================================
 %%
 %% @doc Rename a function with a user-supplied new function name.
@@ -34,6 +36,7 @@
 %% @end
 %% =====================================================================
 
+
 -module(refac_rename_fun).
 
 -export([rename_fun/5]).
@@ -45,83 +48,66 @@
 %% -> term()
 %%
 rename_fun(FileName, Line, Col, NewName, SearchPaths) ->
-    io:format("\n[CMD: rename_fun, ~p, ~p, ~p, ~p,~p]\n",
-	      [FileName, Line, Col, NewName, SearchPaths]),
+    io:format("\n[CMD: rename_fun, ~p, ~p, ~p, ~p,~p]\n", [FileName, Line, Col, NewName, SearchPaths]),
     case refac_util:is_fun_name(NewName) of
       true ->
-	  case refac_util:parse_annotate_file(FileName, 1) of
+	  case refac_util:parse_annotate_file(FileName, true, SearchPaths) of
 	    {ok, {AnnAST, Info}} ->
 		NewName1 = list_to_atom(NewName),
 		{ok, ModName} = get_module_name(Info),
-		Inscope_Funs = lists:map(fun ({_M, F, A}) -> {F, A} end,
-					 refac_util:inscope_funs(Info)),
+		Inscope_Funs = lists:map(fun ({_M, F, A}) -> {F, A} end, refac_util:inscope_funs(Info)),
 		case refac_util:pos_to_fun_name(AnnAST, {Line, Col}) of
 		  {ok, {Mod, Fun, Arity, _, DefinePos}} ->
 		      if Mod == ModName ->
 			     case NewName1 =/= Fun of
 			       true ->
-				   case lists:member({NewName1, Arity}, Inscope_Funs)
-					  or
-					  lists:member({NewName1, Arity},refac_util:auto_imported_bifs())
+				   case lists:member({NewName1, Arity}, Inscope_Funs) or
+					  lists:member({NewName1, Arity}, refac_util:auto_imported_bifs())
 				       of
 				     true ->
-					 {error,  NewName ++  "/" ++
+					 {error,
+					  NewName ++
+					    "/" ++
 					      integer_to_list(Arity) ++
 						" is already in scope, or is an auto-imported "
 						"builtin function."};
 				     _ ->
-					 case is_callback_fun(Info, Fun, Arity)
-					     of
+					 case is_callback_fun(Info, Fun, Arity) of
 					   true ->
 					       {error,
 						"The refactorer does not support renaming "
 						"of callback function names."};
 					   _ ->
-					       io:format("The current file under refactoring is:\n~p\n",
-							 [FileName]),
-					       {AnnAST1, _C} =
-						   rename_fun(AnnAST,
-							      {Mod, Fun, Arity},
-							      {DefinePos,
-							       NewName1}),
+					       io:format("The current file under refactoring is:\n~p\n", [FileName]),
+					       {AnnAST1, _C} = rename_fun(AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}),
 					       check_atoms(AnnAST1, Fun),
-					       case refac_util:is_exported({Fun,Arity},Info) of
-						   true ->
-						       io:format("\nChecking client modules in the following search paths: \n~p\n",[SearchPaths]),
-						       ClientFiles =
-							   refac_util:get_client_files(FileName,SearchPaths),
-						       Results =
-							   rename_fun_in_client_modules(ClientFiles,
-										      {Mod,
-									 	       Fun,
-										       Arity},
-										      NewName),
-						     refac_util:write_refactored_files([{{FileName,
-											  FileName},
-											 AnnAST1}
-											| Results]),
-						     ChangedClientFiles =
-							 lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+					       case refac_util:is_exported({Fun, Arity}, Info) of
+						 true ->
+						     io:format("\nChecking client modules in the following "
+							       "search paths: \n~p\n",
+							       [SearchPaths]),
+						     ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
+						     Results = rename_fun_in_client_modules(ClientFiles, {Mod, Fun, Arity}, NewName),
+						     refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1} | Results]),
+						     ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
 						     ChangedFiles = [FileName | ChangedClientFiles],
 						     io:format("The following files have been changed "
 							       "by this refactoring:\n~p\n",
 							       [ChangedFiles]),
 						     {ok, ChangedFiles};
-						 false ->
-						     refac_util:write_refactored_files([{{FileName, FileName},AnnAST1}]),
-						     {ok, [FileName]}
+						 false -> refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1}]), {ok, [FileName]}
 					       end
 					 end
 				   end;
-			       _ ->
-				   refac_util:write_refactored_files([{{FileName, FileName}, AnnAST}]),
-				   {ok,[]}
+			       _ -> refac_util:write_refactored_files([{{FileName, FileName}, AnnAST}]), {ok, []}
 			     end;
 			 true ->
 			     {error,
-			      "This function is not defined in this module; please go to the module where it is defined for renaming."}
+			      "This function is not defined in this "
+			      "module; please go to the module where "
+			      "it is defined for renaming."}
 		      end;
-		  {error, Reason} -> {error, Reason}
+		  {error, _Reason} -> {error, "You have not selected a function name"}
 		end;
 	    {error, Reason} -> {error, Reason}
 	  end;
@@ -133,73 +119,63 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths) ->
 %%            {DefinePos,NewName}::{{integer(),integer{},atom()
 %%
 rename_fun(Tree, OldName, {DefinePos, NewName}) ->
-    refac_util:stop_tdTP1(fun do_rename_fun/2, Tree,
-			  {OldName, {DefinePos, NewName}}).
+    refac_util:stop_tdTP(fun do_raname_fun_1/2, Tree,
+			 {OldName, {DefinePos, NewName}}).
 
-do_rename_fun(Tree,
-	      {{M, OldName, Arity}, {DefinePos, NewName}}) ->
+do_raname_fun_1(Tree, {{M, OldName, Arity}, {DefinePos, NewName}}) ->
     case refac_syntax:type(Tree) of
       function ->
 	  case get_fun_def_loc(Tree) of
 	    DefinePos ->
 		N = refac_syntax:function_name(Tree),
 		Cs = refac_syntax:function_clauses(Tree),
-		N1 = refac_syntax:copy_attrs(N,
-					     refac_syntax:atom(NewName)),
-		{refac_syntax:copy_attrs(Tree,
-					 refac_syntax:function(N1, Cs)),
-		 false};
+		N1 = refac_syntax:copy_attrs(N, refac_syntax:atom(NewName)),
+		{refac_syntax:copy_attrs(Tree, refac_syntax:function(N1, Cs)), false};
 	    _ -> {Tree, false}
 	  end;
       application ->
 	  Operator = refac_syntax:application_operator(Tree),
 	  Arguments = refac_syntax:application_arguments(Tree),
-	  case application_info(Tree) of 
-	      {{_, apply},2} -> transform_apply_call(Tree, {M, OldName, Arity}, NewName); 
-	      {{_, apply},3} -> transform_apply_call(Tree, {M, OldName, Arity}, NewName);
-	      {{_, spawn}, 3} ->transform_spawn_call(Tree, {M, OldName, Arity}, NewName);
-	      {{_, spawn}, 4} -> transform_spawn_call(Tree, {M, OldName, Arity}, NewName); 
-	      {{_, spawn_link}, 3} ->transform_spawn_call(Tree, {M, OldName, Arity}, NewName);
-	      {{_, spawn_link}, 4} ->transform_spawn_call(Tree, {M, OldName, Arity}, NewName);
-	      _  ->
-		  case refac_syntax:type(Operator) of
-		      atom ->
-			  case get_fun_def_info(Operator) of
-			      {M, OldName, Arity, _} ->
-				  Operator1 = refac_syntax:copy_attrs(Operator,
-								      refac_syntax:atom(NewName)),
-				  Tree1 = refac_syntax:copy_attrs(Tree,
-								  refac_syntax:application(Operator1,
-											   Arguments)),
-				  {Tree1, true};
-			      _ -> {Tree, false}
-			  end;
-		      module_qualifier ->
-			  Mod = refac_syntax:module_qualifier_argument(Operator),
-			  Fun = refac_syntax:module_qualifier_body(Operator),
-			  case get_fun_def_info(Operator) of
-			      {M, OldName, Arity, _} ->
-				  Fun1 = refac_syntax:copy_attrs(Fun, refac_syntax:atom(NewName)),
-				  %% Need to change the fun_def annotation as well?
-				  Operator1 = refac_syntax:copy_attrs(Tree,
-								      refac_syntax:module_qualifier(Mod,Fun1)),
-				  Tree1 = refac_syntax:copy_attrs(Tree, refac_syntax:application(Operator1,Arguments)),
-				  {Tree1, true};
-			      _ -> {Tree, false}
-			  end;
-		      _ -> {Tree, false}
-		  end
+	  case application_info(Tree) of
+	    {{_, apply}, 2} -> transform_apply_call(Tree, {M, OldName, Arity}, NewName);
+	    {{_, apply}, 3} -> transform_apply_call(Tree, {M, OldName, Arity}, NewName);
+	    {{_, spawn}, 3} -> transform_spawn_call(Tree, {M, OldName, Arity}, NewName);
+	    {{_, spawn}, 4} -> transform_spawn_call(Tree, {M, OldName, Arity}, NewName);
+	    {{_, spawn_link}, 3} -> transform_spawn_call(Tree, {M, OldName, Arity}, NewName);
+	    {{_, spawn_link}, 4} -> transform_spawn_call(Tree, {M, OldName, Arity}, NewName);
+	    _ ->
+		case refac_syntax:type(Operator) of
+		  atom ->
+		      case get_fun_def_info(Operator) of
+			{M, OldName, Arity, _} ->
+			    Operator1 = refac_syntax:copy_attrs(Operator, refac_syntax:atom(NewName)),
+			    Tree1 = refac_syntax:copy_attrs(Tree, refac_syntax:application(Operator1, Arguments)),
+			    {Tree1, true};
+			_ -> {Tree, false}
+		      end;
+		  module_qualifier ->
+		      Mod = refac_syntax:module_qualifier_argument(Operator),
+		      Fun = refac_syntax:module_qualifier_body(Operator),
+		      case get_fun_def_info(Operator) of
+			{M, OldName, Arity, _} ->
+			    Fun1 = refac_syntax:copy_attrs(Fun, refac_syntax:atom(NewName)),
+			    %% Need to change the fun_def annotation as well?
+			    Operator1 = refac_syntax:copy_attrs(Tree, refac_syntax:module_qualifier(Mod, Fun1)),
+			    Tree1 = refac_syntax:copy_attrs(Tree, refac_syntax:application(Operator1, Arguments)),
+			    {Tree1, true};
+			_ -> {Tree, false}
+		      end;
+		  _ -> {Tree, false}
+		end
 	  end;
-	arity_qualifier ->
+      arity_qualifier ->
 	  Fun = refac_syntax:arity_qualifier_body(Tree),
 	  Fun_Name = refac_syntax:atom_value(Fun),
 	  Arg = refac_syntax:arity_qualifier_argument(Tree),
 	  Arg1 = refac_syntax:atom_value(Arg),
 	  DefMod = get_fun_def_mod(Fun),
-	  if (Fun_Name == OldName) and (Arg1 == Arity) and
-	       (DefMod == M) ->
-		 {refac_syntax:copy_attrs(Tree,refac_syntax:arity_qualifier(refac_syntax:atom(NewName),Arg)),
-		  true};
+	  if (Fun_Name == OldName) and (Arg1 == Arity) and (DefMod == M) ->
+		 {refac_syntax:copy_attrs(Tree, refac_syntax:arity_qualifier(refac_syntax:atom(NewName), Arg)), true};
 	     true -> {Tree, false}
 	  end;
       _ -> {Tree, false}
@@ -220,28 +196,23 @@ get_fun_def_mod(Node) ->
       _ -> false
     end.
 
-rename_fun_in_client_modules(Files, {Mod, Fun, Arity},
-			     NewName) ->
+rename_fun_in_client_modules(Files, {Mod, Fun, Arity}, NewName) ->
     case Files of
       [] -> [];
       [F | Fs] ->
-	  io:format("The current file under refactoring is:\n~p\n",
-		    [F]),
+	  io:format("The current file under refactoring is:\n~p\n", [F]),
 	  case refac_util:parse_annotate_file(F, 1) of
 	    {ok, {AnnAST, Info}} ->
-		{AnnAST1, Changed} =
-		    rename_fun_in_client_module_1({AnnAST, Info},
-						  {Mod, Fun, Arity}, NewName),
+		{AnnAST1, Changed} = rename_fun_in_client_module_1({AnnAST, Info},
+								   {Mod, Fun, Arity},
+								   NewName),
 		check_atoms(AnnAST1, Fun),
 		if Changed ->
 		       [{{F, F}, AnnAST1} | rename_fun_in_client_modules(Fs,
-									 {Mod,
-									  Fun,
-									  Arity},
+									 {Mod, Fun, Arity},
 									 NewName)];
 		   true ->
-		       rename_fun_in_client_modules(Fs, {Mod, Fun, Arity},
-						    NewName)
+		       rename_fun_in_client_modules(Fs, {Mod, Fun, Arity}, NewName)
 		end;
 	    {error, Reason} -> {error, Reason}
 	  end
@@ -256,24 +227,25 @@ get_fun_def_info(Node) ->
       _ -> false
     end.
 
-rename_fun_in_client_module_1({Tree, Info},
-			      {M, OldName, Arity}, NewName) ->
-    case lists:keysearch(module,1, Info) of 
-	{value, {module, ClientModName}} -> 
-	    Inscope_Funs = lists:map(fun ({_M, F, A}) -> {F, A} end,
-				     refac_util:inscope_funs(Info)),
-	    case lists:member({list_to_atom(NewName), Arity},Inscope_Funs)
-		and lists:member({OldName, Arity}, Inscope_Funs)
-		of
-		true ->
-		    erlang:exit("The new function name causes confliction in client module: "
-				++ atom_to_list(ClientModName));
-		false ->
-		    refac_util:stop_tdTP1(fun do_rename_fun_in_client_module_1/2,
-					  Tree, {{M, OldName, Arity}, NewName})
-	    end;
-	_  ->  refac_util:stop_tdTP1(fun do_rename_fun_in_client_module_1/2,
-				     Tree, {{M, OldName, Arity}, NewName})
+rename_fun_in_client_module_1({Tree, Info}, {M, OldName, Arity}, NewName) ->
+    case lists:keysearch(module, 1, Info) of
+      {value, {module, ClientModName}} ->
+	  Inscope_Funs = lists:map(fun ({_M, F, A}) -> {F, A} end,
+				   refac_util:inscope_funs(Info)),
+	  case lists:member({list_to_atom(NewName), Arity}, Inscope_Funs) and
+		 lists:member({OldName, Arity}, Inscope_Funs)
+	      of
+	    true ->
+		erlang:exit("The new function name causes confliction "
+			    "in client module: "
+			      ++ atom_to_list(ClientModName));
+	    false ->
+		refac_util:stop_tdTP(fun do_rename_fun_in_client_module_1/2, Tree,
+				     {{M, OldName, Arity}, NewName})
+	  end;
+      _ ->
+	  refac_util:stop_tdTP(fun do_rename_fun_in_client_module_1/2, Tree,
+			       {{M, OldName, Arity}, NewName})
     end.
 
 do_rename_fun_in_client_module_1(Tree, {{M, OldName, Arity}, NewName}) ->
@@ -281,56 +253,50 @@ do_rename_fun_in_client_module_1(Tree, {{M, OldName, Arity}, NewName}) ->
       application ->
 	  Operator = refac_syntax:application_operator(Tree),
 	  Arguments = refac_syntax:application_arguments(Tree),
-	  case application_info(Tree) of 
-	      {{_, apply},2} -> {Tree, true}; 
-	      {{_, apply},3} -> transform_apply_call(Tree, {M, OldName, Arity}, NewName);
-	      {{_, spawn}, 3} ->transform_spawn_call(Tree, {M, OldName, Arity}, NewName);
-	      {{_, spawn}, 4} -> transform_spawn_call(Tree, {M, OldName, Arity}, NewName); 
-	      {{_, spawn_link}, 3} ->transform_spawn_call(Tree, {M, OldName, Arity}, NewName);
-	      {{_, spawn_link}, 4} ->transform_spawn_call(Tree, {M, OldName, Arity}, NewName);
-	      _  ->
-		  case refac_syntax:type(Operator) of
-		      atom ->
-			  case get_fun_def_info(Operator) of
-			      {M, OldName, Arity, _} ->
-				  Operator1 = refac_syntax:copy_attrs(Operator,
-								      refac_syntax:atom(NewName)),
-				  Tree1 = refac_syntax:copy_attrs(Tree,
-								  refac_syntax:application(Operator1,
-											   Arguments)),
-				  {Tree1, true};
-			      _ -> {Tree, false}
-			  end;
-		      module_qualifier ->
-			  Mod = refac_syntax:module_qualifier_argument(Operator),
-			  Fun = refac_syntax:module_qualifier_body(Operator),
-			  case get_fun_def_info(Operator) of
-			      {M, OldName, Arity, _} ->
-				  Fun1 = refac_syntax:copy_attrs(Fun, refac_syntax:atom(NewName)),
-				  %% Need to change the fun_def annotation as well?
-				  Operator1 = refac_syntax:copy_attrs(Tree,
-								      refac_syntax:module_qualifier(Mod,Fun1)),
-				  Tree1 = refac_syntax:copy_attrs(Tree, refac_syntax:application(Operator1,Arguments)),
-				  {Tree1, true};
-			      _ -> {Tree, false}
-			  end;
-		      _ -> {Tree, false}
-		  end
+	  case application_info(Tree) of
+	    {{_, apply}, 2} -> {Tree, true};
+	    {{_, apply}, 3} -> transform_apply_call(Tree, {M, OldName, Arity}, NewName);
+	    {{_, spawn}, 3} -> transform_spawn_call(Tree, {M, OldName, Arity}, NewName);
+	    {{_, spawn}, 4} -> transform_spawn_call(Tree, {M, OldName, Arity}, NewName);
+	    {{_, spawn_link}, 3} -> transform_spawn_call(Tree, {M, OldName, Arity}, NewName);
+	    {{_, spawn_link}, 4} -> transform_spawn_call(Tree, {M, OldName, Arity}, NewName);
+	    _ ->
+		case refac_syntax:type(Operator) of
+		  atom ->
+		      case get_fun_def_info(Operator) of
+			{M, OldName, Arity, _} ->
+			    Operator1 = refac_syntax:copy_attrs(Operator, refac_syntax:atom(NewName)),
+			    Tree1 = refac_syntax:copy_attrs(Tree, refac_syntax:application(Operator1, Arguments)),
+			    {Tree1, true};
+			_ -> {Tree, false}
+		      end;
+		  module_qualifier ->
+		      Mod = refac_syntax:module_qualifier_argument(Operator),
+		      Fun = refac_syntax:module_qualifier_body(Operator),
+		      case get_fun_def_info(Operator) of
+			{M, OldName, Arity, _} ->
+			    Fun1 = refac_syntax:copy_attrs(Fun, refac_syntax:atom(NewName)),
+			    %% Need to change the fun_def annotation as well?
+			    Operator1 = refac_syntax:copy_attrs(Tree, refac_syntax:module_qualifier(Mod, Fun1)),
+			    Tree1 = refac_syntax:copy_attrs(Tree, refac_syntax:application(Operator1, Arguments)),
+			    {Tree1, true};
+			_ -> {Tree, false}
+		      end;
+		  _ -> {Tree, false}
+		end
 	  end;
-	arity_qualifier ->   %% is there a module name?
-	    Fun = refac_syntax:arity_qualifier_body(Tree),
-	    Fun_Name = refac_syntax:atom_value(Fun),
-	    Arg = refac_syntax:arity_qualifier_argument(Tree),
-	    Arg1 = refac_syntax:atom_value(Arg),
-	    DefMod = get_fun_def_mod(Fun),
-	    if (Fun_Name == OldName) and (Arg1 == Arity) and
-	       (DefMod == M) ->
-		    {refac_syntax:copy_attrs(Tree,
-					     refac_syntax:arity_qualifier(refac_syntax:atom(NewName),Arg)),
-		     true};
-	       true -> {Tree, false}
-	    end;
-	_ -> {Tree, false}
+      arity_qualifier ->   %% is there a module name?
+	  Fun = refac_syntax:arity_qualifier_body(Tree),
+	  Fun_Name = refac_syntax:atom_value(Fun),
+	  Arg = refac_syntax:arity_qualifier_argument(Tree),
+	  Arg1 = refac_syntax:atom_value(Arg),
+	  DefMod = get_fun_def_mod(Fun),
+	  if (Fun_Name == OldName) and (Arg1 == Arity) and (DefMod == M) ->
+		 {refac_syntax:copy_attrs(Tree, refac_syntax:arity_qualifier(refac_syntax:atom(NewName), Arg)),
+		  true};
+	     true -> {Tree, false}
+	  end;
+      _ -> {Tree, false}
     end.
 
 get_module_name(ModInfo) ->
@@ -358,8 +324,7 @@ check_atoms(Tree, AtomName) ->
 		  _ -> []
 		end
 	end,
-    R = lists:flatten(lists:map(F,
-				refac_syntax:form_list_elements(Tree))),
+    R = lists:flatten(lists:map(F, refac_syntax:form_list_elements(Tree))),
     R1 = lists:map(fun ({_, X}) -> X end,
 		   lists:filter(fun (X) ->
 					case X of
@@ -395,8 +360,7 @@ collect_atoms(Tree, AtomName) ->
 		      case refac_syntax:type(N) of
 			atom ->
 			    case refac_syntax:atom_value(N) of
-			      AtomName ->
-				  S ++ [{function, refac_syntax:get_pos(N)}];
+			      AtomName -> S ++ [{function, refac_syntax:get_pos(N)}];
 			      _ -> S
 			    end;
 			_ -> S
@@ -407,9 +371,7 @@ collect_atoms(Tree, AtomName) ->
 			atom ->
 			    case refac_syntax:atom_value(Operator) of
 			      AtomName ->
-				  S ++
-				    [{function,
-				      refac_syntax:get_pos(Operator)}];
+				  S ++ [{function, refac_syntax:get_pos(Operator)}];
 			      _ -> S
 			    end;
 			_ -> S
@@ -421,8 +383,7 @@ collect_atoms(Tree, AtomName) ->
 			     atom ->
 				 case refac_syntax:atom_value(Mod) of
 				   AtomName ->
-				       S ++
-					 [{module, refac_syntax:get_pos(Mod)}];
+				       S ++ [{module, refac_syntax:get_pos(Mod)}];
 				   _ -> S
 				 end;
 			     _ -> S
@@ -430,8 +391,7 @@ collect_atoms(Tree, AtomName) ->
 		      case refac_syntax:type(Fun) of
 			atom ->
 			    case refac_syntax:atom_value(Fun) of
-			      AtomName ->
-				  S1 ++ [{function, refac_syntax:get_pos(Fun)}];
+			      AtomName -> S1 ++ [{function, refac_syntax:get_pos(Fun)}];
 			      _ -> S1
 			    end;
 			_ -> S1
@@ -439,8 +399,7 @@ collect_atoms(Tree, AtomName) ->
 		  arity_qualifier ->
 		      Fun = refac_syntax:arity_qualifier_body(T),
 		      case refac_syntax:atom_value(Fun) of
-			AtomName ->
-			    S ++ [{function, refac_syntax:get_pos(Fun)}];
+			AtomName -> S ++ [{function, refac_syntax:get_pos(Fun)}];
 			_ -> S
 		      end;
 		  infix_expr ->
@@ -452,9 +411,7 @@ collect_atoms(Tree, AtomName) ->
 			      atom ->
 				  case refac_syntax:atom_value(Left) of
 				    AtomName ->
-					S ++
-					  [{process,
-					    refac_syntax:get_pos(Left)}];
+					S ++ [{process, refac_syntax:get_pos(Left)}];
 				    _ -> S
 				  end;
 			      _ -> S
@@ -472,216 +429,253 @@ collect_atoms(Tree, AtomName) ->
 	end,
     refac_syntax_lib:fold(F, [], Tree).
 
-
-
-transform_apply_call(Node,{ModName, FunName, Arity}, NewFunName) ->
-   %%  Message = fun (Pos) -> io:format("WARNING: function ***apply*** is used at location({line, col}):~p, and wrangler " 
-%% 				    "could not decide whether this site should be refactored, please check!!!",
-%% 				     [Pos])
-%% 	      end,
+transform_apply_call(Node, {ModName, FunName, Arity}, NewFunName) ->
+    %%  Message = fun (Pos) -> io:format("WARNING: function ***apply*** is used at location({line, col}):~p, and wrangler "
+    %% 				    "could not decide whether this site should be refactored, please check!!!",
+    %% 				     [Pos])
+    %% 	      end,
     Operator = refac_syntax:application_operator(Node),
     Arguments = refac_syntax:application_arguments(Node),
-    case Arguments of 
-	[Fun, Args] -> 
-	    case refac_syntax:type(Fun) of 
-		implicit_fun ->
-		    Name = refac_syntax:implicit_fun_name(Fun),
-		    B = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Name)),
-		    A = refac_syntax:atom_value(refac_syntax:arity_qualifier_argument(Name)),
-		    case {B, A} of 
-			{FunName, Arity} ->
-			   FunName1= refac_syntax:atom(NewFunName),
-			   Fun1 = refac_syntax:implicit_fun(FunName1, refac_syntax:arity_qualifier_argument(Name)),
-			   {refac_syntax:copy_attrs(Node, refac_syntax:application
-						    (Operator, [Fun1, Args])), true};
-				      
-			_ -> {Node, false}
-		    end;
-		_ -> {Node, false}
-	    end;
-	[Mod, Fun, Args] ->
-	    Mod1 = refac_util:try_evaluation([refac_syntax:revert(Mod)]),
-	    Fun1 = refac_util:try_evaluation([refac_syntax:revert(Fun)]),
-	    %% Pos = refac_syntax:get_pos(Node),
-	    case Fun1 of 
-		{value, FunName} ->
-		    case Mod1 of 
-			{value,ModName} ->
-			    case refac_syntax:type(Args) of 
-	 			list ->
-				    case refac_syntax:list_length(Args) of 
-					Arity ->
-					    Fun2 = refac_syntax:atom(NewFunName),
-					    {refac_syntax:copy_pos(Node,(refac_syntax:copy_attrs(Node, 
-						 refac_syntax:application(Operator, [Mod, Fun2, Args])))), true};
-					_ -> {Node, false}
-				    end;
-				nil -> if Arity==0 ->
-					       Fun2 = refac_syntax:atom(NewFunName),
-					       {refac_syntax:copy_pos(Node,(refac_syntax:copy_attrs(Node, 
-							  refac_syntax:application(Operator, [Mod, Fun2, Args])))), true};
-					  true -> {Node, false}
-				       end;
-				_ -> %% Message(Pos),
-				     {Node, false}
+    case Arguments of
+      [Fun, Args] ->
+	  case refac_syntax:type(Fun) of
+	    implicit_fun ->
+		Name = refac_syntax:implicit_fun_name(Fun),
+		B = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Name)),
+		A = refac_syntax:atom_value(refac_syntax:arity_qualifier_argument(Name)),
+		case {B, A} of
+		  {FunName, Arity} ->
+		      FunName1 = refac_syntax:atom(NewFunName),
+		      Fun1 = refac_syntax:implicit_fun(FunName1, refac_syntax:arity_qualifier_argument(Name)),
+		      {refac_syntax:copy_attrs(Node, refac_syntax:application(Operator, [Fun1, Args])), true};
+		  _ -> {Node, false}
+		end;
+	    _ -> {Node, false}
+	  end;
+      [Mod, Fun, Args] ->
+	  Mod1 = refac_util:try_evaluation([refac_syntax:revert(Mod)]),
+	  Fun1 = refac_util:try_evaluation([refac_syntax:revert(Fun)]),
+	  %% Pos = refac_syntax:get_pos(Node),
+	  case Fun1 of
+	    {value, FunName} ->
+		case Mod1 of
+		  {value, ModName} ->
+		      case refac_syntax:type(Args) of
+			list ->
+			    case refac_syntax:list_length(Args) of
+			      Arity ->
+				  Fun2 = refac_syntax:atom(NewFunName),
+				  {refac_syntax:copy_pos(Node,
+							 refac_syntax:copy_attrs(Node,
+										 refac_syntax:application(Operator,
+													  [Mod, Fun2, Args]))),
+				   true};
+			      _ -> {Node, false}
 			    end;
-			{value, _}-> {Node, false};
-			{error, _Reason} -> 
-			    case refac_syntax:type(Args) of 
-				list -> case refac_syntax:list_length(Args) of 
-					    Arity ->%%  Message(Pos),
-						     {Node, false};
-					    _ -> {Node, false}
-					end;
-				_ -> %% Message(Pos),
-				     {Node, false}
-			    end
-		    end;
-		{value, _} -> {Node, false};
-		{error, _Reason} ->  
-		    case Mod1 of 
-			{value, ModName} ->
-			    case refac_syntax:type(Args) of 
-				list -> case refac_syntax:list_length(Args) of 
-					    Arity -> %%Message(Pos),
-						     {Node, false};
-					    _ -> {Node, false}
-					end;
-				_ -> %%Message(Pos),
-				     {Node, false}
+			nil ->
+			    if Arity == 0 ->
+				   Fun2 = refac_syntax:atom(NewFunName),
+				   {refac_syntax:copy_pos(Node,
+							  refac_syntax:copy_attrs(Node,
+										  refac_syntax:application(Operator,
+													   [Mod, Fun2, Args]))),
+				    true};
+			       true -> {Node, false}
 			    end;
-			{value, _} -> {Node, false};
-			{error, _Reason} -> case refac_syntax:type(Args) of 
-						list-> case refac_syntax:list_length(Args) of 
-							   Arity -> %% Message(Pos),
-								    {Node, false};
-							   _ -> {Node, false}
-						       end;
-						_  -> %% Message(Pos),
-						      {Node, false}
-					    end
-		    end			   
-	    end;
-	_ -> {Node, false}
+			_ -> %% Message(Pos),
+			    {Node, false}
+		      end;
+		  {value, _} -> {Node, false};
+		  {error, _Reason} ->
+		      case refac_syntax:type(Args) of
+			list ->
+			    case refac_syntax:list_length(Args) of
+			      Arity ->%%  Message(Pos),
+				  {Node, false};
+			      _ -> {Node, false}
+			    end;
+			_ -> %% Message(Pos),
+			    {Node, false}
+		      end
+		end;
+	    {value, _} -> {Node, false};
+	    {error, _Reason} ->
+		case Mod1 of
+		  {value, ModName} ->
+		      case refac_syntax:type(Args) of
+			list ->
+			    case refac_syntax:list_length(Args) of
+			      Arity -> %%Message(Pos),
+				  {Node, false};
+			      _ -> {Node, false}
+			    end;
+			_ -> %%Message(Pos),
+			    {Node, false}
+		      end;
+		  {value, _} -> {Node, false};
+		  {error, _Reason} ->
+		      case refac_syntax:type(Args) of
+			list ->
+			    case refac_syntax:list_length(Args) of
+			      Arity -> %% Message(Pos),
+				  {Node, false};
+			      _ -> {Node, false}
+			    end;
+			_ -> %% Message(Pos),
+			    {Node, false}
+		      end
+		end
+	  end;
+      _ -> {Node, false}
     end.
- 	     
 
-transform_spawn_call(Node,{ModName, FunName, Arity}, NewFunName) ->
-%% Message = fun (Pos) -> io:format("WARNING: function ***spawn*** is used at location({line, col}):~p, and wrangler " 
-%% 				    "could not decide whether this site should be refactored, please check!!!",
-%% 				     [Pos])
-%% 	      end,
+transform_spawn_call(Node, {ModName, FunName, Arity}, NewFunName) ->
+    %% Message = fun (Pos) -> io:format("WARNING: function ***spawn*** is used at location({line, col}):~p, and wrangler "
+    %% 				    "could not decide whether this site should be refactored, please check!!!",
+    %% 				     [Pos])
+    %% 	      end,
     Operator = refac_syntax:application_operator(Node),
     Arguments = refac_syntax:application_arguments(Node),
-    [N, Mod, Fun, Args] = if length(Arguments)==4 -> Arguments;			       
-				true -> [none] ++ Arguments
-			     end,
+    [N, Mod, Fun, Args] = if length(Arguments) == 4 -> Arguments;
+			     true -> [none] ++ Arguments
+			  end,
     Mod1 = refac_util:try_evaluation([refac_syntax:revert(Mod)]),
     Fun1 = refac_util:try_evaluation([refac_syntax:revert(Fun)]),
     %% Pos = refac_syntax:get_pos(Node),
-    case Fun1 of 
-	{value, FunName} ->
-	    case Mod1 of 
-		{value,ModName} ->
-		    case refac_syntax:type(Args) of 
-			list ->
-			    case refac_syntax:list_length(Args) of 
-				Arity ->
-				    Fun2 = refac_syntax:atom(NewFunName),
-				    App = if length(Arguments) == 4 ->
-						  refac_syntax:application(Operator, [N, Mod, Fun2, Args]);
-					     true -> refac_syntax:application(Operator, [Mod, Fun2, Args])
-					  end,
-				    {refac_syntax:copy_pos(Node,(refac_syntax:copy_attrs(Node, App))), true};
-				_ -> {Node, false}
-			    end;
-			nil -> if Arity==0 ->
-				       Fun2  = refac_syntax:atom(NewFunName),
-				       App = if length(Arguments) == 4 ->
-						  refac_syntax:application(Operator, [N, Mod, Fun2, Args]);
-					     true -> refac_syntax:application(Operator, [Mod, Fun2, Args])
-					  end,
-				       {refac_syntax:copy_pos(Node,(refac_syntax:copy_attrs(Node, App))), true};
-				  true -> {Node, false}
-			       end;
-			_ -> %%Message(Pos),
-			     {Node, false}
-		    end;
-		{value, _}-> {Node, false};
-		{error, _Reason} -> 
-		    case refac_syntax:type(Args) of 
-			list -> case refac_syntax:list_length(Args) of 
-				    Arity -> %% Message(Pos),
-					     {Node, false};
-				    _ -> {Node, false}
-				end;
-			_ -> %% Message(Pos),
-			     {Node, false}
-		    end
-	    end;
-	{value, _} -> {Node, false};
-	{error, _Reason} ->  
-	    case Mod1 of 
-		{value, ModName} ->
-		    case refac_syntax:type(Args) of 
-			list -> case refac_syntax:list_length(Args) of 
-				    Arity -> %% Message(Pos),
-					     {Node, false};
-				    _ -> {Node, false}
-				end;
-			_ -> %% Message(Pos),
-			     {Node, false}
-		    end;
-		{value, _} -> {Node, false};
-		{error, _Reason} -> case refac_syntax:type(Args) of 
-					list-> case refac_syntax:list_length(Args) of 
-						   Arity -> %% Message(Pos),
-							    {Node, false};
-						   _ -> {Node, false}
-					       end;
-					_  -> %% Message(Pos),
-					      {Node, false}
-				    end
-	    end
+    case Fun1 of
+      {value, FunName} ->
+	  case Mod1 of
+	    {value, ModName} ->
+		case refac_syntax:type(Args) of
+		  list ->
+		      case refac_syntax:list_length(Args) of
+			Arity ->
+			    Fun2 = refac_syntax:atom(NewFunName),
+			    App = if length(Arguments) == 4 ->
+					 refac_syntax:application(Operator, [N, Mod, Fun2, Args]);
+				     true -> refac_syntax:application(Operator, [Mod, Fun2, Args])
+				  end,
+			    {refac_syntax:copy_pos(Node, refac_syntax:copy_attrs(Node, App)), true};
+			_ -> {Node, false}
+		      end;
+		  nil ->
+		      if Arity == 0 ->
+			     Fun2 = refac_syntax:atom(NewFunName),
+			     App = if length(Arguments) == 4 ->
+					  refac_syntax:application(Operator, [N, Mod, Fun2, Args]);
+				      true -> refac_syntax:application(Operator, [Mod, Fun2, Args])
+				   end,
+			     {refac_syntax:copy_pos(Node, refac_syntax:copy_attrs(Node, App)), true};
+			 true -> {Node, false}
+		      end;
+		  _ -> %%Message(Pos),
+		      {Node, false}
+		end;
+	    {value, _} -> {Node, false};
+	    {error, _Reason} ->
+		case refac_syntax:type(Args) of
+		  list ->
+		      case refac_syntax:list_length(Args) of
+			Arity -> %% Message(Pos),
+			    {Node, false};
+			_ -> {Node, false}
+		      end;
+		  _ -> %% Message(Pos),
+		      {Node, false}
+		end
+	  end;
+      {value, _} -> {Node, false};
+      {error, _Reason} ->
+	  case Mod1 of
+	    {value, ModName} ->
+		case refac_syntax:type(Args) of
+		  list ->
+		      case refac_syntax:list_length(Args) of
+			Arity -> %% Message(Pos),
+			    {Node, false};
+			_ -> {Node, false}
+		      end;
+		  _ -> %% Message(Pos),
+		      {Node, false}
+		end;
+	    {value, _} -> {Node, false};
+	    {error, _Reason} ->
+		case refac_syntax:type(Args) of
+		  list ->
+		      case refac_syntax:list_length(Args) of
+			Arity -> %% Message(Pos),
+			    {Node, false};
+			_ -> {Node, false}
+		      end;
+		  _ -> %% Message(Pos),
+		      {Node, false}
+		end
+	  end
     end.
 
 %% =====================================================================
 %% @spec application_info(Tree::syntaxTree())->term()
-%% ====================================================================       
+%% ====================================================================
 application_info(Node) ->
-    case refac_syntax:type(Node) of 
-	application ->
-	    Operator = refac_syntax:application_operator(Node),
-	    Arguments = refac_syntax:application_arguments(Node),
-	    Arity = length(Arguments),
-	    case refac_syntax:type(Operator) of 
-		atom -> Op = refac_syntax:atom_value(Operator),
-			{{none,Op}, Arity}; 
-		module_qualifier ->
-		        Mod = refac_syntax:module_qualifier_argument(Operator),
-		        Fun = refac_syntax:module_qualifier_body(Operator),
-		        T1 = refac_syntax:type(Mod), 
-		        T2 = refac_syntax:type(Fun),
-		        case T1 of 
-		  	    atom -> 
-				Mod1 = refac_syntax:atom_value(Mod),
-				case T2 of 
-					atom -> Fun1 = refac_syntax:atom_value(Fun),
-						{{Mod1, Fun1}, Arity};
-				        _ ->{{Mod1, expressionfunname}, Arity}
-					end;
-			    _ -> case T2 of 
-				     atom -> Fun1 = refac_syntax:atom_value(Fun),
-					     {{expressionmodname, Fun1}, Arity};
-				     _ -> {{expressionmodname,expressionfunname}, Arity}
-				 end
-			    end;
-		_  -> {{none,expressionoperator}, Arity}
-	    end;
-	_ -> erlang:fault(not_an_application)
+    case refac_syntax:type(Node) of
+      application ->
+	  Operator = refac_syntax:application_operator(Node),
+	  Arguments = refac_syntax:application_arguments(Node),
+	  Arity = length(Arguments),
+	  case refac_syntax:type(Operator) of
+	    atom ->
+		Op = refac_syntax:atom_value(Operator), {{none, Op}, Arity};
+	    module_qualifier ->
+		Mod = refac_syntax:module_qualifier_argument(Operator),
+		Fun = refac_syntax:module_qualifier_body(Operator),
+		T1 = refac_syntax:type(Mod),
+		T2 = refac_syntax:type(Fun),
+		case T1 of
+		  atom ->
+		      Mod1 = refac_syntax:atom_value(Mod),
+		      case T2 of
+			atom ->
+			    Fun1 = refac_syntax:atom_value(Fun), {{Mod1, Fun1}, Arity};
+			_ -> {{Mod1, expressionfunname}, Arity}
+		      end;
+		  _ ->
+		      case T2 of
+			atom ->
+			    Fun1 = refac_syntax:atom_value(Fun),
+			    {{expressionmodname, Fun1}, Arity};
+			_ -> {{expressionmodname, expressionfunname}, Arity}
+		      end
+		end;
+	    _ -> {{none, expressionoperator}, Arity}
+	  end;
+      _ -> erlang:fault(not_an_application)
     end.
 
+%% fun_to_def_pos(Node, {Mod, FunName, Arity}) ->
+%%     case refac_util:once_tdTU(fun fun_to_def_pos_1/2, Node, {Mod, FunName, Arity}) of
+%%       {_, false} ->
+%% 	  {error,
+%% 	   "The function is not defined in this "
+%% 	   "node."};
+%%       {R, true} -> {ok, R}
+%%     end.
+
+
+%% fun_to_def_pos_1(Node, {Mod, FunName, Arity}) ->
+%%     case refac_syntax:type(Node) of
+%%       function ->
+%% 	  As = refac_syntax:get_ann(Node),
+%% 	  case lists:keysearch(fun_def, 1, As) of
+%% 	    {value, {fun_def, {Mod, FunName, Arity, _P, DefinePos}}} ->
+%% 		{DefinePos, true};
+%% 	    _ -> {[], false}
+%% 	  end;
+%%       _ -> {[], false}
+%%     end.
+
+
 %% The following are here temporally for testing purpose, and will be refactored.
+
 
 %% rename_fun_1(FileName, {Fun, Arity}, NewName,  SearchPaths) ->
 %%     case refac_util:is_fun_name(NewName) of

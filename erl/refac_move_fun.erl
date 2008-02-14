@@ -63,18 +63,20 @@ move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths) ->
        true -> 
 	    case (filelib:is_file(TargetFName) orelse (CreateNewFile==t)) of 
 		true -> 
-		    case refac_util:parse_annotate_file(FName,2) of 
+		    case refac_util:parse_annotate_file(FName,true, SearchPaths) of 
 			{ok, {AnnAST, Info}} -> 
 			    case refac_util:pos_to_fun_def(AnnAST, Pos) of 
-				{ok, {ModName,FunName, Arity,Def}}-> 
+				{ok, Def} ->
+				    {value, {fun_def, {ModName, FunName, Arity, _Pos1, _Pos2}}} =
+					lists:keysearch(fun_def,1, refac_syntax:get_ann(Def)),
 				    case (not(filelib:is_file(TargetFName)) andalso (CreateNewFile==t)) of 
 					true -> create_new_file(TargetFName, TargetModName);
 					_ -> ok
 				    end,					
-				    R = side_cond_check({ModName, FunName, Arity,Def}, TargetFName),
+				    R = side_cond_check({ModName, FunName, Arity,Def}, TargetFName, SearchPaths),
 				    case R of 
 					true -> 
-					    case refac_util:parse_annotate_file(TargetFName, 1) of 
+					    case refac_util:parse_annotate_file(TargetFName, true, SearchPaths) of  %% level=1
 						{ok, {TargetAnnAST,Info1}} ->
 						    {AnnAST1, TargetAnnAST1}
 							= do_transformation({AnnAST,Info}, {TargetAnnAST,Info1},
@@ -85,7 +87,7 @@ move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths) ->
 							    ClientFiles = lists:delete(TargetFName, 
 								      refac_util:get_client_files(FName, SearchPaths)),
 							    Results = refactor_in_client_modules(ClientFiles,
-										{ModName, FunName, Arity}, TargetModName),
+										{ModName, FunName, Arity}, TargetModName, SearchPaths),
 							    refac_util:write_refactored_files([{{FName,FName}, AnnAST1},
 								   {{TargetFName, TargetFName}, TargetAnnAST1}| Results]),
 							    ChangedClientFiles =
@@ -115,9 +117,9 @@ create_new_file(TargetFName, TargetModName) ->
      S = "-module("++TargetModName++").",
      file:write_file(TargetFName, list_to_binary(S)).
 
-side_cond_check({ModName,FunName, Arity, Node}, TargetFileName) ->
+side_cond_check({ModName,FunName, Arity, Node}, TargetFileName, SearchPaths) ->
     case filelib:is_file(TargetFileName) of 
-	true -> case refac_util:parse_annotate_file(TargetFileName, 1) of 
+	true -> case refac_util:parse_annotate_file(TargetFileName, true, SearchPaths) of     %% level=1
 		    {ok, {_AnnAST, Info}} -> 
 			InscopeFuns = refac_util:inscope_funs(Info),
 			
@@ -194,8 +196,9 @@ local_funs_to_be_exported(Node, {ModName, FunName, Arity}, Info) ->
 %% Transform the function to be moved.
 %%======================================================================================
 transform_fun(Form, {ModName, FunName, Arity}, TargetModName, InScopeFunsInTargetMod) -> 
-      refac_util:stop_tdTP(fun do_transform_fun/2, Form, {{ModName, FunName, Arity},
-							  TargetModName, InScopeFunsInTargetMod}).
+      {Form1, _} =refac_util:stop_tdTP(fun do_transform_fun/2, Form, {{ModName, FunName, Arity},
+							  TargetModName, InScopeFunsInTargetMod}),
+      Form1.
 
 do_transform_fun(Node, {{ModName, FunName, Arity}, TargetModName, InScopeFunsInTargetMod}) ->
     MakeApp = fun (Node1, Operator1, Arguments1,ModName1, FunName1) ->
@@ -324,7 +327,8 @@ process_forms_in_target_module(Form, {ModName, FunName, Arity},TargetModName) ->
 %% Add/remove module qualifier.
 %%============================================================================
 remove_module_qualifier(Form, {ModName, FunName, Arity}, TargetModName) ->    
-    refac_util:stop_tdTP(fun do_remove_module_qualifier/2, Form, {{ModName, FunName, Arity}, TargetModName}).
+    {Form1, _} = refac_util:stop_tdTP(fun do_remove_module_qualifier/2, Form, {{ModName, FunName, Arity}, TargetModName}),
+    Form1.
 
 do_remove_module_qualifier(Node, {{ModName, FunName, Arity}, TargetModName}) ->
     case refac_syntax:type(Node) of 
@@ -348,7 +352,7 @@ do_remove_module_qualifier(Node, {{ModName, FunName, Arity}, TargetModName}) ->
     end.
 	    
 add_module_qualifier(Form, {ModName, FunName, Arity}, TargetModName) ->
-      refac_util:stop_tdTP1(fun do_add_module_qualifier/2,
+      refac_util:stop_tdTP(fun do_add_module_qualifier/2,
 				Form, {{ModName, FunName, Arity}, TargetModName}).
    
 
@@ -382,18 +386,18 @@ do_add_module_qualifier(Node, {{ModName, FunName, Arity}, TargetModName}) ->
 %%  Processing Client modules.
 %%====================================================================================
 
-refactor_in_client_modules(ClientFiles,{ModName, FunName, Arity}, TargetModName) ->
+refactor_in_client_modules(ClientFiles,{ModName, FunName, Arity}, TargetModName, SearchPaths) ->
     case ClientFiles of 
 	[] -> [];
 	[F | Fs] ->
 	    io:format("The current file under refactoring is:\n~p\n", [F]),
-	    case refac_util:parse_annotate_file(F,1) of 
+	    case refac_util:parse_annotate_file(F,true, SearchPaths) of      %% level=1
 		{ok, {AnnAST, Info}} ->
 		    {AnnAST1, Changed} = 
 			refactor_in_client_module_1({AnnAST, Info}, {ModName, FunName, Arity}, TargetModName),
 		        if Changed ->
-			   [{{F,F}, AnnAST1} | refactor_in_client_modules(Fs, {ModName, FunName, Arity}, TargetModName)];
-			   true -> refactor_in_client_modules(Fs, {ModName, FunName, Arity}, TargetModName)
+			   [{{F,F}, AnnAST1} | refactor_in_client_modules(Fs, {ModName, FunName, Arity}, TargetModName, SearchPaths)];
+			   true -> refactor_in_client_modules(Fs, {ModName, FunName, Arity}, TargetModName, SearchPaths)
 			end;
 		{error, Reason} -> {error, Reason}
 	    end

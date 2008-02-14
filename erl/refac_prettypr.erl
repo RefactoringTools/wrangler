@@ -20,7 +20,7 @@
 %%
 %% Author contact: richardc@csd.uu.se
 %%
-%% $Id: refac_prettypr.erl,v 1.2 2008-01-29 14:20:45 hl Exp $
+%% $Id: refac_prettypr.erl,v 1.3 2008-02-14 16:12:19 hl Exp $
 %%
 %% Modified: 17 Jan 2007 by  Huiqing Li <hl@kent.ac.uk>
 %% =====================================================================
@@ -133,7 +133,7 @@ get_paper_ribbon_width(Form) ->
 			  true -> 56;
 			  _  -> Ribbon
 		      end,	
-	     {Paper1+5, Ribbon1+5}  %% adjustion to take the ending tokens such as brackets/commas into account.
+	     {Paper1+10, Ribbon1+10}  %% adjustion to take the ending tokens such as brackets/commas into account.
     end.
 
 		
