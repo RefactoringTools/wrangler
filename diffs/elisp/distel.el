@@ -296,8 +296,10 @@ Please see the documentation of `erlang-menu-base-items'.")
       nil
       ("Detect Duplicated Code"  erl-refactor-duplicated-code)
       ("Expression Search" erl-refactor-expression-search)
-       nil
+      nil
   ;;  ("From Tuple To Record" erl-refactor-tuple-to-record)
+    ;;  nil
+      ("Tuple Function Arguments" erl-refactor-tuple-funpar)
       nil
       ("Undo" erl-refactor-undo)
       nil

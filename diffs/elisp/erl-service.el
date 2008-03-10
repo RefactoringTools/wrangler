@@ -1748,3 +1748,24 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
  
  ;; End of modification by H.Li
 ;;---------------------------------------------------------------------
+
+
+(defun erl-refactor-tuple-funpar (node number)
+  "Tuple function argument."
+  (interactive (list (erl-target-node)
+		     (read-string "The number of arguments: ")
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(line-no           (current-line-no))
+        (column-no         (current-column-no))
+	(buffer (current-buffer)))       
+    (erl-spawn
+      (erl-send-rpc node 'wrangler_distel 'tuple_funpar (list current-file-name line-no column-no number erlang-refac-search-paths))
+      (erl-receive (buffer)
+	  ((['rex ['badrpc rsn]]
+	    (message "Refactoring failed: %S" rsn))
+	   (['rex ['error rsn]]
+	    (message "Refactoring failed: %s" rsn))
+	   (['rex ['ok refac-rename]]
+	    (with-current-buffer buffer (revert-buffer nil t t))
+            (message "Refactoring succeeded!")))))))
