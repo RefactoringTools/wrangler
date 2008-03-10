@@ -45,7 +45,8 @@
 	 clone_detector/3,
 	 expression_search/3,
 	 fun_extraction/4,
-	 fold_expression/3]).
+	 fold_expression/3,
+         tuple_funpar/5]).
 
 %% ====================================================================================================
 %% @doc Rename a variable name with a user-supplied new name.
@@ -323,3 +324,29 @@ fun_extraction(FileName, Start, End, FunName) ->
 %% @spec fold_expression(FileName::filename(), Line::integer(), Col::integer())-> term()
 fold_expression(FileName, Line, Col) ->
     refac_fold_expression:fold_expression(FileName, Line, Col).
+
+
+
+
+%%=========================================================================================
+%% @doc Some consecutive arguments of a function are contracted into a tuple
+%% <p> To apply this refactoring, point the cursor to a function parameter, 
+%% or an application argument.
+%% Then select <em> Tuple Function Arguments </em> from the <em> Refactor </em> menu, 
+%% after that the refactorer will prompt to enter  the new tuple elements number in the mini-buffer.
+%% </p>
+%% <p>
+%% When tupling an exported function parameters, this refactoring has a global effect, i.e.,
+%% it affects all those modules in which this function is imported/used.
+%% </p>
+%% <p> The following <em> side-conditions </em> apply to this refactoring:
+%% <li> The new function arity should not cause confliction with any of the functions which are in scope in the 
+%% current module;</li>
+%% <li> In the case that the function is imported by another module, the new function arity and the same name 
+%% should not be already in scope (either defined or imported) in that module. </li>
+%% </p>
+%% ========================================================================================
+%% @spec rename_fun(FileName::filename(), Line::integer(), Col::integer(), Number::string(), SearchPaths::[string()])
+%% -> term()
+tuple_funpar(FileName, Line, Col, Number, SearchPaths) ->
+    ref_tuple:tuple_funpar(FileName, Line, Col, list_to_integer(Number), SearchPaths).
