@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.2"?>
+<plugin>
+   <extension
+         point="org.eclipse.ui.editorActions">
+      <editorContribution
+            id="org.erlide.wranglerrefactoring.erlideContributor"
+            targetID="org.erlide.ui.editors.erl.ErlangEditor">
+         <menu
+               id="menu"
+               label="%RefactoringMenu_Label">
+            <groupMarker
+                  name="renameGroup">
+            </groupMarker>
+         </menu>
+         <action
+               class="org.erlide.wranglerrefactoring.core.renamefunction.RenameFunctionAction"
+               id="org.erlide.wranglerrefactoring.action1"
+               label="label"
+               menubarPath="menu/renameGroup">
+         </action>
+      </editorContribution>
+   </extension>
+   <extension
+         point="org.eclipse.ui.actionSets">
+      <actionSet
+            id="org.erlide.wranglerrefactoring.actionSet"
+            label="renameActionSet"
+            visible="true">
+         <menu
+               id="sampleMenu"
+               label="Wrangler">
+            <separator
+                  name="sampleGroup">
+            </separator>
+         </menu>
+         <action
+               class="org.erlide.wranglerrefactoring.core.renamevariable.RenameVariableAction"
+               id="org.erlide.wranglerrefactoring.actions.SampleAction"
+               label="Rename variable"
+               menubarPath="sampleMenu/sampleGroup">
+         </action>
+         <action
+               class="org.erlide.wranglerrefactoring.core.renamefunction.RenameFunctionAction"
+               id="org.erlide.wranglerrefactoring.action1"
+               label="Rename function"
+               menubarPath="sampleMenu/sampleGroup">
+         </action>
+      </actionSet>
+   </extension>
+
+</plugin>
