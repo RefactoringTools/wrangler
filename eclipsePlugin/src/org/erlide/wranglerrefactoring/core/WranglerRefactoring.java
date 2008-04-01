@@ -18,8 +18,10 @@ import org.erlide.runtime.backend.exceptions.ErlangRpcException;
 import org.erlide.runtime.backend.internal.ManagedBackend;
 import org.erlide.wranglerrefactoring.util.ProjectCopier;
 
+import com.ericsson.otp.erlang.OtpErlangInt;
 import com.ericsson.otp.erlang.OtpErlangList;
 import com.ericsson.otp.erlang.OtpErlangString;
+import com.ericsson.otp.erlang.OtpErlangTuple;
 
 /**
  * @author mee
@@ -35,10 +37,16 @@ public abstract class WranglerRefactoring extends Refactoring {
 	@SuppressWarnings("restriction")
 	protected ManagedBackend managedBackend;
 
+	protected String newName;
+
 	public WranglerRefactoring(RefactoringParameters parameters) {
 		this.parameters = parameters;
 		this.managedBackend = (ManagedBackend) BackendManager.getDefault()
 				.getIdeBackend();
+	}
+
+	public void setNewName(String newName) {
+		this.newName = newName;
 	}
 
 	/*
@@ -91,7 +99,7 @@ public abstract class WranglerRefactoring extends Refactoring {
 		OtpErlangList searchPathList = new OtpErlangList(new OtpErlangString(pc
 				.getSearchPath()));
 
-		RpcResult res = sendRPC(searchPathList, pc.getFilePath());
+		RpcResult res = sendRPC(pc.getFilePath(), searchPathList);
 
 		change = pc.createChanges();
 
@@ -100,8 +108,8 @@ public abstract class WranglerRefactoring extends Refactoring {
 		return res;
 	}
 
-	protected abstract RpcResult sendRPC(OtpErlangList searchPath,
-			String filePath) throws ErlangRpcException, RpcException;
+	protected abstract RpcResult sendRPC(String filePath,
+			OtpErlangList searchPath) throws ErlangRpcException, RpcException;
 
 	/*
 	 * (non-Javadoc)
@@ -134,4 +142,8 @@ public abstract class WranglerRefactoring extends Refactoring {
 	@Override
 	public abstract String getName();
 
+	static protected OtpErlangTuple createPos(Integer line, Integer coloumn) {
+		return new OtpErlangTuple(new OtpErlangInt(line), new OtpErlangInt(
+				coloumn));
+	}
 }

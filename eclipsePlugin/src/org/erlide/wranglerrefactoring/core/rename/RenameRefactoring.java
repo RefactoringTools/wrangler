@@ -14,17 +14,11 @@ public abstract class RenameRefactoring extends WranglerRefactoring {
 		super(parameters);
 	}
 
-	protected String newName;
-
-	public void setNewName(String newName) {
-		this.newName = newName;
-	}
-
 	@Override
 	public abstract String getName();
 
 	@Override
-	protected abstract RpcResult sendRPC(OtpErlangList searchPath,
-			String filePath) throws ErlangRpcException, RpcException;
+	protected abstract RpcResult sendRPC(String filePath,
+			OtpErlangList searchPath) throws ErlangRpcException, RpcException;
 
 }

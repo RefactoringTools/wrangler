@@ -36,6 +36,7 @@ public abstract class WranglerRefactoringAction implements
 
 	@Override
 	public void run(IAction action) {
+
 		parameters.initSelection();
 
 		refactoringName = initRefactoringName();

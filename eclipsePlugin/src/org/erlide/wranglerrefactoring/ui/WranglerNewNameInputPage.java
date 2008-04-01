@@ -9,7 +9,7 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
-import org.erlide.wranglerrefactoring.core.rename.RenameRefactoring;
+import org.erlide.wranglerrefactoring.core.WranglerRefactoring;
 
 public abstract class WranglerNewNameInputPage extends UserInputWizardPage {
 
@@ -64,7 +64,7 @@ public abstract class WranglerNewNameInputPage extends UserInputWizardPage {
 
 			@Override
 			public void modifyText(ModifyEvent e) {
-				RenameRefactoring refac = (RenameRefactoring) getRefactoring();
+				WranglerRefactoring refac = (WranglerRefactoring) getRefactoring();
 				refac.setNewName(newNameText.getText());
 			}
 

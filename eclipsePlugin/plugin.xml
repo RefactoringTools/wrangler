@@ -7,23 +7,33 @@
             id="org.erlide.wranglerrefactoring.erlideContributor"
             targetID="org.erlide.ui.editors.erl.ErlangEditor">
          <menu
-               id="org.eclipse.jdt.ui.refactoring.menu"
-               label="%RefactoringMenu_Label">
+               id="org.erlide.wranglerrefactoring.refactormenu"
+               label="%RefactoringMenu_Label"
+               path="edit">
             <groupMarker
-                  name="renameGroup">
+                  name="org.erlide.wranglerrefactoring.renameGroup">
+            </groupMarker>
+            <groupMarker
+                  name="org.erlide.wranglerrefactoring.reorganizeGroup">
             </groupMarker>
          </menu>
          <action
                class="org.erlide.wranglerrefactoring.core.renamevariable.RenameVariableAction"
                id="org.erlide.wranglerrefactoring.renamevariable"
                label="%renameVariableName"
-               menubarPath="org.eclipse.jdt.ui.refactoring.menu/renameGroup">
+               menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.renameGroup">
          </action>
          <action
                class="org.erlide.wranglerrefactoring.core.renamefunction.RenameFunctionAction"
                id="org.erlide.wranglerrefactoring.renamefunction"
                label="%renameFunctionName"
-               menubarPath="org.eclipse.jdt.ui.refactoring.menu/renameGroup">
+               menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.renameGroup">
+         </action>
+         <action
+               class="org.erlide.wranglerrefactoring.generalise.GeneraliseAction"
+               id="org.erlide.wranglerrefactoring.action2"
+               label="%generaliseName"
+               menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.reorganizeGroup">
          </action>
       </editorContribution>
    </extension>

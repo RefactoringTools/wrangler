@@ -20,7 +20,7 @@ public class RenameFunctionRefactoring extends RenameRefactoring {
 	}
 
 	@Override
-	protected RpcResult sendRPC(OtpErlangList searchPath, String filePath)
+	protected RpcResult sendRPC(String filePath, OtpErlangList searchPath)
 			throws ErlangRpcException, RpcException {
 		return managedBackend.rpc("wrangler", "rename_fun", "siisx", filePath,
 				parameters.getStartLine(), parameters.getStartColoumn(), newName,

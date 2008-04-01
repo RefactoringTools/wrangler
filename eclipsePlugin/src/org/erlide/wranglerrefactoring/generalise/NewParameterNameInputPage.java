@@ -1,19 +1,26 @@
-package org.erlide.wranglerrefactoring.core.renamevariable;
+package org.erlide.wranglerrefactoring.generalise;
 
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
 import org.erlide.wranglerrefactoring.ui.WranglerNewNameInputPage;
 
-public class NewVariableNameInputPage extends WranglerNewNameInputPage {
+public class NewParameterNameInputPage extends WranglerNewNameInputPage {
 
-	public NewVariableNameInputPage(String name) {
+	public NewParameterNameInputPage(String name) {
 		super(name);
 	}
 
 	@Override
-	/**
-	 * Erlang variable name has to start with a Capitalized character
-	 */
+	protected String initDescription() {
+		return "Generalise the selected function";
+	}
+
+	@Override
+	protected String initLabelText() {
+		return "New parameter name:";
+	}
+
+	@Override
 	protected void initListeners() {
 		newNameText.addModifyListener(new ModifyListener() {
 
@@ -38,17 +45,8 @@ public class NewVariableNameInputPage extends WranglerNewNameInputPage {
 	}
 
 	@Override
-	protected String initDescription() {
-		return "Rename the selected variable";
-	}
-
-	@Override
 	protected String initTitle() {
-		return "Rename variable";
+		return "Genralise function";
 	}
 
-	@Override
-	protected String initLabelText() {
-		return "New variable name:";
-	}
 }
