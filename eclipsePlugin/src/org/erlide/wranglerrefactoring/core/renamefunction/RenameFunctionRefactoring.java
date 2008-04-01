@@ -23,7 +23,7 @@ public class RenameFunctionRefactoring extends RenameRefactoring {
 	protected RpcResult sendRPC(OtpErlangList searchPath, String filePath)
 			throws ErlangRpcException, RpcException {
 		return managedBackend.rpc("wrangler", "rename_fun", "siisx", filePath,
-				parameters.getLine(), parameters.getColoumn(), newName,
+				parameters.getStartLine(), parameters.getStartColoumn(), newName,
 				searchPath);
 	}
 }

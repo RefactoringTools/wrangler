@@ -36,7 +36,7 @@ public abstract class WranglerRefactoringAction implements
 
 	@Override
 	public void run(IAction action) {
-		parameters.init();
+		parameters.initSelection();
 
 		refactoringName = initRefactoringName();
 		refactoring = initWranglerRefactoring();
@@ -64,11 +64,11 @@ public abstract class WranglerRefactoringAction implements
 
 	@Override
 	public void selectionChanged(IAction action, ISelection selection) {
-
+		parameters.setSelection(selection);
 	}
 
 	public void setActiveEditor(IAction action, IEditorPart targetEditor) {
-
+		parameters.setEditorPart(targetEditor);
 	}
 
 }

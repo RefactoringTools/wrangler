@@ -7,9 +7,9 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.ITextSelection;
+import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IFileEditorInput;
-import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.ITextEditor;
 
 public class RefactoringParameters {
@@ -17,28 +17,38 @@ public class RefactoringParameters {
 	private ITextEditor editor;
 	private IFile file;
 	private ITextSelection selection;
-	private Integer line;
-	private Integer coloumn;
+	private Integer startLine;
+	private Integer startColoumn;
+	private Integer endLine;
+	private Integer endColoumn;
 	private IDocument doc;
 
 	public RefactoringParameters() {
 	}
 
-	public void init() {
+	public void setEditorPart(IEditorPart editorPart) {
 		// TODO: more elegant solution to get the file
-		IEditorPart editorPart = PlatformUI.getWorkbench()
-				.getActiveWorkbenchWindow().getActivePage().getActiveEditor();
+		// IEditorPart editorPart = PlatformUI.getWorkbench()
+		// .getActiveWorkbenchWindow().getActivePage().getActiveEditor();
 		// TODO: do I need class checking?
 		editor = (ITextEditor) editorPart;
 		// TODO: do I need class checking?
 		IFileEditorInput input = (IFileEditorInput) (editor.getEditorInput());
 		file = input.getFile();
 		doc = editor.getDocumentProvider().getDocument(input);
-		// TODO: do I need class checking?
 		selection = (ITextSelection) (editor.getSelectionProvider()
 				.getSelection());
-		line = selection.getStartLine() + 1;
-		coloumn = calculateColoumnFromOffset(selection.getOffset());
+
+	}
+
+	public void initSelection() {
+		selection = (ITextSelection) (editor.getSelectionProvider()
+				.getSelection());
+	}
+
+	public void setSelection(ISelection selection) {
+		// TODO: do I need class checking?
+		this.selection = (ITextSelection) selection;
 	}
 
 	private int calculateColoumnFromOffset(int offset) {
@@ -58,12 +68,25 @@ public class RefactoringParameters {
 		return offset - sumpos + 1;
 	}
 
-	public Integer getLine() {
-		return line;
+	public Integer getStartLine() {
+		startLine = selection.getStartLine() + 1;
+		return startLine;
 	}
 
-	public Integer getColoumn() {
-		return coloumn;
+	public Integer getStartColoumn() {
+		startColoumn = calculateColoumnFromOffset(selection.getOffset());
+		return startColoumn;
+	}
+
+	public Integer getEndLine() {
+		endLine = selection.getEndLine() + 1;
+		return endLine;
+	}
+
+	public Integer getEndColoumn() {
+		endColoumn = calculateColoumnFromOffset(selection.getOffset()
+				+ selection.getLength());
+		return endColoumn;
 	}
 
 	public IFile getFile() {
