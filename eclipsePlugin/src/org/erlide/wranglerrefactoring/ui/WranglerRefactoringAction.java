@@ -4,6 +4,8 @@ import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.ltk.ui.refactoring.RefactoringWizardOpenOperation;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.ui.IEditorActionDelegate;
+import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.IWorkbenchWindowActionDelegate;
 import org.erlide.wranglerrefactoring.core.RefactoringParameters;
@@ -11,7 +13,7 @@ import org.erlide.wranglerrefactoring.core.WranglerRefactoring;
 
 //TODO: check the init, dispose,selecionChanged methods, it could be useful - cdtrefac
 public abstract class WranglerRefactoringAction implements
-		IWorkbenchWindowActionDelegate {
+		IWorkbenchWindowActionDelegate, IEditorActionDelegate {
 
 	protected RefactoringParameters parameters = new RefactoringParameters();
 
@@ -62,6 +64,10 @@ public abstract class WranglerRefactoringAction implements
 
 	@Override
 	public void selectionChanged(IAction action, ISelection selection) {
+
+	}
+
+	public void setActiveEditor(IAction action, IEditorPart targetEditor) {
 
 	}
 

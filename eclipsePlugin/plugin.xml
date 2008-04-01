@@ -7,46 +7,25 @@
             id="org.erlide.wranglerrefactoring.erlideContributor"
             targetID="org.erlide.ui.editors.erl.ErlangEditor">
          <menu
-               id="menu"
+               id="org.eclipse.jdt.ui.refactoring.menu"
                label="%RefactoringMenu_Label">
             <groupMarker
                   name="renameGroup">
             </groupMarker>
          </menu>
          <action
+               class="org.erlide.wranglerrefactoring.core.renamevariable.RenameVariableAction"
+               id="org.erlide.wranglerrefactoring.renamevariable"
+               label="%renameVariableName"
+               menubarPath="org.eclipse.jdt.ui.refactoring.menu/renameGroup">
+         </action>
+         <action
                class="org.erlide.wranglerrefactoring.core.renamefunction.RenameFunctionAction"
-               id="org.erlide.wranglerrefactoring.action1"
-               label="label"
-               menubarPath="menu/renameGroup">
+               id="org.erlide.wranglerrefactoring.renamefunction"
+               label="%renameFunctionName"
+               menubarPath="org.eclipse.jdt.ui.refactoring.menu/renameGroup">
          </action>
       </editorContribution>
-   </extension>
-   <extension
-         point="org.eclipse.ui.actionSets">
-      <actionSet
-            id="org.erlide.wranglerrefactoring.actionSet"
-            label="renameActionSet"
-            visible="true">
-         <menu
-               id="sampleMenu"
-               label="Wrangler">
-            <separator
-                  name="sampleGroup">
-            </separator>
-         </menu>
-         <action
-               class="org.erlide.wranglerrefactoring.core.renamevariable.RenameVariableAction"
-               id="org.erlide.wranglerrefactoring.actions.SampleAction"
-               label="Rename variable"
-               menubarPath="sampleMenu/sampleGroup">
-         </action>
-         <action
-               class="org.erlide.wranglerrefactoring.core.renamefunction.RenameFunctionAction"
-               id="org.erlide.wranglerrefactoring.action1"
-               label="Rename function"
-               menubarPath="sampleMenu/sampleGroup">
-         </action>
-      </actionSet>
    </extension>
 
 </plugin>
