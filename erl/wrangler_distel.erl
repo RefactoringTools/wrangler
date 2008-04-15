@@ -20,7 +20,7 @@
 
 -module(wrangler_distel).
 
--export([ rename_fun/5, rename_var/5, rename_mod/3, generalise/7, move_fun/6, %% tuple_to_record/5,
+-export([ rename_fun/5, rename_var/5, rename_mod/3, generalise/7, move_fun/6,  tuple_to_record/8,
          duplicated_code/3, expression_search/5, fun_extraction/6, fold_expression/3, tuple_funpar/5,
          undo/0, start_undo_process/0, stop_undo_process/0, undo_init/0]).
 
@@ -90,7 +90,15 @@ tuple_funpar(Fname, Line, Col, Number, SearchPaths) ->
 	    {error, Reason}
     end.
 
-
+tuple_to_record(File, FLine, FCol, LLine, LCol, 
+                RecName, FieldString, SearchPaths)->
+    case check_undo_process() of
+	ok -> wrangler:tuple_to_record(File, FLine, FCol, LLine, LCol, 
+                                       RecName, FieldString, SearchPaths);
+	{error, Reason} ->
+	    {error, Reason}
+    end.
+    
 
 %% tuple_to_record(Fname, StartLine, StartCol, EndLine, EndCol) ->
 %%     refac_record:tuple_to_record(Fname, {StartLine, StartCol}, {EndLine, EndCol}).

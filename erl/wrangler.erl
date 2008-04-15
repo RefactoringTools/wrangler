@@ -46,7 +46,8 @@
 	 expression_search/3,
 	 fun_extraction/4,
 	 fold_expression/3,
-         tuple_funpar/5]).
+         tuple_funpar/5,
+         tuple_to_record/8]).
 
 %% ====================================================================================================
 %% @doc Rename a variable name with a user-supplied new name.
@@ -350,3 +351,36 @@ fold_expression(FileName, Line, Col) ->
 %% -> term()
 tuple_funpar(FileName, Line, Col, Number, SearchPaths) ->
     ref_tuple:tuple_funpar(FileName, Line, Col, list_to_integer(Number), SearchPaths).
+
+
+
+%%=========================================================================================
+%% @doc A record expression created from the selected tuple.
+%% <p> To apply this refactoring mark the tuple in the editor, which is a function 
+%% parameter or an application argument.
+%% Then select <em> From Tuple To Record </em> from the <em> Refactor </em> menu, 
+%% after that the refactorer will prompt to enter the record name and  the record field names.
+%% </p>
+%% <p>
+%% This refactoring has a global effect, i.e., it affects all those modules in 
+%% which this function is imported/used.
+%% </p>
+%% <p>
+%% WARNING: After the transformation please check the implicit functions, 
+%% and create the record if it is necessary!
+%% </p>
+%% <p> The following <em> side-conditions </em> apply to this refactoring:
+%% <li> The record and field names must be legal names; </li>
+%% <li> The number of record fields must equal to the selected tuple size; </li>
+%% <li> The function definition must defined in the current module; </li>
+%% <li> The selected part must be a tuple.  </li>
+%% </p>
+%% ========================================================================================
+%% @spec tuple_to_record(File::string(),FLine::integer(),FCol::integer(),
+%%           LLine::integer(),LCol::integer(), RecName::string(),
+%%           FieldString::[string()], SearchPaths::[string()]) -> term()
+%% @end
+%% ========================================================================================
+tuple_to_record(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
+    ref_tuple_to_record:tuple_to_record(File, FLine, FCol, LLine, LCol, 
+                RecName, FieldString, SearchPaths).
