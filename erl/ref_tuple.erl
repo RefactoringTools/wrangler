@@ -1,3 +1,25 @@
+%%==============================================================================
+%% @doc Some consecutive arguments of a function are contracted into a tuple
+%% <p> To apply this refactoring, point the cursor to a function parameter, 
+%% or an application argument.
+%% Then select <em> Tuple Function Arguments </em> from the <em> Refactor </em>
+%% menu, after that the refactorer will prompt to enter  the new tuple elements
+%% number in the mini-buffer.
+%% </p>
+%% <p>
+%% When tupling an exported function parameters, this refactoring has a global 
+%% effect, i.e., it affects all those modules in which this function is 
+%% imported/used.
+%% </p>
+%% <p> The following <em> side-conditions </em> apply to this refactoring:
+%% <li> The new function arity should not cause confliction with any of the 
+%% functions which are in scope in the current module;</li>
+%% <li> In the case that the function is imported by another module, 
+%% the new function arity and the same name should not be already in scope 
+%% (either defined or imported) in that module. </li>
+%% </p>
+%% =============================================================================
+
 -module(ref_tuple).
 
 -export([tuple_funpar/5]).
@@ -30,7 +52,7 @@ tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths)->
   {AnnAST, Info} = parse_file(FileName, SearchPaths),
   {FirstPar, Type} = check_first_pos({ParLine, ParCol}, AnnAST),
   {{Mod, FunName, Arity, _, _}, FunPatterns, AppNode, AppPar, FunNode}=
-      get_fun_name_and_arity(AnnAST, {ParLine, ParCol}, Type, FirstPar),           
+      get_fun_name_and_arity(AnnAST, {ParLine, ParCol}, Type, FirstPar),        
   ModName = get_module_name(Info),
   InscopeFuns = 
     lists:map(fun ({_M, F, A}) -> {F, A} end, refac_util:inscope_funs(Info)),
@@ -72,9 +94,9 @@ performe_refactoring(AnnAST, Info, Parameters, FunName, Arity, FunNode,
       ChangedFiles = [File | ChangedClientFiles],
       io:format("The following files have been changed "
                 "by this refactoring:\n~p\n",[ChangedFiles]),
-      {ok, ChangedFiles};
+      io:format("WARNING: Please check the implicit function calls!");
     false -> 
-      refac_util:write_refactored_files([{{File, File}, AnnAST2}]), {ok, [File]}
+      refac_util:write_refactored_files([{{File, File}, AnnAST2}])
   end.
 
 check_implicit_funs(AnnAST1, FunName, FunArity, FunNode)->
@@ -84,7 +106,7 @@ check_implicit_funs(AnnAST1, FunName, FunArity, FunNode)->
       Fun = fun(Form) ->
 	      case refac_syntax:type(Form) of 
 		function -> 
-                  Name = refac_syntax:atom_value(refac_syntax:function_name(Form)),
+                 Name=refac_syntax:atom_value(refac_syntax:function_name(Form)),
 		  Arity = refac_syntax:function_arity(Form),
 		  case {Name, Arity} == {FunName, FunArity} of
 		    true -> [Form, FunNode];
