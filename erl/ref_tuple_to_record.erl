@@ -40,9 +40,10 @@ tuple_to_record(File, FLine, FCol, LLine, LCol,
       ChangedFiles = [File | ChangedClientFiles],
       io:format("The following files have been changed "
                 "by this refactoring:\n~p\n",[ChangedFiles]),
-      {ok, ChangedFiles};
+      io:format("WARNING: Please check the implicit function calls!");
     false -> 
-      refac_util:write_refactored_files([{{File, File}, AnnAST1}]), {ok, [File]}
+      refac_util:write_refactored_files([{{File, File},AnnAST1}]),
+      io:format("WARNING: Please check the implicit function calls!")
   end.
 
 
@@ -466,7 +467,7 @@ do_tuple_to_record(Tree, {ExistingRec, RecName, FieldList,
            (FunArity == Arity) and (DefMod == Mod) of
         true ->
           Clauses = refac_syntax:function_clauses(Tree),
-          NewClauses = new_clause(Clauses, N, RecName, FieldList, AnnAST),	      
+          NewClauses = new_clause(Clauses, N, RecName, FieldList, AnnAST),      
           {refac_syntax:copy_attrs(Tree, 
                        refac_syntax:function(FunName, NewClauses)), false};
 	false -> {Tree, false}
@@ -474,18 +475,18 @@ do_tuple_to_record(Tree, {ExistingRec, RecName, FieldList,
     application -> 
       Operator = refac_syntax:application_operator(Tree),
       case application_info(Tree) of
-	  {{_, apply}, 2} -> 
-            transform_apply_call(Tree,{RecName,FieldList,N,Name,Arity,Mod,AnnAST});
-	  {{_, apply}, 3} -> 
-            transform_apply_call(Tree,{RecName,FieldList,N,Name,Arity,Mod,AnnAST});
-	  {{_, spawn}, 3} -> 
-            transform_spawn_call(Tree,{RecName,FieldList,N,Name,Arity,Mod,AnnAST});
-	  {{_, spawn}, 4} -> 
-            transform_spawn_call(Tree,{RecName,FieldList,N,Name,Arity,Mod,AnnAST});
-	  {{_, spawn_link}, 3} -> 
-            transform_spawn_call(Tree,{RecName,FieldList,N,Name,Arity,Mod,AnnAST});
-	  {{_, spawn_link}, 4} -> 
-            transform_spawn_call(Tree,{RecName,FieldList,N,Name,Arity,Mod,AnnAST});
+	{{_, apply}, 2} -> 
+         transform_apply_call(Tree,{RecName,FieldList,N,Name,Arity,Mod,AnnAST});
+	{{_, apply}, 3} -> 
+         transform_apply_call(Tree,{RecName,FieldList,N,Name,Arity,Mod,AnnAST});
+	{{_, spawn}, 3} -> 
+         transform_spawn_call(Tree,{RecName,FieldList,N,Name,Arity,Mod,AnnAST});
+	{{_, spawn}, 4} -> 
+         transform_spawn_call(Tree,{RecName,FieldList,N,Name,Arity,Mod,AnnAST});
+	{{_, spawn_link}, 3} -> 
+         transform_spawn_call(Tree,{RecName,FieldList,N,Name,Arity,Mod,AnnAST});
+	{{_, spawn_link}, 4} -> 
+         transform_spawn_call(Tree,{RecName,FieldList,N,Name,Arity,Mod,AnnAST});
 	_ ->
 	  case refac_syntax:type(Operator) of
 	    atom -> modify_application(Operator, Name, Arity, Tree, N, 
@@ -496,7 +497,6 @@ do_tuple_to_record(Tree, {ExistingRec, RecName, FieldList,
 	    _ -> {Tree, false}
 	  end
       end;
-%%    implicit_fun -> {Tree, true};
     attribute ->
       AttrName = refac_syntax:attribute_name(Tree),
       case {refac_syntax:atom_value(AttrName), ExistingRec} of
@@ -825,6 +825,16 @@ get_tuple_elements(Tuple, Number, List, Max)->
 %%                     N::integer()) ->  atom()
 %%
 %% @end
+%% =====================================================================  
+%%  variable -> analyze_variable
+%%  match_expr -> analyze_match_expr
+%%  tuple -> see the size of the tuple
+%%  recor_expr, integer, list, nil, atom, binary, float, string -> false
+
+%%  application, case_expr, if_expr, prefix_expr, block_expr -> unknown
+%%  cond_expr, infix_expr, macro, query_expr, record_access -> unknown
+%%  _ -> unknown, try_expr, catch_expr, receive_expr -> unknown 
+%%  implicit_fun, fun_expr -> unknown 
 %% =====================================================================    
 analyze_tuple(AnnAST, Tree, N) ->
   case refac_syntax:type(Tree) of
@@ -846,6 +856,12 @@ analyze_tuple(AnnAST, Tree, N) ->
     _ -> unknown
   end.
 
+%% =====================================================================
+%% @spec analyze_variable(AnnAST::syntaxtree(), Tree::syntaxtree(),
+%%                     N::integer()) ->  atom()
+%%
+%% @end
+%% =====================================================================    
 analyze_variable(AnnAST, Tree, N)->
   Ann = refac_syntax:get_ann(Tree),
   case lists:keysearch(def, 1, Ann) of
@@ -871,40 +887,26 @@ analyze_variable(AnnAST, Tree, N)->
     _ -> unknown
   end.
 
+
+%% =====================================================================
+%% @spec analyze_match_expr(AnnAST::syntaxtree(), Tree::syntaxtree(),
+%%                     N::integer()) ->  atom()
+%%
+%% @end
+%% =====================================================================
 analyze_match_expr(AnnAST, Tree, N)->
   Body = refac_syntax:match_expr_body(Tree),
   analyze_tuple(AnnAST, Body, N).
 
-%%  variable -> analyze_variable
-%%  match_expr -> analyze_match_expr
 
-%%  recor_expr -> false
-%%  integer -> false
-%%  list, nil -> false
-%%  atom -> false
-%%  binary -> false
-%%  float -> false
-%%  string -> false
-%%  tuple -> false
 
-%%  application -> unknown
-%%  case_expr -> unknown
-%%  if_expr -> unknown
-%%  prefix_expr -> unknown
-%%  block_expr -> unknown
-%%  cond_expr -> unknown
-%%  infix_expr -> unknown
-%%  macro -> unknown
-%%  query_expr -> unknown
-%%  record_access -> unknown
-%%  _ -> unknown
-
-%%  try_expr -> unknown  ?????????????????????
-%%  catch_expr -> unknown ????????????????????
-%%  receive_expr -> unknown ??????????????????
-%%  implicit_fun -> unknown ??????????????????
-%%  fun_expr -> unknown ??????????????????????
-
+%% =====================================================================
+%% @spec create_case(Tree::syntaxtree(), First::[syntaxtree()],
+%%          Last::[syntaxtree()], Tuple::syntaxtree(), RecName::string(),
+%%          FieldList::[string()], Operator::syntaxtree()) ->  atom()
+%%
+%% @end
+%% =====================================================================    
 create_case(Tree, First, Last, Tuple, RecName, FieldList, Operator)->
   TupleElements = get_tuple_elements(Tuple, 1, [],length(FieldList)),
   NewRecFields = lists:map(fun({FName, Value})->
@@ -996,33 +998,18 @@ tuple_to_record_in_client_modules(Files, Name, Arity, Mod, N,
 %% 
 %% @end
 %% =====================================================================
-transform_apply_call(Node, {RecName, FieldList, N, Name, Arity, ModName, AnnAST}) ->
+transform_apply_call(Node, {RecName, FieldList, N, 
+                     Name, Arity, ModName, AnnAST}) ->
   Operator = refac_syntax:application_operator(Node),
   Arguments = refac_syntax:application_arguments(Node),
   case Arguments of
     [Fun, Args] ->
-      case refac_syntax:type(Fun) of
-	implicit_fun ->
-	  FName = refac_syntax:implicit_fun_name(Fun),
-	  B = refac_syntax:atom_value(refac_syntax:
-                                      arity_qualifier_body(FName)),
-	  A = refac_syntax:atom_value(refac_syntax:
-                                      arity_qualifier_argument(FName)),
-	  case {B, A} of
-	    {Name, Arity} ->
-io:format("ARGS: ~p ~n", [Args]),
-{Node,false};
-            _ -> {Node, false}
-	  end;
-	atom -> 
-          Args1 = refac_syntax:list_elements(Args),
-          Len = length(Args1),
-          case {refac_syntax:atom_value(Fun), Len} of
-	    {Name, Arity} ->
-              Args2 = create_new_patterns(Args1, N, RecName, FieldList),
-              create_apply(Args2, AnnAST, RecName, FieldList, [Fun], Operator, Node);
-            _ -> {Node, false}
-          end;
+      Args1 = refac_syntax:list_elements(Args),
+      Len = length(Args1),
+      case {refac_syntax:atom_value(Fun), Len} of
+	{Name, Arity} ->
+         Args2 = create_new_patterns(Args1, N, RecName, FieldList),
+         create_apply(Args2, AnnAST, RecName, FieldList, [Fun], Operator, Node);
         _ -> {Node, false}
       end;
     [Mod, Fun, Args] ->
@@ -1031,13 +1018,21 @@ io:format("ARGS: ~p ~n", [Args]),
       case {refac_syntax:atom_value(Fun), Len, refac_syntax:atom_value(Mod)} of
         {Name, Arity, ModName} ->
           Args2 = create_new_patterns(Args1, N, RecName, FieldList),
-          create_apply(Args2, AnnAST, RecName, FieldList, [Mod, Fun], Operator, Node);
+          create_apply(Args2,AnnAST,RecName,FieldList,[Mod,Fun],Operator,Node);
         _ -> {Node, false}
       end;
     _ -> 
       {Node, false}
   end.
 
+
+%% =====================================================================
+%% @spec create_apply(Args::[syntaxtree()], AnnAST::syntaxtree(), 
+%%       RecName::string(), FieldList::[string()], List::[syntaxtree()],
+%%       Operator::syntaxtree(), Node::syntaxtree())  -> syntaxtree()
+%% 
+%% @end
+%% =====================================================================
 create_apply(Args, AnnAST, RecName, FieldList, List, Operator, Node)->
   case Args of
     {not_tuple, First, Last, Tuple}->
@@ -1059,7 +1054,8 @@ create_apply(Args, AnnAST, RecName, FieldList, List, Operator, Node)->
           {refac_syntax:copy_attrs(Node, 
               refac_syntax:application(Operator, List ++ [Args3])), false};
         unknown ->
-          create_case_apply(Node, First, Last, Tuple, RecName, FieldList, Operator, List)
+          create_case_apply(Node,First,Last,Tuple,RecName,
+                           FieldList,Operator,List)
       end;
     _ -> 
       Args3 = refac_syntax:list(Args),
@@ -1068,7 +1064,15 @@ create_apply(Args, AnnAST, RecName, FieldList, List, Operator, Node)->
   end.
 
 
-create_case_apply(Tree, First, Last, Tuple, RecName, FieldList, Operator, List)->
+%% =====================================================================
+%% @spec create_case_apply(Tree::syntaxtree(), First::[syntaxtree()], 
+%%     Last::[syntaxtree()], Tuple::syntaxtree(), RecName::string(), 
+%%     FieldList::[string()], Operator::syntaxtree(), List::[syntaxtree()])
+%%                                                             -> syntaxtree()
+%% 
+%% @end
+%% =====================================================================
+create_case_apply(Tree,First,Last,Tuple,RecName,FieldList,Operator,List)->
   TupleElements = get_tuple_elements(Tuple, 1, [],length(FieldList)),
   NewRecFields = lists:map(fun({FName, Value})->
                              refac_syntax:record_field(
@@ -1102,7 +1106,7 @@ create_case_apply(Tree, First, Last, Tuple, RecName, FieldList, Operator, List)-
 %% 
 %% @end
 %% =====================================================================
-transform_spawn_call(Node,{RecName, FieldList, N, Name, Arity, ModName, AnnAST}) ->
+transform_spawn_call(Node,{RecName,FieldList,N,Name,Arity,ModName,AnnAST}) ->
   Operator = refac_syntax:application_operator(Node),
   Arguments = refac_syntax:application_arguments(Node),
   [None, Mod, Fun, Args] = if length(Arguments) == 4 -> Arguments;
