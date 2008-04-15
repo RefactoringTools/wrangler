@@ -99,6 +99,12 @@ performe_refactoring(AnnAST, Info, Parameters, FunName, Arity, FunNode,
       refac_util:write_refactored_files([{{File, File}, AnnAST2}])
   end.
 
+
+%% =====================================================================
+%% @spec check_implicit_funs(AnnAST::syntaxtree(), FunName::atom(),
+%%       FunArity::integer(),FunNode::syntaxtree()) -> syntaxtree()
+%% @end
+%% =====================================================================
 check_implicit_funs(AnnAST1, FunName, FunArity, FunNode)->
   case refac_util:once_tdTU(fun implicit/2, AnnAST1, {}) of
     {_, true}->
@@ -119,6 +125,11 @@ check_implicit_funs(AnnAST1, FunName, FunArity, FunNode)->
     {_, false} -> AnnAST1
   end.
 
+
+%% =====================================================================
+%% @spec implicit(Node::syntaxtree(), {}) -> {[], atom()}
+%% @end
+%% =====================================================================
 implicit(Node, {})->
   case refac_syntax:type(Node) of 
     implicit_fun -> {[], true};
@@ -203,18 +214,18 @@ tuple_parameters_in_client_modules(Files, Name, Arity, C, N, Mod)->
       case refac_util:parse_annotate_file(F, true, []) of
 	{ok, {AnnAST, Info}} ->
 	  {AnnAST1, _} = tuple_parameters_in_client_modules_1({AnnAST, Info}, 
-                                                         Name, Arity, C, N, Mod),
+                                                        Name, Arity, C, N, Mod),
           [{{F, F}, AnnAST1} | 
-                 tuple_parameters_in_client_modules(Fs, Name, Arity, C, N, Mod)];
+                 tuple_parameters_in_client_modules(Fs,Name,Arity, C, N, Mod)];
 	{error, Reason} -> exit({error, Reason})
       end
     end.
 
 
 %% =====================================================================
-%% @spec tuple_parameters_in_client_modules_1({Tree::syntaxtree(),Info::ModInfo},
-%%       Name::atom(), Arity::integer(), C::integer(), N::integer(), 
-%%       Mod::atom()) -> syntaxtree()
+%% @spec tuple_parameters_in_client_modules_1({Tree::syntaxtree(),
+%%       Info::ModInfo}, Name::atom(), Arity::integer(), C::integer(), 
+%%       N::integer(), Mod::atom()) -> syntaxtree()
 %% ModInfo = [{Key, term()}] 
 %% Key = attributes | errors | exports | functions | imports | 
 %%       module | records | rules | warnings 
@@ -321,7 +332,7 @@ do_tuple_fun_parameters(Tree, {C, N, Name, Arity, Mod})->
                   Parameters = refac_syntax:application_arguments(Tree),
 		  NewArgs = get_arg(Parameters, C, N),
 		  {refac_syntax:copy_attrs(Tree, 
-                               refac_syntax:application(Operator, NewArgs)), false};
+                         refac_syntax:application(Operator, NewArgs)), false};
 		_ -> {Tree, false}
 	      end;
 	    module_qualifier ->
@@ -330,7 +341,7 @@ do_tuple_fun_parameters(Tree, {C, N, Name, Arity, Mod})->
                   Parameters = refac_syntax:application_arguments(Tree),
                   NewArgs = get_arg(Parameters, C, N),
 		  {refac_syntax:copy_attrs(Tree, 
-                               refac_syntax:application(Operator, NewArgs)),false};
+                         refac_syntax:application(Operator, NewArgs)),false};
 		_ -> {Tree, false}
 	      end;
 	    _ -> {Tree, false}
@@ -370,6 +381,13 @@ check_first_pos(Pos, AnnAST)->
       {Node, function}
   end.
 
+
+%% =====================================================================
+%% @spec pos_to_arg(AppNode::syntaxtree(), Pos::{integer(), integer()})
+%%                                                       -> syntaxtree()
+%% 
+%% @end
+%% =====================================================================
 pos_to_arg(AppNode, Pos)->
   Args = refac_syntax:application_arguments(AppNode),
   case Args of 
@@ -389,6 +407,13 @@ pos_to_arg(AppNode, Pos)->
     _ -> hd(List)
   end.
 
+
+%% =====================================================================
+%% @spec pos_to_pat(AnnAST::syntaxtree(), Pos::{integer(), integer()})
+%%                                                       -> syntaxtree()
+%% 
+%% @end
+%% =====================================================================
 pos_to_pat(AnnAST, Pos)->
   case pos_to_clause(AnnAST, Pos) of
     {ok, Clause} ->
@@ -412,12 +437,26 @@ pos_to_pat(AnnAST, Pos)->
     {error, none} -> exit({error, "You have not selected a parameterrr!"})   
   end.
     
+
+%% =====================================================================
+%% @spec pos_to_clause(Node::syntaxtree(), Pos::{integer(), integer()})
+%%                                -> {ok, syntaxtree()} | {error, none}
+%% 
+%% @end
+%% =====================================================================
 pos_to_clause(Node, Pos) ->
   case refac_util:once_tdTU(fun pos_to_clause_1/2, Node, Pos) of
     {_, false} -> {error, none};
     {R, true} -> {ok, R}
   end.
 
+
+%% =====================================================================
+%% @spec pos_to_clause_1(Node::syntaxtree(), Pos::{integer(), integer()})
+%%                                        -> {syntaxtree(), atom()}
+%% 
+%% @end
+%% =====================================================================
 pos_to_clause_1(Node, Pos) ->
   case refac_syntax:type(Node) of
     clause ->
@@ -557,7 +596,6 @@ get_fun_name_and_arity(AnnAST, Pos, Type, Node) ->
 %%
 %% @end
 %% ===========================================================================
-
 expr_to_clause(Tree, Exp) ->
   Res = expr_to_clause_1(Tree, Exp),
   case Res of 
@@ -565,6 +603,11 @@ expr_to_clause(Tree, Exp) ->
     _ -> {error, none}
   end.
     
+%% ===========================================================================
+%% @spec expr_to_clause_1(Tree::syntaxTree(), Exp::syntaxTree())->[syntaxTree()]
+%%
+%% @end
+%% ===========================================================================
 expr_to_clause_1(Tree, Exp) ->
   {Start, End} = refac_util:get_range(Exp),
   {S, E} = refac_util:get_range(Tree),
@@ -717,32 +760,30 @@ transform_apply_call(Node, {C, N, Name, Arity, ModName}) ->
                refac_syntax:application(Operator, [Fun, Args3])), false};
             _ -> {Node, false}
 	  end;
-	_ -> {Node, false}
+	atom -> 
+          Args1 = refac_syntax:list_elements(Args),
+          Len = length(Args1),
+          case {refac_syntax:atom_value(Fun), Len} of
+	    {Name, Arity} ->
+               Args2 = get_arg(Args1, C, N),
+               Args3 = refac_syntax:list(Args2),
+      	       {refac_syntax:copy_attrs(Node, 
+                 refac_syntax:application(Operator, [Fun, Args3])), false};
+             _ -> {Node, false}
+          end;
+        _ -> {Node, false}
       end;
     [Mod, Fun, Args] ->
-      Mod1 = refac_util:try_evaluation([refac_syntax:revert(Mod)]),
-      Fun1 = refac_util:try_evaluation([refac_syntax:revert(Fun)]),
-      case Fun1 of
-	{value, Name} ->
-	  case Mod1 of
-	    {value, ModName} ->
-	      case refac_syntax:type(Args) of
-		list ->
-		  case refac_syntax:list_length(Args) of
-		    Arity ->
-                      Args1 = refac_syntax:list_elements(Args),
-                      Args2 = get_arg(Args1, C, N),
-                      Args3 = refac_syntax:list(Args2),
-		      {refac_syntax:copy_pos(Node, refac_syntax:
-                            copy_attrs(Node, refac_syntax:application(Operator, 
+      Args1 = refac_syntax:list_elements(Args),
+      Len = length(Args1),
+      case {refac_syntax:atom_value(Fun), Len, refac_syntax:atom_value(Mod)} of
+        {Name, Arity, ModName} ->
+          Args2 = get_arg(Args1, C, N),
+          Args3 = refac_syntax:list(Args2),
+	  {refac_syntax:copy_pos(Node, refac_syntax:
+                 copy_attrs(Node, refac_syntax:application(Operator, 
                                        [Mod, Fun, Args3]))),false};
-		    _ -> {Node, false}
-		  end;
-		_ -> {Node, false}
-	      end;
-	    _ -> {Node, false}
-	  end;
-	_ -> {Node, false}
+        _ -> {Node, false}
       end;
     _ -> 
       {Node, false}
@@ -756,95 +797,23 @@ transform_apply_call(Node, {C, N, Name, Arity, ModName}) ->
 %% 
 %% @end
 %% =====================================================================
-transform_spawn_call(Node, {C, N, FunName, Arity, ModName}) ->
+transform_spawn_call(Node, {C, N, Name, Arity, ModName}) ->
   Operator = refac_syntax:application_operator(Node),
   Arguments = refac_syntax:application_arguments(Node),
   [None, Mod, Fun, Args] = if length(Arguments) == 4 -> Arguments;
 			     true -> [none] ++ Arguments
 	                   end,
-  Mod1 = refac_util:try_evaluation([refac_syntax:revert(Mod)]),
-  Fun1 = refac_util:try_evaluation([refac_syntax:revert(Fun)]),
-  case Fun1 of
-    {value, FunName} ->
-      case Mod1 of
-	{value, ModName} ->
-	  case refac_syntax:type(Args) of
-	    list ->
-	      case refac_syntax:list_length(Args) of
-		Arity ->
-                  Args1 = refac_syntax:list_elements(Args),
-                  Args2 = get_arg(Args1, C, N),
-                  Args3 = refac_syntax:list(Args2),
-		  App = if 
-                          length(Arguments) == 4 -> 
-                            refac_syntax:application(Operator, 
-                                         [None, Mod, Fun1, Args3]);
-			  true -> 
-                            refac_syntax:application(Operator, 
-                                         [Mod, Fun1, Args3])
+  Args1 = refac_syntax:list_elements(Args),
+  Len = length(Args1),
+  case {refac_syntax:atom_value(Fun), Len, refac_syntax:atom_value(Mod)} of
+    {Name, Arity, ModName} ->
+       Args2 = get_arg(Args1, C, N),
+       Args3 = refac_syntax:list(Args2),
+       App = if length(Arguments) == 4 -> 
+                  refac_syntax:application(Operator, [None, Mod, Fun, Args3]);
+	        true ->  refac_syntax:application(Operator, [Mod, Fun, Args3])
 		        end,
 		  {refac_syntax:copy_pos(Node, 
                                refac_syntax:copy_attrs(Node, App)), false};
-		_ -> {Node, false}
-	      end;
-	    _ -> {Node, false}
-	  end;
-	_ -> {Node, false}
-      end;
     _ -> {Node, false}
   end.
-
-
-%%tuple_fun_parameters(AnnAST,  Parameters, FunName, FunArity, FunClause, AppNode, C)->
-%%  case AppNode of
-%%    []-> NewTuple = refac_syntax:tuple(Parameters),
-%%         NewPar = Parameters;
-%%    _ -> {NewTuple, NewPar} = get_fun_par(FunClause, C, length(Parameters))
-%%  end,
-%%  Forms = refac_syntax:form_list_elements(AnnAST),
-%%  Fun = fun(Form) ->
-%%	  case refac_syntax:type(Form) of 
-%%	    function -> 
-%%              Name = refac_syntax:atom_value(refac_syntax:function_name(Form)),
-%%	      Arity = refac_syntax:function_arity(Form),
-%%	      case {Name, Arity} == {FunName, FunArity} of
-%%		true -> 
-%%                  NewForm = refac_util:full_buTP(fun do_replace_fun_parameters_with_tuple/2, Form, {NewTuple, NewPar}),
-%%		  [NewForm];
-%%		 _ -> [Form]
-%%	      end;
-%%	    _ -> [Form]
-%%	  end
-%%	end,
-%%  refac_syntax:form_list([F||Form<-Forms, F <-Fun(Form)]).
-
-
-%%get_fun_par(Clause, C, N)->
-%%  Parameters = refac_syntax:clause_patterns(Clause),
-%%  NewPar =lists:reverse(lists:nthtail(length(Parameters) - N - C + 1, 
-%%                                      lists:reverse(lists:nthtail(C-1, Parameters)))),
-%%  NewTuple = refac_syntax:tuple(NewPar),
-%%  {NewTuple, NewPar}.
-
-
-%%do_replace_fun_parameters_with_tuple(Tree, {NewTuple, Parameters})->
-%%  Range1 = refac_util:get_range(hd(Parameters)),
-%%  Range2 = refac_util:get_range(lists:last(Parameters)),
-%%  case refac_syntax:type(Tree) of 
-%%    clause -> 
-%%      Patterns = refac_syntax:clause_patterns(Tree),
-%%      {Pat1, Pat2} = lists:splitwith(fun(E) -> refac_util:get_range(E) =/= Range1 end, Patterns),
-%%      NewPat = case Pat2 of 
-%%		 [] -> Patterns;
-%%		 _ -> 
-%%                   {_Pat21, Pat22} = lists:splitwith(fun(E) -> refac_util:get_range(E) =/= Range2 end, Pat2),
-%%		   case Pat22 of 
-%%		     [] -> Patterns; 
-%%		     _ -> Pat1 ++ [NewTuple|tl(Pat22)]
-%%	           end
-%%	       end,
-%%      Expr = refac_syntax:clause_body(Tree),
-%%      G    = refac_syntax:clause_guard(Tree),
-%%      refac_syntax:copy_pos(Tree, refac_syntax:copy_attrs(Tree, refac_syntax:clause(NewPat, G, Expr)));
-%%    _-> Tree
-%%  end.
