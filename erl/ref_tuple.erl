@@ -94,9 +94,11 @@ performe_refactoring(AnnAST, Info, Parameters, FunName, Arity, FunNode,
       ChangedFiles = [File | ChangedClientFiles],
       io:format("The following files have been changed "
                 "by this refactoring:\n~p\n",[ChangedFiles]),
-      io:format("WARNING: Please check the implicit function calls!");
+      io:format("WARNING: Please check the implicit function calls!"),
+      {ok, ChangedFiles};
     false -> 
-      refac_util:write_refactored_files([{{File, File}, AnnAST2}])
+      refac_util:write_refactored_files([{{File, File}, AnnAST2}]),
+      {ok, [File]}
   end.
 
 

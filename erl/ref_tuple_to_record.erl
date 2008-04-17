@@ -62,10 +62,12 @@ tuple_to_record(File, FLine, FCol, LLine, LCol,
       ChangedFiles = [File | ChangedClientFiles],
       io:format("The following files have been changed "
                 "by this refactoring:\n~p\n",[ChangedFiles]),
-      io:format("WARNING: Please check the implicit function calls!");
+      io:format("WARNING: Please check the implicit function calls!"),
+      {ok, ChangedFiles};
     false -> 
       refac_util:write_refactored_files([{{File, File},AnnAST1}]),
-      io:format("WARNING: Please check the implicit function calls!")
+      io:format("WARNING: Please check the implicit function calls!"),
+      {ok, [File]}
   end.
 
 
