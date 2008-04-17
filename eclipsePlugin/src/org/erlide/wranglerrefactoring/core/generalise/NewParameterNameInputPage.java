@@ -1,4 +1,4 @@
-package org.erlide.wranglerrefactoring.generalise;
+package org.erlide.wranglerrefactoring.core.generalise;
 
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;

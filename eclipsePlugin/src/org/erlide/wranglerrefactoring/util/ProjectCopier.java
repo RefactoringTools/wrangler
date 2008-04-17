@@ -107,7 +107,7 @@ public class ProjectCopier {
 		if (!tmp.delete())
 			throw new IOException("could not delete temporary file");
 		if (!tmp.mkdir())
-			throw new IOException("couls not create temporary dirextory");
+			throw new IOException("could not create temporary directory");
 
 		return tmp;
 	}

@@ -1,4 +1,4 @@
-package org.erlide.wranglerrefactoring.generalise;
+package org.erlide.wranglerrefactoring.core.generalise;
 
 import org.erlide.wranglerrefactoring.core.WranglerRefactoring;
 import org.erlide.wranglerrefactoring.ui.WranglerRefactoringWizard;

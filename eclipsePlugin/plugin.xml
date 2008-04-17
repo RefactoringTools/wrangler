@@ -30,12 +30,26 @@
                menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.renameGroup">
          </action>
          <action
-               class="org.erlide.wranglerrefactoring.generalise.GeneraliseAction"
-               id="org.erlide.wranglerrefactoring.action2"
+               class="org.erlide.wranglerrefactoring.core.generalise.GeneraliseAction"
+               id="org.erlide.wranglerrefactoring.generalise"
                label="%generaliseName"
                menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.reorganizeGroup">
          </action>
+         <action
+               class="org.erlide.wranglerrefactoring.core.funextraction.FunExtractionAction"
+               id="org.erlide.wranglerrefactoring.action1"
+               label="%funExtractionName"
+               menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.reorganizeGroup">
+         </action>
       </editorContribution>
+   </extension>
+   <extension
+         point="org.eclipse.ltk.ui.refactoring.changePreviewViewers">
+      <changePreviewViewer
+            class="org.erlide.wranglerrefactoring.core.ErlangChangePreviewViewer"
+            id="org.erlide.wranglerrefactoring.changePreviewViewer">
+         <enablement></enablement>
+      </changePreviewViewer>
    </extension>
 
 </plugin>

@@ -32,7 +32,7 @@ public class NewFunctionNameInputPage extends WranglerNewNameInputPage {
 					setErrorMessage(null);
 				} else if (!s.substring(0, 1).toLowerCase().equals(
 						s.substring(0, 1))) {
-					// TODO: an atom can start with _single quotes_
+					// TODO: use the OtpErlangAtom class
 					setPageComplete(false);
 					setErrorMessage("Function name must be an atom!");
 				} else {
