@@ -2,9 +2,9 @@ package org.erlide.wranglerrefactoring.core.renamefunction;
 
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
-import org.erlide.wranglerrefactoring.ui.WranglerNewNameInputPage;
+import org.erlide.wranglerrefactoring.ui.WranglerNewDataPage;
 
-public class NewFunctionNameInputPage extends WranglerNewNameInputPage {
+public class NewFunctionNameInputPage extends WranglerNewDataPage {
 
 	public NewFunctionNameInputPage(String name) {
 		super(name);
@@ -22,11 +22,11 @@ public class NewFunctionNameInputPage extends WranglerNewNameInputPage {
 
 	@Override
 	protected void initListeners() {
-		newNameText.addModifyListener(new ModifyListener() {
+		newDataText.addModifyListener(new ModifyListener() {
 
 			@Override
 			public void modifyText(ModifyEvent e) {
-				String s = newNameText.getText();
+				String s = newDataText.getText();
 				if (s.length() == 0) {
 					setPageComplete(false);
 					setErrorMessage(null);

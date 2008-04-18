@@ -11,15 +11,15 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
 import org.erlide.wranglerrefactoring.core.WranglerRefactoring;
 
-public abstract class WranglerNewNameInputPage extends UserInputWizardPage {
+public abstract class WranglerNewDataPage extends UserInputWizardPage {
 
 	protected Label renameLabel;
-	protected Text newNameText;
+	protected Text newDataText;
 	protected Composite composite;
 
 	protected String refactoringName;
 
-	public WranglerNewNameInputPage(String name) {
+	public WranglerNewDataPage(String name) {
 		super(name);
 
 		refactoringName = name;
@@ -45,12 +45,12 @@ public abstract class WranglerNewNameInputPage extends UserInputWizardPage {
 		gridData.horizontalSpan = 2;
 		renameLabel.setLayoutData(gridData);
 
-		newNameText = new Text(composite, SWT.NONE);
+		newDataText = new Text(composite, SWT.NONE);
 		gridData = new GridData();
 		gridData.horizontalAlignment = GridData.FILL;
 		gridData.horizontalSpan = 2;
 		gridData.grabExcessHorizontalSpace = true;
-		newNameText.setLayoutData(gridData);
+		newDataText.setLayoutData(gridData);
 
 		initnewNameModifyListener();
 		initListeners();
@@ -60,12 +60,12 @@ public abstract class WranglerNewNameInputPage extends UserInputWizardPage {
 	}
 
 	protected void initnewNameModifyListener() {
-		newNameText.addModifyListener(new ModifyListener() {
+		newDataText.addModifyListener(new ModifyListener() {
 
 			@Override
 			public void modifyText(ModifyEvent e) {
 				WranglerRefactoring refac = (WranglerRefactoring) getRefactoring();
-				refac.setNewName(newNameText.getText());
+				refac.setNewName(newDataText.getText());
 			}
 
 		});

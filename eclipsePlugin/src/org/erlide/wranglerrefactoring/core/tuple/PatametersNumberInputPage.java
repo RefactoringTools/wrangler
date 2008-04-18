@@ -1,23 +1,23 @@
-package org.erlide.wranglerrefactoring.core.generalise;
+package org.erlide.wranglerrefactoring.core.tuple;
 
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
 import org.erlide.wranglerrefactoring.ui.WranglerNewDataPage;
 
-public class NewParameterNameInputPage extends WranglerNewDataPage {
+public class PatametersNumberInputPage extends WranglerNewDataPage {
 
-	public NewParameterNameInputPage(String name) {
+	public PatametersNumberInputPage(String name) {
 		super(name);
 	}
 
 	@Override
 	protected String initDescription() {
-		return "Generalise the selected function";
+		return "Tuple function parameters";
 	}
 
 	@Override
 	protected String initLabelText() {
-		return "New parameter name:";
+		return "How many parameters do you want to tuple?";
 	}
 
 	@Override
@@ -26,27 +26,30 @@ public class NewParameterNameInputPage extends WranglerNewDataPage {
 
 			@Override
 			public void modifyText(ModifyEvent e) {
-				// TODO: not exact, whitespaces??
 				String s = newDataText.getText();
 				if (s.length() == 0) {
 					setPageComplete(false);
 					setErrorMessage(null);
-				} else if (!s.substring(0, 1).toUpperCase().equals(
-						s.substring(0, 1))) {
-					setPageComplete(false);
-					setErrorMessage("Variable name must start with an uppercase letter!");
 				} else {
-					setPageComplete(true);
+					int num;
+					try {
+						num = Integer.valueOf(s);
+						setPageComplete(true);
+						setErrorMessage(null);
+					} catch (NumberFormatException e1) {
+						setPageComplete(false);
+						setErrorMessage("Parameters number must be an integer!");
+					}
 				}
-
 			}
 
 		});
+
 	}
 
 	@Override
 	protected String initTitle() {
-		return "Genralise function";
+		return "Tuple function parameters";
 	}
 
 }
