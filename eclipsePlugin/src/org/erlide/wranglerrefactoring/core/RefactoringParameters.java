@@ -85,7 +85,7 @@ public class RefactoringParameters {
 
 	public Integer getEndColoumn() {
 		endColoumn = calculateColoumnFromOffset(selection.getOffset()
-				+ selection.getLength());
+				+ selection.getLength()) - 1;
 		return endColoumn;
 	}
 

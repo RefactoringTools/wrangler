@@ -13,6 +13,9 @@
             <groupMarker
                   name="org.erlide.wranglerrefactoring.renameGroup">
             </groupMarker>
+            <separator
+                  name="org.erlide.wranglerrefactoring.separator1">
+            </separator>
             <groupMarker
                   name="org.erlide.wranglerrefactoring.reorganizeGroup">
             </groupMarker>
@@ -45,6 +48,12 @@
                class="org.erlide.wranglerrefactoring.core.tuple.TupleParametersAction"
                id="org.erlide.wranglerrefactoring.tuplefunctonparameters"
                label="%tupleFunParamsName"
+               menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.reorganizeGroup">
+         </action>
+         <action
+               class="org.erlide.wranglerrefactoring.core.tupletorecord.TupleToRecordAction"
+               id="org.erlide.wranglerrefactoring.tupletorecord"
+               label="%tupleToRecordName"
                menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.reorganizeGroup">
          </action>
       </editorContribution>

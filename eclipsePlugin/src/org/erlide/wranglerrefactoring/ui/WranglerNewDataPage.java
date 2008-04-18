@@ -33,11 +33,6 @@ public abstract class WranglerNewDataPage extends UserInputWizardPage {
 
 		composite = new Composite(parent, SWT.NONE);
 
-		GridLayout layout = new GridLayout();
-		layout.numColumns = 2;
-
-		composite.setLayout(layout);
-
 		renameLabel = new Label(composite, SWT.LEFT);
 		renameLabel.setText(initLabelText());
 		GridData gridData = new GridData();
@@ -52,14 +47,21 @@ public abstract class WranglerNewDataPage extends UserInputWizardPage {
 		gridData.grabExcessHorizontalSpace = true;
 		newDataText.setLayoutData(gridData);
 
-		initnewNameModifyListener();
+		GridLayout layout = new GridLayout();
+		layout.numColumns = 2;
+		initExtraControls(layout);
+		composite.setLayout(layout);
+
+		initNewNameModifyListener();
 		initListeners();
 		setPageComplete(false);
 		setControl(composite);
 
 	}
 
-	protected void initnewNameModifyListener() {
+	abstract protected void initExtraControls(GridLayout layout);
+
+	protected void initNewNameModifyListener() {
 		newDataText.addModifyListener(new ModifyListener() {
 
 			@Override

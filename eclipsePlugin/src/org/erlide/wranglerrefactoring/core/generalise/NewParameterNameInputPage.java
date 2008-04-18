@@ -2,6 +2,7 @@ package org.erlide.wranglerrefactoring.core.generalise;
 
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
+import org.eclipse.swt.layout.GridLayout;
 import org.erlide.wranglerrefactoring.ui.WranglerNewDataPage;
 
 public class NewParameterNameInputPage extends WranglerNewDataPage {
@@ -47,6 +48,12 @@ public class NewParameterNameInputPage extends WranglerNewDataPage {
 	@Override
 	protected String initTitle() {
 		return "Genralise function";
+	}
+
+	@Override
+	protected void initExtraControls(GridLayout layout) {
+		// TODO Auto-generated method stub
+
 	}
 
 }

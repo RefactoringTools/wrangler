@@ -2,6 +2,7 @@ package org.erlide.wranglerrefactoring.core.renamefunction;
 
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
+import org.eclipse.swt.layout.GridLayout;
 import org.erlide.wranglerrefactoring.ui.WranglerNewDataPage;
 
 public class NewFunctionNameInputPage extends WranglerNewDataPage {
@@ -47,6 +48,12 @@ public class NewFunctionNameInputPage extends WranglerNewDataPage {
 	@Override
 	protected String initTitle() {
 		return "Rename function name";
+	}
+
+	@Override
+	protected void initExtraControls(GridLayout layout) {
+		// TODO Auto-generated method stub
+
 	}
 
 }
