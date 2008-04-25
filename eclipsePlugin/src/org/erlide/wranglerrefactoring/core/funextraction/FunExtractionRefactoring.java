@@ -28,7 +28,7 @@ public class FunExtractionRefactoring extends WranglerRefactoring {
 				parameters.getStartColoumn());
 		OtpErlangTuple endPos = createPos(parameters.getEndLine(), parameters
 				.getEndColoumn());
-		return managedBackend.rpc("wrangler", "fun_extraction", "sxxs",
+		return managedBackend.rpc("wrangler", "fun_extraction_eclipse", "sxxs",
 				filePath, startPos, endPos, newName);
 	}
 

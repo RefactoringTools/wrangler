@@ -3,9 +3,9 @@ package org.erlide.wranglerrefactoring.core.tuple;
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.layout.GridLayout;
-import org.erlide.wranglerrefactoring.ui.WranglerNewDataPage;
+import org.erlide.wranglerrefactoring.ui.WranglerNewDataInputPage;
 
-public class PatametersNumberInputPage extends WranglerNewDataPage {
+public class PatametersNumberInputPage extends WranglerNewDataInputPage {
 
 	public PatametersNumberInputPage(String name) {
 		super(name);

@@ -41,16 +41,13 @@ public class Activator extends AbstractUIPlugin {
 	// TODO: read from settings file
 	@SuppressWarnings("restriction")
 	private void initWrangler() {
-		String wranglerPath = "/home/mee/Programok/wrangler/ebin";
+		String wranglerPath = "/home/mee/Programok/wrangler/distel-wrangler-0.3/ebin";
 		ManagedBackend mb = (ManagedBackend) BackendManager.getDefault()
 				.getIdeBackend();
 		ErlangCode.addPathA(mb, wranglerPath);
 
 		try {
 			mb.rpc("code", "load_file", "a", "wrangler");
-		} catch (ErlangRpcException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		} catch (RpcException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

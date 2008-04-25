@@ -3,9 +3,9 @@ package org.erlide.wranglerrefactoring.core.renamefunction;
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.layout.GridLayout;
-import org.erlide.wranglerrefactoring.ui.WranglerNewDataPage;
+import org.erlide.wranglerrefactoring.ui.WranglerNewDataInputPage;
 
-public class NewFunctionNameInputPage extends WranglerNewDataPage {
+public class NewFunctionNameInputPage extends WranglerNewDataInputPage {
 
 	public NewFunctionNameInputPage(String name) {
 		super(name);

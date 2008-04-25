@@ -3,9 +3,9 @@ package org.erlide.wranglerrefactoring.core.renamevariable;
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.layout.GridLayout;
-import org.erlide.wranglerrefactoring.ui.WranglerNewDataPage;
+import org.erlide.wranglerrefactoring.ui.WranglerNewDataInputPage;
 
-public class NewVariableNameInputPage extends WranglerNewDataPage {
+public class NewVariableNameInputPage extends WranglerNewDataInputPage {
 
 	public NewVariableNameInputPage(String name) {
 		super(name);

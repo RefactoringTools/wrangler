@@ -1,54 +1,54 @@
-/**
- * @author György Orosz
- */
-// TODO:: implement the whole class, it is just a stub
 package org.erlide.wranglerrefactoring.core;
 
-import org.eclipse.ltk.core.refactoring.RefactoringStatus;
-import org.erlide.runtime.backend.RpcResult;
+import java.util.ArrayList;
+import java.util.List;
 
-import com.ericsson.otp.erlang.OtpErlangObject;
+import org.erlide.runtime.backend.RpcResult;
+import org.erlide.wranglerrefactoring.core.exception.WranglerException;
+import org.erlide.wranglerrefactoring.core.exception.WranglerRPCException;
+import org.erlide.wranglerrefactoring.core.exception.WranglerRefactoringException;
+
+import com.ericsson.otp.erlang.OtpErlangList;
+import com.ericsson.otp.erlang.OtpErlangString;
 import com.ericsson.otp.erlang.OtpErlangTuple;
 
-// TODO: implemet all the cases, not just error, but exit
 public class RPCMessage {
 
 	private RpcResult result;
 
-	/**
-	 * Class constructor.
-	 * 
-	 * @param result
-	 * @see RpcResult
-	 */
 	public RPCMessage(RpcResult result) {
 		this.result = result;
 	}
 
-	/**
-	 * Creates the (fatal) error, warning messages from the RpcResult
-	 * 
-	 * @return
-	 */
-	public RefactoringStatus getRefactongStatus() {
-		RefactoringStatus status = new RefactoringStatus();
-		OtpErlangObject wranglerResponse = result.getValue();
-		if (wranglerResponse instanceof OtpErlangTuple) {
-			OtpErlangTuple wranglerTupleResponse = (OtpErlangTuple) wranglerResponse;
-			if (!wranglerTupleResponse.elementAt(0).toString().equals("ok")) {
-				status.addError(wranglerTupleResponse.elementAt(1).toString()
-						.replaceAll("\"", ""));
-			}
-		} else {
-			status.addFatalError("Unknown error occured!");
+	public List<FileChangesTuple> getResult() {
+		ArrayList<FileChangesTuple> res = new ArrayList<FileChangesTuple>();
+
+		OtpErlangTuple rpcResp = (OtpErlangTuple) result.getValue();
+		OtpErlangList changedFileTupleList = (OtpErlangList) rpcResp
+				.elementAt(1);
+
+		OtpErlangTuple e;
+		OtpErlangString oldPath, newPath, newContent;
+		for (int i = 0; i < changedFileTupleList.arity(); ++i) {
+			e = (OtpErlangTuple) changedFileTupleList.elementAt(i);
+			oldPath = (OtpErlangString) e.elementAt(0);
+			newPath = (OtpErlangString) e.elementAt(1);
+			newContent = (OtpErlangString) e.elementAt(2);
+
+			res.add(new FileChangesTuple(oldPath.stringValue(), newPath
+					.stringValue(), newContent.stringValue()));
 		}
 
-		return status;
+		return res;
 	}
 
-	public boolean isOk() {
-		// TODO:: if it is not ok, from wrnalger
-		return result.isOk();
+	protected void checkIsOK() throws WranglerException {
+		if (result.isOk()) {
+			OtpErlangTuple tuple = (OtpErlangTuple) result.getValue();
+			if (!tuple.elementAt(0).toString().equals("ok"))
+				throw new WranglerRefactoringException(((OtpErlangString) tuple
+						.elementAt(1)).stringValue());
+		} else
+			throw new WranglerRPCException();
 	}
-
 }

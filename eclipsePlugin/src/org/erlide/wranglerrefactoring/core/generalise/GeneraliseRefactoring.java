@@ -28,7 +28,7 @@ public class GeneraliseRefactoring extends WranglerRefactoring {
 				parameters.getStartColoumn());
 		OtpErlangTuple endPos = createPos(parameters.getEndLine(), parameters
 				.getEndColoumn());
-		return managedBackend.rpc("wrangler", "generalise", "sxxsx", filePath,
-				startPos, endPos, newName, searchPath);
+		return managedBackend.rpc("wrangler", "generalise_eclipse", "sxxsx",
+				filePath, startPos, endPos, newName, searchPath);
 	}
 }

@@ -22,9 +22,9 @@ public class RenameVariableRefactoring extends RenameRefactoring {
 	@Override
 	protected RpcResult sendRPC(String filePath, OtpErlangList searchPath)
 			throws ErlangRpcException, RpcException {
-		return managedBackend.rpc("wrangler", "rename_var", "siisx", filePath,
-				parameters.getStartLine(), parameters.getStartColoumn(),
-				newName, searchPath);
+		return managedBackend.rpc("wrangler", "rename_var_eclipse", "siisx",
+				filePath, parameters.getStartLine(), parameters
+						.getStartColoumn(), newName, searchPath);
 
 	}
 

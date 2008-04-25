@@ -12,6 +12,9 @@ import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IFileEditorInput;
 import org.eclipse.ui.texteditor.ITextEditor;
 
+import com.ericsson.otp.erlang.OtpErlangList;
+import com.ericsson.otp.erlang.OtpErlangString;
+
 public class RefactoringParameters {
 
 	private ITextEditor editor;
@@ -91,6 +94,20 @@ public class RefactoringParameters {
 
 	public IFile getFile() {
 		return file;
+	}
+
+	public OtpErlangList getProject() {
+		// FIXME: not sure to use this, maybe some subdir???
+		String sPath;
+
+		sPath = file.getParent().getLocation().toOSString();
+		OtpErlangList searchPathList = new OtpErlangList(new OtpErlangString(
+				sPath));
+		return searchPathList;
+	}
+
+	public String getFilePath() {
+		return file.getLocation().toOSString();
 	}
 
 }

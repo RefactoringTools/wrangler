@@ -3,9 +3,9 @@ package org.erlide.wranglerrefactoring.core.generalise;
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.layout.GridLayout;
-import org.erlide.wranglerrefactoring.ui.WranglerNewDataPage;
+import org.erlide.wranglerrefactoring.ui.WranglerNewDataInputPage;
 
-public class NewParameterNameInputPage extends WranglerNewDataPage {
+public class NewParameterNameInputPage extends WranglerNewDataInputPage {
 
 	public NewParameterNameInputPage(String name) {
 		super(name);

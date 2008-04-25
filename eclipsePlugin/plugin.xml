@@ -22,14 +22,23 @@
          </menu>
          <action
                class="org.erlide.wranglerrefactoring.core.renamevariable.RenameVariableAction"
+               definitionId="org.erlide.wrangler.refactoring.renameVariable"
                id="org.erlide.wranglerrefactoring.renamevariable"
                label="%renameVariableName"
                menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.renameGroup">
          </action>
          <action
                class="org.erlide.wranglerrefactoring.core.renamefunction.RenameFunctionAction"
+               definitionId="org.erlide.wrangler.refactoring.renameFunction"
                id="org.erlide.wranglerrefactoring.renamefunction"
                label="%renameFunctionName"
+               menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.renameGroup">
+         </action>
+         <action
+               class="org.erlide.wranglerrefactoring.core.renamemodule.RenameModuleAction"
+               definitionId="org.erlide.wrangler.refactoring.renameModule"
+               id="org.erlide.wranglerrefactoring.tupletorecord"
+               label="%renameModName"
                menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.renameGroup">
          </action>
          <action
@@ -56,15 +65,69 @@
                label="%tupleToRecordName"
                menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.reorganizeGroup">
          </action>
+         <action
+               class="org.erlide.wranglerrefactoring.core.movefunction.MoveFunctionAction"
+               id="org.erlide.wranglerrefactoring.movefunction"
+               label="%moveFunctionName"
+               menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.reorganizeGroup">
+         </action>
       </editorContribution>
    </extension>
    <extension
          point="org.eclipse.ltk.ui.refactoring.changePreviewViewers">
       <changePreviewViewer
-            class="org.erlide.wranglerrefactoring.core.ErlangChangePreviewViewer"
+            class="org.erlide.wranglerrefactoring.util.ErlangChangePreviewViewer"
             id="org.erlide.wranglerrefactoring.changePreviewViewer">
          <enablement></enablement>
       </changePreviewViewer>
+   </extension>
+   <extension
+         point="org.eclipse.ltk.core.refactoring.renameParticipants">
+      <renameParticipant
+            class="org.erlide.wranglerrefactoring.core.rename.WranglerRenameParticipant"
+            id="org.erlide.wrangler.renameParticipant"
+            name="%renameParticipant.name.0">
+      </renameParticipant>
+   </extension>
+   <extension
+         point="org.eclipse.ui.bindings">
+      <key
+            commandId="org.erlide.wrangler.refactoring.renameVariable"
+            schemeId="org.eclipse.ui.defaultAcceleratorConfiguration"
+            sequence="M2+M3+R V">
+      </key>
+      <key
+            commandId="org.erlide.wrangler.refactoring.renameFunction"
+            schemeId="org.eclipse.ui.defaultAcceleratorConfiguration"
+            sequence="M2+M3+R F">
+      </key>
+      <key
+            commandId="org.erlide.wrangler.refactoring.renameModule"
+            schemeId="org.eclipse.ui.defaultAcceleratorConfiguration"
+            sequence="M2+M3+R M">
+      </key>
+   </extension>
+   <extension
+         point="org.eclipse.ui.commands">
+      <category
+            id="org.erlide.wrangler.refactoring"
+            name="Refactoring">
+      </category>
+      <command
+            category="org.erlide.wrangler.refactoring"
+            id="org.erlide.wrangler.refactoring.renameVariable"
+            name="Rename variable">
+      </command>
+      <command
+            category="org.erlide.wrangler.refactoring"
+            id="org.erlide.wrangler.refactoring.renameFunction"
+            name="Rename function">
+      </command>
+      <command
+            category="org.erlide.wrangler.refactoring"
+            id="org.erlide.wrangler.refactoring.renameModule"
+            name="Rename module">
+      </command>
    </extension>
 
 </plugin>

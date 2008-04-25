@@ -11,7 +11,7 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
 import org.erlide.wranglerrefactoring.core.WranglerRefactoring;
 
-public abstract class WranglerNewDataPage extends UserInputWizardPage {
+public abstract class WranglerNewDataInputPage extends UserInputWizardPage {
 
 	protected Label renameLabel;
 	protected Text newDataText;
@@ -19,7 +19,7 @@ public abstract class WranglerNewDataPage extends UserInputWizardPage {
 
 	protected String refactoringName;
 
-	public WranglerNewDataPage(String name) {
+	public WranglerNewDataInputPage(String name) {
 		super(name);
 
 		refactoringName = name;

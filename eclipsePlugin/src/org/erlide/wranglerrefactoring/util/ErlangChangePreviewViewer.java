@@ -1,4 +1,4 @@
-package org.erlide.wranglerrefactoring.core;
+package org.erlide.wranglerrefactoring.util;
 
 import org.eclipse.jface.text.source.SourceViewer;
 import org.eclipse.ltk.ui.refactoring.ChangePreviewViewerInput;

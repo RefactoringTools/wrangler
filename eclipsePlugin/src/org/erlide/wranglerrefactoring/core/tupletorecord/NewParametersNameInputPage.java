@@ -7,9 +7,9 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
-import org.erlide.wranglerrefactoring.ui.WranglerNewDataPage;
+import org.erlide.wranglerrefactoring.ui.WranglerNewDataInputPage;
 
-public class NewParametersNameInputPage extends WranglerNewDataPage {
+public class NewParametersNameInputPage extends WranglerNewDataInputPage {
 
 	private Label extraLabel;
 	private Text newExtraDataText;

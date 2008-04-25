@@ -71,6 +71,40 @@ public class TextFileDiffTool {
 		return edits;
 	}
 
+	// new version of creating changes
+	static public ArrayList<TextEdit> _createEdits(File in, String out) {
+		inFile = in;
+
+		ArrayList<TextEdit> edits = new ArrayList<TextEdit>();
+		inFileCharArray = null;
+		outFileCharArray = null;
+		try {
+			inFileCharArray = splitFile(inFile);
+			outFileCharArray = new ArrayList<Character>();
+			outFileCharArray = convertArryaToArrayList(out.toCharArray());
+		} catch (Exception e) {
+			// TODO io error???
+			e.printStackTrace();
+		}
+
+		algorithm = new Diff(inFileCharArray, outFileCharArray);
+
+		differencesList = algorithm.diff();
+		for (Difference d : differencesList) {
+			edits.add(createEditFromDiff(d));
+		}
+
+		return edits;
+	}
+
+	private static ArrayList<Character> convertArryaToArrayList(char[] charArray) {
+		ArrayList<Character> result = new ArrayList<Character>();
+		for (char c : charArray) {
+			result.add(c);
+		}
+		return result;
+	}
+
 	private static TextEdit createEditFromDiff(Difference diff) {
 		TextEdit result = null;
 
