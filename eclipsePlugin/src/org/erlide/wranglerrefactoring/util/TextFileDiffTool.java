@@ -41,6 +41,8 @@ public class TextFileDiffTool {
 			result.add('\n');
 		}
 		input.close();
+		if (result.size() != 0)
+			result.remove(result.size() - 1);
 
 		return result;
 	}

@@ -45,9 +45,12 @@ public class RPCMessage {
 	protected void checkIsOK() throws WranglerException {
 		if (result.isOk()) {
 			OtpErlangTuple tuple = (OtpErlangTuple) result.getValue();
-			if (!tuple.elementAt(0).toString().equals("ok"))
-				throw new WranglerRefactoringException(((OtpErlangString) tuple
-						.elementAt(1)).stringValue());
+			if (!tuple.elementAt(0).toString().equals("ok")) {
+				String message = ((OtpErlangString) tuple.elementAt(1))
+						.stringValue();
+				throw new WranglerRefactoringException(message);
+			}
+
 		} else
 			throw new WranglerRPCException();
 	}

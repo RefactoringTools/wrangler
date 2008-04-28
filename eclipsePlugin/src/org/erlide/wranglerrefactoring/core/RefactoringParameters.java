@@ -110,4 +110,7 @@ public class RefactoringParameters {
 		return file.getLocation().toOSString();
 	}
 
+	public ITextSelection getSelection() {
+		return selection;
+	}
 }

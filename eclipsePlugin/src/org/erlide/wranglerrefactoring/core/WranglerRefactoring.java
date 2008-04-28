@@ -66,7 +66,9 @@ public abstract class WranglerRefactoring extends Refactoring {
 		try {
 			doRefactoring();
 		} catch (WranglerException e) {
+			String s = e.getLocalizedMessage();
 			rs.addError(e.getLocalizedMessage());
+			return rs;
 		} catch (IOException e) {
 			rs.addError("I/O error during the refactoring:\n" + e.getMessage());
 			return rs;
