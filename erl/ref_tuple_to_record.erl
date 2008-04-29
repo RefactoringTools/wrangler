@@ -25,16 +25,25 @@
 
 -export([tuple_to_record/8]).
 
+-export([tuple_to_record_eclipse/8]).
+
+tuple_to_record(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
+  tuple_to_record(File, FLine, FCol, LLine, LCol, 
+                RecName, FieldString, SearchPaths, emacs).
+
+tuple_to_record_eclipse(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
+  tuple_to_record(File, FLine, FCol, LLine, LCol, 
+                RecName, FieldString, SearchPaths, eclipse).
 
 %% =====================================================================
 %% @spec tuple_to_record(File::string(),FLine::integer(),FCol::integer(),
 %%           LLine::integer(),LCol::integer(), RecName::string(),
-%%           FieldString::[string()], SearchPaths::[string()]) -> term()
-
+%%           FieldString::[string()], SearchPaths::[string()], 
+%%           Editor::atom()) -> term()
 %% @end
 %% =====================================================================
 tuple_to_record(File, FLine, FCol, LLine, LCol, 
-                RecName, FieldString, SearchPaths)->
+                RecName, FieldString, SearchPaths, Editor)->
   io:format("\n[CMD: tuple_to_record,~p,~p,~p,~p,~p,~p,~n ~p,~n ~p] \n \n", 
          [File, FLine, FCol, LLine, LCol, RecName, FieldString, SearchPaths]),
   FieldList = convert_record_names(FieldString),
@@ -57,17 +66,32 @@ tuple_to_record(File, FLine, FCol, LLine, LCol,
       ClientFiles = refac_util:get_client_files(File, SearchPaths),
       Results = tuple_to_record_in_client_modules(ClientFiles, FunName, Arity, 
                                                 DefMod, N, RecName, FieldList),
-      refac_util:write_refactored_files([{{File, File}, AnnAST1} | Results]),
-      ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-      ChangedFiles = [File | ChangedClientFiles],
-      io:format("The following files have been changed "
-                "by this refactoring:\n~p\n",[ChangedFiles]),
-      io:format("WARNING: Please check the implicit function calls!"),
-      {ok, ChangedFiles};
+      case Editor of 
+        emacs ->
+          refac_util:write_refactored_files([{{File, File}, AnnAST1} | Results]),
+          ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+          ChangedFiles = [File | ChangedClientFiles],
+          io:format("The following files have been changed "
+                    "by this refactoring:\n~p\n",[ChangedFiles]),
+          io:format("WARNING: Please check the implicit function calls!"),
+          {ok, ChangedFiles};
+        eclipse ->
+          Results1 = [{{File, File}, AnnAST1} | Results],
+	  Res = lists:map(fun({{FName, NewFName}, AST}) -> 
+                            {FName, NewFName, refac_prettypr:print_ast(AST)} 
+                          end, Results1),
+	  {ok, Res}
+      end;
     false -> 
-      refac_util:write_refactored_files([{{File, File},AnnAST1}]),
-      io:format("WARNING: Please check the implicit function calls!"),
-      {ok, [File]}
+      case Editor of
+        emacs -> 
+          refac_util:write_refactored_files([{{File, File},AnnAST1}]),
+          io:format("WARNING: Please check the implicit function calls!"),
+          {ok, [File]};
+	eclipse ->
+          Res = [{File, File, refac_prettypr:print_ast(AnnAST1)}],
+	  {ok, Res}
+      end
   end.
 
 
