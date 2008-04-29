@@ -93,7 +93,7 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, Editor) ->
 							       "search paths: \n~p\n",
 							       [SearchPaths]),
 						     ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
-						     Results = rename_fun_in_client_modules(ClientFiles, {Mod, Fun, Arity}, NewName),
+						     Results = rename_fun_in_client_modules(ClientFiles, {Mod, Fun, Arity}, NewName, SearchPaths),
 						     case Editor of 
 							 emacs ->
 							     refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1} | Results]),
@@ -221,12 +221,12 @@ get_fun_def_mod(Node) ->
       _ -> false
     end.
 
-rename_fun_in_client_modules(Files, {Mod, Fun, Arity}, NewName) ->
+rename_fun_in_client_modules(Files, {Mod, Fun, Arity}, NewName, SearchPaths) ->
     case Files of
       [] -> [];
       [F | Fs] ->
 	  io:format("The current file under refactoring is:\n~p\n", [F]),
-	  case refac_util:parse_annotate_file(F, 1) of
+	  case refac_util:parse_annotate_file(F, true, SearchPaths) of
 	    {ok, {AnnAST, Info}} ->
 		{AnnAST1, Changed} = rename_fun_in_client_module_1({AnnAST, Info},
 								   {Mod, Fun, Arity},
@@ -235,9 +235,9 @@ rename_fun_in_client_modules(Files, {Mod, Fun, Arity}, NewName) ->
 		if Changed ->
 		       [{{F, F}, AnnAST1} | rename_fun_in_client_modules(Fs,
 									 {Mod, Fun, Arity},
-									 NewName)];
+									 NewName, SearchPaths)];
 		   true ->
-		       rename_fun_in_client_modules(Fs, {Mod, Fun, Arity}, NewName)
+		       rename_fun_in_client_modules(Fs, {Mod, Fun, Arity}, NewName, SearchPaths)
 		end;
 	    {error, Reason} -> {error, Reason}
 	  end
