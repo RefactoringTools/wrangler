@@ -43,7 +43,7 @@
 
 -module(refac_move_fun).
 
--export([move_fun/6]).
+-export([move_fun/6, move_fun_eclipse/6]).
 
 -define(COMMENT_PREFIX, "% ").
 
@@ -54,7 +54,15 @@
 %% =====================================================================
 %% @spec move_fun(FileName::filename(),Line::integer(),Col::integer(), ModName::string(),SearchPaths::[string()])-> term()
 %%         
+
 move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths) ->
+    move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths, emacs).
+
+move_fun_eclipse(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths)->
+    move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths, eclipse).
+
+
+move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths, Editor) ->
     io:format("\n[CMD: move_fun, ~p, ~p, ~p, ~p, ~p, ~p]\n", 
 	      [FName, Line, Col, TargetModName, CreateNewFile,SearchPaths]),
     Pos = {Line, Col},
@@ -88,18 +96,36 @@ move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths) ->
 								      refac_util:get_client_files(FName, SearchPaths)),
 							    Results = refactor_in_client_modules(ClientFiles,
 										{ModName, FunName, Arity}, TargetModName, SearchPaths),
-							    refac_util:write_refactored_files([{{FName,FName}, AnnAST1},
-								   {{TargetFName, TargetFName}, TargetAnnAST1}| Results]),
-							    ChangedClientFiles =
-								lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-							    ChangedFiles = [FName, TargetFName | ChangedClientFiles],
-							    io:format("The following files have been changed "
-								      "by this refactoring:\n~p\n", [ChangedFiles]),
-							    {ok, ChangedFiles};
+							    case Editor of
+								emacs ->
+								    refac_util:write_refactored_files([{{FName,FName}, AnnAST1},
+												       {{TargetFName, TargetFName}, TargetAnnAST1}| Results]),
+								    ChangedClientFiles =
+									lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+								    ChangedFiles = [FName, TargetFName | ChangedClientFiles],
+								    io:format("The following files have been changed "
+									      "by this refactoring:\n~p\n", [ChangedFiles]),
+								    {ok, ChangedFiles};
+								eclipse ->
+								    Results1 = [{{FName,FName}, AnnAST1},
+										{{TargetFName, TargetFName}, TargetAnnAST1}| Results],
+								    Res = lists:map(fun({{FName1, NewFName1}, AST}) -> {FName1, NewFName1, refac_prettypr:print_ast(AST)} end,
+										    Results1),
+								    {ok, Res}
+							    end;
 							false ->
-							     refac_util:write_refactored_files([{{FName,FName}, AnnAST1},
-								   {{TargetFName, TargetFName}, TargetAnnAST1}]),
-							    {ok, [FName, TargetFName]}
+							    case Editor of 
+								emacs ->
+								    refac_util:write_refactored_files([{{FName,FName}, AnnAST1},
+												       {{TargetFName, TargetFName}, TargetAnnAST1}]),
+								    {ok, [FName, TargetFName]};
+								eclipse ->
+								    Results1 = [{{FName,FName}, AnnAST1}, {{TargetFName, TargetFName}, TargetAnnAST1}],
+								    Res = lists:map(fun({{FName1, NewFName1}, AST}) -> {FName1, NewFName1, refac_prettypr:print_ast(AST)} end,
+										    Results1),
+								    {ok, Res}
+							    end						    
+
 						    end;
 						{error, Reason} -> {error, Reason}
 					    end;

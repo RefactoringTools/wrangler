@@ -36,13 +36,20 @@
 
 -module(refac_rename_mod).
 
--export([rename_mod/3]).
+-export([rename_mod/3, rename_mod_eclipse/3]).
 
 -import(refac_rename_fun, [check_atoms/2]).
 %% =====================================================================
 %% @spec rename_mod(FileName::filename(), NewName::string(), SearchPaths::[string()])-> term()
 %%   
-rename_mod(FileName, NewName,SearchPaths) ->
+
+rename_mod(FileName, NewName, SearchPaths) ->
+    rename_mod(FileName, NewName, SearchPaths, emacs).
+
+rename_mod_eclipse(FileName, NewName, SearchPaths) ->
+    rename_mod(FileName, NewName, SearchPaths, eclipse).
+
+rename_mod(FileName, NewName,SearchPaths, Editor) ->
     io:format("\n[CMD: rename_mod, ~p, ~p]\n", [FileName, NewName]),
     case refac_util:is_fun_name(NewName) of   %% module name and function name follow the same rules.
       true ->
@@ -66,13 +73,20 @@ rename_mod(FileName, NewName,SearchPaths) ->
 
 						  Results = rename_mod_in_client_modules(ClientFiles, 
 						  		     OldModName, NewModName,SearchPaths),
-						  refac_util:write_refactored_files([{{FileName, NewFileName}, AnnAST1}|Results]),
-						  ChangedClientFiles = lists:map(fun({{F, _F}, _AST}) -> F end, Results),
-						  ChangedFiles = [FileName | ChangedClientFiles],
-						  io:format
-						    ("The following files have been changed by this refactoring:\n~p\n",
-						     [ChangedFiles]),
-						  {ok, ChangedFiles};
+						  case Editor of 
+						      emacs ->
+							  refac_util:write_refactored_files([{{FileName, NewFileName}, AnnAST1}|Results]),
+							  ChangedClientFiles = lists:map(fun({{F, _F}, _AST}) -> F end, Results),
+							  ChangedFiles = [FileName | ChangedClientFiles],
+							  io:format
+							    ("The following files have been changed by this refactoring:\n~p\n",
+							     [ChangedFiles]),
+							  {ok, ChangedFiles};
+						      eclipse ->
+							   Results1 =[{{FileName, NewFileName}, AnnAST1}|Results],
+							   Res = lists:map(fun({{FName, NewFName}, AST}) -> {FName, NewFName, refac_prettypr:print_ast(AST)} end, Results1),
+							  {ok, Res}
+						  end;
 					      true -> {error, "The new module/file name has been used!"}
 					  end;
 				      _ ->

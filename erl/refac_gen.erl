@@ -75,7 +75,7 @@
 
 -module(refac_gen).
 
--export([generalise/5]).
+-export([generalise/5, generalise_eclipse/5]).
 
 %% temporally exported for testing purposed.
 -export([pre_cond_checking/2, do_generalisation/6, application_info/1, gen_fun_1/7, gen_fun_2/7]).
@@ -83,7 +83,14 @@
 %% =====================================================================
 %% @spec generalise(FileName::filename(), Start::Pos, End::Pos, ParName::string(), SearchPaths::[string()])-> term()
 %%         Pos = {integer(), integer()}
+
 generalise(FileName, Start, End, ParName, SearchPaths) ->
+    generalise(FileName, Start, End, ParName, SearchPaths, emacs).
+
+generalise_eclipse(FileName, Start, End, ParName, SearchPaths) ->
+    generalise(FileName, Start, End, ParName, SearchPaths, eclipse).
+    
+generalise(FileName, Start, End, ParName, SearchPaths, Editor) ->
     io:format("\n[CMD: gen_fun, ~p, ~p, ~p, ~p]\n", [FileName, Start, End, ParName]),
     case refac_util:is_var_name(ParName) of 
 	true ->
@@ -109,8 +116,14 @@ generalise(FileName, Start, End, ParName, SearchPaths) ->
 									unknown -> {unknown_side_effect, [ParName1, FunName, FunArity, FunDefPos,Exp1]};
 									_ ->AnnAST1=gen_fun(AnnAST, ParName1, 
 											    FunName, FunArity, FunDefPos,Info, Exp1, SideEffect),
-									    refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
-									    {ok, "Refactor succeeded"}
+									    case Editor of 
+										emacs ->
+										    refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
+										    {ok, "Refactor succeeded"};
+										eclipse  ->
+										    Res = [{FileName, FileName, refac_prettypr:print_ast(AnnAST1)}],
+										    {ok, Res}
+									    end
 									end;	     
 							    false ->
 								{free_vars, [ParName1, FunName, FunArity, FunDefPos, Exp1]}

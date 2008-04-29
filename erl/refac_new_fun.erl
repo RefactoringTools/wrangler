@@ -21,12 +21,19 @@
 %% =============================================================================================
 -module(refac_new_fun).
 
--export([fun_extraction/4]).
+-export([fun_extraction/4, fun_extraction_eclipse/4]).
 
 %% =============================================================================================
 %% @spec new_fun(FileName::filename(), Start::Pos, End::Pos, NewFunName::string())-> term()
 %%         
 fun_extraction(FileName, Start, End, NewFunName) ->
+    fun_extraction(FileName, Start, End, NewFunName, emacs).
+
+fun_extraction_eclipse(FileName, Start, End, NewFunName) ->
+    fun_extraction(FileName, Start, End, NewFunName, eclipse).
+
+
+fun_extraction(FileName, Start, End, NewFunName,Editor) ->
     io:format("\n[CMD: fun_extraction, ~p, ~p, ~p, ~p]\n", [FileName, Start, End, NewFunName]),
     case refac_util:is_fun_name(NewFunName) of 
 	true ->
@@ -42,8 +49,14 @@ fun_extraction(FileName, Start, End, NewFunName) ->
 				     FunArity = refac_syntax:function_arity(Fun),
 				     VarsToExport=vars_to_export(Fun, End, BdVars, ExpList), 
 				     AnnAST1=do_fun_extraction(AnnAST,ExpList, NewFunName, FrVars, VarsToExport, FunName, FunArity),
-				     refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
-				     {ok, "Refactor succeeded"};
+				     case Editor of 
+					 emacs ->
+					     refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
+					     {ok, "Refactor succeeded"};
+					 eclipse ->
+					      Res = [{FileName, FileName, refac_prettypr:print_ast(AnnAST1)}],
+					     {ok, Res}
+				     end;
 				 {error, Reason} -> {error, Reason}
 			       end
 		    end;
@@ -219,9 +232,10 @@ vars_to_export(Fun,ExprEndPos, ExprBdVars, _ExpList) ->
    %% LastExpr = lists:last(ExpList),
     AllVars = collect_vars(Fun),
     ExprBdVarsPos = lists:map(fun({_Var, Pos}) -> Pos end, ExprBdVars),
-    VarsToExport = [V || {V, SourcePos, DefPos} <- AllVars,
+    VarsToExport = lists:usort([V || {V, SourcePos, DefPos} <- AllVars,
 			      SourcePos > ExprEndPos,
-			      lists:subtract(DefPos, ExprBdVarsPos) == []],
+			      lists:subtract(DefPos, ExprBdVarsPos) == []]),
+   %% io:format("VarsToExport:\n~p\n",[VarsToExport]),
     VarsToExport.
 
 collect_vars(Tree) ->

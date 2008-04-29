@@ -46,9 +46,23 @@
 	 expression_search/3,
 	 fun_extraction/4,
 	 fold_expression/3,
+	 instrument_prog/2,
+	 uninstrument_prog/2,
+	 add_a_tag/5,
          tuple_funpar/5,
          tuple_to_record/8]).
 
+-export([rename_var_eclipse/5, 
+	 rename_fun_eclipse/5, 
+	 rename_mod_eclipse/3, 
+	 generalise_eclipse/5,
+	 move_fun_eclipse/6,
+	 fun_extraction_eclipse/4,
+         tuple_funpar_eclipse/5,
+         tuple_to_record_eclipse/8
+	]).
+
+-export([trace_send/4, trace_spawn/4]).
 %% ====================================================================================================
 %% @doc Rename a variable name with a user-supplied new name.
 %% <p> To apply this refactoring, point the cursor to  any occurrence of this variable, then select
@@ -71,6 +85,8 @@ rename_var(FileName, Line, Col, NewName, SearchPaths) ->
     refac_rename_var:rename_var(FileName, Line, Col, NewName, SearchPaths).
 
 
+rename_var_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
+    refac_rename_var:rename_var_eclipse(FileName, Line, Col, NewName, SearchPaths).
 
 %%=========================================================================================
 %% @doc Rename a function name with a user-supplied new name.
@@ -95,6 +111,9 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths) ->
     refac_rename_fun:rename_fun(FileName, Line, Col, NewName, SearchPaths).
 
 
+rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
+    refac_rename_fun:rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths).
+
 %%======================================================================================
 %% @doc Rename a module name with a user-supplied new name.
 %% <p> To apply this refactoring, point the cursor to anywhere in the module to be renamed, then select 
@@ -116,6 +135,9 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths) ->
 rename_mod(FileName, NewName, SearchPaths) ->
     refac_rename_mod:rename_mod(FileName, NewName, SearchPaths).
 
+
+rename_mod_eclipse(FileName, NewName, SearchPaths) ->
+    refac_rename_mod:rename_mod_eclipse(FileName, NewName, SearchPaths).
 
 %% =====================================================================
 %% @doc Rename a collection of module names in batch mode. 
@@ -201,6 +223,10 @@ rename_mod_batch(OldNamePattern, NewNamePattern, SearchPaths) ->
 generalise(FileName, Start, End, ParName, SearchPaths) ->
     refac_gen:generalise(FileName, Start, End, ParName,  SearchPaths).
 
+
+generalise_eclipse(FileName, Start, End, ParName, SearchPaths) ->
+    refac_gen:generalise_eclipse(FileName, Start, End, ParName,  SearchPaths).
+
 %% ================================================================================
 %% @doc Move a function definition from its current module to another module.
 %% <p> To apply this refactoring, point the cursor at the function definition, then 
@@ -229,6 +255,10 @@ generalise(FileName, Start, End, ParName, SearchPaths) ->
 move_fun(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths) ->
     refac_move_fun:move_fun(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths).
 
+
+
+move_fun_eclipse(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths) ->
+    refac_move_fun:move_fun_eclipse(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths).
 
 
 %% ==================================================================================
@@ -295,6 +325,8 @@ expression_search(FileName, Start, End) ->
 fun_extraction(FileName, Start, End, FunName) -> 
     refac_new_fun:fun_extraction(FileName, Start, End, FunName).
 
+fun_extraction_eclipse(FileName, Start, End, FunName) -> 
+    refac_new_fun:fun_extraction_eclipse(FileName, Start, End, FunName).
 
 %% =============================================================================================
 %% @doc Fold expressions against a function definition.
@@ -328,6 +360,45 @@ fold_expression(FileName, Line, Col) ->
 
 
 
+instrument_prog(FileName, SearchPaths) ->
+    refac_instrument:instrument_prog(FileName, SearchPaths).
+
+
+uninstrument_prog(FileName, SearchPaths) ->
+    refac_instrument:uninstrument_prog(FileName, SearchPaths).
+
+
+add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
+    refac_add_a_tag:add_a_tag(FileName, Line, Col, Tag, SearchPaths).
+
+
+trace_send({ModName, FunName, Arity}, Index, Pid, TraceCacheFile) ->
+    PInfo = erlang:process_info(Pid),
+    {value, InitialCall} = lists:keysearch(initial_call, 1, PInfo),
+    {value, CurrentFun} = lists:keysearch(current_function,1, PInfo),
+    SendInfo =case lists:keysearch(registered_name, 1, PInfo) of 
+		  {value, RegisteredName} ->
+		      {send, {ModName, FunName, Arity, Index}, Pid, InitialCall, CurrentFun, RegisteredName};
+		  false ->
+		      {send, {ModName, FunName, Arity, Index}, Pid, InitialCall, CurrentFun}
+	      end,
+    case dets:open_file(TraceCacheFile, [{type, bag}]) of 
+	{ok, TraceCacheFile} -> 
+	   dets:insert(TraceCacheFile, SendInfo),
+	   dets:close(TraceCacheFile);
+	{error, Reason}  -> eralng:error(Reason)
+    end.
+
+
+trace_spawn({ModName, FunName, Arity}, Index, Pid, TraceCacheFile) ->
+    SpawnInfo = {spawn, {ModName, FunName, Arity, Index}, Pid},
+    case dets:open_file(TraceCacheFile, [{type, bag}]) of 
+	{ok, TraceCacheFile} -> 
+	    dets:insert(TraceCacheFile, SpawnInfo),
+	    dets:close(TraceCacheFile);
+	{error, Reason}  -> eralng:error(Reason)
+    end.    
+
 
 %%=========================================================================================
 %% @doc Some consecutive arguments of a function are contracted into a tuple
@@ -352,6 +423,8 @@ fold_expression(FileName, Line, Col) ->
 tuple_funpar(FileName, Line, Col, Number, SearchPaths) ->
     ref_tuple:tuple_funpar(FileName, Line, Col, list_to_integer(Number), SearchPaths).
 
+tuple_funpar_eclipse(FileName, Line, Col, Number, SearchPaths) ->
+    ref_tuple:tuple_funpar_eclipse(FileName, Line, Col, list_to_integer(Number), SearchPaths).
 
 
 %%=========================================================================================
@@ -383,4 +456,8 @@ tuple_funpar(FileName, Line, Col, Number, SearchPaths) ->
 %% ========================================================================================
 tuple_to_record(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
     ref_tuple_to_record:tuple_to_record(File, FLine, FCol, LLine, LCol, 
+                RecName, FieldString, SearchPaths).
+
+tuple_to_record_eclipse(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
+    ref_tuple_to_record:tuple_to_record_eclipse(File, FLine, FCol, LLine, LCol, 
                 RecName, FieldString, SearchPaths).

@@ -39,7 +39,7 @@
 
 -module(refac_rename_var).
 
--export([rename_var/5]).
+-export([rename_var/5, rename_var_eclipse/5]).
 
 -export([pre_cond_check/4, rename/3]).
 
@@ -47,6 +47,12 @@
 %% @spec rename_var(FileName::filename(), Line::integer(), Col::integer(), NewName::string(),SearchPaths::[string()])-> term()
 %%
 rename_var(FName, Line, Col, NewName, SearchPaths) ->
+    rename_var(FName, Line, Col, NewName, SearchPaths, emacs).
+
+rename_var_eclipse(FName, Line, Col, NewName, SearchPaths) ->
+    rename_var(FName, Line, Col, NewName, SearchPaths, eclipse).
+
+rename_var(FName, Line, Col, NewName, SearchPaths, Editor) ->
     io:format("\n[CMD: rename_var, ~p, ~p, ~p, ~p, "
 	      "~p]\n",
 	      [FName, Line, Col, NewName, SearchPaths]),
@@ -54,8 +60,8 @@ rename_var(FName, Line, Col, NewName, SearchPaths) ->
       true ->
 	  case refac_util:parse_annotate_file(FName, false, SearchPaths) of
 	    {ok, {AnnAST, _Info0}} ->
-		NewName1 = list_to_atom(NewName),
-		case refac_util:parse_annotate_file(FName, true, SearchPaths) of
+		NewName1 = list_to_atom(NewName), 
+		  case refac_util:parse_annotate_file(FName, true, SearchPaths) of
 		  {ok, {AnnAST1, _Info1}} ->
 		      case refac_util:pos_to_var_name(AnnAST, {Line, Col}) of
 			{ok, {VarName, DefinePos, C}} ->
@@ -68,37 +74,48 @@ rename_var(FName, Line, Col, NewName, SearchPaths) ->
 						 "Sorry, renaming of macro names is not "
 						 "supported yet."};
 					    _ ->
-						case cond_check(AnnAST1, DefinePos, NewName1) of
-						  {true, _} ->
-						      {error,
+						  case cond_check(AnnAST1, DefinePos, NewName1) of
+						      {true, _} ->
+							{error,
 						       "New name already declared in the same "
 						       "scope."};
-						  {_, true} -> {error, "New name could cause name shadowing."};
-						  _ ->
-						      {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
-						      case post_refac_check(FName, AnnAST2, SearchPaths) of
-							ok ->
-							    refac_util:write_refactored_files([{{FName, FName}, AnnAST2}]),
-							    {ok, "Refactor succeeded"};
-							error ->
-							    {error,
-							     "Sorry, wrangler could not rename this "
-							     "variable."}
-						      end
-						end
+						    {_, true} -> {error, "New name could cause name shadowing."};
+						    _ ->
+							  {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
+						     %%  case post_refac_check(FName, AnnAST2, SearchPaths) of
+%% 							ok ->
+							  case Editor of 
+							      emacs ->
+								  refac_util:write_refactored_files([{{FName, FName}, AnnAST2}]),
+								  {ok, "Refactor succeeded"};
+							      eclipse ->
+								 {ok, [{FName, FName, refac_prettypr:print_ast(AnnAST2)}]}
+							  end 
+  
+						%% 	error ->
+%% 							    {error,
+%% 							     "Sorry,wrangler could not rename this "
+%% 							     "variable."}
+%% 						      end
+						  end
 					  end;
 				      true ->
-					  refac_util:write_refactored_files([{{FName, FName}, AnnAST1}]),
-					  {ok, "Refactor succeeded"}
+					   case Editor of 
+					       emacs ->
+						   refac_util:write_refactored_files([{{FName, FName}, AnnAST1}]),
+						   {ok, "Refactor succeeded"};
+					       _ ->
+						  {ok, [{FName, FName, refac_prettypr:print_ast(AnnAST1)}]}  
+					   end
 				   end
 			    end;
-			{error, _Reason} -> {error, "You have not selected a variable name!"}
+			  {error, _Reason} -> {error, "You have not selected a variable name!"}
 		      end;
-		  {error, Reason} -> {error, Reason}
+		    {error, Reason} -> {error, Reason}
 		end;
-	    {error, Reason} -> {error, Reason}
+	      {error, Reason} -> {error, Reason}
 	  end;
-      false -> {error, "Invalid new variable name."}
+	false -> {error, "Invalid new variable name."}
     end.
 
 %% =====================================================================
@@ -127,7 +144,7 @@ cond_check(Tree, Pos, NewName) ->
 			Env_Bd_Fr_Vars),
     %% The new name will be shadowed by an existing bound variable.
     Shadow2 = lists:any(fun ({{env, _}, {bound, Bds}, {free, Fs}}) ->
-				Poss = lists:map(F_Pos, Fs),
+				Poss= lists:map(F_Pos, Fs),
 				Names = lists:map(F_Name, Bds),
 				F_Member = fun (P) -> lists:member(P, Poss) end,
 				lists:any(F_Member, Pos) and lists:member(NewName, Names)
@@ -188,10 +205,14 @@ post_refac_check(FileName, AST, SearchPaths) ->
 	  Forms = refac_syntax:form_list(tl(Forms1)),
 	  AnnAST = refac_syntax_lib:annotate_bindings(Forms, ordsets:new()),
 	  case refac_util:analyze_free_vars(AnnAST) of
-	    {error, _Reason} -> file:delete(TempFileName), error;
+	    {error, Reason} -> 
+		  io:format("Reason:\n~p\n",[Reason]),
+		  file:delete(TempFileName), error;
 	    _ -> file:delete(TempFileName), ok
 	  end;
-      {error, _Reason} -> file:delete(TempFileName), error
+      {error, Reason} -> 
+	     io:format("Reason:\n~p\n",[Reason]),
+	    file:delete(TempFileName), error
     end.
 
 %% =====================================================================
