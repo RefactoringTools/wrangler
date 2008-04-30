@@ -1,10 +1,17 @@
 package org.erlide.wranglerrefactoring;
 
+import java.io.IOException;
+import java.net.URL;
+
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.FileLocator;
+import org.eclipse.core.runtime.Path;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.erlide.jinterface.rpc.RpcException;
 import org.erlide.runtime.backend.BackendManager;
-import org.erlide.runtime.backend.exceptions.ErlangRpcException;
 import org.erlide.runtime.backend.internal.ManagedBackend;
+import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 
 import erlang.ErlangCode;
@@ -33,24 +40,35 @@ public class Activator extends AbstractUIPlugin {
 	 */
 	public void start(BundleContext context) throws Exception {
 		super.start(context);
-
-		initWrangler();
 		plugin = this;
+		initWrangler();
 	}
 
 	// TODO: read from settings file
 	@SuppressWarnings("restriction")
-	private void initWrangler() {
-		String wranglerPath = "/home/mee/Programok/wrangler/distel-wrangler-0.3/ebin";
-		ManagedBackend mb = (ManagedBackend) BackendManager.getDefault()
-				.getIdeBackend();
-		ErlangCode.addPathA(mb, wranglerPath);
-
+	private void initWrangler() throws CoreException {
+		// String wranglerPath =
+		// "/home/mee/Programok/wrangler/distel-wrangler-0.3/ebin";
+		URL url;
 		try {
+			Bundle b = getDefault().getBundle();
+			url = FileLocator.find(b, new Path(""), null);
+			url = FileLocator.resolve(url);
+			String wranglerPath = new Path(url.getPath()).append("ebin")
+					.toOSString();
+
+			ManagedBackend mb = (ManagedBackend) BackendManager.getDefault()
+					.getIdeBackend();
+			ErlangCode.addPathA(mb, wranglerPath);
+
 			mb.rpc("code", "load_file", "a", "wrangler");
+		} catch (IOException ioe) {
+			ioe.printStackTrace();
+			throw new CoreException(new Status(Status.ERROR, PLUGIN_ID,
+					"Could not load the ebin files!"));
 		} catch (RpcException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			throw new CoreException(new Status(Status.ERROR, PLUGIN_ID,
+					"Could not reach the erlang node!"));
 		}
 	}
 

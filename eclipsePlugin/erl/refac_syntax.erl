@@ -20,7 +20,7 @@
 %%
 %% Author contact: richardc@csd.uu.se
 %%
-%% $Id: refac_syntax.erl,v 1.1 2008-04-28 14:07:08 go30 Exp $
+%% $Id: refac_syntax.erl,v 1.2 2008-04-30 11:12:20 go30 Exp $
 %%
 %% Modified: 17 Jan 2007 by  Huiqing Li <hl@kent.ac.uk>
 %% =====================================================================

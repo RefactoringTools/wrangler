@@ -63,25 +63,24 @@ public abstract class WranglerRefactoring extends Refactoring {
 	public RefactoringStatus checkFinalConditions(IProgressMonitor pm)
 			throws CoreException, OperationCanceledException {
 		RefactoringStatus rs = new RefactoringStatus();
+
 		try {
 			doRefactoring();
 		} catch (WranglerException e) {
 			String s = e.getLocalizedMessage();
-			rs.addError(e.getLocalizedMessage());
-			return rs;
+			rs = RefactoringStatus.createFatalErrorStatus(s);
 		} catch (IOException e) {
-			rs.addError("I/O error during the refactoring:\n" + e.getMessage());
-			return rs;
+			return RefactoringStatus
+					.createErrorStatus("I/O error during the refactoring:\n"
+							+ e.getMessage());
 		} catch (ErlangRpcException e) {
-			rs.addError(e.getMessage());
-			return rs;
+			rs = RefactoringStatus.createFatalErrorStatus(e.getMessage());
 		} catch (RpcException e) {
-			rs.addError(e.getMessage());
-			return rs;
+			rs = RefactoringStatus.createFatalErrorStatus(e.getMessage());
 		} catch (Exception e) {
 			// TODO: delete after alpha stage
 			e.printStackTrace();
-			return rs;
+			rs = RefactoringStatus.createFatalErrorStatus(e.getMessage());
 		}
 
 		/*

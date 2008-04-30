@@ -14,7 +14,7 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id: refac_prettypr_0.erl,v 1.1 2008-04-28 14:07:09 go30 Exp $
+%% $Id: refac_prettypr_0.erl,v 1.2 2008-04-30 11:12:20 go30 Exp $
 %%
 %% @copyright 2000-2006 Richard Carlsson
 %% @author Richard Carlsson <richardc@it.uu.se>

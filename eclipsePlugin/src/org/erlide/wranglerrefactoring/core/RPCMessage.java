@@ -8,6 +8,7 @@ import org.erlide.wranglerrefactoring.core.exception.WranglerException;
 import org.erlide.wranglerrefactoring.core.exception.WranglerRPCException;
 import org.erlide.wranglerrefactoring.core.exception.WranglerRefactoringException;
 
+import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangList;
 import com.ericsson.otp.erlang.OtpErlangString;
 import com.ericsson.otp.erlang.OtpErlangTuple;
@@ -38,7 +39,7 @@ public class RPCMessage {
 			res.add(new FileChangesTuple(oldPath.stringValue(), newPath
 					.stringValue(), newContent.stringValue()));
 		}
-
+		// TODO: non changing refactorings do need other structure
 		return res;
 	}
 
@@ -51,7 +52,14 @@ public class RPCMessage {
 				throw new WranglerRefactoringException(message);
 			}
 
-		} else
-			throw new WranglerRPCException();
+		} else if (!result.isOk()) {
+			OtpErlangTuple tuple = (OtpErlangTuple) result.getValue();
+			if (tuple.elementAt(0).equals(new OtpErlangAtom("EXIT"))) {
+				OtpErlangTuple msgTuple = (OtpErlangTuple) tuple.elementAt(1);
+				OtpErlangString msg = (OtpErlangString) msgTuple.elementAt(1);
+				throw new WranglerRefactoringException(msg.stringValue());
+			} else
+				throw new WranglerRPCException();
+		}
 	}
 }

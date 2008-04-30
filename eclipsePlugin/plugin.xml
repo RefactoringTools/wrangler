@@ -54,7 +54,7 @@
                menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.reorganizeGroup">
          </action>
          <action
-               class="org.erlide.wranglerrefactoring.core.tuple.TupleParametersAction"
+               class="org.erlide.wranglerrefactoring.core.tupleparameters.TupleParametersAction"
                id="org.erlide.wranglerrefactoring.tuplefunctonparameters"
                label="%tupleFunParamsName"
                menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.reorganizeGroup">

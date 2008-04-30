@@ -1,4 +1,4 @@
-package org.erlide.wranglerrefactoring.core.tuple;
+package org.erlide.wranglerrefactoring.core.tupleparameters;
 
 import org.erlide.wranglerrefactoring.core.WranglerRefactoring;
 import org.erlide.wranglerrefactoring.ui.WranglerRefactoringAction;

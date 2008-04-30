@@ -29,8 +29,8 @@ public class TupleToRecordRefactoring extends WranglerRefactoring {
 	@Override
 	protected RpcResult sendRPC(String filePath, OtpErlangList searchPath)
 			throws ErlangRpcException, RpcException {
-		return managedBackend.rpc("wrangler", "tuple_to_record", "siiiissx",
-				filePath, parameters.getStartLine(), parameters
+		return managedBackend.rpc("wrangler", "tuple_to_record_eclipse",
+				"siiiissx", filePath, parameters.getStartLine(), parameters
 						.getStartColoumn(), parameters.getEndLine(), parameters
 						.getEndColoumn(), newName, newParametersName,
 				searchPath);

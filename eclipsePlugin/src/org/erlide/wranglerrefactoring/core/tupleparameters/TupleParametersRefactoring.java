@@ -1,4 +1,4 @@
-package org.erlide.wranglerrefactoring.core.tuple;
+package org.erlide.wranglerrefactoring.core.tupleparameters;
 
 import org.erlide.jinterface.rpc.RpcException;
 import org.erlide.runtime.backend.RpcResult;
@@ -22,7 +22,7 @@ public class TupleParametersRefactoring extends WranglerRefactoring {
 	@Override
 	protected RpcResult sendRPC(String filePath, OtpErlangList searchPath)
 			throws ErlangRpcException, RpcException {
-		return managedBackend.rpc("wrangler", "tuple_funpar", "siisx",
+		return managedBackend.rpc("wrangler", "tuple_funpar_eclipse", "siisx",
 				filePath, parameters.getStartLine(), parameters
 						.getStartColoumn(), newName, searchPath);
 	}

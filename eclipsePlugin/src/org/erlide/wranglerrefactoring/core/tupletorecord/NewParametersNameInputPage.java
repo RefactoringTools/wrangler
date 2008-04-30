@@ -57,7 +57,7 @@ public class NewParametersNameInputPage extends WranglerNewDataInputPage {
 	protected void initExtraControls(GridLayout layout) {
 		extraLabel = new Label(composite, SWT.LEFT);
 		extraLabel
-				.setText("Please type the parameters name separated by space:");
+				.setText("Please type the record field names separated by space:");
 		GridData gridData = new GridData();
 		gridData.horizontalAlignment = GridData.FILL;
 		gridData.horizontalSpan = 2;

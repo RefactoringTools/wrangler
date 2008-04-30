@@ -48,14 +48,18 @@
 	 fold_expression/3,
 	 instrument_prog/2,
 	 uninstrument_prog/2,
-	 add_a_tag/5]).
+	 add_a_tag/5,
+         tuple_funpar/5,
+         tuple_to_record/8]).
 
 -export([rename_var_eclipse/5, 
 	 rename_fun_eclipse/5, 
 	 rename_mod_eclipse/3, 
 	 generalise_eclipse/5,
 	 move_fun_eclipse/6,
-	 fun_extraction_eclipse/4
+	 fun_extraction_eclipse/4,
+         tuple_funpar_eclipse/5,
+         tuple_to_record_eclipse/8
 	]).
 
 -export([trace_send/4, trace_spawn/4]).
@@ -394,3 +398,66 @@ trace_spawn({ModName, FunName, Arity}, Index, Pid, TraceCacheFile) ->
 	    dets:close(TraceCacheFile);
 	{error, Reason}  -> eralng:error(Reason)
     end.    
+
+
+%%=========================================================================================
+%% @doc Some consecutive arguments of a function are contracted into a tuple
+%% <p> To apply this refactoring, point the cursor to a function parameter, 
+%% or an application argument.
+%% Then select <em> Tuple Function Arguments </em> from the <em> Refactor </em> menu, 
+%% after that the refactorer will prompt to enter  the new tuple elements number in the mini-buffer.
+%% </p>
+%% <p>
+%% When tupling an exported function parameters, this refactoring has a global effect, i.e.,
+%% it affects all those modules in which this function is imported/used.
+%% </p>
+%% <p> The following <em> side-conditions </em> apply to this refactoring:
+%% <li> The new function arity should not cause confliction with any of the functions which are in scope in the 
+%% current module;</li>
+%% <li> In the case that the function is imported by another module, the new function arity and the same name 
+%% should not be already in scope (either defined or imported) in that module. </li>
+%% </p>
+%% ========================================================================================
+%% @spec rename_fun(FileName::filename(), Line::integer(), Col::integer(), Number::string(), SearchPaths::[string()])
+%% -> term()
+tuple_funpar(FileName, Line, Col, Number, SearchPaths) ->
+    ref_tuple:tuple_funpar(FileName, Line, Col, list_to_integer(Number), SearchPaths).
+
+tuple_funpar_eclipse(FileName, Line, Col, Number, SearchPaths) ->
+    ref_tuple:tuple_funpar_eclipse(FileName, Line, Col, list_to_integer(Number), SearchPaths).
+
+
+%%=========================================================================================
+%% @doc A record expression created from the selected tuple.
+%% <p> To apply this refactoring mark the tuple in the editor, which is a function 
+%% parameter or an application argument.
+%% Then select <em> From Tuple To Record </em> from the <em> Refactor </em> menu, 
+%% after that the refactorer will prompt to enter the record name and  the record field names.
+%% </p>
+%% <p>
+%% This refactoring has a global effect, i.e., it affects all those modules in 
+%% which this function is imported/used.
+%% </p>
+%% <p>
+%% WARNING: After the transformation please check the implicit functions, 
+%% and create the record if it is necessary!
+%% </p>
+%% <p> The following <em> side-conditions </em> apply to this refactoring:
+%% <li> The record and field names must be legal names; </li>
+%% <li> The number of record fields must equal to the selected tuple size; </li>
+%% <li> The function definition must defined in the current module; </li>
+%% <li> The selected part must be a tuple.  </li>
+%% </p>
+%% ========================================================================================
+%% @spec tuple_to_record(File::string(),FLine::integer(),FCol::integer(),
+%%           LLine::integer(),LCol::integer(), RecName::string(),
+%%           FieldString::[string()], SearchPaths::[string()]) -> term()
+%% @end
+%% ========================================================================================
+tuple_to_record(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
+    ref_tuple_to_record:tuple_to_record(File, FLine, FCol, LLine, LCol, 
+                RecName, FieldString, SearchPaths).
+
+tuple_to_record_eclipse(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
+    ref_tuple_to_record:tuple_to_record_eclipse(File, FLine, FCol, LLine, LCol, 
+                RecName, FieldString, SearchPaths).

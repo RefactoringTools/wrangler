@@ -46,10 +46,10 @@ public abstract class WranglerRefactoringAction implements
 		RefactoringWizardOpenOperation op = new RefactoringWizardOpenOperation(
 				refactoringWizard);
 
-		Shell s = new Shell();
+		Shell shell = new Shell();
 
 		try {
-			op.run(s, refactoringName);
+			op.run(shell, refactoringName);
 		} catch (InterruptedException e) {
 			// TODO what the hell is needed here?
 			e.printStackTrace();

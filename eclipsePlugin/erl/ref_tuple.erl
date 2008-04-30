@@ -24,9 +24,18 @@
 
 -export([tuple_funpar/5]).
 
+-export([tuple_funpar_eclipse/5]).
+
+tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths)->
+  tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths, emacs).
+
+tuple_funpar_eclipse(FileName, ParLine, ParCol, Number, SearchPaths)->
+  tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths, eclipse).
+
 %% =====================================================================
 %% @spec tuple_funpar(File::string(),ParLine::integer(),ParCol::integer(),
-%%                 Number::integer(), SearchPaths::[string()]) -> term()
+%%                 Number::integer(), SearchPaths::[string()], 
+%%                 Editor::atom()) -> term()
 %%
 %% @doc
 %% Performs the side-condition checks and the and the collects all the 
@@ -46,7 +55,7 @@
 %% @end
 %% =====================================================================
 
-tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths)->
+tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths, Editor)->
   io:format("\n[CMD: tuple_funpar, ~p, ~p, ~p, ~p,~p]\n", 
             [FileName, ParLine, ParCol, Number, SearchPaths]),
   {AnnAST, Info} = parse_file(FileName, SearchPaths),
@@ -64,14 +73,15 @@ tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths)->
   check_is_callback_fun(Info, FunName, Arity),
   io:format("The current file under refactoring is:\n~p\n", [FileName]),
   performe_refactoring(AnnAST, Info, Parameters, FunName, Arity, FunNode,
-                       C, Mod, SearchPaths, FileName).
+                       C, Mod, SearchPaths, FileName, Editor).
 
 
 %% =====================================================================
 %% @spec performe_refactoring(AnnAST::syntaxtree(),Info::ModInfo,
 %%       Parameters::[syntaxtree()], FunName::atom(), Arity::integer(),
 %%       FunNode::syntaxtree(), C::integer(), Mod::atom(), 
-%%       SearchPaths::[string()], File::string()) -> {ok, [string()]}
+%%       SearchPaths::[string()], File::string(), Editor::atom()) 
+%%                                                    -> {ok, [string()]}
 %% ModInfo = [{Key, term()}] 
 %% Key = attributes | errors | exports | functions | imports | 
 %%       module | records | rules | warnings 
@@ -79,7 +89,7 @@ tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths)->
 %% @end
 %% =====================================================================
 performe_refactoring(AnnAST, Info, Parameters, FunName, Arity, FunNode,
-                     C, Mod, SearchPaths, File)->
+                     C, Mod, SearchPaths, File, Editor)->
   {AnnAST1, _} = tuple_parameters(AnnAST, Parameters, FunName, Arity, C, Mod),
   AnnAST2 = check_implicit_funs(AnnAST1, FunName, Arity, FunNode),
   case refac_util:is_exported({FunName, Arity}, Info) of
@@ -89,16 +99,31 @@ performe_refactoring(AnnAST, Info, Parameters, FunName, Arity, FunNode,
       ClientFiles = refac_util:get_client_files(File, SearchPaths),
       Results = tuple_parameters_in_client_modules(ClientFiles, FunName, Arity, 
                                                    C, length(Parameters), Mod),
-      refac_util:write_refactored_files([{{File, File}, AnnAST2} | Results]),
-      ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-      ChangedFiles = [File | ChangedClientFiles],
-      io:format("The following files have been changed "
-                "by this refactoring:\n~p\n",[ChangedFiles]),
-      io:format("WARNING: Please check the implicit function calls!"),
-      {ok, ChangedFiles};
+      case Editor of
+        emacs ->
+          refac_util:write_refactored_files([{{File, File}, AnnAST2} | Results]),
+          ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+          ChangedFiles = [File | ChangedClientFiles],
+          io:format("The following files have been changed "
+                    "by this refactoring:\n~p\n",[ChangedFiles]),
+          io:format("WARNING: Please check the implicit function calls!"),
+          {ok, ChangedFiles};
+        eclipse ->
+          Results1 = [{{File, File}, AnnAST2} | Results],
+	  Res = lists:map(fun({{FName, NewFName}, AST}) -> 
+                            {FName, NewFName, refac_prettypr:print_ast(AST)} 
+                          end, Results1),
+	  {ok, Res}
+      end;
     false -> 
-      refac_util:write_refactored_files([{{File, File}, AnnAST2}]),
-      {ok, [File]}
+      case Editor of
+        emacs -> 
+          refac_util:write_refactored_files([{{File, File}, AnnAST2}]),
+          {ok, [File]};
+	eclipse ->
+          Res = [{File, File, refac_prettypr:print_ast(AnnAST2)}],
+	  {ok, Res}
+      end  
   end.
 
 

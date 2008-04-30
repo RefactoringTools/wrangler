@@ -21,7 +21,7 @@
 %% Author contact: richardc@csd.uu.se
 %%
 %% Modified: 17 Jan 2007 by  Huiqing Li <hl@kent.ac.uk>
-%% $Id: refac_syntax_lib.erl,v 1.1 2008-04-28 14:07:08 go30 Exp $
+%% $Id: refac_syntax_lib.erl,v 1.2 2008-04-30 11:12:20 go30 Exp $
 %%
 %% =====================================================================
 %%
