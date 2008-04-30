@@ -20,7 +20,9 @@
 
 -module(refac_duplicated_code).
 
--export([duplicated_code/3, suffix_tree/2, remove_var_literals/1, test/0,test1/0]).
+-export([duplicated_code/3, suffix_tree/2, remove_var_literals/1, test/0,test2/0,test1/0]).
+
+-compile(export_all).
 
 %% TODO:  
 %% 1) does recusive function calls affect the result?
@@ -52,6 +54,10 @@ test() ->
 test1()->
    duplicated_code(["refac_duplicated_code.erl"], "30","2").
 
+test2()->
+    Files = refac_util:expand_files(["c:/cygwin/home/hl/CodeBase/ic-0.1.2"], ".erl"),
+    io:format("Files:\n~p\n", [Files]),
+    duplicated_code(Files, "30","2").
 
 %% ==================================================================================
 %% @doc Find duplicated code in a Erlang source files.
@@ -70,35 +76,36 @@ duplicated_code(FileNames, MinLength1, MinClones1) ->
     MinClones = list_to_integer(MinClones1),
     %% tokenize Erlang source files and concat them into a single list.
     {Toks, ProcessedToks} = tokenize(FileNames),
-    %%io:format("Suffix Tree construction\n"),
+    io:format("Suffix Tree construction\n"),
     Tree = suffix_tree(alphabet()++"&",ProcessedToks++"&"),  %% '&' does not occur in program source.
-    %% Clone collection from the suffix tree.
-    %%io:format("Clone collection\n"),
+    %%Clone collection from the suffix tree.
+    io:format("Clone collection\n"),
     Cs=lists:flatten(lists:map(fun(B) -> collect_clones(MinLength,MinClones,B) end, Tree)),
-    %% filter out sub-clones.
-    %%io:format("Filter out sub clones\n"),
+     %% filter out sub-clones.
+    io:format("Filter out sub clones\n"),
     Cs1 = filter_out_sub_clones(Cs),
-    %%io:format("CloneNumbers:\n~p\n", [length(Cs1)]),
+    io:format("CloneNumbers:\n~p\n", [length(Cs1)]),
     %% put atom names back into the token streams, and get the new clones.
-    %%io:format("put atoms back\n"),
+    io:format("put atoms back\n"),
     Cs2 = clones_with_atoms(Cs1, Toks, MinLength, MinClones),
     %%io:format("Cs2:\n~p\n", [Cs2]),
-    %%io:format("Filter out sub clones\n"),
+    io:format("Filter out sub clones\n"),
     Cs3 = filter_out_sub_clones(Cs2),
     %% combine clones which are next to each other. (ideally a fixpoint should be reached).
-    %%io:format("Combine with neighbours\n"),
+    io:format("Combine with neighbours\n"),
     Cs4 = combine_neighbour_clones(Cs3, MinLength, MinClones),
     %% Trim both ends of the clones to remove those parts that does not form a meaningful syntax phrases.
-    %%io:format("Before Trimming:\n~p\n", [length(Cs4)]),
-    %%io:format("Trim clones\n"),
-    %%io:format("Before trimming \n"),
-    %%io:format("Cs5:\n~p\n", [Cs4]),
-    Cs5 = trim_clones(FileNames, Cs4, MinLength, MinClones),
-    Cs6 = remove_sub_clones(Cs5),
-    case length(FileNames) of 
-	  1 ->  display_clones(Cs6);
-	 _ -> display_clones1(Cs6)
-     end,
+    io:format("Before Trimming:\n~p\n", [length(Cs4)]),
+     io:format("Trim clones\n"),
+     %%io:format("Before trimming \n"),
+     %%io:format("Cs5:\n~p\n", [Cs4]),
+     Cs5 = trim_clones(FileNames, Cs4, MinLength, MinClones),
+     Cs6 = remove_sub_clones(Cs5),
+     case length(FileNames) of 
+  	  1 ->  display_clones(Cs6);
+  	 _ -> display_clones1(Cs6)
+       end,
+    io:format("Final clones:\n~p\n", [length(Cs6)]),
     {ok, "Duplicated code detection finished."}.
    
 
@@ -482,7 +489,7 @@ trim_clones(FileNames, Cs, MinLength, MinClones) ->
     Cs2= lists:concat(lists:map(Fun, Cs)),
     %%io:format("Cs2:\n~p\n", [Cs2]),
     %%Cs22= remove_sub_clones(Cs2),
-    %%io:format("Before binding checking:\n~p\n", [length(Cs2)]),
+    io:format("Before binding checking:\n~p\n", [length(Cs2)]),
     Cs3 =[lists:map(fun(C) -> {C, Len, length(C)} end, group_by(2, lists:map(Fun0, Range)))
 		    || {Range, Len, _F}<- Cs2],
     %%io:format("Cs3:\n~p\n",[Cs3]),

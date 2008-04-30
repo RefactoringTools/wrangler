@@ -462,9 +462,9 @@ vars_to_export(WholeExpList, SubExpList) ->
 						  end, SubExpList)),
     SubExpListBdVarPoses = lists:map(fun({_Var, Pos}) -> Pos end, SubExpListBdVars),
     SubExpListEndPos = element(2, refac_util:get_range(lists:last(SubExpList))),
-    VarsToExport = [V || {V, SourcePos, DefPos} <- AllVars,
+    VarsToExport = lists:usort([V || {V, SourcePos, DefPos} <- AllVars,
 			      SourcePos > SubExpListEndPos,
-			      lists:subtract(DefPos, SubExpListBdVarPoses) == []],
+			      lists:subtract(DefPos, SubExpListBdVarPoses) == []]),
     VarsToExport.
 
 

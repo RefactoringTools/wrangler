@@ -20,8 +20,9 @@
 
 -module(wrangler_distel).
 
--export([ rename_fun/5, rename_var/5, rename_mod/3, generalise/7, move_fun/6,  tuple_to_record/8,
+-export([ rename_fun/5, rename_var/5, rename_mod/3, generalise/7, move_fun/6, tuple_to_record/8,
          duplicated_code/3, expression_search/5, fun_extraction/6, fold_expression/3, tuple_funpar/5,
+	 instrument_prog/2, uninstrument_prog/2, add_a_tag/5,
          undo/0, start_undo_process/0, stop_undo_process/0, undo_init/0]).
 
 
@@ -82,6 +83,13 @@ fold_expression(FName, Line, Col) ->
 	    {error, Reason}
     end.
 	       
+instrument_prog(FName, SearchPaths) ->
+    case check_undo_process() of 
+	ok ->
+	    wrangler:instrument_prog(FName, SearchPaths);
+	{error, Reason} ->
+	    {error, Reason}
+    end.
 
 tuple_funpar(Fname, Line, Col, Number, SearchPaths) ->
     case check_undo_process() of
@@ -100,6 +108,22 @@ tuple_to_record(File, FLine, FCol, LLine, LCol,
     end.
     
 
+uninstrument_prog(FName, SearchPaths) ->
+    case check_undo_process() of 
+	ok ->
+	    wrangler:uninstrument_prog(FName, SearchPaths);
+	{error, Reason} ->
+	    {error, Reason}
+    end.
+
+
+add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
+    case check_undo_process() of 
+	ok ->
+	    wrangler:add_a_tag(FileName, Line, Col, Tag, SearchPaths);
+	{error, Reason} ->
+	    {error,Reason}
+    end.
 %% tuple_to_record(Fname, StartLine, StartCol, EndLine, EndCol) ->
 %%     refac_record:tuple_to_record(Fname, {StartLine, StartCol}, {EndLine, EndCol}).
 

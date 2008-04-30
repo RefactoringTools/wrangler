@@ -48,7 +48,7 @@
 	 build_call_graph/1, has_side_effect/3,
          callback_funs/1,auto_imported_bifs/0]).
 
--export([analyze_free_vars/1]).
+-export([analyze_free_vars/1, build_call_graph/3, build_call_graph/2]).
 
 -include("../hrl/wrangler.hrl").
 
@@ -562,7 +562,7 @@ update_ann(Tree, {Key, Val}) ->
 %% @doc Reset all the annotations in the subtree to the default (empty) annotation.
 
 reset_attrs(Node) ->
-    refac_util:full_buTP(fun (T, _Others) -> refac_syntax:set_attrs(T, #attr{}) end, Node, {}).
+    refac_util:full_buTP(fun (T, _Others) -> refac_syntax:set_ann(T, []) end, Node, {}).
 
 
 %%===============================================================================
@@ -1062,7 +1062,7 @@ do_add_range(Node, Toks) ->
 	  refac_syntax:add_ann({range, {S1, E1}}, Node);
       class_qualifier ->
 	  A = refac_syntax:class_qualifier_argument(Node),
-	  B = refac_syntax:class_body(Node),
+	  B = refac_syntax:class_qualifier_body(Node),
 	  {S1, _E1} = get_range(A),
 	  {_S2, E2} = get_range(B),
 	  refac_syntax:add_ann({range, {S1, E2}}, Node);
@@ -1620,6 +1620,16 @@ lookup(Plt, {M, F, A}) ->
       [{_MFA, S}] -> {value, S}
     end.
 
+%% trim_call_graph(DirList) ->
+%%     {Sccs, E} = build_call_graph(DirList),
+%%     trim_scc(Sccs).
+
+
+%% trim_scc([], Sccs1) ->
+%%      Sccs1;
+%% trim_scc([Scc|T], Sccs1) ->
+
+
 %%====================================================================================
 %%@spec build_call_graph(DirList::[dirname()]) -> #callgraph{}
 %%@doc Build a function call graph out of the Erlang files contained in the given directories.
@@ -1627,15 +1637,23 @@ lookup(Plt, {M, F, A}) ->
 build_call_graph(DirList) ->
     Files = refac_util:expand_files(DirList, ".erl"),
     CallGraph = build_call_graph(Files, []),
+    %% io:format("CallGraph:\n~p\n", [CallGraph]),
     #callgraph{scc_order = Sccs, external_calls = E} = refac_callgraph:construct(CallGraph),
+   %%  Sccs1 =[[Fun||{Fun, _FunDef}<-Scc]||Scc<-Sccs],
+%%     io:format("Scc1:\n~p\n", [Sccs1]),
+%%     ok.
     {Sccs, E}.
+   
 
 build_call_graph([FileName | Left], Acc) ->
     case refac_util:parse_annotate_file(FileName, true, []) of
       {ok, {AnnAST, Info}} ->
-	  G1 = build_call_graph(AnnAST, Info, FileName),
-	  Acc1 = Acc ++ G1,
-	  build_call_graph(Left, Acc1);
+	  case lists:keysearch(errors,1, Info) of 
+	      {value, {errors, _Errors}} -> erlang:error("Syntax error in " ++ FileName);
+	      _ ->  G1 = build_call_graph(AnnAST, Info, FileName),
+		    Acc1 = Acc ++ G1,
+		    build_call_graph(Left, Acc1)
+	  end;
       {error, Reason} -> erlang:error(Reason)
     end;
 build_call_graph([], Acc) -> Acc.

@@ -21,7 +21,7 @@
 %% Author contact: richardc@csd.uu.se
 %%
 %% Modified: 17 Jan 2007 by  Huiqing Li <hl@kent.ac.uk>
-%% $Id: refac_syntax_lib.erl,v 1.2 2008-01-07 16:01:48 hl Exp $
+%% $Id: refac_syntax_lib.erl,v 1.3 2008-04-30 09:28:12 hl Exp $
 %%
 %% =====================================================================
 %%
@@ -52,7 +52,7 @@
 	 new_variable_name/1, new_variable_name/2,
 	 new_variable_names/2, new_variable_names/3,
 	 strip_comments/1, to_comment/1, to_comment/2,
-	 to_comment/3, variables/1]).
+	 to_comment/3, variables/1, vann_clauses/2, vann_case_expr/2, vann_block_expr/2]).
 
 %% =====================================================================
 %% @spec map(Function, Tree::syntaxTree()) -> syntaxTree()

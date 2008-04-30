@@ -49,7 +49,7 @@
 	 instrument_prog/2,
 	 uninstrument_prog/2,
 	 add_a_tag/5,
-         tuple_funpar/5,
+	 tuple_funpar/5,
          tuple_to_record/8]).
 
 -export([rename_var_eclipse/5, 
@@ -58,8 +58,10 @@
 	 generalise_eclipse/5,
 	 move_fun_eclipse/6,
 	 fun_extraction_eclipse/4,
-         tuple_funpar_eclipse/5,
-         tuple_to_record_eclipse/8
+	 gen_fun_1_eclipse/7,
+	 gen_fun_2_eclipse/7,
+	 tuple_funpar_eclipse/5,
+         tuple_to_record_eclipse/8	 
 	]).
 
 -export([trace_send/4, trace_spawn/4]).
@@ -226,6 +228,12 @@ generalise(FileName, Start, End, ParName, SearchPaths) ->
 
 generalise_eclipse(FileName, Start, End, ParName, SearchPaths) ->
     refac_gen:generalise_eclipse(FileName, Start, End, ParName,  SearchPaths).
+
+gen_fun_1_eclipse(SideEffect, FileName, ParName, FunName, Arity, DefPos, Expr) ->
+    refac_gen:gen_fun_1(SideEffect, FileName, ParName, FunName, Arity, DefPos, Expr).
+
+gen_fun_2_eclipse(FileName, ParName, FunName, Arity, DefPos, Expr, SearchPaths) ->
+    refac_gen:gen_fun_2(FileName, ParName, FunName, Arity, DefPos, Expr, SearchPaths).
 
 %% ================================================================================
 %% @doc Move a function definition from its current module to another module.
@@ -418,7 +426,7 @@ trace_spawn({ModName, FunName, Arity}, Index, Pid, TraceCacheFile) ->
 %% should not be already in scope (either defined or imported) in that module. </li>
 %% </p>
 %% ========================================================================================
-%% @spec rename_fun(FileName::filename(), Line::integer(), Col::integer(), Number::string(), SearchPaths::[string()])
+%% @spec tuple_funpar(FileName::filename(), Line::integer(), Col::integer(), Number::string(), SearchPaths::[string()])
 %% -> term()
 tuple_funpar(FileName, Line, Col, Number, SearchPaths) ->
     ref_tuple:tuple_funpar(FileName, Line, Col, list_to_integer(Number), SearchPaths).
@@ -461,3 +469,4 @@ tuple_to_record(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
 tuple_to_record_eclipse(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
     ref_tuple_to_record:tuple_to_record_eclipse(File, FLine, FCol, LLine, LCol, 
                 RecName, FieldString, SearchPaths).
+

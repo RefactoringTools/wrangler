@@ -20,7 +20,7 @@
 %%
 %% Author contact: richardc@csd.uu.se
 %%
-%% $Id: refac_epp_dodger.erl,v 1.1.1.1 2007-11-07 21:56:10 hl Exp $
+%% $Id: refac_epp_dodger.erl,v 1.2 2008-04-30 09:28:12 hl Exp $
 %%
 %% Modified: 17 Jan 2007 by  Huiqing Li <hl@kent.ac.uk>
 %% =====================================================================
