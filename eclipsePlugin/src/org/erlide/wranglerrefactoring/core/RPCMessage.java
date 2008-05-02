@@ -43,14 +43,10 @@ public class RPCMessage {
 		return res;
 	}
 
-	protected void checkIsOK() throws WranglerException {
+	public void checkIsOK() throws WranglerException {
 		if (result.isOk()) {
 			OtpErlangTuple tuple = (OtpErlangTuple) result.getValue();
-			if (!tuple.elementAt(0).toString().equals("ok")) {
-				String message = ((OtpErlangString) tuple.elementAt(1))
-						.stringValue();
-				throw new WranglerRefactoringException(message);
-			}
+			checkOkResultCases(tuple);
 
 		} else if (!result.isOk()) {
 			OtpErlangTuple tuple = (OtpErlangTuple) result.getValue();
@@ -60,6 +56,15 @@ public class RPCMessage {
 				throw new WranglerRefactoringException(msg.stringValue());
 			} else
 				throw new WranglerRPCException();
+		}
+	}
+
+	protected void checkOkResultCases(OtpErlangTuple tuple)
+			throws WranglerRefactoringException {
+		if (!tuple.elementAt(0).toString().equals("ok")) {
+			String message = ((OtpErlangString) tuple.elementAt(1))
+					.stringValue();
+			throw new WranglerRefactoringException(message);
 		}
 	}
 }

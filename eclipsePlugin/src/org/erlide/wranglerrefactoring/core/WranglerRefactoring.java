@@ -122,8 +122,15 @@ public abstract class WranglerRefactoring extends Refactoring {
 		String filePath = parameters.getFilePath();
 		RpcResult res = sendRPC(filePath, parameters.getProject());
 
-		message = new RPCMessage(res);
-		message.checkIsOK();
+		RPCMessage m = convertToMessage(res);
+		message = m;
+	}
+
+	protected RPCMessage convertToMessage(RpcResult res)
+			throws WranglerException {
+		RPCMessage m = new RPCMessage(res);
+		m.checkIsOK();
+		return m;
 	}
 
 	protected Change doOtherChanges() {

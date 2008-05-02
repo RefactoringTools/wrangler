@@ -59,7 +59,8 @@ public abstract class WranglerNewDataInputPage extends UserInputWizardPage {
 
 	}
 
-	abstract protected void initExtraControls(GridLayout layout);
+	protected void initExtraControls(GridLayout layout) {
+	}
 
 	protected void initNewNameModifyListener() {
 		newDataText.addModifyListener(new ModifyListener() {
