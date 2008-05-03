@@ -50,7 +50,8 @@
 	 uninstrument_prog/2,
 	 add_a_tag/5,
 	 tuple_funpar/5,
-         tuple_to_record/8]).
+         tuple_to_record/8,
+	register_pid/5]).
 
 -export([rename_var_eclipse/5, 
 	 rename_fun_eclipse/5, 
@@ -230,10 +231,10 @@ generalise_eclipse(FileName, Start, End, ParName, SearchPaths) ->
     refac_gen:generalise_eclipse(FileName, Start, End, ParName,  SearchPaths).
 
 gen_fun_1_eclipse(SideEffect, FileName, ParName, FunName, Arity, DefPos, Expr) ->
-    refac_gen:gen_fun_1(SideEffect, FileName, ParName, FunName, Arity, DefPos, Expr).
+    refac_gen:gen_fun_1_eclipse(SideEffect, FileName, ParName, FunName, Arity, DefPos, Expr).
 
 gen_fun_2_eclipse(FileName, ParName, FunName, Arity, DefPos, Expr, SearchPaths) ->
-    refac_gen:gen_fun_2(FileName, ParName, FunName, Arity, DefPos, Expr, SearchPaths).
+    refac_gen:gen_fun_2_eclipse(FileName, ParName, FunName, Arity, DefPos, Expr, SearchPaths).
 
 %% ================================================================================
 %% @doc Move a function definition from its current module to another module.
@@ -380,6 +381,10 @@ add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
     refac_add_a_tag:add_a_tag(FileName, Line, Col, Tag, SearchPaths).
 
 
+register_pid(FileName, Start, End, RegName, SearchPaths) ->
+    refac_register_pid:register_pid(FileName, Start, End, RegName, SearchPaths).
+    
+
 trace_send({ModName, FunName, Arity}, Index, Pid, TraceCacheFile) ->
     PInfo = erlang:process_info(Pid),
     {value, InitialCall} = lists:keysearch(initial_call, 1, PInfo),
@@ -469,4 +474,5 @@ tuple_to_record(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
 tuple_to_record_eclipse(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
     ref_tuple_to_record:tuple_to_record_eclipse(File, FLine, FCol, LLine, LCol, 
                 RecName, FieldString, SearchPaths).
+
 

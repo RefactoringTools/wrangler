@@ -78,7 +78,7 @@
 -export([generalise/5, generalise_eclipse/5]).
 
 %% temporally exported for testing purposed.
--export([pre_cond_checking/2, do_generalisation/6, application_info/1, gen_fun_1/7, gen_fun_2/7]).
+-export([pre_cond_checking/2, do_generalisation/6, application_info/1, gen_fun_1/7, gen_fun_2/7, gen_fun_1_eclipse/7, gen_fun_2_eclipse/7]).
 
 %% =====================================================================
 %% @spec generalise(FileName::filename(), Start::Pos, End::Pos, ParName::string(), SearchPaths::[string()])-> term()
@@ -196,9 +196,13 @@ gen_fun(Tree, ParName, FunName, Arity, DefPos,Info, Exp, SideEffect) ->
        {Tree2, _} = refac_util:stop_tdTP(fun do_gen_fun/2, Tree1, {ParName, FunName, Arity, DefPos,Info, Exp,SideEffect}),
        Tree2.
 
-
-
 gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp) ->
+    gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, emacs).
+
+gen_fun_1_eclipse(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp) ->
+    gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, eclipse).
+
+gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, Editor) ->
     %% somehow I couldn't pass AST to elisp part, as some occurrences of 'nil' were turned into '[]'.
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName,true, []),  
     R = refac_util:is_exported({FunName, Arity}, Info),
@@ -206,22 +210,47 @@ gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp) ->
 	       true -> AnnAST
 	    end,		       
     {AnnAST2, _} = refac_util:stop_tdTP(fun do_gen_fun/2, AnnAST1, {ParName, FunName, Arity, DefPos,Info, Exp,SideEffect}),
-    refac_util:write_refactored_files([{{FileName,FileName}, AnnAST2}]),
-    {ok, "Refactor succeeded"}.
+    case Editor of 
+	emacs ->
+	    refac_util:write_refactored_files([{{FileName,FileName}, AnnAST2}]),
+	    {ok, "Refactor succeeded"};
+	eclipse ->
+	    Res = [{FileName, FileName, refac_prettypr:print_ast(AnnAST2)}],
+	    {ok, Res}
+    end.
 
 gen_fun_2(FileName, ParName1, FunName, FunArity, FunDefPos, Exp, SearchPaths) ->
+    gen_fun_2(FileName, ParName1, FunName, FunArity, FunDefPos, Exp, SearchPaths, emacs).
+
+
+gen_fun_2_eclipse(FileName, ParName1, FunName, FunArity, FunDefPos, Exp, SearchPaths) ->
+    gen_fun_2(FileName, ParName1, FunName, FunArity, FunDefPos, Exp, SearchPaths, eclipse).
+
+gen_fun_2(FileName, ParName1, FunName, FunArity, FunDefPos, Exp, SearchPaths,Editor) ->
     %% somehow I couldn't pass AST to elisp part, as some occurrences of 'nil' were turned into '[]'.
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName,true, SearchPaths),
     SideEffect = refac_util:has_side_effect(FileName, Exp, SearchPaths),
     case SideEffect of  
 	false ->AnnAST1=gen_fun(AnnAST, ParName1, 
 				FunName, FunArity, FunDefPos,Info, Exp, SideEffect),
-		refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
-		{ok, "Refactor succeeded"};
+		case Editor of 
+		    emacs ->
+			refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
+			{ok, "Refactor succeeded"};
+		    eclipse ->
+			Res = [{FileName, FileName, refac_prettypr:print_ast(AnnAST1)}],
+			{ok, Res}
+		end;
 	true -> AnnAST1=gen_fun(AnnAST, ParName1, 
 				FunName, FunArity, FunDefPos,Info, Exp, SideEffect),
-		refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
-		{ok, "Refactor succeeded"};
+		case Editor of 
+		    emacs ->
+			refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
+			{ok, "Refactor succeeded"};
+		    eclipse ->
+			Res = [{FileName, FileName, refac_prettypr:print_ast(AnnAST1)}],
+			{ok, Res}
+		end;
 	unknown ->
 	    {unknown_side_effect, [ParName1, FunName, FunArity, FunDefPos,Exp]}
     end.	  
