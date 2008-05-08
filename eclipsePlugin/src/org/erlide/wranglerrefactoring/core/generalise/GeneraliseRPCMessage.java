@@ -29,7 +29,10 @@ public class GeneraliseRPCMessage extends RPCMessage {
 	@Override
 	protected void checkOkResultCases(OtpErlangTuple tuple)
 			throws WranglerRefactoringException {
-		if (tuple.elementAt(0).equals(new OtpErlangAtom("free_vars"))) {
+		if(tuple.elementAt(0).equals(new OtpErlangAtom("ok"))) {
+			generaliseStatus = OK;
+			return;
+		} else if (tuple.elementAt(0).equals(new OtpErlangAtom("free_vars"))) {
 			setParameters((OtpErlangList) tuple.elementAt(1));
 			generaliseStatus = FREEVARS;
 		} else if (tuple.elementAt(0).equals(
@@ -37,8 +40,8 @@ public class GeneraliseRPCMessage extends RPCMessage {
 			setParameters((OtpErlangList) tuple.elementAt(1));
 			generaliseStatus = UNKNOWNSIDEEFFECT;
 		} else {
-			OtpErlangTuple msgTuple = (OtpErlangTuple) tuple.elementAt(1);
-			OtpErlangString msg = (OtpErlangString) msgTuple.elementAt(1);
+			//OtpErlangTuple msgTuple = (OtpErlangTuple) tuple.elementAt(1);
+			OtpErlangString msg = (OtpErlangString) tuple.elementAt(1);
 			throw new WranglerRefactoringException(msg.stringValue());
 		}
 	}

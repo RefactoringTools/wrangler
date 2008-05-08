@@ -12,11 +12,22 @@ public class GeneraliseWizard extends WranglerRefactoringWizard {
 	@Override
 	protected void addUserInputPages() {
 		addPage(new NewParameterNameInputPage("Get new parameter name"));
+		// addPage(new FreeVariablesDecisionInputPage("Free variables"));
+		// addPage(new SideEffectInpugPage("Side effect"));
 	}
 
 	@Override
 	protected String initTitle() {
 		return "Generalise function refactoring";
+	}
+
+	@Override
+	public boolean performCancel() {
+		return super.performCancel();
+	}
+
+	public void _close() {
+		getShell().close();
 	}
 
 }

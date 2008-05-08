@@ -51,7 +51,7 @@
 	 add_a_tag/5,
 	 tuple_funpar/5,
          tuple_to_record/8,
-	register_pid/5]).
+	 register_pid/5]).
 
 -export([rename_var_eclipse/5, 
 	 rename_fun_eclipse/5, 
@@ -62,8 +62,10 @@
 	 gen_fun_1_eclipse/7,
 	 gen_fun_2_eclipse/7,
 	 tuple_funpar_eclipse/5,
-         tuple_to_record_eclipse/8	 
-	]).
+         tuple_to_record_eclipse/8,
+	 fold_expression_eclipse/3,
+	 fold_expression_1_eclipse/5,
+	 fold_expression_2_eclipse/5]).
 
 -export([trace_send/4, trace_spawn/4]).
 %% ====================================================================================================
@@ -368,6 +370,14 @@ fold_expression(FileName, Line, Col) ->
     refac_fold_expression:fold_expression(FileName, Line, Col).
 
 
+fold_expression_eclipse(FileName, Line, Col) ->
+    refac_fold_expression:fold_expression_eclipse(FileName, Line, Col).
+
+fold_expression_1_eclipse(FileName, Start, End, NewExp, {FunClauseDef, ClauseIndex})->
+    reafc_fold_expression:refac_fold_expression_1_eclipse(FileName, Start, End, NewExp, {FunClauseDef, ClauseIndex}).
+
+fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine) ->
+    refac_fold_expression:refac_fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine).
 
 instrument_prog(FileName, SearchPaths) ->
     refac_instrument:instrument_prog(FileName, SearchPaths).

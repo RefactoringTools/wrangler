@@ -116,6 +116,10 @@ public abstract class WranglerRefactoring extends Refactoring {
 	 * return res; }
 	 */
 
+	public void setMessage(RPCMessage m) {
+		this.message =m;
+	}
+	
 	protected void doRefactoring() throws ErlangRpcException, RpcException,
 			WranglerException, IOException, CoreException {
 

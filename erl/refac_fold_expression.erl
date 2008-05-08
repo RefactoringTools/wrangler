@@ -41,12 +41,19 @@
 %% =============================================================================================
 -module(refac_fold_expression).
 
--export([fold_expression/3, fold_expression_1/7]).
+-export([fold_expression/3, fold_expression_1/7, fold_expression_eclipse/3, fold_expression_1_eclipse/5, fold_expression_2_eclipse/5]).
 
 %% =============================================================================================
 %% @spec fold_expression(FileName::filename(), Line::integer(), Col::integer())-> term()
 %% =============================================================================================        
+
 fold_expression(FileName, Line, Col) ->
+    fold_expression(FileName, Line, Col, emacs).
+
+fold_expression_eclipse(FileName, Line, Col) ->
+    fold_expression(FileName, Line, Col, eclipse).
+
+fold_expression(FileName, Line, Col, Editor) ->
     io:format("\n[CMD: fold_expression(~p, ~p,~p)]\n", [FileName, Line, Col]),
     case refac_util:parse_annotate_file(FileName,true, []) of 
 	{ok, {AnnAST, _Info}} ->
@@ -57,9 +64,13 @@ fold_expression(FileName, Line, Col) ->
 			    Candidates = search_candidate_exprs(AnnAST, FunName, FunClauseDef),
 			    case Candidates of 
 				[] -> io:format("No expressions that are suitable for folding against the selected function have been found!"),
-				      {ok, []};				   
-				_ -> Regions = lists:map(fun({{{StartLine, StartCol}, {EndLine, EndCol}},NewExp}) ->
-								 {StartLine, StartCol, EndLine,EndCol, NewExp, {FunClauseDef, ClauseIndex}} end, Candidates),
+				      {ok, []};	
+				_ -> Regions = case Editor of 
+						   emacs ->lists:map(fun({{{StartLine, StartCol}, {EndLine, EndCol}},NewExp}) ->
+									     {StartLine, StartCol, EndLine,EndCol, NewExp, {FunClauseDef, ClauseIndex}} end, Candidates);
+						   eclipse ->lists:map(fun({{{StartLine, StartCol}, {EndLine, EndCol}},NewExp}) ->
+									       {{StartLine, StartCol}, {EndLine,EndCol}, NewExp, {FunClauseDef, ClauseIndex}} end, Candidates)
+					       end,
 				     {ok, Regions}
 			    end;				 
 			{error, Reason} -> {error, Reason}
@@ -75,7 +86,13 @@ fold_expression(FileName, Line, Col) ->
 %%                        (EndLine::integer(), EndCol::integer(), NewExp::term(),
 %%                        {FunClauseDef, ClauseIndex}::{term(), integer()) -> term()
 %% =============================================================================================  
-fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunClauseDef, ClauseIndex}) -> 
+fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunClauseDef, ClauseIndex}) ->
+    fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunClauseDef, ClauseIndex}, emacs).
+
+fold_expression_1_eclipse(FileName, {StartLine, StartCol}, {EndLine, EndCol}, NewExp, {FunClauseDef, ClauseIndex}) ->
+    fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunClauseDef, ClauseIndex}, eclipse).
+
+fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunClauseDef, ClauseIndex}, Editor) -> 
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, []),
     FunCall = case refac_syntax:type(NewExp) of 
 		  application -> NewExp;
@@ -85,7 +102,24 @@ fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunCl
     Arity = length(refac_syntax:application_arguments(FunCall)),		   
     Body = refac_syntax:clause_body(FunClauseDef),
     {AnnAST1,_} = refac_util:stop_tdTP(fun do_replace_expr_with_fun_call/2, AnnAST, {Body, NewExp, {{StartLine, StartCol}, {EndLine, EndCol}}}),
-    refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1}]),
+    case Editor of 
+	emacs ->  refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1}]),
+		  {ok, {AnnAST2, _Info1}} = refac_util:parse_annotate_file(FileName,true, []),
+		  case get_fun_clause_def(AnnAST2, FunName, Arity, ClauseIndex) of 
+		      {ok, {_Mod, _FunName, _Arity, FunClauseDef1}} ->
+			  Candidates = search_candidate_exprs(AnnAST2, FunName, FunClauseDef1),
+			  Regions = [{{StartLine1, StartCol1}, {EndLine1, EndCol1}, FunCall1, {FunClauseDef1, ClauseIndex}} 
+				     || {{{StartLine1, StartCol1}, {EndLine1, EndCol1}}, FunCall1}<-Candidates,
+					StartLine1 >= StartLine],
+			  {ok, Regions};
+		      {error, reason} ->
+			  {error, "You have not selected a function definition."}  %% THIS SHOULD NOT HAPPEN.
+		  end;
+	eclipse -> Res = [{{FunName, Arity, ClauseIndex, StartLine}, FileName, FileName, refac_prettypr:print_ast(AnnAST1)}],
+		   {ok, Res}
+    end.
+
+fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine ) ->
     {ok, {AnnAST2, _Info1}} = refac_util:parse_annotate_file(FileName,true, []),
     case get_fun_clause_def(AnnAST2, FunName, Arity, ClauseIndex) of 
 	{ok, {_Mod, _FunName, _Arity, FunClauseDef1}} ->
@@ -95,7 +129,7 @@ fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunCl
 			  StartLine1 >= StartLine],
 	    {ok, Regions};
 	{error, reason} ->
-	     {error, "You have not selected a function definition."}  %% THIS SHOULD NOT HAPPEN.
+	    {error, "You have not selected a function definition."}  %% THIS SHOULD NOT HAPPEN.
     end.
 
 

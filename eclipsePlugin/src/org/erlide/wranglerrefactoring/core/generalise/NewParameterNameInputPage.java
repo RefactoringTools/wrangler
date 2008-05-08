@@ -1,6 +1,7 @@
 package org.erlide.wranglerrefactoring.core.generalise;
 
 import org.eclipse.jface.wizard.IWizardPage;
+import org.eclipse.ltk.core.refactoring.NullChange;
 import org.eclipse.ltk.core.refactoring.RefactoringStatus;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.ModifyEvent;
@@ -57,6 +58,7 @@ public class NewParameterNameInputPage extends WranglerNewDataInputPage {
 	}
 
 	private void callWranglerRPCs() {
+
 		GeneraliseRefactoring refac = (GeneraliseRefactoring) getRefactoring();
 
 		try {
@@ -66,10 +68,14 @@ public class NewParameterNameInputPage extends WranglerNewDataInputPage {
 				boolean response = showYesOrNoMessageBox(
 						"The selected expression has free variables, do you want to continue the refactoring?",
 						"Free variables!");
-				if (response)
+				if (response) {
 					m = refac.callGeneralise2();
-				else {
-					// TODO: EXIT!!!???
+					refac.setMessage(m);
+				} else {
+					refac.setRefactoringStatus(new RefactoringStatus());
+					refac.setChange(new NullChange());
+					((GeneraliseWizard) getWizard())._close();
+					return;
 				}
 
 			}
@@ -79,16 +85,18 @@ public class NewParameterNameInputPage extends WranglerNewDataInputPage {
 						"Does the selected expression have side effects?",
 						"Side effect");
 				refac.setSideEffect(response);
-				refac.callGeneralise1();
+				m = refac.callGeneralise1();
+				refac.setMessage(m);
 			}
+			refac.setRefactoringStatus(new RefactoringStatus());
 		} catch (ErlangRpcException e) {
-			refac.addRefactoringStatus(RefactoringStatus
+			refac.setRefactoringStatus(RefactoringStatus
 					.createFatalErrorStatus(e.getMessage()));
 		} catch (RpcException e) {
-			refac.addRefactoringStatus(RefactoringStatus
+			refac.setRefactoringStatus(RefactoringStatus
 					.createFatalErrorStatus(e.getMessage()));
 		} catch (WranglerException e) {
-			refac.addRefactoringStatus(RefactoringStatus
+			refac.setRefactoringStatus(RefactoringStatus
 					.createFatalErrorStatus(e.getMessage()));
 		}
 	}
@@ -119,5 +127,7 @@ public class NewParameterNameInputPage extends WranglerNewDataInputPage {
 		// it is not the best solution
 		callWranglerRPCs();
 		return super.getNextPage();
+
 	}
+
 }
