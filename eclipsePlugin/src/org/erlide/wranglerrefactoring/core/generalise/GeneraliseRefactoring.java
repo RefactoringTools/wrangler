@@ -78,7 +78,6 @@ public class GeneraliseRefactoring extends WranglerRefactoring {
 	@Override
 	protected RpcResult sendRPC(String filePath, OtpErlangList searchPath)
 			throws ErlangRpcException, RpcException {
-		// TODO: generalise into parameters!!!
 		OtpErlangTuple startPos = createPos(parameters.getStartLine(),
 				parameters.getStartColoumn());
 		OtpErlangTuple endPos = createPos(parameters.getEndLine(), parameters

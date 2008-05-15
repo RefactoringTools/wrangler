@@ -44,11 +44,8 @@ public class Activator extends AbstractUIPlugin {
 		initWrangler();
 	}
 
-	// TODO: read from settings file
 	@SuppressWarnings("restriction")
 	private void initWrangler() throws CoreException {
-		// String wranglerPath =
-		// "/home/mee/Programok/wrangler/distel-wrangler-0.3/ebin";
 		URL url;
 		try {
 			Bundle b = getDefault().getBundle();

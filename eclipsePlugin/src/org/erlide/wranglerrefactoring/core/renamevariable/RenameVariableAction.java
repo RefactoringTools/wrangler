@@ -8,7 +8,6 @@ public class RenameVariableAction extends WranglerRefactoringAction {
 
 	@Override
 	public void dispose() {
-		// TODO Auto-generated method stub
 	}
 
 	@Override

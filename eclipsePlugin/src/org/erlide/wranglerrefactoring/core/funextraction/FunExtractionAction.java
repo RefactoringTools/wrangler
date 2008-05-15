@@ -7,12 +7,6 @@ import org.erlide.wranglerrefactoring.ui.WranglerRefactoringWizard;
 public class FunExtractionAction extends WranglerRefactoringAction {
 
 	@Override
-	public void dispose() {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
 	protected String initRefactoringName() {
 		return "Fun extraction refactoring";
 	}

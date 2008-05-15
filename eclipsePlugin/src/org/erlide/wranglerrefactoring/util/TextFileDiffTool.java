@@ -47,47 +47,41 @@ public class TextFileDiffTool {
 		return result;
 	}
 
-	@SuppressWarnings("unchecked")
-	static public ArrayList<TextEdit> createEdits(File in, File out) {
-		inFile = in;
-		outFile = out;
-
-		ArrayList<TextEdit> edits = new ArrayList<TextEdit>();
-		inFileCharArray = null;
-		outFileCharArray = null;
-		try {
-			inFileCharArray = splitFile(inFile);
-			outFileCharArray = splitFile(outFile);
-		} catch (Exception e) {
-			// TODO io error???
-			e.printStackTrace();
-		}
-
-		algorithm = new Diff(inFileCharArray, outFileCharArray);
-
-		differencesList = algorithm.diff();
-		for (Difference d : differencesList) {
-			edits.add(createEditFromDiff(d));
-		}
-
-		return edits;
-	}
+	// @SuppressWarnings("unchecked")
+	// static public ArrayList<TextEdit> createEdits(File in, File out)
+	// throws IOException {
+	// inFile = in;
+	// outFile = out;
+	//
+	// ArrayList<TextEdit> edits = new ArrayList<TextEdit>();
+	// inFileCharArray = null;
+	// outFileCharArray = null;
+	//
+	// inFileCharArray = splitFile(inFile);
+	// outFileCharArray = splitFile(outFile);
+	//
+	// algorithm = new Diff(inFileCharArray, outFileCharArray);
+	//
+	// differencesList = algorithm.diff();
+	// for (Difference d : differencesList) {
+	// edits.add(createEditFromDiff(d));
+	// }
+	//
+	// return edits;
+	// }
 
 	// new version of creating changes
-	static public ArrayList<TextEdit> _createEdits(File in, String out) {
+	static public ArrayList<TextEdit> _createEdits(File in, String out)
+			throws IOException {
 		inFile = in;
 
 		ArrayList<TextEdit> edits = new ArrayList<TextEdit>();
 		inFileCharArray = null;
 		outFileCharArray = null;
-		try {
-			inFileCharArray = splitFile(inFile);
-			outFileCharArray = new ArrayList<Character>();
-			outFileCharArray = convertArryaToArrayList(out.toCharArray());
-		} catch (Exception e) {
-			// TODO io error???
-			e.printStackTrace();
-		}
+
+		inFileCharArray = splitFile(inFile);
+		outFileCharArray = new ArrayList<Character>();
+		outFileCharArray = convertArryaToArrayList(out.toCharArray());
 
 		algorithm = new Diff(inFileCharArray, outFileCharArray);
 

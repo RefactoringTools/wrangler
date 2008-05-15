@@ -7,11 +7,6 @@ import org.erlide.wranglerrefactoring.ui.WranglerRefactoringWizard;
 public class TupleToRecordAction extends WranglerRefactoringAction {
 
 	@Override
-	public void dispose() {
-		// TODO Auto-generated method stub
-	}
-
-	@Override
 	protected String initRefactoringName() {
 		return "Tuple to record";
 	}

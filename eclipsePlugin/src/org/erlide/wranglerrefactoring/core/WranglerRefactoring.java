@@ -78,7 +78,7 @@ public abstract class WranglerRefactoring extends Refactoring {
 		} catch (RpcException e) {
 			rs = RefactoringStatus.createFatalErrorStatus(e.getMessage());
 		} catch (Exception e) {
-			// TODO: delete after alpha stage
+			// TODO: delete from final release
 			e.printStackTrace();
 			rs = RefactoringStatus.createFatalErrorStatus(e.getMessage());
 		}
@@ -92,15 +92,13 @@ public abstract class WranglerRefactoring extends Refactoring {
 
 	/*
 	 * 
-	 * OLD VERSION // TODO: dispose(), but when? protected RpcResult
-	 * doRefactoring() throws IOException, CoreException, ErlangRpcException,
-	 * RpcException { // TODO:: it is just a stub, some information is needed,
-	 * and then create // an abstract method to the rpc call // 1. create copier
-	 * object, copy the files // 2. call the abstract method see upper // 3.
-	 * create changes, with the object, described in the 1, // maybe itt will be
-	 * 2 class: A) just the copier, B) interface upon the // copier and upon the
-	 * fileDiff ProjectCopier pc = new ProjectCopier(parameters.getFile());
-	 * pc.doCopy();
+	 * OLD VERSION protected RpcResult doRefactoring() throws IOException,
+	 * CoreException, ErlangRpcException, RpcException { and then create // an
+	 * abstract method to the rpc call // 1. create copier object, copy the
+	 * files // 2. call the abstract method see upper // 3. create changes, with
+	 * the object, described in the 1, // maybe itt will be 2 class: A) just the
+	 * copier, B) interface upon the // copier and upon the fileDiff
+	 * ProjectCopier pc = new ProjectCopier(parameters.getFile()); pc.doCopy();
 	 * 
 	 * OtpErlangList searchPathList = new OtpErlangList(new OtpErlangString(pc
 	 * .getSearchPath()));
@@ -117,9 +115,9 @@ public abstract class WranglerRefactoring extends Refactoring {
 	 */
 
 	public void setMessage(RPCMessage m) {
-		this.message =m;
+		this.message = m;
 	}
-	
+
 	protected void doRefactoring() throws ErlangRpcException, RpcException,
 			WranglerException, IOException, CoreException {
 

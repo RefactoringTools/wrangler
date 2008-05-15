@@ -11,7 +11,6 @@ import org.eclipse.ui.IWorkbenchWindowActionDelegate;
 import org.erlide.wranglerrefactoring.core.RefactoringParameters;
 import org.erlide.wranglerrefactoring.core.WranglerRefactoring;
 
-//TODO: check the init, dispose,selecionChanged methods, it could be useful - cdtrefac
 public abstract class WranglerRefactoringAction implements
 		IWorkbenchWindowActionDelegate, IEditorActionDelegate {
 
@@ -23,11 +22,9 @@ public abstract class WranglerRefactoringAction implements
 
 	protected String refactoringName;
 
-	@Override
-	/**
-	 * implementors should set the refactoring name here
-	 */
-	public abstract void dispose();
+	public void dispose() {
+		refactoringWizard.dispose();
+	}
 
 	@Override
 	public void init(IWorkbenchWindow window) {
@@ -51,7 +48,6 @@ public abstract class WranglerRefactoringAction implements
 		try {
 			op.run(shell, refactoringName);
 		} catch (InterruptedException e) {
-			// TODO what the hell is needed here?
 			e.printStackTrace();
 		}
 

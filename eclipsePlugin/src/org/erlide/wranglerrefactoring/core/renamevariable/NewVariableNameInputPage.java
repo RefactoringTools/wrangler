@@ -2,7 +2,6 @@ package org.erlide.wranglerrefactoring.core.renamevariable;
 
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
-import org.eclipse.swt.layout.GridLayout;
 import org.erlide.wranglerrefactoring.ui.WranglerNewDataInputPage;
 
 public class NewVariableNameInputPage extends WranglerNewDataInputPage {
@@ -54,9 +53,4 @@ public class NewVariableNameInputPage extends WranglerNewDataInputPage {
 		return "New variable name:";
 	}
 
-	@Override
-	protected void initExtraControls(GridLayout layout) {
-		// TODO Auto-generated method stub
-
-	}
 }

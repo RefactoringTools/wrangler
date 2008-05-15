@@ -29,10 +29,12 @@ public class RefactoringParameters {
 	public RefactoringParameters() {
 	}
 
+	// just for debugging
+	public ITextEditor getEditor() {
+		return editor;
+	}
+
 	public void setEditorPart(IEditorPart editorPart) {
-		// TODO: more elegant solution to get the file
-		// IEditorPart editorPart = PlatformUI.getWorkbench()
-		// .getActiveWorkbenchWindow().getActivePage().getActiveEditor();
 		// TODO: do I need class checking?
 		editor = (ITextEditor) editorPart;
 		// TODO: do I need class checking?
@@ -97,7 +99,7 @@ public class RefactoringParameters {
 	}
 
 	public OtpErlangList getProject() {
-		// FIXME: not sure to use this, maybe some subdir???
+		// TODO: check another directories as well
 		String sPath;
 
 		sPath = file.getParent().getLocation().toOSString();

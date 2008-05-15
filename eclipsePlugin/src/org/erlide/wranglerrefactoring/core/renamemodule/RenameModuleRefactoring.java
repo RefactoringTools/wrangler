@@ -26,7 +26,7 @@ public class RenameModuleRefactoring extends WranglerRefactoring {
 	@Override
 	protected RpcResult sendRPC(String filePath, OtpErlangList searchPath)
 			throws ErlangRpcException, RpcException {
-		// TODO Auto-generated method stub
+		// TODO: not fully working
 		return managedBackend.rpc("wrangler", "rename_mod_eclipse", "ssx",
 				filePath, newName, searchPath);
 	}
