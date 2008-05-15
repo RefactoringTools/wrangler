@@ -88,6 +88,7 @@ public class NewParameterNameInputPage extends WranglerNewDataInputPage {
 				m = refac.callGeneralise1();
 				refac.setMessage(m);
 			}
+			refac.setMessage(m);
 			refac.setRefactoringStatus(new RefactoringStatus());
 		} catch (ErlangRpcException e) {
 			refac.setRefactoringStatus(RefactoringStatus
