@@ -50,6 +50,8 @@
 
 -export([analyze_free_vars/1, build_call_graph/3, build_call_graph/2]).
 
+-export([update_var_define_locations/1]).
+
 -include("../hrl/wrangler.hrl").
 
 %% =====================================================================

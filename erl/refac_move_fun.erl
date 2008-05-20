@@ -69,7 +69,7 @@ move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths, Editor) ->
     TargetFName = filename:join([filename:dirname(FName), TargetModName++ ".erl"]),
     if FName == TargetFName  -> {error, "The target module is the same as the current module."};
        true -> 
-	    case (filelib:is_file(TargetFName) orelse (CreateNewFile==t)) of 
+	    case (filelib:is_file(TargetFName) orelse (CreateNewFile==t) orelse (CreateNewFile==true)) of 
 		true -> 
 		    case refac_util:parse_annotate_file(FName,true, SearchPaths) of 
 			{ok, {AnnAST, Info}} -> 
@@ -77,7 +77,7 @@ move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths, Editor) ->
 				{ok, Def} ->
 				    {value, {fun_def, {ModName, FunName, Arity, _Pos1, _Pos2}}} =
 					lists:keysearch(fun_def,1, refac_syntax:get_ann(Def)),
-				    case (not(filelib:is_file(TargetFName)) andalso (CreateNewFile==t)) of 
+				    case (not(filelib:is_file(TargetFName)) andalso ((CreateNewFile==t) orelse (CreateNewFile==true ))) of 
 					true -> create_new_file(TargetFName, TargetModName);
 					_ -> ok
 				    end,					

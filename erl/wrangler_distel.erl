@@ -22,7 +22,7 @@
 
 -export([ rename_fun/5, rename_var/5, rename_mod/3, generalise/7, move_fun/6, tuple_to_record/8,
          duplicated_code/3, expression_search/5, fun_extraction/6, fold_expression/3, tuple_funpar/5,
-	 instrument_prog/2, uninstrument_prog/2, add_a_tag/5,
+	 instrument_prog/2, uninstrument_prog/2, add_a_tag/5,register_pid/7, fun_to_process/5,
          undo/0, start_undo_process/0, stop_undo_process/0, undo_init/0]).
 
 
@@ -123,6 +123,23 @@ add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
 	    wrangler:add_a_tag(FileName, Line, Col, Tag, SearchPaths);
 	{error, Reason} ->
 	    {error,Reason}
+    end.
+
+
+register_pid(FileName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPaths) ->
+    case check_undo_process() of 
+	ok ->
+	    wrangler:register_pid(FileName, {StartLine, StartCol}, {EndLine, EndCol}, RegName, SearchPaths);
+	{error, Reason} ->
+	    {error,Reason}
+    end.
+
+
+fun_to_process(Fname, Line, Col, ProcessName,SearchPaths) ->
+    case check_undo_process() of
+	ok -> wrangler:fun_to_process(Fname, Line, Col, ProcessName,SearchPaths);
+	{error, Reason} ->
+	   {error, Reason}
     end.
 %% tuple_to_record(Fname, StartLine, StartCol, EndLine, EndCol) ->
 %%     refac_record:tuple_to_record(Fname, {StartLine, StartCol}, {EndLine, EndCol}).
