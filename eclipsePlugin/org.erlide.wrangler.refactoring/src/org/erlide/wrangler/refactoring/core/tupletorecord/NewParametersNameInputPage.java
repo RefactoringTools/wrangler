@@ -8,6 +8,7 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
 import org.erlide.wrangler.refactoring.ui.WranglerNewDataInputPage;
+import org.erlide.wrangler.refactoring.util.NameChecker;
 
 public class NewParametersNameInputPage extends WranglerNewDataInputPage {
 
@@ -38,11 +39,13 @@ public class NewParametersNameInputPage extends WranglerNewDataInputPage {
 				if (s.length() == 0) {
 					setPageComplete(false);
 					setErrorMessage(null);
+				} else if (!NameChecker.checkIsAtom(s)) {
+					setPageComplete(false);
+					setErrorMessage("Record name must be an atom!");
 				} else {
-					setPageComplete(true);
 					setErrorMessage(null);
+					setPageComplete(true);
 				}
-
 			}
 
 		});

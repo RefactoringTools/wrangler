@@ -11,6 +11,7 @@ import org.erlide.jinterface.rpc.RpcException;
 import org.erlide.runtime.backend.exceptions.ErlangRpcException;
 import org.erlide.wrangler.refactoring.core.exception.WranglerException;
 import org.erlide.wrangler.refactoring.ui.WranglerNewDataInputPage;
+import org.erlide.wrangler.refactoring.util.NameChecker;
 
 public class NewParameterNameInputPage extends WranglerNewDataInputPage {
 
@@ -33,17 +34,16 @@ public class NewParameterNameInputPage extends WranglerNewDataInputPage {
 		newDataText.addModifyListener(new ModifyListener() {
 
 			@Override
-			public void modifyText(ModifyEvent e) {
-				// TODO: not exact, whitespaces??
+			public void modifyText(ModifyEvent e) {				
 				String s = newDataText.getText();
 				if (s.length() == 0) {
 					setPageComplete(false);
 					setErrorMessage(null);
-				} else if (!s.substring(0, 1).toUpperCase().equals(
-						s.substring(0, 1))) {
+				} else if (!NameChecker.checkIsVariable(s)) {
 					setPageComplete(false);
-					setErrorMessage("Variable name must start with an uppercase letter!");
+					setErrorMessage("Please type a valid Erlang variable name!");
 				} else {
+					setErrorMessage(null);
 					setPageComplete(true);
 				}
 

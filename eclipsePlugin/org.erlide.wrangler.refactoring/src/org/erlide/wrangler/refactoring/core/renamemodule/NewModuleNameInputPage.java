@@ -4,6 +4,7 @@ import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.layout.GridLayout;
 import org.erlide.wrangler.refactoring.ui.WranglerNewDataInputPage;
+import org.erlide.wrangler.refactoring.util.NameChecker;
 
 public class NewModuleNameInputPage extends WranglerNewDataInputPage {
 
@@ -32,8 +33,16 @@ public class NewModuleNameInputPage extends WranglerNewDataInputPage {
 			@Override
 			public void modifyText(ModifyEvent e) {
 				String s = newDataText.getText();
-				// TODO: check if the module name is correct
-				setPageComplete(true);
+				if (s.length() == 0) {
+					setPageComplete(false);
+					setErrorMessage(null);
+				} else if (!NameChecker.checkIsAtom(s)) {
+					setPageComplete(false);
+					setErrorMessage("Module name must be an atom!");
+				} else {
+					setErrorMessage(null);
+					setPageComplete(true);
+				}
 			}
 
 		});
@@ -43,5 +52,5 @@ public class NewModuleNameInputPage extends WranglerNewDataInputPage {
 	protected String initTitle() {
 		return "Rename module";
 	}
-
+	
 }

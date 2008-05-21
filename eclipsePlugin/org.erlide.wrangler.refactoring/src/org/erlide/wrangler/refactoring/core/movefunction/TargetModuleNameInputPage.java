@@ -1,11 +1,14 @@
 package org.erlide.wrangler.refactoring.core.movefunction;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.ModifyEvent;
+import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
 import org.erlide.wrangler.refactoring.core.renamemodule.NewModuleNameInputPage;
+import org.erlide.wrangler.refactoring.util.NameChecker;
 
 public class TargetModuleNameInputPage extends NewModuleNameInputPage {
 
@@ -46,6 +49,29 @@ public class TargetModuleNameInputPage extends NewModuleNameInputPage {
 	@Override
 	protected String initTitle() {
 		return "Move function";
+	}
+
+	@Override
+	protected void initListeners() {
+		newDataText.addModifyListener(new ModifyListener() {
+
+			@Override
+			public void modifyText(ModifyEvent e) {				
+				String s = newDataText.getText();
+				if (s.length() == 0) {
+					setPageComplete(false);
+					setErrorMessage(null);
+				} else if (!NameChecker.checkIsAtom(s)) {
+					setPageComplete(false);
+					setErrorMessage("Module name must be an atom!");
+				} else {
+					setErrorMessage(null);
+					setPageComplete(true);
+				}
+
+			}
+
+		});
 	}
 
 }

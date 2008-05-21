@@ -3,6 +3,7 @@ package org.erlide.wrangler.refactoring.core.renamevariable;
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
 import org.erlide.wrangler.refactoring.ui.WranglerNewDataInputPage;
+import org.erlide.wrangler.refactoring.util.NameChecker;
 
 public class NewVariableNameInputPage extends WranglerNewDataInputPage {
 
@@ -11,28 +12,22 @@ public class NewVariableNameInputPage extends WranglerNewDataInputPage {
 	}
 
 	@Override
-	/**
-	 * Erlang variable name has to start with a Capitalized character
-	 */
 	protected void initListeners() {
 		newDataText.addModifyListener(new ModifyListener() {
 
 			@Override
 			public void modifyText(ModifyEvent e) {
-				// TODO: not exact, whitespaces??
 				String s = newDataText.getText();
 				if (s.length() == 0) {
 					setPageComplete(false);
 					setErrorMessage(null);
-				} else if (!s.substring(0, 1).toUpperCase().equals(
-						s.substring(0, 1))) {
+				} else if (!NameChecker.checkIsVariable(s)) {
 					setPageComplete(false);
-					setErrorMessage("Variable name must start with an uppercase letter!");
+					setErrorMessage("Please enter a valid variable name!");
 				} else {
-					setPageComplete(true);
 					setErrorMessage(null);
+					setPageComplete(true);
 				}
-
 			}
 
 		});

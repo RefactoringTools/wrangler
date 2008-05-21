@@ -3,6 +3,7 @@ package org.erlide.wrangler.refactoring.core.renamefunction;
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
 import org.erlide.wrangler.refactoring.ui.WranglerNewDataInputPage;
+import org.erlide.wrangler.refactoring.util.NameChecker;
 
 public class NewFunctionNameInputPage extends WranglerNewDataInputPage {
 
@@ -30,14 +31,12 @@ public class NewFunctionNameInputPage extends WranglerNewDataInputPage {
 				if (s.length() == 0) {
 					setPageComplete(false);
 					setErrorMessage(null);
-				} else if (!s.substring(0, 1).toLowerCase().equals(
-						s.substring(0, 1))) {
-					// TODO: use the OtpErlangAtom class
+				} else if (!NameChecker.checkIsAtom(s)) {
 					setPageComplete(false);
 					setErrorMessage("Function name must be an atom!");
 				} else {
-					setPageComplete(true);
 					setErrorMessage(null);
+					setPageComplete(true);
 				}
 			}
 
