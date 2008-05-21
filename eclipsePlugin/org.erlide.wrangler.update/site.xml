@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site>
+   <feature url="features/org.erlide.wrangler.feature_0.1.0.jar" id="org.erlide.wrangler.feature" version="0.1" nl="en"/>
+</site>
