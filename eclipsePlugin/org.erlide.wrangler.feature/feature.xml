@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feature
+      id="org.erlide.wrangler.feature"
+      label="Wrangler Erlang refactor tool"
+      version="0.1"
+      provider-name="UKC"
+      nl="en"
+      colocation-affinity="org.erlide.wrangler">
+
+   <description url="http://www.example.com/description">
+      [Enter Feature Description here.]
+   </description>
+
+   <copyright url="http://www.example.com/copyright">
+      [Enter Copyright Description here.]
+   </copyright>
+
+   <license url="http://www.example.com/license">
+      [Enter License Description here.]
+   </license>
+
+   <requires>
+      <import feature="org.erlide" version="0.3.49.200805060013"/>
+   </requires>
+
+   <plugin
+         id="org.erlide.wrangler.refactoring"
+         download-size="0"
+         install-size="0"
+         version="0.1.0"/>
+
+</feature>
