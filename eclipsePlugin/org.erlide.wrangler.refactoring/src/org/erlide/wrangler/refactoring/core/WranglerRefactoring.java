@@ -1,6 +1,3 @@
-/**
- * @author György Orosz
- */
 package org.erlide.wrangler.refactoring.core;
 
 import java.io.IOException;
@@ -243,5 +240,13 @@ public abstract class WranglerRefactoring extends Refactoring {
 	 */
 	public void setNewName(final String newName) {
 		this.newName = newName;
+	}
+
+	public void setChange(Change c) {
+		this.change = c;
+	}
+
+	public RefactoringParameters getParameters() {
+		return parameters;
 	}
 }

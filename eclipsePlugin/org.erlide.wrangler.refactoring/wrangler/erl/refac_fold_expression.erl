@@ -41,7 +41,7 @@
 %% =============================================================================================
 -module(refac_fold_expression).
 
--export([fold_expression/3, fold_expression_1/7, fold_expression_eclipse/3, fold_expression_1_eclipse/5, fold_expression_2_eclipse/5]).
+-export([fold_expression/3, fold_expression_1/7, fold_expression_eclipse/3, fold_expression_1_eclipse/3, fold_expression_2_eclipse/5]).
 
 %% =============================================================================================
 %% @spec fold_expression(FileName::filename(), Line::integer(), Col::integer())-> term()
@@ -68,10 +68,9 @@ fold_expression(FileName, Line, Col, Editor) ->
 				_ -> Regions = case Editor of 
 						   emacs ->lists:map(fun({{{StartLine, StartCol}, {EndLine, EndCol}},NewExp}) ->
 									     {StartLine, StartCol, EndLine,EndCol, NewExp, {FunClauseDef, ClauseIndex}} end, Candidates);
-						   eclipse ->lists:map(fun({{{StartLine, StartCol}, {EndLine, EndCol}},NewExp}) ->
-									       {{StartLine, StartCol}, {EndLine,EndCol}, NewExp, {FunClauseDef, ClauseIndex}} end, Candidates)
+						   eclipse ->  Candidates 
 					       end,
-				     {ok, Regions}
+				     {ok, {FunClauseDef,Regions}}
 			    end;				 
 			{error, Reason} -> {error, Reason}
 		    end;
@@ -89,8 +88,22 @@ fold_expression(FileName, Line, Col, Editor) ->
 fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunClauseDef, ClauseIndex}) ->
     fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunClauseDef, ClauseIndex}, emacs).
 
-fold_expression_1_eclipse(FileName, {StartLine, StartCol}, {EndLine, EndCol}, NewExp, {FunClauseDef, ClauseIndex}) ->
-    fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunClauseDef, ClauseIndex}, eclipse).
+fold_expression_1_eclipse(FileName, FunClauseDef, RangeNewExpList) ->   %% RangeNewExpList [{{{StartLine, EndCol}, {EndLine, EndCol}}, NewExp}]
+    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, []),
+    Body = refac_syntax:clause_body(FunClauseDef),
+    AnnAST1= fold_expression_1_eclipse_1(AnnAST, Body, RangeNewExpList),
+    Res = [{FileName, FileName, refac_prettypr:print_ast(AnnAST1)}],
+    {ok, Res}.
+
+
+fold_expression_1_eclipse_1(AnnAST, _Body,  []) -> 
+    AnnAST;
+fold_expression_1_eclipse_1(AnnAST, Body, [{{StartLoc, EndLoc}, Exp}|Tail]) ->
+    {AnnAST1,_} = refac_util:stop_tdTP(fun do_replace_expr_with_fun_call_eclipse/2, AnnAST, {Body, {{StartLoc, EndLoc}, Exp}}),
+    fold_expression_1_eclipse_1(AnnAST1, Body, Tail).
+    
+    
+
 
 fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunClauseDef, ClauseIndex}, Editor) -> 
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, []),
@@ -166,7 +179,55 @@ side_condition_analysis(FunClauseDef) ->
 %% ==========================================================================================================================
 %% Replace an expression/expression sequence with a function call/match expression whose right-hand side is the function call.
 %% ==========================================================================================================================
- 						    	
+ 
+
+do_replace_expr_with_fun_call_eclipse(Tree, {Expr, {Range, NewExp}})->
+    case length(Expr) of 
+	1 -> do_replace_expr_with_fun_call_eclipse_1(Tree, {Range, NewExp});
+	_  -> do_replace_expr_with_fun_call_eclipse_2(Tree, {Range, NewExp})
+    end.
+						   
+
+
+do_replace_expr_with_fun_call_eclipse_1(Tree, {Range, NewExp}) ->
+     case refac_util:get_range(Tree) of 
+ 	Range ->
+	     {NewExp, true};
+ 	_  -> {Tree, false}
+     end.
+ 	
+do_replace_expr_with_fun_call_eclipse_2(Tree, {{StartLoc, EndLoc}, NewExp}) ->
+      case refac_syntax:type(Tree) of
+	clause ->
+	    Exprs = refac_syntax:clause_body(Tree),
+	    {Exprs1, Exprs2} = lists:splitwith(fun(E) -> element(1,refac_util:get_range(E)) =/= StartLoc end, Exprs),
+	    {NewBody, Modified} = case Exprs2 of 
+				      [] -> {Exprs, false};
+				      _ -> {_Exprs21, Exprs22} = lists:splitwith(fun(E) -> element(2, refac_util:get_range(E)) =/= EndLoc end, Exprs),
+					   case Exprs22 of 
+					       [] -> {Exprs, false};  %% THIS SHOULD NOT HAPPEN.
+					       _ -> {Exprs1++[NewExp|tl(Exprs22)], true}
+					   end
+				  end,
+	    Pats = refac_syntax:clause_patterns(Tree),
+	    G = refac_syntax:clause_guard(Tree),
+	    {refac_syntax:copy_pos(Tree, refac_syntax:copy_attrs(Tree, refac_syntax:clause(Pats, G, NewBody))), Modified};
+	block_expr ->
+	    Exprs = refac_syntax:block_expr_body(Tree),
+	    {Exprs1, Exprs2} = lists:splitwith(fun(E) -> element(1,refac_util:get_range(E)) =/= StartLoc end, Exprs),
+	    {NewBody, Modified} = case Exprs2 of 
+				      [] -> {Exprs, false};
+				      _ -> {_Exprs21, Exprs22} = lists:splitwith(fun(E) -> element(2, refac_util:get_range(E)) =/= EndLoc end, Exprs),
+					   case Exprs22 of 
+					       [] -> {Exprs, false};  %% THIS SHOULD NOT HAPPEN.
+					       _ -> {Exprs1++[NewExp|tl(Exprs22)], true}
+					   end
+				  end,
+	    {refac_syntax:copy_pos(Tree, refac_syntax:copy_attrs(Tree, refac_syntax:block_expr(NewBody))), Modified};	 
+	_  -> {Tree, false}
+    end.
+    
+
 do_replace_expr_with_fun_call(Tree, {Expr,NewExp, Range})->
     case length(Expr) of 
 	1 -> do_replace_expr_with_fun_call_1(Tree, {NewExp, Range});

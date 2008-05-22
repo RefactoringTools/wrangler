@@ -9,8 +9,11 @@ import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IFileEditorInput;
 import org.eclipse.ui.texteditor.ITextEditor;
 
+import com.ericsson.otp.erlang.OtpErlangInt;
 import com.ericsson.otp.erlang.OtpErlangList;
+import com.ericsson.otp.erlang.OtpErlangRangeException;
 import com.ericsson.otp.erlang.OtpErlangString;
+import com.ericsson.otp.erlang.OtpErlangTuple;
 
 /**
  * Wrangler refactoring parameters. Refactorings which extends
@@ -48,7 +51,7 @@ public class RefactoringParameters {
 	 *            offset of the selected text
 	 * @return the column number of the selected text
 	 */
-	private int calculateColumnFromOffset(int offset) {
+	public int calculateColumnFromOffset(int offset) {
 		int sumpos = 0;
 		int i = 0;
 
@@ -63,6 +66,28 @@ public class RefactoringParameters {
 		}
 
 		return offset - sumpos + 1;
+	}
+
+	/**
+	 * Converts the given position to Eclipse's offset.
+	 * 
+	 * @param line
+	 *            line of the position
+	 * @param column
+	 *            column of the positions
+	 * @return calculated offset
+	 * @throws BadLocationException
+	 */
+	public int calculateOffsetFromPosition(int line, int column)
+			throws BadLocationException {
+		return doc.getLineOffset(line) + column;
+	}
+
+	public int calculateOffsetFromErlangPos(OtpErlangTuple pos)
+			throws OtpErlangRangeException, BadLocationException {
+		int line = ((OtpErlangInt) pos.elementAt(0)).intValue();
+		int column = ((OtpErlangInt) pos.elementAt(1)).intValue();
+		return calculateOffsetFromPosition(line, column);
 	}
 
 	/**

@@ -51,7 +51,8 @@
 	 add_a_tag/5,
 	 tuple_funpar/5,
          tuple_to_record/8,
-	 register_pid/5]).
+	 register_pid/5,
+	 fun_to_process/5]).
 
 -export([rename_var_eclipse/5, 
 	 rename_fun_eclipse/5, 
@@ -64,7 +65,7 @@
 	 tuple_funpar_eclipse/5,
          tuple_to_record_eclipse/8,
 	 fold_expression_eclipse/3,
-	 fold_expression_1_eclipse/5,
+	 fold_expression_1_eclipse/3,
 	 fold_expression_2_eclipse/5]).
 
 -export([trace_send/4, trace_spawn/4]).
@@ -373,11 +374,11 @@ fold_expression(FileName, Line, Col) ->
 fold_expression_eclipse(FileName, Line, Col) ->
     refac_fold_expression:fold_expression_eclipse(FileName, Line, Col).
 
-fold_expression_1_eclipse(FileName, Start, End, NewExp, {FunClauseDef, ClauseIndex})->
-    reafc_fold_expression:refac_fold_expression_1_eclipse(FileName, Start, End, NewExp, {FunClauseDef, ClauseIndex}).
+fold_expression_1_eclipse(FileName, FunClauseDef, StartEndExpList)->  %% StartEndExpList: {{{StartLine, StartCol}, {EndLine, EndCol}}, NewExp}
+    reafc_fold_expression:fold_expression_1_eclipse(FileName, FunClauseDef, StartEndExpList).
 
 fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine) ->
-    refac_fold_expression:refac_fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine).
+    refac_fold_expression:fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine).
 
 instrument_prog(FileName, SearchPaths) ->
     refac_instrument:instrument_prog(FileName, SearchPaths).
@@ -486,3 +487,5 @@ tuple_to_record_eclipse(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPat
                 RecName, FieldString, SearchPaths).
 
 
+fun_to_process(FileName, Line, Col, ProcessName, SearchPaths) ->
+    refac_fun_to_process:fun_to_process(FileName, Line, Col, ProcessName, SearchPaths).

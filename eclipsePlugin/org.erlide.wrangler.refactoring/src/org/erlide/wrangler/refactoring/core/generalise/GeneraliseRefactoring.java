@@ -3,7 +3,6 @@ package org.erlide.wrangler.refactoring.core.generalise;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.OperationCanceledException;
-import org.eclipse.ltk.core.refactoring.Change;
 import org.eclipse.ltk.core.refactoring.RefactoringStatus;
 import org.erlide.jinterface.rpc.RpcException;
 import org.erlide.runtime.backend.RpcResult;
@@ -37,10 +36,6 @@ public class GeneraliseRefactoring extends WranglerRefactoring {
 		hasSideEffect = b;
 	}
 
-	public void setChange(Change c) {
-		this.change = c;
-	}
-
 	public void setAdditionalParameters(OtpErlangObject parName,
 			OtpErlangObject funName, OtpErlangObject arity,
 			OtpErlangObject defPos, OtpErlangObject expression) {
@@ -61,12 +56,6 @@ public class GeneraliseRefactoring extends WranglerRefactoring {
 	@Override
 	public RefactoringStatus checkFinalConditions(IProgressMonitor pm)
 			throws OperationCanceledException, CoreException {
-		// RefactoringStatus rs = super.checkFinalConditions(pm);
-
-		// for (RefactoringStatusEntry rse : rs.getEntries()) {
-		// refactoringStatus.addEntry(rse);
-		// }
-
 		return refactoringStatus;
 	}
 

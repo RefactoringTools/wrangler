@@ -64,6 +64,12 @@
                menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.reorganizeFunctionGroup">
          </action>
          <action
+               class="org.erlide.wrangler.refactoring.core.foldexpression.FoldExpressionAction"
+               id="org.erlide.wranglerrefactoring.foldexpressio"
+               label="%foldExpressionName"
+               menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.reorganizeFunctionGroup">
+         </action>
+         <action
                class="org.erlide.wrangler.refactoring.core.movefunction.MoveFunctionAction"
                definitionId="org.erlide.wrangler.refactoring.moveFunction"
                enablesFor="?"
