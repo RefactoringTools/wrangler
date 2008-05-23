@@ -34,7 +34,12 @@ public class FoldExpressionRefactoring extends WranglerRefactoring {
 	}
 
 	public void setSelectedPositions(List<OtpErlangTuple> pos) {
-		selectedPositions = new OtpErlangList((OtpErlangTuple[]) pos.toArray());
+		Object[] objects = pos.toArray();
+		OtpErlangObject[] otpObjects = new OtpErlangObject[objects.length];
+		for (int i = 0; i < objects.length; ++i) {
+			otpObjects[i] = (OtpErlangObject) objects[i];
+		}
+		selectedPositions = new OtpErlangList(otpObjects);
 	}
 
 	public List<OtpErlangTuple> getFoundPositions() {
@@ -55,14 +60,14 @@ public class FoldExpressionRefactoring extends WranglerRefactoring {
 	protected RpcResult sendRPC(String filePath, OtpErlangList searchPath)
 			throws ErlangRpcException, RpcException {
 		return managedBackend.rpc("wrangler", "fold_expression_1_eclipse",
-				"sxx", filePath, funClauseDef, foundPositions);
+				"sxx", filePath, funClauseDef, selectedPositions);
 	}
 
 	private RPCMessage callFoldExpression() throws RpcException,
 			WranglerException {
-		RpcResult res = managedBackend.rpc("wrangler", "fold_expression",
-				"sii", parameters.getFilePath(), parameters.getStartLine(),
-				parameters.getStartColumn());
+		RpcResult res = managedBackend.rpc("wrangler",
+				"fold_expression_eclipse", "sii", parameters.getFilePath(),
+				parameters.getStartLine(), parameters.getStartColumn());
 		FoldExpressionRPCMessage m = new FoldExpressionRPCMessage(res, this);
 		m.checkIsOK();
 		return m;

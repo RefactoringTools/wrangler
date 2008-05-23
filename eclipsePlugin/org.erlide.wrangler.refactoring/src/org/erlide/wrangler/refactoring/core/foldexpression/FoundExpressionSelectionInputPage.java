@@ -1,18 +1,26 @@
 package org.erlide.wrangler.refactoring.core.foldexpression;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.wizard.IWizardPage;
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.widgets.Button;
+import org.erlide.wrangler.refactoring.core.RefactoringParameters;
+import org.erlide.wrangler.refactoring.core.WranglerRefactoring;
 import org.erlide.wrangler.refactoring.ui.WranglerNewDataInputPage;
 
+import com.ericsson.otp.erlang.OtpErlangRangeException;
 import com.ericsson.otp.erlang.OtpErlangTuple;
 
 public class FoundExpressionSelectionInputPage extends WranglerNewDataInputPage {
 
-	List<ExpressionCheckButton> checkButtons;
+	HashMap<Button, ExpressionInfo> checkButtons;
 
 	public FoundExpressionSelectionInputPage(String name) {
 		super(name);
@@ -30,6 +38,14 @@ public class FoundExpressionSelectionInputPage extends WranglerNewDataInputPage 
 
 	@Override
 	protected void initListeners() {
+		RefactoringParameters parameters = ((FoldExpressionRefactoring) getRefactoring())
+				.getParameters();
+		ExpressionCheckButtonListener l = new ExpressionCheckButtonListener(
+				parameters, checkButtons);
+		for (Map.Entry<Button, ExpressionInfo> e : checkButtons.entrySet()) {
+			e.getKey().addMouseTrackListener(l);
+		}
+
 	}
 
 	@Override
@@ -52,9 +68,9 @@ public class FoundExpressionSelectionInputPage extends WranglerNewDataInputPage 
 	private void setSelectedPositions() {
 		ArrayList<OtpErlangTuple> selectedPositions = new ArrayList<OtpErlangTuple>();
 
-		for (ExpressionCheckButton b : checkButtons) {
-			if (b.getSelection())
-				selectedPositions.add(b.getErlangPosition());
+		for (Map.Entry<Button, ExpressionInfo> e : checkButtons.entrySet()) {
+			if (e.getKey().getSelection())
+				selectedPositions.add(e.getValue().getErlangPosition());
 		}
 
 		FoldExpressionRefactoring refac = (FoldExpressionRefactoring) getRefactoring();
@@ -67,22 +83,42 @@ public class FoundExpressionSelectionInputPage extends WranglerNewDataInputPage 
 		/**
 		 * hopefully disables the input field
 		 */
-		// this.newDataText = null;
 		newDataText.setVisible(false);
+		setPageComplete(true);
 
 		FoldExpressionRefactoring refac = (FoldExpressionRefactoring) getRefactoring();
 		List<OtpErlangTuple> positions = refac.getFoundPositions();
-		checkButtons = new ArrayList<ExpressionCheckButton>();
+		checkButtons = new HashMap<Button, ExpressionInfo>();
 
-		ExpressionCheckButton b;
+		ExpressionInfo i;
+		Button b;
 		GridData gridData = new GridData();
-		for (OtpErlangTuple t : positions) {
-			b = new ExpressionCheckButton(composite, t);
-			gridData.horizontalAlignment = GridData.FILL;
-			gridData.horizontalSpan = 2;
-			gridData.grabExcessHorizontalSpace = true;
-			b.setLayoutData(gridData);
-			checkButtons.add(b);
+		RefactoringParameters param = ((WranglerRefactoring) getRefactoring())
+				.getParameters();
+		try {
+			for (OtpErlangTuple t : positions) {
+				b = new Button(composite, SWT.CHECK);
+				i = new ExpressionInfo(t);
+
+				b.setText(param.getTextFromEditor(i.getStartingPos(), i
+						.getEndingPos())
+						+ " at "
+						+ i.getStartingPos().toString()
+						+ " - "
+						+ i.getEndingPos().toString());
+				gridData.horizontalAlignment = GridData.FILL;
+				gridData.horizontalSpan = 2;
+				gridData.grabExcessHorizontalSpace = true;
+				b.setLayoutData(gridData);
+				checkButtons.put(b, i);
+			}
+		} catch (OtpErlangRangeException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (BadLocationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
+
 	}
 }

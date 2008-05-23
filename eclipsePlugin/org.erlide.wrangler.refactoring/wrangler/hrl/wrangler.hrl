@@ -12,7 +12,6 @@
 
 -record(attr, {pos = {0,0}, ann = [], com = none}).
 
-%% Will be edited by Makefile 
 %% Edited by Gyorgy Orosz 
 -define(WRANGLER_DIR, filename:dirname(lists:filter(fun(X)-> lists:suffix("wrangler/ebin", X) end, code:get_path()))  ).
 

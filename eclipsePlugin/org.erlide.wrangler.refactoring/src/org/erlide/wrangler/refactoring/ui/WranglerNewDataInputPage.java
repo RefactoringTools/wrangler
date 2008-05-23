@@ -59,6 +59,8 @@ public abstract class WranglerNewDataInputPage extends UserInputWizardPage {
 		gridData.grabExcessHorizontalSpace = true;
 		newDataText.setLayoutData(gridData);
 
+		setPageComplete(false);
+
 		GridLayout layout = new GridLayout();
 		layout.numColumns = 2;
 		initExtraControls(layout);
@@ -66,7 +68,7 @@ public abstract class WranglerNewDataInputPage extends UserInputWizardPage {
 
 		initNewNameModifyListener();
 		initListeners();
-		setPageComplete(false);
+
 		setControl(composite);
 
 	}

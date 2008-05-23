@@ -7,13 +7,12 @@ public class FoldExpressionRefactoringWizard extends WranglerRefactoringWizard {
 
 	public FoldExpressionRefactoringWizard(WranglerRefactoring refactoring,
 			int flags) {
-		super(refactoring, flags);		
+		super(refactoring, flags);
 	}
 
 	@Override
 	protected void addUserInputPages() {
-		// TODO Auto-generated method stub
-
+		addPage(new FoundExpressionSelectionInputPage("Found expressions"));
 	}
 
 	@Override

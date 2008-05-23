@@ -33,6 +33,7 @@ public class FoldExpressionRPCMessage extends RPCMessage {
 		 */
 		super.checkOkResultCases(tuple);
 		refactoring.setFunClauseDef(tuple.elementAt(1));
-		refactoring.setFoundPositions((OtpErlangList) tuple.elementAt(2));
+		OtpErlangList l = (OtpErlangList) tuple.elementAt(2);
+		refactoring.setFoundPositions(l);
 	}
 }

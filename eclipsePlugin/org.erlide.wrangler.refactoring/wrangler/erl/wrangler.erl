@@ -375,7 +375,7 @@ fold_expression_eclipse(FileName, Line, Col) ->
     refac_fold_expression:fold_expression_eclipse(FileName, Line, Col).
 
 fold_expression_1_eclipse(FileName, FunClauseDef, StartEndExpList)->  %% StartEndExpList: {{{StartLine, StartCol}, {EndLine, EndCol}}, NewExp}
-    reafc_fold_expression:fold_expression_1_eclipse(FileName, FunClauseDef, StartEndExpList).
+    refac_fold_expression:fold_expression_1_eclipse(FileName, FunClauseDef, StartEndExpList).
 
 fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine) ->
     refac_fold_expression:fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine).

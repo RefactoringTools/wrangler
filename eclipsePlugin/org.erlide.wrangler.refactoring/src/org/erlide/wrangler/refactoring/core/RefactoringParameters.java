@@ -9,8 +9,8 @@ import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IFileEditorInput;
 import org.eclipse.ui.texteditor.ITextEditor;
 
-import com.ericsson.otp.erlang.OtpErlangInt;
 import com.ericsson.otp.erlang.OtpErlangList;
+import com.ericsson.otp.erlang.OtpErlangLong;
 import com.ericsson.otp.erlang.OtpErlangRangeException;
 import com.ericsson.otp.erlang.OtpErlangString;
 import com.ericsson.otp.erlang.OtpErlangTuple;
@@ -80,14 +80,43 @@ public class RefactoringParameters {
 	 */
 	public int calculateOffsetFromPosition(int line, int column)
 			throws BadLocationException {
-		return doc.getLineOffset(line) + column;
+		return doc.getLineOffset(line - 1) + column;
 	}
 
+	/**
+	 * Converts the given tuple to offset information
+	 * 
+	 * @param pos
+	 *            tuple with 2 element: line:int(), col:int()
+	 * @return
+	 * @throws OtpErlangRangeException
+	 * @throws BadLocationException
+	 */
 	public int calculateOffsetFromErlangPos(OtpErlangTuple pos)
 			throws OtpErlangRangeException, BadLocationException {
-		int line = ((OtpErlangInt) pos.elementAt(0)).intValue();
-		int column = ((OtpErlangInt) pos.elementAt(1)).intValue();
-		return calculateOffsetFromPosition(line, column);
+		int line = ((OtpErlangLong) pos.elementAt(0)).intValue();
+		int column = ((OtpErlangLong) pos.elementAt(1)).intValue();
+		int offset = calculateOffsetFromPosition(line, column);
+		return offset - 1;
+	}
+
+	/**
+	 * Returns the selection's text from the active editor's text file.
+	 * 
+	 * @param start
+	 *            tuple with 2 element: line:int(), col:int()
+	 * @param end
+	 *            tuple with 2 element: line:int(), col:int()
+	 * @return
+	 * @throws OtpErlangRangeException
+	 * @throws BadLocationException
+	 */
+	public String getTextFromEditor(OtpErlangTuple start, OtpErlangTuple end)
+			throws OtpErlangRangeException, BadLocationException {
+		int startOffset = calculateOffsetFromErlangPos(start);
+		int endOffset = calculateOffsetFromErlangPos(end);
+		String s = doc.get(startOffset, endOffset - startOffset + 1);
+		return s;
 	}
 
 	/**

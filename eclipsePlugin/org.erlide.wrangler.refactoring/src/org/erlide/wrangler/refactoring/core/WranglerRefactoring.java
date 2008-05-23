@@ -80,11 +80,10 @@ public abstract class WranglerRefactoring extends Refactoring {
 			rs = RefactoringStatus.createFatalErrorStatus(e.getMessage());
 		} catch (RpcException e) {
 			rs = RefactoringStatus.createFatalErrorStatus(e.getMessage());
+		} catch (Exception e) {
+			e.printStackTrace();
+			rs = RefactoringStatus.createFatalErrorStatus(e.getMessage());
 		}
-		/*
-		 * catch (Exception e) { e.printStackTrace(); rs =
-		 * RefactoringStatus.createFatalErrorStatus(e.getMessage()); }
-		 */
 
 		/*
 		 * RPCMessage message = new RPCMessage(rpcResult); rs =
