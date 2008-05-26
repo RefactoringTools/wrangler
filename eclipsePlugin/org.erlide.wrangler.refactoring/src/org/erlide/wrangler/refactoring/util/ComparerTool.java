@@ -24,7 +24,7 @@ import org.incava.util.diff.Difference;
 public class ComparerTool {
 
 	static private File inFile;
-	static private File outFile;
+	// static private File outFile;
 
 	static Diff algorithm;
 	static private ArrayList<Character> inFileCharArray;

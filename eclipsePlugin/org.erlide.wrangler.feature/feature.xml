@@ -2,19 +2,34 @@
 <feature
       id="org.erlide.wrangler.feature"
       label="Wrangler Erlang refactor tool"
-      version="0.1"
+      version="0.1.1"
       provider-name="UKC"
       nl="en"
       colocation-affinity="org.erlide.wrangler">
 
+   <description url="http://www.cs.kent.ac.uk/projects/forse/wrangler/">
+      This plugin provides refactoring features for the ErlIDE. The following refactorings are implemented in Erlang in the Wrangler Refactorer tool:
+*Fold expression
+*Function extraction
+*Generalise function
+*Move function
+*Rename variable
+*Rename function
+*Rename module
+*Tuple function parameters
+*Tuple to record
+   </description>
+
    <requires>
       <import feature="org.erlide" version="0.3.49.200805060013"/>
+      <import plugin="org.eclipse.ltk.core.refactoring"/>
+      <import plugin="org.eclipse.ltk.ui.refactoring"/>
    </requires>
 
    <plugin
          id="org.erlide.wrangler.refactoring"
          download-size="0"
          install-size="0"
-         version="0.1.0"/>
+         version="0.0.0"/>
 
 </feature>
