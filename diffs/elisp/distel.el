@@ -84,7 +84,13 @@ cache, give a prefix argument with C-u before using the command.
 \\[erl-refactor-undo]    -Undo the latest refactoring.
 \\[erl-refactor-function-extraction] -- Extract a function definition
 \\[erl-refactor-fold-expression] -- Fold an expression against a function definition.
+\\[erl-refactor-instrument-prog] -- Instrument program to trace process communication.
+\\[erl-refactor-uninstrument-prog] -- Remove the Wranger code that traces process communication.
+\\[erl-refactor-add-a-tag]  -- Add a tag to message.
+\\[erl-refactor-register-pid] -- Register a process.
+\\[erl-refactor-fun-to-process] -- From function to process.
 \\[erl-refactor-duplicated-code] -Detect code clones in the current file.
+\\[erl-refactor-duplicated-code-in-directories] -Detect code clones in the specified directories.
 \\[erl-refactor-expression-search] - search an expression in the current file
 
 Most commands that pop up new buffers will save your original window
@@ -293,8 +299,14 @@ Please see the documentation of `erlang-menu-base-items'.")
      ;; ("Duplicated Code"
       ("Function Extraction" erl-refactor-fun-extraction)
       ("Fold Expression Against Function" erl-refactor-fold-expression)
+      ("Instrument Program" erl-refactor-instrument-prog)
+      ("Uninstrument Program" erl-refactor-uninstrument-prog)
+      ("Add a Tag to Message" erl-refactor-add-a-tag)
+      ("Register a Process"  erl-refactor-register-pid)
+      ("Function to Process" erl-refactor-fun-to-process)
       nil
-      ("Detect Duplicated Code"  erl-refactor-duplicated-code)
+      ("Duplicated Code in Current Module"  erl-refactor-duplicated-code)
+      ("Duplicated Code in Directories" erl-refactor-duplicated-code-in-directories)
       ("Expression Search" erl-refactor-expression-search)
       nil
   ;;  ("From Tuple To Record" erl-refactor-tuple-to-record)
@@ -313,8 +325,21 @@ Please see the documentation of `erlang-menu-base-items'.")
 	  (interactive)
  	  (customize-group "erlang-refac"))
 
-(defvar erlang-refactor-mode nil)
 
+
+
+(global-set-key (kbd "C-c C-r") 'toggle-erlang-refactor)
+
+(setq erlang-refactor-status 0)
+
+(defun toggle-erlang-refactor ()
+  (interactive)
+  (cond ((= erlang-refactor-status 0)
+	 (call-interactively 'erlang-refactor-on)
+	 (setq erlang-refactor-status 1))
+	((= erlang-refactor-status 1)
+	 (call-interactively 'erlang-refactor-off)
+	 (setq erlang-refactor-status 0))))
 
 (defun erlang-refactor-on(node)
   (interactive (list (erl-target-node)))
