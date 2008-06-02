@@ -2,7 +2,7 @@
 <feature
       id="org.erlide.wrangler.feature"
       label="Wrangler Erlang refactor tool"
-      version="0.1.1"
+      version="0.1.2"
       provider-name="UKC"
       nl="en"
       colocation-affinity="org.erlide.wrangler">
