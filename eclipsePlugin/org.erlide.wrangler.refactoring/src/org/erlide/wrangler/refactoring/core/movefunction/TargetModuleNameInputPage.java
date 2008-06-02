@@ -25,7 +25,7 @@ public class TargetModuleNameInputPage extends NewModuleNameInputPage {
 
 	@Override
 	protected void initExtraControls(GridLayout layout) {
-		checkIsNewModule = new Button(composite, SWT.CHECK);
+		/*checkIsNewModule = new Button(composite, SWT.CHECK);
 		checkIsNewModule.setText("new module");
 		GridData gridData = new GridData();
 		gridData.horizontalAlignment = GridData.FILL;
@@ -37,7 +37,7 @@ public class TargetModuleNameInputPage extends NewModuleNameInputPage {
 				((MoveFunctionRefactoring) getRefactoring())
 						.setIsNewModule(checkIsNewModule.getSelection());
 			}
-		});
+		});*/
 
 	}
 
@@ -56,7 +56,7 @@ public class TargetModuleNameInputPage extends NewModuleNameInputPage {
 		newDataText.addModifyListener(new ModifyListener() {
 
 			@Override
-			public void modifyText(ModifyEvent e) {				
+			public void modifyText(ModifyEvent e) {
 				String s = newDataText.getText();
 				if (s.length() == 0) {
 					setPageComplete(false);

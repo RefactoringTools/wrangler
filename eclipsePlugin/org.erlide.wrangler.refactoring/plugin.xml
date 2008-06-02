@@ -43,13 +43,6 @@
                menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.renameGroup">
          </action>
          <action
-               class="org.erlide.wrangler.refactoring.core.renamemodule.RenameModuleAction"
-               definitionId="org.erlide.wrangler.refactoring.renameModule"
-               id="org.erlide.wranglerrefactoring.tupletorecord"
-               label="%renameModName"
-               menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.renameGroup">
-         </action>
-         <action
                class="org.erlide.wrangler.refactoring.core.generalise.GeneraliseAction"
                enablesFor="+"
                id="org.erlide.wranglerrefactoring.generalise"
@@ -146,21 +139,6 @@
             id="org.erlide.wrangler.refactoring.moveFunction"
             name="Move function">
       </command>
-   </extension>
-   <extension
-         point="org.eclipse.ltk.core.refactoring.refactoringContributions">
-      <contribution
-            class="org.erlide.wrangler.refactoring.core.renamemodule.RenameModuleRefactoringContribution"
-            id="org.erlide.wrangler.renameModuleContributor">
-      </contribution>
-   </extension>
-   <extension
-         point="org.eclipse.ltk.core.refactoring.renameParticipants">
-      <renameParticipant
-            class="org.erlide.wrangler.refactoring.core.renamemodule.RenameModuleRenameParticipant"
-            id="org.erlide.wrangler.renameModuleParticipant"
-            name="renameModule">
-      </renameParticipant>
    </extension>
 
 </plugin>

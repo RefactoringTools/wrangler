@@ -12,11 +12,11 @@
 
 -record(attr, {pos = {0,0}, ann = [], com = none}).
 
-%% Edited by Gyorgy Orosz 
+%% Edited by Gyorgy Orosz
 -define(WRANGLER_DIR, filename:dirname(lists:filter(fun(X)-> lists:suffix("wrangler/ebin", X) end, code:get_path()))  ).
 
 
--define(DEFAULT_LOC, 
+-define(DEFAULT_LOC,
         {0, 0}).  %% default defining location.
 -define(DEFAULT_MODULE,
 	unknown).  %% default module name.
