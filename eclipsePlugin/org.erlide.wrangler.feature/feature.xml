@@ -8,14 +8,15 @@
       colocation-affinity="org.erlide.wrangler">
 
    <description url="http://www.cs.kent.ac.uk/projects/forse/wrangler/">
-      This plugin provides refactoring features for the ErlIDE. The following refactorings are implemented in Erlang in the Wrangler Refactorer tool:
+      This plugin provides refactoring features for the ErlIDE. The
+following refactorings are implemented in Erlang in the Wrangler
+Refactorer tool:
 *Fold expression
 *Function extraction
 *Generalise function
 *Move function
 *Rename variable
 *Rename function
-*Rename module
 *Tuple function parameters
 *Tuple to record
    </description>
