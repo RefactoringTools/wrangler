@@ -1,5 +1,6 @@
 package org.erlide.wrangler.refactoring.core.generalise;
 
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jface.wizard.IWizardPage;
 import org.eclipse.ltk.core.refactoring.NullChange;
 import org.eclipse.ltk.core.refactoring.RefactoringStatus;
@@ -34,7 +35,7 @@ public class NewParameterNameInputPage extends WranglerNewDataInputPage {
 		newDataText.addModifyListener(new ModifyListener() {
 
 			@Override
-			public void modifyText(ModifyEvent e) {				
+			public void modifyText(ModifyEvent e) {
 				String s = newDataText.getText();
 				if (s.length() == 0) {
 					setPageComplete(false);
@@ -99,6 +100,8 @@ public class NewParameterNameInputPage extends WranglerNewDataInputPage {
 		} catch (WranglerException e) {
 			refac.setRefactoringStatus(RefactoringStatus
 					.createFatalErrorStatus(e.getMessage()));
+		} catch (CoreException e) {
+			refac.setRefactoringStatus(RefactoringStatus.createFatalErrorStatus(e.getMessage()));
 		}
 	}
 

@@ -169,15 +169,32 @@ public class RefactoringParameters {
 
 	/**
 	 * @return the Erlang representation of the source directories
+	 * @throws CoreException
 	 */
-	public OtpErlangList getProject() {
-		// FIXME: check another directories as well
-		String sPath;
+	public OtpErlangList getSearchPath() throws CoreException {
+		ArrayList<IContainer> containers = new ArrayList<IContainer>();
+		findDirectories(file.getProject(), containers);
+		ArrayList<OtpErlangString> directryPathList = new ArrayList<OtpErlangString>();
+		for(IContainer c : containers) {
+			directryPathList.add(new OtpErlangString(
+					c.getLocation().toOSString()));
+		}
 
-		sPath = file.getParent().getLocation().toOSString();
-		final OtpErlangList searchPathList = new OtpErlangList(
-				new OtpErlangString(sPath));
+		OtpErlangString[] t = new OtpErlangString[0];
+		final OtpErlangList searchPathList = new OtpErlangList(directryPathList.toArray(t));
 		return searchPathList;
+	}
+
+	private void findDirectories(IContainer c,
+			ArrayList<IContainer> containers) throws CoreException {
+		containers.add(c);
+		for(IResource res: c.members()) {
+			if(res instanceof IContainer) {
+				IContainer con = (IContainer) res;
+				findDirectories(con, containers);
+			}
+		}
+
 	}
 
 	/**
@@ -187,7 +204,7 @@ public class RefactoringParameters {
 	public List<String> getModuleNames() throws CoreException {
 		IProject project = file.getProject();
 		ArrayList<IFile> erlangFiles = new ArrayList<IFile>();
-		getMembersRecursively(project, erlangFiles);
+		findModulesRecursively(project, erlangFiles);
 
 		ArrayList<String> moduleNames = new ArrayList<String>();
 		for(IFile f: erlangFiles) {
@@ -197,12 +214,12 @@ public class RefactoringParameters {
 		return moduleNames;
 	}
 
-	private void getMembersRecursively(IResource res, ArrayList<IFile> files) throws CoreException {
+	private void findModulesRecursively(IResource res, ArrayList<IFile> files) throws CoreException {
 		if(res instanceof IContainer) {
 			IContainer c = (IContainer)res;
 			IResource[] a= c.members();
 			for(IResource r : c.members()) {
-				getMembersRecursively(r, files);
+				findModulesRecursively(r, files);
 			}
 		} else if(res instanceof IFile) {
 			IFile file = (IFile) res;

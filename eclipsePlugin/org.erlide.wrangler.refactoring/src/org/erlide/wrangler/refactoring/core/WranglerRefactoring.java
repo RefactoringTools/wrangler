@@ -202,7 +202,7 @@ public abstract class WranglerRefactoring extends Refactoring {
 			WranglerException, IOException, CoreException {
 
 		String filePath = parameters.getFilePath();
-		RpcResult res = sendRPC(filePath, parameters.getProject());
+		RpcResult res = sendRPC(filePath, parameters.getSearchPath());
 
 		RPCMessage m = convertRpcResultToRPCMessage(res);
 		message = m;

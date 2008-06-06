@@ -84,9 +84,9 @@ public class GeneraliseRefactoring extends WranglerRefactoring {
 	}
 
 	public GeneraliseRPCMessage callGenerealise() throws ErlangRpcException,
-			RpcException, WranglerException {
+			RpcException, WranglerException, CoreException {
 		RpcResult res = sendRPC(parameters.getFilePath(), parameters
-				.getProject());
+				.getSearchPath());
 		return convertRpcResultToRPCMessage(res);
 	}
 
@@ -101,11 +101,11 @@ public class GeneraliseRefactoring extends WranglerRefactoring {
 	}
 
 	public GeneraliseRPCMessage callGeneralise2() throws RpcException,
-			WranglerException {
+			WranglerException, CoreException {
 		RpcResult r = managedBackend.rpc("wrangler", "gen_fun_2_eclipse",
 				"sxxxxxx", parameters.getFilePath(), this.parName,
 				this.funName, this.arity, this.defPos, this.expression,
-				parameters.getProject());
+				parameters.getSearchPath());
 		return convertRpcResultToRPCMessage(r);
 	}
 
