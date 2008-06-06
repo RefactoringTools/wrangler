@@ -1,6 +1,16 @@
 package org.erlide.wrangler.refactoring.core;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+
+import org.eclipse.core.internal.resources.Project;
+import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IResource;
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.ITextSelection;
@@ -20,7 +30,7 @@ import com.ericsson.otp.erlang.OtpErlangTuple;
  * <code>WranglerRefactoring</code> class always has an object from this
  * class. It makes easy to get necessary information for the several kinds of
  * refactorings.
- * 
+ *
  * @author Gyorgy Orosz
  * @version %I%, %G%
  */
@@ -46,7 +56,7 @@ public class RefactoringParameters {
 
 	/**
 	 * Calculates the column number from offset.
-	 * 
+	 *
 	 * @param offset
 	 *            offset of the selected text
 	 * @return the column number of the selected text
@@ -70,7 +80,7 @@ public class RefactoringParameters {
 
 	/**
 	 * Converts the given position to Eclipse's offset.
-	 * 
+	 *
 	 * @param line
 	 *            line of the position
 	 * @param column
@@ -85,7 +95,7 @@ public class RefactoringParameters {
 
 	/**
 	 * Converts the given tuple to offset information
-	 * 
+	 *
 	 * @param pos
 	 *            tuple with 2 element: line:int(), col:int()
 	 * @return
@@ -102,7 +112,7 @@ public class RefactoringParameters {
 
 	/**
 	 * Returns the selection's text from the active editor's text file.
-	 * 
+	 *
 	 * @param start
 	 *            tuple with 2 element: line:int(), col:int()
 	 * @param end
@@ -171,6 +181,46 @@ public class RefactoringParameters {
 	}
 
 	/**
+	 * @return a list, containing all the modules' name
+	 * @throws CoreException
+	 */
+	public List<String> getModuleNames() throws CoreException {
+		IProject project = file.getProject();
+		ArrayList<IFile> erlangFiles = new ArrayList<IFile>();
+		getMembersRecursively(project, erlangFiles);
+
+		ArrayList<String> moduleNames = new ArrayList<String>();
+		for(IFile f: erlangFiles) {
+			moduleNames.add(removeExtension(f.getName()));
+		}
+		Collections.sort(moduleNames);
+		return moduleNames;
+	}
+
+	private void getMembersRecursively(IResource res, ArrayList<IFile> files) throws CoreException {
+		if(res instanceof IContainer) {
+			IContainer c = (IContainer)res;
+			IResource[] a= c.members();
+			for(IResource r : c.members()) {
+				getMembersRecursively(r, files);
+			}
+		} else if(res instanceof IFile) {
+			IFile file = (IFile) res;
+			if (isErlangFile(file)) {
+				files.add(file);
+			}
+		}
+	}
+
+	private boolean isErlangFile(IFile file) {
+		return "erl".equals(file.getFileExtension());
+	}
+
+	private String removeExtension(String fileName) {
+		return fileName.substring(0, fileName.lastIndexOf("."));
+	 }
+
+	/**
 	 * @return the active selection
 	 */
 	public ITextSelection getSelection() {
@@ -204,7 +254,7 @@ public class RefactoringParameters {
 	/**
 	 * Sets the active editor for the object, then initializes the pending
 	 * fields.
-	 * 
+	 *
 	 * @param editorPart
 	 *            an editor
 	 */
@@ -222,7 +272,7 @@ public class RefactoringParameters {
 
 	/**
 	 * Sets the given selection for the object.
-	 * 
+	 *
 	 * @param selection
 	 *            active selection
 	 */

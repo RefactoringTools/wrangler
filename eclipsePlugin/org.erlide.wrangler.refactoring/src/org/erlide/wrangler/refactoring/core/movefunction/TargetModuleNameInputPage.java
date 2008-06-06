@@ -1,18 +1,27 @@
 package org.erlide.wrangler.refactoring.core.movefunction;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Combo;
+import org.erlide.wrangler.refactoring.core.WranglerRefactoring;
 import org.erlide.wrangler.refactoring.core.renamemodule.NewModuleNameInputPage;
 import org.erlide.wrangler.refactoring.util.NameChecker;
 
 public class TargetModuleNameInputPage extends NewModuleNameInputPage {
 
-	private Button checkIsNewModule;
+	//private Button checkIsNewModule;
+	private Combo moduleCombo;
 
 	public TargetModuleNameInputPage(String name) {
 		super(name);
@@ -38,6 +47,40 @@ public class TargetModuleNameInputPage extends NewModuleNameInputPage {
 						.setIsNewModule(checkIsNewModule.getSelection());
 			}
 		});*/
+
+		this.newDataText.setEnabled(false);
+
+		try {
+			final WranglerRefactoring refac = (WranglerRefactoring)getRefactoring();
+			List<String> l = refac.getParameters().getModuleNames();
+			l.toString();
+			moduleCombo = new Combo(composite, SWT.READ_ONLY | SWT.DROP_DOWN);
+			for(String s: l) {
+				moduleCombo.add(s);
+			}
+			GridData gridData = new GridData();
+			gridData.horizontalAlignment = GridData.FILL;
+			gridData.horizontalSpan = 2;
+			moduleCombo.setLayoutData(gridData);
+
+
+			moduleCombo.addSelectionListener(new SelectionListener() {
+
+				@Override
+				public void widgetDefaultSelected(SelectionEvent e) {
+				}
+
+				@Override
+				public void widgetSelected(SelectionEvent e) {
+					refac.setNewName(moduleCombo.getText());
+					setPageComplete(true);
+				}
+
+			});
+		} catch (CoreException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
 	}
 

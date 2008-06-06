@@ -3,9 +3,9 @@ package org.erlide.wrangler.refactoring.core.movefunction;
 import org.erlide.wrangler.refactoring.core.WranglerRefactoring;
 import org.erlide.wrangler.refactoring.ui.WranglerRefactoringWizard;
 
-public class Movefunctionwizard extends WranglerRefactoringWizard {
+public class MoveFunctionWizard extends WranglerRefactoringWizard {
 
-	public Movefunctionwizard(WranglerRefactoring refactoring, int flags) {
+	public MoveFunctionWizard(WranglerRefactoring refactoring, int flags) {
 		super(refactoring, flags);
 	}
 

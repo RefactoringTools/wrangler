@@ -18,7 +18,7 @@ public class MoveFunctionAction extends WranglerRefactoringAction {
 
 	@Override
 	protected WranglerRefactoringWizard initWranglerRefactoringWizard() {
-		return new Movefunctionwizard(refactoring,
+		return new MoveFunctionWizard(refactoring,
 				WranglerRefactoringWizard.DIALOG_BASED_USER_INTERFACE);
 	}
 }
