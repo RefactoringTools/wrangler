@@ -1317,6 +1317,7 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	       (message "Refactoring succeeded!")))))))
 
 
+
 (defun erl-refactor-rename-mod (node name)
   "Rename the current module name."
   (interactive (list (erl-target-node)
@@ -1345,7 +1346,50 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 		       nil)))))
             (message "Refactoring succeeded!"))))))
 
-
+(defun erl-refactor-register-pid(node name start end)
+  "Introduce a new function to represent an user-selected expression/expression sequence."
+  (interactive (list (erl-target-node)
+		     (read-string "process name: ")
+		     (region-beginning)
+		     (region-end)
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer))
+	(start-line-no (line-no-pos start))
+	(start-col-no  (current-column-pos start))
+	(end-line-no   (line-no-pos end))
+	(end-col-no    (current-column-pos end)))     
+    (erl-spawn
+      (erl-send-rpc node 'wrangler_distel 'register_pid
+		    (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name erlang-refac-search-paths))
+      (erl-receive (buffer node current-file-name start-line-no start-col-no end-line-no end-col-no name)
+	  ((['rex ['badrpc rsn]]
+	    (message "Refactoring failed: %S" rsn))
+	   (['rex ['error rsn]]
+	    (message "Refactoring failed: %s" rsn))
+	   (['rex ['registered pars]]
+	    (if (yes-or-no-p "Do you want to continue the refactoring?")
+		(erl-spawn
+		  (erl-send-rpc node 'wrangler_distel 'register_pid
+				(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name erlang-refac-search-paths))
+		  (erl-receive (buffer)
+		      ((['rex ['badrpc rsn]]
+			(message "Refactoring failed: %S" rsn))
+		       (['rex ['error rsn]]
+			(message "Refactoring failed: %s" rsn))
+		       (['rex ['ok modified]]
+			(with-current-buffer buffer (revert-buffer nil t t))
+			(message "Refactoring succeeded!")))))
+	      (message "Refactoring aborted!")))	      
+	   (['rex ['ok modified]]
+	    (with-current-buffer buffer
+	      (dolist (f modified)
+		(let ((buffer (get-file-buffer f)))
+		  (if buffer (with-current-buffer buffer (revert-buffer nil t t))
+		    ;;(message-box (format "modified unopened file: %s" f))))))
+		    nil))))
+	    (message "Refactoring succeeded!")))))))
+	  
 (defun erl-refactor-move-fun (node name)
   "Move a function definition from one module to another."
   (interactive (list (erl-target-node)
@@ -1355,7 +1399,7 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer))
-        (create-new-file   (create-new-file-p name)))
+        (create-new-file   (create-new-file-p name erlang-refac-search-paths)))
     (erl-spawn
       (erl-send-rpc node 'wrangler_distel 'move_fun
 		    (list current-file-name line-no column-no name create-new-file erlang-refac-search-paths))
@@ -1373,10 +1417,10 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 		     nil))))
 	       (message "Refactoring succeeded!")))))))
 
-(defun create-new-file-p (name)
-  (let  ((filename (expand-file-name (concat name ".erl") (file-name-directory (buffer-file-name)))))
-         (if (file-exists-p filename) t
-	     (yes-or-no-p "The specified module does not exist, do you want to create one? "))))
+(defun create-new-file-p (filename erlang-refac-search-paths)
+  (if (equal (locate-file (concat filename ".erl") erlang-refac-search-paths) nil)
+      (yes-or-no-p "The specified module does not exist, do you want to create one?")
+    t))
 
  
 ;; redefined get-file-buffer to handle the difference between
@@ -1593,7 +1637,7 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 						(progn (highlight-folding-candidates node current-file-name candidates1 buffer highlight-region-overlay)
 						       (delete-overlay highlight-region-overlay))
 					      (delete-overlay highlight-region-overlay)))))))
-	       (setq candidates nil))      
+	       (setq candidates nil))    
       (setq candidates (cdr candidates)) 
     (with-current-buffer buffer (revert-buffer nil t t)
 			 (delete-overlay highlight-region-overlay))
@@ -1648,6 +1692,25 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	    (message "Duplicated code detection finished!")))))))
 
 
+(defun erl-refactor-duplicated-code-in-directories(node minlines minclones)
+  "Find code clones in the current buffer."
+  (interactive (list (erl-target-node)
+		     (read-string "Minimum number of tokens a code clone should have: ")
+		     (read-string "Minimum number of duplicated times: ")
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer)))	     
+    (erl-spawn
+      (erl-send-rpc node 'wrangler_distel 'duplicated_code
+		    (list current-file-name minlines minclones))
+      (erl-receive (buffer)
+	  ((['rex ['badrpc rsn]]
+	    (message "Duplicated code detection failed: %S" rsn))
+	   (['rex ['error rsn]]
+	    (message "Duplicated code detection failed: %s" rsn))
+	   (['rex ['ok result]]
+	    (message "Duplicated code detection finished!")))))))
+
 (defun erl-refactor-expression-search(node start end)
   "Search an user-selected expression or expression sequence in the current buffer."
   (interactive (list (erl-target-node)
@@ -1673,6 +1736,32 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	    (highlight-search-results regions buffer)
 	   (revert-buffer nil t t)
 	    (message "Searching finished."))))))))
+
+
+(defun erl-refactor-fun-to-process (node name)
+  "From a function to a process."
+  (interactive (list (erl-target-node)
+		     (read-string "Process name: ")
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(line-no           (current-line-no))
+        (column-no         (current-column-no))
+	(buffer (current-buffer)))       
+    (erl-spawn
+      (erl-send-rpc node 'wrangler_distel 'fun_to_process (list current-file-name line-no column-no name erlang-refac-search-paths))
+      (erl-receive (buffer)
+	  ((['rex ['badrpc rsn]]
+	    (message "Refactoring failed: %S" rsn))
+	   (['rex ['error rsn]]
+	    (message "Refactoring failed: %s" rsn))
+	   (['rex ['ok modified]]
+	    (with-current-buffer buffer
+	       (dolist (f modified)
+		 (let ((buffer (get-file-buffer f)))
+		   (if buffer (with-current-buffer buffer (revert-buffer nil t t))
+		     ;;(message-box (format "modified unopened file: %s" f))))))
+		     nil))))
+	       (message "Refactoring succeeded!")))))))
 
 
 (defun current-line-no ()
@@ -1744,6 +1833,108 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
     )
   (delete-overlay highlight-region-overlay)
   )
+
+(defun erl-refactor-instrument-prog (node)
+  "Instrument an Erlang program to trace process communication."
+  (interactive (list (erl-target-node)))
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer)))
+    (erl-spawn
+      (erl-send-rpc node 'wrangler_distel 'instrument_prog(list current-file-name erlang-refac-search-paths))
+      (erl-receive (buffer)
+	  ((['rex ['badrpc rsn]]
+	    (message "Refactoring failed: %S" rsn))
+	   (['rex ['error rsn]]
+	    (message "Refactoring failed: %s" rsn))
+	   (['rex ['ok modified]]
+	    (with-current-buffer buffer
+	       (dolist (f modified)
+		 (let ((buffer (get-file-buffer f)))
+		   (if buffer (with-current-buffer buffer (revert-buffer nil t t))
+		     ;;(message-box (format "modified unopened file: %s" f))))))
+		     nil))))
+	       (message "Refactoring succeeded!")))))))
+
+(defun erl-refactor-uninstrument-prog (node)
+  "Uninstrument an Erlang program to remove the code added by Wrangler to trace process communication."
+  (interactive (list (erl-target-node)))
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer)))
+    (erl-spawn
+      (erl-send-rpc node 'wrangler_distel 'uninstrument_prog(list current-file-name erlang-refac-search-paths))
+      (erl-receive (buffer)
+	  ((['rex ['badrpc rsn]]
+	    (message "Refactoring failed: %S" rsn))
+	   (['rex ['error rsn]]
+	    (message "Refactoring failed: %s" rsn))
+	   (['rex ['ok modified]]
+	    (with-current-buffer buffer
+	       (dolist (f modified)
+		 (let ((buffer (get-file-buffer f)))
+		   (if buffer (with-current-buffer buffer (revert-buffer nil t t))
+		     ;;(message-box (format "modified unopened file: %s" f))))))
+		     nil))))
+	       (message "Refactoring succeeded!")))))))
+
+
+(defun erl-refactor-add-a-tag (node name)
+  "Add a tag to the messages received by a process."
+  (interactive (list (erl-target-node)
+		     (read-string "Tag to add: ")
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(line-no           (current-line-no))
+        (column-no         (current-column-no))
+	(buffer (current-buffer)))       
+    (erl-spawn
+      (erl-send-rpc node 'wrangler_distel 'add_a_tag(list current-file-name line-no column-no name erlang-refac-search-paths))
+      (erl-receive (node buffer name current-file-name)
+	  ((['rex ['badrpc rsn]]
+	    (message "Refactoring failed: %S" rsn))
+	   (['rex ['error rsn]]
+	    (message "Refactoring failed: %s" rsn))
+	   (['rex ['ok candidates]]
+	    (with-current-buffer buffer (revert-buffer nil t t) 
+	      (while (not (equal candidates nil))
+		(setq send (car candidates))
+		(setq mod (elt send 0))
+		(setq fun (elt send 1))
+		(setq arity (elt send 2))
+		(setq index (elt send 3))
+		(erl-spawn
+		  (erl-send-rpc node 'refac_add_a_tag 'send_expr_to_region(list current-file-name mod fun arity index))
+		  (erl-receive (node buffer current-file-name name)
+		      ((['rex ['badrpc rsn]]
+			;;  (setq candidates nil)
+			(message "Refactoring failed: %s" rsn))					  
+		       (['rex ['error rsn]]
+			;;  (setq candidates nil)
+			(message "Refactoring failed: %s" rsn))
+		       (['rex ['ok region]]
+			(with-current-buffer buffer 
+			(progn (setq line1 (elt region 0))
+			       (setq col1 (elt region 1))
+			       (setq line2 (elt region 2))
+			       (setq col2 (elt region 3))
+			       (highlight-region line1 (- col1 1) line2  col2 buffer)
+			       (if (yes-or-no-p "Should a tag be added to this expression? ")
+				   (erl-spawn (erl-send-rpc node 'refac_add_a_tag 'add_a_tag(list current-file-name name line1 col1 line2 col2))
+				     (erl-receive (buffer)
+					 ((['rex ['badrpc rsn]]
+					   (message "Refactoring failed: %s" rsn))
+					  (['rex ['error rsn]]
+					   (message "Refactoring failed: %s" rsn))
+					  (['rex ['ok res]]
+					   (with-current-buffer buffer (revert-buffer nil t t)
+						(delete-overlay highlight-region-overlay))
+					  ))))
+				(delete-overlay highlight-region-overlay)
+			       )))))))
+		(setq candidates (cdr candidates)))
+	      (with-current-buffer buffer (revert-buffer nil t t))
+	      ;; (delete-overlay highlight-region-overlay)
+	      (message "Refactoring succeeded!"))))))))
+  
 
  
  ;; End of modification by H.Li
