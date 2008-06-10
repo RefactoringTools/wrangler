@@ -20,7 +20,7 @@
 %%
 %% Author contact: richardc@csd.uu.se
 %%
-%% $Id: refac_prettypr.erl,v 1.1 2008/05/20 14:49:40 go30 Exp $
+%% $Id: refac_prettypr.erl,v 1.4 2008/04/30 09:28:12 hl Exp $
 %%
 %% Modified: 17 Jan 2007 by  Huiqing Li <hl@kent.ac.uk>
 %% =====================================================================
@@ -114,26 +114,29 @@ get_paper_ribbon_width(Form) ->
 			   {S, E} = refac_util:get_range(T),
 			   [S,E]++ Acc
 		   end,
-	     AllRanges =refac_syntax_lib:fold(Fun, [], Form), 
-	     {Start,End} = refac_util:get_range(Form),
-	     GroupedRanges = group_by(1, (lists:filter(fun(Loc) ->
-							    (Loc>= Start) and (Loc=<End) end, AllRanges))),
-	     MinMaxCols=lists:map(fun(Rs) ->Cols = lists:map(fun({_Ln, Col}) -> Col end, Rs),
-					   {lists:min(Cols),lists:max(Cols)}
-				  end,  GroupedRanges),
-	     Paper = lists:max(lists:map(fun({_Min, Max}) ->
-						 Max end, MinMaxCols)),
-	     Ribbon = lists:max(lists:map(fun({Min, Max}) ->
-						 Max-Min+1 end, MinMaxCols)),
-	     Paper1 = case Paper =< 1 of
-			  true -> 80;
-			  _ -> Paper
-		      end,
-	     Ribbon1 = case Ribbon =< 1 of 
-			  true -> 56;
-			  _  -> Ribbon
-		      end,	
-	     {Paper1+10, Ribbon1+10}  %% adjustion to take the ending tokens such as brackets/commas into account.
+	     AllRanges =refac_syntax_lib:fold(Fun, [], Form),
+	     case AllRanges of 
+		 [] -> {?PAPER, ?RIBBON};
+		 _ ->  {Start,End} = refac_util:get_range(Form),
+		       GroupedRanges = group_by(1, (lists:filter(fun(Loc) ->
+									 (Loc>= Start) and (Loc=<End) end, AllRanges))),
+		       MinMaxCols=lists:map(fun(Rs) ->Cols = lists:map(fun({_Ln, Col}) -> Col end, Rs),
+						      {lists:min(Cols),lists:max(Cols)}
+					    end,  GroupedRanges),
+		       Paper = lists:max(lists:map(fun({_Min, Max}) ->
+							   Max end, MinMaxCols)),
+		       Ribbon = lists:max(lists:map(fun({Min, Max}) ->
+							    Max-Min+1 end, MinMaxCols)),
+		       Paper1 = case Paper < ?PAPER of
+				    true -> ?PAPER;
+				    _ -> Paper
+				end,
+		       Ribbon1 = case Ribbon < ?RIBBON of 
+				     true -> ?RIBBON;
+				     _  -> Ribbon
+				 end,	
+		       {Paper1+6, Ribbon1+6}  %% adjustion to take the ending tokens such as brackets/commas into account.
+	     end
     end.
 
 		

@@ -39,8 +39,8 @@
 	 is_exported/2, inscope_funs/1,
          once_tdTU/3, stop_tdTP/3, full_buTP/3,
          pos_to_fun_name/2, pos_to_fun_def/2,pos_to_var_name/2,
-         pos_to_expr/3, expr_to_fun/2,
-         get_range/1, get_var_exports/1, get_bound_vars/1, get_free_vars/1,
+         pos_to_expr/3, expr_to_fun/2,get_range/1, get_var_exports/1, 
+	 get_env_vars/1, get_bound_vars/1, get_free_vars/1, 
          get_client_files/2, expand_files/2, get_modules_by_file/1,
          reset_attrs/1, update_ann/2,
          parse_annotate_file/3,tokenize/1, write_refactored_files/1,
@@ -49,6 +49,8 @@
          callback_funs/1,auto_imported_bifs/0]).
 
 -export([analyze_free_vars/1, build_call_graph/3, build_call_graph/2]).
+
+-export([update_var_define_locations/1]).
 
 -include("../hrl/wrangler.hrl").
 
@@ -476,6 +478,7 @@ get_free_vars_1([{free, B} | _Bs]) -> B;
 get_free_vars_1([_ | Bs]) -> get_free_vars_1(Bs);
 get_free_vars_1([]) -> [].
 
+
 %% =====================================================================
 %% @spec get_bound_vars(Node::syntaxTree())-> [atom()]
 %% @doc Return the bound variables of an AST node.
@@ -486,6 +489,18 @@ get_bound_vars(Node) ->
 get_bound_vars_1([{bound, B} | _Bs]) -> B;
 get_bound_vars_1([_ | Bs]) -> get_bound_vars_1(Bs);
 get_bound_vars_1([]) -> [].
+
+
+%% =====================================================================
+%% @spec get_env_vars(Node::syntaxTree())-> [atom()]
+%% @doc Return the environment variables of an AST node.
+
+get_env_vars(Node) ->
+    get_env_vars_1(refac_syntax:get_ann(Node)).
+
+get_env_vars_1([{env, B} | _Bs]) -> B;
+get_env_vars_1([_ | Bs]) -> get_env_vars_1(Bs);
+get_env_vars_1([]) -> [].
 
 
 %%===============================================================================
@@ -662,7 +677,7 @@ write_refactored_files(Files) ->
 		if File1 /= File2 ->
 		       file:delete(File1),
 		       file:write_file(File2,
-				       list_to_binary(refac_prettypr:print_ast(AST)));  
+				       list_to_binary(refac_prettypr:print_ast(AST)));    
 		   true -> file:write_file(File2, list_to_binary(refac_prettypr:print_ast(AST)))
 		end
 	end,
@@ -800,7 +815,7 @@ annotate_bindings(FName, AST, Info, AnnotateLevel) ->
 
 %% Add  start and end location to each AST node.
 add_range(FName, AST) ->
-    {ok, Toks} = refac_epp:scan_file(FName, [], []),
+    Toks = tokenize(FName),
     full_buTP(fun do_add_range/2, AST, Toks).
 
 do_add_range(Node, Toks) ->
@@ -863,6 +878,7 @@ do_add_range(Node, Toks) ->
 	  Lc = glast("refac_util:do_add_range,case_expr", refac_syntax:case_expr_clauses(Node)),
 	  {S1, _E1} = get_range(A),
 	  {_S2, E2} = get_range(Lc),
+	    
 	  S11 = extend_forwards(Toks, S1, 'case'),
 	  E21 = extend_backwards(Toks, E2, 'end'),
 	  refac_syntax:add_ann({range, {S11, E21}}, Node);
@@ -949,10 +965,19 @@ do_add_range(Node, Toks) ->
 	  refac_syntax:add_ann({range, {S, E1}}, Node);
       attribute ->
 	  Name = refac_syntax:attribute_name(Node),
-	  Arg = glast("refac_util:do_add_range,attribute", refac_syntax:attribute_arguments(Node)),
-	  {S1, _E1} = get_range(Name),
-	  {_S2, E2} = get_range(Arg),
-	  refac_syntax:add_ann({range, {S1, E2}}, Node);
+	  Args = refac_syntax:attribute_arguments(Node),
+	  case Args of  
+	      none -> {S1, E1} = get_range(Name),
+		      refac_syntax:add_ann({range, {S1, E1}}, Node);
+	      _ -> case length(Args) >0 of 
+		       true ->  Arg = glast("refac_util:do_add_range,attribute", Args),
+				{S1, _E1} = get_range(Name),
+				{_S2, E2} = get_range(Arg),
+				refac_syntax:add_ann({range, {S1, E2}}, Node);
+		       _ ->  {S1, E1} = get_range(Name),
+			     refac_syntax:add_ann({range, {S1, E1}}, Node)
+		   end
+	  end;
       generator ->
 	  P = refac_syntax:generator_pattern(Node),
 	  B = refac_syntax:generator_body(Node),

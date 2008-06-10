@@ -41,7 +41,7 @@
 
 -export([rename_var/5, rename_var_eclipse/5]).
 
--export([pre_cond_check/4, rename/3]).
+-export([pre_cond_check/4, cond_check/3, rename/3]).
 
 %% =====================================================================
 %% @spec rename_var(FileName::filename(), Line::integer(), Col::integer(), NewName::string(),SearchPaths::[string()])-> term()
@@ -189,11 +189,14 @@ do_rename(Tree, {DefinePos, NewName}) ->
 %% The following functions are temporally for testing purpose only, and will be removed.
 %%=============================================================================
 pre_cond_check(AST, Line, Col, NewName) ->
-    {ok, {_VarName, DefinePos, _C}} = refac_util:pos_to_var_name(AST, {Line, Col}),
-    R = cond_check(AST, DefinePos, NewName),
-    case R of
-      {false, false} -> true;
-      _ -> false
+    {ok, {VarName, DefinePos, _C}} = refac_util:pos_to_var_name(AST, {Line, Col}),
+    case VarName == NewName of 
+	true -> true;
+	_ ->  R = cond_check(AST, DefinePos, NewName),
+	      case R of
+		  {false, false} -> true;
+		  _ -> false
+	      end
     end.
 
 post_refac_check(FileName, AST, SearchPaths) ->

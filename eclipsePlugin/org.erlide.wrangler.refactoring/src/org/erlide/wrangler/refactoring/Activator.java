@@ -1,7 +1,11 @@
 package org.erlide.wrangler.refactoring;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.net.URL;
+import java.util.Date;
 
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.FileLocator;
@@ -44,6 +48,12 @@ public class Activator extends AbstractUIPlugin {
 	public Activator() {
 	}
 
+	private void printDebug(String s) throws RpcException {
+		ManagedBackend mb = (ManagedBackend) BackendManager.getDefault()
+		.getIdeBackend();
+		mb.rpc("io", "format", "s", s+"~n");
+	}
+
 	/**
 	 * Loads the necessary *.ebin files to the Erlang node for the plug-in.
 	 *
@@ -59,18 +69,21 @@ public class Activator extends AbstractUIPlugin {
 			String wranglerPath = new Path(url.getPath()).append("wrangler")
 					.append("ebin").toOSString();
 
+
 			ManagedBackend mb = (ManagedBackend) BackendManager.getDefault()
 					.getIdeBackend();
 			ErlangCode.addPathA(mb, wranglerPath);
-
 			mb.rpc("code", "load_file", "a", "wrangler");
 		} catch (IOException ioe) {
 			ioe.printStackTrace();
 			throw new CoreException(new Status(Status.ERROR, PLUGIN_ID,
 					"Could not load the ebin files!"));
 		} catch (RpcException e) {
+			e.printStackTrace();
 			throw new CoreException(new Status(Status.ERROR, PLUGIN_ID,
 					"Could not reach the erlang node!"));
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 	}
 

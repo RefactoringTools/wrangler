@@ -65,6 +65,7 @@ tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths, Editor)->
   ModName = get_module_name(Info),
   InscopeFuns = 
     lists:map(fun ({_M, F, A}) -> {F, A} end, refac_util:inscope_funs(Info)),
+io:format("Inscope: ~p ~n", [InscopeFuns]),
   {Parameters, C} = 
      check_parameters(FirstPar, Number, Arity, FunPatterns, AppNode, AppPar),
   NewArity = Arity - Number + 1,
@@ -188,13 +189,15 @@ check_is_callback_fun(Info, FunName, Arity)->
 %% @end
 %% =====================================================================
 check_name_clash(FunName, NewArity, InscopeFuns, Number)->
+io:format("Param: ~p ~n ~p ~n ~p ~n ~p ~n", [FunName, NewArity, InscopeFuns, Number]),
+io:format("Param: ~p ~n ", [lists:member({FunName, NewArity}, InscopeFuns)]),
   case (lists:member({FunName, NewArity}, InscopeFuns) or 
         lists:member({FunName, NewArity}, refac_util:auto_imported_bifs())) 
         and (Number > 1) of
     false -> ok; 
-    true -> {error, atom_to_list(FunName) ++ "/" ++ integer_to_list(NewArity) 
+    true -> exit({error, atom_to_list(FunName) ++ "/" ++ integer_to_list(NewArity) 
                     ++ " is already in scope, "
-                    "or is an auto-imported builtin function."}
+                    "or is an auto-imported builtin function."})
   end.
 
 %% =====================================================================

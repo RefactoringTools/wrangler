@@ -43,6 +43,8 @@
 
 -export([check_atoms/2]).
 
+-export([rename_fun_1/5, do_rename_fun/5]).
+
 %% =====================================================================
 %% @spec rename_fun(FileName::filename(), Line::integer(), Col::integer(), NewName::string(), SearchPaths::[string()])
 %% -> term()
@@ -86,7 +88,7 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, Editor) ->
 					   _ ->
 					       io:format("The current file under refactoring is:\n~p\n", [FileName]),
 					       {AnnAST1, _C} = rename_fun(AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}),
-					       check_atoms(AnnAST1, Fun),
+					       %%check_atoms(AnnAST1, Fun),
 					       case refac_util:is_exported({Fun, Arity}, Info) of
 						 true ->
 						     io:format("\nChecking client modules in the following "
@@ -144,10 +146,10 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, Editor) ->
 %%            {DefinePos,NewName}::{{integer(),integer{},atom()
 %%
 rename_fun(Tree, OldName, {DefinePos, NewName}) ->
-    refac_util:stop_tdTP(fun do_raname_fun_1/2, Tree,
+    refac_util:stop_tdTP(fun do_rename_fun_1/2, Tree,
 			 {OldName, {DefinePos, NewName}}).
 
-do_raname_fun_1(Tree, {{M, OldName, Arity}, {DefinePos, NewName}}) ->
+do_rename_fun_1(Tree, {{M, OldName, Arity}, {DefinePos, NewName}}) ->
     case refac_syntax:type(Tree) of
       function ->
 	  case get_fun_def_loc(Tree) of
@@ -231,7 +233,7 @@ rename_fun_in_client_modules(Files, {Mod, Fun, Arity}, NewName, SearchPaths) ->
 		{AnnAST1, Changed} = rename_fun_in_client_module_1({AnnAST, Info},
 								   {Mod, Fun, Arity},
 								   NewName),
-		check_atoms(AnnAST1, Fun),
+		%%check_atoms(AnnAST1, Fun),
 		if Changed ->
 		       [{{F, F}, AnnAST1} | rename_fun_in_client_modules(Fs,
 									 {Mod, Fun, Arity},
@@ -677,103 +679,81 @@ application_info(Node) ->
     end.
 
 %% fun_to_def_pos(Node, {Mod, FunName, Arity}) ->
-%%     case refac_util:once_tdTU(fun fun_to_def_pos_1/2, Node, {Mod, FunName, Arity}) of
-%%       {_, false} ->
-%% 	  {error,
-%% 	   "The function is not defined in this "
-%% 	   "node."};
-%%       {R, true} -> {ok, R}
-%%     end.
+%%      case refac_util:once_tdTU(fun fun_to_def_pos_1/2, Node, {Mod, FunName, Arity}) of
+%%        {_, false} ->
+%%  	  {error,
+%%  	   "The function is not defined in this "
+%%  	   "node."};
+%%        {R, true} -> {ok, R}
+%%      end.
 
 
 %% fun_to_def_pos_1(Node, {Mod, FunName, Arity}) ->
-%%     case refac_syntax:type(Node) of
-%%       function ->
-%% 	  As = refac_syntax:get_ann(Node),
-%% 	  case lists:keysearch(fun_def, 1, As) of
-%% 	    {value, {fun_def, {Mod, FunName, Arity, _P, DefinePos}}} ->
-%% 		{DefinePos, true};
-%% 	    _ -> {[], false}
-%% 	  end;
-%%       _ -> {[], false}
-%%     end.
+%%      case refac_syntax:type(Node) of
+%%        function ->
+%%  	  As = refac_syntax:get_ann(Node),
+%%  	  case lists:keysearch(fun_def, 1, As) of
+%%  	    {value, {fun_def, {Mod, FunName, Arity, _P, DefinePos}}} ->
+%%  		{DefinePos, true};
+%%  	    _ -> {[], false}
+%%  	  end;
+%%        _ -> {[], false}
+%%      end.
 
 
-%% The following are here temporally for testing purpose, and will be refactored.
 
 
-%% rename_fun_1(FileName, {Fun, Arity}, NewName,  SearchPaths) ->
-%%     case refac_util:is_fun_name(NewName) of
-%%       true ->
-%% 	  case refac_util:parse_annotate_file(FileName, 1) of
-%% 	    {ok, {AnnAST, Info}} ->
-%% 		NewName1 = list_to_atom(NewName),
-%% 		{ok, ModName} = refac_syntax(Info),
-%% 		Inscope_Funs = lists:map(fun ({_M, F, A}) -> {F, A} end,
-%% 					 refac_util:inscope_funs(Info)),
-%% 		case lists:member({NewName1, Arity}, Inscope_Funs) or
-%% 		       lists:member({NewName1, Arity}, auto_imported_bifs())
-%% 		    of
-%% 		  true ->
-%% 		      {error,
-%% 		       NewName ++
-%% 			 "/" ++
-%% 			   integer_to_list(Arity) ++
-%% 			     " is already in scope, or is an auto-imported "
-%% 			     "builtin function."};
-%% 		  _ ->
-%% 		      case check_atoms(Info, Fun, Arity) of
-%% 			true ->
-%% 			    {error,
-%% 			     "The refactorer does not support renaming "
-%% 			     "of callback function names."};
-%% 			_ ->
-%% 			    {ok, DefinePos} = refac_util:fun_to_def_pos(AnnAST,
-%% 									{ModName,
-%% 									 Fun,
-%% 									 Arity}),
-%% 			    io:format("The current file under refactoring is:\n~p\n",
-%% 				      [FileName]),
-%% 			    {AnnAST1, _C} = list_to_tuple(AnnAST,
-%% 							  {ModName, Fun, Arity},
-%% 							  {DefinePos,
-%% 							   NewName1}),
-%% 			    check_atoms(AnnAST1, Fun),
-%% 			    case refac_util:is_exported({Fun, Arity}, Info) of
-%% 			      true ->
-%% 				  io:format("\nChecking client modules ...\n"),
-%% 				  ClientFiles =
-%% 				      refac_util:get_client_files(FileName,
-%% 								  SearchPaths),
-%% 				  Results =
-%% 				      rename_fun_in_client_modules(ClientFiles,
-%% 								   {ModName,
-%% 								    Fun, Arity},
-%% 								   NewName),
-%% 				  refac_util:write_refactored_files([{{FileName,
-%% 								       FileName},
-%% 								      AnnAST1}
-%% 								     | Results]),
-%% 				  ChangedClientFiles = lists:map(fun ({{F, _F},
-%% 								       _AST}) ->
-%% 									 F
-%% 								 end,
-%% 								 Results),
-%% 				  ChangedFiles = [FileName
-%% 						  | ChangedClientFiles],
-%% 				  io:format("The following files have been changed "
-%% 					    "by this refactoring:\n~p\n",
-%% 					    [ChangedFiles]),
-%% 				  {ok, ChangedFiles};
-%% 			      false ->
-%% 				  refac_util:write_refactored_files([{{FileName,
-%% 								       FileName},
-%% 								      AnnAST1}]),
-%% 				  {ok, [FileName]}
-%% 			    end
-%% 		      end
-%% 		end;
-%% 	    {error, Reason} -> {error, Reason}
-%% 	  end;
-%%       false -> {error, "Invalid new function name!"}
-%%     end.
+
+%% NOTE: The following are here temporally for testing purpose, and will be refactored.
+%% TODO: REFAcTOR THIS OUT USING WRANGLER!
+
+
+do_rename_fun(AnnAST, Line, Col, NewName, _SearchPaths) ->
+    {ok, {_Mod, OldName, _Arity, _, DefPos}} = refac_util:pos_to_fun_name(AnnAST, {Line, Col}),
+    refac_rename_fun:rename_fun(AnnAST, OldName, {DefPos, NewName}).
+
+
+rename_fun_1(FileName, Fun, Arity, NewName,  SearchPaths) ->
+     case refac_util:is_fun_name(NewName) of
+       true ->
+ 	  case refac_util:parse_annotate_file(FileName, true, SearchPaths) of
+	      {ok, {AnnAST, Info}} ->
+		  NewName1 = list_to_atom(NewName),
+		  {ok, ModName} = get_module_name(Info),
+		  Inscope_Funs = lists:map(fun ({_M, F, A}) -> {F, A} end,refac_util:inscope_funs(Info)),
+		  case lists:member({NewName1, Arity}, Inscope_Funs) or
+		      lists:member({NewName1, Arity}, refac_util:auto_imported_bifs()) of
+		      true ->
+			  {error, NewName ++"/" ++integer_to_list(Arity) ++" already in scope, or is an auto-imported "
+			   "builtin function."};
+		      _ ->
+			  case is_callback_fun(Info, Fun, Arity) of
+			      true ->
+				  {error, "The refactorer does not support renaming of callback function names."};
+			      _ ->
+				  {ok, DefinePos} = refac_util:fun_to_def_pos(AnnAST, {ModName, Fun, Arity}),
+				  io:format("The current file under refactoring is:\n~p\n", [FileName]),
+				  {AnnAST1, _C} = rename_fun(AnnAST, {ModName, Fun, Arity}, {DefinePos, NewName1}),
+				  %%check_atoms(AnnAST1, Fun),
+				  case refac_util:is_exported({Fun, Arity}, Info) of
+				      true ->
+					  io:format("\nChecking client modules ...\n"),
+					  ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
+					  Results = rename_fun_in_client_modules(ClientFiles, {ModName, Fun, Arity}, NewName, SearchPaths),
+					  refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1} | Results]),
+					  ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F  end, Results),
+					  ChangedFiles = [FileName | ChangedClientFiles],
+					  io:format("The following files have been changed "
+						    "by this refactoring:\n~p\n", [ChangedFiles]),
+					  {ok, ChangedFiles};
+				      false ->
+					  refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1}]),
+					  {ok, [FileName]}
+				  end
+			  end
+		  end;
+	      {error, Reason} -> {error, Reason}
+ 	  end;
+	 false -> {error, "Invalid new function name!"}
+     end.
+
