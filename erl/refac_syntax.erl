@@ -20,7 +20,7 @@
 %%
 %% Author contact: richardc@csd.uu.se
 %%
-%% $Id: refac_syntax.erl,v 1.5 2008-04-30 09:28:12 hl Exp $
+%% $Id: refac_syntax.erl,v 1.5 2008/04/30 09:28:12 hl Exp $
 %%
 %% Modified: 17 Jan 2007 by  Huiqing Li <hl@kent.ac.uk>
 %% =====================================================================
@@ -4881,10 +4881,16 @@ revert_implicit_fun(Node) ->
 
 implicit_fun_name(Node) ->
     case unwrap(Node) of
-      {'fun', Pos, {function, Atom, Arity}} ->
-	  arity_qualifier(set_pos(atom(Atom), Pos),
-			  set_pos(integer(Arity), Pos));
-      Node1 -> data(Node1)
+	{'fun', Pos, {function, Atom, Arity}} ->
+	    arity_qualifier(set_pos(atom(Atom), Pos),
+			    set_pos(integer(Arity), Pos));
+	{'fun', Pos, {function, Module, Atom, Arity}} ->
+	    module_qualifier(set_pos(atom(Module), Pos),
+			     arity_qualifier(
+			       set_pos(atom(Atom), Pos),
+			       set_pos(integer(Arity), Pos)));
+	Node1 ->
+	    data(Node1)
     end.
 
 %% =====================================================================
