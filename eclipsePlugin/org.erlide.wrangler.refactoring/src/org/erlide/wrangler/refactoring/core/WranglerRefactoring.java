@@ -160,7 +160,7 @@ public abstract class WranglerRefactoring extends Refactoring {
 			Change c;
 			for (FileResourceChanges e : fileRs) {
 				c = e.createChanges();
-				if (!c.equals(null)) {
+				if (c!=null) {
 					cChange.add(c);
 				}
 			}

@@ -97,7 +97,7 @@ public class FileResourceChanges {
 		IWorkspaceRoot root = workspace.getRoot();
 		Path p = new Path(oldPath);
 		IFile[] files = root.findFilesForLocation(p);
-		if (files.equals(null) || files.length != 1) {
+		if (files == null || files.length != 1) {
 			throw new IOException("File not found");
 		}
 
