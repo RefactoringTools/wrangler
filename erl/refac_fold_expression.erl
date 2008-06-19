@@ -63,14 +63,13 @@ fold_expression(FileName, Line, Col, Editor) ->
 			ok ->			    
 			    Candidates = search_candidate_exprs(AnnAST, FunName, FunClauseDef),
 			    case Candidates of 
-				[] -> io:format("No expressions that are suitable for folding against the selected function have been found!"),
-				      {ok, []};	
+				[] -> {error, "No expressions that are suitable for folding against the selected function have been found!"};	
 				_ -> Regions = case Editor of 
 						   emacs ->lists:map(fun({{{StartLine, StartCol}, {EndLine, EndCol}},NewExp}) ->
 									     {StartLine, StartCol, EndLine,EndCol, NewExp, {FunClauseDef, ClauseIndex}} end, Candidates);
 						   eclipse ->  Candidates 
 					       end,
-				     {ok, {FunClauseDef,Regions}}
+				     {ok, FunClauseDef, Regions}
 			    end;				 
 			{error, Reason} -> {error, Reason}
 		    end;
