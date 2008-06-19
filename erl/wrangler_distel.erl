@@ -21,7 +21,7 @@
 -module(wrangler_distel).
 
 -export([ rename_fun/5, rename_var/5, rename_mod/3, generalise/7, move_fun/6, tuple_to_record/8,
-         duplicated_code/3, expression_search/5, fun_extraction/6, fold_expression/3, tuple_funpar/5,
+         duplicated_code_in_buffer/3, duplicated_code_in_dirs/3, expression_search/5, fun_extraction/6, fold_expression/3, tuple_funpar/5,
 	 instrument_prog/2, uninstrument_prog/2, add_a_tag/5,register_pid/7, fun_to_process/5,
          undo/0, start_undo_process/0, stop_undo_process/0, undo_init/0]).
 
@@ -61,9 +61,11 @@ move_fun(FName, Line, Col, ModName, CreateNewFile, SearchPaths) ->
 	    {error, Reason}
     end.
 
-duplicated_code(FName, MinLines,  MinClones) ->
-    wrangler:duplicated_code(FName, MinLines, MinClones).
+duplicated_code_in_buffer(FName, MinLines,  MinClones) ->
+    wrangler:duplicated_code_in_buffer(FName, MinLines, MinClones).
 
+duplicated_code_in_dirs(FName, MinLines, MinClones) ->
+    wrangler:duplicated_code_in_dirs(FName, MinLines, MinClones).
 
 expression_search(FName, StartLine, StartCol, EndLine, EndCol) ->
     wrangler:expression_search(FName, {StartLine, StartCol}, {EndLine, EndCol}).
