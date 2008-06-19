@@ -89,8 +89,8 @@ cache, give a prefix argument with C-u before using the command.
 \\[erl-refactor-add-a-tag]  -- Add a tag to message.
 \\[erl-refactor-register-pid] -- Register a process.
 \\[erl-refactor-fun-to-process] -- From function to process.
-\\[erl-refactor-duplicated-code] -Detect code clones in the current file.
-\\[erl-refactor-duplicated-code-in-directories] -Detect code clones in the specified directories.
+\\[erl-refactor-duplicated-code-in-buffer] -Detect code clones in the current file.
+\\[erl-refactor-duplicated-code-in-dirs] -Detect code clones in the specified directories.
 \\[erl-refactor-expression-search] - search an expression in the current file
 
 Most commands that pop up new buffers will save your original window
@@ -299,23 +299,24 @@ Please see the documentation of `erlang-menu-base-items'.")
      ;; ("Duplicated Code"
       ("Function Extraction" erl-refactor-fun-extraction)
       ("Fold Expression Against Function" erl-refactor-fold-expression)
-      ("Instrument Program" erl-refactor-instrument-prog)
-      ("Uninstrument Program" erl-refactor-uninstrument-prog)
-      ("Add a Tag to Message" erl-refactor-add-a-tag)
-      ("Register a Process"  erl-refactor-register-pid)
-      ("Function to Process" erl-refactor-fun-to-process)
+     ;; ("Instrument Program" erl-refactor-instrument-prog)
+     ;; ("Uninstrument Program" erl-refactor-uninstrument-prog)
       nil
-      ("Duplicated Code in Current Module"  erl-refactor-duplicated-code)
-      ("Duplicated Code in Directories" erl-refactor-duplicated-code-in-directories)
-      ("Expression Search" erl-refactor-expression-search)
-      nil
-  ;;  ("From Tuple To Record" erl-refactor-tuple-to-record)
-    ;;  nil
+      ("From Tuple To Record" erl-refactor-tuple-to-record)
       ("Tuple Function Arguments" erl-refactor-tuple-funpar)
+      nil
+      ("Rename a Process" erl-refactor-rename-process)
+      ("Add a Tag to Messages"  erl-refactor-add-a-tag)
+      ("Register a Process"   erl-refactor-register-pid)
+      ("From Function to Process" erl-refactor-fun-to-process)
+      nil
+      ("Detect Duplicated Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
+      ("Detect Duplicated Code in Dirs" erl-refactor-duplicated-code-in-dirs)
+      ("Expression Search" erl-refactor-expression-search)
       nil
       ("Undo" erl-refactor-undo)
       nil
-      ("Customize" refac-customize)
+      ("Customize Wrangler" refac-customize)
       )))
   "*Description of the Refactor menu used by Erlang Extended mode.")
 
