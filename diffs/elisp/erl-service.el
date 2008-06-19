@@ -1346,6 +1346,13 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 		       nil)))))
             (message "Refactoring succeeded!"))))))
 
+(defun erl-refactor-rename-process(node)
+  "Rename a registered process."
+  (interactive (list (erl-target-node)))
+  (message "Sorry, this refactoring is still under developemt.")
+  )
+
+
 (defun erl-refactor-register-pid(node name start end)
   "Introduce a new function to represent an user-selected expression/expression sequence."
   (interactive (list (erl-target-node)
@@ -1672,7 +1679,7 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
             (message "Refactoring succeeded!")))))))
 
 
-(defun erl-refactor-duplicated-code(node minlines minclones)
+(defun erl-refactor-duplicated-code-in-buffer(node mintokens minclones)
   "Find code clones in the current buffer."
   (interactive (list (erl-target-node)
 		     (read-string "Minimum number of tokens a code clone should have: ")
@@ -1681,8 +1688,8 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
   (let ((current-file-name (buffer-file-name))
 	(buffer (current-buffer)))	     
     (erl-spawn
-      (erl-send-rpc node 'wrangler_distel 'duplicated_code
-		    (list current-file-name minlines minclones))
+      (erl-send-rpc node 'wrangler_distel 'duplicated_code_in_buffer
+		    (list current-file-name mintokens minclones))
       (erl-receive (buffer)
 	  ((['rex ['badrpc rsn]]
 	    (message "Duplicated code detection failed: %S" rsn))
@@ -1692,8 +1699,8 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	    (message "Duplicated code detection finished!")))))))
 
 
-(defun erl-refactor-duplicated-code-in-directories(node minlines minclones)
-  "Find code clones in the current buffer."
+(defun erl-refactor-duplicated-code-in-dirs(node mintokens minclones)
+  "Find code clones in the directories specified by the search paths."
   (interactive (list (erl-target-node)
 		     (read-string "Minimum number of tokens a code clone should have: ")
 		     (read-string "Minimum number of duplicated times: ")
@@ -1701,8 +1708,8 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
   (let ((current-file-name (buffer-file-name))
 	(buffer (current-buffer)))	     
     (erl-spawn
-      (erl-send-rpc node 'wrangler_distel 'duplicated_code
-		    (list current-file-name minlines minclones))
+      (erl-send-rpc node 'wrangler_distel 'duplicated_code_in_dirs
+		    (list erlang-refac-search-paths mintokens minclones))
       (erl-receive (buffer)
 	  ((['rex ['badrpc rsn]]
 	    (message "Duplicated code detection failed: %S" rsn))
@@ -1737,8 +1744,13 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	   (revert-buffer nil t t)
 	    (message "Searching finished."))))))))
 
+(defun erl-refactor-fun-to-process(node)
+  "Convert a function into a process."
+  (interactive (list (erl-target-node)))
+  (message "Sorry, this refactoring is still under development.")
+  )
 
-(defun erl-refactor-fun-to-process (node name)
+(defun erl-refactor-fun-to-process-1 (node name)
   "From a function to a process."
   (interactive (list (erl-target-node)
 		     (read-string "Process name: ")
@@ -1818,6 +1830,19 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
   )
 
 
+;;   ;; (message "Press 'Enter' key to go to the next instance, any other key to exit.")
+;;     (let (input (read-event))
+;;       (if (equal input 'return)
+;; 	  ((setq regions (cdr regions))
+;; 	   (message "Press 'Enter' key to go to the next instance, 'Esc' to exit.")
+;; 	   )
+;; 	(if (equal input 'escape)
+;; 	    (setq regions nil)
+;; 	  (message "Press 'Enter' key to go to the next instance, 'Esc' to exit.")
+;; 	  )
+;; 	))
+;;     )
+
 (defun highlight-search-results(regions buffer)
   "highlight the found results one by one"
   (while (not (equal regions nil))
@@ -1827,10 +1852,18 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
     (setq line2 (elt reg 2))
     (setq col2  (elt  reg 3))
     (highlight-region line1 (- col1 1) line2  col2 buffer)
-    (if (equal (read-char-exclusive) '13)
-	(setq regions (cdr regions))
-      (setq regions nil))
-    )
+   ;; (message "Press 'Enter' key to go to the next instance, any other key to exit.")
+    (let ((input (read-event)))
+      (if (equal input 'return)
+	  (progn (setq regions (cdr regions))
+	         (message  " ")
+	   )
+	(if (equal input 'escape)
+	    (setq regions nil)
+	  (message "Press 'Enter' key to go to the next instance, any other key to exit.")
+	  )
+	)
+      ))
   (delete-overlay highlight-region-overlay)
   )
 
@@ -1877,7 +1910,13 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	       (message "Refactoring succeeded!")))))))
 
 
-(defun erl-refactor-add-a-tag (node name)
+(defun erl-refactor-add-a-tag (node)
+  "Add a tag to the messages received by a process."
+  (interactive (list (erl-target-node)))
+  (message "Sorry, this refactoring is still under development.")
+  )
+
+(defun erl-refactor-add-a-tag-1 (node name)
   "Add a tag to the messages received by a process."
   (interactive (list (erl-target-node)
 		     (read-string "Tag to add: ")
