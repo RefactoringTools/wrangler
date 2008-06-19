@@ -93,6 +93,7 @@ search_one_expr(Tree, Exp) ->
 %% search the clones of an expresion sequence from Tree.			
 search_expr_seq(Tree, ExpList) ->
     AllExpList = contained_exprs(Tree, length(ExpList)),
+   %% ExpList1 = lists:map(fun(T) ->simplify_expr(T) end, ExpList),
     Res =lists:concat(lists:map(fun(EL) ->
 				   get_clone(ExpList, EL) end, AllExpList)),
     Res.
@@ -109,8 +110,8 @@ get_clone(List1, List2) ->
 		true ->
 		    List22 = lists:sublist(List2, Len1),
 		    BdList1 = var_binding_structure(List1),
-		    BdList22 = var_binding_structure(List22),
-		    case BdList1 == BdList22 of 
+		    BdList2 = var_binding_structure(List22),
+		    case BdList1 == BdList2 of 
 			true -> E1 = hd(List22),
 				En = lists:last(List22),
 			        {{StartLn, StartCol}, _EndLoc} = refac_util:get_range(E1),
@@ -140,11 +141,10 @@ do_simplify_expr(Node) ->
 		char ->
 		    refac_syntax:default_literals_vars(Node, '%');
 		string ->
-		    refac_syntax:default_literals_vars(Node, "*");
+		    refac_syntax:default_literals_vars(Node, '%');
 		atom -> case lists:keysearch(fun_def,1,refac_syntax:get_ann(Node)) of 
-			    %% or  refac_syntax:default_literals_vars(Node, '%')?  TODO: Think again.
-			    false ->refac_syntax:default_literals_vars(Node, refac_syntax:atom_value(Node)) ;
-			    _ ->    refac_syntax:default_literals_vars(Node, refac_syntax:atom_value(Node))
+			    false ->refac_syntax:default_literals_vars(Node, '%') ;
+			    _ -> refac_syntax:default_literals_vars(Node, refac_syntax:atom_value(Node))
 			end;
 		nil -> refac_syntax:default_literals_vars(Node, nil);
 		underscore ->refac_syntax:default_literals_vars(Node, '&');
