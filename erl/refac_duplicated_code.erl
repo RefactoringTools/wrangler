@@ -30,7 +30,8 @@
 %% 3) ****when an erlang file does not compile, the detector should still return the result before trim_clones.
 
 
--define(DEFAULT_MIN_CLONE_LEN, 5).  %% in the number of tokens.
+-define(DEFAULT_MIN_CLONE_LEN, 10).  %% in the number of tokens.
+-define(DEFAULT_MIN_CLONE_MEMBER, 2).
 
 test() ->
     duplicated_code(["refac_batch_rename_mod.erl", "refac_callgraph.erl", 
@@ -71,32 +72,40 @@ test2()->
 %% @spec duplicated_code(FileName::filename(),MinLines::integer(),MinClones::integer()) -> term().
 %%  
 
-duplicated_code(FileNames, MinLength1, MinClones1) ->
-    MinLength = list_to_integer(MinLength1),
-    MinClones = list_to_integer(MinClones1),
+duplicated_code(DirFileList, MinLength1, MinClones1) ->
+    FileNames = refac_util:expand_files(DirFileList, ".erl"),
+    %%io:format("FileNames:\n~p\n", [FileNames]),
+    MinLength = case MinLength1==[] orelse  (list_to_integer(MinLength1)< ?DEFAULT_MIN_CLONE_LEN) of 
+		    true -> ?DEFAULT_MIN_CLONE_LEN;
+		    _ -> list_to_integer(MinLength1)
+		end,
+     MinClones = case MinClones1==[] orelse (list_to_integer(MinClones1) <?DEFAULT_MIN_CLONE_MEMBER) of 
+		     true ->?DEFAULT_MIN_CLONE_MEMBER;
+		     _ -> list_to_integer(MinClones1)
+		 end,
     %% tokenize Erlang source files and concat them into a single list.
     {Toks, ProcessedToks} = tokenize(FileNames),
-    io:format("Suffix Tree construction\n"),
+    %%io:format("Suffix Tree construction\n"),
     Tree = suffix_tree(alphabet()++"&",ProcessedToks++"&"),  %% '&' does not occur in program source.
     %%Clone collection from the suffix tree.
-    io:format("Clone collection\n"),
+    %%io:format("Clone collection\n"),
     Cs=lists:flatten(lists:map(fun(B) -> collect_clones(MinLength,MinClones,B) end, Tree)),
      %% filter out sub-clones.
-    io:format("Filter out sub clones\n"),
+    %%io:format("Filter out sub clones\n"),
     Cs1 = filter_out_sub_clones(Cs),
-    io:format("CloneNumbers:\n~p\n", [length(Cs1)]),
+   %% io:format("CloneNumbers:\n~p\n", [length(Cs1)]),
     %% put atom names back into the token streams, and get the new clones.
-    io:format("put atoms back\n"),
+   %% io:format("put atoms back\n"),
     Cs2 = clones_with_atoms(Cs1, Toks, MinLength, MinClones),
     %%io:format("Cs2:\n~p\n", [Cs2]),
-    io:format("Filter out sub clones\n"),
+   %% io:format("Filter out sub clones\n"),
     Cs3 = filter_out_sub_clones(Cs2),
     %% combine clones which are next to each other. (ideally a fixpoint should be reached).
-    io:format("Combine with neighbours\n"),
+   %% io:format("Combine with neighbours\n"),
     Cs4 = combine_neighbour_clones(Cs3, MinLength, MinClones),
     %% Trim both ends of the clones to remove those parts that does not form a meaningful syntax phrases.
-    io:format("Before Trimming:\n~p\n", [length(Cs4)]),
-     io:format("Trim clones\n"),
+   %% io:format("Before Trimming:\n~p\n", [length(Cs4)]),
+   %%  io:format("Trim clones\n"),
      %%io:format("Before trimming \n"),
      %%io:format("Cs5:\n~p\n", [Cs4]),
      Cs5 = trim_clones(FileNames, Cs4, MinLength, MinClones),
@@ -105,7 +114,7 @@ duplicated_code(FileNames, MinLength1, MinClones1) ->
   	  1 ->  display_clones(Cs6);
   	 _ -> display_clones1(Cs6)
        end,
-    io:format("Final clones:\n~p\n", [length(Cs6)]),
+    %%io:format("Final clones:\n~p\n", [length(Cs6)]),
     {ok, "Duplicated code detection finished."}.
    
 
@@ -489,7 +498,7 @@ trim_clones(FileNames, Cs, MinLength, MinClones) ->
     Cs2= lists:concat(lists:map(Fun, Cs)),
     %%io:format("Cs2:\n~p\n", [Cs2]),
     %%Cs22= remove_sub_clones(Cs2),
-    io:format("Before binding checking:\n~p\n", [length(Cs2)]),
+    %%io:format("Before binding checking:\n~p\n", [length(Cs2)]),
     Cs3 =[lists:map(fun(C) -> {C, Len, length(C)} end, group_by(2, lists:map(Fun0, Range)))
 		    || {Range, Len, _F}<- Cs2],
     %%io:format("Cs3:\n~p\n",[Cs3]),
@@ -533,7 +542,7 @@ display_clones1_1([]) ->
     io:format("\n");
 display_clones1_1([{[{{File, StartLine, StartCol}, {File,EndLine, EndCol}}|Range], _Len, F}|Cs]) ->
     io:format("\nThe code in ~p between lines: ~p-~p has been duplicated ~p time(s) at the following"
-               " location(s):",[File, {StartLine, StartCol}, {EndLine, EndCol}, F-1]),
+               " location(s):",[File, {StartLine, StartCol-1}, {EndLine, EndCol-1}, F-1]),
     display_clones1_2(Range),
     display_clones1_1(Cs).
 
@@ -542,9 +551,9 @@ display_clones1_2([]) ->
 display_clones1_2([{{File, StartLine, StartCol}, {File, EndLine, EndCol}}|Rs]) ->
     case Rs == [] of 
 	true ->
-	    io:format(" File: ~p, ~p-~p.", [File, {StartLine, StartCol}, {EndLine, EndCol}]);
+	    io:format(" File: ~p, ~p-~p.", [File, {StartLine, StartCol-1}, {EndLine, EndCol-1}]);
 	false ->
-	    io:format(" File: ~p, ~p-~p,", [File, {StartLine, StartCol}, {EndLine, EndCol}])
+	    io:format(" File: ~p, ~p-~p,", [File, {StartLine, StartCol-1}, {EndLine, EndCol-1}])
     end,
     display_clones1_2(Rs).
 
@@ -557,7 +566,7 @@ display_clones_1([]) ->
     io:format("\n");
 display_clones_1([{[{{File, StartLine, StartCol}, {File,EndLine, EndCol}}|Range], _Len, F}|Cs]) ->
     io:format("\nThe code between  ~p-~p has been duplicated ~p time(s) at the following"
-			  " location(s):",[{StartLine, StartCol}, {EndLine,EndCol}, F-1]),
+			  " location(s):",[{StartLine, StartCol-1}, {EndLine,EndCol-1}, F-1]),
 	     
     display_clones_2(Range),
     display_clones_1(Cs).
@@ -567,10 +576,10 @@ display_clones_2([]) ->
 display_clones_2([{{File, StartLine, StartCol}, {File, EndLine, EndCol}}|Rs]) ->
     case Rs == [] of 
 	true ->
-	    io:format("  ~p-~p.", [{StartLine,StartCol},{EndLine, EndCol}]);
+	    io:format("  ~p-~p.", [{StartLine,StartCol-1},{EndLine, EndCol-1}]);
 		
 	_ ->
-	    io:format(" ~p-~p,", [{StartLine, StartCol}, {EndLine, EndCol}])
+	    io:format(" ~p-~p,", [{StartLine, StartCol-1}, {EndLine, EndCol-1}])
     end,
     display_clones_2(Rs).
 
