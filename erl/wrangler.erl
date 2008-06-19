@@ -41,8 +41,8 @@
 	 rename_mod_batch/3,
 	 generalise/5,
 	 move_fun/6,
-	 duplicated_code/3,
-	 clone_detector/3,
+	 duplicated_code_in_buffer/3,
+	 duplicated_code_in_dirs/3,
 	 expression_search/3,
 	 fun_extraction/4,
 	 fold_expression/3,
@@ -286,7 +286,7 @@ move_fun_eclipse(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths)
 %% =====================================================================================
 %% @spec duplicated_code(FileName::filename(),MinToks::integer(),MinClones::integer()) -> term()
 %%                
-duplicated_code(FileName, MinToks, MinClones) -> 
+duplicated_code_in_buffer(FileName, MinToks, MinClones) -> 
     refac_duplicated_code:duplicated_code([FileName], MinToks, MinClones).
 
 
@@ -303,9 +303,9 @@ duplicated_code(FileName, MinToks, MinClones) ->
 %% identical after consistent variable renaming, except for variations in literals, layout and comments.
 %% </p>
 %%======================================================================================
-%% @spec clone_detector(FileNameList::[filename()], MinToks::integer(), MinClones::integer()) -> term()
+%% @spec duplicated_code_in_dirs(FileNameList::[filename()], MinToks::integer(), MinClones::integer()) -> term()
 
-clone_detector(FileNameList, MinToks, MinClones) ->
+duplicated_code_in_dirs(FileNameList, MinToks, MinClones) ->
     refac_duplicated_code:duplicated_code(FileNameList, MinToks, MinClones).
     
 
