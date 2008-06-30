@@ -43,7 +43,7 @@
 	 get_env_vars/1, get_bound_vars/1, get_free_vars/1, 
          get_client_files/2, expand_files/2, get_modules_by_file/1,
          reset_attrs/1, update_ann/2,
-         parse_annotate_file/3,tokenize/1, write_refactored_files/1,
+         parse_annotate_file/3,tokenize/1,concat_toks/1, write_refactored_files/1,
          build_lib_side_effect_tab/1, build_local_side_effect_tab/2,
 	 build_call_graph/1, has_side_effect/3,
          callback_funs/1,auto_imported_bifs/0]).
@@ -612,7 +612,7 @@ get_client_files(File, SearchPaths) ->
       _ -> ok
     end,
     HeaderFiles = expand_files(SearchPaths, ".hrl"),
-    ClientFiles ++ HeaderFiles.
+    ClientFiles. %% ++ HeaderFiles.
 
 normalise_file_name(Filename) ->
     filename:join(filename:split(Filename)).
@@ -701,10 +701,29 @@ tokenize(File) ->
     {ok, Bin} = file:read_file(File),
     S = erlang:binary_to_list(Bin),
     case refac_scan:string(S) of
-      {ok, Toks, _} -> Toks;
+      {ok, Toks, _} ->
+	    Toks;
       _ -> []
     end.
 
+
+concat_toks(File) ->
+    Toks = tokenize(File),
+    Res =concat_toks(Toks, ""),
+    io:format(Res),
+    ok.
+
+concat_toks([], Acc) ->
+    lists:concat(lists:reverse(Acc));
+concat_toks([T|Ts], Acc) ->
+    case T of 
+	{_, _, V} -> concat_toks(Ts, [V|Acc]);
+	{dot, _} ->concat_toks(Ts, ['.'|Acc]);
+        {V, _} ->
+	    concat_toks(Ts, [V|Acc])
+    end.
+	 
+	    
 %% =====================================================================
 %% @spec parse_annotate_file(FName::filename(), ByPassPreP::bool(), SearchPaths::[dirname()])
 %%                           -> {ok, {syntaxTree(), ModInfo}} | {error, term()}
@@ -766,19 +785,20 @@ parse_annotate_file(FName, ByPassPreP, SearchPaths) ->
 	  Comments = erl_comment_scan:file(FName),
 	  SyntaxTree = refac_recomment:recomment_forms(Forms, Comments),
 	  Info = refac_syntax_lib:analyze_forms(SyntaxTree),
-	  %%	  case lists:keysearch(errors,1,Info) of
-	  %%      {value,{errors, Error}} ->
-	  %%	  {error, {"Syntax error in file: " ++ FName++".", Error}};
-	  %%    _ ->
-	  AnnAST = annotate_bindings(FName, SyntaxTree, Info, 1),
-	  if ByPassPreP -> {ok, {AnnAST, Info}};
-	     true ->
-		 case analyze_free_vars(AnnAST) of
-		   {error, Reason} -> {error, Reason};
-		   _ ->   {ok, {AnnAST, Info}}
-		 end
+	  case lists:keysearch(errors,1,Info) of
+	        {value,{errors, Error}} ->
+	  	  {error, {"Syntax error in file: " ++ FName++".", Error}};
+	      _ ->
+		  AnnAST = annotate_bindings(FName, SyntaxTree, Info, 1),
+		  if ByPassPreP -> {ok, {AnnAST, Info}};
+		     true ->
+			  case analyze_free_vars(AnnAST) of
+			      {error, Reason} -> {error, Reason};
+			      _ ->   {ok, {AnnAST, Info}}
+			  end
+		  end
 	  end;
-      {error, Reason} -> {error, Reason}
+	{error, Reason} -> {error, Reason}
     end.
 
 analyze_free_vars(SyntaxTree) ->
