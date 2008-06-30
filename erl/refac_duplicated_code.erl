@@ -20,9 +20,9 @@
 
 -module(refac_duplicated_code).
 
--export([duplicated_code/3, suffix_tree/2, remove_var_literals/1, test/0,test2/0,test1/0]).
+-export([duplicated_code/3]).
 
--compile(export_all).
+-export([duplicated_code_1/3,suffix_tree/2, remove_var_literals/1]).
 
 %% TODO:  
 %% 1) does recusive function calls affect the result?
@@ -30,35 +30,8 @@
 %% 3) ****when an erlang file does not compile, the detector should still return the result before trim_clones.
 
 
--define(DEFAULT_MIN_CLONE_LEN, 10).  %% in the number of tokens.
+-define(DEFAULT_MIN_CLONE_LEN, 20).  %% minimal number of tokens.
 -define(DEFAULT_MIN_CLONE_MEMBER, 2).
-
-test() ->
-    duplicated_code(["refac_batch_rename_mod.erl", "refac_callgraph.erl", 
-		      "refac_duplicated_code.erl",
-                    %%  "refac_epp_dodger.erl", 
-		      "refac_expr_search.erl", "refac_util.erl",
-		      "refac_epp.erl",
- 		     "refac_fold_expression.erl", "refac_gen.erl",
- 		     "refac_io.erl", "refac_module_graph.erl",
- 		     "refac_move_fun.erl", "refac_new_fun.erl",
-%% 		     "refac_parse.erl",
- 		     "refac_prettypr.erl", "refac_recomment.erl",
- 		     "refac_rename_fun.erl", "refac_rename_mod.erl",
- 		     "refac_rename_var.erl", 
-		     "refac_scan.erl", 
- 		     "refac_syntax.erl",
-                    "refac_syntax_lib.erl", 
-		    "wrangler.erl", "wrangler_distel.erl", "wrangler_options.erl"], "30", "2").
-
-
-test1()->
-   duplicated_code(["refac_duplicated_code.erl"], "30","2").
-
-test2()->
-    Files = refac_util:expand_files(["c:/cygwin/home/hl/CodeBase/ic-0.1.2"], ".erl"),
-    io:format("Files:\n~p\n", [Files]),
-    duplicated_code(Files, "30","2").
 
 %% ==================================================================================
 %% @doc Find duplicated code in a Erlang source files.
@@ -71,6 +44,28 @@ test2()->
 %% ====================================================================================
 %% @spec duplicated_code(FileName::filename(),MinLines::integer(),MinClones::integer()) -> term().
 %%  
+
+duplicated_code_1(DirFileList, MinLength1, MinClones1) ->
+    FileNames = refac_util:expand_files(DirFileList, ".erl"),
+    MinLength = case MinLength1==[] orelse  (list_to_integer(MinLength1)< ?DEFAULT_MIN_CLONE_LEN) of 
+		    true -> ?DEFAULT_MIN_CLONE_LEN;
+		    _ -> list_to_integer(MinLength1)
+		end,
+    MinClones = case MinClones1==[] orelse (list_to_integer(MinClones1) <?DEFAULT_MIN_CLONE_MEMBER) of 
+		     true ->?DEFAULT_MIN_CLONE_MEMBER;
+		     _ -> list_to_integer(MinClones1)
+		 end,
+    {Toks, ProcessedToks} = tokenize(FileNames),
+    Tree = suffix_tree(alphabet()++"&",ProcessedToks++"&"),  %% '&' does not occur in program source.
+    Cs=lists:flatten(lists:map(fun(B) -> collect_clones(MinLength,MinClones,B) end, Tree)),
+    Cs1 = filter_out_sub_clones(Cs),
+    Cs2 = clones_with_atoms(Cs1, Toks, MinLength, MinClones),
+    %% io:format("Cs2:\n~p\n", [Cs2]),
+    Cs3 = filter_out_sub_clones(Cs2),
+    Cs4 = combine_neighbour_clones(Cs3, MinLength, MinClones),
+    Cs5 = trim_clones(FileNames, Cs4, MinLength, MinClones),
+    remove_sub_clones(Cs5).
+ 
 
 duplicated_code(DirFileList, MinLength1, MinClones1) ->
     FileNames = refac_util:expand_files(DirFileList, ".erl"),
@@ -97,7 +92,7 @@ duplicated_code(DirFileList, MinLength1, MinClones1) ->
     %% put atom names back into the token streams, and get the new clones.
    %% io:format("put atoms back\n"),
     Cs2 = clones_with_atoms(Cs1, Toks, MinLength, MinClones),
-    %%io:format("Cs2:\n~p\n", [Cs2]),
+   %% io:format("Cs2:\n~p\n", [Cs2]),
    %% io:format("Filter out sub clones\n"),
     Cs3 = filter_out_sub_clones(Cs2),
     %% combine clones which are next to each other. (ideally a fixpoint should be reached).
@@ -138,7 +133,7 @@ process_a_tok(T) ->
 	{string, _L3, _V3} -> 'S';  
 	{float, _, _} ->'F';        
 	{char, _, _} ->'C' ;        
-	{A, _} -> case lists:keysearch(A, 1, alphabet_1()) of 
+	{A, _} -> case lists:keysearch(A, 1, alphabet_1()) of
 		      {value, {A, Value}} -> Value;
 		      _  -> erlang:error(io:format("Unhandled token:\n~p\n", [T]))
 		  end
@@ -541,9 +536,17 @@ display_clones1(Cs) ->
 display_clones1_1([]) ->		      
     io:format("\n");
 display_clones1_1([{[{{File, StartLine, StartCol}, {File,EndLine, EndCol}}|Range], _Len, F}|Cs]) ->
-    io:format("\nThe code in ~p between lines: ~p-~p has been duplicated ~p time(s) at the following"
-               " location(s):",[File, {StartLine, StartCol-1}, {EndLine, EndCol-1}, F-1]),
-    display_clones1_2(Range),
+    case F-1 of 
+	1 ->   io:format("\nThe code in ~p between lines: ~p-~p has been duplicated once at the following location:",
+			 [File, {StartLine, StartCol-1}, {EndLine, EndCol-1}]),
+	       display_clones1_2(Range);
+	2 ->   io:format("\nThe code in ~p between lines: ~p-~p has been duplicated twice at the following location(s):",
+			 [File, {StartLine, StartCol-1}, {EndLine, EndCol-1}]),
+	       display_clones1_2(Range);
+	_ ->   io:format("\nThe code in ~p between lines: ~p-~p has been duplicated ~p times at the following location(s):",
+			 [File, {StartLine, StartCol-1}, {EndLine, EndCol-1}, F-1]),
+	       display_clones1_2(Range)
+    end,
     display_clones1_1(Cs).
 
 display_clones1_2([]) ->
@@ -565,10 +568,19 @@ display_clones(Cs) ->
 display_clones_1([]) ->		      
     io:format("\n");
 display_clones_1([{[{{File, StartLine, StartCol}, {File,EndLine, EndCol}}|Range], _Len, F}|Cs]) ->
-    io:format("\nThe code between  ~p-~p has been duplicated ~p time(s) at the following"
-			  " location(s):",[{StartLine, StartCol-1}, {EndLine,EndCol-1}, F-1]),
-	     
-    display_clones_2(Range),
+    case F-1 of 
+	1 ->  io:format("\nThe code between  ~p-~p has been duplicated once at the following"
+			" location:",[{StartLine, StartCol-1}, {EndLine,EndCol-1}]),		     
+	      display_clones_2(Range);
+	2 ->  io:format("\nThe code between  ~p-~p has been duplicated twice at the following"
+			" location(s):",[{StartLine, StartCol-1}, {EndLine,EndCol-1}]),
+	      
+	      display_clones_2(Range);
+	_ ->   io:format("\nThe code between  ~p-~p has been duplicated ~p times  at the following"
+			 " location(s):",[{StartLine, StartCol-1}, {EndLine,EndCol-1}, F-1]),
+	       
+	       display_clones_2(Range)
+    end,	       
     display_clones_1(Cs).
 
 display_clones_2([]) ->
