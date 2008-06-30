@@ -41,7 +41,7 @@
 %% =============================================================================================
 -module(refac_fold_expression).
 
--export([fold_expression/3, fold_expression_1/7, fold_expression_eclipse/3, fold_expression_1_eclipse/3, fold_expression_2_eclipse/5]).
+-export([fold_expression/3, fold_expression_1/7, fold_expression_eclipse/3, fold_expression_1_eclipse/3, fold_expression_2_eclipse/5, fold_expression_1/3]).
 
 %% =============================================================================================
 %% @spec fold_expression(FileName::filename(), Line::integer(), Col::integer())-> term()
@@ -120,10 +120,10 @@ fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunCl
 		  case get_fun_clause_def(AnnAST2, FunName, Arity, ClauseIndex) of 
 		      {ok, {_Mod, _FunName, _Arity, FunClauseDef1}} ->
 			  Candidates = search_candidate_exprs(AnnAST2, FunName, FunClauseDef1),
-			  Regions = [{{StartLine1, StartCol1}, {EndLine1, EndCol1}, FunCall1, {FunClauseDef1, ClauseIndex}} 
+			  Regions = [{StartLine1, StartCol1, EndLine1, EndCol1, FunCall1, {FunClauseDef1, ClauseIndex}} 
 				     || {{{StartLine1, StartCol1}, {EndLine1, EndCol1}}, FunCall1}<-Candidates,
 					StartLine1 >= StartLine],
-			  {ok, Regions};
+			  {ok,  Regions};
 		      {error, reason} ->
 			  {error, "You have not selected a function definition."}  %% THIS SHOULD NOT HAPPEN.
 		  end;
@@ -610,4 +610,29 @@ pos_to_fun_clause_1(Node, Pos) ->
 	    {[], false}
     end.
 
+
+fold_expression_1(FileName, FunName, Arity) ->
+    case refac_util:parse_annotate_file(FileName,true, []) of 
+	{ok, {AnnAST, Info}} ->
+	    FunClauseDef= name_to_fun_clause(AnnAST, FunName, Arity),
+	    Candidates = search_candidate_exprs(AnnAST, FunName, FunClauseDef),
+	    Body = refac_syntax:clause_body(FunClauseDef),
+            AnnAST1= fold_expression_1_eclipse_1(AnnAST, Body, Candidates),
+	    {AnnAST1, Info};
+	{error, Reason} -> {error, Reason}
+    end.
+ 
+
+name_to_fun_clause(AnnAST, FunName, Arity) ->
+    Forms = refac_syntax:form_list_elements(AnnAST),
+    F = fun(Form) ->
+		case refac_syntax:type(Form) of 
+		    function ->  FunName1 = refac_syntax:data(refac_syntax:function_name(Form)),
+				 Arity1 = refac_syntax:function_arity(Form),
+				 (FunName1 == FunName) andalso (Arity == Arity1);
+		    _ -> false
+		end
+	end,
+    Fun=hd(lists:filter(F, Forms)),
+    hd(refac_syntax:function_clauses(Fun)).
 
