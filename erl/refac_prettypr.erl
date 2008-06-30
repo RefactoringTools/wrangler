@@ -121,7 +121,10 @@ get_paper_ribbon_width(Form) ->
 		       GroupedRanges = group_by(1, (lists:filter(fun(Loc) ->
 									 (Loc>= Start) and (Loc=<End) end, AllRanges))),
 		       MinMaxCols=lists:map(fun(Rs) ->Cols = lists:map(fun({_Ln, Col}) -> Col end, Rs),
-						      {lists:min(Cols),lists:max(Cols)}
+						      case Cols of 
+							  [] -> {1, 80};
+							  _ -> {lists:min(Cols),lists:max(Cols)}
+						      end
 					    end,  GroupedRanges),
 		       Paper = lists:max(lists:map(fun({_Min, Max}) ->
 							   Max end, MinMaxCols)),
