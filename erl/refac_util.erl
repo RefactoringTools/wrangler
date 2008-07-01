@@ -43,12 +43,12 @@
 	 get_env_vars/1, get_bound_vars/1, get_free_vars/1, 
          get_client_files/2, expand_files/2, get_modules_by_file/1,
          reset_attrs/1, update_ann/2,
-         parse_annotate_file/3,tokenize/1,concat_toks/1, write_refactored_files/1,
+         parse_annotate_file/3,tokenize/1, write_refactored_files/1,
          build_lib_side_effect_tab/1, build_local_side_effect_tab/2,
 	 build_call_graph/1, has_side_effect/3,
          callback_funs/1,auto_imported_bifs/0]).
 
--export([analyze_free_vars/1, build_call_graph/3, build_call_graph/2]).
+-export([analyze_free_vars/1, build_call_graph/2]).
 
 -export([update_var_define_locations/1]).
 
@@ -113,7 +113,7 @@ try_evaluation(Expr) ->
 
 %% =====================================================================
 %% @spec once_tdTU(Function, Tree::syntaxTree(), Others::[term()])-> term()
-%%       Function = (syntaxTre(), {term()}) -> term()
+%%       Function = (syntaxTree(), {term()}) -> term()
 %%
 %% @doc Once-topdown type-unifying traversal of the abstract syntax tree with some
 %% information collected. This function does a pre-order traversal of the
@@ -303,7 +303,7 @@ pos_to_var_name_1(Node, _Pos = {Ln, Col}) ->
 		      {{refac_syntax:variable_name(Node), DefinePos, C}, true};
 		  false ->
 		      {value, {category, C}} = lists:keysearch(category, 1, refac_syntax:get_ann(Node)),
-		      {{refac_syntax:variable_name(Node), ?DEFAULT_LOC, C}, true}
+		      {{refac_syntax:variable_name(Node), [?DEFAULT_LOC], C}, true}
 		end;
 	    false -> {[], false}
 	  end;
@@ -521,7 +521,7 @@ inscope_funs(ModuleInfo) ->
       {value, {module, M}} ->
 	  Imps = case lists:keysearch(imports, 1, ModuleInfo) of
 		   {value, {imports, I}} ->
-		       lists:concat([lists:map(fun ({F, A}) -> {M1, F, A} end, Fs) || {M1, Fs} <- I]);
+		       lists:append([lists:map(fun ({F, A}) -> {M1, F, A} end, Fs) || {M1, Fs} <- I]);
 		   _ -> []
 		 end,
 	  Funs = case lists:keysearch(functions, 1, ModuleInfo) of
@@ -619,7 +619,7 @@ normalise_file_name(Filename) ->
 
 
 %% =====================================================================
-%% @spec expand_files(FileDirs::[filename()|dirname()], Ext::atom()) -> [filename()]
+%% @spec expand_files(FileDirs::[filename()|dir()], Ext::string()) -> [filename()]
 %% @doc Recursively collect all the files with the given file extension 
 %%  in the specified directoris/files.
 expand_files(FileDirs, Ext) ->
@@ -647,7 +647,7 @@ expand_files([], _Ext, Acc) -> ordsets:from_list(Acc).
 
 
 %% =====================================================================
-%% @spec get_modules_by_file(Files::[filename()]) -> [{atom(), dirname()}]
+%% @spec get_modules_by_file(Files::[filename()]) -> [{atom(), dir()}]
 %% @doc The a list of files to a list of two-element tuples, with the first 
 %% element of the tuple being the module name, and the second element 
 %% binding the directory name of the file to which the module belongs.
@@ -707,25 +707,25 @@ tokenize(File) ->
     end.
 
 
-concat_toks(File) ->
-    Toks = tokenize(File),
-    Res =concat_toks(Toks, ""),
-    io:format(Res),
-    ok.
+%% concat_toks(File) ->
+%%     Toks = tokenize(File),
+%%     Res =concat_toks(Toks, ""),
+%%     io:format(Res),
+%%     ok.
 
-concat_toks([], Acc) ->
-    lists:concat(lists:reverse(Acc));
-concat_toks([T|Ts], Acc) ->
-    case T of 
-	{_, _, V} -> concat_toks(Ts, [V|Acc]);
-	{dot, _} ->concat_toks(Ts, ['.'|Acc]);
-        {V, _} ->
-	    concat_toks(Ts, [V|Acc])
-    end.
+%% concat_toks([], Acc) ->
+%%     lists:concat(lists:reverse(Acc));
+%% concat_toks([T|Ts], Acc) ->
+%%     case T of 
+%% 	{_, _, V} -> concat_toks(Ts, [V|Acc]);
+%% 	{dot, _} ->concat_toks(Ts, ['.'|Acc]);
+%%         {V, _} ->
+%% 	    concat_toks(Ts, [V|Acc])
+%%     end.
 	 
 	    
 %% =====================================================================
-%% @spec parse_annotate_file(FName::filename(), ByPassPreP::bool(), SearchPaths::[dirname()])
+%% @spec parse_annotate_file(FName::filename(), ByPassPreP::bool(), SearchPaths::[dir()])
 %%                           -> {ok, {syntaxTree(), ModInfo}} | {error, term()}
 %%
 %%       ModInfo = [{Key, term()}]
@@ -801,6 +801,9 @@ parse_annotate_file(FName, ByPassPreP, SearchPaths) ->
 	{error, Reason} -> {error, Reason}
     end.
 
+
+%%@spec analyze_free_vars(SyntaxTree::syntaxTree()) ->ok|{error, string()} 
+%%@doc Check whether an abstract syntax phrase contains any free variables.
 analyze_free_vars(SyntaxTree) ->
     Ann = refac_syntax:get_ann(SyntaxTree),
     case lists:keysearch(free, 1, Ann) of
@@ -1486,7 +1489,7 @@ add_fun_define_locations(Node,
 %%      code to which Node belongs,  Node is the abstract syntax tree representaion of 
 %%      the syntax phrase of interest, and SearchPaths specifies the directories to 
 %%      search for related local Erlang source files.
-%% @spec has_side_effect(File::filename(), Node::syntaxTree(), SearchPaths::[dirname()])-> bool()
+%% @spec has_side_effect(File::filename(), Node::syntaxTree(), SearchPaths::[dir()])-> bool()
 
 has_side_effect(File, Node, SearchPaths) ->
     LibSideEffectFile = filename:join(?WRANGLER_DIR, "plt/side_effect_plt"),
@@ -1504,7 +1507,7 @@ has_side_effect(File, Node, SearchPaths) ->
 
 
 %%=================================================================
-%% @spec build_local_side_effect_tab(File::filename(), SearchPaths::[dirname()]) -> ok
+%% @spec build_local_side_effect_tab(File::filename(), SearchPaths::[dir()]) -> ok
 %% @doc Build a local side effect table for File and the files contained in SearchPaths, and
 %% put the result to the dets file: local_side_effect_tab. 
 %%
@@ -1539,7 +1542,7 @@ build_local_side_effect_tab(File, SearchPaths) ->
 
 
 %%=================================================================
-%% @spec build_lib_side_effect_tab(FileOrDirs::[fileName()|dirname()]) -> ok
+%% @spec build_lib_side_effect_tab(FileOrDirs::[fileName()|dir()]) -> ok
 %% @doc Build the side effect table for Erlang libraries specified in FileOrDirs, and
 %% put the result to the dets file: plt/side_effect_plt. 
 %%
@@ -1676,7 +1679,7 @@ lookup(Plt, {M, F, A}) ->
 
 
 %%====================================================================================
-%%@spec build_call_graph(DirList::[dirname()]) -> #callgraph{}
+%%@spec build_call_graph(DirList::[dir()]) -> #callgraph{}
 %%@doc Build a function call graph out of the Erlang files contained in the given directories.
 
 build_call_graph(DirList) ->
@@ -1684,12 +1687,10 @@ build_call_graph(DirList) ->
     CallGraph = build_call_graph(Files, []),
     %% io:format("CallGraph:\n~p\n", [CallGraph]),
     #callgraph{scc_order = Sccs, external_calls = E} = refac_callgraph:construct(CallGraph),
-   %%  Sccs1 =[[Fun||{Fun, _FunDef}<-Scc]||Scc<-Sccs],
-%%     io:format("Scc1:\n~p\n", [Sccs1]),
-%%     ok.
-    {Sccs, E}.
+     {Sccs, E}.
    
-
+%%@private
+%%@spec build_call_graph(DirList::[dir()], #callgraph{}) -> #callgraph{}
 build_call_graph([FileName | Left], Acc) ->
     case refac_util:parse_annotate_file(FileName, true, []) of
       {ok, {AnnAST, Info}} ->
