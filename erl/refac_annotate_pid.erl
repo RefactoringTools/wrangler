@@ -440,7 +440,7 @@ sort_funs(Files) ->
     #callgraph{scc_order = Sccs, external_calls = _E} = refac_callgraph:construct(CallGraph),
     CallerCallee = lists:map(fun ({{Caller, _CallerDef}, Callee}) -> {Caller, Callee} end, CallGraph),
     TrimmedSccs = trim_scc(Sccs, CallerCallee, [], []),
-    lists:concat(TrimmedSccs).
+    lists:append(TrimmedSccs).
 
 trim_scc([], _CallerCallee, _PFunAcc, Acc) -> lists:reverse(Acc);
 trim_scc([Scc | Sccs], CallerCallee, PFunAcc, Acc) ->
