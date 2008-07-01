@@ -155,7 +155,7 @@ get_new_name(Sub, NewRegExp) ->
 	0 -> NewRegExp;
 	N -> Prefix = string:sub_string(NewRegExp, 1, N-1), 
 	     case Sub of 
-		 [] -> exit(error,"Can not infer new module names, please check the new module name pattern specified!");
+		 [] -> exit({error,"Can not infer new module names, please check the new module name pattern specified!"});
 		 _  -> Sub1 = hd(Sub),
 		       get_new_name(tl(Sub), Prefix++Sub1++string:sub_string(NewRegExp,N+1))
 	     end
