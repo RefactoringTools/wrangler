@@ -84,9 +84,6 @@ fold_expression(FileName, Line, Col, Editor) ->
 %%                        (EndLine::integer(), EndCol::integer(), NewExp::term(),
 %%                        {FunClauseDef, ClauseIndex}::{term(), integer()) -> term()
 %% =============================================================================================  
-fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunClauseDef, ClauseIndex}) ->
-    fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunClauseDef, ClauseIndex}, emacs).
-
 fold_expression_1_eclipse(FileName, FunClauseDef, RangeNewExpList) ->   %% RangeNewExpList [{{{StartLine, EndCol}, {EndLine, EndCol}}, NewExp}]
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, []),
     Body = refac_syntax:clause_body(FunClauseDef),
@@ -104,7 +101,7 @@ fold_expression_1_eclipse_1(AnnAST, Body, [{{StartLoc, EndLoc}, Exp}|Tail]) ->
     
 
 
-fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunClauseDef, ClauseIndex}, Editor) -> 
+fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunClauseDef, ClauseIndex}) -> 
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, []),
     FunCall = case refac_syntax:type(NewExp) of 
 		  application -> NewExp;
@@ -114,21 +111,17 @@ fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunCl
     Arity = length(refac_syntax:application_arguments(FunCall)),		   
     Body = refac_syntax:clause_body(FunClauseDef),
     {AnnAST1,_} = refac_util:stop_tdTP(fun do_replace_expr_with_fun_call/2, AnnAST, {Body, NewExp, {{StartLine, StartCol}, {EndLine, EndCol}}}),
-    case Editor of 
-	emacs ->  refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1}]),
-		  {ok, {AnnAST2, _Info1}} = refac_util:parse_annotate_file(FileName,true, []),
-		  case get_fun_clause_def(AnnAST2, FunName, Arity, ClauseIndex) of 
-		      {ok, {_Mod, _FunName, _Arity, FunClauseDef1}} ->
-			  Candidates = search_candidate_exprs(AnnAST2, FunName, FunClauseDef1),
-			  Regions = [{StartLine1, StartCol1, EndLine1, EndCol1, FunCall1, {FunClauseDef1, ClauseIndex}} 
-				     || {{{StartLine1, StartCol1}, {EndLine1, EndCol1}}, FunCall1}<-Candidates,
-					StartLine1 >= StartLine],
-			  {ok,  Regions};
-		      {error, reason} ->
-			  {error, "You have not selected a function definition."}  %% THIS SHOULD NOT HAPPEN.
-		  end;
-	eclipse -> Res = [{{FunName, Arity, ClauseIndex, StartLine}, FileName, FileName, refac_prettypr:print_ast(AnnAST1)}],
-		   {ok, Res}
+    refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1}]),
+    {ok, {AnnAST2, _Info1}} = refac_util:parse_annotate_file(FileName,true, []),
+    case get_fun_clause_def(AnnAST2, FunName, Arity, ClauseIndex) of 
+	{ok, {_Mod, _FunName, _Arity, FunClauseDef1}} ->
+	    Candidates = search_candidate_exprs(AnnAST2, FunName, FunClauseDef1),
+	    Regions = [{StartLine1, StartCol1, EndLine1, EndCol1, FunCall1, {FunClauseDef1, ClauseIndex}} 
+		       || {{{StartLine1, StartCol1}, {EndLine1, EndCol1}}, FunCall1}<-Candidates,
+			  StartLine1 >= StartLine],
+	    {ok,  Regions};
+	{error, _Reason} ->
+	    {error, "You have not selected a function definition."}  %% THIS SHOULD NOT HAPPEN.
     end.
 
 fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine ) ->
@@ -140,7 +133,7 @@ fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine ) ->
 		       || {{{StartLine1, StartCol1}, {EndLine1, EndCol1}}, FunCall1}<-Candidates,
 			  StartLine1 >= StartLine],
 	    {ok, Regions};
-	{error, reason} ->
+	{error, _Reason} ->
 	    {error, "You have not selected a function definition."}  %% THIS SHOULD NOT HAPPEN.
     end.
 
@@ -399,11 +392,11 @@ expr_unification(Exp1, Exp2) ->
 							    _ -> false
 							end
 					      end, Res),
-		        Substs = lists:usort(lists:concat(lists:map(fun(E) -> case E of 
+		        Substs = lists:usort(lists:flatmap(fun(E) -> case E of 
 								      {true,S} -> S;
 								      _ -> []
 								  end
-							end,Res))),
+							end,Res)),
 			case Unifiable of 
 			    true -> {true, Substs};
 			    _ -> false
@@ -547,13 +540,13 @@ vars_to_export(WholeExpList, SubExpList) ->
 		   _  -> S
 	       end
 	end,
-    AllVars = lists:usort(lists:concat(lists:map(fun(E)->refac_syntax_lib:fold(F1, [], E) end,  WholeExpList))),
-    SubExpListBdVars = lists:concat(lists:map(fun(E) -> As = refac_syntax:get_ann(E),
+    AllVars = lists:usort(lists:flatmap(fun(E)->refac_syntax_lib:fold(F1, [], E) end,  WholeExpList)),
+    SubExpListBdVars = lists:flatmap(fun(E) -> As = refac_syntax:get_ann(E),
 							    case lists:keysearch(bound,1, As) of
 								{value, {bound, BdVars1}} -> BdVars1;
 								_ -> []
 							    end
-						  end, SubExpList)),
+						  end, SubExpList),
     SubExpListBdVarPoses = lists:map(fun({_Var, Pos}) -> Pos end, SubExpListBdVars),
     SubExpListEndPos = element(2, refac_util:get_range(lists:last(SubExpList))),
     VarsToExport = lists:usort([V || {V, SourcePos, DefPos} <- AllVars,
