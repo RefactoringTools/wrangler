@@ -166,7 +166,7 @@ parse_file1(Epp) ->
 
 server(Pid, Name, Path, Pdm) ->
     process_flag(trap_exit, true),
-    case file:open(Name, read) of
+    case file:open(Name, [read]) of
       {ok, File} ->
 	  put(user_path, Path),
 	  Ms0 = predef_macros(Name),
@@ -553,7 +553,7 @@ scan_include_lib([{'(', _Llp}, {string, _Lf, NewName0},
 	  case catch find_lib_dir(NewName) of
 	    {LibDir, Rest} when is_list(LibDir) ->
 		LibName = filename:join([LibDir | Rest]),
-		case file:open(LibName, read) of
+		case file:open(LibName, [read]) of
 		  {ok, NewF} ->
 		      wait_req_scan(enter_file(NewF, LibName, From, St));
 		  {error, _E2} ->
