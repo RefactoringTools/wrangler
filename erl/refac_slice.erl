@@ -1,8 +1,7 @@
 %% =====================================================================
-%% Refactoring: Rename a variable name.
+%% Some program slicing algorithms.
 %%
-%% Copyright (C) 2006-2008  Huiqing Li, Simon Thompson
-
+%% Copyright (C) 2006-2009  Huiqing Li, Simon Thompson
 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -16,22 +15,27 @@
 %% the License for the specific language governing rights and limitations
 %% under the License.
 
+%% @private
+%% @copyright 2006-2009 Huiqing Li, Simon Thompson
+%%
+%% @author Huiqing Li <hl@kent.ac.uk>
+%%   [http://www.cs.kent.ac.uk/projects/forse]
 
-%% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
+%% @version  0.1
 %%
-%% =====================================================================
-%%
-%% @doc This module implements both forward and back inter-function slicing algorithms. The 
-%% current implementation does not handle message passing yet. 
+%% @doc Forward and backward slicing of Erlang programs. The current implementation does 
+%%      not handle message passing, and is not fully tested yet.
 %% @end
--module(refac_slice).
 
--export([forward_slice/4, backward_slice/5]). 
+-module(refac_slice). 
+
+-export([forward_slice/5, backward_slice/5]). 
 
 -export([sliced_funs/0]).
 
-%% Forward slicing the program with an the Expr in FunDef as the slicing criterion.
-forward_slice(Files, AnnAST, ModName, {FunDef, Expr})  ->
+%% @spec forward_slice(Files:[filename()], AnnAST:syntaxTree(), ModName::atom(), FunDef::syntaxTree(), Expr::syntaxTree()) -> [syntaxTree()].
+%% @doc Forward slice the program with expression Expr, which in contained in function FunDef, as the slicing criterion.                     
+forward_slice(Files, AnnAST, ModName, FunDef, Expr)  ->
     start_slice_env_process(),
     Res = forward_slice_1(Files, AnnAST, ModName, {FunDef, Expr}),
     stop_slice_env_process(),
@@ -114,7 +118,6 @@ get_all_sliced_funs() ->
 	    State
     end.
 	
-
 sliced_funs() ->
     sliced_funs([]).
 
@@ -304,6 +307,8 @@ do_process_fun_applications(Node, {AnnAST, ModName, Vars}) ->
     end.
 
 %%=========================================================================================================
+%% @spec backward_slice(Files:[filename()], AnnAST:syntaxTree(), ModName::atom(), FunDef::syntaxTree() Expr::syntaxTree()) -> term(). %% Need to think what term() really is.
+%% @doc Backward slice the program with expression Expr, which in contained in function FunDef, as the slicing criterion.      
 backward_slice(Files,AnnAST, ModName, FunDef, Expr) ->
     FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
     Arity= refac_syntax:function_arity(FunDef),
@@ -426,7 +431,7 @@ process_a_clause(C, Expr) ->
     case NewBody == [refac_syntax:tuple([refac_syntax:atom(error), refac_syntax:atom("Error with evaluation")])] of
       true -> [];
       _ ->
-	  BoundVars = lists:concat(lists:map(fun (P) -> refac_util:get_bound_vars(P) end, Patterns)),
+	  BoundVars = lists:flatmap(fun (P) -> refac_util:get_bound_vars(P) end, Patterns),
 	  case FreeVars -- BoundVars =/= FreeVars of
 	    true ->  %% Expr uses some of the vars declared in Patterns.
 		C1 = refac_syntax:clause(Patterns, none, NewBody),
@@ -513,7 +518,7 @@ process_expr(LastExpr, Expr) ->
 	    Args = refac_syntax:case_expr_argument(E),
 	    {Bound1, Free1} = {refac_util:get_bound_vars(Args), refac_util:get_free_vars(Args)},
 	    Clauses = refac_syntax:case_expr_clauses(E),
-	    NewClauses = lists:concat(lists:map(fun (C) -> process_a_clause(C, Expr) end, Clauses)), %% process each case clause.
+	    NewClauses = lists:flatmap(fun (C) -> process_a_clause(C, Expr) end, Clauses), %% process each case clause.
 	    {Bound2, Free2} = lists:foldl(fun (C, {Bd, Fr}) ->
 						  {Bd1, Fr1} = {refac_util:get_bound_vars(C), refac_util:get_free_vars(C)},
 						  {ordsets:intersection(Bd, Bd1), ordsets:union(Fr, Fr1)}
@@ -537,7 +542,7 @@ process_expr(LastExpr, Expr) ->
 	    refac_util:update_ann(refac_util:update_ann(BE, {bound, Bound}), {free, Free});
 	if_expr ->
 	    Clauses = refac_syntax:if_expr_clauses(E),
-	    NewClauses = lists:concat(lists:map(fun (C) -> process_a_clause(C, Expr) end, Clauses)),
+	    NewClauses = lists:flatmap(fun (C) -> process_a_clause(C, Expr) end, Clauses),
 	    {Bound, Free} = lists:foldl(fun (C, {Bd, Fr}) ->
 						  {Bd1, Fr1} = {refac_util:get_bound_vars(C), refac_util:get_free_vars(C)},
 						  {ordsets:intersection(Bd, Bd1), ordsets:union(Fr, Fr1)}
