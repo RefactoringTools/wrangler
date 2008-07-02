@@ -190,7 +190,7 @@ side_cond_check({ModName,FunName, Arity, Node}, TargetFileName, SearchPaths) ->
 				    end;
 			    false ->{error, "Moving this function will cause confliction in the target module."} 
 			end;
-		    {eror, Reason} -> {error, Reason}
+		    {error, Reason} -> {error, Reason}
 		end;							    
 	false -> true
     end.
@@ -531,7 +531,7 @@ make_export(Names) ->
     Es = [refac_syntax:arity_qualifier(refac_syntax:atom(F),
 				       refac_syntax:integer(A))
 	  || {F, A} <- Names],
-   %% [comment(["** The following export is added by Wrangler. **"]),
+   %% comment(["** The following export is added by Wrangler. **"]),
     [erl_syntax:attribute(erl_syntax:atom('export'), [erl_syntax:list(Es)])].
 
 is_not_the_fun(Form, {ModName, FunName, Arity}) ->
