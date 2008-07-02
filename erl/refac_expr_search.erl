@@ -94,8 +94,8 @@ search_one_expr(Tree, Exp) ->
 search_expr_seq(Tree, ExpList) ->
     AllExpList = contained_exprs(Tree, length(ExpList)),
    %% ExpList1 = lists:map(fun(T) ->simplify_expr(T) end, ExpList),
-    Res =lists:concat(lists:map(fun(EL) ->
-				   get_clone(ExpList, EL) end, AllExpList)),
+    Res =lists:flatmap(fun(EL) ->
+				   get_clone(ExpList, EL) end, AllExpList),
     Res.
     
     
@@ -242,7 +242,7 @@ var_binding_structure(ASTList) ->
 		   end
 	   end,
     %% collect all variables including their defining and occuring locations. 
-    B = lists:concat(lists:map(fun(T) -> refac_syntax_lib:fold(Fun1, ordsets:new(), T) end, ASTList)),
+    B = lists:flatmap(fun(T) -> refac_syntax_lib:fold(Fun1, ordsets:new(), T) end, ASTList),
     %% collect defining locations.
     DefLocs = lists:usort(lists:flatten(lists:map(fun ({_Name, _SrcLoc,
 					  DefLoc}) ->
