@@ -67,8 +67,8 @@ fun_extraction(FileName, Start, End, NewFunName,Editor) ->
 
 side_cond_analysis(Info, Fun, ExpList, NewFunName) ->
     FrBdVars = lists:map(fun(E)-> envs_bounds_frees(E) end, ExpList),
-    BdVars = lists:usort(lists:concat(lists:map(fun({{bound, Vars}, _}) -> Vars end, FrBdVars))),
-    FrVars1 = lists:usort(lists:concat(lists:map(fun({_, {free, Vars}}) -> Vars end, FrBdVars))),
+    BdVars = lists:usort(lists:flatmap(fun({{bound, Vars}, _}) -> Vars end, FrBdVars)),
+    FrVars1 = lists:usort(lists:flatmap(fun({_, {free, Vars}}) -> Vars end, FrBdVars)),
     FrVars = lists:map(fun({VarName, _Pos}) -> VarName end, lists:subtract(FrVars1, BdVars)),
     InscopeFuns = lists:map(fun({_M, F, A}) ->
 				    {F, A} end, refac_util:inscope_funs(Info)),
