@@ -1,16 +1,17 @@
 
                     Wrangler, the Erlang Refactorer
                 a snapshot of our current prototype
-                             04/10/2007
+                             01/07/2008
               http://www.cs.kent.ac.uk/projects/forse/
 
 --------------------------------------------------------------------------------
 
 Wrangler is an Erlang refactoring tool that supports interactive
 refactoring of Erlang programs.  The current snapshot of Wrangler 
-supports a small number of basic Erlang refactorings, including 
-renaming variable/function/module names and generalisation of a 
-function definition.
+supports a number of basic Erlang refactorings, including 
+renaming variable/function/module names, generalisation of a 
+function definition, function extraction, folding against a function 
+definition, duplicated code detection, etc.
 
 Wrangler is embedded in the Emacs editing environment, and built on
 top of Distel, an Emacs-based user interface toolkit for Erlang, to
@@ -18,11 +19,13 @@ manage to communication between the refactoring tool and
 Emacs. 
 
 Wrangler is supposed to be installed as part of Distel, therefore this
-snapshot includes both and the current snapshot of Wrangler
-(Wrangler-0.2). **** Please NOTE: the Distel included in this snapshot refers
-to Distel-3.3, NOT the cvs version from distel.googlecode.com ****
+snapshot includes both Distel and the current snapshot of Wrangler
+(Wrangler-0.3). 
 
-Wrangler 0.2 is still a prototype, made available so you can play with 
+**** Please NOTE: the Distel included in this snapshot refers
+to the cvs version from distel.googlecode.com.
+
+Wrangler 0.4 is still a prototype, made available so you can play with 
 basic refactoring support for Erlang, and give us feedback or bug 
 reports.
 
@@ -32,7 +35,7 @@ JUST YET!
 
 --------------- how to build----------------
 
-1) If you do not have Distel-3.3 installed, then download the snapshot,
+1) If you do not have Distel installed, then download the snapshot,
    follow the installation instructions in the INSTALL file to build 
    the system.
 
@@ -63,18 +66,20 @@ JUST YET!
 
       The 'Refactor' submenu will disappear from the Erlang menu.
  
-  4. for most refactorings, the editor interface will pass the
+  4. For most refactorings, the editor interface will pass the
      current filename (should be the module name, as well), the
      refactoring command, and the current cursor position. For
      some refactorings, you'll also need to highlight an 
      expression, or enter a new name. Here's the current list:
 
-     rename variable/function   : place cursor at the identifier to
+     Rename variable/function   : place cursor at the identifier to
                                   be renamed, you'll be prompted for a
-                                  new name
-     rename module              : place cursor at anywhere within the
+                                  new name.
+
+     Rename module              : place cursor at anywhere within the
                                   module, you'll be prompted for a new 
-				  name
+				  name.
+
      Generalise definition       : highlight the expression on which
                                   the function is going to be
                                   generalised, you'll be prompted for
@@ -84,10 +89,60 @@ JUST YET!
                                   function definition, you'll be
                                   prompted for the target module name.
 
- 5. The 'Customize' menu in the 'Refactor' submenu allows you specify 
+     Function extraction        : highlight the expression/expression
+	                          sequence that you wish to extract,
+	                          you'll be prompted for a new function
+                                  name.
+     Fold expression against 
+     function                   : place cursor at anywhere at the function
+                                  clause. Wrangler will guide you through 
+	                          the possible candidates one by one, and 
+                                  ask whether you want to fold it.
+
+     Tuple function arguments   : place cursor at the beginning of the parameter                                 that is to be the first element of the tuple,                                   and you will be prompted for the number of     
+			         parameters put into a tuple.
+
+     
+
+     Expression Search          : highlight the expression/expression sequence
+	                          you are interested, Wrangler will show you 
+	                          the found expression/expression sequences one 
+                                  by one. Press the 'enter' key to go the next
+                                  one, and the 'Esc' key to quit.
+
+     Detect duplicated code  
+     in current buffer          : select the refactoring command from the 
+                                  menu, you'll be prompted for the minimum 
+	                          number of tokens a duplicated code fragment 
+                                  should have, and the number of times that a 
+                                  code fragment is duplicated.
+                                  
+     Detect duplicated code 
+     in Dirs                    : select the refactoring command from the menu,
+	                          and you will be prompted for the minimum 
+                                  number of tokens a duplicated code fragment 
+                                  should have, and the minmum number of times  
+                                  that a code fragment is duplicated. Wrangler 
+                                  will search duplicated code fragments from the                                  directories specified by the search paths (see                                  Customize Wrangler).
+	                        
+
+ 5. The 'Customize Wrangler' menu in the 'Refactor' submenu allows you specify 
  the boundary of the system by giving the list of directories to
  search for Erlang source files/header files that could be affected by a
  refactoring.
+
+
+----------------------------Changes from Wrangler-0.3---------------
+
+-- A number of bugs reported by dialyzer has been fixed.
+
+---------------------------Changes from Wrangler-0.2------------------
+
+-- new refactorings:
+   ++ Tuple function arguments.
+
+-- A number of bugs have been fixed.
+
 
 ---------------------------Changes from wrangler-0.1------------------
 -- new refactorings:
@@ -97,9 +152,28 @@ JUST YET!
   -- operators are now distinguished from expressions. 
   -- for renaming variable/function names, error messages are now
      disabled when the new name is the same as the old name. 
-  -- More checkings have been added when appy/spawn/spawn_link is used.
+  -- More checking has been added when appy/spawn/spawn_link is used.
   -- bug fix within side-effect calculation. 
-  -- further checkings has been added to detect whether undicidablity really    
+  -- further checking has been added to detect whether undicidablity really    
      occurs when 'apply' is used. 
   -- generalise a function definition: the new parameter name captured laterly  
      introduce variables with the same name.
+
+---------------------------Changes from wrangler-0.2-------------------
+-- new refactorings:
+  ++ Function extraction.
+  ++ Folding against a function definition.
+
+-- Duplicated code detection.
+  ++ Expression search.
+  ++ Duplicated code search across multiple modules. 
+
+-- bugfix
+   -- With 'generalisation', Wrangler now asks the user in the case that it 
+   cannot decide whether the selected expression has side effect or not.
+   -- fixed the path problem with finding the side effect table.
+   -- Wrangler now keeps two side effect tables, one for the libraries and one 
+      for the user's own code. 
+   -- rewrote the module graph calculation algorithm.
+    
+   
