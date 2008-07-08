@@ -1247,28 +1247,34 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 (defun erl-refactor-undo(node)
   "Undo the latest refactoring."
   (interactive (list (erl-target-node)))
-  (let ((line-no    (current-line-no))
-        (buffer (current-buffer)))
-    (erl-spawn
-      (erl-send-rpc node 'wrangler_distel 'undo (list))
-      (erl-receive (buffer)
-	  ((['rex ['badrpc rsn]]
-	    (message "Undo failed: %S" rsn))
-	   (['rex ['error rsn]]
-	    (message "Undo failed: %s" rsn))
-	   (['rex ['ok modified]]
-	      (dolist (f modified)
-		(let ((oldfilename (car f))
-		      (newfilename (car (cdr f)))
-		      (buffer (get-file-buffer (car (cdr f)))))
-		      (if buffer (if (not (equal oldfilename newfilename))
-		    		      (with-current-buffer buffer
+  (let (buffer (current-buffer))
+       (let (modified)
+	 (dolist (b (buffer-list) modified)
+	   (let* ((n (buffer-name b)) (n1 (substring n 0 1)))
+	     (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
+		 (setq modified (cons (buffer-name b) modified)))))
+	 (if modified (message-box (format "there are modified buffers: %s" modified))
+	   (if (yes-or-no-p "Undo a refactoring will also undo the editings done after the refactoring, undo anyway?")
+	   (erl-spawn
+	     (erl-send-rpc node 'wrangler_distel 'undo (list))
+	     (erl-receive (buffer)
+		 ((['rex ['badrpc rsn]]
+		   (message "Undo failed: %S" rsn))
+		  (['rex ['error rsn]]
+		   (message "Undo failed: %s" rsn))
+		  (['rex ['ok modified1]]
+		   (dolist (f modified1)
+		     (let ((oldfilename (car f))
+		       (newfilename (car (cdr f)))
+		       (buffer (get-file-buffer (car (cdr f)))))
+		       (if buffer (if (not (equal oldfilename newfilename))
+				      (with-current-buffer buffer
 					(progn (set-visited-file-name oldfilename)
 					       (revert-buffer nil t t)))
-					    ;;   (delete-file newfilename)))
-				   (with-current-buffer buffer (revert-buffer nil t t)))
-			  nil)))
-            (message "Undo succeeded!")))))))
+				    ;;   (delete-file newfilename)))
+				    (with-current-buffer buffer (revert-buffer nil t t)))
+			 nil)))
+		   (message "Undo succeeded!"))))))))))
 
 
 (defun erl-refactor-rename-var (node name)
@@ -1279,7 +1285,7 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
   (let ((current-file-name (buffer-file-name))
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
-	(buffer (current-buffer)))       
+	(buffer (current-buffer)))
     (erl-spawn
       (erl-send-rpc node 'wrangler_distel 'rename_var (list current-file-name line-no column-no name erlang-refac-search-paths))
       (erl-receive (buffer)
@@ -1374,10 +1380,10 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	    (message "Refactoring failed: %S" rsn))
 	   (['rex ['error rsn]]
 	    (message "Refactoring failed: %s" rsn))
-	   (['rex ['registered pars]]
+	   (['rex ['unknown_value pars]]
 	    (if (yes-or-no-p "Do you want to continue the refactoring?")
 		(erl-spawn
-		  (erl-send-rpc node 'wrangler_distel 'register_pid
+		  (erl-send-rpc node 'refac_register_pid 'register_pid_1
 				(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name erlang-refac-search-paths))
 		  (erl-receive (buffer)
 		      ((['rex ['badrpc rsn]]
@@ -1387,7 +1393,21 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 		       (['rex ['ok modified]]
 			(with-current-buffer buffer (revert-buffer nil t t))
 			(message "Refactoring succeeded!")))))
-	      (message "Refactoring aborted!")))	      
+	      (message "Refactoring aborted!")))
+	    (['rex ['registered pars]]
+	    (if (yes-or-no-p "Do you want to continue the refactoring?")
+		(erl-spawn
+		  (erl-send-rpc node 'refac_register_pid 'register_pid_2
+				(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name erlang-refac-search-paths))
+		  (erl-receive (buffer)
+		      ((['rex ['badrpc rsn]]
+			(message "Refactoring failed: %S" rsn))
+		       (['rex ['error rsn]]
+			(message "Refactoring failed: %s" rsn))
+		       (['rex ['ok modified]]
+			(with-current-buffer buffer (revert-buffer nil t t))
+			(message "Refactoring succeeded!")))))
+	      (message "Refactoring aborted!")))
 	   (['rex ['ok modified]]
 	    (with-current-buffer buffer
 	      (dolist (f modified)
