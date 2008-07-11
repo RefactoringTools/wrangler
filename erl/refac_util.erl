@@ -39,16 +39,16 @@
 	 is_exported/2, inscope_funs/1,
          once_tdTU/3, stop_tdTP/3, full_buTP/3,
          pos_to_fun_name/2, pos_to_fun_def/2,pos_to_var_name/2,
-         pos_to_expr/3, expr_to_fun/2,get_range/1, get_var_exports/1, 
-	 get_env_vars/1, get_bound_vars/1, get_free_vars/1, 
+         pos_to_expr/3, expr_to_fun/2,get_range/1,get_toks/1, concat_toks/1, tokenize/1,
+         get_var_exports/1, get_env_vars/1, get_bound_vars/1, get_free_vars/1, 
          get_client_files/2, expand_files/2, get_modules_by_file/1,
          reset_attrs/1, update_ann/2,
-         parse_annotate_file/3,tokenize/1, write_refactored_files/1,
+         parse_annotate_file/3,write_refactored_files/1,
          build_lib_side_effect_tab/1, build_local_side_effect_tab/2,
 	 build_call_graph/1, has_side_effect/3,
          callback_funs/1,auto_imported_bifs/0]).
 
--export([analyze_free_vars/1, build_call_graph/2]).
+-export([analyze_free_vars/1, build_call_graph/2, build_call_graph/3]).
 
 -export([update_var_define_locations/1]).
 
@@ -456,6 +456,8 @@ get_range(Node) ->
 	   ?DEFAULT_LOC} 
     end.
 
+
+
 %% =====================================================================
 %% @spec get_var_exports(Node::syntaxTree())-> [atom()]
 %% @doc Return the exported variables of an AST node.
@@ -706,23 +708,50 @@ tokenize(File) ->
       _ -> []
     end.
 
-
-%% concat_toks(File) ->
-%%     Toks = tokenize(File),
-%%     Res =concat_toks(Toks, ""),
-%%     io:format(Res),
-%%     ok.
-
-%% concat_toks([], Acc) ->
-%%     lists:concat(lists:reverse(Acc));
-%% concat_toks([T|Ts], Acc) ->
-%%     case T of 
-%% 	{_, _, V} -> concat_toks(Ts, [V|Acc]);
-%% 	{dot, _} ->concat_toks(Ts, ['.'|Acc]);
-%%         {V, _} ->
-%% 	    concat_toks(Ts, [V|Acc])
+%% tokenize1(File) ->
+%%     {ok, Bin} = file:read_file(File),
+%%     S = erlang:binary_to_list(Bin),
+%%     case refac_scan_with_layout:string(S) of
+%%       {ok, Toks, _} ->
+%% 	    Res = concat_toks(Toks),
+%%       _ -> []
 %%     end.
-	 
+
+
+concat_toks(Toks) ->
+    concat_toks(Toks, "").
+
+concat_toks([], Acc) ->
+     lists:concat(lists:reverse(Acc));
+concat_toks([T|Ts], Acc) ->
+     case T of 
+	{atom, _, V} -> S = case is_upper(hd(atom_to_list(V))) of 
+				true -> "'"++atom_to_list(V)++"'";
+				_ -> V
+			    end,
+			concat_toks(Ts, [S|Acc]);
+	{string, _, V} -> concat_toks(Ts, ['"', process_str(V), '"'|Acc]);
+	{_, _, V} -> concat_toks(Ts, [V|Acc]);
+ 	{dot, _} ->concat_toks(Ts, ['.'|Acc]);
+	{V, _} -> concat_toks(Ts, [V|Acc])
+    end.
+
+process_str(S) ->
+    lists:flatmap(fun(C) ->
+			  case C of 
+			      ' ' -> [C];
+			      $\n -> "\\n";
+			    %%  $\s  -> "\\s";
+			      $\r ->  "\\r";
+			      $\t -> "\\t";
+			      $\v -> "\\v";
+			      $\b -> "\\f";
+			      $\f -> "\\f";
+			      $\e -> "\\e";
+			      $\d -> "\\d";
+			      _ -> [C]
+			  end
+		  end, S).
 	    
 %% =====================================================================
 %% @spec parse_annotate_file(FName::filename(), ByPassPreP::bool(), SearchPaths::[dir()])
@@ -770,8 +799,6 @@ tokenize(File) ->
 %%  representation is a subset of the <code>syntaxTree()</code> representation.
 %% 
 %%  For the data structures used by the AST nodes, please refer to <a href="refac_syntax.html"> refac_syntax </a>.
-
-
 parse_annotate_file(FName, ByPassPreP, SearchPaths) ->
     R = case ByPassPreP of
 	  true -> refac_epp_dodger:parse_file(FName);
@@ -785,21 +812,104 @@ parse_annotate_file(FName, ByPassPreP, SearchPaths) ->
 	  Comments = erl_comment_scan:file(FName),
 	  SyntaxTree = refac_recomment:recomment_forms(Forms, Comments),
 	  Info = refac_syntax_lib:analyze_forms(SyntaxTree),
-	  case lists:keysearch(errors,1,Info) of
-	        {value,{errors, Error}} ->
-	  	  {error, {"Syntax error in file: " ++ FName++".", Error}};
-	      _ ->
-		  AnnAST = annotate_bindings(FName, SyntaxTree, Info, 1),
-		  if ByPassPreP -> {ok, {AnnAST, Info}};
-		     true ->
-			  case analyze_free_vars(AnnAST) of
-			      {error, Reason} -> {error, Reason};
-			      _ ->   {ok, {AnnAST, Info}}
-			  end
-		  end
-	  end;
+%% 	  case lists:keysearch(errors,1,Info) of
+%% 	        {value,{errors, Error}} ->
+%% 	  	  {error, {"Syntax error in file: " ++ FName++".", Error}};
+%% 	      _ ->
+	    AnnAST = annotate_bindings(FName, SyntaxTree, Info, 1),
+	    if ByPassPreP -> 
+		    {ok, {AnnAST, Info}};
+	       true ->
+		    case analyze_free_vars(AnnAST) of
+			{error, Reason} -> {error, Reason};
+			_ ->   {ok, {AnnAST, Info}}
+		    end
+	    end;
 	{error, Reason} -> {error, Reason}
     end.
+
+%%@spec add_tokens(FName::filename(), SyntaxTree::syntaxTree()) -> SyntaxTree()
+%%@Attach tokens to each form in the AST.
+add_tokens(FName, SyntaxTree) ->
+    {ok, Bin} = file:read_file(FName),
+    {ok, Toks,_} =refac_scan_with_layout:string(erlang:binary_to_list(Bin)),
+    Fs = refac_syntax:form_list_elements(SyntaxTree),
+    Fs1 = do_add_tokens(Toks, Fs),
+    refac_syntax:copy_attrs(SyntaxTree, refac_syntax:form_list(Fs1)).
+
+do_add_tokens(Toks, Fs) ->
+    do_add_tokens(Toks, lists:reverse(Fs), []).
+
+do_add_tokens([], [], NewFs) ->
+     NewFs;
+do_add_tokens(Toks, [F|Fs], NewFs)->
+    StartPos =
+	case refac_syntax:type(F) of 
+	    error_marker ->
+		case Fs of 
+		    [] -> {1,1};
+		    _ -> {_, {Line, _Col}} = get_range(hd(Fs)),  %% No consecutive error_marker, correct? 
+			 {Line+1,1} %% Assume a form always starts from a new line.		      
+		end;
+	    _ -> case refac_syntax:get_precomments(F) of 
+		     [] -> {Start, _End} = get_range(F),
+			   Start;
+		     [Com|_Tl] -> {Line, Col}=refac_syntax:get_pos(Com),
+				  {Line, Col+1}
+		 end
+	end,
+    {Toks1, Toks2} = lists:splitwith(fun(T) -> element(2,T) < StartPos end, Toks),
+    {Toks11, Toks12} = lists:splitwith(fun(T) -> element(1,T) == whitespace end, lists:reverse(Toks1)),
+    {FormToks, RemainToks} = case Toks12 of 
+				 [] ->  {lists:reverse(Toks11)++Toks2,[]};
+				 [H|_T] -> Line1 = element(1, element(2, H)), 
+					   {Toks13, Toks14} = lists:splitwith(fun(T) -> element(1, element(2,T)) == Line1 end, lists:reverse(Toks11)),
+					   {Toks14++Toks2, lists:reverse(Toks12)++Toks13}					
+			     end,
+    F1 =refac_syntax:add_ann({toks, FormToks}, F),
+    do_add_tokens(RemainToks, Fs, [F1|NewFs]).
+	    
+	    
+%% do_add_tokens(Toks, Fs) ->   
+%%    F = fun(Form, RemToks) ->
+%% 	       StartPos =case refac_syntax:get_precomments(Form) of 
+%% 			     [] -> {Start, _End} = get_range(Form),
+%% 				   Start;
+%% 			     [Com|_Tl] -> {Line, Col}=refac_syntax:get_pos(Com),
+%% 					  {Line, Col+1}
+%% 			 end,
+%% 	       io:format("StartPos:\n~p\n",[StartPos]),
+%% 	       {Toks1, Toks2} = lists:splitwith(fun(T) -> element(2,T) < StartPos end, RemToks),
+%% 	       {Toks11, Toks12} = lists:splitwith(fun(T) -> element(1,T) == whitespace end, lists:reverse(Toks1)),
+%% 	       {FormToks, RemainToks} = case Toks12 of 
+%% 					    [] ->  {lists:reverse(Toks11)++Toks2,[]};
+%% 					    [H|_T] -> Line1 = element(1, element(2, H)), 
+%% 						     {Toks13, Toks14} = lists:splitwith(fun(T) -> element(1, element(2,T)) == Line1 end, lists:reverse(Toks11)),
+%% 						     {Toks14++Toks2, lists:reverse(Toks12)++Toks13}					
+%% 					end,
+%% 	       Form1 =refac_syntax:add_ann({toks, FormToks}, Form),
+%% 	       {Form1, RemainToks}						
+%%        end,
+    
+%%    {Fs1, []} =lists:mapfoldl(F, Toks, lists:reverse(Fs)),
+%%     lists:reverse(Fs1).
+		
+
+
+%% ============================================================================
+%% @spec get_toks(Node::syntaxTree())-> [Tok]
+%%       
+%%
+%% @doc Return the token list annoated to a form.
+
+get_toks(Node) ->
+    As = refac_syntax:get_ann(Node),
+    case lists:keysearch(toks, 1, As) of
+      {value, {toks, Toks}} -> Toks;
+      _ -> []
+    end.
+		
+     
 
 
 %%@spec analyze_free_vars(SyntaxTree::syntaxTree()) ->ok|{error, string()} 
@@ -828,13 +938,14 @@ annotate_bindings(FName, AST, Info, AnnotateLevel) ->
     AnnAST0 = refac_syntax_lib:annotate_bindings(AST, ordsets:new()),
     AnnAST1 = update_var_define_locations(AnnAST0),
     AnnAST2 = add_category(AnnAST1),
-   case AnnotateLevel of
-      0 -> add_range(FName, AnnAST2);
-      1 ->
-	  AnnAST3 = adjust_locations(FName, AnnAST2),
-	  AnnAST4 = add_fun_define_locations(AnnAST3, Info),
-	  add_range(FName, AnnAST4)
-    end.
+    AnnAST3 =case AnnotateLevel of
+		 0 -> add_range(FName, AnnAST2);
+		 1 ->
+		     AnnAST4 = adjust_locations(FName, AnnAST2),
+		     AnnAST5 = add_fun_define_locations(AnnAST4, Info),
+		     add_range(FName, AnnAST5)
+	     end,
+    add_tokens(FName, AnnAST3).
 
 %% Add  start and end location to each AST node.
 add_range(FName, AST) ->
@@ -991,14 +1102,17 @@ do_add_range(Node, Toks) ->
 	  Args = refac_syntax:attribute_arguments(Node),
 	  case Args of  
 	      none -> {S1, E1} = get_range(Name),
-		      refac_syntax:add_ann({range, {S1, E1}}, Node);
+		      S11 = extend_forwards(Toks, S1, '-'),
+		      refac_syntax:add_ann({range, {S11, E1}}, Node);
 	      _ -> case length(Args) >0 of 
 		       true ->  Arg = glast("refac_util:do_add_range,attribute", Args),
 				{S1, _E1} = get_range(Name),
 				{_S2, E2} = get_range(Arg),
-				refac_syntax:add_ann({range, {S1, E2}}, Node);
+				S11 = extend_forwards(Toks, S1, '-'),
+				refac_syntax:add_ann({range, {S11, E2}}, Node);
 		       _ ->  {S1, E1} = get_range(Name),
-			     refac_syntax:add_ann({range, {S1, E1}}, Node)
+			     S11 = extend_forwards(Toks, S1, '-'),
+			     refac_syntax:add_ann({range, {S11, E1}}, Node)
 		   end
 	  end;
       generator ->
@@ -1169,7 +1283,7 @@ do_add_range(Node, Toks) ->
       macro ->
 	  Name = refac_syntax:macro_name(Node),
 	  Args = refac_syntax:macro_arguments(Node),
-	  {S1, E1} = get_range(Name),
+	  {S1, E1} = get_range(Name), 
 	  case Args of
 	    none -> refac_syntax:add_ann({range, {S1, E1}}, Node);
 	    Ls ->
@@ -1183,6 +1297,8 @@ do_add_range(Node, Toks) ->
 	  {S1, _E1} = get_range(Body),
 	  {_S2, E2} = get_range(Arg),
 	  refac_syntax:add_ann({range, {S1, E2}}, Node);
+      error_marker ->
+	  refac_syntax:add_ann({range, {{L,C}, {L,C}}}, Node);
       _ ->
 	  %%io:format("Unhandled syntax category:\n~p\n", [refac_syntax:type(Node)]),
 	  %%io:format("Node:\n~p\n", [Node]),
@@ -1494,16 +1610,25 @@ add_fun_define_locations(Node,
 has_side_effect(File, Node, SearchPaths) ->
     LibSideEffectFile = filename:join(?WRANGLER_DIR, "plt/side_effect_plt"),
     LibPlt = from_dets(lib_side_effect_plt, LibSideEffectFile),
-    CurrentDir = filename:dirname(normalise_file_name(File)),
-    LocalSideEffectFile = filename:join(CurrentDir, "local_side_effect_tab"),
-    build_local_side_effect_tab(LocalSideEffectFile, SearchPaths),
-    LocalPlt = from_dets(local_side_effect_plt, LocalSideEffectFile),
-    Res = check_side_effect(Node, LibPlt, LocalPlt),
-    dets:close(LibSideEffectFile),
-    dets:close(LocalSideEffectFile),
-    ets:delete(LocalPlt),
-    ets:delete(LibPlt),
-    Res.
+    Res = check_side_effect(Node, LibPlt, none), 
+    case Res of 
+	true ->  dets:close(LibSideEffectFile),
+		 ets:delete(LibPlt),
+		 true;
+	false ->  dets:close(LibSideEffectFile),
+		  ets:delete(LibPlt),
+		  false;
+	unknown ->  CurrentDir = filename:dirname(normalise_file_name(File)),
+		    LocalSideEffectFile = filename:join(CurrentDir, "local_side_effect_tab"),
+		    build_local_side_effect_tab(LocalSideEffectFile, SearchPaths),
+		    LocalPlt = from_dets(local_side_effect_plt, LocalSideEffectFile),
+		    Res = check_side_effect(Node, LibPlt, LocalPlt),
+		    dets:close(LibSideEffectFile),
+		    dets:close(LocalSideEffectFile),
+		    ets:delete(LocalPlt),
+		    ets:delete(LibPlt),
+		    Res
+    end.
 
 
 %%=================================================================
@@ -1590,6 +1715,7 @@ side_effect_scc([{{_M, _F, _A}, Def}, F | Left], Side_Effect_Tab, OtherTab) ->
 side_effect_scc([{{_M, _F, _A}, Def}], Side_Effect_Tab, OtherTab) ->
     check_side_effect(Def, Side_Effect_Tab, OtherTab).
 
+
 check_side_effect(Node, LibPlt, LocalPlt) ->
     case refac_syntax:type(Node) of
       receive_expr -> true;
@@ -1604,9 +1730,12 @@ check_side_effect(Node, LibPlt, LocalPlt) ->
 		case lookup(LibPlt, {M, Op, Arity}) of
 		  {value, S} -> S;
 		  _ ->
-		      case lookup(LocalPlt, {M, Op, Arity}) of
-			{value, S} -> S;
-			_ -> unknown
+		      case LocalPlt of 
+			  none -> unknown;
+			  _ -> case lookup(LocalPlt, {M, Op, Arity}) of
+				   {value, S} -> S;
+				   _ -> unknown
+			       end			  
 		      end
 		end;
 	    module_qualifier ->
@@ -1619,9 +1748,12 @@ check_side_effect(Node, LibPlt, LocalPlt) ->
 		      case lookup(LibPlt, {M, Op, Arity}) of
 			{value, S} -> S;
 			_ ->
-			    case lookup(LocalPlt, {M, Op, Arity}) of
-			      {value, S} -> S;
-			      _ -> unknown
+			    case LocalPlt of 
+				none -> unknown;
+				_ -> case lookup(LocalPlt, {M, Op, Arity}) of
+					 {value, S} -> S;
+					 _ -> unknown
+				     end
 			    end
 		      end;
 		  _ -> unknown
@@ -1639,27 +1771,30 @@ check_side_effect(Node, LibPlt, LocalPlt) ->
 		case lookup(LibPlt, {M, FunName, Arity}) of
 		  {value, S} -> S;
 		  _ ->
-		      case lookup(LocalPlt, {M, FunName, Arity}) of
-			{value, S} -> S;
-			_ -> unknown
-		      end
+			case LocalPlt of 
+			    none -> unknown;
+			    _ ->case lookup(LocalPlt, {M, FunName, Arity}) of
+				    {value, S} -> S;
+				    _ -> unknown
+				end
+			end			
 		end;
-	    _ -> unknown
+	      _ -> unknown
 	  end;
-      _ ->
-	  case refac_syntax:subtrees(Node) of
-	    [] -> false;
-	    Ts ->
-		Res = lists:flatten([[check_side_effect(T, LibPlt, LocalPlt) || T <- G] || G <- Ts]),
-		case lists:member(true, Res) of
-		  true -> true;
-		  false ->
-		      case lists:member(unknown, Res) of
-			true -> unknown;
-			_ -> false
-		      end
-		end
-	  end
+	_ ->
+	    case refac_syntax:subtrees(Node) of
+		[] -> false;
+		Ts ->
+		    Res = lists:flatten([[check_side_effect(T, LibPlt, LocalPlt) || T <- G] || G <- Ts]),
+		    case lists:member(true, Res) of
+			true -> true;
+			false ->
+			    case lists:member(unknown, Res) of
+				true -> unknown;
+				_ -> false
+			    end
+		    end
+	    end
     end.
 
 lookup(Plt, {M, F, A}) ->
