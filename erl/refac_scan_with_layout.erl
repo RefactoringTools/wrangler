@@ -47,7 +47,7 @@
 
 -module(refac_scan_with_layout).
 
--export([tring/1,string/2, tokens/3]).
+-export([string/1,string/2, tokens/3]).
 
 -import(lists, [member/2, reverse/1]).
 

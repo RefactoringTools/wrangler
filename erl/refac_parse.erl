@@ -445,7 +445,8 @@ parse(Tokens) ->
 	    Errorline =
 		if Tokens == [] -> 0; true -> element(2, hd(Tokens)) end,
 	    {error,
-	     {Errorline, ?MODULE, "syntax error at or after this line."}};
+	      {Errorline, ?MODULE, ["syntax error at or after this line."]}}; 
+	   
 	Other ->
 	    Other
     end.
@@ -490,8 +491,8 @@ yeccpars1([], {M, F, A}, State, States, Vstack) ->
 	    case catch yeccpars1(Tokens, {M, F, A}, State, States, Vstack) of
 		error ->
 		    Errorline = element(2, hd(Tokens)),
-		    {error, {Errorline, ?MODULE,
-			     "syntax error at or after this line."}};
+ 		    {error, {Errorline, ?MODULE,
+ 			     ["syntax error at or after this line."]}};
 		Other ->
 		    Other
 	    end
@@ -501,10 +502,10 @@ yeccpars1([], false, State, States, Vstack) ->
 
 % For internal use only.
 yeccerror(Token) ->
-    {error,
-     {element(2, Token), ?MODULE,
-      ["syntax error before: ", yecctoken2string(Token)]}}.
-
+     {error,
+      {element(2, Token), ?MODULE,
+       ["syntax error before: ", yecctoken2string(Token)]}}.
+ 
 yecctoken2string({atom, _, A}) -> io_lib:write(A);
 yecctoken2string({integer,_,N}) -> io_lib:write(N);
 yecctoken2string({float,_,F}) -> io_lib:write(F);

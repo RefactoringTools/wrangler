@@ -85,8 +85,6 @@ fixpoint(Funs, TypeSigPid) ->
  	{TypeSigPid, Env1} ->
  	    Env1
      end,
-     %%io:format("Env0:\n~p\n",[Env]),
-     %%io:format("Env1:\n~p\n",[Env1]),
      case Env==Env1 of
  	true ->
  	    TypeSigPid!stop,
@@ -97,7 +95,7 @@ fixpoint(Funs, TypeSigPid) ->
 
 
 update_function(File, FunList) ->
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(File, true, []),
+    {ok, {AnnAST, Info}} = refac_register_pid:get_ast(File),
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     F = fun (Node, []) ->
 		case refac_syntax:type(Node) of
@@ -113,7 +111,8 @@ update_function(File, FunList) ->
 		end
 	end,
     {AnnAST1, _} = refac_util:stop_tdTP(F, AnnAST, []),
-    AnnAST1.
+     ast_server ! {update, {File, {AnnAST1, Info}}},
+    ok.
 
 
 annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
@@ -125,7 +124,7 @@ annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
 		  EnvPid ! {self(), get, {def, DefinePos}},
 		  receive
 		      {EnvPid, value, Value} -> 
-			  io:format("Value:\n~p\n", [Value]),
+			%%  io:format("Value:\n~p\n", [Value]),
 			  refac_util:update_ann(Node, Value);
 		      {EnvPid, false} -> Node
 		  end;
@@ -363,21 +362,7 @@ do_annotate_special_fun_apps(Node, {CurrentFun, EnvPid}) ->
 			    Node1 = refac_util:update_ann(Node, {pid, [{self, CurrentFun}]}),
 			    {Node1, true};
 			_ ->
-			   %%  case is_register_app(Node) of 
-%% 				true -> Operator = refac_syntax:application_operator(Node),
-%% 					[RegName, Pid] = refac_syntax:application_arguments(Node),
-%% 					RegName1 = refac_util:update_ann(RegName, {pid, [{register, Pid}]}),
-%% 					Node1 = refac_syntax:application(Operator, [RegName1, Pid]),
-%% 					case refac_syntax:type(RegName) of 
-%% 					    variable -> Ann = refac_syntax:get_ann(RegName), 
-%% 							{value, {def, DefinePos}} = lists:keysearch(def, 1, Ann),
-%% 							EnvPid ! {add, {{def, DefinePos},{pid, [{register, Pid}]}}};
-%% 					    _ -> ok
-%% 					end,								       
-%% 					{refac_syntax:copy_attrs(Node, Node1), true};
-%%				_ -> {Node, true}
 			    {Node, true}
-%%			    end			
 		    end
 	    end;
 	_ -> {Node, false}
@@ -435,10 +420,8 @@ is_send_expr(Tree) ->
     end.
 
 %% sort functions according to calling relationship and remove functions which are not process related.
-sort_funs(Files) ->
-    CallGraph = refac_util:build_call_graph(Files, []),
-    #callgraph{scc_order = Sccs, external_calls = _E} = refac_callgraph:construct(CallGraph),
-    CallerCallee = lists:map(fun ({{Caller, _CallerDef}, Callee}) -> {Caller, Callee} end, CallGraph),
+sort_funs(DirList) ->
+   {CallerCallee, Sccs, _E} = refac_register_pid:get_call_graph(DirList),
     TrimmedSccs = trim_scc(Sccs, CallerCallee, [], []),
     lists:append(TrimmedSccs).
 

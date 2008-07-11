@@ -68,7 +68,7 @@ forward_slice_1(Files, AnnAST, ModName, {FunDef, Expr}) ->
 				   end
 		     end,	 
 		 case CallerFuns of 
-		     [] -> [];
+		     [] -> get_all_sliced_funs();
 		     _ ->  SliceCriterion = lists:flatmap(fun(FunDef1) -> AppExprs = refac_syntax_lib:fold(F, [], FunDef1),
 								     lists:map(fun(E) -> {FunDef1, E} end, AppExprs)
 						      end, CallerFuns),
@@ -200,7 +200,7 @@ rm_unrelated_exprs(AnnAST, ModName,[E |Exprs], Vars) ->
 		     true ->
 			 Env = refac_util:get_env_vars(E),
 			 E1 = process_fun_applications(AnnAST, ModName, E, Vars),
-			 E2 = refac_syntax_lib:annotate_bindings(refac_util:reset_attrs(E1), Env),
+			 E2 = refac_syntax_lib:annotate_bindings(reset_attrs(E1), Env),
 			 FreeVars1 = refac_util:get_free_vars(E2),
 			 case FreeVars1 --Vars =/= FreeVars1 of 
 			     true ->
@@ -557,7 +557,7 @@ process_expr(LastExpr, Expr) ->
 	%% Any other possibilities?
 	_ -> refac_syntax:tuple([refac_syntax:atom(error), refac_syntax:atom("Error with evaluation")])
     end.
-
+ 
 
 %% this is the function that does the backward slicing.
 rm_unused_exprs([]) -> [];
