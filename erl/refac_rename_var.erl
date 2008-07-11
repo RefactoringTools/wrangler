@@ -53,68 +53,57 @@ rename_var_eclipse(FName, Line, Col, NewName, SearchPaths) ->
     rename_var(FName, Line, Col, NewName, SearchPaths, eclipse).
 
 rename_var(FName, Line, Col, NewName, SearchPaths, Editor) ->
-    io:format("\n[CMD: rename_var, ~p, ~p, ~p, ~p, "
-	      "~p]\n",
-	      [FName, Line, Col, NewName, SearchPaths]),
+    io:format("\n[CMD: rename_var, ~p, ~p, ~p, ~p, ~p]\n", [FName, Line, Col, NewName, SearchPaths]),
     case refac_util:is_var_name(NewName) of
-      true ->
-	  case refac_util:parse_annotate_file(FName, false, SearchPaths) of
-	    {ok, {AnnAST, _Info0}} ->
-		NewName1 = list_to_atom(NewName), 
-		  case refac_util:parse_annotate_file(FName, true, SearchPaths) of
-		  {ok, {AnnAST1, _Info1}} ->
-		      case refac_util:pos_to_var_name(AnnAST, {Line, Col}) of
-			{ok, {VarName, DefinePos, C}} ->
-			    if DefinePos == [{0, 0}] -> {error, "Renaming of a free variable is not supported!"};
-			       true ->
-				   if VarName /= NewName1 ->
-					  case C of
-					    macro_name ->
-						{error,
-						 "Sorry, renaming of macro names is not "
-						 "supported yet."};
-					    _ ->
-						  case cond_check(AnnAST1, DefinePos, NewName1) of
-						      {true, _} ->
-							{error,
-						       "New name already declared in the same "
-						       "scope."};
-						    {_, true} -> {error, "New name could cause name shadowing."};
-						    _ ->
-							  {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
-						     %%  case post_refac_check(FName, AnnAST2, SearchPaths) of
-%% 							ok ->
-							  case Editor of 
-							      emacs ->
-								  refac_util:write_refactored_files([{{FName, FName}, AnnAST2}]),
-								  {ok, "Refactor succeeded"};
-							      eclipse ->
-								 {ok, [{FName, FName, refac_prettypr:print_ast(AnnAST2)}]}
-							  end 
-  
-						%% 	error ->
-%% 							    {error,
-%% 							     "Sorry,wrangler could not rename this "
-%% 							     "variable."}
-%% 						      end
-						  end
-					  end;
-				      true ->
-					   case Editor of 
-					       emacs ->
-						   refac_util:write_refactored_files([{{FName, FName}, AnnAST1}]),
-						   {ok, "Refactor succeeded"};
-					       _ ->
-						  {ok, [{FName, FName, refac_prettypr:print_ast(AnnAST1)}]}  
-					   end
-				   end
+	true ->
+	    case refac_util:parse_annotate_file(FName, false, SearchPaths) of
+		{ok, {AnnAST, _Info0}} ->
+		    NewName1 = list_to_atom(NewName), 
+		    case refac_ast_server:get_ast(FName) of
+			{ok, {AnnAST1, _Info1}} ->
+			    case refac_util:pos_to_var_name(AnnAST, {Line, Col}) of
+				{ok, {VarName, DefinePos, C}} ->
+				    if DefinePos == [{0, 0}] -> {error, "Renaming of a free variable is not supported!"};
+				       true ->
+					    if VarName /= NewName1 ->
+						    case C of
+							macro_name ->
+							    {error, "Sorry, renaming of macro names is not supported yet."};
+							_ ->
+							    case cond_check(AnnAST1, DefinePos, NewName1) of
+								{true, _} ->
+								    {error,
+								     "New name already declared in the same scope."};
+								{_, true} -> {error, "New name could cause name shadowing."};
+								_ ->
+								    {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
+								    %%  case post_refac_check(FName, AnnAST2, SearchPaths) of
+								    %% 							ok ->
+								    case Editor of 
+									emacs ->
+									    refac_util:write_refactored_files([{{FName, FName}, AnnAST2}]),
+									    {ok, "Refactor succeeded"};
+									eclipse ->
+									    {ok, [{FName, FName, refac_prettypr:print_ast(AnnAST2)}]}
+								    end 
+  							    end
+						    end;
+					       true ->
+						    case Editor of 
+							emacs ->
+							    refac_util:write_refactored_files([{{FName, FName}, AnnAST1}]),
+							    {ok, "Refactor succeeded"};
+							_ ->
+							    {ok, [{FName, FName, refac_prettypr:print_ast(AnnAST1)}]}  
+						    end
+					    end
+				    end;
+				{error, _Reason} -> {error, "You have not selected a variable name, or the variable selected does not belong to a syntactically well-formed function!"}
 			    end;
-			  {error, _Reason} -> {error, "You have not selected a variable name!"}
-		      end;
-		    {error, Reason} -> {error, Reason}
-		end;
-	      {error, Reason} -> {error, Reason}
-	  end;
+			{error, Reason} -> {error, Reason}
+		    end;
+		{error, Reason} -> {error, Reason}
+	    end;
 	false -> {error, "Invalid new variable name."}
     end.
 
