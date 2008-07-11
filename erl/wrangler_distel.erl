@@ -23,12 +23,19 @@
 -export([ rename_fun/5, rename_var/5, rename_mod/3, generalise/7, move_fun/6, tuple_to_record/8,
          duplicated_code_in_buffer/3, duplicated_code_in_dirs/3, expression_search/5, fun_extraction/6, fold_expression/3, tuple_funpar/5,
 	 instrument_prog/2, uninstrument_prog/2, add_a_tag/5,register_pid/7, fun_to_process/5,
-         undo/0, start_undo_process/0, stop_undo_process/0, undo_init/0]).
+	 start_processes/1, stop_processes/0, error_logger/1,
+         undo/0, undo_init/0]).
 
 
 rename_var(Fname, Line, Col, NewName, SearchPaths) ->
     case check_undo_process() of
-	ok -> wrangler:rename_var(Fname, Line, Col, NewName, SearchPaths);
+	ok -> Res=wrangler:rename_var(Fname, Line, Col, NewName, SearchPaths),
+	      case Res of 
+		  {ok, _} ->
+		      check_error_logger();
+		  {error, _} -> ok
+	      end,
+	      Res;		
 	{error, Reason} ->
 	    {error, Reason}
     end.
@@ -162,6 +169,21 @@ undo() ->
 	    Reply
     end.
     
+
+start_processes(SearchPaths) ->
+    start_undo_process(),
+    start_error_logger(),
+    refac_ast_server:start_ast_server(SearchPaths).
+    
+stop_processes() ->
+    stop_undo_process(),
+    unregister(refactor_undo),
+    stop_error_logger(),
+    unregister(error_logger),
+    refac_ast_server:stop_ast_server(),
+    unregister(ast_server).
+
+    
 start_undo_process() ->
     spawn_link(wrangler_distel, undo_init, []).
 
@@ -212,4 +234,50 @@ undo_loop(History) ->
 		       undo_loop(lists:sublist(History1,15)); %%KEEP 15 HISTORY VERSIONS. IS THIS ENOUGH?
 	stop -> ok    
     end.
-		       
+	
+start_error_logger() ->	       
+    Pid = spawn_link(wrangler_distel, error_logger, [[]]),
+    register(error_logger, Pid).
+
+stop_error_logger() ->
+    error_logger ! stop.
+
+init_error_logger() ->
+    error_logger ! init.
+
+check_error_logger() ->
+    error_logger ! {get, self()},
+    receive 
+	{error_logger, State} ->
+	    case State of 
+		[] ->
+		     ok;
+		_ ->
+		    io:format("\n===============================WARNING===============================\n"),
+		    io:format("Due to the following syntactical errors in the program, attributes/functions affected "
+			      "by these errors were not affected by this refactoring!\n"),
+		    lists:map(fun({FileName, Errors}) ->
+				      Errors1 = lists:map(fun({Pos, _Mod, Msg}) -> {Pos, Msg} end, Errors),
+				      io:format("File:\n ~p\n", [FileName]),
+				      io:format("Error(s):\n"),
+				      lists:map(fun({Pos, Msg}) -> io:format(" ** ~p:~s **\n", [Pos, Msg]) end, lists:reverse(Errors1)) %% lists:flatten(Msg)
+			      end, State)
+	    end
+    end,
+    init_error_logger().
+    
+
+error_logger(State) ->
+    receive
+	{add, Error} ->
+	    error_logger(lists:usort([Error|State]));
+	{get, From} ->
+	    From ! {error_logger, State},
+	    error_logger(State);
+	init -> 
+	    error_logger([]);
+	stop ->
+	    ok
+    end.
+
+    
