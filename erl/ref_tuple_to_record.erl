@@ -795,7 +795,7 @@ application_info(Node) ->
 	  end;
 	_ -> {{none, expressionoperator}, Arity}
       end;
-    _ -> erlang:error(not_an_application)
+    _ -> erlang:error(badarg)
   end.
 
 

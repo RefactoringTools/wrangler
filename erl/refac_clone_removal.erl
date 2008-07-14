@@ -36,7 +36,7 @@ collect_affected_files([{Range, _Len, _F}|Cs], Acc) ->
 do_clone_removal(Cs) ->
     Cs1 = process_clones(Cs),
     io:format("Cs1:\n~p\n",[Cs1]),
-    NewFuns = do_function_extraction(Cs1),
+    _NewFuns = do_function_extraction(Cs1),
      stop_env_process().
 %%     NewFuns1 = do_generalisation(NewFuns),
 %%     do_folding(NewFuns1)
@@ -50,7 +50,7 @@ process_clones([{[{{File, StartLine, StartCol}, {File,EndLine, EndCol}}|_Range],
     process_clones(Cs, [{File, {StartLine, StartCol}, {EndLine, EndCol}}|Acc]).
     
 group_by([]) -> [];
-group_by(Cs=[{File, StartLoc, EndLoc}|_T]) -> 
+group_by(Cs=[{File, _StartLoc, _EndLoc}|_T]) -> 
     {C1, C2} =lists:splitwith(fun({File1,_S,_E})-> File1 == File end, Cs),
     [C1 | group_by(C2)].
 
@@ -68,7 +68,7 @@ do_function_extraction_1(C) ->
     do_function_extraction_1(C, []).
 do_function_extraction_1([], Acc) ->
     Acc;
-do_function_extraction_1(Ranges=[{File,Start,End}|T], Acc) ->
+do_function_extraction_1(Ranges=[{File,_Start,End}|T], Acc) ->
     env ! {self(), get, File}, 
     receive
 	{env, value, {AnnAST,Info}} ->
@@ -113,23 +113,23 @@ new_function_name() ->
     "newfun" ++ integer_to_list(random:uniform(100)). 
     
 
-do_generalisation(NewFuns) ->
-    do_generalisation(NewFuns, []).
+%% do_generalisation(NewFuns) ->
+%%     do_generalisation(NewFuns, []).
 
-do_generalisation([], Acc) ->
-    Acc;
-do_generalisation([{FileName, NewFunName, Arity}|Funs], Acc) ->
-    {AnnAST2, Arity1} = refac_gen:generalise_1(FileName, list_to_atom(NewFunName), Arity),
-    file:write_file(FileName, list_to_binary(refac_prettypr:print_ast(AnnAST2))),
-    do_generalisation(Funs, [{FileName, NewFunName, Arity1}|Acc]).
+%% do_generalisation([], Acc) ->
+%%     Acc;
+%% do_generalisation([{FileName, NewFunName, Arity}|Funs], Acc) ->
+%%     {AnnAST2, Arity1} = refac_gen:generalise_1(FileName, list_to_atom(NewFunName), Arity),
+%%     file:write_file(FileName, list_to_binary(refac_prettypr:print_ast(AnnAST2))),
+%%     do_generalisation(Funs, [{FileName, NewFunName, Arity1}|Acc]).
 
 
-do_folding([]) ->
-    ok;
-do_folding([{FileName, NewFunName, Arity}|Funs]) ->
-    {AnnAST3, Info} = refac_fold_expression:fold_expression_1(FileName, list_to_atom(NewFunName), Arity),
-    file:write_file(FileName, list_to_binary(refac_prettypr:print_ast(AnnAST3))),
-    do_folding(Funs).
+%% do_folding([]) ->
+%%     ok;
+%% do_folding([{FileName, NewFunName, Arity}|Funs]) ->
+%%     {AnnAST3, _Info} = refac_fold_expression:fold_expression_1(FileName, list_to_atom(NewFunName), Arity),
+%%     file:write_file(FileName, list_to_binary(refac_prettypr:print_ast(AnnAST3))),
+%%     do_folding(Funs).
 
 	    
 start_env_process() ->

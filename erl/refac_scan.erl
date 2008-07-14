@@ -140,7 +140,7 @@ tokens({Cs, Stack, Toks, {Line, Col}, State, Errors,
 
 %% String
 more(Cs, Stack, Toks, {Line, Col}, eos, Errors, Fun) ->
-    erlang:fault(badstate,
+    erlang:error(badstate,
 		 [Cs, Stack, Toks, {Line, Col}, eos, Errors, Fun]);
 % %% Debug clause for chopping string into 1-char segments
 % more(Cs, Stack, Toks, Pos, [H|T], Errors, Fun) ->
@@ -149,7 +149,7 @@ more(Cs, Stack, Toks, {Line, Col}, [], Errors, Fun) ->
     Fun(Cs ++ eof, Stack, Toks, {Line, Col}, eos, Errors);
 %% Stream
 more(Cs, Stack, Toks, {Line, Col}, eof, Errors, Fun) ->
-    erlang:fault(badstate,
+    erlang:error(badstate,
 		 [Cs, Stack, Toks, {Line, Col}, eof, Errors, Fun]);
 more(Cs, Stack, Toks, {Line, Col}, io, Errors, Fun) ->
     {more, {Cs, Stack, Toks, {Line, Col}, io, Errors, Fun}}.

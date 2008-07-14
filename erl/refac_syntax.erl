@@ -436,7 +436,7 @@ type(Node) ->
       {rule, _, _, _, _} -> rule;
       {'try', _, _, _, _, _} -> try_expr;
       {tuple, _, _} -> tuple;
-      _ -> erlang:fault({badarg, Node})
+      _ -> erlang:error({badarg, Node})
     end.
 
 %% =====================================================================
@@ -5087,7 +5087,7 @@ abstract(T) when is_tuple(T) ->
 abstract(T) when is_binary(T) ->
     binary([binary_field(integer(B))
 	    || B <- binary_to_list(T)]);
-abstract(T) -> erlang:fault({badarg, T}).
+abstract(T) -> erlang:error({badarg, T}).
 
 abstract_list([T | Ts]) ->
     [abstract(T) | abstract_list(Ts)];
@@ -5150,7 +5150,7 @@ concrete(Node) ->
 					     end,
 					     [], true),
 	  B;
-      _ -> erlang:fault({badarg, Node})
+      _ -> erlang:error({badarg, Node})
     end.
 
 concrete_list([E | Es]) ->
@@ -5307,11 +5307,11 @@ revert_forms(T) ->
 	  case catch {ok, revert_forms_1(form_list_elements(T1))}
 	      of
 	    {ok, Fs} -> Fs;
-	    {error, R} -> erlang:fault({error, R});
+	    {error, R} -> erlang:error({error, R});
 	    {'EXIT', R} -> exit(R);
 	    R -> throw(R)
 	  end;
-      _ -> erlang:fault({badarg, T})
+      _ -> erlang:error({badarg, T})
     end.
 
 revert_forms_1([T | Ts]) ->
@@ -5799,7 +5799,7 @@ is_tree(_) -> false.
 
 data(#tree{data = D}) -> D;
 data(#wrapper{tree=D}) -> D;  %% Added by Huiqing Li. (Is this correct?)
-data(T) -> erlang:fault({badarg, T}).  %% TODO: CHANGE THIS BACK.
+data(T) -> erlang:error({badarg, T}).  %% TODO: CHANGE THIS BACK.
 
 % =====================================================================
 %% Primitives for backwards compatibility; for internal use only

@@ -79,7 +79,7 @@ to_tuple(T) -> {T}.
 	case request(Io, Request) of
 	  {error, Reason} ->
 	      [Name | Args] = tuple_to_list(to_tuple(Request)),
-	      erlang:fault(conv_reason(Name, Reason),
+	      erlang:error(conv_reason(Name, Reason),
 			   [Name, Io | Args]);
 	  Other -> Other
 	end).
@@ -89,7 +89,7 @@ o_request(Io, Request) ->
       {error, Reason} ->
 	  [Name | Args] = tuple_to_list(to_tuple(Request)),
 	  {'EXIT', {undef, [_Current | Mfas]}} = (catch
-						    erlang:fault(undef)),
+						    erlang:error(undef)),
 	  MFA = {io, Name, [Io | Args]},
 	  exit({conv_reason(Name, Reason), [MFA | Mfas]});
       %	    erlang:fault(conv_reason(Name, Reason), [Name, Io | Args]);

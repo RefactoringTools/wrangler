@@ -52,26 +52,7 @@
 -import(lists, [member/2, reverse/1]).
 
 -define(TabWidth,8).  %% Added by Huiqing Li (THIS SHOULD BE READ FORM EMACS!!).
-%% format_error(Error)
-%%  Return a string describing the error.
 
-format_error({string, Quote, Head}) ->
-    ["unterminated " ++
-       (string_thing(Quote) ++
-	  (" starting with " ++
-	     io_lib:write_string(Head, Quote)))];
-format_error({illegal, Type}) ->
-    io_lib:fwrite("illegal ~w", [Type]);
-format_error(char) -> "unterminated character";
-format_error(scan) -> "premature end";
-format_error({base, Base}) ->
-    io_lib:fwrite("illegal base '~w'", [Base]);
-format_error(float) -> "bad float";
-%%
-format_error(Other) -> io_lib:write(Other).
-
-string_thing($') -> "atom";
-string_thing(_) -> "string".
 
 %% string(CharList, StartPos)
 %%  Takes a list of characters and tries to tokenise them.
@@ -141,7 +122,7 @@ tokens({Cs, Stack, Toks, {Line, Col}, State, Errors,
 
 %% String
 more(Cs, Stack, Toks, {Line, Col}, eos, Errors, Fun) ->
-    erlang:fault(badstate,
+    erlang:error(badstate,
 		 [Cs, Stack, Toks, {Line, Col}, eos, Errors, Fun]);
 % %% Debug clause for chopping string into 1-char segments
 % more(Cs, Stack, Toks, Pos, [H|T], Errors, Fun) ->
@@ -150,7 +131,7 @@ more(Cs, Stack, Toks, {Line, Col}, [], Errors, Fun) ->
     Fun(Cs ++ eof, Stack, Toks, {Line, Col}, eos, Errors);
 %% Stream
 more(Cs, Stack, Toks, {Line, Col}, eof, Errors, Fun) ->
-    erlang:fault(badstate,
+    erlang:error(badstate,
 		 [Cs, Stack, Toks, {Line, Col}, eof, Errors, Fun]);
 more(Cs, Stack, Toks, {Line, Col}, io, Errors, Fun) ->
     {more, {Cs, Stack, Toks, {Line, Col}, io, Errors, Fun}}.

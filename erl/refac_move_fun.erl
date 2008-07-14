@@ -520,7 +520,7 @@ application_info(Node) ->
 			    end;
 		_  -> {{none,expressionoperator}, Arity}
 	    end;
-	_ -> erlang:fault(not_an_application)
+	_ -> erlang:error(bagarg)
     end.
 %%================================================================================
 %%              Some Utility Functions 

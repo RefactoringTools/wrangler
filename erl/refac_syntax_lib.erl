@@ -431,7 +431,7 @@ annotate_bindings(Tree) ->
     case lists:keysearch(env, 1, As) of
       {value, {env, InVars}} ->
 	  annotate_bindings(Tree, InVars);
-      _ -> erlang:fault(badarg)
+      _ -> erlang:error(badarg)
     end.
 
 vann(Tree, Env) ->

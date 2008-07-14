@@ -137,8 +137,8 @@ annotate_pids(DirList) ->
     Pid = start_fun_typesig_process(Funs),
     Sccs3 = lists:map(fun(S) -> annotate_a_fun(S, Pid) end, Sccs2),
     ASTs=lists:map(fun(F) -> update_function(F, Sccs3) end,  Files),
-    Res = refac_util:full_buTP(fun add_a_tag_to_send_exprs/2, hd(ASTs), []),   
-    Sccs4 = fixpoint(lists:reverse(Sccs3), Pid),
+    _Res = refac_util:full_buTP(fun add_a_tag_to_send_exprs/2, hd(ASTs), []),   
+    _Sccs4 = fixpoint(lists:reverse(Sccs3), Pid),
    %% io:format("callgraph:\n~p\n", [lists:map(fun({Fun, _FunDef})-> Fun end, lists:reverse(Sccs4))]),
     Pid ! stop,
     ok.
@@ -149,7 +149,7 @@ add_a_tag_to_send_exprs(Node, _TagName) ->
  	infix_expr ->
  	    case is_send_expr(Node) of 
  		true ->
- 		    ReceiverPid = refac_syntax:infix_expr_left(Node),
+ 		    _ReceiverPid = refac_syntax:infix_expr_left(Node),
  		    %% io:format("Node:\n~p\n", [ReceiverPid]),
  		    Node;
  		_ -> Node
@@ -407,7 +407,7 @@ do_topdown_propagate(FunDef, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
     end.
 
 
-annotate_within_fun_1(Node, {_ModName, FunName, Arity, Pid, TypeSigPid}) ->
+annotate_within_fun_1(Node, {_ModName, _FunName, _Arity, Pid, _TypeSigPid}) ->
     case refac_syntax:type(Node) of 
 	variable -> 
 	    Ann = refac_syntax:get_ann(Node),
