@@ -55,7 +55,7 @@
 -include("../hrl/wrangler.hrl").
 
 %% =====================================================================
-%% @spec ghead(Info::term(),List::[term()]) -> term()
+%%spec ghead(Info::term(),List::[term()]) -> term()
 %% @doc Same as erlang:hd/1, except the first argument which is the
 %%  error message when the list is empty.
 %% @see glast/2
@@ -614,7 +614,7 @@ get_client_files(File, SearchPaths) ->
       _ -> ok
     end,
     HeaderFiles = expand_files(SearchPaths, ".hrl"),
-    ClientFiles. %% ++ HeaderFiles.
+    ClientFiles ++ HeaderFiles.
 
 normalise_file_name(Filename) ->
     filename:join(filename:split(Filename)).
@@ -799,7 +799,19 @@ process_str(S) ->
 %%  representation is a subset of the <code>syntaxTree()</code> representation.
 %% 
 %%  For the data structures used by the AST nodes, please refer to <a href="refac_syntax.html"> refac_syntax </a>.
-parse_annotate_file(FName, ByPassPreP, SearchPaths) ->
+
+parse_annotate_file(FName, false, SearchPaths) ->
+    parse_annotate_file_1(FName, false, SearchPaths);
+parse_annotate_file(FName, true, SearchPaths) ->
+    case whereis(ast_server) of 
+	undefined ->        %% this should not happen with Wrangler + Emacs.
+	    parse_annotate_file_1(FName, true, SearchPaths);
+	_ -> refac_ast_server:get_ast(FName)
+    end.
+    
+
+
+parse_annotate_file_1(FName, ByPassPreP, SearchPaths) ->
     R = case ByPassPreP of
 	  true -> refac_epp_dodger:parse_file(FName);
 	  false -> refac_epp:parse_file(FName, SearchPaths, [])
