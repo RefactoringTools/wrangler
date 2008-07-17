@@ -416,7 +416,7 @@ fold_expression_eclipse(FileName, Line, Col) ->
 -spec(fold_expression_1_eclipse/3::(filename(), syntaxTree(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree}]) ->
 	     {ok, [{filename(), filename(), string()}]}).
 fold_expression_1_eclipse(FileName, FunClauseDef, StartEndExpList)->  %% StartEndExpList: {{{StartLine, StartCol}, {EndLine, EndCol}}, NewExp}
-    reafc_fold_expression:fold_expression_1_eclipse(FileName, FunClauseDef, StartEndExpList).
+    refac_fold_expression:fold_expression_1_eclipse(FileName, FunClauseDef, StartEndExpList).
 
 -spec(fold_expression_2_eclipse/5::(filename(), atom(),integer(), integer(), integer()) -> 
 	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}

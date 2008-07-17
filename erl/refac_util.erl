@@ -634,7 +634,8 @@ get_client_files(File, SearchPaths) ->
     Dir = filename:dirname(File1),
     ModuleGraph = refac_module_graph:module_graph(lists:usort([Dir | SearchPaths]), ModuleGraphFile, SearchPaths),
     ClientFiles = case lists:keysearch(File1, 1, ModuleGraph) of
-		    {value, {_, Clients}} -> lists:delete(File1, Clients);
+		    {value, {_, Clients}} -> 
+			  lists:delete(File1, Clients);
 		    false -> []
 		  end,
     case ClientFiles of
