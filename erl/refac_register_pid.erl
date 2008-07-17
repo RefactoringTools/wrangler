@@ -539,7 +539,7 @@ stop_call_graph_server() ->
 
 
 -spec(get_call_graph/1::([dir()])->
-			      #callgraph{}).
+			     {[{{atom(), atom(), integer()}, [{atom(), atom(), integer()}]}], scc_order(), external_calls()}).
 get_call_graph(SearchPaths) ->
     call_graph_server ! {self(), get, SearchPaths},
     receive

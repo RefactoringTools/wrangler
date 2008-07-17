@@ -1894,7 +1894,8 @@ build_call_graph(DirList) ->
 %%@private
 %%@spec build_call_graph(DirList::[dir()], #callgraph{}) -> #callgraph{}
 
--spec(build_call_graph(DirList::[dir()], #callgraph{}) -> #callgraph{}).
+-spec(build_call_graph(DirList::[dir()], [{{{atom(), atom(), integer()}, syntaxTree()}, {atom(), atom(), integer()}}]) ->
+	     [{{{atom(), atom(), integer()}, syntaxTree()}, {atom(), atom(), integer()}}]).
 build_call_graph([FileName | Left], Acc) ->
     case refac_util:parse_annotate_file(FileName, true, []) of
       {ok, {AnnAST, Info}} ->
@@ -1908,7 +1909,8 @@ build_call_graph([FileName | Left], Acc) ->
     end;
 build_call_graph([], Acc) -> Acc.
 
--spec(build_call_graph/3::(syntaxTree(),moduleInfo(),filename()) -> #callgraph{}).
+-spec(build_call_graph/3::(syntaxTree(),moduleInfo(),filename()) -> 
+	     [{{{atom(), atom(), integer()}, syntaxTree()}, {atom(), atom(), integer()}}]).
 build_call_graph(Node, Info, _FileName) ->
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     Inscope_Funs = [{erlang, Fun, Arity} || {Fun, Arity} <- auto_imported_bifs()] ++
