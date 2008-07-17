@@ -8,13 +8,10 @@
 		  plt_libs= [kernel,stdlib]
 		  }).
 
--record(callgraph, {scc_order, external_calls}).
-
 -record(attr, {pos = {0,0}, ann = [], com = none}).
 
 %% Will be edited by Makefile 
 -define(WRANGLER_DIR, "C:/cygwin/home/hl/wrangler/share/distel/wrangler").
-
 
 -define(DEFAULT_LOC, 
         {0, 0}).  %% default defining location.
@@ -32,3 +29,7 @@
 -type(token()::{var, pos(), atom()} | {integer, pos(), integer()}|{string, pos(), string()}|
                {float, pos(), float()} | {char, pos(), char()} |{atom, pos(), atom()} |{atom(), pos()}).
                
+-type(scc_order()::[[{{atom(), atom(), integer()}, syntaxTree()}]]).
+-type(external_calls()::[{atom(), atom(), integer()}]).
+-record(callgraph, {scc_order, external_calls}).
+      
