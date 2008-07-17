@@ -26,9 +26,16 @@
 
 -export([tuple_funpar_eclipse/5]).
 
+-include("../hrl/wrangler.hrl").
+
+-spec(tuple_funpar/5::(filename(), integer(), integer(), integer(), [dir()]) ->
+	     {error, string()} | {ok, [filename()]}).
 tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths)->
   tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths, emacs).
 
+
+-spec(tuple_funpar_eclipse/5::(filename(), integer(), integer(), integer(), [dir()]) ->
+	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 tuple_funpar_eclipse(FileName, ParLine, ParCol, Number, SearchPaths)->
   tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths, eclipse).
 

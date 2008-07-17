@@ -68,7 +68,10 @@
 	 fold_expression_1_eclipse/3,
 	 fold_expression_2_eclipse/5]).
 
--export([trace_send/4, trace_spawn/4]).
+%%-export([trace_send/4, trace_spawn/4]).
+
+-include("../hrl/wrangler.hrl").
+
 %% ====================================================================================================
 %% @doc Rename a variable name with a user-supplied new name.
 %% <p> To apply this refactoring, point the cursor to  any occurrence of this variable, then select
@@ -87,12 +90,15 @@
 %% @spec rename_var(FileName::filename(), Line::integer(), Col::integer(), NewName::string(),SearchPaths::[dir()])
 %% -> term()
 %%    
+
+-spec(rename_var/5::(filename(), integer(), integer(), string(), [dir()]) ->
+	     {error, string()} | {ok, string()}).
 rename_var(FileName, Line, Col, NewName, SearchPaths) ->
     refac_rename_var:rename_var(FileName, Line, Col, NewName, SearchPaths).
 
 
-%%@private
-%%@spec rename_var_eclipse(FileName::filename(),Line::integer(), Col::integer(), NewName::string(),SearchPaths::[dir()])->term()
+-spec(rename_var_eclipse/5::(filename(), integer(), integer(), string(), [dir()]) ->
+	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_var_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
     refac_rename_var:rename_var_eclipse(FileName, Line, Col, NewName, SearchPaths).
 
@@ -115,11 +121,15 @@ rename_var_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
 %% ========================================================================================
 %% @spec rename_fun(FileName::filename(), Line::integer(), Col::integer(), NewName::string(), SearchPaths::[dir()])
 %% -> term()
+
+-spec(rename_fun/5::(string(), integer(), integer(), string(), [dir()]) ->
+	     {error, string()} | {ok, [filename()]}).
 rename_fun(FileName, Line, Col, NewName, SearchPaths) ->
     refac_rename_fun:rename_fun(FileName, Line, Col, NewName, SearchPaths).
 
-%%@private
-%%@spec rename_fun_eclipse(FileName::filename(), Line::integer(), Col::integer(), NewName::string(), SearchPaths::[dir()]) -> term()
+
+-spec(rename_fun_eclipse/5::(string(), integer(), integer(), string(), [dir()]) ->
+	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
     refac_rename_fun:rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths).
 
@@ -141,11 +151,13 @@ rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
 %% =====================================================================
 %% @spec rename_mod(FileName::filename(), NewName::string(), SearchPaths::[dir()])-> term()
 %%   
+
+-spec(rename_mod/3::(filename(), string(), [dir()]) -> {error, string()} | {ok, [filename()]}).	  
 rename_mod(FileName, NewName, SearchPaths) ->
     refac_rename_mod:rename_mod(FileName, NewName, SearchPaths).
 
-%%@private
-%% @spec rename_mod_eclipse(FileName::filename(), NewName::string(), SearchPaths::[dir()])-> term()
+-spec(rename_mod_eclipse/3::(filename(), string(), [dir()]) ->
+	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_mod_eclipse(FileName, NewName, SearchPaths) ->
     refac_rename_mod:rename_mod_eclipse(FileName, NewName, SearchPaths).
 
@@ -166,6 +178,10 @@ rename_mod_eclipse(FileName, NewName, SearchPaths) ->
 %% @spec rename_mod_batch(OldNamePattern::string(), NewNamePattern::string(), 
 %%                        SearchPaths::[dir()])-> ok | {error, string()}
 %%   
+
+
+-spec(rename_mod_batch/3::(string(), string(), [dir()])->
+	     ok | {error, string()}).
 rename_mod_batch(OldNamePattern, NewNamePattern, SearchPaths) ->
     refac_batch_rename_mod:batch_rename_mod(OldNamePattern, NewNamePattern, SearchPaths).
 
@@ -230,23 +246,21 @@ rename_mod_batch(OldNamePattern, NewNamePattern, SearchPaths) ->
 %% @spec generalise(FileName::filename(), Start::Pos, End::Pos, ParName::string(), SearchPaths::[dir()])-> term()
 %%         Pos = {integer(), integer()}
 
+-spec(generalise/5::(filename(),pos(), pos(),string(), dir()) -> {ok, string()} | {error, string()}).	
 generalise(FileName, Start, End, ParName, SearchPaths) ->
     refac_gen:generalise(FileName, Start, End, ParName,  SearchPaths).
 
-%%@private
-%% @spec generalise_eclipse(FileName::filename(), Start::Pos, End::Pos, ParName::string(), SearchPaths::[dir()]) ->term()
+
+-spec(generalise_eclipse/5::(filename(),pos(), pos(),string(), dir()) -> {ok, [{filename(), filename(), string()}]}).
 generalise_eclipse(FileName, Start, End, ParName, SearchPaths) ->
     refac_gen:generalise_eclipse(FileName, Start, End, ParName,  SearchPaths).
 
-%%@private
-%% @spec gen_fun_1_eclipse(SideEffect::boolean(), FileName::filename(), ParName::atom(),             
-%% FunName::atom(), Arity::integer(), DefPos::Pos, Expr::syntaxTree())->term()
+
+-spec(gen_fun_1_eclipse/7::(boolean(), filename(),atom(), atom(), integer(), pos(), syntaxTree()) -> {ok, [{filename(), filename(),string()}]}).
 gen_fun_1_eclipse(SideEffect, FileName, ParName, FunName, Arity, DefPos, Expr) ->
     refac_gen:gen_fun_1_eclipse(SideEffect, FileName, ParName, FunName, Arity, DefPos, Expr).
 
-%%@private
-%% @spec gen_fun_2_eclipse(FileName::filename(), ParName::atom(), FunName::atom(), 
-%%                        Arity::integer(), DefPos::Pos, Expr::syntaxTree(), SearchPaths::[dir()])->term()
+-spec(gen_fun_2_eclipse/7::(filename(),atom(), atom(), integer(), pos(), syntaxTree(), [dir()]) -> {ok, [{filename(), filename(), string()}]}).
 gen_fun_2_eclipse(FileName, ParName, FunName, Arity, DefPos, Expr, SearchPaths) ->
     refac_gen:gen_fun_2_eclipse(FileName, ParName, FunName, Arity, DefPos, Expr, SearchPaths).
 
@@ -275,13 +289,18 @@ gen_fun_2_eclipse(FileName, ParName, FunName, Arity, DefPos, Expr, SearchPaths) 
 %% @spec move_fun(FileName::filename(),Line::integer(),Col::integer(),TargetModName::string(), 
 %%                CreateNewFile::boolean(),SearchPaths::[dir()])-> term()
 %%         
+
+-spec(move_fun/6::(filename(),integer(),integer(), string(), atom(),[dir()])
+        -> {ok, [{filename(), filename()}]}
+           | {error, string()}).
 move_fun(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths) ->
     refac_move_fun:move_fun(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths).
 
 
-%%@private
-%%@spec move_fun_eclipse(FileName::filename(),Line::integer(),Col::integer(),TargetModName::string(), 
-%%                CreateNewFile::boolean(),SearchPaths::[dir()])-> term()
+
+-spec(move_fun_eclipse/6::(filename(),integer(),integer(), string(), atom(),[dir()])
+        -> {ok, [{filename(), filename(), string()}]}
+           | {error, string()}).
 move_fun_eclipse(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths) ->
     refac_move_fun:move_fun_eclipse(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths).
 
@@ -297,7 +316,9 @@ move_fun_eclipse(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths)
 %% </p>
 %% =====================================================================================
 %% @spec duplicated_code_in_buffer(FileName::filename(),MinToks::integer(),MinClones::integer()) -> term()
-%%                
+%% 
+      
+-spec(duplicated_code_in_buffer/3::(filename(), integer(), integer()) ->{ok, string()}).         
 duplicated_code_in_buffer(FileName, MinToks, MinClones) -> 
     refac_duplicated_code:duplicated_code([FileName], MinToks, MinClones).
 
@@ -314,6 +335,7 @@ duplicated_code_in_buffer(FileName, MinToks, MinClones) ->
 %%======================================================================================
 %% @spec duplicated_code_in_dirs(FileNameList::[filename()|dir()], MinToks::integer(), MinClones::integer()) -> term()
 
+-spec(duplicated_code_in_dirs/3::([dir()], integer(), integer()) ->{ok, string()}).
 duplicated_code_in_dirs(FileDirList, MinToks, MinClones) ->
     refac_duplicated_code:duplicated_code(FileDirList, MinToks, MinClones).
     
@@ -331,6 +353,7 @@ duplicated_code_in_dirs(FileDirList, MinToks, MinClones) ->
 %% ==================================================================================================
 %% @spec expression_search(FileName::filename(),Start::Pos, End::Pos) -> term()
 
+-spec(expression_search/3::(filename(), pos(), pos()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).    
 expression_search(FileName, Start, End) ->
     refac_expr_search:expr_search(FileName, Start, End).
 
@@ -343,11 +366,14 @@ expression_search(FileName, Start, End) ->
 %% within the expression/expression sequence become the formal parameters of the function. </p>
 %% =====================================================================================================
 %% @spec fun_extraction(FileName::filename(), Start::Pos, End::Pos, FunName::string()) -> term()
+
+-spec(fun_extraction/4::(filename(), pos(), pos(), string()) ->
+	      {error, string()} | {ok, string()}).
 fun_extraction(FileName, Start, End, FunName) -> 
     refac_new_fun:fun_extraction(FileName, Start, End, FunName).
 
-%%@private
-%% @spec fun_extraction_eclipse(FileName::filename(), Start::Pos, End::Pos, FunName::string()) -> term()
+-spec(fun_extraction_eclipse/4::(filename(), pos(), pos(), string()) ->
+	      {error, string()} | {ok, [{filename(), filename(), string()}]}).
 fun_extraction_eclipse(FileName, Start, End, FunName) -> 
     refac_new_fun:fun_extraction_eclipse(FileName, Start, End, FunName).
 
@@ -378,77 +404,85 @@ fun_extraction_eclipse(FileName, Start, End, FunName) ->
 %% This refactoring currrently only works with a single module, but will be extended to multiple modules.
 %% =============================================================================================
 %% @spec fold_expression(FileName::filename(), Line::integer(), Col::integer())-> term()
+-spec(fold_expression/3::(filename(), integer(), integer()) -> {ok, [filename()]} |{error, string()}).  
 fold_expression(FileName, Line, Col) ->
     refac_fold_expression:fold_expression(FileName, Line, Col).
 
-%%@private
-%% @spec fold_expression_eclipse(FileName::filename(), Line::integer(), Col::integer())-> term()
+
+-spec(fold_expression_eclipse/3::(filename(), integer(), integer()) -> {ok, [{filename(), filename(), string()}]} | {error, string()}).	
 fold_expression_eclipse(FileName, Line, Col) ->
     refac_fold_expression:fold_expression_eclipse(FileName, Line, Col).
 
-%%@private
-%% @spec fold_expression_1_eclipse(FileName::filename(), FunClauseDef::syntaxTree(), StartEndExpList::[{Pos, Pos, syntaxtree()}]) -> term()
+-spec(fold_expression_1_eclipse/3::(filename(), syntaxTree(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree}]) ->
+	     {ok, [{filename(), filename(), string()}]}).
 fold_expression_1_eclipse(FileName, FunClauseDef, StartEndExpList)->  %% StartEndExpList: {{{StartLine, StartCol}, {EndLine, EndCol}}, NewExp}
     reafc_fold_expression:fold_expression_1_eclipse(FileName, FunClauseDef, StartEndExpList).
 
-%%@private
-%% @spec fold_expression_2_eclipse(FileName::filename(), FunName::atom(), Arity::integer(), ClauseIndex::integer(), StartLine::integer()) -> term()
+-spec(fold_expression_2_eclipse/5::(filename(), atom(),integer(), integer(), integer()) -> 
+	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
+             | {error, string()}).
 fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine) ->
     refac_fold_expression:fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine).
 
 
 %%@private
 %%@spec instrument_prog(FileName::filename(), SearchPaths::[dir()]) -> term()
+-spec(instrument_prog/2::(filename(), [dir()]) ->{ok, [filename()]} | {error, string()}).	     
 instrument_prog(FileName, SearchPaths) ->
-    refac_instrument:instrument_prog(FileName, SearchPaths).
+     refac_instrument:instrument_prog(FileName, SearchPaths).
 
 
 %%@private
 %%@spec uninstrument_prog(FileName::filename(), SearchPaths::[dir()]) -> term()
+-spec(uninstrument_prog/2::(filename(), [dir()]) ->{ok, [filename()]} | {error, string()}).
 uninstrument_prog(FileName, SearchPaths) ->
-    refac_instrument:uninstrument_prog(FileName, SearchPaths).
+     refac_instrument:uninstrument_prog(FileName, SearchPaths).
 
 
 %%@private
 %%@spec add_a_tag(Filename::filename(), Line::integer(), Col::integer(), Tag::atom(), SearchPaths::[dir()]) -> term()
+-spec(add_a_tag/5::(filename(), integer(), integer(), string(), [dir()]) ->
+	     {error, string()} | {ok, [filename()]}).
 add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
     refac_add_a_tag:add_a_tag(FileName, Line, Col, Tag, SearchPaths).
 
 
 %%@private
-%%spec register_pid(Filename::filename(), Start::integer(), End::integer(), RegName::atom(), SearchPaths::[dir()]) ->term()
+%%spec register_pid(Filename::filename(), Start::pos(), End::pos(), RegName::atom(), SearchPaths::[dir()]) ->term()
+-spec(register_pid/5::(filename(), pos(), pos(), string(), [dir()]) ->
+    {error, string()}|{ok, [filename()]}).
 register_pid(FileName, Start, End, RegName, SearchPaths) ->
     refac_register_pid:register_pid(FileName, Start, End, RegName, SearchPaths).
     
 %%@private
 %%spec trace_send({ModName::atom(), FunName::atom(), Arity::integer()}, Index::integer(), Pid::pid(), TraceCacheFile::filename()) ->term().
-trace_send({ModName, FunName, Arity}, Index, Pid, TraceCacheFile) ->
-    PInfo = erlang:process_info(Pid),
-    {value, InitialCall} = lists:keysearch(initial_call, 1, PInfo),
-    {value, CurrentFun} = lists:keysearch(current_function,1, PInfo),
-    SendInfo =case lists:keysearch(registered_name, 1, PInfo) of 
-		  {value, RegisteredName} ->
-		      {send, {ModName, FunName, Arity, Index}, Pid, InitialCall, CurrentFun, RegisteredName};
-		  false ->
-		      {send, {ModName, FunName, Arity, Index}, Pid, InitialCall, CurrentFun}
-	      end,
-    case dets:open_file(TraceCacheFile, [{type, bag}]) of 
-	{ok, TraceCacheFile} -> 
-	   dets:insert(TraceCacheFile, SendInfo),
-	   dets:close(TraceCacheFile);
-	{error, Reason}  -> eralng:error(Reason)
-    end.
+%% trace_send({ModName, FunName, Arity}, Index, Pid, TraceCacheFile) ->
+%%     PInfo = erlang:process_info(Pid),
+%%     {value, InitialCall} = lists:keysearch(initial_call, 1, PInfo),
+%%     {value, CurrentFun} = lists:keysearch(current_function,1, PInfo),
+%%     SendInfo =case lists:keysearch(registered_name, 1, PInfo) of 
+%% 		  {value, RegisteredName} ->
+%% 		      {send, {ModName, FunName, Arity, Index}, Pid, InitialCall, CurrentFun, RegisteredName};
+%% 		  false ->
+%% 		      {send, {ModName, FunName, Arity, Index}, Pid, InitialCall, CurrentFun}
+%% 	      end,
+%%     case dets:open_file(TraceCacheFile, [{type, bag}]) of 
+%% 	{ok, TraceCacheFile} -> 
+%% 	   dets:insert(TraceCacheFile, SendInfo),
+%% 	   dets:close(TraceCacheFile);
+%% 	{error, Reason}  -> eralng:error(Reason)
+%%     end.
 
 %%@private
 %%spec trace_spawn({ModName::atom(), FunName::atom(), Arity::integer()}, Index::integer(), Pid::pid(), TraceCacheFile::filename()) ->term().
-trace_spawn({ModName, FunName, Arity}, Index, Pid, TraceCacheFile) ->
-    SpawnInfo = {spawn, {ModName, FunName, Arity, Index}, Pid},
-    case dets:open_file(TraceCacheFile, [{type, bag}]) of 
-	{ok, TraceCacheFile} -> 
-	    dets:insert(TraceCacheFile, SpawnInfo),
-	    dets:close(TraceCacheFile);
-	{error, Reason}  -> eralng:error(Reason)
-    end.    
+%% trace_spawn({ModName, FunName, Arity}, Index, Pid, TraceCacheFile) ->
+%%     SpawnInfo = {spawn, {ModName, FunName, Arity, Index}, Pid},
+%%     case dets:open_file(TraceCacheFile, [{type, bag}]) of 
+%% 	{ok, TraceCacheFile} -> 
+%% 	    dets:insert(TraceCacheFile, SpawnInfo),
+%% 	    dets:close(TraceCacheFile);
+%% 	{error, Reason}  -> eralng:error(Reason)
+%%     end.    
 
 
 %%=========================================================================================
@@ -471,12 +505,17 @@ trace_spawn({ModName, FunName, Arity}, Index, Pid, TraceCacheFile) ->
 %% ========================================================================================
 %% @spec tuple_funpar(FileName::filename(), Line::integer(), Col::integer(), Number::string(), SearchPaths::[dir()])
 %% -> term()
+-spec(tuple_funpar/5::(filename(), integer(), integer(), string(), [dir()]) ->
+	     {error, string()} | {ok, [filename()]}).
 tuple_funpar(FileName, Line, Col, Number, SearchPaths) ->
     ref_tuple:tuple_funpar(FileName, Line, Col, list_to_integer(Number), SearchPaths).
 
 
 %%@private
 %% @spec tuple_funpar_eclipse(FileName::filename(), Line::integer(), Col::integer(), Number::string(), SearchPaths::[dir()]) -> term()
+
+-spec(tuple_funpar_eclipse/5::(filename(), integer(), integer(), string(), [dir()]) ->
+	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 tuple_funpar_eclipse(FileName, Line, Col, Number, SearchPaths) ->
     ref_tuple:tuple_funpar_eclipse(FileName, Line, Col, list_to_integer(Number), SearchPaths).
 
@@ -509,6 +548,8 @@ tuple_funpar_eclipse(FileName, Line, Col, Number, SearchPaths) ->
 %%           FieldString::[string()], SearchPaths::[dir()]) -> term()
 %% @end
 %% ========================================================================================
+-spec(tuple_to_record/8::(filename(), integer(), integer(), integer(), integer(), string(), [string()], [dir()]) ->
+	     {error, string()} | {ok, [filename()]}).
 tuple_to_record(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
     ref_tuple_to_record:tuple_to_record(File, FLine, FCol, LLine, LCol, 
                 RecName, FieldString, SearchPaths).
@@ -517,11 +558,15 @@ tuple_to_record(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
 %% @spec tuple_to_record_eclipse(File::filename(),FLine::integer(),FCol::integer(),
 %%           LLine::integer(),LCol::integer(), RecName::string(),
 %%           FieldString::[string()], SearchPaths::[dir()]) -> term()
+-spec(tuple_to_record_eclipse/8::(filename(), integer(), integer(), integer(), integer(), string(), [string()], [dir()]) ->
+	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 tuple_to_record_eclipse(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
     ref_tuple_to_record:tuple_to_record_eclipse(File, FLine, FCol, LLine, LCol, 
                 RecName, FieldString, SearchPaths).
 
 %%@private
 %%@spec fun_to_process(FileName::filename(), Line::integer(), Col::integer(), ProcessName::string(), SearchPaths::[dir()]) ->term()
+-spec(fun_to_process/5::(filename(), integer(), integer(), string(), [dir()])->
+	     {error, string()} | {ok, [filename()]}).
 fun_to_process(FileName, Line, Col, ProcessName, SearchPaths) ->
     refac_fun_to_process:fun_to_process(FileName, Line, Col, ProcessName, SearchPaths).

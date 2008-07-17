@@ -260,7 +260,7 @@ enter_file(_Path, _NewName, Li, From, St)
     epp_reply(From, {error, {Li, epp, {depth, "include"}}}),
     wait_req_scan(St);
 enter_file(Path, NewName, Li, From, St) ->
-    case file:path_open(Path, NewName, read) of
+    case file:path_open(Path, NewName, [read]) of
       {ok, NewF, Pname} ->
 	  wait_req_scan(enter_file(NewF, Pname, From, St));
       {error, _E} ->
@@ -546,7 +546,7 @@ scan_include_lib([{'(', _Llp}, {string, _Lf, NewName0},
 		  {')', _Lrp}, {dot, _Ld}],
 		 Li, From, St) ->
     NewName = expand_var(NewName0),
-    case file:path_open(get(user_path), NewName, read) of
+    case file:path_open(get(user_path), NewName, [read]) of
       {ok, NewF, Pname} ->
 	  wait_req_scan(enter_file(NewF, Pname, From, St));
       {error, _E1} ->

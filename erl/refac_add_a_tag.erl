@@ -44,7 +44,7 @@
 %% =============================================================================================
 add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
     io:format("\n[CMD: add_a_tag, ~p, ~p, ~p, ~p,~p]\n", [FileName, Line, Col, Tag, SearchPaths]),
-    case is_atom(list_to_atom(Tag)) of 
+    case refac_util:is_fun_name(Tag) of 
 	true -> case refac_util:parse_annotate_file(FileName, true, SearchPaths) of 
 		    {ok, {AnnAST, Info}} ->
 			 case pos_to_receive_fun(AnnAST, {Line, Col}) of 
@@ -550,7 +550,7 @@ do_annotate_special_fun_apps(Node, {ModName, FunName, Arity, EnvPid}) ->
 						     refac_syntax:copy_attrs(Node, Node1);
 						 atom -> 
 						     EnvPid ! {add, {refac_syntax:atom_value(RegName), {process, [{pname, Value}]}}},
-						     refac_syntax:copy_atts(Node, Node1)
+						     refac_syntax:copy_attrs(Node, Node1)
 					     end;
 					 _ ->  Node
 				     end;
@@ -855,7 +855,7 @@ process_trace_info(CacheFile) ->
 				case lists:keysearch(ReceiverPid, 3, Spawns) of
 				    {value, {spawn, Initial, ReceiverPid}} ->
 					[{send, CurrentFun, ReceiverPid, {initial_call, Initial}, ReceiverCurrentFun}];
-				    _ -> [E]
+				    false -> [E]
 				end;
 			    false -> [E]
 			end;
@@ -865,7 +865,7 @@ process_trace_info(CacheFile) ->
 	end,
     case dets:open_file(CacheFile) of
       {ok, Tab} ->
-	    Trace = lists:concat(dets:match(Tab, '$1')),
+	    Trace = lists:append(dets:match(Tab, '$1')),
 	    dets:close(Tab),
 	    Spawns = lists:filter(fun(E) -> element(1, E) == spawn end, Trace),
 	    lists:concat(lists:map(fun(E) -> F(E, Spawns) end, Trace));					      

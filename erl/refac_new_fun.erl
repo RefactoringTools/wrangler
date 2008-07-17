@@ -23,12 +23,17 @@
 
 -export([fun_extraction/4, fun_extraction_eclipse/4]).
 
+-include("../hrl/wrangler.hrl").
 %% =============================================================================================
 %% @spec new_fun(FileName::filename(), Start::Pos, End::Pos, NewFunName::string())-> term()
 %%         
+-spec(fun_extraction/4::(filename(), pos(), pos(), string()) ->
+	      {error, string()} | {ok, string()}).
 fun_extraction(FileName, Start, End, NewFunName) ->
     fun_extraction(FileName, Start, End, NewFunName, emacs).
 
+-spec(fun_extraction_eclipse/4::(filename(), pos(), pos(), string()) ->
+	      {error, string()} | {ok, [{filename(), filename(), string()}]}).
 fun_extraction_eclipse(FileName, Start, End, NewFunName) ->
     fun_extraction(FileName, Start, End, NewFunName, eclipse).
 

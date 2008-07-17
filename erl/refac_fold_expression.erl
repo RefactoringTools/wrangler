@@ -43,13 +43,16 @@
 
 -export([fold_expression/3, fold_expression_1/7, fold_expression_eclipse/3, fold_expression_1_eclipse/3, fold_expression_2_eclipse/5, fold_expression_1/3]).
 
+-include("../hrl/wrangler.hrl").
 %% =============================================================================================
 %% @spec fold_expression(FileName::filename(), Line::integer(), Col::integer())-> term()
 %% =============================================================================================        
 
+-spec(fold_expression/3::(filename(), integer(), integer()) -> {ok, [filename()]} |{error, string()}).    
 fold_expression(FileName, Line, Col) ->
     fold_expression(FileName, Line, Col, emacs).
 
+-spec(fold_expression_eclipse/3::(filename(), integer(), integer()) -> {ok, [{filename(), filename(), string()}]} | {error, string()}).	     
 fold_expression_eclipse(FileName, Line, Col) ->
     fold_expression(FileName, Line, Col, eclipse).
 
@@ -84,6 +87,9 @@ fold_expression(FileName, Line, Col, Editor) ->
 %%                        (EndLine::integer(), EndCol::integer(), NewExp::term(),
 %%                        {FunClauseDef, ClauseIndex}::{term(), integer()) -> term()
 %% =============================================================================================  
+
+-spec(fold_expression_1_eclipse/3::(filename(), syntaxTree(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree}]) ->
+	     {ok, [{filename(), filename(), string()}]}).
 fold_expression_1_eclipse(FileName, FunClauseDef, RangeNewExpList) ->   %% RangeNewExpList [{{{StartLine, EndCol}, {EndLine, EndCol}}, NewExp}]
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, []),
     Body = refac_syntax:clause_body(FunClauseDef),
@@ -100,7 +106,8 @@ fold_expression_1_eclipse_1(AnnAST, Body, [{{StartLoc, EndLoc}, Exp}|Tail]) ->
     
     
 
-
+-spec(fold_expression_1/7::(filename(), integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}) ->
+	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}).
 fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunClauseDef, ClauseIndex}) -> 
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, []),
     FunCall = case refac_syntax:type(NewExp) of 
@@ -124,6 +131,9 @@ fold_expression_1(FileName, StartLine, StartCol, EndLine, EndCol, NewExp, {FunCl
 	    {error, "You have not selected a function definition."}  %% THIS SHOULD NOT HAPPEN.
     end.
 
+-spec(fold_expression_2_eclipse/5::(filename(), atom(),integer(), integer(), integer()) -> 
+	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
+             | {error, string()}).	     
 fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine ) ->
     {ok, {AnnAST2, _Info1}} = refac_util:parse_annotate_file(FileName,true, []),
     case get_fun_clause_def(AnnAST2, FunName, Arity, ClauseIndex) of 
@@ -604,6 +614,7 @@ pos_to_fun_clause_1(Node, Pos) ->
     end.
 
 
+-spec(fold_expression_1/3::(filename(), atom(), integer()) -> {syntaxTree(), moduleInfo()} | {error, string()}).
 fold_expression_1(FileName, FunName, Arity) ->
     case refac_util:parse_annotate_file(FileName,true, []) of 
 	{ok, {AnnAST, Info}} ->

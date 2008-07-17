@@ -47,6 +47,7 @@
 
 -define(COMMENT_PREFIX, "% ").
 
+-include("../hrl/wrangler.hrl").
 
 %% @TODO If a new module needs to be created, 1) Wrangler should check that the new module name does not conflict with 
 %% libary modules. 2) the undo process should remove the newly created file.
@@ -55,9 +56,17 @@
 %% @spec move_fun(FileName::filename(),Line::integer(),Col::integer(), ModName::string(),SearchPaths::[string()])-> term()
 %%         
 
+-spec(move_fun/6::(filename(),integer(),integer(), string(), atom(),[dir()])
+        -> {ok, [{filename(), filename()}]}
+           | {error, string()}).
+    
 move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths) ->
     move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths, emacs).
 
+
+-spec(move_fun_eclipse/6::(filename(),integer(),integer(), string(), atom(),[dir()])
+        ->  {ok, [{filename(), filename(), string()}]}
+           | {error, string()}).
 move_fun_eclipse(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths)->
     move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths, eclipse).
 

@@ -39,10 +39,15 @@
 
 -export([batch_rename_mod/3]).
 
+-include("../hrl/wrangler.hrl").
+
 %% =====================================================================
 %% @spec batch_rename_mod(OldNamePattern::string(), NewNamePattern::string(), 
 %%                        SearchPaths::[string()])-> ok | {error, string()}
 %%   
+
+-spec(batch_rename_mod/3::(string(), string(), [dir()])->
+	     ok | {error, string()}).
 batch_rename_mod(OldNamePattern, NewNamePattern,SearchPaths) ->
     io:format("\n[CMD: batch_rename_mod, ~p, ~p, ~p]\n", [OldNamePattern, NewNamePattern, SearchPaths]),
     %% Get all the erlang file which will be affected by this refactoring.
@@ -76,11 +81,13 @@ batch_rename_mod(Files, Old_New_Mod_Names) ->
 			    NewFileName = 
 				case get_module_name(Info) of 
 				    {ok, OldModName} ->
-					{value, {OldModName, NewModName}} = 
-					    lists:keysearch(OldModName, 1, Old_New_Mod_Names), 
-					if OldModName == NewModName -> F;
-					   true -> 
-						filename:join([filename:dirname(F), atom_to_list(NewModName)++".erl"])
+					case lists:keysearch(OldModName, 1, Old_New_Mod_Names) of 
+					    {value, {OldModName, NewModName}}  ->
+						if OldModName == NewModName -> F;
+						   true -> 
+							filename:join([filename:dirname(F), atom_to_list(NewModName)++".erl"])
+						end;
+					    false -> {error, "Could not infer new module name"}
 					end;
 				    _ ->  F
 				end,				   

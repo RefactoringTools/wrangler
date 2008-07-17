@@ -5,8 +5,10 @@
 
 -export([build/1]).
 
--include("wrangler.hrl").
+-include("../hrl/wrangler.hrl").
 
+-spec(build/1::([{atom(), [dir()]|[atom()]}]) ->
+	     #options{}).
 build(Opts) ->
   build_options(Opts, #options{}).
 

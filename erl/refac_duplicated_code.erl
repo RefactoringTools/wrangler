@@ -22,13 +22,16 @@
 
 -export([duplicated_code/3]).
 
--export([duplicated_code_1/3,suffix_tree/2, remove_var_literals/1]).
+-export([duplicated_code_1/3]).
 
+-export([tokenize/1]).
 %% TODO:  
 %% 1) does recusive function calls affect the result?
 %% 2) does qualifed names affect the result? 
 %% 3) ****when an erlang file does not compile, the detector should still return the result before trim_clones.
 
+
+-include("../hrl/wrangler.hrl").
 
 -define(DEFAULT_MIN_CLONE_LEN, 20).  %% minimal number of tokens.
 -define(DEFAULT_MIN_CLONE_MEMBER, 2).
@@ -44,29 +47,7 @@
 %% ====================================================================================
 %% @spec duplicated_code(FileName::filename(),MinLines::integer(),MinClones::integer()) -> term().
 %%  
-
-duplicated_code_1(DirFileList, MinLength1, MinClones1) ->
-    FileNames = refac_util:expand_files(DirFileList, ".erl"),
-    MinLength = case MinLength1==[] orelse  (list_to_integer(MinLength1)< ?DEFAULT_MIN_CLONE_LEN) of 
-		    true -> ?DEFAULT_MIN_CLONE_LEN;
-		    _ -> list_to_integer(MinLength1)
-		end,
-    MinClones = case MinClones1==[] orelse (list_to_integer(MinClones1) <?DEFAULT_MIN_CLONE_MEMBER) of 
-		     true ->?DEFAULT_MIN_CLONE_MEMBER;
-		     _ -> list_to_integer(MinClones1)
-		 end,
-    {Toks, ProcessedToks} = tokenize(FileNames),
-    Tree = suffix_tree(alphabet()++"&",ProcessedToks++"&"),  %% '&' does not occur in program source.
-    Cs=lists:flatten(lists:map(fun(B) -> collect_clones(MinLength,MinClones,B) end, Tree)),
-    Cs1 = filter_out_sub_clones(Cs),
-    Cs2 = clones_with_atoms(Cs1, Toks, MinLength, MinClones),
-    %% io:format("Cs2:\n~p\n", [Cs2]),
-    Cs3 = filter_out_sub_clones(Cs2),
-    Cs4 = combine_neighbour_clones(Cs3, MinLength, MinClones),
-    Cs5 = trim_clones(FileNames, Cs4, MinLength, MinClones),
-    remove_sub_clones(Cs5).
- 
-
+-spec(duplicated_code/3::([dir()], integer(), integer()) ->{ok, string()}).
 duplicated_code(DirFileList, MinLength1, MinClones1) ->
     FileNames = refac_util:expand_files(DirFileList, ".erl"),
     %%io:format("FileNames:\n~p\n", [FileNames]),
@@ -112,6 +93,29 @@ duplicated_code(DirFileList, MinLength1, MinClones1) ->
     %%io:format("Final clones:\n~p\n", [length(Cs6)]),
     {ok, "Duplicated code detection finished."}.
    
+-spec(duplicated_code_1/3::(dir(), integer(), integer()) ->
+	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer()}]).	     
+duplicated_code_1(DirFileList, MinLength1, MinClones1) ->
+    FileNames = refac_util:expand_files(DirFileList, ".erl"),
+    MinLength = case MinLength1==[] orelse  (list_to_integer(MinLength1)< ?DEFAULT_MIN_CLONE_LEN) of 
+		    true -> ?DEFAULT_MIN_CLONE_LEN;
+		    _ -> list_to_integer(MinLength1)
+		end,
+    MinClones = case MinClones1==[] orelse (list_to_integer(MinClones1) <?DEFAULT_MIN_CLONE_MEMBER) of 
+		     true ->?DEFAULT_MIN_CLONE_MEMBER;
+		     _ -> list_to_integer(MinClones1)
+		 end,
+    {Toks, ProcessedToks} = tokenize(FileNames),
+    Tree = suffix_tree(alphabet()++"&",ProcessedToks++"&"),  %% '&' does not occur in program source.
+    Cs=lists:flatten(lists:map(fun(B) -> collect_clones(MinLength,MinClones,B) end, Tree)),
+    Cs1 = filter_out_sub_clones(Cs),
+    Cs2 = clones_with_atoms(Cs1, Toks, MinLength, MinClones),
+    %% io:format("Cs2:\n~p\n", [Cs2]),
+    Cs3 = filter_out_sub_clones(Cs2),
+    Cs4 = combine_neighbour_clones(Cs3, MinLength, MinClones),
+    Cs5 = trim_clones(FileNames, Cs4, MinLength, MinClones),
+    remove_sub_clones(Cs5).
+ 
 
 %% =====================================================================
 %% tokennization of an Erlang file.
@@ -120,7 +124,7 @@ tokenize(FileList) ->
     TokLists = lists:map(fun(F) -> Toks= refac_util:tokenize(F),
 			    lists:map(fun(T)->add_filename_to_token(F,T) end, Toks)			    
 		  end, FileList),
-    Toks = lists:concat(TokLists),
+    Toks = lists:append(TokLists),
     R = [T1 || T <- Toks, T1 <- [process_a_tok(T)]],
     {Toks, lists:concat(R)}.
 
@@ -483,21 +487,21 @@ trim_clones(FileNames, Cs, MinLength, MinClones) ->
 							       false -> []
 							   end
 						   end,
-					      lists:concat(lists:map(Fun2, Units));
+					      lists:append(lists:map(Fun2, Units));
 					_ -> []
 				    end;
-				{error, _Reason} -> []
+				false -> []
 			    end	
 		  end
 	  end,
-    Cs2= lists:concat(lists:map(Fun, Cs)),
+    Cs2= lists:append(lists:map(Fun, Cs)),
     %%io:format("Cs2:\n~p\n", [Cs2]),
     %%Cs22= remove_sub_clones(Cs2),
     %%io:format("Before binding checking:\n~p\n", [length(Cs2)]),
     Cs3 =[lists:map(fun(C) -> {C, Len, length(C)} end, group_by(2, lists:map(Fun0, Range)))
 		    || {Range, Len, _F}<- Cs2],
     %%io:format("Cs3:\n~p\n",[Cs3]),
-    Cs4 = lists:concat(Cs3),
+    Cs4 = lists:append(Cs3),
     Cs5 =[{[R||{R,_Bd} <-Range], Len, F} || {Range, Len, F} <- Cs4, Len>=MinLength, F>=MinClones],
     lists:usort(Cs5).
 

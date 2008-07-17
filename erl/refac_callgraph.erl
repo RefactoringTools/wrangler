@@ -11,8 +11,10 @@
 
 -export([construct/1]).
 
--include("wrangler.hrl").
+-include("../hrl/wrangler.hrl").
 
+
+-spec(construct/1::(dir())-> #callgraph{}).	     
 construct(List) ->
   {Calls, FunDefMap, ExternalCalls} = preprocess(List),
   Edges = get_edges(Calls),  

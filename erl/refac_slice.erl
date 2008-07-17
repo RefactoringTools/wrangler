@@ -31,10 +31,13 @@
 
 -export([forward_slice/5, backward_slice/5]). 
 
--export([sliced_funs/0]).
+-include("../hrl/wrangler.hrl").
 
 %% @spec forward_slice(Files:[filename()], AnnAST:syntaxTree(), ModName::atom(), FunDef::syntaxTree(), Expr::syntaxTree()) -> [syntaxTree()].
 %% @doc Forward slice the program with expression Expr, which in contained in function FunDef, as the slicing criterion.                     
+
+-spec(forward_slice/5::([filename()], syntaxTree(), atom(), syntaxTree(), syntaxTree())->
+	     [syntaxTree()]).
 forward_slice(Files, AnnAST, ModName, FunDef, Expr)  ->
     start_slice_env_process(),
     Res = forward_slice_1(Files, AnnAST, ModName, {FunDef, Expr}),
@@ -106,7 +109,7 @@ start_slice_env_process() ->
 	undefined -> ok;
 	_         -> erlang:unregister(sliced_funs)
     end,
-    register(sliced_funs, spawn(refac_slice, sliced_funs, [])).
+    register(sliced_funs, spawn(fun()->sliced_funs([]) end)).
 
 stop_slice_env_process() ->
     sliced_funs!stop.
@@ -118,9 +121,6 @@ get_all_sliced_funs() ->
 	    State
     end.
 	
-sliced_funs() ->
-    sliced_funs([]).
-
 sliced_funs(State) ->
     receive
 	{From, get, Key} ->
@@ -309,6 +309,9 @@ do_process_fun_applications(Node, {AnnAST, ModName, Vars}) ->
 %%=========================================================================================================
 %% @spec backward_slice(Files:[filename()], AnnAST:syntaxTree(), ModName::atom(), FunDef::syntaxTree() Expr::syntaxTree()) -> term(). %% Need to think what term() really is.
 %% @doc Backward slice the program with expression Expr, which in contained in function FunDef, as the slicing criterion.      
+
+-spec(backward_slice/5::([filename()], syntaxTree(), atom(), syntaxTree(), syntaxTree())->[any()]).  %% any needs to be refined here.
+	     
 backward_slice(Files,AnnAST, ModName, FunDef, Expr) ->
     FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
     Arity= refac_syntax:function_arity(FunDef),

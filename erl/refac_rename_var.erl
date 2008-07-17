@@ -41,14 +41,21 @@
 
 -export([rename_var/5, rename_var_eclipse/5]).
 
--export([pre_cond_check/4, cond_check/3, rename/3]).
+-export([pre_cond_check/4, rename/3]).
+
+-include("../hrl/wrangler.hrl").
 
 %% =====================================================================
 %% @spec rename_var(FileName::filename(), Line::integer(), Col::integer(), NewName::string(),SearchPaths::[string()])-> term()
 %%
+
+-spec(rename_var/5::(filename(), integer(), integer(), string(), [dir()]) ->
+	     {error, string()} | {ok, string()}).
 rename_var(FName, Line, Col, NewName, SearchPaths) ->
     rename_var(FName, Line, Col, NewName, SearchPaths, emacs).
 
+-spec(rename_var_eclipse/5::(filename(), integer(), integer(), string(), [dir()]) ->
+	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_var_eclipse(FName, Line, Col, NewName, SearchPaths) ->
     rename_var(FName, Line, Col, NewName, SearchPaths, eclipse).
 
@@ -158,6 +165,9 @@ cond_check(Tree, Pos, NewName) ->
 %% =====================================================================
 %% @spec rename(Tree::syntaxTree(), DefinePos::{integer(),integer()}, NewName::string())-> term()
 %%
+
+-spec(rename/3::(syntaxTree(), [{integer(), integer()}], atom()) ->
+	     {syntaxTree(), boolean()}).
 rename(Tree, DefinePos, NewName) ->
     refac_util:stop_tdTP(fun do_rename/2, Tree, {DefinePos, NewName}).
 
@@ -177,6 +187,9 @@ do_rename(Tree, {DefinePos, NewName}) ->
 %% ===========================================================================
 %% The following functions are temporally for testing purpose only, and will be removed.
 %%=============================================================================
+
+-spec(pre_cond_check/4::(syntaxTree(), integer(), integer(), atom())->
+	     boolean()).
 pre_cond_check(AST, Line, Col, NewName) ->
     {ok, {VarName, DefinePos, _C}} = refac_util:pos_to_var_name(AST, {Line, Col}),
     case VarName == NewName of 
@@ -188,24 +201,24 @@ pre_cond_check(AST, Line, Col, NewName) ->
 	      end
     end.
 
-post_refac_check(FileName, AST, SearchPaths) ->
-    TempFileName = filename:join([filename:dirname(FileName),
-				  filename:rootname(filename:basename(FileName)) ++ "_refac_temp"]),
-    file:write_file(TempFileName, list_to_binary(refac_prettypr:print_ast(AST))),
-    case refac_epp:parse_file(TempFileName, true, SearchPaths) of
-      {ok, Forms1} ->
-	  Forms = refac_syntax:form_list(tl(Forms1)),
-	  AnnAST = refac_syntax_lib:annotate_bindings(Forms, ordsets:new()),
-	  case refac_util:analyze_free_vars(AnnAST) of
-	    {error, Reason} -> 
-		  io:format("Reason:\n~p\n",[Reason]),
-		  file:delete(TempFileName), error;
-	    _ -> file:delete(TempFileName), ok
-	  end;
-      {error, Reason} -> 
-	     io:format("Reason:\n~p\n",[Reason]),
-	    file:delete(TempFileName), error
-    end.
+%% post_refac_check(FileName, AST, SearchPaths) ->
+%%     TempFileName = filename:join([filename:dirname(FileName),
+%% 				  filename:rootname(filename:basename(FileName)) ++ "_refac_temp"]),
+%%     file:write_file(TempFileName, list_to_binary(refac_prettypr:print_ast(AST))),
+%%     case refac_epp:parse_file(TempFileName, true, SearchPaths) of
+%%       {ok, Forms1} ->
+%% 	  Forms = refac_syntax:form_list(tl(Forms1)),
+%% 	  AnnAST = refac_syntax_lib:annotate_bindings(Forms, ordsets:new()),
+%% 	  case refac_util:analyze_free_vars(AnnAST) of
+%% 	    {error, Reason} -> 
+%% 		  io:format("Reason:\n~p\n",[Reason]),
+%% 		  file:delete(TempFileName), error;
+%% 	    _ -> file:delete(TempFileName), ok
+%% 	  end;
+%%       {error, Reason} -> 
+%% 	     io:format("Reason:\n~p\n",[Reason]),
+%% 	    file:delete(TempFileName), error
+%%     end.
 
 %% =====================================================================
 %% @spec envs_bounds_frees(Node::syntaxTree())-> {value, [{Key, [atom()}]}

@@ -39,13 +39,18 @@
 -export([rename_mod/3, rename_mod_eclipse/3]).
 
 -import(refac_rename_fun, [check_atoms/2]).
+
+-include("../hrl/wrangler.hrl").
 %% =====================================================================
 %% @spec rename_mod(FileName::filename(), NewName::string(), SearchPaths::[string()])-> term()
 %%   
 
+-spec(rename_mod/3::(filename(), string(), [dir()]) -> {error, string()} | {ok, [filename()]}).	     
 rename_mod(FileName, NewName, SearchPaths) ->
     rename_mod(FileName, NewName, SearchPaths, emacs).
 
+-spec(rename_mod_eclipse/3::(filename(), string(), [dir()]) ->
+	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_mod_eclipse(FileName, NewName, SearchPaths) ->
     rename_mod(FileName, NewName, SearchPaths, eclipse).
 

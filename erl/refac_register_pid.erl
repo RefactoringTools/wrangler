@@ -28,12 +28,10 @@
 
 -export([register_pid/5, register_pid_eclipse/5, register_pid_1/5, register_pid_2/5]).
 
--export([ast_server/2, get_ast/1, get_call_graph/1, call_graph_server/1]).
+-export([get_call_graph/1]).
 
 -include("../hrl/wrangler.hrl").
 
-
- 
 %% Rationale for this refactoring: If we want to send a message to a process, then we need to know its PID. This is often inconvenient since the 
 %% PID has to be sent to all the processes in the system that want to comminicate with this process. Registering a process with a name allows any 
 %% process in the system to communicate with this process without knowing its PID.
@@ -62,14 +60,17 @@
 %% Why do I need slicing? mostly for reduced the number of unclear registration expressions.
 
 %% ==============================================================================================================
-%% @spec register_pid(FileName::filename(), Start::Pos, End::Pos, RegName::string(),SearchPaths::[dir()()])-> term()
+%% @spec register_pid(FileName::filename(), Start::Pos, End::Pos, RegName::string(),SearchPaths::[dir()])-> term()
 %% @doc This function associates a name, which must be an atom, with a pid, and replaces the uses of this pid 
 %%      with the process name in send expressions.
+
+-spec(register_pid(FileName::filename(), Start::pos(), End::pos(), RegName::string(),SearchPaths::[dir()])-> {error, string()} |{ok, [filename()]}).
 register_pid(FName, Start, End, RegName,  SearchPaths) ->
     register_pid(FName, Start, End, RegName, SearchPaths, emacs).
 
-%%@private
-%% @spec register_pid(FileName::filename(), Start::Pos, End::Pos, RegName::string(),SearchPaths::[dir()()])-> term()
+
+-spec(register_pid_eclipse(FileName::filename(), Start::pos(), End::pos(), RegName::string(),SearchPaths::[dir()])
+      -> {error, string()} |{ok, [{filename(), filename(), string()}]}).
 register_pid_eclipse(FName, Start, End, RegName, SearchPaths) ->
     register_pid(FName, Start, End, RegName, SearchPaths, eclipse).
 
@@ -80,7 +81,7 @@ register_pid(FName, Start, End, RegName, SearchPaths, Editor) ->
     case refac_util:is_fun_name(RegName) of
 	true ->
 	    case get_ast(FName) of  %% preprocessor is not bypassed.
-		{ok, {AnnAST, Info}} ->
+		{ok, {_AnnAST, Info}} ->
 		    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
 		    RegName1 = list_to_atom(RegName), 
 		    _Res = refac_annotate_pid:ann_pid_info(SearchPaths),  %% Interface needs to be changed!
@@ -96,7 +97,7 @@ register_pid(FName, Start, End, RegName, SearchPaths, Editor) ->
 						emacs ->
 						    refac_util:write_refactored_files([{{FName, FName}, AnnAST4}]),
 						    ast_server ! stop,
-						    call_graph_server ! stop,
+						    stop_call_graph_server(),
 						    {ok, [FName]};
 						eclipse ->
 						    {ok, [{FName, FName, refac_prettypr:print_ast(AnnAST4)}]}
@@ -113,8 +114,8 @@ register_pid(FName, Start, End, RegName, SearchPaths, Editor) ->
 	    end;
 	false -> {error, "Invalid process name."}
     end.
-
-register_pid_1(FName, Start, End, RegName, SearchPaths) ->
+-spec(register_pid_1(FName::filename(), Start::pos(), End::pos(), RegName::string(),_SearchPaths::[dir()])-> {error, string()} |{ok, [filename()]}).
+register_pid_1(FName, Start, End, RegName, _SearchPaths) ->
     ModName = list_to_atom(filename:basename(FName, ".erl")),
     AnnAST = refac_annotate_pid:ann_pid_in_a_file(FName),  %% Interface needs to be changed!
     {ok, MatchExpr} = pos_to_spawn_match_expr(AnnAST, Start, End),
@@ -138,9 +139,10 @@ register_pid_1(FName, Start, End, RegName, SearchPaths) ->
  				  io:format(refac_prettypr:format(Reg)++"\n") end, RegExprs),
  	    {registered, RegExprs}
     end.
-    
-register_pid_2(FName, Start, End, RegName, SearchPaths) ->
-    ModName = list_to_atom(filename:basename(FName, ".erl")),
+
+-spec(register_pid_2(FileName::filename(), Start::pos(), End::pos(), RegName::string(),_SearchPaths::[dir()])-> {error, string()} |{ok, [filename()]}).    
+register_pid_2(FName, Start, End, RegName, _SearchPaths) ->
+    %%ModName = list_to_atom(filename:basename(FName, ".erl")),
     AnnAST = refac_annotate_pid:ann_pid_in_a_file(FName),  %% Interface needs to be changed!
     {ok, MatchExpr} = pos_to_spawn_match_expr(AnnAST, Start, End),
     Pid = refac_syntax:match_expr_pattern(MatchExpr),
@@ -202,7 +204,7 @@ pos_to_list_comp_expr(FunDef, Start) ->
 
 %% TODO: ALSO NEED TO CHECK the slice of self().
 
-pre_cond_check(FileName, ModName, AnnAST, Start, MatchExpr, RegName, Info, SearchPaths) ->		 
+pre_cond_check(FileName, ModName, AnnAST, Start, MatchExpr, RegName, _Info, SearchPaths) ->		 
     {ok, FunDef} = refac_util:pos_to_fun_def(AnnAST, Start),
     FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
     Arity = refac_syntax:function_arity(FunDef),
@@ -223,7 +225,7 @@ pre_cond_check(FileName, ModName, AnnAST, Start, MatchExpr, RegName, Info, Searc
 						case Res of 
 						    ok -> ok;
 						    {registered, RegExprs1} ->
-							{{M, F, A}, R} = hd(RegExprs1),
+							{{_M, F, A}, _R} = hd(RegExprs1),
 							{error, "The process is already registered in function "++ atom_to_list(F)++"/"++integer_to_list(A)++"\n"};
 						    {unsure, _} -> ok
 						end;
@@ -248,8 +250,8 @@ check_registered_pids(FileName, ModName, AnnAST, Start, MatchExpr) ->
     case RegExprs of 
 	[] ->
 	    ok;
-	_ -> RegExprs1 = lists:filter(fun({{M, F, A},R}) ->
-					      [RegName, Pid1] = refac_syntax:application_arguments(R),
+	_ -> RegExprs1 = lists:filter(fun({{_M, _F, _A},R}) ->
+					      [_RegName, Pid1] = refac_syntax:application_arguments(R),
 					      case lists:keysearch(pid,1, refac_syntax:get_ann(Pid1)) of 
 						  {value, {pid, PidInfo1}}->
 						      PidInfo -- PidInfo1 =/= PidInfo;
@@ -276,18 +278,18 @@ collect_register_exprs(Funs) ->
 		    _ -> {Acc, {M,F,A}}
 		end
 	end,		
-    lists:flatmap(fun({Key, FunDef}) ->
+    lists:flatmap(fun({_Key, FunDef}) ->
 			  {value, {fun_def, {ModName, FunName, Arity, _,_}}} = 
 			      lists:keysearch(fun_def, 1, refac_syntax:get_ann(FunDef)),
 			  refac_syntax_lib:fold(F, {[], {ModName, FunName, Arity}}, FunDef) end, Funs).
     
 is_direct_recursive_fun(ModName, FunName, Arity, FunDef) ->
-    F = fun(Node, {ModName, FunName, Arity}) ->
+    F = fun(Node, {ModName1, FunName1, Arity1}) ->
 		case refac_syntax:type(Node) of 
 		    application ->
 			Op = refac_syntax:application_operator(Node),
 			case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of 
-			    {value, {fun_def, {ModName, FunName, Arity, _, _}}} ->
+			    {value, {fun_def, {ModName1, FunName1, Arity1, _, _}}} ->
 				{true, true};
 			    _ -> {[],false}
 			end;
@@ -327,7 +329,7 @@ collect_process_names(DirList) ->
 							      application ->
 								  case is_register_app(Node1) of 
 								      true -> 
-									  [RegName, Pid] = refac_syntax:application_arguments(Node1),
+									  [RegName, _Pid] = refac_syntax:application_arguments(Node1),
 									    Res = evaluate_expr(Files, ModName, AnnAST, FunDef, RegName),
 									    Res++FunAcc;
 									_ -> FunAcc
@@ -445,8 +447,8 @@ is_spawn_app(Tree) ->
     SpawnFuns1 = [{erlang, spawn, 1}, {erlang, spawn, 2}, {erlang, spawn, 3}, {erlang, spawn, 4},
 		  {erlang, spawn_link, 1}, {erlang, spawn_link, 2}, {erlang, spawn_link, 3}, {erlang, spawn_link, 4},
 		  {erlang, spawn_opt, 3}, {erlang, spawn_opt, 5}],
-    SpawnFuns2 = [{erlang, spawn_monitor, 1}, {erlang, spawn_monitor, 3}, {erlang, spawn_opt, 2},
-		  {erlang, spawn_opt, 4}],
+    %% SpawnFuns2 = [{erlang, spawn_monitor, 1}, {erlang, spawn_monitor, 3}, {erlang, spawn_opt, 2},
+%% 		  {erlang, spawn_opt, 4}],
     case refac_syntax:type(Tree) of
       application ->
 	  Operator = refac_syntax:application_operator(Tree),
@@ -488,7 +490,7 @@ evaluate_expr(Files, ModName, AnnAST, FunDef, Expr) ->
 
 
 start_ast_server_process(SearchPaths) ->
-    Pid = spawn_link(refac_register_pid, ast_server, [[], SearchPaths]),
+    Pid = spawn_link(fun()->ast_server([], SearchPaths) end),
     register(ast_server, Pid).
 
 get_ast(FileName) ->
@@ -529,13 +531,15 @@ ast_server(Env, SearchPaths) ->
 
 
 start_call_graph_server() ->
-    Pid = spawn_link(refac_register_pid, call_graph_server, [[]]),
+    Pid = spawn_link(fun()->call_graph_server([]) end),
     register(call_graph_server, Pid).
 
 stop_call_graph_server() ->
     call_graph_server!stop.
 
 
+-spec(get_call_graph/1::([dir()])->
+			      #callgraph{}).
 get_call_graph(SearchPaths) ->
     call_graph_server ! {self(), get, SearchPaths},
     receive

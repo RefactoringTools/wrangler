@@ -2,13 +2,15 @@
 
 -export([start_ast_server/1, stop_ast_server/0, get_ast/1]).
 
--export([ast_server/2]).
+-include("../hrl/wrangler.hrl").
 
-
+-spec(start_ast_server/1::([dir()]) -> true).	     
 start_ast_server(SearchPaths) ->
-    Pid = spawn_link(refac_ast_server, ast_server, [[], SearchPaths]),
+    Pid = spawn_link(fun() ->ast_server([], SearchPaths) end),
     register(ast_server, Pid).
 
+-spec(get_ast/1::(filename()) ->
+	     {ok, {syntaxTree(), moduleInfo()}} | {error, string()}).
 get_ast(FileName) ->
     ast_server ! {self(), get, FileName},
     receive 
@@ -16,7 +18,7 @@ get_ast(FileName) ->
 	    Res
     end.
 	    
-
+-spec(stop_ast_server/0::()-> stop).	     
 stop_ast_server() ->
     ast_server ! stop.
 
@@ -35,7 +37,7 @@ ast_server(Env, SearchPaths) ->
 			    end,
 			    ast_server(Env, SearchPaths);
 			true ->
-			    case refac_util:parse_annotate_file(FileName, true, SearchPaths) of 
+			    case refac_util:parse_annotate_file_1(FileName, true, SearchPaths) of 
 				{ok, {AnnAST1, Info1}} ->
 				    From ! {ast_server, {ok, {AnnAST1, Info1}}},
 				    case lists:keysearch(errors,1, Info) of 
@@ -49,7 +51,7 @@ ast_server(Env, SearchPaths) ->
 				    ast_server(Env, SearchPaths)
 			    end
 		    end;
-		false -> case refac_util:parse_annotate_file(FileName, true, SearchPaths) of 
+		false -> case refac_util:parse_annotate_file_1(FileName, true, SearchPaths) of 
 			     {ok, {AnnAST, Info}} ->
 				 From ! {ast_server, {ok, {AnnAST, Info}}},
 				 case lists:keysearch(errors,1, Info) of 

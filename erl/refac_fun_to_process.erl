@@ -31,7 +31,7 @@
 
 -module(refac_fun_to_process).
 
--compile(export_all).
+-export([fun_to_process/5, fun_to_process_eclipse/5]).
 
 -include("../hrl/wrangler.hrl").
 
@@ -39,10 +39,13 @@
 %% =====================================================================
 %% @spec rename_var(FileName::filename(), Line::integer(), Col::integer(), NewName::string(),SearchPaths::[string()])-> term()
 %%
+-spec(fun_to_process/5::(filename(), integer(), integer(), string(), [dir()]) -> {ok, [filename()]} | {error, string()}).	     
 fun_to_process(FName, Line, Col, ProcessName, SearchPaths) ->
     fun_to_process(FName, Line, Col, ProcessName, SearchPaths, emacs).
 
- fun_to_process_eclipse(FName, Line, Col, ProcessName, SearchPaths) ->
+
+-spec(fun_to_process_eclipse/5::(filename(), integer(), integer(), string(), [dir()]) -> {ok, [{filename(), filename(), string()}]} | {error, string()}).
+fun_to_process_eclipse(FName, Line, Col, ProcessName, SearchPaths) ->
     fun_to_process(FName, Line, Col, ProcessName, SearchPaths, eclipse).
 
 fun_to_process(FName, Line, Col, ProcessName, SearchPaths, Editor) ->
@@ -183,20 +186,20 @@ fun_call_to_rpc(Node, {ModName, FunName, Arity, ProcessName, RpcFunName}) ->
 		    Node1 = refac_syntax:application(Op1, [Arg1, Arg2]),
 		    {Node1, true};
 		{erlang, apply, 2} ->
-		    F1 = lists:nth(1, Arguments),
-		    T1 = lists:nth(2, Arguments),
-		    case refac_syntax:type(F1) of 
+		    Arg1 = lists:nth(1, Arguments),
+		    Arg2 = lists:nth(2, Arguments),
+		    case refac_syntax:type(Arg1) of 
 			implicit_fun ->
-			    Name = refac_syntax:implicit_fun_name(F1),
+			    Name = refac_syntax:implicit_fun_name(Arg1),
 			    B1 = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Name)),
 			    A1 = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Name)),
 			    case {B1, A1} of 
 				{FunName, Arity} ->
 				    F2 = refac_syntax:implicit_fun(refac_syntax:atom(RpcFunName), refac_syntax:integer(2)),
 				    P = refac_syntax:atom(ProcessName),
-				    T2 = case refac_syntax:type(T1) of 
-					     list -> refac_syntax:tuple(refac_syntax:list_elements(T1));
-					     _  -> refac_syntax:application(refac_syntax:atom(list_to_tuple), [T1])						   
+				    T2 = case refac_syntax:type(Arg2) of 
+					     list -> refac_syntax:tuple(refac_syntax:list_elements(Arg2));
+					     _  -> refac_syntax:application(refac_syntax:atom(list_to_tuple), [Arg2])						   
 					 end,
 				    T3 = refac_syntax:list([P, T2]),
 				    {refac_syntax:copy_attrs(Node, refac_syntax:application

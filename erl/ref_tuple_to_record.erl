@@ -27,10 +27,16 @@
 
 -export([tuple_to_record_eclipse/8]).
 
+-include("../hrl/wrangler.hrl").
+
+-spec(tuple_to_record/8::(filename(), integer(), integer(), integer(), integer(), string(), [string()], [dir()]) ->
+	     {error, string()} | {ok, [filename()]}).
 tuple_to_record(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
   tuple_to_record(File, FLine, FCol, LLine, LCol, 
                 RecName, FieldString, SearchPaths, emacs).
 
+-spec(tuple_to_record_eclipse/8::(filename(), integer(), integer(), integer(), integer(), string(), [string()], [dir()]) ->
+	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 tuple_to_record_eclipse(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
   tuple_to_record(File, FLine, FCol, LLine, LCol, 
                 RecName, FieldString, SearchPaths, eclipse).

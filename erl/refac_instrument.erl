@@ -23,13 +23,12 @@
 
 -export([instrument_prog/2, uninstrument_prog/2]).
 
-
--export([start_counter_process/0, counter/0]).
-
-
+-include("../hrl/wrangler.hrl").
 %% =============================================================================================
 %% @spec intrument_prog(FileName::filename(), SearchPaths::[filename()])-> term()
 %%         
+
+-spec(instrument_prog/2::(filename(), [dir()]) ->{ok, [filename()]} | {error, string()}).	     
 instrument_prog(FileName,SearchPaths)-> 
  
    instrument_prog(FileName, SearchPaths, wrangler, trace_send, 4).
@@ -40,15 +39,19 @@ instrument_prog(FileName, SearchPaths, ModName, FunName, Arity) ->
     TraceCacheFile = filename:join(CurrentDir, "wrangler_trace_cache"),
     Dirs = lists:usort([CurrentDir|SearchPaths]),
     Files = refac_util:expand_files(Dirs, ".erl"),
-    InstrumentedFiles = instrument_files(Files, {ModName, FunName, Arity}, TraceCacheFile, SearchPaths),
-    refac_util:write_refactored_files(InstrumentedFiles),
-    ChangedFiles = lists:map(fun({{F, _}, _AST}) -> F end, InstrumentedFiles),
-    case ChangedFiles of 
-	[] -> io:format("No files were changed by this refactoring\n");
-	_ ->  io:format("The following files have been changed by this refactoring:\n~p\n",
-			[ChangedFiles])
-    end,	      
-    {ok,ChangedFiles}.    
+    case  instrument_files(Files, {ModName, FunName, Arity}, TraceCacheFile, SearchPaths) of 
+	{error, Reason} -> {error, Reason};
+	InstrumentedFiles ->
+	    refac_util:write_refactored_files(InstrumentedFiles),
+	    ChangedFiles = lists:map(fun({{F, _}, _AST}) -> F end, InstrumentedFiles),
+	    case ChangedFiles of 
+		[] -> io:format("No files were changed by this refactoring\n");
+		_ ->  io:format("The following files have been changed by this refactoring:\n~p\n",
+				[ChangedFiles])
+	    end,	      
+	    {ok,ChangedFiles}
+    end.
+	
 
 instrument_files([F|Fs], {ModName,FunName, Arity}, TraceCacheFile,SearchPaths) ->
     case refac_util:parse_annotate_file(F,true, SearchPaths ) of 
@@ -120,10 +123,7 @@ normalise_file_name(Filename) ->
     filename:join(filename:split(Filename)).
 
 start_counter_process() ->
-     spawn_link(refac_instrument, counter, []).
-
-counter() ->
-     loop(1).
+     spawn_link(fun()->loop(1) end).
 
 loop(N) ->
     receive
@@ -135,7 +135,7 @@ loop(N) ->
     end.
 	    
 
-
+-spec(uninstrument_prog/2::(filename(), [dir()]) ->{ok, [filename()]} | {error, string()}).
 uninstrument_prog(FileName,SearchPaths)-> 
     uninstrument_prog(FileName, SearchPaths, wrangler, trace_send, 4).
 
@@ -144,15 +144,19 @@ uninstrument_prog(FileName, SearchPaths, ModName, FunName, Arity) ->
     CurrentDir = filename:dirname(normalise_file_name(FileName)),
     Dirs = lists:usort([CurrentDir|SearchPaths]),
     Files = refac_util:expand_files(Dirs, ".erl"),
-    UnInstrumentedFiles = uninstrument_files(Files, {ModName, FunName, Arity}, SearchPaths),
-    refac_util:write_refactored_files(UnInstrumentedFiles),
-    ChangedFiles = lists:map(fun({{F, _}, _AST}) -> F end, UnInstrumentedFiles),
-    case ChangedFiles of 
-	[] -> io:format("No files were changed by this refactoring\n");
-	_  ->  io:format("The following files have been changed by this refactoring:\n~p\n",
-			 [ChangedFiles])
-    end,
-    {ok,ChangedFiles}.    
+    case uninstrument_files(Files, {ModName, FunName, Arity}, SearchPaths) of
+	{error, Reason} -> {error, Reason};
+	UnInstrumentedFiles ->
+	    refac_util:write_refactored_files(UnInstrumentedFiles),
+	    ChangedFiles = lists:map(fun({{F, _}, _AST}) -> F end, UnInstrumentedFiles),
+	    case ChangedFiles of 
+		[] -> io:format("No files were changed by this refactoring\n");
+		_  ->  io:format("The following files have been changed by this refactoring:\n~p\n",
+				 [ChangedFiles])
+	    end,
+	    {ok,ChangedFiles}
+    end.
+    
 
 
 uninstrument_files([F|Fs], {ModName,FunName, Arity}, SearchPaths) ->

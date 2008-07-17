@@ -20,19 +20,29 @@
 -module(refac_module_graph).
 -export([module_graph/3]). 
 
--include("wrangler.hrl").
+-include("../hrl/wrangler.hrl").
 
+-spec(module_graph/3::([dir()], filename(), [dir()]) -> [{filename(), [filename()]}]).	     
 module_graph(Files, ModuleGraphFile, SearchPaths) ->
      Ext = ".erl",
      NewFiles = refac_util:expand_files(Files, Ext),
      ModMap = refac_util:get_modules_by_file(NewFiles),
-     case file:read_file(ModuleGraphFile) of 
+     Res1 = case file:read_file(ModuleGraphFile) of 
 	 {ok, Res} -> {module_graph, _, List} = analyze_all_files(ModMap, [], {ModuleGraphFile, binary_to_term(Res)}, SearchPaths),
 		      List;
 	 _ -> {module_graph, _, List} = analyze_all_files(ModMap, [], {ModuleGraphFile, []},SearchPaths),
 	      List
-     end.
-	     
+     end,
+     Res1.
+
+analyze_all_files([], Acc, {ModuleGraphFile, _ModuleGraph}, _SearchPaths)->
+    case file:open(ModuleGraphFile,[write,binary]) of 
+	{ok, File} -> file:write_file(ModuleGraphFile, term_to_binary(Acc)),
+		      file:close(File);
+	{error, Reason} ->  io:format("Could not open the module graph output file, Reason ~p\n",
+				      [Reason])
+    end,
+    {module_graph, Acc, reverse_module_graph(Acc)};	     
 
 analyze_all_files([{Mod, Dir}|Left], Acc, {ModuleGraphFile, ModuleGraph}, SearchPaths) ->  
   ModuleGraphModifiedTime = filelib:last_modified(ModuleGraphFile),
@@ -51,16 +61,8 @@ analyze_all_files([{Mod, Dir}|Left], Acc, {ModuleGraphFile, ModuleGraph}, Search
 		  analyze_all_files(Left, [{{Mod,Dir}, Called}|lists:keydelete({Mod, Dir}, 1, Acc)],
 				    {ModuleGraphFile, ModuleGraph}, SearchPaths)
 	  end
-  end; 	   
+  end.
   
-analyze_all_files([], Acc, {ModuleGraphFile, _ModuleGraph}, _SearchPaths)->
-    case file:open(ModuleGraphFile,[write,binary]) of 
-	{ok, File} -> file:write_file(ModuleGraphFile, term_to_binary(Acc)),
-		      file:close(File);
-	{error, Reason} ->  io:format("Could not open the module graph output file, Reason ~p\n",
-				      [Reason])
-    end,
-    {module_graph, Acc, reverse_module_graph(Acc)}.
 
 
 analyze_mod({Mod, Dir}, SearchPaths) ->
@@ -72,7 +74,7 @@ analyze_mod({Mod, Dir}, SearchPaths) ->
 	{ok, {AnnAST, Info}} ->
 	    ImportedMods = case lists:keysearch(imports,1, Info) of 
 			       {value, {imports, Imps}} -> lists:map(fun({M, _Funs}) -> M end, Imps);
-			       _  -> []
+			       false  -> []
 			   end,
 	    CalledMods = collect_called_modules(AnnAST),
 	    {called_modules, ImportedMods++CalledMods};

@@ -26,16 +26,17 @@
 
 -export([ann_pid_info/1, ann_pid_in_a_file/1]).
 
--export([env/0, counter/0]).
-
--compile(export_all).
-
 -include("../hrl/wrangler.hrl").
 
+-spec(ann_pid_in_a_file/1::(filename()) ->
+	     syntaxTree()).
 ann_pid_in_a_file(FName) ->
     [{_, AnnAST}] =ann_pid_info([FName]),
      AnnAST.
     
+
+-spec(ann_pid_info/1::([dir()])->
+	     [syntaxTree()]).
 ann_pid_info(DirList) ->
     Files = refac_util:expand_files(DirList, ".erl"),
     SortedFuns = sort_funs(DirList),
@@ -95,7 +96,7 @@ fixpoint(Funs, TypeSigPid) ->
 
 
 update_function(File, FunList) ->
-    {ok, {AnnAST, Info}} = refac_register_pid:get_ast(File),
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(File, false, []),
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     F = fun (Node, []) ->
 		case refac_syntax:type(Node) of
@@ -300,7 +301,7 @@ annotate_within_fun_1({{ModName, FunName, Arity}, FunDef}, TypeSigPid) ->
     {{ModName, FunName, Arity},FunDef1}.
     
 start_counter_process() ->               
-    Pid = spawn(fun counter/0),
+    Pid = spawn(fun() -> counter_loop({1,1}) end),
     register(counter1, Pid).            %% REFACTOR THIS USING WRANGLER: RENAME counter1 to counter.
 
 stop_counter_process() ->
@@ -308,9 +309,6 @@ stop_counter_process() ->
 
 init_counter() ->
     counter1 ! init.
-
-counter() ->
-     counter_loop({1,1}).
 
 counter_loop({Spawn, Self}) ->
     receive
@@ -489,7 +487,7 @@ is_process_related_fun(FunDef) ->
     end.
 
 start_fun_typesig_process(State) ->
-    spawn(refac_annotate_pid, fun_typesig_loop, [State]).
+    spawn(fun() ->fun_typesig_loop(State) end).
     
 
 fun_typesig_loop(State) ->
@@ -520,9 +518,7 @@ fun_typesig_loop(State) ->
 
    
 start_env_process() ->
-    Pid = spawn_link(refac_annotate_pid, env, []), Pid.
-
-env() -> env_loop([]).
+    Pid = spawn_link(fun() -> env_loop([]) end), Pid.
 
 env_loop(Env) ->
     receive
@@ -543,17 +539,17 @@ env_loop(Env) ->
 	    ok
     end.
 
-is_register_app(T) ->
-    case refac_syntax:type(T) of
-      application ->
-	  Operator = refac_syntax:application_operator(T),
-	  Ann = refac_syntax:get_ann(Operator),
-	  case lists:keysearch(fun_def, 1, Ann) of
-	    {value, {fun_def, {erlang, register, 2, _, _}}} -> true;
-	    _ -> false
-	  end;
-      _ -> false
-    end.
+%% is_register_app(T) ->
+%%     case refac_syntax:type(T) of
+%%       application ->
+%% 	  Operator = refac_syntax:application_operator(T),
+%% 	  Ann = refac_syntax:get_ann(Operator),
+%% 	  case lists:keysearch(fun_def, 1, Ann) of
+%% 	    {value, {fun_def, {erlang, register, 2, _, _}}} -> true;
+%% 	    _ -> false
+%% 	  end;
+%%       _ -> false
+%%     end.
 
 
 

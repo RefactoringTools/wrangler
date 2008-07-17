@@ -23,16 +23,19 @@
 -export([ rename_fun/5, rename_var/5, rename_mod/3, generalise/7, move_fun/6, tuple_to_record/8,
          duplicated_code_in_buffer/3, duplicated_code_in_dirs/3, expression_search/5, fun_extraction/6, fold_expression/3, tuple_funpar/5,
 	 instrument_prog/2, uninstrument_prog/2, add_a_tag/5,register_pid/7, fun_to_process/5,
-	 start_processes/1, stop_processes/0, error_logger/1,
-         undo/0, undo_init/0]).
+	 start_processes/1, stop_processes/0, 
+         undo/0]).
 
+-include("../hrl/wrangler.hrl").
 
+-spec(rename_var/5::(filename(), integer(), integer(), string(), [dir()]) ->
+	     {error, string()} | {ok, string()}).
 rename_var(Fname, Line, Col, NewName, SearchPaths) ->
     case check_undo_process() of
 	ok -> Res=wrangler:rename_var(Fname, Line, Col, NewName, SearchPaths),
 	      case Res of 
 		  {ok, _} ->
-		      check_error_logger();
+		      check_wrangler_error_logger();
 		  {error, _} -> ok
 	      end,
 	      Res;		
@@ -40,6 +43,8 @@ rename_var(Fname, Line, Col, NewName, SearchPaths) ->
 	    {error, Reason}
     end.
 
+-spec(rename_fun/5::(string(), integer(), integer(), string(), [dir()]) ->
+	     {error, string()} | {ok, [filename()]}).
 rename_fun(Fname, Line, Col, NewName,SearchPaths) ->
     case check_undo_process() of
 	ok -> wrangler:rename_fun(Fname, Line, Col, NewName,SearchPaths);
@@ -47,6 +52,7 @@ rename_fun(Fname, Line, Col, NewName,SearchPaths) ->
 	   {error, Reason}
     end.
 
+-spec(rename_mod/3::(filename(), string(), [dir()]) -> {error, string()} | {ok, [filename()]}).	  
 rename_mod(Fname, NewName,SearchPaths) ->
     case check_undo_process() of 
 	ok ->  wrangler:rename_mod(Fname, NewName,SearchPaths);
@@ -54,6 +60,7 @@ rename_mod(Fname, NewName,SearchPaths) ->
 	    {error, Reason}
     end.
 
+-spec(generalise/7::(filename(),integer(), integer(),integer(), integer(),string(), dir()) -> {ok, string()} | {error, string()}).
 generalise(Fname, StartLine, StartCol, EndLine, EndCol, ParName, SearchPaths)->
     case check_undo_process() of 
 	ok -> wrangler:generalise(Fname, {StartLine, StartCol}, {EndLine, EndCol}, ParName, SearchPaths);
@@ -61,6 +68,9 @@ generalise(Fname, StartLine, StartCol, EndLine, EndCol, ParName, SearchPaths)->
 	    {error, Reason}
     end.
 
+-spec(move_fun/6::(filename(),integer(),integer(), string(), atom(),[dir()])
+        -> {ok, [{filename(), filename()}]}
+           | {error, string()}).
 move_fun(FName, Line, Col, ModName, CreateNewFile, SearchPaths) ->
     case check_undo_process() of
 	ok -> wrangler:move_fun(FName, Line, Col, ModName, CreateNewFile, SearchPaths);
@@ -68,15 +78,20 @@ move_fun(FName, Line, Col, ModName, CreateNewFile, SearchPaths) ->
 	    {error, Reason}
     end.
 
+-spec(duplicated_code_in_buffer/3::(filename(), integer(), integer()) ->{ok, string()}).         
 duplicated_code_in_buffer(FName, MinLines,  MinClones) ->
     wrangler:duplicated_code_in_buffer(FName, MinLines, MinClones).
 
+-spec(duplicated_code_in_dirs/3::([dir()], integer(), integer()) ->{ok, string()}).
 duplicated_code_in_dirs(FName, MinLines, MinClones) ->
     wrangler:duplicated_code_in_dirs(FName, MinLines, MinClones).
 
+-spec(expression_search/5::(filename(), integer(), integer(), integer(), integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}). 
 expression_search(FName, StartLine, StartCol, EndLine, EndCol) ->
     wrangler:expression_search(FName, {StartLine, StartCol}, {EndLine, EndCol}).
 
+-spec(fun_extraction/6::(filename(), integer(), integer(), integer(), integer(), string()) ->
+	      {error, string()} | {ok, string()}).
 fun_extraction(FName, StartLine, StartCol, EndLine, EndCol, FunName) ->
     case check_undo_process() of 
 	ok -> wrangler:fun_extraction(FName, {StartLine, StartCol}, {EndLine, EndCol}, FunName);
@@ -84,7 +99,7 @@ fun_extraction(FName, StartLine, StartCol, EndLine, EndCol, FunName) ->
 	    {error, Reason}
     end.
 
-
+-spec(fold_expression/3::(filename(), integer(), integer()) -> {ok, [filename()]} |{error, string()}).  
 fold_expression(FName, Line, Col) ->
     case check_undo_process() of 
 	ok ->  wrangler:fold_expression(FName, Line, Col);
@@ -92,6 +107,7 @@ fold_expression(FName, Line, Col) ->
 	    {error, Reason}
     end.
 	       
+-spec(instrument_prog/2::(filename(), [dir()]) ->{ok, [filename()]} | {error, string()}).
 instrument_prog(FName, SearchPaths) ->
     case check_undo_process() of 
 	ok ->
@@ -100,6 +116,8 @@ instrument_prog(FName, SearchPaths) ->
 	    {error, Reason}
     end.
 
+-spec(tuple_funpar/5::(filename(), integer(), integer(), string(), [dir()]) ->
+	     {error, string()} | {ok, [filename()]}).
 tuple_funpar(Fname, Line, Col, Number, SearchPaths) ->
     case check_undo_process() of
 	ok -> wrangler:tuple_funpar(Fname, Line, Col, Number, SearchPaths);
@@ -107,6 +125,8 @@ tuple_funpar(Fname, Line, Col, Number, SearchPaths) ->
 	    {error, Reason}
     end.
 
+-spec(tuple_to_record/8::(filename(), integer(), integer(), integer(), integer(), string(), [string()], [dir()]) ->
+	     {error, string()} | {ok, [filename()]}).
 tuple_to_record(File, FLine, FCol, LLine, LCol, 
                 RecName, FieldString, SearchPaths)->
     case check_undo_process() of
@@ -116,7 +136,7 @@ tuple_to_record(File, FLine, FCol, LLine, LCol,
 	    {error, Reason}
     end.
     
-
+-spec(uninstrument_prog/2::(filename(), [dir()]) ->{ok, [filename()]} | {error, string()}).
 uninstrument_prog(FName, SearchPaths) ->
     case check_undo_process() of 
 	ok ->
@@ -125,7 +145,8 @@ uninstrument_prog(FName, SearchPaths) ->
 	    {error, Reason}
     end.
 
-
+-spec(add_a_tag/5::(filename(), integer(), integer(), string(), [dir()]) ->
+	     {error, string()} | {ok, [filename()]}).
 add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
     case check_undo_process() of 
 	ok ->
@@ -134,7 +155,8 @@ add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
 	    {error,Reason}
     end.
 
-
+-spec(register_pid/7::(filename(), integer(), integer(), integer(),integer(), string(), [dir()]) ->
+    {error, string()}|{ok, [filename()]}).
 register_pid(FileName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPaths) ->
     case check_undo_process() of 
 	ok ->
@@ -143,7 +165,8 @@ register_pid(FileName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPath
 	    {error,Reason}
     end.
 
-
+-spec(fun_to_process/5::(filename(), integer(), integer(), string(), [dir()])->
+	     {error, string()} | {ok, [filename()]}).
 fun_to_process(Fname, Line, Col, ProcessName,SearchPaths) ->
     case check_undo_process() of
 	ok -> wrangler:fun_to_process(Fname, Line, Col, ProcessName,SearchPaths);
@@ -162,6 +185,8 @@ check_undo_process() ->
 	    ok
     end.
 
+-spec(undo/0::() ->
+	     {ok, [filename()]}).
 undo() ->
     refactor_undo ! {self(),undo},
     receive
@@ -170,22 +195,25 @@ undo() ->
     end.
     
 
+-spec(start_processes/1::([dir()])-> true).				 
 start_processes(SearchPaths) ->
     start_undo_process(),
-    start_error_logger(),
+    start_wrangler_error_logger(),
     refac_ast_server:start_ast_server(SearchPaths).
     
+-spec(stop_processes/0::()->
+	     true).
 stop_processes() ->
     stop_undo_process(),
     unregister(refactor_undo),
-    stop_error_logger(),
-    unregister(error_logger),
+    stop_wrangler_error_logger(),
+    unregister(wrangler_error_logger),
     refac_ast_server:stop_ast_server(),
     unregister(ast_server).
 
     
 start_undo_process() ->
-    spawn_link(wrangler_distel, undo_init, []).
+    spawn_link(fun()->undo_init() end).
 
 
 
@@ -235,20 +263,20 @@ undo_loop(History) ->
 	stop -> ok    
     end.
 	
-start_error_logger() ->	       
-    Pid = spawn_link(wrangler_distel, error_logger, [[]]),
-    register(error_logger, Pid).
+start_wrangler_error_logger() ->	       
+    Pid = spawn_link(fun()->wrangler_error_logger([]) end),
+    register(wrangler_error_logger, Pid).
 
-stop_error_logger() ->
-    error_logger ! stop.
+stop_wrangler_error_logger() ->
+    wrangler_error_logger ! stop.
 
-init_error_logger() ->
-    error_logger ! init.
+init_wrangler_error_logger() ->
+    wrangler_error_logger ! init.
 
-check_error_logger() ->
-    error_logger ! {get, self()},
+check_wrangler_error_logger() ->
+    wrangler_error_logger ! {get, self()},
     receive 
-	{error_logger, State} ->
+	{wrangler_error_logger, State} ->
 	    case State of 
 		[] ->
 		     ok;
@@ -264,18 +292,18 @@ check_error_logger() ->
 			      end, State)
 	    end
     end,
-    init_error_logger().
+    init_wrangler_error_logger().
     
 
-error_logger(State) ->
+wrangler_error_logger(State) ->
     receive
 	{add, Error} ->
-	    error_logger(lists:usort([Error|State]));
+	    wrangler_error_logger(lists:usort([Error|State]));
 	{get, From} ->
-	    From ! {error_logger, State},
-	    error_logger(State);
+	    From ! {wrangler_error_logger, State},
+	    wrangler_error_logger(State);
 	init -> 
-	    error_logger([]);
+	    wrangler_error_logger([]);
 	stop ->
 	    ok
     end.

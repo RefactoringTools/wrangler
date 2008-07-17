@@ -18,9 +18,9 @@
 %% 
 -module(refac_expr_search).
 
--export([expr_search/3, var_binding_structure/1, pos_to_expr/3]).
+-export([expr_search/3, var_binding_structure/1]).
 
-
+-include("../hrl/wrangler.hrl").
 %% ================================================================================================
 %% @doc Search a user-selected expression or a sequence of expressions from an Erlang source file.
 %%
@@ -35,8 +35,10 @@
 %% expressions is a sequence of expressions separated by ','.
 %% <p>
 %% =================================================================================================
-%% @spec serch(FileName::filename(), Start::Pos, End::Pos)-> term().
+%% @spec expr_search(FileName::filename(), Start::Pos, End::Pos)-> term().
 %% =================================================================================================         
+
+-spec(expr_search/3::(filename(), pos(), pos()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).    
 expr_search(FileName, Start, End) ->
     case refac_util:parse_annotate_file(FileName,true, []) of 
 	{ok, {AnnAST, _Info}} -> 
@@ -224,6 +226,7 @@ pos_to_expr(Tree, {Start, End}) ->
     end.
 
 %% get the binding structure of variables.
+-spec(var_binding_structure/1::([syntaxTree()]) -> [{integer(), integer()}]).	     
 var_binding_structure(ASTList) ->
     Fun1 = fun (T, S) ->
 		   case refac_syntax:type(T) of
