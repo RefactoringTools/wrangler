@@ -21,3 +21,14 @@
 -define(DEFAULT_MODULE,
 	unknown).  %% default module name.
 
+-type(filename()::string()).
+-type(dir()::string()).
+-type(syntaxTree()::any()).    %% any() should be refined.
+-type(pos()::{integer(), integer()}).
+-type(boolean()::true|false).
+-type(key():: attributes | errors | exports | functions | imports | module | records | rules | warnings).
+-type(moduleInfo()::[{key(), any()}]).  %% any() should be refined.
+-type(term()::any()).
+-type(token()::{var, pos(), atom()} | {integer, pos(), integer()}|{string, pos(), string()}|
+               {float, pos(), float()} | {char, pos(), char()} |{atom, pos(), atom()} |{atom(), pos()}).
+               
