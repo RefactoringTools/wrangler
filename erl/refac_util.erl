@@ -689,7 +689,7 @@ expand_files([], _Ext, Acc) -> ordsets:from_list(Acc).
 %% element of the tuple being the module name, and the second element 
 %% binding the directory name of the file to which the module belongs.
 
--spec(get_modules_by_file(Files::[filename()]) -> [{atom(), dir()}]).
+-spec(get_modules_by_file(Files::[filename()]) -> [{filename(), dir()}]).
 get_modules_by_file(Files) ->
     get_modules_by_file(Files, []).
 
@@ -747,13 +747,18 @@ tokenize(File) ->
     end.
 
 %% tokenize1(File) ->
-%%     {ok, Bin} = file:read_file(File),
-%%     S = erlang:binary_to_list(Bin),
-%%     case refac_scan_with_layout:string(S) of
-%%       {ok, Toks, _} ->
-%% 	    Res = concat_toks(Toks),
-%%       _ -> []
-%%     end.
+%%       {ok, Bin} = file:read_file(File),
+%%       S = erlang:binary_to_list(Bin),
+%%       case refac_scan_with_layout:string(S) of
+%%         {ok, Toks, _} ->
+%% 	   io:format("Toks:\n~p\n",[Toks]),
+%%  	   Str1 = concat_toks(Toks),
+%% 	   io:format("~s", [Str1]),
+%% 	   Toks2=refac_scan:string(Str1),
+%% 	   io:format("Toks2\n~p\n", [Toks2]),
+%% 	   Toks2;
+%%         _ -> []
+%%       end.
 
 
 -spec(concat_toks(Toks::[token()]) ->
@@ -781,6 +786,7 @@ process_str(S) ->
 			  case C of 
 			      ' ' -> [C];
 			      $\n -> "\\n";
+			      $\\ -> "\\\\";
 			    %%  $\s  -> "\\s";
 			      $\r ->  "\\r";
 			      $\t -> "\\t";
@@ -1892,11 +1898,8 @@ build_call_graph(DirList) ->
     refac_callgraph:construct(CallGraph).
    
 
-%%@private
-%%@spec build_call_graph(DirList::[dir()], #callgraph{}) -> #callgraph{}
-
--spec(build_call_graph(DirList::[dir()], [{{{atom(), atom(), integer()}, syntaxTree()}, {atom(), atom(), integer()}}]) ->
-	     [{{{atom(), atom(), integer()}, syntaxTree()}, {atom(), atom(), integer()}}]).
+-spec(build_call_graph/2::([filename()], [{{{atom(), atom(), integer()}, syntaxTree()}, {atom(), atom(), integer()}}]) ->
+ 	     [{{{atom(), atom(), integer()}, syntaxTree()}, {atom(), atom(), integer()}}]).
 build_call_graph([FileName | Left], Acc) ->
     case refac_util:parse_annotate_file(FileName, true, []) of
       {ok, {AnnAST, Info}} ->
