@@ -203,7 +203,7 @@ start_processes(SearchPaths) ->
     
 -spec(stop_processes/0::()->
 	     true).
-stop_processes()
+stop_processes()->
     stop_undo_process(),
     unregister(refactor_undo),
     stop_wrangler_error_logger(),
