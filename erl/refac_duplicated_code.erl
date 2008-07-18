@@ -41,7 +41,7 @@
 %% <p> This function only reports the duplicated code fragments found. It does not actually 
 %% remove those duplicated code. Two parameters can be provided 
 %% by the user to specify the minimum code clones to report, and they are:  
-%% \emph{the  minimum number of lines of a code clone} and \emph{the minimum number of 
+%% \emph{the minimum number of lines of a code clone} and \emph{the minimum number of 
 %% duplicated times}, the default values 2 for both parameters.
 %% </p>
 %% ====================================================================================
@@ -94,7 +94,7 @@ duplicated_code(DirFileList, MinLength1, MinClones1) ->
     %%io:format("Final clones:\n~p\n", [length(Cs6)]),
     {ok, "Duplicated code detection finished."}.
    
--spec(duplicated_code_1/3::(dir(), integer(), integer()) ->
+-spec(duplicated_code_1/3::(dir(), [integer()], [integer()]) ->
 	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer()}]).	     
 duplicated_code_1(DirFileList, MinLength1, MinClones1) ->
     FileNames = refac_util:expand_files(DirFileList, ".erl"),
