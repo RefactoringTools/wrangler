@@ -96,7 +96,7 @@ generalise_eclipse(FileName, Start, End, ParName, SearchPaths) ->
     generalise(FileName, Start, End, ParName, SearchPaths, eclipse).
     
 generalise(FileName, Start, End, ParName, SearchPaths, Editor) ->
-    io:format("\nCMD: ~p:gen_fun(~p, ~p, ~p, ~p).\n", [?MODULE,FileName, Start, End, ParName]),
+    io:format("\nCMD: ~p:generalise(~p, ~p, ~p, ~p,~p).\n", [?MODULE,FileName, Start, End, ParName, SearchPaths]),
     case refac_util:is_var_name(ParName) of 
 	true ->
 	    case refac_util:parse_annotate_file(FileName,true, SearchPaths) of 
