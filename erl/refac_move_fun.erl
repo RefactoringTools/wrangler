@@ -757,16 +757,16 @@ split_lines([L | Ls], Ls1) ->
 split_lines([], Ls1) ->
     lists:reverse(Ls1).
 
-split_lines([$\r, $\n | Cs], Cs1, Ls) ->
-    split_lines_1(Cs, Cs1, Ls);
-split_lines([$\r | Cs], Cs1, Ls) ->
-    split_lines_1(Cs, Cs1, Ls);
-split_lines([$\n | Cs], Cs1, Ls) ->
-    split_lines_1(Cs, Cs1, Ls);
-split_lines([C | Cs], Cs1, Ls) ->
-    split_lines(Cs, [C | Cs1], Ls);
+%% split_lines([$\r, $\n | Cs], Cs1, Ls) ->
+%%     split_lines_1(Cs, Cs1, Ls);
+%% split_lines([$\r | Cs], Cs1, Ls) ->
+%%     split_lines_1(Cs, Cs1, Ls);
+%% split_lines([$\n | Cs], Cs1, Ls) ->
+%%     split_lines_1(Cs, Cs1, Ls);
+%% split_lines([C | Cs], Cs1, Ls) ->
+%%     split_lines(Cs, [C | Cs1], Ls);
 split_lines([], Cs, Ls) ->
     [lists:reverse(Cs) | Ls].
 
-split_lines_1(Cs, Cs1, Ls) ->
-    split_lines(Cs, [], [lists:reverse(Cs1) | Ls]).
+%% split_lines_1(Cs, Cs1, Ls) ->
+%%     split_lines(Cs, [], [lists:reverse(Cs1) | Ls]).
