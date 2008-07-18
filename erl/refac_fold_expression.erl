@@ -57,7 +57,7 @@ fold_expression_eclipse(FileName, Line, Col) ->
     fold_expression(FileName, Line, Col, eclipse).
 
 fold_expression(FileName, Line, Col, Editor) ->
-    io:format("\n[CMD: fold_expression(~p, ~p,~p)]\n", [FileName, Line, Col]),
+    io:format("\nCMD: ~p:fold_expression(~p, ~p,~p).\n", [?MODULE, FileName, Line, Col]),
     case refac_util:parse_annotate_file(FileName,true, []) of 
 	{ok, {AnnAST, _Info}} ->
 	    case pos_to_fun_clause(AnnAST, {Line, Col}) of 
@@ -72,7 +72,7 @@ fold_expression(FileName, Line, Col, Editor) ->
 									     {StartLine, StartCol, EndLine,EndCol, NewExp, {FunClauseDef, ClauseIndex}} end, Candidates);
 						   eclipse ->  Candidates 
 					       end,
-				     {ok, FunClauseDef, Regions}
+				     {ok, Regions}  %%  or {ok, FunClauseDef, Regions}? CHECK THIS.
 			    end;				 
 			{error, Reason} -> {error, Reason}
 		    end;
