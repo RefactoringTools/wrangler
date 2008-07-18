@@ -22,13 +22,14 @@
 -module(refac_new_fun).
 
 -export([fun_extraction/4, fun_extraction_eclipse/4]).
+-export([pos_to_expr/3, side_cond_analysis/4, vars_to_export/4]).
 
 -include("../hrl/wrangler.hrl").
 %% =============================================================================================
 %% @spec new_fun(FileName::filename(), Start::Pos, End::Pos, NewFunName::string())-> term()
 %%         
 -spec(fun_extraction/4::(filename(), pos(), pos(), string()) ->
-	      {error, string()} | {ok, string()}).
+	      {'error', string()} | {'ok', string()}).
 fun_extraction(FileName, Start, End, NewFunName) ->
     fun_extraction(FileName, Start, End, NewFunName, emacs).
 
