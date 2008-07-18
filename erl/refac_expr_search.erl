@@ -40,6 +40,7 @@
 
 -spec(expr_search/3::(filename(), pos(), pos()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).    
 expr_search(FileName, Start, End) ->
+    io:format("\nCMD: ~p:expr_search(~p, ~p,~p).\n", [?MODULE, FileName, Start, End]),
     case refac_util:parse_annotate_file(FileName,true, []) of 
 	{ok, {AnnAST, _Info}} -> 
 	      case pos_to_expr(FileName, AnnAST, {Start, End}) of 
