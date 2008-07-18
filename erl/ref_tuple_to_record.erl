@@ -50,8 +50,8 @@ tuple_to_record_eclipse(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPat
 %% =====================================================================
 tuple_to_record(File, FLine, FCol, LLine, LCol, 
                 RecName, FieldString, SearchPaths, Editor)->
-  io:format("\n[CMD: tuple_to_record,~p,~p,~p,~p,~p,~p,~n ~p,~n ~p] \n \n", 
-         [File, FLine, FCol, LLine, LCol, RecName, FieldString, SearchPaths]),
+  io:format("\n[CMD: ~p:tuple_to_record(~p,~p,~p,~p,~p,~p,~n ~p,~n ~p). \n \n", 
+         [?MODULE,File, FLine, FCol, LLine, LCol, RecName, FieldString, SearchPaths]),
   FieldList = convert_record_names(FieldString),
   check_if_correct_names(RecName, FieldList),
   {AnnAST, Info} = parse_file(File, SearchPaths),

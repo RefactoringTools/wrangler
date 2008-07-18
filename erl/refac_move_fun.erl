@@ -72,8 +72,8 @@ move_fun_eclipse(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths)->
 
 
 move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths, Editor) ->
-    io:format("\n[CMD: move_fun, ~p, ~p, ~p, ~p, ~p, ~p]\n", 
-	      [FName, Line, Col, TargetModName, CreateNewFile,SearchPaths]),
+    io:format("\nCMD: ~p:move_fun(~p, ~p, ~p, ~p, ~p, ~p).", 
+	      [?MODULE,FName, Line, Col, TargetModName, CreateNewFile,SearchPaths]),
     Pos = {Line, Col},
     case  get_target_file_name(FName, TargetModName, ".erl", SearchPaths) of 
 	{ok, TargetFName} ->

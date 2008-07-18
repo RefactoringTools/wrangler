@@ -39,7 +39,7 @@ fun_extraction_eclipse(FileName, Start, End, NewFunName) ->
 
 
 fun_extraction(FileName, Start, End, NewFunName,Editor) ->
-    io:format("\n[CMD: fun_extraction, ~p, ~p, ~p, ~p]\n", [FileName, Start, End, NewFunName]),
+    io:format("\nCMD: ~p:fun_extraction(~p, ~p, ~p, ~p).\n", [?MODULE,FileName, Start, End, NewFunName]),
     case refac_util:is_fun_name(NewFunName) of 
 	true ->
 	    case refac_util:parse_annotate_file(FileName,true, []) of 

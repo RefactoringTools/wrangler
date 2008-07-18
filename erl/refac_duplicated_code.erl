@@ -47,8 +47,9 @@
 %% ====================================================================================
 %% @spec duplicated_code(FileName::filename(),MinLines::integer(),MinClones::integer()) -> term().
 %%  
--spec(duplicated_code/3::([dir()], integer(), integer()) ->{ok, string()}).
+-spec(duplicated_code/3::([dir()], string(), string()) ->{ok, string()}).
 duplicated_code(DirFileList, MinLength1, MinClones1) ->
+    io:format("\nCMD: ~p:duplicated_code(~p,~p,~p).\n", [?MODULE, DirFileList, MinLength1, MinClones1]),
     FileNames = refac_util:expand_files(DirFileList, ".erl"),
     %%io:format("FileNames:\n~p\n", [FileNames]),
     MinLength = case MinLength1==[] orelse  (list_to_integer(MinLength1)< ?DEFAULT_MIN_CLONE_LEN) of 

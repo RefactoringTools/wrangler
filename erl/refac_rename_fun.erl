@@ -62,7 +62,7 @@ rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
     rename_fun(FileName, Line, Col, NewName, SearchPaths, eclipse).
 
 rename_fun(FileName, Line, Col, NewName, SearchPaths, Editor) ->
-    io:format("\n[CMD: rename_fun, ~p, ~p, ~p, ~p,~p]\n", [FileName, Line, Col, NewName, SearchPaths]),
+    io:format("\nCMD: ~p:rename_fun( ~p, ~p, ~p, ~p,~p).\n", [?MODULE, FileName, Line, Col, NewName, SearchPaths]),
     case refac_util:is_fun_name(NewName) of
       true ->
 	  case refac_util:parse_annotate_file(FileName, true, SearchPaths) of

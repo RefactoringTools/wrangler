@@ -55,7 +55,7 @@ rename_mod_eclipse(FileName, NewName, SearchPaths) ->
     rename_mod(FileName, NewName, SearchPaths, eclipse).
 
 rename_mod(FileName, NewName,SearchPaths, Editor) ->
-    io:format("\n[CMD: rename_mod, ~p, ~p]\n", [FileName, NewName]),
+    io:format("\nCMD: ~p:rename_mod(~p, ~p,~p).\n", [?MODULE, FileName, NewName, SearchPaths]),
     case refac_util:is_fun_name(NewName) of   %% module name and function name follow the same rules.
       true ->
           case refac_util:parse_annotate_file(FileName,true, SearchPaths) of

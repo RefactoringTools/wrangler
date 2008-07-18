@@ -78,11 +78,11 @@ move_fun(FName, Line, Col, ModName, CreateNewFile, SearchPaths) ->
 	    {error, Reason}
     end.
 
--spec(duplicated_code_in_buffer/3::(filename(), integer(), integer()) ->{ok, string()}).         
+-spec(duplicated_code_in_buffer/3::(filename(), string(), string()) ->{ok, string()}).         
 duplicated_code_in_buffer(FName, MinLines,  MinClones) ->
     wrangler:duplicated_code_in_buffer(FName, MinLines, MinClones).
 
--spec(duplicated_code_in_dirs/3::([dir()], integer(), integer()) ->{ok, string()}).
+-spec(duplicated_code_in_dirs/3::([dir()], string(), string()) ->{ok, string()}).
 duplicated_code_in_dirs(FName, MinLines, MinClones) ->
     wrangler:duplicated_code_in_dirs(FName, MinLines, MinClones).
 
@@ -203,7 +203,7 @@ start_processes(SearchPaths) ->
     
 -spec(stop_processes/0::()->
 	     true).
-stop_processes() ->
+stop_processes()
     stop_undo_process(),
     unregister(refactor_undo),
     stop_wrangler_error_logger(),

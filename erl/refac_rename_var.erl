@@ -60,7 +60,7 @@ rename_var_eclipse(FName, Line, Col, NewName, SearchPaths) ->
     rename_var(FName, Line, Col, NewName, SearchPaths, eclipse).
 
 rename_var(FName, Line, Col, NewName, SearchPaths, Editor) ->
-    io:format("\n[CMD: rename_var, ~p, ~p, ~p, ~p, ~p]\n", [FName, Line, Col, NewName, SearchPaths]),
+    io:format("\nCMD: ~p:rename_var(~p, ~p, ~p, ~p, ~p).\n", [?MODULE,FName, Line, Col, NewName, SearchPaths]),
     case refac_util:is_var_name(NewName) of
 	true ->
 	    case refac_util:parse_annotate_file(FName, false, SearchPaths) of

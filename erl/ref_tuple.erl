@@ -63,8 +63,8 @@ tuple_funpar_eclipse(FileName, ParLine, ParCol, Number, SearchPaths)->
 %% =====================================================================
 
 tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths, Editor)->
-  io:format("\n[CMD: tuple_funpar, ~p, ~p, ~p, ~p,~p]\n", 
-            [FileName, ParLine, ParCol, Number, SearchPaths]),
+  io:format("\nCMD: ~p:tuple_funpar(~p, ~p, ~p, ~p,~p).\n", 
+            [?MODULE,FileName, ParLine, ParCol, Number, SearchPaths]),
   {AnnAST, Info} = parse_file(FileName, SearchPaths),
   {FirstPar, Type} = check_first_pos({ParLine, ParCol}, AnnAST),
   {{Mod, FunName, Arity, _, _}, FunPatterns, AppNode, AppPar, FunNode}=

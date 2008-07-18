@@ -112,8 +112,8 @@ update_function(File, FunList) ->
 		end
 	end,
     {AnnAST1, _} = refac_util:stop_tdTP(F, AnnAST, []),
-     ast_server ! {update, {File, {AnnAST1, Info}}},
-    ok.
+    ast_server ! {update, {File, {AnnAST1, Info}}},
+    AnnAST1.
 
 
 annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->

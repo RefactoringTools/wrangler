@@ -318,7 +318,7 @@ move_fun_eclipse(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths)
 %% @spec duplicated_code_in_buffer(FileName::filename(),MinToks::integer(),MinClones::integer()) -> term()
 %% 
       
--spec(duplicated_code_in_buffer/3::(filename(), integer(), integer()) ->{ok, string()}).         
+-spec(duplicated_code_in_buffer/3::(filename(), string(), string()) ->{ok, string()}).         
 duplicated_code_in_buffer(FileName, MinToks, MinClones) -> 
     refac_duplicated_code:duplicated_code([FileName], MinToks, MinClones).
 
@@ -335,7 +335,7 @@ duplicated_code_in_buffer(FileName, MinToks, MinClones) ->
 %%======================================================================================
 %% @spec duplicated_code_in_dirs(FileNameList::[filename()|dir()], MinToks::integer(), MinClones::integer()) -> term()
 
--spec(duplicated_code_in_dirs/3::([dir()], integer(), integer()) ->{ok, string()}).
+-spec(duplicated_code_in_dirs/3::([dir()], string(), string()) ->{ok, string()}).
 duplicated_code_in_dirs(FileDirList, MinToks, MinClones) ->
     refac_duplicated_code:duplicated_code(FileDirList, MinToks, MinClones).
     
