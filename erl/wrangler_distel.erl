@@ -217,10 +217,10 @@ start_undo_process() ->
 
 
 
-stop_undo_process()-> 
+stop_undo_process() -> 
     refactor_undo ! stop.
     
-undo_init()->
+undo_init() ->
     case erlang:whereis(refactor_undo) of 
 	undefined -> ok;
 	_         -> erlang:unregister(refactor_undo)
@@ -284,11 +284,11 @@ check_wrangler_error_logger() ->
 		    io:format("\n===============================WARNING===============================\n"),
 		    io:format("Due to the following syntactical errors in the program, attributes/functions affected "
 			      "by these errors were not affected by this refactoring!\n"),
-		    lists:map(fun({FileName, Errors}) ->
+		    lists:foreach(fun({FileName, Errors}) ->
 				      Errors1 = lists:map(fun({Pos, _Mod, Msg}) -> {Pos, Msg} end, Errors),
 				      io:format("File:\n ~p\n", [FileName]),
 				      io:format("Error(s):\n"),
-				      lists:map(fun({Pos, Msg}) -> io:format(" ** ~p:~s **\n", [Pos, Msg]) end, lists:reverse(Errors1)) %% lists:flatten(Msg)
+				      lists:foreach(fun({Pos, Msg}) -> io:format(" ** ~p:~s **\n", [Pos, Msg]) end, lists:reverse(Errors1)) %% lists:flatten(Msg)
 			      end, State)
 	    end
     end,
