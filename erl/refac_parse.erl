@@ -274,24 +274,24 @@ normalise_list([H|T]) ->
 normalise_list([]) ->
     [].
 
-abstract(T) when integer(T) -> {integer,0,T};
-abstract(T) when float(T) -> {float,0,T};
-abstract(T) when atom(T) -> {atom,0,T};
+abstract(T) when is_integer(T) -> {integer,0,T};
+abstract(T) when is_float(T) -> {float,0,T};
+abstract(T) when is_atom(T) -> {atom,0,T};
 abstract([]) -> {nil,0};
-abstract(B) when binary(B) ->
+abstract(B) when is_binary(B) ->
     {bin, 0, lists:map(fun(Byte) ->
 			       {bin_element, 0,
 				{integer, 0, Byte}, default, default}
 		       end,
 		       binary_to_list(B))};
-abstract([C|T]) when integer(C), 0 =< C, C < 256 ->
+abstract([C|T]) when is_integer(C), 0 =< C, C < 256 ->
     abstract_string(T, [C]);
 abstract([H|T]) ->
     {cons,0,abstract(H),abstract(T)};
-abstract(Tuple) when tuple(Tuple) ->
+abstract(Tuple) when is_tuple(Tuple) ->
     {tuple,0,abstract_list(tuple_to_list(Tuple))}.
 
-abstract_string([C|T], String) when integer(C), 0 =< C, C < 256 ->
+abstract_string([C|T], String) when is_integer(C), 0 =< C, C < 256 ->
     abstract_string(T, [C|String]);
 abstract_string([], String) ->
     {string, 0, lists:reverse(String)};
@@ -309,24 +309,24 @@ abstract_list([]) ->
     [].
 
 %%% abstract/2 keeps the line number
-abstract(T, Line) when integer(T) -> {integer,Line,T};
-abstract(T, Line) when float(T) -> {float,Line,T};
-abstract(T, Line) when atom(T) -> {atom,Line,T};
+abstract(T, Line) when is_integer(T) -> {integer,Line,T};
+abstract(T, Line) when is_float(T) -> {float,Line,T};
+abstract(T, Line) when is_atom(T) -> {atom,Line,T};
 abstract([], Line) -> {nil,Line};
-abstract(B, Line) when binary(B) ->
+abstract(B, Line) when is_binary(B) ->
     {bin, Line, lists:map(fun(Byte) ->
 			       {bin_element, Line,
 				{integer, Line, Byte}, default, default}
 		       end,
 		       binary_to_list(B))};
-abstract([C|T], Line) when integer(C), 0 =< C, C < 256 ->
+abstract([C|T], Line) when is_integer(C), 0 =< C, C < 256 ->
     abstract_string(T, [C], Line);
 abstract([H|T], Line) ->
     {cons,Line,abstract(H, Line),abstract(T, Line)};
-abstract(Tuple, Line) when tuple(Tuple) ->
+abstract(Tuple, Line) when is_tuple(Tuple) ->
     {tuple,Line,abstract_list(tuple_to_list(Tuple), Line)}.
 
-abstract_string([C|T], String, Line) when integer(C), 0 =< C, C < 256 ->
+abstract_string([C|T], String, Line) when is_integer(C), 0 =< C, C < 256 ->
     abstract_string(T, [C|String], Line);
 abstract_string([], String, Line) ->
     {string, Line, lists:reverse(String)};
@@ -522,7 +522,7 @@ yecctoken2string({_Cat, _, Val}) -> io_lib:format('~w', [Val]);
 yecctoken2string({'dot', _}) -> io_lib:format('~w', ['.']);
 yecctoken2string({'$end', _}) ->
     [];
-yecctoken2string({Other, _}) when atom(Other) ->
+yecctoken2string({Other, _}) when is_atom(Other) ->
     io_lib:format('~w', [Other]);
 yecctoken2string(Other) ->
     io_lib:write(Other).
