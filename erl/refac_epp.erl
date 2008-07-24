@@ -305,7 +305,7 @@ leave_file(From, St) ->
       [] ->
 	  case St#epp.sstk of
 	    [OldSt | Sts] ->
-		file:close(St#epp.file),
+		ok = file:close(St#epp.file),
 		enter_file_reply(From, OldSt#epp.name, OldSt#epp.line),
 		Ms = dict:store({atom, 'FILE'},
 				{none,
@@ -533,7 +533,7 @@ scan_include(_Toks, Li, From, St) ->
 
 find_lib_dir(NewName) ->
     [Lib | Rest] = filename:split(NewName),
-    {code:lib_dir(Lib), Rest}.
+    {code:lib_dir(list_to_atom(Lib)), Rest}.
 
 scan_include_lib([{'(', _Llp}, {string, _Lf, _NewName0},
 		  {')', _Lrp}, {dot, _Ld}],
@@ -907,7 +907,9 @@ epp_request(Epp, Req) ->
     Epp ! {epp_request, self(), Req},
     wait_epp_reply(Epp, erlang:monitor(process, Epp)).
 
-epp_reply(From, Rep) -> From ! {epp_reply, self(), Rep}.
+epp_reply(From, Rep) ->
+    From ! {epp_reply, self(), Rep},
+    ok.
 
 wait_epp_reply(Epp, Mref) ->
     receive
