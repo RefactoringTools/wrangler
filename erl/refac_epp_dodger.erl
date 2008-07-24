@@ -180,7 +180,7 @@ parse_file(File, Parser, Options) ->
     case file:open(File, [read]) of
         {ok, Dev} ->
             try Parser(Dev, {1,1}, Options)
-            after file:close(Dev)
+            after ok = file:close(Dev)
 	    end;
         {error, IoErr} ->
             {error, IoErr}
