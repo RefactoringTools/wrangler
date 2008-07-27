@@ -87,7 +87,7 @@
 %%         Pos = {integer(), integer()}
 
 
--spec(generalise/5::(filename(),pos(), pos(),string(), dir()) -> {ok, string()} | {error, string()}).	     
+-spec(generalise/5::(filename(), pos(), pos(), string(), [dir()]) -> {ok, string()} | {error, string()}).	     
 generalise(FileName, Start, End, ParName, SearchPaths) ->
     generalise(FileName, Start, End, ParName, SearchPaths, emacs).
 
