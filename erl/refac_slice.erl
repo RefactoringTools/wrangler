@@ -124,22 +124,22 @@ get_all_sliced_funs() ->
 sliced_funs(State) ->
     receive
 	{From, get, Key} ->
-	    case lists:keysearch(Key, 1, State) of
-		{value, {Key, Value}} ->
-		    From ! {sliced_funs, value, Value};
-		false -> From ! {sliced_funs, false}
-	    end,
+	    From ! case lists:keysearch(Key, 1, State) of
+		       {value, {Key, Value}} ->
+			   {sliced_funs, value, Value};
+		       false -> {sliced_funs, false}
+		   end,
 	    sliced_funs(State);
 	{add, {Key, Value}} ->
 	    case lists:keysearch(Key, 1, State) of 
 		    {value, {Key, _}} ->  %% This should not happen.
-			State1 =lists:keyreplace(Key,1, State, {Key, Value}), 
+			State1 = lists:keyreplace(Key,1, State, {Key, Value}), 
 			sliced_funs(State1);
 		    false -> sliced_funs([{Key, Value}|State])
 		end;
 	 {From, get_all} ->
 	    io:format("\nAll sliced funs:\n"),
-	    lists:map(fun({_Key, Value}) ->
+	    lists:foreach(fun({_Key, Value}) ->
 			      io:format("Fun:\n~p\n", [Value]) end, State),
 	    From ! {sliced_funs, State},
 	    sliced_funs(State);
