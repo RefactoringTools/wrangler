@@ -134,9 +134,11 @@ register_pid_1(FName, Start, End, RegName, _SearchPaths) ->
  				 {error, "The selected process is already registered at line "++ integer_to_list(Line)};
  	{unsure, RegExprs} ->
  	    io:format("\nThe following registration of processes might cause conflict, please check!\n"),
- 	    lists:map(fun(Reg) -> {StartPos,_} = refac_util:get_range(Reg),
- 				  io:format("\nLocation: (~p, ~p):  ", [FName, StartPos]),
- 				  io:format(refac_prettypr:format(Reg)++"\n") end, RegExprs),
+ 	    lists:foreach(fun(Reg) ->
+				  {StartPos,_} = refac_util:get_range(Reg),
+				  io:format("\nLocation: (~p, ~p):  ", [FName, StartPos]),
+				  io:format(refac_prettypr:format(Reg)++"\n")
+			  end, RegExprs),
  	    {registered, RegExprs}
     end.
 
@@ -231,8 +233,8 @@ pre_cond_check(FileName, ModName, AnnAST, Start, MatchExpr, RegName, _Info, Sear
 						end;
 					    _ -> io:format("Wrangler could not fully decide the process name used by the following register expressions:\n"),
 						 UnKnowns1 = lists:map(fun({_, V}) -> V end, UnKnowns),
-						 lists:map(fun({M, F,A, L}) -> io:format("\n Location: (module: ~p, function:~p/~p, line:~p)\n", [M, F, A, L])
-							  end, UnKnowns1),
+						 lists:foreach(fun({M, F,A, L}) -> io:format("\n Location: (module: ~p, function:~p/~p, line:~p)\n", [M, F, A, L])
+							       end, UnKnowns1),
 						 {unknown_value, UnKnowns}
 				       end
 			      end
