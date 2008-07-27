@@ -511,7 +511,7 @@ get_free_vars_1([]) -> [].
 %% @spec get_bound_vars(Node::syntaxTree())-> [atom()]
 %% @doc Return the bound variables of an AST node.
 
--spec(get_bound_vars(Node::syntaxTree())-> [atom()]).
+-spec(get_bound_vars(Node::syntaxTree())-> [atom() | {atom(),pos()}]).
 get_bound_vars(Node) ->
     get_bound_vars_1(refac_syntax:get_ann(Node)).
 
@@ -710,15 +710,14 @@ get_modules_by_file([], Acc) -> lists:reverse(Acc).
 %% should be the same as the first element, and the third element in the tuple is the 
 %% AST represention of the file.
 
--spec(write_refactored_files([{{filename(), filename()},syntaxTree()}])-> [ok | {error, term()}]).
+-spec(write_refactored_files([{{filename(),filename()},syntaxTree()}]) -> 'ok').
 write_refactored_files(Files) ->
     F = fun ({{File1, File2}, AST}) ->
 		if File1 /= File2 ->
-		       file:delete(File1),
-		       file:write_file(File2,
-				       list_to_binary(refac_prettypr:print_ast(AST)));    
-		   true -> file:write_file(File2, list_to_binary(refac_prettypr:print_ast(AST)))
-		end
+		       file:delete(File1);
+		   true -> ok
+		end,
+		file:write_file(File2, list_to_binary(refac_prettypr:print_ast(AST)))
 	end,
     Files1 = lists:map(fun ({{OldFileName, NewFileName}, _}) ->
 			       {ok, Bin} = file:read_file(OldFileName), {{OldFileName, NewFileName}, Bin}
@@ -730,7 +729,7 @@ write_refactored_files(Files) ->
 		    "please restart the refactorer!\n");
       _ -> refactor_undo ! {add, Files1}
     end,
-    lists:map(F, Files).
+    lists:foreach(F, Files).
 
 %% =====================================================================
 %% @spec tokenize(File::filename()) -> [token()]
