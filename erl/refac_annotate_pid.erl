@@ -22,21 +22,15 @@
 %% because complex pattern binding and message passing are not considered yet, the annotation information
 %% is only partial.
 
+
+%% TODO: Summarise the limitations of this module.
 -module(refac_annotate_pid).
 
--export([ann_pid_info/1, ann_pid_in_a_file/1]).
+-export([ann_pid_info/1]).
 
 -include("../hrl/wrangler.hrl").
 
--spec(ann_pid_in_a_file/1::(filename()) ->
-	     syntaxTree()).
-ann_pid_in_a_file(FName) ->
-    [{_, AnnAST}] =ann_pid_info([FName]),
-     AnnAST.
-    
-
--spec(ann_pid_info/1::([dir()])->
-	     [syntaxTree()]).
+-spec(ann_pid_info/1::([dir()])->ok).
 ann_pid_info(DirList) ->
     Files = refac_util:expand_files(DirList, ".erl"),
     SortedFuns = sort_funs(DirList),
@@ -44,7 +38,7 @@ ann_pid_info(DirList) ->
     Pid = start_fun_typesig_process([]),            %% Refactor this USING WRANGLER:  register a process, and remove the uses of Pid.
     SortedFuns1 = do_ann_pid_info(SortedFuns, Pid),
     stop_counter_process(),
-    lists:map(fun (File) -> {File, update_function(File, SortedFuns1)} end, Files).
+    lists:foreach(fun (File) -> {File, update_function(File, SortedFuns1)} end, Files).
     
 
 do_ann_pid_info(Funs, Pid) ->
@@ -80,7 +74,7 @@ fixpoint(Funs, TypeSigPid) ->
  	{TypeSigPid, Env} ->
  	    Env
      end,
-     do_topdown_prop(Funs, TypeSigPid),
+     Funs1 =do_topdown_prop(Funs, TypeSigPid),
      TypeSigPid ! {self(), getenv},
      receive
  	{TypeSigPid, Env1} ->
@@ -89,14 +83,14 @@ fixpoint(Funs, TypeSigPid) ->
      case Env==Env1 of
  	true ->
  	    TypeSigPid!stop,
- 	    Funs;
+ 	    Funs1;
  	_ ->
- 	    fixpoint(Funs, TypeSigPid)
+ 	    fixpoint(Funs1, TypeSigPid)
      end.
 
 
 update_function(File, FunList) ->
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(File, false, []),
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(File, true, []),
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     F = fun (Node, []) ->
 		case refac_syntax:type(Node) of
@@ -112,9 +106,8 @@ update_function(File, FunList) ->
 		end
 	end,
     {AnnAST1, _} = refac_util:stop_tdTP(F, AnnAST, []),
-    ast_server ! {update, {File, {AnnAST1, Info}}},
-    AnnAST1.
-
+    refac_ast_server:update_ast(File, {AnnAST1, Info, filelib:last_modified(File)}),
+    ok.
 
 annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
     case refac_syntax:type(Node) of
@@ -125,7 +118,6 @@ annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
 		  EnvPid ! {self(), get, {def, DefinePos}},
 		  receive
 		      {EnvPid, value, Value} -> 
-			%%  io:format("Value:\n~p\n", [Value]),
 			  refac_util:update_ann(Node, Value);
 		      {EnvPid, false} -> Node
 		  end;
@@ -145,8 +137,9 @@ annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
  			   end;
  		       {TypeSigPid, false} ->
  			   Node
- 		   end
- 	    end;		
+ 		   end;
+		_ -> Node
+	    end;		
        match_expr ->
  	  P = refac_syntax:match_expr_pattern(Node),
  	  B = refac_syntax:match_expr_body(Node),
@@ -154,7 +147,6 @@ annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
  	  case lists:keysearch(pid, 1, Ann) of           %% Ingnore process name first.
  	    {value, {pid, Value}} ->
  		P1 = refac_util:update_ann(P, {pid, Value}),
-		%%io:format("P1:\n~p\n", [P1]),
  		case refac_syntax:type(P) of
  		  variable ->
  		      Ann1 = refac_syntax:get_ann(P),
@@ -194,7 +186,6 @@ annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
  		    receive
  			{TypeSigPid, value, {ParSig, RtnSig}} ->
 			    ParSig1 = lists:map(fun({P,T}) -> F({P,T}) end, lists:zip(Ps, ParSig)),
-			   %% io:format("PatSig1:\n~p\n", [ParSig1]),
  			    case RtnSig =/= ResInfo of 
  				true -> Info = {{Mod, FunName, Arity}, {ParSig1, ResInfo}},
  					TypeSigPid ! {add, Info};
@@ -203,8 +194,7 @@ annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
 			{TypeSigPid, false} ->
  			    ArgsInfo = lists:duplicate(Arity, any),
 			    ArgsInfo1 = lists:map(fun({P,T}) -> F({P,T}) end, lists:zip(Ps, ArgsInfo)),
-			   %% io:format("ArgsInfo1:\n~p\n", [ArgsInfo1]),
- 			    Info = {{Mod, FunName, Arity}, {ArgsInfo1, ResInfo}},
+			    Info = {{Mod, FunName, Arity}, {ArgsInfo1, ResInfo}},
  			    TypeSigPid ! {add, Info}
  		    end;
  		_ -> ok
@@ -294,6 +284,7 @@ annotate_within_fun_1({{ModName, FunName, Arity}, FunDef}, TypeSigPid) ->
 				     end, Cs),
 		     FunDef0 = refac_syntax:copy_attrs(FunDef, refac_syntax:function(FunName1, Cs1)),
 		     refac_util:full_buTP(fun annotate_within_fun/2, FunDef0, {ModName, FunName, Arity, EnvPid, TypeSigPid});
+		     
 		 _ -> %% refac_util:full_buTP(fun annotate_within_fun/2, FunDef, {ModName, FunName, Arity, EnvPid, TypeSigPid})
 		     FunDef
 	     end,
@@ -360,7 +351,7 @@ do_annotate_special_fun_apps(Node, {CurrentFun, EnvPid}) ->
 			    Node1 = refac_util:update_ann(Node, {pid, [{self, CurrentFun}]}),
 			    {Node1, true};
 			_ ->
-			    {Node, true}
+			    {Node, false}
 		    end
 	    end;
 	_ -> {Node, false}
@@ -419,7 +410,7 @@ is_send_expr(Tree) ->
 
 %% sort functions according to calling relationship and remove functions which are not process related.
 sort_funs(DirList) ->
-   {CallerCallee, Sccs, _E} = refac_register_pid:get_call_graph(DirList),
+   {CallerCallee, Sccs, _E} = refac_callgraph_server:get_callgraph(DirList),
     TrimmedSccs = trim_scc(Sccs, CallerCallee, [], []),
     lists:append(TrimmedSccs).
 
@@ -538,18 +529,6 @@ env_loop(Env) ->
 	stop ->
 	    ok
     end.
-
-%% is_register_app(T) ->
-%%     case refac_syntax:type(T) of
-%%       application ->
-%% 	  Operator = refac_syntax:application_operator(T),
-%% 	  Ann = refac_syntax:get_ann(Operator),
-%% 	  case lists:keysearch(fun_def, 1, Ann) of
-%% 	    {value, {fun_def, {erlang, register, 2, _, _}}} -> true;
-%% 	    _ -> false
-%% 	  end;
-%%       _ -> false
-%%     end.
 
 
 
