@@ -1378,7 +1378,7 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 
 
 (defun erl-refactor-register-pid(node name start end)
-  "Introduce a new function to represent an user-selected expression/expression sequence."
+  "Register a process with a user-provied name."
   (interactive (list (erl-target-node)
 		     (read-string "process name: ")
 		     (region-beginning)
@@ -1404,21 +1404,35 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 		(message "Refactoring failed: %S" rsn))
 	       (['rex ['error rsn]]
 		(message "Refactoring failed: %s" rsn))
-	       (['rex ['unknown_value pars]]
+	       (['rex ['unknown_pnames regpids]]
 		(if (yes-or-no-p "Do you want to continue the refactoring?")
 		    (erl-spawn
 		      (erl-send-rpc node 'refac_register_pid 'register_pid_1
-				    (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name erlang-refac-search-paths))
-		      (erl-receive (buffer)
+				    (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name regpids erlang-refac-search-paths))
+		      (erl-receive (buffer node current-file-name start-line-no start-col-no end-line-no end-col-no name)
 			  ((['rex ['badrpc rsn]]
 			    (message "Refactoring failed: %S" rsn))
 			   (['rex ['error rsn]]
 			    (message "Refactoring failed: %s" rsn))
+			   (['rex ['unknown_pids pars]]
+			    (if (yes-or-no-p "Do you want to continue the refactoring?")
+				(erl-spawn
+				  (erl-send-rpc node 'refac_register_pid 'register_pid_2
+						(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name erlang-refac-search-paths))
+				  (erl-receive (buffer)
+				      ((['rex ['badrpc rsn]]
+					(message "Refactoring failed: %S" rsn))
+				       (['rex ['error rsn]]
+					(message "Refactoring failed: %s" rsn))
+				       (['rex ['ok modified]]
+					(with-current-buffer buffer (revert-buffer nil t t))
+					(message "Refactoring succeeded!")))))
+			      (message "Refactoring aborted!")))
 			   (['rex ['ok modified]]
 			    (with-current-buffer buffer (revert-buffer nil t t))
 			    (message "Refactoring succeeded!")))))
 		  (message "Refactoring aborted!")))
-	       (['rex ['registered pars]]
+	       (['rex ['unknown_pids pars]]
 		(if (yes-or-no-p "Do you want to continue the refactoring?")
 		    (erl-spawn
 		      (erl-send-rpc node 'refac_register_pid 'register_pid_2
@@ -1836,13 +1850,8 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	   (revert-buffer nil t t)
 	    (message "Searching finished."))))))))))
 
-(defun erl-refactor-fun-to-process(node)
-  "Convert a function into a process."
-  (interactive (list (erl-target-node)))
-  (message "Sorry, this refactoring is still under development.")
-  )
 
-(defun erl-refactor-fun-to-process-1 (node name)
+(defun erl-refactor-fun-to-process (node name)
   "From a function to a process."
   (interactive (list (erl-target-node)
 		     (read-string "Process name: ")
