@@ -45,10 +45,10 @@
          reset_attrs/1, update_ann/2,parse_annotate_file_1/3,
          parse_annotate_file/3,write_refactored_files/1,
          build_lib_side_effect_tab/1, build_local_side_effect_tab/2,
-	 build_call_graph/1, has_side_effect/3,
+	 build_callgraph/1, has_side_effect/3,
          callback_funs/1,auto_imported_bifs/0]).
 
--export([analyze_free_vars/1, build_call_graph/2, build_call_graph/3]).
+-export([analyze_free_vars/1, build_callgraph/2, build_callgraph/3]).
 
 -export([update_var_define_locations/1]).
 
@@ -483,10 +483,10 @@ get_range(Node) ->
 
 
 %% =====================================================================
-%% @spec get_var_exports(Node::syntaxTree())-> [atom()]
+%% @spec get_var_exports(Node::syntaxTree())-> [{atom(), pos()}]
 %% @doc Return the exported variables of an AST node.
 
--spec(get_var_exports(Node::syntaxTree())-> [atom()]).
+-spec(get_var_exports(Node::syntaxTree())-> [{atom(),pos()}]).
 get_var_exports(Node) ->
     get_var_exports_1(refac_syntax:get_ann(Node)).
 
@@ -495,10 +495,10 @@ get_var_exports_1([_ | Bs]) -> get_var_exports_1(Bs);
 get_var_exports_1([]) -> [].
 
 %% =====================================================================
-%% @spec get_free_vars(Node::syntaxTree())-> [atom()]
+%% @spec get_free_vars(Node::syntaxTree())-> [{atom(),pos()}]
 %% @doc Return the free variables of an AST node.
 
--spec(get_free_vars(Node::syntaxTree())-> [atom()]).
+-spec(get_free_vars(Node::syntaxTree())-> [{atom(),pos()}]).
 get_free_vars(Node) ->
     get_free_vars_1(refac_syntax:get_ann(Node)).
 
@@ -508,10 +508,10 @@ get_free_vars_1([]) -> [].
 
 
 %% =====================================================================
-%% @spec get_bound_vars(Node::syntaxTree())-> [atom()]
+%% @spec get_bound_vars(Node::syntaxTree())-> [{atom(),pos()}]
 %% @doc Return the bound variables of an AST node.
 
--spec(get_bound_vars(Node::syntaxTree())-> [atom() | {atom(),pos()}]).
+-spec(get_bound_vars(Node::syntaxTree())-> [{atom(),pos()}]).
 get_bound_vars(Node) ->
     get_bound_vars_1(refac_syntax:get_ann(Node)).
 
@@ -524,7 +524,7 @@ get_bound_vars_1([]) -> [].
 %% @spec get_env_vars(Node::syntaxTree())-> [atom()]
 %% @doc Return the environment variables of an AST node.
 
--spec(get_env_vars(Node::syntaxTree())-> [atom()]).
+-spec(get_env_vars(Node::syntaxTree())-> [{atom(), pos()}]).
 get_env_vars(Node) ->
     get_env_vars_1(refac_syntax:get_ann(Node)).
 
@@ -729,7 +729,8 @@ write_refactored_files(Files) ->
 		    "please restart the refactorer!\n");
       _ -> refactor_undo ! {add, Files1}
     end,
-    lists:foreach(F, Files).
+    %% Actually the result of writing to files should be checked!
+    lists:foreach(F, Files).    
 
 %% =====================================================================
 %% @spec tokenize(File::filename()) -> [token()]
@@ -869,23 +870,22 @@ parse_annotate_file_1(FName, ByPassPreP, SearchPaths) ->
 	  Forms = if ByPassPreP -> Forms1;
 		     true -> tl(Forms1)
 		  end,
-	  Comments = erl_comment_scan:file(FName),
-	  SyntaxTree = refac_recomment:recomment_forms(Forms, Comments),
-	  Info = refac_syntax_lib:analyze_forms(SyntaxTree),
-%% 	  case lists:keysearch(errors,1,Info) of
-%% 	        {value,{errors, Error}} ->
-%% 	  	  {error, {"Syntax error in file: " ++ FName++".", Error}};
-%% 	      _ ->
+	    Comments = erl_comment_scan:file(FName),
+	    SyntaxTree = refac_recomment:recomment_forms(Forms, Comments),
+	    Info = refac_syntax_lib:analyze_forms(SyntaxTree),
 	    AnnAST = annotate_bindings(FName, SyntaxTree, Info, 1),
-	    if ByPassPreP -> 
-		    {ok, {AnnAST, Info}};
-	       true ->
-		    case analyze_free_vars(AnnAST) of
-			{error, Reason} -> {error, Reason};
-			_ ->   {ok, {AnnAST, Info}}
-		    end
+	    case analyze_free_vars(AnnAST) of 
+		{error, Reason} -> case lists:keysearch(errors, 1, Info) of
+				       {value, {errors, Error}} ->
+					   Info1 = lists:keyreplace(errors, 1, Info, {errors, Error++[Reason]}),
+					   {ok, {AnnAST, Info1}};
+				       false ->
+					   Info1 = Info ++ [{errors, [Reason]}],
+					   {ok, {AnnAST, Info1}}
+				   end;
+		 _ -> {ok, {AnnAST, Info}}
 	    end;
-	{error, Reason} -> {error, Reason}
+	{error, Reason} -> erlang:error(Reason)
     end.
 
 %%@spec add_tokens(FName::filename(), SyntaxTree::syntaxTree()) -> syntaxTree()
@@ -1729,7 +1729,7 @@ build_local_side_effect_tab(File, SearchPaths) ->
 		 true -> from_dets(local_side_effect_tab, SideEffectFile);
 		 _ -> ets:new(local_side_effect_tab, [set, public])
 	       end,
-    #callgraph{scc_order=Sccs, external_calls=_E} = build_call_graph(FilesToAnalyse),
+    #callgraph{scc_order=Sccs, external_calls=_E} = build_callgraph(FilesToAnalyse),
     build_side_effect_tab(Sccs, LocalPlt, LibPlt),
     to_dets(LocalPlt, SideEffectFile),
     dets:close(LibSideEffectFile),
@@ -1746,7 +1746,7 @@ build_local_side_effect_tab(File, SearchPaths) ->
 -spec(build_lib_side_effect_tab([filename()|dir()]) -> true).
 build_lib_side_effect_tab(FileOrDirs) ->
     Plt = ets:new(side_effect_table, [set, public]),
-    #callgraph{scc_order=Sccs, external_calls=_E} = build_call_graph(FileOrDirs),
+    #callgraph{scc_order=Sccs, external_calls=_E} = build_callgraph(FileOrDirs),
     build_side_effect_tab(Sccs, Plt, ets:new(dummy_tab, [set, public])),
     ets:insert(Plt, bifs_side_effect_table()),
     File = filename:join(?WRANGLER_DIR, "plt/side_effect_plt"),
@@ -1875,8 +1875,8 @@ lookup(Plt, {M, F, A}) ->
       [{_MFA, S}] -> {value, S}
     end.
 
-%% trim_call_graph(DirList) ->
-%%     {Sccs, E} = build_call_graph(DirList),
+%% trim_callgraph(DirList) ->
+%%     {Sccs, E} = build_callgraph(DirList),
 %%     trim_scc(Sccs).
 
 
@@ -1886,35 +1886,35 @@ lookup(Plt, {M, F, A}) ->
 
 
 %%====================================================================================
-%%@spec build_call_graph(DirList::[dir()]) -> #callgraph{}
+%%@spec build_callgraph(DirList::[dir()]) -> #callgraph{}
 %%@doc Build a function call graph out of the Erlang files contained in the given directories.
 
--spec(build_call_graph(DirList::[dir()]) -> #callgraph{}).
-build_call_graph(DirList) ->
+-spec(build_callgraph(DirList::[dir()]) -> #callgraph{}).
+build_callgraph(DirList) ->
     Files = refac_util:expand_files(DirList, ".erl"),
-    CallGraph = build_call_graph(Files, []),
+    CallGraph = build_callgraph(Files, []),
     %% io:format("CallGraph:\n~p\n", [CallGraph]),
     refac_callgraph:construct(CallGraph).
    
 
--spec(build_call_graph/2::([filename()], [{{{atom(), atom(), integer()}, syntaxTree()}, {atom(), atom(), integer()}}]) ->
+-spec(build_callgraph/2::([filename()], [{{{atom(), atom(), integer()}, syntaxTree()}, {atom(), atom(), integer()}}]) ->
  	     [{{{atom(), atom(), integer()}, syntaxTree()}, [{atom(), atom(), integer()}]}]).
-build_call_graph([FileName | Left], Acc) ->
+build_callgraph([FileName | Left], Acc) ->
     case refac_util:parse_annotate_file(FileName, true, []) of
       {ok, {AnnAST, Info}} ->
 	  case lists:keysearch(errors,1, Info) of 
 	      {value, {errors, _Errors}} -> erlang:error("Syntax error in " ++ FileName);
-	      _ ->  G1 = build_call_graph(AnnAST, Info, FileName),
+	      _ ->  G1 = build_callgraph(AnnAST, Info, FileName),
 		    Acc1 = Acc ++ G1,
-		    build_call_graph(Left, Acc1)
+		    build_callgraph(Left, Acc1)
 	  end;
       {error, Reason} -> erlang:error(Reason)
     end;
-build_call_graph([], Acc) -> Acc.
+build_callgraph([], Acc) -> Acc.
 
--spec(build_call_graph/3::(syntaxTree(),moduleInfo(),filename()) -> 
+-spec(build_callgraph/3::(syntaxTree(),moduleInfo(),filename()) -> 
 	     [{{{atom(), atom(), integer()}, syntaxTree()}, [{atom(), atom(), integer()}]}]).
-build_call_graph(Node, Info, _FileName) ->
+build_callgraph(Node, Info, _FileName) ->
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     Inscope_Funs = [{erlang, Fun, Arity} || {Fun, Arity} <- auto_imported_bifs()] ++
 		     refac_util:inscope_funs(Info),  %% NOTE: orders matters here.
