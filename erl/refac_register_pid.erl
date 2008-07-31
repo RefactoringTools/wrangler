@@ -1,16 +1,14 @@
 %% =====================================================================
-%% Refactoring: Rename a variable name.
+%% Refactoring: Register a process.
 %%
 %% Copyright (C) 2006-2008  Huiqing Li, Simon Thompson
-
-
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved via the world wide web at http://www.erlang.org/.
-
-
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
@@ -21,50 +19,41 @@
 %%
 %% =====================================================================
 %%
-%% @doc This refactoring register a process id, Pid say, with a name, RegName say, and replace
-%% the uses of Pid ! Msg with  RegName ! Msg if possible.
+%% @doc This refactoring register a process id, Pid say, with a name, regname say, and replace
+%% the uses of Pid ! Msg with  regname ! Msg if possible. To initiate this refactoring, the 
+%% user should select a match expression whose left-hand side is a process indentifier, and right-hand 
+%% side is a spawn expression.
+%%
+%% Rationale for this refactoring: 
+%% If we want to send a message to a process, then we need to know its PID. This is often inconvenient 
+%% since the PID has to be sent to all the processes in the system that want to comminicate with this process. 
+%% Registering a process with a name allows any process in the system to communicate with this process 
+%% without knowing its PID.
+%%
+%% Side-conditions:
+%%  1. The process name provided by the user should be lexically valid.
+%%  2. The name provided by the user should not have been used as a process name. 
+%%  3. The process under consideration should not have been registered.
+%%  4. Only one process spawned by the spawn expression selected should exist anytime during the running of the system.
+%% 
+%% Transformation:
+%% To perform the transformation, Wrangler needs to know, for each Pid!Msg expression, where the Pid is spawned. 
+%% A Pid is replacable only if Wrangler is sure that it is only associated with the spawn expression selected.
 %% @end
+
 -module(refac_register_pid).
 
--export([register_pid/5, register_pid_eclipse/5, register_pid_1/5, register_pid_2/5]).
-
--export([get_call_graph/1]).
+-export([register_pid/5, register_pid_eclipse/5, register_pid_1/8, register_pid_2/7]).
 
 -include("../hrl/wrangler.hrl").
 
-%% Rationale for this refactoring: If we want to send a message to a process, then we need to know its PID. This is often inconvenient since the 
-%% PID has to be sent to all the processes in the system that want to comminicate with this process. Registering a process with a name allows any 
-%% process in the system to communicate with this process without knowing its PID.
-%%
-%% To perform this refactoring, the user needs to select a match expression whose right-hand side is a spawn expression, and whose left-hand side 
-%% is a Pid variable.
-%%
-
-%% Side conditions for this refactorings:
-%% 1. The process name provided by the user should be lexically valid. (done).
-%% 2. The name provided by the user should not have been used as a process name. (need to handle dynamically create process names) (done).
-
-%% 2. The same process cannot be registered more than once. (check the registration of the generated Pid, and self()). (done).
-
-%% 3. At any time during the running of the system, only one process can be associated with a particular process name.  Since statically we 
-%% cannot decide when a process starts/dies, we use a rather stronger condition, that is the function containing the registration is only 
-%% called once. 
-%%   3.1) the function should not be a recursive function either directly or indirectly. (done).
-%%   3.2) the function is only called at one place of the program.
-%%   3.3) the function should not be used in a map/fold.
-%%   3.4) the registeration should not be in a receive expression, list comprehension (done)
-
-%% To do the transformation, Wrangler needs to know, for each Pid!Msg expression, where the Pid is spawned. This Pid is only replacable if 
-%% it is only assoicated with the spawn expression selected by the user.
-
-%% Why do I need slicing? mostly for reduced the number of unclear registration expressions.
-
 %% ==============================================================================================================
 %% @spec register_pid(FileName::filename(), Start::Pos, End::Pos, RegName::string(),SearchPaths::[dir()])-> term()
-%% @doc This function associates a name, which must be an atom, with a pid, and replaces the uses of this pid 
-%%      with the process name in send expressions.
+%% @doc This function associates a name, which must be an atom, with a pid, and replaces the uses of this pid in 
+%% send expressions with the name.
 
--spec(register_pid(FileName::filename(), Start::pos(), End::pos(), RegName::string(),SearchPaths::[dir()])-> {error, string()} |{ok, [filename()]}).
+-spec(register_pid(FileName::filename(), Start::pos(), End::pos(), RegName::string(),SearchPaths::[dir()])-> 
+	     {error, string()} |{ok, [filename()]}).
 register_pid(FName, Start, End, RegName,  SearchPaths) ->
     register_pid(FName, Start, End, RegName, SearchPaths, emacs).
 
@@ -74,216 +63,215 @@ register_pid(FName, Start, End, RegName,  SearchPaths) ->
 register_pid_eclipse(FName, Start, End, RegName, SearchPaths) ->
     register_pid(FName, Start, End, RegName, SearchPaths, eclipse).
 
-register_pid(FName, Start, End, RegName, SearchPaths, Editor) ->
-    io:format("\n[CMD: register_pid, ~p, ~p, ~p, ~p,~p]\n",  [FName, Start, End, RegName, SearchPaths]),
-    start_ast_server_process(SearchPaths),
-    start_call_graph_server(),
+register_pid(FName, Start={Line1, Col1}, End={Line2, Col2}, RegName, SearchPaths, Editor) ->
+    io:format("\nCMD: ~p:register_pid(~p, {~p,~p}, {~p,~p}, ~p,~p]\n",  [?MODULE, FName, Line1, Col1, Line2, Col2, RegName, SearchPaths]),
     case refac_util:is_fun_name(RegName) of
-	true ->
-	    case get_ast(FName) of  %% preprocessor is not bypassed.
-		{ok, {_AnnAST, Info}} ->
-		    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
-		    RegName1 = list_to_atom(RegName), 
-		    _Res = refac_annotate_pid:ann_pid_info(SearchPaths),  %% Interface needs to be changed!
-		    {ok, {AnnAST2, Info}} = get_ast(FName),
-		    case pos_to_spawn_match_expr(AnnAST2, Start, End) of
-			{ok, MatchExpr} ->
-			    case pre_cond_check(FName, ModName,AnnAST2, Start, MatchExpr, RegName1, Info, SearchPaths) of 
-				ok -> 
-				    Pid = refac_syntax:match_expr_pattern(MatchExpr),
-				    case do_register(AnnAST2, MatchExpr, Pid, RegName1) of 
-					{ok, AnnAST4} ->
-					    case Editor of 
-						emacs ->
-						    refac_util:write_refactored_files([{{FName, FName}, AnnAST4}]),
-						    ast_server ! stop,
-						    stop_call_graph_server(),
-						    {ok, [FName]};
-						eclipse ->
-						    {ok, [{FName, FName, refac_prettypr:print_ast(AnnAST4)}]}
-					    end;
-					{error, Reason} -> {error, Reason}
-				    end;	
-				{unknown_value, UnKnowns} -> {unknown_value, UnKnowns};
-				{error, Reason} -> {error, Reason}
-			    end;
-			{error,Reason} -> 
-			    {error, Reason}
-		    end;
-		{error, Reason} -> {error, Reason}
-	    end;
+	true ->	{ok, {AnnAST,Info}}= refac_util:parse_annotate_file(FName, true, SearchPaths), 
+		case pos_to_spawn_match_expr(AnnAST, Start, End) of
+		    {ok, _MatchExpr1} ->
+			{value, {module, ModName}} = lists:keysearch(module, 1, Info),
+			RegName1 = list_to_atom(RegName), 
+			ok=refac_annotate_pid:ann_pid_info(SearchPaths),
+			%% get the AST with pid information.
+			{ok, {AnnAST1,_Info}}= refac_util:parse_annotate_file(FName, true, SearchPaths), 
+			{ok, MatchExpr} = pos_to_spawn_match_expr(AnnAST1, Start, End),
+			case pre_cond_check(ModName,AnnAST1, Start, MatchExpr, RegName1, Info, SearchPaths) of 
+			    ok -> 
+				Pid = refac_syntax:match_expr_pattern(MatchExpr),
+				case do_register(FName, AnnAST1, MatchExpr, Pid, RegName1, SearchPaths) of 
+				    {ok, Results} ->
+					case Editor of 
+					    emacs ->
+						refac_util:write_refactored_files(Results),
+						ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+						io:format("The following files have been changed by this refactoring:\n~p\n",
+							  [ChangedFiles]),
+						{ok, ChangedFiles};
+					    eclipse ->
+						 Res = lists:map(fun({{OldFName, NewFName}, AST}) -> 
+									 {OldFName, NewFName, refac_prettypr:print_ast(AST)} end, Results),
+						{ok, Res}
+					end;
+				    {error, Reason} -> {error, Reason}
+				end;	
+			    {unknown_pnames, _UnKnownPNames, RegPids} -> {unknown_pnames, RegPids};
+			    {unknown_pids, UnKnownPids} ->{unknown_pids, UnKnownPids};
+			    {error, Reason} -> {error, Reason}
+			end;
+		    {error, Reason} -> {error, Reason} 
+		end;
 	false -> {error, "Invalid process name."}
     end.
--spec(register_pid_1(FName::filename(), Start::pos(), End::pos(), RegName::string(),_SearchPaths::[dir()])-> {error, string()} |{ok, [filename()]}).
-register_pid_1(FName, Start, End, RegName, _SearchPaths) ->
-    ModName = list_to_atom(filename:basename(FName, ".erl")),
-    AnnAST = refac_annotate_pid:ann_pid_in_a_file(FName),  %% Interface needs to be changed!
+
+
+-spec(register_pid_1(FName::filename(), StartLine::integer(), StartCol::integer(),EndLine::integer(), EndCol::integer(), 
+		     RegName::string(), RegPids::[{{atom(), atom(), integer()}, syntaxTree()}],
+		     SearchPaths::[dir()])-> {error, string()} |{ok, [filename()]} | {unknown_pids, [{{atom(),atom(),atom()},syntaxTree()}]}).
+register_pid_1(FName, StartLine, StartCol, EndLine, EndCol, RegName, RegPids, SearchPaths) ->
+    {Start, End} = {{StartLine, StartCol}, {EndLine, EndCol}},
+    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths),
     {ok, MatchExpr} = pos_to_spawn_match_expr(AnnAST, Start, End),
     Pid = refac_syntax:match_expr_pattern(MatchExpr),
     RegName1 = list_to_atom(RegName), 
-    Res = check_registered_pids(FName, ModName, AnnAST, Start, MatchExpr),
-    io:format("Register results:\n~p\n", [Res]),
+    Res = check_registration(MatchExpr, SearchPaths, RegPids), 
     case Res of 
- 	 ok ->  case do_register(AnnAST, MatchExpr, Pid, RegName1) of 
-		    {ok, AnnAST2} ->
-			refac_util:write_refactored_files([{{FName, FName}, AnnAST2}]),
-			{ok, [FName]};
+ 	 ok ->  case do_register(FName, AnnAST, MatchExpr, Pid, RegName1, SearchPaths) of 
+		    {ok, Results} ->
+			ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+			io:format("The following files have been changed by this refactoring:\n~p\n",
+				  [ChangedFiles]),
+			{ok, ChangedFiles};
 		    {error, Reason} -> {error, Reason}
 		end;
   	{registered, RegExpr} -> {{Line,_Col}, _} = refac_util:get_range(RegExpr),
  				 {error, "The selected process is already registered at line "++ integer_to_list(Line)};
- 	{unsure, RegExprs} ->
- 	    io:format("\nThe following registration of processes might cause conflict, please check!\n"),
- 	    lists:foreach(fun(Reg) ->
-				  {StartPos,_} = refac_util:get_range(Reg),
-				  io:format("\nLocation: (~p, ~p):  ", [FName, StartPos]),
-				  io:format(refac_prettypr:format(Reg)++"\n")
-			  end, RegExprs),
- 	    {registered, RegExprs}
+ 	{unknown_pids, RegExprs} ->
+ 	    io:format("\nWrangler could not decide the process(s) registered by the following expression(s), please check!\n"),
+	    lists:foreach(fun({{M, F, A},PidExpr}) -> {{Ln,_},_} = refac_util:get_range(PidExpr),
+ 				  io:format("Location: module:~p, function: ~p/~p, line: ~p\n ", [M, F, A, Ln]),
+ 				  io:format(refac_prettypr:format(PidExpr)++"\n") 
+		      end, RegExprs),
+ 	    {unknown_pids, RegExprs}
     end.
 
--spec(register_pid_2(FileName::filename(), Start::pos(), End::pos(), RegName::string(),_SearchPaths::[dir()])-> {error, string()} |{ok, [filename()]}).    
-register_pid_2(FName, Start, End, RegName, _SearchPaths) ->
-    %%ModName = list_to_atom(filename:basename(FName, ".erl")),
-    AnnAST = refac_annotate_pid:ann_pid_in_a_file(FName),  %% Interface needs to be changed!
+-spec(register_pid_2(FName::filename(), StartLine::integer(), StartCol::integer(), EndLine::integer(),EndCol::integer(), RegName::string(),
+		     SearchPaths::[dir()])-> {error, string()} |{ok, [filename()]}).    
+register_pid_2(FName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPaths) ->
+    {Start, End} = {{StartLine, StartCol}, {EndLine, EndCol}},
+    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths),
     {ok, MatchExpr} = pos_to_spawn_match_expr(AnnAST, Start, End),
     Pid = refac_syntax:match_expr_pattern(MatchExpr),
     RegName1 = list_to_atom(RegName),
-    case do_register(AnnAST, MatchExpr, Pid, RegName1) of 
-	{ok, AnnAST2} ->
-	    refac_util:write_refactored_files([{{FName, FName}, AnnAST2}]),
-	    {ok, [FName]};
+    case do_register(FName,AnnAST, MatchExpr, Pid, RegName1, SearchPaths) of 
+	{ok, Results} ->
+	    refac_util:write_refactored_files(Results),
+	    ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+	    io:format("The following files have been changed by this refactoring:\n~p\n",
+		      [ChangedFiles]),
+	    {ok, ChangedFiles};
 	{error, Reason} -> {error, Reason}
     end.
 
-pos_to_spawn_match_expr(AnnAST, Start, End) ->
-    Message = "You have not selected a match expression whose left-hand side is a PID, and right-hand side is a spawn expression!",
-    case refac_util:pos_to_expr(AnnAST, Start, End) of 
-	{ok, Expr} ->
-	    case refac_syntax:type(Expr) of 
-		match_expr -> 
-		    P = refac_syntax:match_expr_pattern(Expr),
-		    B = refac_syntax:match_expr_body(Expr),
-		    case {is_spawn_app(B), refac_syntax:type(P) == variable} of 
-			{true, true} ->
-			    {ok, Expr};
-			_ -> {error, Message}
-		    end;
-		_ -> {error, Message}
-	    end;
-	_ -> {error, Message}    
-    end.
 
 
-%% TODO: REFACTOR THE FOLLOWING TWO FUNCTIONS.
-pos_to_receive_expr(FunDef, Start) ->
-    F = fun(T, Acc) ->
-		case refac_syntax:type(T)==receive_expr of 
-		    true -> [T|Acc];
-		    _ -> Acc
-		end
-	end,
-    ReceiveExprs = refac_syntax_lib:fold(F, [], FunDef),
-    lists:any(fun(E) ->
-		      {Start1, End1} = refac_util:get_range(E),
-		      (Start1 =< Start) andalso (Start =< End1)
-	      end, ReceiveExprs).
-    
+%% 3. At any time during the running of the system, only one process can be associated with a particular process name.  Since statically we 
+%% cannot decide when a process starts/dies, we use a rather stronger condition, that is the function containing the registration is only 
+%% called once. 
+%%   3.1) the function should not be a recursive function either directly or indirectly. (done).
+%%   3.2) the function is only called at one place of the program.
+%%   3.3) the function should not be used in a map/fold.
+%%   3.4) the registeration should not be in a receive expression, list comprehension (done)
+%% Why do I need slicing? mostly for reduced the number of unclear registration expressions.
 
-pos_to_list_comp_expr(FunDef, Start) ->
-    F = fun(T, Acc) ->
-		case refac_syntax:type(T) of 
-		    list_comp -> [T|Acc];
-		    _ -> Acc
-		end
-	end,
-    ReceiveExprs = refac_syntax_lib:fold(F, [], FunDef),
-    lists:any(fun(E) ->
-		      {Start1, End1} = refac_util:get_range(E),
-		      (Start1 =< Start) andalso (Start =< End1)
-	      end, ReceiveExprs).
-
-
-%% TODO: ALSO NEED TO CHECK the slice of self().
-
-pre_cond_check(FileName, ModName, AnnAST, Start, MatchExpr, RegName, _Info, SearchPaths) ->		 
+%% Side condition checking:
+%% So far, this cond-checking still cannot guarantee that only one process spawned by the 
+%% expression seleted exist during anytime of the running of the system.
+pre_cond_check(ModName, AnnAST, Start, MatchExpr, RegName, _Info, SearchPaths) ->		 
     {ok, FunDef} = refac_util:pos_to_fun_def(AnnAST, Start),
     FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
     Arity = refac_syntax:function_arity(FunDef),
     case is_recursive_fun(SearchPaths, {ModName, FunName, Arity, FunDef}) of 
 	true -> {error, "The function containing the spawn  expression is a recursive function"};
 	_ -> case pos_to_receive_expr(FunDef, Start) of 
-		 true -> {error, "Wrangler do not supported register a process spawned in a received expression\n"};
+		 true -> {error, "Wrangler do not support registering a process spawned in a received expression\n"};
 		 _ -> case pos_to_list_comp_expr(FunDef, Start) of
 			  true -> {error, "The spawn expression selected in part of a list comprehension expression\n"};
-			  _ -> {ExistingProcessNames, UnKnowns} = collect_process_names(SearchPaths),
-			       
-			       io:format("registed:\n~p\n", [{ExistingProcessNames, UnKnowns}]),
+			  _ -> {RegPids, {ExistingProcessNames, UnKnowns}} = collect_registered_names_and_pids(SearchPaths),
+			     %%   io:format("registeredd:\n~p\n", [{ExistingProcessNames, UnKnowns}]),
 			       case lists:member(RegName, ExistingProcessNames) of 
 				   true -> {error, "The process name provided is already in use, please choose another name."};
 				   _ -> case UnKnowns of 
 					    [] ->
-						Res = check_registered_pids(FileName, ModName, AnnAST, Start, MatchExpr),
+						Res = check_registration(MatchExpr, SearchPaths, RegPids), 
 						case Res of 
 						    ok -> ok;
 						    {registered, RegExprs1} ->
-							{{_M, F, A}, _R} = hd(RegExprs1),
+								{{_M, F, A}, _R} = hd(RegExprs1),
 							{error, "The process is already registered in function "++ atom_to_list(F)++"/"++integer_to_list(A)++"\n"};
-						    {unsure, _} -> ok
+						    {unknown_pids, RegExprs} -> 
+							io:format("Wrangler could not decide the processe(s) registered by the followling expression(s):\n"),
+							 lists:foreach(fun({{M, F, A},PidExpr}) -> 
+									   {{Ln,_},_} = refac_util:get_range(PidExpr),
+									   io:format("Location: module:~p, function: ~p/~p, line: ~p\n ", [M, F, A, Ln])
+									  %% io:format(refac_prettypr:format(PidExpr)++"\n") 
+								   end, RegExprs),
+							{unknown_pids, RegExprs}
 						end;
-					    _ -> io:format("Wrangler could not fully decide the process name used by the following register expressions:\n"),
+					    _ -> io:format("Wrangler could not decide the process name(s) used by the following register expression(s):\n"),
 						 UnKnowns1 = lists:map(fun({_, V}) -> V end, UnKnowns),
-						 lists:foreach(fun({M, F,A, L}) -> io:format("\n Location: (module: ~p, function:~p/~p, line:~p)\n", [M, F, A, L])
-							       end, UnKnowns1),
-						 {unknown_value, UnKnowns}
+						 lists:foreach(fun({M, F,A, {L,_}}) -> io:format("Location: module: ~p, function:~p/~p, line:~p\n", [M, F, A, L])
+							  end, UnKnowns1),
+						 {unknown_pnames, UnKnowns, RegPids}
 				       end
 			      end
 		     end
 	     end
     end.
-     
-check_registered_pids(FileName, ModName, AnnAST, Start, MatchExpr) ->
-    {ok, FunDef} = refac_util:pos_to_fun_def(AnnAST, Start),
-    Res = refac_slice:forward_slice([FileName], AnnAST, ModName, FunDef, MatchExpr),
-    RegExprs = collect_register_exprs(Res),
-    io:format("RegExprs\n~p\n",[RegExprs]),
+
+    
+   
+
+check_registration(MatchExpr, SearchPaths, RegPids) ->
     Pid = refac_syntax:match_expr_pattern(MatchExpr),
     {value, {pid, PidInfo}} = lists:keysearch(pid,1, refac_syntax:get_ann(Pid)),
-    case RegExprs of 
-	[] ->
-	    ok;
-	_ -> RegExprs1 = lists:filter(fun({{_M, _F, _A},R}) ->
-					      [_RegName, Pid1] = refac_syntax:application_arguments(R),
-					      case lists:keysearch(pid,1, refac_syntax:get_ann(Pid1)) of 
-						  {value, {pid, PidInfo1}}->
-						      PidInfo -- PidInfo1 =/= PidInfo;
-						  _ -> false
-					      end
-				      end, RegExprs),
-	     case RegExprs1 of 
-		 [] ->{unsure, RegExprs};  %% CHECK This about undeciable processes.
-		 _ -> {registered, RegExprs1}
-	     end
-    end. 
-	
-
-
-collect_register_exprs(Funs) ->
-    F = fun(Node, {Acc, {M, F, A}}) ->
-		case refac_syntax:type(Node) of 
-		    application ->
-			case is_register_app(Node) of 
-			    true ->
-				{[{{M, F, A},Node} |Acc], {M, F, A}};
-			    _ -> {Acc, {M, F, A}}
+    SpawnExpr = refac_syntax:match_expr_body(MatchExpr),
+    %% functions reached from the intial function of the spawn expression.
+    ReachedFuns = reached_funs(SpawnExpr, SearchPaths),
+    F = fun({{M, F, A}, PidExpr}, {RegAcc, UnKnownAcc}) ->
+		Ann = refac_syntax:get_ann(PidExpr),
+		case lists:keysearch(pid,1, Ann) of 
+		    {value, {pid, PidInfo1}} ->
+			case PidInfo--PidInfo1=/= PidInfo of 
+			    true -> {[{{M,F, A}, PidExpr}|RegAcc], UnKnownAcc};
+			    false -> case lists:any(fun(P1) ->
+							    case P1 of
+								{self, Fun1} -> lists:member(Fun1, ReachedFuns);
+								_ -> false
+							    end
+						    end, PidInfo1) of 
+					 true -> {[{{M,F, A}, PidExpr}|RegAcc], UnKnownAcc};
+					 false -> {RegAcc, UnKnownAcc}
+				     end
 			end;
-		    _ -> {Acc, {M,F,A}}
+		    _ ->{RegAcc, [{{M,F, A}, PidExpr}|UnKnownAcc]}
 		end
-	end,		
-    lists:flatmap(fun({_Key, FunDef}) ->
-			  {value, {fun_def, {ModName, FunName, Arity, _,_}}} = 
-			      lists:keysearch(fun_def, 1, refac_syntax:get_ann(FunDef)),
-			  refac_syntax_lib:fold(F, {[], {ModName, FunName, Arity}}, FunDef) end, Funs).
+	end,
+    {Regs, UnKnowns} =lists:foldl(F, {[],[]}, RegPids),
+    case Regs of 
+	[] -> case UnKnowns of 
+		  [] -> ok;
+		  _ -> {unknown_pids, UnKnowns}
+	      end;
+	_ -> {registered, Regs}
+    end.
+
+ 
+reached_funs(SpawnExpr, SearchPaths) ->
+     Args = refac_syntax:application_arguments(SpawnExpr),
+     Arity = length(Args),
+     InitialFuns = case (Arity==1) or (Arity==2) of 
+		       true -> Expr = lists:last(Args), 
+			       funs_called(Expr);			       
+		       _ ->  Args1 = list_to_tuple(lists:reverse(Args)),
+			     {M, F, A}= {element(3, Args1),element(2, Args1), element(1, Args1)},
+			     [{M, F, A}]
+		   end,
+    {CallerCallee, _, _} = refac_callgraph_server:get_callgraph(SearchPaths), 
+    InitialFuns++reached_funs_1(CallerCallee, InitialFuns).
+	 
+reached_funs_1(CallerCallee, Acc) ->
+    Res = lists:usort(lists:concat(lists:map(fun({Mod, Fun, Args}) ->
+					 case lists:keysearch({Mod, Fun, Args}, 1, CallerCallee) of 
+					     {value, {{Mod, Fun, Args}, CalledFuns}} ->
+						 CalledFuns;
+					     _ ->[]
+					 end
+				 end, Acc))),
+     case lists:usort(Res++Acc) == Acc of 
+	true -> Res;
+	_ -> reached_funs_1(CallerCallee, lists:usort(Res++Acc)) 
+    end.	      
+		
     
 is_direct_recursive_fun(ModName, FunName, Arity, FunDef) ->
     F = fun(Node, {ModName1, FunName1, Arity1}) ->
@@ -309,47 +297,56 @@ is_recursive_fun(Files, {ModName, FunName, Arity, FunDef}) ->
 	true -> 
 	    true;
 	false ->
-	    {_CallerCallee, Sccs, _E} = get_call_graph(Files),
+	    {_CallerCallee, Sccs, _E} = refac_callgraph_server:get_callgraph(Files),
 	    Sccs1 =[[Fun||{Fun, _FunDef}<-Scc]||Scc<-Sccs],
 	    lists:any(fun(E)-> (length(E)>1) andalso (lists:member({ModName, FunName, Arity}, E)) end,
 		      Sccs1)   
     end.
 	
    
-collect_process_names(DirList) ->
+%% The only way to register a process is to use register/2.
+%% This function checks all the applications of 'register/2'.
+collect_registered_names_and_pids(DirList) ->
     Files = refac_util:expand_files(DirList, ".erl"),
     F = fun(File, FileAcc) ->
-		 case get_ast(File) of 
-		     {ok, {AnnAST, Info}} ->
-			 {value, {module, ModName}} = lists:keysearch(module, 1, Info),
-			 F1 = fun(Node, ModAcc) ->
-				      case refac_syntax:type(Node) of 
-					  function ->
-					      FunDef = Node, 
-					      F2= fun (Node1, FunAcc) ->    
-							  case refac_syntax:type(Node1) of 
-							      application ->
-								  case is_register_app(Node1) of 
-								      true -> 
-									  [RegName, _Pid] = refac_syntax:application_arguments(Node1),
-									    Res = evaluate_expr(Files, ModName, AnnAST, FunDef, RegName),
-									    Res++FunAcc;
-									_ -> FunAcc
-								    end; 
-								_ ->  FunAcc
-							    end
-						    end,
-					      refac_syntax_lib:fold(F2, [], FunDef)++ModAcc;
-					  _-> ModAcc 
-				      end
-			      end,
-			 refac_syntax_lib:fold(F1, [], AnnAST) ++ FileAcc;
-		     {error, Reason} -> erlang:error({error, Reason})
-		 end
-	 end,			 
+		{ok, {AnnAST, Info}} = refac_util:parse_annotate_file(File, true, DirList),
+		{value, {module, ModName}} = lists:keysearch(module, 1, Info),
+		F1 = fun(Node, ModAcc) ->
+			     case refac_syntax:type(Node) of 
+				 function ->
+				     FunName = refac_syntax:data(refac_syntax:function_name(Node)),
+				     Arity = refac_syntax:function_arity(Node),
+				     F2= fun (Node1, FunAcc) ->    
+						 case refac_syntax:type(Node1) of 
+						     application ->
+							 case is_register_app(Node1) of 
+							     true -> 
+								 [RegName, Pid] = refac_syntax:application_arguments(Node1),
+								 RegNameValues = evaluate_expr(Files, ModName, AnnAST, Node, RegName),
+								 RegNameValues1 = lists:map(fun(R) -> {pname, R} end, RegNameValues),
+								 [{pid, {{ModName, FunName, Arity}, Pid}}|RegNameValues1++FunAcc];
+							     _ -> FunAcc
+							 end; 
+						     _ ->  FunAcc
+						 end
+					 end,
+				     refac_syntax_lib:fold(F2, [], Node)++ModAcc;
+				 _-> ModAcc 
+			     end
+		     end,
+		refac_syntax_lib:fold(F1, [], AnnAST) ++ FileAcc
+	   end,			 
     Acc =lists:foldl(F, [], Files),
-    {Names, UnKnowns} = lists:partition(fun({Tag,_V})-> Tag==value end, Acc),
-    {lists:usort(lists:map(fun({value, P}) -> P end, Names)), lists:usort(UnKnowns)}.
+    PNameAcc = lists:flatmap(fun({P,A}) -> if  P ==pname -> [A]; 
+					       true -> []
+					   end 
+			     end, Acc), 
+    PidAcc = lists:flatmap(fun({P,A}) -> if P == pid -> [A];
+					true -> [] 
+				     end 
+		       end, Acc), 
+    {Names, UnKnowns} = lists:partition(fun({Tag,_V})-> Tag==value end, PNameAcc),
+    {PidAcc, {lists:usort(lists:map(fun({value, P}) -> P end, Names)), lists:usort(UnKnowns)}}.
     
 
 is_register_app(T) ->
@@ -366,23 +363,35 @@ is_register_app(T) ->
    
 
 
-do_register(AnnAST, MatchExpr, Pid, RegName) ->
+do_register(FName, AnnAST, MatchExpr, Pid, RegName, SearchPaths) ->
     Ann = refac_syntax:get_ann(Pid),
    {value, PidInfo} = lists:keysearch(pid, 1, Ann),
    {AnnAST1, Modified} = add_register_expr(AnnAST, MatchExpr, RegName),
    case Modified of 
-       true ->  Res = refactor_send_exprs(AnnAST1, PidInfo, RegName),
+       true ->  Res = refactor_send_exprs(FName, AnnAST1, PidInfo, RegName, SearchPaths),
 	       {ok, Res};	    
        _ -> {error, "Wrangler failed to add the registration expression."}
    end.
  
 
 
-refactor_send_exprs(AnnAST, PidInfo, RegName) ->
-    refac_util:full_buTP(fun do_refactor_send_exprs/2, AnnAST, {PidInfo, RegName}).
+refactor_send_exprs(FName, AnnAST, PidInfo, RegName, SearchPaths) ->
+    {AnnAST1,_} = refac_util:stop_tdTP(fun do_refactor_send_exprs/2, AnnAST, {PidInfo, RegName}),
+    %%This can be refined to check the client and parent modules of the current module.
+    Files = refac_util:expand_files(SearchPaths, ".erl") -- [FName],
+    Results = lists:flatmap(fun(File) ->
+				    io:format("The current file under refactoring is:\n~p\n",[File]),
+				    {ok, {AnnAST2, _Info}} = refac_util:parse_annotate_file(File, true, SearchPaths),
+				    {AnnAST3, Changed} = refac_util:stop_tdTP(fun do_refactor_send_exprs/2, AnnAST2, {PidInfo, RegName}),
+				    if Changed ->
+					    [{{File, File}, AnnAST3}];
+				       true -> []
+				    end
+			    end, Files),
+    [{{FName, FName}, AnnAST1}|Results].
 
 do_refactor_send_exprs(Node, {PidInfo, RegName}) ->
-    case refac_syntax:type(Node) of 
+     case refac_syntax:type(Node) of 
 	infix_expr -> Dest = refac_syntax:infix_expr_left(Node),
 		      Op = refac_syntax:infix_expr_operator(Node),
 		      Msg = refac_syntax:infix_expr_right(Node),
@@ -390,8 +399,8 @@ do_refactor_send_exprs(Node, {PidInfo, RegName}) ->
 		      case lists:keysearch(pid, 1, Ann) of 
 			  {value, PidInfo} ->
 			      Node1 = refac_syntax:infix_expr(refac_syntax:atom(RegName), Op, Msg),
-			      refac_syntax:copy_attrs(Node, Node1);
-			  _ -> Node
+			      {refac_syntax:copy_attrs(Node, Node1), true};
+			  _ -> {Node, false}
 		      end;
 	application -> Operator = refac_syntax:application_operator(Node),
 		       Ann = refac_syntax:get_ann(Operator),
@@ -402,12 +411,12 @@ do_refactor_send_exprs(Node, {PidInfo, RegName}) ->
 			       case lists:keysearch(pid,1,Ann) of 
 				   {value, PidInfo} ->
 				       Node1 = refac_syntax:application(Operator, [refac_syntax:atom(RegName), Msg]),
-				       refac_syntax:copy_attrs(Node, Node1);
-				   _ -> Node
+				       {refac_syntax:copy_attrs(Node, Node1), true};
+				   _ -> {Node,false}
 			       end;
-			   _ -> Node
+			   _ -> {Node,false}
 		       end;
-	_  -> Node
+	_  -> {Node, false}
     end.
 			  
 	    
@@ -465,125 +474,119 @@ is_spawn_app(Tree) ->
 
 
 evaluate_expr(Files, ModName, AnnAST, FunDef, Expr) ->
-    F = fun(Exprs) ->
-		%%io:format(lists:concat(lists:map(fun(B) ->refac_prettypr:format(B)++"\n" end, Exprs))),
-		Exprs1 = lists:map(fun(E) -> refac_syntax:revert(E) end, Exprs),
-		case catch erl_eval:exprs(Exprs1, []) of 
+    F = fun(E) ->
+		Es = [refac_syntax:revert(E)],
+		case catch erl_eval:exprs(Es, []) of 
 		    {value, V, _} -> {value, V};
 		    _ ->
 			FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
 			Arity = refac_syntax:function_arity(FunDef),
 			{StartPos, _} = refac_util:get_range(Expr),
-			{unknown_value, {ModName, FunName, Arity, StartPos}}
+			{unknown, {ModName, FunName, Arity, StartPos}}
 		end
 	end,
-    ExprsList = case refac_util:get_free_vars(Expr) of 
-		[] -> [[Expr]];
-		_ -> Res = refac_slice:backward_slice(Files, AnnAST, ModName, FunDef, Expr),
-		     %%io:format("Res:\n~p\n", [Expr]),
-		     case Res of 
-			 [] -> Res;
-			 _ ->
-			     Res 		    
-		     end
+    Exprs = case refac_util:get_free_vars(Expr) of 
+		[] -> [Expr];
+		_ ->  refac_slice:backward_slice(Files, AnnAST, ModName, FunDef, Expr)
 	    end,
-    Values = lists:map(F, ExprsList),
+    Values = lists:map(F, Exprs),
     Values.
 
 
-start_ast_server_process(SearchPaths) ->
-    Pid = spawn_link(fun()->ast_server([], SearchPaths) end),
-    register(ast_server, Pid).
+funs_called(Node) ->
+    HandleSpecialFuns = fun (Arguments, S) ->
+				case Arguments of
+				    [M, F, A] ->
+					case {refac_syntax:type(M), refac_syntax:type(F), refac_syntax:type(A)} of
+					    {atom, atom, list} ->
+						ModName = refac_syntax:atom_value(M),
+						FunName = refac_syntax:atom_value(F),
+						Arity = refac_syntax:list_length(A),
+						ordsets:add_element({ModName, FunName, Arity}, S);
+					    _ -> S
+					end;
+				    [M, F, A, _O] ->
+					case {refac_syntax:type(M), refac_syntax:type(F), refac_syntax:type(A)} of
+					    {atom, atom, list} ->
+						ModName = refac_syntax:atom_value(M),
+						FunName = refac_syntax:atom_value(F),
+						Arity = refac_syntax:list_length(A),
+						ordsets:add_element({ModName, FunName, Arity}, S);
+					    _ -> S
+					end
+				end
+			end,
+    F2 = fun (T, S) ->
+		 case refac_syntax:type(T) of
+		     application ->
+			 Op = refac_syntax:application_operator(T),
+			 Args= refac_syntax:application_arguments(T),
+			 case lists:keysearch(fun_def,1, refac_syntax:get_ann(Op)) of 
+			     {value, {fun_def, {M, F, A, _, _}}} ->
+				 S1 = ordsets:add_element({M, F, A}, S),
+				 case {M, F, A} of
+					{erlang, apply, 3} -> HandleSpecialFuns(Args, S1);
+					{erlang, spawn, 3} -> HandleSpecialFuns(Args, S1);
+					{erlang, spawn, 4} -> HandleSpecialFuns(Args, S1);
+					{erlang, spawn_link, 3} -> HandleSpecialFuns(Args, S1);
+					{eralng, spawn_link, 4} -> HandleSpecialFuns(Args, S1);
+				     _ -> S1
+				 end;
+			     _ -> S
+			 end;
+		     _ -> S
+		 end
+	 end,
+    lists:usort(refac_syntax_lib:fold(F2, [], Node)).
 
-get_ast(FileName) ->
-    ast_server ! {self(), get, FileName},
-    receive 
-	{ast_server, Res} ->
-	    Res
-    end.
-	    
-ast_server(Env, SearchPaths) ->
-    receive
-	{From, get, FileName} ->
-	    case lists:keysearch(FileName, 1, Env) of
-		{value, {FileName, {AnnAST, Info}}} ->
-		    From ! {ast_server, {ok, {AnnAST, Info}}},
-		    ast_server(Env, SearchPaths);
-		false -> case refac_util:parse_annotate_file(FileName, true, SearchPaths) of 
-			     {ok, {AnnAST, Info}} ->
-				 From ! {ast_server, {ok, {AnnAST, Info}}},
-				 ast_server([{FileName, {AnnAST, Info}}|Env], SearchPaths);
-			     {error, Reason} ->
-				 From ! {ast_server, {error, Reason}},
-				 ast_server(Env, SearchPaths)
-			 end
+
+
+pos_to_spawn_match_expr(AnnAST, Start, End) ->
+    Message = "You have not selected a match expression whose left-hand side is a PID, and right-hand side is a spawn expression!",
+    case refac_util:pos_to_expr(AnnAST, Start, End) of 
+	{ok, Expr} ->
+	    case refac_syntax:type(Expr) of 
+		match_expr -> 
+		    P = refac_syntax:match_expr_pattern(Expr),
+		    B = refac_syntax:match_expr_body(Expr),
+		    case {is_spawn_app(B), refac_syntax:type(P) == variable} of 
+			{true, true} ->
+			    {ok, Expr};
+			_ -> {error, Message}
+		    end;
+		_ -> {error, Message}
 	    end;
-	{update, {FileName, {AnnAST, Info}}} ->
-	    Env1 =case lists:keysearch(FileName, 1, Env) of
-		       {value, {FileName,  {_AnnAST1, _Info1}}} ->
-			   lists:keyreplace(FileName, 1, Env, {FileName, {AnnAST, Info}});
-		       false ->
-			   [{FileName, {AnnAST, Info}} |Env]
-		   end,
-	    ast_server(Env1, SearchPaths);
-	stop ->
-	    ok
+	_ -> {error, Message}    
     end.
 
 
-
-start_call_graph_server() ->
-    Pid = spawn_link(fun()->call_graph_server([]) end),
-    register(call_graph_server, Pid).
-
-stop_call_graph_server() ->
-    call_graph_server!stop.
-
-
--spec(get_call_graph/1::([dir()])->
-			     {[{{atom(), atom(), integer()}, [{atom(), atom(), integer()}]}], scc_order(), external_calls()}).
-get_call_graph(SearchPaths) ->
-    call_graph_server ! {self(), get, SearchPaths},
-    receive
-	{call_graph_server, CallGraph} ->
-	    CallGraph
-    end.
+%% TODO: REFACTOR THE FOLLOWING TWO FUNCTIONS.
+pos_to_receive_expr(FunDef, Start) ->
+    F = fun(T, Acc) ->
+		case refac_syntax:type(T)==receive_expr of 
+		    true -> [T|Acc];
+		    _ -> Acc
+		end
+	end,
+    ReceiveExprs = refac_syntax_lib:fold(F, [], FunDef),
+    lists:any(fun(E) ->
+		      {Start1, End1} = refac_util:get_range(E),
+		      (Start1 =< Start) andalso (Start =< End1)
+	      end, ReceiveExprs).
     
-call_graph_server(State) ->    
-    receive
-	{From, get, SearchPaths} ->
-	   case lists:keysearch(SearchPaths, 1, State) of 
-	       {value, {SearchPaths, CallGraph}} ->
-		   From ! {call_graph_server, CallGraph},
-		   call_graph_server(State);
-	       false ->
-		   {CallerCallee, Sccs, E} = build_call_graph(SearchPaths),
-		   From ! {call_graph_server,  {CallerCallee, Sccs, E}},
-		   call_graph_server([{SearchPaths, {CallerCallee, Sccs, E}}|State])
-	   end;
-	stop -> 
-		ok
-    end.
-    
-build_call_graph(DirList) ->
-    Files = refac_util:expand_files(DirList, ".erl"),
-    CallGraph = build_call_graph(Files, []),
-    CallerCallee = lists:map(fun ({{Caller, _CallerDef}, Callee}) -> {Caller, Callee} end, CallGraph),
-    #callgraph{scc_order = Sccs, external_calls = E} = refac_callgraph:construct(CallGraph),
-    {CallerCallee, Sccs, E}.
-     
-   
-%%@private
-%%@spec build_call_graph(DirList::[dir()], #callgraph{}) -> #callgraph{}
-build_call_graph([FileName | Left], Acc) ->
-    case get_ast(FileName) of
-      {ok, {AnnAST, Info}} ->
-	    G1 = refac_util:build_call_graph(AnnAST, Info, FileName),
-	    Acc1 = Acc ++ G1,
-	    build_call_graph(Left, Acc1);
-	{error, Reason} -> erlang:error(Reason)
-    end;
-build_call_graph([], Acc) -> Acc.			   
-			    
-				 
-				 
+
+pos_to_list_comp_expr(FunDef, Start) ->
+    F = fun(T, Acc) ->
+		case refac_syntax:type(T) of 
+		    list_comp -> [T|Acc];
+		    _ -> Acc
+		end
+	end,
+    ReceiveExprs = refac_syntax_lib:fold(F, [], FunDef),
+    lists:any(fun(E) ->
+		      {Start1, End1} = refac_util:get_range(E),
+		      (Start1 =< Start) andalso (Start =< End1)
+	      end, ReceiveExprs).
+
+
+
