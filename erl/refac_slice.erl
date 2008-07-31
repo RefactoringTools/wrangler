@@ -52,31 +52,33 @@ forward_slice_1(Files, AnnAST, ModName, {FunDef, Expr}) ->
     FunClauses = refac_syntax:function_clauses(FunDef),
     NewFunClauses = lists:map(fun(Cs) ->
 			    process_a_clause(AnnAST, ModName,Cs, Expr) end, FunClauses),
-    NewFunDef = refac_syntax:function(FunName, NewFunClauses),
+    NewFunDef = refac_syntax:copy_attrs(FunDef, refac_syntax:function(FunName, NewFunClauses)),
     sliced_funs ! {add, {{ModName, FunName1, Arity}, NewFunDef}},
+    
     case returns_undefined(NewFunDef) of 
 	true ->    %% None of the variables depending on the selected expression is exported.
 	    get_all_sliced_funs();
-	false -> CallerFuns = get_caller_funs(Files, {ModName, FunName1, Arity}),
-		 F = fun(T,Acc) -> case refac_syntax:type(T) of 
-				       application ->
-					   Op = refac_syntax:application_operator(T),
-					   Ann = refac_syntax:get_ann(Op),
-					   case lists:keysearch(fun_def,1, Ann) of
-					       {value, {fun_def, {ModName, FunName1, Arity, _, _}}} ->
-						   [T|Acc];
-					       _ ->  Acc
-					   end;
-				       _ -> Acc
-				   end
-		     end,	 
-		 case CallerFuns of 
-		     [] -> get_all_sliced_funs();
-		     _ ->  SliceCriterion = lists:flatmap(fun(FunDef1) -> AppExprs = refac_syntax_lib:fold(F, [], FunDef1),
+	false ->
+	    CallerFuns = get_caller_funs(Files, {ModName, FunName1, Arity}),
+	    F = fun(T,Acc) -> case refac_syntax:type(T) of 
+				  application ->
+				      Op = refac_syntax:application_operator(T),
+				      Ann = refac_syntax:get_ann(Op),
+				      case lists:keysearch(fun_def,1, Ann) of
+					  {value, {fun_def, {ModName, FunName1, Arity, _, _}}} ->
+					      [T|Acc];
+					  _ ->  Acc
+				      end;
+				  _ -> Acc
+			      end
+		end,	 
+	    case CallerFuns of 
+		[] -> get_all_sliced_funs();
+		_ ->  SliceCriterion = lists:flatmap(fun(FunDef1) -> AppExprs = refac_syntax_lib:fold(F, [], FunDef1),
 								     lists:map(fun(E) -> {FunDef1, E} end, AppExprs)
-						      end, CallerFuns),
-			   lists:flatmap(fun(SC) ->forward_slice_1(Files, AnnAST, ModName,SC) end, SliceCriterion)
-		 end		 
+						     end, CallerFuns),
+		      lists:flatmap(fun(SC) ->forward_slice_1(Files, AnnAST, ModName,SC) end, SliceCriterion)
+	    end		 
     end.
 
 returns_undefined(FunDef) ->
@@ -94,7 +96,7 @@ returns_undefined(FunDef) ->
 
 
 get_caller_funs(Files, {ModName, FunName, Arity}) ->
-    CallGraph = refac_util:build_call_graph(Files, []),
+    CallGraph = refac_util:build_callgraph(Files, []),
     lists:flatmap(fun ({{_Caller, CallerDef}, Callee}) -> 
 			  case lists:member({ModName, FunName, Arity}, Callee) of
 			      true -> [CallerDef];
@@ -124,23 +126,21 @@ get_all_sliced_funs() ->
 sliced_funs(State) ->
     receive
 	{From, get, Key} ->
-	    From ! case lists:keysearch(Key, 1, State) of
-		       {value, {Key, Value}} ->
+	    Res = case lists:keysearch(Key, 1, State) of
+		      {value, {Key, Value}} ->
 			   {sliced_funs, value, Value};
-		       false -> {sliced_funs, false}
-		   end,
+		      false -> {sliced_funs, false}
+		  end,
+	    From ! Res,
 	    sliced_funs(State);
 	{add, {Key, Value}} ->
 	    case lists:keysearch(Key, 1, State) of 
 		    {value, {Key, _}} ->  %% This should not happen.
-			State1 = lists:keyreplace(Key,1, State, {Key, Value}), 
+			State1 =lists:keyreplace(Key,1, State, {Key, Value}), 
 			sliced_funs(State1);
 		    false -> sliced_funs([{Key, Value}|State])
 		end;
 	 {From, get_all} ->
-	    io:format("\nAll sliced funs:\n"),
-	    lists:foreach(fun({_Key, Value}) ->
-			      io:format("Fun:\n~p\n", [Value]) end, State),
 	    From ! {sliced_funs, State},
 	    sliced_funs(State);
 	 stop ->
@@ -168,7 +168,8 @@ get_exported_vars(Body, Expr) ->
 		case refac_syntax:type(T) of 
 		    match_expr ->  %% TO THINK: assume only match expressions export variables, is this correct?
 			case refac_util:once_tdTU(F1, T, []) of 
-			    {_, true} -> S++refac_util:get_var_exports(T);
+			    {_, true} -> 
+				S++refac_util:get_var_exports(T);
 			    _ -> S
 			end;
 		    _ -> S
@@ -319,7 +320,6 @@ backward_slice(Files,AnnAST, ModName, FunDef, Expr) ->
     NewFunDef2 = unfold_fun_defs(Files, AnnAST, ModName, NewFunDef1),
     C = hd(refac_syntax:function_clauses(NewFunDef2)),
     Body = refac_syntax:clause_body(C),
-    %% Patterns = refac_syntax:clause_patterns(C),
     {_Bound2, FreeVarsInBody} = lists:foldl(fun (E, {Bd, Fr}) ->
 						    {Bd1, Fr1} = {refac_util:get_bound_vars(E), refac_util:get_free_vars(E)},
 						    {ordsets:union(Bd, Bd1), ordsets:union(Fr, ordsets:subtract(Fr1, Bd))}
@@ -327,39 +327,62 @@ backward_slice(Files,AnnAST, ModName, FunDef, Expr) ->
 					    {[], []}, Body),
     case FreeVarsInBody of 
 	[] ->
-	    [Body];  %% TODO: need a block expression?
+	    [refac_syntax:block_expr(Body)];
 	_ -> 
 	    SlicePoints = collect_app_sites(AnnAST, ModName, FunName, Arity),
-	    Slices = lists:flatmap(fun({Fun, E}) ->
-				       backward_slice(Files, AnnAST, ModName, Fun, E) end, SlicePoints),
-	    FunExpr = refac_syntax:fun_expr(
-			[refac_syntax:clause(lists:map(fun({V, _}) -> refac_syntax:variable(V) end, FreeVarsInBody), none, Body)]),  
-	    %% IMPORTANT: ORDER OF VARIABLES MATTERS HERE.
-	    Res = lists:map(fun(S) ->
-				    [refac_syntax:application(FunExpr, S)] end, Slices),
-	    Res
+	    case SlicePoints of 
+		[] -> [refac_syntax:block_expr(Body)]; %% could not find any use sites of this function.
+		_ -> Slices = lists:map(fun({Fun, S}) ->
+						lists:flatmap(fun(E) -> backward_slice(Files, AnnAST, ModName, Fun, E) end, S)
+					end,  SlicePoints),
+		     FunExpr = refac_syntax:fun_expr([C]),
+		     Result = lists:map(fun(S) ->refac_syntax:application(FunExpr, S) end, Slices),
+		     Result       
+	    end
     end. 
 		 
 	    
-collect_app_sites(AnnAST, ModName, FunName, Arity) ->    			
-    F1 = fun(T,Acc) ->
+collect_app_sites(AnnAST, ModName, FunName, Arity) ->    
+    HandleSpecialFuns=fun(Args) ->
+			      Args1 = list_to_tuple(lists:reverse(Args)),
+			      A = element(1, Args1),
+			      F = element(2, Args1),
+			      M = element(3, Args1),
+			      case {refac_syntax:type(M), refac_syntax:type(F), refac_syntax:type(A)} of 
+				  {atom, atom, list} ->
+				      case {refac_syntax:atom_value(M), refac_syntax:atom_value(F), refac_syntax:list_length(A)} of 
+					  {ModName, FunName, Arity} -> [refac_syntax:list_elements(A)];
+					  _ -> []
+				      end;
+				  _ -> []
+			      end
+		      end,
+     F1 = fun(T,Acc) ->
 		case refac_syntax:type(T) of 
 		    application ->
 			Op = refac_syntax:application_operator(T),
+			Args = refac_syntax:application_arguments(T),
 			Ann = refac_syntax:get_ann(Op),
 			case lists:keysearch(fun_def,1, Ann) of
-			    {value, {fun_def, {ModName, FunName, Arity, _, _}}} ->
-				Args = refac_syntax:application_arguments(T),
-				case Args of 
-				    [] -> Acc;
-				    _ -> Acc ++ [hd(Args)]  %% TODO: THIS NEED TO BE CHANGED, TEMORALLY ASSUME THE FIRST ARGUMENT.
-				    end;
-			    _ ->
-				Acc
+			    {value, {fun_def, {M, F, A, _, _}}} ->
+				case {M, F, A} of 
+				    {ModName, FunName, Arity} ->
+					case Args of 
+					    [] -> Acc;
+					    _ -> Acc ++ [Args]  
+					end;
+				    {erlang, apply, 3} -> HandleSpecialFuns(Args)++Acc;
+				    {erlang, spawn, 3} -> HandleSpecialFuns(Args)++Acc;
+				    {erlang, spawn, 4} -> HandleSpecialFuns(Args)++Acc;
+				    {erlang, spawn_link, 3} -> HandleSpecialFuns(Args)++Acc;
+				    {erlang, spawn_link, 4} -> HandleSpecialFuns(Args)++Acc;
+				    _ -> Acc
+				end;
+			    _ -> Acc			
 			end;
 		    _ -> Acc
 		end
-	 end,			
+	 end,				
     F = fun(T, Acc) ->
 		case refac_syntax:type(T) of 
 		    function ->
@@ -420,9 +443,6 @@ backward_slice(Expr, FunDef) ->
     Body = refac_syntax:clause_body(hd(refac_syntax:function_clauses(NewFun1))),
     Body1 = rm_unused_exprs(Body),  %%Qn: how about the guard expression?
     NewFun2 = refac_syntax:function(FunName, [refac_syntax:clause(Patterns, none, Body1)]),
-    %%io:format("Fun after slicing:\n"),
-    %%io:format(refac_prettypr:format(NewFun2)),				    
-    %% Body1.
     NewFun2.
     
 
@@ -453,7 +473,6 @@ process_a_clause(C, Expr) ->
 		C2 = refac_util:update_ann(refac_util:update_ann(C1, {bound, Bound}), {free, Free}),
 		[C2];
 	    _ -> %% Expr does not use any of the vars declared in Patterns.
-		%%io:format("NewBody:\n~p\n", [NewBody]),
 		{Bound, Free} = lists:foldl(fun (E, {Bd, Fr}) ->
 						    {Bd1, Fr1} = {refac_util:get_bound_vars(E), refac_util:get_free_vars(E)},
 						    {ordsets:union(Bd, Bd1), ordsets:union(Fr, ordsets:subtract(Fr1, Bd))}
@@ -565,16 +584,10 @@ process_expr(LastExpr, Expr) ->
 %% this is the function that does the backward slicing.
 rm_unused_exprs([]) -> [];
 rm_unused_exprs(Exprs) ->
-    %%io:format("Initial:\n"),
-    %%io:format(lists:concat(lists:map(fun(B) ->refac_prettypr:format(B) end, Exprs))),
     LastExpr = lists:last(Exprs),
     FreeVars = refac_util:get_free_vars(LastExpr),
-    %%io:format("LastExpr:\n~p\n", [refac_prettypr:format(LastExpr)]),
-    %%io:format("FreeVars:\n~p\n", [FreeVars]),
     ReversedPrevExprs = tl(lists:reverse(Exprs)),
     Res = rm_unused_exprs_1(ReversedPrevExprs, FreeVars, [LastExpr]),
-    %%io:format("Result:\n"),
-    %%io:format(lists:concat(lists:map(fun(B) ->refac_prettypr:format(B) end, Res))),
     Res.
 
 rm_unused_exprs_1([], _FreeVars, Acc) -> Acc;
