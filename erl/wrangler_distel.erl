@@ -199,7 +199,8 @@ undo() ->
 start_processes(SearchPaths) ->
     start_undo_process(),
     start_wrangler_error_logger(),
-    refac_ast_server:start_ast_server(SearchPaths).
+    refac_ast_server:start_ast_server(SearchPaths),
+    refac_callgraph_server:start_callgraph_server().
     
 -spec(stop_processes/0::()->
 	     true).
@@ -209,7 +210,9 @@ stop_processes()->
     stop_wrangler_error_logger(),
     unregister(wrangler_error_logger),
     refac_ast_server:stop_ast_server(),
-    unregister(ast_server).
+    unregister(ast_server),
+    refac_callgraph_server:stop_callgraph_server(),
+    unregister(callgraph_server).
 
     
 start_undo_process() ->
