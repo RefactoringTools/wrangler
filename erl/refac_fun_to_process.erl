@@ -375,7 +375,7 @@ is_recursive_fun(Files, {ModName, FunName, Arity, FunDef}) ->
 	true -> 
 	    true;
 	false ->
-	    CallGraph= refac_util:build_call_graph(Files, []),
+	    CallGraph= refac_util:build_callgraph(Files, []),
 	    #callgraph{scc_order = Sccs, external_calls = _E} = refac_callgraph:construct(CallGraph),
 	    Sccs1 =[[Fun||{Fun, _FunDef}<-Scc]||Scc<-Sccs],
 	    lists:any(fun(E)-> (length(E)>1) andalso (lists:member({ModName, FunName, Arity}, E)) end,

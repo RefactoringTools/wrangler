@@ -644,7 +644,7 @@ is_send_expr(Tree) ->
 
 trim_callgraph(DirList) ->
     Files = refac_util:expand_files(DirList, ".erl"),
-    CallGraph = refac_util:build_call_graph(Files, []),
+    CallGraph = refac_util:build_callgraph(Files, []),
     #callgraph{scc_order = Sccs, external_calls = _E} = refac_callgraph:construct(CallGraph),
     CallerCallee = lists:map(fun({{Caller, _CallerDef}, Callee}) ->
 					{Caller, Callee} end, CallGraph),
@@ -1250,12 +1250,12 @@ get_affected_initials(ReachInfo, {ModName, FunName, Arity}) ->
 
 callgraph(AnnAST, Info, FileName) ->
     {AnnAST1,_} = remove_spawn_pars(AnnAST),
-    CallGraph = build_call_graph(AnnAST1, Info, FileName),
+    CallGraph = build_callgraph(AnnAST1, Info, FileName),
     lists:map(fun({{Caller,_CallerDef}, Called})->
 		      {Caller, Called} end, CallGraph).
 
     
-build_call_graph(Node, Info, _FileName) ->
+build_callgraph(Node, Info, _FileName) ->
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     Inscope_Funs = [{erlang, Fun, Arity} || {Fun, Arity} <- refac_util:auto_imported_bifs()] ++
 		     refac_util:inscope_funs(Info),  %% NOTE: orders matters here.

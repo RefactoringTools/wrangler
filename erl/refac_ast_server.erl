@@ -1,6 +1,6 @@
 -module(refac_ast_server).
 
--export([start_ast_server/1, stop_ast_server/0, get_ast/1]).
+-export([start_ast_server/1, stop_ast_server/0, get_ast/1, update_ast/2]).
 
 -include("../hrl/wrangler.hrl").
 
@@ -17,7 +17,13 @@ get_ast(FileName) ->
 	{ast_server, Res} ->
 	    Res
     end.
-	    
+-type(modifyTime()::{{integer(), integer(), integer()},{integer(), integer(), integer()}}).
+-spec(update_ast/2::(filename(), {syntaxTree(), moduleInfo(), modifyTime()}) ->
+	     ok).
+update_ast(FileName, {AnnAST, Info, Time}) ->
+    ast_server ! {update,{FileName, {AnnAST, Info, Time}}},
+    ok.
+
 -spec(stop_ast_server/0::()-> stop).	     
 stop_ast_server() ->
     ast_server ! stop.
@@ -27,52 +33,43 @@ ast_server(Env, SearchPaths) ->
 	{From, get, FileName} ->
 	    case lists:keysearch(FileName, 1, Env) of
 		{value, {FileName, {AnnAST, Info, FileModifiedTime}}} ->
-		    case FileModifiedTime < filelib:last_modified(FileName) of 
-			false ->
+		    case FileModifiedTime >= filelib:last_modified(FileName) of 
+			true ->
 			    From ! {ast_server, {ok, {AnnAST, Info}}},
 			    case lists:keysearch(errors,1, Info) of 
 				{value, {errors, Error}} ->
-				    error_logger ! {add, {FileName, Error}};
+				    wrangler_error_logger ! {add, {FileName, Error}};
 				false -> ok
 			    end,
 			    ast_server(Env, SearchPaths);
-			true ->
-			    case refac_util:parse_annotate_file_1(FileName, true, SearchPaths) of 
-				{ok, {AnnAST1, Info1}} ->
-				    From ! {ast_server, {ok, {AnnAST1, Info1}}},
-				    case lists:keysearch(errors,1, Info) of 
- 					{value, {errors, Error}} ->
- 					    error_logger ! {add, {FileName, Error}};
- 					false -> ok
- 				    end,
-				    ast_server([{FileName, {AnnAST1, Info1, filelib:last_modified(FileName)}}|Env], SearchPaths);
-				{error, Reason} ->
-				    From ! {ast_server, {error, Reason}},
-				    ast_server(Env, SearchPaths)
-			    end
-		    end;
-		false -> case refac_util:parse_annotate_file_1(FileName, true, SearchPaths) of 
-			     {ok, {AnnAST, Info}} ->
-				 From ! {ast_server, {ok, {AnnAST, Info}}},
-				 case lists:keysearch(errors,1, Info) of 
-				     {value, {errors, Error}} ->
-					 error_logger ! {add, {FileName, Error}};
-				     false -> ok
-				 end,
-				 ast_server([{FileName, {AnnAST, Info, filelib:last_modified(FileName)}}|Env], SearchPaths);
-			     {error, Reason} ->
-				 From ! {ast_server, {error, Reason}},
-				 ast_server(Env, SearchPaths)
-			 end
+			false ->
+			    {ok, {AnnAST1, Info1}} = refac_util:parse_annotate_file_1(FileName, true, SearchPaths),
+			    From ! {ast_server, {ok, {AnnAST1, Info1}}},
+			    case lists:keysearch(errors,1, Info) of 
+				{value, {errors, Error}} ->
+				    wrangler_error_logger ! {add, {FileName, Error}};
+				false -> ok
+			    end,
+			    ast_server([{FileName, {AnnAST1, Info1, filelib:last_modified(FileName)}}|Env], SearchPaths)
+			end;
+		false -> 
+		    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file_1(FileName, true, SearchPaths),
+		    From ! {ast_server, {ok, {AnnAST, Info}}},
+		    case lists:keysearch(errors,1, Info) of 
+			{value, {errors, Error}} ->
+			    wrangler_error_logger ! {add, {FileName, Error}};
+			false -> ok
+		    end,
+		    ast_server([{FileName, {AnnAST, Info, filelib:last_modified(FileName)}}|Env], SearchPaths)
 	    end;
-		%% 	{update, {FileName, {AnnAST, Info}}} ->
-		%% 	    Env1 =case lists:keysearch(FileName, 1, Env) of
-		%% 		       {value, {FileName,  {_AnnAST1, _Info1}}} ->
-		%% 			   lists:keyreplace(FileName, 1, Env, {FileName, {AnnAST, Info}});
-		%% 		       false ->
-		%% 			   [{FileName, {AnnAST, Info}} |Env]
-		%% 		   end,
-		%% 	    ast_server(Env1, SearchPaths);
+	{update, {FileName, {AnnAST, Info, Time}}} ->
+	    Env1 =case lists:keysearch(FileName, 1, Env) of
+		      {value, {FileName,  {_AnnAST1, _Info1, _Time}}} ->   %% IS THIS CORRECT?
+			  lists:keyreplace(FileName, 1, Env, {FileName, {AnnAST, Info, Time}});
+		      false ->
+			  [{FileName, {AnnAST, Info, Time}} |Env]
+		  end,
+	    ast_server(Env1, SearchPaths);
 	stop ->
 	    ok
     end.

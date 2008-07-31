@@ -85,9 +85,8 @@
 %% =====================================================================
 %% @spec generalise(FileName::filename(), Start::Pos, End::Pos, ParName::string(), SearchPaths::[string()])-> term()
 %%         Pos = {integer(), integer()}
+-spec(generalise/5::(filename(),pos(), pos(),string(), [dir()]) -> {ok, string()} | {error, string()}).	     
 
-
--spec(generalise/5::(filename(), pos(), pos(), string(), [dir()]) -> {ok, string()} | {error, string()}).	     
 generalise(FileName, Start, End, ParName, SearchPaths) ->
     generalise(FileName, Start, End, ParName, SearchPaths, emacs).
 
@@ -95,8 +94,8 @@ generalise(FileName, Start, End, ParName, SearchPaths) ->
 generalise_eclipse(FileName, Start, End, ParName, SearchPaths) ->
     generalise(FileName, Start, End, ParName, SearchPaths, eclipse).
     
-generalise(FileName, Start, End, ParName, SearchPaths, Editor) ->
-    io:format("\nCMD: ~p:generalise(~p, ~p, ~p, ~p,~p).\n", [?MODULE,FileName, Start, End, ParName, SearchPaths]),
+generalise(FileName, Start={Line, Col}, End={Line1, Col1}, ParName, SearchPaths, Editor) ->
+    io:format("\nCMD: ~p:generalise(~p, {~p,~p}, {~p,~p}, ~p,~p).\n", [?MODULE,FileName, Line, Col, Line1, Col1, ParName, SearchPaths]),
     case refac_util:is_var_name(ParName) of 
 	true ->
 	    case refac_util:parse_annotate_file(FileName,true, SearchPaths) of 

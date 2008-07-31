@@ -123,7 +123,7 @@ vertical_concat([{E, Form}|T], Acc) ->
 			      case (E1Str==F1Str) or (refac_syntax:type(Form1) == error_marker) of 
 				  true -> E++"\n";
 				  false ->
-				      E++"\n\n"
+				      E++"\n"
 			      end
 		      end
 	  end,	      
