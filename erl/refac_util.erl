@@ -1677,7 +1677,7 @@ add_fun_define_locations(Node,
 
 -spec(has_side_effect(File::filename(), Node::syntaxTree(), SearchPaths::[dir()])-> true|false|unknown).
 has_side_effect(File, Node, SearchPaths) ->
-    LibSideEffectFile = filename:join(?WRANGLER_DIR, "plt/side_effect_plt"),
+    LibSideEffectFile = list_to_atom(filename:join(?WRANGLER_DIR, "plt/side_effect_plt")),
     LibPlt = from_dets(lib_side_effect_plt, LibSideEffectFile),
     Res = check_side_effect(Node, LibPlt, none), 
     case Res of 
@@ -1693,7 +1693,7 @@ has_side_effect(File, Node, SearchPaths) ->
 		    LocalPlt = from_dets(local_side_effect_plt, LocalSideEffectFile),
 		    Res = check_side_effect(Node, LibPlt, LocalPlt),
 		    dets:close(LibSideEffectFile),
-		    dets:close(LocalSideEffectFile),
+		    dets:close(list_to_atom(LocalSideEffectFile)),
 		    ets:delete(LocalPlt),
 		    ets:delete(LibPlt),
 		    Res
@@ -1732,7 +1732,7 @@ build_local_side_effect_tab(File, SearchPaths) ->
     #callgraph{scc_order=Sccs, external_calls=_E} = build_callgraph(FilesToAnalyse),
     build_side_effect_tab(Sccs, LocalPlt, LibPlt),
     to_dets(LocalPlt, SideEffectFile),
-    dets:close(LibSideEffectFile),
+    dets:close(list_to_atom(LibSideEffectFile)),
     ets:delete(LocalPlt),
     ets:delete(LibPlt).
 
@@ -1766,11 +1766,11 @@ from_dets(Name, Dets) when is_atom(Name) ->
 to_dets(Plt, Dets) ->
     file:delete(Dets),
     MinSize = ets:info(Plt, size),
+    DetsName = list_to_atom(Dets),
     {ok, Dets} = dets:open_file(Dets, [{min_no_slots, MinSize}]),
-    ok = dets:from_ets(Dets, Plt),
-    ok = dets:sync(Dets),
-    ok = dets:close(Dets).
-
+    ok = dets:from_ets(DetsName, Plt),
+    ok = dets:sync(DetsName),
+    ok = dets:close(DetsName).
 
 build_side_effect_tab([Scc | Left], Side_Effect_Tab, OtherTab) ->
     R = side_effect_scc(Scc, Side_Effect_Tab, OtherTab),
