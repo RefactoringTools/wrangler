@@ -38,6 +38,7 @@
 -export([rename_var/5, 
 	 rename_fun/5, 
 	 rename_mod/3, 
+	 rename_process/5,
 	 rename_mod_batch/3,
 	 generalise/5,
 	 move_fun/6,
@@ -567,6 +568,12 @@ tuple_to_record_eclipse(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPat
 %%@private
 %%@spec fun_to_process(FileName::filename(), Line::integer(), Col::integer(), ProcessName::string(), SearchPaths::[dir()]) ->term()
 -spec(fun_to_process/5::(filename(), integer(), integer(), string(), [dir()])->
-	     {error, string()} | {ok, [filename()]}).
+	     {error, string()} | undecidables | {ok, [filename()]}).
 fun_to_process(FileName, Line, Col, ProcessName, SearchPaths) ->
     refac_fun_to_process:fun_to_process(FileName, Line, Col, ProcessName, SearchPaths).
+
+
+-spec(rename_process/5::(filename(), integer(), integer(), string(), [dir()]) ->
+	       {error, string()} | {undecidables, string()}| {ok, [filename()]}).
+rename_process(FileName, Line, Col, NewName, SearchPaths) ->
+    refac_rename_process:rename_process(FileName, Line, Col, NewName, SearchPaths).
