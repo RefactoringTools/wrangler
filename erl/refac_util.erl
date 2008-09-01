@@ -849,7 +849,7 @@ process_str(S) ->
 %%  For the data structures used by the AST nodes, please refer to <a href="refac_syntax.html"> refac_syntax </a>.
 
 -spec(parse_annotate_file(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()])
-                           -> {ok, {syntaxTree(), moduleInfo()}} | {error, string()}).
+                           -> {ok, {syntaxTree(), moduleInfo()}}).
 parse_annotate_file(FName, ByPassPreP, SearchPaths) ->
     case whereis(wrangler_ast_server) of 
 	undefined ->        %% this should not happen with Wrangler + Emacs.
@@ -860,7 +860,7 @@ parse_annotate_file(FName, ByPassPreP, SearchPaths) ->
    
 
 -spec(parse_annotate_file_1(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()])
-                           -> {ok, {syntaxTree(), moduleInfo()}} | {error, string()}).
+                           -> {ok, {syntaxTree(), moduleInfo()}}).
 parse_annotate_file_1(FName, ByPassPreP, SearchPaths) ->
     R = case ByPassPreP of
 	  true -> refac_epp_dodger:parse_file(FName);
@@ -1901,16 +1901,13 @@ build_callgraph(DirList) ->
 -spec(build_callgraph/2::([filename()], [{{{atom(), atom(), integer()}, syntaxTree()}, {atom(), atom(), integer()}}]) ->
  	     [{{{atom(), atom(), integer()}, syntaxTree()}, [{atom(), atom(), integer()}]}]).
 build_callgraph([FileName | Left], Acc) ->
-    case refac_util:parse_annotate_file(FileName, true, []) of
-      {ok, {AnnAST, Info}} ->
-	  case lists:keysearch(errors,1, Info) of 
-	      {value, {errors, _Errors}} -> erlang:error("Syntax error in " ++ FileName);
-	      _ ->  G1 = build_callgraph(AnnAST, Info, FileName),
-		    Acc1 = Acc ++ G1,
-		    build_callgraph(Left, Acc1)
-	  end;
-      {error, Reason} -> erlang:error(Reason)
-    end;
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, []),
+    case lists:keysearch(errors,1, Info) of 
+	{value, {errors, _Errors}} -> erlang:error("Syntax error in " ++ FileName);
+	_ ->  G1 = build_callgraph(AnnAST, Info, FileName),
+	      Acc1 = Acc ++ G1,
+	      build_callgraph(Left, Acc1)
+    end; 
 build_callgraph([], Acc) -> Acc.
 
 -spec(build_callgraph/3::(syntaxTree(),moduleInfo(),filename()) -> 
