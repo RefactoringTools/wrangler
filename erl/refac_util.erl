@@ -155,6 +155,7 @@ until(F, [H | T], Others) ->
       {_Rq, false} -> until(F, T, Others)
     end.
 
+
 %% =====================================================================
 %% @spec stop_tdTP(Function, Tree::syntaxTree(), Others::[term()])->  syntaxTree()
 %%       Function = (syntaxTree(),{term()}) -> {syntaxTree(), bool()}
@@ -217,7 +218,7 @@ full_buTP(Fun, Tree, Others) ->
 
 %% ==========================================================================
 %% @spec pos_to_fun_name(Node::syntaxTree(), Pos::{integer(), integer()}) ->
-%%                        {ok, {Mod, Fun, Arity, OccurPos, DefPos}} | {error, none}
+%%                        {ok, {Mod, Fun, Arity, OccurPos, DefPos}} | {error, string()}
 %%    Mod = atom()
 %%    Fun = atom()
 %%    Arity = integer()
@@ -234,10 +235,10 @@ full_buTP(Fun, Tree, Others) ->
 %% @see pos_to_fun_def/2.
 
 -spec (pos_to_fun_name(Node::syntaxTree(), Pos::pos()) ->
-                        {ok, {atom(), atom(), integer(), pos(), pos()}} | {error, none}).
+                        {ok, {atom(), atom(), integer(), pos(), pos()}} | {error, string()}).
 pos_to_fun_name(Node, Pos) ->
     case once_tdTU(fun pos_to_fun_name_1/2, Node, Pos) of
-      {_, false} -> {error, none};
+      {_, false} -> {error, "You have not selected a function name!"};
       {R, true} -> {ok, R}
     end. 
 
@@ -255,17 +256,17 @@ pos_to_fun_name_1(Node, Pos = {Ln, Col}) ->
 
 %%============================================================================
 %% @spec pos_to_fun_def(Node::syntaxTree(), Pos::{integer(), integer()}) 
-%%                     -> {ok, syntaxTree()} | {error, none}
+%%                     -> {ok, syntaxTree()} | {error, string()}
 %% @doc Get the AST representation of the function definition in which the 
 %% location specified by Pos falls.
 %%               
 %% @see pos_to_fun_name/2.
 
 -spec(pos_to_fun_def(Node::syntaxTree(), Pos::pos()) 
-                     -> {ok, syntaxTree()} | {error, none}).
+                     -> {ok, syntaxTree()} | {error, string()}).
 pos_to_fun_def(Node, Pos) ->
     case once_tdTU(fun pos_to_fun_def_1/2, Node, Pos) of
-      {_, false} -> {error, none};
+      {_, false} -> {error, "You have not selected a function definition!"};
       {R, true} -> {ok, R}
     end.
 
@@ -283,7 +284,7 @@ pos_to_fun_def_1(Node, Pos) ->
 
 %% =====================================================================
 %% @spec pos_to_var_name(Node::syntaxTree(), Pos::{integer(), integer()})->
-%%                      {ok, {VarName,DefPos, Category}} | {error, none}
+%%                      {ok, {VarName,DefPos, Category}} | {error, string()}
 %%
 %%      VarName = atom()
 %%      DefPos = [{integer(), integer()}]
@@ -298,10 +299,10 @@ pos_to_fun_def_1(Node, Pos) ->
 %% @see pos_to_expr/3
 -type(category()::expression|pattern|macro_name).
 -spec(pos_to_var_name(Node::syntaxTree(), Pos::pos())->
-                      {ok, {atom(), [pos()], category()}} | {error, none}).
+                      {ok, {atom(), [pos()], category()}} | {error, string()}).
 pos_to_var_name(Node, UsePos) ->
     case once_tdTU(fun pos_to_var_name_1/2, Node, UsePos) of
-      {_, false} -> {error, none};
+      {_, false} -> {error, "You have not selected a variable name!"};
       {R, true} -> {ok, R}
     end.
 
@@ -330,7 +331,7 @@ pos_to_var_name_1(Node, _Pos = {Ln, Col}) ->
 
 %% =====================================================================
 %% @spec pos_to_expr(Tree::syntaxTree(), Start::Pos, End::Pos) ->
-%%                  {ok, syntaxTree()} | {error, none}
+%%                  {ok, syntaxTree()} | {error, string()}
 %%
 %%       Pos={integer(), integer()}
 %% @doc Get the largest, left-most expression enclosed by the start and end locations.
@@ -340,12 +341,12 @@ pos_to_var_name_1(Node, _Pos = {Ln, Col}) ->
 %% @see pos_to_var_name/2
 
 -spec(pos_to_expr(Tree::syntaxTree(), Start::pos(), End::pos()) ->
-                  {ok, syntaxTree()} | {error, none}).
+                  {ok, syntaxTree()} | {error, string()}).
 pos_to_expr(Tree, Start, End) ->
    Es = pos_to_expr_1(Tree, Start, End),
    case Es of 
        [H|_T] -> {ok, H};
-       _ -> {error, none}
+       _ -> {error, "You have not selected an expression!"}
    end.
 
 pos_to_expr_1(Tree, Start, End) ->
@@ -490,7 +491,7 @@ get_range(Node) ->
 get_var_exports(Node) ->
     get_var_exports_1(refac_syntax:get_ann(Node)).
 
-get_var_exports_1([{bound, B} | _Bs]) -> B;
+get_var_exports_1([{bound, B} | _Bs]) -> B; %% Think about this again!!
 get_var_exports_1([_ | Bs]) -> get_var_exports_1(Bs);
 get_var_exports_1([]) -> [].
 
@@ -723,12 +724,13 @@ write_refactored_files(Files) ->
 			       {ok, Bin} = file:read_file(OldFileName), {{OldFileName, NewFileName}, Bin}
 		       end,
 		       Files),
-    case erlang:whereis(refactor_undo) of
-      undefined ->
-	  io:format("\nWARNING: the UNDO process is not working, "
-		    "please restart the refactorer!\n");
-      _ -> refactor_undo ! {add, Files1}
-    end,
+    wrangler_undo_server:add_to_history(Files1),
+   %%  case erlang:whereis(refactor_undo) of
+%%       undefined ->
+%% 	  io:format("\nWARNING: the UNDO process is not working, "
+%% 		    "please restart the refactorer!\n");
+%%       _ -> refactor_undo ! {add, Files1}
+%%     end,
     %% Actually the result of writing to files should be checked!
     lists:foreach(F, Files).    
 
@@ -848,15 +850,14 @@ process_str(S) ->
 
 -spec(parse_annotate_file(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()])
                            -> {ok, {syntaxTree(), moduleInfo()}} | {error, string()}).
-parse_annotate_file(FName, false, SearchPaths) ->
-    parse_annotate_file_1(FName, false, SearchPaths);
-parse_annotate_file(FName, true, SearchPaths) ->
-    case whereis(ast_server) of 
+parse_annotate_file(FName, ByPassPreP, SearchPaths) ->
+    case whereis(wrangler_ast_server) of 
 	undefined ->        %% this should not happen with Wrangler + Emacs.
-	    parse_annotate_file_1(FName, true, SearchPaths);
-	_ -> refac_ast_server:get_ast(FName)
+	    parse_annotate_file_1(FName, ByPassPreP, SearchPaths);
+	_ -> 
+	    wrangler_ast_server:get_ast({FName, ByPassPreP, SearchPaths})
     end.
-    
+   
 
 -spec(parse_annotate_file_1(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()])
                            -> {ok, {syntaxTree(), moduleInfo()}} | {error, string()}).
