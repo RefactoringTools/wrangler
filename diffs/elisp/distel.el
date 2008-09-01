@@ -303,10 +303,10 @@ Please see the documentation of `erlang-menu-base-items'.")
      ;; ("Uninstrument Program" erl-refactor-uninstrument-prog)
       nil
       ("From Tuple To Record" erl-refactor-tuple-to-record)
-      ("Tuple Function Arguments" erl-refactor-tuple-funpar)
+      ("Tuple Function Arguments (beta)" erl-refactor-tuple-funpar)
       nil
       ("Rename a Process" erl-refactor-rename-process)
-      ("Add a Tag to Messages"  erl-refactor-add-a-tag)
+      ("Add a Tag to Messages (beta)"  erl-refactor-add-a-tag)
       ("Register a Process"   erl-refactor-register-pid)
       ("From Function to Process" erl-refactor-fun-to-process)
       nil
@@ -349,7 +349,7 @@ Please see the documentation of `erlang-menu-base-items'.")
                               'distel-menu-items
                               erlang-menu-items))
    (erlang-menu-init)
-   (erl-spawn (erl-send-rpc node 'wrangler_distel 'start_processes (list erlang-refac-search-paths)))
+   (erl-spawn (erl-send-rpc node 'application 'start (list 'wrangler_app)))
    (setq erlang-refactor-mode t))
 
 (defun erlang-refactor-off(node)
@@ -358,5 +358,24 @@ Please see the documentation of `erlang-menu-base-items'.")
         (erlang-menu-delete 'refactor-menu-items erlang-menu-items))
   (erlang-menu-init)
   (when (and erlang-refactor-mode node)
-   (erl-spawn (erl-send-rpc node 'wrangler_distel 'stop_processes (list)))
+   (erl-spawn (erl-send-rpc node 'application 'stop (list 'wrangler_app)))
    (setq erlang-refactor-mode nil)))
+
+;; (defun erlang-refactor-on(node)
+;;   (interactive (list (erl-target-node)))
+;;    (setq erlang-menu-items
+;;        (erlang-menu-add-below 'refactor-menu-items
+;;                               'distel-menu-items
+;;                               erlang-menu-items))
+;;    (erlang-menu-init)
+;;    (erl-spawn (erl-send-rpc node 'wrangler_distel 'start_processes (list erlang-refac-search-paths)))
+;;    (setq erlang-refactor-mode t))
+
+;; (defun erlang-refactor-off(node)
+;;   (interactive (list (erl-target-node)))
+;;   (setq erlang-menu-items 
+;;         (erlang-menu-delete 'refactor-menu-items erlang-menu-items))
+;;   (erlang-menu-init)
+;;   (when (and erlang-refactor-mode node)
+;;    (erl-spawn (erl-send-rpc node 'wrangler_distel 'stop_processes (list)))
+;;    (setq erlang-refactor-mode nil)))
