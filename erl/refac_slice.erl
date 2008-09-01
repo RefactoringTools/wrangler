@@ -33,6 +33,10 @@
 
 -include("../hrl/wrangler.hrl").
 
+%%% TOdo: rename process name to 'wrangler_forward_slicer'.
+%% TODO: extend the slicer to go into the inner of case/receive/if exprs.
+
+
 %% @spec forward_slice(Files:[filename()], AnnAST:syntaxTree(), ModName::atom(), FunDef::syntaxTree(), Expr::syntaxTree()) -> [syntaxTree()].
 %% @doc Forward slice the program with expression Expr, which in contained in function FunDef, as the slicing criterion.                     
 
@@ -43,18 +47,16 @@ forward_slice(Files, AnnAST, ModName, FunDef, Expr)  ->
     Res = forward_slice_1(Files, AnnAST, ModName, {FunDef, Expr}),
     stop_slice_env_process(),
     Res.
-    
-    
+        
 forward_slice_1(Files, AnnAST, ModName, {FunDef, Expr}) ->
     FunName = refac_syntax:function_name(FunDef),
     FunName1 = refac_syntax:data(FunName),
     Arity = refac_syntax:function_arity(FunDef),
     FunClauses = refac_syntax:function_clauses(FunDef),
     NewFunClauses = lists:map(fun(Cs) ->
-			    process_a_clause(AnnAST, ModName,Cs, Expr) end, FunClauses),
+			    process_a_clause(Files, AnnAST, ModName, FunName1, Arity,Cs, Expr) end, FunClauses),
     NewFunDef = refac_syntax:copy_attrs(FunDef, refac_syntax:function(FunName, NewFunClauses)),
-    sliced_funs ! {add, {{ModName, FunName1, Arity}, NewFunDef}},
-    
+    sliced_funs ! {add, {{ModName, FunName1, Arity, refac_util:get_range(Expr)}, NewFunDef}},
     case returns_undefined(NewFunDef) of 
 	true ->    %% None of the variables depending on the selected expression is exported.
 	    get_all_sliced_funs();
@@ -105,7 +107,6 @@ get_caller_funs(Files, {ModName, FunName, Arity}) ->
 		  end, CallGraph).
     
 
-
 start_slice_env_process() ->    
     case erlang:whereis(sliced_funs) of 
 	undefined -> ok;
@@ -148,68 +149,65 @@ sliced_funs(State) ->
 	end.
 
 
-process_a_clause(AnnAST, ModName,C, Expr) ->
-    ExportedVars = get_exported_vars(C, Expr),
+process_a_clause(Files, AnnAST, ModName, FunName, Arity, C, Expr) ->
+    ExportedVars = refac_util:get_var_exports(Expr),
     Patterns = refac_syntax:clause_patterns(C),
+    Guard = refac_syntax:clause_guard(C),
     Body = refac_syntax:clause_body(C),
-    Body1 = rm_unrelated_exprs(AnnAST, ModName, Body, ExportedVars),
-    refac_syntax:clause(Patterns, none, Body1).
+    Body1 = rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity,  Body, Expr, ExportedVars),
+    refac_syntax:clause(Patterns, Guard, Body1).
 
-get_exported_vars(Body, Expr) ->
-    F1 =fun(Node, _Others) ->
-		case Node of 
-		    Expr ->
-			{true, true};
-		    _ ->
-			{[], false}
-		end
-	end,		    
-    F = fun(T,S) ->
-		case refac_syntax:type(T) of 
-		    match_expr ->  %% TO THINK: assume only match expressions export variables, is this correct?
-			case refac_util:once_tdTU(F1, T, []) of 
-			    {_, true} -> 
-				S++refac_util:get_var_exports(T);
-			    _ -> S
-			end;
-		    _ -> S
-		end
-	end,
-    refac_syntax_lib:fold(F, [], Body).
 
-rm_unrelated_exprs(_AnnAST, _ModName, [], _Vars) ->
+rm_unrelated_exprs(_Files,_AnnAST, _ModName, _FunName, _Arity, [], _Expr, _Vars) ->
     [];
-rm_unrelated_exprs(_AnnAST, _ModName, [E], Vars) ->
+rm_unrelated_exprs(_Files,_AnnAST, _ModName, _FunName, _Arity,[E], Expr, Vars) ->
     FreeVars = refac_util:get_free_vars(E),
     ExportedVars = refac_util:get_var_exports(E),
     case (ExportedVars -- Vars =/= ExportedVars) of 
 	true -> [E];
-	false -> case FreeVars -- Vars =/= FreeVars of 
+	false -> case FreeVars -- Vars =/= FreeVars of   %% HERE Should check whether the returned value depends on the slice criteron or not!!.
 		     true ->
-			 [E];
+			 [E, refac_syntax:atom(undefined)];
 		     _ ->
-			 [refac_syntax:atom(undefined)]
+			 {Start1, End1} = refac_util:get_range(Expr),
+			 {Start2, End2} =refac_util:get_range(E),
+			 case (Start2 =< Start1) andalso (End1 =< End2) of 
+			     true -> [E, refac_syntax:atom(undefined)];
+			     _ -> [refac_syntax:atom(undefined)]
+			 end
 		 end
     end;
-rm_unrelated_exprs(AnnAST, ModName,[E |Exprs], Vars) ->
+rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, [E |Exprs], Expr, Vars) ->
     FreeVars = refac_util:get_free_vars(E),
     ExportedVars = refac_util:get_var_exports(E),
     case (ExportedVars -- Vars =/= ExportedVars) of 
 	true -> 
-	    [E | rm_unrelated_exprs(AnnAST, ModName,Exprs, lists:usort(Vars++ExportedVars))];
+	    [E | rm_unrelated_exprs(Files,AnnAST, ModName, FunName, Arity, Exprs, Expr, lists:usort(Vars++ExportedVars))];
 	false -> case FreeVars -- Vars =/= FreeVars of 
 		     true ->
 			 Env = refac_util:get_env_vars(E),
-			 E1 = process_fun_applications(AnnAST, ModName, E, Vars),
+			 E1 = process_fun_applications(Files,AnnAST, ModName, FunName, Arity, E, Vars),
 			 E2 = refac_syntax_lib:annotate_bindings(reset_attrs(E1), Env),
 			 FreeVars1 = refac_util:get_free_vars(E2),
 			 case FreeVars1 --Vars =/= FreeVars1 of 
 			     true ->
-				 [E2 | rm_unrelated_exprs(AnnAST, ModName, Exprs, lists:sort(Vars++refac_util:get_var_exports(E2)))];
-			     _ -> rm_unrelated_exprs(AnnAST, ModName, Exprs, Vars)
+				 [E2 | rm_unrelated_exprs(Files,AnnAST, ModName,  FunName, Arity, Exprs, Expr, lists:sort(Vars++refac_util:get_var_exports(E2)))];
+			     _ ->
+				 {Start1, End1} = refac_util:get_range(Expr),
+				 {Start2, End2} =refac_util:get_range(E2),
+				 case (Start2 =< Start1) andalso (End1 =< End2) of 
+				     true ->  [E2 | rm_unrelated_exprs(Files,AnnAST, ModName,  FunName, Arity, Exprs, Expr, lists:sort(Vars++refac_util:get_var_exports(E2)))];
+				     _ -> rm_unrelated_exprs(Files,AnnAST, ModName, FunName, Arity, Exprs, Expr, Vars)
+				 end
+			 
 			 end;
 		     _ ->
-			 rm_unrelated_exprs(AnnAST, ModName, Exprs, Vars)
+			 {Start1, End1} = refac_util:get_range(Expr),
+			 {Start2, End2} =refac_util:get_range(E),
+			 case (Start2 =< Start1) andalso (End1 =< End2) of 
+			     true ->  [E | rm_unrelated_exprs(Files,AnnAST, ModName,  FunName, Arity, Exprs, Expr, lists:sort(Vars++refac_util:get_var_exports(E)))];
+			     _ -> rm_unrelated_exprs(Files,AnnAST, ModName, FunName, Arity, Exprs, Expr, Vars)
+			 end
 		 end
     end.
 
@@ -226,24 +224,26 @@ reset_attrs(Node) ->
 	    
 	    
   
-intra_fun_forward_slice(AnnAST, ModName, FunDef, PatIndex) ->
+intra_fun_forward_slice(Files, AnnAST, ModName, FunDef, PatIndex) ->
     FunName = refac_syntax:function_name(FunDef),
+    FunName1 = refac_syntax:data(FunName),    
+    Arity = refac_syntax:function_arity(FunDef),
     Cs = refac_syntax:function_clauses(FunDef),
     Cs1 = lists:map(fun(C) ->
-			    process_a_clause_1(AnnAST, ModName,C, PatIndex) end, Cs),
+			    process_a_clause_1(Files, AnnAST, ModName, FunName1, Arity,C, PatIndex) end, Cs),
     refac_syntax:function(FunName, Cs1).
 
-process_a_clause_1(AnnAST, ModName, C, PatIndex) ->
+process_a_clause_1(Files,AnnAST, ModName, FunName, Arity, C, PatIndex) ->
     Patterns = refac_syntax:clause_patterns(C),
     Body = refac_syntax:clause_body(C),
-    Vars =refac_util:get_var_exports(lists:nth(PatIndex, Patterns)),
-    Body1 = process_fun_body(AnnAST, ModName, Body, Vars),
+    Vars =lists:flatmap(fun(I) -> refac_util:get_var_exports(lists:nth(I, Patterns)) end, PatIndex),
+    Body1 = process_fun_body(Files, AnnAST, ModName, FunName, Arity, Body, Vars),
     refac_syntax:clause(Patterns, none, Body1).    
 
-process_fun_body(_AnnAST, _ModName, [], _Vars) ->			    
+process_fun_body(_Files,_AnnAST, _ModName, _FunName, _Arity,  [], _Vars) ->			    
     [];
-process_fun_body(AnnAST, ModName, [E], Vars) ->
-    E1 = process_fun_applications(AnnAST, ModName, E, Vars),
+process_fun_body(Files,AnnAST, ModName, FunName, Arity, [E], Vars) ->
+    E1 = process_fun_applications(Files,AnnAST, ModName, FunName, Arity,  E, Vars),
     FreeVars = refac_util:get_free_vars(E1),
     ExportedVars = refac_util:get_var_exports(E1),
     case (ExportedVars -- Vars =/= ExportedVars) of 
@@ -256,56 +256,76 @@ process_fun_body(AnnAST, ModName, [E], Vars) ->
 			 [refac_syntax:atom(undefined)]
 		 end
     end;
-process_fun_body(AnnAST, ModName,[E |Exprs], Vars) ->
-    E1 = process_fun_applications(AnnAST, ModName, E, Vars),
+process_fun_body(Files,AnnAST, ModName,FunName, Arity, [E |Exprs], Vars) ->
+    E1 = process_fun_applications(Files,AnnAST, ModName,FunName, Arity, E, Vars),
     FreeVars = refac_util:get_free_vars(E1),
     ExportedVars = refac_util:get_var_exports(E1),
     case (ExportedVars -- Vars =/= ExportedVars) of 
-	true -> [E | process_fun_body(AnnAST, ModName,Exprs, lists:usort(Vars++ExportedVars))];
+	true -> [E | process_fun_body(Files,AnnAST, ModName, FunName, Arity, Exprs, lists:usort(Vars++ExportedVars))];
 	false -> case FreeVars -- Vars =/= FreeVars of 
 		     true ->
-			 [E1 | process_fun_body(AnnAST, ModName, Exprs, lists:sort(Vars++refac_util:get_var_exports(E1)))];
+			 [E1 | process_fun_body(Files,AnnAST, ModName, FunName, Arity, Exprs, lists:sort(Vars++refac_util:get_var_exports(E1)))];
 		     _ ->
-			 process_fun_body(AnnAST, ModName, Exprs, Vars)
+			 process_fun_body(Files,AnnAST, ModName, FunName, Arity,Exprs, Vars)
 		 end
     end.
 
 
-process_fun_applications(AnnAST, ModName, E, Vars) ->
-    refac_util:full_buTP(fun do_process_fun_applications/2, E, {AnnAST, ModName, Vars}).
+process_fun_applications(Files,AnnAST, ModName, FunName, Arity, E, Vars) ->
+    refac_util:full_buTP(fun do_process_fun_applications/2, E, {Files,AnnAST, ModName, FunName, Arity, Vars}).
 
-do_process_fun_applications(Node, {AnnAST, ModName, Vars}) ->
-    case refac_syntax:type(Node) of 
+do_process_fun_applications(Node, {Files,AnnAST, ModName, FunName, Arity,Vars}) ->
+      case refac_syntax:type(Node) of 
 	application ->
 	    FreeVars = refac_util:get_free_vars(Node),
 	    case FreeVars -- Vars =/= FreeVars of   %% the function application makes use of some of the variables in Vars;
 		true -> Operator = refac_syntax:application_operator(Node),
 			Ann = refac_syntax:get_ann(Operator),
+			Args = refac_syntax:application_arguments(Node),
+			IndexedArgs = lists:zip(lists:seq(1, length(Args)), Args),
+			FilteredIndexedArgs = lists:filter(fun({_, Arg}) ->
+								  FVars = refac_util:get_free_vars(Arg),
+								  FVars -- Vars =/= FVars
+							  end, IndexedArgs), 
+			FilteredIndex=element(1, lists:unzip(FilteredIndexedArgs)),
 			case lists:keysearch(fun_def, 1, Ann) of 
-			    {value, {fun_def, {ModName, F, A, _, DefPos}}} ->   %% TO CHANGE. temperoary only check functions defined in this module;
-				sliced_funs ! {self(), get, {ModName, F, A}},
-				receive 
-				    {value, {{ModName, F, A}, FunDef1}} ->
-					case returns_undefined(FunDef1) of 
-					    true ->refac_syntax:atom(undefined);
-					    _ ->Node
+			    {value, {fun_def, {M, F, A, _, DefPos}}} ->  
+				case {M,F,A} of 
+				    {ModName, FunName, Arity} -> Node;
+				    _ ->
+					sliced_funs ! {self(), get, {M, F, A, FilteredIndex}},
+					receive 
+					    {sliced_funs, value, {{M, F, A, FilteredIndex}, FunDef1}} ->
+						case returns_undefined(FunDef1) of 
+						    true ->refac_syntax:atom(undefined);
+						    _ ->Node
+						end;
+					    _ -> 
+						FileName1 =lists:filter(fun(F1) -> list_to_atom(filename:basename(F1, ".erl"))==M end, Files),
+						case FileName1 of 
+						    [] ->
+							Node;
+						    _ -> FileName = hd(FileName1),
+							 {ok, {AnnAST1, _Info}} = refac_util:parse_annotate_file(FileName, true, Files),
+							 case refac_util:pos_to_fun_def(AnnAST1, DefPos) of    %% TO check: how to you have this DefPos.
+							     {ok, FunDef} -> 
+								 FunDef1= intra_fun_forward_slice(Files,AnnAST, ModName, FunDef, FilteredIndex),
+								 sliced_funs ! {add, {{M, F, A, FilteredIndex}, FunDef1}},
+								 case returns_undefined(FunDef1) of 
+								     true -> refac_syntax:atom(undefined);
+								     _ -> Node
+								 end;
+							     _ -> Node
+							 end
+						end
+					end
 					end;
-				    _ -> case refac_util:pos_to_fun_def(AnnAST, DefPos) of 
-					     {ok, FunDef} -> FunDef1= intra_fun_forward_slice(AnnAST, ModName, FunDef, 1), %% TOCHANGE: use 1 temporally;
-							     sliced_funs ! {add, {{ModName, F, A}, FunDef1}},
-							     case returns_undefined(FunDef1) of 
-								 true -> refac_syntax:atom(undefined);
-								 _ -> Node
-							     end;
-					     _ -> Node
-					 end
-				end;
-			    _ -> Node
-			end;			    
-		_  -> refac_syntax:atom(undefined)
-	    end;
-	_ -> Node
-    end.
+				    _ -> Node   %% no fun_def annotation. This should not happen.
+				end;			    
+			    _  -> refac_syntax:atom(undefined)
+			end;
+		_ -> Node
+	    end.
 
 %%=========================================================================================================
 %% @spec backward_slice(Files:[filename()], AnnAST:syntaxTree(), ModName::atom(), FunDef::syntaxTree() Expr::syntaxTree()) -> term(). %% Need to think what term() really is.
@@ -329,13 +349,28 @@ backward_slice(Files,AnnAST, ModName, FunDef, Expr) ->
 	[] ->
 	    [refac_syntax:block_expr(Body)];
 	_ -> 
+	    Patterns = refac_syntax:clause_patterns(C),
+	    NewPatterns = lists:map(fun(P) ->
+					    BdVars = refac_util:get_bound_vars(P),
+					    case (FreeVarsInBody -- BdVars) =/= FreeVarsInBody of 
+						true -> P;
+						_ -> refac_syntax:underscore()
+					    end
+				    end, Patterns),
+	    C1 = refac_syntax:clause(NewPatterns, refac_syntax:clause_guard(C), refac_syntax:clause_body(C)), 
 	    SlicePoints = collect_app_sites(AnnAST, ModName, FunName, Arity),
 	    case SlicePoints of 
 		[] -> [refac_syntax:block_expr(Body)]; %% could not find any use sites of this function.
 		_ -> Slices = lists:map(fun({Fun, S}) ->
-						lists:flatmap(fun(E) -> backward_slice(Files, AnnAST, ModName, Fun, E) end, S)
+						PsCs = lists:zip(NewPatterns, S),
+						lists:flatmap(fun({P, E}) ->
+								      case refac_syntax:type(P) of 
+									  underscore -> [refac_syntax:atom('_')];
+									  _ -> backward_slice(Files, AnnAST, ModName, Fun, E)
+								      end
+							      end, PsCs)
 					end,  SlicePoints),
-		     FunExpr = refac_syntax:fun_expr([C]),
+		     FunExpr = refac_syntax:fun_expr([C1]),
 		     Result = lists:map(fun(S) ->refac_syntax:application(FunExpr, S) end, Slices),
 		     Result       
 	    end
@@ -424,7 +459,7 @@ unfold_fun_defs(_Files, AnnAST, ModName, FunDef) -> %% How about recursive funct
     
 
 
-
+%% backward slice within a single function.
 backward_slice(Expr, FunDef) ->
     FunName = refac_syntax:function_name(FunDef),
     {S, E} = refac_util:get_range(Expr),
@@ -443,6 +478,7 @@ backward_slice(Expr, FunDef) ->
     Body = refac_syntax:clause_body(hd(refac_syntax:function_clauses(NewFun1))),
     Body1 = rm_unused_exprs(Body),  %%Qn: how about the guard expression?
     NewFun2 = refac_syntax:function(FunName, [refac_syntax:clause(Patterns, none, Body1)]),
+    %%io:format(refac_prettypr:format(NewFun)),
     NewFun2.
     
 
