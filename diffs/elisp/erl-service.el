@@ -1239,10 +1239,10 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 ;;---------------------------------------------------------------------------
 ;; Begin of modification by H.Li
 
-(defun erl-undo-process(node)
-  "Start the undo managment process."
-  (interactive (list (erl-target-node)))
-  (erl-spawn (erl-send-rpc node 'wrangler_distel 'start_undo_process (list))))
+;; (defun erl-undo-process(node)
+;;   "Start the undo managment process."
+;;   (interactive (list (erl-target-node)))
+;;   (erl-spawn (erl-send-rpc node 'wrangler_distel 'start_undo_process (list))))
 
 (defun erl-refactor-undo(node)
   "Undo the latest refactoring."
@@ -1256,7 +1256,7 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	 (if changed (message-box (format "there are modified buffers: %s" changed))
 	   (if (yes-or-no-p "Undo a refactoring will also undo the editings done after the refactoring, undo anyway?")
 	   (erl-spawn
-	     (erl-send-rpc node 'wrangler_distel 'undo (list))
+	     (erl-send-rpc node 'wrangler_undo_server 'undo (list))
 	     (erl-receive (buffer)
 		 ((['rex ['badrpc rsn]]
 		   (message "Undo failed: %S" rsn))
@@ -1370,11 +1370,50 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 		       nil)))))
             (message "Refactoring succeeded!"))))))))
 
-(defun erl-refactor-rename-process(node)
+(defun erl-refactor-rename-process(node name)
   "Rename a registered process."
-  (interactive (list (erl-target-node)))
-  (message "Sorry, this refactoring is still under developemt.")
-  )
+  (interactive (list (erl-target-node)
+		     (read-string "New name: ")
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(line-no           (current-line-no))
+        (column-no         (current-column-no))
+	(buffer (current-buffer)))
+    (let (changed)
+      (dolist (b (buffer-list) changed)
+	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
+	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
+	      (setq changed (cons (buffer-name b) changed)))))
+      (if changed (message-box (format "there are modified buffers: %s" changed))
+	(erl-spawn
+	  (erl-send-rpc node 'wrangler_distel 'rename_process (list current-file-name line-no column-no name erlang-refac-search-paths))
+      (erl-receive (buffer node name current-file-name)
+	  ((['rex ['badrpc rsn]]
+	    (message "Refactoring failed: %S" rsn))
+	   (['rex ['error rsn]]
+	    (message "Refactoring failed: %s" rsn))
+	   (['rex ['undecidables oldname]]
+	   (if (yes-or-no-p "Do you want to continue the refactoring?")
+	       (erl-spawn
+		 (erl-send-rpc node 'refac_rename_process 'rename_process_1
+			       (list current-file-name oldname name erlang-refac-search-paths))
+		 (erl-receive (buffer)
+		     ((['rex ['badrpc rsn]]
+		       (message "Refactoring failed: %S" rsn))
+		      (['rex ['error rsn]]
+		       (message "Refactoring failed: %s" rsn))
+		      (['rex ['ok modified]]
+		       (with-current-buffer buffer (revert-buffer nil t t))
+		       (message "Refactoring succeeded!")))))
+	     (message "Refactoring aborted!")))
+	   (['rex ['ok modified]]
+	    (with-current-buffer buffer
+	       (dolist (f modified)
+		 (let ((buffer (get-file-buffer f)))
+		   (if buffer (with-current-buffer buffer (revert-buffer nil t t))
+		     ;;(message-box (format "modified unopened file: %s" f))))))
+		     nil))))
+	       (message "Refactoring succeeded!")))))))))
 
 
 (defun erl-refactor-register-pid(node name start end)
@@ -1862,11 +1901,25 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	(buffer (current-buffer)))       
     (erl-spawn
       (erl-send-rpc node 'wrangler_distel 'fun_to_process (list current-file-name line-no column-no name erlang-refac-search-paths))
-      (erl-receive (buffer)
+      (erl-receive (buffer node current-file-name line-no column-no name)
 	  ((['rex ['badrpc rsn]]
 	    (message "Refactoring failed: %S" rsn))
 	   (['rex ['error rsn]]
 	    (message "Refactoring failed: %s" rsn))
+	   (['rex ['undecidables]]
+	     (if (yes-or-no-p "Do you still want to continue the refactoring?")
+		 (erl-spawn
+		   (erl-send-rpc node 'refac_fun_to_process 'fun_to_process_1
+				 (list current-file-name line-no column-no  name erlang-refac-search-paths))
+		   (erl-receive (buffer)
+		       ((['rex ['badrpc rsn]]
+			 (message "Refactoring failed: %S" rsn))
+			(['rex ['error rsn]]
+			 (message "Refactoring failed: %s" rsn))
+			(['rex ['ok modified]]
+			 (with-current-buffer buffer (revert-buffer nil t t))
+			 (message "Refactoring succeeded!")))))
+	       (message "Refactoring aborted!")))
 	   (['rex ['ok modified]]
 	    (with-current-buffer buffer
 	       (dolist (f modified)
@@ -2011,11 +2064,31 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	       (message "Refactoring succeeded!")))))))
 
 
-(defun erl-refactor-add-a-tag (node)
+(defun erl-refactor-add-a-tag (node name)
   "Add a tag to the messages received by a process."
-  (interactive (list (erl-target-node)))
-  (message "Sorry, this refactoring is still under development.")
-  )
+  (interactive (list (erl-target-node)
+		     (read-string "Tag to add: ")
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(line-no           (current-line-no))
+        (column-no         (current-column-no))
+	(buffer (current-buffer)))       
+    (erl-spawn
+      (erl-send-rpc node 'wrangler_distel 'add_a_tag(list current-file-name line-no column-no name erlang-refac-search-paths))
+      (erl-receive (node buffer name current-file-name)
+	  ((['rex ['badrpc rsn]]
+	    (message "Refactoring failed: %S" rsn))
+	   (['rex ['error rsn]]
+	    (message "Refactoring failed: %s" rsn))
+	   (['rex ['ok modified]]
+	    (with-current-buffer buffer
+	       (dolist (f modified)
+		 (let ((buffer (get-file-buffer f)))
+		   (if buffer (with-current-buffer buffer (revert-buffer nil t t))
+		     ;;(message-box (format "modified unopened file: %s" f))))))
+		     nil))))
+	       (message "Refactoring succeeded!")))))))
+
 
 (defun erl-refactor-add-a-tag-1 (node name)
   "Add a tag to the messages received by a process."
