@@ -64,14 +64,14 @@ register_pid_eclipse(FName, Start, End, RegName, SearchPaths) ->
     register_pid(FName, Start, End, RegName, SearchPaths, eclipse).
 
 register_pid(FName, Start={Line1, Col1}, End={Line2, Col2}, RegName, SearchPaths, Editor) ->
-    io:format("\nCMD: ~p:register_pid(~p, {~p,~p}, {~p,~p}, ~p,~p]\n",  [?MODULE, FName, Line1, Col1, Line2, Col2, RegName, SearchPaths]),
+    io:format("\nCMD: ~p:register_pid(~p, {~p,~p}, {~p,~p}, ~p,~p)\n",  [?MODULE, FName, Line1, Col1, Line2, Col2, RegName, SearchPaths]),
     case refac_util:is_fun_name(RegName) of
 	true ->	{ok, {AnnAST,Info}}= refac_util:parse_annotate_file(FName, true, SearchPaths), 
 		case pos_to_spawn_match_expr(AnnAST, Start, End) of
 		    {ok, _MatchExpr1} ->
 			{value, {module, ModName}} = lists:keysearch(module, 1, Info),
 			RegName1 = list_to_atom(RegName), 
-			ok=refac_annotate_pid:ann_pid_info(SearchPaths),
+			_Res=refac_annotate_pid:ann_pid_info(SearchPaths),
 			%% get the AST with pid information.
 			{ok, {AnnAST1,_Info}}= refac_util:parse_annotate_file(FName, true, SearchPaths), 
 			{ok, MatchExpr} = pos_to_spawn_match_expr(AnnAST1, Start, End),
@@ -306,6 +306,9 @@ is_recursive_fun(Files, {ModName, FunName, Arity, FunDef}) ->
    
 %% The only way to register a process is to use register/2.
 %% This function checks all the applications of 'register/2'.
+%% -spec(collect_registered_names_and_pids/1::([dir()])->
+%%               {[{{modulename(), functionname(), arity()},syntaxTree()}], [atom()], [{unknown, {modulename(), functionname(), arity(), pos()}}]}).
+ 
 collect_registered_names_and_pids(DirList) ->
     Files = refac_util:expand_files(DirList, ".erl"),
     F = fun(File, FileAcc) ->
