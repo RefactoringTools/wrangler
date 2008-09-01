@@ -1,7 +1,7 @@
 %% =====================================================================
-%% Refactoring: Rename a variable name.
+%% Refactoring: From function to process
 %%
-%% Copyright (C) 2006-2008  Huiqing Li, Simon Thompson
+%% Copyright (C) 2006-2009  Huiqing Li, Simon Thompson
 
 
 %% The contents of this file are subject to the Erlang Public License,
@@ -10,28 +10,18 @@
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved via the world wide web at http://www.erlang.org/.
 
-
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
 
-
 %% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
 %%
 %% =====================================================================
-%%
-%% @doc Register a process id, Pid say, with a name, RegName say, and replace
-%% the uses of Pid ! Msg with  RegName ! Msg.
-%% @end
-
-
-%% TODO: 1. should trace back to the define location of the user-selected pid.
-%% 
 
 -module(refac_fun_to_process).
 
--export([fun_to_process/5, fun_to_process_eclipse/5]).
+-export([fun_to_process/5, fun_to_process_eclipse/5, fun_to_process_1/5, fun_to_process_1_eclipse/5]).
 
 -include("../hrl/wrangler.hrl").
 
@@ -44,108 +34,234 @@ fun_to_process(FName, Line, Col, ProcessName, SearchPaths) ->
     fun_to_process(FName, Line, Col, ProcessName, SearchPaths, emacs).
 
 
+-spec(fun_to_process_1/5::(filename(), integer(), integer(), string(), [dir()]) -> {ok, [filename()]}).	     
+fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths) ->
+    fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, emacs).
+
 -spec(fun_to_process_eclipse/5::(filename(), integer(), integer(), string(), [dir()]) -> {ok, [{filename(), filename(), string()}]} | {error, string()}).
 fun_to_process_eclipse(FName, Line, Col, ProcessName, SearchPaths) ->
     fun_to_process(FName, Line, Col, ProcessName, SearchPaths, eclipse).
 
 fun_to_process(FName, Line, Col, ProcessName, SearchPaths, Editor) ->
-    io:format("\n[CMD: fun_to_process, ~p, ~p, ~p, ~p,~p]\n",  [FName, Line, Col, ProcessName, SearchPaths]),
+    io:format("\nCMD: ~p:fun_to_process(~p, ~p, ~p, ~p,~p)\n",  [?MODULE, FName,  Line, Col, ProcessName, SearchPaths]),
     case refac_util:is_fun_name(ProcessName) of
 	true ->
-	    case refac_util:parse_annotate_file(FName, true, SearchPaths) of
-		{ok, {AnnAST, Info}} ->
-		    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
-		    ProcessName1 = list_to_atom(ProcessName), 
-		    case refac_util:pos_to_fun_name(AnnAST, {Line,Col}) of
-			 {ok, {Mod, FunName, Arity, _, DefinePos}} ->
-			    if Mod == ModName -> 
-				    case pre_cond_check(FName, AnnAST, {Line, Col}, ModName,FunName,Arity, ProcessName1) of 
-					ok ->AnnAST1 = do_fun_to_process(AnnAST, ModName, DefinePos, FunName, Arity, ProcessName1),
-					     case refac_util:is_exported({FunName, Arity}, Info) of
-						 true ->
-						     io:format("\nChecking client modules in the following "
-							       "search paths: \n~p\n",
-							       [SearchPaths]),
-						     ClientFiles = refac_util:get_client_files(FName, SearchPaths),
-						     Results = fun_to_process_in_client_modules(ClientFiles, ModName, FunName, Arity, ProcessName1, SearchPaths),
-						     case Editor of 
-							 emacs ->
-							     refac_util:write_refactored_files([{{FName, FName}, AnnAST1} | Results]),
-							     ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-							     ChangedFiles = [FName | ChangedClientFiles],
-							     io:format("The following files have been changed "
-								       "by this refactoring:\n~p\n",
-								       [ChangedFiles]),
-							     {ok, ChangedFiles};
-							 eclipse ->
-							     Results1 = [{{FName, FName}, AnnAST1} | Results],
-							     Res = lists:map(fun({{FName1, NewFName1}, AST}) ->
-										     {FName1, NewFName1, refac_prettypr:print_ast(AST)} end, Results1),
-							     {ok, Res}
-						     end;
-						 false ->
-						     case Editor of 
-							 emacs ->
-							     refac_util:write_refactored_files([{{FName, FName}, AnnAST1}]), {ok, [FName]};
-							 eclipse ->
-							     Res = [{FName, FName, refac_prettypr:print_ast(AnnAST1)}],
-							     {ok, Res}
-						     end
+	    _Res =refac_annotate_pid:ann_pid_info(SearchPaths),
+	    {ok, {AnnAST,Info}}= refac_util:parse_annotate_file(FName, true, SearchPaths), 
+	    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
+	    ProcessName1 = list_to_atom(ProcessName), 
+	    case refac_util:pos_to_fun_name(AnnAST, {Line,Col}) of
+		{ok, {Mod, FunName, Arity, _, DefinePos}} ->
+		    if Mod == ModName -> 
+			    case pre_cond_check(AnnAST, {Line, Col}, ModName,FunName,Arity, ProcessName1, SearchPaths) of 
+				ok -> AnnAST2 = do_fun_to_process(AnnAST, Info, ModName, DefinePos, FunName, Arity, ProcessName1),
+				     case refac_util:is_exported({FunName, Arity}, Info) of
+					 true ->
+					     io:format("\nChecking client modules in the following search paths: \n~p\n",
+						       [SearchPaths]),
+					     ClientFiles = refac_util:get_client_files(FName, SearchPaths),
+					     Results = fun_to_process_in_client_modules(ClientFiles, ModName, FunName, Arity, ProcessName1, SearchPaths),
+					     case Editor of 
+						 emacs ->
+						     refac_util:write_refactored_files([{{FName, FName}, AnnAST2} | Results]),
+						     ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+						     ChangedFiles = [FName | ChangedClientFiles],
+						     io:format("The following files have been changed by this refactoring:\n~p\n",
+							       [ChangedFiles]),
+						     {ok, ChangedFiles};
+						 eclipse ->
+						     Results1 = [{{FName, FName}, AnnAST2} | Results],
+						     Res = lists:map(fun({{FName1, NewFName1}, AST}) ->
+									     {FName1, NewFName1, refac_prettypr:print_ast(AST)} end, Results1),
+						     {ok, Res}
 					     end;
-					{error, Reason} -> {error, Reason}
-				    end;
-			       true ->
-				    {error,
-				     "This function is not defined in this "
-				     "module; please initiate this refactoring from the  module where "
-				     "it is defined."}
-			    end;
-			{error, Reason} -> {error, Reason}
+					 false ->
+					     case Editor of 
+						 emacs ->
+						     refac_util:write_refactored_files([{{FName, FName}, AnnAST2}]), {ok, [FName]};
+						 eclipse ->
+						     Res = [{FName, FName, refac_prettypr:print_ast(AnnAST2)}],
+						     {ok, Res}
+					     end
+				     end;
+				{error, Reason}-> {error, Reason};
+				undecidables -> {undecidables}
+				end;
+		       true ->
+			    {error, "This function is not defined in this module; please initiate this refactoring from the  module where it is defined."}
 		    end;
-		{error, Reason} ->{error, Reason}
+		{error, Reason} -> {error, Reason}
 	    end;
 	false -> {error, "Invalid process name."}
     end.
 
+-spec(fun_to_process_1_eclipse/5::(filename(), integer(), integer(), string(), [dir()]) -> {ok, [{filename(), filename(), string()}]}).
+fun_to_process_1_eclipse(FName, Line, Col, ProcessName, SearchPaths) ->
+    fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, eclipse).
+
+fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, Editor) ->
+    {ok, {AnnAST,Info}}= refac_util:parse_annotate_file(FName, true, SearchPaths), 
+    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
+    ProcessName1 = list_to_atom(ProcessName), 
+    {ok, {ModName, FunName, Arity, _, DefinePos}}=refac_util:pos_to_fun_name(AnnAST, {Line,Col}),
+    AnnAST2 = do_fun_to_process(AnnAST, Info, ModName, DefinePos, FunName, Arity, ProcessName1),
+    case refac_util:is_exported({FunName, Arity}, Info) of
+	true ->
+	    io:format("\nChecking client modules in the following search paths: \n~p\n",
+		      [SearchPaths]),
+	    ClientFiles = refac_util:get_client_files(FName, SearchPaths),
+	    Results = fun_to_process_in_client_modules(ClientFiles, ModName, FunName, Arity, ProcessName1, SearchPaths),
+	    case Editor of 
+		emacs ->
+		    refac_util:write_refactored_files([{{FName, FName}, AnnAST2} | Results]),
+		    ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+		    ChangedFiles = [FName | ChangedClientFiles],
+		    io:format("The following files have been changed by this refactoring:\n~p\n",
+			      [ChangedFiles]),
+		    {ok, ChangedFiles};
+		eclipse ->
+		    Results1 = [{{FName, FName}, AnnAST2} | Results],
+		    Res = lists:map(fun({{FName1, NewFName1}, AST}) ->
+					    {FName1, NewFName1, refac_prettypr:print_ast(AST)} end, Results1),
+		    {ok, Res}
+	    end;
+	false ->
+	    case Editor of 
+		emacs ->
+		    refac_util:write_refactored_files([{{FName, FName}, AnnAST2}]), 
+		    {ok, [FName]};		     
+		eclipse ->
+		    Res = [{FName, FName, refac_prettypr:print_ast(AnnAST2)}],
+		    {ok, Res}
+	    end
+    end.
+
 
 %% Side conditios:
-%% 0. New function names, process name should not conflict with exisitng names. 
-%% To add: 
-%% 1. description of this refactoring.
-%% 2. Rationale for this refactorign.
-%% 3. This is refactoring change the program.
-%% 4. Add the memoraisation functionality.
-%% How this refactoring transform the program.
-%% 1. The function should have an arity greater than 0. Reason: no need for message passing.
-%% 2. The function should not be a recursive function, either directly or indirectly. Reason: will cause dead lock;
-%% 3. The function should not be a spawned function.(because 1.spawn does not support message passing; 2: the function is already in form of process).
-%% 4. The function or functions called by this function should not have receive expressions.eason: move the receive statement from one process to another, could 
-%% result some messages fail to reach the destination process;
-%% 5. The function or function called by this function should not register self(), but registrating the spawned processes is OK.
-%% 6. The uses of self(), this depends on how self is used.
-%% recieve -> send (not OK).
-%% receive (not OK).
-%% send ->receive (OK). (How do you decide this?)
-%% send (OK).
-pre_cond_check(FName, AnnAST, Pos, ModName,FunName,Arity, _ProcessName)->
-    case Arity ==0 of 
-	true -> {error, "This function does not have any parameters.\n"};
-	false -> {ok, FunDef} = refac_util:pos_to_fun_def(AnnAST, Pos),    
-		 case is_recursive_fun([FName], {ModName, FunName, Arity, FunDef}) of   %% TOdO: need to check the client modules too.
-		     true ->
-			 {error, "The function is a recursive (direct or indirect) function.\n"};
-		     false ->
-			 ok
+%% 1. This process name provided by the user should be lexically legal, and not conflict with existing process names.
+%%    The process name could also be generated by Wangler automatically when 'renaming process name' is supported.
+%% 2. The function should not be a recursive function, either directly or indirectly.
+%% 3. The function of functions called by this function should not register the Pid returned by self().
+%%    (but registering a pid returned by a spawn expression is OK).
+%% 4. The function or functions called by this function should not have receive expressions. (Is this correct?).
+%% 
+%% Wrangler generates the new function name and the rpc function name automatically, but the user could always rename it afterwards.
+%% Support the original function is f/n, then the new function name would be f/0 and the rpc function name would be f_rpc/2; if 
+%% any conflicts occur, '_i' will be attached to the end of the function name where i is a smallest number that make the name fresh.
+%% 
+pre_cond_check(AnnAST, Pos, ModName,FunName,Arity, ProcessName, SearchPaths)->
+    {ok, FunDef} = refac_util:pos_to_fun_def(AnnAST, Pos),    
+    case is_recursive_fun({ModName, FunName, Arity, FunDef}, SearchPaths) of  
+	true ->
+	    {error, "The function is a recursive (direct or indirect) function.\n"};
+	false -> {SelfApps, _Pids, {PNames, UnKnowns}} = collect_registration_and_self_apps(SearchPaths), 
+		 case lists:member(ProcessName, PNames) of 
+		     true -> {error, "The process name provided is already in use, please choose another name."};
+		     _ ->
+			 SelfRes = check_self_exprs(SelfApps, {ModName,FunName, Arity}, SearchPaths),
+			 case UnKnowns of 
+			     [] -> case SelfRes of 
+				       ok -> ok;
+				       _ -> io:format("\n*************************************Warning****************************************\n"),
+					    io:format("The value returned by 'self()', which is used at the location(s) listed below, will be changed "
+						      " by this refactoring, and this could possibly change the behaviour of the program!\n"),
+					    lists:foreach(fun({{Mod, Fun, Ari}, SelfExpr, _}) ->
+								  {{Line,_}, _} = refac_util:get_range(SelfExpr),
+								  io:format("Location: moldule: ~p, function: ~p/~p, line: ~p\n", [Mod, Fun, Ari, Line])
+							  end, SelfRes),
+					   undecidables
+				   end;
+			     _ -> io:format("\n*************************************Warning****************************************\n"),
+				 io:format("Wrangler could not decide whether the process name provided conflicts with the process name(s) "
+					    "used by the following registeration expression(s):\n"),
+				  UnKnowns1 = lists:map(fun({_, V}) -> V end, UnKnowns),
+				  lists:foreach(fun({M, F,A, {L,_}}) -> io:format("Location: module: ~p, function:~p/~p, line:~p\n", [M, F, A, L])
+						end, UnKnowns1),
+				  case SelfRes of 
+				      ok -> ok;
+				      _ -> io:format("\n*************************************Warning****************************************\n"),
+					   io:format("The value returned by 'self()', which is used at the location(s) listed below, will be changed "
+						     " by this refactoring, and this could possibly change the behaviour of the program!\n"),
+					   lists:foreach(fun({{Mod, Fun, Ari}, SelfExpr, _}) ->
+								 {{Line,_}, _} = refac_util:get_range(SelfExpr),
+								 io:format("Location: moldule: ~p, function: ~p/~p, line: ~p\n", [Mod, Fun, Ari, Line])
+							 end, SelfRes)
+				  end,
+				  undecidables
+			 end
 		 end
     end.
-	
-		     
+		 
 	    
 
-do_fun_to_process(AnnAST, ModName, DefPos, FunName, Arity, ProcessName) ->
-    RpcFunName = atom_to_list(FunName)++ "_rpc",
-    {AnnAST1,_}=refac_util:stop_tdTP(fun fun_call_to_rpc/2, AnnAST, {ModName,FunName, Arity, ProcessName, RpcFunName}),
-    AnnAST2 = fun_to_process(AnnAST1, FunName, DefPos, ProcessName),
+
+%% This refactoring changes the value returned by those 'self()' which are reachable from the function under consideration,
+%% and there is a possiblity that this will change the program's behaviour when, for example, the value returned by 'self()' is 
+%% used as part of a message sent/received between processes.
+check_self_exprs([], _, _SearchPaths) ->
+    ok;
+check_self_exprs(SelfApps, InitialFun={_ModName, _FunName, _Arity},SearchPaths) ->
+    Files = refac_util:expand_files(SearchPaths, ".erl"),
+    {CallerCallee, _, _} = refac_callgraph_server:get_callgraph(SearchPaths), 
+    ReachedFuns = [InitialFun|reached_funs_1(CallerCallee, [InitialFun])],
+    SelfApps1 = lists:filter(fun({{M, F, A}, {_File, _FunDef, _SelfExpr}}) ->
+				     lists:member({M,F, A}, ReachedFuns)
+			     end, SelfApps),
+    F1 = fun(Node, {Regs, Recs, Sends}) ->
+		 case refac_syntax:type(Node) of 
+		     application ->
+			 case is_register_app(Node) of 
+			     true ->
+				 {[Node|Regs], Recs, Sends};
+			     _ ->
+				 {Regs, Recs, Sends}
+			 end;
+		     receive_expr ->
+			 {Regs, [Node|Recs], Sends};
+		     send_expr ->
+			 {Regs, Recs, [Node|Sends]};
+		     _ -> {Regs, Recs, Sends}
+		 end
+	 end,
+    F = fun({{Mod, Fun, Arity}, {File, FunDef, SelfExpr}}) ->
+		{ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(File, true, SearchPaths),
+		Res = refac_slice:forward_slice(Files, AnnAST, Mod, FunDef, SelfExpr),
+	        Res1 = lists:map(fun({_,FunDef1}) -> FunDef1 end, Res),
+		{RegAcc, RecAcc, SendAcc} = lists:unzip3(lists:map(fun(FunDef1) ->
+									   refac_syntax_lib:fold(F1, {[],[],[]}, FunDef1) end, Res1)),
+		{{Mod,Fun,Arity}, SelfExpr,{RegAcc, RecAcc, SendAcc}}
+	end,
+    Res = lists:filter(fun({_, _, {Regs, Recs, Sends}}) ->
+			       (Regs=/=[]) or (Recs=/=[]) or (Sends =/= [])
+		       end,
+		       lists:map(F, SelfApps1)),
+    case Res of 
+	[] ->
+	     ok;
+	_ -> Res
+    end.
+		       
+   
+reached_funs_1(CallerCallee, Acc) ->
+    Res = lists:usort(lists:concat(lists:map(fun({Mod, Fun, Args}) ->
+					 case lists:keysearch({Mod, Fun, Args}, 1, CallerCallee) of 
+					     {value, {{Mod, Fun, Args}, CalledFuns}} ->
+						 CalledFuns;
+					     _ ->[]
+					 end
+				 end, Acc))),
+     case lists:usort(Res++Acc) == Acc of 
+	true -> Res;
+	_ -> reached_funs_1(CallerCallee, lists:usort(Res++Acc)) 
+    end.
+
+do_fun_to_process(AnnAST, Info,ModName, DefPos, FunName, Arity, ProcessName) ->
+    InScopeFuns = lists:map(fun({_M, F, A}) ->
+				    {F, A} end, refac_util:inscope_funs(Info)),
+    RpcFunName = new_fun_name(atom_to_list(FunName)++ "_rpc", 2, 0, InScopeFuns),
+    NewFunName = new_fun_name(atom_to_list(FunName), 0, 0, InScopeFuns),
+     {AnnAST1,_}=refac_util:stop_tdTP(fun fun_call_to_rpc/2, AnnAST, {ModName,FunName, Arity, ProcessName, RpcFunName}),
+    AnnAST2 = do_fun_to_process_1(AnnAST1, DefPos, ProcessName, NewFunName, RpcFunName),
     AnnAST2.
 
 fun_call_to_rpc(Node, {ModName, FunName, Arity, ProcessName, RpcFunName}) ->
@@ -160,9 +276,7 @@ fun_call_to_rpc(Node, {ModName, FunName, Arity, ProcessName, RpcFunName}) ->
 			FunName1 = refac_syntax:atom_value(Fun),
 			Arg = refac_syntax:arity_qualifier_argument(T),
 			Arg1 = refac_syntax:integer_value(Arg),
-			io:format("arg1:\n~p\n", [Arg1]),
 			DefMod = get_fun_def_mod(Fun),
-			io:format("DefMod:\n~p\n", [DefMod]),
 			if (FunName1 == FunName) and (Arg1 == Arity) and (DefMod == ModName) ->
 				 refac_syntax:copy_attrs(T,refac_syntax:arity_qualifier(refac_syntax:atom(RpcFunName), refac_syntax:integer(2)));			
 			   true -> T
@@ -276,12 +390,22 @@ fun_call_to_rpc(Node, {ModName, FunName, Arity, ProcessName, RpcFunName}) ->
     end.
 	
 
+new_fun_name(BaseName, Arity, Index, InScopeFuns) ->
+    NewName  = case Index =< 0 of 
+		   true -> BaseName;
+		   _ -> BaseName++"_"++integer_to_list(Index)
+	       end,		 
+    case lists:member({list_to_atom(NewName), Arity}, InScopeFuns) of 
+	true ->new_fun_name(BaseName, Arity, Index+1, InScopeFuns);
+	_ -> list_to_atom(NewName)
+    end.
+	    
+    
 
-rpc_fun(FunName) ->
-    RpcFunName = atom_to_list(FunName)++ "_rpc",
-    RpcFun=RpcFunName++"(RegName, Request) ->
+rpc_fun(NewFunName, RpcFunName) ->
+    RpcFun=atom_to_list(RpcFunName)++"(RegName, Request) ->
 			   case whereis(RegName) of 
-				 undefined -> register(RegName, spawn(fun "++atom_to_list(FunName)++"/0));
+				 undefined -> register(RegName, spawn(fun "++atom_to_list(NewFunName)++"/0));
 				 _ -> ok
 			   end,
 		           RegName ! {self(), Request},
@@ -293,22 +417,22 @@ rpc_fun(FunName) ->
     FunDef= hd(refac_syntax:form_list_elements(refac_recomment:recomment_forms([Form], []))),
     FunDef.
 
-fun_to_process(AnnAST, FunName, DefPos, ProcessName) -> 				
-     Forms = refac_syntax:form_list_elements(AnnAST),
-     F = fun(Form) ->
+do_fun_to_process_1(AnnAST, DefPos, ProcessName, NewFunName, RpcFunName) -> 				
+    Forms = refac_syntax:form_list_elements(AnnAST),
+    F = fun(Form) ->
  		case refac_syntax:type(Form) of 
  		    function -> case get_fun_def_loc(Form) of 
  				    DefPos -> 
- 					[rpc_fun(FunName), fun_to_process(Form, ProcessName)];
+ 					[rpc_fun(NewFunName, RpcFunName), do_fun_to_process_2(Form, NewFunName, ProcessName)];
  				    _ -> [Form]
 				end;
  		    _ -> [Form] 
  		end
  	end,		
-     refac_syntax:form_list([T|| Form<-Forms, T <- F(Form)]).
+    refac_syntax:form_list([T|| Form<-Forms, T <- F(Form)]).
 
-fun_to_process(FunDef, ProcessName)->
-    Name = refac_syntax:function_name(FunDef),
+do_fun_to_process_2(FunDef, NewFunName, ProcessName)->
+    NewFunName1= refac_syntax:atom(NewFunName),
     Cs = refac_syntax:function_clauses(FunDef),
     Cs1 = lists:map(fun(C) -> Ps = refac_syntax:clause_patterns(C), 
 			      Guard = refac_syntax:clause_guard(C),
@@ -317,15 +441,15 @@ fun_to_process(FunDef, ProcessName)->
 			      Msg = refac_syntax:tuple([refac_syntax:atom(ProcessName), LastE]),
 			      Dest = refac_syntax:variable('From'),
 			      SendExp = refac_syntax:infix_expr(Dest, refac_syntax:operator('!'), Msg),
-			      RecExp = refac_syntax:application(Name, []),
+			      RecExp = refac_syntax:application(NewFunName1, []),
 			      Body1 = lists:reverse([RecExp,SendExp | tl(lists:reverse(Body))]),
-			      Ps1 = refac_syntax:tuple(Ps),				    
+			      Ps1 = refac_syntax:tuple(Ps),	
 			      P = refac_syntax:tuple([refac_syntax:variable('From') ,Ps1]),
 			      refac_syntax:clause([P], Guard, Body1)
 		    end, Cs),					  
     ReceiveExp = refac_syntax:receive_expr(Cs1),
     C = refac_syntax:clause(none, [ReceiveExp]),		    
-    NewFun = refac_syntax:function(Name, [C]),
+    NewFun = refac_syntax:function(NewFunName1, [C]),
     NewFun.
 
 get_fun_def_loc(Node) ->
@@ -341,23 +465,20 @@ fun_to_process_in_client_modules(Files, ModName, FunName, Arity, ProcessName, Se
 	     [];
 	[F | Fs] ->
 	    io:format("The current file under refactoring is:\n~p\n", [F]),
-	    case refac_util:parse_annotate_file(F, true, SearchPaths) of
-		{ok, {AnnAST, _Info}} ->
-		    {AnnAST1, Changed} = fun_to_process_in_client_modules_1(AnnAST, ModName, FunName, Arity, ProcessName),			  
-		    if Changed ->
-			    [{{F, F}, AnnAST1} | fun_to_process_in_client_modules(Fs, ModName,FunName, Arity, ProcessName, SearchPaths)];
-		       true ->
-			    fun_to_process_in_client_modules(Fs, ModName, FunName, Arity, ProcessName, SearchPaths)
-		    end;
-		{error, Reason} -> {error, Reason}
+	    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(F, true, SearchPaths),
+	    {AnnAST1, Changed} = fun_to_process_in_client_modules_1(AnnAST, ModName, FunName, Arity, ProcessName),			  
+	    if Changed ->
+		    [{{F, F}, AnnAST1} | fun_to_process_in_client_modules(Fs, ModName,FunName, Arity, ProcessName, SearchPaths)];
+	       true ->
+		    fun_to_process_in_client_modules(Fs, ModName, FunName, Arity, ProcessName, SearchPaths)
 	    end
-    end.
+	end.
 
 
 fun_to_process_in_client_modules_1(AnnAST, ModName, FunName, Arity, ProcessName) ->
     RpcFunName = atom_to_list(FunName)++ "_rpc",
-    {AnnAST1,_}=refac_util:stop_tdTP(fun fun_call_to_rpc/2, AnnAST, {ModName, FunName, Arity, ProcessName, RpcFunName}),
-    AnnAST1.
+    refac_util:stop_tdTP(fun fun_call_to_rpc/2, AnnAST, {ModName, FunName, Arity, ProcessName, RpcFunName}).
+  
 
    
 
@@ -369,18 +490,90 @@ get_fun_def_mod(Node) ->
     end.
 
 
+		   
+collect_registration_and_self_apps(DirList) ->
+    Files = refac_util:expand_files(DirList, ".erl"),
+    F = fun(File, FileAcc) ->
+		{ok, {AnnAST, Info}} = refac_util:parse_annotate_file(File, true, DirList),
+		{value, {module, ModName}} = lists:keysearch(module, 1, Info),
+		F1 = fun(Node, ModAcc) ->
+			     case refac_syntax:type(Node) of 
+				 function ->
+				     FunDef = Node,
+				     FunName = refac_syntax:data(refac_syntax:function_name(Node)),
+				     Arity = refac_syntax:function_arity(Node),
+				     F2= fun (Node1, FunAcc) ->    
+						 case refac_syntax:type(Node1) of 
+						     application ->
+							 case is_register_app(Node1) of 
+							     true -> 
+								 [RegName, Pid] = refac_syntax:application_arguments(Node1),
+								 RegNameValues = evaluate_expr(Files, ModName, AnnAST, Node, RegName),
+								 %%io:format("RegNameValue:\n~p\n", [RegNameValues]),
+								 RegNameValues1 = lists:map(fun(R) -> {pname, R} end, RegNameValues),
+								 [{pid, {{ModName, FunName, Arity}, Pid}}|RegNameValues1++FunAcc];
+							     _ -> case is_self_app(Node1) of 
+								      true -> [{self, {{ModName, FunName, Arity}, {File, FunDef, Node1}}}|FunAcc];
+								      false -> FunAcc
+								  end
+							 end; 
+						     _ ->  FunAcc
+						 end
+					 end,
+				     refac_syntax_lib:fold(F2, [], Node)++ModAcc;
+				 _-> ModAcc 
+			     end
+		     end,
+		refac_syntax_lib:fold(F1, [], AnnAST) ++ FileAcc
+	   end,			 
+    Acc =lists:foldl(F, [], Files),
+    PNameAcc = lists:flatmap(fun({P,A}) -> if  P ==pname -> [A]; 
+					       true -> []
+					   end 
+			     end, Acc), 
+    PidAcc = lists:flatmap(fun({P,A}) -> if P == pid -> [A];
+					    true -> [] 
+					 end 
+			   end, Acc), 
+    SelfApps = lists:flatmap(fun({P,A}) -> if P == self -> [A];
+					     true -> [] 
+					   end 
+			    end, Acc), 
+    {Names, UnKnowns} = lists:partition(fun({Tag,_V})-> Tag==value end, PNameAcc),
+    %%io:format("NamesUnKnowns:\n~p\n", [{Names, UnKnowns}]),
+    {SelfApps, PidAcc, {lists:usort(lists:map(fun({value, P}) -> P end, Names)), lists:usort(UnKnowns)}}.
+    
 
-is_recursive_fun(Files, {ModName, FunName, Arity, FunDef}) ->
+evaluate_expr(Files, ModName, AnnAST, FunDef, Expr) ->
+    F = fun(E) ->
+		Es = [refac_syntax:revert(E)],
+		case catch erl_eval:exprs(Es, []) of 
+		    {value, V, _} -> {value, V};
+		    _ ->
+			FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
+			Arity = refac_syntax:function_arity(FunDef),
+			{StartPos, _} = refac_util:get_range(Expr),
+			{unknown, {ModName, FunName, Arity, StartPos}}
+		end
+	end,
+    Exprs = case refac_util:get_free_vars(Expr) of 
+		[] -> [Expr];
+		_ ->  refac_slice:backward_slice(Files, AnnAST, ModName, FunDef, Expr)
+	    end,
+    Values = lists:map(F, Exprs),
+    Values.
+
+
+is_recursive_fun({ModName, FunName, Arity, FunDef}, SearchPaths) ->
     case is_direct_recursive_fun(ModName, FunName, Arity, FunDef) of 
 	true -> 
 	    true;
 	false ->
-	    CallGraph= refac_util:build_callgraph(Files, []),
-	    #callgraph{scc_order = Sccs, external_calls = _E} = refac_callgraph:construct(CallGraph),
+	    {_, Sccs, _} = refac_callgraph_server:get_callgraph(SearchPaths),
 	    Sccs1 =[[Fun||{Fun, _FunDef}<-Scc]||Scc<-Sccs],
 	    lists:any(fun(E)-> (length(E)>1) andalso (lists:member({ModName, FunName, Arity}, E)) end,
 		      Sccs1)
-   
+    
     end.
 	
 
@@ -403,3 +596,28 @@ is_direct_recursive_fun(ModName, FunName, Arity, FunDef) ->
 	     true;
 	_ -> false
     end.
+
+
+is_register_app(T) ->
+     case refac_syntax:type(T) of
+       application ->
+ 	  Operator = refac_syntax:application_operator(T),
+ 	  Ann = refac_syntax:get_ann(Operator),
+ 	  case lists:keysearch(fun_def, 1, Ann) of
+ 	    {value, {fun_def, {erlang, register, 2, _, _}}} -> true;
+ 	    _ -> false
+ 	  end;
+       _ -> false
+     end.
+   
+is_self_app(T) ->
+     case refac_syntax:type(T) of
+       application ->
+ 	  Operator = refac_syntax:application_operator(T),
+ 	  Ann = refac_syntax:get_ann(Operator),
+ 	  case lists:keysearch(fun_def, 1, Ann) of
+ 	    {value, {fun_def, {erlang, self, 0, _, _}}} -> true;
+ 	    _ -> false
+ 	  end;
+       _ -> false
+     end.

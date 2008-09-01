@@ -64,7 +64,7 @@ rename_var(FName, Line, Col, NewName, SearchPaths, Editor) ->
     case refac_util:is_var_name(NewName) of
 	true ->
 	    case refac_util:parse_annotate_file(FName, false, SearchPaths) of
-		{ok, {AnnAST, _Info0}} ->
+ 		{ok, {AnnAST, _Info0}} ->
 		    NewName1 = list_to_atom(NewName), 
 		    case refac_util:parse_annotate_file(FName, true, SearchPaths) of %%refac_ast_server:get_ast(FName) 
 			{ok, {AnnAST1, _Info1}} ->

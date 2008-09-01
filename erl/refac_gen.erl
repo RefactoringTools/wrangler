@@ -135,7 +135,7 @@ generalise(FileName, Start={Line, Col}, End={Line1, Col1}, ParName, SearchPaths,
 						    {error, Reason} -> {error, Reason}
 						end 
 				     end;
-			{error, none} -> {error, "You have not selected an expression!"}
+			{error, Reason} -> {error, Reason}
 		    end;
 		{error, Reason} -> {error, Reason}
 	    end;
@@ -625,7 +625,7 @@ pre_cond_checking_1(AnnAST, {Start, End}, ParName, Info) ->
 				  _   ->  ParName1 = list_to_atom(ParName),
 					  gen_cond_analysis(Fun, Exp, ParName1)
 			      end;
-		     {error, none}  -> {error, "You have not selected an expression!"}
+		     {error, Reason}  -> {error, Reason}
 		 end;
     	false  -> {error, "Invalid parameter name!"}
     end.  

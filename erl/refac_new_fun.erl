@@ -76,9 +76,9 @@ side_cond_analysis(Info, Fun, ExpList, NewFunName) ->
     BdVars = lists:usort(lists:flatmap(fun({{bound, Vars}, _}) -> Vars end, FrBdVars)),
     FrVars1 = lists:usort(lists:flatmap(fun({_, {free, Vars}}) -> Vars end, FrBdVars)),
     FrVars = lists:map(fun({VarName, _Pos}) -> VarName end, lists:subtract(FrVars1, BdVars)),
-    InscopeFuns = lists:map(fun({_M, F, A}) ->
+    InScopeFuns = lists:map(fun({_M, F, A}) ->
 				    {F, A} end, refac_util:inscope_funs(Info)),
-    case lists:member({NewFunName, length(FrVars)}, InscopeFuns) of
+    case lists:member({NewFunName, length(FrVars)}, InScopeFuns) of
 	true ->
 	    {error, "The given function name has been used by this module, please choose another name!"};
 	_ ->
