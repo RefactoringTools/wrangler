@@ -20,11 +20,10 @@
 
 -module(wrangler_distel).
 
--export([ rename_fun/5, rename_var/5, rename_mod/3, generalise/7, move_fun/6, tuple_to_record/8,
+-export([ rename_fun/5, rename_var/5, rename_mod/3, rename_process/5, generalise/7, move_fun/6, tuple_to_record/8,
          duplicated_code_in_buffer/3, duplicated_code_in_dirs/3, expression_search/5, fun_extraction/6, fold_expression/3, tuple_funpar/5,
-	 instrument_prog/2, uninstrument_prog/2, add_a_tag/5,register_pid/7, fun_to_process/5,
-	 start_processes/1, stop_processes/0, 
-         undo/0]).
+	 instrument_prog/2, uninstrument_prog/2, add_a_tag/5,register_pid/7, fun_to_process/5]).
+	 
 
 -include("../hrl/wrangler.hrl").
 
@@ -32,13 +31,14 @@
 	     {error, string()} | {ok, string()}).
 rename_var(Fname, Line, Col, NewName, SearchPaths) ->
     case check_undo_process() of
-	ok -> Res=wrangler:rename_var(Fname, Line, Col, NewName, SearchPaths),
-	      case Res of 
-		  {ok, _} ->
-		      check_wrangler_error_logger();
-		  {error, _} -> ok
-	      end,
-	      Res;		
+	ok ->
+	    Res=wrangler:rename_var(Fname, Line, Col, NewName, SearchPaths),
+	    case Res of 
+		{ok, _} ->
+		    check_wrangler_error_logger();
+		{error, _} -> ok
+	    end,
+	    Res;		
 	{error, Reason} ->
 	    {error, Reason}
     end.
@@ -56,6 +56,21 @@ rename_fun(Fname, Line, Col, NewName,SearchPaths) ->
 rename_mod(Fname, NewName,SearchPaths) ->
     case check_undo_process() of 
 	ok ->  wrangler:rename_mod(Fname, NewName,SearchPaths);
+	{error, Reason} ->
+	    {error, Reason}
+    end.
+
+-spec(rename_process/5::(filename(), integer(), integer(), string(), [dir()]) ->
+	     {error, string()} | {undecidables, string()}| {ok, [filename()]}).
+rename_process(Fname, Line, Col, NewName, SearchPaths) ->
+    case check_undo_process() of
+	ok -> Res=wrangler:rename_process(Fname, Line, Col, NewName, SearchPaths),
+	      case Res of 
+		  {ok, _} ->
+		      check_wrangler_error_logger();
+		  _ -> ok
+	      end,
+	      Res;		
 	{error, Reason} ->
 	    {error, Reason}
     end.
@@ -166,15 +181,19 @@ register_pid(FileName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPath
     end.
 
 -spec(fun_to_process/5::(filename(), integer(), integer(), string(), [dir()])->
-	     {error, string()} | {ok, [filename()]}).
+	     {error, string()} | undecidables | {ok, [filename()]}).
 fun_to_process(Fname, Line, Col, ProcessName,SearchPaths) ->
     case check_undo_process() of
-	ok -> wrangler:fun_to_process(Fname, Line, Col, ProcessName,SearchPaths);
+	ok -> Res = wrangler:fun_to_process(Fname, Line, Col, ProcessName,SearchPaths),
+	      case Res of 
+		  {ok, _} ->
+		      check_wrangler_error_logger();
+		  _ -> ok
+	      end,
+	      Res;
 	{error, Reason} ->
 	   {error, Reason}
     end.
-%% tuple_to_record(Fname, StartLine, StartCol, EndLine, EndCol) ->
-%%     refac_record:tuple_to_record(Fname, {StartLine, StartCol}, {EndLine, EndCol}).
 
 
 check_undo_process() ->
@@ -185,130 +204,5 @@ check_undo_process() ->
 	    ok
     end.
 
--spec(undo/0::() ->
-	     {ok, [filename()]}).
-undo() ->
-    refactor_undo ! {self(),undo},
-    receive
-	{refactor_undo, Reply} ->
-	    Reply
-    end.
-    
-
--spec(start_processes/1::([dir()])-> true).				 
-start_processes(SearchPaths) ->
-    start_undo_process(),
-    start_wrangler_error_logger(),
-    refac_ast_server:start_ast_server(SearchPaths),
-    refac_callgraph_server:start_callgraph_server().
-    
--spec(stop_processes/0::()->
-	     true).
-stop_processes()->
-    stop_undo_process(),
-    unregister(refactor_undo),
-    stop_wrangler_error_logger(),
-    unregister(wrangler_error_logger),
-    refac_ast_server:stop_ast_server(),
-    unregister(ast_server),
-    refac_callgraph_server:stop_callgraph_server(),
-    unregister(callgraph_server).
-
-    
-start_undo_process() ->
-    spawn_link(fun()->undo_init() end).
-
-
-
-stop_undo_process() -> 
-    refactor_undo ! stop.
-    
-undo_init() ->
-    case erlang:whereis(refactor_undo) of 
-	undefined -> ok;
-	_         -> erlang:unregister(refactor_undo)
-    end,
-    register(refactor_undo, self()),
-    History=[],
-    undo_loop(History).
-    
-
-undo_files(Files) -> 
-    case Files of 
-	[] ->
-	    ok;
-	[{{OldFileName,NewFileName}, Content}|T] -> 
-	    case OldFileName == NewFileName of
-		true ->  file:write_file(OldFileName, Content),
-			 undo_files(T);
-		false -> file:write_file(OldFileName, Content),
-			 file:delete(NewFileName),
-			 undo_files(T)
-	    end
-    end.
-
-undo_loop(History) ->
-    receive 
-	{From, undo} -> case History of 
-			    [] ->
-				From ! {refactor_undo, {error, "No more history to undo!"}},
-				undo_loop(History);
-			    [H|T] -> 
-				ok = undo_files(H),
-                          	Modified = lists:map(fun({{OldFileName, NewFileName}, _Con})->
-							   [OldFileName, NewFileName] end,H),
-				From ! {refactor_undo, {ok, Modified}},
-			        undo_loop(T)
-			end;
-       {add, Files} ->    
-	               History1=[Files|History],
-		       undo_loop(lists:sublist(History1,15)); %%KEEP 15 HISTORY VERSIONS. IS THIS ENOUGH?
-	stop -> ok    
-    end.
-	
-start_wrangler_error_logger() ->	       
-    Pid = spawn_link(fun()->wrangler_error_logger([]) end),
-    register(wrangler_error_logger, Pid).
-
-stop_wrangler_error_logger() ->
-    wrangler_error_logger ! stop.
-
-init_wrangler_error_logger() ->
-    wrangler_error_logger ! init.
-
-check_wrangler_error_logger() ->
-    wrangler_error_logger ! {get, self()},
-    receive 
-	{wrangler_error_logger, State} ->
-	    case State of 
-		[] ->
-		     ok;
-		_ ->
-		    io:format("\n===============================WARNING===============================\n"),
-		    io:format("Due to the following syntactical errors in the program, attributes/functions affected "
-			      "by these errors were not affected by this refactoring!\n"),
-		    lists:foreach(fun({FileName, Errors}) ->
-				      Errors1 = lists:map(fun({Pos, _Mod, Msg}) -> {Pos, Msg} end, Errors),
-				      io:format("File:\n ~p\n", [FileName]),
-				      io:format("Error(s):\n"),
-				      lists:foreach(fun({Pos, Msg}) -> io:format(" ** ~p:~s **\n", [Pos, Msg]) end, lists:reverse(Errors1)) %% lists:flatten(Msg)
-			      end, State)
-	    end
-    end,
-    init_wrangler_error_logger().
-    
-
-wrangler_error_logger(State) ->
-    receive
-	{add, Error} ->
-	    wrangler_error_logger(lists:usort([Error|State]));
-	{get, From} ->
-	    From ! {wrangler_error_logger, State},
-	    wrangler_error_logger(State);
-	init -> 
-	    wrangler_error_logger([]);
-	stop ->
-	    ok
-    end.
-
+check_wrangler_error_logger() -> wrangler_error_logger:check_logged_errors().
     
