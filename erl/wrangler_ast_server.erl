@@ -52,7 +52,7 @@ init(_Args) ->
 -spec(get_ast/1::({filename(), boolean(), [dir()]}) ->
 	     {ok, {syntaxTree(), moduleInfo()}}).
 get_ast({FileName, ByPassPreP, SearchPaths}) ->
-    gen_server:call(wrangler_ast_server, {get,{FileName, ByPassPreP, SearchPaths}}).
+    gen_server:call(wrangler_ast_server, {get,{FileName, ByPassPreP, SearchPaths}}, infinity).
 
  
 -type(modifyTime()::{{integer(), integer(), integer()},{integer(), integer(), integer()}}).
@@ -123,7 +123,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 -spec(get_ast/2::({filename(),boolean(), [dir()]}, #state{}) -> {{ok, {syntaxTree(), moduleInfo()}}, #state{}}).	     
-get_ast(Key={FileName,ByPassPreP, SearchPaths}, State=#state{asts=ASTs}) ->
+get_ast(Key={ FileName,ByPassPreP, SearchPaths}, State=#state{asts=ASTs}) ->
     case lists:keysearch(Key, 1, ASTs) of
       {value, {Key, {AnnAST, Info, FileModifiedTime}}} ->
 	  case FileModifiedTime >= filelib:last_modified(FileName) of
