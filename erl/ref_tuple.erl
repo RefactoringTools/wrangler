@@ -65,7 +65,7 @@ tuple_funpar_eclipse(FileName, ParLine, ParCol, Number, SearchPaths)->
 tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths, Editor)->
   io:format("\nCMD: ~p:tuple_funpar(~p, ~p, ~p, ~p,~p).\n", 
             [?MODULE,FileName, ParLine, ParCol, Number, SearchPaths]),
-  {AnnAST, Info} = parse_file(FileName, SearchPaths),
+  {ok, {AnnAST, Info}} = parse_file(FileName, SearchPaths),
   {FirstPar, Type} = check_first_pos({ParLine, ParCol}, AnnAST),
   {{Mod, FunName, Arity, _, _}, FunPatterns, AppNode, AppPar, FunNode}=
       get_fun_name_and_arity(AnnAST, {ParLine, ParCol}, Type, FirstPar),        
@@ -229,11 +229,8 @@ check_def_mod(DefMod, ModName)->
 %% @end
 %% =====================================================================
 parse_file(FileName, SearchPaths)->
- case refac_util:parse_annotate_file(FileName, false, SearchPaths) of
-    {ok, {AnnAST, Info}}-> {AnnAST, Info};
-    {error, Reason} -> erlang:exit({error,Reason})
- end.
-
+  refac_util:parse_annotate_file(FileName, true, SearchPaths).
+ 
 
 %% =====================================================================
 %% @spec tuple_parameters_in_client_modules(Files::[string()], Name::atom(), 
@@ -246,16 +243,13 @@ tuple_parameters_in_client_modules(Files, Name, Arity, C, N, Mod)->
   case Files of
     [] -> [];
     [F | Fs] ->
-      io:format("The current file under refactoring is:\n~p\n", [F]),
-      case refac_util:parse_annotate_file(F, true, []) of
-	{ok, {AnnAST, Info}} ->
+	  io:format("The current file under refactoring is:\n~p\n", [F]),
+	  {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(F, true, []),
 	  {AnnAST1, _} = tuple_parameters_in_client_modules_1({AnnAST, Info}, 
-                                                        Name, Arity, C, N, Mod),
+							      Name, Arity, C, N, Mod),
           [{{F, F}, AnnAST1} | 
-                 tuple_parameters_in_client_modules(Fs,Name,Arity, C, N, Mod)];
-	{error, Reason} -> exit({error, Reason})
-      end
-    end.
+	   tuple_parameters_in_client_modules(Fs,Name,Arity, C, N, Mod)]
+  end.
 
 
 %% =====================================================================

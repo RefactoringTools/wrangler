@@ -98,45 +98,42 @@ generalise(FileName, Start={Line, Col}, End={Line1, Col1}, ParName, SearchPaths,
     io:format("\nCMD: ~p:generalise(~p, {~p,~p}, {~p,~p}, ~p,~p).\n", [?MODULE,FileName, Line, Col, Line1, Col1, ParName, SearchPaths]),
     case refac_util:is_var_name(ParName) of 
 	true ->
-	    case refac_util:parse_annotate_file(FileName,true, SearchPaths) of 
-		{ok, {AnnAST, Info}} ->
-		    case refac_util:pos_to_expr(AnnAST, Start, End) of  
-			{ok, Exp1} ->{ok, Fun} = refac_util:expr_to_fun(AnnAST, Exp1),
-				     FunName = refac_syntax:data(refac_syntax:function_name(Fun)),
-				     FunArity = refac_syntax:function_arity(Fun),
-				     Inscope_Funs = lists:map(fun({_M1,F, A})->{F, A} end, 
-							      refac_util:inscope_funs(Info)),
-				     case lists:member({FunName, FunArity+1}, Inscope_Funs) of 
-					 true ->{error, "Function "++ atom_to_list(FunName)++"/"++
-						 integer_to_list(FunArity+1)++" is already in scope!"};
-					 _   -> FunDefPos =get_fun_def_loc(Fun), 
-						ParName1 = list_to_atom(ParName),
-						case gen_cond_analysis(Fun, Exp1, ParName1) of 
-						    ok -> 
-							Exp_Free_Vars = refac_util:get_free_vars(Exp1),
-							case Exp_Free_Vars==[] of 
-							    true -> SideEffect = refac_util:has_side_effect(FileName, Exp1, SearchPaths),
-								    case SideEffect of  
-									unknown -> {unknown_side_effect, [ParName1, FunName, FunArity, FunDefPos,Exp1]};
-									_ ->AnnAST1=gen_fun(AnnAST, ParName1, 
-											    FunName, FunArity, FunDefPos,Info, Exp1, SideEffect),
-									    case Editor of 
-										emacs ->
-										    refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
-										    {ok, "Refactor succeeded"};
-										eclipse  ->
-										    Res = [{FileName, FileName, refac_prettypr:print_ast(AnnAST1)}],
-										    {ok, Res}
-									    end
-									end;	     
-							    false ->
-								{free_vars, [ParName1, FunName, FunArity, FunDefPos, Exp1]}
-							end;
-						    {error, Reason} -> {error, Reason}
-						end 
-				     end;
-			{error, Reason} -> {error, Reason}
-		    end;
+	    {ok, {AnnAST, Info}} =refac_util:parse_annotate_file(FileName,true, SearchPaths),
+	    case refac_util:pos_to_expr(AnnAST, Start, End) of  
+		{ok, Exp1} ->{ok, Fun} = refac_util:expr_to_fun(AnnAST, Exp1),
+			     FunName = refac_syntax:data(refac_syntax:function_name(Fun)),
+			     FunArity = refac_syntax:function_arity(Fun),
+			     Inscope_Funs = lists:map(fun({_M1,F, A})->{F, A} end, 
+						      refac_util:inscope_funs(Info)),
+			     case lists:member({FunName, FunArity+1}, Inscope_Funs) of 
+				 true ->{error, "Function "++ atom_to_list(FunName)++"/"++
+					 integer_to_list(FunArity+1)++" is already in scope!"};
+				 _   -> FunDefPos =get_fun_def_loc(Fun), 
+					ParName1 = list_to_atom(ParName),
+					case gen_cond_analysis(Fun, Exp1, ParName1) of 
+					    ok -> 
+						Exp_Free_Vars = refac_util:get_free_vars(Exp1),
+						case Exp_Free_Vars==[] of 
+						    true -> SideEffect = refac_util:has_side_effect(FileName, Exp1, SearchPaths),
+							    case SideEffect of  
+								unknown -> {unknown_side_effect, [ParName1, FunName, FunArity, FunDefPos,Exp1]};
+								_ ->AnnAST1=gen_fun(AnnAST, ParName1, 
+										    FunName, FunArity, FunDefPos,Info, Exp1, SideEffect),
+								    case Editor of 
+									emacs ->
+									    refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
+									    {ok, "Refactor succeeded"};
+									eclipse  ->
+									    Res = [{FileName, FileName, refac_prettypr:print_ast(AnnAST1)}],
+									    {ok, Res}
+								    end
+							    end;	     
+						    false ->
+							{free_vars, [ParName1, FunName, FunArity, FunDefPos, Exp1]}
+						end;
+					    {error, Reason} -> {error, Reason}
+					end 
+			     end;
 		{error, Reason} -> {error, Reason}
 	    end;
 	false  -> {error, "Invalid parameter name!"}

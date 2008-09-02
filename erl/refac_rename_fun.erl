@@ -65,85 +65,82 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, Editor) ->
     io:format("\nCMD: ~p:rename_fun( ~p, ~p, ~p, ~p,~p).\n", [?MODULE, FileName, Line, Col, NewName, SearchPaths]),
     case refac_util:is_fun_name(NewName) of
       true ->
-	  case refac_util:parse_annotate_file(FileName, true, SearchPaths) of
-	    {ok, {AnnAST, Info}} ->
-		NewName1 = list_to_atom(NewName),
-		{ok, ModName} = get_module_name(Info),
-		Inscope_Funs = lists:map(fun ({_M, F, A}) -> {F, A} end, refac_util:inscope_funs(Info)),
-		case refac_util:pos_to_fun_name(AnnAST, {Line, Col}) of
-		  {ok, {Mod, Fun, Arity, _, DefinePos}} ->
-		      if Mod == ModName ->
-			     case NewName1 =/= Fun of
-			       true ->
-				   case lists:member({NewName1, Arity}, Inscope_Funs) or
-					  lists:member({NewName1, Arity}, refac_util:auto_imported_bifs())
-				       of
-				     true ->
-					 {error,
-					  NewName ++
+	  {ok, {AnnAST, Info}}=refac_util:parse_annotate_file(FileName, true, SearchPaths),
+	    NewName1 = list_to_atom(NewName),
+	    {ok, ModName} = get_module_name(Info),
+	    Inscope_Funs = lists:map(fun ({_M, F, A}) -> {F, A} end, refac_util:inscope_funs(Info)),
+	    case refac_util:pos_to_fun_name(AnnAST, {Line, Col}) of
+		{ok, {Mod, Fun, Arity, _, DefinePos}} ->
+		    if Mod == ModName ->
+			    case NewName1 =/= Fun of
+				true ->
+				    case lists:member({NewName1, Arity}, Inscope_Funs) or
+					lists:member({NewName1, Arity}, refac_util:auto_imported_bifs())
+					of
+					true ->
+					    {error,
+					     NewName ++
 					    "/" ++
-					      integer_to_list(Arity) ++
-						" is already in scope, or is an auto-imported "
-						"builtin function."};
-				     _ ->
-					 case is_callback_fun(Info, Fun, Arity) of
-					   true ->
-					       {error,
-						"The refactorer does not support renaming "
-						"of callback function names."};
-					   _ ->
-					       io:format("The current file under refactoring is:\n~p\n", [FileName]),
-					       {AnnAST1, _C} = rename_fun(AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}),
-					       %%check_atoms(AnnAST1, Fun),
-					       case refac_util:is_exported({Fun, Arity}, Info) of
-						 true ->
-						     io:format("\nChecking client modules in the following "
-							       "search paths: \n~p\n",
-							       [SearchPaths]),
-						     ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
-						     Results = rename_fun_in_client_modules(ClientFiles, {Mod, Fun, Arity}, NewName, SearchPaths),
-						     case Editor of 
-							 emacs ->
-							     refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1} | Results]),
-							     ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-							     ChangedFiles = [FileName | ChangedClientFiles],
-							     io:format("The following files have been changed "
-								       "by this refactoring:\n~p\n",
-								       [ChangedFiles]),
-							     {ok, ChangedFiles};
-							 eclipse ->
-							     Results1 = [{{FileName, FileName}, AnnAST1} | Results],
-							     Res = lists:map(fun({{FName, NewFName}, AST}) -> {FName, NewFName, refac_prettypr:print_ast(AST)} end, Results1),
-							     {ok, Res}
-						     end;
-						 false ->
-						       case Editor of 
-							   emacs ->
-							       refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1}]), {ok, [FileName]};
-							   eclipse ->
-							       Res = [{FileName, FileName, refac_prettypr:print_ast(AnnAST1)}],
-							       {ok, Res}
-						       end
-					       end
-					 end
-				   end;
-			       _ -> case Editor of 
-					emacs -> refac_util:write_refactored_files([{{FileName, FileName}, AnnAST}]), {ok, []};
-					eclipse ->
-					    Res = [{FileName, FileName, refac_prettypr:print_ast(AnnAST)}],
-					    {ok, Res}
-				    end
-			     end;
-			 true ->
-			     {error,
-			      "This function is not defined in this "
-			      "module; please go to the module where "
-			      "it is defined for renaming."}
-		      end;
-		  {error, _Reason} -> {error, "You have not selected a function name"}
-		end;
-	    {error, Reason} -> {error, Reason}
-	  end;
+					     integer_to_list(Arity) ++
+					     " is already in scope, or is an auto-imported "
+					     "builtin function."};
+					_ ->
+					    case is_callback_fun(Info, Fun, Arity) of
+						true ->
+						    {error,
+						     "The refactorer does not support renaming "
+						     "of callback function names."};
+						_ ->
+						    io:format("The current file under refactoring is:\n~p\n", [FileName]),
+						    {AnnAST1, _C} = rename_fun(AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}),
+						    %%check_atoms(AnnAST1, Fun),
+						    case refac_util:is_exported({Fun, Arity}, Info) of
+							true ->
+							    io:format("\nChecking client modules in the following "
+								      "search paths: \n~p\n",
+								      [SearchPaths]),
+							    ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
+							    Results = rename_fun_in_client_modules(ClientFiles, {Mod, Fun, Arity}, NewName, SearchPaths),
+							    case Editor of 
+								emacs ->
+								    refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1} | Results]),
+								    ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+								    ChangedFiles = [FileName | ChangedClientFiles],
+								    io:format("The following files have been changed "
+									      "by this refactoring:\n~p\n",
+									      [ChangedFiles]),
+								    {ok, ChangedFiles};
+								eclipse ->
+								    Results1 = [{{FileName, FileName}, AnnAST1} | Results],
+								    Res = lists:map(fun({{FName, NewFName}, AST}) -> {FName, NewFName, refac_prettypr:print_ast(AST)} end, Results1),
+								    {ok, Res}
+							    end;
+							false ->
+							    case Editor of 
+								emacs ->
+								    refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1}]), {ok, [FileName]};
+								eclipse ->
+								    Res = [{FileName, FileName, refac_prettypr:print_ast(AnnAST1)}],
+								    {ok, Res}
+							    end
+						    end
+					    end
+				    end;
+				_ -> case Editor of 
+					 emacs -> refac_util:write_refactored_files([{{FileName, FileName}, AnnAST}]), {ok, []};
+					 eclipse ->
+					     Res = [{FileName, FileName, refac_prettypr:print_ast(AnnAST)}],
+					     {ok, Res}
+				     end
+			    end;
+		       true ->
+			    {error,
+			     "This function is not defined in this "
+			     "module; please go to the module where "
+			     "it is defined for renaming."}
+		    end;
+		{error, _Reason} -> {error, "You have not selected a function name"}
+	    end;
       false -> {error, "Invalid new function name!"}
     end.
 
@@ -233,22 +230,19 @@ rename_fun_in_client_modules(Files, {Mod, Fun, Arity}, NewName, SearchPaths) ->
     case Files of
       [] -> [];
       [F | Fs] ->
-	  io:format("The current file under refactoring is:\n~p\n", [F]),
-	  case refac_util:parse_annotate_file(F, true, SearchPaths) of
-	    {ok, {AnnAST, Info}} ->
-		{AnnAST1, Changed} = rename_fun_in_client_module_1({AnnAST, Info},
-								   {Mod, Fun, Arity},
-								   NewName),
+	    io:format("The current file under refactoring is:\n~p\n", [F]),
+	    {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(F, true, SearchPaths),
+	    {AnnAST1, Changed} = rename_fun_in_client_module_1({AnnAST, Info},
+							       {Mod, Fun, Arity},
+							       NewName),
 		%%check_atoms(AnnAST1, Fun),
-		if Changed ->
-		       [{{F, F}, AnnAST1} | rename_fun_in_client_modules(Fs,
-									 {Mod, Fun, Arity},
-									 NewName, SearchPaths)];
-		   true ->
-		       rename_fun_in_client_modules(Fs, {Mod, Fun, Arity}, NewName, SearchPaths)
-		end;
-	    {error, Reason} -> {error, Reason}
-	  end
+	    if Changed ->
+		    [{{F, F}, AnnAST1} | rename_fun_in_client_modules(Fs,
+								      {Mod, Fun, Arity},
+								      NewName, SearchPaths)];
+	       true ->
+		    rename_fun_in_client_modules(Fs, {Mod, Fun, Arity}, NewName, SearchPaths)
+	    end
     end.
 
 get_fun_def_info(Node) ->

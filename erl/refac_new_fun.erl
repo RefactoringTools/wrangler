@@ -43,30 +43,27 @@ fun_extraction(FileName, Start, End, NewFunName,Editor) ->
     io:format("\nCMD: ~p:fun_extraction(~p, ~p, ~p, ~p).\n", [?MODULE,FileName, Start, End, NewFunName]),
     case refac_util:is_fun_name(NewFunName) of 
 	true ->
-	    case refac_util:parse_annotate_file(FileName,true, []) of 
-		{ok, {AnnAST, Info}} ->
-		    case pos_to_expr(FileName, AnnAST, {Start, End}) of 
-			[] -> {error, "You have not selected an expression!"};
-			ExpList ->
-			     {ok,Fun} = refac_util:expr_to_fun(AnnAST, hd(ExpList)),
-			     case side_cond_analysis(Info, Fun, ExpList, list_to_atom(NewFunName)) of 
-				 {ok, {BdVars, FrVars}} ->
-				     FunName = refac_syntax:atom_value(refac_syntax:function_name(Fun)),
-				     FunArity = refac_syntax:function_arity(Fun),
-				     VarsToExport=vars_to_export(Fun, End, BdVars, ExpList), 
-				     AnnAST1=do_fun_extraction(AnnAST,ExpList, NewFunName, FrVars, VarsToExport, FunName, FunArity),
-				     case Editor of 
-					 emacs ->
-					     refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
-					     {ok, "Refactor succeeded"};
-					 eclipse ->
-					      Res = [{FileName, FileName, refac_prettypr:print_ast(AnnAST1)}],
-					     {ok, Res}
-				     end;
-				 {error, Reason} -> {error, Reason}
-			       end
-		    end;
-		{error, Reason} -> {error, Reason}
+	    {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(FileName,true, []),
+	    case pos_to_expr(FileName, AnnAST, {Start, End}) of 
+		[] -> {error, "You have not selected an expression!"};
+		ExpList ->
+		    {ok,Fun} = refac_util:expr_to_fun(AnnAST, hd(ExpList)),
+		    case side_cond_analysis(Info, Fun, ExpList, list_to_atom(NewFunName)) of 
+			{ok, {BdVars, FrVars}} ->
+			    FunName = refac_syntax:atom_value(refac_syntax:function_name(Fun)),
+			    FunArity = refac_syntax:function_arity(Fun),
+			    VarsToExport=vars_to_export(Fun, End, BdVars, ExpList), 
+			    AnnAST1=do_fun_extraction(AnnAST,ExpList, NewFunName, FrVars, VarsToExport, FunName, FunArity),
+			    case Editor of 
+				emacs ->
+				    refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
+				    {ok, "Refactor succeeded"};
+				eclipse ->
+				    Res = [{FileName, FileName, refac_prettypr:print_ast(AnnAST1)}],
+				    {ok, Res}
+			    end;
+			{error, Reason} -> {error, Reason}
+		    end
 	    end;
 	false  -> {error, "Invalid function name!"}
     end.  

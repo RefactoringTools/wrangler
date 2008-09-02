@@ -81,67 +81,61 @@ move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths, Editor) ->
 	       true -> 
 		    case (filelib:is_file(TargetFName) orelse (CreateNewFile==t) orelse (CreateNewFile==true)) of 
 			true -> 
-			    case refac_util:parse_annotate_file(FName,true, SearchPaths) of 
-				{ok, {AnnAST, Info}} -> 
-				    case refac_util:pos_to_fun_def(AnnAST, Pos) of 
-					{ok, Def} ->
-					    {value, {fun_def, {ModName, FunName, Arity, _Pos1, _Pos2}}} =
-						lists:keysearch(fun_def,1, refac_syntax:get_ann(Def)),
-					    case (not(filelib:is_file(TargetFName)) andalso ((CreateNewFile==t) orelse (CreateNewFile==true ))) of 
-						true -> create_new_file(TargetFName, TargetModName);
-						_ -> ok
-					    end,					
-					    R = side_cond_check({ModName, FunName, Arity,Def}, TargetFName, SearchPaths),
-					    case R of 
-						true -> 
-						    case refac_util:parse_annotate_file(TargetFName, true, SearchPaths) of  %% level=1
-							{ok, {TargetAnnAST,Info1}} ->
-							    {AnnAST1, TargetAnnAST1}
-								= do_transformation({AnnAST,Info}, {TargetAnnAST,Info1},
-										    {ModName, FunName, Arity}, TargetModName),
-							    case refac_util:is_exported({FunName, Arity}, Info) of 
-								true ->
-								    io:format("\nChecking client modules in the following search paths: \n~p\n",[SearchPaths]),
-								    ClientFiles = lists:delete(TargetFName, 
-											       refac_util:get_client_files(FName, SearchPaths)),
-								    Results = refactor_in_client_modules(ClientFiles,
-										{ModName, FunName, Arity}, TargetModName, SearchPaths),
-								    case Editor of
-									emacs ->
-									    refac_util:write_refactored_files([{{FName,FName}, AnnAST1},
-													       {{TargetFName, TargetFName}, TargetAnnAST1}| Results]),
-									    ChangedClientFiles =
-										lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-									    ChangedFiles = [FName, TargetFName | ChangedClientFiles],
-									    io:format("The following files have been changed "
-										      "by this refactoring:\n~p\n", [ChangedFiles]),
-									    {ok, ChangedFiles};
-									eclipse ->
-									    Results1 = [{{FName,FName}, AnnAST1},
-											{{TargetFName, TargetFName}, TargetAnnAST1}| Results],
-									    Res = lists:map(fun({{FName1, NewFName1}, AST}) ->
-												    {FName1, NewFName1, refac_prettypr:print_ast(AST)} end,
-											    Results1),
-									    {ok, Res}
-								    end;
-								false ->
-								    case Editor of 
-									emacs ->
-									    refac_util:write_refactored_files([{{FName,FName}, AnnAST1},
-													       {{TargetFName, TargetFName}, TargetAnnAST1}]),
-									    {ok, [FName, TargetFName]};
-									eclipse ->
-									    Results1 = [{{FName,FName}, AnnAST1}, {{TargetFName, TargetFName}, TargetAnnAST1}],
-									    Res = lists:map(fun({{FName1, NewFName1}, AST}) ->
-												    {FName1, NewFName1, refac_prettypr:print_ast(AST)} end,
-											    Results1),
-									    {ok, Res}
-								    end						    
-							    
-							    end;
-							{error, Reason} -> {error, Reason}
+			    {ok, {AnnAST, Info}}=refac_util:parse_annotate_file(FName,true, SearchPaths),
+			    case refac_util:pos_to_fun_def(AnnAST, Pos) of 
+				{ok, Def} ->
+				    {value, {fun_def, {ModName, FunName, Arity, _Pos1, _Pos2}}} =
+					lists:keysearch(fun_def,1, refac_syntax:get_ann(Def)),
+				    case (not(filelib:is_file(TargetFName)) andalso ((CreateNewFile==t) orelse (CreateNewFile==true ))) of 
+					true -> create_new_file(TargetFName, TargetModName);
+					_ -> ok
+				    end,					
+				    R = side_cond_check({ModName, FunName, Arity,Def}, TargetFName, SearchPaths),
+				    case R of 
+					true -> 
+					    {ok, {TargetAnnAST,Info1}} =refac_util:parse_annotate_file(TargetFName, true, SearchPaths),  %% level=
+					    {AnnAST1, TargetAnnAST1}
+						= do_transformation({AnnAST,Info}, {TargetAnnAST,Info1},
+								    {ModName, FunName, Arity}, TargetModName),
+					    case refac_util:is_exported({FunName, Arity}, Info) of 
+						true ->
+						    io:format("\nChecking client modules in the following search paths: \n~p\n",[SearchPaths]),
+						    ClientFiles = lists:delete(TargetFName, 
+									       refac_util:get_client_files(FName, SearchPaths)),
+						    Results = refactor_in_client_modules(ClientFiles,
+											 {ModName, FunName, Arity}, TargetModName, SearchPaths),
+						    case Editor of
+							emacs ->
+							    refac_util:write_refactored_files([{{FName,FName}, AnnAST1},
+											       {{TargetFName, TargetFName}, TargetAnnAST1}| Results]),
+							    ChangedClientFiles =
+								lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+							    ChangedFiles = [FName, TargetFName | ChangedClientFiles],
+							    io:format("The following files have been changed "
+								      "by this refactoring:\n~p\n", [ChangedFiles]),
+							    {ok, ChangedFiles};
+							eclipse ->
+							    Results1 = [{{FName,FName}, AnnAST1},
+									{{TargetFName, TargetFName}, TargetAnnAST1}| Results],
+							    Res = lists:map(fun({{FName1, NewFName1}, AST}) ->
+										    {FName1, NewFName1, refac_prettypr:print_ast(AST)} end,
+									    Results1),
+							    {ok, Res}
 						    end;
-						{error, Reason} -> {error, Reason}
+						false ->
+						    case Editor of 
+							emacs ->
+							    refac_util:write_refactored_files([{{FName,FName}, AnnAST1},
+											       {{TargetFName, TargetFName}, TargetAnnAST1}]),
+							    {ok, [FName, TargetFName]};
+							eclipse ->
+							    Results1 = [{{FName,FName}, AnnAST1}, {{TargetFName, TargetFName}, TargetAnnAST1}],
+							    Res = lists:map(fun({{FName1, NewFName1}, AST}) ->
+										    {FName1, NewFName1, refac_prettypr:print_ast(AST)} end,
+									    Results1),
+							    {ok, Res}
+						    end						    
+					    
 					    end;
 					_  -> {error, "You have not selected a function."}
 				    end;
@@ -182,25 +176,21 @@ create_new_file(TargetFName, TargetModName) ->
 
 side_cond_check({ModName,FunName, Arity, Node}, TargetFileName, SearchPaths) ->
     case filelib:is_file(TargetFileName) of 
-	true -> case refac_util:parse_annotate_file(TargetFileName, true, SearchPaths) of     %% level=1
-		    {ok, {_AnnAST, Info}} -> 
-			InscopeFuns = refac_util:inscope_funs(Info),
-			
-			Clash = lists:any(fun({ModName1, FunName1, Arity1})->
-						  (FunName == FunName1) and (Arity==Arity1) and (ModName =/= ModName1)
-					  end, InscopeFuns),
-			ImplicitFunCall = has_implicit_fun_call(Node),
-			case not(Clash) of 
-			    true -> case not(ImplicitFunCall) of 
-					true -> true;
-					false -> {error, 
-						  "Moving a function definiton containing implicit fun expressions "
-						  "is not supported by this refactoring."}
-				    end;
-			    false ->{error, "Moving this function will cause confliction in the target module."} 
-			end;
-		    {error, Reason} -> {error, Reason}
-		end;							    
+	true -> {ok, {_AnnAST, Info}} = refac_util:parse_annotate_file(TargetFileName, true, SearchPaths),     %% level=1
+		InscopeFuns = refac_util:inscope_funs(Info),		
+		Clash = lists:any(fun({ModName1, FunName1, Arity1})->
+					  (FunName == FunName1) and (Arity==Arity1) and (ModName =/= ModName1)
+				  end, InscopeFuns),
+		ImplicitFunCall = has_implicit_fun_call(Node),
+		case not(Clash) of 
+		    true -> case not(ImplicitFunCall) of 
+				true -> true;
+				false -> {error, 
+					  "Moving a function definiton containing implicit fun expressions "
+					  "is not supported by this refactoring."}
+			    end;
+		    false ->{error, "Moving this function will cause confliction in the target module."} 
+		end;
 	false -> true
     end.
 
@@ -454,17 +444,14 @@ refactor_in_client_modules(ClientFiles,{ModName, FunName, Arity}, TargetModName,
 	[] -> [];
 	[F | Fs] ->
 	    io:format("The current file under refactoring is:\n~p\n", [F]),
-	    case refac_util:parse_annotate_file(F,true, SearchPaths) of      %% level=1
-		{ok, {AnnAST, Info}} ->
-		    {AnnAST1, Changed} = 
-			refactor_in_client_module_1({AnnAST, Info}, {ModName, FunName, Arity}, TargetModName),
-		        if Changed ->
-			   [{{F,F}, AnnAST1} | refactor_in_client_modules(Fs, {ModName, FunName, Arity}, TargetModName, SearchPaths)];
-			   true -> refactor_in_client_modules(Fs, {ModName, FunName, Arity}, TargetModName, SearchPaths)
-			end;
-		{error, Reason} -> {error, Reason}
+	    {ok, {AnnAST, Info}} =refac_util:parse_annotate_file(F,true, SearchPaths),      %% level=1
+	    {AnnAST1, Changed} = 
+		refactor_in_client_module_1({AnnAST, Info}, {ModName, FunName, Arity}, TargetModName),
+	    if Changed ->
+		    [{{F,F}, AnnAST1} | refactor_in_client_modules(Fs, {ModName, FunName, Arity}, TargetModName, SearchPaths)];
+	       true -> refactor_in_client_modules(Fs, {ModName, FunName, Arity}, TargetModName, SearchPaths)
 	    end
-    end.
+	end.
 refactor_in_client_module_1({AnnAST, _Info}, {ModName, FunName, Arity}, TargetModName) ->
     Forms  = refac_syntax:form_list_elements(AnnAST),
     Res = [process_in_client_module(Form, {ModName, FunName, Arity}, TargetModName)||Form <-Forms],

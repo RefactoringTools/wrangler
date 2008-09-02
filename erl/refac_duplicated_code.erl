@@ -432,10 +432,9 @@ compile_files(Files) ->
     compile_files(Files, []).
 compile_files([], Acc) -> Acc; 
 compile_files([F|Fs], Acc) -> 
-    case refac_util:parse_annotate_file(F,true, []) of
-	{ok, {AnnAST, _Info}} -> compile_files(Fs, [{F, AnnAST}|Acc]);
-	{error, _Reason} -> compile_files(Fs, Acc)
-    end.
+    {ok, {AnnAST, _Info}} =  refac_util:parse_annotate_file(F,true, []),
+    compile_files(Fs, [{F, AnnAST}|Acc]).
+
      
 tokenize_files(Files) ->
     tokenize_files(Files, []).

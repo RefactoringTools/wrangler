@@ -54,9 +54,6 @@ analyze_all_files([{Mod, Dir}|Left], Acc, {ModuleGraphFile, ModuleGraph}, Search
 	  analyze_all_files(Left, [R1|Acc], {ModuleGraphFile, ModuleGraph}, SearchPaths);
      true ->
 	  case analyze_mod({Mod, Dir}, SearchPaths) of
-	      {error, Reason} ->
-		  erlang:error(Reason);
-		  %% analyze_all_files(Left, Acc, {ModuleGraphFile, ModuleGraph}, SearchPaths);
 	      {called_modules, Called} ->
 		  analyze_all_files(Left, [{{Mod,Dir}, Called}|lists:keydelete({Mod, Dir}, 1, Acc)],
 				    {ModuleGraphFile, ModuleGraph}, SearchPaths)
@@ -70,17 +67,14 @@ analyze_mod({Mod, Dir}, SearchPaths) ->
     DefaultIncl2 = [filename:join(Dir, X) || X <- DefaultIncl1],
     Includes = SearchPaths ++ DefaultIncl2, 
     File = filename:join(Dir, Mod++".erl"),
-    case refac_util:parse_annotate_file(File, false, Includes) of 
-	{ok, {AnnAST, Info}} ->
-	    ImportedMods = case lists:keysearch(imports,1, Info) of 
-			       {value, {imports, Imps}} -> lists:map(fun({M, _Funs}) -> M end, Imps);
-			       false  -> []
-			   end,
-	    CalledMods = collect_called_modules(AnnAST),
-	    {called_modules, ImportedMods++CalledMods};
-	{error, Reason} -> 
-	    {error, Reason}
-    end.
+    {ok, {AnnAST, Info}} =refac_util:parse_annotate_file(File, false, Includes),
+    ImportedMods = case lists:keysearch(imports,1, Info) of 
+		       {value, {imports, Imps}} -> lists:map(fun({M, _Funs}) -> M end, Imps);
+		       false  -> []
+		   end,
+    CalledMods = collect_called_modules(AnnAST),
+    {called_modules, ImportedMods++CalledMods}.
+
 
 
 collect_called_modules(AnnAST) ->

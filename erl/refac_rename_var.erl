@@ -63,53 +63,47 @@ rename_var(FName, Line, Col, NewName, SearchPaths, Editor) ->
     io:format("\nCMD: ~p:rename_var(~p, ~p, ~p, ~p, ~p).\n", [?MODULE,FName, Line, Col, NewName, SearchPaths]),
     case refac_util:is_var_name(NewName) of
 	true ->
-	    case refac_util:parse_annotate_file(FName, false, SearchPaths) of
- 		{ok, {AnnAST, _Info0}} ->
-		    NewName1 = list_to_atom(NewName), 
-		    case refac_util:parse_annotate_file(FName, true, SearchPaths) of %%refac_ast_server:get_ast(FName) 
-			{ok, {AnnAST1, _Info1}} ->
-			    case refac_util:pos_to_var_name(AnnAST, {Line, Col}) of
-				{ok, {VarName, DefinePos, C}} ->
-				    if DefinePos == [{0, 0}] -> {error, "Renaming of a free variable is not supported!"};
-				       true ->
-					    if VarName /= NewName1 ->
-						    case C of
-							macro_name ->
-							    {error, "Sorry, renaming of macro names is not supported yet."};
-							_ ->
-							    case cond_check(AnnAST1, DefinePos, NewName1) of
-								{true, _} ->
-								    {error,
-								     "New name already declared in the same scope."};
-								{_, true} -> {error, "New name could cause name shadowing."};
-								_ ->
-								    {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
-								    %%  case post_refac_check(FName, AnnAST2, SearchPaths) of
-								    %% 							ok ->
-								    case Editor of 
-									emacs ->
-									    refac_util:write_refactored_files([{{FName, FName}, AnnAST2}]),
-									    {ok, "Refactor succeeded"};
-									eclipse ->
-									    {ok, [{FName, FName, refac_prettypr:print_ast(AnnAST2)}]}
-								    end 
-  							    end
-						    end;
-					       true ->
+	    {ok, {AnnAST, _Info0}} = refac_util:parse_annotate_file(FName, false, SearchPaths),
+	    NewName1 = list_to_atom(NewName), 
+	    {ok, {AnnAST1, _Info1}}= refac_util:parse_annotate_file(FName, true, SearchPaths),  %%refac_ast_server:get_ast(FName) 
+	    case refac_util:pos_to_var_name(AnnAST, {Line, Col}) of
+		{ok, {VarName, DefinePos, C}} ->
+		    if DefinePos == [{0, 0}] -> {error, "Renaming of a free variable is not supported!"};
+		       true ->
+			    if VarName /= NewName1 ->
+				    case C of
+					macro_name ->
+					    {error, "Sorry, renaming of macro names is not supported yet."};
+					_ ->
+					    case cond_check(AnnAST1, DefinePos, NewName1) of
+						{true, _} ->
+						    {error,
+						     "New name already declared in the same scope."};
+							{_, true} -> {error, "New name could cause name shadowing."};
+						_ ->
+						    {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
+						    %%  case post_refac_check(FName, AnnAST2, SearchPaths) of
+						    %% 							ok ->
 						    case Editor of 
 							emacs ->
-							    refac_util:write_refactored_files([{{FName, FName}, AnnAST1}]),
+							    refac_util:write_refactored_files([{{FName, FName}, AnnAST2}]),
 							    {ok, "Refactor succeeded"};
-							_ ->
-							    {ok, [{FName, FName, refac_prettypr:print_ast(AnnAST1)}]}  
-						    end
+							eclipse ->
+							    {ok, [{FName, FName, refac_prettypr:print_ast(AnnAST2)}]}
+						    end 
 					    end
 				    end;
-				{error, _Reason} -> {error, "You have not selected a variable name, or the variable selected does not belong to a syntactically well-formed function!"}
-			    end;
-			{error, Reason} -> {error, Reason}
+			       true ->
+				    case Editor of 
+					emacs ->
+					    refac_util:write_refactored_files([{{FName, FName}, AnnAST1}]),
+					    {ok, "Refactor succeeded"};
+					_ ->
+					    {ok, [{FName, FName, refac_prettypr:print_ast(AnnAST1)}]}  
+				    end
+			    end
 		    end;
-		{error, Reason} -> {error, Reason}
+		{error, _Reason} -> {error, "You have not selected a variable name, or the variable selected does not belong to a syntactically well-formed function!"}
 	    end;
 	false -> {error, "Invalid new variable name."}
     end.

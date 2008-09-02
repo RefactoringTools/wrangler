@@ -36,25 +36,22 @@
 -spec(add_a_tag/5::(filename(), integer(), integer(), string(), [dir()]) ->{ok, [filename()]} | {error, string()}).	     
 add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
     io:format("\n[CMD: add_a_tag, ~p, ~p, ~p, ~p,~p]\n", [FileName, Line, Col, Tag, SearchPaths]),
-    case refac_util:parse_annotate_file(FileName, true, SearchPaths) of 
-	{ok, {AnnAST1, _Info1}} ->
-	    case pos_to_receive_fun(AnnAST1, {Line, Col}) of 
-		{ok, _FunDef} ->
-		    _Res=refac_annotate_pid:ann_pid_info(SearchPaths),
-		    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths),
-		    {ok, FunDef} = pos_to_receive_fun(AnnAST, {Line, Col}),
-		    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
-		    case pre_cond_check(AnnAST,  ModName, FunDef, SearchPaths) of 
-			{ok, AffectedInitialFuns} ->
-			    Results = do_add_a_tag(FileName, {AnnAST, Info}, list_to_atom(Tag), AffectedInitialFuns, SearchPaths),
-			    refac_util:write_refactored_files(Results),
-			    ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-			    io:format("The following files have been changed by this refactoring:\n~p\n",
-				      [ChangedFiles]),
-			    {ok, ChangedFiles};
-			{error,  Reason} -> {error, Reason}
-		    end;
-		{error, Reason} -> {error, Reason}
+    {ok, {AnnAST1, _Info1}}=refac_util:parse_annotate_file(FileName, true, SearchPaths),
+    case pos_to_receive_fun(AnnAST1, {Line, Col}) of 
+	{ok, _FunDef} ->
+	    _Res=refac_annotate_pid:ann_pid_info(SearchPaths),
+	    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths),
+	    {ok, FunDef} = pos_to_receive_fun(AnnAST, {Line, Col}),
+	    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
+	    case pre_cond_check(AnnAST,  ModName, FunDef, SearchPaths) of 
+		{ok, AffectedInitialFuns} ->
+		    Results = do_add_a_tag(FileName, {AnnAST, Info}, list_to_atom(Tag), AffectedInitialFuns, SearchPaths),
+		    refac_util:write_refactored_files(Results),
+		    ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+		    io:format("The following files have been changed by this refactoring:\n~p\n",
+			      [ChangedFiles]),
+		    {ok, ChangedFiles};
+		{error,  Reason} -> {error, Reason}
 	    end;
 	{error, Reason} -> {error, Reason}
     end.

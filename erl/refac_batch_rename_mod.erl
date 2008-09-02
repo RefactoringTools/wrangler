@@ -74,27 +74,24 @@ batch_rename_mod(Files, Old_New_Mod_Names) ->
 	[] -> [];
 	[F|Fs] ->  
 	    io:format("The current file under refactoring is:\n~p\n",[F]),
-	    case refac_util:parse_annotate_file(F,true, []) of
-		{ok, {AnnAST, Info}} ->
-		    {AnnAST1, Changed} = do_rename_mod(AnnAST, Old_New_Mod_Names),
-		    if Changed ->
-			    NewFileName = 
-				case get_module_name(Info) of 
-				    {ok, OldModName} ->
-					case lists:keysearch(OldModName, 1, Old_New_Mod_Names) of 
-					    {value, {OldModName, NewModName}}  ->
-						if OldModName == NewModName -> F;
-						   true -> 
-							filename:join([filename:dirname(F), atom_to_list(NewModName)++".erl"])
-						end;
-					    false -> {error, "Could not infer new module name"}
+	    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(F,true, []),
+	    {AnnAST1, Changed} = do_rename_mod(AnnAST, Old_New_Mod_Names),
+	    if Changed ->
+		    NewFileName = 
+			case get_module_name(Info) of 
+			    {ok, OldModName} ->
+				case lists:keysearch(OldModName, 1, Old_New_Mod_Names) of 
+				    {value, {OldModName, NewModName}}  ->
+					if OldModName == NewModName -> F;
+					   true -> 
+						filename:join([filename:dirname(F), atom_to_list(NewModName)++".erl"])
 					end;
-				    _ ->  F
-				end,				   
-			    [{{F,NewFileName}, AnnAST1}|batch_rename_mod(Fs, Old_New_Mod_Names)];
-		       true -> batch_rename_mod(Fs, Old_New_Mod_Names)
-		    end;
-		{error, Reason} -> {error, Reason}
+				    false -> {error, "Could not infer new module name"}
+				end;
+			    _ ->  F
+			end,				   
+		    [{{F,NewFileName}, AnnAST1}|batch_rename_mod(Fs, Old_New_Mod_Names)];
+	       true -> batch_rename_mod(Fs, Old_New_Mod_Names)
 	    end
     end.
 

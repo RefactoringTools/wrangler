@@ -41,34 +41,32 @@
 -spec(expr_search/3::(filename(), pos(), pos()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).    
 expr_search(FileName, Start, End) ->
     io:format("\nCMD: ~p:expr_search(~p, ~p,~p).\n", [?MODULE, FileName, Start, End]),
-    case refac_util:parse_annotate_file(FileName,true, []) of 
-	{ok, {AnnAST, _Info}} -> 
-	      case pos_to_expr(FileName, AnnAST, {Start, End}) of 
-		[E|Es] -> 
-		   %%io:format("Selected Expression:\n~p\n", [[E|Es]]),
-		    Res = case Es == [] of 
-			      true ->
-				  search_one_expr(AnnAST, E);
-			      _ -> 
-				  search_expr_seq(AnnAST, [E|Es])
-			  end,
-		      case length(Res) of  
-			0 -> io:format("No identical expression has been found.\n"), %% This shouldn't happen.
-			     {ok, []};
-			1 -> io:format("No identical expression has been found. \n"),
-			     {ok, []};
-		  %%	2 -> io:format(" One expression which is identical (up to variable renaming and literal substitution) to the selected"
- 			%%	       " expression has been found. \n"), 
- 			  %%   {ok, Res};	
-	  
-			N -> io:format("~p identical expressions (including the selected expression,and up to variable renaming and literal substitution) "
+    {ok, {AnnAST, _Info}} =refac_util:parse_annotate_file(FileName,true, []),
+    case pos_to_expr(FileName, AnnAST, {Start, End}) of 
+	[E|Es] -> 
+	    %%io:format("Selected Expression:\n~p\n", [[E|Es]]),
+	    Res = case Es == [] of 
+		      true ->
+			  search_one_expr(AnnAST, E);
+		      _ -> 
+			  search_expr_seq(AnnAST, [E|Es])
+		  end,
+	    case length(Res) of  
+		0 -> io:format("No identical expression has been found.\n"), %% This shouldn't happen.
+		     {ok, []};
+		1 -> io:format("No identical expression has been found. \n"),
+		     {ok, []};
+		%%	2 -> io:format(" One expression which is identical (up to variable renaming and literal substitution) to the selected"
+		%%	       " expression has been found. \n"), 
+		%%   {ok, Res};	
+		
+		N -> io:format("~p identical expressions (including the selected expression,and up to variable renaming and literal substitution) "
 				       " have been fould. \n", [N]),
-			     {ok, Res}
-		    end;
-		_   -> {error, "You have not selected an expression!"}
-	    end;	    
-	{error, Reason} -> {error, Reason}
-    end.  
+		     {ok, Res}
+	    end;
+	_   -> {error, "You have not selected an expression!"}
+    end.	    
+	  
 
 %% Search the clones of an expression from Tree.
 search_one_expr(Tree, Exp) ->

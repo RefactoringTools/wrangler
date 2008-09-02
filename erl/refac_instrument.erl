@@ -40,7 +40,6 @@ instrument_prog(FileName, SearchPaths, ModName, FunName, Arity) ->
     Dirs = lists:usort([CurrentDir|SearchPaths]),
     Files = refac_util:expand_files(Dirs, ".erl"),
     case  instrument_files(Files, {ModName, FunName, Arity}, TraceCacheFile, SearchPaths) of 
-	{error, Reason} -> {error, Reason};
 	InstrumentedFiles ->
 	    refac_util:write_refactored_files(InstrumentedFiles),
 	    ChangedFiles = lists:map(fun({{F, _}, _AST}) -> F end, InstrumentedFiles),
@@ -54,18 +53,14 @@ instrument_prog(FileName, SearchPaths, ModName, FunName, Arity) ->
 	
 
 instrument_files([F|Fs], {ModName,FunName, Arity}, TraceCacheFile,SearchPaths) ->
-    case refac_util:parse_annotate_file(F,true, SearchPaths ) of 
-	{ok, {AnnAST, Info}} ->
-	    {ok, CurrentModName} = get_module_name(Info),
-	    {AnnAST1, Modified} = refac_util:stop_tdTP(fun do_instrument/2, AnnAST,{TraceCacheFile, CurrentModName, {ModName, FunName, Arity}}),
-	    if Modified ->
-		    [{{F, F}, AnnAST1} | instrument_files(Fs, {ModName, FunName, Arity},TraceCacheFile,  SearchPaths)];
-	       true -> 
-		    instrument_files(Fs, {ModName, FunName, Arity}, TraceCacheFile, SearchPaths)
-	    end;	       
-	{error, Reason} -> {error, Reason}
-    end;
-
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(F,true, SearchPaths ),
+    {ok, CurrentModName} = get_module_name(Info),
+    {AnnAST1, Modified} = refac_util:stop_tdTP(fun do_instrument/2, AnnAST,{TraceCacheFile, CurrentModName, {ModName, FunName, Arity}}),
+    if Modified ->
+	    [{{F, F}, AnnAST1} | instrument_files(Fs, {ModName, FunName, Arity},TraceCacheFile,  SearchPaths)];
+       true -> 
+	    instrument_files(Fs, {ModName, FunName, Arity}, TraceCacheFile, SearchPaths)
+    end;	       
 instrument_files([], _, _, _) ->
     [].
 
@@ -145,7 +140,6 @@ uninstrument_prog(FileName, SearchPaths, ModName, FunName, Arity) ->
     Dirs = lists:usort([CurrentDir|SearchPaths]),
     Files = refac_util:expand_files(Dirs, ".erl"),
     case uninstrument_files(Files, {ModName, FunName, Arity}, SearchPaths) of
-	{error, Reason} -> {error, Reason};
 	UnInstrumentedFiles ->
 	    refac_util:write_refactored_files(UnInstrumentedFiles),
 	    ChangedFiles = lists:map(fun({{F, _}, _AST}) -> F end, UnInstrumentedFiles),
@@ -160,17 +154,13 @@ uninstrument_prog(FileName, SearchPaths, ModName, FunName, Arity) ->
 
 
 uninstrument_files([F|Fs], {ModName,FunName, Arity}, SearchPaths) ->
-    case refac_util:parse_annotate_file(F,true, SearchPaths ) of 
-	{ok, {AnnAST, _Info}} ->
-	    {AnnAST1, Modified} = refac_util:stop_tdTP(fun do_uninstrument/2, AnnAST, {ModName, FunName, Arity}),
-	    if Modified ->
-		    [{{F, F}, AnnAST1} | uninstrument_files(Fs, {ModName, FunName, Arity}, SearchPaths)];
-	       true -> 
-		    uninstrument_files(Fs, {ModName, FunName, Arity}, SearchPaths)
-	    end;	       
-	{error, Reason} -> {error, Reason}
-    end;
-
+    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(F,true, SearchPaths ),
+    {AnnAST1, Modified} = refac_util:stop_tdTP(fun do_uninstrument/2, AnnAST, {ModName, FunName, Arity}),
+    if Modified ->
+	    [{{F, F}, AnnAST1} | uninstrument_files(Fs, {ModName, FunName, Arity}, SearchPaths)];
+       true -> 
+	    uninstrument_files(Fs, {ModName, FunName, Arity}, SearchPaths)
+    end;	       
 uninstrument_files([], _, _) ->
     [].
 

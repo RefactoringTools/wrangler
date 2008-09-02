@@ -58,51 +58,48 @@ rename_mod(FileName, NewName,SearchPaths, Editor) ->
     io:format("\nCMD: ~p:rename_mod(~p, ~p,~p).\n", [?MODULE, FileName, NewName, SearchPaths]),
     case refac_util:is_fun_name(NewName) of   %% module name and function name follow the same rules.
       true ->
-          case refac_util:parse_annotate_file(FileName,true, SearchPaths) of
-	    {ok, {AnnAST, Info}} ->
-		  case get_module_name(Info) of 
-		      {ok, OldModName} ->
-			  NewModName = list_to_atom(NewName),
-			  case (NewModName =/= OldModName) of
-			      true -> 
-				  case code:which(NewModName) of  
-				      non_existing -> 
-					  NewFileName = filename:dirname(FileName)++"/"++NewName++".erl",
-					  case filename_exists(NewFileName, SearchPaths) of 
-					      false -> 
-						  io:format("The current file under refactoring is:\n~p\n",[FileName]), 
-						  AnnAST1 = rename_mod_1(AnnAST, OldModName, NewModName),
-						  check_atoms(AnnAST1, OldModName),
-						  io:format("\nChecking client modules in the following search paths: \n~p\n",[SearchPaths]),
-						  ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
-						  io:format("ClientFiles:\n~p\n", [ClientFiles]),
-						  Results = rename_mod_in_client_modules(ClientFiles, 
-						  		     OldModName, NewModName,SearchPaths),
-						  case Editor of 
-						      emacs ->
-							  refac_util:write_refactored_files([{{FileName, NewFileName}, AnnAST1}|Results]),
-							  ChangedClientFiles = lists:map(fun({{F, _F}, _AST}) -> F end, Results),
-							  ChangedFiles = [FileName | ChangedClientFiles],
-							  io:format
-							    ("The following files have been changed by this refactoring:\n~p\n",
-							     [ChangedFiles]),
-							  {ok, ChangedFiles};
-						      eclipse ->
-							   Results1 =[{{FileName, NewFileName}, AnnAST1}|Results],
-							   Res = lists:map(fun({{FName, NewFName}, AST}) -> {FName, NewFName, refac_prettypr:print_ast(AST)} end, Results1),
+          {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(FileName,true, SearchPaths),
+	    case get_module_name(Info) of 
+		{ok, OldModName} ->
+		    NewModName = list_to_atom(NewName),
+		    case (NewModName =/= OldModName) of
+			true -> 
+			    case code:which(NewModName) of  
+				non_existing -> 
+				    NewFileName = filename:dirname(FileName)++"/"++NewName++".erl",
+				    case filename_exists(NewFileName, SearchPaths) of 
+					false -> 
+					    io:format("The current file under refactoring is:\n~p\n",[FileName]), 
+					    AnnAST1 = rename_mod_1(AnnAST, OldModName, NewModName),
+					    check_atoms(AnnAST1, OldModName),
+					    io:format("\nChecking client modules in the following search paths: \n~p\n",[SearchPaths]),
+					    ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
+					    io:format("ClientFiles:\n~p\n", [ClientFiles]),
+					    Results = rename_mod_in_client_modules(ClientFiles, 
+										   OldModName, NewModName,SearchPaths),
+					    case Editor of 
+						emacs ->
+						    refac_util:write_refactored_files([{{FileName, NewFileName}, AnnAST1}|Results]),
+						    ChangedClientFiles = lists:map(fun({{F, _F}, _AST}) -> F end, Results),
+						    ChangedFiles = [FileName | ChangedClientFiles],
+						    io:format
+						      ("The following files have been changed by this refactoring:\n~p\n",
+						       [ChangedFiles]),
+						    {ok, ChangedFiles};
+						eclipse ->
+						    Results1 =[{{FileName, NewFileName}, AnnAST1}|Results],
+						    Res = lists:map(fun({{FName, NewFName}, AST}) -> {FName, NewFName, refac_prettypr:print_ast(AST)} end, Results1),
 							  {ok, Res}
-						  end;
-					      true -> {error, "The new module/file name has been used!"}
-					  end;
-				      _ ->
-					  {error, "The new module name has been used!"} 
-				  end;
+					    end;
+					true -> {error, "The new module/file name has been used!"}
+				    end;
+				_ ->
+				    {error, "The new module name has been used!"} 
+			    end;
 			      _ ->
-				  {error, "New module name is the same as the old name."}
-			  end;
-		      {error, Reason} -> {error, Reason}
-		  end;
-	      {error, Reason} -> {error, Reason}
+			    {error, "New module name is the same as the old name."}
+		    end;
+		{error, Reason} -> {error, Reason}
 	  end;
       false -> {error, "Invalid new module name!"}
     end.
@@ -183,17 +180,14 @@ rename_mod_in_client_modules(Files, OldModName, NewModName, SearchPaths) ->
     case Files of 
         [] -> [];
         [F|Fs] ->  io:format("The current file under refactoring is:\n~p\n",[F]), 
-                   case refac_util:parse_annotate_file(F,true, SearchPaths) of
-                       {ok, {AnnAST, _Info}} ->
-			   {AnnAST1, Changed} = rename_mod_in_client_module_1(AnnAST, OldModName, NewModName),
-			   check_atoms(AnnAST1, OldModName),
-			   if Changed ->
-				   [{{F,F}, AnnAST1}|rename_mod_in_client_modules(Fs, OldModName, NewModName, SearchPaths)];
-			      true -> rename_mod_in_client_modules(Fs, OldModName, NewModName, SearchPaths)
-			   end;
-  		     {error, Reason} -> {error, Reason}
-  		 end 
-    end.    
+                   {ok, {AnnAST, _Info}}= refac_util:parse_annotate_file(F,true, SearchPaths),
+		   {AnnAST1, Changed} = rename_mod_in_client_module_1(AnnAST, OldModName, NewModName),
+		   check_atoms(AnnAST1, OldModName),
+		   if Changed ->
+			   [{{F,F}, AnnAST1}|rename_mod_in_client_modules(Fs, OldModName, NewModName, SearchPaths)];
+		      true -> rename_mod_in_client_modules(Fs, OldModName, NewModName, SearchPaths)
+		   end
+	end.    
 
 rename_mod_in_client_module_1(Tree, OldModName, NewModName) ->
     refac_util:stop_tdTP(fun do_rename_mod/2, Tree, {OldModName, NewModName}).

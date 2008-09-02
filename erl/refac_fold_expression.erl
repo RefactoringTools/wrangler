@@ -58,28 +58,25 @@ fold_expression_eclipse(FileName, Line, Col) ->
 
 fold_expression(FileName, Line, Col, Editor) ->
     io:format("\nCMD: ~p:fold_expression(~p, ~p,~p).\n", [?MODULE, FileName, Line, Col]),
-    case refac_util:parse_annotate_file(FileName,true, []) of 
-	{ok, {AnnAST, _Info}} ->
-	    case pos_to_fun_clause(AnnAST, {Line, Col}) of 
-		{ok, {_Mod, FunName, _Arity, FunClauseDef, ClauseIndex}} ->
-		    case side_condition_analysis(FunClauseDef) of 
-			ok ->			    
-			    Candidates = search_candidate_exprs(AnnAST, FunName, FunClauseDef),
-			    case Candidates of 
-				[] -> {error, "No expressions that are suitable for folding against the selected function have been found!"};	
-				_ -> Regions = case Editor of 
-						   emacs ->lists:map(fun({{{StartLine, StartCol}, {EndLine, EndCol}},NewExp}) ->
-									     {StartLine, StartCol, EndLine,EndCol, NewExp, {FunClauseDef, ClauseIndex}} end, Candidates);
-						   eclipse ->  Candidates 
-					       end,
-				     {ok, Regions}  %%  or {ok, FunClauseDef, Regions}? CHECK THIS.
-			    end;				 
-			{error, Reason} -> {error, Reason}
-		    end;
-		{error, _} ->
-		    {error, "You have not selected a function definition."}
+    {ok, {AnnAST, _Info}} =refac_util:parse_annotate_file(FileName,true, []),
+    case pos_to_fun_clause(AnnAST, {Line, Col}) of 
+	{ok, {_Mod, FunName, _Arity, FunClauseDef, ClauseIndex}} ->
+	    case side_condition_analysis(FunClauseDef) of 
+		ok ->			    
+		    Candidates = search_candidate_exprs(AnnAST, FunName, FunClauseDef),
+		    case Candidates of 
+			[] -> {error, "No expressions that are suitable for folding against the selected function have been found!"};	
+			_ -> Regions = case Editor of 
+					   emacs ->lists:map(fun({{{StartLine, StartCol}, {EndLine, EndCol}},NewExp}) ->
+								     {StartLine, StartCol, EndLine,EndCol, NewExp, {FunClauseDef, ClauseIndex}} end, Candidates);
+					   eclipse ->  Candidates 
+				       end,
+			     {ok, Regions}  %%  or {ok, FunClauseDef, Regions}? CHECK THIS.
+		    end;				 
+		{error, Reason} -> {error, Reason}
 	    end;
-	{error, Reason} -> {error, Reason}
+	{error, _} ->
+	    {error, "You have not selected a function definition."}
     end.
 
 %% =============================================================================================
@@ -616,16 +613,13 @@ pos_to_fun_clause_1(Node, Pos) ->
 
 -spec(fold_expression_1/3::(filename(), atom(), integer()) -> {syntaxTree(), moduleInfo()} | {error, string()}).
 fold_expression_1(FileName, FunName, Arity) ->
-    case refac_util:parse_annotate_file(FileName,true, []) of 
-	{ok, {AnnAST, Info}} ->
-	    FunClauseDef= name_to_fun_clause(AnnAST, FunName, Arity),
-	    Candidates = search_candidate_exprs(AnnAST, FunName, FunClauseDef),
-	    Body = refac_syntax:clause_body(FunClauseDef),
-            AnnAST1= fold_expression_1_eclipse_1(AnnAST, Body, Candidates),
-	    {AnnAST1, Info};
-	{error, Reason} -> {error, Reason}
-    end.
- 
+    {ok, {AnnAST, Info}} =refac_util:parse_annotate_file(FileName,true, []),
+    FunClauseDef= name_to_fun_clause(AnnAST, FunName, Arity),
+    Candidates = search_candidate_exprs(AnnAST, FunName, FunClauseDef),
+    Body = refac_syntax:clause_body(FunClauseDef),
+    AnnAST1= fold_expression_1_eclipse_1(AnnAST, Body, Candidates),
+    {AnnAST1, Info}.
+	
 
 name_to_fun_clause(AnnAST, FunName, Arity) ->
     Forms = refac_syntax:form_list_elements(AnnAST),

@@ -54,7 +54,7 @@ tuple_to_record(File, FLine, FCol, LLine, LCol,
          [?MODULE,File, FLine, FCol, LLine, LCol, RecName, FieldString, SearchPaths]),
   FieldList = convert_record_names(FieldString),
   check_if_correct_names(RecName, FieldList),
-  {AnnAST, Info} = parse_file(File, SearchPaths),
+  {ok, {AnnAST, Info}} = parse_file(File, SearchPaths),
   {Node, Tuple, Type} = check_pos(AnnAST, {FLine, FCol}, {LLine, LCol}),
   N = tuple_pos(Node,Tuple,Type),
   check_record_field_number(Tuple, FieldList),
@@ -168,10 +168,8 @@ check_if_correct_names(RecName, FieldList)->
 %% @end
 %% =====================================================================
 parse_file(FileName, SearchPaths)->
- case refac_util:parse_annotate_file(FileName, false, SearchPaths) of
-    {ok, {AnnAST, Info}}-> {AnnAST, Info};
-    {error, Reason} -> erlang:exit({error,Reason})
- end.
+  refac_util:parse_annotate_file(FileName, true, SearchPaths).
+ 
 
 
 %% =====================================================================
@@ -1031,18 +1029,15 @@ tuple_to_record_in_client_modules(Files, Name, Arity, Mod, N,
   case Files of
     [] -> [];
     [F | Fs] ->
-      io:format("The current file under refactoring is:\n~p\n", [F]),
-      case refac_util:parse_annotate_file(F, false, []) of
-	{ok, {AnnAST, Info}} ->
+	  io:format("The current file under refactoring is:\n~p\n", [F]),
+	  {ok, {AnnAST, Info}} =refac_util:parse_annotate_file(F, false, []),
           ExistingRec = check_record_name_exists(Info, RecName),
 	  AnnAST1 = tuple_record(AnnAST, ExistingRec, RecName, FieldList, 
                                  Name, Arity, Mod, N),
           [{{F, F}, AnnAST1} | 
-             tuple_to_record_in_client_modules(Fs,Name,Arity,Mod,N,
-                                               RecName,FieldList)];
-	{error, Reason} -> exit({error, Reason})
-      end
-    end.
+	   tuple_to_record_in_client_modules(Fs,Name,Arity,Mod,N,
+					     RecName,FieldList)]
+  end.
 
 
 %% =====================================================================
