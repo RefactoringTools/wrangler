@@ -102,7 +102,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 -spec(get_callgraph/1::([dir()])-> {callercallee(), scc_order(), external_calls()}).
 get_callgraph(SearchPaths) ->
-    gen_server:call(wrangler_callgraph_server, {get, SearchPaths}).
+    gen_server:call(wrangler_callgraph_server, {get, SearchPaths}, infinity).
 
 
 %%--------------------------------------------------------------------
