@@ -148,10 +148,8 @@ var_list({nil,_Ln}) -> [];
 var_list(Other) ->
     return_error(line(Other), "bad variable list").
 
--type(attributes() :: 'export' | 'file' | 'import' | 'module'
-	                       | 'record' | 'spec' | 'type').
--spec(error_bad_decl/2 :: (integer(), attributes()) -> no_return()).
-
+%% -type(attributes() :: export | file | import | moduled|record|spec|type).
+%% -spec(error_bad_decl/2 :: (integer(), attributes()) -> no_return()).
 error_bad_decl(L, S) ->
     return_error(L, io_lib:format("bad ~w declaration", [S])).
 

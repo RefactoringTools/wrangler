@@ -153,7 +153,7 @@ rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
 %% @spec rename_mod(FileName::filename(), NewName::string(), SearchPaths::[dir()])-> term()
 %%   
 
--spec(rename_mod/3::(filename(), string(), [dir()]) -> {error, string()} | {ok, [filename()]}).	  
+-spec(rename_mod/3::(filename(), string(), [dir()]) -> {error, string()} | {ok, [filename()]}). 
 rename_mod(FileName, NewName, SearchPaths) ->
     refac_rename_mod:rename_mod(FileName, NewName, SearchPaths).
 
@@ -247,7 +247,7 @@ rename_mod_batch(OldNamePattern, NewNamePattern, SearchPaths) ->
 %% @spec generalise(FileName::filename(), Start::Pos, End::Pos, ParName::string(), SearchPaths::[dir()])-> term()
 %%         Pos = {integer(), integer()}
 
--spec(generalise/5::(filename(),pos(), pos(),string(), dir()) -> {ok, string()} | {error, string()}).	
+-spec(generalise/5::(filename(),pos(), pos(),string(), dir()) -> {ok, string()} | {error, string()}).
 generalise(FileName, Start, End, ParName, SearchPaths) ->
     refac_gen:generalise(FileName, Start, End, ParName,  SearchPaths).
 
@@ -319,7 +319,7 @@ move_fun_eclipse(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths)
 %% @spec duplicated_code_in_buffer(FileName::filename(),MinToks::integer(),MinClones::integer()) -> term()
 %% 
       
--spec(duplicated_code_in_buffer/3::(filename(), string(), string()) ->{ok, string()}).         
+-spec(duplicated_code_in_buffer/3::(filename(), string(), string()) ->{ok, string()}).       
 duplicated_code_in_buffer(FileName, MinToks, MinClones) -> 
     refac_duplicated_code:duplicated_code([FileName], MinToks, MinClones).
 
@@ -354,7 +354,7 @@ duplicated_code_in_dirs(FileDirList, MinToks, MinClones) ->
 %% ==================================================================================================
 %% @spec expression_search(FileName::filename(),Start::Pos, End::Pos) -> term()
 
--spec(expression_search/3::(filename(), pos(), pos()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).    
+-spec(expression_search/3::(filename(), pos(), pos()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).  
 expression_search(FileName, Start, End) ->
     refac_expr_search:expr_search(FileName, Start, End).
 
@@ -405,12 +405,12 @@ fun_extraction_eclipse(FileName, Start, End, FunName) ->
 %% This refactoring currrently only works with a single module, but will be extended to multiple modules.
 %% =============================================================================================
 %% @spec fold_expression(FileName::filename(), Line::integer(), Col::integer())-> term()
--spec(fold_expression/3::(filename(), integer(), integer()) -> {ok, [filename()]} |{error, string()}).  
+-spec(fold_expression/3::(filename(), integer(), integer()) -> {ok, [filename()]} |{error, string()}).
 fold_expression(FileName, Line, Col) ->
     refac_fold_expression:fold_expression(FileName, Line, Col).
 
 
--spec(fold_expression_eclipse/3::(filename(), integer(), integer()) -> {ok, [{filename(), filename(), string()}]} | {error, string()}).	
+-spec(fold_expression_eclipse/3::(filename(), integer(), integer()) -> {ok, [{filename(), filename(), string()}]} | {error, string()}).
 fold_expression_eclipse(FileName, Line, Col) ->
     refac_fold_expression:fold_expression_eclipse(FileName, Line, Col).
 
@@ -428,7 +428,7 @@ fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine) ->
 
 %%@private
 %%@spec instrument_prog(FileName::filename(), SearchPaths::[dir()]) -> term()
--spec(instrument_prog/2::(filename(), [dir()]) ->{ok, [filename()]} | {error, string()}).	     
+-spec(instrument_prog/2::(filename(), [dir()]) ->{ok, [filename()]} | {error, string()}).    
 instrument_prog(FileName, SearchPaths) ->
      refac_instrument:instrument_prog(FileName, SearchPaths).
 
@@ -508,8 +508,9 @@ register_pid(FileName, Start, End, RegName, SearchPaths) ->
 %% -> term()
 -spec(tuple_funpar/5::(filename(), integer(), integer(), string(), [dir()]) ->
 	     {error, string()} | {ok, [filename()]}).
+
 tuple_funpar(FileName, Line, Col, Number, SearchPaths) ->
-    ref_tuple:tuple_funpar(FileName, Line, Col, list_to_integer(Number), SearchPaths).
+    refac_tuple:tuple_funpar(FileName, Line, Col, list_to_integer(Number), SearchPaths).
 
 
 %%@private
@@ -517,8 +518,9 @@ tuple_funpar(FileName, Line, Col, Number, SearchPaths) ->
 
 -spec(tuple_funpar_eclipse/5::(filename(), integer(), integer(), string(), [dir()]) ->
 	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
+
 tuple_funpar_eclipse(FileName, Line, Col, Number, SearchPaths) ->
-    ref_tuple:tuple_funpar_eclipse(FileName, Line, Col, list_to_integer(Number), SearchPaths).
+    refac_tuple:tuple_funpar_eclipse(FileName, Line, Col, list_to_integer(Number), SearchPaths).
 
 
 %%=========================================================================================
@@ -551,9 +553,11 @@ tuple_funpar_eclipse(FileName, Line, Col, Number, SearchPaths) ->
 %% ========================================================================================
 -spec(tuple_to_record/8::(filename(), integer(), integer(), integer(), integer(), string(), [string()], [dir()]) ->
 	     {error, string()} | {ok, [filename()]}).
-tuple_to_record(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
-    ref_tuple_to_record:tuple_to_record(File, FLine, FCol, LLine, LCol, 
-                RecName, FieldString, SearchPaths).
+
+tuple_to_record(File, FLine, FCol, LLine, LCol, RecName, FieldString,
+		SearchPaths) ->
+    refac_tuple_to_record:tuple_to_record(File, FLine, FCol, LLine, LCol, RecName,
+					  FieldString, SearchPaths).
 
 %%@private
 %% @spec tuple_to_record_eclipse(File::filename(),FLine::integer(),FCol::integer(),
@@ -561,9 +565,11 @@ tuple_to_record(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
 %%           FieldString::[string()], SearchPaths::[dir()]) -> term()
 -spec(tuple_to_record_eclipse/8::(filename(), integer(), integer(), integer(), integer(), string(), [string()], [dir()]) ->
 	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
-tuple_to_record_eclipse(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
-    ref_tuple_to_record:tuple_to_record_eclipse(File, FLine, FCol, LLine, LCol, 
-                RecName, FieldString, SearchPaths).
+
+tuple_to_record_eclipse(File, FLine, FCol, LLine, LCol, RecName, FieldString,
+			SearchPaths) ->
+    refac_tuple_to_record:tuple_to_record_eclipse(File, FLine, FCol, LLine, LCol,
+						  RecName, FieldString, SearchPaths).
 
 %%@private
 %%@spec fun_to_process(FileName::filename(), Line::integer(), Col::integer(), ProcessName::string(), SearchPaths::[dir()]) ->term()
