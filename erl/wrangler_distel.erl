@@ -21,7 +21,8 @@
 -module(wrangler_distel).
 
 -export([ rename_fun/5, rename_var/5, rename_mod/3, rename_process/5, generalise/7, move_fun/6, tuple_to_record/8,
-         duplicated_code_in_buffer/3, duplicated_code_in_dirs/3, expression_search/5, fun_extraction/6, fold_expression/3, tuple_funpar/5,
+         duplicated_code_in_buffer/3, duplicated_code_in_dirs/3, expression_search/5, fun_extraction/6, fold_expr_by_loc/4, 
+	 fold_expr_by_name/6, tuple_funpar/5,
 	 instrument_prog/2, uninstrument_prog/2, add_a_tag/5,register_pid/7, fun_to_process/5]).
 	 
 
@@ -52,7 +53,7 @@ rename_fun(Fname, Line, Col, NewName,SearchPaths) ->
 	   {error, Reason}
     end.
 
--spec(rename_mod/3::(filename(), string(), [dir()]) -> {error, string()} | {ok, [filename()]}).	  
+-spec(rename_mod/3::(filename(), string(), [dir()]) -> {error, string()} | {ok, [filename()]}).  
 rename_mod(Fname, NewName,SearchPaths) ->
     case check_undo_process() of 
 	ok ->  wrangler:rename_mod(Fname, NewName,SearchPaths);
@@ -93,7 +94,7 @@ move_fun(FName, Line, Col, ModName, CreateNewFile, SearchPaths) ->
 	    {error, Reason}
     end.
 
--spec(duplicated_code_in_buffer/3::(filename(), string(), string()) ->{ok, string()}).         
+-spec(duplicated_code_in_buffer/3::(filename(), string(), string()) ->{ok, string()}).        
 duplicated_code_in_buffer(FName, MinLines,  MinClones) ->
     wrangler:duplicated_code_in_buffer(FName, MinLines, MinClones).
 
@@ -101,7 +102,7 @@ duplicated_code_in_buffer(FName, MinLines,  MinClones) ->
 duplicated_code_in_dirs(FName, MinLines, MinClones) ->
     wrangler:duplicated_code_in_dirs(FName, MinLines, MinClones).
 
--spec(expression_search/5::(filename(), integer(), integer(), integer(), integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}). 
+-spec(expression_search/5::(filename(), integer(), integer(), integer(), integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
 expression_search(FName, StartLine, StartCol, EndLine, EndCol) ->
     wrangler:expression_search(FName, {StartLine, StartCol}, {EndLine, EndCol}).
 
@@ -114,13 +115,24 @@ fun_extraction(FName, StartLine, StartCol, EndLine, EndCol, FunName) ->
 	    {error, Reason}
     end.
 
--spec(fold_expression/3::(filename(), integer(), integer()) -> {ok, [filename()]} |{error, string()}).  
-fold_expression(FName, Line, Col) ->
-    case check_undo_process() of 
-	ok ->  wrangler:fold_expression(FName, Line, Col);
-	{error, Reason} ->
-	    {error, Reason}
+-spec(fold_expr_by_loc/4::
+      (filename(), integer(), integer(), [dir()]) -> {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
+							 | {error, string()}).
+fold_expr_by_loc(FName, Line, Col, SearchPaths) ->
+    case check_undo_process() of
+      ok -> wrangler:fold_expr_by_loc(FName, Line, Col, SearchPaths);
+      {error, Reason} -> {error, Reason}
     end.
+
+-spec(fold_expr_by_name/6::(filename(), string(), string(), string(), string(), [dir()]) ->
+	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
+		 | {error, string()}).
+fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths) ->
+   case check_undo_process() of
+      ok -> wrangler:fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths);
+      {error, Reason} -> {error, Reason}
+    end.
+
 	       
 -spec(instrument_prog/2::(filename(), [dir()]) ->{ok, [filename()]} | {error, string()}).
 instrument_prog(FName, SearchPaths) ->
