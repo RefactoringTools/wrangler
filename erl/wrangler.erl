@@ -35,39 +35,22 @@
 
 -module(wrangler).
 
--export([rename_var/5, 
-	 rename_fun/5, 
-	 rename_mod/3, 
-	 rename_process/5,
-	 rename_mod_batch/3,
-	 generalise/5,
-	 move_fun/6,
-	 duplicated_code_in_buffer/3,
-	 duplicated_code_in_dirs/3,
-	 expression_search/3,
-	 fun_extraction/4,
-	 fold_expression/3,
+-export([rename_var/5, rename_fun/5, rename_mod/3,
+	 rename_process/5, rename_mod_batch/3, generalise/5,
+	 move_fun/6, duplicated_code_in_buffer/3,
+	 duplicated_code_in_dirs/3, expression_search/3,
+	 fun_extraction/4, fold_expr_by_loc/4, fold_expr_by_name/6, 
 	 instrument_prog/2,
-	 uninstrument_prog/2,
-	 add_a_tag/5,
-	 tuple_funpar/5,
-         tuple_to_record/8,
-	 register_pid/5,
-	 fun_to_process/5]).
+	 uninstrument_prog/2, add_a_tag/5, tuple_funpar/5,
+	 tuple_to_record/8, register_pid/5, fun_to_process/5]).
 
--export([rename_var_eclipse/5, 
-	 rename_fun_eclipse/5, 
-	 rename_mod_eclipse/3, 
-	 generalise_eclipse/5,
-	 move_fun_eclipse/6,
-	 fun_extraction_eclipse/4,
-	 gen_fun_1_eclipse/7,
-	 gen_fun_2_eclipse/7,
-	 tuple_funpar_eclipse/5,
-         tuple_to_record_eclipse/8,
-	 fold_expression_eclipse/3,
-	 fold_expression_1_eclipse/3,
-	 fold_expression_2_eclipse/5]).
+-export([rename_var_eclipse/5, rename_fun_eclipse/5,
+	 rename_mod_eclipse/3, generalise_eclipse/5,
+	 move_fun_eclipse/6, fun_extraction_eclipse/4,
+	 gen_fun_1_eclipse/7, gen_fun_2_eclipse/7,
+	 tuple_funpar_eclipse/5, tuple_to_record_eclipse/8,
+	 fold_expr_by_loc_eclipse/4, fold_expr_by_name_eclipse/6,
+	 fold_expression_1_eclipse/4,fold_expression_2_eclipse/6]).
 
 %%-export([trace_send/4, trace_spawn/4]).
 
@@ -153,7 +136,7 @@ rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
 %% @spec rename_mod(FileName::filename(), NewName::string(), SearchPaths::[dir()])-> term()
 %%   
 
--spec(rename_mod/3::(filename(), string(), [dir()]) -> {error, string()} | {ok, [filename()]}). 
+-spec(rename_mod/3::(filename(), string(), [dir()]) -> {error, string()} | {ok, [filename()]}).
 rename_mod(FileName, NewName, SearchPaths) ->
     refac_rename_mod:rename_mod(FileName, NewName, SearchPaths).
 
@@ -319,7 +302,7 @@ move_fun_eclipse(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths)
 %% @spec duplicated_code_in_buffer(FileName::filename(),MinToks::integer(),MinClones::integer()) -> term()
 %% 
       
--spec(duplicated_code_in_buffer/3::(filename(), string(), string()) ->{ok, string()}).       
+-spec(duplicated_code_in_buffer/3::(filename(), string(), string()) ->{ok, string()}).     
 duplicated_code_in_buffer(FileName, MinToks, MinClones) -> 
     refac_duplicated_code:duplicated_code([FileName], MinToks, MinClones).
 
@@ -354,7 +337,7 @@ duplicated_code_in_dirs(FileDirList, MinToks, MinClones) ->
 %% ==================================================================================================
 %% @spec expression_search(FileName::filename(),Start::Pos, End::Pos) -> term()
 
--spec(expression_search/3::(filename(), pos(), pos()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).  
+-spec(expression_search/3::(filename(), pos(), pos()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
 expression_search(FileName, Start, End) ->
     refac_expr_search:expr_search(FileName, Start, End).
 
@@ -405,30 +388,52 @@ fun_extraction_eclipse(FileName, Start, End, FunName) ->
 %% This refactoring currrently only works with a single module, but will be extended to multiple modules.
 %% =============================================================================================
 %% @spec fold_expression(FileName::filename(), Line::integer(), Col::integer())-> term()
--spec(fold_expression/3::(filename(), integer(), integer()) -> {ok, [filename()]} |{error, string()}).
-fold_expression(FileName, Line, Col) ->
-    refac_fold_expression:fold_expression(FileName, Line, Col).
 
 
--spec(fold_expression_eclipse/3::(filename(), integer(), integer()) -> {ok, [{filename(), filename(), string()}]} | {error, string()}).
-fold_expression_eclipse(FileName, Line, Col) ->
-    refac_fold_expression:fold_expression_eclipse(FileName, Line, Col).
+-spec(fold_expr_by_loc/4::
+      (filename(), integer(), integer(), [dir()]) -> {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
+							 | {error, string()}).
+fold_expr_by_loc(FileName, Line, Col, SearchPaths) ->
+    refac_fold_expression:fold_expr_by_loc(FileName, Line, Col, SearchPaths).
 
--spec(fold_expression_1_eclipse/3::(filename(), syntaxTree(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree}]) ->
+
+-spec(fold_expr_by_loc_eclipse/4::(filename(), integer(), integer(), [dir()]) -> {ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]} 
+									 | {error, string()}).
+fold_expr_by_loc_eclipse(FileName, Line, Col, SearchPaths) ->
+    refac_fold_expression:fold_expr_by_loc_eclipse(FileName, Line, Col, SearchPaths).
+
+
+-spec(fold_expr_by_name/6::(filename(), string(), string(), string(), string(), [dir()]) ->
+	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
+		 | {error, string()}).
+
+fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths) ->
+    refac_fold_expression:fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths).
+
+
+-spec(fold_expr_by_name_eclipse/6::(filename(), string(), string(), string(), string(), [dir()]) ->
+	     {ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]} 
+		 | {error, string()}).
+
+fold_expr_by_name_eclipse(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths) ->
+    refac_fold_expression:fold_expr_by_name_eclipse(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths).
+
+
+-spec(fold_expression_1_eclipse/4::(filename(), syntaxTree(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree}],[dir()]) ->
 	     {ok, [{filename(), filename(), string()}]}).
-fold_expression_1_eclipse(FileName, FunClauseDef, StartEndExpList)->  %% StartEndExpList: {{{StartLine, StartCol}, {EndLine, EndCol}}, NewExp}
-    refac_fold_expression:fold_expression_1_eclipse(FileName, FunClauseDef, StartEndExpList).
+fold_expression_1_eclipse(FileName, FunClauseDef, StartEndExpList, SearchPaths)->  %% StartEndExpList: {{{StartLine, StartCol}, {EndLine, EndCol}}, NewExp}
+    refac_fold_expression:fold_expression_1_eclipse(FileName, FunClauseDef, StartEndExpList, SearchPaths).
 
--spec(fold_expression_2_eclipse/5::(filename(), atom(),integer(), integer(), integer()) -> 
+-spec(fold_expression_2_eclipse/6::(filename(), atom(),integer(), integer(), integer(), [dir()]) -> 
 	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
              | {error, string()}).
-fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine) ->
-    refac_fold_expression:fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine).
+fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine, SearchPaths) ->
+    refac_fold_expression:fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine, SearchPaths).
 
 
 %%@private
 %%@spec instrument_prog(FileName::filename(), SearchPaths::[dir()]) -> term()
--spec(instrument_prog/2::(filename(), [dir()]) ->{ok, [filename()]} | {error, string()}).    
+-spec(instrument_prog/2::(filename(), [dir()]) ->{ok, [filename()]} | {error, string()}).  
 instrument_prog(FileName, SearchPaths) ->
      refac_instrument:instrument_prog(FileName, SearchPaths).
 
