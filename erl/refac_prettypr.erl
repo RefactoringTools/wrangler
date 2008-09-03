@@ -101,8 +101,8 @@ vertical_concat([{E, Form}|T], Acc) ->
     F = refac_util:concat_toks(refac_util:get_toks(Form)),
     {ok, EToks, _} = refac_scan:string(E),    
     {ok, FToks, _} = refac_scan:string(F),
-    EStr = refac_util:concat_toks(EToks),
-    FStr = refac_util:concat_toks(FToks),
+    EStr = process_str(refac_util:concat_toks(EToks)),
+    FStr = process_str(refac_util:concat_toks(FToks)),
     Acc1 = case Acc of 
 	       "" -> Acc;
 	       _ ->case (EStr==FStr) or (refac_syntax:type(Form) == error_marker) of
@@ -112,26 +112,37 @@ vertical_concat([{E, Form}|T], Acc) ->
 	   end,
     Str = case (EStr == FStr) or (refac_syntax:type(Form)==error_marker) of 
 	      true -> F;
-	      false-> case T of 
-			  [] -> E;
-			  [{E1,Form1}|_] ->
-			      {ok, E1Toks, _} = refac_scan:string(E1),
-			      F1 = refac_util:concat_toks(refac_util:get_toks(Form1)),
-			      {ok, F1Toks, _} = refac_scan:string(F1),
-			      E1Str = refac_util:concat_toks(E1Toks),
-			      F1Str = refac_util:concat_toks(F1Toks),
-			      case (E1Str==F1Str) or (refac_syntax:type(Form1) == error_marker) of 
-				  true -> E++"\n";
-				  false ->
-				      E++"\n"
-			      end
-		      end
+	      false->
+		  case T of 
+		      [] -> E;
+		      [{E1,Form1}|_] ->
+			  {ok, E1Toks, _} = refac_scan:string(E1),
+			  F1 = refac_util:concat_toks(refac_util:get_toks(Form1)),
+			  {ok, F1Toks, _} = refac_scan:string(F1),
+			  E1Str = process_str(refac_util:concat_toks(E1Toks)),
+			  F1Str = process_str(refac_util:concat_toks(F1Toks)),
+			  case (E1Str==F1Str) or (refac_syntax:type(Form1) == error_marker) of 
+			      true -> E++"\n";
+			      false ->
+				  E++"\n"
+			  end
+		  end
 	  end,	      
     case T of 
 	[] -> Acc1++Str;   
 	_  -> vertical_concat(T, Acc1++Str)
     end.
-    
+
+
+process_str(S) ->
+    lists:flatmap(fun(C) ->
+			  case C of 
+			      ' ' -> [];
+			      $\" ->[];
+                              _ -> [C]
+                          end
+		  end, S).
+	        
 
 get_paper_ribbon_width(Form) ->    
     case refac_syntax:type(Form) of
