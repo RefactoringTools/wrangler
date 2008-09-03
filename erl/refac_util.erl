@@ -777,7 +777,7 @@ concat_toks([T|Ts], Acc) ->
 				_ -> V
 			    end,
 			concat_toks(Ts, [S|Acc]);
-	{string, _, V} -> concat_toks(Ts, ['"', process_str(V), '"'|Acc]);
+	{string, _, V} -> concat_toks(Ts,['"', process_str(V), '"'|Acc]);
 	{_, _, V} -> concat_toks(Ts, [V|Acc]);
  	{dot, _} ->concat_toks(Ts, ['.'|Acc]);
 	{V, _} -> concat_toks(Ts, [V|Acc])
