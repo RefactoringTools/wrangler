@@ -98,6 +98,17 @@ vertical_concat(Es) ->
 vertical_concat([], Acc) ->
     Acc;
 vertical_concat([{E, Form}|T], Acc) ->
+    SpecialForm=fun(F) ->
+			 case refac_syntax:type(F) of
+			     error_maker -> true;
+			     attribute-> case refac_syntax:atom_value(refac_syntax:attribute_name(F)) of
+					     type -> true;
+					     spec -> true;
+					     _ -> false
+					 end;
+			     _ -> false			 
+			 end
+		 end,
     F = refac_util:concat_toks(refac_util:get_toks(Form)),
     {ok, EToks, _} = refac_scan:string(E),    
     {ok, FToks, _} = refac_scan:string(F),
@@ -105,12 +116,12 @@ vertical_concat([{E, Form}|T], Acc) ->
     FStr = process_str(refac_util:concat_toks(FToks)),
     Acc1 = case Acc of 
 	       "" -> Acc;
-	       _ ->case (EStr==FStr) or (refac_syntax:type(Form) == error_marker) of
+	       _ ->case (EStr==FStr) or SpecialForm(Form) of
  			true -> Acc;
  			false -> Acc++"\n"
  		    end
 	   end,
-    Str = case (EStr == FStr) or (refac_syntax:type(Form)==error_marker) of 
+    Str = case (EStr == FStr) or SpecialForm(Form) of 
 	      true -> F;
 	      false->
 		  case T of 
@@ -121,7 +132,7 @@ vertical_concat([{E, Form}|T], Acc) ->
 			  {ok, F1Toks, _} = refac_scan:string(F1),
 			  E1Str = process_str(refac_util:concat_toks(E1Toks)),
 			  F1Str = process_str(refac_util:concat_toks(F1Toks)),
-			  case (E1Str==F1Str) or (refac_syntax:type(Form1) == error_marker) of 
+			  case (E1Str==F1Str) or SpecialForm(Form) of 
 			      true -> E++"\n";
 			      false ->
 				  E++"\n"
@@ -1041,7 +1052,9 @@ lay_2(Node, Ctxt) ->
 	warning_marker ->
 	    E = erl_syntax:warning_marker_info(Node),
 	    beside(text("%% WARNING: "),
-		   lay_error_info(E, reset_prec(Ctxt)))
+		   lay_error_info(E, reset_prec(Ctxt)));
+	type -> empty()  %% tempory fix!!
+		    
     end.
 
 lay_parentheses(D, _Ctxt) ->
