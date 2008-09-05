@@ -137,7 +137,7 @@ once_tdTU(Function, Node, Others) ->
     case Function(Node, Others) of
       {R, true} -> {R, true};
       {_R, false} ->
-	  case erl_syntax:subtrees(Node) of
+	  case refac_syntax:subtrees(Node) of
 	    [] -> {[], false};
 	    Gs ->
 		Flattened_Gs = [T || G <- Gs, T <- G],
@@ -866,7 +866,7 @@ parse_annotate_file_1(FName, ByPassPreP, SearchPaths) ->
 	  true -> refac_epp_dodger:parse_file(FName);
 	  false -> refac_epp:parse_file(FName, SearchPaths, [])
 	end,
-    case R of
+     case R of
       {ok, Forms1} ->
 	  Forms = if ByPassPreP -> Forms1;
 		     true -> tl(Forms1)
@@ -1364,6 +1364,8 @@ do_add_range(Node, Toks) ->
 	  {_S2, E2} = get_range(Arg),
 	  refac_syntax:add_ann({range, {S1, E2}}, Node);
       error_marker ->
+	  refac_syntax:add_ann({range, {{L,C}, {L,C}}}, Node);
+      type ->
 	  refac_syntax:add_ann({range, {{L,C}, {L,C}}}, Node);
       _ ->
 	  %%io:format("Unhandled syntax category:\n~p\n", [refac_syntax:type(Node)]),
