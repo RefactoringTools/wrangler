@@ -10,7 +10,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_wrangler_error_logger/0, check_logged_errors/0, add_error_to_logger/1]).
+-export([start_wrangler_error_logger/0, get_logged_errors/0, add_error_to_logger/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -28,8 +28,9 @@
 start_wrangler_error_logger() ->
     gen_server:start_link({local, wrangler_error_logger}, ?MODULE, [], []).
 
-check_logged_errors() ->
-    gen_server:cast(wrangler_error_logger, check_errors).
+get_logged_errors() ->
+    gen_server:call(wrangler_error_logger, get_errors).
+    
 
 add_error_to_logger(Error) ->
     gen_server:cast(wrangler_error_logger, {add, Error}).
@@ -58,9 +59,8 @@ init([]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
-handle_call(_Request, _From, State) ->
-    Reply = ok,
-    {reply, Reply, State}.
+handle_call(get_errors, _From, _State=#state{errors=Errors}) ->
+    {reply, Errors,  #state{}}.
 
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
@@ -68,22 +68,6 @@ handle_call(_Request, _From, State) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
-handle_cast(check_errors, _State=#state{errors=Errors}) ->
-      case Errors of 
-		[] ->
-		     ok; 
-		_ ->
-		    io:format("\n===============================WARNING===============================\n"),
-		    io:format("Due to the following syntactical errors in the program, attributes/functions affected "
-			      "by these errors were not affected by this refactoring!\n"),
-		    lists:foreach(fun({FileName, Errs}) ->
-				      Errs1 = lists:map(fun({Pos, _Mod, Msg}) -> {Pos, Msg} end, Errs),
-				      io:format("File:\n ~p\n", [FileName]),
-				      io:format("Error(s):\n"),
-				      lists:foreach(fun({Pos, Msg}) -> io:format(" ** ~p:~s **\n", [Pos, Msg]) end, lists:reverse(Errs1)) %% lists:flatten(Msg)
-			      end, Errors)
-      end,
-     {noreply, #state{}};
 handle_cast({add, Error}, _State=#state{errors=Errors}) ->
     {noreply, #state{errors=lists:usort([Error|Errors])}}.
 
