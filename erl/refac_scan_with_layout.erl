@@ -196,7 +196,7 @@ scan([C | Cs], Stack, Toks, {Line, Col}, State, Errors)
 
 scan([C | Cs], Stack, Toks, {Line, Col}, State, Errors)
     when C >= $\200,
-	 C =< $  ->                        % Control chars -skip
+	 C =< $\240 ->                        % Control chars -skip
     scan(Cs, Stack, [{whitespace, {Line,Col}, C}|Toks], {Line, Col + 1}, State, Errors);
 scan([C | Cs], _Stack, Toks, {Line, Col}, State, Errors)
     when C >= $a,
@@ -349,6 +349,10 @@ scan(":-" ++ Cs, Stack, Toks, {Line, Col}, State,
      Errors) ->
     scan(Cs, Stack, [{':-', {Line, Col}} | Toks],
 	 {Line, Col + 2}, State, Errors);
+%% :: for typed records
+scan("::"++Cs, Stack, Toks, {Line, Col}, State, Errors) ->
+    scan(Cs, Stack, [{'::',{Line, Col}}|Toks], {Line, Col+2}, State, Errors);
+
 scan(":" = Cs, Stack, Toks, {Line, Col}, State,
      Errors) ->
     more(Cs, Stack, Toks, {Line, Col}, State, Errors,
@@ -787,7 +791,6 @@ scan_comment([], Stack, Toks, {Line, Col}, State,
 scan_comment(Eof, Stack, Toks, {Line, Col}, State,
 	     Errors) ->
     [StartPos|S] = reverse(Stack),
-    io:format("Stack:\n~p\n", [reverse(Stack)]),
     done(Eof, Errors, [{comment, StartPos, S}|Toks], {Line, Col}, State).
 
 scan_dot([$% | _] = Cs, _Stack, Toks, {Line, Col},
@@ -805,7 +808,7 @@ scan_dot([C | Cs], _Stack, Toks, {Line, Col}, State,
 	 {Line, Col + 1}, State);
 scan_dot([C | Cs], _Stack, Toks, {Line, Col}, State,
 	 Errors)
-    when C >= $\200, C =< $  ->
+    when C >= $\200, C =< $\240 ->
     done(Cs, Errors, [{dot, {Line, Col}} | Toks],
 	 {Line, Col + 1}, State);
 scan_dot([], Stack, Toks, {Line, Col}, State, Errors) ->
@@ -854,6 +857,7 @@ reserved_word('bsl') -> true;
 reserved_word('bsr') -> true;
 reserved_word('or') -> true;
 reserved_word('xor') -> true;
+reserved_word('spec') -> true;
 reserved_word(_) -> false.
 
 get_compiler_options() ->
