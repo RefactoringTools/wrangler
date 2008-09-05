@@ -409,7 +409,7 @@ type(Node) ->
       {'if', _, _} -> if_expr;
       {'receive', _, _, _, _} -> receive_expr;
       {'receive', _, _} -> receive_expr;
-      {attribute, _, _, _} -> attribute;
+      {attribute, _, _, _} ->   attribute;
       {bin, _, _} -> binary;
       {bin_element, _, _, _, _} -> binary_field;
       {block, _, _} -> block_expr;
@@ -435,8 +435,10 @@ type(Node) ->
       {remote, _, _, _} -> module_qualifier;
       {rule, _, _, _, _} -> rule;
       {'try', _, _, _, _, _} -> try_expr;
+      {type, _, _, _} -> type;
+     
       {tuple, _, _} -> tuple;
-      _ -> erlang:error({badarg, Node})
+        _ -> erlang:error({badarg, Node})
     end.
 
 %% =====================================================================
@@ -497,6 +499,7 @@ is_leaf(Node) ->
       underscore -> true;
       variable -> true;
       warning_marker -> true;
+      type -> true;   %% a temporary fix;
       _ -> false
     end.
 
@@ -1976,8 +1979,6 @@ list_elements(Node) ->
     lists:reverse(list_elements(Node, [])).
 
 list_elements(Node, As) ->
-    %io:format("Nodetype:\n~p\n", [type(Node)]),
-    %io:format("Node:\n~p\n", [Node]),
     case type(Node) of
       list ->
 	  As1 = lists:reverse(list_prefix(Node)) ++ As,
@@ -2712,12 +2713,22 @@ attribute_arguments(Node) ->
 		{Type, Entries} = Data,
 		[set_pos(atom(Type), Pos),
 		 set_pos(tuple(unfold_record_fields(Entries)), Pos)];
+	       spec ->
+  		  {FunSpec, TypeSpec} = Data,
+  		  case FunSpec of 
+  		      {Fun, Arity} -> [set_pos(tuple([set_pos(atom(Fun),Pos), set_pos(integer(Arity),Pos)]), Pos),list(TypeSpec)]
+  		  end;	
+	      type ->
+		  {TypeName, TypeSpec1, TypeSpec2} = Data,
+		  [set_pos(atom(TypeName), Pos), TypeSpec1, list(TypeSpec2)];
+	      
 	    _ ->
-		%% Standard single-term generic attribute.
-		[set_pos(abstract(Data), Pos)]
+	       [set_pos(abstract(Data), Pos)]
 	  end;
       Node1 -> (data(Node1))#attribute.args
     end.
+
+  
 
 %% =====================================================================
 %% @spec arity_qualifier(Body::syntaxTree(), Arity::syntaxTree()) ->
@@ -3893,6 +3904,7 @@ record_expr_fields(Node) ->
       Node1 -> (data(Node1))#record_expr.fields
     end.
 
+
 %% =====================================================================
 %% @spec application(Module, Function::syntaxTree(),
 %%                   Arguments::[syntaxTree()]) -> syntaxTree()
@@ -3927,6 +3939,7 @@ application(Module, Name, Arguments) ->
 %% @see application/3
 
 -record(application, {operator, arguments}).
+
 
 %% type(Node) = application
 %% data(Node) = #application{operator :: Operator,
@@ -5388,10 +5401,10 @@ revert_forms_1([]) -> [].
 %% @see copy_attrs/2
 
 subtrees(T) ->
-      case is_leaf(T) of
+    case is_leaf(T) of
       true -> [];
       false ->
-	  case type(T) of
+	    case type(T) of
 	    application ->
 		[[application_operator(T)], application_arguments(T)];
 	    arity_qualifier ->
@@ -5400,8 +5413,9 @@ subtrees(T) ->
 	    attribute ->
 		case attribute_arguments(T) of
 		  none -> [[attribute_name(T)]];
-		  As -> [[attribute_name(T)], As]
-		end;
+		    As ->
+			[[attribute_name(T)], As]
+		    end;
 	    binary -> [binary_fields(T)];
 	    binary_field ->
 		case binary_field_types(T) of
@@ -5489,8 +5503,9 @@ subtrees(T) ->
 	    try_expr ->
 		[try_expr_body(T), try_expr_clauses(T),
 		 try_expr_handlers(T), try_expr_after(T)];
-	    tuple -> [tuple_elements(T)]
-	  end
+	    tuple -> [tuple_elements(T)];
+	    type -> []
+	      end
     end.
 
 %% =====================================================================
@@ -5593,6 +5608,7 @@ make_tree(size_qualifier, [[N], [A]]) ->
 make_tree(try_expr, [B, C, H, A]) ->
     try_expr(B, C, H, A);
 make_tree(tuple, [E]) -> tuple(E).
+
 
 %% =====================================================================
 %% @spec meta(Tree::syntaxTree()) -> syntaxTree()
