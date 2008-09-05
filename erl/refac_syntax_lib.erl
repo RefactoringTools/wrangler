@@ -1349,7 +1349,8 @@ analyze_form(Node) ->
       _ ->
 	  case refac_syntax:is_form(Node) of
 	    true -> refac_syntax:type(Node);
-	    false -> throw(syntax_error)
+	    false -> 
+		  throw(syntax_error)
 	  end
     end.
 
@@ -1433,6 +1434,8 @@ analyze_attribute(file, Node) ->
 analyze_attribute(record, Node) ->
     analyze_record_attribute(Node);
 analyze_attribute(define, _Node) -> define;
+analyze_attribute(spec, _Node) -> spec;
+analyze_attribute(type, _Node) -> type;
 analyze_attribute(_, Node) ->
     %% A "wild" attribute (such as e.g. a `compile' directive).
     analyze_wild_attribute(Node).
