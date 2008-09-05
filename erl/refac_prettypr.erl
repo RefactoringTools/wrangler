@@ -100,7 +100,7 @@ vertical_concat([], Acc) ->
 vertical_concat([{E, Form}|T], Acc) ->
     SpecialForm=fun(F) ->
 			 case refac_syntax:type(F) of
-			     error_maker -> true;
+			     error_marker -> true;
 			     attribute-> case refac_syntax:atom_value(refac_syntax:attribute_name(F)) of
 					     type -> true;
 					     spec -> true;
