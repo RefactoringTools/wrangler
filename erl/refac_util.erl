@@ -884,10 +884,12 @@ parse_annotate_file_1(FName, ByPassPreP, SearchPaths) ->
 					   Info1 = Info ++ [{errors, [Reason]}],
 					   {ok, {AnnAST, Info1}}
 				   end;
-		 _ -> {ok, {AnnAST, Info}}
+		 _ -> 
+		    {ok, {AnnAST, Info}}
 	    end;
 	{error, Reason} -> erlang:error(Reason)
     end.
+
 
 %%@spec add_tokens(FName::filename(), SyntaxTree::syntaxTree()) -> syntaxTree()
 %%@Attach tokens to each form in the AST.
