@@ -150,7 +150,7 @@ update_ast_1({Key={FileName, _ByPassPreP, _SearchPaths}, {AnnAST, Info, Time}}, 
 log_errors(FileName, Info) ->
     case lists:keysearch(errors, 1, Info) of
       {value, {errors, Error}} ->
-	  wrangler_error_logger ! {add, {FileName, Error}};
+	  wrangler_error_logger:add_error_to_logger({FileName, Error});
       false -> ok
     end.
 
