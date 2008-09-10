@@ -349,17 +349,37 @@ Please see the documentation of `erlang-menu-base-items'.")
                               'distel-menu-items
                               erlang-menu-items))
    (erlang-menu-init)
-   (erl-spawn (erl-send-rpc node 'application 'start (list 'wrangler_app)))
-   (setq erlang-refactor-mode t))
+   (erl-spawn
+     (erl-send-rpc node 'application 'start (list 'wrangler_app))
+     (erl-receive()
+	 ((['rex 'ok]
+	   (message "Wrangler started.")
+	   (setq erlang-refactor-status 1))
+	  (['rex ['error ['already_started app]]]
+	   (message "Wrangler alreay started")
+	   (setq erlang-refactor-status 1))
+	  (['rex ['error rsn]]
+	   (message "Wrangler failed to start:%s" rsn)
+	   (setq erlang-refactor-status 0))))))
 
 (defun erlang-refactor-off(node)
   (interactive (list (erl-target-node)))
   (setq erlang-menu-items 
         (erlang-menu-delete 'refactor-menu-items erlang-menu-items))
   (erlang-menu-init)
-  (when (and erlang-refactor-mode node)
-   (erl-spawn (erl-send-rpc node 'application 'stop (list 'wrangler_app)))
-   (setq erlang-refactor-mode nil)))
+  (erl-spawn
+    (erl-send-rpc node 'application 'stop (list 'wrangler_app))
+    (erl-receive()
+	((['rex 'ok]
+	  (message "Wrangler stopped.")
+	  (setq erlang-refactor-status 0))
+	 (['rex ['error ['not_started app]]]
+	   (message "Wrangler was not started.")
+	   (setq erlang-refactor-status 0))
+	 (['rex ['error rsn]]
+	  (message "Wrangler failed to stop:%s" rsn))))))
+	     
+ 
 
 ;; (defun erlang-refactor-on(node)
 ;;   (interactive (list (erl-target-node)))

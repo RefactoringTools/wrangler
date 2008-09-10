@@ -1699,45 +1699,109 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
 	      (setq changed (cons (buffer-name b) changed)))))
       (if changed (message-box (format "there are modified buffers: %s" changed))
+        (erl-spawn
+	  (erl-send-rpc node 'refac_fold_expression 'cursor_at_fun_clause(list current-file-name line-no column-no erlang-refac-search-paths))
+	  (erl-receive (node buffer current-file-name line-no column-no)
+	      ((['rex ['badrpc rsn]]
+		(fold_expr_by_name node current-file-name (read-string "Module name: ") (read-string "Function name: ") (read-string "Arity ")
+				   (read-string "Clause index (starting from 1): ")))
+	       (['rex 'true]
+		(if (yes-or-no-p "Would you like to fold expressions against the function clause pointed by the cursor? ")
+		    (fold_expr_by_loc node buffer current-file-name line-no column-no)
+		  (fold_expr_by_name node buffer current-file-name (read-string "Module name: ") (read-string "Function name: ") (read-string "Arity: ")
+				     (read-string "Clause index (starting from 1): "))))
+	       (['rex 'false]
+	       (fold_expr_by_name node buffer current-file-name (read-string "Module name: ") (read-string "Function name: ") (read-string "Arity: ")
+				   (read-string "Clause index (starting from 1): "))))))))))
+
+
+(defun fold_expr_by_name(node buffer current-file-name module-name function-name arity clause-index)
     (erl-spawn
-      (erl-send-rpc node 'wrangler_distel 'fold_expression(list current-file-name line-no column-no))
-      (erl-receive (node buffer current-file-name)
-	  ((['rex ['badrpc rsn]]
-	    (message "Refactoring failed: %S" rsn))
-	   (['rex ['error rsn]]
-	    (message "Refactoring failed: %s" rsn))
-	   (['rex ['ok candidates]]
-	    (with-current-buffer buffer
-	       (progn (while (not (equal candidates nil))
-			(setq reg (car candidates))
-			(setq line1 (elt reg 0))
-			(setq col1  (elt  reg 1))
-			(setq line2 (elt reg 2))
-			(setq col2  (elt  reg 3))
-			(setq funcall (elt reg 4))
-			(setq fundef (elt reg 5))
-			(highlight-region line1 (- col1 1) line2  col2 buffer)
-			(if (yes-or-no-p "Would you like to fold this expression? ")
-			    (progn (erl-spawn (erl-send-rpc node 'refac_fold_expression 'fold_expression_1(list current-file-name line1 col1 line2 col2 funcall fundef))
-				     (erl-receive (node buffer highlight-region-overlay current-file-name)
-					 ((['rex ['badrpc rsn]]
-					   (delete-overlay highlight-region-overlay)
-					   (message "Refactoring failed: %s" rsn))
-					  (['rex ['error rsn]]
-					   (delete-overlay highlight-region-overlay)
-					   (message "Refactoring failed: %s" rsn))			     
-					  (['rex ['ok candidates1]]
-					   (with-current-buffer buffer (revert-buffer nil t t)
-								(if (not (equal candidates1 nil))
-								    (progn (highlight-folding-candidates node current-file-name candidates1 buffer highlight-region-overlay)
-									   (delete-overlay highlight-region-overlay))
-								  (delete-overlay highlight-region-overlay))))
-					  )))
-				   (setq candidates nil))
-			  (setq candidates (cdr candidates))))
-		      (revert-buffer nil t t)
-		      (delete-overlay highlight-region-overlay)
-		      (message "Refactoring succeeded.")))))))))))
+    (erl-send-rpc node 'wrangler_distel 'fold_expr_by_name(list current-file-name module-name function-name arity clause-index erlang-refac-search-paths))
+    (erl-receive (node buffer current-file-name)
+	((['rex ['badrpc rsn]]
+	  (message "Refactoring failed: %S" rsn))
+	 (['rex ['error rsn]]
+	  (message "Refactoring failed: %s" rsn))
+	 (['rex ['ok candidates]]
+	  (with-current-buffer buffer
+	    (progn (while (not (equal candidates nil))
+		     (setq reg (car candidates))
+		     (setq line1 (elt reg 0))
+		     (setq col1  (elt  reg 1))
+		     (setq line2 (elt reg 2))
+		     (setq col2  (elt  reg 3))
+		     (setq funcall (elt reg 4))
+		     (setq fundef (elt reg 5))
+		     (highlight-region line1 (- col1 1) line2  col2 buffer)
+		     (if (yes-or-no-p "Would you like to fold this expression? ")
+			 (progn (erl-spawn (erl-send-rpc node 'refac_fold_expression
+							 'fold_expression_1(list current-file-name line1 col1 line2 col2 funcall fundef erlang-refac-search-paths))
+				  (erl-receive (node buffer highlight-region-overlay current-file-name)
+				      ((['rex ['badrpc rsn]]
+					(delete-overlay highlight-region-overlay)
+					(message "Refactoring failed: %s" rsn))
+				       (['rex ['error rsn]]
+					(delete-overlay highlight-region-overlay)
+					(message "Refactoring failed: %s" rsn))			     
+				       (['rex ['ok candidates1]]
+					(with-current-buffer buffer (revert-buffer nil t t)
+							     (if (not (equal candidates1 nil))
+								 (progn (highlight-folding-candidates node current-file-name candidates1 buffer highlight-region-overlay)
+									(delete-overlay highlight-region-overlay))
+							       (delete-overlay highlight-region-overlay))))
+				       )))
+				(setq candidates nil))
+		       (setq candidates (cdr candidates))))
+		   (revert-buffer nil t t)
+		   (delete-overlay highlight-region-overlay)
+		   (message "Refactoring succeeded."))))))))
+
+
+  
+(defun fold_expr_by_loc(node buffer current-file-name line-no column-no)
+  (erl-spawn
+    (erl-send-rpc node 'wrangler_distel 'fold_expr_by_loc(list current-file-name line-no column-no erlang-refac-search-paths))
+    (erl-receive (node buffer current-file-name)
+	((['rex ['badrpc rsn]]
+	  (message "Refactoring failed: %S" rsn))
+	 (['rex ['error rsn]]
+	  (message "Refactoring failed: %s" rsn))
+	 (['rex ['ok candidates]]
+	  (with-current-buffer buffer
+	    (progn (while (not (equal candidates nil))
+		     (setq reg (car candidates))
+		     (setq line1 (elt reg 0))
+		     (setq col1  (elt  reg 1))
+		     (setq line2 (elt reg 2))
+		     (setq col2  (elt  reg 3))
+		     (setq funcall (elt reg 4))
+		     (setq fundef (elt reg 5))
+		     (highlight-region line1 (- col1 1) line2  col2 buffer)
+		     (if (yes-or-no-p "Would you like to fold this expression? ")
+			 (progn (erl-spawn (erl-send-rpc node 'refac_fold_expression
+							 'fold_expression_1(list current-file-name line1 col1 line2 col2 funcall fundef erlang-refac-search-paths))
+				  (erl-receive (node buffer highlight-region-overlay current-file-name)
+				      ((['rex ['badrpc rsn]]
+					(delete-overlay highlight-region-overlay)
+					(message "Refactoring failed: %s" rsn))
+				       (['rex ['error rsn]]
+					(delete-overlay highlight-region-overlay)
+					(message "Refactoring failed: %s" rsn))			     
+				       (['rex ['ok candidates1]]
+					(with-current-buffer buffer (revert-buffer nil t t)
+							     (if (not (equal candidates1 nil))
+								 (progn (highlight-folding-candidates node current-file-name candidates1 buffer highlight-region-overlay)
+									(delete-overlay highlight-region-overlay))
+							       (delete-overlay highlight-region-overlay))))
+				       )))
+				(setq candidates nil))
+		       (setq candidates (cdr candidates))))
+		   (revert-buffer nil t t)
+		   (delete-overlay highlight-region-overlay)
+		   (message "Refactoring succeeded."))))))))
+
+
 
 (defun highlight-folding-candidates(node current-file-name candidates buffer highlight-region-overlay)
   "highlight the found candidate expressions one by one"
@@ -1751,7 +1815,7 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
     (setq fundef (elt reg 5))
     (highlight-region line1 (- col1 1) line2  col2 buffer)
     (if (yes-or-no-p "Would you like to fold this expression? ")
-	(progn (erl-spawn (erl-send-rpc node 'refac_fold_expression 'fold_expression_1(list current-file-name line1 col1 line2 col2 funcall fundef))
+	(progn (erl-spawn (erl-send-rpc node 'refac_fold_expression 'fold_expression_1(list current-file-name line1 col1 line2 col2 funcall fundef erlang-refac-search-paths))
 		 (erl-receive (node buffer highlight-region-overlay current-file-name)
 		     ((['rex ['badrpc rsn]]
 		       (delete-overlay highlight-region-overlay)
