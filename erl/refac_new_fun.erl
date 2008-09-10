@@ -246,9 +246,12 @@ collect_vars(Tree) ->
  		   case refac_syntax:type(T) of 
  		       variable ->
 			   SourcePos = refac_syntax:get_pos(T),
-			   {value, {def, DefinePos}} = lists:keysearch(def, 1, refac_syntax:get_ann(T)),
-			   VarName = refac_syntax:variable_name(T),
-			   S++[{VarName, SourcePos, DefinePos}];
+			   case lists:keysearch(def, 1, refac_syntax:get_ann(T)) of
+			       {value, {def, DefinePos}} ->
+				   VarName = refac_syntax:variable_name(T),
+				   S++[{VarName, SourcePos, DefinePos}];
+			       _ -> S
+			   end;
 		       _  -> S
  		   end
 	    end,
