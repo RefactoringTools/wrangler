@@ -32,7 +32,7 @@ public abstract class WranglerRefactoringAction implements
 		refactoringWizard.dispose();
 	}
 
-	@Override
+
 	public void init(IWorkbenchWindow window) {
 	}
 
@@ -63,7 +63,6 @@ public abstract class WranglerRefactoringAction implements
 	 * 
 	 * @see org.eclipse.ui.IActionDelegate#run(org.eclipse.jface.action.IAction)
 	 */
-	@Override
 	public void run(IAction action) {
 
 		parameters.initSelection();
@@ -91,7 +90,6 @@ public abstract class WranglerRefactoringAction implements
 	 * @see org.eclipse.ui.IActionDelegate#selectionChanged(org.eclipse.jface.action.IAction,
 	 *      org.eclipse.jface.viewers.ISelection)
 	 */
-	@Override
 	public void selectionChanged(IAction action, ISelection selection) {
 		parameters.setSelection(selection);
 	}

@@ -37,7 +37,6 @@ public abstract class WranglerNewDataInputPage extends UserInputWizardPage {
 		refactoringName = name;
 	}
 
-	@Override
 	public void createControl(Composite parent) {
 
 		setDescription(initDescription());
@@ -108,7 +107,7 @@ public abstract class WranglerNewDataInputPage extends UserInputWizardPage {
 	private void initNewNameModifyListener() {
 		newDataText.addModifyListener(new ModifyListener() {
 
-			@Override
+
 			public void modifyText(ModifyEvent e) {
 				WranglerRefactoring refac = (WranglerRefactoring) getRefactoring();
 				refac.setNewName(newDataText.getText());

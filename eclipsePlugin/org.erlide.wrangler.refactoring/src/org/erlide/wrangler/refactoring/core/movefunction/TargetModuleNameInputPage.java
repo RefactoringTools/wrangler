@@ -66,11 +66,11 @@ public class TargetModuleNameInputPage extends NewModuleNameInputPage {
 
 			moduleCombo.addSelectionListener(new SelectionListener() {
 
-				@Override
+				
 				public void widgetDefaultSelected(SelectionEvent e) {
 				}
 
-				@Override
+				
 				public void widgetSelected(SelectionEvent e) {
 					refac.setNewName(moduleCombo.getText());
 					setPageComplete(true);
@@ -98,7 +98,7 @@ public class TargetModuleNameInputPage extends NewModuleNameInputPage {
 	protected void initListeners() {
 		newDataText.addModifyListener(new ModifyListener() {
 
-			@Override
+			
 			public void modifyText(ModifyEvent e) {
 				String s = newDataText.getText();
 				if (s.length() == 0) {

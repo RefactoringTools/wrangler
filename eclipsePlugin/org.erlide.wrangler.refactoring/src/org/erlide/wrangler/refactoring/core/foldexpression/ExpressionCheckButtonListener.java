@@ -31,25 +31,24 @@ public class ExpressionCheckButtonListener implements SelectionListener,
 
 	// probably the SelectionListener is not needed, because the button's
 	// internal state is automatically changed
-	@Override
+	
 	public void widgetDefaultSelected(SelectionEvent e) {
 	}
 
-	@Override
+
 	public void widgetSelected(SelectionEvent e) {
 	}
 
-	@Override
+
 	public void mouseEnter(MouseEvent e) {
 		setHighlight(e.widget);
 	}
 
-	@Override
+
 	public void mouseExit(MouseEvent e) {
 		resetHighlight();
 	}
 
-	@Override
 	public void mouseHover(MouseEvent e) {
 	}
 

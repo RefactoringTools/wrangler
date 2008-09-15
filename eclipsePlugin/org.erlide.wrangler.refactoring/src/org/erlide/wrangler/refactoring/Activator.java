@@ -14,7 +14,8 @@ import org.eclipse.core.runtime.Status;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.erlide.jinterface.rpc.RpcException;
 import org.erlide.runtime.backend.BackendManager;
-import org.erlide.runtime.backend.internal.ManagedBackend;
+import org.erlide.runtime.backend.ExecutionBackend;
+import org.erlide.runtime.backend.IdeBackend;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 
@@ -49,9 +50,10 @@ public class Activator extends AbstractUIPlugin {
 	}
 
 	private void printDebug(String s) throws RpcException {
-		ManagedBackend mb = (ManagedBackend) BackendManager.getDefault()
-		.getIdeBackend();
-		mb.rpc("io", "format", "s", s+"~n");
+		/*ManagedBackend mb = (ManagedBackend) BackendManager.getDefault()
+		.getIdeBackend();*/
+		/*mb.rpc("io", "format", "s", s+"~n");*/
+		IdeBackend ibe = BackendManager.getDefault().getIdeBackend();
 	}
 
 	/**
@@ -70,9 +72,9 @@ public class Activator extends AbstractUIPlugin {
 					.append("ebin").toOSString();
 
 
-			ManagedBackend mb = (ManagedBackend) BackendManager.getDefault()
+			IdeBackend mb = BackendManager.getDefault()
 					.getIdeBackend();
-			ErlangCode.addPathA(mb, wranglerPath);
+			ErlangCode.addPathA((ExecutionBackend)mb, wranglerPath);
 			mb.rpc("code", "load_file", "a", "wrangler");
 		} catch (IOException ioe) {
 			ioe.printStackTrace();

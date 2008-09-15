@@ -30,7 +30,7 @@ public class NewModuleNameInputPage extends WranglerNewDataInputPage {
 	protected void initListeners() {
 		newDataText.addModifyListener(new ModifyListener() {
 
-			@Override
+			
 			public void modifyText(ModifyEvent e) {
 				String s = newDataText.getText();
 				if (s.length() == 0) {
