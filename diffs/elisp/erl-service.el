@@ -78,8 +78,10 @@ integer."
          (mfa (if (or (null mfa-at-point)
                       current-prefix-arg
                       distel-tags-compliant)
-                  (erl-parse-mfa (read-string "Function reference: "
-                                              (erl-format-mfa mfa-at-point)))
+                  (erl-parse-mfa 
+		   (read-string 
+		    "Function reference: "
+		    (if current-prefix-arg nil (erl-format-mfa mfa-at-point))))
                 mfa-at-point)))
     mfa))
 
@@ -773,6 +775,10 @@ default.)"
   (when (eq (char-after) ?:)
     (forward-sexp)))
 
+(defun erl-find-module ()
+  (interactive)
+  (erl-find-source (read-string "module: ")))
+ 
 (defun erl-find-source (module &optional function arity)
   "Find the source code for MODULE in a buffer, loading it if necessary.
 When FUNCTION is specified, the point is moved to its start."
@@ -794,6 +800,60 @@ When FUNCTION is specified, the point is moved to its start."
 	      ;; Remove the history marker, since we didn't go anywhere
 	      (ring-remove erl-find-history-ring)
 	      (message "Error: %s" reason))))))))
+
+(defun erl-find-doc-under-point ()
+  "Find the html documentation for the (possibly incomplete) OTP 
+function under point"
+  (interactive)
+  (if (require 'w3m nil t)
+      (erl-do-find-doc 'link 'point)
+    (erl-find-sig-under-point)))
+
+(defun erl-find-doc ()
+  (interactive)
+  (if (require 'w3m nil t)
+      (erl-do-find-doc 'link nil)
+    (erl-find-sig)))
+
+(defun erl-find-sig-under-point ()
+  "Find the signatures for the (possibly incomplete) OTP function under point"
+  (interactive)
+  (erl-do-find-doc 'sig 'point))
+
+(defun erl-find-sig ()
+  (interactive)
+  (erl-do-find-doc 'sig nil))
+
+(defun erl-do-find-doc (what how &optional module function ari)
+  "Find the documentation for an OTP mfa. 
+if WHAT is 'link, tries to get a link to the html docs, and open 
+it in a w3m buffer. if WHAT is nil, prints the function signature 
+in the mini-buffer.
+If HOW is 'point, tries to find the mfa at point; if HOW is nil, 
+prompts for an mfa."
+  (destructuring-bind 
+      (mod fun ari)
+      (or (if (null how)
+	      (erl-parse-mfa (read-string "Function reference: ") "-")
+	    (erl-mfa-at-point))
+	  (error "No call at point."))
+    (let ((node (or erl-nodename-cache (erl-target-node)))
+	  (arity (or ari -1))
+	  (module (if (equal mod "-") fun mod))
+	  (function (if (equal mod "-") nil fun)))
+      (erl-spawn
+	(erl-send-rpc node 'otp_doc 'distel (list what module function arity))
+	(erl-receive ()
+	    ((['rex nil]
+	      (message "No doc found."))
+	     (['rex ['mfas string]]
+	      (message "candidates: %s" string))
+	     (['rex ['sig string]]
+	      (message "%s" string))
+	     (['rex ['link link]]
+	      (w3m-browse-url link))
+	     (['rex [reaso reason]]
+	      (message "Error: %s %s" reaso reason))))))))
 
 (defun erl-search-function (function arity)
   "Goto the definition of FUNCTION/ARITY in the current buffer."
@@ -1234,7 +1294,6 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	 (add-text-properties ,start (point) ,props)))))
 
 (provide 'erl-service)
-
 
 ;;---------------------------------------------------------------------------
 ;; Begin of modification by H.Li

@@ -6,7 +6,6 @@
 
 (provide 'distel)
 (provide 'erlang-refac)
-
 ;; Customization
 
 (defgroup distel '()
@@ -54,26 +53,30 @@ time you use one, you will be prompted for the name of the node to
 use. This name will be cached for future commands. To override the
 cache, give a prefix argument with C-u before using the command.
 \\<erlang-extended-mode-map>
-\\[erl-process-list]	- List all Erlang processes (\"pman\").
-\\[erl-complete]		- Complete a module or remote function name.
+
+\\[erl-choose-nodename]	- Set Erlang nodename.
+\\[erl-ping]	- Check connection between Emacs and Erlang.
+
 \\[erl-find-source-under-point]		- Jump from a function call to its definition.
 \\[erl-find-source-unwind]		- Jump back from a function definition (multi-level).
-\\[erl-eval-expression]	- Evaluate an erlang expression from the minibuffer.
-\\[erl-reload-module]	- Reload an Erlang module.
+
+\\[erl-reload-module]	- (Re)load an Erlang module.
 \\[erl-reload-modules]	- Reload all Erlang modules that are out of date.
-\\[fprof]	- Profile (with fprof) an expression from the minibuffer.
-\\[fprof-analyse]	- View profiler results from an \"fprof:analyse\" file.
-\\[erl-fdoc-describe]	- Describe a module or function with fdoc.
-\\[erl-fdoc-apropos]	- Describe all Erlang functions matching a regexp.
+\\[erl-find-module]	- Find a module.
+\\[erl-who-calls]	- Who calls function under point.
+
+\\[erl-process-list]	- List all Erlang processes (\"pman\").
 \\[edb-toggle-interpret]	- Toggle debug interpreting of the module.
-\\[edb-toggle-breakpoint]	- Toggle a debugger breakpoint at the current line.
-\\[edb-synch-breakpoints]	- Synchronizes current breakpoints to erlang.
-\\[edb-save-dbg-state]	- Save set of interpreted modules and breakpoints
-\\[edb-restore-dbg-state]	- Restore saved set of interpreted modules and breakpoints
+C-c C-d b/\\[edb-toggle-breakpoint]	- Toggle a debugger breakpoint at the current line.
 \\[edb-monitor]	- Popup the debugger's process monitor buffer.
+\\[edb-synch-breakpoints]	- Synchronizes current breakpoints to erlang.
+\\[edb-save-dbg-state]	- Save set of interpreted modules and breakpoints.
+\\[edb-restore-dbg-state]	- Restore saved set of interpreted modules and breakpoints.
+
+\\[erl-eval-expression]	- Evaluate an erlang expression from the minibuffer.
 \\[erl-ie-show-session]	- Create an interactive \"session\" buffer.
-\\[erl-ie-copy-buffer-to-session]	- Create an interactive \"session\" buffer from current buffer.
-\\[erl-ie-copy-region-to-session]	- Create an interactive \"session\" buffer from region.
+
+\\[erl-complete]		- Complete a module or remote function name.
 \\[erl-refactor-subfunction]	- Refactor expressions in the region as a new function.
 \\[erl-refactor-rename-fun]         - Rename a variable name.
 \\[erl-refactor-rename-var]       - Rename a function name.
@@ -92,14 +95,27 @@ cache, give a prefix argument with C-u before using the command.
 \\[erl-refactor-duplicated-code-in-buffer] -Detect code clones in the current file.
 \\[erl-refactor-duplicated-code-in-dirs] -Detect code clones in the specified directories.
 \\[erl-refactor-expression-search] - search an expression in the current file
+\\[erl-find-sig-under-point]	- Show the signature for the function under point.
+\\[erl-find-doc-under-point]	- Show the HTML documentation for the function under point.
+\\[erl-find-sig]	- Show the signature for a function.
+\\[erl-find-doc]	- Show the HTML documentation for a function.
+\\[erl-fdoc-describe]	- Describe a function with fdoc.
+\\[erl-fdoc-apropos]	- Describe functions matching a regexp with fdoc.
 
-Most commands that pop up new buffers will save your original window
-configuration, so that you can restore it by pressing 'q'. Use
-`describe-mode' (\\[describe-mode]) on any Distel buffer when you want
-to know what commands are available. To get more information about a
-particular command, use \"\\[describe-key]\" followed by the command's key
-sequence. For general information about Emacs' online help, use
-\"\\[help-for-help]\".
+\\[fprof]	- Profile (with fprof) an expression from the minibuffer.
+\\[fprof-analyse]	- View profiler results from an \"fprof:analyse\" file.
+
+ \"fdoc\" works by looking at the source code. The HTML doc functions
+needs the OTP HTML docs to be installed. who-calls makes use of
+xref, and can take quite some time to initialize.
+
+  Most commands that pop up new buffers will save your original
+window configuration, so that you can restore it by pressing
+'q'. Use `describe-mode' (\\[describe-mode]) on any Distel buffer
+when you want to know what commands are available. To get more
+information about a particular command, use \"\\[describe-key]\"
+followed by the command's key sequence. For general information
+about Emacs' online help, use \"\\[help-for-help]\".
 "
   nil
   nil
@@ -116,7 +132,7 @@ sequence. For general information about Emacs' online help, use
     ("\C-c\C-ds" edb-synch-breakpoints)
     ("\C-c\C-dS" edb-save-dbg-state)
     ("\C-c\C-dR" edb-restore-dbg-state)
-    ("\C-c\C-dm" edb-monitor)
+    ("\C-c\C-dm" edb-monitor)          
     ("\C-c\C-d:" erl-eval-expression)
     ("\C-c\C-dL" erl-reload-module)
     ("\C-c\C-dr" erl-reload-modules)
@@ -130,7 +146,12 @@ sequence. For general information about Emacs' online help, use
     ("\C-c\C-de" erl-ie-show-session)
     ("\C-c\C-df" erl-refactor-subfunction)
     ("\C-u"      erl-refactor-undo)   ;; added by Huiqing Li
+    ("\C-c\C-dF" erl-find-module)
     ("\C-c\C-dg" erl-ping)
+    ("\C-c\C-dh" erl-find-doc-under-point)
+    ("\C-c\C-dH" erl-find-doc)
+    ("\C-c\C-dz" erl-find-sig-under-point)
+    ("\C-c\C-dZ" erl-find-sig)
     ("\C-c\C-dd" erl-fdoc-describe)
     ("\C-c\C-da" erl-fdoc-apropos)
     ("\C-c\C-dw" erl-who-calls)
@@ -138,8 +159,9 @@ sequence. For general information about Emacs' online help, use
     ("("         erl-openparen)
     ;; Possibly "controversial" shorter keys
     ("\M-."      erl-find-source-under-point)	; usually `find-tag'
-    ("\M-,"      erl-find-source-unwind) ; usually `tags-loop-continue'
     ("\M-*"      erl-find-source-unwind) ; usually `pop-tag-mark'
+    ("\M-,"      erl-find-source-unwind) ; usually `tags-loop-continue'
+    ("\M-/"      erl-complete) ; usually `dabbrev-expand'
     )
   "Keys to bind in distel-mode-map.")
 
@@ -274,6 +296,7 @@ Please see the documentation of `erlang-menu-base-items'.")
     (insert string)
     (indent-rigidly pos (point) level)))
 
+
 ;;Begin of Added by Huiqing Li
 
 (defgroup erlang-refac '() "Erlang refactoring options")
@@ -302,8 +325,8 @@ Please see the documentation of `erlang-menu-base-items'.")
      ;; ("Instrument Program" erl-refactor-instrument-prog)
      ;; ("Uninstrument Program" erl-refactor-uninstrument-prog)
       nil
-      ("From Tuple To Record" erl-refactor-tuple-to-record)
-      ("Tuple Function Arguments (beta)" erl-refactor-tuple-funpar)
+    ;;  ("From Tuple To Record (beta)" erl-refactor-tuple-to-record)
+      ("Tuple Function Arguments" erl-refactor-tuple-funpar)
       nil
       ("Rename a Process" erl-refactor-rename-process)
       ("Add a Tag to Messages (beta)"  erl-refactor-add-a-tag)
@@ -344,38 +367,46 @@ Please see the documentation of `erlang-menu-base-items'.")
 
 (defun erlang-refactor-on(node)
   (interactive (list (erl-target-node)))
-   (setq erlang-menu-items
-       (erlang-menu-add-below 'refactor-menu-items
-                              'distel-menu-items
-                              erlang-menu-items))
-   (erlang-menu-init)
-   (erl-spawn
-     (erl-send-rpc node 'application 'start (list 'wrangler_app))
-     (erl-receive()
-	 ((['rex 'ok]
-	   (message "Wrangler started.")
+  (erl-spawn
+    (erl-send-rpc node 'application 'start (list 'wrangler_app))
+    (erl-receive()
+	((['rex 'ok]
+	  (setq erlang-menu-items
+		(erlang-menu-add-below 'refactor-menu-items
+					'distel-menu-items
+					erlang-menu-items))
+	  (erlang-menu-init)
+	  (message "Wrangler started.")
 	   (setq erlang-refactor-status 1))
-	  (['rex ['error ['already_started app]]]
-	   (message "Wrangler alreay started")
-	   (setq erlang-refactor-status 1))
-	  (['rex ['error rsn]]
-	   (message "Wrangler failed to start:%s" rsn)
-	   (setq erlang-refactor-status 0))))))
+	 (['rex ['error ['already_started app]]]
+	  (setq erlang-menu-items
+		(erlang-menu-add-below 'refactor-menu-items
+				       'distel-menu-items
+				       erlang-menu-items))
+	  (erlang-menu-init)
+	  (message "Wrangler started")
+	  (setq erlang-refactor-status 1))
+	 (['rex ['error rsn]]
+	  (message "Wrangler failed to start:%s" rsn)
+	  (setq erlang-refactor-status 0))))))
 
 (defun erlang-refactor-off(node)
   (interactive (list (erl-target-node)))
-  (setq erlang-menu-items 
-        (erlang-menu-delete 'refactor-menu-items erlang-menu-items))
-  (erlang-menu-init)
-  (erl-spawn
+   (erl-spawn
     (erl-send-rpc node 'application 'stop (list 'wrangler_app))
     (erl-receive()
 	((['rex 'ok]
+	  (setq erlang-menu-items 
+		(erlang-menu-delete 'refactor-menu-items erlang-menu-items))
+	  (erlang-menu-init)
 	  (message "Wrangler stopped.")
 	  (setq erlang-refactor-status 0))
 	 (['rex ['error ['not_started app]]]
-	   (message "Wrangler was not started.")
-	   (setq erlang-refactor-status 0))
+	  (setq erlang-menu-items 
+		(erlang-menu-delete 'refactor-menu-items erlang-menu-items))
+	  (erlang-menu-init)
+	  (message "Wrangler was not started.")
+	  (setq erlang-refactor-status 0))
 	 (['rex ['error rsn]]
 	  (message "Wrangler failed to stop:%s" rsn))))))
 	     
