@@ -61,7 +61,7 @@ expr_search(FileName, Start, End) ->
 		%%   {ok, Res};	
 		
 		N -> io:format("~p identical expressions (including the selected expression,and up to variable renaming and literal substitution) "
-				       " have been fould. \n", [N]),
+				       " have been found. \n", [N]),
 		     {ok, Res}
 	    end;
 	_   -> {error, "You have not selected an expression!"}
@@ -96,7 +96,7 @@ search_expr_seq(Tree, ExpList) ->
     AllExpList = contained_exprs(Tree, length(ExpList)),
    %% ExpList1 = lists:map(fun(T) ->simplify_expr(T) end, ExpList),
     Res =lists:flatmap(fun(EL) ->
-				   get_clone(ExpList, EL) end, AllExpList),
+			       get_clone(ExpList, EL) end, AllExpList),
     Res.
     
     
@@ -177,7 +177,7 @@ contained_exprs(Tree, MinLen) ->
 	end,
     Es = refac_syntax_lib:fold(F, [], Tree),
     [E ||  E <- Es, length(E) >= MinLen].
-		
+		 
 
 
 %% get the list sequence of expressions contained in Tree between locations Start and End.
