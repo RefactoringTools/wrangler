@@ -1,5 +1,5 @@
-PACKAGE := distel4.0pre-wrangler
-VERSION := 0.2 
+PACKAGE := distel4.0-wrangler
+VERSION := 0.5 
 
 prefix      = @prefix@
 exec_prefix = @exec_prefix@
@@ -106,6 +106,7 @@ install: base
 	install -m 775 ebin/*.beam ${EBIN_DIR}
 	install -m 775 src/*.erl ${ERL_SRC_DIR}
 	install -m 775 wrangler/erl/*.erl ${WRANGLER_SRC_DIR}
+	install -m 755 wrangler/erl/*.app ${EBIN_DIR}
 	install -m 775 wrangler/hrl/*.hrl ${WRANGLER_SRC_DIR}
 	install -m 775 wrangler/plt/side_effect_plt ${WRANGLER_PLT_DIR}
 	@echo
