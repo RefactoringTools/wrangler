@@ -1,13 +1,13 @@
 @title Welcome to Wrangler -- an Erlang Refactorer
 
-@copyright 2006-2008 Huiqing Li, Simon Thompson
+@copyright 2006-2009 Huiqing Li, Simon Thompson
 
 @author Huiqing Li <hl@kent.ac.uk>
         [http://www.cs.kent.ac.uk/projects/forse]
-@version 0.2
+@version 0.5
 @doc
 <p> Wrangler is an Erlang refactoring tool that supports interactive refactoring of Erlang programs.
-The current snapshot (Wrangler 0.2) is still a prototype, made available so that you can play 
+The current snapshot (Wrangler 0.5) is still a prototype, made available so that you can play 
 with basic refactoring support for Erlang programs, and give us feedback or bug reports. </p>
 
 <p> We DO NOT recommend to use this prototype on your production source just yet! </p>
