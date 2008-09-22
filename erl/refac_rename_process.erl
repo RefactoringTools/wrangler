@@ -19,8 +19,6 @@
 %%
 %% =====================================================================
 
-%% =====================================================================
-
 %% TOADD: functionalities to check OTP behaviours.
 -module(refac_rename_process).
 
@@ -41,7 +39,7 @@ rename_process_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
 
 rename_process(FileName, Line, Col, NewName, SearchPaths, Editor) ->
     io:format("\nCMD: ~p:rename_fun( ~p, ~p, ~p, ~p,~p).\n", [?MODULE, FileName, Line, Col, NewName, SearchPaths]),
-    case refac_util:is_fun_name(NewName) of
+    case is_process_name(NewName) of
       true ->
 	    _Res = refac_annotate_pid:ann_pid_info(SearchPaths),  %%TODO: check whether asts are already annotated.
 	    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths), %% TODO: rename to get_ast.
@@ -238,7 +236,7 @@ do_rename_process(Node, {OldProcessName, NewProcessName}) ->
 	atom ->
 	    As = refac_syntax:get_ann(Node),
 	    case lists:keysearch(pname, 1, As) of 
-		{value, {pname, []}} ->
+		{value, {pname, _}} ->
 		    case refac_syntax:atom_value(Node) of 
 			OldProcessName -> {refac_syntax:copy_attrs(Node, refac_syntax:atom(NewProcessName)), true};
 			_ -> {Node, false}
@@ -356,3 +354,7 @@ collect_atoms(File, SearchPaths)->
     Res11 = lists:map(fun(A) -> {ModName, refac_syntax:get_pos(A), refac_syntax:atom_value(A)} end, Res1),
     Res21 = lists:map(fun(A) -> {ModName, refac_syntax:get_pos(A), refac_syntax:atom_value(A)} end, Res2),
     lists:subtract(lists:usort(Res11), lists:usort(Res21)).
+
+is_process_name(Name) ->
+    refac_util:is_fun_name(Name) and (list_to_atom(Name) =/= undefined).
+
