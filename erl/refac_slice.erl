@@ -39,7 +39,7 @@
 
 %% @spec forward_slice(Files:[filename()], AnnAST:syntaxTree(), ModName::atom(), FunDef::syntaxTree(), Expr::syntaxTree()) -> [syntaxTree()].
 %% @doc Forward slice the program with expression Expr, which in contained in function FunDef, as the slicing criterion.                     
-
+ 
 -spec(forward_slice/5::([filename()], syntaxTree(), atom(), syntaxTree(), syntaxTree())->
 	     [syntaxTree()]).
 forward_slice(Files, AnnAST, ModName, FunDef, Expr)  ->
@@ -98,7 +98,7 @@ returns_undefined(FunDef) ->
 
 
 get_caller_funs(Files, {ModName, FunName, Arity}) ->
-    CallGraph = refac_util:build_callgraph(Files, []),
+    CallGraph = refac_util:build_callercallee_callgraph(Files),
     lists:flatmap(fun ({{_Caller, CallerDef}, Callee}) -> 
 			  case lists:member({ModName, FunName, Arity}, Callee) of
 			      true -> [CallerDef];
@@ -160,23 +160,25 @@ process_a_clause(Files, AnnAST, ModName, FunName, Arity, C, Expr) ->
 
 rm_unrelated_exprs(_Files,_AnnAST, _ModName, _FunName, _Arity, [], _Expr, _Vars) ->
     [];
-rm_unrelated_exprs(_Files,_AnnAST, _ModName, _FunName, _Arity,[E], Expr, Vars) ->
-    FreeVars = refac_util:get_free_vars(E),
-    ExportedVars = refac_util:get_var_exports(E),
-    case (ExportedVars -- Vars =/= ExportedVars) of 
-	true -> [E];
-	false -> case FreeVars -- Vars =/= FreeVars of   %% HERE Should check whether the returned value depends on the slice criteron or not!!.
-		     true ->
-			 [E, refac_syntax:atom(undefined)];
-		     _ ->
-			 {Start1, End1} = refac_util:get_range(Expr),
-			 {Start2, End2} =refac_util:get_range(E),
-			 case (Start2 =< Start1) andalso (End1 =< End2) of 
-			     true -> [E, refac_syntax:atom(undefined)];
-			     _ -> [refac_syntax:atom(undefined)]
-			 end
-		 end
-    end;
+%% rm_unrelated_exprs(_Files,_AnnAST, _ModName, _FunName, _Arity,[E], Expr, Vars) ->
+%%     FreeVars = refac_util:get_free_vars(E),
+%%     ExportedVars = refac_util:get_var_exports(E),
+%%     io:format("FreeVars:\n~p\n", [{Vars, FreeVars, ExportedVars}]),
+%%     case (ExportedVars -- Vars =/= ExportedVars) of 
+%% 	true -> io:format("E:\n~p\n", [E]),
+%% 		[E];
+%% 	false -> case FreeVars -- Vars =/= FreeVars of   %% HERE Should check whether the returned value depends on the slice criteron or not!!.
+%% 		     true ->
+%% 			 [E]; %% , refac_syntax:atom(undefined)];
+%% 		     _ ->
+%% 			 {Start1, End1} = refac_util:get_range(Expr),
+%% 			 {Start2, End2} =refac_util:get_range(E),
+%% 			 case (Start2 =< Start1) andalso (End1 =< End2) of 
+%% 			     true -> [E];        %%, refac_syntax:atom(undefined)];
+%% 			     _ -> [refac_syntax:atom(undefined)]
+%% 			 end
+%% 		 end
+%%     end;
 rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, [E |Exprs], Expr, Vars) ->
     FreeVars = refac_util:get_free_vars(E),
     ExportedVars = refac_util:get_var_exports(E),
@@ -197,7 +199,10 @@ rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, [E |Exprs], Expr, Var
 				 {Start2, End2} =refac_util:get_range(E2),
 				 case (Start2 =< Start1) andalso (End1 =< End2) of 
 				     true ->  [E2 | rm_unrelated_exprs(Files,AnnAST, ModName,  FunName, Arity, Exprs, Expr, lists:sort(Vars++refac_util:get_var_exports(E2)))];
-				     _ -> rm_unrelated_exprs(Files,AnnAST, ModName, FunName, Arity, Exprs, Expr, Vars)
+				     _ -> case Exprs of
+					      [] -> [refac_syntax:atom(undefined)];
+					      _ ->  rm_unrelated_exprs(Files,AnnAST, ModName, FunName, Arity, Exprs, Expr, Vars)
+					  end
 				 end
 			 
 			 end;
