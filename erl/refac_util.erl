@@ -45,10 +45,10 @@
          reset_attrs/1, update_ann/2,parse_annotate_file_1/3,
          parse_annotate_file/3,write_refactored_files/1,
          build_lib_side_effect_tab/1, build_local_side_effect_tab/2,
-	 build_callgraph/1, has_side_effect/3,
+	 build_scc_callgraph/1,build_callercallee_callgraph/1, has_side_effect/3,
          callback_funs/1,auto_imported_bifs/0]).
 
--export([analyze_free_vars/1, build_callgraph/2, build_callgraph/3]).
+-export([analyze_free_vars/1]).
 
 -export([update_var_define_locations/1]).
 
@@ -622,31 +622,16 @@ reset_attrs(Node) ->
 
 -spec(get_client_files(File::filename(), SearchPaths::[dir()]) -> [filename()]).
 get_client_files(File, SearchPaths) ->
-    ValidSearchPaths = lists:all(fun (X) -> filelib:is_dir(X) end, SearchPaths),
-    case ValidSearchPaths of
-      true -> ok;
-      false ->
-	  exit("One of the directories sepecified in "
-	       "the search paths does not exist, please "
-	       "check the customization!")
-    end,
-    ModuleGraphFile = filename:join([filename:dirname(File), "modulegraph"]),
     File1 = filename:absname(normalise_file_name(File)),
-    Dir = filename:dirname(File1),
-    ModuleGraph = refac_module_graph:module_graph(lists:usort([Dir | SearchPaths]), ModuleGraphFile, SearchPaths),
-    ClientFiles = case lists:keysearch(File1, 1, ModuleGraph) of
-		    {value, {_, Clients}} -> 
-			  lists:delete(File1, Clients);
-		    false -> []
-		  end,
+    ClientFiles = wrangler_modulegraph_server:get_client_files(File1, SearchPaths),
     case ClientFiles of
-      [] ->
-	  io:format("\nWARNING: this module does not have "
-		    "any client modules, please check the "
-		    "search paths to ensure that this is "
-		    "correct!\n");
-      _ -> ok
-    end,
+	[] ->
+	    io:format("\nWARNING: this module does not have "
+		      "any client modules, please check the "
+		      "search paths to ensure that this is "
+		      "correct!\n");
+	_ -> ok
+    end, 
     HeaderFiles = expand_files(SearchPaths, ".hrl"),
     ClientFiles ++ HeaderFiles.
 
@@ -772,9 +757,9 @@ concat_toks([], Acc) ->
      lists:concat(lists:reverse(Acc));
 concat_toks([T|Ts], Acc) ->
      case T of 
-	{atom, _, V} -> S = case is_upper(hd(atom_to_list(V))) of 
-				true -> "'"++atom_to_list(V)++"'";
-				_ -> V
+	 {atom, _, V} -> S = case is_lower(hd(atom_to_list(V))) of 
+				true -> V;
+				_ ->  "'"++atom_to_list(V)++"'"
 			    end,
 			concat_toks(Ts, [S|Acc]);
 	{string, _, V} -> concat_toks(Ts,['"', process_str(V), '"'|Acc]);
@@ -853,6 +838,7 @@ process_str(S) ->
 parse_annotate_file(FName, ByPassPreP, SearchPaths) ->
     case whereis(wrangler_ast_server) of 
 	undefined ->        %% this should not happen with Wrangler + Emacs.
+	    %%io:format("wrangler_ast_aserver is not defined\n"),
 	    parse_annotate_file_1(FName, ByPassPreP, SearchPaths);
 	_ -> 
 	    wrangler_ast_server:get_ast({FName, ByPassPreP, SearchPaths})
@@ -1021,7 +1007,11 @@ add_range(FName, AST) ->
     full_buTP(fun do_add_range/2, AST, Toks).
 
 do_add_range(Node, Toks) ->
-    {L, C} = refac_syntax:get_pos(Node),
+    {L, C} = case refac_syntax:get_pos(Node) of
+		 {Line, Col} -> {Line,Col};
+		 Line ->{Line, 0}
+	     end,
+   %% {L, C} = refac_syntax:get_pos(Node),
     case refac_syntax:type(Node) of
       variable ->
 	  Len = length(refac_syntax:variable_literal(Node)),
@@ -1734,7 +1724,7 @@ build_local_side_effect_tab(File, SearchPaths) ->
 		 true -> from_dets(local_side_effect_tab, SideEffectFile);
 		 _ -> ets:new(local_side_effect_tab, [set, public])
 	       end,
-    #callgraph{scc_order=Sccs, external_calls=_E} = build_callgraph(FilesToAnalyse),
+    #callgraph{callercallee=_CallerCallee, scc_order=Sccs, external_calls=_E} = build_scc_callgraph(FilesToAnalyse),
     build_side_effect_tab(Sccs, LocalPlt, LibPlt),
     to_dets(LocalPlt, SideEffectFile),
     dets:close(list_to_atom(LibSideEffectFile)),
@@ -1748,10 +1738,10 @@ build_local_side_effect_tab(File, SearchPaths) ->
 %% put the result to the dets file: plt/side_effect_plt. 
 %%
 %% @see build_local_side_effect_tab/2.
--spec(build_lib_side_effect_tab([filename()|dir()]) -> true).
-build_lib_side_effect_tab(FileOrDirs) ->
+-spec(build_lib_side_effect_tab([dir()]) -> true).
+build_lib_side_effect_tab(SearchPaths) ->
     Plt = ets:new(side_effect_table, [set, public]),
-    #callgraph{scc_order=Sccs, external_calls=_E} = build_callgraph(FileOrDirs),
+    #callgraph{callercallee=_CallerCallee, scc_order=Sccs, external_calls=_E} = build_scc_callgraph(SearchPaths),
     build_side_effect_tab(Sccs, Plt, ets:new(dummy_tab, [set, public])),
     ets:insert(Plt, bifs_side_effect_table()),
     File = filename:join(?WRANGLER_DIR, "plt/side_effect_plt"),
@@ -1894,134 +1884,132 @@ lookup(Plt, {M, F, A}) ->
 %%@spec build_callgraph(DirList::[dir()]) -> #callgraph{}
 %%@doc Build a function call graph out of the Erlang files contained in the given directories.
 
--spec(build_callgraph(DirList::[dir()]) -> #callgraph{}).
-build_callgraph(DirList) ->
-    Files = refac_util:expand_files(DirList, ".erl"),
-    CallGraph = build_callgraph(Files, []),
-    %% io:format("CallGraph:\n~p\n", [CallGraph]),
-    refac_callgraph:construct(CallGraph).
+-spec(build_scc_callgraph(DirList::[dir()]) -> #callgraph{}).
+build_scc_callgraph(DirList) ->
+    CallerCalleesWithDef = build_callercallee_callgraph(DirList),
+    CallerCallees =  lists:map(fun ({{Caller, _CallerDef}, Callee}) -> {Caller, Callee} end, CallerCalleesWithDef),
+    {Sccs, E} = refac_callgraph:construct(CallerCalleesWithDef),
+    #callgraph{callercallee = CallerCallees, scc_order = Sccs, external_calls = E}.
+    
    
 
--spec(build_callgraph/2::([filename()], [{{{atom(), atom(), integer()}, syntaxTree()}, {atom(), atom(), integer()}}]) ->
- 	     [{{{atom(), atom(), integer()}, syntaxTree()}, [{atom(), atom(), integer()}]}]).
-build_callgraph([FileName | Left], Acc) ->
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, []),
-    case lists:keysearch(errors,1, Info) of 
-	{value, {errors, _Errors}} -> erlang:error("Syntax error in " ++ FileName);
-	_ ->  G1 = build_callgraph(AnnAST, Info, FileName),
-	      Acc1 = Acc ++ G1,
-	      build_callgraph(Left, Acc1)
-    end; 
-build_callgraph([], Acc) -> Acc.
-
--spec(build_callgraph/3::(syntaxTree(),moduleInfo(),filename()) -> 
-	     [{{{atom(), atom(), integer()}, syntaxTree()}, [{atom(), atom(), integer()}]}]).
-build_callgraph(Node, Info, _FileName) ->
-    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
-    Inscope_Funs = [{erlang, Fun, Arity} || {Fun, Arity} <- auto_imported_bifs()] ++
-		     refac_util:inscope_funs(Info),  %% NOTE: orders matters here.
+-spec(build_callercallee_callgraph/1::([dir()]) -> [{{{atom(), atom(), integer()}, syntaxTree()}, [{atom(), atom(), integer()}]}]).
+build_callercallee_callgraph(SearchPaths) ->
+    Files = refac_util:expand_files(SearchPaths, ".erl"),
+    lists:append(lists:map(fun(FileName) ->
+		      {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths),
+		      case lists:keysearch(errors,1, Info) of 
+			  {value, {errors, _Errors}} -> erlang:error("Syntax error in " ++ FileName);
+			  _ ->  do_build_callgraph(FileName, {AnnAST, Info})
+		      end
+	      end, Files)).
+    
+   
+-spec(do_build_callgraph/2::(filename(), {syntaxTree(),moduleInfo()}) -> 
+    [{{{atom(), atom(), integer()}, syntaxTree()}, [{atom(), atom(), integer()}]}]).
+do_build_callgraph(FileName, {AnnAST, Info}) ->
+     case lists:keysearch(module, 1, Info) of 
+	    {value, {module, ModName}}  -> ModName;
+	    _ -> ModName = list_to_atom(filename:basename(FileName, ".erl")),
+		 ModName
+	end,
+    Inscope_Funs = refac_util:auto_imported_bifs() ++ refac_util:inscope_funs(Info), 
     HandleSpecialFuns = fun (Arguments, S) ->
 				case Arguments of
-				  [F, A] ->
-				      case {refac_syntax:type(F), refac_syntax:type(A)} of
-					{atom, list} ->
-					    FunName = refac_syntax:atom_value(F),
-					    Arity = refac_syntax:list_length(A),
-					    ordsets:add_element({ModName, FunName, Arity}, S);
-					_ -> S
-				      end;
-				  [M, F, A] ->
-				      case {refac_syntax:type(M), refac_syntax:type(F), refac_syntax:type(A)} of
-					{atom, atom, list} ->
-					    ModName = refac_syntax:atom_value(M),
-					    FunName = refac_syntax:atom_value(F),
-					    Arity = refac_syntax:list_length(A),
-					    ordsets:add_element({ModName, FunName, Arity}, S);
-					_ -> S
-				      end;
-				  [M, F, A, _O] ->
-				      case {refac_syntax:type(M), refac_syntax:type(F), refac_syntax:type(A)} of
-					{atom, atom, list} ->
-					    ModName = refac_syntax:atom_value(M),
-					    FunName = refac_syntax:atom_value(F),
-					    Arity = refac_syntax:list_length(A),
-					    ordsets:add_element({ModName, FunName, Arity}, S);
-					_ -> S
-				      end
+				    [F, A] ->
+					case {refac_syntax:type(F), refac_syntax:type(A)} of
+					    {atom, list} ->
+						FunName = refac_syntax:atom_value(F),
+						Arity = refac_syntax:list_length(A),
+						ordsets:add_element({ModName, FunName, Arity}, S);
+					    _ -> S
+					end;
+				    [M, F, A] ->
+					case {refac_syntax:type(M), refac_syntax:type(F), refac_syntax:type(A)} of
+					    {atom, atom, list} ->
+						ModName1 = refac_syntax:atom_value(M),
+						FunName = refac_syntax:atom_value(F),
+						Arity = refac_syntax:list_length(A),
+						ordsets:add_element({ModName1, FunName, Arity}, S);
+					    _ -> S
+					end;
+				    [M, F, A, _O] ->
+					case {refac_syntax:type(M), refac_syntax:type(F), refac_syntax:type(A)} of
+					    {atom, atom, list} ->
+						ModName1 = refac_syntax:atom_value(M),
+						FunName = refac_syntax:atom_value(F),
+						Arity = refac_syntax:list_length(A),
+						ordsets:add_element({ModName1, FunName, Arity}, S);
+					    _ -> S
+					end
 				end
 			end,
     F2 = fun (T, S) ->
 		 case refac_syntax:type(T) of
 		   application ->
-		       Operator = refac_syntax:application_operator(T),
-		       Arguments = refac_syntax:application_arguments(T),
-		       Arity = length(Arguments),
+			 Operator = refac_syntax:application_operator(T),
+			 Arguments = refac_syntax:application_arguments(T),
+			 Arity = length(Arguments),
 		       case refac_syntax:type(Operator) of
-			 atom ->
-			     Op = refac_syntax:atom_value(Operator),
-			     R = lists:filter(fun ({_M, F, A}) -> (F == Op) and (A == Arity) end, Inscope_Funs),
+			   atom ->
+			       Op = refac_syntax:atom_value(Operator),
+			       R = lists:filter(fun ({_M, F, A}) -> (F == Op) and (A == Arity) end, Inscope_Funs),
 			     if R == [] ->
-				    ordsets:add_element({unknown, Op, Arity},
-							S);  %% Should we give an error message here?
+				     %% Qn: Should we give an error/warning msg here?
+				     ordsets:add_element({unknown, Op, Arity},S); 
 				true ->
-				    {M, Op, Arity} = hd(R),
-				    S1 = ordsets:add_element({M, Op, Arity}, S),
-				    case {Op, Arity} of
-				      {apply, 2} -> HandleSpecialFuns(Arguments, S1);
-				      {apply, 3} -> HandleSpecialFuns(Arguments, S1);
-				      {spawn, 3} -> HandleSpecialFuns(Arguments, S1);
-				      {spawn, 4} -> HandleSpecialFuns(Arguments, S1);
-				      {spawn_link, 3} -> HandleSpecialFuns(Arguments, S1);
-				      {spawn_link, 4} -> HandleSpecialFuns(Arguments, S1);
+				     {M, Op, Arity} = hd(R),
+				     S1 = ordsets:add_element({M, Op, Arity}, S),
+				     case {Op, Arity} of
+					 {apply, 2} -> HandleSpecialFuns(Arguments, S1);
+					 {apply, 3} -> HandleSpecialFuns(Arguments, S1);
 				      _ -> S1
-				    end
+				     end
 			     end;
-			 module_qualifier ->
-			     Mod = refac_syntax:module_qualifier_argument(Operator),
-			     Body = refac_syntax:module_qualifier_body(Operator),
-			     case {refac_syntax:type(Mod), refac_syntax:type(Body)} of
-			       {atom, atom} ->
-				   Mod1 = refac_syntax:atom_value(Mod),
-				   Op = refac_syntax:atom_value(Body),
-				   S1 = ordsets:add_element({Mod1, Op, Arity}, S),
-				   case {Mod1, Op, Arity} of
-				     {erlang, apply, 2} -> HandleSpecialFuns(Arguments, S1);
-				     {erlang, apply, 3} -> HandleSpecialFuns(Arguments, S1);
-				     {erlang, spawn, 3} -> HandleSpecialFuns(Arguments, S1);
-				     {erlang, spawn, 4} -> HandleSpecialFuns(Arguments, S1);
-				     {erlang, spawn_link, 3} -> HandleSpecialFuns(Arguments, S1);
-				     {erlang, spawn_link, 4} -> HandleSpecialFuns(Arguments, S1);
-				     _ -> S1
-				   end;
-			       _ -> S
-			     end;
-			 _ -> S
+			   module_qualifier ->
+			       Mod = refac_syntax:module_qualifier_argument(Operator),
+			       Body = refac_syntax:module_qualifier_body(Operator),
+			       case {refac_syntax:type(Mod), refac_syntax:type(Body)} of
+				   {atom, atom} ->
+				       Mod1 = refac_syntax:atom_value(Mod),
+				       Op = refac_syntax:atom_value(Body),
+				       S1 = ordsets:add_element({Mod1, Op, Arity}, S),
+				       case {Mod1, Op, Arity} of
+					   {erlang, apply, 2} -> HandleSpecialFuns(Arguments, S1);
+					   {erlang, apply, 3} -> HandleSpecialFuns(Arguments, S1);
+					   _ -> S1
+				       end;
+				   _ -> S
+			       end;
+			   _ -> S
 		       end;
-		   arity_qualifier ->
-		       Fun = refac_syntax:arity_qualifier_body(T),
-		       A = refac_syntax:arity_qualifier_argument(T),
-		       case {refac_syntax:type(Fun), refac_syntax:type(A)} of
-			 {atom, integer} ->
-			     FunName = refac_syntax:atom_value(Fun),
-			     Arity = refac_syntax:integer_value(A),
-			     ordsets:add_element({ModName, FunName, Arity}, S);
-			 _ -> S
-		       end;
-		   _ -> S
+		     arity_qualifier ->
+			 Fun = refac_syntax:arity_qualifier_body(T),
+			 A = refac_syntax:arity_qualifier_argument(T),
+			 case {refac_syntax:type(Fun), refac_syntax:type(A)} of
+			     {atom, integer} ->
+				 FunName = refac_syntax:atom_value(Fun),
+				 Arity = refac_syntax:integer_value(A),
+				 ordsets:add_element({ModName, FunName, Arity}, S);
+			     _ -> S
+			 end;
+		     _ -> S
 		 end
 	 end,
     F1 = fun (T, S) ->
 		 case refac_syntax:type(T) of
-		   function ->
-		       FunName = refac_syntax:data(refac_syntax:function_name(T)),
-		       Arity = refac_syntax:function_arity(T),
-		       Caller = {{ModName, FunName, Arity}, T},
-		       CalledFuns = lists:usort(refac_syntax_lib:fold(F2, [], T)),
-		       ordsets:add_element({Caller, CalledFuns}, S);
-		   _ -> S
+		     function ->
+			 FunName = refac_syntax:data(refac_syntax:function_name(T)),
+			 Arity = refac_syntax:function_arity(T),
+			 Caller = {{ModName, FunName, Arity}, T},
+			 CalledFuns = lists:usort(refac_syntax_lib:fold(F2, [], T)),
+			 ordsets:add_element({Caller, CalledFuns}, S);
+			%% lists:foldr(fun(E,S_) -> ordsets:add_element({Caller, E}, S_) end, S,  CalledFuns);
+		     _ -> S
 		 end
 	 end,
-    lists:usort(refac_syntax_lib:fold(F1, [], Node)).
+    lists:usort(refac_syntax_lib:fold(F1, [], AnnAST)).
+
 
 %% =====================================================================
 %% @spec bifs_side_effect_table()->[{{atom(), atom(), integer()}, boolean()}]
@@ -2091,35 +2079,35 @@ bifs_side_effect_table() ->
 %% @spec auto_imported_bifs()->[{atom(), integer()}]
 %% @doc The list of automatically imported BIFs.
 
--spec(auto_imported_bifs()->[{atom(), integer()}]).
+-spec(auto_imported_bifs()->[{atom(), atom(), integer()}]).
 auto_imported_bifs() ->
-    [{abs, 1}, {apply, 2}, {apply, 3}, {atom_to_list, 1}, {binary_to_list, 1},
-     {binary_to_list, 3}, {binary_to_term, 1}, {check_process_code, 2},
-     {concat_binary, 1}, {data, 3}, {delete_module, 1}, {disconnect_node, 1},
-     {element, 2}, {erase, 0}, {erase, 1}, {exit, 1}, {exit, 2}, {float, 1},
-     {float_to_list, 1}, {garbage_collect, 1}, {garbage_collect, 0}, {get, 0},
-     {get, 1}, {get_keys, 1}, {group_leader, 0}, {group_leader, 2}, {halt, 0},
-     {halt, 1}, {hd, 1}, {integer_to_list, 1}, {iolist_to_binary, 1},
-     {iolist_size, 1}, {is_atom, 1}, {is_binary, 1}, {is_boolean, 1},
-     {is_float, 1}, {is_function, 1}, {is_function, 2}, {is_integer, 1},
-     {is_list, 1}, {is_number, 1}, {is_pid, 1}, {is_port, 1},
-     {is_process_alive, 1}, {is_record, 2}, {is_record, 3}, {is_reference, 1},
-     {is_tuple, 1}, {length, 1}, {link, 1}, {list_to_atom, 1},
-     {list_to_binary, 1}, {list_to_existing_atom, 1}, {list_to_float, 1},
-     {list_to_integer, 1}, {list_to_pid, 1}, {list_to_tuple, 1},
-     {load_module, 2}, {make_ref, 0}, {module_loaded, 1}, {monitor_node, 2},
-     {node, 0}, {node, 1}, {nodes, 0}, {nodes, 1}, {now, 0}, {open_port, 2},
-     {pid_to_list, 1}, {port_close, 1}, {port_command, 2}, {port_connect, 2},
-     {port_control, 3}, {pre_loaded, 0}, {process_flag, 2}, {process_flag, 3},
-     {process_info, 1}, {process_info, 2}, {processes, 0}, {purge_module, 1},
-     {put, 2}, {register, 2}, {registered, 0}, {round, 1}, {self, 0},
-     {setelement, 3}, {size, 1}, {spawn, 1}, {spawn, 2}, {spawn, 3},
-     {spawn, 4}, {spawn_link, 1}, {spawn_link, 2}, {spawn_link, 3},
-     {spawn_link, 4}, {spawn_opt, 2}, {spawn_opt, 3}, {spawn_opt, 4},
-     {spawn_opt, 5}, {aplit_binary, 2}, {statistics, 1}, {term_to_binary, 1},
-     {term_to_binary, 2}, {throw, 1}, {time, 1}, {tl, 1}, {trunc, 1},
-     {unregister, 1}, {unregister, 1}, {tuple_to_list, 1}, {unlink, 1},
-     {whereis, 1}].
+    [{erlang, abs, 1},           {erlang,apply, 2},          {erlang,apply, 3}, {erlang,atom_to_list, 1}, {erlang,binary_to_list, 1},
+     {erlang,binary_to_list, 3}, {erlang,binary_to_term, 1}, {erlang,check_process_code, 2},
+     {erlang,concat_binary, 1},  {erlang, data, 3},          {erlang,delete_module, 1}, {erlang,disconnect_node, 1},
+     {erlang,element, 2},        {erlang,erase, 0},          {erlang,erase, 1}, {erlang,exit, 1}, {erlang,exit, 2}, {erlang,float, 1},
+     {erlang,float_to_list, 1},  {erlang,garbage_collect, 1},{erlang,garbage_collect, 0}, {erlang,get, 0},
+     {erlang,get, 1},            {erlang,get_keys, 1},       {erlang,group_leader, 0}, {erlang,group_leader, 2}, {erlang,halt, 0},
+     {erlang,halt, 1},           {erlang,hd, 1},             {erlang,integer_to_list, 1}, {erlang,iolist_to_binary, 1},
+     {erlang,iolist_size, 1},    {erlang,is_atom, 1},        {erlang,is_binary, 1}, {erlang,is_boolean, 1},
+     {erlang,is_float, 1},       {erlang,is_function, 1},    {erlang,is_function, 2}, {erlang,is_integer, 1},
+     {erlang,is_list, 1},        {erlang,is_number, 1},      {erlang,is_pid, 1}, {erlang,is_port, 1},
+     {erlang,is_process_alive,1},{erlang,is_record, 2},      {erlang,is_record, 3}, {erlang,is_reference, 1},
+     {erlang,is_tuple, 1},       {erlang,length, 1},         {erlang,link, 1}, {erlang,list_to_atom, 1},
+     {erlang,list_to_binary, 1}, {erlang,list_to_existing_atom, 1}, {erlang,list_to_float, 1},
+     {erlang,list_to_integer, 1},{erlang,list_to_pid, 1},    {erlang,list_to_tuple, 1},
+     {erlang,load_module, 2},    {erlang,make_ref, 0},       {erlang,module_loaded, 1}, {erlang,monitor_node, 2},
+     {erlang,node, 0},           {erlang,node, 1},           {erlang,nodes, 0}, {erlang,nodes, 1}, {erlang,now, 0}, {erlang,open_port, 2},
+     {erlang,pid_to_list, 1},    {erlang,port_close, 1},     {erlang, port_command, 2}, {erlang, port_connect, 2},
+     {erlang, port_control, 3},  {erlang, pre_loaded, 0},    {erlang,process_flag, 2}, {erlang,process_flag, 3},
+     {erlang,process_info, 1},   {erlang,process_info, 2},   {erlang,processes, 0}, {erlang,purge_module, 1},
+     {erlang,put, 2},            {erlang,register, 2},       {erlang,registered, 0}, {erlang,round, 1}, {erlang,self, 0},
+     {erlang,setelement, 3},     {erlang,size, 1},           {erlang,spawn, 1}, {erlang,spawn, 2}, {erlang,spawn, 3},
+     {erlang,spawn, 4},          {erlang,spawn_link, 1},     {erlang,spawn_link, 2}, {erlang,spawn_link, 3},
+     {erlang,spawn_link, 4},     {erlang,spawn_opt, 2},      {erlang,spawn_opt, 3}, {erlang,spawn_opt, 4},
+     {erlang,spawn_opt, 5},      {erlang,aplit_binary, 2},   {erlang,statistics, 1}, {erlang,term_to_binary, 1},
+     {erlang,term_to_binary, 2}, {erlang,throw, 1},          {erlang,time, 1}, {erlang,tl, 1}, {erlang,trunc, 1},
+     {erlang,unregister, 1},     {erlang,unregister, 1},     {erlang,tuple_to_list, 1}, {erlang,unlink, 1},
+     {erlang,whereis, 1}].
 
 
 %% =====================================================================
@@ -2147,57 +2135,3 @@ callback_funs(Behaviour) ->
     end.
 
 
-%% =====================================================================
-%% functions not used at the moment.
-%% collect_var_mod_qualifiers(FileName) ->
-%%     case refac_util:parse_annotate_file(FileName, true, []) of
-%%       {ok, {AnnAST, Info}} ->
-%% 	  {ok, ModName} = get_module_name(Info), collect_var_mod_qualifiers_1(AnnAST, ModName);
-%%       {error, _Reason} -> {error, "Error with parsing/annotating file " ++ FileName}
-%%     end.
-
-%% collect_var_mod_qualifiers_1(Tree, ModName) ->
-%%     F = fun (T, S) ->
-%% 		case refac_syntax:type(T) of
-%% 		  function ->
-%% 		      Arity = refac_syntax:function_arity(T),
-%% 		      S ++ contains_var_mod_qualifier(T, ModName, Arity);
-%% 		  _ -> S
-%% 		end
-%% 	end,
-%%     refac_syntax_lib:fold(F, [], Tree).
-
-%% contains_var_mod_qualifier(Node, ModName, Arity) ->
-%%     FunName = refac_syntax:atom_value(refac_syntax:function_name(Node)),
-%%     Clauses = refac_syntax:function_clauses(Node),
-%%     F2 = fun (T, S) ->
-%% 		 case refac_syntax:type(T) of
-%% 		   module_qualifier ->
-%% 		       Mod = refac_syntax:module_qualifier_argument(T),
-%% 		       case refac_syntax:type(Mod) of
-%% 			 variable ->
-%% 			     case lists:keysearch(def, 1, refac_syntax:get_ann(Mod)) of
-%% 			       {value, {def, _DefinePos}} -> S ++ [{ModName, FunName, Arity}];
-%% 			       %% ,refac_syntax:variable_name(Mod), DefinePos}];
-%% 			       _ -> S
-%% 			     end;
-%% 			 atom -> S;
-%% 			 _ -> S ++ [{ModName, FunName, Arity}] %%{refac_syntax:atom_value
-%% 		       end;
-%% 		   _ -> S
-%% 		 end
-%% 	 end,
-%%     F1 = fun (Clause) ->
-%% 		 As = refac_syntax:get_ann(Clause),
-%% 		 case lists:keysearch(bound, 1, As) of
-%% 		   {value, {bound, _BdVars}} -> refac_syntax_lib:fold(F2, [], Clause);
-%% 		   _ -> []
-%% 		 end
-%% 	 end,
-%%     lists:flatmap(F1, Clauses).
-
-%% get_module_name(ModInfo) ->
-%%     case lists:keysearch(module, 1, ModInfo) of
-%%       {value, {module, ModName}} -> {ok, ModName};
-%%       false -> {error, "Can not get the current module name."}
-%%     end.
