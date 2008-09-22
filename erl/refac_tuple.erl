@@ -434,7 +434,7 @@ pos_to_arg(AppNode, Pos)->
     _ -> 
       {Pos1, _Pos2} = refac_util:get_range(hd(Args)),
       if Pos >= Pos1 -> ok;
-	 true -> exit({error, "You have not selected a parameterr!"})
+	 true -> exit({error, "You have not selected a parameter!"})
       end
   end,
   List = lists:dropwhile(fun(Pat)->
@@ -442,7 +442,7 @@ pos_to_arg(AppNode, Pos)->
                              Pos11 < Pos
                          end, Args),
   case List of
-    [] -> exit({error, "You have not selected a parameterrr!"});
+    [] -> exit({error, "You have not selected a parameter!"});
     _ -> hd(List)
   end.
 
@@ -458,11 +458,11 @@ pos_to_pat(AnnAST, Pos)->
     {ok, Clause} ->
       FunPatterns = refac_syntax:clause_patterns(Clause),
       case FunPatterns of 
-        [] ->  exit({error, "You have not selected a parameterrr!"});
+        [] ->  exit({error, "You have not selected a parameter!"});
         _ -> 
           {Pos1, _Pos2} = refac_util:get_range(hd(FunPatterns)),
           if Pos >= Pos1 -> ok;
-	     true -> exit({error, "You have not selected a parameterrr!"})
+	     true -> exit({error, "You have not selected a parameter!"})
           end
       end,
       List = lists:dropwhile(fun(Pat)->
@@ -470,10 +470,10 @@ pos_to_pat(AnnAST, Pos)->
                              Pos11 < Pos
                              end, FunPatterns),
       case List of
-        [] -> exit({error, "You have not selected a parameterrr!"});
+        [] -> exit({error, "You have not selected a parameter!"});
         _ -> hd(List)
       end;
-    {error, none} -> exit({error, "You have not selected a parameterrr!"})   
+    {error, none} -> exit({error, "You have not selected a parameter!"})   
   end.
     
 
