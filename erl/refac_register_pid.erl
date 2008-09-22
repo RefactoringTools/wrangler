@@ -1,7 +1,7 @@
 %% =====================================================================
 %% Refactoring: Register a process.
 %%
-%% Copyright (C) 2006-2008  Huiqing Li, Simon Thompson
+%% Copyright (C) 2006-2009  Huiqing Li, Simon Thompson
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -65,7 +65,7 @@ register_pid_eclipse(FName, Start, End, RegName, SearchPaths) ->
 
 register_pid(FName, Start={Line1, Col1}, End={Line2, Col2}, RegName, SearchPaths, Editor) ->
     io:format("\nCMD: ~p:register_pid(~p, {~p,~p}, {~p,~p}, ~p,~p)\n",  [?MODULE, FName, Line1, Col1, Line2, Col2, RegName, SearchPaths]),
-    case refac_util:is_fun_name(RegName) of
+    case is_process_name(RegName) of
 	true ->	{ok, {AnnAST,Info}}= refac_util:parse_annotate_file(FName, true, SearchPaths), 
 		case pos_to_spawn_match_expr(AnnAST, Start, End) of
 		    {ok, _MatchExpr1} ->
@@ -74,28 +74,31 @@ register_pid(FName, Start={Line1, Col1}, End={Line2, Col2}, RegName, SearchPaths
 			_Res=refac_annotate_pid:ann_pid_info(SearchPaths),
 			%% get the AST with pid information.
 			{ok, {AnnAST1,_Info}}= refac_util:parse_annotate_file(FName, true, SearchPaths), 
-			{ok, MatchExpr} = pos_to_spawn_match_expr(AnnAST1, Start, End),
-			case pre_cond_check(ModName,AnnAST1, Start, MatchExpr, RegName1, Info, SearchPaths) of 
-			    ok -> 
-				Pid = refac_syntax:match_expr_pattern(MatchExpr),
-				case do_register(FName, AnnAST1, MatchExpr, Pid, RegName1, SearchPaths) of 
-				    {ok, Results} ->
-					case Editor of 
-					    emacs ->
-						refac_util:write_refactored_files(Results),
-						ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-						io:format("The following files have been changed by this refactoring:\n~p\n",
-							  [ChangedFiles]),
-						{ok, ChangedFiles};
-					    eclipse ->
-						 Res = lists:map(fun({{OldFName, NewFName}, AST}) -> 
-									 {OldFName, NewFName, refac_prettypr:print_ast(AST)} end, Results),
-						{ok, Res}
-					end;
+			case pos_to_spawn_match_expr(AnnAST1, Start, End) of 
+			    {ok, MatchExpr} ->
+				case pre_cond_check(ModName,AnnAST1, Start, MatchExpr, RegName1, Info, SearchPaths) of 
+				    ok -> 
+					Pid = refac_syntax:match_expr_pattern(MatchExpr),
+					case do_register(FName, AnnAST1, MatchExpr, Pid, RegName1, SearchPaths) of 
+					    {ok, Results} ->
+						case Editor of 
+						    emacs ->
+							refac_util:write_refactored_files(Results),
+							ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+							io:format("The following files have been changed by this refactoring:\n~p\n",
+								  [ChangedFiles]),
+							{ok, ChangedFiles};
+						    eclipse ->
+							Res = lists:map(fun({{OldFName, NewFName}, AST}) -> 
+										{OldFName, NewFName, refac_prettypr:print_ast(AST)} end, Results),
+							{ok, Res}
+						end;
+					    {error, Reason} -> {error, Reason}
+					end;	
+				    {unknown_pnames, _UnKnownPNames, RegPids} -> {unknown_pnames, RegPids};
+				    {unknown_pids, UnKnownPids} ->{unknown_pids, UnKnownPids};
 				    {error, Reason} -> {error, Reason}
-				end;	
-			    {unknown_pnames, _UnKnownPNames, RegPids} -> {unknown_pnames, RegPids};
-			    {unknown_pids, UnKnownPids} ->{unknown_pids, UnKnownPids};
+				end;
 			    {error, Reason} -> {error, Reason}
 			end;
 		    {error, Reason} -> {error, Reason} 
@@ -256,8 +259,8 @@ reached_funs(SpawnExpr, SearchPaths) ->
 			     {M, F, A}= {element(3, Args1),element(2, Args1), element(1, Args1)},
 			     [{M, F, A}]
 		   end,
-    {CallerCallee, _, _} = refac_callgraph_server:get_callgraph(SearchPaths), 
-    InitialFuns++reached_funs_1(CallerCallee, InitialFuns).
+    CallGraph = wrangler_callgraph_server:get_callgraph(SearchPaths), 
+    InitialFuns++reached_funs_1(CallGraph#callgraph.callercallee, InitialFuns).
 	 
 reached_funs_1(CallerCallee, Acc) ->
     Res = lists:usort(lists:concat(lists:map(fun({Mod, Fun, Args}) ->
@@ -297,7 +300,8 @@ is_recursive_fun(Files, {ModName, FunName, Arity, FunDef}) ->
 	true -> 
 	    true;
 	false ->
-	    {_CallerCallee, Sccs, _E} = refac_callgraph_server:get_callgraph(Files),
+	    CallGraph = wrangler_callgraph_server:get_callgraph(Files),
+	    Sccs = CallGraph#callgraph.scc_order,
 	    Sccs1 =[[Fun||{Fun, _FunDef}<-Scc]||Scc<-Sccs],
 	    lists:any(fun(E)-> (length(E)>1) andalso (lists:member({ModName, FunName, Arity}, E)) end,
 		      Sccs1)   
@@ -593,3 +597,5 @@ pos_to_list_comp_expr(FunDef, Start) ->
 
 
 
+is_process_name(Name) ->
+    refac_util:is_fun_name(Name) and (list_to_atom(Name) =/= undefined).
