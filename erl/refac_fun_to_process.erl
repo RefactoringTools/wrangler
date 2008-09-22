@@ -44,7 +44,7 @@ fun_to_process_eclipse(FName, Line, Col, ProcessName, SearchPaths) ->
 
 fun_to_process(FName, Line, Col, ProcessName, SearchPaths, Editor) ->
     io:format("\nCMD: ~p:fun_to_process(~p, ~p, ~p, ~p,~p)\n",  [?MODULE, FName,  Line, Col, ProcessName, SearchPaths]),
-    case refac_util:is_fun_name(ProcessName) of
+    case is_process_name(ProcessName) of
 	true ->
 	    _Res =refac_annotate_pid:ann_pid_info(SearchPaths),
 	    {ok, {AnnAST,Info}}= refac_util:parse_annotate_file(FName, true, SearchPaths), 
@@ -202,7 +202,8 @@ check_self_exprs([], _, _SearchPaths) ->
     ok;
 check_self_exprs(SelfApps, InitialFun={_ModName, _FunName, _Arity},SearchPaths) ->
     Files = refac_util:expand_files(SearchPaths, ".erl"),
-    {CallerCallee, _, _} = refac_callgraph_server:get_callgraph(SearchPaths), 
+    CallGraph= wrangler_callgraph_server:get_callgraph(SearchPaths), 
+    CallerCallee = CallGraph#callgraph.callercallee,
     ReachedFuns = [InitialFun|reached_funs_1(CallerCallee, [InitialFun])],
     SelfApps1 = lists:filter(fun({{M, F, A}, {_File, _FunDef, _SelfExpr}}) ->
 				     lists:member({M,F, A}, ReachedFuns)
@@ -443,8 +444,8 @@ do_fun_to_process_2(FunDef, NewFunName, ProcessName)->
 			      SendExp = refac_syntax:infix_expr(Dest, refac_syntax:operator('!'), Msg),
 			      RecExp = refac_syntax:application(NewFunName1, []),
 			      Body1 = lists:reverse([RecExp,SendExp | tl(lists:reverse(Body))]),
-			      Ps1 = refac_syntax:tuple(Ps),	
-			      P = refac_syntax:tuple([refac_syntax:variable('From') ,Ps1]),
+			     %% Ps1 = refac_syntax:tuple(Ps),	
+			      P = refac_syntax:tuple([refac_syntax:variable('From') |Ps]),
 			      refac_syntax:clause([P], Guard, Body1)
 		    end, Cs),					  
     ReceiveExp = refac_syntax:receive_expr(Cs1),
@@ -569,8 +570,8 @@ is_recursive_fun({ModName, FunName, Arity, FunDef}, SearchPaths) ->
 	true -> 
 	    true;
 	false ->
-	    {_, Sccs, _} = refac_callgraph_server:get_callgraph(SearchPaths),
-	    Sccs1 =[[Fun||{Fun, _FunDef}<-Scc]||Scc<-Sccs],
+	    CallGraph = wrangler_callgraph_server:get_callgraph(SearchPaths),
+	    Sccs1 =[[Fun||{Fun, _FunDef}<-Scc]||Scc<-CallGraph#callgraph.scc_order],
 	    lists:any(fun(E)-> (length(E)>1) andalso (lists:member({ModName, FunName, Arity}, E)) end,
 		      Sccs1)
     
@@ -621,3 +622,6 @@ is_self_app(T) ->
  	  end;
        _ -> false
      end.
+
+is_process_name(Name) ->
+    refac_util:is_fun_name(Name) and (list_to_atom(Name) =/= undefined).
