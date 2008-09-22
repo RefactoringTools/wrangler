@@ -23,6 +23,7 @@
 -export([scan_erl_form/1,parse_erl_form/1,macro_defs/1]).
 -export([parse_file/3]).
 -export([interpret_file_attribute/1]).
+-export([scan_file/3]).
 
 %% Epp state record.
 -record(epp, {file,				%Current file
@@ -107,6 +108,22 @@ format_error({illegal,How,What}) ->
 format_error({'NYI',What}) ->
     io_lib:format("not yet implemented '~s'", [What]);
 format_error(E) -> file:format_error(E).
+
+%% Begin; Added by Huiqing Li
+scan_file(Ifile, Path, Predefs) ->
+    case open(Ifile, Path, Predefs) of 
+	{ok, Epp} ->
+	    Toks = scan_file(Epp), close(Epp), {ok, Toks};
+	{error, _E} -> []
+    end.
+
+scan_file(Epp) ->
+    case epp_request(Epp, scan_erl_form) of
+      {ok, Toks} -> 
+	    Toks ++  scan_file(Epp);
+      {error, _E} -> scan_file(Epp);
+      {eof, _Line} -> []
+    end.
 
 %% parse_file(FileName, IncludePath, [PreDefMacro]) ->
 %%	{ok,[Form]} | {error,OpenError}
@@ -345,9 +362,9 @@ scan_toks([{'-',_Lh},{atom,Ld,define}|Toks], From, St) ->
 scan_toks([{'-',_Lh},{atom,Ld,undef}|Toks], From, St) ->
     scan_undef(Toks, Ld, From, St);
 scan_toks([{'-',_Lh},{atom,Li,include}|Toks], From, St) ->
-    scan_include(Toks, abs(Li), From, St);
+    scan_include(Toks, {abs(element(1, Li)), element(2, Li)}, From, St);
 scan_toks([{'-',_Lh},{atom,Li,include_lib}|Toks], From, St) ->
-    scan_include_lib(Toks, abs(Li), From, St);
+    scan_include_lib(Toks, {abs(element(1, Li)), element(2, Li)}, From, St);
 scan_toks([{'-',_Lh},{atom,Li,ifdef}|Toks], From, St) ->
     scan_ifdef(Toks, Li, From, St);
 scan_toks([{'-',_Lh},{atom,Li,ifndef}|Toks], From, St) ->
@@ -670,9 +687,9 @@ scan_endif(_Toks, Le, From, St) ->
 
 scan_file([{'(',_Llp},{string,_Ls,Name},{',',_Lc},{integer,_Li,Ln},{')',_Lrp},
            {dot,_Ld}], Lf, From, St) ->
-    enter_file_reply(From, Name, Ln, -abs(Lf)),
+    enter_file_reply(From, Name, Ln, {-abs(element(1, Lf)), element(2, Lf)}),
     Ms = dict:store({atom,'FILE'}, {none,[{string,1,Name}]}, St#epp.macs),
-    scan_toks(From, St#epp{name=Name,line=Ln+(St#epp.line-Lf),macs=Ms});
+    scan_toks(From, St#epp{name=Name,line=Ln+(St#epp.line-element(1,Lf)),macs=Ms});
 scan_file(_Toks, Lf, From, St) ->
     epp_reply(From, {error,{Lf,epp,{bad,file}}}),
     wait_req_scan(St).
@@ -993,7 +1010,7 @@ interpret_file_attribute(Forms) ->
 interpret_file_attr([{attribute,L,file,{_File,Line}} | Forms], 
                     Delta, Fs) when L < 0 ->
     %% -file attribute
-    interpret_file_attr(Forms, (abs(L) + Delta) - Line, Fs);
+    interpret_file_attr(Forms, {(abs(element(1,L)) + Delta) - Line,element(2, L)}, Fs);
 interpret_file_attr([{attribute,_AL,file,{File,_Line}}=Form | Forms], 
                     Delta, Fs) ->
     %% -include or -include_lib
@@ -1005,7 +1022,7 @@ interpret_file_attr([{attribute,_AL,file,{File,_Line}}=Form | Forms],
             [Form | interpret_file_attr(Forms, 0, [File, Delta | Fs])]
     end;
 interpret_file_attr([Form0 | Forms], Delta, Fs) ->
-    Form = erl_lint:modify_line(Form0, fun(L) -> abs(L) + Delta end),
+    Form = erl_lint:modify_line(Form0, fun(L) -> {abs(element(1, L)) + Delta, element(2, L)} end),
     [Form | interpret_file_attr(Forms, Delta, Fs)];
 interpret_file_attr([], _Delta, _Fs) ->
     [].
