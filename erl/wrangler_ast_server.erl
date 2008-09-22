@@ -52,7 +52,7 @@ init(_Args) ->
 -spec(get_ast/1::({filename(), boolean(), [dir()]}) ->
 	     {ok, {syntaxTree(), moduleInfo()}}).
 get_ast({FileName, ByPassPreP, SearchPaths}) ->
-    gen_server:call(wrangler_ast_server, {get,{FileName, ByPassPreP, SearchPaths}}, infinity).
+    gen_server:call(wrangler_ast_server, {get,{FileName, ByPassPreP, SearchPaths}}, 500000).
 
  
 -type(modifyTime()::{{integer(), integer(), integer()},{integer(), integer(), integer()}}).
@@ -127,11 +127,12 @@ get_ast(Key={ FileName,ByPassPreP, SearchPaths}, State=#state{asts=ASTs}) ->
     case lists:keysearch(Key, 1, ASTs) of
       {value, {Key, {AnnAST, Info, FileModifiedTime}}} ->
 	  case FileModifiedTime >= filelib:last_modified(FileName) of
-	    true -> log_errors(FileName, Info), {{ok, {AnnAST, Info}}, State};
+	    true -> 
+		  log_errors(FileName, Info), {{ok, {AnnAST, Info}}, State};
 	    false ->
-		{ok, {AnnAST1, Info1}} = refac_util:parse_annotate_file_1(FileName, ByPassPreP, SearchPaths),
-		log_errors(FileName, Info),
-		{{ok, {AnnAST1, Info1}}, #state{asts=[{Key, {AnnAST1, Info1, filelib:last_modified(FileName)}} | ASTs]}}
+		  {ok, {AnnAST1, Info1}} = refac_util:parse_annotate_file_1(FileName, ByPassPreP, SearchPaths),
+		  log_errors(FileName, Info),
+		  {{ok, {AnnAST1, Info1}}, #state{asts=lists:keyreplace(Key, 1, ASTs, {Key, {AnnAST1, Info1, filelib:last_modified(FileName)}})}}
 	  end;
       false ->
 	  {ok, {AnnAST, Info}} = refac_util:parse_annotate_file_1(FileName, ByPassPreP, SearchPaths),
@@ -139,12 +140,12 @@ get_ast(Key={ FileName,ByPassPreP, SearchPaths}, State=#state{asts=ASTs}) ->
 	  {{ok, {AnnAST, Info}}, #state{asts=[{Key, {AnnAST, Info, filelib:last_modified(FileName)}} | ASTs]}}
     end.
 
-update_ast_1({Key={FileName, _ByPassPreP, _SearchPaths}, {AnnAST, Info, Time}}, _State=#state{asts=ASTs}) ->
+update_ast_1({Key={_FileName, _ByPassPreP, _SearchPaths}, {AnnAST, Info, Time}}, _State=#state{asts=ASTs}) ->
     case lists:keysearch(Key, 1, ASTs) of
 	{value, {Key,  {_AnnAST1, _Info1, _Time}}} ->  
 	    #state{asts=lists:keyreplace(Key, 1, ASTs, {Key, {AnnAST, Info, Time}})};
 	false ->
-	    #state{asts=[{Key, {AnnAST, Info, filelib:last_modified(FileName)}} | ASTs]}
+	    #state{asts=[{Key, {AnnAST, Info, Time}} | ASTs]}
     end.
 
 log_errors(FileName, Info) ->
