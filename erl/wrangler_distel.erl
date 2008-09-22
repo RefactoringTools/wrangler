@@ -25,13 +25,14 @@
 	 fold_expr_by_name/6, tuple_funpar/5,
 	 instrument_prog/2, uninstrument_prog/2, add_a_tag/5,register_pid/7, fun_to_process/5]).
 	 
+-compile(export_all).
 
 -include("../hrl/wrangler.hrl").
 
 -spec(rename_var/5::(filename(), integer(), integer(), string(), [dir()]) ->
 	     {error, string()} | {ok, string()}).
 rename_var(Fname, Line, Col, NewName, SearchPaths) ->
-    case check_undo_process() of
+    case initial_checking(SearchPaths) of
 	ok ->
 	    Res=wrangler:rename_var(Fname, Line, Col, NewName, SearchPaths),
 	    check_wrangler_error_logger(),
@@ -43,7 +44,7 @@ rename_var(Fname, Line, Col, NewName, SearchPaths) ->
 -spec(rename_fun/5::(string(), integer(), integer(), string(), [dir()]) ->
 	     {error, string()} | {ok, [filename()]}).
 rename_fun(Fname, Line, Col, NewName,SearchPaths) ->
-    case check_undo_process() of
+    case initial_checking(SearchPaths) of
 	ok -> Res =wrangler:rename_fun(Fname, Line, Col, NewName,SearchPaths),
 	      check_wrangler_error_logger(),
 	      Res;		
@@ -53,7 +54,7 @@ rename_fun(Fname, Line, Col, NewName,SearchPaths) ->
 
 -spec(rename_mod/3::(filename(), string(), [dir()]) -> {error, string()} | {ok, [filename()]}).  
 rename_mod(Fname, NewName,SearchPaths) ->
-    case check_undo_process() of 
+    case initial_checking(SearchPaths) of 
 	ok ->  Res = wrangler:rename_mod(Fname, NewName,SearchPaths),
 	        check_wrangler_error_logger(),
 	       Res;		
@@ -64,7 +65,7 @@ rename_mod(Fname, NewName,SearchPaths) ->
 -spec(rename_process/5::(filename(), integer(), integer(), string(), [dir()]) ->
 	     {error, string()} | {undecidables, string()}| {ok, [filename()]}).
 rename_process(Fname, Line, Col, NewName, SearchPaths) ->
-    case check_undo_process() of
+    case initial_checking(SearchPaths) of
 	ok -> Res=wrangler:rename_process(Fname, Line, Col, NewName, SearchPaths),
 	      check_wrangler_error_logger(),
 	      Res;
@@ -74,7 +75,7 @@ rename_process(Fname, Line, Col, NewName, SearchPaths) ->
 
 -spec(generalise/7::(filename(),integer(), integer(),integer(), integer(),string(), dir()) -> {ok, string()} | {error, string()}).
 generalise(Fname, StartLine, StartCol, EndLine, EndCol, ParName, SearchPaths)->
-    case check_undo_process() of 
+    case initial_checking(SearchPaths) of 
 	ok -> Res =wrangler:generalise(Fname, {StartLine, StartCol}, {EndLine, EndCol}, ParName, SearchPaths),
 	      check_wrangler_error_logger(),
 	      Res;
@@ -86,7 +87,7 @@ generalise(Fname, StartLine, StartCol, EndLine, EndCol, ParName, SearchPaths)->
         -> {ok, [{filename(), filename()}]}
            | {error, string()}).
 move_fun(FName, Line, Col, ModName, CreateNewFile, SearchPaths) ->
-    case check_undo_process() of
+    case initial_checking(SearchPaths) of
 	ok -> Res = wrangler:move_fun(FName, Line, Col, ModName, CreateNewFile, SearchPaths),
 	      check_wrangler_error_logger(),
 	      Res;
@@ -121,7 +122,7 @@ fun_extraction(FName, StartLine, StartCol, EndLine, EndCol, FunName) ->
       (filename(), integer(), integer(), [dir()]) -> {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
 							 | {error, string()}).
 fold_expr_by_loc(FName, Line, Col, SearchPaths) ->
-    case check_undo_process() of
+    case initial_checking(SearchPaths) of
       ok -> Res = wrangler:fold_expr_by_loc(FName, Line, Col, SearchPaths),
 	    check_wrangler_error_logger(),
 	    Res;
@@ -132,7 +133,7 @@ fold_expr_by_loc(FName, Line, Col, SearchPaths) ->
 	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
 		 | {error, string()}).
 fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths) ->
-   case check_undo_process() of
+   case initial_checking(SearchPaths) of
       ok -> Res = wrangler:fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths),
 	    check_wrangler_error_logger(),
 	    Res;
@@ -142,7 +143,7 @@ fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths) -
 	       
 -spec(instrument_prog/2::(filename(), [dir()]) ->{ok, [filename()]} | {error, string()}).
 instrument_prog(FName, SearchPaths) ->
-    case check_undo_process() of 
+    case initial_checking(SearchPaths) of 
 	ok ->
 	    Res = wrangler:instrument_prog(FName, SearchPaths),
 	    check_wrangler_error_logger(),
@@ -154,7 +155,7 @@ instrument_prog(FName, SearchPaths) ->
 -spec(tuple_funpar/5::(filename(), integer(), integer(), string(), [dir()]) ->
 	     {error, string()} | {ok, [filename()]}).
 tuple_funpar(Fname, Line, Col, Number, SearchPaths) ->
-    case check_undo_process() of
+    case initial_checking(SearchPaths) of
 	ok -> Res = wrangler:tuple_funpar(Fname, Line, Col, Number, SearchPaths),
 	      check_wrangler_error_logger(),
 	      Res;
@@ -166,7 +167,7 @@ tuple_funpar(Fname, Line, Col, Number, SearchPaths) ->
 	     {error, string()} | {ok, [filename()]}).
 tuple_to_record(File, FLine, FCol, LLine, LCol, 
                 RecName, FieldString, SearchPaths)->
-    case check_undo_process() of
+    case initial_checking(SearchPaths) of
 	ok -> Res = wrangler:tuple_to_record(File, FLine, FCol, LLine, LCol, 
 					     RecName, FieldString, SearchPaths),
 	      check_wrangler_error_logger(),
@@ -177,7 +178,7 @@ tuple_to_record(File, FLine, FCol, LLine, LCol,
     
 -spec(uninstrument_prog/2::(filename(), [dir()]) ->{ok, [filename()]} | {error, string()}).
 uninstrument_prog(FName, SearchPaths) ->
-    case check_undo_process() of 
+    case initial_checking(SearchPaths) of 
 	ok ->
 	    Res = wrangler:uninstrument_prog(FName, SearchPaths),
 	    check_wrangler_error_logger(),
@@ -189,7 +190,7 @@ uninstrument_prog(FName, SearchPaths) ->
 -spec(add_a_tag/5::(filename(), integer(), integer(), string(), [dir()]) ->
 	     {error, string()} | {ok, [filename()]}).
 add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
-    case check_undo_process() of 
+    case initial_checking(SearchPaths) of 
 	ok ->
 	    Res = wrangler:add_a_tag(FileName, Line, Col, Tag, SearchPaths),
 	    check_wrangler_error_logger(),
@@ -201,7 +202,7 @@ add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
 -spec(register_pid/7::(filename(), integer(), integer(), integer(),integer(), string(), [dir()]) ->
     {error, string()}|{ok, [filename()]}).
 register_pid(FileName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPaths) ->
-    case check_undo_process() of 
+    case initial_checking(SearchPaths) of 
 	ok ->
 	    Res = wrangler:register_pid(FileName, {StartLine, StartCol}, {EndLine, EndCol}, RegName, SearchPaths),
 	    check_wrangler_error_logger(),
@@ -213,7 +214,7 @@ register_pid(FileName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPath
 -spec(fun_to_process/5::(filename(), integer(), integer(), string(), [dir()])->
 	     {error, string()} | undecidables | {ok, [filename()]}).
 fun_to_process(Fname, Line, Col, ProcessName,SearchPaths) ->
-    case check_undo_process() of
+    case initial_checking(SearchPaths) of
 	ok -> Res = wrangler:fun_to_process(Fname, Line, Col, ProcessName,SearchPaths),
 	      check_wrangler_error_logger(),
 	      Res;
@@ -222,6 +223,23 @@ fun_to_process(Fname, Line, Col, ProcessName,SearchPaths) ->
     end.
 
 
+initial_checking(SearchPaths) ->
+     case check_searchpaths(SearchPaths) of 
+ 	ok ->
+ 	    check_undo_process();
+ 	{error, Reason} -> {error, Reason}
+     end.
+
+check_searchpaths(SearchPaths) ->
+    InValidSearchPaths = lists:filter(fun (X) -> not(filelib:is_dir(X)) end, SearchPaths),
+    case InValidSearchPaths of
+	[] -> ok;
+	[_D|T] -> case T of 
+		     [] ->{error, "The search paths specified contain an invalid directory, please check the customisation!"};
+		     _ -> {error, "The search paths specified contain invalid directories, please check the customisation!"}
+		 end
+    end.
+			  
 check_undo_process() ->
     case erlang:whereis(refactor_undo) of
 	undefined ->
@@ -238,10 +256,16 @@ check_wrangler_error_logger() ->
 	_ ->  io:format("\n===============================WARNING===============================\n"),
 	      io:format("There are errors in the program, and functions/attribute containing errors are not affected by the refactoring process.\n"),
 	      lists:foreach(fun({FileName, Errs}) ->
-				    Errs1 = lists:map(fun({Pos, _Mod, Msg}) -> {Pos, Msg} end, Errs),
+				    %%Errs1 = lists:map(fun({Pos, _Mod, Msg}) -> {Pos, Msg} end, Errs),
 				    io:format("File:\n ~p\n", [FileName]),
 				    io:format("Error(s):\n"),
-				    lists:foreach(fun({Pos, Msg}) -> io:format(" ** ~p:~s **\n", [Pos, Msg]) end, lists:reverse(Errs1)) %% lists:flatten(Msg)
+				    lists:foreach(fun(E) ->
+							  case E of 
+							      {Pos, _Mod, Msg} ->io:format(" ** ~p:~p **\n", [Pos, Msg]);
+							      M -> io:format("**~s**\n", [M])
+							  end
+						  end,
+						  lists:reverse(Errs)) %% lists:flatten(Msg)
 			    end, Errors)
     end.
     
