@@ -1,7 +1,7 @@
 %% ============================================================================================
 %% Refactoring: Fold expression(s) against a function clause definition.
 %%
-%% Copyright (C) 2006-2008  Huiqing Li, Simon Thompson
+%% Copyright (C) 2006-2009  Huiqing Li, Simon Thompson
 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
