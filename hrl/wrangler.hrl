@@ -11,25 +11,37 @@
 -record(attr, {pos = {0,0}, ann = [], com = none}).
 
 %% Will be edited by Makefile 
--define(WRANGLER_DIR, "C:/cygwin/home/hl/wrangler/share/distel/wrangler").
+-define(WRANGLER_DIR, "c:/cygwin/home/hl/wrangler/share/distel/wrangler").
 
 -define(DEFAULT_LOC, 
         {0, 0}).  %% default defining location.
 -define(DEFAULT_MODULE,
 	unknown).  %% default module name.
 
+-define(ModuleGraphTab, wrangler_modulegraph_tab).
+
 -type(filename()::string()).
+-type(modulename()::atom()).
+-type(functionname()::atom()).
+-type(arity()::integer()).
 -type(dir()::string()).
 -type(syntaxTree()::any()).    %% any() should be refined.
 -type(pos()::{integer(), integer()}).
+-type(line()::integer()).
+-type(col()::integer()).
 -type(boolean()::true|false).
 -type(key():: attributes | errors | exports | functions | imports | module | records | rules | warnings).
 -type(moduleInfo()::[{key(), any()}]).  %% any() should be refined.
 -type(term()::any()).
--type(token()::{var, pos(), atom()} | {integer, pos(), integer()}|{string, pos(), string()}|
-               {float, pos(), float()} | {char, pos(), char()} |{atom, pos(), atom()} |{atom(), pos()}).
-               
+-type(editor()::emacs|eclipse).
+-type(whitespace() :: '\t' | '\n' | ' ').
+-type(token() :: {'var', pos(), atom()} | {'integer', pos(), integer()} | {'string', pos(), string()}
+	       | {'float', pos(), float()} | {'char', pos(), char()}
+	       | {'atom', pos(), atom()} | {atom(), pos()}
+	       | {'whitespace', pos(), whitespace()} | {'comment', pos(), string()}).
+
 -type(scc_order()::[[{{atom(), atom(), integer()}, syntaxTree()}]]).
+-type(callercallee()::[{{modulename(), functionname(), arity()}, [{modulename(), functionname(), arity()}]}]).
 -type(external_calls()::[{atom(), atom(), integer()}]).
--record(callgraph, {scc_order, external_calls}).
+-record(callgraph, {'callercallee', 'scc_order', 'external_calls'}).
       
