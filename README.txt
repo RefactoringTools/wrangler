@@ -1,7 +1,7 @@
 
                     Wrangler, the Erlang Refactorer
                 a snapshot of our current prototype
-                             01/07/2008
+                             21/09/2008
               http://www.cs.kent.ac.uk/projects/forse/
 
 --------------------------------------------------------------------------------
@@ -20,26 +20,27 @@ Emacs.
 
 Wrangler is supposed to be installed as part of Distel, therefore this
 snapshot includes both Distel and the current snapshot of Wrangler
-(Wrangler-0.3). 
+(Wrangler-0.5). 
 
-**** Please NOTE: the Distel included in this snapshot refers
-to the cvs version from distel.googlecode.com.
+---------------------*** Please NOTE ***---------------------------
+The Distel included in this snapshot is  Distel-4.0, which is
+downloadable from distel.googlecode.com
 
-Wrangler 0.4 is still a prototype, made available so you can play with 
+Wrangler 0.5 is still a prototype, made available so you can play with 
 basic refactoring support for Erlang, and give us feedback or bug 
 reports.
 
 WE DO NOT RECOMMEND TO USE THIS PROTOTYPE  ON YOUR PRODUCTION SOURCE
 JUST YET!
 
-
 --------------- how to build----------------
 
-1) If you do not have Distel installed, then download the snapshot,
-   follow the installation instructions in the INSTALL file to build 
-   the system.
+1) If you do not have Distel-4.0 (or cvs version from distel.googlecode.com)
+  installed, then download the snapshot, follow the installation
+  instructions in the INSTALL file to build the system.
 
-2) If you already have Distel installed, then download the snapshot,
+2) If you already have Distel-4.0 (or cvs version from
+   distel.googlecode.com) installed, then download the snapshot,
    copy the 'wrangler' directory and the Makefile.in file to your
    own distel directory, rebuild and install the software in the usual
    way:  
@@ -52,7 +53,7 @@ JUST YET!
 
   2. To start the Erlang refactorer:
 
-      M-x erlang-refactor-on
+      M-x erlang-refactor-on  
 
      In the mini-buffer, you might be asked to input the Erlang node
      to connect to if such a connection has not been established. 
@@ -65,8 +66,10 @@ JUST YET!
       M-x erlang-refactor-off 
 
       The 'Refactor' submenu will disappear from the Erlang menu.
+
+  4. You could also use "Ctrl-c Ctrl-r" to toggle the refactorer on/off.
  
-  4. For most refactorings, the editor interface will pass the
+  5. For most refactorings, the editor interface will pass the
      current filename (should be the module name, as well), the
      refactoring command, and the current cursor position. For
      some refactorings, you'll also need to highlight an 
@@ -99,10 +102,12 @@ JUST YET!
 	                          the possible candidates one by one, and 
                                   ask whether you want to fold it.
 
-     Tuple function arguments   : place cursor at the beginning of the parameter                                 that is to be the first element of the tuple,                                   and you will be prompted for the number of     
-			         parameters put into a tuple.
-
-     
+     Tuple function arguments   : place cursor at the beginning of the
+                                  parameter that is to be the first
+                                  element of the tuple, and you will
+                                  be prompted for the number of     
+			          parameters put into a tuple.
+  
 
      Expression Search          : highlight the expression/expression sequence
 	                          you are interested, Wrangler will show you 
@@ -123,14 +128,49 @@ JUST YET!
                                   number of tokens a duplicated code fragment 
                                   should have, and the minmum number of times  
                                   that a code fragment is duplicated. Wrangler 
-                                  will search duplicated code fragments from the                                  directories specified by the search paths (see                                  Customize Wrangler).
+                                  will search duplicated code fragments from the 
+                                 directories specified by the search paths (see 
+                                 Customize Wrangler).
 	                        
+     Rename a process           :place the cursor at the process name
+                                 to be renamed, and you will be
+                                 prompted for the new name.
 
- 5. The 'Customize Wrangler' menu in the 'Refactor' submenu allows you specify 
+     Register a process         :highlight the match expression whose
+                                 right-hand side is the spawn
+                                 expresssion that creates the process,
+                                 and left-hand side is the process
+                                 identifier, and you will be prompted
+                                 for the new process name.
+
+     From fun to process        :place the cursor at the function name
+                                 of the function definition to be
+                                 refactored, and you will be prompted
+                                 for the new process name.
+
+    Add tag to messages         :place the cursor at the function
+                                 whose body contains the receive
+                                 expression of the server process, and
+                                 you will be prompted for the tag name.
+     
+
+ 6. The 'Customize Wrangler' menu in the 'Refactor' submenu allows you specify 
  the boundary of the system by giving the list of directories to
  search for Erlang source files/header files that could be affected by a
  refactoring.
 
+
+---------------------------Changes from Wrangler-0.4---------------
+
+-- new refactorings:
+    ++ Rename a process
+    ++ From function to process
+    ++ Register a process
+    ++ Add a tag to the messages received by a server process
+-- Infrasture change to make use of OTP behavioures.
+-- Improved layout preservation.
+-- Support for refactoring incomplete code.
+-- A number of bug fixes
 
 ----------------------------Changes from Wrangler-0.3---------------
 
