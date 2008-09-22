@@ -18,6 +18,7 @@
 
 
 %% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
+%%================================================================================================
 %% This module trys to annotate AST with the spawn information associated with a process identifer. But
 %% because complex pattern binding and message passing are not considered yet, the annotation information
 %% is only partial.
@@ -38,7 +39,7 @@ ann_pid_info(DirList) ->
     Pid = start_fun_typesig_process([]),            %% Refactor this USING WRANGLER:  register a process, and remove the uses of Pid.
     SortedFuns1 = do_ann_pid_info(SortedFuns, Pid),
     stop_counter_process(),
-    lists:foreach(fun (File) -> {File, update_function(File, SortedFuns1)} end, Files),
+    lists:foreach(fun (File) -> {File, update_function(File, SortedFuns1, DirList)} end, Files),
     ok.
     
 
@@ -90,8 +91,8 @@ fixpoint(Funs, TypeSigPid) ->
      end.
 
 
-update_function(File, FunList) ->
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(File, true, []),
+update_function(File, FunList, DirList) ->
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(File, true, DirList),
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     F = fun (Node, []) ->
 		case refac_syntax:type(Node) of
@@ -107,8 +108,7 @@ update_function(File, FunList) ->
 		end
 	end,
     {AnnAST1, _} = refac_util:stop_tdTP(F, AnnAST, []),
-    %%io:format("AnnAST1:\n~p\n", [AnnAST1]),
-    refac_ast_server:update_ast(File, {AnnAST1, Info, filelib:last_modified(File)}),
+    wrangler_ast_server:update_ast({File, true, DirList},  {AnnAST1, Info, filelib:last_modified(File)}),
     ok.
 
 annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
@@ -129,11 +129,11 @@ annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
  	    Operator = refac_syntax:application_operator(Node),
 	    Args = refac_syntax:application_arguments(Node),
  	    Ann = refac_syntax:get_ann(Operator),
- 	    case lists:keysearch(fun_def, 1, Ann) of 
+	    case lists:keysearch(fun_def, 1, Ann) of 
  		{value, {fun_def, {M1, F1, A1, _P1, _2}}} ->
  		   TypeSigPid ! {self(), get, {M1, F1, A1}},
  		   receive 
- 		       {TypeSigPid, value, {ParSig,  RtnSig}} ->
+		       {TypeSigPid, value, {ParSig,  RtnSig}} ->
 			   F= fun({A, S}) ->
 				      case S of
 					  {pname, _} ->    %% Can you do this to Pid?
@@ -145,7 +145,8 @@ annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
 			   Node1 = refac_syntax:copy_attrs(Node, refac_syntax:application(Operator, Args1)),
 			   case RtnSig of 
  			       any -> Node1;
- 			       Pid -> refac_util:update_ann(Node1, Pid)
+ 			       Pid -> Node2 =refac_util:update_ann(Node1, Pid),
+				      Node2
  			   end;
  		       {TypeSigPid, false} ->
  			   Node
@@ -407,8 +408,6 @@ do_annotate_special_fun_apps_pname(Node, EnvPid) ->
 				  {value, {pid, PidInfo1}} -> PidInfo1;
 				  _ -> []
 			      end,
-		    io:format("Arg2:\n~p\n", [Arg2]),
-		    io:format("PidInfo:\n~p\n", [PidInfo]),
 		    Arg11 = refac_util:update_ann(Arg1, {pname, PidInfo}), 
 		    Node1 = refac_syntax:copy_attrs(Node, refac_syntax:application(Op, [Arg11, Arg2])),
 		    case lists:keysearch(def,1, refac_syntax:get_ann(Arg1)) of 
@@ -527,8 +526,8 @@ is_send_expr(Tree) ->
 
 %% sort functions according to calling relationship and remove functions which are not process related.
 sort_funs(DirList) ->
-   {CallerCallee, Sccs, _E} = refac_callgraph_server:get_callgraph(DirList),
-    TrimmedSccs = trim_scc(Sccs, CallerCallee, [], []),
+    CallGraph = wrangler_callgraph_server:get_callgraph(DirList),
+    TrimmedSccs = trim_scc(CallGraph#callgraph.scc_order, CallGraph#callgraph.callercallee, [], []),
     lists:append(TrimmedSccs).
 
 trim_scc([], _CallerCallee, _PFunAcc, Acc) -> lists:reverse(Acc);
@@ -620,7 +619,7 @@ fun_typesig_loop(State) ->
 	    From ! {self(), State},
 	    fun_typesig_loop(State);
  	stop ->  
- 	    io:format("typesig env:\n~p\n", [State]),
+ 	   %% io:format("typesig env:\n~p\n", [State]),
  	    ok
      end.
 
