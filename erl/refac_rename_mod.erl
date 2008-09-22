@@ -74,7 +74,6 @@ rename_mod(FileName, NewName,SearchPaths, Editor) ->
 					    check_atoms(AnnAST1, OldModName),
 					    io:format("\nChecking client modules in the following search paths: \n~p\n",[SearchPaths]),
 					    ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
-					    io:format("ClientFiles:\n~p\n", [ClientFiles]),
 					    Results = rename_mod_in_client_modules(ClientFiles, 
 										   OldModName, NewModName,SearchPaths),
 					    case Editor of 
