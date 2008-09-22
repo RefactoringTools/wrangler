@@ -2,7 +2,7 @@
 %% ============================================================================================
 %% Refactoring: Add a tag to all the messages received by a process.
 %%
-%% Copyright (C) 2006-2008  Huiqing Li, Simon Thompson
+%% Copyright (C) 2006-2009  Huiqing Li, Simon Thompson
 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -63,12 +63,11 @@ pre_cond_check(_AnnAST, ModName, CurrentFunDef,  SearchPaths) ->
     Arity = refac_syntax:function_arity(CurrentFunDef),
     InitialFuns = collect_process_initial_funs(SearchPaths),
     AffectedInitialFuns = get_affected_initial_funs(InitialFuns, {ModName, FunName, Arity}, SearchPaths),
-    io:format("InitialFuns:\n~p\n", [AffectedInitialFuns]),
     case AffectedInitialFuns of 
 	[] -> {error, "Sorry, but Wrangler could not figure out where the process is spawned."};
 	[_H|T]-> case T of 
 		    [] -> {ok, AffectedInitialFuns};
-		    _ ->  case length(lists:usort(lists:map(fun({_InitialFun, ReceiveFuns}) -> ReceiveFuns end, AffectedInitialFuns))) of
+		    _ ->  case length(lists:usort(lists:map(fun({_InitialFun, ReceiveFuns, _}) -> ReceiveFuns end, AffectedInitialFuns))) of
 			      1 -> {ok, AffectedInitialFuns};
 			      _ -> {error, "The selected receive function is shared by processes with different set of receive expressions."}
 			  end
@@ -78,12 +77,17 @@ pre_cond_check(_AnnAST, ModName, CurrentFunDef,  SearchPaths) ->
 
 get_affected_initial_funs(InitialFuns, {ModName, FunName, Arity}, SearchPaths) ->
     ReachedReceiveFuns = reached_receive_funs(InitialFuns, SearchPaths),
-    io:format("ReachedReceiveFuns:\n~p\n", [ReachedReceiveFuns]),
     lists:filter(fun({_InitialFun, Fs}) ->
 					    lists:member({ModName, FunName, Arity}, Fs) end, ReachedReceiveFuns).
 
 
-collect_process_initial_funs_1({AnnAST, Info}, _SearchPaths) ->  
+collect_process_initial_funs(SearchPaths) ->
+    Files = refac_util:expand_files(SearchPaths, ".erl"),
+    lists:flatmap(fun(F)->{ok, {AnnAST, Info}} = refac_util:parse_annotate_file(F, true, SearchPaths),
+			  collect_process_initial_funs_1({F, AnnAST, Info}, SearchPaths)
+		  end, Files).
+
+collect_process_initial_funs_1({FileName, AnnAST, Info}, _SearchPaths) ->  
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     HandleSpecialFuns = fun(Node) ->
 				{{Ln, _}, _} = refac_util:get_range(Node),
@@ -96,25 +100,27 @@ collect_process_initial_funs_1({AnnAST, Info}, _SearchPaths) ->
 					{value, {pid, PidInfo}} = lists:keysearch(pid, 1, refac_syntax:get_ann(Node)),
 					case Arguments of 
 					    [FunExpr] -> 
-						{PidInfo, {FunExpr, {ModName, Ln}}};   %%Question: what about if the FunExpr contains free variables?
-					    [_N, FunExpr] -> {PidInfo, FunExpr};
+						[{PidInfo, {FunExpr, {ModName, Ln}}, {FileName, Node}}];   %%Question: what about if the FunExpr contains free variables?
+					    [_N, FunExpr] -> [{PidInfo, FunExpr,{FileName, Node}}];
 					    [M, F, A] -> 
 						case {refac_syntax:type(M), refac_syntax:type(F), refac_syntax:type(A)} of
 						    {atom, atom, list} ->
-							{PidInfo, {refac_syntax:atom_value(M),   %%TODO: need to use backward slice
+							[{PidInfo, {refac_syntax:atom_value(M),   %%TODO: need to use backward slice
 								   refac_syntax:atom_value(F), 
-								   refac_syntax:list_length(A)}};    
+								   refac_syntax:list_length(A)}, {FileName, Node}}];    
 						    _ -> io:format("\n*************************************Warning****************************************\n"),
-							 io:format("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName,Ln])
+							 io:format("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName,Ln]),
+							 []
 						end;
 					    [_N, M, F, A] ->
 						case {refac_syntax:type(M), refac_syntax:type(F), refac_syntax:type(A)} of
 						    {atom, atom, list} ->
-							{PidInfo, {refac_syntax:atom_value(M),   %%TODO: need to use backward slice
+							[{PidInfo, {refac_syntax:atom_value(M),   %%TODO: need to use backward slice
 								   refac_syntax:atom_value(F), 
-								   refac_syntax:list_length(A)}};    
+								   refac_syntax:list_length(A)}, {FileName, Node}}];    
 						    _ -> io:format("\n*************************************Warning****************************************\n"),
-							 io:format("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName,Ln])
+							 io:format("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName,Ln]),
+							 []
 						end
 					    end;
 				    _ ->
@@ -128,7 +134,7 @@ collect_process_initial_funs_1({AnnAST, Info}, _SearchPaths) ->
 		     function ->
 			 F = fun(T, S) ->
 				     case is_spawn_expr(T) of 
-					 true -> [HandleSpecialFuns(T)|S];
+					 true -> HandleSpecialFuns(T)++S;
 					 _ -> S
 				     end
 			     end,
@@ -142,39 +148,52 @@ collect_process_initial_funs_1({AnnAST, Info}, _SearchPaths) ->
 do_add_a_tag(FileName, {AnnAST, Info}, Tag, AffectedInitialFuns, SearchPaths) ->
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     {InitialFuns1, ReceiveFuns1} = lists:unzip(AffectedInitialFuns),
-    InitialFuns = lists:usort(lists:flatmap(fun({Init, _}) -> Init end, InitialFuns1)),
+    InitialFuns = lists:usort(lists:flatmap(fun({Init, _, _}) -> Init end, InitialFuns1)),
+    InitialSpawnExprs = lists:usort(lists:map(fun({_, _, SpawnExpr}) -> SpawnExpr end, InitialFuns1)),
+    AffectedModsFuns = get_affected_mods_and_funs(InitialSpawnExprs, SearchPaths),
     ReceiveFuns = lists:usort(lists:append(ReceiveFuns1)),
     io:format("The current file under refactoring is:\n~p\n", [FileName]),
-    {AnnAST1, _Changed} =refac_util:stop_tdTP(fun do_add_a_tag_1/2, AnnAST, {ModName, Tag, InitialFuns, ReceiveFuns}),
+    {AnnAST1, _Changed} =refac_util:stop_tdTP(fun do_add_a_tag_1/2, AnnAST, {ModName, Tag, InitialFuns, ReceiveFuns, AffectedModsFuns}),
     OtherFiles = refac_util:expand_files(SearchPaths, ".erl") -- [FileName],
-    Results = do_add_a_tag_in_other_modules(OtherFiles, Tag, InitialFuns, ReceiveFuns, SearchPaths),    
+    Results = do_add_a_tag_in_other_modules(OtherFiles, Tag, InitialFuns, ReceiveFuns, AffectedModsFuns, SearchPaths),    
     [{{FileName, FileName}, AnnAST1} | Results].
 
-do_add_a_tag_in_other_modules(Files, Tag, InitialFuns, ReceiveFuns, SearchPaths) ->
+do_add_a_tag_in_other_modules(Files, Tag, InitialFuns, ReceiveFuns, AffectedModsFuns={Mods, _Funs}, SearchPaths) ->
     case Files of
 	[] ->
 	    [];
 	[F |Fs] ->
-	    io:format("The current file under refactoring is:\n~p\n", [F]),
-	    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(F, true, SearchPaths),
-	    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
-	    {AnnAST1, Changed} = refac_util:stop_tdTP(fun do_add_a_tag_1/2, AnnAST, {ModName, Tag, InitialFuns, ReceiveFuns}),
-	    if Changed ->
-		    [{{F, F}, AnnAST1} | do_add_a_tag_in_other_modules(Fs, Tag, InitialFuns, ReceiveFuns, SearchPaths)];
-		true -> do_add_a_tag_in_other_modules(Fs, Tag, InitialFuns, ReceiveFuns, SearchPaths)
+	    BaseName = list_to_atom(filename:basename(F, ".erl")),
+	    case lists:member(BaseName, Mods) of 
+		true ->
+		    io:format("The current file under refactoring is:\n~p\n", [F]),
+		    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(F, true, SearchPaths),
+		    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
+		    {AnnAST1, Changed} = refac_util:stop_tdTP(fun do_add_a_tag_1/2, AnnAST, {ModName, Tag, InitialFuns, ReceiveFuns,AffectedModsFuns}),
+		    if Changed ->
+			    [{{F, F}, AnnAST1} | do_add_a_tag_in_other_modules(Fs, Tag, InitialFuns, ReceiveFuns, AffectedModsFuns, SearchPaths)];
+		       true -> do_add_a_tag_in_other_modules(Fs, Tag, InitialFuns, ReceiveFuns, AffectedModsFuns, SearchPaths)
+		    end;
+		_ -> do_add_a_tag_in_other_modules(Fs, Tag, InitialFuns, ReceiveFuns, AffectedModsFuns, SearchPaths)
 	    end
     end.
-do_add_a_tag_1(Node, {ModName,Tag, InitialFuns, ReceiveFuns}) ->
+do_add_a_tag_1(Node, {ModName,Tag, InitialFuns, ReceiveFuns,{_Mods,Funs}}) ->
     case refac_syntax:type(Node) of 
 	function ->
 	    {value, {fun_def, {M, F, A, _, _}}} = lists:keysearch(fun_def,1, refac_syntax:get_ann(Node)),
 	    case lists:member({M, F, A}, ReceiveFuns) of 
 		true ->
 		    Node1 = refac_util:full_buTP(fun do_add_tag_to_receive_exprs/2, Node,  Tag),
-		    {Node2, _} = refac_util:stop_tdTP(fun do_add_tag_to_send_exprs/2, Node1, {ModName,Tag, InitialFuns}),
-		    {Node2, true};
+		    %% Can a process send an expression to itself?
+		   %% {Node2, _} = refac_util:stop_tdTP(fun do_add_tag_to_send_exprs/2, Node1, {ModName,Tag, InitialFuns}), 
+		    {Node1, true};
 		false ->
-		   refac_util:stop_tdTP(fun do_add_tag_to_send_exprs/2, Node, {ModName, Tag, InitialFuns})
+		    case lists:member({M, F, A}, Funs) of 
+			true ->
+			    refac_util:stop_tdTP(fun do_add_tag_to_send_exprs/2, Node, {ModName, Tag, InitialFuns});
+			_ ->
+			    {Node, false}
+		    end
 	    end;
 	_ ->
 	    {Node, false}
@@ -248,7 +267,6 @@ do_add_tag_to_send_exprs(Node, {ModName, Tag, AffectedInitialFuns}) ->
 			Ann = refac_syntax:get_ann(ReceiverPid),
 			case lists:keysearch(pid,1, Ann) of 
 			    {value, {pid, InitialFuns}} ->
-				io:format("IntialFuns:\n~p\n", [InitialFuns]),
 				case InitialFuns of 
 				    [] -> {Node, false};
 				    _ -> case InitialFuns -- AffectedInitialFuns of 
@@ -262,8 +280,7 @@ do_add_tag_to_send_exprs(Node, {ModName, Tag, AffectedInitialFuns}) ->
 						 {Node1, true};
 					     InitialFuns -> 
 						 {Node, false};
-					     _ -> io:format("Node:\n~p\n", [Node]),%% TODO: Undicidables;
-						  {Node, false}
+					     _ ->  {Node, false}
 					 end
 				end;
 			    _ -> {Node, false}  %%TODO: undicicabels.
@@ -300,11 +317,6 @@ has_receive_expr(Node, []) ->
 
 
 
-collect_process_initial_funs(SearchPaths) ->
-    Files = refac_util:expand_files(SearchPaths, ".erl"),
-    lists:flatmap(fun(F)-> {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(F, true, SearchPaths),
-			   collect_process_initial_funs_1({AnnAST, Info}, SearchPaths)
-		  end, Files).
 			  
 collect_fun_apps(Expr, {ModName, Ln}) ->
     Fun = fun (T, S) ->
@@ -364,17 +376,15 @@ reached_receive_funs(InitialFuns, SearchPaths) ->
  		     {FunExpr, {ModName, Ln}} -> collect_fun_apps(FunExpr, {ModName, Ln})
 		 end
 	 end,	
-    {CallerCallee, _, _} = refac_callgraph_server:get_callgraph(SearchPaths),  %% should remove spawn pars before calcuate callgraph.
-    ReachedFuns = lists:zip(InitialFuns, lists:map(fun({_SpawnExpr, InitialF}) -> 
-							   reached_receive_funs_1(CallerCallee, F(InitialF), SearchPaths) end, 
+    CallGraph = wrangler_callgraph_server:get_callgraph(SearchPaths),  
+    ReachedFuns = lists:zip(InitialFuns, lists:map(fun({_PidInfo, InitialF, _SpawnExpr}) -> 
+							   reached_receive_funs_1(CallGraph#callgraph.callercallee, F(InitialF), SearchPaths) end, 
 						   InitialFuns)),
     ReachedFuns.
    
 
 reached_receive_funs_1(CallerCallee, InitialAcc, SearchPaths) ->
-    io:format("InitialAcc:\n~p\n", [InitialAcc]),
     Funs =reached_funs_1(CallerCallee, InitialAcc),
-    io:format("Funs:\n~p\n", [Funs]),
     ReceiveFuns = lists:filter(fun(MFA) ->
 				      case get_fun_def(MFA, SearchPaths) of 
 					  {error, no_source_file} -> false;
@@ -438,7 +448,39 @@ is_spawn_expr(Tree) ->
       _ -> false
     end.
 
+get_affected_mods_and_funs(SpawnExprs, SearchPaths) ->
+    SliceRes =forward_slice(SpawnExprs, SearchPaths, []),
+    AffectedFuns = lists:usort(lists:map(fun({{Mod, Fun, Arity, _}, _Value}) -> 
+						 {Mod, Fun, Arity} end, SliceRes)),
+    {Mods, _, _} = lists:unzip3(AffectedFuns),
+    AffectedMods = lists:usort(Mods),
+    {AffectedMods, AffectedFuns}.
+    
+forward_slice([], _SearchPaths, Acc) -> Acc;
+forward_slice([{FileName, Expr}|T], SearchPaths, Acc) ->
+   case forward_slice_1(FileName, Expr, SearchPaths) of 
+       {ok, Res} -> 
+	   forward_slice(T, SearchPaths, Res ++ Acc);
+       {error, Msg} ->
+	   {error, Msg}
+   end.
+    
 
+forward_slice_1(FileName, Expr, SearchPaths) ->
+    Files = refac_util:expand_files(SearchPaths, ".erl"),
+    {StartPos, EndPos} = refac_util:get_range(Expr),
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths),
+    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
+    case refac_util:pos_to_expr(AnnAST, StartPos, EndPos) of 
+	{ok, Expr} ->
+	    case refac_util:pos_to_fun_def(AnnAST, StartPos) of     
+		{ok, FunDef} ->
+		    {ok, refac_slice:forward_slice(Files, AnnAST, ModName, FunDef, Expr)};
+		_ ->
+		    {error, "Forward slicing failed"}
+	    end;
+	_ -> {error, "Foward slicing failed"}
+    end.
 
 %% Qn: is it possible to get more static infomration? How to balance the usages of staic and dynamic info?
 %% How do we know the existing trace info is uptodate?
