@@ -1,8 +1,19 @@
 %%%-------------------------------------------------------------------
 %%% File    : wrangler_callgraph_server.erl
-%%% Author  :  <Huiqing>
 %%% Description : A gen server manageing the callgraph of the program under refactoring.
-%%%
+%%
+%% Copyright (C) 2006-2009  Huiqing Li, Simon Thompson
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved via the world wide web at http://www.erlang.org/.
+
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%%
 %%% Created : 28 Aug 2008 by  <Huiqing>
 %%%-------------------------------------------------------------------
 -module(wrangler_callgraph_server).
@@ -52,7 +63,7 @@ init(_Args) ->
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
 -spec(handle_call/3::({atom(), [dir()]}, any(), #state{}) ->
-	     {reply, {callercallee(), scc_order(), external_calls()}, #state{}}).
+	     {reply, #callgraph{}, #state{}}).
 handle_call({get, SearchPaths}, _From, State) ->
     {Reply, State1} = get_callgraph(SearchPaths, State),
     {reply, Reply, State1}.
@@ -100,7 +111,7 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
--spec(get_callgraph/1::([dir()])-> {callercallee(), scc_order(), external_calls()}).
+-spec(get_callgraph/1::([dir()])-> #callgraph{}).
 get_callgraph(SearchPaths) ->
     gen_server:call(wrangler_callgraph_server, {get, SearchPaths}, infinity).
 
@@ -111,28 +122,15 @@ get_callgraph(SearchPaths) ->
 
 get_callgraph(SearchPaths, State) ->
     case lists:keysearch(SearchPaths, 1, State#state.callgraph) of 
-	{value, {SearchPaths, CallGraph}} ->
-	    {CallGraph, State};	
+	{value, {SearchPaths, _CallGraph}} ->
+           %%{CallGraph, State};	  %% Here we should check the time stamp of individual files;
+	    %% Temporally rebuilt the callgraph! TODO: Change to use timestamp!!!
+	     CallGraph = refac_util:build_scc_callgraph(SearchPaths),
+	    {CallGraph, #state{callgraph=[{SearchPaths, CallGraph}]}};  %% |State#state.callgraph]}};
 	false ->
-	    CallGraph = build_callgraph(SearchPaths),
+	    CallGraph = refac_util:build_scc_callgraph(SearchPaths),
 	    {CallGraph, #state{callgraph=[{SearchPaths, CallGraph}|State#state.callgraph]}}
     end.
 
     
-build_callgraph(SearchPaths) ->
-    Files = refac_util:expand_files(SearchPaths, ".erl"),
-    CallGraph = build_callgraph(Files, []),
-    CallerCallee = lists:map(fun ({{Caller, _CallerDef}, Callee}) -> {Caller, Callee} end, CallGraph),
-    #callgraph{scc_order = Sccs, external_calls = E} = refac_callgraph:construct(CallGraph),
-    {CallerCallee, Sccs, E}.
-     
    
-build_callgraph([FileName | Left], Acc) ->
-    {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(FileName, true, []),
-    G1 = refac_util:build_callgraph(AnnAST, Info, FileName),
-    Acc1 = Acc ++ G1,
-    build_callgraph(Left, Acc1);
-build_callgraph([], Acc) -> Acc.			   
-			    
-
-
