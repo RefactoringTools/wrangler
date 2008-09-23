@@ -95,6 +95,7 @@ C-c C-d b/\\[edb-toggle-breakpoint]	- Toggle a debugger breakpoint at the curren
 \\[erl-refactor-duplicated-code-in-buffer] -Detect code clones in the current file.
 \\[erl-refactor-duplicated-code-in-dirs] -Detect code clones in the specified directories.
 \\[erl-refactor-expression-search] - search an expression in the current file
+\\[erl-refactor-version] --show the current version of Wrangler.
 \\[erl-find-sig-under-point]	- Show the signature for the function under point.
 \\[erl-find-doc-under-point]	- Show the HTML documentation for the function under point.
 \\[erl-find-sig]	- Show the signature for a function.
@@ -340,6 +341,8 @@ Please see the documentation of `erlang-menu-base-items'.")
       ("Undo" erl-refactor-undo)
       nil
       ("Customize Wrangler" refac-customize)
+      nil
+      ("Version" erl-refactor-version)
       )))
   "*Description of the Refactor menu used by Erlang Extended mode.")
 
@@ -409,7 +412,10 @@ Please see the documentation of `erlang-menu-base-items'.")
 	  (setq erlang-refactor-status 0))
 	 (['rex ['error rsn]]
 	  (message "Wrangler failed to stop:%s" rsn))))))
-	     
+
+(defun erl-refactor-version()
+  (interactive)
+  (message "Wrangler version 0.5"))
  
 
 ;; (defun erlang-refactor-on(node)
