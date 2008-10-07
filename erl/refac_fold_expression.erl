@@ -82,7 +82,7 @@ fold_expression(FileName, Line, Col, SearchPaths, Editor) ->
 							     Candidates);
 					   eclipse ->  Candidates 
 				       end,
-			     {ok, Regions}  %%  or {ok, FunClauseDef, Regions}? CHECK THIS.
+			     {ok, Regions}  
 		    end;				 
 		{error, Reason} -> {error, Reason}
 	    end;
@@ -432,38 +432,39 @@ do_search_candidate_exprs_2(AnnAST, ExpList) ->
 					 refac_syntax:tuple_elements(LastExp));
 		      _  -> false
 		  end,
+    
       Fun = fun(T, S) ->
 		  case refac_syntax:type(T) of 
 		      clause ->
 			  Exprs = refac_syntax:clause_body(T),
 			  SubExprs = sublists(Exprs, Len),
 		          CandidateExprs1 = 
-			      lists:map(fun(E) -> case ExpList =/= E of 
-						      true ->case expr_unification(ExpList, E) of 
-								 {true,Subst} -> {StartLoc1, _EndLoc1} = refac_util:get_range(hd(E)),
-										 {_StartLoc2, EndLoc2} = refac_util:get_range(lists:last(E)),
-										 {{StartLoc1, EndLoc2}, Subst};
-								 _ -> false
-							     end;
-						      _ -> false
-						  end							       
-					end, SubExprs),
-			  CandidateExprs2 = 
+			         lists:map(fun(E) -> case ExpList =/= E of 
+   						      true ->case expr_unification(ExpList, E) of 
+   								 {true,Subst} -> {StartLoc1, _EndLoc1} = refac_util:get_range(hd(E)),
+   										 {_StartLoc2, EndLoc2} = refac_util:get_range(lists:last(E)),
+   										 {{StartLoc1, EndLoc2}, Subst};
+   								 _ -> false
+   							     end;
+   						      _ -> false
+   						  end							       
+   					end, SubExprs),
+ 			  CandidateExprs2 = 
 			      case HasExportExp of 
 				  true ->
 				      SubExprs1 = sublists(Exprs, Len-1),
 				      lists:map(fun(E) -> case hd(ExpList) =/= hd(E) of 
-							      true -> VarsToExport = vars_to_export(Exprs, E),
-								      E1 = case VarsToExport of 
-									       [] -> E;
-									       [V] ->  E ++ [refac_syntax:variable(V)];
-									       [_V|_VS] -> E++[refac_syntax:tuple([refac_syntax:variable(V) || V <-VarsToExport])]
-									   end,
-								      case expr_unification(ExpList, E1) of 
+							      true -> VarsToExport = vars_to_export_1(Exprs, E),
+								      Res =  expr_unification(lists:sublist(ExpList, Len-1), E),
+								      case Res of 
 									  {true, Subst} ->
-									      {StartLoc1, _EndLoc1} = refac_util:get_range(hd(E)),
-									      {_StartLoc2, EndLoc2} = refac_util:get_range(lists:last(E)),
-									      {{StartLoc1, EndLoc2}, Subst, VarsToExport};
+									      case reorder_vars_to_export(LastExp, VarsToExport, Subst) of 
+										  {true, VarsToExport1} ->
+										      {StartLoc1, _EndLoc1} = refac_util:get_range(hd(E)),
+										      {_StartLoc2, EndLoc2} = refac_util:get_range(lists:last(E)),
+										      {{StartLoc1, EndLoc2}, Subst, VarsToExport1};
+										  _ -> false
+									      end;
 									  _ -> false
 								      end;
 							      _ -> false
@@ -493,7 +494,7 @@ do_search_candidate_exprs_2(AnnAST, ExpList) ->
     
 
 expr_unification(Exp1, Exp2) ->
-   Res1 = case {is_list(Exp1), is_list(Exp2)} of 
+    Res1 = case {is_list(Exp1), is_list(Exp2)} of 
 	{true, true} ->   %% both are list of expressions
 	    case length(Exp1) == length(Exp2) of
 		true -> Res = lists:map(fun({E1,E2}) ->			      
@@ -640,7 +641,7 @@ set_default_ann(Node) ->
     refac_syntax:set_pos(refac_syntax:remove_comments(refac_syntax:set_ann(Node, [])), {0,0}).
 
 
-vars_to_export(WholeExpList, SubExpList) ->
+vars_to_export_1(WholeExpList, SubExpList) ->
     F1= fun(T, S) ->
 	       case refac_syntax:type(T) of 
 		   variable ->
@@ -670,6 +671,43 @@ vars_to_export(WholeExpList, SubExpList) ->
     VarsToExport.
 
 
+reorder_vars_to_export(LastExp, VarsToExport, Subst) ->
+    io:format("Subst:\n~p\n", [Subst]),
+    VarsOfLastExp = case refac_syntax:type(LastExp) of 
+		      variable -> [LastExp];
+		      tuple -> refac_syntax:tuple_elements(LastExp);
+		      _  -> []
+		  end,
+    ReOrderedExportList = lists:map(fun(V) ->
+					    VarName = refac_syntax:variable_name(V),
+					    case lists:keysearch(VarName,1, Subst) of 
+					     false ->
+						  '_';
+					     {value, {VarName, SubstVar}} ->
+						    case lists:member(refac_syntax:variable_name(SubstVar), VarsToExport) of 
+							true ->
+							    refac_syntax:variable_name(SubstVar);
+							_ -> '_'
+						    end
+					 end
+				 end, VarsOfLastExp),
+    case VarsToExport -- ReOrderedExportList of 
+	[] ->
+	    {true, ReOrderedExportList};
+	UnexportedVars ->
+	    Subst1 = lists:flatmap(fun({S1,S2}) -> case refac_syntax:type(S2) of 
+						      variable -> [{S1, refac_syntax:variable_name(S2)}];
+						       _ -> []
+						   end
+				   end, Subst),
+	    Vars = lists:flatmap(fun(V) -> case lists:keysearch(V, 2, Subst1) of 
+					       false -> [];
+					       {value, {Var, V}} -> [Var]
+					   end
+				 end, UnexportedVars),
+	    io:format("Warning: some expressions could have been folded if the function also exported the following variable(s):~p\n", Vars),
+	    false
+    end.
     
 get_fun_clause_def(Node, FunName, Arity, ClauseIndex) ->
     case refac_util:once_tdTU(fun get_fun_def_1/2, Node, {FunName, Arity, ClauseIndex}) of
