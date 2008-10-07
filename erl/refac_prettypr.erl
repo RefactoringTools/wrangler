@@ -78,7 +78,6 @@ print_ast(AST, Options) ->
     Fs = erl_syntax:form_list_elements(AST),
     Es = seq_pr(Fs, none, reset_prec(Ctxt), fun lay/2), 
     LayoutedEs = lists:map(fun(E) -> refac_prettypr_0:layout(E) end, Es),
-    %%OriginalEs = lists:map(fun(F) -> refac_util:concat_toks(refac_util:get_toks(F)) end, Fs),
     vertical_concat(lists:zip(LayoutedEs,Fs)).
 
 seq_pr([H | T], Separator, Ctxt, Fun) ->
@@ -122,21 +121,13 @@ vertical_concat([{E, Form}|T], Acc) ->
  		    end
 	   end,
     Str = case (EStr == FStr) or SpecialForm(Form) of 
-	      true -> F;
+	      true -> 
+		  F;
 	      false->
 		  case T of 
 		      [] -> E;
-		      [{E1,Form1}|_] ->
-			  {ok, E1Toks, _} = refac_scan:string(E1),
-			  F1 = refac_util:concat_toks(refac_util:get_toks(Form1)),
-			  {ok, F1Toks, _} = refac_scan:string(F1),
-			  E1Str = process_str(refac_util:concat_toks(E1Toks)),
-			  F1Str = process_str(refac_util:concat_toks(F1Toks)),
-			  case (E1Str==F1Str) or SpecialForm(Form) of 
-			      true -> E++"\n";
-			      false ->
-				  E++"\n"
-			  end
+		      [{_E1,_Form1}|_] ->
+			   E ++"\n"
 		  end
 	  end,	      
     case T of 
