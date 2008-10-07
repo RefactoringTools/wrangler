@@ -512,7 +512,7 @@ scan_qatom([$' | Cs], Stack, Toks, {Line, Col}, State,
     [StartPos, $' | S] = reverse(Stack),
     case catch list_to_atom(S) of
       A when is_atom(A) ->
-	  scan(Cs, [], [{atom, StartPos, A} | Toks],
+	  scan(Cs, [], [{qatom, StartPos, A} | Toks],
 	       {Line, Col + length(S) + 1}, State, Errors);
       _ ->
 	  scan(Cs, [], Toks, {Line, Col}, State,
