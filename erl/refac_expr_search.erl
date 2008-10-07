@@ -44,7 +44,6 @@ expr_search(FileName, Start, End) ->
     {ok, {AnnAST, _Info}} =refac_util:parse_annotate_file(FileName,true, []),
     case pos_to_expr(FileName, AnnAST, {Start, End}) of 
 	[E|Es] -> 
-	    %%io:format("Selected Expression:\n~p\n", [[E|Es]]),
 	    Res = case Es == [] of 
 		      true ->
 			  search_one_expr(AnnAST, E);
@@ -56,10 +55,6 @@ expr_search(FileName, Start, End) ->
 		     {ok, []};
 		1 -> io:format("No identical expression has been found. \n"),
 		     {ok, []};
-		%%	2 -> io:format(" One expression which is identical (up to variable renaming and literal substitution) to the selected"
-		%%	       " expression has been found. \n"), 
-		%%   {ok, Res};	
-		
 		N -> io:format("~p identical expressions (including the selected expression,and up to variable renaming and literal substitution) "
 				       " have been found. \n", [N]),
 		     {ok, Res}
@@ -246,25 +241,20 @@ var_binding_structure(ASTList) ->
     %% collect all variables including their defining and occuring locations. 
     B = lists:flatmap(fun(T) -> refac_syntax_lib:fold(Fun1, ordsets:new(), T) end, ASTList),
     %% collect defining locations.
-    DefLocs = lists:usort(lists:flatten(lists:map(fun ({_Name, _SrcLoc,
-					  DefLoc}) ->
-					    DefLoc
-				    end,
-				    B))),
+  %%  DefLocs = lists:usort(lists:flatten(lists:map(fun ({_Name, _SrcLoc, DefLoc}) ->  DefLoc end, B))),
     %% collect occuring locations.
-    SrcLocs = lists:map(fun ({_Name, SrcLoc, _DefLoc}) ->
-				SrcLoc
-			end,
-			B),
-    Locs = lists:usort(lists:flatten(DefLocs ++ SrcLocs)),
-    Res = case Locs of 
+    SrcLocs = lists:map(fun ({_Name, SrcLoc, _DefLoc}) -> SrcLoc end, B),
+    Res = case SrcLocs of 
 	      [] -> 
 		  [];
-	      _ ->  IndexedLocs = lists:zip(Locs, lists:seq(1, length(Locs))),
+	      _ ->  IndexedLocs = lists:zip(SrcLocs, lists:seq(1, length(SrcLocs))),
 		    B1 = lists:usort(lists:map(fun ({_Name, SrcLoc, DefLoc}) ->
-						       DefLoc1 = hd(DefLoc),             %% DefLoc is  a list, does this cause problems? CHECK IT.
+						       DefLoc1 = hd(DefLoc),             %% DefLoc is  a list, does this cause problems? .
 						       {value, {SrcLoc, Index1}} = lists:keysearch(SrcLoc, 1, IndexedLocs),
-						       {value, {DefLoc1, Index2}} = lists:keysearch(DefLoc1, 1, IndexedLocs),
+						       Index2 = case lists:keysearch(DefLoc1, 1, IndexedLocs) of 
+								    {value, {_, Ind}} -> Ind;
+								    _ -> 0 %% free variable
+								end,
 						       {Index1, Index2}
 					       end,
 					       B)),
@@ -273,22 +263,7 @@ var_binding_structure(ASTList) ->
     Res.
 
 
-%% groupby(N, TupleList) ->
-%%     TupleList1 = lists:keysort(N, TupleList),
-%%     groupby_1(N, TupleList1, []).
-
-%% groupby_1(_N, [], Acc) ->
-%%     Acc;
-%% groupby_1(N,TupleList=[T|_Ts], Acc) ->
-%%     E = element(N, T),
-%%     {TupleList1, TupleList2} = lists:partition(fun(T1) ->
-%% 						       element(N,T1) == E end, TupleList),
-%%     TupleList3 = lists:map(fun(L) -> {L1, L2} = lists:split(N-1, tuple_to_list(L)),
-%% 				    L1 ++ [0] ++ tl(L2)
-%% 			  end, TupleList1),
-%%     groupby_1(N, TupleList2, Acc++[TupleList3]).
-			     
-		    
+	    
 %% get the location of a token.
 token_loc(T) ->
       case T of 
