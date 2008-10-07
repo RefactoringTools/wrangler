@@ -394,10 +394,10 @@ scan_atom(Cs, Name, Toks, {Line, Col}, State, Errors) ->
       Atom when is_atom(Atom) ->
 	  case reserved_word(Atom) of
 	    true ->
-		scan(Cs, [], [{Atom, {Line, Col}} | Toks],
+		  scan(Cs, [], [{Atom, {Line, Col}} | Toks],
 		     {Line, Col + length(Name)}, State, Errors);
 	    false ->
-		scan(Cs, [], [{atom, {Line, Col}, Atom} | Toks],
+		  scan(Cs, [], [{atom, {Line, Col}, Atom} | Toks],
 		     {Line, Col + length(Name)}, State, Errors)
 	  end;
       _ ->

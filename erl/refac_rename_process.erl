@@ -38,7 +38,7 @@ rename_process_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
 
 
 rename_process(FileName, Line, Col, NewName, SearchPaths, Editor) ->
-    io:format("\nCMD: ~p:rename_fun( ~p, ~p, ~p, ~p,~p).\n", [?MODULE, FileName, Line, Col, NewName, SearchPaths]),
+    io:format("\nCMD: ~p:rename_process( ~p, ~p, ~p, ~p,~p).\n", [?MODULE, FileName, Line, Col, NewName, SearchPaths]),
     case is_process_name(NewName) of
       true ->
 	    _Res = refac_annotate_pid:ann_pid_info(SearchPaths),  %%TODO: check whether asts are already annotated.
@@ -274,7 +274,7 @@ check_atoms(CurrentFile, AtomName, SearchPaths) ->
 	[] ->
 	    ok;
 	_ -> io:format("\n*************************************Warning****************************************\n"),
-	     io:format("Wrangler could not decide whether to rename to atom(s) occuring at the followng location(s):\n"),
+	     io:format("Wrangler could not decide whether to rename atom(s) occuring at the followng location(s):\n"),
 	     lists:foreach(fun({M, Pos,_}) ->
 				      io:format("Location: module:~p, {line,col}:~p\n", [M,Pos]) end, Atoms)
     end.

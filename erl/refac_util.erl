@@ -733,21 +733,6 @@ tokenize(File) ->
       _ -> []
     end.
 
-%% tokenize1(File) ->
-%%       {ok, Bin} = file:read_file(File),
-%%       S = erlang:binary_to_list(Bin),
-%%       case refac_scan_with_layout:string(S) of
-%%         {ok, Toks, _} ->
-%% 	   io:format("Toks:\n~p\n",[Toks]),
-%%  	   Str1 = concat_toks(Toks),
-%% 	   io:format("~s", [Str1]),
-%% 	   Toks2=refac_scan:string(Str1),
-%% 	   io:format("Toks2\n~p\n", [Toks2]),
-%% 	   Toks2;
-%%         _ -> []
-%%       end.
-
-
 -spec(concat_toks(Toks::[token()]) ->
 	      string()).
 concat_toks(Toks) ->
@@ -757,15 +742,15 @@ concat_toks([], Acc) ->
      lists:concat(lists:reverse(Acc));
 concat_toks([T|Ts], Acc) ->
      case T of 
-	 {atom, _, V} -> S = case is_lower(hd(atom_to_list(V))) of 
-				true -> V;
-				_ ->  "'"++atom_to_list(V)++"'"
-			    end,
-			concat_toks(Ts, [S|Acc]);
+	 {atom, _,  V} -> S = atom_to_list(V), 
+			  concat_toks(Ts, [S|Acc]);
+	 {qatom, _, V} -> S = "'"++atom_to_list(V)++"'",
+			  concat_toks(Ts, [S|Acc]);
 	{string, _, V} -> concat_toks(Ts,['"', process_str(V), '"'|Acc]);
 	{_, _, V} -> concat_toks(Ts, [V|Acc]);
  	{dot, _} ->concat_toks(Ts, ['.'|Acc]);
-	{V, _} -> concat_toks(Ts, [V|Acc])
+	{V, _} -> 
+	     concat_toks(Ts, [V|Acc])
     end.
 
 process_str(S) ->
@@ -921,32 +906,6 @@ do_add_tokens(Toks, [F|Fs], NewFs)->
     do_add_tokens(RemainToks, Fs, [F1|NewFs]).
 	    
 	    
-%% do_add_tokens(Toks, Fs) ->   
-%%    F = fun(Form, RemToks) ->
-%% 	       StartPos =case refac_syntax:get_precomments(Form) of 
-%% 			     [] -> {Start, _End} = get_range(Form),
-%% 				   Start;
-%% 			     [Com|_Tl] -> {Line, Col}=refac_syntax:get_pos(Com),
-%% 					  {Line, Col+1}
-%% 			 end,
-%% 	       io:format("StartPos:\n~p\n",[StartPos]),
-%% 	       {Toks1, Toks2} = lists:splitwith(fun(T) -> element(2,T) < StartPos end, RemToks),
-%% 	       {Toks11, Toks12} = lists:splitwith(fun(T) -> element(1,T) == whitespace end, lists:reverse(Toks1)),
-%% 	       {FormToks, RemainToks} = case Toks12 of 
-%% 					    [] ->  {lists:reverse(Toks11)++Toks2,[]};
-%% 					    [H|_T] -> Line1 = element(1, element(2, H)), 
-%% 						     {Toks13, Toks14} = lists:splitwith(fun(T) -> element(1, element(2,T)) == Line1 end, lists:reverse(Toks11)),
-%% 						     {Toks14++Toks2, lists:reverse(Toks12)++Toks13}					
-%% 					end,
-%% 	       Form1 =refac_syntax:add_ann({toks, FormToks}, Form),
-%% 	       {Form1, RemainToks}						
-%%        end,
-    
-%%    {Fs1, []} =lists:mapfoldl(F, Toks, lists:reverse(Fs)),
-%%     lists:reverse(Fs1).
-		
-
-
 %% ============================================================================
 %% @spec get_toks(Node::syntaxTree())-> [token()]
 %%       

@@ -20,11 +20,6 @@
 
 -module(wrangler_distel).
 
--export([ rename_fun/5, rename_var/5, rename_mod/3, rename_process/5, generalise/7, move_fun/6, tuple_to_record/8,
-         duplicated_code_in_buffer/3, duplicated_code_in_dirs/3, expression_search/5, fun_extraction/6, fold_expr_by_loc/4, 
-	 fold_expr_by_name/6, tuple_funpar/5,
-	 instrument_prog/2, uninstrument_prog/2, add_a_tag/5,register_pid/7, fun_to_process/5]).
-	 
 -compile(export_all).
 
 -include("../hrl/wrangler.hrl").
@@ -52,7 +47,7 @@ rename_fun(Fname, Line, Col, NewName,SearchPaths) ->
 	   {error, Reason}
     end.
 
--spec(rename_mod/3::(filename(), string(), [dir()]) -> {error, string()} | {ok, [filename()]}).  
+-spec(rename_mod/3::(filename(), string(), [dir()]) -> {error, string()} | {ok, [filename()]}). 
 rename_mod(Fname, NewName,SearchPaths) ->
     case initial_checking(SearchPaths) of 
 	ok ->  Res = wrangler:rename_mod(Fname, NewName,SearchPaths),
@@ -95,7 +90,7 @@ move_fun(FName, Line, Col, ModName, CreateNewFile, SearchPaths) ->
 	    {error, Reason}
     end.
 
--spec(duplicated_code_in_buffer/3::(filename(), string(), string()) ->{ok, string()}).        
+-spec(duplicated_code_in_buffer/3::(filename(), string(), string()) ->{ok, string()}).       
 duplicated_code_in_buffer(FName, MinLines,  MinClones) ->
     wrangler:duplicated_code_in_buffer(FName, MinLines, MinClones).
 
@@ -199,6 +194,7 @@ add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
 	    {error,Reason}
     end.
 
+
 -spec(register_pid/7::(filename(), integer(), integer(), integer(),integer(), string(), [dir()]) ->
     {error, string()}|{ok, [filename()]}).
 register_pid(FileName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPaths) ->
@@ -222,7 +218,6 @@ fun_to_process(Fname, Line, Col, ProcessName,SearchPaths) ->
 	   {error, Reason}
     end.
 
-
 initial_checking(SearchPaths) ->
      case check_searchpaths(SearchPaths) of 
  	ok ->
@@ -231,13 +226,21 @@ initial_checking(SearchPaths) ->
      end.
 
 check_searchpaths(SearchPaths) ->
-    InValidSearchPaths = lists:filter(fun (X) -> not(filelib:is_dir(X)) end, SearchPaths),
+    InValidSearchPaths = lists:filter(fun (X) -> not filelib:is_dir(X) end, SearchPaths),
     case InValidSearchPaths of
-	[] -> ok;
-	[_D|T] -> case T of 
-		     [] ->{error, "The search paths specified contain an invalid directory, please check the customisation!"};
-		     _ -> {error, "The search paths specified contain invalid directories, please check the customisation!"}
-		 end
+      [] -> ok;
+      [_D | T] ->
+	  case T of
+	    [] ->
+		{error,
+		 "The search paths specified contain an "
+		 "invalid directory, please check the "
+		 "customisation!"};
+	    _ ->
+		{error,
+		 "The search paths specified contain invalid "
+		 "directories, please check the customisation!"}
+	  end
     end.
 			  
 check_undo_process() ->
@@ -269,3 +272,263 @@ check_wrangler_error_logger() ->
 			    end, Errors)
     end.
     
+find_var_instances(FName, Line, Col, SearchPaths) ->
+    {ok, {AnnAST, _Info0}} = refac_util:parse_annotate_file(FName, true, SearchPaths),
+    case refac_util:pos_to_var_name(AnnAST, {Line, Col}) of
+	{ok, {_VarName, DefinePos, _C}} ->
+	    if DefinePos == [{0,0}] ->
+		    {error, "The selected variable is a free variable!"};
+	       true -> 
+		    F = fun(T, S) ->
+				case refac_syntax:type(T) of 
+				    variable -> 
+					case lists:keysearch(def, 1, refac_syntax:get_ann(T)) of 
+					    {value, {def, DefinePos}} -> 
+						Range = refac_util:get_range(T),
+						[Range | S];
+					    _ -> S
+					end;
+				    _ -> S
+				end
+			end,
+		    Locs = lists:usort(refac_syntax_lib:fold(F, [], AnnAST)),
+		    {ok, Locs, DefinePos}
+	    end;
+	{error, Reason} -> {error, Reason}
+    end.
+
+
+nested_if_exprs(FName, NestLevel, SearchPaths) ->
+    nested_exprs(FName, NestLevel,if_expr, SearchPaths).
+
+nested_case_exprs(FName, NestLevel, SearchPaths) -> 
+    nested_exprs(FName, NestLevel, case_expr, SearchPaths).
+
+nested_receive_exprs(FName, NestLevel, SearchPaths) ->
+    nested_exprs(FName, NestLevel, receive_expr, SearchPaths).
+
+
+nested_exprs(FName, NestLevel,  ExprType, SearchPaths)->
+    case list_to_integer(NestLevel)>0 of 
+	true -> nested_case_exprs_1(FName, list_to_integer(NestLevel), ExprType, SearchPaths);
+	false -> {error, "Invalid nest level!"}
+    end.
+nested_case_exprs_1(FName, NestLevel, ExprType, SearchPaths) ->
+    {ok, {AnnAST, _Info0}} = refac_util:parse_annotate_file(FName, true, SearchPaths),
+    Fun = fun(T,S) ->
+		  case refac_syntax:type(T) of 
+		      function ->
+			  FunName = refac_syntax:atom_value(refac_syntax:function_name(T)),
+			  Arity = refac_syntax:function_arity(T),
+			  Fun1 = fun(Node, S1) ->
+					 case refac_syntax:type(Node) of 
+					     ExprType -> Range = refac_util:get_range(Node),
+							  [{FunName, Arity, Range} |S1];
+					     _  -> S1
+					 end
+				 end,
+			  refac_syntax_lib:fold(Fun1, S, T);
+		      _  -> S
+		  end
+	  end,
+    Ranges = lists:usort(refac_syntax_lib:fold(Fun, [], AnnAST)),
+    SortedRanges = sort_ranges(Ranges),
+    ResRanges = lists:filter(fun(R) -> length(R) >= NestLevel end, SortedRanges),
+    Funs = lists:usort(lists:map(fun(R) -> {F, A, _R} = hd(R), 
+					   {F, A}
+				 end, ResRanges)),	
+    format_result(Funs, NestLevel, ExprType),
+    {ok, Funs}.
+	
+	
+format_result(Funs, NestLevel, ExprType) ->
+    ExprType1 = case ExprType of 
+		    case_expr -> "Case";
+		    if_expr -> "If";
+		    receive_expr -> "Receive"
+		end,
+    case Funs of 
+	[] -> io:format("\nNo function in this module contains ~s expressions nested up to ~p levels.\n", [ExprType1, NestLevel]);
+	_ -> io:format("\nThe following function(s) contains ~s expressions nested up to ~p levels: ", [ExprType1, NestLevel]),
+	     format_result_1(Funs)
+    end.
+
+format_result_1([]) ->
+    io:format(".");
+format_result_1([{F, A}|Fs]) ->
+    case Fs of 
+	[] -> io:format("~p/~p", [F, A]);
+	_ -> io:format("~p/~p,", [F, A])
+    end,
+    format_result_1(Fs).
+
+	    
+sort_ranges(Ranges) ->
+    sort_ranges(Ranges, []).
+sort_ranges([], Acc) ->
+    Acc;
+sort_ranges(Rs, Acc) ->
+    [Hd|Tail] = Rs,
+    Nested = get_enclosed([Hd], Tail),
+    sort_ranges(Rs--Nested, [lists:reverse(Nested)|Acc]).
+
+get_enclosed(Cur, Rs) ->
+    Lst = hd(Cur),
+    {_FName1, _Arity1, {Start1, End1}} = Lst,
+    Enclosed = lists:usort(lists:filter(fun (R) ->
+						{_FName2, _Arity2, {Start2, End2}} = R,
+						Start1 =< Start2 andalso End2 =< End1
+					end,
+					Rs)),
+    case Enclosed of
+      [] -> Cur;
+      [Hd | _] -> get_enclosed([Hd | Cur], Rs -- [Hd])
+    end.
+				   
+			       
+	
+caller_called_modules(FName, SearchPaths) ->
+    {ok, {AnnAST, _Info0}} = refac_util:parse_annotate_file(FName, true, SearchPaths),
+    AbsFileName = filename:absname(filename:join(filename:split(FName))),
+    ClientFiles = wrangler_modulegraph_server:get_client_files(AbsFileName, SearchPaths),
+    io:format("ClientFiles:\n~p\n", [ClientFiles]),
+    ClientMods = lists:map(fun({M, _Dir}) -> list_to_atom(M) end, 
+			   refac_util:get_modules_by_file(ClientFiles)),
+    case ClientFiles of 
+	[] -> io:format("\nThis module does not have any caller modules.\n");
+	_ -> io:format("\nThis module has the following caller modules:\n"),
+	     io:format("~p\n", [refac_util:get_modules_by_file(ClientMods)])
+    end,
+    CalledMods = refac_module_graph:collect_called_modules(AnnAST),
+    case CalledMods of 
+	[] -> io:format("\nThis module does not have any called modules.\n");
+	_  -> io:format("\n This module has the following called modules.\n"),
+	      io:format("~p\n", [CalledMods])
+    end.
+
+
+long_functions(FName, Lines, SearchPaths) ->
+    case  list_to_integer(Lines)>=0 of 
+	true ->
+	    long_functions_1(FName, list_to_integer(Lines), SearchPaths);
+	false ->{error, "Invalid number of lines!"}
+    end.
+
+long_functions_1(FName, Lines, SearchPaths) ->
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths),
+    case lists:keysearch(module, 1, Info) of
+      {value, {module, ModName}} -> ModName;
+      _ -> ModName = list_to_atom(filename:basename(FName, ".erl")), ModName
+    end,
+    Fun = fun (Node, S) ->
+		  case refac_syntax:type(Node) of
+		      function ->
+			  {{StartLine, _StartCol}, {EndLine, _EndCol}} = refac_util:get_range(Node),
+			  Toks = refac_util:get_toks(Node),
+			  GroupedToks = group_by_line(Toks),
+			  WhiteLines = length(lists:filter(fun (Ts) ->
+								   Line =element(1, element(2, hd(Ts))),
+								   lists:all(fun (T) -> ((element(1, T) == whitespace) or
+											 (element(1, T) == comment)) and
+											(Line>=StartLine) and (Line =< EndLine)
+									   end, Ts)
+							 end,
+							 GroupedToks)),
+			LinesOfCode = EndLine - StartLine +1 - WhiteLines,
+			case LinesOfCode > Lines of
+			  true ->
+			      FunName = refac_syntax:atom_value(refac_syntax:function_name(Node)),
+			      Arity = refac_syntax:function_arity(Node),
+			      [{ModName, FunName, Arity} | S];
+			  _ -> S
+			end;
+		    _ -> S
+		  end
+	  end,
+    LongFuns = lists:usort(refac_syntax_lib:fold(Fun, [], AnnAST)),
+    case LongFuns of
+	[] ->
+	    io:format("\n No Function in this module has more than ~p lines.\n",
+		    [Lines]);
+	_ ->
+	    io:format("\n The following functions have more than ~p lines of code:\n",
+		      [Lines]),
+	    io:format("~p\n", [LongFuns])
+    end.
+    
+			
+group_by_line(TupleList) ->
+    group_by_1(lists:keysort(2, TupleList)).
+
+group_by_1([]) -> [];
+group_by_1(TupleList=[E|_Es]) ->
+    Line = element(1, element(2, E)),
+    {E1,E2} = lists:splitwith(fun(T) -> element(1,element(2,T)) == Line end, TupleList),
+    [E1 | group_by_1(E2)].
+    	  
+				  
+
+
+
+large_modules(Lines, SearchPaths) ->
+    case  list_to_integer(Lines)>=0 of 
+	true ->
+	    large_modules_1(list_to_integer(Lines), SearchPaths);
+	false ->{error, "Invalid number of lines!"}
+    end.
+
+
+large_modules_1(Lines, SearchPaths) ->
+    Files = refac_util:expand_files(SearchPaths, ".erl"),
+    LargeModules = lists:filter(fun(File) ->
+					is_large_module(File, Lines)
+				end, Files),
+    case LargeModules of 
+	[] ->
+	    io:format("\n No Module with more than ~p line of code has been found.\n", [Lines]);
+	_ ->
+	    io:format("The following modules have more than ~p lines of code:\n",
+		      [Lines]),
+	    io:format("~p\n", [LargeModules])
+    end.
+	    
+is_large_module(FName, Lines) ->
+    io:format("Current file being checked:~p\n", [FName]),
+    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, []),
+    Fun = fun(Node, S) ->
+		  case refac_syntax:type(Node) of 
+		      function ->
+			  {{StartLine, _StartCol}, {EndLine, _EndCol}} = refac_util:get_range(Node),
+			  Toks = refac_util:get_toks(Node),
+			  GroupedToks = group_by_line(Toks),
+			  WhiteLines = length(lists:filter(fun (Ts) ->
+								   Line =element(1, element(2, hd(Ts))),
+								   lists:all(fun (T) -> ((element(1, T) == whitespace) or
+											 (element(1, T) == comment)) and
+										       (Line>=StartLine) and (Line =< EndLine)
+									     end, Ts)
+							   end,
+							 GroupedToks)),
+			  LinesOfCode = EndLine - StartLine +1 - WhiteLines,
+			  LinesOfCode+S;
+		      attribute ->
+			  {{StartLine, _StartCol}, {EndLine, _EndCol}} = refac_util:get_range(Node),
+			  LinesOfCode1 = EndLine - StartLine +1,
+			  LinesOfCode2 = case LinesOfCode1 >0 of 
+					     true -> LinesOfCode1;
+					     _ -> 1
+					 end,
+			  S + LinesOfCode2;
+		      _ -> S
+		  end
+	  end,
+    LinesOfCode = refac_syntax_lib:fold(Fun, 0, AnnAST),
+    io:format("LinesOfcode:\n~p\n", [LinesOfCode]),
+    LinesOfCode > Lines.
+    
+
+    
+    
+	     
+		  
+			  
