@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.ltk.core.refactoring.Change;
@@ -12,6 +13,7 @@ import org.eclipse.ltk.core.refactoring.CompositeChange;
 import org.eclipse.ltk.core.refactoring.Refactoring;
 import org.eclipse.ltk.core.refactoring.RefactoringStatus;
 import org.erlide.jinterface.rpc.RpcException;
+import org.erlide.runtime.ErlLogger;
 import org.erlide.runtime.backend.BackendManager;
 import org.erlide.runtime.backend.IdeBackend;
 import org.erlide.runtime.backend.RpcResult;
@@ -39,11 +41,10 @@ public abstract class WranglerRefactoring extends Refactoring {
 	protected Integer coloumn, line;
 	protected Change change;
 	protected RefactoringParameters parameters;
-	@SuppressWarnings("restriction")
 	protected IdeBackend managedBackend;
 	protected String newName;
 
-	private RPCMessage message;
+	protected RPCMessage message;
 
 	/**
 	 * Sole constructor. Initializes the necessary components.
@@ -53,14 +54,15 @@ public abstract class WranglerRefactoring extends Refactoring {
 	 */
 	public WranglerRefactoring(RefactoringParameters parameters) {
 		this.parameters = parameters;
-		this.managedBackend = (IdeBackend) BackendManager.getDefault()
-				.getIdeBackend();
+		this.managedBackend = BackendManager.getDefault().getIdeBackend();
 	}
 
 	/*
 	 * (non-Javadoc)
 	 * 
-	 * @see org.eclipse.ltk.core.refactoring.Refactoring#checkFinalConditions(org.eclipse.core.runtime.IProgressMonitor)
+	 * @see
+	 * org.eclipse.ltk.core.refactoring.Refactoring#checkFinalConditions(org
+	 * .eclipse.core.runtime.IProgressMonitor)
 	 */
 	@Override
 	public RefactoringStatus checkFinalConditions(IProgressMonitor pm)
@@ -119,7 +121,9 @@ public abstract class WranglerRefactoring extends Refactoring {
 	/*
 	 * (non-Javadoc)
 	 * 
-	 * @see org.eclipse.ltk.core.refactoring.Refactoring#checkInitialConditions(org.eclipse.core.runtime.IProgressMonitor)
+	 * @see
+	 * org.eclipse.ltk.core.refactoring.Refactoring#checkInitialConditions(org
+	 * .eclipse.core.runtime.IProgressMonitor)
 	 */
 	@Override
 	public RefactoringStatus checkInitialConditions(final IProgressMonitor pm)
@@ -148,35 +152,37 @@ public abstract class WranglerRefactoring extends Refactoring {
 	/*
 	 * (non-Javadoc)
 	 * 
-	 * @see org.eclipse.ltk.core.refactoring.Refactoring#createChange(org.eclipse.core.runtime.IProgressMonitor)
+	 * @see
+	 * org.eclipse.ltk.core.refactoring.Refactoring#createChange(org.eclipse
+	 * .core.runtime.IProgressMonitor)
 	 */
 	@Override
 	public Change createChange(IProgressMonitor pm) throws CoreException,
 			OperationCanceledException {
-		CompositeChange cChange = new CompositeChange("wrangler made changes");
+		CompositeChange cChange = new CompositeChange("Wrangler");
 
 		List<FileResourceChanges> fileRs = message.getResult();
 		try {
 			Change c;
 			for (FileResourceChanges e : fileRs) {
 				c = e.createChanges();
-				if (c!=null) {
+				if (c != null) {
 					cChange.add(c);
 				}
 			}
 		} catch (IOException e) {
-			Status s = new Status(Status.ERROR, Activator.PLUGIN_ID, e
+			Status s = new Status(IStatus.ERROR, Activator.PLUGIN_ID, e
 					.getMessage());
 			throw new CoreException(s);
 		}
 
 		Change otherChange = doOtherChanges();
 		if (null != otherChange) {
-			int a;
 			cChange.add(otherChange);
 		}
 
 		change = cChange;
+		// ErlLogger.debug("changes to be applied:" + change.);
 		return change;
 	}
 
@@ -202,7 +208,10 @@ public abstract class WranglerRefactoring extends Refactoring {
 			WranglerException, IOException, CoreException {
 
 		String filePath = parameters.getFilePath();
+		ErlLogger.debug("selected file for " + getName() + " refactoring:"
+				+ filePath);
 		RpcResult res = sendRPC(filePath, parameters.getSearchPath());
+		ErlLogger.debug("raw result" + res);
 
 		RPCMessage m = convertRpcResultToRPCMessage(res);
 		message = m;

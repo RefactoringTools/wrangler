@@ -1,21 +1,20 @@
 package org.erlide.wrangler.refactoring;
 
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.StringWriter;
 import java.net.URL;
-import java.util.Date;
 
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.FileLocator;
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.erlide.jinterface.rpc.RpcException;
+import org.erlide.runtime.ErlLogger;
 import org.erlide.runtime.backend.BackendManager;
 import org.erlide.runtime.backend.ExecutionBackend;
 import org.erlide.runtime.backend.IdeBackend;
+import org.erlide.runtime.backend.RpcResult;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 
@@ -36,7 +35,7 @@ public class Activator extends AbstractUIPlugin {
 
 	/**
 	 * Returns the shared instance
-	 *
+	 * 
 	 * @return the shared instance
 	 */
 	public static Activator getDefault() {
@@ -49,16 +48,9 @@ public class Activator extends AbstractUIPlugin {
 	public Activator() {
 	}
 
-	private void printDebug(String s) throws RpcException {
-		/*ManagedBackend mb = (ManagedBackend) BackendManager.getDefault()
-		.getIdeBackend();*/
-		/*mb.rpc("io", "format", "s", s+"~n");*/
-		IdeBackend ibe = BackendManager.getDefault().getIdeBackend();
-	}
-
 	/**
 	 * Loads the necessary *.ebin files to the Erlang node for the plug-in.
-	 *
+	 * 
 	 * @throws CoreException
 	 *             detailed exception about the loading process errors
 	 */
@@ -68,21 +60,29 @@ public class Activator extends AbstractUIPlugin {
 			Bundle b = getDefault().getBundle();
 			url = FileLocator.find(b, new Path(""), null);
 			url = FileLocator.resolve(url);
+
+			ErlLogger.debug("Wrangler installation found at: " + url);
+
 			String wranglerPath = new Path(url.getPath()).append("wrangler")
 					.append("ebin").toOSString();
 
+			ErlLogger.debug("Wrangler beam files found at: " + wranglerPath);
 
-			IdeBackend mb = BackendManager.getDefault()
-					.getIdeBackend();
-			ErlangCode.addPathA((ExecutionBackend)mb, wranglerPath);
-			mb.rpc("code", "load_file", "a", "wrangler");
+			IdeBackend mb = BackendManager.getDefault().getIdeBackend();
+
+			ErlLogger.debug("Managed backend found:" + mb.getJavaNodeName());
+
+			ErlangCode.addPathA((ExecutionBackend) mb, wranglerPath);
+			RpcResult res = mb.rpc("code", "load_file", "a", "wrangler");
+			ErlLogger.debug("Wrangler's path is added to Erlang with result:"
+					+ res.isOk() + "\t raw:" + res);
 		} catch (IOException ioe) {
 			ioe.printStackTrace();
-			throw new CoreException(new Status(Status.ERROR, PLUGIN_ID,
+			throw new CoreException(new Status(IStatus.ERROR, PLUGIN_ID,
 					"Could not load the ebin files!"));
 		} catch (RpcException e) {
 			e.printStackTrace();
-			throw new CoreException(new Status(Status.ERROR, PLUGIN_ID,
+			throw new CoreException(new Status(IStatus.ERROR, PLUGIN_ID,
 					"Could not reach the erlang node!"));
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -91,8 +91,10 @@ public class Activator extends AbstractUIPlugin {
 
 	/*
 	 * (non-Javadoc)
-	 *
-	 * @see org.eclipse.ui.plugin.AbstractUIPlugin#start(org.osgi.framework.BundleContext)
+	 * 
+	 * @see
+	 * org.eclipse.ui.plugin.AbstractUIPlugin#start(org.osgi.framework.BundleContext
+	 * )
 	 */
 	@Override
 	public void start(final BundleContext context) throws Exception {
@@ -103,8 +105,10 @@ public class Activator extends AbstractUIPlugin {
 
 	/*
 	 * (non-Javadoc)
-	 *
-	 * @see org.eclipse.ui.plugin.AbstractUIPlugin#stop(org.osgi.framework.BundleContext)
+	 * 
+	 * @see
+	 * org.eclipse.ui.plugin.AbstractUIPlugin#stop(org.osgi.framework.BundleContext
+	 * )
 	 */
 	@Override
 	public void stop(final BundleContext context) throws Exception {

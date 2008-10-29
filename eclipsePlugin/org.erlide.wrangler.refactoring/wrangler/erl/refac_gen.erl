@@ -91,7 +91,7 @@ generalise_eclipse(FileName, Start, End, ParName, SearchPaths) ->
     generalise(FileName, Start, End, ParName, SearchPaths, eclipse).
     
 generalise(FileName, Start, End, ParName, SearchPaths, Editor) ->
-    io:format("\n[CMD: gen_fun, ~p, ~p, ~p, ~p]\n", [FileName, Start, End, ParName]),
+%%    io:format("\n[CMD: gen_fun, ~p, ~p, ~p, ~p]\n", [FileName, Start, End, ParName]),
     case refac_util:is_var_name(ParName) of 
 	true ->
 	    case refac_util:parse_annotate_file(FileName,true, SearchPaths) of 
@@ -342,9 +342,10 @@ add_actual_parameter(Tree, {FunName, Arity,Exp, Info})->
 
 do_add_actual_parameter(Tree, {FunName, Arity, Exp, Info}) ->
   {ok, ModName} = get_module_name(Info),
-   Message = fun (Pos) -> io:format("WARNING: function ***apply*** is used at location({line, col}):~p, and wrangler " 
-				    "could not decide whether this site should be refactored, please check manually!\n",
-				    [Pos])
+   Message = fun (Pos) -> %%io:format("WARNING: function ***apply*** is used at location({line, col}):~p, and wrangler " 
+				    %%"could not decide whether this site should be refactored, please check manually!\n",
+				    %%[Pos])
+                      warning
 	     end,
    case refac_syntax:type(Tree) of 
 	  application ->
@@ -456,9 +457,10 @@ do_add_actual_parameter(Tree, {FunName, Arity, Exp, Info}) ->
 
 transform_spawn_call(Node,{FunName, Arity, Exp, Info}) ->
     {ok, ModName} = get_module_name(Info),
-     Message = fun (Pos) -> io:format("WARNING: function ***spawn*** is used at location({line, col}):~p, and wrangler " 
-				    "could not decide whether this site should be refactored, please check!!!\n",
-				     [Pos])
+     Message = fun (Pos) -> %% io:format("WARNING: function ***spawn*** is used at location({line, col}):~p, and wrangler " 
+				    %% "could not decide whether this site should be refactored, please check!!!\n",
+				    %% [Pos])
+                        warning
 	      end,
     Operator = refac_syntax:application_operator(Node),
     Arguments = refac_syntax:application_arguments(Node),

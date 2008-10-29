@@ -42,10 +42,11 @@ tuple_to_record_eclipse(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPat
 %%           Editor::atom()) -> term()
 %% @end
 %% =====================================================================
+%% Modified by Gyorgy Orosz, 2008.10.28
 tuple_to_record(File, FLine, FCol, LLine, LCol, 
                 RecName, FieldString, SearchPaths, Editor)->
-  io:format("\n[CMD: tuple_to_record,~p,~p,~p,~p,~p,~p,~n ~p,~n ~p] \n \n", 
-         [File, FLine, FCol, LLine, LCol, RecName, FieldString, SearchPaths]),
+%%  io:format("\n[CMD: tuple_to_record,~p,~p,~p,~p,~p,~p,~n ~p,~n ~p] \n \n", 
+%%         [File, FLine, FCol, LLine, LCol, RecName, FieldString, SearchPaths]),
   FieldList = convert_record_names(FieldString),
   check_if_correct_names(RecName, FieldList),
   {AnnAST, Info} = parse_file(File, SearchPaths),
@@ -56,13 +57,13 @@ tuple_to_record(File, FLine, FCol, LLine, LCol,
   {FunName, Arity, DefMod} = get_fun_name(AnnAST, Node, Type),
   ModName = get_module_name(Info),
   check_def_mod(DefMod,ModName),
-  io:format("The current file under refactoring is:\n~p\n", [File]),
+%%  io:format("The current file under refactoring is:\n~p\n", [File]),
   AnnAST1 = tuple_record(AnnAST, ExistingRec, RecName, FieldList,
                          FunName,Arity, DefMod,N),
   case refac_util:is_exported({FunName, Arity}, Info) of
     true ->		
-      io:format("\nChecking client modules "
-                "in the following search paths: \n~p\n", [SearchPaths]),
+%%      io:format("\nChecking client modules "
+%%                "in the following search paths: \n~p\n", [SearchPaths]),
       ClientFiles = refac_util:get_client_files(File, SearchPaths),
       Results = tuple_to_record_in_client_modules(ClientFiles, FunName, Arity, 
                                                 DefMod, N, RecName, FieldList),
@@ -71,9 +72,9 @@ tuple_to_record(File, FLine, FCol, LLine, LCol,
           refac_util:write_refactored_files([{{File, File}, AnnAST1} | Results]),
           ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
           ChangedFiles = [File | ChangedClientFiles],
-          io:format("The following files have been changed "
-                    "by this refactoring:\n~p\n",[ChangedFiles]),
-          io:format("WARNING: Please check the implicit function calls!"),
+%%          io:format("The following files have been changed "
+%%                    "by this refactoring:\n~p\n",[ChangedFiles]),
+%%          io:format("WARNING: Please check the implicit function calls!"),
           {ok, ChangedFiles};
         eclipse ->
           Results1 = [{{File, File}, AnnAST1} | Results],
@@ -86,7 +87,7 @@ tuple_to_record(File, FLine, FCol, LLine, LCol,
       case Editor of
         emacs -> 
           refac_util:write_refactored_files([{{File, File},AnnAST1}]),
-          io:format("WARNING: Please check the implicit function calls!"),
+%%          io:format("WARNING: Please check the implicit function calls!"),
           {ok, [File]};
 	eclipse ->
           Res = [{File, File, refac_prettypr:print_ast(AnnAST1)}],
@@ -1025,7 +1026,7 @@ tuple_to_record_in_client_modules(Files, Name, Arity, Mod, N,
   case Files of
     [] -> [];
     [F | Fs] ->
-      io:format("The current file under refactoring is:\n~p\n", [F]),
+%%      io:format("The current file under refactoring is:\n~p\n", [F]),
       case refac_util:parse_annotate_file(F, false, []) of
 	{ok, {AnnAST, Info}} ->
           ExistingRec = check_record_name_exists(Info, RecName),

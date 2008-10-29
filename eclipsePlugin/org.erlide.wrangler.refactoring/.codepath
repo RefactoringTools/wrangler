@@ -1,10 +1,11 @@
-#Wed May 21 15:36:41 BST 2008
-source_dirs=erl
+#Tue Oct 28 09:16:07 CET 2008
+source_dirs=wrangler/erl
 backend_cookie=
-otp_project_structure=false
-backend_name=
+backend_name=Erlang R12B
 external_includes=
-include_dirs=
+make_unique=true
+include_dirs=wrangler/hrl
 use_pathz=true
-output_dir=ebin
+output_dir=wrangler/ebin
+backend_node=erlide
 external_modules=

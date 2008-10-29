@@ -96,6 +96,7 @@ public class Difference {
 	 * Compares this object to the other for equality. Both objects must be of
 	 * type Difference, with the same starting and ending points.
 	 */
+	@Override
 	public boolean equals(Object obj) {
 		if (obj instanceof Difference) {
 			Difference other = (Difference) obj;
@@ -110,6 +111,7 @@ public class Difference {
 	/**
 	 * Returns a string representation of this difference.
 	 */
+	@Override
 	public String toString() {
 		StringBuffer buf = new StringBuffer();
 		buf.append("del: [" + delStart + ", " + delEnd + "]");

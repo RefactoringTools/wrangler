@@ -8,6 +8,7 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.ResourcesPlugin;
+import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.ltk.core.refactoring.Change;
 import org.eclipse.ltk.core.refactoring.TextFileChange;
@@ -69,10 +70,10 @@ public class FileResourceChanges {
 
 		TextFileChange change = new TextFileChange(newPath, eclipseRep);
 		File tf = new File(oldPath);
-		ArrayList<TextEdit> edits = ComparerTool.createEdits(tf,
-				newFileContent);
+		ArrayList<TextEdit> edits = ComparerTool
+				.createEdits(tf, newFileContent);
 		MultiTextEdit multiEdit = new MultiTextEdit();
-		if (!edits.isEmpty()) {
+		if (edits.size() != 0) {
 			for (TextEdit edit : edits) {
 				multiEdit.addChild(edit);
 			}
@@ -111,5 +112,39 @@ public class FileResourceChanges {
 		 * return null;
 		 */
 
+	}
+
+	/**
+	 * True if the file name is changed during the refacrtoring.
+	 * 
+	 * @return
+	 */
+	public boolean isNameChanged() {
+		return newPath != oldPath;
+	}
+
+	/**
+	 * Returns the IPath object of the old path.
+	 * 
+	 * @return
+	 */
+	public IPath getIPath() {
+		IFile f;
+		try {
+			f = findEclipseRepresentation(oldPath);
+		} catch (IOException e) {
+			return null;
+		}
+		return f.getFullPath();
+	}
+
+	/**
+	 * If the refactoring changes the file name, it returns back the new one.
+	 * 
+	 * @return new file name
+	 */
+	public String getNewName() {
+		return Path.fromOSString(newPath).toFile().getName();
+		// return newPath;
 	}
 }

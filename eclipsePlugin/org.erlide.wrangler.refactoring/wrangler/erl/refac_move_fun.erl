@@ -40,6 +40,7 @@
 %% @end
 %% @author Huiqing Li <hl@kent.ac.uk>
 %% @version 0.1
+%% Modified by Gyorgy Orosz, 2008.10.28.
 
 -module(refac_move_fun).
 
@@ -63,8 +64,8 @@ move_fun_eclipse(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths)->
 
 
 move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths, Editor) ->
-    io:format("\n[CMD: move_fun, ~p, ~p, ~p, ~p, ~p, ~p]\n", 
-	      [FName, Line, Col, TargetModName, CreateNewFile,SearchPaths]),
+%%    io:format("\n[CMD: move_fun, ~p, ~p, ~p, ~p, ~p, ~p]\n", 
+%%	      [FName, Line, Col, TargetModName, CreateNewFile,SearchPaths]),
     Pos = {Line, Col},
     case  get_target_file_name(FName, TargetModName, ".erl", SearchPaths) of 
 	{ok, TargetFName} ->
@@ -92,7 +93,7 @@ move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths, Editor) ->
 										    {ModName, FunName, Arity}, TargetModName),
 							    case refac_util:is_exported({FunName, Arity}, Info) of 
 								true ->
-								    io:format("\nChecking client modules in the following search paths: \n~p\n",[SearchPaths]),
+%%								    io:format("\nChecking client modules in the following search paths: \n~p\n",[SearchPaths]),
 								    ClientFiles = lists:delete(TargetFName, 
 											       refac_util:get_client_files(FName, SearchPaths)),
 								    Results = refactor_in_client_modules(ClientFiles,
@@ -104,8 +105,8 @@ move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths, Editor) ->
 									    ChangedClientFiles =
 										lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
 									    ChangedFiles = [FName, TargetFName | ChangedClientFiles],
-									    io:format("The following files have been changed "
-										      "by this refactoring:\n~p\n", [ChangedFiles]),
+%%									    io:format("The following files have been changed "
+%%										      "by this refactoring:\n~p\n", [ChangedFiles]),
 									    {ok, ChangedFiles};
 									eclipse ->
 									    Results1 = [{{FName,FName}, AnnAST1},
@@ -444,7 +445,7 @@ refactor_in_client_modules(ClientFiles,{ModName, FunName, Arity}, TargetModName,
     case ClientFiles of 
 	[] -> [];
 	[F | Fs] ->
-	    io:format("The current file under refactoring is:\n~p\n", [F]),
+%%	    io:format("The current file under refactoring is:\n~p\n", [F]),
 	    case refac_util:parse_annotate_file(F,true, SearchPaths) of      %% level=1
 		{ok, {AnnAST, Info}} ->
 		    {AnnAST1, Changed} = 
@@ -547,9 +548,10 @@ is_not_the_fun(Form, {ModName, FunName, Arity}) ->
     end.
 
 transform_apply_call(Node,{ModName, FunName, Arity}, TargetModName) ->
-    Message = fun (Pos) -> io:format("WARNING: function ***apply*** is used at location({line, col}):~p, and wrangler " 
-				    "could not decide whether this site should be refactored, please check!!!\n",
-				     [Pos])
+    Message = fun (Pos) -> %% io:format("WARNING: function ***apply*** is used at location({line, col}):~p, and wrangler " 
+				    %% "could not decide whether this site should be refactored, please check!!!\n",
+				     %% [Pos])
+                       error
 	      end,
     Operator = refac_syntax:application_operator(Node),
     Arguments = refac_syntax:application_arguments(Node),
@@ -640,9 +642,10 @@ transform_apply_call(Node,{ModName, FunName, Arity}, TargetModName) ->
  	     
 
 transform_spawn_call(Node,{ModName, FunName, Arity}, TargetModName) ->
-    Message = fun (Pos) -> io:format("WARNING: function ***spawn*** is used at location({line, col}):~p, and wrangler " 
-				    "could not decide whether this site should be refactored, please check!!!\n",
-				     [Pos])
+    Message = fun (Pos) -> %% io:format("WARNING: function ***spawn*** is used at location({line, col}):~p, and wrangler " 
+				    %% "could not decide whether this site should be refactored, please check!!!\n",
+				     %% [Pos])
+                       warning
 	      end,
     Operator = refac_syntax:application_operator(Node),
     Arguments = refac_syntax:application_arguments(Node),

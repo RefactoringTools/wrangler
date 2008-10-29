@@ -36,6 +36,8 @@
 %% </p>
 %% @end
 
+%% Modified by Gyorgy Orosz, 2008.10.28.
+
 
 -module(refac_rename_var).
 
@@ -53,9 +55,9 @@ rename_var_eclipse(FName, Line, Col, NewName, SearchPaths) ->
     rename_var(FName, Line, Col, NewName, SearchPaths, eclipse).
 
 rename_var(FName, Line, Col, NewName, SearchPaths, Editor) ->
-    io:format("\n[CMD: rename_var, ~p, ~p, ~p, ~p, "
-	      "~p]\n",
-	      [FName, Line, Col, NewName, SearchPaths]),
+%%    io:format("\n[CMD: rename_var, ~p, ~p, ~p, ~p, "
+%%	      "~p]\n",
+%%	      [FName, Line, Col, NewName, SearchPaths]),
     case refac_util:is_var_name(NewName) of
       true ->
 	  case refac_util:parse_annotate_file(FName, false, SearchPaths) of
@@ -209,12 +211,12 @@ post_refac_check(FileName, AST, SearchPaths) ->
 	  AnnAST = refac_syntax_lib:annotate_bindings(Forms, ordsets:new()),
 	  case refac_util:analyze_free_vars(AnnAST) of
 	    {error, Reason} -> 
-		  io:format("Reason:\n~p\n",[Reason]),
+%%		  io:format("Reason:\n~p\n",[Reason]),
 		  file:delete(TempFileName), error;
 	    _ -> file:delete(TempFileName), ok
 	  end;
       {error, Reason} -> 
-	     io:format("Reason:\n~p\n",[Reason]),
+%%	     io:format("Reason:\n~p\n",[Reason]),
 	    file:delete(TempFileName), error
     end.
 

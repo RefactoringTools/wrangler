@@ -28,6 +28,7 @@
 %% special functions involving Pids:
 %% spawn, link, register, send, !, exit ...
 %% =============================================================================================
+%% Modified by Gyorgy Orosz, 2008.10.28.
 -module(refac_add_a_tag).
 
 -export([add_a_tag/5, add_a_tag/6,send_expr_to_region/5]).
@@ -43,7 +44,7 @@
 
 %% =============================================================================================
 add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
-    io:format("\n[CMD: add_a_tag, ~p, ~p, ~p, ~p,~p]\n", [FileName, Line, Col, Tag, SearchPaths]),
+%%    io:format("\n[CMD: add_a_tag, ~p, ~p, ~p, ~p,~p]\n", [FileName, Line, Col, Tag, SearchPaths]),
     case is_atom(list_to_atom(Tag)) of 
 	true -> case refac_util:parse_annotate_file(FileName, true, SearchPaths) of 
 		    {ok, {AnnAST, Info}} ->
@@ -121,7 +122,7 @@ test(AnnAST) ->
     F = fun(Node, _Others) ->
 		case refac_syntax:type(Node) of 
 		    function ->
-			io:format("is_process_related_fun:\n~p\n", [is_process_related_fun(Node)]),
+%%			io:format("is_process_related_fun:\n~p\n", [is_process_related_fun(Node)]),
 			{Node, true};
 		    _ ->
 			{Node, false}
@@ -169,8 +170,8 @@ fixpoint(Sccs, Pid) ->
 	{Pid, Env1} ->
 	    Env1
     end,
-    io:format("Env0:\n~p\n",[Env]),
-    io:format("Env1:\n~p\n",[Env1]),
+%%    io:format("Env0:\n~p\n",[Env]),
+%%    io:format("Env1:\n~p\n",[Env1]),
     case Env==Env1 of 
 	true -> 
 	    Pid!stop,
@@ -1058,7 +1059,7 @@ fun_typesig_loop(Env) ->
 	    From ! {self(), Env},
 	    fun_typesig_loop(Env);
 	stop ->
-	    io:format("Types:\n~p\n", [Env]),
+%%	    io:format("Types:\n~p\n", [Env]),
 	    ok
     end.
 	    

@@ -56,7 +56,7 @@ rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
     rename_fun(FileName, Line, Col, NewName, SearchPaths, eclipse).
 
 rename_fun(FileName, Line, Col, NewName, SearchPaths, Editor) ->
-    io:format("\n[CMD: rename_fun, ~p, ~p, ~p, ~p,~p]\n", [FileName, Line, Col, NewName, SearchPaths]),
+%%    io:format("\n[CMD: rename_fun, ~p, ~p, ~p, ~p,~p]\n", [FileName, Line, Col, NewName, SearchPaths]),
     case refac_util:is_fun_name(NewName) of
       true ->
 	  case refac_util:parse_annotate_file(FileName, true, SearchPaths) of
@@ -86,14 +86,14 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, Editor) ->
 						"The refactorer does not support renaming "
 						"of callback function names."};
 					   _ ->
-					       io:format("The current file under refactoring is:\n~p\n", [FileName]),
+%%					       io:format("The current file under refactoring is:\n~p\n", [FileName]),
 					       {AnnAST1, _C} = rename_fun(AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}),
 					       %%check_atoms(AnnAST1, Fun),
 					       case refac_util:is_exported({Fun, Arity}, Info) of
 						 true ->
-						     io:format("\nChecking client modules in the following "
-							       "search paths: \n~p\n",
-							       [SearchPaths]),
+%%						     io:format("\nChecking client modules in the following "
+%%							       "search paths: \n~p\n",
+%%							       [SearchPaths]),
 						     ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
 						     Results = rename_fun_in_client_modules(ClientFiles, {Mod, Fun, Arity}, NewName, SearchPaths),
 						     case Editor of 
@@ -101,9 +101,9 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, Editor) ->
 							     refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1} | Results]),
 							     ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
 							     ChangedFiles = [FileName | ChangedClientFiles],
-							     io:format("The following files have been changed "
-								       "by this refactoring:\n~p\n",
-								       [ChangedFiles]),
+%%							     io:format("The following files have been changed "
+%%								       "by this refactoring:\n~p\n",
+%%								       [ChangedFiles]),
 							     {ok, ChangedFiles};
 							 eclipse ->
 							     Results1 = [{{FileName, FileName}, AnnAST1} | Results],
@@ -227,7 +227,7 @@ rename_fun_in_client_modules(Files, {Mod, Fun, Arity}, NewName, SearchPaths) ->
     case Files of
       [] -> [];
       [F | Fs] ->
-	  io:format("The current file under refactoring is:\n~p\n", [F]),
+%%	  io:format("The current file under refactoring is:\n~p\n", [F]),
 	  case refac_util:parse_annotate_file(F, true, SearchPaths) of
 	    {ok, {AnnAST, Info}} ->
 		{AnnAST1, Changed} = rename_fun_in_client_module_1({AnnAST, Info},
@@ -372,11 +372,12 @@ check_atoms(Tree, AtomName) ->
     case UndecidableAtoms of
       [] -> ok;
       _ ->
-	  io:format("WARNING: the refactorer could not decide "
-		    "whether to rename the name at the following "
-		    "positions in this file, please check "
-		    "manually! {Line, Col}:\n~p\n",
-		    [UndecidableAtoms])
+%%	  io:format("WARNING: the refactorer could not decide "
+%%		    "whether to rename the name at the following "
+%%		    "positions in this file, please check "
+%%		    "manually! {Line, Col}:\n~p\n",
+%%		    [UndecidableAtoms])
+          warning
     end.
 
 collect_atoms(Tree, AtomName) ->
@@ -732,19 +733,19 @@ rename_fun_1(FileName, Fun, Arity, NewName,  SearchPaths) ->
 				  {error, "The refactorer does not support renaming of callback function names."};
 			      _ ->
 				  {ok, DefinePos} = refac_util:fun_to_def_pos(AnnAST, {ModName, Fun, Arity}),
-				  io:format("The current file under refactoring is:\n~p\n", [FileName]),
+%%				  io:format("The current file under refactoring is:\n~p\n", [FileName]),
 				  {AnnAST1, _C} = rename_fun(AnnAST, {ModName, Fun, Arity}, {DefinePos, NewName1}),
 				  %%check_atoms(AnnAST1, Fun),
 				  case refac_util:is_exported({Fun, Arity}, Info) of
 				      true ->
-					  io:format("\nChecking client modules ...\n"),
+%%					  io:format("\nChecking client modules ...\n"),
 					  ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
 					  Results = rename_fun_in_client_modules(ClientFiles, {ModName, Fun, Arity}, NewName, SearchPaths),
 					  refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1} | Results]),
 					  ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F  end, Results),
 					  ChangedFiles = [FileName | ChangedClientFiles],
-					  io:format("The following files have been changed "
-						    "by this refactoring:\n~p\n", [ChangedFiles]),
+%%					  io:format("The following files have been changed "
+%%						    "by this refactoring:\n~p\n", [ChangedFiles]),
 					  {ok, ChangedFiles};
 				      false ->
 					  refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1}]),

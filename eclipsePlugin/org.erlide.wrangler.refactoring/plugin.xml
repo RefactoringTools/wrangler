@@ -43,6 +43,14 @@
                menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.renameGroup">
          </action>
          <action
+               class="org.erlide.wrangler.refactoring.core.renamemodule.RenameModuleAction"
+               definitionId="org.erlide.wrangler.refactoring.renameModule"
+               id="org.erlide.wranglerrefactoring.renamemodule"
+               label="%renameModName"
+               menubarPath="org.erlide.wranglerrefactoring.refactormenu/org.erlide.wranglerrefactoring.renameGroup"
+               style="push">
+         </action>
+         <action
                class="org.erlide.wrangler.refactoring.core.generalise.GeneraliseAction"
                enablesFor="+"
                id="org.erlide.wranglerrefactoring.generalise"

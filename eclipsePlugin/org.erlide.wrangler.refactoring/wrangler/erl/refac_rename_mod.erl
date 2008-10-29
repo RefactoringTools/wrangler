@@ -33,6 +33,7 @@
 %% </p>
 %% @end
 %% =====================================================================
+%% Modified by Gyorgy Orosz, 2008.10.28.
 
 -module(refac_rename_mod).
 
@@ -50,7 +51,7 @@ rename_mod_eclipse(FileName, NewName, SearchPaths) ->
     rename_mod(FileName, NewName, SearchPaths, eclipse).
 
 rename_mod(FileName, NewName,SearchPaths, Editor) ->
-    io:format("\n[CMD: rename_mod, ~p, ~p]\n", [FileName, NewName]),
+%%    io:format("\n[CMD: rename_mod, ~p, ~p]\n", [FileName, NewName]),
     case refac_util:is_fun_name(NewName) of   %% module name and function name follow the same rules.
       true ->
           case refac_util:parse_annotate_file(FileName,true, SearchPaths) of
@@ -65,10 +66,10 @@ rename_mod(FileName, NewName,SearchPaths, Editor) ->
 					  NewFileName = filename:dirname(FileName)++"/"++NewName++".erl",
 					  case filename_exists(NewFileName, SearchPaths) of 
 					      false -> 
-						  io:format("The current file under refactoring is:\n~p\n",[FileName]), 
+%%						  io:format("The current file under refactoring is:\n~p\n",[FileName]), 
 						  AnnAST1 = rename_mod_1(AnnAST, OldModName, NewModName),
 						  check_atoms(AnnAST1, OldModName),
-						  io:format("\nChecking client modules in the following search paths: \n~p\n",[SearchPaths]),
+%%						  io:format("\nChecking client modules in the following search paths: \n~p\n",[SearchPaths]),
 						  ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
 
 						  Results = rename_mod_in_client_modules(ClientFiles, 
@@ -78,9 +79,9 @@ rename_mod(FileName, NewName,SearchPaths, Editor) ->
 							  refac_util:write_refactored_files([{{FileName, NewFileName}, AnnAST1}|Results]),
 							  ChangedClientFiles = lists:map(fun({{F, _F}, _AST}) -> F end, Results),
 							  ChangedFiles = [FileName | ChangedClientFiles],
-							  io:format
-							    ("The following files have been changed by this refactoring:\n~p\n",
-							     [ChangedFiles]),
+%%							  io:format
+%%							    ("The following files have been changed by this refactoring:\n~p\n",
+%%							     [ChangedFiles]),
 							  {ok, ChangedFiles};
 						      eclipse ->
 							   Results1 =[{{FileName, NewFileName}, AnnAST1}|Results],
@@ -177,7 +178,7 @@ do_rename_mod(Tree, {OldModName, NewModName}) ->
 rename_mod_in_client_modules(Files, OldModName, NewModName, SearchPaths) ->
     case Files of 
         [] -> [];
-        [F|Fs] ->  io:format("The current file under refactoring is:\n~p\n",[F]), 
+        [F|Fs] ->  %% io:format("The current file under refactoring is:\n~p\n",[F]), 
                    case refac_util:parse_annotate_file(F,true, SearchPaths) of
                        {ok, {AnnAST, _Info}} ->
 			   {AnnAST1, Changed} = rename_mod_in_client_module_1(AnnAST, OldModName, NewModName),

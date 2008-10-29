@@ -24,16 +24,14 @@ public class PatametersNumberInputPage extends WranglerNewDataInputPage {
 	protected void initListeners() {
 		newDataText.addModifyListener(new ModifyListener() {
 
-			
 			public void modifyText(ModifyEvent e) {
 				String s = newDataText.getText();
 				if (s.length() == 0) {
 					setPageComplete(false);
 					setErrorMessage(null);
 				} else {
-					int num;
 					try {
-						num = Integer.valueOf(s);
+						Integer.valueOf(s);
 						setPageComplete(true);
 						setErrorMessage(null);
 					} catch (NumberFormatException e1) {

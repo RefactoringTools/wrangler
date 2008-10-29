@@ -19,6 +19,7 @@
 %% (either defined or imported) in that module. </li>
 %% </p>
 %% =============================================================================
+%% Modified by Gyorgy Orosz, 2008.10.28
 
 -module(ref_tuple).
 
@@ -56,8 +57,8 @@ tuple_funpar_eclipse(FileName, ParLine, ParCol, Number, SearchPaths)->
 %% =====================================================================
 
 tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths, Editor)->
-  io:format("\n[CMD: tuple_funpar, ~p, ~p, ~p, ~p,~p]\n", 
-            [FileName, ParLine, ParCol, Number, SearchPaths]),
+%%  io:format("\n[CMD: tuple_funpar, ~p, ~p, ~p, ~p,~p]\n", 
+%%            [FileName, ParLine, ParCol, Number, SearchPaths]),
   {AnnAST, Info} = parse_file(FileName, SearchPaths),
   {FirstPar, Type} = check_first_pos({ParLine, ParCol}, AnnAST),
   {{Mod, FunName, Arity, _, _}, FunPatterns, AppNode, AppPar, FunNode}=
@@ -65,14 +66,14 @@ tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths, Editor)->
   ModName = get_module_name(Info),
   InscopeFuns = 
     lists:map(fun ({_M, F, A}) -> {F, A} end, refac_util:inscope_funs(Info)),
-io:format("Inscope: ~p ~n", [InscopeFuns]),
+%%io:format("Inscope: ~p ~n", [InscopeFuns]),
   {Parameters, C} = 
      check_parameters(FirstPar, Number, Arity, FunPatterns, AppNode, AppPar),
   NewArity = Arity - Number + 1,
   check_def_mod(Mod, ModName),
   check_name_clash(FunName, NewArity, InscopeFuns, Number),
   check_is_callback_fun(Info, FunName, Arity),
-  io:format("The current file under refactoring is:\n~p\n", [FileName]),
+%%  io:format("The current file under refactoring is:\n~p\n", [FileName]),
   performe_refactoring(AnnAST, Info, Parameters, FunName, Arity, FunNode,
                        C, Mod, SearchPaths, FileName, Editor).
 
@@ -95,8 +96,8 @@ performe_refactoring(AnnAST, Info, Parameters, FunName, Arity, FunNode,
   AnnAST2 = check_implicit_funs(AnnAST1, FunName, Arity, FunNode),
   case refac_util:is_exported({FunName, Arity}, Info) of
     true ->		
-      io:format("\nChecking client modules "
-                "in the following search paths: \n~p\n", [SearchPaths]),
+%%      io:format("\nChecking client modules "
+%%                "in the following search paths: \n~p\n", [SearchPaths]),
       ClientFiles = refac_util:get_client_files(File, SearchPaths),
       Results = tuple_parameters_in_client_modules(ClientFiles, FunName, Arity, 
                                                    C, length(Parameters), Mod),
@@ -105,9 +106,9 @@ performe_refactoring(AnnAST, Info, Parameters, FunName, Arity, FunNode,
           refac_util:write_refactored_files([{{File, File}, AnnAST2} | Results]),
           ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
           ChangedFiles = [File | ChangedClientFiles],
-          io:format("The following files have been changed "
-                    "by this refactoring:\n~p\n",[ChangedFiles]),
-          io:format("WARNING: Please check the implicit function calls!"),
+%%          io:format("The following files have been changed "
+%%                    "by this refactoring:\n~p\n",[ChangedFiles]),
+%%          io:format("WARNING: Please check the implicit function calls!"),
           {ok, ChangedFiles};
         eclipse ->
           Results1 = [{{File, File}, AnnAST2} | Results],
@@ -189,8 +190,8 @@ check_is_callback_fun(Info, FunName, Arity)->
 %% @end
 %% =====================================================================
 check_name_clash(FunName, NewArity, InscopeFuns, Number)->
-io:format("Param: ~p ~n ~p ~n ~p ~n ~p ~n", [FunName, NewArity, InscopeFuns, Number]),
-io:format("Param: ~p ~n ", [lists:member({FunName, NewArity}, InscopeFuns)]),
+%%io:format("Param: ~p ~n ~p ~n ~p ~n ~p ~n", [FunName, NewArity, InscopeFuns, Number]),
+%%io:format("Param: ~p ~n ", [lists:member({FunName, NewArity}, InscopeFuns)]),
   case (lists:member({FunName, NewArity}, InscopeFuns) or 
         lists:member({FunName, NewArity}, refac_util:auto_imported_bifs())) 
         and (Number > 1) of
@@ -240,7 +241,7 @@ tuple_parameters_in_client_modules(Files, Name, Arity, C, N, Mod)->
   case Files of
     [] -> [];
     [F | Fs] ->
-      io:format("The current file under refactoring is:\n~p\n", [F]),
+%%      io:format("The current file under refactoring is:\n~p\n", [F]),
       case refac_util:parse_annotate_file(F, true, []) of
 	{ok, {AnnAST, Info}} ->
 	  {AnnAST1, _} = tuple_parameters_in_client_modules_1({AnnAST, Info}, 

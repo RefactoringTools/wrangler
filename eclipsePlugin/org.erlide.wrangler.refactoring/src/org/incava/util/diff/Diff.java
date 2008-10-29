@@ -1,15 +1,23 @@
 package org.incava.util.diff;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Compares two collections, returning a list of the additions, changes, and
  * deletions between them. A <code>Comparator</code> may be passed as an
  * argument to the constructor, and will thus be used. If not provided, the
- * initial value in the <code>a</code> ("from") collection will be looked at
- * to see if it supports the <code>Comparable</code> interface. If so, its
- * <code>equals</code> and <code>compareTo</code> methods will be invoked on
- * the instances in the "from" and "to" collections; otherwise, for speed, hash
+ * initial value in the <code>a</code> ("from") collection will be looked at to
+ * see if it supports the <code>Comparable</code> interface. If so, its
+ * <code>equals</code> and <code>compareTo</code> methods will be invoked on the
+ * instances in the "from" and "to" collections; otherwise, for speed, hash
  * codes from the objects will be used instead for comparison.
  * 
  * <p>
@@ -31,6 +39,7 @@ public class Diff {
 	/**
 	 * The list of differences, as <code>Difference</code> instances.
 	 */
+	@SuppressWarnings("unchecked")
 	protected List diffs = new ArrayList();
 
 	/**
@@ -41,17 +50,20 @@ public class Diff {
 	/**
 	 * The comparator used, if any.
 	 */
+	@SuppressWarnings("unchecked")
 	private Comparator comparator;
 
 	/**
 	 * The thresholds.
 	 */
+	@SuppressWarnings("unchecked")
 	private TreeMap thresh;
 
 	/**
 	 * Constructs the Diff object for the two arrays, using the given
 	 * comparator.
 	 */
+	@SuppressWarnings( { "unchecked" })
 	public Diff(Object[] a, Object[] b, Comparator comp) {
 		this.a = a;
 		this.b = b;
@@ -61,8 +73,8 @@ public class Diff {
 
 	/**
 	 * Constructs the Diff object for the two arrays, using the default
-	 * comparison mechanism between the objects, such as <code>equals</code>
-	 * and <code>compareTo</code>.
+	 * comparison mechanism between the objects, such as <code>equals</code> and
+	 * <code>compareTo</code>.
 	 */
 	public Diff(Object[] a, Object[] b) {
 		this(a, b, null);
@@ -72,15 +84,17 @@ public class Diff {
 	 * Constructs the Diff object for the two collections, using the given
 	 * comparator.
 	 */
+	@SuppressWarnings("unchecked")
 	public Diff(Collection a, Collection b, Comparator comp) {
 		this(a.toArray(), b.toArray(), comp);
 	}
 
 	/**
 	 * Constructs the Diff object for the two collections, using the default
-	 * comparison mechanism between the objects, such as <code>equals</code>
-	 * and <code>compareTo</code>.
+	 * comparison mechanism between the objects, such as <code>equals</code> and
+	 * <code>compareTo</code>.
 	 */
+	@SuppressWarnings("unchecked")
 	public Diff(Collection a, Collection b) {
 		this(a, b, null);
 	}
@@ -88,6 +102,7 @@ public class Diff {
 	/**
 	 * Runs diff and returns the results.
 	 */
+	@SuppressWarnings("unchecked")
 	public List diff() {
 		traverseSequences();
 
@@ -168,16 +183,16 @@ public class Diff {
 	}
 
 	/**
-	 * Override and return true in order to have <code>finishedA</code>
-	 * invoked at the last element in the <code>a</code> array.
+	 * Override and return true in order to have <code>finishedA</code> invoked
+	 * at the last element in the <code>a</code> array.
 	 */
 	protected boolean callFinishedA() {
 		return false;
 	}
 
 	/**
-	 * Override and return true in order to have <code>finishedB</code>
-	 * invoked at the last element in the <code>b</code> array.
+	 * Override and return true in order to have <code>finishedB</code> invoked
+	 * at the last element in the <code>b</code> array.
 	 */
 	protected boolean callFinishedB() {
 		return false;
@@ -222,6 +237,7 @@ public class Diff {
 	/**
 	 * Invoked for elements matching in <code>a</code> and <code>b</code>.
 	 */
+	@SuppressWarnings("unchecked")
 	protected void onMatch(int ai, int bi) {
 		if (pending == null) {
 			// no current pending
@@ -235,6 +251,7 @@ public class Diff {
 	 * Compares the two objects, using the comparator provided with the
 	 * constructor, if any.
 	 */
+	@SuppressWarnings("unchecked")
 	protected boolean equals(Object x, Object y) {
 		return comparator == null ? x.equals(y) : comparator.compare(x, y) == 0;
 	}
@@ -242,6 +259,7 @@ public class Diff {
 	/**
 	 * Returns an array of the longest common subsequences.
 	 */
+	@SuppressWarnings("unchecked")
 	public Integer[] getLongestCommonSubsequences() {
 		int aStart = 0;
 		int aEnd = a.length - 1;
@@ -328,6 +346,7 @@ public class Diff {
 	/**
 	 * Converts the map (indexed by java.lang.Integers) into an array.
 	 */
+	@SuppressWarnings("unchecked")
 	protected static Integer[] toArray(TreeMap map) {
 		int size = map.size() == 0 ? 0 : 1 + ((Integer) map.lastKey())
 				.intValue();
@@ -378,6 +397,7 @@ public class Diff {
 	 * Adds the given value to the "end" of the threshold map, that is, with the
 	 * greatest index/key.
 	 */
+	@SuppressWarnings("unchecked")
 	protected void append(Integer value) {
 		Integer addIdx = null;
 		if (thresh.size() == 0) {
@@ -392,6 +412,7 @@ public class Diff {
 	/**
 	 * Inserts the given values into the threshold map.
 	 */
+	@SuppressWarnings("unchecked")
 	protected Integer insert(Integer j, Integer k) {
 		if (isNonzero(k) && isGreaterThan(k, j)
 				&& isLessThan(new Integer(k.intValue() - 1), j)) {

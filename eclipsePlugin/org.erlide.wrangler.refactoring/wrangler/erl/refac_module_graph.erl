@@ -16,6 +16,7 @@
 
 %% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
 %%======================================================================
+%% Modified by Gyorgy Orosz, 2008.10.28.
 
 -module(refac_module_graph).
 -export([module_graph/3]). 
@@ -57,8 +58,9 @@ analyze_all_files([], Acc, {ModuleGraphFile, _ModuleGraph}, _SearchPaths)->
     case file:open(ModuleGraphFile,[write,binary]) of 
 	{ok, File} -> file:write_file(ModuleGraphFile, term_to_binary(Acc)),
 		      file:close(File);
-	{error, Reason} ->  io:format("Could not open the module graph output file, Reason ~p\n",
-				      [Reason])
+	{error, Reason} ->  %%io:format("Could not open the module graph output file, Reason ~p\n",
+				      %%[Reason])
+        				error
     end,
     {module_graph, Acc, reverse_module_graph(Acc)}.
 

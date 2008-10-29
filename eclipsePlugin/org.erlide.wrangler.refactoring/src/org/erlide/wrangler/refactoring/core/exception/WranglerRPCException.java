@@ -1,6 +1,5 @@
 package org.erlide.wrangler.refactoring.core.exception;
 
-
 /**
  * This exception indicates that some error occured during the communication
  * with the wrangler. Usually there is a problem with the Erlang node.
@@ -8,6 +7,7 @@ package org.erlide.wrangler.refactoring.core.exception;
  * @author Gyorgy Orosz
  * @version %I%, %G%
  */
+@SuppressWarnings("serial")
 public class WranglerRPCException extends WranglerException {
 
 	/**

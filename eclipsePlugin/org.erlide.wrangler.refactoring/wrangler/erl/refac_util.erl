@@ -32,6 +32,8 @@
 %% @doc Some  utility functions used by Wranlger.
 %% @end
 %% ============================================
+%% Modified by Gyorgy Orosz, 2008.10.28
+
 -module(refac_util).
 
 -export([ghead/2, glast/2, to_lower/1, to_upper/1, try_evaluation/1,
@@ -687,8 +689,9 @@ write_refactored_files(Files) ->
 		       Files),
     case erlang:whereis(refactor_undo) of
       undefined ->
-	  io:format("\nWARNING: the UNDO process is not working, "
-		    "please restart the refactorer!\n");
+%%	  io:format("\nWARNING: the UNDO process is not working, "
+%%		    "please restart the refactorer!\n");
+          warning;
       _ -> refactor_undo ! {add, Files1}
     end,
     lists:map(F, Files).

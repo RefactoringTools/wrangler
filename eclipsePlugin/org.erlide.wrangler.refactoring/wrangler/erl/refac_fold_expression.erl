@@ -39,6 +39,7 @@
 %% <p> This refactoring does not support folding against function clauses with guard expressions, and 
 %% function clauses with complex formal parameters, such as tuples, lists, or records.
 %% =============================================================================================
+%% Modified by Gyorgy Orosz, 2008.10.28.
 -module(refac_fold_expression).
 
 -export([fold_expression/3, fold_expression_1/7, fold_expression_eclipse/3, fold_expression_1_eclipse/3, fold_expression_2_eclipse/5]).
@@ -54,7 +55,7 @@ fold_expression_eclipse(FileName, Line, Col) ->
     fold_expression(FileName, Line, Col, eclipse).
 
 fold_expression(FileName, Line, Col, Editor) ->
-    io:format("\n[CMD: fold_expression(~p, ~p,~p)]\n", [FileName, Line, Col]),
+%%    io:format("\n[CMD: fold_expression(~p, ~p,~p)]\n", [FileName, Line, Col]),
     case refac_util:parse_annotate_file(FileName,true, []) of 
 	{ok, {AnnAST, _Info}} ->
 	    case pos_to_fun_clause(AnnAST, {Line, Col}) of 
