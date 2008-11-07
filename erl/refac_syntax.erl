@@ -435,8 +435,7 @@ type(Node) ->
       {remote, _, _, _} -> module_qualifier;
       {rule, _, _, _, _} -> rule;
       {'try', _, _, _, _, _} -> try_expr;
-      {type, _, _, _} -> type;
-     
+      {type, _, _, _} -> type;     
       {tuple, _, _} -> tuple;
         _ -> erlang:error({badarg, Node})
     end.
