@@ -46,7 +46,7 @@
          parse_annotate_file/3,write_refactored_files/1,
          build_lib_side_effect_tab/1, build_local_side_effect_tab/2,
 	 build_scc_callgraph/1,build_callercallee_callgraph/1, has_side_effect/3,
-         callback_funs/1,auto_imported_bifs/0]).
+         callback_funs/1,auto_imported_bifs/0, called_funs/3]).
 
 -export([analyze_free_vars/1]).
 
@@ -83,8 +83,8 @@ glast(_Info, List) -> lists:last(List).
 to_upper(Str) ->
     to_upper(Str, []).
 
-to_upper([C | Cs], Acc) when C >= $a, C =< $z ->
-    to_upper(Cs, [C - ($a - $A) | Acc]);
+to_upper([C | Cs], Acc) when C >= 97, C =< 122 ->
+    to_upper(Cs, [C - (97 - 65) | Acc]);
 to_upper([C | Cs], Acc) -> to_upper(Cs, [C | Acc]);
 to_upper([], Acc) -> lists:reverse(Acc).
 
@@ -98,8 +98,8 @@ to_upper([], Acc) -> lists:reverse(Acc).
 to_lower(Str) ->
     to_lower(Str, []).
 
-to_lower([C | Cs], Acc) when C >= $A, C =< $Z ->
-    to_lower(Cs, [C + ($a - $A) | Acc]);
+to_lower([C | Cs], Acc) when C >= 65, C =< 90 ->
+    to_lower(Cs, [C + (97 - 65) | Acc]);
 to_lower([C | Cs], Acc) -> to_lower(Cs, [C | Acc]);
 to_lower([], Acc) -> lists:reverse(Acc).
 
@@ -205,7 +205,7 @@ stop_tdTP(Function, Node, Others) ->
 %% @see stop_tdTP/2
 %% @see once_tdTU/3
 -spec(full_buTP/3::(fun((syntaxTree(), any()) -> syntaxTree()), syntaxTree(), term())->
-	     syntaxTree()).			       
+	     syntaxTree()).		       
 full_buTP(Fun, Tree, Others) ->
     case refac_syntax:subtrees(Tree) of
       [] -> Fun(Tree, Others);
@@ -240,7 +240,7 @@ pos_to_fun_name(Node, Pos) ->
     case once_tdTU(fun pos_to_fun_name_1/2, Node, Pos) of
       {_, false} -> {error, "You have not selected a function name!"};
       {R, true} -> {ok, R}
-    end. 
+    end.
 
 pos_to_fun_name_1(Node, Pos = {Ln, Col}) ->
     As = refac_syntax:get_ann(Node),
@@ -717,7 +717,7 @@ write_refactored_files(Files) ->
 %%       _ -> refactor_undo ! {add, Files1}
 %%     end,
     %% Actually the result of writing to files should be checked!
-    lists:foreach(F, Files).    
+    lists:foreach(F, Files).   
 
 %% =====================================================================
 %% @spec tokenize(File::filename()) -> [token()]
@@ -757,16 +757,16 @@ process_str(S) ->
     lists:flatmap(fun(C) ->
 			  case C of 
 			      ' ' -> [C];
-			      $\n -> "\\n";
-			      $\\ -> "\\\\";
+			      10 -> "\\n";
+			      92 -> "\\\\";
 			    %%  $\s  -> "\\s";
-			      $\r ->  "\\r";
-			      $\t -> "\\t";
-			      $\v -> "\\v";
-			      $\b -> "\\f";
-			      $\f -> "\\f";
-			      $\e -> "\\e";
-			      $\d -> "\\d";
+			      13 ->  "\\r";
+			      9 -> "\\t";
+			      11 -> "\\v";
+			      8 -> "\\f";
+			      12 -> "\\f";
+			      27 -> "\\e";
+			      127 -> "\\d";
 			      _ -> [C]
 			  end
 		  end, S).
@@ -982,8 +982,9 @@ do_add_range(Node, Toks) ->
 	  Len = length(atom_to_list(refac_syntax:atom_value(Node))),
 	  refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
       char -> refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node);
+	
       integer ->
-	  Len = length(refac_syntax:integer_literal(Node)),
+	    Len = length(refac_syntax:integer_literal(Node)),
 	  refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
       string ->
 	  Len = length(refac_syntax:string_literal(Node)),
@@ -1199,6 +1200,20 @@ do_add_range(Node, Toks) ->
 		      refac_syntax:add_ann({range, {S11, E21}}, Node)
 		end
 	  end;
+      try_expr ->
+	    B = refac_syntax:try_expr_body(Node),
+	    After = refac_syntax:try_expr_after(Node),
+	    {S1, _E1} = get_range(ghead("refac_util:do_add_range, try_expr", B)),
+	    {_S2, E2} = case After of 
+			   [] -> 
+			       Handlers = refac_syntax:try_expr_handlers(Node),
+			       get_range(glast("refac_util:do_add_range, try_expr", Handlers));
+			   _ ->
+			       get_range(glast("refac_util:do_add_range, try_expr", After))
+			   end,
+	      S11 = extend_forwards(Toks, S1, 'try'),
+	      E21 = extend_backwards(Toks, E2, 'end'),
+	      refac_syntax:add_ann({range, {S11, E21}}, Node);
       binary ->
 	  Fs = refac_syntax:binary_fields(Node),
 	  case Fs == [] of
@@ -1304,7 +1319,7 @@ do_add_range(Node, Toks) ->
 	  case Args of
 	    none -> refac_syntax:add_ann({range, {S1, E1}}, Node);
 	    Ls ->
-		La = glast("refac_util:do_add_range,macor", Ls),
+		La = glast("refac_util:do_add_range,macro", Ls),
 		{_S2, E2} = get_range(La),
 		refac_syntax:add_ann({range, {S1, E2}}, Node)
 	  end;
@@ -1319,8 +1334,8 @@ do_add_range(Node, Toks) ->
       type ->
 	  refac_syntax:add_ann({range, {{L,C}, {L,C}}}, Node);
       _ ->
-	  %%io:format("Unhandled syntax category:\n~p\n", [refac_syntax:type(Node)]),
-	  %%io:format("Node:\n~p\n", [Node]),
+	  io:format("Unhandled syntax category:\n~p\n", [refac_syntax:type(Node)]),
+	  io:format("Node:\n~p\n", [Node]),
 	  Node
     end.
 
@@ -1866,13 +1881,31 @@ build_callercallee_callgraph(SearchPaths) ->
    
 -spec(do_build_callgraph/2::(filename(), {syntaxTree(),moduleInfo()}) -> 
     [{{{atom(), atom(), integer()}, syntaxTree()}, [{atom(), atom(), integer()}]}]).
+
 do_build_callgraph(FileName, {AnnAST, Info}) ->
-     case lists:keysearch(module, 1, Info) of 
-	    {value, {module, ModName}}  -> ModName;
-	    _ -> ModName = list_to_atom(filename:basename(FileName, ".erl")),
-		 ModName
-	end,
-    Inscope_Funs = refac_util:auto_imported_bifs() ++ refac_util:inscope_funs(Info), 
+    case lists:keysearch(module, 1, Info) of 
+	{value, {module, ModName}}  -> ModName;
+	_ -> ModName = list_to_atom(filename:basename(FileName, ".erl")),
+	     ModName
+    end,
+    InscopeFuns = refac_util:auto_imported_bifs() ++ refac_util:inscope_funs(Info), 
+    F1 = fun (T, S) ->
+		 case refac_syntax:type(T) of
+		   function ->
+		       FunName = refac_syntax:data(refac_syntax:function_name(T)),
+		       Arity = refac_syntax:function_arity(T),
+		       Caller = {{ModName, FunName, Arity}, T},
+		       CalledFuns = called_funs(ModName, InscopeFuns, T),
+		       ordsets:add_element({Caller, CalledFuns}, S);
+		   %% lists:foldr(fun(E,S_) -> ordsets:add_element({Caller, E}, S_) end, S,  CalledFuns);
+		   _ -> S
+		 end
+	 end,
+    lists:usort(refac_syntax_lib:fold(F1, [], AnnAST)).
+
+-spec(called_funs/3::(modulename(), [{modulename(), functionname(), arity()}], syntaxTree()) ->
+	     [{modulename(), functionname, arity()}]).
+called_funs(ModName, InscopeFuns,  Tree) ->
     HandleSpecialFuns = fun (Arguments, S) ->
 				case Arguments of
 				    [F, A] ->
@@ -1902,72 +1935,60 @@ do_build_callgraph(FileName, {AnnAST, Info}) ->
 					    _ -> S
 					end
 				end
-			end,
-    F2 = fun (T, S) ->
-		 case refac_syntax:type(T) of
-		   application ->
-			 Operator = refac_syntax:application_operator(T),
-			 Arguments = refac_syntax:application_arguments(T),
-			 Arity = length(Arguments),
-		       case refac_syntax:type(Operator) of
-			   atom ->
-			       Op = refac_syntax:atom_value(Operator),
-			       R = lists:filter(fun ({_M, F, A}) -> (F == Op) and (A == Arity) end, Inscope_Funs),
-			     if R == [] ->
-				     %% Qn: Should we give an error/warning msg here?
-				     ordsets:add_element({unknown, Op, Arity},S); 
-				true ->
-				     {M, Op, Arity} = hd(R),
-				     S1 = ordsets:add_element({M, Op, Arity}, S),
-				     case {Op, Arity} of
-					 {apply, 2} -> HandleSpecialFuns(Arguments, S1);
-					 {apply, 3} -> HandleSpecialFuns(Arguments, S1);
-				      _ -> S1
-				     end
-			     end;
-			   module_qualifier ->
-			       Mod = refac_syntax:module_qualifier_argument(Operator),
-			       Body = refac_syntax:module_qualifier_body(Operator),
-			       case {refac_syntax:type(Mod), refac_syntax:type(Body)} of
-				   {atom, atom} ->
-				       Mod1 = refac_syntax:atom_value(Mod),
-				       Op = refac_syntax:atom_value(Body),
-				       S1 = ordsets:add_element({Mod1, Op, Arity}, S),
-				       case {Mod1, Op, Arity} of
-					   {erlang, apply, 2} -> HandleSpecialFuns(Arguments, S1);
-					   {erlang, apply, 3} -> HandleSpecialFuns(Arguments, S1);
-					   _ -> S1
-				       end;
-				   _ -> S
-			       end;
-			   _ -> S
-		       end;
-		     arity_qualifier ->
-			 Fun = refac_syntax:arity_qualifier_body(T),
-			 A = refac_syntax:arity_qualifier_argument(T),
-			 case {refac_syntax:type(Fun), refac_syntax:type(A)} of
-			     {atom, integer} ->
-				 FunName = refac_syntax:atom_value(Fun),
-				 Arity = refac_syntax:integer_value(A),
-				 ordsets:add_element({ModName, FunName, Arity}, S);
-			     _ -> S
-			 end;
-		     _ -> S
-		 end
-	 end,
-    F1 = fun (T, S) ->
-		 case refac_syntax:type(T) of
-		     function ->
-			 FunName = refac_syntax:data(refac_syntax:function_name(T)),
-			 Arity = refac_syntax:function_arity(T),
-			 Caller = {{ModName, FunName, Arity}, T},
-			 CalledFuns = lists:usort(refac_syntax_lib:fold(F2, [], T)),
-			 ordsets:add_element({Caller, CalledFuns}, S);
-			%% lists:foldr(fun(E,S_) -> ordsets:add_element({Caller, E}, S_) end, S,  CalledFuns);
-		     _ -> S
-		 end
-	 end,
-    lists:usort(refac_syntax_lib:fold(F1, [], AnnAST)).
+			  end,
+    F = fun (T, S) ->
+		case refac_syntax:type(T) of
+		    application ->
+			Operator = refac_syntax:application_operator(T),
+			Arguments = refac_syntax:application_arguments(T),
+			Arity = length(Arguments),
+			case refac_syntax:type(Operator) of
+			    atom ->
+				Op = refac_syntax:atom_value(Operator),
+				R = lists:filter(fun ({_M, F, A}) -> (F == Op) and (A == Arity) end, InscopeFuns),
+				if R == [] ->
+					%% Qn: Should we give an error/warning msg here?
+					ordsets:add_element({unknown, Op, Arity},S); 
+				   true ->
+					{M, Op, Arity} = hd(R),
+					S1 = ordsets:add_element({M, Op, Arity}, S),
+					case {Op, Arity} of
+					    {apply, 2} -> HandleSpecialFuns(Arguments, S1);
+					    {apply, 3} -> HandleSpecialFuns(Arguments, S1);
+					    _ -> S1
+					end
+				end;
+			    module_qualifier ->
+				Mod = refac_syntax:module_qualifier_argument(Operator),
+				Body = refac_syntax:module_qualifier_body(Operator),
+				case {refac_syntax:type(Mod), refac_syntax:type(Body)} of
+				    {atom, atom} ->
+					Mod1 = refac_syntax:atom_value(Mod),
+					Op = refac_syntax:atom_value(Body),
+					S1 = ordsets:add_element({Mod1, Op, Arity}, S),
+					case {Mod1, Op, Arity} of
+					    {erlang, apply, 2} -> HandleSpecialFuns(Arguments, S1);
+					    {erlang, apply, 3} -> HandleSpecialFuns(Arguments, S1);
+					    _ -> S1
+					end;
+				    _ -> S
+				end;
+			    _ -> S
+			end;
+		    arity_qualifier ->
+			Fun = refac_syntax:arity_qualifier_body(T),
+			A = refac_syntax:arity_qualifier_argument(T),
+			case {refac_syntax:type(Fun), refac_syntax:type(A)} of
+			    {atom, integer} ->
+				FunName = refac_syntax:atom_value(Fun),
+				Arity = refac_syntax:integer_value(A),
+				ordsets:add_element({ModName, FunName, Arity}, S);
+			    _ -> S
+			end;
+		    _ -> S
+		end
+	end,
+    lists:usort(refac_syntax_lib:fold(F, [], Tree)).
 
 
 %% =====================================================================
