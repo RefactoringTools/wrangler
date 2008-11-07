@@ -11,6 +11,7 @@ emacs       = @emacs@
 
 ELISP_DIR = ${datadir}/${emacs}/site-lisp/distel
 EBIN_DIR = ${datadir}/distel/ebin
+BIN_DIR = ${datadir}/distel/wrangler/bin
 ERL_SRC_DIR = ${datadir}/distel/src
 WRANGLER_DIR = ${datadir}/distel/wrangler
 WRANGLER_SRC_DIR = ${WRANGLER_DIR}/src
@@ -36,11 +37,11 @@ PS_OBJ   := doc/distel.ps
 
 OBJECTS := ${ERL_OBJ} ${WRANGLER_OBJ} ${ELISP_OBJ} ${C_OBJ} ${INFO_OBJ} ${PS_OBJ}
 
-default: prepare ${ERL_OBJ} ${WRANGLER_OBJ} ${ELISP_OBJ} ${C_OBJ} 
+default: prepare c ${ERL_OBJ} ${WRANGLER_OBJ} ${ELISP_OBJ} ${C_OBJ} 
 base: ${ERL_OBJ} ${WRANGLER_OBJ} ${ELISP_OBJ} ${C_OBJ}
 info: ${INFO_OBJ}
 postscript: ${PS_OBJ}
-all: prepare base info postscript
+all: prepare base c info postscript
 
 erl: ${ERL_OBJ} ${WRANGLER_OBJ}
 
@@ -69,6 +70,8 @@ prepare:
               ;; \
          esac
 
+c:
+	cd ./wrangler/c_src; make; cd ../..
 ## Info documentation
 doc/distel.info: ${DOC_SRC}
 	makeinfo -o $@ $<
@@ -91,6 +94,7 @@ Makefile: Makefile.in config.status
 
 clean:
 	-rm -f ${OBJECTS} 2>/dev/null
+	-rm -f ${BIN_DIR}/* 2>/dev/null
 
 distclean: clean
 	-rm -f config.* configure.scan Makefile *~ */*~ 2>/dev/null
@@ -102,11 +106,13 @@ install: base
 	@echo
 	@echo "* Installing Erlang Library"
 	install -m 775 -d ${EBIN_DIR} ${ERL_SRC_DIR}
+	install -m 775 -d ${BIN_DIR}
 	install -m 775 -d ${WRANGLER_SRC_DIR} ${WRANGLER_PLT_DIR}
 	install -m 775 ebin/*.beam ${EBIN_DIR}
 	install -m 775 src/*.erl ${ERL_SRC_DIR}
 	install -m 775 wrangler/erl/*.erl ${WRANGLER_SRC_DIR}
-	install -m 755 wrangler/erl/*.app ${EBIN_DIR}
+	install -m 775 wrangler/erl/*.app ${EBIN_DIR}
+	install -m 775 wrangler/c_src/*.exe ${BIN_DIR}
 	install -m 775 wrangler/hrl/*.hrl ${WRANGLER_SRC_DIR}
 	install -m 775 wrangler/plt/side_effect_plt ${WRANGLER_PLT_DIR}
 	@echo
