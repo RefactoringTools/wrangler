@@ -139,7 +139,7 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, Editor) ->
 			     "module; please go to the module where "
 			     "it is defined for renaming."}
 		    end;
-		{error, _Reason} -> {error, "You have not selected a function name"}
+		{error, _Reason} -> {error, "You have not selected a function name!"}
 	    end;
       false -> {error, "Invalid new function name!"}
     end.
