@@ -23,7 +23,7 @@
 -include("../hrl/wrangler.hrl").
 
 %% API
--export([start_callgraph_server/0, get_callgraph/1]).
+-export([start_callgraph_server/0, get_callgraph/1, get_sccs_including_fun/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -66,6 +66,9 @@ init(_Args) ->
 	     {reply, #callgraph{}, #state{}}).
 handle_call({get, SearchPaths}, _From, State) ->
     {Reply, State1} = get_callgraph(SearchPaths, State),
+    {reply, Reply, State1};
+handle_call({get_fun_sccs, MFA, SearchPaths}, _From, State) ->
+    {Reply, State1} = get_sccs_including_fun(MFA, SearchPaths, State),
     {reply, Reply, State1}.
 
 %%--------------------------------------------------------------------
@@ -115,6 +118,9 @@ code_change(_OldVsn, State, _Extra) ->
 get_callgraph(SearchPaths) ->
     gen_server:call(wrangler_callgraph_server, {get, SearchPaths}, infinity).
 
+-spec(get_sccs_including_fun/2::({modulename(),functionname(), arity()}, [dir()]) -> scc_order()).
+get_sccs_including_fun({M, F, A}, SearchPaths) ->    
+    gen_servers:call(wrangler_callgraph_server, {get_fun_sccs, {M,F, A}, SearchPaths}).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -132,5 +138,21 @@ get_callgraph(SearchPaths, State) ->
 	    {CallGraph, #state{callgraph=[{SearchPaths, CallGraph}|State#state.callgraph]}}
     end.
 
+
+get_sccs_including_fun({M, F, A}, SearchPaths, State) ->
+    {#callgraph{scc_order = Sccs}, State1} = get_callgraph(SearchPaths, State),
+    ResSccs = lists:filter(fun (Sc) ->
+				 lists:any(fun (Elem) ->
+						   case Elem of
+						       {{M, F, A}, _} -> true;
+						       _ -> false
+						   end
+					   end,
+					   Sc)
+			 end, Sccs),
+    {ResSccs, State1}.
+   
+
     
+
    
