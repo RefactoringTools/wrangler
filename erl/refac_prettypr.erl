@@ -149,7 +149,8 @@ process_str(S) ->
 get_paper_ribbon_width(Form) ->    
     case refac_syntax:type(Form) of
 	attribute -> {?PAPER, ?RIBBON};
-	_ -> Fun = fun(T,Acc) -> 
+	_ ->
+	    Fun = fun(T,Acc) -> 
 			   {S, E} = refac_util:get_range(T),
 			   [S,E]++ Acc
 		   end,
