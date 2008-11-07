@@ -54,7 +54,8 @@
 -record(nest, {n, d}).
 -record(beside, {d1, d2}).
 -record(above, {d1, d2}).
--record(sep, {ds, i = 0 :: integer(), p = false :: bool()}).
+
+-record(sep, {ds, i = 0, p = false}).
 
 
 %% ---------------------------------------------------------------------
