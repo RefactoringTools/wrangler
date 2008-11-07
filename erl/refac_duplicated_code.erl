@@ -20,11 +20,13 @@
 
 -module(refac_duplicated_code).
 
--export([duplicated_code/3]).
+-export([duplicated_code/3]). 
 
 -export([duplicated_code_1/3]).
 
 -export([tokenize/1]).
+
+-compile(export_all).
 
 %% TODO:  
 %% 1) does recusive function calls affect the result?
@@ -37,17 +39,88 @@
 %% minimal number of tokens.
 -define(DEFAULT_MIN_CLONE_LEN, 20).
 
-%% minimal number of duplication times.
+%% minimal number of  duplication times.
 -define(DEFAULT_MIN_CLONE_MEMBER, 1).
 
 
-%%-define(DEBUG, true).
+-define(DEBUG, true).
 
 -ifdef(DEBUG).
 -define(debug(__String, __Args), io:format(__String, __Args)).
--else.
+-else. 
 -define(debug(__String, __Args), ok).
 -endif.
+
+start_suffix_tree_clone_detector() ->
+    SuffixTreeExec = filename:join(?WRANGLER_DIR, "bin/suffixtree"),
+    start(SuffixTreeExec).
+
+start(ExtPrg) ->
+    process_flag(trap_exit, true),
+    spawn_link(?MODULE, init, [ExtPrg]).
+
+stop_suffix_tree_clone_detector() ->
+    ?MODULE ! stop.
+
+
+get_clones_by_suffix_tree(FileNames,MinLength, MinClones) ->
+    %% tokenize Erlang source files and concat the tokens into a single list.
+    {Toks, ProcessedToks} = tokenize(FileNames),
+    OutFileName = filename:join(?WRANGLER_DIR, "bin/wrangler_suffix_tree"),  %%Qn: Is this the proper place?
+    file:write_file(OutFileName, ProcessedToks), 
+    case catch call_port({get, MinLength, MinClones, OutFileName}) of
+	{ok, _Res} ->
+	    ?debug("The Initial clones is calculated by the C suffixtree implementation.\n", []),
+ 	    {ok, [Cs]} = file:consult(OutFileName),
+   	    {Toks, Cs};
+ 	_-> 
+	    ?debug("The Initial clones is calculated by the Erlang suffixtree implementation.\n", []),
+	    Tree = suffix_tree(alphabet() ++ "&", ProcessedToks ++ "&"),
+ 	    Cs = lists:flatten(lists:map(fun (B) ->
+ 						 collect_clones(MinLength, MinClones, B)
+ 					 end,
+ 					 Tree)),
+ 	    {Toks, Cs}
+     end.
+
+call_port(Msg) ->
+    ?MODULE ! {call, self(), Msg},
+    receive
+    Result ->
+        Result
+    end.
+
+init(ExtPrg) ->
+    register(?MODULE, self()),
+    process_flag(trap_exit, true),
+    Port = open_port({spawn, ExtPrg}, [{packet, 2}, binary, exit_status]),
+    ?debug("Port:~p\n", [Port]),
+    loop(Port).
+
+loop(Port) ->
+    receive
+    {call, Caller, Msg} ->
+	    ?debug("Calling port with ~p~n", [Msg]),
+	    erlang:port_command(Port, term_to_binary(Msg)),
+	    receive
+		{Port, {data, Data}} ->
+		    Caller ! binary_to_term(Data);
+		{Port, {exit_status, Status}} when Status > 128 ->
+		    ?debug("Port terminated with signal: ~p~n", [Status-128]),
+		    exit({port_terminated, Status});
+		{Port, {exit_status, Status}} ->
+		    ?debug("Port terminated with status: ~p~n", [Status]),
+		    exit({port_terminated, Status});
+		{'EXIT', Port, Reason} ->
+		    exit(Reason)
+	    end,
+	    loop(Port);
+    stop ->
+        erlang:port_close(Port),
+        exit(normal)
+    end.
+
+ 
 
 %% ==================================================================================
 %% @doc Find duplicated code in a Erlang source files.
@@ -64,13 +137,19 @@
 
 duplicated_code(DirFileList, MinLength1, MinClones1) ->
     io:format("\nCMD: ~p:duplicated_code(~p,~p,~p).\n", [?MODULE, DirFileList, MinLength1, MinClones1]),
-    {Cs5, FileNames} = duplicated_code_detection(DirFileList, MinClones1, MinLength1),
+    ?debug("current time:~p\n", [time()]),
+    start_suffix_tree_clone_detector(),
+    {Cs5, _FileNames} = duplicated_code_detection(DirFileList, MinClones1, MinLength1),
     ?debug("Filtering out sub-clones.\n", []),
     Cs6 = remove_sub_clones(Cs5),
-    case length(FileNames) of
-       1 -> display_clones(Cs6);
-       _ -> display_clones1(Cs6)
-     end,
+    stop_suffix_tree_clone_detector(),
+    ?debug("current time:~p\n", [time()]),
+    %% case length(FileNames) of
+    %%     1 -> display_clones(Cs6);
+    %%     _ -> display_clones1(Cs6)
+    %%  end,
+    io:format("No of Clones found:\n~p\n", [length(Cs6)]),
+    io:format("Clones:\n~p\n", [Cs6]),
     {ok, "Duplicated code detection finished."}.
 
 -spec(duplicated_code_1/3::(dir(), [integer()], [integer()]) ->
@@ -82,47 +161,42 @@ duplicated_code_1(DirFileList, MinLength1, MinClones1) ->
     remove_sub_clones(Cs5).
  
 
-duplicated_code_detection(DirFileList, MinClones1,
-			  MinLength1) ->
+duplicated_code_detection(DirFileList, MinClones1, MinLength1) ->
     FileNames = refac_util:expand_files(DirFileList, ".erl"),
+    ?debug("Files:\n~p\n", [FileNames]),
     MinLength = case MinLength1 == [] orelse
-		       list_to_integer(MinLength1) =< 0
+		    list_to_integer(MinLength1) =< 0
 		    of
-		  true -> ?DEFAULT_MIN_CLONE_LEN;
-		  _ -> list_to_integer(MinLength1)
+		    true -> ?DEFAULT_MIN_CLONE_LEN;
+		    _ -> list_to_integer(MinLength1)
 		end,
     %% By 'MinClones', I mean the minimal number of members in a clone class,
     %% therefore it should be one more than the number of times a piece of code is cloned.
     MinClones = case MinClones1 == [] orelse
-		       list_to_integer(MinClones1) < (?DEFAULT_MIN_CLONE_MEMBER)
+		    list_to_integer(MinClones1) < (?DEFAULT_MIN_CLONE_MEMBER)
 		    of
-		  true -> (?DEFAULT_MIN_CLONE_MEMBER) + 1;
-		  _ -> list_to_integer(MinClones1) + 1
+		    true -> (?DEFAULT_MIN_CLONE_MEMBER) + 1;
+		    _ -> list_to_integer(MinClones1) + 1
 		end,
-    %% tokenize Erlang source files and concat the tokens into a single list.
-    {Toks, ProcessedToks} = tokenize(FileNames),
-    ?debug("Constructing suffix tree.\n", []),
-    Tree = suffix_tree(alphabet() ++ "&", ProcessedToks ++ "&"),  %% '&' does not occur in program source.
-    ?debug("Collecting clones from suffix tree.\n", []),
-    Cs = lists:flatten(lists:map(fun (B) ->
-					 collect_clones(MinLength, MinClones, B)
-				 end,
-				 Tree)),
+    ?debug("Constructing suffix tree and collecting clones from the suffix tree.\n", []),
+    {Toks,Cs}= get_clones_by_suffix_tree(FileNames, MinLength, MinClones),
+    ?debug("Initial numberclones from suffix tree:~p\n", [length(Cs)]),
     ?debug("Filtering out sub-clones.\n", []),
     %% This step is necessary to reduce large number of sub-clones.
     Cs1 = filter_out_sub_clones(Cs),
+    ?debug("Type 4 clones:\n~p\n", [length(Cs1)]),
     ?debug("Putting atoms back.\n",[]),
     Cs2 = clones_with_atoms(Cs1, Toks, MinLength, MinClones),
     ?debug("Filtering out sub-clones.\n", []),
     Cs3 = filter_out_sub_clones(Cs2),
-    %% combine clones which are next to each other (ideally a fixpoint should be reached),
-    %% but this step is slow, so we remove it temporally for practical reason.
-    %% io:format("Combine with neighbours\n"),
-    %% Cs4 = combine_neighbour_clones(Cs3, MinLength, MinClones),
+    ?debug("Combine with neighbours\n",[]),
+    Cs4 = combine_neighbour_clones(Cs3, MinLength, MinClones),
+    ?debug("Type3 without trimming:~p\n", [length(Cs4)]),
     ?debug("Trimming clones.\n", []),
     Cs5 = trim_clones(FileNames, Cs3, MinLength, MinClones),
     {Cs5, FileNames}.
-   
+
+
 %% =====================================================================
 %% tokennization of an Erlang file.
 
@@ -153,7 +227,7 @@ process_a_tok(T) ->
 %% Construction of suffix tree.
 suffix_tree(Alpha, T) -> 
      Tree = suffix_tree_1(Alpha, length(T),suffixes(T)),
-     post_process_suffix_tree(Tree).
+    post_process_suffix_tree(Tree).
   
 
 suffix_tree_1(_Alpha, _Len, [[]]) -> leaf;
@@ -377,41 +451,41 @@ simplify_filter_results([C | Cs], Acc, MinLength, MinClones) ->
 
 %% combine clones which are next to each other. (ideally a fixpoint should be reached).
 combine_neighbour_clones(Cs, MinLength, MinClones) ->
-    Cs1 = combine_neighbour_clones(Cs, []),
-    Cs2= [{R, L, F} || {R, L, F} <-Cs1, L >= MinLength, F >=MinClones],
-    remove_sub_clones(Cs2).
+     Cs1 = combine_neighbour_clones(Cs, []),
+     Cs2= [{R, L, F} || {R, L, F} <-Cs1, L >= MinLength, F >=MinClones],
+     remove_sub_clones(Cs2).
 		   
 combine_neighbour_clones([], Acc) -> Acc;
 combine_neighbour_clones([C|Cs], Acc) ->
-    C1 = case Acc of 
-	     [] -> [C] ;
-	     _ -> lists:map(fun(Clone)-> connect_clones(C, Clone) end, Acc)
-	 end,
-    C2 = lists:usort(C1),
-    combine_neighbour_clones(Cs, Acc++C2).
+     C1 = case Acc of 
+ 	     [] -> [C] ;
+ 	     _ -> lists:map(fun(Clone)-> connect_clones(C, Clone) end, Acc)
+ 	 end,
+     C2 = lists:usort(C1),
+     combine_neighbour_clones(Cs, Acc++C2).
 			   
 
 connect_clones(C1={Range1, Len1, F1}, {Range2, Len2, F2}) ->  %% assume F1=<F2.
-     StartLocs1 = lists:map(fun({S,_E}) -> S  end, Range1),
-     EndLocs1 = lists:map(fun({_S, E}) -> E end, Range1),
-     StartLocs2 = lists:map(fun({S,_E}) -> S  end, Range2),
-     EndLocs2 = lists:map(fun({_S, E}) -> E end, Range2),
-     case F1 =< F2 of 
-	 true
-	   -> case lists:subtract(StartLocs1, EndLocs2) of 
-		  [] -> R1 = lists:filter(fun({_S, E}) -> lists:member(E, StartLocs1) end, Range2),
-			R2= lists:map(fun({S, _E}) -> S end, R1),
-			{lists:zip(R2, EndLocs1), Len1+Len2, F1};
-		  _  -> 
-		      case lists:subtract(EndLocs1, StartLocs2) of 
-			  [] -> R3= lists:filter(fun({S,_E}) ->lists:member(S, EndLocs1) end, Range2),
-				R4 = lists:map(fun({_S,E}) -> E end, R3),
-				{lists:zip(StartLocs1, R4), Len1+Len2, F1};
-			  _ -> C1
-		      end
-	      end; 
-	 _  -> C1
-     end.
+      StartLocs1 = lists:map(fun({S,_E}) -> S  end, Range1),
+      EndLocs1 = lists:map(fun({_S, E}) -> E end, Range1),
+      StartLocs2 = lists:map(fun({S,_E}) -> S  end, Range2),
+      EndLocs2 = lists:map(fun({_S, E}) -> E end, Range2),
+      case F1 =< F2 of 
+ 	 true
+ 	   -> case lists:subtract(StartLocs1, EndLocs2) of 
+ 		  [] -> R1 = lists:filter(fun({_S, E}) -> lists:member(E, StartLocs1) end, Range2),
+ 			R2= lists:map(fun({S, _E}) -> S end, R1),
+ 			{lists:zip(R2, EndLocs1), Len1+Len2, F1};
+ 		  _  -> 
+ 		      case lists:subtract(EndLocs1, StartLocs2) of 
+ 			  [] -> R3= lists:filter(fun({S,_E}) ->lists:member(S, EndLocs1) end, Range2),
+ 				R4 = lists:map(fun({_S,E}) -> E end, R3),
+ 				{lists:zip(StartLocs1, R4), Len1+Len2, F1};
+ 			  _ -> C1
+ 		      end
+ 	      end; 
+ 	 _  -> C1
+      end.
 
 
 %%================================================================================
@@ -509,6 +583,7 @@ trim_clones(FileNames, Cs, MinLength, MinClones) ->
 		  end
 	  end,
     Cs2= lists:append(lists:map(Fun, Cs)),
+    io:format("Type3:\n~p\n",[length(Cs2)]),
     Cs3 =[lists:map(fun(C) -> {C, Len, length(C)} end, group_by(2, lists:map(Fun0, Range)))
 		    || {Range, Len, _F}<- Cs2],
     Cs4 = lists:append(Cs3),
