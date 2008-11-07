@@ -1904,7 +1904,7 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 		     (region-beginning)
 		     (region-end)
 		     ))
-  (let ((current-file-name (buffer-file-name))2
+  (let ((current-file-name (buffer-file-name))
 	(buffer (current-buffer))
 	(start-line-no (line-no-pos start))
 	(start-col-no  (current-column-pos start))
@@ -2271,12 +2271,6 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	      ;; (delete-overlay highlight-region-overlay)
 	      (message "Refactoring succeeded!"))))))))
   
-
- 
- ;; End of modification by H.Li
-;;---------------------------------------------------------------------
-
-
 (defun erl-refactor-tuple-funpar (node number)
   "Tuple function argument."
   (interactive (list (erl-target-node)
@@ -2302,3 +2296,333 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	   (['rex ['ok refac-rename]]
 	    (with-current-buffer buffer (revert-buffer nil t t))
             (message "Refactoring succeeded!")))))))))
+
+
+(defun erl-wrangler-code-inspector-var-instances(node)
+  "Sematic search of instances of a variable"
+  (interactive (list (erl-target-node)))
+  (let ((current-file-name (buffer-file-name))
+	(line-no           (current-line-no))
+        (column-no         (current-column-no))
+	(buffer (current-buffer)))
+    (if (buffer-modified-p buffer) (message-box "Buffer has been changed")
+	(erl-spawn
+	  (erl-send-rpc node 'wrangler_code_inspector 'find_var_instances(list current-file-name line-no column-no erlang-refac-search-paths))
+	  (erl-receive (buffer)
+	      ((['rex ['badrpc rsn]]
+		(message "Error: %S" rsn))
+	       (['rex ['error rsn]]
+		(message "Error: %s" rsn))
+	       (['rex ['ok regions defpos]]
+		(with-current-buffer buffer (highlight-instances regions defpos buffer)
+				     (remove-highlights buffer))
+				       		
+	       )))))))
+
+(defun remove-highlights(buffer)
+   (read-event)
+   (dolist (ov (overlays-in  1 10000))
+     (delete-overlay ov))				 
+   (remove-overlays))
+
+(defun highlight-instances(regions defpos buffer)
+  "highlight regions in the buffer"
+  (dolist (r regions)
+     (if (member (elt r 0) defpos)
+	 (highlight-def-instance r buffer)
+       (highlight-use-instance r buffer))))
+
+
+;; shouldn't code this really.
+(defun highlight-def-instance(region buffer)
+   "highlight one region in the buffer"
+   (let ((line1 (elt (elt region 0) 0))
+	  (col1 (elt (elt region 0) 1))
+	  (line2 (elt (elt region 1) 0))
+	  (col2 (elt (elt region 1) 1))
+	 (overlay (make-overlay 1 1)))
+     (overlay-put overlay  'face '((t (:background "orange"))))
+     (move-overlay overlay (get-position line1 (- col1 1))
+		   (get-position line2 col2) buffer)
+     ))
+
+
+(defun highlight-use-instance(region buffer)
+   "highlight one region in the buffer"
+   (let ((line1 (elt (elt region 0) 0))
+	  (col1 (elt (elt region 0) 1))
+	  (line2 (elt (elt region 1) 0))
+	  (col2 (elt (elt region 1) 1))
+	 (overlay (make-overlay 1 1)))
+     (overlay-put overlay  'face '((t (:background "CornflowerBlue"))))
+     (move-overlay overlay (get-position line1 (- col1 1))
+		   (get-position line2 col2) buffer)
+     ))
+
+
+(defun erl-wrangler-code-inspector-nested-cases(node level)
+  "Sematic search of instances of a variable"
+  (interactive (list (erl-target-node)
+		     (read-string "Nest level: ")))
+  (let ((current-file-name (buffer-file-name))
+	(line-no           (current-line-no))
+        (column-no         (current-column-no))
+	(buffer (current-buffer)))
+    (if (buffer-modified-p buffer) (message-box "Buffer has been changed")
+      (if (yes-or-no-p "Only check the current buffer?")
+	  (erl-spawn
+	    (erl-send-rpc node 'wrangler_code_inspector 'nested_case_exprs_in_file(list current-file-name level erlang-refac-search-paths))
+	    (erl-receive (buffer)
+		((['rex ['badrpc rsn]]
+		  (message "Error: %S" rsn))
+		 (['rex ['error rsn]]
+		  (message "Error: %s" rsn))
+		 (['rex ['ok regions]]
+		  (message "Searching finished.")
+		  ))))
+	(erl-spawn
+	  (erl-send-rpc node 'wrangler_code_inspector 'nested_case_exprs_in_dirs(list level erlang-refac-search-paths))
+	  (erl-receive (buffer)
+	      ((['rex ['badrpc rsn]]
+		(message "Error: %S" rsn))
+	       (['rex ['error rsn]]
+		(message "Error: %s" rsn))
+	       (['rex ['ok regions]]
+		(message "Searching finished.")
+		))))
+	))))
+
+
+(defun erl-wrangler-code-inspector-nested-ifs(node level)
+  "Sematic search of instances of a variable"
+  (interactive (list (erl-target-node)
+		     (read-string "Nest level: ")))
+  (let ((current-file-name (buffer-file-name))
+	(line-no           (current-line-no))
+        (column-no         (current-column-no))
+	(buffer (current-buffer)))
+    (if (buffer-modified-p buffer) (message-box "Buffer has been changed")
+      	(if (yes-or-no-p "Only check the current buffer?")
+	  (erl-spawn
+	    (erl-send-rpc node 'wrangler_code_inspector 'nested_if_exprs_in_file(list current-file-name level erlang-refac-search-paths))
+	    (erl-receive (buffer)
+		((['rex ['badrpc rsn]]
+		  (message "Error: %S" rsn))
+		 (['rex ['error rsn]]
+		  (message "Error: %s" rsn))
+		 (['rex ['ok regions]]
+		  (message "Searching finished.")
+		  ))))
+	(erl-spawn
+	  (erl-send-rpc node 'wrangler_code_inspector 'nested_if_exprs_in_dirs(list level erlang-refac-search-paths))
+	  (erl-receive (buffer)
+	      ((['rex ['badrpc rsn]]
+		(message "Error: %S" rsn))
+	       (['rex ['error rsn]]
+		(message "Error: %s" rsn))
+	       (['rex ['ok regions]]
+		(message "Searching finished.")
+		))))
+	))))
+
+(defun erl-wrangler-code-inspector-nested-receives(node level)
+  "Sematic search of instances of a variable"
+  (interactive (list (erl-target-node)
+		     (read-string "Nest level: ")))
+  (let ((current-file-name (buffer-file-name))
+	(line-no           (current-line-no))
+        (column-no         (current-column-no))
+	(buffer (current-buffer)))
+    (if (buffer-modified-p buffer) (message-box "Buffer has been changed")
+	(if (yes-or-no-p "Only check the current buffer?")
+	  (erl-spawn
+	    (erl-send-rpc node 'wrangler_code_inspector 'nested_receive_exprs_in_file(list current-file-name level erlang-refac-search-paths))
+	    (erl-receive (buffer)
+		((['rex ['badrpc rsn]]
+		  (message "Error: %S" rsn))
+		 (['rex ['error rsn]]
+		  (message "Error: %s" rsn))
+		 (['rex ['ok regions]]
+		  (message "Searching finished.")
+		  ))))
+	(erl-spawn
+	  (erl-send-rpc node 'wrangler_code_inspector 'nested_receive_exprs_in_dirs(list level erlang-refac-search-paths))
+	  (erl-receive (buffer)
+	      ((['rex ['badrpc rsn]]
+		(message "Error: %S" rsn))
+	       (['rex ['error rsn]]
+		(message "Error: %s" rsn))
+	       (['rex ['ok regions]]
+		(message "Searching finished.")
+		))))
+	))))
+
+
+
+(defun erl-wrangler-code-inspector-caller-called-mods(node)
+  "Sematic search of instances of a variable"
+  (interactive (list (erl-target-node)
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(line-no           (current-line-no))
+        (column-no         (current-column-no))
+	(buffer (current-buffer)))
+    (if (buffer-modified-p buffer) (message-box "Buffer has been changed")
+	(erl-spawn
+	  (erl-send-rpc node 'wrangler_code_inspector 'caller_called_modules(list current-file-name erlang-refac-search-paths))
+	  (erl-receive (buffer)
+	      ((['rex ['badrpc rsn]]
+		(message "Error: %S" rsn))
+	       (['rex ['error rsn]]
+		(message "Error: %s" rsn))
+	       (['rex ['ok regions]]
+		(message "Analysis finished.")
+	       )))))))
+
+
+(defun erl-wrangler-code-inspector-long-funs(node lines)
+  "Search for long functions"
+  (interactive (list (erl-target-node)
+		     (read-string "Number of lines: ")))
+  (let ((current-file-name (buffer-file-name))
+	(line-no           (current-line-no))
+        (column-no         (current-column-no))
+	(buffer (current-buffer)))
+    (if (buffer-modified-p buffer) (message-box "Buffer has been changed")
+      	(if (yes-or-no-p "Only check the current buffer?")
+	  (erl-spawn
+	    (erl-send-rpc node 'wrangler_code_inspector 'long_functions_in_file(list current-file-name lines erlang-refac-search-paths))
+	    (erl-receive (buffer)
+		((['rex ['badrpc rsn]]
+		  (message "Error: %S" rsn))
+		 (['rex ['error rsn]]
+		  (message "Error: %s" rsn))
+		 (['rex ['ok regions]]
+		  (message "Searching finished.")
+		  ))))
+	(erl-spawn
+	  (erl-send-rpc node 'wrangler_code_inspector 'long_functions_in_dirs(list lines erlang-refac-search-paths))
+	  (erl-receive (buffer)
+	      ((['rex ['badrpc rsn]]
+		(message "Error: %S" rsn))
+	       (['rex ['error rsn]]
+		(message "Error: %s" rsn))
+	       (['rex ['ok regions]]
+		(message "Searching finished.")
+		))))
+	))))
+
+(defun erl-wrangler-code-inspector-large-mods(node lines)
+  "Search for large modules"
+  (interactive (list (erl-target-node)
+		     (read-string "Number of lines: ")))
+  (let 	(buffer (current-buffer))
+    (if (buffer-modified-p buffer) (message-box "Buffer has been changed")
+      (erl-spawn
+	(erl-send-rpc node 'wrangler_code_inspector 'large_modules(list lines erlang-refac-search-paths))
+	(erl-receive (buffer)
+	    ((['rex ['badrpc rsn]]
+	      (message "Error: %S" rsn))
+	     (['rex ['error rsn]]
+	      (message "Error: %s" rsn))
+	     (['rex ['ok mods]]
+	      (message "Searching finished.")
+	     )))))))
+
+
+(defun erl-wrangler-code-inspector-caller-funs(node)
+  "Search for caller functions"
+  (interactive (list (erl-target-node)))
+  (let ((current-file-name (buffer-file-name))
+	(line-no           (current-line-no))
+        (column-no         (current-column-no))
+	(buffer (current-buffer)))
+    (let (changed)
+      (dolist (b (buffer-list) changed)
+	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
+	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
+	      (setq changed (cons (buffer-name b) changed)))))
+      (if changed (message-box (format "there are modified buffers: %s" changed))
+	(erl-spawn
+	  (erl-send-rpc node 'wrangler_code_inspector 'caller_funs(list current-file-name line-no column-no  erlang-refac-search-paths))
+	  (erl-receive (buffer)
+	    ((['rex ['badrpc rsn]]
+	      (message "Error: %S" rsn))
+	     (['rex ['error rsn]]
+	      (message "Error: %s" rsn))
+	     (['rex ['ok funs]]
+	      (message "Searching finished.")
+	    ))))))))
+
+
+(defun erl-wrangler-code-inspector-non-tail-recursive-servers(node)
+  "Search for non tail-recursive servers"
+  (interactive (list (erl-target-node)))
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer)))
+    (let (changed)
+      (dolist (b (buffer-list) changed)
+	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
+	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
+	      (setq changed (cons (buffer-name b) changed)))))
+      (if changed (message-box (format "there are modified buffers: %s" changed))
+	(if (yes-or-no-p "Only check the current buffer?")
+	    (erl-spawn
+	      (erl-send-rpc node 'wrangler_code_inspector 'non_tail_recursive_servers_in_file(list current-file-name erlang-refac-search-paths))
+	      (erl-receive (buffer)
+		  ((['rex ['badrpc rsn]]
+		    (message "Error: %S" rsn))
+		   (['rex ['error rsn]]
+		    (message "Error: %s" rsn))
+		   (['rex ['ok regions]]
+		    (message "Searching finished.")
+		    ))))
+	  (erl-spawn
+	    (erl-send-rpc node 'wrangler_code_inspector 'non_tail_recursive_servers_in_dirs(list erlang-refac-search-paths))
+	    (erl-receive (buffer)
+		((['rex ['badrpc rsn]]
+		  (message "Error: %S" rsn))
+		 (['rex ['error rsn]]
+		  (message "Error: %s" rsn))
+		 (['rex ['ok regions]]
+		  (message "Searching finished.")
+		  ))))
+	  )))))
+	  
+
+(defun erl-wrangler-code-inspector-no-flush(node)
+  "Search for servers without flush of unknown messages"
+  (interactive (list (erl-target-node)))
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer)))
+    (let (changed)
+      (dolist (b (buffer-list) changed)
+	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
+	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
+	      (setq changed (cons (buffer-name b) changed)))))
+      (if changed (message-box (format "there are modified buffers: %s" changed))
+	(if (yes-or-no-p "Only check the current buffer?")
+	    (erl-spawn
+	      (erl-send-rpc node 'wrangler_code_inspector 'not_flush_unknown_messages_in_file(list current-file-name erlang-refac-search-paths))
+	      (erl-receive (buffer)
+		  ((['rex ['badrpc rsn]]
+		    (message "Error: %S" rsn))
+		   (['rex ['error rsn]]
+		    (message "Error: %s" rsn))
+		   (['rex ['ok regions]]
+		    (message "Searching finished.")
+		    ))))
+	  (erl-spawn
+	    (erl-send-rpc node 'wrangler_code_inspector 'not_flush_unknown_messages_in_dirs(list erlang-refac-search-paths))
+	    (erl-receive (buffer)
+		((['rex ['badrpc rsn]]
+		  (message "Error: %S" rsn))
+		 (['rex ['error rsn]]
+		  (message "Error: %s" rsn))
+		 (['rex ['ok regions]]
+		  (message "Searching finished.")
+		  ))))
+	  )))))
+	  
+;; End of modification by H.Li
+;;---------------------------------------------------------------------

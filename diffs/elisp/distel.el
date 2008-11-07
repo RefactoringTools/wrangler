@@ -95,7 +95,16 @@ C-c C-d b/\\[edb-toggle-breakpoint]	- Toggle a debugger breakpoint at the curren
 \\[erl-refactor-duplicated-code-in-buffer] -Detect code clones in the current file.
 \\[erl-refactor-duplicated-code-in-dirs] -Detect code clones in the specified directories.
 \\[erl-refactor-expression-search] - search an expression in the current file
-\\[erl-refactor-version] --show the current version of Wrangler.
+\\[erl-wrangler-code-inspector-var-instances] -- semantical search of occurrences of a variable
+\\[erl-wrangler-code-inspector-calle-funs]
+\\[erl-wrangler-code-inspector-caller-called-mods]
+\\[erl-wrangler-code-inspector-nested-ifs]
+\\[erl-wrangler-code-inspector-nested-cases]
+\\[erl-wrangler-code-inspector-nested-receives]
+\\[erl-wrangler-code-inspector-long-funs]
+\\[erl-wrangler-code-inspector-large-mods]
+\\[erl-wrangler-code-inspector-non-tail-recursive-servers]
+\\[erl-wrangler-code-inspector-no-flush]
 \\[erl-find-sig-under-point]	- Show the signature for the function under point.
 \\[erl-find-doc-under-point]	- Show the HTML documentation for the function under point.
 \\[erl-find-sig]	- Show the signature for a function.
@@ -312,50 +321,57 @@ Please see the documentation of `erlang-menu-base-items'.")
   ;;     :type '(repeat directory)
   ;;     :group 'erlang-refac)
 
+  
 (defvar refactor-menu-items
   '(nil
-    ("Refactor"
-     (("Rename Variable Name" erl-refactor-rename-var)
-      ("Rename Function Name" erl-refactor-rename-fun)
-      ("Rename Module Name" erl-refactor-rename-mod)
-      ("Generalise Function Definition" erl-refactor-generalisation)
-      ("Move Function to Another Module" erl-refactor-move-fun)
-     ;; ("Duplicated Code"
-      ("Function Extraction" erl-refactor-fun-extraction)
-      ("Fold Expression Against Function" erl-refactor-fold-expression)
-     ;; ("Instrument Program" erl-refactor-instrument-prog)
-     ;; ("Uninstrument Program" erl-refactor-uninstrument-prog)
-      nil
-    ;;  ("From Tuple To Record (beta)" erl-refactor-tuple-to-record)
-      ("Tuple Function Arguments" erl-refactor-tuple-funpar)
-      nil
-      ("Rename a Process" erl-refactor-rename-process)
-      ("Add a Tag to Messages (beta)"  erl-refactor-add-a-tag)
-      ("Register a Process"   erl-refactor-register-pid)
-      ("From Function to Process" erl-refactor-fun-to-process)
-      nil
-      ("Detect Duplicated Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
-      ("Detect Duplicated Code in Dirs" erl-refactor-duplicated-code-in-dirs)
-      ("Expression Search" erl-refactor-expression-search)
-      nil
-      ("Undo" erl-refactor-undo)
-      nil
-      ("Customize Wrangler" refac-customize)
-      nil
-      ("Version" erl-refactor-version)
-      )))
-  "*Description of the Refactor menu used by Erlang Extended mode.")
-
+    ("Wrangler Code Inspector"
+     (("Variable Search" erl-wrangler-code-inspector-var-instances) 
+      ("Caller Functions" erl-wrangler-code-inspector-caller-funs)
+      ("Caller/Called Modules" erl-wrangler-code-inspector-caller-called-mods)
+      ("Nested If Expresssions" erl-wrangler-code-inspector-nested-ifs)
+      ("Nested Case Expressions" erl-wrangler-code-inspector-nested-cases)
+      ("Nested Receive Expression" erl-wrangler-code-inspector-nested-receives)
+      ("Long Functions" erl-wrangler-code-inspector-long-funs)
+      ("Large Modules" erl-wrangler-code-inspector-large-mods)
+     ;; ("UnCalled Exported Functions" erl-wrangler-code-inspector-uncalled-exports)
+      ("Non Tail-recursive Servers" erl-wrangler-code-inspector-non-tail-recursive-servers)
+      ("Not Flush UnKnown Messages" erl-wrangler-code-inspector-no-flush)))
+    nil
+     ("Refactor"
+      (("Rename Variable Name" erl-refactor-rename-var)
+       ("Rename Function Name" erl-refactor-rename-fun)
+       ("Rename Module Name" erl-refactor-rename-mod)
+       ("Generalise Function Definition" erl-refactor-generalisation)
+       ("Move Function to Another Module" erl-refactor-move-fun)
+       ("Function Extraction" erl-refactor-fun-extraction)
+       ("Fold Expression Against Function" erl-refactor-fold-expression)
+       nil
+       ;;  ("From Tuple To Record (beta)" erl-refactor-tuple-to-record)
+       ("Tuple Function Arguments" erl-refactor-tuple-funpar)
+       nil
+       ("Rename a Process" erl-refactor-rename-process)
+       ("Add a Tag to Messages (beta)"  erl-refactor-add-a-tag)
+       ("Register a Process"   erl-refactor-register-pid)
+       ("From Function to Process" erl-refactor-fun-to-process)
+       nil
+       ("Detect Duplicated Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
+       ("Detect Duplicated Code in Dirs" erl-refactor-duplicated-code-in-dirs)
+       ("Expression Search" erl-refactor-expression-search)
+       nil
+       ("Undo" erl-refactor-undo)
+       nil
+       ("Customize Wrangler" refac-customize)
+       nil
+       ("Version" erl-refactor-version)))))
+   
 
 (defun refac-customize ()
  	  "Customization of group `erlang-refac' for the erlang refactorer."
 	  (interactive)
  	  (customize-group "erlang-refac"))
 
-
-
-
 (global-set-key (kbd "C-c C-r") 'toggle-erlang-refactor)
+(global-set-key (kbd "C-c C-b") 'erl-wrangler-code-inspector-var-instances)
 
 (setq erlang-refactor-status 0)
 
@@ -418,21 +434,3 @@ Please see the documentation of `erlang-menu-base-items'.")
   (message "Wrangler version 0.5"))
  
 
-;; (defun erlang-refactor-on(node)
-;;   (interactive (list (erl-target-node)))
-;;    (setq erlang-menu-items
-;;        (erlang-menu-add-below 'refactor-menu-items
-;;                               'distel-menu-items
-;;                               erlang-menu-items))
-;;    (erlang-menu-init)
-;;    (erl-spawn (erl-send-rpc node 'wrangler_distel 'start_processes (list erlang-refac-search-paths)))
-;;    (setq erlang-refactor-mode t))
-
-;; (defun erlang-refactor-off(node)
-;;   (interactive (list (erl-target-node)))
-;;   (setq erlang-menu-items 
-;;         (erlang-menu-delete 'refactor-menu-items erlang-menu-items))
-;;   (erlang-menu-init)
-;;   (when (and erlang-refactor-mode node)
-;;    (erl-spawn (erl-send-rpc node 'wrangler_distel 'stop_processes (list)))
-;;    (setq erlang-refactor-mode nil)))
