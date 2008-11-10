@@ -260,7 +260,7 @@ do_fun_to_process(AnnAST, Info,ModName, DefPos, FunName, Arity, ProcessName) ->
     InScopeFuns = lists:map(fun({_M, F, A}) ->
 				    {F, A} end, refac_util:inscope_funs(Info)),
     RpcFunName = new_fun_name(atom_to_list(FunName)++ "_rpc", 2, 0, InScopeFuns),
-    NewFunName = new_fun_name(atom_to_list(FunName), 0, 0, InScopeFuns),
+    NewFunName = new_fun_name(atom_to_list(FunName), 0, 0, InScopeFuns--[{FunName, Arity}]),
      {AnnAST1,_}=refac_util:stop_tdTP(fun fun_call_to_rpc/2, AnnAST, {ModName,FunName, Arity, ProcessName, RpcFunName}),
     AnnAST2 = do_fun_to_process_1(AnnAST1, DefPos, ProcessName, NewFunName, RpcFunName),
     AnnAST2.
@@ -402,21 +402,41 @@ new_fun_name(BaseName, Arity, Index, InScopeFuns) ->
     end.
 	    
     
-
 rpc_fun(NewFunName, RpcFunName) ->
     RpcFun=atom_to_list(RpcFunName)++"(RegName, Request) ->
-			   case whereis(RegName) of 
-				 undefined -> register(RegName, spawn(fun "++atom_to_list(NewFunName)++"/0));
-				 _ -> ok
-			   end,
-		           RegName ! {self(), Request},
-		           receive
-				 {RegName, Response} -> Response
-			   end.",
+                           Fun = fun() ->
+                                    try register(RegName, self())
+                                    catch 
+                                         true ->
+                                               "++atom_to_list(NewFunName)++"();
+                                         error:_-> alreay_running
+                                    end
+                                 end,
+                            spawn(Fun),
+                            RegName ! {self(), Request},
+		            receive
+				  {RegName, Response} -> Response
+			    end.",
     {ok, Toks, _} = refac_scan:string(RpcFun),
     {ok, Form} =erl_parse:parse_form(Toks),
     FunDef= hd(refac_syntax:form_list_elements(refac_recomment:recomment_forms([Form], []))),
     FunDef.
+
+
+%% rpc_fun(NewFunName, RpcFunName) ->
+%%      RpcFun=atom_to_list(RpcFunName)++"(RegName, Request) ->
+%%  			   case whereis(RegName) of 
+%%  				 undefined -> register(RegName, spawn_link(fun "++atom_to_list(NewFunName)++"/0));
+%%  				 _ -> ok
+%%  			   end,
+%%  		           RegName ! {self(), Request},
+%%  		           receive
+%%  				 {RegName, Response} -> Response
+%%  			   end.",
+%%      {ok, Toks, _} = refac_scan:string(RpcFun),
+%%      {ok, Form} =erl_parse:parse_form(Toks),
+%%      FunDef= hd(refac_syntax:form_list_elements(refac_recomment:recomment_forms([Form], []))),
+%%      FunDef.
 
 do_fun_to_process_1(AnnAST, DefPos, ProcessName, NewFunName, RpcFunName) -> 				
     Forms = refac_syntax:form_list_elements(AnnAST),
