@@ -118,39 +118,42 @@ nested_exprs(DirFileNames, NestLevel, ExprType, SearchPaths)->
 		_ -> {error, "Invalid nest level"}
 	    end
     catch 
-	error:_ -> {error, "Invalid nest level!"}
+	_:_ -> {error, "Invalid nest level!"}
     end.
-
 
 nested_exprs_1(FName, NestLevel, ExprType, SearchPaths) ->
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths),
-    ModName = case lists:keysearch(module, 1, Info) of
-		  {value, {module, Mod}} -> Mod;
-		  _ -> list_to_atom(filename:basename(FName, ".erl"))
-	      end,
-    Fun = fun(T,S) ->
-		  case refac_syntax:type(T) of 
-		      function ->
-			  FunName = refac_syntax:atom_value(refac_syntax:function_name(T)),
-			  Arity = refac_syntax:function_arity(T),
-			  Fun1 = fun(Node, S1) ->
-					 case refac_syntax:type(Node) of 
-					     ExprType -> Range = refac_util:get_range(Node),
-							  [{ModName, FunName, Arity, Range} |S1];
-					     _  -> S1
-					 end
-				 end,
-			  refac_syntax_lib:fold(Fun1, S, T);
-		      _  -> S
+    ModName = get_module_name(FName, Info),
+    Fun = fun (T, S) ->
+		  case refac_syntax:type(T) of
+		    function ->
+			FunName = refac_syntax:atom_value(refac_syntax:function_name(T)),
+			Arity = refac_syntax:function_arity(T),
+			Fun1 = fun (Node, S1) ->
+				       case refac_syntax:type(Node) of
+					 ExprType ->
+					     Range = refac_util:get_range(Node),
+					     [{ModName, FunName, Arity, Range} | S1];
+					 _ -> S1
+				       end
+			       end,
+			refac_syntax_lib:fold(Fun1, S, T);
+		    _ -> S
 		  end
 	  end,
     Ranges = lists:usort(refac_syntax_lib:fold(Fun, [], AnnAST)),
     SortedRanges = sort_ranges(Ranges),
-    ResRanges = lists:filter(fun(R) -> length(R) >= NestLevel end, SortedRanges),
-    Funs = lists:usort(lists:map(fun(R) -> {M, F, A, _R} = hd(R), 
-					   {M, F, A}
-				 end, ResRanges)),	
+    ResRanges = lists:filter(fun (R) -> length(R) >= NestLevel end, SortedRanges),
+    Funs = lists:usort(lists:map(fun (R) -> {M, F, A, _R} = hd(R), {M, F, A} end,
+				 ResRanges)),
     Funs.
+
+get_module_name(FName, Info) ->
+    ModName = case lists:keysearch(module, 1, Info) of
+		{value, {module, Mod}} -> Mod;
+		_ -> list_to_atom(filename:basename(FName, ".erl"))
+	      end,
+    ModName.
   
 	
 format_result(Funs, NestLevel, ExprType) -> 
@@ -441,16 +444,13 @@ long_functions_1(DirFileNames, Lines, SearchPaths) ->
 		false ->{error, "Invalid number of lines!"}
 	    end
     catch 
-	error:_ ->
+	_:_ ->
 	     {error, "Invalid number of lines"}
     end.
 
 long_functions_2(FName, Lines, SearchPaths) ->
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths),
-    case lists:keysearch(module, 1, Info) of
-      {value, {module, ModName}} -> ModName;
-      _ -> ModName = list_to_atom(filename:basename(FName, ".erl")), ModName
-    end,
+    ModName = get_module_name(FName, Info),
     Fun = fun (Node, S) ->
 		  case refac_syntax:type(Node) of
 		      function ->
@@ -514,7 +514,7 @@ large_modules(Lines, SearchPaths) ->
 		false ->{error, "Invalid number of lines!"}
 	    end
     catch
-	error:_ ->
+	_:_ ->
 	    {error, "Invalid number of lines!"}
     end.
 
@@ -590,7 +590,7 @@ non_tail_recursive_servers_in_dirs(SearchPaths) ->
 
 non_tail_recursive_servers(FName, SearchPaths) ->
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths),
-    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
+    ModName = get_module_name(FName, Info),
     Fun = fun (T, S) ->
 		  case refac_syntax:type(T) of
 		    function ->
@@ -653,11 +653,7 @@ is_non_tail_recursive_server(FileName, Info, FunDef, {ModName, FunName, Arity}, 
 
 
 check_candidate_scc(FileName, Info, FunDef, Scc, Line) ->
-    case lists:keysearch(module, 1, Info) of 
-	{value, {module, ModName}}  -> ModName;
-	_ -> ModName = list_to_atom(filename:basename(FileName, ".erl")),
-	     ModName
-    end,
+    ModName = get_module_name(FileName, Info),
     InscopeFuns = refac_util:auto_imported_bifs() ++ refac_util:inscope_funs(Info), 
     MFAs = lists:map(fun({MFA, _}) -> MFA end, Scc),
     DummyExp = refac_syntax:atom(undefined),
@@ -706,7 +702,7 @@ check_candidate_scc(FileName, Info, FunDef, Scc, Line) ->
 
 
 %%==========================================================================================
--spec(not_flush_unknown_messages_in_file(FName::filename(), SearchPaths::[dir()]) -> ok).     
+-spec(not_flush_unknown_messages_in_file(FName::filename(), SearchPaths::[dir()]) -> ok).    
 not_flush_unknown_messages_in_file(FName, SearchPaths) ->
     Funs = not_flush_unknown_messages(FName, SearchPaths),
     non_flush_format_result(lists:usort(Funs)).
@@ -723,7 +719,7 @@ not_flush_unknown_messages_in_dirs(SearchPaths) ->
 
 not_flush_unknown_messages(FName, SearchPaths) ->
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths),
-    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
+    ModName = get_module_name(FName, Info),
     Fun = fun (T, S) ->
 		  case refac_syntax:type(T) of
 		    function ->
@@ -767,11 +763,7 @@ not_has_flush_scc(FileName, Info, FunDef, Scc, Line) ->
     end.
 
 is_server(FileName, Info, FunDef, Scc, Line) ->
-    case lists:keysearch(module, 1, Info) of 
-	{value, {module, ModName}}  -> ModName;
-	_ -> ModName = list_to_atom(filename:basename(FileName, ".erl")),
-	     ModName
-    end,
+    ModName = get_module_name(FileName, Info),
     InscopeFuns = refac_util:auto_imported_bifs() ++ refac_util:inscope_funs(Info), 
     MFAs = lists:map(fun({MFA, _}) -> MFA end, Scc),
     F = fun(T, Acc) ->
