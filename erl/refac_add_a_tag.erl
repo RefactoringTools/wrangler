@@ -42,7 +42,7 @@ add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
 	    _Res=refac_annotate_pid:ann_pid_info(SearchPaths),
 	    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths),
 	    {ok, FunDef} = pos_to_receive_fun(AnnAST, {Line, Col}),
-	    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
+	    ModName = get_module_name(FileName, Info),
 	    case pre_cond_check(AnnAST,  ModName, FunDef, SearchPaths) of 
 		{ok, AffectedInitialFuns} ->
 		    Results = do_add_a_tag(FileName, {AnnAST, Info}, list_to_atom(Tag), AffectedInitialFuns, SearchPaths),
@@ -88,7 +88,7 @@ collect_process_initial_funs(SearchPaths) ->
 		  end, Files).
 
 collect_process_initial_funs_1({FileName, AnnAST, Info}, _SearchPaths) ->  
-    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
+    ModName = get_module_name(FileName, Info),
     HandleSpecialFuns = fun(Node) ->
 				{{Ln, _}, _} = refac_util:get_range(Node),
 				Op = refac_syntax:application_operator(Node),
@@ -146,7 +146,7 @@ collect_process_initial_funs_1({FileName, AnnAST, Info}, _SearchPaths) ->
     refac_syntax_lib:fold(Fun, [], AnnAST).
 		 
 do_add_a_tag(FileName, {AnnAST, Info}, Tag, AffectedInitialFuns, SearchPaths) ->
-    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
+    ModName = get_module_name(FileName, Info),
     {InitialFuns1, ReceiveFuns1} = lists:unzip(AffectedInitialFuns),
     InitialFuns = lists:usort(lists:flatmap(fun({Init, _, _}) -> Init end, InitialFuns1)),
     InitialSpawnExprs = lists:usort(lists:map(fun({_, _, SpawnExpr}) -> SpawnExpr end, InitialFuns1)),
@@ -168,7 +168,7 @@ do_add_a_tag_in_other_modules(Files, Tag, InitialFuns, ReceiveFuns, AffectedMods
 		true ->
 		    io:format("The current file under refactoring is:\n~p\n", [F]),
 		    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(F, true, SearchPaths),
-		    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
+		    ModName = get_module_name(F, Info),
 		    {AnnAST1, Changed} = refac_util:stop_tdTP(fun do_add_a_tag_1/2, AnnAST, {ModName, Tag, InitialFuns, ReceiveFuns,AffectedModsFuns}),
 		    if Changed ->
 			    [{{F, F}, AnnAST1} | do_add_a_tag_in_other_modules(Fs, Tag, InitialFuns, ReceiveFuns, AffectedModsFuns, SearchPaths)];
@@ -470,7 +470,7 @@ forward_slice_1(FileName, Expr, SearchPaths) ->
     Files = refac_util:expand_files(SearchPaths, ".erl"),
     {StartPos, EndPos} = refac_util:get_range(Expr),
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths),
-    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
+    ModName = get_module_name(FileName, Info),
     case refac_util:pos_to_expr(AnnAST, StartPos, EndPos) of 
 	{ok, Expr} ->
 	    case refac_util:pos_to_fun_def(AnnAST, StartPos) of     
@@ -489,3 +489,9 @@ forward_slice_1(FileName, Expr, SearchPaths) ->
 %% Is theory, it is possible that a  receiver function is shared by different processes (processse with different 
 %% entries); it practice, this rarely happen. We ignore this case for now.
 
+get_module_name(FName, Info) ->
+    ModName = case lists:keysearch(module, 1, Info) of
+		{value, {module, Mod}} -> Mod;
+		_ -> list_to_atom(filename:basename(FName, ".erl"))
+	      end,
+    ModName.
