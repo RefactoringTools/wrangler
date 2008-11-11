@@ -2,7 +2,6 @@
 #include <ei.h>
 
 #include <unistd.h>
-#include <sys/io.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,7 +21,7 @@ int write_exact(byte *buf, int len);
 
 int main()
 {
-    unsigned char  *filename;
+    char  *filename;
     
     byte*     buf;
     int       size = BUF_SIZE;
@@ -40,7 +39,7 @@ int main()
 #endif 
 	if ((buf = (byte *) malloc(size)) == NULL) 
 	    return -1;
-	if ((filename=(unsigned char *) malloc(size)) ==NULL)
+	if ((filename=(char *) malloc(size)) ==NULL)
 	    return -1;
 	while (read_cmd(buf, &size) > 0) {
 	    /* Reset the index, so that ei functions can decode terms from the 
