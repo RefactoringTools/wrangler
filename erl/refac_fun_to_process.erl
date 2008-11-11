@@ -409,7 +409,7 @@ rpc_fun(NewFunName, RpcFunName) ->
                                     catch 
                                          true ->
                                                "++atom_to_list(NewFunName)++"();
-                                         error:_-> alreay_running
+                                         error:_-> already_running
                                     end
                                  end,
                             spawn(Fun),
