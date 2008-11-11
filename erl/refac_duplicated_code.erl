@@ -22,6 +22,7 @@
 
 -export([duplicated_code/3]). 
 
+
 -export([duplicated_code_1/3]).
 
 -export([tokenize/1]).
@@ -39,11 +40,11 @@
 %% minimal number of tokens.
 -define(DEFAULT_MIN_CLONE_LEN, 20).
 
-%% minimal number of  duplication times.
+%% minimal number of duplication times.
 -define(DEFAULT_MIN_CLONE_MEMBER, 1).
 
 
--define(DEBUG, true).
+%% -define(DEBUG, true).
 
 -ifdef(DEBUG).
 -define(debug(__String, __Args), io:format(__String, __Args)).
@@ -70,11 +71,11 @@ get_clones_by_suffix_tree(FileNames,MinLength, MinClones) ->
     file:write_file(OutFileName, ProcessedToks), 
     case catch call_port({get, MinLength, MinClones, OutFileName}) of
 	{ok, _Res} ->
-	    ?debug("The Initial clones is calculated by the C suffixtree implementation.\n", []),
+	    ?debug("Initial clones are calculated using C suffixtree implementation.\n", []),
  	    {ok, [Cs]} = file:consult(OutFileName),
    	    {Toks, Cs};
  	_-> 
-	    ?debug("The Initial clones is calculated by the Erlang suffixtree implementation.\n", []),
+	    ?debug("Initial clones are calculated using Erlang suffixtree implementation.\n", []),
 	    Tree = suffix_tree(alphabet() ++ "&", ProcessedToks ++ "&"),
  	    Cs = lists:flatten(lists:map(fun (B) ->
  						 collect_clones(MinLength, MinClones, B)
@@ -193,7 +194,7 @@ duplicated_code_detection(DirFileList, MinClones1, MinLength1) ->
     Cs4 = combine_neighbour_clones(Cs3, MinLength, MinClones),
     ?debug("Type3 without trimming:~p\n", [length(Cs4)]),
     ?debug("Trimming clones.\n", []),
-    Cs5 = trim_clones(FileNames, Cs3, MinLength, MinClones),
+    Cs5 = trim_clones(FileNames, Cs4, MinLength, MinClones),
     {Cs5, FileNames}.
 
 
@@ -583,7 +584,7 @@ trim_clones(FileNames, Cs, MinLength, MinClones) ->
 		  end
 	  end,
     Cs2= lists:append(lists:map(Fun, Cs)),
-    io:format("Type3:\n~p\n",[length(Cs2)]),
+    %%io:format("Type3:\n~p\n",[length(Cs2)]),
     Cs3 =[lists:map(fun(C) -> {C, Len, length(C)} end, group_by(2, lists:map(Fun0, Range)))
 		    || {Range, Len, _F}<- Cs2],
     Cs4 = lists:append(Cs3),
