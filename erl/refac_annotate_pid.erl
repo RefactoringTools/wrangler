@@ -93,7 +93,10 @@ fixpoint(Funs, TypeSigPid) ->
 
 update_function(File, FunList, DirList) ->
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(File, true, DirList),
-    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
+    ModName = case lists:keysearch(module, 1, Info) of
+		  {value, {module, Mod}} -> Mod;
+		  _ -> list_to_atom(filename:basename(File, ".erl"))
+	      end,
     F = fun (Node, []) ->
 		case refac_syntax:type(Node) of
 		  function ->
