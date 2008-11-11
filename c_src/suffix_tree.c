@@ -902,7 +902,7 @@ void SPA(
 	   lost, as the tree is allocated dynamically on the heap.
 */
 
-SUFFIX_TREE* ST_CreateTree(const char* str, WORD length)
+SUFFIX_TREE* ST_CreateTree(unsigned char* str, WORD length)
 {
    SUFFIX_TREE*  tree;
    WORD      phase , extension;
@@ -1380,7 +1380,7 @@ SUFFIX_TREE* ST_ExtendRanges(SUFFIX_TREE* tree)
     return tree;
 }
 
-void ST_CollectClones(SUFFIX_TREE* tree, int minlen, int minf, unsigned char *filename)
+void ST_CollectClones(SUFFIX_TREE* tree, int minlen, int minf, char *filename)
 {   FILE *fp;
     fp = fopen((const char*)filename, "w");
     if (tree==0)
@@ -1394,7 +1394,7 @@ void ST_CollectClones(SUFFIX_TREE* tree, int minlen, int minf, unsigned char *fi
     fclose(fp);
 }
 
-void clone_detection_by_suffix_tree(unsigned char *filename, long minlen, long minclones)
+void clone_detection_by_suffix_tree(char *filename, long minlen, long minclones)
 {
     SUFFIX_TREE* tree;
     unsigned char *str = NULL, freestr = 0;
