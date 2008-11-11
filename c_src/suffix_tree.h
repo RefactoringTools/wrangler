@@ -108,7 +108,7 @@ typedef struct SUFFIXTREE
            lost, as the tree is allocated dynamically on the heap.
 */
 
-SUFFIX_TREE* ST_CreateTree(const char*   str, WORD length);
+SUFFIX_TREE* ST_CreateTree(unsigned char*   str, WORD length);
 
 /******************************************************************************/
 /*
@@ -173,10 +173,10 @@ WORD ST_SelfTest(SUFFIX_TREE* tree);
 
 
 /******************************************************************************/
-void ST_CollectClones(SUFFIX_TREE* tree, int len, int f, unsigned char *filename);
+void ST_CollectClones(SUFFIX_TREE* tree, int len, int f, char *filename);
 
 SUFFIX_TREE* ST_Add_Freq_And_Range(SUFFIX_TREE* tree);
 
 SUFFIX_TREE* ST_ExtendRanges(SUFFIX_TREE* tree);
 
-void clone_detection_by_suffix_tree(unsigned char *filename, long minlen, long minclones);
+void clone_detection_by_suffix_tree(char *filename, long minlen, long minclones);
