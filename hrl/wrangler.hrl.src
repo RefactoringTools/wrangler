@@ -20,6 +20,16 @@
 
 -define(ModuleGraphTab, wrangler_modulegraph_tab).
 
+
+-define(EMACS, true).
+
+-ifdef(EMACS).
+-define(wrangler_io(__String, __Args), io:format(__String, __Args)).
+-else.
+-define(wrangler_io(__String, __Args), ok).
+-endif.
+      
+
 -type(filename()::string()).
 -type(modulename()::atom()).
 -type(functionname()::atom()).

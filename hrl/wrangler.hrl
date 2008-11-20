@@ -11,7 +11,7 @@
 -record(attr, {pos = {0,0}, ann = [], com = none}).
 
 %% Will be edited by Makefile 
--define(WRANGLER_DIR, "c:/cygwin/home/hl/wrangler/share/distel/wrangler").
+-define(WRANGLER_DIR, "C:/cygwin/home/hl/wrangler/share/distel/wrangler").
 
 -define(DEFAULT_LOC, 
         {0, 0}).  %% default defining location.
@@ -19,6 +19,16 @@
 	unknown).  %% default module name.
 
 -define(ModuleGraphTab, wrangler_modulegraph_tab).
+
+
+-define(EMACS, true).
+
+-ifdef(EMACS).
+-define(wrangler_io(__String, __Args), io:format(__String, __Args)).
+-else.
+-define(wrangler_io(__String, __Args), ok).
+-endif.
+      
 
 -type(filename()::string()).
 -type(modulename()::atom()).
