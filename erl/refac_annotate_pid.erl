@@ -622,7 +622,7 @@ fun_typesig_loop(State) ->
 	    From ! {self(), State},
 	    fun_typesig_loop(State);
  	stop ->  
- 	   %% io:format("typesig env:\n~p\n", [State]),
+ 	   %% ?wrangler_io("typesig env:\n~p\n", [State]),
  	    ok
      end.
 

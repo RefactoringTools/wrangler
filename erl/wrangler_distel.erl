@@ -113,6 +113,17 @@ fun_extraction(FName, StartLine, StartCol, EndLine, EndCol, FunName) ->
 	    {error, Reason}
     end.
 
+-spec(new_macro/7::(filename(), integer(), integer(), integer(), integer(), string(), [dir()]) ->
+	      {error, string()} | {ok, string()}).
+new_macro(FName, StartLine, StartCol, EndLine, EndCol, MacroName, SearchPaths) ->
+    case check_undo_process() of 
+	ok -> Res = wrangler:new_macro(FName, {StartLine, StartCol}, {EndLine, EndCol}, MacroName, SearchPaths),
+	      check_wrangler_error_logger(),
+	      Res;
+	{error, Reason} ->
+	    {error, Reason}
+    end.
+
 -spec(fold_expr_by_loc/4::
       (filename(), integer(), integer(), [dir()]) -> {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
 							 | {error, string()}).
@@ -256,16 +267,16 @@ check_wrangler_error_logger() ->
     case Errors of 
 	[] ->
 	     ok;
-	_ ->  io:format("\n===============================WARNING===============================\n"),
-	      io:format("There are errors in the program, and functions/attribute containing errors are not affected by the refactoring process.\n"),
+	_ ->  ?wrangler_io("\n===============================WARNING===============================\n",[]),
+	      ?wrangler_io("There are errors in the program, and functions/attribute containing errors are not affected by the refactoring process.\n",[]),
 	      lists:foreach(fun({FileName, Errs}) ->
 				    %%Errs1 = lists:map(fun({Pos, _Mod, Msg}) -> {Pos, Msg} end, Errs),
-				    io:format("File:\n ~p\n", [FileName]),
-				    io:format("Error(s):\n"),
+				    ?wrangler_io("File:\n ~p\n", [FileName]),
+				    ?wrangler_io("Error(s):\n",[]),
 				    lists:foreach(fun(E) ->
 							  case E of 
-							      {Pos, _Mod, Msg} ->io:format(" ** ~p:~p **\n", [Pos, Msg]);
-							      M -> io:format("**~s**\n", [M])
+							      {Pos, _Mod, Msg} ->?wrangler_io(" ** ~p:~p **\n", [Pos, Msg]);
+							      M -> ?wrangler_io("**~s**\n", [M])
 							  end
 						  end,
 						  lists:reverse(Errs)) %% lists:flatten(Msg)

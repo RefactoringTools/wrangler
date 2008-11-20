@@ -449,8 +449,8 @@ vann(Tree, Env) ->
 		Free = L,
 		Def = [vann_1(V3) || V3 <- L]
 	  end,
-	  %%io:format("Tree, Env, Bound, Free, Def:\n~p\n", [{Tree, Env, Bound, Free, Def}]),
-          %%io:format("R:\n~p\n", [ann_bindings(Tree, Env, Bound, Free, Def)]),
+	  %%?wrangler_io("Tree, Env, Bound, Free, Def:\n~p\n", [{Tree, Env, Bound, Free, Def}]),
+          %%?wrangler_io("R:\n~p\n", [ann_bindings(Tree, Env, Bound, Free, Def)]),
 	  {ann_bindings(Tree, Env, Bound, Free, Def), Bound, Free};
       match_expr -> vann_match_expr(Tree, Env);
       case_expr -> vann_case_expr(Tree, Env);
@@ -866,12 +866,12 @@ vann_define(D, Env) ->
 	    _  -> {vann_pattern(MacroHead, Env),[]}
 	end,
    Env1 = ordsets:union(Env, Bound),
-   %%io:format("Env1:\n~p\n", [Env1]),
-   %%io:format("MarcoBody:\n~p\n", [MacroBody]),
+   %%?wrangler_io("Env1:\n~p\n", [Env1]),
+   %%?wrangler_io("MarcoBody:\n~p\n", [MacroBody]),
    {MacroBody1, _Bound1, _Free1} = vann(MacroBody, Env1),
-   %%io:format("MacroBody1:\n~p\n", [MacroBody1]),
+   %%?wrangler_io("MacroBody1:\n~p\n", [MacroBody1]),
    MacroBody2 = adjust_define_body(MacroBody1, Env1),
-   %%io:format("MacroBody2:\n~p\n", [MacroBody2]),
+   %%?wrangler_io("MacroBody2:\n~p\n", [MacroBody2]),
    D1 = rewrite(D, refac_syntax:attribute(Name, [MacroHead1, MacroBody2])),
    %%or  {ann_bindings(D1, Env, Bs, Free2), Bs, Free2}.  ?
    {ann_bindings(D1, Env, [], []), [], []}.   

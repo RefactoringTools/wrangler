@@ -40,7 +40,7 @@ fun_extraction_eclipse(FileName, Start, End, NewFunName) ->
 
 
 fun_extraction(FileName, Start, End, NewFunName,Editor) ->
-    io:format("\nCMD: ~p:fun_extraction(~p, ~p, ~p, ~p).\n", [?MODULE,FileName, Start, End, NewFunName]),
+    ?wrangler_io("\nCMD: ~p:fun_extraction(~p, ~p, ~p, ~p).\n", [?MODULE,FileName, Start, End, NewFunName]),
     case refac_util:is_fun_name(NewFunName) of 
 	true ->
 	    {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(FileName,true, []),
@@ -238,7 +238,7 @@ vars_to_export(Fun,ExprEndPos, ExprBdVars, _ExpList) ->
     VarsToExport = lists:usort([V || {V, SourcePos, DefPos} <- AllVars,
 			      SourcePos > ExprEndPos,
 			      lists:subtract(DefPos, ExprBdVarsPos) == []]),
-   %% io:format("VarsToExport:\n~p\n",[VarsToExport]),
+   %% ?wrangler_io("VarsToExport:\n~p\n",[VarsToExport]),
     VarsToExport.
 
 collect_vars(Tree) ->

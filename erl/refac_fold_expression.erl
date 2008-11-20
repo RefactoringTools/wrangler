@@ -66,7 +66,7 @@ fold_expr_by_loc_eclipse(FileName, Line, Col, SearchPaths) ->
     fold_expression(FileName, Line, Col, SearchPaths, eclipse).
 
 fold_expression(FileName, Line, Col, SearchPaths, Editor) ->
-    io:format("\nCMD: ~p:fold_expression(~p, ~p,~p).\n", [?MODULE, FileName, Line, Col]),
+    ?wrangler_io("\nCMD: ~p:fold_expression(~p, ~p,~p).\n", [?MODULE, FileName, Line, Col]),
     {ok, {AnnAST, Info}} =refac_util:parse_annotate_file(FileName,true, SearchPaths),
     {value, {module, CurrentModName}} = lists:keysearch(module, 1, Info),
     case pos_to_fun_clause(AnnAST, {Line, Col}) of 
@@ -135,7 +135,7 @@ fold_expr_by_name_eclipse(FileName, ModName, FunName, Arity, ClauseIndex, Search
    
 
 fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, Editor) ->
-    io:format("\nCMD: ~p:fold_expression(~p,~p,~p,~p,~p).\n", [?MODULE, FileName, ModName, FunName, Arity, ClauseIndex]),
+    ?wrangler_io("\nCMD: ~p:fold_expression(~p,~p,~p,~p,~p).\n", [?MODULE, FileName, ModName, FunName, Arity, ClauseIndex]),
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths),
     {value, {module, CurrentModName}} = lists:keysearch(module, 1, Info),
     Files = refac_util:expand_files(SearchPaths, ".erl"),
@@ -672,7 +672,6 @@ vars_to_export_1(WholeExpList, SubExpList) ->
 
 
 reorder_vars_to_export(LastExp, VarsToExport, Subst) ->
-    io:format("Subst:\n~p\n", [Subst]),
     VarsOfLastExp = case refac_syntax:type(LastExp) of 
 		      variable -> [LastExp];
 		      tuple -> refac_syntax:tuple_elements(LastExp);
@@ -705,7 +704,7 @@ reorder_vars_to_export(LastExp, VarsToExport, Subst) ->
 					       {value, {Var, V}} -> [Var]
 					   end
 				 end, UnexportedVars),
-	    io:format("Warning: some expressions could have been folded if the function also exported the following variable(s):~p\n", Vars),
+	    ?wrangler_io("Warning: some expressions could have been folded if the function also exported the following variable(s):~p\n", Vars),
 	    false
     end.
     

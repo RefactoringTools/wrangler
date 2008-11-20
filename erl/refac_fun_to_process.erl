@@ -43,7 +43,7 @@ fun_to_process_eclipse(FName, Line, Col, ProcessName, SearchPaths) ->
     fun_to_process(FName, Line, Col, ProcessName, SearchPaths, eclipse).
 
 fun_to_process(FName, Line, Col, ProcessName, SearchPaths, Editor) ->
-    io:format("\nCMD: ~p:fun_to_process(~p, ~p, ~p, ~p,~p)\n",  [?MODULE, FName,  Line, Col, ProcessName, SearchPaths]),
+    ?wrangler_io("\nCMD: ~p:fun_to_process(~p, ~p, ~p, ~p,~p)\n",  [?MODULE, FName,  Line, Col, ProcessName, SearchPaths]),
     case is_process_name(ProcessName) of
 	true ->
 	    _Res =refac_annotate_pid:ann_pid_info(SearchPaths),
@@ -57,7 +57,7 @@ fun_to_process(FName, Line, Col, ProcessName, SearchPaths, Editor) ->
 				ok -> AnnAST2 = do_fun_to_process(AnnAST, Info, ModName, DefinePos, FunName, Arity, ProcessName1),
 				     case refac_util:is_exported({FunName, Arity}, Info) of
 					 true ->
-					     io:format("\nChecking client modules in the following search paths: \n~p\n",
+					     ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n",
 						       [SearchPaths]),
 					     ClientFiles = refac_util:get_client_files(FName, SearchPaths),
 					     Results = fun_to_process_in_client_modules(ClientFiles, ModName, FunName, Arity, ProcessName1, SearchPaths),
@@ -66,7 +66,7 @@ fun_to_process(FName, Line, Col, ProcessName, SearchPaths, Editor) ->
 						     refac_util:write_refactored_files([{{FName, FName}, AnnAST2} | Results]),
 						     ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
 						     ChangedFiles = [FName | ChangedClientFiles],
-						     io:format("The following files have been changed by this refactoring:\n~p\n",
+						     ?wrangler_io("The following files have been changed by this refactoring:\n~p\n",
 							       [ChangedFiles]),
 						     {ok, ChangedFiles};
 						 eclipse ->
@@ -107,7 +107,7 @@ fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, Editor) ->
     AnnAST2 = do_fun_to_process(AnnAST, Info, ModName, DefinePos, FunName, Arity, ProcessName1),
     case refac_util:is_exported({FunName, Arity}, Info) of
 	true ->
-	    io:format("\nChecking client modules in the following search paths: \n~p\n",
+	    ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n",
 		      [SearchPaths]),
 	    ClientFiles = refac_util:get_client_files(FName, SearchPaths),
 	    Results = fun_to_process_in_client_modules(ClientFiles, ModName, FunName, Arity, ProcessName1, SearchPaths),
@@ -116,7 +116,7 @@ fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, Editor) ->
 		    refac_util:write_refactored_files([{{FName, FName}, AnnAST2} | Results]),
 		    ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
 		    ChangedFiles = [FName | ChangedClientFiles],
-		    io:format("The following files have been changed by this refactoring:\n~p\n",
+		    ?wrangler_io("The following files have been changed by this refactoring:\n~p\n",
 			      [ChangedFiles]),
 		    {ok, ChangedFiles};
 		eclipse ->
@@ -162,29 +162,29 @@ pre_cond_check(AnnAST, Pos, ModName,FunName,Arity, ProcessName, SearchPaths)->
 			 case UnKnowns of 
 			     [] -> case SelfRes of 
 				       ok -> ok;
-				       _ -> io:format("\n*************************************Warning****************************************\n"),
-					    io:format("The value returned by 'self()', which is used at the location(s) listed below, will be changed "
-						      " by this refactoring, and this could possibly change the behaviour of the program!\n"),
+				       _ -> ?wrangler_io("\n*************************************Warning****************************************\n",[]),
+					    ?wrangler_io("The value returned by 'self()', which is used at the location(s) listed below, will be changed "
+						      " by this refactoring, and this could possibly change the behaviour of the program!\n",[]),
 					    lists:foreach(fun({{Mod, Fun, Ari}, SelfExpr, _}) ->
 								  {{Line,_}, _} = refac_util:get_range(SelfExpr),
-								  io:format("Location: moldule: ~p, function: ~p/~p, line: ~p\n", [Mod, Fun, Ari, Line])
+								  ?wrangler_io("Location: moldule: ~p, function: ~p/~p, line: ~p\n", [Mod, Fun, Ari, Line])
 							  end, SelfRes),
 					   undecidables
 				   end;
-			     _ -> io:format("\n*************************************Warning****************************************\n"),
-				 io:format("Wrangler could not decide whether the process name provided conflicts with the process name(s) "
-					    "used by the following registeration expression(s):\n"),
+			     _ -> ?wrangler_io("\n*************************************Warning****************************************\n",[]),
+				 ?wrangler_io("Wrangler could not decide whether the process name provided conflicts with the process name(s) "
+					    "used by the following registeration expression(s):\n",[]),
 				  UnKnowns1 = lists:map(fun({_, V}) -> V end, UnKnowns),
-				  lists:foreach(fun({M, F,A, {L,_}}) -> io:format("Location: module: ~p, function:~p/~p, line:~p\n", [M, F, A, L])
+				  lists:foreach(fun({M, F,A, {L,_}}) -> ?wrangler_io("Location: module: ~p, function:~p/~p, line:~p\n", [M, F, A, L])
 						end, UnKnowns1),
 				  case SelfRes of 
 				      ok -> ok;
-				      _ -> io:format("\n*************************************Warning****************************************\n"),
-					   io:format("The value returned by 'self()', which is used at the location(s) listed below, will be changed "
-						     " by this refactoring, and this could possibly change the behaviour of the program!\n"),
+				      _ -> ?wrangler_io("\n*************************************Warning****************************************\n",[]),
+					   ?wrangler_io("The value returned by 'self()', which is used at the location(s) listed below, will be changed "
+						     " by this refactoring, and this could possibly change the behaviour of the program!\n",[]),
 					   lists:foreach(fun({{Mod, Fun, Ari}, SelfExpr, _}) ->
 								 {{Line,_}, _} = refac_util:get_range(SelfExpr),
-								 io:format("Location: moldule: ~p, function: ~p/~p, line: ~p\n", [Mod, Fun, Ari, Line])
+								 ?wrangler_io("Location: moldule: ~p, function: ~p/~p, line: ~p\n", [Mod, Fun, Ari, Line])
 							 end, SelfRes)
 				  end,
 				  undecidables
@@ -266,7 +266,7 @@ do_fun_to_process(AnnAST, Info,ModName, DefPos, FunName, Arity, ProcessName) ->
     AnnAST2.
 
 fun_call_to_rpc(Node, {ModName, FunName, Arity, ProcessName, RpcFunName}) ->
-    Message = fun (Pos) -> io:format("WARNING: function ***apply*** is used at location({line, col}):~p, and wrangler " 
+    Message = fun (Pos) -> ?wrangler_io("WARNING: function ***apply*** is used at location({line, col}):~p, and wrangler " 
 				     "could not decide whether this site should be refactored, please check manually!\n",
 				     [Pos])
 	      end,
@@ -485,7 +485,7 @@ fun_to_process_in_client_modules(Files, ModName, FunName, Arity, ProcessName, Se
 	[] ->
 	     [];
 	[F | Fs] ->
-	    io:format("The current file under refactoring is:\n~p\n", [F]),
+	    ?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
 	    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(F, true, SearchPaths),
 	    {AnnAST1, Changed} = fun_to_process_in_client_modules_1(AnnAST, ModName, FunName, Arity, ProcessName),			  
 	    if Changed ->
@@ -530,7 +530,7 @@ collect_registration_and_self_apps(DirList) ->
 							     true -> 
 								 [RegName, Pid] = refac_syntax:application_arguments(Node1),
 								 RegNameValues = evaluate_expr(Files, ModName, AnnAST, Node, RegName),
-								 %%io:format("RegNameValue:\n~p\n", [RegNameValues]),
+								 %%?wrangler_io("RegNameValue:\n~p\n", [RegNameValues]),
 								 RegNameValues1 = lists:map(fun(R) -> {pname, R} end, RegNameValues),
 								 [{pid, {{ModName, FunName, Arity}, Pid}}|RegNameValues1++FunAcc];
 							     _ -> case is_self_app(Node1) of 
@@ -561,7 +561,7 @@ collect_registration_and_self_apps(DirList) ->
 					   end 
 			    end, Acc), 
     {Names, UnKnowns} = lists:partition(fun({Tag,_V})-> Tag==value end, PNameAcc),
-    %%io:format("NamesUnKnowns:\n~p\n", [{Names, UnKnowns}]),
+    %%?wrangler_io("NamesUnKnowns:\n~p\n", [{Names, UnKnowns}]),
     {SelfApps, PidAcc, {lists:usort(lists:map(fun({value, P}) -> P end, Names)), lists:usort(UnKnowns)}}.
     
 

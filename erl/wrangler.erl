@@ -36,7 +36,7 @@
 	 fun_extraction/4, fold_expr/1,  fold_expr_by_loc/4, fold_expr_by_name/6, 
 	 instrument_prog/2,
 	 uninstrument_prog/2, add_a_tag/5, tuple_funpar/5,
-	 tuple_to_record/8, register_pid/5, fun_to_process/5]).
+	 tuple_to_record/8, register_pid/5, fun_to_process/5,new_macro/5]).
 
 -export([rename_var_eclipse/5, rename_fun_eclipse/5,
 	 rename_mod_eclipse/3, generalise_eclipse/5,
@@ -634,6 +634,14 @@ rename_process(FileName, Line, Col, NewName, SearchPaths) ->
 
 
 
+-spec(new_macro/5::(filename(), pos(), pos(), string(), [dir()]) ->
+	      {error, string()} | {ok, string()}).
+new_macro(FileName, Start, End, MacroName, SearchPaths) -> 
+    refac_new_macro:new_macro(FileName, Start, End, MacroName, SearchPaths).
+
+
+
+
 
 %% trace_send({ModName, FunName, Arity}, Index, Pid, TraceCacheFile) ->
 %%     PInfo = erlang:process_info(Pid),
@@ -660,3 +668,5 @@ rename_process(FileName, Line, Col, NewName, SearchPaths) ->
 %% 	    dets:close(TraceCacheFile);
 %% 	{error, Reason}  -> eralng:error(Reason)
 %%     end.    
+
+

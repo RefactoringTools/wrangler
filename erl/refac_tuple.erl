@@ -63,7 +63,7 @@ tuple_funpar_eclipse(FileName, ParLine, ParCol, Number, SearchPaths)->
 %% =====================================================================
 
 tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths, Editor)->
-  io:format("\nCMD: ~p:tuple_funpar(~p, ~p, ~p, ~p,~p).\n", 
+  ?wrangler_io("\nCMD: ~p:tuple_funpar(~p, ~p, ~p, ~p,~p).\n", 
             [?MODULE,FileName, ParLine, ParCol, Number, SearchPaths]),
   {ok, {AnnAST, Info}} = parse_file(FileName, SearchPaths),
   {FirstPar, Type} = check_first_pos({ParLine, ParCol}, AnnAST),
@@ -78,7 +78,7 @@ tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths, Editor)->
   check_def_mod(Mod, ModName),
   check_name_clash(FunName, NewArity, InscopeFuns, Number),
   check_is_callback_fun(Info, FunName, Arity),
-  io:format("The current file under refactoring is:\n~p\n", [FileName]),
+  ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
   performe_refactoring(AnnAST, Info, Parameters, FunName, Arity, FunNode,
                        C, Mod, SearchPaths, FileName, Editor).
 
@@ -100,7 +100,7 @@ performe_refactoring(AnnAST, Info, Parameters, FunName, Arity, FunNode, C, Mod,
     AnnAST2 = check_implicit_funs(AnnAST1, FunName, Arity, FunNode),
     case refac_util:is_exported({FunName, Arity}, Info) of
       true ->
-	  io:format("\nChecking client modules in the following "
+	  ?wrangler_io("\nChecking client modules in the following "
 		    "search paths: \n~p\n",
 		    [SearchPaths]),
 	  ClientFiles = refac_util:get_client_files(File, SearchPaths),
@@ -111,11 +111,10 @@ performe_refactoring(AnnAST, Info, Parameters, FunName, Arity, FunNode, C, Mod,
 		refac_util:write_refactored_files([{{File, File}, AnnAST2} | Results]),
 		ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
 		ChangedFiles = [File | ChangedClientFiles],
-		io:format("The following files have been changed "
+		?wrangler_io("The following files have been changed "
 			  "by this refactoring:\n~p\n",
 			  [ChangedFiles]),
-		io:format("WARNING: Please check the implicit function "
-			  "calls!"),
+		?wrangler_io("WARNING: Please check the implicit function calls!",[]),
 		{ok, ChangedFiles};
 	    eclipse ->
 		Results1 = [{{File, File}, AnnAST2} | Results],
@@ -195,8 +194,8 @@ check_is_callback_fun(Info, FunName, Arity)->
 %% @end
 %% =====================================================================
 check_name_clash(FunName, NewArity, InscopeFuns, Number) ->
-    %%io:format("Param: ~p ~n ~p ~n ~p ~n ~p ~n", [FunName, NewArity, InscopeFuns, Number]),
-    %%io:format("Param: ~p ~n ", [lists:member({FunName, NewArity}, InscopeFuns)]),
+    %%?wrangler_io("Param: ~p ~n ~p ~n ~p ~n ~p ~n", [FunName, NewArity, InscopeFuns, Number]),
+    %%?wrangler_io("Param: ~p ~n ", [lists:member({FunName, NewArity}, InscopeFuns)]),
     case (lists:member({FunName, NewArity}, InscopeFuns) or
 	    lists:member({FunName, NewArity}, refac_util:auto_imported_bifs()))
 	   and (Number > 1)
@@ -250,7 +249,7 @@ tuple_parameters_in_client_modules(Files, Name, Arity, C, N, Mod)->
   case Files of
     [] -> [];
     [F | Fs] ->
-	  io:format("The current file under refactoring is:\n~p\n", [F]),
+	  ?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
 	  {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(F, true, []),
 	  {AnnAST1, _} = tuple_parameters_in_client_modules_1({AnnAST, Info}, 
 							      Name, Arity, C, N, Mod),

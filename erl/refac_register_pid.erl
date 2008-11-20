@@ -64,7 +64,7 @@ register_pid_eclipse(FName, Start, End, RegName, SearchPaths) ->
     register_pid(FName, Start, End, RegName, SearchPaths, eclipse).
 
 register_pid(FName, Start={Line1, Col1}, End={Line2, Col2}, RegName, SearchPaths, Editor) ->
-    io:format("\nCMD: ~p:register_pid(~p, {~p,~p}, {~p,~p}, ~p,~p)\n",  [?MODULE, FName, Line1, Col1, Line2, Col2, RegName, SearchPaths]),
+    ?wrangler_io("\nCMD: ~p:register_pid(~p, {~p,~p}, {~p,~p}, ~p,~p)\n",  [?MODULE, FName, Line1, Col1, Line2, Col2, RegName, SearchPaths]),
     case is_process_name(RegName) of
 	true ->	{ok, {AnnAST,Info}}= refac_util:parse_annotate_file(FName, true, SearchPaths), 
 		case pos_to_spawn_match_expr(AnnAST, Start, End) of
@@ -85,7 +85,7 @@ register_pid(FName, Start={Line1, Col1}, End={Line2, Col2}, RegName, SearchPaths
 						    emacs ->
 							refac_util:write_refactored_files(Results),
 							ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-							io:format("The following files have been changed by this refactoring:\n~p\n",
+							?wrangler_io("The following files have been changed by this refactoring:\n~p\n",
 								  [ChangedFiles]),
 							{ok, ChangedFiles};
 						    eclipse ->
@@ -121,7 +121,7 @@ register_pid_1(FName, StartLine, StartCol, EndLine, EndCol, RegName, RegPids, Se
  	 ok ->  case do_register(FName, AnnAST, MatchExpr, Pid, RegName1, SearchPaths) of 
 		    {ok, Results} ->
 			ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-			io:format("The following files have been changed by this refactoring:\n~p\n",
+			?wrangler_io("The following files have been changed by this refactoring:\n~p\n",
 				  [ChangedFiles]),
 			{ok, ChangedFiles};
 		    {error, Reason} -> {error, Reason}
@@ -129,10 +129,10 @@ register_pid_1(FName, StartLine, StartCol, EndLine, EndCol, RegName, RegPids, Se
   	{registered, RegExpr} -> {{Line,_Col}, _} = refac_util:get_range(RegExpr),
  				 {error, "The selected process is already registered at line "++ integer_to_list(Line)};
  	{unknown_pids, RegExprs} ->
- 	    io:format("\nWrangler could not decide the process(s) registered by the following expression(s), please check!\n"),
+ 	    ?wrangler_io("\nWrangler could not decide the process(s) registered by the following expression(s), please check!\n",[]),
 	    lists:foreach(fun({{M, F, A},PidExpr}) -> {{Ln,_},_} = refac_util:get_range(PidExpr),
- 				  io:format("Location: module:~p, function: ~p/~p, line: ~p\n ", [M, F, A, Ln]),
- 				  io:format(refac_prettypr:format(PidExpr)++"\n") 
+ 				  ?wrangler_io("Location: module:~p, function: ~p/~p, line: ~p\n ", [M, F, A, Ln]),
+ 				  ?wrangler_io(refac_prettypr:format(PidExpr)++"\n",[]) 
 		      end, RegExprs),
  	    {unknown_pids, RegExprs}
     end.
@@ -149,7 +149,7 @@ register_pid_2(FName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPaths
 	{ok, Results} ->
 	    refac_util:write_refactored_files(Results),
 	    ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-	    io:format("The following files have been changed by this refactoring:\n~p\n",
+	    ?wrangler_io("The following files have been changed by this refactoring:\n~p\n",
 		      [ChangedFiles]),
 	    {ok, ChangedFiles};
 	{error, Reason} -> {error, Reason}
@@ -180,7 +180,7 @@ pre_cond_check(ModName, AnnAST, Start, MatchExpr, RegName, _Info, SearchPaths) -
 		 _ -> case pos_to_list_comp_expr(FunDef, Start) of
 			  true -> {error, "The spawn expression selected in part of a list comprehension expression\n"};
 			  _ -> {RegPids, {ExistingProcessNames, UnKnowns}} = collect_registered_names_and_pids(SearchPaths),
-			     %%   io:format("registeredd:\n~p\n", [{ExistingProcessNames, UnKnowns}]),
+			     %%   ?wrangler_io("registeredd:\n~p\n", [{ExistingProcessNames, UnKnowns}]),
 			       case lists:member(RegName, ExistingProcessNames) of 
 				   true -> {error, "The process name provided is already in use, please choose another name."};
 				   _ -> case UnKnowns of 
@@ -192,17 +192,17 @@ pre_cond_check(ModName, AnnAST, Start, MatchExpr, RegName, _Info, SearchPaths) -
 								{{_M, F, A}, _R} = hd(RegExprs1),
 							{error, "The process is already registered in function "++ atom_to_list(F)++"/"++integer_to_list(A)++"\n"};
 						    {unknown_pids, RegExprs} -> 
-							io:format("Wrangler could not decide the processe(s) registered by the followling expression(s):\n"),
+							?wrangler_io("Wrangler could not decide the processe(s) registered by the followling expression(s):\n",[]),
 							 lists:foreach(fun({{M, F, A},PidExpr}) -> 
 									   {{Ln,_},_} = refac_util:get_range(PidExpr),
-									   io:format("Location: module:~p, function: ~p/~p, line: ~p\n ", [M, F, A, Ln])
-									  %% io:format(refac_prettypr:format(PidExpr)++"\n") 
+									   ?wrangler_io("Location: module:~p, function: ~p/~p, line: ~p\n ", [M, F, A, Ln])
+									  %% ?wrangler_io(refac_prettypr:format(PidExpr)++"\n") 
 								   end, RegExprs),
 							{unknown_pids, RegExprs}
 						end;
-					    _ -> io:format("Wrangler could not decide the process name(s) used by the following register expression(s):\n"),
+					    _ -> ?wrangler_io("Wrangler could not decide the process name(s) used by the following register expression(s):\n",[]),
 						 UnKnowns1 = lists:map(fun({_, V}) -> V end, UnKnowns),
-						 lists:foreach(fun({M, F,A, {L,_}}) -> io:format("Location: module: ~p, function:~p/~p, line:~p\n", [M, F, A, L])
+						 lists:foreach(fun({M, F,A, {L,_}}) -> ?wrangler_io("Location: module: ~p, function:~p/~p, line:~p\n", [M, F, A, L])
 							  end, UnKnowns1),
 						 {unknown_pnames, UnKnowns, RegPids}
 				       end
@@ -387,7 +387,7 @@ refactor_send_exprs(FName, AnnAST, PidInfo, RegName, SearchPaths) ->
     %%This can be refined to check the client and parent modules of the current module.
     Files = refac_util:expand_files(SearchPaths, ".erl") -- [FName],
     Results = lists:flatmap(fun(File) ->
-				    io:format("The current file under refactoring is:\n~p\n",[File]),
+				    ?wrangler_io("The current file under refactoring is:\n~p\n",[File]),
 				    {ok, {AnnAST2, _Info}} = refac_util:parse_annotate_file(File, true, SearchPaths),
 				    {AnnAST3, Changed} = refac_util:stop_tdTP(fun do_refactor_send_exprs/2, AnnAST2, {PidInfo, RegName}),
 				    if Changed ->

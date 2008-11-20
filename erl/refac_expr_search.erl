@@ -40,7 +40,7 @@
 
 -spec(expr_search/3::(filename(), pos(), pos()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).    
 expr_search(FileName, Start, End) ->
-    io:format("\nCMD: ~p:expr_search(~p, ~p,~p).\n", [?MODULE, FileName, Start, End]),
+    ?wrangler_io("\nCMD: ~p:expr_search(~p, ~p,~p).\n", [?MODULE, FileName, Start, End]),
     {ok, {AnnAST, _Info}} =refac_util:parse_annotate_file(FileName,true, []),
     case pos_to_expr(FileName, AnnAST, {Start, End}) of 
 	[E|Es] -> 
@@ -51,11 +51,11 @@ expr_search(FileName, Start, End) ->
 			  search_expr_seq(AnnAST, [E|Es])
 		  end,
 	    case length(Res) of  
-		0 -> io:format("No identical expression has been found.\n"), %% This shouldn't happen.
+		0 -> ?wrangler_io("No identical expression has been found.\n",[]), %% This shouldn't happen.
 		     {ok, []};
-		1 -> io:format("No identical expression has been found. \n"),
+		1 -> ?wrangler_io("No identical expression has been found. \n",[]),
 		     {ok, []};
-		N -> io:format("~p identical expressions (including the selected expression,and up to variable renaming and literal substitution) "
+		N -> ?wrangler_io("~p identical expressions (including the selected expression,and up to variable renaming and literal substitution) "
 				       " have been found. \n", [N]),
 		     {ok, Res}
 	    end;

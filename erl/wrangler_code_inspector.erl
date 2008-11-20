@@ -66,41 +66,41 @@ find_var_instances(FName, Line, Col, SearchPaths) ->
 	     {error, string()} | ok).
 	     
 nested_if_exprs_in_file(FName, NestLevel, SearchPaths) ->
-    io:format("\nCheck nested 'if' expressions in  current buffer ...\n"),
+    ?wrangler_io("\nCheck nested 'if' expressions in  current buffer ...\n",[]),
     nested_exprs([FName], NestLevel,if_expr, SearchPaths).
 
 
 -spec(nested_if_exprs_in_dirs(NestLevel::[integer()], SearchPaths::[dir()]) ->
 	     {error, string()} | ok).
 nested_if_exprs_in_dirs(NestLevel, SearchPaths) ->
-    io:format("\nCheck nested 'if' expressions in directories: \n~p\n", [SearchPaths]),
+    ?wrangler_io("\nCheck nested 'if' expressions in directories: \n~p\n", [SearchPaths]),
     nested_exprs(SearchPaths, NestLevel, if_expr, SearchPaths).
     
 %%==========================================================================================
 -spec(nested_case_exprs_in_file(FName::filename(), NestLevel::[integer()], SearchPaths::[dir()]) ->
 	     {error, string()} | ok).
 nested_case_exprs_in_file(FName, NestLevel, SearchPaths) -> 
-    io:format("\nCheck nested 'case' expressions in  current buffer ...\n"),
+    ?wrangler_io("\nCheck nested 'case' expressions in  current buffer ...\n",[]),
     nested_exprs([FName], NestLevel, case_expr, SearchPaths).
 
 
 -spec(nested_case_exprs_in_dirs(NestLevel::[integer()], SearchPaths::[dir()]) ->
 	     {error, string()} | ok).
 nested_case_exprs_in_dirs(NestLevel, SearchPaths) ->
-    io:format("\nCheck nested 'case' expressions in directories: \n~p\n", [SearchPaths]),
+    ?wrangler_io("\nCheck nested 'case' expressions in directories: \n~p\n", [SearchPaths]),
     nested_exprs(SearchPaths, NestLevel, case_expr, SearchPaths).
 
 %%==========================================================================================
 -spec(nested_receive_exprs_in_file(FName::filename(), NestLevel::[integer()], SearchPaths::[dir()]) ->
 	     {error, string()} | ok).
 nested_receive_exprs_in_file(FName, NestLevel, SearchPaths) ->
-    io:format("\nCheck nested 'receive' expressions in  current buffer ...\n"),
+    ?wrangler_io("\nCheck nested 'receive' expressions in  current buffer ...\n",[]),
     nested_exprs([FName], NestLevel, receive_expr, SearchPaths).
 
 -spec(nested_receive_exprs_in_dirs(NestLevel::[integer()], SearchPaths::[dir()]) ->
 	     {error, string()} |ok).
 nested_receive_exprs_in_dirs(NestLevel, SearchPaths) ->
-    io:format("\nCheck nested 'receive' expressions in directories: \n~p\n", [SearchPaths]),
+    ?wrangler_io("\nCheck nested 'receive' expressions in directories: \n~p\n", [SearchPaths]),
     nested_exprs(SearchPaths, NestLevel, case_expr, SearchPaths).
 
 
@@ -163,17 +163,17 @@ format_result(Funs, NestLevel, ExprType) ->
 		    receive_expr -> 'receive'
 		end,
     case Funs of 
-	[] -> io:format("\nNo function in this module contains ~p expressions nested ~p or more  levels.\n", [ExprType1, NestLevel]);
-	_ -> io:format("\nThe following function(s) contains ~p expressions nested ~p or more levels:\n ", [ExprType1, NestLevel]),
+	[] -> ?wrangler_io("\nNo function in this module contains ~p expressions nested ~p or more  levels.\n", [ExprType1, NestLevel]);
+	_ -> ?wrangler_io("\nThe following function(s) contains ~p expressions nested ~p or more levels:\n ", [ExprType1, NestLevel]),
 	     format_result_1(Funs)
     end.
 
 format_result_1([]) ->
-    io:format(".\n");
+    ?wrangler_io(".\n",[]);
 format_result_1([{M, F, A}|Fs]) ->
     case Fs of 
-	[] -> io:format("~p:~p/~p", [M, F, A]);
-	_ -> io:format("~p:~p/~p,", [M, F, A])
+	[] -> ?wrangler_io("~p:~p/~p", [M, F, A]);
+	_ -> ?wrangler_io("~p:~p/~p,", [M, F, A])
     end,
     format_result_1(Fs).
 
@@ -210,11 +210,11 @@ caller_funs(FName, Line, Col, SearchPaths) ->
       {ok, Def} ->
 	  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Def)) of
 	    {value, {fun_def, {M, F, A, _, _}}} ->
-		io:format("\nSearching caller function of ~p:~p/~p ...\n", [M, F, A]),
+		?wrangler_io("\nSearching caller function of ~p:~p/~p ...\n", [M, F, A]),
 		{Res1, Res2} = get_caller_funs(FName, AnnAST, {M, F, A}),
 		case refac_util:is_exported({F, A}, Info) of
 		  true ->
-		      io:format("\nChecking client modules in the following paths: \n~p\n",
+		      ?wrangler_io("\nChecking client modules in the following paths: \n~p\n",
 				[SearchPaths]),
 		      ClientFiles = refac_util:get_client_files(FName, SearchPaths),
 		      ResultsFromClients = get_caller_funs_in_client_modules(ClientFiles, {M, F, A}, SearchPaths),
@@ -233,18 +233,18 @@ caller_funs(FName, Line, Col, SearchPaths) ->
 display_results(Callers, UnSures) ->
     case {Callers, UnSures} of
       {[], []} ->
-	  io:format("The selected function is not called by any other functions.\n");
+	  ?wrangler_io("The selected function is not called by any other functions.\n",[]);
       {_, []} ->
-	  io:format("The selected function is called by the following function(s):\n~p\n",
+	  ?wrangler_io("The selected function is called by the following function(s):\n~p\n",
 		    [Callers]);
       {[], [_H | _]} ->
-	  io:format("The selected function is not explicitly called by any other functions, \n"
+	  ?wrangler_io("The selected function is not explicitly called by any other functions, \n"
 		    "but please check the following expressions:\n~p\n",
 		    [UnSures]);
       {[_H1 | _], [_H2 | _]} ->
-	  io:format("The selected function is called by the following function(s):\n~p\n",
+	  ?wrangler_io("The selected function is called by the following function(s):\n~p\n",
 		    [Callers]),
-	  io:format("Please also check the following expressions:\n" 
+	  ?wrangler_io("Please also check the following expressions:\n" 
 		    "~p\n",
 		    [UnSures])
     end.
@@ -405,15 +405,15 @@ caller_called_modules(FName, SearchPaths) ->
     ClientMods = lists:map(fun({M, _Dir}) -> list_to_atom(M) end, 
 			   refac_util:get_modules_by_file(ClientFiles)),
     case ClientFiles of 
-	[] -> io:format("\nThis module does not have any caller modules.\n");
-	_ -> io:format("\nThis module calls the following modules:\n"),
-	     io:format("~p\n", [refac_util:get_modules_by_file(ClientMods)])
+	[] -> ?wrangler_io("\nThis module does not have any caller modules.\n",[]);
+	_ -> ?wrangler_io("\nThis module calls the following modules:\n",[]),
+	     ?wrangler_io("~p\n", [refac_util:get_modules_by_file(ClientMods)])
     end,
     CalledMods = refac_module_graph:collect_called_modules(AnnAST),
     case CalledMods of 
-	[] -> io:format("\nThis module does not have any called modules.\n");
-	_  -> io:format("\nThis module calls the following modules:\n"),
-	      io:format("~p\n", [CalledMods])
+	[] -> ?wrangler_io("\nThis module does not have any called modules.\n",[]);
+	_  -> ?wrangler_io("\nThis module calls the following modules:\n",[]),
+	      ?wrangler_io("~p\n", [CalledMods])
     end.
 
 
@@ -421,14 +421,14 @@ caller_called_modules(FName, SearchPaths) ->
 -spec(long_functions_in_file(FName::filename(), Lines::[integer()], SearchPaths::[dir()]) ->
 	     {error, string()} | ok).
 long_functions_in_file(FName, Lines, SearchPaths) ->
-    io:format("\n Search for long functions in the current buffer... \n"),
+    ?wrangler_io("\n Search for long functions in the current buffer... \n",[]),
     long_functions_1([FName], Lines, SearchPaths).
 
 %%==========================================================================================
 -spec(long_functions_in_dirs(Lines::[integer()], SearchPaths::[dir()]) ->
 	     {error, string()} | ok).
 long_functions_in_dirs(Lines, SearchPaths) ->
-    io:format("\n Search for long functions in the following directories:\n~p\n", [SearchPaths]),
+    ?wrangler_io("\n Search for long functions in the following directories:\n~p\n", [SearchPaths]),
     long_functions_1(SearchPaths, Lines, SearchPaths).
 
 long_functions_1(DirFileNames, Lines, SearchPaths) ->
@@ -482,10 +482,10 @@ long_functions_2(FName, Lines, SearchPaths) ->
 long_funs_format_results(LongFuns, Lines) ->
     case LongFuns of
 	[] ->
-	    io:format("\n No Function in this module has more than ~p lines.\n",
+	    ?wrangler_io("\n No Function in this module has more than ~p lines.\n",
 		      [Lines]);
 	_ ->
-	    io:format("\n The following functions have more than ~p lines of code:\n",
+	    ?wrangler_io("\n The following functions have more than ~p lines of code:\n",
 		      [Lines]),
 	    format_result_1(LongFuns)
     end.
@@ -520,7 +520,7 @@ large_modules(Lines, SearchPaths) ->
 
 
 large_modules_1(Lines, SearchPaths) ->
-    io:format("\nSearching for large modules in the following paths: \n~p\n",
+    ?wrangler_io("\nSearching for large modules in the following paths: \n~p\n",
 		 [SearchPaths]),    
     Files = refac_util:expand_files(SearchPaths, ".erl"),
     LargeModules = lists:filter(fun(File) ->
@@ -528,11 +528,11 @@ large_modules_1(Lines, SearchPaths) ->
 				end, Files),
     case LargeModules of 
 	[] ->
-	    io:format("\n No Module with more than ~p line of code has been found.\n", [Lines]);
+	    ?wrangler_io("\n No Module with more than ~p line of code has been found.\n", [Lines]);
 	_ ->
-	    io:format("The following modules have more than ~p lines of code:\n",
+	    ?wrangler_io("The following modules have more than ~p lines of code:\n",
 		      [Lines]),
-	    io:format("~p\n", [LargeModules])
+	    ?wrangler_io("~p\n", [LargeModules])
     end.
 	    
 is_large_module(FName, Lines) ->
@@ -613,9 +613,9 @@ non_tail_recursive_servers(FName, SearchPaths) ->
 non_tail_format_results(Funs) ->
     case Funs of
       [] ->
-	  io:format("\n No non-tail recursive server has been found.\n");
+	  ?wrangler_io("\n No non-tail recursive server has been found.\n",[]);
       _ ->
-	    io:format("\n The following functions are recursive servers, but not tail-recursive:\n"),
+	    ?wrangler_io("\n The following functions are recursive servers, but not tail-recursive:\n",[]),
 	    format_result_1(Funs)    
     end.
     
@@ -819,9 +819,9 @@ not_has_flush_fun(FunDef) ->
 non_flush_format_result(Funs) ->
     case Funs of
       [] ->
-	  io:format("\n No server without flushing unknown messages has been found.\n");
+	  ?wrangler_io("\n No server without flushing unknown messages has been found.\n",[]);
       _ ->
-	    io:format("\n The following functions are servers without flush of unknown messages:\n"),
+	    ?wrangler_io("\n The following functions are servers without flush of unknown messages:\n",[]),
 	    format_result_1(Funs)
     end.
 

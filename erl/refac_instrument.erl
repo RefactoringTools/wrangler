@@ -34,7 +34,7 @@ instrument_prog(FileName,SearchPaths)->
    instrument_prog(FileName, SearchPaths, wrangler, trace_send, 4).
 
 instrument_prog(FileName, SearchPaths, ModName, FunName, Arity) ->
-    io:format("\n[CMD: instrument_prog, ~p, ~p]\n", [FileName, SearchPaths]),
+    ?wrangler_io("\n[CMD: instrument_prog, ~p, ~p]\n", [FileName, SearchPaths]),
     CurrentDir = filename:dirname(normalise_file_name(FileName)),
     TraceCacheFile = filename:join(CurrentDir, "wrangler_trace_cache"),
     Dirs = lists:usort([CurrentDir|SearchPaths]),
@@ -44,8 +44,8 @@ instrument_prog(FileName, SearchPaths, ModName, FunName, Arity) ->
 	    refac_util:write_refactored_files(InstrumentedFiles),
 	    ChangedFiles = lists:map(fun({{F, _}, _AST}) -> F end, InstrumentedFiles),
 	    case ChangedFiles of 
-		[] -> io:format("No files were changed by this refactoring\n");
-		_ ->  io:format("The following files have been changed by this refactoring:\n~p\n",
+		[] -> ?wrangler_io("No files were changed by this refactoring\n", []);
+		_ ->  ?wrangler_io("The following files have been changed by this refactoring:\n~p\n",
 				[ChangedFiles])
 	    end,	      
 	    {ok,ChangedFiles}
@@ -135,7 +135,7 @@ uninstrument_prog(FileName,SearchPaths)->
     uninstrument_prog(FileName, SearchPaths, wrangler, trace_send, 4).
 
 uninstrument_prog(FileName, SearchPaths, ModName, FunName, Arity) ->
-    io:format("\n[CMD: uninstrument_prog, ~p, ~p]\n", [FileName, SearchPaths]),
+    ?wrangler_io("\n[CMD: uninstrument_prog, ~p, ~p]\n", [FileName, SearchPaths]),
     CurrentDir = filename:dirname(normalise_file_name(FileName)),
     Dirs = lists:usort([CurrentDir|SearchPaths]),
     Files = refac_util:expand_files(Dirs, ".erl"),
@@ -144,8 +144,8 @@ uninstrument_prog(FileName, SearchPaths, ModName, FunName, Arity) ->
 	    refac_util:write_refactored_files(UnInstrumentedFiles),
 	    ChangedFiles = lists:map(fun({{F, _}, _AST}) -> F end, UnInstrumentedFiles),
 	    case ChangedFiles of 
-		[] -> io:format("No files were changed by this refactoring\n");
-		_  ->  io:format("The following files have been changed by this refactoring:\n~p\n",
+		[] -> ?wrangler_io("No files were changed by this refactoring\n",[]);
+		_  ->  ?wrangler_io("The following files have been changed by this refactoring:\n~p\n",
 				 [ChangedFiles])
 	    end,
 	    {ok,ChangedFiles}

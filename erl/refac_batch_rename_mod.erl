@@ -49,22 +49,22 @@
 -spec(batch_rename_mod/3::(string(), string(), [dir()])->
 	     ok | {error, string()}).
 batch_rename_mod(OldNamePattern, NewNamePattern,SearchPaths) ->
-    io:format("\n[CMD: batch_rename_mod, ~p, ~p, ~p]\n", [OldNamePattern, NewNamePattern, SearchPaths]),
+    ?wrangler_io("\n[CMD: batch_rename_mod, ~p, ~p, ~p]\n", [OldNamePattern, NewNamePattern, SearchPaths]),
     %% Get all the erlang file which will be affected by this refactoring.
     Files = lists:append([[filename:join([Pwd,File])||
 			      File <- filelib:wildcard("*.erl", Pwd)]   
 			  || Pwd <- SearchPaths]),
     Mods = lists:map(fun({M, _Dir}) -> M end, refac_util:get_modules_by_file(Files)),
-    io:format("Mods:\n~p\n", [Mods]),
+    ?wrangler_io("Mods:\n~p\n", [Mods]),
     Old_New_Mod_Names = lists:map(fun(M) -> {list_to_atom(M), 
 					     list_to_atom(get_new_name(M, OldNamePattern, NewNamePattern))} end, Mods),
-    io:format("Old_New_Mod_Names:\n~p\n", [Old_New_Mod_Names]),
+    ?wrangler_io("Old_New_Mod_Names:\n~p\n", [Old_New_Mod_Names]),
     HeaderFiles = refac_util:expand_files(SearchPaths, ".hrl"),
     %% Refactor both .erl and .hrl files, but does not change .hrl file name.
     Results = batch_rename_mod(Files++HeaderFiles, Old_New_Mod_Names),  
     refac_util:write_refactored_files(Results),
     ChangedFiles = lists:map(fun({{F, _F}, _AST}) -> F end, Results),
-    io:format("\n The following files have been changed by this refactoring:\n~p\n", [ChangedFiles]),
+    ?wrangler_io("\n The following files have been changed by this refactoring:\n~p\n", [ChangedFiles]),
     ok.
     %%{ok, ChangedFiles}.
 
@@ -73,7 +73,7 @@ batch_rename_mod(Files, Old_New_Mod_Names) ->
     case Files of 
 	[] -> [];
 	[F|Fs] ->  
-	    io:format("The current file under refactoring is:\n~p\n",[F]),
+	    ?wrangler_io("The current file under refactoring is:\n~p\n",[F]),
 	    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(F,true, []),
 	    {AnnAST1, Changed} = do_rename_mod(AnnAST, Old_New_Mod_Names),
 	    if Changed ->

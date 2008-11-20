@@ -27,7 +27,7 @@
 
 %% Epp state record.
 -record(epp, {file,				%Current file
-	      line={1,1},			%Current line number  %% modified by Huiqing Lu
+	      line={1,1},			%Current line number  %% modified by Huiqing Li
 	      name="",				%Current file name
 	      istk=[],				%Ifdef stack
 	      sstk=[],				%State stack
@@ -79,6 +79,9 @@ parse_erl_form(Epp) ->
 
 macro_defs(Epp) ->
     epp_request(Epp, macro_defs).
+
+final_state(Epp) ->
+    epp_request(Epp, state).
 
 %% format_error(ErrorDescriptor) -> String
 %%  Return a string describing the error.
@@ -132,8 +135,11 @@ parse_file(Ifile, Path, Predefs) ->
     case open(Ifile, Path, Predefs) of
 	{ok,Epp} ->
 	    Forms = parse_file(Epp),
+	    Macros = macro_defs(Epp),
+	    io:format("Macros:\n~p\n", [Macros]),
+	    #epp{macs=Ms, uses=UMs}= final_state(Epp),
 	    close(Epp),
-	    {ok,Forms};
+	    {ok,Forms, {dict:to_list(Ms), dict:to_list(UMs)}};
 	{error,E} ->
 	    {error,E}
     end.
@@ -247,6 +253,11 @@ user_predef([], Ms) -> {ok,Ms}.
 wait_request(St) ->
     receive
 	{epp_request,From,scan_erl_form} -> From;
+	%% Temporally added;
+	{epp_request, From, state} ->
+	    epp_reply(From, St),
+	    wait_request(St);
+	%% End  of temporally added.
 	{epp_request,From,macro_defs} ->
 	    epp_reply(From, dict:to_list(St#epp.macs)),
 	    wait_request(St);
@@ -302,9 +313,11 @@ enter_file2(NewF, Pname, From, St, AtLine, ExtraPath) ->
 
 enter_file_reply(From, Name, Line, AtLine) ->
     Rep = {ok, [{'-',AtLine},{atom,AtLine,file},{'(',AtLine},
-		{string,AtLine,file_name(Name)},{',',AtLine},
-		{integer,AtLine,Line},{')',Line},{dot,AtLine}]},
+  		{string,AtLine,file_name(Name)},{',',AtLine},
+  		{integer,AtLine,Line},{')',Line},{dot,AtLine}]},
     epp_reply(From, Rep).
+    
+    
 
 %% Flatten filename to a string. Must be a valid filename.
 
@@ -763,7 +776,7 @@ expand_macros(Type, Lm, M, Toks, Ms0) ->
 	    expand_macros(expand_macro(Exp, Lm, Toks, dict:new()), Ms0);
 	{ok,{As,Exp}} ->
 	    {Bs,Toks1} = bind_args(Toks, Lm, M, As, dict:new()),
-	    %%io:format("Bound arguments to macro ~w (~w)~n", [M,Bs]),
+	    %%?wrangler_io("Bound arguments to macro ~w (~w)~n", [M,Bs]),
 	    expand_macros(expand_macro(Exp, Lm, Toks1, Bs), Ms0);
 	{ok,undefined} ->
 	    throw({error,Lm,{undefined,M}});
@@ -794,7 +807,7 @@ get_macro_uses(M, U) ->
 	    L
     end.
 
-%% Macro expansion
+%% Macro expansio
 expand_macros([{'?',_Lq},{atom,Lm,M}|Toks], Ms) ->
     expand_macros(atom, Lm, M, Toks, Ms);
 %% Special macros

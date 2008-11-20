@@ -163,9 +163,9 @@ rm_unrelated_exprs(_Files,_AnnAST, _ModName, _FunName, _Arity, [], _Expr, _Vars)
 %% rm_unrelated_exprs(_Files,_AnnAST, _ModName, _FunName, _Arity,[E], Expr, Vars) ->
 %%     FreeVars = refac_util:get_free_vars(E),
 %%     ExportedVars = refac_util:get_var_exports(E),
-%%     io:format("FreeVars:\n~p\n", [{Vars, FreeVars, ExportedVars}]),
+%%     ?wrangler_io("FreeVars:\n~p\n", [{Vars, FreeVars, ExportedVars}]),
 %%     case (ExportedVars -- Vars =/= ExportedVars) of 
-%% 	true -> io:format("E:\n~p\n", [E]),
+%% 	true -> ?wrangler_io("E:\n~p\n", [E]),
 %% 		[E];
 %% 	false -> case FreeVars -- Vars =/= FreeVars of   %% HERE Should check whether the returned value depends on the slice criteron or not!!.
 %% 		     true ->
@@ -483,7 +483,7 @@ backward_slice(Expr, FunDef) ->
     Body = refac_syntax:clause_body(hd(refac_syntax:function_clauses(NewFun1))),
     Body1 = rm_unused_exprs(Body),  %%Qn: how about the guard expression?
     NewFun2 = refac_syntax:function(FunName, [refac_syntax:clause(Patterns, none, Body1)]),
-    %%io:format(refac_prettypr:format(NewFun)),
+    %%?wrangler_io(refac_prettypr:format(NewFun),[]),
     NewFun2.
     
 

@@ -55,7 +55,7 @@ rename_mod_eclipse(FileName, NewName, SearchPaths) ->
     rename_mod(FileName, NewName, SearchPaths, eclipse).
 
 rename_mod(FileName, NewName,SearchPaths, Editor) ->
-    io:format("\nCMD: ~p:rename_mod(~p, ~p,~p).\n", [?MODULE, FileName, NewName, SearchPaths]),
+    ?wrangler_io("\nCMD: ~p:rename_mod(~p, ~p,~p).\n", [?MODULE, FileName, NewName, SearchPaths]),
     case refac_util:is_fun_name(NewName) of   %% module name and function name follow the same rules.
       true ->
           {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(FileName,true, SearchPaths),
@@ -69,10 +69,10 @@ rename_mod(FileName, NewName,SearchPaths, Editor) ->
 				    NewFileName = filename:dirname(FileName)++"/"++NewName++".erl",
 				    case filename_exists(NewFileName, SearchPaths) of 
 					false -> 
-					    io:format("The current file under refactoring is:\n~p\n",[FileName]), 
+					    ?wrangler_io("The current file under refactoring is:\n~p\n",[FileName]), 
 					    AnnAST1 = rename_mod_1(AnnAST, OldModName, NewModName),
 					    check_atoms(AnnAST1, OldModName),
-					    io:format("\nChecking client modules in the following search paths: \n~p\n",[SearchPaths]),
+					    ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n",[SearchPaths]),
 					    ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
 					    Results = rename_mod_in_client_modules(ClientFiles, 
 										   OldModName, NewModName,SearchPaths),
@@ -81,7 +81,7 @@ rename_mod(FileName, NewName,SearchPaths, Editor) ->
 						    refac_util:write_refactored_files([{{FileName, NewFileName}, AnnAST1}|Results]),
 						    ChangedClientFiles = lists:map(fun({{F, _F}, _AST}) -> F end, Results),
 						    ChangedFiles = [FileName | ChangedClientFiles],
-						    io:format
+						    ?wrangler_io
 						      ("The following files have been changed by this refactoring:\n~p\n",
 						       [ChangedFiles]),
 						    {ok, ChangedFiles};
@@ -178,7 +178,7 @@ do_rename_mod(Tree, {OldModName, NewModName}) ->
 rename_mod_in_client_modules(Files, OldModName, NewModName, SearchPaths) ->
     case Files of 
         [] -> [];
-        [F|Fs] ->  io:format("The current file under refactoring is:\n~p\n",[F]), 
+        [F|Fs] ->  ?wrangler_io("The current file under refactoring is:\n~p\n",[F]), 
                    {ok, {AnnAST, _Info}}= refac_util:parse_annotate_file(F,true, SearchPaths),
 		   {AnnAST1, Changed} = rename_mod_in_client_module_1(AnnAST, OldModName, NewModName),
 		   check_atoms(AnnAST1, OldModName),

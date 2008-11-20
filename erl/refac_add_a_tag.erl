@@ -35,7 +35,7 @@
 %% =============================================================================================
 -spec(add_a_tag/5::(filename(), integer(), integer(), string(), [dir()]) ->{ok, [filename()]} | {error, string()}).	     
 add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
-    io:format("\n[CMD: add_a_tag, ~p, ~p, ~p, ~p,~p]\n", [FileName, Line, Col, Tag, SearchPaths]),
+    ?wrangler_io("\n[CMD: add_a_tag, ~p, ~p, ~p, ~p,~p]\n", [FileName, Line, Col, Tag, SearchPaths]),
     {ok, {AnnAST1, _Info1}}=refac_util:parse_annotate_file(FileName, true, SearchPaths),
     case pos_to_receive_fun(AnnAST1, {Line, Col}) of 
 	{ok, _FunDef} ->
@@ -48,7 +48,7 @@ add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
 		    Results = do_add_a_tag(FileName, {AnnAST, Info}, list_to_atom(Tag), AffectedInitialFuns, SearchPaths),
 		    refac_util:write_refactored_files(Results),
 		    ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-		    io:format("The following files have been changed by this refactoring:\n~p\n",
+		    ?wrangler_io("The following files have been changed by this refactoring:\n~p\n",
 			      [ChangedFiles]),
 		    {ok, ChangedFiles};
 		{error,  Reason} -> {error, Reason}
@@ -108,8 +108,8 @@ collect_process_initial_funs_1({FileName, AnnAST, Info}, _SearchPaths) ->
 							[{PidInfo, {refac_syntax:atom_value(M),   %%TODO: need to use backward slice
 								   refac_syntax:atom_value(F), 
 								   refac_syntax:list_length(A)}, {FileName, Node}}];    
-						    _ -> io:format("\n*************************************Warning****************************************\n"),
-							 io:format("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName,Ln]),
+						    _ -> ?wrangler_io("\n*************************************Warning****************************************\n",[]),
+							 ?wrangler_io("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName,Ln]),
 							 []
 						end;
 					    [_N, M, F, A] ->
@@ -118,14 +118,14 @@ collect_process_initial_funs_1({FileName, AnnAST, Info}, _SearchPaths) ->
 							[{PidInfo, {refac_syntax:atom_value(M),   %%TODO: need to use backward slice
 								   refac_syntax:atom_value(F), 
 								   refac_syntax:list_length(A)}, {FileName, Node}}];    
-						    _ -> io:format("\n*************************************Warning****************************************\n"),
-							 io:format("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName,Ln]),
+						    _ -> ?wrangler_io("\n*************************************Warning****************************************\n",[]),
+							 ?wrangler_io("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName,Ln]),
 							 []
 						end
 					    end;
 				    _ ->
-					io:format("\n*************************************Warning****************************************\n"),
-					io:format("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName,Ln]),
+					?wrangler_io("\n*************************************Warning****************************************\n",[]),
+					?wrangler_io("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName,Ln]),
 					[]   
 				end
 			end, 
@@ -152,7 +152,7 @@ do_add_a_tag(FileName, {AnnAST, Info}, Tag, AffectedInitialFuns, SearchPaths) ->
     InitialSpawnExprs = lists:usort(lists:map(fun({_, _, SpawnExpr}) -> SpawnExpr end, InitialFuns1)),
     AffectedModsFuns = get_affected_mods_and_funs(InitialSpawnExprs, SearchPaths),
     ReceiveFuns = lists:usort(lists:append(ReceiveFuns1)),
-    io:format("The current file under refactoring is:\n~p\n", [FileName]),
+    ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     {AnnAST1, _Changed} =refac_util:stop_tdTP(fun do_add_a_tag_1/2, AnnAST, {ModName, Tag, InitialFuns, ReceiveFuns, AffectedModsFuns}),
     OtherFiles = refac_util:expand_files(SearchPaths, ".erl") -- [FileName],
     Results = do_add_a_tag_in_other_modules(OtherFiles, Tag, InitialFuns, ReceiveFuns, AffectedModsFuns, SearchPaths),    
@@ -166,7 +166,7 @@ do_add_a_tag_in_other_modules(Files, Tag, InitialFuns, ReceiveFuns, AffectedMods
 	    BaseName = list_to_atom(filename:basename(F, ".erl")),
 	    case lists:member(BaseName, Mods) of 
 		true ->
-		    io:format("The current file under refactoring is:\n~p\n", [F]),
+		    ?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
 		    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(F, true, SearchPaths),
 		    ModName = get_module_name(F, Info),
 		    {AnnAST1, Changed} = refac_util:stop_tdTP(fun do_add_a_tag_1/2, AnnAST, {ModName, Tag, InitialFuns, ReceiveFuns,AffectedModsFuns}),
@@ -239,8 +239,8 @@ do_add_tag_to_send_exprs(Node, {ModName, Tag, AffectedInitialFuns}) ->
 					       end
 				      end,						   
 			case InitialFuns of 
-			    [] -> io:format("\n*************************************Warning****************************************\n"),
-				  io:format("Wrangler could not identify the recipent process of the send expression in module ~p at line ~p\n", [ModName,Ln]),
+			    [] -> ?wrangler_io("\n*************************************Warning****************************************\n",[]),
+				  ?wrangler_io("Wrangler could not identify the recipent process of the send expression in module ~p at line ~p\n", [ModName,Ln]),
 				{Node, false};
 			    _ -> case InitialFuns -- AffectedInitialFuns of 
 				     [] ->
@@ -253,8 +253,8 @@ do_add_tag_to_send_exprs(Node, {ModName, Tag, AffectedInitialFuns}) ->
 					 {Node1, true};
 				     InitialFuns -> 
 					 {Node, false};  
-				     _ -> %% io:format("\n*************************************Warning****************************************\n"),
-%% 					  io:format("The recipent process of the send expression in module ~p at line ~p could refer to multiple processes. \n", [ModName,Ln]),
+				     _ -> %% ?wrangler_io("\n*************************************Warning****************************************\n"),
+%% 					  ?wrangler_io("The recipent process of the send expression in module ~p at line ~p could refer to multiple processes. \n", [ModName,Ln]),
 					  {Node, false}
 				 end
 			end;
@@ -327,8 +327,8 @@ collect_fun_apps(Expr, {ModName, Ln}) ->
 			     {value, {fun_def, {M, F, A, _, _}}}-> lists:keysearch(fun_def,1, refac_syntax:get_ann(Operator)),
 								   ordsets:add_element({M,F, A},S);
 			     
-			     _ -> io:format("\n*************************************Warning****************************************\n"),
-				  io:format("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName,Ln])
+			     _ -> ?wrangler_io("\n*************************************Warning****************************************\n",[]),
+				  ?wrangler_io("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName,Ln])
 			 end;
 		     arity_qualifier -> 
 			 {value, {fun_def, {M, F, A, _, _}}} = lists:keysearch(fun_def,1, refac_syntax:get_ann(T)),

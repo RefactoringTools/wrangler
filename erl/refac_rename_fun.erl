@@ -62,7 +62,7 @@ rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
     rename_fun(FileName, Line, Col, NewName, SearchPaths, eclipse).
 
 rename_fun(FileName, Line, Col, NewName, SearchPaths, Editor) ->
-    io:format("\nCMD: ~p:rename_fun( ~p, ~p, ~p, ~p,~p).\n", [?MODULE, FileName, Line, Col, NewName, SearchPaths]),
+    ?wrangler_io("\nCMD: ~p:rename_fun( ~p, ~p, ~p, ~p,~p).\n", [?MODULE, FileName, Line, Col, NewName, SearchPaths]),
     case refac_util:is_fun_name(NewName) of
       true ->
 	  {ok, {AnnAST, Info}}=refac_util:parse_annotate_file(FileName, true, SearchPaths),
@@ -91,12 +91,12 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, Editor) ->
 						     "The refactorer does not support renaming "
 						     "of callback function names."};
 						_ ->
-						    io:format("The current file under refactoring is:\n~p\n", [FileName]),
+						    ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
 						    {AnnAST1, _C} = rename_fun(AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}),
 						    %%check_atoms(AnnAST1, Fun),
 						    case refac_util:is_exported({Fun, Arity}, Info) of
 							true ->
-							    io:format("\nChecking client modules in the following "
+							    ?wrangler_io("\nChecking client modules in the following "
 								      "search paths: \n~p\n",
 								      [SearchPaths]),
 							    ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
@@ -106,7 +106,7 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, Editor) ->
 								    refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1} | Results]),
 								    ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
 								    ChangedFiles = [FileName | ChangedClientFiles],
-								    io:format("The following files have been changed "
+								    ?wrangler_io("The following files have been changed "
 									      "by this refactoring:\n~p\n",
 									      [ChangedFiles]),
 								    {ok, ChangedFiles};
@@ -230,7 +230,7 @@ rename_fun_in_client_modules(Files, {Mod, Fun, Arity}, NewName, SearchPaths) ->
     case Files of
       [] -> [];
       [F | Fs] ->
-	    io:format("The current file under refactoring is:\n~p\n", [F]),
+	    ?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
 	    {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(F, true, SearchPaths),
 	    {AnnAST1, Changed} = rename_fun_in_client_module_1({AnnAST, Info},
 							       {Mod, Fun, Arity},
@@ -373,7 +373,7 @@ check_atoms(Tree, AtomName) ->
     case UndecidableAtoms of
       [] -> ok;
       _ ->
-	  io:format("WARNING: the refactorer could not decide "
+	  ?wrangler_io("WARNING: the refactorer could not decide "
 		    "whether to rename the name at the following "
 		    "positions in this file, please check "
 		    "manually! {Line, Col}:\n~p\n",
@@ -458,7 +458,7 @@ collect_atoms(Tree, AtomName) ->
     refac_syntax_lib:fold(F, [], Tree).
 
 transform_apply_call(Node, {ModName, FunName, Arity}, NewFunName) ->
-    %%  Message = fun (Pos) -> io:format("WARNING: function ***apply*** is used at location({line, col}):~p, and wrangler "
+    %%  Message = fun (Pos) -> ?wrangler_io("WARNING: function ***apply*** is used at location({line, col}):~p, and wrangler "
     %% 				    "could not decide whether this site should be refactored, please check!!!",
     %% 				     [Pos])
     %% 	      end,
@@ -558,7 +558,7 @@ transform_apply_call(Node, {ModName, FunName, Arity}, NewFunName) ->
     end.
 
 transform_spawn_call(Node, {ModName, FunName, Arity}, NewFunName) ->
-    %% Message = fun (Pos) -> io:format("WARNING: function ***spawn*** is used at location({line, col}):~p, and wrangler "
+    %% Message = fun (Pos) -> ?wrangler_io("WARNING: function ***spawn*** is used at location({line, col}):~p, and wrangler "
     %% 				    "could not decide whether this site should be refactored, please check!!!",
     %% 				     [Pos])
     %% 	      end,
@@ -733,18 +733,18 @@ application_info(Node) ->
 %% 				  {error, "The refactorer does not support renaming of callback function names."};
 %% 			      _ ->
 %% 				  {ok, DefinePos} = refac_util:fun_to_def_pos(AnnAST, {ModName, Fun, Arity}),
-%% 				  io:format("The current file under refactoring is:\n~p\n", [FileName]),
+%% 				  ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
 %% 				  {AnnAST1, _C} = rename_fun(AnnAST, {ModName, Fun, Arity}, {DefinePos, NewName1}),
 %% 				  %%check_atoms(AnnAST1, Fun),
 %% 				  case refac_util:is_exported({Fun, Arity}, Info) of
 %% 				      true ->
-%% 					  io:format("\nChecking client modules ...\n"),
+%% 					  ?wrangler_io("\nChecking client modules ...\n",[]),
 %% 					  ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
 %% 					  Results = rename_fun_in_client_modules(ClientFiles, {ModName, Fun, Arity}, NewName, SearchPaths),
 %% 					  refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1} | Results]),
 %% 					  ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F  end, Results),
 %% 					  ChangedFiles = [FileName | ChangedClientFiles],
-%% 					  io:format("The following files have been changed "
+%% 					  ?wrangler_io("The following files have been changed "
 %% 						    "by this refactoring:\n~p\n", [ChangedFiles]),
 %% 					  {ok, ChangedFiles};
 %% 				      false ->

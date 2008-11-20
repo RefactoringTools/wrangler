@@ -95,7 +95,7 @@ generalise_eclipse(FileName, Start, End, ParName, SearchPaths) ->
     generalise(FileName, Start, End, ParName, SearchPaths, eclipse).
     
 generalise(FileName, Start={Line, Col}, End={Line1, Col1}, ParName, SearchPaths, Editor) ->
-    io:format("\nCMD: ~p:generalise(~p, {~p,~p}, {~p,~p}, ~p,~p).\n", [?MODULE,FileName, Line, Col, Line1, Col1, ParName, SearchPaths]),
+    ?wrangler_io("\nCMD: ~p:generalise(~p, {~p,~p}, {~p,~p}, ~p,~p).\n", [?MODULE,FileName, Line, Col, Line1, Col1, ParName, SearchPaths]),
     case refac_util:is_var_name(ParName) of 
 	true ->
 	    {ok, {AnnAST, Info}} =refac_util:parse_annotate_file(FileName,true, SearchPaths),
@@ -347,7 +347,7 @@ add_actual_parameter(Tree, {FunName, Arity,Exp, Info})->
 
 do_add_actual_parameter(Tree, {FunName, Arity, Exp, Info}) ->
   {ok, ModName} = get_module_name(Info),
-   Message = fun (Pos) -> io:format("WARNING: function ***apply*** is used at location({line, col}):~p, and wrangler " 
+   Message = fun (Pos) -> ?wrangler_io("WARNING: function ***apply*** is used at location({line, col}):~p, and wrangler " 
 				    "could not decide whether this site should be refactored, please check manually!\n",
 				    [Pos])
 	     end,
@@ -461,7 +461,7 @@ do_add_actual_parameter(Tree, {FunName, Arity, Exp, Info}) ->
 
 transform_spawn_call(Node,{FunName, Arity, Exp, Info}) ->
     {ok, ModName} = get_module_name(Info),
-     Message = fun (Pos) -> io:format("WARNING: function ***spawn*** is used at location({line, col}):~p, and wrangler " 
+     Message = fun (Pos) -> ?wrangler_io("WARNING: function ***spawn*** is used at location({line, col}):~p, and wrangler " 
 				    "could not decide whether this site should be refactored, please check!!!\n",
 				     [Pos])
 	      end,

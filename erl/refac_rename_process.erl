@@ -38,7 +38,7 @@ rename_process_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
 
 
 rename_process(FileName, Line, Col, NewName, SearchPaths, Editor) ->
-    io:format("\nCMD: ~p:rename_process( ~p, ~p, ~p, ~p,~p).\n", [?MODULE, FileName, Line, Col, NewName, SearchPaths]),
+    ?wrangler_io("\nCMD: ~p:rename_process( ~p, ~p, ~p, ~p,~p).\n", [?MODULE, FileName, Line, Col, NewName, SearchPaths]),
     case is_process_name(NewName) of
       true ->
 	    _Res = refac_annotate_pid:ann_pid_info(SearchPaths),  %%TODO: check whether asts are already annotated.
@@ -56,7 +56,7 @@ rename_process(FileName, Line, Col, NewName, SearchPaths, Editor) ->
 					      emacs ->
 						  refac_util:write_refactored_files(Results),
 						  ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-						  io:format("The following files have been changed by this refactoring:\n~p\n",
+						  ?wrangler_io("The following files have been changed by this refactoring:\n~p\n",
 							    [ChangedFiles]),
 						  {ok, ChangedFiles};
 					      eclipse ->
@@ -93,7 +93,7 @@ rename_process_1(FileName, OldProcessName1, NewProcessName1, SearchPaths, Editor
 	emacs ->
 	    refac_util:write_refactored_files(Results),
 	    ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-	    io:format("The following files have been changed by this refactoring:\n~p\n",
+	    ?wrangler_io("The following files have been changed by this refactoring:\n~p\n",
 		      [ChangedFiles]),
 	    {ok, ChangedFiles};
 	eclipse ->
@@ -131,11 +131,11 @@ pre_cond_check(NewProcessName, SearchPaths) ->
 	true -> {error, "The new process name provided is alreay in use, please choose another name."};
 	false -> case UnDecidables of 
 		     [] -> ok;
-		     _ -> io:format("\n*************************************Warning****************************************\n"),
-			  io:format("Wrangler could not decide whether the new process name provided conflicts with the process name(s) "
-				    "used by the following registeration expression(s):\n"),
+		     _ -> ?wrangler_io("\n*************************************Warning****************************************\n",[]),
+			  ?wrangler_io("Wrangler could not decide whether the new process name provided conflicts with the process name(s) "
+				    "used by the following registeration expression(s):\n",[]),
 			  UnDecidables1 = lists:map(fun({_, V}) -> V end, UnDecidables),
-			  lists:foreach(fun({M, F,A, {L,_}}) -> io:format("Location: module: ~p, function:~p/~p, line:~p\n", [M, F, A, L])
+			  lists:foreach(fun({M, F,A, {L,_}}) -> ?wrangler_io("Location: module: ~p, function:~p/~p, line:~p\n", [M, F, A, L])
 					end, UnDecidables1),
 			  undecidables
 		 end
@@ -221,7 +221,7 @@ do_rename_process_in_other_modules(Files, OldProcessName, NewProcessName, Search
 	[] ->
 	    [];
 	[F |Fs] ->
-	     io:format("The current file under refactoring is:\n~p\n", [F]),
+	     ?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
 	    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(F, true, SearchPaths),
 	    {AnnAST1, Changed} = do_rename_process(AnnAST, {OldProcessName, NewProcessName}),
 	    if Changed ->
@@ -273,10 +273,10 @@ check_atoms(CurrentFile, AtomName, SearchPaths) ->
     case Atoms of 
 	[] ->
 	    ok;
-	_ -> io:format("\n*************************************Warning****************************************\n"),
-	     io:format("Wrangler could not decide whether to rename atom(s) occuring at the followng location(s):\n"),
+	_ -> ?wrangler_io("\n*************************************Warning****************************************\n",[]),
+	     ?wrangler_io("Wrangler could not decide whether to rename atom(s) occuring at the followng location(s):\n",[]),
 	     lists:foreach(fun({M, Pos,_}) ->
-				      io:format("Location: module:~p, {line,col}:~p\n", [M,Pos]) end, Atoms)
+				      ?wrangler_io("Location: module:~p, {line,col}:~p\n", [M,Pos]) end, Atoms)
     end.
     
 collect_atoms(CurrentFile, AtomName, SearchPaths) ->

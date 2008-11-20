@@ -60,7 +60,7 @@ rename_var_eclipse(FName, Line, Col, NewName, SearchPaths) ->
     rename_var(FName, Line, Col, NewName, SearchPaths, eclipse).
 
 rename_var(FName, Line, Col, NewName, SearchPaths, Editor) ->
-    io:format("\nCMD: ~p:rename_var(~p, ~p, ~p, ~p, ~p).\n", [?MODULE,FName, Line, Col, NewName, SearchPaths]),
+    ?wrangler_io("\nCMD: ~p:rename_var(~p, ~p, ~p, ~p, ~p).\n", [?MODULE,FName, Line, Col, NewName, SearchPaths]),
     case refac_util:is_var_name(NewName) of
 	true ->
 	    {ok, {AnnAST, _Info0}} = refac_util:parse_annotate_file(FName, false, SearchPaths),
@@ -152,7 +152,7 @@ cond_check(Tree, Pos, NewName) ->
     %% 				       F_Member = fun (P) -> lists:member(P,Poss) end,
     %% 				       lists:any(F_Member, Pos) and lists:member(NewName, Names)
     %% 			       end, Env_Bd_Fr_Vars),
-    %%     io:format("BindingChange1,2:\n~p\n",[{BindingChange1,BindingChange2}]),
+    %%     ?wrangler_io("BindingChange1,2:\n~p\n",[{BindingChange1,BindingChange2}]),
     {Clash, Shadow1 or Shadow2}.  %%, (BindingChange1 or BindingChange2)}.
 
 
@@ -205,12 +205,12 @@ pre_cond_check(AST, Line, Col, NewName) ->
 %% 	  AnnAST = refac_syntax_lib:annotate_bindings(Forms, ordsets:new()),
 %% 	  case refac_util:analyze_free_vars(AnnAST) of
 %% 	    {error, Reason} -> 
-%% 		  io:format("Reason:\n~p\n",[Reason]),
+%% 		  ?wrangler_io("Reason:\n~p\n",[Reason]),
 %% 		  file:delete(TempFileName), error;
 %% 	    _ -> file:delete(TempFileName), ok
 %% 	  end;
 %%       {error, Reason} -> 
-%% 	     io:format("Reason:\n~p\n",[Reason]),
+%% 	     ?wrangler_io("Reason:\n~p\n",[Reason]),
 %% 	    file:delete(TempFileName), error
 %%     end.
 

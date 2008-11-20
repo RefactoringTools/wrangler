@@ -626,10 +626,10 @@ get_client_files(File, SearchPaths) ->
     ClientFiles = wrangler_modulegraph_server:get_client_files(File1, SearchPaths),
     case ClientFiles of
 	[] ->
-	    io:format("\nWARNING: this module does not have "
+	    ?wrangler_io("\nWARNING: this module does not have "
 		      "any client modules, please check the "
 		      "search paths to ensure that this is "
-		      "correct!\n");
+		      "correct!\n",[]);
 	_ -> ok
     end, 
     HeaderFiles = expand_files(SearchPaths, ".hrl"),
@@ -712,8 +712,8 @@ write_refactored_files(Files) ->
     wrangler_undo_server:add_to_history(Files1),
    %%  case erlang:whereis(refactor_undo) of
 %%       undefined ->
-%% 	  io:format("\nWARNING: the UNDO process is not working, "
-%% 		    "please restart the refactorer!\n");
+%% 	  ?wrangler_io("\nWARNING: the UNDO process is not working, "
+%% 		    "please restart the refactorer!\n",[]);
 %%       _ -> refactor_undo ! {add, Files1}
 %%     end,
     %% Actually the result of writing to files should be checked!
@@ -823,7 +823,7 @@ process_str(S) ->
 parse_annotate_file(FName, ByPassPreP, SearchPaths) ->
     case whereis(wrangler_ast_server) of 
 	undefined ->        %% this should not happen with Wrangler + Emacs.
-	    %%io:format("wrangler_ast_aserver is not defined\n"),
+	    %%?wrangler_io("wrangler_ast_aserver is not defined\n",[]),
 	    parse_annotate_file_1(FName, ByPassPreP, SearchPaths);
 	_ -> 
 	    wrangler_ast_server:get_ast({FName, ByPassPreP, SearchPaths})
@@ -1334,8 +1334,8 @@ do_add_range(Node, Toks) ->
       type ->
 	  refac_syntax:add_ann({range, {{L,C}, {L,C}}}, Node);
       _ ->
-	  io:format("Unhandled syntax category:\n~p\n", [refac_syntax:type(Node)]),
-	  io:format("Node:\n~p\n", [Node]),
+	  ?wrangler_io("Unhandled syntax category:\n~p\n", [refac_syntax:type(Node)]),
+	  ?wrangler_io("Node:\n~p\n", [Node]),
 	  Node
     end.
 
