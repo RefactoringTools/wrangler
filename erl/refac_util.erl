@@ -661,9 +661,9 @@ expand_files([FileOrDir | Left], Ext, Acc) ->
 	    true ->
 		case filename:extension(FileOrDir) == Ext of
 		  true -> expand_files(Left, Ext, [FileOrDir | Acc]);
-		  false -> expand_files(Left, Ext, [FileOrDir])
+		  false -> expand_files(Left, Ext, Acc)
 		end;
-	    _ -> expand_files(Left, Ext, [FileOrDir])
+	    _ -> expand_files(Left, Ext, Acc)
 	  end
     end;
 expand_files([], _Ext, Acc) -> ordsets:from_list(Acc).
