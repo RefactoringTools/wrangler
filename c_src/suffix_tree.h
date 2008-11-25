@@ -65,6 +65,7 @@ typedef struct SUFFIXTREENODE
     /* The number of time the substring is duplicated */
     int                      frequency;
     struct RANGE*            ranges;
+    int length;
 } NODE;
 
 /* This structure describes a suffix tree */
@@ -110,6 +111,7 @@ typedef struct SUFFIXTREE
 
 SUFFIX_TREE* ST_CreateTree(unsigned char*   str, WORD length);
 
+SUFFIX_TREE* ST_CreateTree1(unsigned char*   str, WORD length);
 /******************************************************************************/
 /*
    ST_FindSubstring :
