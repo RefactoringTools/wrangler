@@ -159,6 +159,7 @@ NODE* create_node(NODE* father, WORD start, WORD end, WORD position)
    node->edge_label_end   = end;
    node->frequency        = 0;
    node->ranges           =0;
+   node->length           =0;
    return node;
 }
 
@@ -935,8 +936,8 @@ SUFFIX_TREE* ST_CreateTree(unsigned char* str, WORD length)
    heap+=(tree->length+1)*sizeof(char);
 
    memcpy(tree->tree_string+sizeof(char),str,length*sizeof(char));
-   /* $ is considered a uniqe symbol */
-   tree->tree_string[tree->length] = '$';
+   /* & is considered a uniqe symbol */
+   tree->tree_string[tree->length] = '&';
    
    /* Allocating the tree root node */
    tree->root            = create_node(0, 0, 0, 0);
@@ -1007,6 +1008,29 @@ void ST_DeleteTree(SUFFIX_TREE* tree)
    free(tree);
 }
 
+// int ST_InnerNodes1(NODE* node, WORD sum)
+// {
+//     if (node==0)
+// 	return sum;
+//     if (node->right_sibling!=0)
+// 	sum=ST_InnerNodes1(node->right_sibling, sum);
+//     if (node->sons!=0)
+// 	{
+// 	    sum=sum+1;
+// 	    sum=ST_InnerNodes1(node->sons, sum);
+// 	}
+//    return sum;
+// }
+
+// int ST_InnerNodes(SUFFIX_TREE* tree)
+// {
+//     WORD sum=1;
+//     if (tree==0)
+// 	return 0;
+//     return ST_InnerNodes1(tree->root, sum);
+// }
+
+
 /******************************************************************************/
 /*
    ST_PrintNode :
@@ -1028,7 +1052,7 @@ void ST_PrintNode(SUFFIX_TREE* tree, NODE* node1, long depth)
    NODE* node2 = node1->sons;
    long  d = depth , start = node1->edge_label_start , end;
    end     = get_node_label_end(tree, node1);
-
+   RANGE* ranges;
    if(depth>0)
    {
       /* Print the branches coming from higher nodes */
@@ -1039,11 +1063,18 @@ void ST_PrintNode(SUFFIX_TREE* tree, NODE* node1, long depth)
       }
       printf("+");
       /* Print the node itself */
-      while(start<=end)
-      {
-         printf("%c",tree->tree_string[start]);
-         start++;
-      }
+       while(start<=end)
+       {
+          printf("%c",tree->tree_string[start]);
+          start++;
+       }
+      ranges = node1->ranges;
+      while(ranges!=0)
+	  {
+	      printf("{%d,%d},", ranges->start, ranges->end);
+	      ranges = ranges-> next;
+	  }
+      printf("{%d,%d}", node1->length, node1->frequency),
       #ifdef DEBUG
          printf("  \t\t\t(%lu,%lu | %lu)",node1->edge_label_start,end,node1->path_position);
       #endif
@@ -1244,50 +1275,6 @@ SUFFIX_TREE* ST_Add_Freq_And_Range(SUFFIX_TREE* tree)
 }
 
 
-int ST_CollectClones_1(FILE* fp, SUFFIX_TREE* tree, NODE* node, int len, int f,int first)
-{
-    WORD path_position, end, start;
-    int freq;
-    RANGE* ranges;
-    if(node == 0)
-	 return 0;
-    start = node->edge_label_start;
-    end = get_node_label_end(tree,node);
-    path_position = node->path_position;
-    freq = node->frequency;
-    if (end-start+1>=len && freq>=f)
-	{
-	    if (first==1)
-		{
-		    first=0;
-		    fprintf(fp, "{");
-		    
-		}
-			
-	    else
-		fprintf(fp, ",{");
-	    ranges = node->ranges;
-	    fprintf(fp, "[");
-	    if (ranges!=0)
-		{
-		    fprintf(fp, "{%d,%d}", ranges->start, ranges->end);
-		    ranges = ranges-> next;
-		}
-	    while(ranges!=0)
-		{
-		    fprintf(fp, ",{%d,%d}", ranges->start, ranges->end);
-		    ranges = ranges-> next;
-		}
-	    fprintf(fp, "],%d,%d}", end-start+1, freq);
-	   
-	}
-    if (node->right_sibling != 0)
-	first = ST_CollectClones_1(fp, tree, node->right_sibling, len, f,first);
-    if (node ->sons!=0)
-	first = ST_CollectClones_1(fp, tree, node->sons, len, f,first);
-    return first;
-}
-
 
 int overlapped_range(RANGE* ranges)
  {
@@ -1324,50 +1311,44 @@ WORD combine_range(RANGE* prev_ranges, WORD startloc)
     return startloc;
 }
 
-NODE* ST_ExtendRanges_2(NODE* node, RANGE* prev_ranges, SUFFIX_TREE* tree)
-{
-    RANGE* ranges;
-    int len;
-    ranges = node -> ranges;
-    while(ranges!=0)
-	{
-	    ranges->start = combine_range(prev_ranges, ranges->start);
-	    ranges=ranges->next;
-	}
-    if (overlapped_range(node->ranges)==1)
-	{
-	    ranges = node -> ranges;
-	    while(ranges!=0)
-		{
-		    len = get_node_label_end(tree, node) - node->edge_label_start +1;
-		    ranges-> start = ranges-> end - len+1;
-		    ranges = ranges-> next;
-		}
-	}
-    return node;
-}
 	
-   
-NODE* ST_ExtendRanges_1(NODE* node,RANGE* ranges,SUFFIX_TREE* tree)
+RANGE* extend_ranges(RANGE* ranges, RANGE* prev_ranges, SUFFIX_TREE* tree)
 {
-    NODE* son;
+    RANGE* temp;
+    temp = ranges;
+    while(temp!=0)
+	{
+	    temp->start = combine_range(prev_ranges, temp->start);
+	    temp=temp->next;
+	}
+    return ranges;
+}
+
+NODE* ST_ExtendRangesInSubTree(NODE* node,RANGE* ranges,SUFFIX_TREE* tree)
+{
+    NODE* temp;
+    RANGE* cur_ranges;
     if (node==0)
 	return node;
-    if (node->sons!=0)
-	{
-	    node->sons = ST_ExtendRanges_2(node -> sons, ranges, tree);
-	    node->sons = ST_ExtendRanges_1(node->sons, node->sons->ranges,tree);
-	    son = node->sons;	    
-	    while (son->right_sibling !=0)
-		{
-		    son->right_sibling=ST_ExtendRanges_2(son->right_sibling,ranges,tree);
-		    son->right_sibling =ST_ExtendRanges_1(son->right_sibling, son->right_sibling->ranges,tree);
-		    son = son -> right_sibling;
-		}
-	    return node;
-	}
+    cur_ranges = node->ranges;
+    node->ranges = extend_ranges(node->ranges, ranges, tree);
+    if (node->ranges==0)
+	node->length=0;
     else
-	return node;
+	node->length=node->ranges->end - node->ranges->start +1;   	 
+    node->sons = ST_ExtendRangesInSubTree(node->sons, node->ranges, tree);
+    temp = node->right_sibling;
+    while(temp!=0)
+	{
+	    temp->ranges= extend_ranges(temp->ranges, ranges, tree);
+	    if (temp->ranges==0)
+		temp->length =0;
+	    else
+		temp->length=temp->ranges->end-temp->ranges->start+1;
+	    temp->sons=ST_ExtendRangesInSubTree(temp->sons, temp->ranges, tree);
+	    temp= temp->right_sibling;
+	}
+    return node;
 }
 
 
@@ -1376,24 +1357,227 @@ SUFFIX_TREE* ST_ExtendRanges(SUFFIX_TREE* tree)
 {
     if (tree==0)
 	return tree;
-    tree->root = ST_ExtendRanges_1(tree->root, 0, tree);
+    tree->root->ranges=NULL;
+    tree->root = ST_ExtendRangesInSubTree(tree->root, 0, tree);
     return tree;
 }
 
-void ST_CollectClones(SUFFIX_TREE* tree, int minlen, int minf, char *filename)
-{   FILE *fp;
+typedef struct clone
+{
+    int   length;
+    int   freq;
+    struct RANGE*  ranges;
+    struct clone *next;
+    struct clone *prev;
+}CLONE;
+
+
+int sub_ranges(RANGE* ranges1, RANGE* ranges2)
+{
+    int found;
+    RANGE* temp;
+     while(ranges1!=NULL)
+	{
+	    found = 0;
+	    temp = ranges2;
+	    while(temp!=NULL && found==0)
+		{
+		    if ((temp->start <=ranges1->start) && (ranges1->end <= temp->end))
+			found=1;
+		    else
+			temp = temp->next;
+		}
+	    if (found==0)
+		return 0;
+	    else
+		ranges1=ranges1->next;
+	}
+     if (ranges1==NULL)
+	 return 1;
+     else
+	 return 0;
+}
+	    
+    
+int sub_clone(CLONE *temp, CLONE* cur)
+{
+    RANGE* ranges1;
+    RANGE* ranges2;
+    ranges1= temp->ranges;
+    ranges2 = cur-> ranges;
+   if ((cur->length >= temp->length) && (cur->freq >= temp-> freq))
+  	{
+  	    if (sub_ranges(temp->ranges, cur->ranges)==1)
+  		return 1;
+  	    else
+  		return 0;
+  	}
+      else
+  	{ if ((cur->length<=temp->length) && (cur->freq <= temp-> freq))
+  		{
+  		       if (sub_ranges(cur->ranges, temp->ranges)==1)
+  			   return 2;
+  		       else
+  			   return 0;
+  		}
+  	    else
+  		return 0;
+  	}
+}
+
+void print_clones(struct clone* head, char*filename) 
+{
+    FILE *fp;
+    struct clone *temp;
+    RANGE* ranges;
+    int first=1;
     fp = fopen((const char*)filename, "w");
-    if (tree==0)
+    if (head==NULL)
 	{
 	    fclose(fp);
 	    return;
 	}
-    fprintf(fp, "[");    
-    ST_CollectClones_1(fp, tree, tree->root->sons, minlen, minf,1 );
+    fprintf(fp, "[");
+    for (temp=head; temp!=NULL; temp=temp->next)
+	{
+	    if (first==1)
+		{   first=0;
+		    fprintf(fp, "{");		 
+		}
+    
+	    else
+		fprintf(fp, ",{");
+	    ranges = temp->ranges;
+	    fprintf(fp, "[");
+	    if (ranges!=0)
+		{
+		    fprintf(fp, "{%d,%d}", ranges->start, ranges->end);
+		    ranges = ranges-> next;
+		}
+	    while(ranges!=0)
+		{
+		    fprintf(fp, ",{%d,%d}", ranges->start, ranges->end);
+		    ranges = ranges-> next;
+		}
+	    fprintf(fp, "],%d,%d}", temp->length, temp->freq);
+	}
     fprintf(fp, "].");
     fclose(fp);
 }
 
+struct clone*  insert_node(struct clone* head, RANGE* ranges, int length, int freq)
+{
+    CLONE* temp;
+    CLONE* cur;
+    CLONE* temppt;
+    int first=1;
+    int inserted=0;
+    int result;
+    temp = (CLONE *)malloc(sizeof(CLONE));
+    temp->next=NULL;
+    temp->prev=NULL;
+    temp ->length = length;
+    temp -> freq = freq;
+    temp -> ranges = ranges;
+    if(head==NULL)
+	head = temp;
+    else
+	{
+	    cur=head;
+	    while(cur!=NULL)
+		{
+		    result = sub_clone(temp, cur);
+		    if (result==0)   /* temp is not a sub-clone of cur, and cur is not a sub-clone of temp either. */
+			{
+			    if (cur->next!=NULL)
+				cur= cur-> next;
+			    else
+				{ if (inserted==0)
+					{
+					    cur->next=temp;
+					    temp->prev=cur;
+					}
+				    cur =NULL;
+				}
+			}
+			    
+		    else
+			{
+			    if (result==1)   /*temp is a cub-clone of cur, so nothing need to do */
+				{
+				    inserted=1;
+				    cur=NULL;
+				}
+			    else
+				if(result==2) /* cur is a sub-clone of temp, so need to replace cur with temp, and remove following sub clones */
+				    {
+					if (first==1)
+					    {
+						cur-> length = temp-> length;
+						cur-> freq =  temp-> freq;
+						cur->ranges = temp-> ranges;
+						cur->length=temp->ranges->end - temp->ranges->start +1;
+						first=0;
+						inserted=1;
+						cur= cur-> next;			        
+					    }
+					else
+					    {
+						if (cur-> next==NULL)
+						    {
+							temppt = cur->prev;
+							cur-> prev->next=NULL;
+							cur->prev=NULL;
+							cur =NULL;
+							inserted=1;
+														
+						    }
+						else
+						    {
+							temppt= cur-> next;
+							cur->prev->next=cur->next;
+							cur->next->prev=cur->prev;
+							cur->next=NULL;
+							cur->prev=NULL;
+							cur=temppt;
+							inserted=1;
+							
+						    }
+						
+					    }
+				    }			  
+			}
+		}
+	}
+    return head;
+}
+
+
+
+CLONE* ST_CollectClones_new_1(CLONE* head, SUFFIX_TREE* tree, NODE* node, int minlen, int minf)
+{
+    if(node ==0)
+	return NULL;
+    if (node->length>=minlen && node->frequency>=minf)
+	{
+	    head=insert_node(head, node->ranges, node->ranges->end-node->ranges->start+1, node->frequency);	    
+	}
+    if (node->right_sibling != 0)
+	head=ST_CollectClones_new_1(head, tree, node->right_sibling, minlen, minf);
+    if (node ->sons!=0)
+	head=ST_CollectClones_new_1(head, tree, node->sons, minlen, minf);
+    return head;
+}
+
+
+    
+void ST_CollectClones_new(SUFFIX_TREE* tree, int minlen, int minf, char*filename)
+{      
+    CLONE* head=NULL;
+    head=ST_CollectClones_new_1(head, tree, tree->root->sons, minlen, minf);
+    print_clones(head, filename);
+}
+  
 void clone_detection_by_suffix_tree(char *filename, long minlen, long minclones)
 {
     SUFFIX_TREE* tree;
@@ -1422,16 +1606,29 @@ void clone_detection_by_suffix_tree(char *filename, long minlen, long minclones)
     /*When freestr = 1 it means that a temporary string has been allocated and therefor 
       must be deleted afterwards.*/
     freestr = 1;
-    printf("Constructing tree.....");
+    /*printf("Constructing tree.....");*/
     tree = ST_CreateTree(str,len);
-    printf("Done.\n");
     tree =ST_Add_Freq_And_Range(tree);
     tree =ST_ExtendRanges(tree);
     fclose(file);
-    ST_CollectClones(tree, minlen, minclones, filename);
-    /*Delete the temporary string.*/
+    ST_CollectClones_new(tree,minlen, minclones, filename);
     if(freestr == 1)
 	free(str);
     ST_DeleteTree(tree);
     return;
 }
+/*
+SUFFIX_TREE* ST_CreateTree1(unsigned char* str, WORD length)
+ {
+     SUFFIX_TREE* tree;
+     int no;
+     tree = ST_CreateTree(str,length);
+     tree =ST_Add_Freq_And_Range(tree);
+     ST_PrintTree(tree);
+     tree =ST_ExtendRanges(tree);
+     ST_PrintTree(tree);
+    //  no = ST_InnerNodes(tree),
+     printf("\n intial no of clones %d\n", no);
+     return tree;
+ }
+*/
