@@ -406,8 +406,8 @@ caller_called_modules(FName, SearchPaths) ->
 			   refac_util:get_modules_by_file(ClientFiles)),
     case ClientFiles of 
 	[] -> ?wrangler_io("\nThis module does not have any caller modules.\n",[]);
-	_ -> ?wrangler_io("\nThis module calls the following modules:\n",[]),
-	     ?wrangler_io("~p\n", [refac_util:get_modules_by_file(ClientMods)])
+	_ -> ?wrangler_io("\nThis module is called by the following modules:\n",[]),
+	     ?wrangler_io("~p\n", [ClientMods])
     end,
     CalledMods = refac_module_graph:collect_called_modules(AnnAST),
     case CalledMods of 
