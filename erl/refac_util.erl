@@ -846,18 +846,20 @@ parse_annotate_file_1(FName, ByPassPreP, SearchPaths) ->
 	    SyntaxTree = refac_recomment:recomment_forms(Forms, Comments),
 	    Info = refac_syntax_lib:analyze_forms(SyntaxTree),
 	    AnnAST = annotate_bindings(FName, SyntaxTree, Info, 1),
-	    case analyze_free_vars(AnnAST) of 
-		{error, Reason} -> case lists:keysearch(errors, 1, Info) of
-				       {value, {errors, Error}} ->
-					   Info1 = lists:keyreplace(errors, 1, Info, {errors, Error++[Reason]}),
-					   {ok, {AnnAST, Info1}};
-				       false ->
-					   Info1 = Info ++ [{errors, [Reason]}],
-					   {ok, {AnnAST, Info1}}
-				   end;
-		 _ -> 
-		    {ok, {AnnAST, Info}}
-	    end;
+	    {ok, {AnnAST, Info}};
+	   %%   case analyze_free_vars(AnnAST) of 
+%% 		{error, Reason} -> 
+%% 		     case lists:keysearch(errors, 1, Info) of
+%% 			{value, {errors, Error}} ->
+%% 			    Info1 = lists:keyreplace(errors, 1, Info, {errors, Error++[Reason]}),
+%% 			    {ok, {AnnAST, Info1}};
+%% 			false ->
+%% 			    Info1 = Info ++ [{errors, [Reason]}],
+%% 			    {ok, {AnnAST, Info1}}
+%% 		    end;
+%% 		 _ -> 
+%% 		    {ok, {AnnAST, Info}}
+%% 	    end;
 	{error, Reason} -> erlang:error(Reason)
     end.
 
@@ -933,7 +935,7 @@ analyze_free_vars(SyntaxTree) ->
       {value, {free, FrVars}} ->
 	  case FrVars of
 	    [] -> ok;
-	    Ls -> {error, "Unbound variable(s) found: " ++ show_fv_vars(Ls)}
+	     Ls -> {error, "Unbound variable(s) found: " ++ show_fv_vars(Ls)}
 	  end;
       _ -> ok
     end.
