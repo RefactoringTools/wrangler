@@ -468,6 +468,9 @@ vann(Tree, Env) ->
       %% Added by HL, begin.
       attribute -> case  refac_syntax:atom_value(refac_syntax:attribute_name(Tree)) of 
 		       define -> vann_define(Tree,Env);
+		       ifdef -> {Tree, [], []};  
+		       inndef ->{Tree, [], []};
+		       undef -> {Tree, [], []};
 		       _ -> F = vann_list_join(Env),
 			    {Tree1, {Bound, Free}} = mapfold_subtrees(F, {[],[]}, Tree),
 			    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}

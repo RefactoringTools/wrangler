@@ -19,7 +19,6 @@
 
 -module(refac_module_graph).
 -export([module_graph/1]). 
--compile(export_all).
 
 -include("../hrl/wrangler.hrl").
 -spec(module_graph/1::([dir()]) -> [{filename(), [filename()]}]).

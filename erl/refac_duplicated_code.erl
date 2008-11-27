@@ -20,7 +20,7 @@
 
 -module(refac_duplicated_code).
 
--export([duplicated_code/3]). 
+-export([duplicated_code/3]).
 
 
 -export([duplicated_code_1/3]).
@@ -40,15 +40,15 @@
 %% minimal number of tokens.
 -define(DEFAULT_MIN_CLONE_LEN, 20).
 
-%% minimal number of duplication times.
+%% Minimal number of duplication times.
 -define(DEFAULT_MIN_CLONE_MEMBER, 1).
 
 
-%% -define(DEBUG, true).
+-define(DEBUG, true).
 
 -ifdef(DEBUG).
 -define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
--else. 
+-else.
 -define(debug(__String, __Args), ok).
 -endif.
 
@@ -60,38 +60,48 @@ start(ExtPrg) ->
     process_flag(trap_exit, true),
     spawn_link(?MODULE, init, [ExtPrg]).
 
-stop_suffix_tree_clone_detector() ->
-    ?MODULE ! stop.
+stop_suffix_tree_clone_detector() -> (?MODULE) ! stop.
 
 
 get_clones_by_suffix_tree(FileNames,MinLength, MinClones) ->
     %% tokenize Erlang source files and concat the tokens into a single list.
     {Toks, ProcessedToks} = tokenize(FileNames),
-    OutFileName = filename:join(?WRANGLER_DIR, "bin/wrangler_suffix_tree"),  %%Qn: Is this the proper place?
-    file:write_file(OutFileName, ProcessedToks), 
-    case catch call_port({get, MinLength, MinClones, OutFileName}) of
-	{ok, _Res} ->
-	    ?debug("Initial clones are calculated using C suffixtree implementation.\n", []),
- 	    {ok, [Cs]} = file:consult(OutFileName),
-   	    {Toks, Cs};
- 	_-> 
-	    ?debug("Initial clones are calculated using Erlang suffixtree implementation.\n", []),
-	    Tree = suffix_tree(alphabet() ++ "&", ProcessedToks ++ "&"),
- 	    Cs = lists:flatten(lists:map(fun (B) ->
- 						 collect_clones(MinLength, MinClones, B)
- 					 end,
- 					 Tree)),
- 	    {Toks, Cs}
-     end.
-
-call_port(Msg) ->
-    ?MODULE ! {call, self(), Msg},
-    receive
-    Result ->
-        Result
+    OutFileName = filename:join(filename:dirname(hd(FileNames)), "wrangler_suffix_tree"), 
+    case file:write_file(OutFileName, ProcessedToks) of 
+	ok -> case  catch call_port({get, MinLength, MinClones, OutFileName}) of
+		  {ok, _Res} ->
+		      ?debug("Initial clones are calculated using C suffixtree implementation.\n", []),
+		      {ok, [Cs]} = file:consult(OutFileName),
+		      file:delete(OutFileName),
+		      {Toks, Cs};
+		  _ -> 
+		      file:delete(OutFileName),
+		      get_clones_by_erlang_suffix_tree(Toks, ProcessedToks, MinLength, MinClones)
+		    
+	      end;	
+	_ ->  get_clones_by_erlang_suffix_tree(Toks, ProcessedToks, MinLength, MinClones)
     end.
 
+get_clones_by_erlang_suffix_tree(Toks, ProcessedToks, MinLength, MinClones) ->
+    ?debug("Initial clones are calculated using Erlang suffixtree implementation.\n", []),
+    io:format("MinClones:\n~p\n", [MinClones]),
+    Tree = suffix_tree(alphabet() ++ "&", ProcessedToks ++ "&"),
+    Cs = lists:flatten(lists:map(fun (B) ->
+					 collect_clones(MinLength, MinClones, B)
+				 end,
+				 Tree)),
+    Cs1 = filter_out_sub_clones(Cs),
+    {Toks, Cs1}.
+    
+call_port(Msg) ->
+    (?MODULE) ! {call, self(), Msg},
+    receive Result -> Result end.
+
 init(ExtPrg) ->
+    case whereis(?MODULE) of 
+	undefined -> ok;
+	_ -> unregister(?MODULE)
+    end,
     register(?MODULE, self()),
     process_flag(trap_exit, true),
     Port = open_port({spawn, ExtPrg}, [{packet, 2}, binary, exit_status]),
@@ -154,7 +164,7 @@ duplicated_code(DirFileList, MinLength1, MinClones1) ->
     {ok, "Duplicated code detection finished."}.
 
 -spec(duplicated_code_1/3::(dir(), [integer()], [integer()]) ->
-	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer()}]).    
+	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer()}]).  
 
 duplicated_code_1(DirFileList, MinLength1, MinClones1) ->
     {Cs5, _} = duplicated_code_detection(DirFileList, MinClones1,
@@ -182,20 +192,18 @@ duplicated_code_detection(DirFileList, MinClones1, MinLength1) ->
     ?debug("Constructing suffix tree and collecting clones from the suffix tree.\n", []),
     {Toks,Cs}= get_clones_by_suffix_tree(FileNames, MinLength, MinClones),
     ?debug("Initial numberclones from suffix tree:~p\n", [length(Cs)]),
-    ?debug("Filtering out sub-clones.\n", []),
     %% This step is necessary to reduce large number of sub-clones.
-    Cs1 = filter_out_sub_clones(Cs),
-    ?debug("Type 4 clones:\n~p\n", [length(Cs1)]),
+    ?debug("Type 4 clones:\n~p\n", [length(Cs)]),
     ?debug("Putting atoms back.\n",[]),
-    Cs2 = clones_with_atoms(Cs1, Toks, MinLength, MinClones),
+    Cs1 = clones_with_atoms(Cs, Toks, MinLength, MinClones),
     ?debug("Filtering out sub-clones.\n", []),
-    Cs3 = filter_out_sub_clones(Cs2),
+    Cs2 = filter_out_sub_clones(Cs1),
     ?debug("Combine with neighbours\n",[]),
-    Cs4 = combine_neighbour_clones(Cs3, MinLength, MinClones),
-    ?debug("Type3 without trimming:~p\n", [length(Cs4)]),
+    Cs3 = combine_neighbour_clones(Cs2, MinLength, MinClones),
+    ?debug("Type3 without trimming:~p\n", [length(Cs3)]),
     ?debug("Trimming clones.\n", []),
-    Cs5 = trim_clones(FileNames, Cs4, MinLength, MinClones),
-    {Cs5, FileNames}.
+    Cs4 = trim_clones(FileNames, Cs3, MinLength, MinClones),
+    {Cs4, FileNames}.
 
 
 %% =====================================================================
@@ -227,7 +235,7 @@ process_a_tok(T) ->
 %% =====================================================================
 %% Construction of suffix tree.
 suffix_tree(Alpha, T) -> 
-     Tree = suffix_tree_1(Alpha, length(T),suffixes(T)),
+    Tree = suffix_tree_1(Alpha, length(T),suffixes(T)),
     post_process_suffix_tree(Tree).
   
 
@@ -238,7 +246,7 @@ suffix_tree_1(Alpha, Len, Suffixes)->
  	[SA | SSA] <- [select(Suffixes, A)],
  	Lens <- [lists:map(fun(S) -> length(S)+1 end, [SA|SSA])],
  	{CP1, SSR} <- [edge_cst([SA|SSA])],
-        SubLens <- [lists:map(fun(L) -> {Len-L, Len-L+CP1} end, Lens)]].
+        SubLens <- [lists:map(fun(L) -> {Len-L+1, Len-L+CP1+1} end, Lens)]].
 
 select(SS,A) -> 
        [U || [C|U] <- SS, A==C].
@@ -269,27 +277,45 @@ add_frequency({branch, {Range, Len}, Branches})
  		 F1 = lists:foldl(fun({branch,{_R, {_L, F}}, _C}, Sum)-> F + Sum end,0, Bs),
  		 {branch, {Range, {Len, F1}}, Bs}.
 
-
+  
 %% ===========================================================================
 %% combine the ranges within two continuous branches if possible.
 extend_range(SuffixTree) ->
     extend_range([],SuffixTree).
 
-extend_range(_Prev_Range, {branch, {Range, {Len, Freq}}, leaf}) ->
-    {branch, {Range, {Len, Freq}}, leaf};
+%% extend_range(_Prev_Range, {branch, {Range, {Len, Freq}}, leaf}) ->
+%%      {branch, {Range, {Len, Freq}}, leaf};
+%% extend_range(Prev_Range, {branch, {Range, {Len, Freq}}, Bs}) ->
+%%     ExtendedRange = lists:map(fun (R) -> combine_range(Prev_Range, R) end, Range),
+%%     case overlapped_range(ExtendedRange) orelse
+%% 	   lists:subtract(ExtendedRange, Range) =/= ExtendedRange
+%% 	of
+%%       true ->
+%% 	  Bs1 = lists:map(fun (B) -> extend_range(Range, B) end, Bs),
+%% 	  {branch, {Range, {Len, Freq}}, Bs1};
+%%       false ->
+%% 	  Bs1 = lists:map(fun (B) -> extend_range(ExtendedRange, B) end, Bs),
+%% 	  {S, E} = hd(ExtendedRange),
+%% 	  {branch, {ExtendedRange, {E - S + 1, Freq}}, Bs1}
+%%     end.
+
+
+extend_range(Prev_Range, {branch, {Range, {_Len, Freq}}, leaf}) ->
+    ExtendedRange = lists:map(fun (R) -> combine_range(Prev_Range, R) end, Range),
+    {S, E} = hd(ExtendedRange),
+    {branch, {ExtendedRange, {E-S+1, Freq}}, leaf};
 extend_range(Prev_Range, {branch, {Range, {Len, Freq}}, Bs}) ->
     ExtendedRange = lists:map(fun (R) -> combine_range(Prev_Range, R) end, Range),
-    case overlapped_range(ExtendedRange) orelse
-	   lists:subtract(ExtendedRange, Range) =/= ExtendedRange
-	of
-      true ->
-	  Bs1 = lists:map(fun (B) -> extend_range(Range, B) end, Bs),
-	  {branch, {Range, {Len, Freq}}, Bs1};
-      false ->
-	  Bs1 = lists:map(fun (B) -> extend_range(ExtendedRange, B) end, Bs),
-	  {S, E} = hd(ExtendedRange),
-	  {branch, {ExtendedRange, {E - S + 1, Freq}}, Bs1}
+    case overlapped_range(ExtendedRange) of 
+	true ->  Bs1 = lists:map(fun (B) -> extend_range(Range, B) end, Bs),
+		 {branch, {Range, {Len, Freq}}, Bs1};
+	_ -> 
+	    Bs1 = lists:map(fun (B) -> extend_range(ExtendedRange, B) end, Bs),
+	    {S, E} = hd(ExtendedRange),
+	    {branch, {ExtendedRange, {E - S + 1, Freq}}, Bs1}
     end.
+    
+
 
 overlapped_range(R) -> overlapped_range_1(lists:usort(R)).
 
@@ -303,7 +329,7 @@ combine_range(Prev_Range, {StartLoc, EndLoc}) ->
 	{value, {StartLoc1, _EndLoc1}} ->
 	    {StartLoc1, EndLoc};
 	_  -> {StartLoc, EndLoc}
-    end.  
+    end.
 
 %% =====================================================================
 %% Collect those clones that satisfy the selecting criteria from the suffix trees.
@@ -330,35 +356,26 @@ collect_clones(MinLength, MinFreq, {branch, {Range, {Len, F}}, Others}) ->
 
 filter_out_sub_clones(Cs) ->
     Cs1 =lists:sort(fun({_Range1, Len1, F1},{_Range2, Len2, F2})
-			-> {Len1, F1} >= {Len2,F2}
-		     end, Cs),
-    filter_out_sub_clones_1(Cs1, [],[]).
-filter_out_sub_clones_1([], Acc, _ExistingRanges) -> Acc;
-filter_out_sub_clones_1([C={Range, _Len, _F}|Cs], Acc,ExistingRanges) -> 
-     case lists:subtract(Range, ExistingRanges) of 
-	[] -> filter_out_sub_clones_1(Cs, Acc, ExistingRanges);
-	Range  ->
-	    case lists:any(fun(E) -> sub_range(C, E) end, Acc) of   
-		     true ->  filter_out_sub_clones_1(Cs, Acc, ExistingRanges);  %% C is a sub-clone of the existing clones.
-		     false -> filter_out_sub_clones_1(Cs, Acc++[C], Range++ExistingRanges)
-		 end;
-	_  -> Acc1 = lists:map(fun({R, L, F}) ->
-				       R1 = lists:subtract(Range, R),
-				       case R1 =/= Range of 
-					   true -> NewRange = lists:usort(Range++R),
-						   {NewRange, L, length(NewRange)};
-					   _  -> {R, L, F}
-				       end
-			       end, Acc),
-	      filter_out_sub_clones_1(Cs, Acc1, ExistingRanges++Range)   
-   end.
+		       -> {Len1, F1} >= {Len2,F2}
+		    end, Cs),
+    filter_out_sub_clones_1(Cs1, []).
 
-sub_range({Range1, Len1, F1}, {Range2, Len2, F2}) ->
-    case F1 =< F2 andalso Len1 =< Len2 of
-      true ->
-	  lists:all(fun ({S, E}) -> lists:any(fun ({S1, E1}) -> S1 =< S andalso E =< E1 end, Range2) end, Range1);
-      false -> false
+filter_out_sub_clones_1([], Acc) -> lists:reverse(Acc);
+filter_out_sub_clones_1([C|Cs], Acc) ->
+    case lists:any(fun(E)->  sub_clone(C, E) end, Acc) of
+	true ->
+	    filter_out_sub_clones_1(Cs, Acc);
+	_ -> filter_out_sub_clones_1(Cs, [C|Acc])
     end.
+
+sub_clone({Range1, Len1, F1}, {Range2, Len2, F2}) ->
+    case F1=<F2 andalso Len1=<Len2 of 
+	true ->
+	    lists:all(fun ({S, E}) -> lists:any(fun ({S1, E1}) -> S1 =< S andalso E =< E1 end, Range2) end, Range1);
+	false ->
+	    false
+    end.
+
 
 %% ==================================================================================
 %% This phase brings back those atoms back into the token stream, and get the resulted clones.
@@ -371,7 +388,7 @@ clones_with_atoms(Cs, Toks, MinLength, MinClones) ->
 
 clones_with_atoms_1(Range, Toks, _MinLength, MinClones) ->
     ListsOfSubToks = lists:map(fun ({S, E}) ->
-				       Toks1 = lists:sublist(Toks, S + 1, E - S + 1),
+				       Toks1 = lists:sublist(Toks, S, E - S),
 				       remove_var_literals(Toks1)
 			       end,
 			       Range),
@@ -434,7 +451,7 @@ remove_var_literals_1(T) ->
  	{atom, L, _} -> {atom, L, 'A'};
  	{A, L} ->{A, L};
  	Other  -> erlang:error(?wrangler_io("Unhandled token:\n~p\n", [Other]))
-     end.  
+     end.
 
 %% use locations intead of tokens to represent the clones.
 simplify_filter_results([], Acc, _MinLength, _MinClones) -> Acc;
@@ -500,11 +517,11 @@ remove_sub_clones(Cs) ->
 remove_sub_clones([], Acc_Cs) ->
        Acc_Cs;
 remove_sub_clones([C|Cs], Acc_Cs) ->
-    R = lists:any(fun(C1)-> sub_range(C, C1) end, Acc_Cs),
+    R = lists:any(fun(C1)-> sub_clone(C, C1) end, Acc_Cs),
     case R of 
 	true ->remove_sub_clones(Cs, Acc_Cs);
 	_ -> remove_sub_clones(Cs, Acc_Cs++[C])
-    end.    
+    end.  
 		  
 %% ================================================================================== 
 %% trim both end of each clones to exclude those tokens that does not form a meaninhful syntax phrase.

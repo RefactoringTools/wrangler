@@ -45,7 +45,7 @@
 	 fold_expr_by_loc_eclipse/4, fold_expression_1_eclipse/4,
 	 fold_expression_2_eclipse/6, fold_expression_1/4,
 	 fold_expr_by_name/6, fold_expr_by_name_eclipse/6,
-	cursor_at_fun_clause/4]).
+	 cursor_at_fun_clause/4]).
 
 -include("../hrl/wrangler.hrl").
 %% =============================================================================================

@@ -39,7 +39,7 @@
 	 is_exported/2, inscope_funs/1,
          once_tdTU/3, stop_tdTP/3, full_buTP/3,
          pos_to_fun_name/2, pos_to_fun_def/2,pos_to_var_name/2,
-         pos_to_expr/3, expr_to_fun/2,get_range/1,get_toks/1, concat_toks/1, tokenize/1,
+         pos_to_expr/3, pos_to_expr_list/4, expr_to_fun/2,get_range/1,get_toks/1, concat_toks/1, tokenize/1,
          get_var_exports/1, get_env_vars/1, get_bound_vars/1, get_free_vars/1, 
          get_client_files/2, expand_files/2, get_modules_by_file/1,
          reset_attrs/1, update_ann/2,parse_annotate_file_1/3,
@@ -367,6 +367,38 @@ pos_to_expr_1(Tree, Start, End) ->
        true -> []
     end.
 
+%% =====================================================================
+%% get the list expressions enclosed by start and end locations.
+-spec(pos_to_expr_list(FName::filename(), Tree::syntaxTree(), Start::pos(), End::pos()) ->
+	     [syntaxTree()]).
+pos_to_expr_list(FName, Tree, Start, End) ->
+    Toks = tokenize(FName),
+    Exprs = pos_to_expr_1(Tree, Start, End),
+    filter_exprs(Toks, Exprs).
+
+filter_exprs(_Toks, []) ->
+    [];
+filter_exprs(_Toks, [E]) ->
+    [E];
+filter_exprs(Toks, [E1,E2|Es]) ->
+    {_StartLoc, EndLoc} = refac_util:get_range(E1),
+    {StartLoc1, _EndLoc1} = refac_util:get_range(E2),
+    Toks1 = lists:dropwhile(fun(T) ->
+				    token_loc(T) =< EndLoc end, Toks),
+    Toks2 = lists:takewhile(fun(T) ->
+				    token_loc(T) < StartLoc1 end, Toks1),
+    %% In the following, 'token_val(T) =='('' is added here to quick fix 
+    %% the problem when '()' is thrown away by the parser as in this 
+    %% example: (?MODULE) ! {call, self(), Msg}. A better way needs to be 
+    %% found to  address this problem.
+    case lists:all(fun(T) -> (token_val(T) == ',') or (token_val(T)=='(')
+		   end, Toks2) of 
+	true ->
+	    [E1]++ filter_exprs(Toks, [E2|Es]);
+	_  -> [E1]
+    end.
+
+
 %% ===========================================================================
 %% @spec expr_to_fun(Tree::syntaxTree(), Exp::syntaxTree())->
 %%                   {ok, syntaxTree()} | {error, none}
@@ -443,8 +475,11 @@ is_expr(Node) ->
     case lists:keysearch(category, 1, As) of
       {value, {category, C}} ->
 	  case C of
-	    expression -> true;
-	    guard_expression -> true;
+	      expression -> true;
+	      guard_expression -> true;
+	      %% since macros are not expanded;
+	      %% Not really what I want.
+	      macro -> true; 
 	    _ -> false
 	  end;
       _ -> false
@@ -832,24 +867,32 @@ parse_annotate_file(FName, ByPassPreP, SearchPaths) ->
 
 -spec(parse_annotate_file_1(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()])
                            -> {ok, {syntaxTree(), moduleInfo()}}).
-parse_annotate_file_1(FName, ByPassPreP, SearchPaths) ->
-    R = case ByPassPreP of
-	  true -> refac_epp_dodger:parse_file(FName);
-	  false -> refac_epp:parse_file(FName, SearchPaths, [])
-	end,
-     case R of
-      {ok, Forms1} ->
-	  Forms = if ByPassPreP -> Forms1;
-		     true -> tl(Forms1)
-		  end,
-	    Comments = erl_comment_scan:file(FName),
-	    SyntaxTree = refac_recomment:recomment_forms(Forms, Comments),
-	    Info = refac_syntax_lib:analyze_forms(SyntaxTree),
-	    AnnAST = annotate_bindings(FName, SyntaxTree, Info, 1),
-	    {ok, {AnnAST, Info}};
+parse_annotate_file_1(FName, true, _SearchPaths) ->
+    case refac_epp_dodger:parse_file(FName) of
+	{ok, Forms} -> Comments = erl_comment_scan:file(FName),
+		       SyntaxTree = refac_recomment:recomment_forms(Forms, Comments),
+		       Info = refac_syntax_lib:analyze_forms(SyntaxTree),
+		       AnnAST = annotate_bindings(FName, SyntaxTree, Info, 1),
+		       {ok, {AnnAST, Info}};
 	{error, Reason} -> erlang:error(Reason)
-    end.
-
+    end;
+parse_annotate_file_1(FName, false, SearchPaths) ->
+   case refac_epp:parse_file(FName, SearchPaths,[]) of 
+       {ok, Forms} -> Forms1 =  lists:filter(fun(F) ->
+						     case F of 
+							 {attribute, _, file, _} -> false;
+							 _ -> true
+						     end
+					     end, Forms),
+		      %% I wonder whether the following is needed;
+		      %% we should never perform a transformation on an AnnAST from resulted from refac_epp;
+		      Comments = erl_comment_scan:file(FName),
+		      SyntaxTree = refac_recomment:recomment_forms(Forms1,Comments),
+		      Info = refac_syntax_lib:analyze_forms(SyntaxTree),
+		      AnnAST = annotate_bindings(FName, SyntaxTree, Info, 1),
+		      {ok, {AnnAST, Info}};       
+       {error, Reason} -> erlang:error(Reason)
+   end.
 
 %%@spec add_tokens(FName::filename(), SyntaxTree::syntaxTree()) -> syntaxTree()
 %%@Attach tokens to each form in the AST.
@@ -1305,12 +1348,14 @@ do_add_range(Node, Toks) ->
 	  Name = refac_syntax:macro_name(Node),
 	  Args = refac_syntax:macro_arguments(Node),
 	  {S1, E1} = get_range(Name), 
+	  S11 = extend_forwards(Toks, S1, '?'),
 	  case Args of
 	    none -> refac_syntax:add_ann({range, {S1, E1}}, Node);
 	    Ls ->
 		La = glast("refac_util:do_add_range,macro", Ls),
 		{_S2, E2} = get_range(La),
-		refac_syntax:add_ann({range, {S1, E2}}, Node)
+		E21 = extend_backwards(Toks, E2, ')'),
+		refac_syntax:add_ann({range, {S11, E21}}, Node)
 	  end;
       size_qualifier ->
 	  Body = refac_syntax:size_qualifier_body(Node),
@@ -1459,7 +1504,6 @@ do_add_category(Node, C) ->
 %% to that of the keyword 'fun'.
 %% Qn: Any other cases in need of location adjustment?
 adjust_locations(FName, AST) ->
-    %% {ok, Toks} =  refac_epp:scan_file(FName, [],[]),
     Toks = tokenize(FName),
     F = fun (T) ->
 		case refac_syntax:type(T) of

@@ -82,8 +82,6 @@ rename_var(FName, Line, Col, NewName, SearchPaths, Editor) ->
 							{_, true} -> {error, "New name could cause name shadowing."};
 						_ ->
 						    {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
-						    %%  case post_refac_check(FName, AnnAST2, SearchPaths) of
-						    %% 							ok ->
 						    case Editor of 
 							emacs ->
 							    refac_util:write_refactored_files([{{FName, FName}, AnnAST2}]),
@@ -194,25 +192,6 @@ pre_cond_check(AST, Line, Col, NewName) ->
 		  _ -> false
 	      end
     end.
-
-%% post_refac_check(FileName, AST, SearchPaths) ->
-%%     TempFileName = filename:join([filename:dirname(FileName),
-%% 				  filename:rootname(filename:basename(FileName)) ++ "_refac_temp"]),
-%%     file:write_file(TempFileName, list_to_binary(refac_prettypr:print_ast(AST))),
-%%     case refac_epp:parse_file(TempFileName, true, SearchPaths) of
-%%       {ok, Forms1} ->
-%% 	  Forms = refac_syntax:form_list(tl(Forms1)),
-%% 	  AnnAST = refac_syntax_lib:annotate_bindings(Forms, ordsets:new()),
-%% 	  case refac_util:analyze_free_vars(AnnAST) of
-%% 	    {error, Reason} -> 
-%% 		  ?wrangler_io("Reason:\n~p\n",[Reason]),
-%% 		  file:delete(TempFileName), error;
-%% 	    _ -> file:delete(TempFileName), ok
-%% 	  end;
-%%       {error, Reason} -> 
-%% 	     ?wrangler_io("Reason:\n~p\n",[Reason]),
-%% 	    file:delete(TempFileName), error
-%%     end.
 
 %% =====================================================================
 %% @spec envs_bounds_frees(Node::syntaxTree())-> {value, [{Key, [atom()}]}

@@ -22,7 +22,7 @@
 -module(refac_new_fun).
 
 -export([fun_extraction/4, fun_extraction_eclipse/4]).
--export([pos_to_expr/3, side_cond_analysis/4, vars_to_export/4]).
+-export([side_cond_analysis/4, vars_to_export/4]).
 
 -include("../hrl/wrangler.hrl").
 %% =============================================================================================
@@ -44,7 +44,7 @@ fun_extraction(FileName, Start, End, NewFunName,Editor) ->
     case refac_util:is_fun_name(NewFunName) of 
 	true ->
 	    {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(FileName,true, []),
-	    case pos_to_expr(FileName, AnnAST, {Start, End}) of 
+	    case refac_util:pos_to_expr_list(FileName, AnnAST, Start, End) of 
 		[] -> {error, "You have not selected an expression!"};
 		ExpList ->
 		    {ok,Fun} = refac_util:expr_to_fun(AnnAST, hd(ExpList)),
@@ -277,60 +277,3 @@ filter_exprs_via_ast(Tree, ExpList) ->
 	_  -> ExpList
     end.
 		    
-
-%% get the list sequence of expressions contained in Tree between locations Start and End.
-pos_to_expr(FName, Tree, {Start, End}) ->
-    {ok, Toks} = refac_epp:scan_file(FName, [], []),
-    Exprs = pos_to_expr(Tree, {Start, End}),
-    filter_exprs_via_toks(Toks, Exprs).
- 
-filter_exprs_via_toks(_Toks, []) ->
-    [];
-filter_exprs_via_toks(_Toks, [E]) ->
-    [E];
-filter_exprs_via_toks(Toks, [E1,E2|Es]) ->
-    {_StartLoc, EndLoc} = refac_util:get_range(E1),
-    {StartLoc1, _EndLoc1} = refac_util:get_range(E2),
-    Toks1 = lists:dropwhile(fun(T) ->
-				    token_loc(T) =< EndLoc end, Toks),
-    Toks2 = lists:takewhile(fun(T) ->
-				    token_loc(T) < StartLoc1 end, Toks1),
-    case lists:any(fun(T) -> token_val(T) =/= ',' end, Toks2) of 
-	false ->
-	    [E1]++ filter_exprs_via_toks(Toks, [E2|Es]);
-	_  -> [E1]
-    end.
-	
-%% get the list of expressions contained in Tree between locations Start and End.		
-pos_to_expr(Tree, {Start, End}) ->
-    {S, E} = refac_util:get_range(Tree),
-    if (S >= Start) and (E =< End) ->
-	    case refac_util:is_expr(Tree) of
-		true -> [Tree];
-		_ ->
-		    Ts = refac_syntax:subtrees(Tree),
-		    R0 = [[pos_to_expr(T, {Start, End}) || T <- G]
-			  || G <- Ts],
-		    lists:flatten(R0)
-	    end;
-       (S > End) or (E < Start) -> [];
-       (S < Start) or (E > End) ->
-	    Ts = refac_syntax:subtrees(Tree),
-	    R0 = [[pos_to_expr(T, {Start, End}) || T <- G]
-		  || G <- Ts],
-	    lists:flatten(R0);
-       true -> []
-    end.
-
-token_loc(T) ->
-      case T of 
-	{_, L, _V} -> L;
-	{_, L1} -> L1
-      end.
-
-%% get the value of a token.
-token_val(T) ->
-    case T of 
-	{_, _, V} -> V;
-	{V, _} -> V
-    end.
