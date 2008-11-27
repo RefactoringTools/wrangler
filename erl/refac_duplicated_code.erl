@@ -25,10 +25,7 @@
 
 -export([duplicated_code_1/3]).
 
--export([tokenize/1]).
-
--compile(export_all).
-
+-export([init/1]).
 %% TODO:  
 %% 1) does recusive function calls affect the result?
 %% 2) does qualifed names affect the result? 
@@ -44,7 +41,7 @@
 -define(DEFAULT_MIN_CLONE_MEMBER, 1).
 
 
--define(DEBUG, true).
+%% -define(DEBUG, true).
 
 -ifdef(DEBUG).
 -define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
@@ -83,14 +80,14 @@ get_clones_by_suffix_tree(FileNames,MinLength, MinClones) ->
     end.
 
 get_clones_by_erlang_suffix_tree(Toks, ProcessedToks, MinLength, MinClones) ->
-    ?debug("Initial clones are calculated using Erlang suffixtree implementation.\n", []),
-    io:format("MinClones:\n~p\n", [MinClones]),
+    ?wrangler_io("\nWrangler failed to use the C suffixtree implementation;"
+                 "Initial clones are calculated using Erlang suffixtree implementation.\n",[]),
     Tree = suffix_tree(alphabet() ++ "&", ProcessedToks ++ "&"),
     Cs = lists:flatten(lists:map(fun (B) ->
 					 collect_clones(MinLength, MinClones, B)
 				 end,
 				 Tree)),
-    Cs1 = filter_out_sub_clones(Cs),
+    Cs1 = remove_sub_clones(Cs),
     {Toks, Cs1}.
     
 call_port(Msg) ->
@@ -150,21 +147,21 @@ duplicated_code(DirFileList, MinLength1, MinClones1) ->
     ?wrangler_io("\nCMD: ~p:duplicated_code(~p,~p,~p).\n", [?MODULE, DirFileList, MinLength1, MinClones1]),
     ?debug("current time:~p\n", [time()]),
     start_suffix_tree_clone_detector(),
-    {Cs5, _FileNames} = duplicated_code_detection(DirFileList, MinClones1, MinLength1),
+    {Cs5, FileNames} = duplicated_code_detection(DirFileList, MinClones1, MinLength1),
     ?debug("Filtering out sub-clones.\n", []),
     Cs6 = remove_sub_clones(Cs5),
     stop_suffix_tree_clone_detector(),
     ?debug("current time:~p\n", [time()]),
-    %% case length(FileNames) of
-    %%     1 -> display_clones(Cs6);
-    %%     _ -> display_clones1(Cs6)
-    %%  end,
-    ?wrangler_io("No of Clones found:\n~p\n", [length(Cs6)]),
-    ?wrangler_io("Clones:\n~p\n", [Cs6]),
+    case length(FileNames) of
+         1 -> display_clones(Cs6);
+         _ -> display_clones1(Cs6)
+      end,
+    ?debug("No of Clones found:\n~p\n", [length(Cs6)]),
+    ?debug("Clones:\n~p\n", [Cs6]),
     {ok, "Duplicated code detection finished."}.
 
 -spec(duplicated_code_1/3::(dir(), [integer()], [integer()]) ->
-	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer()}]).  
+	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer()}]).
 
 duplicated_code_1(DirFileList, MinLength1, MinClones1) ->
     {Cs5, _} = duplicated_code_detection(DirFileList, MinClones1,
@@ -197,7 +194,7 @@ duplicated_code_detection(DirFileList, MinClones1, MinLength1) ->
     ?debug("Putting atoms back.\n",[]),
     Cs1 = clones_with_atoms(Cs, Toks, MinLength, MinClones),
     ?debug("Filtering out sub-clones.\n", []),
-    Cs2 = filter_out_sub_clones(Cs1),
+    Cs2 = remove_sub_clones(Cs1),
     ?debug("Combine with neighbours\n",[]),
     Cs3 = combine_neighbour_clones(Cs2, MinLength, MinClones),
     ?debug("Type3 without trimming:~p\n", [length(Cs3)]),
@@ -283,23 +280,6 @@ add_frequency({branch, {Range, Len}, Branches})
 extend_range(SuffixTree) ->
     extend_range([],SuffixTree).
 
-%% extend_range(_Prev_Range, {branch, {Range, {Len, Freq}}, leaf}) ->
-%%      {branch, {Range, {Len, Freq}}, leaf};
-%% extend_range(Prev_Range, {branch, {Range, {Len, Freq}}, Bs}) ->
-%%     ExtendedRange = lists:map(fun (R) -> combine_range(Prev_Range, R) end, Range),
-%%     case overlapped_range(ExtendedRange) orelse
-%% 	   lists:subtract(ExtendedRange, Range) =/= ExtendedRange
-%% 	of
-%%       true ->
-%% 	  Bs1 = lists:map(fun (B) -> extend_range(Range, B) end, Bs),
-%% 	  {branch, {Range, {Len, Freq}}, Bs1};
-%%       false ->
-%% 	  Bs1 = lists:map(fun (B) -> extend_range(ExtendedRange, B) end, Bs),
-%% 	  {S, E} = hd(ExtendedRange),
-%% 	  {branch, {ExtendedRange, {E - S + 1, Freq}}, Bs1}
-%%     end.
-
-
 extend_range(Prev_Range, {branch, {Range, {_Len, Freq}}, leaf}) ->
     ExtendedRange = lists:map(fun (R) -> combine_range(Prev_Range, R) end, Range),
     {S, E} = hd(ExtendedRange),
@@ -350,32 +330,6 @@ collect_clones(MinLength, MinFreq, {branch, {Range, {Len, F}}, Others}) ->
       Bs -> lists:foldl(fun (B, C1) -> collect_clones(MinLength, MinFreq, B) ++ C1 end, C, Bs)
     end.
     
-
-%% ==================================================================================
-%% This phase filters out sub-clones.
-
-filter_out_sub_clones(Cs) ->
-    Cs1 =lists:sort(fun({_Range1, Len1, F1},{_Range2, Len2, F2})
-		       -> {Len1, F1} >= {Len2,F2}
-		    end, Cs),
-    filter_out_sub_clones_1(Cs1, []).
-
-filter_out_sub_clones_1([], Acc) -> lists:reverse(Acc);
-filter_out_sub_clones_1([C|Cs], Acc) ->
-    case lists:any(fun(E)->  sub_clone(C, E) end, Acc) of
-	true ->
-	    filter_out_sub_clones_1(Cs, Acc);
-	_ -> filter_out_sub_clones_1(Cs, [C|Acc])
-    end.
-
-sub_clone({Range1, Len1, F1}, {Range2, Len2, F2}) ->
-    case F1=<F2 andalso Len1=<Len2 of 
-	true ->
-	    lists:all(fun ({S, E}) -> lists:any(fun ({S1, E1}) -> S1 =< S andalso E =< E1 end, Range2) end, Range1);
-	false ->
-	    false
-    end.
-
 
 %% ==================================================================================
 %% This phase brings back those atoms back into the token stream, and get the resulted clones.
@@ -521,7 +475,16 @@ remove_sub_clones([C|Cs], Acc_Cs) ->
     case R of 
 	true ->remove_sub_clones(Cs, Acc_Cs);
 	_ -> remove_sub_clones(Cs, Acc_Cs++[C])
-    end.  
+    end.
+
+sub_clone({Range1, Len1, F1}, {Range2, Len2, F2}) ->
+    case F1=<F2 andalso Len1=<Len2 of 
+	true ->
+	    lists:all(fun ({S, E}) -> lists:any(fun ({S1, E1}) -> S1 =< S andalso E =< E1 end, Range2) end, Range1);
+	false ->
+	    false
+    end.
+
 		  
 %% ================================================================================== 
 %% trim both end of each clones to exclude those tokens that does not form a meaninhful syntax phrase.
@@ -601,7 +564,6 @@ trim_clones(FileNames, Cs, MinLength, MinClones) ->
 		  end
 	  end,
     Cs2= lists:append(lists:map(Fun, Cs)),
-    %%?wrangler_io("Type3:\n~p\n",[length(Cs2)]),
     Cs3 =[lists:map(fun(C) -> {C, Len, length(C)} end, group_by(2, lists:map(Fun0, Range)))
 		    || {Range, Len, _F}<- Cs2],
     Cs4 = lists:append(Cs3),
@@ -759,7 +721,7 @@ token_val(T) ->
 	{V, _} -> V
     end.
 
-
+ 
 add_filename_to_token(FileName,T) ->
     case T of 
 	{C, {Ln,Col}, V} ->
@@ -769,31 +731,32 @@ add_filename_to_token(FileName,T) ->
     end.
 	    				
 
-pos_to_syntax_units(Tree, Toks, {Start,End}) ->    
-    ExprOrFuns = pos_to_expr_or_fun(Tree, {Start, End}),
+pos_to_syntax_units(Tree, Toks, {Start,{EndLine, EndCol}}) ->    
+    %% The next expression is only a quick fix;
+    %% EndCol currently refers to the start loc of a token, 
+    %% but to be correct, it should be the end loc of the token.
+    ExprOrFuns = pos_to_expr_or_fun(Tree, {Start, {EndLine, EndCol+5}}),
     Res = group_syntax_units(Toks, ExprOrFuns),
     lists:filter(fun(E) -> E =/=[] end, Res).
 
-
 pos_to_expr_or_fun(Tree, {Start, End}) ->
+    GetSubExprs = fun() ->
+		     Ts = refac_syntax:subtrees(Tree),
+		     R0 = [[pos_to_expr_or_fun(T, {Start, End}) || T <- G]
+			   || G <- Ts],
+		     lists:flatten(R0)
+		  end,
     {S, E} = refac_util:get_range(Tree),
     if (S >= Start) and (E =< End) ->
-	     case is_expr_or_fun(Tree) of
-		true -> [Tree];
-		_ ->
-		    Ts = refac_syntax:subtrees(Tree),
-		    R0 = [[pos_to_expr_or_fun(T, {Start, End}) || T <- G]
-			  || G <- Ts],
-		    lists:flatten(R0)
-	    end;
+	   case is_expr_or_fun(Tree) of
+	     true -> [Tree];
+	     _ -> GetSubExprs()
+	   end;
        (S > End) or (E < Start) -> [];
-       (S < Start) or (E > End) ->
-	    Ts = refac_syntax:subtrees(Tree),
-	    R0 = [[pos_to_expr_or_fun(T, {Start, End}) || T <- G]
-		  || G <- Ts],
-	    lists:flatten(R0);
+       (S < Start) or (E > End) -> GetSubExprs();
        true -> []
     end.
+
 
 is_expr(Node) ->
     As = refac_syntax:get_ann(Node),
@@ -802,6 +765,7 @@ is_expr(Node) ->
 				     expression -> true;
 				     guard_expression -> true;
 				     match_expression -> true;
+				     macro -> true;
 				     _  -> false
 				 end;
 	_ -> false
@@ -817,10 +781,7 @@ get_expr_or_fun_seq(_Toks, [E]) -> [refac_util:get_range(E)];
 get_expr_or_fun_seq(Toks, [E1, E2 | Es]) ->
     case is_expr(E1) of
       true ->
-	  {StartLoc, EndLoc} = refac_util:get_range(E1),
-	  {StartLoc1, _EndLoc} = refac_util:get_range(E2),
-	  Toks1 = lists:dropwhile(fun (T) -> token_loc(T) =< EndLoc end, Toks),
-	  Toks2 = lists:takewhile(fun (T) -> token_loc(T) < StartLoc1 end, Toks1),
+	  {EndLoc, StartLoc, Toks2} = get_expr_toks(E1, E2, Toks),
 	  case lists:any(fun (T) -> token_val(T) =/= ',' end, Toks2) or not is_expr(E2) of
 	    true -> [{StartLoc, EndLoc}];
 	    _ -> [{StartLoc, EndLoc}] ++ get_expr_or_fun_seq(Toks, [E2 | Es])
@@ -828,18 +789,21 @@ get_expr_or_fun_seq(Toks, [E1, E2 | Es]) ->
       false ->
 	  case refac_syntax:type(E1) of
 	    function ->
-		{StartLoc, EndLoc} = refac_util:get_range(E1),
-		{StartLoc1, _EndLoc} = refac_util:get_range(E2),
-		Toks1 = lists:dropwhile(fun (T) -> token_loc(T) =< EndLoc end, Toks),
-		Toks2 = lists:takewhile(fun (T) -> token_loc(T) < StartLoc1 end, Toks1),
-		case lists:any(fun (T) -> token_val(T) =/= '.' end, Toks2) or not (refac_syntax:type(E2) == function)
-		    of
+		{EndLoc, StartLoc, Toks2} = get_expr_toks(E1, E2, Toks),
+		case lists:any(fun (T) -> token_val(T) =/= '.' end, Toks2) or not (refac_syntax:type(E2) == function) of
 		  true -> [{StartLoc, EndLoc}];
 		  _ -> [{StartLoc, EndLoc}] ++ get_expr_or_fun_seq(Toks, [E2 | Es])
 		end;
 	    _ -> get_expr_or_fun_seq(Toks, [E2 | Es])
 	  end
     end.
+
+get_expr_toks(E1, E2, Toks) ->
+    {StartLoc, EndLoc} = refac_util:get_range(E1),
+    {StartLoc1, _EndLoc} = refac_util:get_range(E2),
+    Toks1 = lists:dropwhile(fun (T) -> token_loc(T) =< EndLoc end, Toks),
+    Toks2 = lists:takewhile(fun (T) -> token_loc(T) < StartLoc1 end, Toks1),
+    {EndLoc, StartLoc, Toks2}.
   
 			 
 group_syntax_units(Toks, Es) ->
