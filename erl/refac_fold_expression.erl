@@ -438,13 +438,14 @@ do_search_candidate_exprs_2(AnnAST, ExpList) ->
 		      clause ->
 			  Exprs = refac_syntax:clause_body(T),
 			  SubExprs = sublists(Exprs, Len),
-		          CandidateExprs1 = 
+			  CandidateExprs1 = 
 			         lists:map(fun(E) -> case ExpList =/= E of 
    						      true ->case expr_unification(ExpList, E) of 
    								 {true,Subst} -> {StartLoc1, _EndLoc1} = refac_util:get_range(hd(E)),
    										 {_StartLoc2, EndLoc2} = refac_util:get_range(lists:last(E)),
    										 {{StartLoc1, EndLoc2}, Subst};
-   								 _ -> false
+   								 _ ->
+								     false
    							     end;
    						      _ -> false
    						  end							       
@@ -498,7 +499,8 @@ expr_unification(Exp1, Exp2) ->
 	{true, true} ->   %% both are list of expressions
 	    case length(Exp1) == length(Exp2) of
 		true -> Res = lists:map(fun({E1,E2}) ->			      
-						expr_unification(E1,E2) end, lists:zip(Exp1, Exp2)),
+						expr_unification(E1,E2)						
+					end, lists:zip(Exp1, Exp2)),
 			Unifiable = lists:all(fun(E) -> case E of 
 							    {true, _} -> true;
 							    _ -> false
