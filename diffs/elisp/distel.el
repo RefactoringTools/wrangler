@@ -95,6 +95,7 @@ C-c C-d b/\\[edb-toggle-breakpoint]	- Toggle a debugger breakpoint at the curren
 \\[erl-refactor-duplicated-code-in-buffer] -Detect code clones in the current file.
 \\[erl-refactor-duplicated-code-in-dirs] -Detect code clones in the specified directories.
 \\[erl-refactor-expression-search] - search an expression in the current file
+\\[erl-refactor-new-marco] - Introduce a new macro
 \\[erl-wrangler-code-inspector-var-instances] -- semantical search of occurrences of a variable
 \\[erl-wrangler-code-inspector-calle-funs]
 \\[erl-wrangler-code-inspector-caller-called-mods]
@@ -357,6 +358,8 @@ Please see the documentation of `erlang-menu-base-items'.")
        ("Detect Duplicated Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
        ("Detect Duplicated Code in Dirs" erl-refactor-duplicated-code-in-dirs)
        ("Expression Search" erl-refactor-expression-search)
+   ;;    nil
+    ;;   ("Introduce a Macro" erl-refactor-new-macro)
        nil
        ("Undo" erl-refactor-undo)
        nil

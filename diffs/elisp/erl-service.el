@@ -1345,12 +1345,9 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
-    (let (changed)
-      (dolist (b (buffer-list) changed)
-	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s" changed))
+    (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
+      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
+	  (message-box "The current buffer has been changed")
 	(erl-spawn
 	  (erl-send-rpc node 'wrangler_distel 'rename_var (list current-file-name line-no column-no name erlang-refac-search-paths))
 	  (erl-receive (buffer)
@@ -1622,13 +1619,10 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	(start-col-no  (current-column-pos start))
 	(end-line-no   (line-no-pos end))
 	(end-col-no    (current-column-pos end)))
-    (let (changed)
-      (dolist (b (buffer-list) changed)
-	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s" changed))
-    (erl-spawn
+    (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
+      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
+	  (message-box "The current buffer has been changed")
+	(erl-spawn
       (erl-send-rpc node 'wrangler_distel 'generalise
 		    (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name erlang-refac-search-paths))
       (erl-receive (buffer node current-file-name erlang-refac-search-paths)
@@ -1726,24 +1720,48 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	(start-col-no  (current-column-pos start))
 	(end-line-no   (line-no-pos end))
 	(end-col-no    (current-column-pos end)))
-    (let (changed)
-      (dolist (b (buffer-list) changed)
-	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s" changed))
-    (erl-spawn
-      (erl-send-rpc node 'wrangler_distel 'fun_extraction
-		    (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name))
-      (erl-receive (buffer)
-	  ((['rex ['badrpc rsn]]
-	    (message "Refactoring failed: %S" rsn))
-	   (['rex ['error rsn]]
-	    (message "Refactoring failed: %s" rsn))
-	   (['rex ['ok refac_fun_extraction]]
-	    (with-current-buffer buffer (revert-buffer nil t t))
-            (message "Refactoring succeeded!")))))))))
+    (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
+      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
+	  (message-box "The current buffer has been changed")
+	(erl-spawn
+	  (erl-send-rpc node 'wrangler_distel 'fun_extraction
+			(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name))
+	  (erl-receive (buffer)
+	      ((['rex ['badrpc rsn]]
+		(message "Refactoring failed: %S" rsn))
+	       (['rex ['error rsn]]
+		(message "Refactoring failed: %s" rsn))
+	       (['rex ['ok refac_fun_extraction]]
+		(with-current-buffer buffer (revert-buffer nil t t))
+		(message "Refactoring succeeded!")))))))))
 
+(defun erl-refactor-new-macro(node name start end)
+  "Introduce a new marco to represent an user-selected syntax phrase."
+  (interactive (list (erl-target-node)
+		     (read-string "New macro name: ")
+		     (region-beginning)
+		     (region-end)
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer))
+	(start-line-no (line-no-pos start))
+	(start-col-no  (current-column-pos start))
+	(end-line-no   (line-no-pos end))
+	(end-col-no    (current-column-pos end)))
+    (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
+      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
+	  (message-box "The current buffer has been changed")
+	(erl-spawn
+	  (erl-send-rpc node 'wrangler_distel 'new_macro
+			(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name erlang-refac-search-paths))
+	  (erl-receive (buffer)
+	      ((['rex ['badrpc rsn]]
+		(message "Refactoring failed: %S" rsn))
+	       (['rex ['error rsn]]
+		(message "Refactoring failed: %s" rsn))
+	       (['rex ['ok str]]
+		(with-current-buffer buffer (revert-buffer nil t t))
+		(message "Refactoring succeeded!")))))))))
 
 (defun erl-refactor-fold-expression(node)
   "Fold expression(s) against function definition."
@@ -1937,12 +1955,9 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 		     ))
   (let ((current-file-name (buffer-file-name))
 	(buffer (current-buffer)))
-    (let (changed)
-      (dolist (b (buffer-list) changed)
-	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s" changed))
+    (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
+      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
+	  (message-box "The current buffer has been changed")
     (erl-spawn
       (erl-send-rpc node 'wrangler_distel 'duplicated_code_in_buffer
 		    (list current-file-name mintokens minclones))
@@ -1992,12 +2007,9 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	(start-col-no  (current-column-pos start))
 	(end-line-no   (line-no-pos end))
 	(end-col-no    (current-column-pos end)))
-    (let (changed)
-      (dolist (b (buffer-list) changed)
-	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s" changed))
+    (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
+      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
+	  (message-box "The current buffer has been changed")
     (erl-spawn
       (erl-send-rpc node 'wrangler_distel 'expression_search
 		    (list current-file-name start-line-no start-col-no end-line-no end-col-no))
@@ -2105,20 +2117,6 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 		(get-position line2 col2) buffer)
   (goto-char (get-position line2 col2))
   )
-
-
-;;   ;; (message "Press 'Enter' key to go to the next instance, any other key to exit.")
-;;     (let (input (read-event))
-;;       (if (equal input 'return)
-;; 	  ((setq regions (cdr regions))
-;; 	   (message "Press 'Enter' key to go to the next instance, 'Esc' to exit.")
-;; 	   )
-;; 	(if (equal input 'escape)
-;; 	    (setq regions nil)
-;; 	  (message "Press 'Enter' key to go to the next instance, 'Esc' to exit.")
-;; 	  )
-;; 	))
-;;     )
 
 (defun highlight-search-results(regions buffer)
   "highlight the found results one by one"
