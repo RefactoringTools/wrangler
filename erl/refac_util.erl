@@ -875,7 +875,7 @@ parse_annotate_file_1(FName, true, _SearchPaths) ->
 		       AnnAST = annotate_bindings(FName, SyntaxTree, Info, 1),
 		       {ok, {AnnAST, Info}};
 	{error, Reason} -> erlang:error(Reason)
-    end;
+    end;    
 parse_annotate_file_1(FName, false, SearchPaths) ->
    case refac_epp:parse_file(FName, SearchPaths,[]) of 
        {ok, Forms} -> Forms1 =  lists:filter(fun(F) ->
