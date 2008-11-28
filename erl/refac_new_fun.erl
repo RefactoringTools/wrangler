@@ -44,7 +44,7 @@ fun_extraction(FileName, Start, End, NewFunName,Editor) ->
     case refac_util:is_fun_name(NewFunName) of 
 	true ->
 	    {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(FileName,true, []),
-	    case refac_util:pos_to_expr_list(FileName, AnnAST, Start, End) of 
+	    case refac_util:pos_to_expr_list(AnnAST, Start, End) of 
 		[] -> {error, "You have not selected an expression!"};
 		ExpList ->
 		    {ok,Fun} = refac_util:expr_to_fun(AnnAST, hd(ExpList)),
