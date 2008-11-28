@@ -120,7 +120,7 @@ get_callgraph(SearchPaths) ->
 
 -spec(get_sccs_including_fun/2::({modulename(),functionname(), arity()}, [dir()]) -> scc_order()).
 get_sccs_including_fun({M, F, A}, SearchPaths) ->    
-    gen_servers:call(wrangler_callgraph_server, {get_fun_sccs, {M,F, A}, SearchPaths}).
+    gen_server:call(wrangler_callgraph_server, {get_fun_sccs, {M,F, A}, SearchPaths}).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
