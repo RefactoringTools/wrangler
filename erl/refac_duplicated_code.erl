@@ -57,7 +57,9 @@ start(ExtPrg) ->
     process_flag(trap_exit, true),
     spawn_link(?MODULE, init, [ExtPrg]).
 
-stop_suffix_tree_clone_detector() -> catch (?MODULE) ! stop.
+stop_suffix_tree_clone_detector() -> case catch (?MODULE ! stop) of 
+					 _ -> ok
+				     end.
 
 
 get_clones_by_suffix_tree(FileNames,MinLength, MinClones) ->
@@ -73,6 +75,7 @@ get_clones_by_suffix_tree(FileNames,MinLength, MinClones) ->
 		      file:delete(OutFileName),
 		      {Toks, Cs};
 		  _ -> 
+		      stop_suffix_tree_clone_detector(),
 		      file:delete(OutFileName),
 		      get_clones_by_erlang_suffix_tree(Toks, ProcessedToks, MinLength, MinClones)
 		    
