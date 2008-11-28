@@ -204,7 +204,7 @@ check_wrangler_error_logger() ->
 	[] ->
 	     ok;
 	_ ->  ?wrangler_io("\n===============================WARNING===============================\n",[]),
-	      ?wrangler_io("There are errors in the program, and functions/attribute containing errors are not affected by the refactoring process.\n",[]),
+	      ?wrangler_io("There are errors in the program, and functions/attribute containing errors are not affected by refactoring.\n",[]),
 	      lists:foreach(fun({FileName, Errs}) ->
 				    ?wrangler_io("File:\n ~p\n", [FileName]),
 				    ?wrangler_io("Error(s):\n",[]),

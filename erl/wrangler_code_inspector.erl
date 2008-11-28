@@ -163,7 +163,7 @@ format_result(Funs, NestLevel, ExprType) ->
 		    receive_expr -> 'receive'
 		end,
     case Funs of 
-	[] -> ?wrangler_io("\nNo function in this module contains ~p expressions nested ~p or more  levels.\n", [ExprType1, NestLevel]);
+	[] -> ?wrangler_io("\nNo function in this module contains ~p expressions nested ~p or more levels.\n", [ExprType1, NestLevel]);
 	_ -> ?wrangler_io("\nThe following function(s) contains ~p expressions nested ~p or more levels:\n ", [ExprType1, NestLevel]),
 	     format_result_1(Funs)
     end.
@@ -485,7 +485,7 @@ long_funs_format_results(LongFuns, Lines) ->
 	    ?wrangler_io("\n No Function in this module has more than ~p lines.\n",
 		      [Lines]);
 	_ ->
-	    ?wrangler_io("\n The following functions have more than ~p lines of code:\n",
+	    ?wrangler_io("\n The following function(s) have more than ~p lines of code:\n",
 		      [Lines]),
 	    format_result_1(LongFuns)
     end.
