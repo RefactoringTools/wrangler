@@ -42,7 +42,7 @@
 expr_search(FileName, Start, End) ->
     ?wrangler_io("\nCMD: ~p:expr_search(~p, ~p,~p).\n", [?MODULE, FileName, Start, End]),
     {ok, {AnnAST, _Info}} =refac_util:parse_annotate_file(FileName,true, []),
-    case pos_to_expr(FileName, AnnAST, {Start, End}) of 
+    case refac_util:pos_to_expr_list(AnnAST, Start, End) of 
 	[E|Es] -> 
 	    Res = case Es == [] of 
 		      true ->
@@ -175,49 +175,7 @@ contained_exprs(Tree, MinLen) ->
 		 
 
 
-%% get the list sequence of expressions contained in Tree between locations Start and End.
-pos_to_expr(FName, Tree, {Start, End}) ->
-    {ok, Toks} = refac_epp:scan_file(FName, [], []),
-    Exprs = pos_to_expr(Tree, {Start, End}),
-    filter_exprs(Toks, Exprs).
-
-filter_exprs(_Toks, []) ->
-    [];
-filter_exprs(_Toks, [E]) ->
-    [E];
-filter_exprs(Toks, [E1,E2|Es]) ->
-    {_StartLoc, EndLoc} = refac_util:get_range(E1),
-    {StartLoc1, _EndLoc1} = refac_util:get_range(E2),
-    Toks1 = lists:dropwhile(fun(T) ->
-				    token_loc(T) =< EndLoc end, Toks),
-    Toks2 = lists:takewhile(fun(T) ->
-				    token_loc(T) < StartLoc1 end, Toks1),
-    case lists:any(fun(T) -> token_val(T) =/= ',' end, Toks2) of 
-	false ->
-	    [E1]++ filter_exprs(Toks, [E2|Es]);
-	_  -> [E1]
-    end.
-
-%% get the list of expressions contained in Tree between locations Start and End.		
-pos_to_expr(Tree, {Start, End}) ->
-    {S, E} = refac_util:get_range(Tree),
-    if (S >= Start) and (E =< End) ->
-	    case refac_util:is_expr(Tree) of
-		true -> [Tree];
-		_ ->
-		    Ts = refac_syntax:subtrees(Tree),
-		    R0 = [[pos_to_expr(T, {Start, End}) || T <- G]
-			  || G <- Ts],
-		    lists:flatten(R0)
-	    end;
-       (S > End) or (E < Start) -> [];
-       (S < Start) or (E > End) ->
-	    Ts = refac_syntax:subtrees(Tree),
-	    R0 = [[pos_to_expr(T, {Start, End}) || T <- G]
-		  || G <- Ts],
-	    lists:flatten(R0);
-       true -> []
-    end.
+      
 
 %% get the binding structure of variables.
 -spec(var_binding_structure/1::([syntaxTree()]) -> [{integer(), integer()}]).	     
@@ -262,18 +220,3 @@ var_binding_structure(ASTList) ->
 	  end,
     Res.
 
-
-	    
-%% get the location of a token.
-token_loc(T) ->
-      case T of 
-	{_, L, _V} -> L;
-	{_, L1} -> L1
-      end.
-
-%% get the value of a token.
-token_val(T) ->
-    case T of 
-	{_, _, V} -> V;
-	{V, _} -> V
-    end.
