@@ -39,7 +39,7 @@
 	 is_exported/2, inscope_funs/1,
          once_tdTU/3, stop_tdTP/3, full_buTP/3,
          pos_to_fun_name/2, pos_to_fun_def/2,pos_to_var_name/2,
-         pos_to_expr/3, pos_to_expr_list/4, expr_to_fun/2,get_range/1,get_toks/1, concat_toks/1, tokenize/1,
+         pos_to_expr/3, pos_to_expr_list/3, pos_to_syntax_units/4,expr_to_fun/2,get_range/1,get_toks/1, concat_toks/1, tokenize/1,
          get_var_exports/1, get_env_vars/1, get_bound_vars/1, get_free_vars/1, 
          get_client_files/2, expand_files/2, get_modules_by_file/1,
          reset_attrs/1, update_ann/2,parse_annotate_file_1/3,
@@ -205,7 +205,7 @@ stop_tdTP(Function, Node, Others) ->
 %% @see stop_tdTP/2
 %% @see once_tdTU/3
 -spec(full_buTP/3::(fun((syntaxTree(), any()) -> syntaxTree()), syntaxTree(), term())->
-	     syntaxTree()).		       
+	     syntaxTree()).       
 full_buTP(Fun, Tree, Others) ->
     case refac_syntax:subtrees(Tree) of
       [] -> Fun(Tree, Others);
@@ -343,61 +343,56 @@ pos_to_var_name_1(Node, _Pos = {Ln, Col}) ->
 -spec(pos_to_expr(Tree::syntaxTree(), Start::pos(), End::pos()) ->
                   {ok, syntaxTree()} | {error, string()}).
 pos_to_expr(Tree, Start, End) ->
-   Es = pos_to_expr_1(Tree, Start, End),
+   Es = pos_to_expr_list(Tree, Start, End),
    case Es of 
        [H|_T] -> {ok, H};
        _ -> {error, "You have not selected an expression!"}
    end.
 
-pos_to_expr_1(Tree, Start, End) ->
+-spec(pos_to_syntax_units(Tree::syntaxTree(),  Start::pos(), End::pos(), F::function()) ->
+	     [syntaxTree()]).
+pos_to_syntax_units(Tree, Start, End, F) ->
+    Res = pos_to_syntax_units_1(Tree, Start, End, F),
+    filter_syntax_units(Res).
+
+pos_to_syntax_units_1(Tree, Start, End, F) ->
     {S, E} = get_range(Tree),
     if (S >= Start) and (E =< End) ->
-	   case is_expr(Tree) of
+	   case F(Tree) of
 	     true -> [Tree];
 	     _ ->
 		 Ts = refac_syntax:subtrees(Tree),
-		 R0 = [[pos_to_expr_1(T, Start, End) || T <- G] || G <- Ts],
-		 lists:flatten(R0)
+		 R0 = [[pos_to_syntax_units_1(T, Start, End, F) || T <- G]
+		       || G <- Ts],
+		 lists:append(R0)
 	   end;
        (S > End) or (E < Start) -> [];
        (S < Start) or (E > End) ->
 	   Ts = refac_syntax:subtrees(Tree),
-	   R0 = [[pos_to_expr_1(T, Start, End) || T <- G] || G <- Ts],
-	   lists:flatten(R0);
+	   R0 = [[pos_to_syntax_units_1(T, Start, End, F) || T <- G]
+		 || G <- Ts],
+	   lists:append(R0);
        true -> []
+    end.
+
+filter_syntax_units([])->[];
+filter_syntax_units(Exprs) ->
+    case lists:all(fun(E) -> is_list(E) end, Exprs) of 
+	true ->
+	    filter_syntax_units(lists:append(Exprs));
+	_ -> Exprs1 = lists:dropwhile(fun(E) ->is_list(E) end, Exprs),
+	     lists:takewhile(fun(E)->
+			       is_list(E)==false end, Exprs1)
     end.
 
 %% =====================================================================
 %% get the list expressions enclosed by start and end locations.
--spec(pos_to_expr_list(FName::filename(), Tree::syntaxTree(), Start::pos(), End::pos()) ->
+-spec(pos_to_expr_list(Tree::syntaxTree(), Start::pos(), End::pos()) ->
 	     [syntaxTree()]).
-pos_to_expr_list(FName, Tree, Start, End) ->
-    Toks = tokenize(FName),
-    Exprs = pos_to_expr_1(Tree, Start, End),
-    filter_exprs(Toks, Exprs).
 
-filter_exprs(_Toks, []) ->
-    [];
-filter_exprs(_Toks, [E]) ->
-    [E];
-filter_exprs(Toks, [E1,E2|Es]) ->
-    {_StartLoc, EndLoc} = refac_util:get_range(E1),
-    {StartLoc1, _EndLoc1} = refac_util:get_range(E2),
-    Toks1 = lists:dropwhile(fun(T) ->
-				    token_loc(T) =< EndLoc end, Toks),
-    Toks2 = lists:takewhile(fun(T) ->
-				    token_loc(T) < StartLoc1 end, Toks1),
-    %% In the following, 'token_val(T) =='('' is added here to quick fix 
-    %% the problem when '()' is thrown away by the parser as in this 
-    %% example: (?MODULE) ! {call, self(), Msg}. A better way needs to be 
-    %% found to  address this problem.
-    case lists:all(fun(T) -> (token_val(T) == ',') or (token_val(T)=='(')
-		   end, Toks2) of 
-	true ->
-	    [E1]++ filter_exprs(Toks, [E2|Es]);
-	_  -> [E1]
-    end.
-
+pos_to_expr_list(Tree, Start, End) ->
+    pos_to_syntax_units(Tree, Start, End, fun is_expr/1).
+    
 
 %% ===========================================================================
 %% @spec expr_to_fun(Tree::syntaxTree(), Exp::syntaxTree())->
@@ -752,7 +747,7 @@ write_refactored_files(Files) ->
 %%       _ -> refactor_undo ! {add, Files1}
 %%     end,
     %% Actually the result of writing to files should be checked!
-    lists:foreach(F, Files).   
+    lists:foreach(F, Files). 
 
 %% =====================================================================
 %% @spec tokenize(File::filename()) -> [token()]
