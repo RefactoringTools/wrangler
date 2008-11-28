@@ -67,13 +67,14 @@
 -spec(rename_var/5::(filename(), integer(), integer(), string(), [dir()]) ->
 	     {error, string()} | {ok, string()}).
 rename_var(FileName, Line, Col, NewName, SearchPaths) ->
-    refac_rename_var:rename_var(FileName, Line, Col, NewName, SearchPaths).
+    try_refactoring(refac_rename_var, rename_var, [FileName, Line, Col, NewName, SearchPaths]).
+   
 
 %% @private
 -spec(rename_var_eclipse/5::(filename(), integer(), integer(), string(), [dir()]) ->
 	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_var_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
-    refac_rename_var:rename_var_eclipse(FileName, Line, Col, NewName, SearchPaths).
+    try_refactoring(refac_rename_var, rename_var_eclipse, [FileName, Line, Col, NewName, SearchPaths]).
 
 %%=========================================================================================
 %% @doc Rename a function name with a user-supplied new name.
@@ -97,13 +98,13 @@ rename_var_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
 -spec(rename_fun/5::(string(), integer(), integer(), string(), [dir()]) ->
 	     {error, string()} | {ok, [filename()]}).
 rename_fun(FileName, Line, Col, NewName, SearchPaths) ->
-    refac_rename_fun:rename_fun(FileName, Line, Col, NewName, SearchPaths).
+    try_refactoring(refac_rename_fun, rename_fun, [FileName, Line, Col, NewName, SearchPaths]).
 
 %%@private
 -spec(rename_fun_eclipse/5::(string(), integer(), integer(), string(), [dir()]) ->
 	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
-    refac_rename_fun:rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths).
+    try_refactoring(refac_rename_fun, rename_fun_eclipse, [FileName, Line, Col, NewName, SearchPaths]).
 
 %%======================================================================================
 %% @doc Rename a module with a user-supplied new name.
@@ -124,13 +125,13 @@ rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
 %%   
 -spec(rename_mod/3::(filename(), string(), [dir()]) -> {error, string()} | {ok, [filename()]}).
 rename_mod(FileName, NewName, SearchPaths) ->
-    refac_rename_mod:rename_mod(FileName, NewName, SearchPaths).
+    try_refactoring(refac_rename_mod, rename_mod,  [FileName, NewName, SearchPaths]).
 
 %%@private
 -spec(rename_mod_eclipse/3::(filename(), string(), [dir()]) ->
 	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_mod_eclipse(FileName, NewName, SearchPaths) ->
-    refac_rename_mod:rename_mod_eclipse(FileName, NewName, SearchPaths).
+    try_refactoring(refac_rename_mod, rename_mod_eclipse, [FileName, NewName, SearchPaths]).
 
 %% =====================================================================
 %% @doc Rename a collection of module names in batch mode. 
@@ -151,7 +152,7 @@ rename_mod_eclipse(FileName, NewName, SearchPaths) ->
 -spec(rename_mod_batch/3::(string(), string(), [dir()])->
 	     ok | {error, string()}).
 rename_mod_batch(OldNamePattern, NewNamePattern, SearchPaths) ->
-    refac_batch_rename_mod:batch_rename_mod(OldNamePattern, NewNamePattern, SearchPaths).
+    try_refactoring(refac_batch_rename_mod, batch_rename_mod, [OldNamePattern, NewNamePattern, SearchPaths]).
 
 
 %% ==========================================================================================
@@ -215,22 +216,22 @@ rename_mod_batch(OldNamePattern, NewNamePattern, SearchPaths) ->
 %%         Pos = {integer(), integer()}
 -spec(generalise/5::(filename(),pos(), pos(),string(), dir()) -> {ok, string()} | {error, string()}).
 generalise(FileName, Start, End, ParName, SearchPaths) ->
-    refac_gen:generalise(FileName, Start, End, ParName,  SearchPaths).
+    try_refactoring(refac_gen, generalise, [FileName, Start, End, ParName,  SearchPaths]).
 
 %%@private
 -spec(generalise_eclipse/5::(filename(),pos(), pos(),string(), dir()) -> {ok, [{filename(), filename(), string()}]}).
 generalise_eclipse(FileName, Start, End, ParName, SearchPaths) ->
-    refac_gen:generalise_eclipse(FileName, Start, End, ParName,  SearchPaths).
+    try_refactoring(refac_gen, generalise_eclipse, [FileName, Start, End, ParName,  SearchPaths]).
 
 %%@private
 -spec(gen_fun_1_eclipse/7::(boolean(), filename(),atom(), atom(), integer(), pos(), syntaxTree()) -> {ok, [{filename(), filename(),string()}]}).
 gen_fun_1_eclipse(SideEffect, FileName, ParName, FunName, Arity, DefPos, Expr) ->
-    refac_gen:gen_fun_1_eclipse(SideEffect, FileName, ParName, FunName, Arity, DefPos, Expr).
+    try_refactoring(refac_gen, gen_fun_1_eclipse, [SideEffect, FileName, ParName, FunName, Arity, DefPos, Expr]).
 
 %%@private
 -spec(gen_fun_2_eclipse/7::(filename(),atom(), atom(), integer(), pos(), syntaxTree(), [dir()]) -> {ok, [{filename(), filename(), string()}]}).
 gen_fun_2_eclipse(FileName, ParName, FunName, Arity, DefPos, Expr, SearchPaths) ->
-    refac_gen:gen_fun_2_eclipse(FileName, ParName, FunName, Arity, DefPos, Expr, SearchPaths).
+    try_refactoring(refac_gen, gen_fun_2_eclipse, [FileName, ParName, FunName, Arity, DefPos, Expr, SearchPaths]).
 
 %% ================================================================================
 %% @doc Move a function definition from its current module to another module.
@@ -261,7 +262,7 @@ gen_fun_2_eclipse(FileName, ParName, FunName, Arity, DefPos, Expr, SearchPaths) 
         -> {ok, [{filename(), filename()}]}
            | {error, string()}).
 move_fun(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths) ->
-    refac_move_fun:move_fun(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths).
+    try_refactoring(refac_move_fun, move_fun, [FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths]).
 
 
 %%@private
@@ -269,7 +270,7 @@ move_fun(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths) ->
         -> {ok, [{filename(), filename(), string()}]}
            | {error, string()}).
 move_fun_eclipse(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths) ->
-    refac_move_fun:move_fun_eclipse(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths).
+    try_refactoring(refac_move_fun, move_fun_eclipse, [FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths]).
 
 
 %% ==================================================================================
@@ -285,7 +286,7 @@ move_fun_eclipse(FileName, Line, Col, TargetModName, CreateNewFile, SearchPaths)
 %% 
 -spec(duplicated_code_in_buffer/3::(filename(), string(), string()) ->{ok, string()}).     
 duplicated_code_in_buffer(FileName, MinToks, MinClones) -> 
-    refac_duplicated_code:duplicated_code([FileName], MinToks, MinClones).
+    try_refactoring(refac_duplicated_code, duplicated_code, [[FileName], MinToks, MinClones]).
 
 
 %% =====================================================================================
@@ -300,7 +301,7 @@ duplicated_code_in_buffer(FileName, MinToks, MinClones) ->
 %% @spec duplicated_code_in_dirs(FileNameList::[filename()|dir()], MinToks::integer(), MinClones::integer()) -> {ok, string()}
 -spec(duplicated_code_in_dirs/3::([dir()], string(), string()) ->{ok, string()}).
 duplicated_code_in_dirs(FileDirList, MinToks, MinClones) ->
-    refac_duplicated_code:duplicated_code(FileDirList, MinToks, MinClones).
+    try_refactoring(refac_duplicated_code, duplicated_code, [FileDirList, MinToks, MinClones]).
     
 
 %% ==================================================================================================
@@ -317,7 +318,7 @@ duplicated_code_in_dirs(FileDirList, MinToks, MinClones) ->
 
 -spec(expression_search/3::(filename(), pos(), pos()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
 expression_search(FileName, Start, End) ->
-    refac_expr_search:expr_search(FileName, Start, End).
+    try_refactoring(refac_expr_search, expr_search, [FileName, Start, End]).
 
 %% =====================================================================================================
 %%@doc Introduce a new function to represent a user-selected expression or expression sequence.
@@ -330,13 +331,13 @@ expression_search(FileName, Start, End) ->
 -spec(fun_extraction/4::(filename(), pos(), pos(), string()) ->
 	      {error, string()} | {ok, string()}).
 fun_extraction(FileName, Start, End, FunName) -> 
-    refac_new_fun:fun_extraction(FileName, Start, End, FunName).
+    try_refactoring(refac_new_fun, fun_extraction, [FileName, Start, End, FunName]).
 
 %%@private
 -spec(fun_extraction_eclipse/4::(filename(), pos(), pos(), string()) ->
 	      {error, string()} | {ok, [{filename(), filename(), string()}]}).
 fun_extraction_eclipse(FileName, Start, End, FunName) -> 
-    refac_new_fun:fun_extraction_eclipse(FileName, Start, End, FunName).
+    try_refactoring(refac_new_fun, fun_extraction_eclipse, [FileName, Start, End, FunName]).
 
 %% =============================================================================================
 %% @doc Fold expressions against a function definition.
@@ -382,13 +383,13 @@ fold_expr({FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths}) ->
       (filename(), integer(), integer(), [dir()]) -> {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
 						 | {error, string()}).
 fold_expr_by_loc(FileName, Line, Col, SearchPaths) ->
-    refac_fold_expression:fold_expr_by_loc(FileName, Line, Col, SearchPaths).
+    try_refactoring(refac_fold_expression, fold_expr_by_loc, [FileName, Line, Col, SearchPaths]).
 
 %%@private
 -spec(fold_expr_by_loc_eclipse/4::(filename(), integer(), integer(), [dir()]) -> {ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]} 
 									 | {error, string()}).
 fold_expr_by_loc_eclipse(FileName, Line, Col, SearchPaths) ->
-    refac_fold_expression:fold_expr_by_loc_eclipse(FileName, Line, Col, SearchPaths).
+    try_refactoring(refac_fold_expression, fold_expr_by_loc_eclipse, [FileName, Line, Col, SearchPaths]).
 
 %%@private
 -spec(fold_expr_by_name/6::(filename(), string(), string(), string(), string(), [dir()]) ->
@@ -396,7 +397,7 @@ fold_expr_by_loc_eclipse(FileName, Line, Col, SearchPaths) ->
 		 | {error, string()}).
 
 fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths) ->
-    refac_fold_expression:fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths).
+    try_refactoring(refac_fold_expression, fold_expr_by_name, [FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths]).
 
 %%@private
 -spec(fold_expr_by_name_eclipse/6::(filename(), string(), string(), string(), string(), [dir()]) ->
@@ -404,34 +405,34 @@ fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths) -
 		 | {error, string()}).
 
 fold_expr_by_name_eclipse(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths) ->
-    refac_fold_expression:fold_expr_by_name_eclipse(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths).
+    try_refactoring(refac_fold_expression, fold_expr_by_name_eclipse, [FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths]).
 
 %%@private
 -spec(fold_expression_1_eclipse/4::(filename(), syntaxTree(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree}],[dir()]) ->
 	     {ok, [{filename(), filename(), string()}]}).
 fold_expression_1_eclipse(FileName, FunClauseDef, StartEndExpList, SearchPaths)->  %% StartEndExpList: {{{StartLine, StartCol}, {EndLine, EndCol}}, NewExp}
-    refac_fold_expression:fold_expression_1_eclipse(FileName, FunClauseDef, StartEndExpList, SearchPaths).
+    try_refactoring(refac_fold_expression, fold_expression_1_eclipse, [FileName, FunClauseDef, StartEndExpList, SearchPaths]).
 
 %%@private
 -spec(fold_expression_2_eclipse/6::(filename(), atom(),integer(), integer(), integer(), [dir()]) -> 
 	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
              | {error, string()}).
 fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine, SearchPaths) ->
-    refac_fold_expression:fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine, SearchPaths).
+    try_refactoring(refac_fold_expression, fold_expression_2_eclipse, [FileName, FunName, Arity, ClauseIndex, StartLine, SearchPaths]).
 
 
 %%@private
 %%@spec instrument_prog(FileName::filename(), SearchPaths::[dir()]) -> term()
 -spec(instrument_prog/2::(filename(), [dir()]) ->{ok, [filename()]} | {error, string()}).  
 instrument_prog(FileName, SearchPaths) ->
-     refac_instrument:instrument_prog(FileName, SearchPaths).
+     try_refactoring(refac_instrument, instrument_prog, [FileName, SearchPaths]).
 
 
 %%@private
 %%@spec uninstrument_prog(FileName::filename(), SearchPaths::[dir()]) -> term()
 -spec(uninstrument_prog/2::(filename(), [dir()]) ->{ok, [filename()]} | {error, string()}).
 uninstrument_prog(FileName, SearchPaths) ->
-     refac_instrument:uninstrument_prog(FileName, SearchPaths).
+     try_refactoring(refac_instrument, uninstrument_prog, [FileName, SearchPaths]).
 
 
 %%=========================================================================================
@@ -454,7 +455,7 @@ uninstrument_prog(FileName, SearchPaths) ->
 -spec(add_a_tag/5::(filename(), integer(), integer(), string(), [dir()]) ->
 	     {error, string()} | {ok, [filename()]}).
 add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
-    refac_add_a_tag:add_a_tag(FileName, Line, Col, Tag, SearchPaths).
+    try_refactoring(refac_add_a_tag, add_a_tag, [FileName, Line, Col, Tag, SearchPaths]).
 
 
 
@@ -477,7 +478,7 @@ add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
 -spec(register_pid/5::(filename(), pos(), pos(), string(), [dir()]) ->
     {error, string()}|{ok, [filename()]}).
 register_pid(FileName, Start, End, RegName, SearchPaths) ->
-    refac_register_pid:register_pid(FileName, Start, End, RegName, SearchPaths).
+    try_refactoring(refac_register_pid, register_pid, [FileName, Start, End, RegName, SearchPaths]).
     
 %%=========================================================================================
 %% @doc Turn some consecutive parameters of a function into a tuple parameter.
@@ -502,7 +503,7 @@ register_pid(FileName, Start, End, RegName, SearchPaths) ->
 	     {error, string()} | {ok, [filename()]}).
 
 tuple_funpar(FileName, Line, Col, Number, SearchPaths) ->
-    refac_tuple:tuple_funpar(FileName, Line, Col, list_to_integer(Number), SearchPaths).
+    try_refactoring(refac_tuple, tuple_funpar, [FileName, Line, Col, list_to_integer(Number), SearchPaths]).
 
 %%@private
 %% @spec tuple_funpar_eclipse(FileName::filename(), Line::integer(), Col::integer(), Number::string(), SearchPaths::[dir()]) -> term()
@@ -511,7 +512,7 @@ tuple_funpar(FileName, Line, Col, Number, SearchPaths) ->
 	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 
 tuple_funpar_eclipse(FileName, Line, Col, Number, SearchPaths) ->
-    refac_tuple:tuple_funpar_eclipse(FileName, Line, Col, list_to_integer(Number), SearchPaths).
+    try_refactoring(refac_tuple, tuple_funpar_eclipse, [FileName, Line, Col, list_to_integer(Number), SearchPaths]).
 
 
 %%=========================================================================================
@@ -540,8 +541,8 @@ tuple_funpar_eclipse(FileName, Line, Col, Number, SearchPaths) ->
 
 tuple_to_record(File, FLine, FCol, LLine, LCol, RecName, FieldString,
 		SearchPaths) ->
-    refac_tuple_to_record:tuple_to_record(File, FLine, FCol, LLine, LCol, RecName,
-					  FieldString, SearchPaths).
+    try_refactoring(refac_tuple_to_record, tuple_to_record, [File, FLine, FCol, LLine, LCol, RecName,
+					  FieldString, SearchPaths]).
 
 %%@private
 %% @spec tuple_to_record_eclipse(File::filename(),FLine::integer(),FCol::integer(),
@@ -552,8 +553,8 @@ tuple_to_record(File, FLine, FCol, LLine, LCol, RecName, FieldString,
 
 tuple_to_record_eclipse(File, FLine, FCol, LLine, LCol, RecName, FieldString,
 			SearchPaths) ->
-    refac_tuple_to_record:tuple_to_record_eclipse(File, FLine, FCol, LLine, LCol,
-						  RecName, FieldString, SearchPaths).
+    try_refactoring(refac_tuple_to_record,tuple_to_record_eclipse, [File, FLine, FCol, LLine, LCol,
+								    RecName, FieldString, SearchPaths]).
 
 
 %%=========================================================================================
@@ -606,7 +607,7 @@ tuple_to_record_eclipse(File, FLine, FCol, LLine, LCol, RecName, FieldString,
 %%  {ok, [filename()]} | {error, string()}
 -spec(fun_to_process/5::(filename(), integer(), integer(), string(), [dir()]) -> {ok, [filename()]} | {error, string()}).
 fun_to_process(FileName, Line, Col, ProcessName, SearchPaths) ->
-    refac_fun_to_process:fun_to_process(FileName, Line, Col, ProcessName, SearchPaths).
+    try_refactoring(refac_fun_to_process, fun_to_process, [FileName, Line, Col, ProcessName, SearchPaths]).
 
 
 %%=========================================================================================
@@ -630,16 +631,26 @@ fun_to_process(FileName, Line, Col, ProcessName, SearchPaths) ->
 -spec(rename_process/5::(filename(), integer(), integer(), string(), [dir()]) ->
 	       {error, string()} | {undecidables, string()}| {ok, [filename()]}).
 rename_process(FileName, Line, Col, NewName, SearchPaths) ->
-    refac_rename_process:rename_process(FileName, Line, Col, NewName, SearchPaths).
+    try_refactoring(refac_rename_process, rename_process, [FileName, Line, Col, NewName, SearchPaths]).
 
 
 
 -spec(new_macro/5::(filename(), pos(), pos(), string(), [dir()]) ->
 	      {error, string()} | {ok, string()}).
 new_macro(FileName, Start, End, MacroName, SearchPaths) -> 
-    refac_new_macro:new_macro(FileName, Start, End, MacroName, SearchPaths).
+    try_refactoring(refac_new_macro, new_macro, [FileName, Start, End, MacroName, SearchPaths]).
 
 
+
+try_refactoring(Mod, Fun, Args) ->
+    case catch apply(Mod, Fun, Args) of 
+	{ok, Res} ->
+	    {ok, Res};
+	{error, Reason} -> {error, Reason};
+	_  -> {error, "Wrangler failed to perform this refactoring, please report error to erlang-refactor@kent.ac.uk."}
+    end.
+
+    
 
 
 
