@@ -57,7 +57,7 @@ start(ExtPrg) ->
     process_flag(trap_exit, true),
     spawn_link(?MODULE, init, [ExtPrg]).
 
-stop_suffix_tree_clone_detector() -> (?MODULE) ! stop.
+stop_suffix_tree_clone_detector() -> catch (?MODULE) ! stop.
 
 
 get_clones_by_suffix_tree(FileNames,MinLength, MinClones) ->
@@ -68,6 +68,7 @@ get_clones_by_suffix_tree(FileNames,MinLength, MinClones) ->
 	ok -> case  catch call_port({get, MinLength, MinClones, OutFileName}) of
 		  {ok, _Res} ->
 		      ?debug("Initial clones are calculated using C suffixtree implementation.\n", []),
+		      stop_suffix_tree_clone_detector(),
 		      {ok, [Cs]} = file:consult(OutFileName),
 		      file:delete(OutFileName),
 		      {Toks, Cs};
@@ -150,7 +151,6 @@ duplicated_code(DirFileList, MinLength1, MinClones1) ->
     {Cs5, FileNames} = duplicated_code_detection(DirFileList, MinClones1, MinLength1),
     ?debug("Filtering out sub-clones.\n", []),
     Cs6 = remove_sub_clones(Cs5),
-    stop_suffix_tree_clone_detector(),
     ?debug("current time:~p\n", [time()]),
     case length(FileNames) of
          1 -> display_clones(Cs6);
@@ -519,7 +519,7 @@ trim_clones(FileNames, Cs, MinLength, MinClones) ->
     ToksLists = tokenize_files(FileNames, false),
     Fun0 = fun(R={{File, StartLn, StartCol},{File, EndLn, EndCol}})->
 		  case lists:keysearch(File, 1, AnnASTs) of
-		      {value, {File, AnnAST}} -> Phrases =  pos_to_expr_or_fun(AnnAST, {{StartLn, StartCol}, {EndLn, EndCol}}),
+		      {value, {File, AnnAST}} -> Phrases =  refac_util:pos_to_syntax_units(AnnAST, {StartLn, StartCol}, {EndLn, EndCol}, fun is_expr_or_fun/1),
 						 BdStruct = refac_expr_search:var_binding_structure(Phrases),
 						 {R, BdStruct};	   
 			 _  -> {R, []}
@@ -534,12 +534,12 @@ trim_clones(FileNames, Cs, MinLength, MinClones) ->
 			    case lists:keysearch(File1, 1, AnnASTs) of
 				{value, {File1, AnnAST}} ->
 				    {value, {File1, Toks}} = lists:keysearch(File1, 1, ToksLists),
-				    Units = pos_to_syntax_units(AnnAST, Toks, {{L1, C1},{L2, C2}}), 
+				    Units = pos_to_syntax_units(AnnAST, {{L1, C1},{L2, C2}}), 
 				    case Units =/= [] of 
 					true -> 
 					    Fun2 = fun(U) ->
-							   {StartLoc, _} = hd(U),
-							   {_, EndLoc} = lists:last(U),
+							   {StartLoc, _} = refac_util:get_range(hd(U)),
+ 							   {_, EndLoc} = refac_util:get_range(lists:last(U)),
 							   Toks1 =lists:dropwhile(fun(T) ->token_loc(T)=< S end, Toks),
 							   Toks11 = lists:takewhile(fun(T) ->token_loc(T) =< StartLoc end, Toks1),
 							   Toks2 = lists:dropwhile(fun(T) ->token_loc(T) =< EndLoc end, Toks1),
@@ -549,11 +549,13 @@ trim_clones(FileNames, Cs, MinLength, MinClones) ->
 							   Toks31= lists:takewhile(fun(T)-> token_loc(T) =< EndLoc end, Toks3),
 							   NewLen = length(Toks31),
 							   case NewLen >=MinLength of 
-							       true ->  NewRange = trim_range(tl(Range), {Len1, Len2}),
-									{StartLn, StartCol} = StartLoc,
-									{EndLn, EndCol} = EndLoc,
-									[{[{{File1, StartLn, StartCol}, {File1, EndLn, EndCol}}|NewRange], NewLen, F}];
-							       false -> []
+							       true ->  
+								   NewRange = trim_range(tl(Range), {Len1, Len2}),
+								   {StartLn, StartCol} = StartLoc,
+								   {EndLn, EndCol} = EndLoc,
+								   [{[{{File1, StartLn, StartCol}, {File1, EndLn, EndCol}}|NewRange], NewLen, F}];
+							       false -> 
+								   []
 							   end
 						   end,
 					      lists:append(lists:map(Fun2, Units));
@@ -731,91 +733,25 @@ add_filename_to_token(FileName,T) ->
     end.
 	    				
 
-pos_to_syntax_units(Tree, Toks, {Start,{EndLine, EndCol}}) ->    
+
+pos_to_syntax_units(Tree, {Start,{EndLine, EndCol}}) ->    
     %% The next expression is only a quick fix;
     %% EndCol currently refers to the start loc of a token, 
     %% but to be correct, it should be the end loc of the token.
-    ExprOrFuns = pos_to_expr_or_fun(Tree, {Start, {EndLine, EndCol+5}}),
-    Res = group_syntax_units(Toks, ExprOrFuns),
-    lists:filter(fun(E) -> E =/=[] end, Res).
-
-pos_to_expr_or_fun(Tree, {Start, End}) ->
-    GetSubExprs = fun() ->
-		     Ts = refac_syntax:subtrees(Tree),
-		     R0 = [[pos_to_expr_or_fun(T, {Start, End}) || T <- G]
-			   || G <- Ts],
-		     lists:flatten(R0)
-		  end,
-    {S, E} = refac_util:get_range(Tree),
-    if (S >= Start) and (E =< End) ->
-	   case is_expr_or_fun(Tree) of
-	     true -> [Tree];
-	     _ -> GetSubExprs()
-	   end;
-       (S > End) or (E < Start) -> [];
-       (S < Start) or (E > End) -> GetSubExprs();
-       true -> []
+    ExprOrFuns = refac_util:pos_to_syntax_units(Tree, Start, {EndLine, EndCol+5}, fun is_expr_or_fun/1),
+    case ExprOrFuns of 
+	[] -> [];
+	_ -> [ExprOrFuns]
     end.
 
 
-is_expr(Node) ->
-    As = refac_syntax:get_ann(Node),
-    case lists:keysearch(category,1, As) of 
-	{value, {category, C}} ->case C of
-				     expression -> true;
-				     guard_expression -> true;
-				     match_expression -> true;
-				     macro -> true;
-				     _  -> false
-				 end;
-	_ -> false
-    end.
 is_expr_or_fun(Node) ->
     case refac_syntax:type(Node) of 
 	function -> true;
-	_ -> is_expr(Node) 
+	_ -> refac_util:is_expr(Node) 
     end.
 
-get_expr_or_fun_seq(_Toks, []) -> [];
-get_expr_or_fun_seq(_Toks, [E]) -> [refac_util:get_range(E)];
-get_expr_or_fun_seq(Toks, [E1, E2 | Es]) ->
-    case is_expr(E1) of
-      true ->
-	  {EndLoc, StartLoc, Toks2} = get_expr_toks(E1, E2, Toks),
-	  case lists:any(fun (T) -> token_val(T) =/= ',' end, Toks2) or not is_expr(E2) of
-	    true -> [{StartLoc, EndLoc}];
-	    _ -> [{StartLoc, EndLoc}] ++ get_expr_or_fun_seq(Toks, [E2 | Es])
-	  end;
-      false ->
-	  case refac_syntax:type(E1) of
-	    function ->
-		{EndLoc, StartLoc, Toks2} = get_expr_toks(E1, E2, Toks),
-		case lists:any(fun (T) -> token_val(T) =/= '.' end, Toks2) or not (refac_syntax:type(E2) == function) of
-		  true -> [{StartLoc, EndLoc}];
-		  _ -> [{StartLoc, EndLoc}] ++ get_expr_or_fun_seq(Toks, [E2 | Es])
-		end;
-	    _ -> get_expr_or_fun_seq(Toks, [E2 | Es])
-	  end
-    end.
 
-get_expr_toks(E1, E2, Toks) ->
-    {StartLoc, EndLoc} = refac_util:get_range(E1),
-    {StartLoc1, _EndLoc} = refac_util:get_range(E2),
-    Toks1 = lists:dropwhile(fun (T) -> token_loc(T) =< EndLoc end, Toks),
-    Toks2 = lists:takewhile(fun (T) -> token_loc(T) < StartLoc1 end, Toks1),
-    {EndLoc, StartLoc, Toks2}.
-  
-			 
-group_syntax_units(Toks, Es) ->
-    Seq = get_expr_or_fun_seq(Toks, Es), 
-    Es1 = lists:nthtail(length(Seq), Es),
-    case  Es1 of 
-	[] ->
-	     [Seq];
-	_  -> [Seq|group_syntax_units(Toks, Es1)]
-   end.
-
-    
 %% =====================================================================
 %% get the alphabet on which the suffix tree is going to be built.
 alphabet() ->
