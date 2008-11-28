@@ -182,8 +182,7 @@ implicit(Node, {})->
 check_is_callback_fun(Info, FunName, Arity)->
   case is_callback_fun(Info, FunName, Arity) of
     true -> 
-      exit({error, "The refactorer does not support tupling "
-                   "callback function parameters"});
+      {error, "Tupling parameters of a callback function is not supported."};
     false -> ok
   end.
 
@@ -202,12 +201,7 @@ check_name_clash(FunName, NewArity, InscopeFuns, Number) ->
 	of
       false -> ok;
       true ->
-	  exit({error,
-		atom_to_list(FunName) ++
-		  "/" ++
-		    integer_to_list(NewArity) ++
-		      " is already in scope, or is an auto-imported "
-		      "builtin function."})
+	  {error, atom_to_list(FunName) ++"/" ++ integer_to_list(NewArity) ++" is already in scope, or is an auto-imported builtin function."}
     end.
 
 %% =====================================================================
@@ -218,10 +212,7 @@ check_name_clash(FunName, NewArity, InscopeFuns, Number) ->
 check_def_mod(DefMod, ModName) ->
     if DefMod == ModName -> ok;
        true ->
-	   exit({error,
-		 "This function is not defined in this "
-		 "module;please go to the module where "
-		 "it is defined for tuple function parameters."})
+	   {error, "This function is not defined in this module; please go to the module where it is defined to apply this refactoring."}
     end.
     
 
@@ -281,9 +272,7 @@ tuple_parameters_in_client_modules_1({Tree, Info}, Name, Arity, C, N, Mod) ->
 		refac_util:stop_tdTP(fun do_tuple_fun_parameters/2, Tree,
 				     {C, N, Name, Arity, Mod});
 	    true ->
-		erlang:exit("The new function arity causes confliction "
-			    "in client module: "
-			      ++ atom_to_list(ClientModName))
+		{error, "The new function arity causes confliction in the client module: " ++ atom_to_list(ClientModName)}
 	  end;
       _ ->
 	  refac_util:stop_tdTP(fun do_tuple_fun_parameters/2, Tree, {C, N, Name, Arity, Mod})
@@ -427,23 +416,15 @@ check_first_pos(Pos, AnnAST)->
 %% @end
 %% =====================================================================
 pos_to_arg(AppNode, Pos)->
-  Args = refac_syntax:application_arguments(AppNode),
-  case Args of 
-    [] ->  exit({error, "You have not selected a parameter!"});
-    _ -> 
-      {Pos1, _Pos2} = refac_util:get_range(hd(Args)),
-      if Pos >= Pos1 -> ok;
-	 true -> exit({error, "You have not selected a parameter!"})
-      end
-  end,
-  List = lists:dropwhile(fun(Pat)->
-                             {Pos11, _Pos22} = refac_util:get_range(Pat),
-                             Pos11 < Pos
-                         end, Args),
-  case List of
-    [] -> exit({error, "You have not selected a parameter!"});
-    _ -> hd(List)
-  end.
+    Args = refac_syntax:application_arguments(AppNode),
+    List = lists:dropwhile(fun(Pat)->
+				   {Pos11, _Pos22} = refac_util:get_range(Pat),
+				   Pos11 < Pos
+			   end, Args),
+    case List of
+	[] -> {error, "You have not selected a parameter!"};
+	_ -> hd(List)
+    end.
 
 
 %% =====================================================================
@@ -455,26 +436,18 @@ pos_to_arg(AppNode, Pos)->
 pos_to_pat(AnnAST, Pos)->
   case pos_to_clause(AnnAST, Pos) of
     {ok, Clause} ->
-      FunPatterns = refac_syntax:clause_patterns(Clause),
-      case FunPatterns of 
-        [] ->  exit({error, "You have not selected a parameter!"});
-        _ -> 
-          {Pos1, _Pos2} = refac_util:get_range(hd(FunPatterns)),
-          if Pos >= Pos1 -> ok;
-	     true -> exit({error, "You have not selected a parameter!"})
-          end
-      end,
-      List = lists:dropwhile(fun(Pat)->
-                             {Pos11, _Pos22} = refac_util:get_range(Pat),
-                             Pos11 < Pos
-                             end, FunPatterns),
-      case List of
-        [] -> exit({error, "You have not selected a parameter!"});
-        _ -> hd(List)
-      end;
-    {error, none} -> exit({error, "You have not selected a parameter!"})   
+	  FunPatterns = refac_syntax:clause_patterns(Clause),
+	  List = lists:dropwhile(fun(Pat)->
+					 {Pos11, _Pos22} = refac_util:get_range(Pat),
+					 Pos11 < Pos
+				 end, FunPatterns),
+	  case List of
+	      [] -> {error, "You have not selected a parameter!"};
+	      _ -> hd(List)
+	  end;
+      {error, none} -> {error, "You have not selected a parameter!"}   
   end.
-    
+
 
 %% =====================================================================
 %% @spec pos_to_clause(Node::syntaxtree(), Pos::{integer(), integer()})
@@ -547,9 +520,8 @@ pos_to_app_1(Node, Pos) ->
 check_parameters(FirstPar, Number, Arity, FunPatterns, AppNode, AppPar) ->
     case (Number < 1) or (Number > Arity) of
       true ->
-	  exit({error,
-		"It is not possible to tuple " ++
-		  integer_to_list(Number) ++ " parameter"});
+	  {error,
+		"It is not possible to tuple " ++  integer_to_list(Number) ++ " parameters"};
       false ->
 	  case AppNode of
 	    [] -> search_par(FunPatterns, Number, FirstPar);
@@ -568,9 +540,8 @@ search_par(List, Number, First) ->
     C = length(List -- ParList) + 1,
     case length(ParList) < Number of
       true ->
-	  exit({error,
-		"It is not possible to tuple  " ++
-		  integer_to_list(Number) ++ " parameter"});
+	 {error,
+		"It is not possible to tuple  " ++ integer_to_list(Number) ++ " parameters"};
       false ->
 	  {lists:reverse(lists:nthtail(length(ParList) - Number,
 				       lists:reverse(ParList))),
@@ -592,19 +563,19 @@ get_fun_name_and_arity(AnnAST, Pos, Type, Node) ->
     function ->
       case expr_to_clause(AnnAST, Node) of
         {ok, FunClause}-> 
-          FunNode = 
-            case refac_util:pos_to_fun_def(AnnAST, Pos) of
-              {ok, F} -> F;
-              {error, _} -> 
-                exit({error, "The function definition can not locate"})
-            end,
-          FunPatterns = refac_syntax:clause_patterns(FunClause),
-          {FunStartPos, _FunEndPos} = refac_util:get_range(FunClause),  
-	  case refac_util:pos_to_fun_name(AnnAST, FunStartPos) of  
-            {ok, Result} -> {Result, FunPatterns, [], [], FunNode} ;
-            {error, _Reason} -> exit({error, " Bad position"})
-          end;
-        {error, _Reason} -> exit({error, "The function can not locate"})
+	      FunNode = 
+		  case refac_util:pos_to_fun_def(AnnAST, Pos) of
+		      {ok, F} -> F;
+		      {error, Reason} -> 
+			  {error, Reason}
+		  end,
+	      FunPatterns = refac_syntax:clause_patterns(FunClause),
+	      {FunStartPos, _FunEndPos} = refac_util:get_range(FunClause),  
+	      case refac_util:pos_to_fun_name(AnnAST, FunStartPos) of  
+		  {ok, Result} -> {Result, FunPatterns, [], [], FunNode} ;
+		  {error, Reason1} -> {error, Reason1}
+	      end;
+	  {error, Reason} -> {error, Reason}
       end;
     application ->
       case pos_to_app(AnnAST, Pos) of
@@ -619,13 +590,13 @@ get_fun_name_and_arity(AnnAST, Pos, Type, Node) ->
                   FunPatterns = refac_syntax:clause_patterns(hd(Clause)),    
                   AppPar =  refac_syntax:application_arguments(AppNode),  
                   {Result, FunPatterns, AppNode, AppPar, FunNode};          
-                {error, _} -> 
-                  exit({error, "The function definition can not locate"})
+                {error, Reason} -> 
+                  {error, Reason}
               end;
-            {error, _} -> exit({error, " Bad position"})
+            {error, Reason} -> {error, Reason}
           end;
-        {error, _} -> 
-          exit({error, "The selected expression can not locate"})
+        {error, Reason} -> 
+	      {error, Reason}
       end
   end.
 
@@ -674,7 +645,7 @@ expr_to_clause_1(Tree, Exp) ->
 get_module_name(Info) ->
   case lists:keysearch(module, 1, Info) of
     {value, {module, ModName}} -> ModName;
-    false -> exit({error, "Can not get the current module name."})
+    false -> {error, "Wrangler could not get the current module name."}
   end.
 
 
