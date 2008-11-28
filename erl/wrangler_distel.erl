@@ -26,207 +26,143 @@
 
 -spec(rename_var/5::(filename(), integer(), integer(), string(), [dir()]) ->
 	     {error, string()} | {ok, string()}).
-rename_var(Fname, Line, Col, NewName, SearchPaths) ->
-    case initial_checking(SearchPaths) of
-	ok ->
-	    Res=wrangler:rename_var(Fname, Line, Col, NewName, SearchPaths),
-	    check_wrangler_error_logger(),
-	    Res;		
-	{error, Reason} ->
-	    {error, Reason}
-    end.
 
+rename_var(Fname, Line, Col, NewName, SearchPaths) ->
+    apply_refactoring(wrangler, rename_var, [Fname, Line, Col, NewName, SearchPaths], SearchPaths).
+ 
 -spec(rename_fun/5::(string(), integer(), integer(), string(), [dir()]) ->
 	     {error, string()} | {ok, [filename()]}).
-rename_fun(Fname, Line, Col, NewName,SearchPaths) ->
-    case initial_checking(SearchPaths) of
-	ok -> Res =wrangler:rename_fun(Fname, Line, Col, NewName,SearchPaths),
-	      check_wrangler_error_logger(),
-	      Res;		
-	{error, Reason} ->
-	   {error, Reason}
-    end.
 
--spec(rename_mod/3::(filename(), string(), [dir()]) -> {error, string()} | {ok, [filename()]}). 
-rename_mod(Fname, NewName,SearchPaths) ->
-    case initial_checking(SearchPaths) of 
-	ok ->  Res = wrangler:rename_mod(Fname, NewName,SearchPaths),
-	        check_wrangler_error_logger(),
-	       Res;		
-	{error, Reason} ->
-	    {error, Reason}
-    end.
+rename_fun(Fname, Line, Col, NewName, SearchPaths) ->
+    apply_refactoring(wrangler, rename_fun, [Fname, Line, Col, NewName, SearchPaths], SearchPaths).
+
+
+-spec(rename_mod/3::(filename(), string(), [dir()]) -> {error, string()} | {ok, [filename()]}).
+
+rename_mod(Fname, NewName, SearchPaths) ->
+    apply_refactoring(wrangler, rename_mod, [Fname, NewName, SearchPaths], SearchPaths).
+
 
 -spec(rename_process/5::(filename(), integer(), integer(), string(), [dir()]) ->
 	     {error, string()} | {undecidables, string()}| {ok, [filename()]}).
+
 rename_process(Fname, Line, Col, NewName, SearchPaths) ->
-    case initial_checking(SearchPaths) of
-	ok -> Res=wrangler:rename_process(Fname, Line, Col, NewName, SearchPaths),
-	      check_wrangler_error_logger(),
-	      Res;
-	{error, Reason} ->
-	    {error, Reason}
-    end.
+    apply_refactoring(wrangler, rename_process, [Fname, Line, Col, NewName, SearchPaths], SearchPaths).
+
 
 -spec(generalise/7::(filename(),integer(), integer(),integer(), integer(),string(), dir()) -> {ok, string()} | {error, string()}).
-generalise(Fname, StartLine, StartCol, EndLine, EndCol, ParName, SearchPaths)->
-    case initial_checking(SearchPaths) of 
-	ok -> Res =wrangler:generalise(Fname, {StartLine, StartCol}, {EndLine, EndCol}, ParName, SearchPaths),
-	      check_wrangler_error_logger(),
-	      Res;
-	{error, Reason} ->
-	    {error, Reason}
-    end.
+
+generalise(Fname, StartLine, StartCol, EndLine, EndCol, ParName, SearchPaths) ->
+    apply_refactoring(wrangler, generalise, [Fname, {StartLine, StartCol}, {EndLine, EndCol}, ParName, SearchPaths], SearchPaths).
+	
 
 -spec(move_fun/6::(filename(),integer(),integer(), string(), atom(),[dir()])
         -> {ok, [{filename(), filename()}]}
            | {error, string()}).
-move_fun(FName, Line, Col, ModName, CreateNewFile, SearchPaths) ->
-    case initial_checking(SearchPaths) of
-	ok -> Res = wrangler:move_fun(FName, Line, Col, ModName, CreateNewFile, SearchPaths),
-	      check_wrangler_error_logger(),
-	      Res;
-	{error, Reason} ->
-	    {error, Reason}
-    end.
 
--spec(duplicated_code_in_buffer/3::(filename(), string(), string()) ->{ok, string()}).       
+move_fun(FName, Line, Col, ModName, CreateNewFile, SearchPaths) ->
+    apply_refactoring(wrangler, move_fun, [FName, Line, Col, ModName, CreateNewFile, SearchPaths], SearchPaths).
+
+
+-spec(duplicated_code_in_buffer/3::(filename(), string(), string()) ->{ok, string()}).      
 duplicated_code_in_buffer(FName, MinLines,  MinClones) ->
     wrangler:duplicated_code_in_buffer(FName, MinLines, MinClones).
 
 -spec(duplicated_code_in_dirs/3::([dir()], string(), string()) ->{ok, string()}).
-duplicated_code_in_dirs(FName, MinLines, MinClones) ->
-    wrangler:duplicated_code_in_dirs(FName, MinLines, MinClones).
-
+duplicated_code_in_dirs(SearchPaths, MinLines, MinClones) ->
+    case check_searchpaths(SearchPaths) of 
+ 	ok ->
+	    wrangler:duplicated_code_in_dirs(SearchPaths, MinLines, MinClones);
+ 	{error, Reason} -> {error, Reason}
+     end.
+  
 -spec(expression_search/5::(filename(), integer(), integer(), integer(), integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
 expression_search(FName, StartLine, StartCol, EndLine, EndCol) ->
     wrangler:expression_search(FName, {StartLine, StartCol}, {EndLine, EndCol}).
 
 -spec(fun_extraction/6::(filename(), integer(), integer(), integer(), integer(), string()) ->
 	      {error, string()} | {ok, string()}).
+
 fun_extraction(FName, StartLine, StartCol, EndLine, EndCol, FunName) ->
-    case check_undo_process() of 
-	ok -> Res = wrangler:fun_extraction(FName, {StartLine, StartCol}, {EndLine, EndCol}, FunName),
-	      check_wrangler_error_logger(),
-	      Res;
-	{error, Reason} ->
-	    {error, Reason}
-    end.
+    apply_refactoring(wrangler, fun_extraction, [FName, {StartLine, StartCol}, {EndLine, EndCol}, FunName], []).
+	 
 
 -spec(new_macro/7::(filename(), integer(), integer(), integer(), integer(), string(), [dir()]) ->
 	      {error, string()} | {ok, string()}).
+
 new_macro(FName, StartLine, StartCol, EndLine, EndCol, MacroName, SearchPaths) ->
-    case check_undo_process() of 
-	ok -> Res = wrangler:new_macro(FName, {StartLine, StartCol}, {EndLine, EndCol}, MacroName, SearchPaths),
-	      check_wrangler_error_logger(),
-	      Res;
-	{error, Reason} ->
-	    {error, Reason}
-    end.
+    apply_refactoring(wrangler, new_macro, [FName, {StartLine, StartCol}, {EndLine, EndCol}, MacroName, SearchPaths], SearchPaths).
 
 -spec(fold_expr_by_loc/4::
       (filename(), integer(), integer(), [dir()]) -> {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
 							 | {error, string()}).
+
 fold_expr_by_loc(FName, Line, Col, SearchPaths) ->
-    case initial_checking(SearchPaths) of
-      ok -> Res = wrangler:fold_expr_by_loc(FName, Line, Col, SearchPaths),
-	    check_wrangler_error_logger(),
-	    Res;
-      {error, Reason} -> {error, Reason}
-    end.
+    apply_refactoring(wrangler, fold_expr_by_loc, [FName, Line, Col, SearchPaths], SearchPaths).
+
 
 -spec(fold_expr_by_name/6::(filename(), string(), string(), string(), string(), [dir()]) ->
 	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
 		 | {error, string()}).
+
 fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths) ->
-   case initial_checking(SearchPaths) of
-      ok -> Res = wrangler:fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths),
-	    check_wrangler_error_logger(),
-	    Res;
-      {error, Reason} -> {error, Reason}
-    end.
+    apply_refactoring(wrangler, fold_expr_by_name, [FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths], SearchPaths).
+
 
 	       
 -spec(instrument_prog/2::(filename(), [dir()]) ->{ok, [filename()]} | {error, string()}).
+
 instrument_prog(FName, SearchPaths) ->
-    case initial_checking(SearchPaths) of 
-	ok ->
-	    Res = wrangler:instrument_prog(FName, SearchPaths),
-	    check_wrangler_error_logger(),
-	    Res;
-	{error, Reason} ->
-	    {error, Reason}
-    end.
+    apply_refactoring(wrangler, instrument_prog, [FName, SearchPaths], SearchPaths).
+
 
 -spec(tuple_funpar/5::(filename(), integer(), integer(), string(), [dir()]) ->
 	     {error, string()} | {ok, [filename()]}).
+
 tuple_funpar(Fname, Line, Col, Number, SearchPaths) ->
-    case initial_checking(SearchPaths) of
-	ok -> Res = wrangler:tuple_funpar(Fname, Line, Col, Number, SearchPaths),
-	      check_wrangler_error_logger(),
-	      Res;
-	{error, Reason} ->
-	    {error, Reason}
-    end.
+    apply_refactoring(wrangler, tuple_funpar, [Fname, Line, Col, Number, SearchPaths], SearchPaths).
+
 
 -spec(tuple_to_record/8::(filename(), integer(), integer(), integer(), integer(), string(), [string()], [dir()]) ->
 	     {error, string()} | {ok, [filename()]}).
-tuple_to_record(File, FLine, FCol, LLine, LCol, 
-                RecName, FieldString, SearchPaths)->
-    case initial_checking(SearchPaths) of
-	ok -> Res = wrangler:tuple_to_record(File, FLine, FCol, LLine, LCol, 
-					     RecName, FieldString, SearchPaths),
-	      check_wrangler_error_logger(),
-	      Res;
-	{error, Reason} ->
-	    {error, Reason}
-    end.
+
+tuple_to_record(File, FLine, FCol, LLine, LCol, RecName, FieldString, SearchPaths) ->
+    apply_refactoring(wrangler, tuple_to_record, [File, FLine, FCol, LLine, LCol, RecName, FieldString, SearchPaths], SearchPaths).
+
     
 -spec(uninstrument_prog/2::(filename(), [dir()]) ->{ok, [filename()]} | {error, string()}).
+
 uninstrument_prog(FName, SearchPaths) ->
-    case initial_checking(SearchPaths) of 
-	ok ->
-	    Res = wrangler:uninstrument_prog(FName, SearchPaths),
-	    check_wrangler_error_logger(),
-	    Res;
-	{error, Reason} ->
-	    {error, Reason}
-    end.
+    apply_refactoring(wrangler, uninstrument_prog, [FName, SearchPaths], SearchPaths).
+
 
 -spec(add_a_tag/5::(filename(), integer(), integer(), string(), [dir()]) ->
 	     {error, string()} | {ok, [filename()]}).
+
 add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
-    case initial_checking(SearchPaths) of 
-	ok ->
-	    Res = wrangler:add_a_tag(FileName, Line, Col, Tag, SearchPaths),
-	    check_wrangler_error_logger(),
-	    Res;
-	{error, Reason} ->
-	    {error,Reason}
-    end.
+    apply_refactoring(wrangler, add_a_tag, [FileName, Line, Col, Tag, SearchPaths], SearchPaths).
 
 
 -spec(register_pid/7::(filename(), integer(), integer(), integer(),integer(), string(), [dir()]) ->
     {error, string()}|{ok, [filename()]}).
+
 register_pid(FileName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPaths) ->
-    case initial_checking(SearchPaths) of 
-	ok ->
-	    Res = wrangler:register_pid(FileName, {StartLine, StartCol}, {EndLine, EndCol}, RegName, SearchPaths),
-	    check_wrangler_error_logger(),
-	    Res;
-	{error, Reason} ->
-	    {error,Reason}
-    end.
+    apply_refactoring(wrangler, register_pid, [FileName, {StartLine, StartCol}, {EndLine, EndCol}, RegName, SearchPaths], SearchPaths).
+
 
 -spec(fun_to_process/5::(filename(), integer(), integer(), string(), [dir()])->
 	     {error, string()} | undecidables | {ok, [filename()]}).
-fun_to_process(Fname, Line, Col, ProcessName,SearchPaths) ->
+
+fun_to_process(Fname, Line, Col, ProcessName, SearchPaths) ->
+    apply_refactoring(wrangler, fun_to_process, [Fname, Line, Col, ProcessName, SearchPaths], SearchPaths).
+
+apply_refactoring(Mod, Fun, Args, SearchPaths) ->
     case initial_checking(SearchPaths) of
-	ok -> Res = wrangler:fun_to_process(Fname, Line, Col, ProcessName,SearchPaths),
-	      check_wrangler_error_logger(),
-	      Res;
-	{error, Reason} ->
-	   {error, Reason}
+      ok ->
+	  Res = apply(Mod, Fun, Args),
+	  check_wrangler_error_logger(),
+	  Res;
+      {error, Reason} -> {error, Reason}
     end.
 
 initial_checking(SearchPaths) ->
@@ -270,7 +206,6 @@ check_wrangler_error_logger() ->
 	_ ->  ?wrangler_io("\n===============================WARNING===============================\n",[]),
 	      ?wrangler_io("There are errors in the program, and functions/attribute containing errors are not affected by the refactoring process.\n",[]),
 	      lists:foreach(fun({FileName, Errs}) ->
-				    %%Errs1 = lists:map(fun({Pos, _Mod, Msg}) -> {Pos, Msg} end, Errs),
 				    ?wrangler_io("File:\n ~p\n", [FileName]),
 				    ?wrangler_io("Error(s):\n",[]),
 				    lists:foreach(fun(E) ->
@@ -279,7 +214,7 @@ check_wrangler_error_logger() ->
 							      M -> ?wrangler_io("**~s**\n", [M])
 							  end
 						  end,
-						  lists:reverse(Errs)) %% lists:flatten(Msg)
+						  lists:reverse(Errs)) 
 			    end, Errors)
     end.
     
