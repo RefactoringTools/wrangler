@@ -18,7 +18,7 @@
 %%======================================================================
 
 -module(refac_module_graph).
--export([module_graph/1]). 
+-export([module_graph/1, collect_called_modules/1]). 
 
 -include("../hrl/wrangler.hrl").
 -spec(module_graph/1::([dir()]) -> [{filename(), [filename()]}]).
@@ -71,7 +71,8 @@ analyze_mod({Mod, Dir}, SearchPaths) ->
     CalledMods = collect_called_modules(AnnAST),
     {called_modules, ImportedMods++CalledMods}.
 
-
+-spec(collect_called_modules(AnnAST::syntaxTree()) ->
+	     [modulename()]).
 collect_called_modules(AnnAST) ->
     Fun = fun(T, S) ->
 		  case refac_syntax:type(T) of 
