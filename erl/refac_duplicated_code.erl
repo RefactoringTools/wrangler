@@ -627,14 +627,14 @@ display_clones1_1([]) ->
     ?wrangler_io("\n",[]);
 display_clones1_1([{[{{File, StartLine, StartCol}, {File,EndLine, EndCol}}|Range], _Len, F}|Cs]) ->
     case F-1 of 
-	1 ->   ?wrangler_io("\nThe code in ~p between lines: ~p-~p has been duplicated once at the following location:",
-			 [File, {StartLine, StartCol-1}, {EndLine, EndCol-1}]),
+	1 ->   ?wrangler_io("\nThe code in ~p between lines: {~p,~p}-{~p,~p} has been duplicated once at the following location:\n",
+			 [File, StartLine, StartCol-1, EndLine, EndCol-1]),
 	       display_clones1_2(Range);
-	2 ->   ?wrangler_io("\nThe code in ~p between lines: ~p-~p has been duplicated twice at the following location(s):",
-			 [File, {StartLine, StartCol-1}, {EndLine, EndCol-1}]),
+	2 ->   ?wrangler_io("\nThe code in ~p between lines: {~p,~p}-{~p,~p} has been duplicated twice at the following location(s):\n",
+			 [File, StartLine, StartCol-1, EndLine, EndCol-1]),
 	       display_clones1_2(Range);
-	_ ->   ?wrangler_io("\nThe code in ~p between lines: ~p-~p has been duplicated ~p times at the following location(s):",
-			 [File, {StartLine, StartCol-1}, {EndLine, EndCol-1}, F-1]),
+	_ ->   ?wrangler_io("\nThe code in ~p between lines: {~p,~p}-{~p,~p} has been duplicated ~p times at the following location(s):\n",
+			 [File, StartLine, StartCol-1, EndLine, EndCol-1, F-1]),
 	       display_clones1_2(Range)
     end,
     display_clones1_1(Cs).
@@ -644,9 +644,9 @@ display_clones1_2([]) ->
 display_clones1_2([{{File, StartLine, StartCol}, {File, EndLine, EndCol}}|Rs]) ->
     case Rs == [] of 
 	true ->
-	    ?wrangler_io(" File: ~p, ~p-~p.", [File, {StartLine, StartCol-1}, {EndLine, EndCol-1}]);
+	    ?wrangler_io(" File: ~p,{~p,~p}-{~p,~p}.", [File, StartLine, StartCol-1, EndLine, EndCol-1]);
 	false ->
-	    ?wrangler_io(" File: ~p, ~p-~p,", [File, {StartLine, StartCol-1}, {EndLine, EndCol-1}])
+	    ?wrangler_io(" File: ~p, {~p,~p}-{~p,~p},", [File, StartLine, StartCol-1, EndLine, EndCol-1])
     end,
     display_clones1_2(Rs).
 
