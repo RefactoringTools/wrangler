@@ -59,8 +59,9 @@
 fold_expr_by_loc(FileName, Line, Col, SearchPaths) ->
     fold_expression(FileName, Line, Col, SearchPaths, emacs).
 
--spec(fold_expr_by_loc_eclipse/4::(filename(), integer(), integer(), [dir()]) -> {ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]} 
-									 | {error, string()}).
+-spec(fold_expr_by_loc_eclipse/4::(filename(), integer(), integer(), [dir()]) -> {ok,  syntaxTree(),
+										  [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}
+										     | {error, string()}).
 
 fold_expr_by_loc_eclipse(FileName, Line, Col, SearchPaths) ->
     fold_expression(FileName, Line, Col, SearchPaths, eclipse).
@@ -76,13 +77,13 @@ fold_expression(FileName, Line, Col, SearchPaths, Editor) ->
 		    Candidates = search_candidate_exprs(AnnAST, {Mod, Mod}, FunName, FunClauseDef),
 		    case Candidates of 
 			[] -> {error, "No expressions that are suitable for folding against the selected function have been found!"};	
-			_ -> Regions = case Editor of 
-					   emacs ->lists:map(fun({{{StartLine, StartCol}, {EndLine, EndCol}},NewExp}) ->
+			_ -> case Editor of 
+				 emacs ->Regions = lists:map(fun({{{StartLine, StartCol}, {EndLine, EndCol}},NewExp}) ->
 								     {StartLine, StartCol, EndLine,EndCol, NewExp, {FileName, CurrentModName, FunClauseDef, ClauseIndex}} end, 
-							     Candidates);
-					   eclipse ->  Candidates 
-				       end,
-			     {ok, Regions}  
+							     Candidates),
+					 {ok, Regions};
+				 eclipse ->  {ok, FunClauseDef, Candidates}
+			     end			      
 		    end;				 
 		{error, Reason} -> {error, Reason}
 	    end;
