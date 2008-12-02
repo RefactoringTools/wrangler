@@ -386,7 +386,7 @@ fold_expr_by_loc(FileName, Line, Col, SearchPaths) ->
     try_refactoring(refac_fold_expression, fold_expr_by_loc, [FileName, Line, Col, SearchPaths]).
 
 %%@private
--spec(fold_expr_by_loc_eclipse/4::(filename(), integer(), integer(), [dir()]) -> {ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]} 
+-spec(fold_expr_by_loc_eclipse/4::(filename(), integer(), integer(), [dir()]) -> {ok, syntaxTree(),[{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]} 
 									 | {error, string()}).
 fold_expr_by_loc_eclipse(FileName, Line, Col, SearchPaths) ->
     try_refactoring(refac_fold_expression, fold_expr_by_loc_eclipse, [FileName, Line, Col, SearchPaths]).
@@ -638,7 +638,8 @@ rename_process(FileName, Line, Col, NewName, SearchPaths) ->
 -spec(new_macro/5::(filename(), pos(), pos(), string(), [dir()]) ->
 	      {error, string()} | {ok, string()}).
 new_macro(FileName, Start, End, MacroName, SearchPaths) -> 
-    try_refactoring(refac_new_macro, new_macro, [FileName, Start, End, MacroName, SearchPaths]).
+    refac_new_macro:new_macro(FileName, Start, End, MacroName, SearchPaths).
+    %%try_refactoring(refac_new_macro, new_macro, [FileName, Start, End, MacroName, SearchPaths]).
 
 
 
