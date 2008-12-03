@@ -65,7 +65,7 @@ batch_rename_mod(OldNamePattern, NewNamePattern,SearchPaths) ->
     refac_util:write_refactored_files(Results),
     ChangedFiles = lists:map(fun({{F, _F}, _AST}) -> F end, Results),
     ?wrangler_io("\n The following files have been changed by this refactoring:\n~p\n", [ChangedFiles]),
-    ok.
+    {ok, "Refactoring finished."}.
     %%{ok, ChangedFiles}.
 
 
