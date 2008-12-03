@@ -59,8 +59,8 @@
 fold_expr_by_loc(FileName, Line, Col, SearchPaths) ->
     fold_expression(FileName, Line, Col, SearchPaths, emacs).
 
--spec(fold_expr_by_loc_eclipse/4::(filename(), integer(), integer(), [dir()]) -> {ok,  syntaxTree(),
-										  [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}
+-spec(fold_expr_by_loc_eclipse/4::(filename(), integer(), integer(), [dir()]) -> {ok,  {syntaxTree(),
+										  [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}}
 										     | {error, string()}).
 
 fold_expr_by_loc_eclipse(FileName, Line, Col, SearchPaths) ->
@@ -82,7 +82,7 @@ fold_expression(FileName, Line, Col, SearchPaths, Editor) ->
 								     {StartLine, StartCol, EndLine,EndCol, NewExp, {FileName, CurrentModName, FunClauseDef, ClauseIndex}} end, 
 							     Candidates),
 					 {ok, Regions};
-				 eclipse ->  {ok, FunClauseDef, Candidates}
+				 eclipse ->  {ok, {FunClauseDef, Candidates}}
 			     end			      
 		    end;				 
 		{error, Reason} -> {error, Reason}

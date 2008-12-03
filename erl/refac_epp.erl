@@ -80,8 +80,8 @@ parse_erl_form(Epp) ->
 macro_defs(Epp) ->
     epp_request(Epp, macro_defs).
 
-%% final_state(Epp) ->
-%%     epp_request(Epp, state).
+final_state(Epp) ->
+     epp_request(Epp, state).
 
 %% format_error(ErrorDescriptor) -> String
 %%  Return a string describing the error.
@@ -135,12 +135,11 @@ parse_file(Ifile, Path, Predefs) ->
     case open(Ifile, Path, Predefs) of
 	{ok,Epp} ->
 	    Forms = parse_file(Epp),
-	   %% Macros = macro_defs(Epp),
-	   %% io:format("Macros:\n~p\n", [Macros]),
-	   %% #epp{macs=Ms, uses=UMs}= final_state(Epp),
+	    #epp{macs=Ms, uses=UMs}= final_state(Epp),
 	    close(Epp),
-	    {ok, Forms};
-	   %% {ok,Forms, {dict:to_list(Ms), dict:to_list(UMs)}};
+	    %% Modified by Huiqing, this function returns both the AST 
+	    %% and macro infomation;
+	    {ok,Forms, {dict:to_list(Ms), dict:to_list(UMs)}};
 	{error,E} ->
 	    {error,E}
     end.
