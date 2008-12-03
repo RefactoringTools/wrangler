@@ -93,6 +93,7 @@ fun_extraction(FName, StartLine, StartCol, EndLine, EndCol, FunName) ->
 new_macro(FName, StartLine, StartCol, EndLine, EndCol, MacroName, SearchPaths) ->
     apply_refactoring(wrangler, new_macro, [FName, {StartLine, StartCol}, {EndLine, EndCol}, MacroName, SearchPaths], SearchPaths).
 
+
 -spec(fold_expr_by_loc/4::
       (filename(), integer(), integer(), [dir()]) -> {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
 							 | {error, string()}).
@@ -151,7 +152,7 @@ register_pid(FileName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPath
 
 
 -spec(fun_to_process/5::(filename(), integer(), integer(), string(), [dir()])->
-	     {error, string()} | undecidables | {ok, [filename()]}).
+	     {error, string()} | {undecidables, string()} | {ok, [filename()]}).
 
 fun_to_process(Fname, Line, Col, ProcessName, SearchPaths) ->
     apply_refactoring(wrangler, fun_to_process, [Fname, Line, Col, ProcessName, SearchPaths], SearchPaths).
