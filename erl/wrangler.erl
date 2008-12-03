@@ -44,7 +44,8 @@
 	 gen_fun_1_eclipse/7, gen_fun_2_eclipse/7,
 	 tuple_funpar_eclipse/5, tuple_to_record_eclipse/8,
 	 fold_expr_by_loc_eclipse/4, fold_expr_by_name_eclipse/6,
-	 fold_expression_1_eclipse/4,fold_expression_2_eclipse/6]).
+	 fold_expression_1_eclipse/4,fold_expression_2_eclipse/6,
+	 new_macro_eclipse/5]).
 
 -include("../hrl/wrangler.hrl").
 
@@ -150,7 +151,7 @@ rename_mod_eclipse(FileName, NewName, SearchPaths) ->
 %%                        SearchPaths::[dir()])-> ok | {error, string()}
 %%   
 -spec(rename_mod_batch/3::(string(), string(), [dir()])->
-	     ok | {error, string()}).
+	     {ok, string()} | {error, string()}).
 rename_mod_batch(OldNamePattern, NewNamePattern, SearchPaths) ->
     try_refactoring(refac_batch_rename_mod, batch_rename_mod, [OldNamePattern, NewNamePattern, SearchPaths]).
 
@@ -318,7 +319,7 @@ duplicated_code_in_dirs(FileDirList, MinToks, MinClones) ->
 
 -spec(expression_search/3::(filename(), pos(), pos()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
 expression_search(FileName, Start, End) ->
-    try_refactoring(refac_expr_search, expr_search, [FileName, Start, End]).
+    refac_expr_search:expr_search(FileName, Start, End).
 
 %% =====================================================================================================
 %%@doc Introduce a new function to represent a user-selected expression or expression sequence.
@@ -386,7 +387,7 @@ fold_expr_by_loc(FileName, Line, Col, SearchPaths) ->
     try_refactoring(refac_fold_expression, fold_expr_by_loc, [FileName, Line, Col, SearchPaths]).
 
 %%@private
--spec(fold_expr_by_loc_eclipse/4::(filename(), integer(), integer(), [dir()]) -> {ok, syntaxTree(),[{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]} 
+-spec(fold_expr_by_loc_eclipse/4::(filename(), integer(), integer(), [dir()]) -> {ok, {syntaxTree(),[{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}}
 									 | {error, string()}).
 fold_expr_by_loc_eclipse(FileName, Line, Col, SearchPaths) ->
     try_refactoring(refac_fold_expression, fold_expr_by_loc_eclipse, [FileName, Line, Col, SearchPaths]).
@@ -605,7 +606,7 @@ tuple_to_record_eclipse(File, FLine, FCol, LLine, LCol, RecName, FieldString,
 %% </p>
 %% @spec fun_to_process(FileName::filename(), Line::integer(), Col::integer(), ProcessName::string(), SearchPaths::[dir()]) ->
 %%  {ok, [filename()]} | {error, string()}
--spec(fun_to_process/5::(filename(), integer(), integer(), string(), [dir()]) -> {ok, [filename()]} | {error, string()}).
+-spec(fun_to_process/5::(filename(), integer(), integer(), string(), [dir()]) -> {ok, [filename()]} |  {undecidables, string()} | {error, string()}).
 fun_to_process(FileName, Line, Col, ProcessName, SearchPaths) ->
     try_refactoring(refac_fun_to_process, fun_to_process, [FileName, Line, Col, ProcessName, SearchPaths]).
 
@@ -629,7 +630,7 @@ fun_to_process(FileName, Line, Col, ProcessName, SearchPaths) ->
 %% @spec rename_process(FileName::filename(), Line::integer(), Col::integer(),NewName::string(), SearchPaths::[dir()]) ->
 %%     {error, string()} | {undecidables, string()}| {ok, [filename()]}
 -spec(rename_process/5::(filename(), integer(), integer(), string(), [dir()]) ->
-	       {error, string()} | {undecidables, string()}| {ok, [filename()]}).
+	       {error, string()} | {undecidables, string()} | {ok, [filename()]}).
 rename_process(FileName, Line, Col, NewName, SearchPaths) ->
     try_refactoring(refac_rename_process, rename_process, [FileName, Line, Col, NewName, SearchPaths]).
 
@@ -638,8 +639,12 @@ rename_process(FileName, Line, Col, NewName, SearchPaths) ->
 -spec(new_macro/5::(filename(), pos(), pos(), string(), [dir()]) ->
 	      {error, string()} | {ok, string()}).
 new_macro(FileName, Start, End, MacroName, SearchPaths) -> 
-    refac_new_macro:new_macro(FileName, Start, End, MacroName, SearchPaths).
-    %%try_refactoring(refac_new_macro, new_macro, [FileName, Start, End, MacroName, SearchPaths]).
+    try_refactoring(refac_new_macro, new_macro, [FileName, Start, End, MacroName, SearchPaths]).
+
+-spec(new_macro_eclipse/5::(filename(), pos(), pos(), string(), [dir()]) ->
+	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
+new_macro_eclipse(FileName, Start, End, NewMacroName, SearchPaths) ->
+    try_refactoring(refac_new_macro, new_macro_eclipse, [FileName, Start, End, NewMacroName, SearchPaths]).
 
 
 
@@ -648,37 +653,9 @@ try_refactoring(Mod, Fun, Args) ->
 	{ok, Res} ->
 	    {ok, Res};
 	{error, Reason} -> {error, Reason};
-	_  -> {error, "Wrangler failed to perform this refactoring, please report error to erlang-refactor@kent.ac.uk."}
+	{undecidables, Str} -> {undecidables, Str};
+	Others  -> 
+	    io:format("Returned:\n~p\n", [Others]),
+	    {error, "Wrangler failed to perform this refactoring, please report error to erlang-refactor@kent.ac.uk."}
     end.
-
-    
-
-
-
-%% trace_send({ModName, FunName, Arity}, Index, Pid, TraceCacheFile) ->
-%%     PInfo = erlang:process_info(Pid),
-%%     {value, InitialCall} = lists:keysearch(initial_call, 1, PInfo),
-%%     {value, CurrentFun} = lists:keysearch(current_function,1, PInfo),
-%%     SendInfo =case lists:keysearch(registered_name, 1, PInfo) of 
-%% 		  {value, RegisteredName} ->
-%% 		      {send, {ModName, FunName, Arity, Index}, Pid, InitialCall, CurrentFun, RegisteredName};
-%% 		  false ->
-%% 		      {send, {ModName, FunName, Arity, Index}, Pid, InitialCall, CurrentFun}
-%% 	      end,
-%%     case dets:open_file(TraceCacheFile, [{type, bag}]) of 
-%% 	{ok, TraceCacheFile} -> 
-%% 	   dets:insert(TraceCacheFile, SendInfo),
-%% 	   dets:close(TraceCacheFile);
-%% 	{error, Reason}  -> eralng:error(Reason)
-%%     end.
-
-%% trace_spawn({ModName, FunName, Arity}, Index, Pid, TraceCacheFile) ->
-%%     SpawnInfo = {spawn, {ModName, FunName, Arity, Index}, Pid},
-%%     case dets:open_file(TraceCacheFile, [{type, bag}]) of 
-%% 	{ok, TraceCacheFile} -> 
-%% 	    dets:insert(TraceCacheFile, SpawnInfo),
-%% 	    dets:close(TraceCacheFile);
-%% 	{error, Reason}  -> eralng:error(Reason)
-%%     end.    
-
 
