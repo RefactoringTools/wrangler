@@ -42,7 +42,7 @@
 expr_search(FileName, Start, End) ->
     ?wrangler_io("\nCMD: ~p:expr_search(~p, ~p,~p).\n", [?MODULE, FileName, Start, End]),
     {ok, {AnnAST, _Info}} =refac_util:parse_annotate_file(FileName,true, []),
-    case refac_util:pos_to_expr_list(AnnAST, Start, End) of 
+    case refac_util:pos_to_expr_list(FileName, AnnAST, Start, End) of 
 	[E|Es] -> 
 	    Res = case Es == [] of 
 		      true ->
