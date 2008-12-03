@@ -39,7 +39,7 @@
 	 is_exported/2, inscope_funs/1,
          once_tdTU/3, stop_tdTP/3, full_buTP/3,
          pos_to_fun_name/2, pos_to_fun_def/2,pos_to_var_name/2,
-         pos_to_expr/3, pos_to_expr_list/3, pos_to_syntax_units/4,expr_to_fun/2,get_range/1,get_toks/1, concat_toks/1, tokenize/1,
+         pos_to_expr/3, pos_to_expr_list/4, pos_to_syntax_units/5, pos_to_syntax_units/4, expr_to_fun/2,get_range/1,get_toks/1, concat_toks/1, tokenize/1,
          get_var_exports/1, get_env_vars/1, get_bound_vars/1, get_free_vars/1, 
          get_client_files/2, expand_files/2, get_modules_by_file/1,
          reset_attrs/1, update_ann/2,parse_annotate_file_1/3,
@@ -343,17 +343,30 @@ pos_to_var_name_1(Node, _Pos = {Ln, Col}) ->
 -spec(pos_to_expr(Tree::syntaxTree(), Start::pos(), End::pos()) ->
                   {ok, syntaxTree()} | {error, string()}).
 pos_to_expr(Tree, Start, End) ->
-   Es = pos_to_expr_list(Tree, Start, End),
-   case Es of 
-       [H|_T] -> {ok, H};
-       _ -> {error, "You have not selected an expression!"}
-   end.
+    Es =pos_to_syntax_units(Tree, Start, End, fun is_expr/1),
+    case Es of 
+	[H|_T] -> {ok, H};
+	_ -> {error, "You have not selected an expression!"}
+    end.
 
 -spec(pos_to_syntax_units(Tree::syntaxTree(),  Start::pos(), End::pos(), F::function()) ->
 	     [syntaxTree()]).
 pos_to_syntax_units(Tree, Start, End, F) ->
     Res = pos_to_syntax_units_1(Tree, Start, End, F),
     filter_syntax_units(Res).
+    
+
+-spec(pos_to_syntax_units(FileName::filename(), Tree::syntaxTree(),  Start::pos(), End::pos(), F::function()) ->
+	     [syntaxTree()]).
+pos_to_syntax_units(FileName, Tree, Start, End, F) ->
+    Res = pos_to_syntax_units_1(Tree, Start, End, F),
+    Res1 = filter_syntax_units(Res),
+    case length(Res1)=<1 of 
+	true ->
+	    Res1;
+	_ -> filter_syntax_units_via_toks(FileName, Res1)
+    end.
+	
 
 pos_to_syntax_units_1(Tree, Start, End, F) ->
     {S, E} = get_range(Tree),
@@ -385,13 +398,35 @@ filter_syntax_units(Exprs) ->
 			       is_list(E)==false end, Exprs1)
     end.
 
+filter_syntax_units_via_toks(FName, Es) ->
+    Toks = tokenize(FName),
+    filter_syntax_units_via_toks_1(Toks,Es).
+
+filter_syntax_units_via_toks_1(_Toks, []) ->
+    [];
+filter_syntax_units_via_toks_1(_Toks, [E]) ->
+    [E];
+filter_syntax_units_via_toks_1(Toks, [E1,E2|Es]) ->
+    {_StartLoc, EndLoc} = refac_util:get_range(E1),
+    {StartLoc1, _EndLoc1} = refac_util:get_range(E2),
+    Toks1 = lists:dropwhile(fun(T) ->
+				    token_loc(T) =< EndLoc end, Toks),
+    Toks2 = lists:takewhile(fun(T) ->
+				    token_loc(T) < StartLoc1 end, Toks1),
+    case lists:any(fun(T) -> token_val(T) =/= ',' end, Toks2) of 
+	false ->
+	    [E1]++ filter_syntax_units_via_toks_1(Toks, [E2|Es]);
+	_  -> [E1]
+    end.
+	
+
 %% =====================================================================
 %% get the list expressions enclosed by start and end locations.
--spec(pos_to_expr_list(Tree::syntaxTree(), Start::pos(), End::pos()) ->
+-spec(pos_to_expr_list(FileName::filename(),Tree::syntaxTree(), Start::pos(), End::pos()) ->
 	     [syntaxTree()]).
 
-pos_to_expr_list(Tree, Start, End) ->
-    pos_to_syntax_units(Tree, Start, End, fun is_expr/1).
+pos_to_expr_list(FileName, Tree, Start, End) ->
+    pos_to_syntax_units(FileName, Tree, Start, End, fun is_expr/1).
     
 
 %% ===========================================================================
@@ -873,7 +908,7 @@ parse_annotate_file_1(FName, true, _SearchPaths) ->
     end;    
 parse_annotate_file_1(FName, false, SearchPaths) ->
    case refac_epp:parse_file(FName, SearchPaths,[]) of 
-       {ok, Forms} -> Forms1 =  lists:filter(fun(F) ->
+       {ok, Forms, _} -> Forms1 =  lists:filter(fun(F) ->
 						     case F of 
 							 {attribute, _, file, _} -> false;
 							 _ -> true
@@ -1475,7 +1510,7 @@ do_add_category(Node, C) ->
 		       Name = refac_syntax:attribute_name(Node),
 		       Args = refac_syntax:attribute_arguments(Node),
 		       MacroHead = ghead("Refac_util:do_add_category:MacroHead", Args),
-		       MacroBody = ghead("Refac_util:do_add_category:MacroBody", tl(Args)),
+		       MacroBody = tl(Args),
 		       MacroHead1 = case refac_syntax:type(MacroHead) of
 				      application ->
 					  Operator = add_category(refac_syntax:application_operator(MacroHead), macro_name),
@@ -1484,7 +1519,7 @@ do_add_category(Node, C) ->
 				      _ -> add_category(MacroHead, macro_name)
 				    end,
 		       MacroBody1 = add_category(MacroBody, attribute),
-		       Node1 = refac_syntax:copy_attrs(Node, refac_syntax:attribute(Name, [MacroHead1, MacroBody1])),
+		       Node1 = refac_syntax:copy_attrs(Node, refac_syntax:attribute(Name, [MacroHead1|MacroBody1])),
 		       {refac_syntax:add_ann({category, attribute}, Node1), true};
 		   _ -> {refac_syntax:add_ann({category, C}, Node), false}
 		 end;
