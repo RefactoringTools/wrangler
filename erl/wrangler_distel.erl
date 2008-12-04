@@ -94,6 +94,12 @@ new_macro(FName, StartLine, StartCol, EndLine, EndCol, MacroName, SearchPaths) -
     apply_refactoring(wrangler, new_macro, [FName, {StartLine, StartCol}, {EndLine, EndCol}, MacroName, SearchPaths], SearchPaths).
 
 
+-spec(fold_against_macro/4::(filename(), integer(), integer(), [dir()]) ->
+	      {error, string()} | {ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}).
+
+fold_against_macro(FileName, Line, Col,  SearchPaths) ->
+    apply_refactoring(wrangler, fold_against_macro, [FileName, Line, Col, SearchPaths], SearchPaths).
+
 -spec(fold_expr_by_loc/4::
       (filename(), integer(), integer(), [dir()]) -> {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
 							 | {error, string()}).
