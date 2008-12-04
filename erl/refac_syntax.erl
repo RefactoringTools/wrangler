@@ -5503,8 +5503,9 @@ subtrees(T) ->
 		[try_expr_body(T), try_expr_clauses(T),
 		 try_expr_handlers(T), try_expr_after(T)];
 	    tuple -> [tuple_elements(T)];
-	    type -> []
-	      end
+	    type -> [];
+		_ ->[]  %% added by huiqing li to handle {wrapper, [] ...} which could be returned from Elisp.
+	    end
     end.
 
 %% =====================================================================
