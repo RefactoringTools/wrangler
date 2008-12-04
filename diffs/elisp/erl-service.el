@@ -1763,6 +1763,93 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 		(with-current-buffer buffer (revert-buffer nil t t))
 		(message "Refactoring succeeded!")))))))))
 
+(defun erl-refactor-fold-against-macro(node)
+  "Fold expression(s)/patterns(s) against a macro definition."
+  (interactive (list (erl-target-node)))
+  (let ((current-file-name (buffer-file-name))
+	(line-no           (current-line-no))
+        (column-no         (current-column-no))
+	(buffer (current-buffer)))       
+    (erl-spawn
+      (erl-send-rpc node 'wrangler_distel 'fold_against_macro
+		    (list current-file-name line-no column-no erlang-refac-search-paths))
+      (erl-receive (node buffer current-file-name)
+	  ((['rex ['badrpc rsn]]
+	    (message "Refactoring failed: %S" rsn))
+	   (['rex ['error rsn]]
+	    (message "Refactoring failed: %s" rsn))
+	   (['rex ['ok candidates]]
+	    (with-current-buffer buffer
+	       (progn (while (not (equal candidates nil))
+			(setq reg (car candidates))
+			(setq line1 (elt reg 0))
+			(setq col1  (elt  reg 1))
+			(setq line2 (elt reg 2))
+			(setq col2  (elt  reg 3))
+			(setq macroapp (elt reg 4))
+			(setq macrodef (elt reg 5))
+			(highlight-region line1 (- col1 1) line2  col2 buffer)
+			(if (yes-or-no-p "Would you like to replace the highlighted expression(s) with macro application? ")
+			    (progn (erl-spawn (erl-send-rpc node 'refac_fold_against_macro 'fold_against_macro_1
+							    (list current-file-name line1 col1 line2 col2 macroapp macrodef erlang-refac-search-paths))
+				     (erl-receive (node buffer highlight-region-overlay current-file-name)
+					 ((['rex ['badrpc rsn]]
+					   (delete-overlay highlight-region-overlay)
+					   (message "Refactoring failed: %s" rsn))
+					  (['rex ['error rsn]]
+					   (delete-overlay highlight-region-overlay)
+					   (message "Refactoring failed: %s" rsn))			     
+					  (['rex ['ok candidates1]]
+					   (with-current-buffer buffer (revert-buffer nil t t)
+						(if (not (equal candidates1 nil))
+						    (progn (highlight-folding-macro-candidates node current-file-name candidates1 buffer highlight-region-overlay)
+							   (delete-overlay highlight-region-overlay))
+						  (delete-overlay highlight-region-overlay))))
+					  )))
+				   (setq candidates nil))
+			  (setq candidates (cdr candidates))))
+		      (revert-buffer nil t t)
+		      (delete-overlay highlight-region-overlay)
+		      (message "Refactoring succeeded.")))))))))
+
+
+(defun highlight-folding-macro-candidates(node current-file-name candidates buffer highlight-region-overlay)
+  "highlight the found candidate expressions one by one"
+  (while (not (equal candidates nil))
+    (setq reg (car candidates))
+    (setq line1 (elt reg 0))
+    (setq col1  (elt  reg 1))
+    (setq line2 (elt reg 2))
+    (setq col2  (elt  reg 3))
+    (setq macroapp (elt reg 4))
+    (setq macrodef (elt reg 5))
+    (highlight-region line1 (- col1 1) line2  col2 buffer)
+    (if (yes-or-no-p "Would you like to replace the highlighted expression(s) with macro application? ")
+	(progn (erl-spawn (erl-send-rpc node 'refac_fold_against_macro 'fold_against_macro_1
+					(list current-file-name line1 col1 line2 col2 macroapp macrodef erlang-refac-search-paths))
+		 (erl-receive (node buffer highlight-region-overlay current-file-name)
+		     ((['rex ['badrpc rsn]]
+		       (delete-overlay highlight-region-overlay)
+		       (message "Refactoring failed: %s" rsn))
+		      (['rex ['error rsn]]
+		       (delete-overlay highlight-region-overlay)
+		       (message "Refactoring failed: %s" rsn))
+		      (['rex ['ok candidates1]]
+		       (with-current-buffer buffer (revert-buffer nil t t)
+					    (if (not (equal candidates1 nil))
+						(progn (highlight-folding-macro-candidates node current-file-name candidates1 buffer highlight-region-overlay)
+						       (delete-overlay highlight-region-overlay))
+					      (delete-overlay highlight-region-overlay)))))))
+	       (setq candidates nil))    
+      (setq candidates (cdr candidates)) 
+    (with-current-buffer buffer (revert-buffer nil t t)
+			 (delete-overlay highlight-region-overlay))
+   ))
+    (message "Refactoring succeeded.")
+    )
+
+
+    
 (defun erl-refactor-fold-expression(node)
   "Fold expression(s) against function definition."
   (interactive (list (erl-target-node)))
@@ -1790,6 +1877,8 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	       (['rex 'false]
 	       (fold_expr_by_name node buffer current-file-name (read-string "Module name: ") (read-string "Function name: ") (read-string "Arity: ")
 				   (read-string "Clause index (starting from 1): "))))))))))
+
+
 
 
 (defun fold_expr_by_name(node buffer current-file-name module-name function-name arity clause-index)
