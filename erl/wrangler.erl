@@ -36,7 +36,8 @@
 	 fun_extraction/4, fold_expr/1,  fold_expr_by_loc/4, fold_expr_by_name/6, 
 	 instrument_prog/2,
 	 uninstrument_prog/2, add_a_tag/5, tuple_funpar/5,
-	 tuple_to_record/8, register_pid/5, fun_to_process/5,new_macro/5]).
+	 tuple_to_record/8, register_pid/5, fun_to_process/5,new_macro/5,
+	fold_against_macro/4]).
 
 -export([rename_var_eclipse/5, rename_fun_eclipse/5,
 	 rename_mod_eclipse/3, generalise_eclipse/5,
@@ -646,6 +647,10 @@ new_macro(FileName, Start, End, MacroName, SearchPaths) ->
 new_macro_eclipse(FileName, Start, End, NewMacroName, SearchPaths) ->
     try_refactoring(refac_new_macro, new_macro_eclipse, [FileName, Start, End, NewMacroName, SearchPaths]).
 
+-spec(fold_against_macro/4::(filename(), integer(), integer(), [dir()]) ->
+	      {error, string()} | {ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}).
+fold_against_macro(FileName, Line, Col, SearchPaths) ->
+    try_refactoring(refac_fold_against_macro, fold_against_macro, [FileName, Line, Col, SearchPaths]).
 
 
 try_refactoring(Mod, Fun, Args) ->
@@ -654,8 +659,7 @@ try_refactoring(Mod, Fun, Args) ->
 	    {ok, Res};
 	{error, Reason} -> {error, Reason};
 	{undecidables, Str} -> {undecidables, Str};
-	Others  -> 
-	    io:format("Returned:\n~p\n", [Others]),
+	_Others  -> 
 	    {error, "Wrangler failed to perform this refactoring, please report error to erlang-refactor@kent.ac.uk."}
     end.
 
