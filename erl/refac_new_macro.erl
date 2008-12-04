@@ -27,6 +27,8 @@
 
 -export([new_macro/5, new_macro_eclipse/5]).
 
+-export([replace_expr_with_macro/3]).
+
 -include("../hrl/wrangler.hrl").
 
 %% =============================================================================================
@@ -92,7 +94,8 @@ do_intro_new_macro(AnnAST, MacroName, SelExpList) ->
 		  refac_syntax:attribute(refac_syntax:atom(define), [MApp|SelExpList])
 	  end,
     Forms = refac_syntax:form_list_elements(AnnAST),
-    {Forms1, Forms2} = lists:splitwith(fun(F) -> refac_syntax:type(F)==attribute end, Forms),
+    {Forms1, Forms2} = lists:splitwith(fun(F) -> (refac_syntax:type(F)==attribute) orelse 
+						     (refac_syntax:type(F) == comment) end, Forms),
     {S1, _} = refac_util:get_range(hd(SelExpList)),
     {_, E1}= refac_util:get_range(lists:last(SelExpList)),
     MApp1 = case Vars of 
@@ -115,6 +118,8 @@ do_intro_new_macro(AnnAST, MacroName, SelExpList) ->
 
 
 
+-spec(replace_expr_with_macro/3::(syntaxTree(), {[syntaxTree()], integer(), integer()}, syntaxTree()) ->
+	     syntaxTree()).
 replace_expr_with_macro(Form, {ExpList, SLoc, ELoc},  MApp) ->
     case (length(ExpList)==1) of 
 	true ->
