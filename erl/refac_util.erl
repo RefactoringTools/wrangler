@@ -1049,8 +1049,24 @@ do_add_range(Node, Toks) ->
 	    Len = length(refac_syntax:integer_literal(Node)),
 	  refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
       string ->
-	  Len = length(refac_syntax:string_literal(Node)),
-	  refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
+	    Toks1 = lists:dropwhile(fun (T) -> token_loc(T) < {L,C} end, Toks),
+	    Toks2 = lists:takewhile(fun(T) -> case T of 
+						 {string, _, _Str} -> true;
+						 _ -> false
+					     end
+				   end, Toks1),
+	    {L2, C2} = case Toks2 of 
+			   [] ->  %% This should not happen.
+			       io:format("\n This should not happen!\n"),
+			       Len = length(refac_syntax:string_literal(Node)),
+			       refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
+			   _ -> {string, {L3, C3}, LastStr} = lists:last(Toks2),
+				%% the end location might be less than the actual value because of 
+				%% special characters such as /n;
+				{L3, C3+length(io_lib:write_string(LastStr))-1}    
+		       end,
+	   Node1 = refac_syntax:add_ann({range, {{L, C}, {L2, C2}}}, Node),
+	   refac_syntax:add_ann({toks, Toks2}, Node1);
       float ->
 	  refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node); %% This is problematic.
       underscore -> refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node);
