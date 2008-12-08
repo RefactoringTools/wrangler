@@ -145,41 +145,40 @@ process_str(S) ->
                           end
 		  end, S).
 	        
-
 get_paper_ribbon_width(Form) ->    
-    case refac_syntax:type(Form) of
-	attribute -> {?PAPER, ?RIBBON};
-	_ ->
-	    Fun = fun(T,Acc) -> 
-			   {S, E} = refac_util:get_range(T),
-			   [S,E]++ Acc
-		   end,
-	     AllRanges =refac_syntax_lib:fold(Fun, [], Form),
-	     case AllRanges of 
-		 [] -> {?PAPER, ?RIBBON};
-		 _ ->  {Start,End} = refac_util:get_range(Form),
-		       GroupedRanges = group_by(1, (lists:filter(fun(Loc) ->
-									 (Loc>= Start) and (Loc=<End) end, AllRanges))),
-		       MinMaxCols=lists:map(fun(Rs) ->Cols = lists:map(fun({_Ln, Col}) -> Col end, Rs),
-						      case Cols of 
-							  [] -> {1, 80};
-							  _ -> {lists:min(Cols),lists:max(Cols)}
-						      end
-					    end,  GroupedRanges),
-		       Paper = lists:max(lists:map(fun({_Min, Max}) ->
-							   Max end, MinMaxCols)),
-		       Ribbon = lists:max(lists:map(fun({Min, Max}) ->
-							    Max-Min+1 end, MinMaxCols)),
-		       Paper1 = case Paper < ?PAPER of
-				    true -> ?PAPER;
-				    _ -> Paper
-				end,
-		       Ribbon1 = case Ribbon < ?RIBBON of 
-				     true -> ?RIBBON;
-				     _  -> Ribbon
-				 end,	
-		       {Paper1+5, Ribbon1+5}  %% adjustion to take the ending tokens such as brackets/commas into account.
-	     end
+     case refac_syntax:type(Form) of
+ 	attribute -> {?PAPER, ?RIBBON};
+ 	_ ->
+ 	    Fun = fun(T,Acc) -> 
+ 			   {S, E} = refac_util:get_range(T),
+ 			   [S,E]++ Acc
+ 		   end,
+ 	     AllRanges =refac_syntax_lib:fold(Fun, [], Form),
+ 	     case AllRanges of 
+ 		 [] -> {?PAPER, ?RIBBON};
+ 		 _ ->  {Start,End} = refac_util:get_range(Form),
+ 		       GroupedRanges = group_by(1, (lists:filter(fun(Loc) ->
+ 									 (Loc>= Start) and (Loc=<End) end, AllRanges))),
+ 		       MinMaxCols=lists:map(fun(Rs) ->Cols = lists:map(fun({_Ln, Col}) -> Col end, Rs),
+ 						      case Cols of 
+ 							  [] -> {1, 80};
+ 							  _ -> {lists:min(Cols),lists:max(Cols)}
+ 						      end
+ 					    end,  GroupedRanges),
+ 		       Paper = lists:max(lists:map(fun({_Min, Max}) ->
+ 							   Max end, MinMaxCols)),
+ 		       Ribbon = lists:max(lists:map(fun({Min, Max}) ->
+ 							    Max-Min+1 end, MinMaxCols)),
+ 		       Paper1 = case Paper < ?PAPER of
+ 				    true -> ?PAPER;
+ 				    _ -> Paper
+ 				end,
+ 		       Ribbon1 = case Ribbon < ?RIBBON of 
+ 				     true -> ?RIBBON;
+ 				     _  -> Ribbon
+ 				 end,	
+ 		       {Paper1+5, Ribbon1+5}  %% adjustion to take the ending tokens such as brackets/commas into account.
+ 	     end
     end.
 
 		
@@ -552,8 +551,18 @@ lay_2(Node, Ctxt) ->
 	    text(erl_syntax:char_literal(Node));
 	
 	string ->
-	    lay_string(erl_syntax:string_literal(Node), Ctxt);
-
+	    Str = refac_syntax:string_literal(Node),
+	    case lists:keysearch(toks,1, refac_syntax:get_ann(Node)) of 
+		{value, {toks, StrToks}} ->
+		    Str1 = io_lib:write_string(lists:concat(lists:map(fun({string, _, S}) ->S end, StrToks))),
+		    case Str1==Str of 
+			true ->  
+			    lay_string(StrToks);
+			_  -> 
+			    lay_string(Str, Ctxt)
+		    end;			
+		_ -> lay_string(Str, Ctxt)
+	    end;
 	nil ->
 	    text("[]");
 
@@ -639,16 +648,29 @@ lay_2(Node, Ctxt) ->
 					 floating(text(")"))))),
 	    maybe_parentheses(D1, Prec, Ctxt);
 	
-	match_expr ->
+	match_expr ->         %% done;
 	    {PrecL, Prec, PrecR} = inop_prec('='),
+	    Left = erl_syntax:match_expr_pattern(Node),
+ 	    Right = erl_syntax:match_expr_body(Node),
+	    EndLn = get_end_line(Left),
+	    StartLn=get_start_line(Right),
 	    D1 = lay(erl_syntax:match_expr_pattern(Node),
-		     set_prec(Ctxt, PrecL)),
+		      set_prec(Ctxt, PrecL)),
 	    D2 = lay(erl_syntax:match_expr_body(Node),
-		     set_prec(Ctxt, PrecR)),
-	    D3 = follow(beside(D1, floating(text(" ="))), D2,
-			Ctxt#ctxt.break_indent),
+		      set_prec(Ctxt, PrecR)),
+	    D3 = case (EndLn ==0) or (StartLn==0) of 
+		     true ->
+			  follow(beside(D1, floating(text(" ="))), D2,
+				 Ctxt#ctxt.break_indent);
+		     false ->
+			 case EndLn==StartLn of 
+			     true ->
+				 beside(beside(D1, text(" =")), D2);
+			     _ ->
+				 above(beside(D1, text("=")), nest(Ctxt#ctxt.break_indent, D2))
+			 end
+		 end,
 	    maybe_parentheses(D3, Prec, Ctxt);
-
 	underscore ->
 	    text("_");
 
@@ -1080,6 +1102,20 @@ lay_qualified_name_1([S | Ss], Ctxt) ->
     beside(lay(S, Ctxt), beside(text("."),
 				lay_qualified_name_1(Ss, Ctxt))).
 
+
+
+%% lay_string/1 defined by Huiqing Li;
+lay_string([]) -> empty();
+lay_string([{string, _, Str}]) ->
+    text(io_lib:write_string(Str));
+lay_string([{string, _, Str}|Ts]) ->
+    case Ts of 
+	[] -> 
+	    text(io_lib:write_string(Str));
+	_ -> above(text(io_lib:write_string(Str)), lay_string(Ts))
+    end.
+    
+
 lay_string(S, Ctxt) ->
     %% S includes leading/trailing double-quote characters. The segment
     %% width is 2/3 of the ribbon width - this seems to work well.
@@ -1278,3 +1314,17 @@ tidy_float_2([]) -> [].
 
 
 %% =====================================================================
+get_start_line(Node) ->
+    case refac_util:get_range(Node) of 
+	{{L, _C}, _} ->
+	     L;
+	_ -> 0
+    end.
+
+get_end_line(Node) ->
+    case refac_util:get_range(Node) of 
+	{_, {L, _C}} ->
+	    L;
+	_-> 0
+    end.
+    
