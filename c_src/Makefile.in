@@ -1,0 +1,22 @@
+ 
+
+ERL_CFLAGS  = @ERL_CFLAGS@
+ERL_LIB     = @ERL_LIB@
+
+CFLAGS=-Wall -I/usr/local/include ${ERL_CFLAGS}
+LDFLAGS=-L. ${ERL_LIB}
+
+
+suffixtree:	main.o suffix_tree.o
+	gcc  ${LDFLAGS} main.o suffix_tree.o -lerl_interface -lei -lpthread -o suffixtree 
+
+suffix_tree.o:	suffix_tree.c suffix_tree.h
+	gcc -g ${CFLAGS} -o suffix_tree.o -c suffix_tree.c
+
+main.o:	suffix_tree.h 
+	gcc -g ${CFLAGS} -o main.o -c main.c 
+
+clean: 
+	-rm -f *.o 
+	-rm -f suffixtree* 
+
