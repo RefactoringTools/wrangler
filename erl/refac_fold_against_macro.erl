@@ -54,7 +54,7 @@ fold_against_macro_eclipse(FileName, Line, Col,  SearchPaths) ->
 fold_against_macro(FileName, Line, Col, SearchPaths, Editor) ->
     ?wrangler_io("\nCMD: ~p:fold_aginst_macro(~p, ~p,~p, ~p).\n", [?MODULE, FileName, Line, Col, SearchPaths]),
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths),
-     case pos_to_macro_define(AnnAST, {Line, Col}) of 
+    case pos_to_macro_define(AnnAST, {Line, Col}) of 
 	{ok, MacroDef} ->
 	    Candidates = search_candidate_exprs(AnnAST, MacroDef),
 	    case Candidates of 
@@ -205,10 +205,23 @@ expr_unification(Exp1, Exp2, MacroParNames) ->
       {true, Subst} ->
 	  Subst1 = lists:usort(lists:map(fun ({E1, E2}) -> {E1, refac_prettypr:format(E2)} end, Subst)),
 	  Vars = lists:map(fun ({E1, _E2}) -> E1 end, Subst1),
-	  Vars1 = lists:usort(Vars),
-	  case length(Vars) == length(Vars1) andalso lists:subtract(Vars1, MacroParNames) == [] of
-	    true -> {true, Subst};
-	    _ -> false
+	  SVars = lists:usort(Vars),
+	  case length(Vars) == length(SVars) of
+	      true ->
+		  case lists:subtract(SVars, MacroParNames) of
+		      [] ->{true, Subst};
+		      Res ->
+			  ResSubst = lists:filter(fun({E1,_E2}) -> 
+							  lists:member(E1, Res) 
+						  end, Subst),
+			  case lists:all(fun({E1,E2}) ->
+						 list_to_atom(refac_prettypr:format(E2)) == E1
+					 end, ResSubst) of 
+			      true -> {true, Subst};
+			      _ -> false
+			  end			  
+		  end;
+	      _ -> false
 	  end
     end.
 
