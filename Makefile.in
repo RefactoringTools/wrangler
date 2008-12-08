@@ -1,12 +1,13 @@
 PACKAGE := distel4.0-wrangler
-VERSION := 0.5 
+VERSION := 0.5.1 
 
 prefix      = @prefix@
 exec_prefix = @exec_prefix@
 bindir      = @bindir@
 datadir     = @datadir@
 infodir     = @infodir@
-erlc        = @erlc@
+erl         = @ERL@
+erlc        = @ERLC@
 emacs       = @emacs@
 
 ELISP_DIR = ${datadir}/${emacs}/site-lisp/distel
@@ -93,6 +94,7 @@ Makefile: Makefile.in config.status
 	./config.status
 
 clean:
+	cd ./wrangler/c_src; make clean; cd ../..	
 	-rm -f ${OBJECTS} 2>/dev/null
 	-rm -f ${BIN_DIR}/* 2>/dev/null
 
@@ -112,7 +114,7 @@ install: base
 	install -m 775 src/*.erl ${ERL_SRC_DIR}
 	install -m 775 wrangler/erl/*.erl ${WRANGLER_SRC_DIR}
 	install -m 775 wrangler/erl/*.app ${EBIN_DIR}
-	install -m 775 wrangler/c_src/*.exe ${BIN_DIR}
+	install -m 775 wrangler/c_src/suffixtree* ${BIN_DIR}
 	install -m 775 wrangler/hrl/*.hrl ${WRANGLER_SRC_DIR}
 	install -m 775 wrangler/plt/side_effect_plt ${WRANGLER_PLT_DIR}
 	@echo
