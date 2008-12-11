@@ -483,7 +483,8 @@ scan_string([$" | Cs], Stack, Toks, {Line, Col}, State,
 	    Errors) ->
     [StartPos, $" | S] = reverse(Stack),
     scan(Cs, [], [{string, StartPos, S} | Toks],
-	 {Line, Col + length(S) + 1 + length([C||C<-S, C==$\n])}, State, Errors);
+	 {Line, Col + length(io_lib:write_string(S))-1}, State, Errors);
+	    
 scan_string([$\n | Cs], Stack, Toks, {Line, _Col}, State,
 	    Errors) ->
     scan_string(Cs, [$\n | Stack], Toks, {Line + 1, 1},
@@ -505,7 +506,7 @@ scan_string(Eof, Stack, _Toks, {Line, Col}, State,
     [StartPos, $" | S] = reverse(Stack),
     SS = string:substr(S, 1, 16),
     done(Eof, [{{string, $", SS}, StartPos} | Errors], [],
-	 {Line, Col + length(S) + 2+ length([C||C<-S, C==$\n])}, State).
+	 {Line, Col + io_lib:write_string(S) -1}, State).
 
 scan_string_escape([nl | Cs], Stack, Toks, {Line, _Col},
 		   State, Errors) ->
