@@ -100,8 +100,7 @@ generalise(FileName, Start={Line, Col}, End={Line1, Col1}, ParName, SearchPaths,
 	true ->
 	    {ok, {AnnAST, Info}} =refac_util:parse_annotate_file(FileName,true, SearchPaths),
 	    case refac_util:pos_to_expr(AnnAST, Start, End) of  
-		{ok, Exp1} ->io:format("Expr1:\n~p\n", [Exp1]),
-		             {ok, Fun} = refac_util:expr_to_fun(AnnAST, Exp1),
+		{ok, Exp1} ->{ok, Fun} = refac_util:expr_to_fun(AnnAST, Exp1),
 			     FunName = refac_syntax:data(refac_syntax:function_name(Fun)),
 			     FunArity = refac_syntax:function_arity(Fun),
 			     Inscope_Funs = lists:map(fun({_M1,F, A})->{F, A} end, 
