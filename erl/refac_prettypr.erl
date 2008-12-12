@@ -113,7 +113,7 @@ vertical_concat([{E,Form}| T],Acc) ->
 		  end,
     F = refac_util:concat_toks(refac_util:get_toks(Form)),
     {ok,EToks,_} = refac_scan:string(E),
-    {ok,FToks,_} = refac_scan:string(io_lib:write_string(F)),
+    {ok,FToks,_} = refac_scan:string(F),
     EStr = process_str(refac_util:concat_toks(EToks)),
     FStr = process_str(refac_util:concat_toks(FToks)),
     Acc1 = case Acc of
