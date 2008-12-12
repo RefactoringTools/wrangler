@@ -914,13 +914,17 @@ parse_annotate_file_1(FName, false, SearchPaths) ->
 							 _ -> true
 						     end
 					     end, Forms),
-		      %% I wonder whether the following is needed;
-		      %% we should never perform a transformation on an AnnAST from resulted from refac_epp;
-		      Comments = erl_comment_scan:file(FName),
-		      SyntaxTree = refac_recomment:recomment_forms(Forms1,Comments),
-		      Info = refac_syntax_lib:analyze_forms(SyntaxTree),
-		      AnnAST = annotate_bindings(FName, SyntaxTree, Info, 1),
-		      {ok, {AnnAST, Info}};       
+			 %% I wonder whether the all the following is needed;
+			 %% we should never perform a transformation on an AnnAST from resulted from refac_epp;
+			 Comments = erl_comment_scan:file(FName),
+			 SyntaxTree = refac_recomment:recomment_forms(Forms1,Comments),
+			 Info = refac_syntax_lib:analyze_forms(SyntaxTree),
+			 AnnAST0 = refac_syntax_lib:annotate_bindings(SyntaxTree, ordsets:new()),
+			 AnnAST1 = update_var_define_locations(AnnAST0),
+			 AnnAST2 = add_category(AnnAST1),
+			 AnnAST4 = adjust_locations(FName, AnnAST2),
+			 AnnAST5 = add_fun_define_locations(AnnAST4, Info),
+			 {ok, {AnnAST5, Info}};       
        {error, Reason} -> erlang:error(Reason)
    end.
 
@@ -1057,7 +1061,6 @@ do_add_range(Node, Toks) ->
 				   end, Toks1),
 	    {L2, C2} = case Toks2 of 
 			   [] ->  %% This should not happen.
-			       io:format("\n This should not happen!\n"),
 			       Len = length(refac_syntax:string_literal(Node)),
 			       refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
 			   _ -> {string, {L3, C3}, LastStr} = lists:last(Toks2),
