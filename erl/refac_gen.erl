@@ -100,7 +100,8 @@ generalise(FileName, Start={Line, Col}, End={Line1, Col1}, ParName, SearchPaths,
 	true ->
 	    {ok, {AnnAST, Info}} =refac_util:parse_annotate_file(FileName,true, SearchPaths),
 	    case refac_util:pos_to_expr(AnnAST, Start, End) of  
-		{ok, Exp1} ->{ok, Fun} = refac_util:expr_to_fun(AnnAST, Exp1),
+		{ok, Exp1} ->io:format("Expr1:\n~p\n", [Exp1]),
+		             {ok, Fun} = refac_util:expr_to_fun(AnnAST, Exp1),
 			     FunName = refac_syntax:data(refac_syntax:function_name(Fun)),
 			     FunArity = refac_syntax:function_arity(Fun),
 			     Inscope_Funs = lists:map(fun({_M1,F, A})->{F, A} end, 
@@ -146,14 +147,24 @@ generalise(FileName, Start={Line, Col}, End={Line1, Col1}, ParName, SearchPaths,
 make_actual_parameter(Exp, SideEffect) ->
     FreeVars = lists:map(fun({V,_}) -> V end, refac_util:get_free_vars(Exp)),
     case FreeVars==[] of 
-	true -> case SideEffect of 
-		    true -> case refac_syntax:type(Exp) of
-				fun_expr -> Exp;
-				_ -> C = refac_syntax:clause([],[],[Exp]),
-				     refac_syntax:copy_attrs(Exp, refac_syntax:fun_expr([C]))
-			    end;
-		    _ -> Exp
-		end;
+	true -> case refac_syntax:type(Exp) of 
+		    atom -> case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Exp)) of 
+				{value, {fun_def, {_M, _N, A, _P1, _P2}}} ->
+				    refac_syntax:implicit_fun(Exp, refac_syntax:integer(A));				       
+				_ -> Exp
+			       end;
+		    module_qualifier ->
+			{value, {fun_def, {_M, _N, A, _P1, _P2}}} = lists:keysearch(fun_def, 1, refac_syntax:get_ann(Exp)),
+			refac_syntax:implicit_fun(Exp, refac_syntax:integer(A));
+		    _ ->  case SideEffect of 
+			      true -> case refac_syntax:type(Exp) of
+					  fun_expr -> Exp;
+					  _ -> C = refac_syntax:clause([],[],[Exp]),
+					       refac_syntax:copy_attrs(Exp, refac_syntax:fun_expr([C]))
+					 end;
+			      _ -> Exp
+			  end
+		end;		
 	false -> Pars  = lists:map(fun(P) ->refac_syntax:variable(P) end, FreeVars),
 		 C = refac_syntax:clause(Pars,[],[Exp]),
 		 refac_syntax:copy_attrs(Exp, refac_syntax:fun_expr([C]))
