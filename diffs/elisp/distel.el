@@ -351,9 +351,9 @@ Please see the documentation of `erlang-menu-base-items'.")
        ;;  ("From Tuple To Record (beta)" erl-refactor-tuple-to-record)
        ("Tuple Function Arguments" erl-refactor-tuple-funpar)
        nil
-       ("Rename a Process" erl-refactor-rename-process)
+       ("Rename a Process (beta)" erl-refactor-rename-process)
        ("Add a Tag to Messages (beta)"  erl-refactor-add-a-tag)
-       ("Register a Process"   erl-refactor-register-pid)
+       ("Register a Process (beta)"   erl-refactor-register-pid)
        ("From Function to Process" erl-refactor-fun-to-process)
        nil
        ("Detect Duplicated Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
@@ -436,6 +436,6 @@ Please see the documentation of `erlang-menu-base-items'.")
 
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 0.5.1"))
+  (message "Wrangler version 0.6"))
  
 
