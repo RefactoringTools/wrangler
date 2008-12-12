@@ -811,31 +811,14 @@ concat_toks([T|Ts], Acc) ->
 			  concat_toks(Ts, [S|Acc]);
 	 {qatom, _, V} -> S = "'"++atom_to_list(V)++"'",
 			  concat_toks(Ts, [S|Acc]);
-	{string, _, V} -> concat_toks(Ts,['"', process_str(V), '"'|Acc]);
+	{string, _, V} -> concat_toks(Ts,[io_lib:write_string(V)|Acc]);
+       	{char, _, V} when is_integer(V)-> concat_toks(Ts,[io_lib:write_char(V)|Acc]);
 	{_, _, V} -> concat_toks(Ts, [V|Acc]);
  	{dot, _} ->concat_toks(Ts, ['.'|Acc]);
 	{V, _} -> 
 	     concat_toks(Ts, [V|Acc])
     end.
 
-process_str(S) ->
-    lists:flatmap(fun(C) ->
-			  case C of 
-			      ' ' -> [C];
-			      10 -> "\\n";
-			      92 -> "\\\\";
-			    %%  $\s  -> "\\s";
-			      13 ->  "\\r";
-			      9 -> "\\t";
-			      11 -> "\\v";
-			      8 -> "\\f";
-			      12 -> "\\f";
-			      27 -> "\\e";
-			      127 -> "\\d";
-			      _ -> [C]
-			  end
-		  end, S).
-	    
 %% =====================================================================
 %% @spec parse_annotate_file(FName::filename(), ByPassPreP::bool(), SearchPaths::[dir()])
 %%                           -> {ok, {syntaxTree(), ModInfo}} | {error, string()}
