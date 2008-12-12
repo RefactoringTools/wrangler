@@ -1035,7 +1035,7 @@ tuple_to_record_in_client_modules(Files, Name, Arity, Mod, N,
     [] -> [];
     [F | Fs] ->
 	  ?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
-	  {ok, {AnnAST, Info}} =refac_util:parse_annotate_file(F, false, []),
+	  {ok, {AnnAST, Info}} =refac_util:parse_annotate_file(F, true, []),
           ExistingRec = check_record_name_exists(Info, RecName),
 	  AnnAST1 = tuple_record(AnnAST, ExistingRec, RecName, FieldList, 
                                  Name, Arity, Mod, N),
