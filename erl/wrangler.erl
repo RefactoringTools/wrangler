@@ -659,7 +659,8 @@ try_refactoring(Mod, Fun, Args) ->
 	    {ok, Res};
 	{error, Reason} -> {error, Reason};
 	{undecidables, Str} -> {undecidables, Str};
-	_Others  -> 
+	Others  -> 
+	    io:format("Others:\n~p\n", [Others]),
 	    {error, "Wrangler failed to perform this refactoring, please report error to erlang-refactor@kent.ac.uk."}
     end.
 
