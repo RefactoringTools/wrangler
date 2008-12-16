@@ -114,8 +114,8 @@ vertical_concat([{E,Form}| T],Acc) ->
     F = refac_util:concat_toks(refac_util:get_toks(Form)),
     {ok,EToks,_} = refac_scan:string(E),
     {ok,FToks,_} = refac_scan:string(F),
-    EStr = process_str(refac_util:concat_toks(EToks)),
-    FStr = process_str(refac_util:concat_toks(FToks)),
+    EStr = refac_util:concat_toks(EToks),
+    FStr = refac_util:concat_toks(FToks),
     Acc1 = case Acc of
 	     "" -> Acc;
 	     _ ->
@@ -137,54 +137,41 @@ vertical_concat([{E,Form}| T],Acc) ->
       _ -> vertical_concat(T,Acc1 ++ Str)
     end.
 
-process_str(S) ->
-    lists:flatmap(fun (C) ->
-			  case C of
-			    ' ' -> [];
-			    $" -> [];
-			    _ -> [C]
-			  end
-		  end,
-		  S).
-
-get_paper_ribbon_width(Form) -> {?PAPER,?RIBBON}.
-
-%% get_paper_ribbon_width(Form) ->
-%%     case refac_syntax:type(Form) of
-%% 	attribute -> {?PAPER, ?RIBBON};
-%% 	_ ->
-%% 	    Fun = fun(T,Acc) ->
-%% 			   {S, E} = refac_util:get_range(T),
-%% 			   [S,E]++ Acc
-%% 		   end,
-%% 	     AllRanges =refac_syntax_lib:fold(Fun, [], Form),
-%% 	     case AllRanges of
-%% 		 [] -> {?PAPER, ?RIBBON};
-%% 		 _ ->  {Start,End} = refac_util:get_range(Form),
-%% 		       GroupedRanges = group_by(1, (lists:filter(fun(Loc) ->
-%% 									 (Loc>= Start) and (Loc=<End) end, AllRanges))),
-%% 		       MinMaxCols=lists:map(fun(Rs) ->Cols = lists:map(fun({_Ln, Col}) -> Col end, Rs),
-%% 						      case Cols of
-%% 							  [] -> {1, 80};
-%% 							  _ -> {lists:min(Cols),lists:max(Cols)}
-%% 						      end
-%% 					    end,  GroupedRanges),
-%% 		       Paper = lists:max(lists:map(fun({_Min, Max}) ->
-%% 							   Max end, MinMaxCols)),
-%% 		       Ribbon = lists:max(lists:map(fun({Min, Max}) ->
-%% 							    Max-Min+1 end, MinMaxCols)),
-%% 		       Paper1 = case Paper < ?PAPER of
-%% 				    true -> ?PAPER;
-%% 				    _ -> Paper
-%% 				end,
-%% 		       Ribbon1 = case Ribbon < ?RIBBON of
-%% 				     true -> ?RIBBON;
-%% 				     _  -> Ribbon
-%% 				 end,	
-%% 		       {Paper1+5, Ribbon1+5}  %% adjustion to take the ending tokens such as brackets/commas into account.
-%% 	     end
-%%     end.
-
+get_paper_ribbon_width(Form) ->
+     case refac_syntax:type(Form) of
+ 	attribute -> {?PAPER, ?RIBBON};
+ 	_ ->
+ 	    Fun = fun(T,Acc) ->
+ 			   {S, E} = refac_util:get_range(T),
+ 			   [S,E]++ Acc
+ 		   end,
+ 	     AllRanges =refac_syntax_lib:fold(Fun, [], Form),
+ 	     case AllRanges of
+ 		 [] -> {?PAPER, ?RIBBON};
+ 		 _ ->  {Start,End} = refac_util:get_range(Form),
+ 		       GroupedRanges = group_by(1, (lists:filter(fun(Loc) ->
+ 									 (Loc>= Start) and (Loc=<End) end, AllRanges))),
+ 		       MinMaxCols=lists:map(fun(Rs) ->Cols = lists:map(fun({_Ln, Col}) -> Col end, Rs),
+ 						      case Cols of
+ 							  [] -> {1, 80};
+ 							  _ -> {lists:min(Cols),lists:max(Cols)}
+ 						      end
+ 					    end,  GroupedRanges),
+ 		       Paper = lists:max(lists:map(fun({_Min, Max}) ->
+ 							   Max end, MinMaxCols)),
+ 		       Ribbon = lists:max(lists:map(fun({Min, Max}) ->
+ 							    Max-Min+1 end, MinMaxCols)),
+ 		       Paper1 = case Paper < ?PAPER of
+ 				    true -> ?PAPER;
+ 				    _ -> Paper
+ 				end,
+ 		       Ribbon1 = case Ribbon < ?RIBBON of
+ 				     true -> ?RIBBON;
+ 				     _  -> Ribbon
+ 				 end,	
+		       {Paper1+5, Ribbon1+5}  %% adjustion to take the ending tokens such as brackets/commas into account.
+ 	     end
+     end.
 
 group_by(N,TupleList) ->
     SortedTupleList = lists:keysort(N,TupleList),
@@ -835,7 +822,7 @@ lay_2(Node,Ctxt) ->
 	  Es = seq(erl_syntax:list_comp_body(Node),floating(text(",")),Ctxt1,fun lay/2),
 	  D2 = lay_elems(fun refac_prettypr_0:par/1, Es, erl_syntax:list_comp_body(Node)),
 	  D1EndLn = get_end_line(erl_syntax:list_comp_template(Node)),
-	  D2StartLn = get_start_line(erl_syntax:list_comp_body(Node)),
+	  D2StartLn = get_start_line(hd(erl_syntax:list_comp_body(Node))),
 	  D3 =  case (D2StartLn-D1EndLn==0) and (D1EndLn=/=0) of
 		    true -> beside(D1, beside(floating(text(" || ")),beside(D2,floating(text("]")))));
 		    _ ->  par([D1,beside(floating(text("|| ")),beside(D2,floating(text("]"))))])
@@ -900,12 +887,12 @@ lay_2(Node,Ctxt) ->
 	  D1 = lay(erl_syntax:record_field_name(Node),Ctxt1),
 	  case erl_syntax:record_field_value(Node) of
 	    none -> D1;
-	     V -> D2 = floating(text("=")),lay(V,Ctxt1),
+	     V -> D2 = lay(V,Ctxt1),
 		  D1EndLn = get_end_line(erl_syntax:record_field_name(Node)),
 		  D2StartLn = get_start_line(V),
 		  case (D2StartLn-D1EndLn==0) and (D1EndLn=/=0) of
-		      true -> beside(D1, D2);
-		      _ -> par([D1,D2],Ctxt1#ctxt.break_indent)
+		      true -> beside(D1, beside(text("="),D2));
+		      _ -> par([D1,floating(text("=")), D2],Ctxt1#ctxt.break_indent)
 		  end
 	  end;
       record_index_expr ->  %% done
@@ -1111,7 +1098,7 @@ append_rule_body(B,D,Ctxt, SameLine) ->
 append_clause_body(B,D,S,Ctxt, SameLine) ->
     case SameLine of 
 	true -> beside(beside(D,S), nest(Ctxt#ctxt.break_indent,B));
-	_ ->  sep([beside(D,S),nest(Ctxt#ctxt.break_indent,B)])
+	_ ->  above(beside(D,S),nest(Ctxt#ctxt.break_indent,B))
     end.
 
 append_guard(none,D,_) -> D;
