@@ -26,12 +26,6 @@ snapshot includes both Distel and the current snapshot of Wrangler
 The Distel included in this snapshot is  Distel-4.0, which is
 downloadable from distel.googlecode.com
 
-Wrangler 0.5 is still a prototype, made available so you can play with 
-basic refactoring support for Erlang, and give us feedback or bug 
-reports.
-
-WE DO NOT RECOMMEND TO USE THIS PROTOTYPE  ON YOUR PRODUCTION SOURCE
-JUST YET!
 
 --------------- how to build----------------
 
