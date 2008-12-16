@@ -59,6 +59,7 @@ init([]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
+%% this function also reset the state of the error logger.
 handle_call(get_errors, _From, _State=#state{errors=Errors}) ->
     {reply, Errors,  #state{}}.
 
