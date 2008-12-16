@@ -108,7 +108,7 @@ to_lower([], Acc) -> lists:reverse(Acc).
 %% @spec try_evaluation(Expr::syntaxTree())->{value, term()}|{error, string()}
 %% @doc Try to evaluate an expression. 
 
--spec (try_evaluation(Expr::syntaxTree())->{value, term()}|{error, string()}).
+-spec (try_evaluation(Expr::syntaxTree())->{value, anyterm()}|{error, string()}).
 try_evaluation(Expr) ->
     case catch erl_eval:exprs(Expr, []) of
       {value, V, _} -> {value, V};
@@ -131,8 +131,8 @@ try_evaluation(Expr) ->
 %% @see refac_syntax_lib:fold/3.
 			 
 -spec(once_tdTU/3::(fun((syntaxTree(), any()) ->
-			       {term(), boolean()}), syntaxTree(), term()) ->
-	     {term(), boolean()}).
+			       {anyterm(), boolean()}), syntaxTree(), anyterm()) ->
+	     {anyterm(), boolean()}).
 once_tdTU(Function, Node, Others) ->
     case Function(Node, Others) of
       {R, true} -> {R, true};
@@ -174,8 +174,8 @@ until(F, [H | T], Others) ->
 
 %%-spec(stop_tdTP(Function::function(), Tree::syntaxTree(), Others::[term()])->  syntaxTree()).
 -spec(stop_tdTP/3::(fun((syntaxTree(), any()) ->
-			       {term(), boolean()}), syntaxTree(), term()) ->
-	     {term(), boolean()}).
+			       {anyterm(), boolean()}), syntaxTree(), anyterm()) ->
+	     {anyterm(), boolean()}).
 stop_tdTP(Function, Node, Others) ->
     case Function(Node, Others) of
       {Node1, true} -> {Node1, true};
@@ -204,7 +204,7 @@ stop_tdTP(Function, Node, Others) ->
 %%
 %% @see stop_tdTP/2
 %% @see once_tdTU/3
--spec(full_buTP/3::(fun((syntaxTree(), any()) -> syntaxTree()), syntaxTree(), term())->
+-spec(full_buTP/3::(fun((syntaxTree(), any()) -> syntaxTree()), syntaxTree(), anyterm())->
 	     syntaxTree()).       
 full_buTP(Fun, Tree, Others) ->
     case refac_syntax:subtrees(Tree) of
@@ -662,7 +662,7 @@ is_exported({FunName, Arity}, ModInfo) ->
 %% if the kind of annotation already exists in the AST node, the annotation 
 %% value is replaced with the new one, otherwise the given annotation info 
 %% is added to the node.
--spec(update_ann(Node::syntaxTree(), {Key::atom(), Val::term()}) -> syntaxTree()).
+-spec(update_ann(Node::syntaxTree(), {Key::atom(), Val::anyterm()}) -> syntaxTree()).
 update_ann(Tree, {Key, Val}) ->
     As0 = refac_syntax:get_ann(Tree),
     As1 = case lists:keysearch(Key, 1, As0) of
@@ -899,15 +899,14 @@ parse_annotate_file_1(FName, false, SearchPaths) ->
 					     end, Forms),
 			 %% I wonder whether the all the following is needed;
 			 %% we should never perform a transformation on an AnnAST from resulted from refac_epp;
-			 Comments = erl_comment_scan:file(FName),
-			 SyntaxTree = refac_recomment:recomment_forms(Forms1,Comments),
+			 SyntaxTree = refac_recomment:recomment_forms(Forms1,[]),
 			 Info = refac_syntax_lib:analyze_forms(SyntaxTree),
 			 AnnAST0 = refac_syntax_lib:annotate_bindings(SyntaxTree, ordsets:new()),
-			 AnnAST1 = update_var_define_locations(AnnAST0),
-			 AnnAST2 = add_category(AnnAST1),
-			 AnnAST4 = adjust_locations(FName, AnnAST2),
-			 AnnAST5 = add_fun_define_locations(AnnAST4, Info),
-			 {ok, {AnnAST5, Info}};       
+			 AnnAST1 = update_var_define_locations(AnnAST0),  
+			 AnnAST2 = adjust_locations(FName, AnnAST1),      
+			 AnnAST3 = add_fun_define_locations(AnnAST2, Info),
+			 AnnAST4 = add_range(FName, AnnAST3),
+			 {ok, {AnnAST4, Info}};       
        {error, Reason} -> erlang:error(Reason)
    end.
 
@@ -1909,19 +1908,11 @@ lookup(Plt, {M, F, A}) ->
       [{_MFA, S}] -> {value, S}
     end.
 
-%% trim_callgraph(DirList) ->
-%%     {Sccs, E} = build_callgraph(DirList),
-%%     trim_scc(Sccs).
-
-
-%% trim_scc([], Sccs1) ->
-%%      Sccs1;
-%% trim_scc([Scc|T], Sccs1) ->
-
 
 %%====================================================================================
 %%@spec build_callgraph(DirList::[dir()]) -> #callgraph{}
 %%@doc Build a function call graph out of the Erlang files contained in the given directories.
+
 
 -spec(build_scc_callgraph(DirList::[dir()]) -> #callgraph{}).
 build_scc_callgraph(DirList) ->
@@ -1936,12 +1927,9 @@ build_scc_callgraph(DirList) ->
 build_callercallee_callgraph(SearchPaths) ->
     Files = refac_util:expand_files(SearchPaths, ".erl"),
     lists:append(lists:map(fun(FileName) ->
-		      {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths),
-		      case lists:keysearch(errors,1, Info) of 
-			  {value, {errors, _Errors}} -> erlang:error("Syntax error in " ++ FileName);
-			  _ ->  do_build_callgraph(FileName, {AnnAST, Info})
-		      end
-	      end, Files)).
+				   {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, false, SearchPaths),
+				   do_build_callgraph(FileName, {AnnAST, Info})
+			   end, Files)).
     
    
 -spec(do_build_callgraph/2::(filename(), {syntaxTree(),moduleInfo()}) -> 
@@ -1962,8 +1950,7 @@ do_build_callgraph(FileName, {AnnAST, Info}) ->
 		       Caller = {{ModName, FunName, Arity}, T},
 		       CalledFuns = called_funs(ModName, InscopeFuns, T),
 		       ordsets:add_element({Caller, CalledFuns}, S);
-		   %% lists:foldr(fun(E,S_) -> ordsets:add_element({Caller, E}, S_) end, S,  CalledFuns);
-		   _ -> S
+		     _ -> S
 		 end
 	 end,
     lists:usort(refac_syntax_lib:fold(F1, [], AnnAST)).
