@@ -80,7 +80,7 @@ fun_to_process(FName, Line, Col, ProcessName, SearchPaths, Editor) ->
 					     case Editor of 
 						 emacs ->
 						     refac_util:write_refactored_files([{{FName, FName}, AnnAST2}]), {ok, [FName]};
-						 eclipse ->
+	 					 eclipse ->
 						     Res = [{FName, FName, refac_prettypr:print_ast(AnnAST2)}],
 						     {ok, Res}
 					     end
