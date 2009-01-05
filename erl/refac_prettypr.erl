@@ -1175,6 +1175,7 @@ tidy_float_2([_C| Cs]) -> tidy_float_2(Cs);
 tidy_float_2([]) -> [].
 
 %% =====================================================================
+
 get_start_line(Node) ->
     case refac_util:get_range(Node) of
       {{L,_C},_} -> L;
