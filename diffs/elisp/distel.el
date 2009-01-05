@@ -429,7 +429,7 @@ Please see the documentation of `erlang-menu-base-items'.")
 	  (setq erlang-menu-items 
 		(erlang-menu-delete 'refactor-menu-items erlang-menu-items))
 	  (erlang-menu-init)
-	  (message "Wrangler was not started.")
+	  (message "Wrangler stopped.")
 	  (setq erlang-refactor-status 0))
 	 (['rex ['error rsn]]
 	  (message "Wrangler failed to stop:%s" rsn))))))
