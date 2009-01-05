@@ -20,10 +20,10 @@
 
 %% @copyright 2006-2009 Huiqing Li, Simon Thompson
 %%
-%% @author Huiqing Li <hl@kent.ac.uk>
+%% @author Huiqing Li, Simon Thompson
 %%   [http://www.cs.kent.ac.uk/projects/forse]
 
-%% @version  0.5
+%% @version 0.6
 %% @end
 %%
 %% @doc This module describes the refactorings that are currently supported by Wrangler.
@@ -51,7 +51,7 @@
 -include("../hrl/wrangler.hrl").
 
 %% ====================================================================================================
-%% @doc Rename a variable name with a user-supplied new name.
+%% @doc Rename a variable name with a new name supplied by the user.
 %% <p> To apply this refactoring, point the cursor to  any occurrence of this variable, then select
 %% <em> Rename Variable Name </em> from the <em> Refactor </em> menu, after that the refactorer will prompt
 %% to enter the new parameter name in the mini-buffer. 
@@ -79,7 +79,7 @@ rename_var_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
     try_refactoring(refac_rename_var, rename_var_eclipse, [FileName, Line, Col, NewName, SearchPaths]).
 
 %%=========================================================================================
-%% @doc Rename a function name with a user-supplied new name.
+%% @doc Rename a function name with a new name supplied by the user.
 %% <p> To apply this refactoring, point the cursor to any occurrence of this 
 %% function name, then select <em> Rename Function Name </em> from the <em> Refactor </em> menu, 
 %% after that the refactorer will prompt to enter  the new function name in the mini-buffer.
@@ -109,7 +109,7 @@ rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths) ->
     try_refactoring(refac_rename_fun, rename_fun_eclipse, [FileName, Line, Col, NewName, SearchPaths]).
 
 %%======================================================================================
-%% @doc Rename a module with a user-supplied new name.
+%% @doc Rename a module with a new name supplied by the user.
 %% <p> To apply this refactoring, point the cursor to anywhere in the module to be renamed, then select 
 %% <em> Rename Module Name </em> from the <em> Refactor </em> menu, after that, the refactorer will prompt to enter 
 %% the new module name in the mini-buffer.
@@ -246,7 +246,7 @@ gen_fun_2_eclipse(FileName, ParName, FunName, Arity, DefPos, Expr, SearchPaths) 
 %% </p>
 %% <p> This refactoring assumes that an Erlang module name always matches it file name.
 %% </p>
-%% <p> Suppose we move functin <em> foo/n </em> from its current module <em> M </em> 
+%% <p> Suppose we move function <em> foo/n </em> from its current module <em> M </em> 
 %%     to module <em> N </em>, then the following <em> side-conditions </em> apply to 
 %%     this refactoring: 
 %% <li> If <em> foo/n </em> is already in scope in module <em> N </em>, then its defining 
@@ -307,10 +307,10 @@ duplicated_code_in_dirs(FileDirList, MinToks, MinClones) ->
     
 
 %% ==================================================================================================
-%% @doc Search for clones of a user-selected expression/expression sequence in the current file.
+%% @doc Search for clones of an expression/expression sequence selected in the current file.
 %% 
-%% <p> This functionality allows searchingh for clones of a selected expression or expression 
-%% sequence.  The found clones are syntactically identical to the user-selected code fragment after consistent renaming of variables, 
+%% <p> This functionality allows searching for clones of a selected expression or expression 
+%% sequence.  The found clones are syntactically identical to the code fragment selected  after consistent renaming of variables, 
 %% except for variations in literals, layout and comments. 
 %% </p>
 %% <p> When the selected code contains multiple, but non-continuous sequence of, expressions, the first
@@ -323,7 +323,7 @@ expression_search(FileName, Start, End) ->
     refac_expr_search:expr_search(FileName, Start, End).
 
 %% =====================================================================================================
-%%@doc Introduce a new function to represent a user-selected expression or expression sequence.
+%%@doc Introduce a new function to represent an expression or expression sequence selected by the user.
 %% <p> This refactoring allows the user to introduce a new function to represent a selected expression or expression 
 %% sequence, and replace the selected expression/expression sequence with a call to the new function.  Those free variables
 %% within the expression/expression sequence become the formal parameters of the function.
@@ -348,9 +348,9 @@ fun_extraction_eclipse(FileName, Start, End, FunName) ->
 %% the corresponding left-hand side with necessary parameter substitutions. The function clause can 
 %% be defined in either the current module or another module.
 %% </p>
-%% <p> To apply this refactoring, first point the cursor the function clause against which expresssion will be 
+%% <p> To apply this refactoring, first point the cursor to the function clause against which expression will be 
 %% folded if the function is defined in the current module, or leave the cursor anywhere if you want to 
-%% fold against a function clause defined in another module; then select <em> Fold Expresssion Against Function </em> 
+%% fold against a function clause defined in another module; then select <em> Fold Expression Against Function </em> 
 %% from the <em> Refactor </em> menu; after that, the refactorer will ask you to confirm that you want to fold against 
 %% the function clause pointed to by the cursor, if you answer 'no', the refactorer will ask you to provide the 
 %% module name, function name and the arity of the function. After all these initial interaction, Wrangler will search 
@@ -362,7 +362,7 @@ fun_extraction_eclipse(FileName, Start, End, FunName) ->
 %% If the user answers 'yes' to one instance,  that instance will be replaced by function application,
 %% otherwise it will remain unchanged.
 %% </p>
-%% <p> In the case that a candidate expression/expression sequence  need to export some variables which 
+%% <p> In the case that a candidate expression/expression sequence  needs to export some variables which 
 %% are used by the following code, that expression/expression sequence will be replaced by a match 
 %% expression, whose left-hand side it the exported variable(s), and right-hand side is the function
 %% application.
@@ -465,7 +465,7 @@ add_a_tag(FileName, Line, Col, Tag, SearchPaths) ->
 %% @doc Register a process which is not already registered.
 %% <p>This refactoring register a process id, <code>Pid</code> say, with a name, regname say, and replace
 %% the uses of <code>Pid ! Msg </code> with  <code>regname ! Msg</code> if possible. To initiate this refactoring, the 
-%% user should select a match expression whose left-hand side is a process indentifier, and right-hand 
+%% user should select a match expression whose left-hand side is a process identifier, and right-hand 
 %% side is a spawn expression. </p>
 %% <p>
 %% The following side-conditions apply to this refactoring:
@@ -533,7 +533,7 @@ tuple_funpar_eclipse(FileName, Line, Col, Number, SearchPaths) ->
 %% <li> The function must be defined in the current module; </li>
 %% <li> The selected part must be a tuple.  </li>
 %% </p>
-%% NOTE: this refacotoring is still at an experimental stage.
+%% NOTE: this refactoring is still at an experimental stage.
 %% @spec tuple_to_record(File::filename(),FLine::integer(),FCol::integer(),
 %%           LLine::integer(),LCol::integer(), RecName::string(),
 %%           FieldString::[string()], SearchPaths::[dir()]) ->  {error, string()} | {ok, [filename()]} 
@@ -613,7 +613,7 @@ fun_to_process(FileName, Line, Col, ProcessName, SearchPaths) ->
 
 
 %%=========================================================================================
-%% @doc Rename a registered process with a user-supplied new name.
+%% @doc Rename a registered process with a new name supplied by the user.
 %% <p> To apply this refactoring, point the cursor to the process name, then select
 %% <em> Rename a Process </em> from the  <em> Refactor </em> menu, after that Wrangler will prompt
 %% to enter the new process name in the mini-buffer. 
@@ -636,17 +636,37 @@ rename_process(FileName, Line, Col, NewName, SearchPaths) ->
     try_refactoring(refac_rename_process, rename_process, [FileName, Line, Col, NewName, SearchPaths]).
 
 
-
+%% =====================================================================================================
+%% @doc Introduce a macro to represent a syntactically well-formed expression/pattern or a sequence of expressions/patterns.
+%% <p> This refactoring allows the user to define a new macro to represent a expression/pattern or sequence of 
+%% of expressions/patterns selected by the user, and replace the selected code with an application of the macro.
+%% Free variables within the selected code become the formal parameters of the macro definition.
+%% </p>
+%% @spec new_macro(FileName::filename(),Start::pos(), End::pos(), NewMacroName::string(),SearchPaths::[dir()]) ->{error, string()} | {ok, string()}
 -spec(new_macro/5::(filename(), pos(), pos(), string(), [dir()]) ->
 	      {error, string()} | {ok, string()}).
 new_macro(FileName, Start, End, MacroName, SearchPaths) -> 
     try_refactoring(refac_new_macro, new_macro, [FileName, Start, End, MacroName, SearchPaths]).
 
+
+%%@private
 -spec(new_macro_eclipse/5::(filename(), pos(), pos(), string(), [dir()]) ->
 	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 new_macro_eclipse(FileName, Start, End, NewMacroName, SearchPaths) ->
     try_refactoring(refac_new_macro, new_macro_eclipse, [FileName, Start, End, NewMacroName, SearchPaths]).
 
+%% =============================================================================================
+%% @doc Fold expressions/patterns against a macro definition.
+%% <p>
+%% This refactoring replaces instances of the right-hand side of a macro definition by the corresponding
+%% left-hand side with necessary parameter substitutions. 
+%% </p>
+%% <p> To apply this refactoring, first point the cursor to the macro definition against which candidate 
+%%  expressions/candidates will be folded; then select <em> Fold Against Macro Definition </em> from the 
+%% <em> Refactor </em> menu; after that, Wrangler will search the current module for expressions/patterns
+%% which are instances of the right-hand side of the selected macro definition; and direct you through the 
+%% refactoring process.
+%% </p>
 -spec(fold_against_macro/4::(filename(), integer(), integer(), [dir()]) ->
 	      {error, string()} | {ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}).
 fold_against_macro(FileName, Line, Col, SearchPaths) ->
@@ -656,6 +676,8 @@ fold_against_macro(FileName, Line, Col, SearchPaths) ->
 try_refactoring(Mod, Fun, Args) ->
     try apply(Mod, Fun, Args)
     catch
-	_:_ ->{error, "Wrangler failed to perform this refactoring, please report error to erlang-refactor@kent.ac.uk."}
+	throw:Error -> Error;
+	_E1:_E2->
+	    {error, "Wrangler failed to perform this refactoring, please report error to erlang-refactor@kent.ac.uk."}
     end.
 
