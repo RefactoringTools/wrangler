@@ -344,10 +344,11 @@ pos_to_var_name_1(Node, _Pos = {Ln, Col}) ->
                   {ok, syntaxTree()} | {error, string()}).
 pos_to_expr(Tree, Start, End) ->
     Es =pos_to_syntax_units(Tree, Start, End, fun is_expr/1),
-    case Es of 
-	[H|_T] -> {ok, H};
-	_ -> {error, "You have not selected an expression!"}
+    case Es of
+	[] -> {error, "You have not selected an expression!"};
+	_ -> {ok, hd(Es)}
     end.
+
 
 -spec(pos_to_syntax_units(Tree::syntaxTree(),  Start::pos(), End::pos(), F::function()) ->
 	     [syntaxTree()]).
@@ -357,15 +358,17 @@ pos_to_syntax_units(Tree, Start, End, F) ->
     
 
 -spec(pos_to_syntax_units(FileName::filename(), Tree::syntaxTree(),  Start::pos(), End::pos(), F::function()) ->
-	     [syntaxTree()]).
+	     [[syntaxTree()]]).
 pos_to_syntax_units(FileName, Tree, Start, End, F) ->
     Res = pos_to_syntax_units_1(Tree, Start, End, F),
-    Res1 = filter_syntax_units(Res),
-    case length(Res1)=<1 of 
-	true ->
-	    Res1;
-	_ -> filter_syntax_units_via_toks(FileName, Res1)
-    end.
+    Res1 = filter_syntax_units(Res),	
+    Units = case length(Res1)=<1 of 
+		true ->
+		    [Res1];
+		_ ->
+		    filter_syntax_units_via_toks(FileName, Res1)
+	    end,
+    [U || U<-Units, U=/=[]].
 	
 
 pos_to_syntax_units_1(Tree, Start, End, F) ->
@@ -404,9 +407,19 @@ filter_syntax_units_via_toks(FName, Es) ->
 
 filter_syntax_units_via_toks_1(_Toks, []) ->
     [];
-filter_syntax_units_via_toks_1(_Toks, [E]) ->
+filter_syntax_units_via_toks_1(Toks, Es) ->
+    Es1= filter_syntax_units_via_toks_2(Toks, Es),
+    {EsLen, Es1Len} = {length(Es), length(Es1)},
+    case EsLen == Es1Len of 
+	true -> [Es1];
+	_ -> [Es1 | filter_syntax_units_via_toks_1(Toks, lists:nthtail(Es1Len, Es))]
+    end.
+
+filter_syntax_units_via_toks_2(_Toks, []) ->
+    [];
+filter_syntax_units_via_toks_2(_Toks, [E]) -> 
     [E];
-filter_syntax_units_via_toks_1(Toks, [E1,E2|Es]) ->
+filter_syntax_units_via_toks_2(Toks, [E1,E2|Es]) ->
     {_StartLoc, EndLoc} = refac_util:get_range(E1),
     {StartLoc1, _EndLoc1} = refac_util:get_range(E2),
     Toks1 = lists:dropwhile(fun(T) ->
@@ -415,9 +428,29 @@ filter_syntax_units_via_toks_1(Toks, [E1,E2|Es]) ->
 				    token_loc(T) < StartLoc1 end, Toks1),
     case lists:any(fun(T) -> token_val(T) =/= ',' end, Toks2) of 
 	false ->
-	    [E1]++ filter_syntax_units_via_toks_1(Toks, [E2|Es]);
+	    [E1]++ filter_syntax_units_via_toks_2(Toks, [E2|Es]);
 	_  -> [E1]
     end.
+	
+
+
+
+%% filter_syntax_units_via_toks_1(_Toks, []) ->
+%%     [];
+%% filter_syntax_units_via_toks_1(_Toks, [E]) ->
+%%     [E];
+%% filter_syntax_units_via_toks_1(Toks, [E1,E2|Es]) ->
+%%     {_StartLoc, EndLoc} = refac_util:get_range(E1),
+%%     {StartLoc1, _EndLoc1} = refac_util:get_range(E2),
+%%     Toks1 = lists:dropwhile(fun(T) ->
+%% 				    token_loc(T) =< EndLoc end, Toks),
+%%     Toks2 = lists:takewhile(fun(T) ->
+%% 				    token_loc(T) < StartLoc1 end, Toks1),
+%%     case lists:any(fun(T) -> token_val(T) =/= ',' end, Toks2) of 
+%% 	false ->
+%% 	    [E1]++ filter_syntax_units_via_toks_1(Toks, [E2|Es]);
+%% 	_  -> [E1]
+%%     end.
 	
 
 %% =====================================================================
@@ -426,7 +459,12 @@ filter_syntax_units_via_toks_1(Toks, [E1,E2|Es]) ->
 	     [syntaxTree()]).
 
 pos_to_expr_list(FileName, Tree, Start, End) ->
-    pos_to_syntax_units(FileName, Tree, Start, End, fun is_expr/1).
+    Units= pos_to_syntax_units(FileName, Tree, Start, End, fun is_expr/1),
+    case Units of 
+	[] ->
+	     [];
+	_  -> hd(Units)
+    end.
     
 
 %% ===========================================================================
@@ -639,22 +677,18 @@ inscope_funs(ModuleInfo) ->
 
 -spec(is_exported({FunName::atom(), Arity::integer()},ModInfo::moduleInfo()) -> boolean()).
 is_exported({FunName, Arity}, ModInfo) ->
-    case lists:keysearch(exports, 1, ModInfo) of
-      {value, {exports, ExportList}} ->
-	  R = lists:member({FunName, Arity}, ExportList),
-	  if R -> R;
-	     true ->
-		 case lists:keysearch(attributes, 1, ModInfo) of
-		   {value, {attributes, Attrs}} -> lists:member({compile, export_all}, Attrs);
-		   false -> false
-		 end
-	  end;
-      false ->
-	  case lists:keysearch(attributes, 1, ModInfo) of
-	    {value, {attributes, Attrs}} -> lists:member({compile, export_all}, Attrs);
-	    false -> false
-	  end
-    end.
+    ImpExport = case lists:keysearch(attributes, 1, ModInfo) of
+		    {value, {attributes, Attrs}} -> 
+			lists:member({compile, export_all}, Attrs);
+		    false -> false
+		end,
+    ExpExport= 	case lists:keysearch(exports, 1, ModInfo) of
+		    {value, {exports, ExportList}} ->
+			 lists:member({FunName, Arity}, ExportList);
+		    _ -> false
+		end,
+    ImpExport or ExpExport.
+		
 
 %% =====================================================================
 %% @spec update_ann(Node::syntaxTree(), {Key::atom(), Val::term()}) -> syntaxTree()
@@ -1018,7 +1052,6 @@ do_add_range(Node, Toks) ->
 		 {Line, Col} -> {Line,Col};
 		 Line ->{Line, 0}
 	     end,
-   %% {L, C} = refac_syntax:get_pos(Node),
     case refac_syntax:type(Node) of
       variable ->
 	  Len = length(refac_syntax:variable_literal(Node)),
@@ -1035,25 +1068,27 @@ do_add_range(Node, Toks) ->
 	    Len = length(refac_syntax:integer_literal(Node)),
 	  refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
       string ->
-	    Toks1 = lists:dropwhile(fun (T) -> token_loc(T) < {L,C} end, Toks),
+	    Toks1 = lists:dropwhile(fun (T) -> (token_loc(T) < {L,C})
+				    or (case T of {string, _, _} -> false;
+					    _  -> true
+					end)
+				    end, Toks),
 	    Toks2 = lists:takewhile(fun(T) -> case T of 
 						 {string, _, _Str} -> true;
 						 _ -> false
 					     end
 				   end, Toks1),
-	    {L2, C2} = case Toks2 of 
-			   [] ->  %% This should not happen.
-			       Len = length(refac_syntax:string_literal(Node)),
-			       refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
-			   _ -> {string, {L3, C3}, LastStr} = lists:last(Toks2),
-				%% the end location might be less than the actual value because of 
-				%% special characters such as /n;
-				{L3, C3+length(io_lib:write_string(LastStr))-1}    
-		       end,
-	   Node1 = refac_syntax:add_ann({range, {{L, C}, {L2, C2}}}, Node),
-	   refac_syntax:add_ann({toks, Toks2}, Node1);
-      float ->
-	  refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node); %% This is problematic.
+	   case Toks2 of 
+	       [] ->  %% This should not happen.
+		   Len = length(refac_syntax:string_literal(Node)),
+		   refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
+	       _ -> {string, {L3, C3}, LastStr} = lists:last(Toks2),
+		    R = {token_loc(hd(Toks2)), {L3, C3+length(io_lib:write_string(LastStr))-1}},
+		    Node1 = refac_syntax:add_ann({range, R}, Node),
+		    refac_syntax:add_ann({toks, Toks2}, Node1)
+	       end;
+	float ->
+	    refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node); %% This is problematic.
       underscore -> refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node);
       eof_marker -> refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node);
       nil -> refac_syntax:add_ann({range, {{L, C}, {L, C + 1}}}, Node);
@@ -1746,9 +1781,7 @@ build_local_side_effect_tab(File, SearchPaths) ->
     case ValidSearchPaths of
       true -> ok;
       false ->
-	  exit("One of the directories sepecified in "
-	       "the search paths does not exist, please "
-	       "check the customization!")
+	  throw("One of the directories sepecified in the search paths does not exist, please check the customization!")
     end,
     CurrentDir = filename:dirname(normalise_file_name(File)),
     SideEffectFile = filename:join(CurrentDir, "local_side_effect_tab"),
@@ -1822,6 +1855,19 @@ side_effect_scc([{{_M, _F, _A}, Def}], Side_Effect_Tab, OtherTab) ->
 
 
 check_side_effect(Node, LibPlt, LocalPlt) ->
+    LookUp=fun(MFA) ->
+		   case lookup(LibPlt, MFA) of
+		       {value, S} -> S;
+		       _ ->
+			   case LocalPlt of 
+			       none -> unknown;
+			       _ -> case lookup(LocalPlt, MFA) of
+					{value, S} -> S;
+					_ -> unknown
+				    end			  
+			   end
+		   end
+	   end,
     case refac_syntax:type(Node) of
       receive_expr -> true;
       infix_expr -> Op = refac_syntax:operator_literal(refac_syntax:infix_expr_operator(Node)), Op == "!";
@@ -1832,36 +1878,16 @@ check_side_effect(Node, LibPlt, LocalPlt) ->
 	    atom ->
 		Op = refac_syntax:atom_value(Operator),
 		{value, {fun_def, {M, _N, _A, _P1, _P}}} = lists:keysearch(fun_def, 1, refac_syntax:get_ann(Operator)),
-		case lookup(LibPlt, {M, Op, Arity}) of
-		  {value, S} -> S;
-		  _ ->
-		      case LocalPlt of 
-			  none -> unknown;
-			  _ -> case lookup(LocalPlt, {M, Op, Arity}) of
-				   {value, S} -> S;
-				   _ -> unknown
-			       end			  
-		      end
-		end;
-	    module_qualifier ->
+		LookUp({M,Op, Arity});
+	      module_qualifier ->
 		Mod = refac_syntax:module_qualifier_argument(Operator),
 		Body = refac_syntax:module_qualifier_body(Operator),
 		case {refac_syntax:type(Mod), refac_syntax:type(Body)} of
 		  {atom, atom} ->
 		      M = refac_syntax:atom_value(Mod),
 		      Op = refac_syntax:atom_value(Body),
-		      case lookup(LibPlt, {M, Op, Arity}) of
-			{value, S} -> S;
-			_ ->
-			    case LocalPlt of 
-				none -> unknown;
-				_ -> case lookup(LocalPlt, {M, Op, Arity}) of
-					 {value, S} -> S;
-					 _ -> unknown
-				     end
-			    end
-		      end;
-		  _ -> unknown
+		      LookUp({M, Op, Arity});
+		    _ -> unknown
 		end;
 	    _ -> unknown
 	  end;
@@ -1870,20 +1896,10 @@ check_side_effect(Node, LibPlt, LocalPlt) ->
 	  A = refac_syntax:arity_qualifier_argument(Node),
 	  case {refac_syntax:type(Fun), refac_syntax:type(A)} of
 	    {atom, integer} ->
-		FunName = refac_syntax:atom_value(Fun),
-		Arity = refac_syntax:integer_value(A),
-		{value, {fun_def, {M, _N, _A, _P1, _P}}} = lists:keysearch(fun_def, 1, refac_syntax:get_ann(Node)),
-		case lookup(LibPlt, {M, FunName, Arity}) of
-		  {value, S} -> S;
-		  _ ->
-			case LocalPlt of 
-			    none -> unknown;
-			    _ ->case lookup(LocalPlt, {M, FunName, Arity}) of
-				    {value, S} -> S;
-				    _ -> unknown
-				end
-			end			
-		end;
+		  FunName = refac_syntax:atom_value(Fun),
+		  Arity = refac_syntax:integer_value(A),
+		  {value, {fun_def, {M, _N, _A, _P1, _P}}} = lists:keysearch(fun_def, 1, refac_syntax:get_ann(Node)),
+		  LookUp({M, FunName, Arity});
 	      _ -> unknown
 	  end;
 	_ ->
@@ -2058,7 +2074,7 @@ bifs_side_effect_table() ->
      {{erlang, fault, 2}, true}, {{erlang, float, 1}, false}, {{erlang, float_to_list, 1}, false},
      {{erlang, fun_info, 2}, false}, {{erlang, fun_info, 1}, false}, {{erlang, fun_to_list, 1}, false},
      {{erlang, function_exported, 3}, true}, {{erlang, garbage_collect, 1}, true}, {{erlang, garbage_collect, 0}, true},
-     {{erlang, get, 0}, true}, {{erlang, get, 1}, true}, {{erlang, get_cookie, 0}, true}, {{erlang, get_keys, 1}, true},
+     {{erlang, get, 0}, true}, {{erlang, get, 1}, true}, {{erlang, get_cookie, 0}, true},{{erlang, get_keys, 1}, true},
      {{erlang, get_stacktrace, 0}, true}, {{erlang, group_leader, 0}, true}, {{erlang, group_leader, 2}, true},
      {{erlang, halt, 0}, true}, {{erlang, halt, 1}, true}, {{erlang, hash, 2}, false}, {{erlang, hd, 1}, false},
      {{erlang, hibernate, 3}, true}, {{erlang, info, 1}, true}, {{erlang, integer_to_list, 1}, false},
