@@ -1,7 +1,7 @@
 
                     Wrangler, the Erlang Refactorer
                 a snapshot of our current prototype
-                             21/09/2008
+                             19/12/2008
               http://www.cs.kent.ac.uk/projects/forse/
 
 --------------------------------------------------------------------------------
@@ -16,31 +16,40 @@ definition, duplicated code detection, etc.
 Wrangler is embedded in the Emacs editing environment, and built on
 top of Distel, an Emacs-based user interface toolkit for Erlang, to
 manage to communication between the refactoring tool and
-Emacs. 
+Emacs. We are now also in the process of inegrating Wrangler with 
+the Eclipse environment.
 
-Wrangler is supposed to be installed as part of Distel, therefore this
-snapshot includes both Distel and the current snapshot of Wrangler
-(Wrangler-0.5). 
-
----------------------*** Please NOTE ***---------------------------
-The Distel included in this snapshot is  Distel-4.0, which is
-downloadable from distel.googlecode.com
+When Emacs is used, Wrangler is supposed to be installed as part of
+Distel, therefore this snapshot includes both Distel and the current 
+snapshot of Wrangler (Wrangler 0.6). The Distel included in this snapshot 
+is Distel-4.03, which is downloadable from distel.googlecode.com.
 
 
---------------- how to build----------------
+--------------------- how to build  ----------------------------
 
-1) If you do not have Distel-4.0 (or cvs version from distel.googlecode.com)
-  installed, then download the snapshot, follow the installation
-  instructions in the INSTALL file to build the system.
+  See INSTALL or INSTALL.WIN32
 
-2) If you already have Distel-4.0 (or cvs version from
-   distel.googlecode.com) installed, then download the snapshot,
-   copy the 'wrangler' directory and the Makefile.in file to your
-   own distel directory, rebuild and install the software in the usual
-   way:  
-	 ./configure && make && [sudo] make install
-    
---------------- how to use the refactorer ----------------
+--------------------- the directory structure -------------------
+
+We try keep Distel's original directory structure.
+
+  AUTHORS             <-  AUTHORS of Distel and Wrangler
+  ChangeLog           <-  changeLog of Distel 
+  INSTALL             <-  installation instructions of distel-wrangler
+  INSTALL.WIN32       <-  installation instrunctions fow Windows
+  Makefile.in 
+  NEWS                <-  News about Distel
+  README-distel       <-  README file of Distel
+  README-wrangler     <-  README file of Wrangler (you're reading this)
+  README.ie-session   <-  README file of Distel's 'interactive Erlang'
+  configure          
+  doc                 <-  documentation from Distel
+  ebin                <-  directory for Erlang beam files
+  elisp               <-  elisp source code from Distel
+  src                 <-  Erlang source code from Distel
+  wrangler            <-  All the source cdoe from Wrangler
+
+--------------------- how to use the refactorer ----------------
 
   1. Open an Erlang source file in the Emacs editor, you should have a
      submenu called 'Distel' in the Erlang menu. 
@@ -50,7 +59,9 @@ downloadable from distel.googlecode.com
       M-x erlang-refactor-on  
 
      In the mini-buffer, you might be asked to input the Erlang node
-     to connect to if such a connection has not been established. 
+     to connect to if such a connection has not been established.
+     So make sure that an Erlang node has been started before starting 
+     the Erlang refactorer.
 
      After that, a submenu called 'Refactor' should appear in the
      Erlang menu.
@@ -94,7 +105,18 @@ downloadable from distel.googlecode.com
      function                   : place cursor at anywhere at the function
                                   clause. Wrangler will guide you through 
 	                          the possible candidates one by one, and 
-                                  ask whether you want to fold it.
+                                  ask whether you want to fold it or not.
+
+     Introduce new macro        : highlight the expression/pattern that you
+                                  wish to replace with macro application, and
+                                  you'll be prompted from a new macro name.
+
+     Fold against macro def     : place cursor at anywhere at the function
+                                  definition. Wrangler will direct you through
+                                  the possible candidates one by one, and for 
+                                  each candidate ask whether you want to fold
+                                  it or not. 
+
 
      Tuple function arguments   : place cursor at the beginning of the
                                   parameter that is to be the first
@@ -154,6 +176,16 @@ downloadable from distel.googlecode.com
  refactoring.
 
 
+---------------------------Changes from Wrangler-0.5--------------
+
+-- new refactorings:
+   ++ Introduce a macro
+   ++ Fold against macro definition 
+-- Faster duplicated code detection.
+-- Improved layout preservation.
+-- Added a number of code inspection functionalities.
+-- A number of bug fixes.
+     
 ---------------------------Changes from Wrangler-0.4---------------
 
 -- new refactorings:
