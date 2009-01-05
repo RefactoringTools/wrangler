@@ -612,7 +612,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_default_prefix=/
+ac_default_prefix=/usr/local
 ac_subst_vars='SHELL
 PATH_SEPARATOR
 PACKAGE_NAME
@@ -3067,7 +3067,7 @@ echo "$as_me: error: erlang program was not properly executed, (conftest.out was
 
 
 
-ac_config_files="$ac_config_files Makefile config/emacs-init-snippet.el wrangler/c_src/Makefile"
+ac_config_files="$ac_config_files Makefile wrangler/c_src/Makefile"
 
 #openssl
 
