@@ -1,5 +1,5 @@
-PACKAGE := distel4.0-wrangler
-VERSION := 0.5.1 
+PACKAGE := distel-wrangler
+VERSION := 0.6 
 
 prefix      = @prefix@
 exec_prefix = @exec_prefix@
@@ -10,7 +10,7 @@ erl         = @ERL@
 erlc        = @ERLC@
 emacs       = @emacs@
 
-ELISP_DIR = ${datadir}/${emacs}/site-lisp/distel
+ELISP_DIR = ${datadir}/distel/elisp
 EBIN_DIR = ${datadir}/distel/ebin
 BIN_DIR = ${datadir}/distel/wrangler/bin
 ERL_SRC_DIR = ${datadir}/distel/src
@@ -87,8 +87,6 @@ doc/distel.dvi: ${DOC_SRC}
 
 ########################################
 
-configure: configure.in Makefile.in
-	autoconf
 
 Makefile: Makefile.in config.status
 	./config.status
@@ -99,6 +97,7 @@ clean:
 	-rm -f ${BIN_DIR}/* 2>/dev/null
 
 distclean: clean
+	-rm -f ./wrangler/c_src/Makefile *~
 	-rm -f config.* configure.scan Makefile *~ */*~ 2>/dev/null
 
 install: base
@@ -128,12 +127,6 @@ info_install: info
 	  install-info --info-dir=${infodir} --section Emacs \
 		       ${infodir}/distel.info
 
-dist: always distclean configure
-	cd .. && ln -sf ${PACKAGE} ${PACKAGE}-${VERSION}
-	cd .. && (find ${PACKAGE}-${VERSION} -follow -type f | \
-		  egrep -v '(^attic/)|/CVS/|\.cvsignore|\.rej|\.orig|\#' | \
-		  xargs tar czf ${PACKAGE}-${VERSION}.tar.gz)
-	rm ../${PACKAGE}-${VERSION}
 
 wc:
 	@echo "* Emacs Lisp"
