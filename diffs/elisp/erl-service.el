@@ -2105,12 +2105,12 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	    (message "Refactoring failed: %S" rsn))
 	   (['rex ['error rsn]]
 	    (message "Refactoring failed: %s" rsn))
-	   (['rex ['undecidables]]
+	   (['rex ['undecidables msg]]
 	     (if (yes-or-no-p "Do you still want to continue the refactoring?")
 		 (erl-spawn
 		   (erl-send-rpc node 'refac_fun_to_process 'fun_to_process_1
 				 (list current-file-name line-no column-no  name erlang-refac-search-paths))
-		   (erl-receive (buffer)
+		   (erl-receive (buffer line-no column-no)
 		       ((['rex ['badrpc rsn]]
 			 (message "Refactoring failed: %S" rsn))
 			(['rex ['error rsn]]
