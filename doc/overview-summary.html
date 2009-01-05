@@ -11,31 +11,32 @@
 </h1>
 <p>Copyright © 2006-2009 Huiqing Li, Simon Thompson
 </p>
-<p><b>Version:</b> 0.5</p>
-<p><b>Authors:</b> Huiqing Li (<a href="mailto:hl@kent.ac.uk"><tt>hl@kent.ac.uk</tt></a>) [<em>web site:</em> <tt><a href="http://www.cs.kent.ac.uk/projects/forse" target="_top">http://www.cs.kent.ac.uk/projects/forse</a></tt>].</p>
+<p><b>Version:</b> 0.6</p>
+<p><b>Authors:</b> Huiqing Li , Simon Thompson [<em>web site:</em> <tt><a href="http://www.cs.kent.ac.uk/projects/forse" target="_top">http://www.cs.kent.ac.uk/projects/forse</a></tt>].</p>
 
 <p> Wrangler is an Erlang refactoring tool that supports interactive refactoring of Erlang programs.
-The current snapshot (Wrangler 0.5) is still a prototype, made available so that you can play 
+The current snapshot (Wrangler 0.6) is still a prototype, made available so that you can play 
 with basic refactoring support for Erlang programs, and give us feedback or bug reports. </p>
 
-<p> We DO NOT recommend to use this prototype on your production source just yet! </p>
 <h3><a name="Contents">Contents</a></h3>
 <ol>
   <li><a href="#Introduction">Introduction</a></li>
   <li><a href="#The Interface of Wrangler">The Interface of Wrangler</a></li>
   <li><a href="#Macros">Support for Macros</a></li>
+  <li><a href="#Refactoring Code with Syntax Errors">Refactoring Code with Syntax Errors</a> </li>
   <li><a href="#References">References</a></li>
   <li><a href="#Acknowledgements">Acknowledgements</a></li>
 </ol>
 
 <h3><a name="Introduction"> Introduction</a></h3>
-<p> Refactoring is the process of improving the design of a program without changing its external behaviour. While refactoring by hand is possible, tool support for refactoring is invaluable as it is more reliable, and allows refactoring to be done (or undone) easily.  Wrangler is such a tool that supports interactive refactoring of Erlang programs. The current snapshot of Wrangler supports a small number of basic 
-Erlang refactorings, including renaming variable/function/module names and generalisation of a function definition. </p>
+<p> Refactoring is the process of improving the design of a program without changing its external behaviour. While refactoring by hand is possible, tool support for refactoring is invaluable as it is more reliable, and allows refactoring to be done (or undone) easily.  Wrangler is such a tool that supports interactive refactoring of Erlang programs. The current snapshot of Wrangler supports a number of basic Erlang refactorings, such as renaming variable/function/module names, generalisation of a function definition, etc. </p>
 <p> Built on top of the functionalities provided by the Erlang <em> syntax-tools</em> package, Wrangler
 is embedded in the Emacs editing environment, and makes use of the functionalities provided by Distel, an Emacs-based user interface toolkit for Erlang, to manage the communication between the refactoring tool and Emacs.</p>
+<p>  In collaboration with the <a href="http://erlide.sourceforge.net">Erlide</a> team, we are now also in the process of integrating Wrangler with the Eclipse Environment.
+</p>
 
 <h3><a name="The Interface of Wrangler"> The Interface of Wrangler</a></h3>
-<p> Below is a snapshot of Wrangler, which shows a particular refactoring scenario. The user has selected the expression <code> io:format("Hello") </code> in the definition of <code> repeat/1 </code>, has chosen the <em>Generalise Function Definition </em> command from the <em> Refactor </em> menu, and has just entered a new parameter name A in the mini-buffer. </p><p>
+<p> Below is a snapshot of Wrangler embedded in Emacs, which shows a particular refactoring scenario. The user has selected the expression <code> io:format("Hello") </code> in the definition of <code> repeat/1 </code>, has chosen the <em>Generalise Function Definition </em> command from the <em> Refactor </em> menu, and has just entered a new parameter name A in the mini-buffer. </p><p>
 <img src="Wrangler1.JPG" alt=" "> </p>
 
 <p>The result of this refactoring is shown in the snapshot below.</p>
@@ -44,35 +45,44 @@ is embedded in the Emacs editing environment, and makes use of the functionaliti
 
 <p> All the implemented refactorings are module-aware. In the case that a refactoring affects more 
 than one module in the program, a message telling which files have been modified by the refactorer 
-will be given after the refactoring has been successfully dine. The <em>Customize </em> command 
+will be given after the refactoring has been successfully done. The <em>Customize </em> command 
 from the <em> Refactor </em> allows the user to specify the boundary of the program, i.e. the directories that will be searched and analysed by the refactorer, as shown in the example snapshot below.</p>
 
 <p><img src="customize.JPG" alt=" "> </p>
 
+
 <p> <em>Undo </em> is supported by the refactorer. Applying undo once will revert the program back 
 to the status right before the last refactoring performed. However, PLEASE NOTE that the refactorer undo is currently separate from the Emacs undo, and undoing a refactoring will lose all the editing activities after the refactoring. </p>
 
+<p> Below is a snapshot of Wrangler embedded in Eclipse + Erlide.</p><p>
+<img src="Erlide.JPG" alt=" "> </p>
 
 <h3><a name="Support for Macros">Support for Macros</a></h3>
 
 <p>Wrangler makes use of functionalities provided by the <code>epp_dodger</code> module from Erlang <em>SyntaxTools</em> to parse Erlang source code, and the refactorer should be able to refactor Erlang modules 
-containing preprocessor directives and macro applications, as long as these are syntactically <em> 
-"well-behaved" </em>, otherwise the refactorer will give a syntax error message.</p>
+containing preprocessor directives and macro applications.</p> 
+
+<h3><a name="Refactoring Code with Syntax Errors">Refactoring Code with Syntax Errors</a></h3>
+<p> Wrangler has been extended to accept Erlang programs with syntax errors or macro definitions that cannot be 
+parsed by <em>SyntaxTools</em>. In the case that the program under consideration has syntax errors or unparsable 
+macros, functions/attributes to which these syntax errors belong are not affected by the refactoring process, 
+however warning messages asking for manual inspection of those parts of the program are given by Wrangler.
+</p>
 
 <h3><a name="References"> References</a></h3>
 <p> Our <a href="http://www.cs.kent.ac.uk/projects/refactor-fp/">Refactoring
-Functional Programs</a> project webpage contains more information and references about refactoring functional, 
+Functional Programs</a> project web page contains more information and references about refactoring functional, 
 especially Haskell, programs; and our progress and ideas about refactoring Erlang programs are available at our 
 <a href="http://www.cs.kent.ac.uk/projects/forse/"> FORSE </a> project webpage. </p>
 
 <h3><a name="Acknowledgements"> Acknowledgements</a></h3>
 
-The work is supported by EPSRC in the UK. We are very grateful that we were able to build the tool on top of 
-<a href="http://fresh.homeunix.net/~luke/distel/">Distel</a>, 
-<a href="http://www.erlang.org/doc/doc-5.4/lib/syntax_tools-0.1/doc/html/index.html"> Erlang SyntaxTools</a>, 
-and make use some of the ideas from <a href="http://www.it.uu.se/research/group/hipe/dialyzer/"> DIALYZER</a>.
+The work is supported by PRC in the UK. We are very grateful that we were able to build the tool on top of 
+<a href="http://code.google.com/p/distel/">Distel</a>, 
+<a href="http://www.erlang.org/doc/doc-5.4/lib/syntax_tools-0.1/doc/html/index.html"> Erlang SyntaxTools</a>
+and make use some of the ideas from <a href="http://www.it.uu.se/research/group/hipe/dialyzer/"> DIALYZES</a>.
 <hr>
 <div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, Sep 22 2008, 09:00:02.</i></p>
+<p><i>Generated by EDoc, Dec 18 2008, 16:16:31.</i></p>
 </body>
 </html>

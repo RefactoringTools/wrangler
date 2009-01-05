@@ -13,26 +13,28 @@
 <p>Copyright © 2006-2009 Huiqing Li, Simon Thompson
  </p>
 
-<p><b>Version:</b>  0.5</p>
-<p><b>Authors:</b> Huiqing Li (<a href="mailto:hl@kent.ac.uk"><tt>hl@kent.ac.uk</tt></a>) [<em>web site:</em> <tt><a href="http://www.cs.kent.ac.uk/projects/forse" target="_top">http://www.cs.kent.ac.uk/projects/forse</a></tt>].</p>
+<p><b>Version:</b> 0.6</p>
+<p><b>Authors:</b> Huiqing Li, Simon Thompson [<em>web site:</em> <tt><a href="http://www.cs.kent.ac.uk/projects/forse" target="_top">http://www.cs.kent.ac.uk/projects/forse</a></tt>].</p>
 
 <h2><a name="description">Description</a></h2>This module describes the refactorings that are currently supported by Wrangler.
 <h2><a name="index">Function Index</a></h2>
 <table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#add_a_tag-5">add_a_tag/5</a></td><td>Add a tag to all the messages received by a server process.</td></tr>
 <tr><td valign="top"><a href="#duplicated_code_in_buffer-3">duplicated_code_in_buffer/3</a></td><td>A duplicated code detector that only works with the current Erlang buffer.</td></tr>
 <tr><td valign="top"><a href="#duplicated_code_in_dirs-3">duplicated_code_in_dirs/3</a></td><td>A duplicated code detector that works with multiple Erlang modules.</td></tr>
-<tr><td valign="top"><a href="#expression_search-3">expression_search/3</a></td><td>Search for clones of a user-selected expression/expression sequence in the current file.</td></tr>
+<tr><td valign="top"><a href="#expression_search-3">expression_search/3</a></td><td>Search for clones of an expression/expression sequence selected in the current file.</td></tr>
+<tr><td valign="top"><a href="#fold_against_macro-4">fold_against_macro/4</a></td><td>Fold expressions/patterns against a macro definition.</td></tr>
 <tr><td valign="top"><a href="#fold_expr-1">fold_expr/1</a></td><td>Fold expressions against a function definition.</td></tr>
-<tr><td valign="top"><a href="#fun_extraction-4">fun_extraction/4</a></td><td>Introduce a new function to represent a user-selected expression or expression sequence.</td></tr>
+<tr><td valign="top"><a href="#fun_extraction-4">fun_extraction/4</a></td><td>Introduce a new function to represent an expression or expression sequence selected by the user.</td></tr>
 <tr><td valign="top"><a href="#fun_to_process-5">fun_to_process/5</a></td><td>Turn a function into a server process, and all the function calls to this function to process communication.</td></tr>
 <tr><td valign="top"><a href="#generalise-5">generalise/5</a></td><td> Generalise a function definition.</td></tr>
 <tr><td valign="top"><a href="#move_fun-6">move_fun/6</a></td><td>Move a function definition from its current module to another module.</td></tr>
+<tr><td valign="top"><a href="#new_macro-5">new_macro/5</a></td><td>Introduce a macro to represent a syntactically well-formed expression/pattern or a sequence of expressions/patterns.</td></tr>
 <tr><td valign="top"><a href="#register_pid-5">register_pid/5</a></td><td>Register a process which is not already registered.</td></tr>
-<tr><td valign="top"><a href="#rename_fun-5">rename_fun/5</a></td><td>Rename a function name with a user-supplied new name.</td></tr>
-<tr><td valign="top"><a href="#rename_mod-3">rename_mod/3</a></td><td>Rename a module with a user-supplied new name.</td></tr>
+<tr><td valign="top"><a href="#rename_fun-5">rename_fun/5</a></td><td>Rename a function name with a new name supplied by the user.</td></tr>
+<tr><td valign="top"><a href="#rename_mod-3">rename_mod/3</a></td><td>Rename a module with a new name supplied by the user.</td></tr>
 <tr><td valign="top"><a href="#rename_mod_batch-3">rename_mod_batch/3</a></td><td>Rename a collection of module names in batch mode.</td></tr>
-<tr><td valign="top"><a href="#rename_process-5">rename_process/5</a></td><td>Rename a registered process with a user-supplied new name.</td></tr>
-<tr><td valign="top"><a href="#rename_var-5">rename_var/5</a></td><td>Rename a variable name with a user-supplied new name.</td></tr>
+<tr><td valign="top"><a href="#rename_process-5">rename_process/5</a></td><td>Rename a registered process with a new name supplied by the user.</td></tr>
+<tr><td valign="top"><a href="#rename_var-5">rename_var/5</a></td><td>Rename a variable name with a new name supplied by the user.</td></tr>
 <tr><td valign="top"><a href="#tuple_funpar-5">tuple_funpar/5</a></td><td>Turn some consecutive parameters of a function into a tuple parameter.</td></tr>
 <tr><td valign="top"><a href="#tuple_to_record-8">tuple_to_record/8</a></td><td>From tuple to record representation.</td></tr>
 </table>
@@ -84,15 +86,30 @@
 <h3 class="function"><a name="expression_search-3">expression_search/3</a></h3>
 <div class="spec">
 <p><tt>expression_search(FileName::<a href="#type-filename">filename()</a>, Start::Pos, End::Pos) -&gt; term()</tt></p>
-</div><p><p>Search for clones of a user-selected expression/expression sequence in the current file.</p>
+</div><p><p>Search for clones of an expression/expression sequence selected in the current file.</p>
  
-  <p> This functionality allows searchingh for clones of a selected expression or expression
-  sequence.  The found clones are syntactically identical to the user-selected code fragment after consistent renaming of variables,
+  <p> This functionality allows searching for clones of a selected expression or expression
+  sequence.  The found clones are syntactically identical to the code fragment selected  after consistent renaming of variables,
   except for variations in literals, layout and comments.
   </p>
   <p> When the selected code contains multiple, but non-continuous sequence of, expressions, the first
   continuous sequence of expressions is taken as the user-selected expression. A continuous sequence of
   expressions is a sequence of expressions separated by ','. </p></p>
+
+<h3 class="function"><a name="fold_against_macro-4">fold_against_macro/4</a></h3>
+<div class="spec">
+<p><tt>fold_against_macro(FileName, Line, Col, SearchPaths) -&gt; any()</tt></p>
+</div><p>Fold expressions/patterns against a macro definition.
+  <p>
+  This refactoring replaces instances of the right-hand side of a macro definition by the corresponding
+  left-hand side with necessary parameter substitutions.
+  </p>
+  <p> To apply this refactoring, first point the cursor to the macro definition against which candidate
+   expressions/candidates will be folded; then select <em> Fold Against Macro Definition </em> from the
+  <em> Refactor </em> menu; after that, Wrangler will search the current module for expressions/patterns
+  which are instances of the right-hand side of the selected macro definition; and direct you through the
+  refactoring process.
+  </p></p>
 
 <h3 class="function"><a name="fold_expr-1">fold_expr/1</a></h3>
 <div class="spec">
@@ -103,9 +120,9 @@
   the corresponding left-hand side with necessary parameter substitutions. The function clause can
   be defined in either the current module or another module.
   </p>
-  <p> To apply this refactoring, first point the cursor the function clause against which expresssion will be
+  <p> To apply this refactoring, first point the cursor to the function clause against which expression will be
   folded if the function is defined in the current module, or leave the cursor anywhere if you want to
-  fold against a function clause defined in another module; then select <em> Fold Expresssion Against Function </em>
+  fold against a function clause defined in another module; then select <em> Fold Expression Against Function </em>
   from the <em> Refactor </em> menu; after that, the refactorer will ask you to confirm that you want to fold against
   the function clause pointed to by the cursor, if you answer 'no', the refactorer will ask you to provide the
   module name, function name and the arity of the function. After all these initial interaction, Wrangler will search
@@ -117,7 +134,7 @@
   If the user answers 'yes' to one instance,  that instance will be replaced by function application,
   otherwise it will remain unchanged.
   </p>
-  <p> In the case that a candidate expression/expression sequence  need to export some variables which
+  <p> In the case that a candidate expression/expression sequence  needs to export some variables which
   are used by the following code, that expression/expression sequence will be replaced by a match
   expression, whose left-hand side it the exported variable(s), and right-hand side is the function
   application.
@@ -129,7 +146,7 @@
 <h3 class="function"><a name="fun_extraction-4">fun_extraction/4</a></h3>
 <div class="spec">
 <p><tt>fun_extraction(FileName::<a href="#type-filename">filename()</a>, Start::Pos, End::Pos, FunName::string()) -&gt; {error, string()} | {ok, string()}</tt></p>
-</div><p>Introduce a new function to represent a user-selected expression or expression sequence.
+</div><p>Introduce a new function to represent an expression or expression sequence selected by the user.
   <p> This refactoring allows the user to introduce a new function to represent a selected expression or expression
   sequence, and replace the selected expression/expression sequence with a call to the new function.  Those free variables
   within the expression/expression sequence become the formal parameters of the function.
@@ -254,7 +271,7 @@
   </p>
   <p> This refactoring assumes that an Erlang module name always matches it file name.
   </p>
-  <p> Suppose we move functin <em> foo/n </em> from its current module <em> M </em>
+  <p> Suppose we move function <em> foo/n </em> from its current module <em> M </em>
       to module <em> N </em>, then the following <em> side-conditions </em> apply to
       this refactoring:
   <li> If <em> foo/n </em> is already in scope in module <em> N </em>, then its defining
@@ -265,13 +282,22 @@
   </li>
   </p></p>
 
+<h3 class="function"><a name="new_macro-5">new_macro/5</a></h3>
+<div class="spec">
+<p><tt>new_macro(FileName::<a href="#type-filename">filename()</a>, Start::<a href="#type-pos">pos()</a>, End::<a href="#type-pos">pos()</a>, NewMacroName::string(), SearchPaths::[<a href="#type-dir">dir()</a>]) -&gt; {error, string()} | {ok, string()}</tt></p>
+</div><p>Introduce a macro to represent a syntactically well-formed expression/pattern or a sequence of expressions/patterns.
+  <p> This refactoring allows the user to define a new macro to represent a expression/pattern or sequence of
+  of expressions/patterns selected by the user, and replace the selected code with an application of the macro.
+  Free variables within the selected code become the formal parameters of the macro definition.
+  </p></p>
+
 <h3 class="function"><a name="register_pid-5">register_pid/5</a></h3>
 <div class="spec">
 <p><tt>register_pid(Filename::<a href="#type-filename">filename()</a>, Start::<a href="#type-pos">pos()</a>, End::<a href="#type-pos">pos()</a>, RegName::atom(), SearchPaths::[<a href="#type-dir">dir()</a>]) -&gt; {error, string()} | {ok, [<a href="#type-filename">filename()</a>]}</tt></p>
 </div><p>Register a process which is not already registered.
   <p>This refactoring register a process id, <code>Pid</code> say, with a name, regname say, and replace
   the uses of <code>Pid ! Msg </code> with  <code>regname ! Msg</code> if possible. To initiate this refactoring, the
-  user should select a match expression whose left-hand side is a process indentifier, and right-hand
+  user should select a match expression whose left-hand side is a process identifier, and right-hand
   side is a spawn expression. </p>
   <p>
   The following side-conditions apply to this refactoring:
@@ -285,7 +311,7 @@
 <h3 class="function"><a name="rename_fun-5">rename_fun/5</a></h3>
 <div class="spec">
 <p><tt>rename_fun(FileName::<a href="#type-filename">filename()</a>, Line::integer(), Col::integer(), NewName::string(), SearchPaths::[<a href="#type-dir">dir()</a>]) -&gt; {error, string()} | {ok, [<a href="#type-filename">filename()</a>]}</tt></p>
-</div><p>Rename a function name with a user-supplied new name.
+</div><p>Rename a function name with a new name supplied by the user.
   <p> To apply this refactoring, point the cursor to any occurrence of this
   function name, then select <em> Rename Function Name </em> from the <em> Refactor </em> menu,
   after that the refactorer will prompt to enter  the new function name in the mini-buffer.
@@ -304,7 +330,7 @@
 <h3 class="function"><a name="rename_mod-3">rename_mod/3</a></h3>
 <div class="spec">
 <p><tt>rename_mod(FileName::<a href="#type-filename">filename()</a>, NewName::string(), SearchPaths::[<a href="#type-dir">dir()</a>]) -&gt; {error, string()} | {ok, [<a href="#type-filename">filename()</a>]}</tt></p>
-</div><p>Rename a module with a user-supplied new name.
+</div><p>Rename a module with a new name supplied by the user.
   <p> To apply this refactoring, point the cursor to anywhere in the module to be renamed, then select
   <em> Rename Module Name </em> from the <em> Refactor </em> menu, after that, the refactorer will prompt to enter
   the new module name in the mini-buffer.
@@ -338,7 +364,7 @@
 <h3 class="function"><a name="rename_process-5">rename_process/5</a></h3>
 <div class="spec">
 <p><tt>rename_process(FileName::<a href="#type-filename">filename()</a>, Line::integer(), Col::integer(), NewName::string(), SearchPaths::[<a href="#type-dir">dir()</a>]) -&gt; {error, string()} | {undecidables, string()} | {ok, [<a href="#type-filename">filename()</a>]}</tt></p>
-</div><p>Rename a registered process with a user-supplied new name.
+</div><p>Rename a registered process with a new name supplied by the user.
   <p> To apply this refactoring, point the cursor to the process name, then select
   <em> Rename a Process </em> from the  <em> Refactor </em> menu, after that Wrangler will prompt
   to enter the new process name in the mini-buffer.
@@ -357,7 +383,7 @@
 <h3 class="function"><a name="rename_var-5">rename_var/5</a></h3>
 <div class="spec">
 <p><tt>rename_var(FileName::<a href="#type-filename">filename()</a>, Line::integer(), Col::integer(), NewName::string(), SearchPaths::[<a href="#type-dir">dir()</a>]) -&gt; {error, string()} | {ok, string()}</tt></p>
-</div><p>Rename a variable name with a user-supplied new name.
+</div><p>Rename a variable name with a new name supplied by the user.
   <p> To apply this refactoring, point the cursor to  any occurrence of this variable, then select
   <em> Rename Variable Name </em> from the <em> Refactor </em> menu, after that the refactorer will prompt
   to enter the new parameter name in the mini-buffer.
@@ -409,10 +435,10 @@
   <li> The function must be defined in the current module; </li>
   <li> The selected part must be a tuple.  </li>
   </p>
-  NOTE: this refacotoring is still at an experimental stage.</p>
+  NOTE: this refactoring is still at an experimental stage.</p>
 <hr>
 
 <div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, Sep 22 2008, 09:00:02.</i></p>
+<p><i>Generated by EDoc, Dec 18 2008, 16:16:31.</i></p>
 </body>
 </html>
