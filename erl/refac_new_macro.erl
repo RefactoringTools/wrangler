@@ -73,7 +73,7 @@ pre_cond_check(FileName, NewMacroName, Start, End, SearchPaths) ->
 		    case Sel of
 			 [] -> {error, "You have not selected a sequence of expressions/patterns!"};
 			 _ ->
-			      {ok, AnnAST, Sel}
+			      {ok, AnnAST, hd(Sel)}
 		     end
 	    end;
 	_ -> {error, "Invalid macro name!"}
