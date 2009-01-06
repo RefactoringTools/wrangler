@@ -506,7 +506,7 @@ scan_string(Eof, Stack, _Toks, {Line, Col}, State,
     [StartPos, $" | S] = reverse(Stack),
     SS = string:substr(S, 1, 16),
     done(Eof, [{{string, $", SS}, StartPos} | Errors], [],
-	 {Line, Col + io_lib:write_string(S) -1}, State).
+	 {Line, Col + length(io_lib:write_string(S)) -1}, State).
 
 scan_string_escape([nl | Cs], Stack, Toks, {Line, _Col},
 		   State, Errors) ->
