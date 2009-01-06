@@ -118,7 +118,7 @@ do_intro_new_macro(AnnAST, MacroName, SelExpList) ->
 
 
 
--spec(replace_expr_with_macro/3::(syntaxTree(), {[syntaxTree()], integer(), integer()}, syntaxTree()) ->
+-spec(replace_expr_with_macro/3::(syntaxTree(), {[syntaxTree()], pos(), pos()}, syntaxTree()) ->
 	     syntaxTree()).
 replace_expr_with_macro(Form, {ExpList, SLoc, ELoc},  MApp) ->
     case (length(ExpList)==1) of 
