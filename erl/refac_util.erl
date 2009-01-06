@@ -575,7 +575,7 @@ is_pattern(Node) ->
 %%
 %% @doc Return the start and end location of the syntax phrase in the code.
 
--spec(get_range(Node::syntaxTree())-> {pos(), pos()}).
+%% -spec(get_range(Node::syntaxTree())-> {pos(), pos()}).
 get_range(Node) ->
     As = refac_syntax:get_ann(Node),
     case lists:keysearch(range, 1, As) of
