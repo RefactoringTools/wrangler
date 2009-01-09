@@ -2191,6 +2191,7 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
   (goto-char (get-position line2 col2))
   )
 
+
 (defun highlight-search-results(regions buffer)
   "highlight the found results one by one"
   (while (not (equal regions nil))
@@ -2414,8 +2415,8 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	  (col2 (elt (elt region 1) 1))
 	 (overlay (make-overlay 1 1)))
      (overlay-put overlay  'face '((t (:background "orange"))))
-     (move-overlay overlay (get-position line1 (- col1 1))
-		   (get-position line2 col2) buffer)
+     (move-overlay overlay (get-position line1 col1)
+		   (get-position line2 (+ col2 1)) buffer)
      ))
 
 
@@ -2427,8 +2428,8 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	  (col2 (elt (elt region 1) 1))
 	 (overlay (make-overlay 1 1)))
      (overlay-put overlay  'face '((t (:background "CornflowerBlue"))))
-     (move-overlay overlay (get-position line1 (- col1 1))
-		   (get-position line2 col2) buffer)
+     (move-overlay overlay (get-position line1 col1)
+		   (get-position line2 (+ col2 1)) buffer)
      ))
 
 
