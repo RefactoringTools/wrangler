@@ -71,13 +71,13 @@ get_clones_by_suffix_tree(FileNames,MinLength, MinClones) ->
 		  {ok, _Res} ->
 		      ?debug("Initial clones are calculated using C suffixtree implementation.\n", []),
 		      stop_suffix_tree_clone_detector(),
-		      {ok, Res} = file:consult(OutFileName), %% Res: [Cs]
+		      {ok, Res} = file:consult(OutFileName), 
 		      file:delete(OutFileName),
 		      case Res of 
 			  [] -> {Toks, []}; 
 			  [Cs] -> {Toks, Cs}
 		      end;
-		  _ -> 
+		  E -> 
 		      stop_suffix_tree_clone_detector(),
 		      file:delete(OutFileName),
 		      get_clones_by_erlang_suffix_tree(Toks, ProcessedToks, MinLength, MinClones)
@@ -88,7 +88,7 @@ get_clones_by_suffix_tree(FileNames,MinLength, MinClones) ->
 
 get_clones_by_erlang_suffix_tree(Toks, ProcessedToks, MinLength, MinClones) ->
     ?wrangler_io("\nWrangler failed to use the C suffixtree implementation;"
-                 "Initial clones are calculated using Erlang suffixtree implementation.\n",[]),
+                 " Initial clones are calculated using Erlang suffixtree implementation.\n",[]),
     Tree = suffix_tree(alphabet() ++ "&", ProcessedToks ++ "&"),
     Cs = lists:flatten(lists:map(fun (B) ->
 					 collect_clones(MinLength, MinClones, B)
@@ -131,8 +131,7 @@ loop(Port) ->
 	    end,
 	    loop(Port);
     stop ->
-        erlang:port_close(Port),
-        exit(normal)
+        erlang:port_close(Port)
     end.
 
  
@@ -590,19 +589,30 @@ group_by_1(N, TupleList=[E|_Es]) ->
     
     
 trim_range(Range, {Len1, Len2}) ->
-    lists:map(fun({S,E}) -> trim_range_1({S,E}, {Len1, Len2}) end, Range).
-trim_range_1(_Range={{File, StartLn, StartCol}, {File, EndLn, EndCol}}, {Len1, Len2}) ->
-    S = {StartLn, StartCol},
-    E = {EndLn, EndCol},
-    Toks =tokenize_file(File, false),
-    Toks1 = lists:dropwhile(fun(T) -> token_loc(T) =/=S end, Toks),
-    Toks2 = lists:nthtail(Len1, Toks1),
-    {StartLn1, StartCol1} = token_loc(hd(Toks2)),
-    {Toks3, _Toks4} = lists:splitwith(fun(T) -> token_loc(T) =< E end, Toks1),
-    LastTok = hd(lists:nthtail(Len2, lists:reverse(Toks3))),
-    {L, C} = token_loc(LastTok),
-    {EndLn1, EndCol1} = {L, C+token_len(LastTok)-1},
-    {{File, StartLn1, StartCol1}, {File, EndLn1, EndCol1}}.
+    lists:flatmap(fun({S,E}) -> trim_range_1({S,E}, {Len1, Len2}) end, Range).
+trim_range_1(_Range={{File1, StartLn, StartCol}, {File2, EndLn, EndCol}}, {Len1, Len2}) -> 
+    case (File1==File2) andalso ({StartLn, StartCol}<{EndLn, EndCol}) of   %% The second condition is a temporary bugfix. 
+	true ->
+	    S = {StartLn, StartCol},
+	    E = {EndLn, EndCol},
+	    Toks =tokenize_file(File1, false),
+	    Toks1 = lists:dropwhile(fun(T) -> token_loc(T) =/=S end, Toks),
+	    case Len1 <length(Toks1) of   
+		true -> Toks2 = lists:nthtail(Len1, Toks1),
+			{StartLn1, StartCol1} = token_loc(hd(Toks2)),
+			{Toks3, _Toks4} = lists:splitwith(fun(T) -> token_loc(T) =< E end, Toks1),
+			case Len2< length(Toks3) of 
+			    true ->
+				LastTok = hd(lists:nthtail(Len2, lists:reverse(Toks3))),
+				{L, C} = token_loc(LastTok),
+				{EndLn1, EndCol1} = {L, C+token_len(LastTok)-1},
+				[{{File1, StartLn1, StartCol1}, {File2, EndLn1, EndCol1}}];
+			    _ -> [] %% This should not happen, but it does very rarely; need to find out why.
+			end;			    
+		_ -> []  %% ditto.
+	    end;
+	_ -> []
+    end.
 
 token_len(T) ->
     V = token_val(T),
