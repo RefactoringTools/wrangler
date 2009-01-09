@@ -75,108 +75,86 @@ move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths, Editor) ->
     ?wrangler_io("\nCMD: ~p:move_fun(~p, ~p, ~p, ~p, ~p, ~p).", 
 	      [?MODULE,FName, Line, Col, TargetModName, CreateNewFile,SearchPaths]),
     Pos = {Line, Col},
-    case  get_target_file_name(FName, TargetModName, ".erl", SearchPaths) of 
-	{ok, TargetFName} ->
-	    if FName == TargetFName  -> {error, "The target module is the same as the current module."};
-	       true -> 
-		    case (filelib:is_file(TargetFName) orelse (CreateNewFile==t) orelse (CreateNewFile==true)) of 
-			true -> 
-			    {ok, {AnnAST, Info}}=refac_util:parse_annotate_file(FName,true, SearchPaths),
-			    case refac_util:pos_to_fun_def(AnnAST, Pos) of 
-				{ok, Def} ->
-				    {value, {fun_def, {ModName, FunName, Arity, _Pos1, _Pos2}}} =
-					lists:keysearch(fun_def,1, refac_syntax:get_ann(Def)),
-				    case (not(filelib:is_file(TargetFName)) andalso ((CreateNewFile==t) orelse (CreateNewFile==true ))) of 
-					true -> create_new_file(TargetFName, TargetModName);
-					_ -> ok
-				    end,					
-				    R = side_cond_check({ModName, FunName, Arity,Def}, TargetFName, SearchPaths),
-				    case R of 
-					true -> 
-					    {ok, {TargetAnnAST,Info1}} =refac_util:parse_annotate_file(TargetFName, true, SearchPaths),  %% level=
-					    {AnnAST1, TargetAnnAST1}
-						= do_transformation({AnnAST,Info}, {TargetAnnAST,Info1},
-								    {ModName, FunName, Arity}, TargetModName),
-					    case refac_util:is_exported({FunName, Arity}, Info) of 
-						true ->
-						    ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n",[SearchPaths]),
-						    ClientFiles = lists:delete(TargetFName, 
-									       refac_util:get_client_files(FName, SearchPaths)),
-						    Results = refactor_in_client_modules(ClientFiles,
-											 {ModName, FunName, Arity}, TargetModName, SearchPaths),
-						    case Editor of
-							emacs ->
-							    refac_util:write_refactored_files([{{FName,FName}, AnnAST1},
-											       {{TargetFName, TargetFName}, TargetAnnAST1}| Results]),
-							    ChangedClientFiles =
-								lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-							    ChangedFiles = [FName, TargetFName | ChangedClientFiles],
-							    ?wrangler_io("The following files have been changed "
-								      "by this refactoring:\n~p\n", [ChangedFiles]),
-							    {ok, ChangedFiles};
-							eclipse ->
-							    Results1 = [{{FName,FName}, AnnAST1},
-									{{TargetFName, TargetFName}, TargetAnnAST1}| Results],
-							    Res = lists:map(fun({{FName1, NewFName1}, AST}) ->
-										    {FName1, NewFName1, refac_prettypr:print_ast(AST)} end,
-									    Results1),
-							    {ok, Res}
-						    end;
-						false ->
-						    case Editor of 
-							emacs ->
-							    refac_util:write_refactored_files([{{FName,FName}, AnnAST1},
-											       {{TargetFName, TargetFName}, TargetAnnAST1}]),
-							    {ok, [FName, TargetFName]};
-							eclipse ->
-							    Results1 = [{{FName,FName}, AnnAST1}, {{TargetFName, TargetFName}, TargetAnnAST1}],
-							    Res = lists:map(fun({{FName1, NewFName1}, AST}) ->
-										    {FName1, NewFName1, refac_prettypr:print_ast(AST)} end,
-									    Results1),
-							    {ok, Res}
-						    end						    
-					    
+    TargetFName = get_target_file_name(FName, TargetModName, ".erl"),
+    if FName == TargetFName  -> {error, "The target module is the same as the current module."};
+       true -> 
+	    case (filelib:is_file(TargetFName) orelse (CreateNewFile==t) orelse (CreateNewFile==true)) of 
+		true -> 
+		    {ok, {AnnAST, Info}}=refac_util:parse_annotate_file(FName,true, SearchPaths),
+		    case refac_util:pos_to_fun_def(AnnAST, Pos) of 
+			{ok, Def} ->
+			    {value, {fun_def, {ModName, FunName, Arity, _Pos1, _Pos2}}} =
+				lists:keysearch(fun_def,1, refac_syntax:get_ann(Def)),
+			    case (not(filelib:is_file(TargetFName)) andalso ((CreateNewFile==t) orelse (CreateNewFile==true ))) of 
+				true -> create_new_file(TargetFName, TargetModName);
+				_ -> ok
+			    end,					
+			    R = side_cond_check({ModName, FunName, Arity,Def}, TargetFName, list_to_atom(TargetModName), Def, SearchPaths),
+			    case R of 
+				true -> 
+				    {ok, {TargetAnnAST,Info1}} =refac_util:parse_annotate_file(TargetFName, true, SearchPaths),  %% level=
+				    {AnnAST1, TargetAnnAST1}
+					= do_transformation({AnnAST,Info}, {TargetAnnAST,Info1},
+							    {ModName, FunName, Arity}, TargetModName),
+				    case refac_util:is_exported({FunName, Arity}, Info) of 
+					true ->
+					    ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n",[SearchPaths]),
+					    ClientFiles = lists:delete(TargetFName, 
+								       refac_util:get_client_files(FName, SearchPaths)),
+					    Results = refactor_in_client_modules(ClientFiles,
+										 {ModName, FunName, Arity}, TargetModName, SearchPaths),
+					    case Editor of
+						emacs ->
+						    refac_util:write_refactored_files([{{FName,FName}, AnnAST1},
+										       {{TargetFName, TargetFName}, TargetAnnAST1}| Results]),
+						    ChangedClientFiles =
+							lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+						    ChangedFiles = [FName, TargetFName | ChangedClientFiles],
+						    ?wrangler_io("The following files have been changed "
+								 "by this refactoring:\n~p\n", [ChangedFiles]),
+						    {ok, ChangedFiles};
+						eclipse ->
+						    Results1 = [{{FName,FName}, AnnAST1},
+								{{TargetFName, TargetFName}, TargetAnnAST1}| Results],
+						    Res = lists:map(fun({{FName1, NewFName1}, AST}) ->
+									    {FName1, NewFName1, refac_prettypr:print_ast(AST)} end,
+								    Results1),
+						    {ok, Res}
 					    end;
-					_  -> {error, "You have not selected a function."}
+					false ->
+					    case Editor of 
+						emacs ->
+						    refac_util:write_refactored_files([{{FName,FName}, AnnAST1},
+										       {{TargetFName, TargetFName}, TargetAnnAST1}]),
+						    {ok, [FName, TargetFName]};
+						eclipse ->
+						    Results1 = [{{FName,FName}, AnnAST1}, {{TargetFName, TargetFName}, TargetAnnAST1}],
+						    Res = lists:map(fun({{FName1, NewFName1}, AST}) ->
+									    {FName1, NewFName1, refac_prettypr:print_ast(AST)} end,
+								    Results1),
+						    {ok, Res}
+					    end						    
+				    
 				    end;
 				{error, Reason} -> {error, Reason}
 			    end;
-			false ->{error, " Target module does not exist."}
-		    end
-	    end;
-	{error, Reason} -> {error, Reason}	    
+			{error, Reason} -> {error, Reason}
+		    end;
+		false ->{error, " Target module does not exist."}
+	    end
     end.
 
-get_target_file_name(CurrentFName, TargetModName, Extension, SearchPaths) ->
+get_target_file_name(CurrentFName, TargetModName, Extension) ->
     TargetFileBaseName = TargetModName ++ Extension,
-    TargetFName0 = filename:join([filename:dirname(CurrentFName),TargetFileBaseName]),
-    TargetFName = case filelib:is_file(TargetFName0) of
-		      true -> {ok, TargetFName0};
-		      _ -> Files = refac_util:expand_files(SearchPaths, Extension),
-			   TargetFiles = lists:filter(fun(F) ->
-							     filename:basename(F)==TargetFileBaseName end, Files),
-			   case TargetFiles of 
-			       [] ->
-				   {ok, none};
-			       [F]  ->{ok, F};
-			       Fs -> {error, "Target module is defined in more than one file: " ++ display(Fs)}
-			   end			   
-		  end,
-    TargetFName.
+    filename:join([filename:dirname(CurrentFName),TargetFileBaseName]).
 			   
-		
-display([]) ->	   
-     "";
-display([F|Fs]) -> F ++ "\n" ++ display(Fs).
-		      
-    
 create_new_file(TargetFName, TargetModName) ->
      S = "-module("++TargetModName++").",
      file:write_file(TargetFName, list_to_binary(S)).
 
-side_cond_check({ModName,FunName, Arity, Node}, TargetFileName, SearchPaths) ->
+side_cond_check({ModName,FunName, Arity, Node}, TargetFileName, TargetModName, FunDef, SearchPaths) ->
     case filelib:is_file(TargetFileName) of 
-	true -> {ok, {_AnnAST, Info}} = refac_util:parse_annotate_file(TargetFileName, true, SearchPaths),     %% level=1
+	true -> {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(TargetFileName, true, SearchPaths),     
 		InscopeFuns = refac_util:inscope_funs(Info),		
 		Clash = lists:any(fun({ModName1, FunName1, Arity1})->
 					  (FunName == FunName1) and (Arity==Arity1) and (ModName =/= ModName1)
@@ -189,11 +167,70 @@ side_cond_check({ModName,FunName, Arity, Node}, TargetFileName, SearchPaths) ->
 					  "Moving a function definiton containing implicit fun expressions "
 					  "is not supported by this refactoring."}
 			    end;
-		    false ->{error, "Moving this function will cause confliction in the target module."} 
+		    false ->
+			Forms = refac_syntax:form_list_elements(AnnAST),
+			FunWithSameName = [F || F<-Forms, not(is_not_the_fun(F, {TargetModName, FunName, Arity}))],
+			case FunWithSameName of 
+			    [] ->
+				 {error, "Moving this function will cause confliction in the target module."};
+			    [F] -> case is_the_same_fun(FunDef, F) of
+				       true -> true;
+				       _ -> {error, "The same function name, with a different definition, is already defined in the target module."}
+				   end
+			end
 		end;
 	false -> true
     end.
 
+
+is_the_same_fun(FunDef1, FunDef2) ->
+    Ann1 = refac_syntax:get_ann(FunDef1),
+    {value, {fun_def, {M1, F1, A1, _, _}}}=lists:keysearch(fun_def,1,Ann1),
+    Ann2 = refac_syntax:get_ann(FunDef2),
+    {value, {fun_def, {M2, F2, A2, _, _}}} =lists:keysearch(fun_def,1,Ann2),
+    FunDef11= reset_attrs(FunDef1, {M1, F1, A1}),
+    FunDef21=reset_attrs(FunDef2, {M2, F2, A2}),
+    FunDef11 == FunDef21.
+
+
+reset_attrs(Node, {M, F, A}) ->
+    Fun = fun(T) -> 
+		  T1 = case refac_syntax:type(T) of 
+			   module_qualifier ->
+			       {value, {fun_def, DefInfo}} = lists:keysearch(fun_def,1,refac_syntax:get_ann(T)),
+			       refac_syntax:add_ann({fun_def, DefInfo}, refac_syntax:module_qualifier_body(T));
+			   variable ->
+			       refac_syntax:default_literals_vars(T, refac_syntax:variable_name(T));
+			   integer ->
+			       refac_syntax:default_literals_vars(T, refac_syntax:integer_value(T));
+			   float ->
+			       refac_syntax:default_literals_vars(T, refac_syntax:float_value(T));
+			   char ->
+			       refac_syntax:default_literals_vars(T, refac_syntax:char_value(T));
+			   string ->
+			       refac_syntax:default_literals_vars(T, refac_syntax:string_value(T));
+			   atom ->
+			       refac_syntax:default_literals_vars(T, refac_syntax:atom_value(T));
+			   nil -> refac_syntax:default_literals_vars(T, nil);
+			   underscore ->refac_syntax:default_literals_vars(T, '_');
+			   _ -> T
+		       end,
+		  case lists:keysearch(fun_def,1,refac_syntax:get_ann(T1)) of
+		      {value, {fun_def, {ModName, FunName, Arity, _, _}}} ->
+			  case {ModName, FunName, Arity} of 
+			      {M, F, A} -> set_default_ann(T1);
+			      _ -> refac_syntax:set_pos(
+				     refac_syntax:remove_comments(
+				       refac_syntax:set_ann(T1, 
+							    [{fun_def, {ModName, FunName, Arity, {0,0},{0,0}}}])),{0,0})
+			  end;	      
+		      _ -> set_default_ann(T1)
+		  end
+	  end,
+    refac_syntax_lib:map(Fun, Node).
+				       
+set_default_ann(Node) ->
+    refac_syntax:set_pos(refac_syntax:remove_comments(refac_syntax:set_ann(Node, [])), {0,0}).
 
 
 has_implicit_fun_call(Tree) ->    
@@ -217,7 +254,7 @@ do_transformation({AnnAST, Info},{TargetAnnAST, Info1}, {ModName, FunName,Arity}
     {AnnAST1, FunIsUsed} = do_remove_fun(AnnAST, {ModName, FunName, Arity}, FunsToBeExported, TargetModName),
     IsExported = refac_util:is_exported({FunName, Arity}, Info),
     Export = FunIsUsed or IsExported,
-    TargetAnnAST1 = do_add_fun(TargetAnnAST, FunToBeMoved1, {ModName, FunName, Arity}, TargetModName, Export),
+    TargetAnnAST1 = do_add_fun({TargetAnnAST, Info1}, FunToBeMoved1, {ModName, FunName, Arity}, TargetModName, Export),
     {AnnAST1, TargetAnnAST1}.
 
 
@@ -307,15 +344,21 @@ do_remove_fun(AnnAST, {ModName, FunName, Arity}, FunsToBeExported, TargetModName
 %%=======================================================================
 %% Add the function to the target module. 
 %%=======================================================================
-do_add_fun(TargetAnnAST, FunToBeMoved, {ModName, FunName, Arity}, TargetModName, ToBeExported)->
+do_add_fun({TargetAnnAST,Info}, FunToBeMoved, {ModName, FunName, Arity}, TargetModName, ToBeExported)->
     Forms = refac_syntax:form_list_elements(TargetAnnAST),
+    FunWithSameName = [F || F<-Forms, not(is_not_the_fun(F, {list_to_atom(TargetModName), FunName, Arity}))],
+    NewFun = case FunWithSameName of 
+		 [] -> [FunToBeMoved];
+		 _ -> []
+	     end,	
     Forms1 = [process_forms_in_target_module(Form, {ModName, FunName, Arity}, TargetModName)||Form <-Forms],
-    NewForms = case ToBeExported  of 
-		   false -> Forms1++[FunToBeMoved];
+    IsExported = refac_util:is_exported({FunName, Arity}, Info),
+    NewForms = case ToBeExported andalso (not(IsExported)) of 
+		   false -> Forms1++NewFun;
 		   true -> Export = make_export([{FunName, Arity}]),
 			   {Forms11, Forms12} = lists:splitwith(fun(F) -> refac_syntax:type(F) == attribute 
 								orelse refac_syntax:type(F) == comment end, Forms1),
-			   Forms11++Export++Forms12 ++ [FunToBeMoved]
+			   Forms11++Export++Forms12 ++ NewFun
 	       end,
     refac_syntax:copy_attrs(TargetAnnAST, refac_syntax:form_list(NewForms)).
 

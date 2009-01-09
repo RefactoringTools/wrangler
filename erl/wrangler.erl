@@ -673,11 +673,12 @@ fold_against_macro(FileName, Line, Col, SearchPaths) ->
     try_refactoring(refac_fold_against_macro, fold_against_macro, [FileName, Line, Col, SearchPaths]).
 
 
-try_refactoring(Mod, Fun, Args) ->
-    try apply(Mod, Fun, Args)
-    catch
-	throw:Error -> Error;
-	_E1:_E2->
-	    {error, "Wrangler failed to perform this refactoring, please report error to erlang-refactor@kent.ac.uk."}
-    end.
+try_refactoring(Mod, Fun, Args) -> 
+     try apply(Mod, Fun, Args)
+     catch
+ 	throw:Error -> 
+  	    Error;
+ 	_E1:_E2->
+	     {error, "Wrangler failed to perform this refactoring, please report error to erlang-refactor@kent.ac.uk."}
+     end.
 
