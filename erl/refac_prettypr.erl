@@ -666,7 +666,13 @@ lay_2(Node,Ctxt) ->
 			     _ -> get_end_line(erl_syntax:clause_guard(Node))
 			 end,
 	    BodyStartLn = get_start_line(hd(Body)),
-	    SameLine = (BodyStartLn==HeadLastLn) andalso (BodyStartLn=/=0),
+	    SameLine = case (BodyStartLn==HeadLastLn) andalso (BodyStartLn=/=0) of 
+			   true -> true;
+			   false -> case BodyStartLn - HeadLastLn of 
+				    1 -> false;
+				    _ -> unknown
+				end
+		       end,
 	    case Ctxt#ctxt.clause of
 		fun_expr -> make_fun_clause(D1,D2,D3,Ctxt, SameLine);
 		{function,N} -> make_fun_clause(N,D1,D2,D3,Ctxt, SameLine);
@@ -1081,24 +1087,25 @@ make_if_clause(_P,G,B,Ctxt, SameLine) ->
     append_clause_body(B,G1,Ctxt, SameLine).
 
 append_clause_body(B,D,Ctxt, SameLine) ->
-    Arrow = case SameLine of 
-		true -> text(" -> ");
-		_ -> text(" ->")
-	    end,
+     Arrow = case SameLine of 
+ 		true -> text(" -> ");
+ 		_ -> text(" ->")
+ 	    end,
     append_clause_body(B,D,floating(Arrow),Ctxt, SameLine).
 
 
 append_rule_body(B,D,Ctxt, SameLine) ->
-    R = case SameLine of
-	    true -> text(" :- ");
-	    _ -> text(" :-")
-	end,
-    append_clause_body(B,D,floating(R),Ctxt, SameLine).
+     R = case SameLine of
+ 	    true -> text(" :- ");
+ 	    _ -> text(" :-")
+ 	end,
+   append_clause_body(B,D,floating(R),Ctxt, SameLine).
 
 append_clause_body(B,D,S,Ctxt, SameLine) ->
     case SameLine of 
 	true -> beside(beside(D,S), nest(Ctxt#ctxt.break_indent,B));
-	_ ->  above(beside(D,S),nest(Ctxt#ctxt.break_indent,B))
+	false ->  above(beside(D,S),nest(Ctxt#ctxt.break_indent,B));
+	_  -> sep([beside(D, S), nest(Ctxt#ctxt.break_indent, B)])
     end.
 
 append_guard(none,D,_) -> D;
