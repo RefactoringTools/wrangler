@@ -59,127 +59,137 @@
 -spec(move_fun/6::(filename(),integer(),integer(), string(), atom(),[dir()])
         -> {ok, [{filename(), filename()}]}
            | {error, string()}).
-    
-move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths) ->
-    move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths, emacs).
+
+move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths) ->
+    move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, emacs).
 
 
 -spec(move_fun_eclipse/6::(filename(),integer(),integer(), string(), atom(),[dir()])
         ->  {ok, [{filename(), filename(), string()}]}
            | {error, string()}).
-move_fun_eclipse(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths)->
-    move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths, eclipse).
 
+move_fun_eclipse(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths) ->
+    move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, eclipse).
 
-move_fun(FName, Line, Col, TargetModName, CreateNewFile, SearchPaths, Editor) ->
-    ?wrangler_io("\nCMD: ~p:move_fun(~p, ~p, ~p, ~p, ~p, ~p).", 
-	      [?MODULE,FName, Line, Col, TargetModName, CreateNewFile,SearchPaths]),
-    Pos = {Line, Col},
-    TargetFName = get_target_file_name(FName, TargetModName, ".erl"),
-    if FName == TargetFName  -> {error, "The target module is the same as the current module."};
-       true -> 
-	    case (filelib:is_file(TargetFName) orelse (CreateNewFile==t) orelse (CreateNewFile==true)) of 
-		true -> 
-		    {ok, {AnnAST, Info}}=refac_util:parse_annotate_file(FName,true, SearchPaths),
-		    case refac_util:pos_to_fun_def(AnnAST, Pos) of 
-			{ok, Def} ->
-			    {value, {fun_def, {ModName, FunName, Arity, _Pos1, _Pos2}}} =
-				lists:keysearch(fun_def,1, refac_syntax:get_ann(Def)),
-			    case (not(filelib:is_file(TargetFName)) andalso ((CreateNewFile==t) orelse (CreateNewFile==true ))) of 
-				true -> create_new_file(TargetFName, TargetModName);
-				_ -> ok
-			    end,					
-			    R = side_cond_check({ModName, FunName, Arity,Def}, TargetFName, list_to_atom(TargetModName), Def, SearchPaths),
-			    case R of 
-				true -> 
-				    {ok, {TargetAnnAST,Info1}} =refac_util:parse_annotate_file(TargetFName, true, SearchPaths),  %% level=
-				    {AnnAST1, TargetAnnAST1}
-					= do_transformation({AnnAST,Info}, {TargetAnnAST,Info1},
-							    {ModName, FunName, Arity}, TargetModName),
-				    case refac_util:is_exported({FunName, Arity}, Info) of 
-					true ->
-					    ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n",[SearchPaths]),
-					    ClientFiles = lists:delete(TargetFName, 
-								       refac_util:get_client_files(FName, SearchPaths)),
-					    Results = refactor_in_client_modules(ClientFiles,
-										 {ModName, FunName, Arity}, TargetModName, SearchPaths),
-					    case Editor of
-						emacs ->
-						    refac_util:write_refactored_files([{{FName,FName}, AnnAST1},
-										       {{TargetFName, TargetFName}, TargetAnnAST1}| Results]),
-						    ChangedClientFiles =
-							lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-						    ChangedFiles = [FName, TargetFName | ChangedClientFiles],
-						    ?wrangler_io("The following files have been changed "
-								 "by this refactoring:\n~p\n", [ChangedFiles]),
-						    {ok, ChangedFiles};
-						eclipse ->
-						    Results1 = [{{FName,FName}, AnnAST1},
-								{{TargetFName, TargetFName}, TargetAnnAST1}| Results],
-						    Res = lists:map(fun({{FName1, NewFName1}, AST}) ->
-									    {FName1, NewFName1, refac_prettypr:print_ast(AST)} end,
-								    Results1),
-						    {ok, Res}
-					    end;
-					false ->
-					    case Editor of 
-						emacs ->
-						    refac_util:write_refactored_files([{{FName,FName}, AnnAST1},
-										       {{TargetFName, TargetFName}, TargetAnnAST1}]),
-						    {ok, [FName, TargetFName]};
-						eclipse ->
-						    Results1 = [{{FName,FName}, AnnAST1}, {{TargetFName, TargetFName}, TargetAnnAST1}],
-						    Res = lists:map(fun({{FName1, NewFName1}, AST}) ->
-									    {FName1, NewFName1, refac_prettypr:print_ast(AST)} end,
-								    Results1),
-						    {ok, Res}
-					    end						    
-				    
-				    end;
-				{error, Reason} -> {error, Reason}
-			    end;
-			{error, Reason} -> {error, Reason}
-		    end;
-		false ->{error, " Target module does not exist."}
-	    end
+move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, Editor) ->
+    ?wrangler_io("\nCMD: ~p:move_fun(~p, ~p, ~p, ~p, ~p, ~p).",
+		 [?MODULE, FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths]),
+    TargetFName = get_target_file_name(FName, TargetModorFileName),
+    case TargetFName of 
+	FName -> {error, "The target module is the same as the current module."};
+	{error, Reason} -> {error, Reason};
+	_ -> case filelib:is_file(TargetFName) orelse CreateNewFile == t orelse CreateNewFile == true of
+		 true ->
+		     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths),
+		     case refac_util:pos_to_fun_def(AnnAST, {Line, Col}) of
+			 {ok, Def} ->
+			     {value, {fun_def, {ModName, FunName, Arity, _Pos1, _Pos2}}} =
+				 lists:keysearch(fun_def, 1, refac_syntax:get_ann(Def)),
+			     case not filelib:is_file(TargetFName) andalso (CreateNewFile == t orelse CreateNewFile == true) of
+				 true -> create_new_file(TargetFName, TargetModorFileName);
+				 _ -> ok
+			     end,
+			     R = side_cond_check({ModName, FunName, Arity, Def}, TargetFName, list_to_atom(TargetModorFileName), Def, SearchPaths),
+			     case R of
+				 true ->
+				     {ok, {TargetAnnAST, Info1}} = refac_util:parse_annotate_file(TargetFName, true, SearchPaths),  %% level=
+				     {AnnAST1, TargetAnnAST1} =
+					 do_transformation({AnnAST, Info}, {TargetAnnAST, Info1},
+							   {ModName, FunName, Arity}, TargetModorFileName),
+				     case refac_util:is_exported({FunName, Arity}, Info) of
+					 true ->
+					     ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
+					     ClientFiles = lists:delete(TargetFName,
+									refac_util:get_client_files(FName, SearchPaths)),
+					     Results = refactor_in_client_modules(ClientFiles,
+										  {ModName, FunName, Arity}, TargetModorFileName, SearchPaths),
+					     case Editor of
+						 emacs ->
+						     refac_util:write_refactored_files([{{FName, FName}, AnnAST1},
+											{{TargetFName, TargetFName}, TargetAnnAST1}| Results]),
+						     ChangedClientFiles =
+							 lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+						     ChangedFiles = [FName, TargetFName| ChangedClientFiles],
+						     ?wrangler_io("The following files have been changed "
+						      "by this refactoring:\n~p\n", [ChangedFiles]),
+						     {ok, ChangedFiles};
+						 eclipse ->
+						     Results1 = [{{FName, FName}, AnnAST1},
+								 {{TargetFName, TargetFName}, TargetAnnAST1}| Results],
+						     Res = lists:map(fun ({{FName1, NewFName1}, AST}) ->
+									     {FName1, NewFName1, refac_prettypr:print_ast(AST)}
+								     end,
+								     Results1),
+						     {ok, Res}
+					     end;
+					 false ->
+					     case Editor of
+						 emacs ->
+						     refac_util:write_refactored_files([{{FName, FName}, AnnAST1},
+											{{TargetFName, TargetFName}, TargetAnnAST1}]),
+						     {ok, [FName, TargetFName]};
+						 eclipse ->
+						     Results1 = [{{FName, FName}, AnnAST1}, {{TargetFName, TargetFName}, TargetAnnAST1}],
+						     Res = lists:map(fun ({{FName1, NewFName1}, AST}) ->
+									     {FName1, NewFName1, refac_prettypr:print_ast(AST)}
+								     end,
+								     Results1),
+						     {ok, Res}
+					     end
+				     end;
+				 {error, Reason} -> {error, Reason}
+			     end;
+			 {error, Reason} -> {error, Reason}
+		     end;
+		 false -> {error, " Target module/file does not exist."}
+	     end
     end.
 
-get_target_file_name(CurrentFName, TargetModName, Extension) ->
-    TargetFileBaseName = TargetModName ++ Extension,
-    filename:join([filename:dirname(CurrentFName),TargetFileBaseName]).
-			   
+get_target_file_name(CurrentFName, TargetModorFileName) ->
+    ErrMsg = {error, "Illegal target module/file name."},
+    TargetModName = case filename:extension(TargetModorFileName) of 
+			".erl" -> filename:basename(TargetModorFileName, ".erl");
+			[] -> TargetModorFileName;
+			_ -> "IllegalModName"			
+		    end,
+    case is_mod_name(TargetModName) of 
+	true -> filename:join([filename:dirname(CurrentFName), TargetModName++".erl"]);	    
+	_  -> ErrMsg
+    end.
+    
+  
 create_new_file(TargetFName, TargetModName) ->
      S = "-module("++TargetModName++").",
      file:write_file(TargetFName, list_to_binary(S)).
 
-side_cond_check({ModName,FunName, Arity, Node}, TargetFileName, TargetModName, FunDef, SearchPaths) ->
-    case filelib:is_file(TargetFileName) of 
-	true -> {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(TargetFileName, true, SearchPaths),     
-		InscopeFuns = refac_util:inscope_funs(Info),		
-		Clash = lists:any(fun({ModName1, FunName1, Arity1})->
-					  (FunName == FunName1) and (Arity==Arity1) and (ModName =/= ModName1)
-				  end, InscopeFuns),
-		ImplicitFunCall = has_implicit_fun_call(Node),
-		case not(Clash) of 
-		    true -> case not(ImplicitFunCall) of 
-				true -> true;
-				false -> {error, 
-					  "Moving a function definiton containing implicit fun expressions "
-					  "is not supported by this refactoring."}
-			    end;
-		    false ->
-			Forms = refac_syntax:form_list_elements(AnnAST),
-			FunWithSameName = [F || F<-Forms, not(is_not_the_fun(F, {TargetModName, FunName, Arity}))],
-			case FunWithSameName of 
-			    [] ->
-				 {error, "Moving this function will cause confliction in the target module."};
-			    [F] -> case is_the_same_fun(FunDef, F) of
-				       true -> true;
-				       _ -> {error, "The same function name, with a different definition, is already defined in the target module."}
-				   end
-			end
-		end;
-	false -> true
+side_cond_check({ModName, FunName, Arity, Node}, TargetFileName, TargetModName, FunDef, SearchPaths) ->
+    case filelib:is_file(TargetFileName) of
+      true -> {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(TargetFileName, true, SearchPaths),
+	      InscopeFuns = refac_util:inscope_funs(Info),
+	      Clash = lists:any(fun ({ModName1, FunName1, Arity1}) ->
+					(FunName == FunName1) and (Arity == Arity1) and (ModName =/= ModName1)
+				end, InscopeFuns),
+	      ImplicitFunCall = has_implicit_fun_call(Node),
+	      case not Clash of
+		true -> case not ImplicitFunCall of
+			  true -> true;
+			  false -> {error,
+				    "Moving a function definiton containing implicit fun expressions "
+				    "is not supported by this refactoring."}
+			end;
+		false ->
+		    Forms = refac_syntax:form_list_elements(AnnAST),
+		    FunWithSameName = [F || F <- Forms, not is_not_the_fun(F, {TargetModName, FunName, Arity})],
+		    case FunWithSameName of
+		      [] ->
+			  {error, "Moving this function will cause confliction in the target module."};
+		      [F] -> case is_the_same_fun(FunDef, F) of
+			       true -> true;
+			       _ -> {error, "The same function name, with a different definition, is already defined in the target module."}
+			     end
+		    end
+	      end;
+      false -> true
     end.
 
 
@@ -241,45 +251,42 @@ has_implicit_fun_call(Tree) ->
 	      end
       end,
     R = refac_syntax_lib:fold(F, [], Tree),
-    lists:member(true, R). 
-		      
+    lists:member(true, R).
 
-
-do_transformation({AnnAST, Info},{TargetAnnAST, Info1}, {ModName, FunName,Arity}, TargetModName) ->
-    Forms = refac_syntax:form_list_elements(AnnAST),    
-    FunToBeMoved = hd([F || F<-Forms, not(is_not_the_fun(F, {ModName, FunName, Arity}))]),
+do_transformation({AnnAST, Info}, {TargetAnnAST, Info1}, {ModName, FunName, Arity}, TargetModName) ->
+    Forms = refac_syntax:form_list_elements(AnnAST),
+    FunToBeMoved = hd([F || F <- Forms, not is_not_the_fun(F, {ModName, FunName, Arity})]),
     FunsToBeExported = local_funs_to_be_exported(FunToBeMoved, {ModName, FunName, Arity}, Info),
     InScopeFunsInTargetMod = refac_util:inscope_funs(Info1),
-    FunToBeMoved1 = transform_fun(FunToBeMoved,{ModName, FunName, Arity}, TargetModName, InScopeFunsInTargetMod),
+    FunToBeMoved1 = transform_fun(FunToBeMoved, {ModName, FunName, Arity}, TargetModName, InScopeFunsInTargetMod),
     {AnnAST1, FunIsUsed} = do_remove_fun(AnnAST, {ModName, FunName, Arity}, FunsToBeExported, TargetModName),
     IsExported = refac_util:is_exported({FunName, Arity}, Info),
     Export = FunIsUsed or IsExported,
     TargetAnnAST1 = do_add_fun({TargetAnnAST, Info1}, FunToBeMoved1, {ModName, FunName, Arity}, TargetModName, Export),
     {AnnAST1, TargetAnnAST1}.
 
-
 %%==============================================================================
 %% Functions defined in the current module, but used by the function to be moved.
 %%===============================================================================
 local_funs_to_be_exported(Node, {ModName, FunName, Arity}, Info) ->
     Funs = fun (T, S) ->
-		case refac_syntax:type(T) of
-		  application ->
-			Operator = refac_syntax:application_operator(T),
-			case application_info(T) of 
-			    {{none, F}, A} ->
-				case get_fun_def_info(Operator) of 
-				    {ModName, F, A, _P} when {F,A} =/= {FunName, Arity}
-							     -> ordsets:add_element({F, A}, S);
-				    _ -> S
-				end;
-			    _ -> S
-			end;
-		    _ -> S
-		end
+		   case refac_syntax:type(T) of
+		     application ->
+			 Operator = refac_syntax:application_operator(T),
+			 case application_info(T) of
+			   {{none, F}, A} ->
+			       case get_fun_def_info(Operator) of
+				 {ModName, F, A, _P} when {F, A} =/= {FunName, Arity} ->
+				     ordsets:add_element({F, A}, S);
+				 _ -> S
+			       end;
+			   _ -> S
+			 end;
+		     _ -> S
+		   end
 	   end,
     Fs = refac_syntax_lib:fold(Funs, ordsets:new(), Node),
-    [F||F<-Fs, not(refac_util:is_exported(F, Info))].
+    [F || F <- Fs, not refac_util:is_exported(F, Info)].
 
 
 %%======================================================================================
@@ -320,7 +327,7 @@ do_transform_fun(Node, {{ModName, FunName, Arity}, TargetModName, InScopeFunsInT
 		  _ -> {Node, false}
  	      end;
         _  -> {Node, false}
-    end.   
+    end.
 
 
 %%=========================================================================
@@ -342,23 +349,24 @@ do_remove_fun(AnnAST, {ModName, FunName, Arity}, FunsToBeExported, TargetModName
     {refac_syntax:copy_attrs(AnnAST, refac_syntax:form_list(NewForms)), Fun_is_Used}.
 
 %%=======================================================================
-%% Add the function to the target module. 
+%% Add the function to the target module.
 %%=======================================================================
-do_add_fun({TargetAnnAST,Info}, FunToBeMoved, {ModName, FunName, Arity}, TargetModName, ToBeExported)->
+do_add_fun({TargetAnnAST, Info}, FunToBeMoved, {ModName, FunName, Arity}, TargetModName, ToBeExported) ->
     Forms = refac_syntax:form_list_elements(TargetAnnAST),
-    FunWithSameName = [F || F<-Forms, not(is_not_the_fun(F, {list_to_atom(TargetModName), FunName, Arity}))],
-    NewFun = case FunWithSameName of 
-		 [] -> [FunToBeMoved];
-		 _ -> []
-	     end,	
-    Forms1 = [process_forms_in_target_module(Form, {ModName, FunName, Arity}, TargetModName)||Form <-Forms],
+    FunWithSameName = [F || F <- Forms, not is_not_the_fun(F, {list_to_atom(TargetModName), FunName, Arity})],
+    NewFun = case FunWithSameName of
+	       [] -> [FunToBeMoved];
+	       _ -> []
+	     end,
+    Forms1 = [process_forms_in_target_module(Form, {ModName, FunName, Arity}, TargetModName) || Form <- Forms],
     IsExported = refac_util:is_exported({FunName, Arity}, Info),
-    NewForms = case ToBeExported andalso (not(IsExported)) of 
-		   false -> Forms1++NewFun;
-		   true -> Export = make_export([{FunName, Arity}]),
-			   {Forms11, Forms12} = lists:splitwith(fun(F) -> refac_syntax:type(F) == attribute 
-								orelse refac_syntax:type(F) == comment end, Forms1),
-			   Forms11++Export++Forms12 ++ NewFun
+    NewForms = case ToBeExported andalso not IsExported of
+		 false -> Forms1 ++ NewFun;
+		 true -> Export = make_export([{FunName, Arity}]),
+			 {Forms11, Forms12} = lists:splitwith(fun (F) -> refac_syntax:type(F) == attribute
+									   orelse refac_syntax:type(F) == comment
+							      end, Forms1),
+			 Forms11 ++ Export ++ Forms12 ++ NewFun
 	       end,
     refac_syntax:copy_attrs(TargetAnnAST, refac_syntax:form_list(NewForms)).
 
@@ -390,33 +398,32 @@ process(Form, {ModName, FunName, Arity}, TargetModName) ->
 	_-> {Form,false}
     end.
 
- 
 %%============================================================================
 %% Refactoring in the target module.
 %%============================================================================
-process_forms_in_target_module(Form, {ModName, FunName, Arity},TargetModName) ->
-    case refac_syntax:type(Form) of 
-	function -> remove_module_qualifier(Form, {ModName, FunName, Arity}, TargetModName);
-	attribute -> Name = refac_syntax:attribute_name(Form),
-		     case refac_syntax:type(Name) of 
-			 atom ->case refac_syntax:atom_value(Name) of
-				    import -> 
-					[H|[L]] = refac_syntax:attribute_arguments(Form),
- 					Es = refac_syntax:list_elements(L),
-					Es1 =[E  || E<-Es, 
-						    {refac_syntax:atom_value(refac_syntax:arity_qualifier_body(E)),
-						     refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(E))}
-							=/={FunName, Arity}],
-					case length(Es1) == 0  of
-					    true -> comment([""]);
-					    _ ->refac_syntax:copy_attrs(Form, 
-						refac_syntax:attribute(Name,[H|[refac_syntax:list(Es1)]]))
-					end;
-				    _  -> Form
-				end;
-			 _  -> Form
-		     end;
-	_-> Form
+process_forms_in_target_module(Form, {ModName, FunName, Arity}, TargetModName) ->
+    case refac_syntax:type(Form) of
+      function -> remove_module_qualifier(Form, {ModName, FunName, Arity}, TargetModName);
+      attribute -> Name = refac_syntax:attribute_name(Form),
+		   case refac_syntax:type(Name) of
+		     atom -> case refac_syntax:atom_value(Name) of
+			       import ->
+				   [H, L] = refac_syntax:attribute_arguments(Form),
+				   Es = refac_syntax:list_elements(L),
+				   Es1 = [E || E <- Es,
+					       {refac_syntax:atom_value(refac_syntax:arity_qualifier_body(E)),
+						refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(E))}
+						 =/= {FunName, Arity}],
+				   case length(Es1) == 0 of
+				     true -> comment([""]);
+				     _ -> refac_syntax:copy_attrs(Form,
+								  refac_syntax:attribute(Name, [H, refac_syntax:list(Es1)]))
+				   end;
+			       _ -> Form
+			     end;
+		     _ -> Form
+		   end;
+      _ -> Form
     end.
 
 %%============================================================================
@@ -502,29 +509,28 @@ refactor_in_client_module_1({AnnAST, _Info}, {ModName, FunName, Arity}, TargetMo
     Changed = lists:member(true, lists:map(fun({_F, M}) -> M end, Res)),
     {refac_syntax:copy_attrs(AnnAST, refac_syntax:form_list(Forms1)), Changed}.
 
-
 process_in_client_module(Form, {ModName, FunName, Arity}, TargetModName) ->
-    case refac_syntax:type(Form) of 
-	function -> add_module_qualifier(Form, {ModName, FunName, Arity}, TargetModName);
-	attribute -> Name = refac_syntax:attribute_name(Form),
-		     case refac_syntax:type(Name) of 
-			 atom ->case refac_syntax:atom_value(Name) of
-				    import -> 
-					[H|[L]] = refac_syntax:attribute_arguments(Form),
- 					Es = refac_syntax:list_elements(L),
-					Es1 =[E  || E<-Es, 
-						    {refac_syntax:atom_value(refac_syntax:arity_qualifier_body(E)),
-						     refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(E))}
-							=/={FunName, Arity}],
-					{refac_syntax:copy_attrs(Form, 
-						refac_syntax:attribute(Name,[H|[refac_syntax:list(Es1)]])),
-					 length(Es) =/= length(Es1)};
-				    _  -> {Form, false}
-				end;
-			 _ -> {Form, false}
-		     end;
-	_ -> {Form, false}
-    end.  
+    case refac_syntax:type(Form) of
+      function -> add_module_qualifier(Form, {ModName, FunName, Arity}, TargetModName);
+      attribute -> Name = refac_syntax:attribute_name(Form),
+		   case refac_syntax:type(Name) of
+		     atom -> case refac_syntax:atom_value(Name) of
+			       import ->
+				   [H, L] = refac_syntax:attribute_arguments(Form),
+				   Es = refac_syntax:list_elements(L),
+				   Es1 = [E || E <- Es,
+					       {refac_syntax:atom_value(refac_syntax:arity_qualifier_body(E)),
+						refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(E))}
+						 =/= {FunName, Arity}],
+				   {refac_syntax:copy_attrs(Form,
+							    refac_syntax:attribute(Name, [H, refac_syntax:list(Es1)])),
+				    length(Es) =/= length(Es1)};
+			       _ -> {Form, false}
+			     end;
+		     _ -> {Form, false}
+		   end;
+      _ -> {Form, false}
+    end.
      
 %% =====================================================================
 %% @spec application_info(Tree::syntaxTree())->term()
@@ -585,176 +591,175 @@ is_not_the_fun(Form, {ModName, FunName, Arity}) ->
 	_ -> true
     end.
 
-transform_apply_call(Node,{ModName, FunName, Arity}, TargetModName) ->
-    Message = fun (Pos) -> ?wrangler_io("WARNING: function ***apply*** is used at location({line, col}):~p, and wrangler " 
-				    "could not decide whether this site should be refactored, please check!!!\n",
-				     [Pos])
+transform_apply_call(Node, {ModName, FunName, Arity}, TargetModName) ->
+    Message = fun
+		(Pos) -> ?wrangler_io("WARNING: function ***apply*** is used at location({line, col}):~p, and wrangler "
+				      "could not decide whether this site should be refactored, please check!!!\n",
+				      [Pos])
 	      end,
     Operator = refac_syntax:application_operator(Node),
     Arguments = refac_syntax:application_arguments(Node),
-    case Arguments of 
-	[Fun, Args] -> 
-	    case refac_syntax:type(Fun) of 
-		implicit_fun ->
-		    Name = refac_syntax:implicit_fun_name(Fun),
-		    B = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Name)),
-		    A = refac_syntax:atom_value(refac_syntax:arity_qualifier_argument(Name)),
-		    case {B, A} of 
-			{FunName, Arity} ->
-			   FunName1= refac_syntax:module_qualifier(refac_syntax:atom(TargetModName),
-								    refac_syntax:atom(FunName)),
-			   Fun1 = refac_syntax:implicit_fun(FunName1, refac_syntax:arity_qualifier_argument(Name)),
-			   {refac_syntax:copy_attrs(Node, refac_syntax:application
-						    (Operator, [Fun1, Args])), true};
-				      
-			_ -> {Node, false}
-		    end;
-		_ -> {Node, false}
-	    end;
-	[Mod, Fun, Args] ->
-	    Mod1 = refac_util:try_evaluation([refac_syntax:revert(Mod)]),
-	    Fun1 = refac_util:try_evaluation([refac_syntax:revert(Fun)]),
-	    Pos = refac_syntax:get_pos(Node),
-	    case Fun1 of 
-		{value, FunName} ->
-		    case Mod1 of 
-			{value,ModName} ->
-			    case refac_syntax:type(Args) of 
-	 			list ->
-				    case refac_syntax:list_length(Args) of 
-					Arity ->
-					    Mod2 = refac_syntax:atom(TargetModName),
-					    {refac_syntax:copy_pos(Node,(refac_syntax:copy_attrs(Node, 
-						 refac_syntax:application(Operator, [Mod2, Fun, Args])))), true};
-					_ -> {Node, false}
-				    end;
-				nil -> if Arity==0 ->
-					       Mod2 = refac_syntax:atom(TargetModName),
-					       {refac_syntax:copy_pos(Node,(refac_syntax:copy_attrs(Node, 
-							  refac_syntax:application(Operator, [Mod2, Fun, Args])))), true};
-					  true -> {Node, false}
-				       end;
-				_ -> Message(Pos),
-				     {Node, false}
-			    end;
-			{value, _}-> {Node, false};
-			{error, _Reason} -> 
-			    case refac_syntax:type(Args) of 
-				list -> case refac_syntax:list_length(Args) of 
-					    Arity -> Message(Pos),
-						     {Node, false};
-					    _ -> {Node, false}
-					end;
-				_ -> Message(Pos),
-				     {Node, false}
-			    end
-		    end;
-		{value, _} -> {Node, false};
-		{error, _Reason} ->  
-		    case Mod1 of 
-			{value, ModName} ->
-			    case refac_syntax:type(Args) of 
-				list -> case refac_syntax:list_length(Args) of 
-					    Arity -> Message(Pos),
-						     {Node, false};
-					    _ -> {Node, false}
-					end;
-				_ -> Message(Pos),
-				     {Node, false}
-			    end;
-			{value, _} -> {Node, false};
-			{error, _Reason} -> case refac_syntax:type(Args) of 
-						list-> case refac_syntax:list_length(Args) of 
-							   Arity -> Message(Pos),
-								    {Node, false};
-							   _ -> {Node, false}
-						       end;
-						_  -> Message(Pos),
-						      {Node, false}
-					    end
-		    end			   
-	    end;
-	_ -> {Node, false}
-    end.
- 	     
-
-transform_spawn_call(Node,{ModName, FunName, Arity}, TargetModName) ->
-    Message = fun (Pos) -> ?wrangler_io("WARNING: function ***spawn*** is used at location({line, col}):~p, and wrangler " 
-				    "could not decide whether this site should be refactored, please check!!!\n",
-				     [Pos])
-	      end,
-    Operator = refac_syntax:application_operator(Node),
-    Arguments = refac_syntax:application_arguments(Node),
-    [N, Mod, Fun, Args] = if length(Arguments)==4 -> Arguments;			       
-				true -> [none] ++ Arguments
-			     end,
-    Mod1 = refac_util:try_evaluation([refac_syntax:revert(Mod)]),
-    Fun1 = refac_util:try_evaluation([refac_syntax:revert(Fun)]),
-    Pos = refac_syntax:get_pos(Node),
-    case Fun1 of 
-	{value, FunName} ->
-	    case Mod1 of 
-		{value,ModName} ->
-		    case refac_syntax:type(Args) of 
+    case Arguments of
+      [Fun, Args] ->
+	  case refac_syntax:type(Fun) of
+	    implicit_fun ->
+		Name = refac_syntax:implicit_fun_name(Fun),
+		B = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Name)),
+		A = refac_syntax:atom_value(refac_syntax:arity_qualifier_argument(Name)),
+		case {B, A} of
+		  {FunName, Arity} ->
+		      FunName1 = refac_syntax:module_qualifier(refac_syntax:atom(TargetModName),
+							       refac_syntax:atom(FunName)),
+		      Fun1 = refac_syntax:implicit_fun(FunName1, refac_syntax:arity_qualifier_argument(Name)),
+		      {refac_syntax:copy_attrs(Node, refac_syntax:application(Operator, [Fun1, Args])), true};
+		  _ -> {Node, false}
+		end;
+	    _ -> {Node, false}
+	  end;
+      [Mod, Fun, Args] ->
+	  Mod1 = refac_util:try_evaluation([refac_syntax:revert(Mod)]),
+	  Fun1 = refac_util:try_evaluation([refac_syntax:revert(Fun)]),
+	  Pos = refac_syntax:get_pos(Node),
+	  case Fun1 of
+	    {value, FunName} ->
+		case Mod1 of
+		  {value, ModName} ->
+		      case refac_syntax:type(Args) of
 			list ->
-			    case refac_syntax:list_length(Args) of 
-				Arity ->
-				    Mod2 = refac_syntax:atom(TargetModName),
-				    App = if length(Arguments) == 4 ->
-						  refac_syntax:application(Operator, [N, Mod2, Fun, Args]);
-					     true -> refac_syntax:application(Operator, [Mod2, Fun, Args])
-					  end,
-				    {refac_syntax:copy_pos(Node,(refac_syntax:copy_attrs(Node, App))), true};
-				_ -> {Node, false}
+			    case refac_syntax:list_length(Args) of
+			      Arity ->
+				  Mod2 = refac_syntax:atom(TargetModName),
+				  {refac_syntax:copy_pos(Node, refac_syntax:copy_attrs(Node,
+										       refac_syntax:application(Operator, [Mod2, Fun, Args]))), true};
+			      _ -> {Node, false}
 			    end;
-			nil -> if Arity==0 ->
-				       Mod2 = refac_syntax:atom(TargetModName),
-				       App = if length(Arguments) == 4 ->
-						  refac_syntax:application(Operator, [N, Mod2, Fun, Args]);
-					     true -> refac_syntax:application(Operator, [Mod2, Fun, Args])
-					  end,
-				       {refac_syntax:copy_pos(Node,(refac_syntax:copy_attrs(Node, App))), true};
+			nil -> if Arity == 0 ->
+				      Mod2 = refac_syntax:atom(TargetModName),
+				      {refac_syntax:copy_pos(Node, refac_syntax:copy_attrs(Node,
+											   refac_syntax:application(Operator, [Mod2, Fun, Args]))), true};
 				  true -> {Node, false}
 			       end;
 			_ -> Message(Pos),
 			     {Node, false}
-		    end;
-		{value, _}-> {Node, false};
-		{error, _Reason} -> 
-		    case refac_syntax:type(Args) of 
-			list -> case refac_syntax:list_length(Args) of 
-				    Arity -> Message(Pos),
-					     {Node, false};
-				    _ -> {Node, false}
+		      end;
+		  {value, _} -> {Node, false};
+		  {error, _Reason} ->
+		      case refac_syntax:type(Args) of
+			list -> case refac_syntax:list_length(Args) of
+				  Arity -> Message(Pos),
+					   {Node, false};
+				  _ -> {Node, false}
 				end;
 			_ -> Message(Pos),
 			     {Node, false}
-		    end
-	    end;
-	{value, _} -> {Node, false};
-	{error, _Reason} ->  
-	    case Mod1 of 
-		{value, ModName} ->
-		    case refac_syntax:type(Args) of 
-			list -> case refac_syntax:list_length(Args) of 
-				    Arity -> Message(Pos),
-					     {Node, false};
-				    _ -> {Node, false}
+		      end
+		end;
+	    {value, _} -> {Node, false};
+	    {error, _Reason} ->
+		case Mod1 of
+		  {value, ModName} ->
+		      case refac_syntax:type(Args) of
+			list -> case refac_syntax:list_length(Args) of
+				  Arity -> Message(Pos),
+					   {Node, false};
+				  _ -> {Node, false}
 				end;
 			_ -> Message(Pos),
 			     {Node, false}
-		    end;
-		{value, _} -> {Node, false};
-		{error, _Reason} -> case refac_syntax:type(Args) of 
-					list-> case refac_syntax:list_length(Args) of 
-						   Arity -> Message(Pos),
-							    {Node, false};
-						   _ -> {Node, false}
-					       end;
-					_  -> Message(Pos),
-					      {Node, false}
-				    end
-	    end
+		      end;
+		  {value, _} -> {Node, false};
+		  {error, _Reason} -> case refac_syntax:type(Args) of
+					list -> case refac_syntax:list_length(Args) of
+						  Arity -> Message(Pos),
+							   {Node, false};
+						  _ -> {Node, false}
+						end;
+					_ -> Message(Pos),
+					     {Node, false}
+				      end
+		end
+	  end;
+      _ -> {Node, false}
+    end.
+
+transform_spawn_call(Node, {ModName, FunName, Arity}, TargetModName) ->
+    Message = fun
+		(Pos) -> ?wrangler_io("WARNING: function ***spawn*** is used at location({line, col}):~p, and wrangler "
+				      "could not decide whether this site should be refactored, please check!!!\n",
+				      [Pos])
+	      end,
+    Operator = refac_syntax:application_operator(Node),
+    Arguments = refac_syntax:application_arguments(Node),
+    [N, Mod, Fun, Args] = if length(Arguments) == 4 -> Arguments;
+			     true -> [none] ++ Arguments
+			  end,
+    Mod1 = refac_util:try_evaluation([refac_syntax:revert(Mod)]),
+    Fun1 = refac_util:try_evaluation([refac_syntax:revert(Fun)]),
+    Pos = refac_syntax:get_pos(Node),
+    case Fun1 of
+      {value, FunName} ->
+	  case Mod1 of
+	    {value, ModName} ->
+		case refac_syntax:type(Args) of
+		  list ->
+		      case refac_syntax:list_length(Args) of
+			Arity ->
+			    Mod2 = refac_syntax:atom(TargetModName),
+			    App = if length(Arguments) == 4 ->
+					 refac_syntax:application(Operator, [N, Mod2, Fun, Args]);
+				     true -> refac_syntax:application(Operator, [Mod2, Fun, Args])
+				  end,
+			    {refac_syntax:copy_pos(Node, refac_syntax:copy_attrs(Node, App)), true};
+			_ -> {Node, false}
+		      end;
+		  nil -> if Arity == 0 ->
+				Mod2 = refac_syntax:atom(TargetModName),
+				App = if length(Arguments) == 4 ->
+					     refac_syntax:application(Operator, [N, Mod2, Fun, Args]);
+					 true -> refac_syntax:application(Operator, [Mod2, Fun, Args])
+				      end,
+				{refac_syntax:copy_pos(Node, refac_syntax:copy_attrs(Node, App)), true};
+			    true -> {Node, false}
+			 end;
+		  _ -> Message(Pos),
+		       {Node, false}
+		end;
+	    {value, _} -> {Node, false};
+	    {error, _Reason} ->
+		case refac_syntax:type(Args) of
+		  list -> case refac_syntax:list_length(Args) of
+			    Arity -> Message(Pos),
+				     {Node, false};
+			    _ -> {Node, false}
+			  end;
+		  _ -> Message(Pos),
+		       {Node, false}
+		end
+	  end;
+      {value, _} -> {Node, false};
+      {error, _Reason} ->
+	  case Mod1 of
+	    {value, ModName} ->
+		case refac_syntax:type(Args) of
+		  list -> case refac_syntax:list_length(Args) of
+			    Arity -> Message(Pos),
+				     {Node, false};
+			    _ -> {Node, false}
+			  end;
+		  _ -> Message(Pos),
+		       {Node, false}
+		end;
+	    {value, _} -> {Node, false};
+	    {error, _Reason} -> case refac_syntax:type(Args) of
+				  list -> case refac_syntax:list_length(Args) of
+					    Arity -> Message(Pos),
+						     {Node, false};
+					    _ -> {Node, false}
+					  end;
+				  _ -> Message(Pos),
+				       {Node, false}
+				end
+	  end
     end.
 
 get_fun_def_info(Node) ->
@@ -766,6 +771,9 @@ get_fun_def_info(Node) ->
       _ -> false
     end.
 
+
+is_mod_name(A) ->
+    refac_util:is_fun_name(A).
 
 
 comment(Txt) ->
