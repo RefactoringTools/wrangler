@@ -1,7 +1,7 @@
 
                     Wrangler, the Erlang Refactorer
                 a snapshot of our current prototype
-                             19/12/2008
+                            15/01/2009 
               http://www.cs.kent.ac.uk/projects/forse/
 
 --------------------------------------------------------------------------------
@@ -16,12 +16,12 @@ definition, duplicated code detection, etc.
 Wrangler is embedded in the Emacs editing environment, and built on
 top of Distel, an Emacs-based user interface toolkit for Erlang, to
 manage to communication between the refactoring tool and
-Emacs. We are now also in the process of inegrating Wrangler with 
+Emacs. We are now also in the process of integrating Wrangler with 
 the Eclipse environment.
 
 When Emacs is used, Wrangler is supposed to be installed as part of
 Distel, therefore this snapshot includes both Distel and the current 
-snapshot of Wrangler (Wrangler 0.6). The Distel included in this snapshot 
+snapshot of Wrangler (Wrangler 0.6.1). The Distel included in this snapshot 
 is Distel-4.03, which is downloadable from distel.googlecode.com.
 
 
@@ -36,7 +36,7 @@ We try keep Distel's original directory structure.
   AUTHORS             <-  AUTHORS of Distel and Wrangler
   ChangeLog           <-  changeLog of Distel 
   INSTALL             <-  installation instructions of distel-wrangler
-  INSTALL.WIN32       <-  installation instrunctions fow Windows
+  INSTALL.WIN32       <-  installation instrunctions for Windows
   Makefile.in 
   NEWS                <-  News about Distel
   README-distel       <-  README file of Distel
@@ -47,7 +47,7 @@ We try keep Distel's original directory structure.
   ebin                <-  directory for Erlang beam files
   elisp               <-  elisp source code from Distel
   src                 <-  Erlang source code from Distel
-  wrangler            <-  All the source cdoe from Wrangler
+  wrangler            <-  All the source code from Wrangler
 
 --------------------- how to use the refactorer ----------------
 
@@ -142,7 +142,7 @@ We try keep Distel's original directory structure.
      in Dirs                    : select the refactoring command from the menu,
 	                          and you will be prompted for the minimum 
                                   number of tokens a duplicated code fragment 
-                                  should have, and the minmum number of times  
+                                  should have, and the minimum number of times  
                                   that a code fragment is duplicated. Wrangler 
                                   will search duplicated code fragments from the 
                                  directories specified by the search paths (see 
@@ -154,7 +154,7 @@ We try keep Distel's original directory structure.
 
      Register a process         :highlight the match expression whose
                                  right-hand side is the spawn
-                                 expresssion that creates the process,
+                                 expression that creates the process,
                                  and left-hand side is the process
                                  identifier, and you will be prompted
                                  for the new process name.
@@ -175,6 +175,13 @@ We try keep Distel's original directory structure.
  search for Erlang source files/header files that could be affected by a
  refactoring.
 
+---------------------------Changes from Wrangler-0.6-------------
+-- 'Move a function to another module' now allows moving a function even 
+    if the same function (with same syntax and semantics) is already 
+    defined in the target module.
+-- Bugfix with pretty-printing prefix expressions.
+-- Bugfix with duplicated code detection.
+-- Automatic inference of include directories when parsing an Erlang file.
 
 ---------------------------Changes from Wrangler-0.5--------------
 
@@ -193,14 +200,14 @@ We try keep Distel's original directory structure.
     ++ From function to process
     ++ Register a process
     ++ Add a tag to the messages received by a server process
--- Infrasture change to make use of OTP behavioures.
+-- Infrastructure change to make use of OTP behaviours.
 -- Improved layout preservation.
 -- Support for refactoring incomplete code.
 -- A number of bug fixes
 
 ----------------------------Changes from Wrangler-0.3---------------
 
--- A number of bugs reported by dialyzer has been fixed.
+-- A number of bugs reported by Dialyzer have been fixed.
 
 ---------------------------Changes from Wrangler-0.2------------------
 
@@ -222,8 +229,8 @@ We try keep Distel's original directory structure.
   -- bug fix within side-effect calculation. 
   -- further checking has been added to detect whether undicidablity really    
      occurs when 'apply' is used. 
-  -- generalise a function definition: the new parameter name captured laterly  
-     introduce variables with the same name.
+  -- generalise a function definition: the new parameter name captured later  
+     introduced variables with the same name.
 
 ---------------------------Changes from wrangler-0.2-------------------
 -- new refactorings:
