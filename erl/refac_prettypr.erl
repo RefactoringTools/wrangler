@@ -605,17 +605,17 @@ lay_2(Node,Ctxt) ->
 		 '+' -> beside(D1,D2);
 		 '-' -> beside(D1,D2);
 		 _ ->
-		     OpEndLn = get_end_line(Operator),
-		     ArgStartLn = get_start_line(PrefixArg),
-		     case (OpEndLn == 0) or (ArgStartLn == 0) of
-		       true -> par([D1,D2],Ctxt#ctxt.sub_indent);
-		       _ ->
-			   case ArgStartLn - OpEndLn of
-			     0 -> beside(D1,D2);
-			     1 -> above(D1,nest(Ctxt#ctxt.sub_indent,D2));
-			     _ -> par([D1,D2],Ctxt#ctxt.sub_indent)
-			   end
-		     end
+		       OpEndLn = get_end_line(Operator),
+		       ArgStartLn = get_start_line(PrefixArg),
+		       case (OpEndLn == 0) or (ArgStartLn == 0) of
+ 		       true -> par([D1,D2],Ctxt#ctxt.sub_indent);
+ 		       _ ->
+ 			   case ArgStartLn - OpEndLn of
+ 			     0 -> beside(beside(D1, text(" ")),D2);
+ 			     1 -> above(D1,nest(Ctxt#ctxt.sub_indent,D2));
+ 			     _ -> par([D1,D2],Ctxt#ctxt.sub_indent)
+ 			   end
+ 		     end
 	       end,
 	  maybe_parentheses(D3,Prec,Ctxt);
       application ->  %% done.
