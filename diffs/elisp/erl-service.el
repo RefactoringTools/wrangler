@@ -1599,7 +1599,7 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	    (message "Refactoring succeeded!")))))))))
 
 (defun create-new-file-p (filename erlang-refac-search-paths)
-  (if (equal (locate-file (concat filename ".erl") erlang-refac-search-paths) nil)
+  (if (equal (locate-file filename (cons (file-name-directory filename) nil) '("" ".erl")) nil)
       (yes-or-no-p "The specified module does not exist, do you want to create one?")
     t))
 
@@ -2015,12 +2015,12 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
   "Find code clones in the current buffer."
   (interactive (list (erl-target-node)
 		     (read-string "Minimum number of tokens a code clone should have: ")
-		     (read-string "Minimum number of duplicated times: ")
+		     (read-string "Minimum number of appearance times: ")
 		     ))
   (let ((current-file-name (buffer-file-name))
 	(buffer (current-buffer)))
     (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
-      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
+      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer)) 
 	  (message-box "The current buffer has been changed")
     (erl-spawn
       (erl-send-rpc node 'wrangler_distel 'duplicated_code_in_buffer
@@ -2038,7 +2038,7 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
   "Find code clones in the directories specified by the search paths."
   (interactive (list (erl-target-node)
 		     (read-string "Minimum number of tokens a code clone should have: ")
-		     (read-string "Minimum number of duplicated times: ")
+		     (read-string "Minimum number of appearance times: ")
 		     ))
   (let ((current-file-name (buffer-file-name))
 	(buffer (current-buffer)))
