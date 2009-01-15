@@ -191,7 +191,7 @@ duplicated_code_detection(DirFileList, MinClones1, MinLength1) ->
 		    list_to_integer(MinClones1) < (?DEFAULT_MIN_CLONE_MEMBER)
 		    of
 		    true -> (?DEFAULT_MIN_CLONE_MEMBER) + 1;
-		    _ -> list_to_integer(MinClones1) + 1
+		    _ -> list_to_integer(MinClones1)
 		end,
     ?debug("Constructing suffix tree and collecting clones from the suffix tree.\n", []),
     {Toks,Cs}= get_clones_by_suffix_tree(FileNames, MinLength, MinClones),
