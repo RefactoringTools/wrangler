@@ -903,12 +903,16 @@ concat_toks([T|Ts], Acc) ->
 -spec(parse_annotate_file(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()])
                            -> {ok, {syntaxTree(), moduleInfo()}}).
 parse_annotate_file(FName, ByPassPreP, SearchPaths) ->
+    Dir = filename:dirname(FName),
+    DefaultIncl1 = [".","..", "../hrl", "../incl", "../inc", "../include"],
+    DefaultIncl2 = [filename:join(Dir, X) || X <-DefaultIncl1],
+    Includes = SearchPaths++DefaultIncl2,
     case whereis(wrangler_ast_server) of 
 	undefined ->        %% this should not happen with Wrangler + Emacs.
 	    %%?wrangler_io("wrangler_ast_aserver is not defined\n",[]),
-	    parse_annotate_file_1(FName, ByPassPreP, SearchPaths);
+	    parse_annotate_file_1(FName, ByPassPreP, Includes);
 	_ -> 
-	    wrangler_ast_server:get_ast({FName, ByPassPreP, SearchPaths})
+	    wrangler_ast_server:get_ast({FName, ByPassPreP, Includes})
     end.
    
 
