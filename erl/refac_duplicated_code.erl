@@ -77,7 +77,7 @@ get_clones_by_suffix_tree(FileNames,MinLength, MinClones) ->
 			  [] -> {Toks, []}; 
 			  [Cs] -> {Toks, Cs}
 		      end;
-		  E -> 
+		  _E -> 
 		      stop_suffix_tree_clone_detector(),
 		      file:delete(OutFileName),
 		      get_clones_by_erlang_suffix_tree(Toks, ProcessedToks, MinLength, MinClones)
@@ -180,9 +180,11 @@ duplicated_code_detection(DirFileList, MinClones1, MinLength1) ->
     MinLength = case MinLength1 == [] orelse
 		    list_to_integer(MinLength1) =< 0
 		    of
-		    true -> ?DEFAULT_MIN_CLONE_LEN;
+		    true -> 
+			?DEFAULT_MIN_CLONE_LEN;
 		    _ -> list_to_integer(MinLength1)
 		end,
+   %%io:format("MinLength:\n~p\n", [MinLength]),
     %% By 'MinClones', I mean the minimal number of members in a clone class,
     %% therefore it should be one more than the number of times a piece of code is cloned.
     MinClones = case MinClones1 == [] orelse
