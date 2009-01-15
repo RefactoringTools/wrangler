@@ -436,6 +436,6 @@ Please see the documentation of `erlang-menu-base-items'.")
 
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 0.6"))
+  (message "Wrangler version 0.6.1"))
  
 
