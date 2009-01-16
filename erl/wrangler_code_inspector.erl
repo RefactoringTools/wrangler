@@ -236,14 +236,14 @@ display_results(Callers, UnSures) ->
 	  ?wrangler_io("The selected function is not called by any other functions.\n",[]);
       {_, []} ->
 	  ?wrangler_io("The selected function is called by the following function(s):\n",[]),
-	    lists:map(fun({File, F, A}) -> ?wrangler_io("{File:~p, function: ~p, arity: ~p }\n", [File, F, A]) end, Callers);
+	    lists:map(fun({File, F, A}) -> ?wrangler_io("{File:~p, function: ~p/~p }\n", [File, F, A]) end, Callers);
       {[], [_H | _]} ->
 	  ?wrangler_io("The selected function is not explicitly called by any other functions, \n"
 		    "but please check the following expressions:\n", []),
 	   lists:map(fun({File, Line, Exp}) -> ?wrangler_io("{File:~p, line: ~p, expression:~p}\n", [File, Line, Exp]) end, UnSures);
       {[_H1 | _], [_H2 | _]} ->
 	    ?wrangler_io("The selected function is called by the following function(s):\n",[]),
-	    lists:map(fun({File, F, A}) -> ?wrangler_io("{File:~p, function name: ~p, arity: ~p }\n", [File, F, A]) end, Callers),
+	    lists:map(fun({File, F, A}) -> ?wrangler_io("{File:~p, function name: ~p/~p }\n", [File, F, A]) end, Callers),
 	    ?wrangler_io("Please also check the following expressions:\n", []),
 	    lists:map(fun({File, Line, Exp}) -> ?wrangler_io("{File:~p, line: ~p, expression:~p}\n", [File, Line, Exp]) end, UnSures)		 
     end.
@@ -253,8 +253,9 @@ get_caller_funs_in_client_modules(FileNames, {M, F, A}, SearchPaths) ->
     
     
 get_caller_funs(FileName, {M, F, A}, SearchPaths) ->		  
-    %% I use 'false' in the following function call, so that macro can get expanded;
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, false, SearchPaths),
+    %% 'true' is used in the following function call, so macros are not expanded.
+    %% erxpanding macros does not properly at the moment.
+    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths),
     Fun = fun(Node, {S1, S2}) ->
 		  case refac_syntax:type(Node) of 
 		      function -> 
