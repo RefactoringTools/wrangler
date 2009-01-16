@@ -374,7 +374,7 @@ pos_to_syntax_units(FileName, Tree, Start, End, F) ->
 pos_to_syntax_units_1(Tree, Start, End, F) ->
     {S, E} = get_range(Tree),
     if (S >= Start) and (E =< End) ->
-	   case F(Tree) of
+	    case F(Tree) of
 	     true -> [Tree];
 	     _ ->
 		 Ts = refac_syntax:subtrees(Tree),
@@ -943,8 +943,8 @@ parse_annotate_file_1(FName, false, SearchPaths) ->
 			 AnnAST1 = update_var_define_locations(AnnAST0),  
 			 AnnAST2 = adjust_locations(FName, AnnAST1),      
 			 AnnAST3 = add_fun_define_locations(AnnAST2, Info),
-			 AnnAST4 = add_range(FName, AnnAST3),
-			 {ok, {AnnAST4, Info}};       
+			 %%AnnAST4 = add_range(FName, AnnAST3),  %% add_range does not work at the moment when macros are expanded.
+			 {ok, {AnnAST3, Info}};      
        {error, Reason} -> erlang:error(Reason)
    end.
 
@@ -1069,7 +1069,7 @@ do_add_range(Node, Toks) ->
       char -> refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node);
 	
       integer ->
-	    Len = length(refac_syntax:integer_literal(Node)),
+	  Len = length(refac_syntax:integer_literal(Node)),
 	  refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
       string ->
 	    Toks1 = lists:dropwhile(fun (T) -> (token_loc(T) < {L,C})
@@ -1175,8 +1175,8 @@ do_add_range(Node, Toks) ->
 	  Ar = refac_syntax:prefix_expr_argument(Node),
 	  {S1, _E1} = get_range(Op),
 	  {_S2, E2} = get_range(Ar),
-	  E21 = extend_backwards(Toks, E2, ')'),
-	  refac_syntax:add_ann({range, {S1, E21}}, Node);
+	 %% E21 = extend_backwards(Toks, E2, ')'),  %% the parser should keey the parathesis!
+	  refac_syntax:add_ann({range, {S1, E2}}, Node);
       conjunction ->
 	  B = refac_syntax:conjunction_body(Node),
 	  H = ghead("refac_util:do_add_range,conjunction", B),
@@ -1422,10 +1422,10 @@ do_add_range(Node, Toks) ->
 	  case Args of
 	    none -> refac_syntax:add_ann({range, {S1, E1}}, Node);
 	    Ls ->
-		La = glast("refac_util:do_add_range,macro", Ls),
-		{_S2, E2} = get_range(La),
-		E21 = extend_backwards(Toks, E2, ')'),
-		refac_syntax:add_ann({range, {S11, E21}}, Node)
+		  La = glast("refac_util:do_add_range,macro", Ls),
+		  {_S2, E2} = get_range(La),
+		  E21 = extend_backwards(Toks, E2, ')'),
+		  refac_syntax:add_ann({range, {S11, E21}}, Node)
 	  end;
       size_qualifier ->
 	  Body = refac_syntax:size_qualifier_body(Node),
@@ -1540,7 +1540,7 @@ do_add_category(Node, C) ->
 		 Name1 = add_category(Name, macro_name),
 		 Args1 = case Args of
 			   none -> none;
-			   _ -> add_category(Args, expresssion) %% should 'expression' by 'macro_args'?
+			   _ -> add_category(Args, expression) %% should 'expression' be 'macro_args'?
 			 end,
 		 Node1 = refac_syntax:copy_attrs(Node, refac_syntax:macro(Name1, Args1)),
 		 {refac_syntax:add_ann({category, macro}, Node1), true};
