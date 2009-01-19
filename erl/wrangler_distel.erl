@@ -212,16 +212,17 @@ check_wrangler_error_logger() ->
 	     ok;
 	_ ->  ?wrangler_io("\n===============================WARNING===============================\n",[]),
 	      ?wrangler_io("There are errors in the program, and functions/attribute containing errors are not affected by refactoring.\n",[]),
-	      lists:foreach(fun({FileName, Errs}) ->
-				    ?wrangler_io("File:\n ~p\n", [FileName]),
-				    ?wrangler_io("Error(s):\n",[]),
-				    lists:foreach(fun(E) ->
+	      Msg =lists:flatmap(fun({FileName, Errs}) ->
+				    Str =io_lib:format("File:\n ~p\n", [FileName]),
+				    Str1 = Str ++ io_lib:format("Error(s):\n",[]),
+				    Str1++lists:flatmap(fun(E) ->
 							  case E of 
-							      {Pos, _Mod, Msg} ->?wrangler_io(" ** ~p:~p **\n", [Pos, Msg]);
-							      M -> ?wrangler_io("**~s**\n", [M])
+							      {Pos, _Mod, Msg} ->io_lib:format(" ** ~p:~p **\n", [Pos, Msg]);
+							      M -> io_lib:format("**~s**\n", [M])
 							  end
 						  end,
 						  lists:reverse(Errs)) 
-			    end, Errors)
+				 end, Errors),
+	      ?wrangler_io(Msg, [])
     end.
     
