@@ -965,19 +965,22 @@ do_add_tokens(Toks, Fs) ->
 do_add_tokens([], [], NewFs) ->
      NewFs;
 do_add_tokens(Toks, [F|Fs], NewFs)->
-    StartPos =
+    {StartPos, RemFs}  =
 	case refac_syntax:type(F) of 
 	    error_marker ->
 		case Fs of 
 		    [] -> {1,1};
-		    _ -> {_, {Line, _Col}} = get_range(hd(Fs)),  %% No consecutive error_marker, correct? 
-			 {Line+1,1} %% Assume a form always starts from a new line.		      
+		    _ -> %% Include all the preceding comments/malformed forms into the current malformed form.
+			Fs1 = lists:dropwhile(fun(F1) -> T = refac_syntax:type(F1),
+							 (T==comment) or (T==error_marker) end, Fs),
+			{_, {Line, _Col}} = get_range(hd(Fs1)),  
+			{{Line+1,1}, Fs1} %% Assume a form always starts from a new line.		      
 		end;
 	    _ -> case refac_syntax:get_precomments(F) of 
 		     [] -> {Start, _End} = get_range(F),
-			   Start;
+			   {Start, Fs};
 		     [Com|_Tl] -> {Line, Col}=refac_syntax:get_pos(Com),
-				  {Line, Col+1}
+				  {{Line, Col+1}, Fs}
 		 end
 	end,
     {Toks1, Toks2} = lists:splitwith(fun(T) -> element(2,T) < StartPos end, Toks),
@@ -989,9 +992,10 @@ do_add_tokens(Toks, [F|Fs], NewFs)->
 					   {Toks14++Toks2, lists:reverse(Toks12)++Toks13}					
 			     end,
     F1 =refac_syntax:add_ann({toks, FormToks}, F),
-    do_add_tokens(RemainToks, Fs, [F1|NewFs]).
+    do_add_tokens(RemainToks, RemFs, [F1|NewFs]).
 	    
 	    
+
 %% ============================================================================
 %% @spec get_toks(Node::syntaxTree())-> [token()]
 %%       
