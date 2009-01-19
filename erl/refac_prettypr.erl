@@ -137,6 +137,7 @@ vertical_concat([{E,Form}| T],Acc) ->
       _ -> vertical_concat(T,Acc1 ++ Str)
     end.
 
+%% Do this still need this function?
 get_paper_ribbon_width(Form) ->
      case refac_syntax:type(Form) of
  	attribute -> {?PAPER, ?RIBBON};
@@ -146,12 +147,13 @@ get_paper_ribbon_width(Form) ->
  			   [S,E]++ Acc
  		   end,
  	     AllRanges =refac_syntax_lib:fold(Fun, [], Form),
- 	     case AllRanges of
- 		 [] -> {?PAPER, ?RIBBON};
- 		 _ ->  {Start,End} = refac_util:get_range(Form),
- 		       GroupedRanges = group_by(1, (lists:filter(fun(Loc) ->
- 									 (Loc>= Start) and (Loc=<End) end, AllRanges))),
- 		       MinMaxCols=lists:map(fun(Rs) ->Cols = lists:map(fun({_Ln, Col}) -> Col end, Rs),
+	     {Start,End} = refac_util:get_range(Form),
+	     GroupedRanges = group_by(1, (lists:filter(fun(Loc) ->
+							       (Loc>= Start) and (Loc=<End) end, AllRanges))),
+ 	     case (AllRanges==[]) or (GroupedRanges==[])  of
+ 		 true -> {?PAPER, ?RIBBON};
+ 		 _ ->
+		     MinMaxCols=lists:map(fun(Rs) ->Cols = lists:map(fun({_Ln, Col}) -> Col end, Rs),
  						      case Cols of
  							  [] -> {1, 80};
  							  _ -> {lists:min(Cols),lists:max(Cols)}
