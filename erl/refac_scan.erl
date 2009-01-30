@@ -718,9 +718,10 @@ scan_based_int([], Stack, Toks, {Line, Col}, State,
 	 fun scan_based_int/6);
 scan_based_int(Cs, [B | Stack], Toks, {Line, Col},
 	       State, Errors) ->
-    case catch erlang:list_to_integer(reverse(Stack), B) of
+     case catch erlang:list_to_integer(reverse(Stack), B) of
       N when is_integer(N) ->
-	  scan(Cs, [], [{integer, {Line, Col}, N} | Toks],
+	  scan(Cs, [], [{integer, {Line, Col}, 
+			 integer_to_list(B)++[$#| reverse(Stack)]} | Toks],   %% "replaced 'N' with 'reverse(Stack)'";
 	       {Line, Col + length(Stack)}, State, Errors);
       _ ->
 	  scan(Cs, [], Toks, {Line, Col}, State,
