@@ -1346,7 +1346,11 @@ integer_value(Node) ->
 %% @see integer/1
 
 integer_literal(Node) ->
-    integer_to_list(integer_value(Node)).
+    V = integer_value(Node),
+    case is_list(V) of 
+	true -> V;
+	_ -> integer_to_list(V)
+    end.
 
 %% =====================================================================
 %% @spec float(Value::float()) -> syntaxTree()
