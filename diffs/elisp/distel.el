@@ -157,7 +157,6 @@ about Emacs' online help, use \"\\[help-for-help]\".
     ("\M-?"      erl-complete)	; Some windowmanagers hijack M-TAB..
     ("\C-c\C-de" erl-ie-show-session)
     ("\C-c\C-df" erl-refactor-subfunction)
-    ("\C-u"      erl-refactor-undo)   ;; added by Huiqing Li
     ("\C-c\C-dF" erl-find-module)
     ("\C-c\C-dg" erl-ping)
     ("\C-c\C-dh" erl-find-doc-under-point)
@@ -323,7 +322,6 @@ Please see the documentation of `erlang-menu-base-items'.")
   ;;     :type '(repeat directory)
   ;;     :group 'erlang-refac)
 
-  
 (defvar refactor-menu-items
   '(nil
     ("Wrangler Code Inspector"
@@ -376,7 +374,6 @@ Please see the documentation of `erlang-menu-base-items'.")
  	  (customize-group "erlang-refac"))
 
 (global-set-key (kbd "C-c C-r") 'toggle-erlang-refactor)
-(global-set-key (kbd "C-c C-b") 'erl-wrangler-code-inspector-var-instances)
 
 (setq erlang-refactor-status 0)
 
@@ -395,19 +392,11 @@ Please see the documentation of `erlang-menu-base-items'.")
     (erl-send-rpc node 'application 'start (list 'wrangler_app))
     (erl-receive()
 	((['rex 'ok]
-	  (setq erlang-menu-items
-		(erlang-menu-add-below 'refactor-menu-items
-					'distel-menu-items
-					erlang-menu-items))
-	  (erlang-menu-init)
+	  (add-wrangler-menu)
 	  (message "Wrangler started.")
 	   (setq erlang-refactor-status 1))
 	 (['rex ['error ['already_started app]]]
-	  (setq erlang-menu-items
-		(erlang-menu-add-below 'refactor-menu-items
-				       'distel-menu-items
-				       erlang-menu-items))
-	  (erlang-menu-init)
+	  (add-wrangler-menu)
 	  (message "Wrangler started")
 	  (setq erlang-refactor-status 1))
 	 (['rex ['error rsn]]
@@ -420,15 +409,11 @@ Please see the documentation of `erlang-menu-base-items'.")
     (erl-send-rpc node 'application 'stop (list 'wrangler_app))
     (erl-receive()
 	((['rex 'ok]
-	  (setq erlang-menu-items 
-		(erlang-menu-delete 'refactor-menu-items erlang-menu-items))
-	  (erlang-menu-init)
-	  (message "Wrangler stopped.")
-	  (setq erlang-refactor-status 0))
+	   (remove-wrangler-menu)
+	   (message "Wrangler stopped.")
+	   (setq erlang-refactor-status 0))
 	 (['rex ['error ['not_started app]]]
-	  (setq erlang-menu-items 
-		(erlang-menu-delete 'refactor-menu-items erlang-menu-items))
-	  (erlang-menu-init)
+	  (remove-wrangler-menu)
 	  (message "Wrangler stopped.")
 	  (setq erlang-refactor-status 0))
 	 (['rex ['error rsn]]
@@ -436,6 +421,26 @@ Please see the documentation of `erlang-menu-base-items'.")
 
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 0.6.1"))
- 
+  (message "Wrangler version 0.6.2"))
+
+
+(defun add-wrangler-menu()
+  (define-key erlang-extended-mode-map "\C-c\C-_"  'erl-refactor-undo)
+  (define-key erlang-extended-mode-map  "\C-c\C-b" 'erl-wrangler-code-inspector-var-instances)
+  (setq erlang-menu-items
+	(erlang-menu-add-below 'refactor-menu-items
+			       'distel-menu-items
+			       erlang-menu-items))
+  (erlang-menu-init)
+  )
+
+(defun remove-wrangler-menu()
+  (define-key erlang-extended-mode-map "\C-c\C-_" nil)
+  (define-key erlang-extended-mode-map "\C-c\C-b" nil)
+  (setq erlang-menu-items 
+	(erlang-menu-delete 'refactor-menu-items erlang-menu-items))
+  (erlang-menu-init)
+  )
+
+
 
