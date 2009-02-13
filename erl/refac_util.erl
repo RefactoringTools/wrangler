@@ -36,18 +36,20 @@
 
 -export([ghead/2, glast/2, to_lower/1, to_upper/1, try_evaluation/1,
          is_var_name/1, is_fun_name/1, is_expr/1, is_pattern/1,
-	 is_exported/2, inscope_funs/1,
+		 is_exported/2, inscope_funs/1,
          once_tdTU/3, stop_tdTP/3, full_buTP/3,
          pos_to_fun_name/2, pos_to_fun_def/2,pos_to_var_name/2,
-         pos_to_expr/3, pos_to_expr_list/4, pos_to_syntax_units/5, pos_to_syntax_units/4, expr_to_fun/2,get_range/1,get_toks/1, concat_toks/1, tokenize/1,
+         pos_to_expr/3, pos_to_expr_list/5, pos_to_syntax_units/6, 
+		 pos_to_syntax_units/4, expr_to_fun/2,get_range/1,get_toks/1, concat_toks/1, tokenize/3,
          get_var_exports/1, get_env_vars/1, get_bound_vars/1, get_free_vars/1, 
          get_client_files/2, expand_files/2, get_modules_by_file/1,
-         reset_attrs/1, update_ann/2,parse_annotate_file_1/3,
-         parse_annotate_file/3,write_refactored_files/1,
+         reset_attrs/1, update_ann/2,parse_annotate_file_1/4, parse_annotate_file/3,
+         parse_annotate_file/4,write_refactored_files/1,
          build_lib_side_effect_tab/1, build_local_side_effect_tab/2,
-	 build_scc_callgraph/1,build_callercallee_callgraph/1, has_side_effect/3,
+		 build_scc_callgraph/1,build_callercallee_callgraph/1, has_side_effect/3,
          callback_funs/1,auto_imported_bifs/0, called_funs/3]).
 
+-export([eunit_is_used/2]).
 -export([analyze_free_vars/1]).
 
 -export([update_var_define_locations/1]).
@@ -274,6 +276,7 @@ pos_to_fun_def_1(Node, Pos) ->
     case refac_syntax:type(Node) of
       function ->
 	  {S, E} = get_range(Node),
+	    io:format("Range:\n~p\n", [{S,E}]),
 	  if (S =< Pos) and (Pos =< E) ->
 		  {Node, true};
 	     true -> {[], false}
@@ -357,16 +360,16 @@ pos_to_syntax_units(Tree, Start, End, F) ->
     filter_syntax_units(Res).
     
 
--spec(pos_to_syntax_units(FileName::filename(), Tree::syntaxTree(),  Start::pos(), End::pos(), F::function()) ->
+-spec(pos_to_syntax_units(FileName::filename(), Tree::syntaxTree(),  Start::pos(), End::pos(), F::function(), TabWidth::integer()) ->
 	     [[syntaxTree()]]).
-pos_to_syntax_units(FileName, Tree, Start, End, F) ->
+pos_to_syntax_units(FileName, Tree, Start, End, F, TabWidth) ->
     Res = pos_to_syntax_units_1(Tree, Start, End, F),
     Res1 = filter_syntax_units(Res),	
     Units = case length(Res1)=<1 of 
 		true ->
 		    [Res1];
 		_ ->
-		    filter_syntax_units_via_toks(FileName, Res1)
+		    filter_syntax_units_via_toks(FileName, Res1, TabWidth)
 	    end,
     [U || U<-Units, U=/=[]].
 	
@@ -401,8 +404,8 @@ filter_syntax_units(Exprs) ->
 			       is_list(E)==false end, Exprs1)
     end.
 
-filter_syntax_units_via_toks(FName, Es) ->
-    Toks = tokenize(FName),
+filter_syntax_units_via_toks(FName, Es, TabWidth) ->
+    Toks = tokenize(FName, false, TabWidth),
     filter_syntax_units_via_toks_1(Toks,Es).
 
 filter_syntax_units_via_toks_1(_Toks, []) ->
@@ -455,11 +458,11 @@ filter_syntax_units_via_toks_2(Toks, [E1,E2|Es]) ->
 
 %% =====================================================================
 %% get the list expressions enclosed by start and end locations.
--spec(pos_to_expr_list(FileName::filename(),Tree::syntaxTree(), Start::pos(), End::pos()) ->
+-spec(pos_to_expr_list(FileName::filename(),Tree::syntaxTree(), Start::pos(), End::pos(),integer()) ->
 	     [syntaxTree()]).
 
-pos_to_expr_list(FileName, Tree, Start, End) ->
-    Units= pos_to_syntax_units(FileName, Tree, Start, End, fun is_expr/1),
+pos_to_expr_list(FileName, Tree, Start, End, TabWidth) ->
+    Units= pos_to_syntax_units(FileName, Tree, Start, End, fun is_expr/1, TabWidth),
     case Units of 
 	[] ->
 	     [];
@@ -809,28 +812,22 @@ write_refactored_files(Files) ->
 		       end,
 		       Files),
     wrangler_undo_server:add_to_history(Files1),
-   %%  case erlang:whereis(refactor_undo) of
-%%       undefined ->
-%% 	  ?wrangler_io("\nWARNING: the UNDO process is not working, "
-%% 		    "please restart the refactorer!\n",[]);
-%%       _ -> refactor_undo ! {add, Files1}
-%%     end,
-    %% Actually the result of writing to files should be checked!
     lists:foreach(F, Files). 
 
 %% =====================================================================
 %% @spec tokenize(File::filename()) -> [token()]
 %% @doc Tokenize an Erlang file into a list of tokens.
 
--spec(tokenize(File::filename()) -> [token()]).
-tokenize(File) ->
+-spec(tokenize(File::filename(), WithLayout::boolean(), TabWidth::integer()) -> [token()]).
+tokenize(File, WithLayout, TabWidth) ->
     {ok, Bin} = file:read_file(File),
     S = erlang:binary_to_list(Bin),
-    case refac_scan:string(S) of
-      {ok, Toks, _} ->
-	    Toks;
-      _ -> []
-    end.
+	case WithLayout of 
+		true -> {ok, Ts, _} = refac_scan_with_layout:string(S, {1,1}, TabWidth),
+				Ts;
+		_ -> {ok, Ts, _} = refac_scan:string(S, {1,1}, TabWidth),
+			 Ts
+	end.
 
 -spec(concat_toks(Toks::[token()]) ->
 	      string()).
@@ -841,9 +838,9 @@ concat_toks([], Acc) ->
      lists:concat(lists:reverse(Acc));
 concat_toks([T|Ts], Acc) ->
      case T of 
-	 {atom, _,  V} -> S = atom_to_list(V), 
+	 {atom, _,  V} -> S = io_lib:write_atom(V), 
 			  concat_toks(Ts, [S|Acc]);
-	 {qatom, _, V} -> S = "'"++atom_to_list(V)++"'",
+	 {qatom, _, V} -> S=io_lib:write_atom(V),
 			  concat_toks(Ts, [S|Acc]);
 	{string, _, V} -> concat_toks(Ts,[io_lib:write_string(V)|Acc]);
        	{char, _, V} when is_integer(V)-> concat_toks(Ts,[io_lib:write_char(V)|Acc]);
@@ -903,61 +900,67 @@ concat_toks([T|Ts], Acc) ->
 -spec(parse_annotate_file(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()])
                            -> {ok, {syntaxTree(), moduleInfo()}}).
 parse_annotate_file(FName, ByPassPreP, SearchPaths) ->
+	parse_annotate_file(FName, ByPassPreP, SearchPaths, ?DEFAULT_TABWIDTH).
+
+-spec(parse_annotate_file(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()], TabWidth::integer())
+                           -> {ok, {syntaxTree(), moduleInfo()}}).
+parse_annotate_file(FName, ByPassPreP, SearchPaths, TabWidth) ->
+    case whereis(wrangler_ast_server) of 
+	undefined ->        %% this should not happen with Wrangler + Emacs.
+	    ?wrangler_io("wrangler_ast_aserver is not defined\n",[]),
+	    parse_annotate_file_1(FName, ByPassPreP, SearchPaths, TabWidth);
+	_ ->
+	    wrangler_ast_server:get_ast({FName, ByPassPreP, SearchPaths, TabWidth})
+    end.
+   
+
+
+-spec(parse_annotate_file_1(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()], integer())
+                           -> {ok, {syntaxTree(), moduleInfo()}}).
+parse_annotate_file_1(FName, true, _SearchPaths, TabWidth) ->
+    case refac_epp_dodger:parse_file(FName, [{tab, TabWidth}]) of
+	{ok, Forms} -> Comments = erl_comment_scan:file(FName),
+		       SyntaxTree = refac_recomment:recomment_forms(Forms, Comments),
+		       Info = refac_syntax_lib:analyze_forms(SyntaxTree),
+		       AnnAST = annotate_bindings(FName, SyntaxTree, Info, 1, TabWidth),
+		       {ok, {AnnAST, Info}};
+	{error, Reason} -> erlang:error(Reason)
+    end;     
+parse_annotate_file_1(FName, false, SearchPaths, TabWidth) ->
     Dir = filename:dirname(FName),
     DefaultIncl1 = [".","..", "../hrl", "../incl", "../inc", "../include"],
     DefaultIncl2 = [filename:join(Dir, X) || X <-DefaultIncl1],
     Includes = SearchPaths++DefaultIncl2,
-    case whereis(wrangler_ast_server) of 
-	undefined ->        %% this should not happen with Wrangler + Emacs.
-	    %%?wrangler_io("wrangler_ast_aserver is not defined\n",[]),
-	    parse_annotate_file_1(FName, ByPassPreP, Includes);
-	_ -> 
-	    wrangler_ast_server:get_ast({FName, ByPassPreP, Includes})
-    end.
-   
-
--spec(parse_annotate_file_1(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()])
-                           -> {ok, {syntaxTree(), moduleInfo()}}).
-parse_annotate_file_1(FName, true, _SearchPaths) ->
-    case refac_epp_dodger:parse_file(FName) of
-	{ok, Forms} -> Comments = erl_comment_scan:file(FName),
-		       SyntaxTree = refac_recomment:recomment_forms(Forms, Comments),
-		       Info = refac_syntax_lib:analyze_forms(SyntaxTree),
-		       AnnAST = annotate_bindings(FName, SyntaxTree, Info, 1),
-		       {ok, {AnnAST, Info}};
-	{error, Reason} -> erlang:error(Reason)
-    end;    
-parse_annotate_file_1(FName, false, SearchPaths) ->
-   case refac_epp:parse_file(FName, SearchPaths,[]) of 
+   case refac_epp:parse_file(FName, Includes,[], TabWidth) of 
        {ok, Forms, _} -> Forms1 =  lists:filter(fun(F) ->
-						     case F of 
-							 {attribute, _, file, _} -> false;
-							 _ -> true
-						     end
-					     end, Forms),
+							case F of 
+							    {attribute, _, file, _} -> false;
+							    {attribute, _, type, _} -> false;
+							    _ -> true
+							end
+						end, Forms),
 			 %% I wonder whether the all the following is needed;
 			 %% we should never perform a transformation on an AnnAST from resulted from refac_epp;
 			 SyntaxTree = refac_recomment:recomment_forms(Forms1,[]),
 			 Info = refac_syntax_lib:analyze_forms(SyntaxTree),
 			 AnnAST0 = refac_syntax_lib:annotate_bindings(SyntaxTree, ordsets:new()),
 			 AnnAST1 = update_var_define_locations(AnnAST0),  
-			 AnnAST2 = adjust_locations(FName, AnnAST1),      
+			 AnnAST2 = adjust_locations(FName, AnnAST1, TabWidth),      
 			 AnnAST3 = add_fun_define_locations(AnnAST2, Info),
 			 %%AnnAST4 = add_range(FName, AnnAST3),  %% add_range does not work at the moment when macros are expanded.
 			 {ok, {AnnAST3, Info}};      
        {error, Reason} -> erlang:error(Reason)
    end.
 
-%%@spec add_tokens(FName::filename(), SyntaxTree::syntaxTree()) -> syntaxTree()
+%@spec add_tokens(FName::filename(), SyntaxTree::syntaxTree()) -> syntaxTree()
 %%@Attach tokens to each form in the AST.
 
--spec(add_tokens(FName::filename(), SyntaxTree::syntaxTree()) -> syntaxTree()).
-add_tokens(FName, SyntaxTree) ->
-    {ok, Bin} = file:read_file(FName),
-    {ok, Toks,_} =refac_scan_with_layout:string(erlang:binary_to_list(Bin)),
-    Fs = refac_syntax:form_list_elements(SyntaxTree),
-    Fs1 = do_add_tokens(Toks, Fs),
-    refac_syntax:copy_attrs(SyntaxTree, refac_syntax:form_list(Fs1)).
+-spec(add_tokens(FName::filename(), SyntaxTree::syntaxTree(), integer()) -> syntaxTree()).
+add_tokens(FName, SyntaxTree, TabWidth) ->
+	Toks = tokenize(FName, true, TabWidth),
+	Fs = refac_syntax:form_list_elements(SyntaxTree),
+    NewFs = do_add_tokens(Toks, Fs),
+    refac_syntax:copy_attrs(SyntaxTree, refac_syntax:form_list(NewFs)).
 
 do_add_tokens(Toks, Fs) ->
     do_add_tokens(Toks, lists:reverse(Fs), []).
@@ -1037,22 +1040,22 @@ show_fv_vars([{A, {Line, Col}} | T]) ->
 
 
 %% annotate the abstract syntax tree with static semantics information.
-annotate_bindings(FName, AST, Info, AnnotateLevel) ->
+annotate_bindings(FName, AST, Info, AnnotateLevel, TabWidth) ->
     AnnAST0 = refac_syntax_lib:annotate_bindings(AST, ordsets:new()),
     AnnAST1 = update_var_define_locations(AnnAST0),
     AnnAST2 = add_category(AnnAST1),
     AnnAST3 =case AnnotateLevel of
-		 0 -> add_range(FName, AnnAST2);
+		 0 -> add_range(FName, AnnAST2, TabWidth);
 		 1 ->
-		     AnnAST4 = adjust_locations(FName, AnnAST2),
+		     AnnAST4 = adjust_locations(FName, AnnAST2, TabWidth),
 		     AnnAST5 = add_fun_define_locations(AnnAST4, Info),
-		     add_range(FName, AnnAST5)
+		     add_range(FName, AnnAST5, TabWidth)
 	     end,
-    add_tokens(FName, AnnAST3).
+    add_tokens(FName, AnnAST3, TabWidth).
 
 %% Add  start and end location to each AST node.
-add_range(FName, AST) ->
-    Toks = tokenize(FName),
+add_range(FName, AST, TabWidth) ->
+    Toks = tokenize(FName, false,  TabWidth),
     full_buTP(fun do_add_range/2, AST, Toks).
 
 do_add_range(Node, Toks) ->
@@ -1421,15 +1424,19 @@ do_add_range(Node, Toks) ->
       macro ->
 	  Name = refac_syntax:macro_name(Node),
 	  Args = refac_syntax:macro_arguments(Node),
-	  {S1, E1} = get_range(Name), 
-	  S11 = extend_forwards(Toks, S1, '?'),
+	  {_S1, E1} = get_range(Name), 
 	  case Args of
-	    none -> refac_syntax:add_ann({range, {S1, E1}}, Node);
-	    Ls ->
-		  La = glast("refac_util:do_add_range,macro", Ls),
-		  {_S2, E2} = get_range(La),
-		  E21 = extend_backwards(Toks, E2, ')'),
-		  refac_syntax:add_ann({range, {S11, E21}}, Node)
+	      none -> refac_syntax:add_ann({range, {{L,C}, E1}}, Node);
+	      Ls ->
+		  case Ls  of 
+		      [] ->E21 = extend_backwards(Toks, E1, ')'),
+			   refac_syntax:add_ann({range, {{L,C}, E21}}, Node);
+		      _->
+		 	  La = glast("refac_util:do_add_range,macro", Ls),
+			  {_S2, E2} = get_range(La),
+			  E21 = extend_backwards(Toks, E2, ')'),
+			  refac_syntax:add_ann({range, {{L,C}, E21}}, Node)
+		  end
 	  end;
       size_qualifier ->
 	  Body = refac_syntax:size_qualifier_body(Node),
@@ -1577,8 +1584,8 @@ do_add_category(Node, C) ->
 %% to their actual occurrence locations. Originally, both of their locations refer
 %% to that of the keyword 'fun'.
 %% Qn: Any other cases in need of location adjustment?
-adjust_locations(FName, AST) ->
-    Toks = tokenize(FName),
+adjust_locations(FName, AST, TabWidth) ->
+    Toks = tokenize(FName, false, TabWidth),
     F = fun (T) ->
 		case refac_syntax:type(T) of
 		  implicit_fun ->
@@ -1767,12 +1774,12 @@ has_side_effect(File, Node, SearchPaths) ->
 		    LocalSideEffectFile = filename:join(CurrentDir, "local_side_effect_tab"),
 		    build_local_side_effect_tab(LocalSideEffectFile, SearchPaths),
 		    LocalPlt = from_dets(local_side_effect_plt, LocalSideEffectFile),
-		    Res = check_side_effect(Node, LibPlt, LocalPlt),
+		    Res1 = check_side_effect(Node, LibPlt, LocalPlt),
 		    dets:close(LibSideEffectFile),
 		    dets:close(list_to_atom(LocalSideEffectFile)),
 		    ets:delete(LocalPlt),
 		    ets:delete(LibPlt),
-		    Res
+		    Res1
     end.
 
 
@@ -1840,11 +1847,10 @@ from_dets(Name, Dets) when is_atom(Name) ->
 to_dets(Plt, Dets) ->
     file:delete(Dets),
     MinSize = ets:info(Plt, size),
-    DetsName = list_to_atom(Dets),
-    {ok, Dets} = dets:open_file(Dets, [{min_no_slots, MinSize}]),
-    ok = dets:from_ets(DetsName, Plt),
-    ok = dets:sync(DetsName),
-    ok = dets:close(DetsName).
+	{ok, Dets} = dets:open_file(Dets, [{min_no_slots, MinSize}]),
+	ok = dets:from_ets(Dets, Plt),
+    ok = dets:sync(Dets),
+    ok = dets:close(Dets).
 
 build_side_effect_tab([Scc | Left], Side_Effect_Tab, OtherTab) ->
     R = side_effect_scc(Scc, Side_Effect_Tab, OtherTab),
@@ -1877,39 +1883,40 @@ check_side_effect(Node, LibPlt, LocalPlt) ->
 		   end
 	   end,
     case refac_syntax:type(Node) of
-      receive_expr -> true;
-      infix_expr -> Op = refac_syntax:operator_literal(refac_syntax:infix_expr_operator(Node)), Op == "!";
-      application ->
-	  Operator = refac_syntax:application_operator(Node),
-	  Arity = length(refac_syntax:application_arguments(Node)),
-	  case refac_syntax:type(Operator) of
-	    atom ->
-		Op = refac_syntax:atom_value(Operator),
-		{value, {fun_def, {M, _N, _A, _P1, _P}}} = lists:keysearch(fun_def, 1, refac_syntax:get_ann(Operator)),
-		LookUp({M,Op, Arity});
-	      module_qualifier ->
-		Mod = refac_syntax:module_qualifier_argument(Operator),
-		Body = refac_syntax:module_qualifier_body(Operator),
-		case {refac_syntax:type(Mod), refac_syntax:type(Body)} of
-		  {atom, atom} ->
-		      M = refac_syntax:atom_value(Mod),
-		      Op = refac_syntax:atom_value(Body),
-		      LookUp({M, Op, Arity});
-		    _ -> unknown
-		end;
-	    _ -> unknown
-	  end;
-      arity_qualifier ->
-	  Fun = refac_syntax:arity_qualifier_body(Node),
-	  A = refac_syntax:arity_qualifier_argument(Node),
-	  case {refac_syntax:type(Fun), refac_syntax:type(A)} of
-	    {atom, integer} ->
-		  FunName = refac_syntax:atom_value(Fun),
-		  Arity = refac_syntax:integer_value(A),
-		  {value, {fun_def, {M, _N, _A, _P1, _P}}} = lists:keysearch(fun_def, 1, refac_syntax:get_ann(Node)),
-		  LookUp({M, FunName, Arity});
-	      _ -> unknown
-	  end;
+	receive_expr -> true;
+	infix_expr -> Op = refac_syntax:operator_literal(refac_syntax:infix_expr_operator(Node)), Op == "!";
+	application ->
+	    Operator = refac_syntax:application_operator(Node),
+	    Arity = length(refac_syntax:application_arguments(Node)),
+	    case refac_syntax:type(Operator) of
+		atom ->
+		    Op = refac_syntax:atom_value(Operator),
+		    {value, {fun_def, {M, _N, _A, _P1, _P}}} = lists:keysearch(fun_def, 1, refac_syntax:get_ann(Operator)),
+		    LookUp({M,Op, Arity});
+		module_qualifier ->
+		    Mod = refac_syntax:module_qualifier_argument(Operator),
+		    Body = refac_syntax:module_qualifier_body(Operator),
+		    case {refac_syntax:type(Mod), refac_syntax:type(Body)} of
+			{atom, atom} ->
+			    M = refac_syntax:atom_value(Mod),
+			    Op = refac_syntax:atom_value(Body),
+			    LookUp({M, Op, Arity});
+			_ -> unknown
+		    end;
+		_ -> unknown
+	    end;
+	arity_qualifier ->
+	    Fun = refac_syntax:arity_qualifier_body(Node),
+	    A = refac_syntax:arity_qualifier_argument(Node),
+	    case {refac_syntax:type(Fun), refac_syntax:type(A)} of
+		{atom, integer} ->
+		    FunName = refac_syntax:atom_value(Fun),
+		    Arity = refac_syntax:integer_value(A),
+		    {value, {fun_def, {M, _N, _A, _P1, _P}}} = lists:keysearch(fun_def, 1, refac_syntax:get_ann(Node)),
+		    LookUp({M, FunName, Arity});
+		_ -> unknown
+	    end;
+	atom -> false;
 	_ ->
 	    case refac_syntax:subtrees(Node) of
 		[] -> false;
@@ -1951,7 +1958,7 @@ build_scc_callgraph(DirList) ->
 build_callercallee_callgraph(SearchPaths) ->
     Files = refac_util:expand_files(SearchPaths, ".erl"),
     lists:append(lists:map(fun(FileName) ->
-				   {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, false, SearchPaths),
+				   {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths),  %% should this be false?
 				   do_build_callgraph(FileName, {AnnAST, Info})
 			   end, Files)).
     
@@ -2191,3 +2198,20 @@ callback_funs(Behaviour) ->
     end.
 
 
+-spec(eunit_is_used(FileName::filename(),  SearchPaths::[dir()]) ->
+	     boolean()).
+eunit_is_used(FileName, SearchPaths) ->
+    Dir = filename:dirname(FileName),
+    DefaultIncl1 = [".","..", "../hrl", "../incl", "../inc", "../include"],
+    DefaultIncl2 = [filename:join(Dir, X) || X <-DefaultIncl1],
+    NewSearchPaths= SearchPaths++DefaultIncl2,
+    case refac_epp:parse_file(FileName, NewSearchPaths, [])  of 
+	{ok, _, {MDefs, _MUses}} -> 
+	   lists:any(fun({{_,Name}, _Def}) -> Name=='EUNIT_HRL' end, MDefs);
+	_ ->
+	     true    %% rather conservative here.
+    end.
+	
+  
+	
+    
