@@ -39,7 +39,7 @@
 
 -module(refac_rename_var).
 
--export([rename_var/5, rename_var_eclipse/5]).
+-export([rename_var/6, rename_var_eclipse/6]).
 
 -export([pre_cond_check/4, rename/3]).
 
@@ -49,26 +49,30 @@
 %% @spec rename_var(FileName::filename(), Line::integer(), Col::integer(), NewName::string(),SearchPaths::[string()])-> term()
 %%
 
--spec(rename_var/5::(filename(), integer(), integer(), string(), [dir()]) ->
+-spec(rename_var/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
 	     {error, string()} | {ok, string()}).
-rename_var(FName, Line, Col, NewName, SearchPaths) ->
-    rename_var(FName, Line, Col, NewName, SearchPaths, emacs).
+rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth) ->
+    rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
 
--spec(rename_var_eclipse/5::(filename(), integer(), integer(), string(), [dir()]) ->
+-spec(rename_var_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
 	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
-rename_var_eclipse(FName, Line, Col, NewName, SearchPaths) ->
-    rename_var(FName, Line, Col, NewName, SearchPaths, eclipse).
+rename_var_eclipse(FName, Line, Col, NewName, SearchPaths, TabWidth) ->
+    rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
 
-rename_var(FName, Line, Col, NewName, SearchPaths, Editor) ->
-    ?wrangler_io("\nCMD: ~p:rename_var(~p, ~p, ~p, ~p, ~p).\n", [?MODULE,FName, Line, Col, NewName, SearchPaths]),
+rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
+    ?wrangler_io("\nCMD: ~p:rename_var(~p, ~p, ~p, ~p, ~p, ~p).\n", [?MODULE,FName, Line, Col, NewName, SearchPaths, TabWidth]),
     case refac_util:is_var_name(NewName) of
 	true ->
-	    {ok, {_AnnAST, _Info0}} = refac_util:parse_annotate_file(FName, false, SearchPaths),
+	    {ok, {_AnnAST, _Info0}} = refac_util:parse_annotate_file(FName, false, SearchPaths, TabWidth),
 	    NewName1 = list_to_atom(NewName), 
-	    {ok, {AnnAST1, _Info1}}= refac_util:parse_annotate_file(FName, true, SearchPaths),  
+	    {ok, {AnnAST1, _Info1}}= refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),  
 	    case refac_util:pos_to_var_name(AnnAST1, {Line, Col}) of
 		{ok, {VarName, DefinePos, C}} ->
-		    if DefinePos == [{0, 0}] -> {error, "Renaming of a free variable is not supported!"};
+		    if DefinePos == [{0, 0}] -> 
+			    case C of 
+				macro_name ->{error, "Renaming of a macro name is not supported by this refactoring!"};
+				_ -> {error, "Renaming of a free variable is not supported by this refactoring!"}
+			    end;				
 		       true ->
 			    if VarName /= NewName1 ->
 				    case C of

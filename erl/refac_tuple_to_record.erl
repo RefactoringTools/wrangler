@@ -23,23 +23,21 @@
 %% =============================================================================
 -module(refac_tuple_to_record).
 
--export([tuple_to_record/8]).
+-export([tuple_to_record/9]).
 
--export([tuple_to_record_eclipse/8]).
+-export([tuple_to_record_eclipse/9]).
 
 -include("../hrl/wrangler.hrl").
 
--spec(tuple_to_record/8::(filename(), integer(), integer(), integer(), integer(), string(), [string()], [dir()]) ->
+-spec(tuple_to_record/9::(filename(), integer(), integer(), integer(), integer(), string(), [string()], [dir()], integer()) ->
 	     {error, string()} | {ok, [filename()]}).
-tuple_to_record(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
-  tuple_to_record(File, FLine, FCol, LLine, LCol, 
-                RecName, FieldString, SearchPaths, emacs).
+tuple_to_record(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths, TabWidth )->
+  tuple_to_record(File, FLine, FCol, LLine, LCol, RecName, FieldString, SearchPaths, TabWidth,  emacs).
 
--spec(tuple_to_record_eclipse/8::(filename(), integer(), integer(), integer(), integer(), string(), [string()], [dir()]) ->
+-spec(tuple_to_record_eclipse/9::(filename(), integer(), integer(), integer(), integer(), string(), [string()], [dir()], integer()) ->
 	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
-tuple_to_record_eclipse(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths)->
-  tuple_to_record(File, FLine, FCol, LLine, LCol, 
-                RecName, FieldString, SearchPaths, eclipse).
+tuple_to_record_eclipse(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPaths, TabWidth)->
+  tuple_to_record(File, FLine, FCol, LLine, LCol, RecName, FieldString, SearchPaths, TabWidth, eclipse).
 
 %% =====================================================================
 %% @spec tuple_to_record(File::string(),FLine::integer(),FCol::integer(),
@@ -49,14 +47,14 @@ tuple_to_record_eclipse(File,FLine,FCol,LLine,LCol,RecName,FieldString,SearchPat
 %% @end
 %% =====================================================================
 tuple_to_record(File, FLine, FCol, LLine, LCol, RecName, FieldString,
-		SearchPaths, Editor) ->
+		SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\n[CMD: ~p:tuple_to_record(~p,~p,~p,~p,~p,~p,"
 	      "~n ~p,~n ~p). \n \n",
 	      [?MODULE, File, FLine, FCol, LLine, LCol, RecName, FieldString,
 	       SearchPaths]),
     FieldList = convert_record_names(FieldString),
     check_if_correct_names(RecName, FieldList),
-    {ok, {AnnAST, Info}} = parse_file(File, SearchPaths),
+    {ok, {AnnAST, Info}} = parse_file(File, SearchPaths, TabWidth),
     {Node, Tuple, Type} = check_pos(AnnAST, {FLine, FCol}, {LLine, LCol}),
     N = tuple_pos(Node, Tuple, Type),
     check_record_field_number(Tuple, FieldList),
@@ -74,7 +72,7 @@ tuple_to_record(File, FLine, FCol, LLine, LCol, RecName, FieldString,
 		    [SearchPaths]),
 	  ClientFiles = refac_util:get_client_files(File, SearchPaths),
 	  Results = tuple_to_record_in_client_modules(ClientFiles, FunName, Arity, DefMod,
-						      N, RecName, FieldList),
+						      N, RecName, FieldList, TabWidth),
 	  case Editor of
 	    emacs ->
 		refac_util:write_refactored_files([{{File, File}, AnnAST1} | Results]),
@@ -139,7 +137,7 @@ produce_record_names(RecordParamNames, String) ->
     {more, "~s", 0, []} -> lists:reverse(RecordParamNames);
     {ok, [ParamName], Rest} ->
       produce_record_names([list_to_atom(ParamName) | RecordParamNames], Rest);
-    Error -> exit({error, Error})
+    Error -> throw({error, Error})
   end.
 
 
@@ -152,12 +150,12 @@ produce_record_names(RecordParamNames, String) ->
 check_if_correct_names(RecName, FieldList)->
   case refac_util:is_fun_name(RecName) of
     true -> ok;
-    _ -> exit({error, "Not legal record name!"})
+    _ -> throw({error, "Not a legal record name!"})
   end,
   lists:foreach(fun(Elem)->
                   case refac_util:is_fun_name(atom_to_list(Elem)) of
                     true -> ok;
-                    _ -> exit({error, "Not legal record field name!"})
+                    _ -> throw({error, "Not a legal record field name!"})
                   end
                 end, FieldList). 
 
@@ -170,8 +168,8 @@ check_if_correct_names(RecName, FieldList)->
 %%
 %% @end
 %% =====================================================================
-parse_file(FileName, SearchPaths)->
-  refac_util:parse_annotate_file(FileName, true, SearchPaths).
+parse_file(FileName, SearchPaths, TabWidth)->
+  refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth).
  
 
 
@@ -232,11 +230,11 @@ pos_to_app_1(Node, Pos) ->
 pos_to_arg(AppNode, FPos, LPos)->
   Args = refac_syntax:application_arguments(AppNode),
   case Args of 
-    [] ->  exit({error, "You have not selected a tuple!"});
+    [] ->  throw({error, "You have not selected a tuple!"});
     _ -> 
       {Pos1, _Pos2} = refac_util:get_range(hd(Args)),
       if FPos >= Pos1 -> ok;
-	 true -> exit({error, "You have not selected a tuple!"})
+	 true -> throw({error, "You have not selected a tuple!"})
       end
   end,
   List = lists:dropwhile(fun(Pat)->
@@ -244,11 +242,11 @@ pos_to_arg(AppNode, FPos, LPos)->
                              Pos11 < FPos
                          end, Args),
   case List of
-    [] -> exit({error, "You have not selected a tuple!"});
+    [] -> throw({error, "You have not selected a tuple!"});
     _ -> 
       case refac_util:get_range(hd(List)) of
         {FPos, LPos} ->  hd(List);
-	_  -> exit({error, "You have not selected a tuple!"})
+	_  -> throw({error, "You have not selected a tuple!"})
       end
   end.
 
@@ -264,11 +262,11 @@ pos_to_pat(AnnAST, FPos, LPos)->
     {ok, Clause} ->
       FunPatterns = refac_syntax:clause_patterns(Clause),
       case FunPatterns of 
-        [] ->  exit({error, "You have not selected a tuple!"});
+        [] ->  throw({error, "You have not selected a tuple!"});
         _ -> 
           {Pos1, _Pos2} = refac_util:get_range(hd(FunPatterns)),
           if FPos >= Pos1 -> ok;
-	     true -> exit({error, "You have not selected a tuple!"})
+	     true -> throw({error, "You have not selected a tuple!"})
           end
       end,
       List = lists:dropwhile(fun(Pat)->
@@ -276,14 +274,14 @@ pos_to_pat(AnnAST, FPos, LPos)->
                              Pos11 < FPos
                              end, FunPatterns),
       case List of
-        [] -> exit({error, "You have not selected a tuple!"});
+        [] -> throw({error, "You have not selected a tuple!"});
         _ -> 
           case refac_util:get_range(hd(List)) of
             {FPos, LPos} -> {Clause, hd(List)};
-	    _  -> exit({error, "You have not selected a tuple!"})
+	    _  -> throw({error, "You have not selected a tuple!"})
           end
       end;
-    {error, none} -> exit({error, "You have not selected a tuple!"})   
+    {error, none} -> throw({error, "You have not selected a tuple!"})   
   end.
     
 
@@ -351,12 +349,11 @@ check_record_field_number(Tuple, FieldList)->
   FieldNumber = length(FieldList),
   case length(refac_syntax:tuple_elements(Tuple)) of
     FieldNumber -> ok;
-    _ -> exit({error, "The field names number is not the same "
-                      "as the tuple elements number"})
+    _ -> throw({error, "The field names number is not the same as the number of tuple elements."})
   end,
   case length(lists:usort(FieldList)) == length(FieldList) of
     true -> ok;
-    false -> exit({error, "The given fields name are not unique!"})
+    false -> throw({error, "The given fields name are not unique!"})
   end.
 
 
@@ -398,7 +395,7 @@ get_fun_name(AnnAST, Node, Type)->
       case lists:keysearch(fun_def, 1, As) of
         {value, {fun_def, {Mod, Fun, Arity, _Pos, _DefPos}}} ->
           {Fun, Arity, Mod};
-         _ -> exit({error, "The function definition can not locate"})
+         _ -> throw({error, "The function definition can not locate"})
       end;
     application -> 
       AppNode = Node,
@@ -420,7 +417,7 @@ clause_to_fun(Tree, Clause) ->
   Res = clause_to_fun_1(Tree, Clause),
   case Res of 
     [H|_T] -> H;
-    _ -> exit({error, "The function definition can not locate"})
+    _ -> throw({error, "Function definition can not be located"})
   end.
     
 
@@ -456,7 +453,7 @@ get_fun_def_info(Node) ->
   case lists:keysearch(fun_def, 1, As) of
     {value,{fun_def, {Mod, FunName, Arity, _UsePos, DefinePos}}} ->
       {Mod, FunName, Arity, DefinePos};
-    _ -> {error, ""}
+    _ -> {error, "Function definition information could not be found!"}
   end.
 
 
@@ -471,7 +468,7 @@ get_fun_def_info(Node) ->
 get_module_name(Info) ->
   case lists:keysearch(module, 1, Info) of
     {value, {module, ModName}} -> ModName;
-    false -> exit({error, "Can not get the current module name."})
+    false -> throw({error, "Can not get the current module name."})
   end.
 
 %% =====================================================================
@@ -482,7 +479,7 @@ get_module_name(Info) ->
 check_def_mod(DefMod, ModName) ->
     if DefMod == ModName -> ok;
        true ->
-	   exit({error,
+	   throw({error,
 		 "This function is not defined in this "
 		 "module;please go to the module where "
 		 "it is defined"})
@@ -597,7 +594,7 @@ get_fun_def_mod(Node) ->
   As = refac_syntax:get_ann(Node),
   case lists:keysearch(fun_def, 1, As) of
     {value, {fun_def, {M, _N, _A, _P, _DefinePos}}} -> M;
-    _ -> exit({error," The function definition can not locate"})
+    _ -> throw({error," The function definition cannot be located"})
   end.
 
 
@@ -1029,20 +1026,19 @@ insert_record(AnnAST, RecName, FieldList)->
 %% 
 %% @end
 %% =====================================================================
-tuple_to_record_in_client_modules(Files, Name, Arity, Mod, N, 
-                                  RecName, FieldList)->
-  case Files of
-    [] -> [];
-    [F | Fs] ->
-	  ?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
-	  {ok, {AnnAST, Info}} =refac_util:parse_annotate_file(F, true, []),
-          ExistingRec = check_record_name_exists(Info, RecName),
-	  AnnAST1 = tuple_record(AnnAST, ExistingRec, RecName, FieldList, 
-                                 Name, Arity, Mod, N),
-          [{{F, F}, AnnAST1} | 
-	   tuple_to_record_in_client_modules(Fs,Name,Arity,Mod,N,
-					     RecName,FieldList)]
-  end.
+tuple_to_record_in_client_modules(Files, Name, Arity, Mod, N, RecName, FieldList, TabWidth)->
+	case Files of
+	  [] -> [];
+	  [F | Fs] ->
+			?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
+			{ok, {AnnAST, Info}} =refac_util:parse_annotate_file(F, true, [], TabWidth),
+			ExistingRec = check_record_name_exists(Info, RecName),
+			AnnAST1 = tuple_record(AnnAST, ExistingRec, RecName, FieldList, 
+								   Name, Arity, Mod, N),
+			[{{F, F}, AnnAST1} | 
+			 tuple_to_record_in_client_modules(Fs,Name,Arity,Mod,N,
+											   RecName,FieldList, TabWidth)]
+	end.
 
 
 %% =====================================================================

@@ -127,7 +127,7 @@ get_sccs_including_fun({M, F, A}, SearchPaths) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-%% Currently the State is not used because I feel it takes too much space;
+%% Currently the State is not used because  it takes too much space;
 %% Todo: find out a way to improve this.
 get_callgraph(SearchPaths, State) ->
     CallGraph = refac_util:build_scc_callgraph(SearchPaths),

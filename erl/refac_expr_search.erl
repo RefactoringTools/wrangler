@@ -18,7 +18,7 @@
 %% 
 -module(refac_expr_search).
 
--export([expr_search/3, var_binding_structure/1]).
+-export([expr_search/4, var_binding_structure/1]).
 
 -include("../hrl/wrangler.hrl").
 %% ================================================================================================
@@ -38,11 +38,11 @@
 %% @spec expr_search(FileName::filename(), Start::Pos, End::Pos)-> term().
 %% =================================================================================================         
 
--spec(expr_search/3::(filename(), pos(), pos()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).    
-expr_search(FileName, Start, End) ->
-    ?wrangler_io("\nCMD: ~p:expr_search(~p, ~p,~p).\n", [?MODULE, FileName, Start, End]),
-    {ok, {AnnAST, _Info}} =refac_util:parse_annotate_file(FileName,true, []),
-    case refac_util:pos_to_expr_list(FileName, AnnAST, Start, End) of 
+-spec(expr_search/4::(filename(), pos(), pos(), integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).    
+expr_search(FileName, Start={Line, Col}, End={Line1, Col1}, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:expr_search(~p, {~p,~p},{~p,~p},~p).\n", [?MODULE, FileName, Line, Col, Line1, Col1, TabWidth]),
+    {ok, {AnnAST, _Info}} =refac_util:parse_annotate_file(FileName,true, [], TabWidth),
+    case refac_util:pos_to_expr_list(FileName, AnnAST, Start, End, TabWidth) of 
 	[E|Es] -> 
 	    Res = case Es == [] of 
 		      true ->
