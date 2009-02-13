@@ -293,8 +293,7 @@ do_add_tag_to_send_exprs(Node, {ModName, Tag, AffectedInitialFuns}) ->
 				
 		    
 pos_to_receive_fun(AnnAST, Pos) ->
-    Res = refac_util:pos_to_fun_def(AnnAST, Pos),
-    case refac_util:pos_to_fun_def(AnnAST, Pos) of 
+     case refac_util:pos_to_fun_def(AnnAST, Pos) of 
 	{ok, FunDef} ->
 	    case has_receive_expr(FunDef) of 
 		true -> {ok, FunDef};
