@@ -31,7 +31,7 @@
 %% 3) ****when an erlang file does not compile, the detector should still return the result before trim_clones.
 
 
--include("../hrl/wrangler.hrl").
+-include("../include/wrangler.hrl").
 
 %% minimal number of tokens.
 -define(DEFAULT_CLONE_LEN, 20).
@@ -76,7 +76,7 @@ get_clones_by_suffix_tree(FileNames,MinLength, MinClones, TabWidth) ->
 			  [] -> {Toks, []}; 
 			  [Cs] -> {Toks, Cs}
 		      end;
-		  _E -> 
+		  _E ->  
 		      stop_suffix_tree_clone_detector(),
 		      file:delete(OutFileName),
 		      get_clones_by_erlang_suffix_tree(Toks, ProcessedToks, MinLength, MinClones)
