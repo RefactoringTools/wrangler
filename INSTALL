@@ -1,0 +1,18 @@
+Installation
+------------
+
+* Build and install the software in the usual way:
+     ./configure && make && [sudo] make install
+
+* Add these lines to your ~/.emacs (substitute correct path):
+
+  (add-to-list 'load-path "/usr/local/share/wrangler/elisp")
+  (require 'wrangler)
+ 
+  (If you used an install prefix other than /usr/local, change  
+   the first line appropriately.)
+     
+You should now be to use Wrangler. If you have problems, please send a
+note to 'erlang-refactor@kent.ac.uk'.
+
+
