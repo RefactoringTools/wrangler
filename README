@@ -1,7 +1,7 @@
 
                     Wrangler, the Erlang Refactorer
                 a snapshot of our current prototype
-                            15/01/2009 
+                            09/02/2009 
               http://www.cs.kent.ac.uk/projects/forse/
 
 --------------------------------------------------------------------------------
@@ -21,7 +21,7 @@ the Eclipse environment.
 
 When Emacs is used, Wrangler is supposed to be installed as part of
 Distel, therefore this snapshot includes both Distel and the current 
-snapshot of Wrangler (Wrangler 0.6.1). The Distel included in this snapshot 
+snapshot of Wrangler (Wrangler 0.6.2). The Distel included in this snapshot 
 is Distel-4.03, which is downloadable from distel.googlecode.com.
 
 
@@ -33,44 +33,35 @@ is Distel-4.03, which is downloadable from distel.googlecode.com.
 
 We try keep Distel's original directory structure.
 
-  AUTHORS             <-  AUTHORS of Distel and Wrangler
-  ChangeLog           <-  changeLog of Distel 
   INSTALL             <-  installation instructions of distel-wrangler
   INSTALL.WIN32       <-  installation instrunctions for Windows
   Makefile.in 
-  NEWS                <-  News about Distel
-  README-distel       <-  README file of Distel
-  README-wrangler     <-  README file of Wrangler (you're reading this)
-  README.ie-session   <-  README file of Distel's 'interactive Erlang'
+  README              <-  README file of Wrangler (you're reading this)
   configure          
+  c_src               <-  C source code	
   doc                 <-  documentation from Distel
   ebin                <-  directory for Erlang beam files
-  elisp               <-  elisp source code from Distel
-  src                 <-  Erlang source code from Distel
-  wrangler            <-  All the source code from Wrangler
+  elisp               <-  elisp source files
+  include             <-  Erlang .hrl files
+  plt                 <-  Sideeffect table used by Wrangler
+  src                 <-  Erlang source files
 
 --------------------- how to use the refactorer ----------------
 
   1. Open an Erlang source file in the Emacs editor, you should have a
-     submenu called 'Distel' in the Erlang menu. 
+     menu called 'Erlang'.
 
   2. To start the Erlang refactorer:
 
       M-x erlang-refactor-on  
 
-     In the mini-buffer, you might be asked to input the Erlang node
-     to connect to if such a connection has not been established.
-     So make sure that an Erlang node has been started before starting 
-     the Erlang refactorer.
-
-     After that, a submenu called 'Refactor' should appear in the
-     Erlang menu.
-
+     After that, two menus, 'Refactor' and 'Inspector' should appear in the menu bar.
+    
   3. To stop the Erlang refactorer:
      
       M-x erlang-refactor-off 
 
-      The 'Refactor' submenu will disappear from the Erlang menu.
+      'Refactor' and 'Inspector' will disappear from the menu bar.
 
   4. You could also use "Ctrl-c Ctrl-r" to toggle the refactorer on/off.
  
@@ -174,6 +165,13 @@ We try keep Distel's original directory structure.
  the boundary of the system by giving the list of directories to
  search for Erlang source files/header files that could be affected by a
  refactoring.
+
+--------------------------Changes from Wrangle-0.6.1--------------
+-- the keyboard binding for undoing a refactoring has been changed to "C_c C_".
+-- Bugfix with displaying based integers and quoted atoms.
+-- Improved error messages.
+-- Corrected the source locations of macro names.                   
+-- Typed record workaound.                 
 
 ---------------------------Changes from Wrangler-0.6-------------
 -- 'Move a function to another module' now allows moving a function even 
