@@ -3067,7 +3067,7 @@ echo "$as_me: error: erlang program was not properly executed, (conftest.out was
 
 
 
-ac_config_files="$ac_config_files Makefile wrangler/c_src/Makefile"
+ac_config_files="$ac_config_files Makefile c_src/Makefile"
 
 #openssl
 
