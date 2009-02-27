@@ -4,7 +4,7 @@
 
 -compile(export_all).
 
--include_lib("../../eqc-1.09/include/eqc.hrl").
+-include_lib("eqc.hrl").
 
 %% get the AAST represenation of the Erlang File.
 parse_file(FName) ->
@@ -245,7 +245,7 @@ prop_rename_var(FName) ->
 			      case parse_file(FName) of
 				{error, _Reason} -> file:copy("temp.erl", FName), true;
 				{ok, {AST1, _}} ->
-				    case refac_rename_var:cond_check(AST, DefinePos, NewName) of
+				      case refac_rename_var:cond_check(AST, DefinePos, NewName) of`
 				      {false, _} -> B2 = var_binding_structure(AST1), B1 /= B2;
 				      _ -> true
 				    end
