@@ -112,8 +112,8 @@
 (defun erlang-refactor-on()
   (interactive)
   (setq inferior-erlang-machine-options (list "-name" "wrangler@localhost"
-					       "-pz"  "C:/cygwin/home/hl/wrangler/share/wrangler/ebin"
-					       "-setcookie" (erl-cookie)))
+					      "-pz"  %EBIN_DIR%
+					      "-setcookie" (erl-cookie)))
   (save-window-excursion
     (let  ((inferior-erlang-process-name "Wrangler-Erl-Shell")
 	   (inferior-erlang-buffer-name "*Wrangler-Erl-Shell*"))
@@ -215,7 +215,9 @@
 		(message "Refactoring failed: %s" rsn))
 	       (['rex ['ok refac-rename]]
 		(with-current-buffer buffer (progn (revert-buffer nil t t)
-						   (goto-char (get-position line-no column-no))))
+						   (goto-line line-no)
+						   (goto-column column-no)))
+						  ;; (goto-char (get-position line-no column-no))))
 		(message "Refactoring succeeded!")))))))))
 
 (defun erl-refactor-rename-fun (name)
@@ -247,7 +249,9 @@
  		  ;;(message-box (format "modified unopened file: %s" f))))))
  		  nil)))
 	     (with-current-buffer buffer
-	       (goto-char (get-position line-no column-no)))
+	        (goto-line line-no)
+		(goto-column column-no))
+	     ;;  (goto-char (get-position line-no column-no)))
 	     (message "Refactoring succeeded!")
 	    ))))))))
 
@@ -325,7 +329,9 @@
 			     ;;(message-box (format "modified unopened file: %s" f))))))
 			     nil)))
 		       (with-current-buffer buffer
-			 (goto-char (get-position line-no column-no)))
+			  (goto-line line-no)
+			  (goto-column column-no))
+			 ;; (goto-char (get-position line-no column-no)))
 		       (message "Refactoring succeeded!")))))
 	     (message "Refactoring aborted!")))
 	   (['rex ['ok modified]]
@@ -336,7 +342,9 @@
  		  ;;(message-box (format "modified unopened file: %s" f))))))
  		  nil)))
 	    (with-current-buffer buffer
-	      (goto-char (get-position line-no column-no)))
+	       (goto-line line-no)
+	       (goto-column column-no))
+	     ;; (goto-char (get-position line-no column-no)))
 	    (message "Refactoring succeeded!")))))))))
 
 
@@ -449,7 +457,9 @@
  		  ;;(message-box (format "modified unopened file: %s" f))))))
  		  nil)))
 	    (with-current-buffer buffer
-	      (goto-char (get-position line-no column-no)))
+	       (goto-line line-no)
+	       (goto-column column-no))
+	     ;; (goto-char (get-position line-no column-no)))
 	    (message "Refactoring succeeded!")))))))))
 
 (defun create-new-file-p (filename wrangler-search-paths)
@@ -514,7 +524,9 @@
 			    (message "Refactoring failed: %s" rsn))
 			   (['rex ['ok refac-generalisation]]
 			    (with-current-buffer buffer (progn (revert-buffer nil t t)
-							       (goto-char (get-position start-line-no start-col-no))))
+							       (goto-line start-line-no)
+							       (goto-column start-col-no)))
+							      ;; (goto-char (get-position start-line-no start-col-no))))
 			    (message "Refactoring succeeded!")))))
 		  (erl-spawn
 		      (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_1 (list 'false current-file-name parname funname arity defpos exp tab-width))
@@ -525,11 +537,15 @@
 			    (message "Refactoring failed: %s" rsn))
 			   (['rex ['ok refac-generalisation]]
 			    (with-current-buffer buffer (progn (revert-buffer nil t t)
-							       (goto-char (get-position start-line-no start-col-no))))
+							        (goto-line start-line-no)
+								(goto-column start-col-no)))
+							     ;;  (goto-char (get-position start-line-no start-col-no))))
 			    (message "Refactoring succeeded!")))))))
 	   (['rex ['ok refac-generalisation]]
 	    (with-current-buffer buffer (progn (revert-buffer nil t t)
-						(goto-char (get-position start-line-no start-col-no))))
+					        (goto-line start-line-no)
+						(goto-column start-col-no)))
+					;;	(goto-char (get-position start-line-no start-col-no))))
             (message "Refactoring succeeded!")))))))))
 
 
@@ -558,7 +574,9 @@
 		(message "Refactoring failed: %s" rsn))
 	       (['rex ['ok refac_fun_extraction]]
 		(with-current-buffer buffer (progn (revert-buffer nil t t)
-							   (goto-char (get-position start-line-no start-col-no))))
+						   (goto-line line-no)
+						   (goto-column start-col-no)))
+							 ;;  (goto-char (get-position start-line-no start-col-no))))
 		(message "Refactoring succeeded!")))))))))
 
 (defun erl-refactor-new-macro(name start end)
@@ -586,7 +604,9 @@
 		(message "Refactoring failed: %s" rsn))
 	       (['rex ['ok str]]
 		(with-current-buffer buffer (progn (revert-buffer nil t t)
-						   (goto-char (get-position start-line-no start-col-no))))
+						   (goto-line start-line-no)
+						   (goto-column start-col-no)))
+						  ;; (goto-char (get-position start-line-no start-col-no))))
 		(message "Refactoring succeeded!")))))))))
 
 (defun erl-refactor-fold-against-macro()
@@ -970,7 +990,9 @@
 			       ;;(message-box (format "modified unopened file: %s" f))))))
 			       nil)))
 			 (with-current-buffer buffer
-			   (goto-char (get-position line-no column-no)))
+			    (goto-line line-no)
+			    (goto-column column-no))
+			  ;; (goto-char (get-position line-no column-no)))
 			 (message "Refactoring succeeded!")))))
 	       (message "Refactoring aborted!")))
 	   (['rex ['ok modified]]
@@ -981,7 +1003,9 @@
  		  ;;(message-box (format "modified unopened file: %s" f))))))
  		  nil)))
 	    (with-current-buffer buffer
-	      (goto-char (get-position line-no column-no)))
+	      (goto-line line-no)
+	      (goto-column column-no))
+	     ;; (goto-char (get-position line-no column-no)))
 	    (message "Refactoring succeeded!")))))))
 
 
@@ -1019,6 +1043,12 @@
     (- (point) 1)))
 
 
+(defun goto-column(col)
+  (if (> col 0)
+      (move-to-column (- col 1))
+    (move-to-column col)))
+		      
+
 (defvar highlight-region-overlay
   ;; Dummy initialisation
   (make-overlay 1 1)
@@ -1035,7 +1065,8 @@
  ;; (message "pos: %s, %s, %s, %s" line1 col1 line2 col2)
   (move-overlay highlight-region-overlay (get-position line1 col1)
 		(get-position line2 (+ 1 col2)) buffer)
-  (goto-char (get-position line2 col2))
+   (goto-line line2)
+   (goto-column col2)
   )
 
 
@@ -1211,7 +1242,9 @@
 	    (message "Refactoring failed: %s" rsn))
 	   (['rex ['ok refac-rename]]
 	    (with-current-buffer buffer (progn (revert-buffer nil t t)
-					       (goto-char (get-position line-no column-no))))
+					        (goto-line line-no)
+						(goto-column column-no)))
+					    ;;  (goto-char (get-position line-no column-no))))
             (message "Refactoring succeeded!")))))))))
 
 
