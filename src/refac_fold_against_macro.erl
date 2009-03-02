@@ -61,8 +61,10 @@ fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
 		[] -> {error, "No syntax phrase that is suitable for folding against the selected macro definition has been found!"};
 		_  -> case Editor of 
 			  emacs ->
+			      MacroDef1 = binary_to_list(term_to_binary(MacroDef)),
 			      Regions  = lists:map(fun({{{StartLine, StartCol}, {EndLine, EndCol}}, MacroApp}) ->
-							   {StartLine, StartCol, EndLine, EndCol, MacroApp, MacroDef} end,
+							   MacroApp1 = binary_to_list(term_to_binary(MacroApp)),
+							   {StartLine, StartCol, EndLine, EndCol, MacroApp1, MacroDef1} end,
 						   Candidates),
 			      {ok, Regions};
 			  eclipse ->
@@ -75,7 +77,9 @@ fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
 
 -spec(fold_against_macro_1/9::(filename(), integer(), integer(), integer(), integer(), syntaxTree(), syntaxTree(), [dir()], integer()) ->
 	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), syntaxTree()}]}).
-fold_against_macro_1(FileName, StartLine, StartCol, EndLine, EndCol, MacroApp, MacroDef, SearchPaths, TabWidth) ->
+fold_against_macro_1(FileName, StartLine, StartCol, EndLine, EndCol, MacroApp1, MacroDef1, SearchPaths, TabWidth) ->
+    MacroApp = binary_to_term(list_to_binary(MacroApp1)),
+    MacroDef = binary_to_term(list_to_binary(MacroDef1)),
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     Args = refac_syntax:attribute_arguments(MacroDef),
     MacroBody = tl(Args),
@@ -84,8 +88,8 @@ fold_against_macro_1(FileName, StartLine, StartCol, EndLine, EndCol, MacroApp, M
     refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1}]),
     {ok, {AnnAST2, _Info2}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),    
     Candidates = search_candidate_exprs(AnnAST2, MacroDef),
-    Regions = [{StartLine1, StartCol1, EndLine1, EndCol1, MacroApp1, MacroDef}
-	       || {{{StartLine1, StartCol1}, {EndLine1, EndCol1}}, MacroApp1} <- Candidates,
+    Regions = [{StartLine1, StartCol1, EndLine1, EndCol1, MacroApp2, MacroDef}
+	       || {{{StartLine1, StartCol1}, {EndLine1, EndCol1}}, MacroApp2} <- Candidates,
 		  StartLine1 >= StartLine],
     {ok, Regions}.
 
