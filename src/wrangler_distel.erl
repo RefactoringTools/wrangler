@@ -172,29 +172,20 @@ apply_refactoring(Mod, Fun, Args, SearchPaths) ->
       {error, Reason} -> {error, Reason}
     end.
 
-initial_checking(SearchPaths) ->
-     case check_searchpaths(SearchPaths) of 
- 	ok ->
- 	    check_undo_process();
- 	{error, Reason} -> {error, Reason}
-     end.
+initial_checking(SearchPaths1) ->
+    case check_searchpaths(SearchPaths1) of
+      ok ->
+	  check_undo_process();
+      {error, Reason} -> {error, Reason}
+    end.
 
 check_searchpaths(SearchPaths) ->
     InValidSearchPaths = lists:filter(fun (X) -> not filelib:is_dir(X) end, SearchPaths),
     case InValidSearchPaths of
-      [] -> ok;
-      [_D | T] ->
-	  case T of
-	    [] ->
-		{error,
-		 "The search paths specified contain an "
-		 "invalid directory, please check the "
-		 "customisation!"};
-	    _ ->
-		{error,
-		 "The search paths specified contain invalid "
-		 "directories, please check the customisation!"}
-	  end
+	[] -> ok;
+	_ -> ?wrangler_io("\n===============================WARNING===============================\n",[]), 
+	     ?wrangler_io("The following directories specified in the search paths do not exist:\n~s", [InValidSearchPaths]),
+	     {error, "Some directories specified in the search paths do not exist!"}
     end.
 			  
 check_undo_process() ->
@@ -226,3 +217,5 @@ check_wrangler_error_logger() ->
 	      ?wrangler_io(Msg, [])
     end.
     
+
+
