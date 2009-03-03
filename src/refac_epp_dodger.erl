@@ -375,7 +375,7 @@ parse_form(Dev, L0, Parser, Options) ->
                 {parse_error, IoErr} ->
 		    {error, IoErr, L1};
                 {ok, F} ->
-                    {ok, F, L1}
+		    {ok, F, L1}
             end;
         {error, IoErr, L1} ->
             {error, IoErr, L1};
@@ -535,7 +535,7 @@ skip_macro_args([], _Es, _As) ->
 
 filter_form({function, _, ?pp_form, _,
 	     [{clause, _, [], [], [{atom, _, kill}]}]}) ->
-    none;
+    none; 
 filter_form(T) ->
     T.
 

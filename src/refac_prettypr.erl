@@ -105,12 +105,18 @@ vertical_concat([{E,Form}| T], FileFormat, Acc) ->
 			  case refac_syntax:type(F) of
 			    error_marker -> true;
 			    attribute ->
-				case
-				  refac_syntax:atom_value(refac_syntax:attribute_name(F))
-				    of
+				case refac_syntax:atom_value(refac_syntax:attribute_name(F)) of
 				  type -> true;
 				  'spec' -> true;
-				  _ -> false
+				  record -> [_R, FieldTuple] = refac_syntax:attribute_arguments(F),
+					    Fields = refac_syntax:tuple_elements(FieldTuple),
+					    lists:any(fun(Field) -> case refac_syntax:type(Field) of 
+									typed_record_field ->
+									    true;
+									_ -> false
+								    end
+						      end, Fields);
+				    _ -> false
 				end;
 			    _ -> false
 			  end
@@ -960,7 +966,8 @@ lay_2(Node,Ctxt) ->
       warning_marker ->
 	  E = refac_syntax:warning_marker_info(Node),
 	  beside(text("%% WARNING: "),lay_error_info(E,reset_prec(Ctxt)));
-      type -> empty()  %% tempory fix!!
+      type -> empty();  %% tempory fix!!
+      typed_record_field -> empty() %% tempory fix!!!
     end.
 
 lay_two_docs(Ctxt,D1,D2,D1EndLn,OpStartLn) ->

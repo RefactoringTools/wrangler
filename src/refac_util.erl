@@ -923,11 +923,13 @@ parse_annotate_file(FName, ByPassPreP, SearchPaths, TabWidth) ->
                            -> {ok, {syntaxTree(), moduleInfo()}}).
 parse_annotate_file_1(FName, true, _SearchPaths, TabWidth) ->
     case refac_epp_dodger:parse_file(FName, [{tab, TabWidth}]) of
-	{ok, Forms} -> Comments = erl_comment_scan:file(FName),
-		       SyntaxTree = refac_recomment:recomment_forms(Forms, Comments),
-		       Info = refac_syntax_lib:analyze_forms(SyntaxTree),
-		       AnnAST = annotate_bindings(FName, SyntaxTree, Info, 1, TabWidth),
-		       {ok, {AnnAST, Info}};
+	{ok, Forms} -> 
+	    Comments = erl_comment_scan:file(FName),
+	    SyntaxTree = refac_recomment:recomment_forms(Forms, Comments),
+	    io:format("SyntaxTree:\n~p\n", [SyntaxTree]),
+	    Info = refac_syntax_lib:analyze_forms(SyntaxTree),
+	    AnnAST = annotate_bindings(FName, SyntaxTree, Info, 1, TabWidth),
+	    {ok, {AnnAST, Info}};
 	{error, Reason} -> erlang:error(Reason)
     end;     
 parse_annotate_file_1(FName, false, SearchPaths, TabWidth) ->
@@ -939,7 +941,7 @@ parse_annotate_file_1(FName, false, SearchPaths, TabWidth) ->
        {ok, Forms, _} -> Forms1 =  lists:filter(fun(F) ->
 							case F of 
 							    {attribute, _, file, _} -> false;
-							    {attribute, _, type, _} -> false;
+							    {attribute, _, type, {{record, _}, _, _}} -> false;
 							    _ -> true
 							end
 						end, Forms),

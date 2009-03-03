@@ -149,6 +149,7 @@
 	 record_expr_argument/1, record_expr_fields/1,
 	 record_expr_type/1, record_field/1, record_field/2,
 	 record_field_name/1, record_field_value/1,
+	 typed_record_field_name/1, typed_record_field_value/1,
 	 record_index_expr/2, record_index_expr_field/1,
 	 record_index_expr_type/1, remove_comments/1, revert/1,
 	 revert_forms/1, rule/2, rule_arity/1, rule_clauses/1,
@@ -3571,6 +3572,22 @@ record_field(Name, Value) ->
     tree(record_field,
 	 #record_field{name = Name, value = Value}).
 
+
+-record(typed_record_field, {recordfield, type}).
+
+
+typed_record_field(RecordField, Type) ->
+    tree(typed_record_field,
+	 #typed_record_field{recordfield=RecordField, type=Type}).
+
+    
+typed_record_field_name(Node) ->
+    Field = (data(Node))#typed_record_field.recordfield,
+    (data(Field))#record_field.name.
+
+typed_record_field_value(Node) ->
+    Field = (data(Node))#typed_record_field.recordfield,
+    (data(Field))#record_field.value.
 %% =====================================================================
 %% @spec record_field_name(syntaxTree()) -> syntaxTree()
 %%
@@ -5971,7 +5988,12 @@ unfold_record_fields(Fs) ->
 unfold_record_field({record_field, Pos, Name}) ->
     set_pos(record_field(Name), Pos);
 unfold_record_field({record_field, Pos, Name, Value}) ->
-    set_pos(record_field(Name, Value), Pos).
+    set_pos(record_field(Name, Value), Pos);
+unfold_record_field({typed_record_field, RecordField={record_field, Pos, _Name}, Type}) ->
+     set_pos(typed_record_field(unfold_record_field(RecordField), Type), Pos);
+unfold_record_field({typed_record_field, RecordField={record_field, Pos, _Name, _Value}, Type}) ->
+    set_pos(typed_record_field(unfold_record_field(RecordField), Type), Pos).
+		   
 
 fold_binary_field_types(Ts) ->
     [fold_binary_field_type(T) || T <- Ts].

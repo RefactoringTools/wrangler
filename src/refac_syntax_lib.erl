@@ -1783,6 +1783,14 @@ analyze_record_field(Node) ->
 		{refac_syntax:atom_value(A), T};
 	    _ -> throw(syntax_error)
 	  end;
+       typed_record_field ->
+	    A = refac_syntax:typed_record_field_name(Node),
+	    case refac_syntax:type(A) of 
+		atom ->
+		    T = refac_syntax:typed_record_field_value(Node),
+		    {refac_syntax:atom_value(A), T};
+		_ -> throw(syntax_error)
+	    end;
       _ -> throw(syntax_error)
     end.
 
