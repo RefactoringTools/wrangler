@@ -128,6 +128,8 @@ simplify_expr(Exp) ->
 
 do_simplify_expr(Node) ->
     Node1 = case refac_syntax:type(Node) of 
+		macro -> 
+		    refac_syntax:default_literals_vars(Node, '*');
 		variable ->
 		    refac_syntax:default_literals_vars(Node, '&');
 		integer ->
