@@ -123,20 +123,20 @@ fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, T
 
 fold_expr_by_name_eclipse(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth) ->
 	case ModName of 
-		[] -> {error, "Invalid module name!"};
-		_  -> case FunName of 
-				  [] -> {error, "Invalid function name!"};
-				  _ -> case (Arity==[]) orelse (list_to_integer(Arity) <0) of   
-						   true -> {error, "Invalid arity!"};
-						   _ -> case (ClauseIndex==[]) orelse (list_to_integer(ClauseIndex) <1) of 
-									true -> {error, "Invalid function clause index!"};
-									_ ->				
-										fold_expr_by_name(FileName, list_to_atom(ModName), list_to_atom(FunName), 
-														  list_to_integer(Arity), list_to_integer(ClauseIndex), SearchPaths, TabWidth,  eclipse)
-								end
-					   end
-			  end
-    end.
+	    [] -> {error, "Invalid module name!"};
+	    _  -> case FunName of 
+		      [] -> {error, "Invalid function name!"};
+		      _ -> case (Arity==[]) orelse (list_to_integer(Arity) <0) of   
+			       true -> {error, "Invalid arity!"};
+			       _ -> case (ClauseIndex==[]) orelse (list_to_integer(ClauseIndex) <1) of 
+					true -> {error, "Invalid function clause index!"};
+					_ ->				
+					    fold_expr_by_name(FileName, list_to_atom(ModName), list_to_atom(FunName), 
+							      list_to_integer(Arity), list_to_integer(ClauseIndex), SearchPaths, TabWidth,  eclipse)
+				    end
+			   end
+		  end
+	end.
    
 
 fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth,  Editor) ->
@@ -439,18 +439,18 @@ do_search_candidate_exprs_2(AnnAST, ExpList) ->
     LastExp = lists:last(ExpList),
     HasExportExp = case refac_syntax:type(LastExp) of 
 		      variable -> true;
-		      tuple -> lists:all(fun(E) -> refac_syntax:type(E) == variable end, 
-					 refac_syntax:tuple_elements(LastExp));
-		      _  -> false
-		  end,
+		       tuple -> lists:all(fun(E) -> refac_syntax:type(E) == variable end, 
+					  refac_syntax:tuple_elements(LastExp));
+		       _  -> false
+		   end,
     
-      Fun = fun(T, S) ->
+    Fun = fun(T, S) ->
 		  case refac_syntax:type(T) of 
 		      clause ->
 			  Exprs = refac_syntax:clause_body(T),
 			  SubExprs = sublists(Exprs, Len),
 			  CandidateExprs1 = 
-			         lists:map(fun(E) -> case ExpList =/= E of 
+			      lists:map(fun(E) -> case ExpList =/= E of 
    						      true ->case expr_unification(ExpList, E) of 
    								 {true,Subst} -> {StartLoc1, _EndLoc1} = refac_util:get_range(hd(E)),
    										 {_StartLoc2, EndLoc2} = refac_util:get_range(lists:last(E)),
@@ -509,84 +509,108 @@ do_search_candidate_exprs_2(AnnAST, ExpList) ->
 	     {true, [{atom(), syntaxTree()}]} | false).
 expr_unification(Exp1, Exp2) ->
     Res1 = case {is_list(Exp1), is_list(Exp2)} of 
-	{true, true} ->   %% both are list of expressions
-	    case length(Exp1) == length(Exp2) of
-		true -> Res = lists:map(fun({E1,E2}) ->			      
-						expr_unification(E1,E2)						
-					end, lists:zip(Exp1, Exp2)),
-			Unifiable = lists:all(fun(E) -> case E of 
-							    {true, _} -> true;
-							    _ -> false
-							end
-					      end, Res),
-		        Substs = lists:usort(lists:flatmap(fun(E) -> case E of 
-								      {true,S} -> S;
-								      _ -> []
-								  end
-							end,Res)),
-			case Unifiable of 
-			    true -> {true, Substs};
-			    _ -> false
-			end;
-		_ -> false
-	    end;
-	{false, false} ->  %% both are single expressions.
-	    T1 = refac_syntax:type(Exp1),
-	    T2 = refac_syntax:type(Exp2),
-	    case T1 == T2 of 
-		true -> 
-		   case T1 of 
-			variable -> {true, [{refac_syntax:variable_name(Exp1), set_default_ann(Exp2)}]} ;
-			atom -> case refac_syntax:atom_value(Exp1) == refac_syntax:atom_value(Exp2) of 
-				    true -> {true, []};
-				    _ -> false
-				end;
-			operator -> case refac_syntax:atom_value(Exp1) == refac_syntax:atom_value(Exp2) of
-					true -> {true, []};
-					_ -> false
-				    end;
-			char -> case refac_syntax:char_value(Exp1) == refac_syntax:char_value(Exp2) of 
-				    true -> {true, []};
-				    _ -> false
-				end;
-		       integer -> case refac_syntax:integer_value(Exp1) ==refac_syntax:integer_value(Exp2) of 
-				      true -> {true, []};
-				      _ -> false
-				  end;
-		       string -> case refac_syntax:string_value(Exp1) == refac_syntax:string_value(Exp2) of 
-				      true -> {true, []};
-				     _ -> false
-				 end;
-		       float -> case refac_syntax:float_value(Exp1) == refac_syntax:float_value(Exp2) of 
-				    true -> {true, []}
-				end;
-		       underscore -> {true, []};
-		       nil -> {true, []};
-			_ -> 
-			    SubTrees1 = erl_syntax:subtrees(Exp1),
-			    SubTrees2 = erl_syntax:subtrees(Exp2),
-			    case length(SubTrees1) == length(SubTrees2) of 
-				true -> 
-				    expr_unification(SubTrees1, SubTrees2);				    
+	       {true, true} ->   %% both are list of expressions
+		   case length(Exp1) == length(Exp2) of
+		       true -> Res = lists:map(fun({E1,E2}) ->			      
+						       expr_unification(E1,E2)						
+					       end, lists:zip(Exp1, Exp2)),
+			       Unifiable = lists:all(fun(E) -> case E of 
+								   {true, _} -> true;
+								   _ -> false
+							       end
+						     end, Res),
+			       Substs = lists:usort(lists:flatmap(fun(E) -> case E of 
+										{true,S} -> S;
+										_ -> []
+									    end
+								  end,Res)),
+			       case Unifiable of 
+				   true -> {true, Substs};
+				   _ -> false
+			       end;
+		       _ -> false
+		   end;
+	       {false, false} ->  %% both are single expressions.
+		   T1 = refac_syntax:type(Exp1),
+		   T2 = refac_syntax:type(Exp2),
+		   case T1 == T2 of 
+		       true -> 
+			   case T1 of 
+			       variable -> 
+				   case lists:keysearch(category, 1, refac_syntax:get_ann(Exp1)) of 
+				       {value, {category, macro_name}} ->
+					   case lists:keysearch(category, 1, refac_syntax:get_ann(Exp2)) of 
+					       {value, {category, macro_name}} ->
+						   case refac_syntax:variable_name(Exp1) == refac_syntax:variable_name(Exp2) of 
+						       true ->
+							   {true, []};
+					       _ ->false
+						   end;
+					       _ -> false
+					   end;
+				       _ -> {true, [{refac_syntax:variable_name(Exp1), set_default_ann(Exp2)}]} 
+				   end;
+			       atom -> case refac_syntax:atom_value(Exp1) == refac_syntax:atom_value(Exp2) of 
+					   true -> {true, []};
+					   _ -> false
+				       end;
+			       operator -> case refac_syntax:atom_value(Exp1) == refac_syntax:atom_value(Exp2) of
+					       true -> {true, []};
+					       _ -> false
+					   end;
+			       char -> case refac_syntax:char_value(Exp1) == refac_syntax:char_value(Exp2) of 
+					   true -> {true, []};
+					   _ -> false
+				       end;
+			       integer -> case refac_syntax:integer_value(Exp1) ==refac_syntax:integer_value(Exp2) of 
+					      true -> {true, []};
+					      _ -> false
+					  end;
+			       string -> case refac_syntax:string_value(Exp1) == refac_syntax:string_value(Exp2) of 
+					     true -> {true, []};
+					     _ -> false
+					 end;
+			       float -> case refac_syntax:float_value(Exp1) == refac_syntax:float_value(Exp2) of 
+					    true -> {true, []}
+					end;
+			       underscore -> {true, []};
+			       nil -> {true, []};
+			       _ -> 
+				   SubTrees1 = erl_syntax:subtrees(Exp1),
+				   SubTrees2 = erl_syntax:subtrees(Exp2),
+				   case length(SubTrees1) == length(SubTrees2) of 
+				       true -> 
+					   expr_unification(SubTrees1, SubTrees2);				    
+				       _ -> false
+				   end 
+			   end;
+		       _ -> case T1 of 
+				variable -> case T2 of 
+						match_expr -> false;  %% ANY OTHER CASES?
+						_ -> 
+						    case lists:keysearch(category, 1, refac_syntax:get_ann(Exp2)) of 
+							{value, {category, application_op}} ->
+							    case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Exp2)) of 
+								{value, {fun_def, {_M, _N, A, _P1, _P2}}} ->
+								    {true, [{refac_syntax:variable_name(Exp1), 
+									     set_default_ann(refac_syntax:implicit_fun(Exp2, refac_syntax:integer(A)))}]};
+								_ -> false
+							    end;
+							_ -> {true, [{refac_syntax:variable_name(Exp1), set_default_ann(Exp2)}]}
+						    end
+					    end;
 				_ -> false
-			    end 
-		    end;
-		_ -> case T1 of 
-			 variable -> case T2 of 
-					 match_expr -> false;  %% ANY OTHER CASES?
-					 _  -> {true, [{refac_syntax:variable_name(Exp1), set_default_ann(Exp2)}]}
-				     end;
-			 _ -> false
-		     end
-	    end;
-	{true, false} -> %% Exp1 is a list, but Exp2 is not.
-	    false;
-	{false, true} ->  %% Exp1 is a single expression, but Exp2 is not.
-	   false      %% an actual parameter cannot be a list of expressions.
-    end,
+			    end
+		   end;
+	       {true, false} -> %% Exp1 is a list, but Exp2 is not.
+		   false;
+	       {false, true} ->  %% Exp1 is a single expression, but Exp2 is not.
+		   false      %% an actual parameter cannot be a list of expressions.
+	   end,
     case Res1 of 
 	{true, Subst} ->
-	    Subst1 = lists:usort(lists:map(fun({E1,E2}) -> {E1, refac_prettypr:format(E2)} end, Subst)),
+	    Subst1 = lists:usort(lists:map(fun({E1,E2}) -> 
+						   {E1, refac_prettypr:format(E2)} end, Subst)),
 	    Len1 = length(lists:usort(lists:map(fun({E1,_E2}) -> E1 end, Subst1))),
 	    case Len1 == length(Subst1) of 
 		true -> {true, Subst};
