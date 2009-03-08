@@ -129,8 +129,8 @@ vertical_concat([{E,Form}| T], FileFormat, Acc) ->
     F = refac_util:concat_toks(refac_util:get_toks(Form)),
     {ok,EToks,_} = refac_scan:string(E),
     {ok,FToks,_} = refac_scan:string(F),
-    EStr = refac_util:concat_toks(EToks),
-    FStr = refac_util:concat_toks(FToks),
+    EStr = [S||S<-refac_util:concat_toks(EToks),S=/=$(, S=/=$), S=/=$'],
+    FStr = [S||S<-refac_util:concat_toks(FToks),S=/=$(, S=/=$), S=/=$'],
     Acc1 = case Acc of
 	     "" -> Acc;
 	     _ ->
@@ -142,7 +142,7 @@ vertical_concat([{E,Form}| T], FileFormat, Acc) ->
     Str = case (EStr == FStr) or SpecialForm(Form) of
 	    true -> F;
 	    false ->
-		case T of
+		  case T of
 		  [] -> E;
 		  [{_E1,_Form1}| _] -> E ++ Delimitor
 		end
