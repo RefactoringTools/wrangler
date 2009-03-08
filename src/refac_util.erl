@@ -299,7 +299,7 @@ pos_to_fun_def_1(Node, Pos) ->
 %% @see pos_to_fun_name/2
 %% @see pos_to_fun_def/2
 %% @see pos_to_expr/3
--type(category()::expression|pattern|macro_name).
+-type(category()::expression|pattern|macro_name|application_op|operator).
 -spec(pos_to_var_name(Node::syntaxTree(), Pos::pos())->
                       {ok, {atom(), [pos()], category()}} | {error, string()}).
 pos_to_var_name(Node, UsePos) ->
@@ -363,7 +363,10 @@ pos_to_syntax_units(Tree, Start, End, F) ->
 	     [[syntaxTree()]]).
 pos_to_syntax_units(FileName, Tree, Start, End, F, TabWidth) ->
     Res = pos_to_syntax_units_1(Tree, Start, End, F),
-    Res1 = filter_syntax_units(Res),	
+    %% io:format("StartEnd:\n~p\n", [{Start, End}]),
+%%     io:format("Res:\n~p\n", [Res]),
+    Res1 = filter_syntax_units(Res),
+   %% io:format("Res1:\n~p\n", [Res1]),
     Units = case length(Res1)=<1 of 
 		true ->
 		    [Res1];
@@ -380,13 +383,14 @@ pos_to_syntax_units_1(Tree, Start, End, F) ->
 	     true -> [Tree];
 	     _ ->
 		 Ts = refac_syntax:subtrees(Tree),
-		 R0 = [[pos_to_syntax_units_1(T, Start, End, F) || T <- G]
+                 R0 = [[pos_to_syntax_units_1(T, Start, End, F) || T <- G]
 		       || G <- Ts],
 		 lists:append(R0)
 	   end;
        (S > End) or (E < Start) -> [];
        (S < Start) or (E > End) ->
 	   Ts = refac_syntax:subtrees(Tree),
+	   %% io:format("Ts1:\n~p\n", [Ts]),
 	   R0 = [[pos_to_syntax_units_1(T, Start, End, F) || T <- G]
 		 || G <- Ts],
 	   lists:append(R0);
@@ -547,6 +551,7 @@ is_expr(Node) ->
 	  case C of
 	      expression -> true;
 	      guard_expression -> true;
+	      application_op -> true;
 	      %% since macros are not expanded;
 	      %% Not really what I want.
 	      macro -> true; 
@@ -827,9 +832,9 @@ tokenize(File, WithLayout, TabWidth) ->
     {ok, Bin} = file:read_file(File),
     S = erlang:binary_to_list(Bin),
 	case WithLayout of 
-		true -> {ok, Ts, _} = refac_scan_with_layout:string(S, {1,1}, TabWidth),
+		true -> {ok, Ts, _} = refac_scan_with_layout:string(S, {1,1}, TabWidth, file_format(File)),
 				Ts;
-		_ -> {ok, Ts, _} = refac_scan:string(S, {1,1}, TabWidth),
+		_ -> {ok, Ts, _} = refac_scan:string(S, {1,1}, TabWidth,file_format(File)),
 			 Ts
 	end.
 
@@ -844,7 +849,7 @@ concat_toks([T|Ts], Acc) ->
      case T of 
 	 {atom, _,  V} -> S = io_lib:write_atom(V), 
 			  concat_toks(Ts, [S|Acc]);
-	 {qatom, _, V} -> S=io_lib:write_atom(V),
+	 {qatom, _, V} -> S=atom_to_list(V),
 			  concat_toks(Ts, [S|Acc]);
 	{string, _, V} -> concat_toks(Ts,[io_lib:write_string(V)|Acc]);
        	{char, _, V} when is_integer(V)-> concat_toks(Ts,[io_lib:write_char(V)|Acc]);
@@ -922,11 +927,10 @@ parse_annotate_file(FName, ByPassPreP, SearchPaths, TabWidth) ->
 -spec(parse_annotate_file_1(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()], integer())
                            -> {ok, {syntaxTree(), moduleInfo()}}).
 parse_annotate_file_1(FName, true, _SearchPaths, TabWidth) ->
-    case refac_epp_dodger:parse_file(FName, [{tab, TabWidth}]) of
+    case refac_epp_dodger:parse_file(FName, [{tab, TabWidth}, {format, file_format(FName)}]) of
 	{ok, Forms} -> 
 	    Comments = erl_comment_scan:file(FName),
 	    SyntaxTree = refac_recomment:recomment_forms(Forms, Comments),
-	    io:format("SyntaxTree:\n~p\n", [SyntaxTree]),
 	    Info = refac_syntax_lib:analyze_forms(SyntaxTree),
 	    AnnAST = annotate_bindings(FName, SyntaxTree, Info, 1, TabWidth),
 	    {ok, {AnnAST, Info}};
@@ -937,7 +941,7 @@ parse_annotate_file_1(FName, false, SearchPaths, TabWidth) ->
     DefaultIncl1 = [".","..", "../hrl", "../incl", "../inc", "../include"],
     DefaultIncl2 = [filename:join(Dir, X) || X <-DefaultIncl1],
     Includes = SearchPaths++DefaultIncl2,
-   case refac_epp:parse_file(FName, Includes,[], TabWidth) of 
+   case refac_epp:parse_file(FName, Includes,[], TabWidth, file_format(FName)) of 
        {ok, Forms, _} -> Forms1 =  lists:filter(fun(F) ->
 							case F of 
 							    {attribute, _, file, _} -> false;
@@ -1553,6 +1557,13 @@ do_add_category(Node, C) ->
 		 Node1 = refac_syntax:copy_attrs(Node, refac_syntax:match_expr(P1, B1)),
 		 {refac_syntax:add_ann({category, C}, Node1), true};
 	     operator -> {refac_syntax:add_ann({category, operator}, Node), true}; %% added to fix bug 13/09/2008.
+	     application ->
+		   Op = refac_syntax:application_operator(Node),
+		   Args = refac_syntax:application_arguments(Node),
+		   Op1 = add_category(Op, application_op),
+		   Args1 = add_category(Args, expression),
+		   Node1 = refac_syntax:copy_attrs(Node, refac_syntax:application(Op1, Args1)),
+		   {refac_syntax:add_ann({category, C}, Node1), true};						   
 	     arity_qualifier ->
 		 Fun = add_category(refac_syntax:arity_qualifier_body(Node), arity_qualifier),
 		 A = add_category(refac_syntax:arity_qualifier_argument(Node), arity_qualifier),
