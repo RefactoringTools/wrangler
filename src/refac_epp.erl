@@ -19,14 +19,11 @@
 
 %% An Erlang code preprocessor.
 
--export([open/2,open/3,close/1,format_error/1]).
--export([scan_erl_form/1,parse_erl_form/1,macro_defs/1]).
--export([parse_file/3, parse_file/4]).
--export([interpret_file_attribute/1]).
--export([scan_file/4]).
--export([expand_macros/2]).
+-export([parse_file/3, parse_file/5]).
 
 -define(DEFAULT_TABWIDTH, 8).
+-define(DEFAULT_FILEFORMAT, unix).
+
 %% Epp state record.
 -record(epp, {file,				%Current file
 	      line={1,1},			%Current line number  %% modified by Huiqing Li
@@ -36,7 +33,8 @@
 	      path=[],				%Include-path
 	      macs=dict:new(),			%Macros
 	      uses=dict:new(),			%Macro use structure
-	      tabwidth = ?DEFAULT_TABWIDTH
+	      tabwidth = ?DEFAULT_TABWIDTH,
+	      fileformat=?DEFAULT_FILEFORMAT
 	     }).
 
 %%% Note on representation: as tokens, both {var, Line, Name} and
@@ -46,22 +44,9 @@
 %%% distinction in the internal representation would simplify the code
 %%% a little.
 
-%% open(FileName, IncludePath)
-%% open(FileName, IncludePath, PreDefMacros)
-%% close(Epp)
-%% scan_erl_form(Epp)
-%% parse_erl_form(Epp)
-%% macro_defs(Epp)
-
-open(File, Path) ->
-    open(File, Path, [],?DEFAULT_TABWIDTH).
-
-open(File, Path, Pdm) ->
-    open(File, Path, Pdm, ?DEFAULT_TABWIDTH).
-
-open(File, Path, Pdm, TabWidth) ->
+open(File, Path, Pdm, TabWidth, FileFormat) ->
     Self = self(),
-    Epp = spawn(fun() -> server(Self, File, Path, Pdm, TabWidth) end),
+    Epp = spawn(fun() -> server(Self, File, Path, Pdm, TabWidth, FileFormat) end),
     epp_request(Epp).
 
 close(Epp) ->
@@ -72,9 +57,6 @@ close(Epp) ->
     receive {'DOWN',Ref,_,_,_} -> ok end,
     R.
 
-scan_erl_form(Epp) ->
-    epp_request(Epp, scan_erl_form).
-
 parse_erl_form(Epp) ->
     Res = epp_request(Epp, scan_erl_form), 
     case Res of
@@ -84,65 +66,15 @@ parse_erl_form(Epp) ->
 	    Other
     end.
 
-macro_defs(Epp) ->
-    epp_request(Epp, macro_defs).
-
 final_state(Epp) ->
      epp_request(Epp, state).
 
-%% format_error(ErrorDescriptor) -> String
-%%  Return a string describing the error.
-
-format_error(cannot_parse) ->
-    io_lib:format("cannot parse file, giving up", []);
-format_error({bad,W}) ->
-    io_lib:format("badly formed '~s'", [W]);
-format_error({call,What}) ->
-    io_lib:format("illegal macro call '~s'",[What]);
-format_error({undefined,M}) ->
-    io_lib:format("undefined macro '~w'", [M]);
-format_error({depth,What}) ->
-    io_lib:format("~s too deep",[What]);
-format_error({mismatch,M}) ->
-    io_lib:format("argument mismatch for macro '~w'", [M]);
-format_error({arg_error,M}) ->
-    io_lib:format("badly formed argument for macro '~w'", [M]);
-format_error({redefine,M}) ->
-    io_lib:format("redefining macro '~w'", [M]);
-format_error({circular,M}) ->
-    io_lib:format("circular macro '~w'", [M]);
-format_error({include,W,F}) ->
-    io_lib:format("can't find include ~s \"~s\"", [W,F]);
-format_error({illegal,How,What}) ->
-    io_lib:format("~s '-~s'", [How,What]);
-format_error({'NYI',What}) ->
-    io_lib:format("not yet implemented '~s'", [What]);
-format_error(E) -> file:format_error(E).
-
-%% Begin; Added by Huiqing Li
-scan_file(Ifile, Path, Predefs, TabWidth) ->
-    case open(Ifile, Path, Predefs, TabWidth) of 
-	{ok, Epp} ->
-	    Toks = scan_file(Epp), close(Epp), {ok, Toks};
-	{error, _E} -> []
-    end.
-
-scan_file(Epp) ->
-    case epp_request(Epp, scan_erl_form) of
-      {ok, Toks} -> 
-	    Toks ++  scan_file(Epp);
-      {error, _E} -> scan_file(Epp);
-      {eof, _Line} -> []
-    end.
-
-%% parse_file(FileName, IncludePath, [PreDefMacro]) ->
-%%	{ok,[Form]} | {error,OpenError}
 
 parse_file(Ifile, Path, PreDefs) ->
-    parse_file(Ifile, Path, PreDefs, ?DEFAULT_TABWIDTH).
+    parse_file(Ifile, Path, PreDefs, ?DEFAULT_TABWIDTH, ?DEFAULT_FILEFORMAT).
 
-parse_file(Ifile, Path, Predefs, TabWidth) ->
-    case open(Ifile, Path, Predefs, TabWidth) of
+parse_file(Ifile, Path, Predefs, TabWidth, FileFormat) ->
+    case open(Ifile, Path, Predefs, TabWidth, FileFormat) of
 	{ok,Epp} ->
 	    Forms = parse_file(Epp),
 	    #epp{macs=Ms, uses=UMs}= final_state(Epp),
@@ -153,9 +85,6 @@ parse_file(Ifile, Path, Predefs, TabWidth) ->
 	{error,E} ->
 	    {error,E}
     end.
-
-%% parse_file(Epp) ->
-%%	[Form]
 
 parse_file(Epp) ->
     case parse_erl_form(Epp) of
@@ -194,9 +123,7 @@ normalize_typed_record_fields([{typed_record_field,Field,_}|Rest],
 normalize_typed_record_fields([Field|Rest], NewFields, Typed) ->
     normalize_typed_record_fields(Rest, [Field|NewFields], Typed).
 
-%% server(StarterPid, FileName, Path, PreDefMacros)
-
-server(Pid, Name, Path, Pdm, TabWidth) ->
+server(Pid, Name, Path, Pdm, TabWidth, FileFormat) ->
     process_flag(trap_exit, true),
     case file:open(Name, [read]) of
 	{ok,File} ->
@@ -204,7 +131,7 @@ server(Pid, Name, Path, Pdm, TabWidth) ->
 	    case user_predef(Pdm, Ms0) of
 		{ok,Ms1} ->
 		    epp_reply(Pid, {ok,self()}),
-		    St = #epp{file=File,name=Name,path=Path,macs=Ms1, tabwidth=TabWidth},
+		    St = #epp{file=File,name=Name,path=Path,macs=Ms1, tabwidth=TabWidth, fileformat=FileFormat},
 		    From = wait_request(St),
 		    enter_file_reply(From, Name, 1, 1),
 		    wait_req_scan(St);
@@ -214,10 +141,6 @@ server(Pid, Name, Path, Pdm, TabWidth) ->
 	{error,E} ->
 	    epp_reply(Pid, {error,E})
     end.
-
-%% predef_macros(FileName) -> Macrodict
-%%  Initialise the macro dictionary with the default predefined macros,
-%%  FILE, LINE, MODULE as undefined, MACHINE and MACHINE value.
 
 predef_macros(File) ->
     Ms0 = dict:new(),
@@ -253,12 +176,6 @@ user_predef([M|Pdm], Ms) when is_atom(M) ->
     end;
 user_predef([Md|_Pdm], _Ms) -> {error,{bad,Md}};
 user_predef([], Ms) -> {ok,Ms}.
-
-%% wait_request(EppState) -> RequestFrom
-%% wait_req_scan(EppState)
-%% wait_req_skip(EppState, SkipIstack)
-%%  Handle requests, processing trivial requests directly. Either return
-%%  requestor or scan/skip tokens.
 
 wait_request(St) ->
     receive
@@ -367,7 +284,8 @@ leave_file(From, St) ->
 %% scan_toks(Tokens, From, EppState)
 
 scan_toks(From, St) ->
-    case refac_io:scan_erl_form(St#epp.file, '', St#epp.line, St#epp.tabwidth) of
+    Res=  refac_io:scan_erl_form(St#epp.file, '', St#epp.line, St#epp.tabwidth, St#epp.fileformat),
+    case Res  of
 	{ok,Toks,Cl} ->
 	    scan_toks(Toks, From, St#epp{line=Cl});
 	{error,E,Cl} ->
@@ -1010,7 +928,7 @@ expand_var1(NewName) ->
 %% of the abstract code would then point into different windows
 %% depending on the -file attribute. [Note that if, as is the case for
 %% yecc, code has been copied into the file, then it is possible that
-%% the copied code differ from the one referred to by the -file
+%% the copied code diffeprer from the one referred to by the -file
 %% attribute, which means that line numbers can mismatch.] In practice
 %% however it is very rare with Erlang functions in included files, so
 %% only one window is used per module. This means that the line
@@ -1027,26 +945,26 @@ expand_var1(NewName) ->
 %% The (less than perfect) solution employed is to let epp assign
 %% negative line number to user supplied -file attributes.
 
-interpret_file_attribute(Forms) ->
-    interpret_file_attr(Forms, 0, []).
+%% interpret_file_attribute(Forms) ->
+%%     interpret_file_attr(Forms, 0, []).
 
-interpret_file_attr([{attribute,L,file,{_File,Line}} | Forms], 
-                    Delta, Fs) when L < 0 ->
-    %% -file attribute
-    interpret_file_attr(Forms, {(abs(element(1,L)) + Delta) - Line,element(2, L)}, Fs);
-interpret_file_attr([{attribute,_AL,file,{File,_Line}}=Form | Forms], 
-                    Delta, Fs) ->
-    %% -include or -include_lib
-    % true = _AL =:= _Line,
-    case Fs of
-        [_, Delta1, File | Fs1] -> % end of included file
-            [Form | interpret_file_attr(Forms, Delta1, [File | Fs1])];
-        _ -> % start of included file
-            [Form | interpret_file_attr(Forms, 0, [File, Delta | Fs])]
-    end;
-interpret_file_attr([Form0 | Forms], Delta, Fs) ->
-    Form = erl_lint:modify_line(Form0, fun(L) -> {abs(element(1, L)) + Delta, element(2, L)} end),
-    [Form | interpret_file_attr(Forms, Delta, Fs)];
-interpret_file_attr([], _Delta, _Fs) ->
-    [].
+%% interpret_file_attr([{attribute,L,file,{_File,Line}} | Forms], 
+%%                     Delta, Fs) when L < 0 ->
+%%     %% -file attribute
+%%     interpret_file_attr(Forms, {(abs(element(1,L)) + Delta) - Line,element(2, L)}, Fs);
+%% interpret_file_attr([{attribute,_AL,file,{File,_Line}}=Form | Forms], 
+%%                     Delta, Fs) ->
+%%     %% -include or -include_lib
+%%     % true = _AL =:= _Line,
+%%     case Fs of
+%%         [_, Delta1, File | Fs1] -> % end of included file
+%%             [Form | interpret_file_attr(Forms, Delta1, [File | Fs1])];
+%%         _ -> % start of included file
+%%             [Form | interpret_file_attr(Forms, 0, [File, Delta | Fs])]
+%%     end;
+%% interpret_file_attr([Form0 | Forms], Delta, Fs) ->
+%%     Form = erl_lint:modify_line(Form0, fun(L) -> {abs(element(1, L)) + Delta, element(2, L)} end),
+%%     [Form | interpret_file_attr(Forms, Delta, Fs)];
+%% interpret_file_attr([], _Delta, _Fs) ->
+%%     [].
 
