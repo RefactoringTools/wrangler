@@ -63,7 +63,7 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:rename_var(~p, ~p, ~p, ~p, ~p, ~p).\n", [?MODULE,FName, Line, Col, NewName, SearchPaths, TabWidth]),
     case refac_util:is_var_name(NewName) of
 	true ->
-	    {ok, {_AnnAST, _Info0}} = refac_util:parse_annotate_file(FName, false, SearchPaths, TabWidth),
+	    %% {ok, {_AnnAST, _Info0}} = refac_util:parse_annotate_file(FName, false, SearchPaths, TabWidth),
 	    NewName1 = list_to_atom(NewName), 
 	    {ok, {AnnAST1, _Info1}}= refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),  
 	    case refac_util:pos_to_var_name(AnnAST1, {Line, Col}) of
