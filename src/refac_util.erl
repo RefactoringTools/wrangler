@@ -43,7 +43,7 @@
 	 pos_to_syntax_units/4, expr_to_fun/2,get_range/1,get_toks/1, concat_toks/1, tokenize/3,
          get_var_exports/1, get_env_vars/1, get_bound_vars/1, get_free_vars/1, 
          get_client_files/2, expand_files/2, get_modules_by_file/1,
-         reset_attrs/1, update_ann/2,parse_annotate_file_1/4, parse_annotate_file/3,
+         reset_attrs/1, update_ann/2,parse_annotate_file_1/5, parse_annotate_file/3,
          parse_annotate_file/4,write_refactored_files/1,
          build_lib_side_effect_tab/1, build_local_side_effect_tab/2,
 	 build_scc_callgraph/1,build_callercallee_callgraph/1, has_side_effect/3,
@@ -914,34 +914,35 @@ parse_annotate_file(FName, ByPassPreP, SearchPaths) ->
 -spec(parse_annotate_file(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()], TabWidth::integer())
                            -> {ok, {syntaxTree(), moduleInfo()}}).
 parse_annotate_file(FName, ByPassPreP, SearchPaths, TabWidth) ->
+    FileFormat =file_format(FName),     
     case whereis(wrangler_ast_server) of 
 	undefined ->        %% this should not happen with Wrangler + Emacs.
 	    ?wrangler_io("wrangler_ast_aserver is not defined\n",[]),
-	    parse_annotate_file_1(FName, ByPassPreP, SearchPaths, TabWidth);
+	    parse_annotate_file_1(FName, ByPassPreP, SearchPaths, TabWidth, FileFormat);
 	_ ->
-	    wrangler_ast_server:get_ast({FName, ByPassPreP, SearchPaths, TabWidth})
+	    wrangler_ast_server:get_ast({FName, ByPassPreP, SearchPaths, TabWidth, FileFormat})
     end.
    
 
 
--spec(parse_annotate_file_1(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()], integer())
+-spec(parse_annotate_file_1(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()], integer(), atom())
                            -> {ok, {syntaxTree(), moduleInfo()}}).
-parse_annotate_file_1(FName, true, _SearchPaths, TabWidth) ->
-    case refac_epp_dodger:parse_file(FName, [{tab, TabWidth}, {format, file_format(FName)}]) of
+parse_annotate_file_1(FName, true, _SearchPaths, TabWidth, FileFormat) ->
+    case refac_epp_dodger:parse_file(FName, [{tab, TabWidth}, {format, FileFormat}]) of
 	{ok, Forms} -> 
-	    Comments = erl_comment_scan:file(FName),
+	    Comments = refac_comment_scan:file(FName),
 	    SyntaxTree = refac_recomment:recomment_forms(Forms, Comments),
 	    Info = refac_syntax_lib:analyze_forms(SyntaxTree),
 	    AnnAST = annotate_bindings(FName, SyntaxTree, Info, 1, TabWidth),
 	    {ok, {AnnAST, Info}};
 	{error, Reason} -> erlang:error(Reason)
     end;     
-parse_annotate_file_1(FName, false, SearchPaths, TabWidth) ->
+parse_annotate_file_1(FName, false, SearchPaths, TabWidth, FileFormat) ->
     Dir = filename:dirname(FName),
     DefaultIncl1 = [".","..", "../hrl", "../incl", "../inc", "../include"],
     DefaultIncl2 = [filename:join(Dir, X) || X <-DefaultIncl1],
     Includes = SearchPaths++DefaultIncl2,
-   case refac_epp:parse_file(FName, Includes,[], TabWidth, file_format(FName)) of 
+   case refac_epp:parse_file(FName, Includes,[], TabWidth, FileFormat) of 
        {ok, Forms, _} -> Forms1 =  lists:filter(fun(F) ->
 							case F of 
 							    {attribute, _, file, _} -> false;
@@ -2247,19 +2248,42 @@ is_string({string, _, _}) ->
     true;
 is_string(_) -> false.
 
-
 file_format(File) ->  
     {ok, Bin} = file:read_file(File),
     S = erlang:binary_to_list(Bin),
-    case string:str(S, "\r\n") of 
-	0 ->
-	    case string:str(S, "\r") of 
-		0 ->
-		    case string:str(S, "\n") of
-			0 -> unknown;
-			_ -> unix
-		    end;
-		_ -> mac
-	    end;
-	_ -> dos
+    LEs = scan_line_endings(S),
+    case lists:all(fun(E) -> E=="\r\n" end, LEs) of 
+	true -> dos;
+	_ -> case lists:all(fun(E) -> E=="\r" end, LEs)  of
+		 true ->
+		     mac;
+		 _ -> case lists:all(fun(E)-> E=="\n" end, LEs) of
+			  true -> unix;
+			  _ -> throw({error, File ++ " uses a mixture of line endings,"
+				      " please normalise it to one of the standard file formats (i.e. unix/dos/mac) before performing any refactorings."})
+		      end
+	     end
     end.
+
+scan_line_endings(Cs)->
+    scan_lines(Cs, [], []).
+
+scan_lines([$\r|Cs], [], Acc) ->
+    scan_line_endings(Cs, [$\r], Acc);
+scan_lines([$\n|Cs], [], Acc) ->
+    scan_lines(Cs, [], [[$\n]|Acc]);
+scan_lines([_C|Cs], [], Acc) ->
+    scan_lines(Cs, [], Acc);
+scan_lines([],[],Acc) ->
+    Acc.
+
+scan_line_endings([$\r|Cs], Cs1,Acc) ->
+    scan_line_endings(Cs,[$\r|Cs1], Acc);
+scan_line_endings([$\n|Cs], Cs1, Acc) ->
+    scan_lines(Cs, [],[lists:reverse([$\n|Cs1])| Acc]);
+scan_line_endings([_C|Cs], Cs1, Acc)->
+    scan_lines(Cs, [], [lists:usort(lists:reverse(Cs1))|Acc]);
+scan_line_endings([], Cs1, Acc)->
+    lists:reverse([lists:usort(lists:reverse(Cs1))|Acc]).
+    
+
