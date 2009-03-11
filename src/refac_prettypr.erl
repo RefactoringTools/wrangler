@@ -136,16 +136,20 @@ vertical_concat([{E,Form}| T], FileFormat, Acc) ->
 	     _ ->
 		 case (EStr == FStr) or SpecialForm(Form) of
 		   true -> Acc;
-		   false -> Acc ++ Delimitor
+		   false when F=/="" ->
+			 LeadEmptyLines =lists:takewhile(fun(C) -> (C==$\s) or (C==$\n) or (C==$\r) end, F),
+			 LeadEmptyLines1 = lists:reverse(lists:dropwhile(fun(C) -> C==$\s end, lists:reverse(LeadEmptyLines))),
+			 Acc ++ LeadEmptyLines1;
+		     _ -> Acc++Delimitor
 		 end
 	   end,
     Str = case (EStr == FStr) or SpecialForm(Form) of
 	    true -> F;
 	    false ->
 		  case T of
-		  [] -> E;
-		  [{_E1,_Form1}| _] -> E ++ Delimitor
-		end
+		      [] -> E;
+		      [{_E1,_Form1}| _] -> E ++ Delimitor
+		  end
 	  end,
     case T of
       [] -> Acc1 ++ Str;

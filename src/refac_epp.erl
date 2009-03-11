@@ -20,7 +20,7 @@
 %% An Erlang code preprocessor.
 
 -export([parse_file/3, parse_file/5]).
-
+-export([interpret_file_attribute/1]).
 -define(DEFAULT_TABWIDTH, 8).
 -define(DEFAULT_FILEFORMAT, unix).
 
@@ -61,7 +61,8 @@ parse_erl_form(Epp) ->
     Res = epp_request(Epp, scan_erl_form), 
     case Res of
 	{ok,Toks} ->
-	    refac_parse:parse_form(Toks);
+	    Res1 = refac_parse:parse_form(Toks),
+            Res1;
 	Other ->
 	    Other
     end.
@@ -194,8 +195,7 @@ wait_request(St) ->
 	    exit(normal);
 	{'EXIT',_,R} ->
 	    exit(R);
-	Other ->
-	    refac_io:fwrite("Epp: unknown '~w'\n", [Other]),
+	_Other ->
 	    wait_request(St)
     end.
 
@@ -321,7 +321,7 @@ scan_toks([{'-',_Lh},{atom,Le,endif}|Toks], From, St) ->
 scan_toks([{'-',_Lh},{atom,Lf,file}|Toks0], From, St) ->
     case catch expand_macros(Toks0, {St#epp.macs, St#epp.uses}) of
 	Toks1 when is_list(Toks1) ->
-            scan_file_1(Toks1, Lf, From, St);
+	    scan_file_1(Toks1, Lf, From, St);
 	{error,ErrL,What} ->
 	    epp_reply(From, {error,{ErrL,epp,What}}),
 	    wait_req_scan(St)
@@ -630,7 +630,12 @@ scan_file_1([{'(',_Llp},{string,_Ls,Name},{',',_Lc},{integer,_Li,Ln},{')',_Lrp},
            {dot,_Ld}], Lf, From, St) ->
     enter_file_reply(From, Name, Ln, {-abs(element(1, Lf)), element(2, Lf)}),
     Ms = dict:store({atom,'FILE'}, {none,[{string,1,Name}]}, St#epp.macs),
-    scan_toks(From, St#epp{name=Name,line=Ln+(St#epp.line-element(1,Lf)),macs=Ms});
+    {L, C} = St#epp.line,
+    %% scan_toks(From, St#epp{name=Name,line={list_to_integer(Ln)+(L-element(1, Lf)), C},macs=Ms});
+    %% the above does not work for reason I don't know.
+    wait_req_scan(St#epp{name=Name,line={list_to_integer(Ln)+(L-element(1, Lf)), C},macs=Ms});
+       
+    
 scan_file_1(_Toks, Lf, From, St) ->
     epp_reply(From, {error,{Lf,epp,{bad,file}}}),
     wait_req_scan(St).
@@ -640,7 +645,7 @@ scan_file_1(_Toks, Lf, From, St) ->
 %%  nested conditionals and repeated 'else's.
 
 skip_toks(From, St, [I|Sis]) ->
-    case refac_io:scan_erl_form(St#epp.file, '', St#epp.line, St#epp.tabwidth) of
+    case refac_io:scan_erl_form(St#epp.file, '', St#epp.line, St#epp.tabwidth,St#epp.fileformat) of
 	{ok,[{'-',_Lh},{atom,_Li,ifdef}|_Toks],Cl} ->
 	    skip_toks(From, St#epp{line=Cl}, [ifdef,I|Sis]);
 	{ok,[{'-',_Lh},{atom,_Li,ifndef}|_Toks],Cl} ->
@@ -671,6 +676,8 @@ skip_else(_Le, From, St, [_I]) ->
     scan_toks (From, St#epp{istk=[else|St#epp.istk]});
 skip_else(_Le, From, St, Sis) ->
     skip_toks(From, St, Sis).
+
+
 
 %% macro_pars(Tokens, ArgStack)
 %% macro_expansion(Tokens)
@@ -893,7 +900,8 @@ wait_epp_reply(Epp, Mref) ->
 	    Rep;
 	{'DOWN',Mref,_,_,E} -> 
 	    receive {epp_reply,Epp,Rep} -> Rep
-	    after 0 -> exit(E)
+	    after 0 -> 
+		    exit(E)
 	    end
     end.
 
@@ -945,26 +953,26 @@ expand_var1(NewName) ->
 %% The (less than perfect) solution employed is to let epp assign
 %% negative line number to user supplied -file attributes.
 
-%% interpret_file_attribute(Forms) ->
-%%     interpret_file_attr(Forms, 0, []).
+interpret_file_attribute(Forms) ->
+     interpret_file_attr(Forms, 0, []).
 
-%% interpret_file_attr([{attribute,L,file,{_File,Line}} | Forms], 
-%%                     Delta, Fs) when L < 0 ->
-%%     %% -file attribute
-%%     interpret_file_attr(Forms, {(abs(element(1,L)) + Delta) - Line,element(2, L)}, Fs);
-%% interpret_file_attr([{attribute,_AL,file,{File,_Line}}=Form | Forms], 
-%%                     Delta, Fs) ->
-%%     %% -include or -include_lib
-%%     % true = _AL =:= _Line,
-%%     case Fs of
-%%         [_, Delta1, File | Fs1] -> % end of included file
-%%             [Form | interpret_file_attr(Forms, Delta1, [File | Fs1])];
-%%         _ -> % start of included file
-%%             [Form | interpret_file_attr(Forms, 0, [File, Delta | Fs])]
-%%     end;
-%% interpret_file_attr([Form0 | Forms], Delta, Fs) ->
-%%     Form = erl_lint:modify_line(Form0, fun(L) -> {abs(element(1, L)) + Delta, element(2, L)} end),
-%%     [Form | interpret_file_attr(Forms, Delta, Fs)];
-%% interpret_file_attr([], _Delta, _Fs) ->
-%%     [].
+interpret_file_attr([{attribute,L,file,{_File,Line}} | Forms], 
+                     Delta, Fs) when L < 0 ->
+     %% -file attribute
+     interpret_file_attr(Forms, {(abs(element(1,L)) + Delta) - Line,element(2, L)}, Fs);
+interpret_file_attr([{attribute,_AL,file,{File,_Line}}=Form | Forms], 
+                     Delta, Fs) ->
+     %% -include or -include_lib
+     % true = _AL =:= _Line,
+     case Fs of
+         [_, Delta1, File | Fs1] -> % end of included file
+             [Form | interpret_file_attr(Forms, Delta1, [File | Fs1])];
+         _ -> % start of included file
+             [Form | interpret_file_attr(Forms, 0, [File, Delta | Fs])]
+     end;
+interpret_file_attr([Form0 | Forms], Delta, Fs) ->
+     Form = erl_lint:modify_line(Form0, fun(L) -> {abs(element(1, L)) + Delta, element(2, L)} end),
+     [Form | interpret_file_attr(Forms, Delta, Fs)];
+interpret_file_attr([], _Delta, _Fs) ->
+     [].
 
