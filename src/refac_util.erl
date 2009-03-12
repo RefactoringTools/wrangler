@@ -831,7 +831,7 @@ write_refactored_files(Files) ->
 tokenize(File, WithLayout, TabWidth) ->
     {ok, Bin} = file:read_file(File),
     S = erlang:binary_to_list(Bin),
-	case WithLayout of 
+    case WithLayout of 
 		true -> {ok, Ts, _} = refac_scan_with_layout:string(S, {1,1}, TabWidth, file_format(File)),
 				Ts;
 		_ -> {ok, Ts, _} = refac_scan:string(S, {1,1}, TabWidth,file_format(File)),
@@ -851,7 +851,7 @@ concat_toks([T|Ts], Acc) ->
 			  concat_toks(Ts, [S|Acc]);
 	 {qatom, _, V} -> S=atom_to_list(V),
 			  concat_toks(Ts, [S|Acc]);
-	{string, _, V} -> concat_toks(Ts,[io_lib:write_string(V)|Acc]);
+	{string, _, V} -> concat_toks(Ts,["\"", V, "\""|Acc]);
        	{char, _, V} when is_integer(V)-> concat_toks(Ts,[io_lib:write_char(V)|Acc]);
 	{_, _, V} -> concat_toks(Ts, [V|Acc]);
  	{dot, _} ->concat_toks(Ts, ['.'|Acc]);
