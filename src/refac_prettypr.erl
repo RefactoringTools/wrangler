@@ -129,13 +129,14 @@ vertical_concat([{E,Form}| T], FileFormat, Acc) ->
     F = refac_util:concat_toks(refac_util:get_toks(Form)),
     {ok,EToks,_} = refac_scan:string(E),
     {ok,FToks,_} = refac_scan:string(F),
-    EStr = [S||S<-refac_util:concat_toks(EToks),S=/=$(, S=/=$), S=/=$'],
-    FStr = [S||S<-refac_util:concat_toks(FToks),S=/=$(, S=/=$), S=/=$'],
+    EStr = [S||S<-refac_util:concat_toks(EToks),S=/=$(, S=/=$), S=/=$\s, S=/=$'],
+    FStr = [S||S<-refac_util:concat_toks(FToks),S=/=$(, S=/=$), S=/=$\s, S=/=$'],
     Acc1 = case Acc of
 	     "" -> Acc;
 	     _ ->
 		 case (EStr == FStr) or SpecialForm(Form) of
-		   true -> Acc;
+		   true -> 
+			 Acc;
 		   false when F=/="" ->
 			 LeadEmptyLines =lists:takewhile(fun(C) -> (C==$\s) or (C==$\n) or (C==$\r) end, F),
 			 LeadEmptyLines1 = lists:reverse(lists:dropwhile(fun(C) -> C==$\s end, lists:reverse(LeadEmptyLines))),
@@ -144,7 +145,8 @@ vertical_concat([{E,Form}| T], FileFormat, Acc) ->
 		 end
 	   end,
     Str = case (EStr == FStr) or SpecialForm(Form) of
-	    true -> F;
+	    true -> 
+		  refac_util:concat_toks(refac_util:get_toks(Form));
 	    false ->
 		  case T of
 		      [] -> E;
@@ -155,6 +157,7 @@ vertical_concat([{E,Form}| T], FileFormat, Acc) ->
       [] -> Acc1 ++ Str;
       _ -> vertical_concat(T, FileFormat, Acc1 ++ Str)
     end.
+
 
 %% Do this still need this function?
 get_paper_ribbon_width(Form) ->
