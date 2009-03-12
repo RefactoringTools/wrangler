@@ -371,7 +371,7 @@ name_char($@) -> true;
 name_char(_) -> false.
 
 scan_char([$\\ | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    sub_scan_escape(Cs, [fun scan_char_escape/8 | Stack], Toks, {Line, Col}, State, Errors, TabWidth,FileFormat);
+    sub_scan_escape(Cs, [fun scan_char_escape/8, $\\ | Stack], Toks, {Line, Col}, State, Errors, TabWidth,FileFormat);
 scan_char([$\n | Cs], Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
     scan(Cs, Stack, [{char, {Line, Col}, $\n} | Toks], {Line + 1, Col}, State, Errors, TabWidth,FileFormat);
 scan_char([], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
@@ -400,7 +400,7 @@ scan_string([$\r | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFo
 scan_string([$\n | Cs], Stack, Toks, {Line, _Col}, State,  Errors, TabWidth,FileFormat) ->
     scan_string(Cs, [$\n | Stack], Toks, {Line + 1, 1}, State, Errors, TabWidth,FileFormat);
 scan_string([$\\ | Cs], Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
-    sub_scan_escape(Cs, [fun scan_string_escape/8 | Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
+    sub_scan_escape( Cs, [fun scan_string_escape/8, $\\ | Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
 scan_string([C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) 
    when C==$\t ->
     scan_string(Cs, [C | Stack], Toks, {Line, Col+TabWidth}, State,Errors, TabWidth,FileFormat);
@@ -409,7 +409,7 @@ scan_string([C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileForm
 scan_string([], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     more([], Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat, fun scan_string/8);
 scan_string(Eof, Stack, _Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    [StartPos, $" | S] = reverse(Stack),
+     [StartPos, $" | S] = reverse(Stack),
     SS = string:substr(S, 1, 16),
     done(Eof, [{{string, $", SS}, StartPos} | Errors], [],
 	 {Line, Col}, State, TabWidth,FileFormat).
@@ -417,7 +417,7 @@ scan_string(Eof, Stack, _Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) 
 scan_string_escape([nl | Cs], Stack, Toks, {Line, _Col}, State, Errors, TabWidth,FileFormat) ->
     scan_string(Cs, [$\n | Stack], Toks, {Line + 1, 1}, State, Errors, TabWidth,FileFormat);
 scan_string_escape([C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    scan_string(Cs, [C, $\\| Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
+    scan_string(Cs, [C| Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
 scan_string_escape(Eof, Stack, _Toks, {Line, Col},State, Errors, TabWidth,FileFormat) ->
     [StartPos, $" | S] = reverse(Stack),
     SS = string:substr(S, 1, 16),
@@ -440,7 +440,7 @@ scan_qatom([$\r|Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileForma
 scan_qatom([$\n | Cs], Stack, Toks, {Line, _Col}, State, Errors, TabWidth,FileFormat) ->
     scan_qatom(Cs, [$\n | Stack], Toks, {Line + 1, 1},State, Errors, TabWidth,FileFormat);
 scan_qatom([$\\ | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    sub_scan_escape([$\\|Cs], [fun scan_qatom_escape/8 | Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
+    sub_scan_escape(Cs, [fun scan_qatom_escape/8, $\\ | Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
 scan_qatom([C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat)
   when C==$\t ->
     scan_qatom(Cs, [C | Stack], Toks, {Line, Col+TabWidth}, State,  Errors, TabWidth,FileFormat);
@@ -522,8 +522,8 @@ sub_scan_escape([$\n | Cs], [Fun | Stack], Toks,
 %% \X - familiar escape sequences
 sub_scan_escape([C | Cs], [Fun | Stack], Toks,
 		{Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    Val = escape_char(C),
-    Fun([Val | Cs], Stack, Toks, {Line, Col}, State,
+   %%  Val = escape_char(C),
+    Fun([C | Cs], Stack, Toks, {Line, Col}, State,
 	Errors, TabWidth,FileFormat);
 %%
 sub_scan_escape([], Stack, Toks, {Line, Col}, State,
