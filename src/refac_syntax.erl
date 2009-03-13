@@ -150,6 +150,7 @@
 	 record_expr_type/1, record_field/1, record_field/2,
 	 record_field_name/1, record_field_value/1,
 	 typed_record_field_name/1, typed_record_field_value/1,
+	 typed_record_field/1, typed_record_type/1,
 	 record_index_expr/2, record_index_expr_field/1,
 	 record_index_expr_type/1, remove_comments/1, revert/1,
 	 revert_forms/1, rule/2, rule_arity/1, rule_clauses/1,
@@ -3580,7 +3581,7 @@ typed_record_field(RecordField, Type) ->
     tree(typed_record_field,
 	 #typed_record_field{recordfield=RecordField, type=Type}).
 
-    
+     
 typed_record_field_name(Node) ->
     Field = (data(Node))#typed_record_field.recordfield,
     (data(Field))#record_field.name.
@@ -3588,6 +3589,13 @@ typed_record_field_name(Node) ->
 typed_record_field_value(Node) ->
     Field = (data(Node))#typed_record_field.recordfield,
     (data(Field))#record_field.value.
+
+typed_record_field(Node) ->
+    (data(Node))#typed_record_field.recordfield.
+
+typed_record_type(Node) ->
+    (data(Node))#typed_record_field.type.
+    
 %% =====================================================================
 %% @spec record_field_name(syntaxTree()) -> syntaxTree()
 %%
@@ -5513,6 +5521,9 @@ subtrees(T) ->
 		  none -> [[record_field_name(T)]];
 		  V -> [[record_field_name(T)], [V]]
 		end;
+            type_record_field->
+		    [[typed_record_field(T)],
+		     [typed_record_type(T)]];
 	    record_index_expr ->
 		[[record_index_expr_type(T)],
 		 [record_index_expr_field(T)]];
