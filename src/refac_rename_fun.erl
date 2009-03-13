@@ -217,14 +217,14 @@ get_fun_def_loc(Node) ->
     case lists:keysearch(fun_def, 1, As) of
       {value, {fun_def, {_M, _N, _A, _P, DefinePos}}} ->
 	  DefinePos;
-      _ -> false
+      _ -> ?DEFAULT_LOC
     end.
 
 get_fun_def_mod(Node) ->
     As = refac_syntax:get_ann(Node),
-    case lists:keysearch(fun_def, 1, As) of
-      {value, {fun_def, {M, _N, _A, _P, _DefinePos}}} -> M;
-      _ -> false
+    case lists:keysearch(fun_def, 1, As) of 
+	{value, {fun_def, {M, _N, _A, _P, _DefinePos}}} -> M;
+      _ -> '_'
     end.
 
 rename_fun_in_client_modules(Files, {Mod, Fun, Arity}, NewName, SearchPaths, TabWidth) ->
@@ -245,10 +245,9 @@ rename_fun_in_client_modules(Files, {Mod, Fun, Arity}, NewName, SearchPaths, Tab
 get_fun_def_info(Node) ->
     As = refac_syntax:get_ann(Node),
     case lists:keysearch(fun_def, 1, As) of
-      {value,
-       {fun_def, {Mod, FunName, Arity, _UsePos, DefinePos}}} ->
-	  {Mod, FunName, Arity, DefinePos};
-      _ -> false
+      {value, {fun_def, {Mod, FunName, Arity, _UsePos, DefinePos}}} ->
+	    {Mod, FunName, Arity, DefinePos};
+	_ -> false
     end.
 
 rename_fun_in_client_module_1({Tree, Info}, {M, OldName, Arity}, NewName) ->
