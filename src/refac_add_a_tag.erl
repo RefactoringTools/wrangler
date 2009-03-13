@@ -325,9 +325,8 @@ collect_fun_apps(Expr, {ModName, Ln}) ->
 		     application ->
 			 Operator = refac_syntax:application_operator(T),
 			 case lists:keysearch(fun_def,1,refac_syntax:get_ann(Operator)) of
-			     {value, {fun_def, {M, F, A, _, _}}}-> lists:keysearch(fun_def,1, refac_syntax:get_ann(Operator)),
-								   ordsets:add_element({M,F, A},S);
-			     
+			     {value, {fun_def, {M, F, A, _, _}}}-> 
+				 ordsets:add_element({M,F, A},S);			     
 			     _ -> ?wrangler_io("\n*************************************Warning****************************************\n",[]),
 				  ?wrangler_io("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName,Ln])
 			 end;
