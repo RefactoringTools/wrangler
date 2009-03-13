@@ -1750,33 +1750,46 @@ add_fun_define_locations(Node,
 			     Operator1 = update_ann(Operator, {fun_def, {DefMod, Op, Arity, refac_syntax:get_pos(Operator), DefLoc}}),
 			     refac_syntax:copy_pos(T, refac_syntax:copy_attrs(T, refac_syntax:application(Operator1, Arguments)));
 			 module_qualifier ->
-			     Mod = refac_syntax:module_qualifier_argument(Operator),
-			     Fun = refac_syntax:module_qualifier_body(Operator),
-			     case {refac_syntax:type(Mod), refac_syntax:type(Fun)} of
-			       {atom, atom} ->
-				   M = refac_syntax:atom_value(Mod),
-				   Fun_Name = refac_syntax:atom_value(Fun),
-				   Arity = length(Arguments),
-				   DefLoc = if M == ModName -> {_ModName, DefLoc1} = Define_Mod_Loc(Fun_Name, Arity), DefLoc1;
-					       true -> ?DEFAULT_LOC
-					    end,
-				   Operator1 = refac_syntax:copy_attrs(Operator, refac_syntax:module_qualifier(Mod, Fun)),
-				   Operator2 = update_ann(Operator1, {fun_def, {M, Fun_Name, Arity, refac_syntax:get_pos(T), DefLoc}}),
-				   refac_syntax:copy_attrs(T, refac_syntax:application(Operator2, Arguments));
-			       _ -> T
-			     end;
-			 _ -> T
+			       Mod = refac_syntax:module_qualifier_argument(Operator),
+			       Fun = refac_syntax:module_qualifier_body(Operator),
+			       M = case refac_syntax:type(Mod) of 
+				       atom ->refac_syntax:atom_value(Mod);
+				       macro -> MacroName = refac_syntax:macro_name(Mod),
+						case refac_syntax:type(MacroName) of 
+						    variable ->
+							case refac_syntax:variable_name(MacroName) of 
+							    'MODULE' -> ModName;
+								_ -> '_'
+							end;
+						    _ -> '_'
+						end;
+				       _ -> '_'
+				   end,								    
+			       Fun_Name = case refac_syntax:type(Fun) of 
+					      atom ->refac_syntax:atom_value(Fun);
+					      _ -> '_'
+					  end,
+			       Arity = length(Arguments),
+			       DefLoc = if M == ModName -> {_ModName, DefLoc1} = Define_Mod_Loc(Fun_Name, Arity), DefLoc1;
+					   true -> ?DEFAULT_LOC
+					end,
+			       Operator1 = refac_syntax:copy_attrs(Operator, refac_syntax:module_qualifier(Mod, Fun)),
+			       Operator2 = update_ann(Operator1, {fun_def, {M, Fun_Name, Arity, refac_syntax:get_pos(T), DefLoc}}),
+			       refac_syntax:copy_attrs(T, refac_syntax:application(Operator2, Arguments));			   
+			   _ -> Arity = length(Arguments),
+				Operator1 = update_ann(Operator, {fun_def, {'_', '_', Arity, refac_syntax:get_pos(Operator), ?DEFAULT_LOC}}),
+				refac_syntax:copy_pos(T, refac_syntax:copy_attrs(T, refac_syntax:application(Operator1, Arguments)))
 		       end;
-		   arity_qualifier ->
-		       Fun = refac_syntax:arity_qualifier_body(T),
-		       A = refac_syntax:arity_qualifier_argument(T),
-		       FunName = refac_syntax:atom_value(Fun),
-		       Arity = refac_syntax:integer_value(A),
-		       {DefMod, DefLoc} = Define_Mod_Loc(FunName, Arity),
-		       Fun1 = update_ann(Fun, {fun_def, {DefMod, FunName, Arity, refac_syntax:get_pos(Fun), DefLoc}}),
-		       update_ann(refac_syntax:copy_attrs(T, refac_syntax:arity_qualifier(Fun1, A)),
-				  {fun_def, {DefMod, FunName, Arity, refac_syntax:get_pos(Fun), DefLoc}});
-		   _ -> T
+		     arity_qualifier ->
+			 Fun = refac_syntax:arity_qualifier_body(T),
+			 A = refac_syntax:arity_qualifier_argument(T),
+			 FunName = refac_syntax:atom_value(Fun),
+			 Arity = refac_syntax:integer_value(A),
+			 {DefMod, DefLoc} = Define_Mod_Loc(FunName, Arity),
+			 Fun1 = update_ann(Fun, {fun_def, {DefMod, FunName, Arity, refac_syntax:get_pos(Fun), DefLoc}}),
+			 update_ann(refac_syntax:copy_attrs(T, refac_syntax:arity_qualifier(Fun1, A)),
+				    {fun_def, {DefMod, FunName, Arity, refac_syntax:get_pos(Fun), DefLoc}});
+		     _ -> T
 		 end
 	 end,
     refac_syntax_lib:map(F1, Node).
