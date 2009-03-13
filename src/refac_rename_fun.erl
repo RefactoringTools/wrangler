@@ -79,11 +79,7 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 					of
 					true ->
 					    {error,
-					     NewName ++
-					    "/" ++
-					     integer_to_list(Arity) ++
-					     " is already in scope, or is an auto-imported "
-					     "builtin function."};
+					     NewName ++ "/" ++ integer_to_list(Arity) ++ " is already in scope."};
 					_ ->
 					    case is_callback_fun(Info, Fun, Arity) of
 						true ->
