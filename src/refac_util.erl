@@ -247,12 +247,12 @@ pos_to_fun_name(Node, Pos) ->
 pos_to_fun_name_1(Node, Pos = {Ln, Col}) ->
     As = refac_syntax:get_ann(Node),
     case lists:keysearch(fun_def, 1, As) of
-      {value, {fun_def, {Mod, Fun, Arity, {Ln, Col1}, DefPos}}} ->
-	  case (Col1 =< Col) and (Col =< Col1 + length(atom_to_list(Fun)) - 1) of
-	    true -> {{Mod, Fun, Arity, Pos, DefPos}, true};
-	    false -> {[], false}
-	  end;
-      _ -> {[], false}
+      {value, {fun_def, {Mod, Fun, Arity, {Ln, Col1}, DefPos}}} when is_atom(Fun)->
+	    case (Col1 =< Col) and (Col =< Col1 + length(atom_to_list(Fun)) - 1) of
+		true -> {{Mod, Fun, Arity, Pos, DefPos}, true};
+		false -> {[], false}
+	    end;
+	_ -> {[], false}
     end.
 
 
@@ -1067,9 +1067,9 @@ annotate_bindings(FName, AST, Info, AnnotateLevel, TabWidth) ->
 %% Add  start and end location to each AST node.
 add_range(FName, AST, TabWidth) ->
     Toks = tokenize(FName, true,  TabWidth),    
-    full_buTP(fun do_add_range/2, AST, Toks).
+    full_buTP(fun do_add_range/2, AST, {FName, Toks}).
 
-do_add_range(Node, Toks) ->
+do_add_range(Node, {FName, Toks}) ->
     {L, C} = case refac_syntax:get_pos(Node) of
 		 {Line, Col} -> {Line,Col};
 		 Line ->{Line, 0}
@@ -1406,6 +1406,12 @@ do_add_range(Node, Toks) ->
 	    none -> refac_syntax:add_ann({range, {S1, E1}}, Node);
 	    _ -> {_S2, E2} = get_range(Value), refac_syntax:add_ann({range, {S1, E2}}, Node)
 	  end;
+      typed_record_field ->   %% This is not correct; need to be fixed later!
+	  Field = refac_syntax:typed_record_field(Node),
+	  {S1, _E1} = get_range(Field),
+	  Type = refac_syntax:typed_record_type(Node),
+	  {_S2, E2} = get_range(Type),
+	  refac_syntax:add_ann({range, {S1, E2}}, Node);
       record_expr ->
 	  Arg = refac_syntax:record_expr_argument(Node),
 	  Type = refac_syntax:record_expr_type(Node),
@@ -1464,10 +1470,11 @@ do_add_range(Node, Toks) ->
 	  refac_syntax:add_ann({range, {S1, E2}}, Node);
       error_marker ->
 	  refac_syntax:add_ann({range, {{L,C}, {L,C}}}, Node);
-      type ->
+      type ->   %% This is not correct, and need to be fixed!!
 	  refac_syntax:add_ann({range, {{L,C}, {L,C}}}, Node);
       _ ->
 	  ?wrangler_io("Unhandled syntax category:\n~p\n", [refac_syntax:type(Node)]),
+	  ?wrangler_io("File:\n~p\n", [FName]),
 	  ?wrangler_io("Node:\n~p\n", [Node]),
 	  Node
     end.
