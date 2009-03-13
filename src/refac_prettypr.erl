@@ -46,7 +46,7 @@
 	 floating/3,floating/1,break/1,follow/2,follow/3,
 	 empty/0]).
 
--import(erl_parse,
+-import(refac_parse,
 	[preop_prec/1,inop_prec/1,func_prec/0,max_prec/0]).
 
 -define(PADDING, 2).
@@ -872,7 +872,7 @@ lay_2(Node,Ctxt) ->
 		       beside(lay(N,Ctxt1),beside(text("("),beside(lay_elems(fun refac_prettypr_0:par/1, As, Args),floating(text(")")))))
 	       end,
 	    D1 = beside(floating(text("?")),D),
-	    maybe_parentheses(D1,0,Ctxt);    % must be conservative!
+	    D1; %%  maybe_parentheses(D1,0,Ctxt);    % must be conservative!
       parentheses ->  %% done;
 	  D = lay(refac_syntax:parentheses_body(Node),reset_prec(Ctxt)),
 	  lay_parentheses(D,Ctxt);
