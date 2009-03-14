@@ -440,6 +440,26 @@ collect_atoms(Tree, AtomName) ->
 			    end;
 			_ -> S
 		      end;
+		  record_expr -> Type = refac_syntax:record_expr_type(T),
+				 case refac_syntax:type(Type) of 
+				     atom -> S ++ [{record, refac_syntax:get_pos(Type)}];
+				     _ -> S
+				 end;
+		  record_field -> Name = refac_syntax:record_field_name(T),
+				   case refac_syntax:type(Name) of 
+				       atom -> S ++ [{record, refac_syntax:get_pos(Name)}];
+				       _ -> S
+				   end;				   
+		  record_access -> Type = refac_syntax:record_access_type(T),
+				   Field = refac_syntax:record_access_field(T),
+				   S1 =case refac_syntax:type(Type) of 
+					   atom -> S ++ [{record, refac_syntax:get_pos(Type)}];
+					   _ -> S
+				       end,
+				   case refac_syntax:type(Field) of 
+				       atom -> S1 ++ [{record, refac_syntax:get_pos(Field)}];
+				       _ -> S1
+				   end;
 		  atom ->
 		      case refac_syntax:atom_value(T) of
 			AtomName ->
