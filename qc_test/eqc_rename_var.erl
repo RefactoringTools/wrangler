@@ -1,8 +1,10 @@
 -module(eqc_rename_var).
 
--export([test_rename_var/1]).
+-export([test_rename_var/1, test_rename_var1/0]).
 
--include("c:/erl5.6.3/lib/eqc-1.14/include/eqc.hrl").
+-compile(export_all).
+
+-include_lib("eqc/include/eqc.hrl").
 
 %% Default variable names.
 madeup_vars() -> ["AAA", "BBB", "CCC"].
@@ -74,16 +76,19 @@ valid_rename_var_command1(AST, {_FName, Loc, NewName, _SearchPaths}) ->
     end.
 
 %% Properties for 'rename a variable name'
-prop_rename_var({FName, Loc, NewName, SearchPaths}) ->
-    {ok, {AST, _Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths),
+prop_rename_var({FName, Loc, NewName, SearchPaths, TabWidth}) ->
+    {ok, {AST, _Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     ?IMPLIES((valid_rename_var_command1(AST, {FName, Loc, NewName, SearchPaths})),
 	      begin
 		  {Line, Col} = Loc,
-		  Args = [FName, Line, Col, NewName, SearchPaths],
+		  Args = [FName, Line, Col, NewName, SearchPaths, TabWidth],
 		  Res = try  apply(refac_rename_var, rename_var, Args) 
 		      catch 
-			  throw:_Error -> error;
-			   _E1:_E2 ->
+			  throw:Error -> 
+			      io:format("Error:\n~\pn", [Error]),
+			      error;
+			   E1:E2 ->
+			      io:format("E1:E2:\n~p\n", [{E1, E2}]),
 			      false
 		      end,
 		  case Res of 
@@ -92,7 +97,8 @@ prop_rename_var({FName, Loc, NewName, SearchPaths}) ->
 		      _ -> Res1 = (catch refac_util:parse_annotate_file(FName, false, SearchPaths)),
 			   case Res1 of 
 			       {ok, _} -> wrangler_undo_server:undo(),true;
-			       _ -> wrangler_undo_server:undo(),false
+			       _ -> io:format("\nResulted file does not Compile!\n"),
+				   wrangler_undo_server:undo(),false
 			   end
 		  end
 	      end).
@@ -111,7 +117,36 @@ gen_rename_var_commands_1(FileName, Dirs) ->
 		       true -> L
 		    end
 		end),
-	  oneof(vars_within_a_fun(AST, F, name)++ (madeup_vars())), Dirs})).
+	  oneof(vars_within_a_fun(AST, F, name)++ (madeup_vars())), Dirs, 8})).
 
 test_rename_var(Dirs) ->
     eqc:quickcheck(?FORALL(C, (gen_rename_var_commands(Dirs)), prop_rename_var(C))).
+
+
+test_rename_var1() ->
+    test_rename_var(["c:/cygwin/home/hl/test_codebase/tableau"]).
+
+
+test_rename_var2() ->
+    test_rename_var(["c:/cygwin/home/hl/test_codebase/eunit"]).
+
+test_rename_var3() ->
+    test_rename_var(["c:/cygwin/home/hl/test_codebase/refactorerl-0.5"]).
+
+test_rename_var4() ->
+    test_rename_var(["c:/cygwin/home/hl/test_codebase/suite"]).
+
+test_rename_var5() ->
+    test_rename_var(["c:/cygwin/home/hl/test_codebase/wrangler-0.7"]).
+
+test_rename_var6() ->
+    test_rename_var(["c:/cygwin/home/hl/test_codebase/umbria"]).
+
+test_rename_var7() ->
+    test_rename_var(["c:/cygwin/home/hl/test_codebase/yaws-1.77"]).
+
+test_rename_var8() ->
+    test_rename_var(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
+
+test_rename_var() ->
+    test_rename_var(["c:/cygwin/home/hl/test_codebase"]).
