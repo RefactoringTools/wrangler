@@ -1,0 +1,128 @@
+-module(eqc_new_macro).
+
+-compile(export_all).
+
+-include_lib("eqc/include/eqc.hrl").
+
+collect_expr_locs(AST) ->
+    F1 = fun(T,S) ->
+		 case refac_util:is_expr(T) of 
+		     true ->Range = refac_util:get_range(T),
+			    [Range|S];
+		     _ -> S
+		 end
+	 end,
+    F = fun (T, S) ->
+		case refac_syntax:type(T) of 
+		    function ->
+			refac_syntax_lib:fold(F1, [],T) ++ S;
+		    _ -> S
+		end
+	end,
+    Res = lists:usort(refac_syntax_lib:fold(F, [], AST)),
+    case Res of 
+	[] ->
+	     [{{0,0}, {0,0}}];
+	_ -> Res
+    end.
+
+%% Default function names.
+madeup_macro_names() -> ["aaa", "bbb", "ccc", "DDD", "111"].
+
+
+existing_macros(FileName, SearchPaths, TabWidth) -> 
+    Dir = filename:dirname(FileName),
+    DefaultIncl1 = [".","..", "../hrl", "../incl", "../inc", "../include"],
+    DefaultIncl2 = [filename:join(Dir, X) || X <-DefaultIncl1],
+    NewSearchPaths= SearchPaths++DefaultIncl2,
+    case refac_epp:parse_file(FileName, NewSearchPaths, [], TabWidth,refac_util:file_format(FileName))  of 
+	{ok, _, {MDefs, MUses}} -> 
+	    lists:usort(lists:map(fun({{_,Name}, _Def}) -> atom_to_list(Name) end, MDefs++MUses));	 
+	_ -> []
+    end.
+
+
+%% Collect atoms in an AST.
+collect_vars(AST) ->
+     F = fun(T, S) ->
+		 case refac_syntax:type(T) of
+		     variable ->
+		      Name = refac_syntax:variable_name(T),
+		      [atom_to_list(Name)] ++ S;
+		  _ -> S
+		end
+	end,
+    lists:usort(refac_syntax_lib:fold(F, madeup_macro_names(), AST)).
+
+%% filename newerator
+gen_filename(Dirs) ->
+    AllErlFiles = refac_util:expand_files(Dirs, ".erl"),
+    oneof(AllErlFiles).
+
+
+%% Properties for 'generalise a function'
+prop_new_macro({FName, Range, NewName, SearchPaths, TabWidth}) ->
+    {Start, End} = Range,
+    Args = [FName,Start, End, NewName, SearchPaths, TabWidth],
+    try  apply(refac_new_macro, new_macro, Args)  of
+	 {ok, Res} -> case refac_util:parse_annotate_file(FName, false, SearchPaths) of 
+			{ok, _} -> 
+			      wrangler_undo_server:undo(),
+			      io:format("\n~p\n", [{ok, Res}]),
+			      true;
+			  _ -> wrangler_undo_server:undo(), 
+			       io:format("\nResulted file does not compile!\n"),
+			       false
+		      end;
+	 {error, Msg} -> 
+	    io:format("\n~p\n", [{error,Msg}]),
+	    true	
+    catch 
+	throw:Error -> 
+	    io:format("Error:\n~\pn", [Error]),
+	    true;
+	  E1:E2 ->
+	    io:format("E1:E2:\n~p\n", [{E1, E2}]),
+	    false
+    end.
+	       
+gen_new_macro_commands(Dirs) ->
+    ?LET(FileName, (gen_filename(Dirs)),
+	 gen_new_macro_commands_1(FileName, Dirs)).
+
+%% generate 'gen a macroction' commands.
+gen_new_macro_commands_1(FileName, Dirs) ->
+    {ok, {AST, _Info}} = refac_util:parse_annotate_file(FileName, true, Dirs, 8),
+    Ms = existing_macros(FileName, Dirs, 8),
+    noshrink({FileName, oneof(collect_expr_locs(AST)), oneof(collect_vars(AST)++Ms), Dirs, 8}).
+
+show_new_macro_commands(Dirs)->
+    eqc:quickcheck(?FORALL (C, (gen_new_macro_commands(Dirs)), (eqc:collect(C, true)))).
+		
+	  
+test_new_macro(Dirs) ->
+    eqc:quickcheck(?FORALL(C, (gen_new_macro_commands(Dirs)), prop_new_macro(C))).
+
+test_new_macro1() ->
+    test_new_macro(["c:/cygwin/home/hl/test_codebase/tableau"]).
+
+test_new_macro2() ->
+    test_new_macro(["c:/cygwin/home/hl/test_codebase/eunit"]).
+
+test_new_macro3() ->
+    test_new_macro(["c:/cygwin/home/hl/test_codebase/refactorerl-0.5"]).
+
+test_new_macro4() ->
+    test_new_macro(["c:/cygwin/home/hl/test_codebase/suite"]).
+
+test_new_macro5() ->
+    test_new_macro(["c:/cygwin/home/hl/test_codebase/wrangler-0.7"]).
+
+test_new_macro6() ->
+    test_new_macro(["c:/cygwin/home/hl/test_codebase/umbria"]).
+
+test_new_macro7() ->
+    test_new_macro(["c:/cygwin/home/hl/test_codebase/yaws-1.77"]).
+
+test_new_macro8() ->
+    test_new_macro(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
