@@ -235,11 +235,15 @@ vars_to_export(Fun,ExprEndPos, ExprBdVars, _ExpList) ->
    %% LastExpr = lists:last(ExpList),
     AllVars = collect_vars(Fun),
     ExprBdVarsPos = lists:map(fun({_Var, Pos}) -> Pos end, ExprBdVars),
-    VarsToExport = lists:usort([V || {V, SourcePos, DefPos} <- AllVars,
-			      SourcePos > ExprEndPos,
-			      lists:subtract(DefPos, ExprBdVarsPos) == []]),
-   %% ?wrangler_io("VarsToExport:\n~p\n",[VarsToExport]),
-    VarsToExport.
+    VarsToExport = lists:keysort(2, [{V, SourcePos} || {V, SourcePos, DefPos} <- AllVars,
+				      SourcePos > ExprEndPos,
+				      lists:subtract(DefPos, ExprBdVarsPos) == []]),
+    VarsToExport1=lists:foldl(fun({V,_Pos}, Acc) -> case lists:member(V, Acc) of 
+						       false -> [V|Acc];
+						       _ -> Acc
+						   end
+			      end,[], VarsToExport),
+    lists:reverse(VarsToExport1).
 
 collect_vars(Tree) ->
      F= fun(T, S) ->
