@@ -573,7 +573,7 @@
 		(message "Refactoring failed: %s" rsn))
 	       (['rex ['ok refac_fun_extraction]]
 		(with-current-buffer buffer (progn (revert-buffer nil t t)
-						   (goto-line line-no)
+						   (goto-line start-line-no)
 						   (goto-column start-col-no)))
 							 ;;  (goto-char (get-position start-line-no start-col-no))))
 		(message "Refactoring succeeded!")))))))))
