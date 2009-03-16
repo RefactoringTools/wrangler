@@ -112,7 +112,7 @@
 (defun erlang-refactor-on()
   (interactive)
   (setq inferior-erlang-machine-options (list "-name" "wrangler@localhost"
-					      "-pz"  %EBIN_DIR%
+					      "-pa"  %EBIN_DIR%
 					      "-setcookie" (erl-cookie)))
   (save-window-excursion
     (let  ((inferior-erlang-process-name "Wrangler-Erl-Shell")
@@ -171,7 +171,7 @@
 	   (let* ((n (buffer-name b)) (n1 (substring n 0 1)))
 	     (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
 		 (setq changed (cons (buffer-name b) changed)))))
-	 (if changed (message-box (format "there are modified buffers: %s" changed))
+	 (if changed (message-box (format "There are modified buffers: %s, please save these buffers first." changed))
 	   (if (yes-or-no-p "Undo a refactoring will also undo the editings done after the refactoring, undo anyway?")
 	   (erl-spawn
 	     (erl-send-rpc wrangler-erl-node 'wrangler_undo_server 'undo (list))
@@ -205,7 +205,7 @@
 	(buffer (current-buffer)))
     (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
       (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
-	  (message-box "The current buffer has been changed")
+	  (message-box "The current buffer has been changed, please save it first.")
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'rename_var (list current-file-name line-no column-no name wrangler-search-paths tab-width))
 	  (erl-receive (buffer line-no column-no)
@@ -233,7 +233,7 @@
 	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
 	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
 	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s" changed))
+      (if changed (message-box (format "there are modified buffers: %s, please save these functions first." changed))
     (erl-spawn
       (erl-send-rpc wrangler-erl-node 'wrangler_distel 'rename_fun (list current-file-name line-no column-no name wrangler-search-paths tab-width))
       (erl-receive (buffer line-no column-no)
@@ -268,7 +268,7 @@
 	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
 	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
 	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s" changed))
+      (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
     (erl-spawn
       (erl-send-rpc wrangler-erl-node 'wrangler_distel 'rename_mod (list current-file-name name wrangler-search-paths tab-width))
       (erl-receive (buffer name)
@@ -303,7 +303,7 @@
 	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
 	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
 	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s" changed))
+      (if changed (message-box (format "there are modified buffers: %s, please save these buffers first" changed))
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'rename_process (list current-file-name line-no column-no name wrangler-search-paths tab-width))
       (erl-receive (buffer name current-file-name line-no column-no)
@@ -365,7 +365,7 @@
 	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
 	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
 	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s" changed))
+      (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'register_pid
 			(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width))
@@ -427,8 +427,7 @@
 	  
 (defun erl-refactor-move-fun (name)
   "Move a function definition from one module to another."
-  (interactive (list (erl-target-node)
-		     (read-string "Target Module name: ")
+  (interactive (list (read-string "Target Module name: ")
 		     ))
   (let ((current-file-name (buffer-file-name))
 	(line-no           (current-line-no))
@@ -440,7 +439,7 @@
 	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
 	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
 	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s" changed))
+      (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
     (erl-spawn
       (erl-send-rpc wrangler-erl-node 'wrangler_distel 'move_fun
 		    (list current-file-name line-no column-no name create-new-file wrangler-search-paths tab-width))
@@ -499,7 +498,7 @@
 	(end-col-no    (current-column-pos end)))
     (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
       (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
-	  (message-box "The current buffer has been changed")
+	  (message-box "The current buffer has been changed, please save the buffer first.")
 	(erl-spawn
       (erl-send-rpc wrangler-erl-node 'wrangler_distel 'generalise
 		    (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width))
@@ -563,7 +562,7 @@
 	(end-col-no    (current-column-pos end)))
     (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
       (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
-	  (message-box "The current buffer has been changed")
+	  (message-box "The current buffer has been changed, please save it first.")
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'fun_extraction
 			(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name tab-width))
@@ -593,7 +592,7 @@
 	(end-col-no    (current-column-pos end)))
     (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
       (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
-	  (message-box "The current buffer has been changed")
+	  (message-box "The current buffer has been changed, please save it first.")
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'new_macro
 			(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width))
@@ -708,7 +707,7 @@
 	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
 	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
 	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s" changed))
+      (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
         (erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'refac_fold_expression 'cursor_at_fun_clause(list current-file-name line-no column-no wrangler-search-paths tab-width))
 	  (erl-receive (buffer current-file-name line-no column-no)
@@ -868,7 +867,7 @@
 	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
 	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
 	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s" changed))
+      (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
     (erl-spawn
       (erl-send-rpc wrangler-erl-node 'wrangler_distel 'tuple_to_record
 		    (list current-file-name start-line-no start-col-no end-line-no end-col-no tab-width))
@@ -891,7 +890,7 @@
 	(buffer (current-buffer)))
     (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
       (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer)) 
-	  (message-box "The current buffer has been changed")
+	  (message-box "The current buffer has been changed, please save it first.")
     (erl-spawn
       (erl-send-rpc wrangler-erl-node 'wrangler_distel 'duplicated_code_in_buffer
 		    (list current-file-name mintokens minclones tab-width))
@@ -916,7 +915,7 @@
 	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
 	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
 	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s" changed))
+      (if changed (message-box (format "there are modified buffers: %s, please save it first." changed))
     (erl-spawn
       (erl-send-rpc wrangler-erl-node 'wrangler_distel 'duplicated_code_in_dirs
 		    (list wrangler-search-paths mintokens minclones tab-width))
@@ -941,7 +940,7 @@
 	(end-col-no    (current-column-pos end)))
     (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
       (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
-	  (message-box "The current buffer has been changed")
+	  (message-box "The current buffer has been changed, please save it first.")
     (erl-spawn
       (erl-send-rpc wrangler-erl-node 'wrangler_distel 'expression_search
 		    (list current-file-name start-line-no start-col-no end-line-no end-col-no tab-width))
@@ -1087,7 +1086,7 @@
 	   )
 	(if (equal input 'escape)
 	    (setq regions nil)
-	  (message "Press 'Enter' key to go to the next instance, any other key to exit.")
+	  (message "Press 'Enter' key to go to the next instance, 'Esc' key to exit.")
 	  )
 	)
       ))
@@ -1232,7 +1231,7 @@
 	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
 	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
 	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s" changed))
+      (if changed (message-box (format "there are modified buffers: %s, please save it first." changed))
     (erl-spawn
       (erl-send-rpc wrangler-erl-node 'wrangler_distel 'tuple_funpar (list current-file-name line-no column-no number wrangler-search-paths tab-width))
       (erl-receive (buffer line-no column-no)
@@ -1255,7 +1254,7 @@
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
-    (if (buffer-modified-p buffer) (message-box "Buffer has been changed")
+    (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'find_var_instances(list current-file-name line-no column-no wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
@@ -1317,7 +1316,7 @@
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
-    (if (buffer-modified-p buffer) (message-box "Buffer has been changed")
+    (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
       (if (yes-or-no-p "Only check the current buffer?")
 	  (erl-spawn
 	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'nested_case_exprs_in_file(list current-file-name level wrangler-search-paths tab-width))
@@ -1349,7 +1348,7 @@
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
-    (if (buffer-modified-p buffer) (message-box "Buffer has been changed")
+    (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
       	(if (yes-or-no-p "Only check the current buffer?")
 	  (erl-spawn
 	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'nested_if_exprs_in_file(list current-file-name level wrangler-search-paths tab-width))
@@ -1380,7 +1379,7 @@
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
-    (if (buffer-modified-p buffer) (message-box "Buffer has been changed")
+    (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
 	(if (yes-or-no-p "Only check the current buffer?")
 	  (erl-spawn
 	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'nested_receive_exprs_in_file(list current-file-name level wrangler-search-paths tab-width))
@@ -1413,7 +1412,7 @@
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
-    (if (buffer-modified-p buffer) (message-box "Buffer has been changed")
+    (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'caller_called_modules(list current-file-name wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
@@ -1433,7 +1432,7 @@
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
-    (if (buffer-modified-p buffer) (message-box "Buffer has been changed")
+    (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
       	(if (yes-or-no-p "Only check the current buffer?")
 	  (erl-spawn
 	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'long_functions_in_file(list current-file-name lines wrangler-search-paths tab-width))
@@ -1461,7 +1460,7 @@
   "Search for large modules"
   (interactive (list (read-string "Number of lines: ")))
   (let 	(buffer (current-buffer))
-    (if (buffer-modified-p buffer) (message-box "Buffer has been changed")
+    (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
       (erl-spawn
 	(erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'large_modules(list lines wrangler-search-paths tab-width))
 	(erl-receive (buffer)
@@ -1486,7 +1485,7 @@
 	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
 	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
 	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s" changed))
+      (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'caller_funs(list current-file-name line-no column-no  wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
@@ -1509,7 +1508,7 @@
 	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
 	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
 	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s" changed))
+      (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
 	(if (yes-or-no-p "Only check the current buffer?")
 	    (erl-spawn
 	      (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'non_tail_recursive_servers_in_file(list current-file-name wrangler-search-paths tab-width))
@@ -1544,7 +1543,7 @@
 	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
 	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
 	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s" changed))
+      (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
 	(if (yes-or-no-p "Only check the current buffer?")
 	    (erl-spawn
 	      (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'not_flush_unknown_messages_in_file(list current-file-name wrangler-search-paths tab-width))
