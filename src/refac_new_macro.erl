@@ -208,7 +208,7 @@ existing_macros(FileName, SearchPaths, TabWidth) ->
     DefaultIncl1 = [".","..", "../hrl", "../incl", "../inc", "../include"],
     DefaultIncl2 = [filename:join(Dir, X) || X <-DefaultIncl1],
     NewSearchPaths= SearchPaths++DefaultIncl2,
-    case refac_epp:parse_file(FileName, NewSearchPaths, [], TabWidth)  of 
+    case refac_epp:parse_file(FileName, NewSearchPaths, [], TabWidth, refac_util:file_format(FileName))  of 
 	{ok, _, {MDefs, MUses}} -> 
 	    lists:usort(lists:map(fun({{_,Name}, _Def}) -> Name end, MDefs++MUses));	 
 	_ -> {error, "The current file does not compile!"}
