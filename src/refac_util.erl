@@ -363,10 +363,7 @@ pos_to_syntax_units(Tree, Start, End, F) ->
 	     [[syntaxTree()]]).
 pos_to_syntax_units(FileName, Tree, Start, End, F, TabWidth) ->
     Res = pos_to_syntax_units_1(Tree, Start, End, F),
-    %% io:format("StartEnd:\n~p\n", [{Start, End}]),
-%%     io:format("Res:\n~p\n", [Res]),
     Res1 = filter_syntax_units(Res),
-   %% io:format("Res1:\n~p\n", [Res1]),
     Units = case length(Res1)=<1 of 
 		true ->
 		    [Res1];
@@ -390,7 +387,6 @@ pos_to_syntax_units_1(Tree, Start, End, F) ->
        (S > End) or (E < Start) -> [];
        (S < Start) or (E > End) ->
 	   Ts = refac_syntax:subtrees(Tree),
-	   %% io:format("Ts1:\n~p\n", [Ts]),
 	   R0 = [[pos_to_syntax_units_1(T, Start, End, F) || T <- G]
 		 || G <- Ts],
 	   lists:append(R0);
@@ -2272,17 +2268,20 @@ file_format(File) ->
     {ok, Bin} = file:read_file(File),
     S = erlang:binary_to_list(Bin),
     LEs = scan_line_endings(S),
-    case lists:all(fun(E) -> E=="\r\n" end, LEs) of 
-	true -> dos;
-	_ -> case lists:all(fun(E) -> E=="\r" end, LEs)  of
-		 true ->
-		     mac;
-		 _ -> case lists:all(fun(E)-> E=="\n" end, LEs) of
-			  true -> unix;
-			  _ -> throw({error, File ++ " uses a mixture of line endings,"
-				      " please normalise it to one of the standard file formats (i.e. unix/dos/mac) before performing any refactorings."})
-		      end
-	     end
+    case LEs of 
+	[] -> unix;    %% default fileformat;
+	_ ->  case lists:all(fun(E) -> E=="\r\n" end, LEs) of 
+		  true -> dos;
+		  _ -> case lists:all(fun(E) -> E=="\r" end, LEs)  of
+			   true ->
+			       mac;
+			   _ -> case lists:all(fun(E)-> E=="\n" end, LEs) of
+				    true -> unix;
+				    _ -> throw({error, File ++ " uses a mixture of line endings,"
+						" please normalise it to one of the standard file formats (i.e. unix/dos/mac) before performing any refactorings."})
+				end
+		       end
+	      end
     end.
 
 scan_line_endings(Cs)->
