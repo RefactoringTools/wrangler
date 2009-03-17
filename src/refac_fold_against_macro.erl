@@ -20,6 +20,9 @@
 
 -export([fold_against_macro/5, fold_against_macro_1/9, fold_against_macro_eclipse/5]).
 
+
+-export([fold_against_macro/6]).
+
 -include("../include/wrangler.hrl").
 
 %% =============================================================================================
@@ -46,13 +49,13 @@
 	      {error, string()} | {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), syntaxTree()}]}).
 
 fold_against_macro(FileName, Line, Col,  SearchPaths, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:fold_aginst_macro(~p, ~p,~p, ~p,~p).\n", [?MODULE, FileName, Line, Col, SearchPaths, TabWidth]),
     fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, emacs).
 
 fold_against_macro_eclipse(FileName, Line, Col,  SearchPaths, TabWidth) ->
     fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, eclipse).
 
 fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
-    ?wrangler_io("\nCMD: ~p:fold_aginst_macro(~p, ~p,~p, ~p,~p).\n", [?MODULE, FileName, Line, Col, SearchPaths, TabWidth]),
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case pos_to_macro_define(AnnAST, {Line, Col}) of 
 	{ok, MacroDef} ->
@@ -132,8 +135,9 @@ do_search_candidate_exprs_1(AnnAST, MacroBody, MacroParNames) ->
 				  case expr_unification(MacroBody, T, MacroParNames) of 
 				      {true, Subst} ->
 					  S ++ [{refac_util:get_range(T), Subst}];
+				      _ -> S
+				  end;
 			      _ -> S
-				  end
 			  end;
 		      false ->
 			  S
