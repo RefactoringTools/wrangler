@@ -55,7 +55,9 @@ gen_rename_mod_commands_1(FileName, Dirs) ->
     noshrink({FileName, oneof(collect_mod_names(Dirs)++madeup_mod_names()), Dirs, 8}).
 	
 test_rename_mod(Dirs) ->
-    eqc:quickcheck(?FORALL(C, (gen_rename_mod_commands(Dirs)), prop_rename_mod(C))).
+    application:start(wrangler_app),
+    eqc:quickcheck(?FORALL(C, (gen_rename_mod_commands(Dirs)), prop_rename_mod(C))),
+    application:stop(wrangler_app).
 
 
 test_rename_mod1() ->
@@ -82,3 +84,13 @@ test_rename_mod7() ->
 test_rename_mod8() ->
     test_rename_mod(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
 
+run_test() ->
+    test_rename_mod1(),
+    test_rename_mod2(),
+    test_rename_mod3(),
+    test_rename_mod4(),
+    test_rename_mod5(),
+    test_rename_mod6(),
+    test_rename_mod7(),
+    test_rename_mod8().
+    

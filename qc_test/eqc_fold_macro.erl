@@ -73,7 +73,9 @@ gen_fold_macro_commands(Dirs) ->
 		  oneof(collect_fold_candidates(FileName, Dirs, 8)))).
 
 test_fold_macro(Dirs) ->
-    eqc:quickcheck(?FORALL(C, (gen_fold_macro_commands(Dirs)), prop_fold_macro(C, Dirs))).
+    application:start(wrangler_app),
+    eqc:quickcheck(?FORALL(C, (gen_fold_macro_commands(Dirs)), prop_fold_macro(C, Dirs))),
+    application:stop(wrangler_app).
 
 test_fold_macro1() ->
     test_fold_macro(["c:/cygwin/home/hl/test_codebase/tableau"]).
@@ -100,5 +102,12 @@ test_fold_macro7() ->
 test_fold_macro8() ->
     test_fold_macro(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
 
-test_fold_macro() ->
-    test_fold_macro(["c:/cygwin/home/hl/test_codebase"]).
+run_test() ->
+    test_fold_macro1(),
+    test_fold_macro2(),
+    test_fold_macro3(),
+    test_fold_macro4(),
+    test_fold_macro5(),
+    test_fold_macro6(),
+    test_fold_macro7(),
+    test_fold_macro8().

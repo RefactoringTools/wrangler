@@ -102,7 +102,9 @@ gen_move_fun_commands_1(FileName, Dirs) ->
 
 
 test_move_fun(Dirs) ->
-    eqc:quickcheck(?FORALL(C, (gen_move_fun_commands(Dirs)), prop_move_fun(C))).
+    application:start(wrangler_app),
+    eqc:quickcheck(?FORALL(C, (gen_move_fun_commands(Dirs)), prop_move_fun(C))),
+    application:stop(wrangler_app).
 
 test_move_fun1() ->
     test_move_fun(["c:/cygwin/home/hl/test_codebase/tableau"]).
@@ -131,3 +133,13 @@ test_move_fun8() ->
 
 test_move_fun() ->
     test_move_fun(["c:/cygwin/home/hl/test_codebase"]).
+
+run_test() ->
+    test_move_fun1(),
+    test_move_fun2(),
+    test_move_fun3(),
+    test_move_fun4(),
+    test_move_fun5(),
+    test_move_fun6(),
+    test_move_fun7(),
+    test_move_fun8().

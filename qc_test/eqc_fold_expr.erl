@@ -77,7 +77,10 @@ gen_fold_expr_commands(Dirs) ->
 		  oneof(collect_fold_candidates(FileName, Dirs, 8)))).
 
 test_fold_expr(Dirs) ->
-    eqc:quickcheck(?FORALL(C, (gen_fold_expr_commands(Dirs)), prop_fold_expr(C, Dirs))).
+    application:start(wrangler_app),
+    eqc:quickcheck(?FORALL(C, (gen_fold_expr_commands(Dirs)), prop_fold_expr(C, Dirs))),
+    application:stop(wrangler_app).
+
 
 test_fold_expr1() ->
     test_fold_expr(["c:/cygwin/home/hl/test_codebase/tableau"]).
@@ -106,3 +109,14 @@ test_fold_expr8() ->
 
 test_fold_expr() ->
     test_fold_expr(["c:/cygwin/home/hl/test_codebase"]).
+
+
+run_test() ->
+    test_fold_expr1(),
+    test_fold_expr2(),
+    test_fold_expr3(),
+    test_fold_expr4(),
+    test_fold_expr5(),
+    test_fold_expr6(),
+    test_fold_expr7(),
+    test_fold_expr8().

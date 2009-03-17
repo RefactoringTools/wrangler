@@ -97,7 +97,9 @@ gen_new_macro_commands_1(FileName, Dirs) ->
     noshrink({FileName, oneof(collect_expr_locs(AST)), oneof(collect_vars(AST)++Ms), Dirs, 8}).
 
 show_new_macro_commands(Dirs)->
-    eqc:quickcheck(?FORALL (C, (gen_new_macro_commands(Dirs)), (eqc:collect(C, true)))).
+    application:start(wrangler_app),
+    eqc:quickcheck(?FORALL (C, (gen_new_macro_commands(Dirs)), (eqc:collect(C, true)))),
+    application:stop(wrangler_app).
 		
 	  
 test_new_macro(Dirs) ->
@@ -126,3 +128,13 @@ test_new_macro7() ->
 
 test_new_macro8() ->
     test_new_macro(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
+
+run_test() ->
+    test_new_macro1(),
+    test_new_macro2(),
+    test_new_macro3(),
+    test_new_macro4(),
+    test_new_macro5(),
+    test_new_macro6(),
+    test_new_macro7(),
+    test_new_macro8().

@@ -66,7 +66,7 @@ prop_new_fun({FName, Range, NewName, SearchPaths, TabWidth}) ->
 	    true	
     catch 
 	throw:Error -> 
-	    io:format("Error:\n~\pn", [Error]),
+	    io:format("Error:\n~p\n", [Error]),
 	    true;
 	  E1:E2 ->
 	    io:format("E1:E2:\n~p\n", [{E1, E2}]),
@@ -87,7 +87,11 @@ show_new_fun_commands(Dirs)->
 		
 	  
 test_new_fun(Dirs) ->
-    eqc:quickcheck(?FORALL(C, (gen_new_fun_commands(Dirs)), prop_new_fun(C))).
+    application:start(wrangler_app),
+    eqc:quickcheck(?FORALL(C, (gen_new_fun_commands(Dirs)), prop_new_fun(C))),
+    application:start(wrangler_app).
+	
+    
 
 test_new_fun1() ->
     test_new_fun(["c:/cygwin/home/hl/test_codebase/tableau"]).
@@ -112,3 +116,14 @@ test_new_fun7() ->
 
 test_new_fun8() ->
     test_new_fun(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
+
+
+run_test() ->
+    test_new_fun1(),
+    test_new_fun2(),
+    test_new_fun3(),
+    test_new_fun4(),
+    test_new_fun5(),
+    test_new_fun6(),
+    test_new_fun7(),
+    test_new_fun8().

@@ -83,7 +83,10 @@ show_tuple_commands(Dirs)->
 		
 	  
 test_tuple(Dirs) ->
-    eqc:quickcheck(?FORALL(C, (gen_tuple_commands(Dirs)), prop_tuple(C))).
+    application:start(wrangler_app),
+    eqc:quickcheck(?FORALL(C, (gen_tuple_commands(Dirs)), prop_tuple(C))),
+    application:stop(wrangler_app).
+
 
 test_tuple1() ->
     test_tuple(["c:/cygwin/home/hl/test_codebase/tableau"]).
@@ -108,3 +111,13 @@ test_tuple7() ->
 
 test_tuple8() ->
     test_tuple(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
+
+run_test() ->
+    test_tuple1(),
+    test_tuple2(),
+    test_tuple3(),
+    test_tuple4(),
+    test_tuple5(),
+    test_tuple6(),
+    test_tuple7(),
+    test_tuple8().

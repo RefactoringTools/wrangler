@@ -120,7 +120,9 @@ gen_rename_var_commands_1(FileName, Dirs) ->
 	  oneof(vars_within_a_fun(AST, F, name)++ (madeup_vars())), Dirs, 8})).
 
 test_rename_var(Dirs) ->
-    eqc:quickcheck(?FORALL(C, (gen_rename_var_commands(Dirs)), prop_rename_var(C))).
+    application:start(wrangler_app),
+    eqc:quickcheck(?FORALL(C, (gen_rename_var_commands(Dirs)), prop_rename_var(C))),
+    application:stop(wrangler_app).
 
 
 test_rename_var1() ->
@@ -150,3 +152,13 @@ test_rename_var8() ->
 
 test_rename_var() ->
     test_rename_var(["c:/cygwin/home/hl/test_codebase"]).
+
+run_test() ->
+    test_rename_var1(),
+    test_rename_var2(),
+    test_rename_var3(),
+    test_rename_var4(),
+    test_rename_var5(),
+    test_rename_var6(),
+    test_rename_var7(),
+    test_rename_var8().

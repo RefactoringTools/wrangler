@@ -108,7 +108,9 @@ gen_gen_fun_commands(Dirs) ->
 
 
 show_gen_fun_commands(Dirs)->
-    eqc:quickcheck(?FORALL (C, (gen_gen_fun_commands(Dirs)), (eqc:collect(C, true)))).
+    application:start(wrangler_app),
+    eqc:quickcheck(?FORALL (C, (gen_gen_fun_commands(Dirs)), (eqc:collect(C, true)))),
+    application:stop(wrangler_app).
 		
 	  
 test_gen_fun(Dirs) ->
@@ -137,3 +139,13 @@ test_gen_fun7() ->
 
 test_gen_fun8() ->
     test_gen_fun(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
+
+run_test() ->
+    test_gen_fun1(),
+    test_gen_fun2(),
+    test_gen_fun3(),
+    test_gen_fun4(),
+    test_gen_fun5(),
+    test_gen_fun6(),
+    test_gen_fun7(),
+    test_gen_fun8().

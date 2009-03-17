@@ -44,6 +44,8 @@ collect_atoms(AST) ->
 	end,
     lists:usort(refac_syntax_lib:fold(F, madeup_fun_names(), AST)).
 
+
+
 %% Collect all the function names (in terms of {functon_name, arity, define_position} in an AST.
 all_funs(AST) ->
     Fun = fun (T, S) ->
@@ -110,7 +112,9 @@ gen_rename_fun_commands_1(FileName, Dirs) ->
     noshrink({FileName, oneof(collect_fun_locs(AST)), oneof(collect_atoms(AST)), Dirs, 8}).
 	
 test_rename_fun(Dirs) ->
-    eqc:quickcheck(?FORALL(C, (gen_rename_fun_commands(Dirs)), prop_rename_fun(C))).
+    application:start(wrangler_app),
+    eqc:quickcheck(?FORALL(C, (gen_rename_fun_commands(Dirs)), prop_rename_fun(C))),
+    application:stop(wrangler_app).
 
 
 test_rename_fun1() ->
@@ -140,3 +144,13 @@ test_rename_fun8() ->
 
 test_rename_fun() ->
     test_rename_fun(["c:/cygwin/home/hl/test_codebase"]).
+
+run_test() ->
+    test_rename_fun1(),
+    test_rename_fun2(),
+    test_rename_fun3(),
+    test_rename_fun4(),
+    test_rename_fun5(),
+    test_rename_fun6(),
+    test_rename_fun7(),
+    test_rename_fun8().
