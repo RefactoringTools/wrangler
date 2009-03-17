@@ -111,7 +111,7 @@ update_function(File, FunList, DirList, TabWidth) ->
 		end
 	end,
     {AnnAST1, _} = refac_util:stop_tdTP(F, AnnAST, []),
-    wrangler_ast_server:update_ast({File, true, DirList, TabWidth},  {AnnAST1, Info, filelib:last_modified(File)}),
+    wrangler_ast_server:update_ast({File, true, DirList, TabWidth, refac_util:file_format(File)},  {AnnAST1, Info, filelib:last_modified(File)}),
     ok.
 
 annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
