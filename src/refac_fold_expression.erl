@@ -47,7 +47,7 @@
 	 fold_expr_by_name/7, fold_expr_by_name_eclipse/7,
 	 cursor_at_fun_clause/5]).
 
--export([expr_unification/2]).
+-export([expr_unification/2, fold_expression/6]).
 -include("../include/wrangler.hrl").
 %% =============================================================================================
 %% @spec fold_expression(FileName::filename(), Line::integer(), Col::integer())-> term()
@@ -58,6 +58,7 @@
 							 | {error, string()}).
 
 fold_expr_by_loc(FileName, Line, Col, SearchPaths, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:fold_expression(~p, ~p,~p,~p).\n", [?MODULE, FileName, Line, Col, TabWidth]),
     fold_expression(FileName, Line, Col, SearchPaths, TabWidth, emacs).
 
 -spec(fold_expr_by_loc_eclipse/5::(filename(), integer(), integer(), [dir()], integer()) -> {ok,  {syntaxTree(),
@@ -68,7 +69,6 @@ fold_expr_by_loc_eclipse(FileName, Line, Col, SearchPaths, TabWidth) ->
     fold_expression(FileName, Line, Col, SearchPaths, TabWidth, eclipse).
 
 fold_expression(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
-    ?wrangler_io("\nCMD: ~p:fold_expression(~p, ~p,~p,~p).\n", [?MODULE, FileName, Line, Col, TabWidth]),
     {ok, {AnnAST, Info}} =refac_util:parse_annotate_file(FileName,true, SearchPaths, TabWidth),
     {value, {module, CurrentModName}} = lists:keysearch(module, 1, Info),
     case pos_to_fun_clause(AnnAST, {Line, Col}) of 
