@@ -281,7 +281,7 @@ add_function(Tree, FunName, DefPos, Exp, SideEffect) ->
 			  Pats = refac_syntax:clause_patterns(C),
 			  G =  refac_syntax:clause_guard(C),
 			  Op = refac_syntax:operator(Name),    
-			  Args = [Expr | Pats],
+			  Args = Pats ++ [Expr],
 			  Body = [refac_syntax:application(Op, Args)],
 			  refac_syntax:clause(Pats, G, Body)
 		  end,
@@ -369,16 +369,16 @@ do_add_actual_parameter(Tree, {FunName, Arity, Exp, Info}) ->
 	      case application_info(Tree) of 
 		  {{none, FunName}, Arity} ->
 		      Exp1 = refac_util:update_ann(Exp, {range, {0, 0}}),
-		      Arguments1 = [Exp1 | Arguments],
+		      Arguments1 = Arguments ++ [Exp1],
 		      {refac_syntax:copy_attrs(Tree, refac_syntax:application(Operator, Arguments1)), true}; 
 		  {{ModName, FunName}, Arity} ->
 		      Exp1 = refac_util:update_ann(Exp, {range, {0,0}}),
-		      Arguments1 = [Exp1 | Arguments],
+		      Arguments1 = Arguments ++ [Exp1],
 		      {refac_syntax:copy_attrs(Tree, refac_syntax:application(Operator, Arguments1)), true};
 		  {{_, apply},2} ->
-		       F = lists:nth(1, Arguments),
-		       T = lists:nth(2, Arguments),
-		       case refac_syntax:type(F) of 
+		      F = lists:nth(1, Arguments),
+		      T = lists:nth(2, Arguments),
+		      case refac_syntax:type(F) of 
 			   implicit_fun ->
 			      Name = refac_syntax:implicit_fun_name(F),
 			      B = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Name)),
@@ -387,12 +387,12 @@ do_add_actual_parameter(Tree, {FunName, Arity, Exp, Info}) ->
 				  {FunName, Arity} ->
 				      Exp1 = refac_util:update_ann(Exp, {range, {0,0}}),
 				      case refac_syntax:type(T) of 
-					  list -> Args1 = refac_syntax:copy_attrs(T, refac_syntax:list([Exp1], T));
+					  list -> Args1 = refac_syntax:copy_attrs(T, refac_syntax:list( refac_syntax:list_elements(T) ++[Exp1]));
 					  _ -> Op = refac_syntax:operator('++'),
 					       L = refac_syntax:list([Exp1]),
-					       Args1 = refac_syntax:copy_attrs(T, refac_syntax:infix_expr(L,Op, T))
+					       Args1 = refac_syntax:copy_attrs(T, refac_syntax:infix_expr(T,Op, L))
 				      end,
-				      F1 = refac_syntax:arity_qualifier(refac_syntax:atom(FunName),
+				      F1 = refac_syntax:implicit_fun(refac_syntax:atom(FunName),
 								       refac_syntax:integer(Arity+1)),
 				      {refac_syntax:copy_pos(Tree, (refac_syntax:copy_attrs(Tree, refac_syntax:application
 									    (Operator, [F1, Args1])))), false};
@@ -417,7 +417,7 @@ do_add_actual_parameter(Tree, {FunName, Arity, Exp, Info}) ->
 						  Arity ->
 						      Exp1 =refac_util:update_ann(Exp, {range, {0,0}}),
 						      Args1 =refac_syntax:copy_attrs(Args, 
-										     refac_syntax:list([Exp1], Args)),
+										     refac_syntax:list(refac_syntax:list_elements(Args) ++[Exp1])),
 						      {refac_syntax:copy_pos(Tree, (refac_syntax:copy_attrs(Tree, 
 							refac_syntax:application(Operator, [Mod, Fun, Args1])))), true};
 						 _ -> {Tree, true}
@@ -494,7 +494,7 @@ transform_spawn_call(Node,{FunName, Arity, Exp, Info}) ->
 				Arity ->
 				    Exp1 =refac_util:update_ann(Exp, {range, {0,0}}),
 				    Args1 =refac_syntax:copy_attrs(Args, 
-								   refac_syntax:list([Exp1], Args)), 
+								   refac_syntax:list(refac_syntax:list_elements(Args)++[Exp1])), 
 				    App = if length(Arguments) == 4 ->
 						  refac_syntax:application(Operator, [N, Mod, Fun, Args1]);
 					     true -> refac_syntax:application(Operator, [Mod, Fun, Args1])
@@ -505,7 +505,7 @@ transform_spawn_call(Node,{FunName, Arity, Exp, Info}) ->
 			nil -> if Arity==0 ->
 				    Exp1 =refac_util:update_ann(Exp, {range, {0,0}}),
 				    Args1 =refac_syntax:copy_attrs(Args, 
-								   refac_syntax:list([Exp1], Args)), 
+								   refac_syntax:list(refac_syntax:list_elements(Args) ++[Exp1])), 
 
 				   App = if length(Arguments) == 4 ->
 					  refac_syntax:application(Operator, [N, Mod, Fun, Args1]);
@@ -600,7 +600,7 @@ add_parameter(C, NewPar) ->
     Pats = refac_syntax:clause_patterns(C),
     G    = refac_syntax:clause_guard(C),
     Body = refac_syntax:clause_body(C),
-    Pats1 = [NewPar|Pats],
+    Pats1 = Pats ++ [NewPar],
     refac_syntax:copy_pos(C, refac_syntax:copy_attrs(C, refac_syntax:clause(Pats1, G, Body))).
 
 
