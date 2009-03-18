@@ -1334,9 +1334,14 @@ is_integer(Node, Value) ->
 %% @see integer/1
 
 integer_value(Node) ->
-    case unwrap(Node) of
-      {integer, _, Value} -> Value;
-      Node1 -> data(Node1)
+    Res =case unwrap(Node) of
+	     {integer, _, Value} -> Value;
+	     Node1 -> data(Node1)
+	 end,
+    case is_integer(Res) of 
+	true ->
+	     Res;
+	_ -> list_to_integer(Res)
     end.
 
 %% =====================================================================
