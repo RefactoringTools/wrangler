@@ -1093,8 +1093,8 @@ do_add_range(Node, {FName, Toks}) ->
       char -> refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node);
 	
       integer ->
-	  Len = length(refac_syntax:integer_literal(Node)),
-	  refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
+	    Len = length(refac_syntax:integer_literal(Node)),
+	    refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
       string ->
 	    Toks1 = lists:dropwhile(fun (T) ->token_loc(T) < {L,C} end, Toks),
 	    {Toks21, Toks22} = lists:splitwith(fun(T) -> is_string(T) orelse is_whitespace_or_comment(T) end, Toks1),

@@ -88,7 +88,9 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 						    {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
 						    case Editor of 
 							emacs ->
-							    refac_util:write_refactored_files([{{FName, FName}, AnnAST2}]),
+							    SwpFName = FName ++ ".swp",
+							    file:write_file(SwpFName, list_to_binary(refac_prettypr:print_ast(unix, AnnAST2))),				    
+							    %% refac_util:write_refactored_files([{{FName, FName}, AnnAST2}]),
 							    {ok, "Refactor succeeded"};
 							eclipse ->
 							    {ok, [{FName, FName, refac_prettypr:print_ast(refac_util:file_format(FName),AnnAST2)}]}
