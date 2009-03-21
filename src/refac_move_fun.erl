@@ -421,20 +421,20 @@ do_transform_fun(Node, {{ModName, FunName, Arity}, TargetModName, InScopeFunsInT
  									   refac_syntax:atom(FunName1))),
  		     Node2= refac_syntax:copy_attrs(Node1,
  						     refac_syntax:application(Operator2,Arguments1)),
- 		     {Node2, true}
+ 		     {Node2, false}
  	     end,
     case refac_syntax:type(Node) of 
  	  application ->
- 	      Operator = refac_syntax:application_operator(Node),
- 	      Arguments = refac_syntax:application_arguments(Node),
- 	      case application_info(Node) of 
+	    Operator = refac_syntax:application_operator(Node),
+	    Arguments = refac_syntax:application_arguments(Node),
+	    case application_info(Node) of 
 		  {{none, F}, A} ->
   		      case {F, A} == {FunName, Arity} of 
-  			  true -> {Node, true};
+  			  true -> {Node, false};
   			  false ->  case refac_syntax:type(Operator) of 
 				       atom ->{M, F, A, _P} = get_fun_def_info(Operator),
 					       case lists:member({M, F, A}, InScopeFunsInTargetMod) of 
-						  true -> {Node, true};
+						  true -> {Node, false};
 						  _  ->MakeApp(Node, Operator, Arguments, M, F)
 					      end;
 				       _ -> {Node, false}
@@ -722,7 +722,7 @@ transform_apply_call(Node, {ModName, FunName, Arity}, TargetModName) ->
 	    implicit_fun ->
 		Name = refac_syntax:implicit_fun_name(Fun),
 		B = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Name)),
-		A = refac_syntax:atom_value(refac_syntax:arity_qualifier_argument(Name)),
+		A = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Name)),
 		case {B, A} of
 		  {FunName, Arity} ->
 		      FunName1 = refac_syntax:module_qualifier(refac_syntax:atom(TargetModName),
