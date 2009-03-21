@@ -114,7 +114,7 @@ generalise(FileName, Start={Line, Col}, End={Line1, Col1}, ParName, SearchPaths,
 					integer_to_list(FunArity+1)++" is already in scope!"};
 				_   -> FunDefPos =get_fun_def_loc(Fun), 
 				       ParName1 = list_to_atom(ParName),
-				       case gen_cond_analysis(Fun, Exp1, ParName1, refac_util:is_exported({FunName, FunArity},Info)) of 
+				       case gen_cond_analysis(Fun, Exp1, ParName1) of 
 					   ok -> 
 					       SideEffect = refac_util:has_side_effect(FileName, Exp1, SearchPaths),
 					       case SideEffect of  
@@ -180,7 +180,7 @@ make_actual_parameter(ModName, Exp, SideEffect) ->
 %% =====================================================================
 %% @spec gen_cond_analysis(Fun::function(), Exp::expression(), ParName::atom())-> term()
 %%
-gen_cond_analysis(Fun, Exp, ParName, IsExported) ->
+gen_cond_analysis(Fun, Exp, ParName) ->
      case lists:keysearch(category,1, refac_syntax:get_ann(Exp)) of 
 	{value, {category, record_field}} -> throw({error, "Record field cannot be replaced by a variable."});
         {value, {category, record_type}} -> throw({error, "Record type cannot be replaced by a variable."});	 
@@ -213,21 +213,7 @@ gen_cond_analysis(Fun, Exp, ParName, IsExported) ->
 		       {error, ("The given parameter name conflicts with the existing parameters or"++
 				" will change the semantics of the function to be generalised!")};
 		   _ ->
-		       case IsExported of 
-			   true -> Pats = lists:flatmap(fun(C) ->refac_syntax:clause_patterns(C) end, Cs),
-				   UnderScores =lists:flatmap(fun(Pat) ->refac_syntax_lib:fold(fun(P,A) ->
-												       case refac_syntax:type(P) of 
-													   underscore -> [P|A];
-													   _ -> A
-												       end
-											       end, [], Pat)
-							      end, Pats),
-				   case UnderScores of 
-				       [] -> ok;
-				       _ -> {error, "Please rename underscore(s) used in the function parameters to named variables first."}
-				   end;				    
-			   false -> ok
-		       end
+		      ok
 	       end
     end.
 
@@ -322,9 +308,10 @@ add_function(ModName, Tree, FunName, DefPos, Exp, SideEffect) ->
     Forms = refac_syntax:form_list_elements(Tree),
     MakeClause = fun(C, Expr, Name) ->
 			  Pats = refac_syntax:clause_patterns(C),
+			  Pats1 = lists:map(fun(P)->{P1, _} =refac_util:stop_tdTP(fun do_replace_underscore/2, P, []), P1 end, Pats),
 			  G =  refac_syntax:clause_guard(C),
 			  Op = refac_syntax:operator(Name),    
-			  Args = Pats ++ [Expr],
+			  Args = Pats1 ++ [Expr],
 			  Body = [refac_syntax:application(Op, Args)],
 			  refac_syntax:clause(Pats, G, Body)
 		  end,
@@ -344,6 +331,12 @@ add_function(ModName, Tree, FunName, DefPos, Exp, SideEffect) ->
 	end,		
     refac_syntax:form_list([T|| Form<-Forms, T <- F(Form)]).
 
+do_replace_underscore(Tree, _Others) ->
+    case refac_syntax:type(Tree) of 
+	underscore ->
+	   {refac_syntax:atom(undefined), true};
+	_ -> {Tree,false}
+    end.
 %% =====================================================================
 %%
 do_gen_fun(Tree, {ModName, ParName, FunName, Arity, DefPos,Info, Exp, SideEffect}) ->    
