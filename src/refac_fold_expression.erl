@@ -631,6 +631,8 @@ make_fun_call({FunDefMod, CurrentMod}, FunName, Pats, Subst) ->
 						   {value, {PName, Par}} -> Par;
 						   _ -> refac_syntax:atom(undefined)
 					       end;
+				   underscore -> 
+				       refac_syntax:atom(undefined);
 				   _  -> P
 			       end
 		     end, Pats),
