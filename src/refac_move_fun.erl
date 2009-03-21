@@ -583,7 +583,7 @@ do_add_module_qualifier(Node, {{ModName, FunName, Arity}, TargetModName}) ->
 									   refac_syntax:atom(FunName1))),
 		     Node2= refac_syntax:copy_attrs(Node1,
 						     refac_syntax:application(Operator2,Arguments1)),
-		     {Node2, true}
+		     {Node2, false}
 	     end,
    case refac_syntax:type(Node) of 
 	  application ->
@@ -600,6 +600,18 @@ do_add_module_qualifier(Node, {{ModName, FunName, Arity}, TargetModName}) ->
 		  {{_, spawn_link}, 4} ->transform_spawn_call(Node, {ModName, FunName, Arity}, TargetModName);
 		   _ -> {Node, false}
 	      end;
+       implicit_fun ->
+	   Name = refac_syntax:implicit_fun_name(Node),
+	   B = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Name)),
+	   A = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Name)),
+	   case {B, A} of
+	       {FunName, Arity} ->
+		   FunName1 = refac_syntax:module_qualifier(refac_syntax:atom(TargetModName),
+							    refac_syntax:atom(FunName)),
+		   Node1 = refac_syntax:implicit_fun(FunName1, refac_syntax:arity_qualifier_argument(Name)),
+		   {refac_syntax:copy_attrs(Node, Node1), true};
+	       _ -> {Node, false}
+	   end;
        _  -> {Node, false}
    end.
 %% ====================================================================================
