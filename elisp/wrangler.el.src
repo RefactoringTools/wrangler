@@ -28,6 +28,44 @@
 (require 'erl)
 (require 'erl-service)
 
+
+(defun my-ediff-qh()
+  "Function to be called when ediff quits."
+  (if (yes-or-no-p "Do you want to perform the changes?")
+      (erl-spawn
+	(erl-send-rpc wrangler-erl-node 'wrangler-preview-server 'commit (list))
+	(erl-receive ()
+	    ((['rex ['badrpc rsn]]
+	      (message "Commit failed: %S" rsn))
+	     (['rex ['error rsn]]
+	      (message "Commit failed: %s" rsn))
+	     (['rex ['ok files]]
+	      (dolist (f files)
+		(let ((swpbuffer (get-file-buffer (car f)))
+		      (buffer (get-file-buffer (car (cdr f))))
+		      (if buffer (with-current-buffer buffer (revert-buffer nil t t))
+			nil)
+		      (if swpbuffer (kill-buffer swpbuffer)
+			nil)))      
+	      (message "Refactoring succeeded."))))))
+    (erl-spawn
+      (erl-send-rpc wrangler-erl-node 'wrangler-preview-server 'abort (list))
+      (erl-receive ()
+	  ((['rex ['badrpc rsn]]
+	    (message "Aborting refactoring failed: %S" rsn))
+	   (['rex ['error rsn]]
+	    (message "Aborting refactoring failed: %s" rsn))
+	   (['rex ['ok files]]
+	    (dolist (f files)
+	      (let (buffer (get-file-buffer f))
+		(if buffer (kill-buffer buffer)
+		  nil)))
+	    (message "Refactoring aborted.")))))))
+  
+
+
+(add-hook 'ediff-quit-hook 'my-ediff-qh)
+
 (defvar refactor-menu-items
   '(nil
     ("Rename Variable Name" erl-refactor-rename-var)
@@ -208,17 +246,19 @@
 	  (message-box "The current buffer has been changed, please save it first.")
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'rename_var (list current-file-name line-no column-no name wrangler-search-paths tab-width))
-	  (erl-receive (buffer line-no column-no)
+	  (erl-receive (buffer line-no column-no current-file-name)
 	      ((['rex ['badrpc rsn]]
 		(message "Refactoring failed: %S" rsn))
 	       (['rex ['error rsn]]
 		(message "Refactoring failed: %s" rsn))
 	       (['rex ['ok refac-rename]]
-		(with-current-buffer buffer (progn (revert-buffer nil t t)
-						   (goto-line line-no)
-						   (goto-column column-no)))
-						  ;; (goto-char (get-position line-no column-no))))
-		(message "Refactoring succeeded!")))))))))
+		(if (yes-or-no-p "Do you want the preview the changes to be performed?")
+		    (ediff current-file-name (concat current-file-name ".swp"))
+		  (with-current-buffer buffer (progn (revert-buffer nil t t)
+						     (goto-line line-no)
+						     (goto-column column-no))))
+		  ;; (goto-char (get-position line-no column-no))))
+		  (message "Refactoring succeeded!")))))))))
 
 (defun erl-refactor-rename-fun (name)
   "Rename an identified function name."
@@ -516,7 +556,7 @@
 	    	(if (yes-or-no-p "Does the selected expression has side effect?")
 		    (erl-spawn
 		      (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_1 (list 'true current-file-name parname funname arity defpos exp tab-width))
-		      (erl-receive (buffer)
+		      (erl-receive (buffer start-line-no start-col-no)
 			  ((['rex ['badrpc rsn]]
 			    (message "Refactoring failed: %S" rsn))
 			   (['rex ['error rsn]]
