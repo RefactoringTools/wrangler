@@ -155,7 +155,7 @@ scan([C | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat)
     when C >= $0, C =< $9 ->                            % Numbers
     scan_number(Cs, [C], Toks, {Line, Col}, State, Errors, TabWidth,FileFormat);
 scan([$$ | Cs], Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->        % Character constant
-    scan_char(Cs, Stack, Toks, {Line, Col+2}, State, Errors, TabWidth,FileFormat);
+    scan_char(Cs, Stack, Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
 scan([$' | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->      % Quoted atom
     scan_qatom(Cs, [$', {Line, Col}], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
 scan([$" | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->      % String
@@ -297,7 +297,7 @@ name_char($@) -> true;
 name_char(_) -> false.
 
 scan_char([$\\ | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    sub_scan_escape(Cs, [fun scan_char_escape/8, $\\ | Stack], Toks, {Line, Col}, State, Errors, TabWidth,FileFormat);
+    sub_scan_escape(Cs, [fun scan_char_escape/8, $\\ | Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
 scan_char([$\n | Cs], Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
     scan(Cs, Stack, [{char, {Line, Col}, $\n} | Toks], {Line + 1, Col}, State, Errors, TabWidth,FileFormat);
 scan_char([], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
@@ -308,7 +308,8 @@ scan_char(Cs, Stack, Toks, {Line, Col}, State,Errors, TabWidth,FileFormat) ->
 scan_char_escape([nl | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     scan(Cs, Stack, [{char, {Line, Col}, $\n} | Toks], {Line + 1, 1}, State, Errors, TabWidth,FileFormat);
 scan_char_escape([C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    scan(Cs, Stack, [{char, {Line, Col}, C} | Toks],{Line, Col + 1}, State, Errors, TabWidth,FileFormat);
+    C1 = case Stack of  [$\\|_] -> escape_char(C);  _ -> C end,
+    scan(Cs, Stack, [{char, {Line, Col-1}, C1} | Toks],{Line, Col + 1}, State, Errors, TabWidth,FileFormat);
 scan_char_escape(Eof, _Stack, _Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     done(Eof, [{char, {Line, Col}} | Errors], [], {Line, Col + 1}, State, TabWidth,FileFormat).
 
