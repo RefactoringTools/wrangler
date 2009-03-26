@@ -26,8 +26,8 @@
 %% Function: start_link() -> {ok,Pid} | ignore | {error,Error}
 %% Description: Starts the server
 %%--------------------------------------------------------------------
--spec(start_ast_server() ->
-	     {ok, pid()} | ignore | {error, string()}).
+%%-spec(start_ast_server() ->
+%%	     {ok, pid()} | ignore | {error, string()}).
 start_ast_server() ->
     gen_server:start_link({local, wrangler_ast_server}, ?MODULE, [], []).
 
@@ -42,8 +42,8 @@ start_ast_server() ->
 %%                         {stop, Reason}
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
--spec(init/1::([dir()]) ->
-	      {ok, #state{}}).
+%%-spec(init/1::([dir()]) ->
+%%	      {ok, #state{}}).
 init(_Args) ->
     process_flag(trap_exit, true),
     case file:get_cwd() of
@@ -69,15 +69,15 @@ init(_Args) ->
     end.
   
 %%------------------------------------------------------------------
--spec(get_ast/1::({filename(), boolean(), [dir()], integer(), atom()}) ->
-	     {ok, {syntaxTree(), moduleInfo()}}).
+%%-spec(get_ast/1::({filename(), boolean(), [dir()], integer(), atom()}) ->
+%%	     {ok, {syntaxTree(), moduleInfo()}}).
 get_ast(Key={_FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat}) ->
     gen_server:call(wrangler_ast_server, {get,Key}, 500000).
 
  
--type(modifyTime()::{{integer(), integer(), integer()},{integer(), integer(), integer()}}).
--spec(update_ast/2::({filename(),boolean(), [dir()], integer(), atom()}, {syntaxTree(), moduleInfo(), modifyTime()}) ->
-	     ok).
+%%-type(modifyTime()::{{integer(), integer(), integer()},{integer(), integer(), integer()}}).
+%%-spec(update_ast/2::({filename(),boolean(), [dir()], integer(), atom()}, {syntaxTree(), moduleInfo(), modifyTime()}) ->
+%%	     ok).
 update_ast(Key={_FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat}, {AnnAST, Info, Time}) ->
     gen_server:cast(wrangler_ast_server, {update, {Key, {AnnAST, Info, Time}}}).
  
@@ -91,7 +91,7 @@ update_ast(Key={_FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat}, {
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
 
--spec(handle_call/3::({get,{filename(), boolean(), [dir()], integer()}}, any(), #state{}) -> {reply, {ok, {syntaxTree(), moduleInfo()}}, #state{}}).
+%%-spec(handle_call/3::({get,{filename(), boolean(), [dir()], integer(), atom()}}, any(), #state{}) -> {reply, {ok, {syntaxTree(), moduleInfo()}}, #state{}}).
 handle_call({get, Key}, _From, State) ->
     {Reply, State1} = get_ast(Key, State),
     {reply, Reply, State1}.
@@ -102,8 +102,8 @@ handle_call({get, Key}, _From, State) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
--spec(handle_cast/2::({update, {{filename(), boolean(), [dir()], integer()}, {syntaxTree(), moduleInfo(), modifyTime()}}}, #state{}) ->
-    {noreply, #state{}}).
+%%-spec(handle_cast/2::({update, {{filename(), boolean(), [dir()], integer()}, {syntaxTree(), moduleInfo(), modifyTime()}}}, #state{}) ->
+%%    {noreply, #state{}}).
 handle_cast({update, {Key, {AnnAST, Info, Time}}}, State) ->
     update_ast_1({Key, {AnnAST, Info, Time}}, State),
     {noreply, State}.
@@ -114,8 +114,8 @@ handle_cast({update, {Key, {AnnAST, Info, Time}}}, State) ->
 %%                                       {stop, Reason, State}
 %% Description: Handling all non call/cast messages
 %%--------------------------------------------------------------------
--spec(handle_info/2::(any(), #state{}) ->
-	      {noreply, #state{}}).
+%%-spec(handle_info/2::(any(), #state{}) ->
+%%	      {noreply, #state{}}).
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -126,7 +126,7 @@ handle_info(_Info, State) ->
 %% cleaning up. When it returns, the gen_server terminates with Reason.
 %% The return value is ignored.
 %%--------------------------------------------------------------------
--spec(terminate/2::(any(), #state{}) -> ok).
+%%-spec(terminate/2::(any(), #state{}) -> ok).
 terminate(_Reason, _State=#state{dets_tab=TabFile}) ->
     dets:close(TabFile),
     file:delete(TabFile).
@@ -135,15 +135,15 @@ terminate(_Reason, _State=#state{dets_tab=TabFile}) ->
 %% Func: code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% Description: Convert process state when code is changed
 %%--------------------------------------------------------------------
--spec(code_change/3::(any(), #state{}, any()) ->
-	      {ok, #state{}}).
+%%-spec(code_change/3::(any(), #state{}, any()) ->
+%%	      {ok, #state{}}).
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
--spec(get_ast/2::({filename(),boolean(), [dir()], integer(), atom()}, #state{}) -> {{ok, {syntaxTree(), moduleInfo()}}, #state{}}).	     
+%%-spec(get_ast/2::({filename(),boolean(), [dir()], integer(), atom()}, #state{}) -> {{ok, {syntaxTree(), moduleInfo()}}, #state{}}).      
 get_ast(Key={FileName,ByPassPreP, SearchPaths, TabWidth, FileFormat}, State=#state{dets_tab=TabFile, asts=ASTs}) ->
     case TabFile of 
 	none -> 
