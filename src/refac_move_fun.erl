@@ -53,15 +53,15 @@
 %% libary modules. 2) the undo process should remove the newly created file.
 %%  
 %% =====================================================================
--spec(move_fun/7::(filename(),integer(),integer(), string(), atom(),[dir()], integer())
-        -> {ok, [filename()]} | {error, string()}).
+%%-spec(move_fun/7::(filename(),integer(),integer(), string(), atom(),[dir()], integer())
+%%        -> {ok, [filename()]} | {error, string()}).
 
 move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabWidth) ->
     move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabWidth, emacs).
 
 
--spec(move_fun_eclipse/7::(filename(),integer(),integer(), string(), atom(),[dir()], integer())
-        ->  {ok, [{filename(), filename(), string()}]} | {error, string()}).
+%%-spec(move_fun_eclipse/7::(filename(),integer(),integer(), string(), atom(),[dir()], integer())
+%%        ->  {ok, [{filename(), filename(), string()}]} | {error, string()}).
 
 move_fun_eclipse(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabWidth) ->
     move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabWidth, eclipse).
@@ -72,7 +72,6 @@ move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabW
     {TargetFName, TargetModName} = get_target_file_mod_name(FName, TargetModorFileName),
     case TargetFName of 
 	FName -> {error, "The target module is the same as the current module."};
-	{error, Reason} -> {error, Reason};
 	_ -> case filelib:is_file(TargetFName) orelse CreateNewFile == t orelse CreateNewFile == true of
 		 true ->
 		     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
@@ -149,7 +148,7 @@ get_target_file_mod_name(CurrentFName, TargetModorFileName) ->
 		    end,
     case is_mod_name(TargetModName) of 
 	true -> {filename:join([filename:dirname(CurrentFName), TargetModName++".erl"]), TargetModName};
-	_  -> ErrMsg
+	_  -> throw(ErrMsg)
     end.
     
   
@@ -259,40 +258,34 @@ check_records(FileName, TargetFileName, FunDef, SearchPaths, TabWidth) ->
     case UsedRecords of 
 	[] -> true;
 	_ ->
-	    case refac_util:parse_annotate_file(FileName,false, SearchPaths, TabWidth) of 
-		{ok,{_, Info}} ->
-		    case lists:keysearch(records, 1, Info) of
-		      {value, {records, RecordDefs}} -> 
-			    UsedRecordDefs = [{Name, lists:keysort(1,[{F, format(FDef)} || {F, FDef} <-Fields])}
-					    || {Name, Fields} <-RecordDefs, lists:member(Name, UsedRecords)],
-			    case length(UsedRecords) > length(UsedRecordDefs) of 
-				true ->
-				    UnDefinedUsedRecords = UsedRecords -- [Name || {Name, _Fields} <- UsedRecordDefs],
-				    ?wrangler_io("\nThe following records are used by the function to be moved, but not defined:~p\n", [UnDefinedUsedRecords]),
-				    throw({error, "There are undefined records used by the function to be moved."});
-				_ -> case refac_util:parse_annotate_file(TargetFileName, false, SearchPaths, TabWidth) of 
-					 {ok, {_, Info1}} ->
-					     case lists:keysearch(records,1, Info1) of 
-						 {value, {records, RecordDefsInTargetFile}} ->
-						     UsedRecordDefsInTargetFile = [{Name, lists:keysort(1,[{F, format(FDef)} || {F, FDef} <-Fields])}
-										   || {Name, Fields} <-RecordDefsInTargetFile,
-										      lists:member(Name, UsedRecords)],
-						     case length(UsedRecords) > length(UsedRecordDefsInTargetFile) of 
-							 true -> throw({error, "Some records used by the function are not defined in the taret file."});
-							 _ -> case lists:keysort(1, UsedRecordDefs) == lists:keysort(1, UsedRecordDefsInTargetFile) of 
-								  true ->true;
-								  _  -> throw({error,  "Moving this function could change program semantics because of different record definitions."})
-							      end
-							 end;
-						 _ ->throw({error, "Some record(s) used by the function to be moved are not defined in the target file."})
-					     end;
-					 _ ->throw({error, "Refactoring failed because the target file does not compile."})
-				     end
-			    end;
-			_ ->
-			    throw({error, "Refactoring failed because of incomplete information about the record(s) used by this function."})
+	    {ok, {_, Info}} =refac_util:parse_annotate_file(FileName,false, SearchPaths, TabWidth),
+	    case lists:keysearch(records, 1, Info) of
+		{value, {records, RecordDefs}} -> 
+		    UsedRecordDefs = [{Name, lists:keysort(1,[{F, format(FDef)} || {F, FDef} <-Fields])}
+				      || {Name, Fields} <-RecordDefs, lists:member(Name, UsedRecords)],
+		    case length(UsedRecords) > length(UsedRecordDefs) of 
+			true ->
+			    UnDefinedUsedRecords = UsedRecords -- [Name || {Name, _Fields} <- UsedRecordDefs],
+			    ?wrangler_io("\nThe following records are used by the function to be moved, but not defined:~p\n", [UnDefinedUsedRecords]),
+			    throw({error, "There are undefined records used by the function to be moved."});
+			_ -> {ok, {_, Info1}} = refac_util:parse_annotate_file(TargetFileName, false, SearchPaths, TabWidth),
+			     case lists:keysearch(records,1, Info1) of 
+				 {value, {records, RecordDefsInTargetFile}} ->
+				     UsedRecordDefsInTargetFile = [{Name, lists:keysort(1,[{F, format(FDef)} || {F, FDef} <-Fields])}
+								   || {Name, Fields} <-RecordDefsInTargetFile,
+								      lists:member(Name, UsedRecords)],
+				     case length(UsedRecords) > length(UsedRecordDefsInTargetFile) of 
+					 true -> throw({error, "Some records used by the function are not defined in the taret file."});
+					 _ -> case lists:keysort(1, UsedRecordDefs) == lists:keysort(1, UsedRecordDefsInTargetFile) of 
+						  true ->true;
+						  _  -> throw({error,  "Moving this function could change program semantics because of different record definitions."})
+					      end
+				     end;
+				 _ ->throw({error, "Some record(s) used by the function to be moved are not defined in the target file."})
+			     end
 		    end;
-		_ -> throw({error, "Refactring failed because the current file does not compile."})
+		_ ->
+		    throw({error, "Refactoring failed because of incomplete information about the record(s) used by this function."})
 	    end
     end.
 					
