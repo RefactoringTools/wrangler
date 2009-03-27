@@ -215,13 +215,13 @@ scan([C | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat)
     when C >= $a, C =< $z ->                              % Atoms
     sub_scan_name(Cs, [C, fun scan_atom/8], Toks, {Line, Col}, State, Errors, TabWidth,FileFormat);
 scan([C | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat)
-    when C >= $ß, C =< $ÿ, C /= $÷ ->                     % Atoms
+    when C >= $\337, C =< $\377, C /= $\367 ->                     % Atoms
     sub_scan_name(Cs, [C, fun scan_atom/8], Toks, {Line, Col}, State, Errors, TabWidth,FileFormat);
 scan([C | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat)
     when C >= $A,C =< $Z ->                              % Variables
     sub_scan_name(Cs, [C, fun scan_variable/8], Toks, {Line, Col}, State, Errors, TabWidth,FileFormat);
 scan([C | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat)
-    when C >= $À, C =< $Þ, C /= $× ->                     % Variables
+    when C >= $\300, C =< $\336, C /= $\327 ->                     % Variables
     sub_scan_name(Cs, [C, fun scan_variable/8], Toks, {Line, Col}, State, Errors, TabWidth,FileFormat);
 scan([$_ | Cs], _Stack, Toks, {Line, Col}, State,   Errors, TabWidth,FileFormat) ->      % _Variables
     sub_scan_name(Cs, [$_, fun scan_variable/8], Toks, {Line, Col}, State, Errors, TabWidth,FileFormat);
@@ -362,9 +362,9 @@ sub_scan_name(Eof, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat)
     Fun(Eof, Name, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat).
 
 name_char(C) when C >= $a, C =< $z -> true;
-name_char(C) when C >= $ß, C =< $ÿ, C /= $÷ -> true;
+name_char(C) when C >= $\337, C =< $\377, C /= $\367 -> true;
 name_char(C) when C >= $A, C =< $Z -> true;
-name_char(C) when C >= $À, C =< $Þ, C /= $× -> true;
+name_char(C) when C >= $\300, C =< $\336, C /= $\327 -> true;
 name_char(C) when C >= $0, C =< $9 -> true;
 name_char($_) -> true;
 name_char($@) -> true;
@@ -479,7 +479,7 @@ sub_scan_escape([O1, O2, O3 | Cs], [Fun | Stack], Toks,
     when O1 >= $0, O1 =< $7, O2 >= $0, O2 =< $7, O3 >= $0,
 	 O3 =< $7 ->
     Val = (O1 * 8 + O2) * 8 + O3 - 73 * $0,
-    Fun([Val | Cs], Stack, Toks, {Line, Col}, State,
+    Fun([Val | Cs], Stack, Toks, {Line, Col+2}, State,
 	Errors, TabWidth,FileFormat);
 sub_scan_escape([O1, O2] = Cs, Stack, Toks, {Line, Col},
 		State, Errors, TabWidth,FileFormat)
@@ -490,7 +490,7 @@ sub_scan_escape([O1, O2 | Cs], [Fun | Stack], Toks,
 		{Line, Col}, State, Errors, TabWidth,FileFormat)
     when O1 >= $0, O1 =< $7, O2 >= $0, O2 =< $7 ->
     Val = O1 * 8 + O2 - 9 * $0,
-    Fun([Val | Cs], Stack, Toks, {Line, Col}, State,
+    Fun([Val | Cs], Stack, Toks, {Line, Col+1}, State,
 	Errors, TabWidth,FileFormat);
 sub_scan_escape([O1] = Cs, Stack, Toks, {Line, Col},
 		State, Errors, TabWidth,FileFormat)
