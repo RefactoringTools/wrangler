@@ -1,7 +1,7 @@
 
                     Wrangler, the Erlang Refactorer
                 a snapshot of our current prototype
-                            09/02/2009 
+                            19/03/2009 
               http://www.cs.kent.ac.uk/projects/forse/
 
 --------------------------------------------------------------------------------
@@ -19,27 +19,19 @@ manage to communication between the refactoring tool and
 Emacs. We are now also in the process of integrating Wrangler with 
 the Eclipse environment.
 
-When Emacs is used, Wrangler is supposed to be installed as part of
-Distel, therefore this snapshot includes both Distel and the current 
-snapshot of Wrangler (Wrangler 0.6.2). The Distel included in this snapshot 
-is Distel-4.03, which is downloadable from distel.googlecode.com.
-
-
 --------------------- how to build  ----------------------------
 
   See INSTALL or INSTALL.WIN32
 
 --------------------- the directory structure -------------------
 
-We try keep Distel's original directory structure.
-
-  INSTALL             <-  installation instructions of distel-wrangler
+  INSTALL             <-  installation instructions 
   INSTALL.WIN32       <-  installation instrunctions for Windows
   Makefile.in 
   README              <-  README file of Wrangler (you're reading this)
-  configure          
-  c_src               <-  C source code	
-  doc                 <-  documentation from Distel
+  configure           <-  confiure file
+  c_src               <-  C source code
+  doc                 <-  documentation
   ebin                <-  directory for Erlang beam files
   elisp               <-  elisp source files
   include             <-  Erlang .hrl files
@@ -61,7 +53,7 @@ We try keep Distel's original directory structure.
      
       M-x erlang-refactor-off 
 
-      'Refactor' and 'Inspector' will disappear from the menu bar.
+      'Refactor' and 'Inspector' will disappear in the menu bar.
 
   4. You could also use "Ctrl-c Ctrl-r" to toggle the refactorer on/off.
  
@@ -166,12 +158,34 @@ We try keep Distel's original directory structure.
  search for Erlang source files/header files that could be affected by a
  refactoring.
 
+-------------------------Changes from Wrangler-0.7.1--------------
+-- The snapshot is now R11 compatible.
+-- Bugfixe with the Emacs interface. The refactor menu is removed when the 
+   Wrangler node is down either normally or abnormally. 
+-- Bugfixe with rendering chars.
+
+-------------------------Changes from Wrangler-0.6.2---------------
+
+-- Reorganised code structure; less dependent on Distel.
+-- Wrangler menus have been moved to the menu bar.
+-- No longer need to start an Erlang node before starting Wrangler.
+-- No longer need to input the node name.
+-- 'Generalise a function definition' now adds the new parameter to the end of 
+   parameter list instead of the beginning.
+-- 'Function extraction' now reorders the variables exported, if there is any,
+   according their usage order. 
+-- Wrangler should now be able to handle different file formats 
+   (dos/unix/mac) correctly.
+-- Some improvements regarding layout preservation.
+-- A number of bug fixes.
+-- Improved error messages.
+   
 --------------------------Changes from Wrangle-0.6.1--------------
 -- the keyboard binding for undoing a refactoring has been changed to "C_c C_".
 -- Bugfix with displaying based integers and quoted atoms.
 -- Improved error messages.
 -- Corrected the source locations of macro names.                   
--- Typed record workaound.                 
+-- Typed record workaround.                 
 
 ---------------------------Changes from Wrangler-0.6-------------
 -- 'Move a function to another module' now allows moving a function even 
@@ -223,9 +237,9 @@ We try keep Distel's original directory structure.
   -- operators are now distinguished from expressions. 
   -- for renaming variable/function names, error messages are now
      disabled when the new name is the same as the old name. 
-  -- More checking has been added when appy/spawn/spawn_link is used.
+  -- More checking has been added when apply/spawn/spawn_link is used.
   -- bug fix within side-effect calculation. 
-  -- further checking has been added to detect whether undicidablity really    
+  -- further checking has been added to detect whether undecidability really    
      occurs when 'apply' is used. 
   -- generalise a function definition: the new parameter name captured later  
      introduced variables with the same name.
