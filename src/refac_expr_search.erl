@@ -18,7 +18,7 @@
 %% 
 -module(refac_expr_search).
 
--export([expr_search/4, var_binding_structure/1]).
+-export([expr_search/4, expr_search_eclipse/4, var_binding_structure/1]).
 
 -include("../include/wrangler.hrl").
 %% ================================================================================================
@@ -60,8 +60,22 @@ expr_search(FileName, Start={Line, Col}, End={Line1, Col1}, TabWidth) ->
 		     {ok, Res}
 	    end;
 	_   -> {error, "You have not selected an expression!"}
-    end.	    
+    end.     
 	  
+-spec(expr_search_eclipse/4::(filename(), pos(), pos(), integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
+expr_search_eclipse(FileName, Start, End, TabWidth) ->
+    {ok, {AnnAST, _Info}} =refac_util:parse_annotate_file(FileName,true, [], TabWidth),
+    case refac_util:pos_to_expr_list(FileName, AnnAST, Start, End, TabWidth) of 
+	[E|Es] -> 
+	    Res = case Es == [] of 
+		      true ->
+			  search_one_expr(AnnAST, E);
+		      _ -> 
+			  search_expr_seq(AnnAST, [E|Es])
+		  end,
+	    {ok, Res};	
+	_   -> {error, "You have not selected an expression!"}
+    end.     
 
 %% Search the clones of an expression from Tree.
 search_one_expr(Tree, Exp) ->
@@ -180,7 +194,7 @@ contained_exprs(Tree, MinLen) ->
       
 
 %% get the binding structure of variables.
--spec(var_binding_structure/1::([syntaxTree()]) -> [{integer(), integer()}]).	     
+%%-spec(var_binding_structure/1::([syntaxTree()]) -> [{integer(), integer()}]).      
 var_binding_structure(ASTList) ->
     Fun1 = fun (T, S) ->
 		   case refac_syntax:type(T) of
