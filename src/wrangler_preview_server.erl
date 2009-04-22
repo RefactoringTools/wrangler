@@ -81,22 +81,18 @@ init([]) ->
 %%--------------------------------------------------------------------
 
 handle_call(abort, _From, #state{files=Files}) ->
-   %% lists:foreach(fun({_,F}) ->
-	%%		  file:delete(F) end, Files),
     SwpFiles = lists:map(fun({_,F}) -> F end, Files),
     {reply, {ok, SwpFiles}, #state{files=[]}};
 
 handle_call(commit, _From, #state{files=Files}) ->
-    OldFiles = lists:map(fun({F1, _F2}) -> F1 end, Files),
-    FilesToBackup = lists:map(fun(F) ->
-				      {ok, Bin} = file:read_file(F), {{F, F}, Bin}
+    OldFiles = lists:map(fun({{F1,F2}, _Swp}) -> {F1,F2} end, Files),
+    FilesToBackup = lists:map(fun({F1, F2}) ->
+				      {ok, Bin} = file:read_file(F1), {{F1, F2}, Bin}
 			      end, OldFiles),
     wrangler_undo_server:add_to_history(FilesToBackup),
-    lists:foreach(fun({F1,F2}) ->
-			     file:copy(F2, F1) end, Files),
-    lists:foreach(fun({_F1,F2}) ->
-			  file:delete(F2) end, Files),
-    {reply, {ok, Files}, #state{files=[]}}.
+    lists:foreach(fun({{_F1,F2},Swp}) -> file:copy(Swp, F2) end, Files),
+    Files1 = lists:map(fun({{F1,F2}, Swp}) -> [F1, F2, Swp] end, Files),
+    {reply, {ok, Files1}, #state{files=[]}}.
     
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
