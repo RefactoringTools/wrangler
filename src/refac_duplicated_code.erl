@@ -145,7 +145,7 @@ loop(Port) ->
 %% </p>
 %% ====================================================================================
 
--spec(duplicated_code_eclipse/5::(dir(), integer(), integer(), integer(), string(), dir()) ->
+-spec(duplicated_code_eclipse/5::(dir(), integer(), integer(), integer(),  dir()) ->
  	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer()}]).
 
 duplicated_code_eclipse(DirFileList, MinLength1, MinClones1, TabWidth, SuffixTreeExec) ->
