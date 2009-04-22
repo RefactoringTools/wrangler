@@ -122,8 +122,8 @@ generalise(FileName, Start={Line, Col}, End={Line1, Col1}, ParName, SearchPaths,
 						   _ ->AnnAST1=gen_fun(ModName, AnnAST, ParName1, FunName, FunArity, FunDefPos,Info, Exp1, SideEffect),
 						       case Editor of 
 							   emacs ->
-							       refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
-							       {ok, "Refactor succeeded"};
+							       refac_util:write_refactored_files_for_preview([{{FileName,FileName}, AnnAST1}]),
+							       {ok, [FileName]};
 							   eclipse  ->
 							       Res = [{FileName, FileName, refac_prettypr:print_ast(refac_util:file_format(FileName),AnnAST1)}],
 							       {ok, Res}
