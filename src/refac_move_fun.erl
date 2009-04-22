@@ -99,13 +99,12 @@ move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabW
 										  {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth),
 					     case Editor of
 						 emacs ->
-						     refac_util:write_refactored_files([{{FName, FName}, AnnAST1},
-											{{TargetFName, TargetFName}, TargetAnnAST1}| Results]),
+						     refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST1},
+												    {{TargetFName, TargetFName}, TargetAnnAST1}| Results]),
 						     ChangedClientFiles =
 							 lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
 						     ChangedFiles = [FName, TargetFName| ChangedClientFiles],
-						     ?wrangler_io("The following files have been changed "
-								  "by this refactoring:\n~p\n", [ChangedFiles]),
+						     ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n", [ChangedFiles]),
 						     {ok, ChangedFiles};
 						 eclipse ->
 						     Results1 = [{{FName, FName}, AnnAST1},
@@ -119,9 +118,12 @@ move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabW
 					 false ->
 					     case Editor of
 						 emacs ->
-						     refac_util:write_refactored_files([{{FName, FName}, AnnAST1},
-											{{TargetFName, TargetFName}, TargetAnnAST1}]),
-						     {ok, [FName, TargetFName]};
+						     refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST1},
+												    {{TargetFName, TargetFName}, TargetAnnAST1}]),
+						     ChangedFiles = [FName, TargetFName],
+						     ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
+								  ChangedFiles),
+						     {ok, ChangedFiles};
 						 eclipse ->
 						     Results1 = [{{FName, FName}, AnnAST1}, {{TargetFName, TargetFName}, TargetAnnAST1}],
 						     Res = lists:map(fun ({{FName1, NewFName1}, AST}) ->
