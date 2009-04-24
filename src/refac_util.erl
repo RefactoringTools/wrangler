@@ -827,14 +827,14 @@ write_refactored_files_for_preview(Files) ->
 		case FileAST of 
 		    {{FileName,NewFileName}, AST} ->
 			FileFormat = file_format(FileName),
-			SwpFileName = FileName ++ ".swp",
+			SwpFileName = filename:rootname(FileName, ".erl") ++ ".swp.erl",
 			case file:write_file(SwpFileName, list_to_binary(refac_prettypr:print_ast(FileFormat, AST))) of 
 			    ok -> {{FileName,NewFileName, false},SwpFileName};
 			    _  -> error
 			end;			
 		    {{FileName,NewFileName, IsNew}, AST} ->
 			FileFormat = file_format(FileName),
-			SwpFileName = FileName ++ ".swp",
+			SwpFileName = filename:rootname(FileName, ".erl") ++ ".swp.erl",
 			case file:write_file(SwpFileName, list_to_binary(refac_prettypr:print_ast(FileFormat, AST))) of 
 			    ok -> {{FileName,NewFileName, IsNew},SwpFileName};
 			    _  -> error
