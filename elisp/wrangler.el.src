@@ -39,7 +39,7 @@
 	(progn
 	  (setq file-to-diff (car modified-files))
 	  (setq modified-files (cdr modified-files))
-	  (ediff file-to-diff (concat file-to-diff ".swp")))
+	  (ediff file-to-diff (concat (file-name-sans-extension file-to-diff) ".swp.erl")))
       (progn
 	(setq modified-files nil)
 	(commit-or-abort)))))
@@ -187,7 +187,7 @@
 (defun erlang-refactor-on()
   (interactive)
   (setq inferior-erlang-machine-options (list "-name" "wrangler@localhost"
-					      "-pa"    "EBIN_DIR"
+					      "-pa"    %EBIN_DIR%
 					      "-setcookie" (erl-cookie)))
   (save-window-excursion
     (let  ((inferior-erlang-process-name "Wrangler-Erl-Shell")
@@ -293,7 +293,7 @@
 		  (if (equal modified nil)
 		      (message "Refactoring finished, and no file has been changed.")
 		    (if (yes-or-no-p "Do you want to preview the changes to be performed?")
-			(ediff current-file-name (concat current-file-name ".swp"))
+			(ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl"))
 		      (commit-or-abort)))
 		  (with-current-buffer (get-file-buffer current-file-name)
 		    (goto-line line-no)
@@ -327,7 +327,7 @@
 		  (if (yes-or-no-p "Do you want to preview the changes to be performd?")
 		      (progn
 			(setq modified-files (cdr modified))
-			(ediff current-file-name (concat current-file-name ".swp")))
+			(ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl")))
 		    (commit-or-abort))
 		  (with-current-buffer (get-file-buffer current-file-name)
 		    (goto-line line-no)
@@ -359,7 +359,7 @@
 	    (if (yes-or-no-p "Do you want to preview the changes to be performd?")
 		(progn
 		  (setq modified-files (cdr modified))
-		  (ediff current-file-name (concat current-file-name ".swp")))
+		  (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl")))
 	      (commit-or-abort))))))))))
 	      
 ;; 	    (with-current-buffer buffer
@@ -411,7 +411,7 @@
 			 (if (yes-or-no-p "Do you want to preview the changes to be performd?")
 			     (progn
 			       (setq modified-files (cdr modified))
-			       (ediff current-file-name (concat current-file-name ".swp")))
+			       (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl")))
 			   (commit-or-abort))
 			 (with-current-buffer (get-file-buffer current-file-name)
 			   (goto-line line-no)
@@ -422,7 +422,7 @@
 	      (if (yes-or-no-p "Do you want to preview the changes to be performd?")
 		  (progn
 		    (setq modified-files (cdr modified))
-		    (ediff current-file-name (concat current-file-name ".swp")))
+		    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl")))
 		(commit-or-abort))
 	      (with-current-buffer (get-file-buffer current-file-name)
 		(goto-line line-no)
@@ -481,7 +481,7 @@
 					  (if (yes-or-no-p "Do you want to preview the changes to be performd?")
 					      (progn
 						(setq modified-files (cdr modified))
-						(ediff current-file-name (concat current-file-name ".swp")))
+						(ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl")))
 					    (commit-or-abort))
 					  (with-current-buffer (get-file-buffer current-file-name)
 					    (goto-line start-line-no)
@@ -493,7 +493,7 @@
 			      (if (yes-or-no-p "Do you want to preview the changes to be performd?")
 				  (progn
 				    (setq modified-files (cdr modified))
-				    (ediff current-file-name (concat current-file-name ".swp")))
+				    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl")))
 				(commit-or-abort))
 			      (with-current-buffer (get-file-buffer current-file-name)
 				(goto-line start-line-no)
@@ -515,7 +515,7 @@
 			      (if (yes-or-no-p "Do you want to preview the changes to be performd?")
 				  (progn
 				    (setq modified-files (cdr modified))
-				    (ediff current-file-name (concat current-file-name ".swp")))
+				    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl")))
 				(commit-or-abort))
 			      (with-current-buffer (get-file-buffer current-file-name)
 				(goto-line start-line-no)
@@ -527,7 +527,7 @@
 		   (if (yes-or-no-p "Do you want to preview the changes to be performd?")
 		       (progn
 			 (setq modified-files (cdr modified))
-			 (ediff current-file-name (concat current-file-name ".swp")))
+			 (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl")))
 		     (commit-or-abort))
 		   (with-current-buffer (get-file-buffer current-file-name)
 		     (goto-line start-line-no)
@@ -562,7 +562,7 @@
 	      (if (yes-or-no-p "Do you want to preview the changes to be performd?")
 		  (progn
 		    (setq modified-files (cdr modified))
-		    (ediff current-file-name (concat current-file-name ".swp")))
+		    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl")))
 		(commit-or-abort))
 	      (with-current-buffer (get-file-buffer current-file-name)
 		(goto-line line-no)
@@ -632,7 +632,7 @@
 			    (message "Refactoring failed: %s" rsn))
 			   (['rex ['ok modified]]
 			    (if (yes-or-no-p "Do you want to preview the changes to be performed?")
-				(ediff current-file-name (concat current-file-name ".swp"))
+				(ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl"))
 			      (commit-or-abort))
 			    (with-current-buffer (get-file-buffer current-file-name)
 			      (goto-line start-line-no)
@@ -646,14 +646,14 @@
 			    (message "Refactoring failed: %s" rsn))
 			   (['rex ['ok modified]]
 			    (if (yes-or-no-p "Do you want to preview the changes to be performed?")
-				(ediff current-file-name (concat current-file-name ".swp"))
+				(ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl"))
 			      (commit-or-abort))
 			    (with-current-buffer (get-file-buffer current-file-name)
 			      (goto-line start-line-no)
 			      (goto-column start-col-no))))))))
 	   (['rex ['ok refac-generalisation]]
 	    (if (yes-or-no-p "Do you want to preview the changes to be performed?")
-		(ediff current-file-name (concat current-file-name ".swp"))
+		(ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl"))
 	      (commit-or-abort))
 	    (with-current-buffer (get-file-buffer current-file-name)
 	      (goto-line start-line-no)
@@ -684,7 +684,7 @@
 		(message "Refactoring failed: %s" rsn))
 	       (['rex ['ok modified]]
 		(if (yes-or-no-p "Do you want to preview the changes to be performed?")
-		    (ediff current-file-name (concat current-file-name ".swp"))
+		    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl"))
 		  (commit-or-abort))
 		(with-current-buffer (get-file-buffer current-file-name)
 		  (goto-line start-line-no)
@@ -715,7 +715,7 @@
 		(message "Refactoring failed: %s" rsn))
 	       (['rex ['ok modified]]
 		(if (yes-or-no-p "Do you want to preview the changes to be performed?")
-		    (ediff current-file-name (concat current-file-name ".swp"))
+		    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl"))
 		  (commit-or-abort))
 		(with-current-buffer (get-file-buffer current-file-name)
 		  (goto-line start-line-no)
@@ -771,7 +771,7 @@
 			(message "Refactoring failed: %s" rsn))
 		       (['rex ['ok modified]]
 			(if (yes-or-no-p "Do you want to preview the changes to be performed?")
-			    (ediff current-file-name (concat current-file-name ".swp"))
+			    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl"))
 			  (commit-or-abort))
 			(with-current-buffer (get-file-buffer current-file-name)
 			  (goto-line line-no)
@@ -852,7 +852,7 @@
 		       (message "Refactoring failed: %s" rsn))
 		      (['rex ['ok modified]]
 		       (if (yes-or-no-p "Do you want to preview the changes to be performed?")
-			   (ediff current-file-name (concat current-file-name ".swp"))
+			   (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl"))
 			 (commit-or-abort))
 		       (with-current-buffer (get-file-buffer current-file-name)
 			 (goto-line line-no)
@@ -902,7 +902,7 @@
 		    (message "Refactoring failed: %s" rsn))
 		   (['rex ['ok modified]]
 		    (if (yes-or-no-p "Do you want to preview the changes to be performed?")
-			(ediff current-file-name (concat current-file-name ".swp"))
+			(ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl"))
 		      (commit-or-abort))
 		    (with-current-buffer (get-file-buffer current-file-name)
 		      (goto-line line-no)
@@ -1045,7 +1045,7 @@
 			    (if (yes-or-no-p "Do you want to preview the changes to be performd?")
 				(progn
 				  (setq modified-files (cdr modified))
-				  (ediff current-file-name (concat current-file-name ".swp")))
+				  (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl")))
 			      (commit-or-abort))
 			    (with-current-buffer (get-file-buffer current-file-name)
 			      (goto-line line-no)
@@ -1056,7 +1056,7 @@
 		  (if (yes-or-no-p "Do you want to preview the changes to be performd?")
 		      (progn
 			(setq modified-files (cdr modified))
-			(ediff current-file-name (concat current-file-name ".swp")))
+			(ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl")))
 		    (commit-or-abort))
 		  (with-current-buffer (get-file-buffer current-file-name)
 		    (goto-line line-no)
@@ -1212,7 +1212,7 @@
 	      (if (yes-or-no-p "Do you want to preview the changes to be performd?")
 		  (progn
 		    (setq modified-files (cdr modified))
-		    (ediff current-file-name (concat current-file-name ".swp")))
+		    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl")))
 		(commit-or-abort))
 	      (with-current-buffer (get-file-buffer current-file-name)
 		(goto-line line-no)
@@ -1302,7 +1302,7 @@
 	      (if (yes-or-no-p "Do you want to preview the changes to be performd?")
 		  (progn
 		    (setq modified-files (cdr modified))
-		    (ediff current-file-name (concat current-file-name ".swp")))
+		    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".swp.erl")))
 		(commit-or-abort))
 	      (with-current-buffer (get-file-buffer current-file-name)
 		(goto-line line-no)
