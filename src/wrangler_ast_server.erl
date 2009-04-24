@@ -144,6 +144,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 %%-spec(get_ast/2::({filename(),boolean(), [dir()], integer(), atom()}, #state{}) -> {{ok, {syntaxTree(), moduleInfo()}}, #state{}}).      
+
+get_ast({FileName, false, SearchPaths, TabWidth, FileFormat}, State) -> %% always re-parse; otherwise need to check the change time of .hrl files.
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file_1(FileName, false, SearchPaths, TabWidth, FileFormat),
+    log_errors(FileName, Info),
+    {{ok, {AnnAST, Info}}, State};	
 get_ast(Key={FileName,ByPassPreP, SearchPaths, TabWidth, FileFormat}, State=#state{dets_tab=TabFile, asts=ASTs}) ->
     case TabFile of 
 	none -> 
