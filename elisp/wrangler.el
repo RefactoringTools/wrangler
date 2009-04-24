@@ -187,7 +187,7 @@
 (defun erlang-refactor-on()
   (interactive)
   (setq inferior-erlang-machine-options (list "-name" "wrangler@localhost"
-					      "-pa"  "C:/cygwin/home/hl/wrangler/share/wrangler/ebin"
+					      "-pa"    "EBIN_DIR"
 					      "-setcookie" (erl-cookie)))
   (save-window-excursion
     (let  ((inferior-erlang-process-name "Wrangler-Erl-Shell")
