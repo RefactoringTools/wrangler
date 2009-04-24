@@ -36,7 +36,7 @@
   "Function to be called when ediff quits."
   (if (equal modified-files nil)
       (commit-or-abort)
-    (if (yes-or-no-p "Do you want to preview changes made to other files?")
+    (if (y-or-n-p "Do you want to preview changes made to other files?")
 	(progn
 	  (setq file-to-diff (car modified-files))
 	  (setq modified-files (cdr modified-files))
@@ -52,7 +52,7 @@
 
 (defun commit-or-abort()
   "commit or abort the refactoring result."
-  (if (yes-or-no-p "Do you want to perform the changes?")
+  (if (y-or-n-p "Do you want to perform the changes?")
       (erl-spawn
 	(erl-send-rpc wrangler-erl-node 'wrangler_preview_server 'commit (list))
 	(erl-receive ()
@@ -198,7 +198,7 @@
 (defun erlang-refactor-on()
   (interactive)
   (setq inferior-erlang-machine-options (list "-name" "wrangler@localhost"
-					      "-pa"   "C:/cygwin/home/hl/wrangler/share/wrangler/ebin"
+					      "-pa"   %EBIN_DIR%
 					      "-setcookie" (erl-cookie)))
   (save-window-excursion
     (let  ((inferior-erlang-process-name "Wrangler-Erl-Shell")
@@ -259,7 +259,7 @@
 	     (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
 		 (setq changed (cons (buffer-name b) changed)))))
 	 (if changed (message-box (format "There are modified buffers: %s, please save these buffers first." changed))
-	   (if (yes-or-no-p "Undo a refactoring will also undo the editings done after the refactoring, undo anyway?")
+	   (if (y-or-n-p "Undo a refactoring will also undo the editings done after the refactoring, undo anyway?")
 	   (erl-spawn
 	     (erl-send-rpc wrangler-erl-node 'wrangler_undo_server 'undo (list))
 	     (erl-receive (buffer)
@@ -302,7 +302,7 @@
 		(progn
 		  (if (equal modified nil)
 		      (message "Refactoring finished, and no file has been changed.")
-		    (if (yes-or-no-p "Do you want to preview the changes to be performed?")
+		    (if (y-or-n-p "Do you want to preview the changes to be performed?")
 			(ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
 		      (commit-or-abort)))
 		  (with-current-buffer (get-file-buffer current-file-name)
@@ -334,7 +334,7 @@
 		(message "Refactoring failed: %s" rsn))
 	       (['rex ['ok modified]]
 		(progn
-		  (if (yes-or-no-p "Do you want to preview the changes to be performd?")
+		  (if (y-or-n-p "Do you want to preview the changes to be performd?")
 		      (progn
 			(setq modified-files (cdr modified))
 			(ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
@@ -366,7 +366,7 @@
 	   (['rex ['error rsn]]
 	    (message "Refactoring failed: %s" rsn))
 	   (['rex ['ok modified]]
-	    (if (yes-or-no-p "Do you want to preview the changes to be performd?")
+	    (if (y-or-n-p "Do you want to preview the changes to be performd?")
 		(progn
 		  (setq modified-files (cdr modified))
 		  (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
@@ -394,7 +394,7 @@
 	   (['rex ['error rsn]]
 	    (message "Refactoring failed: %s" rsn))
 	   (['rex ['undecidables oldname]]
-	   (if (yes-or-no-p "Do you want to continue the refactoring?")
+	   (if (y-or-n-p "Do you want to continue the refactoring?")
 	       (erl-spawn
 		 (erl-send-rpc wrangler-erl-node 'refac_rename_process 'rename_process_1
 			       (list current-file-name oldname name wrangler-search-paths tab-width))
@@ -405,7 +405,7 @@
 		       (message "Refactoring failed: %s" rsn))
 		      (['rex ['ok modified]]
 		       (progn
-			 (if (yes-or-no-p "Do you want to preview the changes to be performd?")
+			 (if (y-or-n-p "Do you want to preview the changes to be performd?")
 			     (progn
 			       (setq modified-files (cdr modified))
 			       (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
@@ -416,7 +416,7 @@
 	     (message "Refactoring aborted!")))
 	   (['rex ['ok modified]]
 	    (progn
-	      (if (yes-or-no-p "Do you want to preview the changes to be performd?")
+	      (if (y-or-n-p "Do you want to preview the changes to be performd?")
 		  (progn
 		    (setq modified-files (cdr modified))
 		    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
@@ -454,7 +454,7 @@
 	       (['rex ['error rsn]]
 		(message "Refactoring failed: %s" rsn))
 	       (['rex ['unknown_pnames regpids]]
-		(if (yes-or-no-p "Do you want to continue the refactoring?")
+		(if (y-or-n-p "Do you want to continue the refactoring?")
 		    (erl-spawn
 		      (erl-send-rpc wrangler-erl-node 'refac_register_pid 'register_pid_1
 				    (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name regpids wrangler-search-paths tab-width))
@@ -464,7 +464,7 @@
 			   (['rex ['error rsn]]
 			    (message "Refactoring failed: %s" rsn))
 			   (['rex ['unknown_pids pars]]
-			    (if (yes-or-no-p "Do you want to continue the refactoring?")
+			    (if (y-or-n-p "Do you want to continue the refactoring?")
 				(erl-spawn
 				  (erl-send-rpc wrangler-erl-node 'refac_register_pid 'register_pid_2
 						(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width))
@@ -475,7 +475,7 @@
 					(message "Refactoring failed: %s" rsn))
 				       (['rex ['ok modified]]
 					(progn
-					  (if (yes-or-no-p "Do you want to preview the changes to be performd?")
+					  (if (y-or-n-p "Do you want to preview the changes to be performd?")
 					      (progn
 						(setq modified-files (cdr modified))
 						(ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
@@ -487,7 +487,7 @@
 			      (message "Refactoring aborted!")))
 			   (['rex ['ok modified]]
 			    (progn
-			      (if (yes-or-no-p "Do you want to preview the changes to be performd?")
+			      (if (y-or-n-p "Do you want to preview the changes to be performd?")
 				  (progn
 				    (setq modified-files (cdr modified))
 				    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
@@ -498,7 +498,7 @@
 			    ))))
 		  (message "Refactoring aborted!")))
 	       (['rex ['unknown_pids pars]]
-		(if (yes-or-no-p "Do you want to continue the refactoring?")
+		(if (y-or-n-p "Do you want to continue the refactoring?")
 		    (erl-spawn
 		      (erl-send-rpc wrangler-erl-node 'refac_register_pid 'register_pid_2
 				    (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width))
@@ -509,7 +509,7 @@
 			    (message "Refactoring failed: %s" rsn))
 			   (['rex ['ok modified]]
 			    (progn
-			      (if (yes-or-no-p "Do you want to preview the changes to be performd?")
+			      (if (y-or-n-p "Do you want to preview the changes to be performd?")
 				  (progn
 				    (setq modified-files (cdr modified))
 				    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
@@ -521,7 +521,7 @@
 		  (message "Refactoring aborted!")))
 	       (['rex ['ok modified]]
 		 (progn
-		   (if (yes-or-no-p "Do you want to preview the changes to be performd?")
+		   (if (y-or-n-p "Do you want to preview the changes to be performd?")
 		       (progn
 			 (setq modified-files (cdr modified))
 			 (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
@@ -556,7 +556,7 @@
 	    (message "Refactoring failed: %s" rsn))
 	   (['rex ['ok modified]]
 	    (progn
-	      (if (yes-or-no-p "Do you want to preview the changes to be performd?")
+	      (if (y-or-n-p "Do you want to preview the changes to be performd?")
 		  (progn
 		    (setq modified-files (cdr modified))
 		    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
@@ -569,7 +569,7 @@
 
 (defun create-new-file-p (filename wrangler-search-paths)
   (if (equal (locate-file filename (cons (file-name-directory filename) nil) '("" ".erl")) nil)
-      (yes-or-no-p "The specified module does not exist, do you want to create one?")
+      (y-or-n-p "The specified module does not exist, do you want to create one?")
     t))
 
  
@@ -619,7 +619,7 @@
 		 (setq arity (elt pars 2))
 		 (setq defpos (elt pars 3))
 		 (setq exp (elt pars 4))
-	    	(if (yes-or-no-p "Does the selected expression has side effect?")
+	    	(if (y-or-n-p "Does the selected expression has side effect?")
 		    (erl-spawn
 		      (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_1 (list 'true current-file-name parname funname arity defpos exp tab-width))
 		      (erl-receive (start-line-no start-col-no current-file-name)
@@ -628,7 +628,7 @@
 			   (['rex ['error rsn]]
 			    (message "Refactoring failed: %s" rsn))
 			   (['rex ['ok modified]]
-			    (if (yes-or-no-p "Do you want to preview the changes to be performed?")
+			    (if (y-or-n-p "Do you want to preview the changes to be performed?")
 				(ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
 			      (commit-or-abort))
 			    (with-current-buffer (get-file-buffer current-file-name)
@@ -642,14 +642,14 @@
 			   (['rex ['error rsn]]
 			    (message "Refactoring failed: %s" rsn))
 			   (['rex ['ok modified]]
-			    (if (yes-or-no-p "Do you want to preview the changes to be performed?")
+			    (if (y-or-n-p "Do you want to preview the changes to be performed?")
 				(ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
 			      (commit-or-abort))
 			    (with-current-buffer (get-file-buffer current-file-name)
 			      (goto-line start-line-no)
 			      (goto-column start-col-no))))))))
 	   (['rex ['ok refac-generalisation]]
-	    (if (yes-or-no-p "Do you want to preview the changes to be performed?")
+	    (if (y-or-n-p "Do you want to preview the changes to be performed?")
 		(ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
 	      (commit-or-abort))
 	    (with-current-buffer (get-file-buffer current-file-name)
@@ -680,7 +680,7 @@
 	       (['rex ['error rsn]]
 		(message "Refactoring failed: %s" rsn))
 	       (['rex ['ok modified]]
-		(if (yes-or-no-p "Do you want to preview the changes to be performed?")
+		(if (y-or-n-p "Do you want to preview the changes to be performed?")
 		    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
 		  (commit-or-abort))
 		(with-current-buffer (get-file-buffer current-file-name)
@@ -711,7 +711,7 @@
 	       (['rex ['error rsn]]
 		(message "Refactoring failed: %s" rsn))
 	       (['rex ['ok modified]]
-		(if (yes-or-no-p "Do you want to preview the changes to be performed?")
+		(if (y-or-n-p "Do you want to preview the changes to be performed?")
 		    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
 		  (commit-or-abort))
 		(with-current-buffer (get-file-buffer current-file-name)
@@ -749,7 +749,7 @@
 		(if  (> (get-position line1 col1) last-position)
 		    (progn 
 		      (highlight-region line1 col1 line2  col2 buffer)
-		      (if (yes-or-no-p "Would you like to replace the highlighted expression(s) with macro application?")
+		      (if (y-or-n-p "Would you like to replace the highlighted expression(s) with macro application?")
 			  (progn
 			    (setq candidates-to-fold (cons new-cand candidates-to-fold))
 			    (setq last-position (get-position line2 col2)))
@@ -767,7 +767,7 @@
 		       (['rex ['error rsn]]
 			(message "Refactoring failed: %s" rsn))
 		       (['rex ['ok modified]]
-			(if (yes-or-no-p "Do you want to preview the changes to be performed?")
+			(if (y-or-n-p "Do you want to preview the changes to be performed?")
 			    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
 			  (commit-or-abort))
 			(with-current-buffer (get-file-buffer current-file-name)
@@ -796,7 +796,7 @@
 		(fold_expr_by_name wrangler-erl-node current-file-name (read-string "Module name: ") (read-string "Function name: ") (read-string "Arity ")
 				   (read-string "Clause index (starting from 1): ")))
 	       (['rex 'true]
-		(if (yes-or-no-p "Would you like to fold expressions against the function clause pointed by the cursor? ")
+		(if (y-or-n-p "Would you like to fold expressions against the function clause pointed by the cursor? ")
 		    (fold_expr_by_loc buffer current-file-name line-no column-no)
 		  (fold_expr_by_name buffer current-file-name (read-string "Module name: ") (read-string "Function name: ") (read-string "Arity: ")
 				     (read-string "Clause index (starting from 1): "))))
@@ -830,7 +830,7 @@
 	       (if  (> (get-position line1 col1) last-position)
 		   (progn 
 		     (highlight-region line1 col1 line2  col2 buffer)
-		     (if (yes-or-no-p "Would you like to fold this expression? ")
+		     (if (y-or-n-p "Would you like to fold this expression? ")
 			 (progn
 			   (setq candidates-to-fold (cons new-cand candidates-to-fold))
 			   (setq last-position (get-position line2 col2)))
@@ -848,7 +848,7 @@
 		      (['rex ['error rsn]]
 		       (message "Refactoring failed: %s" rsn))
 		      (['rex ['ok modified]]
-		       (if (yes-or-no-p "Do you want to preview the changes to be performed?")
+		       (if (y-or-n-p "Do you want to preview the changes to be performed?")
 			   (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
 			 (commit-or-abort))
 		       (with-current-buffer (get-file-buffer current-file-name)
@@ -880,7 +880,7 @@
 	    (if  (> (get-position line1 col1) last-position)
 		(progn 
 		  (highlight-region line1 col1 line2  col2 buffer)
-		  (if (yes-or-no-p "Would you like to fold this expression? ")
+		  (if (y-or-n-p "Would you like to fold this expression? ")
 		      (progn
 			(setq candidates-to-fold (cons new-cand candidates-to-fold))
 			(setq last-position (get-position line2 col2)))
@@ -898,7 +898,7 @@
 		   (['rex ['error rsn]]
 		    (message "Refactoring failed: %s" rsn))
 		   (['rex ['ok modified]]
-		    (if (yes-or-no-p "Do you want to preview the changes to be performed?")
+		    (if (y-or-n-p "Do you want to preview the changes to be performed?")
 			(ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
 		      (commit-or-abort))
 		    (with-current-buffer (get-file-buffer current-file-name)
@@ -1028,7 +1028,7 @@
 	   (['rex ['error rsn]]
 	    (message "Refactoring failed: %s" rsn))
 	   (['rex ['undecidables msg]]
-	     (if (yes-or-no-p "Do you still want to continue the refactoring?")
+	     (if (y-or-n-p "Do you still want to continue the refactoring?")
 		 (erl-spawn
 		   (erl-send-rpc wrangler-erl-node 'refac_fun_to_process 'fun_to_process_1
 				 (list current-file-name line-no column-no  name wrangler-search-paths tab-width))
@@ -1039,7 +1039,7 @@
 			 (message "Refactoring failed: %s" rsn))
 			(['rex ['ok modified]]
 			  (progn
-			    (if (yes-or-no-p "Do you want to preview the changes to be performd?")
+			    (if (y-or-n-p "Do you want to preview the changes to be performd?")
 				(progn
 				  (setq modified-files (cdr modified))
 				  (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
@@ -1050,7 +1050,7 @@
 	       (message "Refactoring aborted!")))
 	   (['rex ['ok modified]]
 	    (progn
-		  (if (yes-or-no-p "Do you want to preview the changes to be performd?")
+		  (if (y-or-n-p "Do you want to preview the changes to be performd?")
 		      (progn
 			(setq modified-files (cdr modified))
 			(ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
@@ -1206,7 +1206,7 @@
 	    (message "Refactoring failed: %s" rsn))
 	   (['rex ['ok modified]]
 	    (progn
-	      (if (yes-or-no-p "Do you want to preview the changes to be performd?")
+	      (if (y-or-n-p "Do you want to preview the changes to be performd?")
 		  (progn
 		    (setq modified-files (cdr modified))
 		    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
@@ -1255,7 +1255,7 @@
 			       (setq line2 (elt region 2))
 			       (setq col2 (elt region 3))
 			       (highlight-region line1 col1 line2  col2 buffer)
-			       (if (yes-or-no-p "Should a tag be added to this expression? ")
+			       (if (y-or-n-p "Should a tag be added to this expression? ")
 				   (erl-spawn (erl-send-rpc wrangler-erl-node 'refac_add_a_tag 'add_a_tag(list current-file-name name line1 col1 line2 col2 tab-width))
 				     (erl-receive (buffer)
 					 ((['rex ['badrpc rsn]]
@@ -1296,7 +1296,7 @@
 	    (message "Refactoring failed: %s" rsn))
 	   (['rex ['ok modified]]
 	    (progn
-	      (if (yes-or-no-p "Do you want to preview the changes to be performd?")
+	      (if (y-or-n-p "Do you want to preview the changes to be performd?")
 		  (progn
 		    (setq modified-files (cdr modified))
 		    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
@@ -1377,7 +1377,7 @@
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
     (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
-      (if (yes-or-no-p "Only check the current buffer?")
+      (if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
 	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'nested_case_exprs_in_file(list current-file-name level wrangler-search-paths tab-width))
 	    (erl-receive (buffer)
@@ -1409,7 +1409,7 @@
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
     (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
-      	(if (yes-or-no-p "Only check the current buffer?")
+      	(if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
 	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'nested_if_exprs_in_file(list current-file-name level wrangler-search-paths tab-width))
 	    (erl-receive (buffer)
@@ -1440,7 +1440,7 @@
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
     (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
-	(if (yes-or-no-p "Only check the current buffer?")
+	(if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
 	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'nested_receive_exprs_in_file(list current-file-name level wrangler-search-paths tab-width))
 	    (erl-receive (buffer)
@@ -1493,7 +1493,7 @@
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
     (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
-      	(if (yes-or-no-p "Only check the current buffer?")
+      	(if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
 	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'long_functions_in_file(list current-file-name lines wrangler-search-paths tab-width))
 	    (erl-receive (buffer)
@@ -1569,7 +1569,7 @@
 	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
 	      (setq changed (cons (buffer-name b) changed)))))
       (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
-	(if (yes-or-no-p "Only check the current buffer?")
+	(if (y-or-n-p "Only check the current buffer?")
 	    (erl-spawn
 	      (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'non_tail_recursive_servers_in_file(list current-file-name wrangler-search-paths tab-width))
 	      (erl-receive (buffer)
@@ -1604,7 +1604,7 @@
 	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
 	      (setq changed (cons (buffer-name b) changed)))))
       (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
-	(if (yes-or-no-p "Only check the current buffer?")
+	(if (y-or-n-p "Only check the current buffer?")
 	    (erl-spawn
 	      (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'not_flush_unknown_messages_in_file(list current-file-name wrangler-search-paths tab-width))
 	      (erl-receive (buffer)
