@@ -80,7 +80,7 @@ handle_call(undo, _From, State=#state{history=History}) ->
 	    {reply, {error, "No more history to undo!"}, State};
 	[H|T] -> 
 	    ok = undo_files(H),
-	    Modified = lists:map(fun({{OldFileName, NewFileName}, _Con})->
+	    Modified = lists:map(fun({{OldFileName, NewFileName,_}, _Con})->
 					 [OldFileName, NewFileName] end,H),
 	    {reply,{ok, Modified}, #state{history=T}}
     end.
@@ -128,12 +128,21 @@ undo_files(Files) ->
     case Files of 
 	[] ->
 	    ok;
-	[{{OldFileName,NewFileName}, Content}|T] -> 
+	[{{OldFileName,NewFileName, IsNew}, Content}|T] -> 
 	    case OldFileName == NewFileName of
-		true ->  file:write_file(OldFileName, Content),
-			 undo_files(T);
-		false -> file:write_file(OldFileName, Content),
-			 file:delete(NewFileName),
-			 undo_files(T)
-	    end
+		true -> case IsNew  of 
+			    true -> file:delete(NewFileName),
+				    undo_files(T);
+			    _ ->  file:write_file(OldFileName, Content),
+				  undo_files(T)
+			end;
+		false -> case IsNew of 
+			     true -> file:delete(OldFileName),
+				     file:delete(NewFileName),
+				     undo_files(T);
+			     _ ->  file:write_file(OldFileName, Content),
+				   file:delete(NewFileName),
+				   undo_files(T)
+			 end
+	        end
     end.

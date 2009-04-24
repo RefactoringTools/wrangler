@@ -823,20 +823,30 @@ write_refactored_files(Files) ->
     end.
 
 write_refactored_files_for_preview(Files) ->
-    F = fun ({{FileName,NewFileName}, AST}) ->
-		FileFormat = file_format(FileName),
-		SwpFileName = FileName ++ ".swp",
-		case file:write_file(SwpFileName, list_to_binary(refac_prettypr:print_ast(FileFormat, AST))) of 
-		    ok -> {{FileName,NewFileName},SwpFileName};
-		    _  -> error
-		end			
+    F = fun(FileAST) ->
+		case FileAST of 
+		    {{FileName,NewFileName}, AST} ->
+			FileFormat = file_format(FileName),
+			SwpFileName = FileName ++ ".swp",
+			case file:write_file(SwpFileName, list_to_binary(refac_prettypr:print_ast(FileFormat, AST))) of 
+			    ok -> {{FileName,NewFileName, false},SwpFileName};
+			    _  -> error
+			end;			
+		    {{FileName,NewFileName, IsNew}, AST} ->
+			FileFormat = file_format(FileName),
+			SwpFileName = FileName ++ ".swp",
+			case file:write_file(SwpFileName, list_to_binary(refac_prettypr:print_ast(FileFormat, AST))) of 
+			    ok -> {{FileName,NewFileName, IsNew},SwpFileName};
+			    _  -> error
+			end
+		    end
 	end,
     FilePairs = lists:map(F, Files),
     case lists:any(fun(R) -> R == error end, FilePairs) of 
 	true -> lists:foreach(fun(P) ->
 				      case P of 
 					  error -> ok;
-					  {ok, {{_F,_NewF},SwpF}} -> file:delete(SwpF)
+					  {_,SwpF} -> file:delete(SwpF)
 				      end
 			      end, FilePairs),
 		throw({error, "Wrangler failed to output the refactoring result."});

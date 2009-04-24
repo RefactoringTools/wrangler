@@ -79,10 +79,11 @@ move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabW
 			 {ok, Def} ->
 			     {value, {fun_def, {ModName, FunName, Arity, _Pos1, _Pos2}}} =
 				 lists:keysearch(fun_def, 1, refac_syntax:get_ann(Def)),
-			     case not filelib:is_file(TargetFName) andalso (CreateNewFile == t orelse CreateNewFile == true) of
-				 true -> create_new_file(TargetFName, TargetModName);
-				 _ -> ok
-			     end,
+			     NewTargetFile = case not filelib:is_file(TargetFName) andalso (CreateNewFile == t orelse CreateNewFile == true) of
+						 true -> create_new_file(TargetFName, TargetModName),
+							 true;
+						 _ -> false
+					     end,
 			     R = side_cond_check({FName, ModName, FunName, Arity, Def}, TargetFName, list_to_atom(TargetModName), Def, SearchPaths, TabWidth),
 			     case R of
 				 true ->
@@ -100,7 +101,7 @@ move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabW
 					     case Editor of
 						 emacs ->
 						     refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST1},
-												    {{TargetFName, TargetFName}, TargetAnnAST1}| Results]),
+												    {{TargetFName, TargetFName, NewTargetFile}, TargetAnnAST1}| Results]),
 						     ChangedClientFiles =
 							 lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
 						     ChangedFiles = [FName, TargetFName| ChangedClientFiles],
@@ -119,7 +120,7 @@ move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabW
 					     case Editor of
 						 emacs ->
 						     refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST1},
-												    {{TargetFName, TargetFName}, TargetAnnAST1}]),
+												    {{TargetFName, TargetFName, NewTargetFile}, TargetAnnAST1}]),
 						     ChangedFiles = [FName, TargetFName],
 						     ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
 								  ChangedFiles),

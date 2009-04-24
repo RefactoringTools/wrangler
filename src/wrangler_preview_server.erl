@@ -81,17 +81,25 @@ init([]) ->
 %%--------------------------------------------------------------------
 
 handle_call(abort, _From, #state{files=Files}) ->
-    SwpFiles = lists:map(fun({_,F}) -> F end, Files),
+    SwpFiles = lists:flatmap(fun({{F1, F2, IsNew},Swp}) -> 
+				 case IsNew of 
+				     false -> [Swp];
+				     _ -> case F1==F2 of 
+					      true ->[F1, Swp];
+					      _ -> [F1, F2, Swp]
+					  end
+				 end
+			 end, Files),
     {reply, {ok, SwpFiles}, #state{files=[]}};
 
 handle_call(commit, _From, #state{files=Files}) ->
-    OldFiles = lists:map(fun({{F1,F2}, _Swp}) -> {F1,F2} end, Files),
-    FilesToBackup = lists:map(fun({F1, F2}) ->
-				      {ok, Bin} = file:read_file(F1), {{F1, F2}, Bin}
+    OldFiles = lists:map(fun({{F1,F2,IsNew}, _Swp}) -> {F1,F2,IsNew} end, Files),
+    FilesToBackup = lists:map(fun({F1, F2, IsNew}) ->
+				      {ok, Bin} = file:read_file(F1), {{F1, F2, IsNew}, Bin}
 			      end, OldFiles),
     wrangler_undo_server:add_to_history(FilesToBackup),
-    lists:foreach(fun({{_F1,F2},Swp}) -> file:copy(Swp, F2) end, Files),
-    Files1 = lists:map(fun({{F1,F2}, Swp}) -> [F1, F2, Swp] end, Files),
+    lists:foreach(fun({{_F1,F2, _IsNew},Swp}) -> file:copy(Swp, F2) end, Files),
+    Files1 = lists:map(fun({{F1,F2, IsNew}, Swp}) -> [F1, F2, Swp, IsNew] end, Files),
     {reply, {ok, Files1}, #state{files=[]}}.
     
 %%--------------------------------------------------------------------
