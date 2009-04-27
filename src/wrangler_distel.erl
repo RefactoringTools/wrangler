@@ -80,6 +80,12 @@ duplicated_code_in_dirs(SearchPaths, MinLines, MinClones, TabWidth) ->
 expression_search(FName, StartLine, StartCol, EndLine, EndCol, TabWidth) ->
     wrangler:expression_search(FName, {StartLine, StartCol}, {EndLine, EndCol}, TabWidth).
 
+-spec(similar_expression_search/6::(filename(), integer(), integer(), integer(), integer(),integer()) ->
+	     {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
+similar_expression_search(FName, StartLine, StartCol, EndLine, EndCol, TabWidth) ->
+    wrangler:similar_expression_search(FName, {StartLine, StartCol}, {EndLine, EndCol}, TabWidth).
+
+
 -spec(fun_extraction/7::(filename(), integer(), integer(), integer(), integer(), string(), integer()) ->
 	      {error, string()} | {ok, string()}).
 
