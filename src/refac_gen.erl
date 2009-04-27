@@ -267,9 +267,6 @@ gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, TabWidth, E
 -spec(gen_fun_2_eclipse/8::(filename(), atom(), atom(), integer(), pos(), syntaxTree(), [dir()], integer()) 
 	  ->{ok, [{filename(), filename(),string()}]}|{unknown_side_effect, {atom(),atom(),integer(), pos(), syntaxTree()}}).
 gen_fun_2_eclipse(FileName, ParName1, FunName, FunArity, FunDefPos, Exp, SearchPaths, TabWidth) ->
-    gen_fun_2(FileName, ParName1, FunName, FunArity, FunDefPos, Exp, SearchPaths, TabWidth, eclipse).
-
-gen_fun_2(FileName, ParName1, FunName, FunArity, FunDefPos, Exp, SearchPaths,TabWidth, Editor) ->
     %% somehow I couldn't pass AST to elisp part, as some occurrences of 'nil' were turned into '[]'.
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName,true, SearchPaths, TabWidth),
     {ok, ModName} = get_module_name(Info),
@@ -277,24 +274,11 @@ gen_fun_2(FileName, ParName1, FunName, FunArity, FunDefPos, Exp, SearchPaths,Tab
     case SideEffect of  
 	false ->AnnAST1=gen_fun(ModName, AnnAST, ParName1, 
 				FunName, FunArity, FunDefPos,Info, Exp, SideEffect),
-		case Editor of 
-		    emacs ->
-			refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
-			{ok, "Refactor succeeded"};
-		    eclipse ->
-			Res = [{FileName, FileName, refac_prettypr:print_ast(refac_util:file_format(FileName),AnnAST1)}],
-			{ok, Res}
-		end;
-	true -> AnnAST1=gen_fun(ModName, AnnAST, ParName1, 
-				FunName, FunArity, FunDefPos,Info, Exp, SideEffect),
-		case Editor of 
-		    emacs ->
-			refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}]),
-			{ok, "Refactor succeeded"};
-		    eclipse ->
-			Res = [{FileName, FileName, refac_prettypr:print_ast(refac_util:file_format(FileName),AnnAST1)}],
-			{ok, Res}
-		end;
+		Res = [{FileName, FileName, refac_prettypr:print_ast(refac_util:file_format(FileName),AnnAST1)}],
+		{ok, Res};		
+	true -> AnnAST1=gen_fun(ModName, AnnAST, ParName1,FunName, FunArity, FunDefPos,Info, Exp, SideEffect),
+		Res = [{FileName, FileName, refac_prettypr:print_ast(refac_util:file_format(FileName),AnnAST1)}],
+		{ok, Res};		
 	unknown ->
 	    {unknown_side_effect, {ParName1, FunName, FunArity, FunDefPos,Exp}}
     end.	  
