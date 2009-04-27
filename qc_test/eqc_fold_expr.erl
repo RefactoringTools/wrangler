@@ -49,6 +49,7 @@ prop_fold_expr({FunName, Arity, StartLine, StartCol, EndLine, EndCol, NewExp, Cl
 		 io:format("\nCMDInfo: fold_expression_1:~p\n", [{FName, FunName, Arity, Index}]),
 		 try apply(refac_fold_expression, fold_expression_1, Args1) of 
 		     {ok, _Res} -> 
+			 wrangler_preview_server:commit(),
 			 case compile:file(FName, [{i, "c:/cygwin/home/hl/test_codebase"}]) of 
 			     {ok, _} ->  wrangler_undo_server:undo(),
 					 io:format("\nOk, refactoring succeeded.\n"),

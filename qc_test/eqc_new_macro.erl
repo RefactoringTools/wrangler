@@ -65,15 +65,17 @@ prop_new_macro({FName, Range, NewName, SearchPaths, TabWidth}) ->
     {Start, End} = Range,
     Args = [FName,Start, End, NewName, SearchPaths, TabWidth],
     try  apply(refac_new_macro, new_macro, Args)  of
-	 {ok, Res} -> case compile:file(FName, []) of 
-			{ok, _} -> 
-			      wrangler_undo_server:undo(),
-			      io:format("\n~p\n", [{ok, Res}]),
-			      true;
-			  _ -> wrangler_undo_server:undo(), 
-			       io:format("\nResulted file does not compile!\n"),
-			       false
-		      end;
+	 {ok, Res} -> 
+	    wrangler_preview_server:commit(),
+	    case compile:file(FName, []) of 
+		{ok, _} -> 
+		    wrangler_undo_server:undo(),
+		    io:format("\n~p\n", [{ok, Res}]),
+		    true;
+		_ -> wrangler_undo_server:undo(), 
+		     io:format("\nResulted file does not compile!\n"),
+		     false
+	    end;
 	 {error, Msg} -> 
 	    io:format("\n~p\n", [{error,Msg}]),
 	    true	

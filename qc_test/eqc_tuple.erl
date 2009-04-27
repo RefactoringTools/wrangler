@@ -42,15 +42,16 @@ prop_tuple({FName, Pos, Number, SearchPaths, TabWidth}) ->
     Args = [FName, Line, Col,  Number, SearchPaths, TabWidth],
     ?IMPLIES((Line=/=0),
 	     try  apply(refac_tuple, tuple_funpar, Args)  of
-		  {ok, Res} -> case compile:file(FName, []) of 
-				   {ok, _} -> 
-				       wrangler_undo_server:undo(),
-				       io:format("\n~p\n", [{ok, Res}]),
-				       true;
-				   _ -> wrangler_undo_server:undo(), 
-					io:format("\nResulted file does not compile!\n"),
+		  {ok, Res} ->
+		     wrangler_preview_server:commit(),
+		     case compile:file(FName, []) of 
+			 {ok, _} -> 
+			     wrangler_undo_server:undo(),
+			     true;
+			 _ -> wrangler_undo_server:undo(), 
+			      io:format("\nResulted file does not compile!\n"),
 					false
-			       end;
+		     end;
 		  {error, Msg} -> 
 		     io:format("\n~p\n", [{error,Msg}]),
 		     true	

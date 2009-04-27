@@ -94,12 +94,14 @@ prop_rename_var({FName, Loc, NewName, SearchPaths, TabWidth}) ->
 		  case Res of 
 		      false -> false;
 		      error -> true;
-		      _ -> Res1 = (catch compile:file(FName, [{i, "c:/cygwin/home/hl/test_codebase"}])),
-			   case Res1 of 
-			       {ok, _} -> wrangler_undo_server:undo(),true;
-			       _ -> io:format("\nResulted file does not Compile!\n"),
+		      _ -> 
+			  wrangler_preview_server:commit(),
+			  Res1 = (catch compile:file(FName, [{i, "c:/cygwin/home/hl/test_codebase"}])),
+			  case Res1 of 
+			      {ok, _} -> wrangler_undo_server:undo(),true;
+			      _ -> io:format("\nResulted file does not Compile!\n"),
 				   wrangler_undo_server:undo(),false
-			   end
+			  end
 		  end
 	      end).
 			

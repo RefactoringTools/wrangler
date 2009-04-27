@@ -22,6 +22,7 @@ prop_rename_mod({FName, NewName, SearchPaths, TabWidth}) ->
     Args = [FName, NewName, SearchPaths, TabWidth],
     try  apply(refac_rename_mod, rename_mod, Args) of
 	 {ok, ChangedFiles} -> 
+	    wrangler_preview_server:commit(),
 	    NewFileName = filename:dirname(FName)++"/"++NewName++".erl",
 	    ChangedFiles1= [NewFileName] ++ ChangedFiles -- [FName],
 	    Res =lists:all(fun(F) -> case compile:file(F, [{i, "c:/cygwin/home/hl/test_codebase"}]) of 

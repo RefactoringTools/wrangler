@@ -62,6 +62,7 @@ prop_move_fun({FName, Loc, TargetMod, CreateNewFile, SearchPaths, TabWidth}) ->
 		 TargetFile = get_target_file_name(FName,  TargetMod),
 		 try  apply(refac_move_fun, move_fun, Args)  of 
 		      {ok, Res} ->
+			 wrangler_preview_server:commit(),
 			 case compile:file(FName, []) of 
 			     {ok, _} ->
 				 case compile:file(TargetFile, []) of 

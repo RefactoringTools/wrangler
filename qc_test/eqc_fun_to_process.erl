@@ -47,6 +47,7 @@ prop_fun_to_process({FName, Loc, ProcessName, SearchPaths, TabWidth}) ->
 		 Args = [FName, Line, Col, ProcessName,SearchPaths, TabWidth],
  		 try  apply(refac_fun_to_process, fun_to_process, Args)  of 
 		      {ok, Res} ->
+			 wrangler_preview_server:commit(),
 			 case compile:file(FName, []) of 
 			     {ok, _} ->
 				 wrangler_undo_server:undo(),
@@ -63,6 +64,7 @@ prop_fun_to_process({FName, Loc, ProcessName, SearchPaths, TabWidth}) ->
 		      {undecidables, _} ->
 			  try apply(refac_fun_to_process, fun_to_process_1, Args) of 
 			      {ok, Res} ->
+				  wrangler_preview_server:commit(),
 				  case compile:file(FName, []) of 
 				      {ok, _} ->
 					  wrangler_undo_server:undo(),

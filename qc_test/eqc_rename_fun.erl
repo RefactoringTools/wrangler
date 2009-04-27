@@ -93,7 +93,7 @@ prop_rename_fun({FName, Loc, NewName, SearchPaths, TabWidth}) ->
 		      false -> false;
 		      error -> true;
 		      _ ->
-			  io:format("Res:\n~p\n", [Res]),
+			  wrangler_preview_server:commit(),
 			  Res1 = (catch compile:file(FName,[{i, SearchPaths}])), 
 			   case Res1 of 
 			       {ok, _} -> wrangler_undo_server:undo(),true;

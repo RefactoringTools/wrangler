@@ -45,7 +45,8 @@ prop_fold_macro({FName, StartLine, StartCol, EndLine, EndCol, MacroApp, MacroDef
 		 Args1 = [FName, StartLine, StartCol, EndLine, EndCol, MacroApp, MacroDef, SearchPaths, 8],
 		 try apply(refac_fold_against_macro, fold_against_macro_1, Args1) of 
 		     {ok, _Res} -> 
-			 case refac_util:parse_annotate_file(FName, false, SearchPaths) of 
+			 wrangler_preview_server:commit(),
+			 case compile:file(FName, [{i, "c:/cygwin/home/hl/test_codebase"}]) of
 			     {ok, _} ->  wrangler_undo_server:undo(),
 					 io:format("\nOk, refactoring succeeded.\n"),
 					 true;

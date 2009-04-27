@@ -62,21 +62,24 @@ prop_gen_fun({FName, Range, NewName, SearchPaths, TabWidth}) ->
     {Line, Col} = Range,
     Args = [FName, Line, Col, NewName, SearchPaths, TabWidth],
     try  apply(refac_gen, generalise, Args)  of
-	 {ok, Res} -> case compile:file(FName,[]) of 
-			{ok, _} -> 
-			      wrangler_undo_server:undo(),
-			      io:format("\n~p\n", [{ok, Res}]),
-			      true;
-			  _ -> wrangler_undo_server:undo(), 
-			       io:format("\nResulted file does not compile!\n"),
-			       false
-		      end;
+	 {ok, Res} -> 
+	    wrangler_preview_server:commit(),
+	    case compile:file(FName,[]) of 
+		{ok, _} -> 
+		    wrangler_undo_server:undo(),
+		    io:format("\n~p\n", [{ok, Res}]),
+		    true;
+		_ -> wrangler_undo_server:undo(), 
+		     io:format("\nResulted file does not compile!\n"),
+		     false
+	    end;
 	 {error, Msg} -> 
 	    io:format("\n~p\n", [{error,Msg}]),
 	    true;
 	 {unknown_side_effect,{ParName, FunName, FunArity, FunDefPos,Exp}} -> 
 	    try apply(refac_gen, gen_fun_1, [bool(), FName, ParName, FunName, FunArity, FunDefPos, Exp, TabWidth]) of 
 	 	{ok, Res} ->
+		    wrangler_preview_server:commit(),
 		    case compile:file(FName, []) of 
 			{ok, _} -> 
 			    wrangler_undo_server:undo(),
