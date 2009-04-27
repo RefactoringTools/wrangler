@@ -24,7 +24,7 @@ prop_rename_mod({FName, NewName, SearchPaths, TabWidth}) ->
 	 {ok, ChangedFiles} -> 
 	    NewFileName = filename:dirname(FName)++"/"++NewName++".erl",
 	    ChangedFiles1= [NewFileName] ++ ChangedFiles -- [FName],
-	    Res =lists:all(fun(F) -> case refac_util:parse_annotate_file(F, false, SearchPaths) of 
+	    Res =lists:all(fun(F) -> case compile:file(F, [{i, "c:/cygwin/home/hl/test_codebase"}]) of 
 					 {ok, _} ->
 					     true;
 					 _ -> io:format("\nResulted file does not compole!\n"),
@@ -87,10 +87,10 @@ test_rename_mod8() ->
 run_test() ->
     test_rename_mod1(),
     test_rename_mod2(),
-    test_rename_mod3(),
-    test_rename_mod4(),
-    test_rename_mod5(),
-    test_rename_mod6(),
-    test_rename_mod7(),
-    test_rename_mod8().
+   %%  test_rename_mod3(),
+%%     test_rename_mod4(),
+%%     test_rename_mod5(),
+    test_rename_mod6().
+  %%   test_rename_mod7(),
+%%     test_rename_mod8().
     

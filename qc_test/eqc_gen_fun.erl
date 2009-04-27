@@ -20,7 +20,14 @@ collect_expr_locs(FileName, Dirs) ->
 		    _ -> S
 		end
 	end,
-    lists:usort(refac_syntax_lib:fold(F, [], AST)).
+   Res = lists:usort(refac_syntax_lib:fold(F, [], AST)),
+   case Res of 
+       [] ->
+	    [{none, {{0,0},{0,0}}}];
+       _ -> Res
+   end.
+    
+ 
 
 %% Default variable names.
 madeup_vars() -> frequency([{8,oneof(["AAA", "BBB"])}, {2, oneof(["11", "AA-Vv"])}]).
@@ -39,7 +46,10 @@ vars_within_a_fun(F, PosOrName) ->
 		     _ -> S
 		   end
 	  end,
-    lists:usort(refac_syntax_lib:fold(Fun, [], F)).
+    case F of 
+	none -> [];
+	_ ->lists:usort(refac_syntax_lib:fold(Fun, [], F))
+    end.
    
 %% filename generator
 gen_filename(Dirs) ->
@@ -52,7 +62,7 @@ prop_gen_fun({FName, Range, NewName, SearchPaths, TabWidth}) ->
     {Line, Col} = Range,
     Args = [FName, Line, Col, NewName, SearchPaths, TabWidth],
     try  apply(refac_gen, generalise, Args)  of
-	 {ok, Res} -> case refac_util:parse_annotate_file(FName, false, SearchPaths) of 
+	 {ok, Res} -> case compile:file(FName,[]) of 
 			{ok, _} -> 
 			      wrangler_undo_server:undo(),
 			      io:format("\n~p\n", [{ok, Res}]),
@@ -67,7 +77,7 @@ prop_gen_fun({FName, Range, NewName, SearchPaths, TabWidth}) ->
 	 {unknown_side_effect,{ParName, FunName, FunArity, FunDefPos,Exp}} -> 
 	    try apply(refac_gen, gen_fun_1, [bool(), FName, ParName, FunName, FunArity, FunDefPos, Exp, TabWidth]) of 
 	 	{ok, Res} ->
-		    case refac_util:parse_annotate_file(FName, false, SearchPaths) of 
+		    case compile:file(FName, []) of 
 			{ok, _} -> 
 			    wrangler_undo_server:undo(),
 			    io:format("\n~p\n", [{ok, Res}]),
@@ -143,9 +153,9 @@ test_gen_fun8() ->
 run_test() ->
     test_gen_fun1(),
     test_gen_fun2(),
-    test_gen_fun3(),
-    test_gen_fun4(),
-    test_gen_fun5(),
-    test_gen_fun6(),
-    test_gen_fun7(),
-    test_gen_fun8().
+   %%  test_gen_fun3(),
+%%     test_gen_fun4(),
+%%     test_gen_fun5(),
+    test_gen_fun6().
+    %% test_gen_fun7(),
+%%     test_gen_fun8().

@@ -65,7 +65,7 @@ prop_new_macro({FName, Range, NewName, SearchPaths, TabWidth}) ->
     {Start, End} = Range,
     Args = [FName,Start, End, NewName, SearchPaths, TabWidth],
     try  apply(refac_new_macro, new_macro, Args)  of
-	 {ok, Res} -> case refac_util:parse_annotate_file(FName, false, SearchPaths) of 
+	 {ok, Res} -> case compile:file(FName, []) of 
 			{ok, _} -> 
 			      wrangler_undo_server:undo(),
 			      io:format("\n~p\n", [{ok, Res}]),
@@ -132,9 +132,9 @@ test_new_macro8() ->
 run_test() ->
     test_new_macro1(),
     test_new_macro2(),
-    test_new_macro3(),
-    test_new_macro4(),
-    test_new_macro5(),
-    test_new_macro6(),
-    test_new_macro7(),
-    test_new_macro8().
+   %%  test_new_macro3(),
+%%     test_new_macro4(),
+%%     test_new_macro5(),
+    test_new_macro6().
+    %% test_new_macro7(),
+%%     test_new_macro8().

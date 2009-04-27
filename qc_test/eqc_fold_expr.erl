@@ -49,7 +49,7 @@ prop_fold_expr({FunName, Arity, StartLine, StartCol, EndLine, EndCol, NewExp, Cl
 		 io:format("\nCMDInfo: fold_expression_1:~p\n", [{FName, FunName, Arity, Index}]),
 		 try apply(refac_fold_expression, fold_expression_1, Args1) of 
 		     {ok, _Res} -> 
-			 case refac_util:parse_annotate_file(FName, false, SearchPaths) of 
+			 case compile:file(FName, [{i, "c:/cygwin/home/hl/test_codebase"}]) of 
 			     {ok, _} ->  wrangler_undo_server:undo(),
 					 io:format("\nOk, refactoring succeeded.\n"),
 					 true;
@@ -114,9 +114,9 @@ test_fold_expr() ->
 run_test() ->
     test_fold_expr1(),
     test_fold_expr2(),
-    test_fold_expr3(),
-    test_fold_expr4(),
-    test_fold_expr5(),
-    test_fold_expr6(),
-    test_fold_expr7(),
-    test_fold_expr8().
+    %% test_fold_expr3(),
+%%     test_fold_expr4(),
+%%     test_fold_expr5(),
+    test_fold_expr6().
+  %%   test_fold_expr7(),
+%%     test_fold_expr8().

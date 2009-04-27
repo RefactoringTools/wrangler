@@ -52,7 +52,7 @@ prop_new_fun({FName, Range, NewName, SearchPaths, TabWidth}) ->
     {Start, End} = Range,
     Args = [FName,Start, End, NewName, TabWidth],
     try  apply(refac_new_fun, fun_extraction, Args)  of
-	 {ok, Res} -> case refac_util:parse_annotate_file(FName, false, SearchPaths) of 
+	 {ok, Res} -> case compile:file(FName,[]) of 
 			{ok, _} -> 
 			      wrangler_undo_server:undo(),
 			      io:format("\n~p\n", [{ok, Res}]),
@@ -121,9 +121,9 @@ test_new_fun8() ->
 run_test() ->
     test_new_fun1(),
     test_new_fun2(),
-    test_new_fun3(),
-    test_new_fun4(),
-    test_new_fun5(),
-    test_new_fun6(),
-    test_new_fun7(),
-    test_new_fun8().
+   %%  test_new_fun3(),
+%%     test_new_fun4(),
+%%     test_new_fun5(),
+    test_new_fun6().
+   %%  test_new_fun7(),
+%%     test_new_fun8().

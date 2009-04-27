@@ -42,7 +42,7 @@ prop_tuple({FName, Pos, Number, SearchPaths, TabWidth}) ->
     Args = [FName, Line, Col,  Number, SearchPaths, TabWidth],
     ?IMPLIES((Line=/=0),
 	     try  apply(refac_tuple, tuple_funpar, Args)  of
-		  {ok, Res} -> case refac_util:parse_annotate_file(FName, false, SearchPaths) of 
+		  {ok, Res} -> case compile:file(FName, []) of 
 				   {ok, _} -> 
 				       wrangler_undo_server:undo(),
 				       io:format("\n~p\n", [{ok, Res}]),
@@ -115,9 +115,9 @@ test_tuple8() ->
 run_test() ->
     test_tuple1(),
     test_tuple2(),
-    test_tuple3(),
-    test_tuple4(),
-    test_tuple5(),
-    test_tuple6(),
-    test_tuple7(),
-    test_tuple8().
+%%     test_tuple3(),
+%%     test_tuple4(),
+  %%  test_tuple5(),
+    test_tuple6().
+   %%  test_tuple7(),
+%%     test_tuple8().

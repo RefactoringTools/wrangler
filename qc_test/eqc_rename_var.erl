@@ -36,7 +36,7 @@ vars_within_a_fun(AST, Function, PosOrName) ->
 		     _ -> {[], false}
 		   end
 	   end,
-    {R, true} = refac_util:once_tdTU(Fun2, AST, Function),
+    {R, _} = refac_util:once_tdTU(Fun2, AST, Function),
     R.
 
 %% function  generator			
@@ -59,7 +59,7 @@ all_funs(AST) ->
 		    _ -> S
 		  end
 	  end,
-    refac_syntax_lib:fold(Fun, ordsets:new(), AST).
+    refac_syntax_lib:fold(Fun, ordsets:new(), AST) ++ [{none, 0, {0,0}}].
 
 
 
@@ -94,7 +94,7 @@ prop_rename_var({FName, Loc, NewName, SearchPaths, TabWidth}) ->
 		  case Res of 
 		      false -> false;
 		      error -> true;
-		      _ -> Res1 = (catch refac_util:parse_annotate_file(FName, false, SearchPaths)),
+		      _ -> Res1 = (catch compile:file(FName, [{i, "c:/cygwin/home/hl/test_codebase"}])),
 			   case Res1 of 
 			       {ok, _} -> wrangler_undo_server:undo(),true;
 			       _ -> io:format("\nResulted file does not Compile!\n"),
@@ -128,15 +128,14 @@ test_rename_var(Dirs) ->
 test_rename_var1() ->
     test_rename_var(["c:/cygwin/home/hl/test_codebase/tableau"]).
 
-
 test_rename_var2() ->
     test_rename_var(["c:/cygwin/home/hl/test_codebase/eunit"]).
 
-test_rename_var3() ->
-    test_rename_var(["c:/cygwin/home/hl/test_codebase/refactorerl-0.5"]).
+%% test_rename_var3() ->
+%%     test_rename_var(["c:/cygwin/home/hl/test_codebase/refactorerl-0.5"]).
 
-test_rename_var4() ->
-    test_rename_var(["c:/cygwin/home/hl/test_codebase/suite"]).
+%% test_rename_var4() ->
+%%     test_rename_var(["c:/cygwin/home/hl/test_codebase/suite"]).
 
 test_rename_var5() ->
     test_rename_var(["c:/cygwin/home/hl/test_codebase/wrangler-0.7"]).
@@ -144,21 +143,21 @@ test_rename_var5() ->
 test_rename_var6() ->
     test_rename_var(["c:/cygwin/home/hl/test_codebase/umbria"]).
 
-test_rename_var7() ->
-    test_rename_var(["c:/cygwin/home/hl/test_codebase/yaws-1.77"]).
+%% test_rename_var7() ->
+%%     test_rename_var(["c:/cygwin/home/hl/test_codebase/yaws-1.77"]).
 
-test_rename_var8() ->
-    test_rename_var(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
+%% test_rename_var8() ->
+%%     test_rename_var(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
 
-test_rename_var() ->
-    test_rename_var(["c:/cygwin/home/hl/test_codebase"]).
+%% test_rename_var() ->
+%%     test_rename_var(["c:/cygwin/home/hl/test_codebase"]).
 
 run_test() ->
     test_rename_var1(),
     test_rename_var2(),
-    test_rename_var3(),
-    test_rename_var4(),
-    test_rename_var5(),
-    test_rename_var6(),
-    test_rename_var7(),
-    test_rename_var8().
+  %%   test_rename_var3(),
+%%     test_rename_var4(),
+ %%   test_rename_var5(),
+    test_rename_var6().
+
+%%     test_rename_var8().

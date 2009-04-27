@@ -47,7 +47,7 @@ prop_fun_to_process({FName, Loc, ProcessName, SearchPaths, TabWidth}) ->
 		 Args = [FName, Line, Col, ProcessName,SearchPaths, TabWidth],
  		 try  apply(refac_fun_to_process, fun_to_process, Args)  of 
 		      {ok, Res} ->
-			 case refac_util:parse_annotate_file(FName, false, SearchPaths) of 
+			 case compile:file(FName, []) of 
 			     {ok, _} ->
 				 wrangler_undo_server:undo(),
 				 io:format("\n~p\n", [{ok, Res}]),
@@ -63,7 +63,7 @@ prop_fun_to_process({FName, Loc, ProcessName, SearchPaths, TabWidth}) ->
 		      {undecidables, _} ->
 			  try apply(refac_fun_to_process, fun_to_process_1, Args) of 
 			      {ok, Res} ->
-				  case refac_util:parse_annotate_file(FName, false, SearchPaths) of 
+				  case compile:file(FName, []) of 
 				      {ok, _} ->
 					  wrangler_undo_server:undo(),
 					  io:format("\n~p\n", [{ok, Res}]),

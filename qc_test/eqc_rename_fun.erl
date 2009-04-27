@@ -29,7 +29,7 @@ collect_fun_locs(AST) ->
 		  _ -> S
 		end
 	end,
-    lists:usort(refac_syntax_lib:fold(F, [], AST)).
+    lists:usort(refac_syntax_lib:fold(F, [], AST)) ++ [{0,0}].
 
 
 %% Collect atoms in an AST.
@@ -94,7 +94,7 @@ prop_rename_fun({FName, Loc, NewName, SearchPaths, TabWidth}) ->
 		      error -> true;
 		      _ ->
 			  io:format("Res:\n~p\n", [Res]),
-			  Res1 = (catch refac_util:parse_annotate_file(FName, false, SearchPaths)),
+			  Res1 = (catch compile:file(FName,[{i, SearchPaths}])), 
 			   case Res1 of 
 			       {ok, _} -> wrangler_undo_server:undo(),true;
 			       _ -> io:format("\nResulted file does not Compile!\n"),
@@ -119,7 +119,6 @@ test_rename_fun(Dirs) ->
 
 test_rename_fun1() ->
     test_rename_fun(["c:/cygwin/home/hl/test_codebase/tableau"]).
-
 
 test_rename_fun2() ->
     test_rename_fun(["c:/cygwin/home/hl/test_codebase/eunit"]).
@@ -148,9 +147,9 @@ test_rename_fun() ->
 run_test() ->
     test_rename_fun1(),
     test_rename_fun2(),
-    test_rename_fun3(),
-    test_rename_fun4(),
-    test_rename_fun5(),
-    test_rename_fun6(),
-    test_rename_fun7(),
-    test_rename_fun8().
+    %% test_rename_fun3(),
+%%     test_rename_fun4(),
+%%     test_rename_fun5(),
+    test_rename_fun6().
+   %%  test_rename_fun7(),
+%%     test_rename_fun8().
