@@ -126,6 +126,7 @@
      ("Detect Duplicated Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
      ("Detect Duplicated Code in Dirs" erl-refactor-duplicated-code-in-dirs)
      ("Expression Search" erl-refactor-expression-search)
+     ("Similar Expression Search" erl-refactor-similar-expression-search)
      nil
      ("Introduce a Macro" erl-refactor-new-macro)
      ("Fold Against Macro Definition" erl-refactor-fold-against-macro)
@@ -1011,6 +1012,34 @@
 	   (revert-buffer nil t t)
 	    (message "Searching finished."))))))))))
 
+
+(defun erl-refactor-similar-expression-search(start end)
+  "Search expressions that are similar to an user-selected expression or expression sequence in the current buffer."
+  (interactive (list (region-beginning)
+		     (region-end)
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer))
+	(start-line-no (line-no-pos start))
+	(start-col-no  (current-column-pos start))
+	(end-line-no   (line-no-pos end))
+	(end-col-no    (current-column-pos end)))
+    (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
+      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
+	  (message-box "The current buffer has been changed, please save it first.")
+	(erl-spawn
+	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'similar_expression_search
+			(list current-file-name start-line-no start-col-no end-line-no end-col-no tab-width))
+	  (erl-receive (buffer)
+	      ((['rex ['badrpc rsn]]
+		(message "Searching failed: %S" rsn))
+	       (['rex ['error rsn]]
+	    (message "Searching failed: %s" rsn))
+	       (['rex ['ok regions]]
+		(with-current-buffer buffer 
+		  (highlight-search-results regions buffer)
+		  (revert-buffer nil t t)
+		  (message "Searching finished."))))))))))
 
 (defun erl-refactor-fun-to-process (name)
   "From a function to a process."
