@@ -155,6 +155,9 @@ uninstrument_prog(FName, SearchPaths, TabWidth) ->
 add_a_tag(FileName, Line, Col, Tag, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, add_a_tag, [FileName, Line, Col, Tag, SearchPaths, TabWidth], SearchPaths).
 
+-spec(normalise_record_expr/5::(filename(), integer(), integer(), [dir()], integer()) -> {error, string()} | {ok, [filename()]}).
+normalise_record_expr(FileName, Line, Col, SearchPaths, TabWidth) ->
+    apply_refactoring(wrangler, normalise_record_expr, [FileName, Line, Col, SearchPaths, TabWidth], SearchPaths).
 
 -spec(register_pid/8::(filename(), integer(), integer(), integer(),integer(), string(), [dir()], integer()) ->
     {error, string()}|{ok, [filename()]}).
