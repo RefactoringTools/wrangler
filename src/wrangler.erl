@@ -37,7 +37,7 @@
 	 instrument_prog/3,
 	 uninstrument_prog/3, add_a_tag/6, tuple_funpar/6,
 	 tuple_to_record/9, register_pid/6, fun_to_process/6,new_macro/6,
-	fold_against_macro/5]).
+	fold_against_macro/5, normalise_record_expr/5]).
 
 -export([rename_var_eclipse/6, rename_fun_eclipse/6,
 	 rename_mod_eclipse/4, generalise_eclipse/6,
@@ -693,6 +693,11 @@ new_macro_eclipse(FileName, Start, End, NewMacroName, SearchPaths, TabWidth) ->
 	      {error, string()} | {ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}).
 fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth) ->
     try_refactoring(refac_fold_against_macro, fold_against_macro, [FileName, Line, Col, SearchPaths, TabWidth]).
+
+
+-spec(normalise_record_expr/5::(filename(), integer(), integer(), [dir()], integer()) -> {error, string()} | {ok, [filename()]}).
+normalise_record_expr(FileName, Line, Col, SearchPaths, TabWidth) ->
+    try_refactoring(refac_sim_expr_search, normalise_record_expr, [FileName, {Line, Col}, SearchPaths, TabWidth]).
 
 
 try_refactoring(Mod, Fun, Args) -> 
