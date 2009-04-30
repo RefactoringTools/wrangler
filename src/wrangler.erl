@@ -32,7 +32,7 @@
 -export([rename_var/6, rename_fun/6, rename_mod/4,
 	 rename_process/6, rename_mod_batch/4, generalise/6,
 	 move_fun/7, duplicated_code_in_buffer/4,
-	 duplicated_code_in_dirs/4, expression_search/4, similar_expression_search/4,
+	 duplicated_code_in_dirs/4, expression_search/4, similar_expression_search/5,
 	 fun_extraction/5, fold_expr/1,  fold_expr_by_loc/5, fold_expr_by_name/7, 
 	 instrument_prog/3,
 	 uninstrument_prog/3, add_a_tag/6, tuple_funpar/6,
@@ -46,7 +46,8 @@
 	 tuple_funpar_eclipse/6, tuple_to_record_eclipse/9,
 	 fold_expr_by_loc_eclipse/5, fold_expr_by_name_eclipse/7,
 	 fold_expression_1_eclipse/5,fold_expression_2_eclipse/7,
-	 new_macro_eclipse/6]).
+	 new_macro_eclipse/6, rename_process_eclipse/6, rename_process_1_eclipse/5, 
+	 fun_to_process_eclipse/6, fun_to_process_1_eclipse/6]).
 
 -include("../include/wrangler.hrl").
 
@@ -333,9 +334,9 @@ expression_search(FileName, Start, End, TabWidth) ->
 %% ==================================================================================================
 %% @doc Search for expression/expression sequences in the current buffer that are similar to the expression/expression sequence selected by the user.
 %% 
--spec(similar_expression_search/4::(filename(), pos(), pos(), integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
-similar_expression_search(FileName, Start, End, TabWidth) ->
-    refac_sim_expr_search:sim_expr_search(FileName, Start, End, TabWidth).
+-spec(similar_expression_search/5::(filename(), pos(), pos(), [dir()], integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
+similar_expression_search(FileName, Start, End, SearchPaths, TabWidth) ->
+    refac_sim_expr_search:sim_expr_search(FileName, Start, End, SearchPaths, TabWidth).
 
 %% =====================================================================================================
 %%@doc Introduce a new function to represent an expression or expression sequence.
@@ -633,7 +634,15 @@ tuple_to_record_eclipse(File, FLine, FCol, LLine, LCol, RecName, FieldString,Sea
 fun_to_process(FileName, Line, Col, ProcessName, SearchPaths, TabWidth) ->
     try_refactoring(refac_fun_to_process, fun_to_process, [FileName, Line, Col, ProcessName, SearchPaths, TabWidth]).
 
-
+-spec(fun_to_process_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer()) -> {ok, [{filename(), filename(), string()}]} | 
+													{undecidables, string()} | {error, string()}).
+fun_to_process_eclipse(FName, Line, Col, ProcessName, SearchPaths, TabWidth) ->
+    try_refactoring(refac_fun_to_process, fun_to_process_eclipse, [FName, Line, Col, ProcessName, SearchPaths, TabWidth]).
+    
+-spec(fun_to_process_1_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer()) -> {ok, [{filename(), filename(), string()}]}).
+fun_to_process_1_eclipse(FName, Line, Col, ProcessName, SearchPaths, TabWidth) ->
+    try_refactoring(refac_fun_to_process, fun_to_process_1_eclipse, [FName, Line, Col, ProcessName, SearchPaths, TabWidth]).
+    
 %%=========================================================================================
 %% @doc Rename a registered process with a new name supplied by the user.
 %% <p> To apply this refactoring, point the cursor to the process name, then select
@@ -657,6 +666,15 @@ fun_to_process(FileName, Line, Col, ProcessName, SearchPaths, TabWidth) ->
 rename_process(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     try_refactoring(refac_rename_process, rename_process, [FileName, Line, Col, NewName, SearchPaths, TabWidth]).
 
+
+-spec(rename_process_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
+	       {error, string()} | {undecidables, string()} |  {ok, [{filename(), filename(), string()}]}).
+rename_process_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
+    try_refactoring(refac_rename_process, rename_process_eclipse, [FileName, Line, Col, NewName, SearchPaths, TabWidth]).
+
+-spec(rename_process_1_eclipse/5::(string(), string(), string(), [dir()], integer()) -> {ok, [{filename(), filename(), string()}]}).
+rename_process_1_eclipse(FileName, OldProcessName, NewProcessName, SearchPaths, TabWidth) ->
+    try_refactoring(refac_rename_process, rename_process_1_eclipse, [FileName, OldProcessName, NewProcessName, SearchPaths, TabWidth]).
 
 %% =====================================================================================================
 %% @doc Introduce a macro to represent a syntactically well-formed expression/pattern or a sequence of expressions/patterns.
