@@ -400,7 +400,7 @@
 	       (erl-spawn
 		 (erl-send-rpc wrangler-erl-node 'refac_rename_process 'rename_process_1
 			       (list current-file-name oldname name wrangler-search-paths tab-width))
-		 (erl-receive (current-file-name line-no coulmn-no)
+		 (erl-receive (current-file-name line-no column-no)
 		     ((['rex ['badrpc rsn]]
 		       (message "Refactoring failed: %S" rsn))
 		      (['rex ['error rsn]]
@@ -1030,7 +1030,7 @@
 	  (message-box "The current buffer has been changed, please save it first.")
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'similar_expression_search
-			(list current-file-name start-line-no start-col-no end-line-no end-col-no tab-width))
+			(list current-file-name start-line-no start-col-no end-line-no end-col-no wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
 		(message "Searching failed: %S" rsn))
