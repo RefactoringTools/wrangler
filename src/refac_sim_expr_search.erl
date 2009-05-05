@@ -18,11 +18,11 @@
 %% 
 -module(refac_sim_expr_search).
 
--export([sim_expr_search/4, normalise_record_expr/4]).
-
--compile(export_all).
+-export([sim_expr_search/5, normalise_record_expr/4]).
 
 -include("../include/wrangler.hrl").
+
+-define(SimiScore, 0.2).
 %% ================================================================================================
 %% @doc Search a user-selected expression or a sequence of expressions from an Erlang source file.
 %%
@@ -37,191 +37,308 @@
 %% expressions is a sequence of expressions separated by ','.
 %% <p>
 
--spec(sim_expr_search/4::(filename(), pos(), pos(), integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).    
-sim_expr_search(FName, Start = {Line, Col}, End = {Line1, Col1}, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:sim_expr_search(~p, {~p,~p},{~p,~p},~p).\n", [?MODULE, FName, Line, Col, Line1, Col1, TabWidth]),
+-spec(sim_expr_search/5::(filename(), pos(), pos(), [dir()],integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).    
+sim_expr_search(FName, Start = {Line, Col}, End = {Line1, Col1}, SearchPaths, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:sim_expr_search(~p, {~p,~p},{~p,~p},~p, ~p).\n", [?MODULE, FName, Line, Col, Line1, Col1, SearchPaths, TabWidth]),
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, [], TabWidth),
-    case refac_util:pos_to_expr_list(FName, AnnAST, Start, End, TabWidth) of
-      [E| Es] ->
-	  ?wrangler_io("Selected expression:\n~p\n", [[E| Es]]);
-      _ -> {error, "You have not selected an expression!"}
+    Exprs= refac_util:pos_to_expr_list(FName, AnnAST, Start, End, TabWidth),
+    case Exprs of 
+	[] -> throw({error, "You have not selected an expression!"});
+	_ -> ok
+    end,
+    ?wrangler_io("The selected expression is:\n\n~s\n\n", [format_exprs(Exprs)]),
+    RecordInfo =get_module_record_info(FName, SearchPaths, TabWidth),
+    Exprs1 = case length(Exprs) of 1 -> hd(Exprs); _ -> Exprs end,
+    ?wrangler_io("The selected expression after normalisation is:\n\n~s\n\n", [format_exprs(Exprs1)]),
+    Res =do_search_similar_expr(AnnAST, RecordInfo, Exprs1),
+     Res1 = lists:map(fun({{{S,E},{S1,E1}}, _, _})-> {S, E, S1, E1} end, Res),
+     AntiUnifier = generalise_expr(Exprs1, Res),
+    case length(Res1) of  
+	0 -> ?wrangler_io("No similar expression has been found.\n",[]);
+	1 -> ?wrangler_io("One expression which is similar to the expression selected has been found. \n",[]),
+	     ?wrangler_io("The generalised expression would be:\n\n~s\n\n", [format_exprs(AntiUnifier)]),
+	     {ok, Res1};
+	N -> ?wrangler_io("~p expressions which are similar to the expression selected have been found. \n", [N]),
+	     ?wrangler_io("The generalised expression would be:\n\n~s\n\n", [format_exprs(AntiUnifier)]),
+	     {ok, Res1}
     end.
 
+do_search_similar_expr(AnnAST, RecordInfo, Exprs) when is_list(Exprs) ->
+      F = fun(T, Acc) ->
+		  case refac_syntax:type(T) of
+		      clause -> Exprs1 = refac_syntax:clause_body(T),
+				do_search_similar_expr_1(Exprs, Exprs1, RecordInfo)++Acc;
+		      block_expr -> Exprs1 = refac_syntax:block_expr_body(T),
+				    do_search_similar_expr_1(Exprs, Exprs1, RecordInfo)++Acc;
+		      _  -> Acc
+		  end
+	  end,
+    lists:reverse(refac_syntax_lib:fold(F, [], AnnAST));
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Search the clones of an expression from Tree.
-search_one_expr(Tree, Exp) ->
-    Exp1  = simplify_expr(Exp),
-    BdStructExp = var_binding_structure([Exp]),
-    F = fun(T, Acc) ->
-		case refac_util:is_expr(T) of 
-		    true -> T1 = simplify_expr(T),
-			    case Exp1 == T1 of 
-				true -> BdStructT = var_binding_structure([T]),
-					case BdStructExp == BdStructT of 
-					    true ->
-						{{StartLn, StartCol}, {EndLn, EndCol}}= refac_util:get_range(T),
-						Acc ++ [{StartLn, StartCol, EndLn, EndCol+1}];
-					    _  -> Acc
-					end;
-				_ -> Acc
-			    end;
+do_search_similar_expr(AnnAST, RecordInfo, Expr) ->
+    {EStart, EEnd} = get_start_end_loc(Expr),
+    F = fun(Node, Acc) ->
+		case refac_util:is_expr(Node) of 
+		    true ->
+			{NStart, NEnd} = get_start_end_loc(Node),
+			case (EStart =< NStart andalso  NEnd =< EEnd) orelse
+			    (NStart =< EStart andalso EEnd =< NEnd) of 
+			    true -> Acc;
+			    _ ->
+				find_anti_unifier(Expr, Node, RecordInfo) ++ Acc
+			end;
 		    _ -> Acc
 		end
 	end,
-    refac_syntax_lib:fold(F, [], Tree).
-    
+    lists:reverse(refac_syntax_lib:fold(F, [], AnnAST)).
 
-%% search the clones of an expresion sequence from Tree.			
-search_expr_seq(Tree, ExpList) ->
-    AllExpList = contained_exprs(Tree, length(ExpList)),
-   %% ExpList1 = lists:map(fun(T) ->simplify_expr(T) end, ExpList),
-    Res =lists:flatmap(fun(EL) ->
-			       get_clone(ExpList, EL) end, AllExpList),
-    Res.
-    
-    
-get_clone(List1, List2) ->    
-    Len1 = length(List1),
-    Len2 = length(List2),
+ 
+do_search_similar_expr_1(Exprs1, Exprs2, RecordInfo) ->
+    Len1 = length(Exprs1),
+    Len2 = length(Exprs2),
     case Len1 =< Len2 of 
-	true -> 
-	    List11 = lists:map(fun(T) -> simplify_expr(T) end, List1),
-	    List21 = lists:map(fun(T) -> simplify_expr(T) end, List2),
-	    case lists:prefix(List11, List21) of 
-		true ->
-		    List22 = lists:sublist(List2, Len1),
-		    BdList1 = var_binding_structure(List1),
-		    BdList2 = var_binding_structure(List22),
-		    case BdList1 == BdList2 of 
-			true -> E1 = hd(List22),
-				En = lists:last(List22),
-			        {{StartLn, StartCol}, _EndLoc} = refac_util:get_range(E1),
-				{_StartLoc1, {EndLn, EndCol}} = refac_util:get_range(En),
-				[{StartLn, StartCol, EndLn, EndCol+1}] ++ get_clone(List1, tl(List2));
-			_ -> get_clone(List1, tl(List2))
-		    end;				       
-		    _ -> get_clone(List1, tl(List2))
-		end;			
-	_  -> []
+	true ->  Exprs21= lists:sublist(Exprs2, Len1),
+		 {S1, E1} = get_start_end_loc(Exprs1),
+		 {S2, E2} = get_start_end_loc(Exprs21),
+		 case (S1 =< S2 andalso E2 =< E1) orelse (S2 =< S1 andalso E1=< E2) of 
+		     true -> [];
+		     _ ->
+			 find_anti_unifier(Exprs1, Exprs21, RecordInfo)
+			     ++ do_search_similar_expr_1(Exprs1, tl(Exprs2), RecordInfo)
+		 end;
+	_ -> []
     end.
-	    
 
-%% simplify an expression by masking variable names and literal variables, and also replace
-%% the concrete location values with the default value.
-simplify_expr(Exp) ->
-    refac_util:full_buTP(fun(Node,_Others)->do_simplify_expr(Node) end, Exp,{}).
-
-do_simplify_expr(Node) ->
-    Node1 = case refac_syntax:type(Node) of 
-		macro -> 
-		    refac_syntax:default_literals_vars(Node, '*');
-		variable ->
-		    refac_syntax:default_literals_vars(Node, '&');
-		integer ->
-		    refac_syntax:default_literals_vars(Node, 0);
-		float ->
-		    refac_syntax:default_literals_vars(Node, 0);
-		char ->
-		    refac_syntax:default_literals_vars(Node, '%');
-		string ->
-		    refac_syntax:default_literals_vars(Node, '%');
-		atom -> case lists:keysearch(fun_def,1,refac_syntax:get_ann(Node)) of 
-			    false ->refac_syntax:default_literals_vars(Node, '%') ;
-			    _ -> refac_syntax:default_literals_vars(Node, refac_syntax:atom_value(Node))
-			end;
-		nil -> refac_syntax:default_literals_vars(Node, nil);
-		underscore ->refac_syntax:default_literals_vars(Node, '&');
+find_anti_unifier(Expr1, Expr2, RecordInfo) ->
+    Res =do_find_anti_unifier(normalise_expr(Expr1, RecordInfo),
+			      normalise_expr(Expr2, RecordInfo)),
+    ExprSize = no_of_nodes(Expr1),
+    case Res of 
+	{true, Subst} -> 
+	    Score = 1 -(no_of_nodes(Subst)/ExprSize),
+	    case Score>=?SimiScore of 
+		true ->
+		    [{get_start_end_loc(Expr2), no_of_nodes(Subst), Subst}];
+		_ -> []
+	    end;
+	_ -> []
+    end.
+		    
+do_find_anti_unifier(Exprs1, Exprs2) when is_list(Exprs1) andalso is_list(Exprs2)->
+    case length(Exprs1) == length(Exprs2) of
+	true -> 
+	    Res = lists:map(fun({E1,E2}) ->
+				    do_find_anti_unifier(E1,E2)
+			    end, lists:zip(Exprs1,Exprs2)),
+	    case lists:any(fun(R) -> R==false end, Res) of 
+		true ->false;
 		_ ->
-		    Node
-	    end,
-    set_default_ann(Node1).
-			  
+		   {true, lists:flatmap(fun({true, S}) -> S end, Res)}
+	    end;
+	_ -> false
+    end;
+do_find_anti_unifier(Expr1, _Expr2) when is_list(Expr1) ->
+    false;
+do_find_anti_unifier(_Expr1, Expr2) when is_list(Expr2) ->
+    false;
+do_find_anti_unifier(Expr1, Expr2) ->
+    T1 = refac_syntax:type(Expr1),
+    T2 = refac_syntax:type(Expr2),
+    case T1 == T2  of 
+	true ->
+	    case refac_syntax:is_leaf(Expr1) of 
+		true ->
+		    case refac_syntax:is_literal(Expr1) of 
+			true ->  
+			    case refac_syntax:concrete(Expr1) == refac_syntax:concrete(Expr2) of 
+				     true ->
+					 {true, []};
+				     _ -> {true, [Expr1]}  %% literals are replaceable by variables.
+				 end;
+			_ -> case T1 of 
+				 variable -> 
+				     case lists:keysearch(category, 1, refac_syntax:get_ann(Expr1)) of 
+					 {value, {category, macro_name}} ->
+					     case refac_syntax:variable_name(Expr1) == refac_syntax:variable_name(Expr2) of 
+						 true ->
+						     {true, []};
+						 _ -> 
+						     false
+					     end;
+					 _ -> {true, []}  %%??
+				     end;
+				 operator -> case refac_syntax:operator_name(Expr1) == refac_syntax:operator_name(Expr2) of 
+						 true -> {true, []};
+						 _ ->
+						     false
+					     end;
+				 underscore ->{true, []};
+				 _ -> case variable_replaceable(Expr1) andalso variable_replaceable(Expr2) of 
+					  true -> {true, [Expr1]};
+					  _ ->
+					      false
+				      end
+			     end
+		    end;
+		_ ->
+		    SubExprs1 = refac_syntax:subtrees(Expr1),
+		    SubExprs2 = refac_syntax:subtrees(Expr2),
+		    Res = do_find_anti_unifier(SubExprs1, SubExprs2),
+		    case Res of  
+			false -> case variable_replaceable(Expr1) andalso variable_replaceable(Expr2) of 
+				     true ->
+					 {true, [Expr1]};
+				     _ ->
+					 false
+				 end;
+			_ -> Res
+		    end
+	    end;
+	_ -> case T1 of 
+		 variable -> 
+		     case lists:keysearch(category, 1, refac_syntax:get_ann(Expr1)) of 
+			 macro_name -> 
+			     false;
+			 _ -> {true, []}  %%??
+		     end;
+		 _ -> 
+		     case variable_replaceable(Expr1) andalso variable_replaceable(Expr2) of 
+			 true ->
+			     {true, [Expr1]};
+			 _ -> 
+			     false
+		      end
+	     end
+       end.
+    
 
-set_default_ann(Node) ->
+variable_replaceable(Exp) ->
+    Res1=case lists:keysearch(category,1, refac_syntax:get_ann(Exp)) of 
+	     {value, {category, record_field}} -> false;
+	     {value, {category, record_type}} -> false;	 
+	     {value, {category, guard_expression}} -> false;
+	     {value, {category, application_op}} ->
+		 case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Exp)) of 
+		     {value, {fun_def, _}} -> true;
+		     _ -> false
+		 end;
+	     _ -> case refac_syntax:type(Exp) of 
+		      match_expr -> false;
+		      _ -> true   %% Any others?
+		  end
+	 end,
+    _Exp_Free_Vars = refac_util:get_free_vars(Exp),
+    Exp_Export_Vars =refac_util:get_var_exports(Exp),
+    Res1 andalso (Exp_Export_Vars ==[]).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+generalise_expr(Exprs, SearchRes) when is_list(Exprs)->
+    generalise_expr(refac_syntax:block_expr(Exprs), SearchRes);
+    
+generalise_expr(Expr, SearchRes) ->
+    SubExprs = lists:usort(lists:flatmap(fun({_,_, Es}) ->
+						 lists:map(fun(E) ->refac_util:get_range(E) end, Es)
+					 end, SearchRes)),
+    case SubExprs of 
+	[] -> Expr;
+	_ ->
+	    NewVars = lists:map(fun(N) -> "NewVar"++integer_to_list(N) end, lists:seq(1, length(SubExprs))),
+	    Pairs = lists:zip(SubExprs, NewVars),
+	    {Expr1, _}= refac_util:stop_tdTP(fun do_replace_expr_with_var/2, Expr, Pairs),
+	    Expr1
+    end.
+    
+ 
+do_replace_expr_with_var(Tree, RangeVarNamePairs) ->
+    Range = refac_util:get_range(Tree),
+    case lists:keysearch(Range, 1, RangeVarNamePairs) of 
+	{value, {Range, VarName}}  ->
+	     {refac_syntax:variable(VarName), true};
+	_ -> {Tree, false}
+    end.
+		  
+
+
+format_exprs(Exprs) when is_list(Exprs) andalso (length(Exprs) >1) ->
+    refac_prettypr:format(refac_syntax:block_expr(Exprs));
+format_exprs(Exprs) when is_list(Exprs) ->
+    refac_prettypr:format(hd(Exprs));
+format_exprs(E) ->refac_prettypr:format(E).
+
+normalise_expr(Exprs, RecordInfo) ->
+    Exprs1=normalise_record_expr(Exprs, RecordInfo),
+    do_normalise_fun_calls(Exprs1).
+  
+normalise_record_expr(Exprs, RecordInfo) when is_list(Exprs)->
+    lists:map(fun(E) -> 
+		      refac_util:full_buTP(fun do_normalise_record_expr_1/2, E, RecordInfo) 
+	      end, Exprs);
+normalise_record_expr(Expr, RecordInfo) ->
+    refac_util:full_buTP(fun do_normalise_record_expr_1/2, Expr, RecordInfo).
+
+do_normalise_fun_calls(Exprs)  when is_list(Exprs)->
+    lists:map(fun(E) ->
+		      refac_util:full_buTP(fun do_normalise_fun_calls_1/2, E, [])
+	      end, Exprs);
+do_normalise_fun_calls(Expr) ->
+    refac_util:full_buTP(fun do_normalise_fun_calls_1/2, Expr, []).
+
+do_normalise_fun_calls_1(Node, _Others) ->
+    case refac_syntax:type(Node) of
+	application ->
+	    Op = refac_syntax:application_operator(Node),
+	    Args = refac_syntax:application_arguments(Node),
+	    case refac_syntax:type(Op) of 
+		atom ->
+		    As = refac_syntax:get_ann(Op),
+		    case lists:keysearch(fun_def, 1, As) of
+			{value, {fun_def, {M, _FunName, _Arity, _UsePos, _DefinePos}}} ->
+			    Op1 =refac_syntax:copy_attrs(Op, refac_syntax:module_qualifier(refac_syntax:atom(M), Op)),
+			    refac_syntax:copy_attrs(Node, refac_syntax:application(Op1,Args));
+			_ -> Node
+		    end;
+		_ -> Node
+	    end;
+	_ -> Node
+    end.						    
+
+get_start_end_loc(Exprs) when is_list(Exprs) ->
+    E1= hd(Exprs),
+    En = lists:last(Exprs),
+    {S, _E} = refac_util:get_range(E1),
+    {_S, E} = refac_util:get_range(En),
+    {S, E};
+get_start_end_loc(Expr) ->
+    refac_util:get_range(Expr).
+    
+
+
+set_default_ann(Exprs) when is_list(Exprs) ->
+    lists:map(fun(E) ->
+		      refac_util:full_buTP(fun do_set_default_ann/2, E, [])
+	      end, Exprs);
+set_default_ann(Expr) -> refac_util:full_buTP(fun do_set_default_ann/2, Expr,[]).
+
+do_set_default_ann(Node, _Others)->
     refac_syntax:set_pos(refac_syntax:remove_comments(refac_syntax:set_ann(Node, [])), {0,0}).
 
-%% get all the expression sequences contained in Tree.	    
-contained_exprs(Tree, MinLen) ->
-    F = fun(T, Acc) ->
-		case refac_syntax:type(T) of
-		    clause -> Exprs = refac_syntax:clause_body(T),  %% HOW ABOUT CLAUSE_GUARD?
-			     Acc ++ [Exprs];
-		    application -> Exprs = refac_syntax:application_arguments(T),
-			     Acc++ [Exprs];
-		    tuple -> Exprs = refac_syntax:tuple_elements(T),
-			     Acc++ [Exprs];
-		    lists -> Exprs = refac_syntax:list_prefix(T),
-			     Acc++ [Exprs];
-		    block_expr -> Exprs = refac_syntax:block_expr_body(T),
-			      Acc++ [Exprs];    
-		    _  -> Acc
-		end
-	end,
-    Es = refac_syntax_lib:fold(F, [], Tree),
-    [E ||  E <- Es, length(E) >= MinLen].
-		 
-
-
-      
-
-%% get the binding structure of variables.
-%%-spec(var_binding_structure/1::([syntaxTree()]) -> [{integer(), integer()}]).      
-var_binding_structure(ASTList) ->
-    Fun1 = fun (T, S) ->
-		   case refac_syntax:type(T) of
-		     variable ->
-			 Name = refac_syntax:variable_name(T),
-			 SrcLoc = refac_syntax:get_pos(T),
-			 As = refac_syntax:get_ann(T),
-			 case lists:keysearch(def, 1, As) of
-			   {value, {def, DefLoc}} ->
-			       ordsets:add_element({atom_to_list(Name), SrcLoc,
-						    DefLoc},
-						   S);
-			   _ -> S
-			 end;
-		     _ -> S
-		   end
-	   end,
-    %% collect all variables including their defining and occuring locations. 
-    B = lists:flatmap(fun(T) -> refac_syntax_lib:fold(Fun1, ordsets:new(), T) end, ASTList),
-    %% collect defining locations.
-  %%  DefLocs = lists:usort(lists:flatten(lists:map(fun ({_Name, _SrcLoc, DefLoc}) ->  DefLoc end, B))),
-    %% collect occuring locations.
-    SrcLocs = lists:map(fun ({_Name, SrcLoc, _DefLoc}) -> SrcLoc end, B),
-    Res = case SrcLocs of 
-	      [] -> 
-		  [];
-	      _ ->  IndexedLocs = lists:zip(SrcLocs, lists:seq(1, length(SrcLocs))),
-		    B1 = lists:usort(lists:map(fun ({_Name, SrcLoc, DefLoc}) ->
-						       DefLoc1 = hd(DefLoc),             %% DefLoc is  a list, does this cause problems? .
-						       {value, {SrcLoc, Index1}} = lists:keysearch(SrcLoc, 1, IndexedLocs),
-						       Index2 = case lists:keysearch(DefLoc1, 1, IndexedLocs) of 
-								    {value, {_, Ind}} -> Ind;
-								    _ -> 0 %% free variable
-								end,
-						       {Index1, Index2}
-					       end,
-					       B)),
-		    lists:keysort(1, B1)
-	  end,
-    Res.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Refactoring: Normalise record expression.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
 -spec(normalise_record_expr/4::(filename(), pos(), [dir()], integer()) -> {error, string()} | {ok, [filename()]}).
 normalise_record_expr(FName, Pos={Line, Col}, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:normalise_record_expr(~p, {~p,~p},~p, ~p).\n", [?MODULE, FName, Line, Col, SearchPaths,TabWidth]),
-    {ok, {AnnAST, Info}} =refac_util:parse_annotate_file(FName,true, [], TabWidth),
+    {ok, {AnnAST, _Info}} =refac_util:parse_annotate_file(FName,true, [], TabWidth),
     RecordExpr =pos_to_record_expr(AnnAST, Pos),
-    {AnnAST1, _Changed} = normalise_record_expr_1(FName, AnnAST, Info, Pos, RecordExpr,  SearchPaths, TabWidth),
+    {AnnAST1, _Changed} = normalise_record_expr_1(FName, AnnAST,Pos, RecordExpr,  SearchPaths, TabWidth),
     refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST1}]),
     {ok, [FName]}.
 
 
-normalise_record_expr_1(FileName, AnnAST, Info, Pos, RecordExpr, SearchPaths, TabWidth) ->
+normalise_record_expr_1(FName, AnnAST,Pos, RecordExpr, SearchPaths, TabWidth) ->
     RecordTypes1 = collect_record_types(RecordExpr),
     RecordTypes = lists:flatmap(fun(T) -> case refac_syntax:type(T) of 
 					      atom-> [refac_syntax:concrete(T)];
@@ -229,28 +346,13 @@ normalise_record_expr_1(FileName, AnnAST, Info, Pos, RecordExpr, SearchPaths, Ta
 					  end
 				end, RecordTypes1),
     case length(RecordTypes) < length(RecordTypes1) of 
-	true -> ?wrangler_io("Warning: record expressions with a non-atom record type are not normalised by this refactoring.",[]);
+	true -> ?wrangler_io("Warning: record expressions with a non-atom record type are not normalised by this refactoring.\n",[]);
 	_ -> ok
     end,
     case RecordTypes of 
 	[] -> throw({error, "No record expression to normalise."});
 	_ ->
-      	    RecordsDefinedInHrl = case lists:keysearch(records, 1, Info) of 
-				      {value, {records, RecordDefs}} ->
-					  RecordsDefinedInMod = lists:map(fun({Name, _Def}) -> Name end, RecordDefs),
-					  lists:subtract(RecordTypes, RecordsDefinedInMod);
-				      _ -> RecordTypes
-				  end,
-	    RecordInfo = case RecordsDefinedInHrl of 
-			     [] ->  {value, {records, Records}} = lists:keysearch(records,1, Info),
-				    Records;
-			     _ -> {ok, {_AnnAST1, Info1}} =refac_util:parse_annotate_file(FileName,false,SearchPaths, TabWidth),
-				  case lists:keysearch(records,1, Info1) of 
-				      {value, {records, Records}} -> Records;
-				      _ ->[]
-				  end
-			 end,
- 			     
+	    RecordInfo = get_module_record_info(FName, SearchPaths, TabWidth),
 	    refac_util:stop_tdTP(fun do_normalise_record_expr/2, AnnAST, {Pos,RecordInfo})
     end.
 
@@ -303,7 +405,7 @@ do_normalise_record_expr_1(Node, RecordInfo) ->
 			    NormalisedFields =lists:map(Fun, Fields2),
 			    refac_syntax:record_expr(Arg, Type, NormalisedFields);
 			_ -> 
-			    ?wrangler_io("Warning: wrangler could not find the definition of record '~p'.",[Type1]),
+			    ?wrangler_io("Warning: wrangler could not find the definition of record '~p'.\n",[Type1]),
 			    Node
 		    end;
 		_ -> Node
@@ -340,3 +442,39 @@ pos_to_record_expr_1(Node, Pos) ->
 	    end;
 	_ -> {[], false}
     end.
+
+
+get_module_record_info(FName, SearchPaths, TabWidth) ->
+    Dir = filename:dirname(FName),
+    DefaultIncl1 = [".","..", "../hrl", "../incl", "../inc", "../include"],
+    DefaultIncl2 = [filename:join(Dir, X) || X <-DefaultIncl1],
+    Includes = SearchPaths++DefaultIncl2,
+    case refac_epp:parse_file(FName, Includes,[], TabWidth, refac_util:file_format(FName)) of 
+	{ok, Forms, _} -> Forms1 =  lists:filter(fun(F) ->
+							case F of 
+							    {attribute, _, file, _} -> false;
+							    {attribute, _, type, {{record, _}, _, _}} -> false;
+							    _ -> true
+							end
+						 end, Forms),
+			  SyntaxTree = refac_recomment:recomment_forms(Forms1,[]),
+			  Info = refac_syntax_lib:analyze_forms(SyntaxTree),
+			  case lists:keysearch(records,1, Info) of 
+			      {value, {records, Records}} -> Records;
+			      _ ->[]
+			  end;
+	{error, _Reason} -> []
+   end.
+
+
+no_of_nodes(Nodes) when is_list(Nodes) ->
+    lists:sum(lists:map(fun(N) -> no_of_nodes(N) end, Nodes));
+no_of_nodes(Node) ->
+    case refac_syntax:is_leaf(Node) of
+	true ->
+	     1;
+	_ ->
+	    SubTrees = refac_syntax:subtrees(Node),
+	    lists:sum(lists:map(fun(T) -> no_of_nodes(T) end, SubTrees))
+    end.
+	     
