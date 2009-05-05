@@ -312,17 +312,6 @@ get_start_end_loc(Expr) ->
     refac_util:get_range(Expr).
     
 
-
-set_default_ann(Exprs) when is_list(Exprs) ->
-    lists:map(fun(E) ->
-		      refac_util:full_buTP(fun do_set_default_ann/2, E, [])
-	      end, Exprs);
-set_default_ann(Expr) -> refac_util:full_buTP(fun do_set_default_ann/2, Expr,[]).
-
-do_set_default_ann(Node, _Others)->
-    refac_syntax:set_pos(refac_syntax:remove_comments(refac_syntax:set_ann(Node, [])), {0,0}).
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Refactoring: Normalise record expression.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
