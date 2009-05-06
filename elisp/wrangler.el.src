@@ -125,7 +125,7 @@
      nil 
      ("Detect Duplicated Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
      ("Detect Duplicated Code in Dirs" erl-refactor-duplicated-code-in-dirs)
-     ("Expression Search" erl-refactor-expression-search)
+     ("Identical xpression Search" erl-refactor-expression-search)
      ("Similar Expression Search" erl-refactor-similar-expression-search)
      nil
      ("Introduce a Macro" erl-refactor-new-macro)
