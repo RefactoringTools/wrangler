@@ -79,7 +79,7 @@
 
 -export([generalise/6, generalise_eclipse/6]).
 
--export([gen_fun_1/8, gen_fun_1_eclipse/8, gen_fun_2_eclipse/8]).
+-export([gen_fun_1/8, gen_fun_clause/8,gen_fun_1_eclipse/8, gen_fun_2_eclipse/8]).
 
 -define(DEFAULT_RANGE, {?DEFAULT_LOC, ?DEFAULT_LOC}).
 %% =====================================================================
@@ -107,6 +107,7 @@ generalise(FileName, Start={Line, Col}, End={Line1, Col1}, ParName, SearchPaths,
 		{ok, Exp1} ->
 		    case  refac_util:expr_to_fun(AnnAST, Exp1) of 
 			{ok, Fun} ->
+			    NoOfClauses = length(refac_syntax:function_clauses(Fun)),
 			    FunName = refac_syntax:data(refac_syntax:function_name(Fun)),
 			    FunArity = refac_syntax:function_arity(Fun),
 			    Inscope_Funs = lists:map(fun({_M1,F, A})->{F, A} end, refac_util:inscope_funs(Info)),
@@ -119,15 +120,20 @@ generalise(FileName, Start={Line, Col}, End={Line1, Col1}, ParName, SearchPaths,
 					   ok -> 
 					       SideEffect = refac_util:has_side_effect(FileName, Exp1, SearchPaths),
 					       case SideEffect of  
-						   unknown -> {unknown_side_effect, {ParName1, FunName, FunArity, FunDefPos,Exp1}};
-						   _ ->AnnAST1=gen_fun(ModName, AnnAST, ParName1, FunName, FunArity, FunDefPos,Info, Exp1, SideEffect),
-						       case Editor of 
-							   emacs ->
-							       refac_util:write_refactored_files_for_preview([{{FileName,FileName}, AnnAST1}]),
-							       {ok, [FileName]};
-							   eclipse  ->
-							       Res = [{FileName, FileName, refac_prettypr:print_ast(refac_util:file_format(FileName),AnnAST1)}],
-							       {ok, Res}
+						   unknown -> {unknown_side_effect, {ParName1, FunName, FunArity, FunDefPos,Exp1, NoOfClauses}};
+						   _ ->
+						       case (NoOfClauses >1) and (Editor==emacs) of 
+							   true-> {more_than_one_clause, {ParName1, FunName, FunArity, FunDefPos, Exp1, SideEffect}};
+							   _ ->
+							       AnnAST1=gen_fun(ModName, AnnAST, ParName1, FunName, FunArity, FunDefPos, Info, Exp1, SideEffect),
+							       case Editor of 
+								   emacs ->
+								       refac_util:write_refactored_files_for_preview([{{FileName,FileName}, AnnAST1}]),
+								       {ok, [FileName]};
+								   eclipse  ->
+								       Res = [{FileName, FileName, refac_prettypr:print_ast(refac_util:file_format(FileName),AnnAST1)}],
+								       {ok, Res}
+							       end
 						       end
 					       end;	     
 					   {error, Reason} -> {error, Reason}
@@ -139,6 +145,8 @@ generalise(FileName, Start={Line, Col}, End={Line1, Col1}, ParName, SearchPaths,
 	    end;
 	false  -> {error, "Invalid parameter name!"}
     end.  
+
+
 
 %% =====================================================================
 %% @spec_to_fun_expr(Exp::expression())->expression()
@@ -205,22 +213,18 @@ gen_cond_analysis(Fun, Exp, ParName) ->
     if (Exp_Export_Vars /=[]) ->
 	    {error, "The selected expression exports locally declared variable(s)!"};
        true -> Cs = refac_syntax:function_clauses(Fun),
-	       Vars0 = lists:foldl(fun(C,Accum)->Accum++ refac_util:get_bound_vars(C) end, [], Cs),
-	       case Exp_Free_Vars -- Vars0 of 
-		   [] ->
-		       Vars= lists:map(fun({X,_Y})->X end, Vars0),
-		       case lists:member(ParName, Vars) of 
-			   true ->
-			       {error, ("The given parameter name conflicts with the existing parameters or"++
-					" will change the semantics of the function to be generalised!")};
-			   _ ->
-			       ok
-		       end;
-		   _ -> {error, "The selected expression contains locally declared free variable(s)!"}
+	       Vars0 = lists:foldl(fun(C,Accum)->Accum++ 
+ 					refac_syntax_lib:fold(fun(C1, A) -> A++refac_util:get_bound_vars(C1) end, [],C) 
+						     ++Exp_Free_Vars end, [], Cs), 
+	       Vars= lists:map(fun({X,_Y})->X end, Vars0), 
+	       case lists:member(ParName, Vars) of  
+		   true -> 
+		       {error, ("The given parameter name conflicts with the existing parameters or"++ 
+				" will change the semantics of the function to be generalised!")}; 
+		   _ -> 
+		       ok
 	       end
     end.
-
-
 
 %% =====================================================================
 %% @spec gen_fun(Tree::syntaxTree(),ParName::atom(), FunName::atom(), Arity::integer(), DefPos::Pos,
@@ -259,7 +263,7 @@ gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, TabWidth, E
     {AnnAST2, _} = refac_util:stop_tdTP(fun do_gen_fun/2, AnnAST1, {ModName, ParName, FunName, Arity, DefPos,Info, Exp,SideEffect}),
     case Editor of 
 	emacs ->
-	    refac_util:write_refactored_files([{{FileName,FileName}, AnnAST2}]),
+	    refac_util:write_refactored_files_for_preview([{{FileName,FileName}, AnnAST2}]),
 	    {ok, "Refactor succeeded"};
 	eclipse ->
 	    Res = [{FileName, FileName, refac_prettypr:print_ast(refac_util:file_format(FileName),AnnAST2)}],
@@ -324,6 +328,8 @@ do_replace_underscore(Tree, _Others) ->
 	   {refac_syntax:atom(undefined), true};
 	_ -> {Tree,false}
     end.
+
+
 %% =====================================================================
 %%
 do_gen_fun(Tree, {ModName, ParName, FunName, Arity, DefPos,Info, Exp, SideEffect}) ->    
@@ -350,7 +356,50 @@ do_gen_fun(Tree, {ModName, ParName, FunName, Arity, DefPos,Info, Exp, SideEffect
 	_ -> {Tree, false}
     end.
 
+gen_fun_clause(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEffect) ->
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName,true, [],TabWidth),  
+    {ok, ModName} = get_module_name(Info),
+    Forms = refac_syntax:form_list_elements(AnnAST),
+    Exp1 = make_actual_parameter(ModName, Exp, SideEffect),
+    F = fun(Form) ->
+		case refac_syntax:type(Form) of 
+		    function -> case get_fun_def_loc(Form) of 
+				    DefPos -> 
+					NewPar= refac_syntax:variable(ParName),
+					Cs = refac_syntax:function_clauses(Form),
+					Cs1 = [replace_clause_body(C, FunName, Arity, Exp, Exp1, Info) || C <-Cs],
+					Form1 = refac_syntax:copy_attrs(Form, refac_syntax:function(refac_syntax:atom(FunName), Cs1)),
+					ClauseToGen = hd(lists:filter(fun(C) -> {EStart, EEnd} = refac_util:get_range(Exp),
+										{CStart, CEnd} = refac_util:get_range(C),
+										(CStart =< EStart) andalso (EEnd =< CEnd)
+								      end, Cs)),
+					ClauseToGen1 =add_actual_parameter(replace_exp_with_var(ClauseToGen, {ParName, Exp, SideEffect}),
+									   {FunName, Arity , NewPar, Info}),
+					ClauseToGen2 = add_parameter(ClauseToGen1, NewPar),
+					NewForm = refac_syntax:function(refac_syntax:atom(FunName), [ClauseToGen2]),
+					[Form1, NewForm];
+				    _ -> [add_actual_parameter(Form, {FunName, Arity, Exp1, Info})]
+				end;
+		    _ -> [Form] 
+		end
+	end,		
+    AnnAST1 =refac_syntax:form_list([T|| Form<-Forms, T <- F(Form)]),
+    refac_util:write_refactored_files_for_preview([{{FileName,FileName}, AnnAST1}]),
+    {ok, [FileName]}.
 
+replace_clause_body(C, FunName, Arity,Exp, Exp1, Info) ->
+    {EStart, EEnd} = refac_util:get_range(Exp),
+    {CStart, CEnd} = refac_util:get_range(C),
+    case (CStart =< EStart) andalso (EEnd =< CEnd) of
+	true ->
+	    Pats = refac_syntax:clause_patterns(C),
+	    G = refac_syntax:clause_guard(C),
+	    Body = [refac_syntax:application(refac_syntax:atom(FunName), Pats++[Exp1])],
+	    refac_syntax:copy_attrs(C, refac_syntax:clause(Pats, G, Body));
+	_ -> add_actual_parameter(C, {FunName, Arity, Exp1, Info})
+    end.
+	
+    
 replace_exp_with_var(Tree, {ParName, Exp, SideEffect}) ->
     {Tree1, _} =refac_util:stop_tdTP(fun do_replace_exp_with_var/2, Tree, {ParName, Exp, SideEffect}),
     Tree1.
@@ -362,7 +411,7 @@ do_replace_exp_with_var(Tree, {ParName, Exp, SideEffect}) ->
 	    FreeVars = lists:map(fun({V,_}) -> V end, refac_util:get_free_vars(Exp)),
 	    Pars  = lists:map(fun(P) ->refac_syntax:variable(P) end, FreeVars),
 	    case SideEffect of 
-			false -> case FreeVars==[] of 
+		false -> case FreeVars==[] of 
 			     true ->{refac_syntax:variable(ParName), true};
 			     _ -> Op1 = refac_syntax:operator(ParName),
 				  {refac_syntax:application(Op1, Pars), true}
