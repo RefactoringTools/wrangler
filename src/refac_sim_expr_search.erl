@@ -22,7 +22,7 @@
 
 -include("../include/wrangler.hrl").
 
--define(SimiScore, 0.2).
+-define(SimiScore, 0.6).
 %% ================================================================================================
 %% @doc Search a user-selected expression or a sequence of expressions from an Erlang source file.
 %%
@@ -46,21 +46,21 @@ sim_expr_search(FName, Start = {Line, Col}, End = {Line1, Col1}, SearchPaths, Ta
 	[] -> throw({error, "You have not selected an expression!"});
 	_ -> ok
     end,
-    ?wrangler_io("The selected expression is:\n\n~s\n\n", [format_exprs(Exprs)]),
     RecordInfo =get_module_record_info(FName, SearchPaths, TabWidth),
     Exprs1 = case length(Exprs) of 1 -> hd(Exprs); _ -> Exprs end,
-    ?wrangler_io("The selected expression after normalisation is:\n\n~s\n\n", [format_exprs(Exprs1)]),
+    ?wrangler_io("The selected expression after normalisation is:\n\n~s\n\n",
+		 [format_exprs(normalise_expr(Exprs1, RecordInfo))]),
     Res =do_search_similar_expr(AnnAST, RecordInfo, Exprs1),
-     Res1 = lists:map(fun({{{S,E},{S1,E1}}, _, _})-> {S, E, S1, E1} end, Res),
-     AntiUnifier = generalise_expr(Exprs1, Res),
-    case length(Res1) of  
-	0 -> ?wrangler_io("No similar expression has been found.\n",[]);
-	1 -> ?wrangler_io("One expression which is similar to the expression selected has been found. \n",[]),
+    Res1 = lists:map(fun({Range, _, _})-> Range end, Res),
+    {{S, E}, {S1,E1}} = get_start_end_loc(Exprs),
+    Res2 = lists:usort([{S, E, S1, E1} | Res1]),
+    AntiUnifier = generalise_expr(normalise_expr(Exprs1,RecordInfo),Res),
+    case length(Res2) of  
+	0 -> ?wrangler_io("No similar expression has been found.\n",[]);  %% This should not happen.
+	1 -> ?wrangler_io("No similar expression has been found.\n", []);
+	N -> ?wrangler_io("~p expressions (including the expression selected) which are similar to the expression selected have been found. \n", [N]),
 	     ?wrangler_io("The generalised expression would be:\n\n~s\n\n", [format_exprs(AntiUnifier)]),
-	     {ok, Res1};
-	N -> ?wrangler_io("~p expressions which are similar to the expression selected have been found. \n", [N]),
-	     ?wrangler_io("The generalised expression would be:\n\n~s\n\n", [format_exprs(AntiUnifier)]),
-	     {ok, Res1}
+	     {ok, Res2}
     end.
 
 do_search_similar_expr(AnnAST, RecordInfo, Exprs) when is_list(Exprs) ->
@@ -115,10 +115,14 @@ find_anti_unifier(Expr1, Expr2, RecordInfo) ->
     ExprSize = no_of_nodes(Expr1),
     case Res of 
 	{true, Subst} -> 
-	    Score = 1 -(no_of_nodes(Subst)/ExprSize),
+	    {SubExprs1, _SubExprs2} = lists:unzip(Subst),
+	    Score = 1 -((no_of_nodes(SubExprs1)-length(SubExprs1))/ExprSize),
 	    case Score>=?SimiScore of 
 		true ->
-		    [{get_start_end_loc(Expr2), no_of_nodes(Subst), Subst}];
+		    {{S1,E1}, {S2, E2}} = get_start_end_loc(Expr2),
+		    Expr2FreeVars = refac_util:get_free_vars(Expr2),
+		    SubstWithFreeVars = lists:map(fun({SubExpr1, SubExpr2}) -> {SubExpr1, {SubExpr2, Expr2FreeVars}} end, Subst),
+		    [{{S1, E1, S2, E2}, SubstWithFreeVars, Expr2}];
 		_ -> []
 	    end;
 	_ -> []
@@ -153,7 +157,7 @@ do_find_anti_unifier(Expr1, Expr2) ->
 			    case refac_syntax:concrete(Expr1) == refac_syntax:concrete(Expr2) of 
 				     true ->
 					 {true, []};
-				     _ -> {true, [Expr1]}  %% literals are replaceable by variables.
+				     _ -> {true, [{Expr1, Expr2}]}  %% literals are replaceable by variables.
 				 end;
 			_ -> case T1 of 
 				 variable -> 
@@ -163,9 +167,9 @@ do_find_anti_unifier(Expr1, Expr2) ->
 						 true ->
 						     {true, []};
 						 _ -> 
-						     false
+						     false   %% macro names are not replaceable by variables.
 					     end;
-					 _ -> {true, []}  %%??
+					 _ -> {true, [{Expr1, Expr2}]}  
 				     end;
 				 operator -> case refac_syntax:operator_name(Expr1) == refac_syntax:operator_name(Expr2) of 
 						 true -> {true, []};
@@ -174,7 +178,7 @@ do_find_anti_unifier(Expr1, Expr2) ->
 					     end;
 				 underscore ->{true, []};
 				 _ -> case variable_replaceable(Expr1) andalso variable_replaceable(Expr2) of 
-					  true -> {true, [Expr1]};
+					  true -> {true, [{Expr1, Expr2}]};
 					  _ ->
 					      false
 				      end
@@ -187,7 +191,7 @@ do_find_anti_unifier(Expr1, Expr2) ->
 		    case Res of  
 			false -> case variable_replaceable(Expr1) andalso variable_replaceable(Expr2) of 
 				     true ->
-					 {true, [Expr1]};
+					 {true, [{Expr1, Expr2}]};
 				     _ ->
 					 false
 				 end;
@@ -199,12 +203,16 @@ do_find_anti_unifier(Expr1, Expr2) ->
 		     case lists:keysearch(category, 1, refac_syntax:get_ann(Expr1)) of 
 			 macro_name -> 
 			     false;
-			 _ -> {true, []}  %%??
+			 _ ->
+			     case variable_replaceable(Expr2) of 
+				 true -> {true, [{Expr1, Expr2}]};
+				 _ -> false
+			     end
 		     end;
 		 _ -> 
 		     case variable_replaceable(Expr1) andalso variable_replaceable(Expr2) of 
 			 true ->
-			     {true, [Expr1]};
+			     {true, [{Expr1, Expr2}]};
 			 _ -> 
 			     false
 		      end
@@ -224,41 +232,147 @@ variable_replaceable(Exp) ->
 		 end;
 	     _ -> case refac_syntax:type(Exp) of 
 		      match_expr -> false;
-		      _ -> true   %% Any others?
+		      _ -> case refac_util:is_pattern(Exp) of 
+			       true -> false;
+			       _ -> true
+			   end				    
 		  end
 	 end,
-    _Exp_Free_Vars = refac_util:get_free_vars(Exp),
+   %% Exp_Free_Vars = refac_util:get_free_vars(Exp),
     Exp_Export_Vars =refac_util:get_var_exports(Exp),
-    Res1 andalso (Exp_Export_Vars ==[]).
+    Res1 andalso (Exp_Export_Vars ==[]). %%andalso (Exp_Free_Vars==[]).  %% here, we don't generalise over expressions containing free vars; or should we?
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 generalise_expr(Exprs, SearchRes) when is_list(Exprs)->
-    generalise_expr(refac_syntax:block_expr(Exprs), SearchRes);
-    
+    generalise_expr_1(refac_syntax:block_expr(Exprs), SearchRes, refac_util:get_free_vars(Exprs));
 generalise_expr(Expr, SearchRes) ->
-    SubExprs = lists:usort(lists:flatmap(fun({_,_, Es}) ->
-						 lists:map(fun(E) ->refac_util:get_range(E) end, Es)
-					 end, SearchRes)),
-    case SubExprs of 
+    generalise_expr_1(Expr, SearchRes, refac_util:get_free_vars(Expr)).
+    
+generalise_expr_1(Expr, SearchRes, ExprFreeVars) ->
+    Subst = lists:flatmap(fun({_, Es, _Expr2}) ->Es end, SearchRes),
+    GroupedSubst = group_by_expr(Subst),
+    case GroupedSubst of 
 	[] -> Expr;
 	_ ->
-	    NewVars = lists:map(fun(N) -> "NewVar"++integer_to_list(N) end, lists:seq(1, length(SubExprs))),
-	    Pairs = lists:zip(SubExprs, NewVars),
-	    {Expr1, _}= refac_util:stop_tdTP(fun do_replace_expr_with_var/2, Expr, Pairs),
+	    start_counter_process(),
+	    {Expr1, _}= refac_util:stop_tdTP(fun do_replace_expr_with_var_1/2, Expr, {GroupedSubst, ExprFreeVars}),
+	    stop_counter_process(),
 	    Expr1
     end.
-    
- 
-do_replace_expr_with_var(Tree, RangeVarNamePairs) ->
-    Range = refac_util:get_range(Tree),
-    case lists:keysearch(Range, 1, RangeVarNamePairs) of 
-	{value, {Range, VarName}}  ->
-	     {refac_syntax:variable(VarName), true};
+
+
+do_replace_expr_with_var_1(Tree, {GroupedSubSt, ExprFreeVars}) ->
+    case lists:keysearch(Tree, 1, GroupedSubSt) of 
+	{value, {Tree, Exprs}}  ->
+	    case refac_syntax:type(Tree) of 
+		variable ->
+		    case refac_util:get_free_vars(Tree) of 
+			[] -> {Tree, false};   %% This is a binding occurrance;
+			FVs -> 
+			    case FVs -- ExprFreeVars of 
+				[] ->  
+				    BVs = find_correspond_bound_vars(Exprs, GroupedSubSt),
+				    case BVs of 
+					[] -> {Tree, false};
+					_ ->
+					    Args = lists:usort(find_correspond_bound_vars(Exprs, GroupedSubSt)),
+					    Args1 =lists:map(fun(V) -> refac_syntax:variable(V) end, Args),
+					    NewVar = gen_new_var_name(),
+					    {refac_syntax:application(refac_syntax:variable(NewVar), Args1), true}
+				    end;
+				_ ->  
+				    Args = lists:usort([refac_syntax:variable_name(Tree)|find_correspond_bound_vars(Exprs, GroupedSubSt)]),
+				    Args1 = lists:map(fun(V) -> refac_syntax:variable(V) end, Args),
+				    NewVar = gen_new_var_name(),
+				    {refac_syntax:application(refac_syntax:variable(NewVar), Args1), true}
+			    end
+		    end;
+		_ -> BVs = find_correspond_bound_vars(Exprs, GroupedSubSt), 
+		     {FreeBVs, _} = lists:unzip(refac_util:get_free_vars(Tree)-- ExprFreeVars),
+		     case BVs ++ FreeBVs of 
+			 [] -> {refac_syntax:variable(gen_new_var_name()), true};
+			 _ -> Args = lists:map(fun(V)->refac_syntax:variable(V) end, lists:usort(BVs++FreeBVs)),
+			      NewVar = gen_new_var_name(),
+			      {refac_syntax:application(refac_syntax:variable(NewVar), Args), true}
+		     end
+	    end;
 	_ -> {Tree, false}
     end.
-		  
 
 
+find_correspond_bound_vars(Exprs, Subst) ->
+    BVsInExprs =lists:usort(lists:flatmap(fun({E, FVsInSimExpr}) ->
+						  refac_util:get_free_vars(E)--FVsInSimExpr
+					  end, Exprs)),
+    lists:flatmap(fun({E1, Es}) ->
+		      case refac_syntax:type(E1) of 
+			  variable -> case refac_util:is_pattern(E1) of 
+					  true -> 
+					      {Es1,_} = lists:unzip(Es),
+					      Bds=lists:flatmap(fun(E) ->
+								  refac_util:get_bound_vars(E) end, Es1),
+					      case BVsInExprs -- Bds =/= BVsInExprs of 
+						  true -> [refac_syntax:variable_name(E1)];
+						  _ -> []
+					      end;					      
+					  _  -> []
+				      end;					  
+			  _ -> []
+		      end
+		  end, Subst).
+
+		      
+		      
+		 
+
+gen_new_var_name() -> 
+    counter ! {self(), next},
+    receive
+	{counter, V} ->
+	     V
+    end.
+
+
+start_counter_process() ->               
+    Pid = spawn_link(fun() -> counter_loop(1) end),
+    register(counter, Pid).          
+
+stop_counter_process() ->
+    counter!stop.
+
+counter_loop(SuffixNum) ->
+    receive
+	{From, next} ->
+	    From ! {counter, "NewVar_"++integer_to_list(SuffixNum)},
+	    counter_loop(SuffixNum+1);
+	stop ->
+	    ok
+    end.
+
+group_by_expr(Subst) ->
+    SortedSubst=lists:sort(fun({Expr1,_}, {Expr2,_}) ->
+				   {S1, E1} = get_start_end_loc(Expr1),
+				   {S2, E2} = get_start_end_loc(Expr2),
+				   (S1 < S2) orelse ((S1==S2) andalso (E2=<E1))
+			   end, Subst),
+    group_by_expr_1(SortedSubst).
+group_by_expr_1([]) ->
+     [];
+group_by_expr_1(SubstList=[E|Es]) ->
+    Expr = element(1,E),
+    {SLoc, ELoc} = get_start_end_loc(Expr),
+    case {SLoc, ELoc} of 
+	{{0,0},{0,0}} ->
+	    [E|group_by_expr_1(Es)];
+	_ ->
+	    {SubstList1, SubstList2} = lists:splitwith(fun(S) ->
+							       {SLoc1, ELoc1} = get_start_end_loc(element(1, S)),
+							       (SLoc =< SLoc1) andalso (ELoc1=<ELoc)
+						       end, SubstList),
+	    {_, Exprs} = lists:unzip(SubstList1),
+	    [{Expr, Exprs}| group_by_expr_1(SubstList2)]
+    end.    
+     
 format_exprs(Exprs) when is_list(Exprs) andalso (length(Exprs) >1) ->
     refac_prettypr:format(refac_syntax:block_expr(Exprs));
 format_exprs(Exprs) when is_list(Exprs) ->
@@ -312,6 +426,21 @@ get_start_end_loc(Expr) ->
     refac_util:get_range(Expr).
     
 
+
+%% generalise_expr_1(Expr, SearchRes) ->
+%%     Subst = lists:usort(lists:flatmap(fun({_, Es, Expr2}) ->Es end, SearchRes)),
+%%     Expr2 = hd(lists:flatmap(fun({_,Es, Expr2}) ->Expr2 end, SearchRes)), %% This is temporally only.
+%%     {SubExprs1, SubExprs2} = lists:unzip(Subst),
+%%     %% SubExprs = lists:sort(fun(E1,E2) ->no_of_nodes(E1) >= no_of_nodes(E2) end, SubExprs1),
+%%     ExprFreeVars = refac_util:get_free_vars(Expr),
+%%     Expr2FreeVars = refac_util:get_free_vars(Expr2),	       
+%%     case Subst of 
+%% 	[] -> Expr;
+%% 	_ ->
+%% 	    {Expr1, _}= refac_util:stop_tdTP(fun do_replace_expr_with_var_1/2, Expr, {Subst, ExprFreeVars, Expr2FreeVars}),
+%% 	    Expr1
+%%     end.
+    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Refactoring: Normalise record expression.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -394,7 +523,7 @@ do_normalise_record_expr_1(Node, RecordInfo) ->
 			    NormalisedFields =lists:map(Fun, Fields2),
 			    refac_syntax:record_expr(Arg, Type, NormalisedFields);
 			_ -> 
-			    ?wrangler_io("Warning: wrangler could not find the definition of record '~p'.\n",[Type1]),
+			    %% ?wrangler_io("Warning: wrangler could not find the definition of record '~p'.\n",[Type1]),
 			    Node
 		    end;
 		_ -> Node
