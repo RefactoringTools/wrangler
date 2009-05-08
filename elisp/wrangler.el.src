@@ -125,7 +125,7 @@
      nil 
      ("Detect Duplicated Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
      ("Detect Duplicated Code in Dirs" erl-refactor-duplicated-code-in-dirs)
-     ("Identical xpression Search" erl-refactor-expression-search)
+     ("Identical Expression Search" erl-refactor-expression-search)
      ("Similar Expression Search" erl-refactor-similar-expression-search)
      nil
      ("Introduce a Macro" erl-refactor-new-macro)
@@ -615,42 +615,111 @@
 	    (message "Refactoring failed: %S" rsn))
 	   (['rex ['error rsn]]
 	    (message "Refactoring failed: %s" rsn))
+	   (['rex ['more_than_one_clause pars]]
+	    (setq  parname (elt pars 0))
+	    (setq funname (elt pars 1))
+	    (setq arity (elt pars 2))
+	    (setq defpos (elt pars 3))
+	    (setq exp (elt pars 4))
+	    (setq side_effect (elt pars 5))
+	    (if (y-or-n-p "The function selected has multiple clauses, would you like to generalise the function clause selected only?")
+		(erl-spawn
+		  (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_clause (list current-file-name parname funname arity defpos exp tab-width side_effect))
+		  (erl-receive (start-line-no start-col-no current-file-name)
+		      ((['rex ['badrpc rsn]]
+			(message "Refactoring failed: %S" rsn))
+		       (['rex ['error rsn]]
+			(message "Refactoring failed: %s" rsn))
+		       (['rex ['ok modified]]
+			(if (y-or-n-p "Do you want to preview the changes to be performed?")
+			    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
+			  (commit-or-abort))
+			(with-current-buffer (get-file-buffer current-file-name)
+			  (goto-line start-line-no)
+			  (goto-column start-col-no))))))
+	      (erl-spawn
+		(erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_1 (list side_effect current-file-name parname funname arity defpos exp tab-width))
+		(erl-receive (start-line-no start-col-no current-file-name)
+		    ((['rex ['badrpc rsn]]
+		      (message "Refactoring failed: %S" rsn))
+		     (['rex ['error rsn]]
+		      (message "Refactoring failed: %s" rsn))
+		     (['rex ['ok modified]]
+		      (if (y-or-n-p "Do you want to preview the changes to be performed?")
+			  (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
+			(commit-or-abort))
+		      (with-current-buffer (get-file-buffer current-file-name)
+			(goto-line start-line-no)
+			(goto-column start-col-no))))))))
 	   (['rex ['unknown_side_effect pars]]	        
-		 (setq  parname (elt pars 0))
-		 (setq funname (elt pars 1))
-		 (setq arity (elt pars 2))
-		 (setq defpos (elt pars 3))
-		 (setq exp (elt pars 4))
-	    	(if (y-or-n-p "Does the selected expression has side effect?")
-		    (erl-spawn
-		      (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_1 (list 'true current-file-name parname funname arity defpos exp tab-width))
-		      (erl-receive (start-line-no start-col-no current-file-name)
-			  ((['rex ['badrpc rsn]]
-			    (message "Refactoring failed: %S" rsn))
-			   (['rex ['error rsn]]
-			    (message "Refactoring failed: %s" rsn))
-			   (['rex ['ok modified]]
-			    (if (y-or-n-p "Do you want to preview the changes to be performed?")
-				(ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
-			      (commit-or-abort))
-			    (with-current-buffer (get-file-buffer current-file-name)
-			      (goto-line start-line-no)
-			      (goto-column start-col-no))))))
-		  (erl-spawn
-		      (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_1 (list 'false current-file-name parname funname arity defpos exp tab-width))
-		      (erl-receive (start-line-no start-col-no current-file-name)
-			  ((['rex ['badrpc rsn]]
-			    (message "Refactoring failed: %S" rsn))
-			   (['rex ['error rsn]]
-			    (message "Refactoring failed: %s" rsn))
-			   (['rex ['ok modified]]
-			    (if (y-or-n-p "Do you want to preview the changes to be performed?")
-				(ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
-			      (commit-or-abort))
-			    (with-current-buffer (get-file-buffer current-file-name)
-			      (goto-line start-line-no)
-			      (goto-column start-col-no))))))))
-	   (['rex ['ok refac-generalisation]]
+	    (setq  parname (elt pars 0))
+	    (setq funname (elt pars 1))
+	    (setq arity (elt pars 2))
+	    (setq defpos (elt pars 3))
+	    (setq exp (elt pars 4))
+	    (setq no_of_clauses (elt par 5))
+	    (if (y-or-n-p "Does the selected expression has side effect?")
+		(if (> no_of_clauses 1)
+		    (if (y-or-n-p "The function selected has multiple clauses, would you like to generalise the function clause selected only?")
+			(erl-spawn
+			  (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_clause (list current-file-name parname funname arity defpos exp tab-width 'true))
+			  (erl-receive (start-line-no start-col-no current-file-name)
+			      ((['rex ['badrpc rsn]]
+				(message "Refactoring failed: %S" rsn))
+			       (['rex ['error rsn]]
+				(message "Refactoring failed: %s" rsn))
+			       (['rex ['ok modified]]
+				(if (y-or-n-p "Do you want to preview the changes to be performed?")
+				    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
+				  (commit-or-abort))
+				(with-current-buffer (get-file-buffer current-file-name)
+				  (goto-line start-line-no)
+				  (goto-column start-col-no))))))
+		      (erl-spawn
+			(erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_1 (list 'true current-file-name parname funname arity defpos exp tab-width))
+			(erl-receive (start-line-no start-col-no current-file-name)
+			    ((['rex ['badrpc rsn]]
+			      (message "Refactoring failed: %S" rsn))
+			     (['rex ['error rsn]]
+			      (message "Refactoring failed: %s" rsn))
+			     (['rex ['ok modified]]
+			      (if (y-or-n-p "Do you want to preview the changes to be performed?")
+				  (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
+				(commit-or-abort))
+			      (with-current-buffer (get-file-buffer current-file-name)
+				(goto-line start-line-no)
+				(goto-column start-col-no))))))))
+	      (if (> no_of_clauses 1)
+		  (if (y-or-n-p "The function selected has multiple clauses, would you like to generalise the function clause selected only?")
+		      (erl-spawn
+			(erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_clause (list current-file-name parname funname arity defpos exp tab-width 'false))
+			(erl-receive (start-line-no start-col-no current-file-name)
+			    ((['rex ['badrpc rsn]]
+			      (message "Refactoring failed: %S" rsn))
+			     (['rex ['error rsn]]
+			      (message "Refactoring failed: %s" rsn))
+			     (['rex ['ok modified]]
+				(if (y-or-n-p "Do you want to preview the changes to be performed?")
+				    (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
+				  (commit-or-abort))
+				(with-current-buffer (get-file-buffer current-file-name)
+				  (goto-line start-line-no)
+				  (goto-column start-col-no))))))
+		      (erl-spawn
+			(erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_1 (list 'false current-file-name parname funname arity defpos exp tab-width))
+			(erl-receive (start-line-no start-col-no current-file-name)
+			    ((['rex ['badrpc rsn]]
+			      (message "Refactoring failed: %S" rsn))
+			     (['rex ['error rsn]]
+			      (message "Refactoring failed: %s" rsn))
+			     (['rex ['ok modified]]
+			      (if (y-or-n-p "Do you want to preview the changes to be performed?")
+				  (ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
+				(commit-or-abort))
+			      (with-current-buffer (get-file-buffer current-file-name)
+				(goto-line start-line-no)
+				(goto-column start-col-no))))))))))
+	      (['rex ['ok refac-generalisation]]
 	    (if (y-or-n-p "Do you want to preview the changes to be performed?")
 		(ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
 	      (commit-or-abort))
