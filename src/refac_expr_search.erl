@@ -18,7 +18,9 @@
 %% 
 -module(refac_expr_search).
 
--export([expr_search/4, expr_search_eclipse/4, var_binding_structure/1]).
+-export([expr_search/4, expr_search_eclipse/4]).
+
+-export([contained_exprs/2, var_binding_structure/1]).
 
 -include("../include/wrangler.hrl").
 %% ================================================================================================
@@ -85,13 +87,15 @@ search_one_expr(Tree, Exp) ->
 		case refac_util:is_expr(T) of 
 		    true -> T1 = simplify_expr(T),
 			    case Exp1 == T1 of 
-				true -> BdStructT = var_binding_structure([T]),
-					case BdStructExp == BdStructT of 
-					    true ->
-						{{StartLn, StartCol}, {EndLn, EndCol}}= refac_util:get_range(T),
-						Acc ++ [{StartLn, StartCol, EndLn, EndCol+1}];
+				true -> 
+				    io:format("Exp1:\n~p\n", [Exp1]),
+				    BdStructT = var_binding_structure([T]),
+				    case BdStructExp == BdStructT of 
+					true ->
+					    {{StartLn, StartCol}, {EndLn, EndCol}}= refac_util:get_range(T),
+					    Acc ++ [{StartLn, StartCol, EndLn, EndCol+1}];
 					    _  -> Acc
-					end;
+				    end;
 				_ -> Acc
 			    end;
 		    _ -> Acc
@@ -103,10 +107,8 @@ search_one_expr(Tree, Exp) ->
 %% search the clones of an expresion sequence from Tree.			
 search_expr_seq(Tree, ExpList) ->
     AllExpList = contained_exprs(Tree, length(ExpList)),
-   %% ExpList1 = lists:map(fun(T) ->simplify_expr(T) end, ExpList),
-    Res =lists:flatmap(fun(EL) ->
-			       get_clone(ExpList, EL) end, AllExpList),
-    Res.
+   lists:flatmap(fun(EL) ->get_clone(ExpList, EL) end, AllExpList).
+   
     
     
 get_clone(List1, List2) ->    
@@ -214,8 +216,6 @@ var_binding_structure(ASTList) ->
 	   end,
     %% collect all variables including their defining and occuring locations. 
     B = lists:flatmap(fun(T) -> refac_syntax_lib:fold(Fun1, ordsets:new(), T) end, ASTList),
-    %% collect defining locations.
-  %%  DefLocs = lists:usort(lists:flatten(lists:map(fun ({_Name, _SrcLoc, DefLoc}) ->  DefLoc end, B))),
     %% collect occuring locations.
     SrcLocs = lists:map(fun ({_Name, SrcLoc, _DefLoc}) -> SrcLoc end, B),
     Res = case SrcLocs of 

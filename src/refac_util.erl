@@ -605,7 +605,13 @@ get_var_exports_1([]) -> [].
 %% @spec get_free_vars(Node::syntaxTree())-> [{atom(),pos()}]
 %% @doc Return the free variables of an AST node.
 
--spec(get_free_vars(Node::syntaxTree())-> [{atom(),pos()}]).
+-spec(get_free_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
+get_free_vars(Nodes) when is_list(Nodes) ->
+    FBVs= lists:map(fun(Node) ->
+			  {get_free_vars(Node), get_bound_vars(Node)}
+		  end, Nodes),
+    {FVs, BVs} = lists:unzip(FBVs),
+    lists:usort(lists:append(FVs) -- lists:append(BVs));
 get_free_vars(Node) ->
     get_free_vars_1(refac_syntax:get_ann(Node)).
 
@@ -618,7 +624,9 @@ get_free_vars_1([]) -> [].
 %% @spec get_bound_vars(Node::syntaxTree())-> [{atom(),pos()}]
 %% @doc Return the bound variables of an AST node.
 
--spec(get_bound_vars(Node::syntaxTree())-> [{atom(),pos()}]).
+-spec(get_bound_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
+get_bound_vars(Nodes) when is_list(Nodes)->
+    lists:flatmap(fun(Node) ->get_bound_vars(Node) end, Nodes);			   
 get_bound_vars(Node) ->
     get_bound_vars_1(refac_syntax:get_ann(Node)).
 
