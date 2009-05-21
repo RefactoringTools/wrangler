@@ -18,28 +18,35 @@
 %% 
 -module(refac_sim_expr_search).
 
--export([sim_expr_search/5, normalise_record_expr/4]).
+-export([sim_expr_search/6, normalise_record_expr/4]).
+
+-export([get_start_end_loc/1]).
 
 -include("../include/wrangler.hrl").
 
--define(SimiScore, 0.6).
+-define(DefaultSimiScore, 0.8).
 %% ================================================================================================
-%% @doc Search a user-selected expression or a sequence of expressions from an Erlang source file.
+%% @doc Search expressions that are 'similar' to a user-selected expression or a sequence of expressions in the current buffer.
 %%
-%% <p> This functionality allows the user to search an selected expression or a sequence of expressions
-%% from the current Erlang buffer. The searching ignores variables names and literals, but it takes
-%% the binding structure of variables into account. Therefore the found expressions are the same to the 
-%% highlighted expression up to variable renaming and literal substitution. Layout and comments are ignored 
-%% by the searching.
+%% <p> Given expression selected by the user, A say, expression B is similar to A if there exist a least general common abstation, C, 
+%% such that, substitution C(Args1) = A, and C(Arg2) == B, and Size(C) /Size(A) > the threshold specified (0.6 by default).
 %% </p>
 %% <p> When the selected code contains multiple, but non-continuous sequence of, expressions, the first
 %% continuous sequence of expressions is taken as the user-selected expression. A continuous sequence of
 %% expressions is a sequence of expressions separated by ','.
 %% <p>
 
--spec(sim_expr_search/5::(filename(), pos(), pos(), [dir()],integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).    
-sim_expr_search(FName, Start = {Line, Col}, End = {Line1, Col1}, SearchPaths, TabWidth) ->
+-spec(sim_expr_search/6::(filename(), pos(), pos(), string(),[dir()],integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).    
+sim_expr_search(FName, Start = {Line, Col}, End = {Line1, Col1}, SimiScore0, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:sim_expr_search(~p, {~p,~p},{~p,~p},~p, ~p).\n", [?MODULE, FName, Line, Col, Line1, Col1, SearchPaths, TabWidth]),
+    SimiScore1 = case SimiScore0 of 
+		     [] -> ?DefaultSimiScore;
+		     _ -> list_to_float(SimiScore0)
+		 end,
+    SimiScore = case (SimiScore1>=0.1) andalso (SimiScore1 =<1.0) of 
+		    true ->SimiScore1;
+		    _ -> ?DefaultSimiScore
+		end,    
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, [], TabWidth),
     Exprs= refac_util:pos_to_expr_list(FName, AnnAST, Start, End, TabWidth),
     case Exprs of 
@@ -49,33 +56,34 @@ sim_expr_search(FName, Start = {Line, Col}, End = {Line1, Col1}, SearchPaths, Ta
     RecordInfo =get_module_record_info(FName, SearchPaths, TabWidth),
     Exprs1 = case length(Exprs) of 1 -> hd(Exprs); _ -> Exprs end,
     ?wrangler_io("The selected expression after normalisation is:\n\n~s\n\n",
-		 [format_exprs(normalise_expr(Exprs1, RecordInfo))]),
-    Res =do_search_similar_expr(AnnAST, RecordInfo, Exprs1),
+ 		 [format_exprs(normalise_expr(Exprs1, RecordInfo))]),
+    Res =do_search_similar_expr(AnnAST, RecordInfo, Exprs1, SimiScore),
     Res1 = lists:map(fun({Range, _, _})-> Range end, Res),
-    {{S, E}, {S1,E1}} = get_start_end_loc(Exprs),
-    Res2 = lists:usort([{S, E, S1, E1} | Res1]),
-    AntiUnifier = generalise_expr(normalise_expr(Exprs1,RecordInfo),Res),
+    Res2 = lists:usort([get_start_end_loc(Exprs) | Res1]),
+    AntiUnifier = generalise_expr(normalise_record_expr(Exprs1,RecordInfo),Res),
     case length(Res2) of  
 	0 -> ?wrangler_io("No similar expression has been found.\n",[]);  %% This should not happen.
 	1 -> ?wrangler_io("No similar expression has been found.\n", []);
 	N -> ?wrangler_io("~p expressions (including the expression selected) which are similar to the expression selected have been found. \n", [N]),
 	     ?wrangler_io("The generalised expression would be:\n\n~s\n\n", [format_exprs(AntiUnifier)]),
+	     ?wrangler_io("Use 'C-c C-e' to remove highlights!",[]),
 	     {ok, Res2}
     end.
+   
 
-do_search_similar_expr(AnnAST, RecordInfo, Exprs) when is_list(Exprs) ->
+do_search_similar_expr(AnnAST, RecordInfo, Exprs, SimiScore) when is_list(Exprs) ->
       F = fun(T, Acc) ->
 		  case refac_syntax:type(T) of
 		      clause -> Exprs1 = refac_syntax:clause_body(T),
-				do_search_similar_expr_1(Exprs, Exprs1, RecordInfo)++Acc;
+				do_search_similar_expr_1(Exprs, Exprs1, RecordInfo, SimiScore)++Acc;
 		      block_expr -> Exprs1 = refac_syntax:block_expr_body(T),
-				    do_search_similar_expr_1(Exprs, Exprs1, RecordInfo)++Acc;
+				    do_search_similar_expr_1(Exprs, Exprs1, RecordInfo, SimiScore)++Acc;
 		      _  -> Acc
 		  end
 	  end,
     lists:reverse(refac_syntax_lib:fold(F, [], AnnAST));
 
-do_search_similar_expr(AnnAST, RecordInfo, Expr) ->
+do_search_similar_expr(AnnAST, RecordInfo, Expr, SimiScore) ->
     {EStart, EEnd} = get_start_end_loc(Expr),
     F = fun(Node, Acc) ->
 		case refac_util:is_expr(Node) of 
@@ -85,7 +93,7 @@ do_search_similar_expr(AnnAST, RecordInfo, Expr) ->
 			    (NStart =< EStart andalso EEnd =< NEnd) of 
 			    true -> Acc;
 			    _ ->
-				find_anti_unifier(Expr, Node, RecordInfo) ++ Acc
+				find_anti_unifier(Expr, Node, RecordInfo, SimiScore) ++ Acc
 			end;
 		    _ -> Acc
 		end
@@ -93,7 +101,7 @@ do_search_similar_expr(AnnAST, RecordInfo, Expr) ->
     lists:reverse(refac_syntax_lib:fold(F, [], AnnAST)).
 
  
-do_search_similar_expr_1(Exprs1, Exprs2, RecordInfo) ->
+do_search_similar_expr_1(Exprs1, Exprs2, RecordInfo, SimiScore) ->
     Len1 = length(Exprs1),
     Len2 = length(Exprs2),
     case Len1 =< Len2 of 
@@ -103,13 +111,13 @@ do_search_similar_expr_1(Exprs1, Exprs2, RecordInfo) ->
 		 case (S1 =< S2 andalso E2 =< E1) orelse (S2 =< S1 andalso E1=< E2) of 
 		     true -> [];
 		     _ ->
-			 find_anti_unifier(Exprs1, Exprs21, RecordInfo)
-			     ++ do_search_similar_expr_1(Exprs1, tl(Exprs2), RecordInfo)
+			 find_anti_unifier(Exprs1, Exprs21, RecordInfo, SimiScore)
+			     ++ do_search_similar_expr_1(Exprs1, tl(Exprs2), RecordInfo, SimiScore)
 		 end;
 	_ -> []
     end.
 
-find_anti_unifier(Expr1, Expr2, RecordInfo) ->
+find_anti_unifier(Expr1, Expr2, RecordInfo, SimiScore) ->
     Res =do_find_anti_unifier(normalise_expr(Expr1, RecordInfo),
 			      normalise_expr(Expr2, RecordInfo)),
     ExprSize = no_of_nodes(Expr1),
@@ -117,12 +125,11 @@ find_anti_unifier(Expr1, Expr2, RecordInfo) ->
 	{true, Subst} -> 
 	    {SubExprs1, _SubExprs2} = lists:unzip(Subst),
 	    Score = 1 -((no_of_nodes(SubExprs1)-length(SubExprs1))/ExprSize),
-	    case Score>=?SimiScore of 
+	    case Score>=SimiScore of 
 		true ->
-		    {{S1,E1}, {S2, E2}} = get_start_end_loc(Expr2),
 		    Expr2FreeVars = refac_util:get_free_vars(Expr2),
 		    SubstWithFreeVars = lists:map(fun({SubExpr1, SubExpr2}) -> {SubExpr1, {SubExpr2, Expr2FreeVars}} end, Subst),
-		    [{{S1, E1, S2, E2}, SubstWithFreeVars, Expr2}];
+		    [{get_start_end_loc(Expr2), SubstWithFreeVars, Expr2}];
 		_ -> []
 	    end;
 	_ -> []
@@ -157,7 +164,10 @@ do_find_anti_unifier(Expr1, Expr2) ->
 			    case refac_syntax:concrete(Expr1) == refac_syntax:concrete(Expr2) of 
 				     true ->
 					 {true, []};
-				     _ -> {true, [{Expr1, Expr2}]}  %% literals are replaceable by variables.
+				     _ -> case  variable_replaceable(Expr1) andalso variable_replaceable(Expr2) of 
+					      true -> {true, [{Expr1, Expr2}]};
+					      _  -> false
+					  end
 				 end;
 			_ -> case T1 of 
 				 variable -> 
@@ -201,7 +211,7 @@ do_find_anti_unifier(Expr1, Expr2) ->
 	_ -> case T1 of 
 		 variable -> 
 		     case lists:keysearch(category, 1, refac_syntax:get_ann(Expr1)) of 
-			 macro_name -> 
+			 {value, {category, macro_name}} -> 
 			     false;
 			 _ ->
 			     case variable_replaceable(Expr2) of 
@@ -254,49 +264,56 @@ generalise_expr_1(Expr, SearchRes, ExprFreeVars) ->
     case GroupedSubst of 
 	[] -> Expr;
 	_ ->
-	    start_counter_process(),
-	    {Expr1, _}= refac_util:stop_tdTP(fun do_replace_expr_with_var_1/2, Expr, {GroupedSubst, ExprFreeVars}),
-	    stop_counter_process(),
+	    Pid = start_counter_process(),
+	    {Expr1, _}= refac_util:stop_tdTP(fun do_replace_expr_with_var_1/2, Expr, {GroupedSubst, ExprFreeVars, Pid}),
+	    stop_counter_process(Pid),
 	    Expr1
     end.
 
 
-do_replace_expr_with_var_1(Tree, {GroupedSubSt, ExprFreeVars}) ->
-    case lists:keysearch(Tree, 1, GroupedSubSt) of 
-	{value, {Tree, Exprs}}  ->
-	    case refac_syntax:type(Tree) of 
-		variable ->
-		    case refac_util:get_free_vars(Tree) of 
-			[] -> {Tree, false};   %% This is a binding occurrance;
-			FVs -> 
-			    case FVs -- ExprFreeVars of 
-				[] ->  
-				    BVs = find_correspond_bound_vars(Exprs, GroupedSubSt),
-				    case BVs of 
-					[] -> {Tree, false};
-					_ ->
-					    Args = lists:usort(find_correspond_bound_vars(Exprs, GroupedSubSt)),
-					    Args1 =lists:map(fun(V) -> refac_syntax:variable(V) end, Args),
-					    NewVar = gen_new_var_name(),
-					    {refac_syntax:application(refac_syntax:variable(NewVar), Args1), true}
-				    end;
-				_ ->  
-				    Args = lists:usort([refac_syntax:variable_name(Tree)|find_correspond_bound_vars(Exprs, GroupedSubSt)]),
-				    Args1 = lists:map(fun(V) -> refac_syntax:variable(V) end, Args),
-				    NewVar = gen_new_var_name(),
-				    {refac_syntax:application(refac_syntax:variable(NewVar), Args1), true}
+do_replace_expr_with_var_1(Node, {GroupedSubSt, ExprFreeVars, Pid}) ->
+    Node1 = do_normalise_fun_calls(Node),
+    case lists:keysearch(Node1, 1, GroupedSubSt) of
+      {value, {Node1, Exprs}} ->
+	  case refac_syntax:type(Node) of
+	    variable ->
+		case refac_util:get_free_vars(Node) of
+		  [] -> {Node, false};   %% This is a binding occurrance;
+		  FVs ->
+		      case FVs -- ExprFreeVars of
+			[] -> %% a real free occurence;
+			    Args = lists:usort(find_correspond_bound_vars(Exprs, GroupedSubSt)),
+			    case Args of
+			      [] -> {Node, false};
+			      _ -> Args1 = lists:map(fun (V) -> refac_syntax:variable(V) end, Args),
+				   NewVar = gen_new_var_name(Pid),
+				   {refac_syntax:application(refac_syntax:variable(NewVar), Args1), true}
+			    end;
+			_ ->
+			    BVs = find_correspond_bound_vars(Exprs, GroupedSubSt),
+			    case BVs of
+			      [] -> {Node, false};
+			      _ ->
+				  Args = lists:usort(find_correspond_bound_vars(Exprs, GroupedSubSt)),
+				  Args1 = lists:map(fun (V) -> refac_syntax:variable(V) end, Args -- [refac_syntax:variable_name(Node)]),
+				  case Args1 of
+				    [] -> {Node, false};
+				    _ -> NewVar = gen_new_var_name(Pid),
+					 {refac_syntax:application(refac_syntax:variable(NewVar), [Node| Args1]), true}
+				  end
 			    end
-		    end;
-		_ -> BVs = find_correspond_bound_vars(Exprs, GroupedSubSt), 
-		     {FreeBVs, _} = lists:unzip(refac_util:get_free_vars(Tree)-- ExprFreeVars),
-		     case BVs ++ FreeBVs of 
-			 [] -> {refac_syntax:variable(gen_new_var_name()), true};
-			 _ -> Args = lists:map(fun(V)->refac_syntax:variable(V) end, lists:usort(BVs++FreeBVs)),
-			      NewVar = gen_new_var_name(),
-			      {refac_syntax:application(refac_syntax:variable(NewVar), Args), true}
-		     end
-	    end;
-	_ -> {Tree, false}
+		      end
+		end;
+	    _ -> BVs = find_correspond_bound_vars(Exprs, GroupedSubSt),
+		 {FreeBVs, _} = lists:unzip(refac_util:get_free_vars(Node) -- ExprFreeVars),
+		 case BVs ++ FreeBVs of
+		   [] -> {refac_syntax:variable(gen_new_var_name(Pid)), true};
+		   _ -> Args = lists:map(fun (V) -> refac_syntax:variable(V) end, lists:usort(BVs ++ FreeBVs)),
+			NewVar = gen_new_var_name(Pid),
+			{refac_syntax:application(refac_syntax:variable(NewVar), Args), true}
+		 end
+	  end;
+      _ -> {Node, false}
     end.
 
 
@@ -325,25 +342,25 @@ find_correspond_bound_vars(Exprs, Subst) ->
 		      
 		 
 
-gen_new_var_name() -> 
-    counter ! {self(), next},
+gen_new_var_name(Pid) -> 
+    Pid ! {self(), next},
     receive
-	{counter, V} ->
+	{Pid, V} ->
 	     V
     end.
 
 
 start_counter_process() ->               
-    Pid = spawn_link(fun() -> counter_loop(1) end),
-    register(counter, Pid).          
+    spawn_link(fun() -> counter_loop(1) end).
+             
 
-stop_counter_process() ->
-    counter!stop.
+stop_counter_process(Pid) ->
+    Pid!stop.
 
 counter_loop(SuffixNum) ->
     receive
 	{From, next} ->
-	    From ! {counter, "NewVar_"++integer_to_list(SuffixNum)},
+	    From ! {self(), "NewVar_"++integer_to_list(SuffixNum)},
 	    counter_loop(SuffixNum+1);
 	stop ->
 	    ok
@@ -414,7 +431,7 @@ do_normalise_fun_calls_1(Node, _Others) ->
 		_ -> Node
 	    end;
 	_ -> Node
-    end.						    
+    end. 					    
 
 get_start_end_loc(Exprs) when is_list(Exprs) ->
     E1= hd(Exprs),

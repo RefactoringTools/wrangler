@@ -48,20 +48,21 @@ expr_search(FileName, Start={Line, Col}, End={Line1, Col1}, TabWidth) ->
 	[E|Es] -> 
 	    Res = case Es == [] of 
 		      true ->
-			  search_one_expr(AnnAST, E);
+			  [refac_sim_expr_search:get_start_end_loc(E)|search_one_expr(AnnAST, E)];
 		      _ -> 
-			  search_expr_seq(AnnAST, [E|Es])
+			  [refac_sim_expr_search:get_start_end_loc(E)|search_expr_seq(AnnAST, [E|Es])]
 		  end,
-	    case length(Res) of  
+	    case length(Res)-1 of  
 		0 -> ?wrangler_io("No identical expression has been found.\n",[]), %% This shouldn't happen.
 		     {ok, []};
 		1 -> ?wrangler_io("No identical expression has been found. \n",[]),
 		     {ok, []};
 		N -> ?wrangler_io("~p identical expressions (including the selected expression,and up to variable renaming and literal substitution) "
 				       " have been found. \n", [N]),
+		     ?wrangler_io("Use 'C-c C-e' to remove highlights!",[]),
 		     {ok, Res}
 	    end;
-	_   -> {error, "You have not selected an expression!"}
+	    _   -> {error, "You have not selected an expression!"}
     end.     
 	  
 -spec(expr_search_eclipse/4::(filename(), pos(), pos(), integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
@@ -88,12 +89,11 @@ search_one_expr(Tree, Exp) ->
 		    true -> T1 = simplify_expr(T),
 			    case Exp1 == T1 of 
 				true -> 
-				    io:format("Exp1:\n~p\n", [Exp1]),
 				    BdStructT = var_binding_structure([T]),
 				    case BdStructExp == BdStructT of 
 					true ->
 					    {{StartLn, StartCol}, {EndLn, EndCol}}= refac_util:get_range(T),
-					    Acc ++ [{StartLn, StartCol, EndLn, EndCol+1}];
+					    Acc ++ [{{StartLn, StartCol}, {EndLn, EndCol+1}}];
 					    _  -> Acc
 				    end;
 				_ -> Acc
@@ -128,7 +128,7 @@ get_clone(List1, List2) ->
 				En = lists:last(List22),
 			        {{StartLn, StartCol}, _EndLoc} = refac_util:get_range(E1),
 				{_StartLoc1, {EndLn, EndCol}} = refac_util:get_range(En),
-				[{StartLn, StartCol, EndLn, EndCol+1}] ++ get_clone(List1, tl(List2));
+				[{{StartLn, StartCol}, {EndLn, EndCol+1}}] ++ get_clone(List1, tl(List2));
 			_ -> get_clone(List1, tl(List2))
 		    end;				       
 		    _ -> get_clone(List1, tl(List2))

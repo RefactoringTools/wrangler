@@ -32,7 +32,7 @@
 -export([rename_var/6, rename_fun/6, rename_mod/4,
 	 rename_process/6, rename_mod_batch/4, generalise/6,
 	 move_fun/7, duplicated_code_in_buffer/4,
-	 duplicated_code_in_dirs/4, expression_search/4, similar_expression_search/5,
+	 duplicated_code_in_dirs/4, expression_search/4, similar_expression_search/6,
 	 fun_extraction/5, fold_expr/1,  fold_expr_by_loc/5, fold_expr_by_name/7, 
 	 instrument_prog/3,
 	 uninstrument_prog/3, add_a_tag/6, tuple_funpar/6,
@@ -334,9 +334,9 @@ expression_search(FileName, Start, End, TabWidth) ->
 %% ==================================================================================================
 %% @doc Search for expression/expression sequences in the current buffer that are similar to the expression/expression sequence selected by the user.
 %% 
--spec(similar_expression_search/5::(filename(), pos(), pos(), [dir()], integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
-similar_expression_search(FileName, Start, End, SearchPaths, TabWidth) ->
-    refac_sim_expr_search:sim_expr_search(FileName, Start, End, SearchPaths, TabWidth).
+-spec(similar_expression_search/6::(filename(), pos(), pos(), string(), [dir()], integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
+similar_expression_search(FileName, Start, End, SimiScore, SearchPaths, TabWidth) ->
+    refac_sim_expr_search:sim_expr_search(FileName, Start, End, SimiScore, SearchPaths, TabWidth).
 
 %% =====================================================================================================
 %%@doc Introduce a new function to represent an expression or expression sequence.

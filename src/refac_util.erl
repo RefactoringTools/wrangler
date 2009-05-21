@@ -1637,7 +1637,7 @@ do_add_category(Node, C) ->
 			   end,
 		   Field1 = add_category(Field, record_field),
 		   Node1 = refac_syntax:copy_attrs(Node, refac_syntax:record_access(Argument1, Type1, Field1)),
-		   {refac_syntax:add_ann({category, record_field}, Node1), true};
+		   {refac_syntax:add_ann({category, expression}, Node1), true};
 	     record_expr ->
 		   Argument = refac_syntax:record_expr_argument(Node),
 		   Type = refac_syntax:record_expr_type(Node),
@@ -1649,7 +1649,7 @@ do_add_category(Node, C) ->
 		   Type1 = add_category(Type, record_type),
 		   Fields1 = add_category(Fields, C),
 		   Node1 = refac_syntax:copy_attrs(Node, refac_syntax:record_expr(Argument1, Type1, Fields1)),
-		   {refac_syntax:add_ann({category, record_field}, Node1), true};
+		   {refac_syntax:add_ann({category, expression}, Node1), true};
 	       record_index_expr ->
 		   Type = refac_syntax:record_index_expr_type(Node),
 		   Field = refac_syntax:record_index_expr_field(Node),

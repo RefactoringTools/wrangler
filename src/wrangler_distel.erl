@@ -78,12 +78,12 @@ duplicated_code_in_dirs(SearchPaths, MinLines, MinClones, TabWidth) ->
   
 -spec(expression_search/6::(filename(), integer(), integer(), integer(), integer(),integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
 expression_search(FName, StartLine, StartCol, EndLine, EndCol, TabWidth) ->
-    wrangler:expression_search(FName, {StartLine, StartCol}, {EndLine, EndCol}, TabWidth).
+    apply_refactoring(wrangler,expression_search, [FName, {StartLine, StartCol}, {EndLine, EndCol}, TabWidth],[]).
 
--spec(similar_expression_search/7::(filename(), integer(), integer(), integer(), integer(),[dir()], integer()) ->
+-spec(similar_expression_search/8::(filename(), integer(), integer(), integer(), integer(),string(),[dir()], integer()) ->
 	     {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
-similar_expression_search(FName, StartLine, StartCol, EndLine, EndCol, SearchPaths, TabWidth) ->
-    wrangler:similar_expression_search(FName, {StartLine, StartCol}, {EndLine, EndCol}, SearchPaths, TabWidth).
+similar_expression_search(FName, StartLine, StartCol, EndLine, EndCol, SimiScore, SearchPaths, TabWidth) ->
+    apply_refactoring(wrangler,similar_expression_search, [FName, {StartLine, StartCol}, {EndLine, EndCol}, SimiScore, SearchPaths, TabWidth], []).
 
 
 -spec(fun_extraction/7::(filename(), integer(), integer(), integer(), integer(), string(), integer()) ->

@@ -10,7 +10,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_wrangler_error_logger/0, get_logged_errors/0, add_error_to_logger/1]).
+-export([start_wrangler_error_logger/0, get_logged_errors/0, add_error_to_logger/1, remove_error_from_logger/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -35,7 +35,8 @@ get_logged_errors() ->
 add_error_to_logger(Error) ->
     gen_server:cast(wrangler_error_logger, {add, Error}).
 
-
+remove_error_from_logger(FileName) ->
+    gen_server:cast(wrangler_error_logger, {remove, FileName}).
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -71,7 +72,10 @@ handle_call(get_errors, _From, _State=#state{errors=Errors}) ->
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
 handle_cast({add, {FileName, Error}}, _State=#state{errors=Errors}) ->
-    {noreply, #state{errors=([{FileName, Error}|lists:keydelete(FileName, 1, Errors)])}}.
+    {noreply, #state{errors=([{FileName, Error}|lists:keydelete(FileName, 1, Errors)])}};
+
+handle_cast({remove, FileName}, _State=#state{errors=Errors}) ->
+    {noreply, #state{errors=lists:keydelete(FileName, 1, Errors)}}.
 
 %%--------------------------------------------------------------------
 %% Function: handle_info(Info, State) -> {noreply, State} |
