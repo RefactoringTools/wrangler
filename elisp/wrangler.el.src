@@ -231,6 +231,7 @@
   "Init Wrangler menus."
   (define-key erlang-mode-map "\C-c\C-_"  'erl-refactor-undo)
   (define-key erlang-mode-map  "\C-c\C-b" 'erl-wrangler-code-inspector-var-instances)
+  (define-key erlang-mode-map "\C-c\C-e" 'remove-highlights)
   (erlang-menu-install "Inspector" inspector-menu-items erlang-mode-map t)
   (erlang-menu-install "Refactor" refactor-menu-items erlang-mode-map t))
 
@@ -238,6 +239,7 @@
   "Remove Wrangler menus."
   (define-key erlang-mode-map "\C-c\C-_"  nil)
   (define-key erlang-mode-map  "\C-c\C-b" nil)
+  (define-key erlang-mode-map "\C-c\C-e"  nil)
   (erlang-menu-uninstall "Inspector" inspector-menu-items erlang-mode-map t)
   (erlang-menu-uninstall "Refactor" refactor-menu-items erlang-mode-map t))
 
@@ -657,7 +659,7 @@
 	    (setq arity (elt pars 2))
 	    (setq defpos (elt pars 3))
 	    (setq exp (elt pars 4))
-	    (setq no_of_clauses (elt par 5))
+	    (setq no_of_clauses (elt pars 5))
 	    (if (y-or-n-p "Does the selected expression has side effect?")
 		(if (> no_of_clauses 1)
 		    (if (y-or-n-p "The function selected has multiple clauses, would you like to generalise the function clause selected only?")
@@ -1035,24 +1037,27 @@
   (interactive (list (read-string "Minimum number of tokens a code clone should have (default value: 20): ")
 		     (read-string "Minimum number of appearance times (minimum and default value: 2): ")
 		     ))
-  (let ((current-file-name (buffer-file-name))
-	(buffer (current-buffer)))
-    (let (changed)
-      (dolist (b (buffer-list) changed)
-	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s, please save it first." changed))
-    (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'duplicated_code_in_dirs
-		    (list wrangler-search-paths mintokens minclones tab-width))
-      (erl-receive (buffer)
-	  ((['rex ['badrpc rsn]]
-	    (message "Duplicated code detection failed: %S" rsn))
-	   (['rex ['error rsn]]
-	    (message "Duplicated code detection failed: %s" rsn))
-	   (['rex ['ok result]]
-	    (message "Duplicated code detection finished!")))))))))
+  (if (y-or-n-p (format "Find duplicated code in the following directories: %s" wrangler-search-paths))
+      (let ((current-file-name (buffer-file-name))
+	    (buffer (current-buffer)))
+	(let (changed)
+	  (dolist (b (buffer-list) changed)
+	    (let* ((n (buffer-name b)) (n1 (substring n 0 1)))
+	      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
+		  (setq changed (cons (buffer-name b) changed)))))
+	  (if changed (message-box (format "there are modified buffers: %s, please save it first." changed))
+	    (erl-spawn
+	      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'duplicated_code_in_dirs
+			    (list wrangler-search-paths mintokens minclones tab-width))
+	      (erl-receive (buffer)
+		  ((['rex ['badrpc rsn]]
+		    (message "Duplicated code detection failed: %S" rsn))
+		   (['rex ['error rsn]]
+		    (message "Duplicated code detection failed: %s" rsn))
+		   (['rex ['ok result]]
+		    (message "Duplicated code detection finished!"))))))))
+    (message "Please customize the search paths to find duplicated code in other directories.")))
+  
 
 (defun erl-refactor-expression-search(start end)
   "Search an user-selected expression or expression sequence in the current buffer."
@@ -1077,17 +1082,18 @@
 	   (['rex ['error rsn]]
 	    (message "Searching failed: %s" rsn))
 	   (['rex ['ok regions]]
-	    (with-current-buffer buffer 
-	    (highlight-search-results regions buffer)
-	   (revert-buffer nil t t)
-	    (message "Searching finished."))))))))))
+	    (with-current-buffer buffer
+	      (highlight-instances-1 regions (car regions) buffer)
+	      (message "Searching finished; use 'C-c C-e' to remove highlights.")
+	   )))))))))
 
 
-(defun erl-refactor-similar-expression-search(start end)
+(defun erl-refactor-similar-expression-search(similarity-score start end)
   "Search expressions that are similar to an user-selected expression or expression sequence in the current buffer."
-  (interactive (list (region-beginning)
-		     (region-end)
-		     ))
+  (interactive (list (read-string "Please input a similarity score between 0.1 and 1.0 (default value: 0.8):")
+		(region-beginning)
+		(region-end)
+		))
   (let ((current-file-name (buffer-file-name))
 	(buffer (current-buffer))
 	(start-line-no (line-no-pos start))
@@ -1099,7 +1105,7 @@
 	  (message-box "The current buffer has been changed, please save it first.")
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'similar_expression_search
-			(list current-file-name start-line-no start-col-no end-line-no end-col-no wrangler-search-paths tab-width))
+			(list current-file-name start-line-no start-col-no end-line-no end-col-no similarity-score wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
 		(message "Searching failed: %S" rsn))
@@ -1107,9 +1113,9 @@
 	    (message "Searching failed: %s" rsn))
 	       (['rex ['ok regions]]
 		(with-current-buffer buffer 
-		  (highlight-search-results regions buffer)
-		  (revert-buffer nil t t)
-		  (message "Searching finished."))))))))))
+		  (highlight-instances-1 regions (car regions) buffer)
+		  (message "Seaching finished; use 'C-c C-e' to remove highlights.")
+		  )))))))))
 
 (defun erl-refactor-fun-to-process (name)
   "From a function to a process."
@@ -1455,15 +1461,17 @@
 		(message "Error: %s" rsn))
 	       (['rex ['ok regions defpos]]
 		(with-current-buffer buffer (highlight-instances regions defpos buffer)
-				     (remove-highlights buffer))
+				     (message "Use 'C-c C-e' to remove highlights")
+				     )
 				       		
 	       )))))))
 
-(defun remove-highlights(buffer)
-   (read-event)
-   (dolist (ov (overlays-in  1 10000))
-     (delete-overlay ov))				 
-   (remove-overlays))
+(defun remove-highlights()
+  "remove highligths in the buffer"
+  (interactive)
+  (dolist (ov (overlays-in  1 10000))
+    (delete-overlay ov))				 
+  (remove-overlays))
 
 (defun highlight-instances(regions defpos buffer)
   "highlight regions in the buffer"
@@ -1472,6 +1480,13 @@
 	 (highlight-def-instance r buffer)
        (highlight-use-instance r buffer))))
 
+
+(defun highlight-instances-1(regions selected buffer)
+  "highlight regions in the buffer"
+  (dolist (r regions)
+    (if (equal r selected)
+	(highlight-def-instance r buffer)
+      (highlight-use-instance r buffer))))
 
 ;; shouldn't code this really.
 (defun highlight-def-instance(region buffer)
