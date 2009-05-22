@@ -2118,8 +2118,8 @@ do_build_callgraph(FileName, {AnnAST, Info}) ->
 	 end,
     lists:usort(refac_syntax_lib:fold(F1, [], AnnAST)).
 
--spec(called_funs/3::(modulename(), [{modulename(), functionname(), arity()}], syntaxTree()) ->
-	     [{modulename(), functionname, arity()}]).
+-spec(called_funs/3::(modulename(), [{modulename(), functionname(), functionarity()}], syntaxTree()) ->
+	     [{modulename(), functionname, functionarity()}]).
 called_funs(ModName, InscopeFuns,  Tree) ->
     HandleSpecialFuns = fun (Arguments, S) ->
 				case Arguments of

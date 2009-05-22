@@ -119,7 +119,7 @@ code_change(_OldVsn, State, _Extra) ->
 get_callgraph(SearchPaths) ->
     gen_server:call(wrangler_callgraph_server, {get, SearchPaths}, infinity).
 
--spec(get_sccs_including_fun/2::({modulename(),functionname(), arity()}, [dir()]) -> scc_order()).
+-spec(get_sccs_including_fun/2::({modulename(),functionname(), functionarity()}, [dir()]) -> scc_order()).
 get_sccs_including_fun({M, F, A}, SearchPaths) ->    
     gen_server:call(wrangler_callgraph_server, {get_fun_sccs, {M,F, A}, SearchPaths}).
 

@@ -84,7 +84,7 @@
 %%
 %% @type moduleName() = atom()
 %% @type functionName() = atom()
-%% @type arity() = integer()
+%% @type functionarity() = integer()
 %% @type appName() = atom()
 %% @type fileName() = string()
 

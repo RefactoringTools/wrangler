@@ -203,8 +203,8 @@ get_enclosed(Cur, Rs) ->
 
 %%=========================================================================================
 -spec(caller_funs(FName::filename(), Line::integer(), Col::integer(), SearchPaths::[dir()], TabWidth::integer()) ->
-	     {error, string()} | {ok, {[{modulename(), functionname(), arity()}],
-				       [{modulename(), functionname(), arity()}]}}).
+	     {error, string()} | {ok, {[{modulename(), functionname(), functionarity()}],
+				       [{modulename(), functionname(), functionarity()}]}}).
 caller_funs(FName, Line, Col, SearchPaths, TabWidth) ->
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     case refac_util:pos_to_fun_def(AnnAST, {Line, Col}) of

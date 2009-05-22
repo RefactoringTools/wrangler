@@ -312,7 +312,7 @@ is_recursive_fun(Files, {ModName, FunName, Arity, FunDef}) ->
 %% The only way to register a process is to use register/2.
 %% This function checks all the applications of 'register/2'.
 %% -spec(collect_registered_names_and_pids/1::([dir()])->
-%%               {[{{modulename(), functionname(), arity()},syntaxTree()}], [atom()], [{unknown, {modulename(), functionname(), arity(), pos()}}]}).
+%%               {[{{modulename(), functionname(), functionarity()},syntaxTree()}], [atom()], [{unknown, {modulename(), functionname(), functionarity(), pos()}}]}).
  
 collect_registered_names_and_pids(DirList, TabWidth) ->
     Files = refac_util:expand_files(DirList, ".erl"),
