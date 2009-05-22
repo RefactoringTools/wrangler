@@ -35,7 +35,7 @@
 -type(filename()::string()).
 -type(modulename()::atom()).
 -type(functionname()::atom()).
--type(arity()::integer()).
+-type(functionarity()::integer()).
 -type(dir()::string()).
 -type(syntaxTree()::any()).    %% any() should be refined.
 -type(pos()::{integer(), integer()}).
