@@ -378,7 +378,7 @@ gen_fun_clause(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEff
 					ClauseToGen2 = add_parameter(ClauseToGen1, NewPar),
 					NewForm = refac_syntax:function(refac_syntax:atom(FunName), [ClauseToGen2]),
 					[Form1, NewForm];
-				    _ -> [add_actual_parameter(Form, {FunName, Arity, Exp1, Info})]
+				    _ -> [Form] 
 				end;
 		    _ -> [Form] 
 		end
