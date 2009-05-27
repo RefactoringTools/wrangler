@@ -389,4 +389,4 @@ it and making sure that it's unchanged."
       (assert (equal term (erlext-binary-to-term (erlext-term-to-binary term))))
     (error (error "test failed for %S: %S" term (error-message-string x)))))
 
-(provide 'werlext)
+(provide 'erlext)

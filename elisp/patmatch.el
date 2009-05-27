@@ -228,5 +228,5 @@ EXPECTED is either 'fail or a list of bindings (in any order)."
 		   (_ 'no))))
   (message "Smooth sailing"))
 
-(provide 'wpatmatch)
+(provide 'patmatch)
 

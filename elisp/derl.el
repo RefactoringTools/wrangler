@@ -6,9 +6,9 @@
 ;; protocol, and provides a small API for sending messages to remote
 ;; nodes.
 
-(require 'wnet-fsm)
-(require 'wepmd)
-(require 'werlext)
+(require 'net-fsm)
+(require 'epmd)
+(require 'erlext)
 (require 'md5)
 (eval-when-compile
   (require 'cl))
@@ -25,7 +25,7 @@
   :type 'boolean
   :group 'distel)
 
-(defvar derl-cookie 'erlangcookie
+(defvar derl-cookie nil
   "*Cookie to use in distributed erlang connections, or NIL.
 When NIL, we read ~/.erlang.cookie.")
 
@@ -522,5 +522,5 @@ is not allowed in the node or host name."
 	       (lambda ()
 		 (message "FAIL"))))
 
-(provide 'wderl)
+(provide 'derl)
 

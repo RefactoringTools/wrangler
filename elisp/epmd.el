@@ -1,5 +1,5 @@
 (eval-when-compile (require 'cl))
-(require 'wnet-fsm)
+(require 'net-fsm)
 
 (defvar epmd-hosts '("localhost")
   "Hosts to query EPMDs on.")
@@ -96,5 +96,5 @@
   (interactive "sNode: \nsHost: ")
   (epmd-port-please node host (lambda (x) (message "X = %S" x))))
 
-(provide 'wepmd)
+(provide 'epmd)
 

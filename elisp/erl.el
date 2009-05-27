@@ -16,10 +16,10 @@
 ;; it terminates with 'normal' status.
 
 (eval-when-compile (require 'cl))
-(provide 'werl)				; avoid recursive require
-(require 'wderl)
-(require 'werl-service)
-(require 'wpatmatch)
+(provide 'erl)				; avoid recursive require
+(require 'derl)
+(require 'erl-service)
+(require 'patmatch)
 
 ;; Process ID structure.
 ;;
