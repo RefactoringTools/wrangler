@@ -1,5 +1,5 @@
 PACKAGE := wrangler
-VERSION := 0.6.3 
+VERSION := 0.7.3 
 
 prefix      = @prefix@
 exec_prefix = @exec_prefix@
@@ -25,8 +25,11 @@ SRC := ${ERL_SRC}
 ELISP_SRC := elisp/erlext.el
 ELISP_OBJ := $(patsubst %.el,%.elc,${ELISP_SRC})
 
+ELISP_WRANGLER_OBJ := elisp/wrangler.el
+INCLUDE_OBJ :=include/wrangler.hrl
 
-OBJECTS := ${ERL_OBJ} ${ELISP_OBJ} ${C_OBJ}
+
+OBJECTS := ${ERL_OBJ} ${ELISP_OBJ} ${C_OBJ} ${ELISP_WRANGLER_OBJ} ${INCLUDE_OBJ}
 
 default: prepare c ${ERL_OBJ} ${ELISP_OBJ} ${C_OBJ} 
 base: ${ERL_OBJ} ${ELISP_OBJ} ${C_OBJ}
@@ -39,7 +42,7 @@ erl: ${ERL_OBJ}
 
 ## Erlang
 ebin/%.beam: ${SRC}  
-	erlc -I include -W -o ebin +debug_info ${SRC} 
+	${erlc} -I include -W -o ebin +debug_info ${SRC} 
 
 ## Elisp
 elisp/%.elc: elisp/%.el
