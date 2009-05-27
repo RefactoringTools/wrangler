@@ -25,8 +25,8 @@
 	  (interactive)
  	  (customize-group "wrangler"))
 
-(require 'erl)
-(require 'erl-service)
+(require 'werl)
+(require 'werl-service)
 
 (setq modified-files nil)
 (setq refactoring-committed nil)
