@@ -53,7 +53,7 @@
 	       | {'whitespace', pos(), whitespace()} | {'comment', pos(), string()}).
 
 -type(scc_order()::[[{{atom(), atom(), integer()}, syntaxTree()}]]).
--type(callercallee()::[{{modulename(), functionname(), arity()}, [{modulename(), functionname(), arity()}]}]).
+-type(callercallee()::[{{modulename(), functionname(), functionarity()}, [{modulename(), functionname(), functionarity()}]}]).
 -type(external_calls()::[{atom(), atom(), integer()}]).
 -record(callgraph, {'callercallee', 'scc_order', 'external_calls'}).
       
