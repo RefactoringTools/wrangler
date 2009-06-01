@@ -25,30 +25,38 @@
 	  (interactive)
  	  (customize-group "wrangler"))
 
-(require 'werl)
-(require 'werl-service)
+(require 'erl)
+(require 'erl-service)
 
 (setq modified-files nil)
 (setq refactoring-committed nil)
 (setq unopened-files nil)
 (setq ediff-ignore-similar-regions t)
+(setq refactor-mode nil)
 
+(defun wrangler-edff(file1 file2)
+  "run ediff on file1 ans file2"
+  (setq refactor-mode t)
+  (ediff file1 file2)
+)
 (defun my-ediff-qh()
   "Function to be called when ediff quits."
-  (if (equal modified-files nil)
-      (commit-or-abort)
-    (if (y-or-n-p "Do you want to preview changes made to other files?")
-	(progn
-	  (setq file-to-diff (car modified-files))
-	  (setq modified-files (cdr modified-files))
-	  (if (get-file-buffer file-to-diff)
-	      nil
-	    (setq unopened-files (cons file-to-diff unopened-files))
-	    )
-	  (ediff file-to-diff (concat (file-name-sans-extension file-to-diff) ".erl.swp")))
-      (progn
-	(setq modified-files nil)
-	(commit-or-abort)))))
+  (if (equal refactor-mode t)
+      (if (equal modified-files nil)
+	  (commit-or-abort)
+	(if (y-or-n-p "Do you want to preview changes made to other files?")
+	    (progn
+	      (setq file-to-diff (car modified-files))
+	      (setq modified-files (cdr modified-files))
+	      (if (get-file-buffer file-to-diff)
+		  nil
+		(setq unopened-files (cons file-to-diff unopened-files))
+		)
+	      (ediff file-to-diff (concat (file-name-sans-extension file-to-diff) ".erl.swp")))
+	  (progn
+	    (setq modified-files nil)
+	    (commit-or-abort))))
+    nil))
 
 (defun commit()
   "commit the refactoring result."
@@ -82,6 +90,7 @@
 		  (dolist (uf unopened-files)
 		    (kill-buffer (get-file-buffer uf)))
 		  (setq unopened-files nil)
+		  (setq refactor-mode nil)
 		  (message "Refactoring succeeded."))))))
       
 (defun commit-or-abort()
@@ -91,8 +100,10 @@
 	(erl-send-rpc wrangler-erl-node 'wrangler_preview_server 'commit (list))
 	(erl-receive ()
 	    ((['rex ['badrpc rsn]]
+	      (setq refactor-mode nil)
 	      (message "Commit failed: %S" rsn))
 	     (['rex ['error rsn]]
+	      (setq refactor-mode nil)
 	      (message "Commit failed: %s" rsn))
 	     (['rex ['ok files]]
 	      (dolist (f files)
@@ -117,13 +128,16 @@
 		  (dolist (uf unopened-files)
 		    (kill-buffer (get-file-buffer uf)))
 		  (setq unopened-files nil)
+		  (setq refactor-mode nil)
 		  (message "Refactoring succeeded.")))))
     (erl-spawn
       (erl-send-rpc wrangler-erl-node 'wrangler_preview_server 'abort (list))
       (erl-receive ()
 	  ((['rex ['badrpc rsn]]
+	    (setq refactor-mode nil)
 	    (message "Aborting refactoring failed: %S" rsn))
 	   (['rex ['error rsn]]
+	    (setq refactor-mode nil)
 	    (message "Aborting refactoring failed: %s" rsn))
 	   (['rex ['ok files]]
 	    (dolist (f files)
@@ -135,6 +149,7 @@
 	    (dolist (uf unopened-files)
 	      (kill-buffer (get-file-buffer uf)))
 	    (setq unopened-files nil)
+	    (setq refactor-mode nil)
 	    (message "Refactoring aborted.")))))))
       
 (add-hook 'ediff-quit-hook 'my-ediff-qh)
