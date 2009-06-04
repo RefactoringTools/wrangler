@@ -875,7 +875,7 @@ lay_2(Node,Ctxt) ->
 	   D = case refac_syntax:macro_arguments(Node) of
 		   none -> lay(N,Ctxt1);
 		   Args ->
-		       As = seq(Args,floating(text(",")),set_prec(Ctxt1,max_prec()),fun lay/2),
+		       As = seq(Args,floating(text(",")),reset_prec(Ctxt),fun lay/2),
    		       beside(lay(N,Ctxt1),beside(text("("),beside(lay_elems(fun refac_prettypr_0:par/1, As, Args),floating(text(")")))))
 	       end,
 	    D1 = beside(floating(text("?")),D),
