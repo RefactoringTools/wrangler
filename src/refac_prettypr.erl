@@ -693,18 +693,18 @@ lay_2(Node,Ctxt) ->
 	    D3 = lay_elems(fun refac_prettypr_0:sep/1, BodyDocs, Body),
 	    HeadLastLn = case refac_syntax:clause_guard(Node) of 
 			     none -> case Pats of 
-					 [] -> 0;
+					 [] -> get_start_line(Node);
 					 _ -> get_end_line(lists:last(Pats))
 				     end;
 			     _ -> get_end_line(refac_syntax:clause_guard(Node))
 			 end,
 	    BodyStartLn = get_start_line(hd(Body)),
-	    SameLine = case (BodyStartLn==HeadLastLn) andalso (BodyStartLn=/=0) of 
+	    SameLine = case (BodyStartLn==HeadLastLn) of 
 			   true -> true;
 			   false -> case BodyStartLn - HeadLastLn of 
-				    1 -> false;
-				    _ -> unknown
-				end
+					1 -> false;
+					_ -> unknown
+				    end
 		       end,
 	    case Ctxt#ctxt.clause of
 		fun_expr -> make_fun_clause(D1,D2,D3,Ctxt, SameLine);
@@ -876,7 +876,7 @@ lay_2(Node,Ctxt) ->
 		   none -> lay(N,Ctxt1);
 		   Args ->
 		       As = seq(Args,floating(text(",")),set_prec(Ctxt1,max_prec()),fun lay/2),
-		       beside(lay(N,Ctxt1),beside(text("("),beside(lay_elems(fun refac_prettypr_0:par/1, As, Args),floating(text(")")))))
+   		       beside(lay(N,Ctxt1),beside(text("("),beside(lay_elems(fun refac_prettypr_0:par/1, As, Args),floating(text(")")))))
 	       end,
 	    D1 = beside(floating(text("?")),D),
 	    D1; %%  maybe_parentheses(D1,0,Ctxt);    % must be conservative!
