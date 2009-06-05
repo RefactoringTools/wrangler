@@ -186,8 +186,7 @@ pre_cond_check(FileName, Info, NewFunName, OldFunDefMod,OldFunName, Arity) ->
 			_ -> TestFrameWorkUsed = refac_util:test_framework_used(FileName),
 			     case TestFrameWorkUsed of
 				 [] -> ok;
-				 _ -> Res = (catch test_framework_aware_name_checking(TestFrameWorkUsed, OldFunName, Arity, NewFunName)),
-				      Res		     
+				 _ -> catch test_framework_aware_name_checking(TestFrameWorkUsed, OldFunName, Arity, NewFunName)			      		     
 			     end
 		    end
 	    end;
