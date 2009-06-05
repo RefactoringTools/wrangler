@@ -1,32 +1,18 @@
-%% Copyright (c) 2009, Huiqing Li, Simon Thompson
-%% All rights reserved.
-%%
-%% Redistribution and use in source and binary forms, with or without
-%% modification, are permitted provided that the following conditions are met:
-%%     %% Redistributions of source code must retain the above copyright
-%%       notice, this list of conditions and the following disclaimer.
-%%     %% Redistributions in binary form must reproduce the above copyright
-%%       notice, this list of conditions and the following disclaimer in the
-%%       documentation and/or other materials provided with the distribution.
-%%     %% Neither the name of the copyright holders nor the
-%%       names of its contributors may be used to endorse or promote products
-%%       derived from this software without specific prior written permission.
-%%
-%% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ''AS IS''
-%% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
-%% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
-%% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
-%% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
-%% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
-%% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
-%% BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
-%% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
-%% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
-%% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %% =====================================================================
 %% Duplicated Code Detection.
 %%
 %% Copyright (C) 2006-2009  Huiqing Li, Simon Thompson
+
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved via the world wide web at http://www.erlang.org/.
+
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
 
 %% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
 %%
@@ -39,6 +25,8 @@
 -export([duplicated_code_1/4]).
 
 -export([init/1]).
+
+-compile(export_all).
 %% TODO:  
 %% 1) does recusive function calls affect the result?
 %% 2) does qualifed names affect the result? 
@@ -54,7 +42,7 @@
 -define(DEFAULT_CLONE_MEMBER, 2).
 
 
-%%-define(DEBUG, true).
+-define(DEBUG, true).
 
 -ifdef(DEBUG).
 -define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
@@ -63,12 +51,16 @@
 -endif.
 
 start_suffix_tree_clone_detector() ->
-    SuffixTreeExec = filename:join(?WRANGLER_DIR, "bin/suffixtree"),
+    SuffixTreeExec = filename:join(?WRANGLER_DIR,"bin/suffixtree.exe"),
+    ?debug("suffixTreeExec:\n~p\n", [SuffixTreeExec]),
     start(SuffixTreeExec).
+
 
 start(ExtPrg) ->
     process_flag(trap_exit, true),
-    spawn_link(?MODULE, init, [ExtPrg]).
+    Pid= spawn_link(?MODULE, init, [ExtPrg]),
+    ?debug("Pid:\n~p\n", [Pid]),
+    Pid.
 
 stop_suffix_tree_clone_detector() -> case catch (?MODULE ! stop) of 
 					 _ -> ok
@@ -90,7 +82,7 @@ get_clones_by_suffix_tree(FileNames,MinLength, MinClones, TabWidth) ->
 			  [] -> {Toks, []}; 
 			  [Cs] -> {Toks, Cs}
 		      end;
-		  _E ->  
+		  E -> ?debug("Reason:\n~p\n", [E]),
 		      stop_suffix_tree_clone_detector(),
 		      file:delete(OutFileName),
 		      get_clones_by_erlang_suffix_tree(Toks, ProcessedToks, MinLength, MinClones)
@@ -132,6 +124,7 @@ loop(Port) ->
 	    erlang:port_command(Port, term_to_binary(Msg)),
 	    receive
 		{Port, {data, Data}} ->
+		    ?debug("Data received:~p~n", [{data, binary_to_term(Data)}]),
 		    Caller ! binary_to_term(Data);
 		{Port, {exit_status, Status}} when Status > 128 ->
 		    ?debug("Port terminated with signal: ~p~n", [Status-128]),
@@ -829,9 +822,6 @@ alphabet_1() ->
     {'=','='},
     {'!','!'}].
 %% =====================================================================
-
-     
-
 
 		    
     

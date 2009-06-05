@@ -2285,9 +2285,11 @@ bifs_side_effect_table() ->
 
 -spec(auto_imported_bifs()->[{atom(), atom(), integer()}]).
 auto_imported_bifs() ->
-    [{abs, 1},           {apply, 2},          {apply, 3}, {atom_to_list, 1}, {binary_to_list, 1},
-     {binary_to_list, 3}, {binary_to_term, 1}, {check_process_code, 2},
-     {concat_binary, 1},  { data, 3},          {delete_module, 1}, {disconnect_node, 1},
+    [{abs, 1},   {adler32,1}, {adler32, 2},  {adler32_combine, 3}, {atom_to_binary, 2},    
+     {apply, 2}, {apply, 3}, {atom_to_list, 1}, 
+     {binary_to_atom, 2}, {binary_to_list, 1}, {binary_to_list, 3}, {binary_to_term, 1}, 
+     {check_process_code, 2},
+     {concat_binary, 1},  {date, 0},          {delete_module, 1}, {disconnect_node, 1},
      {element, 2},        {erase, 0},          {erase, 1}, {exit, 1}, {exit, 2}, {float, 1},
      {float_to_list, 1},  {garbage_collect, 1},{garbage_collect, 0}, {get, 0},
      {get, 1},            {get_keys, 1},       {group_leader, 0}, {group_leader, 2}, {halt, 0},
