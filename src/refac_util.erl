@@ -2373,8 +2373,13 @@ test_framework_used(FileName) ->
 	       lists:any(fun(S) -> lists:suffix("test_server.hrl", S) end, Strs),
 	    CommonTest= lists:suffix(FileName, "_SUITE.erl") and 
 		lists:any(fun(S) -> lists:suffix("ct.hrl", S) end, Strs),
-	    [{eunit, Eunit}, {eqc, EQC}, {eqc_statem, EQC_STATEM}, {testserver, TestSever}, {commontest, CommonTest}];
-	_ -> [{eunit, false}, {eqc, false}, {eqc_statem, false}, {testserver, false}, {commontest, false}]
+	    lists:flatmap(fun({F, V}) -> case V of 
+					     true -> [F];
+					     _ -> []
+					 end
+			  end,[{eunit, Eunit}, {eqc, EQC}, {eqc_statem, EQC_STATEM}, 
+			      {testserver, TestSever}, {commontest, CommonTest}]);
+	_ -> []
     end.
    
     
