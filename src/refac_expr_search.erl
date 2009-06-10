@@ -60,9 +60,9 @@ expr_search(FileName, Start={Line, Col}, End={Line1, Col1}, TabWidth) ->
 	[E|Es] -> 
 	    Res = case Es == [] of 
 		      true ->
-			  [refac_sim_expr_search:get_start_end_loc(E)|search_one_expr(AnnAST, E)];
+			  [refac_sim_expr_search:get_start_end_loc([E|Es])|search_one_expr(AnnAST, E)];
 		      _ -> 
-			  [refac_sim_expr_search:get_start_end_loc(E)|search_expr_seq(AnnAST, [E|Es])]
+			  [refac_sim_expr_search:get_start_end_loc([E|Es])|search_expr_seq(AnnAST, [E|Es])]
 		  end,
 	    case length(Res)-1 of  
 		0 -> ?wrangler_io("No identical expression has been found.\n",[]), %% This shouldn't happen.
