@@ -135,7 +135,7 @@ move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabW
 												    {{TargetFName, TargetFName, NewTargetFile}, TargetAnnAST1}]),
 						     ChangedFiles = [FName, TargetFName],
 						     ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
-								  ChangedFiles),
+								  [ChangedFiles]),
 						     {ok, ChangedFiles};
 						 eclipse ->
 						     Results1 = [{{FName, FName}, AnnAST1}, {{TargetFName, TargetFName}, TargetAnnAST1}],
