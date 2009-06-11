@@ -222,8 +222,8 @@ check_wrangler_error_logger() ->
 	[] ->
 	     ok;
 	_ ->  ?wrangler_io("\n===============================WARNING===============================\n",[]),
-	      ?wrangler_io("There are syntax errors, or syntaxes that are not supported by Wrangler, in the program,"
-			   " and functions/attribute containing syntaxes are not affected by refactoring.\n",[]),
+	      ?wrangler_io("There are syntax errors, or syntaxes not supported by Wrangler;"
+			   " functions/attribute containing these syntaxes are not affected by the refactoring.\n",[]),
 	      Msg =lists:flatmap(fun({FileName, Errs}) ->
 				    Str =io_lib:format("File:\n ~p\n", [FileName]),
 				    Str1 = Str ++ io_lib:format("Error(s):\n",[]),

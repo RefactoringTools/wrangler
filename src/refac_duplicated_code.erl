@@ -42,7 +42,7 @@
 -define(DEFAULT_CLONE_MEMBER, 2).
 
 
--define(DEBUG, true).
+%%-define(DEBUG, true).
 
 -ifdef(DEBUG).
 -define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
@@ -82,7 +82,7 @@ get_clones_by_suffix_tree(FileNames,MinLength, MinClones, TabWidth) ->
 			  [] -> {Toks, []}; 
 			  [Cs] -> {Toks, Cs}
 		      end;
-		  E -> ?debug("Reason:\n~p\n", [E]),
+		  _E -> ?debug("Reason:\n~p\n", [_E]),
 		      stop_suffix_tree_clone_detector(),
 		      file:delete(OutFileName),
 		      get_clones_by_erlang_suffix_tree(Toks, ProcessedToks, MinLength, MinClones)
@@ -193,9 +193,11 @@ duplicated_code(DirFileList, MinLength1, MinClones1, TabWidth) ->
     Cs6 = remove_sub_clones(Cs5),
     ?debug("current time:~p\n", [time()]),
     case length(FileNames) of
-         1 -> ?wrangler_io(display_clones(Cs6),[]);
-         _ -> ?wrangler_io(display_clones1(Cs6),[])
-      end,
+         1 -> display_clones_by_freq(Cs6),
+	      display_clones_by_length(Cs6);
+	_ -> display_clones_by_freq_1(Cs6),
+	     display_clones_by_length_1(Cs6)
+    end,
     ?debug("No of Clones found:\n~p\n", [length(Cs6)]),
     ?debug("Clones:\n~p\n", [Cs6]),
     {ok, "Duplicated code detection finished."}.
@@ -646,32 +648,72 @@ display_clones1(Cs) ->
     display_clones1_1(Cs, Str).
 display_clones1_1([], Str) -> Str ++ "\n";		      
 
-display_clones1_1([{[{{File, StartLine, StartCol}, {File,EndLine, EndCol}}|Range], _Len, F}|Cs], Str) ->
+display_clones1_1([{Ranges, _Len, F}|Cs], Str) ->
+    [{{File, StartLine, StartCol}, {File,EndLine, EndCol}}|Range]= lists:keysort(1, Ranges),
     NewStr =case F-1 of 
 		1 ->   Str1= Str ++ io_lib:format("\nThe code in ~p between lines: {~p,~p}-{~p,~p} has been duplicated once at the following location:\n",
 						  [File, StartLine, StartCol-1, EndLine, EndCol-1]),
-		       display_clones1_2(Range, Str1);
+		       display_clones1_2(Range, Str1, none);
 		2 ->   Str1 =Str ++ io_lib:format("\nThe code in ~p between lines: {~p,~p}-{~p,~p} has been duplicated twice at the following location(s):\n",
 						  [File, StartLine, StartCol-1, EndLine, EndCol-1]),
-		       display_clones1_2(Range, Str1);
+		       display_clones1_2(Range, Str1,none);
 		_ ->   Str1 = Str ++ io_lib:format("\nThe code in ~p between lines: {~p,~p}-{~p,~p} has been duplicated ~p times at the following location(s):\n",
 						   [File, StartLine, StartCol-1, EndLine, EndCol-1, F-1]),
-		       display_clones1_2(Range, Str1)
+		       display_clones1_2(Range, Str1,none)
 	    end,
     display_clones1_1(Cs, NewStr).
 
-display_clones1_2([], Str) -> Str ++ "\n";
-display_clones1_2([{{File, StartLine, StartCol}, {File, EndLine, EndCol}}|Rs], Str) ->
+display_clones1_2([], Str,_) -> Str ++ "\n";
+display_clones1_2([{{File, StartLine, StartCol}, {File, EndLine, EndCol}}|Rs], Str, PrevFile) ->
     Str1 =case Rs == [] of 
 	      true ->
-		  Str ++ io_lib:format(" File: ~p,{~p,~p}-{~p,~p}.", [File, StartLine, StartCol-1, EndLine, EndCol-1]);
+		  case PrevFile  of 
+		      File -> Str ++ io_lib:format("  {~p,~p}-{~p,~p}.\n", [StartLine, StartCol-1, EndLine, EndCol-1]);
+		      _ -> Str ++ io_lib:format(" File: ~p:\n  {~p,~p}-{~p,~p}.\n", [File, StartLine, StartCol-1, EndLine, EndCol-1])
+		  end;
 	      false ->
-		  Str ++ io_lib:format(" File: ~p, {~p,~p}-{~p,~p},", [File, StartLine, StartCol-1, EndLine, EndCol-1])
+		  case PrevFile of 
+		      File ->
+			  Str ++ io_lib:format("  {~p,~p}-{~p,~p},\n", [StartLine, StartCol-1, EndLine, EndCol-1]);
+		      _ ->Str ++ io_lib:format(" File: ~p:\n  {~p,~p}-{~p,~p}.\n", [File, StartLine, StartCol-1, EndLine, EndCol-1])
+		  end
 	  end,
-    display_clones1_2(Rs, Str1).
+    display_clones1_2(Rs, Str1, File).
+
+
 
 %% ===========================================================================
 %% display the found-out clones to the user.
+display_clones_by_freq(Cs) ->
+    ?wrangler_io("\n===================================================================\n",[]),
+    ?wrangler_io("Clone Detection Results Sorted by the Number of Times Being Duplicated.\n",[]),
+    ?wrangler_io("======================================================================\n",[]),		 
+    ?wrangler_io(display_clones(Cs),[]).
+
+display_clones_by_freq_1(Cs) ->
+    ?wrangler_io("\n===================================================================\n",[]),
+    ?wrangler_io("Clone Detection Results Sorted by the Number of Times Being Duplicated.\n",[]),
+    ?wrangler_io("======================================================================\n",[]),		 
+    ?wrangler_io(display_clones1(Cs),[]).
+
+display_clones_by_length(Cs) ->
+    ?wrangler_io("\n===================================================================\n",[]),
+    ?wrangler_io("Clone Detection Results Sorted by the Size of the Duplicated Code.\n",[]),
+    ?wrangler_io("======================================================================\n",[]),		 
+    Cs1 = lists:sort(fun({_Range1, Len1, F1},{_Range2, Len2, F2})
+			-> {Len1, F1} >= {Len2, F2}
+		     end, Cs),
+    ?wrangler_io(display_clones(Cs1),[]).
+
+display_clones_by_length_1(Cs) ->
+    ?wrangler_io("\n===================================================================\n",[]),
+    ?wrangler_io("Clone Detection Results Sorted by the Size of the Duplicated Code.\n",[]),
+    ?wrangler_io("======================================================================\n",[]),		 
+    Cs1 = lists:sort(fun({_Range1, Len1, F1},{_Range2, Len2, F2})
+			-> {Len1, F1} >= {Len2, F2}
+		     end, Cs),
+    ?wrangler_io(display_clones1(Cs1),[]).
+
 display_clones(Cs) ->
    Str = io_lib:format("\nCode detection finished with *** ~p *** clone(s) found.\n", [length(Cs)]),
    display_clones_1(Cs, Str).
@@ -680,14 +722,14 @@ display_clones_1([], Str) -> Str ++ "\n";
 display_clones_1([{[{{File, StartLine, StartCol}, {File,EndLine, EndCol}}|Range], _Len, F}|Cs], Str) ->
     NewStr = case F-1 of 
 		 1 ->  Str1 = Str ++ io_lib:format("\nThe code between  ~p-~p has been duplicated once at the following"
-						   " location:",[{StartLine, StartCol-1}, {EndLine,EndCol-1}]),		     
+						   " location:\n",[{StartLine, StartCol-1}, {EndLine,EndCol-1}]),		     
 		       display_clones_2(Range, Str1);
 		 2 ->  Str1 = Str ++ io_lib:format("\nThe code between  ~p-~p has been duplicated twice at the following"
-						   " location(s):",[{StartLine, StartCol-1}, {EndLine,EndCol-1}]),
+						   " location(s):\n",[{StartLine, StartCol-1}, {EndLine,EndCol-1}]),
 		       
 		       display_clones_2(Range, Str1);
 		 _ ->   Str1 = Str ++ io_lib:format("\nThe code between  ~p-~p has been duplicated ~p times  at the following"
-						    " location(s):",[{StartLine, StartCol-1}, {EndLine,EndCol-1}, F-1]),
+						    " location(s):\n",[{StartLine, StartCol-1}, {EndLine,EndCol-1}, F-1]),
 	       
 			display_clones_2(Range, Str1)
     end,	       
@@ -697,9 +739,9 @@ display_clones_2([], Str) -> Str ++ "\n";
 display_clones_2([{{File, StartLine, StartCol}, {File, EndLine, EndCol}}|Rs], Str) ->
     Str1 = case Rs == [] of 
 	       true ->
-		   Str ++ io_lib:format("  ~p-~p.", [{StartLine,StartCol-1},{EndLine, EndCol-1}]);
+		   Str ++ io_lib:format("~p-~p.", [{StartLine,StartCol-1},{EndLine, EndCol-1}]);
 	       _ ->
-		   Str ++ io_lib:format(" ~p-~p,", [{StartLine, StartCol-1}, {EndLine, EndCol-1}])
+		   Str ++ io_lib:format("~p-~p,\n", [{StartLine, StartCol-1}, {EndLine, EndCol-1}])
 	   end,
     display_clones_2(Rs, Str1).
 

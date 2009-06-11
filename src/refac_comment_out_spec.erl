@@ -44,7 +44,7 @@ comment_out(Dirs) ->
 		  HeaderFiles++FileNames).
     
 comment_out_spec_type_1(FileName, SearchPaths) ->
-    io:format("Current file being processed:\n~p\n", [FileName]),
+    refac_io:format("Current file being processed:\n~p\n", [FileName]),
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName,  true, SearchPaths),
     Fs = refac_syntax:form_list_elements(AnnAST), 
 	Str = vertical_concat(Fs,  ""),
