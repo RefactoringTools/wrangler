@@ -46,7 +46,7 @@
 -export([ghead/2, glast/2, to_lower/1, to_upper/1, try_evaluation/1,
          is_var_name/1, is_fun_name/1, is_expr/1, is_pattern/1,
 	 is_exported/2, inscope_funs/1,
-         once_tdTU/3, stop_tdTP/3, full_buTP/3,
+         once_tdTU/3, stop_tdTP/3, full_tdTP/3,full_buTP/3,
          pos_to_fun_name/2, pos_to_fun_def/2,pos_to_var_name/2,
          pos_to_expr/3, pos_to_expr_list/5, pos_to_syntax_units/6, 
 	 pos_to_syntax_units/4, expr_to_fun/2,get_range/1,get_toks/1, concat_toks/1, tokenize/3,
@@ -199,6 +199,23 @@ stop_tdTP(Function, Node, Others) ->
 		Node2 = refac_syntax:make_tree(refac_syntax:type(Node1), Gs2),
 		{refac_syntax:copy_attrs(Node1, Node2), lists:member(true, lists:flatten(G))}
 	  end
+    end.
+
+-spec(full_tdTP/3::(fun((syntaxTree(), any()) ->
+			       {anyterm(), boolean()}), syntaxTree(), anyterm()) ->
+	     {anyterm(), boolean()}).
+full_tdTP(Function, Node, Others) ->
+    case Function(Node, Others) of
+	{Node1, Changed} ->
+	    case refac_syntax:subtrees(Node1) of
+		[] -> {Node1, Changed};
+		Gs ->
+		    Gs1 = [[full_tdTP(Function, T, Others) || T <- G] || G <- Gs],
+		    Gs2 = [[N || {N, _B} <- G] || G <- Gs1],
+		    G = [[B || {_N, B} <- G] || G <- Gs1],
+		    Node2 = refac_syntax:make_tree(refac_syntax:type(Node1), Gs2),
+		    {refac_syntax:copy_attrs(Node1, Node2), Changed or lists:member(true, lists:flatten(G))}
+	    end
     end.
 
 
@@ -2285,35 +2302,35 @@ bifs_side_effect_table() ->
 
 -spec(auto_imported_bifs()->[{atom(), atom(), integer()}]).
 auto_imported_bifs() ->
-    [{abs, 1},   {adler32,1}, {adler32, 2},  {adler32_combine, 3}, {atom_to_binary, 2},    
-     {apply, 2}, {apply, 3}, {atom_to_list, 1}, 
-     {binary_to_atom, 2}, {binary_to_list, 1}, {binary_to_list, 3}, {binary_to_term, 1}, 
-     {check_process_code, 2},
-     {concat_binary, 1},  {date, 0},          {delete_module, 1}, {disconnect_node, 1},
-     {element, 2},        {erase, 0},          {erase, 1}, {exit, 1}, {exit, 2}, {float, 1},
-     {float_to_list, 1},  {garbage_collect, 1},{garbage_collect, 0}, {get, 0},
-     {get, 1},            {get_keys, 1},       {group_leader, 0}, {group_leader, 2}, {halt, 0},
-     {halt, 1},           {hd, 1},             {integer_to_list, 1}, {iolist_to_binary, 1},
-     {iolist_size, 1},    {is_atom, 1},        {is_binary, 1}, {is_boolean, 1},
-     {is_float, 1},       {is_function, 1},    {is_function, 2}, {is_integer, 1},
-     {is_list, 1},        {is_number, 1},      {is_pid, 1}, {is_port, 1},
-     {is_process_alive,1},{is_record, 2},      {is_record, 3}, {is_reference, 1},
-     {is_tuple, 1},       {length, 1},         {link, 1}, {list_to_atom, 1},
-     {list_to_binary, 1}, {list_to_existing_atom, 1}, {list_to_float, 1},
-     {list_to_integer, 1},{list_to_pid, 1},    {list_to_tuple, 1},
-     {load_module, 2},    {make_ref, 0},       {module_loaded, 1}, {monitor_node, 2},
-     {node, 0},           {node, 1},           {nodes, 0}, {nodes, 1}, {now, 0}, {open_port, 2},
-     {pid_to_list, 1},    {port_close, 1},     { port_command, 2}, { port_connect, 2},
-     { port_control, 3},  { pre_loaded, 0},    {process_flag, 2}, {process_flag, 3},
-     {process_info, 1},   {process_info, 2},   {processes, 0}, {purge_module, 1},
-     {put, 2},            {register, 2},       {registered, 0}, {round, 1}, {self, 0},
-     {setelement, 3},     {size, 1},           {spawn, 1}, {spawn, 2}, {spawn, 3},
-     {spawn, 4},          {spawn_link, 1},     {spawn_link, 2}, {spawn_link, 3},
-     {spawn_link, 4},     {spawn_opt, 2},      {spawn_opt, 3}, {spawn_opt, 4},
-     {spawn_opt, 5},      {aplit_binary, 2},   {statistics, 1}, {term_to_binary, 1},
-     {term_to_binary, 2}, {throw, 1},          {time, 1}, {tl, 1}, {trunc, 1},
-     {unregister, 1},     {unregister, 1},     {tuple_to_list, 1}, {unlink, 1},
-     {whereis, 1}].
+    [{erlang, abs, 1},   {erlang, adler32,1}, {erlang, adler32, 2},  {erlang, adler32_combine, 3}, {erlang, atom_to_binary, 2},    
+     {erlang, apply, 2}, {erlang, apply, 3}, {erlang, atom_to_list, 1}, 
+     {erlang, binary_to_atom, 2}, {erlang, binary_to_list, 1}, {erlang, binary_to_list, 3}, {erlang, binary_to_term, 1}, 
+     {erlang, check_process_code, 2},
+     {erlang, concat_binary, 1},  {erlang, date, 0},          {erlang, delete_module, 1}, {erlang, disconnect_node, 1},
+     {erlang, element, 2},        {erlang, erase, 0},          {erlang, erase, 1}, {erlang, exit, 1}, {erlang, exit, 2}, {erlang, float, 1},
+     {erlang, float_to_list, 1},  {erlang, garbage_collect, 1},{erlang, garbage_collect, 0}, {erlang, get, 0},
+     {erlang, get, 1},            {erlang, get_keys, 1},       {erlang, group_leader, 0}, {erlang, group_leader, 2}, {erlang, halt, 0},
+     {erlang, halt, 1},           {erlang, hd, 1},             {erlang, integer_to_list, 1}, {erlang, iolist_to_binary, 1},
+     {erlang, iolist_size, 1},    {erlang, is_atom, 1},        {erlang, is_binary, 1}, {erlang, is_boolean, 1},
+     {erlang, is_float, 1},       {erlang, is_function, 1},    {erlang, is_function, 2}, {erlang, is_integer, 1},
+     {erlang, is_list, 1},        {erlang, is_number, 1},      {erlang, is_pid, 1}, {erlang, is_port, 1},
+     {erlang, is_process_alive,1},{erlang, is_record, 2},      {erlang, is_record, 3}, {erlang, is_reference, 1},
+     {erlang, is_tuple, 1},       {erlang, length, 1},         {erlang, link, 1}, {erlang, list_to_atom, 1},
+     {erlang, list_to_binary, 1}, {erlang, list_to_existing_atom, 1}, {erlang, list_to_float, 1},
+     {erlang, list_to_integer, 1},{erlang, list_to_pid, 1},    {erlang, list_to_tuple, 1},
+     {erlang, load_module, 2},    {erlang, make_ref, 0},       {erlang, module_loaded, 1}, {erlang, monitor_node, 2},
+     {erlang, node, 0},           {erlang, node, 1},           {erlang, nodes, 0}, {erlang, nodes, 1}, {erlang, now, 0}, {erlang, open_port, 2},
+     {erlang, pid_to_list, 1},    {erlang, port_close, 1},     {erlang,  port_command, 2}, {erlang,  port_connect, 2},
+     {erlang,  port_control, 3},  {erlang,  pre_loaded, 0},    {erlang, process_flag, 2}, {erlang, process_flag, 3},
+     {erlang, process_info, 1},   {erlang, process_info, 2},   {erlang, processes, 0}, {erlang, purge_module, 1},
+     {erlang, put, 2},            {erlang, register, 2},       {erlang, registered, 0}, {erlang, round, 1}, {erlang, self, 0},
+     {erlang, setelement, 3},     {erlang, size, 1},           {erlang, spawn, 1}, {erlang, spawn, 2}, {erlang, spawn, 3},
+     {erlang, spawn, 4},          {erlang, spawn_link, 1},     {erlang, spawn_link, 2}, {erlang, spawn_link, 3},
+     {erlang, spawn_link, 4},     {erlang, spawn_opt, 2},      {erlang, spawn_opt, 3}, {erlang, spawn_opt, 4},
+     {erlang, spawn_opt, 5},      {erlang, aplit_binary, 2},   {erlang, statistics, 1}, {erlang, term_to_binary, 1},
+     {erlang, term_to_binary, 2}, {erlang, throw, 1},          {erlang, time, 1}, {erlang, tl, 1}, {erlang, trunc, 1},
+     {erlang, unregister, 1},     {erlang, unregister, 1},     {erlang, tuple_to_list, 1}, {erlang, unlink, 1},
+     {erlang, whereis, 1}].
 
 
 %% =====================================================================
@@ -2366,11 +2383,11 @@ test_framework_used(FileName) ->
 					   _ -> []
 				       end
 			       end,Forms),
-	   Eunit = lists:any(fun(S) -> lists:suffix("eunit.hrl", S) end,Strs),
-	   EQC = lists:any(fun(S) -> lists:suffix("eqc.hrl", S) end, Strs),
-	   EQC_STATEM  =lists:any(fun(S) -> lists:suffix("eqc_statem.hrl", S) end, Strs),
-	   TestSever = lists:suffix(FileName, "_SUITE.erl") and 
-	       lists:any(fun(S) -> lists:suffix("test_server.hrl", S) end, Strs),
+	    Eunit = lists:any(fun(S) -> lists:suffix("eunit.hrl", S) end,Strs),
+	    EQC = lists:any(fun(S) -> lists:suffix("eqc.hrl", S) end, Strs),
+	    EQC_STATEM  =lists:any(fun(S) -> lists:suffix("eqc_statem.hrl", S) end, Strs),
+	    TestSever = lists:suffix(FileName, "_SUITE.erl") and 
+		lists:any(fun(S) -> lists:suffix("test_server.hrl", S) end, Strs),
 	    CommonTest= lists:suffix(FileName, "_SUITE.erl") and 
 		lists:any(fun(S) -> lists:suffix("ct.hrl", S) end, Strs),
 	    lists:flatmap(fun({F, V}) -> case V of 
@@ -2378,7 +2395,7 @@ test_framework_used(FileName) ->
 					     _ -> []
 					 end
 			  end,[{eunit, Eunit}, {eqc, EQC}, {eqc_statem, EQC_STATEM}, 
-			      {testserver, TestSever}, {commontest, CommonTest}]);
+			       {testserver, TestSever}, {commontest, CommonTest}]);
 	_ -> []
     end.
    
