@@ -42,8 +42,13 @@ module_graph(SearchPaths) ->
     
     
 analyze_all_files([], _SearchPaths)->
-    Acc = ets:foldr(fun({{Mod, Dir}, CalledMods, _TimeStamp}, S) 
-		       -> [{{Mod, Dir}, CalledMods}|S]
+    Acc = ets:foldr(fun({{Mod, Dir}, CalledMods, _TimeStamp}, S) -> 
+			    FileName = filename:join(Dir, Mod++".erl"),
+			    case filelib:is_file(FileName) of 
+				true ->
+				    [{{Mod, Dir}, CalledMods}|S];
+				_ -> S
+			    end
 		    end, [], ?ModuleGraphTab),
     reverse_module_graph(Acc);
 
