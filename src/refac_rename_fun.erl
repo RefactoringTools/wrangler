@@ -52,7 +52,8 @@
 
 -export([rename_fun/6, rename_fun_1/6,  rename_fun_eclipse/6]).
 
--export([check_atoms/4]).
+-export([check_atoms/4, try_eval/3, start_atom_process/0, stop_atom_process/1,output_atom_warning_msg/2]).
+
 
 -include("../include/wrangler.hrl").
 %% =====================================================================
@@ -94,14 +95,14 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 				    Pid = start_atom_process(),
 				    ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
 				    {AnnAST1, _C} = do_rename_fun(FileName, SearchPaths, AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}, Pid),
-				    check_atoms(FileName, AnnAST1, Fun, Pid),
+				    check_atoms(FileName, AnnAST1, [Fun], Pid),
 				    case refac_util:is_exported({Fun, Arity}, Info) of
 					true ->
 					    ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
 					    ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
 					    try rename_fun_in_client_modules(ClientFiles, {Mod, Fun, Arity}, NewName, SearchPaths, TabWidth, Pid) of 
 						Results -> 
-						    output_atom_warning_msg(Pid,Fun),
+						    output_atom_warning_msg(Pid,[Fun]),
 						    stop_atom_process(Pid),
 						    write_files(Editor, [{{FileName,FileName},AnnAST1} | Results])
 					    catch 
@@ -110,7 +111,7 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 						    Err
 					    end;
 					false ->
-					    output_atom_warning_msg(Pid, Fun),
+					    output_atom_warning_msg(Pid, [Fun]),
 					    stop_atom_process(Pid),
 					    write_files(Editor, [{{FileName,FileName},AnnAST1}])
 				    end;				
@@ -143,14 +144,14 @@ rename_fun_1(FileName,Line, Col, NewName, SearchPaths, TabWidth) ->
 	    ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
 	    try rename_fun_in_client_modules(ClientFiles, {Mod, Fun, Arity}, NewName, SearchPaths, TabWidth,Pid) of 
 		Results -> 
-		    output_atom_warning_msg(Pid, Fun),
+		    output_atom_warning_msg(Pid, [Fun]),
 		    stop_atom_process(Pid),
 		    write_files(emacs, [{{FileName, FileName}, AnnAST1} | Results])
 	    catch 
 		throw:Err -> Err
 	    end;
 	false ->
-	    output_atom_warning_msg(Pid, Fun),
+	    output_atom_warning_msg(Pid, [Fun]),
 	    stop_atom_process(Pid),
 	    write_files(emacs, [{{FileName, FileName}, AnnAST1}])
     end.    
@@ -196,17 +197,17 @@ pre_cond_check(FileName, Info, NewFunName, OldFunDefMod,OldFunName, Arity) ->
 
 
 do_rename_fun(FileName, SearchPaths, Tree, {ModName, OldName, Arity}, {DefinePos, NewName}, Pid) ->
-    refac_util:stop_tdTP(fun do_rename_fun_1/2, Tree, {FileName, {ModName, OldName, Arity}, {DefinePos, NewName},SearchPaths, Pid}).
+    refac_util:full_tdTP(fun do_rename_fun_1/2, Tree, {FileName, {ModName, OldName, Arity}, {DefinePos, NewName},SearchPaths, Pid}).
   
 do_rename_fun_1(Tree, {FileName, {M, OldName, Arity}, {DefinePos, NewName}, SearchPaths, Pid}) ->
     case refac_syntax:type(Tree) of
       function ->
 	  case get_fun_def_loc(Tree) of
 	    DefinePos ->
-		N = refac_syntax:function_name(Tree),
-		Cs = refac_syntax:function_clauses(Tree),
-		N1 = refac_syntax:copy_attrs(N, refac_syntax:atom(NewName)),
-		{refac_syntax:copy_attrs(Tree, refac_syntax:function(N1, Cs)), false};
+		  N = refac_syntax:function_name(Tree),
+		  Cs = refac_syntax:function_clauses(Tree),
+		  N1 = copy_pos_attrs(N, refac_syntax:atom(NewName)),
+		  {copy_pos_attrs(Tree, refac_syntax:function(N1, Cs)), true};
 	    _ -> {Tree, false}
 	  end;
       application ->
@@ -221,9 +222,9 @@ do_rename_fun_1(Tree, {FileName, {M, OldName, Arity}, {DefinePos, NewName}, Sear
 				  atom ->
 				      case get_fun_def_info(Operator) of
 					  {M, OldName, Arity, _} ->
-					      Operator1 = refac_syntax:copy_attrs(Operator, refac_syntax:atom(NewName)),
-					      Tree1 = refac_syntax:copy_attrs(Tree, refac_syntax:application(Operator1, Arguments)),
-					      {Tree1, false};
+					      Operator1 = copy_pos_attrs(Operator, refac_syntax:atom(NewName)),
+					      Tree1 = copy_pos_attrs(Tree, refac_syntax:application(Operator1, Arguments)),
+					      {Tree1, true};
 					  _ -> {Tree, false}
 				      end;
 				  module_qualifier ->
@@ -231,11 +232,11 @@ do_rename_fun_1(Tree, {FileName, {M, OldName, Arity}, {DefinePos, NewName}, Sear
 				      Fun = refac_syntax:module_qualifier_body(Operator),
 				      case get_fun_def_info(Operator) of
 					  {M, OldName, Arity, _} ->
-					      Fun2 = refac_syntax:copy_attrs(Fun, refac_syntax:atom(NewName)),
+					      Fun2 = copy_pos_attrs(Fun, refac_syntax:atom(NewName)),
 					      %% Need to change the fun_def annotation as well?
-					      Operator1 = refac_syntax:copy_attrs(Tree, refac_syntax:module_qualifier(Mod, Fun2)),
-					      Tree1 = refac_syntax:copy_attrs(Tree, refac_syntax:application(Operator1, Arguments)),
-					      {Tree1, false};
+					      Operator1 = copy_pos_attrs(Operator, refac_syntax:module_qualifier(Mod, Fun2)),
+					      Tree1 = copy_pos_attrs(Tree, refac_syntax:application(Operator1, Arguments)),
+					      {Tree1, true};
 					  _ -> {Tree, false}
 				      end;
 				  _ -> {Tree, false}
@@ -243,18 +244,17 @@ do_rename_fun_1(Tree, {FileName, {M, OldName, Arity}, {DefinePos, NewName}, Sear
 		  end
 	  end;
 	arity_qualifier ->
-	  Fun = refac_syntax:arity_qualifier_body(Tree),
-	  Fun_Name = refac_syntax:atom_value(Fun),
-	  Arg = refac_syntax:arity_qualifier_argument(Tree),
-	  Arg1 = refac_syntax:integer_value(Arg),
-	  DefMod = get_fun_def_mod(Fun),
-	  if (Fun_Name == OldName) and (Arg1 == Arity) and (DefMod == M) ->
-		 {refac_syntax:copy_attrs(Tree, refac_syntax:arity_qualifier(refac_syntax:atom(NewName), Arg)),false};
-	     true -> {Tree, false}
-	  end;
-      tuple -> {Tree1, _M} =do_rename_fun_in_tuples(Tree, {FileName, SearchPaths, M, OldName, NewName, Arity, Pid}),
-	       {Tree1, false};
-      _ -> {Tree, false}
+	    Fun = refac_syntax:arity_qualifier_body(Tree),
+	    Fun_Name = refac_syntax:atom_value(Fun),
+	    Arg = refac_syntax:arity_qualifier_argument(Tree),
+	    Arg1 = refac_syntax:integer_value(Arg),
+	    DefMod = get_fun_def_mod(Fun),
+	    if (Fun_Name == OldName) and (Arg1 == Arity) and (DefMod == M) ->
+		    {copy_pos_attrs(Tree, refac_syntax:arity_qualifier(refac_syntax:atom(NewName), Arg)),true};
+	       true -> {Tree, false}
+	    end;
+	tuple -> do_rename_fun_in_tuples(Tree, {FileName, SearchPaths, M, OldName, NewName, Arity, Pid});		 
+	_ -> {Tree, false}
     end.
 
 get_fun_def_loc(Node) ->
@@ -279,7 +279,7 @@ rename_fun_in_client_modules(Files, {Mod, Fun, Arity}, NewName, SearchPaths, Tab
 	    ?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
 	    {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(F, true, SearchPaths, TabWidth),
 	    {AnnAST1, Changed} = rename_fun_in_client_module_1(F, {AnnAST, Info},{Mod, Fun, Arity}, NewName, SearchPaths, Pid),
-	    check_atoms(F, AnnAST1, Fun, Pid),
+	    check_atoms(F, AnnAST1, [Fun], Pid),
 	    if Changed ->
 		    [{{F, F}, AnnAST1} | rename_fun_in_client_modules(Fs, {Mod, Fun, Arity}, NewName, SearchPaths, TabWidth, Pid)];
 	       true ->
@@ -307,7 +307,7 @@ rename_fun_in_client_module_1(FileName, {Tree, Info}, {M, OldName, Arity}, NewNa
 	    end;
 	_ -> ok
     end,
-    refac_util:stop_tdTP(fun do_rename_fun_in_client_module_1/2, Tree, {FileName,{M, OldName, Arity}, NewName, SearchPaths, Pid}).
+    refac_util:full_tdTP(fun do_rename_fun_in_client_module_1/2, Tree, {FileName,{M, OldName, Arity}, NewName, SearchPaths, Pid}).
   
 
 do_rename_fun_in_client_module_1(Tree, {FileName,{M, OldName, Arity}, NewName, SearchPaths, Pid}) ->
@@ -324,8 +324,8 @@ do_rename_fun_in_client_module_1(Tree, {FileName,{M, OldName, Arity}, NewName, S
 				    atom ->
 					case get_fun_def_info(Operator) of
 					    {M, OldName, Arity, _} ->
-						Operator1 = refac_syntax:copy_attrs(Operator, refac_syntax:atom(NewName)),
-						Tree1 = refac_syntax:copy_attrs(Tree, refac_syntax:application(Operator1, Arguments)),
+						Operator1 = copy_pos_attrs(Operator, refac_syntax:atom(NewName)),
+						Tree1 = copy_pos_attrs(Tree, refac_syntax:application(Operator1, Arguments)),
 						{Tree1, true};
 					    _ -> {Tree, false}
 					end;
@@ -334,10 +334,10 @@ do_rename_fun_in_client_module_1(Tree, {FileName,{M, OldName, Arity}, NewName, S
 					Fun = refac_syntax:module_qualifier_body(Operator),
 					case get_fun_def_info(Operator) of
 					    {M, OldName, Arity, _} ->
-						Fun2 = refac_syntax:copy_attrs(Fun, refac_syntax:atom(NewName)),
+						Fun2 = copy_pos_attrs(Fun, refac_syntax:atom(NewName)),
 						%% Need to change the fun_def annotation as well?
-						Operator1 = refac_syntax:copy_attrs(Tree, refac_syntax:module_qualifier(Mod, Fun2)),
-						Tree1 = refac_syntax:copy_attrs(Tree, refac_syntax:application(Operator1, Arguments)),
+						Operator1 = copy_pos_attrs(Operator, refac_syntax:module_qualifier(Mod, Fun2)),
+						Tree1 = copy_pos_attrs(Tree, refac_syntax:application(Operator1, Arguments)),
 						{Tree1, true};
 					    _ -> {Tree, false}
 					end;
@@ -353,7 +353,7 @@ do_rename_fun_in_client_module_1(Tree, {FileName,{M, OldName, Arity}, NewName, S
 	    Arg1 = refac_syntax:integer_value(Arg),
 	    DefMod = get_fun_def_mod(Fun),
 	    if (Fun_Name == OldName) and (Arg1 == Arity) and (DefMod == M) ->
-		    {refac_syntax:copy_attrs(Tree, refac_syntax:arity_qualifier(refac_syntax:atom(NewName), Arg)),
+		    {copy_pos_attrs(Tree, refac_syntax:arity_qualifier(refac_syntax:atom(NewName), Arg)),
 		     true};
 	       true -> {Tree, false}
 	    end;
@@ -379,11 +379,11 @@ is_callback_fun(ModInfo, Funname, Arity) ->
       _ -> false
     end.
 
--spec(check_atoms/4::(filename(), syntaxTree(), atom(),pid()) ->ok).	     
-check_atoms(FileName, Tree, AtomName, Pid) ->
+-spec(check_atoms/4::(filename(), syntaxTree(), [atom()],pid()) ->ok).	     
+check_atoms(FileName, Tree, AtomNames, Pid) ->
     F = fun (T) ->
 		case refac_syntax:type(T) of
-		  function -> collect_atoms(T, AtomName);
+		  function -> collect_atoms(T, AtomNames);
 		  _ -> []
 		end
 	end,
@@ -411,16 +411,16 @@ check_atoms(FileName, Tree, AtomName, Pid) ->
     end.
  
 
-collect_atoms(Tree, AtomName) ->
+collect_atoms(Tree, AtomNames) ->
     F = fun (T, S) ->
 		case refac_syntax:type(T) of
 		  function ->
 		      N = refac_syntax:function_name(T),
 		      case refac_syntax:type(N) of
 			atom ->
-			    case refac_syntax:atom_value(N) of
-			      AtomName -> S ++ [{function, refac_syntax:get_pos(N)}];
-			      _ -> S
+			    case lists:member(refac_syntax:atom_value(N), AtomNames) of
+			      true -> S ++ [{function, refac_syntax:get_pos(N)}];
+			      false -> S
 			    end;
 			_ -> S
 		      end;
@@ -428,10 +428,10 @@ collect_atoms(Tree, AtomName) ->
 		      Operator = refac_syntax:application_operator(T),
 		      case refac_syntax:type(Operator) of
 			atom ->
-			    case refac_syntax:atom_value(Operator) of
-			      AtomName ->
+			    case lists:member(refac_syntax:atom_value(Operator), AtomNames) of
+			      true ->
 				  S ++ [{function, refac_syntax:get_pos(Operator)}];
-			      _ -> S
+			      false -> S
 			    end;
 			_ -> S
 		      end;
@@ -440,70 +440,93 @@ collect_atoms(Tree, AtomName) ->
 		      Fun = refac_syntax:module_qualifier_body(T),
 		      S1 = case refac_syntax:type(Mod) of
 			     atom ->
-				 case refac_syntax:atom_value(Mod) of
-				   AtomName ->
-				       S ++ [{module, refac_syntax:get_pos(Mod)}];
-				   _ -> S
+				 case lists:member(refac_syntax:atom_value(Mod), AtomNames) of
+				     true ->
+					 S ++ [{module, refac_syntax:get_pos(Mod)}];
+				    false -> S
 				 end;
-			     _ -> S
+			       _ -> S
 			   end,
 		      case refac_syntax:type(Fun) of
-			atom ->
-			    case refac_syntax:atom_value(Fun) of
-			      AtomName -> S1 ++ [{function, refac_syntax:get_pos(Fun)}];
-			      _ -> S1
-			    end;
+			  atom ->
+			      case lists:member(refac_syntax:atom_value(Fun), AtomNames) of
+				  true -> S1 ++ [{function, refac_syntax:get_pos(Fun)}];
+				  false -> S1
+			      end;
 			_ -> S1
 		      end;
 		  arity_qualifier ->
-		      Fun = refac_syntax:arity_qualifier_body(T),
-		      case refac_syntax:atom_value(Fun) of
-			AtomName -> S ++ [{function, refac_syntax:get_pos(Fun)}];
-			_ -> S
-		      end;
+			Fun = refac_syntax:arity_qualifier_body(T),
+			case lists:member(refac_syntax:atom_value(Fun), AtomNames) of
+			    true -> S ++ [{function, refac_syntax:get_pos(Fun)}];
+			    false -> S
+			end;
 		  infix_expr ->
-		      Op = refac_syntax:infix_expr_operator(T),
-		      Left = refac_syntax:infix_expr_left(T),
-		      case refac_syntax:operator_name(Op) of
-			'!' ->
-			    case refac_syntax:type(Left) of
-			      atom ->
-				  case refac_syntax:atom_value(Left) of
-				    AtomName ->
-					S ++ [{process, refac_syntax:get_pos(Left)}];
+			Op = refac_syntax:infix_expr_operator(T),
+			Left = refac_syntax:infix_expr_left(T),
+			case refac_syntax:operator_name(Op) of
+			    '!' ->
+				case refac_syntax:type(Left) of
+				    atom ->
+					case lists:member(refac_syntax:atom_value(Left),AtomNames) of
+					    true ->
+						S ++ [{process, refac_syntax:get_pos(Left)}];
+					    _ -> S
+					end;
 				    _ -> S
-				  end;
-			      _ -> S
-			    end;
-			_ -> S
-		      end;
-		  record_expr -> Type = refac_syntax:record_expr_type(T),
-				 case refac_syntax:type(Type) of 
-				     atom -> S ++ [{record, refac_syntax:get_pos(Type)}];
-				     _ -> S
-				 end;
-		  record_field -> Name = refac_syntax:record_field_name(T),
-				   case refac_syntax:type(Name) of 
-				       atom -> S ++ [{record, refac_syntax:get_pos(Name)}];
+				end;
+			    _ -> S
+			end;
+		    record_expr -> Type = refac_syntax:record_expr_type(T),
+				   case refac_syntax:type(Type) of 
+				       atom -> 
+					   case lists:member(refac_syntax:atom_value(Type), AtomNames) of 
+					       true ->
+						   S ++ [{record, refac_syntax:get_pos(Type)}];
+					       false ->
+						   S
+					   end;
 				       _ -> S
-				   end;				   
-		  record_access -> Type = refac_syntax:record_access_type(T),
-				   Field = refac_syntax:record_access_field(T),
-				   S1 =case refac_syntax:type(Type) of 
-					   atom -> S ++ [{record, refac_syntax:get_pos(Type)}];
-					   _ -> S
-				       end,
-				   case refac_syntax:type(Field) of 
-				       atom -> S1 ++ [{record, refac_syntax:get_pos(Field)}];
-				       _ -> S1
 				   end;
-		  atom ->
-		      case refac_syntax:atom_value(T) of
-			AtomName ->
-			    Pos = refac_syntax:get_pos(T), S ++ [{atom, Pos}];
-			_ -> S
-		      end;
-		  _ -> S
+		    record_field -> Name = refac_syntax:record_field_name(T),
+				    case refac_syntax:type(Name) of 
+					atom -> 
+					    case lists:member(refac_syntax:atom_value(Name), AtomNames) of
+						true ->
+						    S ++ [{record, refac_syntax:get_pos(Name)}];
+						_ -> S
+					    end;
+					_ -> S
+				    end;				   
+		    record_access -> Type = refac_syntax:record_access_type(T),
+				     Field = refac_syntax:record_access_field(T),
+				     S1 =case refac_syntax:type(Type) of 
+					     atom -> 
+						 case lists:member(refac_syntax:atom_value(Type), AtomNames) of 
+						     true ->
+							 S ++ [{record, refac_syntax:get_pos(Type)}];
+						     false ->
+							 S
+						 end;
+					     _ -> S
+					 end,
+				     case refac_syntax:type(Field) of 
+					 atom -> 
+					     case lists:member(refac_syntax:atom_value(Field), AtomNames) of 
+						 true ->
+						     S ++ [{record, refac_syntax:get_pos(Field)}];
+						 false ->
+						     S
+					     end;
+					 _ -> S1
+				     end;
+		    atom ->
+			case lists:member(refac_syntax:atom_value(T), AtomNames) of
+			    true ->
+				Pos = refac_syntax:get_pos(T), S ++ [{atom, Pos}];
+			    false -> S
+			end;
+		    _ -> S
 		end
 	end,
     refac_syntax_lib:fold(F, [], Tree).
@@ -532,7 +555,7 @@ transform_apply_style_calls(FileName, Node, {ModName, FunName, Arity}, NewFunNam
 				      4 -> refac_syntax:application(Operator, [N2, Mod, Fun2, Args]);
 				      3 -> refac_syntax:application(Operator, [Mod, Fun2, Args])
 				  end,
-			    {refac_syntax:copy_pos(Node, refac_syntax:copy_attrs(Node, App)), true};
+			    {copy_pos_attrs(Node, App), true};
 			false -> {Node, false}
 		    end;
 		_ ->
@@ -552,84 +575,79 @@ transform_apply_style_calls(FileName, Node, {ModName, FunName, Arity}, NewFunNam
 %% {generator, modulename, functionname}
 %% {call, modulename, functionname, arglist}
 do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, OldName, NewName, Arity, Pid}) ->
-    case refac_syntax:type(Node) of 
-	tuple ->
-	    case refac_syntax:tuple_elements(Node) of 
-		[E1, E2] ->
-		    case refac_syntax:type(E2) of 
-			atom -> case refac_syntax:atom_value(E2) of 
-				    OldName ->
-					case try_eval(FileName, E1, SearchPaths) of 
-					    {value, ModName} ->
-						Pid ! {add_renamed, {FileName, refac_syntax:get_pos(E2)}},
-						{refac_syntax:tuple([E1, refac_syntax:copy_attrs(E2, refac_syntax:atom(NewName))]),
-						 true};
-					    _ -> {Node, false}
-					end;
+    case refac_syntax:tuple_elements(Node) of 
+	[E1, E2] ->
+	    case refac_syntax:type(E2) of 
+		atom -> case refac_syntax:atom_value(E2) of 
+			    OldName ->
+				case try_eval(FileName, E1, SearchPaths) of 
+				    {value, ModName} ->
+					Pid ! {add_renamed, {FileName, Node}},
+					{refac_syntax:tuple([E1, copy_pos_attrs(E2, refac_syntax:atom(NewName))]),
+					 true};
 				    _ -> {Node, false}
 				end;
-			_ -> {Node, false}
-		    end;
-		[E1, E2, E3] -> 
-		    case refac_syntax:type(E3) of 
-			atom -> case refac_syntax:atom_value(E3) of 
-				    OldName ->
-					case try_eval(FileName, E2, SearchPaths) of
-					    {value, ModName} ->
-						Pid ! {add_renamed, {FileName, refac_syntax:get_pos(E3)}},
-						{refac_syntax:tuple([E1, E2, 
-								     refac_syntax:copy_attrs(E3, refac_syntax:atom(NewName))]),
-						 true};
-					    _  -> {Node, false}
-					end;
-				    _ -> {Node, false}
-				end;
-			integer -> 
-			    case refac_syntax:integer_value(E3) of 
-				       Arity -> case refac_syntax:type(E2) of 
-						    atom -> case refac_syntax:atom_value(E2) of 
-								OldName -> 
-								    case try_eval(FileName, E1, SearchPaths) of
-									{value, ModName} ->
-									    Pid ! {add_renamed, {FileName, refac_syntax:get_pos(E2)}},
-									    {refac_syntax:tuple([E1, refac_syntax:copy_attrs(E2, 
-										refac_syntax:atom(NewName)), E3]),true};
-									_ -> {Node, false}
-								    end;
-								_ -> {Node, false}
-							    end;
-						    _->{Node, false}
-						end;
-				       _ -> {Node, false}
-				   end;
-			_ -> {Node, false}
-		    end;
-		[E1, E2, E3, E4] ->
-		    case refac_syntax:type(E3) of 
-			atom -> case refac_syntax:atom_value(E3) of 
-				    OldName ->
-					case try_eval(FileName, E2, SearchPaths) of
-					    {value, ModName} ->
-						case ((refac_syntax:type(E4)==list) andalso (refac_syntax:list_length(E4)==Arity)) orelse
-						    ((refac_syntax:type(E4)==nil) andalso Arity==0) of
-						    true ->
-							Pid ! {add_renamed, {FileName, refac_syntax:get_pos(E3)}},
-							{refac_syntax:tuple([E1, E2, 
-									     refac_syntax:copy_attrs(E3, refac_syntax:atom(NewName)), E4]),
-							 true};
-						    _ ->
-							{Node, false}
-						end;
-					    _ -> {Node, false}
-					end;
-				    _ -> {Node, false}
-				end;
-			_ -> {Node, false}
-		    end;
+			    _ -> {Node, false}
+			end;
 		_ -> {Node, false}
 	    end;
-	_  -> {Node, false}
+	[E1, E2, E3] -> 
+	    case refac_syntax:type(E3) of 
+		atom -> case refac_syntax:atom_value(E3) of 
+			    OldName ->
+				case try_eval(FileName, E2, SearchPaths) of
+				    {value, ModName} ->
+					Pid ! {add_renamed, {FileName, Node}},
+					{refac_syntax:tuple([E1, E2, copy_pos_attrs(E3, refac_syntax:atom(NewName))]),
+					 true};
+				    _  -> {Node, false}
+				end;
+				    _ -> {Node, false}
+			end;
+		_ -> case (refac_syntax:type(E3)==integer andalso refac_syntax:integer_value(E3)==Arity) orelse
+			 (refac_syntax:type(E3)==list andalso refac_syntax:list_length(E3) ==Arity) orelse
+			 (refac_syntax:type(E3)==nil andalso Arity==0) of 
+			 true ->
+			     case refac_syntax:type(E2) of 
+				 atom -> case refac_syntax:atom_value(E2) of 
+					     OldName -> 
+						 case try_eval(FileName, E1, SearchPaths) of
+						     {value, ModName} ->
+							 Pid ! {add_renamed, {FileName, Node}},
+							 {refac_syntax:tuple([E1, copy_pos_attrs(E2, refac_syntax:atom(NewName)), E3]),true};
+						     _ -> {Node, false}
+						     end;
+					     _ -> {Node, false}
+					     end;
+				 _->{Node, false}
+			     end;
+			 _ -> {Node, false}
+		     end
+	    end;
+	[E1, E2, E3, E4] ->
+	    case refac_syntax:type(E3) of 
+		atom -> case refac_syntax:atom_value(E3) of 
+			    OldName ->
+				case try_eval(FileName, E2, SearchPaths) of
+				    {value, ModName} ->
+					case ((refac_syntax:type(E4)==list) andalso (refac_syntax:list_length(E4)==Arity)) orelse
+					    ((refac_syntax:type(E4)==nil) andalso Arity==0) of
+					    true ->
+						Pid ! {add_renamed, {FileName, Node}},
+						{refac_syntax:tuple([E1, E2, copy_pos_attrs(E3, refac_syntax:atom(NewName)), E4]),
+						 true};
+					    _ ->
+						{Node, false}
+					end;
+				    _ -> {Node, false}
+				end;
+			    _ -> {Node, false}
+			end;
+		_ -> {Node, false}
+	    end;
+	_ -> {Node, false}
     end.
+
 
 try_eval(FileName, Node, SearchPaths) ->
     try erl_eval:exprs([refac_syntax:revert(Node)],[]) of
@@ -843,12 +861,12 @@ atom_loop({NotRenamed, Renamed}) ->
 	    ok
     end.
 
-output_atom_warning_msg(Pid, Name) ->
+output_atom_warning_msg(Pid, Names) ->
     Pid ! {self(), get},
     receive
 	{Pid, {NotRenamed, Renamed}} ->
-	    output_atom_warnings({NotRenamed, Renamed}, Name);
-	_ -> throw({error, "Refactoring failed because of a bug in Wrangler."})
+	    output_atom_warnings({NotRenamed, Renamed}, Names);
+	_ -> throw({error, "Refactoring failed because of a Wrangler error."})
     end.
     
     
@@ -856,34 +874,58 @@ output_atom_warning_msg(Pid, Name) ->
     
 output_atom_warnings({[],[]}, _) ->
     ok;
-output_atom_warnings({NotRenamed, Renamed}, FunName) ->
-    output_atom_not_renamed_warnings(NotRenamed,FunName),
-    output_atom_renamed_warnings(Renamed, FunName).
+output_atom_warnings({NotRenamed, Renamed}, Names) ->
+    output_atom_not_renamed_warnings(NotRenamed,Names),
+    output_atom_renamed_warnings(Renamed, Names).
 
 output_atom_not_renamed_warnings([], _FunName)-> 
     ok;
-output_atom_not_renamed_warnings(NotRenamed, FunName) ->
+output_atom_not_renamed_warnings(NotRenamed, Names) ->
     ?wrangler_io("\n=================================================================================\n",[]),
-    ?wrangler_io("WARNING: Wrangler could not infer whether the uses of '~p' at the following positions "
-		 "refer to the function renamed, and they are not renamed. Please check manually!\n", [FunName]),
-    output_atom_info(NotRenamed).
+    case length(Names) of 
+	1 ->
+	    ?wrangler_io("WARNING: Wrangler could not infer whether the uses of '~p' at the following positions "
+			 "refer to the function renamed, and they are not renamed. Please check manually!\n", Names);
+	2 -> 
+	    ?wrangler_io("WARNING: Wrangler could not infer whether the uses of '~p/~p' at the following positions "
+			 "refer to the function renamed, and they are not renamed. Please check manually!\n", Names)
+    end,
+    output_not_renamed_atom_info(NotRenamed).
 
-output_atom_renamed_warnings([], _FunName) ->
+output_atom_renamed_warnings([], _Names) ->
     ok;
-output_atom_renamed_warnings(Renamed, FunName) ->
+output_atom_renamed_warnings(Renamed, Names) ->
     ?wrangler_io("\n=================================================================================\n",[]),
-    ?wrangler_io("WARNING: Wrangler has renamed the uses of '~p' at the following positions without enough "
-		 "syntactic/semantic information. Please check manually!\n", [FunName]),
-    output_atom_info(Renamed).
+    case length(Names) of
+	1 ->
+	    ?wrangler_io("WARNING: Wrangler has renamed the uses of '~p' within the following expressions while without enough "
+			 "syntactic/semantic information. Please check manually!\n", Names);
+	2 ->
+	    ?wrangler_io("WARNING: Wrangler has renamed the uses of '~p\~p' within the following expressions while without enough "
+			 "syntactic/semantic information. Please check manually!\n", Names)
+    end,
+    output_renamed_atom_info(Renamed).
 
-output_atom_info(FileAndPositions) ->
+output_not_renamed_atom_info(FileAndPositions) ->
     Msg = lists:flatmap(fun({FileName, Positions}) ->
 				Str = io_lib:format("File:\n ~p\n", [FileName]),
 				Str ++ io_lib:format("Position(s){Line, Col}:~p\n",[Positions])
 			end, FileAndPositions),
     ?wrangler_io(Msg, []).
+
+output_renamed_atom_info(FileAndExprs) ->
+    Msg = lists:flatmap(fun({FileName, Exprs}) ->
+				Str = io_lib:format("File:\n ~p\n", [FileName]),
+				Str ++ lists:map(fun(Expr) ->
+							 {Line, _Col} = refac_syntax:get_pos(Expr),
+							 io_lib:format("Line number:~p\n", [Line]) ++
+							     "Expression: " ++ refac_prettypr:format(Expr)++"\n\n"
+						 end, Exprs)
+			end, FileAndExprs),
+    ?wrangler_io(Msg, []).
     
-    
+copy_pos_attrs(E1, E2) ->
+    refac_syntax:copy_pos(E1, refac_syntax:copy_attrs(E1, E2)).    
     
 
     
