@@ -90,10 +90,10 @@ tuple_funpar_eclipse(FileName, ParLine, ParCol, Number, SearchPaths, TabWidth)->
 tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths, TabWidth, Editor)->
   ?wrangler_io("\nCMD: ~p:tuple_funpar(~p, ~p, ~p, ~p,~p, ~p).\n", 
             [?MODULE,FileName, ParLine, ParCol, Number, SearchPaths, TabWidth]),
-	{ok, {AnnAST, Info}} = parse_file(FileName, SearchPaths, TabWidth),
-    case Number of 
-	1 -> throw({error, "Tupling one argument is not supported."});
-	_ ->ok
+    {ok, {AnnAST, Info}} = parse_file(FileName, SearchPaths, TabWidth),
+    case Number >1  of 
+	false -> throw({error, "Tupling one argument or less is not supported."});
+	true ->ok
     end,    
     case check_first_pos({ParLine, ParCol}, AnnAST) of 
 	{error, Reason} -> {error, Reason};
@@ -108,7 +108,7 @@ tuple_funpar(FileName, ParLine, ParCol, Number, SearchPaths, TabWidth, Editor)->
 		    NewArity = Arity - Number + 1,
 		    case check_def_mod(Mod, ModName) of 
 			ok ->
-			    case check_name_clash(FunName, NewArity, InscopeFuns, Number) of 
+			    case check_name_clash(FunName, NewArity, InscopeFuns) of 
 				ok ->
 				    case check_is_callback_fun(Info, FunName, Arity) of 
 					ok ->  ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
@@ -230,22 +230,14 @@ check_is_callback_fun(Info, FunName, Arity)->
     false -> ok
   end.
 
-%% =====================================================================
-%% @spec check_name_clash(FunName::atom(), NewArity::integer(),
-%%       InscopeFuns::[{ModName, FunName, Arity}],Number::integer()) -> ok
-%%
-%% @end
-%% =====================================================================
-check_name_clash(FunName, NewArity, InscopeFuns, Number) ->
+check_name_clash(FunName, NewArity, InscopeFuns) ->
     %%?wrangler_io("Param: ~p ~n ~p ~n ~p ~n ~p ~n", [FunName, NewArity, InscopeFuns, Number]),
     %%?wrangler_io("Param: ~p ~n ", [lists:member({FunName, NewArity}, InscopeFuns)]),
-    case (lists:member({FunName, NewArity}, InscopeFuns) or
-	    lists:member({FunName, NewArity}, refac_util:auto_imported_bifs()))
-	   and (Number > 1)
-	of
-      false -> ok;
-      true ->
-	  {error, atom_to_list(FunName) ++"/" ++ integer_to_list(NewArity) ++" is already in scope, or is an auto-imported builtin function."}
+    case (lists:member({FunName, NewArity}, InscopeFuns) orelse
+	  erlang:is_builtin(erlang, FunName, NewArity) orelse erl_internal:bif(erlang, FunName, NewArity)) of
+	false -> ok;
+	true ->
+	    {error, atom_to_list(FunName) ++"/" ++ integer_to_list(NewArity) ++" is already in scope, or is an auto-imported builtin function."}
     end.
 
 %% =====================================================================
@@ -305,21 +297,20 @@ tuple_parameters_in_client_modules(Files, Name, Arity, C, N, Mod, TabWidth)->
 tuple_parameters_in_client_modules_1({Tree, Info}, Name, Arity, C, N, Mod) ->
     case lists:keysearch(module, 1, Info) of
       {value, {module, ClientModName}} ->
-	  InscopeFuns = lists:map(fun ({_M, F, A}) -> {F, A} end,
-				  refac_util:inscope_funs(Info)),
-	  NewArity = Arity - N + 1,
-	  case (lists:member({Name, NewArity}, InscopeFuns) or
-		  lists:member({Name, NewArity}, refac_util:auto_imported_bifs()))
-		 and (Arity > NewArity)
-	      of
-	    false ->
-		refac_util:stop_tdTP(fun do_tuple_fun_parameters/2, Tree,
-				     {C, N, Name, Arity, Mod});
-	    true ->
-		{error, "The new function arity causes confliction in the client module: " ++ atom_to_list(ClientModName)}
-	  end;
-      _ ->
-	  refac_util:stop_tdTP(fun do_tuple_fun_parameters/2, Tree, {C, N, Name, Arity, Mod})
+	    InscopeFuns = lists:map(fun ({_M, F, A}) -> {F, A} end,
+				    refac_util:inscope_funs(Info)),
+	    NewArity = Arity - N + 1,
+	    case (lists:member({Name, NewArity}, InscopeFuns) orelse
+		  erlang:is_builtin(erlang, FunName, NewArity) orelse 
+		  erl_internal:bif(erlang, FunName, NewArity)) of		
+		false ->
+		    refac_util:stop_tdTP(fun do_tuple_fun_parameters/2, Tree,
+					 {C, N, Name, Arity, Mod});
+		true ->
+		    {error, "The new function arity causes confliction in the client module: " ++ atom_to_list(ClientModName)}
+	    end;
+	_ ->
+	    refac_util:stop_tdTP(fun do_tuple_fun_parameters/2, Tree, {C, N, Name, Arity, Mod})
     end.
 
 
