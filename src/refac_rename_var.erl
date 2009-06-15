@@ -50,8 +50,6 @@
 
 -export([rename_var/6, rename_var_eclipse/6]).
 
--export([pre_cond_check/4, rename/3]).
-
 -include("../include/wrangler.hrl").
 
 %% =====================================================================
@@ -88,10 +86,13 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 					macro_name ->
 					    {error, "Sorry, renaming of macro names is not supported yet."};
 					_ ->
-					    case cond_check(AnnAST1, DefinePos, NewName1) of
-						{true, _} ->
-						    {error, "New name already declared in the same scope."};
-						{_, true} -> {error, "New name could cause name shadowing."};
+					    Form = pos_to_form(AnnAST1, {Line, Col}), 
+					    Res = cond_check(Form, DefinePos, VarName, NewName1),
+					    case Res of
+						{true, _, _} ->
+						    {error, "The new name is already declared in the same scope."};
+						{_, true,_} -> {error, "The new name could cause name shadowing."};
+						{_, _, true} -> {error, "The new name could change the existing binding structure of variables."};
 						_ ->
 						    {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
 						    case Editor of 
@@ -120,19 +121,35 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 %% =====================================================================
 %% @spec cond_check(Tree::syntaxTree(), Pos::{integer(),integer()}, NewName::string())-> term()
 %%   		
-cond_check(Tree, Pos, NewName) ->
-    Env_Bd_Fr_Vars = envs_bounds_frees(Tree),
+cond_check(Form, Pos, VarName,  NewName) ->
+    Env_Bd_Fr_Vars = envs_bounds_frees(Form),
     F_Pos = fun ({_, DefPos}) -> DefPos end,
     F_Name = fun ({Name, _}) -> Name end,
     BdVars = lists:map(fun ({_, B, _}) -> B end, Env_Bd_Fr_Vars),
+    %% io:format("vars:\n~p\n", [Env_Bd_Fr_Vars]),
     %% The new name clashes with existing bound variables.
-    Clash = lists:any(fun ({bound, Bds}) ->
-			      Poss = lists:map(F_Pos, Bds),
-			      Names = lists:map(F_Name, Bds),
-			      F_Member = fun (P) -> lists:member(P, Poss) end,
-			      lists:any(F_Member, Pos) and lists:member(NewName, Names)
-		      end,
-		      BdVars),
+    F = fun({bound, Bds}) ->
+		Poss = lists:map(F_Pos, Bds),
+		Names = lists:map(F_Name, Bds),
+		case lists:any(fun(P) -> lists:member(P, Poss) end, Pos)
+		    andalso lists:member(NewName, Names) of 
+		    false -> false;
+		    true -> DefPoss = element(2, lists:unzip(
+						   lists:filter(fun({Name, _}) ->
+									NewName==Name 
+								end, Bds))),
+			    VarEnvs = lists:map(fun(P) ->defpos_to_var_env(Form, [P]) end, DefPoss),
+			    VarToRenameEnv = defpos_to_var_env(Form, Pos),
+	   
+			    case lists:any(fun({N,_P}) ->N==NewName end, VarToRenameEnv) of 
+ 				true ->
+ 				    true;
+ 				false ->
+				    lists:any(fun(E) ->lists:any(fun({N,_P})-> N==VarName end, E) end, VarEnvs)
+ 			    end
+		end	      
+	end,
+    Clash = lists:any(F, BdVars),
     %% The new name will shadow an existing free variable within the scope.
     Shadow1 = lists:any(fun ({{env, _}, {bound, Bds}, {free, Fs}}) ->
 				Poss = lists:map(F_Pos, Bds),
@@ -143,26 +160,70 @@ cond_check(Tree, Pos, NewName) ->
 			Env_Bd_Fr_Vars),
     %% The new name will be shadowed by an existing bound variable.
     Shadow2 = lists:any(fun ({{env, _}, {bound, Bds}, {free, Fs}}) ->
-				Poss= lists:map(F_Pos, Fs),
+				Poss = lists:map(F_Pos, Fs),
 				Names = lists:map(F_Name, Bds),
 				F_Member = fun (P) -> lists:member(P, Poss) end,
 				lists:any(F_Member, Pos) and lists:member(NewName, Names)
 			end,
 			Env_Bd_Fr_Vars),
-    %%  BindingChange1 = lists:any(fun({{env, Envs}, {bound, Bds},{free, _Fs}})->
-    %%  				       Poss = lists:map (F_Pos, Bds),
-    %%  				       Names = lists:map(F_Name, Envs),
-    %%  				       F_Member = fun (P) -> lists:member(P,Poss) end,
-    %% 				       lists:any(F_Member, Pos) and lists:member(NewName, Names)
-    %% 			       end, Env_Bd_Fr_Vars),
-    %%     BindingChange2 = lists:any(fun({{env, Envs}, {bound, Bds}, {free, _Fs}})->
-    %% 				       Poss = lists:map(F_Pos, Envs),
-    %% 				       Names = lists:map(F_Name, Bds),
-    %% 				       F_Member = fun (P) -> lists:member(P,Poss) end,
-    %% 				       lists:any(F_Member, Pos) and lists:member(NewName, Names)
-    %% 			       end, Env_Bd_Fr_Vars),
-    %%     ?wrangler_io("BindingChange1,2:\n~p\n",[{BindingChange1,BindingChange2}]),
-    {Clash, Shadow1 or Shadow2}.  %%, (BindingChange1 or BindingChange2)}.
+    BindingChange1 = lists:any(fun({{env, Envs}, {bound, Bds},{free, _Fs}})->
+				       Poss = lists:map (F_Pos, Bds),
+				       Names = lists:map(F_Name, Envs),
+				       F_Member = fun (P) -> lists:member(P,Poss) end,
+				       lists:any(F_Member, Pos) and lists:member(NewName, Names)
+			       end, Env_Bd_Fr_Vars),
+    BindingChange2 = lists:any(fun({{env, Envs}, {bound, Bds}, {free, _Fs}})->
+				       Poss = lists:map(F_Pos, Envs),
+				       Names = lists:map(F_Name, Bds),
+				       F_Member = fun (P) -> lists:member(P,Poss) end,
+				       lists:any(F_Member, Pos) and lists:member(NewName, Names)
+			       end, Env_Bd_Fr_Vars),
+    {Clash, Shadow1 or Shadow2, BindingChange1 or BindingChange2}.
+
+
+defpos_to_var_env(Node, DefPos) ->
+    case refac_util:once_tdTU(fun defpos_to_var/2, Node, DefPos) of
+	{_, false} ->
+	    throw({error, "Refactoring failed because of a Wrangerl error."});
+	{R, true} -> 
+	    As = refac_syntax:get_ann(R),
+	    case lists:keysearch(env, 1, As) of
+		{value, {env, Env}} ->
+		    Env;
+		_ -> []
+	    end
+    end.
+defpos_to_var(Node, DefPos) ->
+    case refac_syntax:type(Node) of
+	variable ->
+	    Pos = refac_syntax:get_pos(Node),
+	    case lists:member(Pos, DefPos) of
+		true ->
+		    {Node, true};
+		_ -> {[],false}
+	    end;
+	_ -> {[], false}
+    end.
+    
+    
+pos_to_form(Node, Pos) ->
+    case refac_util:once_tdTU(fun pos_to_form_1/2, Node, Pos) of
+	{_, false} -> throw({error, "Refactoring failed because of a Wrangler error."});
+	{R, true} -> R
+    end.
+
+pos_to_form_1(Node, Pos) ->
+    case (refac_syntax:type(Node)==function) 
+	orelse (refac_syntax:type(Node)==attribute) of
+	true ->
+	    {S, E} = refac_util:get_range(Node),
+	    if (S =< Pos) and (Pos =< E) ->
+		    {Node, true};
+	       true -> {[], false}
+	    end;
+	_ -> {[], false}
+    end.
+
 
 
 %% =====================================================================
@@ -176,6 +237,7 @@ rename(Tree, DefinePos, NewName) ->
 
 %% =====================================================================
 %%
+
 do_rename(Tree, {DefinePos, NewName}) ->
     case refac_syntax:type(Tree) of
       variable ->
@@ -187,22 +249,6 @@ do_rename(Tree, {DefinePos, NewName}) ->
       _ -> {Tree, false}
     end.
 
-%% ===========================================================================
-%% The following functions are temporally for testing purpose only, and will be removed.
-%%=============================================================================
-
--spec(pre_cond_check/4::(syntaxTree(), integer(), integer(), atom())->
-	     boolean()).
-pre_cond_check(AST, Line, Col, NewName) ->
-    {ok, {VarName, DefinePos, _C}} = refac_util:pos_to_var_name(AST, {Line, Col}),
-    case VarName == NewName of 
-	true -> true;
-	_ ->  R = cond_check(AST, DefinePos, NewName),
-	      case R of
-		  {false, false} -> true;
-		  _ -> false
-	      end
-    end.
 
 %% =====================================================================
 %% @spec envs_bounds_frees(Node::syntaxTree())-> {value, [{Key, [atom()}]}
