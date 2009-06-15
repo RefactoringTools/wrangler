@@ -1422,7 +1422,7 @@ float_value(Node) ->
 %%
 %% @see float/1
 
-float_literal(Node) -> float_to_list(float_value(Node)).
+float_literal(Node) -> io_lib:write(float_value(Node)).
 
 %% =====================================================================
 %% @spec char(Value::char()) -> syntaxTree()
