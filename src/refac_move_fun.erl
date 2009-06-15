@@ -72,8 +72,8 @@ move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabW
     move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabWidth, emacs).
 
 
-%%-spec(move_fun_eclipse/7::(filename(),integer(),integer(), string(), atom(),[dir()], integer())
-%%        ->  {ok, [{filename(), filename(), string()}]} | {error, string()}).
+-spec(move_fun_eclipse/7::(filename(),integer(),integer(), string(), atom(),[dir()], integer())
+        ->  {ok, [{filename(), filename(), string()}]} | {error, string()}).
 
 move_fun_eclipse(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabWidth) ->
     move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabWidth, eclipse).
@@ -101,8 +101,7 @@ move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabW
 				 true ->
 				     {ok, {TargetAnnAST, Info1}} = refac_util:parse_annotate_file(TargetFName, true, SearchPaths, TabWidth),  
 				     {AnnAST1, TargetAnnAST1} =
-					 do_transformation({AnnAST, Info}, {TargetAnnAST, Info1},
-							   {ModName, FunName, Arity}, TargetModName),
+					 do_transformation({AnnAST, Info}, {TargetAnnAST, Info1},{ModName, FunName, Arity}, TargetModName),
 				     case refac_util:is_exported({FunName, Arity}, Info) of
 					 true ->
 					     ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
@@ -112,6 +111,7 @@ move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabW
 										  {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth),
 					     case Editor of
 						 emacs ->
+						     io:format("Results:\n~p\n", [Results]),
 						     refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST1},
 												    {{TargetFName, TargetFName, NewTargetFile}, TargetAnnAST1}| Results]),
 						     ChangedClientFiles =
@@ -172,35 +172,32 @@ create_new_file(TargetFName, TargetModName) ->
      file:write_file(TargetFName, list_to_binary(S)).
 
 side_cond_check({FileName, ModName, FunName, Arity, Node}, TargetFileName, TargetModName, FunDef, SearchPaths, TabWidth) ->
-    case filelib:is_file(TargetFileName) of
-      true -> {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(TargetFileName, true, SearchPaths, TabWidth),
-	      InscopeFuns = refac_util:inscope_funs(Info),
-	      check_macros(FileName, TargetFileName, FunDef, SearchPaths, TabWidth),
-	      check_records(FileName, TargetFileName, FunDef, SearchPaths, TabWidth),
-	      Clash = lists:any(fun ({ModName1, FunName1, Arity1}) ->
-					(FunName == FunName1) and (Arity == Arity1) and (ModName =/= ModName1)
-				end, InscopeFuns),
-	      ImplicitFunCall = has_implicit_fun_call(Node),
-	      case not Clash of
-		true -> case not ImplicitFunCall of
-			  true -> true;
-			  false -> {error,
-				    "Moving a function definiton containing implicit fun expressions "
-				    "is not supported by this refactoring."}
-			end;
-		false ->
-		    Forms = refac_syntax:form_list_elements(AnnAST),
-		    FunWithSameName = [F || F <- Forms, not is_not_the_fun(F, {TargetModName, FunName, Arity})],
-		    case FunWithSameName of
-		      [] ->
-			  {error, "Moving this function will cause confliction in the target module."};
-		      [F] -> case is_the_same_fun(FunDef, F) of
-			       true -> true;
-			       _ -> {error, "The same function name, with a different definition, is already defined in the target module."}
-			     end
-		    end
-	      end;
-      false -> true
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(TargetFileName, true, SearchPaths, TabWidth),
+    InscopeFuns = refac_util:inscope_funs(Info),
+    check_macros(FileName, TargetFileName, FunDef, SearchPaths, TabWidth),
+    check_records(FileName, TargetFileName, FunDef, SearchPaths, TabWidth),
+    Clash = lists:any(fun ({ModName1, FunName1, Arity1}) ->
+			      (FunName == FunName1) and (Arity == Arity1) and (ModName =/= ModName1)
+		      end, InscopeFuns),
+    ImplicitFunCall = has_implicit_fun_call(Node),
+    case not Clash of
+	true -> case not ImplicitFunCall of
+		    true -> true;
+		    false -> {error,
+			      "Moving a function definiton containing implicit fun expressions "
+			      "is not supported by this refactoring."}
+		end;
+	false ->
+	    Forms = refac_syntax:form_list_elements(AnnAST),
+	    FunWithSameName = [F || F <- Forms, not is_not_the_fun(F, {TargetModName, FunName, Arity})],
+	    case FunWithSameName of
+		[] ->
+		    {error, "Moving this function will cause confliction in the target module."};
+		[F] -> case is_the_same_fun(FunDef, F) of
+			   true -> true;
+			   _ -> {error, "The same function name, with a different definition, is already defined in the target module."}
+		       end
+	    end
     end.
 
 
@@ -324,10 +321,6 @@ collect_used_records(FunDef) ->
     lists:usort(refac_syntax_lib:fold(F,[], FunDef)).
 		
 			
-		
-
-
-
 reset_attrs(Node, {M, F, A}) ->
     Fun = fun(T) -> 
 		  T1 = case refac_syntax:type(T) of 
@@ -500,7 +493,7 @@ do_add_fun({TargetAnnAST, Info}, FunToBeMoved, {ModName, FunName, Arity}, Target
 %%========================================================================
 process(Form, {ModName, FunName, Arity}, TargetModName) ->
     case refac_syntax:type(Form) of 
-	function -> add_module_qualifier(Form, {ModName, FunName, Arity}, TargetModName);
+	function -> add_change_module_qualifier(Form, {ModName, FunName, Arity}, TargetModName);
 	attribute -> Name = refac_syntax:attribute_name(Form),
 		     case refac_syntax:type(Name) of 
 			 atom ->case refac_syntax:atom_value(Name) of
@@ -579,49 +572,56 @@ do_remove_module_qualifier(Node, {{ModName, FunName, Arity}, TargetModName}) ->
 	_ ->{Node, false}
     end.
 	    
-add_module_qualifier(Form, {ModName, FunName, Arity}, TargetModName) ->
-      refac_util:stop_tdTP(fun do_add_module_qualifier/2,
-				Form, {{ModName, FunName, Arity}, TargetModName}).
+add_change_module_qualifier(Form, {ModName, FunName, Arity}, TargetModName) ->
+    refac_util:full_tdTP(fun do_add_change_module_qualifier/2,
+			 Form, {{ModName, FunName, Arity}, TargetModName}).
    
 
 do_add_module_qualifier(Node, {{ModName, FunName, Arity}, TargetModName}) ->
    MakeApp = fun (Node1, Operator1, Arguments1,TargetModName1, FunName1) ->
 		     Operator2 =refac_syntax:copy_attrs(Operator1,
-					     refac_syntax:module_qualifier(refac_syntax:atom(TargetModName1),
-									   refac_syntax:atom(FunName1))),
-		     Node2= refac_syntax:copy_attrs(Node1,
-						     refac_syntax:application(Operator2,Arguments1)),
+							refac_syntax:module_qualifier(refac_syntax:atom(TargetModName1),
+										      refac_syntax:atom(FunName1))),
+		     Node2= refac_syntax:copy_attrs(Node1, refac_syntax:application(Operator2,Arguments1)),
 		     {Node2, false}
 	     end,
-   case refac_syntax:type(Node) of 
-	  application ->
-	      Operator = refac_syntax:application_operator(Node),
-	      Arguments = refac_syntax:application_arguments(Node),
-	      case application_info(Node) of 
-		  {{none, FunName}, Arity} -> MakeApp(Node, Operator, Arguments, TargetModName, FunName);	      
-		  {{ModName, FunName}, Arity} ->MakeApp(Node,Operator, Arguments, TargetModName, FunName);
-		  {{_, apply},2} -> transform_apply_call(Node,{ModName, FunName, Arity}, TargetModName);
-		  {{_, apply},3} -> transform_apply_call(Node, {ModName, FunName, Arity}, TargetModName);
-		  {{_, spawn}, 3} ->transform_spawn_call(Node, {ModName, FunName, Arity}, TargetModName);
-		  {{_, spawn}, 4} -> transform_spawn_call(Node, {ModName, FunName, Arity}, TargetModName); 
-		  {{_, spawn_link}, 3} ->transform_spawn_call(Node, {ModName, FunName, Arity}, TargetModName);
-		  {{_, spawn_link}, 4} ->transform_spawn_call(Node, {ModName, FunName, Arity}, TargetModName);
-		   _ -> {Node, false}
-	      end;
-       implicit_fun ->
-	   Name = refac_syntax:implicit_fun_name(Node),
-	   B = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Name)),
-	   A = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Name)),
-	   case {B, A} of
-	       {FunName, Arity} ->
-		   FunName1 = refac_syntax:module_qualifier(refac_syntax:atom(TargetModName),
-							    refac_syntax:atom(FunName)),
-		   Node1 = refac_syntax:implicit_fun(FunName1, refac_syntax:arity_qualifier_argument(Name)),
-		   {refac_syntax:copy_attrs(Node, Node1), true};
-	       _ -> {Node, false}
-	   end;
-       _  -> {Node, false}
-   end.
+    case refac_syntax:type(Node) of 
+	application ->
+	    Operator = refac_syntax:application_operator(Node),
+	    Arguments = refac_syntax:application_arguments(Node),
+	    As = refac_syntax:get_ann(Op),
+	    case lists:keysearch(fun_def, 1, As)) of 
+	       {value, {fun_def, {Mod1, Fun1, Ari1, _}}} ->
+		 case lists:keysearch({Mod1, Fun1, Ari1}, 1, apply_style_funs()) of 
+
+
+
+		   
+%% 	      case application_info(Node) of 
+%% 		  {{none, FunName}, Arity} -> MakeApp(Node, Operator, Arguments, TargetModName, FunName);	      
+%% 		  {{ModName, FunName}, Arity} ->MakeApp(Node,Operator, Arguments, TargetModName, FunName);
+%% 		  {{_, apply},2} -> transform_apply_call(Node,{ModName, FunName, Arity}, TargetModName);
+%% 		  {{_, apply},3} -> transform_apply_call(Node, {ModName, FunName, Arity}, TargetModName);
+%% 		  {{_, spawn}, 3} ->transform_spawn_call(Node, {ModName, FunName, Arity}, TargetModName);
+%% 		  {{_, spawn}, 4} -> transform_spawn_call(Node, {ModName, FunName, Arity}, TargetModName); 
+%% 		  {{_, spawn_link}, 3} ->transform_spawn_call(Node, {ModName, FunName, Arity}, TargetModName);
+%% 		  {{_, spawn_link}, 4} ->transform_spawn_call(Node, {ModName, FunName, Arity}, TargetModName);
+%% 		   _ -> {Node, false}
+%% 	      end;
+%%        implicit_fun ->
+%% 	   Name = refac_syntax:implicit_fun_name(Node),
+%% 	   B = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Name)),
+%% 	   A = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Name)),
+%% 	   case {B, A} of
+%% 	       {FunName, Arity} ->
+%% 		   FunName1 = refac_syntax:module_qualifier(refac_syntax:atom(TargetModName),
+%% 							    refac_syntax:atom(FunName)),
+%% 		   Node1 = refac_syntax:implicit_fun(FunName1, refac_syntax:arity_qualifier_argument(Name)),
+%% 		   {refac_syntax:copy_attrs(Node, Node1), true};
+%% 	       _ -> {Node, false}
+%% 	   end;
+%%        _  -> {Node, false}
+%%    end.
 %% ====================================================================================
 %%  Processing Client modules.
 %%====================================================================================
@@ -669,45 +669,9 @@ process_in_client_module(Form, {ModName, FunName, Arity}, TargetModName) ->
       _ -> {Form, false}
     end.
      
-%% =====================================================================
-%% @spec application_info(Tree::syntaxTree())->term()
-%% ====================================================================       
-application_info(Node) ->
-    case refac_syntax:type(Node) of 
-	application ->
-	    Operator = refac_syntax:application_operator(Node),
-	    Arguments = refac_syntax:application_arguments(Node),
-	    Arity = length(Arguments),
-	    case refac_syntax:type(Operator) of 
-		atom -> Op = refac_syntax:atom_value(Operator),
-			{{none,Op}, Arity}; 
-		module_qualifier ->
-		        Mod = refac_syntax:module_qualifier_argument(Operator),
-		        Fun = refac_syntax:module_qualifier_body(Operator),
-		        T1 = refac_syntax:type(Mod), 
-		        T2 = refac_syntax:type(Fun),
-		        case T1 of 
-		  	    atom -> 
-				Mod1 = refac_syntax:atom_value(Mod),
-				case T2 of 
-					atom -> Fun1 = refac_syntax:atom_value(Fun),
-						{{Mod1, Fun1}, Arity};
-				        _ ->{{Mod1, expressionfunname}, Arity}
-					end;
-			    _ -> case T2 of 
-				     atom -> Fun1 = refac_syntax:atom_value(Fun),
-					     {{expressionmodname, Fun1}, Arity};
-				     _ -> {{expressionmodname,expressionfunname}, Arity}
-				 end
-			    end;
-		_  -> {{none,expressionoperator}, Arity}
-	    end;
-	_ -> erlang:error(bagarg)
-    end.
 %%================================================================================
 %%              Some Utility Functions 
 %%================================================================================
-
 
 make_export(Names) ->
     Es = [refac_syntax:arity_qualifier(refac_syntax:atom(F),

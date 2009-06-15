@@ -362,7 +362,7 @@ do_rename_mod_in_eunit_funs_3(Node, {FileName,OldNewModPairs,Pid}) ->
 						    Pid ! {add_renamed, {FileName, Node}},
 						    {copy_pos_attrs(Node, refac_syntax:tuple([E1, copy_pos_attrs(E2, refac_syntax:atom(NewModName)), E3])),
 						     true};
-						 flase-> {Node, false}
+						false-> {Node, false}
 					    end;
 					_ -> {Node, false}
 				    end;

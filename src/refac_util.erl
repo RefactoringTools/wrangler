@@ -183,9 +183,9 @@ until(F, [H | T], Others) ->
 %% @see full_buTP/2
 %% @see once_tdTU/3
 
--spec(stop_tdTP/3::(fun((syntaxTree(), any()) ->
-			       {anyterm(), boolean()}), syntaxTree(), anyterm()) ->
-	     {anyterm(), boolean()}).
+-spec(stop_tdTP/3::(fun((syntaxTree(), anyterm()) ->
+			       {syntaxTree(), boolean()}), syntaxTree(), anyterm()) ->
+	     {syntaxTree(), boolean()}).
 stop_tdTP(Function, Node, Others) ->
     case Function(Node, Others) of
       {Node1, true} -> {Node1, true};
@@ -201,9 +201,9 @@ stop_tdTP(Function, Node, Others) ->
 	  end
     end.
 
--spec(full_tdTP/3::(fun((syntaxTree(), any()) ->
-			       {anyterm(), boolean()}), syntaxTree(), anyterm()) ->
-	     {anyterm(), boolean()}).
+-spec(full_tdTP/3::(fun((syntaxTree(), anyterm()) ->
+			       {syntaxTree(), boolean()}), syntaxTree(), anyterm()) ->
+	     {syntaxTree(), boolean()}).
 full_tdTP(Function, Node, Others) ->
     case Function(Node, Others) of
 	{Node1, Changed} ->
@@ -918,6 +918,7 @@ concat_toks([T|Ts], Acc) ->
 	     [Str] = io_lib:fwrite("~.8B", [Num]),
 	     S = "$\\"++Str,
 	     concat_toks(Ts, [S|Acc]); 
+	 {float, _, V} -> concat_toks(Ts,[io_lib:write(V)|Acc]);
 	 {_, _, V} -> concat_toks(Ts, [V|Acc]);
 	 {dot, _} ->concat_toks(Ts, ['.'|Acc]);
 	 {V, _} -> 

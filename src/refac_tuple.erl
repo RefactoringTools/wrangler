@@ -301,8 +301,8 @@ tuple_parameters_in_client_modules_1({Tree, Info}, Name, Arity, C, N, Mod) ->
 				    refac_util:inscope_funs(Info)),
 	    NewArity = Arity - N + 1,
 	    case (lists:member({Name, NewArity}, InscopeFuns) orelse
-		  erlang:is_builtin(erlang, FunName, NewArity) orelse 
-		  erl_internal:bif(erlang, FunName, NewArity)) of		
+		  erlang:is_builtin(erlang, Name, NewArity) orelse 
+		  erl_internal:bif(erlang, Name, NewArity)) of		
 		false ->
 		    refac_util:stop_tdTP(fun do_tuple_fun_parameters/2, Tree,
 					 {C, N, Name, Arity, Mod});

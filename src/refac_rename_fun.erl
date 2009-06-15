@@ -52,7 +52,7 @@
 
 -export([rename_fun/6, rename_fun_1/6,  rename_fun_eclipse/6]).
 
--export([check_atoms/4, try_eval/3, start_atom_process/0, stop_atom_process/1,output_atom_warning_msg/2]).
+-export([check_atoms/4, try_eval/4, start_atom_process/0, stop_atom_process/1,output_atom_warning_msg/2]).
 
 
 -include("../include/wrangler.hrl").
@@ -94,7 +94,7 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 				ok ->
 				    Pid = start_atom_process(),
 				    ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
-				    {AnnAST1, _C} = do_rename_fun(FileName, SearchPaths, AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}, Pid),
+				    {AnnAST1, _C} = do_rename_fun(FileName, SearchPaths, AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}, Pid, TabWidth),
 				    check_atoms(FileName, AnnAST1, [Fun], Pid),
 				    case refac_util:is_exported({Fun, Arity}, Info) of
 					true ->
@@ -137,7 +137,7 @@ rename_fun_1(FileName,Line, Col, NewName, SearchPaths, TabWidth) ->
     {ok, {Mod, Fun, Arity, _, DefinePos}} = refac_util:pos_to_fun_name(AnnAST, {Line, Col}),
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     Pid = start_atom_process(),
-    {AnnAST1, _C} = do_rename_fun(FileName, SearchPaths, AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}, Pid),
+    {AnnAST1, _C} = do_rename_fun(FileName, SearchPaths, AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}, Pid, TabWidth),
     case refac_util:is_exported({Fun, Arity}, Info) of
 	true ->
 	    ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
@@ -156,7 +156,7 @@ rename_fun_1(FileName,Line, Col, NewName, SearchPaths, TabWidth) ->
 	    write_files(emacs, [{{FileName, FileName}, AnnAST1}])
     end.    
 
--spec(write_files/2::(Editor::atom(), Results::[{filename(), filename(), syntaxTree()}]) ->
+-spec(write_files/2::(Editor::atom(), Results::[{{filename(), filename()}, syntaxTree()}]) ->
 	     {ok, [filename()]} | {ok, [{filename(), filename(), string()}]}).
 write_files(Editor, Results) ->    
     case Editor of 
@@ -168,7 +168,8 @@ write_files(Editor, Results) ->
 	    {ok, ChangedFiles};
 	eclipse ->
 	    Res = lists:map(fun({{FName, NewFName}, AST}) -> {FName, NewFName, 
-							      refac_prettypr:print_ast(AST)} end, Results),
+							      refac_prettypr:print_ast(refac_util:file_format(FName),AST)} 
+			    end, Results),
 	    {ok, Res}
     end.
 
@@ -196,10 +197,10 @@ pre_cond_check(FileName, Info, NewFunName, OldFunDefMod,OldFunName, Arity) ->
     end.
 
 
-do_rename_fun(FileName, SearchPaths, Tree, {ModName, OldName, Arity}, {DefinePos, NewName}, Pid) ->
-    refac_util:full_tdTP(fun do_rename_fun_1/2, Tree, {FileName, {ModName, OldName, Arity}, {DefinePos, NewName},SearchPaths, Pid}).
+do_rename_fun(FileName, SearchPaths, Tree, {ModName, OldName, Arity}, {DefinePos, NewName}, Pid, TabWidth) ->
+    refac_util:full_tdTP(fun do_rename_fun_1/2, Tree, {FileName, {ModName, OldName, Arity}, {DefinePos, NewName},SearchPaths, Pid, TabWidth}).
   
-do_rename_fun_1(Tree, {FileName, {M, OldName, Arity}, {DefinePos, NewName}, SearchPaths, Pid}) ->
+do_rename_fun_1(Tree, {FileName, {M, OldName, Arity}, {DefinePos, NewName}, SearchPaths, Pid, TabWidth}) ->
     case refac_syntax:type(Tree) of
       function ->
 	  case get_fun_def_loc(Tree) of
@@ -217,7 +218,7 @@ do_rename_fun_1(Tree, {FileName, {M, OldName, Arity}, {DefinePos, NewName}, Sear
 	      {Mod1, Fun1, Ari1, _} ->
 		  case lists:keysearch({Mod1, Fun1, Ari1}, 1, apply_style_funs()) of 
 		      {value, _} ->
-			  transform_apply_style_calls(FileName, Tree, {M, OldName, Arity}, NewName, SearchPaths);
+			  transform_apply_style_calls(FileName, Tree, {M, OldName, Arity}, NewName, SearchPaths, TabWidth);
 		      false ->case refac_syntax:type(Operator) of
 				  atom ->
 				      case get_fun_def_info(Operator) of
@@ -253,7 +254,7 @@ do_rename_fun_1(Tree, {FileName, {M, OldName, Arity}, {DefinePos, NewName}, Sear
 		    {copy_pos_attrs(Tree, refac_syntax:arity_qualifier(refac_syntax:atom(NewName), Arg)),true};
 	       true -> {Tree, false}
 	    end;
-	tuple -> do_rename_fun_in_tuples(Tree, {FileName, SearchPaths, M, OldName, NewName, Arity, Pid});		 
+	tuple -> do_rename_fun_in_tuples(Tree, {FileName, SearchPaths, M, OldName, NewName, Arity, Pid, TabWidth});		 
 	_ -> {Tree, false}
     end.
 
@@ -278,7 +279,7 @@ rename_fun_in_client_modules(Files, {Mod, Fun, Arity}, NewName, SearchPaths, Tab
       [F | Fs] ->
 	    ?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
 	    {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(F, true, SearchPaths, TabWidth),
-	    {AnnAST1, Changed} = rename_fun_in_client_module_1(F, {AnnAST, Info},{Mod, Fun, Arity}, NewName, SearchPaths, Pid),
+	    {AnnAST1, Changed} = rename_fun_in_client_module_1(F, {AnnAST, Info},{Mod, Fun, Arity}, NewName, SearchPaths, Pid, TabWidth),
 	    check_atoms(F, AnnAST1, [Fun], Pid),
 	    if Changed ->
 		    [{{F, F}, AnnAST1} | rename_fun_in_client_modules(Fs, {Mod, Fun, Arity}, NewName, SearchPaths, TabWidth, Pid)];
@@ -295,7 +296,7 @@ get_fun_def_info(Node) ->
 	_ -> false
     end.
 
-rename_fun_in_client_module_1(FileName, {Tree, Info}, {M, OldName, Arity}, NewName, SearchPaths, Pid) ->
+rename_fun_in_client_module_1(FileName, {Tree, Info}, {M, OldName, Arity}, NewName, SearchPaths, Pid, TabWidth) ->
     case lists:keysearch(module, 1, Info) of
       {value, {module, ClientModName}} ->
 	    Inscope_Funs = lists:map(fun ({_M, F, A}) -> {F, A} end, refac_util:inscope_funs(Info)),
@@ -307,10 +308,10 @@ rename_fun_in_client_module_1(FileName, {Tree, Info}, {M, OldName, Arity}, NewNa
 	    end;
 	_ -> ok
     end,
-    refac_util:full_tdTP(fun do_rename_fun_in_client_module_1/2, Tree, {FileName,{M, OldName, Arity}, NewName, SearchPaths, Pid}).
+    refac_util:full_tdTP(fun do_rename_fun_in_client_module_1/2, Tree, {FileName,{M, OldName, Arity}, NewName, SearchPaths, Pid,TabWidth}).
   
 
-do_rename_fun_in_client_module_1(Tree, {FileName,{M, OldName, Arity}, NewName, SearchPaths, Pid}) ->
+do_rename_fun_in_client_module_1(Tree, {FileName,{M, OldName, Arity}, NewName, SearchPaths, Pid, TabWidth}) ->
     case refac_syntax:type(Tree) of
 	application ->
 	    Operator = refac_syntax:application_operator(Tree),
@@ -319,7 +320,7 @@ do_rename_fun_in_client_module_1(Tree, {FileName,{M, OldName, Arity}, NewName, S
 		{Mod1, Fun1, Ari1, _} ->
 		    case lists:keysearch({Mod1, Fun1, Ari1}, 1, apply_style_funs()) of 
 			{value, _} ->
-			    transform_apply_style_calls(FileName, Tree, {M, OldName, Arity}, NewName, SearchPaths);
+			    transform_apply_style_calls(FileName, Tree, {M, OldName, Arity}, NewName, SearchPaths, TabWidth);
 			false ->case refac_syntax:type(Operator) of
 				    atom ->
 					case get_fun_def_info(Operator) of
@@ -357,7 +358,7 @@ do_rename_fun_in_client_module_1(Tree, {FileName,{M, OldName, Arity}, NewName, S
 		     true};
 	       true -> {Tree, false}
 	    end;
-	tuple -> do_rename_fun_in_tuples(Tree, {FileName, SearchPaths, M, OldName, NewName, Arity, Pid});
+	tuple -> do_rename_fun_in_tuples(Tree, {FileName, SearchPaths, M, OldName, NewName, Arity, Pid, TabWidth});
 	_ -> {Tree, false}
     end.
 
@@ -532,7 +533,7 @@ collect_atoms(Tree, AtomNames) ->
     refac_syntax_lib:fold(F, [], Tree).
 
 
-transform_apply_style_calls(FileName, Node, {ModName, FunName, Arity}, NewFunName, SearchPaths) ->
+transform_apply_style_calls(FileName, Node, {ModName, FunName, Arity}, NewFunName, SearchPaths, TabWidth) ->
     Operator = refac_syntax:application_operator(Node),
     Arguments = refac_syntax:application_arguments(Node),
     [N1, N2, Mod, Fun, Args] = case length(Arguments) of 
@@ -540,8 +541,8 @@ transform_apply_style_calls(FileName, Node, {ModName, FunName, Arity}, NewFunNam
 				   4 -> [none | Arguments];
 				   3 -> [none , none| Arguments]
 			       end,					
-    Mod1 = try_eval(FileName, Mod, SearchPaths),
-    Fun1 = try_eval(FileName, Fun, SearchPaths),
+    Mod1 = try_eval(FileName, Mod, SearchPaths, TabWidth),
+    Fun1 = try_eval(FileName, Fun, SearchPaths, TabWidth),
     case Fun1 of
 	{value, FunName} ->
 	    case Mod1 of
@@ -574,13 +575,13 @@ transform_apply_style_calls(FileName, Node, {ModName, FunName, Arity}, NewFunNam
 %% {modulename, functionname, arglist}
 %% {generator, modulename, functionname}
 %% {call, modulename, functionname, arglist}
-do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, OldName, NewName, Arity, Pid}) ->
+do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, OldName, NewName, Arity, Pid, TabWidth}) ->
     case refac_syntax:tuple_elements(Node) of 
 	[E1, E2] ->
 	    case refac_syntax:type(E2) of 
 		atom -> case refac_syntax:atom_value(E2) of 
 			    OldName ->
-				case try_eval(FileName, E1, SearchPaths) of 
+				case try_eval(FileName, E1, SearchPaths, TabWidth) of 
 				    {value, ModName} ->
 					Pid ! {add_renamed, {FileName, Node}},
 					{refac_syntax:tuple([E1, copy_pos_attrs(E2, refac_syntax:atom(NewName))]),
@@ -595,7 +596,7 @@ do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, OldName, NewName,
 	    case refac_syntax:type(E3) of 
 		atom -> case refac_syntax:atom_value(E3) of 
 			    OldName ->
-				case try_eval(FileName, E2, SearchPaths) of
+				case try_eval(FileName, E2, SearchPaths, TabWidth) of
 				    {value, ModName} ->
 					Pid ! {add_renamed, {FileName, Node}},
 					{refac_syntax:tuple([E1, E2, copy_pos_attrs(E3, refac_syntax:atom(NewName))]),
@@ -611,7 +612,7 @@ do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, OldName, NewName,
 			     case refac_syntax:type(E2) of 
 				 atom -> case refac_syntax:atom_value(E2) of 
 					     OldName -> 
-						 case try_eval(FileName, E1, SearchPaths) of
+						 case try_eval(FileName, E1, SearchPaths, TabWidth) of
 						     {value, ModName} ->
 							 Pid ! {add_renamed, {FileName, Node}},
 							 {refac_syntax:tuple([E1, copy_pos_attrs(E2, refac_syntax:atom(NewName)), E3]),true};
@@ -628,7 +629,7 @@ do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, OldName, NewName,
 	    case refac_syntax:type(E3) of 
 		atom -> case refac_syntax:atom_value(E3) of 
 			    OldName ->
-				case try_eval(FileName, E2, SearchPaths) of
+				case try_eval(FileName, E2, SearchPaths, TabWidth) of
 				    {value, ModName} ->
 					case ((refac_syntax:type(E4)==list) andalso (refac_syntax:list_length(E4)==Arity)) orelse
 					    ((refac_syntax:type(E4)==nil) andalso Arity==0) of
@@ -649,7 +650,7 @@ do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, OldName, NewName,
     end.
 
 
-try_eval(FileName, Node, SearchPaths) ->
+try_eval(FileName, Node, SearchPaths, TabWidth) ->
     try erl_eval:exprs([refac_syntax:revert(Node)],[]) of
 	{value, Val, _} -> {value, Val}
     catch _:_ ->
@@ -664,7 +665,7 @@ try_eval(FileName, Node, SearchPaths) ->
 					{dict:from_list(Defs), dict:from_list(Uses)};		  	 
 				    _ -> []
 				end, 
-		    NodeToks = get_toks(FileName, Node),
+		    NodeToks = get_toks(FileName, Node, TabWidth),
 		    try refac_epp:expand_macros(NodeToks, {Ms, UMs}) of
 			NewToks when is_list(NewToks)->
 			    {ok, Exprs} = refac_parse:parse_exprs(NewToks++[{dot,{999,0}}]),
@@ -692,8 +693,8 @@ has_macros(Node) ->
     {_, Res}= refac_util:once_tdTU(F, Node, []),
     Res.
 
-get_toks(FileName, Node) ->
-    Toks = refac_util:tokenize(FileName),
+get_toks(FileName, Node, TabWidth) ->
+    Toks = refac_util:tokenize(FileName, false, TabWidth),
     {StartPos, EndPos} = refac_util:get_range(Node),
     Toks1 = lists:dropwhile(fun(T) ->
 				    token_loc(T) < StartPos end, Toks),
@@ -783,7 +784,7 @@ eqc_statem_name_checking(OldFunName, Arity, NewFunName) ->
 		 
 testserver_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName) ->
     case lists:keysearch(testserver, 1, UsedFrameWorks) of 
-	{value,_} ->testserver_name_checking(atom_to_list(OldFunName), Arity, atom_to_list(NewFunName));
+	{value,_} ->testserver_name_checking(OldFunName, Arity, NewFunName);
 	false -> ok
     end.
    
@@ -800,7 +801,7 @@ testserver_name_checking(OldFunName, Arity, NewFunName) ->
 									    
 commontest_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName) ->
     case lists:keysearch(commontest, 1, UsedFrameWorks) of 
-	{value,_} ->commontest_name_checking(atom_to_list(OldFunName), Arity, atom_to_list(NewFunName));
+	{value,_} ->commontest_name_checking(OldFunName, Arity, NewFunName);
 	false -> ok
     end.
 commontest_name_checking(OldFunName, Arity, NewFunName) ->
