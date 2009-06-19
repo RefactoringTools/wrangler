@@ -51,7 +51,7 @@
 -export([rename_mod/4, rename_mod_1/5, rename_mod_eclipse/4]).
 
 -import(refac_rename_fun, [check_atoms/4, start_atom_process/0, 
-			   output_atom_warning_msg/2, stop_atom_process/1]).
+			   output_atom_warning_msg/3, stop_atom_process/1]).
 
 -include("../include/wrangler.hrl").
 %% =====================================================================
@@ -152,7 +152,7 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths,Editor, TabWidth) ->
     Results = rename_mod_in_client_modules(ClientFiles, OldNewModPairs,SearchPaths, TabWidth, Pid),
     case Editor of 
 	emacs ->
-	    output_atom_warning_msg(Pid, OldModNames),
+	    output_atom_warning_msg(Pid, not_renamed_warn_msg(OldModNames), renamed_warn_msg(OldModNames)),
 	    stop_atom_process(Pid),
 	    refac_util:write_refactored_files_for_preview([{{FileName, NewFileName}, AnnAST1}|(TestModRes++Results)]),
 	    ChangedClientFiles = lists:map(fun({{F, _F}, _AST}) -> F end, Results),
@@ -498,6 +498,31 @@ mod_name_as_pars_3() ->
     
 
     
+renamed_warn_msg(OldModNames) ->
+    case OldModNames of 
+	[M] ->
+	    "\n=================================================================================\n"
+		"WARNING: Wrangler has renamed the uses of "++atom_to_list(M)++
+		" within the following expressions while without enough "
+		"syntactic/semantic information. Please check manually!\n";
+	[M1,M2] ->
+	    "\n=================================================================================\n"
+		"WARNING: Wrangler has renamed the uses of "++atom_to_list(M1)++", or"++atom_to_list(M2)++ 
+		", within the following expressions while without enough "
+		"syntactic/semantic information. Please check manually!\n"
+    end.
+
+not_renamed_warn_msg(OldModNames) ->
+    case OldModNames of 
+	[M] ->"\n=================================================================================\n"
+		  "WARNING: Wrangler could not infer whether the uses of "++atom_to_list(M)++" at the following positions "
+		  "refer to the function renamed, and they are not renamed. Please check manually!\n";
+	[M1, M2] ->"\n=================================================================================\n"		 
+		       "WARNING: Wrangler could not infer whether the uses of "++atom_to_list(M1)++", or" 
+		       ++atom_to_list(M2)++", at the following positions "
+		       "refer to the function renamed, and they are not renamed. Please check manually!\n"
+    end.
+
 
 
 	
