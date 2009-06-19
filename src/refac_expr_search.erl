@@ -60,18 +60,21 @@ expr_search(FileName, Start={Line, Col}, End={Line1, Col1}, TabWidth) ->
 	[E|Es] -> 
 	    Res = case Es == [] of 
 		      true ->
-			  [refac_sim_expr_search:get_start_end_loc([E|Es])|search_one_expr(AnnAST, E)];
+			  SE = refac_sim_expr_search:get_start_end_loc(E),
+			  SearchRes = search_one_expr(AnnAST, E),
+			  [SE|(SearchRes--[SE])];
 		      _ -> 
-			  [refac_sim_expr_search:get_start_end_loc([E|Es])|search_expr_seq(AnnAST, [E|Es])]
+			  SE =refac_sim_expr_search:get_start_end_loc([E|Es]),
+			  SearchRes = search_expr_seq(AnnAST, [E|Es]),
+			  [SE|(SearchRes--[SE])]
 		  end,
-	    case length(Res)-1 of  
-		0 -> ?wrangler_io("No identical expression has been found.\n",[]), %% This shouldn't happen.
+	    Num = length(Res),
+	    case Num=<1 of  
+		true -> ?wrangler_io("No identical expression has been found. \n",[]),
 		     {ok, []};
-		1 -> ?wrangler_io("No identical expression has been found. \n",[]),
-		     {ok, []};
-		N -> ?wrangler_io("~p identical expressions (including the selected expression,and up to variable renaming and literal substitution) "
-				       " have been found. \n", [N]),
-		     ?wrangler_io("Use 'C-c C-e' to remove highlights!",[]),
+		false-> ?wrangler_io("\n~p identical expressions(including the expression selected) have been found.\n", [Num]),
+		     ?wrangler_io(compose_search_result_info(FileName, Res),[]),
+		     ?wrangler_io("\nUse 'C-c C-e' to remove highlights!\n",[]),
 		     {ok, Res}
 	    end;
 	    _   -> {error, "You have not selected an expression!"}
@@ -105,7 +108,7 @@ search_one_expr(Tree, Exp) ->
 				    case BdStructExp == BdStructT of 
 					true ->
 					    {{StartLn, StartCol}, {EndLn, EndCol}}= refac_util:get_range(T),
-					    Acc ++ [{{StartLn, StartCol}, {EndLn, EndCol+1}}];
+					    Acc ++ [{{StartLn, StartCol}, {EndLn, EndCol}}];
 					    _  -> Acc
 				    end;
 				_ -> Acc
@@ -140,7 +143,7 @@ get_clone(List1, List2) ->
 				En = lists:last(List22),
 			        {{StartLn, StartCol}, _EndLoc} = refac_util:get_range(E1),
 				{_StartLoc1, {EndLn, EndCol}} = refac_util:get_range(En),
-				[{{StartLn, StartCol}, {EndLn, EndCol+1}}] ++ get_clone(List1, tl(List2));
+				[{{StartLn, StartCol}, {EndLn, EndCol}}] ++ get_clone(List1, tl(List2));
 			_ -> get_clone(List1, tl(List2))
 		    end;				       
 		    _ -> get_clone(List1, tl(List2))
@@ -248,3 +251,14 @@ var_binding_structure(ASTList) ->
 	  end,
     Res.
 
+compose_search_result_info(FileName, Ranges) ->
+    compose_search_result_info(FileName, Ranges, "").
+compose_search_result_info(_FileName, [], Str) ->
+    Str;
+compose_search_result_info(FileName, [{{StartLine, StartCol}, {EndLine, EndCol}}|Ranges], Str) ->
+    Str1 =Str ++ "\n"++FileName++io_lib:format(":~p.~p-~p.~p: \n", [StartLine, StartCol, EndLine, EndCol]),
+    compose_search_result_info(FileName, Ranges, Str1).
+					       
+    
+    
+    
