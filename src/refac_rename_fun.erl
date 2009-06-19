@@ -52,7 +52,7 @@
 
 -export([rename_fun/6, rename_fun_1/6,  rename_fun_eclipse/6]).
 
--export([check_atoms/4, try_eval/4, start_atom_process/0, stop_atom_process/1,output_atom_warning_msg/2]).
+-export([check_atoms/4, try_eval/4, start_atom_process/0, stop_atom_process/1,output_atom_warning_msg/3, apply_style_funs/0]).
 
 
 -include("../include/wrangler.hrl").
@@ -83,78 +83,82 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:rename_fun( ~p, ~p, ~p, ~p,~p, ~p).\n", [?MODULE, FileName, Line, Col, NewName, SearchPaths, TabWidth]),
     case refac_util:is_fun_name(NewName) of
       true ->
-	    {ok, {AnnAST, Info}}=refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-	    NewName1 = list_to_atom(NewName),
-	    {ok, ModName} = get_module_name(Info),
-	    case refac_util:pos_to_fun_name(AnnAST, {Line, Col}) of
-		{ok, {Mod, Fun, Arity, _, DefinePos}} ->
-		    case {ModName, NewName1} =/= {Mod, Fun} of
-			true ->
-			    case pre_cond_check(FileName, Info, NewName1, Mod, Fun, Arity) of 
-				ok ->
-				    Pid = start_atom_process(),
-				    ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
-				    {AnnAST1, _C} = do_rename_fun(FileName, SearchPaths, AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}, Pid, TabWidth),
-				    check_atoms(FileName, AnnAST1, [Fun], Pid),
-				    case refac_util:is_exported({Fun, Arity}, Info) of
-					true ->
-					    ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
-					    ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
-					    try rename_fun_in_client_modules(ClientFiles, {Mod, Fun, Arity}, NewName, SearchPaths, TabWidth, Pid) of 
-						Results -> 
-						    output_atom_warning_msg(Pid,[Fun]),
-						    stop_atom_process(Pid),
-						    write_files(Editor, [{{FileName,FileName},AnnAST1} | Results])
-					    catch 
-						throw:Err -> 
-						    stop_atom_process(Pid),
-						    Err
-					    end;
-					false ->
-					    output_atom_warning_msg(Pid, [Fun]),
-					    stop_atom_process(Pid),
-					    write_files(Editor, [{{FileName,FileName},AnnAST1}])
-				    end;				
-				Others -> Others
+	  {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+	  NewName1 = list_to_atom(NewName),
+	  {ok, ModName} = get_module_name(Info),
+	  case refac_util:pos_to_fun_name(AnnAST, {Line, Col}) of
+	    {ok, {Mod, Fun, Arity, _, DefinePos}} ->
+		case {ModName, NewName1} =/= {Mod, Fun} of
+		  true ->
+		      case pre_cond_check(FileName, Info, NewName1, Mod, Fun, Arity) of
+			ok ->
+			    Pid = start_atom_process(),
+			    ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
+			    {AnnAST1, _C} = do_rename_fun(FileName, SearchPaths, AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}, Pid, TabWidth),
+			    check_atoms(FileName, AnnAST1, [Fun], Pid),
+			    case refac_util:is_exported({Fun, Arity}, Info) of
+			      true ->
+				  ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
+				  ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
+				  try
+				    rename_fun_in_client_modules(ClientFiles, {Mod, Fun, Arity}, NewName, SearchPaths, TabWidth, Pid)
+				  of
+				    Results ->
+					output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
+					stop_atom_process(Pid),
+					write_files(Editor, [{{FileName, FileName}, AnnAST1}| Results])
+				  catch
+				    throw:Err ->
+					stop_atom_process(Pid),
+					Err
+				  end;
+			      false ->
+				  output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
+				  stop_atom_process(Pid),
+				  write_files(Editor, [{{FileName, FileName}, AnnAST1}])
 			    end;
-			_ -> case Editor of 
-				 emacs -> {ok, []};
-				 eclipse ->
-				     Res = [{FileName, FileName, refac_prettypr:print_ast(refac_util:file_format(FileName),AnnAST)}],
-				     {ok, Res}
-			     end
-		    end;
-		{error, _Reason} -> {error, "You have not selected a function name!"}
-	    end;
-	false -> {error, "Invalid new function name!"}
+			Others -> Others
+		      end;
+		  _ -> case Editor of
+			 emacs -> {ok, []};
+			 eclipse ->
+			     Res = [{FileName, FileName, refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST)}],
+			     {ok, Res}
+		       end
+		end;
+	    {error, _Reason} -> {error, "You have not selected a function name!"}
+	  end;
+      false -> {error, "Invalid new function name!"}
     end.
 
 -spec(rename_fun_1/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
 	     {error, string()} | {ok, [filename()]}).
-rename_fun_1(FileName,Line, Col, NewName, SearchPaths, TabWidth) ->
-    {ok, {AnnAST, Info}}=refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     NewName1 = list_to_atom(NewName),
     {ok, {Mod, Fun, Arity, _, DefinePos}} = refac_util:pos_to_fun_name(AnnAST, {Line, Col}),
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     Pid = start_atom_process(),
     {AnnAST1, _C} = do_rename_fun(FileName, SearchPaths, AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}, Pid, TabWidth),
     case refac_util:is_exported({Fun, Arity}, Info) of
-	true ->
-	    ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
-	    ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
-	    try rename_fun_in_client_modules(ClientFiles, {Mod, Fun, Arity}, NewName, SearchPaths, TabWidth,Pid) of 
-		Results -> 
-		    output_atom_warning_msg(Pid, [Fun]),
-		    stop_atom_process(Pid),
-		    write_files(emacs, [{{FileName, FileName}, AnnAST1} | Results])
-	    catch 
-		throw:Err -> Err
-	    end;
-	false ->
-	    output_atom_warning_msg(Pid, [Fun]),
-	    stop_atom_process(Pid),
-	    write_files(emacs, [{{FileName, FileName}, AnnAST1}])
-    end.    
+      true ->
+	  ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
+	  ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
+	  try
+	    rename_fun_in_client_modules(ClientFiles, {Mod, Fun, Arity}, NewName, SearchPaths, TabWidth, Pid)
+	  of
+	    Results ->
+		output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
+		stop_atom_process(Pid),
+		write_files(emacs, [{{FileName, FileName}, AnnAST1}| Results])
+	  catch
+	    throw:Err -> Err
+	  end;
+      false ->
+	  output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
+	  stop_atom_process(Pid),
+	  write_files(emacs, [{{FileName, FileName}, AnnAST1}])
+    end.
 
 -spec(write_files/2::(Editor::atom(), Results::[{{filename(), filename()}, syntaxTree()}]) ->
 	     {ok, [filename()]} | {ok, [{filename(), filename(), string()}]}).
@@ -380,7 +384,7 @@ is_callback_fun(ModInfo, Funname, Arity) ->
       _ -> false
     end.
 
--spec(check_atoms/4::(filename(), syntaxTree(), [atom()],pid()) ->ok).	     
+-spec(check_atoms/4::(filename(), syntaxTree(), [atom()],pid()) ->ok).      
 check_atoms(FileName, Tree, AtomNames, Pid) ->
     F = fun (T) ->
 		case refac_syntax:type(T) of
@@ -668,11 +672,14 @@ try_eval(FileName, Node, SearchPaths, TabWidth) ->
 		    NodeToks = get_toks(FileName, Node, TabWidth),
 		    try refac_epp:expand_macros(NodeToks, {Ms, UMs}) of
 			NewToks when is_list(NewToks)->
-			    {ok, Exprs} = refac_parse:parse_exprs(NewToks++[{dot,{999,0}}]),
-			    try erl_eval:exprs(Exprs, []) of 
-				{value, Val, _} -> {value, Val}
-			    catch
-				_:_ -> {error, no_value}
+			    case refac_parse:parse_exprs(NewToks++[{dot,{999,0}}]) of 
+				 {ok, Exprs} ->
+				    try erl_eval:exprs(Exprs, []) of 
+					{value, Val, _} -> {value, Val}
+				    catch
+					_:_ -> {error, no_value}
+				    end;
+				_ -> {error, no_value}
 			    end
 		    catch
 			_:__ -> {error, no_value}
@@ -797,7 +804,7 @@ testserver_name_checking(OldFunName, Arity, NewFunName) ->
 			 throw({warning, "The new function would be Test Server special function, continue?"});
 		     false -> ok
 		 end
-    end.		 
+    end. 	 
 									    
 commontest_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName) ->
     case lists:keysearch(commontest, 1, UsedFrameWorks) of 
@@ -838,6 +845,21 @@ apply_style_funs() ->
      {{test_server, call_crash, 5}, [term, term, modulename, functionname, arglist], term}].
 
 
+
+renamed_warn_msg(FunName) ->
+    "\n=================================================================================\n"
+	"WARNING: Wrangler has renamed the uses of "++atom_to_list(FunName)++" within the following expressions while without enough "
+	"syntactic/semantic information. Please check manually!\n".
+     
+
+not_renamed_warn_msg(FunName) ->
+    "\n=================================================================================\n"
+	"WARNING: Wrangler could not infer whether the uses of " ++ atom_to_list(FunName)++ 
+	" at the following positions refer to the function renamed, and they are not renamed."
+	" Please check manually!\n".
+     
+
+
 start_atom_process() ->
     spawn_link(fun()-> atom_loop({[],[]}) end).
 
@@ -862,49 +884,29 @@ atom_loop({NotRenamed, Renamed}) ->
 	    ok
     end.
 
-output_atom_warning_msg(Pid, Names) ->
+output_atom_warning_msg(Pid,NotRenamedWarnMsg, RenamedWarnMsg) ->
     Pid ! {self(), get},
     receive
-	{Pid, {NotRenamed, Renamed}} ->
-	    output_atom_warnings({NotRenamed, Renamed}, Names);
-	_ -> throw({error, "Refactoring failed because of a Wrangler error."})
+      {Pid, {NotRenamed, Renamed}} ->
+	  output_atom_warnings({NotRenamed, Renamed}, NotRenamedWarnMsg,RenamedWarnMsg);
+      _ -> throw({error, "Refactoring failed because of a Wrangler error."})
     end.
-    
-    
 
     
-output_atom_warnings({[],[]}, _) ->
+output_atom_warnings({[], []}, _, _) ->
     ok;
-output_atom_warnings({NotRenamed, Renamed}, Names) ->
-    output_atom_not_renamed_warnings(NotRenamed,Names),
-    output_atom_renamed_warnings(Renamed, Names).
+output_atom_warnings({NotRenamed, Renamed},  NotRenamedMsg, RenamedMsg) ->
+    output_atom_not_renamed_warnings(NotRenamed,  NotRenamedMsg),
+    output_atom_renamed_warnings(Renamed,  RenamedMsg).
 
-output_atom_not_renamed_warnings([], _FunName)-> 
-    ok;
-output_atom_not_renamed_warnings(NotRenamed, Names) ->
-    ?wrangler_io("\n=================================================================================\n",[]),
-    case length(Names) of 
-	1 ->
-	    ?wrangler_io("WARNING: Wrangler could not infer whether the uses of '~p' at the following positions "
-			 "refer to the function renamed, and they are not renamed. Please check manually!\n", Names);
-	2 -> 
-	    ?wrangler_io("WARNING: Wrangler could not infer whether the uses of '~p/~p' at the following positions "
-			 "refer to the function renamed, and they are not renamed. Please check manually!\n", Names)
-    end,
+output_atom_not_renamed_warnings([],  _Msg) -> ok;
+output_atom_not_renamed_warnings(NotRenamed, Msg) ->
+    ?wrangler_io(Msg,[]),
     output_not_renamed_atom_info(NotRenamed).
 
-output_atom_renamed_warnings([], _Names) ->
-    ok;
-output_atom_renamed_warnings(Renamed, Names) ->
-    ?wrangler_io("\n=================================================================================\n",[]),
-    case length(Names) of
-	1 ->
-	    ?wrangler_io("WARNING: Wrangler has renamed the uses of '~p' within the following expressions while without enough "
-			 "syntactic/semantic information. Please check manually!\n", Names);
-	2 ->
-	    ?wrangler_io("WARNING: Wrangler has renamed the uses of '~p\~p' within the following expressions while without enough "
-			 "syntactic/semantic information. Please check manually!\n", Names)
-    end,
+output_atom_renamed_warnings([],  _Msg) -> ok;
+output_atom_renamed_warnings(Renamed, Msg) ->
+    ?wrangler_io(Msg,[]),
     output_renamed_atom_info(Renamed).
 
 output_not_renamed_atom_info(FileAndPositions) ->
