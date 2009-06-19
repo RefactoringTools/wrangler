@@ -56,7 +56,7 @@
          parse_annotate_file/4,write_refactored_files/1, write_refactored_files_for_preview/1,
          build_lib_side_effect_tab/1, build_local_side_effect_tab/2,
 	 build_scc_callgraph/1,build_callercallee_callgraph/1, has_side_effect/3,
-         callback_funs/1,auto_imported_bifs/0, called_funs/3, file_format/1]).
+         callback_funs/1,auto_imported_bifs/0, called_funs/2, file_format/1]).
 
 -export([test_framework_used/1]).
 -export([analyze_free_vars/1]).
@@ -2131,33 +2131,23 @@ do_build_callgraph(FileName, {AnnAST, Info}) ->
 	_ -> ModName = list_to_atom(filename:basename(FileName, ".erl")),
 	     ModName
     end,
-    InscopeFuns = refac_util:auto_imported_bifs() ++ refac_util:inscope_funs(Info), 
     F1 = fun (T, S) ->
 		 case refac_syntax:type(T) of
 		   function ->
 		       FunName = refac_syntax:data(refac_syntax:function_name(T)),
 		       Arity = refac_syntax:function_arity(T),
 		       Caller = {{ModName, FunName, Arity}, T},
-		       CalledFuns = called_funs(ModName, InscopeFuns, T),
+		       CalledFuns = called_funs(ModName, T),
 		       ordsets:add_element({Caller, CalledFuns}, S);
 		     _ -> S
 		 end
 	 end,
     lists:usort(refac_syntax_lib:fold(F1, [], AnnAST)).
 
--spec(called_funs/3::(modulename(), [{modulename(), functionname(), functionarity()}], syntaxTree()) ->
-	     [{modulename(), functionname, functionarity()}]).
-called_funs(ModName, InscopeFuns,  Tree) ->
+-spec(called_funs/2::(modulename(), syntaxTree()) ->[{modulename(), functionname, functionarity()}]).
+called_funs(ModName, Tree) ->
     HandleSpecialFuns = fun (Arguments, S) ->
 				case Arguments of
-				    [F, A] ->
-					case {refac_syntax:type(F), refac_syntax:type(A)} of
-					    {atom, list} ->
-						FunName = refac_syntax:atom_value(F),
-						Arity = refac_syntax:list_length(A),
-						ordsets:add_element({ModName, FunName, Arity}, S);
-					    _ -> S
-					end;
 				    [M, F, A] ->
 					case {refac_syntax:type(M), refac_syntax:type(F), refac_syntax:type(A)} of
 					    {atom, atom, list} ->
@@ -2167,53 +2157,20 @@ called_funs(ModName, InscopeFuns,  Tree) ->
 						ordsets:add_element({ModName1, FunName, Arity}, S);
 					    _ -> S
 					end;
-				    [M, F, A, _O] ->
-					case {refac_syntax:type(M), refac_syntax:type(F), refac_syntax:type(A)} of
-					    {atom, atom, list} ->
-						ModName1 = refac_syntax:atom_value(M),
-						FunName = refac_syntax:atom_value(F),
-						Arity = refac_syntax:list_length(A),
-						ordsets:add_element({ModName1, FunName, Arity}, S);
-					    _ -> S
-					end
+				    _ -> S
 				end
-			  end,
+			end,
     F = fun (T, S) ->
 		case refac_syntax:type(T) of
 		    application ->
 			Operator = refac_syntax:application_operator(T),
 			Arguments = refac_syntax:application_arguments(T),
-			Arity = length(Arguments),
-			case refac_syntax:type(Operator) of
-			    atom ->
-				Op = refac_syntax:atom_value(Operator),
-				R = lists:filter(fun ({_M, F, A}) -> (F == Op) and (A == Arity) end, InscopeFuns),
-				if R == [] ->
-					%% Qn: Should we give an error/warning msg here?
-					ordsets:add_element({unknown, Op, Arity},S); 
-				   true ->
-					{M, Op, Arity} = hd(R),
-					S1 = ordsets:add_element({M, Op, Arity}, S),
-					case {Op, Arity} of
-					    {apply, 2} -> HandleSpecialFuns(Arguments, S1);
-					    {apply, 3} -> HandleSpecialFuns(Arguments, S1);
-					    _ -> S1
-					end
-				end;
-			    module_qualifier ->
-				Mod = refac_syntax:module_qualifier_argument(Operator),
-				Body = refac_syntax:module_qualifier_body(Operator),
-				case {refac_syntax:type(Mod), refac_syntax:type(Body)} of
-				    {atom, atom} ->
-					Mod1 = refac_syntax:atom_value(Mod),
-					Op = refac_syntax:atom_value(Body),
-					S1 = ordsets:add_element({Mod1, Op, Arity}, S),
-					case {Mod1, Op, Arity} of
-					    {erlang, apply, 2} -> HandleSpecialFuns(Arguments, S1);
-					    {erlang, apply, 3} -> HandleSpecialFuns(Arguments, S1);
-					    _ -> S1
-					end;
-				    _ -> S
+			case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Operator)) of 
+			    {value, {fun_def, {M, F, A, _, _}}} -> 
+				S1 =ordsets:add_element({M, F, A}, S),
+				case {M, F, A} of 
+				    {erlang, apply, 3} -> HandleSpecialFuns(Arguments, S1);
+				    _ -> S1
 				end;
 			    _ -> S
 			end;
@@ -2225,6 +2182,13 @@ called_funs(ModName, InscopeFuns,  Tree) ->
 				FunName = refac_syntax:atom_value(Fun),
 				Arity = refac_syntax:integer_value(A),
 				ordsets:add_element({ModName, FunName, Arity}, S);
+			    {module_qualifier, integer} ->
+			        M = refac_syntax:module_qualifier_argument(T),
+				F = refac_syntax:module_qualifier_body(T),
+				case (refac_syntax:type(M) == atom) and (refac_syntax:type(F)==atom) of
+				    true -> {refac_syntax:atom_value(M), refac_syntax:atom_value(F), refac_syntax:integer_value(A)};
+				    _ -> S
+				end;
 			    _ -> S
 			end;
 		    _ -> S

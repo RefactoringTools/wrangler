@@ -2573,6 +2573,7 @@ revert_attribute(Node) ->
     Name = attribute_name(Node),
     Args = attribute_arguments(Node),
     Pos = get_pos(Node),
+    refac_io:format("aartt:\n~p\n", [{Name, Args, Pos}]),
     case type(Name) of
       atom ->
 	  revert_attribute_1(atom_value(Name), Args, Pos, Node);
@@ -2730,10 +2731,12 @@ attribute_arguments(Node) ->
 		{Type, Entries} = Data,
 		[set_pos(atom(Type), Pos),
 		 set_pos(tuple(unfold_record_fields(Entries)), Pos)];
-	       spec ->
+	     spec ->
   		  {FunSpec, TypeSpec} = Data,
   		  case FunSpec of 
-  		      {Fun, Arity} -> [set_pos(tuple([set_pos(atom(Fun),Pos), set_pos(integer(Arity),Pos)]), Pos),list(TypeSpec)]
+  		      {Fun, Arity} -> [set_pos(tuple([set_pos(atom(Fun),Pos), set_pos(integer(Arity),Pos)]), Pos),list(TypeSpec)];
+		      {Mod, Fun,Arity} ->
+			  [set_pos(tuple([set_pos(atom(Mod), Pos), set_pos(atom(Fun),Pos), set_pos(integer(Arity),Pos)]), Pos),list(TypeSpec)]
   		  end;	
 	      type ->
 		  {TypeName, TypeSpec1, TypeSpec2} = Data,
@@ -5275,8 +5278,8 @@ revert(Node) ->
 		Gs = [[revert(X) || X <- L] || L <- subtrees(Node)],
 		%% Then reconstruct the node from the reverted
 		%% parts, and revert the node itself.
-		Node1 = update_tree(Node, Gs),
-		revert_root(Node1)
+		  Node1 = update_tree(Node, Gs),
+		  revert_root(Node1)
 	  end
     end.
 
