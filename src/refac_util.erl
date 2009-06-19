@@ -1049,28 +1049,38 @@ do_add_tokens(Toks, [F|Fs], NewFs)->
 	case refac_syntax:type(F) of 
 	    error_marker ->
 		case Fs of 
-		    [] -> {1,1};
-		    _ -> %% Include all the preceding comments/malformed forms into the current malformed form.
-			Fs1 = lists:dropwhile(fun(F1) -> T = refac_syntax:type(F1),
-							 (T==comment) or (T==error_marker) end, Fs),
-			{_, {Line, _Col}} = get_range(hd(Fs1)),  
-			{{Line+1,1}, Fs1} %% Assume a form always starts from a new line.		      
+		    [] -> {{1,1},[]};
+		    _ ->Fs1 = lists:dropwhile(fun(F1) ->
+						      lists:member(refac_syntax:type(F1),[comment, error_marker])
+					      end, Fs),
+			case Fs1 of 
+			    [] ->
+				{{1, 1}, []};
+			    _ -> {_, {Line, _}} = get_range(hd(Fs1)),
+				 {{Line+1, 1}, Fs1}
+			end
 		end;
 	    _ -> case refac_syntax:get_precomments(F) of 
 		     [] -> {Start, _End} = get_range(F),
 			   {Start, Fs};
-		     [Com|_Tl] -> {Line, Col}=refac_syntax:get_pos(Com),
-				  {{Line, Col+1}, Fs}
+		     [Com|_Tl] -> {refac_syntax:get_pos(Com),Fs}
 		 end
 	end,
-    {Toks1, Toks2} = lists:splitwith(fun(T) -> element(2,T) < StartPos end, Toks),
-    {Toks11, Toks12} = lists:splitwith(fun(T) -> element(1,T) == whitespace end, lists:reverse(Toks1)),
-    {FormToks, RemainToks} = case Toks12 of 
-				 [] ->  {lists:reverse(Toks11)++Toks2,[]};
-				 [H|_T] -> Line1 = element(1, element(2, H)), 
-					   {Toks13, Toks14} = lists:splitwith(fun(T) -> element(1, element(2,T)) == Line1 end, lists:reverse(Toks11)),
-					   {Toks14++Toks2, lists:reverse(Toks12)++Toks13}					
-			     end,
+    {Toks1, Toks2} = lists:splitwith(fun(T) ->
+					     element(2,T) < StartPos
+				     end, Toks),
+    {Toks11, Toks12} = lists:splitwith(fun(T) -> 
+					       element(1,T) == whitespace 
+				       end, lists:reverse(Toks1)),
+    {FormToks, RemainToks} = 
+	case Toks12 of 
+	    [] ->  {Toks,[]};
+	    [H|_T] -> Line1 = element(1, element(2, H)), 
+		      {Toks13, Toks14} = lists:splitwith(fun(T) -> 
+								 element(1, element(2,T)) == Line1 
+							 end, lists:reverse(Toks11)),
+		      {Toks14++Toks2, lists:reverse(Toks12)++Toks13}					
+	end,
     F1 =refac_syntax:add_ann({toks, FormToks}, F),
     do_add_tokens(RemainToks, RemFs, [F1|NewFs]).
 	    
@@ -1196,28 +1206,20 @@ do_add_range(Node, {FName, Toks}) ->
       list ->
 	  LP = ghead("refac_util:do_add_range,list", refac_syntax:list_prefix(Node)),
 	  {{L1, C1}, {L2, C2}} = get_range(LP),
-	  %%  Es = refac_syntax:list_elements(Node),
-	  %% 		   case Es of
-	  %% 		       [] -> refac_syntax:add_ann({range,{{L,C},{L,C}}}, Node);
-	  %% 		       _ -> {S1,_E1} = get_range(hd(Es)),
-	  %% 			    {_S2,E2} = get_range(lists:last(Es)),
-	  %% 			    refac_syntax:add_ann({range, {S1,E2}}, Node)
-	  %% 		   end;
-	  Node1 = case refac_syntax:list_suffix(Node) of
-		    none -> refac_syntax:add_ann({range, {{L1, C1 - 1}, {L2, C2 + 1}}}, Node);
-		    Tail -> {_S2, {L3, C3}} = get_range(Tail), refac_syntax:add_ann({range, {{L1, C1 - 1}, {L3, C3}}}, Node)
-		  end,
-	  Node1;
-      application ->
-	  O = refac_syntax:application_operator(Node),
-	  Args = refac_syntax:application_arguments(Node),
-	  {S1, E1} = get_range(O),
-	  {S3, E3} = case Args of
-		       [] -> {S1, E1};
-		       _ -> La = glast("refac_util:do_add_range, application", Args), {_S2, E2} = get_range(La), {S1, E2}
-		     end,
-	  E31 = extend_backwards(Toks, E3, ')'),
-	  refac_syntax:add_ann({range, {S3, E31}}, Node);
+	  case refac_syntax:list_suffix(Node) of
+	      none -> refac_syntax:add_ann({range, {{L1, C1 - 1}, {L2, C2 + 1}}}, Node);
+	      Tail -> {_S2, {L3, C3}} = get_range(Tail), refac_syntax:add_ann({range, {{L1, C1 - 1}, {L3, C3}}}, Node)
+	  end;
+	application ->
+	    O = refac_syntax:application_operator(Node),
+	    Args = refac_syntax:application_arguments(Node),
+	    {S1, E1} = get_range(O),
+	    {S3, E3} = case Args of
+			   [] -> {S1, E1};
+			   _ -> La = glast("refac_util:do_add_range, application", Args), {_S2, E2} = get_range(La), {S1, E2}
+		       end,
+	    E31 = extend_backwards(Toks, E3, ')'),
+	    refac_syntax:add_ann({range, {S3, E31}}, Node);
       case_expr ->
 	  A = refac_syntax:case_expr_argument(Node),
 	  Lc = glast("refac_util:do_add_range,case_expr", refac_syntax:case_expr_clauses(Node)),
