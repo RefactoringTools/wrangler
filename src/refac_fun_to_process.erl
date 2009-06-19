@@ -323,21 +323,47 @@ fun_call_to_rpc(Node, {ModName, FunName, Arity, ProcessName, RpcFunName}) ->
 			    case refac_syntax:type(Arg1) of 
 				implicit_fun ->
 				    Name = refac_syntax:implicit_fun_name(Arg1),
-				    B1 = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Name)),
-				    A1 = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Name)),
-				    case {B1, A1} of 
-					{FunName, Arity} ->
-					    F2 = refac_syntax:implicit_fun(refac_syntax:atom(RpcFunName), refac_syntax:integer(2)),
-					    P = refac_syntax:atom(ProcessName),
-					    T2 = case refac_syntax:type(Arg2) of 
-						     list -> refac_syntax:tuple(refac_syntax:list_elements(Arg2));
-						     _  -> refac_syntax:application(refac_syntax:atom(list_to_tuple), [Arg2])						   
-						 end,
-					    T3 = refac_syntax:list([P, T2]),
-					    {refac_syntax:copy_attrs(Node, refac_syntax:application
-								     (Op, [F2,T3])), true};
-					
-				_ -> {Node, false}
+				    case refac_syntax:type(Name) of 
+					arity_qualifier ->
+					    B1 = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Name)),
+					    A1 = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Name)),
+					    case {B1, A1} of 
+						{FunName, Arity} ->
+						    F2 = refac_syntax:implicit_fun(refac_syntax:atom(RpcFunName), refac_syntax:integer(2)),
+						    P = refac_syntax:atom(ProcessName),
+						    T2 = case refac_syntax:type(Arg2) of 
+							     list -> refac_syntax:tuple(refac_syntax:list_elements(Arg2));
+							     _  -> refac_syntax:application(refac_syntax:atom(list_to_tuple), [Arg2])						   
+							 end,
+						    T3 = refac_syntax:list([P, T2]),
+						    {refac_syntax:copy_attrs(Node, refac_syntax:application
+									     (Op, [F2,T3])), true};
+						_ -> {Node, false}
+					    end;
+					module_qualifier ->
+					    Mod = refac_syntax:module_qualifier_argument(Name),
+					    Body = refac_syntax:module_qualifier_body(Name),
+					    case (refac_syntax:type(Mod) == atom) andalso (refac_syntax:atom_value(Mod) == ModName) of 
+						true ->
+						    B1 = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Body)),
+						    A1 = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Body)),
+						    case {B1, A1} of 
+							{FunName, Arity} ->
+							    F2 = refac_syntax:implicit_fun(refac_syntax:atom(RpcFunName), refac_syntax:integer(2)),
+							    P = refac_syntax:atom(ProcessName),
+							    T2 = case refac_syntax:type(Arg2) of 
+								     list -> refac_syntax:tuple(refac_syntax:list_elements(Arg2));
+								     _  -> refac_syntax:application(refac_syntax:atom(list_to_tuple), [Arg2])						   
+								 end,
+							    T3 = refac_syntax:list([P, T2]),
+							    {refac_syntax:copy_attrs(Node, refac_syntax:application
+										     (Op, [F2,T3])), true};
+							_ -> {Node, false}
+						    end; 
+						_ ->
+						    {Node, false}
+					    end;
+					_ -> {Node, false}
 				    end;
 				_ -> {Node, false}
 			    end;
