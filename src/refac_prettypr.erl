@@ -879,7 +879,7 @@ lay_2(Node,Ctxt) ->
    		       beside(lay(N,Ctxt1),beside(text("("),beside(lay_elems(fun refac_prettypr_0:par/1, As, Args),floating(text(")")))))
 	       end,
 	    D1 = beside(floating(text("?")),D),
-	    D1; %%  maybe_parentheses(D1,0,Ctxt);    % must be conservative!
+	    maybe_parentheses(D1,0,Ctxt);    % must be conservative!
       parentheses ->  %% done;
 	  D = lay(refac_syntax:parentheses_body(Node),reset_prec(Ctxt)),
 	  lay_parentheses(D,Ctxt);
