@@ -1,7 +1,7 @@
 
                     Wrangler, the Erlang Refactorer
                 a snapshot of our current prototype
-                            19/03/2009 
+                            23/06/2009 
               http://www.cs.kent.ac.uk/projects/forse/
 
 --------------------------------------------------------------------------------
@@ -21,12 +21,11 @@ the Eclipse environment.
 
 --------------------- how to build  ----------------------------
 
-  See INSTALL or INSTALL.WIN32
+  See INSTALL 
 
 --------------------- the directory structure -------------------
 
   INSTALL             <-  installation instructions 
-  INSTALL.WIN32       <-  installation instrunctions for Windows
   Makefile.in 
   README              <-  README file of Wrangler (you're reading this)
   configure           <-  confiure file
@@ -141,7 +140,7 @@ the Eclipse environment.
                                  and left-hand side is the process
                                  identifier, and you will be prompted
                                  for the new process name.
-
+ 
      From fun to process        :place the cursor at the function name
                                  of the function definition to be
                                  refactored, and you will be prompted
@@ -158,11 +157,39 @@ the Eclipse environment.
  search for Erlang source files/header files that could be affected by a
  refactoring.
 
+
+-------------------------Major Changes from Wrangler-0.7.4------------
+
+-- A number of refactorings are now test framework aware. 
+-- The display of clone detection results has been made clickable when 
+   the compilation-minor-mode is on; also a generalised form of the code 
+   duplicated is given.
+-- A number of bug fixes.
+
+-------------------------Major Changes from Wrangler-0.7.3-------------
+-- A number ofrefactorings have been extended to be testframe work aware.
+-- A prototype of similar expression search.
+-- A number of bug fixes.
+
+-------------------------Major Changes form Wrangler-0.7.2--------------
+-- New feature: 
+    Wrangler now support previewing of refactoring results before making the 
+    actual changes to user's source code.
+-- The workflow of folding expressions against a function/macro definition has
+   been changed slightly.
+-- The way in which the expression search result is shown has been changed. 
+-- Undoing 'move a function to another module' now also deletes the target 
+   module if it is created by Wrangler.
+-- Added support for generalising a single function clause of a function of 
+   multiple clauses.
+-- Bugfix with prettypring integers.
+-- Bugfix with renaming a variable to a name that causes the 'unsafe' problem.
+
 -------------------------Changes from Wrangler-0.7.1--------------
 -- The snapshot is now R11 compatible.
 -- Bugfixe with the Emacs interface. The refactor menu is removed when the 
    Wrangler node is down either normally or abnormally. 
--- Bugfixe with rendering chars.
+-- Bugfix with rendering chars.
 
 -------------------------Changes from Wrangler-0.6.2---------------
 
