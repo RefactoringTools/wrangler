@@ -1,18 +1,37 @@
 Installation
-------------
+-------------
+Step 1) Build and install the software in the usual way:
+       ./configure && make && [sudo] make install
 
-* Build and install the software in the usual way:
-     ./configure && make && [sudo] make install
+Step 2) If you have Erlang mode for Emacs installed, goto Step 3); 
+     	otherwise add the following lines to your ~/.emacs file.           
 
-* Add these lines to your ~/.emacs (substitute correct path):
+        (setq load-path (cons  "/usr/local/otp/lib/tools-<ToolsVer>/emacs"
+	    	      load-path))
+        (setq erlang-root-dir "/usr/local/otp")
+        (setq exec-path (cons "/usr/local/otp/bin" exec-path))
+        (require 'erlang-start)
+  
+        (NOTE: we assume Erlang/OTP is installed in the directory 
+	 '/usr/local/otp', please substitute with the correct path 
+         if your Erlang/OTP is installed in a different directory; 
+         you also have to replace <ToosVer> with the correct 
+         version number)   
+	
 
-  (add-to-list 'load-path "/usr/local/share/wrangler/elisp")
-  (require 'wrangler)
- 
-  (If you used an install prefix other than /usr/local, change  
-   the first line appropriately.)
+Step 3) Add these lines to your ~/.emacs:
+	  
+        (add-to-list 'load-path "/usr/local/share/wrangler/elisp")
+        (require 'wrangler)
+   
+       (If you used an install prefix other than '/usr/local', replace
+       '/usr/local/' with the correct directory)
+
+Step 4) Wrangler requires a .erlang.cookie file in your $HOME directory, 
+        please create one if it does not exist. The .erlang.cookie 
+	file should contain a single Erlang atom.
      
-You should now be to use Wrangler. If you have problems, please send a
-note to 'erlang-refactor@kent.ac.uk'.
+You should now be able to use Wrangler. For problems and bug reports, 
+please send a note to 'hl@kent.ac.uk' or 'erlang-refactor@kent.ac.uk'.
 
 
