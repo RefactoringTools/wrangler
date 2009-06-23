@@ -63,6 +63,8 @@
 
 -import(refac_rename_fun, [check_atoms/4, start_atom_process/0,output_atom_warning_msg/3, stop_atom_process/1]).
 
+-export([remove_duplicates/2]).
+
 -include("../include/wrangler.hrl").
 
 %==========================================================================================
@@ -431,7 +433,14 @@ do_transform_fun(Node, {FileName,{ModName, FunName, Arity},TargetModName, InScop
 				     true}
 			    end;
 			_ ->
-			    {Node,false}
+			    case (M==TargetModName) of 
+				true ->
+				    {copy_pos_attrs(Node, refac_syntax:application(
+							    copy_pos_attrs(Op, refac_syntax:atom(F)), Args)),
+				     true}; 
+				_ ->
+				    {Node,false}
+			    end
 		    end;
 		_ ->{Node, false}
 	    end;
@@ -1065,3 +1074,13 @@ not_renamed_warn_msg(FunName) ->
      "WARNING: Wrangler could not infer whether the uses of '" ++atom_to_list(FunName) ++"' at the following positions "
      "refer to the function moved.\n Please check manually for necessary module name changes!\n".
     
+remove_duplicates([],Acc) ->
+     lists:reverse(Acc);
+remove_duplicates([H|T], Acc) ->
+    case lists:member(H, Acc) of
+	true ->
+	    remove_duplicates(T, Acc);
+	_ ->
+	    remove_duplicates(T, [H|Acc])
+    end.
+
