@@ -497,9 +497,7 @@ do_remove_fun(FileName, AnnAST, {ModName, FunName, Arity}, FunsToBeExported, Tar
     NewForms = case FunsToBeExported of 
 		   [] -> Forms2;
 		   [_H|_T] ->  Export = make_export(FunsToBeExported),
-			       {Forms11, Forms12} = lists:splitwith(fun(F) -> refac_syntax:type(F)==attribute 
-										  orelse refac_syntax:type(F) == comment end, Forms2),
-			       Forms11++Export++Forms12
+			       insert_export_form(Export, Forms2)
 	       end,
     {copy_pos_attrs(AnnAST, refac_syntax:form_list(NewForms)), Fun_is_Used}.
 
@@ -519,13 +517,24 @@ do_add_fun(FileName,{TargetAnnAST, Info}, FunToBeMoved, {ModName, FunName, Arity
     NewForms = case ToBeExported andalso (not IsExported) of
 		   false -> Forms1 ++ NewFun;
 		   true -> Export = make_export([{FunName, Arity}]),
-			   {Forms11, Forms12} = lists:splitwith(fun (F) -> refac_syntax:type(F) == attribute
-									       orelse refac_syntax:type(F) == comment
-								end, Forms1),
-			   Forms11 ++ Export ++ Forms12 ++ NewFun
+			   insert_export_form(Export, Forms1)++NewFun
 	       end,
     copy_pos_attrs(TargetAnnAST, refac_syntax:form_list(NewForms)).
 
+
+insert_export_form(Export, Forms) ->
+    {Forms11, Forms12} = lists:splitwith(fun (F) -> 
+						 is_attribute(F, module) orelse
+					         is_attribute(F, export) orelse
+					         is_attribute(F, import) orelse 
+					         refac_syntax:type(F) == comment
+					 end, Forms),
+    {Forms111, Forms112}= lists:splitwith(fun(F) -> 
+						  refac_syntax:type(F)==comment 
+					  end, lists:reverse(Forms11)),
+    lists:reverse(Forms112)++Export ++ lists:reverse(Forms111) ++ Forms12.
+    
+   
 %%=========================================================================
 %% Refacotoring in the current module. 
 %%========================================================================
@@ -866,7 +875,13 @@ make_export(Names) ->
 
 copy_pos_attrs(E1, E2) ->
     refac_syntax:copy_pos(E1, refac_syntax:copy_attrs(E1, E2)).    
+
     
+is_attribute(F, Name) ->
+    (refac_syntax:type(F) ==attribute) andalso
+    (refac_syntax:type(refac_syntax:attribute_name(F)) == atom) andalso
+    (refac_syntax:atom_value(refac_syntax:attribute_name(F)) ==Name).
+       
 %% =====================================================================
 %% @spec application_info(Tree::syntaxTree())->term()
 %% ====================================================================       
