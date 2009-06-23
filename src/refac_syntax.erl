@@ -3143,16 +3143,20 @@ fold_try_clause({clause, Pos, [P], Guard, Body}) ->
 		[class_qualifier_argument(P), class_qualifier_body(P),
 		 {var, Pos, '_'}]};
 	   _ ->
-	       {tuple, Pos, [{atom, Pos, throw}, P, {var, Pos, '_'}]}
+	       {tuple, Pos, [P, {var, Pos, '_'}]}
 	 end,
     {clause, Pos, [P1], Guard, Body}.
 
 unfold_try_clauses(Cs) ->
     [unfold_try_clause(C) || C <- Cs].
 
-%% unfold_try_clause({clause, Pos,  
-%% 		   [{tuple, _, [{atom, _, throw}, V, _]}], Guard, Body}) ->
-%%     {clause, Pos, [V], Guard, Body}; %% remove this so that 'throw' will be outputted during prettyprinting.
+unfold_try_clause({clause, Pos,  
+ 		   [{tuple, _, [{atom, Pos1, throw}, V, _]}], Guard, Body}) ->
+    case Pos1 == get_pos(V) of 
+	true ->  {clause, Pos, [V], Guard, Body}; 
+	false -> {clause, Pos, [class_qualifier({atom, Pos1, throw}, V)], Guard, Body}
+    end;
+	
 unfold_try_clause({clause, Pos, [{tuple, _, [C, V, _]}],
 		   Guard, Body}) ->
     {clause, Pos, [class_qualifier(C, V)], Guard, Body}.
