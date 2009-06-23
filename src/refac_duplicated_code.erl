@@ -26,7 +26,8 @@
 
 -export([init/1]).
 
--compile(export_all).
+-import(refac_sim_expr_search, [start_counter_process/0, stop_counter_process/1, gen_new_var_name/1,variable_replaceable/1]).
+
 %% TODO:  
 %% 1) does recusive function calls affect the result?
 %% 2) does qualifed names affect the result? 
@@ -185,15 +186,14 @@ duplicated_code(DirFileList, MinLength1, MinClones1, TabWidth) ->
 		    true -> ?DEFAULT_CLONE_MEMBER;
 		    _ -> list_to_integer(MinClones1)
 		end,
-    ?wrangler_io("\nCMD: ~p:duplicated_code(~p,~p,~p,~p).\n", [?MODULE, DirFileList, MinLength, MinClones, TabWidth]),
+    ?wrangler_io("\nCMD: ~p:duplicated_code(~p,~p,~p,~p).\n", [?MODULE, DirFileList, MinLength1, MinClones1, TabWidth]),
     ?debug("current time:~p\n", [time()]),
     start_suffix_tree_clone_detector(),
     Cs5 = duplicated_code_detection(DirFileList, MinClones, MinLength, TabWidth),
     ?debug("Filtering out sub-clones.\n", []),
     Cs6 = remove_sub_clones(Cs5),
     ?debug("current time:~p\n", [time()]),
-    display_clones_by_freq(Cs6),
-    display_clones_by_length(Cs6),
+    display_clone_result(Cs6),
     ?debug("No of Clones found:\n~p\n", [length(Cs6)]),
     ?debug("Clones:\n~p\n", [Cs6]),
     {ok, "Duplicated code detection finished."}.
@@ -248,7 +248,7 @@ process_a_tok(T) ->
 	{char, _, _} ->'C' ;        
 	{A, _} -> case lists:keysearch(A, 1, alphabet_1()) of
 		      {value, {A, Value}} -> Value;
-		      _  -> erlang:error(?wrangler_io("Unhandled token:\n~p\n", [T]))
+		      _  -> ' '
 		  end
     end.
 
@@ -420,7 +420,7 @@ remove_var_literals_1(T) ->
  	{char, L, _}  -> {char, L, 'C'};
  	{atom, L, _} -> {atom, L, 'A'};
  	{A, L} ->{A, L};
- 	Other  -> erlang:error(?wrangler_io("Unhandled token:\n~p\n", [Other]))
+ 	Other  -> Other
      end.
 
 %% use locations intead of tokens to represent the clones.
@@ -479,13 +479,13 @@ connect_clones(C1={Range1, Len1, F1}, {Range2, Len2, F2}) ->  %% assume F1=<F2.
 %%================================================================================
 
 remove_sub_clones(Cs) ->
-    Cs1 = lists:sort(fun({_Range1, Len1, F1},{_Range2, Len2, F2})
-			-> {F1, Len1} >= {F2, Len2}
+    Cs1 = lists:sort(fun(C1,C2)
+			-> {element(3, C1), element(2, C1)} >= {element(3, C2), element(2, C2)}
 		     end, Cs),
     remove_sub_clones(Cs1,[]).
 
 remove_sub_clones([], Acc_Cs) ->
-       Acc_Cs;
+    Acc_Cs;
 remove_sub_clones([C|Cs], Acc_Cs) ->
     R = lists:any(fun(C1)-> sub_clone(C, C1) end, Acc_Cs),
     case R of 
@@ -493,7 +493,13 @@ remove_sub_clones([C|Cs], Acc_Cs) ->
 	_ -> remove_sub_clones(Cs, Acc_Cs++[C])
     end.
 
-sub_clone({Range1, Len1, F1}, {Range2, Len2, F2}) ->
+sub_clone(C1, C2) ->
+    Range1 = element(1, C1),
+    Len1 = element(2, C1),
+    F1 = element(3, C1),
+    Range2 = element(1, C2),
+    Len2 = element(2, C2),
+    F2 = element(3, C2),
     case F1=<F2 andalso Len1=<Len2 of 
 	true ->
 	    lists:all(fun ({S, E}) -> lists:any(fun ({S1, E1}) -> S1 =< S andalso E =< E1 end, Range2) end, Range1);
@@ -529,8 +535,8 @@ trim_clones(FileNames, Cs, MinLength, MinClones, TabWidth) ->
 		  case lists:keysearch(File, 1, AnnASTs) of
 		      {value, {File, AnnAST}} -> Phrases =  refac_util:pos_to_syntax_units(AnnAST, {StartLn, StartCol}, {EndLn, EndCol}, fun is_expr_or_fun/1),
 						 BdStruct = refac_expr_search:var_binding_structure(Phrases),
-						 {R, BdStruct};	   
-			 _  -> {R, []}
+						 {R, Phrases, BdStruct};	   
+		      _  -> {R, [], []}
 		  end
 	  end,
     Fun = fun ({Range, _Len, F}) ->
@@ -574,11 +580,17 @@ trim_clones(FileNames, Cs, MinLength, MinClones, TabWidth) ->
 		  end
 	  end,
     Cs2= lists:append(lists:map(Fun, Cs)),
-    Cs3 =[lists:map(fun(C) -> {C, Len, length(C)} end, group_by(2, lists:map(Fun0, Range)))
+    Cs3 =[lists:map(fun(C) -> {C, Len, length(C)} end, group_by(3, lists:map(Fun0, Range)))
 		    || {Range, Len, _F}<- Cs2],
     Cs4 = lists:append(Cs3),
-    Cs5 =[{[R||{R,_Bd} <-Range], Len, F} || {Range, Len, F} <- Cs4, Len>=MinLength, F>=MinClones],
-    lists:usort(Cs5).
+    Cs5 =[{lists:unzip([{R, Code}||{R,Code, _Bd} <-Range]), Len, F} 
+	  || {Range, Len, F} <- Cs4, Len>=MinLength, F>=MinClones],
+    Cs6 = [try get_anti_unifier(Exprs) of 
+	       Res -> [{Range, Len, F, Res}]
+	   catch
+	       _Error_ -> []
+	   end ||{{Range, Exprs}, Len, F} <-Cs5],
+    lists:usort(lists:append(Cs6)).
 
 
 group_by(N, TupleList) ->
@@ -632,7 +644,7 @@ token_len_1(V) when is_float(V) ->
     length(float_to_list(V)); 
 token_len_1(V) when is_binary(V) ->
     length(binary_to_list(V));
-token_len_1(V) -> erlang:error(?wrangler_io("Unhandled data type:\n~p\n", [V])).
+token_len_1(_V) -> 1.  %5 unhandled token;
        
 %% ===========================================================
 %% Some utility functions:
@@ -757,17 +769,25 @@ alphabet_1() ->
 
 %% ===========================================================================
 %% display the found-out clones to the user.
+
+display_clone_result(Cs) ->
+    case length(Cs) >=1  of 
+	true -> display_clones_by_freq(Cs),
+		display_clones_by_length(Cs);
+	false -> ?wrangler_io("\nDuplicated code detection finished with no clones found.\n", [])
+    end.
+    
 display_clones_by_freq(Cs) ->
     ?wrangler_io("\n===================================================================\n",[]),
-    ?wrangler_io("Clone Detection Results Sorted by the Number of Times Being Duplicated.\n",[]),
+    ?wrangler_io("Duplicated Code Detection Results Sorted by the Number of Times Being Duplicated.\n",[]),
     ?wrangler_io("======================================================================\n",[]),		 
     ?wrangler_io(display_clones(Cs),[]).
 
 display_clones_by_length(Cs) ->
     ?wrangler_io("\n===================================================================\n",[]),
-    ?wrangler_io("Clone Detection Results Sorted by the Size of the Duplicated Code.\n",[]),
+    ?wrangler_io("Duplicated Code Detection Results Sorted by the Size of the Duplicated Code.\n",[]),
     ?wrangler_io("======================================================================\n",[]),		 
-    Cs1 = lists:sort(fun({_Range1, Len1, F1},{_Range2, Len2, F2})
+    Cs1 = lists:sort(fun({_Range1, Len1, F1, _},{_Range2, Len2, F2,_})
 			-> {Len1, F1} >= {Len2, F2}
 		     end, Cs),
     ?wrangler_io(display_clones(Cs1),[]).
@@ -781,21 +801,22 @@ display_clones(Cs) ->
 	_ -> display_clones_1(Cs, Str)
     end.
 display_clones_1([], Str) -> Str ++ "\n";
-display_clones_1([{Ranges, _Len, F}| Cs], Str) ->
+display_clones_1([{Ranges, _Len, F, Code}| Cs], Str) ->
     [{{File, StartLine, StartCol}, {File, EndLine, EndCol}}| Range] = lists:keysort(1, Ranges),
     NewStr = compose_clone_info({File, StartLine, StartCol}, {File, EndLine, EndCol}, F, Range, Str),
-    display_clones_1(Cs, NewStr).
+    NewStr1 = NewStr ++ "The duplicated expression/function after generalisation:\n\n"++ io_lib:format("~s", [Code]) ++ "\n",
+    display_clones_1(Cs, NewStr1).
 
 compose_clone_info({File, StartLine, StartCol}, {File, EndLine, EndCol}, F, Range, Str) ->
     case F - 1 of
 	1 -> Str1 = Str ++ "\n" ++ File ++ io_lib:format(":~p.~p-~p.~p: This code has been duplicated once:\n",
-							 [StartLine, StartCol - 1, EndLine, EndCol]),
+							 [StartLine, lists:max([1, StartCol-1]), EndLine, EndCol]),
 	     display_clones_2(Range, Str1);
 	2 -> Str1 = Str ++ "\n" ++ File ++ io_lib:format(":~p.~p-~p.~p: This code has been duplicated twice:\n",
-							 [StartLine, StartCol - 1, EndLine, EndCol]),
+							 [StartLine, lists:max([1, StartCol-1]), EndLine, EndCol]),
 	     display_clones_2(Range, Str1);
 	_ -> Str1 = Str ++ "\n" ++ File ++ io_lib:format(":~p.~p-~p.~p: This code has been duplicated ~p times:\n",
-							 [StartLine, StartCol - 1, EndLine, EndCol, F - 1]),
+							 [StartLine, lists:max([1, StartCol-1]), EndLine, EndCol, F - 1]),
 	     display_clones_2(Range, Str1)
     end.
 
@@ -803,14 +824,150 @@ display_clones_2([], Str) -> Str ++ "\n";
 display_clones_2([{{File, StartLine, StartCol}, {File, EndLine, EndCol}}|Rs], Str) ->
     Str1 = case Rs == [] of 
 	       true ->
-		   Str ++ File++io_lib:format(":~p.~p-~p.~p:  \n", [StartLine,StartCol-1,EndLine, EndCol]);
+		   Str ++ File++io_lib:format(":~p.~p-~p.~p:  \n", [StartLine,lists:max([1, StartCol-1]),EndLine, EndCol]);
 	       _ ->
-		   Str ++ File++io_lib:format(":~p.~p-~p.~p:  \n", [StartLine, StartCol-1, EndLine, EndCol])
+		   Str ++ File++io_lib:format(":~p.~p-~p.~p:  \n", [StartLine, lists:max([1,StartCol-1]), EndLine, EndCol])
 	   end,
     display_clones_2(Rs, Str1).
-		    
-    
-				    
-				    
-    
-    
+
+		
+get_anti_unifier([]) ->
+    throw({error, anti_unification_failed});
+get_anti_unifier([Expr])-> generalise_expr(Expr, []);
+get_anti_unifier([Expr|Exprs]) ->
+    Nodes =lists:usort(lists:flatmap(fun(E) ->
+					     expr_unification(Expr, E)
+				     end, Exprs)),
+    generalise_expr(Expr, Nodes).
+ 
+
+expr_unification(Exp1, Exp2) ->
+    case {is_list(Exp1), is_list(Exp2)} of 
+	{true, true} ->   
+	    case length(Exp1) == length(Exp2) of 
+		true ->
+		    lists:flatmap(fun({E1,E2}) ->			      
+					  expr_unification(E1,E2)						
+				  end, lists:zip(Exp1, Exp2));
+		_ ->
+		    throw({error, anti_unification_failed})
+	    end;
+	{false, false} ->  %% both are single expressions.
+	    T1 = refac_syntax:type(Exp1),
+	    T2 = refac_syntax:type(Exp2),
+	    case T1  of 
+		atom -> case (T2 == atom) andalso (refac_syntax:atom_value(Exp1) == refac_syntax:atom_value(Exp2)) of 
+			    true -> [];
+			    _ -> case variable_replaceable(Exp1) of 
+				     true ->[Exp1];
+				     _ -> throw({error, anti_unification_failed})
+				 end
+			end;
+		char -> case (T2==char) andalso (refac_syntax:char_value(Exp1) == refac_syntax:char_value(Exp2)) of 
+			    true -> [];
+			    _ -> [Exp1]
+			end;
+		integer -> case (T2==integer orelse T2==float) andalso 
+			       (refac_syntax:integer_value(Exp1) ==refac_syntax:integer_value(Exp2)) of 
+			       true -> [];
+			       _ -> [Exp1]
+			   end;
+		string -> case (T2==string) andalso refac_syntax:string_value(Exp1) == refac_syntax:string_value(Exp2) of 
+			      true -> [];
+			      _ -> [Exp1]
+			  end;
+		float -> case (T2==float orelse T2==integer) andalso 
+			     refac_syntax:float_value(Exp1) == refac_syntax:float_value(Exp2) of 
+			     true -> [];
+			     _ -> [Exp1]			 
+			 end;
+		_ -> 
+		    SubTrees1 = erl_syntax:subtrees(Exp1),
+		    SubTrees2 = erl_syntax:subtrees(Exp2),
+		    expr_unification(SubTrees1, SubTrees2)				    
+	    end
+    end.
+
+generalise_expr([], _) ->
+    "";
+generalise_expr(Exprs = [H| _T], NodesToGen) ->
+    case refac_syntax:type(H) of
+      function -> generalise_fun(H, NodesToGen);
+      _ -> FunName = refac_syntax:atom(new_fun),
+	   FVs = lists:keysort(2, refac_util:get_free_vars(Exprs)),
+	   EVs = lists:keysort(2, refac_util:get_var_exports(Exprs)),
+	   NewExprs = generalise_expr_1(Exprs, NodesToGen),
+	   NewExprs1 = case EVs of
+			 [] -> NewExprs;
+			 [{V, _}] -> E = refac_syntax:variable(V),
+				     NewExprs ++ [E];
+			 [_V| _Vs] -> E = refac_syntax:tuple([refac_syntax:variable(V) || {V, _} <- EVs]),
+				      NewExprs ++ [E]
+		       end,
+	   NewVars = sets:to_list(sets:subtract(collect_vars(NewExprs), collect_vars(Exprs))),
+	   Pars = lists:map(fun ({V, _}) ->
+				    refac_syntax:variable(V)
+			    end,
+			    FVs)
+		    ++ lists:map(fun (V) ->
+					 refac_syntax:variable(V)
+				 end, NewVars),
+	   C = refac_syntax:clause(refac_util:remove_duplicates(Pars), none, NewExprs1),
+	   refac_prettypr:format(refac_syntax:function(FunName, [C]))
+    end.
+
+generalise_fun(F, NodesToGen) ->
+    FunName = refac_syntax:function_name(F),
+    Cs = refac_syntax:function_clauses(F),
+    {Cs1, NewVars} = lists:unzip(lists:map(fun (C) ->
+						   C1 = generalise_expr_1(C, NodesToGen),
+						   NewVars = sets:to_list(sets:subtract(collect_vars(C1), collect_vars(C))),
+						   {C1, NewVars}
+					   end, Cs)),
+    NewVars1 = lists:append(NewVars),
+    NewCs = lists:map(fun (C) ->
+			      Pats = refac_syntax:clause_patterns(C),
+			      NewPats = Pats ++ lists:map(fun (V) ->
+								  refac_syntax:variable(V)
+							  end,
+							  refac_util:remove_duplicates(NewVars1)),
+			      Guards = refac_syntax:clause_guard(C),
+			      Body = refac_syntax:clause_body(C),
+			      refac_syntax:clause(NewPats, Guards, Body)
+		      end, Cs1),
+    refac_prettypr:format(refac_syntax:function(FunName, NewCs)).
+
+
+generalise_expr_1(Expr, NodesToGen) when is_list(Expr)->
+     refac_syntax:block_expr_body(generalise_expr_1(refac_syntax:block_expr(Expr), NodesToGen));
+generalise_expr_1(Expr, NodesToGen) ->
+    generalise_expr_2(Expr, NodesToGen).
+
+generalise_expr_2(Expr, NodesToGen) ->
+    Pid = start_counter_process(),
+    {Expr1, _}= refac_util:stop_tdTP(fun do_replace_expr_with_var_1/2, Expr, {NodesToGen,Pid}),
+    stop_counter_process(Pid),
+    Expr1.
+
+do_replace_expr_with_var_1(Node, {NodesToGen,Pid}) ->
+    case lists:member(Node,NodesToGen) of
+	true ->  NewVar = gen_new_var_name(Pid),
+		 {refac_syntax:variable(NewVar), true};
+	_ -> {Node, false}
+    end.
+
+collect_vars(Node) when is_list(Node) ->
+    collect_vars_1(refac_syntax:block_expr(Node));
+collect_vars(Node) ->
+    collect_vars_1(Node).
+collect_vars_1(Node) ->
+    F = fun(N,S) ->
+		case refac_syntax:type(N) of 
+		    variable ->
+			sets:add_element(refac_syntax:variable_name(N), S);
+		    _  -> S
+		end
+	end,
+    refac_syntax_lib:fold(F, sets:new(), Node).
+		
+			   
