@@ -105,10 +105,12 @@ side_cond_analysis(Info, Fun, ExpList, NewFunName) ->
     FrBdVars = lists:map(fun(E)-> envs_bounds_frees(E) end, ExpList),
     BdVars = lists:usort(lists:flatmap(fun({{bound, Vars}, _}) -> Vars end, FrBdVars)),
     FrVars1 = lists:usort(lists:flatmap(fun({_, {free, Vars}}) -> Vars end, FrBdVars)),
-    FrVars = lists:map(fun({VarName, _Pos}) -> VarName end, lists:subtract(FrVars1, BdVars)),
+    FrVars = refac_util:remove_duplicates(lists:map(fun({VarName, _Pos}) -> VarName end, 
+					  lists:keysort(2, lists:subtract(FrVars1, BdVars)))),
     InScopeFuns = lists:map(fun({_M, F, A}) ->
 				    {F, A} end, refac_util:inscope_funs(Info)),
-    case lists:member({NewFunName, length(FrVars)}, InScopeFuns) of
+    case lists:member({NewFunName, length(FrVars)}, InScopeFuns) orelse 
+	erlang:is_builtin(erlang, NewFunName, length(FrVars)) orelse erl_internal:bif(erlang, NewFunName, length(FrVars)) of
 	true ->
 	    {error, "The given function name has been used by this module, please choose another name!"};
 	_ ->
