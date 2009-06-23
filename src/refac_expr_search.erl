@@ -32,7 +32,7 @@
 
 -export([expr_search/4, expr_search_eclipse/4]).
 
--export([contained_exprs/2, var_binding_structure/1]).
+-export([contained_exprs/2, var_binding_structure/1, compose_search_result_info/2]).
 
 -include("../include/wrangler.hrl").
 %% ================================================================================================
@@ -139,11 +139,12 @@ get_clone(List1, List2) ->
 		    BdList1 = var_binding_structure(List1),
 		    BdList2 = var_binding_structure(List22),
 		    case BdList1 == BdList2 of 
-			true -> E1 = hd(List22),
-				En = lists:last(List22),
-			        {{StartLn, StartCol}, _EndLoc} = refac_util:get_range(E1),
-				{_StartLoc1, {EndLn, EndCol}} = refac_util:get_range(En),
-				[{{StartLn, StartCol}, {EndLn, EndCol}}] ++ get_clone(List1, tl(List2));
+			true ->
+			    E1 = hd(List22),
+			    En = lists:last(List22),
+			    {{StartLn, StartCol}, _EndLoc} = refac_util:get_range(E1),
+			    {_StartLoc1, {EndLn, EndCol}} = refac_util:get_range(En),
+			    [{{StartLn, StartCol}, {EndLn, EndCol}}] ++ get_clone(List1, tl(List2));
 			_ -> get_clone(List1, tl(List2))
 		    end;				       
 		    _ -> get_clone(List1, tl(List2))
@@ -159,8 +160,12 @@ simplify_expr(Exp) ->
 
 do_simplify_expr(Node) ->
     Node1 = case refac_syntax:type(Node) of 
-		macro -> 
-		    refac_syntax:default_literals_vars(Node, '*');
+		macro ->
+		    case refac_syntax:macro_arguments(Node) of 
+			none -> 
+			    refac_syntax:default_literals_vars(Node, '*');
+			_ -> Node
+		    end;
 		variable ->
 		    refac_syntax:default_literals_vars(Node, '&');
 		integer ->
@@ -221,16 +226,15 @@ var_binding_structure(ASTList) ->
 			 As = refac_syntax:get_ann(T),
 			 case lists:keysearch(def, 1, As) of
 			   {value, {def, DefLoc}} ->
-			       ordsets:add_element({atom_to_list(Name), SrcLoc,
-						    DefLoc},
-						   S);
+			        [{atom_to_list(Name), SrcLoc,
+						    DefLoc}|S];
 			   _ -> S
 			 end;
 		     _ -> S
 		   end
 	   end,
     %% collect all variables including their defining and occuring locations. 
-    B = lists:flatmap(fun(T) -> refac_syntax_lib:fold(Fun1, ordsets:new(), T) end, ASTList),
+    B = lists:keysort(2, lists:flatmap(fun(T) -> refac_syntax_lib:fold(Fun1, [], T) end, ASTList)),
     %% collect occuring locations.
     SrcLocs = lists:map(fun ({_Name, SrcLoc, _DefLoc}) -> SrcLoc end, B),
     Res = case SrcLocs of 
