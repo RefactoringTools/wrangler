@@ -697,7 +697,7 @@ check_candidate_scc(FileName, Info, FunDef, Scc, Line) ->
 			       {_, {EndLine, _}} = refac_util:get_range(E),
 			       case EndLine >= Line  of 
 				   true -> 
-				       CalledFuns = refac_util:called_funs(ModName, InscopeFuns, E),
+				       CalledFuns = refac_util:called_funs(ModName, E),
 				       case lists:subtract(CalledFuns, MFAs) of 
 					   CalledFuns -> false;
 					   _ -> true
@@ -789,7 +789,7 @@ is_server(FileName, Info, FunDef, Scc, Line) ->
 		 {_, {EndLine, _}} = refac_util:get_range(E),
 		 case EndLine >= Line  of 
 		     true -> 
-			 CalledFuns = refac_util:called_funs(ModName, InscopeFuns, E),
+			 CalledFuns = refac_util:called_funs(ModName, E),
 			 case lists:subtract(CalledFuns, MFAs) of 
 			     CalledFuns -> false;
 			     _ -> true
