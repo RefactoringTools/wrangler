@@ -797,23 +797,46 @@ transform_apply_call(Node, {C, N, Name, Arity, ModName}) ->
 	  case refac_syntax:type(Fun) of
 	      implicit_fun ->
 		  FName = refac_syntax:implicit_fun_name(Fun),
-		  B = refac_syntax:atom_value(refac_syntax:
-					      arity_qualifier_body(FName)),
-		  A = refac_syntax:integer_value(refac_syntax:
-					      arity_qualifier_argument(FName)),
-		  case {B, A} of
-		      {Name, Arity} ->
-			  case refac_syntax:type(Args) of 
-			      list ->
-				  Args1 = refac_syntax:list_elements(Args),
-				  Args2 = get_arg(Args1, C, N),
-				  Args3 = refac_syntax:list(Args2),
-				  {refac_syntax:copy_attrs(Node, 
-						   refac_syntax:application(Operator, [Fun, Args3])), false};
+		  case refac_syntax:type(FName) of 
+		      arity_qualifier ->
+			  B = refac_syntax:atom_value(refac_syntax: arity_qualifier_body(FName)),
+			  A = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(FName)),
+			  case {B, A} of
+			      {Name, Arity} ->
+				  case refac_syntax:type(Args) of 
+				      list ->
+					  Args1 = refac_syntax:list_elements(Args),
+					  Args2 = get_arg(Args1, C, N),
+					  Args3 = refac_syntax:list(Args2),
+					  {refac_syntax:copy_attrs(Node, 
+								   refac_syntax:application(Operator, [Fun, Args3])), false};
+				      _ -> {Node, false}
+				  end;
 			      _ -> {Node, false}
 			  end;
-		      _ -> {Node, false}
-		  end;
+		      module_qualifier ->
+			  Mod = refac_syntax:module_qualifier_argument(FName),
+			  Body = refac_syntax:module_qualifier_body(FName),
+			  case (refac_syntax:type(Mod)==atom) andalso (refac_syntax:atom_value(Mod)==ModName) of
+			      true -> 
+				  B = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Body)),
+				  A = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Body)),
+				   case {B, A} of
+				       {Name, Arity} ->
+					   case refac_syntax:type(Args) of 
+					       list ->
+						   Args1 = refac_syntax:list_elements(Args),
+						   Args2 = get_arg(Args1, C, N),
+						   Args3 = refac_syntax:list(Args2),
+						   {refac_syntax:copy_attrs(Node, 
+									    refac_syntax:application(Operator, [Fun, Args3])), false};
+					       _ -> {Node, false}
+					   end;
+				       _ -> {Node, false}
+				   end;
+			      _ -> {Node, false}
+			  end
+		  end;			  
 	      atom -> 
 		  case refac_syntax:type(Args) of 
 		      list -> Args1 = refac_syntax:list_elements(Args),
