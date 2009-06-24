@@ -59,7 +59,10 @@
 	 fold_expr_by_name/7, fold_expr_by_name_eclipse/7,
 	 cursor_at_fun_clause/5]).
 
+-import(refac_sim_expr_search, [variable_replaceable/1]).
+
 -export([expr_unification/2, fold_expression/6]).
+
 -include("../include/wrangler.hrl").
 %% =============================================================================================
 %% @spec fold_expression(FileName::filename(), Line::integer(), Col::integer())-> term()
@@ -529,10 +532,10 @@ expr_unification(Exp1, Exp2) ->
 				       _ -> false
 				   end 
 			   end;
-		       _ -> case T1 of 
-				variable -> case T2 of 
-						match_expr -> false;  %% ANY OTHER CASES?
-						_ -> 
+		       _ -> case T1 of  
+				variable -> case variable_replaceable(Exp2) of 
+						false -> false;  
+						true -> 
 						    case lists:keysearch(category, 1, refac_syntax:get_ann(Exp2)) of 
 							{value, {category, application_op}} ->
 							    case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Exp2)) of 
@@ -593,10 +596,20 @@ make_match_expr({FunDefMod, CurrentMod}, FunName, Pats, Subst, VarsToExport) ->
     case VarsToExport of 
 	[] ->
 	    FunCall;
-	[V] -> P = refac_syntax:variable(V),
-	       refac_syntax:match_expr(P, FunCall);
-	[_V|_VS] -> P =refac_syntax:tuple([refac_syntax:variable(V) || V <-VarsToExport]),
+	[V] ->
+	    case V of 
+		'_' -> FunCall;
+		_ -> P = refac_syntax:variable(V),
+		     refac_syntax:match_expr(P, FunCall)
+	    end;
+	[_V|_VS] ->
+	    case lists:all(fun(E) -> E=='_' end, VarsToExport) of 
+		true ->
+		    FunCall;
+		_ -> 
+		    P =refac_syntax:tuple([refac_syntax:variable(V) || V <-VarsToExport]),
 		    refac_syntax:match_expr(P, FunCall)
+	    end
     end.
 	    
  		

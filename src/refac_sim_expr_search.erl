@@ -32,7 +32,10 @@
 
 -export([sim_expr_search/6, normalise_record_expr/4]).
 
--export([get_start_end_loc/1]).
+-export([get_start_end_loc/1, start_counter_process/0, stop_counter_process/1, gen_new_var_name/1,variable_replaceable/1]).
+
+-import(refac_duplicated_code, [collect_vars/1]).
+-import(refac_expr_search, [compose_search_result_info/2]).
 
 -include("../include/wrangler.hrl").
 
@@ -67,19 +70,21 @@ sim_expr_search(FName, Start = {Line, Col}, End = {Line1, Col1}, SimiScore0, Sea
     end,
     RecordInfo =get_module_record_info(FName, SearchPaths, TabWidth),
     Exprs1 = case length(Exprs) of 1 -> hd(Exprs); _ -> Exprs end,
-    ?wrangler_io("The selected expression after normalisation is:\n\n~s\n\n",
- 		 [format_exprs(normalise_expr(Exprs1, RecordInfo))]),
+  %%   ?wrangler_io("The selected expression after normalisation is:\n\n~s\n\n",
+%%  		 [format_exprs(normalise_expr(Exprs1, RecordInfo))]),
     Res =do_search_similar_expr(AnnAST, RecordInfo, Exprs1, SimiScore),
     Res1 = lists:map(fun({Range, _, _})-> Range end, Res),
-    Res2 = lists:usort([get_start_end_loc(Exprs) | Res1]),
+    SE = get_start_end_loc(Exprs),
+    Res2 = lists:usort([SE| Res1--[SE]]),
     AntiUnifier = generalise_expr(normalise_record_expr(Exprs1,RecordInfo),Res),
-    case length(Res2) of  
-	0 -> ?wrangler_io("No similar expression has been found.\n",[]);  %% This should not happen.
-	1 -> ?wrangler_io("No similar expression has been found.\n", []);
-	N -> ?wrangler_io("~p expressions (including the expression selected) which are similar to the expression selected have been found. \n", [N]),
-	     ?wrangler_io("The generalised expression would be:\n\n~s\n\n", [format_exprs(AntiUnifier)]),
-	     ?wrangler_io("Use 'C-c C-e' to remove highlights!",[]),
-	     {ok, Res2}
+    Num = length(Res2), 
+    case Num =<1 of 
+	true -> ?wrangler_io("No similar expression has been found.\n",[]); 
+	false-> ?wrangler_io("~p expressions (including the expression selected) which are similar to the expression selected have been found. \n", [Num]),
+		?wrangler_io(compose_search_result_info(FName, Res2),[]),
+		?wrangler_io("\nThe generalised expression would be:\n\n~s\n\n", [refac_prettypr:format(AntiUnifier)]),
+		?wrangler_io("\nUse 'C-c C-e' to remove highlights!",[]),
+		{ok, Res2}
     end.
    
 
@@ -265,12 +270,37 @@ variable_replaceable(Exp) ->
     Res1 andalso (Exp_Export_Vars ==[]). %%andalso (Exp_Free_Vars==[]).  %% here, we don't generalise over expressions containing free vars; or should we?
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-generalise_expr(Exprs, SearchRes) when is_list(Exprs)->
-    generalise_expr_1(refac_syntax:block_expr(Exprs), SearchRes, refac_util:get_free_vars(Exprs));
-generalise_expr(Expr, SearchRes) ->
-    generalise_expr_1(Expr, SearchRes, refac_util:get_free_vars(Expr)).
+generalise_expr(Exprs, SearchRes) ->
+    FunName = refac_syntax:atom(new_fun),
+    FVs = lists:keysort(2, refac_util:get_free_vars(Exprs)),
+    EVs = lists:keysort(2, refac_util:get_var_exports(Exprs)),
+    NewExprs = generalise_expr_1(Exprs, SearchRes),
+    NewExprs1 = case EVs of
+		    [] -> NewExprs;
+		    [{V, _}] -> E = refac_syntax:variable(V),
+				NewExprs ++ [E];
+		    [_V| _Vs] -> E = refac_syntax:tuple([refac_syntax:variable(V) || {V, _} <- EVs]),
+				 NewExprs ++ [E]
+		end,
+    NewVars = sets:to_list(sets:subtract(collect_vars(NewExprs), collect_vars(Exprs))),
+    Pars = lists:map(fun ({V, _}) ->
+			     refac_syntax:variable(V)
+		     end,
+		     FVs)
+	++ lists:map(fun (V) ->
+			     refac_syntax:variable(V)
+		     end, NewVars),
+    C = refac_syntax:clause(refac_util:remove_duplicates(Pars), none, NewExprs1),
+    refac_syntax:function(FunName, [C]).
+   
     
-generalise_expr_1(Expr, SearchRes, ExprFreeVars) ->
+generalise_expr_1(Exprs, SearchRes) when is_list(Exprs)->
+    E = generalise_expr_2(refac_syntax:block_expr(Exprs), SearchRes, refac_util:get_free_vars(Exprs)),
+    refac_syntax:block_expr_body(E);
+generalise_expr_1(Expr, SearchRes) ->
+    [generalise_expr_2(Expr, SearchRes, refac_util:get_free_vars(Expr))].
+    
+generalise_expr_2(Expr, SearchRes, ExprFreeVars) ->
     Subst = lists:flatmap(fun({_, Es, _Expr2}) ->Es end, SearchRes),
     GroupedSubst = group_by_expr(Subst),
     case GroupedSubst of 
@@ -402,11 +432,11 @@ group_by_expr_1(SubstList=[E|Es]) ->
 	    [{Expr, Exprs}| group_by_expr_1(SubstList2)]
     end.    
      
-format_exprs(Exprs) when is_list(Exprs) andalso (length(Exprs) >1) ->
-    refac_prettypr:format(refac_syntax:block_expr(Exprs));
-format_exprs(Exprs) when is_list(Exprs) ->
-    refac_prettypr:format(hd(Exprs));
-format_exprs(E) ->refac_prettypr:format(E).
+%% format_exprs(Exprs) when is_list(Exprs) andalso (length(Exprs) >1) ->
+%%     refac_prettypr:format(refac_syntax:block_expr(Exprs));
+%% format_exprs(Exprs) when is_list(Exprs) ->
+%%     refac_prettypr:format(hd(Exprs));
+%% format_exprs(E) ->refac_prettypr:format(E).
 
 normalise_expr(Exprs, RecordInfo) ->
     Exprs1=normalise_record_expr(Exprs, RecordInfo),
@@ -454,21 +484,6 @@ get_start_end_loc(Exprs) when is_list(Exprs) ->
 get_start_end_loc(Expr) ->
     refac_util:get_range(Expr).
     
-
-
-%% generalise_expr_1(Expr, SearchRes) ->
-%%     Subst = lists:usort(lists:flatmap(fun({_, Es, Expr2}) ->Es end, SearchRes)),
-%%     Expr2 = hd(lists:flatmap(fun({_,Es, Expr2}) ->Expr2 end, SearchRes)), %% This is temporally only.
-%%     {SubExprs1, SubExprs2} = lists:unzip(Subst),
-%%     %% SubExprs = lists:sort(fun(E1,E2) ->no_of_nodes(E1) >= no_of_nodes(E2) end, SubExprs1),
-%%     ExprFreeVars = refac_util:get_free_vars(Expr),
-%%     Expr2FreeVars = refac_util:get_free_vars(Expr2),	       
-%%     case Subst of 
-%% 	[] -> Expr;
-%% 	_ ->
-%% 	    {Expr1, _}= refac_util:stop_tdTP(fun do_replace_expr_with_var_1/2, Expr, {Subst, ExprFreeVars, Expr2FreeVars}),
-%% 	    Expr1
-%%     end.
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Refactoring: Normalise record expression.

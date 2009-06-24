@@ -911,19 +911,19 @@ output_atom_renamed_warnings(Renamed, Msg) ->
 
 output_not_renamed_atom_info(FileAndPositions) ->
     Msg = lists:flatmap(fun({FileName, Positions}) ->
-				Str = io_lib:format("File:\n ~p\n", [FileName]),
-				Str ++ io_lib:format("Position(s){Line, Col}:~p\n",[Positions])
+				lists:flatmap(fun(P) ->
+						      {Line, _Col} = P,
+						      FileName++io_lib:format(":~p: \n",[Line])
+					      end, Positions)
 			end, FileAndPositions),
     ?wrangler_io(Msg, []).
 
 output_renamed_atom_info(FileAndExprs) ->
     Msg = lists:flatmap(fun({FileName, Exprs}) ->
-				Str = io_lib:format("File:\n ~p\n", [FileName]),
-				Str ++ lists:map(fun(Expr) ->
-							 {Line, _Col} = refac_syntax:get_pos(Expr),
-							 io_lib:format("Line number:~p\n", [Line]) ++
-							     "Expression: " ++ refac_prettypr:format(Expr)++"\n\n"
-						 end, Exprs)
+				lists:flatmap(fun(Expr) ->
+						      {Line, _Col} = refac_syntax:get_pos(Expr),
+						      FileName++io_lib:format(":~p: ", [Line])++ refac_prettypr:format(Expr)++"\n"
+					      end, Exprs)
 			end, FileAndExprs),
     ?wrangler_io(Msg, []).
     

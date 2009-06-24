@@ -465,26 +465,52 @@ do_add_actual_parameter(Tree, {FunName, Arity, Exp, Info}) ->
 		      case refac_syntax:type(F) of 
 			   implicit_fun ->
 			      Name = refac_syntax:implicit_fun_name(F),
-			      B = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Name)),
-			      A = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Name)),
-			      case {B, A} of 
-				  {FunName, Arity} ->
-				      Exp1 = refac_util:update_ann(Exp, {range, ?DEFAULT_RANGE}),
-				      case refac_syntax:type(T) of 
-					  list -> Args1 = refac_syntax:copy_attrs(T, refac_syntax:list( refac_syntax:list_elements(T) ++[Exp1]));
-					  _ -> Op = refac_syntax:operator('++'),
-					       L = refac_syntax:list([Exp1]),
-					       Args1 = refac_syntax:copy_attrs(T, refac_syntax:infix_expr(T,Op, L))
-				      end,
-				      F1 = refac_syntax:implicit_fun(refac_syntax:atom(FunName),
-								       refac_syntax:integer(Arity+1)),
-				      {refac_syntax:copy_pos(Tree, (refac_syntax:copy_attrs(Tree, refac_syntax:application
-									    (Operator, [F1, Args1])))), false};
-				      
-				  _ -> {Tree, false}
+			      case refac_syntax:type(Name) of
+				  arity_qualifier ->
+				      B = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Name)),
+				      A = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Name)),
+				      case {B, A} of 
+					  {FunName, Arity} ->
+					      Exp1 = refac_util:update_ann(Exp, {range, ?DEFAULT_RANGE}),
+					      case refac_syntax:type(T) of 
+						  list -> Args1 = refac_syntax:copy_attrs(T, refac_syntax:list( refac_syntax:list_elements(T) ++[Exp1]));
+						  _ -> Op = refac_syntax:operator('++'),
+						       L = refac_syntax:list([Exp1]),
+						       Args1 = refac_syntax:copy_attrs(T, refac_syntax:infix_expr(T,Op, L))
+					      end,
+					      F1 = refac_syntax:implicit_fun(refac_syntax:atom(FunName),
+									     refac_syntax:integer(Arity+1)),
+					      {refac_syntax:copy_pos(Tree, (refac_syntax:copy_attrs(Tree, refac_syntax:application
+												    (Operator, [F1, Args1])))), false};
+					  _ -> {Tree, false}
+				      end;
+				  module_qualifier ->
+				      Mod = refac_syntax:module_qualifier_argument(Name),
+				      Body = refac_syntax:module_qualifier_body(Name), 
+				      case (refac_syntax:type(Mod)==atom) andalso (refac_syntax:atom_value(Mod)==ModName) of
+					  true ->
+					      B = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Body)),
+					      A = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Body)),
+					      case {B, A} of 
+						  {FunName, Arity} ->
+						      Exp1 = refac_util:update_ann(Exp, {range, ?DEFAULT_RANGE}),
+						      case refac_syntax:type(T) of 
+							  list -> Args1 = refac_syntax:copy_attrs(T, refac_syntax:list( refac_syntax:list_elements(T) ++[Exp1]));
+							  _ -> Op = refac_syntax:operator('++'),
+							       L = refac_syntax:list([Exp1]),
+							       Args1 = refac_syntax:copy_attrs(T, refac_syntax:infix_expr(T,Op, L))
+						      end,
+						      QA = refac_syntax:arity_qualifier(refac_syntax:atom(FunName), refac_syntax:integer(Arity+1)),
+						      F1 = refac_syntax:implicit_fun(refac_syntax:module_qualifier(Mod, QA)),
+						      {refac_syntax:copy_pos(Tree, (refac_syntax:copy_attrs(Tree, refac_syntax:application
+											   (Operator, [F1, Args1])))), false};
+						  _ -> {Tree, false}
+					      end;
+					  _ -> {Tree, false}
+				      end
 			      end;
-			   _ -> {Tree, false}
-		       end;
+			  _ -> {Tree, false}
+		      end;		      
 		  {{_, apply},3} ->
 		      [Mod,Fun,Args] = Arguments,
 		      Mod1 = refac_util:try_evaluation([refac_syntax:revert(Mod)]),
@@ -551,18 +577,38 @@ do_add_actual_parameter(Tree, {FunName, Arity, Exp, Info}) ->
 		  {{_, spawn_link}, 4} ->transform_spawn_call(Tree, {FunName, Arity, Exp, Info});
 		  _ -> {Tree, false}
 	      end;
-       implicit_fun ->
+		  implicit_fun ->
 	   Name = refac_syntax:implicit_fun_name(Tree),
-	   B = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Name)),
-	   A = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Name)),
-	   case {B, A} of 
-	       {FunName, Arity} ->
-		   {refac_syntax:copy_attrs(Tree, refac_syntax:implicit_fun(refac_syntax:atom(FunName),
-								       refac_syntax:integer(Arity+1))), true};
-	       _ -> {Tree, false}
-	   end;				     
-       _  -> {Tree, false}  
+	   case refac_syntax:type(Name) of
+	       arity_qualifier ->
+		   B = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Name)),
+		   A = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Name)),
+		   case {B, A} of 
+		       {FunName, Arity} ->
+			   {refac_syntax:copy_attrs(Tree, refac_syntax:implicit_fun(refac_syntax:atom(FunName),
+										    refac_syntax:integer(Arity+1))), true};
+		       _ -> {Tree, false}
+		   end;
+	       module_qualifier ->
+		   Mod = refac_syntax:module_qualifier_argument(Name),
+		   Body = refac_syntax:module_qualifier_body(Name), 
+		   case (refac_syntax:type(Mod)==atom) andalso (refac_syntax:atom_value(Mod)==ModName) of
+		       true ->
+			   B = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Body)),
+			   A = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Body)),
+			   case {B, A} of 
+			       {FunName, Arity} ->
+				   AQ=refac_syntax:arity_qualifier(refac_syntax:atom(FunName), refac_syntax:integer(Arity+1)),
+				   {refac_syntax:copy_attrs(Tree, refac_syntax:implicit_fun(
+								    refac_syntax:module_qualifier(Mod, AQ))), true};
+			       _ -> {Tree, false}
+			   end;
+		       _ ->{Tree, false}
+		   end
+	   end;
+       _ -> {Tree, false}
    end.
+
 
 transform_spawn_call(Node,{FunName, Arity, Exp, Info}) ->
     {ok, ModName} = get_module_name(Info),

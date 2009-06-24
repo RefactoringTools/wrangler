@@ -24,7 +24,7 @@
 
 -export([duplicated_code_1/4]).
 
--export([init/1]).
+-export([init/1, collect_vars/1]).
 
 -import(refac_sim_expr_search, [start_counter_process/0, stop_counter_process/1, gen_new_var_name/1,variable_replaceable/1]).
 
@@ -788,7 +788,7 @@ display_clones_by_length(Cs) ->
     ?wrangler_io("Duplicated Code Detection Results Sorted by the Size of the Duplicated Code.\n",[]),
     ?wrangler_io("======================================================================\n",[]),		 
     Cs1 = lists:sort(fun({_Range1, Len1, F1, _},{_Range2, Len2, F2,_})
-			-> {Len1, F1} >= {Len2, F2}
+			-> {Len1, F1} =< {Len2, F2}
 		     end, Cs),
     ?wrangler_io(display_clones(Cs1),[]).
 

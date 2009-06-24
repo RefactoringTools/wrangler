@@ -126,7 +126,6 @@ cond_check(Form, Pos, VarName,  NewName) ->
     F_Pos = fun ({_, DefPos}) -> DefPos end,
     F_Name = fun ({Name, _}) -> Name end,
     BdVars = lists:map(fun ({_, B, _}) -> B end, Env_Bd_Fr_Vars),
-    %% io:format("vars:\n~p\n", [Env_Bd_Fr_Vars]),
     %% The new name clashes with existing bound variables.
     F = fun({bound, Bds}) ->
 		Poss = lists:map(F_Pos, Bds),

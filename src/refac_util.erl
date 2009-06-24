@@ -59,7 +59,7 @@
          callback_funs/1,auto_imported_bifs/0, called_funs/2, file_format/1]).
 
 -export([test_framework_used/1]).
--export([analyze_free_vars/1]).
+-export([analyze_free_vars/1, remove_duplicates/1]).
 
 -export([update_var_define_locations/1]).
 
@@ -72,6 +72,7 @@
 %% @see glast/2
 
 -spec(ghead(Info::string(),List::[any()]) -> any()).
+
 ghead(Info, []) -> erlang:error(Info);
 ghead(_Info, List) -> hd(List).
 
@@ -619,7 +620,9 @@ get_range(Node) ->
 %% @spec get_var_exports(Node::syntaxTree())-> [{atom(), pos()}]
 %% @doc Return the exported variables of an AST node.
 
--spec(get_var_exports(Node::syntaxTree())-> [{atom(),pos()}]).
+-spec(get_var_exports(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
+get_var_exports(Nodes) when is_list(Nodes) ->
+    lists:flatmap(fun(Node) -> get_var_exports(Node) end, Nodes);
 get_var_exports(Node) ->
     get_var_exports_1(refac_syntax:get_ann(Node)).
 
@@ -637,7 +640,7 @@ get_free_vars(Nodes) when is_list(Nodes) ->
 			  {get_free_vars(Node), get_bound_vars(Node)}
 		  end, Nodes),
     {FVs, BVs} = lists:unzip(FBVs),
-    lists:usort(lists:append(FVs) -- lists:append(BVs));
+    lists:usort(lists:append(FVs)) -- lists:usort(lists:append(BVs));
 get_free_vars(Node) ->
     get_free_vars_1(refac_syntax:get_ann(Node)).
 
@@ -1083,8 +1086,7 @@ do_add_tokens(Toks, [F|Fs], NewFs)->
 	end,
     F1 =refac_syntax:add_ann({toks, FormToks}, F),
     do_add_tokens(RemainToks, RemFs, [F1|NewFs]).
-	    
-	    
+
 
 %% ============================================================================
 %% @spec get_toks(Node::syntaxTree())-> [token()]
@@ -2421,3 +2423,5 @@ scan_line_endings([], Cs1, Acc)->
     lists:reverse([lists:usort(lists:reverse(Cs1))|Acc]).
     
 
+remove_duplicates(L) ->
+    refac_move_fun:remove_duplicates(L, []).
