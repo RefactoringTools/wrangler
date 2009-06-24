@@ -175,7 +175,7 @@
      ("Detect Duplicated Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
      ("Detect Duplicated Code in Dirs" erl-refactor-duplicated-code-in-dirs)
      ("Identical Expression Search" erl-refactor-expression-search)
-    ;; ("Similar Expression Search" erl-refactor-similar-expression-search)
+     ("Similar Expression Search" erl-refactor-similar-expression-search)
      nil
      ("Introduce a Macro" erl-refactor-new-macro)
      ("Fold Against Macro Definition" erl-refactor-fold-against-macro)
@@ -262,6 +262,10 @@
   "Command to execute start a new Wrangler Erlang shell"
 )
 
+(defvar wrangler-erlang-shell-type 'newshell
+	"variable need to make Wrangler start with Ubuntu"
+)
+
 (defun wrangler-erlang()
   "Run an Wrangler Erlang shell"
   (interactive)
@@ -298,7 +302,7 @@
  
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 0.7.3"))
+  (message "Wrangler version 0.7.4"))
 
 (defun wrangler-menu-init()
   "Init Wrangler menus."
@@ -404,11 +408,33 @@
       (if changed (message-box (format "there are modified buffers: %s, please save these functions first." changed))
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'rename_fun (list current-file-name line-no column-no name wrangler-search-paths tab-width))
-	  (erl-receive (line-no column-no current-file-name)
+	  (erl-receive (line-no column-no current-file-name name)
 	      ((['rex ['badrpc rsn]]
 		(message "Refactoring failed: %S" rsn))
 	       (['rex ['error rsn]]
 		(message "Refactoring failed: %s" rsn))
+	       (['rex ['warning msg]]
+		(progn
+		  (if (y-or-n-p msg)
+		      (erl-spawn
+			(erl-send-rpc wrangler-erl-node 'refac_rename_fun 'rename_fun_1 (list current-file-name line-no column-no name wrangler-search-paths tab-width))
+			(erl-receive (line-no column-no current-file-name)
+			    ((['rex ['badrpc rsn]]
+			      (message "Refactoring failed: %S" rsn))
+			     (['rex ['error rsn]]
+			      (message "Refactoring failed: %s" rsn))
+			     (['rex ['ok modified]]
+			      (progn
+				(if (y-or-n-p "Do you want to preview the changes to be performd?")
+				    (progn
+				      (setq modified-files (cdr modified))
+				      (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
+				  (commit))
+				(with-current-buffer (get-file-buffer current-file-name)
+				  (goto-line line-no)
+				  (goto-column column-no)))))))
+		    (message "Refactoring aborted.")
+		    )))
 	       (['rex ['ok modified]]
 		(progn
 		  (if (y-or-n-p "Do you want to preview the changes to be performd?")
@@ -442,6 +468,57 @@
 	    (message "Refactoring failed: %S" rsn))
 	   (['rex ['error rsn]]
 	    (message "Refactoring failed: %s" rsn))
+	   (['rex ['warning msg]]
+	    (progn
+	      (if (y-or-n-p msg)
+		  (erl-spawn
+		    (erl-send-rpc wrangler-erl-node 'refac_rename_mod 'rename_mod_1 (list current-file-name name wrangler-search-paths tab-width 'false))
+		    (erl-receive (current-file-name)
+			((['rex ['badrpc rsn]]
+			  (message "Refactoring failed: %S" rsn))
+			 (['rex ['error rsn]]
+			  (message "Refactoring failed: %s" rsn))
+			 (['rex ['ok modified]]
+			    (if (y-or-n-p "Do you want to preview the changes to be performd?")
+				(progn
+				  (setq modified-files (cdr modified))
+				  (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
+			      (commit))
+			   ))))
+		(message "Refactoring aborted.")
+		)))
+	   (['rex ['question msg]]
+	    (progn
+	      (if (y-or-n-p msg)
+		  (erl-spawn
+		    (erl-send-rpc wrangler-erl-node 'refac_rename_mod 'rename_mod_1 (list current-file-name name wrangler-search-paths tab-width 'true))
+		    (erl-receive (current-file-name)
+			((['rex ['badrpc rsn]]
+			  (message "Refactoring failed: %S" rsn))
+			 (['rex ['error rsn]]
+			  (message "Refactoring failed: %s" rsn))
+			 (['rex ['ok modified]]
+			    (if (y-or-n-p "Do you want to preview the changes to be performd?")
+				(progn
+				  (setq modified-files (cdr modified))
+				  (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
+			      (commit))
+			    ))))
+		 (erl-spawn
+		    (erl-send-rpc wrangler-erl-node 'refac_rename_mod 'rename_mod_1 (list current-file-name name wrangler-search-paths tab-width 'false))
+		    (erl-receive (current-file-name)
+			((['rex ['badrpc rsn]]
+			  (message "Refactoring failed: %S" rsn))
+			 (['rex ['error rsn]]
+			  (message "Refactoring failed: %s" rsn))
+			 (['rex ['ok modified]]
+			  (if (y-or-n-p "Do you want to preview the changes to be performd?")
+			      (progn
+				(setq modified-files (cdr modified))
+				(wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
+			    (commit))
+			    ))))
+		)))
 	   (['rex ['ok modified]]
 	    (if (y-or-n-p "Do you want to preview the changes to be performd?")
 		(progn
@@ -474,7 +551,7 @@
 	   (if (y-or-n-p "Do you want to continue the refactoring?")
 	       (erl-spawn
 		 (erl-send-rpc wrangler-erl-node 'refac_rename_process 'rename_process_1
-			       (list current-file-name oldname name wrangler-search-paths tab-width))
+			       (list current-file-name oldname name wrangler-search-pa tab-width))
 		 (erl-receive (current-file-name line-no column-no)
 		     ((['rex ['badrpc rsn]]
 		       (message "Refactoring failed: %S" rsn))
@@ -895,7 +972,7 @@
 		(if  (> (get-position line1 col1) last-position)
 		    (progn 
 		      (highlight-region line1 col1 line2  col2 buffer)
-		      (if (y-or-n-p "Would you like to replace the highlighted expression(s) with macro application?")
+		      (if (yes-or-no-p "Would you like to replace the highlighted expression(s) with macro application?")
 			  (progn
 			    (setq candidates-to-fold (cons new-cand candidates-to-fold))
 			    (setq last-position (get-position line2 col2)))
@@ -976,7 +1053,7 @@
 	       (if  (> (get-position line1 col1) last-position)
 		   (progn 
 		     (highlight-region line1 col1 line2  col2 buffer)
-		     (if (y-or-n-p "Would you like to fold this expression? ")
+		     (if (yes-or-no-p "Would you like to fold this expression? ")
 			 (progn
 			   (setq candidates-to-fold (cons new-cand candidates-to-fold))
 			   (setq last-position (get-position line2 col2)))
@@ -1026,7 +1103,7 @@
 	    (if  (> (get-position line1 col1) last-position)
 		(progn 
 		  (highlight-region line1 col1 line2  col2 buffer)
-		  (if (y-or-n-p "Would you like to fold this expression? ")
+		  (if (yes-or-no-p "Would you like to fold this expression? ")
 		      (progn
 			(setq candidates-to-fold (cons new-cand candidates-to-fold))
 			(setq last-position (get-position line2 col2)))
@@ -1157,7 +1234,7 @@
 	   (['rex ['ok regions]]
 	    (with-current-buffer buffer
 	      (highlight-instances-1 regions (car regions) buffer)
-	      (message "Searching finished; use 'C-c C-e' to remove highlights.")
+	      (message "Searching finished; use 'C-c C-e' to remove highlights.\n")
 	   )))))))))
 
 
@@ -1187,7 +1264,7 @@
 	       (['rex ['ok regions]]
 		(with-current-buffer buffer 
 		  (highlight-instances-1 regions (car regions) buffer)
-		  (message "Seaching finished; use 'C-c C-e' to remove highlights.")
+		  (message "Seaching finished; use 'C-c C-e' to remove highlights.\n")
 		  )))))))))
 
 (defun erl-refactor-fun-to-process (name)
@@ -1534,7 +1611,7 @@
 		(message "Error: %s" rsn))
 	       (['rex ['ok regions defpos]]
 		(with-current-buffer buffer (highlight-instances regions defpos buffer)
-				     (message "Use 'C-c C-e' to remove highlights")
+				     (message "\nUse 'C-c C-e' to remove highlights.\n")
 				     )
 				       		
 	       )))))))
