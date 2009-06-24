@@ -1,5 +1,5 @@
 PACKAGE := wrangler
-VERSION := 0.7.3 
+VERSION := 0.7.4  
 
 prefix      = @prefix@
 exec_prefix = @exec_prefix@
@@ -43,6 +43,7 @@ erl: ${ERL_OBJ}
 ## Erlang
 ebin/%.beam: ${SRC}  
 	${erlc} -I include -W -o ebin +debug_info ${SRC} 
+	cp ./src/*.beam ./ebin/.
 
 ## Elisp
 elisp/%.elc: elisp/%.el
