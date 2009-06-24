@@ -230,7 +230,7 @@ pos_to_form_1(Node, Pos) ->
 %%
 
 -spec(rename/3::(syntaxTree(), [{integer(), integer()}], atom()) ->
-	     {syntaxTree(), boolean()}).
+	     {syntaxTree(), bool()}).
 rename(Tree, DefinePos, NewName) ->
     refac_util:stop_tdTP(fun do_rename/2, Tree, {DefinePos, NewName}).
 

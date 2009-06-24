@@ -170,7 +170,7 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths,Editor, TabWidth) ->
     end.
   
  
--spec(rename_mod_1/5::(filename(), string(), [dir()], integer(),boolean()) ->{ok, [filename()]}).
+-spec(rename_mod_1/5::(filename(), string(), [dir()], integer(),bool()) ->{ok, [filename()]}).
 rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod) ->     %% currently only for Emacs; need to extend to Eclipse.
     {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(FileName,true, SearchPaths),
     {value, {module, OldModName}} = lists:keysearch(module, 1, Info), 

@@ -655,8 +655,7 @@ do_remove_module_qualifier(Node, {FileName, {ModName, FunName, Arity}, TargetMod
 		  {value, _} ->
 		      transform_apply_style_calls(FileName, Node, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth);
 		  false -> {Node, false}
-		end;
-	    _ -> {Node, false}
+		end
 	  end;
       implicit_fun -> process_implicit_fun(Node, ModName, FunName, Arity, TargetModName);
       tuple -> do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, FunName, TargetModName, Arity, Pid, TabWidth});

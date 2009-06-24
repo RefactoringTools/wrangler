@@ -235,7 +235,7 @@ generalise_eclipse(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
     try_refactoring(refac_gen, generalise_eclipse, [FileName, Start, End, ParName,  SearchPaths, TabWidth]).
 
 %%@private
--spec(gen_fun_1_eclipse/8::(boolean(), filename(),atom(), atom(), integer(), pos(), syntaxTree(), integer()) -> {ok, [{filename(), filename(),string()}]}).
+-spec(gen_fun_1_eclipse/8::(bool(), filename(),atom(), atom(), integer(), pos(), syntaxTree(), integer()) -> {ok, [{filename(), filename(),string()}]}).
 gen_fun_1_eclipse(SideEffect, FileName, ParName, FunName, Arity, DefPos, Expr, TabWidth) ->
     try_refactoring(refac_gen, gen_fun_1_eclipse, [SideEffect, FileName, ParName, FunName, Arity, DefPos, Expr, TabWidth]).
 
@@ -266,7 +266,7 @@ gen_fun_2_eclipse(FileName, ParName, FunName, Arity, DefPos, Expr, SearchPaths, 
 %% Wrangler will then  prompt to enter the target module name in the mini-buffer. 
 %% </p>
 %% @spec move_fun(FileName::filename(),Line::integer(),Col::integer(),TargetModName::string(), 
-%%                CreateNewFile::boolean(),SearchPaths::[dir()], TabWidth:: integer())-> {ok, [filename()]} | {error, string()}
+%%                CreateNewFile::bool(),SearchPaths::[dir()], TabWidth:: integer())-> {ok, [filename()]} | {error, string()}
 
 -spec(move_fun/7::(filename(),integer(),integer(), string(), atom(),[dir()], integer())
         -> {ok, [filename()]} | {error, string()}).

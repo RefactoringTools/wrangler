@@ -341,9 +341,9 @@ fun_call_to_rpc(Node, {ModName, FunName, Arity, ProcessName, RpcFunName}) ->
 						_ -> {Node, false}
 					    end;
 					module_qualifier ->
-					    Mod = refac_syntax:module_qualifier_argument(Name),
+					    Mod1 = refac_syntax:module_qualifier_argument(Name),
 					    Body = refac_syntax:module_qualifier_body(Name),
-					    case (refac_syntax:type(Mod) == atom) andalso (refac_syntax:atom_value(Mod) == ModName) of 
+					    case (refac_syntax:type(Mod1) == atom) andalso (refac_syntax:atom_value(Mod1) == ModName) of 
 						true ->
 						    B1 = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Body)),
 						    A1 = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Body)),

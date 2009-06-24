@@ -254,12 +254,12 @@ gen_fun(ModName, Tree, ParName, FunName, Arity, DefPos,Info, Exp, SideEffect) ->
        Tree2.
 
 
--spec(gen_fun_1/8::(boolean(), filename(),atom(), atom(), integer(), pos(), syntaxTree(), integer()) 
+-spec(gen_fun_1/8::(bool(), filename(),atom(), atom(), integer(), pos(), syntaxTree(), integer()) 
 	  -> {ok, string()}).
 gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, TabWidth) ->
     gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, TabWidth,emacs).
 
--spec(gen_fun_1_eclipse/8::(boolean(), filename(),atom(), atom(), integer(), pos(), syntaxTree(), integer()) 
+-spec(gen_fun_1_eclipse/8::(bool(), filename(),atom(), atom(), integer(), pos(), syntaxTree(), integer()) 
 	  -> {ok, [{filename(), filename(),string()}]}).
 gen_fun_1_eclipse(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, TabWidth) ->
     gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, TabWidth, eclipse).

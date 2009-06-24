@@ -2573,7 +2573,6 @@ revert_attribute(Node) ->
     Name = attribute_name(Node),
     Args = attribute_arguments(Node),
     Pos = get_pos(Node),
-    refac_io:format("aartt:\n~p\n", [{Name, Args, Pos}]),
     case type(Name) of
       atom ->
 	  revert_attribute_1(atom_value(Name), Args, Pos, Node);

@@ -95,7 +95,7 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 			    Pid = start_atom_process(),
 			    ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
 			    {AnnAST1, _C} = do_rename_fun(FileName, SearchPaths, AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}, Pid, TabWidth),
-			    check_atoms(FileName, AnnAST1, [Fun], Pid),
+			     check_atoms(FileName, AnnAST1, [Fun], Pid),
 			    case refac_util:is_exported({Fun, Arity}, Info) of
 			      true ->
 				  ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
@@ -588,7 +588,7 @@ do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, OldName, NewName,
 				case try_eval(FileName, E1, SearchPaths, TabWidth) of 
 				    {value, ModName} ->
 					Pid ! {add_renamed, {FileName, Node}},
-					{refac_syntax:tuple([E1, copy_pos_attrs(E2, refac_syntax:atom(NewName))]),
+					{copy_pos_attrs(Node, refac_syntax:tuple([E1, copy_pos_attrs(E2, refac_syntax:atom(NewName))])),
 					 true};
 				    _ -> {Node, false}
 				end;
@@ -603,7 +603,7 @@ do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, OldName, NewName,
 				case try_eval(FileName, E2, SearchPaths, TabWidth) of
 				    {value, ModName} ->
 					Pid ! {add_renamed, {FileName, Node}},
-					{refac_syntax:tuple([E1, E2, copy_pos_attrs(E3, refac_syntax:atom(NewName))]),
+					{copy_pos_attrs(Node, refac_syntax:tuple([E1, E2, copy_pos_attrs(E3, refac_syntax:atom(NewName))])),
 					 true};
 				    _  -> {Node, false}
 				end;
@@ -619,7 +619,7 @@ do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, OldName, NewName,
 						 case try_eval(FileName, E1, SearchPaths, TabWidth) of
 						     {value, ModName} ->
 							 Pid ! {add_renamed, {FileName, Node}},
-							 {refac_syntax:tuple([E1, copy_pos_attrs(E2, refac_syntax:atom(NewName)), E3]),true};
+							 {copy_pos_attrs(Node, refac_syntax:tuple([E1, copy_pos_attrs(E2, refac_syntax:atom(NewName)), E3])),true};
 						     _ -> {Node, false}
 						     end;
 					     _ -> {Node, false}
@@ -639,7 +639,7 @@ do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, OldName, NewName,
 					    ((refac_syntax:type(E4)==nil) andalso Arity==0) of
 					    true ->
 						Pid ! {add_renamed, {FileName, Node}},
-						{refac_syntax:tuple([E1, E2, copy_pos_attrs(E3, refac_syntax:atom(NewName)), E4]),
+						{copy_pos_attrs(Node, refac_syntax:tuple([E1, E2, copy_pos_attrs(E3, refac_syntax:atom(NewName)), E4])),
 						 true};
 					    _ ->
 						{Node, false}

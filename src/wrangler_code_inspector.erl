@@ -667,7 +667,7 @@ is_non_tail_recursive_server(FileName, Info, FunDef, {ModName, FunName, Arity}, 
 
 check_candidate_scc(FileName, Info, FunDef, Scc, Line) ->
     ModName = get_module_name(FileName, Info),
-    InscopeFuns = refac_util:auto_imported_bifs() ++ refac_util:inscope_funs(Info), 
+    %%InscopeFuns = refac_util:auto_imported_bifs() ++ refac_util:inscope_funs(Info), 
     MFAs = lists:map(fun({MFA, _}) -> MFA end, Scc),
     DummyExp = refac_syntax:atom(undefined),
     F = fun(T, Acc) ->
@@ -777,7 +777,7 @@ not_has_flush_scc(FileName, Info, FunDef, Scc, Line) ->
 
 is_server(FileName, Info, FunDef, Scc, Line) ->
     ModName = get_module_name(FileName, Info),
-    InscopeFuns = refac_util:auto_imported_bifs() ++ refac_util:inscope_funs(Info), 
+    %%InscopeFuns = refac_util:auto_imported_bifs() ++ refac_util:inscope_funs(Info), 
     MFAs = lists:map(fun({MFA, _}) -> MFA end, Scc),
     F = fun(T, Acc) ->
 		case refac_syntax:type(T) of      %% To think: any other cases here?
