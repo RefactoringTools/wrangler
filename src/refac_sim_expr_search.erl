@@ -53,7 +53,7 @@
 
 -spec(sim_expr_search/6::(filename(), pos(), pos(), string(),[dir()],integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).    
 sim_expr_search(FName, Start = {Line, Col}, End = {Line1, Col1}, SimiScore0, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:sim_expr_search(~p, {~p,~p},{~p,~p},~p, ~p).\n", [?MODULE, FName, Line, Col, Line1, Col1, SearchPaths, TabWidth]),
+    ?wrangler_io("\nCMD: ~p:sim_expr_search(~p, {~p,~p},{~p,~p},~p, ~p, ~p).\n", [?MODULE, FName, Line, Col, Line1, Col1, SimiScore0, SearchPaths, TabWidth]),
     SimiScore1 = case SimiScore0 of 
 		     [] -> ?DefaultSimiScore;
 		     _ -> list_to_float(SimiScore0)
@@ -70,8 +70,8 @@ sim_expr_search(FName, Start = {Line, Col}, End = {Line1, Col1}, SimiScore0, Sea
     end,
     RecordInfo =get_module_record_info(FName, SearchPaths, TabWidth),
     Exprs1 = case length(Exprs) of 1 -> hd(Exprs); _ -> Exprs end,
-  %%   ?wrangler_io("The selected expression after normalisation is:\n\n~s\n\n",
-%%  		 [format_exprs(normalise_expr(Exprs1, RecordInfo))]),
+   ?wrangler_io("The selected expression after normalisation is:",
+		[]),
     Res =do_search_similar_expr(AnnAST, RecordInfo, Exprs1, SimiScore),
     Res1 = lists:map(fun({Range, _, _})-> Range end, Res),
     SE = get_start_end_loc(Exprs),
@@ -364,24 +364,21 @@ find_correspond_bound_vars(Exprs, Subst) ->
 						  refac_util:get_free_vars(E)--FVsInSimExpr
 					  end, Exprs)),
     lists:flatmap(fun({E1, Es}) ->
-		      case refac_syntax:type(E1) of 
-			  variable -> case refac_util:is_pattern(E1) of 
-					  true -> 
-					      {Es1,_} = lists:unzip(Es),
-					      Bds=lists:flatmap(fun(E) ->
-								  refac_util:get_bound_vars(E) end, Es1),
-					      case BVsInExprs -- Bds =/= BVsInExprs of 
-						  true -> [refac_syntax:variable_name(E1)];
-						  _ -> []
-					      end;					      
-					  _  -> []
-				      end;					  
-			  _ -> []
-		      end
-		  end, Subst).
-
-		      
-		      
+			  case refac_syntax:type(E1) of 
+			      variable -> case refac_util:is_pattern(E1) of 
+					      true -> 
+						  {Es1,_} = lists:unzip(Es),
+						  Bds=lists:flatmap(fun(E) ->
+									    refac_util:get_bound_vars(E) end, Es1),
+						  case BVsInExprs -- Bds =/= BVsInExprs of 
+						      true -> [refac_syntax:variable_name(E1)];
+						      _ -> []
+						  end;					      
+					      _  -> []
+					  end;					  
+			      _ -> []
+			  end
+		  end, Subst).		      
 		 
 
 gen_new_var_name(Pid) -> 
@@ -417,12 +414,11 @@ group_by_expr(Subst) ->
     group_by_expr_1(SortedSubst).
 group_by_expr_1([]) ->
      [];
-group_by_expr_1(SubstList=[E|Es]) ->
-    Expr = element(1,E),
+group_by_expr_1(SubstList=[{Expr, Expr1}|Es]) ->
     {SLoc, ELoc} = get_start_end_loc(Expr),
     case {SLoc, ELoc} of 
 	{{0,0},{0,0}} ->
-	    [E|group_by_expr_1(Es)];
+	    [{Expr, [Expr1]}|group_by_expr_1(Es)];
 	_ ->
 	    {SubstList1, SubstList2} = lists:splitwith(fun(S) ->
 							       {SLoc1, ELoc1} = get_start_end_loc(element(1, S)),
