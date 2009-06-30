@@ -56,7 +56,7 @@
          parse_annotate_file/4,write_refactored_files/1, write_refactored_files_for_preview/1,
          build_lib_side_effect_tab/1, build_local_side_effect_tab/2,
 	 build_scc_callgraph/1,build_callercallee_callgraph/1, has_side_effect/3,
-         callback_funs/1,auto_imported_bifs/0, called_funs/2, file_format/1]).
+         callback_funs/1,auto_imported_bifs/0, called_funs/2, file_format/1, rewrite/2]).
 
 -export([test_framework_used/1]).
 -export([analyze_free_vars/1, remove_duplicates/1]).
@@ -194,11 +194,11 @@ stop_tdTP(Function, Node, Others) ->
 	  case refac_syntax:subtrees(Node1) of
 	    [] -> {Node1, false};
 	    Gs ->
-		Gs1 = [[stop_tdTP(Function, T, Others) || T <- G] || G <- Gs],
-		Gs2 = [[N || {N, _B} <- G] || G <- Gs1],
-		G = [[B || {_N, B} <- G] || G <- Gs1],
-		Node2 = refac_syntax:make_tree(refac_syntax:type(Node1), Gs2),
-		{refac_syntax:copy_pos(Node1, refac_syntax:copy_attrs(Node1, Node2)), lists:member(true, lists:flatten(G))}
+		  Gs1 = [[stop_tdTP(Function, T, Others) || T <- G] || G <- Gs],
+		  Gs2 = [[N || {N, _B} <- G] || G <- Gs1],
+		  G = [[B || {_N, B} <- G] || G <- Gs1],
+		  Node2 = refac_syntax:make_tree(refac_syntax:type(Node1), Gs2),
+		  {rewrite(Node1, Node2), lists:member(true, lists:flatten(G))}
 	  end
     end.
 
@@ -215,8 +215,7 @@ full_tdTP(Function, Node, Others) ->
 		    Gs2 = [[N || {N, _B} <- G] || G <- Gs1],
 		    G = [[B || {_N, B} <- G] || G <- Gs1],
 		    Node2 = refac_syntax:make_tree(refac_syntax:type(Node1), Gs2),
-		    {refac_syntax:copy_pos(Node1, refac_syntax:copy_attrs(Node1, Node2)), 
-		      Changed or lists:member(true, lists:flatten(G))}
+		    {rewrite(Node1, Node2), Changed or lists:member(true, lists:flatten(G))}
 	    end
     end.
 
@@ -241,7 +240,7 @@ full_buTP(Fun, Tree, Others) ->
       Gs ->
 	  Gs1 = [[full_buTP(Fun, T, Others) || T <- G] || G <- Gs],
 	  Tree1 = refac_syntax:make_tree(refac_syntax:type(Tree), Gs1),
-	  Fun(refac_syntax:copy_attrs(Tree, Tree1), Others)
+	  Fun(rewrite(Tree, Tree1), Others)
     end.
 
 
@@ -267,7 +266,7 @@ full_buTP(Fun, Tree, Others) ->
 	      {ok, {atom(), atom(), integer(), pos(), pos()}} | {error, string()}).
 pos_to_fun_name(Node, Pos) ->
     case once_tdTU(fun pos_to_fun_name_1/2, Node, Pos) of
-      {_, false} -> {error, "You have not selected a function name!"};
+      {_, false} -> {error, "You have not selected a function name,or the function/attribute containing the function name selected does not parse!"};
       {R, true} -> {ok, R}
     end.
 
@@ -295,7 +294,7 @@ pos_to_fun_name_1(Node, Pos = {Ln, Col}) ->
       -> {ok, syntaxTree()} | {error, string()}).
 pos_to_fun_def(Node, Pos) ->
     case once_tdTU(fun pos_to_fun_def_1/2, Node, Pos) of
-      {_, false} -> {error, "You have not selected a function definition!"};
+      {_, false} -> {error, "You have not selected a function definition, or the function definition selected does not parse."};
       {R, true} -> {ok, R}
     end.
 
@@ -331,7 +330,7 @@ pos_to_fun_def_1(Node, Pos) ->
                       {ok, {atom(), [pos()], category()}} | {error, string()}).
 pos_to_var_name(Node, UsePos) ->
     case once_tdTU(fun pos_to_var_name_1/2, Node, UsePos) of
-      {_, false} -> {error, "You have not selected a variable name!"};
+      {_, false} -> {error, "You have not selected a variable name, or the function containing the variable does not parse."};
       {R, true} -> {ok, R}
     end.
 
@@ -373,7 +372,7 @@ pos_to_var_name_1(Node, _Pos = {Ln, Col}) ->
 pos_to_expr(Tree, Start, End) ->
     Es =pos_to_syntax_units(Tree, Start, End, fun is_expr/1),
     case Es of
-	[] -> {error, "You have not selected an expression!"};
+	[] -> {error, "You have not selected an expression, or the function containing the expression selected does not parse."};
 	_ -> {ok, hd(Es)}
     end.
 
@@ -997,13 +996,22 @@ parse_annotate_file(FName, ByPassPreP, SearchPaths, TabWidth) ->
 
 -spec(parse_annotate_file_1(FName::filename(), ByPassPreP::bool(), SearchPaths::[dir()], integer(), atom())
                            -> {ok, {syntaxTree(), moduleInfo()}}).
-parse_annotate_file_1(FName, true, _SearchPaths, TabWidth, FileFormat) ->
+parse_annotate_file_1(FName, true, SearchPaths, TabWidth, FileFormat) ->
     case refac_epp_dodger:parse_file(FName, [{tab, TabWidth}, {format, FileFormat}]) of
 	{ok, Forms} -> 
+	    Dir = filename:dirname(FName),
+	    DefaultIncl1 = [".","..", "../hrl", "../incl", "../inc", "../include"],
+	    DefaultIncl2 = [filename:join(Dir, X) || X <-DefaultIncl1],
+	    Includes = SearchPaths++DefaultIncl2,
+	    Ms =case refac_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
+		    {ok, _, {MDefs, MUses}}  -> 
+			{dict:from_list(MDefs), dict:from_list(MUses)};
+		    _ -> []
+		end,	
 	    Comments = refac_comment_scan:file(FName),
 	    SyntaxTree = refac_recomment:recomment_forms(Forms, Comments),
 	    Info = refac_syntax_lib:analyze_forms(SyntaxTree),
-	    AnnAST = annotate_bindings(FName, SyntaxTree, Info, 1, TabWidth),
+	    AnnAST = annotate_bindings(FName, SyntaxTree, Info, Ms, 1, TabWidth),
 	    {ok, {AnnAST, Info}};
 	{error, Reason} -> erlang:error(Reason)
     end;     
@@ -1033,6 +1041,8 @@ parse_annotate_file_1(FName, false, SearchPaths, TabWidth, FileFormat) ->
        {error, Reason} -> erlang:error(Reason)
    end.
 
+
+  
 %@spec add_tokens(FName::filename(), SyntaxTree::syntaxTree()) -> syntaxTree()
 %%@Attach tokens to each form in the AST.
 
@@ -1041,7 +1051,7 @@ add_tokens(FName, SyntaxTree, TabWidth) ->
     Toks = tokenize(FName, true, TabWidth),
     Fs = refac_syntax:form_list_elements(SyntaxTree),
     NewFs = do_add_tokens(Toks, Fs),
-    refac_syntax:copy_attrs(SyntaxTree, refac_syntax:form_list(NewFs)).
+    rewrite(SyntaxTree, refac_syntax:form_list(NewFs)).
 
 do_add_tokens(Toks, Fs) ->
     do_add_tokens(Toks, lists:reverse(Fs), []).
@@ -1129,20 +1139,15 @@ show_fv_vars([{A, {Line, Col}} | T]) ->
     atom_to_list(A) ++ " at: {" ++ integer_to_list(Line) ++ "," ++ integer_to_list(Col) ++ "}" ++ T1.
 
 
-%% annotate the abstract syntax tree with static semantics information.
-annotate_bindings(FName, AST, Info, AnnotateLevel, TabWidth) ->
-    AnnAST0 = refac_syntax_lib:annotate_bindings(AST, ordsets:new()),
-    AnnAST1 = update_var_define_locations(AnnAST0),
-    AnnAST2 = add_category(AnnAST1),
-    AnnAST3 =case AnnotateLevel of
-		 0 -> add_range(FName, AnnAST2, TabWidth);
-		 1 ->
-		     AnnAST4 = adjust_locations(FName, AnnAST2, TabWidth),
-		     AnnAST5 = add_fun_define_locations(AnnAST4, Info),
-		     add_range(FName, AnnAST5, TabWidth)
-	     end,
-    add_tokens(FName, AnnAST3, TabWidth).
-
+annotate_bindings(FName, AST, Info, Ms, _AnnotateLevel, TabWidth) ->
+    AnnAST0 = adjust_locations(FName,AST, TabWidth),
+    AnnAST1 = add_fun_define_locations(AnnAST0, Info),
+    AnnAST2 =add_range(FName, AnnAST1, TabWidth),
+    AnnAST3 = add_tokens(FName, AnnAST2, TabWidth),
+    AnnAST4 = refac_syntax_lib:annotate_bindings(AnnAST3, ordsets:new(), Ms),
+    AnnAST5 = update_var_define_locations(AnnAST4),
+    add_category(AnnAST5).
+    
 %% Add  start and end location to each AST node.
 add_range(FName, AST, TabWidth) ->
     Toks = tokenize(FName, true,  TabWidth),    
@@ -1596,7 +1601,7 @@ add_category(Node) ->
       form_list ->
 	  Es = refac_syntax:form_list_elements(Node),
 	  Es1 = lists:map(fun (E) -> add_category(E) end, Es),
-	  Node1 = refac_syntax:copy_attrs(Node, refac_syntax:form_list(Es1)),
+	  Node1 = rewrite(Node, refac_syntax:form_list(Es1)),
 	  refac_syntax:add_ann({category, form_list}, Node1);
       attribute -> add_category(Node, attribute);
       function -> add_category(Node, function);
@@ -1611,7 +1616,6 @@ add_category(Node) ->
 
 add_category(Node, C) -> {Node1, _} = stop_tdTP(fun do_add_category/2, Node, C),
 			 Node1.
-	     
 do_add_category(Node, C) ->
     if is_list(Node) -> {lists:map(fun (E) -> add_category(E, C) end, Node), true};
        true ->
@@ -1626,23 +1630,23 @@ do_add_category(Node, C) ->
 			none -> none;
 			_ -> add_category(G, guard_expression)
 		      end,
-		 Node1 = refac_syntax:copy_attrs(Node, refac_syntax:clause(P1, G1, B1)),
+		 Node1 = rewrite(Node, refac_syntax:clause(P1, G1, B1)),
 		 {refac_syntax:add_ann({category, clause}, Node1), true};
 	     match_expr ->
 		 P = refac_syntax:match_expr_pattern(Node),
 		 B = refac_syntax:match_expr_body(Node),
 		 P1 = add_category(P, pattern),
 		 B1 = add_category(B, C),
-		 Node1 = refac_syntax:copy_attrs(Node, refac_syntax:match_expr(P1, B1)),
+		 Node1 = rewrite(Node, refac_syntax:match_expr(P1, B1)),
 		 {refac_syntax:add_ann({category, C}, Node1), true};
 	     operator -> {refac_syntax:add_ann({category, operator}, Node), true}; %% added to fix bug 13/09/2008.
 	     application ->
-		   Op = refac_syntax:application_operator(Node),
-		   Args = refac_syntax:application_arguments(Node),
-		   Op1 = add_category(Op, application_op),
-		   Args1 = add_category(Args, C),
-		   Node1 = refac_syntax:copy_attrs(Node, refac_syntax:application(Op1, Args1)),
-		   {refac_syntax:add_ann({category, C}, Node1), true};						   
+		 Op = refac_syntax:application_operator(Node),
+		 Args = refac_syntax:application_arguments(Node),
+		 Op1 = add_category(Op, application_op),
+		 Args1 = add_category(Args, C),
+		 Node1 = rewrite(Node, refac_syntax:application(Op1, Args1)),
+		 {refac_syntax:add_ann({category, C}, Node1), true};
 	     arity_qualifier ->
 		 Fun = add_category(refac_syntax:arity_qualifier_body(Node), arity_qualifier),
 		 A = add_category(refac_syntax:arity_qualifier_argument(Node), arity_qualifier),
@@ -1656,56 +1660,56 @@ do_add_category(Node, C) ->
 			   none -> none;
 			   _ -> add_category(Args, expression) %% should 'expression' be 'macro_args'?
 			 end,
-		 Node1 = refac_syntax:copy_attrs(Node, refac_syntax:macro(Name1, Args1)),
+		 Node1 = rewrite(Node, refac_syntax:macro(Name1, Args1)),
 		 {refac_syntax:add_ann({category, macro}, Node1), true};
 	     record_access ->
-		   Argument = refac_syntax:record_access_argument(Node),
-		   Type = refac_syntax:record_access_type(Node),
-		   Field = refac_syntax:record_access_field(Node),
-		   Argument1 = add_category(Argument, C),
-		   Type1 = case Type of 
-			       none -> none;
-			       _ -> add_category(Type, record_type)
-			   end,
-		   Field1 = add_category(Field, record_field),
-		   Node1 = refac_syntax:copy_attrs(Node, refac_syntax:record_access(Argument1, Type1, Field1)),
-		   {refac_syntax:add_ann({category, expression}, Node1), true};
+		 Argument = refac_syntax:record_access_argument(Node),
+		 Type = refac_syntax:record_access_type(Node),
+		 Field = refac_syntax:record_access_field(Node),
+		 Argument1 = add_category(Argument, C),
+		 Type1 = case Type of
+			   none -> none;
+			   _ -> add_category(Type, record_type)
+			 end,
+		 Field1 = add_category(Field, record_field),
+		 Node1 = rewrite(Node, refac_syntax:record_access(Argument1, Type1, Field1)),
+		 {refac_syntax:add_ann({category, expression}, Node1), true};
 	     record_expr ->
-		   Argument = refac_syntax:record_expr_argument(Node),
-		   Type = refac_syntax:record_expr_type(Node),
-		   Fields = refac_syntax:record_expr_fields(Node),
-		   Argument1 =case Argument of 
-				  none -> none;
-				  _ ->add_category(Argument, C)
-			      end,
-		   Type1 = add_category(Type, record_type),
-		   Fields1 = add_category(Fields, C),
-		   Node1 = refac_syntax:copy_attrs(Node, refac_syntax:record_expr(Argument1, Type1, Fields1)),
-		   {refac_syntax:add_ann({category, expression}, Node1), true};
-	       record_index_expr ->
-		   Type = refac_syntax:record_index_expr_type(Node),
-		   Field = refac_syntax:record_index_expr_field(Node),
-		   Type1 = add_category(Type, record_type),
-                   Field1 = add_category(Field, C),
-		   Node1 = refac_syntax:copy_attrs(Node, refac_syntax:record_index_expr(Type1, Field1)),
-		   {refac_syntax:add_ann({category, record_index_expr}, Node1), true};
+		 Argument = refac_syntax:record_expr_argument(Node),
+		 Type = refac_syntax:record_expr_type(Node),
+		 Fields = refac_syntax:record_expr_fields(Node),
+		 Argument1 = case Argument of
+			       none -> none;
+			       _ -> add_category(Argument, C)
+			     end,
+		 Type1 = add_category(Type, record_type),
+		 Fields1 = add_category(Fields, C),
+		 Node1 = rewrite(Node, refac_syntax:record_expr(Argument1, Type1, Fields1)),
+		 {refac_syntax:add_ann({category, expression}, Node1), true};
+	     record_index_expr ->
+		 Type = refac_syntax:record_index_expr_type(Node),
+		 Field = refac_syntax:record_index_expr_field(Node),
+		 Type1 = add_category(Type, record_type),
+		 Field1 = add_category(Field, C),
+		 Node1 = rewrite(Node, refac_syntax:record_index_expr(Type1, Field1)),
+		 {refac_syntax:add_ann({category, record_index_expr}, Node1), true};
 	     record_field ->
-		   Name = refac_syntax:record_field_name(Node),
-		   Name1 = add_category(Name, record_field),
-		   Value = refac_syntax:record_field_value(Node),
-		   Value1 = case Value of 
-				none -> none;
-				_ -> add_category(Value, C)
-			    end,
-		   Node1 = refac_syntax:copy_attrs(Node, refac_syntax:record_field(Name1, Value1)),
-		   {refac_syntax:add_ann({category, record_field}, Node1), true};
-	       generator ->
-		   P = refac_syntax:generator_pattern(Node),
-		   B = refac_syntax:generator_body(Node),
-		   P1 = add_category(P, pattern),
-		   B1 = add_category(B, expression),
-		   Node1 = refac_syntax:copy_attrs(Node, refac_syntax:generator(P1, B1)),
-		   {refac_syntax:add_ann({category, generator}, Node1), true};
+		 Name = refac_syntax:record_field_name(Node),
+		 Name1 = add_category(Name, record_field),
+		 Value = refac_syntax:record_field_value(Node),
+		 Value1 = case Value of
+			    none -> none;
+			    _ -> add_category(Value, C)
+			  end,
+		 Node1 = rewrite(Node, refac_syntax:record_field(Name1, Value1)),
+		 {refac_syntax:add_ann({category, record_field}, Node1), true};
+	     generator ->
+		 P = refac_syntax:generator_pattern(Node),
+		 B = refac_syntax:generator_body(Node),
+		 P1 = add_category(P, pattern),
+		 B1 = add_category(B, expression),
+		 Node1 = rewrite(Node, refac_syntax:generator(P1, B1)),
+		 {refac_syntax:add_ann({category, generator}, Node1), true};
 	     attribute ->
 		 case refac_syntax:atom_value(refac_syntax:attribute_name(Node)) of
 		   define ->
@@ -1717,11 +1721,11 @@ do_add_category(Node, C) ->
 				      application ->
 					  Operator = add_category(refac_syntax:application_operator(MacroHead), macro_name),
 					  Arguments = add_category(refac_syntax:application_arguments(MacroHead), attribute),
-					  refac_syntax:copy_attrs(MacroHead, refac_syntax:application(Operator, Arguments));
+					  rewrite(MacroHead, refac_syntax:application(Operator, Arguments));
 				      _ -> add_category(MacroHead, macro_name)
 				    end,
 		       MacroBody1 = add_category(MacroBody, attribute),
-		       Node1 = refac_syntax:copy_attrs(Node, refac_syntax:attribute(Name, [MacroHead1|MacroBody1])),
+		       Node1 = rewrite(Node, refac_syntax:attribute(Name, [MacroHead1| MacroBody1])),
 		       {refac_syntax:add_ann({category, attribute}, Node1), true};
 		   _ -> {refac_syntax:add_ann({category, C}, Node), false}
 		 end;
@@ -1768,10 +1772,9 @@ adjust_locations(FName, AST, TabWidth) ->
 							  Toks2),
 				  A2 = refac_syntax:set_pos(A,
 							    element(2, ghead("refac_util:adjust_locations:A2", Toks3))),
-				  refac_syntax:copy_attrs(T,
-							  refac_syntax:implicit_fun(refac_syntax:set_pos(refac_syntax:copy_attrs(Name,
-																 refac_syntax:arity_qualifier(Fun2, A2)),
-													 P)));
+				  rewrite(T, refac_syntax:implicit_fun(refac_syntax:set_pos(rewrite(Name,
+												    refac_syntax:arity_qualifier(Fun2, A2)),
+											    P)));
 			      _ -> T
 			    end;
 			_ -> T
@@ -1843,7 +1846,7 @@ add_fun_define_locations(Node,
 			     Fs = ordsets:filter(fun ({_M, F, A, _Pos}) -> (F == Name) and (Arity == A) end, Inscope_Funs),
 			     case Fs of
 			       [] -> {erlang, ?DEFAULT_LOC};   %% is this correct? what about the function is not a BIF?
-			       [{M, _, _, Pos} | _] -> {M, Pos}
+			       [{M, _, _, Pos}| _] -> {M, Pos}
 			     end
 		     end,
     F1 = fun (T) ->
@@ -1856,59 +1859,59 @@ add_fun_define_locations(Node,
 		       T2 = [update_ann(C, {fun_def, {ModName, Fun_Name, Arity, refac_syntax:get_pos(C), Pos}})
 			     || C <- refac_syntax:function_clauses(T)],
 		       Name1 = update_ann(Name, {fun_def, {ModName, Fun_Name, Arity, Pos, Pos}}),
-		       T3 = refac_syntax:copy_pos(T, refac_syntax:copy_attrs(T, refac_syntax:function(Name1, T2))),
+		       T3 = rewrite(T, refac_syntax:function(Name1, T2)),
 		       update_ann(T3, {fun_def, {ModName, Fun_Name, Arity, Pos, Pos}});
 		   application ->
 		       Operator = refac_syntax:application_operator(T),
 		       Arguments = refac_syntax:application_arguments(T),
 		       case refac_syntax:type(Operator) of
 			 atom ->
-			     Op = refac_syntax:atom_value(Operator),
-			     Arity = length(Arguments),
-			     {DefMod, DefLoc} = Define_Mod_Loc(Op, Arity),
-			     Operator1 = update_ann(Operator, {fun_def, {DefMod, Op, Arity, refac_syntax:get_pos(Operator), DefLoc}}),
-			     refac_syntax:copy_pos(T, refac_syntax:copy_attrs(T, refac_syntax:application(Operator1, Arguments)));
-			 module_qualifier ->
-			       Mod = refac_syntax:module_qualifier_argument(Operator),
-			       Fun = refac_syntax:module_qualifier_body(Operator),
-			       M = case refac_syntax:type(Mod) of 
-				       atom ->refac_syntax:atom_value(Mod);
-				       macro -> MacroName = refac_syntax:macro_name(Mod),
-						case refac_syntax:type(MacroName) of 
-						    variable ->
-							case refac_syntax:variable_name(MacroName) of 
-							    'MODULE' -> ModName;
-								_ -> '_'
-							end;
-						    _ -> '_'
-						end;
-				       _ -> '_'
-				   end,								    
-			       Fun_Name = case refac_syntax:type(Fun) of 
-					      atom ->refac_syntax:atom_value(Fun);
-					      _ -> '_'
-					  end,
+			       Op = refac_syntax:atom_value(Operator),
 			       Arity = length(Arguments),
-			       DefLoc = if M == ModName -> {_ModName, DefLoc1} = Define_Mod_Loc(Fun_Name, Arity), DefLoc1;
-					   true -> ?DEFAULT_LOC
+			       {DefMod, DefLoc} = Define_Mod_Loc(Op, Arity),
+			       Operator1 = update_ann(Operator, {fun_def, {DefMod, Op, Arity, refac_syntax:get_pos(Operator), DefLoc}}),
+			       rewrite(T, refac_syntax:application(Operator1, Arguments));
+			 module_qualifier ->
+			     Mod = refac_syntax:module_qualifier_argument(Operator),
+			     Fun = refac_syntax:module_qualifier_body(Operator),
+			     M = case refac_syntax:type(Mod) of
+				   atom -> refac_syntax:atom_value(Mod);
+				   macro -> MacroName = refac_syntax:macro_name(Mod),
+					    case refac_syntax:type(MacroName) of
+					      variable ->
+						  case refac_syntax:variable_name(MacroName) of
+						    'MODULE' -> ModName;
+						    _ -> '_'
+						  end;
+					      _ -> '_'
+					    end;
+				   _ -> '_'
+				 end,
+			     Fun_Name = case refac_syntax:type(Fun) of
+					  atom -> refac_syntax:atom_value(Fun);
+					  _ -> '_'
 					end,
-			       Operator1 = refac_syntax:copy_attrs(Operator, refac_syntax:module_qualifier(Mod, Fun)),
-			       Operator2 = update_ann(Operator1, {fun_def, {M, Fun_Name, Arity, refac_syntax:get_pos(T), DefLoc}}),
-			       refac_syntax:copy_attrs(T, refac_syntax:application(Operator2, Arguments));			   
-			   _ -> Arity = length(Arguments),
-				Operator1 = update_ann(Operator, {fun_def, {'_', '_', Arity, refac_syntax:get_pos(Operator), ?DEFAULT_LOC}}),
-				refac_syntax:copy_pos(T, refac_syntax:copy_attrs(T, refac_syntax:application(Operator1, Arguments)))
+			     Arity = length(Arguments),
+			     DefLoc = if M == ModName -> {_ModName, DefLoc1} = Define_Mod_Loc(Fun_Name, Arity), DefLoc1;
+					 true -> ?DEFAULT_LOC
+				      end,
+			     Operator1 = rewrite(Operator, refac_syntax:module_qualifier(Mod, Fun)),
+			     Operator2 = update_ann(Operator1, {fun_def, {M, Fun_Name, Arity, refac_syntax:get_pos(T), DefLoc}}),
+			     rewrite(T, refac_syntax:application(Operator2, Arguments));
+			 _ -> Arity = length(Arguments),
+			      Operator1 = update_ann(Operator, {fun_def, {'_', '_', Arity, refac_syntax:get_pos(Operator), ?DEFAULT_LOC}}),
+			      rewrite(T, refac_syntax:application(Operator1, Arguments))
 		       end;
-		     arity_qualifier ->
-			 Fun = refac_syntax:arity_qualifier_body(T),
-			 A = refac_syntax:arity_qualifier_argument(T),
-			 FunName = refac_syntax:atom_value(Fun),
-			 Arity = refac_syntax:integer_value(A),
-			 {DefMod, DefLoc} = Define_Mod_Loc(FunName, Arity),
-			 Fun1 = update_ann(Fun, {fun_def, {DefMod, FunName, Arity, refac_syntax:get_pos(Fun), DefLoc}}),
-			 update_ann(refac_syntax:copy_attrs(T, refac_syntax:arity_qualifier(Fun1, A)),
-				    {fun_def, {DefMod, FunName, Arity, refac_syntax:get_pos(Fun), DefLoc}});
-		     _ -> T
+		   arity_qualifier ->
+		       Fun = refac_syntax:arity_qualifier_body(T),
+		       A = refac_syntax:arity_qualifier_argument(T),
+		       FunName = refac_syntax:atom_value(Fun),
+		       Arity = refac_syntax:integer_value(A),
+		       {DefMod, DefLoc} = Define_Mod_Loc(FunName, Arity),
+		       Fun1 = update_ann(Fun, {fun_def, {DefMod, FunName, Arity, refac_syntax:get_pos(Fun), DefLoc}}),
+		       update_ann(rewrite(T, refac_syntax:arity_qualifier(Fun1, A)),
+				  {fun_def, {DefMod, FunName, Arity, refac_syntax:get_pos(Fun), DefLoc}});
+		   _ -> T
 		 end
 	 end,
     refac_syntax_lib:map(F1, Node).
@@ -2426,3 +2429,7 @@ scan_line_endings([], Cs1, Acc)->
 
 remove_duplicates(L) ->
     refac_move_fun:remove_duplicates(L, []).
+
+rewrite(Tree, Tree1) ->
+    refac_syntax:copy_attrs(Tree, Tree1).
+
