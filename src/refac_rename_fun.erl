@@ -211,7 +211,9 @@ do_rename_fun_1(Tree, {FileName, {M, OldName, Arity}, {DefinePos, NewName}, Sear
 	    DefinePos ->
 		  N = refac_syntax:function_name(Tree),
 		  Cs = refac_syntax:function_clauses(Tree),
-		  N1 = copy_pos_attrs(N, refac_syntax:atom(NewName)),
+		  N1 = refac_syntax:copy_attrs(N, refac_syntax:atom(NewName)),
+		  refac_io:format("N:\n~p\n", [N]),
+		  refac_io:format("N1:\n~p\n", [N1]),
 		  {copy_pos_attrs(Tree, refac_syntax:function(N1, Cs)), true};
 	    _ -> {Tree, false}
 	  end;

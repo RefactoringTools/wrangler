@@ -773,7 +773,8 @@ alphabet_1() ->
 display_clone_result(Cs) ->
     case length(Cs) >=1  of 
 	true -> display_clones_by_freq(Cs),
-		display_clones_by_length(Cs);
+		display_clones_by_length(Cs),
+		?wrangler_io("\n\n NOTE: Use 'M-x compilation-minor-mode' to make the result mouse clickable.\n\n",[]);	
 	false -> ?wrangler_io("\nDuplicated code detection finished with no clones found.\n", [])
     end.
     

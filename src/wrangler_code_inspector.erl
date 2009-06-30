@@ -68,7 +68,7 @@ find_var_instances(FName, Line, Col, SearchPaths, TabWidth) ->
 				end
 			end,
 		    Locs = lists:usort(refac_syntax_lib:fold(F, [], AnnAST)),
-		    ?wrangler_io("Use 'C-c C-e' to remove highlights!\n",[]),
+		   %% ?wrangler_io("Use 'C-c C-e' to remove highlights!\n",[]),
 		    {ok, Locs, DefinePos}
 	    end;
 	{error, Reason} -> {error, Reason}

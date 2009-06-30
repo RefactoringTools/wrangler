@@ -83,7 +83,7 @@ sim_expr_search(FName, Start = {Line, Col}, End = {Line1, Col1}, SimiScore0, Sea
 	false-> ?wrangler_io("~p expressions (including the expression selected) which are similar to the expression selected have been found. \n", [Num]),
 		?wrangler_io(compose_search_result_info(FName, Res2),[]),
 		?wrangler_io("\nThe generalised expression would be:\n\n~s\n\n", [refac_prettypr:format(AntiUnifier)]),
-		?wrangler_io("\nUse 'C-c C-e' to remove highlights!",[]),
+		?wrangler_io("\nUse 'C-c C-e' to remove highlights!\n",[]),
 		{ok, Res2}
     end.
    

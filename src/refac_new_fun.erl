@@ -34,7 +34,7 @@
 -module(refac_new_fun).
 
 -export([fun_extraction/5, fun_extraction_eclipse/5]).
-%% -export([side_cond_analysis/4, vars_to_export/4]).
+
 
 -include("../include/wrangler.hrl").
 %% =============================================================================================
@@ -217,10 +217,7 @@ do_replace_expr_with_fun_call_1(Tree, {NewExpr, Expr}) ->
 	    
 do_replace_expr_with_fun_call_2(Tree, {MApp, ExpList}) ->
     Range1 = refac_util:get_range(hd(ExpList)),
-    %%{StartPos1, _EndPos} = Range1,
     Range2 = refac_util:get_range(lists:last(ExpList)),
-    %%{_StartPos2, EndPos2} = Range2,
-    %%Range3 = {StartPos1, EndPos2},
     case refac_syntax:type(Tree) of
 	clause ->
 	    Exprs = refac_syntax:clause_body(Tree),
@@ -235,7 +232,7 @@ do_replace_expr_with_fun_call_2(Tree, {MApp, ExpList}) ->
 				  end,
 	    Pats = refac_syntax:clause_patterns(Tree),
 	    G    = refac_syntax:clause_guard(Tree),
-	    {refac_syntax:copy_pos(Tree, refac_syntax:copy_attrs(Tree, refac_syntax:clause(Pats, G, NewBody))), Modified};
+	    {refac_syntax:copy_attrs(Tree, refac_syntax:clause(Pats, G, NewBody)), Modified};
 	block_expr -> 
 	    Exprs = refac_syntax:block_expr_body(Tree),
 	    {Exprs1, Exprs2} = lists:splitwith(fun(E) -> refac_util:get_range(E) =/= Range1 end, Exprs),
@@ -247,7 +244,7 @@ do_replace_expr_with_fun_call_2(Tree, {MApp, ExpList}) ->
 					       _ -> {Exprs1 ++ [MApp|tl(Exprs22)], true}
 					   end
 				  end,
-	    {refac_syntax:copy_pos(Tree, refac_syntax:copy_attrs(Tree, refac_syntax:block_expr(NewBody))), Modified};	    
+	    {refac_syntax:copy_attrs(Tree, refac_syntax:block_expr(NewBody)), Modified};	    
 	_ -> {Tree, false}
     end.
 
