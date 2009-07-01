@@ -448,8 +448,14 @@ vann(Tree, Env, Ms, VI) ->
       variable ->
 	    V = refac_syntax:variable_name(Tree),
 	    P = refac_syntax:get_pos(Tree),
-	    case VI of 
-		[] ->
+	    case  lists:keysearch({V, P}, 1, VI) of
+		{value, {{V, P}, As}} ->
+		    {value, {bound, Bound1}} = lists:keysearch(bound, 1,As),
+		    {value, {free, Free1}} = lists:keysearch(free, 1,As),
+		    {value, {def, Def1}} = lists:keysearch(def, 1,As),
+		    {value, {env, Env1}} = lists:keysearch(env, 1,As),
+		    {ann_bindings(Tree, Env1, Bound1, Free1, Def1), Bound1, Free1};
+		_ ->
 		    case [V2 || V2 <- Env, vann_1(V2, V)] of
 			[] ->
 			    Bound = [],
@@ -460,19 +466,8 @@ vann(Tree, Env, Ms, VI) ->
 			    Free = L,
 			    Def = [vann_1(V3) || V3 <- L]
 		    end, 
-		    {ann_bindings(Tree, Env, Bound, Free, Def), Bound, Free};
-		_ ->
-		    case lists:keysearch({V, P}, 1, VI) of
-			{value, {{V, P}, As}} ->
-			    {value, {bound, Bound1}} = lists:keysearch(bound, 1,As),
-			    {value, {free, Free1}} = lists:keysearch(free, 1,As),
-			    {value, {def, Def1}} = lists:keysearch(def, 1,As),
-			    {value, {env, Env1}} = lists:keysearch(env, 1,As),
-			    {ann_bindings(Tree, Env1, Bound1, Free1, Def1), Bound1, Free1};
-			false -> 
-			    throw("Wrangler AST annotation error!")
-		    end
-	    end;
+		    {ann_bindings(Tree, Env, Bound, Free, Def), Bound, Free}
+		end;		
 	match_expr -> vann_match_expr(Tree, Env, Ms, VI);
 	case_expr -> vann_case_expr(Tree, Env, Ms, VI);
 	if_expr -> vann_if_expr(Tree, Env, Ms, VI);
@@ -519,19 +514,23 @@ vann_list(Ts, Env, Ms, VI) ->
     lists:mapfoldl(vann_list_join(Env, Ms, VI), {[], []}, Ts).
 
 vann_function(Tree, Env, Ms, _VI) ->
+    Toks0 = refac_util:get_toks(Tree),
+    Tree1 = adjust_locations(Tree, Toks0),
     F = fun() ->
-		Toks = remove_whites(refac_util:get_toks(Tree)),
-		Toks1 = refac_epp:expand_macros(Toks, Ms),
-		{ok, Form} = refac_parse:parse_form(Toks1),
+		Toks1 = remove_whites(Toks0),
+		Toks2 = refac_epp:expand_macros(Toks1, Ms),
+		{ok, Form} = refac_parse:parse_form(Toks2),
 		[Form1] = refac_syntax:form_list_elements(refac_recomment:recomment_forms([Form], [])),
 		{Form2, _, _} = vann_function_1(Form1, Env, Ms, []),
 		get_var_info(Form2)
 	end,
-    try F() of
-	VI -> vann_function_1(Tree, Env, Ms, VI)
-    catch
-   	_E1:_E2_ -> vann_function_1(Tree, Env, Ms, [])
-    end.
+    {Tree2,Bound, Free} =try F() of
+			     VI -> vann_function_1(Tree1, Env, Ms, VI)
+			 catch
+			     _E1:_E2_ -> vann_function_1(Tree1, Env, Ms, [])
+			 end,
+    {update_var_define_locations(Tree2), Bound, Free}.
+    
 
 vann_function_1(Tree, Env, Ms, VI) ->
     Cs = refac_syntax:function_clauses(Tree),
@@ -729,8 +728,14 @@ vann_pattern(Tree, Env, Ms, VI) ->
 	variable ->
 	    V = refac_syntax:variable_name(Tree),
 	    P = refac_syntax:get_pos(Tree),
-	    case VI of 
-		[] -> 
+	    case lists:keysearch({V, P}, 1, VI) of
+		{value, {{V, P}, As}} ->
+		    {value, {bound, Bound1}} = lists:keysearch(bound, 1,As),
+		    {value, {free, Free1}} = lists:keysearch(free, 1,As),
+		    {value, {def, Def1}} = lists:keysearch(def, 1,As),
+		    {value, {env, Env1}} = lists:keysearch(env, 1,As),
+		    {ann_bindings(Tree, Env1, Bound1, Free1, Def1), Bound1, Free1};
+		_ ->
 		    case lists:keysearch(V, 1, Env) of
 			{value, {V, L}} ->
 			    Bound = [],
@@ -741,19 +746,8 @@ vann_pattern(Tree, Env, Ms, VI) ->
 			    Free = [],
 			    Def = [P]
 		    end,
-		    {ann_bindings(Tree, Env, Bound, Free, Def), Bound, Free};
-		_ ->
-		    case lists:keysearch({V, P}, 1, VI) of
-			{value, {{V, P}, As}} ->
-			    {value, {bound, Bound1}} = lists:keysearch(bound, 1,As),
-			    {value, {free, Free1}} = lists:keysearch(free, 1,As),
-			    {value, {def, Def1}} = lists:keysearch(def, 1,As),
-			    {value, {env, Env1}} = lists:keysearch(env, 1,As),
-			    {ann_bindings(Tree, Env1, Bound1, Free1, Def1), Bound1, Free1};
-			false -> 
-			    throw("Wrangler AST annotation error!") 
-		    end
-	    end;
+		    {ann_bindings(Tree, Env, Bound, Free, Def), Bound, Free}
+		end;
       match_expr ->
 	  %% Alias pattern
 	  P = refac_syntax:match_expr_pattern(Tree),
@@ -788,22 +782,18 @@ vann_fun_expr_pattern(Tree, Env,Ms, VI) ->
       variable ->
 	    V = refac_syntax:variable_name(Tree),
 	    P = refac_syntax:get_pos(Tree),
-	    case VI of 
-		[] -> Bound = [{V, P}],
-		      Free = [],
-		      Def = [P],
-		      {ann_bindings(Tree, Env, Bound, Free, Def), Bound, Free};		
-		_ ->
-		    case lists:keysearch({V, P}, 1, VI) of
-			{value, {{V, P}, As}} ->
-			    {value, {bound, Bound1}} = lists:keysearch(bound, 1,As),
-			    {value, {free, Free1}} = lists:keysearch(free, 1,As),
-			    {value, {def, Def1}} = lists:keysearch(def, 1,As),
-			    {value, {env, Env1}} = lists:keysearch(env, 1,As),
-			    {ann_bindings(Tree, Env1, Bound1, Free1, Def1), Bound1, Free1};
-			false -> 
-			    throw("Wrangler AST annotation error!")
-		    end
+	    case lists:keysearch({V, P}, 1, VI) of
+		{value, {{V, P}, As}} ->
+		    {value, {bound, Bound1}} = lists:keysearch(bound, 1,As),
+		    {value, {free, Free1}} = lists:keysearch(free, 1,As),
+		    {value, {def, Def1}} = lists:keysearch(def, 1,As),
+		    {value, {env, Env1}} = lists:keysearch(env, 1,As),
+		    {ann_bindings(Tree, Env1, Bound1, Free1, Def1), Bound1, Free1};
+		_ -> 
+		    Bound = [{V, P}],
+		    Free = [],
+		    Def = [P],
+		    {ann_bindings(Tree, Env, Bound, Free, Def), Bound, Free}
 	    end;
 	match_expr ->
 	  %% Alias pattern
@@ -2242,3 +2232,85 @@ get_var_info(Tree) ->
 	end,
     fold(F, [], Tree).
 	   
+
+
+%% Adjust the locations of F and A in an implicit function application (fun F/A)
+%% to their actual occurrence locations. Originally, both of their locations refer
+%% to that of the keyword 'fun'.
+%% Qn: Any other cases in need of location adjustment?
+adjust_locations(Form, Toks) ->
+    F = fun (T) ->
+		case refac_syntax:type(T) of
+		    implicit_fun ->
+			Pos = refac_syntax:get_pos(T),
+			Name = refac_syntax:implicit_fun_name(T),
+			case refac_syntax:type(Name) of
+			    arity_qualifier ->
+				Fun = refac_syntax:arity_qualifier_body(Name),
+				A = refac_syntax:arity_qualifier_argument(Name),
+				case {refac_syntax:type(Fun), refac_syntax:type(A)} of
+				    {atom, integer} ->
+					Toks1 = lists:dropwhile(fun (B) -> element(2, B) =/= Pos end, Toks),
+					Fun1 = refac_syntax:atom_value(Fun),
+					Toks2 = lists:dropwhile(fun (B) ->
+									case B of
+									    {atom, _, Fun1} -> false;
+									    _ -> true
+									end
+								end,
+								Toks1),
+					P = element(2, refac_util:ghead("refac_util: adjust_locations,P", Toks2)),
+					Fun2 = refac_syntax:set_pos(Fun, P),
+					Toks3 = lists:dropwhile(fun (B) ->
+									case B of
+									    {integer, _, _} -> false;
+									    _ -> true
+									end
+								end,
+								Toks2),
+					A2 = refac_syntax:set_pos(A,
+								  element(2, refac_util:ghead("refac_util:adjust_locations:A2", Toks3))),
+					rewrite(T, refac_syntax:implicit_fun(refac_syntax:set_pos(rewrite(Name,
+									  refac_syntax:arity_qualifier(Fun2, A2)), P)));
+				    _ -> T
+				end;
+			    _ -> T
+			end;
+		    _ -> T
+		end
+	end,
+    refac_syntax_lib:map(F, Form).
+
+%% =====================================================================
+%% @spec update_var_define_locations(Node::syntaxTree()) -> syntaxTree()
+%% @doc  Update the defining locations of those binding occurrences which are
+%% associated with more than one binding occurrence.
+
+update_var_define_locations(Node) ->
+    F1 = fun (T, S) ->
+		 case refac_syntax:type(T) of
+		   variable ->
+		       R = lists:keysearch(def, 1, refac_syntax:get_ann(T)),
+		       case R of
+			 {value, {def, P}} -> S ++ [P];
+			 _ -> S
+		       end;
+		   _ -> S
+		 end
+	 end,
+    DefineLocs = lists:usort(refac_syntax_lib:fold(F1, [], Node)),
+    F = fun (T) ->
+		case refac_syntax:type(T) of
+		  variable ->
+		      case lists:keysearch(def, 1, refac_syntax:get_ann(T)) of
+			{value, {def, Define}} ->
+			    Defs = lists:merge([V1
+						|| V1 <- DefineLocs,
+						   ordsets:intersection(ordsets:from_list(V1), ordsets:from_list(Define)) /= []]),
+			    refac_util:update_ann(T, {def, lists:usort(Defs)});
+			_ -> T
+		      end;
+		  _ -> T
+		end
+	end,
+    refac_syntax_lib:map(F, Node).
