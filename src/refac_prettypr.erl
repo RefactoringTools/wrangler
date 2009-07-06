@@ -652,11 +652,27 @@ lay_2(Node,Ctxt) ->
 	       end,
 	  maybe_parentheses(D3,Prec,Ctxt);
       application ->  %% done.
-	  {PrecL,Prec} = func_prec(),
-	  D = lay(refac_syntax:application_operator(Node),set_prec(Ctxt,PrecL)),
-	  As = seq(refac_syntax:application_arguments(Node),floating(text(",")),reset_prec(Ctxt),fun lay/2),
-	  D1 = beside(D,
-		      beside(text("("),beside(lay_elems(fun refac_prettypr_0:par/1, As,refac_syntax:application_arguments(Node)),floating(text(")"))))),
+	    {PrecL,Prec} = func_prec(),
+	    D = lay(refac_syntax:application_operator(Node),set_prec(Ctxt,PrecL)),
+	    As = seq(refac_syntax:application_arguments(Node),floating(text(",")),reset_prec(Ctxt),fun lay/2),
+	    Op = refac_syntax:application_operator(Node),
+	    Args = refac_syntax:application_arguments(Node),
+	    D1 =case Args of 
+		    [] -> beside(D, beside(text("("),beside(lay_elems(fun refac_prettypr_0:par/1, 
+			     As,refac_syntax:application_arguments(Node)),floating(text(")")))));
+		    [H|_] ->
+			EndLn = get_end_line(Op),
+			StartLn = get_start_line(H),
+			case EndLn == StartLn of
+			    true ->
+				beside(D, beside(text("("),beside(lay_elems(fun refac_prettypr_0:par/1, 
+				   As,refac_syntax:application_arguments(Node)),floating(text(")")))));
+			    false->
+				above(beside(D, text("(")), 
+				   nest(Ctxt#ctxt.sub_indent, beside(lay_elems(fun refac_prettypr_0:par/1, 
+			           As,refac_syntax:application_arguments(Node)),floating(text(")")))))
+			end
+		end,
 	  maybe_parentheses(D1,Prec,Ctxt);
       match_expr ->         %% done;
 	  {PrecL,Prec,PrecR} = inop_prec('='),
