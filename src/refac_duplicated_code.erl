@@ -965,7 +965,10 @@ collect_vars_1(Node) ->
     F = fun(N,S) ->
 		case refac_syntax:type(N) of 
 		    variable ->
-			sets:add_element(refac_syntax:variable_name(N), S);
+			case lists:keysearch(category, 1, refac_syntax:get_ann(N)) of
+			    {value, {category, macro_name}} -> S;
+			    _ ->sets:add_element(refac_syntax:variable_name(N), S)
+			end;
 		    _  -> S
 		end
 	end,

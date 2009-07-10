@@ -64,7 +64,7 @@ fun_extraction(FileName, Start={Line, Col}, End={Line1, Col1}, NewFunName,TabWid
 			{ok, {BdVars, FrVars}} ->
 			    FunName = refac_syntax:atom_value(refac_syntax:function_name(Fun)),
 			    FunArity = refac_syntax:function_arity(Fun),
-			    VarsToExport=vars_to_export(Fun, End, BdVars, ExpList), 
+			    VarsToExport=vars_to_export(Fun, End, BdVars), 
 			    AnnAST1=do_fun_extraction(AnnAST,ExpList, NewFunName, FrVars, VarsToExport, FunName, FunArity),
 			    case Editor of 
 				emacs ->
@@ -263,8 +263,7 @@ envs_bounds_frees(Node) ->
     {{bound, BdVars},{free, FrVars}}.
 
 
-vars_to_export(Fun,ExprEndPos, ExprBdVars, _ExpList) ->
-   %% LastExpr = lists:last(ExpList),
+vars_to_export(Fun,ExprEndPos, ExprBdVars) ->
     AllVars = collect_vars(Fun),
     ExprBdVarsPos = lists:map(fun({_Var, Pos}) -> Pos end, ExprBdVars),
     VarsToExport = lists:keysort(2, [{V, SourcePos} || {V, SourcePos, DefPos} <- AllVars,

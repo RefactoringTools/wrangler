@@ -59,8 +59,6 @@
 	 fold_expr_by_name/7, fold_expr_by_name_eclipse/7,
 	 cursor_at_fun_clause/5]).
 
--import(refac_sim_expr_search, [variable_replaceable/1]).
-
 -export([expr_unification/2, fold_expression/6]).
 
 -include("../include/wrangler.hrl").
@@ -542,7 +540,8 @@ expr_unification(Exp1, Exp2) ->
 								{value, {fun_def, {_M, _N, A, _P1, _P2}}} ->
 								    {true, [{refac_syntax:variable_name(Exp1), 
 									     set_default_ann(refac_syntax:implicit_fun(Exp2, refac_syntax:integer(A)))}]};
-								_ -> false
+								_ -> %% this is the function name part of a M:F. 
+								    {true, [{refac_syntax:variable_name(Exp1), set_default_ann(Exp2)}]}
 							    end;
 							_ -> {true, [{refac_syntax:variable_name(Exp1), set_default_ann(Exp2)}]}
 						    end
@@ -566,7 +565,23 @@ expr_unification(Exp1, Exp2) ->
 	    end;
 	_ -> false
     end.
-	    
+
+
+variable_replaceable(Exp) ->
+    case refac_syntax:is_literal(Exp) of
+	true -> true;
+	_ ->case lists:keysearch(category,1, refac_syntax:get_ann(Exp)) of 
+		{value, {category, record_field}} -> false;
+		{value, {category, record_type}} -> false;	 
+		{value, {category, guard_expression}} -> false;
+		{value, {category, pattern}} -> false;
+		{value, {category, macro_name}} ->false;
+		_ -> T = refac_syntax:type(Exp),
+		     (not (lists:member(T, [match_expr, operator]))) andalso
+				(refac_util:get_var_exports(Exp)==[])
+	    end
+    end.
+	
 
 %% =============================================================================================
 %% Some Utility Functions.
