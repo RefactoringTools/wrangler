@@ -179,7 +179,7 @@
      nil
      ("Introduce a Macro" erl-refactor-new-macro)
      ("Fold Against Macro Definition" erl-refactor-fold-against-macro)
-    ;; ("Normalise Record Expression" erl-refactor-normalise-record-expr)
+     ("Normalise Record Expression" erl-refactor-normalise-record-expr)
      nil
      ("Undo" erl-refactor-undo)
      nil
@@ -1221,6 +1221,7 @@
 	(end-line-no   (line-no-pos end))
 	(end-col-no    (current-column-pos end)))
     (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
+      (remove-highlights)
       (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
 	  (message-box "The current buffer has been changed, please save it first.")
     (erl-spawn
@@ -1251,6 +1252,7 @@
 	(end-line-no   (line-no-pos end))
 	(end-col-no    (current-column-pos end)))
     (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
+      (remove-highlights)
       (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
 	  (message-box "The current buffer has been changed, please save it first.")
 	(erl-spawn
@@ -1573,24 +1575,43 @@
     (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
       (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
 	  (message-box "The current buffer has been changed, please save it first.")
-	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'normalise_record_expr(list current-file-name line-no column-no wrangler-search-paths tab-width))
-	  (erl-receive (line-no column-no current-file-name)
-	      ((['rex ['badrpc rsn]]
-		(message "Refactoring failed: %S" rsn))
-	       (['rex ['error rsn]]
-		(message "Refactoring failed: %s" rsn))
-	       (['rex ['ok modified]]
-		(progn
-		  (if (equal modified nil)
-		      (message "Refactoring finished, and no file has been changed.")
-		    (if (y-or-n-p "Do you want to preview the changes to be performed?")
-			(wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
-		      (commit)))
-		  (with-current-buffer (get-file-buffer current-file-name)
-		    (goto-line line-no)
-		    (goto-column column-no))))
-	       )))))))
+	(if (y-or-n-p "Show record fields with default values?")	    
+	    (erl-spawn
+	      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'normalise_record_expr(list current-file-name line-no column-no 'true wrangler-search-paths tab-width))
+	      (erl-receive (line-no column-no current-file-name)
+		  ((['rex ['badrpc rsn]]
+		    (message "Refactoring failed: %S" rsn))
+		   (['rex ['error rsn]]
+		    (message "Refactoring failed: %s" rsn))
+		   (['rex ['ok modified]]
+		    (progn
+		      (if (equal modified nil)
+			  (message "Refactoring finished, and no file has been changed.")
+			(if (y-or-n-p "Do you want to preview the changes to be performed?")
+			    (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
+			  (commit)))
+		      (with-current-buffer (get-file-buffer current-file-name)
+			(goto-line line-no)
+			(goto-column column-no))))
+		   )))
+	  (erl-spawn
+	    (erl-send-rpc wrangler-erl-node 'wrangler_distel 'normalise_record_expr(list current-file-name line-no column-no 'false wrangler-search-paths tab-width))
+	    (erl-receive (line-no column-no current-file-name)
+		((['rex ['badrpc rsn]]
+		  (message "Refactoring failed: %S" rsn))
+		   (['rex ['error rsn]]
+		    (message "Refactoring failed: %s" rsn))
+		   (['rex ['ok modified]]
+		    (progn
+		      (if (equal modified nil)
+			  (message "Refactoring finished, and no file has been changed.")
+			(if (y-or-n-p "Do you want to preview the changes to be performed?")
+			    (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
+			  (commit)))
+		      (with-current-buffer (get-file-buffer current-file-name)
+			(goto-line line-no)
+			(goto-column column-no))))
+		   ))))))))
 		  
 
 
@@ -1601,6 +1622,7 @@
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
+    (remove-highlights)
     (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'find_var_instances(list current-file-name line-no column-no wrangler-search-paths tab-width))
