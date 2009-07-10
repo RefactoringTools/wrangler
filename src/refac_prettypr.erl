@@ -663,14 +663,14 @@ lay_2(Node,Ctxt) ->
 		    [H|_] ->
 			EndLn = get_end_line(Op),
 			StartLn = get_start_line(H),
-			case EndLn == StartLn of
+			case StartLn > EndLn of
 			    true ->
-				beside(D, beside(text("("),beside(lay_elems(fun refac_prettypr_0:par/1, 
-				   As,refac_syntax:application_arguments(Node)),floating(text(")")))));
-			    false->
 				above(beside(D, text("(")), 
 				   nest(Ctxt#ctxt.sub_indent, beside(lay_elems(fun refac_prettypr_0:par/1, 
-			           As,refac_syntax:application_arguments(Node)),floating(text(")")))))
+			           As,refac_syntax:application_arguments(Node)),floating(text(")")))));
+			    false->
+				beside(D, beside(text("("),beside(lay_elems(fun refac_prettypr_0:par/1, 
+					 As,refac_syntax:application_arguments(Node)),floating(text(")")))))
 			end
 		end,
 	  maybe_parentheses(D1,Prec,Ctxt);
