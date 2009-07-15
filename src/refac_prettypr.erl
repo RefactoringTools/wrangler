@@ -667,10 +667,10 @@ lay_2(Node,Ctxt) ->
 			    true ->
 				above(beside(D, text("(")), 
 				   nest(Ctxt#ctxt.sub_indent, beside(lay_elems(fun refac_prettypr_0:par/1, 
-			           As,refac_syntax:application_arguments(Node)),floating(text(")")))));
+			           As,Args),floating(text(")")))));
 			    false->
 				beside(D, beside(text("("),beside(lay_elems(fun refac_prettypr_0:par/1, 
-					 As,refac_syntax:application_arguments(Node)),floating(text(")")))))
+					 As,Args),floating(text(")")))))
 			end
 		end,
 	  maybe_parentheses(D1,Prec,Ctxt);
@@ -888,11 +888,22 @@ lay_2(Node,Ctxt) ->
 	  %% prefixed with a "?".
 	   Ctxt1 = reset_prec(Ctxt),
 	   N = refac_syntax:macro_name(Node),
-	   D = case refac_syntax:macro_arguments(Node) of
+	   Args = refac_syntax:macro_arguments(Node),
+	   D = case Args of
 		   none -> lay(N,Ctxt1);
-		   Args ->
+		   [H|_] ->
+		       EndLn= get_end_line(N),
+		       StartLn=get_start_line(H),
 		       As = seq(Args,floating(text(",")),reset_prec(Ctxt),fun lay/2),
-   		       beside(lay(N,Ctxt1),beside(text("("),beside(lay_elems(fun refac_prettypr_0:par/1, As, Args),floating(text(")")))))
+		       case StartLn>EndLn of
+			   true -> 
+			       above(beside(lay(N, Ctxt1), text("(")),
+				     nest(Ctxt1#ctxt.sub_indent,
+					  beside(lay_elems(fun refac_prettypr_0:par/1, As, Args),floating(text(")")))));					
+			   false ->
+			       beside(lay(N,Ctxt1),beside(text("("),
+				 beside(lay_elems(fun refac_prettypr_0:par/1, As, Args),floating(text(")")))))
+		       end
 	       end,
 	    D1 = beside(floating(text("?")),D),
 	    maybe_parentheses(D1,0,Ctxt);    % must be conservative!
