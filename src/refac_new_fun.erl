@@ -195,18 +195,25 @@ is_guard_expr(Node) ->
 do_fun_extraction(AnnAST, ExpList, NewFunName, ParNames, 
 		  VarsToExport, EnclosingFunName, EnclosingFunArity) ->
     NewFunName1 = refac_syntax:atom(NewFunName),
-    Pars = [refac_syntax:variable(P)||P<-ParNames),
-    ExpList1 = 
-	case VarsToExport of
-	    [] -> 
-		ExpList;
-	    [V] -> 
-		E = refac_syntax:variable(V),
-		ExpList++[E];
-	    [_V|_Vs] -> 
-		Elems =[refac_syntax:variable(V)||V<-VarsToExport], 
-		ExpList ++ [refac_syntax:tuple(Elems)]
-	end,
+    Pars = [refac_syntax:variable(P)||P<-ParNames],
+    LastExprExportVars =[V|| {V, _Pos} <-refac_util:get_var_exports(lists:last(ExpList))],
+    ExpList1 = case VarsToExport--LastExprExportVars of 
+		   [] -> case ExpList of 
+			     [E] -> case refac_syntax:type(E) of
+					match_expr -> [refac_syntax:match_expr_body(E)];
+					_ -> [E]
+				    end;
+			     _ -> ExpList
+			 end;
+		   _ ->case VarsToExport of
+			   [V] -> 
+			       E = refac_syntax:variable(V),
+			       ExpList++[E];
+			   [_V|_Vs] -> 
+			       Elems =[refac_syntax:variable(V)||V<-VarsToExport], 
+			       ExpList ++ [refac_syntax:tuple(Elems)]
+		       end
+	       end,		
     Clause = refac_syntax:clause(Pars, [], ExpList1),
     NewFun = refac_syntax:function(NewFunName1, [Clause]),
     Forms = refac_syntax:form_list_elements(AnnAST),
@@ -327,12 +334,16 @@ vars_to_export(Fun,ExprEndPos, ExprBdVars) ->
 					{V, SourcePos, DefPos} <- AllVars,
 					SourcePos > ExprEndPos,
 					lists:subtract(DefPos, ExprBdVarsPos) == []]),
-    lists:reverse(lists:foldl(fun({V,_Pos}, Acc) -> 
-				      case lists:member(V, Acc) of 
-					  false -> [V|Acc];
-					  _ -> Acc
-				      end
-			      end,[], VarsToExport)).
+    case VarsToExport of 
+	[] -> [];
+	_ ->
+	    lists:reverse(lists:foldl(fun({V,_Pos}, Acc) -> 
+					      case lists:member(V, Acc) of 
+						  false -> [V|Acc];
+						  _ -> Acc
+					      end
+				      end,[], VarsToExport))
+    end.
 collect_vars(Tree) ->
      F= fun(T, S) ->
 		case refac_syntax:type(T) of 
