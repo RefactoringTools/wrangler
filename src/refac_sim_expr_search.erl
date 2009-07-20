@@ -34,7 +34,8 @@
 
 -export([get_start_end_loc/1, start_counter_process/0, 
 	 stop_counter_process/1, gen_new_var_name/1,
-	 variable_replaceable/1]).
+	 variable_replaceable/1, find_anti_unifier/4,
+	generalise_expr/3, vars_to_export/3]).
 
 -import(refac_duplicated_code, [collect_vars/1]).
 -import(refac_expr_search, [compose_search_result_info/2]).
@@ -97,7 +98,8 @@ sim_expr_search(FName, Start = {Line, Col}, End = {Line1, Col1}, SimiScore0, Sea
     SE = get_start_end_loc(Exprs),
     Ranges1 = [SE| Ranges--[SE]],
     ExportVars1 = {element(1,lists:unzip(vars_to_export(FunDef, End, Exprs1))), lists:usort(lists:append(ExportVars))},
-    AntiUnifier = denormalise_expr(generalise_expr(Exprs1,SubSt, ExportVars1),RecordInfo),
+    AntiUnifier = generalise_expr(Exprs1,SubSt, ExportVars1),
+   %% AntiUnifier = denormalise_expr(generalise_expr(Exprs1,SubSt, ExportVars1),RecordInfo),
     Num = length(Ranges1), 
     case Num =<1 of 
 	true -> ?wrangler_io("No similar expression has been found.\n",[]); 
@@ -119,6 +121,8 @@ do_search_similar_expr(AnnAST, RecordInfo, Exprs, SimiScore) when is_list(Exprs)
 					   do_search_similar_expr_1(Exprs, Exprs1, RecordInfo, SimiScore, FunNode)++Acc1;
 				 block_expr -> Exprs1 = refac_syntax:block_expr_body(T),
 					       do_search_similar_expr_1(Exprs, Exprs1, RecordInfo, SimiScore, FunNode)++Acc1;
+				 try_expr -> Exprs1 = refac_syntax:try_expr_body(T),
+					     do_search_similar_expr_1(Exprs, Exprs1, RecordInfo, SimiScore, FunNode)++Acc1;
 				 _  -> Acc1
 			     end
 		     end,
@@ -229,7 +233,7 @@ subst_check(Expr1, SubSt)->
 
      
 do_find_anti_unifier(Exprs1, Exprs2) when is_list(Exprs1) andalso is_list(Exprs2)->
-    case length(Exprs1) == length(Exprs2) of
+    case length(Exprs1) == length(Exprs2) andalso Exprs1=/=[] of
 	true ->
 	    lists:append([do_find_anti_unifier(E1, E2) || 
 			     {E1, E2} <-lists:zip(Exprs1, Exprs2)]);
@@ -252,7 +256,8 @@ do_find_anti_unifier(Expr1, Expr2) ->
 	       catch
 		   _ -> case variable_replaceable(E1) andalso 
 			    variable_replaceable(E2) of 
-			    true ->[{E1,E2}];
+			    true ->
+				[{E1,E2}];
 			    _ -> throw(non_unificable)
 			end
 	       end       
@@ -273,16 +278,22 @@ do_find_anti_unifier(Expr1, Expr2) ->
 			 refac_syntax:concrete(Expr2) of 
 			 true ->
 			     [];
-			 _ -> [{Expr1, Expr2}]
+			 _ ->
+			     case variable_replaceable(Expr1) andalso
+				 variable_replaceable(Expr2) of
+				 true ->
+				     [{Expr1, Expr2}];
+				 false -> throw(non_unificable)
+			     end
 		     end;			
 		_ -> case T1 of 
 			 variable ->
 			      case {is_macro_name(Expr1),is_macro_name(Expr2)} of
 				  {true, true} ->
-				      case refac_syntax:variable_name(Expr1)==
-					  refac_syntax:variable_name(Expr2) of 
+				      case macro_name_value(Expr1)==
+					  macro_name_value(Expr2) of 
 					  true -> [];
-					  false -> false
+					  false -> throw(non_unifiable)
 				      end;
 				  {false, false} ->[{Expr1, Expr2}];
 				  _ -> 
@@ -299,8 +310,8 @@ do_find_anti_unifier(Expr1, Expr2) ->
 			 underscore ->[];
 			 macro -> MacroName1 = refac_syntax:macro_name(Expr1),
 				  MacroName2 = refac_syntax:macro_name(Expr2),
-				  case refac_syntax:variable_name(MacroName1) =/=
-				      refac_syntax:variable_name(MacroName2) of
+				  case macro_name_value(MacroName1) =/=
+				      macro_name_value(MacroName2) of
 				      true -> [{Expr1, Expr2}];
 				      false -> F(Expr1, Expr2)
 				  end;
@@ -308,7 +319,8 @@ do_find_anti_unifier(Expr1, Expr2) ->
 				  true -> case variable_replaceable(Expr1)  andalso 
  					      variable_replaceable(Expr2) of
 					      
-					      true -> [{Expr1, Expr2}];
+					      true -> 
+						  [{Expr1, Expr2}];
 					      _ ->
 						  ?debug("Does not unify 7:\n~p\n", [{Expr1,Expr2}]),
 						  throw(non_unifiable)
@@ -323,7 +335,14 @@ is_macro_name(Exp) ->
     {value, {category, macro_name}} == 
 	lists:keysearch(category, 1, refac_syntax:get_ann(Exp)).
 
-
+macro_name_value(Exp) ->
+    case refac_syntax:type(Exp) of 
+	    atom ->
+		refac_syntax:atom_value(Exp);
+	    variable ->
+		refac_syntax:variable_name(Exp)
+    end.
+  
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 generalise_expr(Exprs, SearchRes, ExportVars) ->
@@ -409,6 +428,9 @@ do_replace_expr_with_var_1(Node, {SubSt, ExprFreeVars, Pid, ExportExprs }) ->
 	_ -> {Node, false}
     end.
 
+
+%% expressions which should not be replaced by a variable.
+%% how about expressions has side effects?
 variable_replaceable(Exp) ->
     case lists:keysearch(category,1, refac_syntax:get_ann(Exp)) of 
 	{value, {category, record_field}} -> false;
@@ -479,69 +501,14 @@ make_new_name(SuffixNum, UsedNames) ->
     end.
 
 normalise_expr(Exprs, RecordInfo) ->
-    Exprs1=normalise_record_expr(Exprs, RecordInfo),
-    do_normalise_fun_calls(Exprs1).
+    normalise_record_expr(Exprs, RecordInfo).
+  %%  do_normalise_fun_calls(Exprs1).
   
 normalise_record_expr(Exprs, RecordInfo) when is_list(Exprs)->
-    [refac_util:full_buTP(fun do_normalise_record_expr_1/2, E, {RecordInfo, true})|| E<-Exprs];
+     [refac_util:full_buTP(fun do_normalise_record_expr_1/2, E, {RecordInfo, true})|| E<-Exprs];
 
 normalise_record_expr(Expr, RecordInfo) ->
-    refac_util:full_buTP(fun do_normalise_record_expr_1/2, Expr, {RecordInfo,true}).
-
-do_normalise_fun_calls(Exprs)  when is_list(Exprs)->
-    [refac_util:full_buTP(fun do_normalise_fun_calls_1/2, E, [])||E<-Exprs];
-
-do_normalise_fun_calls(Expr) ->
-    refac_util:full_buTP(fun do_normalise_fun_calls_1/2, Expr, []).
-
-do_normalise_fun_calls_1(Node, _Others) ->
-    case refac_syntax:type(Node) of
-	application ->
-	    Op = refac_syntax:application_operator(Node),
-	    Args = refac_syntax:application_arguments(Node),
-	    case refac_syntax:type(Op) of 
-		atom ->
-		    As = refac_syntax:get_ann(Op),
-		    case lists:keysearch(fun_def, 1, As) of
-			{value, {fun_def, {M, _FunName, _Arity, _UsePos, _DefinePos}}} ->
-			    Op1 =refac_util:rewrite(
-				   Op, refac_syntax:module_qualifier(set_random_pos(refac_syntax:atom(M)), Op)),
-				refac_util:rewrite(Node, refac_syntax:application(Op1,Args));
-			_ -> Node
-		    end;
-		_ -> Node
-	    end;
-	_ -> Node
-    end. 					    
-
-
-denormalise_expr(Exprs, _RecordInfo) ->
-   do_denormalise_fun_calls(Exprs).
-  
-do_denormalise_fun_calls(Exprs)  when is_list(Exprs)->
-    [refac_util:full_buTP(fun do_denormalise_fun_calls_1/2, E, [])||E<-Exprs];
-
-do_denormalise_fun_calls(Expr) ->
-    refac_util:full_buTP(fun do_denormalise_fun_calls_1/2, Expr, []).
-
-do_denormalise_fun_calls_1(Node, _Others) ->
-    case refac_syntax:type(Node) of
-	application ->
-	    Op = refac_syntax:application_operator(Node),
-	    Args = refac_syntax:application_arguments(Node),
-	    case refac_syntax:type(Op) of 
-		module_qualifier ->
-		    M = refac_syntax:module_qualifier_argument(Op),
-		    F = refac_syntax:module_qualifier_body(Op),
-		    case refac_syntax:type(M)==atom andalso (refac_syntax:get_pos(M) < {0, 0}) of 
-			true ->
-			    refac_util:rewrite(Node, refac_syntax:application(F, Args));
-			_ -> Node
-		    end;
-		_ -> Node
-	    end;
-	_ -> Node
-    end. 					    
+     refac_util:full_buTP(fun do_normalise_record_expr_1/2, Expr, {RecordInfo,true}).
 
 get_start_end_loc(Exprs) when is_list(Exprs) ->
     E1= hd(Exprs),
