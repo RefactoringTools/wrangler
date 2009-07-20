@@ -605,24 +605,42 @@ lay_2(Node,Ctxt) ->
       operator ->
 	  floating(text(refac_syntax:operator_literal(Node)));
       infix_expr ->  %% done;
-	  Left = refac_syntax:infix_expr_left(Node),
-	  Operator = refac_syntax:infix_expr_operator(Node),
-	  Right = refac_syntax:infix_expr_right(Node),
-	  {PrecL,Prec,PrecR} = case refac_syntax:type(Operator) of
-				 operator ->
-				     inop_prec(refac_syntax:operator_name(Operator));
-				 _ -> {0,0,0}
-			       end,
-	  D1 = lay(Left,set_prec(Ctxt,PrecL)),
-	  D2 = lay(Operator,reset_prec(Ctxt)),
-	  D3 = lay(Right,set_prec(Ctxt,PrecR)),
-	  LeftEndLn = get_end_line(Left),
-	  OpStartLn = get_start_line(Operator),
-	  OpEndLn = get_end_line(Operator),
-	  RightStartLn = get_start_line(Right),
-	  D12 = lay_two_docs(Ctxt,D1,D2,LeftEndLn,OpStartLn),
-	  D4 = lay_two_docs(Ctxt,D12,D3,OpEndLn,RightStartLn),
-	  maybe_parentheses(D4,Prec,Ctxt);
+	  %%    Operator = erl_syntax:infix_expr_operator(Node),
+%% 	    {PrecL, Prec, PrecR} =
+%% 		case erl_syntax:type(Operator) of
+%% 		    operator ->
+%% 			inop_prec(
+%% 			  erl_syntax:operator_name(Operator));
+%% 		    _ ->
+%% 			{0, 0, 0}
+%% 		end,
+%% 	    D1 = lay(erl_syntax:infix_expr_left(Node),
+%% 		     set_prec(Ctxt, PrecL)),
+%% 	    D2 = lay(Operator, reset_prec(Ctxt)),
+%% 	    D3 = lay(erl_syntax:infix_expr_right(Node),
+%% 		     set_prec(Ctxt, PrecR)),
+%% 	    D4 = par([D1, D2, D3], Ctxt#ctxt.sub_indent),
+%% 	    maybe_parentheses(D4, Prec, Ctxt);
+	
+	    Left = refac_syntax:infix_expr_left(Node),
+	    Operator = refac_syntax:infix_expr_operator(Node),
+	    Right = refac_syntax:infix_expr_right(Node),
+	    {PrecL,Prec,PrecR} = case refac_syntax:type(Operator) of
+				     operator ->
+					 inop_prec(refac_syntax:operator_name(Operator));
+				     _ -> {0,0,0}
+				 end,
+	    D1 = lay(Left,set_prec(Ctxt,PrecL)),
+	    D2 = lay(Operator,reset_prec(Ctxt)),
+	    D3 = lay(Right,set_prec(Ctxt,PrecR)),
+	    LeftEndLn = get_end_line(Left),
+	    OpStartLn = get_start_line(Operator),
+	    D12 = case (OpStartLn == LeftEndLn) andalso (OpStartLn=/=0) of 
+		      true -> beside(D1,D2);
+		      false ->par([D1,D2],Ctxt#ctxt.sub_indent)
+		  end,
+	    D4 = par([D12, D3], Ctxt#ctxt.sub_indent),
+	    maybe_parentheses(D4,Prec,Ctxt);
       prefix_expr ->  %% done;
 	  Operator = refac_syntax:prefix_expr_operator(Node),
 	  PrefixArg = refac_syntax:prefix_expr_argument(Node),
@@ -1009,17 +1027,6 @@ lay_2(Node,Ctxt) ->
 	  beside(text("%% WARNING: "),lay_error_info(E,reset_prec(Ctxt)));
       type -> empty();  %% tempory fix!!
       typed_record_field -> empty() %% tempory fix!!!
-    end.
-
-lay_two_docs(Ctxt,D1,D2,D1EndLn,OpStartLn) ->
-    case (D1EndLn == 0) or (OpStartLn == 0) of
-      true -> par([D1,D2],Ctxt#ctxt.sub_indent);
-      _ ->
-	  case OpStartLn - D1EndLn of
-	    0 -> beside(D1,beside(nil(),D2));
-	    1 -> above(D1,nest(Ctxt#ctxt.sub_indent,D2));
-	    _ -> par([D1,D2],Ctxt#ctxt.sub_indent)
-	  end
     end.
 
 lay_parentheses(D,_Ctxt) ->
