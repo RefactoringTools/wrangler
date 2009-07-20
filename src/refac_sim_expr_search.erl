@@ -182,27 +182,37 @@ do_search_similar_expr_1(Exprs1, Exprs2, RecordInfo, SimiScore, FunNode) ->
     end.
 
 find_anti_unifier(Expr1, Expr2, SimiScore, Fun) ->
-    try do_find_anti_unifier(Expr1,Expr2) of
-	SubSt ->
-	    ExprSize = no_of_nodes(Expr1),
-	    {SubExprs1, _SubExprs2} = lists:unzip(SubSt),
-	    Score = 1 -((no_of_nodes(SubExprs1)-length(SubExprs1))/ExprSize),
-	    case Score>=SimiScore of 
-		true ->
-		    case subst_check(Expr1,SubSt) of
-			false ->[];
-			_ ->
-			    {SLoc, ELoc} = get_start_end_loc(Expr2),
-			    EVs =vars_to_export(Fun, ELoc, Expr2),
-			    EVs1 =[E1 || {E1,E2} <-SubSt, refac_syntax:type(E2)==variable, 
-					 lists:member({refac_syntax:variable_name(E2), get_var_define_pos(E2)}, EVs)],
-			    [{{SLoc, ELoc}, EVs1,SubSt}]
-		    end;
+    try
+      do_find_anti_unifier(Expr1, Expr2)
+    of
+      SubSt ->
+	  Score = simi_score(Expr1, SubSt),
+	    case Score>= SimiScore of
+	    true ->
+		case subst_check(Expr1, SubSt) of
+		  false -> [];
+		  _ ->
+			{SLoc, ELoc} = get_start_end_loc(Expr2),
+			EVs = vars_to_export(Fun, ELoc, Expr2),
+			EVs1 = [E1 || {E1, E2} <- SubSt, refac_syntax:type(E2)== variable,
+				      lists:member({refac_syntax:variable_name(E2), get_var_define_pos(E2)}, EVs)],
+			[{{SLoc, ELoc}, EVs1, SubSt}]
+		end;
 		_ -> []
 	    end
-    catch 
+    catch
 	_ -> []
     end.
+
+simi_score(Expr1, SubSt) ->
+    ExprSize = no_of_nodes(Expr1),
+    {SubExprs1, _SubExprs2} = lists:unzip(SubSt),
+    NonVarExprs = [E || E<-SubExprs1, refac_syntax:type(E)=/=variable],
+    Res =1 -((no_of_nodes(SubExprs1)-length(SubExprs1)+4*length(NonVarExprs))/ExprSize),
+   %% Res =1 -((no_of_nodes(SubExprs1)-length(SubExprs1))/ExprSize),
+    Res.
+
+
 
 
 subst_check(Expr1, SubSt)->
@@ -233,10 +243,14 @@ subst_check(Expr1, SubSt)->
 
      
 do_find_anti_unifier(Exprs1, Exprs2) when is_list(Exprs1) andalso is_list(Exprs2)->
-    case length(Exprs1) == length(Exprs2) andalso Exprs1=/=[] of
+    case length(Exprs1) == length(Exprs2) of
 	true ->
-	    lists:append([do_find_anti_unifier(E1, E2) || 
-			     {E1, E2} <-lists:zip(Exprs1, Exprs2)]);
+	    case Exprs1 of 
+		[] -> [];
+		_ -> 
+		    lists:append([do_find_anti_unifier(E1, E2) || 
+				     {E1, E2} <-lists:zip(Exprs1, Exprs2)])
+	    end;
 	false ->
 	    ?debug("Does not unify 1:\n~p\n", [{Exprs1,Exprs2}]), 
 	    throw(non_unifiable)
@@ -272,20 +286,19 @@ do_find_anti_unifier(Expr1, Expr2) ->
 			 ?debug("Does not unify 4:\n~p\n", [{Expr1,Expr2}]), 
 			 throw(non_unifiable)
 	       end;
-	true -> case refac_syntax:is_literal(Expr1) of 
-		 true ->  
-		     case refac_syntax:concrete(Expr1) == 
-			 refac_syntax:concrete(Expr2) of 
-			 true ->
-			     [];
-			 _ ->
-			     case variable_replaceable(Expr1) andalso
-				 variable_replaceable(Expr2) of
-				 true ->
-				     [{Expr1, Expr2}];
-				 false -> throw(non_unificable)
-			     end
-		     end;			
+	true -> case refac_syntax:is_literal(Expr1) andalso refac_syntax:is_literal(Expr2) of 
+		 true ->
+			case refac_syntax:concrete(Expr1) ==refac_syntax:concrete(Expr2) of 
+			    true ->
+				[];
+			    _ ->
+				case variable_replaceable(Expr1) andalso
+				    variable_replaceable(Expr2) of
+				    true ->
+					[{Expr1, Expr2}];
+				    false -> throw(non_unificable)
+				end
+			end;			
 		_ -> case T1 of 
 			 variable ->
 			      case {is_macro_name(Expr1),is_macro_name(Expr2)} of
@@ -318,7 +331,7 @@ do_find_anti_unifier(Expr1, Expr2) ->
 			 _ -> case refac_syntax:is_leaf(Expr1) of
 				  true -> case variable_replaceable(Expr1)  andalso 
  					      variable_replaceable(Expr2) of
-					      
+				      
 					      true -> 
 						  [{Expr1, Expr2}];
 					      _ ->
