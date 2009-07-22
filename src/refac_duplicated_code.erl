@@ -26,6 +26,8 @@
 
 -export([init/1, collect_vars/1]).
 
+-export([get_clones_by_suffix_tree/5, display_clone_result/2]).
+
 -import(refac_sim_expr_search, [start_counter_process/0, stop_counter_process/1, gen_new_var_name/1,variable_replaceable/1]).
 
 %% TODO:  
@@ -68,10 +70,9 @@ stop_suffix_tree_clone_detector() -> case catch (?MODULE ! stop) of
 				     end.
 
 
-get_clones_by_suffix_tree(FileNames,MinLength, MinClones, TabWidth) ->
-    %% tokenize Erlang source files and concat the tokens into a single list.
-    {Toks, ProcessedToks} = tokenize(FileNames, TabWidth),
-    OutFileName = filename:join(filename:dirname(hd(FileNames)), "wrangler_suffix_tree"), 
+get_clones_by_suffix_tree(Dir, ProcessedToks,MinLength, MinClones, Alphabet) ->
+    start_suffix_tree_clone_detector(),
+    OutFileName = filename:join(Dir, "wrangler_suffix_tree"), 
     case file:write_file(OutFileName, ProcessedToks) of 
 	ok -> case  catch call_port({get, MinLength, MinClones, OutFileName}) of
 		  {ok, _Res} ->
@@ -80,28 +81,28 @@ get_clones_by_suffix_tree(FileNames,MinLength, MinClones, TabWidth) ->
 		      {ok, Res} = file:consult(OutFileName), 
 		      file:delete(OutFileName),
 		      case Res of 
-			  [] -> {Toks, []}; 
-			  [Cs] -> {Toks, Cs}
+			  [] -> []; 
+			  [Cs] -> Cs
 		      end;
 		  _E -> ?debug("Reason:\n~p\n", [_E]),
-		      stop_suffix_tree_clone_detector(),
-		      file:delete(OutFileName),
-		      get_clones_by_erlang_suffix_tree(Toks, ProcessedToks, MinLength, MinClones)
+			stop_suffix_tree_clone_detector(),
+			file:delete(OutFileName),
+			get_clones_by_erlang_suffix_tree(ProcessedToks, MinLength, MinClones, Alphabet)
 		    
 	      end;	
-	_ ->  get_clones_by_erlang_suffix_tree(Toks, ProcessedToks, MinLength, MinClones)
+	_ ->  get_clones_by_erlang_suffix_tree(ProcessedToks, MinLength, MinClones, Alphabet)
     end.
 
-get_clones_by_erlang_suffix_tree(Toks, ProcessedToks, MinLength, MinClones) ->
+get_clones_by_erlang_suffix_tree(ProcessedToks, MinLength, MinClones, Alphabet) ->
     ?wrangler_io("\nWrangler failed to use the C suffixtree implementation;"
                  " Initial clones are calculated using Erlang suffixtree implementation.\n",[]),
-    Tree = suffix_tree(alphabet() ++ "&", ProcessedToks ++ "&"),
+    Tree = suffix_tree(Alphabet, ProcessedToks ++ "&"),
     Cs = lists:flatten(lists:map(fun (B) ->
 					 collect_clones(MinLength, MinClones, B)
 				 end,
 				 Tree)),
-    Cs1 = remove_sub_clones(Cs),
-    {Toks, Cs1}.
+    remove_sub_clones(Cs).
+   
     
 call_port(Msg) ->
     (?MODULE) ! {call, self(), Msg},
@@ -188,12 +189,11 @@ duplicated_code(DirFileList, MinLength1, MinClones1, TabWidth) ->
 		end,
     ?wrangler_io("\nCMD: ~p:duplicated_code(~p,~p,~p,~p).\n", [?MODULE, DirFileList, MinLength1, MinClones1, TabWidth]),
     ?debug("current time:~p\n", [time()]),
-    start_suffix_tree_clone_detector(),
     Cs5 = duplicated_code_detection(DirFileList, MinClones, MinLength, TabWidth),
     ?debug("Filtering out sub-clones.\n", []),
     Cs6 = remove_sub_clones(Cs5),
     ?debug("current time:~p\n", [time()]),
-    display_clone_result(Cs6),
+    display_clone_result(Cs6, "Duplicated"),
     ?debug("No of Clones found:\n~p\n", [length(Cs6)]),
     ?debug("Clones:\n~p\n", [Cs6]),
     {ok, "Duplicated code detection finished."}.
@@ -210,7 +210,9 @@ duplicated_code_detection(DirFileList, MinClones, MinLength, TabWidth) ->
     FileNames = refac_util:expand_files(DirFileList, ".erl"),
     ?debug("Files:\n~p\n", [FileNames]),
     ?debug("Constructing suffix tree and collecting clones from the suffix tree.\n", []),
-    {Toks,Cs}= get_clones_by_suffix_tree(FileNames, MinLength, MinClones, TabWidth),
+    {Toks, ProcessedToks} = tokenize(FileNames, TabWidth),
+    Dir = filename:dirname(hd(FileNames)),
+    Cs= get_clones_by_suffix_tree(Dir, ProcessedToks,MinLength, MinClones,alphabet() ++ "&"),
     ?debug("Initial numberclones from suffix tree:~p\n", [length(Cs)]),
     %% This step is necessary to reduce large number of sub-clones.
     ?debug("Type 4 clones:\n~p\n", [length(Cs)]),
@@ -502,7 +504,11 @@ sub_clone(C1, C2) ->
     F2 = element(3, C2),
     case F1=<F2 andalso Len1=<Len2 of 
 	true ->
-	    lists:all(fun ({S, E}) -> lists:any(fun ({S1, E1}) -> S1 =< S andalso E =< E1 end, Range2) end, Range1);
+	    lists:all(fun ({S, E}) -> 
+			      lists:any(fun ({S1, E1}) ->
+						S1 =< S andalso E =< E1 
+					end, Range2) 
+		      end, Range1);
 	false ->
 	    false
     end.
@@ -770,53 +776,63 @@ alphabet_1() ->
 %% ===========================================================================
 %% display the found-out clones to the user.
 
-display_clone_result(Cs) ->
+display_clone_result(Cs, Str) ->
     case length(Cs) >=1  of 
-	true -> display_clones_by_freq(Cs),
-		display_clones_by_length(Cs),
+	true -> display_clones_by_freq(Cs, Str),
+		display_clones_by_length(Cs, Str),
 		?wrangler_io("\n\n NOTE: Use 'M-x compilation-minor-mode' to make the result mouse clickable.\n\n",[]);	
-	false -> ?wrangler_io("\nDuplicated code detection finished with no clones found.\n", [])
+	false -> ?wrangler_io("\n"++Str++" code detection finished with no clones found.\n", [])
     end.
     
-display_clones_by_freq(Cs) ->
+display_clones_by_freq(Cs, Str) ->
     ?wrangler_io("\n===================================================================\n",[]),
-    ?wrangler_io("Duplicated Code Detection Results Sorted by the Number of Times Being Duplicated.\n",[]),
+    ?wrangler_io(Str++" Code Detection Results Sorted by the Number of Code Instances.\n",[]),
     ?wrangler_io("======================================================================\n",[]),		 
-    ?wrangler_io(display_clones(Cs),[]).
+    ?wrangler_io(display_clones(Cs, Str),[]).
 
-display_clones_by_length(Cs) ->
+display_clones_by_length(Cs, Str) ->
     ?wrangler_io("\n===================================================================\n",[]),
-    ?wrangler_io("Duplicated Code Detection Results Sorted by the Size of the Duplicated Code.\n",[]),
+    ?wrangler_io(Str ++ " Code Detection Results Sorted by Code Size.\n",[]),
     ?wrangler_io("======================================================================\n",[]),		 
     Cs1 = lists:sort(fun({_Range1, Len1, F1, _},{_Range2, Len2, F2,_})
 			-> {Len1, F1} =< {Len2, F2}
 		     end, Cs),
-    ?wrangler_io(display_clones(Cs1),[]).
+    ?wrangler_io(display_clones(Cs1, Str),[]).
+
 
 %% display the found-out clones to the user.
-display_clones(Cs) ->
+display_clones(Cs, Str) ->
     Num = length(Cs),
-    Str = io_lib:format("\nClone detection finished with *** ~p *** clone(s) found.\n", [Num]),
+    ?wrangler_io("\n"++Str++" detection finished with *** ~p *** clone(s) found.\n", [Num]),
     case Num of 
 	0 -> ok;
-	_ -> display_clones_1(Cs, Str)
+	_ -> display_clones_1(Cs)
     end.
+display_clones_1(Cs) ->
+    case length(Cs) > 2 of 
+	true ->
+	    ?wrangler_io(display_clones_1(Cs, ""),[]),
+	    display_clones_1(lists:nthtail(2, Cs));	 
+	false ->
+	    ?wrangler_io(display_clones_1(Cs, ""),[])
+    end.    
+
 display_clones_1([], Str) -> Str ++ "\n";
 display_clones_1([{Ranges, _Len, F, Code}| Cs], Str) ->
     [{{File, StartLine, StartCol}, {File, EndLine, EndCol}}| Range] = lists:keysort(1, Ranges),
     NewStr = compose_clone_info({File, StartLine, StartCol}, {File, EndLine, EndCol}, F, Range, Str),
-    NewStr1 = NewStr ++ "The duplicated expression/function after generalisation:\n\n"++ io_lib:format("~s", [Code]) ++ "\n",
+    NewStr1 = NewStr ++ "The cloned expression/function after generalisation:\n\n"++ io_lib:format("~s", [Code]) ++ "\n",
     display_clones_1(Cs, NewStr1).
 
 compose_clone_info({File, StartLine, StartCol}, {File, EndLine, EndCol}, F, Range, Str) ->
     case F - 1 of
-	1 -> Str1 = Str ++ "\n" ++ File ++ io_lib:format(":~p.~p-~p.~p: This code has been duplicated once:\n",
+	1 -> Str1 = Str ++ "\n" ++ File ++ io_lib:format(":~p.~p-~p.~p: This code has been cloned once:\n",
 							 [StartLine, lists:max([1, StartCol-1]), EndLine, EndCol]),
 	     display_clones_2(Range, Str1);
-	2 -> Str1 = Str ++ "\n" ++ File ++ io_lib:format(":~p.~p-~p.~p: This code has been duplicated twice:\n",
+	2 -> Str1 = Str ++ "\n" ++ File ++ io_lib:format(":~p.~p-~p.~p: This code has been cloned twice:\n",
 							 [StartLine, lists:max([1, StartCol-1]), EndLine, EndCol]),
 	     display_clones_2(Range, Str1);
-	_ -> Str1 = Str ++ "\n" ++ File ++ io_lib:format(":~p.~p-~p.~p: This code has been duplicated ~p times:\n",
+	_ -> Str1 = Str ++ "\n" ++ File ++ io_lib:format(":~p.~p-~p.~p: This code has been cloned ~p times:\n",
 							 [StartLine, lists:max([1, StartCol-1]), EndLine, EndCol, F - 1]),
 	     display_clones_2(Range, Str1)
     end.

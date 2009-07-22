@@ -628,27 +628,13 @@ make_fun_call({FunDefMod, CurrentMod}, FunName, Pats, Subst) ->
 
 make_match_expr({FunDefMod, CurrentMod}, FunName, Pats, Subst, VarsToExport) ->
     FunCall = make_fun_call({FunDefMod, CurrentMod},FunName, Pats, Subst),
-    case VarsToExport of 
-	[] ->
-	    FunCall;
-	[V] ->
-	    case V of 
-		'_' -> FunCall;
-		_ -> P = refac_syntax:variable(V),
-		     refac_syntax:match_expr(P, FunCall)
-	    end;
-	[_V|_VS] ->
-	    case lists:all(fun(E) -> E=='_' end, VarsToExport) of 
-		true ->
-		    FunCall;
-		_ -> 
-		    P =refac_syntax:tuple([refac_syntax:variable(V) || V <-VarsToExport]),
-		    refac_syntax:match_expr(P, FunCall)
-	    end
+    Pars = [E|| E <- VarsToExport, E =/= '_'],
+    case Pars of 
+	[] -> FunCall;
+	_ -> P =refac_syntax:tuple([refac_syntax:variable(V)|| V<-VarsToExport]),
+	     refac_syntax:match_expr(P, FunCall)
     end.
-	    
- 		
- 
+
 sublists(List, Len) ->
     L = length(List),
     case Len > length(List) of
@@ -725,10 +711,14 @@ reorder_vars_to_export(LastExp, VarsToExport, Subst) ->
 		     false ->
 			 '_';
 		     {value, {VarName, SubstVar}} ->
-			 SubstVarName = refac_syntax:variable_name(SubstVar),
-			 case lists:member(SubstVarName, VarsToExport) of 
+			 case refac_syntax:type(SubstVar)==variable of
 			     true ->
-				 refac_syntax:variable_name(SubstVar);
+				 SubstVarName = refac_syntax:variable_name(SubstVar),
+				 case lists:member(SubstVarName, VarsToExport) of 
+				     true ->
+					 refac_syntax:variable_name(SubstVar);
+				     _ -> '_'
+				 end;
 			     _ -> '_'
 			 end
 		 end

@@ -82,7 +82,7 @@ sim_expr_search(FName, Start = {Line, Col}, End = {Line1, Col1}, SimiScore0, Sea
 	{error, _} -> throw({error, "You have not selected an expression!"}),
 		      FunDef=[]
     end,
-    Exprs= refac_util:pos_to_expr_list(FName, FunDef, Start, End, TabWidth),
+    Exprs= refac_util:pos_to_expr_list(FunDef, Start, End),
     case Exprs of 
 	[] -> throw({error, "You have not selected an expression!"});
 	_ -> ok
@@ -186,34 +186,37 @@ find_anti_unifier(Expr1, Expr2, SimiScore, Fun) ->
       do_find_anti_unifier(Expr1, Expr2)
     of
       SubSt ->
-	  Score = simi_score(Expr1, SubSt),
-	    case Score>= SimiScore of
-	    true ->
-		case subst_check(Expr1, SubSt) of
-		  false -> [];
-		  _ ->
-			{SLoc, ELoc} = get_start_end_loc(Expr2),
-			EVs = vars_to_export(Fun, ELoc, Expr2),
-			EVs1 = [E1 || {E1, E2} <- SubSt, refac_syntax:type(E2)== variable,
-				      lists:member({refac_syntax:variable_name(E2), get_var_define_pos(E2)}, EVs)],
-			[{{SLoc, ELoc}, EVs1, SubSt}]
-		end;
+	    {SubExprs1, SubExprs2} = lists:unzip(SubSt),
+	    Score1 = simi_score(Expr1, SubExprs1),
+	    Score2 = simi_score(Expr2, SubExprs2),
+	    case Score1>= SimiScore andalso Score2>=SimiScore of
+		true ->
+		    case subst_check(Expr1, SubSt) of
+			false ->
+			    [];
+			_ ->
+			    {SLoc, ELoc} = get_start_end_loc(Expr2),
+			    EVs = vars_to_export(Fun, ELoc, Expr2),
+			    EVs1 = [E1 || {E1, E2} <- SubSt, refac_syntax:type(E2)== variable,
+					  lists:member({refac_syntax:variable_name(E2), get_var_define_pos(E2)}, EVs)],
+			    [{{SLoc, ELoc}, EVs1, SubSt}]
+		    end;
 		_ -> []
 	    end
     catch
 	_ -> []
     end.
 
-simi_score(Expr1, SubSt) ->
-    ExprSize = no_of_nodes(Expr1),
-    {SubExprs1, _SubExprs2} = lists:unzip(SubSt),
-    NonVarExprs = [E || E<-SubExprs1, refac_syntax:type(E)=/=variable],
-    Res =1 -((no_of_nodes(SubExprs1)-length(SubExprs1)+4*length(NonVarExprs))/ExprSize),
-   %% Res =1 -((no_of_nodes(SubExprs1)-length(SubExprs1))/ExprSize),
-    Res.
-
-
-
+simi_score(Expr, SubExprs) ->
+    case no_of_nodes(Expr) of
+	0 -> 0;
+	ExprSize-> 
+	    NonVarExprs = [E || E<-SubExprs, refac_syntax:type(E)=/=variable],
+	    NoOfNewVars = length(NonVarExprs),
+	    Res =1-((no_of_nodes(SubExprs)-length(SubExprs)+NoOfNewVars*(NoOfNewVars+1)/2)/ExprSize),
+	    %% Res =1 -((no_of_nodes(SubExprs1)-length(SubExprs1))/ExprSize),
+	    Res
+    end.
 
 subst_check(Expr1, SubSt)->
     BVs = refac_util:get_bound_vars(Expr1),
@@ -698,3 +701,7 @@ vars_to_export(Fun,ExprEndPos, Expr) ->
 get_var_define_pos(V) ->
     {value, {def, DefinePos}} = lists:keysearch(def,1, refac_syntax:get_ann(V)),
     DefinePos.
+
+
+
+

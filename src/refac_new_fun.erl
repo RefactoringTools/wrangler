@@ -9,7 +9,7 @@
 %%       notice, this list of conditions and the following disclaimer in the
 %%       documentation and/or other materials provided with the distribution.
 %%     %% Neither the name of the copyright holders nor the
-%%       names of its contributors may be used to endorse or promote products
+%%       names of its contributors may be used to endoorse or promote products
 %%       derived from this software without specific prior written permission.
 %%
 %% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ''AS IS''
@@ -58,7 +58,7 @@ fun_extraction(FileName, Start={Line, Col}, End={Line1, Col1},
 	false -> throw({error, "Invalid function name!"})
     end,
     {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(FileName,true, [], TabWidth),
-    case refac_util:pos_to_expr_list(FileName, AnnAST, Start, End, TabWidth) of 
+    case refac_util:pos_to_expr_list(AnnAST, Start, End) of 
 	[] -> ExpList=[],
 	      throw({error, "You have not selected an expression"
 		     "or a sequence of expressions!"});
