@@ -56,7 +56,7 @@
 expr_search(FileName, Start={Line, Col}, End={Line1, Col1}, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:expr_search(~p, {~p,~p},{~p,~p},~p).\n", [?MODULE, FileName, Line, Col, Line1, Col1, TabWidth]),
     {ok, {AnnAST, _Info}} =refac_util:parse_annotate_file(FileName,true, [], TabWidth),
-    case refac_util:pos_to_expr_list(FileName, AnnAST, Start, End, TabWidth) of 
+    case refac_util:pos_to_expr_list(AnnAST, Start, End) of 
 	[E|Es] -> 
 	    Res = case Es == [] of 
 		      true ->
@@ -83,7 +83,7 @@ expr_search(FileName, Start={Line, Col}, End={Line1, Col1}, TabWidth) ->
 -spec(expr_search_eclipse/4::(filename(), pos(), pos(), integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
 expr_search_eclipse(FileName, Start, End, TabWidth) ->
     {ok, {AnnAST, _Info}} =refac_util:parse_annotate_file(FileName,true, [], TabWidth),
-    case refac_util:pos_to_expr_list(FileName, AnnAST, Start, End, TabWidth) of 
+    case refac_util:pos_to_expr_list(AnnAST, Start, End) of 
 	[E|Es] -> 
 	    Res = case Es == [] of 
 		      true ->
