@@ -30,7 +30,7 @@
 %% 
 -module(refac_sim_code).
 
--export([sim_code_detection/6]).
+-export([sim_code_detection/6, sim_code_detection_in_buffer/6]).
 
 -include("../include/wrangler.hrl").
 
@@ -52,6 +52,12 @@
 -define(DEFAULT_FREQ, 2).
 -define(DEFAULT_SIMI_SCORE, 0.8).
 
+
+
+sim_code_detection_in_buffer(FileName, MinLen, MinFreq, SimiScore, SearchPaths, TabWidth) ->
+    sim_code_detection([FileName],MinLen, MinFreq, SimiScore, SearchPaths, TabWidth).
+
+    
 sim_code_detection(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:sim_code_detection(~p,~p,~p,~p,~p,~p).\n", 
 		 [?MODULE, DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabWidth]),
@@ -75,19 +81,21 @@ sim_code_detection(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabW
     Pid = start_hash_process(),
     ASTTab = ets:new(ast_tab, [set, public]),
     Files = refac_util:expand_files(DirFileList, ".erl"),
-    generalise_and_hash_ast(Files, Pid, SearchPaths, TabWidth, ASTTab),
-    %% refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST1}]),
-    Dir = filename:dirname(hd(Files)),
-    Cs = get_clones(Pid, MinLen, MinFreq, Dir),
-    Cs1= lists:sort(fun({_, L1, F1}, {_, L2, F2}) ->
-			    {L1, F1}>={L2, F2}
-		    end, Cs),
-    ?debug("Result1:\n~p\n", [Cs1]),
-    Cs2 = examine_clone_classes(Cs1, MinFreq, SimiScore, ASTTab,[]),
-    ?debug("Result2:\n~p\n", [Cs2]),
-    stop_hash_process(Pid),
-    ets:delete(ASTTab),
-    display_clone_result(remove_fun_info(Cs2), "Similar"),
+    case Files of
+	[] -> ?wrangler_io("Warning: No files found in the searchpaths specified.",[]);
+	_ -> generalise_and_hash_ast(Files, Pid, SearchPaths, TabWidth, ASTTab),
+	     Dir = filename:dirname(hd(Files)),
+	     Cs = get_clones(Pid, MinLen, MinFreq, Dir),
+	     Cs1= lists:sort(fun({_, L1, F1}, {_, L2, F2}) ->
+				     {L1, F1}>={L2, F2}
+			     end, Cs),
+	     ?debug("Result1:\n~p\n", [Cs1]),
+	     Cs2 = examine_clone_classes(Cs1, MinFreq, SimiScore, ASTTab,[]),
+	     ?debug("Result2:\n~p\n", [Cs2]),
+	     stop_hash_process(Pid),
+	     ets:delete(ASTTab),
+	     display_clone_result(remove_fun_info(Cs2), "Similar")
+    end,
     {ok, "Similar code detection finished."}.
     
 
@@ -165,8 +173,8 @@ variable_replaceable(Exp) ->
 	{value, {category, guard_expression}} -> false;
 	{value, {category, macro_name}} -> false;
 	{value, {category, pattern}} -> 
- 	    refac_syntax:is_literal(Exp) orelse 
-		refac_syntax:type(Exp)==variable;
+ 	    %%refac_syntax:is_literal(Exp) orelse 
+	    refac_syntax:type(Exp)==variable;
 	_ -> T = refac_syntax:type(Exp),
 	     (not (lists:member(T, [match_expr, operator, case_expr, 
 				    block_expr, catch_expr, fun_expr,
@@ -244,15 +252,15 @@ examine_clone_members([R|Rs], C={Ranges,Len, Freq}, MinFreq, SimiScore, ASTTab, 
 
 examine_a_clone_member(Range={_FName, _Start, End}, {Rs, Len, _Freq},  MinFreq, SimiScore, ASTTab) ->
     {FunDef, Exprs1} = get_expr_list(Range, ASTTab),
-    Res =[find_anti_unifier(Exprs1, Range1, SimiScore, ASTTab)||Range1 <-Rs],
+    Res =[find_anti_unifier(Exprs1, Range1, SimiScore, ASTTab)||Range1 <-Rs, Range1=/=Range],
     Res1 = lists:append(Res),
-    case length(Res1) < MinFreq of
+    case length(Res1) < MinFreq-1 of
 	true ->[];
 	_ ->
 	    {Ranges, ExportVars, SubSt} = lists:unzip3(Res1),
 	    ExportVars1 = {element(1,lists:unzip(refac_sim_expr_search:vars_to_export(FunDef, End, Exprs1))), lists:usort(lists:append(ExportVars))},
 	    AntiUnifier = refac_sim_expr_search:generalise_expr(Exprs1,SubSt, ExportVars1),
-	    {Ranges, Len, length(Ranges), refac_prettypr:format(AntiUnifier)}
+	    {[Range|Ranges], Len, length(Ranges)+1, refac_prettypr:format(AntiUnifier)}
     end.
     
 find_anti_unifier(Exprs1, Range,SimiScore, ASTTab)->
@@ -282,7 +290,7 @@ get_expr_list_1(Node, {StartLoc, EndLoc}) ->
 			 StartLoc =< SLoc, ELoc=<EndLoc],
 	    {Exprs1, Exprs1=/=[]};
 	block_expr ->
-	    Exprs = refac_syntax:block_exprs_body(Node),
+	    Exprs = refac_syntax:block_expr_body(Node),
 	    Exprs1 = [E ||E<-Exprs, {SLoc, ELoc}<-[refac_util:get_range(E)],
 			  StartLoc =< SLoc, ELoc=<EndLoc],
 	    {Exprs1, Exprs1=/=[]};	       
