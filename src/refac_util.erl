@@ -48,7 +48,7 @@
 	 is_exported/2, inscope_funs/1,
          once_tdTU/3, stop_tdTP/3, full_tdTP/3,full_buTP/3,
          pos_to_fun_name/2, pos_to_fun_def/2,pos_to_var_name/2,
-         pos_to_expr/3, pos_to_expr_list/5, pos_to_syntax_units/6, 
+         pos_to_expr/3, pos_to_expr_list/3, pos_to_expr_or_pat_list/3, pos_to_syntax_units/6, 
 	 pos_to_syntax_units/4, expr_to_fun/2,get_range/1,get_toks/1, concat_toks/1, tokenize/3,
          get_var_exports/1, get_env_vars/1, get_bound_vars/1, get_free_vars/1, 
          get_client_files/2, expand_files/2, get_modules_by_file/1,
@@ -456,7 +456,10 @@ filter_syntax_units_via_toks_2(Toks, [E1,E2|Es]) ->
 				    token_loc(T) =< EndLoc end, Toks),
     Toks2 = lists:takewhile(fun(T) ->
 				    token_loc(T) < StartLoc1 end, Toks1),
-    case lists:any(fun(T) -> token_val(T) =/= ',' end, Toks2) of 
+    case lists:any(fun(T) -> 
+			   not(lists:member(token_val(T), [',','(',')']) orelse
+			      is_whitespace_or_comment(T))
+		   end, Toks2) of 
 	false ->
 	    [E1]++ filter_syntax_units_via_toks_2(Toks, [E2|Es]);
 	_  -> [E1]
@@ -465,15 +468,43 @@ filter_syntax_units_via_toks_2(Toks, [E1,E2|Es]) ->
 
 %% =====================================================================
 %% get the list expressions enclosed by start and end locations.
--spec(pos_to_expr_list(FileName::filename(),Tree::syntaxTree(), Start::pos(), End::pos(),integer()) ->
+-spec(pos_to_expr_list(Tree::syntaxTree(), Start::pos(), End::pos()) ->
 	     [syntaxTree()]).
 
-pos_to_expr_list(FileName, Tree, Start, End, TabWidth) ->
-    Units= pos_to_syntax_units(FileName, Tree, Start, End, fun is_expr/1, TabWidth),
-    case Units of 
-	[] ->[];
-	_  -> hd(Units)
+pos_to_expr_list(AnnAST, Start, End) ->
+    pos_to_entity_list(AnnAST, Start, End, fun is_expr/1).
+
+pos_to_expr_or_pat_list(AnnAST, Start, End) ->
+    pos_to_entity_list(AnnAST, Start, End, 
+		      fun(E) ->is_expr(E) orelse is_pattern(E) end).
+						  
+
+pos_to_entity_list(AnnAST, Start, End, Fun) ->
+    case pos_to_fun_def(AnnAST, Start) of
+	{ok, FunDef} ->
+	    Ann = refac_syntax:get_ann(FunDef),
+	    {value, {toks, Toks}} = lists:keysearch(toks, 1, Ann),
+	    Units = pos_to_syntax_units(FunDef, Start, End, Fun, Toks),
+	    case Units of
+		[] -> [];
+		_ -> hd(Units)
+	    end;
+	{error, _} ->
+	    []
     end.
+
+pos_to_syntax_units(Tree, Start, End, F, Toks) ->
+    Res = pos_to_syntax_units_1(Tree, Start, End, F),
+    Res1 = filter_syntax_units(Res),
+    Units = case length(Res1)=<1 of 
+		true ->
+		    [Res1];
+		_ ->
+		    filter_syntax_units_via_toks_1(Toks, Res1)
+	    end,
+    [U || U<-Units, U=/=[]].
+
+		   
     
 
 %% ===========================================================================
@@ -633,16 +664,19 @@ get_free_vars_1([]) -> [].
 %% @spec get_bound_vars(Node::syntaxTree())-> [{atom(),pos()}]
 %% @doc Return the bound variables of an AST node.
 
+
+
 -spec(get_bound_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
 get_bound_vars(Nodes) when is_list(Nodes)->
     lists:flatmap(fun(Node) ->get_bound_vars(Node) end, Nodes);			   
 get_bound_vars(Node) ->
-    get_bound_vars_1(refac_syntax:get_ann(Node)).
-
+    refac_syntax_lib:fold(fun(N, Acc) ->
+			      get_bound_vars_1(refac_syntax:get_ann(N))++Acc
+		      end, [], Node).
+					       
 get_bound_vars_1([{bound, B} | _Bs]) -> B;
 get_bound_vars_1([_ | Bs]) -> get_bound_vars_1(Bs);
 get_bound_vars_1([]) -> [].
-
 
 %% =====================================================================
 %% @spec get_env_vars(Node::syntaxTree())-> [atom()]
@@ -1191,9 +1225,11 @@ do_add_range(Node, Toks) ->
 	  {S1, E1} = get_range(O),
 	  {S3, E3} = case Args of
 		       [] -> {S1, E1};
-		       _ -> La = glast("refac_util:do_add_range, application", Args), {_S2, E2} = get_range(La), {S1, E2}
+		       _ -> La = glast("refac_util:do_add_range, application", Args), 
+			    {_S2, E2} = get_range(La), 
+			    {S1, E2}
 		     end,
-	  E31 = extend_backwards(Toks, E3, ')'),
+	    E31 = extend_backwards(Toks, E3, ')'),
 	  refac_syntax:add_ann({range, {S3, E31}}, Node);
       case_expr ->
 	  A = refac_syntax:case_expr_argument(Node),
@@ -1433,7 +1469,8 @@ do_add_range(Node, Toks) ->
 		       _ -> get_range(Arg)
 		     end,
 	  case Fields of
-	    [] -> E11 = extend_backwards(Toks, E1, '}'), refac_syntax:add_ann({range, {S1, E11}}, Node);
+	    [] -> E11 = extend_backwards(Toks, E1, '}'),
+		  refac_syntax:add_ann({range, {S1, E11}}, Node);
 	    _ ->
 		{_S2, E2} = get_range(glast("refac_util:do_add_range,record_expr", Fields)),
 		E21 = extend_backwards(Toks, E2, '}'),
@@ -1903,7 +1940,10 @@ check_side_effect(Node, LibPlt, LocalPlt) ->
 	   end,
     case refac_syntax:type(Node) of
 	receive_expr -> true;
-	infix_expr -> Op = refac_syntax:operator_literal(refac_syntax:infix_expr_operator(Node)), Op == "!";
+	infix_expr -> Op = refac_syntax:operator_literal(refac_syntax:infix_expr_operator(Node)), 
+		      Op == "!";
+	fun_expr -> false;
+	implicit_fun -> false;
 	application ->
 	    Operator = refac_syntax:application_operator(Node),
 	    Arity = length(refac_syntax:application_arguments(Node)),
@@ -1931,7 +1971,7 @@ check_side_effect(Node, LibPlt, LocalPlt) ->
 		{atom, integer} ->
 		    FunName = refac_syntax:atom_value(Fun),
 		    Arity = refac_syntax:integer_value(A),
-		    {value, {fun_def, {M, _N, _A, _P1, _P}}} = lists:keysearch(fun_def, 1, refac_syntax:get_ann(Node)),
+		    {value, {fun_def, {M, _N, _A, _P1, _P}}} = lists:keysearch(fun_def, 1, refac_syntax:get_ann(FunName)),
 		    LookUp({M, FunName, Arity});
 		_ -> unknown
 	    end;
