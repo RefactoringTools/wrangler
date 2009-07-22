@@ -605,42 +605,43 @@ lay_2(Node,Ctxt) ->
       operator ->
 	  floating(text(refac_syntax:operator_literal(Node)));
       infix_expr ->  %% done;
-	  %%    Operator = erl_syntax:infix_expr_operator(Node),
-%% 	    {PrecL, Prec, PrecR} =
-%% 		case erl_syntax:type(Operator) of
-%% 		    operator ->
-%% 			inop_prec(
-%% 			  erl_syntax:operator_name(Operator));
-%% 		    _ ->
-%% 			{0, 0, 0}
-%% 		end,
-%% 	    D1 = lay(erl_syntax:infix_expr_left(Node),
-%% 		     set_prec(Ctxt, PrecL)),
-%% 	    D2 = lay(Operator, reset_prec(Ctxt)),
-%% 	    D3 = lay(erl_syntax:infix_expr_right(Node),
-%% 		     set_prec(Ctxt, PrecR)),
-%% 	    D4 = par([D1, D2, D3], Ctxt#ctxt.sub_indent),
-%% 	    maybe_parentheses(D4, Prec, Ctxt);
+ %% 	     Operator = erl_syntax:infix_expr_operator(Node),
+%%   	    {PrecL, Prec, PrecR} =
+%%   		case erl_syntax:type(Operator) of
+%%   		    operator ->
+%%   			inop_prec(
+%%   			  erl_syntax:operator_name(Operator));
+%%   		    _ ->
+%%   			{0, 0, 0}
+%%   		end,
+%%   	    D1 = lay(erl_syntax:infix_expr_left(Node),
+%%   		     set_prec(Ctxt, PrecL)),
+%%   	    D2 = lay(Operator, reset_prec(Ctxt)),
+%%   	    D3 = lay(erl_syntax:infix_expr_right(Node),
+%%   		     set_prec(Ctxt, PrecR)),
+%%  	    D4 = par([D1, D2, D3], Ctxt#ctxt.sub_indent),
+%%   	    maybe_parentheses(D4, Prec, Ctxt);
 	
-	    Left = refac_syntax:infix_expr_left(Node),
-	    Operator = refac_syntax:infix_expr_operator(Node),
-	    Right = refac_syntax:infix_expr_right(Node),
-	    {PrecL,Prec,PrecR} = case refac_syntax:type(Operator) of
-				     operator ->
-					 inop_prec(refac_syntax:operator_name(Operator));
-				     _ -> {0,0,0}
-				 end,
-	    D1 = lay(Left,set_prec(Ctxt,PrecL)),
-	    D2 = lay(Operator,reset_prec(Ctxt)),
-	    D3 = lay(Right,set_prec(Ctxt,PrecR)),
-	    LeftEndLn = get_end_line(Left),
-	    OpStartLn = get_start_line(Operator),
-	    D12 = case (OpStartLn == LeftEndLn) andalso (OpStartLn=/=0) of 
-		      true -> beside(D1,D2);
-		      false ->par([D1,D2],Ctxt#ctxt.sub_indent)
-		  end,
-	    D4 = par([D12, D3], Ctxt#ctxt.sub_indent),
-	    maybe_parentheses(D4,Prec,Ctxt);
+ 	     Left = refac_syntax:infix_expr_left(Node),
+  	    Operator = refac_syntax:infix_expr_operator(Node),
+  	    Right = refac_syntax:infix_expr_right(Node),
+  	    {PrecL,Prec,PrecR} = case refac_syntax:type(Operator) of
+  				     operator ->
+  					 inop_prec(refac_syntax:operator_name(Operator));
+  				     _ -> {0,0,0}
+  				 end,
+  	    D1 = lay(Left,set_prec(Ctxt,PrecL)),
+  	    D2 = lay(Operator,reset_prec(Ctxt)),
+  	    D3 = lay(Right,set_prec(Ctxt,PrecR)),
+  	    LeftEndLn = get_end_line(Left),
+  	    OpStartLn = get_start_line(Operator),
+  	    D12 = case (OpStartLn == LeftEndLn) andalso (OpStartLn=/=0) of 
+  		      true -> horizontal([D1, D2]);
+  		      false ->par([D1,D2],Ctxt#ctxt.sub_indent)
+  		  end,
+  	    D4 = par([D12, D3], Ctxt#ctxt.sub_indent),
+  	    maybe_parentheses(D4,Prec,Ctxt);
+
       prefix_expr ->  %% done;
 	  Operator = refac_syntax:prefix_expr_operator(Node),
 	  PrefixArg = refac_syntax:prefix_expr_argument(Node),
@@ -902,13 +903,12 @@ lay_2(Node,Ctxt) ->
 		end,
 	  beside(floating(text("[")),D3);
       macro ->  %%done;
-	  %% This is formatted similar to a normal function call, but
-	  %% prefixed with a "?".
-	   Ctxt1 = reset_prec(Ctxt),
-	   N = refac_syntax:macro_name(Node),
-	   Args = refac_syntax:macro_arguments(Node),
-	   D = case Args of
-		   none -> lay(N,Ctxt1);
+	    %% This is formatted similar to a normal function call, but
+	    %% prefixed with a "?".
+	    Ctxt1 = reset_prec(Ctxt),
+	    N = refac_syntax:macro_name(Node),
+	    Args = refac_syntax:macro_arguments(Node),
+	    D = case Args of
 		   [H|_] ->
 		       EndLn= get_end_line(N),
 		       StartLn=get_start_line(H),
@@ -921,7 +921,8 @@ lay_2(Node,Ctxt) ->
 			   false ->
 			       beside(lay(N,Ctxt1),beside(text("("),
 				 beside(lay_elems(fun refac_prettypr_0:par/1, As, Args),floating(text(")")))))
-		       end
+		       end;
+		   _ -> lay(N,Ctxt1)
 	       end,
 	    D1 = beside(floating(text("?")),D),
 	    maybe_parentheses(D1,0,Ctxt);    % must be conservative!
@@ -1287,7 +1288,6 @@ lay_elems_1(Fun, [{D,{SLn,ELn}}| Ts],[H| T],LastLn) ->
 	    _ -> lay_elems_1(Fun, Ts,[[D],H| T],ELn)
 	  end
     end.
-
 nil() -> text(" ").
 
 
