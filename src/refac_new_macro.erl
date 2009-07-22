@@ -82,7 +82,7 @@ pre_cond_check(FileName, NewMacroName, Start, End, SearchPaths, TabWidth) ->
 		     {error, "Macro name provided is already in use!"};
 		_ ->
 		    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-		    Sel = refac_util:pos_to_syntax_units(FileName, AnnAST, Start, End, fun is_expr_or_pat/1, TabWidth),
+		    Sel = refac_util:pos_to_expr_or_pat_list(AnnAST, Start, End),
 		    case Sel of
 			 [] -> {error, "You have not selected a sequence of expressions/patterns!"};
 			 _ ->
@@ -91,7 +91,6 @@ pre_cond_check(FileName, NewMacroName, Start, End, SearchPaths, TabWidth) ->
 	    end;
 	_ -> {error, "Invalid macro name!"}
     end.
-
 
 do_intro_new_macro(AnnAST, MacroName, SelExpList) ->
     Vars = lists:usort(lists:append(lists:map(fun(E)-> vars(E) end, SelExpList))),
@@ -211,10 +210,6 @@ process_exprs(Exprs, {MApp, SLoc, ELoc}) ->
 	     end
     end.
     
- 
-is_expr_or_pat(Node) ->
-    refac_util:is_expr(Node) orelse refac_util:is_pattern(Node).
-
 
 existing_macros(FileName, SearchPaths, TabWidth) -> 
     Dir = filename:dirname(FileName),
