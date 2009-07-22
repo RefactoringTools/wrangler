@@ -172,10 +172,13 @@
      ("Register a Process (beta)"   erl-refactor-register-pid)
      ("From Function to Process" erl-refactor-fun-to-process)
      nil 
-     ("Detect Duplicated Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
-     ("Detect Duplicated Code in Dirs" erl-refactor-duplicated-code-in-dirs)
+     ("Detect Identical Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
+     ("Detect Identical Code in Dirs" erl-refactor-duplicated-code-in-dirs)
      ("Identical Expression Search" erl-refactor-expression-search)
+     ("Detect Similar Code in Current Buffer" erl-refactor-similar-code-in-buffer)
+     ("Detect Similar Code in Dirs" erl-refactor-similar-code-in-dirs)
      ("Similar Expression Search" erl-refactor-similar-expression-search)
+     
      nil
      ("Introduce a Macro" erl-refactor-new-macro)
      ("Fold Against Macro Definition" erl-refactor-fold-against-macro)
@@ -271,7 +274,7 @@
   (interactive)
   (require 'comint)
   (setq opts (list "-name" "wrangler@localhost"
-		   "-pa"  %EBIN_DIR% 
+		   "-pa"  %EBIN_DIR" 
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))
@@ -359,7 +362,8 @@
 					       (revert-buffer nil t t)))
 				    (with-current-buffer buffer (revert-buffer nil t t)))
 			 nil)))
-		   (message "Undo succeeded!"))))))))))
+		   (message "Undo succeeded")))))
+	   (message "Undo aborted."))))))
 
 (defun erl-refactor-rename-var (name)
   "Rename an identified variable name."
@@ -902,6 +906,26 @@
 		(message "Refactoring failed: %S" rsn))
 	       (['rex ['error rsn]]
 		(message "Refactoring failed: %s" rsn))
+	        (['rex ['warning msg]]
+	    (progn
+	      (if (y-or-n-p msg)
+		  (erl-spawn
+		    (erl-send-rpc wrangler-erl-node 'refac_new_fun 'fun_extraction_1
+				  (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name tab-width))
+		    (erl-receive (current-file-name)
+			((['rex ['badrpc rsn]]
+			  (message "Refactoring failed: %S" rsn))
+			 (['rex ['error rsn]]
+			  (message "Refactoring failed: %s" rsn))
+			 (['rex ['ok modified]]
+			  (if (y-or-n-p "Do you want to preview the changes to be performd?")
+			      (progn
+				(setq modified-files (cdr modified))
+				(wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
+			    (commit))
+			  ))))
+		(message "Refactoring aborted.")
+		)))
 	       (['rex ['ok modified]]
 		(if (y-or-n-p "Do you want to preview the changes to be performed?")
 		    (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
@@ -1205,9 +1229,66 @@
 		   (['rex ['error rsn]]
 		    (message "Duplicated code detection failed: %s" rsn))
 		   (['rex ['ok result]]
-		    (message "Duplicated code detection finished!"))))))))
-    (message "Please customize the search paths to find duplicated code in other directories.")))
+		    (message "Duplicated code detection finished."))))))))
+    (message "Please customize Wrangler Search Paths to check duplicated code in other directories.")
+    ))
+		   
   
+
+(defun erl-refactor-similar-code-in-dirs(minlen minfreq simiscore)
+  "Similar code detection in dirs."
+ (interactive (list (read-string "Minimum length of an expression sequence (default value: 5): ")
+		    (read-string "Minimum number of appearance times (minimum and default value: 2): ")
+		    (read-string "Please input a similarity score between 0.1 and 1.0 (default value: 0.8):")
+		    ))
+ (if (y-or-n-p (format "Find similar code in the following directories: %s" wrangler-search-paths))
+     (let ((current-file-name (buffer-file-name))
+	   (buffer (current-buffer)))
+       (let (changed)
+	 (dolist (b (buffer-list) changed)
+	   (let* ((n (buffer-name b)) (n1 (substring n 0 1)))
+	     (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
+		 (setq changed (cons (buffer-name b) changed)))))
+	 (if changed (message-box (format "there are modified buffers: %s, please save it first." changed))
+	   (erl-spawn
+	     (erl-send-rpc wrangler-erl-node 'refac_sim_code 'sim_code_detection
+			   (list wrangler-search-paths minlen minfreq simiscore wrangler-search-paths tab-width))
+	     (erl-receive (buffer)
+		 ((['rex ['badrpc rsn]]
+		   (message "Similar code detection failed: %S" rsn))
+		  (['rex ['error rsn]]
+		   (message "Similar code detection failed: %s" rsn))
+		  (['rex ['ok result]]
+		   (message "Similar code detection finished."))))))))
+     (message "Please customize Wrangler Search Paths to check similar code in other directories.")
+    ))
+
+		   
+  
+(defun erl-refactor-similar-code-in-buffer(minlen minfreq simiscore)
+  "Similar code detection in the current buffer."
+ (interactive (list (read-string "Minimum length of an expression sequence (default value: 5): ")
+		    (read-string "Minimum number of appearance times (minimum and default value: 2): ")
+		    (read-string "Please input a similarity score between 0.1 and 1.0 (default value: 0.8):")
+		    ))
+ (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer)))
+   (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
+     (remove-highlights)
+     (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
+	 (message-box "The current buffer has been changed, please save it first.")
+       (erl-spawn
+	 (erl-send-rpc wrangler-erl-node 'refac_sim_code 'sim_code_detection_in_buffer
+		       (list current-file-name minlen minfreq simiscore  wrangler-search-paths tab-width))
+	 (erl-receive (buffer current-file-name)
+	     ((['rex ['badrpc rsn]]
+	       (message "Searching failed: %S" rsn))
+	      (['rex ['error rsn]]
+	       (message "Searching failed: %s" rsn))
+	      (['rex ['ok result]]
+	       (message "Similar code detection finished.")
+	       ))))))))
+	
 
 (defun erl-refactor-expression-search(start end)
   "Search an user-selected expression or expression sequence in the current buffer."
@@ -1232,7 +1313,7 @@
 	    (message "Searching failed: %S" rsn))
 	   (['rex ['error rsn]]
 	    (message "Searching failed: %s" rsn))
-	   (['rex ['ok regions]]
+	   (['rex ['ok clones]]
 	    (with-current-buffer buffer
 	      (highlight-instances-1 regions (car regions) buffer)
 	      (message "Searching finished; use 'C-c C-e' to remove highlights.\n")
