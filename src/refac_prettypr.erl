@@ -682,7 +682,7 @@ lay_2(Node,Ctxt) ->
 		    [H|_] ->
 			EndLn = get_end_line(Op),
 			StartLn = get_start_line(H),
-			case StartLn > EndLn of
+			case StartLn - EndLn ==1 of
 			    true ->
 				above(beside(D, text("(")), 
 				   nest(Ctxt#ctxt.sub_indent, beside(lay_elems(fun refac_prettypr_0:par/1, 
