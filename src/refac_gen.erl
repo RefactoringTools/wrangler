@@ -322,7 +322,7 @@ make_actual_parameter(ModName, Exp, SideEffect) ->
 		       end
 		end
 	  end;
-      false ->
+      [_|_] ->
 	    Pars = [refac_syntax:variable(P) || P <- FreeVars],
 	    C = refac_syntax:clause(Pars, [], [Exp]),
 	    refac_util:rewrite(Exp, refac_syntax:fun_expr([C]))
