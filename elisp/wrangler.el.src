@@ -274,7 +274,7 @@
   (interactive)
   (require 'comint)
   (setq opts (list "-name" "wrangler@localhost"
-		   "-pa"  %EBIN_DIR" 
+		   "-pa"  %EBIN_DIR% 
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))
@@ -748,6 +748,30 @@
 	(car bs)))		  
 
 
+
+(defun get_instances_to_gen(instances buffer highlight-region-overlay)
+  (setq instances-to-gen nil)
+  (setq last-position 0)
+  (while (not (equal instances nil))
+    (setq new-inst (car instances))
+    (setq line1 (elt (elt new-inst 0) 0))
+    (setq col1  (elt (elt  new-inst 0) 1))
+    (setq line2 (elt (elt new-inst 1) 0))
+    (setq col2  (elt  (elt new-inst 1) 1))
+    (if  (> (get-position line1 col1) last-position)
+	(progn 
+	  (highlight-region line1 col1 line2  col2 buffer)
+	  (if (yes-or-no-p "The expression selected occurs more than once in this function clause, would you like to replace this occurance too?")
+	      (progn
+		(setq instances-to-gen (cons new-inst instances-to-gen))
+		(setq last-position (get-position line2 col2)))
+	    nil))
+      nil)  
+    (setq instances (cdr instances)))
+  (delete-overlay highlight-region-overlay)
+  instances-to-gen)
+  
+
 (defun erl-refactor-generalisation(name start end)
   "Generalise a function definition over an user-selected expression."
   (interactive (list (read-string "New parameter name: ")
@@ -766,7 +790,7 @@
 	(erl-spawn
       (erl-send-rpc wrangler-erl-node 'wrangler_distel 'generalise
 		    (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width))
-      (erl-receive (current-file-name wrangler-search-paths start-line-no start-col-no)
+      (erl-receive (current-file-name wrangler-search-paths start-line-no start-col-no buffer highlight-region-overlay)
 	  ((['rex ['badrpc rsn]]
 	    (message "Refactoring failed: %S" rsn))
 	   (['rex ['error rsn]]
@@ -778,9 +802,15 @@
 	    (setq defpos (elt pars 3))
 	    (setq exp (elt pars 4))
 	    (setq side_effect (elt pars 5))
+	    (setq instances_in_fun (elt pars 6))
+	    (setq instances_in_clause (elt pars 7))
 	    (if (y-or-n-p "The function selected has multiple clauses, would you like to generalise the function clause selected only?")
-		(erl-spawn
-		  (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_clause (list current-file-name parname funname arity defpos exp tab-width side_effect))
+		(progn 
+		  (with-current-buffer buffer
+		    (setq instances_to_gen (get_instances_to_gen instances_in_clause buffer highlight-region-overlay)))
+		  (erl-spawn
+		  (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_clause (list 
+				current-file-name parname funname arity defpos exp tab-width side_effect instances_to_gen))
 		  (erl-receive (start-line-no start-col-no current-file-name)
 		      ((['rex ['badrpc rsn]]
 			(message "Refactoring failed: %S" rsn))
@@ -792,21 +822,25 @@
 			  (commit))
 			(with-current-buffer (get-file-buffer current-file-name)
 			  (goto-line start-line-no)
-			  (goto-column start-col-no))))))
-	      (erl-spawn
-		(erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_1 (list side_effect current-file-name parname funname arity defpos exp tab-width))
-		(erl-receive (start-line-no start-col-no current-file-name)
-		    ((['rex ['badrpc rsn]]
+			  (goto-column start-col-no)))))))
+	      (progn
+		(with-current-buffer buffer
+		  (setq instances_to_gen (get_instances_to_gen instances_in_fun buffer highlight-region-overlay)))
+		(erl-spawn
+		  (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_1 (list side_effect current-file-name parname 
+						funname arity defpos exp wrangler-search-paths tab-width instances_to_gen))
+		  (erl-receive (start-line-no start-col-no current-file-name)
+		      ((['rex ['badrpc rsn]]
 		      (message "Refactoring failed: %S" rsn))
-		     (['rex ['error rsn]]
-		      (message "Refactoring failed: %s" rsn))
-		     (['rex ['ok modified]]
-		      (if (y-or-n-p "Do you want to preview the changes to be performed?")
-			  (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
-			(commit))
-		      (with-current-buffer (get-file-buffer current-file-name)
-			(goto-line start-line-no)
-			(goto-column start-col-no))))))))
+		       (['rex ['error rsn]]
+			(message "Refactoring failed: %s" rsn))
+		       (['rex ['ok modified]]
+			(if (y-or-n-p "Do you want to preview the changes to be performed?")
+			    (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
+			  (commit))
+			(with-current-buffer (get-file-buffer current-file-name)
+			  (goto-line start-line-no)
+			  (goto-column start-col-no)))))))))
 	   (['rex ['unknown_side_effect pars]]	        
 	    (setq  parname (elt pars 0))
 	    (setq funname (elt pars 1))
@@ -814,11 +848,17 @@
 	    (setq defpos (elt pars 3))
 	    (setq exp (elt pars 4))
 	    (setq no_of_clauses (elt pars 5))
+	    (setq fun_instances (elt pars 6))
+	    (setq clause_instances (elt pars 7))
 	    (if (y-or-n-p "Does the selected expression has side effect?")
 		(if (> no_of_clauses 1)
 		    (if (y-or-n-p "The function selected has multiple clauses, would you like to generalise the function clause selected only?")
-			(erl-spawn
-			  (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_clause (list current-file-name parname funname arity defpos exp tab-width 'true))
+			(progn
+			  (with-current-buffer buffer
+			    (setq instances_to_gen (get_instances_to_gen instances_in_clause buffer highlight-region-overlay)))
+			  (erl-spawn
+			    (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_clause (list current-file-name parname funname arity 
+											     defpos exp tab-width 'true instances_to_gen))
 			  (erl-receive (start-line-no start-col-no current-file-name)
 			      ((['rex ['badrpc rsn]]
 				(message "Refactoring failed: %S" rsn))
@@ -830,39 +870,51 @@
 				  (commit))
 				(with-current-buffer (get-file-buffer current-file-name)
 				  (goto-line start-line-no)
-				  (goto-column start-col-no))))))
-		      (erl-spawn
-			(erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_1 (list 'true current-file-name parname funname arity defpos exp tab-width))
-			(erl-receive (start-line-no start-col-no current-file-name)
-			    ((['rex ['badrpc rsn]]
-			      (message "Refactoring failed: %S" rsn))
-			     (['rex ['error rsn]]
-			      (message "Refactoring failed: %s" rsn))
-			     (['rex ['ok modified]]
-			      (if (y-or-n-p "Do you want to preview the changes to be performed?")
-				  (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
-				(commit))
-			      (with-current-buffer (get-file-buffer current-file-name)
-				(goto-line start-line-no)
-				(goto-column start-col-no))))))))
-	      (if (> no_of_clauses 1)
-		  (if (y-or-n-p "The function selected has multiple clauses, would you like to generalise the function clause selected only?")
-		      (erl-spawn
-			(erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_clause (list current-file-name parname funname arity defpos exp tab-width 'false))
-			(erl-receive (start-line-no start-col-no current-file-name)
-			    ((['rex ['badrpc rsn]]
-			      (message "Refactoring failed: %S" rsn))
-			     (['rex ['error rsn]]
-			      (message "Refactoring failed: %s" rsn))
-			     (['rex ['ok modified]]
+				  (goto-column start-col-no)))))))
+		      (progn 
+			(with-current-buffer buffer
+			  (setq instances_to_gen (get_instances_to_gen instances_in_fun buffer highlight-region-overlay)))
+			(erl-spawn
+			  (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_1 (list 'true current-file-name parname funname arity 
+										      defpos exp wrangler-search-paths tab-width instances_to_gen))
+			  (erl-receive (start-line-no start-col-no current-file-name)
+			      ((['rex ['badrpc rsn]]
+				(message "Refactoring failed: %S" rsn))
+			       (['rex ['error rsn]]
+				(message "Refactoring failed: %s" rsn))
+			       (['rex ['ok modified]]
 				(if (y-or-n-p "Do you want to preview the changes to be performed?")
 				    (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
 				  (commit))
 				(with-current-buffer (get-file-buffer current-file-name)
 				  (goto-line start-line-no)
-				  (goto-column start-col-no))))))
+				  (goto-column start-col-no)))))))))
+	      (if (> no_of_clauses 1)
+		  (if (y-or-n-p "The function selected has multiple clauses, would you like to generalise the function clause selected only?")
+		      (progn
+			(with-current-buffer
+			    (setq instances_to_gen (get_instances_to_gen instances_in_clause buffer highlight-region-overlay)))
+			(erl-spawn
+			  (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_clause (list current-file-name parname funname 
+											   arity defpos exp tab-width 'false instances_to_gen))
+			  (erl-receive (start-line-no start-col-no current-file-name)
+			      ((['rex ['badrpc rsn]]
+				(message "Refactoring failed: %S" rsn))
+			       (['rex ['error rsn]]
+				(message "Refactoring failed: %s" rsn))
+			       (['rex ['ok modified]]
+				(if (y-or-n-p "Do you want to preview the changes to be performed?")
+				    (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
+				  (commit))
+				(with-current-buffer (get-file-buffer current-file-name)
+				  (goto-line start-line-no)
+				  (goto-column start-col-no)))))))
+		    (progn
+		      (with-current-buffer
+			  (setq instances_to_gen (get_instances_to_gen instances_in_fun buffer highlight-region-overlay)))
 		      (erl-spawn
-			(erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_1 (list 'false current-file-name parname funname arity defpos exp tab-width))
+			(erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_1 (list 'false current-file-name parname funname arity defpos exp wrangler-search-paths 
+										    tab-width instances_to_gen))
 			(erl-receive (start-line-no start-col-no current-file-name)
 			    ((['rex ['badrpc rsn]]
 			      (message "Refactoring failed: %S" rsn))
@@ -874,8 +926,33 @@
 				(commit))
 			      (with-current-buffer (get-file-buffer current-file-name)
 				(goto-line start-line-no)
-				(goto-column start-col-no))))))))))
-	      (['rex ['ok refac-generalisation]]
+				(goto-column start-col-no)))))))))))
+	   (['rex ['multiple_instances pars]]
+	    (setq  parname (elt pars 0))
+	    (setq funname (elt pars 1))
+	    (setq arity (elt pars 2))
+	    (setq defpos (elt pars 3))
+	    (setq exp (elt pars 4))
+	    (setq side_effect (elt pars 5))
+	    (setq instances (elt pars 6))
+	    (with-current-buffer buffer
+	      (setq instances_to_gen (get_instances_to_gen instances buffer highlight-region-overlay)))
+	    (erl-spawn
+	      (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_1 (list side_effect current-file-name parname 
+									  funname arity defpos exp wrangler-search-paths tab-width instances_to_gen))
+	      (erl-receive (start-line-no start-col-no current-file-name)
+		  ((['rex ['badrpc rsn]]
+		    (message "Refactoring failed: %S" rsn))
+		   (['rex ['error rsn]]
+		    (message "Refactoring failed: %s" rsn))
+		   (['rex ['ok modified]]
+		    (if (y-or-n-p "Do you want to preview the changes to be performed?")
+			(wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
+		      (commit))
+		    (with-current-buffer (get-file-buffer current-file-name)
+		      (goto-line start-line-no)
+		      (goto-column start-col-no)))))))
+	   (['rex ['ok refac-generalisation]]
 	    (if (y-or-n-p "Do you want to preview the changes to be performed?")
 		(wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
 	      (commit))
@@ -1460,7 +1537,7 @@
   )
 
 
-(defun highlight-search-results(regions buffer)
+(defun highlight-search-results(regions buffer highlight-region-overlay)
   "highlight the found results one by one"
   (while (not (equal regions nil))
     (setq reg (car regions))
