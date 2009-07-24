@@ -54,7 +54,8 @@
 
 -export([check_atoms/4, try_eval/4, start_atom_process/0, 
 	 stop_atom_process/1,output_atom_warning_msg/3, 
-	 apply_style_funs/0]).
+	 apply_style_funs/0, eqc_statem_callback_funs/0,
+	 commontest_callback_funs/0,testserver_callback_funs/0]).
 
 
 -include("../include/wrangler.hrl").

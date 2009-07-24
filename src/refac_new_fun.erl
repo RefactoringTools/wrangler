@@ -49,50 +49,57 @@ fun_extraction_eclipse(FileName, Start, End, NewFunName, TabWidth) ->
     fun_extraction(FileName, Start, End, NewFunName, TabWidth, eclipse).
 
 
-fun_extraction(FileName, Start={Line, Col}, End={Line1, Col1}, 
-	       NewFunName,TabWidth,Editor) ->
-    ?wrangler_io("\nCMD: ~p:fun_extraction(~p, {~p,~p}, {~p,~p}, ~p, ~p).\n", 
-	     [?MODULE,FileName, Line, Col, Line1, Col1, NewFunName, TabWidth]),
-    case refac_util:is_fun_name(NewFunName) of 
-	true -> ok;
-	false -> throw({error, "Invalid function name!"})
+fun_extraction(FileName, Start = {Line, Col}, End = {Line1, Col1},
+	       NewFunName, TabWidth, Editor) ->
+    ?wrangler_io("\nCMD: ~p:fun_extraction(~p, {~p,~p}, {~p,~p}, ~p, ~p).\n",
+		 [?MODULE, FileName, Line, Col, Line1, Col1, NewFunName, TabWidth]),
+    case refac_util:is_fun_name(NewFunName) of
+      true -> ok;
+      false -> throw({error, "Invalid function name!"})
     end,
-    {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(FileName,true, [], TabWidth),
-    case refac_util:pos_to_expr_list(AnnAST, Start, End) of 
-	[] -> ExpList=[],
-	      throw({error, "You have not selected an expression"
-		     "or a sequence of expressions!"});
-	ExpList -> ExpList
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, [], TabWidth),
+    case refac_util:pos_to_expr_list(AnnAST, Start, End) of
+      [] -> ExpList = [],
+	    throw({error, "You have not selected an expression"
+			  "or a sequence of expressions!"});
+      ExpList -> ExpList
     end,
-    {ok,Fun} = refac_util:expr_to_fun(AnnAST, hd(ExpList)),
-    case side_cond_analysis(Info, Fun, ExpList, list_to_atom(NewFunName)) of 
-	{ok, {BdVars, FrVars}} ->
-	    FunName = refac_syntax:atom_value(refac_syntax:function_name(Fun)),
-	    FunArity = refac_syntax:function_arity(Fun),
-	    VarsToExport=vars_to_export(Fun, End, BdVars), 
-	    AnnAST1=do_fun_extraction(AnnAST,ExpList, NewFunName, 
-				      FrVars, VarsToExport, FunName, FunArity),
-	    case Editor of 
-		emacs ->
-		    Res = [{{FileName,FileName}, AnnAST1}],
-		    refac_util:write_refactored_files_for_preview(Res),
-		    {ok, [FileName]};
-		eclipse ->
-		    FileContent= refac_prettypr:print_ast(
-				   refac_util:file_format(FileName),AnnAST1),
-		    {ok, [{FileName, FileName, FileContent}]}
-	    end;
-	{error, Reason} -> throw({error, Reason})
+    {ok, Fun} = refac_util:expr_to_fun(AnnAST, hd(ExpList)),
+    case side_cond_analysis(FileName, Info, Fun, ExpList, list_to_atom(NewFunName)) of
+      ok -> fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor);
+      {error, Reason} -> throw({error, Reason})
     end.
-    
 
-side_cond_analysis(Info, Fun, ExpList, NewFunName) ->
-    lists:foreach(fun (E) -> check_expr_category(Fun, E) end, ExpList),
+fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor) ->
+    FunName = refac_syntax:atom_value(refac_syntax:function_name(Fun)),
+    FunArity = refac_syntax:function_arity(Fun),
+    {FrVars, BdVars} = get_free_bd_vars(ExpList),
+    VarsToExport = vars_to_export(Fun, End, BdVars),
+    AnnAST1 = do_fun_extraction(AnnAST, ExpList, NewFunName,
+				FrVars, VarsToExport, FunName, FunArity),
+    case Editor of
+      emacs ->
+	  Res = [{{FileName, FileName}, AnnAST1}],
+	  refac_util:write_refactored_files_for_preview(Res),
+	  {ok, [FileName]};
+      eclipse ->
+	  FileContent = refac_prettypr:print_ast(
+			  refac_util:file_format(FileName), AnnAST1),
+	  {ok, [{FileName, FileName, FileContent}]}
+    end.
+
+get_free_bd_vars(ExpList) ->
     FrBdVars = [envs_bounds_frees(E) || E <- ExpList],
     BdVars = lists:usort(lists:append([Vars || {{bound, Vars}, _} <- FrBdVars])),
     FrVars1 = lists:usort(lists:append([Vars || {_, {free, Vars}} <- FrBdVars])),
     FrVars = refac_util:remove_duplicates(
-	       [VarName || {VarName, _Pos} <- lists:keysort(2, FrVars1 -- BdVars)]),
+	       [VarName || {VarName, _Pos} <- lists:keysort(2, FrVars1 --BdVars)]),
+    {FrVars, BdVars}.
+    
+
+side_cond_analysis(FileName, Info, Fun, ExpList, NewFunName) ->
+    lists:foreach(fun (E) -> check_expr_category(Fun, E) end, ExpList),
+    {FrVars,_} = get_free_bd_vars(ExpList),
     InScopeFuns = [{F, A} || {_M, F, A} <- refac_util:inscope_funs(Info)],
     case lists:member({NewFunName, length(FrVars)}, InScopeFuns) orelse
 	   erlang:is_builtin(erlang, NewFunName, length(FrVars)) orelse
@@ -103,9 +110,14 @@ side_cond_analysis(Info, Fun, ExpList, NewFunName) ->
 			"by this module, please choose another name!"});
       _ -> ok
     end,
-    funcall_replaceable(Fun, ExpList, BdVars, FrVars).
+    funcall_replaceable(Fun, ExpList),
+    TestFrameWorkUsed = refac_util:test_framework_used(FileName),
+    test_framework_aware_name_checking(TestFrameWorkUsed,
+				       atom_to_list(NewFunName),
+				       length(FrVars)).
+   
 
-funcall_replaceable(Fun, ExpList, BdVars, FrVars) ->
+funcall_replaceable(Fun, ExpList) ->
     case ExpList of
       [Exp]->
 	    case is_guard_expr(Exp) of
@@ -122,15 +134,15 @@ funcall_replaceable(Fun, ExpList, BdVars, FrVars) ->
 			 true -> throw({error, "The selected expression "
 					"cannot be replaced by a function call!"});
 			 _ ->
-			     {ok, {BdVars, FrVars}}
-		 end
+			     ok
+		     end
 	    end;
 	_ ->
 	    ExpList1 = filter_exprs_via_ast(Fun, ExpList),
 	    case ExpList1 of
-		[] -> {ok, {BdVars, FrVars}};
-		_ -> {error, "The selected expression sequence "
-		      "cannot be replaced by  a function call!"}
+		[] -> ok;
+		_ -> throw({error, "The selected expression sequence "
+		      "cannot be replaced by  a function call!"})
 	    end
     end.
 
@@ -191,6 +203,83 @@ is_guard_expr(Node) ->
 	    true;
 	_  -> false
     end.
+
+test_framework_aware_name_checking(UsedFrameWorks, NewFunName, Arity) ->
+    eunit_name_checking(UsedFrameWorks, NewFunName, Arity),
+    eqc_name_checking(UsedFrameWorks, NewFunName, Arity),
+    testserver_name_checking(UsedFrameWorks, NewFunName, Arity),
+    commontest_name_checking(UsedFrameWorks, NewFunName, Arity).
+
+
+eunit_name_checking(UsedFrameWorks, NewFunName, Arity) ->
+    case lists:keysearch(eunit, 1, UsedFrameWorks) of 
+	{value,_} when Arity==0 ->
+	    case lists:suffix(?DEFAULT_EUNIT_TEST_SUFFIX, NewFunName) of 
+		true -> 
+		    throw({warning, "The new function name means that "
+			   "the new function is an EUnit test function, continue?"});
+		false ->
+		    case lists:suffix(?DEFAULT_EUNIT_GENERATOR_SUFFIX,NewFunName) of 
+			true -> 
+			    throw({warning, "The new function name means that "
+				   "the new function is an Eunit test generator function, continue?"});
+			false -> 
+			    ok
+		    end
+	    end;
+	false -> ok
+    end.
+       
+eqc_name_checking(UsedFrameWorks, NewFunName, Arity) ->
+    case lists:keysearch(eqc_statem, 1, UsedFrameWorks) of 
+	{value,_} -> 
+	    case lists:member({NewFunName, Arity}, refac_rename_fun:eqc_statem_callback_funs()) of 
+		true ->
+		    throw({warning, "The new function name means that "
+			   "the new function is a quickcheck callback function, continue?"});
+		false -> ok
+	    end;
+	false -> ok
+    end,
+    case lists:keysearch(eqc, 1, UsedFrameWorks) of 
+	{value,_} -> 
+	    case lists:prefix("prop_", NewFunName) of 
+		true ->
+		    throw({warning, "The new function name means that "
+			   "the new function is a quickcheck property, continue?"});
+		false -> ok
+	    end;
+	false -> ok
+    end.
+   
+
+
+testserver_name_checking(UsedFrameWorks, NewFunName, Arity) ->
+    case lists:keysearch(testserver, 1, UsedFrameWorks) of 
+	{value,_} ->
+	    case lists:member({NewFunName, Arity}, refac_rename_fun:testserver_callback_funs()) of 
+		true ->
+		    throw({warning, "The new function name means that"
+			   "the new function is a Test Server callback function, continue?"});
+		false -> ok
+	    end;
+	false -> ok
+    end.
+   
+
+commontest_name_checking(UsedFrameWorks, NewFunName, Arity)->
+    case lists:keysearch(commontest, 1, UsedFrameWorks) of 
+	{value,_} ->
+	    case lists:member({NewFunName, Arity}, refac_rename_fun:commontest_callback_funs()) of 
+		true ->
+		    throw({warning, "The new function name means that "
+			   "the new function is a Common Test callback function, continue?"});
+		false -> ok
+	    end;
+	false -> ok
+    end.
+
+
 
 do_fun_extraction(AnnAST, ExpList, NewFunName, ParNames, 
 		  VarsToExport, EnclosingFunName, EnclosingFunArity) ->
@@ -381,3 +470,5 @@ filter_exprs_via_ast(Tree, ExpList) ->
 	_  -> ExpList
     end.
 		    
+
+

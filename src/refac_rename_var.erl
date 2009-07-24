@@ -52,10 +52,6 @@
 
 -include("../include/wrangler.hrl").
 
-%% =====================================================================
-%% @spec rename_var(FileName::filename(), Line::integer(), Col::integer(), NewName::string(),SearchPaths::[string()])-> term()
-%%
-
 -spec(rename_var/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
 	     {error, string()} | {ok, string()}).
 rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth) ->
@@ -67,113 +63,122 @@ rename_var_eclipse(FName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
 
 rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
-    ?wrangler_io("\nCMD: ~p:rename_var(~p, ~p, ~p, ~p, ~p, ~p).\n", [?MODULE,FName, Line, Col, NewName, SearchPaths, TabWidth]),
+    ?wrangler_io("\nCMD: ~p:rename_var(~p, ~p, ~p, ~p, ~p, ~p).\n", 
+		 [?MODULE,FName, Line, Col, NewName, SearchPaths, TabWidth]),
     case refac_util:is_var_name(NewName) of
-	true ->
-	    %% {ok, {_AnnAST, _Info0}} = refac_util:parse_annotate_file(FName, false, SearchPaths, TabWidth),
-	    NewName1 = list_to_atom(NewName), 
-	    {ok, {AnnAST1, _Info1}}= refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),  
-	    case refac_util:pos_to_var_name(AnnAST1, {Line, Col}) of
-		{ok, {VarName, DefinePos, C}} ->
-		    if DefinePos == [{0, 0}] -> 
-			    case C of 
-				macro_name ->{error, "Renaming of a macro name is not supported by this refactoring!"};
-				_ -> {error, "Renaming of a free variable is not supported by this refactoring!"}
-			    end;				
-		       true ->
-			    if VarName /= NewName1 ->
-				    case C of
-					macro_name ->
-					    {error, "Sorry, renaming of macro names is not supported yet."};
-					_ ->
-					    Form = pos_to_form(AnnAST1, {Line, Col}), 
-					    Res = cond_check(Form, DefinePos, VarName, NewName1),
-					    case Res of
-						{true, _, _} ->
-						    {error, "The new name is already declared in the same scope."};
-						{_, true,_} -> {error, "The new name could cause name shadowing."};
-						{_, _, true} -> {error, "The new name could change the existing binding structure of variables."};
-						_ ->
-						    {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
-						    case Editor of 
-							emacs ->
-							    refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST2}]),
-							    {ok, [FName]};
-							eclipse ->
-							    {ok, [{FName, FName, refac_prettypr:print_ast(refac_util:file_format(FName),AnnAST2)}]}
-						    end 
-					    end
-				    end;
-			       true ->
-				    case Editor of 
-					emacs ->
-					    {ok, []};
-					_ ->
-					    {ok, [{FName, FName, refac_prettypr:print_ast(refac_util:file_format(FName),AnnAST1)}]}  
-				    end
-			    end
-		    end;
-		{error, _Reason} -> {error, "You have not selected a variable name, or the variable selected does not belong to a syntactically well-formed function!"}
+	true -> ok;
+	false -> throw({error, "Invalid new variable name."})
+    end,
+    NewName1 = list_to_atom(NewName), 
+    {ok, {AnnAST1, _Info1}}= refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),  
+    case refac_util:pos_to_var_name(AnnAST1, {Line, Col}) of
+	{ok, {VarName, DefinePos, C}} ->
+	    {VarName, DefinePos, C};
+	{error, _}-> 
+	    throw({error, "You have not selected a variable name, "
+		   "or the variable selected does not belong to "
+		   "a syntactically well-formed function!"}),
+	    {VarName, DefinePos, C} ={none, none, none}
+    end,
+    if DefinePos == [{0, 0}] -> 
+	    case C of 
+		macro_name ->
+		    throw({error, "Renaming of a macro name is not supported by this refactoring!"});
+		_ -> 
+		    throw({error, "Renaming of a free variable is not supported by this refactoring!"})
+	    end;				
+       true -> ok
+    end,
+    if VarName /= NewName1 ->
+	    case C of
+		macro_name ->
+		    throw({error, "Renaming of macro names is not supported yet."});
+		_ -> ok
+	    end, 
+	    Form = pos_to_form(AnnAST1, {Line, Col}), 
+	    Res = cond_check(Form, DefinePos, VarName, NewName1),
+	    case Res of
+		{true, _, _} ->
+		    throw({error, "The new name is already declared in the same scope."});
+		{_, true,_} -> 
+		    throw({error, "The new name could cause name shadowing."});
+		{_, _, true} -> 
+		    throw({error, "The new name could change the "
+			   "existing binding structure of variables."});
+		_ -> ok
+	    end,
+	    {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
+	    case Editor of 
+		emacs ->
+		    refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST2}]),
+		    {ok, [FName]};
+		eclipse ->
+		    Content = refac_prettypr:print_ast(refac_util:file_format(FName),AnnAST2),
+		    {ok, [{FName, FName,Content}]}
 	    end;
-	false -> {error, "Invalid new variable name."}
+       true ->
+	    case Editor of 
+		emacs ->
+		    {ok, []};
+		_ ->
+		    Content = refac_prettypr:print_ast(refac_util:file_format(FName),AnnAST1),
+		    {ok, [{FName, FName, Content}]}
+	    end
     end.
+
 
 %% =====================================================================
 %% @spec cond_check(Tree::syntaxTree(), Pos::{integer(),integer()}, NewName::string())-> term()
 %%   		
 cond_check(Form, Pos, VarName,  NewName) ->
     Env_Bd_Fr_Vars = envs_bounds_frees(Form),
-    F_Pos = fun ({_, DefPos}) -> DefPos end,
-    F_Name = fun ({Name, _}) -> Name end,
-    BdVars = lists:map(fun ({_, B, _}) -> B end, Env_Bd_Fr_Vars),
+    BdVars = [B || {_, B, _}<-Env_Bd_Fr_Vars],
     %% The new name clashes with existing bound variables.
     F = fun({bound, Bds}) ->
-		Poss = lists:map(F_Pos, Bds),
-		Names = lists:map(F_Name, Bds),
+		{Names, Poss} = lists:unzip(Bds),
 		case lists:any(fun(P) -> lists:member(P, Poss) end, Pos)
 		    andalso lists:member(NewName, Names) of 
-		    false -> false;
-		    true -> DefPoss = element(2, lists:unzip(
-						   lists:filter(fun({Name, _}) ->
-									NewName==Name 
-								end, Bds))),
-			    VarEnvs = lists:map(fun(P) ->defpos_to_var_env(Form, [P]) end, DefPoss),
-			    VarToRenameEnv = defpos_to_var_env(Form, Pos),
-	   
-			    case lists:any(fun({N,_P}) ->N==NewName end, VarToRenameEnv) of 
- 				true ->
- 				    true;
- 				false ->
-				    lists:any(fun(E) ->lists:any(fun({N,_P})-> N==VarName end, E) end, VarEnvs)
- 			    end
+		    false -> 
+			false;
+		    true -> 
+			DefPoss = [P||{N, P} <- Bds, NewName==N],
+			VarEnvs = [defpos_to_var_env(Form, [P])|| P<-DefPoss],
+			VarToRenameEnv = defpos_to_var_env(Form, Pos),
+			case lists:any(fun({N,_P}) ->N==NewName end, VarToRenameEnv) of 
+			    true ->
+				true;
+			    false ->
+				lists:any(fun(E) -> lists:any(fun({N,_P})-> N==VarName end, E) 
+					  end, VarEnvs)
+			end
 		end	      
 	end,
     Clash = lists:any(F, BdVars),
     %% The new name will shadow an existing free variable within the scope.
     Shadow1 = lists:any(fun ({{env, _}, {bound, Bds}, {free, Fs}}) ->
-				Poss = lists:map(F_Pos, Bds),
-				Names = lists:map(F_Name, Fs),
+				Poss = [P || {_, P}<-Bds],
+				Names = [N|| {N, _}<-Fs],
 				F_Member = fun (P) -> lists:member(P, Poss) end,
 				lists:any(F_Member, Pos) and lists:member(NewName, Names)
 			end,
 			Env_Bd_Fr_Vars),
     %% The new name will be shadowed by an existing bound variable.
     Shadow2 = lists:any(fun ({{env, _}, {bound, Bds}, {free, Fs}}) ->
-				Poss = lists:map(F_Pos, Fs),
-				Names = lists:map(F_Name, Bds),
+				Poss = [P || {_, P} <-Fs],
+				Names =[N||{N, _} <-Bds],
 				F_Member = fun (P) -> lists:member(P, Poss) end,
 				lists:any(F_Member, Pos) and lists:member(NewName, Names)
 			end,
 			Env_Bd_Fr_Vars),
     BindingChange1 = lists:any(fun({{env, Envs}, {bound, Bds},{free, _Fs}})->
-				       Poss = lists:map (F_Pos, Bds),
-				       Names = lists:map(F_Name, Envs),
+				       Poss = [P||{_, P}<-Bds],
+				       Names =[N||{N, _} <-Envs],
 				       F_Member = fun (P) -> lists:member(P,Poss) end,
 				       lists:any(F_Member, Pos) and lists:member(NewName, Names)
 			       end, Env_Bd_Fr_Vars),
     BindingChange2 = lists:any(fun({{env, Envs}, {bound, Bds}, {free, _Fs}})->
-				       Poss = lists:map(F_Pos, Envs),
-				       Names = lists:map(F_Name, Bds),
+				       Poss = [P||{_, P}<-Envs],
+				       Names =[N||{N, _}<-Bds],
 				       F_Member = fun (P) -> lists:member(P,Poss) end,
 				       lists:any(F_Member, Pos) and lists:member(NewName, Names)
 			       end, Env_Bd_Fr_Vars),
@@ -242,10 +247,11 @@ do_rename(Tree, {DefinePos, NewName}) ->
       variable ->
 	  As = refac_syntax:get_ann(Tree),
 	  case lists:keysearch(def, 1, As) of
-	    {value, {def, DefinePos}} -> {refac_syntax:set_name(Tree, NewName), true};
-	    _ -> {Tree, false}
+	    {value, {def, DefinePos}} -> 
+		  {refac_syntax:set_name(Tree, NewName), true};
+	      _ -> {Tree, false}
 	  end;
-      _ -> {Tree, false}
+	_ -> {Tree, false}
     end.
 
 
@@ -258,20 +264,20 @@ envs_bounds_frees(Node) ->
     F = fun (T, B) ->
 		As = refac_syntax:get_ann(T),
 		EnVars = case lists:keysearch(env, 1, As) of
-			   {value, {env, EnVars1}} -> EnVars1;
-			   _ -> []
+			     {value, {env, EnVars1}} -> EnVars1;
+			     _ -> []
 			 end,
 		BdVars = case lists:keysearch(bound, 1, As) of
-			   {value, {bound, BdVars1}} -> BdVars1;
-			   _ -> []
+			     {value, {bound, BdVars1}} -> BdVars1;
+			     _ -> []
 			 end,
 		FrVars = case lists:keysearch(free, 1, As) of
-			   {value, {free, FrVars1}} -> FrVars1;
-			   _ -> []
+			     {value, {free, FrVars1}} -> FrVars1;
+			     _ -> []
 			 end,
 		case (EnVars == []) and (BdVars == []) and (FrVars == []) of
-		  true -> B;
-		  _ -> [{{env, EnVars}, {bound, BdVars}, {free, FrVars}} | B]
+		    true -> B;
+		    _ -> [{{env, EnVars}, {bound, BdVars}, {free, FrVars}} | B]
 		end
 	end,
     lists:usort(refac_syntax_lib:fold(F, [], Node)).
