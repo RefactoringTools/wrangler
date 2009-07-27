@@ -34,7 +34,7 @@
 
 -module(refac_prettypr).
 
--export([format/1,format/2,best/1,best/2,layout/1,
+-export([format/1,format/2,best/1,best/2,layout/1,lay_string/1,
 	 layout/2,get_ctxt_precedence/1,set_ctxt_precedence/2,
 	 get_ctxt_paperwidth/1,set_ctxt_paperwidth/2,
 	 get_ctxt_linewidth/1,set_ctxt_linewidth/2,

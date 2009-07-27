@@ -390,7 +390,7 @@ generalise_expr_1(Expr, Subst, ExportVars) ->
   
 generalise_expr_2(Expr, Subst, ExprFreeVars, {ExportVars1, ExportVars2}) ->
     case lists:all(fun(S) -> S==[] end, Subst) of 
-	[] -> {Expr, ExportVars1};
+	true -> {Expr, ExportVars1};
 	_ ->
 	    Pid = start_counter_process(collect_vars(Expr)),
 	    ExportVars3 = [E || E<-ExportVars2, refac_syntax:type(E) =/= variable],

@@ -52,7 +52,7 @@
 
 -export([rename_fun/6, rename_fun_1/6,  rename_fun_eclipse/6]).
 
--export([check_atoms/4, try_eval/4, start_atom_process/0, 
+-export([check_atoms/4, collect_atoms/2,try_eval/4, start_atom_process/0, 
 	 stop_atom_process/1,output_atom_warning_msg/3, 
 	 apply_style_funs/0, eqc_statem_callback_funs/0,
 	 commontest_callback_funs/0,testserver_callback_funs/0]).

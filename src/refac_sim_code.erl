@@ -244,7 +244,7 @@ examine_clone_members([R|Rs], C={Ranges,Len, Freq}, MinFreq, SimiScore, ASTTab, 
 	[] -> 
 	    Ranges1 =Ranges--[R],
 	    examine_clone_members(Rs, {Ranges1, Len, Freq}, MinFreq, SimiScore, ASTTab, Acc);
-	{_Rs, _L, Freq} ->
+	{_Rs, _L, Freq, _Str} ->
 	    [Res|Acc];
 	_ ->
 	    examine_clone_members(Rs, C, MinFreq, SimiScore, ASTTab, [Res|Acc])

@@ -39,12 +39,12 @@
 
 %% =============================================================================================
 -spec(fun_extraction/5::(filename(), pos(), pos(), string(), integer()) ->
-	      {'error', string()} | {'ok', string()}).
+	     {'ok', [string()]}).
 fun_extraction(FileName, Start, End, NewFunName, TabWidth) ->
     fun_extraction(FileName, Start, End, NewFunName, TabWidth, emacs).
 
 -spec(fun_extraction_eclipse/5::(filename(), pos(), pos(), string(),integer()) ->
-	      {error, string()} | {ok, [{filename(), filename(), string()}]}).
+	      {ok, [{filename(), filename(), string()}]}).
 fun_extraction_eclipse(FileName, Start, End, NewFunName, TabWidth) ->
     fun_extraction(FileName, Start, End, NewFunName, TabWidth, eclipse).
 
@@ -65,10 +65,8 @@ fun_extraction(FileName, Start = {Line, Col}, End = {Line1, Col1},
       ExpList -> ExpList
     end,
     {ok, Fun} = refac_util:expr_to_fun(AnnAST, hd(ExpList)),
-    case side_cond_analysis(FileName, Info, Fun, ExpList, list_to_atom(NewFunName)) of
-      ok -> fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor);
-      {error, Reason} -> throw({error, Reason})
-    end.
+    ok=side_cond_analysis(FileName, Info, Fun, ExpList, list_to_atom(NewFunName)),
+    fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor).
 
 fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor) ->
     FunName = refac_syntax:atom_value(refac_syntax:function_name(Fun)),
@@ -113,7 +111,7 @@ side_cond_analysis(FileName, Info, Fun, ExpList, NewFunName) ->
     funcall_replaceable(Fun, ExpList),
     TestFrameWorkUsed = refac_util:test_framework_used(FileName),
     test_framework_aware_name_checking(TestFrameWorkUsed,
-				       atom_to_list(NewFunName),
+				       NewFunName,
 				       length(FrVars)).
    
 
@@ -214,12 +212,12 @@ test_framework_aware_name_checking(UsedFrameWorks, NewFunName, Arity) ->
 eunit_name_checking(UsedFrameWorks, NewFunName, Arity) ->
     case lists:keysearch(eunit, 1, UsedFrameWorks) of 
 	{value,_} when Arity==0 ->
-	    case lists:suffix(?DEFAULT_EUNIT_TEST_SUFFIX, NewFunName) of 
+	    case lists:suffix(?DEFAULT_EUNIT_TEST_SUFFIX, atom_to_list(NewFunName)) of 
 		true -> 
 		    throw({warning, "The new function name means that "
 			   "the new function is an EUnit test function, continue?"});
 		false ->
-		    case lists:suffix(?DEFAULT_EUNIT_GENERATOR_SUFFIX,NewFunName) of 
+		    case lists:suffix(?DEFAULT_EUNIT_GENERATOR_SUFFIX,atom_to_list(NewFunName)) of 
 			true -> 
 			    throw({warning, "The new function name means that "
 				   "the new function is an Eunit test generator function, continue?"});
@@ -243,7 +241,7 @@ eqc_name_checking(UsedFrameWorks, NewFunName, Arity) ->
     end,
     case lists:keysearch(eqc, 1, UsedFrameWorks) of 
 	{value,_} -> 
-	    case lists:prefix("prop_", NewFunName) of 
+	    case lists:prefix("prop_", atom_to_list(NewFunName)) of 
 		true ->
 		    throw({warning, "The new function name means that "
 			   "the new function is a quickcheck property, continue?"});
