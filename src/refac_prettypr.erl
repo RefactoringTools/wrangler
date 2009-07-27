@@ -577,52 +577,35 @@ lay_2(Node,Ctxt) ->
 	    beside(floating(text("{")),
 		   beside(lay_elems(fun refac_prettypr_0:par/1, Es,refac_syntax:tuple_elements(Node)),floating(text("}"))));
       list ->   %% done;
-	  Ctxt1 = reset_prec(Ctxt),
-	  Node1 = refac_syntax:compact_list(Node),
-	  PrefixElems = refac_syntax:list_prefix(Node1),
-	  D0 = seq(PrefixElems,floating(text(",")),Ctxt1,fun lay/2),
-	  D1 = lay_elems(fun refac_prettypr_0:par/1, D0,PrefixElems),
-	  D = case refac_syntax:list_suffix(Node1) of
-		none -> beside(D1,floating(text("]")));
-		S ->
-		    EndLn = get_end_line(lists:last(PrefixElems)),
-		    StartLn = get_start_line(S),
-		    case (EndLn == 0) or (StartLn == 0) of
-		      true ->
-			  follow(D1,beside(floating(text("| ")),beside(lay(S,Ctxt1),floating(text("]")))));
-		      _ ->
-			  case StartLn - EndLn of
-			    0 ->
-				beside(D1,beside(floating(text("| ")),beside(lay(S,Ctxt1),floating(text("]")))));
-			    1 ->
-				above(D1,beside(floating(text("| ")),beside(lay(S,Ctxt1),floating(text("]")))));
+	    Ctxt1 = reset_prec(Ctxt),
+	    Node1 = refac_syntax:compact_list(Node),
+	    PrefixElems = refac_syntax:list_prefix(Node1),
+	    D0 = seq(PrefixElems,floating(text(",")),Ctxt1,fun lay/2),
+	    D1 = lay_elems(fun refac_prettypr_0:par/1, D0,PrefixElems),
+	    D = case refac_syntax:list_suffix(Node1) of
+		    none -> beside(D1,floating(text("]")));
+		    S ->
+			EndLn = get_end_line(lists:last(PrefixElems)),
+			StartLn = get_start_line(S),
+			case (EndLn == 0) or (StartLn == 0) of
+			    true ->
+				follow(D1,beside(floating(text("| ")),beside(lay(S,Ctxt1),floating(text("]")))));
 			    _ ->
-				follow(D1,beside(floating(text("| ")),beside(lay(S,Ctxt1),floating(text("]")))))
-			  end
-		    end
-	      end,
-	  beside(floating(text("[")),D);
+				case StartLn - EndLn of
+	     			    0 ->
+	     				beside(D1,beside(floating(text("| ")),beside(lay(S,Ctxt1),floating(text("]")))));
+	     			    1 ->
+	     				above(D1,beside(floating(text("| ")),beside(lay(S,Ctxt1),floating(text("]")))));
+	     			    _ ->
+	     				follow(D1,beside(floating(text("| ")),beside(lay(S,Ctxt1),floating(text("]")))))
+	     			  end
+	     		    end
+		end,
+	    beside(floating(text("[")),D);
       operator ->
 	  floating(text(refac_syntax:operator_literal(Node)));
       infix_expr ->  %% done;
- %% 	     Operator = erl_syntax:infix_expr_operator(Node),
-%%   	    {PrecL, Prec, PrecR} =
-%%   		case erl_syntax:type(Operator) of
-%%   		    operator ->
-%%   			inop_prec(
-%%   			  erl_syntax:operator_name(Operator));
-%%   		    _ ->
-%%   			{0, 0, 0}
-%%   		end,
-%%   	    D1 = lay(erl_syntax:infix_expr_left(Node),
-%%   		     set_prec(Ctxt, PrecL)),
-%%   	    D2 = lay(Operator, reset_prec(Ctxt)),
-%%   	    D3 = lay(erl_syntax:infix_expr_right(Node),
-%%   		     set_prec(Ctxt, PrecR)),
-%%  	    D4 = par([D1, D2, D3], Ctxt#ctxt.sub_indent),
-%%   	    maybe_parentheses(D4, Prec, Ctxt);
-	
- 	     Left = refac_syntax:infix_expr_left(Node),
+	    Left = refac_syntax:infix_expr_left(Node),
   	    Operator = refac_syntax:infix_expr_operator(Node),
   	    Right = refac_syntax:infix_expr_right(Node),
   	    {PrecL,Prec,PrecR} = case refac_syntax:type(Operator) of
