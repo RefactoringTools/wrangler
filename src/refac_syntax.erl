@@ -2094,15 +2094,31 @@ compact_list(Node) ->
 	    none -> Node;
 	    Tail ->
 		case type(Tail) of
-		  list ->
-		      Tail1 = compact_list(Tail),
-		      Node1 = list(list_prefix(Node) ++ list_prefix(Tail1),
-				   list_suffix(Tail1)),
-		      join_comments(Tail1, copy_attrs(Node, Node1));
-		  nil ->
-		      Node1 = list(list_prefix(Node)),
-		      join_comments(Tail, copy_attrs(Node, Node1));
-		  _ -> Node
+		  list ->  %% Modified by HL;
+			Tail1 = compact_list(Tail),
+			Prefix = case list_prefix(Tail1) of
+				      [H] ->
+					 [join_comments(Tail1, H)];
+				     [H|T] ->
+					 Prefix1 =[add_precomments(get_precomments(Tail1), H)|T],
+					 case list_suffix(Tail1) of
+					     none ->
+						 [H1|T1] = lists:reverse(Prefix1),
+						 lists:reverse([add_postcomments(get_postcomments(Tail1), H1)|T1]);					          
+					     _ -> Prefix1
+					 end						  
+				 end,
+			Suffix = case list_suffix(Tail1) of
+				     none -> none;
+				     S -> add_postcomments(get_postcomments(Tail1), S)
+				 end,					      
+			Node1 = list(list_prefix(Node) ++Prefix,
+				    Suffix),
+			copy_attrs(Node, Node1);
+		    nil ->
+			Node1 = list(list_prefix(Node)),
+			join_comments(Tail, copy_attrs(Node, Node1));
+		    _ -> Node
 		end
 	  end;
       _ -> Node
