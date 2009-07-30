@@ -140,11 +140,11 @@ instrument_prog(FName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, instrument_prog, [FName, SearchPaths, TabWidth], SearchPaths).
 
 
--spec(tuple_funpar/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
+-spec(tuple_funpar/7::(filename(), integer(), integer(), integer(), integer(), [dir()], integer()) ->
 	     {error, string()} | {ok, [filename()]}).
 
-tuple_funpar(Fname, Line, Col, Number, SearchPaths, TabWidth) ->
-    apply_refactoring(wrangler, tuple_funpar, [Fname, Line, Col, Number, SearchPaths, TabWidth], SearchPaths).
+tuple_funpar(Fname, StartLine, StartCol, EndLine, EndCol, SearchPaths, TabWidth) ->
+    apply_refactoring(wrangler, tuple_funpar, [Fname, {StartLine, StartCol}, {EndLine, EndCol},SearchPaths, TabWidth], SearchPaths).
 
 
 -spec(tuple_to_record/9::(filename(), integer(), integer(), integer(), integer(), string(), [string()], [dir()], integer()) ->
