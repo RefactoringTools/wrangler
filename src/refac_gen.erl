@@ -333,7 +333,7 @@ gen_cond_analysis(Fun, Exp, ParName) ->
         {value, {category, record_type}} -> 
 	    throw({error, "Record type cannot be replaced by a variable."});	 
         {value, {category, guard_expression}} -> 
-	    throw({error, "Generalisation of a guard expression is not supported."});
+	    throw({error, "Generalisation over a guard expression is not supported."});
 	{value, {category, application_op}} -> 
 	    GuardRanges=[refac_util:get_range(G) || 
 			    C <-Cs, 
@@ -342,7 +342,7 @@ gen_cond_analysis(Fun, Exp, ParName) ->
 	    {Start, End} = refac_util:get_range(Exp),
 	    case [{S,E}||{S, E}<- GuardRanges, S=<Start, End=<E] of
 		[] -> ok;
-		_ ->throw({error, "Generalisation of a function application "
+		_ ->throw({error, "Generalisation over a function application "
 			   "in a guard expression is not supported."})
 	    end;
 	_ -> ok     
@@ -352,7 +352,7 @@ gen_cond_analysis(Fun, Exp, ParName) ->
     case Exp_Export_Vars of
 	[_|_] ->
 	    throw({error, "Wrangler does not support generalisation "
-		   "of an expression that exports variables(s)!"});
+		   "over an expression that exports variables(s)!"});
 	_ -> ok
     end,
     F= fun(Node, Acc) ->
