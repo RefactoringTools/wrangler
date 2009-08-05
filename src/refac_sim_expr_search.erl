@@ -68,9 +68,14 @@
 sim_expr_search(FName, Start = {Line, Col}, End = {Line1, Col1}, SimiScore0, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:sim_expr_search(~p, {~p,~p},{~p,~p},~p, ~p, ~p).\n", 
 		 [?MODULE, FName, Line, Col, Line1, Col1, SimiScore0, SearchPaths, TabWidth]),
-    SimiScore1 = case SimiScore0 of 
-		     [] -> ?DefaultSimiScore;
-		     _ -> list_to_float(SimiScore0)
+    SimiScore1 = try 
+		     case SimiScore0 of 
+			 [] -> ?DefaultSimiScore;
+			 _ -> list_to_float(SimiScore0)
+		     end
+		 catch
+		     V -> V;
+		       _:_ -> throw({error, "Parameter input is invalid."})
 		 end,
     SimiScore = case (SimiScore1>=0.1) andalso (SimiScore1 =<1.0) of 
 		    true ->SimiScore1;
