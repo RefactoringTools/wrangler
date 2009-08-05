@@ -47,7 +47,7 @@
 	 duplicated_code_in_dirs/4, expression_search/4, similar_expression_search/6,
 	 fun_extraction/5, fold_expr/1,  fold_expr_by_loc/5, fold_expr_by_name/7, 
 	 instrument_prog/3,
-	 uninstrument_prog/3, add_a_tag/6, tuple_funpar/6,
+	 uninstrument_prog/3, add_a_tag/6, tuple_funpar/5, tuple_funpar_1/5,
 	 tuple_to_record/9, register_pid/6, fun_to_process/6,new_macro/6,
 	fold_against_macro/5, normalise_record_expr/6]).
 
@@ -55,12 +55,13 @@
 	 rename_mod_eclipse/4, generalise_eclipse/6,
 	 move_fun_eclipse/7, fun_extraction_eclipse/5,
 	 gen_fun_1_eclipse/8, gen_fun_2_eclipse/8,
-	 tuple_funpar_eclipse/6, tuple_to_record_eclipse/9,
+	 tuple_funpar_eclipse/5, tuple_funpar_eclipse_1/5,tuple_to_record_eclipse/9,
 	 fold_expr_by_loc_eclipse/5, fold_expr_by_name_eclipse/7,
 	 fold_expression_1_eclipse/5,fold_expression_2_eclipse/7,
 	 new_macro_eclipse/6, rename_process_eclipse/6, rename_process_1_eclipse/5, 
 	 fun_to_process_eclipse/6, fun_to_process_1_eclipse/6]).
 
+-export([try_refactoring/3]).
 -include("../include/wrangler.hrl").
 
 %% ====================================================================================================
@@ -533,22 +534,33 @@ register_pid(FileName, Start, End, RegName, SearchPaths, TabWidth) ->
 %% element of the tuple, then select <em> Tuple Function Arguments </em> from the <em> Refactor </em> sub-menu, 
 %% after that, Wrangler will prompt to enter the number of parameters to include into the tuple in the minibuffer.
 %% </p>
-%% @spec tuple_funpar(FileName::filename(), Line::integer(), Col::integer(), Number::string(), SearchPaths::[dir()], TabWidth:: integer())
+%% @spec tuple_funpar(FileName::filename(), StartLoc::pos(), EndLoc::pos(), SearchPaths::[dir()], TabWidth:: integer())
 %% -> {error, string()} | {ok, [filename()]}
--spec(tuple_funpar/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
+-spec(tuple_funpar/5::(filename(), pos(), pos, [dir()], integer()) ->
 	     {error, string()} | {ok, [filename()]}).
 
-tuple_funpar(FileName, Line, Col, Number, SearchPaths, TabWidth) ->
-    try_refactoring(refac_tuple, tuple_funpar, [FileName, Line, Col, list_to_integer(Number), SearchPaths, TabWidth]).
+tuple_funpar(FileName, StartLoc, EndLoc,SearchPaths, TabWidth) ->
+    try_refactoring(refac_tuple, tuple_funpar, [FileName, StartLoc, EndLoc, SearchPaths, TabWidth]).
+
+
+
+tuple_funpar_1(FileName, StartLoc, EndLoc,SearchPaths, TabWidth) ->
+    try_refactoring(refac_tuple, tuple_funpar_1, [FileName, StartLoc, EndLoc, SearchPaths, TabWidth]).
+
 
 %%@private
 %% @spec tuple_funpar_eclipse(FileName::filename(), Line::integer(), Col::integer(), Number::string(), SearchPaths::[dir()], TabWidth:: integer()) -> term()
 
--spec(tuple_funpar_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
+-spec(tuple_funpar_eclipse/5::(filename(), pos(), pos, [dir()], integer()) ->
 	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 
-tuple_funpar_eclipse(FileName, Line, Col, Number, SearchPaths, TabWidth) ->
-    try_refactoring(refac_tuple, tuple_funpar_eclipse, [FileName, Line, Col, list_to_integer(Number), SearchPaths, TabWidth]).
+tuple_funpar_eclipse(FileName, StartLoc, EndLoc, SearchPaths, TabWidth) ->
+    try_refactoring(refac_tuple, tuple_funpar_eclipse, [FileName, StartLoc, EndLoc, SearchPaths, TabWidth]).
+
+
+tuple_funpar_eclipse_1(FileName, StartLoc, EndLoc, SearchPaths, TabWidth) ->
+    try_refactoring(refac_tuple, tuple_funpar_eclipse_1, [FileName, StartLoc, EndLoc, SearchPaths, TabWidth]).
+
 
 
 %%=========================================================================================
