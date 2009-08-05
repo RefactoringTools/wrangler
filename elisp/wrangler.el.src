@@ -274,7 +274,7 @@
   (interactive)
   (require 'comint)
   (setq opts (list "-name" "wrangler@localhost"
-		   "-pa"  %EBIN_DIR% 
+		   "-pa"  "C:/cygwin/home/hl/wrangler/share/wrangler/ebin" 
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))
@@ -421,7 +421,8 @@
 		(progn
 		  (if (y-or-n-p msg)
 		      (erl-spawn
-			(erl-send-rpc wrangler-erl-node 'refac_rename_fun 'rename_fun_1 (list current-file-name line-no column-no name wrangler-search-paths tab-width))
+			(erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring(list 'refac_rename_fun 'rename_fun_1 
+							     (list current-file-name line-no column-no name wrangler-search-paths tab-width)))
 			(erl-receive (line-no column-no current-file-name)
 			    ((['rex ['badrpc rsn]]
 			      (message "Refactoring failed: %S" rsn))
@@ -476,7 +477,8 @@
 	    (progn
 	      (if (y-or-n-p msg)
 		  (erl-spawn
-		    (erl-send-rpc wrangler-erl-node 'refac_rename_mod 'rename_mod_1 (list current-file-name name wrangler-search-paths tab-width 'false))
+		    (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring(list 'refac_rename_mod 'rename_mod_1
+							(list current-file-name name wrangler-search-paths tab-width 'false)))
 		    (erl-receive (current-file-name)
 			((['rex ['badrpc rsn]]
 			  (message "Refactoring failed: %S" rsn))
@@ -495,7 +497,8 @@
 	    (progn
 	      (if (y-or-n-p msg)
 		  (erl-spawn
-		    (erl-send-rpc wrangler-erl-node 'refac_rename_mod 'rename_mod_1 (list current-file-name name wrangler-search-paths tab-width 'true))
+		    (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring(list 'refac_rename_mod 'rename_mod_1(list 
+								    current-file-name name wrangler-search-paths tab-width 'true)))
 		    (erl-receive (current-file-name)
 			((['rex ['badrpc rsn]]
 			  (message "Refactoring failed: %S" rsn))
@@ -509,7 +512,8 @@
 			      (commit))
 			    ))))
 		 (erl-spawn
-		    (erl-send-rpc wrangler-erl-node 'refac_rename_mod 'rename_mod_1 (list current-file-name name wrangler-search-paths tab-width 'false))
+		    (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring(list 'refac_rename_mod 
+                                  'rename_mod_1 (list current-file-name name wrangler-search-paths tab-width 'false)))
 		    (erl-receive (current-file-name)
 			((['rex ['badrpc rsn]]
 			  (message "Refactoring failed: %S" rsn))
@@ -554,8 +558,8 @@
 	   (['rex ['undecidables oldname]]
 	   (if (y-or-n-p "Do you want to continue the refactoring?")
 	       (erl-spawn
-		 (erl-send-rpc wrangler-erl-node 'refac_rename_process 'rename_process_1
-			       (list current-file-name oldname name wrangler-search-pa tab-width))
+		 (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_rename_process 'rename_process_1
+			       (list current-file-name oldname name wrangler-search-pa tab-width)))
 		 (erl-receive (current-file-name line-no column-no)
 		     ((['rex ['badrpc rsn]]
 		       (message "Refactoring failed: %S" rsn))
@@ -614,8 +618,8 @@
 	       (['rex ['unknown_pnames regpids]]
 		(if (y-or-n-p "Do you want to continue the refactoring?")
 		    (erl-spawn
-		      (erl-send-rpc wrangler-erl-node 'refac_register_pid 'register_pid_1
-				    (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name regpids wrangler-search-paths tab-width))
+		      (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_register_pid 'register_pid_1
+				    (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name regpids wrangler-search-paths tab-width)))
 		      (erl-receive (current-file-name start-line-no start-col-no end-line-no end-col-no name)
 			  ((['rex ['badrpc rsn]]
 			    (message "Refactoring failed: %S" rsn))
@@ -624,8 +628,8 @@
 			   (['rex ['unknown_pids pars]]
 			    (if (y-or-n-p "Do you want to continue the refactoring?")
 				(erl-spawn
-				  (erl-send-rpc wrangler-erl-node 'refac_register_pid 'register_pid_2
-						(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width))
+				  (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_register_pid 'register_pid_2
+						(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width)))
 				  (erl-receive (current-file-name start-line-no start-col-no)
 				      ((['rex ['badrpc rsn]]
 					(message "Refactoring failed: %S" rsn))
@@ -658,8 +662,8 @@
 	       (['rex ['unknown_pids pars]]
 		(if (y-or-n-p "Do you want to continue the refactoring?")
 		    (erl-spawn
-		      (erl-send-rpc wrangler-erl-node 'refac_register_pid 'register_pid_2
-				    (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width))
+		      (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_register_pid 'register_pid_2
+				    (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width)))
 		      (erl-receive (currnet-file-name start-line-no start-col-no)
 			  ((['rex ['badrpc rsn]]
 			    (message "Refactoring failed: %S" rsn))
@@ -806,11 +810,11 @@
 	    (setq instances_in_clause (elt pars 7))
 	    (if (y-or-n-p "The function selected has multiple clauses, would you like to generalise the function clause selected only?")
 		(progn 
-		  (with-current-buffer buffer
+		  (with-current-buffer (get-file-buffer current-file-name)
 		    (setq instances_to_gen (get_instances_to_gen instances_in_clause buffer highlight-region-overlay)))
 		  (erl-spawn
-		  (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_clause (list 
-				current-file-name parname funname arity defpos exp tab-width side_effect instances_to_gen))
+		  (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_gen 'gen_fun_clause (list 
+				current-file-name parname funname arity defpos exp tab-width side_effect instances_to_gen)))
 		  (erl-receive (start-line-no start-col-no current-file-name)
 		      ((['rex ['badrpc rsn]]
 			(message "Refactoring failed: %S" rsn))
@@ -824,11 +828,11 @@
 			  (goto-line start-line-no)
 			  (goto-column start-col-no)))))))
 	      (progn
-		(with-current-buffer buffer
+		(with-current-buffer (get-file-buffer current-file-name)
 		  (setq instances_to_gen (get_instances_to_gen instances_in_fun buffer highlight-region-overlay)))
 		(erl-spawn
-		  (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_1 (list side_effect current-file-name parname 
-						funname arity defpos exp wrangler-search-paths tab-width instances_to_gen))
+		  (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_gen 'gen_fun_1 (list side_effect current-file-name parname 
+						funname arity defpos exp wrangler-search-paths tab-width instances_to_gen)))
 		  (erl-receive (start-line-no start-col-no current-file-name)
 		      ((['rex ['badrpc rsn]]
 		      (message "Refactoring failed: %S" rsn))
@@ -848,17 +852,17 @@
 	    (setq defpos (elt pars 3))
 	    (setq exp (elt pars 4))
 	    (setq no_of_clauses (elt pars 5))
-	    (setq fun_instances (elt pars 6))
-	    (setq clause_instances (elt pars 7))
+	    (setq instances_in_fun (elt pars 6))
+	    (setq instances_in_clause (elt pars 7))
 	    (if (y-or-n-p "Does the selected expression has side effect?")
 		(if (> no_of_clauses 1)
 		    (if (y-or-n-p "The function selected has multiple clauses, would you like to generalise the function clause selected only?")
 			(progn
-			  (with-current-buffer buffer
+			  (with-current-buffer (get-file-buffer current-file-name)
 			    (setq instances_to_gen (get_instances_to_gen instances_in_clause buffer highlight-region-overlay)))
 			  (erl-spawn
-			    (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_clause (list current-file-name parname funname arity 
-											     defpos exp tab-width 'true instances_to_gen))
+			    (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_gen 'gen_fun_clause (list current-file-name parname funname arity 
+											     defpos exp tab-width 'true instances_to_gen)))
 			  (erl-receive (start-line-no start-col-no current-file-name)
 			      ((['rex ['badrpc rsn]]
 				(message "Refactoring failed: %S" rsn))
@@ -872,11 +876,11 @@
 				  (goto-line start-line-no)
 				  (goto-column start-col-no)))))))
 		      (progn 
-			(with-current-buffer buffer
+			(with-current-buffer (get-file-buffer current-file-name)
 			  (setq instances_to_gen (get_instances_to_gen instances_in_fun buffer highlight-region-overlay)))
 			(erl-spawn
-			  (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_1 (list 'true current-file-name parname funname arity 
-										      defpos exp wrangler-search-paths tab-width instances_to_gen))
+			  (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_gen 'gen_fun_1 (list 'true current-file-name parname funname arity 
+										      defpos exp wrangler-search-paths tab-width instances_to_gen)))
 			  (erl-receive (start-line-no start-col-no current-file-name)
 			      ((['rex ['badrpc rsn]]
 				(message "Refactoring failed: %S" rsn))
@@ -892,11 +896,11 @@
 	      (if (> no_of_clauses 1)
 		  (if (y-or-n-p "The function selected has multiple clauses, would you like to generalise the function clause selected only?")
 		      (progn
-			(with-current-buffer
+			(with-current-buffer (get-file-buffer current-file-name)
 			    (setq instances_to_gen (get_instances_to_gen instances_in_clause buffer highlight-region-overlay)))
 			(erl-spawn
-			  (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_clause (list current-file-name parname funname 
-											   arity defpos exp tab-width 'false instances_to_gen))
+			  (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_gen 'gen_fun_clause (list current-file-name parname funname 
+											   arity defpos exp tab-width 'false instances_to_gen)))
 			  (erl-receive (start-line-no start-col-no current-file-name)
 			      ((['rex ['badrpc rsn]]
 				(message "Refactoring failed: %S" rsn))
@@ -910,11 +914,11 @@
 				  (goto-line start-line-no)
 				  (goto-column start-col-no)))))))
 		    (progn
-		      (with-current-buffer
+		      (with-current-buffer (get-file-buffer current-file-name)
 			  (setq instances_to_gen (get_instances_to_gen instances_in_fun buffer highlight-region-overlay)))
 		      (erl-spawn
-			(erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_1 (list 'false current-file-name parname funname arity defpos exp wrangler-search-paths 
-										    tab-width instances_to_gen))
+			(erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_gen 'gen_fun_1 
+                               (list 'false current-file-name parname funname arity defpos exp wrangler-search-paths tab-width instances_to_gen)))
 			(erl-receive (start-line-no start-col-no current-file-name)
 			    ((['rex ['badrpc rsn]]
 			      (message "Refactoring failed: %S" rsn))
@@ -935,11 +939,11 @@
 	    (setq exp (elt pars 4))
 	    (setq side_effect (elt pars 5))
 	    (setq instances (elt pars 6))
-	    (with-current-buffer buffer
+	    (with-current-buffer (get-file-buffer current-file-name)
 	      (setq instances_to_gen (get_instances_to_gen instances buffer highlight-region-overlay)))
 	    (erl-spawn
-	      (erl-send-rpc wrangler-erl-node 'refac_gen 'gen_fun_1 (list side_effect current-file-name parname 
-									  funname arity defpos exp wrangler-search-paths tab-width instances_to_gen))
+	      (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_gen 'gen_fun_1 (list side_effect current-file-name parname 
+									  funname arity defpos exp wrangler-search-paths tab-width instances_to_gen)))
 	      (erl-receive (start-line-no start-col-no current-file-name)
 		  ((['rex ['badrpc rsn]]
 		    (message "Refactoring failed: %S" rsn))
@@ -987,8 +991,8 @@
 	    (progn
 	      (if (y-or-n-p msg)
 		  (erl-spawn
-		    (erl-send-rpc wrangler-erl-node 'refac_new_fun 'fun_extraction_1
-				  (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name tab-width))
+		    (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_new_fun 'fun_extraction_1
+				  (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name tab-width)))
 		    (erl-receive (current-file-name)
 			((['rex ['badrpc rsn]]
 			  (message "Refactoring failed: %S" rsn))
@@ -1084,7 +1088,8 @@
 	      (if (equal candidates-to-fold nil)
 		  (message "Refactoring finished, and no file has been changed.")
 		(erl-spawn
-		  (erl-send-rpc wrangler-erl-node 'refac_fold_against_macro 'fold_against_macro_1(list current-file-name candidates-to-fold wrangler-search-paths tab-width))
+		  (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_fold_against_macro 'fold_against_macro_1(list 
+                                      current-file-name candidates-to-fold wrangler-search-paths tab-width)))
 		  (erl-receive (current-file-name line-no column-no)
 		      ((['rex ['badrpc rsn]]
 			(message "Refactoring failed: %S" rsn))
@@ -1114,7 +1119,8 @@
 	      (setq changed (cons (buffer-name b) changed)))))
       (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
         (erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'refac_fold_expression 'cursor_at_fun_clause(list current-file-name line-no column-no wrangler-search-paths tab-width))
+	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_fold_expression 'cursor_at_fun_clause(list 
+                       current-file-name line-no column-no wrangler-search-paths tab-width)))
 	  (erl-receive (buffer current-file-name line-no column-no)
 	      ((['rex ['badrpc rsn]]
 		(fold_expr_by_name wrangler-erl-node current-file-name (read-string "Module name: ") (read-string "Function name: ") (read-string "Arity ")
@@ -1165,7 +1171,8 @@
 	     (if (equal candidates-to-fold nil)
 		 (message "Refactoring finished, and no file has been changed.")
 	       (erl-spawn
-		 (erl-send-rpc wrangler-erl-node 'refac_fold_expression 'fold_expression_1(list current-file-name candidates-to-fold wrangler-search-paths tab-width))
+		 (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_fold_expression 'fold_expression_1(list 
+                               current-file-name candidates-to-fold wrangler-search-paths tab-width)))
 		 (erl-receive (current-file-name line-no column-no)
 		     ((['rex ['badrpc rsn]]
 		       (message "Refactoring failed: %S" rsn))
@@ -1215,7 +1222,8 @@
 	  (if (equal candidates-to-fold nil)
 	      (message "Refactoring finished, and no file has been changed.")
 	    (erl-spawn
-	      (erl-send-rpc wrangler-erl-node 'refac_fold_expression 'fold_expression_1(list current-file-name candidates-to-fold wrangler-search-paths tab-width))
+	      (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_fold_expression 'fold_expression_1(list 
+                          current-file-name candidates-to-fold wrangler-search-paths tab-width)))
 	      (erl-receive (current-file-name line-no column-no)
 		  ((['rex ['badrpc rsn]]
 		    (message "Refactoring failed: %S" rsn))
@@ -1272,8 +1280,8 @@
       (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer)) 
 	  (message-box "The current buffer has been changed, please save it first.")
     (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'duplicated_code_in_buffer
-		    (list current-file-name mintokens minclones tab-width))
+      (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'wrangler_distel 'duplicated_code_in_buffer
+		    (list current-file-name mintokens minclones tab-width)))
       (erl-receive (buffer)
 	  ((['rex ['badrpc rsn]]
 	    (message "Duplicated code detection failed: %S" rsn))
@@ -1328,8 +1336,8 @@
 		 (setq changed (cons (buffer-name b) changed)))))
 	 (if changed (message-box (format "there are modified buffers: %s, please save it first." changed))
 	   (erl-spawn
-	     (erl-send-rpc wrangler-erl-node 'refac_sim_code 'sim_code_detection
-			   (list wrangler-search-paths minlen minfreq simiscore wrangler-search-paths tab-width))
+	     (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_sim_code 'sim_code_detection
+			   (list wrangler-search-paths minlen minfreq simiscore wrangler-search-paths tab-width)))
 	     (erl-receive (buffer)
 		 ((['rex ['badrpc rsn]]
 		   (message "Similar code detection failed: %S" rsn))
@@ -1355,8 +1363,8 @@
      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
 	 (message-box "The current buffer has been changed, please save it first.")
        (erl-spawn
-	 (erl-send-rpc wrangler-erl-node 'refac_sim_code 'sim_code_detection_in_buffer
-		       (list current-file-name minlen minfreq simiscore  wrangler-search-paths tab-width))
+	 (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_sim_code 'sim_code_detection_in_buffer
+		       (list current-file-name minlen minfreq simiscore  wrangler-search-paths tab-width)))
 	 (erl-receive (buffer current-file-name)
 	     ((['rex ['badrpc rsn]]
 	       (message "Searching failed: %S" rsn))
@@ -1390,7 +1398,7 @@
 	    (message "Searching failed: %S" rsn))
 	   (['rex ['error rsn]]
 	    (message "Searching failed: %s" rsn))
-	   (['rex ['ok clones]]
+	   (['rex ['ok regions]]
 	    (with-current-buffer buffer
 	      (highlight-instances-1 regions (car regions) buffer)
 	      (message "Searching finished; use 'C-c C-e' to remove highlights.\n")
@@ -1445,8 +1453,8 @@
 	   (['rex ['undecidables msg]]
 	     (if (y-or-n-p "Do you still want to continue the refactoring?")
 		 (erl-spawn
-		   (erl-send-rpc wrangler-erl-node 'refac_fun_to_process 'fun_to_process_1
-				 (list current-file-name line-no column-no  name wrangler-search-paths tab-width))
+		   (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_fun_to_process 'fun_to_process_1
+				 (list current-file-name line-no column-no  name wrangler-search-paths tab-width)))
 		   (erl-receive (line-no column-no current-file-name)
 		       ((['rex ['badrpc rsn]]
 			 (message "Refactoring failed: %S" rsn))
@@ -1473,7 +1481,7 @@
 		  (with-current-buffer (get-file-buffer current-file-name)
 		    (goto-line line-no)
 		    (goto-column column-no))))
-	 )))))   
+	 )))))  
 
 
 (defun current-line-no ()
@@ -1655,7 +1663,8 @@
 		(setq arity (elt send 2))
 		(setq index (elt send 3))
 		(erl-spawn
-		  (erl-send-rpc wrangler-erl-node 'refac_add_a_tag 'send_expr_to_region(list current-file-name mod fun arity index tab-width))
+		  (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_add_a_tag 'send_expr_to_region(list 
+												current-file-name mod fun arity index tab-width)))
 		  (erl-receive (buffer current-file-name name)
 		      ((['rex ['badrpc rsn]]
 			;;  (setq candidates nil)
@@ -1671,7 +1680,8 @@
 			       (setq col2 (elt region 3))
 			       (highlight-region line1 col1 line2  col2 buffer)
 			       (if (y-or-n-p "Should a tag be added to this expression? ")
-				   (erl-spawn (erl-send-rpc wrangler-erl-node 'refac_add_a_tag 'add_a_tag(list current-file-name name line1 col1 line2 col2 tab-width))
+				   (erl-spawn (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_add_a_tag 'add_a_tag(list 
+                                                 current-file-name name line1 col1 line2 col2 tab-width)))
 				     (erl-receive (buffer)
 					 ((['rex ['badrpc rsn]]
 					   (message "Refactoring failed: %s" rsn))
@@ -1687,15 +1697,18 @@
 	      (with-current-buffer buffer (revert-buffer nil t t))
 	      ;; (delete-overlay highlight-region-overlay)
 	      (message "Refactoring succeeded!"))))))))
-  
-(defun erl-refactor-tuple-funpar (number)
+ 
+(defun erl-refactor-tuple-funpar (start end)
   "Tuple function argument."
-  (interactive (list (read-string "The number of arguments: ")
+  (interactive (list (region-beginning)
+		     (region-end)
 		     ))
-  (let ((current-file-name (buffer-file-name))
-	(line-no           (current-line-no))
-        (column-no         (current-column-no))
-	(buffer (current-buffer)))
+  (let((current-file-name (buffer-file-name))
+	(buffer (current-buffer))
+	(start-line-no (line-no-pos start))
+	(start-col-no  (current-column-pos start))
+	(end-line-no   (line-no-pos end))
+	(end-col-no    (current-column-pos end))) 
     (let (changed)
       (dolist (b (buffer-list) changed)
 	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
@@ -1703,12 +1716,36 @@
 	      (setq changed (cons (buffer-name b) changed)))))
       (if changed (message-box (format "there are modified buffers: %s, please save it first." changed))
     (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'tuple_funpar (list current-file-name line-no column-no number wrangler-search-paths tab-width))
-      (erl-receive (line-no column-no current-file-name)
+      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'tuple_funpar (list current-file-name start-line-no start-col-no end-line-no end-col-no 
+									   wrangler-search-paths tab-width))
+      (erl-receive (start-line-no start-col-no current-file-name)
 	  ((['rex ['badrpc rsn]]
 	    (message "Refactoring failed: %S" rsn))
 	   (['rex ['error rsn]]
 	    (message "Refactoring failed: %s" rsn))
+	   (['rex ['warning msg]]
+	    (progn
+	      (if (y-or-n-p msg)
+		  (erl-spawn
+		    (erl-send-rpc wrangler-erl-node 'refac_distel 'tuple_funpar_1(list current-file-name start-line-no start-col-no end-line-no end-col-no 
+										       wrangler-search-paths tab-width))
+		    (erl-receive (line-no column-no current-file-name)
+			((['rex ['badrpc rsn]]
+			  (message "Refactoring failed: %S" rsn))
+			 (['rex ['error rsn]]
+			  (message "Refactoring failed: %s" rsn))
+			 (['rex ['ok modified]]
+			  (progn
+			    (if (y-or-n-p "Do you want to preview the changes to be performd?")
+				    (progn
+				      (setq modified-files (cdr modified))
+				      (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
+			      (commit))
+			    (with-current-buffer (get-file-buffer current-file-name)
+			      (goto-line line-no)
+			      (goto-column column-no)))))))
+		(message "Refactoring aborted.")
+		)))
 	   (['rex ['ok modified]]
 	    (progn
 	      (if (y-or-n-p "Do you want to preview the changes to be performd?")
@@ -1717,8 +1754,8 @@
 		    (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
 		(commit))
 	      (with-current-buffer (get-file-buffer current-file-name)
-		(goto-line line-no)
-		(goto-column column-no))))
+		(goto-line start-line-no)
+		(goto-column start-col-no))))
 	   )))))))
 	    
 
@@ -1783,7 +1820,8 @@
     (remove-highlights)
     (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'find_var_instances(list current-file-name line-no column-no wrangler-search-paths tab-width))
+	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'find_var_instances(list 
+                        current-file-name line-no column-no wrangler-search-paths tab-width)))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
 		(message "Error: %S" rsn))
@@ -1855,7 +1893,10 @@
     (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
       (if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'nested_case_exprs_in_file(list current-file-name level wrangler-search-paths tab-width))
+	    (erl-send-rpc wrangler-erl-node 
+			  'wrangler
+			  'try_inspector(list 'wrangler_code_inspector 'nested_case_exprs_in_file 
+						(list current-file-name level wrangler-search-paths tab-width)))
 	    (erl-receive (buffer)
 		((['rex ['badrpc rsn]]
 		  (message "Error: %S" rsn))
@@ -1865,7 +1906,10 @@
 		  (message "Searching finished.")
 		  ))))
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'nested_case_exprs_in_dirs(list level wrangler-search-paths tab-width))
+	  (erl-send-rpc wrangler-erl-node 
+			'wrangler
+			'try_inspector(list 'wrangler_code_inspector 'nested_case_exprs_in_dirs 
+					      (list level wrangler-search-paths tab-width)))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
 		(message "Error: %S" rsn))
@@ -1887,7 +1931,8 @@
     (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
       	(if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'nested_if_exprs_in_file(list current-file-name level wrangler-search-paths tab-width))
+	    (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'nested_if_exprs_in_file(list 
+                                           current-file-name level wrangler-search-paths tab-width)))
 	    (erl-receive (buffer)
 		((['rex ['badrpc rsn]]
 		  (message "Error: %S" rsn))
@@ -1897,7 +1942,8 @@
 		  (message "Searching finished.")
 		  ))))
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'nested_if_exprs_in_dirs(list level wrangler-search-paths tab-width))
+	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 
+                                           'nested_if_exprs_in_dirs(list level wrangler-search-paths tab-width)))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
 		(message "Error: %S" rsn))
@@ -1918,7 +1964,8 @@
     (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
 	(if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'nested_receive_exprs_in_file(list current-file-name level wrangler-search-paths tab-width))
+	    (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'nested_receive_exprs_in_file(list 
+                                   current-file-name level wrangler-search-paths tab-width)))
 	    (erl-receive (buffer)
 		((['rex ['badrpc rsn]]
 		  (message "Error: %S" rsn))
@@ -1928,7 +1975,8 @@
 		  (message "Searching finished.")
 		  ))))
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'nested_receive_exprs_in_dirs(list level wrangler-search-paths tab-width))
+	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'nested_receive_exprs_in_dirs(list 
+                                                 level wrangler-search-paths tab-width)))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
 		(message "Error: %S" rsn))
@@ -1950,7 +1998,8 @@
 	(buffer (current-buffer)))
     (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'caller_called_modules(list current-file-name wrangler-search-paths tab-width))
+	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'caller_called_modules(list
+                     current-file-name wrangler-search-paths tab-width)))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
 		(message "Error: %S" rsn))
@@ -1971,7 +2020,8 @@
     (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
       	(if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'long_functions_in_file(list current-file-name lines wrangler-search-paths tab-width))
+	    (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'long_functions_in_file(list 
+                      current-file-name lines wrangler-search-paths tab-width)))
 	    (erl-receive (buffer)
 		((['rex ['badrpc rsn]]
 		  (message "Error: %S" rsn))
@@ -1981,7 +2031,8 @@
 		  (message "Searching finished.")
 		  ))))
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'long_functions_in_dirs(list lines wrangler-search-paths tab-width))
+	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'long_functions_in_dirs(list 
+                             lines wrangler-search-paths tab-width)))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
 		(message "Error: %S" rsn))
@@ -1998,7 +2049,7 @@
   (let 	(buffer (current-buffer))
     (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
       (erl-spawn
-	(erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'large_modules(list lines wrangler-search-paths tab-width))
+	(erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'large_modules(list lines wrangler-search-paths tab-width)))
 	(erl-receive (buffer)
 	    ((['rex ['badrpc rsn]]
 	      (message "Error: %S" rsn))
@@ -2023,7 +2074,8 @@
 	      (setq changed (cons (buffer-name b) changed)))))
       (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'caller_funs(list current-file-name line-no column-no  wrangler-search-paths tab-width))
+	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'caller_funs(list 
+                            current-file-name line-no column-no  wrangler-search-paths tab-width)))
 	  (erl-receive (buffer)
 	    ((['rex ['badrpc rsn]]
 	      (message "Error: %S" rsn))
@@ -2047,7 +2099,8 @@
       (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
 	(if (y-or-n-p "Only check the current buffer?")
 	    (erl-spawn
-	      (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'non_tail_recursive_servers_in_file(list current-file-name wrangler-search-paths tab-width))
+	      (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'non_tail_recursive_servers_in_file(list 
+                            current-file-name wrangler-search-paths tab-width)))
 	      (erl-receive (buffer)
 		  ((['rex ['badrpc rsn]]
 		    (message "Error: %S" rsn))
@@ -2057,7 +2110,8 @@
 		    (message "Searching finished.")
 		    ))))
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'non_tail_recursive_servers_in_dirs(list wrangler-search-paths tab-width))
+	    (erl-send-rpc wrangler-erl-node 
+			  'wrangler 'try_inspector (list 'wrangler_code_inspector  'non_tail_recursive_servers_in_dirs(list wrangler-search-paths tab-width)))
 	    (erl-receive (buffer)
 		((['rex ['badrpc rsn]]
 		  (message "Error: %S" rsn))
@@ -2082,7 +2136,8 @@
       (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
 	(if (y-or-n-p "Only check the current buffer?")
 	    (erl-spawn
-	      (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'not_flush_unknown_messages_in_file(list current-file-name wrangler-search-paths tab-width))
+	      (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'not_flush_unknown_messages_in_file(list 
+                          current-file-name wrangler-search-paths tab-width)))
 	      (erl-receive (buffer)
 		  ((['rex ['badrpc rsn]]
 		    (message "Error: %S" rsn))
@@ -2092,7 +2147,8 @@
 		    (message "Searching finished.")
 		    ))))
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'not_flush_unknown_messages_in_dirs(list wrangler-search-paths tab-width))
+	    (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'not_flush_unknown_messages_in_dirs(list 
+                       wrangler-search-paths tab-width)))
 	    (erl-receive (buffer)
 		((['rex ['badrpc rsn]]
 		  (message "Error: %S" rsn))
