@@ -1,8 +1,8 @@
 
                     Wrangler, the Erlang Refactorer
                 a snapshot of our current prototype
-                            23/06/2009 
-              http://www.cs.kent.ac.uk/projects/forse/
+                            05/08/2009 
+              http://www.cs.kent.ac.uk/projects/wrangler/
 
 --------------------------------------------------------------------------------
 
@@ -28,13 +28,13 @@ the Eclipse environment.
   INSTALL             <-  installation instructions 
   Makefile.in 
   README              <-  README file of Wrangler (you're reading this)
-  configure           <-  confiure file
+  configure           <-  configure file
   c_src               <-  C source code
   doc                 <-  documentation
   ebin                <-  directory for Erlang beam files
   elisp               <-  elisp source files
   include             <-  Erlang .hrl files
-  plt                 <-  Sideeffect table used by Wrangler
+  plt                 <-  Side-effect table used by Wrangler
   src                 <-  Erlang source files
 
 --------------------- how to use the refactorer ----------------
@@ -100,35 +100,51 @@ the Eclipse environment.
                                   it or not. 
 
 
-     Tuple function arguments   : place cursor at the beginning of the
-                                  parameter that is to be the first
-                                  element of the tuple, and you will
-                                  be prompted for the number of     
-			          parameters put into a tuple.
-  
+     Tuple function arguments   : highlight the sequence of parameters to be grouped 
+                                  into a tuple from the function definition, then
+                                  select the refactoring command from the menu.
+     
 
-     Expression Search          : highlight the expression/expression sequence
-	                          you are interested, Wrangler will show you 
-	                          the found expression/expression sequences one 
-                                  by one. Press the 'enter' key to go the next
-                                  one, and the 'Esc' key to quit.
+     Identical expression search : highlight the expression/expression sequence
+	                           you are interested, Wrangler will show you 
+	                           the found expression/expression sequences. 
 
-     Detect duplicated code  
+     Detect identical code  
      in current buffer          : select the refactoring command from the 
                                   menu, you'll be prompted for the minimum 
 	                          number of tokens a duplicated code fragment 
                                   should have, and the number of times that a 
                                   code fragment is duplicated.
                                   
-     Detect duplicated code 
+     Detect identical code 
      in Dirs                    : select the refactoring command from the menu,
 	                          and you will be prompted for the minimum 
                                   number of tokens a duplicated code fragment 
                                   should have, and the minimum number of times  
                                   that a code fragment is duplicated. Wrangler 
-                                  will search duplicated code fragments from the 
-                                 directories specified by the search paths (see 
-                                 Customize Wrangler).
+                                  searches duplicated code fragments from the 
+                                  directories specified by the search-paths (see 
+                                  Customize Wrangler).
+
+     Similar expression search  : highlight the expression/expression sequence you 
+                                  are interested, select the command from the menu, 
+                                  and Wrangler will prompt you to input a similarity 
+                                  score.
+
+     Detect similar code in     : select the refactoring command from the menu, and
+     current buffer              you'll be prompted for 3 parameters, i.e the minimum 
+                                  number of expressions in a expression sequence, the 
+                                  minimum number of times clones, and a similarity 
+                                  score.
+
+     Detect similar code in     : select the refactoring command from the menu, and
+     dirs                         you'll be prompted for 3 parameters, i.e the minimum 
+                                  number of expressions in a expression sequence, the 
+                                  minimum number of times clones, and a similarity 
+                                  score. Wrangler searches similar code fragments from 
+                                  the directories specified by the search-paths (see
+                                  Customize Wrangler).
+
 	                        
      Rename a process           :place the cursor at the process name
                                  to be renamed, and you will be
@@ -158,6 +174,12 @@ the Eclipse environment.
  refactoring.
 
 
+-------------------------Major Changes form Wrangler-0.7.5-----------
+-- New feature.
+   Wrangler now supports Similar Code Detection.
+-- All refactorings are now test-framework-aware.
+-- The interface to Tupling Function Arguments has been changed.
+-- A number of bug fixes.   
 -------------------------Major Changes from Wrangler-0.7.4------------
 
 -- A number of refactorings are now test framework aware. 
@@ -167,7 +189,7 @@ the Eclipse environment.
 -- A number of bug fixes.
 
 -------------------------Major Changes from Wrangler-0.7.3-------------
--- A number ofrefactorings have been extended to be testframe work aware.
+-- A number of refactorings have been extended to be testframe work aware.
 -- A prototype of similar expression search.
 -- A number of bug fixes.
 
@@ -187,13 +209,13 @@ the Eclipse environment.
 
 -------------------------Changes from Wrangler-0.7.1--------------
 -- The snapshot is now R11 compatible.
--- Bugfixe with the Emacs interface. The refactor menu is removed when the 
+-- Bugfixes with the Emacs interface. The refactor menu is removed when the 
    Wrangler node is down either normally or abnormally. 
 -- Bugfix with rendering chars.
 
 -------------------------Changes from Wrangler-0.6.2---------------
 
--- Reorganised code structure; less dependent on Distel.
+-- Reorganized code structure; less dependent on Distel.
 -- Wrangler menus have been moved to the menu bar.
 -- No longer need to start an Erlang node before starting Wrangler.
 -- No longer need to input the node name.
