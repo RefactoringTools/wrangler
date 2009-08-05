@@ -54,7 +54,7 @@
 -endif.
 
 start_suffix_tree_clone_detector() ->
-    SuffixTreeExec = filename:join(?WRANGLER_DIR,"bin/suffixtree.exe"),
+    SuffixTreeExec = filename:join(?WRANGLER_DIR,"bin/suffixtree"),
     ?debug("suffixTreeExec:\n~p\n", [SuffixTreeExec]),
     start(SuffixTreeExec).
 

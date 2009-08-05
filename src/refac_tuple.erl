@@ -105,14 +105,9 @@ tuple_funpar(FileName, StartLoc = {StartLine, StartCol}, EndLoc = {EndLine, EndC
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {FunName, FunArity, Index, Num} = pos_to_pars(AnnAST, StartLoc, EndLoc),
     NewArity = FunArity-Num+1,
-    case pre_cond_check(FileName, FunName, FunArity, NewArity, Info) of 
-	ok ->
-	    tuple_par_0(FileName, AnnAST, Info, FunName, FunArity, 
-			Index, Num, SearchPaths, TabWidth, Editor);
-	{warning, Msg}-> 
-	    {warning, Msg};
-	{error, Reason} -> {error, Reason}
-    end.
+    ok=pre_cond_check(FileName, FunName, FunArity, NewArity, Info),
+    tuple_par_0(FileName, AnnAST, Info, FunName, FunArity, 
+		Index, Num, SearchPaths, TabWidth, Editor).
 
 tuple_par_0(FileName, AnnAST, Info, FunName, Arity, Index, Num, SearchPaths, TabWidth, Editor)->
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
@@ -208,7 +203,7 @@ testserver_name_checking(FunName, OldArity, NewArity) ->
 
 commontest_name_checking(UsedFrameWorks, FunName, OldArity, NewArity) ->
     case lists:member(commontest,UsedFrameWorks) of 
-	{value,_} ->
+	true ->
 	    commontest_name_checking(FunName, OldArity, NewArity);
 	false -> ok
     end.
@@ -484,7 +479,7 @@ transform_apply_with_arity_of_2(Tree, CurModName, FunDefMod, FunName, Arity, Ind
 		module_qualifier ->
 		    Mod = refac_syntax:module_qualifier_argument(Name),
 		    MBody = refac_syntax:module_qualifier_body(Name),
-		    ABody = refac_syntax:atity_qaulifier_body(MBody),
+		    ABody = refac_syntax:arity_qualifier_body(MBody),
 		    Arg = refac_syntax:arity_qualifier_argument(MBody),
 		    case refac_syntax:atom_value(Mod) of 
 			FunDefMod ->
@@ -503,7 +498,7 @@ transform_apply_with_arity_of_2(Tree, CurModName, FunDefMod, FunName, Arity, Ind
 							       MBody,refac_syntax:arity_qualifier(ABody, NewArg)),
 						    NewName = refac_util:rewrite(
 								Name, refac_syntax:module_qualifier(Mod, NewMBody)),
-						    Fun1 = refac_util:rewtite(
+						    Fun1 = refac_util:rewrite(
 							     Fun, refac_syntax:implicit_fun(NewName)),
 						    Tree1 = refac_util:rewrite(
 							      Tree, refac_syntax:application(Op, [Fun1, NewPars])),

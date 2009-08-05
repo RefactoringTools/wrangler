@@ -267,7 +267,7 @@ testserver_name_checking(UsedFrameWorks, NewFunName, Arity) ->
 
 commontest_name_checking(UsedFrameWorks, NewFunName, Arity)->
     case lists:member(commontest,UsedFrameWorks) of 
-	{value,_} ->
+	true ->
 	    case lists:member({NewFunName, Arity}, refac_rename_fun:commontest_callback_funs()) of 
 		true ->
 		    throw({warning, "The new function name means that "
