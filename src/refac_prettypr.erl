@@ -909,7 +909,7 @@ lay_2(Node,Ctxt) ->
 		   _ -> lay(N,Ctxt1)
 	       end,
 	    D1 = beside(floating(text("?")),D),
-	    maybe_parentheses(D1,0,Ctxt);    % must be conservative!
+	    maybe_parentheses(D1,Ctxt#ctxt.prec,Ctxt);    % must be conservative!
       parentheses ->  %% done;
 	  D = lay(refac_syntax:parentheses_body(Node),reset_prec(Ctxt)),
 	  lay_parentheses(D,Ctxt);
