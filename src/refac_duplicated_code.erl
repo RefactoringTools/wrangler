@@ -172,20 +172,30 @@ duplicated_code_eclipse(DirFileList, MinLength1, MinClones1, TabWidth, SuffixTre
     remove_sub_clones(Cs5).
     
 duplicated_code(DirFileList, MinLength1, MinClones1, TabWidth) ->
-    MinLength = case MinLength1 == [] orelse
-		    list_to_integer(MinLength1) =< 1
-		    of
-		    true -> 
-			?DEFAULT_CLONE_LEN;
-		    _ -> list_to_integer(MinLength1)
+    MinLength = try 
+		    case MinLength1 == [] orelse
+			list_to_integer(MinLength1) =< 1
+			of
+			true -> 
+			    ?DEFAULT_CLONE_LEN;
+			_ -> list_to_integer(MinLength1)
+		    end
+		catch
+		    Val -> Val;
+		      _:_ -> throw({error, "Parameter input is invalid."})
 		end,
-    %% By 'MinClones', I mean the minimal number of members in a clone class,
+        %% By 'MinClones', I mean the minimal number of members in a clone class,
     %% therefore it should be one more than the number of times a piece of code is cloned.
-    MinClones = case MinClones1 == [] orelse
-		    list_to_integer(MinClones1) < ?DEFAULT_CLONE_MEMBER
-		    of
-		    true -> ?DEFAULT_CLONE_MEMBER;
-		    _ -> list_to_integer(MinClones1)
+    MinClones = try 
+		    case MinClones1 == [] orelse
+			list_to_integer(MinClones1) < ?DEFAULT_CLONE_MEMBER
+			of
+			true -> ?DEFAULT_CLONE_MEMBER;
+			_ -> list_to_integer(MinClones1)
+		    end
+		catch
+		    V -> V;
+		      _:_ ->throw({error, "Parameter input is invalid."})
 		end,
     ?wrangler_io("\nCMD: ~p:duplicated_code(~p,~p,~p,~p).\n", [?MODULE, DirFileList, MinLength1, MinClones1, TabWidth]),
     ?debug("current time:~p\n", [time()]),
