@@ -68,7 +68,6 @@ find_var_instances(FName, Line, Col, SearchPaths, TabWidth) ->
 				end
 			end,
 		    Locs = lists:usort(refac_syntax_lib:fold(F, [], AnnAST)),
-		   %% ?wrangler_io("Use 'C-c C-e' to remove highlights!\n",[]),
 		    {ok, Locs, DefinePos}
 	    end;
 	{error, Reason} -> {error, Reason}
@@ -249,16 +248,16 @@ display_results(Callers, UnSures) ->
 	  ?wrangler_io("The selected function is not called by any other functions.\n",[]);
       {_, []} ->
 	  ?wrangler_io("The selected function is called by the following function(s):\n",[]),
-	    lists:map(fun({File, F, A}) -> ?wrangler_io("{File:~p, function: ~p/~p }\n", [File, F, A]) end, Callers);
+	    lists:foreach(fun({File, F, A}) -> ?wrangler_io("{File:~p, function: ~p/~p }\n", [File, F, A]) end, Callers);
       {[], [_H | _]} ->
 	  ?wrangler_io("The selected function is not explicitly called by any other functions, \n"
 		    "but please check the following expressions:\n", []),
-	   lists:map(fun({File, Line, Exp}) -> ?wrangler_io("{File:~p, line: ~p, expression:~p}\n", [File, Line, Exp]) end, UnSures);
+	   lists:foreach(fun({File, Line, Exp}) -> ?wrangler_io("{File:~p, line: ~p, expression:~p}\n", [File, Line, Exp]) end, UnSures);
       {[_H1 | _], [_H2 | _]} ->
 	    ?wrangler_io("The selected function is called by the following function(s):\n",[]),
-	    lists:map(fun({File, F, A}) -> ?wrangler_io("{File:~p, function name: ~p/~p }\n", [File, F, A]) end, Callers),
+	    lists:foreach(fun({File, F, A}) -> ?wrangler_io("{File:~p, function name: ~p/~p }\n", [File, F, A]) end, Callers),
 	    ?wrangler_io("Please also check the following expressions:\n", []),
-	    lists:map(fun({File, Line, Exp}) -> ?wrangler_io("{File:~p, line: ~p, expression:~p}\n", [File, Line, Exp]) end, UnSures)		 
+	    lists:foreach(fun({File, Line, Exp}) -> ?wrangler_io("{File:~p, line: ~p, expression:~p}\n", [File, Line, Exp]) end, UnSures)		 
     end.
 
 get_caller_funs_in_client_modules(FileNames, {M, F, A}, SearchPaths, TabWidth) ->
@@ -414,8 +413,7 @@ caller_called_modules(FName, SearchPaths, TabWidth) ->
     {ok, {AnnAST, _Info0}} = refac_util:parse_annotate_file(FName, false, SearchPaths, TabWidth),
     AbsFileName = filename:absname(filename:join(filename:split(FName))),
     ClientFiles = wrangler_modulegraph_server:get_client_files(AbsFileName, SearchPaths),
-    ClientMods = lists:map(fun({M, _Dir}) -> list_to_atom(M) end, 
-			   refac_util:get_modules_by_file(ClientFiles)),
+    ClientMods = [list_to_atom(M) || {M, _Dir} <-refac_util:get_modules_by_file(ClientFiles)],
     case ClientFiles of 
 	[] -> ?wrangler_io("\nThis module does not have any caller modules.\n",[]);
 	_ -> ?wrangler_io("\nThis module is called by the following modules:\n",[]),
@@ -668,7 +666,7 @@ is_non_tail_recursive_server(FileName, Info, FunDef, {ModName, FunName, Arity}, 
 check_candidate_scc(FileName, Info, FunDef, Scc, Line) ->
     ModName = get_module_name(FileName, Info),
     %%InscopeFuns = refac_util:auto_imported_bifs() ++ refac_util:inscope_funs(Info), 
-    MFAs = lists:map(fun({MFA, _}) -> MFA end, Scc),
+    MFAs = [MFA||{MFA, _}<-Scc],
     DummyExp = refac_syntax:atom(undefined),
     F = fun(T, Acc) ->
 		case refac_syntax:type(T) of      %% To think: any other cases here?
@@ -705,7 +703,7 @@ check_candidate_scc(FileName, Info, FunDef, Scc, Line) ->
 				   _ -> false
 			       end
 		       end,
-		 R = lists:map(fun(E) -> F11(E) end, Es),
+		 R = [F11(E)||E<-Es],
 		 lists:any(fun(E) -> E==true end, tl(lists:reverse(R)))
 	 end,
     ListOfExpLists = refac_syntax_lib:fold(F, [], FunDef),
@@ -778,7 +776,7 @@ not_has_flush_scc(FileName, Info, FunDef, Scc, Line) ->
 is_server(FileName, Info, FunDef, Scc, Line) ->
     ModName = get_module_name(FileName, Info),
     %%InscopeFuns = refac_util:auto_imported_bifs() ++ refac_util:inscope_funs(Info), 
-    MFAs = lists:map(fun({MFA, _}) -> MFA end, Scc),
+    MFAs = [MFA|| {MFA, _}<-Scc],
     F = fun(T, Acc) ->
 		case refac_syntax:type(T) of      %% To think: any other cases here?
 		    application -> Acc++[T];
