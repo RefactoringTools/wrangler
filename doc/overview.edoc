@@ -1,13 +1,14 @@
-@title Welcome to Wrangler -- an Erlang Refactorer
+@title Welcome to Wrangler -- an Erlang Refactorer 
 
 @copyright 2006-2009 Huiqing Li, Simon Thompson
 
 @author Huiqing Li , Simon Thompson
-        [http://www.cs.kent.ac.uk/projects/forse]
-@version 0.6.2
+        [http://www.cs.kent.ac.uk/projects/wrangler]
+@version 0.7.4
 @doc
+
 <p> Wrangler is an Erlang refactoring tool that supports interactive refactoring of Erlang programs.
-The current snapshot (Wrangler 0.6.2) is still a prototype, made available so that you can play 
+The current snapshot (Wrangler 0.7.4) is still a prototype, made available so that you can play 
 with basic refactoring supports for Erlang programs, and give us feedback or bug reports. </p>
 
 <h3><a name="Contents">Contents</a></h3>
@@ -35,6 +36,8 @@ is embedded in the Emacs editing environment, and makes use of the functionaliti
 <p>The result of this refactoring is shown in the snapshot below.</p>
 
 <img src="Wrangler2.JPG" alt=" "> </img>
+
+<p> Preview of the changes to be made by a refactoring is supported, and the user could choose to commit or abort the refactoring result after preview.</p>
 
 <p> All the implemented refactorings are module-aware. In the case that a refactoring affects more 
 than one module in the program, a message telling which files have been modified by the refactorer 
@@ -72,7 +75,7 @@ especially Haskell, programs; and our progress and ideas about refactoring Erlan
 
 <h3><a name="Acknowledgements"> Acknowledgements</a></h3>
 
-The work is supported by EPSRC in the UK. We are very grateful that we were able to build the tool on top of 
+The work was initially supported by EPSRC in the UK, and is now by the European Commission. We are very grateful that we were able to build the tool on top of 
 <a href="http://code.google.com/p/distel/">Distel</a>, 
 <a href="http://www.erlang.org/doc/doc-5.4/lib/syntax_tools-0.1/doc/html/index.html"> Erlang SyntaxTools</a>
 and make use some of the ideas from <a href="http://www.it.uu.se/research/group/hipe/dialyzer/"> DIALYZER</a>.
