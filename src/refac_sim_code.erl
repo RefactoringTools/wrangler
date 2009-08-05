@@ -53,31 +53,49 @@
 -define(DEFAULT_SIMI_SCORE, 0.8).
 
 
-
+-spec(sim_code_detection_in_buffer/6::(FileName::filename(), MinLen::string(), MinFreq::string(), MinScore::string(), 
+				       SearchPaths::[dir()], TabWidth::integer()) ->  {ok, string()}).
 sim_code_detection_in_buffer(FileName, MinLen, MinFreq, SimiScore, SearchPaths, TabWidth) ->
     sim_code_detection([FileName],MinLen, MinFreq, SimiScore, SearchPaths, TabWidth).
 
     
+-spec(sim_code_detection/6::(DirFileList::[filename()|dir()], MinLen::string(), MinFreq::string(), MinScore::string(), 
+			     SearchPaths::[dir()], TabWidth::integer()) -> {ok, string()}).				     
 sim_code_detection(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:sim_code_detection(~p,~p,~p,~p,~p,~p).\n", 
 		 [?MODULE, DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabWidth]),
-    MinLen = case MinLen1 == [] orelse list_to_integer(MinLen1) =< 1 of
-		 true -> 
-		     ?DEFAULT_LEN;
-		 _ -> list_to_integer(MinLen1)
+    
+    MinLen = try
+		 case MinLen1 == [] orelse list_to_integer(MinLen1) =< 1 of
+		     true -> 
+			 ?DEFAULT_LEN;
+		     _ -> list_to_integer(MinLen1)
+		 end
+	     catch 
+		 V -> V;
+		   _:_ -> throw({error, "Parameter input is invalid."})
 	     end,
-    MinFreq = case MinFreq1 == [] orelse list_to_integer(MinFreq1) < ?DEFAULT_FREQ of
-		  true -> ?DEFAULT_FREQ;
-		  _ -> list_to_integer(MinFreq1)
+    MinFreq = try 
+		  case MinFreq1 == [] orelse list_to_integer(MinFreq1) < ?DEFAULT_FREQ of
+		      true -> ?DEFAULT_FREQ;
+		      _ -> list_to_integer(MinFreq1)
+		  end
+	      catch 
+		      V1 -> V1;
+		    _:_ ->throw({error, "Parameter input is invalid."})
 	      end,
-    SimiScore = case SimiScore1 of 
-		     [] -> ?DefaultSimiScore;
-		    _ -> S = list_to_float(SimiScore1),
-			 case (S>=0.1) andalso (S =<1.0) of 
-			     true ->S;
-			      _ -> ?DefaultSimiScore
-			 end
-		end,			  
+    SimiScore = try 
+		    case SimiScore1 of 
+			[] -> ?DefaultSimiScore;
+			_ -> S = list_to_float(SimiScore1),
+			     case (S>=0.1) andalso (S =<1.0) of 
+				 true ->S;
+				 _ -> ?DefaultSimiScore
+			     end
+		    end
+		catch V2 -> V2;
+		      _:_ -> throw({error, "Parameter input is invalid."})
+		end,
     Pid = start_hash_process(),
     ASTTab = ets:new(ast_tab, [set, public]),
     Files = refac_util:expand_files(DirFileList, ".erl"),
