@@ -562,14 +562,15 @@ lay_2(Node,Ctxt) ->
 	    end;
       string ->  %% done;
 	    Str = refac_syntax:string_literal(Node),
+	    StrVal = "\"" ++ refac_syntax:string_value(Node)++"\"",
 	    case lists:keysearch(toks,1,refac_syntax:get_ann(Node)) of
 	    {value,{toks,StrToks}} ->
 		    Str1 = io_lib:write_string(lists:concat(lists:map(fun ({string,_,S}) -> S end,StrToks))),
 		    case Str1 == Str of
 			true -> lay_string(StrToks);
-			_ -> lay_string(Str,Ctxt)
+			_ -> lay_string(StrVal,Ctxt)
 		    end;
-		_ -> lay_string(Str,Ctxt)
+		_ -> lay_string(StrVal,Ctxt)
 	    end;
 	nil -> text("[]");
 	tuple -> %% done;

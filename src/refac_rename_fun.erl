@@ -53,8 +53,8 @@
 -export([rename_fun/6, rename_fun_1/6,  rename_fun_eclipse/6]).
 
 -export([check_atoms/4, collect_atoms/2,try_eval/4, start_atom_process/0, 
-	 stop_atom_process/1,output_atom_warning_msg/3, 
-	 apply_style_funs/0, eqc_statem_callback_funs/0,
+	 stop_atom_process/1,output_atom_warning_msg/3, write_files/2,
+	 apply_style_funs/0, eqc_statem_callback_funs/0, is_callback_fun/3,
 	 commontest_callback_funs/0,testserver_callback_funs/0]).
 
 
@@ -706,8 +706,8 @@ test_framework_aware_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName
 
 
 eunit_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName) ->
-    case lists:keysearch(eunit, 1, UsedFrameWorks) of 
-	{value,_} when Arity==0 ->
+    case lists:member(eunit, UsedFrameWorks) of 
+	true when Arity==0 ->
 	    eunit_name_checking_1(atom_to_list(OldFunName), (atom_to_list(NewFunName)));
 	_ -> ok
     end.
@@ -729,7 +729,7 @@ eunit_name_checking_1(OldFunName, NewFunName) ->
 			     ok;
 			 _ -> 
 			     throw({warning,"Renaming will make this function no longer "
-				    "an EUnit test generator function,continue?"})
+				    "an EUnit test generator function, continue?"})
 		     end;
 		 _ ->case lists:suffix(?DEFAULT_EUNIT_TEST_SUFFIX, NewFunName) of 
 			 true -> 
@@ -748,13 +748,13 @@ eunit_name_checking_1(OldFunName, NewFunName) ->
     end.
 
 eqc_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName) ->
-    case lists:keysearch(eqc_statem, 1, UsedFrameWorks) of 
-	{value,_} -> 
+    case lists:member(eqc_statem, UsedFrameWorks) of 
+	true -> 
 	    eqc_statem_name_checking(OldFunName, Arity, NewFunName);
 	false -> ok
     end,
-    case lists:keysearch(eqc, 1, UsedFrameWorks) of 
-	{value,_} -> 
+    case lists:member(eqc,UsedFrameWorks) of 
+	true -> 
 	    eqc_name_checking(atom_to_list(OldFunName), Arity, atom_to_list(NewFunName));
 	false -> ok
     end.
@@ -791,8 +791,8 @@ eqc_statem_name_checking(OldFunName, Arity, NewFunName) ->
     end.
 		 
 testserver_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName) ->
-    case lists:keysearch(testserver, 1, UsedFrameWorks) of 
-	{value,_} ->
+    case lists:member(testserver, UsedFrameWorks) of 
+	true ->
 	    testserver_name_checking(OldFunName, Arity, NewFunName);
 	false -> ok
     end.
@@ -810,8 +810,8 @@ testserver_name_checking(OldFunName, Arity, NewFunName) ->
     end. 	 
 									    
 commontest_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName) ->
-    case lists:keysearch(commontest, 1, UsedFrameWorks) of 
-	{value,_} ->
+    case lists:member(commontest, UsedFrameWorks) of 
+	true ->
 	    commontest_name_checking(OldFunName, Arity, NewFunName);
 	false -> ok
     end.

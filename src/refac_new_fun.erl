@@ -60,7 +60,7 @@ fun_extraction(FileName, Start = {Line, Col}, End = {Line1, Col1},
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, [], TabWidth),
     case refac_util:pos_to_expr_list(AnnAST, Start, End) of
       [] -> ExpList = [],
-	    throw({error, "You have not selected an expression"
+	    throw({error, "You have not selected an expression "
 			  "or a sequence of expressions!"});
       ExpList -> ExpList
     end,
@@ -110,10 +110,10 @@ side_cond_analysis(FileName, Info, Fun, ExpList, NewFunName) ->
     end,
     funcall_replaceable(Fun, ExpList),
     TestFrameWorkUsed = refac_util:test_framework_used(FileName),
-    test_framework_aware_name_checking(TestFrameWorkUsed,
-				       NewFunName,
-				       length(FrVars)).
-   
+    catch test_framework_aware_name_checking(TestFrameWorkUsed,
+					     NewFunName,
+					     length(FrVars)).
+
 
 funcall_replaceable(Fun, ExpList) ->
     case ExpList of
@@ -210,8 +210,8 @@ test_framework_aware_name_checking(UsedFrameWorks, NewFunName, Arity) ->
 
 
 eunit_name_checking(UsedFrameWorks, NewFunName, Arity) ->
-    case lists:keysearch(eunit, 1, UsedFrameWorks) of 
-	{value,_} when Arity==0 ->
+    case lists:member(eunit,UsedFrameWorks) of 
+	true when Arity==0 ->
 	    case lists:suffix(?DEFAULT_EUNIT_TEST_SUFFIX, atom_to_list(NewFunName)) of 
 		true -> 
 		    throw({warning, "The new function name means that "
@@ -225,12 +225,12 @@ eunit_name_checking(UsedFrameWorks, NewFunName, Arity) ->
 			    ok
 		    end
 	    end;
-	false -> ok
+	_ -> ok
     end.
        
 eqc_name_checking(UsedFrameWorks, NewFunName, Arity) ->
-    case lists:keysearch(eqc_statem, 1, UsedFrameWorks) of 
-	{value,_} -> 
+    case lists:member(eqc_statem,UsedFrameWorks) of 
+	true -> 
 	    case lists:member({NewFunName, Arity}, refac_rename_fun:eqc_statem_callback_funs()) of 
 		true ->
 		    throw({warning, "The new function name means that "
@@ -239,8 +239,8 @@ eqc_name_checking(UsedFrameWorks, NewFunName, Arity) ->
 	    end;
 	false -> ok
     end,
-    case lists:keysearch(eqc, 1, UsedFrameWorks) of 
-	{value,_} -> 
+    case lists:member(eqc,UsedFrameWorks) of 
+	true -> 
 	    case lists:prefix("prop_", atom_to_list(NewFunName)) of 
 		true ->
 		    throw({warning, "The new function name means that "
@@ -253,8 +253,8 @@ eqc_name_checking(UsedFrameWorks, NewFunName, Arity) ->
 
 
 testserver_name_checking(UsedFrameWorks, NewFunName, Arity) ->
-    case lists:keysearch(testserver, 1, UsedFrameWorks) of 
-	{value,_} ->
+    case lists:member(testserver, UsedFrameWorks) of 
+	true ->
 	    case lists:member({NewFunName, Arity}, refac_rename_fun:testserver_callback_funs()) of 
 		true ->
 		    throw({warning, "The new function name means that"
@@ -266,7 +266,7 @@ testserver_name_checking(UsedFrameWorks, NewFunName, Arity) ->
    
 
 commontest_name_checking(UsedFrameWorks, NewFunName, Arity)->
-    case lists:keysearch(commontest, 1, UsedFrameWorks) of 
+    case lists:member(commontest,UsedFrameWorks) of 
 	{value,_} ->
 	    case lists:member({NewFunName, Arity}, refac_rename_fun:commontest_callback_funs()) of 
 		true ->

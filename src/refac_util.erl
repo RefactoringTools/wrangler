@@ -2291,7 +2291,8 @@ file_format(File) ->
 			   _ -> case lists:all(fun(E)-> E=="\n" end, LEs) of
 				    true -> unix;
 				    _ -> throw({error, File ++ " uses a mixture of line endings,"
-						" please normalise it to one of the standard file formats (i.e. unix/dos/mac) before performing any refactorings."})
+						" please normalise it to one of the standard file "
+						"formats (i.e. unix/dos/mac) before performing any refactorings."})
 				end
 		       end
 	      end
