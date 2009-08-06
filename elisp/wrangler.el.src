@@ -170,7 +170,7 @@
      ("Rename a Process (beta)" erl-refactor-rename-process)
      ("Add a Tag to Messages (beta)"  erl-refactor-add-a-tag)
      ("Register a Process (beta)"   erl-refactor-register-pid)
-     ("From Function to Process" erl-refactor-fun-to-process)
+     ("From Function to Process (beta)" erl-refactor-fun-to-process)
      nil 
      ("Detect Identical Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
      ("Detect Identical Code in Dirs" erl-refactor-duplicated-code-in-dirs)
