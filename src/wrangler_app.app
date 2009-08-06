@@ -1,5 +1,5 @@
 
 {application, wrangler_app,
   [ {description, "Wrangler: the Erlang refactorer"},
-    {vsn, "0.7.4"},
+    {vsn, "0.8"},
     {mod, {wrangler_app, []}}]}.
