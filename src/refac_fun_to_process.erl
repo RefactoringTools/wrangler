@@ -258,17 +258,25 @@ new_fun_name(BaseName, Arity, Index, InScopeFuns) ->
 
 
 rpc_fun(NewFunName, RpcFunName) ->
+    %%NOTE: is looks like the following implementation still cause race conditions.
     RpcFun=atom_to_list(RpcFunName)++
 	"(RegName, Request) ->
+                Sender = self(),
                    Fun = fun() ->
                      try register(RegName, self()) of
                          true ->
+                               Sender ! {started, self()},
                                "++atom_to_list(NewFunName)++"()
                       catch 
-                         error:_ -> already_running
+                         error:_ -> 
+                              Sender ! {already_running, self()},
+                              already_running
                        end
                     end,
-                    spawn(Fun),
+                    Pid = spawn(Fun),
+                    receive 
+                     {_, Pid} -> ok
+                    end, 
                     RegName ! {self(), Request},
 		    receive
 		      {RegName, Response} -> Response
