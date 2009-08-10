@@ -798,14 +798,17 @@ display_clones_by_freq(Cs, Str) ->
     ?wrangler_io("\n===================================================================\n",[]),
     ?wrangler_io(Str++" Code Detection Results Sorted by the Number of Code Instances.\n",[]),
     ?wrangler_io("======================================================================\n",[]),		 
-    ?wrangler_io(display_clones(Cs, Str),[]).
+    Cs1 = lists:sort(fun({_Range1, _Len1, F1, _},{_Range2, _Len2, F2,_})
+			-> F1 >= F2
+		     end, Cs),
+    ?wrangler_io(display_clones(Cs1, Str),[]).
 
 display_clones_by_length(Cs, Str) ->
     ?wrangler_io("\n===================================================================\n",[]),
     ?wrangler_io(Str ++ " Code Detection Results Sorted by Code Size.\n",[]),
     ?wrangler_io("======================================================================\n",[]),		 
-    Cs1 = lists:sort(fun({_Range1, Len1, F1, _},{_Range2, Len2, F2,_})
-			-> {Len1, F1} =< {Len2, F2}
+    Cs1 = lists:sort(fun({_Range1, Len1, _F1, _},{_Range2, Len2, _F2,_})
+			-> Len1 =< Len2
 		     end, Cs),
     ?wrangler_io(display_clones(Cs1, Str),[]).
 
@@ -818,14 +821,10 @@ display_clones(Cs, Str) ->
 	0 -> ok;
 	_ -> display_clones_1(Cs)
     end.
+
+
 display_clones_1(Cs) ->
-    case length(Cs) > 2 of 
-	true ->
-	    ?wrangler_io(display_clones_1(Cs, ""),[]),
-	    display_clones_1(lists:nthtail(2, Cs));	 
-	false ->
-	    ?wrangler_io(display_clones_1(Cs, ""),[])
-    end.    
+    ?wrangler_io(display_clones_1(Cs, ""),[]).
 
 display_clones_1([], Str) -> Str ++ "\n";
 display_clones_1([{Ranges, _Len, F, Code}| Cs], Str) ->
