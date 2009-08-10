@@ -658,10 +658,14 @@ collect_prime_expr_ranges(Tree) ->
     refac_syntax_lib:fold(F, [], Tree).
 
 
+%%set_default_ann(Node) ->
+%%    refac_syntax:set_pos(
+%%      refac_syntax:remove_comments(
+%%	refac_syntax:set_ann(Node, [])), {0,0}).
+
+
 set_default_ann(Node) ->
-    refac_syntax:set_pos(
-      refac_syntax:remove_comments(
-	refac_syntax:set_ann(Node, [])), {0,0}).
+       refac_syntax:remove_comments(Node).
 
 
 vars_to_export_1(WholeExpList, SubExpList) ->
