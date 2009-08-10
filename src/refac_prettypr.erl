@@ -718,7 +718,8 @@ lay_2(Node,Ctxt) ->
 			     _ -> get_end_line(refac_syntax:clause_guard(Node))
 			 end,
 	    BodyStartLn = get_start_line(hd(Body)),
-	    SameLine = case (BodyStartLn==HeadLastLn) of 
+	    SameLine = case (BodyStartLn==HeadLastLn) andalso 
+			   (BodyStartLn=/=0) of 
 			   true -> true;
 			   false -> case BodyStartLn - HeadLastLn of 
 					1 -> false;

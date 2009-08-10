@@ -265,7 +265,7 @@ full_buTP(Fun, Tree, Others) ->
 pos_to_fun_name(Node, Pos) ->
     case once_tdTU(fun pos_to_fun_name_1/2, Node, Pos) of
       {_, false} -> {error, "You have not selected a function name,"
-		     "or the function/attribute containing the"
+		     "or the function/attribute containing the "
 		     "function name selected does not parse!"};
       {R, true} -> {ok, R}
     end.
