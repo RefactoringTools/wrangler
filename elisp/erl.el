@@ -639,7 +639,8 @@ during the next `erl-schedule'."
                       (select-window (or (get-buffer-window (current-buffer))
                                          (display-buffer (current-buffer)))))
                   (goto-char (point-max))
-                  (insert s))))
+                  (insert s))
+                (compilation-minor-mode (point-max))))
           (error (message "Error in group leader: %S" err)))))
     (&erl-group-leader-loop)))
 
