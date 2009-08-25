@@ -164,8 +164,8 @@
      ("Function Extraction" erl-refactor-fun-extraction)
      ("Fold Expression Against Function" erl-refactor-fold-expression)
      nil
-     ;;  ("From Tuple To Record (beta)" erl-refactor-tuple-to-record)
-     ("Tuple Function Arguments" erl-refactor-tuple-funpar)
+       ("Tuple Function Arguments" erl-refactor-tuple-funpar)
+     ;;  ("Inline Function(beta)" erl-refactor-inline-fun)
      nil
      ("Rename a Process (beta)" erl-refactor-rename-process)
      ("Add a Tag to Messages (beta)"  erl-refactor-add-a-tag)
@@ -274,7 +274,7 @@
   (interactive)
   (require 'comint)
   (setq opts (list "-name" "wrangler@localhost"
-		   "-pa"  "C:/cygwin/home/hl/wrangler/share/wrangler/ebin" 
+		   "-pa"  %EBIN_DIR%
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))
@@ -588,6 +588,37 @@
 		(goto-column column-no))))
 	   )))))))
 	    
+
+
+(defun erl-refactor-inline-fun()
+  "Inline a function definition."
+  (interactive)
+  (let ((current-file-name (buffer-file-name))
+	(line-no           (current-line-no))
+        (column-no         (current-column-no))
+	(buffer (current-buffer)))
+    (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
+      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
+	  (message-box "The current buffer has been changed, please save it first.")
+	(erl-spawn
+	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'inline_fun(list current-file-name line-no column-no wrangler-search-paths tab-width))
+	  (erl-receive (line-no column-no current-file-name)
+	      ((['rex ['badrpc rsn]]
+		(message "Refactoring failed: %S" rsn))
+	       (['rex ['error rsn]]
+		(message "Refactoring failed: %s" rsn))
+	       (['rex ['ok modified]]
+		(progn
+		  (if (equal modified nil)
+		      (message "Refactoring finished, and no file has been changed.")
+		    (if (y-or-n-p "Do you want to preview the changes to be performed?")
+			(wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
+		      (commit))
+		  (with-current-buffer (get-file-buffer current-file-name)
+		    (goto-line line-no)
+		    (goto-column column-no))))
+		))))))))
+		  
 
 (defun erl-refactor-register-pid(name start end)
   "Register a process with a user-provied name."
