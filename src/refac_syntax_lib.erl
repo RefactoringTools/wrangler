@@ -2238,6 +2238,7 @@ get_var_info(Tree) ->
 %% to their actual occurrence locations. Originally, both of their locations refer
 %% to that of the keyword 'fun'.
 %% Qn: Any other cases in need of location adjustment?
+adjust_locations(Form, []) -> Form;
 adjust_locations(Form, Toks) ->
     F = fun (T) ->
 		case refac_syntax:type(T) of

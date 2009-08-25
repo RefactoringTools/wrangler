@@ -63,8 +63,8 @@
 %% expressions is a sequence of expressions separated by ','.
 %% <p>
 
--spec(sim_expr_search/6::(filename(), pos(), pos(), string(),[dir()],integer()) 
-      -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).    
+%%-spec(sim_expr_search/6::(filename(), pos(), pos(), string(),[dir()],integer()) 
+%%      -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).    
 sim_expr_search(FName, Start = {Line, Col}, End = {Line1, Col1}, SimiScore0, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:sim_expr_search(~p, {~p,~p},{~p,~p},~p, ~p, ~p).\n", 
 		 [?MODULE, FName, Line, Col, Line1, Col1, SimiScore0, SearchPaths, TabWidth]),
@@ -153,7 +153,8 @@ do_search_similar_expr(AnnAST, RecordInfo, Expr, SimiScore) ->
 					 true -> Acc1;
 					 _ ->
 					     Node1 = normalise_expr(Node, RecordInfo),
-					     find_anti_unifier(Expr, Node1, SimiScore, FunNode) ++ Acc1
+					     ExportVars = vars_to_export(FunNode, NEnd, Node),
+					     find_anti_unifier(Expr, Node1, SimiScore, ExportVars) ++ Acc1
 				     end;
 				 _ -> Acc1
 			     end
@@ -180,13 +181,15 @@ do_search_similar_expr_1(Exprs1, Exprs2, RecordInfo, SimiScore, FunNode) ->
 		 case (S1 =< S2 andalso E2 =< E1) orelse (S2 =< S1 andalso E1=< E2) of 
 		     true -> [];
 		     _ ->
-			 find_anti_unifier(Exprs1, normalise_expr(Exprs21, RecordInfo), SimiScore, FunNode)
+			 ExportVars =  vars_to_export(FunNode, E2, Exprs21),
+			 find_anti_unifier(Exprs1, normalise_expr(Exprs21, RecordInfo), SimiScore, ExportVars)
 			     ++ do_search_similar_expr_1(Exprs1, tl(Exprs2), RecordInfo, SimiScore, FunNode)
 		 end;
 	_ -> []
     end.
 
-find_anti_unifier(Expr1, Expr2, SimiScore, Fun) ->
+
+find_anti_unifier(Expr1, Expr2, SimiScore, Expr2ExportVars) ->
     try
       do_find_anti_unifier(Expr1, Expr2)
     of
@@ -201,9 +204,8 @@ find_anti_unifier(Expr1, Expr2, SimiScore, Fun) ->
 			    [];
 			_ ->
 			    {SLoc, ELoc} = get_start_end_loc(Expr2),
-			    EVs = vars_to_export(Fun, ELoc, Expr2),
 			    EVs1 = [E1 || {E1, E2} <- SubSt, refac_syntax:type(E2)== variable,
-					  lists:member({refac_syntax:variable_name(E2), get_var_define_pos(E2)}, EVs)],
+					  lists:member({refac_syntax:variable_name(E2), get_var_define_pos(E2)}, Expr2ExportVars)],
 			    [{{SLoc, ELoc}, EVs1, SubSt}]
 		    end;
 		_ -> []
@@ -263,10 +265,10 @@ do_find_anti_unifier(Exprs1, Exprs2) when is_list(Exprs1) andalso is_list(Exprs2
 	    ?debug("Does not unify 1:\n~p\n", [{Exprs1,Exprs2}]), 
 	    throw(non_unifiable)
     end;
-do_find_anti_unifier(Expr1, Expr2) when is_list(Expr1) ->
+do_find_anti_unifier(Expr1, _Expr2) when is_list(Expr1) ->
     ?debug("Does not unify 2:n~p\n", [{Expr1,Expr2}]), 
     throw(non_unifiable);
-do_find_anti_unifier(Expr1, Expr2) when is_list(Expr2) ->
+do_find_anti_unifier(_Expr1, Expr2) when is_list(Expr2) ->
     ?debug("Does not unify 3:\n~p\n", [{Expr1,Expr2}]), 
     throw(non_unifiable);
 do_find_anti_unifier(Expr1, Expr2) ->
@@ -546,7 +548,7 @@ get_start_end_loc(Expr) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
--spec(normalise_record_expr/5::(filename(), pos(), bool(), [dir()], integer()) -> {error, string()} | {ok, [filename()]}).
+%%-spec(normalise_record_expr/5::(filename(), pos(), bool(), [dir()], integer()) -> {error, string()} | {ok, [filename()]}).
 normalise_record_expr(FName, Pos={Line, Col}, ShowDefault, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:normalise_record_expr(~p, {~p,~p},~p, ~p, ~p).\n", 
 		 [?MODULE, FName, Line, Col, ShowDefault, SearchPaths,TabWidth]),

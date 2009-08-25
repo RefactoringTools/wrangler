@@ -57,8 +57,8 @@
 
 %%=============================================================================================
 
--spec(fold_against_macro/5::(filename(), integer(), integer(), [dir()], integer()) ->
-	      {error, string()} | {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), syntaxTree()}]}).
+%%-spec(fold_against_macro/5::(filename(), integer(), integer(), [dir()], integer()) ->
+%%	      {error, string()} | {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), syntaxTree()}]}).
 
 fold_against_macro(FileName, Line, Col,  SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:fold_aginst_macro(~p, ~p,~p, ~p,~p).\n", [?MODULE, FileName, Line, Col, SearchPaths, TabWidth]),
@@ -90,8 +90,8 @@ fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
 	    {error, "You have not selected a macro definition, or the selected macro definition does not have a syntactially well-formed body!"}
     end.
 
--spec(fold_against_macro_1/4::(filename(), [{integer(), integer(), integer(), integer(), syntaxTree(), syntaxTree()}], [dir()], integer()) ->
-	     {ok, [filename()]}).
+%%-spec(fold_against_macro_1/4::(filename(), [{integer(), integer(), integer(), integer(), syntaxTree(), syntaxTree()}], [dir()], integer()) ->
+%%	     {ok, [filename()]}).
 fold_against_macro_1(FileName, CandidatesToFold, SearchPaths, TabWidth) ->
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     AnnAST1 = fold_against_macro_1_1(AnnAST, CandidatesToFold),

@@ -1363,7 +1363,7 @@ integer_literal(Node) ->
 	end,
     case is_list(V) of 
 	true -> V;
-	_ -> integer_to_list(V)
+	_ ->integer_to_list(V)
     end.
 
 %% =====================================================================

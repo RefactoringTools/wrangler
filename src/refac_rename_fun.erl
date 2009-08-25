@@ -60,7 +60,7 @@
 
 -include("../include/wrangler.hrl").
 
--define(DEBUG, true).
+%%-define(DEBUG, true).
 
 -ifdef(DEBUG).
 -define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
@@ -68,13 +68,13 @@
 -define(debug(__String, __Args), ok).
 -endif.
 
--spec(rename_fun/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-	     {error, string()} | {ok, [filename()]}).
+%%-spec(rename_fun/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
+%%	     {error, string()} | {ok, [filename()]}).
 rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
 
--spec(rename_fun_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
+%%-spec(rename_fun_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
+%%	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
 
@@ -143,8 +143,8 @@ rename_fun_0(FileName, NewName, SearchPaths, TabWidth, Editor,
 	    write_files(Editor, [{{FileName, FileName}, AnnAST1}])
     end.
 
--spec(rename_fun_1/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-	     {error, string()} | {ok, [filename()]}).
+%%-spec(rename_fun_1/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
+%%	     {error, string()} | {ok, [filename()]}).
 rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     NewName1 = list_to_atom(NewName),
@@ -173,8 +173,8 @@ rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
 	    write_files(emacs, [{{FileName, FileName}, AnnAST1}])
     end.
 
--spec(write_files/2::(Editor::atom(), Results::[{{filename(), filename()}, syntaxTree()}]) ->
-	     {ok, [filename()]} | {ok, [{filename(), filename(), string()}]}).
+%%-spec(write_files/2::(Editor::atom(), Results::[{{filename(), filename()}, syntaxTree()}]) ->
+%%	     {ok, [filename()]} | {ok, [{filename(), filename(), string()}]}).
 write_files(Editor, Results) ->    
     case Editor of 
 	emacs ->
@@ -406,7 +406,7 @@ is_callback_fun(ModInfo, Funname, Arity) ->
       _ -> false
     end.
 
--spec(check_atoms/4::(filename(), syntaxTree(), [atom()],pid()) ->ok).      
+%%-spec(check_atoms/4::(filename(), syntaxTree(), [atom()],pid()) ->ok).      
 check_atoms(FileName, Tree, AtomNames, Pid) ->
     F = fun (T) ->
 		case refac_syntax:type(T) of

@@ -41,7 +41,7 @@
 
 -include("../include/wrangler.hrl").
 
--spec(ann_pid_info/2::([dir()], integer())->ok).
+%%-spec(ann_pid_info/2::([dir()], integer())->ok).
 ann_pid_info(DirList, TabWidth) ->
     Files = refac_util:expand_files(DirList, ".erl"),
     SortedFuns = sort_funs(DirList),

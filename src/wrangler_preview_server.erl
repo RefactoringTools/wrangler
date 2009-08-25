@@ -47,17 +47,17 @@ start_preview_server() ->
     process_flag(trap_exit, true),
     gen_server:start_link({local, wrangler_preview_server}, ?MODULE, [], []).
 
--spec(commit/0::() ->
-	     {ok, [filename()]}).
+%%-spec(commit/0::() ->
+%%	     {ok, [filename()]}).
 commit() ->
     gen_server:call(wrangler_preview_server, commit).
 
--spec(abort/0::() ->{ok, [filename()]}).
+%%-spec(abort/0::() ->{ok, [filename()]}).
 
 abort() ->
     gen_server:call(wrangler_preview_server, abort).
    
--spec(add_files/1::([filename()]) -> ok).
+%%-spec(add_files/1::([filename()]) -> ok).
 	     
 add_files(Files)->
     gen_server:cast(wrangler_preview_server, {add, Files}).

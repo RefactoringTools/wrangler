@@ -52,13 +52,13 @@
 
 -include("../include/wrangler.hrl").
 
--spec(rename_var/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
-	     {error, string()} | {ok, string()}).
+%%-spec(rename_var/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
+%%	     {error, string()} | {ok, string()}).
 rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
 
--spec(rename_var_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
-	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
+%%-spec(rename_var_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
+%%	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_var_eclipse(FName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
 
@@ -234,8 +234,8 @@ pos_to_form_1(Node, Pos) ->
 %% @spec rename(Tree::syntaxTree(), DefinePos::{integer(),integer()}, NewName::string())-> term()
 %%
 
--spec(rename/3::(syntaxTree(), [{integer(), integer()}], atom()) ->
-	     {syntaxTree(), bool()}).
+%%-spec(rename/3::(syntaxTree(), [{integer(), integer()}], atom()) ->
+%%	     {syntaxTree(), bool()}).
 rename(Tree, DefinePos, NewName) ->
     refac_util:stop_tdTP(fun do_rename/2, Tree, {DefinePos, NewName}).
 

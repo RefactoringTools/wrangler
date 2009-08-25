@@ -26,7 +26,9 @@
 
 -export([init/1, collect_vars/1]).
 
--export([get_clones_by_suffix_tree/5, display_clone_result/2]).
+-export([get_clones_by_suffix_tree/5,
+	 get_clones_by_erlang_suffix_tree/4, 
+	 display_clone_result/2]).
 
 -import(refac_sim_expr_search, [start_counter_process/0, stop_counter_process/1, gen_new_var_name/1,variable_replaceable/1]).
 
@@ -154,8 +156,8 @@ loop(Port) ->
 %% </p>
 %% ====================================================================================
 
--spec(duplicated_code_eclipse/5::(dir(), integer(), integer(), integer(),  dir()) ->
- 	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer()}]).
+%%-spec(duplicated_code_eclipse/5::(dir(), integer(), integer(), integer(),  dir()) ->
+%% 	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer()}]).
 
 duplicated_code_eclipse(DirFileList, MinLength1, MinClones1, TabWidth, SuffixTreeExec) ->
      MinLength = case MinLength1 =< 1 of
@@ -208,8 +210,8 @@ duplicated_code(DirFileList, MinLength1, MinClones1, TabWidth) ->
     ?debug("Clones:\n~p\n", [Cs6]),
     {ok, "Duplicated code detection finished."}.
 
--spec(duplicated_code_1/4::(dir(), [integer()], [integer()], integer()) ->
-	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer()}]).
+%%-spec(duplicated_code_1/4::(dir(), [integer()], [integer()], integer()) ->
+%%	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer()}]).
 
 duplicated_code_1(DirFileList, MinLength, MinClones, TabWidth) ->
     Cs5 = duplicated_code_detection(DirFileList, MinClones, MinLength, TabWidth),
@@ -790,7 +792,7 @@ display_clone_result(Cs, Str) ->
     case length(Cs) >=1  of 
 	true -> display_clones_by_freq(Cs, Str),
 		display_clones_by_length(Cs, Str),
-		?wrangler_io("\n\n NOTE: Use 'M-x compilation-minor-mode' to make the result mouse clickable.\n\n",[]);	
+		?wrangler_io("\n\n NOTE: Use 'M-x compilation-minor-mode' to make the result mouse clickable if this mode is not already enabled.\n\n",[]);	
 	false -> ?wrangler_io("\n"++Str++" code detection finished with no clones found.\n", [])
     end.
     
@@ -831,7 +833,8 @@ display_clones_1([{Ranges, _Len, F, Code}| Cs], Str) ->
     [{{File, StartLine, StartCol}, {File, EndLine, EndCol}}| Range] = lists:keysort(1, Ranges),
     NewStr = compose_clone_info({File, StartLine, StartCol}, {File, EndLine, EndCol}, F, Range, Str),
     NewStr1 = NewStr ++ "The cloned expression/function after generalisation:\n\n"++ io_lib:format("~s", [Code]) ++ "\n",
-    display_clones_1(Cs, NewStr1).
+    ?wrangler_io(NewStr1, []),
+    display_clones_1(Cs, "").
 
 compose_clone_info({File, StartLine, StartCol}, {File, EndLine, EndCol}, F, Range, Str) ->
     case F - 1 of

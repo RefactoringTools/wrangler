@@ -48,8 +48,8 @@
 %% @spec forward_slice(Files:[filename()], AnnAST:syntaxTree(), ModName::atom(), FunDef::syntaxTree(), Expr::syntaxTree()) -> [syntaxTree()].
 %% @doc Forward slice the program with expression Expr, which in contained in function FunDef, as the slicing criterion.                     
  
--spec(forward_slice/5::([filename()], syntaxTree(), atom(), syntaxTree(), syntaxTree())->
-	     [syntaxTree()]).
+%%-spec(forward_slice/5::([filename()], syntaxTree(), atom(), syntaxTree(), syntaxTree())->
+%%	     [syntaxTree()]).
 forward_slice(Files, AnnAST, ModName, FunDef, Expr)  ->
     start_slice_env_process(),
     Res = forward_slice_1(Files, AnnAST, ModName, {FunDef, Expr}),
@@ -344,7 +344,7 @@ do_process_fun_applications(Node, {Files,AnnAST, ModName, FunName, Arity,Vars}) 
 %% @spec backward_slice(Files:[filename()], AnnAST:syntaxTree(), ModName::atom(), FunDef::syntaxTree() Expr::syntaxTree()) -> term(). %% Need to think what term() really is.
 %% @doc Backward slice the program with expression Expr, which in contained in function FunDef, as the slicing criterion.      
 
--spec(backward_slice/5::([filename()], syntaxTree(), atom(), syntaxTree(), syntaxTree())->[any()]).  %% any needs to be refined here.
+%%-spec(backward_slice/5::([filename()], syntaxTree(), atom(), syntaxTree(), syntaxTree())->[any()]).  %% any needs to be refined here.
 	     
 backward_slice(Files,AnnAST, ModName, FunDef, Expr) ->
     FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),

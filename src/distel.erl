@@ -37,7 +37,7 @@ to_list(X) when is_binary(X) -> binary_to_list(X);
 to_list(X) when is_integer(X)-> integer_to_list(X);
 to_list(X) when is_float(X)  -> float_to_list(X);
 to_list(X) when is_atom(X)   -> atom_to_list(X);
-to_list(X) when is_list(X)   -> X.		%Assumed to be a string
+to_list(X) when is_list(X)   -> X. 	%Assumed to be a string
 
 %% ----------------------------------------------------------------------
 %% RPC entry point, adapting the group_leader protocol.
@@ -388,7 +388,7 @@ fmt(X, A) -> to_bin(io_lib:format(X, A)).
 pad(X, A) when is_atom(A) ->
     pad(X, to_list(A));
 pad(X, S) when length(S) < X ->
-    S ++ lists:duplicate(X - length(S), $ );
+    S ++ lists:duplicate(X - length(S), $\s);
 pad(_X, S) ->
     S.
 

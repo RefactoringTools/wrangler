@@ -59,7 +59,7 @@
 %%                        SearchPaths::[string()])-> ok | {error, string()}
 %%   
 
--spec(batch_rename_mod/3::(string(), string(), [dir()])-> {ok, string()} | {error, string()}).
+%%-spec(batch_rename_mod/3::(string(), string(), [dir()])-> {ok, string()} | {error, string()}).
 batch_rename_mod(OldNamePattern, NewNamePattern,SearchPaths) ->
     ?wrangler_io("\n[CMD: batch_rename_mod, ~p, ~p, ~p]\n", [OldNamePattern, NewNamePattern, SearchPaths]),
     %% Get all the erlang file which will be affected by this refactoring.
@@ -365,7 +365,7 @@ re_apply_or(R1, nomatch) -> R1.
 %%  Convert a sh style regexp into a full AWK one. The main difficulty is
 %%  getting character sets right as the conventions are different.
 
-sh_to_awk(Sh) -> "^(" ++ sh_to_awk_1(Sh).	%Fix the beginning
+sh_to_awk(Sh) -> "^(" ++ sh_to_awk_1(Sh). %Fix the beginning
 
 sh_to_awk_1([$*|Sh]) ->				%This matches any string
     ".*" ++ sh_to_awk_1(Sh);
@@ -382,7 +382,7 @@ sh_to_awk_1([C|Sh]) ->
 	true -> [$\\,C|sh_to_awk_1(Sh)];
 	false -> [C|sh_to_awk_1(Sh)]
     end;
-sh_to_awk_1([]) -> ")$".			%Fix the end
+sh_to_awk_1([]) -> ")$". 		%Fix the end
 
 sh_to_awk_2([$]|Sh], UpArrow) -> [$]|sh_to_awk_3(Sh, UpArrow)];
 sh_to_awk_2(Sh, UpArrow) -> sh_to_awk_3(Sh, UpArrow).

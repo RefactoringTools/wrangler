@@ -38,13 +38,13 @@
 -include("../include/wrangler.hrl").
 
 %% =============================================================================================
--spec(fun_extraction/5::(filename(), pos(), pos(), string(), integer()) ->
-	     {'ok', [string()]}).
+%%-spec(fun_extraction/5::(filename(), pos(), pos(), string(), integer()) ->
+%%	     {'ok', [string()]}).
 fun_extraction(FileName, Start, End, NewFunName, TabWidth) ->
     fun_extraction(FileName, Start, End, NewFunName, TabWidth, emacs).
 
--spec(fun_extraction_eclipse/5::(filename(), pos(), pos(), string(),integer()) ->
-	      {ok, [{filename(), filename(), string()}]}).
+%%-spec(fun_extraction_eclipse/5::(filename(), pos(), pos(), string(),integer()) ->
+%%	      {ok, [{filename(), filename(), string()}]}).
 fun_extraction_eclipse(FileName, Start, End, NewFunName, TabWidth) ->
     fun_extraction(FileName, Start, End, NewFunName, TabWidth, eclipse).
 

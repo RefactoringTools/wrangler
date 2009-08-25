@@ -68,14 +68,14 @@
 -include("../include/wrangler.hrl").
 
 %==========================================================================================
--spec(move_fun/7::(filename(),integer(),integer(), string(), atom(),[dir()], integer())->
-         {ok, [filename()]} | {error, string()}).
+%%-spec(move_fun/7::(filename(),integer(),integer(), string(), atom(),[dir()], integer())->
+%%         {ok, [filename()]} | {error, string()}).
 %%==========================================================================================
 move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabWidth) ->
     move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabWidth, emacs).
 
--spec(move_fun_eclipse/7::(filename(),integer(),integer(), string(), atom(),[dir()], integer())
-        ->  {ok, [{filename(), filename(), string()}]} | {error, string()}).
+%%-spec(move_fun_eclipse/7::(filename(),integer(),integer(), string(), atom(),[dir()], integer())
+%%        ->  {ok, [{filename(), filename(), string()}]} | {error, string()}).
 
 move_fun_eclipse(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabWidth) ->
     move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabWidth, eclipse).

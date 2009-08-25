@@ -97,32 +97,32 @@
 
 -define(DEFAULT_RANGE, {?DEFAULT_LOC, ?DEFAULT_LOC}).
 %% =====================================================================
--spec(generalise/6::(FileName::filename(),Start::pos(), End::pos(),ParName::string(),
-		     SearchPaths::[dir()], TabWidth::integer()) ->
-	     {ok, [filename()]}
-		 |{error, string()}
-                 |{multiple_instances, {atom(), atom(), integer(), pos(), syntaxTree(), bool(),[{pos(), pos()}]}}
-		 |{unknown_side_effect, {atom(), atom(),integer(), pos(), syntaxTree(), integer(),
-					 [{pos(), pos()}], [{pos(),pos()}]}}
-		 |{more_than_one_clause, {atom(), atom(), integer(), pos(), syntaxTree(), bool(),
-					  [{pos(), pos()}], [{pos(),pos()}]}}). 
+%%-spec(generalise/6::(FileName::filename(),Start::pos(), End::pos(),ParName::string(),
+%%		     SearchPaths::[dir()], TabWidth::integer()) ->
+%%	     {ok, [filename()]}
+%%		 |{error, string()}
+%%                 |{multiple_instances, {atom(), atom(), integer(), pos(), syntaxTree(), bool(),[{pos(), pos()}]}}
+%%		 |{unknown_side_effect, {atom(), atom(),integer(), pos(), syntaxTree(), integer(),
+%%					 [{pos(), pos()}], [{pos(),pos()}]}}
+%%		 |{more_than_one_clause, {atom(), atom(), integer(), pos(), syntaxTree(), bool(),
+%%					  [{pos(), pos()}], [{pos(),pos()}]}}). 
 
 generalise(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
     generalise(FileName, Start, End, ParName, SearchPaths, TabWidth, emacs).
 
--spec(generalise_eclipse/6::(FileName::filename(),Start::pos(), End::pos(),ParName::string(), 
-			     SearchPaths::[dir()], TabWidth::integer()) -> 
-	     {error, string()}
-		 |{ok, [{filename(), filename(), string()}]}
-		 |{multiple_instances,  {ParName:: atom(), FunName::atom(), Arity::integer(),
-					 FunDefPos::pos(), Exp::syntaxTree(), SideEffect::bool(),
-				 	 DupsInFun::[{pos(), pos()}]}}
-		 |{unknown_side_effect, {ParName::atom(), FunName::atom(),Arity::integer(), 
-				  	 FunDefPos::pos(), Exp::syntaxTree(), NoOfClauses::integer(),
-					 DupsInFun::[{pos(), pos()}],DupsInClause::[{pos(), pos()}]}}
-		 |{more_than_one_clause,{ParName::atom(), FunName::atom(), Arity::integer(), 
-					 FunDefPos::pos(), Exp::syntaxTree(), SideEffect::bool(),
-					 DupsInFun::[{pos(), pos()}],DupsInClause::[{pos(), pos()}]}}).
+%%-spec(generalise_eclipse/6::(FileName::filename(),Start::pos(), End::pos(),ParName::string(), 
+%%			     SearchPaths::[dir()], TabWidth::integer()) -> 
+%%	     {error, string()}
+%%		 |{ok, [{filename(), filename(), string()}]}
+%%		 |{multiple_instances,  {ParName:: atom(), FunName::atom(), Arity::integer(),
+%%					 FunDefPos::pos(), Exp::syntaxTree(), SideEffect::bool(),
+%%				 	 DupsInFun::[{pos(), pos()}]}}
+%%		 |{unknown_side_effect, {ParName::atom(), FunName::atom(),Arity::integer(), 
+%%				  	 FunDefPos::pos(), Exp::syntaxTree(), NoOfClauses::integer(),
+%%					 DupsInFun::[{pos(), pos()}],DupsInClause::[{pos(), pos()}]}}
+%%		 |{more_than_one_clause,{ParName::atom(), FunName::atom(), Arity::integer(), 
+%%					 FunDefPos::pos(), Exp::syntaxTree(), SideEffect::bool(),
+%%					 DupsInFun::[{pos(), pos()}],DupsInClause::[{pos(), pos()}]}}).
 
 generalise_eclipse(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
     generalise(FileName, Start, End, ParName, SearchPaths, TabWidth, eclipse).
@@ -197,17 +197,17 @@ generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPa
     end.
 
 
--spec(gen_fun_1/10::(SideEffect::bool(), FileName::filename(),ParName::atom(), FunName::atom(),
-		     Arity::integer(), FunDefPos::pos(), Exp::syntaxTree(), SearchPaths::[dir()],
-		    TabWidth::integer(), Dups::[{pos(), pos()}])
-      -> {ok, [filename()]}).
+%%-spec(gen_fun_1/10::(SideEffect::bool(), FileName::filename(),ParName::atom(), FunName::atom(),
+%%		     Arity::integer(), FunDefPos::pos(), Exp::syntaxTree(), SearchPaths::[dir()],
+%%		    TabWidth::integer(), Dups::[{pos(), pos()}])
+%%      -> {ok, [filename()]}).
 gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth, Dups) ->
     gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth,Dups, emacs).
 
--spec(gen_fun_1_eclipse/10::(SideEffect::bool(), FileName::filename(),ParName::atom(), FunName::atom(), 
-			    Arity::integer(), FunDefPos::pos(), Expr::syntaxTree(), SearchPaths::[dir()],
-			    TabWidth::integer(), Dups::[{pos(), pos()}]) 
-      -> {ok, [{filename(), filename(),string()}]}).
+%%-spec(gen_fun_1_eclipse/10::(SideEffect::bool(), FileName::filename(),ParName::atom(), FunName::atom(), 
+%%			    Arity::integer(), FunDefPos::pos(), Expr::syntaxTree(), SearchPaths::[dir()],
+%%			    TabWidth::integer(), Dups::[{pos(), pos()}]) 
+%%      -> {ok, [{filename(), filename(),string()}]}).
 gen_fun_1_eclipse(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth, Dups) ->
     gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths, TabWidth, Dups, eclipse).
 
@@ -232,15 +232,15 @@ gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths
     end.
 
 
--spec(gen_fun_clause_eclipse/9::(FileName::filename(), ParName::atom(), FunName::atom(), Arity::integer(), DefPos::pos(), 
-				 Exp::syntaxTree(), TabWidth::integer(), SideEffect::bool(),  Dups::[{pos(), pos()}]) ->
-					{ok, [{filename(), filename(), string()}]}).
+%%-spec(gen_fun_clause_eclipse/9::(FileName::filename(), ParName::atom(), FunName::atom(), Arity::integer(), DefPos::pos(), 
+%%				 Exp::syntaxTree(), TabWidth::integer(), SideEffect::bool(),  Dups::[{pos(), pos()}]) ->
+%%					{ok, [{filename(), filename(), string()}]}).
 gen_fun_clause_eclipse(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEffect, Dups) ->
     gen_fun_clause_1(FileName, ParName, FunName, Arity, DefPos, Exp, [], TabWidth, SideEffect, Dups, eclipse).
 
--spec(gen_fun_clause/9::(FileName::filename(), ParName::atom(), FunName::atom(), Arity::integer(), DefPos::pos(), 
-			 Exp::syntaxTree(), TabWidth::integer(), SideEffect::bool(), 
-			 Dups::[{{integer(), integer()},{integer(), integer()}}]) ->{ok, [filename()]}).
+%%-spec(gen_fun_clause/9::(FileName::filename(), ParName::atom(), FunName::atom(), Arity::integer(), DefPos::pos(), 
+%%			 Exp::syntaxTree(), TabWidth::integer(), SideEffect::bool(), 
+%%			 Dups::[{{integer(), integer()},{integer(), integer()}}]) ->{ok, [filename()]}).
 
 gen_fun_clause(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEffect, Dups) ->
     gen_fun_clause_1(FileName, ParName, FunName, Arity, DefPos, Exp, [], TabWidth, SideEffect, Dups,emacs).

@@ -58,12 +58,12 @@
 %% @spec rename_mod(FileName::filename(), NewName::string(), SearchPaths::[string()])-> term()
 %%   
 
--spec(rename_mod/4::(filename(), string(), [dir()], integer()) -> {error, string()} | {ok, [filename()]}).	     
+%%-spec(rename_mod/4::(filename(), string(), [dir()], integer()) -> {error, string()} | {ok, [filename()]}).      
 rename_mod(FileName, NewName, SearchPaths, TabWidth) ->
     rename_mod(FileName, NewName, SearchPaths, TabWidth, emacs).
 
--spec(rename_mod_eclipse/4::(filename(), string(), [dir()], integer()) ->
-	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
+%%-spec(rename_mod_eclipse/4::(filename(), string(), [dir()], integer()) ->
+%%	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_mod_eclipse(FileName, NewName, SearchPaths, TabWidth) ->
     rename_mod(FileName, NewName, SearchPaths, TabWidth, eclipse).
 
@@ -170,7 +170,7 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths,Editor, TabWidth) ->
     end.
   
  
--spec(rename_mod_1/5::(filename(), string(), [dir()], integer(),bool()) ->{ok, [filename()]}).
+%%-spec(rename_mod_1/5::(filename(), string(), [dir()], integer(),bool()) ->{ok, [filename()]}).
 rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod) ->     %% currently only for Emacs; need to extend to Eclipse.
     {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(FileName,true, SearchPaths),
     {value, {module, OldModName}} = lists:keysearch(module, 1, Info), 

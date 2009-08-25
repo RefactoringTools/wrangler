@@ -46,7 +46,7 @@
 -include("../include/wrangler.hrl").
 
 %% =============================================================================================
--spec(add_a_tag/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->{ok, [filename()]} | {error, string()}).	     
+%%-spec(add_a_tag/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->{ok, [filename()]} | {error, string()}).      
 add_a_tag(FileName, Line, Col, Tag, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:add_a_tag(~p, ~p, ~p, ~p,~p, ~p).\n", [?MODULE, FileName, Line, Col, Tag, SearchPaths, TabWidth]),
     {ok, {AnnAST1, _Info1}}=refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
