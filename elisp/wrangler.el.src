@@ -305,7 +305,7 @@
  
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 0.8"))
+  (message "Wrangler version 0.8.1"))
 
 (defun wrangler-menu-init()
   "Init Wrangler menus."
