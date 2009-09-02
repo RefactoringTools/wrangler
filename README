@@ -1,7 +1,7 @@
 
                     Wrangler, the Erlang Refactorer
                 a snapshot of our current prototype
-                            05/08/2009 
+                            02/09/2009 
               http://www.cs.kent.ac.uk/projects/wrangler/
 
 --------------------------------------------------------------------------------
@@ -173,12 +173,18 @@ the Eclipse environment.
  search for Erlang source files/header files that could be affected by a
  refactoring.
 
+-------------------------Major Changes from Wrangler-0.8------------
+
+-- The algorithm for similar code detection has been improved to reduce
+   the memory usage.
 
 -------------------------Major Changes form Wrangler-0.7.5-----------
 -- New feature.
    Wrangler now supports Similar Code Detection.
 -- All refactorings are now test-framework-aware.
 -- The interface to Tupling Function Arguments has been changed.
+-- 'From function to process' now keeps the original function interface
+   unchanged.   
 -- A number of bug fixes.   
 -------------------------Major Changes from Wrangler-0.7.4------------
 
