@@ -30,6 +30,7 @@
 	 get_clones_by_erlang_suffix_tree/4, 
 	 display_clone_result/2]).
 
+-compile(export_all).
 -import(refac_sim_expr_search, [start_counter_process/0, stop_counter_process/1, gen_new_var_name/1,variable_replaceable/1]).
 
 %% TODO:  
@@ -321,16 +322,16 @@ extend_range(Prev_Range, {branch, {Range, {_Len, Freq}}, leaf}) ->
     ExtendedRange = lists:map(fun (R) -> combine_range(Prev_Range, R) end, Range),
     {S, E} = hd(ExtendedRange),
     {branch, {ExtendedRange, {E-S+1, Freq}}, leaf};
-extend_range(Prev_Range, {branch, {Range, {Len, Freq}}, Bs}) ->
+extend_range(Prev_Range, {branch, {Range, {_Len, Freq}}, Bs}) ->
     ExtendedRange = lists:map(fun (R) -> combine_range(Prev_Range, R) end, Range),
-    case overlapped_range(ExtendedRange) of 
-	true ->  Bs1 = lists:map(fun (B) -> extend_range(Range, B) end, Bs),
-		 {branch, {Range, {Len, Freq}}, Bs1};
-	_ -> 
-	    Bs1 = lists:map(fun (B) -> extend_range(ExtendedRange, B) end, Bs),
-	    {S, E} = hd(ExtendedRange),
-	    {branch, {ExtendedRange, {E - S + 1, Freq}}, Bs1}
-    end.
+   %%  case overlapped_range(ExtendedRange) of 
+%% 	true ->  Bs1 = lists:map(fun (B) -> extend_range(Range, B) end, Bs),
+%% 		 {branch, {Range, {Len, Freq}}, Bs1};
+%% 	_ -> 
+    Bs1 = lists:map(fun (B) -> extend_range(ExtendedRange, B) end, Bs),
+    {S, E} = hd(ExtendedRange),
+    {branch, {ExtendedRange, {E - S + 1, Freq}}, Bs1}.
+    %% end.
     
 
 
@@ -551,10 +552,18 @@ trim_clones(FileNames, Cs, MinLength, MinClones, TabWidth) ->
     ToksLists = tokenize_files(FileNames, false, TabWidth),
     Fun0 = fun(R={{File, StartLn, StartCol},{File, EndLn, EndCol}})->
 		  case lists:keysearch(File, 1, AnnASTs) of
-		      {value, {File, AnnAST}} -> Phrases =  refac_util:pos_to_syntax_units(AnnAST, {StartLn, StartCol}, {EndLn, EndCol}, fun is_expr_or_fun/1),
-						 BdStruct = refac_expr_search:var_binding_structure(Phrases),
-						 {R, Phrases, BdStruct};	   
-		      _  -> {R, [], []}
+		      {value, {File, AnnAST}} -> 
+			  case refac_util:pos_to_fun_def(AnnAST, ({StartLn+ (EndLn-StartLn) div 2, StartCol})) of
+			      {ok, FunDef} ->
+				  Phrases =  refac_util:pos_to_syntax_units(FunDef, {StartLn, StartCol}, {EndLn, EndCol}, fun is_expr_or_fun/1),
+				  BdStruct = refac_expr_search:var_binding_structure(Phrases),
+				  VarsToExport = refac_sim_expr_search:vars_to_export(FunDef, {EndLn, EndCol}, Phrases),
+			%% 	  refac_io:format("VarsToExport:\n~p\n", [VarsToExport]),
+				  {R, Phrases, VarsToExport, BdStruct};	   
+			      {error, _} ->
+				  {R, [],[],[]}
+			  end;
+		      _  -> {R, [], [],[]}
 		  end
 	  end,
     Fun = fun ({Range, _Len, F}) ->
@@ -598,16 +607,16 @@ trim_clones(FileNames, Cs, MinLength, MinClones, TabWidth) ->
 		  end
 	  end,
     Cs2= lists:append(lists:map(Fun, Cs)),
-    Cs3 =[lists:map(fun(C) -> {C, Len, length(C)} end, group_by(3, lists:map(Fun0, Range)))
+    Cs3 =[lists:map(fun(C) -> {C, Len, length(C)} end, group_by(4, lists:map(Fun0, Range)))
 		    || {Range, Len, _F}<- Cs2],
     Cs4 = lists:append(Cs3),
-    Cs5 =[{lists:unzip([{R, Code}||{R,Code, _Bd} <-Range]), Len, F} 
+    Cs5 =[{lists:unzip([{R, {Code, EVs}}||{R,Code, EVs, _Bd} <-Range]), Len, F} 
 	  || {Range, Len, F} <- Cs4, Len>=MinLength, F>=MinClones],
-    Cs6 = [try get_anti_unifier(Exprs) of 
+    Cs6 = [try get_anti_unifier(CodeEVsPairs) of 
 	       Res -> [{Range, Len, F, Res}]
 	   catch
 	       _Error_ -> []
-	   end ||{{Range, Exprs}, Len, F} <-Cs5],
+	   end ||{{Range, CodeEVsPairs}, Len, F} <-Cs5],
     lists:usort(lists:append(Cs6)).
 
 
@@ -859,90 +868,119 @@ display_clones_2([{{File, StartLine, StartCol}, {File, EndLine, EndCol}}|Rs], St
 	   end,
     display_clones_2(Rs, Str1).
 
-		
 get_anti_unifier([]) ->
     throw({error, anti_unification_failed});
-get_anti_unifier([Expr])-> generalise_expr(Expr, []);
-get_anti_unifier([Expr|Exprs]) ->
-    Nodes =lists:usort(lists:flatmap(fun(E) ->
-					     expr_unification(Expr, E)
-				     end, Exprs)),
-    generalise_expr(Expr, Nodes).
- 
+get_anti_unifier([{Expr, EVs}]) -> generalise_expr({Expr, EVs}, []);
+get_anti_unifier([{Expr, EVs}| Exprs]) ->
+    {Nodes1, EVs1} = lists:unzip(lists:map(fun ({E, ExportedVars}) ->
+						    expr_unification(Expr, E, ExportedVars)
+					    end, Exprs)),
+    generalise_expr({Expr, EVs}, {lists:usort(lists:append(Nodes1)), lists:usort(lists:append(EVs1))}).
 
-expr_unification(Exp1, Exp2) ->
-    case {is_list(Exp1), is_list(Exp2)} of 
-	{true, true} ->   
-	    case length(Exp1) == length(Exp2) of 
-		true ->
-		    lists:flatmap(fun({E1,E2}) ->			      
-					  expr_unification(E1,E2)						
-				  end, lists:zip(Exp1, Exp2));
-		_ ->
-		    throw({error, anti_unification_failed})
-	    end;
-	{false, false} ->  %% both are single expressions.
-	    T1 = refac_syntax:type(Exp1),
+ 
+expr_unification(Exp1, Exp2, Expr2ExportedVars) ->
+    try 
+	do_expr_unification(Exp1, Exp2) 
+    of
+	SubSt -> 
+	    EVs1 = [{refac_syntax:variable_name(E1), get_var_define_pos(E1)} 
+		    || {E1, E2} <- SubSt, refac_syntax:type(E2)== variable,
+		       lists:member({refac_syntax:variable_name(E2), get_var_define_pos(E2)}, Expr2ExportedVars)],
+	    Nodes = [E1 || {E1, _E2} <- SubSt, refac_syntax:type(E1)=/=variable],
+	    {Nodes, EVs1}
+    catch 
+	_ ->
+	     {[],[]}
+    end.
+	    
+    
+do_expr_unification(Exp1, Exp2) ->
+    case {is_list(Exp1), is_list(Exp2)} of
+      {true, true} ->
+	  case length(Exp1) == length(Exp2) of
+	    true ->
+		lists:flatmap(fun ({E1, E2}) ->
+				      do_expr_unification(E1, E2)
+			      end, lists:zip(Exp1, Exp2));
+	    _ ->
+		throw({error, anti_unification_failed})
+	  end;
+      {false, false} ->  %% both are single expressions.
+	       T1 = refac_syntax:type(Exp1),
 	    T2 = refac_syntax:type(Exp2),
 	    case T1  of 
 		atom -> case (T2 == atom) andalso (refac_syntax:atom_value(Exp1) == refac_syntax:atom_value(Exp2)) of 
 			    true -> [];
 			    _ -> case variable_replaceable(Exp1) of 
-				     true ->[Exp1];
+				     true ->[{Exp1, Exp2}];
 				     _ -> throw({error, anti_unification_failed})
 				 end
 			end;
 		char -> case (T2==char) andalso (refac_syntax:char_value(Exp1) == refac_syntax:char_value(Exp2)) of 
 			    true -> [];
-			    _ -> [Exp1]
+			    _ -> [{Exp1, Exp2}]
 			end;
 		integer -> case (T2==integer orelse T2==float) andalso 
 			       (refac_syntax:integer_value(Exp1) ==refac_syntax:integer_value(Exp2)) of 
 			       true -> [];
-			       _ -> [Exp1]
+			       _ -> [{Exp1,Exp2}]
 			   end;
 		string -> case (T2==string) andalso refac_syntax:string_value(Exp1) == refac_syntax:string_value(Exp2) of 
 			      true -> [];
-			      _ -> [Exp1]
+			      _ -> [{Exp1, Exp2}]
 			  end;
 		float -> case (T2==float orelse T2==integer) andalso 
 			     refac_syntax:float_value(Exp1) == refac_syntax:float_value(Exp2) of 
 			     true -> [];
-			     _ -> [Exp1]			 
+			     _ -> [{Exp1, Exp2}]			 
 			 end;
+		nil -> case T2==nil of 
+			   true -> [];
+			   _ -> [{Exp1, Exp2}]
+		       end;
 		_ -> 
-		    SubTrees1 = erl_syntax:subtrees(Exp1),
-		    SubTrees2 = erl_syntax:subtrees(Exp2),
-		    expr_unification(SubTrees1, SubTrees2)				    
+		    case (refac_syntax:type(Exp1)==variable) andalso (not is_macro_name(Exp1)) of
+			true ->
+			    case refac_syntax:type(Exp2) of
+				variable -> 
+				    [{Exp1, Exp2}];
+				_ ->  throw({error, anti_unification_failed})
+			    end;
+			_ ->
+			    SubTrees1 = erl_syntax:subtrees(Exp1),
+			    SubTrees2 = erl_syntax:subtrees(Exp2),
+			    do_expr_unification(SubTrees1, SubTrees2)
+		    end
 	    end
     end.
 
+
 generalise_expr([], _) ->
     "";
-generalise_expr(Exprs = [H| _T], NodesToGen) ->
+generalise_expr({Exprs = [H| _T], EVs}, {NodesToGen, VarsToExport}) ->
     case refac_syntax:type(H) of
-      function -> generalise_fun(H, NodesToGen);
-      _ -> FunName = refac_syntax:atom(new_fun),
-	   FVs = lists:keysort(2, refac_util:get_free_vars(Exprs)),
-	   EVs = lists:keysort(2, refac_util:get_var_exports(Exprs)),
-	   NewExprs = generalise_expr_1(Exprs, NodesToGen),
-	   NewExprs1 = case EVs of
-			 [] -> NewExprs;
-			 [{V, _}] -> E = refac_syntax:variable(V),
-				     NewExprs ++ [E];
-			 [_V| _Vs] -> E = refac_syntax:tuple([refac_syntax:variable(V) || {V, _} <- EVs]),
-				      NewExprs ++ [E]
-		       end,
-	   NewVars = sets:to_list(sets:subtract(collect_vars(NewExprs), collect_vars(Exprs))),
-	   Pars = lists:map(fun ({V, _}) ->
-				    refac_syntax:variable(V)
-			    end,
-			    FVs)
-		    ++ lists:map(fun (V) ->
-					 refac_syntax:variable(V)
-				 end, NewVars),
-	   C = refac_syntax:clause(refac_util:remove_duplicates(Pars), none, NewExprs1),
-	   refac_prettypr:format(refac_syntax:function(FunName, [C]))
+	function -> generalise_fun(H, NodesToGen);
+	_ -> FunName = refac_syntax:atom(new_fun),
+	     FVs = lists:ukeysort(2, refac_util:get_free_vars(Exprs)),
+	     EVs1 = lists:ukeysort(2, EVs++VarsToExport),
+	     NewExprs = generalise_expr_1(Exprs, NodesToGen),
+	     NewExprs1 = case EVs1 of
+			     [] -> NewExprs;
+			     [{V, _}] -> E = refac_syntax:variable(V),
+					 NewExprs ++ [E];
+			     [_V| _Vs] -> E = refac_syntax:tuple([refac_syntax:variable(V) || {V, _} <- EVs1]),
+					  NewExprs ++ [E]
+			 end,
+	     NewVars = collect_vars(NewExprs)--collect_vars(Exprs),
+	     Pars = lists:map(fun ({V, _}) ->
+				      refac_syntax:variable(V)
+			      end,
+			      FVs)
+		 ++ lists:map(fun (V) ->
+				      refac_syntax:variable(V)
+			      end, NewVars),
+	     C = refac_syntax:clause(refac_util:remove_duplicates(Pars), none, NewExprs1),
+	     refac_prettypr:format(refac_syntax:function(FunName, [C]))
     end.
 
 generalise_fun(F, NodesToGen) ->
@@ -950,7 +988,7 @@ generalise_fun(F, NodesToGen) ->
     Cs = refac_syntax:function_clauses(F),
     {Cs1, NewVars} = lists:unzip(lists:map(fun (C) ->
 						   C1 = generalise_expr_1(C, NodesToGen),
-						   NewVars = sets:to_list(sets:subtract(collect_vars(C1), collect_vars(C))),
+						   NewVars = collect_vars(C1)--collect_vars(C),
 						   {C1, NewVars}
 					   end, Cs)),
     NewVars1 = lists:append(NewVars),
@@ -995,11 +1033,21 @@ collect_vars_1(Node) ->
 		    variable ->
 			case lists:keysearch(category, 1, refac_syntax:get_ann(N)) of
 			    {value, {category, macro_name}} -> S;
-			    _ ->sets:add_element(refac_syntax:variable_name(N), S)
+			    _ ->[refac_syntax:variable_name(N)|S]
 			end;
 		    _  -> S
 		end
 	end,
-    refac_syntax_lib:fold(F, sets:new(), Node).
+    refac_util:remove_duplicates(lists:reverse(refac_syntax_lib:fold(F, [], Node))).
+    
 		
 			   
+get_var_define_pos(V) ->
+    case  lists:keysearch(def,1, refac_syntax:get_ann(V)) of
+	{value, {def, DefinePos}} -> DefinePos;
+	false -> []
+    end.
+               
+is_macro_name(Exp) ->
+    {value, {category, macro_name}} == 
+	lists:keysearch(category, 1, refac_syntax:get_ann(Exp)).
