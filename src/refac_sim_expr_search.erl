@@ -371,7 +371,7 @@ macro_name_value(Exp) ->
 generalise_expr(Exprs, SearchRes, ExportVars) ->
     FunName = refac_syntax:atom(new_fun),
     BVs = refac_util:get_bound_vars(Exprs),
-    FVs = lists:keysort(2, refac_util:get_free_vars(Exprs)),
+    FVs = lists:ukeysort(2, refac_util:get_free_vars(Exprs)),
     {NewExprs, NewExportVars} = generalise_expr_1(Exprs, SearchRes, ExportVars),
     NewExprs1 = case NewExportVars of
 		    [] -> NewExprs;
@@ -379,7 +379,7 @@ generalise_expr(Exprs, SearchRes, ExportVars) ->
 		    _ ->E = refac_syntax:tuple([refac_syntax:variable(V) || V <- NewExportVars]),
 			NewExprs ++ [E]
 		end,
-    Pars = sets:to_list(collect_vars(NewExprs)) --element(1, lists:unzip(BVs)),
+    Pars = collect_vars(NewExprs)--element(1, lists:unzip(BVs)),
     FVPars = [V || {V, _} <-FVs, lists:member(V, Pars)],
     NewVarPars = Pars --FVPars,
     Pars1 = [refac_syntax:variable(V)|| V <- FVPars] ++ 
@@ -399,7 +399,7 @@ generalise_expr_2(Expr, Subst, ExprFreeVars, {ExportVars1, ExportVars2}) ->
     case lists:all(fun(S) -> S==[] end, Subst) of 
 	true -> {Expr, ExportVars1};
 	_ ->
-	    Pid = start_counter_process(collect_vars(Expr)),
+	    Pid = start_counter_process(sets:from_list(collect_vars(Expr))),
 	    ExportVars3 = [E || E<-ExportVars2, refac_syntax:type(E) =/= variable],
 	    {Expr1, _}= refac_util:stop_tdTP(fun do_replace_expr_with_var_1/2, Expr, {Subst, ExprFreeVars, Pid, ExportVars3}),
 	    NewVarsToExport = get_new_export_vars(Pid),
