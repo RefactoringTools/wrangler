@@ -108,7 +108,7 @@ sim_code_detection(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabW
 	    ?debug("Searching for initial clone candidates...\n", []),
 	    %% ?debug("current time:~p\n", [time()]),
 	    generalise_and_hash_ast(Files, Pid, SearchPaths, TabWidth, ASTTab, VarTab),
-	    %% ?debug("\ngeneralise and hash ast done.\n",[]),
+	    %%?debug("\ngeneralise and hash ast done.\n",[]),
 	    Dir = filename:dirname(hd(Files)),
 	    Cs = get_clones(Pid, MinLen, MinFreq, Dir, RangeTab),
 	    stop_hash_process(Pid),
@@ -157,12 +157,13 @@ generalise_and_hash_ast_1(FName, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
 			  ets:insert(VarTab, {{FName, FunName, Arity}, AllVars}),
 			  refac_util:full_tdTP(fun generalise_and_hash_ast_2/2, 
 					       Form, {FName, FunName, Arity, ASTTab,Pid});
-		      _ -> ok
+			  _ -> ok
 		  end
 	  end,
     {ok, {AnnAST, _Info}} = parse_annotate_file(FName,SearchPaths, TabWidth),
     refac_syntax:form_list_elements(AnnAST),
-    lists:foreach(fun(F)->Fun(F) end, refac_syntax:form_list_elements(AnnAST)).
+    lists:foreach(fun(F)->Fun(F) end, refac_syntax:form_list_elements(AnnAST)),
+    insert_dummy_entry(Pid).
 
 
 
@@ -235,7 +236,7 @@ examine_clone_sets([], _MinFreq, _SimiScore, ASTTab, _VarTab, RangeTab,Pid, _Num
 	    [get_generalised_form(ASTTab, RangeTab, C)||C<-Cs]
     end;
 examine_clone_sets([C|Cs],MinFreq, SimiScore, ASTTab, VarTab, RangeTab, Pid, Num) ->
-    ?debug("\nChecking the ~pth clone candidate...\n", [Num]),
+    ?debug("\nChecking the ~pth clone candidate...", [Num]),
     Res =examine_a_clone_set(C, MinFreq, SimiScore, ASTTab, VarTab, RangeTab,Pid),
     add_new_clones(Pid, Res),
     examine_clone_sets(Cs, MinFreq, SimiScore, ASTTab, VarTab, RangeTab, Pid, Num+1).
@@ -246,11 +247,11 @@ examine_a_clone_set(Cs, MinFreq, SimiScore, ASTTab, VarTab, RangeTab, Pid) ->
 	_ ->
 	    C={_, {_, Freq}} = lists:last(Cs), 
 	    Res =examine_a_clone_class(C, MinFreq, SimiScore, ASTTab, VarTab, RangeTab),
-	    case lists:sum([element(2, (element(2, R))) || R<-Res]) of 
-		Freq ->
+	    case Res of
+		[R]  when element(2, R)==Freq ->
 		    Res;
-		_ ->
-		    examine_a_clone_set(group_cs(Cs,[]), MinFreq, SimiScore, ASTTab, VarTab, RangeTab, Pid, [])
+		_ -> Cs1 = lists:sublist(Cs, 1, length(Cs)-1),
+		     examine_a_clone_set(group_cs(Cs1,[]), MinFreq, SimiScore, ASTTab, VarTab, RangeTab, Pid, Res)
 	    end
     end.
 
@@ -280,6 +281,7 @@ remove_fun_info_1({Ranges, {Len, Freq}, C}) ->
 		{{F,_, _},{SLine, SCol}, {EndLine, EndCol}} <-Ranges],
     {Ranges1, Len, Freq, C}.
 
+
 remove_sub_clones(Cs) ->
     remove_sub_clones(lists:reverse(Cs),[]).
 
@@ -302,6 +304,21 @@ is_sub_clone({Ranges, {Len, Freq},Str}, ExistingClones) ->
 			true -> 
 			    true;
 			false -> is_sub_clone({Ranges, {Len, Freq},Str}, T)
+		    end;
+		_ ->
+		    false
+	    end
+    end;
+is_sub_clone({Ranges, {Len, Freq}}, ExistingClones) ->
+    case ExistingClones of 
+	[] -> false;
+	[{Ranges1, {Len1, Freq1}}|T] ->
+	    case {Len, Freq} =<{Len1, Freq1} of
+		true ->
+		    case is_sub_ranges(Ranges, Ranges1) of 
+			true -> 
+			    true;
+			false -> is_sub_clone({Ranges, {Len, Freq}}, T)
 		    end;
 		_ ->
 		    false
@@ -483,15 +500,17 @@ search_for_clones(Dir, Data, MinLen, MinFreq, RangeTab) ->
        end,
     IndexStr = lists:append([F0(I)|| {I, _}<-Data]),
     NewData =lists:append([F(Elem) ||Elem <-Data]),
-    Cs= get_clones_by_suffix_tree(Dir, IndexStr++"&",MinLen, MinFreq,"0123456789,#"),
-    %%?debug("Num of clones from suffix tree:\n~p\n", [length(Cs)]),
-    Cs1 = lists:append([strip_a_clone({[{S,E} |Ranges], {Len, Freq}}, SubStr, MinLen)
+    Cs= get_clones_by_suffix_tree(Dir, IndexStr++"&",MinLen, MinFreq,"0123456789,#&"),
+  %%  ?debug("Num of clones from suffix tree:\n~p\n", [length(Cs)]),
+    Cs1 = lists:append([strip_a_clone({[{S,E} |Ranges], {Len, Freq}}, SubStr, MinLen, MinFreq)
 			|| {[{S,E} |Ranges], Len, Freq} <- Cs, 
 			      SubStr <-[lists:sublist(IndexStr, S, E-S+1)]]),
-     %%?debug("num of clones after stripping clones:\n~p\n", [length(Cs1)]),
-    get_clones_in_ranges(Cs1, NewData, MinLen, MinFreq, RangeTab).
- 
-strip_a_clone({Ranges, {Len, F}}, Str, MinLen) ->
+    Cs2 =refac_duplicated_code:remove_sub_clones([{R,Len,Freq}||{R, {Len, Freq}}<-Cs1]),
+  %%  ?debug("num of clones after stripping clones:\n~p\n", [length(Cs2)]),
+    get_clones_in_ranges([{R,{Len, Freq}}||{R, Len, Freq}<-Cs2], 
+			 NewData, MinLen, MinFreq, RangeTab).
+   
+strip_a_clone({Ranges, {Len, F}}, Str, MinLen, MinFreq) ->
     {Str1, Str2} = lists:splitwith(fun(C) ->C==$# orelse C ==$, end, Str),
     {Str21, Str22} = lists:splitwith(fun(C) ->C==$# orelse C ==$, end, lists:reverse(Str2)),
     case Str22=="" of 
@@ -500,33 +519,64 @@ strip_a_clone({Ranges, {Len, F}}, Str, MinLen) ->
 	     NewLen = Len-length(Str1) -length(Str21),
 	     case NewLen >= MinLen*2-1 of
 		 true ->
-		     split_a_clone({NewRanges,{NewLen, F}},lists:reverse(Str22), MinLen);
+		     split_a_clone({NewRanges,{NewLen, F}},lists:reverse(Str22), MinLen, MinFreq);
 		 _ -> []
 	     end	    
     end.
 
-split_a_clone(_, "", _)->[];
-split_a_clone({Ranges, {Len, F}}, Str, MinLen) ->
+split_a_clone(_, "", _, _)->[];
+split_a_clone({Ranges, {Len, F}}, Str, MinLen, MinFreq) ->
     {Str1, Str2} = lists:splitwith(fun(C) -> C=/=$# end, Str),
-    Len1 = length(Str1),
-    {NewRanges, RemainedRanges} = lists:unzip([{{S, S+Len1-1}, {S+Len1+1, E}}
+    Len1 = case lists:last(Str1) of 
+	       $, ->length(Str1)-1;
+	       _ -> length(Str1)
+	   end,
+    {Str21, Str22} = lists:splitwith(fun(C) -> C==$# end, Str2),
+    {NewRanges, RemainedRanges} = lists:unzip([{{S, S+Len1-1}, {S+length(Str1)+length(Str21), E}}
 					       ||{S, E} <-Ranges]),
-     case Str2 of 
-	"" ->
-	    case Len1>= MinLen*2-1  of
-		true -> [{NewRanges, {Len1, F}}];
-		false -> []
-	    end;
-	[$#|Str3] ->
-	    case Len1>= MinLen*2-1 of
+    case Len1 >= MinLen*2-1 of 
+	true ->
+	    NewRanges1 = remove_overlapped_ranges(NewRanges),
+	    NewFreq = length(NewRanges1),
+	    case NewFreq>=MinFreq of
 		true ->
-		    [{NewRanges, {Len1, F}} | split_a_clone({RemainedRanges, {Len, F}}, Str3, MinLen)];
+		    case Str22 of 
+			"" ->[{NewRanges1, {Len1, NewFreq}}];
+			_ ->   [{NewRanges1, {Len1, NewFreq}} | split_a_clone({RemainedRanges, {Len, F}}, Str22, MinLen,MinFreq)]
+		    end;
 		false ->
-		    split_a_clone({RemainedRanges, {Len, F}}, Str3, MinLen)
-	    end	    
+		    case Str22 of 
+			"" ->
+			    [];
+			_ -> 
+			    split_a_clone({RemainedRanges, {Len, F}}, Str22, MinLen,MinFreq)
+		    end
+	    end;
+	false ->
+	    case Str22 of 
+		"" ->
+		    [];
+		_ -> 
+		    split_a_clone({RemainedRanges, {Len, F}}, Str22, MinLen,MinFreq)
+	    end
     end.
-   
 
+   
+remove_overlapped_ranges(Rs) ->
+    Rs1 = lists:sort(Rs),
+    R = hd(Rs1),
+    remove_overlapped_ranges(tl(Rs1), R, [R]).
+remove_overlapped_ranges([], _ , Acc) ->
+    lists:reverse(Acc);
+remove_overlapped_ranges([{S, E}|Rs], {S1, E1},Acc) ->
+      case (S1=<S) andalso (S=<E1) of 
+	true ->
+	   remove_overlapped_ranges(Rs, {S1, E1}, Acc);
+	false ->
+	    remove_overlapped_ranges(Rs, {S, E}, [{S, E}|Acc])
+    end.
+	     
+    
 get_clones_in_ranges(Cs, Data, MinLen, MinFreq, RangeTab) ->
     F0 = fun({S, E}) ->
 		 {_, Ranges}=lists:unzip(lists:sublist(Data, S, E-S+1)),
@@ -539,17 +589,35 @@ get_clones_in_ranges(Cs, Data, MinLen, MinFreq, RangeTab) ->
 			ets:insert(RangeTab, {{MFA, S1, E2}, R}),
 			{MFA, S1, E2}
 		  end ||R<-Rs]
-	 end,		 
+	 end,	
     F= fun({Ranges, {_Len, Freq}}) ->
 	       case Freq>=MinFreq of 
-		   true -> NewRanges0 = [F0(R)|| R <- Ranges],
-			   NewRanges = zip(NewRanges0),
-			   [{F1(Rs),{length(hd(Rs)), Freq}}|| Rs <-NewRanges];
+		   true -> 
+		       NewRanges0 = [F0(R)|| R <- Ranges],
+		       NewRanges = zip(NewRanges0),
+		       [{F1(Rs),{length(hd(Rs)), Freq}}|| Rs <-NewRanges];
 		   _ ->[]
 	       end
-       end,    
-    [lists:reverse(F(C)) || C<-Cs].
-    
+       end, 
+    Res =[lists:reverse(F(C)) || C<-Cs],
+    remove_duplicated_clones(Res,[]).
+
+
+remove_duplicated_clones([], Acc) ->
+     lists:reverse(Acc);
+remove_duplicated_clones([Cs|T], Acc) ->
+    Cs1 =[{Ranges, {Len, Freq}}|| {Ranges, {Len, Freq}}<-Cs,
+		not(lists:any(fun(Cs2) ->
+				      lists:any(fun({Ranges1, {Len1, Freq1}}) ->
+							(Len==Len1) andalso (Freq =<Freq1) 
+							    andalso  (Ranges--Ranges1==[])
+						end, Cs2)
+			      end, Acc))],
+    remove_duplicated_clones(T, [Cs1|Acc]).
+			  
+
+
+
 zip(L) ->[nested_tuple_to_list(E)||E<-zip_1(L)].
 zip_1([]) ->[];
 zip_1([L]) ->L;
@@ -613,4 +681,7 @@ annotate_bindings(FName, AST, Info, Ms, TabWidth) ->
     AnnAST0 = refac_syntax_lib:annotate_bindings(refac_util:add_range(AST, Toks), ordsets:new(), Ms),
     refac_util:add_category(refac_util:add_fun_define_locations(AnnAST0, Info)).
  
+
+
+
 
