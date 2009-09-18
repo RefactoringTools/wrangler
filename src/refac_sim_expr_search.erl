@@ -221,7 +221,7 @@ simi_score(Expr, SubExprs) ->
 	    NonVarExprs = [E || E<-SubExprs, refac_syntax:type(E)=/=variable],
 	    NoOfNewVars = length(NonVarExprs),
 	    Res =1-((no_of_nodes(SubExprs)-length(SubExprs)+NoOfNewVars*(NoOfNewVars+1)/2)/ExprSize),
-	    %% Res =1 -((no_of_nodes(SubExprs1)-length(SubExprs1))/ExprSize),
+	   %% Res =1 -((no_of_nodes(SubExprs)-length(SubExprs))/ExprSize),
 	    Res
     end.
 

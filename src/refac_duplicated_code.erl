@@ -28,7 +28,7 @@
 
 -export([get_clones_by_suffix_tree/5,
 	 get_clones_by_erlang_suffix_tree/4, 
-	 display_clone_result/2]).
+	 display_clone_result/2, remove_sub_clones/1]).
 
 -compile(export_all).
 -import(refac_sim_expr_search, [start_counter_process/0, stop_counter_process/1, gen_new_var_name/1,variable_replaceable/1]).
