@@ -291,7 +291,8 @@ do_replace_expr_with_fun_call(Tree, {Expr, {Range, NewExp}})->
 
 do_replace_expr_with_fun_call_1(Tree, {Range, NewExp}) ->
     case refac_util:get_range(Tree) of 
- 	Range -> {NewExp, true};
+ 	Range -> 
+	    {refac_util:update_ann(NewExp, {range, Range}),true};
  	_  -> {Tree, false}
     end.
 
@@ -310,7 +311,9 @@ do_replace_expr_with_fun_call_2(Tree, {{StartLoc, EndLoc}, NewExp}) ->
 			       end, Exprs),
 			 case Exprs22 of
 			     [] -> {Exprs, false};  %% THIS SHOULD NOT HAPPEN.
-			     _ -> {Exprs1 ++ [NewExp| tl(Exprs22)], true}
+			     _ ->
+				 NewExp1 = refac_util:update_ann(NewExp, {range, refac_util:get_range(hd(Exprs22))}),
+				 {Exprs1 ++ [NewExp1| tl(Exprs22)], true}
 			 end
 		end
 	end,
