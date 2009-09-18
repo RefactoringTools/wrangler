@@ -363,33 +363,27 @@
   "Undo the latest refactoring."
   (interactive)
   (let (buffer (current-buffer))
-       (let (changed)
-	 (dolist (b (buffer-list) changed)
-	   (let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	     (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-		 (setq changed (cons (buffer-name b) changed)))))
-	 (if changed (message-box (format "There are modified buffers: %s, please save these buffers first." changed))
-	   (if (y-or-n-p "Undo a refactoring will also undo the editings done after the refactoring, undo anyway?")
-	   (erl-spawn
-	     (erl-send-rpc wrangler-erl-node 'wrangler_undo_server 'undo (list))
-	     (erl-receive (buffer)
-		 ((['rex ['badrpc rsn]]
-		   (message "Undo failed: %S" rsn))
-		  (['rex ['error rsn]]
-		   (message "Undo failed: %s" rsn))
-		  (['rex ['ok modified1]]
-		   (dolist (f modified1)
-		     (let ((oldfilename (car f))
-		       (newfilename (car (cdr f)))
-		       (buffer (get-file-buffer (car (cdr f)))))
-		       (if buffer (if (not (equal oldfilename newfilename))
-				      (with-current-buffer buffer
-					(progn (set-visited-file-name oldfilename)
-					       (revert-buffer nil t t)))
-				    (with-current-buffer buffer (revert-buffer nil t t)))
-			 nil)))
-		   (message "Undo succeeded")))))
-	   (message "Undo aborted."))))))
+    (if (y-or-n-p "Undo a refactoring will also undo the editings done after the refactoring, undo anyway?")
+	(erl-spawn
+	  (erl-send-rpc wrangler-erl-node 'wrangler_undo_server 'undo (list))
+	  (erl-receive (buffer)
+	      ((['rex ['badrpc rsn]]
+		(message "Undo failed: %S" rsn))
+	       (['rex ['error rsn]]
+		(message "Undo failed: %s" rsn))
+	       (['rex ['ok modified1]]
+		(dolist (f modified1)
+		  (let ((oldfilename (car f))
+			(newfilename (car (cdr f)))
+			(buffer (get-file-buffer (car (cdr f)))))
+		    (if buffer (if (not (equal oldfilename newfilename))
+				   (with-current-buffer buffer
+				     (progn (set-visited-file-name oldfilename)
+					    (revert-buffer nil t t)))
+				 (with-current-buffer buffer (revert-buffer nil t t)))
+		      nil)))
+		(message "Undo succeeded")))))
+      (message "Undo aborted."))))
 
 (defun preview-commit-cancel(current-file-name modified)
   (let ((answer (read-char-spec "Do you want to preview(p)/commit(c)/cancel(n) the changes to be performed?"
@@ -404,6 +398,32 @@
 	  ((eq answer 'n)
 	   (abort-changes)))))
 
+(defun current-buffer-saved(buffer)
+  (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
+    (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
+	(if (y-or-n-p "The current buffer has been changed, and Wrangler needs to save it before refactoring, continue?")
+	    (progn (save-buffer)
+		   t)
+	  nil)
+      t)))
+
+(defun buffers-saved()
+  (let (changed)
+      (dolist (b (buffer-list) changed)
+	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
+	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
+	      (setq changed (cons (buffer-name b) changed)))))
+      (if changed 
+	  (if (y-or-n-p (format "There are modified buffers: %s, which Wrangler needs to save before refactoring, continue?" changed))
+	      (progn
+		(save-some-buffers t)
+		t)
+	    nil)
+	t)
+      ))
+	
+
+	   
 (defun erl-refactor-rename-var (name)
   "Rename an identified variable name."
   (interactive (list (read-string "New name: ")
@@ -412,9 +432,7 @@
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
-    (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
-      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
-	  (message-box "The current buffer has been changed, please save it first.")
+    (if (current-buffer-saved buffer)
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'rename_var (list current-file-name line-no column-no name wrangler-search-paths tab-width))
 	  (erl-receive (line-no column-no current-file-name)
@@ -425,13 +443,13 @@
 	       (['rex ['ok modified]]
 		(progn
 		  (if (equal modified nil)
-		      (message "Refactoring finished, and no file has been changed.")
-		    (preview-commit-cancel current-file-name modified))
+		  (message "Refactoring finished, and no file has been changed.")
+		  (preview-commit-cancel current-file-name modified))
 		  (with-current-buffer (get-file-buffer current-file-name)
 		    (goto-line line-no)
 		    (goto-column column-no))))
-		)))))))
-		  
+	       )))
+      (message "Refactoring aborted."))))
 
 (defun erl-refactor-rename-fun (name)
   "Rename an identified function name."
@@ -441,12 +459,7 @@
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
-    (let (changed)
-      (dolist (b (buffer-list) changed)
-	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s, please save these functions first." changed))
+    (if (buffers-saved)
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'rename_fun (list current-file-name line-no column-no name wrangler-search-paths tab-width))
 	  (erl-receive (line-no column-no current-file-name name)
@@ -479,8 +492,9 @@
 		  (with-current-buffer (get-file-buffer current-file-name)
 		    (goto-line line-no)
 		    (goto-column column-no))))
-		  )))))))
-		 
+	       )))
+      (message "Refactoring aborted."))))
+  	 
 	      
 
 (defun erl-refactor-rename-mod (name)
@@ -489,38 +503,33 @@
 		     ))
   (let ((current-file-name (buffer-file-name))
 	(buffer (current-buffer)))
-    (let (changed)
-      (dolist (b (buffer-list) changed)
-	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
-    (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'rename_mod (list current-file-name name wrangler-search-paths tab-width))
-      (erl-receive (buffer name current-file-name)
-	  ((['rex ['badrpc rsn]]
-	    (message "Refactoring failed: %S" rsn))
-	   (['rex ['error rsn]]
-	    (message "Refactoring failed: %s" rsn))
-	   (['rex ['warning msg]]
-	    (progn
-	      (if (y-or-n-p msg)
-		  (erl-spawn
-		    (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring(list 'refac_rename_mod 'rename_mod_1
-							(list current-file-name name wrangler-search-paths tab-width 'false)))
-		    (erl-receive (current-file-name)
-			((['rex ['badrpc rsn]]
-			  (message "Refactoring failed: %S" rsn))
-			 (['rex ['error rsn]]
-			  (message "Refactoring failed: %s" rsn))
-			 (['rex ['ok modified]]
-			  (preview-commit-cancel current-file-name modified)
-			  )))
-		(message "Refactoring aborted.")
-		))))
-	   (['rex ['question msg]]
-	    (progn
-	      (if (y-or-n-p msg)
+  (if (buffers-saved)
+      (erl-spawn
+	(erl-send-rpc wrangler-erl-node 'wrangler_distel 'rename_mod (list current-file-name name wrangler-search-paths tab-width))
+	(erl-receive (buffer name current-file-name)
+	    ((['rex ['badrpc rsn]]
+	      (message "Refactoring failed: %S" rsn))
+	     (['rex ['error rsn]]
+	      (message "Refactoring failed: %s" rsn))
+	     (['rex ['warning msg]]
+	      (progn
+		(if (y-or-n-p msg)
+		    (erl-spawn
+		      (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring(list 'refac_rename_mod 'rename_mod_1
+										      (list current-file-name name wrangler-search-paths tab-width 'false)))
+		      (erl-receive (current-file-name)
+			  ((['rex ['badrpc rsn]]
+			    (message "Refactoring failed: %S" rsn))
+			   (['rex ['error rsn]]
+			    (message "Refactoring failed: %s" rsn))
+			   (['rex ['ok modified]]
+			    (preview-commit-cancel current-file-name modified)
+			    )))
+		      (message "Refactoring aborted.")
+		      ))))
+	     (['rex ['question msg]]
+	      (progn
+		(if (y-or-n-p msg)
 		  (erl-spawn
 		    (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring(list 'refac_rename_mod 'rename_mod_1(list 
 								    current-file-name name wrangler-search-paths tab-width 'true)))
@@ -546,7 +555,8 @@
 		)))
 	   (['rex ['ok modified]]
 	    (preview-commit-cancel current-file-name modified)
-	    ))))))))
+	    ))))
+    (message "Refactoring aborted."))))
 
 (defun erl-refactor-rename-process(name)
   "Rename a registered process."
@@ -556,12 +566,7 @@
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
-    (let (changed)
-      (dolist (b (buffer-list) changed)
-	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s, please save these buffers first" changed))
+    (if (buffers-saved)
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'rename_process (list current-file-name line-no column-no name wrangler-search-paths tab-width))
       (erl-receive (name current-file-name line-no column-no)
@@ -592,7 +597,9 @@
 	      (with-current-buffer (get-file-buffer current-file-name)
 		(goto-line line-no)
 		(goto-column column-no))))
-	   )))))))
+	   )))
+      (message "Refactoring aborted!"))))
+	  
 	    
 
 
@@ -603,10 +610,8 @@
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
-    (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
-      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
-	  (message-box "The current buffer has been changed, please save it first.")
-	(erl-spawn
+    (if (current-buffer-saved buffer)
+    	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'inline_fun(list current-file-name line-no column-no wrangler-search-paths tab-width))
 	  (erl-receive (line-no column-no current-file-name)
 	      ((['rex ['badrpc rsn]]
@@ -621,7 +626,8 @@
 		  (with-current-buffer (get-file-buffer current-file-name)
 		    (goto-line line-no)
 		    (goto-column column-no))))
-		)))))))
+	       )))
+      (message "Refactoring aborted."))))
 		  
 
 (defun erl-refactor-register-pid(name start end)
@@ -636,12 +642,7 @@
 	(start-col-no  (current-column-pos start))
 	(end-line-no   (line-no-pos end))
 	(end-col-no    (current-column-pos end)))
-    (let (changed)
-      (dolist (b (buffer-list) changed)
-	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
+    (if (buffers-saved)
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'register_pid
 			(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width))
@@ -710,7 +711,8 @@
 		   (with-current-buffer (get-file-buffer current-file-name)
 		     (goto-line start-line-no)
 		     (goto-column start-column-no))))
-	       )))))))
+	       )))
+       (message "Refactoring aborted."))))
 
 (defun erl-refactor-move-fun (name)
   "Move a function definition from one module to another."
@@ -721,28 +723,23 @@
         (column-no         (current-column-no))
 	(buffer (current-buffer))
         (create-new-file   (create-new-file-p name wrangler-search-paths)))
-    (let (changed)
-      (dolist (b (buffer-list) changed)
-	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
-    (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'move_fun
-		    (list current-file-name line-no column-no name create-new-file wrangler-search-paths tab-width))
-      (erl-receive (line-no column-no current-file-name)
-	  ((['rex ['badrpc rsn]]
-	    (message "Refactoring failed: %S" rsn))
-	   (['rex ['error rsn]]
-	    (message "Refactoring failed: %s" rsn))
-	   (['rex ['ok modified]]
-	    (progn
-	      (preview-commit-cancel current-file-name modified)
-	      (with-current-buffer (get-file-buffer current-file-name)
-		(goto-line line-no)
-		(goto-column column-no))))
-	   )))))))
-	    
+    (if (buffers-saved)
+	(erl-spawn
+	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'move_fun
+			(list current-file-name line-no column-no name create-new-file wrangler-search-paths tab-width))
+	  (erl-receive (line-no column-no current-file-name)
+	      ((['rex ['badrpc rsn]]
+		(message "Refactoring failed: %S" rsn))
+	       (['rex ['error rsn]]
+		(message "Refactoring failed: %s" rsn))
+	       (['rex ['ok modified]]
+		(progn
+		  (preview-commit-cancel current-file-name modified)
+		  (with-current-buffer (get-file-buffer current-file-name)
+		    (goto-line line-no)
+		    (goto-column column-no))))
+	       )))
+      (message "Refactoring aborted."))))
 
 (defun create-new-file-p (filename wrangler-search-paths)
   (if (equal (locate-file filename (cons (file-name-directory filename) nil) '("" ".erl")) nil)
@@ -803,13 +800,11 @@
 	(start-col-no  (current-column-pos start))
 	(end-line-no   (line-no-pos end))
 	(end-col-no    (current-column-pos end)))
-    (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
-      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
-	  (message-box "The current buffer has been changed, please save the buffer first.")
-	(erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'generalise
-		    (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width))
-      (erl-receive (current-file-name wrangler-search-paths start-line-no start-col-no buffer highlight-region-overlay)
+    (if (current-buffer-saved buffer)
+   	(erl-spawn
+	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'generalise
+			(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width))
+	  (erl-receive (current-file-name wrangler-search-paths start-line-no start-col-no buffer highlight-region-overlay)
 	  ((['rex ['badrpc rsn]]
 	    (message "Refactoring failed: %S" rsn))
 	   (['rex ['error rsn]]
@@ -961,7 +956,9 @@
 	    (preview-commit-cancel current-file-name modified)
 	    (with-current-buffer (get-file-buffer current-file-name)
 	      (goto-line start-line-no)
-	      (goto-column start-col-no))))))))))
+	      (goto-column start-col-no))))))
+      (message "Refactoring aborted."))))
+      
 	   
 (defun erl-refactor-fun-extraction(name start end)
   "Introduce a new function to represent an user-selected expression/expression sequence."
@@ -975,10 +972,8 @@
 	(start-col-no  (current-column-pos start))
 	(end-line-no   (line-no-pos end))
 	(end-col-no    (current-column-pos end)))
-    (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
-      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
-	  (message-box "The current buffer has been changed, please save it first.")
-	(erl-spawn
+    (if (current-buffer-saved buffer)
+  	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'fun_extraction
 			(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name tab-width))
 	  (erl-receive (start-line-no start-col-no current-file-name)
@@ -1006,7 +1001,8 @@
 		(preview-commit-cancel current-file-name modified)
 		(with-current-buffer (get-file-buffer current-file-name)
 		  (goto-line start-line-no)
-		  (goto-column start-col-no))))))))))
+		  (goto-column start-col-no))))))
+      (message "Refactoring aborted."))))
 		
 (defun erl-refactor-new-macro(name start end)
   "Introduce a new marco to represent an user-selected syntax phrase."
@@ -1020,10 +1016,8 @@
 	(start-col-no  (current-column-pos start))
 	(end-line-no   (line-no-pos end))
 	(end-col-no    (current-column-pos end)))
-    (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
-      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
-	  (message-box "The current buffer has been changed, please save it first.")
-	(erl-spawn
+    (if (current-buffer-saved buffer)
+  	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'new_macro
 			(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width))
 	  (erl-receive (start-line-no start-col-no current-file-name)
@@ -1035,7 +1029,9 @@
 		(preview-commit-cancel current-file-name modified)
 		(with-current-buffer (get-file-buffer current-file-name)
 		  (goto-line start-line-no)
-		  (goto-column start-col-no))))))))))
+		  (goto-column start-col-no))))))
+      (message "Refactoring aborted."))))
+      
 	
 (defun erl-refactor-fold-against-macro()
   "Fold expression(s)/patterns(s) against a macro definition."
@@ -1101,12 +1097,7 @@
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
-    (let (changed)
-      (dolist (b (buffer-list) changed)
-	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
+    (if (buffers-saved)
         (erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_fold_expression 'cursor_at_fun_clause(list 
                        current-file-name line-no column-no wrangler-search-paths tab-width)))
@@ -1121,7 +1112,8 @@
 				     (read-string "Clause index (starting from 1): "))))
 	       (['rex 'false]
 	       (fold_expr_by_name buffer current-file-name (read-string "Module name: ") (read-string "Function name: ") (read-string "Arity: ")
-				   (read-string "Clause index (starting from 1): "))))))))))
+				   (read-string "Clause index (starting from 1): "))))))
+      (message "Refactoring aborted."))))
 
 
 
@@ -1235,12 +1227,7 @@
 	(start-col-no  (current-column-pos start))
 	(end-line-no   (line-no-pos end))
 	(end-col-no    (current-column-pos end)))
-    (let (changed)
-      (dolist (b (buffer-list) changed)
-	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
+    (if (buffers-saved)
     (erl-spawn
       (erl-send-rpc wrangler-erl-node 'wrangler_distel 'tuple_to_record
 		    (list current-file-name start-line-no start-col-no end-line-no end-col-no tab-width))
@@ -1251,7 +1238,8 @@
 	    (message "Refactoring failed: %s" rsn))
 	   (['rex ['ok refac-tuple-to-record]]
 	    (with-current-buffer buffer (revert-buffer nil t t))
-            (message "Refactoring succeeded!")))))))))
+            (message "Refactoring succeeded!")))))
+     (message "Refactoring aborted."))))
 
 
 (defun erl-refactor-duplicated-code-in-buffer(mintokens minclones)
@@ -1261,19 +1249,19 @@
 		     ))
   (let ((current-file-name (buffer-file-name))
 	(buffer (current-buffer)))
-    (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
-      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer)) 
-	  (message-box "The current buffer has been changed, please save it first.")
-    (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'wrangler_distel 'duplicated_code_in_buffer
-		    (list current-file-name mintokens minclones tab-width)))
-      (erl-receive (buffer)
-	  ((['rex ['badrpc rsn]]
-	    (message "Duplicated code detection failed: %S" rsn))
-	   (['rex ['error rsn]]
-	    (message "Duplicated code detection failed: %s" rsn))
-	   (['rex ['ok result]]
-	    (message "Duplicated code detection finished!")))))))))
+    (if (current-buffer-saved buffer)
+	(erl-spawn
+	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'wrangler_distel 'duplicated_code_in_buffer
+									   (list current-file-name mintokens minclones tab-width)))
+	  (erl-receive (buffer)
+	      ((['rex ['badrpc rsn]]
+		(message "Duplicated code detection failed: %S" rsn))
+	       (['rex ['error rsn]]
+		(message "Duplicated code detection failed: %s" rsn))
+	       (['rex ['ok result]]
+		(message "Duplicated code detection finished!")))))
+      (message "Duplicated code detection aborted."))))
+
 
 
 (defun erl-refactor-duplicated-code-in-dirs(mintokens minclones)
@@ -1284,12 +1272,7 @@
   (if (y-or-n-p (format "Find duplicated code in the following directories: %s" wrangler-search-paths))
       (let ((current-file-name (buffer-file-name))
 	    (buffer (current-buffer)))
-	(let (changed)
-	  (dolist (b (buffer-list) changed)
-	    (let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-		  (setq changed (cons (buffer-name b) changed)))))
-	  (if changed (message-box (format "there are modified buffers: %s, please save it first." changed))
+	(if (buffers-saved)
 	    (erl-spawn
 	      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'duplicated_code_in_dirs
 			    (list wrangler-search-paths mintokens minclones tab-width))
@@ -1299,7 +1282,9 @@
 		   (['rex ['error rsn]]
 		    (message "Duplicated code detection failed: %s" rsn))
 		   (['rex ['ok result]]
-		    (message "Duplicated code detection finished."))))))))
+		    (message "Duplicated code detection finished.")))))
+	  (message "Duplicated code detection aborted.")
+	  ))
     (message "Please customize Wrangler Search Paths to check duplicated code in other directories.")
     ))
 		   
@@ -1314,12 +1299,7 @@
  (if (y-or-n-p (format "Find similar code in the following directories: %s" wrangler-search-paths))
      (let ((current-file-name (buffer-file-name))
 	   (buffer (current-buffer)))
-       (let (changed)
-	 (dolist (b (buffer-list) changed)
-	   (let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	     (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-		 (setq changed (cons (buffer-name b) changed)))))
-	 (if changed (message-box (format "there are modified buffers: %s, please save it first." changed))
+       (if (buffers-saved)
 	   (erl-spawn
 	     (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_sim_code 'sim_code_detection
 			   (list wrangler-search-paths minlen minfreq simiscore wrangler-search-paths tab-width)))
@@ -1329,7 +1309,9 @@
 		  (['rex ['error rsn]]
 		   (message "Similar code detection failed: %s" rsn))
 		  (['rex ['ok result]]
-		   (message "Similar code detection finished."))))))))
+		   (message "Similar code detection finished.")))))
+	 (message "Similar code detection aborted.")
+	 ))
      (message "Please customize Wrangler Search Paths to check similar code in other directories.")
     ))
 
@@ -1343,13 +1325,11 @@
 		    ))
  (let ((current-file-name (buffer-file-name))
 	(buffer (current-buffer)))
-   (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
-     (remove-highlights)
-     (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
-	 (message-box "The current buffer has been changed, please save it first.")
+   (remove-highlights)
+   (if (current-buffer-saved buffer)
        (erl-spawn
 	 (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_sim_code 'sim_code_detection_in_buffer
-		       (list current-file-name minlen minfreq simiscore  wrangler-search-paths tab-width)))
+									  (list current-file-name minlen minfreq simiscore  wrangler-search-paths tab-width)))
 	 (erl-receive (buffer current-file-name)
 	     ((['rex ['badrpc rsn]]
 	       (message "Searching failed: %S" rsn))
@@ -1357,7 +1337,9 @@
 	       (message "Searching failed: %s" rsn))
 	      (['rex ['ok result]]
 	       (message "Similar code detection finished.")
-	       ))))))))
+	       ))))
+       (message "Similar code detection aborted.")
+       )))
 	
 
 (defun erl-refactor-expression-search(start end)
@@ -1371,23 +1353,22 @@
 	(start-col-no  (current-column-pos start))
 	(end-line-no   (line-no-pos end))
 	(end-col-no    (current-column-pos end)))
-    (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
-      (remove-highlights)
-      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
-	  (message-box "The current buffer has been changed, please save it first.")
-    (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'expression_search
-		    (list current-file-name start-line-no start-col-no end-line-no end-col-no tab-width))
-      (erl-receive (buffer)
-	  ((['rex ['badrpc rsn]]
-	    (message "Searching failed: %S" rsn))
-	   (['rex ['error rsn]]
+    (remove-highlights)
+    (if (current-buffer-saved buffer)
+	(erl-spawn
+	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'expression_search
+			(list current-file-name start-line-no start-col-no end-line-no end-col-no tab-width))
+	  (erl-receive (buffer)
+	      ((['rex ['badrpc rsn]]
+		(message "Searching failed: %S" rsn))
+	       (['rex ['error rsn]]
 	    (message "Searching failed: %s" rsn))
-	   (['rex ['ok regions]]
-	    (with-current-buffer buffer
-	      (highlight-instances-1 regions (car regions) buffer)
-	      (message "Searching finished; use 'C-c C-e' to remove highlights.\n")
-	   )))))))))
+	       (['rex ['ok regions]]
+		(with-current-buffer buffer
+		  (highlight-instances-1 regions (car regions) buffer)
+		  (message "Searching finished; use 'C-c C-e' to remove highlights.\n")
+		  )))))
+      (message "Refactoring aborted."))))
 
 
 (defun erl-refactor-similar-expression-search(similarity-score start end)
@@ -1402,10 +1383,8 @@
 	(start-col-no  (current-column-pos start))
 	(end-line-no   (line-no-pos end))
 	(end-col-no    (current-column-pos end)))
-    (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
-      (remove-highlights)
-      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
-	  (message-box "The current buffer has been changed, please save it first.")
+    (remove-highlights)
+    (if (current-buffer-saved buffer)
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'similar_expression_search
 			(list current-file-name start-line-no start-col-no end-line-no end-col-no similarity-score wrangler-search-paths tab-width))
@@ -1417,8 +1396,9 @@
 	       (['rex ['ok regions]]
 		(with-current-buffer buffer 
 		  (highlight-instances-1 regions (car regions) buffer)
-		  (message "Seaching finished; use 'C-c C-e' to remove highlights.\n")
-		  )))))))))
+		  (message "Searching finished; use 'C-c C-e' to remove highlights.\n")
+		  )))))
+      (message "Refactoring aborted."))))
 
 (defun erl-refactor-fun-to-process (name)
   "From a function to a process."
@@ -1685,12 +1665,7 @@
 	(start-col-no  (current-column-pos start))
 	(end-line-no   (line-no-pos end))
 	(end-col-no    (current-column-pos end))) 
-    (let (changed)
-      (dolist (b (buffer-list) changed)
-	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s, please save it first." changed))
+    (if (buffers-saved)
     (erl-spawn
       (erl-send-rpc wrangler-erl-node 'wrangler_distel 'tuple_funpar (list current-file-name start-line-no start-col-no end-line-no end-col-no 
 									   wrangler-search-paths tab-width))
@@ -1732,8 +1707,9 @@
 	      (with-current-buffer (get-file-buffer current-file-name)
 		(goto-line start-line-no)
 		(goto-column start-col-no))))
-	   )))))))
-	    
+	   )))
+    (message "Refactoring aborted."))))
+  	    
 
 
 (defun erl-refactor-normalise-record-expr ()
@@ -1743,9 +1719,7 @@
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
-    (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
-      (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p buffer))
-	  (message-box "The current buffer has been changed, please save it first.")
+    (if (current-buffer-saved buffer)
 	(if (y-or-n-p "Show record fields with default values?")	    
 	    (erl-spawn
 	      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'normalise_record_expr(list current-file-name line-no column-no 'true wrangler-search-paths tab-width))
@@ -1782,7 +1756,9 @@
 		      (with-current-buffer (get-file-buffer current-file-name)
 			(goto-line line-no)
 			(goto-column column-no))))
-		   ))))))))
+		   ))))
+      (message "Refactoring aborted.")
+      )))
 		  
 
 
@@ -1794,21 +1770,21 @@
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
     (remove-highlights)
-    (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
-	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'find_var_instances(list 
-                        current-file-name line-no column-no wrangler-search-paths tab-width)))
-	  (erl-receive (buffer)
-	      ((['rex ['badrpc rsn]]
-		(message "Error: %S" rsn))
-	       (['rex ['error rsn]]
-		(message "Error: %s" rsn))
-	       (['rex ['ok regions defpos]]
-		(with-current-buffer buffer (highlight-instances regions defpos buffer)
-				     (message "\nUse 'C-c C-e' to remove highlights.\n")
-				     )
+    (save-buffer)
+    (erl-spawn
+      (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'find_var_instances(list 
+											   current-file-name line-no column-no wrangler-search-paths tab-width)))
+      (erl-receive (buffer)
+	  ((['rex ['badrpc rsn]]
+	    (message "Error: %S" rsn))
+	   (['rex ['error rsn]]
+	    (message "Error: %s" rsn))
+	   (['rex ['ok regions defpos]]
+	    (with-current-buffer buffer (highlight-instances regions defpos buffer)
+				 (message "\nUse 'C-c C-e' to remove highlights.\n")
+				 )
 				       		
-	       )))))))
+	    ))))))
 
 (defun remove-highlights()
   "remove highligths in the buffer"
@@ -1866,8 +1842,8 @@
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
-    (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
-      (if (y-or-n-p "Only check the current buffer?")
+    (if (buffers-saved)
+	(if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
 	    (erl-send-rpc wrangler-erl-node 
 			  'wrangler
@@ -1893,8 +1869,9 @@
 		(message "Error: %s" rsn))
 	       (['rex ['ok regions]]
 		(message "Searching finished.")
-		))))
-	))))
+		)))))
+      (message "Searching aborted."))))
+
 
 
 (defun erl-wrangler-code-inspector-nested-ifs(level)
@@ -1904,7 +1881,7 @@
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
-    (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
+    (if (buffers-saved)
       	(if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
 	    (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'nested_if_exprs_in_file(list 
@@ -1927,8 +1904,9 @@
 		(message "Error: %s" rsn))
 	       (['rex ['ok regions]]
 		(message "Searching finished.")
-		))))
-	))))
+		)))))
+      (message "Searching aborted."))))
+       
 
 (defun erl-wrangler-code-inspector-nested-receives(level)
   "Sematic search of instances of a variable"
@@ -1937,8 +1915,8 @@
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
-    (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
-	(if (y-or-n-p "Only check the current buffer?")
+    (if (buffers-saved)
+   	(if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
 	    (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'nested_receive_exprs_in_file(list 
                                    current-file-name level wrangler-search-paths tab-width)))
@@ -1960,8 +1938,9 @@
 		(message "Error: %s" rsn))
 	       (['rex ['ok regions]]
 		(message "Searching finished.")
-		))))
-	))))
+		)))))
+      (message "Searching aborted."))))
+      
 
 
 
@@ -1972,7 +1951,7 @@
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
-    (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
+    (if  (buffers-saved)
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'caller_called_modules(list
                      current-file-name wrangler-search-paths tab-width)))
@@ -1983,7 +1962,8 @@
 		(message "Error: %s" rsn))
 	       (['rex ['ok regions]]
 		(message "Analysis finished.")
-	       )))))))
+	       ))))
+      (message "Refactoring aborted."))))
 
 
 (defun erl-wrangler-code-inspector-long-funs(lines)
@@ -1993,7 +1973,7 @@
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
-    (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
+    (if (buffers-saved)
       	(if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
 	    (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'long_functions_in_file(list 
@@ -2016,14 +1996,15 @@
 		(message "Error: %s" rsn))
 	       (['rex ['ok regions]]
 		(message "Searching finished.")
-		))))
-	))))
+		)))))
+      (message "Searching aborted."))))
+
 
 (defun erl-wrangler-code-inspector-large-mods(lines)
   "Search for large modules"
   (interactive (list (read-string "Number of lines: ")))
   (let 	(buffer (current-buffer))
-    (if (buffer-modified-p buffer) (message-box "The current buffer has been changed, please save it first.")
+    (if (buffers-saved)
       (erl-spawn
 	(erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'large_modules(list lines wrangler-search-paths tab-width)))
 	(erl-receive (buffer)
@@ -2033,8 +2014,8 @@
 	      (message "Error: %s" rsn))
 	     (['rex ['ok mods]]
 	      (message "Searching finished.")
-	     )))))))
-
+	      ))))
+      (message "Searching aborted."))))
 
 (defun erl-wrangler-code-inspector-caller-funs()
   "Search for caller functions"
@@ -2043,12 +2024,7 @@
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
-    (let (changed)
-      (dolist (b (buffer-list) changed)
-	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
+    (if (buffers-saved)
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'caller_funs(list 
                             current-file-name line-no column-no  wrangler-search-paths tab-width)))
@@ -2058,8 +2034,9 @@
 	     (['rex ['error rsn]]
 	      (message "Error: %s" rsn))
 	     (['rex ['ok funs]]
-	      (message "Searching finished.")
-	    ))))))))
+	      (message "Searching finished.")))))
+      (message "Searching aborted.")
+      )))
 
 
 (defun erl-wrangler-code-inspector-non-tail-recursive-servers()
@@ -2067,12 +2044,7 @@
   (interactive)
   (let ((current-file-name (buffer-file-name))
 	(buffer (current-buffer)))
-    (let (changed)
-      (dolist (b (buffer-list) changed)
-	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
+    (if (buffers-saved)
 	(if (y-or-n-p "Only check the current buffer?")
 	    (erl-spawn
 	      (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'non_tail_recursive_servers_in_file(list 
@@ -2095,8 +2067,10 @@
 		  (message "Error: %s" rsn))
 		 (['rex ['ok regions]]
 		  (message "Searching finished.")
-		  ))))
-	  )))))
+		  )))))
+      (message "Searching aborted.")
+      )))
+      
 	  
 
 (defun erl-wrangler-code-inspector-no-flush()
@@ -2104,13 +2078,8 @@
   (interactive)
   (let ((current-file-name (buffer-file-name))
 	(buffer (current-buffer)))
-    (let (changed)
-      (dolist (b (buffer-list) changed)
-	(let* ((n (buffer-name b)) (n1 (substring n 0 1)))
-	  (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
-	      (setq changed (cons (buffer-name b) changed)))))
-      (if changed (message-box (format "there are modified buffers: %s, please save these buffers first." changed))
-	(if (y-or-n-p "Only check the current buffer?")
+    (if (buffers-saved)
+  	(if (y-or-n-p "Only check the current buffer?")
 	    (erl-spawn
 	      (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'not_flush_unknown_messages_in_file(list 
                           current-file-name wrangler-search-paths tab-width)))
@@ -2133,7 +2102,6 @@
 		 (['rex ['ok regions]]
 		  (message "Searching finished.")
 		  ))))
-	  )))))
-	  
-
-
+	  )
+      (message "Searching aborted."))))
+ 
