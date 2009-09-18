@@ -480,10 +480,35 @@ lay(Node,Ctxt) ->
 lay_1(Node,Ctxt) ->
     case refac_syntax:has_comments(Node) of
       true ->
-	  D1 = lay_2(Node,Ctxt),
-	  D2 = lay_postcomments(refac_syntax:get_postcomments(Node),D1),
-	  lay_precomments(refac_syntax:get_precomments(Node),D2);
-      false -> lay_2(Node,Ctxt)
+	    {{NodeStartLn, _}, {NodeEndLn, _}}= refac_util:get_range(Node),
+	    D1 = lay_2(Node,Ctxt),
+	    PreCs = refac_syntax:get_precomments(Node),
+	    PostCs= refac_syntax:get_postcomments(Node),
+	    D2 = case PostCs of 
+		     [] ->
+			 D1;
+		     _ ->
+			 PostCsLn = element(1, refac_syntax:get_pos(hd(PostCs))),
+			 case PostCsLn > NodeEndLn+1 of
+			     true ->
+				 lay_postcomments(refac_syntax:get_postcomments(Node),above(D1, text("")));
+			     false ->
+				 lay_postcomments(refac_syntax:get_postcomments(Node),D1)
+			 end
+		 end,
+	    case PreCs of
+		[] -> D2;
+		_ -> LastPreC = lists:last(PreCs),
+		     PreCLn=element(1, refac_syntax:get_pos(LastPreC)),
+		     LastPreCLines = length(refac_syntax:comment_text(LastPreC)),
+		     case NodeStartLn > PreCLn+LastPreCLines of
+			 true ->
+			     lay_precomments(refac_syntax:get_precomments(Node),above(text(""),D2));
+			 false ->
+			     lay_precomments(refac_syntax:get_precomments(Node),D2)
+		     end
+	    end;
+	false -> lay_2(Node,Ctxt)
     end.
 
 %% For pre-comments, all padding is ignored.
@@ -718,14 +743,7 @@ lay_2(Node,Ctxt) ->
 			     _ -> get_end_line(refac_syntax:clause_guard(Node))
 			 end,
 	    BodyStartLn = get_start_line(hd(Body)),
-	    SameLine = case (BodyStartLn==HeadLastLn) andalso 
-			   (BodyStartLn=/=0) of 
-			   true -> true;
-			   false -> case BodyStartLn - HeadLastLn of 
-					1 -> false;
-					_ -> unknown
-				    end
-		       end,
+	    SameLine = {BodyStartLn, HeadLastLn},
 	    case Ctxt#ctxt.clause of
 		fun_expr -> make_fun_clause(D1,D2,D3,Ctxt, SameLine);
 		{function,N} -> make_fun_clause(N,D1,D2,D3,Ctxt, SameLine);
@@ -1140,25 +1158,26 @@ make_if_clause(_P,G,B,Ctxt, SameLine) ->
 	 end,
     append_clause_body(B,G1,Ctxt, SameLine).
 
-append_clause_body(B,D,Ctxt, SameLine) ->
-     Arrow = case SameLine of 
+append_clause_body(B,D,Ctxt, SameLine={BodyStartLn, HeadLastLn}) ->
+    Arrow = case BodyStartLn==HeadLastLn of 
  		true -> text(" -> ");
  		_ -> text(" ->")
  	    end,
     append_clause_body(B,D,floating(Arrow),Ctxt, SameLine).
 
 
-append_rule_body(B,D,Ctxt, SameLine) ->
-     R = case SameLine of
+append_rule_body(B,D,Ctxt, SameLine={BodyStartLn, HeadLastLn}) ->
+    R = case BodyStartLn==HeadLastLn of
  	    true -> text(" :- ");
  	    _ -> text(" :-")
  	end,
-   append_clause_body(B,D,floating(R),Ctxt, SameLine).
+    append_clause_body(B,D,floating(R),Ctxt, SameLine).
 
-append_clause_body(B,D,S,Ctxt, SameLine) ->
-    case SameLine of 
-	true -> beside(beside(D,S), nest(Ctxt#ctxt.break_indent,B));
-	false ->  above(beside(D,S),nest(Ctxt#ctxt.break_indent,B));
+append_clause_body(B,D,S,Ctxt, _SameLine={BodyStartLn, HeadLastLn}) ->
+    case BodyStartLn-HeadLastLn of 
+	0 -> beside(beside(D,S), nest(Ctxt#ctxt.break_indent,B));
+	1 -> above(beside(D,S),nest(Ctxt#ctxt.break_indent,B));
+	2 -> above(beside(D,S), nest(Ctxt#ctxt.break_indent,above(text(""),B)));
 	_  -> sep([beside(D, S), nest(Ctxt#ctxt.break_indent, B)])
     end.
 
@@ -1238,12 +1257,25 @@ tidy_float_2([]) -> [].
 %% =====================================================================
 
 get_start_line(Node) ->
+    PreComs = refac_syntax:get_precomments(Node),
     {{L, _C}, _}= refac_util:get_range(Node),
-    L.
+    case PreComs of 
+	[] -> L;
+	_ -> element(1, refac_syntax:get_pos(hd(PreComs)))
+    end.
+   
   
 get_end_line(Node) ->
+    PostComs = refac_syntax:get_postcomments(Node),
     {_, {L, _C}} =refac_util:get_range(Node),
-    L.
+    case PostComs of
+	[] -> L;
+	_ -> LastCom =lists:last(PostComs),
+	     LastComText = refac_syntax:comment_text(LastCom),
+	     element(1, refac_syntax:get_pos(LastCom))+ 
+		 length(LastComText) -1
+    end.
+	     
 
 horizontal([D]) -> D;
 horizontal([D| Ds]) -> beside(beside(D, nil()),horizontal(Ds));
@@ -1252,7 +1284,7 @@ horizontal([]) -> [].
 lay_elems(_Fun, _ElemDocs,[]) -> null;
 lay_elems(Fun, ElemDocs,Elems) ->
     ARanges = lists:map(fun (A) ->
-				{get_start_line(A),get_end_line(A)}
+				{get_start_line(A), get_end_line(A)}
 			end,
 			Elems),
     lay_elems_1(Fun, lists:zip(ElemDocs,ARanges),[],0).
@@ -1263,15 +1295,17 @@ lay_elems_1(Fun, [],Acc,_LastLine) ->
 lay_elems_1(Fun, [{D,{_SLn,ELn}}| Ts],[],_LastLn) ->
     lay_elems_1(Fun, Ts,[[D]],ELn);
 lay_elems_1(Fun, [{D,{SLn,ELn}}| Ts],[H| T],LastLn) ->
-    case (SLn == 0) or (LastLn == 0) of
-      true -> lay_elems_1(Fun, Ts,[[D],H| T],ELn);
-      false ->
-	  case SLn - LastLn of
-	    0 -> lay_elems_1(Fun, Ts,[H ++ [D]| T],ELn);
-	    1 ->
-		lay_elems_1(Fun, Ts,[[above(horizontal(H),D)]| T],ELn);
-	    _ -> lay_elems_1(Fun, Ts,[[D],H| T],ELn)
-	  end
+    case (SLn == 0) orelse (LastLn == 0) orelse (SLn<LastLn) of
+	true -> lay_elems_1(Fun, Ts,[[D],H| T],ELn);
+	false ->
+	    case SLn - LastLn of
+		0 -> lay_elems_1(Fun, Ts,[H ++ [D]| T],ELn);
+		1 ->
+		    lay_elems_1(Fun, Ts,[[above(horizontal(H),D)]| T],ELn);
+		_ -> 
+		    lay_elems_1(Fun, Ts,[[above(horizontal(H),(above(text(""), D)))]| T],ELn)
+		    %%lay_elems_1(Fun, Ts,[[D],H| T],ELn)
+	    end
     end.
 nil() -> text(" ").
 
