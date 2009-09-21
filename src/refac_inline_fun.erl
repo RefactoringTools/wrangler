@@ -99,29 +99,29 @@ side_cond_analysis(ModName, AnnAST, App) ->
 	    throw({error, "The function has been defined more than once."})
     end.
 
-fun_inline_1(FileName, AnnAST, Pos, FunDef, App, Editor) ->
+fun_inline_1(FName, AnnAST, Pos, FunDef, App, Editor) ->
     Args = refac_syntax:application_arguments(App),
     C = hd(refac_syntax:function_clauses(FunDef)),
     B = refac_syntax:clause_body(C),
     Ps = refac_syntax:clause_patterns(C),
     %% TOCHANGE: there is not def for literal patterns.
-    PsDefPoss = lists:map(fun(P) ->
+    PsDefPoss = lists:map(fun (P) ->
 				  Ann = refac_syntax:get_ann(P),
-				  {value, {def, DefinePos}}=lists:keysearch(def, 1, Ann),
+				  {value, {def, DefinePos}} = lists:keysearch(def, 1, Ann),
 				  DefinePos
 			  end, Ps),
-    Subst= lists:zip(PsDefPoss, Args),
-    {SubstedBody, _} = lists:unzip([refac_util:stop_tdTP(fun do_subst/2, E, Subst) || E <-B]),
+    Subst = lists:zip(PsDefPoss, Args),
+    {SubstedBody, _} = lists:unzip([refac_util:stop_tdTP(fun do_subst/2, E, Subst) || E <- B]),
     Fs = refac_syntax:form_list_elements(AnnAST),
-    Fs1 = [do_inline(F, Pos, App, SubstedBody) || F<-Fs],
+    Fs1 = [do_inline(F, Pos, App, SubstedBody) || F <- Fs],
     AnnAST1 = refac_util:rewrite(AnnAST, refac_syntax:form_list(Fs1)),
-    case Editor of 
-	emacs ->
-	    refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}]),
-	    {ok, [FileName]};
-	eclipse ->
-	    Content = refac_prettypr:print_ast(refac_util:file_format(FileName),AnnAST1),
-	    {ok, [{FileName, FileName,Content}]}
+    case Editor of
+      emacs ->
+	  refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST1}]),
+	  {ok, [FName]};
+      eclipse ->
+	  Content = refac_prettypr:print_ast(refac_util:file_format(FName), AnnAST1),
+	  {ok, [{FName, FName, Content}]}
     end.
 
 
