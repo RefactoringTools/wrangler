@@ -1,4 +1,4 @@
-%%%-------------------------------------------------------------------
+ %%%-------------------------------------------------------------------
 %%% File    : distel.erl
 %%% Author  : Luke Gorrie <luke@bluetail.com>
 %%% Purpose : Helper functions to be called from Emacs.
