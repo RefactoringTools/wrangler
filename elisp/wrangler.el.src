@@ -1,6 +1,7 @@
 ;;; distel.el --- Top-level of distel package, loads all subparts
 
 ;; Prerequisites
+(require 'psvn)
 (require 'erlang)
 (require 'easy-mmode)
 (require 'read-char-spec)
@@ -17,9 +18,14 @@
   :group 'tools)
 
 (defcustom wrangler-search-paths (cons (expand-file-name ".") nil )
-	"*List f directories to search for .erl and .hrl files to refactor."
+	"List of directories to search for .erl and .hrl files to refactor."
 	:type '(repeat directory)
 	:group 'wrangler)
+
+(defcustom refac-monitor-path nil
+      "Path to the working copy of the repository used by Wrangler to monitor refactoring activities."
+      :type '(repeat directory)
+      :group 'wrangler)
 
 (defun wrangler-customize ()
  	  "Customization of group `wrangler' for the Erlang refactorer."
@@ -58,6 +64,12 @@
 	    (setq modified-files nil)
 	    (commit-or-abort))))
     nil))
+
+;; (defun update-repository(files logmsg)
+;;   "commit refactored files to the repository"
+;;   (dolist (f files)
+;;       (setq file-name (elt f 0))
+     
 
 (defun commit()
   "commit the refactoring result."
