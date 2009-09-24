@@ -48,10 +48,10 @@ inline_fun(FileName, Pos, SearchPaths, TabWidth) ->
 inline_fun_eclipse(FileName,Pos,SearchPaths, TabWidth) ->
     inline_fun(FileName, Pos, SearchPaths, TabWidth, eclipse).
 
-inline_fun(FName, Pos = {Line, Col}, SearchPaths, TabWidth, Editor) ->
+inline_fun(FileNAme, Pos = {Line, Col}, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:inline_fun(~p, {~p,~p}, ~p, ~p).\n",
-		 [?MODULE, FName, Line, Col, SearchPaths, TabWidth]),
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FName, true, [], TabWidth),
+		 [?MODULE, FileNAme, Line, Col, SearchPaths, TabWidth]),
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileNAme, true, [], TabWidth),
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     case pos_to_fun_app(AnnAST, Pos) of
       {ok, App} -> App;
@@ -59,7 +59,7 @@ inline_fun(FName, Pos = {Line, Col}, SearchPaths, TabWidth, Editor) ->
 			 throw({error, Reason})
     end,
     {ok, FunDef} = side_cond_analysis(ModName, AnnAST, App),
-    fun_inline_1(FName, AnnAST, Pos, FunDef, App, Editor).
+    fun_inline_1(FileNAme, AnnAST, Pos, FunDef, App, Editor).
 
 side_cond_analysis(ModName, AnnAST, App) ->
     FunName = refac_syntax:atom_value(refac_syntax:application_operator(App)),
