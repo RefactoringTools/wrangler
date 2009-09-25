@@ -36,7 +36,26 @@
 
 -include("../include/wrangler.hrl").
 
--record(state, {files=[]}).
+-record(state, {files=[], logmsg=""}).
+
+-ifdef(MONITOR).
+-define(update_monitor_code(Files), 
+	lists:foreach(fun(F) ->
+			      DirName = filename:dirname(F),
+			      BaseName = filename:basename(F, ".erl"),
+			      NewDirName= DirName++"_wrangler",
+			      case filelib:is_dir(NewDirName) of 
+				  true ->
+				      NewFileName=filename:join([NewDirName, BaseName++".erl"]),
+				      file:copy(F, NewFileName);
+				  _ ->
+				      ok
+			      end
+		      end, Files)). 		      
+-else.
+-define(update_monitor_code(_Files), ok).
+-endif.
+
 
 %%====================================================================
 %% API
@@ -59,8 +78,8 @@ abort() ->
    
 %%-spec(add_files/1::([filename()]) -> ok).
 	     
-add_files(Files)->
-    gen_server:cast(wrangler_preview_server, {add, Files}).
+add_files({Files,LogMsg})->
+    gen_server:cast(wrangler_preview_server, {add, {Files, LogMsg}}).
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -86,26 +105,27 @@ init([]) ->
 %%--------------------------------------------------------------------
 
 handle_call(abort, _From, #state{files=Files}) ->
-    SwpFiles = lists:flatmap(fun({{F1, F2, IsNew},Swp}) -> 
-				 case IsNew of 
-				     false -> [Swp];
-				     _ -> case F1==F2 of 
-					      true ->[F1, Swp];
+    SwpFiles = lists:flatmap(fun ({{F1, F2, IsNew}, Swp}) ->
+				     case IsNew of
+				       false -> [Swp];
+				       _ -> case F1 == F2 of
+					      true -> [F1, Swp];
 					      _ -> [F1, F2, Swp]
-					  end
-				 end
-			 end, Files),
-    {reply, {ok, SwpFiles}, #state{files=[]}};
+					    end
+				     end
+			     end, Files),
+    {reply, {ok, SwpFiles}, #state{files=[], logmsg=""}};
 
-handle_call(commit, _From, #state{files=Files}) ->
-    OldFiles = lists:map(fun({{F1,F2,IsNew}, _Swp}) -> {F1,F2,IsNew} end, Files),
-    FilesToBackup = lists:map(fun({F1, F2, IsNew}) ->
+handle_call(commit, _From, #state{files=Files, logmsg=LogMsg}) ->
+    OldFiles = lists:map(fun ({{F1, F2, IsNew}, _Swp}) -> {F1, F2, IsNew} end, Files),
+    FilesToBackup = lists:map(fun ({F1, F2, IsNew}) ->
 				      {ok, Bin} = file:read_file(F1), {{F1, F2, IsNew}, Bin}
 			      end, OldFiles),
     wrangler_undo_server:add_to_history(FilesToBackup),
-    lists:foreach(fun({{_F1,F2, _IsNew},Swp}) -> file:copy(Swp, F2) end, Files),
-    Files1 = lists:map(fun({{F1,F2, IsNew}, Swp}) -> [F1, F2, Swp, IsNew] end, Files),
-    {reply, {ok, Files1}, #state{files=[]}}.
+    ?update_monitor_code([F1 || {F1, _F2, _} <- OldFiles]),
+    lists:foreach(fun ({{_F1, F2, _IsNew}, Swp}) -> file:copy(Swp, F2) end, Files),
+    Files1 = lists:map(fun ({{F1, F2, IsNew}, Swp}) -> [F1, F2, Swp, IsNew] end, Files),
+    {reply, {ok, Files1, LogMsg}, #state{files=[], logmsg=""}}.
     
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
@@ -113,8 +133,8 @@ handle_call(commit, _From, #state{files=Files}) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
-handle_cast({add, Files},_State=#state{files=_Files}) ->
-    {noreply, #state{files=Files}}.
+handle_cast({add, {Files, LogMsg}},_State=#state{files=_Files, logmsg=_LogMsg}) ->
+    {noreply, #state{files=Files, logmsg=LogMsg}}.
 	
 %%--------------------------------------------------------------------
 %% Function: handle_info(Info, State) -> {noreply, State} |
