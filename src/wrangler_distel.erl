@@ -35,51 +35,51 @@
 
 -compile(export_all).
 
-%%-spec(rename_var/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
-%%	     {error, string()} | {ok, string()}).
+-spec(rename_var/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
+	     {error, string()} | {ok, string()}).
 
 rename_var(Fname, Line, Col, NewName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, rename_var, [Fname, Line, Col, NewName, SearchPaths, TabWidth], SearchPaths).
  
-%%-spec(rename_fun/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-%%	     {error, string()} | {ok, [filename()]}).
+-spec(rename_fun/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
+	     {error, string()} | {ok, [filename()]}).
 
 rename_fun(Fname, Line, Col, NewName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, rename_fun, [Fname, Line, Col, NewName, SearchPaths, TabWidth], SearchPaths).
 
 
-%%-spec(rename_mod/4::(filename(), string(), [dir()], integer()) -> {error, string()} | {ok, [filename()]}).
+-spec(rename_mod/4::(filename(), string(), [dir()], integer()) -> {error, string()} | {ok, [filename()]}).
 
 rename_mod(Fname, NewName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, rename_mod, [Fname, NewName, SearchPaths, TabWidth], SearchPaths).
 
 
-%%-spec(rename_process/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
-%%	     {error, string()} | {undecidables, string()}| {ok, [filename()]}).
+-spec(rename_process/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
+	     {error, string()} | {undecidables, string()}| {ok, [filename()]}).
 
 rename_process(Fname, Line, Col, NewName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, rename_process, [Fname, Line, Col, NewName, SearchPaths, TabWidth], SearchPaths).
 
 
-%%-spec(generalise/8::(filename(),integer(), integer(),integer(), integer(),string(), dir(), integer()) -> {ok, string()} | {error, string()}).
+-spec(generalise/8::(filename(),integer(), integer(),integer(), integer(),string(), dir(), integer()) -> {ok, string()} | {error, string()}).
 
 generalise(Fname, StartLine, StartCol, EndLine, EndCol, ParName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, generalise, [Fname, {StartLine, StartCol}, {EndLine, EndCol}, ParName, SearchPaths, TabWidth], SearchPaths).
 	
 
-%%-spec(move_fun/7::(filename(),integer(),integer(), string(), atom(),[dir()], integer())
-%%        -> {ok, [{filename(), filename()}]}
-%%           | {error, string()}).
+-spec(move_fun/7::(filename(),integer(),integer(), string(), atom(),[dir()], integer())
+        -> {ok, [{filename(), filename()}]}
+           | {error, string()}).
 
 move_fun(FName, Line, Col, ModName, CreateNewFile, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, move_fun, [FName, Line, Col, ModName, CreateNewFile, SearchPaths, TabWidth], SearchPaths).
 
 
-%%-spec(duplicated_code_in_buffer/4::(filename(), string(), string(), integer()) ->{ok, string()}).      
+-spec(duplicated_code_in_buffer/4::(filename(), string(), string(), integer()) ->{ok, string()}).      
 duplicated_code_in_buffer(FName, MinLines,  MinClones, TabWidth) ->
     wrangler:duplicated_code_in_buffer(FName, MinLines, MinClones, TabWidth).
 
-%%-spec(duplicated_code_in_dirs/4::([dir()], string(), string(), integer()) ->{ok, string()}).
+-spec(duplicated_code_in_dirs/4::([dir()], string(), string(), integer()) ->{ok, string()}).
 duplicated_code_in_dirs(SearchPaths, MinLines, MinClones, TabWidth) ->
     case check_searchpaths(SearchPaths) of 
  	ok ->
@@ -87,104 +87,97 @@ duplicated_code_in_dirs(SearchPaths, MinLines, MinClones, TabWidth) ->
  	{error, Reason} -> {error, Reason}
      end.
   
-%%-spec(expression_search/6::(filename(), integer(), integer(), integer(), integer(),integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
+-spec(expression_search/6::(filename(), integer(), integer(), integer(), integer(),integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
 expression_search(FName, StartLine, StartCol, EndLine, EndCol, TabWidth) ->
     apply_refactoring(wrangler,identical_expression_search, [FName, {StartLine, StartCol}, {EndLine, EndCol}, TabWidth],[]).
 
-%%-spec(similar_expression_search/8::(filename(), integer(), integer(), integer(), integer(),string(),[dir()], integer()) ->
-%%	     {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
+-spec(similar_expression_search/8::(filename(), integer(), integer(), integer(), integer(),string(),[dir()], integer()) ->
+	     {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
 similar_expression_search(FName, StartLine, StartCol, EndLine, EndCol, SimiScore, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler,similar_expression_search, [FName, {StartLine, StartCol}, {EndLine, EndCol}, SimiScore, SearchPaths, TabWidth], []).
 
 
-%%-spec(fun_extraction/7::(filename(), integer(), integer(), integer(), integer(), string(), integer()) ->
-%%	      {error, string()} | {ok, string()}).
+-spec(fun_extraction/7::(filename(), integer(), integer(), integer(), integer(), string(), integer()) ->
+	      {error, string()} | {ok, string()}).
 
 fun_extraction(FName, StartLine, StartCol, EndLine, EndCol, FunName, TabWidth) ->
     apply_refactoring(wrangler, fun_extraction, [FName, {StartLine, StartCol}, {EndLine, EndCol}, FunName, TabWidth], []).
 	 
 
-%%-spec(inline_fun/5::(FileName::filename(), StartLine::integer(), StartCol::integer(), SearchPaths::[dir()], TabWidth::integer)
-%%      ->{error, string()} | {'ok', [string()]}).
+-spec(inline_fun/5::(FileName::filename(), StartLine::integer(), StartCol::integer(), SearchPaths::[dir()], TabWidth::integer)
+      ->{error, string()} | {'ok', [string()]}).
 inline_fun(FileName, StartLine, StartCol, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, inline_fun, [FileName, {StartLine, StartCol}, SearchPaths, TabWidth], SearchPaths).
    
-%%-spec(new_macro/8::(filename(), integer(), integer(), integer(), integer(), string(), [dir()], integer()) ->
-%%	      {error, string()} | {ok, string()}).
+-spec(new_macro/8::(filename(), integer(), integer(), integer(), integer(), string(), [dir()], integer()) ->
+	      {error, string()} | {ok, string()}).
 
 new_macro(FName, StartLine, StartCol, EndLine, EndCol, MacroName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, new_macro, [FName, {StartLine, StartCol}, {EndLine, EndCol}, MacroName, SearchPaths, TabWidth], SearchPaths).
 
 
-%%-spec(fold_against_macro/5::(filename(), integer(), integer(), [dir()], integer()) ->
-%%	      {error, string()} | {ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}).
+-spec(fold_against_macro/5::(filename(), integer(), integer(), [dir()], integer()) ->
+	      {error, string()} | {ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}).
 
 fold_against_macro(FileName, Line, Col,  SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, fold_against_macro, [FileName, Line, Col, SearchPaths, TabWidth], SearchPaths).
 
-%%-spec(fold_expr_by_loc/5::
-%%      (filename(), integer(), integer(), [dir()], integer()) -> {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
-%%							 | {error, string()}).
-
+-spec(fold_expr_by_loc/5::
+      (filename(), integer(), integer(), [dir()], integer()) -> {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
+							 | {error, string()}).
 fold_expr_by_loc(FName, Line, Col, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, fold_expr_by_loc, [FName, Line, Col, SearchPaths, TabWidth], SearchPaths).
 
 
-%%-spec(fold_expr_by_name/7::(filename(), string(), string(), string(), string(), [dir()], integer()) ->
-%%	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
-%%		 | {error, string()}).
+-spec(fold_expr_by_name/7::(filename(), string(), string(), string(), string(), [dir()], integer()) ->
+	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
+		 | {error, string()}).
 
 fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, fold_expr_by_name, [FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth], SearchPaths).
 
 
 	       
-%%-spec(instrument_prog/3::(filename(), [dir()], integer()) ->{ok, [filename()]} | {error, string()}).
+-spec(instrument_prog/3::(filename(), [dir()], integer()) ->{ok, [filename()]} | {error, string()}).
 
 instrument_prog(FName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, instrument_prog, [FName, SearchPaths, TabWidth], SearchPaths).
 
 
-%%-spec(tuple_funpar/7::(filename(), integer(), integer(), integer(), integer(), [dir()], integer()) ->
-%%	     {error, string()} | {ok, [filename()]}).
-
+-spec(tuple_funpar/7::(filename(), integer(), integer(), integer(), integer(), [dir()], integer()) ->
+	     {error, string()} | {ok, [filename()]}).
 tuple_funpar(Fname, StartLine, StartCol, EndLine, EndCol, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, tuple_funpar, [Fname, {StartLine, StartCol}, {EndLine, EndCol},SearchPaths, TabWidth], SearchPaths).
 
 
-%%-spec(tuple_to_record/9::(filename(), integer(), integer(), integer(), integer(), string(), [string()], [dir()], integer()) ->
-%%	     {error, string()} | {ok, [filename()]}).
-
+-spec(tuple_to_record/9::(filename(), integer(), integer(), integer(), integer(), string(), [string()], [dir()], integer()) ->
+	     {error, string()} | {ok, [filename()]}).
 tuple_to_record(File, FLine, FCol, LLine, LCol, RecName, FieldString, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, tuple_to_record, [File, FLine, FCol, LLine, LCol, RecName, FieldString, SearchPaths, TabWidth], SearchPaths).
 
     
-%%-spec(uninstrument_prog/3::(filename(), [dir()], integer()) ->{ok, [filename()]} | {error, string()}).
-
+-spec(uninstrument_prog/3::(filename(), [dir()], integer()) ->{ok, [filename()]} | {error, string()}).
 uninstrument_prog(FName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, uninstrument_prog, [FName, SearchPaths, TabWidth], SearchPaths).
 
 
-%%-spec(add_a_tag/6::(filename(), integer(), integer(), string(), [dir()], filename()) ->
-%%	     {error, string()} | {ok, [filename()]}).
-
+-spec(add_a_tag/6::(filename(), integer(), integer(), string(), [dir()], filename()) ->
+	     {error, string()} | {ok, [filename()]}).
 add_a_tag(FileName, Line, Col, Tag, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, add_a_tag, [FileName, Line, Col, Tag, SearchPaths, TabWidth], SearchPaths).
 
-%%-spec(normalise_record_expr/6::(filename(), integer(), integer(), bool(),[dir()], integer()) -> {error, string()} | {ok, [filename()]}).
+-spec(normalise_record_expr/6::(filename(), integer(), integer(), bool(),[dir()], integer()) -> {error, string()} | {ok, [filename()]}).
 normalise_record_expr(FileName, Line, Col, ShowDefault, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, normalise_record_expr, [FileName, Line, Col, ShowDefault, SearchPaths, TabWidth], SearchPaths).
 
-%%-spec(register_pid/8::(filename(), integer(), integer(), integer(),integer(), string(), [dir()], integer()) ->
-%%    {error, string()}|{ok, [filename()]}).
-
+-spec(register_pid/8::(filename(), integer(), integer(), integer(),integer(), string(), [dir()], integer()) ->
+    {error, string()}|{ok, [filename()]}).
 register_pid(FileName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, register_pid, [FileName, {StartLine, StartCol}, {EndLine, EndCol}, RegName, SearchPaths, TabWidth], SearchPaths).
 
 
-%%-spec(fun_to_process/6::(filename(), integer(), integer(), string(), [dir()], integer())->
-%%	     {error, string()} | {undecidables, string()} | {ok, [filename()]}).
-
+-spec(fun_to_process/6::(filename(), integer(), integer(), string(), [dir()], integer())->
+	     {error, string()} | {undecidables, string()} | {ok, [filename()]}).
 fun_to_process(Fname, Line, Col, ProcessName, SearchPaths, TabWidth ) ->
     apply_refactoring(wrangler, fun_to_process, [Fname, Line, Col, ProcessName, SearchPaths, TabWidth], SearchPaths).
 
