@@ -1,7 +1,7 @@
 ;;; distel.el --- Top-level of distel package, loads all subparts
 
 ;; Prerequisites
-(require 'psvn)
+(require 'vc)
 (require 'erlang)
 (require 'easy-mmode)
 (require 'read-char-spec)
@@ -65,11 +65,32 @@
 	    (commit-or-abort))))
     nil))
 
-;; (defun update-repository(files logmsg)
-;;   "commit refactored files to the repository"
-;;   (dolist (f files)
-;;       (setq file-name (elt f 0))
-     
+(defun update-repository(files logmsg)
+   "commit refactored files to the repository"
+   (dolist (f files)
+     (setq old-file-name (elt f 0))
+     (let* ((old-file-name-nondirectory (file-name-nondirectory old-file-name))
+	    (old-file-name-extension    (file-name-extension old-file-name))
+	    (refac-monitor-file (locate-file old-file-name-nondirectory 
+					     refac-monitor-path)))
+       (if (eq refac-monitor-file nil)
+	   (if (file-directory-p (expand-file-name "src" (car refac-monitor-path)))
+	       (let ((refac-monitor-file-1 (expand-file-name (concat "src/" old-file-name-nondirectory) (car refac-monitor-path))))
+		 (copy-file old-file-name  refac-monitor-file-1 'true)
+		 (with-current-buffer (find-file-noselect refac-monitor-file-1)
+		   (vc-register nil "New file"))
+		 (vc-next-action-on-file refac-monitor-file-1 nil logmsg)
+		 (kill-buffer (find-file-noselect refac-monitor-file-1)))
+	     (let ((refac-monitor-file-1 (expand-file-name  old-file-name-nondirectory (car refac-monitor-path))))
+	       (copy-file old-file-name  refac-monitor-file-1 'true)
+	       (with-current-buffer (find-file-noselect refac-monitor-file-1)
+		 (vc-register nil "New file"))
+	       (vc-next-action-on-file refac-monitor-file-1 nil logmsg)
+	       (kill-buffer (find-file-noselect refac-monitor-file-1))))
+	 (progn
+	   (copy-file old-file-name refac-monitor-file 'true)
+	   (vc-next-action-on-file refac-monitor-file nil logmsg))
+	 ))))
 
 (defun commit()
   "commit the refactoring result."
@@ -80,7 +101,10 @@
 	      (message "Commit failed: %S" rsn))
 	     (['rex ['error rsn]]
 	      (message "Commit failed: %s" rsn))
-	     (['rex ['ok files]]
+	     (['rex ['ok files logmsg]]
+	 ;;     (condition-case nil
+		  (update-repository files logmsg)
+	;;	(error nil))
 	      (dolist (f files)
 		(progn
 		  (setq old-file-name (elt f 0))
@@ -104,6 +128,9 @@
 		    (kill-buffer (get-file-buffer uf)))
 		  (setq unopened-files nil)
 		  (setq refactor-mode nil)
+		;;  (condition-case nil
+		;;      (update-repository files logmsg)
+		;;    (error nil))
 		  (message "Refactoring succeeded."))))))
 
 (defun abort-changes()
@@ -134,41 +161,8 @@
 (defun commit-or-abort()
   "commit or abort the refactoring result."
   (if (y-or-n-p "Do you want to perform the changes?")
-      (erl-spawn
-	(erl-send-rpc wrangler-erl-node 'wrangler_preview_server 'commit (list))
-	(erl-receive ()
-	    ((['rex ['badrpc rsn]]
-	      (setq refactor-mode nil)
-	      (message "Commit failed: %S" rsn))
-	     (['rex ['error rsn]]
-	      (setq refactor-mode nil)
-	      (message "Commit failed: %s" rsn))
-	     (['rex ['ok files]]
-	      (dolist (f files)
-		(progn
-		  (setq old-file-name (elt f 0))
-		  (setq new-file-name (elt f 1))
-		  (setq swp-file-name (elt f 2))
-		  (let ((swp-buff (get-file-buffer swp-file-name)))
-		    (if swp-buff (kill-buffer swp-buff)
-		      nil))
-		  (delete-file  swp-file-name)
-		  (let ((buffer (get-file-buffer old-file-name)))
-		    (if buffer
-			(if (equal old-file-name new-file-name)
-			    (with-current-buffer buffer (revert-buffer nil t t))
-			  (with-current-buffer buffer
-			    (set-visited-file-name new-file-name)
-			    (delete-file old-file-name)
-			    (revert-buffer nil t t)))
-		      nil))))
-	          (setq refactoring-committed t)
-		  (dolist (uf unopened-files)
-		    (kill-buffer (get-file-buffer uf)))
-		  (setq unopened-files nil)
-		  (setq refactor-mode nil)
-		  (message "Refactoring succeeded.")))))
-    (erl-spawn
+      (commit)
+     (erl-spawn
       (erl-send-rpc wrangler-erl-node 'wrangler_preview_server 'abort (list))
       (erl-receive ()
 	  ((['rex ['badrpc rsn]]
