@@ -59,8 +59,8 @@ undo() ->
    
 %%-spec(add_to_history/1::([{filename(), filename(), binary()}]) -> ok).
 	     
-add_to_history(Files)->
-    gen_server:cast(refactor_undo, {add, Files}).
+add_to_history({Files, LogMsg})->
+    gen_server:cast(refactor_undo, {add, {Files, LogMsg}}).
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -88,11 +88,11 @@ handle_call(undo, _From, State=#state{history=History}) ->
     case History of 
 	[] ->
 	    {reply, {error, "No more history to undo!"}, State};
-	[H|T] -> 
-	    ok = undo_files(H),
+	[{Files, LogMsg}|T] -> 
+	    ok = undo_files(Files),
 	    Modified = lists:map(fun({{OldFileName, NewFileName,_}, _Con})->
-					 [OldFileName, NewFileName] end,H),
-	    {reply,{ok, Modified}, #state{history=T}}
+					 [OldFileName, NewFileName] end,Files),
+	    {reply,{ok, Modified, LogMsg}, #state{history=T}}
     end.
 
 %%--------------------------------------------------------------------
@@ -101,8 +101,8 @@ handle_call(undo, _From, State=#state{history=History}) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
-handle_cast({add, Files},_State=#state{history=History}) ->
-    History1=lists:sublist([Files|History],20),
+handle_cast({add, {Files, LogMsg}},_State=#state{history=History}) ->
+    History1=lists:sublist([{Files, LogMsg}|History],20),
     {noreply, #state{history=History1}}.
 	
 %%--------------------------------------------------------------------

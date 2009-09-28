@@ -52,78 +52,80 @@
 
 -include("../include/wrangler.hrl").
 
-%%-spec(rename_var/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
-%%	     {error, string()} | {ok, string()}).
+-spec(rename_var/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
+	     {error, string()} | {ok, string()}).
 rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
 
-%%-spec(rename_var_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
-%%	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
+-spec(rename_var_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
+	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_var_eclipse(FName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
 
 rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
-    ?wrangler_io("\nCMD: ~p:rename_var(~p, ~p, ~p, ~p, ~p, ~p).\n", 
-		 [?MODULE,FName, Line, Col, NewName, SearchPaths, TabWidth]),
+    Cmd = io_lib:format("CMD: ~p:rename_var(~p, ~p, ~p, ~p, ~p, ~p).",
+			[?MODULE, FName, Line, Col, NewName, SearchPaths, TabWidth]),
+    ?wrangler_io("\n"++Cmd++"\n", []),
     case refac_util:is_var_name(NewName) of
-	true -> ok;
-	false -> throw({error, "Invalid new variable name."})
+      true -> ok;
+      false -> throw({error, "Invalid new variable name."})
     end,
-    NewName1 = list_to_atom(NewName), 
-    {ok, {AnnAST1, _Info1}}= refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),  
+    NewName1 = list_to_atom(NewName),
+    {ok, {AnnAST1, _Info1}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     case refac_util:pos_to_var_name(AnnAST1, {Line, Col}) of
-	{ok, {VarName, DefinePos, C}} ->
-	    {VarName, DefinePos, C};
-	{error, _}-> 
-	    throw({error, "You have not selected a variable name, "
-		   "or the variable selected does not belong to "
-		   "a syntactically well-formed function!"}),
-	    {VarName, DefinePos, C} ={none, none, none}
+      {ok, {VarName, DefinePos, C}} ->
+	  {VarName, DefinePos, C};
+      {error, _} ->
+	  throw({error, "You have not selected a variable name, "
+			"or the variable selected does not belong to "
+			"a syntactically well-formed function!"}),
+	  {VarName, DefinePos, C} = {none, none, none}
     end,
-    if DefinePos == [{0, 0}] -> 
-	    case C of 
-		macro_name ->
-		    throw({error, "Renaming of a macro name is not supported by this refactoring!"});
-		_ -> 
-		    throw({error, "Renaming of a free variable is not supported by this refactoring!"})
-	    end;				
+    if DefinePos == [{0, 0}] ->
+	   case C of
+	     macro_name ->
+		 throw({error, "Renaming of a macro name is not supported by this refactoring!"});
+	     _ ->
+		 throw({error, "Renaming of a free variable is not supported by this refactoring!"})
+	   end;
        true -> ok
     end,
     if VarName /= NewName1 ->
-	    case C of
-		macro_name ->
-		    throw({error, "Renaming of macro names is not supported yet."});
-		_ -> ok
-	    end, 
-	    Form = pos_to_form(AnnAST1, {Line, Col}), 
-	    Res = cond_check(Form, DefinePos, VarName, NewName1),
-	    case Res of
-		{true, _, _} ->
-		    throw({error, "The new name is already declared in the same scope."});
-		{_, true,_} -> 
-		    throw({error, "The new name could cause name shadowing."});
-		{_, _, true} -> 
-		    throw({error, "The new name could change the "
-			   "existing binding structure of variables."});
-		_ -> ok
-	    end,
-	    {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
-	    case Editor of 
-		emacs ->
-		    refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST2}]),
-		    {ok, [FName]};
-		eclipse ->
-		    Content = refac_prettypr:print_ast(refac_util:file_format(FName),AnnAST2),
-		    {ok, [{FName, FName,Content}]}
-	    end;
+	   case C of
+	     macro_name ->
+		 throw({error, "Renaming of macro names is not supported yet."});
+	     _ -> ok
+	   end,
+	   Form = pos_to_form(AnnAST1, {Line, Col}),
+	   Res = cond_check(Form, DefinePos, VarName, NewName1),
+	   case Res of
+	     {true, _, _} ->
+		 throw({error, "The new name is already declared in the same scope."});
+	     {_, true, _} ->
+		 throw({error, "The new name could cause name shadowing."});
+	     {_, _, true} ->
+		 throw({error, "The new name could change the "
+			       "existing binding structure of variables."});
+	     _ -> ok
+	   end,
+	   {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
+	   case Editor of
+	     emacs ->
+		   refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST2}], 
+								 io_lib:format("~ts", [Cmd])),
+		   {ok, [FName]};
+	       eclipse ->
+		   Content = refac_prettypr:print_ast(refac_util:file_format(FName), AnnAST2),
+		   {ok, [{FName, FName, Content}]}
+	   end;
        true ->
-	    case Editor of 
-		emacs ->
-		    {ok, []};
-		_ ->
-		    Content = refac_prettypr:print_ast(refac_util:file_format(FName),AnnAST1),
-		    {ok, [{FName, FName, Content}]}
-	    end
+	   case Editor of
+	     emacs ->
+		 {ok, []};
+	     _ ->
+		 Content = refac_prettypr:print_ast(refac_util:file_format(FName), AnnAST1),
+		 {ok, [{FName, FName, Content}]}
+	   end
     end.
 
 
@@ -236,22 +238,22 @@ pos_to_form_1(Node, Pos) ->
 
 %%-spec(rename/3::(syntaxTree(), [{integer(), integer()}], atom()) ->
 %%	     {syntaxTree(), bool()}).
-rename(Tree, DefinePos, NewName) ->
-    refac_util:stop_tdTP(fun do_rename/2, Tree, {DefinePos, NewName}).
+rename(Node, DefinePos, NewName) ->
+    refac_util:stop_tdTP(fun do_rename/2, Node, {DefinePos, NewName}).
 
 %% =====================================================================
 %%
 
-do_rename(Tree, {DefinePos, NewName}) ->
-    case refac_syntax:type(Tree) of
+do_rename(Node1, {DefinePos, NewName}) ->
+    case refac_syntax:type(Node1) of
       variable ->
-	  As = refac_syntax:get_ann(Tree),
+	  As = refac_syntax:get_ann(Node1),
 	  case lists:keysearch(def, 1, As) of
-	    {value, {def, DefinePos}} -> 
-		  {refac_syntax:set_name(Tree, NewName), true};
-	      _ -> {Tree, false}
+	    {value, {def, DefinePos}} ->
+		{refac_syntax:set_name(Node1, NewName), true};
+	    _ -> {Node1, false}
 	  end;
-	_ -> {Tree, false}
+      _ -> {Node1, false}
     end.
 
 

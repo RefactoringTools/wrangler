@@ -864,7 +864,7 @@ write_refactored_files(Files) ->
 			       {ok, Bin} = file:read_file(OldFileName), {{OldFileName, NewFileName}, Bin}
 		       end,
 		       Files),
-    wrangler_undo_server:add_to_history(Files1),
+    wrangler_undo_server:add_to_history({Files1, ""}),
     Res =lists:map(F, Files),
     case lists:all(fun(R) -> R == ok end, Res) of 
 	true -> ok;
