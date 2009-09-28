@@ -67,30 +67,33 @@
 
 (defun update-repository(files logmsg)
    "commit refactored files to the repository"
-   (dolist (f files)
-     (setq old-file-name (elt f 0))
-     (let* ((old-file-name-nondirectory (file-name-nondirectory old-file-name))
-	    (old-file-name-extension    (file-name-extension old-file-name))
-	    (refac-monitor-file (locate-file old-file-name-nondirectory 
-					     refac-monitor-path)))
-       (if (eq refac-monitor-file nil)
-	   (if (file-directory-p (expand-file-name "src" (car refac-monitor-path)))
-	       (let ((refac-monitor-file-1 (expand-file-name (concat "src/" old-file-name-nondirectory) (car refac-monitor-path))))
+   (let ((logmsg1 (car logmsg)))
+     (dolist (f files)
+       (setq old-file-name (elt f 0))
+       (let* ((old-file-name-nondirectory (file-name-nondirectory old-file-name))
+	      (old-file-name-extension    (file-name-extension old-file-name))
+	      (refac-monitor-file (locate-file old-file-name-nondirectory 
+					       refac-monitor-path)))
+	 (if (eq refac-monitor-file nil)
+	     (if (file-directory-p (expand-file-name "src" (car refac-monitor-path)))
+		 (let ((refac-monitor-file-1 (expand-file-name (concat "src/" old-file-name-nondirectory) (car refac-monitor-path))))
+		   (copy-file old-file-name  refac-monitor-file-1 'true)
+		   (with-current-buffer (find-file-noselect refac-monitor-file-1)
+		     (vc-register nil "New file"))
+		   (vc-next-action-on-file refac-monitor-file-1 nil logmsg1)
+		   (kill-buffer (find-file-noselect refac-monitor-file-1)))	
+	       (let ((refac-monitor-file-1 (expand-file-name  old-file-name-nondirectory (car refac-monitor-path))))
 		 (copy-file old-file-name  refac-monitor-file-1 'true)
 		 (with-current-buffer (find-file-noselect refac-monitor-file-1)
 		   (vc-register nil "New file"))
-		 (vc-next-action-on-file refac-monitor-file-1 nil logmsg)
-		 (kill-buffer (find-file-noselect refac-monitor-file-1)))
-	     (let ((refac-monitor-file-1 (expand-file-name  old-file-name-nondirectory (car refac-monitor-path))))
-	       (copy-file old-file-name  refac-monitor-file-1 'true)
-	       (with-current-buffer (find-file-noselect refac-monitor-file-1)
-		 (vc-register nil "New file"))
-	       (vc-next-action-on-file refac-monitor-file-1 nil logmsg)
-	       (kill-buffer (find-file-noselect refac-monitor-file-1))))
-	 (progn
-	   (copy-file old-file-name refac-monitor-file 'true)
-	   (vc-next-action-on-file refac-monitor-file nil logmsg))
+		 (vc-next-action-on-file refac-monitor-file-1 nil logmsg1)
+		 (kill-buffer (find-file-noselect refac-monitor-file-1))))
+	   (progn
+	     (copy-file old-file-name refac-monitor-file 'true)
+	     (vc-next-action-on-file refac-monitor-file nil logmsg1)
 	 ))))
+     (write-to-refac-logfile logmsg1)))
+   
 
 (defun commit()
   "commit the refactoring result."
@@ -2111,3 +2114,16 @@
 	  )
       (message "Searching aborted."))))
  
+(defun write-to-refac-logfile(content)
+  "write log infomation to the log file and check in to the repository"
+  (let* ((logfile (expand-file-name "refac_cmd_log" (car refac-monitor-path)))
+	 (exist (file-regular-p logfile)))
+    (write-region (concat "\n" content) nil logfile 'true)
+    (if (eq exist nil)
+	(progn
+	  (with-current-buffer (find-file-noselect logfile)
+	    (vc-register nil "New refactoring command log file"))
+	  (vc-next-action-on-file logfile nil "new refactoring command added"))
+      (vc-next-action-on-file logfile nil "new refactoring command added"))
+    (kill-buffer (find-file-noselect logfile))))
+    
