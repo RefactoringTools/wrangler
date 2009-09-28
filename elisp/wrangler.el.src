@@ -380,7 +380,7 @@
 		(message "Undo failed: %S" rsn))
 	       (['rex ['error rsn]]
 		(message "Undo failed: %s" rsn))
-	       (['rex ['ok modified1]]
+	       (['rex ['ok modified1 logmsg]]
 		(dolist (f modified1)
 		  (let ((oldfilename (car f))
 			(newfilename (car (cdr f)))
@@ -391,6 +391,7 @@
 					    (revert-buffer nil t t)))
 				 (with-current-buffer buffer (revert-buffer nil t t)))
 		      nil)))
+		(write-to-refac-logfile (concat "UNDO: " (car logmsg)))
 		(message "Undo succeeded")))))
       (message "Undo aborted."))))
 
