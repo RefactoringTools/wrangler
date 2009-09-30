@@ -414,7 +414,7 @@
 					    (revert-buffer nil t t)))
 				 (with-current-buffer buffer (revert-buffer nil t t)))
 		      nil)))
-		(write-to-refac-logfile (concat "UNDO: " (car logmsg)))
+		(write-to-refac-logfile (concat "UNDO: " logmsg))
 		(message "Undo succeeded")))))
       (message "Undo aborted."))))
 
@@ -1185,8 +1185,10 @@
 	     (if (equal candidates-to-fold nil)
 		 (message "Refactoring finished, and no file has been changed.")
 	       (erl-spawn
-		 (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_fold_expression 'fold_expression_1(list 
-                               current-file-name candidates-to-fold wrangler-search-paths tab-width)))
+		 ;; (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_fold_expression 'fold_expression_1(list 
+;;                                current-file-name candidates-to-fold wrangler-search-paths tab-width)))
+		 (erl-send-rpc wrangler-erl-node 'refac_fold_expression 'fold_expression_1 (list 
+                                current-file-name candidates-to-fold wrangler-search-paths tab-width))
 		 (erl-receive (current-file-name line-no column-no)
 		     ((['rex ['badrpc rsn]]
 		       (message "Refactoring failed: %S" rsn))
