@@ -78,8 +78,7 @@
 
 (defun update-repository-1(files logmsg)
    "commit refactored files to the repository"
-   (let ((logmsg1 (car logmsg)))
-     (dolist (f files)
+   (dolist (f files)
        (setq old-file-name (elt f 0))
        (let* ((old-file-name-nondirectory (file-name-nondirectory old-file-name))
 	      (old-file-name-extension    (file-name-extension old-file-name))
@@ -91,19 +90,19 @@
 		   (copy-file old-file-name  refac-monitor-file-1 'true)
 		   (with-current-buffer (find-file-noselect refac-monitor-file-1)
 		     (vc-register nil "New file"))
-		   (vc-next-action-on-file refac-monitor-file-1 nil logmsg1)
+		   (vc-next-action-on-file refac-monitor-file-1 nil logmsg)
 		   (kill-buffer (find-file-noselect refac-monitor-file-1)))	
 	       (let ((refac-monitor-file-1 (expand-file-name  old-file-name-nondirectory (car refac-monitor-path))))
 		 (copy-file old-file-name  refac-monitor-file-1 'true)
 		 (with-current-buffer (find-file-noselect refac-monitor-file-1)
 		   (vc-register nil "New file"))
-		 (vc-next-action-on-file refac-monitor-file-1 nil logmsg1)
+		 (vc-next-action-on-file refac-monitor-file-1 nil logmsg)
 		 (kill-buffer (find-file-noselect refac-monitor-file-1))))
 	   (progn
 	     (copy-file old-file-name refac-monitor-file 'true)
-	     (vc-next-action-on-file refac-monitor-file nil logmsg1)
+	     (vc-next-action-on-file refac-monitor-file nil logmsg)
 	 ))))
-     (write-to-refac-logfile logmsg1)))
+     (write-to-refac-logfile logmsg))
    
 
 (defun is_a_monitored_file(file)
