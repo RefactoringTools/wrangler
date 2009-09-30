@@ -642,13 +642,27 @@ lay_2(Node,Ctxt) ->
   	    D1 = lay(Left,set_prec(Ctxt,PrecL)),
   	    D2 = lay(Operator,reset_prec(Ctxt)),
   	    D3 = lay(Right,set_prec(Ctxt,PrecR)),
-  	    LeftEndLn = get_end_line(Left),
+	    LeftEndLn = get_end_line(Left),
   	    OpStartLn = get_start_line(Operator),
-  	    D12 = case (OpStartLn == LeftEndLn) andalso (OpStartLn=/=0) of 
+	    RightStartLn = get_start_line(Right),
+	    D12 = case (OpStartLn == LeftEndLn) andalso (OpStartLn=/=0) of 
   		      true -> horizontal([D1, D2]);
   		      false ->par([D1,D2],Ctxt#ctxt.sub_indent)
   		  end,
-  	    D4 = par([D12, D3], Ctxt#ctxt.sub_indent),
+  	    D4 = case (OpStartLn==RightStartLn) andalso (OpStartLn=/=0) of
+		     true -> 
+			 case D3 of 
+			     {sep, [D|Ds], N, P} ->
+				 {sep, [horizontal([D12, D])|Ds], N, P};
+			     {beside, {sep, [D|Ds], N,P}, Ds1} ->
+				 {beside, {sep, [horizontal([D12, D])|Ds], N,P}, Ds1};
+			     {beside, {beside, {sep, [D|Ds], N,P}, {text, [1, 32]}}, Ds1} ->
+				 {beside, {beside, {sep, [horizontal([D12, D])|Ds], N,P}, {text, [1, 32]}}, Ds1};
+			     _ ->
+				 horizontal([D12, D3])
+			 end;
+		     _ -> par([D12, D3], Ctxt#ctxt.sub_indent)
+		 end,
   	    maybe_parentheses(D4,Prec,Ctxt);
 
       prefix_expr ->  %% done;
@@ -945,7 +959,7 @@ lay_2(Node,Ctxt) ->
 		     D3 = lay(T,Ctxt1),
 		     A = refac_syntax:receive_expr_action(Node),
 		     D4 = lay_elems(fun refac_prettypr_0:sep/1, seq(A,floating(text(",")),Ctxt1,fun lay/2), A),
-		     sep([D1,follow(floating(text("after")),append_clause_body(D4,D3,Ctxt1,false),Ctxt1#ctxt.sub_indent)])
+		     sep([D1,follow(floating(text("after")),append_clause_body(D4,D3,Ctxt1,{1, 1}),Ctxt1#ctxt.sub_indent)])
 	       end,
 	  sep([text("receive"),nest(Ctxt1#ctxt.sub_indent,D2),text("end")]);
       record_access ->
