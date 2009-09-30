@@ -48,6 +48,8 @@
 
 -module(refac_rename_var).
 
+-compile(export_all).
+
 -export([rename_var/6, rename_var_eclipse/6]).
 
 -include("../include/wrangler.hrl").
@@ -65,7 +67,11 @@ rename_var_eclipse(FName, Line, Col, NewName, SearchPaths, TabWidth) ->
 rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     Cmd = io_lib:format("CMD: ~p:rename_var(~p, ~p, ~p, ~p, ~p, ~p).",
 			[?MODULE, FName, Line, Col, NewName, SearchPaths, TabWidth]),
-    ?wrangler_io("\n"++Cmd++"\n", []),
+    ?wrangler_io("\n" ++ Cmd ++ "\n", []),
+    Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_var(" ++ "\"" ++
+	FName ++ "\", " ++ integer_to_list(Line) ++
+	", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
+	++ "[" ++ format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case refac_util:is_var_name(NewName) of
       true -> ok;
       false -> throw({error, "Invalid new variable name."})
@@ -111,12 +117,11 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 	   {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
 	   case Editor of
 	     emacs ->
-		   refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST2}], 
-								 io_lib:format("~ts", [Cmd])),
+		   refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST2}], Cmd1),
 		   {ok, [FName]};
-	       eclipse ->
-		   Content = refac_prettypr:print_ast(refac_util:file_format(FName), AnnAST2),
-		   {ok, [{FName, FName, Content}]}
+	     eclipse ->
+		 Content = refac_prettypr:print_ast(refac_util:file_format(FName), AnnAST2),
+		 {ok, [{FName, FName, Content}]}
 	   end;
        true ->
 	   case Editor of
@@ -238,22 +243,22 @@ pos_to_form_1(Node, Pos) ->
 
 %%-spec(rename/3::(syntaxTree(), [{integer(), integer()}], atom()) ->
 %%	     {syntaxTree(), bool()}).
-rename(Node, DefinePos, NewName) ->
-    refac_util:stop_tdTP(fun do_rename/2, Node, {DefinePos, NewName}).
+rename(Tree, DefinePos, NewName) ->
+    refac_util:stop_tdTP(fun do_rename/2, Tree, {DefinePos, NewName}).
 
 %% =====================================================================
 %%
 
-do_rename(Node1, {DefinePos, NewName}) ->
-    case refac_syntax:type(Node1) of
+do_rename(Node, {DefinePos, NewName}) ->
+    case refac_syntax:type(Node) of
       variable ->
-	  As = refac_syntax:get_ann(Node1),
+	  As = refac_syntax:get_ann(Node),
 	  case lists:keysearch(def, 1, As) of
 	    {value, {def, DefinePos}} ->
-		{refac_syntax:set_name(Node1, NewName), true};
-	    _ -> {Node1, false}
+		{refac_syntax:set_name(Node, NewName), true};
+	    _ -> {Node, false}
 	  end;
-      _ -> {Node1, false}
+      _ -> {Node, false}
     end.
 
 
@@ -283,3 +288,16 @@ envs_bounds_frees(Node) ->
 		end
 	end,
     lists:usort(refac_syntax_lib:fold(F, [], Node)).
+
+
+
+format_search_paths(Paths)->
+    format_search_paths(Paths, "").
+    
+format_search_paths([], Str)->
+    Str;
+format_search_paths([P|T], Str)->
+    case Str of
+	[] ->format_search_paths(T, "\""++P++"\"");
+	_ ->format_search_paths(T, Str++", \""++P++"\"")
+    end.
