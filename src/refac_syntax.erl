@@ -570,6 +570,7 @@ is_form(Node) ->
 get_pos(#tree{attr = Attr}) -> Attr#attr.pos;
 get_pos(#wrapper{attr = Attr}) -> Attr#attr.pos;
 get_pos({error, {Pos, _, _}}) -> Pos;
+get_pos({error, {{Pos, _, _}, _}}) -> Pos;
 get_pos({warning, {Pos, _, _}}) -> Pos;
 get_pos(Node) ->
     %% Here, we assume that we have an `erl_parse' node with position
