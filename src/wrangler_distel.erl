@@ -228,7 +228,7 @@ check_wrangler_error_logger() ->
 				    Str1++lists:flatmap(fun(E) ->
 							  case E of 
 							      {Pos, _Mod, Msg} ->io_lib:format(" ** ~p:~p **\n", [Pos, Msg]);
-							      M -> io_lib:format("**~s**\n", [M])
+							      M -> io_lib:format("**~p**\n", [M])
 							  end
 						  end,
 						  lists:reverse(Errs)) 
