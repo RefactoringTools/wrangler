@@ -128,9 +128,9 @@
 	     (['rex ['error rsn]]
 	      (message "Commit failed: %s" rsn))
 	     (['rex ['ok files logmsg]]
-	 ;;     (condition-case nil
+	      (condition-case nil
 		  (update-repository files logmsg)
-	;;	(error nil))
+		(error nil))
 	      (dolist (f files)
 		(progn
 		  (setq old-file-name (elt f 0))
@@ -403,7 +403,7 @@
 		(message "Undo failed: %S" rsn))
 	       (['rex ['error rsn]]
 		(message "Undo failed: %s" rsn))
-	       (['rex ['ok modified1 logmsg]]
+	       (['rex ['ok modified1 logmsg curfile]]
 		(dolist (f modified1)
 		  (let ((oldfilename (car f))
 			(newfilename (car (cdr f)))
@@ -414,7 +414,11 @@
 					    (revert-buffer nil t t)))
 				 (with-current-buffer buffer (revert-buffer nil t t)))
 		      nil)))
-		(write-to-refac-logfile (concat "UNDO: " logmsg))
+		(if (is_a_monitored_file curfile)
+		    (condition-case nil
+			(write-to-refac-logfile (concat "UNDO: " logmsg))
+		      (error nil))
+		  nil)		  
 		(message "Undo succeeded")))))
       (message "Undo aborted."))))
 
