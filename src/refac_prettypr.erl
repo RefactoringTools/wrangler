@@ -943,7 +943,15 @@ lay_2(Node,Ctxt) ->
 		    none ->lay(N,Ctxt1)		
 	       end,
 	    D1 = beside(floating(text("?")),D),
-	    maybe_parentheses(D1,Ctxt#ctxt.prec,Ctxt);    % must be conservative!
+	    case Ctxt#ctxt.prec of 
+		P when P >0 ->
+		    case lists:keysearch(with_bracket,1, refac_syntax:get_ann(Node)) of
+			{value, {with_bracket, true}} ->
+			    lay_parentheses(D1, Ctxt);
+			_ -> D1
+		    end;
+		_ -> D1
+	    end;
       parentheses ->  %% done;
 	  D = lay(refac_syntax:parentheses_body(Node),reset_prec(Ctxt)),
 	  lay_parentheses(D,Ctxt);
