@@ -66,7 +66,7 @@ sim_code_detection(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabW
 		 [?MODULE, DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabWidth]),
     
     MinLen = try
-		 case MinLen1 == [] orelse list_to_integer(MinLen1) =< 1 of
+		 case MinLen1 == [] orelse list_to_integer(MinLen1) <1 of
 		     true -> 
 			 ?DEFAULT_LEN;
 		     _ -> list_to_integer(MinLen1)
