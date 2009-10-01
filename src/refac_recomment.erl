@@ -120,13 +120,16 @@ recomment_forms(Tree, Cs, Insert) when is_list(Tree) ->
 recomment_forms(Tree, Cs, Insert) ->
     case refac_syntax:type(Tree) of
 	form_list ->
+	    BadFormLocs = lists:flatten([lists:seq(L1,L2) ||{error, {_ErrInfo, {{L1,_},{L2,_}}}} 
+								<-refac_syntax:form_list_elements(Tree)]),
+	    Cs1 = [ {L, Col, Ind, Text} ||{L,Col, Ind, Text} <-Cs, not(lists:member(L, BadFormLocs))],
 	    Tree1 = refac_syntax:flatten_form_list(Tree),
 	    Node = build_tree(Tree1),
 	    %% Here we make a small assumption about the substructure of
 	    %% a `form_list' tree: it has exactly one group of subtrees.
 	    [Node1] = node_subtrees(Node),
 	    List = filter_forms(node_subtrees(Node1)),
-	    List1 = recomment_forms_1(Cs, List, Insert),
+	    List1 = recomment_forms_1(Cs1, List, Insert),
 	    revert_tree(set_node_subtrees(Node,
 					  [set_node_subtrees(Node1,
 							     List1)]));
