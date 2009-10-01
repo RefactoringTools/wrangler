@@ -2277,6 +2277,20 @@ adjust_locations(Form, Toks) ->
 				end;
 			    _ -> T
 			end;
+		    macro -> {L, C} = refac_syntax:get_pos(T),
+			     Toks1 = lists:reverse(lists:takewhile(fun(B) -> element(2, B)=/={L, C} end, Toks)),
+			     Toks2 = lists:dropwhile(fun(B) -> case B of 
+								   {whitespace, _, _} -> true;
+								   _ -> false
+							       end
+						     end, Toks1),
+			     case Toks2 of
+				 [] -> refac_syntax:add_ann({with_bracket, false}, T);
+				 [H|_] -> case H of 
+					      {'(', _} -> refac_syntax:add_ann({with_bracket, true}, T);
+					      _ -> refac_syntax:add_ann({with_bracket, false}, T)
+					  end
+			     end;
 		    _ -> T
 		end
 	end,
