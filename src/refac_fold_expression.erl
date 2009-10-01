@@ -218,7 +218,7 @@ fold_expression_1_eclipse_1(AnnAST, Body, [{{StartLoc, EndLoc}, Exp}|Tail]) ->
 fold_expression_1(FileName, CandidatesToFold, SearchPaths, TabWidth) ->
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     AnnAST1= fold_expression_1_1(AnnAST,  CandidatesToFold),
-    refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}]),
+    refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], ""),
     {ok, [FileName]}.
 
 fold_expression_1_1(AnnAST, []) -> 
