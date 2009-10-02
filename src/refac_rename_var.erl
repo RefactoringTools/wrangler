@@ -65,13 +65,12 @@ rename_var_eclipse(FName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
 
 rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
-    Cmd = io_lib:format("CMD: ~p:rename_var(~p, ~p, ~p, ~p, ~p, ~p).",
-			[?MODULE, FName, Line, Col, NewName, SearchPaths, TabWidth]),
-    ?wrangler_io("\n" ++ Cmd ++ "\n", []),
+    ?wrangler_io("\nCMD: ~p:rename_var(~p, ~p, ~p, ~p, ~p, ~p).\n",
+		 [?MODULE, FName, Line, Col, NewName, SearchPaths, TabWidth]),
     Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_var(" ++ "\"" ++
-	FName ++ "\", " ++ integer_to_list(Line) ++
-	", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
-	++ "[" ++ format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+	     FName ++ "\", " ++ integer_to_list(Line) ++
+	       ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
+		 ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case refac_util:is_var_name(NewName) of
       true -> ok;
       false -> throw({error, "Invalid new variable name."})
@@ -117,8 +116,8 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 	   {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
 	   case Editor of
 	     emacs ->
-		   refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST2}], Cmd1),
-		   {ok, [FName]};
+		 refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST2}], Cmd1),
+		 {ok, [FName]};
 	     eclipse ->
 		 Content = refac_prettypr:print_ast(refac_util:file_format(FName), AnnAST2),
 		 {ok, [{FName, FName, Content}]}
@@ -288,16 +287,3 @@ envs_bounds_frees(Node) ->
 		end
 	end,
     lists:usort(refac_syntax_lib:fold(F, [], Node)).
-
-
-
-format_search_paths(Paths)->
-    format_search_paths(Paths, "").
-    
-format_search_paths([], Str)->
-    Str;
-format_search_paths([P|T], Str)->
-    case Str of
-	[] ->format_search_paths(T, "\""++P++"\"");
-	_ ->format_search_paths(T, Str++", \""++P++"\"")
-    end.
