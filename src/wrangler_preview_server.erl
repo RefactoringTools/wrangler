@@ -121,7 +121,7 @@ handle_call(commit, _From, #state{files=Files, logmsg=LogMsg}) ->
     FilesToBackup = lists:map(fun ({F1, F2, IsNew}) ->
 				      {ok, Bin} = file:read_file(F1), {{F1, F2, IsNew}, Bin}
 			      end, OldFiles),
-    wrangler_undo_server:add_to_history({FilesToBackup, LogMsg}),
+    wrangler_undo_server:add_to_history({FilesToBackup, LogMsg, element(1, hd(OldFiles))}),
     ?update_monitor_code([F1 || {F1, _F2, _} <- OldFiles]),
     lists:foreach(fun ({{_F1, F2, _IsNew}, Swp}) -> file:copy(Swp, F2) end, Files),
     Files1 = lists:map(fun ({{F1, F2, IsNew}, Swp}) -> [F1, F2, Swp, IsNew] end, Files),

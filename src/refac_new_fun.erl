@@ -53,6 +53,11 @@ fun_extraction(FileName, Start = {Line, Col}, End = {Line1, Col1},
 	       NewFunName, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:fun_extraction(~p, {~p,~p}, {~p,~p}, ~p, ~p).\n",
 		 [?MODULE, FileName, Line, Col, Line1, Col1, NewFunName, TabWidth]),
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fun_extraction(" ++ "\"" ++
+	FileName ++ "\", {" ++ integer_to_list(Line) ++	", " ++ integer_to_list(Col) ++ "},"++
+	"{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "},"  ++ "\"" ++ NewFunName ++ "\","
+	++ integer_to_list(TabWidth) ++ ").",
+    
     case refac_util:is_fun_name(NewFunName) of
       true -> ok;
       false -> throw({error, "Invalid function name!"})
@@ -66,9 +71,9 @@ fun_extraction(FileName, Start = {Line, Col}, End = {Line1, Col1},
     end,
     {ok, Fun} = refac_util:expr_to_fun(AnnAST, hd(ExpList)),
     ok=side_cond_analysis(FileName, Info, Fun, ExpList, list_to_atom(NewFunName)),
-    fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor).
+    fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor, Cmd).
 
-fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor) ->
+fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor,Cmd) ->
     FunName = refac_syntax:atom_value(refac_syntax:function_name(Fun)),
     FunArity = refac_syntax:function_arity(Fun),
     {FrVars, BdVars} = get_free_bd_vars(ExpList),
@@ -78,7 +83,7 @@ fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor) ->
     case Editor of
       emacs ->
 	  Res = [{{FileName, FileName}, AnnAST1}],
-	  refac_util:write_refactored_files_for_preview(Res),
+	  refac_util:write_refactored_files_for_preview(Res, Cmd),
 	  {ok, [FileName]};
       eclipse ->
 	  FileContent = refac_prettypr:print_ast(

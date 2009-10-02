@@ -91,38 +91,38 @@
 
 -import(refac_rename_fun,[apply_style_funs/0, try_eval/4, collect_atoms/2]).
 
--export([generalise/6, gen_fun_1/10, gen_fun_clause/9]).
+-export([generalise/6, gen_fun_1/11, gen_fun_clause/10]).
 
 -export([generalise_eclipse/6, gen_fun_1_eclipse/10, gen_fun_clause_eclipse/9]).
 
 -define(DEFAULT_RANGE, {?DEFAULT_LOC, ?DEFAULT_LOC}).
 %% =====================================================================
-%%-spec(generalise/6::(FileName::filename(),Start::pos(), End::pos(),ParName::string(),
-%%		     SearchPaths::[dir()], TabWidth::integer()) ->
-%%	     {ok, [filename()]}
-%%		 |{error, string()}
-%%                 |{multiple_instances, {atom(), atom(), integer(), pos(), syntaxTree(), bool(),[{pos(), pos()}]}}
-%%		 |{unknown_side_effect, {atom(), atom(),integer(), pos(), syntaxTree(), integer(),
-%%					 [{pos(), pos()}], [{pos(),pos()}]}}
-%%		 |{more_than_one_clause, {atom(), atom(), integer(), pos(), syntaxTree(), bool(),
-%%					  [{pos(), pos()}], [{pos(),pos()}]}}). 
+-spec(generalise/6::(FileName::filename(),Start::pos(), End::pos(),ParName::string(),
+		     SearchPaths::[dir()], TabWidth::integer()) ->
+	     {ok, [filename()]}
+		 |{error, string()}
+                 |{multiple_instances, {atom(), atom(), integer(), pos(), syntaxTree(), bool(),[{pos(), pos()}], logmsg}}
+		 |{unknown_side_effect, {atom(), atom(),integer(), pos(), syntaxTree(), integer(),
+					 [{pos(), pos()}], [{pos(),pos()}], logmsg}}
+		 |{more_than_one_clause, {atom(), atom(), integer(), pos(), syntaxTree(), bool(),
+					  [{pos(), pos()}], [{pos(),pos()}], logmsg}}). 
 
 generalise(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
     generalise(FileName, Start, End, ParName, SearchPaths, TabWidth, emacs).
 
-%%-spec(generalise_eclipse/6::(FileName::filename(),Start::pos(), End::pos(),ParName::string(), 
-%%			     SearchPaths::[dir()], TabWidth::integer()) -> 
-%%	     {error, string()}
-%%		 |{ok, [{filename(), filename(), string()}]}
-%%		 |{multiple_instances,  {ParName:: atom(), FunName::atom(), Arity::integer(),
-%%					 FunDefPos::pos(), Exp::syntaxTree(), SideEffect::bool(),
-%%				 	 DupsInFun::[{pos(), pos()}]}}
-%%		 |{unknown_side_effect, {ParName::atom(), FunName::atom(),Arity::integer(), 
-%%				  	 FunDefPos::pos(), Exp::syntaxTree(), NoOfClauses::integer(),
-%%					 DupsInFun::[{pos(), pos()}],DupsInClause::[{pos(), pos()}]}}
-%%		 |{more_than_one_clause,{ParName::atom(), FunName::atom(), Arity::integer(), 
-%%					 FunDefPos::pos(), Exp::syntaxTree(), SideEffect::bool(),
-%%					 DupsInFun::[{pos(), pos()}],DupsInClause::[{pos(), pos()}]}}).
+-spec(generalise_eclipse/6::(FileName::filename(),Start::pos(), End::pos(),ParName::string(), 
+			     SearchPaths::[dir()], TabWidth::integer()) -> 
+	     {error, string()}
+		 |{ok, [{filename(), filename(), string()}]}
+		 |{multiple_instances,  {ParName:: atom(), FunName::atom(), Arity::integer(),
+					 FunDefPos::pos(), Exp::syntaxTree(), SideEffect::bool(),
+				 	 DupsInFun::[{pos(), pos()}]}}
+		 |{unknown_side_effect, {ParName::atom(), FunName::atom(),Arity::integer(), 
+				  	 FunDefPos::pos(), Exp::syntaxTree(), NoOfClauses::integer(),
+					 DupsInFun::[{pos(), pos()}],DupsInClause::[{pos(), pos()}]}}
+		 |{more_than_one_clause,{ParName::atom(), FunName::atom(), Arity::integer(), 
+					 FunDefPos::pos(), Exp::syntaxTree(), SideEffect::bool(),
+					 DupsInFun::[{pos(), pos()}],DupsInClause::[{pos(), pos()}]}}).
 
 generalise_eclipse(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
     generalise(FileName, Start, End, ParName, SearchPaths, TabWidth, eclipse).
@@ -130,6 +130,10 @@ generalise_eclipse(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
 generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:generalise(~p, {~p,~p}, {~p,~p}, ~p,~p,~p).\n",
 		 [?MODULE, FileName, Line, Col, Line1, Col1, ParName, SearchPaths, TabWidth]),
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":generalise(" ++ "\"" ++
+	FileName ++ "\", {" ++ integer_to_list(Line) ++	", " ++ integer_to_list(Col) ++ "},"++
+	"{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "},"  ++ "\"" ++ ParName ++ "\","
+	++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case refac_util:is_var_name(ParName) of
       false -> throw({error, "Invalid parameter name!"});
       true -> ok
@@ -170,23 +174,23 @@ generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPa
     case SideEffect of
       unknown ->
 	  {unknown_side_effect, {ParName1, FunName, FunArity,
-				 FunDefPos, Exp, NoOfClauses, DupsInFun, DupsInClause}};
+				 FunDefPos, Exp, NoOfClauses, DupsInFun, DupsInClause, Cmd}};
       _ ->
 	  case NoOfClauses > 1 of
 	    true ->
 		{more_than_one_clause,
-		 {ParName1, FunName, FunArity, FunDefPos, Exp, SideEffect, DupsInFun, DupsInClause}};
+		 {ParName1, FunName, FunArity, FunDefPos, Exp, SideEffect, DupsInFun, DupsInClause, Cmd}};
 	    _ ->
 		case DupsInFun of
 		  [_| _] ->
 		      {multiple_instances,
-		       {ParName1, FunName, FunArity, FunDefPos, Exp, SideEffect, DupsInFun}};
+		       {ParName1, FunName, FunArity, FunDefPos, Exp, SideEffect, DupsInFun, Cmd}};
 		  _ ->
 		      {AnnAST1, _} = gen_fun(FileName, ModName, AnnAST, ParName1, FunName,
 					     FunArity, FunDefPos, Info, Exp, SideEffect, [], SearchPaths, TabWidth),
 		      case Editor of
 			emacs ->
-			    refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}]),
+			    refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], Cmd),
 			    {ok, [FileName]};
 			eclipse ->
 			    Content = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST1),
@@ -197,21 +201,21 @@ generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPa
     end.
 
 
-%%-spec(gen_fun_1/10::(SideEffect::bool(), FileName::filename(),ParName::atom(), FunName::atom(),
-%%		     Arity::integer(), FunDefPos::pos(), Exp::syntaxTree(), SearchPaths::[dir()],
-%%		    TabWidth::integer(), Dups::[{pos(), pos()}])
-%%      -> {ok, [filename()]}).
-gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth, Dups) ->
-    gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth,Dups, emacs).
+-spec(gen_fun_1/11::(SideEffect::bool(), FileName::filename(),ParName::atom(), FunName::atom(),
+		     Arity::integer(), FunDefPos::pos(), Exp::syntaxTree(), SearchPaths::[dir()],
+		    TabWidth::integer(), Dups::[{pos(), pos()}], LogCmd::string())
+      -> {ok, [filename()]}).
+gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth, Dups, LogCmd) ->
+    gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth,Dups, emacs, LogCmd).
 
-%%-spec(gen_fun_1_eclipse/10::(SideEffect::bool(), FileName::filename(),ParName::atom(), FunName::atom(), 
-%%			    Arity::integer(), FunDefPos::pos(), Expr::syntaxTree(), SearchPaths::[dir()],
-%%			    TabWidth::integer(), Dups::[{pos(), pos()}]) 
-%%      -> {ok, [{filename(), filename(),string()}]}).
+-spec(gen_fun_1_eclipse/10::(SideEffect::bool(), FileName::filename(),ParName::atom(), FunName::atom(), 
+			    Arity::integer(), FunDefPos::pos(), Expr::syntaxTree(), SearchPaths::[dir()],
+			    TabWidth::integer(), Dups::[{pos(), pos()}]) 
+      -> {ok, [{filename(), filename(),string()}]}).
 gen_fun_1_eclipse(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth, Dups) ->
-    gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths, TabWidth, Dups, eclipse).
+    gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths, TabWidth, Dups, eclipse,"").
 
-gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth, Dups, Editor) ->
+gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth, Dups, Editor, LogCmd) ->
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName,true, [],TabWidth),  
     {ok, ModName} = get_module_name(Info),
     AnnAST1 = case to_keep_original_fun(FileName, AnnAST, ModName, FunName, Arity, Exp, Info) of
@@ -224,7 +228,7 @@ gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths
 					 Exp, ActualPar, SideEffect, Dups, SearchPaths, TabWidth}),
     case Editor of 
 	emacs ->
-	    refac_util:write_refactored_files_for_preview([{{FileName,FileName}, AnnAST2}]),
+	    refac_util:write_refactored_files_for_preview([{{FileName,FileName}, AnnAST2}], LogCmd),
 	    {ok, [FileName]};
 	eclipse ->
 	    Content = refac_prettypr:print_ast(refac_util:file_format(FileName),AnnAST2),
@@ -232,20 +236,20 @@ gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths
     end.
 
 
-%%-spec(gen_fun_clause_eclipse/9::(FileName::filename(), ParName::atom(), FunName::atom(), Arity::integer(), DefPos::pos(), 
-%%				 Exp::syntaxTree(), TabWidth::integer(), SideEffect::bool(),  Dups::[{pos(), pos()}]) ->
-%%					{ok, [{filename(), filename(), string()}]}).
+-spec(gen_fun_clause_eclipse/9::(FileName::filename(), ParName::atom(), FunName::atom(), Arity::integer(), DefPos::pos(), 
+				 Exp::syntaxTree(), TabWidth::integer(), SideEffect::bool(),  Dups::[{pos(), pos()}]) ->
+					{ok, [{filename(), filename(), string()}]}).
 gen_fun_clause_eclipse(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEffect, Dups) ->
-    gen_fun_clause_1(FileName, ParName, FunName, Arity, DefPos, Exp, [], TabWidth, SideEffect, Dups, eclipse).
+    gen_fun_clause_1(FileName, ParName, FunName, Arity, DefPos, Exp, [], TabWidth, SideEffect, Dups, eclipse, "").
 
-%%-spec(gen_fun_clause/9::(FileName::filename(), ParName::atom(), FunName::atom(), Arity::integer(), DefPos::pos(), 
-%%			 Exp::syntaxTree(), TabWidth::integer(), SideEffect::bool(), 
-%%			 Dups::[{{integer(), integer()},{integer(), integer()}}]) ->{ok, [filename()]}).
+-spec(gen_fun_clause/10::(FileName::filename(), ParName::atom(), FunName::atom(), Arity::integer(), DefPos::pos(), 
+			 Exp::syntaxTree(), TabWidth::integer(), SideEffect::bool(), 
+			 Dups::[{{integer(), integer()},{integer(), integer()}}], LogCmd::string()) ->{ok, [filename()]}).
 
-gen_fun_clause(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEffect, Dups) ->
-    gen_fun_clause_1(FileName, ParName, FunName, Arity, DefPos, Exp, [], TabWidth, SideEffect, Dups,emacs).
+gen_fun_clause(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEffect, Dups, LogCmd) ->
+    gen_fun_clause_1(FileName, ParName, FunName, Arity, DefPos, Exp, [], TabWidth, SideEffect, Dups,emacs, LogCmd).
 
-gen_fun_clause_1(FileName, ParName, FunName, _Arity, DefPos, Exp, SearchPaths, TabWidth, SideEffect, Dups, Editor) ->
+gen_fun_clause_1(FileName, ParName, FunName, _Arity, DefPos, Exp, SearchPaths, TabWidth, SideEffect, Dups, Editor, LogCmd) ->
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {ok, ModName} = get_module_name(Info),
     Forms = refac_syntax:form_list_elements(AnnAST),
@@ -275,7 +279,7 @@ gen_fun_clause_1(FileName, ParName, FunName, _Arity, DefPos, Exp, SearchPaths, T
     AnnAST1 = refac_syntax:form_list([T || Form <- Forms, T <- F(Form)]),
     case Editor of
 	emacs ->
-	    refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}]),
+	    refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], LogCmd),
 	    {ok, [FileName]};
 	eclipse ->
 	    Content = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST1),

@@ -69,6 +69,9 @@ rename_mod_eclipse(FileName, NewName, SearchPaths, TabWidth) ->
 
 rename_mod(FileName, NewName,SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:rename_mod(~p, ~p,~p, ~p).\n", [?MODULE, FileName, NewName, SearchPaths, TabWidth]),
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_mod(" ++ "\"" ++
+	FileName ++ "\", " ++ NewName ++ "\"," ++ "[" ++ 
+	refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case refac_util:is_fun_name(NewName) of   %% module name and function name follow the same rules.
       true ->
 	    {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(FileName,true, SearchPaths, TabWidth),
@@ -77,7 +80,7 @@ rename_mod(FileName, NewName,SearchPaths, TabWidth, Editor) ->
 		    NewModName = list_to_atom(NewName),
 		    TestFrameWorkUsed = refac_util:test_framework_used(FileName),
 		    case pre_cond_check(FileName, OldModName, NewModName, TestFrameWorkUsed) of 
-			ok -> do_rename_mod(FileName, [{OldModName, NewModName}], AnnAST, SearchPaths, Editor, TabWidth);
+			ok -> do_rename_mod(FileName, [{OldModName, NewModName}], AnnAST, SearchPaths, Editor, TabWidth, Cmd);
 			Other -> Other
 		    end;
 		false -> {error, "Wrangler could not infer the current module name."}
@@ -123,7 +126,7 @@ pre_cond_check(FileName, OldModName, NewModName, TestFrameWorkUsed) ->
     end.
 
 
-do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths,Editor, TabWidth) ->
+do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths,Editor, TabWidth, Cmd) ->
     {OldModName, NewModName} = hd(OldNewModPairs),
     NewFileName = filename:dirname(FileName)++"/"++ atom_to_list(NewModName)++".erl",
     TestFileName = filename:dirname(FileName)++"/"++ atom_to_list(OldModName)++"_tests.erl",
@@ -154,7 +157,7 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths,Editor, TabWidth) ->
 	emacs ->
 	    output_atom_warning_msg(Pid, not_renamed_warn_msg(OldModNames), renamed_warn_msg(OldModNames)),
 	    stop_atom_process(Pid),
-	    refac_util:write_refactored_files_for_preview([{{FileName, NewFileName}, AnnAST1}|(TestModRes++Results)]),
+	    refac_util:write_refactored_files_for_preview([{{FileName, NewFileName}, AnnAST1}|(TestModRes++Results)], Cmd),
 	    ChangedClientFiles = lists:map(fun({{F, _F}, _AST}) -> F end, Results),
 	    ChangedFiles = case length(OldNewModPairs) of 
 			       2 ->[FileName, TestFileName| ChangedClientFiles];
@@ -172,6 +175,9 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths,Editor, TabWidth) ->
  
 %%-spec(rename_mod_1/5::(filename(), string(), [dir()], integer(),bool()) ->{ok, [filename()]}).
 rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod) ->     %% currently only for Emacs; need to extend to Eclipse.
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_mod(" ++ "\"" ++
+	FileName ++ "\", " ++ NewName ++ "\"," ++ "[" ++ 
+	refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",    
     {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(FileName,true, SearchPaths),
     {value, {module, OldModName}} = lists:keysearch(module, 1, Info), 
     NewModName = list_to_atom(NewName),
@@ -181,9 +187,9 @@ rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod) ->     %% 
 	    TestModName = list_to_atom(atom_to_list(OldModName) ++ "_tests"),
 	    NewTestModName = list_to_atom(NewName++"_tests"),
 	    do_rename_mod(FileName, [{OldModName, NewModName}, {TestModName, NewTestModName}], 
-			  AnnAST, SearchPaths, emacs, TabWidth);
+			  AnnAST, SearchPaths, emacs, TabWidth, Cmd);
 	false ->
-	    do_rename_mod(FileName, [{OldModName, NewModName}], AnnAST, SearchPaths, emacs, TabWidth)
+	    do_rename_mod(FileName, [{OldModName, NewModName}], AnnAST, SearchPaths, emacs, TabWidth, Cmd)
     end.
     
 do_rename_mod_1(Tree, {FileName, OldNewModPairs,Pid}) ->

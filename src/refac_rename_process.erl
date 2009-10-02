@@ -33,23 +33,27 @@
 %% TOADD: functionalities to check OTP behaviours.
 -module(refac_rename_process).
 
--export([rename_process/6, rename_process_eclipse/6, rename_process_1/5, rename_process_1_eclipse/5]).
+-export([rename_process/6, rename_process_eclipse/6, rename_process_1/6, rename_process_1_eclipse/5]).
 
 -include("../include/wrangler.hrl").
 
-%%-spec(rename_process/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-%%	     {error, string()} | {undecidables, string()}| {ok, [filename()]}).
+-spec(rename_process/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
+	     {error, string()} | {undecidables, string(), string()}| {ok, [filename()]}).
 rename_process(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_process(FileName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
 
-%%-spec(rename_process_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-%%	     {error, string()} | {undecidables, string()} | {ok, [{filename(), filename(), string()}]}).
+-spec(rename_process_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
+	     {error, string()} | {undecidables, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_process_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_process(FileName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
 
 
 rename_process(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:rename_process( ~p, ~p, ~p, ~p,~p, ~p).\n", [?MODULE, FileName, Line, Col, NewName, SearchPaths, TabWidth]),
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_process(" ++ "\"" ++
+	FileName ++ "\", " ++ integer_to_list(Line) ++
+	", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
+	++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case is_process_name(NewName) of
       true ->
 	    _Res = refac_annotate_pid:ann_pid_info(SearchPaths, TabWidth),  %%TODO: check whether asts are already annotated.
@@ -65,17 +69,22 @@ rename_process(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 					  check_atoms(FileName, ProcessName, SearchPaths, TabWidth),
 					  case Editor of 
 					      emacs ->
-						  refac_util:write_refactored_files_for_preview(Results),
+						  refac_util:write_refactored_files_for_preview(Results, Cmd),
 						  ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
 						  ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
 							       [ChangedFiles]),
 						  {ok, ChangedFiles};
 					      eclipse ->
-						  Res = lists:map(fun({{FName, NewFName}, AST}) -> {FName, NewFName,
-												    refac_prettypr:print_ast(refac_util:file_format(FName),AST)} end, Results),
+						  Res = lists:map(fun({{FName, NewFName}, AST}) ->
+									  {FName, NewFName,
+									   refac_prettypr:print_ast(refac_util:file_format(FName),AST)} end, Results),
 						  {ok, Res}
 					  end;
-				      undecidables -> {undecidables, atom_to_list(ProcessName)};
+				      undecidables -> 
+					  case Editor of 
+					      emacs -> {undecidables, atom_to_list(ProcessName), Cmd};
+					      eclipse ->{undecidables, atom_to_list(ProcessName)}
+					  end;
 				      {error, Reason} ->
 					  {error, Reason}
 				  end;
@@ -86,16 +95,16 @@ rename_process(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 	false -> {error, "Invalid new process name."}
     end.
 
-%%-spec(rename_process_1/5::(string(), string(), string(), [dir()], integer()) -> {ok, [filename()]}).
-rename_process_1(FileName, OldProcessName, NewProcessName, SearchPaths, TabWidth) ->
-    rename_process_1(FileName, OldProcessName, NewProcessName, SearchPaths, TabWidth, emacs).
+-spec(rename_process_1/6::(string(), string(), string(), [dir()], integer(), string()) -> {ok, [filename()]}).
+rename_process_1(FileName, OldProcessName, NewProcessName, SearchPaths, TabWidth, Cmd) ->
+    rename_process_1(FileName, OldProcessName, NewProcessName, SearchPaths, TabWidth, emacs, Cmd).
 
-%%-spec(rename_process_1_eclipse/5::(string(), string(), string(), [dir()], integer()) -> {ok, [{filename(), filename(), string()}]}).
+-spec(rename_process_1_eclipse/5::(string(), string(), string(), [dir()], integer()) -> {ok, [{filename(), filename(), string()}]}).
 rename_process_1_eclipse(FileName, OldProcessName, NewProcessName, SearchPaths, TabWidth) ->
-    rename_process_1(FileName, OldProcessName, NewProcessName, SearchPaths, TabWidth, eclipse).
+    rename_process_1(FileName, OldProcessName, NewProcessName, SearchPaths, TabWidth, eclipse, "").
 
-%%-spec(rename_process_1/6::(string(), string(), string(), [dir()], integer(), editor()) -> {ok, [filename()]}|{ok, [{filename(), filename(), string()}]}).
-rename_process_1(FileName, OldProcessName1, NewProcessName1, SearchPaths, TabWidth, Editor) ->
+-spec(rename_process_1/7::(string(), string(), string(), [dir()], integer(), editor(), string()) -> {ok, [filename()]}|{ok, [{filename(), filename(), string()}]}).
+rename_process_1(FileName, OldProcessName1, NewProcessName1, SearchPaths, TabWidth, Editor, Cmd) ->
     OldProcessName = list_to_atom(OldProcessName1),
     NewProcessName = list_to_atom(NewProcessName1),
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
@@ -103,7 +112,7 @@ rename_process_1(FileName, OldProcessName1, NewProcessName1, SearchPaths, TabWid
     check_atoms(FileName, OldProcessName, SearchPaths, TabWidth),
     case Editor of 
 	emacs ->
-	    refac_util:write_refactored_files_for_preview(Results),
+	    refac_util:write_refactored_files_for_preview(Results, Cmd),
 	    ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
 	    ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
 			 [ChangedFiles]),

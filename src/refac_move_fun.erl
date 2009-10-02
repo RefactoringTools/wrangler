@@ -68,14 +68,14 @@
 -include("../include/wrangler.hrl").
 
 %==========================================================================================
-%%-spec(move_fun/7::(filename(),integer(),integer(), string(), atom(),[dir()], integer())->
-%%         {ok, [filename()]} | {error, string()}).
+-spec(move_fun/7::(filename(),integer(),integer(), string(), atom(),[dir()], integer())->
+         {ok, [filename()]} | {error, string()}).
 %%==========================================================================================
 move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabWidth) ->
     move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabWidth, emacs).
 
-%%-spec(move_fun_eclipse/7::(filename(),integer(),integer(), string(), atom(),[dir()], integer())
-%%        ->  {ok, [{filename(), filename(), string()}]} | {error, string()}).
+-spec(move_fun_eclipse/7::(filename(),integer(),integer(), string(), atom(),[dir()], integer())
+        ->  {ok, [{filename(), filename(), string()}]} | {error, string()}).
 
 move_fun_eclipse(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabWidth) ->
     move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabWidth, eclipse).
@@ -83,6 +83,11 @@ move_fun_eclipse(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPat
 move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:move_fun(~p, ~p, ~p, ~p, ~p, ~p, ~p).",
 		 [?MODULE, FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabWidth]),
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":move_fun(" ++ "\"" ++
+	FName ++ "\", " ++ integer_to_list(Line) ++
+	", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ TargetModorFileName ++ "\","
+        ++ ", "++atom_to_list(CreateNewFile) ++ ", "
+	++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {TargetFName, TargetModName} = get_target_file_mod_name(FName, TargetModorFileName),
     case TargetFName of
 	FName -> throw({error, "The target module is the same as the current module."});
@@ -135,7 +140,7 @@ move_fun(FName, Line, Col, TargetModorFileName, CreateNewFile, SearchPaths, TabW
 	    case Editor of
 		emacs ->
 		    refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST1},
-								   {{TargetFName, TargetFName, NewTargetFile}, TargetAnnAST1}| Results]),
+								   {{TargetFName, TargetFName, NewTargetFile}, TargetAnnAST1}| Results], Cmd),
 		    ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
 		    ChangedFiles = [FName, TargetFName| ChangedClientFiles],
 		    ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n", [ChangedFiles]),
@@ -525,8 +530,9 @@ do_add_fun(FileName,{TargetAnnAST, Info}, FunToBeMoved, {ModName, FunName, Arity
     IsExported = refac_util:is_exported({FunName, Arity}, Info),
     NewForms = case ToBeExported andalso (not IsExported) of
 		   false -> Forms1 ++ NewFun;
-		   true -> Export = make_export([{FunName, Arity}]),
-			   insert_export_form(Export, Forms1)++NewFun
+		   true ->
+		       Export = make_export([{FunName, Arity}]),
+		       insert_export_form(Export, Forms1)++NewFun
 	       end,
     copy_pos_attrs(TargetAnnAST, refac_syntax:form_list(NewForms)).
 

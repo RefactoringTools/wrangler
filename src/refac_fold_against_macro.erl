@@ -30,10 +30,10 @@
 
 -module(refac_fold_against_macro).
 
--export([fold_against_macro/5, fold_against_macro_1/4, fold_against_macro_eclipse/5]).
+-export([fold_against_macro/5, fold_against_macro_1/5, fold_against_macro_eclipse/5]).
 
 
--export([fold_against_macro/6]).
+-export([fold_against_macro/7]).
 
 -include("../include/wrangler.hrl").
 
@@ -61,13 +61,18 @@
 %%	      {error, string()} | {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), syntaxTree()}]}).
 
 fold_against_macro(FileName, Line, Col,  SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:fold_aginst_macro(~p, ~p,~p, ~p,~p).\n", [?MODULE, FileName, Line, Col, SearchPaths, TabWidth]),
-    fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, emacs).
+    ?wrangler_io("\nCMD: ~p:fold_against_macro(~p, ~p,~p, ~p,~p).\n", 
+		 [?MODULE, FileName, Line, Col, SearchPaths, TabWidth]),
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fold_against_macro(" ++ "\"" ++
+	FileName ++ "\", " ++ integer_to_list(Line) ++
+	", " ++ integer_to_list(Col) ++ ", " 
+	++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, emacs, Cmd).
 
 fold_against_macro_eclipse(FileName, Line, Col,  SearchPaths, TabWidth) ->
-    fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, eclipse).
+    fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, eclipse, "").
 
-fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
+fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, Editor, Cmd) ->
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case pos_to_macro_define(AnnAST, {Line, Col}) of 
 	{ok, MacroDef} ->
@@ -81,7 +86,7 @@ fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
 							   MacroApp1 = binary_to_list(term_to_binary(MacroApp)),
 							   {StartLine, StartCol, EndLine, EndCol, MacroApp1, MacroDef1} end,
 						   Candidates),
-			      {ok, Regions};
+			      {ok, Regions, Cmd};
 			  eclipse ->
 			      {ok, Candidates}
 		      end
@@ -90,12 +95,13 @@ fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
 	    {error, "You have not selected a macro definition, or the selected macro definition does not have a syntactially well-formed body!"}
     end.
 
-%%-spec(fold_against_macro_1/4::(filename(), [{integer(), integer(), integer(), integer(), syntaxTree(), syntaxTree()}], [dir()], integer()) ->
-%%	     {ok, [filename()]}).
-fold_against_macro_1(FileName, CandidatesToFold, SearchPaths, TabWidth) ->
+-spec(fold_against_macro_1/5::(filename(), [{integer(), integer(), integer(), integer(), syntaxTree(), syntaxTree()}],
+			       [dir()], integer(), string()) ->
+	     {ok, [filename()]}).
+fold_against_macro_1(FileName, CandidatesToFold, SearchPaths, TabWidth, Cmd) ->
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     AnnAST1 = fold_against_macro_1_1(AnnAST, CandidatesToFold),
-    refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}]),
+    refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], Cmd),
     {ok, [FileName]}.
    
 fold_against_macro_1_1(AnnAST, []) ->

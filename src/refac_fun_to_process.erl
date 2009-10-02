@@ -33,31 +33,35 @@
 -module(refac_fun_to_process).
 
 -export([fun_to_process/6, fun_to_process_eclipse/6, 
-	 fun_to_process_1/6, fun_to_process_1_eclipse/6]).
+	 fun_to_process_1/7, fun_to_process_1_eclipse/6]).
 
 -include("../include/wrangler.hrl").
 
 
-%%-spec(fun_to_process/6::(filename(), integer(), integer(), string(), [dir()], integer()) 
-%%      -> {ok, [filename()]} |{undecidables, string()}| {error, string()}).      
+-spec(fun_to_process/6::(filename(), integer(), integer(), string(), [dir()], integer()) 
+      -> {ok, [filename()]} |{undecidables, string(), string()}| {error, string()}).      
 fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth) ->
     fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, emacs).
 
 
-%%-spec(fun_to_process_1/6::(filename(), integer(), integer(), string(), [dir()], integer()) 
-%%      -> {ok, [filename()]}).      
-fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth) ->
-    fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, emacs).
+-spec(fun_to_process_1/7::(filename(), integer(), integer(), string(), [dir()], integer(), string()) 
+      -> {ok, [filename()]}).      
+fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, LogMsg) ->
+    fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, emacs, LogMsg).
 
-%%-spec(fun_to_process_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer()) -> 
-%%	     {ok, [{filename(), filename(), string()}]} 
-%%		 | {undecidables, string()} | {error, string()}).
+-spec(fun_to_process_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer()) -> 
+	     {ok, [{filename(), filename(), string()}]} 
+		 | {undecidables, string(), string()} | {error, string()}).
 fun_to_process_eclipse(FName, Line, Col, ProcessName, SearchPaths, TabWidth) ->
     fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, eclipse).
 
 fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:fun_to_process(~p, ~p, ~p, ~p,~p, ~p).\n",  
 		 [?MODULE, FName,  Line, Col, ProcessName, SearchPaths, TabWidth]),
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fun_to_process(" ++ "\"" ++
+	FName ++ "\", " ++ integer_to_list(Line) ++
+	", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ ProcessName ++ "\","
+	++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case is_process_name(ProcessName) of
 	true -> ok;
 	false -> throw({error, "Invalid process name."})
@@ -70,11 +74,11 @@ fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor) ->
 	{ok, FunDef} ->
 	    {value, {fun_def, {ModName, FunName, Arity, _Pos1, DefinePos}}} =
 		lists:keysearch(fun_def, 1, refac_syntax:get_ann(FunDef)),
-	    pre_cond_check(AnnAST, {Line, Col}, ModName,FunName,Arity, ProcessName1, SearchPaths, TabWidth),
+	    pre_cond_check(AnnAST, {Line, Col}, ModName,FunName,Arity, ProcessName1, SearchPaths, TabWidth, Cmd),
 	    AnnAST2 = do_fun_to_process(AnnAST, Info, DefinePos, FunName, Arity, ProcessName1),
 	    case Editor of 
 		emacs ->
-		    refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST2}]),
+		    refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST2}], Cmd),
 		    ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
 				 [FName]),								    
 		    {ok, [FName]};
@@ -87,12 +91,12 @@ fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor) ->
 		    "or the function definition selected does not parse."})
     end.
 
-%%-spec(fun_to_process_1_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer())
-%%      -> {ok, [{filename(), filename(), string()}]}).
+-spec(fun_to_process_1_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer())
+      -> {ok, [{filename(), filename(), string()}]}).
 fun_to_process_1_eclipse(FName, Line, Col, ProcessName, SearchPaths, TabWidth) ->
-    fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, eclipse).
+    fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, eclipse, "").
 
-fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor) ->
+fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor, LogMsg) ->
     {ok, {AnnAST,Info}}= refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth), 
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     ProcessName1 = list_to_atom(ProcessName), 
@@ -103,7 +107,7 @@ fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor) -
     case Editor of 
 	emacs ->
 	    Res =[{{FName, FName}, AnnAST1}],
-	    refac_util:write_refactored_files_for_preview(Res), 
+	    refac_util:write_refactored_files_for_preview(Res, LogMsg), 
 	    {ok, [FName]};		     
 	eclipse ->
 	    Content = refac_prettypr:print_ast(refac_util:file_format(FName),AnnAST1),
@@ -123,7 +127,7 @@ fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor) -
 %% Support the original function is f/n, then the new function name would be f/0 and the rpc function name would be f_rpc/2; if 
 %% any conflicts occur, '_i' will be attached to the end of the function name where i is a smallest number that make the name fresh.
 %% 
-pre_cond_check(AnnAST, Pos, ModName,FunName,Arity, ProcessName, SearchPaths, TabWidth)->
+pre_cond_check(AnnAST, Pos, ModName,FunName,Arity, ProcessName, SearchPaths, TabWidth, Cmd)->
     {ok, FunDef} = refac_util:pos_to_fun_def(AnnAST, Pos),    
     case is_recursive_fun({ModName, FunName, Arity, FunDef}, SearchPaths) of  
 	true ->
@@ -147,7 +151,7 @@ pre_cond_check(AnnAST, Pos, ModName,FunName,Arity, ProcessName, SearchPaths, Tab
 				  Msg = File ++ io_lib:format(":~p: \n",[Line]),
 				  ?wrangler_io(Msg, [])
 			  end, SelfRes),
-	    throw({undecidables, "there are undecidable cases."});
+	    throw({undecidables, "there are undecidable cases.", Cmd});
 	{_, []} -> 
 	    ?wrangler_io("\n*************************************Warning****************************************\n",[]),
 	    ?wrangler_io("Wrangler could not decide whether the process name provided conflicts with the process name(s) "
@@ -156,7 +160,7 @@ pre_cond_check(AnnAST, Pos, ModName,FunName,Arity, ProcessName, SearchPaths, Tab
 				  Msg = File ++ io_lib:format(":~p: \n",[L]),
 				  ?wrangler_io(Msg, [])
 			  end, UnKnowns),
-	    throw({undecidables, "there are undecidable cases."});
+	    throw({undecidables, "there are undecidable cases.", Cmd});
 	_ ->
 	    ?wrangler_io("\n*************************************Warning****************************************\n",[]),
 	    ?wrangler_io("Wrangler could not decide whether the process name provided conflicts with the process name(s) "
@@ -173,7 +177,7 @@ pre_cond_check(AnnAST, Pos, ModName,FunName,Arity, ProcessName, SearchPaths, Tab
 				  Msg = File ++ io_lib:format(":~p: \n",[Line]),
 				  ?wrangler_io(Msg, [])
 			  end, SelfRes),
-	    throw({undecidables, "there are undecidable cases."})
+	    throw({undecidables, "there are undecidable cases.", Cmd})
     end.
   
 		 

@@ -53,7 +53,7 @@
 
 -import(refac_rename_fun, [testserver_callback_funs/0, is_callback_fun/3, 
 			   eqc_statem_callback_funs/0, commontest_callback_funs/0,
-			   write_files/2, apply_style_funs/0, try_eval/4]).
+			   write_files/3, apply_style_funs/0, try_eval/4]).
 -include("../include/wrangler.hrl").
 
 %%-spec(tuple_funpar/5::(filename(), pos(), pos(), [dir()], integer()) ->
@@ -68,14 +68,14 @@ tuple_funpar_eclipse(FileName, StartLoc, EndLoc,  SearchPaths, TabWidth)->
     tuple_funpar(FileName, StartLoc, EndLoc, SearchPaths, TabWidth, eclipse).
 
 
-%%-spec(tuple_funpar_1/5::(filename(), pos(), pos(), [dir()], integer()) ->
-%%	     {error, string()} | {ok, [filename()]}).
+-spec(tuple_funpar_1/5::(filename(), pos(), pos(), [dir()], integer()) ->
+	     {error, string()} | {ok, [filename()]}).
 tuple_funpar_1(FileName, StartLoc, EndLoc, SearchPaths, TabWidth)->
     tuple_funpar_1(FileName, StartLoc, EndLoc, SearchPaths, TabWidth, emacs).
 
 
-%%-spec(tuple_funpar_1_eclipse/5::(filename(), pos(), pos(), [dir()], integer()) ->
-%%	     {error, string()} | {ok, [filename()]}).
+-spec(tuple_funpar_1_eclipse/5::(filename(), pos(), pos(), [dir()], integer()) ->
+	     {error, string()} | {ok, [filename()]}).
 tuple_funpar_1_eclipse(FileName, StartLoc, EndLoc, SearchPaths, TabWidth)->
     tuple_funpar_1(FileName, StartLoc, EndLoc, SearchPaths, TabWidth, emacs).
 
@@ -90,26 +90,34 @@ tuple_funpar(FileName, Line, Col, Index, Num, SearchPaths, TabWidth) ->
     NewArity = FunArity-Num+1,
     ok=pre_cond_check(FileName, FunName, FunArity, NewArity, Info),
     tuple_par_0(FileName, AnnAST, Info, FunName, FunArity, 
-		Index, Num, SearchPaths, TabWidth, emacs).
+		Index, Num, SearchPaths, TabWidth, emacs, "").
 
-tuple_funpar_1(FileName, StartLoc, EndLoc, SearchPaths, TabWidth, Editor)->
+tuple_funpar_1(FileName, StartLoc={StartLine, StartCol}, EndLoc={EndLine, EndCol}, SearchPaths, TabWidth, Editor)->
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":tuple_funpar(" ++ "\"" ++
+	FileName ++ "\", {" ++ integer_to_list(StartLine) ++	", " ++ integer_to_list(StartCol) ++ "},"++
+	"{" ++ integer_to_list(EndLine) ++ ", " ++ integer_to_list(EndCol) ++ "}, [" 
+       	++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {FunName, FunArity, Index, Num} = pos_to_pars(AnnAST, StartLoc, EndLoc),
     tuple_par_0(FileName, AnnAST, Info, FunName, FunArity, 
-		Index, Num, SearchPaths, TabWidth, Editor).
+		Index, Num, SearchPaths, TabWidth, Editor, Cmd).
 
 tuple_funpar(FileName, StartLoc = {StartLine, StartCol}, EndLoc = {EndLine, EndCol},
 	     SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:tuple_funpar(~p, {~p,~p}, {~p,~p}, ~p, ~p).\n",
 		 [?MODULE, FileName, StartLine, StartCol, EndLine, EndCol, SearchPaths, TabWidth]),
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":tuple_funpar(" ++ "\"" ++
+	FileName ++ "\", {" ++ integer_to_list(StartLine) ++	", " ++ integer_to_list(StartCol) ++ "},"++
+	"{" ++ integer_to_list(EndLine) ++ ", " ++ integer_to_list(EndCol) ++ "}, [" 
+       	++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {FunName, FunArity, Index, Num} = pos_to_pars(AnnAST, StartLoc, EndLoc),
     NewArity = FunArity-Num+1,
     ok=pre_cond_check(FileName, FunName, FunArity, NewArity, Info),
     tuple_par_0(FileName, AnnAST, Info, FunName, FunArity, 
-		Index, Num, SearchPaths, TabWidth, Editor).
+		Index, Num, SearchPaths, TabWidth, Editor, Cmd).
 
-tuple_par_0(FileName, AnnAST, Info, FunName, Arity, Index, Num, SearchPaths, TabWidth, Editor)->
+tuple_par_0(FileName, AnnAST, Info, FunName, Arity, Index, Num, SearchPaths, TabWidth, Editor, Cmd)->
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     {ok, FunDefMod} = get_module_name(FileName, Info),
     AnnAST1= tuple_pars(AnnAST, FunDefMod, FunName, Arity,Index, Num, Info, SearchPaths, TabWidth),
@@ -119,13 +127,13 @@ tuple_par_0(FileName, AnnAST, Info, FunName, Arity, Index, Num, SearchPaths, Tab
 	    ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
 	    try tuple_pars_in_client_modules(ClientFiles,FunDefMod, FunName,Arity, Index, Num, SearchPaths, TabWidth) of
 		Results ->
-		    write_files(Editor, [{{FileName, FileName}, AnnAST1}| Results])
+		    write_files(Editor, [{{FileName, FileName}, AnnAST1}| Results], Cmd)
 	    catch
 		throw:Err ->
 		    Err
 	    end;
 	false ->
-	    write_files(Editor, [{{FileName, FileName}, AnnAST1}])
+	    write_files(Editor, [{{FileName, FileName}, AnnAST1}], Cmd)
     end.
 
 

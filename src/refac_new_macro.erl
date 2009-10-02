@@ -59,13 +59,17 @@ new_macro_eclipse(FileName, Start, End, NewMacroName, SearchPaths, TabWidth) ->
 
 new_macro(FileName, Start={SLine, SCol}, End={ELine, ECol}, NewMacroName, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:new_macro(~p, {~p,~p}, {~p,~p}, ~p, ~p,~p).\n", 
-				 [refac_new_macro, FileName, SLine, SCol, ELine, ECol, NewMacroName, SearchPaths, TabWidth]),
+				 [?MODULE, FileName, SLine, SCol, ELine, ECol, NewMacroName, SearchPaths, TabWidth]),
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":new_macro(" ++ "\"" ++
+	FileName ++ "\", {" ++ integer_to_list(SLine) ++", " ++ integer_to_list(SCol) ++ "},"++
+	"{" ++ integer_to_list(ELine) ++ ", " ++ integer_to_list(ECol) ++ "},"  ++ "\"" ++ NewMacroName ++ "\","
+	++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
      case pre_cond_check(FileName, NewMacroName, Start, End, SearchPaths, TabWidth) of
 		 {ok, AnnAST, Sel} ->
 			 AnnAST1 = do_intro_new_macro(AnnAST, NewMacroName, Sel),
 			 case Editor of
 				 emacs ->
-					 refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}]),
+					 refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], Cmd),
 					 {ok, [FileName]};
 				 eclipse -> Res = [{FileName, FileName, refac_prettypr:print_ast(refac_util:file_format(FileName),AnnAST1)}], {ok, Res}
 			 end;
@@ -86,7 +90,7 @@ pre_cond_check(FileName, NewMacroName, Start, End, SearchPaths, TabWidth) ->
 		    case Sel of
 			 [] -> {error, "You have not selected a sequence of expressions/patterns!"};
 			 _ ->
-			      {ok, AnnAST, hd(Sel)}
+			      {ok, AnnAST, [hd(Sel)]}
 		     end
 	    end;
 	_ -> {error, "Invalid macro name!"}

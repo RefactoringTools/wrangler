@@ -49,6 +49,10 @@
 %%-spec(add_a_tag/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->{ok, [filename()]} | {error, string()}).      
 add_a_tag(FileName, Line, Col, Tag, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:add_a_tag(~p, ~p, ~p, ~p,~p, ~p).\n", [?MODULE, FileName, Line, Col, Tag, SearchPaths, TabWidth]),
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":add_a_tag(" ++ "\"" ++
+	FileName ++ "\", " ++ integer_to_list(Line) ++
+	", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ Tag ++ "\","
+	++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST1, _Info1}}=refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case pos_to_receive_fun(AnnAST1, {Line, Col}) of 
 	{ok, _FunDef} ->
@@ -59,7 +63,7 @@ add_a_tag(FileName, Line, Col, Tag, SearchPaths, TabWidth) ->
 	    case pre_cond_check(AnnAST,  ModName, FunDef, SearchPaths, TabWidth) of 
 		{ok, AffectedInitialFuns} ->
 		    Results = do_add_a_tag(FileName, {AnnAST, Info}, list_to_atom(Tag), AffectedInitialFuns, SearchPaths, TabWidth),
-		    refac_util:write_refactored_files_for_preview(Results),
+		    refac_util:write_refactored_files_for_preview(Results, Cmd),
 		    ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
 		    ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
 				 [ChangedFiles]),

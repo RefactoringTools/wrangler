@@ -54,7 +54,7 @@
 
 -module(refac_register_pid).
 
--export([register_pid/6, register_pid_eclipse/6, register_pid_1/9, register_pid_2/8]).
+-export([register_pid/6, register_pid_eclipse/6, register_pid_1/10, register_pid_2/9]).
 
 -include("../include/wrangler.hrl").
 
@@ -75,7 +75,12 @@ register_pid_eclipse(FName, Start, End, RegName, SearchPaths, TabWidth) ->
     register_pid(FName, Start, End, RegName, SearchPaths, TabWidth, eclipse).
 
 register_pid(FName, Start={Line1, Col1}, End={Line2, Col2}, RegName, SearchPaths, TabWidth, Editor) ->
-    ?wrangler_io("\nCMD: ~p:register_pid(~p, {~p,~p}, {~p,~p}, ~p,~p, ~p)\n",  [?MODULE, FName, Line1, Col1, Line2, Col2, RegName, SearchPaths, TabWidth]),
+    ?wrangler_io("\nCMD: ~p:register_pid(~p, {~p,~p}, {~p,~p}, ~p,~p, ~p)\n",  
+		 [?MODULE, FName, Line1, Col1, Line2, Col2, RegName, SearchPaths, TabWidth]),
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":register_pid(" ++ "\"" ++
+	FName ++ "\", {" ++ integer_to_list(Line1) ++	", " ++ integer_to_list(Col1) ++ "},"++
+	"{" ++ integer_to_list(Line2) ++ ", " ++ integer_to_list(Col2) ++ "},"  ++ "\"" ++ RegName ++ "\","
+        ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",    
     case is_process_name(RegName) of
 		true ->	{ok, {AnnAST,Info}}= refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth), 
 				case pos_to_spawn_match_expr(AnnAST, Start, End) of
@@ -94,7 +99,7 @@ register_pid(FName, Start={Line1, Col1}, End={Line2, Col2}, RegName, SearchPaths
 							    {ok, Results} ->
 								case Editor of 
 								    emacs ->
-									refac_util:write_refactored_files_for_preview(Results),
+									refac_util:write_refactored_files_for_preview(Results, Cmd),
 									ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
 									?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
 										     [ChangedFiles]),
@@ -107,8 +112,10 @@ register_pid(FName, Start={Line1, Col1}, End={Line2, Col2}, RegName, SearchPaths
 								end;
 							    {error, Reason} -> {error, Reason}
 							end;	
-						    {unknown_pnames, _UnKnownPNames, RegPids} -> {unknown_pnames, RegPids};
-						    {unknown_pids, UnKnownPids} ->{unknown_pids, UnKnownPids};
+						    {unknown_pnames, _UnKnownPNames, RegPids} -> 
+							{unknown_pnames, RegPids, Cmd};
+						    {unknown_pids, UnKnownPids} ->
+							{unknown_pids, UnKnownPids, Cmd};
 						    {error, Reason} -> {error, Reason}
 						end;
 					    {error, Reason} -> {error, Reason}
@@ -119,10 +126,11 @@ register_pid(FName, Start={Line1, Col1}, End={Line2, Col2}, RegName, SearchPaths
     end.
 
 
-%%-spec(register_pid_1(FName::filename(), StartLine::integer(), StartCol::integer(),EndLine::integer(), EndCol::integer(), 
-%%		     RegName::string(), RegPids::[{{atom(), atom(), integer()}, syntaxTree()}],
-%%		     SearchPaths::[dir()], TabWidth::integer())-> {error, string()} |{ok, [filename()]} | {unknown_pids, [{{atom(),atom(),atom()},syntaxTree()}]}).
-register_pid_1(FName, StartLine, StartCol, EndLine, EndCol, RegName, RegPids, SearchPaths, TabWidth) ->
+-spec(register_pid_1(FName::filename(), StartLine::integer(), StartCol::integer(),EndLine::integer(), EndCol::integer(), 
+		     RegName::string(), RegPids::[{{atom(), atom(), integer()}, syntaxTree()}],
+		     SearchPaths::[dir()], TabWidth::integer(), LogMsg::string())->
+	     {error, string()} |{ok, [filename()]} | {unknown_pids, [{{atom(),atom(),atom()},syntaxTree()}]}).
+register_pid_1(FName, StartLine, StartCol, EndLine, EndCol, RegName, RegPids, SearchPaths, TabWidth, LogMsg) ->
     {Start, End} = {{StartLine, StartCol}, {EndLine, EndCol}},
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     {ok, MatchExpr} = pos_to_spawn_match_expr(AnnAST, Start, End),
@@ -133,6 +141,7 @@ register_pid_1(FName, StartLine, StartCol, EndLine, EndCol, RegName, RegPids, Se
  	 ok ->  case do_register(FName, AnnAST, MatchExpr, Pid, RegName1, SearchPaths, TabWidth) of 
 		    {ok, Results} ->
 			ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+			refac_util:write_refactored_files_for_preview(Results, LogMsg),
 			?wrangler_io("The following files have been changed by this refactoring:\n~p\n",
 				  [ChangedFiles]),
 			{ok, ChangedFiles};
@@ -146,12 +155,12 @@ register_pid_1(FName, StartLine, StartCol, EndLine, EndCol, RegName, RegPids, Se
  				  ?wrangler_io("Location: module:~p, function: ~p/~p, line: ~p\n ", [M, F, A, Ln]),
  				  ?wrangler_io(refac_prettypr:format(PidExpr)++"\n",[]) 
 		      end, RegExprs),
- 	    {unknown_pids, RegExprs}
+ 	    {unknown_pids, RegExprs, LogMsg}
     end.
 
-%%-spec(register_pid_2(FName::filename(), StartLine::integer(), StartCol::integer(), EndLine::integer(),EndCol::integer(), RegName::string(),
-%%		     SearchPaths::[dir()],TabWidth::integer())-> {error, string()} |{ok, [filename()]}).    
-register_pid_2(FName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPaths, TabWidth) ->
+-spec(register_pid_2(FName::filename(), StartLine::integer(), StartCol::integer(), EndLine::integer(),EndCol::integer(), RegName::string(),
+		     SearchPaths::[dir()],TabWidth::integer(), LogMsg::string())-> {error, string()} |{ok, [filename()]}).    
+register_pid_2(FName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPaths, TabWidth, LogMsg) ->
     {Start, End} = {{StartLine, StartCol}, {EndLine, EndCol}},
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     {ok, MatchExpr} = pos_to_spawn_match_expr(AnnAST, Start, End),
@@ -159,7 +168,7 @@ register_pid_2(FName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPaths
     RegName1 = list_to_atom(RegName),
     case do_register(FName,AnnAST, MatchExpr, Pid, RegName1, SearchPaths, TabWidth) of 
 	{ok, Results} ->
-	    refac_util:write_refactored_files_for_preview(Results),
+	    refac_util:write_refactored_files_for_preview(Results, LogMsg),
 	    ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
 	    ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
 		      [ChangedFiles]),

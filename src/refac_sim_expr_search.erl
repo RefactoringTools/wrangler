@@ -68,7 +68,7 @@
 sim_expr_search(FName, Start = {Line, Col}, End = {Line1, Col1}, SimiScore0, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:sim_expr_search(~p, {~p,~p},{~p,~p},~p, ~p, ~p).\n", 
 		 [?MODULE, FName, Line, Col, Line1, Col1, SimiScore0, SearchPaths, TabWidth]),
-    SimiScore1 = try 
+     SimiScore1 = try 
 		     case SimiScore0 of 
 			 [] -> ?DefaultSimiScore;
 			 _ -> list_to_float(SimiScore0)
@@ -552,6 +552,10 @@ get_start_end_loc(Expr) ->
 normalise_record_expr(FName, Pos={Line, Col}, ShowDefault, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:normalise_record_expr(~p, {~p,~p},~p, ~p, ~p).\n", 
 		 [?MODULE, FName, Line, Col, ShowDefault, SearchPaths,TabWidth]),
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":normalise_record_expr(" ++ "\"" ++
+	FName ++ "\", {" ++ integer_to_list(Line) ++", " ++ integer_to_list(Col) ++ "},"
+	 ++ atom_to_list(ShowDefault)++ " [" ++ refac_util:format_search_paths(SearchPaths)
+	++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, _Info}} =refac_util:parse_annotate_file(FName,true, [], TabWidth),
     RecordExpr =pos_to_record_expr(AnnAST, Pos),
     case refac_syntax:type(refac_syntax:record_expr_type(RecordExpr)) of
@@ -559,7 +563,7 @@ normalise_record_expr(FName, Pos={Line, Col}, ShowDefault, SearchPaths, TabWidth
 	_ -> throw({error, "Wrangler can only normalise a record expression with an atom as the record name."})
     end,
     {AnnAST1, _Changed} = normalise_record_expr_1(FName, AnnAST,Pos,ShowDefault, SearchPaths, TabWidth),
-    refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST1}]),
+    refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST1}], Cmd),
     {ok, [FName]}.
 
 
