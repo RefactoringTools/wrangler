@@ -60,7 +60,7 @@
 
 -export([test_framework_used/1]).
 -export([analyze_free_vars/1, remove_duplicates/1]).
--compile(export_all).
+-export([format_search_paths/1]).
 
 -include("../include/wrangler.hrl").
 
@@ -2333,4 +2333,13 @@ remove_duplicates([H|T], Acc) ->
 rewrite(Tree, Tree1) ->
     refac_syntax:copy_attrs(Tree, Tree1).
  
-
+format_search_paths(Paths) ->
+    format_search_paths(Paths, "").
+    
+format_search_paths([], Str)->
+    Str;
+format_search_paths([P|T], Str)->
+    case Str of
+	[] ->format_search_paths(T, "\""++P++"\"");
+	_ ->format_search_paths(T, Str++", \""++P++"\"")
+    end.
