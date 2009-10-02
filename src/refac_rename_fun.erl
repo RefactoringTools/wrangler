@@ -53,7 +53,7 @@
 -export([rename_fun/6, rename_fun_1/6,  rename_fun_eclipse/6]).
 
 -export([check_atoms/4, collect_atoms/2,try_eval/4, start_atom_process/0, 
-	 stop_atom_process/1,output_atom_warning_msg/3, write_files/2,
+	 stop_atom_process/1,output_atom_warning_msg/3, write_files/3,
 	 apply_style_funs/0, eqc_statem_callback_funs/0, is_callback_fun/3,
 	 commontest_callback_funs/0,testserver_callback_funs/0]).
 
@@ -68,19 +68,23 @@
 -define(debug(__String, __Args), ok).
 -endif.
 
-%%-spec(rename_fun/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-%%	     {error, string()} | {ok, [filename()]}).
+-spec(rename_fun/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
+	     {error, string()} | {ok, [filename()]}).
 rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
 
-%%-spec(rename_fun_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-%%	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
+-spec(rename_fun_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
+	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
 
 rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:rename_fun( ~p, ~p, ~p, ~p,~p, ~p).\n",
 		 [?MODULE, FileName, Line, Col, NewName, SearchPaths, TabWidth]),
+    Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_fun(" ++ "\"" ++
+	FileName ++ "\", " ++ integer_to_list(Line) ++
+	", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
+	++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case refac_util:is_fun_name(NewName) of
       true -> ok;
       false -> throw({error, "Invalid new function name!"})
@@ -96,7 +100,7 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 		      ok ->
 			  rename_fun_0(FileName, NewName, SearchPaths, TabWidth, 
 				       Editor, AnnAST, Info, NewName1,
-				       Mod, Fun, Arity, DefinePos);
+				       Mod, Fun, Arity, DefinePos, Cmd1);
 		      Others -> Others
 		  end;
 	      _ ->
@@ -113,7 +117,7 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 
 %% TODO : I would like to reorder these parameters,
 rename_fun_0(FileName, NewName, SearchPaths, TabWidth, Editor, 
-	     AnnAST, Info, NewName1, Mod, Fun, Arity,DefinePos) ->
+	     AnnAST, Info, NewName1, Mod, Fun, Arity,DefinePos, Cmd) ->
     Pid = start_atom_process(),
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     {AnnAST1, _C} = do_rename_fun(FileName, SearchPaths, AnnAST, 
@@ -131,7 +135,7 @@ rename_fun_0(FileName, NewName, SearchPaths, TabWidth, Editor,
 		Results ->
 		    output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
 		    stop_atom_process(Pid),
-		    write_files(Editor, [{{FileName, FileName}, AnnAST1}| Results])
+		    write_files(Editor, [{{FileName, FileName}, AnnAST1}| Results], Cmd)
 	    catch
 		throw:Err ->
 		    stop_atom_process(Pid),
@@ -140,12 +144,16 @@ rename_fun_0(FileName, NewName, SearchPaths, TabWidth, Editor,
 	false ->
 	    output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
 	    stop_atom_process(Pid),
-	    write_files(Editor, [{{FileName, FileName}, AnnAST1}])
+	    write_files(Editor, [{{FileName, FileName}, AnnAST1}], Cmd)
     end.
 
-%%-spec(rename_fun_1/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-%%	     {error, string()} | {ok, [filename()]}).
+-spec(rename_fun_1/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
+	     {error, string()} | {ok, [filename()]}).
 rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_fun(" ++ "\"" ++
+	FileName ++ "\", " ++ integer_to_list(Line) ++
+	", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
+	++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",    
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     NewName1 = list_to_atom(NewName),
     {ok, {Mod, Fun, Arity, _, DefinePos}} = refac_util:pos_to_fun_name(AnnAST, {Line, Col}),
@@ -163,22 +171,22 @@ rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
 		Results ->
 		    output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
 		    stop_atom_process(Pid),
-		    write_files(emacs, [{{FileName, FileName}, AnnAST1}| Results])
+		    write_files(emacs, [{{FileName, FileName}, AnnAST1}| Results], Cmd)
 	    catch
 		throw:Err -> Err
 	    end;
 	false ->
 	    output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
 	    stop_atom_process(Pid),
-	    write_files(emacs, [{{FileName, FileName}, AnnAST1}])
+	    write_files(emacs, [{{FileName, FileName}, AnnAST1}], Cmd)
     end.
 
-%%-spec(write_files/2::(Editor::atom(), Results::[{{filename(), filename()}, syntaxTree()}]) ->
-%%	     {ok, [filename()]} | {ok, [{filename(), filename(), string()}]}).
-write_files(Editor, Results) ->    
+-spec(write_files/3::(Editor::atom(), Results::[{{filename(), filename()}, syntaxTree()}], string()) ->
+	     {ok, [filename()]} | {ok, [{filename(), filename(), string()}]}).
+write_files(Editor, Results, Cmd) ->    
     case Editor of 
 	emacs ->
-	    refac_util:write_refactored_files_for_preview(Results),
+	    refac_util:write_refactored_files_for_preview(Results, Cmd),
 	    ChangedFiles = [F ||{{F, _F}, _AST}<-Results],
 	    ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
 			 [ChangedFiles]),
