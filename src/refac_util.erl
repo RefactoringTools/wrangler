@@ -850,7 +850,8 @@ get_modules_by_file([], Acc) -> lists:reverse(Acc).
 %% should be the same as the first element, and the third element in the tuple is the 
 %% AST represention of the file.
 
-%%-spec(write_refactored_files([{{filename(),filename()},syntaxTree()}]) -> 'ok').
+%% TODO: This function should not longer be used.
+-spec(write_refactored_files([{{filename(),filename()},syntaxTree()}]) -> 'ok').
 write_refactored_files(Files) ->
     F = fun ({{File1, File2}, AST}) ->
 		FileFormat = file_format(File1),
@@ -860,11 +861,6 @@ write_refactored_files(Files) ->
 		end,
 		file:write_file(File2, list_to_binary(refac_prettypr:print_ast(FileFormat, AST)))
 	end,
-    Files1 = lists:map(fun ({{OldFileName, NewFileName}, _}) ->
-			       {ok, Bin} = file:read_file(OldFileName), {{OldFileName, NewFileName}, Bin}
-		       end,
-		       Files),
-    wrangler_undo_server:add_to_history({Files1, ""}),
     Res =lists:map(F, Files),
     case lists:all(fun(R) -> R == ok end, Res) of 
 	true -> ok;
