@@ -195,16 +195,24 @@ set_default_ann(Node) ->
 contained_exprs(Tree, MinLen) ->
     F = fun(T, Acc) ->
 		case refac_syntax:type(T) of
-		    clause -> Exprs = refac_syntax:clause_body(T),  %% HOW ABOUT CLAUSE_GUARD?
-			     Acc ++ [Exprs];
-		    application -> Exprs = refac_syntax:application_arguments(T),
-			     Acc++ [Exprs];
-		    tuple -> Exprs = refac_syntax:tuple_elements(T),
-			     Acc++ [Exprs];
-		    lists -> Exprs = refac_syntax:list_prefix(T),
-			     Acc++ [Exprs];
-		    block_expr -> Exprs = refac_syntax:block_expr_body(T),
-			      Acc++ [Exprs];    
+		    clause ->
+			Exprs = refac_syntax:clause_body(T),  %% HOW ABOUT CLAUSE_GUARD?
+			Acc ++ [Exprs];
+		    application -> 
+			Exprs = refac_syntax:application_arguments(T),
+			Acc++ [Exprs];
+		    tuple -> 
+			Exprs = refac_syntax:tuple_elements(T),
+			Acc++ [Exprs];
+		    lists -> 
+			Exprs = refac_syntax:list_prefix(T),
+			Acc++ [Exprs];
+		    block_expr ->
+			Exprs = refac_syntax:block_expr_body(T),
+			Acc++ [Exprs];    
+		    try_expr ->
+			Exprs = refac_syntax:try_expr_body(T),
+			Acc ++ [Exprs];
 		    _  -> Acc
 		end
 	end,
