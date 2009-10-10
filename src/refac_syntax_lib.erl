@@ -825,12 +825,12 @@ vann_fun_expr_pattern(Tree, Env,Ms, VI) ->
 
 vann_patterns_join(Env, Ms, VI) ->
     fun (T, {Bound, Free}) ->
-	    {T1, Bound1, Free1} = vann_pattern(T, Env, Ms, VI),
+	    Env1 =ordsets:union(Env, Bound),
+	    {T1, Bound1, Free1} = vann_pattern(T, Env1, Ms, VI),
 	    {T1,
 	     {ordsets:union(Bound, Bound1),
 	      ordsets:union(Free, Free1)}}
     end.
-
 vann_fun_expr_patterns_join(Env, Ms, VI) ->
     fun (T, {Bound, Free}) ->
 	    {T1, Bound1, Free1} = vann_fun_expr_pattern(T, Env, Ms, VI),
