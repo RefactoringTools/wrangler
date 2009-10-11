@@ -186,7 +186,7 @@ duplicated_code(DirFileList, MinLength1, MinClones1, TabWidth) ->
 		catch
 		    Val -> Val;
 		      _:_ -> throw({error, "Parameter input is invalid."})
-		end,
+		end,c
         %% By 'MinClones', I mean the minimal number of members in a clone class,
     %% therefore it should be one more than the number of times a piece of code is cloned.
     MinClones = try 
@@ -410,32 +410,16 @@ get_sub_cs(ZippedToks, [H|L], Acc) ->
     get_sub_cs(ZippedToks, L, [Cs1]++Acc).
 
 
-%% remove variables and literals (leaving atom names unchanged) from the token stream.
-
-remove_var_literals(Toks) ->
-     lists:reverse(remove_var_literals(Toks, [])).
-
-remove_var_literals([], NewToks) -> NewToks;
-remove_var_literals([T],NewToks) -> [remove_var_literals_1(T)|NewToks];
-remove_var_literals([T1, T2|Ts], NewToks) ->
-    case {T1, T2} of 
-	{{atom, _L, _V}, {'(', _L1}} -> remove_var_literals([T2|Ts], [T1|NewToks]);
-	_ -> remove_var_literals([T2|Ts], [remove_var_literals_1(T1)|NewToks])
-    end.
-
-%% remove_var_literals(Toks) ->
-%%     [remove_var_literals_1(T) || T <- Toks].
-
+remove_var_literals(Toks) -> [remove_var_literals_1(T)||T<-Toks].
 remove_var_literals_1(T) ->
      case T of 
- 	{var, L, _} -> {var, L, 'V'};
- 	{integer, L, _} -> {integer, L, 0};
- 	{string, L, _} -> {string, L, "_"};
- 	{float, L, _} -> {float, L, 0}; 
- 	{char, L, _}  -> {char, L, 'C'};
- 	{atom, L, _} -> {atom, L, 'A'};
- 	{A, L} ->{A, L};
- 	Other  -> Other
+	 {var, L, _} -> {var, L, 'V'};
+	 {integer, L, _} -> {integer, L, 0};
+	 {string, L, _} -> {string, L, "_"};
+	 {float, L, _} -> {float, L, 0}; 
+	 {char, L, _}  -> {char, L, 'C'};
+	 {A, L} ->{A, L};
+	 Other  -> Other
      end.
 
 %% use locations intead of tokens to represent the clones.
