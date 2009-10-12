@@ -26,8 +26,8 @@
 
 -export([init/1, collect_vars/1]).
 
--export([get_clones_by_suffix_tree/5,
-	 get_clones_by_erlang_suffix_tree/4, 
+-export([get_clones_by_suffix_tree/6,
+	 get_clones_by_erlang_suffix_tree/5, 
 	 display_clone_result/2, remove_sub_clones/1]).
 
 -compile(export_all).
@@ -73,11 +73,11 @@ stop_suffix_tree_clone_detector() -> case catch (?MODULE ! stop) of
 				     end.
 
 
-get_clones_by_suffix_tree(Dir, ProcessedToks,MinLength, MinClones, Alphabet) ->
+get_clones_by_suffix_tree(Dir, ProcessedToks,MinLength, MinClones, Alphabet, AllowOverLap) ->
     start_suffix_tree_clone_detector(),
     OutFileName = filename:join(Dir, "wrangler_suffix_tree"), 
     case file:write_file(OutFileName, ProcessedToks) of 
-	ok -> case  catch call_port({get, MinLength, MinClones, OutFileName}) of
+	ok -> case  catch call_port({get, MinLength, MinClones, AllowOverLap, OutFileName}) of
 		  {ok, _Res} ->
 		      ?debug("Initial clones are calculated using C suffixtree implementation.\n", []),
 		      stop_suffix_tree_clone_detector(),
@@ -90,16 +90,16 @@ get_clones_by_suffix_tree(Dir, ProcessedToks,MinLength, MinClones, Alphabet) ->
 		  _E -> ?debug("Reason:\n~p\n", [_E]),
 			stop_suffix_tree_clone_detector(),
 			file:delete(OutFileName),
-			get_clones_by_erlang_suffix_tree(ProcessedToks, MinLength, MinClones, Alphabet)
+			get_clones_by_erlang_suffix_tree(ProcessedToks, MinLength, MinClones, Alphabet, AllowOverLap)
 		    
 	      end;	
-	_ ->  get_clones_by_erlang_suffix_tree(ProcessedToks, MinLength, MinClones, Alphabet)
+	_ ->  get_clones_by_erlang_suffix_tree(ProcessedToks, MinLength, MinClones, Alphabet, AllowOverLap)
     end.
 
-get_clones_by_erlang_suffix_tree(ProcessedToks, MinLength, MinClones, Alphabet) ->
+get_clones_by_erlang_suffix_tree(ProcessedToks, MinLength, MinClones, Alphabet, AllowOverLap) ->
     ?wrangler_io("\nWrangler failed to use the C suffixtree implementation;"
                  " Initial clones are calculated using Erlang suffixtree implementation.\n",[]),
-    Tree = suffix_tree(Alphabet, ProcessedToks ++ "&"),
+    Tree = suffix_tree(Alphabet, ProcessedToks ++ "&", AllowOverLap),
     Cs = lists:flatten(lists:map(fun (B) ->
 					 collect_clones(MinLength, MinClones, B)
 				 end,
@@ -186,7 +186,7 @@ duplicated_code(DirFileList, MinLength1, MinClones1, TabWidth) ->
 		catch
 		    Val -> Val;
 		      _:_ -> throw({error, "Parameter input is invalid."})
-		end,c
+		end,
         %% By 'MinClones', I mean the minimal number of members in a clone class,
     %% therefore it should be one more than the number of times a piece of code is cloned.
     MinClones = try 
@@ -225,7 +225,7 @@ duplicated_code_detection(DirFileList, MinClones, MinLength, TabWidth) ->
     ?debug("Constructing suffix tree and collecting clones from the suffix tree.\n", []),
     {Toks, ProcessedToks} = tokenize(FileNames, TabWidth),
     Dir = filename:dirname(hd(FileNames)),
-    Cs= get_clones_by_suffix_tree(Dir, ProcessedToks,MinLength, MinClones,alphabet() ++ "&"),
+    Cs= get_clones_by_suffix_tree(Dir, ProcessedToks,MinLength, MinClones,alphabet() ++ "&", 0),
     ?debug("Initial numberclones from suffix tree:~p\n", [length(Cs)]),
     %% This step is necessary to reduce large number of sub-clones.
     ?debug("Type 4 clones:\n~p\n", [length(Cs)]),
@@ -269,9 +269,9 @@ process_a_tok(T) ->
 
 %% =====================================================================
 %% Construction of suffix tree.
-suffix_tree(Alpha, T) -> 
+suffix_tree(Alpha, T, AllowOverLap) -> 
     Tree = suffix_tree_1(Alpha, length(T),suffixes(T)),
-    post_process_suffix_tree(Tree).
+    post_process_suffix_tree(Tree, AllowOverLap).
   
 
 suffix_tree_1(_Alpha, _Len, [[]]) -> leaf;
@@ -297,9 +297,9 @@ edge_cst(AWSS=[[A|W]|SS]) ->
 	_  -> {0, AWSS}
     end.
 
-post_process_suffix_tree(Tree) ->
+post_process_suffix_tree(Tree, AllowOverLap) ->
     NewTree1 = lists:map(fun(B) ->add_frequency(B) end, Tree),
-    lists:map(fun(B)->extend_range(B) end, NewTree1).
+    lists:map(fun(B)->extend_range(B, AllowOverLap) end, NewTree1).
 
 
 % =====================================================================
@@ -315,24 +315,23 @@ add_frequency({branch, {Range, Len}, Branches})
   
 %% ===========================================================================
 %% combine the ranges within two continuous branches if possible.
-extend_range(SuffixTree) ->
-    extend_range([],SuffixTree).
+extend_range(SuffixTree, AllowOverLap) ->
+    extend_range([],SuffixTree, AllowOverLap).
 
-extend_range(Prev_Range, {branch, {Range, {_Len, Freq}}, leaf}) ->
+extend_range(Prev_Range, {branch, {Range, {_Len, Freq}}, leaf}, _AllowOverLap) ->
     ExtendedRange = lists:map(fun (R) -> combine_range(Prev_Range, R) end, Range),
     {S, E} = hd(ExtendedRange),
     {branch, {ExtendedRange, {E-S+1, Freq}}, leaf};
-extend_range(Prev_Range, {branch, {Range, {_Len, Freq}}, Bs}) ->
+extend_range(Prev_Range, {branch, {Range, {Len, Freq}}, Bs}, AllowOverLap) ->
     ExtendedRange = lists:map(fun (R) -> combine_range(Prev_Range, R) end, Range),
-   %%  case overlapped_range(ExtendedRange) of 
-%% 	true ->  Bs1 = lists:map(fun (B) -> extend_range(Range, B) end, Bs),
-%% 		 {branch, {Range, {Len, Freq}}, Bs1};
-%% 	_ -> 
-    Bs1 = lists:map(fun (B) -> extend_range(ExtendedRange, B) end, Bs),
-    {S, E} = hd(ExtendedRange),
-    {branch, {ExtendedRange, {E - S + 1, Freq}}, Bs1}.
-    %% end.
-    
+    case (AllowOverLap==0) andalso overlapped_range(ExtendedRange) of 
+	true ->  Bs1 = lists:map(fun (B) -> extend_range(Range, B, AllowOverLap) end, Bs),
+		 {branch, {Range, {Len, Freq}}, Bs1};
+	_ -> 
+	    Bs1 = lists:map(fun (B) -> extend_range(ExtendedRange, B, AllowOverLap) end, Bs),
+	    {S, E} = hd(ExtendedRange),
+	    {branch, {ExtendedRange, {E - S + 1, Freq}}, Bs1}
+    end.
 
 
 overlapped_range(R) -> overlapped_range_1(lists:usort(R)).
