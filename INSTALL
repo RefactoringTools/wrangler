@@ -3,6 +3,11 @@ Installation
 Step 1) Build and install the software in the usual way:
        ./configure && make && [sudo] make install
 
+       (NOTE: by default Wrangler is installed in the directory 
+        'usr/local'; to install Wrangler in a different directory, 
+         you need to explicitly specify the directory using the 
+         'prefix' flag of 'configure')
+
 Step 2) If you have Erlang mode for Emacs installed, goto Step 3); 
      	otherwise add the following lines to your ~/.emacs file.           
 
