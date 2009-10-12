@@ -1,7 +1,7 @@
 
                     Wrangler, the Erlang Refactorer
                 a snapshot of our current prototype
-                            02/09/2009 
+                            05/10/2009 
               http://www.cs.kent.ac.uk/projects/wrangler/
 
 --------------------------------------------------------------------------------
@@ -100,9 +100,10 @@ the Eclipse environment.
                                   it or not. 
 
 
-     Tuple function arguments   : highlight the sequence of parameters to be grouped 
-                                  into a tuple from the function definition, then
-                                  select the refactoring command from the menu.
+     Tuple function arguments   : highlight the sequence of parameters to be
+                                  grouped  into a tuple from the function 
+                                  definition, then select the refactoring   
+                                  command from the menu. 
      
 
      Identical expression search : highlight the expression/expression sequence
@@ -126,24 +127,25 @@ the Eclipse environment.
                                   directories specified by the search-paths (see 
                                   Customize Wrangler).
 
-     Similar expression search  : highlight the expression/expression sequence you 
-                                  are interested, select the command from the menu, 
-                                  and Wrangler will prompt you to input a similarity 
-                                  score.
+     Similar expression search  : highlight the expression/expression sequence
+                                  you are interested, select the command from 
+                                  the menu, and Wrangler will prompt you to 
+                                  input a similarity score. 
 
-     Detect similar code in     : select the refactoring command from the menu, and
-     current buffer              you'll be prompted for 3 parameters, i.e the minimum 
-                                  number of expressions in a expression sequence, the 
-                                  minimum number of times clones, and a similarity 
-                                  score.
+     Detect similar code in     : select the refactoring command from the 
+     current buffer               menu, and you'll be prompted for 3 parameters,
+                                  i.e. the minimum number of expressions in a 
+                                  expression sequence, the minimum number of 
+                                  duplication, and a similarity score.
 
-     Detect similar code in     : select the refactoring command from the menu, and
-     dirs                         you'll be prompted for 3 parameters, i.e the minimum 
-                                  number of expressions in a expression sequence, the 
-                                  minimum number of times clones, and a similarity 
-                                  score. Wrangler searches similar code fragments from 
-                                  the directories specified by the search-paths (see
-                                  Customize Wrangler).
+     Detect similar code in     : select the refactoring command from the menu,
+     dirs                         and you'll be prompted for 3 parameters, i.e.
+                                  the minimum number of expressions in a   
+                                  expression sequence, the minimum number of 
+                                  times of duplication, and a similarity score.
+                                  Wrangler searchs similar code in the   
+                                  directories specified by the search-paths.
+                                  (see Customize Wrangler).
 
 	                        
      Rename a process           :place the cursor at the process name
@@ -166,12 +168,19 @@ the Eclipse environment.
                                  whose body contains the receive
                                  expression of the server process, and
                                  you will be prompted for the tag name.
-     
+
+    Unfold a function application: place the cursor at the function application,                                   then select the 'Inline Function' command. 
 
  6. The 'Customize Wrangler' menu in the 'Refactor' submenu allows you specify 
  the boundary of the system by giving the list of directories to
  search for Erlang source files/header files that could be affected by a
  refactoring.
+
+-------------------------Major Changes from Wrangler-0.8.1----------
+
+-- A number of bug fixes. 
+-- A prototype implementation of unfolding a function application.
+-- A prototype implementation of monitoring refactoring activities.
 
 -------------------------Major Changes from Wrangler-0.8------------
 
