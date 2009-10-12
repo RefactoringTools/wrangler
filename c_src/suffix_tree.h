@@ -179,6 +179,6 @@ void ST_CollectClones(SUFFIX_TREE* tree, int len, int f, char *filename);
 
 SUFFIX_TREE* ST_Add_Freq_And_Range(SUFFIX_TREE* tree);
 
-SUFFIX_TREE* ST_ExtendRanges(SUFFIX_TREE* tree);
+SUFFIX_TREE* ST_ExtendRanges(SUFFIX_TREE* tree, long overlap_allowed);
 
-void clone_detection_by_suffix_tree(char *filename, long minlen, long minclones);
+void clone_detection_by_suffix_tree(char *filename, long minlen, long minclones, long overlap_allowed);

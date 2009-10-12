@@ -1316,7 +1316,7 @@ WORD combine_range(RANGE* prev_ranges, WORD startloc)
 }
 
 	
-RANGE* extend_ranges(RANGE* ranges, RANGE* prev_ranges, SUFFIX_TREE* tree, int length)
+RANGE* extend_ranges(RANGE* ranges, RANGE* prev_ranges, SUFFIX_TREE* tree, int length, long overlap_allowed)
 {
     RANGE* temp;
     temp = ranges;
@@ -1325,38 +1325,38 @@ RANGE* extend_ranges(RANGE* ranges, RANGE* prev_ranges, SUFFIX_TREE* tree, int l
 	    temp->start = combine_range(prev_ranges, temp->start);
 	    temp=temp->next;
 	}
-    if (overlapped_range(ranges)==1)
-	{
-	    temp = ranges;
-	    while(temp!=0)
-		{
-		    temp -> start = temp->end - length +1;
-		    temp = temp-> next;
-		}
-	}
+    if ((overlap_allowed ==0) && (overlapped_range(ranges)==1))
+      { 
+	temp = ranges; 
+	while(temp!=0) 
+	  { 
+	    temp -> start = temp->end - length +1; 
+	    temp = temp-> next; 
+	  } 
+      } 
     return ranges;
 }
 
-NODE* ST_ExtendRangesInSubTree(NODE* node,RANGE* ranges,SUFFIX_TREE* tree)
+NODE* ST_ExtendRangesInSubTree(NODE* node,RANGE* ranges,SUFFIX_TREE* tree, long overlap_allowed)
 {
     NODE* temp;
     if (node==0)
 	return node;
-    node->ranges = extend_ranges(node->ranges, ranges, tree, node->length);
+    node->ranges = extend_ranges(node->ranges, ranges, tree, node->length,overlap_allowed);
     if (node->ranges==0)
 	node->length=0;
     else
 	node->length=node->ranges->end - node->ranges->start +1;   	 
-     node->sons = ST_ExtendRangesInSubTree(node->sons, node->ranges, tree);
+    node->sons = ST_ExtendRangesInSubTree(node->sons, node->ranges, tree, overlap_allowed);
     temp = node->right_sibling;
     while(temp!=0)
 	{
-	    temp->ranges= extend_ranges(temp->ranges, ranges, tree, temp->length);
+	  temp->ranges= extend_ranges(temp->ranges, ranges, tree, temp->length, overlap_allowed);
  	    if (temp->ranges==0)
  		temp->length =0;
  	    else
  		temp->length=temp->ranges->end-temp->ranges->start+1;
- 	    temp->sons=ST_ExtendRangesInSubTree(temp->sons, temp->ranges, tree);
+ 	    temp->sons=ST_ExtendRangesInSubTree(temp->sons, temp->ranges, tree, overlap_allowed);
 	    temp= temp->right_sibling;
 	}
     return node;
@@ -1364,12 +1364,12 @@ NODE* ST_ExtendRangesInSubTree(NODE* node,RANGE* ranges,SUFFIX_TREE* tree)
 
 
 
-SUFFIX_TREE* ST_ExtendRanges(SUFFIX_TREE* tree)
+SUFFIX_TREE* ST_ExtendRanges(SUFFIX_TREE* tree, long overlap_allowed)
 {
     if (tree==0)
 	return tree;
     tree->root->ranges=NULL;
-    tree->root = ST_ExtendRangesInSubTree(tree->root, 0, tree);
+    tree->root = ST_ExtendRangesInSubTree(tree->root, 0, tree, overlap_allowed);
     return tree;
 }
 
@@ -1589,7 +1589,7 @@ void ST_CollectClones_new(SUFFIX_TREE* tree, int minlen, int minf, char*filename
     print_clones(head, filename);
 }
   
-void clone_detection_by_suffix_tree(char *filename, long minlen, long minclones)
+void clone_detection_by_suffix_tree(char *filename, long minlen, long minclones, long overlap_allowed)
 {
     SUFFIX_TREE* tree;
     unsigned char *str = NULL, freestr = 0;
@@ -1620,7 +1620,7 @@ void clone_detection_by_suffix_tree(char *filename, long minlen, long minclones)
     /*printf("Constructing tree.....");*/
     tree = ST_CreateTree(str,len);
     tree =ST_Add_Freq_And_Range(tree);
-    tree =ST_ExtendRanges(tree);
+    tree =ST_ExtendRanges(tree, overlap_allowed);
     fclose(file);
     ST_CollectClones_new(tree,minlen, minclones, filename);
     if(freestr == 1)

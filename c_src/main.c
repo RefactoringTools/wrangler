@@ -8,7 +8,7 @@
 
 #include "suffix_tree.h"
 
-#define BUF_SIZE 200
+#define BUF_SIZE 250
 
 
 typedef char byte;
@@ -27,7 +27,7 @@ int main()
     int       size = BUF_SIZE;
     char      command[MAXATOMLEN];
     int       index, version, arity;
-    long      a, b, d;
+    long      a, b, d, o;
     ei_x_buff result;
 	
 #ifdef _WIN32
@@ -50,10 +50,10 @@ int main()
 	     * stripping the version byte */
 	    if (ei_decode_version(buf, &index, &version)) return 1;
     
-	    /* Our marshalling spec is that we are expecting a tuple {Command, Arg1, Arg2, Arg3} */
+	    /* Our marshalling spec is that we are expecting a tuple {Command, Arg1, Arg2, Arg3, Arg4} */
 	    if (ei_decode_tuple_header(buf, &index, &arity)) return 2;
-	    
-	    if (arity != 4) return 3;
+	     
+	    if (arity != 5) return 3;
     
 	    if (ei_decode_atom(buf, &index, command)) return 4;
     
@@ -63,14 +63,15 @@ int main()
 	    if (!strcmp("get", command)){
 		if (ei_decode_long(buf, &index, &a)) return 6;
 		if (ei_decode_long(buf, &index, &b)) return 7;
-		if (ei_decode_string(buf, &index, filename)) return 8;
-		clone_detection_by_suffix_tree(filename, a, b);
-		d = a+b;
-		if (ei_x_encode_atom(&result, "ok") || ei_x_encode_long(&result, d)) return 9;
+		if (ei_decode_long(buf, &index, &o)) return 8;
+		if (ei_decode_string(buf, &index, filename)) return 9;
+		clone_detection_by_suffix_tree(filename, a, b, o);
+		d = a+b+o;
+		if (ei_x_encode_atom(&result, "ok") || ei_x_encode_long(&result, d)) return 10;
 		
 	    }  else {
-		if (ei_x_encode_atom(&result, "error") || ei_x_encode_atom(&result, "unsupported_command")) 
-		    return 99;
+	      if (ei_x_encode_atom(&result, "error") || ei_x_encode_atom(&result, "unsupported_command")) 
+		return 99;
 	    }
 	    
 	    write_cmd(&result);
