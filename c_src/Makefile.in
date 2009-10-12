@@ -3,8 +3,8 @@
 ERL_CFLAGS  = @ERL_CFLAGS@
 ERL_LIB     = @ERL_LIB@
 
-CFLAGS=-Wall -I/usr/local/include ${ERL_CFLAGS}
-LDFLAGS=-L. ${ERL_LIB}
+CFLAGS=-m32 -Wall -I/usr/local/include ${ERL_CFLAGS}
+LDFLAGS=-m32 -L. ${ERL_LIB}
 
 
 suffixtree:	main.o suffix_tree.o
