@@ -38,7 +38,7 @@
 
 -define(DefaultSimiScore, 0.8).
 
--import(refac_duplicated_code, [get_clones_by_suffix_tree/5, display_clone_result/2]).
+-import(refac_duplicated_code, [get_clones_by_suffix_tree/6, display_clone_result/2]).
 
 -define(DEBUG, true).
 
@@ -500,7 +500,7 @@ search_for_clones(Dir, Data, MinLen, MinFreq, RangeTab) ->
        end,
     IndexStr = lists:append([F0(I)|| {I, _}<-Data]),
     NewData =lists:append([F(Elem) ||Elem <-Data]),
-    Cs= get_clones_by_suffix_tree(Dir, IndexStr++"&",MinLen, MinFreq,"0123456789,#&"),
+    Cs= get_clones_by_suffix_tree(Dir, IndexStr++"&",MinLen, MinFreq,"0123456789,#&", 1),
   %%  ?debug("Num of clones from suffix tree:\n~p\n", [length(Cs)]),
     Cs1 = lists:append([strip_a_clone({[{S,E} |Ranges], {Len, Freq}}, SubStr, MinLen, MinFreq)
 			|| {[{S,E} |Ranges], Len, Freq} <- Cs, 
