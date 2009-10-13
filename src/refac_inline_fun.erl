@@ -114,7 +114,7 @@ match_patterns(DefPs, AppPs) ->
 	Subst -> Subst
     catch 
 	_ -> none
-    end.	 
+    end.  
 
 do_match_patterns(DefP, AppP) when is_list(DefP) andalso is_list(AppP) ->
     case length(DefP)== length(AppP) of 
@@ -159,12 +159,12 @@ do_match_patterns(DefP, AppP) ->
 	    end;
 	true -> case refac_syntax:is_literal(DefP) andalso refac_syntax:is_literal(AppP) of
 		    true ->
-			case refac_syntax:concreate(DefP)==refac_syntax:concrete(AppP) of 
+			case refac_syntax:concrete(DefP)==refac_syntax:concrete(AppP) of 
 			    true ->
 				[];
 			    _ -> throw(non_match)
 			end;
-		    false -> 
+		    false ->
 			case T1 of 
 			    variable ->
 				case {is_macro_name(DefP), is_macro_name(AppP)} of 
@@ -192,24 +192,6 @@ do_match_patterns(DefP, AppP) ->
 			end
 		end
     end.
-	
-				 
-    
-
-  %% Args = refac_syntax:application_arguments(App),
-  %%   C = hd(refac_syntax:function_clauses(FunDef)),
-  %%   B = refac_syntax:clause_body(C),
-  %%   Ps = refac_syntax:clause_patterns(C),
-  %%   %% TOCHANGE: there is not def for literal patterns.
-  %%   PsDefPoss = lists:map(fun (P) ->
-  %% 				  Ann = refac_syntax:get_ann(P),
-  %% 				  case lists:keysearch(def, 1, Ann) of 
-  %% 				      {value, {def, DefinePos}}  -> DefinePos;
-  %% 				      _ -> false
-  %% 				  end
-  %% 			  end, Ps),
-  %%   Subst = [{P, A}||{P, A}<-lists:zip(PsDefPoss, Args), P=/=false],
-
 
 fun_inline_1(FName, AnnAST, Pos, {FunClauseToInline, Subst}, {Clause, App}, Editor) ->
     B = refac_syntax:clause_body(FunClauseToInline),
@@ -440,9 +422,9 @@ get_bound_vars_1([_ | Bs]) -> get_bound_vars_1(Bs);
 get_bound_vars_1([]) -> [].
 
 
-is_macro_name(Exp) ->
-    {value, {category, macro_name}} == 
-	lists:keysearch(category, 1, refac_syntax:get_ann(Exp)).
+is_macro_name(Exp1) ->
+    {value, {category, macro_name}} ==
+      lists:keysearch(category, 1, refac_syntax:get_ann(Exp1)).
 
 macro_name_value(Exp) ->
     case refac_syntax:type(Exp) of 

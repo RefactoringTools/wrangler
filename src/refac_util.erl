@@ -61,7 +61,7 @@
 -export([test_framework_used/1]).
 -export([analyze_free_vars/1, remove_duplicates/1]).
 -export([format_search_paths/1]).
-
+-compile(export_all).
 -include("../include/wrangler.hrl").
 
 %% =====================================================================

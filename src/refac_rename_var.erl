@@ -247,7 +247,6 @@ rename(Tree, DefinePos, NewName) ->
 
 %% =====================================================================
 %%
-
 do_rename(Node, {DefinePos, NewName}) ->
     case refac_syntax:type(Node) of
       variable ->
@@ -266,24 +265,25 @@ do_rename(Node, {DefinePos, NewName}) ->
 %%       Key = env | bound | free
 %% @doc Return the input environment of the subtree, the variables that are
 %% bound as well as the variables that are free in the subtree.
-envs_bounds_frees(Node) ->
+envs_bounds_frees(Tree) ->
     F = fun (T, B) ->
 		As = refac_syntax:get_ann(T),
 		EnVars = case lists:keysearch(env, 1, As) of
-			     {value, {env, EnVars1}} -> EnVars1;
-			     _ -> []
+			   {value, {env, EnVars1}} -> EnVars1;
+			   _ -> []
 			 end,
 		BdVars = case lists:keysearch(bound, 1, As) of
-			     {value, {bound, BdVars1}} -> BdVars1;
-			     _ -> []
+			   {value, {bound, BdVars1}} -> BdVars1;
+			   _ -> []
 			 end,
 		FrVars = case lists:keysearch(free, 1, As) of
-			     {value, {free, FrVars1}} -> FrVars1;
-			     _ -> []
+			   {value, {free, FrVars1}} -> FrVars1;
+			   _ -> []
 			 end,
 		case (EnVars == []) and (BdVars == []) and (FrVars == []) of
-		    true -> B;
-		    _ -> [{{env, EnVars}, {bound, BdVars}, {free, FrVars}} | B]
+		  true -> B;
+		  _ -> [{{env, EnVars}, {bound, BdVars}, {free, FrVars}}| B]
 		end
 	end,
-    lists:usort(refac_syntax_lib:fold(F, [], Node)).
+    lists:usort(refac_syntax_lib:fold(F, [], Tree)).
+  

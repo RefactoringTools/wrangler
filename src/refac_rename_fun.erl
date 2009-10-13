@@ -543,7 +543,7 @@ transform_apply_style_calls(FileName, Node, {ModName, FunName, Arity}, NewFunNam
       {value, FunName} ->
 	  case Mod1 of
 	    {value, ModName} ->
-		case refac_syntax:type(Args) == list andalso refac_syntax:list_length(Args) == Arity orelse
+		  case refac_syntax:type(Args) == list andalso refac_syntax:list_length(Args) == Arity orelse
 		       refac_syntax:type(Args) == nil andalso Arity == 0
 		    of
 		  true ->
@@ -602,10 +602,11 @@ do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, OldName, NewName,
 			  end;
 		      _ -> {Node, false}
 		    end;
-	    _ -> case refac_syntax:type(E3) == integer andalso refac_syntax:integer_value(E3) == Arity orelse
-			refac_syntax:type(E3) == list andalso refac_syntax:list_length(E3) == Arity orelse
-			  refac_syntax:type(E3) == nil andalso Arity == 0
-		     of
+	    _ -> 
+		  case refac_syntax:type(E3) == integer andalso refac_syntax:integer_value(E3) == Arity orelse
+		      refac_syntax:type(E3) == list andalso refac_syntax:list_length(E3) == Arity orelse
+		      refac_syntax:type(E3) == nil andalso Arity == 0
+		      of
 		   true ->
 		       case refac_syntax:type(E2) of
 			 atom -> case refac_syntax:atom_value(E2) of
@@ -629,7 +630,7 @@ do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, OldName, NewName,
 		      OldName ->
 			  case try_eval(FileName, E2, SearchPaths, TabWidth) of
 			    {value, ModName} ->
-				case refac_syntax:type(E4) == list andalso refac_syntax:list_length(E4) == Arity orelse
+				  case refac_syntax:type(E4) == list andalso refac_syntax:list_length(E4) == Arity orelse
 				       refac_syntax:type(E4) == nil andalso Arity == 0
 				    of
 				  true ->

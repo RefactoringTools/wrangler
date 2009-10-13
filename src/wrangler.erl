@@ -35,7 +35,7 @@
 %% @author Huiqing Li, Simon Thompson
 %%   [http://www.cs.kent.ac.uk/projects/wrangler]
 
-%% @version 0.8
+%% @version 0.8.2
 %% @end
 %%
 %% @doc This module describes the refactorings that are currently supported by Wrangler.
@@ -423,7 +423,7 @@ fun_extraction_eclipse(FileName, Start, End, FunName, TabWidth) ->
 
 
 -spec(inline_fun/4::(FileName::filename(), Pos::pos(), SearchPaths::[dir()], TabWidth::integer)
-      ->{'ok', [string()]}).
+      ->{error, string()} |{'ok', [string()]}).
 inline_fun(FileName, Pos, SearchPaths, TabWidth) ->
     try_refactoring(refac_inline_fun, inline_fun, [FileName, Pos, SearchPaths, TabWidth]).
 

@@ -373,6 +373,11 @@ generalise_expr(Exprs, SearchRes, ExportVars) ->
     BVs = refac_util:get_bound_vars(Exprs),
     FVs = lists:ukeysort(2, refac_util:get_free_vars(Exprs)),
     {NewExprs, NewExportVars} = generalise_expr_1(Exprs, SearchRes, ExportVars),
+    %% refac_io:format("ExportVars:\n~p\n", [ExportVars]),
+    %% refac_io:format("BVs:\n~p\n", [BVs]),
+    %% refac_io:format("FVs:\n~p\n", [FVs]),
+    %% refac_io:format("ExportVars:\n~p\n", [NewExportVars]),
+    
     NewExprs1 = case NewExportVars of
 		    [] -> NewExprs;
 		    [V] -> NewExprs++[refac_syntax:variable(V)];

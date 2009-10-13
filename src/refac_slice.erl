@@ -342,7 +342,7 @@ do_process_fun_applications(Node, {Files,AnnAST, ModName, FunName, Arity,Vars}) 
 
 %%=========================================================================================================
 %% @spec backward_slice(Files:[filename()], AnnAST:syntaxTree(), ModName::atom(), FunDef::syntaxTree() Expr::syntaxTree()) -> term(). %% Need to think what term() really is.
-%% @doc Backward slice the program with expression Expr, which in contained in function FunDef, as the slicing criterion.      
+%% @doc Backward slice the program with expression Expr, which is contained in function FunDef, as the slicing criterion.      
 
 %%-spec(backward_slice/5::([filename()], syntaxTree(), atom(), syntaxTree(), syntaxTree())->[any()]).  %% any needs to be refined here.
 	     

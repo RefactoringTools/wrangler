@@ -68,18 +68,16 @@
 
 -spec(fold_expr_by_loc/5::(filename(), integer(), integer(), [dir()], integer())->
 	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), 
-		    {filename(), atom(), syntaxTree(), integer()}}]}
-		 | {error, string()}).
-
+		    {filename(), atom(), syntaxTree(), integer()}}], string()}).
+	
 fold_expr_by_loc(FileName, Line, Col, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:fold_expr_by_loc(~p, ~p,~p,~p, ~p).\n", 
 		 [?MODULE, FileName, Line, Col, SearchPaths, TabWidth]),
     fold_expression(FileName, Line, Col, SearchPaths, TabWidth, emacs).
 
 -spec(fold_expr_by_loc_eclipse/5::(filename(), integer(), integer(), [dir()], integer()) ->
-	     {ok,  {syntaxTree(),[{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}}
-		 | {error, string()}).
-
+	     {ok,  {syntaxTree(),[{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}}).
+		
 fold_expr_by_loc_eclipse(FileName, Line, Col, SearchPaths, TabWidth) ->
     fold_expression(FileName, Line, Col, SearchPaths, TabWidth, eclipse).
 
@@ -115,8 +113,7 @@ fold_expression(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
 -spec(fold_expr_by_name/7::(filename(), string(), string(), string(), 
 			    string(), [dir()], integer()) ->
 	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), 
-		    {filename(), atom(), syntaxTree(), integer()}}]}
-		 | {error, string()}).
+		    {filename(), atom(), syntaxTree(), integer()}}], string()}).
 
 fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex,
 		  SearchPaths, TabWidth) ->
@@ -126,8 +123,8 @@ fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex,
 		      SearchPaths, TabWidth, emacs).
 
 -spec(fold_expr_by_name_eclipse/7::(filename(), string(), string(), string(), string(), [dir()], integer()) ->
-	     {ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]} 
-		 | {error, string()}).
+	     {ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}).
+		
 
 fold_expr_by_name_eclipse(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth) ->
     fold_by_name_pre_cond_check(ModName, FunName, Arity, ClauseIndex),
@@ -636,7 +633,7 @@ make_fun_call({FunDefMod, CurrentMod}, FunName, Pats, Subst) ->
 	     _ -> refac_syntax:module_qualifier(
 		    refac_syntax:atom(FunDefMod), refac_syntax:atom(FunName))
 	 end,
-    refac_syntax:application(Op, Pars).
+    refac_syntax:application(Op, [refac_util:reset_attrs(P)||P<-Pars]).
   
 
 make_match_expr({FunDefMod, CurrentMod}, FunName, Pats, Subst, VarsToExport) ->

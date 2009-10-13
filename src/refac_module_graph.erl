@@ -53,7 +53,7 @@ module_graph(SearchPaths) ->
     
     
 analyze_all_files([], _SearchPaths)->
-    Acc = ets:foldr(fun({{Mod, Dir}, CalledMods, _TimeStamp}, S) -> 
+    Acc = ets:foldr(fun({{Mod, Dir}, CalledMods, _CheckSum}, S) -> 
 			    FileName = filename:join(Dir, Mod++".erl"),
 			    case filelib:is_file(FileName) of 
 				true ->
@@ -66,21 +66,21 @@ analyze_all_files([], _SearchPaths)->
 analyze_all_files([{Mod, Dir}|Left], SearchPaths) ->  
     FileName = filename:join(Dir,Mod++".erl"),
     ?debug("FileName:\n~p\n", [FileName]),
-    FileModifiedTime = filelib:last_modified(FileName),
+    NewCheckSum = wrangler_ast_server:filehash(FileName),
     R = ets:lookup(?ModuleGraphTab, {Mod, Dir}),
     case R of
 	[] -> {called_modules, Called} = analyze_mod({Mod, Dir}, SearchPaths),
 	      ets:insert(?ModuleGraphTab, {{Mod, Dir}, Called, filelib:last_modified(FileName)}),
 	      analyze_all_files(Left, SearchPaths);
-	[{{Mod, Dir}, _CalledMods, TimeStamp}] ->
-	    case FileModifiedTime > TimeStamp of 
-		true -> 
+	[{{Mod, Dir}, _CalledMods, OldCheckSum}] ->
+	    case NewCheckSum =:= OldCheckSum of 
+		true ->
+		    analyze_all_files(Left, SearchPaths);
+		false -> 
 		    ets:delete(?ModuleGraphTab, {Mod, Dir}),
 		    {called_modules, CalledMods1} = analyze_mod({Mod, Dir}, SearchPaths),
-		    ets:insert(?ModuleGraphTab, {{Mod, Dir}, CalledMods1, filelib:last_modified(FileName)}),
-		    analyze_all_files(Left, SearchPaths);
-		false  ->
-		    analyze_all_files(Left, SearchPaths)		   
+		    ets:insert(?ModuleGraphTab, {{Mod, Dir}, CalledMods1, NewCheckSum}),
+		    analyze_all_files(Left, SearchPaths)		
 	    end
   end.
 		  
