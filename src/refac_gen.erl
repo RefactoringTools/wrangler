@@ -653,8 +653,7 @@ add_parameter(C, NewPar) ->
 to_keep_original_fun(FileName, AnnAST, ModName, FunName, Arity, Exp, Info) ->
     refac_util:is_exported({FunName, Arity}, Info) orelse
 	is_eunit_special_function(FileName, atom_to_list(FunName), Arity) orelse
-        lists:unzip(collect_atoms(Exp, [FunName]))/=[] orelse
-	check_atoms(AnnAST, [FunName]) orelse
+       	check_atoms(AnnAST, [FunName]) orelse
 	check_implicit_and_apply_style_calls(AnnAST, ModName, FunName, Arity).
 
     
@@ -678,10 +677,10 @@ check_atoms(AnnAST, AtomNames) ->
 		end
 	end,
     R = lists:flatmap(F, refac_syntax:form_list_elements(AnnAST)),
-    R1 = [X ||{atom, X} <- R],
-    R2 = [X ||{_, X} <- lists:filter(fun (X) ->
+    R1 = [X ||{atom, X, _} <- R],
+    R2 = [X ||{_, X, _} <- lists:filter(fun (X) ->
 					     case X of
-						 {atom, _X} -> false;
+						 {atom, _X,_} -> false;
 						 _ -> true
 					     end
 				     end,
@@ -782,7 +781,7 @@ expr_to_fun_clause(FunDef, Expr) ->
 
 search_duplications(Tree, Exp) ->
     F = fun(Node, Acc)-> 
-		case refac_util:is_expr(Node) andalso 
+		case   %% refac_util:is_expr(Node) andalso 
 		    refac_syntax:is_literal(Node)andalso
 		    Node =/= Exp of
 		    true ->
