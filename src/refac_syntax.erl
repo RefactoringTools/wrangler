@@ -2034,7 +2034,8 @@ list_length(Node, A) ->
 	    none -> A1;
 	    Tail -> list_length(Tail, A1)
 	  end;
-      nil -> A
+      nil -> A;
+      _ -> A +1    
     end.
 
 %% =====================================================================
