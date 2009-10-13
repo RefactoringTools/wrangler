@@ -178,7 +178,7 @@ get_ast(Key={FileName,ByPassPreP, SearchPaths, TabWidth, FileFormat}, State=#sta
 	    case lists:keysearch(Key, 1, ASTs) of
 		{value, {Key, {AnnAST, Info, Checksum}}} ->
                     NewChecksum = filehash(FileName),
-		    case (Checksum =:= NewChecksum) andalso (NewCheckSum=/=0) of
+		    case (Checksum =:= NewChecksum) andalso (NewChecksum=/=0) of
 			true -> 
 			    log_errors(FileName, Info),
                             {{ok, {AnnAST, Info}}, State};
