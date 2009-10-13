@@ -97,15 +97,15 @@ analyze_mod({Mod, Dir}, SearchPaths) ->
 		       {value, {imports, Imps}} -> lists:map(fun({M, _Funs}) -> M end, Imps);
 		       false  -> []
 		   end,
-    CalledMods = collect_called_modules(AnnAST, ModNames),
+    {CalledMods, PossibleCalledMods} = collect_called_modules(AnnAST, ModNames),
     ?debug("Called modules:\n~p\n", [CalledMods]), 
-    {called_modules, ImportedMods++CalledMods}.
+    {called_modules, lists:usort(ImportedMods++CalledMods++PossibleCalledMods)}.
 
 
 collect_called_modules(AnnAST) ->
     element(1, collect_called_modules(AnnAST, [])).
 
--spec(collect_called_modules(AnnAST::syntaxTree(), ModNames::[atom()]) ->[modulename()]).
+-spec(collect_called_modules(AnnAST::syntaxTree(), ModNames::[atom()]) ->{[modulename()], [modulename()]}).
 collect_called_modules(AnnAST, ModNames) ->
     ?debug("ModNames:\n~p\n", [ModNames]),
     Fun = fun(T, {S1, S2}) ->
@@ -159,9 +159,8 @@ collect_called_modules(AnnAST, ModNames) ->
     ?debug("R1R2:\n~p\n", [{R1, R2}]),
     UndecideableAtoms = [Name || {_, Name} <-(lists:usort(R1) -- lists:usort(R2))],
     ?debug("UndecidableAtoms:\n~p\n", [UndecideableAtoms]),
-    ordsets:union(S1, ordsets:from_list(UndecideableAtoms)).   
-
-    
+    {S1, ordsets:from_list(UndecideableAtoms)}.
+   
 reverse_module_graph(List) ->
     reverse_module_graph_1(List,List, []).
 reverse_module_graph_1([], _List,Acc) ->
