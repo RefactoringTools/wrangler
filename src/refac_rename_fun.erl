@@ -65,6 +65,7 @@
 -ifdef(DEBUG).
 -define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
 -else.
+
 -define(debug(__String, __Args), ok).
 -endif.
 
@@ -126,7 +127,7 @@ rename_fun_0(FileName, NewName, SearchPaths, TabWidth, Editor,
     check_atoms(FileName, AnnAST1, [Fun], Pid),
     case refac_util:is_exported({Fun, Arity}, Info) of
 	true ->
-	    ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
+	    ?wrangler_io("\nChecking possible client modules in the following search paths: \n~p\n", [SearchPaths]),
 	    ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
 	    try
 		rename_fun_in_client_modules(ClientFiles, {Mod, Fun, Arity}, 
@@ -423,14 +424,14 @@ check_atoms(FileName, Tree, AtomNames, Pid) ->
 		end
 	end,
     R = lists:flatten(lists:map(F, refac_syntax:form_list_elements(Tree))),
-    R1 = [X ||{atom, X} <- R],
-    R2 = [X ||{_, X} <- lists:filter(fun (X) ->
+    R1 = [X ||{atom, X, _} <- R],
+    R2 = [X ||{_, X, _} <- lists:filter(fun (X) ->
 					     case X of
-						 {atom, _X} -> false;
+						 {atom, _X, _} -> false;
 						 _ -> true
 					     end
-				     end,
-				     R)],
+					end,
+					R)],
     UndecidableAtoms = R1 -- R2,
     case UndecidableAtoms of 
 	[] -> ok;
@@ -465,47 +466,51 @@ collect_atoms(Tree, AtomNames) ->
 			'!' ->
 			    case refac_syntax:type(Left) of
 			      atom ->
-				  case lists:member(refac_syntax:atom_value(Left), AtomNames) of
-				    true ->
-					S ++ [{process, refac_syntax:get_pos(Left)}];
-				    _ -> S
-				  end;
-			      _ -> S
+				    AtomVal = refac_syntax:atom_value(Left),
+				    case lists:member(AtomVal, AtomNames) of
+					true ->
+					    S ++ [{process, refac_syntax:get_pos(Left), AtomVal}];
+					_ -> S
+				    end;
+				_ -> S
 			    end;
-			_ -> S
+			  _ -> S
 		      end;
-		  record_expr -> Type = refac_syntax:record_expr_type(T),
-				 collect_atoms_1(AtomNames, S, Type, record);
-		  record_field -> Name = refac_syntax:record_field_name(T),
-				  case refac_syntax:type(Name) of
-				    atom ->
-					case lists:member(refac_syntax:atom_value(Name), AtomNames) of
-					  true ->
-					      S ++ [{record, refac_syntax:get_pos(Name)}];
-					  _ -> S
-					end;
-				    _ -> S
-				  end;
-		  record_access -> Type = refac_syntax:record_access_type(T),
-				   Field = refac_syntax:record_access_field(T),
-				   S1 = collect_atoms_1(AtomNames, S, Type, record),
-				   case refac_syntax:type(Field) of
-				     atom ->
-					 case lists:member(refac_syntax:atom_value(Field), AtomNames) of
-					   true ->
-					       S ++ [{record, refac_syntax:get_pos(Field)}];
-					   false ->
-					       S
-					 end;
-				     _ -> S1
-				   end;
-		  atom ->
-		      case lists:member(refac_syntax:atom_value(T), AtomNames) of
-			true ->
-			    Pos = refac_syntax:get_pos(T), S ++ [{atom, Pos}];
-			false -> S
-		      end;
-		  _ -> S
+		    record_expr -> Type = refac_syntax:record_expr_type(T),
+				   collect_atoms_1(AtomNames, S, Type, record);
+		    record_field -> Name = refac_syntax:record_field_name(T),
+				    case refac_syntax:type(Name) of
+					atom ->
+					    AtomVal = refac_syntax:atom_value(Name),
+					    case lists:member(AtomVal, AtomNames) of
+						true ->
+						    S ++ [{record, refac_syntax:get_pos(Name), AtomVal}];
+						_ -> S
+					    end;
+					_ -> S
+				    end;
+		    record_access -> Type = refac_syntax:record_access_type(T),
+				     Field = refac_syntax:record_access_field(T),
+				     S1 = collect_atoms_1(AtomNames, S, Type, record),
+				     case refac_syntax:type(Field) of
+					 atom ->
+					     AtomVal = refac_syntax:atom_value(Field), 
+					     case lists:member(AtomVal, AtomNames) of
+						 true ->
+						     S ++ [{record, refac_syntax:get_pos(Field), AtomVal}];
+						 false ->
+						     S
+					     end;
+					 _ -> S1
+				     end;
+		    atom ->
+			AtomVal = refac_syntax:atom_value(T),
+			case lists:member(AtomVal, AtomNames) of
+			    true ->
+				Pos = refac_syntax:get_pos(T), S ++ [{atom, Pos, AtomVal}];
+			    false -> S
+			end;
+		    _ -> S
 		end
 	end,
     refac_syntax_lib:fold(F, [], Tree).
@@ -513,9 +518,10 @@ collect_atoms(Tree, AtomNames) ->
 collect_atoms_1(AtomNames, S, Node, Type) ->
     case refac_syntax:type(Node) of
       atom ->
-	    case lists:member(refac_syntax:atom_value(Node), AtomNames) of
+	    AtomVal = refac_syntax:atom_value(Node),
+	    case lists:member(AtomVal, AtomNames) of
 		true ->
-		    S ++ [{Type, refac_syntax:get_pos(Node)}];
+		    S ++ [{Type, refac_syntax:get_pos(Node), AtomVal}];
 		false ->
 		    S
 	    end;
