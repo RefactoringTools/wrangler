@@ -53,7 +53,8 @@
 	inline_fun/4]).
 
 -export([rename_var_eclipse/6, rename_fun_eclipse/6,
-	 rename_mod_eclipse/4, generalise_eclipse/6,
+	 rename_mod_eclipse/4, rename_mod_1_eclipse/5,
+	 generalise_eclipse/6,
 	 move_fun_eclipse/7, fun_extraction_eclipse/5,
 	 gen_fun_1_eclipse/8, gen_fun_2_eclipse/8,
 	 tuple_funpar_eclipse/5, tuple_funpar_eclipse_1/5,tuple_to_record_eclipse/9,
@@ -136,18 +137,24 @@ rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
 %% <em> Rename Module Name </em> from the <em> Refactor </em> menu, after that, the refactorer will prompt to enter 
 %% the new module name in the mini-buffer.
 %% </p>
-%% @spec rename_mod(FileName::filename(), NewName::string(), SearchPaths::[dir()], TabWidth:: integer())-> {error, string()} | {ok, [filename()]} 
-%%
-   
--spec(rename_mod/4::(filename(), string(), [dir()], integer()) -> {error, string()} | {ok, [filename()]}).
+ 
+-spec(rename_mod/4::(filename(), string(), [dir()], integer()) -> 
+	     {error, string()} | {question, string()} | {warning, string()} |{ok, [filename()]}).
 rename_mod(FileName, NewName, SearchPaths, TabWidth) ->
     try_refactoring(refac_rename_mod, rename_mod,  [FileName, NewName, SearchPaths, TabWidth]).
 
 %%@private
--spec(rename_mod_eclipse/4::(filename(), string(), [dir()], integer()) ->
-	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
+-spec(rename_mod_eclipse/4::(FileName::filename(), NewName::string(), SearchPaths::[dir()], TabWidth::integer()) ->
+	     {error, string()} | {question, string()} | {warning, string()} |
+		 {ok, [{filename(), filename(), string()}]}).
 rename_mod_eclipse(FileName, NewName, SearchPaths, TabWidth) ->
     try_refactoring(refac_rename_mod, rename_mod_eclipse, [FileName, NewName, SearchPaths, TabWidth]).
+
+%%@private
+-spec(rename_mod_1_eclipse/5::(FileName::filename(), NewName::string(), SearchPaths::[dir()], TabWith::integer(), RenameTestMod::bool())
+      ->{ok, [{filename(), filename(), string()}]}).
+rename_mod_1_eclipse(FileName, NewName, SearchPaths, TabWidth, RenameTestMod) ->
+    try_refactoring(refac_rename_mod, rename_mod_1_eclipse, [FileName, NewName, SearchPaths, TabWidth, RenameTestMod]).
 
 %% =====================================================================
 %%@private
