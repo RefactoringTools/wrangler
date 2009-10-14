@@ -48,7 +48,7 @@
 
 -module(refac_rename_mod).
 
--export([rename_mod/4, rename_mod_1/5, rename_mod_eclipse/4]).
+-export([rename_mod/4, rename_mod_1/5, rename_mod_eclipse/4, rename_mod_1_eclipse/5]).
 
 -import(refac_rename_fun, [check_atoms/4, start_atom_process/0, 
 			   output_atom_warning_msg/3, stop_atom_process/1]).
@@ -58,14 +58,25 @@
 %% @spec rename_mod(FileName::filename(), NewName::string(), SearchPaths::[string()])-> term()
 %%   
 
-%%-spec(rename_mod/4::(filename(), string(), [dir()], integer()) -> {error, string()} | {ok, [filename()]}).      
+-spec(rename_mod/4::(filename(), string(), [dir()], integer()) -> 
+	     {error, string()} | {question, string()} | {warning, string()} |{ok, [filename()]}).
 rename_mod(FileName, NewName, SearchPaths, TabWidth) ->
     rename_mod(FileName, NewName, SearchPaths, TabWidth, emacs).
 
-%%-spec(rename_mod_eclipse/4::(filename(), string(), [dir()], integer()) ->
-%%	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
+-spec(rename_mod_eclipse/4::(filename(), string(), [dir()], integer()) ->
+	     {error, string()} | {question, string()} | {warning, string()} |
+		 {ok, [{filename(), filename(), string()}]}).
 rename_mod_eclipse(FileName, NewName, SearchPaths, TabWidth) ->
     rename_mod(FileName, NewName, SearchPaths, TabWidth, eclipse).
+
+
+-spec(rename_mod_1/5::(filename(), string(), [dir()], integer(),bool()) ->{ok, [filename()]}).
+rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod) ->
+    rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod, emacs).
+
+-spec(rename_mod_1_eclipse/5::(filename(), string(), [dir()], integer(),bool()) ->{ok, [{filename(), filename(), string()}]}).
+rename_mod_1_eclipse(FileName, NewName, SearchPaths, TabWidth, RenameTestMod) ->
+    rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod, eclipse).
 
 rename_mod(FileName, NewName,SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:rename_mod(~p, ~p,~p, ~p).\n", [?MODULE, FileName, NewName, SearchPaths, TabWidth]),
@@ -109,8 +120,8 @@ pre_cond_check(FileName, OldModName, NewModName, TestFrameWorkUsed) ->
 							 case filelib:is_file(NewTestFileName) of 
 							     false ->
 								{question, "Also rename the test module: "++ atom_to_list(OldModName)++"_tests.erl" ++ "?"};
-							     true -> {warning, "This module has a test module, but Wrangler cannot rename the test module"
-								      " because the new test module name is already in used, still continue?"}
+							     true -> {warning, "This module has a test module, but Wrangler cannot rename it"
+								      " because the new test module name is already in use, still continue?"}
 							 end;
 						     false -> ok
 						 end;
@@ -125,6 +136,24 @@ pre_cond_check(FileName, OldModName, NewModName, TestFrameWorkUsed) ->
 	    {error, "New module name is the same as the old name."}
     end.
 
+
+rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod, Editor) ->  
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_mod(" ++ "\"" ++
+	FileName ++ "\", " ++ NewName ++ "\"," ++ "[" ++ 
+	refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",    
+    {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(FileName,true, SearchPaths),
+    {value, {module, OldModName}} = lists:keysearch(module, 1, Info), 
+    NewModName = list_to_atom(NewName),
+    TestFrameWorkUsed = refac_util:test_framework_used(FileName), 
+    case lists:member(eunit, TestFrameWorkUsed) andalso RenameTestMod of 
+	true ->
+	    TestModName = list_to_atom(atom_to_list(OldModName) ++ "_tests"),
+	    NewTestModName = list_to_atom(NewName++"_tests"),
+	    do_rename_mod(FileName, [{OldModName, NewModName}, {TestModName, NewTestModName}], 
+			  AnnAST, SearchPaths, Editor, TabWidth, Cmd);
+	false ->
+	    do_rename_mod(FileName, [{OldModName, NewModName}], AnnAST, SearchPaths, Editor, TabWidth, Cmd)
+    end.
 
 do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths,Editor, TabWidth, Cmd) ->
     {OldModName, NewModName} = hd(OldNewModPairs),
@@ -173,25 +202,7 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths,Editor, TabWidth, Cm
     end.
   
  
-%%-spec(rename_mod_1/5::(filename(), string(), [dir()], integer(),bool()) ->{ok, [filename()]}).
-rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod) ->     %% currently only for Emacs; need to extend to Eclipse.
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_mod(" ++ "\"" ++
-	FileName ++ "\", " ++ NewName ++ "\"," ++ "[" ++ 
-	refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",    
-    {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(FileName,true, SearchPaths),
-    {value, {module, OldModName}} = lists:keysearch(module, 1, Info), 
-    NewModName = list_to_atom(NewName),
-    TestFrameWorkUsed = refac_util:test_framework_used(FileName), 
-    case lists:member(eunit, TestFrameWorkUsed) andalso RenameTestMod of 
-	true ->
-	    TestModName = list_to_atom(atom_to_list(OldModName) ++ "_tests"),
-	    NewTestModName = list_to_atom(NewName++"_tests"),
-	    do_rename_mod(FileName, [{OldModName, NewModName}, {TestModName, NewTestModName}], 
-			  AnnAST, SearchPaths, emacs, TabWidth, Cmd);
-	false ->
-	    do_rename_mod(FileName, [{OldModName, NewModName}], AnnAST, SearchPaths, emacs, TabWidth, Cmd)
-    end.
-    
+   
 do_rename_mod_1(Tree, {FileName, OldNewModPairs,Pid}) ->
     {AnnAST1, C1}=refac_util:full_tdTP(fun do_rename_mod_2/2, Tree, {FileName,OldNewModPairs, Pid}),
     {AnnAST2, C2} = case lists:member(eunit, refac_util:test_framework_used(FileName)) of 
