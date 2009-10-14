@@ -73,7 +73,7 @@ rename_mod(FileName, NewName,SearchPaths, TabWidth, Editor) ->
 	FileName ++ "\", " ++ NewName ++ "\"," ++ "[" ++ 
 	refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case refac_util:is_fun_name(NewName) of   %% module name and function name follow the same rules.
-      true ->
+	true ->
 	    {ok, {AnnAST, Info}}= refac_util:parse_annotate_file(FileName,true, SearchPaths, TabWidth),
 	    case lists:keysearch(module, 1, Info) of 
 		{value, {module, OldModName}} ->
@@ -109,7 +109,7 @@ pre_cond_check(FileName, OldModName, NewModName, TestFrameWorkUsed) ->
 							 case filelib:is_file(NewTestFileName) of 
 							     false ->
 								{question, "Also rename the test module: "++ atom_to_list(OldModName)++"_tests.erl" ++ "?"};
-							     true -> {warning, "This module has a test module, but Wrangler won't to rename the test module"
+							     true -> {warning, "This module has a test module, but Wrangler cannot rename the test module"
 								      " because the new test module name is already in used, still continue?"}
 							 end;
 						     false -> ok
