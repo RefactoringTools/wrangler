@@ -39,12 +39,12 @@
 
 %% =============================================================================================
 -spec(inline_fun/4::(FileName::filename(), Pos::pos(), SearchPaths::[dir()], TabWidth::integer)
-      ->{'ok', [string()]}).
+      ->{'ok', [string()]} | {error, string()}).
 inline_fun(FileName, Pos, SearchPaths, TabWidth) ->
     inline_fun(FileName, Pos, SearchPaths, TabWidth, emacs).
 
 -spec(inline_fun_eclipse/4::(FileName::filename(), Pos::pos(), SearchPaths::[dir()], TabWidth::integer)
-      ->{ok, [{filename(), filename(), string()}]}).
+      ->{ok, [{filename(), filename(), string()}]} | {error, string()}).
 inline_fun_eclipse(FileName,Pos,SearchPaths, TabWidth) ->
     inline_fun(FileName, Pos, SearchPaths, TabWidth, eclipse).
 
@@ -55,13 +55,15 @@ inline_fun(FName, Pos = {Line, Col}, SearchPaths, TabWidth, Editor) ->
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     case pos_to_fun_clause_app(AnnAST, Pos) of
 	{ok, {Clause, App}} -> 
-	    {ok, {FunClause, Subst}} = side_cond_analysis(ModName, AnnAST, {Clause, App}),
-	    fun_inline_1(FName, AnnAST, Pos, {FunClause, Subst}, {Clause, App}, Editor);
+	    {ok, {FunClause, Subst}} = side_cond_analysis(ModName, AnnAST, App),
+	    FunClause1 = auto_rename_vars(FunClause, {Clause, App}),
+	    fun_inline_1(FName, AnnAST, Pos, {FunClause1, Subst}, {Clause, App}, Editor);
 	{error, Reason} -> throw({error, Reason})
     end.
-    
 
-side_cond_analysis(ModName, AnnAST, {Clause, App}) ->
+
+
+side_cond_analysis(ModName, AnnAST, App) ->
     FunName = refac_syntax:atom_value(refac_syntax:application_operator(App)),
     Args = refac_syntax:application_arguments(App),
     Arity = length(Args),
@@ -69,26 +71,20 @@ side_cond_analysis(ModName, AnnAST, {Clause, App}) ->
     Res = [F || F <- Fs, refac_syntax:type(F) == function,
 		case lists:keysearch(fun_def, 1, refac_syntax:get_ann(F)) of
 		    {value, {fun_def, {ModName, FunName, Arity, _, _}}} -> true;
-		    _ -> false
+		  _ -> false
 		end],
     case Res of
-	[FunDef] -> 
+      [FunDef] ->
 	    Cs = refac_syntax:function_clauses(FunDef),
 	    case find_matching_clause(Cs, Args) of
-		none -> throw ({error, "Wrangler could not figure out which function clause to inline."});
-		{C, Subst} -> 
-		    Body = refac_syntax:clause_body(C),
-		    case static_semantic_checking(Body, {Clause, App}) of 
-			{error, Reason} ->
-			    throw({error, Reason});
-			ok ->
-			    {ok, {C, Subst}}
-		    end
+		none -> throw({error, "Wrangler could not figure out which function clause to inline."});
+		{C, Subst} ->
+		    {ok, {C, Subst}}
 	    end;
-	[] -> 
+	[] ->
 	    throw({error, "Inlining a function defined in another module is not supported yet."});
-	[_|_]->
-	    throw({error, "The function has been defined more than once."})
+	[_| _] ->
+	    throw({error, "The function to be inlined has been defined more than once."})
     end.
 
 find_matching_clause([], _Ps) -> none;
@@ -209,23 +205,17 @@ fun_inline_1(FName, AnnAST, Pos, {FunClauseToInline, Subst}, {Clause, App}, Edit
     end.
 
 
-do_inline(Form, Pos, Clause,App, SubstedBody) ->
+do_inline(Form, Pos, _Clause, App, SubstedBody) ->
     {S, E} = refac_util:get_range(Form),
-    if  (S =< Pos) and (Pos =< E) ->
-	    {F1, _} = refac_util:stop_tdTP(
-			fun do_inline_1/2, Form, {App, SubstedBody}),
-	    case length(SubstedBody) >1 of 
+    if (S =< Pos) and (Pos =< E) ->
+	   {NewForm, _} = refac_util:stop_tdTP(fun do_inline_1/2, Form, {App, SubstedBody}),
+	    case length(SubstedBody) > 1 of
 		true ->
-		    Exprs = collect_exprs_in_expr_sequences(Clause),
-		    case lists:member(App, Exprs) of
-			true ->
-			    {F2, _} = refac_util:stop_tdTP(fun remove_begin_end/2, F1, SubstedBody),
-			    F2;
-			_ -> F1
-		    end;
-		_ -> F1
+		    {NewForm1, _} = refac_util:stop_tdTP(fun remove_begin_end/2, NewForm, SubstedBody),
+		    NewForm1;
+		_ -> NewForm
 	    end;
-	true ->
+       true ->
 	    Form
     end.
 
@@ -241,20 +231,6 @@ do_inline_1(Node, {App, SubstedBody}) ->
 	_ -> {Node, false}
     end.
     
-collect_exprs_in_expr_sequences(Tree) ->  
-    Fun = fun (T, S) ->
-		  case refac_syntax:type(T) of
-		      clause ->
-			  S++refac_syntax:clause_body(T);
-		      block_expr ->
-			  S++ refac_syntax:block_expr_body(T);
-		      try_expr ->
-			  S++ refac_syntax:try_expr_body(T);
-		      _ -> S
-		  end
-	  end,
-    refac_syntax_lib:fold(Fun, [], Tree).
-
 remove_begin_end(Node, BlockBody) ->
     Fun = fun(E) ->
 		  case refac_syntax:type(E) of
@@ -262,6 +238,20 @@ remove_begin_end(Node, BlockBody) ->
 			  case refac_syntax:block_expr_body(E) of
 			      BlockBody ->
 				  BlockBody;
+			      _ -> [E]
+			  end;
+		      match_expr ->
+			  Ps = match_expr_patterns(E),
+			  B =  match_expr_body(E),
+			  case refac_syntax:type(B) of 
+			      block_expr ->
+				  case refac_syntax:block_expr_body(B) of 
+				      BlockBody ->
+					  Last = lists:last(BlockBody),
+					  NewLast = refac_util:reset_attrs(make_match_expr(Ps, Last)),
+					  lists:sublist(BlockBody, length(BlockBody)-1)++[NewLast];
+				      _ -> [E]
+				  end;
 			      _ -> [E]
 			  end;
 		      _ -> [E]
@@ -349,7 +339,8 @@ pos_to_fun_app(Node, Pos) ->
 pos_to_fun_app_1(Node, Pos) ->
     case refac_syntax:type(Node) of
 	application ->
-	    {S, E} = refac_util:get_range(Node),
+	    Op = refac_syntax:application_operator(Node),
+	    {S, E} = refac_util:get_range(Op),
 	    if (S =< Pos) and (Pos =< E) ->
 		    {Node, true};
 	       true -> {[], false}
@@ -359,18 +350,20 @@ pos_to_fun_app_1(Node, Pos) ->
 
 
 
-static_semantic_checking(BodyToInline, {Clause, App})->
-    VarName ='WRANGLER_TEMP_VAR',
-    {Clause1,_} = refac_util:stop_tdTP(fun do_replace_app_with_match/2, Clause,
-				 {App, refac_syntax:variable(VarName)}),
+auto_rename_vars(ClauseToInline, {Clause, App}) ->
+    VarName = 'WRANGLER_TEMP_VAR',
+    {Clause1, _} = refac_util:stop_tdTP(fun do_replace_app_with_match/2, Clause,
+					{App, refac_syntax:variable(VarName)}),
     Clause2 = refac_syntax_lib:annotate_bindings(refac_util:reset_attrs(Clause1), []),
-    BdVars = lists:usort([Name|| {Name,_Loc}<-get_bound_vars(BodyToInline)]),
-    case refac_util:once_tdTU(fun do_check_static_semantics/2, Clause2, {VarName, BdVars}) of
-	{_, false} ->
-	    ok;
-	{_, true} ->
-	    {error, "Unfolding this function application could change the semantics of the program!"}
-    end.
+    BdsInFunToInline = get_bound_vars(ClauseToInline),
+    Fun = fun (Node, S) ->
+		  S ++ get_vars_to_rename(Node, {VarName, BdsInFunToInline})
+	  end,
+    VarsToRename = [{Name, DefinePos}|| 
+		       {_Name, Pos} <- lists:keysort(2, refac_syntax_lib:fold(Fun, [], Clause2)),
+		       {ok, {Name,DefinePos, _}} <-[refac_util:pos_to_var_name(ClauseToInline, Pos)]],
+    do_rename_var(ClauseToInline, lists:usort(VarsToRename), collect_vars(Clause)).
+
 
 do_replace_app_with_match(Node, {App, Var}) ->
     case Node of
@@ -379,38 +372,56 @@ do_replace_app_with_match(Node, {App, Var}) ->
 	_-> {Node, false}
     end.
 
+get_vars_to_rename(Node, {VarName, BdsInFunToInline}) ->
+    Bds = lists:usort([Name || {Name, _Loc} <- refac_util:get_bound_vars(Node)]),
+    Envs = lists:usort([Name || {Name, _Loc} <- refac_util:get_env_vars(Node)]),
+    VarsToRename1 = case lists:member(VarName, Bds) of
+		      true ->
+			  [{Name, Loc} || {Name, Loc} <- BdsInFunToInline,
+					  lists:member(Name, Envs)];
+		      _ -> []
+		    end,
+    VarsToRename2 = case lists:member(VarName, Envs) of
+		      true ->
+			  [{Name, Loc} || {Name, Loc} <- BdsInFunToInline,
+					  lists:member(Name, Bds)];
+		      _ -> []
+		    end,
+    VarsToRename1 ++ VarsToRename2.
 
-do_check_static_semantics(Node, {VarName, BdsInFunToInline}) ->
-    Bds = lists:usort([Name || {Name, _Loc} <-refac_util:get_bound_vars(Node)]),
-    Envs = lists:usort([Name || {Name, _Loc} <-refac_util:get_env_vars(Node)]),
-    case lists:member(VarName, Bds) of 
+
+new_fun(VarName, BdsInFunToInline, Bds, Envs) ->
+    VarsToRename1 = case lists:member(VarName, Bds) of
+		      true ->
+			  [{Name, Loc} || {Name, Loc} <- BdsInFunToInline,
+					  lists:member(Name, Envs)];
+		      _ -> []
+		    end,
+    VarsToRename1.
+
+do_rename_var(Node, [], _UsedVarNames) ->  
+    Node;
+do_rename_var(Node, [V|Vs], UsedVarNames) ->
+    Node1 =do_rename_var_1(Node, V, UsedVarNames),
+    do_rename_var(Node1, Vs, UsedVarNames).
+
+do_rename_var_1(Node, {VarName, DefLoc}, UsedVarNames) ->
+    NewVarName =make_new_name(VarName, ordsets:union(collect_vars(Node), UsedVarNames)),
+    {Node1, _}=refac_rename_var:rename(Node, DefLoc, NewVarName),
+    Node1.
+
+
+
+make_new_name(VarName, UsedVarNames) ->
+    NewVarName = list_to_atom(atom_to_list(VarName)++"_1"),
+    case ordsets:is_element(NewVarName, UsedVarNames) of
 	true ->
-	    case (BdsInFunToInline -- Envs)==BdsInFunToInline of
-		true ->
-		    case lists:member(VarName, Envs) of
-			true ->
-			    case (BdsInFunToInline -- Bds)== BdsInFunToInline of 
-				true ->{[], false};
-				_ -> {Node, true}
-			    end;
-			false ->
-			    {[], false}
-		    end;
-		false -> {Node, true}
-	    end;
+	    make_new_name(NewVarName, UsedVarNames);
 	_ -> 
-	    case lists:member(VarName, Envs) of
-		true ->
-		    case (BdsInFunToInline -- Bds)==BdsInFunToInline of 
-			true ->{[], false};
-			_ -> {Node, true}
-		    end;
-		false ->
-		    {[], false}
-	    end 
+	    NewVarName
     end.
-			     
-
+    
+    
 %%-spec(get_bound_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
 get_bound_vars(Nodes) when is_list(Nodes)->
     lists:flatmap(fun(Node) ->get_bound_vars(Node) end, Nodes);			   
@@ -433,3 +444,42 @@ macro_name_value(Exp) ->
 	    variable ->
 		refac_syntax:variable_name(Exp)
     end.
+
+
+match_expr_patterns(E) ->
+    case refac_syntax:type(E) of 
+	match_expr ->
+	    P = refac_syntax:match_expr_pattern(E),
+	    B = refac_syntax:match_expr_body(E),
+	    [P|match_expr_patterns(B)];
+	_ ->[]
+    end.
+match_expr_body(E) ->
+    case refac_syntax:type(E) of
+	match_expr ->
+	    B = refac_syntax:match_expr_body(E),
+	    match_expr_body(B);
+	_ -> E
+    end.
+
+make_match_expr(Ps, Body) ->	
+    make_match_expr_1(lists:reverse(Ps), Body).
+
+make_match_expr_1([], Body) -> Body;
+make_match_expr_1([P], Body) ->
+    refac_syntax:match_expr(P, Body);
+make_match_expr_1([P|Ps], Body) ->
+    make_match_expr_1(Ps, refac_syntax:match_expr(P, Body)).
+
+
+
+collect_vars(Node) ->
+    Fun= fun(T, S) ->
+		 case refac_syntax:type(T) of 
+		     variable ->
+			 VarName = refac_syntax:variable_name(T),
+			 ordsets:add_element(VarName, S);
+		     _ -> S
+		 end
+	 end,
+    refac_syntax_lib:fold(Fun, ordsets:new(), Node).
