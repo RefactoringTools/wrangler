@@ -52,6 +52,9 @@
 
 -export([rename_var/6, rename_var_eclipse/6]).
 
+-export([rename/3]).
+
+
 -include("../include/wrangler.hrl").
 
 -spec(rename_var/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
