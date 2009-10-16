@@ -1710,7 +1710,7 @@ do_add_category(Node, C) ->
 add_fun_define_locations(Node,Info) ->
     ModName = case lists:keysearch(module, 1, Info) of
 		  {value, {module, ModName1}} -> ModName1;
-		  _ -> ?DEFAULT_MODULE
+		  _ -> '_'
 	      end,
      Funs = fun (T, S) ->
 		   case refac_syntax:type(T) of
@@ -1731,8 +1731,8 @@ add_fun_define_locations(Node,Info) ->
     Define_Mod_Loc = fun (Name, Arity) ->
 			     Fs = ordsets:filter(fun ({_M, F, A, _Pos}) -> (F == Name) and (Arity == A) end, Inscope_Funs),
 			     case Fs of
-			       [] -> {erlang, ?DEFAULT_LOC};   %% is this correct? what about the function is not a BIF?
-			       [{M, _, _, Pos}| _] -> {M, Pos}
+				 [] -> {'_', ?DEFAULT_LOC};   %% is this correct? what about the function is not a BIF?
+				 [{M, _, _, Pos}| _] -> {M, Pos}
 			     end
 		     end,
     F1 = fun (T) ->
