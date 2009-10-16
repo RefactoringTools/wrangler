@@ -55,88 +55,122 @@ inline_fun(FName, Pos = {Line, Col}, SearchPaths, TabWidth, Editor) ->
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     case pos_to_fun_clause_app(AnnAST, Pos) of
 	{ok, {Clause, App}} -> 
-	    {ok, {FunClause, Subst}} = side_cond_analysis(ModName, AnnAST, App),
+	    {ok, {FunClause, {Subst, MatchExprs}}} = side_cond_analysis(ModName, AnnAST, App),
 	    FunClause1 = auto_rename_vars(FunClause, {Clause, App}),
-	    fun_inline_1(FName, AnnAST, Pos, {FunClause1, Subst}, {Clause, App}, Editor);
+	    fun_inline_1(FName, AnnAST, Pos, {FunClause1, Subst, MatchExprs}, {Clause, App}, Editor);
 	{error, Reason} -> throw({error, Reason})
     end.
 
 
 
 side_cond_analysis(ModName, AnnAST, App) ->
-    FunName = refac_syntax:atom_value(refac_syntax:application_operator(App)),
+    Op = refac_syntax:application_operator(App),
     Args = refac_syntax:application_arguments(App),
     Arity = length(Args),
-    Fs = refac_syntax:form_list_elements(AnnAST),
-    Res = [F || F <- Fs, refac_syntax:type(F) == function,
-		case lists:keysearch(fun_def, 1, refac_syntax:get_ann(F)) of
-		    {value, {fun_def, {ModName, FunName, Arity, _, _}}} -> true;
-		  _ -> false
-		end],
-    case Res of
-      [FunDef] ->
-	    Cs = refac_syntax:function_clauses(FunDef),
-	    case find_matching_clause(Cs, Args) of
-		none -> throw({error, "Wrangler could not figure out which function clause to inline."});
-		{C, Subst} ->
-		    {ok, {C, Subst}}
+    case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
+	{value, {fun_def, {ModName, FunName, Arity, _, _}}} ->
+	    Fs = refac_syntax:form_list_elements(AnnAST),
+	    Res = [F || F <- Fs, refac_syntax:type(F) == function,
+			case lists:keysearch(fun_def, 1, refac_syntax:get_ann(F)) of
+			    {value, {fun_def, {ModName, FunName, Arity, _, _}}} -> true;
+			    _ -> false
+			end],
+	    case Res of
+		[FunDef] ->
+		    Cs = refac_syntax:function_clauses(FunDef),
+		    try
+			find_matching_clause(Cs, Args) of
+			none -> throw({error, "The function to be inlined has multiple clauses, "
+				       "and Wrangler could not figure out which function clause to inline."});
+			{C, {Subst, MatchExprs}} ->
+			    {ok, {C,{Subst, MatchExprs}}}
+		    catch 
+ 			_E1:E2 -> 
+			    throw(E2)
+ 		    end;
+		[] ->
+		    throw({error, "The function to be inlined is not defined."});
+		[_| _] ->
+		    throw({error, "The function to be inlined has been defined more than once."})
 	    end;
-	[] ->
+	{value, {fun_def, {'_', _,_, _, _}}} ->
+	    throw({error, "The function to be inlined is not defined."});
+	{value, {fun_def, {_M, _F, _A, _, _}}} ->
 	    throw({error, "Inlining a function defined in another module is not supported yet."});
-	[_| _] ->
-	    throw({error, "The function to be inlined has been defined more than once."})
+	_ -> throw({error, "Sorry, Wrangler could not figure out where the function to be inlined is defined."})
     end.
-
+	    
 find_matching_clause([], _Ps) -> none;
-find_matching_clause([C|Cs], Ps) ->
-    case find_matching_clause_1(C, Ps) of
-	none ->
-	    find_matching_clause(Cs, Ps);
+find_matching_clause([C], Ps) ->
+    case find_matching_clause_1(C, Ps, true) of 
+	no_match -> 
+	    none;
+	no_mor_match -> none;
 	Res ->
-	    {C, Res}
+	    MatchExprs = [ M|| M<-Res, case M of 
+					   {tree, match_expr, _, _} -> true;
+					   _ -> false
+				       end],
+	    SubSt = [ M|| M<-Res, case M of 
+				      {tree, match_expr, _, _} -> false;
+				      _ -> true
+				  end],
+	    {C, {SubSt, MatchExprs}}
+    end;
+find_matching_clause([C|Cs], Ps) ->
+    case find_matching_clause_1(C, Ps, false) of
+	no_match ->
+	    find_matching_clause(Cs, Ps);
+	no_more_match ->
+	    none;
+	Res ->
+	    SubSt = [{P1, P2} || {P1, P2} <-Res],
+	    MatchExprs = [ M|| M<-Res, not (is_tuple(M))],
+	    {C, {SubSt, MatchExprs}}
     end.
 
-find_matching_clause_1(C, AppPs) ->
+find_matching_clause_1(C, AppPs, LastClause) ->
     DefPs = refac_syntax:clause_patterns(C),
     G = refac_syntax:clause_guard(C),
-    case G of 
-	none ->
-	    match_patterns(DefPs, AppPs);
+    case G of
+	none -> match_patterns(DefPs, AppPs, LastClause);
+	_ when LastClause ->
+	    throw({error, "Inlining of a function clause with guard expression(s) is not supported yet."});
 	_ -> none
     end.
 
-match_patterns(DefPs, AppPs) ->
-    try do_match_patterns(DefPs, AppPs) of 
+match_patterns(DefPs, AppPs, LastClause) ->
+    try do_match_patterns(DefPs, AppPs, LastClause) of 
 	Subst -> Subst
     catch 
-	_ -> none
+	throw:E2 -> E2
     end.  
 
-do_match_patterns(DefP, AppP) when is_list(DefP) andalso is_list(AppP) ->
+do_match_patterns(DefP, AppP, LastClause) when is_list(DefP) andalso is_list(AppP) ->
     case length(DefP)== length(AppP) of 
 	false ->
-	    none;
+	    no_match;
 	true-> case DefP of 
 		   [] ->
 		       [];
 		   _ ->
-		       lists:append([do_match_patterns(P1, P2) || 
+		       lists:append([do_match_patterns(P1, P2, LastClause) || 
 					{P1, P2} <-lists:zip(DefP, AppP)])
 	       end
     end;
 
-do_match_patterns(DefP, _AppP) when is_list(DefP) ->
-    throw(non_match);
-do_match_patterns(_DefP, AppP) when is_list(AppP) ->
-    throw(non_match);
-do_match_patterns(DefP, AppP) ->
+do_match_patterns(DefP, _AppP, _) when is_list(DefP) ->
+    throw(no_more_match);
+do_match_patterns(_DefP, AppP, _) when is_list(AppP) ->
+    throw(no_more_match);
+do_match_patterns(DefP, AppP, LastClause) ->
     F = fun(P1, P2) ->
 		SubPats1 = refac_syntax:subtrees(P1),
 		SubPats2 = refac_syntax:subtrees(P2),
-		try do_match_patterns(SubPats1, SubPats2) of
+		try do_match_patterns(SubPats1, SubPats2, LastClause) of
 		    Subst -> Subst
 		catch
-		    _ -> throw(non_match)
+		   throw:E -> E
 		end
 	end,
     T1 = refac_syntax:type(DefP),
@@ -149,16 +183,23 @@ do_match_patterns(DefP, AppP) ->
 		    case lists:keysearch(def,1,Ann) of 
 			{value, {def, DefinePos}} ->
 			    [{DefinePos, AppP}];
-			_ -> throw(non_match)
+			_ -> throw(no_more_match)   %% this should not happen;
 		    end;
-		_ -> throw(non_match)
+		underscore ->
+		    [];
+		_ when LastClause ->
+		    [refac_util:reset_attrs(refac_syntax:match_expr(DefP, AppP))];
+		_ ->case T2 of 
+			variable -> throw(no_more_match);  %% stop here; no more further match needed.
+			_ -> throw(no_match) 
+		    end
 	    end;
 	true -> case refac_syntax:is_literal(DefP) andalso refac_syntax:is_literal(AppP) of
 		    true ->
 			case refac_syntax:concrete(DefP)==refac_syntax:concrete(AppP) of 
 			    true ->
 				[];
-			    _ -> throw(non_match)
+			    _ -> throw(no_match)   %% should continue matching the next clause;
 			end;
 		    false ->
 			case T1 of 
@@ -169,29 +210,30 @@ do_match_patterns(DefP, AppP) ->
 					    macro_name_value(AppP) of 
 					    true ->
 						[];
-					    false -> throw(non_match)
+					    false -> throw(no_match)  %% should continure matching the next clause;
 					end;
 				    {false, false} ->
 					Ann = refac_syntax:get_ann(DefP),
 					case lists:keysearch(def,1,Ann) of 
 					    {value, {def, DefinePos}} ->
 						[{DefinePos, AppP}];
-					    _ -> throw(non_match)
+					    _ -> throw(no_more_match)  %% this should not happen;
 					end
 				end;
 			    underscore -> [];
 			    _ -> case refac_syntax:is_leaf(DefP) of
 				     true ->
-					 throw(non_match);
+					 throw(no_match);  %% should continue matching the next clause;
 				     _ -> F(DefP, AppP)
 				 end
 			end
 		end
     end.
 
-fun_inline_1(FName, AnnAST, Pos, {FunClauseToInline, Subst}, {Clause, App}, Editor) ->
+fun_inline_1(FName, AnnAST, Pos, {FunClauseToInline, Subst, MatchExprsToAdd}, {Clause, App}, Editor) ->
     B = refac_syntax:clause_body(FunClauseToInline),
-    {SubstedBody, _} = lists:unzip([refac_util:stop_tdTP(fun do_subst/2, E, Subst) || E <- B]),
+    {SubstedBody1, _} = lists:unzip([refac_util:stop_tdTP(fun do_subst/2, E, Subst) || E <- B]),
+    SubstedBody = MatchExprsToAdd ++ SubstedBody1,
     Fs = refac_syntax:form_list_elements(AnnAST),
     Fs1 = [do_inline(F, Pos, Clause, App, SubstedBody) || F <- Fs],
     AnnAST1 = refac_util:rewrite(AnnAST, refac_syntax:form_list(Fs1)),
@@ -248,7 +290,7 @@ remove_begin_end(Node, BlockBody) ->
 				  case refac_syntax:block_expr_body(B) of 
 				      BlockBody ->
 					  Last = lists:last(BlockBody),
-					  NewLast = refac_util:reset_attrs(make_match_expr(Ps, Last)),
+					  NewLast = make_match_expr([refac_util:reset_attrs(P)||P<-Ps], Last),
 					  lists:sublist(BlockBody, length(BlockBody)-1)++[NewLast];
 				      _ -> [E]
 				  end;
@@ -388,16 +430,6 @@ get_vars_to_rename(Node, {VarName, BdsInFunToInline}) ->
 		      _ -> []
 		    end,
     VarsToRename1 ++ VarsToRename2.
-
-
-new_fun(VarName, BdsInFunToInline, Bds, Envs) ->
-    VarsToRename1 = case lists:member(VarName, Bds) of
-		      true ->
-			  [{Name, Loc} || {Name, Loc} <- BdsInFunToInline,
-					  lists:member(Name, Envs)];
-		      _ -> []
-		    end,
-    VarsToRename1.
 
 do_rename_var(Node, [], _UsedVarNames) ->  
     Node;
