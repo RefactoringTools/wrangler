@@ -44,13 +44,16 @@
 -export([rename_var/6, rename_fun/6, rename_mod/4,
 	 rename_process/6, rename_mod_batch/4, generalise/6,
 	 move_fun/7, duplicated_code_in_buffer/4,
-	 duplicated_code_in_dirs/4, identical_expression_search/4, similar_expression_search/6,
-	 fun_extraction/5, fold_expr/1,  fold_expr_by_loc/5, fold_expr_by_name/7, 
-	 instrument_prog/3, similar_code_detection_in_buffer/6, similar_code_detection/6,
-	 uninstrument_prog/3, add_a_tag/6, tuple_funpar/5, tuple_funpar_1/5,
-	 tuple_to_record/9, register_pid/6, fun_to_process/6,new_macro/6,
-	fold_against_macro/5, normalise_record_expr/6,
-	inline_fun/4]).
+	 duplicated_code_in_dirs/4,
+	 identical_expression_search/4,
+	 similar_expression_search/6, fun_extraction/5,
+	 fold_expr/1, fold_expr_by_loc/5, fold_expr_by_name/7,
+	 instrument_prog/3, similar_code_detection_in_buffer/6,
+	 similar_code_detection/6, uninstrument_prog/3,
+	 add_a_tag/6, tuple_funpar/5, tuple_funpar_1/5,
+	 tuple_to_record/9, register_pid/6, fun_to_process/6,
+	 new_macro/6, fold_against_macro/5,
+	 normalise_record_expr/6, unfold_fun_app/4]).
 
 -export([rename_var_eclipse/6, rename_fun_eclipse/6,
 	 rename_mod_eclipse/4, rename_mod_1_eclipse/5,
@@ -61,7 +64,8 @@
 	 fold_expr_by_loc_eclipse/5, fold_expr_by_name_eclipse/7,
 	 fold_expression_1_eclipse/5,fold_expression_2_eclipse/7,
 	 new_macro_eclipse/6, rename_process_eclipse/6, rename_process_1_eclipse/5, 
-	 fun_to_process_eclipse/6, fun_to_process_1_eclipse/6]).
+	 fun_to_process_eclipse/6, fun_to_process_1_eclipse/6,
+	 unfold_fun_app_eclipse/4]).
 
 -export([try_refactoring/3, try_inspector/3]).
 -include("../include/wrangler.hrl").
@@ -429,11 +433,16 @@ fun_extraction_eclipse(FileName, Start, End, FunName, TabWidth) ->
     try_refactoring(refac_new_fun, fun_extraction_eclipse, [FileName, Start, End, FunName, TabWidth]).
 
 
--spec(inline_fun/4::(FileName::filename(), Pos::pos(), SearchPaths::[dir()], TabWidth::integer)
+-spec(unfold_fun_app/4::(FileName::filename(), Pos::pos(), SearchPaths::[dir()], TabWidth::integer)
       ->{error, string()} |{'ok', [string()]}).
-inline_fun(FileName, Pos, SearchPaths, TabWidth) ->
-    try_refactoring(refac_inline_fun, inline_fun, [FileName, Pos, SearchPaths, TabWidth]).
+unfold_fun_app(FileName, Pos, SearchPaths, TabWidth) ->
+    try_refactoring(refac_unfold_fun_app, unfold_fun_app, [FileName, Pos, SearchPaths, TabWidth]).
 
+
+-spec(unfold_fun_app_eclipse/4::(FileName::filename(), Pos::pos(), SearchPaths::[dir()], TabWidth::integer)
+      ->{error, string()} | {ok, [{filename(), filename(), string()}]}).
+unfold_fun_app_eclipse(FileName, Pos, SearchPaths, TabWidth) ->
+    try_refactoring(refac_unfold_fun_app, unfold_fun_app_eclipse, [FileName, Pos, SearchPaths, TabWidth]).
 
 %% =============================================================================================
 %% @doc Fold expressions against a function definition.
