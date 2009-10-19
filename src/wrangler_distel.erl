@@ -104,10 +104,10 @@ fun_extraction(FName, StartLine, StartCol, EndLine, EndCol, FunName, TabWidth) -
     apply_refactoring(wrangler, fun_extraction, [FName, {StartLine, StartCol}, {EndLine, EndCol}, FunName, TabWidth], []).
 	 
 
--spec(inline_fun/5::(FileName::filename(), StartLine::integer(), StartCol::integer(), SearchPaths::[dir()], TabWidth::integer)
+-spec(unfold_fun_app/5::(FileName::filename(), StartLine::integer(), StartCol::integer(), SearchPaths::[dir()], TabWidth::integer)
       ->{error, string()} | {'ok', [string()]}).
-inline_fun(FileName, StartLine, StartCol, SearchPaths, TabWidth) ->
-    apply_refactoring(wrangler, inline_fun, [FileName, {StartLine, StartCol}, SearchPaths, TabWidth], SearchPaths).
+unfold_fun_app(FileName, StartLine, StartCol, SearchPaths, TabWidth) ->
+    apply_refactoring(wrangler, unfold_fun_app, [FileName, {StartLine, StartCol}, SearchPaths, TabWidth], SearchPaths).
    
 -spec(new_macro/8::(filename(), integer(), integer(), integer(), integer(), string(), [dir()], integer()) ->
 	      {error, string()} | {ok, string()}).
@@ -148,7 +148,6 @@ instrument_prog(FName, SearchPaths, TabWidth) ->
 	     {error, string()} | {ok, [filename()]}).
 tuple_funpar(Fname, StartLine, StartCol, EndLine, EndCol, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, tuple_funpar, [Fname, {StartLine, StartCol}, {EndLine, EndCol},SearchPaths, TabWidth], SearchPaths).
-
 
 -spec(tuple_to_record/9::(filename(), integer(), integer(), integer(), integer(), string(), [string()], [dir()], integer()) ->
 	     {error, string()} | {ok, [filename()]}).
