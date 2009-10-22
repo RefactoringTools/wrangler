@@ -53,7 +53,7 @@
 	 new_variable_name/1, new_variable_name/2,
 	 new_variable_names/2, new_variable_names/3,
 	 strip_comments/1, to_comment/1, to_comment/2,
-	 to_comment/3, variables/1]).
+	 to_comment/3, variables/1, vann_clause/4]).
 
 %% =====================================================================
 %% @spec map(Function, Tree::syntaxTree()) -> syntaxTree()
@@ -482,15 +482,18 @@ vann(Tree, Env, Ms, VI) ->
 	block_expr -> vann_block_expr(Tree, Env, Ms, VI);
 	macro -> vann_macro(Tree, Env, Ms, VI);
 	%% Added by HL, begin.
-	attribute -> case  refac_syntax:atom_value(refac_syntax:attribute_name(Tree)) of 
-			 define -> vann_define(Tree,Env, Ms, VI);
-			 ifdef -> {Tree, [], []};  
-			 inndef ->{Tree, [], []};
-			 undef -> {Tree, [], []};
-			 _ -> F = vann_list_join(Env, Ms, VI),
-			      {Tree1, {Bound, Free}} = mapfold_subtrees(F, {[],[]}, Tree),
-			      {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}
-		     end;
+	attribute -> 
+	    Toks0 = refac_util:get_toks(Tree),
+	    Tree1 = adjust_locations(Tree, Toks0),
+	    case  refac_syntax:atom_value(refac_syntax:attribute_name(Tree1)) of 
+		define -> vann_define(Tree1,Env, Ms, VI);
+		ifdef -> {Tree1, [], []};  
+		inndef ->{Tree1, [], []};
+		undef -> {Tree1, [], []};
+		_ -> F = vann_list_join(Env, Ms, VI),
+		     {Tree2, {Bound, Free}} = mapfold_subtrees(F, {[],[]}, Tree1),
+		     {ann_bindings(Tree2, Env, Bound, Free), Bound, Free}
+	    end;
 	%% Added by HL, end.
 	_Type ->
 	    F = vann_list_join(Env, Ms, VI),
@@ -589,7 +592,6 @@ vann_cond_expr(Tree, Env, _Ms, _VI) ->
     {ann_bindings(Tree, Env, [], []), [],[]}.   %% TODO: NEED TO CHANGE THIS BACK.
     %% erlang:error({not_implemented, cond_expr}).
 
-%% TODO: NEED TO CHECK THE SEMANTICS OF try-expression!!!.
 vann_try_expr(Tree, Env, Ms, VI) ->  
     Body = refac_syntax:try_expr_body(Tree),
     {Body1, {Bound1, Free1}} = vann_body(Body, Env, Ms, VI),
@@ -611,8 +613,7 @@ vann_try_expr(Tree, Env, Ms, VI) ->
     Tree1 = rewrite(Tree, refac_syntax:try_expr(Body1, Cs1, Handlers1, After1)),
     Bound = ordsets:union(ordsets:union(ordsets:union(Bound1, Bound2), Bound3),Bound4),
     Free  = ordsets:union(ordsets:union(ordsets:union(Free1, Free2), Free3),Free4),
-    {ann_bindings(Tree1, Env, Bound, Free), Bound,Free}.    %% TODO: NEED TO CHANGE THIS BACK.
-    %% erlang:error({not_implemented, try_expr}).
+    {ann_bindings(Tree1, Env, Bound, Free), Bound,Free}.    
 
 vann_receive_expr(Tree, Env, Ms, VI) ->
     %% The timeout action is treated as an extra clause.
@@ -2242,6 +2243,26 @@ adjust_locations(Form, []) -> Form;
 adjust_locations(Form, Toks) ->
     F = fun (T) ->
 		case refac_syntax:type(T) of
+		    attribute ->
+			Name = refac_syntax:attribute_name(T),
+			case (refac_syntax:type(Name)==atom) andalso
+			    (refac_syntax:atom_value(Name)==file) of 
+			    true -> 
+				[File, Data] = refac_syntax:attribute_arguments(T),
+				Pos = refac_syntax:get_pos(File),
+				Toks1 = lists:dropwhile(fun(B) -> element(2, B)=<Pos orelse
+								      element(1, B) =/= string end, Toks),
+				StrTok = hd(Toks1),
+				StrPos = element(2, StrTok),
+				{_, EndPos} = refac_util:get_range(File),
+				File1 = refac_syntax:add_ann({toks, [StrTok]},
+							     refac_util:update_ann(refac_syntax:set_pos(File, StrPos),
+										  {range, {StrPos, EndPos}})),
+				Toks2 = lists:dropwhile(fun(B) -> element(1, B) =/= integer end, Toks1),
+				Data1 = refac_syntax:set_pos(Data, element(2, hd(Toks2))),
+				refac_util:rewrite(T, refac_syntax:attribute(Name, [File1, Data1]));			    
+			    _ -> T
+			end;
 		    implicit_fun ->
 			Pos = refac_syntax:get_pos(T),
 			Name = refac_syntax:implicit_fun_name(T),
