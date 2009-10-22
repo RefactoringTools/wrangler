@@ -1152,6 +1152,7 @@ show_fv_vars([{A, {Line, Col}} | T]) ->
 add_range(AST, Toks) ->
     full_buTP(fun do_add_range/2, AST, Toks).
 do_add_range(Node, Toks) ->
+    
     {L, C} = case refac_syntax:get_pos(Node) of
 	       {Line, Col} -> {Line, Col};
 	       Line -> {Line, 0}
