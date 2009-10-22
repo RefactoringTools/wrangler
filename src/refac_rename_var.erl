@@ -48,11 +48,9 @@
 
 -module(refac_rename_var).
 
--compile(export_all).
-
 -export([rename_var/6, rename_var_eclipse/6]).
 
--export([rename/3]).
+-export([rename/3, cond_check/4]).
 
 
 -include("../include/wrangler.hrl").
@@ -139,9 +137,10 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 %% =====================================================================
 %% @spec cond_check(Tree::syntaxTree(), Pos::{integer(),integer()}, NewName::string())-> term()
 %%   		
-cond_check(Form, Pos, VarName,  NewName) ->
+cond_check(Form, Pos, _VarName,  NewName) ->
     Env_Bd_Fr_Vars = envs_bounds_frees(Form),
     BdVars = [B || {_, B, _}<-Env_Bd_Fr_Vars],
+    refac_io:format("Envs_dd:\n~p\n", [Env_Bd_Fr_Vars]),
     %% The new name clashes with existing bound variables.
     F = fun({bound, Bds}) ->
 		{Names, Poss} = lists:unzip(Bds),
@@ -150,16 +149,18 @@ cond_check(Form, Pos, VarName,  NewName) ->
 		    false -> 
 			false;
 		    true -> 
-			DefPoss = [P||{N, P} <- Bds, NewName==N],
-			VarEnvs = [defpos_to_var_env(Form, [P])|| P<-DefPoss],
-			VarToRenameEnv = defpos_to_var_env(Form, Pos),
-			case lists:any(fun({N,_P}) ->N==NewName end, VarToRenameEnv) of 
-			    true ->
-				true;
-			    false ->
-				lists:any(fun(E) -> lists:any(fun({N,_P})-> N==VarName end, E) 
-					  end, VarEnvs)
-			end
+			true  %% This might be too strict?
+		%% 	DefPoss = [P||{N, P} <- Bds, NewName==N],
+%% 			refac_io:format("DefPoss:\n~p\n", [DefPoss]),
+%% 			VarEnvs = [defpos_to_var_env(Form, [P])|| P<-DefPoss],
+%% 			VarToRenameEnv = defpos_to_var_env(Form, Pos),
+%% 			case lists:any(fun({N,_P}) ->N==NewName end, VarToRenameEnv) of 
+%% 			    true ->
+%% 				true;
+%% 			    false ->
+%% 				lists:any(fun(E) -> lists:any(fun({N,_P})-> N==VarName end, E) 
+%% 					  end, VarEnvs)
+%% 			end
 		end	      
 	end,
     Clash = lists:any(F, BdVars),
