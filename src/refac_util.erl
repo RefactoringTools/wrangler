@@ -1770,12 +1770,14 @@ add_fun_define_locations(Node, Info) ->
 			 tuple ->
 			     case refac_syntax:tuple_elements(Operator) of
 			       [Mod, Fun] ->
-				   {M, FunName, Arity} = get_mod_fun_arg_info(Mod, Fun, Arguments, ModName),
-				   DefLoc = if M == ModName -> {_ModName, DefLoc1} = Define_Mod_Loc(FunName, Arity), DefLoc1;
+				     {M, FunName, Arity} = get_mod_fun_arg_info(Mod, Fun, Arguments, ModName),
+				     DefLoc = if M == ModName -> {_ModName, DefLoc1} = Define_Mod_Loc(FunName, Arity), DefLoc1;
 					       true -> ?DEFAULT_LOC
-					    end,
-				   Operator1 = update_ann(Operator, {fun_def, {M, FunName, Arity, refac_syntax:get_pos(T), DefLoc}}),
-				   rewrite(T, refac_syntax:application(Operator1, Arguments));
+					      end,				     
+				     Fun1 = update_ann(Fun, {fun_def, {M, FunName, Arity, refac_syntax:get_pos(Fun), DefLoc}}),
+				     Operator1 = rewrite(Operator, refac_syntax:tuple([Mod, Fun1])),
+				     Operator2 = update_ann(Operator1, {fun_def, {M, FunName, Arity, refac_syntax:get_pos(T), DefLoc}}),
+				   rewrite(T, refac_syntax:application(Operator2, Arguments));
 			       _ ->
 				   Arity = length(Arguments),
 				   Operator1 = update_ann(Operator, {fun_def, {'_', '_', Arity, refac_syntax:get_pos(Operator), ?DEFAULT_LOC}}),
