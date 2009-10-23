@@ -84,9 +84,10 @@
 %% <em> Rename Variable Name </em> from <em> Refactor </em>, after that, Wrangler will prompt
 %% to enter the new variable name in the mini-buffer. 
 %% </p>
-%% @spec rename_var(FileName::filename(), Line::integer(), Col::integer(), NewName::string(), SearchPaths::[dir()], TabWidth:: integer()) ->{error, string()} | {ok, string()}
+%% @spec rename_var(FileName::filename(), Line::integer(), Col::integer(), NewName::string(), SearchPaths::[dir()], TabWidth:: integer())
+%%  ->{error, string()} | {ok, string()}
 -spec(rename_var/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
-	     {error, string()} | {ok, string()}).
+	     {error, string()} | {ok, filename()}).
 rename_var(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     try_refactoring(refac_rename_var, rename_var, [FileName, Line, Col, NewName, SearchPaths, TabWidth]).
    
@@ -115,7 +116,6 @@ rename_var_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
 %% </p>
 %% @spec rename_fun(FileName::filename(), Line::integer(), Col::integer(), NewName::string(), SearchPaths::[dir()], TabWidth:: integer())
 %% -> {error, string()} | {ok, [filename()]}
-
 -spec(rename_fun/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
 	     {error, string()} | {ok, [filename()]}).
 rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
@@ -141,7 +141,8 @@ rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
 %% <em> Rename Module Name </em> from the <em> Refactor </em> menu, after that, the refactorer will prompt to enter 
 %% the new module name in the mini-buffer.
 %% </p>
- 
+%%@spec rename_mod/4::(filename(), string(), [dir()], integer()) -> 
+%%	     {error, string()} | {question, string()} | {warning, string()} |{ok, [filename()]}
 -spec(rename_mod/4::(filename(), string(), [dir()], integer()) -> 
 	     {error, string()} | {question, string()} | {warning, string()} |{ok, [filename()]}).
 rename_mod(FileName, NewName, SearchPaths, TabWidth) ->
@@ -432,13 +433,24 @@ fun_extraction(FileName, Start, End, FunName, TabWidth) ->
 fun_extraction_eclipse(FileName, Start, End, FunName, TabWidth) -> 
     try_refactoring(refac_new_fun, fun_extraction_eclipse, [FileName, Start, End, FunName, TabWidth]).
 
-
--spec(unfold_fun_app/4::(FileName::filename(), Pos::pos(), SearchPaths::[dir()], TabWidth::integer)
-      ->{error, string()} |{'ok', [string()]}).
+%% =====================================================================================================
+%%@doc Unfold a function application to an instance of the function's body.
+%% <p> This refactoring replaces a function application with an instance of the function body.
+%% With the current implementation, Wrangler unfolds a function application only if the function 
+%% is defined in the same module, and Wrangler could work out which function clause to use (in case 
+%% the function definition contains multiple function clauses).
+%% </p>
+%% <p>
+%% Usage: Point the cursor to the function name in the function application to unfold, then 
+%% select <em>Unfold Function Application</em> from <em>Refactor</em>.
+%% </p>
+%%-spec(unfold_fun_app/4::(FileName::filename(), Pos::pos(), SearchPaths::[dir()], TabWidth::integer)
+%%      ->{error, string()} |{'ok', [string()]}).
 unfold_fun_app(FileName, Pos, SearchPaths, TabWidth) ->
     try_refactoring(refac_unfold_fun_app, unfold_fun_app, [FileName, Pos, SearchPaths, TabWidth]).
 
 
+%%@private
 -spec(unfold_fun_app_eclipse/4::(FileName::filename(), Pos::pos(), SearchPaths::[dir()], TabWidth::integer)
       ->{error, string()} | {ok, [{filename(), filename(), string()}]}).
 unfold_fun_app_eclipse(FileName, Pos, SearchPaths, TabWidth) ->
