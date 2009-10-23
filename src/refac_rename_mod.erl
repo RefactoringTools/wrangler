@@ -346,6 +346,17 @@ do_rename_mod_in_tuples(Tuple, {FileName, OldNewModPairs, Pid}) ->
 		    end;
 		_ -> {Tuple, false}
 	    end;
+	[E1, E2] ->
+	    As = refac_syntax:get_ann(Tuple),
+	    case lists:keysearch(fun_def,1,As) of
+		{value, {fun_def, {ModName, _, _, _,_}}} ->
+		    case lists:keysearch(ModName, 1, OldNewModPairs) of 
+			{value, {_OldModName, NewModName}} ->
+			    {copy_pos_attrs(Tuple, refac_syntax:tuple([copy_pos_attrs(E1, refac_syntax:atom(NewModName)), E2])), true};
+			false -> {Tuple, false}
+		    end;
+		_ -> {Tuple, false}
+	    end;
 	_ -> {Tuple, false}
     end.
 
