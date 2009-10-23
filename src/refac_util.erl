@@ -1749,10 +1749,9 @@ add_fun_define_locations(Node, Info) ->
 		       T3 = rewrite(T, refac_syntax:function(Name1, T2)),
 		       update_ann(T3, {fun_def, {ModName, Fun_Name, Arity, Pos, Pos}});
 		   application ->
-		       Operator = refac_syntax:application_operator(T),
-		       Arguments = refac_syntax:application_arguments(T),
-			 refac_io:format("OPType:\n~p\n", [refac_syntax:type(Operator)]),
-		       case refac_syntax:type(Operator) of
+			 Operator = refac_syntax:application_operator(T),
+			 Arguments = refac_syntax:application_arguments(T),
+			 case refac_syntax:type(Operator) of
 			 atom ->
 			     Op = refac_syntax:atom_value(Operator),
 			     Arity = length(Arguments),
