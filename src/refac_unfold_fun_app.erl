@@ -24,9 +24,13 @@
 %% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %% ============================================================================================
-%% Refactoring: Unfold a function application.
-%% This refactoring replaces a function application with the function definition whose formal 
-%% parameters being replaced by actual parameters. Some remarks about the implementation:
+%%@doc Unfold a function application to an instance of the function's body.
+%% <p> This refactoring replaces a function application with an instance of the function body.
+%% With the current implementation, Wrangler unfolds a function application only if the function 
+%% is defined in the same module, and Wrangler could work out which function clause to use (in case 
+%% the function definition contains multiple function clauses).
+%% </p>
+%% Some remarks about the implementation:
 %% 1) This refactoring does automatic variable renaming of variables decared in the function 
 %% to be inlined if there would be a name capture/conflict without doing so;
 %% 2) In the case that the function definition has multiple clause, Wrangler tries to work out 
@@ -46,6 +50,12 @@
 -include("../include/wrangler.hrl").
 
 %% =============================================================================================
+%% <p>
+%% Usage: Point the cursor to the function name in the function application to unfold, then 
+%% select <em>Unfold Function Application</em> from <em>Refactor</em>.
+%% </p>
+%%-spec(unfold_fun_app/4::(FileName::filename(), Pos::pos(), SearchPaths::[dir()], TabWidth::integer)
+%%      ->{error, string()} |{'ok', [string()]}).
 -spec(unfold_fun_app/4::(FileName::filename(), Pos::pos(), SearchPaths::[dir()], TabWidth::integer)
       ->{'ok', [string()]} | {error, string()}).
 unfold_fun_app(FileName, Pos, SearchPaths, TabWidth) ->
@@ -301,6 +311,7 @@ is_non_reducible_term(T) ->
 	  char -> true;
 	  string -> true;
 	  nil -> true;
+	  fun_expr -> true;
 	  list ->
 	      case is_non_reducible_term(refac_syntax:list_head(T)) of
 		  true -> is_non_reducible_term(refac_syntax:list_tail(T));
@@ -498,7 +509,6 @@ do_replace_app_with_match(Node, {App, MatchExpr}) ->
     end.
 
 get_vars_to_rename(Clause, Pos, VarName, NewNames, ClauseToInline) ->
-    Res =[refac_rename_var:cond_check(Clause, Pos, VarName, Name)||{Name,_}<-NewNames],
     [{Name, DefinePos}||{Name, P}<-NewNames, 
 			refac_rename_var:cond_check(Clause, Pos, VarName, Name)=/={false, false, false},
 			{ok, {_,DefinePos, _}} <-[refac_util:pos_to_var_name(ClauseToInline, P)]].
