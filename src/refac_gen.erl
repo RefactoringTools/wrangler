@@ -402,7 +402,7 @@ add_function(ModName, Tree, FunName, DefPos, Exp, SideEffect) ->
 		Pats1 = lists:map(Fun, Pats),
 		G =  refac_syntax:clause_guard(C),
 		Op = refac_syntax:operator(Name),    
-		Args = Pats1 ++ [reset_attr(Expr, fun_def)],
+		Args = Pats1 ++ [refac_util:reset_attrs(Expr)],
 		Body = [refac_syntax:application(Op, Args)],
 		refac_syntax:clause(Pats, G, Body)
 	end,
@@ -650,7 +650,7 @@ add_parameter(C, NewPar) ->
 
 
 
-to_keep_original_fun(FileName, AnnAST, ModName, FunName, Arity, Exp, Info) ->
+to_keep_original_fun(FileName, AnnAST, ModName, FunName, Arity, _Exp, Info) ->
     refac_util:is_exported({FunName, Arity}, Info) orelse
 	is_eunit_special_function(FileName, atom_to_list(FunName), Arity) orelse
        	check_atoms(AnnAST, [FunName]) orelse
