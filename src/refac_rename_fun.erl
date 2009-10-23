@@ -264,7 +264,7 @@ do_rename_fun_1(Tree, {FileName, {M, OldName, Arity},
 					    {Tree1, true};
 					_ -> {Tree, false}
 				    end;
-			     module_qualifier ->
+				module_qualifier ->
 				    Mod = refac_syntax:module_qualifier_argument(Operator),
 				    Fun = refac_syntax:module_qualifier_body(Operator),
 				    case get_fun_def_info(Operator) of
@@ -275,6 +275,20 @@ do_rename_fun_1(Tree, {FileName, {M, OldName, Arity},
 					    Tree1 = rewrite(Tree, refac_syntax:application(Operator1, Arguments)),
 					    {Tree1, true};
 					_ -> {Tree, false}
+				    end;
+				tuple ->
+				    case refac_syntax:tuple_elements(Operator) of 
+					[Mod, Fun] ->
+					    case get_fun_def_info(Operator) of
+						{M, OldName, Arity, _} ->
+						    Fun2 = rewrite(Fun, refac_syntax:atom(NewName)),
+						    %% Need to change the fun_def annotation as well?
+						    Operator1 = rewrite(Operator, refac_syntax:tuple([Mod, Fun2])),
+						    Tree1 = rewrite(Tree, refac_syntax:application(Operator1, Arguments)),
+						    {Tree1, true};
+						_ -> {Tree, false}
+					    end;
+					_ -> {Tree, fasle}
 				    end;
 				_ -> {Tree, false}
 			    end
@@ -373,6 +387,19 @@ do_rename_fun_in_client_module_1(Tree, {FileName, {M, OldName, Arity}, NewName, 
 					   {Tree1, true};
 				       _ -> {Tree, false}
 				   end;
+			       tuple ->
+				   case refac_syntax:tuple_elements(Operator) of 
+				       [Mod, Fun] ->
+					   case get_fun_def_info(Operator) of
+					       {M, OldName, Arity, _} ->
+						   Fun2 = rewrite(Fun, refac_syntax:atom(NewName)),
+						   %% Need to change the fun_def annotation as well?
+						   Operator1 = rewrite(Operator, refac_syntax:tuple([Mod, Fun2])),
+						   Tree1 = rewrite(Tree, refac_syntax:application(Operator1, Arguments)),
+						   {Tree1, true};
+					       _ -> {Tree, false}
+					   end;
+				       _ -> {Tree, fasle}
 			       _ -> {Tree, false}
 			   end
 		end;
