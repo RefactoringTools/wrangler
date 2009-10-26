@@ -131,7 +131,7 @@ rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
 -spec(rename_fun_1_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
 	     {error, string()} | {ok, [filename()]}).
 rename_fun_1_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
-    try_refactoring(refac_rename_fun, rename_fun_1_eclipse([FileName, Line, Col, NewName, SearchPaths, TabWidth]).
+    try_refactoring(refac_rename_fun, rename_fun_1_eclipse, [FileName, Line, Col, NewName, SearchPaths, TabWidth]).
     
 
 %%======================================================================================
