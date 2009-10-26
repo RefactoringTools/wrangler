@@ -432,10 +432,15 @@ do_transform_fun(Node, {FileName,{ModName, FunName, Arity},TargetModName, InScop
 				{M, F, A} == {ModName, FunName, Arity} of
 				true ->
 				    {Node, false};
-				_ -> 
+				_ when  M=/='_'  ->
 				    {copy_pos_attrs(Node, refac_syntax:application(
 							    copy_pos_attrs(Op, refac_syntax:module_qualifier(refac_syntax:atom(M), Op)), Args)),
-				     true}
+				     true};
+				_ ->
+				    {Line, Col} = refac_syntax:get_pos(Op),
+				    Str = "Wrangler could not infer where the function "++atom_to_list(F)++"/"++ integer_to_list(A) ++
+					", used at location {"++integer_to_list(Line)++","++integer_to_list(Col)++"} in the current module, is defined.",               
+				    throw({error, Str})
 			    end;
 			_ ->
 			    case (M==TargetModName) of 
@@ -653,9 +658,19 @@ do_remove_module_qualifier(Node, {FileName, {ModName, FunName, Arity}, TargetMod
 	  Args = refac_syntax:application_arguments(Node),
 	  case application_info(Node) of
 	    {{none, FunName}, Arity} -> {Node, true};
-	    {{ModName, FunName}, Arity} -> Op1 = copy_pos_attrs(Op, refac_syntax:atom(FunName)),
-					   Node1 = copy_pos_attrs(Node, refac_syntax:application(Op1, Args)),
-					   {Node1, true};
+	      {{ModName, FunName}, Arity} -> 
+		  case refac_syntax:type(Op) of 
+		      tuple ->
+			  [M, F] = refac_syntax:tuple_elements(Op),
+			  Op1= copy_pos_attrs(Op, refac_syntax:tuple(
+					[copy_pos_attrs(M, refac_syntax:atom(TargetModName)), F])),
+			  Node1= copy_pos_attrs(Node, refac_syntax:application(Op1,Args)),
+			  {Node1, true};
+		      _ ->
+			  Op1 = copy_pos_attrs(Op, refac_syntax:atom(FunName)),
+			  Node1 = copy_pos_attrs(Node, refac_syntax:application(Op1, Args)),
+			  {Node1, true}
+		  end;
 	    {{Mod1, Fun1}, Ari1} ->
 		case lists:keysearch({Mod1, Fun1, Ari1}, 1, refac_rename_fun:apply_style_funs()) of
 		  {value, _} ->
@@ -724,7 +739,16 @@ do_add_change_module_qualifier(Node, {FileName, {ModName, FunName, Arity}, Targe
 			false ->
 			    case {Mod1, Fun1, Ari1} of
 				{ModName, FunName, Arity} ->
-				    MakeApp(Node, Operator, Args, TargetModName, FunName);
+				    case refac_syntax:type(Operator) of 
+					tuple -> 
+					    [M, F] = refac_syntax:tuple_elements(Operator),
+					    Operator1= copy_pos_attrs(Operator, refac_syntax:tuple(
+								[copy_pos_attrs(M, refac_syntax:atom(TargetModName)), F])),
+					    Node1= copy_pos_attrs(Node, refac_syntax:application(Operator1,Args)),
+					    {Node1, true};
+					_ ->
+					    MakeApp(Node, Operator, Args, TargetModName, FunName)
+				    end;					
 				_ ->{Node, false}
 			    end
 		    end;
@@ -853,9 +877,9 @@ do_change_module_qualifier(Node, {FileName, {ModName, FunName, Arity}, TargetMod
 	      end,
     case refac_syntax:type(Node) of
       application ->
-	  Operator = refac_syntax:application_operator(Node),
+	    Op = refac_syntax:application_operator(Node),
 	  Args = refac_syntax:application_arguments(Node),
-	  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Operator)) of
+	  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
 	    {value, {fun_def, {Mod1, Fun1, Ari1, _, _}}} ->
 		case lists:keysearch({Mod1, Fun1, Ari1}, 1, refac_rename_fun:apply_style_funs()) of
 		  {value, _} ->
@@ -863,10 +887,16 @@ do_change_module_qualifier(Node, {FileName, {ModName, FunName, Arity}, TargetMod
 		  false ->
 		      case {Mod1, Fun1, Ari1} of
 			{ModName, FunName, Arity} ->
-			    case refac_syntax:type(Operator) of
-			      module_qualifier ->
-				  MakeApp(Node, Operator, Args, TargetModName, FunName);
-			      _ -> {Node, false}
+			    case refac_syntax:type(Op) of
+				module_qualifier ->
+				  MakeApp(Node, Op, Args, TargetModName, FunName);
+				tuple ->
+				    [M, F] = refac_syntax:tuple_elements(Op),
+				    Op1 = copy_pos_attrs(Op, refac_syntax:tuple(
+							       [copy_pos_attrs(M, refac_syntax:atom(TargetModName)), F])),
+				    Node1 = copy_pos_attrs(Node, refac_syntax:application(Op1, Args)),
+				    {Node1, true};
+				_ -> {Node, false}
 			    end;
 			_ -> {Node, false}
 		      end
@@ -1003,6 +1033,13 @@ reset_attrs(Node, {M, F, A}) ->
 
 do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, FunName, TargetModName, Arity, Pid, TabWidth}) ->
     case refac_syntax:tuple_elements(Node) of
+%% 	[E1, E2] ->
+%% 	    As = refac_syntax:get_ann(Node),
+%% 	    case lists:keysearch(fun_def,1,As) of
+%% 		{value, {fun_def, {ModName, FunName,Arity, _,_}}} ->
+%% 		    {copy_pos_attrs(Node, refac_syntax:tuple([copy_pos_attrs(E1, refac_syntax:atom(TargetModName)), E2])), true};
+%% 		_ -> {Node, false}
+%% 	    end;
 	[E1, E2, E3] ->
 	    case refac_rename_fun:try_eval(FileName, E1, SearchPaths, TabWidth) of
 		{value, ModName} ->
