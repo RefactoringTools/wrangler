@@ -243,7 +243,7 @@ check_macros_records(FileName, TargetFileName, FunDef, SearchPaths, TabWidth) ->
 					 _ -> []
 				       end
 				 end,
-		case length(UsedMacros) > length(UsedMacroDefs) of
+		  case length(UsedMacros) > length(UsedMacroDefs) of
 		  true -> UnDefinedUsedMacros = UsedMacros -- [Name || {Name, _Def} <- UsedMacroDefs],
 			  ?wrangler_io("\nThe following macros are used by the function selected, but not defined.\n~p\n", [UnDefinedUsedMacros]),
 			  throw({error, "Some macros used by the function selected are not defined."});
@@ -276,7 +276,8 @@ check_macros_records(FileName, TargetFileName, FunDef, SearchPaths, TabWidth) ->
 				end;
 			    true ->
 			    ?wrangler_io("\nThe following macros used by the function selected "
-					 "are not defined in the target module.\n~p\n", [UsedMacros -- UsedMacroDefsInTargetFile]),
+					 "are not defined in the target module.\n~p\n", 
+					 [UsedMacros -- element(1, lists:unzip(UsedMacroDefsInTargetFile))]),
 			    throw({error, "Some macros used by the function selected are not defined in the target module."})
 		      end,
 		      TargetModInfo = get_mod_info_from_parse_tree(TargetAST),
@@ -290,7 +291,8 @@ check_macros_records(FileName, TargetFileName, FunDef, SearchPaths, TabWidth) ->
 		      case length(UsedRecords) > length(UsedRecordDefsInTargetFile) of
 			true ->
 			      ?wrangler_io("\nThe following records used by the function selected "
-					 "are not defined in the target module.\n~p\n", [UsedRecords -- element(1, lists:unzip(UsedRecordDefsInTargetFile))]),
+					 "are not defined in the target module.\n~p\n", 
+					   [UsedRecords -- element(1, lists:unzip(UsedRecordDefsInTargetFile))]),
 			      throw({error, "Some records used by the function selected are not defined in the target file."});
 			  _ -> case lists:keysort(1, UsedRecordDefs) == lists:keysort(1, UsedRecordDefsInTargetFile) of
 				   true -> true;
@@ -689,9 +691,9 @@ process_implicit_fun(Node, ModName, FunName, Arity, TargetModName) ->
       arity_qualifier ->
 	  {Node, false};
       module_qualifier ->
-	  Mod = refac_syntax:module_qualifier_argument(Name),
-	  Body = refac_syntax:module_qualifier_body(Name),
-	  case refac_syntax:type(Mod) of
+	    Mod = refac_syntax:module_qualifier_argument(Name),
+	    Body = refac_syntax:module_qualifier_body(Name),
+	    case refac_syntax:type(Mod) of
 	    atom ->
 		case refac_syntax:atom_value(Mod) of
 		  ModName ->
@@ -712,7 +714,8 @@ process_implicit_fun(Node, ModName, FunName, Arity, TargetModName) ->
 			_ -> {Node, false}
 		      end;
 		  _ -> {Node, false}
-		end
+		end;
+	      _ ->{Node, false}
 	  end
     end.
 	    
@@ -836,23 +839,26 @@ process_in_client_module(FileName, Form, {ModName, FunName, Arity}, TargetModNam
 		     case refac_syntax:type(Name) of
 			 atom -> case refac_syntax:atom_value(Name) of
 				     import ->
-					 [H, L] = refac_syntax:attribute_arguments(Form),
-					 case refac_syntax:atom_value(H) of 
-					     ModName ->
-						 Es = refac_syntax:list_elements(L),
-						 Es1 = [E || E <- Es,
-							     {refac_syntax:atom_value(refac_syntax:arity_qualifier_body(E)),
-							      refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(E))}
-								 =/= {FunName, Arity}],
-						 case length(Es1) of 
-						     0 ->
-							 {[NewImport], true};
-						     _ -> case length(Es) == length(Es1) of 
-							      true -> {[Form], false};
-							      _ ->
-								  {[copy_pos_attrs(Form, refac_syntax:attribute(Name, [H, refac_syntax:list(Es1)])),
-								    NewImport],true}
-							  end
+					 case refac_syntax:attribute_arguments(Form) of 
+					     [H, L] ->
+						 case refac_syntax:atom_value(H) of 
+						     ModName ->
+							 Es = refac_syntax:list_elements(L),
+							 Es1 = [E || E <- Es,
+								     {refac_syntax:atom_value(refac_syntax:arity_qualifier_body(E)),
+								      refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(E))}
+									 =/= {FunName, Arity}],
+							 case length(Es1) of 
+							     0 ->
+								 {[NewImport], true};
+							     _ -> case length(Es) == length(Es1) of 
+								      true -> {[Form], false};
+								      _ ->
+									  {[copy_pos_attrs(Form, refac_syntax:attribute(Name, [H, refac_syntax:list(Es1)])),
+									    NewImport],true}
+								  end
+							 end;
+						     _ -> [{Form, false}]
 						 end;
 					     _ -> {[Form], false}
 					 end;
