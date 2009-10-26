@@ -55,7 +55,7 @@
 	 new_macro/6, fold_against_macro/5,
 	 normalise_record_expr/6, unfold_fun_app/4]).
 
--export([rename_var_eclipse/6, rename_fun_eclipse/6,
+-export([rename_var_eclipse/6, rename_fun_eclipse/6, rename_fun_1_eclipse/6,
 	 rename_mod_eclipse/4, rename_mod_1_eclipse/5,
 	 generalise_eclipse/6,
 	 move_fun_eclipse/7, fun_extraction_eclipse/5,
@@ -117,15 +117,22 @@ rename_var_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
 %% @spec rename_fun(FileName::filename(), Line::integer(), Col::integer(), NewName::string(), SearchPaths::[dir()], TabWidth:: integer())
 %% -> {error, string()} | {ok, [filename()]}
 -spec(rename_fun/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-	     {error, string()} | {ok, [filename()]}).
+	     {error, string()} |{warning, string()}| {ok, [filename()]}).
 rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     try_refactoring(refac_rename_fun, rename_fun, [FileName, Line, Col, NewName, SearchPaths, TabWidth]).
 
 %%@private
 -spec(rename_fun_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
+	     {error, string()} | {warning, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     try_refactoring(refac_rename_fun, rename_fun_eclipse, [FileName, Line, Col, NewName, SearchPaths, TabWidth]).
+
+%%@private
+-spec(rename_fun_1_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
+	     {error, string()} | {ok, [filename()]}).
+rename_fun_1_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
+    try_refactoring(refac_rename_fun, rename_fun_1_eclipse([FileName, Line, Col, NewName, SearchPaths, TabWidth]).
+    
 
 %%======================================================================================
 %% @doc Rename a module.
