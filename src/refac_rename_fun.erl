@@ -50,7 +50,7 @@
 
 -module(refac_rename_fun).
 
--export([rename_fun/6, rename_fun_1/6,  rename_fun_eclipse/6]).
+-export([rename_fun/6, rename_fun_1/6,  rename_fun_eclipse/6, rename_fun_1_eclipse/6]).
 
 -export([check_atoms/4, collect_atoms/2,try_eval/4, start_atom_process/0, 
 	 stop_atom_process/1,output_atom_warning_msg/3, write_files/3,
@@ -70,12 +70,12 @@
 -endif.
 
 -spec(rename_fun/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-	     {error, string()} | {ok, [filename()]}).
+	     {error, string()} | {warning, string()} |{ok, [filename()]}).
 rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
 
 -spec(rename_fun_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
+	     {error, string()} | {warning, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
 
@@ -151,6 +151,15 @@ rename_fun_0(FileName, NewName, SearchPaths, TabWidth, Editor,
 -spec(rename_fun_1/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
 	     {error, string()} | {ok, [filename()]}).
 rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
+    rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
+    
+-spec(rename_fun_1_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
+	     {error, string()} | {ok, [filename()]}).
+
+rename_fun_1_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
+    rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
+    
+rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_fun(" ++ "\"" ++
 	FileName ++ "\", " ++ integer_to_list(Line) ++
 	", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
@@ -172,7 +181,7 @@ rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
 		Results ->
 		    output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
 		    stop_atom_process(Pid),
-		    write_files(emacs, [{{FileName, FileName}, AnnAST1}| Results], Cmd)
+		    write_files(Editor, [{{FileName, FileName}, AnnAST1}| Results], Cmd)
 	    catch
 		throw:Err -> Err
 	    end;
@@ -288,7 +297,7 @@ do_rename_fun_1(Tree, {FileName, {M, OldName, Arity},
 						    {Tree1, true};
 						_ -> {Tree, false}
 					    end;
-					_ -> {Tree, fasle}
+					_ -> {Tree, false}
 				    end;
 				_ -> {Tree, false}
 			    end
@@ -399,7 +408,8 @@ do_rename_fun_in_client_module_1(Tree, {FileName, {M, OldName, Arity}, NewName, 
 						   {Tree1, true};
 					       _ -> {Tree, false}
 					   end;
-				       _ -> {Tree, fasle}
+				       _ -> {Tree, false}
+				   end;
 			       _ -> {Tree, false}
 			   end
 		end;
@@ -473,8 +483,8 @@ collect_atoms(Tree, AtomNames) ->
 		      N = refac_syntax:function_name(T),
 		      collect_atoms_1(AtomNames, S, N, function);
 		  application ->
-		      Operator = refac_syntax:application_operator(T),
-		      collect_atoms_1(AtomNames, S, Operator, function);
+			Operator = refac_syntax:application_operator(T),
+			collect_atoms_1(AtomNames, S, Operator, function);
 		  module_qualifier ->
 		      Mod = refac_syntax:module_qualifier_argument(T),
 		      Fun = refac_syntax:module_qualifier_body(T),
@@ -543,17 +553,21 @@ collect_atoms(Tree, AtomNames) ->
     refac_syntax_lib:fold(F, [], Tree).
 
 collect_atoms_1(AtomNames, S, Node, Type) ->
-    case refac_syntax:type(Node) of
-      atom ->
-	    AtomVal = refac_syntax:atom_value(Node),
-	    case lists:member(AtomVal, AtomNames) of
-		true ->
-		    S ++ [{Type, refac_syntax:get_pos(Node), AtomVal}];
-		false ->
-		    S
-	    end;
-	_ -> S
-    end.
+    F = fun(T, Acc) ->
+		case refac_syntax:type(T) of
+		    atom ->
+			AtomVal = refac_syntax:atom_value(T),
+			case lists:member(AtomVal, AtomNames) of
+			    true ->
+				Acc ++ [{Type, refac_syntax:get_pos(T), AtomVal}];
+			    false ->
+				Acc
+			end;
+		    _ -> Acc
+		end
+	end,
+    refac_syntax_lib:fold(F,S,Node).
+
 
 
 transform_apply_style_calls(FileName, Node, {ModName, FunName, Arity}, NewFunName, SearchPaths, TabWidth) ->
@@ -981,3 +995,4 @@ output_renamed_atom_info(FileAndExprs) ->
     
 rewrite(E1, E2) ->
     refac_syntax:copy_pos(E1, refac_syntax:copy_attrs(E1, E2)).
+
