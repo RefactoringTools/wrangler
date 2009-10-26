@@ -717,7 +717,7 @@ inscope_funs(ModuleInfo) ->
 		   {value, {functions, Fs}} -> lists:map(fun ({F, A}) -> {M, F, A} end, Fs);
 		   _ -> []
 		 end,
-	  PreDefinedFuns=[{M, module_info, 1}, {M, module_info_2}, {M, record_info, 2}],
+	  PreDefinedFuns=[{M, module_info, 1}, {M, module_info, 2}, {M, record_info, 2}],
 	  Imps ++ Funs ++ PreDefinedFuns;
       _ -> []
     end.
@@ -1732,8 +1732,15 @@ add_fun_define_locations(Node, Info) ->
     Define_Mod_Loc = fun (Name, Arity) ->
 			     Fs = ordsets:filter(fun ({_M, F, A, _Pos}) -> (F == Name) and (Arity == A) end, Inscope_Funs),
 			     case Fs of
-			       [] -> {'_', ?DEFAULT_LOC};   %% is this correct? what about the function is not a BIF?
-			       [{M, _, _, Pos}| _] -> {M, Pos}
+				 [] -> 
+				     case erlang:is_builtin(erlang,Name, Arity) orelse 
+					 erl_internal:bif(erlang, Name, Arity) of 
+					 true ->
+					     {erlang, ?DEFAULT_LOC};
+					 false ->
+					     {'_', ?DEFAULT_LOC}  %% Wrangler could not decide where the function is defined; this really shoudn't happen.
+				     end;
+				 [{M, _, _, Pos}| _] -> {M, Pos}
 			     end
 		     end,
     F1 = fun (T) ->
