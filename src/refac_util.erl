@@ -56,7 +56,8 @@
          parse_annotate_file/4,write_refactored_files/1, write_refactored_files_for_preview/2,
          build_lib_side_effect_tab/1, build_local_side_effect_tab/2,
 	 build_scc_callgraph/1,build_callercallee_callgraph/1, has_side_effect/3,
-         callback_funs/1,auto_imported_bifs/0, called_funs/2, file_format/1, rewrite/2]).
+         callback_funs/1,auto_imported_bifs/0, called_funs/2, file_format/1, rewrite/2,
+	 predefined_macros/0]).
 
 -export([test_framework_used/1]).
 -export([analyze_free_vars/1, remove_duplicates/1]).
@@ -2371,3 +2372,7 @@ format_search_paths([P|T], Str)->
 	[] ->format_search_paths(T, "\""++P++"\"");
 	_ ->format_search_paths(T, Str++", \""++P++"\"")
     end.
+
+predefined_macros() ->
+    ['MODULE', 'MODULE_STRING', 'FILE', 'LINE', 'MACHINE'].
+    
