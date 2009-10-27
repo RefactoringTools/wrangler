@@ -726,7 +726,7 @@ lay_2(Node,Ctxt) ->
 	  D2 = lay(refac_syntax:match_expr_body(Node),set_prec(Ctxt,PrecR)),
 	  D3 = case (EndLn == 0) or (StartLn == 0) of
 		 true ->
-		     follow(beside(D1,floating(text(" ="))),D2,Ctxt#ctxt.break_indent);
+		     follow(beside(D1,floating(text(" = "))),D2,Ctxt#ctxt.break_indent);
 		 false ->
 		     case EndLn == StartLn of
 		       true -> beside(beside(D1,text(" = ")),D2);
@@ -1002,8 +1002,8 @@ lay_2(Node,Ctxt) ->
 		  D1EndLn = get_end_line(refac_syntax:record_field_name(Node)),
 		  D2StartLn = get_start_line(V),
 		  case (D2StartLn-D1EndLn==0) and (D1EndLn=/=0) of
-		      true -> beside(D1, beside(text("="),D2));
-		      _ -> par([D1,floating(text("=")), D2],Ctxt1#ctxt.break_indent)
+		      true -> beside(D1, beside(text(" = "),D2));
+		      _ -> par([D1,floating(text(" = ")), D2],Ctxt1#ctxt.break_indent)
 		  end
 	  end;
       record_index_expr ->  %% done
