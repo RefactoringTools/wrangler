@@ -355,7 +355,12 @@ replace_expr_with_fun_call(Form, ExpList, NewFunName, ParNames, VarsToExport) ->
 do_replace_expr_with_fun_call_1(Tree, {NewExpr, Expr}) ->
     Range = refac_util:get_range(Expr),
     case refac_util:get_range(Tree) of
-	Range -> {NewExpr, true};
+	Range -> 
+	    case refac_syntax:type(Tree) of 
+		binary_field ->
+		    {refac_util:rewrite(Tree, refac_syntax:binary_field(NewExpr)), true};
+		_ -> {NewExpr, true}
+	    end;
 	_  -> {Tree, false}
     end.
     
