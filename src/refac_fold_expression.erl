@@ -372,7 +372,7 @@ do_search_candidate_exprs_1(AnnAST, Exp) ->
 		  As = refac_syntax:get_ann(T),
 		  case lists:keysearch(category, 1, As) of 
 		      {value, {category, C}}
-		      when C==expression orelse C ==macro->
+		      when C==expression->
 			  case T=/=Exp of 
 			      true -> 
 				  R = refac_util:get_range(T),
