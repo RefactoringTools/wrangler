@@ -587,8 +587,6 @@ is_expr(Node) ->
 	      expression -> true;
 	      guard_expression -> true;
 	      application_op -> true;
-	      record_field ->true;
-	      record_type -> true;
 	      generator -> true;
 	    _ -> false
 	  end;
@@ -1627,7 +1625,7 @@ do_add_category(Node, C) ->
 		 Fun = add_category(refac_syntax:arity_qualifier_body(Node), arity_qualifier),
 		 A = add_category(refac_syntax:arity_qualifier_argument(Node), arity_qualifier),
 		 Node1 = refac_syntax:arity_qualifier(Fun, A),
-		 {refac_syntax:add_ann({category, arity_qualifier}, Node1), true};
+		 {refac_syntax:add_ann({category, C}, Node1), true};
 	     macro ->
 		   Name = refac_syntax:macro_name(Node),
 		   Args = refac_syntax:macro_arguments(Node),
@@ -1649,7 +1647,7 @@ do_add_category(Node, C) ->
 			 end,
 		 Field1 = add_category(Field, record_field),
 		 Node1 = rewrite(Node, refac_syntax:record_access(Argument1, Type1, Field1)),
-		 {refac_syntax:add_ann({category, expression}, Node1), true};
+		 {refac_syntax:add_ann({category, C}, Node1), true};
 	     record_expr ->
 		 Argument = refac_syntax:record_expr_argument(Node),
 		 Type = refac_syntax:record_expr_type(Node),
@@ -1661,14 +1659,14 @@ do_add_category(Node, C) ->
 		 Type1 = add_category(Type, record_type),
 		 Fields1 = add_category(Fields, C),
 		 Node1 = rewrite(Node, refac_syntax:record_expr(Argument1, Type1, Fields1)),
-		 {refac_syntax:add_ann({category, expression}, Node1), true};
+		 {refac_syntax:add_ann({category, C}, Node1), true};
 	     record_index_expr ->
 		 Type = refac_syntax:record_index_expr_type(Node),
 		 Field = refac_syntax:record_index_expr_field(Node),
 		 Type1 = add_category(Type, record_type),
 		 Field1 = add_category(Field, C),
 		 Node1 = rewrite(Node, refac_syntax:record_index_expr(Type1, Field1)),
-		 {refac_syntax:add_ann({category, record_index_expr}, Node1), true};
+		 {refac_syntax:add_ann({category, C}, Node1), true};
 	     record_field ->
 		 Name = refac_syntax:record_field_name(Node),
 		 Name1 = add_category(Name, record_field),
@@ -1678,7 +1676,7 @@ do_add_category(Node, C) ->
 			    _ -> add_category(Value, C)
 			  end,
 		 Node1 = rewrite(Node, refac_syntax:record_field(Name1, Value1)),
-		 {refac_syntax:add_ann({category, record_field}, Node1), true};
+		 {refac_syntax:add_ann({category, C}, Node1), true};
 	     generator ->
 		 P = refac_syntax:generator_pattern(Node),
 		 B = refac_syntax:generator_body(Node),
