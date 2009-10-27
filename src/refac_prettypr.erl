@@ -833,23 +833,23 @@ lay_2(Node,Ctxt) ->
 	  Es = seq(Fields,floating(text(",")),Ctxt1,fun lay/2),
 	  beside(floating(text("<<")),beside(lay_elems(fun refac_prettypr_0:par/1, Es, Fields),floating(text(">>"))));
       binary_field ->
-	  Ctxt1 = reset_prec(Ctxt),
-	  D = lay(refac_syntax:binary_field_body(Node),Ctxt1),
-	  %% Begin of modification of HL
-	  D1 = case
-		 refac_syntax:type(refac_syntax:binary_field_body(Node))
-		   of
-		 application ->
-		     beside(floating(text("(")),beside(D,floating(text(")"))));
-		 _ -> D
+	    Ctxt1 = reset_prec(Ctxt),
+	    D = lay(refac_syntax:binary_field_body(Node),Ctxt1),
+	    %% Begin of modification of HL
+	    Body = refac_syntax:binary_field_body(Node),
+	    D1 = case refac_syntax:type(Body)==variable orelse 
+		   refac_syntax:is_literal(Body)== true of
+		   true -> D;
+		   false ->
+		       beside(floating(text("(")),beside(D,floating(text(")"))))
 	       end,
-	  %% End of modification by HL
-	  D2 = case refac_syntax:binary_field_types(Node) of
-		 [] -> empty();
-		 Ts ->
-		     beside(floating(text("/")),lay_bit_types(Ts,Ctxt1))
-	       end,
-	  beside(D1,D2);
+	    %% End of modification by HL
+	    D2 = case refac_syntax:binary_field_types(Node) of
+		     [] -> empty();
+		     Ts ->
+			 beside(floating(text("/")),lay_bit_types(Ts,Ctxt1))
+		 end,
+	    beside(D1,D2);
       block_expr -> %% done;
 	  Ctxt1 = reset_prec(Ctxt),
 	  Body = refac_syntax:block_expr_body(Node),
