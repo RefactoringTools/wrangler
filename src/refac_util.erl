@@ -57,7 +57,7 @@
          build_lib_side_effect_tab/1, build_local_side_effect_tab/2,
 	 build_scc_callgraph/1,build_callercallee_callgraph/1, has_side_effect/3,
          callback_funs/1,auto_imported_bifs/0, called_funs/2, file_format/1, rewrite/2,
-	 predefined_macros/0]).
+	 predefined_macros/0, default_incls/0]).
 
 -export([test_framework_used/1]).
 -export([analyze_free_vars/1, remove_duplicates/1]).
@@ -587,9 +587,6 @@ is_expr(Node) ->
 	      expression -> true;
 	      guard_expression -> true;
 	      application_op -> true;
-	      %% since macros are not expanded;
-	      %% Not really what I want.
-	      macro -> true; 
 	      record_field ->true;
 	      record_type -> true;
 	      generator -> true;
@@ -1014,8 +1011,7 @@ parse_annotate_file_1(FName, true, SearchPaths, TabWidth, FileFormat) ->
     case refac_epp_dodger:parse_file(FName, [{tab, TabWidth}, {format, FileFormat}]) of
 	{ok, Forms} -> 
 	    Dir = filename:dirname(FName),
-	    DefaultIncl1 = [".","..", "../hrl", "../incl", "../inc", "../include"],
-	    DefaultIncl2 = [filename:join(Dir, X) || X <-DefaultIncl1],
+	    DefaultIncl2 = [filename:join(Dir, X) || X <-default_incls()],
 	    Includes = SearchPaths++DefaultIncl2,
 	    Ms =case refac_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
 		    {ok, _, {MDefs, MUses}}  -> 
@@ -1031,8 +1027,7 @@ parse_annotate_file_1(FName, true, SearchPaths, TabWidth, FileFormat) ->
     end;     
 parse_annotate_file_1(FName, false, SearchPaths, TabWidth, FileFormat) ->
     Dir = filename:dirname(FName),
-    DefaultIncl1 = [".","..", "../hrl", "../incl", "../inc", "../include"],
-    DefaultIncl2 = [filename:join(Dir, X) || X <-DefaultIncl1],
+    DefaultIncl2 = [filename:join(Dir, X) || X <-default_incls()],
     Includes = SearchPaths++DefaultIncl2,
    case refac_epp:parse_file(FName, Includes,[], TabWidth, FileFormat) of 
        {ok, Forms, Ms} -> Forms1 =  lists:filter(fun(F) ->
@@ -1188,9 +1183,17 @@ do_add_range(Node, Toks) ->
 	  {Toks21, Toks22} = lists:splitwith(fun (T) -> is_string(T) orelse is_whitespace_or_comment(T) end, Toks1),
 	  Toks3 = lists:filter(fun (T) -> is_string(T) end, Toks21),
 	  case Toks3 of
-	    [] ->  %% This should not happen.
-		Len = length(refac_syntax:string_literal(Node)),
-		refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
+	      [] -> 
+		  Len = length(refac_syntax:string_literal(Node)),
+		  Toks23 = lists:takewhile(fun(T) -> token_loc(T) <{L, C+Len-1} end, Toks22),
+		  Toks31 = lists:filter(fun (T) -> is_string(T) end, Toks23),
+		  case Toks31 of 
+		      [] ->
+			  refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
+		      _ -> 
+			  Node1 =refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node),
+			  refac_syntax:add_ann({toks, Toks31}, Node1)
+		  end;		      
 	    _ -> Toks4 = lists:takewhile(fun (T) -> is_whitespace_or_comment(T) end, lists:reverse(Toks21)),
 		 {L3, C3} = case Toks4 of
 			      [] -> token_loc(hd(Toks22));
@@ -1583,7 +1586,7 @@ add_category(Node) ->
       warning_marker -> add_category(Node, warning_marker);
       eof_marker -> add_category(Node, eof_marker);
       comment -> add_category(Node, comment);
-      macro -> add_category(Node, macro);
+     %%  macro -> add_category(Node, macro);
       _ -> add_category(Node, unknown)
     end.
 
@@ -1626,16 +1629,16 @@ do_add_category(Node, C) ->
 		 Node1 = refac_syntax:arity_qualifier(Fun, A),
 		 {refac_syntax:add_ann({category, arity_qualifier}, Node1), true};
 	     macro ->
-		 Name = refac_syntax:macro_name(Node),
-		 Args = refac_syntax:macro_arguments(Node),
-		 Name1 = add_category(Name, macro_name),
-		 Args1 = case Args of
-			   none -> none;
+		   Name = refac_syntax:macro_name(Node),
+		   Args = refac_syntax:macro_arguments(Node),
+		   Name1 = add_category(Name, macro_name),
+		   Args1 = case Args of
+			       none -> none;
 			   _ -> add_category(Args, expression) %% should 'expression' be 'macro_args'?
-			 end,
-		 Node1 = rewrite(Node, refac_syntax:macro(Name1, Args1)),
-		 {refac_syntax:add_ann({category, macro}, Node1), true};
-	     record_access ->
+			   end,
+		   Node1 = rewrite(Node, refac_syntax:macro(Name1, Args1)),
+		   {refac_syntax:add_ann({category, C}, Node1), true};
+	       record_access ->
 		 Argument = refac_syntax:record_access_argument(Node),
 		 Type = refac_syntax:record_access_type(Node),
 		 Field = refac_syntax:record_access_field(Node),
@@ -2376,3 +2379,7 @@ format_search_paths([P|T], Str)->
 predefined_macros() ->
     ['MODULE', 'MODULE_STRING', 'FILE', 'LINE', 'MACHINE'].
     
+default_incls() ->
+  [".", "..", "../hrl", "../incl", "../inc", "../include",
+   "../../hrl", "../../incl", "../../inc", "../../include",
+   "../../../hrl", "../../../incl", "../../../inc", "../../../include"].
