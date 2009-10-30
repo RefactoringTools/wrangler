@@ -1676,7 +1676,7 @@ do_add_category(Node, C) ->
 			    _ -> add_category(Value, C)
 			  end,
 		 Node1 = rewrite(Node, refac_syntax:record_field(Name1, Value1)),
-		 {refac_syntax:add_ann({category, C}, Node1), true};
+		 {refac_syntax:add_ann({category, record_field}, Node1), true};
 	     generator ->
 		 P = refac_syntax:generator_pattern(Node),
 		 B = refac_syntax:generator_body(Node),
@@ -1717,18 +1717,18 @@ add_fun_define_locations(Node, Info) ->
 	      end,
     Funs = fun (T, S) ->
 		   case refac_syntax:type(T) of
-		     function ->
-			 ordsets:add_element({ModName, refac_syntax:data(refac_syntax:function_name(T)),
-					      refac_syntax:function_arity(T), refac_syntax:get_pos(T)},
-					     S);
-		     _ -> S
+		       function ->
+			   ordsets:add_element({ModName, refac_syntax:data(refac_syntax:function_name(T)),
+						refac_syntax:function_arity(T), refac_syntax:get_pos(T)},
+					       S);
+		       _ -> S
 		   end
 	   end,
     Defined_Funs = refac_syntax_lib:fold(Funs, ordsets:new(), Node),
     Imps = case lists:keysearch(imports, 1, Info) of
-	     {value, {imports, I}} ->
-		 lists:append([lists:map(fun ({F, A}) -> {M1, F, A, ?DEFAULT_LOC} end, Fs) || {M1, Fs} <- I]);
-	     _ -> []
+	       {value, {imports, I}} ->
+		   lists:append([lists:map(fun ({F, A}) -> {M1, F, A, ?DEFAULT_LOC} end, Fs) || {M1, Fs} <- I]);
+	       _ -> []
 	   end,
     Inscope_Funs = Imps ++ Defined_Funs,
     Define_Mod_Loc = fun (Name, Arity) ->
@@ -1747,64 +1747,86 @@ add_fun_define_locations(Node, Info) ->
 		     end,
     F1 = fun (T) ->
 		 case refac_syntax:type(T) of
-		   function ->
-		       Name = refac_syntax:function_name(T),
-		       Fun_Name = refac_syntax:atom_value(Name),
-		       Arity = refac_syntax:function_arity(T),
-		       Pos = refac_syntax:get_pos(T),
-		       T2 = [update_ann(C, {fun_def, {ModName, Fun_Name, Arity, refac_syntax:get_pos(C), Pos}})
-			     || C <- refac_syntax:function_clauses(T)],
-		       Name1 = update_ann(Name, {fun_def, {ModName, Fun_Name, Arity, Pos, Pos}}),
-		       T3 = rewrite(T, refac_syntax:function(Name1, T2)),
-		       update_ann(T3, {fun_def, {ModName, Fun_Name, Arity, Pos, Pos}});
-		   application ->
+		     function ->
+			 Name = refac_syntax:function_name(T),
+			 Fun_Name = refac_syntax:atom_value(Name),
+			 Arity = refac_syntax:function_arity(T),
+			 Pos = refac_syntax:get_pos(T),
+			 T2 = [update_ann(C, {fun_def, {ModName, Fun_Name, Arity, refac_syntax:get_pos(C), Pos}})
+			       || C <- refac_syntax:function_clauses(T)],
+			 Name1 = update_ann(Name, {fun_def, {ModName, Fun_Name, Arity, Pos, Pos}}),
+			 T3 = rewrite(T, refac_syntax:function(Name1, T2)),
+			 update_ann(T3, {fun_def, {ModName, Fun_Name, Arity, Pos, Pos}});
+		     application ->
 			 Operator = refac_syntax:application_operator(T),
 			 Arguments = refac_syntax:application_arguments(T),
 			 case refac_syntax:type(Operator) of
-			 atom ->
-			     Op = refac_syntax:atom_value(Operator),
-			     Arity = length(Arguments),
-			     {DefMod, DefLoc} = Define_Mod_Loc(Op, Arity),
-			     Operator1 = update_ann(Operator, {fun_def, {DefMod, Op, Arity, refac_syntax:get_pos(Operator), DefLoc}}),
-			     rewrite(T, refac_syntax:application(Operator1, Arguments));
-			 module_qualifier ->
-			       Mod = refac_syntax:module_qualifier_argument(Operator),
-			       Fun = refac_syntax:module_qualifier_body(Operator),
-			       {M, FunName, Arity} = get_mod_fun_arg_info(Mod, Fun, Arguments, ModName),
-			       DefLoc = if M == ModName -> {_ModName, DefLoc1} = Define_Mod_Loc(FunName, Arity), DefLoc1;
-					   true -> ?DEFAULT_LOC
-					end,
-			       Operator1 = update_ann(Operator, {fun_def, {M, FunName, Arity, refac_syntax:get_pos(T), DefLoc}}),
-			       rewrite(T, refac_syntax:application(Operator1, Arguments));
-			 tuple ->
-			     case refac_syntax:tuple_elements(Operator) of
-				 [Mod, Fun] ->
-				     {M, FunName, Arity} = get_mod_fun_arg_info(Mod, Fun, Arguments, ModName),
-				     DefLoc = if M == ModName -> {_ModName, DefLoc1} = Define_Mod_Loc(FunName, Arity), DefLoc1;
-					       true -> ?DEFAULT_LOC
-					      end,				     
-				     Fun1 = update_ann(Fun, {fun_def, {M, FunName, Arity, refac_syntax:get_pos(Fun), DefLoc}}),
-				     Operator1 = rewrite(Operator, refac_syntax:tuple([Mod, Fun1])),
-				     Operator2 = update_ann(Operator1, {fun_def, {M, FunName, Arity, refac_syntax:get_pos(T), DefLoc}}),
-				   rewrite(T, refac_syntax:application(Operator2, Arguments));
-			       _ ->
-				   Arity = length(Arguments),
-				   Operator1 = update_ann(Operator, {fun_def, {'_', '_', Arity, refac_syntax:get_pos(Operator), ?DEFAULT_LOC}}),
-				   rewrite(T, refac_syntax:application(Operator1, Arguments))
-			     end;
-			 _ -> Arity = length(Arguments),
-			      Operator1 = update_ann(Operator, {fun_def, {'_', '_', Arity, refac_syntax:get_pos(Operator), ?DEFAULT_LOC}}),
-			      rewrite(T, refac_syntax:application(Operator1, Arguments))
-		       end;
-		   arity_qualifier ->
-		       Fun = refac_syntax:arity_qualifier_body(T),
-		       A = refac_syntax:arity_qualifier_argument(T),
-		       FunName = refac_syntax:atom_value(Fun),
-		       Arity = refac_syntax:integer_value(A),
-		       {DefMod, DefLoc} = Define_Mod_Loc(FunName, Arity),
-		       Fun1 = update_ann(Fun, {fun_def, {DefMod, FunName, Arity, refac_syntax:get_pos(Fun), DefLoc}}),
-		       update_ann(rewrite(T, refac_syntax:arity_qualifier(Fun1, A)),
-				  {fun_def, {DefMod, FunName, Arity, refac_syntax:get_pos(Fun), DefLoc}});
+			     atom ->
+				 Op = refac_syntax:atom_value(Operator),
+				 Arity = length(Arguments),
+				 {DefMod, DefLoc} = Define_Mod_Loc(Op, Arity),
+				 Operator1 = update_ann(Operator, {fun_def, {DefMod, Op, Arity, refac_syntax:get_pos(Operator), DefLoc}}),
+				 rewrite(T, refac_syntax:application(Operator1, Arguments));
+			     module_qualifier ->
+				 Mod = refac_syntax:module_qualifier_argument(Operator),
+				 Fun = refac_syntax:module_qualifier_body(Operator),
+				 {M, FunName, Arity} = get_mod_fun_arg_info(Mod, Fun, Arguments, ModName),
+				 DefLoc = if M == ModName -> {_ModName, DefLoc1} = Define_Mod_Loc(FunName, Arity), DefLoc1;
+					     true -> ?DEFAULT_LOC
+					  end,
+				 Operator1 = update_ann(Operator, {fun_def, {M, FunName, Arity, refac_syntax:get_pos(T), DefLoc}}),
+				 rewrite(T, refac_syntax:application(Operator1, Arguments));
+			     tuple ->
+				 case refac_syntax:tuple_elements(Operator) of
+				     [Mod, Fun] ->
+					 {M, FunName, Arity} = get_mod_fun_arg_info(Mod, Fun, Arguments, ModName),
+					 DefLoc = if M == ModName -> {_ModName, DefLoc1} = Define_Mod_Loc(FunName, Arity), DefLoc1;
+						     true -> ?DEFAULT_LOC
+						  end,				     
+					 Fun1 = update_ann(Fun, {fun_def, {M, FunName, Arity, refac_syntax:get_pos(Fun), DefLoc}}),
+					 Operator1 = rewrite(Operator, refac_syntax:tuple([Mod, Fun1])),
+					 Operator2 = update_ann(Operator1, {fun_def, {M, FunName, Arity, refac_syntax:get_pos(T), DefLoc}}),
+					 rewrite(T, refac_syntax:application(Operator2, Arguments));
+				     _ ->
+					 Arity = length(Arguments),
+					 Operator1 = update_ann(Operator, {fun_def, {'_', '_', Arity, refac_syntax:get_pos(Operator), ?DEFAULT_LOC}}),
+					 rewrite(T, refac_syntax:application(Operator1, Arguments))
+				 end;
+			     _ -> Arity = length(Arguments),
+				  Operator1 = update_ann(Operator, {fun_def, {'_', '_', Arity, refac_syntax:get_pos(Operator), ?DEFAULT_LOC}}),
+				  rewrite(T, refac_syntax:application(Operator1, Arguments))
+			 end;
+		     module_qualifier ->
+			 Mod = refac_syntax:module_qualifier_argument(T),
+			 Body =refac_syntax: module_qualifier_body(T),
+			 case refac_syntax:type(Body) of 
+			     arity_qualifier -> 
+				 Fun = refac_syntax:arity_qualifier_body(Body),
+				 A = refac_syntax:arity_qualifier_argument(Body),
+				 {DefMod, FunName, Arity} = get_mod_fun_arg_info(Mod, Fun, A, ModName),
+				 DefLoc = if DefMod == ModName -> {_ModName, DefLoc1} = Define_Mod_Loc(FunName, Arity), DefLoc1;
+					     true -> ?DEFAULT_LOC
+					  end,
+				 Ann ={fun_def, {DefMod, FunName, Arity, refac_syntax:get_pos(Fun), DefLoc}}, 
+				 Fun1 = update_ann(Fun, Ann),
+				 Body1 =update_ann(rewrite(Body, refac_syntax:arity_qualifier(Fun1, A)),Ann),
+				 update_ann(rewrite(T, refac_syntax:module_qualifier(Mod, Body1)), Ann);
+			     _ -> T
+			 end;
+		     arity_qualifier ->
+			 case lists:keysearch(fun_def, 1, refac_syntax:get_ann(T)) of 
+			     false ->
+				 Fun = refac_syntax:arity_qualifier_body(T),
+				 A = refac_syntax:arity_qualifier_argument(T),
+				 FunName = refac_syntax:atom_value(Fun),
+				 Arity = refac_syntax:integer_value(A),
+				 {DefMod, DefLoc} = Define_Mod_Loc(FunName, Arity),
+				 Fun1 = update_ann(Fun, {fun_def, {DefMod, FunName, Arity, refac_syntax:get_pos(Fun), DefLoc}}),
+				 update_ann(rewrite(T, refac_syntax:arity_qualifier(Fun1, A)),
+					    {fun_def, {DefMod, FunName, Arity, refac_syntax:get_pos(Fun), DefLoc}});
+			     true ->
+				 T
+			 end;
 		   _ -> T
 		 end
 	 end,
@@ -1829,7 +1851,14 @@ get_mod_fun_arg_info(Mod, Fun, Args, CurModName) ->
 		 atom -> refac_syntax:atom_value(Fun);
 		 _ -> '_'
 	       end,
-    A = length(Args),
+    A =case is_list(Args) of 
+	   true -> length(Args);
+	   _  ->case refac_syntax:type(Args) of 
+		    integer ->
+			refac_syntax:integer_value(Args);
+		    _ -> '_'
+		end
+       end,
     {M, F, A}.
 
 
