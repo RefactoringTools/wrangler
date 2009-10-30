@@ -415,11 +415,11 @@ do_rename_fun_in_client_module_1(Tree, {FileName, {M, OldName, Arity}, NewName, 
 		end;
 	    _ -> {Tree, false}
 	  end;
-      arity_qualifier ->   %% is there a module name?
-	  do_rename_fun_in_arity_qualifier(Tree, M, OldName, Arity, NewName);
-      tuple -> 
+	arity_qualifier ->   %% is there a module name?
+	    do_rename_fun_in_arity_qualifier(Tree, M, OldName, Arity, NewName);
+	tuple -> 
 	    do_rename_fun_in_tuples(Tree, {FileName, SearchPaths, M, OldName, NewName, Arity, Pid, TabWidth});
-      _ -> {Tree, false}
+	_ -> {Tree, false}
     end.
 
 do_rename_fun_in_arity_qualifier(Tree, M, OldName, Arity, NewName) ->
@@ -460,7 +460,7 @@ check_atoms(FileName, Tree, AtomNames, Pid) ->
 		  _ -> []
 		end
 	end,
-    R = lists:flatten(lists:map(F, refac_syntax:form_list_elements(Tree))),
+    R = lists:usort(lists:flatten(lists:map(F, refac_syntax:form_list_elements(Tree)))),
     R1 = [X ||{atom, X, _} <- R],
     R2 = [X ||{_, X, _} <- lists:filter(fun (X) ->
 					     case X of
@@ -558,7 +558,21 @@ collect_atoms_1(AtomNames, S, Node, Type) ->
 		    atom ->
 			AtomVal = refac_syntax:atom_value(T),
 			case lists:member(AtomVal, AtomNames) of
-			    true ->
+			    true when Type==function ->
+				Ann = refac_syntax:get_ann(T),
+				case lists:keysearch(fun_def, 1, Ann) of
+				    {value, {fun_def, {'_', _, _, _, _}}} ->
+					Acc ++[{atom, refac_syntax:get_pos(T), AtomVal}];
+				    {value, {fun_def, {_,'_', _, _, _}}} ->
+					Acc ++[{atom, refac_syntax:get_pos(T), AtomVal}];
+				    {value, {fun_def, {_, _, '_', _, _}}} ->
+					Acc ++[{atom, refac_syntax:get_pos(T), AtomVal}];
+				    {value, _} ->
+					Acc ++ [{function, refac_syntax:get_pos(T), AtomVal}];
+				    false ->
+					Acc ++[{atom, refac_syntax:get_pos(T), AtomVal}]
+				end;
+			    true->
 				Acc ++ [{Type, refac_syntax:get_pos(T), AtomVal}];
 			    false ->
 				Acc
@@ -698,8 +712,7 @@ try_eval(FileName, Node, SearchPaths, TabWidth) ->
 	    case has_macros(Node) andalso (refac_util:get_free_vars(Node)==[]) of 
 		true ->
 		    Dir = filename:dirname(FileName),
-		    DefaultIncl1 = [".","..", "../hrl", "../incl", "../inc", "../include"],
-		    DefaultIncl2 = [filename:join(Dir, X) || X <-DefaultIncl1],
+		    DefaultIncl2 = [filename:join(Dir, X) || X <-refac_util:default_incls()],
 		    NewSearchPaths= SearchPaths++DefaultIncl2,
 		    {Ms, UMs} = case refac_epp:parse_file(FileName, NewSearchPaths, [])  of 
 				    {ok, _, {Defs, Uses}} -> 
@@ -909,15 +922,15 @@ apply_style_funs() ->
 
 renamed_warn_msg(FunName) ->
     "\n=================================================================================\n"
-	"WARNING: Wrangler has renamed the uses of "++atom_to_list(FunName)++
-	" within the following expressions while without enough "
+	"WARNING: Wrangler has renamed the uses of '"++atom_to_list(FunName)++
+	"' within the following expressions while without enough "
 	"syntactic/semantic information. Please check manually!\n".
      
 
 not_renamed_warn_msg(FunName) ->
     "\n=================================================================================\n"
-	"WARNING: Wrangler could not infer whether the uses of " ++ atom_to_list(FunName)++ 
-	" at the following positions refer to the function renamed, and they are not renamed."
+	"WARNING: Wrangler could not infer whether the uses of '" ++ atom_to_list(FunName)++ 
+	"' at the following positions refer to the function renamed, and they are not renamed."
 	" Please check manually!\n".
 
 
