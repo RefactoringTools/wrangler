@@ -215,7 +215,8 @@ make_macro_app(MacroHead,Subst) ->
 	    Args1 = refac_syntax:application_arguments(MacroHead),
 	    Args= lists:map(fun(A) -> refac_syntax:variable_name(A) end, Args1),
 	    Pars = lists:map(fun(P) -> case lists:keysearch(P, 1, Subst) of 
-					   {value, {P, Par}} -> Par;
+					   {value, {P, Par}} -> 
+					       refac_util:reset_attrs(Par);
 					   _ -> refac_syntax:atom(undefined)
 				       end
 			     end, Args),
