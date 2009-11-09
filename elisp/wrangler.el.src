@@ -1,6 +1,9 @@
 ;;; distel.el --- Top-level of distel package, loads all subparts
 
 ;; Prerequisites
+
+(require 'vc-hooks)
+(require 'vc-dispatcher)
 (require 'vc)
 (require 'erlang)
 (require 'easy-mmode)
@@ -22,14 +25,14 @@
 	:type '(repeat directory)
 	:group 'wrangler)
 
-(defcustom paths-to-monitor (cons (expand-file-name ".") nil)
+(defcustom dirs-to-monitor nil
   "List of directories to be monitored by Wrangler to log refactoring activities."
   :type '(repeat directory)
   :group 'wrangler)
 
-(defcustom refac-monitor-path nil
-      "Path to the working copy of the repository used by Wrangler to monitor refactoring activities."
-      :type '(repeat directory)
+(defcustom refac-monitor-repository-path nil
+      "Path to the wrangler monitor"
+      :type '(directory)
       :group 'wrangler)
 
 (defun wrangler-customize ()
@@ -39,6 +42,7 @@
 
 (require 'erl)
 (require 'erl-service)
+
 
 (setq modified-files nil)
 (setq refactoring-committed nil)
@@ -70,52 +74,20 @@
 	    (commit-or-abort))))
     nil))
 
-(defun update-repository(files logmsg)
-  "commit refactoring files to the monitoring repository if they should be monitored"
-  (if (is_a_monitored_file (elt (car files) 0))
-      (update-repository-1 files logmsg)
-    nil))
 
-(defun update-repository-1(files logmsg)
-   "commit refactored files to the repository"
-   (dolist (f files)
-       (setq old-file-name (elt f 0))
-       (let* ((old-file-name-nondirectory (file-name-nondirectory old-file-name))
-	      (old-file-name-extension    (file-name-extension old-file-name))
-	      (refac-monitor-file (locate-file old-file-name-nondirectory 
-					       refac-monitor-path)))
-	 (if (eq refac-monitor-file nil)
-	     (if (file-directory-p (expand-file-name "src" (car refac-monitor-path)))
-		 (let ((refac-monitor-file-1 (expand-file-name (concat "src/" old-file-name-nondirectory) (car refac-monitor-path))))
-		   (copy-file old-file-name  refac-monitor-file-1 'true)
-		   (with-current-buffer (find-file-noselect refac-monitor-file-1)
-		     (vc-register nil "New file"))
-		   (vc-next-action-on-file refac-monitor-file-1 nil logmsg)
-		   (kill-buffer (find-file-noselect refac-monitor-file-1)))	
-	       (let ((refac-monitor-file-1 (expand-file-name  old-file-name-nondirectory (car refac-monitor-path))))
-		 (copy-file old-file-name  refac-monitor-file-1 'true)
-		 (with-current-buffer (find-file-noselect refac-monitor-file-1)
-		   (vc-register nil "New file"))
-		 (vc-next-action-on-file refac-monitor-file-1 nil logmsg)
-		 (kill-buffer (find-file-noselect refac-monitor-file-1))))
-	   (progn
-	     (copy-file old-file-name refac-monitor-file 'true)
-	     (vc-next-action-on-file refac-monitor-file nil logmsg)
-	 ))))
-     (write-to-refac-logfile logmsg))
-   
-
-(defun is_a_monitored_file(file)
+(defun is-a-monitored-file(file)
   "check if a file is monitored by Wrangler for refactoring activities."
+  (interactive)
   (setq monitored nil)
-  (setq dirs paths-to-monitor)
+  (setq dirs dirs-to-monitor)
   (while (and (not monitored) (not (equal dirs nil)))
     (if (string-match (car dirs) file)
 	(setq monitored 'true)
-      (setq dirs (cdr paths-to-monitor))
+      (setq dirs (cdr dirs-to-monitor))
       ))
-  monitored
-  )
+  (if monitored 
+      (car dirs)
+    nil))
 	    
 	    
 (defun commit()
@@ -128,9 +100,10 @@
 	     (['rex ['error rsn]]
 	      (message "Commit failed: %s" rsn))
 	     (['rex ['ok files logmsg]]
-	      ;;(condition-case nil
+	      ;; check in into the refactor monitoring repository before commiting changes.
+	      (condition-case nil
 		  (update-repository files logmsg)
-	;;	(error nil))
+		(error "The refactoring monitor is not working."))
 	      (dolist (f files)
 		(progn
 		  (setq old-file-name (elt f 0))
@@ -154,9 +127,10 @@
 		    (kill-buffer (get-file-buffer uf)))
 		  (setq unopened-files nil)
 		  (setq refactor-mode nil)
-		;;  (condition-case nil
-		;;      (update-repository files logmsg)
-		;;    (error nil))
+		  ;; check in into the refactor monitoring repository after commiting changes.
+		  (condition-case nil
+		       (update-repository files logmsg)
+		     (error "The refactoring monitor is not working."))
 		  (message "Refactoring succeeded."))))))
 
 (defun abort-changes()
@@ -215,38 +189,39 @@
 (defvar refactor-menu-items
   '(nil
     ("Rename Variable Name" erl-refactor-rename-var)
-     ("Rename Function Name" erl-refactor-rename-fun)
-     ("Rename Module Name" erl-refactor-rename-mod)
-     ("Generalise Function Definition" erl-refactor-generalisation)
-     ("Move Function to Another Module" erl-refactor-move-fun)
-     ("Function Extraction" erl-refactor-fun-extraction)
-     ("Fold Expression Against Function" erl-refactor-fold-expression)
-     nil
-       ("Tuple Function Arguments" erl-refactor-tuple-funpar)
-     ;;  ("Inline Function(beta)" erl-refactor-inline-fun)
-     nil
-     ("Rename a Process (beta)" erl-refactor-rename-process)
-     ("Add a Tag to Messages (beta)"  erl-refactor-add-a-tag)
-     ("Register a Process (beta)"   erl-refactor-register-pid)
-     ("From Function to Process (beta)" erl-refactor-fun-to-process)
-     nil 
-     ("Detect Identical Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
-     ("Detect Identical Code in Dirs" erl-refactor-duplicated-code-in-dirs)
-     ("Identical Expression Search" erl-refactor-expression-search)
-     ("Detect Similar Code in Current Buffer" erl-refactor-similar-code-in-buffer)
-     ("Detect Similar Code in Dirs" erl-refactor-similar-code-in-dirs)
-     ("Similar Expression Search" erl-refactor-similar-expression-search)
-     
-     nil
-     ("Introduce a Macro" erl-refactor-new-macro)
-     ("Fold Against Macro Definition" erl-refactor-fold-against-macro)
-     ("Normalise Record Expression" erl-refactor-normalise-record-expr)
-     nil
-     ("Undo" erl-refactor-undo)
-     nil
-     ("Customize Wrangler" wrangler-customize)
-     nil
-     ("Version" erl-refactor-version)))
+    ("Rename Function Name" erl-refactor-rename-fun)
+    ("Rename Module Name" erl-refactor-rename-mod)
+    ("Generalise Function Definition" erl-refactor-generalisation)
+    ("Move Function to Another Module" erl-refactor-move-fun)
+    ("Function Extraction" erl-refactor-fun-extraction)
+    ("Fold Expression Against Function" erl-refactor-fold-expression)
+    ("Tuple Function Arguments" erl-refactor-tuple-funpar)
+    ("Unfold Function Application" erl-refactor-unfold-fun)
+    nil
+    ("Introduce a Macro" erl-refactor-new-macro)
+    ("Fold Against Macro Definition" erl-refactor-fold-against-macro)
+    nil 
+    ("Detect Identical Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
+    ("Detect Identical Code in Dirs" erl-refactor-duplicated-code-in-dirs)
+    ("Identical Expression Search" erl-refactor-expression-search)
+    ("Detect Similar Code in Current Buffer" erl-refactor-similar-code-in-buffer)
+    ("Detect Similar Code in Dirs" erl-refactor-similar-code-in-dirs)
+    ("Similar Expression Search" erl-refactor-similar-expression-search)
+    nil
+    ("Process Refactorings (Beta)"
+     (
+      ("Rename a Process" erl-refactor-rename-process)
+      ("Add a Tag to Messages"  erl-refactor-add-a-tag)
+      ("Register a Process"   erl-refactor-register-pid)
+      ("From Function to Process" erl-refactor-fun-to-process)
+      ))
+    ("Normalise Record Expression" erl-refactor-normalise-record-expr)
+    nil
+    ("Undo" erl-refactor-undo)
+    nil
+    ("Customize Wrangler" wrangler-customize)
+    nil
+    ("Version" erl-refactor-version)))
 
 
 (defvar inspector-menu-items
@@ -363,7 +338,9 @@
  
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 0.8.1"))
+  (message "Wrangler version 0.8.3"))
+
+(setq wrangler-version  "(wrangler-0.8.3) ")
 
 (defun wrangler-menu-init()
   "Init Wrangler menus."
@@ -414,12 +391,16 @@
 					    (revert-buffer nil t t)))
 				 (with-current-buffer buffer (revert-buffer nil t t)))
 		      nil)))
-		(if (is_a_monitored_file curfile)
+		(let ((dir (is-a-monitored-file curfile)))
+		  (if (equal nil dir)
+		      nil
 		    (condition-case nil
-			(write-to-refac-logfile (concat "UNDO: " logmsg))
-		      (error nil))
-		  nil)		  
-		(message "Undo succeeded")))))
+			(progn
+			  (let ((reason (read-string "Reason for undo: " nil nil "" nil)))
+			    (write-to-refac-logfile dir (concat "UNDO: " logmsg "Reason: " reason)))
+			  )
+		      (error nil))))
+		    (message "Undo succeeded")))))
       (message "Undo aborted."))))
 
 (defun preview-commit-cancel(current-file-name modified)
@@ -640,8 +621,8 @@
 	    
 
 
-(defun erl-refactor-inline-fun()
-  "Inline a function definition."
+(defun erl-refactor-unfold-fun()
+  "Unfold a function application."
   (interactive)
   (let ((current-file-name (buffer-file-name))
 	(line-no           (current-line-no))
@@ -649,7 +630,7 @@
 	(buffer (current-buffer)))
     (if (current-buffer-saved buffer)
     	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'inline_fun(list current-file-name line-no column-no wrangler-search-paths tab-width))
+	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'unfold_fun_app(list current-file-name line-no column-no wrangler-search-paths tab-width))
 	  (erl-receive (line-no column-no current-file-name)
 	      ((['rex ['badrpc rsn]]
 		(message "Refactoring failed: %S" rsn))
@@ -758,17 +739,34 @@
   (let ((current-file-name (buffer-file-name))
 	(line-no           (current-line-no))
         (column-no         (current-column-no))
-	(buffer (current-buffer))
-        (create-new-file   (create-new-file-p name wrangler-search-paths)))
+	(buffer (current-buffer)))
     (if (buffers-saved)
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'move_fun
-			(list current-file-name line-no column-no name create-new-file wrangler-search-paths tab-width))
-	  (erl-receive (line-no column-no current-file-name)
+			(list current-file-name line-no column-no name wrangler-search-paths tab-width))
+	  (erl-receive (line-no column-no  name current-file-name)
 	      ((['rex ['badrpc rsn]]
 		(message "Refactoring failed: %S" rsn))
 	       (['rex ['error rsn]]
 		(message "Refactoring failed: %s" rsn))
+	       (['rex ['question msg]]
+		(progn 
+		  (if (y-or-n-p msg)
+		      (erl-spawn
+			(erl-send-rpc wrangler-erl-node 'wrangler 'move_fun_1 
+					       (list current-file-name line-no column-no name wrangler-search-paths tab-width))
+			(erl-receive (line-no column-no current-file-name)
+			    ((['rex ['badrpc rsn]]
+			      (message "Refactoring failed: %S" rsn))
+			     (['rex ['error rsn]]
+			      (message "Refactoring failed: %s" rsn))
+			     (['rex ['ok modified]]
+			      (progn
+				(preview-commit-cancel current-file-name modified)
+				(with-current-buffer (get-file-buffer current-file-name)
+				  (goto-line line-no)
+				  (goto-column column-no)))))))
+		    (message "Refactoring aborted."))))		
 	       (['rex ['ok modified]]
 		(progn
 		  (preview-commit-cancel current-file-name modified)
@@ -778,12 +776,7 @@
 	       )))
       (message "Refactoring aborted."))))
 
-(defun create-new-file-p (filename wrangler-search-paths)
-  (if (equal (locate-file filename (cons (file-name-directory filename) nil) '("" ".erl")) nil)
-      (y-or-n-p "The specified module does not exist, do you want to create one?")
-    t))
 
- 
 ;; redefined get-file-buffer to handle the difference between
 ;; unix and windows filepath seperator.
 (defun get-file-buffer (filename)
@@ -2133,16 +2126,297 @@
 	  )
       (message "Searching aborted."))))
  
-(defun write-to-refac-logfile(content)
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; The following functions are for monitoring refactoring activities purpose, and ;;
+;; will be moved to a separate module.                                            ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(defun write-to-refac-logfile(dir-to-monitor logmsg)
   "write log infomation to the log file and check in to the repository"
-  (let* ((logfile (expand-file-name "refac_cmd_log" (car refac-monitor-path)))
+  (let* ((refac-monitor-path (concat (file-name-as-directory (car refac-monitor-repository-path))
+				     (file-name-nondirectory dir-to-monitor)))
+	 (logfile (concat (file-name-as-directory refac-monitor-path) "refac_cmd_log"))
 	 (exist (file-regular-p logfile)))
-    (write-region (concat "\n" content) nil logfile 'true)
+   ;; (message "logmsg:%s" logmsg)
+   ;; (message "logfile:%s" logfile)
+    (write-region (concat "\n" logmsg) nil logfile 'true)
     (if (eq exist nil)
-	(progn
-	  (with-current-buffer (find-file-noselect logfile)
-	    (vc-register nil "New refactoring command log file")
-	    (vc-next-action-on-file logfile nil "new refactoring command added")))
-      (vc-next-action-on-file logfile nil "new refactoring command added"))
-    (kill-buffer (find-file-noselect logfile))))
+	(vc-call-backend (backend-used) 'register (list logfile) nil "new file")
+      nil)
+    (vc-call-backend (backend-used) 'checkin (list logfile) nil "new command")))
+
+
+(defun backend-used()
+  "Get the version control system used by the monitor"
+  (vc-backend (concat (file-name-as-directory (car refac-monitor-repository-path)) ".")))
+
+(defun update-repository(files logmsg)
+  "commit refactoring files to the monitoring repository if they should be monitored"
+  (if (equal files nil)
+      nil
+    (let ((dir (is-a-monitored-file (elt (car files) 0))))
+      (if (equal nil dir)
+	  nil
+	(update-repository-1 dir (concat wrangler-version logmsg))))))
+	   
+
+(defun update-repository-1 (dir-to-monitor logmsg)
+  "copy changed files to the working copy of refactor monitor"
+   (require 'dired-aux)
+  (let* ((refac-monitor-path (concat (file-name-as-directory (car refac-monitor-repository-path))
+				     (file-name-nondirectory dir-to-monitor)))
+	 (logfile (concat (file-name-as-directory refac-monitor-path) "refac_cmd_log")))
+   ;; (message "ddd:%s" refac-monitor-path)
+    (copy-dir-recursive  dir-to-monitor refac-monitor-path 'true nil nil 'always)
+    (write-region (concat "\n" logmsg) nil logfile 'true)
+    (register-and-checkin-new-files refac-monitor-path)
+    (checkin-changed-files refac-monitor-path logmsg)))
     
+(defun copy-dir-recursive (from to ok-flag &optional preserve-time top recursive)
+  (let ((attrs (file-attributes from))
+	dirfailed)
+    (if (and recursive
+	     (eq t (car attrs))
+	     (or (eq recursive 'always)
+		 (yes-or-no-p (format "Recursive copies of %s? " from))))
+	;; This is a directory
+	(if (or (member (file-name-nondirectory from) vc-directory-exclusion-list)
+	    (and (string-equal (substring (file-name-nondirectory from) 0 1) ".")
+		 (not (or (string-equal (file-name-nondirectory from) ".")
+			  (string-equal (file-name-nondirectory from) "..")))))
+	    nil
+	  (let ((mode (or (file-modes from) #o700))
+		(files
+		 (condition-case err
+		     (directory-files from nil dired-re-no-dot)
+		   (file-error
+		  (push (dired-make-relative from)
+			dired-create-files-failures)
+		  (dired-log "Copying error for %s:\n%s\n" from err)
+		  (setq dirfailed t)
+		  nil))))
+	    (if (eq recursive 'top) (setq recursive 'always)) ; Don't ask any more.
+	    (unless dirfailed
+	      (if (file-exists-p to)
+		  (or top (dired-handle-overwrite to))
+		(condition-case err
+		    ;; We used to call set-file-modes here, but on some
+		    ;; Linux kernels, that returns an error on vfat
+		    ;; filesystems
+		    (let ((default-mode (default-file-modes)))
+		      (unwind-protect
+			  (progn
+			    (set-default-file-modes #o700)
+			    (make-directory to))
+			(set-default-file-modes default-mode)))
+		  (file-error
+		   (push (dired-make-relative from)
+			 dired-create-files-failures)
+		   (setq files nil)
+		   (dired-log "Copying error for %s:\n%s\n" from err)))))
+	    (dolist (file files)
+	      (let ((thisfrom (expand-file-name file from))
+		    (thisto (expand-file-name file to)))
+		;; Catch errors copying within a directory,
+		;; and report them through the dired log mechanism
+		;; just as our caller will do for the top level files.
+		(condition-case err
+		    (copy-dir-recursive
+		     thisfrom thisto
+		     ok-flag preserve-time nil recursive)
+		  (file-error
+		   (push (dired-make-relative thisfrom)
+			 dired-create-files-failures)
+		   (dired-log "Copying error for %s:\n%s\n" thisfrom err)))))
+	    (when (file-directory-p to)
+	      (set-file-modes to mode))))
+      ;; Not a directory.
+      (or top (dired-handle-overwrite to))
+      (condition-case err
+	  (if (stringp (car attrs))
+	      ;; It is a symlink
+	      (make-symbolic-link (car attrs) to ok-flag)
+	    (if (or (equal (file-name-extension from) "erl")
+		    (equal (file-name-extension from) "hrl"))
+		(progn
+		;;  (message "filetocopy:%s" from)
+		  (copy-file from to ok-flag dired-copy-preserve-time)
+		  )
+	      nil))
+	(file-date-error
+	 (push (dired-make-relative from)
+	       dired-create-files-failures)
+	 (dired-log "Can't set date on %s:\n%s\n" from err))))))
+
+     
+(defun register-and-checkin-new-files(dir-to-check)
+  "Register and check new files into the version control system."
+  (if (equal 'unregistered (vc-call-backend (backend-used) 'state dir-to-check))
+      (progn
+	(vc-call-backend (backend-used) 'register (list dir-to-check) nil "new directory")
+	(vc-call-backend (backend-used) 'checkin (list dir-to-check) nil "new direcotry"))
+    (let ((files (files-not-registered dir-to-check)))
+     ;; (message "filestoregister:%s" files)
+      (when files 
+	(progn
+	  (setq files (cons (backend-used) (list files)))
+	  (register nil files "new files")
+	  (checkin files "new files"))))))
+
+
+     
+(defun checkin-changed-files()
+  "Check in edited files."
+  (let ((files (files-changed)))
+    (when files 
+      (progn
+	(setq fileset (cons (backend-used) (list files)))
+	(checkin fileset "new files")))))
+   
+
+(defun files-not-registered (dir-to-check)
+  "Expands directories in a file list specification.
+Within directories, only files not already under version control are noticed."
+  (let ((file-or-dir-list (list dir-to-check)))
+    (let ((flattened '()))
+      (dolist (node file-or-dir-list)
+;;	(message "node:%s" file-or-dir-list)
+	(when (file-directory-p node)
+	  (file-tree-walk
+	   (expand-file-name node) 
+	   (lambda (f) 
+	    ;; (message "state:%s" (vc-call-backend (backend-used) 'state f))
+	     (when (equal 'unregistered (vc-call-backend (backend-used) 'state f)) (push f flattened))) nil))
+	(unless (file-directory-p node) (push node flattened)))
+     ;; (message "files: %s" flattened)
+      flattened)))
+
+
+(defun remove-deleted-files(dir-to-check monitored-dir)
+  "removed files that are deleted from the application code from the repos"
+  (let ((files (files-removed dir-to-check monitored-dir)))
+   ;; (message "filestoremove:%s" files)
+    (when files
+      (progn 
+	(dolist (f files)
+	  (delete-file f))
+	(setq files (cons (backend-used) (list files)))
+	(checkin files "removed")))))
+
+		
+(defun files-removed (dir-to-check monitored-dir)
+  "reports files that are under version control but no longer exist in the application code."
+  (let ((file-or-dir-list (list dir-to-check)))
+    (let ((flattened '()))
+      (dolist (node file-or-dir-list)
+	;;(message "node:%s" file-or-dir-list)
+	(when (file-directory-p node)
+	  (file-tree-walk
+	   (expand-file-name node) 
+	   (lambda (f) 
+	    ;; (message "f:%s" f)
+	   ;;  (message "f1:%s" (replace-regexp-in-string dir-to-check 
+  	   ;;						monitored-dir f))
+	     (let ((f1 (replace-regexp-in-string dir-to-check 
+						 monitored-dir f)))
+	       (when 
+		   (and (or  (equal (file-name-extension f1) "erl")
+			     (equal (file-name-extension f1) "hrl"))
+			(not (file-exists-p f1)))
+		 (push f flattened)))) nil))
+	(unless (file-directory-p node) (push node flattened)))
+     ;; (message "files: %s" flattened)
+      flattened))) 
+
+
+(defun file-tree-walk (file func args)
+  (if (not (file-directory-p file))
+      (apply func file args)
+    (let ((dir (file-name-as-directory file)))
+      (mapcar
+       (lambda (f) (or
+		    (string-equal f ".")
+		    (string-equal f "..")
+		    (member f vc-directory-exclusion-list)
+		    (let ((dirf (expand-file-name f dir)))
+		      (file-tree-walk dirf func args))))
+       (directory-files dir)))))
+
+(defun checkin-changed-files(refac-monitor-dir logmsg)
+  "check in files that have been changed."
+  (let ((files (changed-files refac-monitor-dir)))
+   ;; (message "changed files: %s" files)
+    (when files
+      (progn
+	(setq files (cons (backend-used) (list files)))
+	(checkin files logmsg)))))
+
+(defun changed-files (refac-monitor-dir)
+  "Expands directories in a file list specification.
+Within directories, only files not already under version control are noticed."
+  (let ((file-or-dir-list (list refac-monitor-dir)))
+    (let ((flattened '()))
+      (dolist (node file-or-dir-list)
+	;;(message "node:%s" file-or-dir-list)
+	(when (file-directory-p node)
+	  (file-tree-walk
+	   (expand-file-name node) (lambda (f) 
+				     (when (equal 'edited (vc-call-backend (backend-used) 'state f)) (push f flattened))) nil))
+	(unless (file-directory-p node) (push node flattened)))
+     ;; (message "files: %s" flattened)
+      flattened)))
+
+
+(defun checkin (vc-fileset comment)
+  (let* ((backend (car vc-fileset))
+	 (files (nth 1 vc-fileset))
+	 (ready-for-commit files))
+    ;; (message "ready-to-commit:%s" ready-for-commit)
+    ;; If files are edited but read-only, give user a chance to correct
+    (dolist (file files)
+      (unless (file-writable-p file)
+	(set-file-modes file (logior (file-modes file) 128))
+	(let ((visited (get-file-buffer file)))
+	  (when visited
+	    (with-current-buffer visited
+	    (toggle-read-only -1))))))
+    (if (not ready-for-commit)
+	nil
+     ;; (message "to check in files")
+     ;; (message "backend %s" backend)
+     ;; (message "comment %s" comment)
+      (vc-call-backend 'SVN 'checkin ready-for-commit nil comment))))
+
+(defun register (&optional set-revision vc-fileset comment)
+   (let* ((fileset-arg  vc-fileset)
+	  (backend (car fileset-arg))
+	  (files (nth 1 fileset-arg)))
+     (dolist (fname files)
+       (let ((bname (get-file-buffer fname)))
+	 (unless fname (setq fname buffer-file-name))
+	 (when (vc-backend fname)
+	   (if (vc-registered fname)
+	       (error "This file is already registered")
+	     (unless (y-or-n-p "Previous master file has vanished.  Make a new one? ")
+	       (error "Aborted"))))
+	 ;; Watch out for new buffers of size 0: the corresponding file
+	 ;; does not exist yet, even though buffer-modified-p is nil.
+	(when bname
+	  (with-current-buffer bname
+	    (when (and (not (buffer-modified-p))
+		       (zerop (buffer-size))
+		       (not (file-exists-p buffer-file-name)))
+	      (set-buffer-modified-p t))
+	    (vc-buffer-sync)))))
+    ;; (message "files:%s" files)
+     (vc-call-backend backend 'register files nil comment)
+     (dolist (file files)
+       (vc-file-setprop file 'vc-backend backend)
+       )))
+    ;; (message "Registering %s... done" files)))
+
