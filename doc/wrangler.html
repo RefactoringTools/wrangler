@@ -10,10 +10,10 @@
 
 <h1>Module wrangler</h1>
 <ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>This module describes the refactorings that are currently supported by Wrangler.
-<p>Copyright © 2006-2009 Huiqing Li, Simon Thompson
+<p>Copyright © 2006-2010 Huiqing Li, Simon Thompson
  </p>
 
-<p><b>Version:</b> 0.8</p>
+<p><b>Version:</b> 0.8.3</p>
 <p><b>Authors:</b> Huiqing Li, Simon Thompson [<em>web site:</em> <tt><a href="http://www.cs.kent.ac.uk/projects/wrangler" target="_top">http://www.cs.kent.ac.uk/projects/wrangler</a></tt>].</p>
 
 <h2><a name="description">Description</a></h2>This module describes the refactorings that are currently supported by Wrangler.
@@ -24,12 +24,11 @@
 <tr><td valign="top"><a href="#fold_against_macro-5">fold_against_macro/5</a></td><td>Fold expressions/patterns against a macro definition.</td></tr>
 <tr><td valign="top"><a href="#fold_expr-1">fold_expr/1</a></td><td>Fold expressions against a function definition.</td></tr>
 <tr><td valign="top"><a href="#fun_extraction-5">fun_extraction/5</a></td><td>Introduce a new function to represent an expression or expression sequence.</td></tr>
-<tr><td valign="top"><a href="#fun_to_process-6">fun_to_process/6</a></td><td>Turn a function into a server process.</td></tr>
+<tr><td valign="top"><a href="#fun_to_process-6">fun_to_process/6</a></td><td>Turn a function into a server process (Beta).</td></tr>
 <tr><td valign="top"><a href="#generalise-6">generalise/6</a></td><td> Generalise a function definition.</td></tr>
 <tr><td valign="top"><a href="#identical_expression_search-4">identical_expression_search/4</a></td><td>Search for expressions/expression sequences that are identical to the expression/expression  
 sequence selected after consistent renaming of variables and literal substitution.</td></tr>
-<tr><td valign="top"><a href="#inline_fun-4">inline_fun/4</a></td><td></td></tr>
-<tr><td valign="top"><a href="#move_fun-7">move_fun/7</a></td><td>Move a function definition from its current module to another.</td></tr>
+<tr><td valign="top"><a href="#move_fun-6">move_fun/6</a></td><td>Move a function definition from its current module to another.</td></tr>
 <tr><td valign="top"><a href="#new_macro-6">new_macro/6</a></td><td>Introduce a macro to represent a syntactically well-formed expression/pattern or a sequence of expressions/patterns.</td></tr>
 <tr><td valign="top"><a href="#normalise_record_expr-6">normalise_record_expr/6</a></td><td>Reorder the record fields in a record expression to be consistent with the record definition.</td></tr>
 <tr><td valign="top"><a href="#register_pid-6">register_pid/6</a></td><td>Register a process (Beta).</td></tr>
@@ -41,6 +40,7 @@ sequence selected after consistent renaming of variables and literal substitutio
 <tr><td valign="top"><a href="#similar_code_detection_in_buffer-6">similar_code_detection_in_buffer/6</a></td><td>A similar code detector that searches for similar code in the current Erlang buffer.</td></tr>
 <tr><td valign="top"><a href="#similar_expression_search-6">similar_expression_search/6</a></td><td>Search for expression/expression sequences in the current buffer that are similar to the expression/expression sequence selected by the user.</td></tr>
 <tr><td valign="top"><a href="#tuple_funpar-5">tuple_funpar/5</a></td><td>Group a consecutive sequence of parameters of a function into a tuple.</td></tr>
+<tr><td valign="top"><a href="#unfold_fun_app-4">unfold_fun_app/4</a></td><td>Unfold a function application to an instance of the function's body.</td></tr>
 </table>
 
 <h2><a name="functions">Function Details</a></h2>
@@ -66,7 +66,7 @@ sequence selected after consistent renaming of variables and literal substitutio
 
 <h3 class="function"><a name="duplicated_code_in_buffer-4">duplicated_code_in_buffer/4</a></h3>
 <div class="spec">
-<p><tt>duplicated_code_in_buffer(FileName::<a href="#type-filename">filename()</a>, MinToks::integer(), MinClones::integer(), TabWidth::integer()) -&gt; {ok, string()}</tt></p>
+<p><tt>duplicated_code_in_buffer(FileName::<a href="#type-filename">filename()</a>, MinToks::string(), MinClones::string(), TabWidth::integer()) -&gt; {ok, string()}</tt></p>
 </div><p>An identical code detector that searches for identical code within the current Erlang buffer.
   <p> This function reports duplicated code fragments found in the current Erlang buffer, it does
   not remove those code clones though. The user will be prompted for two parameters: the minimum number of
@@ -115,7 +115,7 @@ sequence selected after consistent renaming of variables and literal substitutio
 
 <h3 class="function"><a name="fold_expr-1">fold_expr/1</a></h3>
 <div class="spec">
-<p><tt>fold_expr(X1::{{FileName::<a href="#type-filename">filename()</a>, Line::integer(), Col::integer(), SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()} | {FileName::<a href="#type-filename">filename()</a>, ModName::<a href="#type-modulename">modulename()</a>, Arity::integer(), ClauseIndex::integer(), SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()}}) -&gt; {ok, [{{{integer(), integer()}, {integer(), integer()}}, <a href="#type-syntaxTree">syntaxTree()</a>}]} | {error, string()}</tt></p>
+<p><tt>fold_expr(X1::{FileName::<a href="#type-filename">filename()</a>, Line::integer(), Col::integer(), SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()} | {FileName::<a href="#type-filename">filename()</a>, ModName::<a href="#type-modulename">modulename()</a>, Arity::integer(), ClauseIndex::integer(), SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()}) -&gt; {ok, [{{{integer(), integer()}, {integer(), integer()}}, <a href="#type-syntaxTree">syntaxTree()</a>}]} | {error, string()}</tt></p>
 </div><p>Fold expressions against a function definition.
   <p>
   This refactoring replaces instances of the right-hand side of a function clause definition by
@@ -148,7 +148,7 @@ sequence selected after consistent renaming of variables and literal substitutio
 
 <h3 class="function"><a name="fun_extraction-5">fun_extraction/5</a></h3>
 <div class="spec">
-<p><tt>fun_extraction(FileName::<a href="#type-filename">filename()</a>, Start::Pos, End::Pos, FunName::string(), TabWidth::integer()) -&gt; {error, string()} | {ok, string()}</tt></p>
+<p><tt>fun_extraction(FileName::<a href="#type-filename">filename()</a>, Start::<a href="#type-pos">pos()</a>, End::<a href="#type-pos">pos()</a>, FunName::string(), TabWidth::integer()) -&gt; {error, string()} | {ok, string()}</tt></p>
 </div><p>Introduce a new function to represent an expression or expression sequence.
   <p> This refactoring allows the user to introduce a new function to represent a selected expression or expression
   sequence, and replace the selected code with a call to the new function.  Free variables
@@ -162,7 +162,7 @@ sequence selected after consistent renaming of variables and literal substitutio
 <h3 class="function"><a name="fun_to_process-6">fun_to_process/6</a></h3>
 <div class="spec">
 <p><tt>fun_to_process(FileName::<a href="#type-filename">filename()</a>, Line::integer(), Col::integer(), ProcessName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {ok, [<a href="#type-filename">filename()</a>]} | {error, string()}</tt></p>
-</div><p>Turn a function into a server process.
+</div><p>Turn a function into a server process (Beta).
  <p>
   This refactoring turns a function into a server process.
   Turning a function into a server process provides potential for memorisation of calculated values, adding states to the process, etc.
@@ -218,9 +218,7 @@ sequence selected after consistent renaming of variables and literal substitutio
 
 <h3 class="function"><a name="generalise-6">generalise/6</a></h3>
 <div class="spec">
-<p><tt>generalise(FileName::<a href="#type-filename">filename()</a>, Start::Pos, End::Pos, ParName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {ok, string()} | {error, string()}</tt>
-<ul class="definitions"><li><tt>Pos = {integer(), integer()}</tt></li>
-</ul></p>
+<p><tt>generalise(FileName::<a href="#type-filename">filename()</a>, Start::<a href="#type-pos">pos()</a>, End::<a href="#type-pos">pos()</a>, ParName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {ok, string()} | {error, string()}</tt></p>
 </div><p> Generalise a function definition.
   <p>Generalise a function definition by selecting a sub-expression of its right-hand
   side and making this the value of a new argument added to the definition of the function.
@@ -270,11 +268,14 @@ sequence selected after consistent renaming of variables and literal substitutio
   <p> Usage: to apply this refactoring, highlight the expression first, then  select
   <em> Generalise Function Definition </em> from the <em>Refactor</em> menu, after
   that the refactorer will prompt to enter the parameter name in the mini-buffer. </p>
- </p>
+ 
+  NOTE: in Erlang some literal expressions can not be replaced by variables. For example, the atom <code>fields</code>
+  in the experssion <code>record_info(fields, Record)</code> should not be replaced by a variable or other expressions.
+  This kind of checking is NOT supported by Wrangler yet.</p>
 
 <h3 class="function"><a name="identical_expression_search-4">identical_expression_search/4</a></h3>
 <div class="spec">
-<p><tt>identical_expression_search(FileName::<a href="#type-filename">filename()</a>, Start::Pos, End::Pos, TabWidth::integer()) -&gt; {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}</tt></p>
+<p><tt>identical_expression_search(FileName::<a href="#type-filename">filename()</a>, Start::<a href="#type-pos">pos()</a>, End::<a href="#type-pos">pos()</a>, TabWidth::integer()) -&gt; {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}</tt></p>
 </div><p><p>Search for expressions/expression sequences that are identical to the expression/expression  
 sequence selected after consistent renaming of variables and literal substitution.</p>
  
@@ -288,14 +289,9 @@ sequence selected after consistent renaming of variables and literal substitutio
   Usage: highlight the expression/expression sequence of interest, then selected  <em> Indentical Expression Search </em> from
   <em> Refactor</em>.</p>
 
-<h3 class="function"><a name="inline_fun-4">inline_fun/4</a></h3>
+<h3 class="function"><a name="move_fun-6">move_fun/6</a></h3>
 <div class="spec">
-<p><tt>inline_fun(FileName, Pos, SearchPaths, TabWidth) -&gt; any()</tt></p>
-</div>
-
-<h3 class="function"><a name="move_fun-7">move_fun/7</a></h3>
-<div class="spec">
-<p><tt>move_fun(FileName::<a href="#type-filename">filename()</a>, Line::integer(), Col::integer(), TargetModName::string(), CreateNewFile::bool(), SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {ok, [<a href="#type-filename">filename()</a>]} | {error, string()}</tt></p>
+<p><tt>move_fun(FileName::<a href="#type-filename">filename()</a>, Line::integer(), Col::integer(), TargetFileModName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {ok, [<a href="#type-filename">filename()</a>]} | {error, string()}</tt></p>
 </div><p>Move a function definition from its current module to another.
   <p> This refactoring has a global effect, i.e., it affects all the modules in which
       the function is imported/used.
@@ -332,7 +328,7 @@ sequence selected after consistent renaming of variables and literal substitutio
 
 <h3 class="function"><a name="normalise_record_expr-6">normalise_record_expr/6</a></h3>
 <div class="spec">
-<p><tt>normalise_record_expr(FileName::<a href="#type-filename">filename()</a>, Line::integer(), Col::integer(), ShowDefault::bool(), SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {error, string()} | {ok, [<a href="#type-filename">filename()</a>]}</tt></p>
+<p><tt>normalise_record_expr(FileName::<a href="#type-filename">filename()</a>, Line::integer(), Col::integer(), ShowDefault::<a href="#type-boolean">boolean()</a>, SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {error, string()} | {ok, [<a href="#type-filename">filename()</a>]}</tt></p>
 </div><p>Reorder the record fields in a record expression to be consistent with the record definition.
  <p>
   Usage: point cursor to the record expression interested, then select <em>Normalise Record Expression</em> from <em>Refactor</em>.
@@ -379,7 +375,7 @@ sequence selected after consistent renaming of variables and literal substitutio
 
 <h3 class="function"><a name="rename_mod-4">rename_mod/4</a></h3>
 <div class="spec">
-<p><tt>rename_mod(FileName::<a href="#type-filename">filename()</a>, NewName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {error, string()} | {ok, [<a href="#type-filename">filename()</a>]}</tt></p>
+<p><tt>rename_mod(FileName::<a href="#type-filename">filename()</a>, NewName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {error, string()} | {question, string()} | {warning, string()} | {ok, [<a href="#type-filename">filename()</a>]}</tt></p>
 </div><p>Rename a module.
   <p> This refactoring affects all those modules in which the module name is used.
   </p>
@@ -485,9 +481,23 @@ sequence selected after consistent renaming of variables and literal substitutio
   <p> Usage: to apply this refactoring, highlight the arguments to be grouped into a tuple from
   the function definition, then select <em> Tuple Function Arguments </em> from <em> Refactor</em>.
   </p></p>
+
+<h3 class="function"><a name="unfold_fun_app-4">unfold_fun_app/4</a></h3>
+<div class="spec">
+<p><tt>unfold_fun_app(FileName::<a href="#type-filename">filename()</a>, Pos::<a href="#type-pos">pos()</a>, SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer) -&gt; {error, string()} | {ok, [string()]}</tt></p>
+</div><p>Unfold a function application to an instance of the function's body.
+  <p> This refactoring replaces a function application with an instance of the function body.
+  With the current implementation, Wrangler unfolds a function application only if the function
+  is defined in the same module, and Wrangler could work out which function clause to use (in case
+  the function definition contains multiple function clauses).
+  </p>
+  <p>
+  Usage: Point the cursor to the function name in the function application to unfold, then
+  select <em>Unfold Function Application</em> from <em>Refactor</em>.
+  </p></p>
 <hr>
 
 <div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, Sep 2 2009, 10:20:30.</i></p>
+<p><i>Generated by EDoc, Nov 9 2009, 14:28:08.</i></p>
 </body>
 </html>
