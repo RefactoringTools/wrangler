@@ -92,12 +92,35 @@ prop_rename_fun({FName, Loc, NewName, SearchPaths, TabWidth}) ->
 		  case Res of 
 		      false -> false;
 		      error -> true;
+		      {warning, _Msg} ->
+			  Res1 = try apply(refac_rename_fun, rename_fun_1, [FName, Line, Col, NewName, SearchPaths, TabWidth])
+				 catch 
+				     throw:Error1 -> 
+					 io:format("Error:\n~\pn", [Error1]),
+					 error;
+				       E11:E21 ->
+					 io:format("E1:E2:\n~p\n", [{E11, E21}]),
+					 false
+				 end,    
+			  case Res1 of 
+			      false ->
+				   false;
+			      error -> true;
+			      _ ->
+				  wrangler_preview_server:commit(),
+				  Res2 = (catch compile:file(FName,[{i, SearchPaths}])), 
+				  case Res2 of 
+				       {ok, _} -> wrangler_undo_server:undo(),true;
+				      Errors -> io:format("\nResulted file does not Compile: ~p\n", [Errors]),
+					   wrangler_undo_server:undo(),false
+				  end
+			  end;			      
 		      _ ->
 			  wrangler_preview_server:commit(),
 			  Res1 = (catch compile:file(FName,[{i, SearchPaths}])), 
-			   case Res1 of 
+ 			   case Res1 of 
 			       {ok, _} -> wrangler_undo_server:undo(),true;
-			       _ -> io:format("\nResulted file does not Compile!\n"),
+			       Errors -> io:format("\nResulted file does not Compile:~p\n",[Errors]),
 				   wrangler_undo_server:undo(),false
 			   end
 		  end
@@ -113,7 +136,7 @@ gen_rename_fun_commands_1(FileName, Dirs) ->
 	
 test_rename_fun(Dirs) ->
     application:start(wrangler_app),
-    eqc:quickcheck(?FORALL(C, (gen_rename_fun_commands(Dirs)), prop_rename_fun(C))),
+    eqc:quickcheck(numtests(500,?FORALL(C, (gen_rename_fun_commands(Dirs)), prop_rename_fun(C)))),
     application:stop(wrangler_app).
 
 

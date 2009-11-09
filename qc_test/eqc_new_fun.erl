@@ -90,7 +90,7 @@ show_new_fun_commands(Dirs)->
 	  
 test_new_fun(Dirs) ->
     application:start(wrangler_app),
-    eqc:quickcheck(?FORALL(C, (gen_new_fun_commands(Dirs)), prop_new_fun(C))),
+    eqc:quickcheck(numtests(500, ?FORALL(C, (gen_new_fun_commands(Dirs)), prop_new_fun(C)))),
     application:start(wrangler_app).
 	
     
@@ -99,7 +99,7 @@ test_new_fun1() ->
     test_new_fun(["c:/cygwin/home/hl/test_codebase/tableau"]).
 
 test_new_fun2() ->
-    test_new_fun(["c:/cygwin/home/hl/test_codebase/eunit"]).
+    test_new_fun(["c:/cygwin/home/hl/test_codebase/inets-5.0.12"]).
 
 test_new_fun3() ->
     test_new_fun(["c:/cygwin/home/hl/test_codebase/refactorerl-0.5"]).

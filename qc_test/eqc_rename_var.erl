@@ -123,7 +123,7 @@ gen_rename_var_commands_1(FileName, Dirs) ->
 
 test_rename_var(Dirs) ->
     application:start(wrangler_app),
-    eqc:quickcheck(?FORALL(C, (gen_rename_var_commands(Dirs)), prop_rename_var(C))),
+    eqc:quickcheck(numtests(500, ?FORALL(C, (gen_rename_var_commands(Dirs)), prop_rename_var(C)))),
     application:stop(wrangler_app).
 
 
@@ -133,11 +133,11 @@ test_rename_var1() ->
 test_rename_var2() ->
     test_rename_var(["c:/cygwin/home/hl/test_codebase/eunit"]).
 
-%% test_rename_var3() ->
-%%     test_rename_var(["c:/cygwin/home/hl/test_codebase/refactorerl-0.5"]).
+test_rename_var3() ->
+     test_rename_var(["c:/cygwin/home/hl/test_codebase/refactorerl-0.5"]).
 
-%% test_rename_var4() ->
-%%     test_rename_var(["c:/cygwin/home/hl/test_codebase/suite"]).
+test_rename_var4() ->
+     test_rename_var(["c:/cygwin/home/hl/test_codebase/suite"]).
 
 test_rename_var5() ->
     test_rename_var(["c:/cygwin/home/hl/test_codebase/wrangler-0.7"]).
@@ -145,21 +145,21 @@ test_rename_var5() ->
 test_rename_var6() ->
     test_rename_var(["c:/cygwin/home/hl/test_codebase/umbria"]).
 
-%% test_rename_var7() ->
-%%     test_rename_var(["c:/cygwin/home/hl/test_codebase/yaws-1.77"]).
+test_rename_var7() ->
+     test_rename_var(["c:/cygwin/home/hl/test_codebase/yaws-1.77"]).
 
-%% test_rename_var8() ->
-%%     test_rename_var(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
+test_rename_var8() ->
+     test_rename_var(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
 
-%% test_rename_var() ->
-%%     test_rename_var(["c:/cygwin/home/hl/test_codebase"]).
+test_rename_var() ->
+     test_rename_var(["c:/cygwin/home/hl/test_codebase"]).
 
 run_test() ->
     test_rename_var1(),
     test_rename_var2(),
-  %%   test_rename_var3(),
-%%     test_rename_var4(),
- %%   test_rename_var5(),
-    test_rename_var6().
-
-%%     test_rename_var8().
+    test_rename_var3(),
+    test_rename_var4(),
+    test_rename_var5(),
+    test_rename_var6(),
+    test_rename_var7(),
+    test_rename_var8().

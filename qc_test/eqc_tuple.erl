@@ -16,9 +16,9 @@ collect_par_locs(FileName, Dirs) ->
 			    _ ->
 				IndexedPats = lists:zip(Patterns, lists:reverse(lists:seq(1, length(Patterns)))),
 				Pars =lists:map(fun({P, Index}) -> {Start, End} = refac_util:get_range(P),
-								   {{Start, End}, Index}
+								   {{Start, End}, length(Patterns)-Index+1, Index}
 						end, IndexedPats),
-				Pars++S
+				[P||P={{_S1, _E1}, _Index1, Index2}<-Pars, Index2>1]++S
 			end;
 		    _ -> S
 		end
@@ -26,7 +26,7 @@ collect_par_locs(FileName, Dirs) ->
     Res = lists:usort(refac_syntax_lib:fold(F, [], AST)),
     case Res of 
 	[] ->
-	     [{{{0,0},{0,0}},0}];
+	     [{{{0,0},{0,0}},0,0}];
 	_ -> Res
     end.
 
@@ -37,12 +37,12 @@ gen_filename(Dirs) ->
 
 
 %% Properties for 'generalise a function'
-prop_tuple({FName, Pos, Number, SearchPaths, TabWidth}) ->
+prop_tuple({FName, Pos, Index, Number, SearchPaths, TabWidth}) ->
     {Line, Col} = Pos,
-    Args = [FName, Line, Col,  Number, SearchPaths, TabWidth],
+    Args = [FName, Line, Col,  Index, Number, SearchPaths, TabWidth],
     ?IMPLIES((Line=/=0),
 	     try  apply(refac_tuple, tuple_funpar, Args)  of
-		  {ok, Res} ->
+		  {ok, _Res} ->
 		     wrangler_preview_server:commit(),
 		     case compile:file(FName, []) of 
 			 {ok, _} -> 
@@ -72,12 +72,10 @@ gen_tuple_commands(Dirs) ->
 %% generate 'gen a function' commands.
 gen_tuple_commands_1(FileName, Dirs) ->
    noshrink( ?LET(Par, oneof(collect_par_locs(FileName, Dirs)),
-	 begin
-	     {{{StartLine, StartCol}, {EndLine, EndCol}}, Index} = Par, 
-	     ?LET(L, ?SUCHTHAT(LOC, {choose(StartLine, EndLine), choose(StartCol, EndCol)}, 
-			       LOC>={StartLine, StartCol}andalso LOC=<{EndLine, EndCol}),
-		  {FileName, L, choose(1, if Index==0-> 1; true ->Index end), Dirs, 8})
-	 end)).
+		  begin
+		      {{{StartLine, StartCol}, {_EndLine, _EndCol}}, Index0, Index} = Par, 
+		      {FileName, {StartLine, StartCol}, Index0, choose(2, if Index=<1 -> 2; true ->Index end), Dirs, 8}
+		  end)).
 
 show_tuple_commands(Dirs)->
     eqc:quickcheck(?FORALL (C, (gen_tuple_commands(Dirs)), (eqc:collect(C, true)))).

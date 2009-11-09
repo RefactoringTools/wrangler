@@ -22,13 +22,15 @@ collect_fold_candidates(FName, SearchPaths, TabWidth) ->
 			Res =lists:flatmap(fun(R) ->
 						   {{StartLine, StartCol}, _} = R,
 						   Args = [FName,StartLine, StartCol, SearchPaths, TabWidth, emacs],
-						   case apply(refac_fold_expression, fold_expression, Args) of 
+						   try apply(refac_fold_expression, fold_expression, Args) of 
 						       {ok, Regions} ->
 							   Regions1 = lists:map(fun(Reg) ->
 											list_to_tuple([FunName, Arity1 |tuple_to_list(Reg)]) end,
 										Regions),
 							   Regions1;
 						       _ -> []
+						   catch 
+						       E1:E2 -> []					   
 						   end
 					   end, Rs),
 			Res ++ S;			                                
@@ -70,6 +72,8 @@ prop_fold_expr({FunName, Arity, StartLine, StartCol, EndLine, EndCol, NewExp, Cl
 			 false
 		 end
 	     end).
+
+ 
 	     
     
 
@@ -79,7 +83,7 @@ gen_fold_expr_commands(Dirs) ->
 
 test_fold_expr(Dirs) ->
     application:start(wrangler_app),
-    eqc:quickcheck(?FORALL(C, (gen_fold_expr_commands(Dirs)), prop_fold_expr(C, Dirs))),
+    eqc:quickcheck(numtests(500,?FORALL(C, (gen_fold_expr_commands(Dirs)), prop_fold_expr(C, Dirs)))),
     application:stop(wrangler_app).
 
 

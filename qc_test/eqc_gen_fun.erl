@@ -76,8 +76,8 @@ prop_gen_fun({FName, Range, NewName, SearchPaths, TabWidth}) ->
 	 {error, Msg} -> 
 	    io:format("\n~p\n", [{error,Msg}]),
 	    true;
-	 {unknown_side_effect,{ParName, FunName, FunArity, FunDefPos,Exp}} -> 
-	    try apply(refac_gen, gen_fun_1, [bool(), FName, ParName, FunName, FunArity, FunDefPos, Exp, TabWidth]) of 
+	 {more_than_one_clause, {ParName, FunName, FunArity, FunDefPos, Exp, SideEffect, _Fun_Dups, Clause_Dups, Cmd}}->
+	    try apply(refac_gen, gen_fun_clause, [FName, ParName, FunName, FunArity, FunDefPos, Exp, TabWidth, SideEffect, Clause_Dups, Cmd]) of 
 	 	{ok, Res} ->
 		    wrangler_preview_server:commit(),
 		    case compile:file(FName, []) of 
@@ -99,7 +99,55 @@ prop_gen_fun({FName, Range, NewName, SearchPaths, TabWidth}) ->
 		  E1:E2 ->
 		    io:format("E1:E2:\n~p\n", [{E1, E2}]),
 		    false
-	    end	    
+	    end;	    
+	 {unknown_side_effect,{ParName, FunName, FunArity, FunDefPos,Exp, _NoOfCs, _Fun_Instances, _Clause_Intances, Cmd}} -> 
+	    try apply(refac_gen, gen_fun_1, [bool(), FName, ParName, FunName, FunArity, FunDefPos, Exp, SearchPaths, TabWidth,[],Cmd]) of 
+	 	{ok, Res} ->
+		    wrangler_preview_server:commit(),
+		    case compile:file(FName, []) of 
+			{ok, _} -> 
+			    wrangler_undo_server:undo(),
+			    io:format("\n~p\n", [{ok, Res}]),
+			    true;
+			_ -> wrangler_undo_server:undo(), 
+			     io:format("\nResulted file does not compole!\n"),
+			     false
+		    end;
+		{error, Msg} -> 
+		    io:format("\n~p\n", [{error,Msg}]),
+		    true
+	    catch
+		throw:Error -> 
+		    io:format("Error:\n~pn", [Error]),
+		    true;
+		  E1:E2 ->
+		    io:format("E1:E2:\n~p\n", [{E1, E2}]),
+		    false
+	    end;
+	 {multiple_instances, {ParName, FunName, FunArity, FunDefPos, Exp, SideEffect, DupsInFun, Cmd}} ->
+	     try apply(refac_gen, gen_fun_1, [SideEffect, FName, ParName, FunName, FunArity, FunDefPos, Exp, SearchPaths, TabWidth, DupsInFun, Cmd]) of 
+	 	{ok, Res} ->
+		    wrangler_preview_server:commit(),
+		    case compile:file(FName, []) of 
+			{ok, _} -> 
+			    wrangler_undo_server:undo(),
+			    io:format("\n~p\n", [{ok, Res}]),
+			    true;
+			_ -> wrangler_undo_server:undo(), 
+			     io:format("\nResulted file does not compole!\n"),
+			     false
+		    end;
+		{error, Msg} -> 
+		    io:format("\n~p\n", [{error,Msg}]),
+		    true
+	    catch
+		throw:Error -> 
+		    io:format("Error:\n~\pn", [Error]),
+		    true;
+		  E1:E2 ->
+		    io:format("E1:E2:\n~p\n", [{E1, E2}]),
+		    false
+	    end   
     catch 
 	throw:Error -> 
 	    io:format("Error:\n~\pn", [Error]),
@@ -122,18 +170,21 @@ gen_gen_fun_commands(Dirs) ->
 
 show_gen_fun_commands(Dirs)->
     application:start(wrangler_app),
-    eqc:quickcheck(?FORALL (C, (gen_gen_fun_commands(Dirs)), (eqc:collect(C, true)))),
+    eqc:quickcheck(numtests(500,?FORALL (C, (gen_gen_fun_commands(Dirs)), (eqc:collect(C, true))))),
     application:stop(wrangler_app).
 		
 	  
 test_gen_fun(Dirs) ->
-    eqc:quickcheck(?FORALL(C, (gen_gen_fun_commands(Dirs)), prop_gen_fun(C))).
+    application:start(wrangler_app),
+    eqc:quickcheck(numtests(500,?FORALL(C, (gen_gen_fun_commands(Dirs)), prop_gen_fun(C)))),
+    application:stop(wrangler_app).
+		
 
 test_gen_fun1() ->
     test_gen_fun(["c:/cygwin/home/hl/test_codebase/tableau"]).
 
 test_gen_fun2() ->
-    test_gen_fun(["c:/cygwin/home/hl/test_codebase/eunit"]).
+    test_gen_fun(["c:/cygwin/home/hl/test_codebase/inets-5.0.12"]).
 
 test_gen_fun3() ->
     test_gen_fun(["c:/cygwin/home/hl/test_codebase/refactorerl-0.5"]).
@@ -149,7 +200,7 @@ test_gen_fun6() ->
 
 test_gen_fun7() ->
     test_gen_fun(["c:/cygwin/home/hl/test_codebase/yaws-1.77"]).
-
+ 
 test_gen_fun8() ->
     test_gen_fun(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
 
