@@ -67,12 +67,11 @@ generalise(Fname, StartLine, StartCol, EndLine, EndCol, ParName, SearchPaths, Ta
     apply_refactoring(wrangler, generalise, [Fname, {StartLine, StartCol}, {EndLine, EndCol}, ParName, SearchPaths, TabWidth], SearchPaths).
 	
 
--spec(move_fun/7::(filename(),integer(),integer(), string(), atom(),[dir()], integer())
-        -> {ok, [{filename(), filename()}]}
-           | {error, string()}).
+-spec(move_fun/6::(filename(),integer(),integer(), string(),[dir()], integer())
+        -> {ok, [{filename(), filename()}]} | {question, string()} | {error, string()}).
 
-move_fun(FName, Line, Col, ModName, CreateNewFile, SearchPaths, TabWidth) ->
-    apply_refactoring(wrangler, move_fun, [FName, Line, Col, ModName, CreateNewFile, SearchPaths, TabWidth], SearchPaths).
+move_fun(FName, Line, Col, ModName,SearchPaths, TabWidth) ->
+    apply_refactoring(wrangler, move_fun, [FName, Line, Col, ModName, SearchPaths, TabWidth], SearchPaths).
 
 
 -spec(duplicated_code_in_buffer/4::(filename(), string(), string(), integer()) ->{ok, string()}).      
@@ -165,7 +164,7 @@ uninstrument_prog(FName, SearchPaths, TabWidth) ->
 add_a_tag(FileName, Line, Col, Tag, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, add_a_tag, [FileName, Line, Col, Tag, SearchPaths, TabWidth], SearchPaths).
 
--spec(normalise_record_expr/6::(filename(), integer(), integer(), bool(),[dir()], integer()) -> {error, string()} | {ok, [filename()]}).
+-spec(normalise_record_expr/6::(filename(), integer(), integer(), boolean(),[dir()], integer()) -> {error, string()} | {ok, [filename()]}).
 normalise_record_expr(FileName, Line, Col, ShowDefault, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, normalise_record_expr, [FileName, Line, Col, ShowDefault, SearchPaths, TabWidth], SearchPaths).
 

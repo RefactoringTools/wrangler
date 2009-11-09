@@ -274,7 +274,7 @@ side_condition_analysis(FunClauseDef) ->
 	    AllSimplePats = lists:all(Fun, Pats), 
 	    case AllSimplePats of 
 		true -> ok;
-		_ -> throw({error, "Wrangler does not support folding against"
+		_ -> throw({error, "Wrangler does not support folding against "
 			    "functions with complex parameters."})
 	    end;
 	_  -> throw({error, "Wrangler does not support "

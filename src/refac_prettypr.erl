@@ -837,12 +837,24 @@ lay_2(Node,Ctxt) ->
 	    D = lay(refac_syntax:binary_field_body(Node),Ctxt1),
 	    %% Begin of modification of HL
 	    Body = refac_syntax:binary_field_body(Node),
-	    D1 = case refac_syntax:type(Body)==variable orelse 
-		   refac_syntax:is_literal(Body)== true of
-		   true -> D;
-		   false ->
-		       beside(floating(text("(")),beside(D,floating(text(")"))))
-	       end,
+	    D1 = case refac_syntax:type(Body) of 
+		     size_qualifier -> D;
+		     _ ->	 
+			 case refac_syntax:type(Body)==variable orelse 
+			     refac_syntax:type(Body) == underscore orelse
+			     refac_syntax:is_literal(Body)== true of
+			     true -> D;
+			     false ->
+				 case refac_syntax:type(Body) of 
+				     macro ->case lists:keysearch(with_bracket,1, refac_syntax:get_ann(Body)) of
+						 {value, {with_bracket, true}} ->
+						     beside(floating(text("(")),beside(D,floating(text(")"))));
+						 _ -> D
+					     end;
+			     _ -> beside(floating(text("(")),beside(D,floating(text(")"))))
+				 end
+			 end
+		 end,
 	    %% End of modification by HL
 	    D2 = case refac_syntax:binary_field_types(Node) of
 		     [] -> empty();
@@ -1020,10 +1032,24 @@ lay_2(Node,Ctxt) ->
 	  D2 = lay_clauses(refac_syntax:rule_clauses(Node),{rule,D1},Ctxt1),
 	  beside(D2,floating(text(".")));
       size_qualifier -> %%done;
-	  Ctxt1 = set_prec(Ctxt,max_prec()),
-	  D1 = lay(refac_syntax:size_qualifier_body(Node),Ctxt1),
-	  D2 = lay(refac_syntax:size_qualifier_argument(Node),Ctxt1),
-	  beside(D1,beside(text(":"),D2));
+	    Ctxt1 = set_prec(Ctxt,max_prec()),
+	    Body = refac_syntax:size_qualifier_body(Node), 
+	    D1 =case refac_syntax:type(Body)==variable orelse 
+		    refac_syntax:type(Body) == underscore orelse
+		    refac_syntax:is_literal(Body)== true of
+		    true -> lay(Body,Ctxt1);
+		    false ->
+			case refac_syntax:type(Body) of 
+			    macro ->case lists:keysearch(with_bracket,1, refac_syntax:get_ann(Body)) of
+					{value, {with_bracket, true}} ->
+					    beside(floating(text("(")),beside(lay(Body,Ctxt1),floating(text(")"))));
+					_ ->lay(Body,Ctxt1) 
+				    end;
+			    _ -> beside(floating(text("(")),beside(lay(Body,Ctxt1),floating(text(")"))))
+			end
+		end,
+	    D2 = lay(refac_syntax:size_qualifier_argument(Node),Ctxt1),
+	    beside(D1,beside(text(":"),D2));
       text -> text(refac_syntax:text_string(Node));
       try_expr ->
 	  Ctxt1 = reset_prec(Ctxt),
