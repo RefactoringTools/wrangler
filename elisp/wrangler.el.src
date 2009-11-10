@@ -892,7 +892,7 @@
 	    (setq instances_in_fun (elt pars 6))
 	    (setq instances_in_clause (elt pars 7))
 	    (setq logmsg (elt pars 8))
-	    (if (y-or-n-p "Does the selected expression has side effect?")
+	    (if (y-or-n-p "Does the expression selected have side effect?")
 		(if (> no_of_clauses 1)
 		    (if (y-or-n-p "The function selected has multiple clauses, would you like to generalise the function clause selected only?")
 			(progn
