@@ -42,7 +42,7 @@
 -module(wrangler).
 
 -export([rename_var/6, rename_fun/6, rename_mod/4,
-	 rename_process/6, rename_mod_batch/4, generalise/6,
+	 rename_process/6, rename_mod_batch/4, generalise/6, gen_fun_1/11, gen_fun_clause/10,
 	 move_fun/6, move_fun_1/6,
 	 duplicated_code_in_buffer/4,
 	 duplicated_code_in_dirs/4,
@@ -61,7 +61,7 @@
 	 generalise_eclipse/6,
 	 move_fun_eclipse/6, move_fun_1_eclipse/6,
 	 fun_extraction_eclipse/5,
-	 gen_fun_1_eclipse/8, gen_fun_2_eclipse/8,
+	 gen_fun_1_eclipse/11,  gen_fun_clause_eclipse/10,
 	 tuple_funpar_eclipse/5, tuple_funpar_eclipse_1/5,tuple_to_record_eclipse/9,
 	 fold_expr_by_loc_eclipse/5, fold_expr_by_name_eclipse/7,
 	 fold_expression_1_eclipse/5,fold_expression_2_eclipse/7,
@@ -250,26 +250,68 @@ rename_mod_batch(OldNamePattern, NewNamePattern, SearchPaths, TabWidth) ->
 %% NOTE: in Erlang some literal expressions can not be replaced by variables. For example, the atom <code>fields</code>
 %% in the experssion <code>record_info(fields, Record)</code> should not be replaced by a variable or other expressions.
 %% This kind of checking is NOT supported by Wrangler yet.
-
-%%@spec generalise(FileName::filename(), Start::pos(), End::pos(), ParName::string(), SearchPaths::[dir()], TabWidth:: integer())-> {ok, string()} | {error, string()}
--spec(generalise/6::(filename(),pos(), pos(),string(), [dir()], integer()) -> {ok, string()} | {error, string()}).
+-spec(generalise/6::(FileName::filename(),Start::pos(), End::pos(),ParName::string(),
+		     SearchPaths::[dir()], TabWidth::integer()) ->
+	     {ok, [filename()]}
+		 |{error, string()}
+                 |{multiple_instances, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),[{pos(), pos()}], string()}}
+		 |{unknown_side_effect, {atom(), atom(),integer(), pos(), syntaxTree(), integer(),
+					 [{pos(), pos()}], [{pos(),pos()}], string()}}
+		 |{more_than_one_clause, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),
+					  [{pos(), pos()}], [{pos(),pos()}], string()}}). 
 generalise(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
     try_refactoring(refac_gen, generalise, [FileName, Start, End, ParName,  SearchPaths, TabWidth]).
 
+
+-spec(gen_fun_1/11::(SideEffect::boolean(), FileName::filename(),ParName::atom(), FunName::atom(),
+		     Arity::integer(), FunDefPos::pos(), Exp::syntaxTree(), SearchPaths::[dir()],
+		     TabWidth::integer(), Dups::[{pos(), pos()}], LogCmd::string())
+      -> {ok, [filename()]} | {error, string()}).
+gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth, Dups, LogCmd) ->
+    try_refactoring(refac_gen, gen_fun_1, [SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth,Dups,LogCmd]).
+
 %%@private
--spec(generalise_eclipse/6::(filename(),pos(), pos(),string(), [dir()], integer()) -> {ok, [{filename(), filename(), string()}]}).
+-spec(gen_fun_clause/10::(FileName::filename(), ParName::atom(), FunName::atom(), Arity::integer(), DefPos::pos(), 
+			  Exp::syntaxTree(), TabWidth::integer(), SideEffect::boolean(), 
+			  Dups::[{{integer(), integer()},{integer(), integer()}}], LogCmd::string()) 
+      ->{ok, [filename()]} | {error, string()}).
+
+gen_fun_clause(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEffect, Dups, LogCmd) ->
+    try_refactoring(refac_gen, gen_fun_clause, [FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEffect, Dups, LogCmd]).
+ 
+
+%%@private
+-spec(generalise_eclipse/6::(FileName::filename(),Start::pos(), End::pos(),ParName::string(), 
+			     SearchPaths::[dir()], TabWidth::integer()) -> 
+	     {error, string()} |{ok, [{filename(), filename(), string()}]}
+		 |{multiple_instances,  {ParName:: atom(), FunName::atom(), Arity::integer(),
+					 FunDefPos::pos(), Exp::syntaxTree(), SideEffect::boolean(),
+				 	 DupsInFun::[{pos(), pos()}], LogCmd::string()}}
+		 |{unknown_side_effect, {ParName::atom(), FunName::atom(),Arity::integer(), 
+				  	 FunDefPos::pos(), Exp::syntaxTree(), NoOfClauses::integer(),
+					 DupsInFun::[{pos(), pos()}],DupsInClause::[{pos(), pos()}], LogCmd::string()}}
+		 |{more_than_one_clause,{ParName::atom(), FunName::atom(), Arity::integer(), 
+					 FunDefPos::pos(), Exp::syntaxTree(), SideEffect::boolean(),
+					 DupsInFun::[{pos(), pos()}],DupsInClause::[{pos(), pos()}], Logcmd::string()}}).
 generalise_eclipse(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
     try_refactoring(refac_gen, generalise_eclipse, [FileName, Start, End, ParName,  SearchPaths, TabWidth]).
 
 %%@private
--spec(gen_fun_1_eclipse/8::(boolean(), filename(),atom(), atom(), integer(), pos(), syntaxTree(), integer()) -> {ok, [{filename(), filename(),string()}]}).
-gen_fun_1_eclipse(SideEffect, FileName, ParName, FunName, Arity, DefPos, Expr, TabWidth) ->
-    try_refactoring(refac_gen, gen_fun_1_eclipse, [SideEffect, FileName, ParName, FunName, Arity, DefPos, Expr, TabWidth]).
+-spec(gen_fun_1_eclipse/11::(SideEffect::boolean(), FileName::filename(),ParName::atom(), FunName::atom(), 
+			     Arity::integer(), FunDefPos::pos(), Expr::syntaxTree(),  Dups::[{pos(), pos()}], SearchPaths::[dir()],
+			     TabWidth::integer(), LogCmd::string()) 
+      -> {ok, [{filename(), filename(),string()}]} | {error, string()}).
+gen_fun_1_eclipse(SideEffect, FileName, ParName, FunName, Arity, FunDefPos, Expr,Dups, SearchPaths, TabWidth, LogCmd) ->
+    try_refactoring(refac_gen, gen_fun_1_eclipse, [SideEffect, FileName, ParName, FunName, Arity, FunDefPos, Expr, SearchPaths, TabWidth, Dups, LogCmd]).
+
 
 %%@private
--spec(gen_fun_2_eclipse/8::(filename(),atom(), atom(), integer(), pos(), syntaxTree(), [dir()], integer()) -> {ok, [{filename(), filename(), string()}]}).
-gen_fun_2_eclipse(FileName, ParName, FunName, Arity, DefPos, Expr, SearchPaths, TabWidth) ->
-    try_refactoring(refac_gen, gen_fun_2_eclipse, [FileName, ParName, FunName, Arity, DefPos, Expr, SearchPaths, TabWidth]).
+-spec(gen_fun_clause_eclipse/10::(FileName::filename(), ParName::atom(), FunName::atom(), Arity::integer(), DefPos::pos(), 
+				 Exp::syntaxTree(), TabWidth::integer(), SideEffect::boolean(),  Dups::[{pos(), pos()}], LogCmd::string()) ->
+	     {ok, [{filename(), filename(), string()}]} | {error, string()}).
+gen_fun_clause_eclipse(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEffect, Dups, LogCmd) ->
+    try_refactoring(refac_gen, gen_fun_clause_eclipse, [FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEffect, Dups, LogCmd]).
+
 
 %% ================================================================================
 %% @doc Move a function definition from its current module to another.
