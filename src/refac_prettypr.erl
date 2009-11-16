@@ -129,8 +129,8 @@ vertical_concat([{E,Form}| T], FileFormat, Acc) ->
     F = refac_util:concat_toks(refac_util:get_toks(Form)),
     {ok,EToks,_} = refac_scan:string(E),
     {ok,FToks,_} = refac_scan:string(F),
-    EStr = [S||S<-refac_util:concat_toks(EToks),S=/=$(, S=/=$), S=/=$\s, S=/=$'],
-    FStr = [S||S<-refac_util:concat_toks(FToks),S=/=$(, S=/=$), S=/=$\s, S=/=$'],
+    EStr = [S||S<-refac_util:concat_toks(EToks), S=/=$\s, S=/=$'],
+    FStr = [S||S<-refac_util:concat_toks(FToks), S=/=$\s, S=/=$'],
     Acc1 = case Acc of
 	     "" -> Acc;
 	     _ ->
@@ -700,8 +700,8 @@ lay_2(Node,Ctxt) ->
 	    Op = refac_syntax:application_operator(Node),
 	    Args = refac_syntax:application_arguments(Node),
 	    D1 =case Args of 
-		    [] -> beside(D, beside(text("("),beside(lay_elems(fun refac_prettypr_0:par/1, 
-			     As,refac_syntax:application_arguments(Node)),floating(text(")")))));
+		    [] -> 
+			beside(D, beside(text("("), text(")")));
 		    [H|_] ->
 			EndLn = get_end_line(Op),
 			StartLn = get_start_line(H),
