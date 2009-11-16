@@ -212,7 +212,8 @@ side_cond_check({FileName, ModName, FunName, Arity}, TargetFileName, TargetModNa
 		[F] -> case is_the_same_fun(FunDef, F) of
 			   true -> true;
 			   _ -> {error, "The same function name, with a possibly different definition, is already defined in the target module."}
-		       end
+		       end;
+		_ -> {error, "The same function name/arity has been defined more than once in the target module."}	    
 	    end;
 	false -> true
     end.
@@ -452,6 +453,8 @@ do_transform_fun(Node, {FileName,{ModName, FunName, Arity},TargetModName, InScop
 		    case refac_syntax:type(Op) of 
 			atom ->
 			    case lists:member({M, F, A}, InScopeFunsInTargetMod) orelse 
+				erlang:is_builtin(M, F, A) orelse
+				erl_internal:bif(M, F, A) orelse
 				{M, F, A} == {ModName, FunName, Arity} of
 				true ->
 				    {Node, false};
