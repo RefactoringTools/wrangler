@@ -109,8 +109,8 @@ side_cond_analysis(FileName, Info, Fun, ExpList, NewFunName) ->
 	     erl_internal:bif(erlang, NewFunName, length(FrVars))
 	of
       true ->
-	  throw({error, "The given function name has been used "
-			"by this module, please choose another name!"});
+	  throw({error, "The given function name has been used by this module, "
+			"or is used as an Erlang builtin function name, please choose another name!"});
       _ -> ok
     end,
     funcall_replaceable(Fun, ExpList),
