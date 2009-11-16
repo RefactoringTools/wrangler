@@ -103,32 +103,33 @@
 
 -define(DEFAULT_RANGE, {?DEFAULT_LOC, ?DEFAULT_LOC}).
 %% =====================================================================
--spec(generalise/6::(FileName::filename(),Start::pos(), End::pos(),ParName::string(),
-		     SearchPaths::[dir()], TabWidth::integer()) ->
+-spec generalise(FileName::filename(),Start::pos(), End::pos(),ParName::string(),
+		 SearchPaths::[dir()], TabWidth::integer()) ->
 	     {ok, [filename()]}
-		 |{error, string()}
-                 |{multiple_instances, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),[{pos(), pos()}], string()}}
+                 |{multiple_instances, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),
+					[{pos(), pos()}], string()}}
 		 |{unknown_side_effect, {atom(), atom(),integer(), pos(), syntaxTree(), integer(),
 					 [{pos(), pos()}], [{pos(),pos()}], string()}}
 		 |{more_than_one_clause, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),
-					  [{pos(), pos()}], [{pos(),pos()}], string()}}). 
+					  [{pos(), pos()}], [{pos(),pos()}], string()}}. 
 
 generalise(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
     generalise(FileName, Start, End, ParName, SearchPaths, TabWidth, emacs).
 
--spec(generalise_eclipse/6::(FileName::filename(),Start::pos(), End::pos(),ParName::string(), 
-			     SearchPaths::[dir()], TabWidth::integer()) -> 
-	     {error, string()}
-		 |{ok, [{filename(), filename(), string()}]}
-		 |{multiple_instances,  {ParName:: atom(), FunName::atom(), Arity::integer(),
+-spec generalise_eclipse(FileName::filename(), Start::pos(), End::pos(), ParName::string(), 
+			 SearchPaths::[dir()], TabWidth::integer()) -> 
+	         {ok, [filename()]} | {ok, [{filename(), filename(), string()}]} |
+		 {multiple_instances,  {ParName:: atom(), FunName::atom(), Arity::integer(),
+					FunDefPos::pos(), Exp::syntaxTree(), SideEffect::boolean(),
+				 	DupsInFun::[{pos(), pos()}], Cmd::string()}} |
+		 {unknown_side_effect, {ParName::atom(), FunName::atom(), Arity::integer(), 
+				  	FunDefPos::pos(), Exp::syntaxTree(), NoOfClauses::integer(),
+					DupsInFun::[{pos(), pos()}], DupsInClause::[{pos(), pos()}],
+					Cmd::string()}} |
+		 {more_than_one_clause, {ParName::atom(), FunName::atom(), Arity::integer(), 
 					 FunDefPos::pos(), Exp::syntaxTree(), SideEffect::boolean(),
-				 	 DupsInFun::[{pos(), pos()}]}}
-		 |{unknown_side_effect, {ParName::atom(), FunName::atom(),Arity::integer(), 
-				  	 FunDefPos::pos(), Exp::syntaxTree(), NoOfClauses::integer(),
-					 DupsInFun::[{pos(), pos()}],DupsInClause::[{pos(), pos()}]}}
-		 |{more_than_one_clause,{ParName::atom(), FunName::atom(), Arity::integer(), 
-					 FunDefPos::pos(), Exp::syntaxTree(), SideEffect::boolean(),
-					 DupsInFun::[{pos(), pos()}],DupsInClause::[{pos(), pos()}]}}).
+					 DupsInFun::[{pos(), pos()}], DupsInClause::[{pos(), pos()}],
+					 Cmd::string()}}.
 
 generalise_eclipse(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
     generalise(FileName, Start, End, ParName, SearchPaths, TabWidth, eclipse).
