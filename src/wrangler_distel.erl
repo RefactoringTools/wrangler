@@ -42,14 +42,13 @@ rename_var(Fname, Line, Col, NewName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, rename_var, [Fname, Line, Col, NewName, SearchPaths, TabWidth], SearchPaths).
  
 -spec(rename_fun/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-	     {error, string()} | {ok, [filename()]}).
+	     {error, string()} |{warning, string()}| {ok, [filename()]}).
 
 rename_fun(Fname, Line, Col, NewName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, rename_fun, [Fname, Line, Col, NewName, SearchPaths, TabWidth], SearchPaths).
 
-
--spec(rename_mod/4::(filename(), string(), [dir()], integer()) -> {error, string()} | {ok, [filename()]}).
-
+-spec(rename_mod/4::(filename(), string(), [dir()], integer()) -> 
+	     {error, string()} | {question, string()} | {warning, string()} |{ok, [filename()]}).
 rename_mod(Fname, NewName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, rename_mod, [Fname, NewName, SearchPaths, TabWidth], SearchPaths).
 
@@ -61,8 +60,14 @@ rename_process(Fname, Line, Col, NewName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, rename_process, [Fname, Line, Col, NewName, SearchPaths, TabWidth], SearchPaths).
 
 
--spec(generalise/8::(filename(),integer(), integer(),integer(), integer(),string(), dir(), integer()) -> {ok, string()} | {error, string()}).
-
+-spec(generalise/8::(filename(),integer(), integer(),integer(), integer(),string(), dir(), integer()) ->
+	     {ok, [filename()]}
+		 |{error, string()}
+                 |{multiple_instances, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),[{pos(), pos()}], string()}}
+		 |{unknown_side_effect, {atom(), atom(),integer(), pos(), syntaxTree(), integer(),
+					 [{pos(), pos()}], [{pos(),pos()}], string()}}
+		 |{more_than_one_clause, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),
+					  [{pos(), pos()}], [{pos(),pos()}], string()}}). 
 generalise(Fname, StartLine, StartCol, EndLine, EndCol, ParName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, generalise, [Fname, {StartLine, StartCol}, {EndLine, EndCol}, ParName, SearchPaths, TabWidth], SearchPaths).
 	
