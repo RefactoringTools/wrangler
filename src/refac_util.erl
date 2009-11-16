@@ -545,7 +545,7 @@ expr_to_fun_1(Tree, Exp) ->
 is_var_name(Name) ->
     case Name of
 	[] -> false;
-	[H] -> H=/=95;
+	[H] -> is_upper(H) and (H=/=95);
 	[H | T] -> (is_upper(H) or (H == 95)) and is_var_name_tail(T)
     end.
 
