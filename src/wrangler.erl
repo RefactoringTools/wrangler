@@ -47,7 +47,7 @@
 	 duplicated_code_in_buffer/4,
 	 duplicated_code_in_dirs/4,
 	 identical_expression_search/4,
-	 similar_expression_search/6, fun_extraction/5,
+	 similar_expression_search/6, fun_extraction/5, fun_extraction_1/7,
 	 fold_expr/1, fold_expr_by_loc/5, fold_expr_by_name/7,
 	 instrument_prog/3, similar_code_detection_in_buffer/6,
 	 similar_code_detection/6, uninstrument_prog/3,
@@ -60,7 +60,7 @@
 	 rename_mod_eclipse/4, rename_mod_1_eclipse/5,
 	 generalise_eclipse/6,
 	 move_fun_eclipse/6, move_fun_1_eclipse/6,
-	 fun_extraction_eclipse/5,
+	 fun_extraction_eclipse/5, fun_extraction_1_eclipse/5,
 	 gen_fun_1_eclipse/11,  gen_fun_clause_eclipse/10,
 	 tuple_funpar_eclipse/5, tuple_funpar_eclipse_1/5,tuple_to_record_eclipse/9,
 	 fold_expr_by_loc_eclipse/5, fold_expr_by_name_eclipse/7,
@@ -89,7 +89,7 @@
 %% @spec rename_var(FileName::filename(), Line::integer(), Col::integer(), NewName::string(), SearchPaths::[dir()], TabWidth:: integer())
 %%  ->{error, string()} | {ok, string()}
 -spec(rename_var/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
-	     {error, string()} | {ok, filename()}).
+	     {error, string()}|{ok, filename()}).
 rename_var(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     try_refactoring(refac_rename_var, rename_var, [FileName, Line, Col, NewName, SearchPaths, TabWidth]).
    
@@ -493,10 +493,25 @@ fun_extraction(FileName, Start, End, FunName, TabWidth) ->
     try_refactoring(refac_new_fun, fun_extraction, [FileName, Start, End, FunName, TabWidth]).
 
 %%@private
+-spec(fun_extraction_1/7::(filename(), integer(), integer(), integer(), integer(), string(), integer()) ->
+	      {error, string()} | {ok, string()}).
+fun_extraction_1(FileName, StartLine, StartCol, EndLine, EndCol, FunName, TabWidth) ->
+    try_refactoring(refac_new_fun, fun_extraction_1, [FileName, {StartLine, StartCol}, {EndLine, EndCol}, FunName, TabWidth]).
+    
+
+%%@private
 -spec(fun_extraction_eclipse/5::(filename(), pos(), pos(), string(), integer()) ->
 	      {error, string()} | {ok, [{filename(), filename(), string()}]}).
 fun_extraction_eclipse(FileName, Start, End, FunName, TabWidth) -> 
     try_refactoring(refac_new_fun, fun_extraction_eclipse, [FileName, Start, End, FunName, TabWidth]).
+
+%%@private
+-spec(fun_extraction_1_eclipse/5::(filename(), pos(), pos(), string(), integer()) ->
+	      {error, string()} | {ok, [{filename(), filename(), string()}]}).
+fun_extraction_1_eclipse(FileName, Start, End, FunName, TabWidth) -> 
+    try_refactoring(refac_new_fun, fun_extraction_1_eclipse, [FileName, Start, End, FunName, TabWidth]).
+
+
 
 %% =====================================================================================================
 %%@doc Unfold a function application to an instance of the function's body.
@@ -914,8 +929,9 @@ try_to_apply(Mod, Fun, Args, Msg) ->
     try apply(Mod, Fun, Args)
     catch
  	throw:Error -> 
-  	    Error;
-	  _E1:_E2->
+  	    Error;    %% wrangler always throws Error in the format of '{error, string()}';
+	  E1:E2->
+	    refac_io:format("E1E2:\n~p\n", [{E1, E2}]),
 	    {error, Msg}
     end.
 
