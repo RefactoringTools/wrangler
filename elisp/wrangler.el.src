@@ -77,13 +77,12 @@
 
 (defun is-a-monitored-file(file)
   "check if a file is monitored by Wrangler for refactoring activities."
-  (interactive)
   (setq monitored nil)
   (setq dirs dirs-to-monitor)
   (while (and (not monitored) (not (equal dirs nil)))
-    (if (string-match (car dirs) file)
+    (if (string-match (file-name-as-directory (car dirs)) file)
 	(setq monitored 'true)
-      (setq dirs (cdr dirs-to-monitor))
+      (setq dirs (cdr dirs))
       ))
   (if monitored 
       (car dirs)
@@ -102,8 +101,8 @@
 	     (['rex ['ok files logmsg]]
 	      ;; check in into the refactor monitoring repository before commiting changes.
 	      (condition-case nil
-		  (update-repository files logmsg)
-		(error "The refactoring monitor is not working."))
+	       	  (update-repository files logmsg)
+	       	(error "The refactoring monitor is not working."))
 	      (dolist (f files)
 		(progn
 		  (setq old-file-name (elt f 0))
@@ -128,9 +127,9 @@
 		  (setq unopened-files nil)
 		  (setq refactor-mode nil)
 		  ;; check in into the refactor monitoring repository after commiting changes.
-		  (condition-case nil
-		       (update-repository files logmsg)
-		     (error "The refactoring monitor is not working."))
+		  ;; (condition-case nil
+		  ;;      (update-repository files logmsg)
+		  ;;    (error "The refactoring monitor is not working."))
 		  (message "Refactoring succeeded."))))))
 
 (defun abort-changes()
@@ -461,13 +460,13 @@
 	       (['rex ['ok modified]]
 		(progn
 		  (if (equal modified nil)
-		  (message "Refactoring finished, and no file has been changed.")
-		  (preview-commit-cancel current-file-name modified))
-		  (with-current-buffer (get-file-buffer current-file-name)
-		    (goto-line line-no)
-		    (goto-column column-no))))
+		      (message "Refactoring finished, and no file has been changed.")
+		    (preview-commit-cancel current-file-name modified)
+		    (with-current-buffer (get-file-buffer current-file-name)
+		      (goto-line line-no)
+		      (goto-column column-no))))
 	       )))
-      (message "Refactoring aborted."))))
+      (message "Refactoring aborted.")))))
 
 (defun erl-refactor-rename-fun (name)
   "Rename an identified function name."
@@ -1009,7 +1008,7 @@
   	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'fun_extraction
 			(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name tab-width))
-	  (erl-receive (start-line-no start-col-no current-file-name)
+	  (erl-receive (start-line-no start-col-no end-line-no end-col-no name current-file-name)
 	      ((['rex ['badrpc rsn]]
 		(message "Refactoring failed: %S" rsn))
 	       (['rex ['error rsn]]
@@ -1018,8 +1017,8 @@
 	    (progn
 	      (if (y-or-n-p msg)
 		  (erl-spawn
-		    (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_new_fun 'fun_extraction_1
-				  (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name tab-width)))
+		    (erl-send-rpc wrangler-erl-node 'wrangler 'fun_extraction_1 
+				  (list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name tab-width))
 		    (erl-receive (current-file-name)
 			((['rex ['badrpc rsn]]
 			  (message "Refactoring failed: %S" rsn))
