@@ -30,9 +30,9 @@
   :type '(repeat directory)
   :group 'wrangler)
 
-(defcustom refac-monitor-repository-path nil
+(defcustom refac-monitor-repository-path ""     
       "Path to the wrangler monitor"
-      :type '(directory)
+      :type 'directory
       :group 'wrangler)
 
 (defun wrangler-customize ()
@@ -126,10 +126,6 @@
 		    (kill-buffer (get-file-buffer uf)))
 		  (setq unopened-files nil)
 		  (setq refactor-mode nil)
-		  ;; check in into the refactor monitoring repository after commiting changes.
-		  ;; (condition-case nil
-		  ;;      (update-repository files logmsg)
-		  ;;    (error "The refactoring monitor is not working."))
 		  (message "Refactoring succeeded."))))))
 
 (defun abort-changes()
@@ -274,9 +270,9 @@
 	  (message "Wrangler started.")
 	  (setq erlang-refactor-status 1))
 	 (['rex ['error ['already_started app]]]
-	  (wrangler-menu-init)
-	  (message "Wrangler started")
-	  (setq erlang-refactor-status 1))
+	  ;;(wrangler-menu-init)
+	  (message "Wrangler failed to start: another Wrangler application is running.")
+	  (setq erlang-refactor-status 0))
 	 (['rex ['error rsn]]
 	  (message "Wrangler failed to start:%s" rsn)
 	  (setq erlang-refactor-status 0))))))
@@ -2125,7 +2121,7 @@
 
 (defun write-to-refac-logfile(dir-to-monitor logmsg)
   "write log infomation to the log file and check in to the repository"
-  (let* ((refac-monitor-path (concat (file-name-as-directory (car refac-monitor-repository-path))
+  (let* ((refac-monitor-path (concat (file-name-as-directory refac-monitor-repository-path)
 				     (file-name-nondirectory dir-to-monitor)))
 	 (logfile (concat (file-name-as-directory refac-monitor-path) "refac_cmd_log"))
 	 (exist (file-regular-p logfile)))
@@ -2140,22 +2136,22 @@
 
 (defun backend-used()
   "Get the version control system used by the monitor"
-  (vc-backend (concat (file-name-as-directory (car refac-monitor-repository-path)) ".")))
+  (vc-backend (concat (file-name-as-directory  refac-monitor-repository-path) ".")))
 
 (defun update-repository(files logmsg)
   "commit refactoring files to the monitoring repository if they should be monitored"
-  (if (equal files nil)
+  (if (or (equal files nil) (equal dirs-to-monitor nil))
       nil
     (let ((dir (is-a-monitored-file (elt (car files) 0))))
       (if (equal nil dir)
-	  nil
+	  (message-box "Reminder: the file under refactoring is not being monitored by Wrangler's refactoring monitor.")
 	(update-repository-1 dir (concat wrangler-version logmsg))))))
 	   
 
 (defun update-repository-1 (dir-to-monitor logmsg)
   "copy changed files to the working copy of refactor monitor"
    (require 'dired-aux)
-  (let* ((refac-monitor-path (concat (file-name-as-directory (car refac-monitor-repository-path))
+  (let* ((refac-monitor-path (concat (file-name-as-directory refac-monitor-repository-path)
 				     (file-name-nondirectory dir-to-monitor)))
 	 (logfile (concat (file-name-as-directory refac-monitor-path) "refac_cmd_log")))
    ;; (message "ddd:%s" refac-monitor-path)
@@ -2228,8 +2224,9 @@
 	  (if (stringp (car attrs))
 	      ;; It is a symlink
 	      (make-symbolic-link (car attrs) to ok-flag)
-	    (if (or (equal (file-name-extension from) "erl")
-		    (equal (file-name-extension from) "hrl"))
+	    (if (and (or (equal (file-name-extension from) "erl")
+			 (equal (file-name-extension from) "hrl"))
+		     (not (backup-file-name-p from)))
 		(progn
 		;;  (message "filetocopy:%s" from)
 		  (copy-file from to ok-flag dired-copy-preserve-time)
