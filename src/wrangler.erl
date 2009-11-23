@@ -56,18 +56,18 @@
 	 new_macro/6, fold_against_macro/5,
 	 normalise_record_expr/6, unfold_fun_app/4]).
 
--export([rename_var_eclipse/6, rename_fun_eclipse/6, rename_fun_1_eclipse/6,
-	 rename_mod_eclipse/4, rename_mod_1_eclipse/5,
-	 generalise_eclipse/6,
+-export([rename_var_eclipse/6, rename_fun_eclipse/6,
+	 rename_fun_1_eclipse/6, rename_mod_eclipse/4,
+	 rename_mod_1_eclipse/5, generalise_eclipse/6,
 	 move_fun_eclipse/6, move_fun_1_eclipse/6,
 	 fun_extraction_eclipse/5, fun_extraction_1_eclipse/5,
-	 gen_fun_1_eclipse/11,  gen_fun_clause_eclipse/10,
-	 tuple_funpar_eclipse/5, tuple_funpar_eclipse_1/5,tuple_to_record_eclipse/9,
-	 fold_expr_by_loc_eclipse/5, fold_expr_by_name_eclipse/7,
-	 fold_expression_1_eclipse/5,fold_expression_2_eclipse/7,
-	 new_macro_eclipse/6, rename_process_eclipse/6, rename_process_1_eclipse/5, 
-	 fun_to_process_eclipse/6, fun_to_process_1_eclipse/6,
-	 unfold_fun_app_eclipse/4]).
+	 gen_fun_1_eclipse/11, gen_fun_clause_eclipse/10,
+	 tuple_funpar_eclipse/5, tuple_funpar_eclipse_1/5,
+	 tuple_to_record_eclipse/9, fold_expr_by_loc_eclipse/5,
+	 fold_expr_by_name_eclipse/7, fold_expr_1_eclipse/5,
+	 new_macro_eclipse/6, rename_process_eclipse/6,
+	 rename_process_1_eclipse/5, fun_to_process_eclipse/6,
+	 fun_to_process_1_eclipse/6, unfold_fun_app_eclipse/4]).
 
 -export([try_refactoring/3, try_inspector/3]).
 -include("../include/wrangler.hrl").
@@ -580,15 +580,16 @@ fold_expr({FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth
     fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth).
 
 %%@private
--spec(fold_expr_by_loc/5::
-      (filename(), integer(), integer(), [dir()], integer()) -> {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
-						 | {error, string()}).
+-spec(fold_expr_by_loc/5::(filename(), integer(), integer(), [dir()], integer()) -> 
+	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
+		 | {error, string()}).
 fold_expr_by_loc(FileName, Line, Col, SearchPaths, TabWidth) ->
     try_refactoring(refac_fold_expression, fold_expr_by_loc, [FileName, Line, Col, SearchPaths, TabWidth]).
 
 %%@private
--spec(fold_expr_by_loc_eclipse/5::(filename(), integer(), integer(), [dir()], integer()) -> 
-	     {ok, {syntaxTree(),[{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}}| {error, string()}).
+-spec(fold_expr_by_loc_eclipse/5::(FileName::filename(), Line::integer(), Col::integer(), SearchPaths::[dir()], TabWidth::integer()) -> 
+	     {ok, {syntaxTree(),[{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}}
+		 | {error, string()}).
 fold_expr_by_loc_eclipse(FileName, Line, Col, SearchPaths, TabWidth) ->
     try_refactoring(refac_fold_expression, fold_expr_by_loc_eclipse, [FileName, Line, Col, SearchPaths, TabWidth]).
 
@@ -600,24 +601,20 @@ fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, T
     try_refactoring(refac_fold_expression, fold_expr_by_name, [FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth]).
 
 %%@private
--spec(fold_expr_by_name_eclipse/7::(filename(), string(), string(), string(), string(), [dir()], integer()) ->
-	     {ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]} 
-		 | {error, string()}).
+-spec(fold_expr_by_name_eclipse/7::(FileName::filename(), ModName::string(), FunName::string(), Arity::integer(), ClauseIndex::integer(), 
+				    SearchPaths::[dir()], TabWidth::integer()) ->
+	     {ok, {syntaxTree(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]} 
+		 | {error, string()}}).
 fold_expr_by_name_eclipse(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth) ->
     try_refactoring(refac_fold_expression, fold_expr_by_name_eclipse, [FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth]).
 
 %%@private
--spec(fold_expression_1_eclipse/5::(filename(), syntaxTree(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree}],[dir()], integer()) ->
+-spec(fold_expr_1_eclipse/5::(FileName::filename(), FunClauseDef::syntaxTree(), 
+                     StartEndExpList::[{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}],
+                     SearchPaths::[dir()], TabWidth::integer()) ->
 	     {ok, [{filename(), filename(), string()}]}).
-fold_expression_1_eclipse(FileName, FunClauseDef, StartEndExpList, SearchPaths, TabWidth)->  %% StartEndExpList: {{{StartLine, StartCol}, {EndLine, EndCol}}, NewExp}
-    try_refactoring(refac_fold_expression, fold_expression_1_eclipse, [FileName, FunClauseDef, StartEndExpList, SearchPaths, TabWidth]).
-
-%%@private
--spec(fold_expression_2_eclipse/7::(filename(), atom(),integer(), integer(), integer(), [dir()],integer()) -> 
-	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
-             | {error, string()}).
-fold_expression_2_eclipse(FileName, FunName, Arity, ClauseIndex, StartLine, SearchPaths, TabWidth) ->
-    try_refactoring(refac_fold_expression, fold_expression_2_eclipse, [FileName, FunName, Arity, ClauseIndex, StartLine, SearchPaths, TabWidth]).
+fold_expr_1_eclipse(FileName, FunClauseDef, StartEndExpList, SearchPaths, TabWidth) ->  %% StartEndExpList: {{{StartLine, StartCol}, {EndLine, EndCol}}, NewExp}
+    try_refactoring(refac_fold_expression, fold_expr_1_eclipse, [FileName, FunClauseDef, StartEndExpList, SearchPaths, TabWidth]).
 
 
 %%@private
