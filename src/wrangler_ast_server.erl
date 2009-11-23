@@ -152,7 +152,13 @@ handle_info(_Info, State) ->
 %%-spec(terminate/2::(any(), #state{}) -> ok).
 terminate(_Reason, _State=#state{dets_tab=TabFile}) ->
     dets:close(TabFile),
-    file:delete(TabFile).
+    file:delete(TabFile),
+    TempDir = filename:dirname(TabFile),
+    case file:list_dir(TempDir) of 
+	{ok, []} ->
+	    file:del_dir(TempDir);
+	_ -> ok
+    end.
 
 %%--------------------------------------------------------------------
 %% Func: code_change(OldVsn, State, Extra) -> {ok, NewState}
