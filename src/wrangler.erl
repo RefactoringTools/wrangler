@@ -488,26 +488,26 @@ similar_expression_search(FileName, Start, End, SimiScore, SearchPaths, TabWidth
 %% </p>
 %% @spec fun_extraction(FileName::filename(), Start::pos(), End::pos(), FunName::string(), TabWidth:: integer()) ->{error, string()} | {ok, string()}
 -spec(fun_extraction/5::(filename(), pos(), pos(), string(), integer()) ->
-	      {error, string()} | {ok, string()}).
+	      {error, string()} | {warning, string()} |{ok, [filename()]}).
 fun_extraction(FileName, Start, End, FunName, TabWidth) -> 
     try_refactoring(refac_new_fun, fun_extraction, [FileName, Start, End, FunName, TabWidth]).
 
 %%@private
 -spec(fun_extraction_1/7::(filename(), integer(), integer(), integer(), integer(), string(), integer()) ->
-	      {error, string()} | {ok, string()}).
+	      {error, string()} | {ok, [filename()]}).
 fun_extraction_1(FileName, StartLine, StartCol, EndLine, EndCol, FunName, TabWidth) ->
     try_refactoring(refac_new_fun, fun_extraction_1, [FileName, {StartLine, StartCol}, {EndLine, EndCol}, FunName, TabWidth]).
     
 
 %%@private
--spec(fun_extraction_eclipse/5::(filename(), pos(), pos(), string(), integer()) ->
-	      {error, string()} | {ok, [{filename(), filename(), string()}]}).
+-spec(fun_extraction_eclipse/5::(FileName::filename(), Start::pos(), End::pos(), FunName::string(), TabWidth::integer()) ->
+	      {error, string()} | {warning, string()} |{ok, [{filename(), filename(), string()}]}).
 fun_extraction_eclipse(FileName, Start, End, FunName, TabWidth) -> 
     try_refactoring(refac_new_fun, fun_extraction_eclipse, [FileName, Start, End, FunName, TabWidth]).
 
 %%@private
--spec(fun_extraction_1_eclipse/5::(filename(), pos(), pos(), string(), integer()) ->
-	      {error, string()} | {ok, [{filename(), filename(), string()}]}).
+-spec(fun_extraction_1_eclipse/5::(FileName::filename(), Start::pos(), End::pos(), FunName::string(), TabWidth::integer()) ->
+	      {error, string()} |{ok, [{filename(), filename(), string()}]}).
 fun_extraction_1_eclipse(FileName, Start, End, FunName, TabWidth) -> 
     try_refactoring(refac_new_fun, fun_extraction_1_eclipse, [FileName, Start, End, FunName, TabWidth]).
 
