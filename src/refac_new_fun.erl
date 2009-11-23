@@ -40,7 +40,7 @@
 
 %% =============================================================================================
 -spec(fun_extraction/5::(filename(), pos(), pos(), string(), integer()) ->
-	     {'ok', [string()]}).
+	     {'ok', [filename()]}).
 fun_extraction(FileName, Start, End, NewFunName, TabWidth) ->
     fun_extraction(FileName, Start, End, NewFunName, TabWidth, emacs).
 
