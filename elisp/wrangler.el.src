@@ -1130,25 +1130,13 @@
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
     (if (buffers-saved)
-        (erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_fold_expression 'cursor_at_fun_clause(list 
-                       current-file-name line-no column-no wrangler-search-paths tab-width)))
-	  (erl-receive (buffer current-file-name line-no column-no)
-	      ((['rex ['badrpc rsn]]
-		(fold_expr_by_name wrangler-erl-node current-file-name (read-string "Module name: ") (read-string "Function name: ") (read-string "Arity ")
-				   (read-string "Clause index (starting from 1): ")))
-	       (['rex 'true]
-		(if (y-or-n-p "Would you like to fold expressions against the function clause pointed by the cursor? ")
-		    (fold_expr_by_loc buffer current-file-name line-no column-no)
-		  (fold_expr_by_name buffer current-file-name (read-string "Module name: ") (read-string "Function name: ") (read-string "Arity: ")
-				     (read-string "Clause index (starting from 1): "))))
-	       (['rex 'false]
-	       (fold_expr_by_name buffer current-file-name (read-string "Module name: ") (read-string "Function name: ") (read-string "Arity: ")
-				   (read-string "Clause index (starting from 1): "))))))
+	(if (y-or-n-p 
+	     "Fold expressions against the function clause pointed by cursor (answer 'no' if you would like to input information about the function clause manually)? ")
+	    (fold_expr_by_loc buffer current-file-name line-no column-no)
+	  (fold_expr_by_name buffer current-file-name (read-string "Module name: ") (read-string "Function name: ") (read-string "Arity: ")
+			     (read-string "Clause index (starting from 1): ")))
       (message "Refactoring aborted."))))
-
-
-
+	 
 
 (defun fold_expr_by_name(buffer current-file-name module-name function-name arity clause-index)
   (erl-spawn
