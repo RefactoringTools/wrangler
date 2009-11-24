@@ -1,7 +1,7 @@
 
                     Wrangler, the Erlang Refactorer
                 a snapshot of our current prototype
-                            05/10/2009 
+                            24/11/2009 
               http://www.cs.kent.ac.uk/projects/wrangler/
 
 --------------------------------------------------------------------------------
@@ -169,18 +169,32 @@ the Eclipse environment.
                                  expression of the server process, and
                                  you will be prompted for the tag name.
 
-    Unfold a function application: place the cursor at the function application,                                   then select the 'Inline Function' command. 
+    Unfold a function application: place the cursor at the function name part 
+                                   of the function application, then select the
+                                  'Unfold Function Application' command.
 
  6. The 'Customize Wrangler' menu in the 'Refactor' submenu allows you specify 
  the boundary of the system by giving the list of directories to
  search for Erlang source files/header files that could be affected by a
  refactoring.
 
+-------------------------Major changes form Wrangler-0.8.3--------
+
+-- The 'temp' directory created by Wrangler is now removed when Wrangler 
+   is turned off.
+-- Multiple instances of Wrangler can now be run at the same time.
+-- A number of bug fixes.
+
+-------------------------Major changes from Wrangler-0.8.2---------
+
+-- Added a refactoring monitor which, if enabled, could collect information
+   as to how Wrangler is used.
+-- A number of bug fixes.      
+
 -------------------------Major Changes from Wrangler-0.8.1----------
 
--- A number of bug fixes. 
--- A prototype implementation of unfolding a function application.
--- A prototype implementation of monitoring refactoring activities.
+-- New refactoring: unfold a function application.
+-- A number of bug fixes.
 
 -------------------------Major Changes from Wrangler-0.8------------
 
