@@ -240,10 +240,12 @@
 
 (add-hook 'erl-nodedown-hook 'wrangler-nodedown)
 
-(setq wrangler-erl-node (intern  "wrangler@localhost"))
+(setq wrangler-erl-node-string (concat "wrangler" (number-to-string (random 1000)) "@localhost"))
+
+(setq wrangler-erl-node (intern  wrangler-erl-node-string))
 
 (defun wrangler-nodedown(node)
-  ( if (equal node (intern "wrangler@localhost"))
+  ( if (equal node wrangler-erl-node)
      (progn (wrangler-menu-remove)
             (setq erlang-refactor-status 0)	
             (message "Wrangler stopped.")
@@ -270,15 +272,32 @@
 	  (message "Wrangler started.")
 	  (setq erlang-refactor-status 1))
 	 (['rex ['error ['already_started app]]]
-	  ;;(wrangler-menu-init)
 	  (message "Wrangler failed to start: another Wrangler application is running.")
-	  (setq erlang-refactor-status 0))
+	  (setq erlang-refactor-status 0))	 
 	 (['rex ['error rsn]]
 	  (message "Wrangler failed to start:%s" rsn)
 	  (setq erlang-refactor-status 0))))))
 
+
+
+(defun erlang-refactor-off()
+  (interactive)
+  (wrangler-menu-remove)
+  (setq erlang-refactor-status 0)		
+  (erl-spawn
+    (erl-send-rpc wrangler-erl-node 'application 'stop (list 'wrangler_app))
+    (erl-receive()
+	((['rex response]
+	   (if (get-buffer "*Wrangler-Erl-Shell*")
+             (kill-buffer "*Wrangler-Erl-Shell*"))
+	  ))))
+   (message "Wrangler stopped."))   
+
 (defun erlang-refactor-on()
   (interactive)
+  (setq wrangler-erl-node-string (concat "wrangler" (number-to-string (random 1000)) "@localhost"))
+  (setq wrangler-erl-node (intern  wrangler-erl-node-string))
+  (sleep-for 0.5)
   (save-window-excursion
      (wrangler-erlang-shell))
   (sleep-for 2.0)
@@ -301,7 +320,7 @@
   "Run an Wrangler Erlang shell"
   (interactive)
   (require 'comint)
-  (setq opts (list "-name" "wrangler@localhost"
+  (setq opts (list "-name" wrangler-erl-node-string
 		   "-pa"  %EBIN_DIR%
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
@@ -333,9 +352,9 @@
  
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 0.8.3"))
+  (message "Wrangler version 0.8.4"))
 
-(setq wrangler-version  "(wrangler-0.8.3) ")
+(setq wrangler-version  "(wrangler-0.8.4) ")
 
 (defun wrangler-menu-init()
   "Init Wrangler menus."
