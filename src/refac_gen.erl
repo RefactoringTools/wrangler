@@ -116,7 +116,7 @@ generalise(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
     generalise(FileName, Start, End, ParName, SearchPaths, TabWidth, emacs).
 
 %% TO CHECK: Dialyzer says this function also returns {ok, [filename()]}, but it really shouldn't.
-%% I don't know where goes wrong.
+%% I don't know where things go wrong.
 -spec generalise_eclipse(FileName::filename(), Start::pos(), End::pos(), ParName::string(),
 	                         SearchPaths::[dir()], TabWidth::integer()) ->
         {ok, [filename()]} |
