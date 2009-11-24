@@ -187,7 +187,7 @@ fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, T
 		    Regions =[{SLine, SCol, ELine, ECol, term_to_list(NewExp), FunClauseDef1}
 			      || {{{SLine, SCol}, {ELine, ECol}}, NewExp} <- Candidates],
 		    {ok, Regions, Cmd};
-		eclipse -> {ok, FunClauseDef, Candidates}
+		eclipse -> {ok, {FunClauseDef, Candidates}}
 	    end;
 	{error, _Reason} ->
 	  throw({error, "The specified funcion clause does not exist!"})
