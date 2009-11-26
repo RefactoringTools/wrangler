@@ -295,6 +295,8 @@
 
 (defun erlang-refactor-on()
   (interactive)
+  (if (get-buffer "*Wrangler-Erl-Shell*")
+      (kill-buffer "*Wrangler-Erl-Shell*"))
   (setq wrangler-erl-node-string (concat "wrangler" (number-to-string (random 1000)) "@localhost"))
   (setq wrangler-erl-node (intern  wrangler-erl-node-string))
   (sleep-for 0.5)
