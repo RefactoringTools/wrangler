@@ -142,16 +142,20 @@ check_unsafe_vars(ExpList) ->
 		  case refac_syntax:type(Node) of 
 		      variable ->
 			  As = refac_syntax:get_ann(Node),
-			  {value, {def, DefinePos}} = lists:keysearch(def, 1, As),
-			  case length(DefinePos)>1 of 
-			      true-> case DefinePos -- BoundLocs of 
-					 [] -> S;
-					 _ -> 
-					     Name = refac_syntax:variable_name(Node),
-					     throw({error, "Extracting the expression(s) selected into a new function would "
-						    "make variable '" ++ atom_to_list(Name) ++"' unsafe."})
-				     end;
-			      _ -> S
+			  case lists:keysearch(def,1,As) of
+			      {value, {def, DefinePos}} ->
+				  case length(DefinePos)>1 of 
+				      true-> case DefinePos -- BoundLocs of 
+						 [] -> S;
+						 _ -> 
+						     Name = refac_syntax:variable_name(Node),
+						     throw({error, "Extracting the expression(s) selected into a new function would "
+							    "make variable '" ++ atom_to_list(Name) ++"' unsafe."})
+						 end;
+					  _ -> S
+				      end;
+			      _ -> 
+				  S
 			  end;
 		      _ -> S
 		  end
