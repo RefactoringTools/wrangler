@@ -184,7 +184,7 @@ do_build_callgraph(FName, DirList) ->
 		     function ->
 			 FunName = refac_syntax:data(refac_syntax:function_name(T)),
 			 Arity = refac_syntax:function_arity(T),
-			 Caller = {ModName, FunName, Arity},  %%{{ModName, FunName, Arity}, T},
+			 Caller ={{ModName, FunName, Arity}, T},   %% should remove the actual function AST.!!!
 			 CalledFuns = called_funs(T),
 			 ordsets:add_element({Caller, CalledFuns}, S);
 		     _ -> S
