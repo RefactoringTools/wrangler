@@ -92,13 +92,18 @@ analyze_mod({Mod, Dir}, SearchPaths) ->
     Files = refac_util:expand_files(SearchPaths, ".erl"),
     ModNames = [list_to_atom(M) || {M, _} <- refac_util:get_modules_by_file(Files)],
     {ok, {AnnAST, Info}} =refac_util:parse_annotate_file(File, true, Includes),
+    ?debug("Info:\n~p\n", [Info]),
     ImportedMods = case lists:keysearch(imports,1, Info) of 
 		       {value, {imports, Imps}} -> lists:map(fun({M, _Funs}) -> M end, Imps);
 		       false  -> []
 		   end,
+    ImportedMods1 = case lists:keysearch(module_imports, 1, Info) of
+			{value, {module_imports, Mods}} -> Mods;
+			_ -> []
+		    end,
     {CalledMods, PossibleCalledMods} = collect_called_modules(AnnAST, ModNames),
     ?debug("Called modules:\n~p\n", [CalledMods]), 
-    {called_modules, lists:usort(ImportedMods++CalledMods++PossibleCalledMods)}.
+    {called_modules, lists:usort(ImportedMods++ImportedMods1++CalledMods++PossibleCalledMods)}.
 
 
 collect_called_modules(AnnAST) ->
