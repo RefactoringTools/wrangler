@@ -157,8 +157,9 @@ loop(Port) ->
 %% </p>
 %% ====================================================================================
 
-%%-spec(duplicated_code_eclipse/5::(dir(), integer(), integer(), integer(),  dir()) ->
-%% 	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer()}]).
+-spec(duplicated_code_eclipse/5::(DirFileList::dir(), MinLength::integer(), MinClones::integer(), 
+				  TabWidth::integer(),  SuffxiTreeExec::dir()) ->
+ 	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer(), string()}]).
 
 duplicated_code_eclipse(DirFileList, MinLength1, MinClones1, TabWidth, SuffixTreeExec) ->
      MinLength = case MinLength1 =< 1 of
