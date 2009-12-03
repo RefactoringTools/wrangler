@@ -67,7 +67,8 @@
 	 fold_expr_by_name_eclipse/7, fold_expr_1_eclipse/5,
 	 new_macro_eclipse/6, rename_process_eclipse/6,
 	 rename_process_1_eclipse/5, fun_to_process_eclipse/6,
-	 fun_to_process_1_eclipse/6, unfold_fun_app_eclipse/4]).
+	 fun_to_process_1_eclipse/6, unfold_fun_app_eclipse/4,
+	 duplicated_code_eclipse/5, sim_code_detection_eclipse/6]).
 
 -export([try_refactoring/3, try_inspector/3]).
 -include("../include/wrangler.hrl").
@@ -382,6 +383,19 @@ move_fun_1_eclipse(FileName, Line, Col, TargetModName,SearchPaths, TabWidth) ->
 duplicated_code_in_buffer(FileName, MinToks, MinClones, TabWidth) -> 
     try_refactoring(refac_duplicated_code, duplicated_code, [[FileName], MinToks, MinClones, TabWidth]).
 
+
+-spec(duplicated_code_eclipse/5::(DirFileList::dir(), MinLength::integer(), MinClones::integer(), 
+				  TabWidth::integer(),  SuffxiTreeExec::dir()) ->
+ 	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer(), string()}]).
+duplicated_code_eclipse(DirFileList, MinLength, MinClones, TabWidth, SuffixTreeExec) ->
+    try_refactoring(refac_duplicated_code, duplicated_code_eclipse, [DirFileList, MinLength, MinClones, TabWidth, SuffixTreeExec]).
+
+
+-spec(sim_code_detection_eclipse/6::(DirFileList::dir(), MinLen::integer(), MinFreq::integer(), 
+				  SimScore::integer(),  SearchPaths::[dir()], TabWidth::integer()) ->
+ 	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer(), string()}]).
+sim_code_detection_eclipse(DirFileList, MinLen, MinFreq, SimiScore, SearchPaths, TabWidth) ->
+    try_refactoring(refac_sim_code, sim_code_detection_eclipse, [DirFileList, MinLen, MinFreq, SimiScore, SearchPaths, TabWidth]).
 
 %% =====================================================================================
 %% @doc An identical code detector that searches for identical code across multiple Erlang modules.
