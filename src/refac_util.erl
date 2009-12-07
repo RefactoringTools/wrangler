@@ -1011,7 +1011,7 @@ parse_annotate_file(FName, ByPassPreP, SearchPaths, TabWidth) ->
 	_ ->
 	    wrangler_ast_server:get_ast({FName, ByPassPreP, SearchPaths, TabWidth, FileFormat})
     end.
-   
+    
 
 
 -spec(parse_annotate_file_1(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()], integer(), atom())
@@ -1022,18 +1022,23 @@ parse_annotate_file_1(FName, true, SearchPaths, TabWidth, FileFormat) ->
 	    Dir = filename:dirname(FName),
 	    DefaultIncl2 = [filename:join(Dir, X) || X <-default_incls()],
 	    Includes = SearchPaths++DefaultIncl2,
-	    Ms =case refac_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
-		    {ok, _, {MDefs, MUses}}  -> 
-			{dict:from_list(MDefs), dict:from_list(MUses)};
-		    _ -> []
-		end,	
+	    {Info0, Ms}=case refac_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
+			{ok, Fs, {MDefs, MUses}}  -> 
+			    ST = refac_recomment:recomment_forms(Fs,[]),
+			    Info1= refac_syntax_lib:analyze_forms(ST),
+			    Ms1={dict:from_list(MDefs), dict:from_list(MUses)},
+			    {Info1, Ms1};			
+			_ -> {[], {dict:from_list([]), dict:from_list([])}}
+		    end,	
 	    Comments = refac_comment_scan:file(FName),
 	    SyntaxTree = refac_recomment:recomment_forms(Forms, Comments),
 	    Info = refac_syntax_lib:analyze_forms(SyntaxTree),
-	    AnnAST = annotate_bindings(FName, SyntaxTree, Info, Ms, TabWidth),
-	    {ok, {AnnAST, Info}};
+	    Info2 = merge_module_info(Info0, Info),
+	    AnnAST = annotate_bindings(FName, SyntaxTree, Info2, Ms, TabWidth),
+	    {ok, {AnnAST, Info2}};
 	{error, Reason} -> erlang:error(Reason)
     end;     
+
 parse_annotate_file_1(FName, false, SearchPaths, TabWidth, FileFormat) ->
     Dir = filename:dirname(FName),
     DefaultIncl2 = [filename:join(Dir, X) || X <-default_incls()],
@@ -1055,6 +1060,28 @@ parse_annotate_file_1(FName, false, SearchPaths, TabWidth, FileFormat) ->
        {error, Reason} -> erlang:error(Reason)
    end.
 
+merge_module_info(Info1, Info2) ->
+    Info = lists:usort(Info1 ++ Info2),
+    F = fun(Attr) ->
+		lists:usort(lists:append(
+			      [Vs||{Attr1,Vs} <- Info, 
+				   Attr1==Attr]))
+	end,
+    M = case lists:keysearch(module, 1, Info) of
+		 {value, R} ->
+		     R;
+		 _ -> {module, []}
+	     end,
+    NewInfo=[M, {exports,F(exports)}, {module_imports, F(module_imports)},
+	     {imports, F(imports)}, {attributes,F(attributes)},
+	     {records, F(records)}, {errors, F(errors)}, {warnings, F(warnings)},
+	     {functions, F(functions)}, {rules, F(rules)}],
+    [{A,V}||{A, V}<-NewInfo, V=/=[]].
+	     
+
+    
+    
+   
 annotate_bindings(FName, AST, Info, Ms, TabWidth) ->
     Toks = tokenize(FName, true, TabWidth),
     AnnAST0 = refac_syntax_lib:annotate_bindings(add_tokens(add_range(AST, Toks), Toks), ordsets:new(), Ms),
