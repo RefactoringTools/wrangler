@@ -371,7 +371,7 @@ do_fun_extraction(AnnAST, ExpList, NewFunName, ParNames, VarsToExport, Enclosing
 replace_expr_with_fun_call(Form, ExpList, NewFunName, ParNames, VarsToExport) ->
     Op = refac_syntax:atom(NewFunName),
     Pars = [refac_syntax:variable(P)|| P <-ParNames],
-    FunCall= refac_syntax:application(Op, Pars),
+    FunCall= refac_syntax:copy_pos(hd(ExpList), refac_syntax:application(Op, Pars)),
     NewExpr = case length(VarsToExport) of 
 		  0  ->  
 		      FunCall;

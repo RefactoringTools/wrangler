@@ -57,9 +57,6 @@
 
 %%=============================================================================================
 
-%%-spec(fold_against_macro/5::(filename(), integer(), integer(), [dir()], integer()) ->
-%%	      {error, string()} | {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), syntaxTree()}]}).
-
 fold_against_macro(FileName, Line, Col,  SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:fold_against_macro(~p, ~p,~p, ~p,~p).\n", 
 		 [?MODULE, FileName, Line, Col, SearchPaths, TabWidth]),
