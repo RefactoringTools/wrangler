@@ -184,6 +184,34 @@ register_pid(FileName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPath
 fun_to_process(Fname, Line, Col, ProcessName, SearchPaths, TabWidth ) ->
     apply_refactoring(wrangler, fun_to_process, [Fname, Line, Col, ProcessName, SearchPaths, TabWidth], SearchPaths).
 
+
+-spec(new_let/8::(filename(), integer(), integer(), integer(),integer(), string(), [dir()], integer()) ->
+	      {error, string()} | {ok, string()}).
+new_let(FileName, StartLine, StartCol, EndLine, EndCol, PatName, SearchPaths, TabWidth) -> 
+    apply_refactoring(wrangler, new_let, [FileName, {StartLine, StartCol}, {EndLine, EndCol}, PatName, SearchPaths, TabWidth], SearchPaths).
+
+
+-spec(merge_let/3::(FileName::filename, SearchPaths::[dir()], TabWidth::integer()) ->
+	     {not_found, string()} |{ok, [{integer(), integer(), integer(), integer(), string()}], string()}).
+merge_let(FileName, SearchPaths, TabWidth) ->
+    apply_refactoring(wrangler, merge_let, [FileName, SearchPaths, TabWidth], SearchPaths).
+
+
+-spec(merge_forall/3::(FileName::filename, SearchPaths::[dir()], TabWidth::integer()) ->
+	     {not_found, string()} |{ok, [{integer(), integer(), integer(), integer(), string()}], string()}).
+merge_forall(FileName, SearchPaths, TabWidth) ->
+    apply_refactoring(wrangler, merge_forall, [FileName, SearchPaths, TabWidth], SearchPaths).
+
+eqc_statem_to_record(FileName, SearchPaths, TabWidth) ->
+    apply_refactoring(wrangler, eqc_statem_to_record, [FileName, SearchPaths, TabWidth], SearchPaths).
+
+eqc_fsm_to_record(FileName, SearchPaths, TabWidth) ->
+    apply_refactoring(wrangler, eqc_fsm_to_record, [FileName, SearchPaths, TabWidth], SearchPaths).
+
+gen_fsm_to_record(FileName, SearchPaths, TabWidth) ->
+    apply_refactoring(wrangler, gen_fsm_to_record, [FileName, SearchPaths, TabWidth], SearchPaths).
+
+
 apply_refactoring(Mod, Fun, Args, SearchPaths) ->
     case initial_checking(SearchPaths) of
       ok ->
