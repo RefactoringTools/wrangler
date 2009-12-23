@@ -203,6 +203,16 @@
     ("Detect Similar Code in Dirs" erl-refactor-similar-code-in-dirs)
     ("Similar Expression Search" erl-refactor-similar-expression-search)
     nil
+    ("Refactorings for QuickCheck" 
+     (
+      ("Introduce ?LET" erl-refactor-introduce-let)
+      ("Merge ?LETs"    erl-refactor-merge-let)
+      ("Merge ?FORALLs"   erl-refactor-merge-forall)
+      ("eqc_statem State to Record" erl-refactor-eqc-statem-to-record)
+      ("eqc_fsm State to Record" erl-refactor-eqc-fsm-to-record)
+      ("gen_fsm State to Record" erl-refactor-gen-fsm-to-record)
+     ))
+    nil
     ("Process Refactorings (Beta)"
      (
       ("Rename a Process" erl-refactor-rename-process)
@@ -278,28 +288,32 @@
 	  (message "Wrangler failed to start:%s" rsn)
 	  (setq erlang-refactor-status 0))))))
 
-
-
 (defun erlang-refactor-off()
   (interactive)
-  (wrangler-menu-remove)
+  (wrangler-menu-remove) 
   (setq erlang-refactor-status 0)		
-  (erl-spawn
-    (erl-send-rpc wrangler-erl-node 'application 'stop (list 'wrangler_app))
-    (erl-receive()
-	((['rex response]
-	   (if (get-buffer "*Wrangler-Erl-Shell*")
-             (kill-buffer "*Wrangler-Erl-Shell*"))
-	  ))))
-   (message "Wrangler stopped."))   
+  (condition-case nil
+      (erl-spawn
+	(erl-send-rpc wrangler-erl-node 'application 'stop (list 'wrangler_app))
+	)
+   (error nil))
+  (condition-case nil   ;; (get-buffer "*Wrangler-Erl-Shell*")
+      (kill-buffer "*Wrangler-Erl-Shell*")
+    (error nil))
+   (message "Wrangler stopped."))
 
 (defun erlang-refactor-on()
   (interactive)
-  (if (get-buffer "*Wrangler-Erl-Shell*")
-      (kill-buffer "*Wrangler-Erl-Shell*"))
+  ;;(if (get-buffer "*Wrangler-Erl-Shell*")
+  ;;    (kill-buffer "*Wrangler-Erl-Shell*"))
+  
+  (condition-case nil   ;; (get-buffer "*Wrangler-Erl-Shell*")
+      (kill-buffer "*Wrangler-Erl-Shell*")
+    (error nil)
+   )
   (setq wrangler-erl-node-string (concat "wrangler" (number-to-string (random 1000)) "@localhost"))
   (setq wrangler-erl-node (intern  wrangler-erl-node-string))
-  (sleep-for 0.5)
+  (sleep-for 1.0)
   (save-window-excursion
      (wrangler-erlang-shell))
   (sleep-for 2.0)
@@ -339,24 +353,11 @@
 	   (eq wrangler-erlang-shell-type 'newshell))
       (setq comint-process-echoes t)))
 
-(defun erlang-refactor-off()
-  (interactive)
-  (wrangler-menu-remove)
-  (setq erlang-refactor-status 0)		
-  (erl-spawn
-    (erl-send-rpc wrangler-erl-node 'application 'stop (list 'wrangler_app))
-    (erl-receive()
-	((['rex response]
-	   (if (get-buffer "*Wrangler-Erl-Shell*")
-             (kill-buffer "*Wrangler-Erl-Shell*"))
-	  ))))
-   (message "Wrangler stopped."))      
- 
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 0.8.4"))
+  (message "Wrangler version 0.8.5"))
 
-(setq wrangler-version  "(wrangler-0.8.4) ")
+(setq wrangler-version  "(wrangler-0.8.5) ")
 
 (defun wrangler-menu-init()
   "Init Wrangler menus."
@@ -1787,6 +1788,238 @@
 		  
 
 
+(defun erl-refactor-introduce-let(name start end)
+  "Introduce dependence between quickcheck generators."
+  (interactive (list (read-string "Pattern variable name: ")
+		     (region-beginning)
+		     (region-end)
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer))
+	(start-line-no (line-no-pos start))
+	(start-col-no  (current-column-pos start))
+	(end-line-no   (line-no-pos end))
+	(end-col-no    (current-column-pos end)))
+    (if (current-buffer-saved buffer)
+  	(erl-spawn
+	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'new_let
+			(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width))
+	  (erl-receive (start-line-no start-col-no current-file-name)
+	      ((['rex ['badrpc rsn]]
+		(message "Refactoring failed: %S" rsn))
+	       (['rex ['error rsn]]
+		(message "Refactoring failed: %s" rsn))
+	       (['rex ['ok modified]]
+		(preview-commit-cancel current-file-name modified)
+		(with-current-buffer (get-file-buffer current-file-name)
+		  (goto-line start-line-no)
+		  (goto-column start-col-no))))))
+      (message "Refactoring aborted."))))
+
+
+(defun erl-refactor-merge-let()
+  "Merge undependent ?LET applications."
+  (interactive)
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer)))       
+    (erl-spawn
+      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'merge_let
+		    (list current-file-name wrangler-search-paths tab-width))
+      (erl-receive (buffer current-file-name highlight-region-overlay )
+	  ((['rex ['badrpc rsn]]
+	    (message "Refactoring failed: %S" rsn))
+	   (['rex ['error rsn]]
+	    (message "Refactoring failed: %s" rsn))
+	   (['rex ['not_found msg]]
+	    (message "%s" msg))
+	   (['rex ['ok candidates logmsg]]
+	    (with-current-buffer buffer
+	      (setq candidates-to-fold nil)
+	      (setq last-position 0)
+	      (while (not (equal candidates nil))
+		(setq new-cand (car candidates))
+		(setq loc (elt new-cand 0))
+		(setq line1 (elt loc 0))
+		(setq col1  (elt  loc 1))
+		(setq line2 (elt loc 2))
+		(setq col2  (elt  loc 3))
+		(setq newletapp (elt new-cand 1))
+		(if  (> (get-position line1 col1) last-position)
+		    (progn 
+		      (highlight-region line1 col1 line2  col2 buffer)
+		      (if (yes-or-no-p "Would you like to merge the ?LET application hightlighted?")
+			  (progn
+			    (setq candidates-to-fold (cons new-cand candidates-to-fold))
+			    (setq last-position (get-position line2 col2)))
+			nil))
+		  nil)  
+		(setq candidates (cdr candidates)))
+	      (delete-overlay highlight-region-overlay)
+	      (if (equal candidates-to-fold nil)
+		  (message "Refactoring finished, and nothing has been changed.")
+		(erl-spawn
+		  (erl-send-rpc wrangler-erl-node 'wrangler 'merge_let_1 (list 
+                                      current-file-name candidates-to-fold wrangler-search-paths tab-width logmsg))
+		  (erl-receive (current-file-name)
+		      ((['rex ['badrpc rsn]]
+			(message "Refactoring failed: %S" rsn))
+		       (['rex ['error rsn]]
+			(message "Refactoring failed: %s" rsn))
+		       (['rex ['ok modified]]
+			(preview-commit-cancel current-file-name modified)
+			))))))
+	    ))))))
+	      
+      
+
+(defun erl-refactor-merge-forall()
+  "Merge undependent ?FORALL applications."
+  (interactive)
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer)))       
+    (erl-spawn
+      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'merge_forall
+		    (list current-file-name wrangler-search-paths tab-width))
+      (erl-receive (buffer current-file-name highlight-region-overlay )
+	  ((['rex ['badrpc rsn]]
+	    (message "Refactoring failed: %S" rsn))
+	   (['rex ['error rsn]]
+	    (message "Refactoring failed: %s" rsn))
+	   (['rex ['not_found msg]]
+	    (message "%s" msg))
+	   (['rex ['ok candidates logmsg]]
+	    (with-current-buffer buffer
+	      (setq candidates-to-fold nil)
+	      (setq last-position 0)
+	      (while (not (equal candidates nil))
+		(setq new-cand (car candidates))
+		(setq loc (elt new-cand 0))
+		(setq line1 (elt loc 0))
+		(setq col1  (elt  loc 1))
+		(setq line2 (elt loc 2))
+		(setq col2  (elt  loc 3))
+		(setq newletapp (elt new-cand 1))
+		(if  (> (get-position line1 col1) last-position)
+		    (progn 
+		      (highlight-region line1 col1 line2  col2 buffer)
+		      (if (yes-or-no-p "Would you like to merge the ?FORALL application highlighted?")
+			  (progn
+			    (setq candidates-to-fold (cons new-cand candidates-to-fold))
+			    (setq last-position (get-position line2 col2)))
+			nil))
+		  nil)  
+		(setq candidates (cdr candidates)))
+	      (delete-overlay highlight-region-overlay)
+	      (if (equal candidates-to-fold nil)
+		  (message "Refactoring finished, and nothing has been changed.")
+		(erl-spawn
+		  (erl-send-rpc wrangler-erl-node 'wrangler 'merge_forall_1 (list 
+                                      current-file-name candidates-to-fold wrangler-search-paths tab-width logmsg))
+		  (erl-receive (current-file-name)
+		      ((['rex ['badrpc rsn]]
+			(message "Refactoring failed: %S" rsn))
+		       (['rex ['error rsn]]
+			(message "Refactoring failed: %s" rsn))
+		       (['rex ['ok modified]]
+			(preview-commit-cancel current-file-name modified)
+			))))))
+	    ))))))
+
+
+
+(defun erl-refactor-eqc-statem-to-record()
+   "Turn a non-record eqc-statem state to a recrod."
+   (interactive) 
+   (let ((current-file-name (buffer-file-name))
+ 	(buffer (current-buffer)))
+     (if (current-buffer-saved buffer)
+	 (erl-spawn
+	   (erl-send-rpc wrangler-erl-node 'wrangler_distel 'eqc_statem_to_record (list current-file-name wrangler-search-paths tab-width))
+	   (erl-receive (current-file-name)
+ 	      ((['rex ['badrpc rsn]]
+ 		(message "Refactoring failed: %S" rsn))
+ 	       (['rex ['error rsn]]
+ 		(message "Refactoring failed: %s" rsn))
+ 	       (['rex ['ok ['tuple no-of-fields] state-funs ]]
+		(erl-refactor-eqc-statem-to-record-1 current-file-name no-of-fields state-funs 'true 'eqc_statem_to_record_1))
+	       (['rex ['ok non-tuple state-funs]]
+		(if (yes-or-no-p "The current type of the state is not tuple; create a record with a single field?")
+		    (erl-refactor-eqc-statem-to-record-1 current-file-name 1 state-funs 'false 'eqc_statem_to_record_1)
+		  (message "Refactoring aborted.")))		      
+	       )))
+       (message "Refactoring aborted."))))
+
+
+(defun erl-refactor-eqc-fsm-to-record()
+   "Turn a non-record eqc-fsm state to a recrod."
+   (interactive) 
+   (let ((current-file-name (buffer-file-name))
+ 	(buffer (current-buffer)))
+     (if (current-buffer-saved buffer)
+	 (erl-spawn
+	   (erl-send-rpc wrangler-erl-node 'wrangler_distel 'eqc_fsm_to_record (list current-file-name wrangler-search-paths tab-width))
+	   (erl-receive (current-file-name)
+ 	      ((['rex ['badrpc rsn]]
+ 		(message "Refactoring failed: %S" rsn))
+ 	       (['rex ['error rsn]]
+ 		(message "Refactoring failed: %s" rsn))
+ 	       (['rex ['ok ['tuple no-of-fields] state-funs]]
+		(erl-refactor-state-to-record-1 current-file-name no-of-fields state-funs 'true 'eqc_fsm_to_record_1))
+	       (['rex ['ok non-tuple state-funs]]
+		(if (yes-or-no-p "The current type of the state is not tuple; create a record with a single field?")
+		    (erl-refactor-state-to-record-1 current-file-name 1 state-funs 'false 'eqc_fsm_to_record_1)
+		  (message "Refactoring aborted.")))		      
+	       )))
+       (message "Refactoring aborted."))))
+
+
+(defun erl-refactor-gen-fsm-to-record()
+   "Turn a non-record gen-fsm state to a recrod."
+   (interactive) 
+   (let ((current-file-name (buffer-file-name))
+ 	(buffer (current-buffer)))
+     (if (current-buffer-saved buffer)
+	 (erl-spawn
+	   (erl-send-rpc wrangler-erl-node 'wrangler_distel 'gen_fsm_to_record (list current-file-name wrangler-search-paths tab-width))
+	   (erl-receive (current-file-name)
+ 	      ((['rex ['badrpc rsn]]
+ 		(message "Refactoring failed: %S" rsn))
+ 	       (['rex ['error rsn]]
+ 		(message "Refactoring failed: %s" rsn))
+ 	       (['rex ['ok ['tuple no-of-fields] state-funs]]
+		(erl-refactor-state-to-record-1 current-file-name no-of-fields state-funs 'true 'gen_fsm_to_record_1))
+	       (['rex ['ok non-tuple state-funs]]
+		(if (yes-or-no-p "The current type of the state is not tuple; create a record with a single field?")
+		    (erl-refactor-state-to-record-1 current-file-name 1 state-funs 'false 'gen_fsm_to_record_1)
+		  (message "Refactoring aborted.")))		      
+	       )))
+       (message "Refactoring aborted."))))
+
+(defun erl-refactor-state-to-record-1(current-file-name no-of-fields state-funs is-tuple function-name)
+  "Turn a non-record state to a record."
+  (interactive)
+  (setq num 1)
+  (setq field-names nil)
+  (let ((record-name (read-string "Record name: "))
+	(buffer (get-file-buffer current-file-name)))    
+    (while (not (> num no-of-fields))
+      (let ((str (format "Field name %d: " num)))
+	(setq field-names (cons (read-string str) field-names))
+	(setq num (+ num 1))))
+    (if (current-buffer-saved buffer)
+	(erl-spawn
+	  (erl-send-rpc wrangler-erl-node 'wrangler function-name 
+			(list current-file-name record-name (reverse field-names) state-funs is-tuple wrangler-search-paths tab-width))
+	  (erl-receive (current-file-name)
+ 	      ((['rex ['badrpc rsn]]
+ 		(message "Refactoring failed: %S" rsn))
+ 	       (['rex ['error rsn]]
+ 		(message "Refactoring failed: %s" rsn))
+ 	       (['rex ['ok modified]]
+		(preview-commit-cancel current-file-name modified)
+	       ))))
+	  (message "Refactoring aborted."))))
+  
 (defun erl-wrangler-code-inspector-var-instances()
   "Sematic search of instances of a variable"
   (interactive)
