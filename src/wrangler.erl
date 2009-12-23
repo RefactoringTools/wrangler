@@ -54,7 +54,12 @@
 	 add_a_tag/6, tuple_funpar/5, tuple_funpar_1/5,
 	 tuple_to_record/9, register_pid/6, fun_to_process/6,
 	 new_macro/6, fold_against_macro/5,
-	 normalise_record_expr/6, unfold_fun_app/4]).
+	 normalise_record_expr/6, unfold_fun_app/4,
+	 new_let/6, new_let_1/7, merge_let/3, merge_let_1/5,
+	 merge_forall/3, merge_forall_1/5,
+	 eqc_statem_to_record/3, eqc_statem_to_record_1/7,
+ 	 eqc_fsm_to_record/3, eqc_fsm_to_record_1/7, 
+	 gen_fsm_to_record/3, gen_fsm_to_record_1/7]).
 
 -export([rename_var_eclipse/6, rename_fun_eclipse/6,
 	 rename_fun_1_eclipse/6, rename_mod_eclipse/4,
@@ -935,6 +940,55 @@ fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth) ->
 normalise_record_expr(FileName, Line, Col, ShowDefault, SearchPaths, TabWidth) ->
     try_refactoring(refac_sim_expr_search, normalise_record_expr, [FileName, {Line, Col}, ShowDefault,SearchPaths, TabWidth]).
 
+
+
+-spec(new_let/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
+	      {error, string()} | {ok, string()}).
+new_let(FileName, Start, End, PatName, SearchPaths, TabWidth) -> 
+    try_refactoring(refac_new_let, new_let, [FileName, Start, End, PatName, SearchPaths, TabWidth]).
+
+new_let_1(FileName, NewPatName, Expr, ParentExpr, SearchPaths, TabWidth, Cmd) ->
+    try_refactoring(refac_new_let, new_let_1, [FileName, NewPatName, Expr, ParentExpr, SearchPaths, TabWidth, Cmd]).
+
+-spec(merge_let/3::(FileName::filename, SearchPaths::[dir()], TabWidth::integer()) ->
+	     {not_found, string()} |{ok, [{integer(), integer(), integer(), integer(), string()}], string()}).
+merge_let(FileName, SearchPaths, TabWidth) ->
+    try_refactoring(refac_new_let, merge_let, [FileName, SearchPaths, TabWidth]).
+-spec(merge_let_1/5::(FileName::filename, Candidates::[{{integer(), integer(), integer(), integer()}, string()}],
+		      SearchPaths::[dir()], TabWidth::integer(), Cmd::string()) -> {ok, [filename()]}).
+merge_let_1(FileName, Candidates, SearchPaths, TabWidth, Cmd) ->
+    try_refactoring(refac_new_let, merge_let_1, [FileName, Candidates, SearchPaths, TabWidth, Cmd]).
+
+
+-spec(merge_forall/3::(FileName::filename, SearchPaths::[dir()], TabWidth::integer()) ->
+	     {not_found, string()} |{ok, [{integer(), integer(), integer(), integer(), string()}], string()}).
+merge_forall(FileName, SearchPaths, TabWidth) ->
+    try_refactoring(refac_new_let, merge_forall, [FileName, SearchPaths, TabWidth]).
+-spec(merge_forall_1/5::(FileName::filename, Candidates::[{{integer(), integer(), integer(), integer()}, string()}],
+		      SearchPaths::[dir()], TabWidth::integer(), Cmd::string()) -> {ok, [filename()]}).
+merge_forall_1(FileName, Candidates, SearchPaths, TabWidth, Cmd) ->
+    try_refactoring(refac_new_let, merge_forall_1, [FileName, Candidates, SearchPaths, TabWidth, Cmd]).
+
+eqc_statem_to_record(FileName, SearchPaths, TabWidth) ->
+    try_refactoring(refac_state_to_record, eqc_statem_to_record, [FileName, SearchPaths, TabWidth]).
+
+eqc_statem_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth) ->
+    try_refactoring(refac_state_to_record, eqc_statem_to_record_1, 
+		    [FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth]).
+
+eqc_fsm_to_record(FileName, SearchPaths, TabWidth) ->
+    try_refactoring(refac_state_to_record, eqc_fsm_to_record, [FileName, SearchPaths, TabWidth]).
+
+eqc_fsm_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth) ->
+    try_refactoring(refac_state_to_record, eqc_fsm_to_record_1, 
+		    [FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth]).
+
+gen_fsm_to_record(FileName, SearchPaths, TabWidth) ->
+    try_refactoring(refac_state_to_record, gen_fsm_to_record, [FileName, SearchPaths, TabWidth]).
+
+gen_fsm_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth) ->
+    try_refactoring(refac_state_to_record, gen_fsm_to_record_1, 
+		    [FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth]).
 
 %%@private
 try_to_apply(Mod, Fun, Args, Msg) -> 
