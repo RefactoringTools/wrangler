@@ -425,7 +425,7 @@ local_funs_to_be_exported(Node, {ModName, FunName, Arity}, ModInfo) ->
 		    ExportList;
 		_ -> []
 	      end,
-    CalledFuns = wrangler_callgraph_server:called_funs(ModName, Node),
+    CalledFuns = wrangler_callgraph_server:called_funs(Node),
     CalledLocalFuns = lists:flatmap(fun ({M, F, A}) ->
 					    case M == ModName andalso {F, A} =/= {FunName, Arity}
 						of

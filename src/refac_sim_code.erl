@@ -143,7 +143,7 @@ sim_code_detection_eclipse(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPat
 		      ?DEFAULT_FREQ;
 		  _ -> MinFreq1
 	      end,
-    SimiScore = case (SimiScore1=0.1) andalso (SimiScore1 =<1.0) of 
+    SimiScore = case (SimiScore1==0.1) andalso (SimiScore1 =<1.0) of 
 		    true ->SimiScore1;
 		    _ -> ?DefaultSimiScore
 		end,
@@ -718,7 +718,7 @@ parse_annotate_file(FName, SearchPaths, TabWidth) ->
 annotate_bindings(FName, AST, Info, Ms, TabWidth) ->
     Toks = refac_util:tokenize(FName, true, TabWidth),
     AnnAST0 = refac_syntax_lib:annotate_bindings(refac_util:add_range(AST, Toks), ordsets:new(), Ms),
-    refac_util:add_category(refac_util:add_fun_define_locations(AnnAST0, Info)).
+    refac_util:add_category(refac_annotate_ast:add_fun_define_locations(AnnAST0, Info)).
  
 
 

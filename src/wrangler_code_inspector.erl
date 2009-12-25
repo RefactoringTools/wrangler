@@ -789,7 +789,7 @@ is_server(FileName, Info, FunDef, Scc, Line) ->
 		 {_, {EndLine, _}} = refac_util:get_range(E),
 		 case EndLine >= Line of
 		   true ->
-		       CalledFuns = wrangler_callgraph_server:called_funs(ModName, E),
+		       CalledFuns = wrangler_callgraph_server:called_funs(E),
 		       case lists:subtract(CalledFuns, MFAs) of
 			 CalledFuns -> false;
 			 _ -> true

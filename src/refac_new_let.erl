@@ -36,7 +36,8 @@
 -export([new_let/6,  new_let_1/7, new_let_eclipse/6, new_let_1_eclipse/6,
 	 new_forall/6,new_forall_eclipse/6,
 	 merge_let/3, merge_let_1/5, 
-	 merge_forall/3, merge_forall_1/5]).
+	 merge_forall/3, merge_forall_1/5,
+	merge_forall_eclipse/3]).
 
 
 -include("../include/wrangler.hrl").
@@ -406,18 +407,21 @@ returns_gen(_) ->
 %%
 %% Merge LET expressions. 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--spec(merge_let/3::(FileName::filename, SearchPaths::[dir()], TabWidth::integer()) ->
+-spec(merge_let/3::(FileName::filename(), SearchPaths::[dir()], TabWidth::integer()) ->
 	     {not_found, string()} |{ok, [{{integer(), integer(), integer(), integer()}, string()}], string()}).
 merge_let(FileName, SearchPaths, TabWidth) ->
     merge(FileName, 'LET', SearchPaths, TabWidth, emacs).
 
 
 
--spec(merge_forall/3::(FileName::filename, SearchPaths::[dir()], TabWidth::integer()) ->
+-spec(merge_forall/3::(FileName::filename(), SearchPaths::[dir()], TabWidth::integer()) ->
 	     {not_found, string()} |{ok, [{{integer(), integer(), integer(), integer()}, string()}], string()}).
 merge_forall(FileName, SearchPaths, TabWidth) ->
     merge(FileName, 'FORALL', SearchPaths, TabWidth, emacs).
 
+
+merge_forall_eclipse(FileName, SearchPaths, TabWidth) ->
+    merge(FileName, 'FORALL', SearchPaths, TabWidth, eclipse).
 
 merge(FileName, MacroName, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:merge_let(~p,~p, ~p,~p).\n",
@@ -450,13 +454,13 @@ merge(FileName, MacroName, SearchPaths, TabWidth, Editor) ->
 	  end
     end.
 
--spec(merge_let_1/5::(FileName::filename, Candidates::[{{integer(), integer(), integer(), integer()}, string()}],
+-spec(merge_let_1/5::(FileName::filename(), Candidates::[{{integer(), integer(), integer(), integer()}, string()}],
 		      SearchPaths::[dir()], TabWidth::integer(), Cmd::string()) -> {ok, [filename()]}).
 merge_let_1(FileName, Candidates, SearchPaths, TabWidth, Cmd) ->
     merge_1(FileName, Candidates, SearchPaths, TabWidth, Cmd).
 
 
--spec(merge_forall_1/5::(FileName::filename, Candidates::[{{integer(), integer(), integer(), integer()}, string()}],
+-spec(merge_forall_1/5::(FileName::filename(), Candidates::[{{integer(), integer(), integer(), integer()}, string()}],
 		      SearchPaths::[dir()], TabWidth::integer(), Cmd::string()) -> {ok, [filename()]}).
 merge_forall_1(FileName, Candidates, SearchPaths, TabWidth, Cmd) ->
     merge_1(FileName, Candidates, SearchPaths, TabWidth, Cmd).
@@ -475,14 +479,11 @@ do_merge(AnnAST, Candidates) ->
     element(1, refac_util:stop_tdTP(fun do_merge_1/2, AnnAST, Candidates)).
 
 do_merge_1(Tree, Candidates) ->
-    case refac_util:get_range(Tree) of
-      {{StartLine, StartCol}, {EndLine, EndCol}} ->
-	  case lists:keysearch({StartLine, StartCol, EndLine, EndCol}, 1, Candidates) of
-	    {value, {_, NewLetApp}} ->
-		{list_to_term(NewLetApp), true};
-	    _ -> {Tree, false}
-	  end;
-      _ -> {Tree, false}
+    {{StartLine, StartCol}, {EndLine, EndCol}} = refac_util:get_range(Tree),
+    case lists:keysearch({StartLine, StartCol, EndLine, EndCol}, 1, Candidates) of
+	{value, {_, NewLetApp}} ->
+	    {list_to_term(NewLetApp), true};
+	_ -> {Tree, false}
     end.
 
 search_merge_candiates(AnnAST, MacroName) ->

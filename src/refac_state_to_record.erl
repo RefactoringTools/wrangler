@@ -54,7 +54,9 @@
 -define(Msg, "Wrangler failed to infer the current data type of the state.").
 
 %% =============================================================================================
--spec(eqc_statem_to_record/3::(filename(),[dir()], integer()) -> {'ok', any()}).
+-spec(eqc_statem_to_record/3::(filename(),[dir()], integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
+								 {'ok', {tuple, integer()}, [{atom(), atom(), integer()}]}).
+
 eqc_statem_to_record(FileName, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:eqc_statem_to_record(~p,~p, ~p).\n",
 		 [?MODULE, FileName,SearchPaths, TabWidth]),
@@ -69,8 +71,10 @@ eqc_statem_to_record(FileName, SearchPaths, TabWidth, _Editor) ->
 
 
 eqc_statem_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:eqc_statem_to_record_1(~p,~p,~p,~p, ~p, ~p, ~p).\n",
-		 [?MODULE, FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth]),
+    ?wrangler_io("\nCMD: ~p:eqc_statem_to_record_1(~p,~p,~p,",
+		 [?MODULE, FileName, RecordName, RecordFields]),
+    ?wrangler_io(format_state_funs(StateFuns),[]),
+    ?wrangler_io(",~p,~p, ~p).\n", [IsTuple, SearchPaths, TabWidth]),
     eqc_statem_to_record(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth, emacs, "").
 
 eqc_statem_to_record_1_eclipse(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth) ->
@@ -82,7 +86,8 @@ eqc_statem_to_record(FileName, RecordName, RecordFields, StateFuns, IsTuple, Sea
 
 
 %% =============================================================================================
--spec(eqc_fsm_to_record/3::(filename(),[dir()], integer()) -> {'ok', any()}).
+-spec(eqc_fsm_to_record/3::(filename(),[dir()], integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
+		                                              {'ok', {tuple, integer()}, [{atom(), atom(),integer()}]}).
 eqc_fsm_to_record(FileName, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:eqc_fsm_to_record(~p,~p, ~p).\n",
 		 [?MODULE, FileName,SearchPaths, TabWidth]),
@@ -96,9 +101,12 @@ eqc_fsm_to_record(FileName, SearchPaths, TabWidth, _Editor) ->
     state_to_record(FileName, SearchPaths, TabWidth, eqc_fsm).
 
 eqc_fsm_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:eqc_fsm_to_record_1(~p,~p,~p,~p,~p, ~p).\n",
-		 [?MODULE, FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth]),
-    eqc_fsm_to_record(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth, emacs, "").
+    ?wrangler_io("\nCMD: ~p:eqc_fsm_to_record_1(~p,~p,~p,",
+		 [?MODULE, FileName, RecordName, RecordFields]),
+    ?wrangler_io(format_state_funs(StateFuns),[]),
+    ?wrangler_io(",~p,~p, ~p).\n", [IsTuple, SearchPaths, TabWidth]),
+    eqc_fsm_to_record(FileName, RecordName, RecordFields, StateFuns, 
+		      IsTuple, SearchPaths, TabWidth, emacs, "").
 
 eqc_fsm_to_record_1_eclipse(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth) ->
     eqc_fsm_to_record(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth, eclipse, "").
@@ -110,7 +118,9 @@ eqc_fsm_to_record(FileName, RecordName, RecordFields, StateFuns, IsTuple, Search
 
 
 %% =============================================================================================
--spec(gen_fsm_to_record/3::(filename(),[dir()], integer()) -> {'ok', any()}).
+-spec(gen_fsm_to_record/3::(filename(),[dir()], integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
+							      {'ok', {tuple, integer()}, [{atom(), atom(), integer()}]}).
+
 gen_fsm_to_record(FileName, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:gen_fsm_to_record(~p,~p, ~p).\n",
 		 [?MODULE, FileName,SearchPaths, TabWidth]),
@@ -125,8 +135,10 @@ gen_fsm_to_record(FileName, SearchPaths, TabWidth, _Editor) ->
 
 
 gen_fsm_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:gen_fsm_to_record_1(~p,~p,~p,~p,~p, ~p).\n",
-		 [?MODULE, FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth]),
+     ?wrangler_io("\nCMD: ~p:gen_fsm_to_record_1(~p,~p,~p,",
+		 [?MODULE, FileName, RecordName, RecordFields]),
+    ?wrangler_io(format_state_funs(StateFuns),[]),
+    ?wrangler_io(",~p,~p, ~p).\n", [IsTuple, SearchPaths, TabWidth]),
     gen_fsm_to_record(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth, emacs, "").
 
 gen_fsm_to_record_1_eclipse(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth) ->
@@ -200,7 +212,7 @@ do_state_to_record_1(ModName, Fun, RecordName, RecordFields, StateFuns, IsTuple,
     As = refac_syntax:get_ann(Fun),
     {value, {fun_def, {M, F, A, _, _}}} = lists:keysearch(fun_def, 1, As),
     CallBacks =  callbacks(ModName, StateFuns, SM),
-    NewFun = case lists:keysearch({M, F, A}, CallBacks) of
+    NewFun = case lists:keysearch({M, F, A}, 1, CallBacks) of
 		 {value, {{M, F, A}, {PatIndex, ReturnState}}} ->
 		     do_state_to_record_in_callback_fun(
 		       PatIndex, Fun, RecordName, RecordFields, IsTuple, ReturnState, SM);
@@ -366,28 +378,32 @@ do_state_to_record_in_init_fun_clause_body(Body, RecordName, RecordFields, DefPs
     Pos = refac_syntax:get_pos(LastExpr),
     case refac_syntax:type(LastExpr) of
       atom -> Body;
-      tuple when size(LastExpr) =< 2 ->
-	  Body;
       tuple ->
-	  Tag = element(1, LastExpr),
-	  case refac_syntax:type(Tag) of
-	    atom ->
-		case refac_syntax:atom_value(Tag) of
-		  ok -> 
-			gen_fsm_state_to_record(RecordName, RecordFields, LastExpr, 3, IsTuple);
-		  next_state ->
-			gen_fsm_state_to_record(RecordName, RecordFields, LastExpr, 3, IsTuple);
-		  reply -> 
-			gen_fsm_state_to_record(RecordName, RecordFields, LastExpr, 4, IsTuple);
-		  stop ->
-			I = size(LastExpr),
-			gen_fsm_state_to_record(RecordName, RecordFields, LastExpr, I, IsTuple);
-		    _ ->
-		      throw({error, Msg ++ io_lib:format("~p", [Pos])})
-		end;
-	    _ ->
-		throw({error, Msg ++ io_lib:format("~p", [Pos])})
-	  end;
+	    Es = refac_syntax:tuple_elements(LastExpr), 
+	    Size = length(Es),
+	    case Size =< 2  of
+		true ->
+		    Body;
+		false ->
+		    Tag = hd(refac_syntax:tuple_elements(LastExpr)),
+		    case refac_syntax:type(Tag) of
+			atom ->
+			    case refac_syntax:atom_value(Tag) of
+				ok -> 
+				    gen_fsm_state_to_record(RecordName, RecordFields, LastExpr, 3, IsTuple);
+				next_state ->
+				    gen_fsm_state_to_record(RecordName, RecordFields, LastExpr, 3, IsTuple);
+				reply -> 
+					gen_fsm_state_to_record(RecordName, RecordFields, LastExpr, 4, IsTuple);
+				stop ->
+				    gen_fsm_state_to_record(RecordName, RecordFields, LastExpr, Size, IsTuple);
+				_ ->
+				    throw({error, Msg ++ io_lib:format("~p", [Pos])})
+			    end;
+			_ ->
+			    throw({error, Msg ++ io_lib:format("~p", [Pos])})
+		    end
+	    end;
       variable ->
 	  As = refac_syntax:get_ann(LastExpr),
 	  case lists:keysearch(def, 1, As) of
@@ -416,12 +432,12 @@ do_state_to_record_in_init_fun_clause_body(Body, RecordName, RecordFields, DefPs
 	  LastExpr1 = refac_util:rewrite(LastExpr, refac_syntax:case_expr(Args, Cs1)),
 	  lists:reverse([LastExpr1| Exprs]);
       if_expr ->
-	  Cs = refac_syntax:if_expr_clause(LastExpr),
+	  Cs = refac_syntax:if_expr_clauses(LastExpr),
 	  Cs1 = [do_state_to_record_in_init_fun_clause(C, RecordName, RecordFields, IsTuple, SM) || C <- Cs],
 	  LastExpr1 = refac_util:rewrite(LastExpr, refac_syntax:if_expr(Cs1)),
 	  lists:reverse([LastExpr1| Exprs]);
       cond_expr ->
-	  Cs = refac_syntax:cond_expr_clause(LastExpr),
+	  Cs = refac_syntax:cond_expr_clauses(LastExpr),
 	  Cs1 = [do_state_to_record_in_init_fun_clause(C, RecordName, RecordFields, IsTuple, SM) || C <- Cs],
 	  LastExpr1 = refac_util:rewrite(LastExpr, refac_syntax:cond_expr(Cs1)),
 	  lists:reverse([LastExpr1| Exprs]);
@@ -480,12 +496,12 @@ do_state_to_record_in_init_fun_clause_body(Body, RecordName, RecordFields, DefPs
 	  LastExpr1 = refac_util:rewrite(LastExpr, refac_syntax:case_expr(Args, Cs1)),
 	  lists:reverse([LastExpr1| Exprs]);
       if_expr ->
-	  Cs = refac_syntax:if_expr_clause(LastExpr),
+	  Cs = refac_syntax:if_expr_clauses(LastExpr),
 	  Cs1 = [do_state_to_record_in_init_fun_clause(C, RecordName, RecordFields, IsTuple, SM) || C <- Cs],
 	  LastExpr1 = refac_util:rewrite(LastExpr, refac_syntax:if_expr(Cs1)),
 	  lists:reverse([LastExpr1| Exprs]);
       cond_expr ->
-	  Cs = refac_syntax:cond_expr_clause(LastExpr),
+	  Cs = refac_syntax:cond_expr_clauses(LastExpr),
 	  Cs1 = [do_state_to_record_in_init_fun_clause(C, RecordName, RecordFields, IsTuple, SM) || C <- Cs],
 	  LastExpr1 = refac_util:rewrite(LastExpr, refac_syntax:cond_expr(Cs1)),
 	  lists:reverse([LastExpr1| Exprs]);
@@ -545,27 +561,30 @@ do_state_to_record_in_match_expr(Body, LastExpr, DefinePos, RecordName, RecordFi
     Pos = refac_syntax:get_pos(LastExpr),
     Fun1 = fun (B) ->
 		   case refac_syntax:type(B) of
-		     tuple when size(B) =< 2 ->
-			 {B, true};
-		     tuple ->
-			 Tag = element(1, B),
-			 case refac_syntax:type(Tag) of
-			   atom ->
-			       case refac_syntax:atom_value(Tag) of
-				 ok -> 
-				       gen_fsm_state_to_record(RecordName, RecordFields, B, 3, IsTuple);
-				 next_state -> 
-				       gen_fsm_state_to_record(RecordName, RecordFields, B, 3, IsTuple);
-				 reply ->
-				       gen_fsm_state_to_record(RecordName, RecordFields, B, 4, IsTuple);
-				 stop ->
-				       I = size(B),
-				       gen_fsm_state_to_record(RecordName, RecordFields, B, I, IsTuple);
-				 _ ->
-				     throw({error, Msg ++ io_lib:format("~p", [Pos])})
-			       end;
-			   _ -> throw({error, Msg ++ io_lib:format("~p", [Pos])})
-			 end;
+		       tuple ->
+			   Es = refac_syntax:tuple_elements(B),
+			   Size = length(Es),
+			   case Size =< 2  of 
+			       true ->{B, true};
+			       false ->
+				   Tag = hd(Es),
+				   case refac_syntax:type(Tag) of
+				       atom ->
+					   case refac_syntax:atom_value(Tag) of
+					       ok -> 
+						   gen_fsm_state_to_record(RecordName, RecordFields, B, 3, IsTuple);
+					       next_state -> 
+						   gen_fsm_state_to_record(RecordName, RecordFields, B, 3, IsTuple);
+					       reply ->
+						   gen_fsm_state_to_record(RecordName, RecordFields, B, 4, IsTuple);
+					       stop ->
+						   gen_fsm_state_to_record(RecordName, RecordFields, B, Size, IsTuple);
+					       _ ->
+						   throw({error, Msg ++ io_lib:format("~p", [Pos])})
+					   end;
+				       _ -> throw({error, Msg ++ io_lib:format("~p", [Pos])})
+				   end
+			   end;
 		     atom ->
 			 {B, true};
 		     _ ->
@@ -582,12 +601,12 @@ do_state_to_record_in_match_expr(Body, LastExpr, DefinePos, RecordName, RecordFi
 			      Pos = refac_syntax:get_pos(P),
 			      case lists:member(Pos, DefinePos) of
 				true ->
-				    {B1, Modified} = Fun1(B),
-				    case Modified of
-				      true ->
-					  Node1 = refac_syntax:match_expr(P, B1),
-					  {refac_util:rewrite(Node, Node1), true};
-				      false ->
+				      {B1, Modified} = Fun1(B),
+				      case Modified of
+					true ->
+					    Node1 = refac_syntax:match_expr(P, B1),
+					    {refac_util:rewrite(Node, Node1), true};
+					false ->
 					  {Node, false}
 				    end;
 				false ->
@@ -726,7 +745,7 @@ is_callback_fun_app(Node, ModName, StateFuns, SM) ->
 		    Args = refac_syntax:application_arguments(Node),
 		    Arity = length(Args),
 		    CallBacks = callbacks(ModName,StateFuns, SM),
-		    case lists:keysearch({ModName, FunName, Arity}, CallBacks) of
+		    case lists:keysearch({ModName, FunName, Arity},1, CallBacks) of
 			{value, {{ModName, FunName, Arity}, {PatIndex, ReturnState}}} ->
 			    {true, PatIndex, ReturnState};
 			false ->
@@ -947,8 +966,9 @@ get_eqc_fsm_state_functions_2(TypeInfo, StateNames) ->
 get_gen_fsm_state_functions(ModName, TypeInfo) ->
     case lists:keysearch({ModName, init, 1}, 1, TypeInfo) of 
 	{value, {{ModName, init, 1}, RetType, _ArgsType}} ->
+	    refac_io:format("RetType:\n~p\n", [RetType]),
 	    case RetType of 
-		{c, tuple ,[_, {c_atom, [StateName], _}|_],_} ->
+		{c, tuple ,[_, {c, atom, [StateName], _}|_],_} ->
 		    get_gen_fsm_state_functions_1(ModName, TypeInfo,[StateName]);
 		_ -> throw({error, "Wrangler failed to infer the initial state name of the fsm."})
 	    end;
@@ -968,7 +988,7 @@ get_gen_fsm_state_functions_1(ModName, TypeInfo, StateNames) ->
 
 get_gen_fsm_state_functions_2(TypeInfo, StateNames) ->
     Fun = fun ({{_M, F, A}, RetType, _ArgTypes}) ->
-		  case element(A, {2, 3}) andalso lists:member(F, StateNames) of
+		  case lists:member(A, [2, 3]) andalso lists:member(F, StateNames) of
 		    true ->
 			case RetType of
 			  {c, tuple, Es, _} ->
@@ -1046,7 +1066,7 @@ setelement_to_record_expr(Node, RecordName, RecordFields, DefPs, IsTuple) ->
 		  true ->
 		      FieldName = lists:nth(refac_syntax:integer_value(Index), RecordFields),
 		      Field = mk_record_field(FieldName, V),
-		      RecordExpr = mk_record_expr(RecordName, T, Field),
+		      RecordExpr = mk_record_expr(T, RecordName, Field),
 		      make_record_to_tuple_app(RecordExpr, RecordName, RecordFields, IsTuple);
 		  false ->
 		      Node
@@ -1265,3 +1285,19 @@ is_used_only_once(Body, DefinePos) ->
 	 end,
     length(refac_syntax_lib:fold(Fun, [], Body))==1.
 
+format_state_funs([]) -> "[]";
+format_state_funs(MFAs) ->
+     "[" ++ format_state_funs_1(MFAs).
+
+format_state_funs_1([]) ->
+    "";
+format_state_funs_1([{M,F,A}|T]) ->
+    case T of 
+	[] ->
+	   io_lib:format("~p]", [{M, F, A}])++
+		format_state_funs_1(T);
+	_ ->
+	    io_lib:format("~p,", [{M, F, A}])++
+		format_state_funs_1(T)
+    end.
+    

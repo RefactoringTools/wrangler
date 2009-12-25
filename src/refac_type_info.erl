@@ -61,7 +61,7 @@ get_type_info_using_typer(File) ->
 
 extract(#typer_analysis{macros = Macros, includes = Includes,
 			t_files = TFiles, trust_plt = TrustPLT} = Analysis) ->
-    Ds = [{d, Name, Value} || {Name, Value} <- Macros],
+    Ds = [],  %% [{d, Name, Value} || {Name, Value} <- Macros],
     CodeServer = dialyzer_codeserver:new(),
     Fun =
     fun(File, CS) ->
@@ -251,12 +251,12 @@ analyze_one_function({Var, FunBody} = Function, Acc) ->
 	       incFuncAcc = IncFuncAcc,
 	       dialyzerObj = NewDialyzerObj}.
 
-get_dialyzer_plt(#typer_analysis{plt = PltFile0}) ->
-  PltFile =
-    case PltFile0 =:= none of
-      true -> dialyzer_plt:get_default_plt();
-      false -> PltFile0
-    end,
-  dialyzer_plt:from_file(PltFile).
-			
+get_dialyzer_plt(#typer_analysis{plt =_PltFile0}) ->
+    PltFile = dialyzer_plt:get_default_plt(),
+	%% case PltFile0 =:= none of
+	%%     true -> dialyzer_plt:get_default_plt();
+	%%     false -> PltFile0
+	%% end,
+    dialyzer_plt:from_file(PltFile).
+
 
