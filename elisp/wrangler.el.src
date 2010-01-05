@@ -1804,11 +1804,27 @@
   	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'new_let
 			(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width))
-	  (erl-receive (start-line-no start-col-no current-file-name)
+	  (erl-receive (start-line-no start-col-no current-file-name name)
 	      ((['rex ['badrpc rsn]]
 		(message "Refactoring failed: %S" rsn))
 	       (['rex ['error rsn]]
 		(message "Refactoring failed: %s" rsn))
+	       (['rex ['question msg expr parent-expr cmd]]
+		(progn
+		  (if (y-or-n-p msg)
+		      (erl-spawn
+			(erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring(list 'refac_new_let 'new_let_1(list 
+								current-file-name name expr parent-expr wrangler-search-paths tab-width cmd)))
+			(erl-receive (current-file-name)
+			    ((['rex ['badrpc rsn]]
+			      (message "Refactoring failed: %S" rsn))
+			     (['rex ['error rsn]]
+			      (message "Refactoring failed: %s" rsn))
+			     (['rex ['ok modified]]
+			      (preview-commit-cancel current-file-name modified)
+			      ))))
+		    (message "Refactoring failed: the expression selected is not a QuickCheck generator.")
+		    )))		
 	       (['rex ['ok modified]]
 		(preview-commit-cancel current-file-name modified)
 		(with-current-buffer (get-file-buffer current-file-name)
@@ -2003,7 +2019,7 @@
   (let ((record-name (read-string "Record name: "))
 	(buffer (get-file-buffer current-file-name)))    
     (while (not (> num no-of-fields))
-      (let ((str (format "Field name %d: " num)))
+      (let ((str (format "Field name %d of %d : " num no-of-fields)))
 	(setq field-names (cons (read-string str) field-names))
 	(setq num (+ num 1))))
     (if (current-buffer-saved buffer)
