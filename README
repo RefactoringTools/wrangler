@@ -1,7 +1,7 @@
 
                     Wrangler, the Erlang Refactorer
                 a snapshot of our current prototype
-                            24/11/2009 
+                            04/01/2010
               http://www.cs.kent.ac.uk/projects/wrangler/
 
 --------------------------------------------------------------------------------
@@ -172,14 +172,39 @@ the Eclipse environment.
     Unfold a function application: place the cursor at the function name part 
                                    of the function application, then select the
                                   'Unfold Function Application' command.
+    Introduce a ?LET            : highlight the expression, which should be a
+                                  QC generator, then select the refactoring command,
+				  you will be prompted for the pattern variable name.
+    Merge ?LETs                 : Select the refactoring command, and Wrangler will 
+                                  guide you through the possible candidates one by one, 
+				  and ask whether you want to merge it or not.
+    Merge ?FORALLs              : Select the refactoring command, and Wrangler will 
+                                  guide you through the possible candidates one by one,
+				  and ask whether you want to merge it or not.
+    eqc_statem State To Record  : Select the refactoring command, and Wrangler will
+                                  check the current type of the state machine, and prompt 
+				  you to input the record and field names if Wrangler is 
+                                  able to proceed the refactoring.
+    eqc_fsm State To Record     : Select the refactoring command, and Wrangler will
+                                  check the current type of the state machine, and prompt 
+				  you to input the record and field names if Wrangler is 
+                                  able to process the refactoring.                                  	
 
  6. The 'Customize Wrangler' menu in the 'Refactor' submenu allows you specify 
  the boundary of the system by giving the list of directories to
  search for Erlang source files/header files that could be affected by a
  refactoring.
 
--------------------------Major changes form Wrangler-0.8.3--------
+-------------------------Major changes from Wrangler-0.8.4-------------
+-- New Refactorings for QuickCheck:
+   -- Introduce a ?LET
+   -- Merge ?LETs
+   -- Merge ?FORALLs
+   -- eqc_statem State to Record
+   -- eqc_fsm State to Record
+   -- gen_fsm State to Record
 
+-------------------------Major changes form Wrangler-0.8.3-------------	
 -- The 'temp' directory created by Wrangler is now removed when Wrangler 
    is turned off.
 -- Multiple instances of Wrangler can now be run at the same time.
