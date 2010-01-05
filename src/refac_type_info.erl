@@ -1,4 +1,4 @@
-%% Copyright (c) 2009, Huiqing Li, Simon Thompson
+%% Copyright (c) 2010, Huiqing Li, Simon Thompson
 %% All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
@@ -59,12 +59,12 @@ get_type_info_using_typer(File) ->
 %%  The following functions are from Typer with slight modifications.         %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-extract(#typer_analysis{macros = Macros, includes = Includes,
+extract(#typer_analysis{macros = _Macros, includes = Includes,
 			t_files = TFiles, trust_plt = TrustPLT} = Analysis) ->
     Ds = [],  %% [{d, Name, Value} || {Name, Value} <- Macros],
     CodeServer = dialyzer_codeserver:new(),
     Fun =
-    fun(File, CS) ->
+	fun(File, CS) ->
 	    AllIncludes = [filename:dirname(filename:dirname(File)) | Includes],
 	    Is = [{i, Dir} || Dir <- AllIncludes],
 	    CompOpts = dialyzer_utils:src_compiler_opts() ++ Is ++ Ds,

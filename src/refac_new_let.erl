@@ -1,4 +1,4 @@
-%% Copyright (c) 2009, Huiqing Li, Simon Thompson
+%% Copyright (c) 2010, Huiqing Li, Simon Thompson
 %% All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
@@ -42,7 +42,7 @@
 
 -include("../include/wrangler.hrl").
 
--define(DEBUG, true).
+%% -define(DEBUG, true).
 
 -ifdef(DEBUG).
 -define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
@@ -95,6 +95,8 @@ new_let(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewPatName, SearchPa
     end.
 
 new_let_1(FileName, NewPatName, Expr, ParentExpr, SearchPaths, TabWidth, Cmd) ->
+    %% ?wrangler_io("\nCMD: ~p:new_let_1(~p, ~p, ~p,~p, ~p, ~p).\n",
+    %% 		 [?MODULE, FileName, NewPatName, Expr, ParentExpr, SearchPaths, TabWidth]),
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     Expr1 = list_to_term(Expr),
     ParentExpr1 = list_to_term(ParentExpr),
@@ -124,18 +126,18 @@ side_cond_analysis(FunDef, Expr, NewPatName) ->
       true -> ok;
       _ -> throw({error, "Invalid pattern variable name."})
     end,
-    FrVars = refac_util:get_free_vars(Expr),
-    BdVars = refac_util:get_bound_vars(Expr),
-    EnvVars = refac_util:get_env_vars(Expr),
-    Vars = element(1, lists:unzip(FrVars ++ BdVars ++ EnvVars)),
-    case lists:member(list_to_atom(NewPatName), Vars) of
-      true ->
-	  throw({error, "The new pattern variable chould cause name shadow or semantics change."});
-      false ->
-	  ok
-    end,
     case get_parent_expr(FunDef, Expr) of
-      {ok, ParentExpr} ->
+	{ok, ParentExpr} ->
+	    FrVars = refac_util:get_free_vars(ParentExpr),
+	    BdVars = refac_util:get_bound_vars(ParentExpr),
+	    EnvVars = refac_util:get_env_vars(ParentExpr),
+	    Vars = element(1, lists:unzip(FrVars ++ BdVars ++ EnvVars)),
+	    case lists:member(list_to_atom(NewPatName), Vars) of
+		true ->
+		    throw({error, "The new pattern variable chould cause name shadow or semantics change."});
+		false ->
+		    ok
+	    end,
 	  ?debug("Parent Expr:\n~p\n", [ParentExpr]),
 	  case enclosing_macro(FunDef, ParentExpr, 'LET', 3) of
 	    none ->

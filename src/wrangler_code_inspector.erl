@@ -1,4 +1,4 @@
-%% Copyright (c) 2009, Huiqing Li, Simon Thompson
+%% Copyright (c) 2010, Huiqing Li, Simon Thompson
 %% All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
@@ -773,8 +773,8 @@ not_has_flush_scc(FileName, Info, FunDef, Scc, Line) ->
 	_ -> false
     end.
 
-is_server(FileName, Info, FunDef, Scc, Line) ->
-    ModName = get_module_name(FileName, Info),
+is_server(_FileName, _Info, FunDef, Scc, Line) ->
+    %% ModName = get_module_name(FileName, Info),
     %%InscopeFuns = refac_util:auto_imported_bifs() ++ refac_util:inscope_funs(Info), 
     MFAs = [MFA || {MFA, _} <- Scc],
     F = fun (T, Acc) ->
