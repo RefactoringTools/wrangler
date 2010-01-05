@@ -13,7 +13,7 @@
 <p>Copyright © 2006-2010 Huiqing Li, Simon Thompson
  </p>
 
-<p><b>Version:</b> 0.8.3</p>
+<p><b>Version:</b> 0.8.5</p>
 <p><b>Authors:</b> Huiqing Li, Simon Thompson [<em>web site:</em> <tt><a href="http://www.cs.kent.ac.uk/projects/wrangler" target="_top">http://www.cs.kent.ac.uk/projects/wrangler</a></tt>].</p>
 
 <h2><a name="description">Description</a></h2>This module describes the refactorings that are currently supported by Wrangler.
@@ -21,14 +21,20 @@
 <table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#add_a_tag-6">add_a_tag/6</a></td><td>Add a tag to all the messages received by a server process (Beta).</td></tr>
 <tr><td valign="top"><a href="#duplicated_code_in_buffer-4">duplicated_code_in_buffer/4</a></td><td>An identical code detector that searches for identical code within the current Erlang buffer.</td></tr>
 <tr><td valign="top"><a href="#duplicated_code_in_dirs-4">duplicated_code_in_dirs/4</a></td><td>An identical code detector that searches for identical code across multiple Erlang modules.</td></tr>
+<tr><td valign="top"><a href="#eqc_fsm_to_record-3">eqc_fsm_to_record/3</a></td><td>Turn a non-record representation of eqc_fsm state into a record representation.</td></tr>
+<tr><td valign="top"><a href="#eqc_statem_to_record-3">eqc_statem_to_record/3</a></td><td>Turn a non-record representation of eqc_statem state into a record representation.</td></tr>
 <tr><td valign="top"><a href="#fold_against_macro-5">fold_against_macro/5</a></td><td>Fold expressions/patterns against a macro definition.</td></tr>
 <tr><td valign="top"><a href="#fold_expr-1">fold_expr/1</a></td><td>Fold expressions against a function definition.</td></tr>
 <tr><td valign="top"><a href="#fun_extraction-5">fun_extraction/5</a></td><td>Introduce a new function to represent an expression or expression sequence.</td></tr>
 <tr><td valign="top"><a href="#fun_to_process-6">fun_to_process/6</a></td><td>Turn a function into a server process (Beta).</td></tr>
+<tr><td valign="top"><a href="#gen_fsm_to_record-3">gen_fsm_to_record/3</a></td><td>Turn a non-record representation of gen_fsm state into a record representation.</td></tr>
 <tr><td valign="top"><a href="#generalise-6">generalise/6</a></td><td> Generalise a function definition.</td></tr>
 <tr><td valign="top"><a href="#identical_expression_search-4">identical_expression_search/4</a></td><td>Search for expressions/expression sequences that are identical to the expression/expression  
 sequence selected after consistent renaming of variables and literal substitution.</td></tr>
+<tr><td valign="top"><a href="#merge_forall-3">merge_forall/3</a></td><td>Merge nested but undependent ?FORALLs into one ?FORALL.</td></tr>
+<tr><td valign="top"><a href="#merge_let-3">merge_let/3</a></td><td>Merge nested but independent ?LETs into one ?LET.</td></tr>
 <tr><td valign="top"><a href="#move_fun-6">move_fun/6</a></td><td>Move a function definition from its current module to another.</td></tr>
+<tr><td valign="top"><a href="#new_let-6">new_let/6</a></td><td>Introduce ?LET.</td></tr>
 <tr><td valign="top"><a href="#new_macro-6">new_macro/6</a></td><td>Introduce a macro to represent a syntactically well-formed expression/pattern or a sequence of expressions/patterns.</td></tr>
 <tr><td valign="top"><a href="#normalise_record_expr-6">normalise_record_expr/6</a></td><td>Reorder the record fields in a record expression to be consistent with the record definition.</td></tr>
 <tr><td valign="top"><a href="#register_pid-6">register_pid/6</a></td><td>Register a process (Beta).</td></tr>
@@ -51,7 +57,7 @@ sequence selected after consistent renaming of variables and literal substitutio
 </div><p>Add a tag to all the messages received by a server process (Beta).
   <p> This refactoring should be initiated from the main receive function of a server process.
   The current implementation is still in an experimental stage, and has a number of limitations:
-  <li> The current implementation assumes that the process does not send enquiries,
+  <li> The current implementation assumes that the process does not send inquiries,
        using the <code> send ... receive </code> pattern, to other processes
   </li>
   <li> The current implementation only handles processes spawned using <code>spawn</code>
@@ -96,6 +102,28 @@ sequence selected after consistent renaming of variables and literal substitutio
   Usage: first check the SearchPaths specified in the customisation page to make sure that the directory (or directories) specified is
   the place where you want to search for duplicated code, then select <em> Detect Identical Code in Dirs </em> from
   <em> Refactor</em>, Wrangler will then prompt to input the parameters.
+  </p></p>
+
+<h3 class="function"><a name="eqc_fsm_to_record-3">eqc_fsm_to_record/3</a></h3>
+<div class="spec">
+<p><tt>eqc_fsm_to_record(FileName::<a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {error, string()} | {ok, non_tuple, [{atom(), atom(), integer()}]} | {ok, {tuple, integer()}, [{atom(), atom(), integer()}]}</tt></p>
+</div><p>Turn a non-record representation of eqc_fsm state into a record representation.
+  <p> This refactoring introduce a record to represent the state used by eqc_fsm.
+  This refactoring is especially for QuickCheck users.
+  </p>
+  <p> Usage: Select the refactoring command, and Wrangler will check the current type of the state machine,
+  and prompt you to input the record and field names if Wrangler is able to proceed the refactoring.
+  </p></p>
+
+<h3 class="function"><a name="eqc_statem_to_record-3">eqc_statem_to_record/3</a></h3>
+<div class="spec">
+<p><tt>eqc_statem_to_record(FileName::<a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {error, string()} | {ok, non_tuple, [{atom(), atom(), integer()}]} | {ok, {tuple, integer()}, [{atom(), atom(), integer()}]}</tt></p>
+</div><p>Turn a non-record representation of eqc_statem state into a record representation.
+  <p> This refactoring introduce a record to represent the state used by eqc_statem.
+  This refactoring is especially for QuickCheck users.
+  </p>
+  <p> Usage: Select the refactoring command, and Wrangler will check the current type of the state machine,
+  and prompt you to input the record and field names if Wrangler is able to proceed the refactoring.
   </p></p>
 
 <h3 class="function"><a name="fold_against_macro-5">fold_against_macro/5</a></h3>
@@ -216,9 +244,19 @@ sequence selected after consistent renaming of variables and literal substitutio
    to enter the process registration name  in the mini-buffer.
   </p></p>
 
+<h3 class="function"><a name="gen_fsm_to_record-3">gen_fsm_to_record/3</a></h3>
+<div class="spec">
+<p><tt>gen_fsm_to_record(FileName::<a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {error, string()} | {ok, non_tuple, [{atom(), atom(), integer()}]} | {ok, {tuple, integer()}, [{atom(), atom(), integer()}]}</tt></p>
+</div><p>Turn a non-record representation of gen_fsm state into a record representation.
+  <p> This refactoring introduce a record to represent the state used by eqc_statem.
+  </p>
+  <p> Usage: Select the refactoring command, and Wrangler will check the current type of the state machine,
+  and prompt you to input the record and field names if Wrangler is able to proceed the refactoring.
+  </p></p>
+
 <h3 class="function"><a name="generalise-6">generalise/6</a></h3>
 <div class="spec">
-<p><tt>generalise(FileName::<a href="#type-filename">filename()</a>, Start::<a href="#type-pos">pos()</a>, End::<a href="#type-pos">pos()</a>, ParName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {ok, string()} | {error, string()}</tt></p>
+<p><tt>generalise(FileName, Start, End, ParName, SearchPaths, TabWidth) -&gt; any()</tt></p>
 </div><p> Generalise a function definition.
   <p>Generalise a function definition by selecting a sub-expression of its right-hand
   side and making this the value of a new argument added to the definition of the function.
@@ -270,7 +308,7 @@ sequence selected after consistent renaming of variables and literal substitutio
   that the refactorer will prompt to enter the parameter name in the mini-buffer. </p>
  
   NOTE: in Erlang some literal expressions can not be replaced by variables. For example, the atom <code>fields</code>
-  in the experssion <code>record_info(fields, Record)</code> should not be replaced by a variable or other expressions.
+  in the expression <code>record_info(fields, Record)</code> should not be replaced by a variable or other expressions.
   This kind of checking is NOT supported by Wrangler yet.</p>
 
 <h3 class="function"><a name="identical_expression_search-4">identical_expression_search/4</a></h3>
@@ -286,8 +324,32 @@ sequence selected after consistent renaming of variables and literal substitutio
   <p> When the selected code contains multiple, but non-continuous sequence of, expressions, the first
   continuous sequence of expressions is taken as the user-selected expression. A continuous sequence of
   expressions is a sequence of expressions separated by ','. </p>
-  Usage: highlight the expression/expression sequence of interest, then selected  <em> Indentical Expression Search </em> from
+  Usage: highlight the expression/expression sequence of interest, then selected  <em> Identical Expression Search </em> from
   <em> Refactor</em>.</p>
+
+<h3 class="function"><a name="merge_forall-3">merge_forall/3</a></h3>
+<div class="spec">
+<p><tt>merge_forall(FileName::filename, SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {error, string()} | {not_found, string()} | {ok, [{integer(), integer(), integer(), integer(), string()}], string()}</tt></p>
+</div><p>Merge nested but undependent ?FORALLs into one ?FORALL.
+  <p> This refactoring combines multiple nested, but undependent, ?FORALLs into one; the latter representation has
+  better shrinking performance. This refactoring is especially for QuickCheck users.
+  </p>
+ <p>
+  Usage: Select the refactoring command, and Wrangler will search for candidates to merge automatically,
+  guide you through the candidates found one by one, and ask you to decide whether to merge.
+ </p></p>
+
+<h3 class="function"><a name="merge_let-3">merge_let/3</a></h3>
+<div class="spec">
+<p><tt>merge_let(FileName::filename, SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {error, string()} | {not_found, string()} | {ok, [{integer(), integer(), integer(), integer(), string()}], string()}</tt></p>
+</div><p>Merge nested but independent ?LETs into one ?LET.
+  <p> This refactoring combines multiple nested, but undependent, ?LETs into one; the latter representation has
+  better shrinking performance. This refactoring is especially for QuickCheck users.
+  </p>
+ <p>
+  Usage: Select the refactoring command, and Wrangler will search for candidates to merge automatically,
+  guide you through the candidates found one by one, and ask you to decide whether to merge.
+ </p></p>
 
 <h3 class="function"><a name="move_fun-6">move_fun/6</a></h3>
 <div class="spec">
@@ -312,6 +374,19 @@ sequence selected after consistent renaming of variables and literal substitutio
   select <em> Move Definition to Another Module</em> from the <em> Refactor </em> menu,
   Wrangler will then  prompt to enter the target module name in the mini-buffer.
   </p></p>
+
+<h3 class="function"><a name="new_let-6">new_let/6</a></h3>
+<div class="spec">
+<p><tt>new_let(FileName::<a href="#type-filename">filename()</a>, Start::<a href="#type-pos">pos()</a>, End::<a href="#type-pos">pos()</a>, PatName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {error, string()} | {ok, string()}</tt></p>
+</div><p>Introduce ?LET.
+  <p>Bind the values generated by a generator to a variable, so that the values generated by
+  the generator can be referred by other generators. The refactoring helps to introduce dependency
+  between QuickCheck generators. This refactoring is especially for QuickCheck users.
+ </p>
+ <p>
+  Usage: highlight the expression, which should be a QuickCheck generator, then select the
+  refactoring command, you will be prompted for the pattern variable name.
+ </p></p>
 
 <h3 class="function"><a name="new_macro-6">new_macro/6</a></h3>
 <div class="spec">
@@ -498,6 +573,6 @@ sequence selected after consistent renaming of variables and literal substitutio
 <hr>
 
 <div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, Nov 9 2009, 14:28:08.</i></p>
+<p><i>Generated by EDoc, Jan 5 2010, 09:24:47.</i></p>
 </body>
 </html>
