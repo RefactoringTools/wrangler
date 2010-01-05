@@ -1,4 +1,4 @@
-%% Copyright (c) 2009, Huiqing Li, Simon Thompson
+%% Copyright (c) 2010, Huiqing Li, Simon Thompson
 %% All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
@@ -42,7 +42,7 @@
 
 -include("../include/wrangler.hrl").
 
--define(DEBUG, true).
+%% -define(DEBUG, true).
 
 -ifdef(DEBUG).
 -define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
@@ -240,8 +240,9 @@ state_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SM, Se
 
 do_state_to_record(ModName, ModInfo,  AnnAST, RecordName, RecordFields, StateFuns, RecordExists, IsTuple, SM) ->
     Forms = refac_syntax:form_list_elements(AnnAST),
-    TupleToRecordFunName = tuple_to_record_fun_name(ModInfo, RecordName),
-    RecordToTupleFunName = record_to_tuple_fun_name(ModInfo, RecordName),
+    Funs = get_possible_conversion_funs(Forms, RecordName),
+    TupleToRecordFunName = tuple_to_record_fun_name(ModInfo, Funs, RecordName, RecordFields),
+    RecordToTupleFunName = record_to_tuple_fun_name(ModInfo, Funs, RecordName, RecordFields),
     Fun = fun (F) ->
 		  case refac_syntax:type(F) of
 		    function ->
@@ -251,7 +252,7 @@ do_state_to_record(ModName, ModInfo,  AnnAST, RecordName, RecordFields, StateFun
 		  end
 	  end,
     Forms1 = [Fun(F) || F <- Forms],
-    Forms2 = add_util_funs(Forms1, RecordName, RecordFields,TupleToRecordFunName, RecordToTupleFunName),
+    Forms2 = add_util_funs(Forms1, ModInfo, RecordName, RecordFields,TupleToRecordFunName, RecordToTupleFunName),
     case RecordExists of
       true ->
 	  refac_syntax:form_list(Forms2);
@@ -732,20 +733,23 @@ is_callback_fun_app(Node, ModName, StateFuns, SM) ->
 	_ -> false
     end.
 
-record_to_tuple_fun_name(ModInfo, RecordName) ->
+record_to_tuple_fun_name(ModInfo, Funs, RecordName, RecordFields) ->
     FunName = list_to_atom(atom_to_list(RecordName) ++ "_to_tuple"),
     {value, {module, ModName}} = lists:keysearch(module, 1, ModInfo),
     InscopeFuns = refac_util:inscope_funs(ModInfo),
-    gen_fun_name(ModName, FunName, InscopeFuns, 0).
+    gen_fun_name(ModName, Funs, RecordName, RecordFields, 
+		 FunName, InscopeFuns, 0, record_to_tuple).
 
-tuple_to_record_fun_name(ModInfo, RecordName) ->
+tuple_to_record_fun_name(ModInfo, Funs, RecordName, RecordFields) ->
     FunName = list_to_atom("tuple_to_" ++ atom_to_list(RecordName)),
     {value, {module, ModName}} = lists:keysearch(module, 1, ModInfo),
     InscopeFuns = refac_util:inscope_funs(ModInfo),
-    gen_fun_name(ModName, FunName, InscopeFuns, 0).
+    gen_fun_name(ModName, Funs, RecordName, RecordFields, 
+		 FunName, InscopeFuns, 0, tuple_to_record).
 
 
-gen_fun_name(ModName, FunName, InscopeFuns, I) ->
+gen_fun_name(ModName, Funs, RecordName, RecordFields, 
+	     FunName, InscopeFuns, I, C) ->
     NewFunName = case I of 
 		     0 -> FunName;
 		     _ -> 
@@ -753,13 +757,51 @@ gen_fun_name(ModName, FunName, InscopeFuns, I) ->
 		 end,
     case lists:member({ModName, NewFunName, 1}, InscopeFuns) of 
 	true ->
-	    gen_fun_name(ModName, FunName, InscopeFuns, I+1);
-	 false ->
-	     NewFunName
+	    case lists:keysearch({NewFunName,1},1, Funs) of 
+		{value, {{NewFunName, 1}, FunDef}} ->
+		    FunDef1 = case C of 
+				  tuple_to_record ->
+				      mk_tuple_to_record_fun(RecordName, RecordFields, NewFunName);
+				  record_to_tuple ->
+				      mk_record_to_tuple_fun(RecordName, RecordFields, NewFunName)
+			      end,
+		    case erl_prettypr:format(FunDef)== erl_prettypr:format(FunDef1) of
+			true -> 
+			    NewFunName;
+			false ->
+			    gen_fun_name(ModName, Funs, RecordName, RecordFields, 
+					 FunName, InscopeFuns, I+1, C)
+		    end;
+		false ->
+		    gen_fun_name(ModName, Funs, RecordName, RecordFields, 
+				 FunName, InscopeFuns, I+1, C)
+	    end;
+	false ->
+	    NewFunName
      end.
     
 
-add_util_funs(Forms, RecordName, RecordFields, TupleToRecordFunName, RecordToTupleFunName) ->
+get_possible_conversion_funs(Forms, RecordName) ->
+    RecordToTuple =atom_to_list(RecordName) ++ "_to_tuple",
+    TupleToRecord = "tuple_to_" ++ atom_to_list(RecordName),
+    Fun = fun(F) ->
+		FName = refac_syntax:function_name(F),
+		Arity = refac_syntax:function_arity(F),
+		case refac_syntax:type(FName) of 
+		    atom ->
+			FName1 = atom_to_list(refac_syntax:atom_value(FName)),
+			(lists:prefix(RecordToTuple, FName1) orelse 
+			 lists:prefix(TupleToRecord, FName1)) andalso (Arity == 1);
+		    _ -> 
+			false
+		end
+	  end,
+    [{{refac_syntax:atom_value(refac_syntax:function_name(F)),
+       refac_syntax:function_arity(F)}, F}|| F<- Forms, refac_syntax:type(F)==function, Fun(F)].
+    
+	  
+
+add_util_funs(Forms, ModInfo, RecordName, RecordFields, TupleToRecordFunName, RecordToTupleFunName) ->
     Fun = fun (Node, Acc) ->
 		  case refac_syntax:type(Node) of
 		    application ->
@@ -778,41 +820,44 @@ add_util_funs(Forms, RecordName, RecordFields, TupleToRecordFunName, RecordToTup
 		  end
 	  end,
     Acc = lists:append([refac_syntax_lib:fold(Fun, [], F) || F <- Forms]),
-    case lists:member({RecordToTupleFunName, 1}, Acc) of
-      true ->
-	  F1 = mk_record_to_tuple_fun(RecordName, RecordFields,RecordToTupleFunName),
-	  case lists:member({TupleToRecordFunName, 1}, Acc) of
-	    true ->
-		F2 = mk_tuple_to_record_fun(RecordName, RecordFields,TupleToRecordFunName),
-		Forms ++ [F1, F2];
-	    false ->
-		Forms ++ [F1]
-	  end;
-      false ->
-	  case lists:member({TupleToRecordFunName, 1}, Acc) of
-	    true ->
-		F2 = mk_tuple_to_record_fun(RecordName, RecordFields, TupleToRecordFunName),
-		Forms ++ [F2];
-	    false ->
-		Forms
-	  end
+    ExistingFuns =  case lists:keysearch(functions, 1, ModInfo) of
+			{value, {functions, Funs}} ->
+			    Funs;
+			_ -> 
+			    []
+		    end,
+    case lists:member({RecordToTupleFunName, 1}, Acc) andalso 
+	(not (lists:member({RecordToTupleFunName,1}, ExistingFuns))) of
+	true ->
+	    F1 = mk_record_to_tuple_fun(RecordName, RecordFields,RecordToTupleFunName),
+	    case lists:member({TupleToRecordFunName, 1}, Acc) andalso 
+		(not (lists:member({TupleToRecordFunName, 1}, ExistingFuns)))of
+		true ->
+		    F2 = mk_tuple_to_record_fun(RecordName, RecordFields,TupleToRecordFunName),
+		    Forms ++ [F1, F2];
+		false ->
+		    Forms ++ [F1]
+	    end;
+	false ->
+	    case lists:member({TupleToRecordFunName, 1}, Acc) andalso 
+		(not (lists:member({TupleToRecordFunName, 1}, ExistingFuns))) of
+		true ->
+		    F2 = mk_tuple_to_record_fun(RecordName, RecordFields, TupleToRecordFunName),
+		    Forms ++ [F2];
+		false ->
+		    Forms
+	    end
     end.
 %% ======================================================================
 
 is_statemachine_used(ModuleInfo, gen_fsm) ->
     CallBacks = [{init, 1}],
-    case lists:keysearch(attributes, 1, ModuleInfo) of 
-	{value, {attributes, Attrs}} ->
-	    lists:member({behaviour, gen_fsm}, Attrs);
+    case lists:keysearch(functions, 1, ModuleInfo) of
+	{value, {functions, Funs}} ->
+	    CallBacks -- Funs == [];
 	false ->
-	    case lists:keysearch(functions, 1, ModuleInfo) of
-		{value, {functions, Funs}} ->
-		    CallBacks -- Funs == [];
-		false ->
-		    {error, "gen_fsm callback function init/1 is not defined."}
-	    end
+	    {error, "gen_fsm callback function init/1 is not defined."}
     end;
-
 is_statemachine_used(ModuleInfo, eqc_statem) ->
     CallBacks = [{initial_state, 0}, {precondition, 2}, {command, 1},
 		 {postcondition, 3}, {next_state, 3}],
@@ -910,58 +955,51 @@ check_current_state_type(File, ModName, ModInfo, SM) ->
     end.
     
  
-get_current_state_type_1(TypeInfo, ModName, _ModInfo, eqc_statem) ->    %% 0 in the [0] means the return type.
-    Pars = [{{ModName, initial_state, 0}, [0]}, {{ModName, precondition, 2}, [1]},
-	    {{ModName, command, 1}, [1]}, {{ModName, postcondition, 3}, [1]},
-	    {{ModName, next_state, 3}, [0, 1]}],    
+get_current_state_type_1(TypeInfo, ModName, _ModInfo, eqc_statem) ->
+    Pars = callbacks(ModName, undefined, eqc_statem),
     get_current_state_type_2(TypeInfo, [], Pars);
 
 get_current_state_type_1(TypeInfo, ModName, _ModInfo, eqc_fsm) ->
-    Pars0 = [{{ModName, initial_state_data, 0}, [0]}, {{ModName, next_state_data, 5}, [0, 3]},
-	     {{ModName, postcondition, 5}, [3]}, {{ModName, precondition, 4}, [3]}],
     StateFuns = get_eqc_fsm_state_functions(ModName, TypeInfo),
-    Pars1 = [{{M, F, A}, [1]} || {M, F, A} <- StateFuns],
-    Pars = Pars0 ++ Pars1,
+    Pars = callbacks(ModName, StateFuns, eqc_fsm),
     get_current_state_type_2(TypeInfo, StateFuns, Pars);
 
 get_current_state_type_1(TypeInfo, ModName, ModInfo, gen_fsm) ->
-    Pars0 = [{{ModName, init, 1}, {[], true}},
-	     {{ModName, handle_event, 3}, {[3], true}},
-	     {{ModName, handle_sync_event, 4}, {[4], true}},
-	     {{ModName, handle_info, 3}, {[3], true}},
-	     {{ModName, terminate, 3}, {[3], false}},
-	     {{ModName, code_change, 4}, {[3], true}},
-	     {{ModName, enter_loop, 4}, {[4], false}},
-	     {{ModName, enter_loop, 5}, {[4], false}},
-	     {{ModName, enter_loop, 6}, {[4], false}}],
     StateFuns = get_gen_fsm_state_functions(ModName, ModInfo, TypeInfo),
-    Pars1 = [{{M, F, A}, {[A], true}} || {M, F, A} <- StateFuns],
-    Pars = Pars0 ++ Pars1,
+    Pars = callbacks(ModName, StateFuns, gen_fsm),
     ?debug("Pars:\n~p\n", [Pars]),
     Fun = fun ({{M, F, A}, RetType, ArgTypes}) ->
 		  case lists:keysearch({M, F, A}, 1, Pars) of
-		    {value, {{M, F, A}, {Is, _ReturnState}}} ->
-			get_gen_fsm_return_types(RetType) ++ 
-			      [lists:nth(I, ArgTypes) || I <- Is];
+		    {value, {{M, F, A}, {Is, ReturnState}}} ->
+			T = case ReturnState of
+			      true ->
+				  get_gen_fsm_return_types(RetType);
+			      false -> []
+			    end,
+			T ++ [lists:nth(I, ArgTypes) || I <- Is];
 		    false ->
 			[]
 		  end
 	  end,
     {lists:append([Fun(T) || T <- TypeInfo]), StateFuns}.
 
+
+
 get_current_state_type_2(TypeInfo, StateFuns, Pars) ->
     Fun = fun ({{M, F, A}, RetType, ArgTypes}) ->
 		  case lists:keysearch({M, F, A}, 1, Pars) of
-		      {value, {{M, F, A}, Is}} ->
-			  [case I of
-			       0 -> RetType;
-			       _ -> lists:nth(I, ArgTypes)
-			   end || I <- Is];
-		    false ->
+		      {value, {{M, F, A}, {Is, ReturnState}}} ->
+			  T =case ReturnState of
+				 true -> [RetType];
+				 _ -> []
+			     end,
+			  T ++ [lists:nth(I, ArgTypes)|| I<-Is];			      
+		      false ->
 			  []
 		  end
 	  end,
     {lists:append([Fun(T) || T <- TypeInfo]), StateFuns}.
+
 
 get_gen_fsm_return_types(RetType) ->
     case RetType of 
@@ -1322,7 +1360,7 @@ callbacks(ModName, _StateFuns, eqc_statem) ->
      {{ModName, precondition, 2}, {[1], false}},
      {{ModName, command, 1}, {[1], false}},
      {{ModName, postcondition, 3}, {[1], false}},
-     {{ModName, next_state, 3}, {[1], false}}];
+     {{ModName, next_state, 3}, {[1], true}}];
 
 callbacks(ModName, StateFuns, eqc_fsm) ->
     CallBacks0 = [{{ModName, initial_state_data, 0}, {[], true}},
@@ -1393,7 +1431,7 @@ make_record_to_tuple_app(Expr, RecordName, RecordFields, IsTuple, TupleToRecordF
 					   refac_syntax:atom(RecordToTupleFunName), [Expr])),
 	    case is_app(Expr, {TupleToRecordFunName, 1}) of
 		true ->
-	    hd(refac_syntax:application_arguments(Expr));
+		    hd(refac_syntax:application_arguments(Expr));
 		false ->
 		    NewExpr
 	    
