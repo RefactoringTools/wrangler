@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.53)
-AC_INIT(ejabberd.erl, version, [ejabberd@process-one.net], [ejabberd])
+AC_INIT()
 
 # Checks for programs.
 AC_PROG_CC
@@ -21,18 +21,15 @@ AM_WITH_ERLANG
 # Check Erlang headers are installed
 #AC_CHECK_HEADER(erl_driver.h,,[AC_MSG_ERROR([cannot find Erlang header files])])
 
-# Checks for library functions.
+#hecks for library functions.
 #AC_FUNC_MALLOC
 #AC_HEADER_STDC
 
 AC_CONFIG_FILES([Makefile
 	        c_src/Makefile])
 
-
-case "$target_os" in
-    *darwin10*)
-    	AC_LANG(Erlang)
-	AC_RUN_IFELSE(
+AC_LANG(Erlang)
+AC_RUN_IFELSE(
 	    [AC_LANG_PROGRAM([],[dnl
 	     halt(case erlang:system_info(wordsize) of
 	     8 -> 0; 4 -> 1 end)])],
@@ -40,11 +37,7 @@ case "$target_os" in
 	     CBIT=-m64],
 	    [AC_MSG_NOTICE(found 32-bit Erlang)
 	     CBIT=-m32])
-	;;
-    *)        
-    	CBIT=""
-	;;
-esac
+
 CFLAGS="$CFLAGS $CBIT"
 LD_SHARED="$LD_SHARED $CBIT"
 
