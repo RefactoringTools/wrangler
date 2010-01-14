@@ -208,9 +208,10 @@
       ("Introduce ?LET" erl-refactor-introduce-let)
       ("Merge ?LETs"    erl-refactor-merge-let)
       ("Merge ?FORALLs"   erl-refactor-merge-forall)
-      ("eqc_statem State to Record" erl-refactor-eqc-statem-to-record)
-      ("eqc_fsm State to Record" erl-refactor-eqc-fsm-to-record)
-      ("gen_fsm State to Record" erl-refactor-gen-fsm-to-record)
+      ("eqc_statem State Data to Record" erl-refactor-eqc-statem-to-record)
+      ("eqc_fsm State Data to Record" erl-refactor-eqc-fsm-to-record)
+      ("gen_fsm State Data to Record" erl-refactor-gen-fsm-to-record)
+     ;; ("eqc_statem to eqc_fsm"  erl-refactor-statem-to-fsm)
      ))
     nil
     ("Process Refactorings (Beta)"
@@ -355,9 +356,9 @@
 
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 0.8.5"))
+  (message "Wrangler version 0.8.6"))
 
-(setq wrangler-version  "(wrangler-0.8.5) ")
+(setq wrangler-version  "(wrangler-0.8.6) ")
 
 (defun wrangler-menu-init()
   "Init Wrangler menus."
@@ -1957,10 +1958,10 @@
  	       (['rex ['error rsn]]
  		(message "Refactoring failed: %s" rsn))
  	       (['rex ['ok ['tuple no-of-fields] state-funs ]]
-		(erl-refactor-eqc-statem-to-record-1 current-file-name no-of-fields state-funs 'true 'eqc_statem_to_record_1))
+		(erl-refactor-state-to-record-1 current-file-name no-of-fields state-funs 'true 'eqc_statem_to_record_1))
 	       (['rex ['ok non-tuple state-funs]]
 		(if (yes-or-no-p "The current type of the state is not tuple; create a record with a single field?")
-		    (erl-refactor-eqc-statem-to-record-1 current-file-name 1 state-funs 'false 'eqc_statem_to_record_1)
+		    (erl-refactor-state-to-record-1 current-file-name 1 state-funs 'false 'eqc_statem_to_record_1)
 		  (message "Refactoring aborted.")))		      
 	       )))
        (message "Refactoring aborted."))))
@@ -2035,6 +2036,30 @@
 		(preview-commit-cancel current-file-name modified)
 	       ))))
 	  (message "Refactoring aborted."))))
+
+
+(defun erl-refactor-statem-to-fsm (name)
+  "From eqc_statem to eqc_fsm."
+  (interactive (list (read-string "Initial state name: ")
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer)))
+    (if (current-buffer-saved buffer)
+	(erl-spawn
+	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'eqc_statem_to_fsm (list current-file-name name wrangler-search-paths tab-width))
+	  (erl-receive (current-file-name)
+	      ((['rex ['badrpc rsn]]
+		(message "Refactoring failed: %S" rsn))
+	       (['rex ['error rsn]]
+		(message "Refactoring failed: %s" rsn))
+	       (['rex ['ok modified]]
+		(progn
+		  (if (equal modified nil)
+		      (message "Refactoring finished, and no file has been changed.")
+		    (preview-commit-cancel current-file-name modified)
+		    )))))
+      (message "Refactoring aborted.")))))
+
   
 (defun erl-wrangler-code-inspector-var-instances()
   "Sematic search of instances of a variable"
