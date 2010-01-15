@@ -1,10 +1,10 @@
 
                     Wrangler, the Erlang Refactorer
                 a snapshot of our current prototype
-                            04/01/2010
+                            15/01/2010
               http://www.cs.kent.ac.uk/projects/wrangler/
 
---------------------------------------------------------------------------------
+------------------------------------------------------------------------
 
 Wrangler is an Erlang refactoring tool that supports interactive
 refactoring of Erlang programs.  The current snapshot of Wrangler 
@@ -17,7 +17,8 @@ Wrangler is embedded in the Emacs editing environment, and built on
 top of Distel, an Emacs-based user interface toolkit for Erlang, to
 manage to communication between the refactoring tool and
 Emacs. We are now also in the process of integrating Wrangler with 
-the Eclipse environment.
+the Eclipse environment. Integration with XEmacs is *not* supported yet. 
+  
 
 --------------------- how to build  ----------------------------
 
@@ -44,17 +45,17 @@ the Eclipse environment.
 
   2. To start the Erlang refactorer:
 
-      M-x erlang-refactor-on  
+      M-x erlang-refactor-on   (or Ctrl-c Ctrl-r)  
 
      After that, two menus, 'Refactor' and 'Inspector' should appear in the menu bar.
     
   3. To stop the Erlang refactorer:
      
-      M-x erlang-refactor-off 
+      M-x erlang-refactor-off  (or Ctrl-c Ctrl-r) 
 
       'Refactor' and 'Inspector' will disappear in the menu bar.
 
-  4. You could also use "Ctrl-c Ctrl-r" to toggle the refactorer on/off.
+  4. You could use "Ctrl-c Ctrl-r" to toggle the refactorer on/off.
  
   5. For most refactorings, the editor interface will pass the
      current filename (should be the module name, as well), the
@@ -194,6 +195,10 @@ the Eclipse environment.
  the boundary of the system by giving the list of directories to
  search for Erlang source files/header files that could be affected by a
  refactoring.
+
+-------------------------Major changes form Wrangler-0.8.6------------
+
+-- A number of bug fixes for QuickCheck related refactorngs.
 
 -------------------------Major changes from Wrangler-0.8.4-------------
 -- New Refactorings for QuickCheck:
