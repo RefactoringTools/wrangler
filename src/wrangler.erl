@@ -35,7 +35,7 @@
 %% @author Huiqing Li, Simon Thompson
 %%   [http://www.cs.kent.ac.uk/projects/wrangler]
 
-%% @version 0.8.5
+%% @version 0.8.6
 %% @end
 %%
 %% @doc This module describes the refactorings that are currently supported by Wrangler.
@@ -59,7 +59,8 @@
 	 merge_forall/3, merge_forall_1/5,
 	 eqc_statem_to_record/3, eqc_statem_to_record_1/7,
  	 eqc_fsm_to_record/3, eqc_fsm_to_record_1/7, 
-	 gen_fsm_to_record/3, gen_fsm_to_record_1/7]).
+	 gen_fsm_to_record/3, gen_fsm_to_record_1/7,
+	 eqc_statem_to_fsm/4]).
 
 -export([rename_var_eclipse/6, rename_fun_eclipse/6,
 	 rename_fun_1_eclipse/6, rename_mod_eclipse/4,
@@ -73,7 +74,8 @@
 	 new_macro_eclipse/6, rename_process_eclipse/6,
 	 rename_process_1_eclipse/5, fun_to_process_eclipse/6,
 	 fun_to_process_1_eclipse/6, unfold_fun_app_eclipse/4,
-	 duplicated_code_eclipse/5, sim_code_detection_eclipse/6]).
+	 duplicated_code_eclipse/5, sim_code_detection_eclipse/6,
+	 eqc_statem_to_fsm_eclipse/4]).
 
 -export([try_refactoring/3, try_inspector/3]).
 -include("../include/wrangler.hrl").
@@ -1081,6 +1083,14 @@ gen_fsm_to_record(FileName, SearchPaths, TabWidth) ->
 gen_fsm_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth) ->
     try_refactoring(refac_state_to_record, gen_fsm_to_record_1, 
 		    [FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth]).
+
+%@private
+eqc_statem_to_fsm(FileName, StateName, SearchPaths, TabWidth) ->
+    try_refactoring(refac_statem_to_fsm, eqc_statem_to_fsm, [FileName, StateName, SearchPaths, TabWidth]).
+
+%@private
+eqc_statem_to_fsm_eclipse(FileName, StateName, SearchPaths, TabWidth) ->
+    try_refactoring(refac_statem_to_fsm, eqc_statem_to_fsm_eclipse, [FileName, StateName, SearchPaths, TabWidth]).
 
 %%@private
 try_to_apply(Mod, Fun, Args, Msg) -> 

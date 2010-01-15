@@ -211,6 +211,9 @@ eqc_fsm_to_record(FileName, SearchPaths, TabWidth) ->
 gen_fsm_to_record(FileName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, gen_fsm_to_record, [FileName, SearchPaths, TabWidth], SearchPaths).
 
+eqc_statem_to_fsm(FileName, StateName, SearchPaths, TabWidth) ->
+    apply_refactoring(wrangler, eqc_statem_to_fsm, [FileName, StateName, SearchPaths, TabWidth], SearchPaths).
+
 
 apply_refactoring(Mod, Fun, Args, SearchPaths) ->
     case initial_checking(SearchPaths) of

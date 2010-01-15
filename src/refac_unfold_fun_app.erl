@@ -47,6 +47,8 @@
 
 -export([unfold_fun_app/4, unfold_fun_app_eclipse/4]).
 
+-export([make_new_name/2, collect_vars/1]).
+
 -include("../include/wrangler.hrl").
 
 %% =============================================================================================
