@@ -1,5 +1,10 @@
+
 Installation
 -------------
+
+Note: Intallation of Erlang and Emacs is required in order to use 
+      Wrangler. XEmacs is *not* supported yet.  
+
 Step 1) Build and install the software in the usual way:
        ./configure && make && [sudo] make install
 
