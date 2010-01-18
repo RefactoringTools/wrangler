@@ -2554,6 +2554,7 @@ if test "x$GCC" = "xyes"; then
     CFLAGS="$CFLAGS -Wall"
 fi
 
+
 for ac_prog in emacs xemacs
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
@@ -3040,6 +3041,7 @@ fi
 
 
 CFLAGS="$CFLAGS $CBIT"
+LDFLAGS="$LDFLAGS $CBIT"
 LD_SHARED="$LD_SHARED $CBIT"
 
 cat >confcache <<\_ACEOF

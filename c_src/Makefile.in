@@ -2,19 +2,21 @@
 
 ERL_CFLAGS  = @ERL_CFLAGS@
 ERL_LIB     = @ERL_LIB@
+CFLAGS      = @CFLAGS@
+LDFLAGS     = @LDFLAGS@
 
-CFLAGS=-m32 -Wall -I/usr/local/include ${ERL_CFLAGS}
-LDFLAGS=-m32 -L. ${ERL_LIB}
+#CFLAGS=-Wall -I/usr/local/include ${ERL_CFLAGS}
+ERL_LDFLAGS= ${LDFLAGS} ${ERL_LIB}
 
 
 suffixtree:	main.o suffix_tree.o
-	gcc  ${LDFLAGS} main.o suffix_tree.o -lerl_interface -lei -lpthread -o suffixtree 
+	gcc  ${ERL_LDFLAGS} main.o suffix_tree.o -lerl_interface -lei -lpthread -o suffixtree 
 
 suffix_tree.o:	suffix_tree.c suffix_tree.h
-	gcc -g ${CFLAGS} -o suffix_tree.o -c suffix_tree.c
+	gcc ${CFLAGS} ${ERL_CFLAGS} -o suffix_tree.o -c suffix_tree.c
 
 main.o:	suffix_tree.h 
-	gcc -g ${CFLAGS} -o main.o -c main.c 
+	gcc ${CFLAGS} ${ERL_CFLAGS} -o main.o -c main.c 
 
 clean: 
 	-rm -f *.o 

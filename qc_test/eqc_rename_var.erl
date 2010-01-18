@@ -163,3 +163,5 @@ run_test() ->
     test_rename_var6(),
     test_rename_var7(),
     test_rename_var8().
+test_prop_last() ->
+    
