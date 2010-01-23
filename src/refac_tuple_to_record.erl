@@ -535,78 +535,79 @@ tuple_record(AnnAST, ExistingRec, RecName, FieldList, Name, Arity,Mod,N)->
 %% 
 %% @end
 %% =====================================================================
-do_tuple_to_record(Tree, {ExistingRec, RecName, FieldList, 
-                          Name, Arity, Mod, N, AnnAST})->
-  case refac_syntax:type(Tree) of
-    function ->
-      FunName = refac_syntax:function_name(Tree),
-      FunArity = refac_syntax:function_arity(Tree),
-      DefMod = get_fun_def_mod(Tree),
-      case (refac_syntax:atom_value(FunName) == Name) and 
-           (FunArity == Arity) and (DefMod == Mod) of
-        true ->
-          Clauses = refac_syntax:function_clauses(Tree),
-          NewClauses = new_clause(Clauses, N, RecName, FieldList, AnnAST),      
-          {refac_syntax:copy_attrs(Tree, 
-                       refac_syntax:function(FunName, NewClauses)), false};
-	false -> {Tree, false}
-      end;
-    application -> 
-      Operator = refac_syntax:application_operator(Tree),
-      case application_info(Tree) of
-	{{_, apply}, 2} -> 
-         transform_apply_call(Tree,{RecName,FieldList,N,Name,Arity,Mod,AnnAST});
-	{{_, apply}, 3} -> 
-         transform_apply_call(Tree,{RecName,FieldList,N,Name,Arity,Mod,AnnAST});
-	{{_, spawn}, 3} -> 
-         transform_spawn_call(Tree,{RecName,FieldList,N,Name,Arity,Mod,AnnAST});
-	{{_, spawn}, 4} -> 
-         transform_spawn_call(Tree,{RecName,FieldList,N,Name,Arity,Mod,AnnAST});
-	{{_, spawn_link}, 3} -> 
-         transform_spawn_call(Tree,{RecName,FieldList,N,Name,Arity,Mod,AnnAST});
-	{{_, spawn_link}, 4} -> 
-         transform_spawn_call(Tree,{RecName,FieldList,N,Name,Arity,Mod,AnnAST});
-	_ ->
-	  case refac_syntax:type(Operator) of
-	    atom -> modify_application(Operator, Name, Arity, Tree, N, 
-                                       FieldList, RecName, AnnAST);
-	    module_qualifier ->  
-              modify_application(Operator, Name, Arity, 
-                                 Tree, N, FieldList, RecName, AnnAST);
-	    _ -> {Tree, false}
-	  end
-      end;
-    attribute ->
-      AttrName = refac_syntax:attribute_name(Tree),
-      case {refac_syntax:atom_value(AttrName), ExistingRec} of
-        {_, none} -> {Tree, false};
-        {record, [Rec]} -> 
-          Args = refac_syntax:attribute_arguments(Tree),
-          EName = element(1,Rec),
-          ArgName = refac_syntax:atom_value(hd(Args)),
-          case ArgName == EName of
-            true ->
-               ArgElements = refac_syntax:tuple_elements(hd(tl(Args))),
-               RecFieldsName = 
-                 lists:map(fun(Elem)-> 
-                             refac_syntax:atom_value(
-                             refac_syntax:record_field_name(Elem))
-                           end, ArgElements),
-               NewRecFieldsName = FieldList -- RecFieldsName,
-               NewRecFields = lists:map(fun(FName)->
-                                          refac_syntax:record_field(
-                                          refac_syntax:atom(FName),none)
-                                        end, NewRecFieldsName),
-               NewFieldArgs = refac_syntax:tuple(ArgElements ++ NewRecFields),
-               NewArgs = [hd(Args), NewFieldArgs],
-	       {refac_syntax:copy_attrs(Tree, 
-                        refac_syntax:attribute(AttrName, NewArgs)), false};
-            false ->{Tree, true}
-          end;
-        {_, _} -> {Tree, false}
-      end;
-    _ -> {Tree, false}
-  end.
+do_tuple_to_record(Tree, {ExistingRec, RecName, FieldList,
+			  Name, Arity, Mod, N, AnnAST}) ->
+    case refac_syntax:type(Tree) of
+      function ->
+	  FunName = refac_syntax:function_name(Tree),
+	  FunArity = refac_syntax:function_arity(Tree),
+	  DefMod = get_fun_def_mod(Tree),
+	  case (refac_syntax:atom_value(FunName) == Name) and
+		 (FunArity == Arity) and (DefMod == Mod)
+	      of 
+	    true ->
+		Clauses = refac_syntax:function_clauses(Tree),
+		NewClauses = new_clause(Clauses, N, RecName, FieldList, AnnAST),
+		{refac_syntax:copy_attrs(Tree,
+					 refac_syntax:function(FunName, NewClauses)), false};
+	    false -> {Tree, false}
+	  end;
+      application ->
+	  Operator = refac_syntax:application_operator(Tree),
+	  case refac_move_fun:application_info(Tree) of
+	    {{_, apply}, 2} ->
+		transform_apply_call(Tree, {RecName, FieldList, N, Name, Arity, Mod, AnnAST});
+	    {{_, apply}, 3} ->
+		transform_apply_call(Tree, {RecName, FieldList, N, Name, Arity, Mod, AnnAST});
+	    {{_, spawn}, 3} ->
+		transform_spawn_call(Tree, {RecName, FieldList, N, Name, Arity, Mod, AnnAST});
+	    {{_, spawn}, 4} ->
+		transform_spawn_call(Tree, {RecName, FieldList, N, Name, Arity, Mod, AnnAST});
+	    {{_, spawn_link}, 3} ->
+		transform_spawn_call(Tree, {RecName, FieldList, N, Name, Arity, Mod, AnnAST});
+	    {{_, spawn_link}, 4} ->
+		transform_spawn_call(Tree, {RecName, FieldList, N, Name, Arity, Mod, AnnAST});
+	    _ ->
+		case refac_syntax:type(Operator) of
+		  atom -> modify_application(Operator, Name, Arity, Tree, N,
+					     FieldList, RecName, AnnAST);
+		  module_qualifier ->
+		      modify_application(Operator, Name, Arity,
+					 Tree, N, FieldList, RecName, AnnAST);
+		  _ -> {Tree, false}
+		end
+	  end;
+      attribute ->
+	  AttrName = refac_syntax:attribute_name(Tree),
+	  case {refac_syntax:atom_value(AttrName), ExistingRec} of
+	    {_, none} -> {Tree, false};
+	    {record, [Rec]} ->
+		Args = refac_syntax:attribute_arguments(Tree),
+		EName = element(1, Rec),
+		ArgName = refac_syntax:atom_value(hd(Args)),
+		case ArgName == EName of
+		  true ->
+		      ArgElements = refac_syntax:tuple_elements(hd(tl(Args))),
+		      RecFieldsName =
+			  lists:map(fun (Elem) ->
+					    refac_syntax:atom_value(
+					      refac_syntax:record_field_name(Elem))
+				    end, ArgElements),
+		      NewRecFieldsName = FieldList -- RecFieldsName,
+		      NewRecFields = lists:map(fun (FName) ->
+						       refac_syntax:record_field(
+							 refac_syntax:atom(FName), none)
+					       end, NewRecFieldsName),
+		      NewFieldArgs = refac_syntax:tuple(ArgElements ++ NewRecFields),
+		      NewArgs = [hd(Args), NewFieldArgs],
+		      {refac_syntax:copy_attrs(Tree,
+					       refac_syntax:attribute(AttrName, NewArgs)), false};
+		  false -> {Tree, true}
+		end;
+	    {_, _} -> {Tree, false}
+	  end;
+      _ -> {Tree, false}
+    end.
 
 
 
@@ -786,47 +787,6 @@ create_tuple_elems(Elem, Rec, List, TupList)->
       Field = refac_syntax:record_field(refac_syntax:atom(hd(List)),none),
       TupElem = refac_syntax:record_access(Elem, Type, Field),
       create_tuple_elems(Elem, Rec, tl(List), TupList ++ [TupElem])	  
-  end.
-
-
-%% =====================================================================
-%% @spec application_info(Tree::syntaxtree()) -> {{atom(), atom()}, integer()}
-%% 
-%% @end
-%% =====================================================================
-application_info(Node) ->
-  case refac_syntax:type(Node) of
-    application ->
-      Operator = refac_syntax:application_operator(Node),
-      Arguments = refac_syntax:application_arguments(Node),
-      Arity = length(Arguments),
-      case refac_syntax:type(Operator) of
-	atom ->
-	  Op = refac_syntax:atom_value(Operator), {{none, Op}, Arity};
-	module_qualifier ->
-	  Mod = refac_syntax:module_qualifier_argument(Operator),
-          Fun = refac_syntax:module_qualifier_body(Operator),
-	  T1 = refac_syntax:type(Mod),
-	  T2 = refac_syntax:type(Fun),
-	  case T1 of
-	    atom ->
-	      Mod1 = refac_syntax:atom_value(Mod),
-	      case T2 of
-		atom -> 
-                  Fun1 = refac_syntax:atom_value(Fun), {{Mod1, Fun1}, Arity};
-		_ -> {{Mod1, expressionfunname}, Arity}
-	      end;
-	    _ ->
-	      case T2 of
-		atom -> 
-                  Fun1 = refac_syntax:atom_value(Fun),
-	          {{expressionmodname, Fun1}, Arity};
-		_ -> {{expressionmodname, expressionfunname}, Arity}
-	      end
-	  end;
-	_ -> {{none, expressionoperator}, Arity}
-      end;
-    _ -> erlang:error(badarg)
   end.
 
 
