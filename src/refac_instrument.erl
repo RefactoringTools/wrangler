@@ -178,57 +178,24 @@ uninstrument_files([], _, _, _) ->
 
 
 do_uninstrument(Tree, {ModName, FunName, Arity}) ->
-    case refac_syntax:type(Tree) of 
-	block_expr -> 
-	    Es = refac_syntax:block_expr_body(Tree),
-	    case length(Es) of 
-		2 -> FstExp = hd(Es),
-		     SndExp = lists:last(Es),
-		     case {refac_syntax:type(FstExp), is_send_expr(SndExp)} of 
-			 {application, true} ->
-			     case application_info(FstExp) of 
-				 {{ModName, FunName}, Arity} ->
-				     {SndExp, true};
-				 _ ->{Tree, false}
-			     end;
+    case refac_syntax:type(Tree) of
+      block_expr ->
+	  Es = refac_syntax:block_expr_body(Tree),
+	  case length(Es) of
+	    2 -> FstExp = hd(Es),
+		 SndExp = lists:last(Es),
+		 case {refac_syntax:type(FstExp), is_send_expr(SndExp)} of
+		   {application, true} ->
+		       case refac_move_fun:application_info(FstExp) of
+			 {{ModName, FunName}, Arity} ->
+			     {SndExp, true};
 			 _ -> {Tree, false}
-		     end;
-		_ -> {Tree, false}
-	    end;
-	_ -> {Tree, false}
-    end.
-		     
-application_info(Node) ->
-    case refac_syntax:type(Node) of 
-	application ->
-	    Operator = refac_syntax:application_operator(Node),
-	    Arguments = refac_syntax:application_arguments(Node),
-	    Arity = length(Arguments),
-	    case refac_syntax:type(Operator) of 
-		atom -> Op = refac_syntax:atom_value(Operator),
-			{{none,Op}, Arity}; 
-		module_qualifier ->
-		        Mod = refac_syntax:module_qualifier_argument(Operator),
-		        Fun = refac_syntax:module_qualifier_body(Operator),
-		        T1 = refac_syntax:type(Mod), 
-		        T2 = refac_syntax:type(Fun),
-		        case T1 of 
-		  	    atom -> 
-				Mod1 = refac_syntax:atom_value(Mod),
-				case T2 of 
-					atom -> Fun1 = refac_syntax:atom_value(Fun),
-						{{Mod1, Fun1}, Arity};
-				        _ ->{{Mod1, expressionfunname}, Arity}
-					end;
-			    _ -> case T2 of 
-				     atom -> Fun1 = refac_syntax:atom_value(Fun),
-					     {{expressionmodname, Fun1}, Arity};
-				     _ -> {{expressionmodname,expressionfunname}, Arity}
-				 end
-			    end;
-		_  -> {{none,expressionoperator}, Arity}
-	    end;
-	_ -> erlang:error(bagarg)
+		       end;
+		   _ -> {Tree, false}
+		 end;
+	    _ -> {Tree, false}
+	  end;
+      _ -> {Tree, false}
     end.
 
 get_module_name(ModInfo) ->				      
