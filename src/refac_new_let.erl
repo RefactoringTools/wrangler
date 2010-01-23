@@ -542,18 +542,8 @@ collect_mergeable_lets_or_foralls_1(Res = [P, G1, G2], MacroName) ->
 	  FrVars = refac_util:get_free_vars(G11),
 	  case FrVars -- BdVars of
 	    FrVars ->
-		{Ps, Gs} = case {refac_syntax:type(P), refac_syntax:type(G1)} of
-			     {tuple, tuple} ->
-				 {refac_syntax:tuple_elements(P),
-				  refac_syntax:tuple_elements(G1)};
-			     _ -> {[P], [G1]}
-			   end,
-		{Ps1, Gs1} = case {refac_syntax:type(P1), refac_syntax:type(G11)} of
-			       {tuple, tuple} ->
-				   {refac_syntax:tuple_elements(P1),
-				    refac_syntax:tuple_elements(G11)};
-			       _ -> {[P1], [G11]}
-			     end,
+		{Ps, Gs} =  get_pats_gens(P, G1),
+		{Ps1, Gs1} =  get_pats_gens(P1, G11),
 		NewP = refac_syntax:tuple(Ps ++ Ps1),
 		NewG1 = refac_syntax:tuple(Gs ++ Gs1),
 		collect_mergeable_lets_or_foralls_1([NewP, NewG1, G12], MacroName);
@@ -562,6 +552,15 @@ collect_mergeable_lets_or_foralls_1(Res = [P, G1, G2], MacroName) ->
       false ->
 	  Res
     end.
+
+get_pats_gens(Pat, Gen) ->
+     case {refac_syntax:type(Pat), refac_syntax:type(Gen)} of
+	 {tuple, tuple} ->
+	     {refac_syntax:tuple_elements(Pat),
+	      refac_syntax:tuple_elements(Gen)};
+	 _ -> {[Pat], [Gen]}
+     end.
+    
 
 is_quickcheck_used(ModuleInfo) ->
     case lists:keysearch(imports, 1, ModuleInfo) of 
