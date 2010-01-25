@@ -49,14 +49,14 @@
 	 once_tdTU/3, stop_tdTP/3, full_tdTP/3, full_buTP/3,
 	 pos_to_fun_name/2, pos_to_fun_def/2, pos_to_var_name/2,
 	 pos_to_expr/3, pos_to_expr_list/3,
-	 pos_to_expr_or_pat_list/3, pos_to_syntax_units/6,
-	 pos_to_syntax_units/4, expr_to_fun/2, get_range/1,
+	 pos_to_expr_or_pat_list/3, expr_to_fun/2, get_range/1,
 	 get_toks/1, concat_toks/1, tokenize/3,
 	 get_var_exports/1, get_env_vars/1, get_bound_vars/1,
 	 get_free_vars/1, get_client_files/2, expand_files/2,
 	 get_modules_by_file/1, reset_attrs/1, update_ann/2,
 	 parse_annotate_file_1/5, parse_annotate_file/3,
 	 parse_annotate_file/4, write_refactored_files/1,
+	 write_refactored_files/4,
 	 write_refactored_files_for_preview/2,
 	 build_lib_side_effect_tab/1,
 	 build_local_side_effect_tab/2, has_side_effect/3,
@@ -66,7 +66,7 @@
 -export([test_framework_used/1]).
 -export([analyze_free_vars/1, remove_duplicates/1]).
 -export([format_search_paths/1]).
--compile(export_all).
+%%-compile(export_all).
 -include("../include/wrangler.hrl").
 
 %% =====================================================================
@@ -379,138 +379,87 @@ pos_to_var_name_1(Node, _Pos = {Ln, Col}) ->
 
 -spec(pos_to_expr(Tree::syntaxTree(), Start::pos(), End::pos()) ->{ok, syntaxTree()} | {error, string()}).
 pos_to_expr(Tree, Start, End) ->
-    Es =pos_to_syntax_units(Tree, Start, End, fun is_expr/1),
+    Es =lists:flatten(pos_to_expr_1(Tree, Start, End)),
     case Es of
 	[] -> {error, "You have not selected an expression, "
 	       "or the function containing the expression selected does not parse."};
 	_ -> {ok, hd(Es)}
     end.
 
-
--spec(pos_to_syntax_units(Tree::syntaxTree(),  Start::pos(), End::pos(), F::function()) ->[syntaxTree()]).
-pos_to_syntax_units(Tree, Start, End, F) ->
-    Res = pos_to_syntax_units_1(Tree, Start, End, F),
-    filter_syntax_units(Res).
-    
-
--spec(pos_to_syntax_units(FileName::filename(), Tree::syntaxTree(),  Start::pos(), 
-			  End::pos(), F::function(), TabWidth::integer()) ->[[syntaxTree()]]).
-pos_to_syntax_units(FileName, Tree, Start, End, F, TabWidth) ->
-    Res = pos_to_syntax_units_1(Tree, Start, End, F),
-    Res1 = filter_syntax_units(Res),
-    Units = case length(Res1)=<1 of 
-		true ->
-		    [Res1];
-		_ ->
-		    filter_syntax_units_via_toks(FileName, Res1, TabWidth)
-	    end,
-    [U || U<-Units, U=/=[]].
-
-
-pos_to_syntax_units_1(Tree, Start, End, F) ->
+pos_to_expr_1(Tree, Start, End) ->
     {S, E} = get_range(Tree),
     if (S >= Start) and (E =< End) ->
-	    case F(Tree) of
-	     true -> [Tree];
-	     _ ->
+	    case is_expr(Tree) of
+		true ->
+		    [Tree];
+		_ ->
 		    Ts = refac_syntax:subtrees(Tree),
-		    R0 = [[pos_to_syntax_units_1(T, Start, End, F) || T <- G]
+		    R0 = [[pos_to_expr_1(T, Start, End) || T <- G]
 			  || G <- Ts],
 		    lists:append(R0)
 	    end;
        (S > End) or (E < Start) -> [];
        (S < Start) or (E > End) ->
 	    Ts = refac_syntax:subtrees(Tree),
-	   R0 = [[pos_to_syntax_units_1(T, Start, End, F) || T <- G]
-		 || G <- Ts],
-	   lists:append(R0);
+	    R0 = [[pos_to_expr_1(T, Start, End) || T <- G]
+		  || G <- Ts],
+	    lists:append(R0);
        true -> []
     end.
 
-filter_syntax_units([])->[];
-filter_syntax_units(Exprs) ->
-    case lists:all(fun(E) -> is_list(E) end, Exprs) of 
-	true ->
-	    filter_syntax_units(lists:append(Exprs));
-	_ -> Exprs1 = lists:dropwhile(fun(E) ->is_list(E) end, Exprs),
-	     lists:takewhile(fun(E)->
-			       is_list(E)==false end, Exprs1)
-    end.
-
-filter_syntax_units_via_toks(FName, Es, TabWidth) ->
-    Toks = tokenize(FName, false, TabWidth),
-    filter_syntax_units_via_toks_1(Toks,Es).
-
-filter_syntax_units_via_toks_1(_Toks, []) ->
-    [];
-filter_syntax_units_via_toks_1(Toks, Es) ->
-    Es1= filter_syntax_units_via_toks_2(Toks, Es),
-    {EsLen, Es1Len} = {length(Es), length(Es1)},
-    case EsLen == Es1Len of 
-	true -> [Es1];
-	_ -> [Es1 | filter_syntax_units_via_toks_1(Toks, lists:nthtail(Es1Len, Es))]
-    end.
-
-filter_syntax_units_via_toks_2(_Toks, []) ->
-    [];
-filter_syntax_units_via_toks_2(_Toks, [E]) -> 
-    [E];
-filter_syntax_units_via_toks_2(Toks, [E1,E2|Es]) ->
-    {_StartLoc, EndLoc} = refac_util:get_range(E1),
-    {StartLoc1, _EndLoc1} = refac_util:get_range(E2),
-    Toks1 = lists:dropwhile(fun(T) ->
-				    token_loc(T) =< EndLoc end, Toks),
-    Toks2 = lists:takewhile(fun(T) ->
-				    token_loc(T) < StartLoc1 end, Toks1),
-    case lists:any(fun(T) -> 
-			   not(lists:member(token_val(T), [',','(',')']) orelse
-			      is_whitespace_or_comment(T))
-		   end, Toks2) of 
-	false ->
-	    [E1]++ filter_syntax_units_via_toks_2(Toks, [E2|Es]);
-	_  -> [E1]
-    end.
-	
 
 %% =====================================================================
 %% get the list expressions enclosed by start and end locations.
+
 -spec(pos_to_expr_list(Tree::syntaxTree(), Start::pos(), End::pos()) ->
 	     [syntaxTree()]).
+
 pos_to_expr_list(AnnAST, Start, End) ->
-    pos_to_entity_list(AnnAST, Start, End, fun is_expr/1).
+    Es = pos_to_expr_list_1(AnnAST, Start, End, fun is_expr/1),
+    get_expr_list(Es).
 
 pos_to_expr_or_pat_list(AnnAST, Start, End) ->
-    pos_to_entity_list(AnnAST, Start, End, 
-		      fun(E) ->is_expr(E) orelse is_pattern(E) end).
-						  
-
-pos_to_entity_list(AnnAST, Start, End, Fun) ->
-    case pos_to_fun_def(AnnAST, Start) of
-	{ok, FunDef} ->
-	    Ann = refac_syntax:get_ann(FunDef),
-	    {value, {toks, Toks}} = lists:keysearch(toks, 1, Ann),
-	    Units = pos_to_syntax_units(FunDef, Start, End, Fun, Toks),
-	    case Units of
-		[] -> [];
-		_ -> hd(Units)
+    F = fun(E) ->is_expr(E) orelse is_pattern(E) end,
+    Es =pos_to_expr_list_1(AnnAST, Start, End, F),
+    get_expr_list(Es).
+ 
+pos_to_expr_list_1(Tree, Start, End, F) ->
+    {S, E} = get_range(Tree),
+    if (S >= Start) and (E =< End) ->
+	    case F(Tree) of
+		true ->
+		    [Tree];
+		_ ->
+		    Ts = refac_syntax:subtrees(Tree),
+		    [[lists:append(pos_to_expr_list_1(T, Start, End, F))|| T <- G]
+		     || G <- Ts]
 	    end;
-	{error, _} ->
-	    []
+       (S > End) or (E < Start) -> [];
+       (S < Start) or (E > End) ->
+	    Ts = refac_syntax:subtrees(Tree),
+	    [[lists:append(pos_to_expr_list_1(T, Start, End, F)) || T <- G]
+	     || G <- Ts];
+       true -> []
     end.
 
-pos_to_syntax_units(Tree, Start, End, F, Toks) ->
-    Res = pos_to_syntax_units_1(Tree, Start, End, F),
-    Res1 = filter_syntax_units(Res),
-    Units = case length(Res1)=<1 of 
-		true ->
-		    [Res1];
-		_ ->
-		    filter_syntax_units_via_toks_1(Toks, Res1)
-	    end,
-    [U || U<-Units, U=/=[]].
+get_expr_list(Es) ->
+    case [E|| E<-Es, lists:flatten(E)/=[]] of 
+	[] ->
+	    [];
+	[H|_T] -> 
+	    get_expr_list_1(H)
+    end.
 
-		   
-    
+get_expr_list_1(L) ->
+    F = fun (E) -> not is_list(E) orelse E == [] end,
+    case lists:all(F, L) of
+      true ->
+	  [E || E <- L, E /= []];
+      false ->
+	  get_expr_list(L)
+    end.
+
+
 
 %% ===========================================================================
 %% @spec expr_to_fun(Tree::syntaxTree(), Exp::syntaxTree())->
@@ -905,6 +854,16 @@ write_refactored_files_for_preview(Files, LogMsg) ->
 	_ -> wrangler_preview_server:add_files({FilePairs, LogMsg})
     end.
 
+
+write_refactored_files(FileName, AnnAST, Editor, Cmd) ->
+    case Editor of
+      emacs ->
+	  refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST}], Cmd),
+	  {ok, [FileName]};
+      eclipse ->
+	  Content = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST),
+	  {ok, [{FileName, FileName, Content}]}
+    end.
 
 
 %% =====================================================================
