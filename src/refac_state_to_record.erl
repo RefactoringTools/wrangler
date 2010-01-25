@@ -229,15 +229,8 @@ state_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SM, Se
     RecordFields1 = [list_to_atom(F) || F <- RecordFields],
     AnnAST1 = do_state_to_record(ModName, Info, AnnAST, list_to_atom(RecordName), RecordFields1, 
 				 StateFuns,RecordExists, IsTuple, SM),
-    case Editor of
-	emacs ->
-	    refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], Cmd),
-	    {ok, [FileName]};
-	eclipse ->
-	    Content = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST1),
-	    {ok, [{FileName, FileName, Content}]}
-    end.
-
+    refac_util:write_refactored_files(FileName, AnnAST1, Cmd, Editor).
+  
 
 
 do_state_to_record(ModName, ModInfo,  AnnAST, RecordName, RecordFields, StateFuns, RecordExists, IsTuple, SM) ->
