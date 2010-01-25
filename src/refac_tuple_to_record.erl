@@ -652,23 +652,20 @@ new_clause(Clauses, N, RecName, FieldList, AnnAST)->
 %% 
 %% @end
 %% =====================================================================
-create_new_patterns(Patterns, N, RecName, FieldList)->
-  Last = lists:nthtail(N, Patterns),
-  First = Patterns -- lists:nthtail(N-1,Patterns),
-  [Tuple] = (Patterns -- Last) -- First,
-  case refac_syntax:type(Tuple)== tuple andalso 
-       length(refac_syntax:tuple_elements(Tuple)) == length(FieldList) of 
-    true ->
-      TupleElements = refac_syntax:tuple_elements(Tuple),
-      NewRecFields = lists:map(fun({FName, Value})->
-                                 refac_syntax:record_field(
-                                           refac_syntax:atom(FName),Value)
-                               end, lists:zip(FieldList,TupleElements)),
-      NewRecName = refac_syntax:atom(RecName),
-      NewRec = [refac_syntax:record_expr(none, NewRecName, NewRecFields)],
-      First ++ NewRec ++ Last;
-    false -> {not_tuple, First, Last, Tuple}
-  end.
+create_new_patterns(Patterns, N, RecName, FieldList) ->
+    Last = lists:nthtail(N, Patterns),
+    First = Patterns -- lists:nthtail(N - 1, Patterns),
+    [Tuple] = (Patterns -- Last) -- First,
+    case refac_syntax:type(Tuple) == tuple andalso
+	   length(refac_syntax:tuple_elements(Tuple)) == length(FieldList)
+	of
+      true ->
+	  TupleElements = refac_syntax:tuple_elements(Tuple),
+	  
+	  NewRec =  mk_record_expr(RecName, FieldList, TupleElements),
+	  First ++ NewRec ++ Last;
+      false -> {not_tuple, First, Last, Tuple}
+    end.
 
 
 %% =====================================================================
@@ -819,29 +816,25 @@ modify_application(Op, Name, Arity, Tree, N,
 %%
 %% @end
 %% =====================================================================
-create_new_application(AnnAST, Tree, Operator, NewArgs, RecName, FieldList)->
-  case NewArgs of 
-    {not_tuple, First, Last, Tuple} -> 
-      case analyze_tuple(AnnAST, Tuple, length(FieldList)) of
-        false -> {Tree, false};
-        true -> 
-          TupleElements = get_tuple_elements(Tuple, 1, [],length(FieldList)),
-          NewRecFields = lists:map(fun({FName, Value})->
-                                 refac_syntax:record_field(
-                                           refac_syntax:atom(FName),Value)
-                               end, lists:zip(FieldList, TupleElements)),
-          NewRecName = refac_syntax:atom(RecName),
-          NewRec = [refac_syntax:record_expr(none, NewRecName, NewRecFields)],
-          NewAppArg = First ++ NewRec ++ Last,
-          {refac_syntax:copy_attrs(Tree, 
-           refac_syntax:application(Operator, NewAppArg)), false};
-	unknown ->
-          create_case(Tree, First, Last, Tuple, RecName, FieldList, Operator)
-      end;
-    _ ->
-       {refac_syntax:copy_attrs(Tree, 
-        refac_syntax:application(Operator, NewArgs)), false}
-  end.
+create_new_application(AnnAST, Tree, Operator, NewArgs, RecName, FieldList) ->
+    case NewArgs of
+      {not_tuple, First, Last, Tuple} ->
+	  case analyze_tuple(AnnAST, Tuple, length(FieldList)) of
+	    false -> {Tree, false};
+	    true ->
+		TupleElements = get_tuple_elements(Tuple, 1, [], length(FieldList)),
+		
+		NewRec =  mk_record_expr(RecName, FieldList, TupleElements),
+		NewAppArg = First ++ NewRec ++ Last,
+		{refac_syntax:copy_attrs(Tree,
+					 refac_syntax:application(Operator, NewAppArg)), false};
+	    unknown ->
+		create_case(Tree, First, Last, Tuple, RecName, FieldList, Operator)
+	  end;
+      _ ->
+	  {refac_syntax:copy_attrs(Tree,
+				   refac_syntax:application(Operator, NewArgs)), false}
+    end.
 
 %% =====================================================================
 %% @spec get_tuple_elements(Tuple::syntaxtree(), Number::integer(),
@@ -946,31 +939,27 @@ analyze_match_expr(AnnAST, Tree, N)->
 %%
 %% @end
 %% =====================================================================    
-create_case(Tree, First, Last, Tuple, RecName, FieldList, Operator)->
-  TupleElements = get_tuple_elements(Tuple, 1, [],length(FieldList)),
-  NewRecFields = lists:map(fun({FName, Value})->
-                             refac_syntax:record_field(
-                                       refac_syntax:atom(FName),Value)
-                           end, lists:zip(FieldList, TupleElements)),
-  NewRecName = refac_syntax:atom(RecName),
-  NewRec = [refac_syntax:record_expr(none, NewRecName, NewRecFields)],
-  NewAppArg = First ++ NewRec ++ Last,
-  NewApp = refac_syntax:application(Operator, NewAppArg),
-  True = refac_syntax:atom(true),
-  TrueClause = refac_syntax:clause([True], none, [NewApp] ),
-  False = refac_syntax:atom(false),
-  FalseClause = refac_syntax:clause([False], none, [Tree]),
-  AppAtom1 = refac_syntax:atom(is_tuple),
-  App1 = refac_syntax:application(AppAtom1, [Tuple]),
-  AppAtom2 = refac_syntax:atom(size),
-  App2 = refac_syntax:application(AppAtom2, [Tuple]),
-  FieldNumber = refac_syntax:integer(length(FieldList)),
-  Right = 
-     refac_syntax:infix_expr(App2, refac_syntax:operator("=="), FieldNumber),  
-  AndAlso = refac_syntax:operator("andalso"),
-  Argument = refac_syntax:infix_expr(App1, AndAlso, Right),
-  {refac_syntax:copy_attrs(Tree, 
-       refac_syntax:case_expr(Argument, [TrueClause, FalseClause])), true}.
+create_case(Tree, First, Last, Tuple, RecName, FieldList, Operator) ->
+    TupleElements = get_tuple_elements(Tuple, 1, [], length(FieldList)),
+    
+    NewRec =  mk_record_expr(RecName, FieldList, TupleElements),
+    NewAppArg = First ++ NewRec ++ Last,
+    NewApp = refac_syntax:application(Operator, NewAppArg),
+    True = refac_syntax:atom(true),
+    TrueClause = refac_syntax:clause([True], none, [NewApp]),
+    False = refac_syntax:atom(false),
+    FalseClause = refac_syntax:clause([False], none, [Tree]),
+    AppAtom1 = refac_syntax:atom(is_tuple),
+    App1 = refac_syntax:application(AppAtom1, [Tuple]),
+    AppAtom2 = refac_syntax:atom(size),
+    App2 = refac_syntax:application(AppAtom2, [Tuple]),
+    FieldNumber = refac_syntax:integer(length(FieldList)),
+    Right =
+	refac_syntax:infix_expr(App2, refac_syntax:operator("=="), FieldNumber),
+    AndAlso = refac_syntax:operator("andalso"),
+    Argument = refac_syntax:infix_expr(App1, AndAlso, Right),
+    {refac_syntax:copy_attrs(Tree,
+			     refac_syntax:case_expr(Argument, [TrueClause, FalseClause])), true}.
 
 
 %% =====================================================================
@@ -1068,35 +1057,31 @@ transform_apply_call(Node, {RecName, FieldList, N,
 %% 
 %% @end
 %% =====================================================================
-create_apply(Args, AnnAST, RecName, FieldList, List, Operator, Node)->
-  case Args of
-    {not_tuple, First, Last, Tuple}->
-      case analyze_tuple(AnnAST, Tuple, length(FieldList)) of
-        false -> 
-          Args3 = List ++ [refac_syntax:list(First ++ [Tuple] ++ Last)],
-          {refac_syntax:copy_attrs(Node, 
-              refac_syntax:application(Operator, Args3)), false};
-        true -> 
-          TupleElements = get_tuple_elements(Tuple, 1, [],length(FieldList)),
-          NewRecFields = lists:map(fun({FName, Value})->
-                                 refac_syntax:record_field(
-                                           refac_syntax:atom(FName),Value)
-                               end, lists:zip(FieldList, TupleElements)),
-          NewRecName = refac_syntax:atom(RecName),
-          NewRec = [refac_syntax:record_expr(none, NewRecName, NewRecFields)],
-          NewAppArg = First ++ NewRec ++ Last,
-          Args3 = refac_syntax:list(NewAppArg),
-          {refac_syntax:copy_attrs(Node, 
-              refac_syntax:application(Operator, List ++ [Args3])), false};
-        unknown ->
-          create_case_apply(Node,First,Last,Tuple,RecName,
-                           FieldList,Operator,List)
-      end;
-    _ -> 
-      Args3 = refac_syntax:list(Args),
-      {refac_syntax:copy_attrs(Node, 
-              refac_syntax:application(Operator, List ++ [Args3])), false}
-  end.
+create_apply(Args, AnnAST, RecName, FieldList, List, Operator, Node) ->
+    case Args of
+      {not_tuple, First, Last, Tuple} ->
+	  case analyze_tuple(AnnAST, Tuple, length(FieldList)) of
+	    false ->
+		Args3 = List ++ [refac_syntax:list(First ++ [Tuple] ++ Last)],
+		{refac_syntax:copy_attrs(Node,
+					 refac_syntax:application(Operator, Args3)), false};
+	    true ->
+		TupleElements = get_tuple_elements(Tuple, 1, [], length(FieldList)),
+		
+		NewRec =  mk_record_expr(RecName, FieldList, TupleElements),
+		NewAppArg = First ++ NewRec ++ Last,
+		Args3 = refac_syntax:list(NewAppArg),
+		{refac_syntax:copy_attrs(Node,
+					 refac_syntax:application(Operator, List ++ [Args3])), false};
+	    unknown ->
+		create_case_apply(Node, First, Last, Tuple, RecName,
+				  FieldList, Operator, List)
+	  end;
+      _ ->
+	  Args3 = refac_syntax:list(Args),
+	  {refac_syntax:copy_attrs(Node,
+				   refac_syntax:application(Operator, List ++ [Args3])), false}
+    end.
 
 
 %% =====================================================================
@@ -1107,31 +1092,27 @@ create_apply(Args, AnnAST, RecName, FieldList, List, Operator, Node)->
 %% 
 %% @end
 %% =====================================================================
-create_case_apply(Tree,First,Last,Tuple,RecName,FieldList,Operator,List)->
-  TupleElements = get_tuple_elements(Tuple, 1, [],length(FieldList)),
-  NewRecFields = lists:map(fun({FName, Value})->
-                             refac_syntax:record_field(
-                                       refac_syntax:atom(FName),Value)
-                           end, lists:zip(FieldList, TupleElements)),
-  NewRecName = refac_syntax:atom(RecName),
-  NewRec = [refac_syntax:record_expr(none, NewRecName, NewRecFields)],
-  NewAppArg = refac_syntax:list(First ++ NewRec ++ Last),
-  NewApp = refac_syntax:application(Operator, List ++ NewAppArg),
-  True = refac_syntax:atom(true),
-  TrueClause = refac_syntax:clause([True], none, [NewApp] ),
-  False = refac_syntax:atom(false),
-  FalseClause = refac_syntax:clause([False], none, [Tree]),
-  AppAtom1 = refac_syntax:atom(is_tuple),
-  App1 = refac_syntax:application(AppAtom1, [Tuple]),
-  AppAtom2 = refac_syntax:atom(size),
-  App2 = refac_syntax:application(AppAtom2, [Tuple]),
-  FieldNumber = refac_syntax:integer(length(FieldList)),
-  Right = 
-     refac_syntax:infix_expr(App2, refac_syntax:operator("=="), FieldNumber),  
-  AndAlso = refac_syntax:operator("andalso"),
-  Argument = refac_syntax:infix_expr(App1, AndAlso, Right),
-  {refac_syntax:copy_attrs(Tree, 
-       refac_syntax:case_expr(Argument, [TrueClause, FalseClause])), false}.
+create_case_apply(Tree, First, Last, Tuple, RecName, FieldList, Operator, List) ->
+    TupleElements = get_tuple_elements(Tuple, 1, [], length(FieldList)),
+    
+    NewRec =  mk_record_expr(RecName, FieldList, TupleElements),
+    NewAppArg = refac_syntax:list(First ++ NewRec ++ Last),
+    NewApp = refac_syntax:application(Operator, List ++ NewAppArg),
+    True = refac_syntax:atom(true),
+    TrueClause = refac_syntax:clause([True], none, [NewApp]),
+    False = refac_syntax:atom(false),
+    FalseClause = refac_syntax:clause([False], none, [Tree]),
+    AppAtom1 = refac_syntax:atom(is_tuple),
+    App1 = refac_syntax:application(AppAtom1, [Tuple]),
+    AppAtom2 = refac_syntax:atom(size),
+    App2 = refac_syntax:application(AppAtom2, [Tuple]),
+    FieldNumber = refac_syntax:integer(length(FieldList)),
+    Right =
+	refac_syntax:infix_expr(App2, refac_syntax:operator("=="), FieldNumber),
+    AndAlso = refac_syntax:operator("andalso"),
+    Argument = refac_syntax:infix_expr(App1, AndAlso, Right),
+    {refac_syntax:copy_attrs(Tree,
+			     refac_syntax:case_expr(Argument, [TrueClause, FalseClause])), false}.
 
 
 %% =====================================================================
@@ -1162,3 +1143,11 @@ transform_spawn_call(Node,{RecName,FieldList,N,Name,Arity,ModName,AnnAST}) ->
     _ -> {Node, false}
   end.
 
+mk_record_expr(RecName, FieldList, TupleElements) ->
+    NewRecFields = lists:map(fun ({FName, Value}) ->
+				     refac_syntax:record_field(
+				       refac_syntax:atom(FName), Value)
+			     end, lists:zip(FieldList, TupleElements)),
+    NewRecName = refac_syntax:atom(RecName),
+    [refac_syntax:record_expr(none, NewRecName, NewRecFields)].
+    
