@@ -485,46 +485,50 @@ sub_clone(C1, C2) ->
 %% This phase needs to get access to the abstract syntax tree.
 
 trim_clones(Cs, MinLength, MinClones, MaxPars, TabWidth) ->
-    lists:append([new_trim_clones(C, MinLength, MinClones, MaxPars, TabWidth) || C<-Cs]).
- 
-new_trim_clones(_Clone={Range, _Len, _Freq}, MinLength, MinClones, MaxPars, TabWidth) ->
-    refac_io:format("Trim a clone....\n"),
-    Fun = fun({{File1, L1, C1}, {File2, L2, C2}})->
-		  case File1/=File2 of 
-		      true ->throw({error, []});
-		      _ -> 
-			  {ok, {AnnAST, _}} =refac_util:parse_annotate_file(File1, true, [], TabWidth),
-			  Units=pos_to_syntax_units(AnnAST, {L1, C1}, {L2, C2}, fun is_expr_or_fun/1, MinLength),
-			  lists:map(fun(U) ->
-					    {{StartLn, StartCol}, _} = refac_util:get_range(hd(U)),
-					    {_,{EndLn, EndCol}} = refac_util:get_range(lists:last(U)),
-					    BdStruct = refac_expr_search:var_binding_structure(U),
-					    R = {{File1, StartLn, StartCol}, {File1, EndLn, EndCol}},
-					    case refac_util:pos_to_fun_def(AnnAST, {StartLn + (EndLn - StartLn) div 2, StartCol}) of
-						{ok, FunDef} ->
-						    VarsToExport= refac_sim_expr_search:vars_to_export(FunDef, {EndLn, EndCol}, U),
-						    {R, U,VarsToExport, BdStruct, num_of_tokens(U)};
-						_ ->
-						    throw({error, []})
-					    end
-				    end, Units)
-		  end
+    %%refac_io:format("Cs:\n~p\n", [Cs]),
+    Files0 =[File||C <-Cs, {Range, _Len, _Freq} <-[C], {File,_,_}<-element(1,lists:unzip(Range))],
+    Files=refac_util:remove_duplicates(Files0),
+    Fun = fun(File, Cs0) ->
+		  {ok, {AnnAST, _}} =refac_util:parse_annotate_file(File, true, [], TabWidth),
+		  AllVars = refac_fold_expression:collect_var_source_def_pos_info(AnnAST),
+		  Fun1 = fun(Range) ->
+				 case Range of
+				     {{File1, L1, C1}, {File2, L2, C2}}->
+					 case File1/=File2 of 
+					     true ->[];
+					     _ when File==File1-> 
+						 Units=pos_to_syntax_units(AnnAST, {L1, C1}, {L2, C2}, fun is_expr_or_fun/1, MinLength),
+						 lists:map(fun(U) ->
+								   {{StartLn, StartCol}, _} = refac_util:get_range(hd(U)),
+								   {_,{EndLn, EndCol}} = refac_util:get_range(lists:last(U)),
+								   BdStruct = refac_expr_search:var_binding_structure(U),
+								   R = {{File1, StartLn, StartCol}, {File1, EndLn, EndCol}},
+								   ExprBdVarsPos = [Pos || {_Var, Pos}<-refac_util:get_bound_vars(U)],
+								   VarsToExport=[{V, DefPos} || {V, SourcePos, DefPos} <- AllVars,
+												SourcePos > {EndLn, EndCol},
+												lists:subtract(DefPos, ExprBdVarsPos) == []],
+								   {R, U, VarsToExport, BdStruct, num_of_tokens(U)}
+							   end, Units);
+					     _ ->Range
+					 end;
+				     _ -> Range
+				 end
+			 end,
+		  [{NewRanges, Len, Freq}||C<-Cs0, {Range, Len, Freq}<-[C], 
+			      NewRanges<-[lists:map(Fun1, Range)], NewRanges/=[]]
 	  end,
-     try lists:map(Fun, Range) of
-	ListsOfUnitsList -> 
-	     case lists:usort(lists:map(fun length/1, ListsOfUnitsList)) of 
-		 [_N] -> ZippedUnitsList = zip_list(ListsOfUnitsList),
-			 Cs =lists:append([group_by(4, ZippedUnits)|| ZippedUnits<- ZippedUnitsList]),
-			 lists:append([get_anti_unifier(C, MaxPars)||C<-Cs, C/=[], length(C)>=MinClones, 
-								      element(5, hd(C))>=MinLength]);
-		 _ ->[]
-	     end
-     catch
-	 E1:E2 -> 
-     	    ?debug("E1E2:\n~p\n", [{E1,E2}]),
-     	    []
-     end.
-	 
+    Fun2 = fun(ListsOfUnitsList) ->
+		   case lists:usort(lists:map(fun length/1, ListsOfUnitsList)) of 
+		       [_N] -> ZippedUnitsList = zip_list(ListsOfUnitsList),
+			       NewCs =lists:append([group_by(4, ZippedUnits)|| ZippedUnits<- ZippedUnitsList]),
+			       lists:append([get_anti_unifier(C, MaxPars)||C<-NewCs, C/=[], length(C)>=MinClones, 
+									   element(5, hd(C))>=MinLength]);
+		       _ ->[]
+		   end
+	   end,
+    Cs1=lists:foldl(Fun, Cs, Files),
+    lists:append([Fun2(Ranges)||{Ranges, _, _}<-Cs1]).
+  
 num_of_tokens(Exprs) ->
     BlockExpr = refac_syntax:block_expr(Exprs),
     Str = refac_prettypr:format(BlockExpr),
@@ -544,34 +548,6 @@ group_by_1(N, TupleList=[E|_Es]) ->
     {E1,E2} = lists:splitwith(fun(T) -> element(N,T) == NthEle end, TupleList),
     [E1 | group_by_1(N, E2)].
     
-    
-%% trim_range(Range, {Len1, Len2}, TabWidth) ->
-%%     lists:flatmap(fun({S,E}) -> 
-%% 			  trim_range_1({S,E}, {Len1, Len2}, TabWidth) 
-%% 		  end, Range).
-
-%% trim_range_1(_Range = {{File1, StartLn, StartCol}, {File2, EndLn, EndCol}}, {Len1, Len2}, TabWidth) 
-%%   when File1 == File2 andalso {StartLn, StartCol} < {EndLn, EndCol} ->
-%%     {S, E} = {{StartLn, StartCol},{EndLn, EndCol}},
-%%     Toks = refac_util:tokenize(File1, false, TabWidth),
-%%     Toks1 = lists:dropwhile(fun (T) -> token_loc(T) =/= S end, Toks),
-%%     case Len1 < length(Toks1) of
-%% 	true -> Toks2 = lists:nthtail(Len1, Toks1),
-%% 		{StartLn1, StartCol1} = token_loc(hd(Toks2)),
-%% 		{Toks3, _Toks4} = lists:splitwith(fun (T) -> token_loc(T) =< E end, Toks1),
-%% 		case Len2 < length(Toks3) of
-%% 		    true ->
-%% 			LastTok = hd(lists:nthtail(Len2, lists:reverse(Toks3))),
-%% 			{L, C} = token_loc(LastTok),
-%% 			{EndLn1, EndCol1} = {L, C + token_len(LastTok) - 1},
-%% 			[{{File1, StartLn1, StartCol1}, {File2, EndLn1, EndCol1}}];
-%% 		    _ -> [] %% This should not happen, but it does very rarely; need to find out why.
-%% 		end;
-%% 	_ -> []  %% ditto.
-%%     end;
-%% trim_range_1(_, _, _) -> [].
-
-
 token_len(T) ->
     V = token_val(T),
     token_len_1(V).
@@ -852,7 +828,8 @@ get_anti_unifier_0({{Range, CodeEVsPairs}, Len, F}, MaxPars) ->
       {Res, Pars} -> 
 	    case Pars > MaxPars of
 		true -> [];
-		_ -> [{Range, Len, F, Res, Pars}]
+		_ ->[{Range, Len, F, Res}] 
+		    %%[{Range, Len, F, Res, Pars}]
 	    end
     catch
       _Error_ -> []
@@ -1099,16 +1076,6 @@ is_macro_name(Exp) ->
     {value, {category, macro_name}} == 
 	lists:keysearch(category, 1, refac_syntax:get_ann(Exp)).
 
-
-%% pos_to_syntax_unit(Tree, Start, End, F, MinLength) ->
-%%     Type = refac_syntax:type(Tree),
-%%     Res = pos_to_syntax_units_1(Tree, Start, End, F, Type),
-%%     Units  = filter_syntax_units(Res, MinLength),
-%%     case Units of 
-%% 	[] ->
-%% 	    [];
-%% 	_ -> hd(Units)
-%%     end.
 
 %% -spec(pos_to_syntax_units(Tree::syntaxTree(),  Start::pos(), End::pos(), F::function()) ->[syntaxTree()]).
 pos_to_syntax_units(Tree, Start, End, F, MinLength) ->
