@@ -36,11 +36,9 @@
 
 -module(refac_type_annotation).
 
--export([type_ann/2]).
+-export([type_ann_ast/4, type_ann_file/3]).
 
 -export([try_eval/2]).
-
--compile(export_all).
 
 %%-define(DEBUG, true).
 
@@ -53,12 +51,13 @@
 
 -include("../include/wrangler.hrl").
 
-type_ann(File, SearchPaths) ->
-    {ok, {AnnAST, _Info1}} = refac_util:parse_annotate_file(File, true, SearchPaths),
+type_ann_ast(File, AnnAST, SearchPaths, TabWidth) ->
+    TestFrameWorkUsed = refac_util:test_framework_used(File),
     start_type_env_process(),
     Fs = refac_syntax:form_list_elements(AnnAST),
     Funs = sorted_funs(File),
-    Funs1 = lists:map(fun({{M,F, A},FunDef}) ->{{M, F, A},do_type_ann(FunDef)} end, Funs), 
+    Funs1 = lists:map(fun({{M,F, A},FunDef}) ->
+			      {{M, F, A},do_type_ann(File, FunDef, TestFrameWorkUsed,SearchPaths, TabWidth)} end, Funs), 
     Fs1 = lists:map(fun(Form) ->
 			    case refac_syntax:type(Form) of
 				function ->
@@ -69,7 +68,36 @@ type_ann(File, SearchPaths) ->
 				_ -> Form
 			    end
 		    end, Fs),
-    AnnAST1 = refac_syntax:form_list(Fs1),
+    AnnAST1 = refac_util:rewrite(AnnAST, refac_syntax:form_list(Fs1)),
+    case get_all_type_info() of 
+	[] ->
+	    stop_type_env_process(),
+	    AnnAST1;
+	TypeInfo ->
+	    ?debug("Typeinfo:\n~p\n", [TypeInfo]),
+	    stop_type_env_process(),
+	    prop_type_info(AnnAST1, TypeInfo)
+    end.
+
+type_ann_file(File, SearchPaths, TabWidth) ->
+    {ok, {AnnAST, _Info1}} = refac_util:parse_annotate_file(File, true, SearchPaths),
+    TestFrameWorkUsed = refac_util:test_framework_used(File),
+    start_type_env_process(),
+    Fs = refac_syntax:form_list_elements(AnnAST),
+    Funs = sorted_funs(File),
+    Funs1 = lists:map(fun({{M,F, A},FunDef}) ->
+			      {{M, F, A},do_type_ann(File, FunDef, TestFrameWorkUsed, SearchPaths, TabWidth)} end, Funs), 
+    Fs1 = lists:map(fun(Form) ->
+			    case refac_syntax:type(Form) of
+				function ->
+				    Ann = refac_syntax:get_ann(Form),
+				    {value, {fun_def, {M, F, A, _, _}}}=lists:keysearch(fun_def,1,Ann),
+				    {value, {{M, F, A}, FunDef}} =lists:keysearch({M, F, A}, 1, Funs1),
+				    FunDef;
+				_ -> Form
+			    end
+		    end, Fs),
+    AnnAST1 = refac_util:rewrite(AnnAST, refac_syntax:form_list(Fs1)),
     case get_all_type_info() of 
 	[] ->
 	    stop_type_env_process(),
@@ -81,13 +109,16 @@ type_ann(File, SearchPaths) ->
     end.
 
 
-do_type_ann(Form) ->
+
+do_type_ann(FileName, Form, TestFrameWorkUsed, SearchPaths, TabWidth) ->
     case refac_syntax:type(Form) of
       function ->
 	  Ann = refac_syntax:get_ann(Form),
 	  {value, {fun_def, {M, F, A, _, _}}}=lists:keysearch(fun_def,1,Ann),
 	  Name = refac_syntax:function_name(Form),
-	  Cs = [refac_util:full_buTP(fun do_type_ann_clause/2, C, refac_syntax:clause_patterns(C))
+	  Cs = [refac_util:full_buTP(fun do_type_ann_clause/2, C, 
+				     {FileName, refac_syntax:clause_patterns(C), 
+				      TestFrameWorkUsed, SearchPaths, TabWidth})
 		|| C <- refac_syntax:function_clauses(Form)],
 	  CsPats = [refac_syntax:clause_patterns(C) || C <- refac_syntax:function_clauses(Form)],
 	  TypeInfo = get_all_type_info(),
@@ -100,16 +131,16 @@ do_type_ann(Form) ->
 	       lists:any(fun(T) -> T/=[any] end, PatTypes) of
 	    true ->
 		Ts = {{M, F, A}, {[hd(PT)||PT<-PatTypes], any}},
-		refac_io:format("Ts:\n~p\n", [Ts]),
+		%% refac_io:format("Ts:\n~p\n", [Ts]),
 		add_to_type_env([Ts]);
 	      _ -> ok
 	  end,
-	  refac_syntax:function(Name, Cs);
+	  refac_util:rewrite(Form, refac_syntax:function(Name, Cs));
       _ ->
 	  Form
     end.
  
-do_type_ann_clause(Node, Pats) ->
+do_type_ann_clause(Node, {FileName, Pats,TestFrameWorkUsed, SearchPaths, TabWidth}) ->
     case refac_syntax:type(Node) of
       application ->
 	    Op = refac_syntax:application_operator(Node),
@@ -121,39 +152,52 @@ do_type_ann_clause(Node, Pats) ->
 		    Args1 = do_type_ann_args({M, F, A}, map_args(Pats, Args), Args),
 		    refac_util:rewrite(Node, refac_syntax:application(Op, Args1));
 		_ -> %% Either module name or function name is not an atom;
-		    do_type_ann_op(Node)
+		    do_type_ann_op(FileName, Node, SearchPaths, TabWidth)
 	    end;
+	tuple ->
+	     case refac_syntax:tuple_elements(Node) of 
+		 [E1, E2, E3, E4] ->
+		     case refac_syntax:type(E1)==atom andalso refac_syntax:atom_value(E1)==call
+			  andalso lists:member(eqc, TestFrameWorkUsed) of
+			 true ->
+			     %%refac_io:format("Node:\n~p\n", [Node]),
+			     NewE2 = add_type_info({type, m_atom}, E2),
+			     NewE3 = add_type_info({type, {f_atom, [try_eval(FileName, E2, SearchPaths, TabWidth,fun is_atom/1), 
+								    try_eval(FileName, E3, SearchPaths, TabWidth,fun is_atom/1), 
+								    try_eval_length(E4)]}}, E3),
+			     %%refac_io:format("NewNode:\n~p\n", [refac_syntax:tuple([E1, NewE2, NewE3, E4])]),
+			     refac_util:rewrite(Node, refac_syntax:tuple([E1, NewE2, NewE3, E4]));
+			 false ->
+			     Node
+		     end;
+		 _ -> Node
+	     end;			
 	_ -> Node
     end.
 
-do_type_ann_op(Node) ->
-    Fun = fun (N, Type) -> 
-		  case refac_syntax:type(N) of
-		      variable ->
-			  ?debug("Type:\n~p\n", [Type]),
-			  add_type_info({type, Type}, N);
-		      _ -> N
-		  end
-	  end,
+do_type_ann_op(FileName, Node, SearchPaths, TabWidth) ->
     Op = refac_syntax:application_operator(Node),
     Args = refac_syntax:application_arguments(Node),
     Arity = length(Args),
     case refac_syntax:type(Op) of
 	variable ->
-	    Op1 = add_type_info({type, {f_atom, ['_', try_eval(Op, fun is_atom/1), Arity]}}, Op),
+	    Op1 = add_type_info({type, {f_atom, ['_', try_eval(FileName, Op,  SearchPaths, TabWidth, 
+							       fun is_atom/1), Arity]}}, Op),
 	    refac_util:rewrite(Node, refac_syntax:application(Op1, Args));
 	module_qualifier ->
 	    M = refac_syntax:module_qualifier_argument(Op),
 	    F = refac_syntax:module_qualifier_body(Op),
-	    M1 = Fun(M, m_atom),
-	    F1 = Fun(F, {f_atom, [try_eval(M, fun is_atom/1), try_eval(F, fun is_atom/1), Arity]}),
+	    M1 = add_type_info({type, m_atom}, M),
+	    F1 = add_type_info({type, {f_atom, [try_eval(FileName, M,  SearchPaths, TabWidth, fun is_atom/1), 
+						try_eval(FileName, F,  SearchPaths, TabWidth, fun is_atom/1), Arity]}}, F),
 	    Op1 = refac_util:rewrite(Op, refac_syntax:module_qualifier(M1, F1)),
 	    refac_util:rewrite(Node, refac_syntax:application(Op1, Args));
 	tuple ->
 	    case refac_syntax:tuple_elements(Op) of
 	      [M, F] ->
-		  M1 = Fun(M, m_atom),
-		  F1 = Fun(F, {f_atom, [try_eval(M, fun is_atom/1), try_eval(M, fun is_atom/1), Arity]}),
+		  M1 = add_type_info({type, m_atom}, M),
+		  F1 = add_type_info({type,{f_atom, [try_eval(FileName, M, SearchPaths, TabWidth, fun is_atom/1), 
+						     try_eval(FileName, M,  SearchPaths, TabWidth, fun is_atom/1), Arity]}}, F),
 		  Op1 = refac_util:rewrite(Op, refac_syntax:tuple([M1, F1])),
 		  refac_util:rewrite(Node, refac_syntax:application(Op1, Args));
 	      _ ->
@@ -285,7 +329,7 @@ get_pat_type(P, TypeInfo) ->
 %%                                                                       %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 prop_type_info(AnnAST, TypeEnv) ->  
-    refac_util:stop_tdTP(fun do_prop_type_info/2, AnnAST, TypeEnv).
+    element(1,refac_util:stop_tdTP(fun do_prop_type_info/2, AnnAST, TypeEnv)).    
   
 do_prop_type_info(Node, TypeEnv) ->
     case refac_syntax:type(Node) of 
@@ -298,7 +342,6 @@ do_prop_type_info(Node, TypeEnv) ->
 		_ ->
 		    Type = element(2, lists:unzip(Ts)),
 		    Node1 = refac_syntax:add_ann({type, Type}, Node),
-		    refac_io:format("AtomNodeWithTypeInfo:\n~p\n", [Node1]),
 		    {Node1, true}
 	    end;	    
 	_ -> {Node, false}
@@ -366,32 +409,30 @@ type_env_loop(Env) ->
 try_eval(Expr, Cond) when is_function(Expr) ->
     fun (X) -> try_eval(Expr(X), Cond) end;
 try_eval(Expr, Cond) ->
-    E = refac_syntax:revert(Expr),
-    try
-      erl_eval:expr(E, [])
-    of
-      {value, V, _} ->
-	    ?debug("V:\n~p\n", [V]),
+    try_eval(node, Expr, [], 8, Cond).
+
+try_eval(FileName, E, SearchPaths, TabWidth, Cond) ->	
+    As = refac_syntax:get_ann(E),
+    case lists:keysearch(value, 1, As) of
+	{value, {value, {{_, V}, _DefPos}}} ->
 	    case Cond(V) of
-		true -> V;
+		true ->
+		    ?debug("V:\n~p\n", [V]),
+		    V;
 		_ -> '_'
-	    end
-    catch
-	_E1:_E2 ->
-	    ?debug("Expr:\n~p\n", [Expr]),
-	    As = refac_syntax:get_ann(Expr),
-	    case lists:keysearch(value, 1, As) of
-		{value, {value, {{_, V}, _DefPos}}} ->
+	    end;
+	_ -> 
+	    case refac_rename_fun:try_eval(FileName,E,SearchPaths, TabWidth) of
+		{value, V} ->
+		    ?debug("V:\n~p\n", [V]),
 		    case Cond(V) of
-			true ->
-			    ?debug("V:\n~p\n", [V]),
-			    V;
+			true -> V;
 			_ -> '_'
 		    end;
-		_ -> '_'
+		{error, _} ->'_'
 	    end
     end.
-
+		    
 try_eval_length(Expr) when is_function(Expr) ->
     fun (X) -> try_eval_length(Expr(X)) end;
 try_eval_length(Expr) ->
@@ -437,16 +478,148 @@ zip_list_1(ListOfLists, Acc)->
 %%                                                                       %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 type(erlang, apply, 3) ->
-    {[m_atom, fun(Args)->
-		      [A1, A2, A3] = Args, 
-		      {f_atom, [try_eval(A1, fun is_atom/1), try_eval(A2, fun is_atom/1),
-				try_eval_length(A3)]}
-	      end, any], any};
+   mfa_type();
+type(erlang, check_process_code, 2) ->
+    {[any, m_atom], any};
+type(erlang, delete_module, 1) ->
+    {[m_atom], any};
+type(erlang, function_exported, 3) ->
+	    mfa_type();
+type(erlang, hibernate, 3) ->
+    mfa_type();
+type(erlang, is_builtin, 3) ->
+    mfa_type();
+type(erlang, load_module, 2) ->
+    {[m_atom, any],any};
+type(erlang, module_loaded, 1) ->
+    {[m_atom], any};
+type(erlang, purge_module, 1) ->
+    {[m_atom], any};
+type(erlang, spawn, 3) ->
+    mfa_type();
+type(erlang, spawn, 4) ->
+    {[any, m_atom, f_atom_type(), any], any};
+type(erlang, spawn_link, 3) ->
+    mfa_type();
+type(erlang, spawn_link, 4) ->
+     {[any, m_atom, f_atom_type(), any], any};
+type(erlang, spawn_monitor, 3) -> 
+    mfa_type();
+type(erlang, spawn_opt, 4) ->
+    {[any, m_atom, f_atom_type(), any, any], any};
+type(erlang, spawn_opt, 5) ->
+    {[any, m_atom, f_atom_type(), any, any], any};
+
+type(eqc, module, 1) ->
+    {[m_atom], any};
+type(eqc_c, start, 1) ->
+    {[m_atom], any};
+type(eqc_c, start, 2) ->
+    {[m_atom, any], any};
+type(eqc_ct, compile, 1) ->
+     {[m_atom], any};
+type(eqc_ct, compile, 2) ->
+     {[m_atom, any], any};
+type(eqc_ct, module, 1) ->
+     {[m_atom], any};
+%% type(eqc_ct, compile_mods, 1) ->
+%%      {[m_atom], any};
+
+type(eqc_statem, commands, 1) ->
+    {[m_atom], any};
+type(eqc_statem, commands,2)->
+    {[m_atom, any], any};
+type(eqc_statem, run_commands, 2) ->
+    {[m_atom, any], any};
+type(eqc_statem, run_commands,3) ->
+    {[m_atom, any, any],any};
+type(eqc_statem, postconditions, 3) ->
+    {[m_atom, any, any], any};
+type(eqc_fsm, analyze, 1) ->
+    {[m_atom], any};
+type(eqc_fsm, automate_weights, 1) ->
+     {[m_atom], any};
+type(eqc_fsm, commands, 1) ->
+    {[m_atom], any};
+type(eqc_fsm, commands, 2) ->
+    {[m_atom, any], any};
+type(eqc_fsm, dot, 1) ->
+    {[m_atom], any};
+type(eqc_fsm, run_commands, 2) ->
+    {[m_atom, any], any};
+type(eqc_fsm, run_commands,3) ->
+    {[m_atom, any, any],any};
+type(eqc_fsm, visualize, 1) ->
+    {[m_atom], any};
+type(eqc_fsm, visualize, 2) ->
+    {[m_atom, any], any};
+type(test_server, call_crash, 5)->
+    {[any, any, m_atom, f_atom_type(), any], any};
 type(_, _, _) -> 
     none.
 
+mfa_type() ->
+    {[m_atom, f_atom_type(), any],any}.
+
+f_atom_type() ->
+    fun(Args)->
+	    [A1, A2, A3] = Args, 
+	    {f_atom, [try_eval(A1, fun is_atom/1), 
+		      try_eval(A2, fun is_atom/1),
+		      try_eval_length(A3)]}
+    end.
+
     
 sorted_funs(File) ->
-   CallGraph = wrangler_callgraph_server:get_callgraph([File]),
-   lists:append(CallGraph#callgraph.scc_order).
+    CallGraph = wrangler_callgraph_server:get_callgraph([File]),
+    lists:append(CallGraph#callgraph.scc_order).
 
+ 
+%% mod_name_as_pars_1() ->
+%%     [{{erlang, apply, 3}, [modulenmae, functionname, arglist], term},
+%%      {{erlang, spawn, 3}, [modulename, functionname, arglist], term},
+%%      {{erlang, spawn_link, 3}, [modulename, functionname, arglist], term},
+%%      {{erlang, spawn_opt, 4}, [modulename, functionname, arglist, term], term},
+%%      {{eqc, module, 1}, [modulename], term},
+%%      {{eqc_ct, compile, 1}, [modulename], term},
+%%      {{eqc_ct, compile, 2}, [mdoulename, term], term},
+%%      {{eqc_ct, module, 1}, [modulename], term},
+%%      {{eqc_statem, commands, 1}, [modulename], term},
+%%      {{eqc_statem, commands, 2}, [modulename, term], term},
+%%      {{eqc_statem, postconditions, 3}, [modulename, term, term], term},
+%%      {{eqc_statem, run_commands, 2}, [modulename, term], term},
+%%      {{eqc_statem, run_commands, 3}, [modulename, term, term], term},
+%%      {{test_server, timecall, 3}, [modulename, functionname, arglist], term},
+%%      {{test_server, call_crash, 3}, [modulename, functionname, arglist], term},
+%%      {{test_server, is_native, 1}, [modulename], term},
+%%      {{test_server_ctrl, add_module, 1}, [modulename], term},
+%%      {{test_server_ctrl, add_case, 2}, [modulename, functionname], term},
+%%      {{test_server_ctrl, add_cases, 2}, [modulename, [functionname]], term},
+%%      {{rs, r, 2}, [modulename, functionname], term},
+%%      {{rs, r, 3}, [modulename, functionname, term], term}].
+
+%% mod_name_as_pars_2() ->
+%%     [ {{erlang, spawn, 4}, [node, modulename, functionname, arglist], term},
+%%       {{erlang, spawn_link, 4}, [term, modulename, functioname, arglist], term},
+%%       {{erlang, spawn_monitor, 3}, [term, modulename,functionname, arglist], term},			       
+%%       {{eralng, spawn_opt, 4}, [term, modulename, functionname, arglist, term], term},
+%%       {{test_server, do_times, 4}, [integer, modulename, functionname, arglist], term},
+%%       {{test_server, call_crash, 4}, [term, modulename, functionname, arglist], term},
+%%       {{test_server_ctrl, add_case, 3}, [term, modulename, functionname], term},
+%%       {{test_server_ctrl, add_cases,3}, [term, modulename, [functionname]], term},
+%%       {{ts, run, 2}, [term, modulename], term},
+%%       {{ts, run, 3}, [term, modulename, functionname], term},
+%%       {{ts, run, 4}, [term, modulename, functionname, term], term}].
+      
+%% mod_name_as_pars_3() ->
+%%     [{{test_server, call_crash, 5}, [term, term, modulename, functionname, arglist], term}].
+    
+%% =====================================================================
+%% @spec application_info(Tree::syntaxTree())->term()
+
+%% Three ways that function name can be used in test data:
+%% {modulename, functionname}
+%% {modulename, functionname, arity}
+%% {modulename, functionname, arglist}
+%% {generator, modulename, functionname}
+%% {call, modulename, functionname, arglist}
