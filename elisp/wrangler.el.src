@@ -338,7 +338,7 @@
   (interactive)
   (require 'comint)
   (setq opts (list "-name" wrangler-erl-node-string
-		   "-pa"  %EBIN_DIR%
+		   "-pa"  "C:/cygwin/home/hl/wrangler/share/wrangler/ebin"
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))
@@ -514,16 +514,18 @@
 			      (message "Refactoring failed: %S" rsn))
 			     (['rex ['error rsn]]
 			      (message "Refactoring failed: %s" rsn))
-			     (['rex ['ok modified]]
+			     (['rex ['ok modified warning]]
 			      (progn
+				(warning-reminder warning)
 				(preview-commit-cancel current-file-name modified)
 				(with-current-buffer (get-file-buffer current-file-name)
 				  (goto-line line-no)
 				  (goto-column column-no)))))))
 		    (message "Refactoring aborted.")
 		    )))
-	       (['rex ['ok modified]]
+	       (['rex ['ok modified warning]]
 		(progn
+		  (warning-reminder warning)
 		  (preview-commit-cancel current-file-name modified)
 		  (with-current-buffer (get-file-buffer current-file-name)
 		    (goto-line line-no)
@@ -558,7 +560,8 @@
 			    (message "Refactoring failed: %S" rsn))
 			   (['rex ['error rsn]]
 			    (message "Refactoring failed: %s" rsn))
-			   (['rex ['ok modified]]
+			   (['rex ['ok modified warning]]
+			    (warning-reminder warning)
 			    (preview-commit-cancel current-file-name modified)
 			    )))
 		      (message "Refactoring aborted.")
@@ -574,7 +577,8 @@
 			  (message "Refactoring failed: %S" rsn))
 			 (['rex ['error rsn]]
 			  (message "Refactoring failed: %s" rsn))
-			 (['rex ['ok modified]]
+			 (['rex ['ok modified warning]]
+			  (warning-reminder warning)
 			  (preview-commit-cancel current-file-name modified)
 			  ))))
 		(erl-spawn
@@ -586,13 +590,23 @@
 			 (['rex ['error rsn]]
 			  (message "Refactoring failed: %s" rsn))
 			 (['rex ['ok modified]]
+			  (warning-reminder warning)
 			   (preview-commit-cancel current-file-name modified)
 			   ))))
 		)))
-	   (['rex ['ok modified]]
+	   (['rex ['ok modified warning]]
+	    (warning-reminder warning)
 	    (preview-commit-cancel current-file-name modified)
 	    ))))
     (message "Refactoring aborted."))))
+
+
+(defun warning-reminder(warning)
+ "output a reminder if there is a warning messge"
+ (interactive)
+ (if (equal warning 'true)
+     (message-box "Reminder: please read the warning message in the *erl-output* buffer!")
+   nil))
 
 (defun erl-refactor-rename-process(name)
   "Rename a registered process."
@@ -944,7 +958,24 @@
 				(preview-commit-cancel current-file-name modified)
 				(with-current-buffer (get-file-buffer current-file-name)
 				  (goto-line start-line-no)
-				  (goto-column start-col-no)))))))))
+				  (goto-column start-col-no))))))))
+		   (progn 
+			(with-current-buffer (get-file-buffer current-file-name)
+			  (setq instances_to_gen (get_instances_to_gen instances_in_fun buffer highlight-region-overlay)))
+			(erl-spawn
+			  (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_gen 'gen_fun_1 (list 'true current-file-name parname funname arity 
+										      defpos exp wrangler-search-paths tab-width instances_to_gen logmsg)))
+			  (erl-receive (start-line-no start-col-no current-file-name)
+			      ((['rex ['badrpc rsn]]
+				(message "Refactoring failed: %S" rsn))
+			       (['rex ['error rsn]]
+				(message "Refactoring failed: %s" rsn))
+			       (['rex ['ok modified]]
+				(preview-commit-cancel current-file-name modified)
+				(with-current-buffer (get-file-buffer current-file-name)
+				  (goto-line start-line-no)
+				  (goto-column start-col-no)))))))
+		  )
 	      (if (> no_of_clauses 1)
 		  (if (y-or-n-p "The function selected has multiple clauses, would you like to generalise the function clause selected only?")
 		      (progn
@@ -965,8 +996,8 @@
 				  (goto-column start-col-no)))))))
 		    (progn
 		      (with-current-buffer (get-file-buffer current-file-name)
-			  (setq instances_to_gen (get_instances_to_gen instances_in_fun buffer highlight-region-overlay)))
-		      (erl-spawn
+			  		   (setq instances_to_gen (get_instances_to_gen instances_in_fun buffer highlight-region-overlay)))
+		      (erl-spawn	   
 			(erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_gen 'gen_fun_1 
                                (list 'false current-file-name parname funname arity defpos exp wrangler-search-paths tab-width instances_to_gen logmsg)))
 			(erl-receive (start-line-no start-col-no current-file-name)
@@ -978,7 +1009,24 @@
 			      (preview-commit-cancel current-file-name modified)
 			      (with-current-buffer (get-file-buffer current-file-name)
 				(goto-line start-line-no)
-				(goto-column start-col-no)))))))))))
+				(goto-column start-col-no))))))))
+		(progn
+		  (with-current-buffer (get-file-buffer current-file-name)
+		    (setq instances_to_gen (get_instances_to_gen instances_in_fun buffer highlight-region-overlay)))
+		  (erl-spawn	   
+		    (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_gen 'gen_fun_1 
+					     (list 'false current-file-name parname funname arity defpos exp wrangler-search-paths tab-width instances_to_gen logmsg)))
+		    (erl-receive (start-line-no start-col-no current-file-name)
+			((['rex ['badrpc rsn]]
+			  (message "Refactoring failed: %S" rsn))
+			 (['rex ['error rsn]]
+			  (message "Refactoring failed: %s" rsn))
+			 (['rex ['ok modified]]
+			  (preview-commit-cancel current-file-name modified)
+			  (with-current-buffer (get-file-buffer current-file-name)
+			    (goto-line start-line-no)
+			    (goto-column start-col-no)))))))
+		)))
 	   (['rex ['multiple_instances pars]]
 	    (setq  parname (elt pars 0))
 	    (setq funname (elt pars 1))
@@ -1281,17 +1329,18 @@
      (message "Refactoring aborted."))))
 
 
-(defun erl-refactor-duplicated-code-in-buffer(mintokens minclones)
+(defun erl-refactor-duplicated-code-in-buffer(mintokens minclones maxpars)
   "Find code clones in the current buffer."
   (interactive (list (read-string "Minimum number of tokens a code clone should have (default value: 20): ")
 		     (read-string "Minimum number of appearance times (minimum and default value: 2): ")
+		     (read-string "Maximum number of parameters of least general common abstraction (default value: 5): ")
 		     ))
   (let ((current-file-name (buffer-file-name))
 	(buffer (current-buffer)))
     (if (current-buffer-saved buffer)
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'wrangler_distel 'duplicated_code_in_buffer
-									   (list current-file-name mintokens minclones tab-width)))
+									   (list current-file-name mintokens minclones maxpars tab-width)))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
 		(message "Duplicated code detection failed: %S" rsn))
@@ -1303,10 +1352,11 @@
 
 
 
-(defun erl-refactor-duplicated-code-in-dirs(mintokens minclones)
+(defun erl-refactor-duplicated-code-in-dirs(mintokens minclones maxpars)
   "Find code clones in the directories specified by the search paths."
   (interactive (list (read-string "Minimum number of tokens a code clone should have (default value: 20): ")
 		     (read-string "Minimum number of appearance times (minimum and default value: 2): ")
+		     (read-string "Maximum number of parameters of least general common abstraction (default value: 5): ")  
 		     ))
   (if (y-or-n-p (format "Find duplicated code in the following directories: %s" wrangler-search-paths))
       (let ((current-file-name (buffer-file-name))
@@ -1314,7 +1364,7 @@
 	(if (buffers-saved)
 	    (erl-spawn
 	      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'duplicated_code_in_dirs
-			    (list wrangler-search-paths mintokens minclones tab-width))
+			    (list wrangler-search-paths mintokens minclones maxpars tab-width))
 	      (erl-receive (buffer)
 		  ((['rex ['badrpc rsn]]
 		    (message "Duplicated code detection failed: %S" rsn))
