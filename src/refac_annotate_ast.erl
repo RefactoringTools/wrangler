@@ -32,7 +32,10 @@
 -include("../include/wrangler.hrl").
 
 add_fun_define_locations(AST, ModInfo) ->
-    {value, {module, ModName}} = lists:keysearch(module, 1, ModInfo),
+    case lists:keysearch(module, 1, ModInfo) of
+	{value, {module, ModName}} -> ModName;
+	_ -> ModName = '_'
+    end,
     Funs = fun (T, S) ->
 		   case refac_syntax:type(T) of
 		     function ->

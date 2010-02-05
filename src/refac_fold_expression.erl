@@ -58,7 +58,7 @@
 	 fold_expression_1/5,
 	 fold_expr_by_name/7, fold_expr_by_name_eclipse/7]).
 	
--export([expr_unification/2, fold_expression/6]).
+-export([expr_unification/2, fold_expression/6, collect_var_source_def_pos_info/1]).
 
 -include("../include/wrangler.hrl").
 %% =============================================================================================
@@ -657,24 +657,10 @@ set_default_ann(Node) ->
 
 
 vars_to_export_1(WholeExpList, SubExpList) ->
-    F1= fun(T, S) ->
-		case refac_syntax:type(T) of 
-		    variable ->
-			SourcePos = refac_syntax:get_pos(T),
-			case lists:keysearch(def, 1, refac_syntax:get_ann(T)) of 
-			    {value, {def, DefinePos}} ->
-				VarName = refac_syntax:variable_name(T),
-				S ++ [{VarName, SourcePos, DefinePos}];
-			    _ ->
-				S
-			end;
-		    _  -> S
-		end
-	end,
     AllVars = lists:usort(
-		lists:flatmap(fun(E)->
-				      refac_syntax_lib:fold(F1, [], E)
-			      end,  WholeExpList)),
+		lists:flatmap(
+		  fun(E)-> collect_var_source_def_pos_info(E) end, 
+		  WholeExpList)),
     SubExpListBdVars = lists:flatmap(
 			 fun(E) -> 
 				 As = refac_syntax:get_ann(E),
@@ -738,6 +724,24 @@ reorder_vars_to_export(LastExp, VarsToExport, Subst) ->
 	    false
     end.
 
+collect_var_source_def_pos_info(Node) ->
+    F= fun(T, S) ->
+		case refac_syntax:type(T) of 
+		    variable ->
+			SourcePos = refac_syntax:get_pos(T),
+			case lists:keysearch(def, 1, refac_syntax:get_ann(T)) of 
+			    {value, {def, DefinePos}} ->
+				VarName = refac_syntax:variable_name(T),
+				S ++ [{VarName, SourcePos, DefinePos}];
+			    _ ->
+				S
+			end;
+		    _  -> S
+		end
+	end,
+    refac_syntax_lib:fold(F, [], Node).
+    
+
 get_fun_clause_def(Node, FunName, Arity, ClauseIndex) ->
     case refac_util:once_tdTU(fun get_fun_def_1/2, Node, {FunName, Arity, ClauseIndex}) of
 	{_, false} -> {error, none};
@@ -789,6 +793,7 @@ pos_to_fun_clause_1(Node, Pos) ->
     end.
 
 
+
 -spec(fold_expression_1/5::(filename(), atom(), integer(), [dir()], integer()) -> 
 	     {syntaxTree(), moduleInfo()} | {error, string()}).
 fold_expression_1(FileName, FunName, Arity, SearchPaths, TabWidth) ->
@@ -817,3 +822,5 @@ name_to_fun_clause(AnnAST, FunName, Arity) ->
 
 term_to_list(Node) ->
     binary_to_list(term_to_binary(Node)).
+
+

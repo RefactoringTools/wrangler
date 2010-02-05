@@ -61,12 +61,12 @@
 	 build_lib_side_effect_tab/1,
 	 build_local_side_effect_tab/2, has_side_effect/3,
 	 callback_funs/1, auto_imported_bifs/0, file_format/1,
-	 rewrite/2, predefined_macros/0, default_incls/0]).
+	 rewrite/2, predefined_macros/0, default_incls/0, add_range/2]).
 
 -export([test_framework_used/1]).
 -export([analyze_free_vars/1, remove_duplicates/1]).
 -export([format_search_paths/1]).
-%%-compile(export_all).
+-compile(export_all).
 -include("../include/wrangler.hrl").
 
 %% =====================================================================
@@ -875,37 +875,13 @@ tokenize(File, WithLayout, TabWidth) ->
     {ok, Bin} = file:read_file(File),
     S = erlang:binary_to_list(Bin),
     case WithLayout of 
-	true -> {ok, Ts, _} = refac_scan_with_layout:string(S, {1,1}, TabWidth, file_format(File)),
-		Ts;
+	true -> 
+	    {ok, Ts, _} = refac_scan_with_layout:string(S, {1,1}, TabWidth, file_format(File)),
+	    Ts;
 	_ -> {ok, Ts, _} = refac_scan:string(S, {1,1}, TabWidth,file_format(File)),
 	     Ts
     end.
 
--spec(concat_toks(Toks::[token()]) ->string()).
-concat_toks(Toks) ->
-    concat_toks(Toks, "").
-
-concat_toks([], Acc) ->
-     lists:concat(lists:reverse(Acc));
-concat_toks([T|Ts], Acc) ->
-     case T of 
-	 {atom, _,  V} -> S = io_lib:write_atom(V), 
-			  concat_toks(Ts, [S|Acc]);
-	 {qatom, _, V} -> S=atom_to_list(V),
-			  concat_toks(Ts, [S|Acc]);
-	 {string, _, V} -> concat_toks(Ts,["\"", V, "\""|Acc]);
-	 {char, _, V} when is_integer(V) and (V =< 127)-> concat_toks(Ts,[io_lib:write_char(V)|Acc]);
-	 {char, _, V} when is_integer(V) ->
-	     {ok, [Num], _} = io_lib:fread("~u", integer_to_list(V)),
-	     [Str] = io_lib:fwrite("~.8B", [Num]),
-	     S = "$\\"++Str,
-	     concat_toks(Ts, [S|Acc]); 
-	 {float, _, V} -> concat_toks(Ts,[io_lib:write(V)|Acc]);
-	 {_, _, V} -> concat_toks(Ts, [V|Acc]);
-	 {dot, _} ->concat_toks(Ts, ['.'|Acc]);
-	 {V, _} -> 
-	     concat_toks(Ts, [V|Acc])
-     end.
 
 %% =====================================================================
 %% @spec parse_annotate_file(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()])
@@ -1178,17 +1154,17 @@ do_add_range(Node, Toks) ->
 	  {Toks21, Toks22} = lists:splitwith(fun (T) -> is_string(T) orelse is_whitespace_or_comment(T) end, Toks1),
 	  Toks3 = lists:filter(fun (T) -> is_string(T) end, Toks21),
 	  case Toks3 of
-	      [] -> 
-		  Len = length(refac_syntax:string_literal(Node)),
-		  Toks23 = lists:takewhile(fun(T) -> token_loc(T) <{L, C+Len-1} end, Toks22),
-		  Toks31 = lists:filter(fun (T) -> is_string(T) end, Toks23),
-		  case Toks31 of 
-		      [] ->
-			  refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
-		      _ -> 
-			  Node1 =refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node),
-			  refac_syntax:add_ann({toks, Toks31}, Node1)
-		  end;		      
+	    [] ->
+		Len = length(refac_syntax:string_literal(Node)),
+		Toks23 = lists:takewhile(fun (T) -> token_loc(T) < {L, C + Len - 1} end, Toks22),
+		Toks31 = lists:filter(fun (T) -> is_string(T) end, Toks23),
+		case Toks31 of
+		  [] ->
+		      refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
+		  _ ->
+		      Node1 = refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node),
+		      refac_syntax:add_ann({toks, Toks31}, Node1)
+		end;
 	    _ -> Toks4 = lists:takewhile(fun (T) -> is_whitespace_or_comment(T) end, lists:reverse(Toks21)),
 		 {L3, C3} = case Toks4 of
 			      [] -> token_loc(hd(Toks22));
@@ -1222,11 +1198,11 @@ do_add_range(Node, Toks) ->
 	  {S1, E1} = get_range(O),
 	  {S3, E3} = case Args of
 		       [] -> {S1, E1};
-		       _ -> La = glast("refac_util:do_add_range, application", Args), 
-			    {_S2, E2} = get_range(La), 
+		       _ -> La = glast("refac_util:do_add_range, application", Args),
+			    {_S2, E2} = get_range(La),
 			    {S1, E2}
 		     end,
-	    E31 = extend_backwards(Toks, E3, ')'),
+	  E31 = extend_backwards(Toks, E3, ')'),
 	  refac_syntax:add_ann({range, {S3, E31}}, Node);
       case_expr ->
 	  A = refac_syntax:case_expr_argument(Node),
@@ -1269,18 +1245,12 @@ do_add_range(Node, Toks) ->
 	  refac_syntax:add_ann({range, {S1, E2}}, Node);
       conjunction ->
 	  B = refac_syntax:conjunction_body(Node),
-	  H = ghead("refac_util:do_add_range,conjunction", B),
-	  La = glast("refac_util:do_add_range,conjunction", B),
-	  {S1, _E1} = get_range(H),
-	  {_S2, E2} = get_range(La),
-	  refac_syntax:add_ann({range, {S1, E2}}, Node);
+	  add_range_to_body(Node, B, "refac_util:do_add_range,conjunction", 
+			    "refac_util:do_add_range,conjunction");
       disjunction ->
-	  B = refac_syntax:disjunction_body(Node),
-	  H = ghead("refac_util:do_add_range, disjunction", B),
-	  La = glast("refac_util:do_add_range,disjunction", B),
-	  {S1, _E1} = get_range(H),
-	  {_S2, E2} = get_range(La),
-	  refac_syntax:add_ann({range, {S1, E2}}, Node);
+	  B = refac_syntax:disjunction_body(Node),	  
+	  add_range_to_body(Node, B, "refac_util:do_add_range, disjunction",
+			    "refac_util:do_add_range,disjunction");
       function ->
 	  F = refac_syntax:function_name(Node),
 	  Cs = refac_syntax:function_clauses(Node),
@@ -1336,7 +1306,8 @@ do_add_range(Node, Toks) ->
 	  case length(Es) of
 	    0 -> refac_syntax:add_ann({range, {{L, C}, {L, C + 1}}}, Node);
 	    _ ->
-		add_range_to_list_node(Node, Toks, Es, "refac_util:do_add_range, tuple", "refac_util:do_add_range, tuple",
+		add_range_to_list_node(Node, Toks, Es, "refac_util:do_add_range, tuple", 
+				       "refac_util:do_add_range, tuple",
 				       '{', '}')
 	  end;
       list_comp ->
@@ -1396,7 +1367,8 @@ do_add_range(Node, Toks) ->
 	  case Fs == [] of
 	    true -> refac_syntax:add_ann({range, {{L, C}, {L, C + 3}}}, Node);
 	    _ ->
-		add_range_to_list_node(Node, Toks, Fs, "refac_util:do_add_range, binary", "refac_util:do_add_range, binary",
+		add_range_to_list_node(Node, Toks, Fs, "refac_util:do_add_range, binary", 
+				       "refac_util:do_add_range, binary",
 				       '<<', '>>')
 	  end;
       binary_field ->
@@ -1415,11 +1387,9 @@ do_add_range(Node, Toks) ->
 	  refac_syntax:add_ann({range, {S1, E2}}, Node);
       form_list ->
 	  Es = refac_syntax:form_list_elements(Node),
-	  Hd = ghead("refac_util:do_add_range, form_list", Es),
-	  La = glast("refac_util:do_add_range, form_list", Es),
-	  {S1, _E1} = get_range(Hd),
-	  {_S2, E2} = get_range(La),
-	  refac_syntax:add_ann({range, {S1, E2}}, Node);
+	  
+	  add_range_to_body(Node, Es, "refac_util:do_add_range, form_list", 
+			    "refac_util:do_add_range, form_list");
       parentheses ->
 	  B = refac_syntax:parentheses_body(Node),
 	  {S, E} = get_range(B),
@@ -1434,11 +1404,9 @@ do_add_range(Node, Toks) ->
 	  refac_syntax:add_ann({range, {S1, E2}}, Node);
       qualified_name ->
 	  Es = refac_syntax:qualified_name_segments(Node),
-	  Hd = ghead("refac_util:do_add_range, qualified_name", Es),
-	  La = glast("refac_util:do_add_range, qualified_name", Es),
-	  {S1, _E1} = get_range(Hd),
-	  {_S2, E2} = get_range(La),
-	  refac_syntax:add_ann({range, {S1, E2}}, Node);
+	  
+	  add_range_to_body(Node, Es, "refac_util:do_add_range, qualified_name",
+			    "refac_util:do_add_range, qualified_name");
       query_expr ->
 	  B = refac_syntax:query_expr_body(Node),
 	  {S, E} = get_range(B),
@@ -1488,8 +1456,8 @@ do_add_range(Node, Toks) ->
       comment ->
 	  T = refac_syntax:comment_text(Node),
 	  Lines = length(T),
-	  refac_syntax:add_ann({range,
-				{{L, C}, {L + Lines - 1, length(glast("refac_util:do_add_range,comment", T))}}},
+	  refac_syntax:add_ann({range, {{L, C}, {L + Lines - 1,
+						 length(glast("refac_util:do_add_range,comment", T))}}},
 			       Node);
       macro ->
 	  Name = refac_syntax:macro_name(Node),
@@ -1531,6 +1499,13 @@ add_range_to_list_node(Node, Toks, Es, Str1, Str2, KeyWord1, KeyWord2) ->
     S11 = extend_forwards(Toks, S1, KeyWord1),
     E21 = extend_backwards(Toks, E2, KeyWord2),
     refac_syntax:add_ann({range, {S11, E21}}, Node).
+
+add_range_to_body(Node, B, Str1, Str2) ->
+    H = ghead(Str1, B),
+    La = glast(Str2, B),
+    {S1, _E1} = get_range(H),
+    {_S2, E2} = get_range(La),
+    refac_syntax:add_ann({range, {S1, E2}}, Node).
    
 extend_forwards(Toks, StartLoc, Val) ->
     Toks1 = lists:takewhile(fun (T) -> token_loc(T) < StartLoc end, Toks),
@@ -1716,7 +1691,7 @@ do_add_category(Node, C) ->
 %% @spec has_side_effect(File::filename(), Node::syntaxTree(), SearchPaths::[dir()])-> true|false|unknown
 
 -spec(has_side_effect(File::filename(), Node::syntaxTree(), SearchPaths::[dir()])-> true|false|unknown).
-has_side_effect(File, Node, SearchPaths) ->
+has_side_effect(_File, Node, _SearchPaths) ->
     LibSideEffectFile = list_to_atom(filename:join(?WRANGLER_DIR, "plt/side_effect_plt")),
     LibPlt = from_dets(lib_side_effect_plt, LibSideEffectFile),
     Res = check_side_effect(Node, LibPlt, none), 
@@ -1727,16 +1702,21 @@ has_side_effect(File, Node, SearchPaths) ->
 	false ->  dets:close(LibSideEffectFile),
 		  ets:delete(LibPlt),
 		  false;
-	unknown ->  CurrentDir = filename:dirname(normalise_file_name(File)),
-		    LocalSideEffectFile = filename:join(CurrentDir, "local_side_effect_tab"),
-		    build_local_side_effect_tab(LocalSideEffectFile, SearchPaths),
-		    LocalPlt = from_dets(local_side_effect_plt, LocalSideEffectFile),
-		    Res1 = check_side_effect(Node, LibPlt, LocalPlt),
-		    dets:close(LibSideEffectFile),
-		    dets:close(list_to_atom(LocalSideEffectFile)),
-		    ets:delete(LocalPlt),
-		    ets:delete(LibPlt),
-		    Res1
+	unknown -> 
+	    dets:close(LibSideEffectFile),
+	    ets:delete(LibPlt),
+	    unknown
+	    %% The following is too slow for a large project.
+	    %% CurrentDir = filename:dirname(normalise_file_name(File)),
+	    %% LocalSideEffectFile = filename:join(CurrentDir, "local_side_effect_tab"),
+	    %% build_local_side_effect_tab(LocalSideEffectFile, SearchPaths),
+	    %% LocalPlt = from_dets(local_side_effect_plt, LocalSideEffectFile),
+	    %% Res1 = check_side_effect(Node, LibPlt, LocalPlt),
+	    %% dets:close(LibSideEffectFile),
+	    %% dets:close(list_to_atom(LocalSideEffectFile)),
+	    %% ets:delete(LocalPlt),
+	    %% ets:delete(LibPlt),
+	    %% Res1		
     end.
 
 
@@ -2059,6 +2039,7 @@ test_framework_used(FileName) ->
 	  Eunit = lists:any(fun (S) -> lists:suffix("eunit.hrl", S) end, Strs),
 	  EQC = lists:any(fun (S) -> lists:suffix("eqc.hrl", S) end, Strs),
 	  EQC_STATEM = lists:any(fun (S) -> lists:suffix("eqc_statem.hrl", S) end, Strs),
+	  EQC_FSM = lists:any(fun (S) -> lists:suffix("eqc_fsm.hrl", S) end, Strs),
 	  TestSever = lists:suffix(FileName, "_SUITE.erl") and
 			lists:any(fun (S) -> lists:suffix("test_server.hrl", S) end, Strs),
 	  CommonTest = lists:suffix(FileName, "_SUITE.erl") and
@@ -2068,6 +2049,7 @@ test_framework_used(FileName) ->
 					  _ -> []
 					end
 			end, [{eunit, Eunit}, {eqc, EQC}, {eqc_statem, EQC_STATEM},
+			      {eqc_fsm, EQC_FSM},
 			      {testserver, TestSever}, {commontest, CommonTest}]);
       _ -> []
     end.
@@ -2162,3 +2144,29 @@ default_incls() ->
   [".", "..", "../hrl", "../incl", "../inc", "../include",
    "../../hrl", "../../incl", "../../inc", "../../include",
    "../../../hrl", "../../../incl", "../../../inc", "../../../include"].
+
+-spec(concat_toks(Toks::[token()]) ->string()).
+concat_toks(Toks) ->
+    concat_toks(Toks, "").
+
+concat_toks([], Acc) ->
+     lists:concat(lists:reverse(Acc));
+concat_toks([T|Ts], Acc) ->
+     case T of 
+	 {atom, _,  V} -> S = io_lib:write_atom(V), 
+			  concat_toks(Ts, [S|Acc]);
+	 {qatom, _, V} -> S=atom_to_list(V),
+			  concat_toks(Ts, [S|Acc]);
+	 {string, _, V} -> concat_toks(Ts,["\"", V, "\""|Acc]);
+	 {char, _, V} when is_integer(V) and (V =< 127)-> concat_toks(Ts,[io_lib:write_char(V)|Acc]);
+	 {char, _, V} when is_integer(V) ->
+	     {ok, [Num], _} = io_lib:fread("~u", integer_to_list(V)),
+	     [Str] = io_lib:fwrite("~.8B", [Num]),
+	     S = "$\\"++Str,
+	     concat_toks(Ts, [S|Acc]); 
+	 {float, _, V} -> concat_toks(Ts,[io_lib:write(V)|Acc]);
+	 {_, _, V} -> concat_toks(Ts, [V|Acc]);
+	 {dot, _} ->concat_toks(Ts, ['.'|Acc]);
+	 {V, _} -> 
+	     concat_toks(Ts, [V|Acc])
+     end.

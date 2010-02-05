@@ -175,25 +175,12 @@ generalise_and_hash_ast(Files, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
 
 
 generalise_and_hash_ast_1(FName, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
-    Fun0= fun(T, S) ->
-		  case refac_syntax:type(T) of 
-		      variable ->
-			  SourcePos = refac_syntax:get_pos(T),
-			  case lists:keysearch(def, 1, refac_syntax:get_ann(T)) of
-			      {value, {def, DefinePos}} ->
-				  VarName = refac_syntax:variable_name(T),
-				  S++[{VarName, SourcePos, DefinePos}];
-			      _ -> S
-			  end;
-		      _  -> S
-		  end
-	  end,
     Fun = fun(Form) ->
 		  case refac_syntax:type(Form) of 
 		      function ->
 			  FunName = refac_syntax:atom_value(refac_syntax:function_name(Form)),
 			  Arity = refac_syntax:function_arity(Form),
-			  AllVars = refac_syntax_lib:fold(Fun0, [], Form),
+			  AllVars = refac_fold_expression:collect_var_source_def_pos_info(Form),
 			  ets:insert(VarTab, {{FName, FunName, Arity}, AllVars}),
 			  refac_util:full_tdTP(fun generalise_and_hash_ast_2/2, 
 					       Form, {FName, FunName, Arity, ASTTab,Pid});

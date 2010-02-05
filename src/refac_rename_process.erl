@@ -177,7 +177,7 @@ collect_process_names(DirList) ->
 							 case is_register_app(Node1) of 
 							     true -> 
 								 [RegName, _Pid] = refac_syntax:application_arguments(Node1),
-								 RegNameValues = evaluate_expr(Files, ModName, AnnAST, Node, RegName),
+								 RegNameValues = refac_register_pid:evaluate_expr(Files, ModName, AnnAST, Node, RegName),
 								 RegNameValues++FunAcc;
 							     _ -> FunAcc
 							 end; 
@@ -212,25 +212,6 @@ is_register_app(T) ->
        _ -> false
      end.
 
-
-evaluate_expr(Files, ModName, AnnAST, FunDef, Expr) ->
-    F = fun(E) ->
-		Es = [refac_syntax:revert(E)],
-		case catch erl_eval:exprs(Es, []) of 
-		    {value, V, _} -> {value, V};
-		    _ ->
-			FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
-			Arity = refac_syntax:function_arity(FunDef),
-			{StartPos, _} = refac_util:get_range(Expr),
-			{unknown, {ModName, FunName, Arity, StartPos}}
-		end
-	end,
-    Exprs = case refac_util:get_free_vars(Expr) of 
-		[] -> [Expr];
-		_ ->  refac_slice:backward_slice(Files, AnnAST, ModName, FunDef, Expr)
-	    end,
-    Values = lists:map(F, Exprs),
-    Values.
 
 do_rename_process(CurrentFileName, AnnAST, OldProcessName, NewProcessName, SearchPaths, TabWidth) ->
     {AnnAST1, _Changed} = refac_util:stop_tdTP(fun do_rename_process/2, AnnAST, {OldProcessName, NewProcessName}),

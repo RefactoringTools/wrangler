@@ -56,6 +56,8 @@
 
 -export([register_pid/6, register_pid_eclipse/6, register_pid_1/10, register_pid_2/9]).
 
+-export([spawn_funs/0, is_spawn_app/1, evaluate_expr/5]).
+
 -include("../include/wrangler.hrl").
 
 %% ==============================================================================================================
@@ -318,15 +320,15 @@ is_direct_recursive_fun(ModName, FunName, Arity, FunDef) ->
 	_ -> false
     end.
 is_recursive_fun(Files, {ModName, FunName, Arity, FunDef}) ->
-    case is_direct_recursive_fun(ModName, FunName, Arity, FunDef) of 
-	true -> 
-	    true;
-	false ->
-	    CallGraph = wrangler_callgraph_server:get_callgraph(Files),
-	    Sccs = CallGraph#callgraph.scc_order,
-	    Sccs1 =[[Fun||{Fun, _FunDef}<-Scc]||Scc<-Sccs],
-	    lists:any(fun(E)-> (length(E)>1) andalso (lists:member({ModName, FunName, Arity}, E)) end,
-		      Sccs1)   
+    case is_direct_recursive_fun(ModName, FunName, Arity, FunDef) of
+      true ->
+	  true;
+      false ->
+	  CallGraph = wrangler_callgraph_server:get_callgraph(Files),
+	  Sccs = CallGraph#callgraph.scc_order,
+	  Sccs1 = [[Fun || {Fun, _FunDef} <- Scc] || Scc <- Sccs],
+	  lists:any(fun (E) -> length(E) > 1 andalso lists:member({ModName, FunName, Arity}, E) end,
+		    Sccs1)
     end.
 	
    
@@ -481,26 +483,24 @@ do_add_register_expr(Node, {MatchExpr, RegExpr}) ->
 	    end;
 	_  -> {Node, false}
     end.   
-	    
-    
 is_spawn_app(Tree) ->
-    SpawnFuns1 = [{erlang, spawn, 1}, {erlang, spawn, 2}, {erlang, spawn, 3}, {erlang, spawn, 4},
-		  {erlang, spawn_link, 1}, {erlang, spawn_link, 2}, {erlang, spawn_link, 3}, {erlang, spawn_link, 4},
-		  {erlang, spawn_opt, 3}, {erlang, spawn_opt, 5}],
-    %% SpawnFuns2 = [{erlang, spawn_monitor, 1}, {erlang, spawn_monitor, 3}, {erlang, spawn_opt, 2},
-%% 		  {erlang, spawn_opt, 4}],
+    SpawnFuns1 =  spawn_funs(),
     case refac_syntax:type(Tree) of
-      application ->
-	  Operator = refac_syntax:application_operator(Tree),
-	  Ann = refac_syntax:get_ann(Operator),
-	  case lists:keysearch(fun_def, 1, Ann) of
-	    {value, {fun_def, {Mod, Fun, Arity, _, _}}} -> lists:member({Mod, Fun, Arity}, SpawnFuns1);
-	    _ -> false
-	  end;
-      _ -> false
+	application ->
+	    Operator = refac_syntax:application_operator(Tree),
+	    Ann = refac_syntax:get_ann(Operator),
+	    case lists:keysearch(fun_def, 1, Ann) of
+		{value, {fun_def, {Mod, Fun, Arity, _, _}}} -> lists:member({Mod, Fun, Arity}, SpawnFuns1);
+		_ -> false
+	    end;
+	_ -> false
     end.
 
-
+spawn_funs() ->
+    [{erlang, spawn, 1}, {erlang, spawn, 2}, {erlang, spawn, 3}, {erlang, spawn, 4},
+     {erlang, spawn_link, 1}, {erlang, spawn_link, 2}, {erlang, spawn_link, 3}, {erlang, spawn_link, 4},
+     {erlang, spawn_opt, 3}, {erlang, spawn_opt, 5}].
+   
 
 evaluate_expr(Files, ModName, AnnAST, FunDef, Expr) ->
     F = fun(E) ->
@@ -591,30 +591,30 @@ pos_to_spawn_match_expr(AnnAST, Start, End) ->
 
 %% TODO: REFACTOR THE FOLLOWING TWO FUNCTIONS.
 pos_to_receive_expr(FunDef, Start) ->
-    F = fun(T, Acc) ->
-		case refac_syntax:type(T)==receive_expr of 
-		    true -> [T|Acc];
-		    _ -> Acc
+    F = fun (T, Acc) ->
+		case refac_syntax:type(T) == receive_expr of
+		  true -> [T| Acc];
+		  _ -> Acc
 		end
 	end,
     ReceiveExprs = refac_syntax_lib:fold(F, [], FunDef),
-    lists:any(fun(E) ->
+    lists:any(fun (E) ->
 		      {Start1, End1} = refac_util:get_range(E),
-		      (Start1 =< Start) andalso (Start =< End1)
+		      Start1 =< Start andalso Start =< End1
 	      end, ReceiveExprs).
     
 
 pos_to_list_comp_expr(FunDef, Start) ->
-    F = fun(T, Acc) ->
-		case refac_syntax:type(T) of 
-		    list_comp -> [T|Acc];
-		    _ -> Acc
+    F = fun (T, Acc) ->
+		case refac_syntax:type(T) of
+		  list_comp -> [T| Acc];
+		  _ -> Acc
 		end
 	end,
     ReceiveExprs = refac_syntax_lib:fold(F, [], FunDef),
-    lists:any(fun(E) ->
+    lists:any(fun (E) ->
 		      {Start1, End1} = refac_util:get_range(E),
-		      (Start1 =< Start) andalso (Start =< End1)
+		      Start1 =< Start andalso Start =< End1
 	      end, ReceiveExprs).
 
 

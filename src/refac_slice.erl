@@ -351,11 +351,7 @@ backward_slice(Files, AnnAST, ModName, FunDef, Expr) ->
     NewFunDef2 = unfold_fun_defs(Files, AnnAST, ModName, NewFunDef1),
     C = hd(refac_syntax:function_clauses(NewFunDef2)),
     Body = refac_syntax:clause_body(C),
-    {_Bound2, FreeVarsInBody} = lists:foldl(fun (E, {Bd, Fr}) ->
-						    {Bd1, Fr1} = {refac_util:get_bound_vars(E), refac_util:get_free_vars(E)},
-						    {ordsets:union(Bd, Bd1), ordsets:union(Fr, ordsets:subtract(Fr1, Bd))}
-					    end,
-					    {[], []}, Body),
+    {_, FreeVarsInBody} =  get_bound_free_vars(Body),
     case FreeVarsInBody of
       [] ->
 	  [refac_syntax:block_expr(Body)];
@@ -510,21 +506,13 @@ process_a_clause(C, Expr) ->
 						      {ordsets:union(Bd, Bd1), ordsets:union(Fr, Fr1)}
 					      end,
 					      {[], []}, Patterns),
-		{Bound2, Free2} = lists:foldl(fun (E, {Bd, Fr}) ->
-						      {Bd1, Fr1} = {refac_util:get_bound_vars(E), refac_util:get_free_vars(E)},
-						      {ordsets:union(Bd, Bd1), ordsets:union(Fr, ordsets:subtract(Fr1, Bd))}
-					      end,
-					      {[], []}, NewBody),
+		{Bound2, Free2} =  get_bound_free_vars(NewBody),
 		Bound = ordsets:union(Bound1, Bound2),
 		Free = ordsets:union(Free1, ordsets:subtract(Free2, Bound1)),
 		C2 = refac_util:update_ann(refac_util:update_ann(C1, {bound, Bound}), {free, Free}),
 		[C2];
 	    _ -> %% Expr does not use any of the vars declared in Patterns.
-		{Bound, Free} = lists:foldl(fun (E, {Bd, Fr}) ->
-						    {Bd1, Fr1} = {refac_util:get_bound_vars(E), refac_util:get_free_vars(E)},
-						    {ordsets:union(Bd, Bd1), ordsets:union(Fr, ordsets:subtract(Fr1, Bd))}
-					    end,
-					    {[], []}, NewBody),
+		{Bound, Free} =  get_bound_free_vars(NewBody),
 		C1 = refac_syntax:clause([refac_syntax:underscore()], none, NewBody),  %% replace patterns with undersocre.
 		C2 = refac_util:update_ann(refac_util:update_ann(C1, {bound, Bound}), {free, Free}),
 		[C2]
@@ -583,48 +571,45 @@ process_expr(LastExpr, Expr) ->
 		  end,
     E = GetExprBody(LastExpr),
     case refac_syntax:type(E) of
-	case_expr ->
-	    Args = refac_syntax:case_expr_argument(E),
-	    {Bound1, Free1} = {refac_util:get_bound_vars(Args), refac_util:get_free_vars(Args)},
-	    Clauses = refac_syntax:case_expr_clauses(E),
-	    NewClauses = lists:flatmap(fun (C) -> process_a_clause(C, Expr) end, Clauses), %% process each case clause.
-	    {Bound2, Free2} = lists:foldl(fun (C, {Bd, Fr}) ->
-						  {Bd1, Fr1} = {refac_util:get_bound_vars(C), refac_util:get_free_vars(C)},
-						  {ordsets:intersection(Bd, Bd1), ordsets:union(Fr, Fr1)}
-					  end,
-					  {[], []}, NewClauses),
-	    Bound = ordsets:union(Bound1, Bound2),
-	    Free = ordsets:union(Free1, Free2),
-	    E1 = refac_syntax:case_expr(Args, NewClauses),
-	    %% updated the annotation.
-	    E2 = refac_util:update_ann(refac_util:update_ann(E1, {bound, Bound}), {free, Free}),
-	    E2;
-	block_expr ->
-	    Body = refac_syntax:block_expr_body(E),
-	    NewBody = process_body(Body, Expr),
-	    {Bound, Free} = lists:foldl(fun (E1, {Bd, Fr}) ->
-						{Bd1, Fr1} = {refac_util:get_bound_vars(E1), refac_util:get_free_vars(E1)},
-						{ordsets:union(Bd, Bd1), ordsets:union(Fr, ordsets:subtract(Fr1, Bd))}
+      case_expr ->
+	  Args = refac_syntax:case_expr_argument(E),
+	  {Bound1, Free1} = {refac_util:get_bound_vars(Args), refac_util:get_free_vars(Args)},
+	  Clauses = refac_syntax:case_expr_clauses(E),
+	  NewClauses = lists:flatmap(fun (C) -> process_a_clause(C, Expr)
+				     end, Clauses), %% process each case clause.
+	  {Bound2, Free2} = lists:foldl(fun (C, {Bd, Fr}) ->
+						{Bd1, Fr1} = {refac_util:get_bound_vars(C), refac_util:get_free_vars(C)},
+						{ordsets:intersection(Bd, Bd1), ordsets:union(Fr, Fr1)}
 					end,
-					{[], []}, NewBody),
-	    BE = refac_syntax:block_expr(NewBody),
-	    refac_util:update_ann(refac_util:update_ann(BE, {bound, Bound}), {free, Free});
-	if_expr ->
-	    Clauses = refac_syntax:if_expr_clauses(E),
-	    NewClauses = lists:flatmap(fun (C) -> process_a_clause(C, Expr) end, Clauses),
-	    {Bound, Free} = lists:foldl(fun (C, {Bd, Fr}) ->
-						  {Bd1, Fr1} = {refac_util:get_bound_vars(C), refac_util:get_free_vars(C)},
-						  {ordsets:intersection(Bd, Bd1), ordsets:union(Fr, Fr1)}
-					  end,
-					  {[], []}, NewClauses),
-	    IE = refac_syntax:if_expr(NewClauses),          
-	    refac_util:update_ann(refac_util:update_ann(IE, {bound, Bound}), {free, Free});
-%%	receive_expr -> LastExpr;
-	%%fun_expr ->  %% IMPORTANT: fun exprs need more attection, as it is a function closure. 
-	%% lists comprehension is another problem. (find the example !!)
-	%% catch_expr ->
-	%% Any other possibilities?
-	_ -> refac_syntax:tuple([refac_syntax:atom(error), refac_syntax:atom("Error with evaluation")])
+					{[], []}, NewClauses),
+	  Bound = ordsets:union(Bound1, Bound2),
+	  Free = ordsets:union(Free1, Free2),
+	  E1 = refac_syntax:case_expr(Args, NewClauses),
+	  %% updated the annotation.
+	  E2 = refac_util:update_ann(refac_util:update_ann(E1, {bound, Bound}), {free, Free}),
+	  E2;
+      block_expr ->
+	  Body = refac_syntax:block_expr_body(E),
+	  NewBody = process_body(Body, Expr),
+	  {Bound, Free} =  get_bound_free_vars(NewBody),
+	  BE = refac_syntax:block_expr(NewBody),
+	  refac_util:update_ann(refac_util:update_ann(BE, {bound, Bound}), {free, Free});
+      if_expr ->
+	  Clauses = refac_syntax:if_expr_clauses(E),
+	  NewClauses = lists:flatmap(fun (C) -> process_a_clause(C, Expr) end, Clauses),
+	  {Bound, Free} = lists:foldl(fun (C, {Bd, Fr}) ->
+					      {Bd1, Fr1} = {refac_util:get_bound_vars(C), refac_util:get_free_vars(C)},
+					      {ordsets:intersection(Bd, Bd1), ordsets:union(Fr, Fr1)}
+				      end,
+				      {[], []}, NewClauses),
+	  IE = refac_syntax:if_expr(NewClauses),
+	  refac_util:update_ann(refac_util:update_ann(IE, {bound, Bound}), {free, Free});
+      %%	receive_expr -> LastExpr;
+      %%fun_expr ->  %% IMPORTANT: fun exprs need more attection, as it is a function closure. 
+      %% lists comprehension is another problem. (find the example !!)
+      %% catch_expr ->
+      %% Any other possibilities?
+      _ -> refac_syntax:tuple([refac_syntax:atom(error), refac_syntax:atom("Error with evaluation")])
     end.
  
 
@@ -654,3 +639,11 @@ get_match_expr_body(E) ->
       match_expr -> get_match_expr_body(Body);
       _ -> Body
     end.
+
+get_bound_free_vars(Body) ->
+     lists:foldl(fun (E, {Bd, Fr}) ->
+			 {Bd1, Fr1} = {refac_util:get_bound_vars(E), refac_util:get_free_vars(E)},
+			 {ordsets:union(Bd, Bd1), ordsets:union(Fr, ordsets:subtract(Fr1, Bd))}
+		 end,
+		 {[], []}, Body).
+  

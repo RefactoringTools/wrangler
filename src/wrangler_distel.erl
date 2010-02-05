@@ -79,15 +79,15 @@ move_fun(FName, Line, Col, ModName,SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, move_fun, [FName, Line, Col, ModName, SearchPaths, TabWidth], SearchPaths).
 
 
--spec(duplicated_code_in_buffer/4::(filename(), string(), string(), integer()) ->{ok, string()}).      
-duplicated_code_in_buffer(FName, MinLines,  MinClones, TabWidth) ->
-    wrangler:duplicated_code_in_buffer(FName, MinLines, MinClones, TabWidth).
+-spec(duplicated_code_in_buffer/5::(filename(), string(), string(), string(), integer()) ->{ok, string()}).      
+duplicated_code_in_buffer(FName, MinLines,  MinClones, MaxPars, TabWidth) ->
+    wrangler:duplicated_code_in_buffer(FName, MinLines, MinClones, MaxPars, TabWidth).
 
--spec(duplicated_code_in_dirs/4::([dir()], string(), string(), integer()) ->{ok, string()}).
-duplicated_code_in_dirs(SearchPaths, MinLines, MinClones, TabWidth) ->
+-spec(duplicated_code_in_dirs/5::([dir()], string(), string(), string(), integer()) ->{ok, string()}).
+duplicated_code_in_dirs(SearchPaths, MinLines, MinClones, MaxPars, TabWidth) ->
     case check_searchpaths(SearchPaths) of 
  	ok ->
-	    wrangler:duplicated_code_in_dirs(SearchPaths, MinLines, MinClones, TabWidth);
+	    wrangler:duplicated_code_in_dirs(SearchPaths, MinLines, MinClones, MaxPars, TabWidth);
  	{error, Reason} -> {error, Reason}
      end.
   

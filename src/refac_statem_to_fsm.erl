@@ -65,15 +65,8 @@ eqc_statem_to_fsm(FileName, StateName, SearchPaths, TabWidth, Editor) ->
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     pre_cond_check(Info, StateName),
     AnnAST1 = do_eqc_state_to_fsm(AnnAST, list_to_atom(StateName)),
-    case Editor of
-	emacs ->
-	    refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], Cmd),
-	    {ok, [FileName]};
-	eclipse ->
-	    Content = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST1),
-	    {ok, [{FileName, FileName, Content}]}
-    end.
-    
+    refac_util:write_refactored_files(FileName, AnnAST1, Editor, Cmd).
+   
 
 pre_cond_check(Info, StateName) ->
     case refac_util:is_fun_name(StateName) of

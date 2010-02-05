@@ -182,7 +182,7 @@ generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPa
     DupsInClause = search_duplications(expr_to_fun_clause(Fun, Exp), Exp),
     case SideEffect of
       unknown ->
-	  {unknown_side_effect, {ParName1, FunName, FunArity,
+	    {unknown_side_effect, {ParName1, FunName, FunArity,
 				 FunDefPos, Exp, NoOfClauses, DupsInFun, DupsInClause, Cmd}};
       _ ->
 	  case NoOfClauses > 1 of

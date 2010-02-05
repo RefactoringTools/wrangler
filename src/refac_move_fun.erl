@@ -65,6 +65,8 @@
 
 -export([remove_duplicates/2]).
 
+-export([application_info/1]).
+
 -include("../include/wrangler.hrl").
 
 %==========================================================================================
@@ -684,19 +686,14 @@ do_remove_module_qualifier(Node, {FileName, {ModName, FunName, Arity}, TargetMod
 	  Args = refac_syntax:application_arguments(Node),
 	  case application_info(Node) of
 	    {{none, FunName}, Arity} -> {Node, true};
-	      {{ModName, FunName}, Arity} -> 
-		  case refac_syntax:type(Op) of 
-		      tuple ->
-			  [M, F] = refac_syntax:tuple_elements(Op),
-			  Op1= copy_pos_attrs(Op, refac_syntax:tuple(
-					[copy_pos_attrs(M, refac_syntax:atom(TargetModName)), F])),
-			  Node1= copy_pos_attrs(Node, refac_syntax:application(Op1,Args)),
-			  {Node1, true};
-		      _ ->
-			  Op1 = copy_pos_attrs(Op, refac_syntax:atom(FunName)),
-			  Node1 = copy_pos_attrs(Node, refac_syntax:application(Op1, Args)),
-			  {Node1, true}
-		  end;
+	    {{ModName, FunName}, Arity} ->
+		case refac_syntax:type(Op) of
+		  tuple -> {rename_fun_in_tuple_op(Node, Op, Args, TargetModName), true};
+		  _ ->
+		      Op1 = copy_pos_attrs(Op, refac_syntax:atom(FunName)),
+		      Node1 = copy_pos_attrs(Node, refac_syntax:application(Op1, Args)),
+		      {Node1, true}
+		end;
 	    {{Mod1, Fun1}, Ari1} ->
 		case lists:keysearch({Mod1, Fun1, Ari1}, 1, refac_rename_fun:apply_style_funs()) of
 		  {value, _} ->
@@ -747,85 +744,80 @@ add_change_module_qualifier(FileName, Form, {ModName, FunName, Arity}, TargetMod
     refac_util:full_tdTP(fun do_add_change_module_qualifier/2,
 			 Form, {FileName, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth, Pid}).
 
-do_add_change_module_qualifier(Node, {FileName, {ModName, FunName, Arity}, TargetModName,SearchPaths, TabWidth, Pid}) ->
-    MakeApp = fun (Node1, Operator1, Arguments1,TargetModName1, FunName1) ->
- 		      Operator2 =copy_pos_attrs(Operator1,refac_syntax:module_qualifier(refac_syntax:atom(TargetModName1),
- 											refac_syntax:atom(FunName1))),
- 		      Node2= copy_pos_attrs(Node1, refac_syntax:application(Operator2,Arguments1)),
- 		      {Node2, true}
- 	      end,
-    case refac_syntax:type(Node) of 
-	application ->
-	    Operator = refac_syntax:application_operator(Node),
-	    Args = refac_syntax:application_arguments(Node),
-	    case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Operator)) of 
-		{value, {fun_def, {Mod1, Fun1, Ari1, _, _}}} ->
-		    case lists:keysearch({Mod1, Fun1, Ari1}, 1, refac_rename_fun:apply_style_funs()) of
-			{value, _} ->
-			    transform_apply_style_calls(FileName, Node, {ModName, FunName, Arity}, TargetModName, SearchPaths, 8);  %% To Change
-			false ->
-			    case {Mod1, Fun1, Ari1} of
-				{ModName, FunName, Arity} ->
-				    case refac_syntax:type(Operator) of 
-					tuple -> 
-					    [M, F] = refac_syntax:tuple_elements(Operator),
-					    Operator1= copy_pos_attrs(Operator, refac_syntax:tuple(
-								[copy_pos_attrs(M, refac_syntax:atom(TargetModName)), F])),
-					    Node1= copy_pos_attrs(Node, refac_syntax:application(Operator1,Args)),
-					    {Node1, true};
-					_ ->
-					    MakeApp(Node, Operator, Args, TargetModName, FunName)
-				    end;					
-				_ ->{Node, false}
-			    end
-		    end;
-		_ ->{Node, false}
-	    end;
-	implicit_fun ->
-	    Name = refac_syntax:implicit_fun_name(Node),
-	    case refac_syntax:type(Name) of 
-		arity_qualifier ->
-		    Body = refac_syntax:arity_qualifier_body(Name),
-		    A = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Name)),
-		    case refac_syntax:type(Body) of 
-			atom -> B = refac_syntax:atom_value(Body),
-				case {B, A} of
-				    {FunName, Arity} ->
-				   	FunName1 = copy_pos_attrs(Name, refac_syntax:module_qualifier(copy_pos_attrs(Name, 
-									 refac_syntax:atom(TargetModName)),Name)),
-					{copy_pos_attrs(Node, refac_syntax:implicit_fun(FunName1)),true};
-				    _ -> {Node, false}
-				end;
+do_add_change_module_qualifier(Node, {FileName, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth, Pid}) ->
+    MakeApp = fun (Node1, Operator1, Arguments1, TargetModName1, FunName1) ->
+		      Operator2 = copy_pos_attrs(Operator1, refac_syntax:module_qualifier(refac_syntax:atom(TargetModName1),
+											  refac_syntax:atom(FunName1))),
+		      Node2 = copy_pos_attrs(Node1, refac_syntax:application(Operator2, Arguments1)),
+		      {Node2, true}
+	      end,
+    case refac_syntax:type(Node) of
+      application ->
+	  Operator = refac_syntax:application_operator(Node),
+	  Args = refac_syntax:application_arguments(Node),
+	  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Operator)) of
+	    {value, {fun_def, {Mod1, Fun1, Ari1, _, _}}} ->
+		case lists:keysearch({Mod1, Fun1, Ari1}, 1, refac_rename_fun:apply_style_funs()) of
+		  {value, _} ->
+		      transform_apply_style_calls(FileName, Node, {ModName, FunName, Arity}, TargetModName, SearchPaths, 8);  %% To Change
+		  false ->
+		      case {Mod1, Fun1, Ari1} of
+			{ModName, FunName, Arity} ->
+			    case refac_syntax:type(Operator) of
+			      tuple -> {rename_fun_in_tuple_op(Node, Operator, Args, TargetModName), true};
+				_ ->
+				  MakeApp(Node, Operator, Args, TargetModName, FunName)
+			    end;
 			_ -> {Node, false}
-		    end;
-		module_qualifier ->
-		    Mod = refac_syntax:module_qualifier_argument(Name),
-		    Body = refac_syntax:module_qualifier_body(Name),
-		    case refac_syntax:type(Mod) of 
-			atom ->
-			    case refac_syntax:atom_value(Mod) of 
-				ModName -> 
-				    B = refac_syntax:arity_qualifier_body(Body),
-				    A = refac_syntax:arity_qualifier_argument(Body),
-				    case {refac_syntax:type(B), refac_syntax:type(A)} of
-					{atom, integer} ->
-					    case {refac_syntax:atom_value(B), refac_syntax:integer_value(A)} of
-						{FunName, Arity} -> 
-						    {copy_pos_attrs(Node, 
-								    refac_syntax:implicit_fun(copy_pos_attrs(Name, 
-								     refac_syntax:module_qualifier(copy_pos_attrs(Mod, 
-								      refac_syntax:atom(TargetModName)), Body)))), true};
-						_ -> {Node, false}
-					    end;
-					_ ->{Node, false}
-				    end;
-				_ -> {Node, false}
-			    end
-		    end		
-	    end;
-	tuple -> do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, FunName, TargetModName, Arity, Pid, TabWidth});
-	_ ->{Node, false}	    
-    end. 		    
+		      end
+		end;
+	    _ -> {Node, false}
+	  end;
+      implicit_fun ->
+	  Name = refac_syntax:implicit_fun_name(Node),
+	  case refac_syntax:type(Name) of
+	    arity_qualifier ->
+		Body = refac_syntax:arity_qualifier_body(Name),
+		A = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Name)),
+		case refac_syntax:type(Body) of
+		  atom -> B = refac_syntax:atom_value(Body),
+			  case {B, A} of
+			    {FunName, Arity} ->
+				FunName1 = copy_pos_attrs(Name, refac_syntax:module_qualifier(copy_pos_attrs(Name,
+													     refac_syntax:atom(TargetModName)), Name)),
+				{copy_pos_attrs(Node, refac_syntax:implicit_fun(FunName1)), true};
+			    _ -> {Node, false}
+			  end;
+		  _ -> {Node, false}
+		end;
+	    module_qualifier ->
+		Mod = refac_syntax:module_qualifier_argument(Name),
+		Body = refac_syntax:module_qualifier_body(Name),
+		case refac_syntax:type(Mod) of
+		  atom ->
+		      case refac_syntax:atom_value(Mod) of
+			ModName ->
+			    B = refac_syntax:arity_qualifier_body(Body),
+			    A = refac_syntax:arity_qualifier_argument(Body),
+			    case {refac_syntax:type(B), refac_syntax:type(A)} of
+			      {atom, integer} ->
+				  case {refac_syntax:atom_value(B), refac_syntax:integer_value(A)} of
+				    {FunName, Arity} ->
+					{copy_pos_attrs(Node,
+							refac_syntax:implicit_fun(copy_pos_attrs(Name,
+												 refac_syntax:module_qualifier(copy_pos_attrs(Mod,
+																	      refac_syntax:atom(TargetModName)), Body)))), true};
+				    _ -> {Node, false}
+				  end;
+			      _ -> {Node, false}
+			    end;
+			_ -> {Node, false}
+		      end
+		end
+	  end;
+      tuple -> do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, FunName, TargetModName, Arity, Pid, TabWidth});
+      _ -> {Node, false}
+    end.
   
 
 %% ====================================================================================
@@ -907,7 +899,7 @@ do_change_module_qualifier(Node, {FileName, {ModName, FunName, Arity}, TargetMod
 	      end,
     case refac_syntax:type(Node) of
       application ->
-	    Op = refac_syntax:application_operator(Node),
+	  Op = refac_syntax:application_operator(Node),
 	  Args = refac_syntax:application_arguments(Node),
 	  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
 	    {value, {fun_def, {Mod1, Fun1, Ari1, _, _}}} ->
@@ -918,15 +910,10 @@ do_change_module_qualifier(Node, {FileName, {ModName, FunName, Arity}, TargetMod
 		      case {Mod1, Fun1, Ari1} of
 			{ModName, FunName, Arity} ->
 			    case refac_syntax:type(Op) of
-				module_qualifier ->
+			      module_qualifier ->
 				  MakeApp(Node, Op, Args, TargetModName, FunName);
-				tuple ->
-				    [M, F] = refac_syntax:tuple_elements(Op),
-				    Op1 = copy_pos_attrs(Op, refac_syntax:tuple(
-							       [copy_pos_attrs(M, refac_syntax:atom(TargetModName)), F])),
-				    Node1 = copy_pos_attrs(Node, refac_syntax:application(Op1, Args)),
-				    {Node1, true};
-				_ -> {Node, false}
+			      tuple -> {rename_fun_in_tuple_op(Node, Op, Args, TargetModName), true};
+			      _ -> {Node, false}
 			    end;
 			_ -> {Node, false}
 		      end
@@ -934,9 +921,16 @@ do_change_module_qualifier(Node, {FileName, {ModName, FunName, Arity}, TargetMod
 	    _ -> {Node, false}
 	  end;
       implicit_fun -> process_implicit_fun(Node, ModName, FunName, Arity, TargetModName);
-      tuple -> do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, FunName, TargetModName, Arity, Pid, TabWidth});
+      tuple -> do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, 
+				       FunName, TargetModName, Arity, Pid, TabWidth});
       _ -> {Node, false}
     end.
+
+rename_fun_in_tuple_op(App,Op, Args, TargetModName) ->
+    [M, F] = refac_syntax:tuple_elements(Op),
+    Op1 = copy_pos_attrs(Op, refac_syntax:tuple([copy_pos_attrs(M, refac_syntax:atom(TargetModName)), F])),
+    copy_pos_attrs(App, refac_syntax:application(Op1, Args)).
+    
   
 %%================================================================================
 %%              Some Utility Functions 
@@ -989,7 +983,7 @@ application_info(Node) ->
 			    end;
 		_  -> {{none,expressionoperator}, Arity}
 	    end;
-	_ -> erlang:error(bagarg)
+	_ -> erlang:error(badarg)
     end.
 
 transform_apply_style_calls(FileName, Node, {ModName, FunName, Arity}, NewModName, SearchPaths, TabWidth) ->

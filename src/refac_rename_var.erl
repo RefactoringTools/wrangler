@@ -115,14 +115,7 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 	     _ -> ok
 	   end,
 	   {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
-	   case Editor of
-	     emacs ->
-		 refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST2}], Cmd1),
-		 {ok, [FName]};
-	     eclipse ->
-		 Content = refac_prettypr:print_ast(refac_util:file_format(FName), AnnAST2),
-		 {ok, [{FName, FName, Content}]}
-	   end;
+	   refac_util:write_refactored_files(FName, AnnAST2, Editor, Cmd1);
        true ->
 	   case Editor of
 	     emacs ->
@@ -226,15 +219,16 @@ pos_to_form(Node, Pos) ->
     end.
 
 pos_to_form_1(Node, Pos) ->
-    case (refac_syntax:type(Node)==function) 
-	orelse (refac_syntax:type(Node)==attribute) of
-	true ->
-	    {S, E} = refac_util:get_range(Node),
-	    if (S =< Pos) and (Pos =< E) ->
-		    {Node, true};
-	       true -> {[], false}
-	    end;
-	_ -> {[], false}
+    case refac_syntax:type(Node) == function
+	   orelse refac_syntax:type(Node) == attribute
+	of
+      true ->
+	  {S, E} = refac_util:get_range(Node),
+	  if (S =< Pos) and (Pos =< E) ->
+		 {Node, true};
+	     true -> {[], false}
+	  end;
+      _ -> {[], false}
     end.
 
 

@@ -375,7 +375,7 @@ annotate_special_fun_apps({CurrentFun,FunDef}, EnvPid) ->
 do_annotate_special_fun_apps_pid(Node, {CurrentFun, EnvPid}) ->
     case refac_syntax:type(Node) of
 	application ->
-	    case is_spawn_app(Node) of   %% TODO:How about meta application of spawn?
+	    case refac_register_pid:is_spawn_app(Node) of   %% TODO:How about meta application of spawn?
 		true ->
 		    Op = refac_syntax:application_operator(Node),
 		    Args = refac_syntax:application_arguments(Node),
@@ -497,24 +497,6 @@ do_annotate_special_fun_apps_pname(Node, EnvPid) ->
 			  _ -> Node
 		      end;
 	_ -> Node
-    end.
-
-
-is_spawn_app(Tree) ->
-    SpawnFuns1 = [{erlang, spawn, 1}, {erlang, spawn, 2}, {erlang, spawn, 3}, {erlang, spawn, 4},
-		  {erlang, spawn_link, 1}, {erlang, spawn_link, 2}, {erlang, spawn_link, 3}, {erlang, spawn_link, 4},
-		  {erlang, spawn_opt, 3}, {erlang, spawn_opt, 5}],
-    %% SpawnFuns2 = [{erlang, spawn_monitor, 1}, {erlang, spawn_monitor, 3}, {erlang, spawn_opt, 2},
-%% 		  {erlang, spawn_opt, 4}],  %% These funs return more than a single Pid.
-    case refac_syntax:type(Tree) of
-      application ->
-	  Operator = refac_syntax:application_operator(Tree),
-	  Ann = refac_syntax:get_ann(Operator),
-	  case lists:keysearch(fun_def, 1, Ann) of
-	    {value, {fun_def, {Mod, Fun, Arity, _, _}}} -> lists:member({Mod, Fun, Arity}, SpawnFuns1);
-	    _ -> false
-	  end;
-      _ -> false
     end.
 
 is_send_expr(Tree) ->

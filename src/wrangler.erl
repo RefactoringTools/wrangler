@@ -44,8 +44,8 @@
 -export([rename_var/6, rename_fun/6, rename_mod/4,
 	 rename_process/6, rename_mod_batch/4, generalise/6, gen_fun_1/11, gen_fun_clause/10,
 	 move_fun/6, move_fun_1/6,
-	 duplicated_code_in_buffer/4,
-	 duplicated_code_in_dirs/4,
+	 duplicated_code_in_buffer/5,
+	 duplicated_code_in_dirs/5,
 	 identical_expression_search/4,
 	 similar_expression_search/6, fun_extraction/5, fun_extraction_1/7,
 	 fold_expr/1, fold_expr_by_loc/5, fold_expr_by_name/7,
@@ -386,9 +386,9 @@ move_fun_1_eclipse(FileName, Line, Col, TargetModName,SearchPaths, TabWidth) ->
 %% </p>
 %% @spec duplicated_code_in_buffer(FileName::filename(),MinToks::string(),MinClones::string(), TabWidth::integer()) -> {ok, string()}
 %% 
--spec(duplicated_code_in_buffer/4::(filename(), string(), string(), integer()) ->{ok, string()}).     
-duplicated_code_in_buffer(FileName, MinToks, MinClones, TabWidth) -> 
-    try_refactoring(refac_duplicated_code, duplicated_code, [[FileName], MinToks, MinClones, TabWidth]).
+-spec(duplicated_code_in_buffer/5::(filename(), string(), string(), string(), integer()) ->{ok, string()}).     
+duplicated_code_in_buffer(FileName, MinToks, MinClones, MaxPars, TabWidth) -> 
+    try_refactoring(refac_duplicated_code, duplicated_code, [[FileName], MinToks, MinClones, MaxPars, TabWidth]).
 
 %%@private
 -spec(duplicated_code_eclipse/5::(DirFileList::dir(), MinLength::integer(), MinClones::integer(), 
@@ -419,10 +419,10 @@ sim_code_detection_eclipse(DirFileList, MinLen, MinFreq, SimiScore, SearchPaths,
 %% the place where you want to search for duplicated code, then select <em> Detect Identical Code in Dirs </em> from 
 %% <em> Refactor</em>, Wrangler will then prompt to input the parameters.
 %% </p>
-%% @spec duplicated_code_in_dirs(FileNameList::[filename()|dir()], MinToks::string(), MinClones::string(),TabWidth:: integer()) -> {ok, string()}
--spec(duplicated_code_in_dirs/4::([dir()], string(), string(), integer()) ->{ok, string()}).
-duplicated_code_in_dirs(FileDirList, MinToks, MinClones, TabWidth) ->
-    try_refactoring(refac_duplicated_code, duplicated_code, [FileDirList, MinToks, MinClones, TabWidth]).
+%% @spec duplicated_code_in_dirs(FileNameList::[filename()|dir()], MinToks::string(), MinClones::string(), MatPars:: string(), TabWidth:: integer()) -> {ok, string()}
+-spec(duplicated_code_in_dirs/5::([dir()], string(), string(), string(),  integer()) ->{ok, string()}).
+duplicated_code_in_dirs(FileDirList, MinToks, MinClones, MaxPars, TabWidth) ->
+    try_refactoring(refac_duplicated_code, duplicated_code, [FileDirList, MinToks, MinClones, MaxPars, TabWidth]).
     
 
 
@@ -1095,13 +1095,13 @@ eqc_statem_to_fsm_eclipse(FileName, StateName, SearchPaths, TabWidth) ->
 %%@private
 try_to_apply(Mod, Fun, Args, Msg) -> 
     try apply(Mod, Fun, Args)
-    catch
- 	throw:Error -> 
-  	    Error;    %% wrangler always throws Error in the format of '{error, string()}';
-	  _E1:_E2->
-	    %% refac_io:format("E1E2:\n~p\n", [{E1, E2}]),
-	    {error, Msg}
-    end.
+     catch
+     	throw:Error -> 
+     	    Error;    %% wrangler always throws Error in the format of '{error, string()}';
+     	  E1:E2->
+     	     refac_io:format("E1E2:\n~p\n", [{E1, E2}]),
+     	    {error, Msg}
+     end.
 
 %%@private
 try_refactoring(Mod, Fun, Args) ->

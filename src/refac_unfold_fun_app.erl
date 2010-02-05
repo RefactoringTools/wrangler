@@ -334,14 +334,8 @@ fun_inline_1(FName, AnnAST, Pos, {FunClauseToInline, Subst, MatchExprsToAdd}, {C
     Fs0 = Fs -- RecordDefs,
     Fs1 = lists:append([do_inline(F, Pos, Clause, App, SubstedBody, RecordDefs) || F <- Fs0]),
     AnnAST1 = refac_util:rewrite(AnnAST, refac_syntax:form_list(Fs1)),
-    case Editor of
-      emacs ->
-	    refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST1}], Cmd),
-	    {ok, [FName]};
-	eclipse ->
-	    Content = refac_prettypr:print_ast(refac_util:file_format(FName), AnnAST1),
-	    {ok, [{FName, FName, Content}]}
-    end.
+    refac_util:write_refactored_files(FName, AnnAST1, Editor, Cmd).
+  
 
 
 do_inline(Form, Pos, _Clause, App, SubstedBody, RecordDefs) ->

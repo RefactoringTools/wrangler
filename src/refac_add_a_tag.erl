@@ -447,9 +447,7 @@ is_send_expr(Tree) ->
 
 
 is_spawn_expr(Tree) ->
-    SpawnFuns1 = [{erlang, spawn, 1}, {erlang, spawn, 2}, {erlang, spawn, 3}, {erlang, spawn, 4},
-		  {erlang, spawn_link, 1}, {erlang, spawn_link, 2}, {erlang, spawn_link, 3}, {erlang, spawn_link, 4},
-		  {erlang, spawn_opt, 3}, {erlang, spawn_opt, 5}],
+    SpawnFuns1 = refac_register_pid:spawn_funs(),
     SpawnFuns2 = [{erlang, spawn_monitor, 1}, {erlang, spawn_monitor, 3}, {erlang, spawn_opt, 2},
  		  {erlang, spawn_opt, 4}],  %% These funs return more than a single Pid.
     case refac_syntax:type(Tree) of
