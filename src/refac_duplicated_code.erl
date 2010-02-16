@@ -28,8 +28,6 @@
 	 get_clones_by_erlang_suffix_tree/5, 
 	 display_clone_result/2, remove_sub_clones/1]).
 
--compile(export_all).
-
 -import(refac_sim_expr_search, [start_counter_process/0, stop_counter_process/1, 
 				gen_new_var_name/1,variable_replaceable/1]).
 
@@ -45,7 +43,7 @@
 
 -define(DEFAULT_MAX_PARS, 5).
 
--define(DEBUG, true).
+%%-define(DEBUG, true).
 
 -ifdef(DEBUG).
 -define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
@@ -181,7 +179,7 @@ duplicated_code(DirFileList, MinLength1, MinClones1, MaxPars1, TabWidth) ->
     ?debug("current time:~p\n", [time()]),
     display_clone_result(Cs6, "Duplicated"),
     ?debug("No of Clones found:\n~p\n", [length(Cs6)]),
-   %% ?debug("Clones:\n~p\n", [Cs6]),
+    ?debug("Clones:\n~p\n", [Cs6]),
     {ok, "Duplicated code detection finished."}.
 
 duplicated_code_detection(DirFileList, MinClones, MinLength, MaxPars, TabWidth) ->
@@ -485,7 +483,6 @@ sub_clone(C1, C2) ->
 %% This phase needs to get access to the abstract syntax tree.
 
 trim_clones(Cs, MinLength, MinClones, MaxPars, TabWidth) ->
-    %%refac_io:format("Cs:\n~p\n", [Cs]),
     Files0 =[File||C <-Cs, {Range, _Len, _Freq} <-[C], {File,_,_}<-element(1,lists:unzip(Range))],
     Files=refac_util:remove_duplicates(Files0),
     Fun = fun(File, Cs0) ->
@@ -521,14 +518,21 @@ trim_clones(Cs, MinLength, MinClones, MaxPars, TabWidth) ->
 		   case lists:usort(lists:map(fun length/1, ListsOfUnitsList)) of 
 		       [_N] -> ZippedUnitsList = zip_list(ListsOfUnitsList),
 			       NewCs =lists:append([group_by(4, ZippedUnits)|| ZippedUnits<- ZippedUnitsList]),
-			       lists:append([get_anti_unifier(C, MaxPars)||C<-NewCs, C/=[], length(C)>=MinClones, 
-									   element(5, hd(C))>=MinLength]);
+			       lists:append([get_anti_unifier(C, MaxPars, MinLength)||C<-NewCs, C/=[], length(C)>=MinClones, 
+										      element(5, hd(C))>=MinLength]);
 		       _ ->[]
 		   end
 	   end,
     Cs1=lists:foldl(Fun, Cs, Files),
     lists:append([Fun2(Ranges)||{Ranges, _, _}<-Cs1]).
   
+num_of_tokens_in_string(Str) ->
+    case refac_scan:string(Str, {1,1}, 8, 'unix') of
+	{ok, Ts, _} -> 
+	    length(Ts);
+	_ ->
+	    0
+    end.
 num_of_tokens(Exprs) ->
     BlockExpr = refac_syntax:block_expr(Exprs),
     Str = refac_prettypr:format(BlockExpr),
@@ -617,7 +621,8 @@ add_filename_to_token(FileName,T) ->
 is_expr_or_fun(Node) ->
     case refac_syntax:type(Node) of 
 	function -> true;
-	_ -> refac_util:is_expr(Node) 
+	_ -> refac_util:is_expr(Node) andalso
+	    refac_syntax:type(Node)/= guard_expression
     end.
 
 
@@ -715,18 +720,6 @@ get_parameters_1(MinClonesStr, DefaultVal) ->
 
 
 
-%% ===========================================================================
-%% display the found-out clones to the user.
-
-%% display_clone_result(Cs, Str) ->
-%%     case length(Cs) >=1  of 
-%% 	true -> display_clones_by_freq(Cs, Str),
-%% 		display_clones_by_length(Cs, Str),
-%% 		?wrangler_io("\n\n NOTE: Use 'M-x compilation-minor-mode' to make the result "
-%% 			     "mouse clickable if this mode is not already enabled.\n\n",[]);	
-%% 	false -> ?wrangler_io("\n"++Str++" code detection finished with no clones found.\n", [])
-%%     end.
-
 display_clone_result(Cs, Str) ->
     %% Fun = fun(Range)->
     %% 		  {Ss,Es}  =lists:unzip(Range),
@@ -816,19 +809,20 @@ display_clones_2([{{File, StartLine, StartCol}, {File, EndLine, EndCol}}|Rs], St
 	   end,
     display_clones_2(Rs, Str1).
 
-get_anti_unifier(C, MaxPars) ->
+get_anti_unifier(C, MaxPars, MinLength) ->
     Freq = length(C),
     Len =  element(5, hd(C)),
-    get_anti_unifier_0({lists:unzip([{R, {U, Vars}}||{R, U, Vars, _Bd, _Len}<-C]), Len, Freq}, MaxPars).
+    get_anti_unifier_0({lists:unzip([{R, {U, Vars}}||{R, U, Vars, _Bd, _Len}<-C]), Len, Freq}, MaxPars, MinLength).
 		  
-get_anti_unifier_0({{Range, CodeEVsPairs}, Len, F}, MaxPars) ->
+get_anti_unifier_0(C={{Range, CodeEVsPairs}, Len, F}, MaxPars, MinLength) ->
     try
-      get_anti_unifier_1(CodeEVsPairs)
+        get_anti_unifier_1(CodeEVsPairs)
     of
-      {Res, Pars} -> 
-	    case Pars > MaxPars of
+	{Res, Pars} -> 
+	    case Pars > MaxPars orelse num_of_tokens_in_string(Res)< MinLength of
 		true -> [];
-		_ ->[{Range, Len, F, Res}] 
+		_ ->
+		    [{Range, Len, F, Res}] 
 		    %%[{Range, Len, F, Res, Pars}]
 	    end
     catch
@@ -839,9 +833,10 @@ get_anti_unifier_1([]) ->
     throw({error, anti_unification_failed});
 get_anti_unifier_1([{Expr, EVs}]) -> generalise_expr({Expr, EVs}, []);
 get_anti_unifier_1([{Expr, EVs}| Exprs]) ->
-    {Nodes1, EVs1} = lists:unzip(lists:map(fun ({E, ExportedVars}) ->
-						   expr_unification(Expr, E, ExportedVars)
-					   end, Exprs)),
+    Res =lists:map(fun ({E, ExportedVars}) ->
+		      expr_unification(Expr, E, ExportedVars)
+	      end, Exprs),
+    {Nodes1, EVs1} = lists:unzip(Res),
     GroupedNodes = group_subst_nodes(Nodes1),
     Pid = start_counter_process(),
     NodeVarPairs = lists:append([lists:zip(Ns, lists:duplicate(length(Ns),gen_new_var_name(Pid))) 
@@ -876,13 +871,30 @@ group_subst_nodes(GroupedNodeLists) ->
     H = hd(GroupedNodeLists),
     group_subst_nodes(tl(GroupedNodeLists),[ordsets:from_list(L)|| L<-H]).
 group_subst_nodes([],Acc) ->
-    Res =[{L1, lists:min([refac_syntax:get_pos(E)|| E<-L1])} ||L<- Acc, L1<-[ordsets:to_list(L)], L1/=[]],
+    Res =[{L1, lists:min([refac_syntax:get_pos(E)|| E<-L1])} ||
+	     L<- Acc, L1<-[ordsets:to_list(L)], L1/=[]],
     element(1, lists:unzip(lists:keysort(2, Res)));
 group_subst_nodes([L|T],Acc) ->
     L1 =[ordsets:from_list(E) || E <-L],
-    Acc1 = [E||E<-[ordsets:intersection(E1,E2)||E1<-L1, E2<-Acc], ordsets:to_list(E)/=[]],
-    group_subst_nodes(T, Acc1).
-    
+    Insets = [E||E<-[ordsets:intersection(E1,E2)||E1<-L1, E2<-Acc], ordsets:to_list(E)/=[]],
+    {L11, Acc1}  = case Insets of 
+		       [] -> {L1, Acc};
+		       _ ->{[E1||E<-L1, E1<-[lists:foldl(fun(I, E0)->
+								 ordsets:subtract(E0, I)
+							 end, E, Insets)], E1/=[]],
+			    [E1||E<-Acc, E1<-[lists:foldl(fun(I, E0)->
+								  ordsets:subtract(E0, I)
+							  end, E, Insets)], E1/=[]]}
+		   end,
+    group_subst_nodes(T, Insets++L11++Acc1).
+
+sets_subtraction(L, Insets) ->
+    [E1 || E <- L, E1 <- [lists:foldl(fun (I, E0) ->
+					      ordsets:subtract(E0, I)
+				      end, E, Insets)], E1 /= []].
+
+bb() ->
+    0.
      
 do_expr_unification(Exp1, Exp2) ->
     case {is_list(Exp1), is_list(Exp2)} of
@@ -896,9 +908,9 @@ do_expr_unification(Exp1, Exp2) ->
 		throw({error, anti_unification_failed})
 	  end;
       {false, false} ->  %% both are single expressions.
-	  T1 = refac_syntax:type(Exp1),
-	  T2 = refac_syntax:type(Exp2),
-	  case T1 of
+	    T1 = refac_syntax:type(Exp1),
+	    T2 = refac_syntax:type(Exp2),
+	    case T1 of
 	    atom -> case T2 == atom andalso refac_syntax:atom_value(Exp1) == refac_syntax:atom_value(Exp2) of
 		      true ->
 			  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Exp1)) of
@@ -925,12 +937,14 @@ do_expr_unification(Exp1, Exp2) ->
 		      true -> [];
 		      _ -> [{Exp1, Exp2}]
 		    end;
-	    integer -> case (T2 == integer orelse T2 == float) andalso
-			      refac_syntax:integer_value(Exp1) == refac_syntax:integer_value(Exp2)
-			   of
-			 true -> [];
-			 _ -> [{Exp1, Exp2}]
-		       end;
+	    integer -> 
+		    case (T2 == integer orelse T2 == float) andalso
+			refac_syntax:integer_value(Exp1) == refac_syntax:integer_value(Exp2)
+		    of
+			true -> [];
+			_ ->
+			    [{Exp1, Exp2}]
+		    end;
 	    string -> case T2 == string andalso refac_syntax:string_value(Exp1) == refac_syntax:string_value(Exp2) of
 			true -> [];
 			_ -> [{Exp1, Exp2}]
@@ -941,24 +955,34 @@ do_expr_unification(Exp1, Exp2) ->
 		       true -> [];
 		       _ -> [{Exp1, Exp2}]
 		     end;
-	    nil -> case T2 == nil of
+	      nil -> case T2 == nil of
 		     true -> [];
-		     _ -> [{Exp1, Exp2}]
-		   end;
+			 _ -> [{Exp1, Exp2}]
+		     end;
+	      binary ->
+		    case T2==binary andalso  refac_prettypr:format(Exp1)==refac_prettypr:format(Exp2) of
+		      true ->[];
+		      _ -> 
+			  [{Exp1, Exp2}]
+		  end;		      
 	    macro ->
 		case T2 == macro of
 		  true -> case macro_name_value(refac_syntax:macro_name(Exp1)) ==
-				 macro_name_value(refac_syntax:macro_name(Exp2))
-			      of
-			    true ->
-				[];
-			    false ->
-				case refac_syntax:macro_arguments(Exp1) of
-				  none ->
-				      [{Exp1, Exp2}];
-				  _ ->
-				      throw({error, anti_unification_failed})
-				end
+			      macro_name_value(refac_syntax:macro_name(Exp2)) of
+			      true ->
+				  case refac_syntax:macro_arguments(Exp1) of
+				      none -> [];
+				      _ -> SubTrees1 = erl_syntax:macro_arguments(Exp1),
+					   SubTrees2 = erl_syntax:macro_arguments(Exp2),
+					   do_expr_unification(SubTrees1, SubTrees2) 
+				  end;
+			      false ->
+				  case refac_syntax:macro_arguments(Exp1) of 
+				      none ->
+					  [{Exp1, Exp2}];
+				      _ ->
+					  throw({error, anti_unification_failed})
+				  end
 			  end;
 		  false -> throw({error, anti_unification_failed})
 		end;
@@ -1093,13 +1117,13 @@ pos_to_syntax_units_1(Tree, Start, End, F, Type) ->
     {S, E} = refac_util:get_range(Tree),
     if (S >= Start) and (E =< End) ->
 	    case F(Tree) of
-	     true -> 
+		true -> 
 		    [{Tree, Type}];
-	     _ -> Fun(Tree)
+		_ -> []			
 	   end;
        (S > End) or (E < Start) -> [];
        (S < Start) or (E > End) ->
-	   Fun(Tree);
+	    Fun(Tree);
        true -> []
     end.
 
@@ -1110,7 +1134,7 @@ filter_syntax_units(Es, MinLength) ->
 		 case L -- Type =/= L of
 		     true -> case length(Exprs)>1 of 
 				 true ->
-				     [[]];
+				     [[E]||E<-Exprs];
 				 false ->
 				     [Exprs]
 			     end;
@@ -1158,12 +1182,12 @@ macro_name_value(Exp) ->
     end.
 
 
-file_info(DirFileList)->
-     FileNames = refac_util:expand_files(DirFileList, ".erl"),
-     refac_io:format("No of files:\n~p\n", [length(FileNames)]),
-     lists:sum(lists:map(fun(F) ->
-		       Toks= refac_util:tokenize(F, false, 8),
-		       {L, _} = token_loc(lists:last(Toks)),
-		       L
-	       end, FileNames)).
+%% file_info(DirFileList)->
+%%      FileNames = refac_util:expand_files(DirFileList, ".erl"),
+%%      refac_io:format("No of files:\n~p\n", [length(FileNames)]),
+%%      lists:sum(lists:map(fun(F) ->
+%% 		       Toks= refac_util:tokenize(F, false, 8),
+%% 		       {L, _} = token_loc(lists:last(Toks)),
+%% 		       L
+%% 	       end, FileNames)).
     
