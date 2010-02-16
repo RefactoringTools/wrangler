@@ -580,47 +580,47 @@ try_eval(none, Node, _, _) ->
     end;	    
 try_eval(FileName, Node, SearchPaths, TabWidth) ->
     try
-      erl_eval:exprs([refac_syntax:revert(Node)], [])
+	erl_eval:exprs([refac_syntax:revert(Node)], [])
     of
-      {value, Val, _} -> {value, Val}
+	{value, Val, _} -> {value, Val}
     catch
-      _:_ ->
-	  case
-	    has_macros(Node) andalso refac_util:get_free_vars(Node) == []
-	      of
-	    true ->
-		Dir = filename:dirname(FileName),
-		DefaultIncl2 = [filename:join(Dir, X) || X <- refac_util:default_incls()],
-		NewSearchPaths = SearchPaths ++ DefaultIncl2,
-		{Ms, UMs} = case
-			      refac_epp:parse_file(FileName, NewSearchPaths, [])
+	_:_ ->
+	    case
+		has_macros(Node) andalso refac_util:get_free_vars(Node) == []
+	    of
+		true ->
+		    Dir = filename:dirname(FileName),
+		    DefaultIncl2 = [filename:join(Dir, X) || X <- refac_util:default_incls()],
+		    NewSearchPaths = SearchPaths ++ DefaultIncl2,
+		    {Ms, UMs} = case
+				    refac_epp:parse_file(FileName, NewSearchPaths, [])
 				of
-			      {ok, _, {Defs, Uses}} ->
-				  {dict:from_list(Defs), dict:from_list(Uses)};
-			      _ -> []
+				    {ok, _, {Defs, Uses}} ->
+					{dict:from_list(Defs), dict:from_list(Uses)};
+				    _ -> {[],[]}
 			    end,
-		NodeToks = get_toks(FileName, Node, TabWidth),
-		try
-		  refac_epp:expand_macros(NodeToks, {Ms, UMs})
-		of
-		  NewToks when is_list(NewToks) ->
-		      case refac_parse:parse_exprs(NewToks ++ [{dot, {999, 0}}]) of
-			{ok, Exprs} ->
-			    try
-			      erl_eval:exprs(Exprs, [])
-			    of
-			      {value, Val, _} -> {value, Val}
-			    catch
-			      _:_ -> {error, no_value}
-			    end;
-			_ -> {error, no_value}
-		      end
-		catch
-		  _:__ -> {error, no_value}
-		end;
-	    false ->
-		{error, no_value}
-	  end
+		    NodeToks = get_toks(FileName, Node, TabWidth),
+		    try
+			refac_epp:expand_macros(NodeToks, {Ms, UMs})
+		    of
+			NewToks when is_list(NewToks) ->
+			    case refac_parse:parse_exprs(NewToks ++ [{dot, {999, 0}}]) of
+				{ok, Exprs} ->
+				    try
+					erl_eval:exprs(Exprs, [])
+				    of
+					{value, Val, _} -> {value, Val}
+				    catch
+					_:_ -> {error, no_value}
+				    end;
+				_ -> {error, no_value}
+			    end
+		    catch
+			_:__ -> {error, no_value}
+		    end;
+		false ->
+		    {error, no_value}
+	    end
     end.
 
 has_macros(Node) ->

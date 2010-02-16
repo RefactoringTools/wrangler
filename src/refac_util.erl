@@ -56,7 +56,7 @@
 	 get_modules_by_file/1, reset_attrs/1, update_ann/2,
 	 parse_annotate_file_1/5, parse_annotate_file/3,
 	 parse_annotate_file/4, write_refactored_files/1,
-	 write_refactored_files/4,
+	 write_refactored_files/4, write_refactored_files/3,
 	 write_refactored_files_for_preview/2,
 	 build_lib_side_effect_tab/1,
 	 build_local_side_effect_tab/2, has_side_effect/3,
@@ -865,7 +865,21 @@ write_refactored_files(FileName, AnnAST, Editor, Cmd) ->
 	  {ok, [{FileName, FileName, Content}]}
     end.
 
-
+write_refactored_files(Results, Editor, Cmd) ->
+    case Editor of
+      emacs ->
+	  refac_util:write_refactored_files_for_preview(Results, Cmd),
+	  ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+	  ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
+		       [ChangedFiles]),
+	  {ok, ChangedFiles};
+      eclipse ->
+	  Res = lists:map(fun ({{OldFName, NewFName}, AST}) ->
+				  {OldFName, NewFName,
+				   refac_prettypr:print_ast(refac_util:file_format(OldFName), AST)}
+			  end, Results),
+	  {ok, Res}
+    end.
 %% =====================================================================
 %% @spec tokenize(File::filename()) -> [token()]
 %% @doc Tokenize an Erlang file into a list of tokens.
@@ -1378,7 +1392,12 @@ do_add_range(Node, Toks) ->
 	  {_S2, E2} = if Types == [] -> {S1, E1};
 			 true -> get_range(glast("refac_util:do_add_range,binary_field", Types))
 		      end,
-	  refac_syntax:add_ann({range, {S1, E2}}, Node);
+	  case E2> E1 of  %%Temporal fix; need to change refac_syntax to make the pos info correct.
+	      true ->
+		  refac_syntax:add_ann({range, {S1, E2}}, Node);
+	      false ->
+		   refac_syntax:add_ann({range, {S1, E1}}, Node)
+	  end;
       match_expr ->
 	  P = refac_syntax:match_expr_pattern(Node),
 	  B = refac_syntax:match_expr_body(Node),
@@ -1494,11 +1513,12 @@ do_add_range(Node, Toks) ->
 add_range_to_list_node(Node, Toks, Es, Str1, Str2, KeyWord1, KeyWord2) ->
     Hd = ghead(Str1, Es),
     La = glast(Str2, Es),
-    {S1, _E1} = get_range(Hd),
+    {S1, E1} = get_range(Hd),
     {_S2, E2} = get_range(La),
     S11 = extend_forwards(Toks, S1, KeyWord1),
-    E21 = extend_backwards(Toks, E2, KeyWord2),
+    E21= extend_backwards(Toks, E2, KeyWord2),
     refac_syntax:add_ann({range, {S11, E21}}, Node).
+
 
 add_range_to_body(Node, B, Str1, Str2) ->
     H = ghead(Str1, B),
@@ -1676,6 +1696,7 @@ do_add_category(Node, C) ->
 		   _ -> {refac_syntax:add_ann({category, C}, Node), false}
 		 end;
 	     %% TO ADD: other cases such as fields. Refer to the Erlang Specification.
+	     binary_field ->{refac_syntax:add_ann({category, binary_field}, Node), false};
 	     _ -> {refac_syntax:add_ann({category, C}, Node), false}
 	   end
     end.
@@ -1694,19 +1715,20 @@ do_add_category(Node, C) ->
 has_side_effect(_File, Node, _SearchPaths) ->
     LibSideEffectFile = list_to_atom(filename:join(?WRANGLER_DIR, "plt/side_effect_plt")),
     LibPlt = from_dets(lib_side_effect_plt, LibSideEffectFile),
-    Res = check_side_effect(Node, LibPlt, none), 
-    case Res of 
-	true ->  dets:close(LibSideEffectFile),
-		 ets:delete(LibPlt),
-		 true;
-	false ->  dets:close(LibSideEffectFile),
-		  ets:delete(LibPlt),
-		  false;
-	unknown -> 
-	    dets:close(LibSideEffectFile),
-	    ets:delete(LibPlt),
-	    unknown
-	    %% The following is too slow for a large project.
+    Res = check_side_effect(Node, LibPlt, none),
+    case Res of
+      true -> dets:close(LibSideEffectFile),
+	      ets:delete(LibPlt),
+	      true;
+      false -> dets:close(LibSideEffectFile),
+	       ets:delete(LibPlt),
+	       false;
+      unknown ->
+	  dets:close(LibSideEffectFile),
+	  ets:delete(LibPlt),
+	  unknown
+    end.
+            %% The following is too slow for a large project.
 	    %% CurrentDir = filename:dirname(normalise_file_name(File)),
 	    %% LocalSideEffectFile = filename:join(CurrentDir, "local_side_effect_tab"),
 	    %% build_local_side_effect_tab(LocalSideEffectFile, SearchPaths),
@@ -1717,7 +1739,7 @@ has_side_effect(_File, Node, _SearchPaths) ->
 	    %% ets:delete(LocalPlt),
 	    %% ets:delete(LibPlt),
 	    %% Res1		
-    end.
+
 
 
 %%=================================================================

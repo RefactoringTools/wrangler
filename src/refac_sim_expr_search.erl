@@ -296,12 +296,13 @@ do_find_anti_unifier(Expr1, Expr2) ->
     T1 = refac_syntax:type(Expr1),
     T2 = refac_syntax:type(Expr2),
     case T1 == T2 of
-      false -> case variable_replaceable(Expr1) andalso variable_replaceable(Expr2) of
-		 true -> [{Expr1, Expr2}];
-		 false ->
-		     ?debug("Does not unify 4:\n~p\n", [{Expr1, Expr2}]),
-		     throw(non_unifiable)
-	       end;
+      false -> 
+	    case variable_replaceable(Expr1) andalso variable_replaceable(Expr2) of
+		true -> [{Expr1, Expr2}];
+		false ->
+		    ?debug("Does not unify 4:\n~p\n", [{Expr1, Expr2}]),
+		    throw(non_unifiable)
+	    end;
       true -> case refac_syntax:is_literal(Expr1) andalso refac_syntax:is_literal(Expr2) of
 		true ->
 		    case refac_syntax:concrete(Expr1) == refac_syntax:concrete(Expr2) of
@@ -310,7 +311,16 @@ do_find_anti_unifier(Expr1, Expr2) ->
 		      _ ->
 			  case variable_replaceable(Expr1) andalso variable_replaceable(Expr2) of
 			    true ->
-				[{Expr1, Expr2}];
+				  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Expr1)) of
+				      {value, {fun_def, {M, _, A, _, _}}} ->
+					  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Expr2)) of
+					      {value, {fun_def, {M, _, A, _, _}}} ->
+						  [];
+					      _ -> [{Expr1, Expr2}]
+					  end;
+				      _ ->
+					  [{Expr1, Expr2}]
+				  end;
 			    false -> throw(non_unificable)
 			  end
 		    end;
