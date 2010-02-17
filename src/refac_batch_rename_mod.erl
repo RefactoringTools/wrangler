@@ -66,7 +66,7 @@ batch_rename_mod(OldNamePattern, NewNamePattern,SearchPaths) ->
     Files = lists:append([[filename:join([Pwd,File])||
 			      File <- filelib:wildcard("*.erl", Pwd)]   
 			  || Pwd <- SearchPaths]),
-    Mods = lists:map(fun({M, _Dir}) -> M end, refac_util:get_modules_by_file(Files)),
+    Mods = lists:map(fun({M, _Dir}) -> atom_to_list(M) end, refac_util:get_modules_by_file(Files)),
     ?wrangler_io("Mods:\n~p\n", [Mods]),
     Old_New_Mod_Names = lists:map(fun(M) -> {list_to_atom(M), 
 					     list_to_atom(get_new_name(M, OldNamePattern, NewNamePattern))} end, Mods),
