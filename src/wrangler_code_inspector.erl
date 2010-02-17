@@ -419,7 +419,9 @@ caller_called_modules(FName, SearchPaths, TabWidth) ->
 	_ -> ?wrangler_io("\nThis module is called by the following modules:\n",[]),
 	     ?wrangler_io("~p\n", [ClientMods])
     end,
-    CalledMods = refac_module_graph:collect_called_modules(AnnAST),
+    Files = refac_util:expand_files(SearchPaths, ".erl"),
+    ModNames = [M || {M, _} <- refac_util:get_modules_by_file(Files)],
+    {CalledMods,_} = refac_module_graph:collect_called_modules(AnnAST, ModNames),
     case CalledMods of 
 	[] -> ?wrangler_io("\nThis module does not have any called modules.\n",[]);
 	_  -> ?wrangler_io("\nThis module calls the following modules:\n",[]),
