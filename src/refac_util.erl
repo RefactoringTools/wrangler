@@ -41,7 +41,7 @@
 %% @doc Some  utility functions used by Wranlger.
 %% @end
 %% ============================================
--module(refac_util).
+-module(refac_util).   
 
 -export([ghead/2, glast/2, to_lower/1, to_upper/1,
 	 try_evaluation/1, is_var_name/1, is_fun_name/1,
@@ -780,14 +780,14 @@ expand_files([], _Ext, Acc) -> ordsets:from_list(Acc).
 %% element of the tuple being the module name, and the second element 
 %% binding the directory name of the file to which the module belongs.
 
--spec(get_modules_by_file(Files::[filename()]) -> [{filename(), dir()}]).
+-spec(get_modules_by_file(Files::[filename()]) -> [{atom(), dir()}]).
 get_modules_by_file(Files) ->
     get_modules_by_file(Files, []).
 
 get_modules_by_file([File | Left], Acc) ->
     BaseName = filename:basename(File, ".erl"),
     Dir = filename:dirname(File),
-    get_modules_by_file(Left, [{BaseName, Dir} | Acc]);
+    get_modules_by_file(Left, [{list_to_atom(BaseName), Dir} | Acc]);
 get_modules_by_file([], Acc) -> lists:reverse(Acc).
 
 
@@ -953,14 +953,14 @@ parse_annotate_file(FName, ByPassPreP, SearchPaths) ->
       -> {ok, {syntaxTree(), moduleInfo()}}).
 parse_annotate_file(FName, ByPassPreP, SearchPaths, TabWidth) ->
     FileFormat =file_format(FName),     
-    case whereis(wrangler_ast_server) of 
+    case whereis(wrangler_ast_server) of  
 	undefined ->        %% this should not happen with Wrangler + Emacs.
 	    ?wrangler_io("wrangler_ast_aserver is not defined\n",[]),
 	    parse_annotate_file_1(FName, ByPassPreP, SearchPaths, TabWidth, FileFormat);
 	_ ->
 	    wrangler_ast_server:get_ast({FName, ByPassPreP, SearchPaths, TabWidth, FileFormat})
     end.
-    
+     
 
 
 -spec(parse_annotate_file_1(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()], integer(), atom())
@@ -983,7 +983,8 @@ parse_annotate_file_1(FName, true, SearchPaths, TabWidth, FileFormat) ->
 	    SyntaxTree = refac_recomment:recomment_forms(Forms, Comments),
 	    Info = refac_syntax_lib:analyze_forms(SyntaxTree),
 	    Info2 = merge_module_info(Info0, Info),
-	    AnnAST = annotate_bindings(FName, SyntaxTree, Info2, Ms, TabWidth),
+	    AnnAST0 = annotate_bindings(FName, SyntaxTree, Info2, Ms, TabWidth),
+	    AnnAST= refac_type_annotation:type_ann_ast(FName, Info2, AnnAST0, SearchPaths, TabWidth),
 	    {ok, {AnnAST, Info2}};
 	{error, Reason} -> erlang:error(Reason)
     end;     
@@ -1513,7 +1514,7 @@ do_add_range(Node, Toks) ->
 add_range_to_list_node(Node, Toks, Es, Str1, Str2, KeyWord1, KeyWord2) ->
     Hd = ghead(Str1, Es),
     La = glast(Str2, Es),
-    {S1, E1} = get_range(Hd),
+    {S1, _E1} = get_range(Hd),
     {_S2, E2} = get_range(La),
     S11 = extend_forwards(Toks, S1, KeyWord1),
     E21= extend_backwards(Toks, E2, KeyWord2),
