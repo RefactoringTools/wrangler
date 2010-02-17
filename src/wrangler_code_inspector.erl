@@ -413,7 +413,7 @@ caller_called_modules(FName, SearchPaths, TabWidth) ->
     {ok, {AnnAST, _Info0}} = refac_util:parse_annotate_file(FName, false, SearchPaths, TabWidth),
     AbsFileName = filename:absname(filename:join(filename:split(FName))),
     ClientFiles = wrangler_modulegraph_server:get_client_files(AbsFileName, SearchPaths),
-    ClientMods = [list_to_atom(M) || {M, _Dir} <-refac_util:get_modules_by_file(ClientFiles)],
+    ClientMods = [M || {M, _Dir} <-refac_util:get_modules_by_file(ClientFiles)],
     case ClientFiles of 
 	[] -> ?wrangler_io("\nThis module does not have any caller modules.\n",[]);
 	_ -> ?wrangler_io("\nThis module is called by the following modules:\n",[]),
