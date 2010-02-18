@@ -49,6 +49,7 @@
 (setq unopened-files nil)
 (setq ediff-ignore-similar-regions t)
 (setq refactor-mode nil)
+(setq has-warning 'false)
 
 (defun wrangler-ediff(file1 file2)
   "run ediff on file1 ans file2"
@@ -100,9 +101,9 @@
 	      (message "Commit failed: %s" rsn))
 	     (['rex ['ok files logmsg]]
 	      ;; check in into the refactor monitoring repository before commiting changes.
-	      (condition-case nil
+	      ;;(condition-case nil
 	       	  (update-repository files logmsg)
-	       	(error "The refactoring monitor is not working."))
+	       ;;	(error "The refactoring monitor is not working."))
 	      (dolist (f files)
 		(progn
 		  (setq old-file-name (elt f 0))
@@ -126,7 +127,12 @@
 		    (kill-buffer (get-file-buffer uf)))
 		  (setq unopened-files nil)
 		  (setq refactor-mode nil)
-		  (message "Refactoring succeeded."))))))
+		  (if (equal has-warning 'true)
+		      (progn
+			(message "Refactoring succeeded, but please read the warning message in the *erl-output* buffer.")
+			(setq has-warning 'false))
+		    (message "Refactoring succeeded."))
+		  )))))
 
 (defun abort-changes()
   "abort the refactoring results"
@@ -338,7 +344,7 @@
   (interactive)
   (require 'comint)
   (setq opts (list "-name" wrangler-erl-node-string
-		   "-pa"  "C:/cygwin/home/hl/wrangler/share/wrangler/ebin"
+		   "-pa"  %EBIN_DIR%
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))
@@ -422,14 +428,13 @@
       (message "Undo aborted."))))
 
 (defun preview-commit-cancel(current-file-name modified)
-  (let ((answer (read-char-spec "Do you want to preview(p)/commit(c)/cancel(n) the changes to be performed?"
+  (let ((answer (read-char-spec "Do you want to preview(p)/commit(c)/cancel(n) the changes to be performed?(p/c/n):"
 		  '((?p p "Answer p to preview the changes")
 		    (?c c "Answer c to commit the changes without preview")
 		    (?n n "Answer n to abort the changes")))))
     (cond ((eq answer 'p) 
 	   (setq modified-files (cdr modified))
-	   (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
-	  ((eq answer 'c)
+	   (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))	  ((eq answer 'c)
 	   (commit))
 	  ((eq answer 'n)
 	   (abort-changes)))))
@@ -516,7 +521,7 @@
 			      (message "Refactoring failed: %s" rsn))
 			     (['rex ['ok modified warning]]
 			      (progn
-				(warning-reminder warning)
+				(setq has-warning warning)
 				(preview-commit-cancel current-file-name modified)
 				(with-current-buffer (get-file-buffer current-file-name)
 				  (goto-line line-no)
@@ -525,7 +530,8 @@
 		    )))
 	       (['rex ['ok modified warning]]
 		(progn
-		  (warning-reminder warning)
+		  (setq has-warning warning)
+		  (message "wanrning: %s" warning)
 		  (preview-commit-cancel current-file-name modified)
 		  (with-current-buffer (get-file-buffer current-file-name)
 		    (goto-line line-no)
@@ -561,8 +567,9 @@
 			   (['rex ['error rsn]]
 			    (message "Refactoring failed: %s" rsn))
 			   (['rex ['ok modified warning]]
-			    (warning-reminder warning)
-			    (preview-commit-cancel current-file-name modified)
+			    (progn 
+			      (setq has-warning warning)
+			      (preview-commit-cancel current-file-name modified)
 			    )))
 		      (message "Refactoring aborted.")
 		      ))))
@@ -578,8 +585,9 @@
 			 (['rex ['error rsn]]
 			  (message "Refactoring failed: %s" rsn))
 			 (['rex ['ok modified warning]]
-			  (warning-reminder warning)
-			  (preview-commit-cancel current-file-name modified)
+			  (progn 
+			    (setq has-warning warning)
+			    (preview-commit-cancel current-file-name modified))
 			  ))))
 		(erl-spawn
 		  (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring(list 'refac_rename_mod 
@@ -589,24 +597,21 @@
 			  (message "Refactoring failed: %S" rsn))
 			 (['rex ['error rsn]]
 			  (message "Refactoring failed: %s" rsn))
-			 (['rex ['ok modified]]
-			  (warning-reminder warning)
-			   (preview-commit-cancel current-file-name modified)
-			   ))))
+			 (['rex ['ok modified warning]]
+			  (progn 
+			    (setq has-warning warning)
+			    (preview-commit-cancel current-file-name modified)
+			    )))))
+			   
 		)))
 	   (['rex ['ok modified warning]]
-	    (warning-reminder warning)
-	    (preview-commit-cancel current-file-name modified)
-	    ))))
+	    (progn
+	      (setq has-warning warning)
+	      (preview-commit-cancel current-file-name modified)
+	      )
+	    )))))
     (message "Refactoring aborted."))))
 
-
-(defun warning-reminder(warning)
- "output a reminder if there is a warning messge"
- (interactive)
- (if (equal warning 'true)
-     (message-box "Reminder: please read the warning message in the *erl-output* buffer!")
-   nil))
 
 (defun erl-refactor-rename-process(name)
   "Rename a registered process."
@@ -1149,28 +1154,7 @@
 	    (message "Refactoring failed: %s" rsn))
 	   (['rex ['ok candidates logmsg]]
 	    (with-current-buffer buffer
-	      (setq candidates-to-fold nil)
-	      (setq last-position 0)
-	      (while (not (equal candidates nil))
-		(setq new-cand (car candidates))
-		(setq line1 (elt new-cand 0))
-		(setq col1  (elt  new-cand 1))
-		(setq line2 (elt new-cand 2))
-		(setq col2  (elt  new-cand 3))
-		(setq macroapp (elt new-cand 4))
-		(setq macrodef (elt new-cand 5))
-		(highlight-region line1 col1 line2  col2 buffer)
-		(if  (> (get-position line1 col1) last-position)
-		    (progn 
-		      (highlight-region line1 col1 line2  col2 buffer)
-		      (if (yes-or-no-p "Would you like to replace the highlighted expression(s) with macro application?")
-			  (progn
-			    (setq candidates-to-fold (cons new-cand candidates-to-fold))
-			    (setq last-position (get-position line2 col2)))
-			nil))
-		  nil)  
-		(setq candidates (cdr candidates)))
-	      (delete-overlay highlight-region-overlay)
+	      (setq candidates-to-fold (get-candidates-to-fold candidates buffer))
 	      (if (equal candidates-to-fold nil)
 		  (message "Refactoring finished, and no file has been changed.")
 		(erl-spawn
@@ -1215,30 +1199,10 @@
 	  (message "Refactoring failed: %s" rsn))
 	 (['rex ['ok candidates logmsg]]
 	  (with-current-buffer buffer
-	     (setq candidates-to-fold nil)
-	     (setq last-position 0)
-	     (while (not (equal candidates nil))
-	       (setq new-cand (car candidates))
-	       (setq line1 (elt new-cand 0))
-	       (setq col1  (elt  new-cand 1))
-	       (setq line2 (elt new-cand 2))
-	       (setq col2  (elt  new-cand 3))
-	       (setq funcall (elt new-cand 4))
-	       (setq fundef (elt new-cand 5))
-	       (if  (> (get-position line1 col1) last-position)
-		   (progn 
-		     (highlight-region line1 col1 line2  col2 buffer)
-		     (if (yes-or-no-p "Would you like to fold this expression? ")
-			 (progn
-			   (setq candidates-to-fold (cons new-cand candidates-to-fold))
-			   (setq last-position (get-position line2 col2)))
-		       nil))
-		 nil)  
-	       (setq candidates (cdr candidates)))
-	     (delete-overlay highlight-region-overlay)
-	     (if (equal candidates-to-fold nil)
-		 (message "Refactoring finished, and no file has been changed.")
-	       (erl-spawn
+	    (setq candidates-to-fold (get-candidates-to-fold candidates buffer))
+	    (if (equal candidates-to-fold nil)
+		(message "Refactoring finished, and no file has been changed.")
+	      (erl-spawn
 		 (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_fold_expression 'do_fold_expression(list 
                                 current-file-name candidates-to-fold wrangler-search-paths tab-width logmsg)))
 		 (erl-receive (current-file-name line-no column-no)
@@ -1264,43 +1228,58 @@
 	  (message "Refactoring failed: %s" rsn))
 	 (['rex ['ok candidates logmsg]]
 	  (with-current-buffer buffer
-	  (setq candidates-to-fold nil)
-	  (setq last-position 0)
-	  (while (not (equal candidates nil))
-	    (setq new-cand (car candidates))
-	    (setq line1 (elt new-cand 0))
-	    (setq col1  (elt  new-cand 1))
-	    (setq line2 (elt new-cand 2))
-	    (setq col2  (elt  new-cand 3))
-	    (setq funcall (elt new-cand 4))
-	    (setq fundef (elt new-cand 5))
-	    (if  (> (get-position line1 col1) last-position)
-		(progn 
-		  (highlight-region line1 col1 line2  col2 buffer)
-		  (if (yes-or-no-p "Would you like to fold this expression? ")
-		      (progn
-			(setq candidates-to-fold (cons new-cand candidates-to-fold))
-			(setq last-position (get-position line2 col2)))
-		    nil))
-	      nil)  
-	    (setq candidates (cdr candidates)))
-	  (delete-overlay highlight-region-overlay)
-	  (if (equal candidates-to-fold nil)
-	      (message "Refactoring finished, and no file has been changed.")
-	    (erl-spawn
-	      (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_fold_expression 'do_fold_expression(list 
+	    (setq candidates-to-fold (get-candidates-to-fold candidates buffer))
+	    (if (equal candidates-to-fold nil)
+		(message "Refactoring finished, and no file has been changed.")
+	      (erl-spawn
+		(erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_fold_expression 'do_fold_expression(list 
                           current-file-name candidates-to-fold wrangler-search-paths tab-width logmsg)))
-	      (erl-receive (current-file-name line-no column-no)
-		  ((['rex ['badrpc rsn]]
-		    (message "Refactoring failed: %S" rsn))
-		   (['rex ['error rsn]]
-		    (message "Refactoring failed: %s" rsn))
-		   (['rex ['ok modified]]
-		    (preview-commit-cancel current-file-name modified)
-		    (with-current-buffer (get-file-buffer current-file-name)
-		      (goto-line line-no)
-		      (goto-column column-no))))))))
-	      )))))
+		(erl-receive (current-file-name line-no column-no)
+		    ((['rex ['badrpc rsn]]
+		      (message "Refactoring failed: %S" rsn))
+		     (['rex ['error rsn]]
+		      (message "Refactoring failed: %s" rsn))
+		     (['rex ['ok modified]]
+		      (preview-commit-cancel current-file-name modified)
+		      (with-current-buffer (get-file-buffer current-file-name)
+			(goto-line line-no)
+			(goto-column column-no))))))))
+	  )))))
+
+
+(defun get-candidates-to-fold (candidates buffer)
+  (setq candidates-to-fold nil)
+  (setq last-position 0)
+  (while (not (equal candidates nil))
+    (setq new-cand (car candidates))
+    (setq line1 (elt new-cand 0))
+    (setq col1  (elt  new-cand 1))
+    (setq line2 (elt new-cand 2))
+    (setq col2  (elt  new-cand 3))
+    (setq funcall (elt new-cand 4))
+    (setq fundef (elt new-cand 5))
+    (if  (> (get-position line1 col1) last-position)
+	(progn 
+	  (highlight-region line1 col1 line2  col2 buffer)
+	  (let ((answer (read-char-spec "Please answer y/n to fold/not fold this expression, or Y/N to fold all/none of remaining candidates including the one highlighted: "
+					'((?y y "Answer y to fold this candidate expression;")
+					  (?n n "Answer n not to fold this candidate expression;")
+					  (?Y Y "Answer Y to fold all the remaining candidate expressions;")
+					  (?N N "Answer N to fold none of remaining candidate expressions")))))
+	    (cond ((eq answer 'y)
+		   (setq candidates-to-fold  (cons new-cand candidates-to-fold))
+		   (setq last-position (get-position line2 col2))
+		   (setq candidates (cdr candidates)))
+		  ((eq answer 'n)
+		   (setq candidates (cdr candidates)))
+		  ((eq answer 'Y)
+		   (setq candidates-to-fold  (append candidates candidates-to-fold))
+		   (setq candidates nil))
+		  ((eq answer 'N)
+		   (setq candidates nil)))))
+      (setq candidates nil)))
+  (delete-overlay highlight-region-overlay)
+  candidates-to-fold)
 	      
 
 (defun erl-refactor-tuple-to-record(start end)
@@ -1901,27 +1880,7 @@
 	    (message "%s" msg))
 	   (['rex ['ok candidates logmsg]]
 	    (with-current-buffer buffer
-	      (setq candidates-to-fold nil)
-	      (setq last-position 0)
-	      (while (not (equal candidates nil))
-		(setq new-cand (car candidates))
-		(setq loc (elt new-cand 0))
-		(setq line1 (elt loc 0))
-		(setq col1  (elt  loc 1))
-		(setq line2 (elt loc 2))
-		(setq col2  (elt  loc 3))
-		(setq newletapp (elt new-cand 1))
-		(if  (> (get-position line1 col1) last-position)
-		    (progn 
-		      (highlight-region line1 col1 line2  col2 buffer)
-		      (if (yes-or-no-p "Would you like to merge the ?LET application hightlighted?")
-			  (progn
-			    (setq candidates-to-fold (cons new-cand candidates-to-fold))
-			    (setq last-position (get-position line2 col2)))
-			nil))
-		  nil)  
-		(setq candidates (cdr candidates)))
-	      (delete-overlay highlight-region-overlay)
+	      (setq candidates-to-fold (get-candidates-to-merge candidates buffer))
 	      (if (equal candidates-to-fold nil)
 		  (message "Refactoring finished, and nothing has been changed.")
 		(erl-spawn
@@ -1956,27 +1915,7 @@
 	    (message "%s" msg))
 	   (['rex ['ok candidates logmsg]]
 	    (with-current-buffer buffer
-	      (setq candidates-to-fold nil)
-	      (setq last-position 0)
-	      (while (not (equal candidates nil))
-		(setq new-cand (car candidates))
-		(setq loc (elt new-cand 0))
-		(setq line1 (elt loc 0))
-		(setq col1  (elt  loc 1))
-		(setq line2 (elt loc 2))
-		(setq col2  (elt  loc 3))
-		(setq newletapp (elt new-cand 1))
-		(if  (> (get-position line1 col1) last-position)
-		    (progn 
-		      (highlight-region line1 col1 line2  col2 buffer)
-		      (if (yes-or-no-p "Would you like to merge the ?FORALL application highlighted?")
-			  (progn
-			    (setq candidates-to-fold (cons new-cand candidates-to-fold))
-			    (setq last-position (get-position line2 col2)))
-			nil))
-		  nil)  
-		(setq candidates (cdr candidates)))
-	      (delete-overlay highlight-region-overlay)
+	      (setq candidates-to-fold (get-candidates-to-merge candidates buffer))
 	      (if (equal candidates-to-fold nil)
 		  (message "Refactoring finished, and nothing has been changed.")
 		(erl-spawn
@@ -1992,7 +1931,39 @@
 			))))))
 	    ))))))
 
-
+(defun get-candidates-to-merge (candidates buffer)
+  (setq candidates-to-merge nil)
+  (setq last-position 0)
+  (while (not (equal candidates nil))
+    (setq new-cand (car candidates))
+    (setq loc (elt new-cand 0))
+    (setq line1 (elt loc 0))
+    (setq col1  (elt  loc 1))
+    (setq line2 (elt loc 2))
+    (setq col2  (elt  loc 3))
+    (setq newletapp (elt new-cand 1))
+    (if  (> (get-position line1 col1) last-position)
+	(progn 
+	  (highlight-region line1 col1 line2  col2 buffer)
+	  (let ((answer (read-char-spec "Please answer y/n to merge/not merge this expression, or Y/N to merge all/none of remaining candidates including the one highlighted: "
+					'((?y y "Answer y to merge this candidate expression;")
+					  (?n n "Answer n not to merge this candidate expression;")
+					  (?Y Y "Answer Y to merge all the remaining candidate expressions;")
+					  (?N N "Answer N to merge none of remaining candidate expressions")))))
+	    (cond ((eq answer 'y)
+		   (setq candidates-to-merge  (cons new-cand candidates-to-merge))
+		   (setq last-position (get-position line2 col2))
+		   (setq candidates (cdr candidates)))
+		  ((eq answer 'n)
+		   (setq candidates (cdr candidates)))
+		  ((eq answer 'Y)
+		   (setq candidates-to-merge  (append candidates candidates-to-merge))
+		   (setq candidates nil))
+		  ((eq answer 'N)
+		   (setq candidates nil)))))
+      (setq candidates nil)))
+  (delete-overlay highlight-region-overlay)
+  candidates-to-merge)
 
 (defun erl-refactor-eqc-statem-to-record()
    "Turn a non-record eqc-statem state to a recrod."
@@ -2470,18 +2441,17 @@
 				     (file-name-nondirectory dir-to-monitor)))
 	 (logfile (concat (file-name-as-directory refac-monitor-path) "refac_cmd_log"))
 	 (exist (file-regular-p logfile)))
-   ;; (message "logmsg:%s" logmsg)
-   ;; (message "logfile:%s" logfile)
     (write-region (concat "\n" logmsg) nil logfile 'true)
     (if (eq exist nil)
 	(vc-call-backend (backend-used) 'register (list logfile) nil "new file")
       nil)
+    (message "DDDDDDDDDDDDDDDD")
     (vc-call-backend (backend-used) 'checkin (list logfile) nil "new command")))
 
 
 (defun backend-used()
   "Get the version control system used by the monitor"
-  (vc-backend (concat (file-name-as-directory  refac-monitor-repository-path) ".")))
+     (vc-responsible-backend (concat (file-name-as-directory  refac-monitor-repository-path) ".")))
 
 (defun update-repository(files logmsg)
   "commit refactoring files to the monitoring repository if they should be monitored"
@@ -2490,7 +2460,8 @@
     (let ((dir (is-a-monitored-file (elt (car files) 0))))
       (if (equal nil dir)
 	  (message-box "Reminder: the file under refactoring is not being monitored by Wrangler's refactoring monitor.")
-	(update-repository-1 dir (concat wrangler-version logmsg))))))
+	(update-repository-1 dir (concat wrangler-version logmsg))
+	))))
 	   
 
 (defun update-repository-1 (dir-to-monitor logmsg)
@@ -2499,7 +2470,6 @@
   (let* ((refac-monitor-path (concat (file-name-as-directory refac-monitor-repository-path)
 				     (file-name-nondirectory dir-to-monitor)))
 	 (logfile (concat (file-name-as-directory refac-monitor-path) "refac_cmd_log")))
-   ;; (message "ddd:%s" refac-monitor-path)
     (copy-dir-recursive  dir-to-monitor refac-monitor-path 'true nil nil 'always)
     (write-region (concat "\n" logmsg) nil logfile 'true)
     (register-and-checkin-new-files refac-monitor-path)
@@ -2590,13 +2560,12 @@
 	(vc-call-backend (backend-used) 'register (list dir-to-check) nil "new directory")
 	(vc-call-backend (backend-used) 'checkin (list dir-to-check) nil "new direcotry"))
     (let ((files (files-not-registered dir-to-check)))
-     ;; (message "filestoregister:%s" files)
       (when files 
 	(progn
 	  (setq files (cons (backend-used) (list files)))
 	  (register nil files "new files")
 	  (checkin files "new files"))))))
-
+ 
 
      
 (defun checkin-changed-files()
@@ -2605,6 +2574,7 @@
     (when files 
       (progn
 	(setq fileset (cons (backend-used) (list files)))
+	(message "fileset:%s" fileset)
 	(checkin fileset "new files")))))
    
 
@@ -2614,22 +2584,18 @@ Within directories, only files not already under version control are noticed."
   (let ((file-or-dir-list (list dir-to-check)))
     (let ((flattened '()))
       (dolist (node file-or-dir-list)
-;;	(message "node:%s" file-or-dir-list)
 	(when (file-directory-p node)
 	  (file-tree-walk
 	   (expand-file-name node) 
 	   (lambda (f) 
-	    ;; (message "state:%s" (vc-call-backend (backend-used) 'state f))
 	     (when (equal 'unregistered (vc-call-backend (backend-used) 'state f)) (push f flattened))) nil))
 	(unless (file-directory-p node) (push node flattened)))
-     ;; (message "files: %s" flattened)
       flattened)))
 
 
 (defun remove-deleted-files(dir-to-check monitored-dir)
   "removed files that are deleted from the application code from the repos"
   (let ((files (files-removed dir-to-check monitored-dir)))
-   ;; (message "filestoremove:%s" files)
     (when files
       (progn 
 	(dolist (f files)
@@ -2691,22 +2657,18 @@ Within directories, only files not already under version control are noticed."
   (let ((file-or-dir-list (list refac-monitor-dir)))
     (let ((flattened '()))
       (dolist (node file-or-dir-list)
-	;;(message "node:%s" file-or-dir-list)
 	(when (file-directory-p node)
 	  (file-tree-walk
 	   (expand-file-name node) (lambda (f) 
 				     (when (equal 'edited (vc-call-backend (backend-used) 'state f)) (push f flattened))) nil))
 	(unless (file-directory-p node) (push node flattened)))
-     ;; (message "files: %s" flattened)
-      flattened)))
+     flattened)))
 
 
 (defun checkin (vc-fileset comment)
   (let* ((backend (car vc-fileset))
 	 (files (nth 1 vc-fileset))
 	 (ready-for-commit files))
-    ;; (message "ready-to-commit:%s" ready-for-commit)
-    ;; If files are edited but read-only, give user a chance to correct
     (dolist (file files)
       (unless (file-writable-p file)
 	(set-file-modes file (logior (file-modes file) 128))
@@ -2716,10 +2678,7 @@ Within directories, only files not already under version control are noticed."
 	    (toggle-read-only -1))))))
     (if (not ready-for-commit)
 	nil
-     ;; (message "to check in files")
-     ;; (message "backend %s" backend)
-     ;; (message "comment %s" comment)
-      (vc-call-backend 'SVN 'checkin ready-for-commit nil comment))))
+      (vc-call-backend backend 'checkin ready-for-commit nil comment))))
 
 (defun register (&optional set-revision vc-fileset comment)
    (let* ((fileset-arg  vc-fileset)
@@ -2742,10 +2701,8 @@ Within directories, only files not already under version control are noticed."
 		       (not (file-exists-p buffer-file-name)))
 	      (set-buffer-modified-p t))
 	    (vc-buffer-sync)))))
-    ;; (message "files:%s" files)
      (vc-call-backend backend 'register files nil comment)
      (dolist (file files)
        (vc-file-setprop file 'vc-backend backend)
        )))
-    ;; (message "Registering %s... done" files)))
-
+   
