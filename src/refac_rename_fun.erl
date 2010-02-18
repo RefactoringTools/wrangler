@@ -94,8 +94,7 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
       true -> ok;
       false -> throw({error, "Invalid new function name!"})
     end,
-    {ok, {AnnAST0, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-    AnnAST= refac_type_annotation:type_ann_ast(FileName, AnnAST0, SearchPaths, TabWidth),
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     NewName1 = list_to_atom(NewName),
     {ok, ModName} = get_module_name(Info),
     case refac_util:pos_to_fun_name(AnnAST, {Line, Col}) of
@@ -526,9 +525,11 @@ collect_atoms(Tree, AtomNames) ->
 			    As = refac_syntax:get_ann(T),
 			      case lists:keysearch(type, 1, As) of
 				  {value, {type, {f_atom, [MName, FName, Arity]}}} 
-				    when is_atom(MName) andalso MName/='_' andalso
-					 is_atom(FName) andalso MName/='_' andalso
-					 is_integer(Arity) -> S;
+				    when not(is_atom(MName) andalso MName/='_' andalso
+					 is_atom(FName) andalso FName/='_' andalso
+					 is_integer(Arity)) -> 
+				      S++[{atom, Pos, AtomVal}];   %% This should be improved; as we know T is a function atom;
+				  {value, _} -> S;
 				  _ -> 
 				      Pos = refac_syntax:get_pos(T), S ++ [{atom, Pos, AtomVal}]
 				  end;
@@ -909,7 +910,7 @@ rewrite(E1, E2) ->
     refac_syntax:copy_pos(E1, refac_syntax:copy_attrs(E1, E2)).
 
 apply_style_funs() ->
-    [{{erlang, apply, 3}, [modulenmae, functionname, arglist], term},
+    [{{erlang, apply, 3}, [modulename, functionname, arglist], term},
      {{erlang, spawn, 3}, [modulename, functionname, arglist], term},
      {{erlang, spawn, 4}, [node, modulename, functionname, arglist], term},
      {{erlang, spawn_link, 3}, [modulename, functionname, arglist], term},
