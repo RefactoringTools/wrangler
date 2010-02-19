@@ -1,6 +1,6 @@
 %% Copyright (c) 2010, Huiqing Li, Simon Thompson
 %% All rights reserved.
-%%
+%%  
 %% Redistribution and use in source and binary forms, with or without
 %% modification, are permitted provided that the following conditions are met:
 %%     %% Redistributions of source code must retain the above copyright
@@ -29,10 +29,10 @@
 %% 
 %% =====================================================================
 
--module(wrangler_distel).
+-module(wrangler_distel).    
 
 -include("../include/wrangler.hrl").
-
+  
 -compile(export_all).
 
 -spec(rename_var/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
@@ -91,14 +91,20 @@ duplicated_code_in_dirs(SearchPaths, MinLines, MinClones, MaxPars, TabWidth) ->
  	{error, Reason} -> {error, Reason}
      end.
   
--spec(expression_search/6::(filename(), integer(), integer(), integer(), integer(),integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
-expression_search(FName, StartLine, StartCol, EndLine, EndCol, TabWidth) ->
-    apply_refactoring(wrangler,identical_expression_search, [FName, {StartLine, StartCol}, {EndLine, EndCol}, TabWidth],[]).
+-spec(expression_search_in_buffer/7::(filename(), integer(), integer(), integer(), integer(),[dir()],integer()) -> 
+				 {ok, [{filename(),{{integer(), integer()}, {integer(), integer()}}}]}| {error, string()}).
+expression_search_in_buffer(FName, StartLine, StartCol, EndLine, EndCol, SearchPaths, TabWidth) ->
+   wrangler:identical_expression_search_in_buffer(FName, {StartLine, StartCol}, {EndLine, EndCol}, SearchPaths, TabWidth).
+
+-spec(expression_search_in_dirs/7::(filename(), integer(), integer(), integer(), integer(),[dir()],integer()) -> 
+					 {ok, [{filename(),{{integer(), integer()}, {integer(), integer()}}}]}| {error, string()}).
+expression_search_in_dirs(FName, StartLine, StartCol, EndLine, EndCol, SearchPaths, TabWidth) ->
+    wrangler:identical_expression_search_in_dirs(FName, {StartLine, StartCol}, {EndLine, EndCol}, SearchPaths, TabWidth).
 
 -spec(similar_expression_search/8::(filename(), integer(), integer(), integer(), integer(),string(),[dir()], integer()) ->
 	     {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
 similar_expression_search(FName, StartLine, StartCol, EndLine, EndCol, SimiScore, SearchPaths, TabWidth) ->
-    apply_refactoring(wrangler,similar_expression_search, [FName, {StartLine, StartCol}, {EndLine, EndCol}, SimiScore, SearchPaths, TabWidth], []).
+    wrangler:similar_expression_search(FName, {StartLine, StartCol}, {EndLine, EndCol}, SimiScore, SearchPaths, TabWidth).
 
 
 -spec(fun_extraction/7::(filename(), integer(), integer(), integer(), integer(), string(), integer()) ->
@@ -223,7 +229,7 @@ apply_refactoring(Mod, Fun, Args, SearchPaths) ->
 	  Res;
       {error, Reason} -> {error, Reason}
     end.
-
+  
 initial_checking(SearchPaths1) ->
     case check_searchpaths(SearchPaths1) of
       ok ->
