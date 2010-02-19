@@ -185,8 +185,8 @@ do_simplify_expr(Node) ->
 		    refac_syntax:default_literals_vars(Node, '%');
 		string ->
 		    refac_syntax:default_literals_vars(Node, '%');
-		atom -> case lists:keysearch(fun_def,1,refac_syntax:get_ann(Node)) of 
-			    false ->refac_syntax:default_literals_vars(Node, '%') ;
+		atom -> case refac_sim_expr_search:variable_replaceable(Node) of
+			    true ->refac_syntax:default_literals_vars(Node, '%') ;
 			    _ -> refac_syntax:default_literals_vars(
 				   Node, refac_syntax:atom_value(Node))
 			end;
