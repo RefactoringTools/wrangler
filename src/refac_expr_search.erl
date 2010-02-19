@@ -30,7 +30,7 @@
 %% 
 -module(refac_expr_search).
 
--export([expr_search/4, expr_search_eclipse/4]).
+-export([expr_search_in_buffer/5, expr_search_in_dirs/5, expr_search_eclipse/4]).
 
 -export([contained_exprs/2, var_binding_structure/1, compose_search_result_info/2]).
 
@@ -49,65 +49,70 @@
 %% expressions is a sequence of expressions separated by ','.
 %% </p>
 %% =================================================================================================
-%% @spec expr_search(FileName::filename(), Start::Pos, End::Pos, integer())-> 
-%%           {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}.
+%% @spec expr_search_in_buffer(FileName::filename(), Start::Pos, End::Pos, integer(), SearchPaths::[dir()])-> 
+%%           {ok, [{filename(), {integer(), integer()}, {integer(), integer()}}]}.
 %% =================================================================================================         
-%%-spec(expr_search/4::(filename(), pos(), pos(), integer()) -> 
-%%    {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).    
-expr_search(FileName, Start = {Line, Col}, End = {Line1, Col1}, TabWidth) ->
+-spec(expr_search_in_buffer/5::(filename(), pos(), pos(), integer(), [dir()]) -> 
+    {ok, [{filename(),{{integer(), integer()}, {integer(), integer()}}}]}).
+expr_search_in_buffer(FileName, Start = {Line, Col}, End = {Line1, Col1}, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:expr_search(~p, {~p,~p},{~p,~p},~p).\n",
 		 [?MODULE, FileName, Line, Col, Line1, Col1, TabWidth]),
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, [], TabWidth),
+    Es =  get_expr_selected(FileName, Start, End, SearchPaths, TabWidth),
+    Res = do_expr_search(FileName, Es, SearchPaths, TabWidth),
+    SE = refac_sim_expr_search:get_start_end_loc(Es),
+    Res1 =[{FileName, SE}| Res -- [{FileName, SE}]],
+    display_search_result(Res1).
+
+-spec(expr_search_in_dirs/5::(filename(), pos(), pos(), integer(), [dir()]) -> 
+    {ok, [{filename(),{{integer(), integer()}, {integer(), integer()}}}]}).   
+expr_search_in_dirs(FileName, Start = {Line, Col}, End = {Line1, Col1}, SearchPaths, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:expr_search_in_dirs(~p, {~p,~p},{~p,~p},~p, ~p).\n",
+		 [?MODULE, FileName, Line, Col, Line1, Col1, SearchPaths, TabWidth]),
+    Files =[FileName|(refac_util:expand_files(SearchPaths, ".erl")-- [FileName])],
+    Es =  get_expr_selected(FileName, Start, End, SearchPaths, TabWidth),
+    Res =lists:append([do_expr_search(F, Es, SearchPaths, TabWidth) ||F<-Files]),
+    SE = refac_sim_expr_search:get_start_end_loc(Es),
+    Res1 =[{FileName, SE}| Res -- [{FileName, SE}]],
+    display_search_result(Res1).
+
+get_expr_selected(FileName, Start, End, SearchPaths, TabWidth) ->
+    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     Es = refac_util:pos_to_expr_list(AnnAST, Start, End),
     case Es of
-      [] -> throw({error, "You have not selected an expression!"});
-      _ -> ok
-    end,
-    Res =  do_expr_search(AnnAST, Es),
-    case Res of
-      [] -> ?wrangler_io("No identical expression has been found. \n", []),
-	    {ok, []};
-      [_] ->
-	  ?wrangler_io("No identical expression has been found. \n", []),
-	  {ok, []};
-      _ -> ?wrangler_io("\n~p identical expressions(including the "
-			"expression selected) have been found.\n", [length(Res)]),
-	   ?wrangler_io(compose_search_result_info(FileName, Res), []),
-	   ?wrangler_io("\nUse 'C-c C-e' to remove highlights!\n", []),
-	   {ok, Res}
+	[] -> throw({error, "You have not selected an expression!"});
+	_ -> Es
+    end.
+   
+do_expr_search(FileName, Es, SearchPaths, TabWidth) ->
+    try  refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth) of
+	{ok, {AnnAST, _}} ->
+	    case length(Es) of 
+		1 -> search_one_expr(FileName, AnnAST, hd(Es));
+		_ -> search_expr_seq(FileName, AnnAST, Es)
+	    end
+    catch
+	_E1:_E2 ->
+	    []
     end.
 
-do_expr_search(AnnAST, Es) ->
-    case Es of
-	[E] ->
-	    SE = refac_sim_expr_search:get_start_end_loc(E),
-	  SearchRes = search_one_expr(AnnAST, E),
-	    [SE| SearchRes -- [SE]];
-	_ ->
-	    SE = refac_sim_expr_search:get_start_end_loc(Es),
-	    SearchRes = search_expr_seq(AnnAST, Es),
-	    [SE| SearchRes -- [SE]]
-    end.
-
-    
-%%-spec(expr_search_eclipse/4::(filename(), pos(), pos(), integer()) ->
-%%   {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
+-spec(expr_search_eclipse/4::(filename(), pos(), pos(), integer()) ->
+   {ok, [{{integer(), integer()}, {integer(), integer()}}]} | {error, string()}).
 expr_search_eclipse(FileName, Start, End, TabWidth) ->
     {ok, {AnnAST, _Info}} =refac_util:parse_annotate_file(FileName,true, [], TabWidth),
     case refac_util:pos_to_expr_list(AnnAST, Start, End) of 
 	[E|Es] -> 
 	    Res = case Es == [] of 
 		      true ->
-			  search_one_expr(AnnAST, E);
+			  search_one_expr(FileName, AnnAST, E);
 		      _ -> 
-			  search_expr_seq(AnnAST, [E|Es])
+			  search_expr_seq(FileName, AnnAST, [E|Es])
 		  end,
-	    {ok, Res};	
+	    {ok, [SE||{_File, SE} <-Res]};	
 	_   -> {error, "You have not selected an expression!"}
     end.     
 
 %% Search the clones of an expression from Tree.
-search_one_expr(Tree, Exp) ->
+search_one_expr(FileName, Tree, Exp) ->
     SimplifiedExp = simplify_expr(Exp),
     BdStructExp = var_binding_structure([Exp]),
     F = fun (T, Acc) ->
@@ -118,7 +123,7 @@ search_one_expr(Tree, Exp) ->
 				  case var_binding_structure([T]) of
 				      BdStructExp ->
 					  StartEndLoc = refac_util:get_range(T),
-					  [StartEndLoc| Acc];
+					  [{FileName, StartEndLoc}| Acc];
 				      _ -> Acc
 				  end;
 			      _ -> Acc
@@ -128,13 +133,12 @@ search_one_expr(Tree, Exp) ->
 	end,
     lists:reverse(refac_syntax_lib:fold(F, [], Tree)).
     
-
 %% Search for the clones of an expresion sequence.
-search_expr_seq(Tree, ExpList) ->
+search_expr_seq(FileName, Tree, ExpList) ->
     AllExpList = contained_exprs(Tree, length(ExpList)),
-    lists:flatmap(fun(EL) ->get_clone(ExpList, EL) end, AllExpList).
+    lists:flatmap(fun(EL) ->get_clone(FileName, ExpList, EL) end, AllExpList).
    
-get_clone(ExpList1, ExpList2) ->
+get_clone(FileName, ExpList1, ExpList2) ->
     Len1 = length(ExpList1),
     Len2 = length(ExpList2),
     case Len1 =< Len2 of
@@ -152,10 +156,10 @@ get_clone(ExpList1, ExpList2) ->
 			  En = lists:last(List22),
 			  {StartLoc, _EndLoc} = refac_util:get_range(E1),
 			  {_StartLoc1, EndLoc1} = refac_util:get_range(En),
-			  [{StartLoc, EndLoc1}] ++ get_clone(ExpList1, tl(ExpList2));
-		      _ -> get_clone(ExpList1, tl(ExpList2))
+			  [{FileName, {StartLoc, EndLoc1}}] ++ get_clone(FileName, ExpList1, tl(ExpList2));
+		      _ -> get_clone(FileName, ExpList1, tl(ExpList2))
 		  end;
-	      _ -> get_clone(ExpList1, tl(ExpList2))
+	      _ -> get_clone(FileName, ExpList1, tl(ExpList2))
 	  end;
 	_ -> []
     end.
@@ -235,8 +239,7 @@ contained_exprs(Tree, MinLen) ->
 
 
 %% Get the binding structure of variables.
-%%-spec(var_binding_structure/1::([syntaxTree()]) -> [{integer(), integer()}]).      
-
+-spec(var_binding_structure/1::([syntaxTree()]) -> [{integer(), integer()}]).      
 var_binding_structure(ASTList) ->
     VarLocs = lists:keysort(2, collect_vars(ASTList)),
     case VarLocs of
@@ -280,14 +283,27 @@ collect_vars(AST) ->
     refac_syntax_lib:fold(Fun, [], AST).
 
 
-compose_search_result_info(FileName, Ranges) ->
-    compose_search_result_info(FileName, Ranges, "").
-compose_search_result_info(_FileName, [], Str) ->
+compose_search_result_info(Ranges) ->
+    compose_search_result_info(Ranges, "").
+compose_search_result_info([], Str) ->
     Str;
-compose_search_result_info(FileName, [{{StartLine, StartCol}, {EndLine, EndCol}}|Ranges], Str) ->
-    Str1 =Str ++ "\n"++FileName++io_lib:format(":~p.~p-~p.~p: \n", [StartLine, StartCol, EndLine, EndCol]),
-    compose_search_result_info(FileName, Ranges, Str1).
+compose_search_result_info([{FileName, {{StartLine, StartCol}, {EndLine, EndCol}}}|Ranges], Str) ->
+    Str1 =Str ++ "\n"++FileName++io_lib:format(":~p.~p-~p.~p: ", [StartLine, StartCol, EndLine, EndCol]),
+    compose_search_result_info(Ranges, Str1).
 					       
     
-    
+display_search_result(Res) ->
+    case Res of
+	[_] ->
+	    ?wrangler_io("No identical expression has been found. \n", []),
+	    {ok, []};
+	_ -> ?wrangler_io("\n~p identical expressions(including the "
+			  "expression selected) have been found.\n", [length(Res)]),
+	     ?wrangler_io(compose_search_result_info(Res), []),
+	     ?wrangler_io("\n\nNOTE: Use 'M-x compilation-minor-mode' to make the result "
+			  "mouse clickable if this mode is not already enabled.\n",[]),
+	     ?wrangler_io("      Use 'C-c C-e' to remove highlights!\n", []),
+	     {ok, Res}
+    end.
+        
     
