@@ -202,12 +202,19 @@
     ("Introduce a Macro" erl-refactor-new-macro)
     ("Fold Against Macro Definition" erl-refactor-fold-against-macro)
     nil 
-    ("Detect Identical Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
-    ("Detect Identical Code in Dirs" erl-refactor-duplicated-code-in-dirs)
-    ("Identical Expression Search" erl-refactor-expression-search)
-    ("Detect Similar Code in Current Buffer" erl-refactor-similar-code-in-buffer)
-    ("Detect Similar Code in Dirs" erl-refactor-similar-code-in-dirs)
-    ("Similar Expression Search" erl-refactor-similar-expression-search)
+    ("Identical Code Detection"
+     (("Detect Identical Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
+      ("Detect Identical Code in Dirs" erl-refactor-duplicated-code-in-dirs)
+      ("Identical Expression Search in Current Buffer" erl-refactor-expression-search)
+      ("Identical Expression Search in Dirs" erl-refactor-expression-search-in-dirs)
+      ))
+    nil
+    ("Similar Code Detection"
+     (("Detect Similar Code in Current Buffer" erl-refactor-similar-code-in-buffer)
+      ("Detect Similar Code in Dirs" erl-refactor-similar-code-in-dirs)
+      ("Similar Expression Search in Current Buffer" erl-refactor-similar-expression-search)
+      ("Similar Expression Search in Dirs" erl-refactor-similar-expression-search-in-dirs)
+      ))
     nil
     ("Refactorings for QuickCheck" 
      (
@@ -1397,7 +1404,7 @@
    (if (current-buffer-saved buffer)
        (erl-spawn
 	 (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_sim_code 'sim_code_detection_in_buffer
-									  (list current-file-name minlen minfreq simiscore  wrangler-search-paths tab-width)))
+				    (list current-file-name minlen minfreq simiscore  wrangler-search-paths tab-width)))
 	 (erl-receive (buffer current-file-name)
 	     ((['rex ['badrpc rsn]]
 	       (message "Searching failed: %S" rsn))
@@ -1424,8 +1431,8 @@
     (remove-highlights)
     (if (current-buffer-saved buffer)
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'expression_search
-			(list current-file-name start-line-no start-col-no end-line-no end-col-no tab-width))
+	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'expression_search_in_buffer
+			(list current-file-name start-line-no start-col-no end-line-no end-col-no wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
 		(message "Searching failed: %S" rsn))
@@ -1436,6 +1443,32 @@
 		  (highlight-instances-1 regions (car regions) buffer)
 		  (message "Searching finished; use 'C-c C-e' to remove highlights.\n")
 		  )))))
+      (message "Refactoring aborted."))))
+
+(defun erl-refactor-expression-search-in-dirs(start end)
+  "Search an user-selected expression or expression sequence across the project."
+  (interactive (list (region-beginning)
+		     (region-end)
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer))
+	(start-line-no (line-no-pos start))
+	(start-col-no  (current-column-pos start))
+	(end-line-no   (line-no-pos end))
+	(end-col-no    (current-column-pos end)))
+    (remove-highlights)
+    (if (current-buffer-saved buffer)
+	(erl-spawn
+	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'expression_search_in_dirs
+			(list current-file-name start-line-no start-col-no end-line-no end-col-no wrangler-search-paths tab-width))
+	  (erl-receive (buffer)
+	      ((['rex ['badrpc rsn]]
+		(message "Searching failed: %S" rsn))
+	       (['rex ['error rsn]]
+		(message "Searching failed: %s" rsn))
+	       (['rex ['ok regions]]
+		(message "Searching finished.\n")
+	       ))))
       (message "Refactoring aborted."))))
 
 
@@ -2125,8 +2158,8 @@
   "highlight regions in the buffer"
   (dolist (r regions)
     (if (equal r selected)
-	(highlight-def-instance r buffer)
-      (highlight-use-instance r buffer))))
+	(highlight-def-instance (elt r 1) buffer)
+      (highlight-use-instance (elt r 1) buffer))))
 
 ;; shouldn't code this really.
 (defun highlight-def-instance(region buffer)
