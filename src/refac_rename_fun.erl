@@ -522,16 +522,18 @@ collect_atoms(Tree, AtomNames) ->
 		      AtomVal = refac_syntax:atom_value(T),
 		      case lists:member(AtomVal, AtomNames) of
 			true ->
-			    As = refac_syntax:get_ann(T),
+			      Pos = refac_syntax:get_pos(T),
+			      As = refac_syntax:get_ann(T),
 			      case lists:keysearch(type, 1, As) of
 				  {value, {type, {f_atom, [MName, FName, Arity]}}} 
 				    when not(is_atom(MName) andalso MName/='_' andalso
-					 is_atom(FName) andalso FName/='_' andalso
-					 is_integer(Arity)) -> 
-				      S++[{atom, Pos, AtomVal}];   %% This should be improved; as we know T is a function atom;
+					     is_atom(FName) andalso FName/='_' andalso
+					     is_integer(Arity)) -> 
+				      Pos =
+					  S++[{atom, Pos, AtomVal}];   %% This should be improved; as we know T is a function atom;
 				  {value, _} -> S;
 				  _ -> 
-				      Pos = refac_syntax:get_pos(T), S ++ [{atom, Pos, AtomVal}]
+				      S ++ [{atom, Pos, AtomVal}]
 				  end;
 			  false -> S
 		      end;
