@@ -52,40 +52,44 @@
 %% @spec expr_search(FileName::filename(), Start::Pos, End::Pos, integer())-> 
 %%           {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}.
 %% =================================================================================================         
-
 %%-spec(expr_search/4::(filename(), pos(), pos(), integer()) -> 
 %%    {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).    
 expr_search(FileName, Start = {Line, Col}, End = {Line1, Col1}, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:expr_search(~p, {~p,~p},{~p,~p},~p).\n",
 		 [?MODULE, FileName, Line, Col, Line1, Col1, TabWidth]),
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, [], TabWidth),
-    case refac_util:pos_to_expr_list(AnnAST, Start, End) of
-      [E| Es] ->
-	  Res = case Es == [] of
-		  true ->
-		      SE = refac_sim_expr_search:get_start_end_loc(E),
-		      SearchRes = search_one_expr(AnnAST, E),
-		      [SE| SearchRes -- [SE]];
-		  _ ->
-		      SE = refac_sim_expr_search:get_start_end_loc([E| Es]),
-		      SearchRes = search_expr_seq(AnnAST, [E| Es]),
-		      [SE| SearchRes -- [SE]]
-		end,
-	  case Res of
-	    [] -> ?wrangler_io("No identical expression has been found. \n", []),
-		  {ok, []};
-	    [_] ->
-		  ?wrangler_io("No identical expression has been found. \n", []),
-		  {ok, []};
-	    _ -> ?wrangler_io("\n~p identical expressions(including the "
-			      "expression selected) have been found.\n", [length(Res)]),
-		 ?wrangler_io(compose_search_result_info(FileName, Res), []),
-		 ?wrangler_io("\nUse 'C-c C-e' to remove highlights!\n", []),
-		 {ok, Res}
-	  end;
-      _ -> {error, "You have not selected an expression!"}
+    Es = refac_util:pos_to_expr_list(AnnAST, Start, End),
+    case Es of
+      [] -> throw({error, "You have not selected an expression!"});
+      _ -> ok
+    end,
+    Res =  do_expr_search(AnnAST, Es),
+    case Res of
+      [] -> ?wrangler_io("No identical expression has been found. \n", []),
+	    {ok, []};
+      [_] ->
+	  ?wrangler_io("No identical expression has been found. \n", []),
+	  {ok, []};
+      _ -> ?wrangler_io("\n~p identical expressions(including the "
+			"expression selected) have been found.\n", [length(Res)]),
+	   ?wrangler_io(compose_search_result_info(FileName, Res), []),
+	   ?wrangler_io("\nUse 'C-c C-e' to remove highlights!\n", []),
+	   {ok, Res}
     end.
 
+do_expr_search(AnnAST, Es) ->
+    case Es of
+	[E] ->
+	    SE = refac_sim_expr_search:get_start_end_loc(E),
+	  SearchRes = search_one_expr(AnnAST, E),
+	    [SE| SearchRes -- [SE]];
+	_ ->
+	    SE = refac_sim_expr_search:get_start_end_loc(Es),
+	    SearchRes = search_expr_seq(AnnAST, Es),
+	    [SE| SearchRes -- [SE]]
+    end.
+
+    
 %%-spec(expr_search_eclipse/4::(filename(), pos(), pos(), integer()) ->
 %%   {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
 expr_search_eclipse(FileName, Start, End, TabWidth) ->
