@@ -1,5 +1,5 @@
-%% Copyright (c) 2010, Huiqing Li, Simon Thompson
-%% All rights reserved.
+%% Copyright (c) 2010, Huiqing Li, Simon Thompson 
+%% All rights reserved. 
 %%
 %% Redistribution and use in source and binary forms, with or without
 %% modification, are permitted provided that the following conditions are met:
@@ -46,7 +46,7 @@
 	 move_fun/6, move_fun_1/6,
 	 duplicated_code_in_buffer/5,
 	 duplicated_code_in_dirs/5,
-	 identical_expression_search/4,
+	 identical_expression_search_in_buffer/5, identical_expression_search_in_dirs/5, 
 	 similar_expression_search/6, fun_extraction/5, fun_extraction_1/7,
 	 fold_expr/1, fold_expr_by_loc/5, fold_expr_by_name/7,
 	 instrument_prog/3, similar_code_detection_in_buffer/6,
@@ -75,6 +75,7 @@
 	 rename_process_1_eclipse/5, fun_to_process_eclipse/6,
 	 fun_to_process_1_eclipse/6, unfold_fun_app_eclipse/4,
 	 duplicated_code_eclipse/5, sim_code_detection_eclipse/6,
+	 expr_search_eclipse/4,
 	 eqc_statem_to_fsm_eclipse/4]).
 
 -export([try_refactoring/3, try_inspector/3]).
@@ -433,17 +434,17 @@ duplicated_code_in_dirs(FileDirList, MinToks, MinClones, MaxPars, TabWidth) ->
 %% they are: the minimum length of an expression sequence, the minimum number of duplication times, and 
 %% a similarity score which should be between 0.1 and 1.0.
 %% </p>
-%% <p> 
+%% <p>  
 %% Usage: select <em> Detect Similar Code in Buffer </em> from <em> Refactor</em>, Wrangler will then prompt to 
 %% input the parameters needed.
-%% </p>
+%% </p>   
 %% @spec similar_code_detection_in_buffer(FileName::filename(), MinLen::string(), MinFreq::string(), MinScore::string(), 
-%%					   SearchPaths::[dir()], TabWidth::integer()) ->  {ok, string()}
+%%		  			   SearchPaths::[dir()], TabWidth::integer()) ->  {ok, string()}
 -spec(similar_code_detection_in_buffer/6::(FileName::filename(), MinLen::string(), MinFreq::string(), MinScore::string(), 
 					   SearchPaths::[dir()], TabWidth::integer()) ->  {ok, string()}).
 similar_code_detection_in_buffer(FileName, MinLen, MinFreq, SimiScore, SearchPaths, TabWidth) ->
     try_refactoring(refac_sim_code, sim_code_detection, [[FileName],MinLen, MinFreq, SimiScore, SearchPaths, TabWidth]).
-
+       
  
 %% ==================================================================================================
 %%@doc A similar code detector that searches for similar code across multiple Erlang modules.
@@ -478,12 +479,20 @@ similar_code_detection(DirFileList, MinLen, MinFreq, SimiScore1, SearchPaths, Ta
 %% expressions is a sequence of expressions separated by ','. </p>
 %% Usage: highlight the expression/expression sequence of interest, then selected  <em> Identical Expression Search </em> from 
 %% <em> Refactor</em>.
-%% @spec identical_expression_search(FileName::filename(),Start::pos(), End::pos(), TabWidth:: integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}
--spec(identical_expression_search/4::(filename(), pos(), pos(), integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
-identical_expression_search(FileName, Start, End, TabWidth) ->
-    try_refactoring(refac_expr_search, expr_search, [FileName, Start, End, TabWidth]).
+-spec(identical_expression_search_in_buffer/5::(filename(), pos(), pos(), integer(), [dir()]) -> 
+    {ok, [{filename(),{{integer(), integer()}, {integer(), integer()}}}]}| {error, string()}).
+identical_expression_search_in_buffer(FileName, Start, End, SearchPaths, TabWidth) ->
+    try_refactoring(refac_expr_search, expr_search_in_buffer, [FileName, Start, End, SearchPaths, TabWidth]).
 
+-spec(identical_expression_search_in_dirs/5::(filename(), pos(), pos(), integer(), [dir()]) -> 
+    {ok, [{filename(),{{integer(), integer()}, {integer(), integer()}}}]}| {error, string()}).
+identical_expression_search_in_dirs(FileName, Start, End, SearchPaths, TabWidth) ->
+    try_refactoring(refac_expr_search, expr_search_in_dirs, [FileName, Start, End, SearchPaths, TabWidth]).
 
+-spec(expr_search_eclipse/4::(filename(), pos(), pos(), integer()) ->
+				   {ok, [{{integer(), integer()}, {integer(), integer()}}]} | {error, string()}).
+expr_search_eclipse(FileName, Start, End, TabWidth) ->
+    try_refactoring(refac_expr_search, expr_search_eclipse, [FileName, Start, End, TabWidth]).
 
 %% ==================================================================================================
 %% @doc Search for expression/expression sequences in the current buffer that are similar to the expression/expression sequence selected by the user.
@@ -1079,7 +1088,7 @@ eqc_fsm_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, Sear
 gen_fsm_to_record(FileName, SearchPaths, TabWidth) ->
     try_refactoring(refac_state_to_record, gen_fsm_to_record, [FileName, SearchPaths, TabWidth]).
 
-%@private
+%@private  
 gen_fsm_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth) ->
     try_refactoring(refac_state_to_record, gen_fsm_to_record_1, 
 		    [FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth]).
