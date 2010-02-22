@@ -294,7 +294,7 @@ check_macros_records(FileName, TargetFileName, FunDef, SearchPaths, TabWidth) ->
 					?wrangler_io("\nThe following macros used by the function selected "
 						     "are defined differently in the target module:\n~p\n",
 						     [element(1, lists:unzip(lists:keysort(1, UsedMacroDefs) -- lists:keysort(1, UsedMacroDefsInTargetFile)))]),
-					throw({error, "Some records used by the function selected are defined differently in the target module."})
+					throw({error, "Some macros used by the function selected are defined differently in the target module, still continue?"})
 				  end;
 			      _ -> ok
 			    end;
