@@ -97,9 +97,14 @@ search_and_gen_anti_unifier(Files, {FName,FunDef, Exprs, SE}, SimiScore, SearchP
     {[{FName, SE}| Ranges -- [{FName, SE}]], AntiUnifier}.
 
 search_similar_expr_1(FName, Exprs, SimiScore, SearchPaths, TabWidth) ->
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-    RecordInfo = get_module_record_info(FName, SearchPaths, TabWidth),
-    do_search_similar_expr(FName, AnnAST, RecordInfo, Exprs, SimiScore).
+    try refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth) of
+	{ok, {AnnAST, _}} ->
+	    RecordInfo = get_module_record_info(FName, SearchPaths, TabWidth),
+	    do_search_similar_expr(FName, AnnAST, RecordInfo, Exprs, SimiScore)
+    catch 
+	_E1:_E2 ->
+	    []
+    end.
 
 
 do_search_similar_expr(FileName, AnnAST, RecordInfo, Exprs, SimiScore) when is_list(Exprs) ->
@@ -518,7 +523,14 @@ make_new_name(SuffixNum, UsedNames) ->
     end.
 
 normalise_expr(Exprs, RecordInfo) ->
-    normalise_record_expr(Exprs, RecordInfo).
+    try normalise_record_expr(Exprs, RecordInfo) of
+	Exprs1->
+	    Exprs1
+    catch 
+	_E1:_E2 ->
+	    Exprs
+    end.
+	    
    
 normalise_record_expr(Exprs, RecordInfo)->
      [refac_util:full_buTP(fun do_normalise_record_expr_1/2, E, {RecordInfo, true})|| E<-Exprs].
