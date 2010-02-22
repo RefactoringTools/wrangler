@@ -219,7 +219,6 @@ do_simplify_expr(Node) ->
 		    refac_syntax:default_literals_vars(Node, '%');
 		atom -> case refac_sim_expr_search:variable_replaceable(Node) of
 			    true -> 
-				refac_io:format("Node:\n~p\n", [Node]),
 				As = refac_syntax:get_ann(Node), 
 				case lists:keysearch(type,1, As) of 
 				    {value, _} -> 
