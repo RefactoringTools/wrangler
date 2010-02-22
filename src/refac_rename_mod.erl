@@ -97,8 +97,8 @@ rename_mod(FileName, NewName, SearchPaths, TabWidth, Editor) ->
 	integer_to_list(TabWidth) ++ ").",
     case refac_util:is_fun_name(NewName)  of  
       true ->
-	  {AnnAST,Info} =  parse_file_with_type_ann(FileName, SearchPaths, TabWidth),
-	  case lists:keysearch(module, 1, Info) of
+	    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+	    case lists:keysearch(module, 1, Info) of
 	    {value, {module, OldModName}} ->
 		NewModName = list_to_atom(NewName),
 		TestFrameWorkUsed = refac_util:test_framework_used(FileName),
@@ -114,8 +114,7 @@ rename_mod(FileName, NewName, SearchPaths, TabWidth, Editor) ->
 
 parse_file_with_type_ann(FileName, SearchPaths, TabWidth) ->
     {ok, {AnnAST0, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-    AnnAST = refac_type_annotation:type_ann_ast(FileName, AnnAST0, SearchPaths, TabWidth),
-    {AnnAST, Info}.
+    {AnnAST0, Info}.
 
 
 pre_cond_check(FileName, OldModName, NewModName, TestFrameWorkUsed, SearchPaths) ->
