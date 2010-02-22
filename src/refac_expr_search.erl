@@ -32,7 +32,7 @@
 
 -export([expr_search_in_buffer/5, expr_search_in_dirs/5, expr_search_eclipse/4]).
 
--export([contained_exprs/2, var_binding_structure/1, compose_search_result_info/2]).
+-export([contained_exprs/2, var_binding_structure/1, compose_search_result_info/1]).
 
 -include("../include/wrangler.hrl").
 %% ================================================================================================
