@@ -36,44 +36,84 @@
 
 -include("../include/wrangler.hrl").
 %% ================================================================================================
-%% @doc Search a user-selected expression or a sequence of expressions from an Erlang source file.
+%% @doc Search for identical clones of an expression/ expression sequence in the current Erlang buffer.
 %%
-%% <p> This functionality allows the user to search an selected expression or a sequence of expressions
-%% from the current Erlang buffer. The searching ignores variables names and literals, but it takes
-%% the binding structure of variables into account. Therefore the found expressions are the same to the 
-%% highlighted expression up to variable renaming and literal substitution. Layout and comments are ignored 
-%% by the searching.
+%% <p> This functionality allows the user to search for identical clones of an expression/expression sequence
+%% in the current Erlang buffer. The searching algorithm ignores variables names and 
+%% literals, but it takes the binding structure of variables into account. Since atoms have multiple roles 
+%% in Erlang, only those atoms that are not function/module/process names are treated at literals (While Wrangler 
+%% tries to distinguish not-literal atoms from literal atoms, this functionality is currently still limited.).
+%% Therefore the expressions found are the same to the highlighted expression up to variable renaming and 
+%% and literal substitution. Layout and comments are ignored during the search process.
 %% </p>
-%% <p> When the selected code contains multiple, but non-continuous sequence of, expressions, the first
+%% <p> In the case that the code selected contains multiple, but non-continuous sequence of, expressions, the first
 %% continuous sequence of expressions is taken as the user-selected expression. A continuous sequence of
 %% expressions is a sequence of expressions separated by ','.
 %% </p>
 %% =================================================================================================
-%% @spec expr_search_in_buffer(FileName::filename(), Start::Pos, End::Pos, integer(), SearchPaths::[dir()])-> 
-%%           {ok, [{filename(), {integer(), integer()}, {integer(), integer()}}]}.
+%% @spec expr_search_in_buffer(FileName::filename(), Start::Pos, End::Pos,SearchPaths::[dir()], TabWidth::integer())-> 
+%%           {ok, [{filename(), {{integer(), integer()}, {integer(), integer()}}}]}.
 %% =================================================================================================         
+
 -spec(expr_search_in_buffer/5::(filename(), pos(), pos(), integer(), [dir()]) -> 
     {ok, [{filename(),{{integer(), integer()}, {integer(), integer()}}}]}).
 expr_search_in_buffer(FileName, Start = {Line, Col}, End = {Line1, Col1}, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:expr_search(~p, {~p,~p},{~p,~p},~p).\n",
-		 [?MODULE, FileName, Line, Col, Line1, Col1, TabWidth]),
+    ?wrangler_io("\nCMD: ~p:expr_search_in_buffer(~p, {~p,~p},{~p,~p},~p, ~p).\n",
+		 [?MODULE, FileName, Line, Col, Line1, Col1, SearchPaths, TabWidth]),
     Es =  get_expr_selected(FileName, Start, End, SearchPaths, TabWidth),
     Res = do_expr_search(FileName, Es, SearchPaths, TabWidth),
     SE = refac_sim_expr_search:get_start_end_loc(Es),
     Res1 =[{FileName, SE}| Res -- [{FileName, SE}]],
     display_search_result(Res1).
 
+
+%% ================================================================================================
+%% @doc Search for identical clones of an expression/ expression sequence across multiple modules.
+%%
+%% <p> This functionality allows the user to search for identical clones of an expression/expression sequence
+%% across an Erlang project, whose boundary is specified by the SearchPaths. The searching algorithm ignores 
+%% variables names and literals, but it takes the binding structure of variables into account. Since atoms have 
+%% multiple roles in Erlang, only those atoms that are not function/module/process names are treated at literals 
+%% (While Wrangler tries to distinguish not-literal atoms from literal atoms, this functionality is currently still limited.).
+%% Therefore the expressions found are the same to the highlighted expression up to variable renaming and 
+%% and literal substitution. Layout and comments are ignored during the search process.
+%% </p>
+%% <p> In the case that the code selected contains multiple, but non-continuous sequence of, expressions, the first
+%% continuous sequence of expressions is taken as the user-selected expression. A continuous sequence of
+%% expressions is a sequence of expressions separated by ','.
+%% </p>
+%% =================================================================================================
+%% @spec expr_search_in_dirs(FileName::filename(), Start::Pos, End::Pos,SearchPaths::[dir()], TabWidth::integer())-> 
+%%           {ok, [{filename(), {{integer(), integer()}, {integer(), integer()}}}]}.
+%% =================================================================================================         
 -spec(expr_search_in_dirs/5::(filename(), pos(), pos(), integer(), [dir()]) -> 
     {ok, [{filename(),{{integer(), integer()}, {integer(), integer()}}}]}).   
 expr_search_in_dirs(FileName, Start = {Line, Col}, End = {Line1, Col1}, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:expr_search_in_dirs(~p, {~p,~p},{~p,~p},~p, ~p).\n",
-		 [?MODULE, FileName, Line, Col, Line1, Col1, SearchPaths, TabWidth]),
+    ?wrangler_io("\nCMD: ~p:expr_search_in_dirs(~p, {~p,~p},{~p,~p},~p, ~p, ~p).\n",
+		 [?MODULE, FileName, Line, Col, Line1, Col1, SearchPaths, SearchPaths, TabWidth]),
     Files =[FileName|(refac_util:expand_files(SearchPaths, ".erl")-- [FileName])],
     Es =  get_expr_selected(FileName, Start, End, SearchPaths, TabWidth),
     Res =lists:append([do_expr_search(F, Es, SearchPaths, TabWidth) ||F<-Files]),
     SE = refac_sim_expr_search:get_start_end_loc(Es),
     Res1 =[{FileName, SE}| Res -- [{FileName, SE}]],
     display_search_result(Res1).
+
+
+-spec(expr_search_eclipse/4::(filename(), pos(), pos(), integer()) ->
+   {ok, [{{integer(), integer()}, {integer(), integer()}}]} | {error, string()}).
+expr_search_eclipse(FileName, Start, End, TabWidth) ->
+    {ok, {AnnAST, _Info}} =refac_util:parse_annotate_file(FileName,true, [], TabWidth),
+    case refac_util:pos_to_expr_list(AnnAST, Start, End) of 
+	[E|Es] -> 
+	    Res = case Es == [] of 
+		      true ->
+			  search_one_expr(FileName, AnnAST, E);
+		      _ -> 
+			  search_expr_seq(FileName, AnnAST, [E|Es])
+		  end,
+	    {ok, [SE||{_File, SE} <-Res]};	
+	_   -> {error, "You have not selected an expression!"}
+    end.     
 
 get_expr_selected(FileName, Start, End, SearchPaths, TabWidth) ->
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
@@ -94,22 +134,6 @@ do_expr_search(FileName, Es, SearchPaths, TabWidth) ->
 	_E1:_E2 ->
 	    []
     end.
-
--spec(expr_search_eclipse/4::(filename(), pos(), pos(), integer()) ->
-   {ok, [{{integer(), integer()}, {integer(), integer()}}]} | {error, string()}).
-expr_search_eclipse(FileName, Start, End, TabWidth) ->
-    {ok, {AnnAST, _Info}} =refac_util:parse_annotate_file(FileName,true, [], TabWidth),
-    case refac_util:pos_to_expr_list(AnnAST, Start, End) of 
-	[E|Es] -> 
-	    Res = case Es == [] of 
-		      true ->
-			  search_one_expr(FileName, AnnAST, E);
-		      _ -> 
-			  search_expr_seq(FileName, AnnAST, [E|Es])
-		  end,
-	    {ok, [SE||{_File, SE} <-Res]};	
-	_   -> {error, "You have not selected an expression!"}
-    end.     
 
 %% Search the clones of an expression from Tree.
 search_one_expr(FileName, Tree, Exp) ->
@@ -194,7 +218,16 @@ do_simplify_expr(Node) ->
 		string ->
 		    refac_syntax:default_literals_vars(Node, '%');
 		atom -> case refac_sim_expr_search:variable_replaceable(Node) of
-			    true ->refac_syntax:default_literals_vars(Node, '%') ;
+			    true -> 
+				refac_io:format("Node:\n~p\n", [Node]),
+				As = refac_syntax:get_ann(Node), 
+				case lists:keysearch(type,1, As) of 
+				    {value, _} -> 
+					refac_syntax:default_literals_vars(
+					  Node, refac_syntax:atom_value(Node));
+				    false ->
+					refac_syntax:default_literals_vars(Node, '%') 
+				end;					
 			    _ -> refac_syntax:default_literals_vars(
 				   Node, refac_syntax:atom_value(Node))
 			end;
