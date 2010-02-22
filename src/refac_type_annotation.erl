@@ -36,7 +36,7 @@
 
 -module(refac_type_annotation).
 
--export([type_ann_ast/4, type_ann_file/3]).
+-export([type_ann_ast/5, type_ann_file/3]).
 
 -export([try_eval/2]).
 
@@ -51,11 +51,12 @@
 
 -include("../include/wrangler.hrl").
 
-type_ann_ast(File, AnnAST, SearchPaths, TabWidth) ->
+type_ann_ast(File, Info, AnnAST, SearchPaths, TabWidth) ->
+    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     TestFrameWorkUsed = refac_util:test_framework_used(File),
     Pid = start_type_env_process(),
     Fs = refac_syntax:form_list_elements(AnnAST),
-    Funs = sorted_funs(File),
+    Funs = sorted_funs(ModName, AnnAST),
     Funs1 = lists:map(fun({{M,F, A},FunDef}) ->
 			      {{M, F, A},do_type_ann(File, FunDef, TestFrameWorkUsed,SearchPaths, TabWidth, Pid)} end, Funs), 
     Fs1 = lists:map(fun(Form) ->
@@ -80,11 +81,12 @@ type_ann_ast(File, AnnAST, SearchPaths, TabWidth) ->
     end.
 
 type_ann_file(File, SearchPaths, TabWidth) ->
-    {ok, {AnnAST, _Info1}} = refac_util:parse_annotate_file(File, true, SearchPaths),
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(File, true, SearchPaths),
+    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     TestFrameWorkUsed = refac_util:test_framework_used(File),
     Pid =start_type_env_process(),
     Fs = refac_syntax:form_list_elements(AnnAST),
-    Funs = sorted_funs(File),
+    Funs = sorted_funs(ModName, AnnAST),
     Funs1 = lists:map(fun({{M,F, A},FunDef}) ->
 			      {{M, F, A},do_type_ann(File, FunDef, TestFrameWorkUsed, SearchPaths, TabWidth, Pid)} end, Funs), 
     Fs1 = lists:map(fun(Form) ->
@@ -149,7 +151,8 @@ do_type_ann_clause(Node, {FileName, Pats,TestFrameWorkUsed, SearchPaths, TabWidt
 		  when
 		      M =/= '_' andalso F =/= '_' -> 
 		    Args1 = do_type_ann_args({M, F, A}, map_args(Pats, Args), Args, Pid),
-		    refac_util:rewrite(Node, refac_syntax:application(Op, Args1));
+		    Node1 =refac_util:rewrite(Node, refac_syntax:application(Op, Args1)),
+		    do_type_ann_op(FileName, Node1, SearchPaths, TabWidth, Pid);
 		_ -> %% Either module name or function name is not an atom;
 		    do_type_ann_op(FileName, Node, SearchPaths, TabWidth, Pid)
 	    end;
@@ -177,6 +180,11 @@ do_type_ann_op(FileName, Node, SearchPaths, TabWidth, Pid) ->
     Args = refac_syntax:application_arguments(Node),
     Arity = length(Args),
     case refac_syntax:type(Op) of
+	atom ->
+	    As = refac_syntax:get_ann(Op),
+	    {value, {fun_def, {Mod, FunName, Ari, _, _}}}= lists:keysearch(fun_def, 1, As),
+	    Op1 = refac_syntax:add_ann({type, {f_atom, [Mod, FunName, Ari]}}, Op),
+	    refac_util:rewrite(Node, refac_syntax:application(Op1, Args));			       
 	variable ->
 	    Op1 = add_type_info({type, {f_atom, ['_', try_eval(FileName, Op,  SearchPaths, TabWidth, 
 							       fun is_atom/1), Arity]}}, Op, Pid),
@@ -505,6 +513,21 @@ type(erlang, spawn_opt, 4) ->
     {[any, m_atom, f_atom_type(), any, any], any};
 type(erlang, spawn_opt, 5) ->
     {[any, m_atom, f_atom_type(), any, any], any};
+type(erlang, whereis, 1) ->
+    {[p_atom], any};
+
+%% type(gen_server, start_link, 3) ->
+%%     {[m_atom, any, any], any};
+%% type(gen_server, start_link, 4) ->
+%%     {[{atom, p_atom}, m_atom, any, any], any};
+%% type(gen_server, start, 3) ->
+%%     {[m_atom, any, any], any};
+%% type(gen_server, start, 4) ->
+%%     {[{atom, p_atom}, m_atom, any, any], any};
+%% type(gen_server, call, 2) ->
+%%     {[{any, any}], any};
+%% type(gen_server, call, 3) ->
+%%     {[any, any, any], any};
 
 type(eqc, module, 1) ->
     {[m_atom], any};
@@ -566,11 +589,22 @@ f_atom_type() ->
     end.
 
     
-sorted_funs(File) ->
-    CallGraph = wrangler_callgraph_server:get_callgraph([File]),
-    lists:append(CallGraph#callgraph.scc_order).
+sorted_funs(ModName, AnnAST) ->
+    F1 = fun (T, S) ->
+		 case refac_syntax:type(T) of
+		     function ->
+			 FunName = refac_syntax:data(refac_syntax:function_name(T)),
+			 Arity = refac_syntax:function_arity(T),
+			 Caller ={{ModName, FunName, Arity}, T},  
+			 CalledFuns = wrangler_callgraph_server:called_funs(T),
+			 ordsets:add_element({Caller, CalledFuns}, S);
+		     _ -> S
+		 end
+	 end,
+    CallerCallees=lists:usort(refac_syntax_lib:fold(F1, ordsets:new(), AnnAST)),
+    {Sccs, _E} = refac_callgraph:construct(CallerCallees),
+    lists:append(Sccs).
 
- 
 %% mod_name_as_pars_1() ->
 %%     [{{erlang, apply, 3}, [modulenmae, functionname, arglist], term},
 %%      {{erlang, spawn, 3}, [modulename, functionname, arglist], term},
