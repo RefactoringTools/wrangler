@@ -30,7 +30,8 @@
 %% 
 -module(refac_sim_expr_search).
 
--export([sim_expr_search/6, normalise_record_expr/5]).
+-export([sim_expr_search_in_buffer/6,
+	 sim_expr_search_in_dirs/6, normalise_record_expr/5]).
 
 -export([get_start_end_loc/1, start_counter_process/0, 
 	 stop_counter_process/1, gen_new_var_name/1,
@@ -64,69 +65,42 @@
 %% expressions is a sequence of expressions separated by ','.
 %% <p>
 
-%%-spec(sim_expr_search/6::(filename(), pos(), pos(), string(),[dir()],integer()) 
-%%      -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).    
-sim_expr_search(FName, Start = {Line, Col}, End = {Line1, Col1}, SimiScore0, SearchPaths, TabWidth) ->
+-spec(sim_expr_search_in_buffer/6::(filename(), pos(), pos(), string(),[dir()],integer())
+      -> {ok, [{integer(), integer(), integer(), integer()}]}).    
+sim_expr_search_in_buffer(FName, Start = {Line, Col}, End = {Line1, Col1}, SimiScore0, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:sim_expr_search(~p, {~p,~p},{~p,~p},~p, ~p, ~p).\n",
 		 [?MODULE, FName, Line, Col, Line1, Col1, SimiScore0, SearchPaths, TabWidth]),
     SimiScore = get_simi_score(SimiScore0),
-    {Ranges, AntiUnifier} = search_and_gen_anti_unifier(FName, Start, End, SimiScore, SearchPaths, TabWidth),
+    {FunDef, Exprs, SE} = get_fundef_and_expr(FName, Start, End, SearchPaths, TabWidth),
+    {Ranges, AntiUnifier} = search_and_gen_anti_unifier(FName, {FName, FunDef, Exprs, SE}, SimiScore, SearchPaths, TabWidth),
     display_search_results(Ranges, AntiUnifier).
 
 
-get_simi_score(SimiScore0) ->
-    try  case SimiScore0 of
-	     [] -> ?DefaultSimiScore;
-	     _ -> list_to_float(SimiScore0)
-	 end
-    catch
-	V -> case V>=0.1 andalso V=<1.0 of 
-		 true -> V;
-		 _ ->?DefaultSimiScore
-	     end;			      
-	_:_ -> throw({error, "Parameter input is invalid."})
-    end.
-    
+-spec(sim_expr_search_in_dirs/6::(filename(), pos(), pos(), string(),[dir()],integer())
+      -> {ok, [{integer(), integer(), integer(), integer()}]}).    
+sim_expr_search_in_dirs(FileName, Start = {Line, Col}, End = {Line1, Col1}, SimiScore0, SearchPaths, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:sim_expr_search_in_dirs(~p, {~p,~p},{~p,~p},~p, ~p, ~p).\n",
+		 [?MODULE, FileName, Line, Col, Line1, Col1, SearchPaths, SearchPaths, TabWidth]),
+    Files = [FileName| refac_util:expand_files(SearchPaths, ".erl") -- [FileName]],
+    SimiScore = get_simi_score(SimiScore0),
+    {FunDef, Exprs, SE} = get_fundef_and_expr(FileName, Start, End, SearchPaths, TabWidth),
+    {Ranges, AntiUnifier} = search_and_gen_anti_unifier(Files, {FileName, FunDef, Exprs, SE}, SimiScore, SearchPaths, TabWidth),
+    display_search_results(Ranges, AntiUnifier).
 
-get_fundef_and_expr(Start, End, AnnAST) ->
-    case refac_util:pos_to_fun_def(AnnAST, Start) of
-	{ok, FunDef} -> 
-	    Exprs = refac_util:pos_to_expr_list(FunDef, Start, End),
-	    case Exprs of
-		[] -> throw({error, "You have not selected an expression!"});
-		_ -> {FunDef, Exprs}
-	    end;
-	{error, _} -> throw({error, "You have not selected an expression!"})
-    end.
-   
-
-search_and_gen_anti_unifier(FName, Start, End, SimiScore, SearchPaths, TabWidth) ->
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-    {FunDef, Exprs} = get_fundef_and_expr(Start, End, AnnAST),
-    RecordInfo = get_module_record_info(FName, SearchPaths, TabWidth),
-    Exprs1 = normalise_expr(Exprs, RecordInfo),
-    Res = do_search_similar_expr(FName, AnnAST, RecordInfo, Exprs1, SimiScore),
+search_and_gen_anti_unifier(Files, {FName,FunDef, Exprs, SE}, SimiScore, SearchPaths, TabWidth) ->
+    {_Start, End} = SE,
+    Res =lists:append([search_similar_expr_1(F, Exprs, SimiScore, SearchPaths, TabWidth) ||F<-Files]),
     {Ranges, ExportVars, SubSt} = lists:unzip3(Res),
-    SE = get_start_end_loc(Exprs),
-    ExportVars1 = {element(1, lists:unzip(vars_to_export(FunDef, End, Exprs1))),
+    ExportVars1 = {element(1, lists:unzip(vars_to_export(FunDef, End, Exprs))),
 		   lists:usort(lists:append(ExportVars))},
-    AntiUnifier = generalise_expr(Exprs1, SubSt, ExportVars1),
+    AntiUnifier = generalise_expr(Exprs, SubSt, ExportVars1),
     {[{FName, SE}| Ranges -- [{FName, SE}]], AntiUnifier}.
 
-display_search_results(Ranges, AntiUnifier) ->
-    case Ranges of
-	[_] -> 
-	    ?wrangler_io("No similar expression has been found.\n", []);
-	_ -> 
-	    ?wrangler_io("~p expressions (including the expression selected)"
-			 " which are similar to the expression selected have been found. \n", [length(Ranges)]),
-	    ?wrangler_io(compose_search_result_info(Ranges), []),
-	    ?wrangler_io("\nThe generalised expression would be:\n\n~s\n\n", [refac_prettypr:format(AntiUnifier)]),
-	    ?wrangler_io("\n\nNOTE: Use 'M-x compilation-minor-mode' to make the result "
-			 "mouse clickable if this mode is not already enabled.\n",[]),
-	    ?wrangler_io("      Use 'C-c C-e' to remove highlights!\n", []),
-	    {ok, Ranges}
-    end.
+search_similar_expr_1(FName, Exprs, SimiScore, SearchPaths, TabWidth) ->
+    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
+    RecordInfo = get_module_record_info(FName, SearchPaths, TabWidth),
+    do_search_similar_expr(FName, AnnAST, RecordInfo, Exprs, SimiScore).
+
 
 do_search_similar_expr(FileName, AnnAST, RecordInfo, Exprs, SimiScore) when is_list(Exprs) ->
     F0 = fun (FunNode, Acc) ->
@@ -136,30 +110,8 @@ do_search_similar_expr(FileName, AnnAST, RecordInfo, Exprs, SimiScore) when is_l
 		     end,
 		 refac_syntax_lib:fold(F, Acc, FunNode)
 	 end,
-    do_search_similar_expr_1(AnnAST, F0);
-
-do_search_similar_expr(FileName, AnnAST, RecordInfo, Expr, SimiScore) ->
-    {EStart, EEnd} = get_start_end_loc(Expr),
-    F0 = fun (FunNode, Acc) ->
-		 F = fun (Node, Acc1) ->
-			     case refac_util:is_expr(Node) of
-			       true ->
-				   {NStart, NEnd} = get_start_end_loc(Node),
-				   OverLapped = overlapped_locs({EStart, EEnd}, {NStart, NEnd}),
-				   case OverLapped of
-				     true ->
-					 Acc1;
-				     false ->
-					 Node1 = normalise_expr(Node, RecordInfo),
-					 ExportVars = vars_to_export(FunNode, NEnd, Node),
-					 find_anti_unifier(FileName, Expr, Node1, SimiScore, ExportVars) ++ Acc1
-				   end;
-			       _ -> Acc1
-			     end
-		     end,
-		 refac_syntax_lib:fold(F, Acc, FunNode)
-	 end,
     do_search_similar_expr_1(AnnAST, F0).
+
 
 do_search_similar_expr_1(AnnAST, Fun) ->
     F1 = fun (Node, Acc) ->
@@ -568,11 +520,8 @@ make_new_name(SuffixNum, UsedNames) ->
 normalise_expr(Exprs, RecordInfo) ->
     normalise_record_expr(Exprs, RecordInfo).
    
-normalise_record_expr(Exprs, RecordInfo) when is_list(Exprs)->
-     [refac_util:full_buTP(fun do_normalise_record_expr_1/2, E, {RecordInfo, true})|| E<-Exprs];
-
-normalise_record_expr(Expr, RecordInfo) ->
-     refac_util:full_buTP(fun do_normalise_record_expr_1/2, Expr, {RecordInfo,true}).
+normalise_record_expr(Exprs, RecordInfo)->
+     [refac_util:full_buTP(fun do_normalise_record_expr_1/2, E, {RecordInfo, true})|| E<-Exprs].
 
 get_start_end_loc(Exprs) when is_list(Exprs) ->
     E1= hd(Exprs),
@@ -583,6 +532,51 @@ get_start_end_loc(Exprs) when is_list(Exprs) ->
 get_start_end_loc(Expr) ->
     refac_util:get_range(Expr).
     
+get_simi_score(SimiScore0) ->
+    try  case SimiScore0 of
+	     [] -> ?DefaultSimiScore;
+	     _ -> list_to_float(SimiScore0)
+	 end
+    catch
+	V -> case V>=0.1 andalso V=<1.0 of 
+		 true -> V;
+		 _ ->?DefaultSimiScore
+	     end;			      
+	_:_ -> throw({error, "Parameter input is invalid."})
+    end.
+    
+
+get_fundef_and_expr(FName, Start, End, SearchPaths, TabWidth) ->
+    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
+    case refac_util:pos_to_fun_def(AnnAST, Start) of
+	{ok, FunDef} -> 
+	    Exprs = refac_util:pos_to_expr_list(FunDef, Start, End),
+	    case Exprs of
+		[] -> throw({error, "You have not selected an expression!"});
+		_ ->
+		    SE = get_start_end_loc(Exprs),
+		    RecordInfo = get_module_record_info(FName, SearchPaths, TabWidth),
+		    Exprs1 = normalise_expr(Exprs, RecordInfo),
+		    {FunDef, Exprs1, SE}
+	    end;
+	{error, _} -> throw({error, "You have not selected an expression!"})
+    end.
+   
+
+display_search_results(Ranges, AntiUnifier) ->
+    case Ranges of
+	[_] -> 
+	    ?wrangler_io("No similar expression has been found.\n", []);
+	_ -> 
+	    ?wrangler_io("~p expressions (including the expression selected)"
+			 " which are similar to the expression selected have been found. \n", [length(Ranges)]),
+	    ?wrangler_io(compose_search_result_info(Ranges), []),
+	    ?wrangler_io("\nThe generalised expression would be:\n\n~s\n\n", [refac_prettypr:format(AntiUnifier)]),
+	    ?wrangler_io("\n\nNOTE: Use 'M-x compilation-minor-mode' to make the result "
+			 "mouse clickable if this mode is not already enabled.\n",[]),
+	    ?wrangler_io("      Use 'C-c C-e' to remove highlights!\n", []),
+	    {ok, Ranges}
+    end.
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Refactoring: Normalise record expression.

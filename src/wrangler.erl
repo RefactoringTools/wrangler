@@ -47,7 +47,8 @@
 	 duplicated_code_in_buffer/5,
 	 duplicated_code_in_dirs/5,
 	 identical_expression_search_in_buffer/5, identical_expression_search_in_dirs/5, 
-	 similar_expression_search/6, fun_extraction/5, fun_extraction_1/7,
+	 similar_expression_search_in_buffer/6, similar_expression_search_in_dirs/6,
+	 fun_extraction/5, fun_extraction_1/7,
 	 fold_expr/1, fold_expr_by_loc/5, fold_expr_by_name/7,
 	 instrument_prog/3, similar_code_detection_in_buffer/6,
 	 similar_code_detection/6, uninstrument_prog/3,
@@ -479,12 +480,12 @@ similar_code_detection(DirFileList, MinLen, MinFreq, SimiScore1, SearchPaths, Ta
 %% expressions is a sequence of expressions separated by ','. </p>
 %% Usage: highlight the expression/expression sequence of interest, then selected  <em> Identical Expression Search </em> from 
 %% <em> Refactor</em>.
--spec(identical_expression_search_in_buffer/5::(filename(), pos(), pos(), integer(), [dir()]) -> 
+-spec(identical_expression_search_in_buffer/5::(filename(), pos(), pos(), [dir()], integer()) -> 
     {ok, [{filename(),{{integer(), integer()}, {integer(), integer()}}}]}| {error, string()}).
 identical_expression_search_in_buffer(FileName, Start, End, SearchPaths, TabWidth) ->
     try_refactoring(refac_expr_search, expr_search_in_buffer, [FileName, Start, End, SearchPaths, TabWidth]).
 
--spec(identical_expression_search_in_dirs/5::(filename(), pos(), pos(), integer(), [dir()]) -> 
+-spec(identical_expression_search_in_dirs/5::(filename(), pos(), pos(), [dir()], integer()) -> 
     {ok, [{filename(),{{integer(), integer()}, {integer(), integer()}}}]}| {error, string()}).
 identical_expression_search_in_dirs(FileName, Start, End, SearchPaths, TabWidth) ->
     try_refactoring(refac_expr_search, expr_search_in_dirs, [FileName, Start, End, SearchPaths, TabWidth]).
@@ -501,11 +502,29 @@ expr_search_eclipse(FileName, Start, End, TabWidth) ->
 %% by the user (the calculation calculated of similarity score is going to be further explored).
 %% </p>
 %% Usage: highlight the expression sequence of interest, then selected  <em> Similar Expression Search </em> from  Refactor.
-%% @spec similar_expression_search(FileName::filename(), Start::pos(), End::pos(), SimiScore::string(), SearchPaths::[dir()], TabWidth::integer())
+%% @spec similar_expression_search_in_buffer(FileName::filename(), Start::pos(), End::pos(), SimiScore::string(), SearchPaths::[dir()], TabWidth::integer())
 %%    -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}
--spec(similar_expression_search/6::(filename(), pos(), pos(), string(), [dir()], integer()) -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
-similar_expression_search(FileName, Start, End, SimiScore, SearchPaths, TabWidth) ->
-    try_refactoring(refac_sim_expr_search, sim_expr_search, [FileName, Start, End, SimiScore, SearchPaths, TabWidth]).
+-spec(similar_expression_search_in_buffer/6::(filename(), pos(), pos(), string(), [dir()], integer()) -> 
+					 {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
+similar_expression_search_in_buffer(FileName, Start, End, SimiScore, SearchPaths, TabWidth) ->
+    try_refactoring(refac_sim_expr_search, sim_expr_search_in_buffer, [FileName, Start, End, SimiScore, SearchPaths, TabWidth]).
+
+
+%% ==================================================================================================
+%% @doc Search for expression/expression sequences that are similar to the expression/expression sequence selected by the user across 
+%% an multiple modules as specified by the SearchPaths parameter.
+%% <p> This functionality allows searching for expression sequence that are <em>similar</em> to the expression sequence selected.  In this context, 
+%% two expressions, A and B say, are similar if there exists an anti-unifier, say C,  of A and B, and C satisfies the similarity score specified
+%% by the user (the calculation calculated of similarity score is going to be further explored).
+%% </p>
+%% Usage: highlight the expression sequence of interest, then selected  <em> Similar Expression Search </em> from  Refactor.
+%% @spec similar_expression_search_in_dirs(FileName::filename(), Start::pos(), End::pos(), SimiScore::string(), SearchPaths::[dir()], TabWidth::integer())
+%%    -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}
+-spec(similar_expression_search_in_dirs/6::(filename(), pos(), pos(), string(), [dir()], integer()) -> 
+						 {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
+similar_expression_search_in_dirs(FileName, Start, End, SimiScore, SearchPaths, TabWidth) ->
+    try_refactoring(refac_sim_expr_search, sim_expr_search_in_dirs, [FileName, Start, End, SimiScore, SearchPaths, TabWidth]).
+
 
 %% =====================================================================================================
 %%@doc Introduce a new function to represent an expression or expression sequence.

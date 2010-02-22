@@ -55,7 +55,7 @@
 %%           {ok, [{filename(), {{integer(), integer()}, {integer(), integer()}}}]}.
 %% =================================================================================================         
 
--spec(expr_search_in_buffer/5::(filename(), pos(), pos(), integer(), [dir()]) -> 
+-spec(expr_search_in_buffer/5::(filename(), pos(), pos(), [dir()], integer()) -> 
     {ok, [{filename(),{{integer(), integer()}, {integer(), integer()}}}]}).
 expr_search_in_buffer(FileName, Start = {Line, Col}, End = {Line1, Col1}, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:expr_search_in_buffer(~p, {~p,~p},{~p,~p},~p, ~p).\n",
@@ -86,7 +86,7 @@ expr_search_in_buffer(FileName, Start = {Line, Col}, End = {Line1, Col1}, Search
 %% @spec expr_search_in_dirs(FileName::filename(), Start::Pos, End::Pos,SearchPaths::[dir()], TabWidth::integer())-> 
 %%           {ok, [{filename(), {{integer(), integer()}, {integer(), integer()}}}]}.
 %% =================================================================================================         
--spec(expr_search_in_dirs/5::(filename(), pos(), pos(), integer(), [dir()]) -> 
+-spec(expr_search_in_dirs/5::(filename(), pos(), pos(), [dir()], integer()) -> 
     {ok, [{filename(),{{integer(), integer()}, {integer(), integer()}}}]}).   
 expr_search_in_dirs(FileName, Start = {Line, Col}, End = {Line1, Col1}, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:expr_search_in_dirs(~p, {~p,~p},{~p,~p},~p, ~p, ~p).\n",

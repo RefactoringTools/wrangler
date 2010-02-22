@@ -381,13 +381,13 @@ examine_clone_members([R|Rs], C={Ranges,{Len, Freq}}, MinFreq, SimiScore, ASTTab
 					     SimiScore, ASTTab, VarTab, RangeTab, [Res|Acc])
 	end.
 
-examine_a_clone_member(Range={_FName, _Start, _End}, {Rs, {Len, _Freq}},  MinFreq, SimiScore, ASTTab, VarTab, RangeTab) ->
+examine_a_clone_member(Range={FName, _Start, _End}, {Rs, {Len, _Freq}},  MinFreq, SimiScore, ASTTab, VarTab, RangeTab) ->
     {Exprs1, VarsToExport} = get_expr_list_and_vars_to_export(Range, ASTTab, VarTab, RangeTab),
     Res = pmap(fun(R) ->
 		       case R==Range of
 			   true -> [];
 			   _ ->
-			       find_anti_unifier(Exprs1, R, SimiScore, ASTTab, VarTab, RangeTab)
+			       find_anti_unifier(FName, Exprs1, R, SimiScore, ASTTab, VarTab, RangeTab)
 		       end
 	       end, Rs),
     Res1 = lists:append(Res),
@@ -400,9 +400,9 @@ examine_a_clone_member(Range={_FName, _Start, _End}, {Rs, {Len, _Freq}},  MinFre
     end.
     
 
-find_anti_unifier(Exprs1, Range,SimiScore, ASTTab, VarTab,RangeTab)->
+find_anti_unifier(FileName, Exprs1, Range,SimiScore, ASTTab, VarTab,RangeTab)->
     {Exprs2, VarsToExport} = get_expr_list_and_vars_to_export(Range, ASTTab, VarTab, RangeTab),
-    Res =refac_sim_expr_search:find_anti_unifier(Exprs1, Exprs2, SimiScore, VarsToExport),
+    Res =refac_sim_expr_search:find_anti_unifier(FileName, Exprs1, Exprs2, SimiScore, VarsToExport),
     case Res of 
 	[] ->
 	     Res;
