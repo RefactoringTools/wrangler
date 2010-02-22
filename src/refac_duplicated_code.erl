@@ -165,7 +165,8 @@ duplicated_code_eclipse(DirFileList, MinLength1, MinClones1, TabWidth, SuffixTre
 		    _ -> MinClones1
 		end,
     start(SuffixTreeExec),
-    Cs5= duplicated_code_detection(DirFileList, MinClones, MinLength, 10 ,TabWidth),  %%TODO: replace 10 with parameter.
+    %%TODO: replace 10 with parameter.
+    Cs5= duplicated_code_detection(DirFileList, MinClones, MinLength, 10 ,TabWidth), 
     remove_sub_clones(Cs5).
     
 duplicated_code(DirFileList, MinLength1, MinClones1, MaxPars1, TabWidth) ->
@@ -814,7 +815,7 @@ get_anti_unifier(C, MaxPars, MinLength) ->
     Len =  element(5, hd(C)),
     get_anti_unifier_0({lists:unzip([{R, {U, Vars}}||{R, U, Vars, _Bd, _Len}<-C]), Len, Freq}, MaxPars, MinLength).
 		  
-get_anti_unifier_0(C={{Range, CodeEVsPairs}, Len, F}, MaxPars, MinLength) ->
+get_anti_unifier_0(_C={{Range, CodeEVsPairs}, Len, F}, MaxPars, MinLength) ->
     try
         get_anti_unifier_1(CodeEVsPairs)
     of
@@ -823,7 +824,6 @@ get_anti_unifier_0(C={{Range, CodeEVsPairs}, Len, F}, MaxPars, MinLength) ->
 		true -> [];
 		_ ->
 		    [{Range, Len, F, Res}] 
-		    %%[{Range, Len, F, Res, Pars}]
 	    end
     catch
       _Error_ -> []
@@ -870,32 +870,26 @@ group_substs(Subst) ->
 group_subst_nodes(GroupedNodeLists) ->
     H = hd(GroupedNodeLists),
     group_subst_nodes(tl(GroupedNodeLists),[ordsets:from_list(L)|| L<-H]).
-group_subst_nodes([],Acc) ->
-    Res =[{L1, lists:min([refac_syntax:get_pos(E)|| E<-L1])} ||
-	     L<- Acc, L1<-[ordsets:to_list(L)], L1/=[]],
+group_subst_nodes([], Acc) ->
+    Res = [{L1, lists:min([refac_syntax:get_pos(E) || E <- L1])}
+	   || L <- Acc, L1 <- [ordsets:to_list(L)], L1 /= []],
     element(1, lists:unzip(lists:keysort(2, Res)));
-group_subst_nodes([L|T],Acc) ->
-    L1 =[ordsets:from_list(E) || E <-L],
-    Insets = [E||E<-[ordsets:intersection(E1,E2)||E1<-L1, E2<-Acc], ordsets:to_list(E)/=[]],
-    {L11, Acc1}  = case Insets of 
-		       [] -> {L1, Acc};
-		       _ ->{[E1||E<-L1, E1<-[lists:foldl(fun(I, E0)->
-								 ordsets:subtract(E0, I)
-							 end, E, Insets)], E1/=[]],
-			    [E1||E<-Acc, E1<-[lists:foldl(fun(I, E0)->
-								  ordsets:subtract(E0, I)
-							  end, E, Insets)], E1/=[]]}
-		   end,
-    group_subst_nodes(T, Insets++L11++Acc1).
+group_subst_nodes([L| T], Acc) ->
+    L1 = [ordsets:from_list(E) || E <- L],
+    Insets = [E || E <- [ordsets:intersection(E1, E2) || E1 <- L1, E2 <- Acc],
+		   ordsets:to_list(E) /= []],
+    {L11, Acc1} = case Insets of
+		    [] -> {L1, Acc};
+		    _ -> {sets_subtraction(L1, Insets),
+			  sets_subtraction(Acc, Insets)}
+		  end,
+    group_subst_nodes(T, Insets ++ L11 ++ Acc1).
 
 sets_subtraction(L, Insets) ->
     [E1 || E <- L, E1 <- [lists:foldl(fun (I, E0) ->
 					      ordsets:subtract(E0, I)
 				      end, E, Insets)], E1 /= []].
 
-bb() ->
-    0.
-     
 do_expr_unification(Exp1, Exp2) ->
     case {is_list(Exp1), is_list(Exp2)} of
       {true, true} ->
@@ -955,7 +949,7 @@ do_expr_unification(Exp1, Exp2) ->
 		       true -> [];
 		       _ -> [{Exp1, Exp2}]
 		     end;
-	      nil -> case T2 == nil of
+		nil -> case T2 == nil of
 		     true -> [];
 			 _ -> [{Exp1, Exp2}]
 		     end;
@@ -1182,12 +1176,3 @@ macro_name_value(Exp) ->
     end.
 
 
-%% file_info(DirFileList)->
-%%      FileNames = refac_util:expand_files(DirFileList, ".erl"),
-%%      refac_io:format("No of files:\n~p\n", [length(FileNames)]),
-%%      lists:sum(lists:map(fun(F) ->
-%% 		       Toks= refac_util:tokenize(F, false, 8),
-%% 		       {L, _} = token_loc(lists:last(Toks)),
-%% 		       L
-%% 	       end, FileNames)).
-    
