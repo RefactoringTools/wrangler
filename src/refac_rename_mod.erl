@@ -67,7 +67,7 @@
 -include("../include/wrangler.hrl").
 
 -spec(rename_mod/4::(filename(), string(), [dir()], integer()) -> 
-	     {error, string()} | {question, string()} |{ok, [filename()]}).
+	     {error, string()} | {question, string()} |{ok, [filename()], boolean()}).
 rename_mod(FileName, NewName, SearchPaths, TabWidth) ->
     rename_mod(FileName, NewName, SearchPaths, TabWidth, emacs).
 
@@ -79,7 +79,7 @@ rename_mod_eclipse(FileName, NewName, SearchPaths, TabWidth) ->
 
 
 -spec(rename_mod_1/5::(filename(), string(), [dir()], integer(),boolean()) ->
-			    {ok, [filename()]}).
+			    {ok, [filename()], boolean()} |  {ok, [{filename(), filename(), string()}]}).
 rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod) ->
     rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod, emacs).
 
@@ -503,7 +503,6 @@ not_renamed_warn_msg(OldModNames) ->
 		       "refer to the module renamed, and they are not renamed. Please check manually!\n"
     end.
 
-output_filenames([]) -> "";
 output_filenames([F|T]) ->
     output_filenames(T, F).
 output_filenames([], Acc) ->
