@@ -168,8 +168,7 @@ rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 	    FileName ++ "\", " ++ integer_to_list(Line) ++
 	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
 		++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    {ok, {AnnAST0, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-    AnnAST = refac_type_annotation:type_ann_ast(FileName, AnnAST0, SearchPaths, TabWidth),
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     NewName1 = list_to_atom(NewName),
     {ok, {Mod, Fun, Arity, _, DefinePos}} = refac_util:pos_to_fun_name(AnnAST, {Line, Col}),
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
@@ -347,9 +346,8 @@ rename_fun_in_client_modules(Files, {Mod, Fun, Arity}, NewName, SearchPaths, Tab
       [] -> [];
       [F| Fs] ->
 	  ?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
-	  {ok, {AnnAST0, Info}} = refac_util:parse_annotate_file(F, true, SearchPaths, TabWidth),
-	  AnnAST = refac_type_annotation:type_ann_ast(F, AnnAST0, SearchPaths, TabWidth),
-	  {AnnAST1, Changed} = rename_fun_in_client_module_1({AnnAST, Info}, {Mod, Fun, Arity}, NewName),
+	    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(F, true, SearchPaths, TabWidth),
+	    {AnnAST1, Changed} = rename_fun_in_client_module_1({AnnAST, Info}, {Mod, Fun, Arity}, NewName),
 	  check_atoms(F, AnnAST1, [Fun], Pid),
 	  if Changed ->
 		 [{{F, F}, AnnAST1}| rename_fun_in_client_modules(
