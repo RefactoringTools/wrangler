@@ -103,9 +103,14 @@ expression_search_in_dirs(FName, StartLine, StartCol, EndLine, EndCol, SearchPat
 
 -spec(similar_expression_search/8::(filename(), integer(), integer(), integer(), integer(),string(),[dir()], integer()) ->
 	     {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
-similar_expression_search(FName, StartLine, StartCol, EndLine, EndCol, SimiScore, SearchPaths, TabWidth) ->
+similar_expression_search_in_buffer(FName, StartLine, StartCol, EndLine, EndCol, SimiScore, SearchPaths, TabWidth) ->
     wrangler:similar_expression_search(FName, {StartLine, StartCol}, {EndLine, EndCol}, SimiScore, SearchPaths, TabWidth).
 
+
+-spec(similar_expression_search/8::(filename(), integer(), integer(), integer(), integer(),string(),[dir()], integer()) ->
+	     {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
+similar_expression_search_in_dirs(FName, StartLine, StartCol, EndLine, EndCol, SimiScore, SearchPaths, TabWidth) ->
+    wrangler:similar_expression_search(FName, {StartLine, StartCol}, {EndLine, EndCol}, SimiScore, SearchPaths, TabWidth).
 
 -spec(fun_extraction/7::(filename(), integer(), integer(), integer(), integer(), string(), integer()) ->
 	      {error, string()} | {ok, string()}).
