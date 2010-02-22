@@ -31,6 +31,8 @@
 %% =============================================================================================
 
 %% =============================================================================================
+
+%%%NOTE: THIS MODULE IS NOT FINISHED YET.
 -module(refac_statem_to_fsm).
 
 -export([eqc_statem_to_fsm/4, eqc_statem_to_fsm_eclipse/4]).
@@ -100,7 +102,7 @@ transform(F, StateName) ->
 		    
 is_include_statem(_F) ->
     false.
-	
+
 include_statem_to_fsm(F) ->	    
     [F].
 
