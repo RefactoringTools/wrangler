@@ -102,7 +102,7 @@
 	     (['rex ['ok files logmsg]]
 	      ;; check in into the refactor monitoring repository before commiting changes.
 	      ;;(condition-case nil
-	       	  (update-repository files logmsg)
+	      (update-repository files logmsg)
 	       ;;	(error "The refactoring monitor is not working."))
 	      (dolist (f files)
 		(progn
@@ -351,7 +351,7 @@
   (interactive)
   (require 'comint)
   (setq opts (list "-name" wrangler-erl-node-string
-		   "-pa"  %EBIN_DIR%
+		   "-pa"  "EBIN_DIR"
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))
@@ -2496,7 +2496,6 @@
     (if (eq exist nil)
 	(vc-call-backend (backend-used) 'register (list logfile) nil "new file")
       nil)
-    (message "DDDDDDDDDDDDDDDD")
     (vc-call-backend (backend-used) 'checkin (list logfile) nil "new command")))
 
 
@@ -2511,7 +2510,10 @@
     (let ((dir (is-a-monitored-file (elt (car files) 0))))
       (if (equal nil dir)
 	  (message-box "Reminder: the file under refactoring is not being monitored by Wrangler's refactoring monitor.")
+	(setq olddir default-directory)
+	(cd refac-monitor-repository-path)
 	(update-repository-1 dir (concat wrangler-version logmsg))
+	(cd olddir)
 	))))
 	   
 
@@ -2524,7 +2526,8 @@
     (copy-dir-recursive  dir-to-monitor refac-monitor-path 'true nil nil 'always)
     (write-region (concat "\n" logmsg) nil logfile 'true)
     (register-and-checkin-new-files refac-monitor-path)
-    (checkin-changed-files refac-monitor-path logmsg)))
+    (checkin-changed-files refac-monitor-path logmsg)
+    ))
     
 (defun copy-dir-recursive (from to ok-flag &optional preserve-time top recursive)
   (let ((attrs (file-attributes from))
@@ -2532,7 +2535,8 @@
     (if (and recursive
 	     (eq t (car attrs))
 	     (or (eq recursive 'always)
-		 (yes-or-no-p (format "Recursive copies of %s? " from))))
+		 (yes-or-no-p (format "
+Recursive copies of %s? " from))))
 	;; This is a directory
 	(if (or (member (file-name-nondirectory from) vc-directory-exclusion-list)
 	    (and (string-equal (substring (file-name-nondirectory from) 0 1) ".")
@@ -2606,28 +2610,20 @@
      
 (defun register-and-checkin-new-files(dir-to-check)
   "Register and check new files into the version control system."
-  (if (equal 'unregistered (vc-call-backend (backend-used) 'state dir-to-check))
+  (if (and (equal 'unregistered (vc-call-backend (backend-used) 'state dir-to-check))
+	   (not (equal (backend-used) 'Git)))
       (progn
 	(vc-call-backend (backend-used) 'register (list dir-to-check) nil "new directory")
 	(vc-call-backend (backend-used) 'checkin (list dir-to-check) nil "new direcotry"))
     (let ((files (files-not-registered dir-to-check)))
       (when files 
 	(progn
-	  (setq files (cons (backend-used) (list files)))
-	  (register nil files "new files")
-	  (checkin files "new files"))))))
+	  (setq files1 (mapcar #'(lambda (f) (file-relative-name f refac-monitor-repository-path)) files))
+	  (setq files2 (cons (backend-used) (list files1)))
+	  (register nil files2 "new files")
+	  (checkin files2 "new files")
+	  )))))
  
-
-     
-(defun checkin-changed-files()
-  "Check in edited files."
-  (let ((files (files-changed)))
-    (when files 
-      (progn
-	(setq fileset (cons (backend-used) (list files)))
-	(message "fileset:%s" fileset)
-	(checkin fileset "new files")))))
-   
 
 (defun files-not-registered (dir-to-check)
   "Expands directories in a file list specification.
@@ -2660,14 +2656,10 @@ Within directories, only files not already under version control are noticed."
   (let ((file-or-dir-list (list dir-to-check)))
     (let ((flattened '()))
       (dolist (node file-or-dir-list)
-	;;(message "node:%s" file-or-dir-list)
 	(when (file-directory-p node)
 	  (file-tree-walk
 	   (expand-file-name node) 
 	   (lambda (f) 
-	    ;; (message "f:%s" f)
-	   ;;  (message "f1:%s" (replace-regexp-in-string dir-to-check 
-  	   ;;						monitored-dir f))
 	     (let ((f1 (replace-regexp-in-string dir-to-check 
 						 monitored-dir f)))
 	       (when 
@@ -2676,7 +2668,6 @@ Within directories, only files not already under version control are noticed."
 			(not (file-exists-p f1)))
 		 (push f flattened)))) nil))
 	(unless (file-directory-p node) (push node flattened)))
-     ;; (message "files: %s" flattened)
       flattened))) 
 
 
@@ -2696,11 +2687,11 @@ Within directories, only files not already under version control are noticed."
 (defun checkin-changed-files(refac-monitor-dir logmsg)
   "check in files that have been changed."
   (let ((files (changed-files refac-monitor-dir)))
-   ;; (message "changed files: %s" files)
     (when files
       (progn
-	(setq files (cons (backend-used) (list files)))
-	(checkin files logmsg)))))
+	(setq files1 (mapcar #'(lambda (f) (file-relative-name f refac-monitor-repository-path)) files))
+	(setq files2 (cons (backend-used) (list files1)))
+	(checkin files2 logmsg)))))
 
 (defun changed-files (refac-monitor-dir)
   "Expands directories in a file list specification.
@@ -2732,26 +2723,9 @@ Within directories, only files not already under version control are noticed."
       (vc-call-backend backend 'checkin ready-for-commit nil comment))))
 
 (defun register (&optional set-revision vc-fileset comment)
-   (let* ((fileset-arg  vc-fileset)
+  (let* ((fileset-arg  vc-fileset)
 	  (backend (car fileset-arg))
 	  (files (nth 1 fileset-arg)))
-     (dolist (fname files)
-       (let ((bname (get-file-buffer fname)))
-	 (unless fname (setq fname buffer-file-name))
-	 (when (vc-backend fname)
-	   (if (vc-registered fname)
-	       (error "This file is already registered")
-	     (unless (y-or-n-p "Previous master file has vanished.  Make a new one? ")
-	       (error "Aborted"))))
-	 ;; Watch out for new buffers of size 0: the corresponding file
-	 ;; does not exist yet, even though buffer-modified-p is nil.
-	(when bname
-	  (with-current-buffer bname
-	    (when (and (not (buffer-modified-p))
-		       (zerop (buffer-size))
-		       (not (file-exists-p buffer-file-name)))
-	      (set-buffer-modified-p t))
-	    (vc-buffer-sync)))))
      (vc-call-backend backend 'register files nil comment)
      (dolist (file files)
        (vc-file-setprop file 'vc-backend backend)
