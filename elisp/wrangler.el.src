@@ -101,9 +101,9 @@
 	      (message "Commit failed: %s" rsn))
 	     (['rex ['ok files logmsg]]
 	      ;; check in into the refactor monitoring repository before commiting changes.
-	      ;;(condition-case nil
-	      (update-repository files logmsg)
-	       ;;	(error "The refactoring monitor is not working."))
+	      (condition-case nil
+		  (update-repository files logmsg)
+		(error "The refactoring monitor is not working properly!"))
 	      (dolist (f files)
 		(progn
 		  (setq old-file-name (elt f 0))
@@ -351,7 +351,7 @@
   (interactive)
   (require 'comint)
   (setq opts (list "-name" wrangler-erl-node-string
-		   "-pa"  "EBIN_DIR"
+		   "-pa"  %EBIN_DIR%
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))
@@ -369,9 +369,9 @@
 
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 0.8.6"))
+  (message "Wrangler version 0.8.7"))
 
-(setq wrangler-version  "(wrangler-0.8.6) ")
+(setq wrangler-version  "(wrangler-0.8.7) ")
 
 (defun wrangler-menu-init()
   "Init Wrangler menus."
@@ -538,7 +538,6 @@
 	       (['rex ['ok modified warning]]
 		(progn
 		  (setq has-warning warning)
-		  (message "wanrning: %s" warning)
 		  (preview-commit-cancel current-file-name modified)
 		  (with-current-buffer (get-file-buffer current-file-name)
 		    (goto-line line-no)
@@ -2493,10 +2492,14 @@
 	 (logfile (concat (file-name-as-directory refac-monitor-path) "refac_cmd_log"))
 	 (exist (file-regular-p logfile)))
     (write-region (concat "\n" logmsg) nil logfile 'true)
+    (setq olddir default-directory)
+    (cd refac-monitor-repository-path)
+    (setq logfile1 (file-relative-name logfile refac-monitor-repository-path))
     (if (eq exist nil)
-	(vc-call-backend (backend-used) 'register (list logfile) nil "new file")
+	(vc-call-backend (backend-used) 'register (list logfile1) nil "new file")
       nil)
-    (vc-call-backend (backend-used) 'checkin (list logfile) nil "new command")))
+    (vc-call-backend (backend-used) 'checkin (list logfile1) nil "new command")
+    (cd olddir)))
 
 
 (defun backend-used()
@@ -2525,8 +2528,7 @@
 	 (logfile (concat (file-name-as-directory refac-monitor-path) "refac_cmd_log")))
     (copy-dir-recursive  dir-to-monitor refac-monitor-path 'true nil nil 'always)
     (write-region (concat "\n" logmsg) nil logfile 'true)
-    (register-and-checkin-new-files refac-monitor-path)
-    (checkin-changed-files refac-monitor-path logmsg)
+    (register-and-checkin-new-files refac-monitor-path logmsg)
     ))
     
 (defun copy-dir-recursive (from to ok-flag &optional preserve-time top recursive)
@@ -2535,8 +2537,7 @@
     (if (and recursive
 	     (eq t (car attrs))
 	     (or (eq recursive 'always)
-		 (yes-or-no-p (format "
-Recursive copies of %s? " from))))
+		 (yes-or-no-p (format "Recursive copies of %s? " from))))
 	;; This is a directory
 	(if (or (member (file-name-nondirectory from) vc-directory-exclusion-list)
 	    (and (string-equal (substring (file-name-nondirectory from) 0 1) ".")
@@ -2608,26 +2609,26 @@ Recursive copies of %s? " from))))
 	 (dired-log "Can't set date on %s:\n%s\n" from err))))))
 
      
-(defun register-and-checkin-new-files(dir-to-check)
+(defun register-and-checkin-new-files(dir-to-check logmsg)
   "Register and check new files into the version control system."
   (if (and (equal 'unregistered (vc-call-backend (backend-used) 'state dir-to-check))
 	   (not (equal (backend-used) 'Git)))
       (progn
 	(vc-call-backend (backend-used) 'register (list dir-to-check) nil "new directory")
 	(vc-call-backend (backend-used) 'checkin (list dir-to-check) nil "new direcotry"))
-    (let ((files (files-not-registered dir-to-check)))
+    (let ((files (collect-files dir-to-check)))
       (when files 
 	(progn
 	  (setq files1 (mapcar #'(lambda (f) (file-relative-name f refac-monitor-repository-path)) files))
 	  (setq files2 (cons (backend-used) (list files1)))
 	  (register nil files2 "new files")
-	  (checkin files2 "new files")
-	  )))))
- 
+	  (checkin files2 logmsg)
+	  ))
+      )))
 
-(defun files-not-registered (dir-to-check)
+(defun collect-files (dir-to-check)
   "Expands directories in a file list specification.
-Within directories, only files not already under version control are noticed."
+      Within directories, only files not already under version control are noticed."
   (let ((file-or-dir-list (list dir-to-check)))
     (let ((flattened '()))
       (dolist (node file-or-dir-list)
@@ -2635,40 +2636,12 @@ Within directories, only files not already under version control are noticed."
 	  (file-tree-walk
 	   (expand-file-name node) 
 	   (lambda (f) 
-	     (when (equal 'unregistered (vc-call-backend (backend-used) 'state f)) (push f flattened))) nil))
+	     (if (or (equal (file-name-extension f) "erl") (equal (file-name-extension f) "hrl"))
+		 (push f flattened)
+	       flattened))
+	   nil))
 	(unless (file-directory-p node) (push node flattened)))
       flattened)))
-
-
-(defun remove-deleted-files(dir-to-check monitored-dir)
-  "removed files that are deleted from the application code from the repos"
-  (let ((files (files-removed dir-to-check monitored-dir)))
-    (when files
-      (progn 
-	(dolist (f files)
-	  (delete-file f))
-	(setq files (cons (backend-used) (list files)))
-	(checkin files "removed")))))
-
-		
-(defun files-removed (dir-to-check monitored-dir)
-  "reports files that are under version control but no longer exist in the application code."
-  (let ((file-or-dir-list (list dir-to-check)))
-    (let ((flattened '()))
-      (dolist (node file-or-dir-list)
-	(when (file-directory-p node)
-	  (file-tree-walk
-	   (expand-file-name node) 
-	   (lambda (f) 
-	     (let ((f1 (replace-regexp-in-string dir-to-check 
-						 monitored-dir f)))
-	       (when 
-		   (and (or  (equal (file-name-extension f1) "erl")
-			     (equal (file-name-extension f1) "hrl"))
-			(not (file-exists-p f1)))
-		 (push f flattened)))) nil))
-	(unless (file-directory-p node) (push node flattened)))
-      flattened))) 
 
 
 (defun file-tree-walk (file func args)
@@ -2684,43 +2657,24 @@ Within directories, only files not already under version control are noticed."
 		      (file-tree-walk dirf func args))))
        (directory-files dir)))))
 
-(defun checkin-changed-files(refac-monitor-dir logmsg)
-  "check in files that have been changed."
-  (let ((files (changed-files refac-monitor-dir)))
-    (when files
-      (progn
-	(setq files1 (mapcar #'(lambda (f) (file-relative-name f refac-monitor-repository-path)) files))
-	(setq files2 (cons (backend-used) (list files1)))
-	(checkin files2 logmsg)))))
-
-(defun changed-files (refac-monitor-dir)
-  "Expands directories in a file list specification.
-Within directories, only files not already under version control are noticed."
-  (let ((file-or-dir-list (list refac-monitor-dir)))
-    (let ((flattened '()))
-      (dolist (node file-or-dir-list)
-	(when (file-directory-p node)
-	  (file-tree-walk
-	   (expand-file-name node) (lambda (f) 
-				     (when (equal 'edited (vc-call-backend (backend-used) 'state f)) (push f flattened))) nil))
-	(unless (file-directory-p node) (push node flattened)))
-     flattened)))
-
-
 (defun checkin (vc-fileset comment)
   (let* ((backend (car vc-fileset))
 	 (files (nth 1 vc-fileset))
 	 (ready-for-commit files))
     (dolist (file files)
-      (unless (file-writable-p file)
-	(set-file-modes file (logior (file-modes file) 128))
-	(let ((visited (get-file-buffer file)))
-	  (when visited
-	    (with-current-buffer visited
-	    (toggle-read-only -1))))))
+       (unless (file-writable-p file)
+     	(set-file-modes file (logior (file-modes file) 128))
+     	(let ((visited (get-file-buffer file)))
+     	  (when visited
+     	    (with-current-buffer visited
+    	    (toggle-read-only -1))))))
     (if (not ready-for-commit)
 	nil
-      (vc-call-backend backend 'checkin ready-for-commit nil comment))))
+      (if (not (equal backend 'Git))
+	  (vc-call-backend backend 'checkin ready-for-commit nil comment)
+	(progn
+	  (vc-git-command nil 'async ready-for-commit "commit" "-m" comment "--only" "--"))))
+      ))
 
 (defun register (&optional set-revision vc-fileset comment)
   (let* ((fileset-arg  vc-fileset)
