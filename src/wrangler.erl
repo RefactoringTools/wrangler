@@ -35,7 +35,7 @@
 %% @author Huiqing Li, Simon Thompson
 %%   [http://www.cs.kent.ac.uk/projects/wrangler]
 
-%% @version 0.8.6
+%% @version 0.8.7
 %% @end
 %%
 %% @doc This module describes the refactorings that are currently supported by Wrangler.
