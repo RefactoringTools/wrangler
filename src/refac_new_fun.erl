@@ -83,7 +83,8 @@ fun_extraction(FileName, Start = {Line, Col}, End = {Line1, Col1},NewFunName, Ta
 	[] -> ExpList = [],
 	      throw({error, "You have not selected an expression or a sequence of expressions, "
 		     "or the function containing the expression(s) selected is malformed."});
-	ExpList -> ExpList
+	ExpList -> 
+	    ExpList
     end,
     {ok, Fun} = refac_util:expr_to_fun(AnnAST, hd(ExpList)),
     ok=side_cond_analysis(FileName, Info, Fun, ExpList, list_to_atom(NewFunName)),
@@ -186,48 +187,59 @@ funcall_replaceable(Fun, ExpList) ->
 	    ExpList1 = filter_exprs_via_ast(Fun, ExpList),
 	    case ExpList1 of
 		[] -> ok;
-		_ -> throw({error, "The selected expression sequence "
+		_ -> throw({error, "The expression sequence selected "
 		      "cannot be replaced by a function call!"})
 	    end
     end.
 
 check_expr_category(Fun, Exp) ->
-    case lists:keysearch(category, 1, refac_syntax:get_ann(Exp)) of
-	{value, {category, record_field}} ->
-	    throw({error, "Record field cannot be replaced "
-		   "by a function application."});
-	{value, {category, record_type}} ->
-	    throw({error, "Record type cannot be replaced "
-		   "by a function application."});
-	{value, {category, guard_expression}} ->
-	    throw({error, "Function abstraction whithin a "
-		   "guard expression is not supported."});
-	{value, {category, generator}} ->
-	  throw({error, "Function abstraction over a generator"
-		 "is not supported."});
-	{value, {category, application_op}} ->
-	    GuardRanges = refac_syntax_lib:fold(
-			    fun (N, S) ->
-				    Ann = refac_syntax:get_ann(N),
-				    case lists:keysearch(category, 1, Ann) of
-					{value, {category, guard_expression}} ->
-					    [refac_util:get_range(N)| S];
-					_ -> S
-				    end
-			    end, [], Fun),
-	    {Start, End} = refac_util:get_range(Exp),
-	    case lists:any(fun ({S1, E1}) ->
-				   S1 =< Start andalso End =< E1
-			   end, GuardRanges)
-		of
-		true ->
-		    throw({error, "Function abastraction within "
-			   "a guard expression is not supported."});
-		_ -> ok
-	    end;
-	_ -> ok
+    case is_macro_arg(Fun, Exp) of
+	true ->
+	    throw({warning, "The expression selected is part of a macro application, "
+		   "Wrangler cannot guarantee the correctness of transformation. Still continue?"});
+	false ->
+	    check_expr_category_1(Fun, Exp)
     end.
+
+check_expr_category_1(Fun, Exp) ->
+    case lists:keysearch(category, 1, refac_syntax:get_ann(Exp)) of
+      {value, {category, record_field}} ->
+	  throw({error, "Record field cannot be replaced "
+			"by a function application."});
+      {value, {category, record_type}} ->
+	  throw({error, "Record type cannot be replaced "
+			"by a function application."});
+      {value, {category, guard_expression}} ->
+	  throw({error, "Function abstraction whithin a "
+			"guard expression is not supported."});
+      {value, {category, generator}} ->
+	  throw({error, "Function abstraction over a generator"
+			"is not supported."});
+      {value, {category, application_op}} ->
+	  case is_part_of_guard_expr(Fun, Exp) of 
+	      true ->
+		  throw({error, "Function abastraction within "
+			 "a guard expression is not supported."});
+	      false -> ok
+	  end;
+      _ -> ok
+    end.
+
+is_part_of_guard_expr(Fun, Exp) ->
+    GuardRanges = collect_guard_ranges(Fun),
+    {Start, End} = refac_util:get_range(Exp),
+    lists:any(fun ({S1, E1}) ->
+		      S1 =< Start andalso End =< E1
+	      end, GuardRanges).
+
+is_macro_arg(Fun, Exp) ->
+    MacroArgRanges = collect_macro_arg_ranges(Fun),
+    {Start, End} = refac_util:get_range(Exp),
+    lists:any(fun ({S1, E1}) ->
+		      S1 =< Start andalso End =< E1
+	      end, MacroArgRanges).
     
+  
 collect_prime_expr_ranges(Tree) ->
      F= fun(T, S) ->
  		   case refac_syntax:type(T) of 
@@ -240,6 +252,40 @@ collect_prime_expr_ranges(Tree) ->
 	end,
     refac_syntax_lib:fold(F, [], Tree).
 
+
+%% This function is a duplicated of refac_gen:collect_guard_ranges/1, and 
+%% will be removed later on.
+collect_guard_ranges(Node) ->
+    Fun=fun(T, Acc) ->
+		case refac_syntax:type(T) of
+		    clause ->
+			G = refac_syntax:clause_guard(T),
+			case G of 
+			    none ->
+				Acc;
+			    _ -> 
+				[refac_util:get_range(G)|Acc]
+			end;
+		    _ ->Acc
+		end
+	end,
+    refac_syntax_lib:fold(Fun, [], Node).
+  	
+
+collect_macro_arg_ranges(Node) ->	
+    Fun = fun(T, Acc) ->
+		  case refac_syntax:type(T) of 
+		      macro ->
+			  Args = refac_syntax:macro_arguments(T),
+			  case Args of 
+			      none -> Acc;
+			      _ -> 
+				  [refac_util:get_range(A)||A<-Args]++Acc
+			  end;
+		      _ -> Acc
+		  end
+	  end,
+    refac_syntax_lib:fold(Fun, [], Node).
 
 is_guard_expr(Node) ->
     As = refac_syntax:get_ann(Node),
@@ -370,27 +416,27 @@ do_fun_extraction(AnnAST, ExpList, NewFunName, ParNames, VarsToExport, Enclosing
 
 replace_expr_with_fun_call(Form, ExpList, NewFunName, ParNames, VarsToExport) ->
     Op = refac_syntax:atom(NewFunName),
-    Pars = [refac_syntax:variable(P)|| P <-ParNames],
-    FunCall= refac_syntax:copy_pos(hd(ExpList), refac_syntax:application(Op, Pars)),
-    NewExpr = case length(VarsToExport) of 
-		  0  ->  
-		      FunCall;
-		  1 -> 
-		      Pats = refac_syntax:variable(hd(VarsToExport)),
-		      refac_syntax:match_expr(Pats, FunCall);
-		  _ ->
-		      Pats = refac_syntax:tuple([refac_syntax:variable(V) || V <- VarsToExport]),
-		      refac_syntax:match_expr(Pats, FunCall)
+    Pars = [refac_syntax:variable(P) || P <- ParNames],
+    FunCall = refac_syntax:copy_pos(hd(ExpList), refac_syntax:application(Op, Pars)),
+    NewExpr = case length(VarsToExport) of
+		0 ->
+		    FunCall;
+		1 ->
+		    Pats = refac_syntax:variable(hd(VarsToExport)),
+		    refac_syntax:match_expr(Pats, FunCall);
+		_ ->
+		    Pats = refac_syntax:tuple([refac_syntax:variable(V) || V <- VarsToExport]),
+		    refac_syntax:match_expr(Pats, FunCall)
 	      end,
-    case (length(ExpList)==1) andalso (refac_syntax:type(hd(ExpList))=/=match_expr) of
-	true -> 
-	    {Form1, _} =refac_util:stop_tdTP(
-			  fun do_replace_expr_with_fun_call_1/2, Form, {NewExpr, hd(ExpList)}),
-	    Form1;
-	_ ->
-	    {Form1, _} =refac_util:stop_tdTP(
-			  fun do_replace_expr_with_fun_call_2/2, Form, {NewExpr, ExpList}),
-	    Form1
+    case length(ExpList) == 1 andalso refac_syntax:type(hd(ExpList)) =/= match_expr of
+      true ->
+	  {Form1, _} = refac_util:stop_tdTP(
+			 fun do_replace_expr_with_fun_call_1/2, Form, {NewExpr, hd(ExpList)}),
+	  Form1;
+      _ ->
+	  {Form1, _} = refac_util:stop_tdTP(
+			 fun do_replace_expr_with_fun_call_2/2, Form, {NewExpr, ExpList}),
+	  Form1
     end.
     
 do_replace_expr_with_fun_call_1(Tree, {NewExpr, Expr}) ->
