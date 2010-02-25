@@ -64,50 +64,64 @@ new_macro(FileName, Start={SLine, SCol}, End={ELine, ECol}, NewMacroName, Search
 	FileName ++ "\", {" ++ integer_to_list(SLine) ++", " ++ integer_to_list(SCol) ++ "},"++
 	"{" ++ integer_to_list(ELine) ++ ", " ++ integer_to_list(ECol) ++ "},"  ++ "\"" ++ NewMacroName ++ "\","
 	++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-     case pre_cond_check(FileName, NewMacroName, Start, End, SearchPaths, TabWidth) of
-		 {ok, AnnAST, Sel} ->
-			 AnnAST1 = do_intro_new_macro(AnnAST, NewMacroName, Sel),
-			 case Editor of
-				 emacs ->
-					 refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], Cmd),
-					 {ok, [FileName]};
-				 eclipse -> Res = [{FileName, FileName, refac_prettypr:print_ast(refac_util:file_format(FileName),AnnAST1)}], {ok, Res}
-			 end;
-		 {error, Reason} -> {error, Reason}
-	 end.
+    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    case pre_cond_check(FileName, AnnAST, NewMacroName, Start, End, SearchPaths, TabWidth) of
+	{ok, AnnAST, Sel, NeedBracket} ->
+	    AnnAST1 = do_intro_new_macro(AnnAST, NewMacroName, Sel, NeedBracket),
+	    case Editor of
+		emacs ->
+		    refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], Cmd),
+		    {ok, [FileName]};
+		eclipse -> 
+		    Src =refac_prettypr:print_ast(refac_util:file_format(FileName),AnnAST1),
+		    Res = [{FileName, FileName, Src}], 
+		    {ok, Res}
+	    end;
+	{error, Reason} -> {error, Reason}
+    end.
 
 
-pre_cond_check(FileName, NewMacroName, Start, End, SearchPaths, TabWidth) ->    
+pre_cond_check(FileName, AnnAST, NewMacroName, Start, End, SearchPaths, TabWidth) ->    
     case refac_util:is_fun_name(NewMacroName) orelse refac_util:is_var_name(NewMacroName) of 
 	true ->
 	    Ms = existing_macros(FileName, SearchPaths, TabWidth),
-	    case lists:member(list_to_atom(NewMacroName), Ms) of 
+	    MsToAvoid = collect_names_to_avoid(AnnAST), 
+	    case lists:member(list_to_atom(NewMacroName), Ms++MsToAvoid) of 
 		true ->
-		     {error, "Macro name provided is already in use!"};
+		    {error, "Macro name provided is already in use!"};
 		_ ->
-		    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-		    Sel = refac_util:pos_to_expr_or_pat_list(AnnAST, Start, End),
-		    case Sel of
-			 [] -> {error, "You have not selected a sequence of expressions/patterns!"};
-			 _ ->
-			      {ok, AnnAST, [hd(Sel)]}
-		     end
+		    case refac_util:pos_to_fun_def(AnnAST, Start) of 
+			{ok, FunDef} ->
+			    Sel = refac_util:pos_to_expr_or_pat_list(AnnAST, Start, End),
+			    case Sel of
+				[] -> {error, "You have not selected a sequence of expressions/patterns!"};
+				_ ->
+				    ExprList = [hd(Sel)],
+				    NeedBracket= need_bracket(refac_util:get_toks(FunDef), ExprList),
+				    {ok, AnnAST, [hd(Sel)], NeedBracket}
+			    end;
+			_ ->{error, "You have not selected a sequence of expressions/patterns!"}
+		    end
 	    end;
-	_ -> {error, "Invalid macro name!"}
+	_ -> {error, "Invalid macro name!"} 
     end.
 
-do_intro_new_macro(AnnAST, MacroName, SelExpList) ->
+do_intro_new_macro(AnnAST, MacroName, SelExpList, NeedBracket) ->
+    SelExpList1=case NeedBracket of 
+		    true -> [refac_syntax:parentheses(hd(SelExpList))];
+		    _-> SelExpList
+		end,
     Vars = lists:usort(lists:append(lists:map(fun(E)-> vars(E) end, SelExpList))),
     MName = case refac_util:is_var_name(MacroName) of 
 		true -> refac_syntax:variable(list_to_atom(MacroName));
 		_ -> refac_syntax:atom(list_to_atom(MacroName))
 	    end,
     MDef =case Vars of 
-	      [] -> refac_syntax:attribute(refac_syntax:atom(define), [MName|SelExpList]);
+	      [] -> refac_syntax:attribute(refac_syntax:atom(define), [MName|SelExpList1]);
 	      _ ->  
 		  Args = lists:map(fun(P) -> refac_syntax:variable(P) end, Vars), 
 		  MApp = refac_syntax:application(MName, Args),
-		  refac_syntax:attribute(refac_syntax:atom(define), [MApp|SelExpList])
+		  refac_syntax:attribute(refac_syntax:atom(define), [MApp|SelExpList1])
 	  end,
     Forms = refac_syntax:form_list_elements(AnnAST),
     {Forms1, Forms2} = lists:splitwith(fun(F) -> (refac_syntax:type(F)==attribute) orelse 
@@ -139,10 +153,9 @@ do_intro_new_macro(AnnAST, MacroName, SelExpList) ->
 replace_expr_with_macro(Form, {ExpList, SLoc, ELoc},  MApp) ->
     case (length(ExpList)==1) of 
 	true ->
-	    {Form1, _} = refac_util:stop_tdTP(fun do_replace_expr_with_macro_app_1/2, Form, {MApp, SLoc, ELoc}),
-	    Form1;
-	_ ->{Form1, _} = refac_util:stop_tdTP(fun do_replace_expr_with_macro_app_2/2, Form, {MApp, SLoc, ELoc}),
-	    Form1
+	    element(1,refac_util:stop_tdTP(fun do_replace_expr_with_macro_app_1/2, Form, {MApp, SLoc, ELoc}));
+	_ ->
+	    element(1, refac_util:stop_tdTP(fun do_replace_expr_with_macro_app_2/2, Form, {MApp, SLoc, ELoc}))
     end.
 
 do_replace_expr_with_macro_app_1(Tree, {MApp, SLoc, ELoc}) ->
@@ -162,10 +175,10 @@ do_replace_expr_with_macro_app_2(Tree, {MApp, SLoc, ELoc}) ->
 	    {NewPats, Modified1}= process_exprs(Pats, {MApp, SLoc, ELoc}),
 	    case Modified or Modified1 of 
 		true ->
-		    G    = refac_syntax:clause_guard(Tree),
-		    {refac_syntax:copy_pos(Tree, 
-					   refac_syntax:copy_attrs(Tree, 
-								   refac_syntax:clause(NewPats, G, NewBody))),  true};
+		    G  = refac_syntax:clause_guard(Tree),
+		    {refac_syntax:copy_pos(
+		       Tree, refac_syntax:copy_attrs(
+			       Tree, refac_syntax:clause(NewPats, G, NewBody))),  true};
 		_ ->
 		     {Tree, false}
 	    end;
@@ -174,8 +187,9 @@ do_replace_expr_with_macro_app_2(Tree, {MApp, SLoc, ELoc}) ->
 	    {NewArgs, Modified} = process_exprs(Args, {MApp, SLoc, ELoc}),
 	    case Modified of 
 		true -> Op  = refac_syntax:application_operator(Tree),
-			{refac_syntax:copy_pos(Tree, refac_syntax:copy_attrs(Tree, 
-									     refac_syntax:application(Op, NewArgs))), true};
+			{refac_syntax:copy_pos(
+			   Tree, refac_syntax:copy_attrs(
+				   Tree, refac_syntax:application(Op, NewArgs))), true};
 		false -> {Tree, false}
 	    end;
 	tuple ->
@@ -183,14 +197,16 @@ do_replace_expr_with_macro_app_2(Tree, {MApp, SLoc, ELoc}) ->
 	    {NewElems, Modified} = process_exprs(Elems, {MApp, SLoc, ELoc}),
 	    case Modified of 
 		true ->
-		    {refac_syntax:copy_pos(Tree, refac_syntax:copy_attrs(Tree, refac_syntax:tuple(NewElems))), true};
+		    {refac_syntax:copy_pos(Tree, refac_syntax:copy_attrs(
+						   Tree, refac_syntax:tuple(NewElems))), true};
 		false -> {Tree, false}
 	    end;
 	block_expr ->
 	    Exprs = refac_syntax:block_expr_body(Tree),
 	    {NewExprs, Modified} = process_exprs(Exprs, {MApp,SLoc, ELoc}),
 	    case Modified of 
-		true ->{refac_syntax:copy_pos(Tree, refac_syntax:copy_attrs(Tree, refac_syntax:block_expr(NewExprs))), true};
+		true ->{refac_syntax:copy_pos(Tree, refac_syntax:copy_attrs(
+						      Tree, refac_syntax:block_expr(NewExprs))), true};
 		_ -> {Tree, false}
 	    end;
 	_ ->
@@ -242,3 +258,46 @@ vars(Node) ->
 	end,
     lists:usort(refac_syntax_lib:fold(F, [], Node)).
   
+need_bracket(Toks, Exprs) ->
+    case Exprs of 
+	[E] ->
+	    {Start, End} = refac_util:get_range(E),
+	    Toks1 = lists:reverse(lists:takewhile(
+				    fun (B) -> 
+					    element(2, B) =/= Start
+				    end, Toks)),
+	    Toks2 = lists:dropwhile(fun (B) -> 
+					    case B of
+						{whitespace, _, _} -> true;
+						_ -> false
+					    end
+				    end, Toks1),
+	    Toks3 = lists:dropwhile(fun(B) ->
+					    element(2, B) =< End orelse 
+						element(1,B)==whitespace
+				    end, Toks),
+	    case Toks2 of
+		[{'(',_}| _] -> 
+		    case Toks3 of
+			[{')',_}| _] ->
+			    true;
+			_ -> false
+		    end;
+		_ ->false
+	    end;
+	_ ->false
+    end.
+
+collect_names_to_avoid(AnnAST) ->
+    lists:append([collect_names_to_avoid_1(F)||F<-refac_syntax:form_list_elements(AnnAST),
+					       refac_syntax:type(F)==attribute]).
+
+collect_names_to_avoid_1(F) ->
+    ArrName =refac_syntax:atom_value(refac_syntax:attribute_name(F)),
+    case lists:member(ArrName, [ifdef, ifndef]) of
+	true ->
+	    Args =refac_syntax:attribute_arguments(F),
+	    [list_to_atom(refac_prettypr:format(A))||A<-Args];
+	_ -> []
+    end.
+    
