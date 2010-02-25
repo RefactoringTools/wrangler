@@ -51,63 +51,68 @@
 
 -include("../include/wrangler.hrl").
 
-type_ann_ast(File, Info, AnnAST, SearchPaths, TabWidth) ->
+type_ann_ast(FileName, Info, AnnAST, SearchPaths, TabWidth) ->
+    case lists:keysearch(module,1, Info) of 
+	false -> AnnAST; %% this should only happen for .hrl files.
+	{value, {module, ModName}}->
+	    TestFrameWorkUsed = refac_util:test_framework_used(FileName),
+	    Pid = start_type_env_process(),
+	    Fs = refac_syntax:form_list_elements(AnnAST),
+	    Funs = sorted_funs(ModName, AnnAST),
+	    Funs1 = lists:map(fun ({{M, F, A}, FunDef}) ->
+				      {{M, F, A}, do_type_ann(FileName, FunDef, TestFrameWorkUsed, SearchPaths, TabWidth, Pid)}
+			      end, Funs),
+	    Fs1 = lists:map(fun (Form) ->
+				    case refac_syntax:type(Form) of
+					function ->
+					    Ann = refac_syntax:get_ann(Form),
+					    {value, {fun_def, {M, F, A, _, _}}} = lists:keysearch(fun_def, 1, Ann),
+					    {value, {{M, F, A}, FunDef}} = lists:keysearch({M, F, A}, 1, Funs1),
+					    FunDef;
+					_ -> Form
+				    end
+			    end, Fs),
+	    AnnAST1 = refac_util:rewrite(AnnAST, refac_syntax:form_list(Fs1)),
+	    case get_all_type_info(Pid) of
+		[] ->
+		    stop_type_env_process(Pid),
+		    AnnAST1;
+		TypeInfo ->
+		    ?debug("Typeinfo:\n~p\n", [TypeInfo]),
+		    stop_type_env_process(Pid),
+		    prop_type_info(AnnAST1, TypeInfo)
+	    end
+    end.
+
+type_ann_file(L, SearchPaths, TabWidth) ->
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(L, true, SearchPaths),
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
-    TestFrameWorkUsed = refac_util:test_framework_used(File),
+    TestFrameWorkUsed = refac_util:test_framework_used(L),
     Pid = start_type_env_process(),
     Fs = refac_syntax:form_list_elements(AnnAST),
     Funs = sorted_funs(ModName, AnnAST),
-    Funs1 = lists:map(fun({{M,F, A},FunDef}) ->
-			      {{M, F, A},do_type_ann(File, FunDef, TestFrameWorkUsed,SearchPaths, TabWidth, Pid)} end, Funs), 
-    Fs1 = lists:map(fun(Form) ->
+    Funs1 = lists:map(fun ({{M, F, A}, FunDef}) ->
+			      {{M, F, A}, do_type_ann(L, FunDef, TestFrameWorkUsed, SearchPaths, TabWidth, Pid)}
+		      end, Funs),
+    Fs1 = lists:map(fun (Form) ->
 			    case refac_syntax:type(Form) of
-				function ->
-				    Ann = refac_syntax:get_ann(Form),
-				    {value, {fun_def, {M, F, A, _, _}}}=lists:keysearch(fun_def,1,Ann),
-				    {value, {{M, F, A}, FunDef}} =lists:keysearch({M, F, A}, 1, Funs1),
-				    FunDef;
-				_ -> Form
+			      function ->
+				  Ann = refac_syntax:get_ann(Form),
+				  {value, {fun_def, {M, F, A, _, _}}} = lists:keysearch(fun_def, 1, Ann),
+				  {value, {{M, F, A}, FunDef}} = lists:keysearch({M, F, A}, 1, Funs1),
+				  FunDef;
+			      _ -> Form
 			    end
 		    end, Fs),
     AnnAST1 = refac_util:rewrite(AnnAST, refac_syntax:form_list(Fs1)),
-    case get_all_type_info(Pid) of 
-	[] ->
-	    stop_type_env_process(Pid),
-	    AnnAST1;
-	TypeInfo ->
-	    ?debug("Typeinfo:\n~p\n", [TypeInfo]),
-	    stop_type_env_process(Pid),
-	    prop_type_info(AnnAST1, TypeInfo)
-    end.
-
-type_ann_file(File, SearchPaths, TabWidth) ->
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(File, true, SearchPaths),
-    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
-    TestFrameWorkUsed = refac_util:test_framework_used(File),
-    Pid =start_type_env_process(),
-    Fs = refac_syntax:form_list_elements(AnnAST),
-    Funs = sorted_funs(ModName, AnnAST),
-    Funs1 = lists:map(fun({{M,F, A},FunDef}) ->
-			      {{M, F, A},do_type_ann(File, FunDef, TestFrameWorkUsed, SearchPaths, TabWidth, Pid)} end, Funs), 
-    Fs1 = lists:map(fun(Form) ->
-			    case refac_syntax:type(Form) of
-				function ->
-				    Ann = refac_syntax:get_ann(Form),
-				    {value, {fun_def, {M, F, A, _, _}}}=lists:keysearch(fun_def,1,Ann),
-				    {value, {{M, F, A}, FunDef}} =lists:keysearch({M, F, A}, 1, Funs1),
-				    FunDef;
-				_ -> Form
-			    end
-		    end, Fs),
-    AnnAST1 = refac_util:rewrite(AnnAST, refac_syntax:form_list(Fs1)),
-    case get_all_type_info(Pid) of 
-	[] ->
-	    stop_type_env_process(Pid),
-	    AnnAST1;
-	TypeInfo ->
-	    ?debug("Typeinfo:\n~p\n", [TypeInfo]),
-	    stop_type_env_process(Pid),
-	    prop_type_info(AnnAST1, TypeInfo)
+    case get_all_type_info(Pid) of
+      [] ->
+	  stop_type_env_process(Pid),
+	  AnnAST1;
+      TypeInfo ->
+	  ?debug("Typeinfo:\n~p\n", [TypeInfo]),
+	  stop_type_env_process(Pid),
+	  prop_type_info(AnnAST1, TypeInfo)
     end.
 
 
