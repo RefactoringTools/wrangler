@@ -149,13 +149,15 @@ generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPa
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {ok, ModName} = get_module_name(Info),
     case refac_util:pos_to_expr(AnnAST, Start, End) of
-      {ok, Exp} -> Exp;
+      {ok, Exp} -> 
+	    Exp;
       {error, _} -> throw({error, "You have not selected an expression, "
 				  "or the function containing the expression does not parse."}),
 		    Exp = none
     end,
     case refac_util:expr_to_fun(AnnAST, Exp) of
-      {ok, Fun} -> Fun;
+      {ok, Fun} -> 
+	    Fun;
       {error, _} -> throw({error, "You have not selected an expression within a function."}),
 		    Fun = none
     end,
@@ -334,10 +336,7 @@ gen_cond_analysis(Fun, Exp, ParName) ->
         {value, {category, guard_expression}} -> 
 	    throw({error, "Generalisation over a guard expression is not supported."});
 	{value, {category, application_op}} -> 
-	    GuardRanges=[refac_util:get_range(G) || 
-			    C <-Cs, 
-			    G <-[refac_syntax:clause_guard(C)], 
-			    G=/=none],
+	    GuardRanges=collect_guard_ranges(Fun),
 	    {Start, End} = refac_util:get_range(Exp),
 	    case [{S,E}||{S, E}<- GuardRanges, S=<Start, End=<E] of
 		[] -> ok;
@@ -812,3 +811,20 @@ reset_attr(Node, Key) ->
 				 NewAnn = lists:keydelete(Key, 1, Ann),
 				 refac_syntax:set_ann(T, NewAnn)
 			 end, Node, {}).
+
+collect_guard_ranges(Node) ->
+    Fun=fun(T, Acc) ->
+		case refac_syntax:type(T) of
+		    clause ->
+			G = refac_syntax:clause_guard(T),
+			case G of 
+			    none ->
+				 Acc;
+			    _ -> 
+				[refac_util:get_range(G)|Acc]
+			end;
+		    _ ->Acc
+		end
+	end,
+    refac_syntax_lib:fold(Fun, [], Node).
+  		
