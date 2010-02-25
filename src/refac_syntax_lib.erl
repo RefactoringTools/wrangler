@@ -53,7 +53,7 @@
 	 new_variable_name/1, new_variable_name/2,
 	 new_variable_names/2, new_variable_names/3,
 	 strip_comments/1, to_comment/1, to_comment/2,
-	 to_comment/3, variables/1, vann_clause/4]).
+	 to_comment/3, variables/1, vann_clause/4, var_annotate_clause/4]).
 
 %% =====================================================================
 %% @spec map(Function, Tree::syntaxTree()) -> syntaxTree()
@@ -424,6 +424,12 @@ annotate_bindings(Tree, Env, MDefs) ->
     stop_env_process(),
     Tree1.
     
+
+var_annotate_clause(C, Env, Ms, VI) ->
+    start_env_process(),
+    {C1, _, _} = vann_clause(C, Env, Ms, VI),
+    stop_env_process(),
+    C1.
 
 %% =====================================================================
 %% @spec annotate_bindings(Tree::syntaxTree()) -> syntaxTree()
@@ -2499,3 +2505,4 @@ update_ann(Tree, {Key, Val}) ->
 	    _ -> As0 ++ [{Key, Val}]
 	  end,
     refac_syntax:set_ann(Tree, As1).
+
