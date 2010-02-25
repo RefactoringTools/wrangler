@@ -428,7 +428,7 @@ pos_to_expr_list_1(Tree, Start, End, F) ->
     if (S >= Start) and (E =< End) ->
 	    case F(Tree) of
 		true ->
-		    [Tree];
+		    [[Tree]];
 		_ ->
 		    Ts = refac_syntax:subtrees(Tree),
 		    [[lists:append(pos_to_expr_list_1(T, Start, End, F))|| T <- G]
