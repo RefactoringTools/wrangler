@@ -1306,32 +1306,6 @@
   candidates-to-fold)
 	      
 
-(defun erl-refactor-tuple-to-record(start end)
-  "From tuple to record representation."
-  (interactive (list (region-beginning)
-		     (region-end)
-		     ))
-  (let ((current-file-name (buffer-file-name))
-	(buffer (current-buffer))
-	(start-line-no (line-no-pos start))
-	(start-col-no  (current-column-pos start))
-	(end-line-no   (line-no-pos end))
-	(end-col-no    (current-column-pos end)))
-    (if (buffers-saved)
-    (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'tuple_to_record
-		    (list current-file-name start-line-no start-col-no end-line-no end-col-no tab-width))
-      (erl-receive (buffer)
-	  ((['rex ['badrpc rsn]]
-	    (message "Refactoring failed: %S" rsn))
-	   (['rex ['error rsn]]
-	    (message "Refactoring failed: %s" rsn))
-	   (['rex ['ok refac-tuple-to-record]]
-	    (with-current-buffer buffer (revert-buffer nil t t))
-            (message "Refactoring succeeded!")))))
-     (message "Refactoring aborted."))))
-
-
 (defun erl-refactor-duplicated-code-in-buffer(mintokens minclones maxpars)
   "Find code clones in the current buffer."
   (interactive (list (read-string "Minimum number of tokens a code clone should have (default value: 20): ")
