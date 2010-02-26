@@ -34,6 +34,9 @@
 %% function names, and process names. For an atom that represents a function name, we also 
 %% try to infer the function's defining module and the function'a arity.
 
+
+%%NOTE: THIS MODULE IS STILL UNDERDEVELOPEMENT!
+
 -module(refac_type_annotation).
 
 -export([type_ann_ast/5, type_ann_file/3]).
@@ -52,36 +55,32 @@
 -include("../include/wrangler.hrl").
 
 type_ann_ast(FileName, Info, AnnAST, SearchPaths, TabWidth) ->
-    case lists:keysearch(module,1, Info) of 
-	false -> AnnAST; %% this should only happen for .hrl files.
-	{value, {module, ModName}}->
-	    TestFrameWorkUsed = refac_util:test_framework_used(FileName),
-	    Pid = start_type_env_process(),
-	    Fs = refac_syntax:form_list_elements(AnnAST),
-	    Funs = sorted_funs(ModName, AnnAST),
-	    Funs1 = lists:map(fun ({{M, F, A}, FunDef}) ->
-				      {{M, F, A}, do_type_ann(FileName, FunDef, TestFrameWorkUsed, SearchPaths, TabWidth, Pid)}
-			      end, Funs),
-	    Fs1 = lists:map(fun (Form) ->
-				    case refac_syntax:type(Form) of
-					function ->
-					    Ann = refac_syntax:get_ann(Form),
-					    {value, {fun_def, {M, F, A, _, _}}} = lists:keysearch(fun_def, 1, Ann),
-					    {value, {{M, F, A}, FunDef}} = lists:keysearch({M, F, A}, 1, Funs1),
-					    FunDef;
-					_ -> Form
-				    end
-			    end, Fs),
-	    AnnAST1 = refac_util:rewrite(AnnAST, refac_syntax:form_list(Fs1)),
-	    case get_all_type_info(Pid) of
-		[] ->
-		    stop_type_env_process(Pid),
-		    AnnAST1;
-		TypeInfo ->
-		    ?debug("Typeinfo:\n~p\n", [TypeInfo]),
-		    stop_type_env_process(Pid),
-		    prop_type_info(AnnAST1, TypeInfo)
-	    end
+    case lists:keysearch(module, 1, Info) of
+      false -> AnnAST; %% this should only happen for .hrl files.
+      {value, {module, ModName}} ->
+	  TestFrameWorkUsed = refac_util:test_framework_used(FileName),
+	  Pid = start_type_env_process(),
+	  Fs = refac_syntax:form_list_elements(AnnAST),
+	  Funs = sorted_funs(ModName, AnnAST),
+	  Funs1 = lists:map(fun ({{M, F, A}, FunDef}) ->
+				    {{M, F, A}, do_type_ann(FileName, FunDef, TestFrameWorkUsed, SearchPaths, TabWidth, Pid)}
+			    end, Funs),
+	  Fs1 = lists:map(fun (Form) ->
+				  case refac_syntax:type(Form) of
+				    function -> find_fun(Funs1, Form);
+				    _ -> Form
+				  end
+			  end, Fs),
+	  AnnAST1 = refac_util:rewrite(AnnAST, refac_syntax:form_list(Fs1)),
+	  case get_all_type_info(Pid) of
+	    [] ->
+		stop_type_env_process(Pid),
+		AnnAST1;
+	    TypeInfo ->
+		?debug("Typeinfo:\n~p\n", [TypeInfo]),
+		stop_type_env_process(Pid),
+		prop_type_info(AnnAST1, TypeInfo)
+	  end
     end.
 
 type_ann_file(L, SearchPaths, TabWidth) ->
@@ -96,11 +95,7 @@ type_ann_file(L, SearchPaths, TabWidth) ->
 		      end, Funs),
     Fs1 = lists:map(fun (Form) ->
 			    case refac_syntax:type(Form) of
-			      function ->
-				  Ann = refac_syntax:get_ann(Form),
-				  {value, {fun_def, {M, F, A, _, _}}} = lists:keysearch(fun_def, 1, Ann),
-				  {value, {{M, F, A}, FunDef}} = lists:keysearch({M, F, A}, 1, Funs1),
-				  FunDef;
+			      function -> find_fun(Funs1, Form);
 			      _ -> Form
 			    end
 		    end, Fs),
@@ -115,6 +110,21 @@ type_ann_file(L, SearchPaths, TabWidth) ->
 	  prop_type_info(AnnAST1, TypeInfo)
     end.
 
+find_fun(Funs, Form) ->
+    Ann = refac_syntax:get_ann(Form),
+    Pos = refac_syntax:get_pos(Form),
+    {value, {fun_def, {M, F, A, _, _}}} = lists:keysearch(fun_def, 1, Ann),
+    {value, {{M, F, A}, FunDef}} = lists:keysearch({M, F, A}, 1, Funs),
+    Pos1 = refac_syntax:get_pos(FunDef),   
+    %%This is to handle the case when the same function name/arity is defined multiple time,
+    %%which is illegal but accepted by Wrangler.
+    case Pos==Pos1 of  
+	true ->
+	    FunDef;
+	false ->
+	    Form
+    end.
+
 
 
 do_type_ann(FileName, Form, TestFrameWorkUsed, SearchPaths, TabWidth, Pid) ->
@@ -123,6 +133,7 @@ do_type_ann(FileName, Form, TestFrameWorkUsed, SearchPaths, TabWidth, Pid) ->
 	  Ann = refac_syntax:get_ann(Form),
 	  {value, {fun_def, {M, F, A, _, _}}}=lists:keysearch(fun_def,1,Ann),
 	  Name = refac_syntax:function_name(Form),
+	  Name1=refac_syntax:add_ann({type, {f_atom, [M, F, A]}}, Name),
 	  Cs = [refac_util:full_buTP(fun do_type_ann_clause/2, C, 
 				     {FileName, refac_syntax:clause_patterns(C), 
 				      TestFrameWorkUsed, SearchPaths, TabWidth, Pid})
@@ -141,14 +152,14 @@ do_type_ann(FileName, Form, TestFrameWorkUsed, SearchPaths, TabWidth, Pid) ->
 		  add_to_type_env(Pid, [Ts]);
 	      _ -> ok
 	  end,
-	  refac_util:rewrite(Form, refac_syntax:function(Name, Cs));
+	  refac_util:rewrite(Form, refac_syntax:function(Name1, Cs));
       _ ->
 	  Form
     end.
  
 do_type_ann_clause(Node, {FileName, Pats,TestFrameWorkUsed, SearchPaths, TabWidth, Pid}) ->
     case refac_syntax:type(Node) of
-      application ->
+	application -> 
 	    Op = refac_syntax:application_operator(Node),
 	    Args = refac_syntax:application_arguments(Node),
 	    case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
