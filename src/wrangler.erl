@@ -53,7 +53,7 @@
 	 instrument_prog/3, similar_code_detection_in_buffer/6,
 	 similar_code_detection/6, uninstrument_prog/3,
 	 add_a_tag/6, tuple_funpar/5, tuple_funpar_1/5,
-	 tuple_to_record/9, register_pid/6, fun_to_process/6,
+	 register_pid/6, fun_to_process/6,
 	 new_macro/6, fold_against_macro/5,
 	 normalise_record_expr/6, unfold_fun_app/4,
 	 new_let/6, new_let_1/7, merge_let/3, merge_let_1/5,
@@ -70,7 +70,7 @@
 	 fun_extraction_eclipse/5, fun_extraction_1_eclipse/5,
 	 gen_fun_1_eclipse/11, gen_fun_clause_eclipse/10,
 	 tuple_funpar_eclipse/5, tuple_funpar_eclipse_1/5,
-	 tuple_to_record_eclipse/9, fold_expr_by_loc_eclipse/5,
+	 fold_expr_by_loc_eclipse/5,
 	 fold_expr_by_name_eclipse/7, fold_expr_1_eclipse/5,
 	 new_macro_eclipse/6, rename_process_eclipse/6,
 	 rename_process_1_eclipse/5, fun_to_process_eclipse/6,
@@ -383,10 +383,11 @@ move_fun_1_eclipse(FileName, Line, Col, TargetModName,SearchPaths, TabWidth) ->
 %% identical after consistent renaming of variables, except for variations in literals, layout and comments.
 %% </p>
 %% <p>
-%% Usage: simply select <em> Detect Identical Code in Current Buffer </em> from <em> Refactor</em>, 
+%% Usage: simply select <em> Detect Identical Code in Current Buffer </em> from <em> Identical Code Detection</em>, 
 %% Wrangler will prompt to input the parameters.
 %% </p>
-%% @spec duplicated_code_in_buffer(FileName::filename(),MinToks::string(),MinClones::string(), TabWidth::integer()) -> {ok, string()}
+%% @spec duplicated_code_in_buffer(FileName::filename(),MinToks::string(),MinClones::string(), MaxPars::string(),TabWidth::integer())
+%%-> {ok, string()}
 %% 
 -spec(duplicated_code_in_buffer/5::(filename(), string(), string(), string(), integer()) ->{ok, string()}).     
 duplicated_code_in_buffer(FileName, MinToks, MinClones, MaxPars, TabWidth) -> 
@@ -419,7 +420,7 @@ sim_code_detection_eclipse(DirFileList, MinLen, MinFreq, SimiScore, SearchPaths,
 %% <p>
 %% Usage: first check the SearchPaths specified in the customisation page to make sure that the directory (or directories) specified is 
 %% the place where you want to search for duplicated code, then select <em> Detect Identical Code in Dirs </em> from 
-%% <em> Refactor</em>, Wrangler will then prompt to input the parameters.
+%% <em> Identical Clone Detection</em>, Wrangler will then prompt to input the parameters.
 %% </p>
 %% @spec duplicated_code_in_dirs(FileNameList::[filename()|dir()], MinToks::string(), MinClones::string(), MatPars:: string(), TabWidth:: integer()) -> {ok, string()}
 -spec(duplicated_code_in_dirs/5::([dir()], string(), string(), string(),  integer()) ->{ok, string()}).
@@ -436,7 +437,7 @@ duplicated_code_in_dirs(FileDirList, MinToks, MinClones, MaxPars, TabWidth) ->
 %% a similarity score which should be between 0.1 and 1.0.
 %% </p>
 %% <p>  
-%% Usage: select <em> Detect Similar Code in Buffer </em> from <em> Refactor</em>, Wrangler will then prompt to 
+%% Usage: select <em> Detect Similar Code in Buffer </em> from <em> Similar Code Detection</em>, Wrangler will then prompt to 
 %% input the parameters needed.
 %% </p>   
 %% @spec similar_code_detection_in_buffer(FileName::filename(), MinLen::string(), MinFreq::string(), MinScore::string(), 
@@ -456,7 +457,7 @@ similar_code_detection_in_buffer(FileName, MinLen, MinFreq, SimiScore, SearchPat
 %% a similarity score which should be between 0.1 and 1.0.
 %% </p>
 %% <p> 
-%% Usage: select <em> Detect Similar Code in Dirs </em> from <em> Refactor</em>, Wrangler will then prompt to 
+%% Usage: select <em> Detect Similar Code in Dirs </em> from <em> Similar Code Detection</em>, Wrangler will then prompt to 
 %% input the parameters needed.
 %% </p>
 %%@spec similar_code_detection(DirFileList::[filename()|dir()], MinLen::string(), MinFreq::string(), MinScore::string(), 
@@ -468,8 +469,7 @@ similar_code_detection(DirFileList, MinLen, MinFreq, SimiScore1, SearchPaths, Ta
   
 
 %% ==================================================================================================
-%% @doc Search for expressions/expression sequences that are identical to the expression/expression 
-%% sequence selected after consistent renaming of variables and literal substitution.
+%% @doc Identical expression search in the current Erlang buffer.
 %% 
 %% <p> This functionality allows searching for clones of a selected expression or expression 
 %% sequence.  The found clones are syntactically identical to the code fragment selected  after consistent renaming of variables, 
@@ -478,30 +478,45 @@ similar_code_detection(DirFileList, MinLen, MinFreq, SimiScore1, SearchPaths, Ta
 %% <p> When the selected code contains multiple, but non-continuous sequence of, expressions, the first
 %% continuous sequence of expressions is taken as the user-selected expression. A continuous sequence of
 %% expressions is a sequence of expressions separated by ','. </p>
-%% Usage: highlight the expression/expression sequence of interest, then selected  <em> Identical Expression Search </em> from 
-%% <em> Refactor</em>.
+%% Usage: highlight the expression/expression sequence of interest, then selected  <em> Identical Expression Search in Buffer </em> from 
+%% <em> Identical Code Detection</em>.
 -spec(identical_expression_search_in_buffer/5::(filename(), pos(), pos(), [dir()], integer()) -> 
     {ok, [{filename(),{{integer(), integer()}, {integer(), integer()}}}]}| {error, string()}).
 identical_expression_search_in_buffer(FileName, Start, End, SearchPaths, TabWidth) ->
     try_refactoring(refac_expr_search, expr_search_in_buffer, [FileName, Start, End, SearchPaths, TabWidth]).
 
+
+%% ==================================================================================================
+%% @doc Identical expression search across mutlple Erlang modules.
+%%
+%% <p> This functionality allows searching for clones of a selected expression or expression 
+%% sequence.  The found clones are syntactically identical to the code fragment selected  after consistent renaming of variables, 
+%% except for variations in literals, layout and comments. 
+%% </p>
+%% <p> When the selected code contains multiple, but non-continuous sequence of, expressions, the first
+%% continuous sequence of expressions is taken as the user-selected expression. A continuous sequence of
+%% expressions is a sequence of expressions separated by ','. </p>
+%% Usage: highlight the expression/expression sequence of interest, then selected  <em> Identical Expression Search in Dirs </em> from 
+%% <em> Identical Code Detection</em>.
 -spec(identical_expression_search_in_dirs/5::(filename(), pos(), pos(), [dir()], integer()) -> 
     {ok, [{filename(),{{integer(), integer()}, {integer(), integer()}}}]}| {error, string()}).
 identical_expression_search_in_dirs(FileName, Start, End, SearchPaths, TabWidth) ->
     try_refactoring(refac_expr_search, expr_search_in_dirs, [FileName, Start, End, SearchPaths, TabWidth]).
 
+%%@private
 -spec(expr_search_eclipse/4::(filename(), pos(), pos(), integer()) ->
 				   {ok, [{{integer(), integer()}, {integer(), integer()}}]} | {error, string()}).
 expr_search_eclipse(FileName, Start, End, TabWidth) ->
     try_refactoring(refac_expr_search, expr_search_eclipse, [FileName, Start, End, TabWidth]).
 
 %% ==================================================================================================
-%% @doc Search for expression/expression sequences in the current buffer that are similar to the expression/expression sequence selected by the user.
+%% @doc Search expression search in the current Erlang buffer.
 %% <p> This functionality allows searching for expression sequence that are <em>similar</em> to the expression sequence selected.  In this context, 
 %% two expressions, A and B say, are similar if there exists an anti-unifier, say C,  of A and B, and C satisfies the similarity score specified
 %% by the user (the calculation calculated of similarity score is going to be further explored).
 %% </p>
-%% Usage: highlight the expression sequence of interest, then selected  <em> Similar Expression Search </em> from  Refactor.
+%% Usage: highlight the expression sequence of interest, then selected  <em> Similar Expression Search in Current Buffer </em> 
+%% from  <em> Similar Code Detection </em>.
 %% @spec similar_expression_search_in_buffer(FileName::filename(), Start::pos(), End::pos(), SimiScore::string(), SearchPaths::[dir()], TabWidth::integer())
 %%    -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}
 -spec(similar_expression_search_in_buffer/6::(filename(), pos(), pos(), string(), [dir()], integer()) -> 
@@ -511,13 +526,12 @@ similar_expression_search_in_buffer(FileName, Start, End, SimiScore, SearchPaths
 
 
 %% ==================================================================================================
-%% @doc Search for expression/expression sequences that are similar to the expression/expression sequence selected by the user across 
-%% an multiple modules as specified by the SearchPaths parameter.
+%% @doc Simiar expression search across multiple Erlang modules.
 %% <p> This functionality allows searching for expression sequence that are <em>similar</em> to the expression sequence selected.  In this context, 
 %% two expressions, A and B say, are similar if there exists an anti-unifier, say C,  of A and B, and C satisfies the similarity score specified
 %% by the user (the calculation calculated of similarity score is going to be further explored).
 %% </p>
-%% Usage: highlight the expression sequence of interest, then selected  <em> Similar Expression Search </em> from  Refactor.
+%% Usage: highlight the expression sequence of interest, then selected  <em> Similar Expression Search in Dirs</em> from  <em>Simiar Code Detection</em>.
 %% @spec similar_expression_search_in_dirs(FileName::filename(), Start::pos(), End::pos(), SimiScore::string(), SearchPaths::[dir()], TabWidth::integer())
 %%    -> {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}
 -spec(similar_expression_search_in_dirs/6::(filename(), pos(), pos(), string(), [dir()], integer()) -> 
@@ -766,46 +780,6 @@ tuple_funpar_eclipse(FileName, StartLoc, EndLoc, SearchPaths, TabWidth) ->
 %%@private
 tuple_funpar_eclipse_1(FileName, StartLoc, EndLoc, SearchPaths, TabWidth) ->
     try_refactoring(refac_tuple, tuple_funpar_eclipse_1, [FileName, StartLoc, EndLoc, SearchPaths, TabWidth]).
-
-
-
-%%=========================================================================================
-%%@private
-%% @doc From tuple to record representation.
-%%  NOTE: this refactoring is still in an experimental stage.
-%% <p>
-%% This refactoring has a global effect, i.e., it affects all those modules in 
-%% which this function is imported/used.
-%% </p>
-%% <p> The following <em> side-conditions </em> apply to this refactoring:
-%% <li> The record and field names must be lexically legal; </li>
-%% <li> The number of record fields must equal to the selected tuple size; </li>
-%% <li> The function must be defined in the current module; </li>
-%% <li> The selected part must be a tuple.  </li>
-%% </p>
-%% <p> To apply this refactoring, highlight the tuple, which should be a function parameter,  
-%% then select <em> From Tuple To Record </em> from <em> Refactor</em>, 
-%% Wrangler will then prompt to enter the record name and  the record field names.
-%% </p>
-%% @spec tuple_to_record(File::filename(),FLine::integer(),FCol::integer(),
-%%           LLine::integer(),LCol::integer(), RecName::string(),
-%%           FieldString::[string()], SearchPaths::[dir()], TabWidth:: integer()) ->  {error, string()} | {ok, [filename()]} 
-%% @end
--spec(tuple_to_record/9::(filename(), integer(), integer(), integer(), integer(), string(), [string()], [dir()], integer()) ->
-	     {error, string()} | {ok, [filename()]}).
-tuple_to_record(File, FLine, FCol, LLine, LCol, RecName, FieldString, SearchPaths, TabWidth) ->
-    try_refactoring(refac_tuple_to_record, tuple_to_record, [File, FLine, FCol, LLine, LCol, RecName,
-					  FieldString, SearchPaths, TabWidth]).
-
-%%@private
-%% @spec tuple_to_record_eclipse(File::filename(),FLine::integer(),FCol::integer(),
-%%           LLine::integer(),LCol::integer(), RecName::string(),
-%%           FieldString::[string()], SearchPaths::[dir()], TabWidth:: integer()) -> term()
--spec(tuple_to_record_eclipse/9::(filename(), integer(), integer(), integer(), integer(), string(), [string()], [dir()], integer()) ->
-	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
-tuple_to_record_eclipse(File, FLine, FCol, LLine, LCol, RecName, FieldString,SearchPaths, TabWidth) ->
-    try_refactoring(refac_tuple_to_record,tuple_to_record_eclipse, [File, FLine, FCol, LLine, LCol,
-								    RecName, FieldString, SearchPaths, TabWidth]).
 
 
 %%=========================================================================================

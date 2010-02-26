@@ -164,11 +164,6 @@ instrument_prog(FName, SearchPaths, TabWidth) ->
 tuple_funpar(Fname, StartLine, StartCol, EndLine, EndCol, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, tuple_funpar, [Fname, {StartLine, StartCol}, {EndLine, EndCol},SearchPaths, TabWidth], SearchPaths).
 
--spec(tuple_to_record/9::(filename(), integer(), integer(), integer(), integer(), string(), [string()], [dir()], integer()) ->
-	     {error, string()} | {ok, [filename()]}).
-tuple_to_record(File, FLine, FCol, LLine, LCol, RecName, FieldString, SearchPaths, TabWidth) ->
-    apply_refactoring(wrangler, tuple_to_record, [File, FLine, FCol, LLine, LCol, RecName, FieldString, SearchPaths, TabWidth], SearchPaths).
-
     
 -spec(uninstrument_prog/3::(filename(), [dir()], integer()) ->{ok, [filename()]} | {error, string()}).
 uninstrument_prog(FName, SearchPaths, TabWidth) ->
@@ -202,13 +197,13 @@ new_let(FileName, StartLine, StartCol, EndLine, EndCol, PatName, SearchPaths, Ta
     apply_refactoring(wrangler, new_let, [FileName, {StartLine, StartCol}, {EndLine, EndCol}, PatName, SearchPaths, TabWidth], SearchPaths).
 
 
--spec(merge_let/3::(FileName::filename, SearchPaths::[dir()], TabWidth::integer()) ->
+-spec(merge_let/3::(FileName::filename(), SearchPaths::[dir()], TabWidth::integer()) ->
 	     {not_found, string()} |{ok, [{integer(), integer(), integer(), integer(), string()}], string()}).
 merge_let(FileName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, merge_let, [FileName, SearchPaths, TabWidth], SearchPaths).
 
 
--spec(merge_forall/3::(FileName::filename, SearchPaths::[dir()], TabWidth::integer()) ->
+-spec(merge_forall/3::(FileName::filename(), SearchPaths::[dir()], TabWidth::integer()) ->
 	     {not_found, string()} |{ok, [{integer(), integer(), integer(), integer(), string()}], string()}).
 merge_forall(FileName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, merge_forall, [FileName, SearchPaths, TabWidth], SearchPaths).
