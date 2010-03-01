@@ -71,6 +71,7 @@ start_ast_server() ->
 %%	      {ok, #state{}}).
 init(_Args) ->
     process_flag(trap_exit, true),
+    refac_io:format("Starting wrangler ast server:\n"),
     case file:get_cwd() of
 	{ok, Dir} ->
 	    TabDir = filename:join(Dir,"temp"),
@@ -152,13 +153,13 @@ handle_info(_Info, State) ->
 %%-spec(terminate/2::(any(), #state{}) -> ok).
 terminate(_Reason, _State=#state{dets_tab=TabFile}) ->
     dets:close(TabFile),
-    file:delete(TabFile),
+    _Res=file:delete(TabFile),
     TempDir = filename:dirname(TabFile),
     case file:list_dir(TempDir) of 
-	{ok, []} ->
-	    file:del_dir(TempDir);
-	_ -> ok
-    end.
+     	{ok, []} ->
+     	    file:del_dir(TempDir);
+     	_ -> ok
+     end.
 
 %%--------------------------------------------------------------------
 %% Func: code_change(OldVsn, State, Extra) -> {ok, NewState}
