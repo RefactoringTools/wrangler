@@ -311,10 +311,11 @@
 	(erl-send-rpc wrangler-erl-node 'application 'stop (list 'wrangler_app))
 	)
    (error nil))
+  (sleep-for 1.0)
   (condition-case nil   ;; (get-buffer "*Wrangler-Erl-Shell*")
       (kill-buffer "*Wrangler-Erl-Shell*")
     (error nil))
-   (message "Wrangler stopped."))
+  (message "Wrangler stopped."))
 
 (defun erlang-refactor-on()
   (interactive)
