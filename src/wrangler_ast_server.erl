@@ -71,7 +71,6 @@ start_ast_server() ->
 %%	      {ok, #state{}}).
 init(_Args) ->
     process_flag(trap_exit, true),
-    refac_io:format("Starting wrangler ast server:\n"),
     case file:get_cwd() of
 	{ok, Dir} ->
 	    TabDir = filename:join(Dir,"temp"),
