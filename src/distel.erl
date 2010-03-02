@@ -28,8 +28,6 @@
 
 -export([gl_proxy/1, tracer_init/2, null_gl/0]).
 
--compile(export_all).
-
 to_bin(X) -> list_to_binary(to_list(X)).
 to_atom(X) -> list_to_atom(to_list(X)).
      
