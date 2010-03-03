@@ -352,7 +352,7 @@
   (interactive)
   (require 'comint)
   (setq opts (list "-name" wrangler-erl-node-string
-		   "-pa"  %EBIN_DIR%
+		   "-pa"  "C:/cygwin/home/hl/wrangler/share/wrangler/ebin"
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))
@@ -613,6 +613,7 @@
 		)))
 	   (['rex ['ok modified warning]]
 	    (progn
+	      (message "haswarng: %s" warning)
 	      (setq has-warning warning)
 	      (preview-commit-cancel current-file-name modified)
 	      )
