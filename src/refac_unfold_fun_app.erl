@@ -47,8 +47,6 @@
 
 -export([unfold_fun_app/4, unfold_fun_app_eclipse/4]).
 
--export([make_new_name/2, collect_vars/1]).
-
 -include("../include/wrangler.hrl").
 
 %% =============================================================================================
@@ -179,20 +177,20 @@ find_matching_clause([C|Cs], Ps) ->
 %% to handle the case when the same pattern occurs more than once in the format parameters;
 %% in this case, Wrangler needs to make sure all the occurrences are bound to the same thing.
 scrutinse_subst(Res) ->
-    SubSt = [{P1,P2} || {P1, _Loc, P2} <-Res],
-    SubSt1 = [{P1,Loc, P2} || {P1, Loc, P2} <-Res],
+    SubSt = [{P1, P2} || {P1, _Loc, P2} <- Res],
+    SubSt1 = [{P1, Loc, P2} || {P1, Loc, P2} <- Res],
     MatchExprs = Res -- SubSt1,
-    MatchExprs1 =[{refac_syntax:match_expr_pattern(M),
-		   refac_syntax:match_expr_body(M)}
-		  ||M<-MatchExprs],
+    MatchExprs1 = [{refac_syntax:match_expr_pattern(M),
+		    refac_syntax:match_expr_body(M)}
+		   || M <- MatchExprs],
     StrRep = lists:usort([{refac_prettypr:format(E1), refac_prettypr:format(E2)}
-			  ||{E1, E2} <-(SubSt ++ MatchExprs1)]),
+			  || {E1, E2} <- SubSt ++ MatchExprs1]),
     Fst = lists:usort(element(1, lists:unzip(StrRep))),
-    case length(Fst)<length(StrRep) of 
-	true ->
-	    none;
-	_ ->   
-	    {SubSt1, MatchExprs}
+    case length(Fst) < length(StrRep) of
+      true ->
+	  none;
+      _ ->
+	  {SubSt1, MatchExprs}
     end.
 
 find_matching_clause_1(C, AppPs, LastClause) ->
@@ -483,18 +481,19 @@ pos_to_fun_app_1(Node, Pos) ->
 
 
 
-auto_rename_vars({ClauseToInline, MatchExprs},{Clause, App}, SubStLocs) ->
+auto_rename_vars({ClauseToInline, MatchExprs}, {Clause, App}, SubStLocs) ->
     VarName = 'WRANGLER_TEMP_VAR',
-    NewVarPat =refac_syntax:copy_pos(App, refac_syntax:copy_pos(App, refac_syntax:variable(VarName))),
+    NewVarPat = refac_syntax:copy_pos(App, refac_syntax:copy_pos(App, refac_syntax:variable(VarName))),
     MatchExpr = refac_syntax:copy_pos(App, refac_syntax:match_expr(NewVarPat, refac_syntax:atom(ok))),
     {Clause1, _} = refac_util:stop_tdTP(fun do_replace_app_with_match/2, Clause, {App, MatchExpr}),
-    Clause2 = refac_syntax_lib:var_annotate_clause(refac_util:reset_attrs(Clause1),[],[],[]),
+    Clause2 = refac_syntax_lib:var_annotate_clause(refac_util:reset_attrs(Clause1), [], [], []),
     BdsInFunToInline = get_bound_vars(ClauseToInline),
-    NewNames = [{Name, DefinePos} || {Name, DefinePos} <- BdsInFunToInline, 
-				     not (lists:member(DefinePos, SubStLocs))],
+    NewNames = [{Name, DefinePos} || {Name, DefinePos} <- BdsInFunToInline,
+				     not lists:member(DefinePos, SubStLocs)],
     Pos = refac_syntax:get_pos(App),
     VarsToRename = get_vars_to_rename(Clause2, [Pos], VarName, NewNames, ClauseToInline),
-    do_rename_var({ClauseToInline, MatchExprs}, lists:usort(VarsToRename), collect_vars(Clause)).
+    UsedVarNames =ordsets:from_list(refac_misc:collect_var_names(Clause)),
+    do_rename_var({ClauseToInline, MatchExprs}, lists:usort(VarsToRename), UsedVarNames).
 
 
 do_replace_app_with_match(Node, {App, MatchExpr}) ->
@@ -517,8 +516,9 @@ do_rename_var({Node, MatchExprs}, [V|Vs], UsedVarNames) ->
     do_rename_var({Node1, MatchExprs1}, Vs, UsedVarNames).
 
 do_rename_var_1({Node, MatchExprs}, {VarName, DefLoc}, UsedVarNames) ->
-    NewVarName =make_new_name(VarName, ordsets:union(collect_vars(Node), UsedVarNames)),
-    {Node1, _}=refac_rename_var:rename(Node, DefLoc, NewVarName),
+    UsedVarNames1 =ordsets:union(ordsets:from_list(refac_misc:collect_var_names(Node)), UsedVarNames),
+    NewVarName = refac_misc:make_new_name(VarName, UsedVarNames1),
+    {Node1, _} = refac_rename_var:rename(Node, DefLoc, NewVarName),
     MatchExprs1 = do_rename_in_match_exprs(MatchExprs, DefLoc, NewVarName),
     {Node1, MatchExprs1}.
 
@@ -530,18 +530,6 @@ do_rename_in_match_expr_1(MatchExpr, DefLoc, NewVarName) ->
     B = refac_syntax:match_expr_body(MatchExpr),
     {P1, _} = refac_rename_var:rename(P, DefLoc, NewVarName),
     refac_syntax:match_expr(P1, B).
-    
-
-
-
-make_new_name(VarName, UsedVarNames) ->
-    NewVarName = list_to_atom(atom_to_list(VarName)++"_1"),
-    case ordsets:is_element(NewVarName, UsedVarNames) of
-	true ->
-	    make_new_name(NewVarName, UsedVarNames);
-	_ -> 
-	    NewVarName
-    end.
     
     
 %% %%-spec(get_bound_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
@@ -594,19 +582,6 @@ make_match_expr_1([P], Body) ->
     refac_syntax:match_expr(P, Body);
 make_match_expr_1([P|Ps], Body) ->
     make_match_expr_1(Ps, refac_syntax:match_expr(P, Body)).
-
-
-
-collect_vars(Node) ->
-    Fun= fun(T, S) ->
-		 case refac_syntax:type(T) of 
-		     variable ->
-			 VarName = refac_syntax:variable_name(T),
-			 ordsets:add_element(VarName, S);
-		     _ -> S
-		 end
-	 end,
-    refac_syntax_lib:fold(Fun, ordsets:new(), Node).
 
 collect_used_records(Node) ->
     Fun = fun(T, S) ->
@@ -671,39 +646,37 @@ check_macro_defs(Fs, UsedMacros, StartLoc, EndLoc) ->
 
 check_macro_defs_1(F, UsedMacros, StartLoc, EndLoc) ->
     Pos = refac_syntax:get_pos(F),
-    case (Pos =<StartLoc) orelse (Pos>= EndLoc) of 
-	true ->
-	     false;
-	false ->
-	    case is_attribute(F, define) orelse is_attribute(F, undef) of
-		true ->
-		    Args = refac_syntax:attribute_arguments(F),
-		    MacroHead = refac_util:ghead("refac_unfold_fun_app:check_macro_defs_1", Args),
-		    MacroHead1 = case refac_syntax:type(MacroHead) of
-				     application ->
-					 refac_syntax:application_operator(MacroHead);
-				     _ ->
-					 MacroHead
-				 end,
-		    Name = case refac_syntax:type(MacroHead1) of 
-			       atom -> refac_syntax:atom_value(MacroHead1);
-			       variable ->refac_syntax:variable_name(MacroHead1);
-			       _ -> '_'
-			   end,
-		    case lists:member(Name, UsedMacros) of 
-			true ->
-			    {true, [Name]};
-			false -> false
-		    end;
-		_ -> false
-	    end
+    case Pos =< StartLoc orelse Pos >= EndLoc of
+      true ->
+	  false;
+      false ->
+	  case is_attribute(F, define) orelse is_attribute(F, undef) of
+	    true ->
+		Args = refac_syntax:attribute_arguments(F),
+		MacroHead = refac_util:ghead("refac_unfold_fun_app:check_macro_defs_1", Args),
+		MacroHead1 = case refac_syntax:type(MacroHead) of
+			       application ->
+				   refac_syntax:application_operator(MacroHead);
+			       _ ->
+				   MacroHead
+			     end,
+		Name = case refac_syntax:type(MacroHead1) of
+			 atom -> refac_syntax:atom_value(MacroHead1);
+			 variable -> refac_syntax:variable_name(MacroHead1);
+			 _ -> '_'
+		       end,
+		case lists:member(Name, UsedMacros) of
+		  true ->
+		      {true, [Name]};
+		  false -> false
+		end;
+	    _ -> false
+	  end
     end.
-				
-	
 is_attribute(F, Name) ->
-    (refac_syntax:type(F)==attribute) andalso
-    (refac_syntax:type(refac_syntax:attribute_name(F))==atom)  andalso 
-    (refac_syntax:atom_value(refac_syntax:attribute_name(F)) == Name).
+    refac_syntax:type(F) == attribute andalso
+      refac_syntax:type(refac_syntax:attribute_name(F)) == atom andalso
+	refac_syntax:atom_value(refac_syntax:attribute_name(F)) == Name.
 
 collect_used_macros(Node) ->
     F = fun(T, S) ->

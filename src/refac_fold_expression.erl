@@ -57,8 +57,7 @@
 	 fold_expr_by_loc_eclipse/5, fold_expr_1_eclipse/5,
 	 fold_expression_1/5,
 	 fold_expr_by_name/7, fold_expr_by_name_eclipse/7]).
-	
--export([expr_unification/2, fold_expression/6, collect_var_source_def_pos_info/1]).
+-export([expr_unification/2, fold_expression/6]).
 
 -include("../include/wrangler.hrl").
 %% =============================================================================================
@@ -569,17 +568,17 @@ expr_unification_3(_Exp1, _Exp2, _Type) -> false.
 
 variable_replaceable(Exp) ->
     case refac_syntax:is_literal(Exp) of
-	true -> true;
-	_ ->case lists:keysearch(category,1, refac_syntax:get_ann(Exp)) of 
-		{value, {category, record_field}} -> false;
-		{value, {category, record_type}} -> false;	 
-		{value, {category, guard_expression}} -> false;
-		{value, {category, pattern}} -> false;
-		{value, {category, macro_name}} ->false;
-		_ -> T = refac_syntax:type(Exp),
-		     (not (lists:member(T, [match_expr, operator]))) andalso
-				(refac_util:get_var_exports(Exp)==[])
-	    end
+      true -> true;
+      _ -> case lists:keysearch(category, 1, refac_syntax:get_ann(Exp)) of
+	     {value, {category, record_field}} -> false;
+	     {value, {category, record_type}} -> false;
+	     {value, {category, guard_expression}} -> false;
+	     {value, {category, pattern}} -> false;
+	     {value, {category, macro_name}} -> false;
+	     _ -> T = refac_syntax:type(Exp),
+		  not lists:member(T, [match_expr, operator]) andalso
+		    refac_util:get_var_exports(Exp) == []
+	   end
     end.
 	
 
@@ -659,17 +658,17 @@ set_default_ann(Node) ->
 vars_to_export_1(WholeExpList, SubExpList) ->
     AllVars = lists:usort(
 		lists:flatmap(
-		  fun(E)-> collect_var_source_def_pos_info(E) end, 
+		  fun (E) -> refac_misc:collect_var_source_def_pos_info(E) end,
 		  WholeExpList)),
     SubExpListBdVars = lists:flatmap(
-			 fun(E) -> 
+			 fun (E) ->
 				 As = refac_syntax:get_ann(E),
-				 case lists:keysearch(bound,1, As) of
-				     {value, {bound, BdVars1}} -> BdVars1;
-				     _ -> []
+				 case lists:keysearch(bound, 1, As) of
+				   {value, {bound, BdVars1}} -> BdVars1;
+				   _ -> []
 				 end
 			 end, SubExpList),
-    SubExpListBdVarPoses = [Pos ||{_Var, Pos}<-SubExpListBdVars],
+    SubExpListBdVarPoses = [Pos || {_Var, Pos} <- SubExpListBdVars],
     SubExpListEndPos = element(2, refac_util:get_range(lists:last(SubExpList))),
     lists:usort([V || {V, SourcePos, DefPos} <- AllVars,
 		      SourcePos > SubExpListEndPos,
@@ -723,23 +722,6 @@ reorder_vars_to_export(LastExp, VarsToExport, Subst) ->
 			 "also exports the following variable(s):~p\n", Vars),
 	    false
     end.
-
-collect_var_source_def_pos_info(Node) ->
-    F= fun(T, S) ->
-		case refac_syntax:type(T) of 
-		    variable ->
-			SourcePos = refac_syntax:get_pos(T),
-			case lists:keysearch(def, 1, refac_syntax:get_ann(T)) of 
-			    {value, {def, DefinePos}} ->
-				VarName = refac_syntax:variable_name(T),
-				S ++ [{VarName, SourcePos, DefinePos}];
-			    _ ->
-				S
-			end;
-		    _  -> S
-		end
-	end,
-    refac_syntax_lib:fold(F, [], Node).
     
 
 get_fun_clause_def(Node, FunName, Arity, ClauseIndex) ->

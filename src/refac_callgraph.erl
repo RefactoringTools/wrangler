@@ -9,7 +9,7 @@
 
 -module(refac_callgraph).
 
--export([construct/1]).
+-export([construct/1]). 
 
 -include("../include/wrangler.hrl").
 

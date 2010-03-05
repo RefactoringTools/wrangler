@@ -72,7 +72,7 @@ init(_Args) ->
 		  permanent, 10000, worker, [wrangler_error_logger]},
     UndoServer={wrangler_undo_server, {wrangler_undo_server, start_undo_server, []}, 
 	       permanent, 10000, worker, [wrangler_undo_server]},
-         
+       
     PreviewServer={wrangler_preview_server, {wrangler_preview_server, start_preview_server, []}, 
  	       permanent, 10000, worker, [wrangler_preview_server]},
     PreviewServer={wrangler_preview_server, {wrangler_preview_server, start_preview_server, []}, 

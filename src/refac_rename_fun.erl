@@ -54,11 +54,6 @@
 -module(refac_rename_fun).
 
 -export([rename_fun/6, rename_fun_1/6,  rename_fun_eclipse/6, rename_fun_1_eclipse/6]).
--export([check_atoms/4, collect_atoms/2,try_eval/4, start_atom_process/0, 
-	 stop_atom_process/1,output_atom_warning_msg/3, write_files/3,
-	 apply_style_funs/0, eqc_statem_callback_funs/0, is_callback_fun/3,
-	 commontest_callback_funs/0,testserver_callback_funs/0, has_warning_msg/1]).
-
 
 -include("../include/wrangler.hrl").
 
@@ -122,10 +117,10 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 
 rename_fun_0(FileName, NewName, SearchPaths, TabWidth, Editor,
 	     AnnAST, Info, NewName1, Mod, Fun, Arity, DefinePos, Cmd) ->
-    Pid = start_atom_process(),
+    Pid = refac_atom_utils:start_atom_process(),
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     {AnnAST1, _C} = do_rename_fun(AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}),
-    check_atoms(FileName, AnnAST1, [Fun], Pid),
+    refac_atom_utils:check_atoms(FileName, AnnAST1, [Fun], Pid),
     case refac_util:is_exported({Fun, Arity}, Info) of
       true ->
 	  ?wrangler_io("\nChecking possible client modules in the following search paths: \n~p\n", [SearchPaths]),
@@ -135,20 +130,20 @@ rename_fun_0(FileName, NewName, SearchPaths, TabWidth, Editor,
 					 NewName, SearchPaths, TabWidth, Pid)
 	  of
 	    Results ->
-		  HasWarningMsg =has_warning_msg(Pid),
-		  output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
-		  stop_atom_process(Pid),
-		  write_files(Editor, [{{FileName, FileName}, AnnAST1}| Results], Cmd, HasWarningMsg)
+		HasWarningMsg = refac_atom_utils:has_warning_msg(Pid),
+		refac_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
+		refac_atom_utils:stop_atom_process(Pid),
+		write_files(Editor, [{{FileName, FileName}, AnnAST1}| Results], Cmd, HasWarningMsg)
 	  catch
-	      throw:Err ->
-		  stop_atom_process(Pid),
-		  Err
+	    throw:Err ->
+		refac_atom_utils:stop_atom_process(Pid),
+		Err
 	  end;
       false ->
-	    HasWarningMsg =has_warning_msg(Pid),
-	    output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
-	    stop_atom_process(Pid),
-	    write_files(Editor, [{{FileName, FileName}, AnnAST1}], Cmd, HasWarningMsg)
+	  HasWarningMsg = refac_atom_utils:has_warning_msg(Pid),
+	  refac_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
+	  refac_atom_utils:stop_atom_process(Pid),
+	  write_files(Editor, [{{FileName, FileName}, AnnAST1}], Cmd, HasWarningMsg)
     end.
 
 -spec(rename_fun_1/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
@@ -172,7 +167,7 @@ rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     NewName1 = list_to_atom(NewName),
     {ok, {Mod, Fun, Arity, _, DefinePos}} = refac_util:pos_to_fun_name(AnnAST, {Line, Col}),
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
-    Pid = start_atom_process(),
+    Pid = refac_atom_utils:start_atom_process(),
     {AnnAST1, _C} = do_rename_fun(AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}),
     case refac_util:is_exported({Fun, Arity}, Info) of
       true ->
@@ -182,35 +177,18 @@ rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 	    rename_fun_in_client_modules(ClientFiles, {Mod, Fun, Arity}, NewName, SearchPaths, TabWidth, Pid)
 	  of
 	    Results ->
-		  HasWarningMsg =has_warning_msg(Pid),
-		  output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
-		  stop_atom_process(Pid),
-		  write_files(Editor, [{{FileName, FileName}, AnnAST1}| Results], Cmd,HasWarningMsg)
+		HasWarningMsg = refac_atom_utils:has_warning_msg(Pid),
+		refac_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
+		refac_atom_utils:stop_atom_process(Pid),
+		write_files(Editor, [{{FileName, FileName}, AnnAST1}| Results], Cmd, HasWarningMsg)
 	  catch
-	      throw:Err -> Err
+	    throw:Err -> Err
 	  end;
-	false ->
-	    HasWarningMsg =has_warning_msg(Pid),
-	    output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
-	    stop_atom_process(Pid),
-	    write_files(emacs, [{{FileName, FileName}, AnnAST1}], Cmd,HasWarningMsg)
-    end.
-
--spec(write_files/3::(Editor::atom(), Results::[{{filename(), filename()}, syntaxTree()}], string()) ->
-	     {ok, [filename()]} | {ok, [{filename(), filename(), string()}]}).
-
-write_files(Editor, Results, Cmd) ->
-    case Editor of
-      emacs ->
-	  refac_util:write_refactored_files_for_preview(Results, Cmd),
-	  ChangedFiles = [F || {{F, _F}, _AST} <- Results],
-	  ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
-		       [ChangedFiles]),
-	  {ok, ChangedFiles};
-      eclipse ->
-	  Res = [{FName, NewFName, refac_prettypr:print_ast(refac_util:file_format(FName), AST)}
-		 || {{FName, NewFName}, AST} <- Results],
-	  {ok, Res}
+      false ->
+	  HasWarningMsg = refac_atom_utils:has_warning_msg(Pid),
+	  refac_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
+	  refac_atom_utils:stop_atom_process(Pid),
+	  write_files(emacs, [{{FileName, FileName}, AnnAST1}], Cmd, HasWarningMsg)
     end.
 
 write_files(Editor, Results, Cmd, HasWarningMsg) ->
@@ -239,7 +217,7 @@ pre_cond_check(FileName, Info, NewFunName, OldFunDefMod, OldFunName, Arity) ->
 			   integer_to_list(Arity) ++ " is already in scope, "
 						     "or is an auto-imported builtin function."};
 	     _ ->
-		 case is_callback_fun(Info, OldFunName, Arity) of
+		 case refac_util:is_callback_fun(Info, OldFunName, Arity) of
 		   true ->
 		       {warning, "The function to be renamed is a callback function, continue?"};
 		   _ -> TestFrameWorkUsed = refac_util:test_framework_used(FileName),
@@ -346,9 +324,9 @@ rename_fun_in_client_modules(Files, {Mod, Fun, Arity}, NewName, SearchPaths, Tab
       [] -> [];
       [F| Fs] ->
 	  ?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
-	    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(F, true, SearchPaths, TabWidth),
-	    {AnnAST1, Changed} = rename_fun_in_client_module_1({AnnAST, Info}, {Mod, Fun, Arity}, NewName),
-	  check_atoms(F, AnnAST1, [Fun], Pid),
+	  {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(F, true, SearchPaths, TabWidth),
+	  {AnnAST1, Changed} = rename_fun_in_client_module_1({AnnAST, Info}, {Mod, Fun, Arity}, NewName),
+	  refac_atom_utils:check_atoms(F, AnnAST1, [Fun], Pid),
 	  if Changed ->
 		 [{{F, F}, AnnAST1}| rename_fun_in_client_modules(
 				       Fs, {Mod, Fun, Arity}, NewName, SearchPaths, TabWidth, Pid)];
@@ -418,238 +396,6 @@ get_module_name(ModInfo) ->
       false -> {error, "Can not get the current module name."}
     end.
 
-is_callback_fun(ModInfo, Funname, Arity) ->
-    case lists:keysearch(attributes, 1, ModInfo) of
-      {value, {attributes, Attrs}} ->
-	  case lists:keysearch(behaviour, 1, Attrs) of
-	    {value, {behaviour, B}} ->
-		lists:member({Funname, Arity},
-			     refac_util:callback_funs(B));
-	    _ -> false
-	  end;
-      _ -> false
-    end.
-
-check_atoms(FileName, Tree, AtomNames, Pid) ->
-    F = fun (T) ->
-		case refac_syntax:type(T) of
-		  function -> collect_atoms(T, AtomNames);
-		  _ -> []
-		end
-	end,
-    R = lists:usort(lists:flatten(lists:map(F, refac_syntax:form_list_elements(Tree)))),
-    R1 = [X || {atom, X, _} <- R, X =/= {0, 0}],  %% X=/={0,0} only a temporay fix; should check where {0,0} is introduced.
-    R2 = [X || {_, X, _} <- lists:filter(fun (X) ->
-						 case X of
-						   {atom, _X, _} -> false;
-						   _ -> true
-						 end
-					 end,
-					 R)],
-    UndecidableAtoms = R1 -- R2,
-    case UndecidableAtoms of
-      [] -> ok;
-      _ -> Pid ! {add_not_renamed, {FileName, UndecidableAtoms}}
-    end.
-
-collect_atoms(Tree, AtomNames) ->
-    F = fun (T, S) ->
-		case refac_syntax:type(T) of
-		  function ->
-		      N = refac_syntax:function_name(T),
-		      collect_atoms_1(AtomNames, S, N, function);
-		  application ->
-		      Operator = refac_syntax:application_operator(T),
-		      collect_atoms_1(AtomNames, S, Operator, function);
-		  module_qualifier ->
-		      Mod = refac_syntax:module_qualifier_argument(T),
-		      Fun = refac_syntax:module_qualifier_body(T),
-		      S1 = collect_atoms_1(AtomNames, S, Mod, module),
-		      collect_atoms_1(AtomNames, S1, Fun, function);
-		  arity_qualifier ->
-		      Fun = refac_syntax:arity_qualifier_body(T),
-		      case lists:member(refac_syntax:atom_value(Fun), AtomNames) of
-			true -> S ++ [{function, refac_syntax:get_pos(Fun)}];
-			false -> S
-		      end;
-		  infix_expr ->
-		      Op = refac_syntax:infix_expr_operator(T),
-		      Left = refac_syntax:infix_expr_left(T),
-		      case refac_syntax:operator_name(Op) of
-			'!' ->
-			    case refac_syntax:type(Left) of
-			      atom ->
-				  AtomVal = refac_syntax:atom_value(Left),
-				  case lists:member(AtomVal, AtomNames) of
-				    true ->
-					S ++ [{process, refac_syntax:get_pos(Left), AtomVal}];
-				    _ -> S
-				  end;
-			      _ -> S
-			    end;
-			_ -> S
-		      end;
-		  record_expr -> Type = refac_syntax:record_expr_type(T),
-				 collect_atoms_1(AtomNames, S, Type, record);
-		  record_field -> Name = refac_syntax:record_field_name(T),
-				  case refac_syntax:type(Name) of
-				    atom ->
-					AtomVal = refac_syntax:atom_value(Name),
-					case lists:member(AtomVal, AtomNames) of
-					  true ->
-					      S ++ [{record, refac_syntax:get_pos(Name), AtomVal}];
-					  _ -> S
-					end;
-				    _ -> S
-				  end;
-		  record_access -> Type = refac_syntax:record_access_type(T),
-				   Field = refac_syntax:record_access_field(T),
-				   S1 = collect_atoms_1(AtomNames, S, Type, record),
-				   case refac_syntax:type(Field) of
-				     atom ->
-					 AtomVal = refac_syntax:atom_value(Field),
-					 case lists:member(AtomVal, AtomNames) of
-					   true ->
-					       S ++ [{record, refac_syntax:get_pos(Field), AtomVal}];
-					   false ->
-					       S
-					 end;
-				     _ -> S1
-				   end;
-		  atom ->
-		      AtomVal = refac_syntax:atom_value(T),
-		      case lists:member(AtomVal, AtomNames) of
-			true ->
-			      Pos = refac_syntax:get_pos(T),
-			      As = refac_syntax:get_ann(T),
-			      case lists:keysearch(type, 1, As) of
-				  {value, {type, {f_atom, [MName, FName, Arity]}}} 
-				    when not(is_atom(MName) andalso MName/='_' andalso
-					     is_atom(FName) andalso FName/='_' andalso
-					     is_integer(Arity)) -> 
-				      Pos =
-					  S++[{atom, Pos, AtomVal}];   %% This should be improved; as we know T is a function atom;
-				  {value, _} -> S;
-				  _ -> 
-				      S ++ [{atom, Pos, AtomVal}]
-				  end;
-			  false -> S
-		      end;
-		    _ -> S
-		end
-	end,
-    refac_syntax_lib:fold(F, [], Tree).
-
-collect_atoms_1(AtomNames, S, Node, Type) ->
-    F = fun (T, Acc) ->
-		case refac_syntax:type(T) of
-		  atom ->
-		      AtomVal = refac_syntax:atom_value(T),
-		      case lists:member(AtomVal, AtomNames) of
-			true when Type == function ->
-			    Ann = refac_syntax:get_ann(T),
-			    case lists:keysearch(fun_def, 1, Ann) of
-			      {value, {fun_def, {'_', _, _, _, _}}} ->
-				  Acc ++ [{atom, refac_syntax:get_pos(T), AtomVal}];
-			      {value, {fun_def, {_, '_', _, _, _}}} ->
-				  Acc ++ [{atom, refac_syntax:get_pos(T), AtomVal}];
-			      {value, {fun_def, {_, _, '_', _, _}}} ->
-				  Acc ++ [{atom, refac_syntax:get_pos(T), AtomVal}];
-			      {value, _} ->
-				  Acc ++ [{function, refac_syntax:get_pos(T), AtomVal}];
-			      false ->
-				  Acc ++ [{atom, refac_syntax:get_pos(T), AtomVal}]
-			    end;
-			true ->
-			    Acc ++ [{Type, refac_syntax:get_pos(T), AtomVal}];
-			false ->
-			    Acc
-		      end;
-		  _ -> Acc
-		end
-	end,
-    refac_syntax_lib:fold(F, S, Node).
-
-try_eval(none, Node, _, _) ->
-    try
-	erl_eval:exprs([refac_syntax:revert(Node)], [])
-    of
-	{value, Val, _} -> {value, Val}
-    catch
-	_E1:_E2 ->
-	    {error, no_value}
-    end;	    
-try_eval(FileName, Node, SearchPaths, TabWidth) ->
-    try
-	erl_eval:exprs([refac_syntax:revert(Node)], [])
-    of
-	{value, Val, _} -> {value, Val}
-    catch
-	_:_ ->
-	    case
-		has_macros(Node) andalso refac_util:get_free_vars(Node) == []
-	    of
-		true ->
-		    Dir = filename:dirname(FileName),
-		    DefaultIncl2 = [filename:join(Dir, X) || X <- refac_util:default_incls()],
-		    NewSearchPaths = SearchPaths ++ DefaultIncl2,
-		    {Ms, UMs} = case
-				    refac_epp:parse_file(FileName, NewSearchPaths, [])
-				of
-				    {ok, _, {Defs, Uses}} ->
-					{dict:from_list(Defs), dict:from_list(Uses)};
-				    _ -> {[],[]}
-			    end,
-		    NodeToks = get_toks(FileName, Node, TabWidth),
-		    try
-			refac_epp:expand_macros(NodeToks, {Ms, UMs})
-		    of
-			NewToks when is_list(NewToks) ->
-			    case refac_parse:parse_exprs(NewToks ++ [{dot, {999, 0}}]) of
-				{ok, Exprs} ->
-				    try
-					erl_eval:exprs(Exprs, [])
-				    of
-					{value, Val, _} -> {value, Val}
-				    catch
-					_:_ -> {error, no_value}
-				    end;
-				_ -> {error, no_value}
-			    end
-		    catch
-			_:__ -> {error, no_value}
-		    end;
-		false ->
-		    {error, no_value}
-	    end
-    end.
-
-has_macros(Node) ->
-    F = fun (N, _Others) ->
-		case refac_syntax:type(N) of
-		  macro -> {N, true};
-		  _ -> {[], false}
-		end
-	end,
-    {_, Res} = refac_util:once_tdTU(F, Node, []),
-    Res.
-
-get_toks(FileName, Node, TabWidth) ->
-    Toks = refac_util:tokenize(FileName, false, TabWidth),
-    {StartPos, EndPos} = refac_util:get_range(Node),
-    Toks1 = lists:dropwhile(fun (T) ->
-				    token_loc(T) < StartPos
-			    end, Toks),
-    lists:takewhile(fun (T) ->
-			    token_loc(T) =< EndPos
-		    end, Toks1).
-
-token_loc(T) ->
-    case T of
-      {_, L, _V} -> L;
-      {_, L1} -> L1
-    end.
-
 test_framework_aware_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName) ->
     eunit_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName),
     eqc_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName),
@@ -707,16 +453,14 @@ eunit_name_checking_1(OldFunName, NewFunName) ->
     end.
 
 eqc_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName) ->
-    case lists:member(eqc_statem, UsedFrameWorks) andalso
-	   not lists:member(eqc_fsm, UsedFrameWorks)
-	of
+    case lists:member(eqc_statem, UsedFrameWorks) andalso not lists:member(eqc_fsm, UsedFrameWorks) of
       true ->
-	  eqc_callback_name_checking(OldFunName, Arity, NewFunName, eqc_statem_callback_funs());
+	  eqc_callback_name_checking(OldFunName, Arity, NewFunName, refac_misc:eqc_statem_callback_funs());
       false -> ok
     end,
     case lists:member(eqc_fsm, UsedFrameWorks) of
       true ->
-	  eqc_callback_name_checking(OldFunName, Arity, NewFunName, eqc_fsm_callback_funs());
+	  eqc_callback_name_checking(OldFunName, Arity, NewFunName, refac_misc:eqc_fsm_callback_funs());
       false -> ok
     end,
     case lists:member(eqc, UsedFrameWorks) of
@@ -762,15 +506,11 @@ testserver_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName) ->
     end.
 
 testserver_name_checking(OldFunName, Arity, NewFunName) ->
-    case
-      lists:member({OldFunName, Arity}, testserver_callback_funs())
-	of
+    case lists:member({OldFunName, Arity}, refac_misc:testserver_callback_funs()) of
       true ->
 	  throw({warning, "The function selected is mandatory in a Test Server test suite, continue?"});
       false ->
-	  case
-	    lists:member({NewFunName, Arity}, testserver_callback_funs())
-	      of
+	  case lists:member({NewFunName, Arity}, refac_misc:testserver_callback_funs()) of
 	    true ->
 		throw({warning, "The new function would be Test Server special function, continue?"});
 	    false -> ok
@@ -785,34 +525,16 @@ commontest_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName) ->
     end.
 
 commontest_name_checking(OldFunName, Arity, NewFunName) ->
-    case
-      lists:member({OldFunName, Arity}, commontest_callback_funs())
-	of
+    case lists:member({OldFunName, Arity}, refac_misc:commontest_callback_funs()) of
       true ->
 	  throw({warning, "The function selected is a Common Test callback function, continue?"});
       false ->
-	  case
-	    lists:member({NewFunName, Arity}, commontest_callback_funs())
-	      of
+	  case lists:member({NewFunName, Arity}, refac_misc:commontest_callback_funs()) of
 	    true ->
 		throw({warning, "The new function would be a Common Test callback function, continue?"});
 	    false -> ok
 	  end
     end.
-
-eqc_statem_callback_funs() ->
-    [{initial_state, 0}, {precondition, 2}, {command, 1}, {postcondition, 3}, {next_state, 3}].
-
-eqc_fsm_callback_funs() ->
-    [{initial_state, 0}, {initial_state_data, 0}, {next_state_data, 5},
-     {precondition, 4}, {postcondition, 5}].
-
-commontest_callback_funs() ->
-    [{all, 0}, {groups, 0}, {suite, 0}, {init_per_suite, 1}, {end_per_suite, 1}, {init_per_group, 2},
-     {end_per_group, 2}, {init_per_testcase, 2}, {end_per_testcase, 2}, {testcase, 0}, {testcase, 1}].
-
-testserver_callback_funs() ->
-    [{all, 0}, {init_per_suite, 1}, {end_per_suite, 1}, {init_per_testcase, 2}, {fin_per_testcase, 2}].
 
 renamed_warn_msg(FunName) ->
     "\n=================================================================================\n"
@@ -826,98 +548,5 @@ not_renamed_warn_msg(FunName) ->
       "' at the following positions refer to the function renamed, and they are not renamed."
       " Please check manually!\n".
 
-start_atom_process() ->
-    spawn_link(fun () -> atom_loop({[], []}) end).
-
-stop_atom_process(Pid) ->
-    Pid ! stop.
-
-atom_loop({NotRenamed, Renamed}) ->
-    receive
-      {add_not_renamed, Data} ->
-	  atom_loop({[Data| NotRenamed], Renamed});
-      {add_renamed, {FileName, Pos}} ->
-	  case Renamed of
-	    [] -> atom_loop({NotRenamed, [{FileName, [Pos]}]});
-	    [{FileName, Ps}| Others] ->
-		atom_loop({NotRenamed, [{FileName, [Pos| Ps]}| Others]});
-	    _ -> atom_loop({NotRenamed, [{FileName, [Pos]}| Renamed]})
-	  end;
-      {From, get} ->
-	  From ! {self(), {lists:reverse(NotRenamed), lists:reverse(Renamed)}},
-	  atom_loop({NotRenamed, Renamed});
-      stop ->
-	  ok
-    end.
-
-
-has_warning_msg(Pid) ->
-    Pid! {self(), get},
-    receive
-	{Pid, {NotRenamed, Renamed}} ->
-	    NotRenamed /= [] orelse
-            Renamed /=[];
-	_ -> throw({error, "Refactoring failed because of a Wrangler error."})
-    end.
-
-output_atom_warning_msg(Pid, NotRenamedWarnMsg, RenamedWarnMsg) ->
-    Pid ! {self(), get},
-    receive
-      {Pid, {NotRenamed, Renamed}} ->
-	  output_atom_warnings({NotRenamed, Renamed}, NotRenamedWarnMsg, RenamedWarnMsg);
-      _ -> throw({error, "Refactoring failed because of a Wrangler error."})
-    end.
-
-output_atom_warnings({[], []}, _, _) ->
-    ok;
-output_atom_warnings({NotRenamed, Renamed}, NotRenamedMsg, RenamedMsg) ->
-    output_atom_not_renamed_warnings(NotRenamed, NotRenamedMsg),
-    output_atom_renamed_warnings(Renamed, RenamedMsg).
-
-output_atom_not_renamed_warnings([], _Msg) -> ok;
-output_atom_not_renamed_warnings(NotRenamed, Msg) ->
-    ?wrangler_io(Msg, []),
-    output_not_renamed_atom_info(NotRenamed).
-
-output_atom_renamed_warnings([], _Msg) -> ok;
-output_atom_renamed_warnings(Renamed, Msg) ->
-    ?wrangler_io(Msg, []),
-    output_renamed_atom_info(Renamed).
-
-output_not_renamed_atom_info(FileAndPositions) ->
-    Fun = fun ({FileName, Positions}) ->
-		  lists:flatmap(fun (P) ->
-					{Line, _Col} = P,
-					FileName ++ io_lib:format(":~p: \n", [Line])
-				end, Positions)
-	  end,
-    Msg = lists:flatmap(Fun, FileAndPositions),
-    ?wrangler_io(Msg, []).
-
-output_renamed_atom_info(FileAndExprs) ->
-    Fun = fun ({FileName, Exprs}) ->
-		  Fun0 = fun (Expr) ->
-				 {Line, _Col} = refac_syntax:get_pos(Expr),
-				 FileName ++ io_lib:format(":~p: ", [Line])
-				   ++ refac_prettypr:format(Expr) ++ "\n"
-			 end,
-		  lists:flatmap(Fun0, Exprs)
-	  end,
-    Msg = lists:flatmap(Fun, FileAndExprs),
-    ?wrangler_io(Msg, []).
-
 rewrite(E1, E2) ->
     refac_syntax:copy_pos(E1, refac_syntax:copy_attrs(E1, E2)).
-
-apply_style_funs() ->
-    [{{erlang, apply, 3}, [modulename, functionname, arglist], term},
-     {{erlang, spawn, 3}, [modulename, functionname, arglist], term},
-     {{erlang, spawn, 4}, [node, modulename, functionname, arglist], term},
-     {{erlang, spawn_link, 3}, [modulename, functionname, arglist], term},
-     {{erlang, spawn_link, 4}, [term, modulename, functioname, arglist], term},
-     {{erlang, spawn_monitor, 3}, [term, modulename, functionname, arglist], term},
-     {{test_server, timecall, 3}, [modulename, functionname, arglist], term},
-     {{test_server, do_times, 4}, [integer, modulename, functionname, arglist], term},
-     {{test_server, call_crash, 3}, [modulename, functionname, arglist], term},
-     {{test_server, call_crash, 4}, [term, modulename, functionname, arglist], term},
-     {{test_server, call_crash, 5}, [term, term, modulename, functionname, arglist], term}].

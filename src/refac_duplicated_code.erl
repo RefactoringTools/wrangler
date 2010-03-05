@@ -8,7 +8,6 @@
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved via the world wide web at http://www.erlang.org/.
-
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
@@ -22,16 +21,21 @@
 
 -export([duplicated_code/5, duplicated_code_eclipse/5]).
 
--export([init/1, collect_vars/1]).
+-export([init/1]).
 
 -export([get_clones_by_suffix_tree/6,
 	 get_clones_by_erlang_suffix_tree/5, 
 	 display_clone_result/2, remove_sub_clones/1]).
 
--import(refac_sim_expr_search, [start_counter_process/0, stop_counter_process/1, 
-				gen_new_var_name/1,variable_replaceable/1]).
+-import(refac_code_search_utils, [gen_new_var_name/1]).
 
--export([macro_name_value/1]).
+-import(refac_code_search_utils,
+	[stop_counter_process/1]).
+
+-import(refac_code_search_utils,
+	[start_counter_process/0]).
+
+-import(refac_misc, [variable_replaceable/1]).
 
 -include("../include/wrangler.hrl").
 
@@ -484,48 +488,48 @@ sub_clone(C1, C2) ->
 %% This phase needs to get access to the abstract syntax tree.
 
 trim_clones(Cs, MinLength, MinClones, MaxPars, TabWidth) ->
-    Files0 =[File||C <-Cs, {Range, _Len, _Freq} <-[C], {File,_,_}<-element(1,lists:unzip(Range))],
-    Files=refac_util:remove_duplicates(Files0),
-    Fun = fun(File, Cs0) ->
-		  {ok, {AnnAST, _}} =refac_util:parse_annotate_file(File, true, [], TabWidth),
-		  AllVars = refac_fold_expression:collect_var_source_def_pos_info(AnnAST),
-		  Fun1 = fun(Range) ->
+    Files0 = [File || C <- Cs, {Range, _Len, _Freq} <- [C], {File, _, _} <- element(1, lists:unzip(Range))],
+    Files = refac_util:remove_duplicates(Files0),
+    Fun = fun (File, Cs0) ->
+		  {ok, {AnnAST, _}} = refac_util:parse_annotate_file(File, true, [], TabWidth),
+		  AllVars = refac_misc:collect_var_source_def_pos_info(AnnAST),
+		  Fun1 = fun (Range) ->
 				 case Range of
-				     {{File1, L1, C1}, {File2, L2, C2}}->
-					 case File1/=File2 of 
-					     true ->[];
-					     _ when File==File1-> 
-						 Units=pos_to_syntax_units(AnnAST, {L1, C1}, {L2, C2}, fun is_expr_or_fun/1, MinLength),
-						 lists:map(fun(U) ->
-								   {{StartLn, StartCol}, _} = refac_util:get_range(hd(U)),
-								   {_,{EndLn, EndCol}} = refac_util:get_range(lists:last(U)),
-								   BdStruct = refac_expr_search:var_binding_structure(U),
-								   R = {{File1, StartLn, StartCol}, {File1, EndLn, EndCol}},
-								   ExprBdVarsPos = [Pos || {_Var, Pos}<-refac_util:get_bound_vars(U)],
-								   VarsToExport=[{V, DefPos} || {V, SourcePos, DefPos} <- AllVars,
-												SourcePos > {EndLn, EndCol},
-												lists:subtract(DefPos, ExprBdVarsPos) == []],
-								   {R, U, VarsToExport, BdStruct, num_of_tokens(U)}
-							   end, Units);
-					     _ ->Range
-					 end;
-				     _ -> Range
+				   {{File1, L1, C1}, {File2, L2, C2}} ->
+				       case File1 /= File2 of
+					 true -> [];
+					 _ when File == File1 ->
+					     Units = pos_to_syntax_units(AnnAST, {L1, C1}, {L2, C2}, fun is_expr_or_fun/1, MinLength),
+					     lists:map(fun (U) ->
+							       {{StartLn, StartCol}, _} = refac_util:get_range(hd(U)),
+							       {_, {EndLn, EndCol}} = refac_util:get_range(lists:last(U)),
+							       BdStruct = refac_code_search_utils:var_binding_structure(U),
+							       R = {{File1, StartLn, StartCol}, {File1, EndLn, EndCol}},
+							       ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_util:get_bound_vars(U)],
+							       VarsToExport = [{V, DefPos} || {V, SourcePos, DefPos} <- AllVars,
+											      SourcePos > {EndLn, EndCol},
+											      lists:subtract(DefPos, ExprBdVarsPos) == []],
+							       {R, U, VarsToExport, BdStruct, num_of_tokens(U)}
+						       end, Units);
+					 _ -> Range
+				       end;
+				   _ -> Range
 				 end
 			 end,
-		  [{NewRanges, Len, Freq}||C<-Cs0, {Range, Len, Freq}<-[C], 
-			      NewRanges<-[lists:map(Fun1, Range)], NewRanges/=[]]
+		  [{NewRanges, Len, Freq} || C <- Cs0, {Range, Len, Freq} <- [C],
+					     NewRanges <- [lists:map(Fun1, Range)], NewRanges /= []]
 	  end,
-    Fun2 = fun(ListsOfUnitsList) ->
-		   case lists:usort(lists:map(fun length/1, ListsOfUnitsList)) of 
-		       [_N] -> ZippedUnitsList = zip_list(ListsOfUnitsList),
-			       NewCs =lists:append([group_by(4, ZippedUnits)|| ZippedUnits<- ZippedUnitsList]),
-			       lists:append([get_anti_unifier(C, MaxPars, MinLength)||C<-NewCs, C/=[], length(C)>=MinClones, 
-										      element(5, hd(C))>=MinLength]);
-		       _ ->[]
+    Fun2 = fun (ListsOfUnitsList) ->
+		   case lists:usort(lists:map(fun length/1, ListsOfUnitsList)) of
+		     [_N] -> ZippedUnitsList = zip_list(ListsOfUnitsList),
+			     NewCs = lists:append([group_by(4, ZippedUnits) || ZippedUnits <- ZippedUnitsList]),
+			     lists:append([get_anti_unifier(C, MaxPars, MinLength) || C <- NewCs, C /= [], length(C) >= MinClones,
+										      element(5, hd(C)) >= MinLength]);
+		     _ -> []
 		   end
 	   end,
-    Cs1=lists:foldl(Fun, Cs, Files),
-    lists:append([Fun2(Ranges)||{Ranges, _, _}<-Cs1]).
+    Cs1 = lists:foldl(Fun, Cs, Files),
+    lists:append([Fun2(Ranges) || {Ranges, _, _} <- Cs1]).
   
 num_of_tokens_in_string(Str) ->
     case refac_scan:string(Str, {1,1}, 8, 'unix') of
@@ -902,9 +906,9 @@ do_expr_unification(Exp1, Exp2) ->
 		throw({error, anti_unification_failed})
 	  end;
       {false, false} ->  %% both are single expressions.
-	    T1 = refac_syntax:type(Exp1),
-	    T2 = refac_syntax:type(Exp2),
-	    case T1 of
+	  T1 = refac_syntax:type(Exp1),
+	  T2 = refac_syntax:type(Exp2),
+	  case T1 of
 	    atom -> case T2 == atom andalso refac_syntax:atom_value(Exp1) == refac_syntax:atom_value(Exp2) of
 		      true ->
 			  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Exp1)) of
@@ -931,14 +935,14 @@ do_expr_unification(Exp1, Exp2) ->
 		      true -> [];
 		      _ -> [{Exp1, Exp2}]
 		    end;
-	    integer -> 
-		    case (T2 == integer orelse T2 == float) andalso
-			refac_syntax:integer_value(Exp1) == refac_syntax:integer_value(Exp2)
+	    integer ->
+		case (T2 == integer orelse T2 == float) andalso
+		       refac_syntax:integer_value(Exp1) == refac_syntax:integer_value(Exp2)
 		    of
-			true -> [];
-			_ ->
-			    [{Exp1, Exp2}]
-		    end;
+		  true -> [];
+		  _ ->
+		      [{Exp1, Exp2}]
+		end;
 	    string -> case T2 == string andalso refac_syntax:string_value(Exp1) == refac_syntax:string_value(Exp2) of
 			true -> [];
 			_ -> [{Exp1, Exp2}]
@@ -949,34 +953,35 @@ do_expr_unification(Exp1, Exp2) ->
 		       true -> [];
 		       _ -> [{Exp1, Exp2}]
 		     end;
-		nil -> case T2 == nil of
+	    nil -> case T2 == nil of
 		     true -> [];
-			 _ -> [{Exp1, Exp2}]
-		     end;
-	      binary ->
-		    case T2==binary andalso  refac_prettypr:format(Exp1)==refac_prettypr:format(Exp2) of
-		      true ->[];
-		      _ -> 
-			  [{Exp1, Exp2}]
-		  end;		      
+		     _ -> [{Exp1, Exp2}]
+		   end;
+	    binary ->
+		case T2 == binary andalso refac_prettypr:format(Exp1) == refac_prettypr:format(Exp2) of
+		  true -> [];
+		  _ ->
+		      [{Exp1, Exp2}]
+		end;
 	    macro ->
 		case T2 == macro of
-		  true -> case macro_name_value(refac_syntax:macro_name(Exp1)) ==
-			      macro_name_value(refac_syntax:macro_name(Exp2)) of
-			      true ->
-				  case refac_syntax:macro_arguments(Exp1) of
-				      none -> [];
-				      _ -> SubTrees1 = erl_syntax:macro_arguments(Exp1),
-					   SubTrees2 = erl_syntax:macro_arguments(Exp2),
-					   do_expr_unification(SubTrees1, SubTrees2) 
-				  end;
-			      false ->
-				  case refac_syntax:macro_arguments(Exp1) of 
-				      none ->
-					  [{Exp1, Exp2}];
-				      _ ->
-					  throw({error, anti_unification_failed})
-				  end
+		  true -> case refac_code_search_utils:identifier_name(refac_syntax:macro_name(Exp1)) ==
+				 refac_code_search_utils:identifier_name(refac_syntax:macro_name(Exp2))
+			      of
+			    true ->
+				case refac_syntax:macro_arguments(Exp1) of
+				  none -> [];
+				  _ -> SubTrees1 = erl_syntax:macro_arguments(Exp1),
+				       SubTrees2 = erl_syntax:macro_arguments(Exp2),
+				       do_expr_unification(SubTrees1, SubTrees2)
+				end;
+			    false ->
+				case refac_syntax:macro_arguments(Exp1) of
+				  none ->
+				      [{Exp1, Exp2}];
+				  _ ->
+				      throw({error, anti_unification_failed})
+				end
 			  end;
 		  false -> throw({error, anti_unification_failed})
 		end;
@@ -1014,7 +1019,7 @@ generalise_expr({Exprs = [H| _T], EVs}, {NodeVarPairs, VarsToExport}) ->
 			 [_V| _Vs] -> E = refac_syntax:tuple([refac_syntax:variable(V) || {V, _} <- EVs1]),
 				      NewExprs ++ [E]
 		       end,
-	   NewVars = collect_vars(NewExprs) -- collect_vars(Exprs),
+	   NewVars = refac_misc:collect_var_names(NewExprs) -- refac_misc:collect_var_names(Exprs),
 	   Pars = lists:map(fun ({V, _}) ->
 				    refac_syntax:variable(V)
 			    end,
@@ -1032,7 +1037,7 @@ generalise_fun(F, NodesToGen) ->
     Cs = refac_syntax:function_clauses(F),
     {Cs1, NewVars} = lists:unzip(lists:map(fun (C) ->
 						   C1 = generalise_expr_2(C, NodesToGen),
-						   NewVars = collect_vars(C1)--collect_vars(C),
+						   NewVars = refac_misc:collect_var_names(C1) -- refac_misc:collect_var_names(C),
 						   {C1, NewVars}
 					   end, Cs)),
     NewVars1 = lists:append(NewVars),
@@ -1047,6 +1052,10 @@ generalise_fun(F, NodesToGen) ->
 			      refac_syntax:clause(NewPats, Guards, Body)
 		      end, Cs1),
     {refac_prettypr:format(refac_syntax:function(FunName, NewCs)), length(NewVars)}.  %% Here only count the new vars.
+
+
+
+
 
 
 generalise_expr_1(Expr, NodesToGen) when is_list(Expr)->
@@ -1064,23 +1073,6 @@ do_replace_expr_with_var_1(Node, NodeVarPairs) ->
 	    {refac_syntax:variable(Var), true};
 	_ -> {Node, false}
     end.
-
-collect_vars(Node) when is_list(Node) ->
-    collect_vars_1(refac_syntax:block_expr(Node));
-collect_vars(Node) ->
-    collect_vars_1(Node).
-collect_vars_1(Node) ->
-    F = fun(N,S) ->
-		case refac_syntax:type(N) of 
-		    variable ->
-			case lists:keysearch(category, 1, refac_syntax:get_ann(N)) of
-			    {value, {category, macro_name}} -> S;
-			    _ ->[refac_syntax:variable_name(N)|S]
-			end;
-		    _  -> S
-		end
-	end,
-    refac_util:remove_duplicates(lists:reverse(refac_syntax_lib:fold(F, [], Node))).
     
 		
 			   
@@ -1165,14 +1157,3 @@ filter_syntax_units_1(Es) ->
 	[H|T] ->
 	    lists:append([[Es11], filter_syntax_units_1(H), filter_syntax_units_1(T)])
     end.
-  
-
-macro_name_value(Exp) ->
-    case refac_syntax:type(Exp) of 
-	    atom ->
-		refac_syntax:atom_value(Exp);
-	    variable ->
-		refac_syntax:variable_name(Exp)
-    end.
-
-

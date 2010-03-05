@@ -61,7 +61,13 @@
 
 -export([move_fun/6, move_fun_1/6, move_fun_eclipse/6, move_fun_1_eclipse/6]).
 
--import(refac_rename_fun, [check_atoms/4, start_atom_process/0,output_atom_warning_msg/3, stop_atom_process/1]).
+-import(refac_atom_utils, [output_atom_warning_msg/3]).
+
+-import(refac_atom_utils, [check_atoms/4]).
+
+-import(refac_atom_utils, [stop_atom_process/1]).
+
+-import(refac_atom_utils, [start_atom_process/0]).
 
 -export([remove_duplicates/2]).
 
@@ -695,7 +701,7 @@ do_remove_module_qualifier(Node, {FileName, {ModName, FunName, Arity}, TargetMod
 		      {Node1, true}
 		end;
 	    {{Mod1, Fun1}, Ari1} ->
-		case lists:keysearch({Mod1, Fun1, Ari1}, 1, refac_rename_fun:apply_style_funs()) of
+		case lists:keysearch({Mod1, Fun1, Ari1}, 1, refac_misc:apply_style_funs()) of
 		  {value, _} ->
 		      transform_apply_style_calls(FileName, Node, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth);
 		  false -> {Node, false}
@@ -757,7 +763,7 @@ do_add_change_module_qualifier(Node, {FileName, {ModName, FunName, Arity}, Targe
 	  Args = refac_syntax:application_arguments(Node),
 	  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Operator)) of
 	    {value, {fun_def, {Mod1, Fun1, Ari1, _, _}}} ->
-		case lists:keysearch({Mod1, Fun1, Ari1}, 1, refac_rename_fun:apply_style_funs()) of
+		case lists:keysearch({Mod1, Fun1, Ari1}, 1, refac_misc:apply_style_funs()) of
 		  {value, _} ->
 		      transform_apply_style_calls(FileName, Node, {ModName, FunName, Arity}, TargetModName, SearchPaths, 8);  %% To Change
 		  false ->
@@ -765,7 +771,7 @@ do_add_change_module_qualifier(Node, {FileName, {ModName, FunName, Arity}, Targe
 			{ModName, FunName, Arity} ->
 			    case refac_syntax:type(Operator) of
 			      tuple -> {rename_fun_in_tuple_op(Node, Operator, Args, TargetModName), true};
-				_ ->
+			      _ ->
 				  MakeApp(Node, Operator, Args, TargetModName, FunName)
 			    end;
 			_ -> {Node, false}
@@ -903,7 +909,7 @@ do_change_module_qualifier(Node, {FileName, {ModName, FunName, Arity}, TargetMod
 	  Args = refac_syntax:application_arguments(Node),
 	  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
 	    {value, {fun_def, {Mod1, Fun1, Ari1, _, _}}} ->
-		case lists:keysearch({Mod1, Fun1, Ari1}, 1, refac_rename_fun:apply_style_funs()) of
+		case lists:keysearch({Mod1, Fun1, Ari1}, 1, refac_misc:apply_style_funs()) of
 		  {value, _} ->
 		      transform_apply_style_calls(FileName, Node, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth);
 		  false ->
@@ -921,8 +927,8 @@ do_change_module_qualifier(Node, {FileName, {ModName, FunName, Arity}, TargetMod
 	    _ -> {Node, false}
 	  end;
       implicit_fun -> process_implicit_fun(Node, ModName, FunName, Arity, TargetModName);
-      tuple -> do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, 
-				       FunName, TargetModName, Arity, Pid, TabWidth});
+      tuple -> do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName,
+					      FunName, TargetModName, Arity, Pid, TabWidth});
       _ -> {Node, false}
     end.
 
@@ -994,8 +1000,8 @@ transform_apply_style_calls(FileName, Node, {ModName, FunName, Arity}, NewModNam
 				 4 -> [none| Arguments];
 				 3 -> [none, none| Arguments]
 			       end,
-    Mod1 = refac_rename_fun:try_eval(FileName, Mod, SearchPaths, TabWidth),
-    Fun1 = refac_rename_fun:try_eval(FileName, Fun, SearchPaths, TabWidth),
+    Mod1 = refac_misc:try_eval(FileName, Mod, SearchPaths, TabWidth),
+    Fun1 = refac_misc:try_eval(FileName, Fun, SearchPaths, TabWidth),
     case Fun1 of
       {value, FunName} ->
 	  case Mod1 of
@@ -1066,7 +1072,7 @@ do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, FunName, TargetMo
       %% 		_ -> {Node, false}
       %% 	    end;
       [E1, E2, E3] ->
-	  case refac_rename_fun:try_eval(FileName, E1, SearchPaths, TabWidth) of
+	  case refac_misc:try_eval(FileName, E1, SearchPaths, TabWidth) of
 	    {value, ModName} ->
 		case refac_syntax:type(E2) == atom andalso refac_syntax:atom_value(E2) == FunName of
 		  true -> case refac_syntax:type(E3) == list andalso refac_syntax:list_length(E3) == Arity of
@@ -1094,7 +1100,7 @@ do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, FunName, TargetMo
 		{Node, false}
 	  end;
       [E0, E1, E2, E3] ->
-	  case refac_rename_fun:try_eval(FileName, E1, SearchPaths, TabWidth) of
+	  case refac_misc:try_eval(FileName, E1, SearchPaths, TabWidth) of
 	    {value, ModName} ->
 		case refac_syntax:type(E2) == atom andalso refac_syntax:atom_value(E2) == FunName of
 		  true -> case refac_syntax:type(E3) == list andalso refac_syntax:list_length(E3) == Arity of

@@ -215,12 +215,7 @@ check_existing_records(RecordName, FieldNames, Info) ->
 state_to_record(FileName, SearchPaths, TabWidth, SM) ->
     {ok, {_,  ModInfo}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {value, {module, ModName}} = lists:keysearch(module, 1, ModInfo),
-    case is_statemachine_used(ModInfo, SM) of
-	true ->
-	    check_current_state_type(FileName, ModName, ModInfo, SM);
-	{error, Msg}-> throw({error, Msg})
-    end.
-
+  
 
 state_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SM, SearchPaths, TabWidth, Editor, Cmd) ->
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
@@ -234,8 +229,10 @@ state_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SM, Se
 
 
 do_state_to_record(ModName, ModInfo,  AnnAST, RecordName, RecordFields, StateFuns, RecordExists, IsTuple, SM) ->
+    {ok, {AnnAST,  ModInfo}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    {value, {module, ModName}} = lists:keysearch(module, 1, ModInfo),
     Forms = refac_syntax:form_list_elements(AnnAST),
-    Funs = get_possible_conversion_funs(Forms, RecordName),
+    Funs = [],
     TupleToRecordFunName = tuple_to_record_fun_name(ModInfo, Funs, RecordName, RecordFields),
     RecordToTupleFunName = record_to_tuple_fun_name(ModInfo, Funs, RecordName, RecordFields),
     Fun = fun (F) ->
@@ -247,17 +244,8 @@ do_state_to_record(ModName, ModInfo,  AnnAST, RecordName, RecordFields, StateFun
 		  end
 	  end,
     Forms0 = [Fun(F) || F <- Forms],
-    Forms1 = unfold_conversion_apps(Forms0, RecordToTupleFunName, TupleToRecordFunName, RecordName, RecordFields, IsTuple),    
-    Forms2 = add_util_funs(Forms1, ModInfo, RecordName, RecordFields,TupleToRecordFunName, RecordToTupleFunName),
-    case RecordExists of
-      true ->
-	  refac_syntax:form_list(Forms2);
-      false ->
-	  RecordDef = mk_record_attribute(RecordName, RecordFields),
-	  NewForms =  insert_record_attribute(Forms2, RecordDef),
-	  refac_syntax:form_list(NewForms)
-    end.
-
+    refac_syntax:form_list(Forms0).
+   
 do_state_to_record_1(ModName, Fun, RecordName, RecordFields, StateFuns, IsTuple, 
 		     SM, TupleToRecordFunName, RecordToTupleFunName) ->
     As = refac_syntax:get_ann(Fun),
@@ -646,36 +634,37 @@ wrap_fun_interface(Form, ModName, RecordName, RecordFields, IsTuple, StateFuns,S
     wrap_fun_interface_in_return(Form1, ModName, RecordName, RecordFields, IsTuple, StateFuns, SM,
 				TupleToRecordFunName, RecordToTupleFunName).
 
-wrap_fun_interface_in_return(Form, ModName, RecordName, RecordFields,IsTuple, StateFuns, SM,
-			    TupleToRecordFunName, RecordToTupleFunName) ->
-    Fun= fun(Node, _Others) ->
-		 case is_callback_fun_app(Node, ModName, StateFuns, SM) of
-		     {true, _PatIndex, true} ->
-			 case SM of 
-			     gen_fsm ->
-				 throw({error, "Callback functions are called as normal functions."});
-			     _ ->
-				 make_record_to_tuple_app(Node, RecordName, RecordFields, IsTuple,
-							 TupleToRecordFunName, RecordToTupleFunName)
-			 end;
-		     false ->
-			 Node
-		 end
-	 end,
+wrap_fun_interface_in_return(Form, ModName, RecordName, RecordFields, IsTuple, StateFuns, SM,
+			     TupleToRecordFunName, RecordToTupleFunName) ->
+    Fun = fun (Node, _Others) ->
+		  case is_callback_fun_app(Node, ModName, StateFuns, SM) of
+		    {true, _PatIndex, true} ->
+			case SM of
+			  gen_fsm ->
+			      throw({error, "Callback functions are called as normal functions."});
+			  _ ->
+			      make_record_to_tuple_app(Node, RecordName, RecordFields, IsTuple,
+						       TupleToRecordFunName, RecordToTupleFunName)
+			end;
+		    false ->
+			Node
+		  end
+	  end,
     Form1 = refac_util:full_buTP(Fun, Form, {}),
     case SM of
-	gen_fsm ->
-	    Form1;
-	_ -> 
-	    Res = check_use_of_run_commands(Form1, SM),
-	    case Res of
-		[] -> Form1;
-		_ ->
-		    {Form2, _} =refac_util:stop_tdTP(fun wrap_run_commands_result/2, Form1,
-						     {RecordName, RecordFields, Res, IsTuple, 
-						      refac_unfold_fun_app:collect_vars(Form1),SM}),
-		    Form2
-	    end
+      gen_fsm ->
+	  Form1;
+      _ ->
+	  Res = check_use_of_run_commands(Form1, SM),
+	  case Res of
+	    [] -> Form1;
+	    _ ->
+		  UsedVarNames=ordsets:from_list(refac_misc:collect_var_names(Form1)),
+		  {Form2, _} = refac_util:stop_tdTP(fun wrap_run_commands_result/2, Form1,
+						    {RecordName, RecordFields, Res, IsTuple,
+						     UsedVarNames, SM}),
+		  Form2
+	  end
     end.
 
 check_use_of_run_commands(Form, SM) ->
@@ -766,9 +755,9 @@ wrap_run_commands_result(Node, {RecordName, RecordFields, DefPs, IsTuple, UsedVa
 
 transform_run_command(Node, UsedVars, RecordName, RecordFields, IsTuple, SM) ->
     Node1 = refac_util:reset_attrs(Node),
-    H = refac_syntax:variable(refac_unfold_fun_app:make_new_name('H', UsedVars)),
-    S = refac_syntax:variable(refac_unfold_fun_app:make_new_name('S', UsedVars)),
-    Res = refac_syntax:variable(refac_unfold_fun_app:make_new_name('Res', UsedVars)),
+    H = refac_syntax:variable(refac_misc:make_new_name('H', UsedVars)),
+    S = refac_syntax:variable(refac_misc:make_new_name('S', UsedVars)),
+    Res = refac_syntax:variable(refac_misc:make_new_name('Res', UsedVars)),
     Es = [H, S, Res],
     Tuple = refac_syntax:tuple(Es),
     Expr1 = refac_syntax:match_expr(Tuple, Node1),

@@ -327,24 +327,21 @@ collect_apps(FileName, Node, {M, F, A}) ->
     
 %%==========================================================================================
 %%-spec(caller_called_modules(FName::filename(), SearchPaths::[dir()], TabWidth::integer()) -> ok).
-caller_called_modules(FName, SearchPaths, TabWidth) ->
+caller_called_modules(FName, SearchPaths, _TabWidth) ->
     %% I use 'false' in the following function call, so that macro can get expanded;
-    {ok, {AnnAST, _Info0}} = refac_util:parse_annotate_file(FName, false, SearchPaths, TabWidth),
     AbsFileName = filename:absname(filename:join(filename:split(FName))),
     ClientFiles = wrangler_modulegraph_server:get_client_files(AbsFileName, SearchPaths),
-    ClientMods = [M || {M, _Dir} <-refac_util:get_modules_by_file(ClientFiles)],
-    case ClientFiles of 
-	[] -> ?wrangler_io("\nThis module does not have any caller modules.\n",[]);
-	_ -> ?wrangler_io("\nThis module is called by the following modules:\n",[]),
+    ClientMods = [M || {M, _Dir} <- refac_util:get_modules_by_file(ClientFiles)],
+    case ClientFiles of
+	[] -> ?wrangler_io("\nThis module does not have any caller modules.\n", []);
+	_ -> ?wrangler_io("\nThis module is called by the following modules:\n", []),
 	     ?wrangler_io("~p\n", [ClientMods])
     end,
-    Files = refac_util:expand_files(SearchPaths, ".erl"),
-    ModNames = [M || {M, _} <- refac_util:get_modules_by_file(Files)],
-    {CalledMods,_} = refac_module_graph:collect_called_modules(AnnAST, ModNames),
-    case CalledMods of 
-	[] -> ?wrangler_io("\nThis module does not have any called modules.\n",[]);
-	_  -> ?wrangler_io("\nThis module calls the following modules:\n",[]),
-	      ?wrangler_io("~p\n", [CalledMods])
+    CalledMods = wrangler_modulegraph_server:get_called_modules(FName, SearchPaths),
+    case CalledMods of
+	[] -> ?wrangler_io("\nThis module does not have any called modules.\n", []);
+	_ -> ?wrangler_io("\nThis module calls the following modules:\n", []),
+	     ?wrangler_io("~p\n", [CalledMods])
     end.
 
 

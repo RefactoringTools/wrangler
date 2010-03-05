@@ -428,7 +428,7 @@ pos_to_expr_list_1(Tree, Start, End, F) ->
     if (S >= Start) and (E =< End) ->
 	    case F(Tree) of
 		true ->
-		    [[Tree]];
+		    [Tree];
 		_ ->
 		    Ts = refac_syntax:subtrees(Tree),
 		    [[lists:append(pos_to_expr_list_1(T, Start, End, F))|| T <- G]
@@ -490,11 +490,10 @@ expr_to_fun_1(Tree, Exp) ->
     end.
 
 %% =====================================================================
-%% @spec is_var_name(Name:: string())-> boolean()
+%% @spec is_var_name(Name:: [any()])-> boolean()
 %% @doc Return true if a string is lexically a  variable name.
 
--spec(is_var_name(Name:: string())-> boolean()).
-
+-spec(is_var_name(Name:: [any()])-> boolean()).
 is_var_name(Name) ->
     case Name of
 	[] -> false;
@@ -518,10 +517,10 @@ is_digit(L) -> (L >= 48) and (57 >= L).
 
 
 %% =====================================================================
-%% @spec is_fun_name(Name:: string())-> boolean()
+%% @spec is_fun_name(Name:: [any()])-> boolean()
 %% @doc Return true if a name is lexically a function name.
 
--spec(is_fun_name(Name:: string())-> boolean()).
+-spec(is_fun_name(Name:: [any()])-> boolean()).
 is_fun_name(Name) ->
     case Name of
       [H | T] -> is_lower(H) and is_var_name_tail(T);
@@ -1381,10 +1380,13 @@ do_add_range(Node, Toks) ->
 	  Fs = refac_syntax:binary_fields(Node),
 	  case Fs == [] of
 	    true -> refac_syntax:add_ann({range, {{L, C}, {L, C + 3}}}, Node);
-	    _ ->
-		add_range_to_list_node(Node, Toks, Fs, "refac_util:do_add_range, binary", 
-				       "refac_util:do_add_range, binary",
-				       '<<', '>>')
+	      _ -> %% this should be changed when the parser is able 
+                  %% to include location info for binary type qualifiers.
+		  Hd = ghead("do_add_range:binary",Fs),
+		  {S1, _E1} = get_range(Hd), 
+		  S11 = extend_forwards(Toks, S1, "<<"),
+		  E21= extend_backwards(Toks, S1,">>"),
+		  refac_syntax:add_ann({range, {S11, E21}}, Node)
 	  end;
       binary_field ->
 	  Body = refac_syntax:binary_field_body(Node),
@@ -1698,6 +1700,7 @@ do_add_category(Node, C) ->
 		 end;
 	     %% TO ADD: other cases such as fields. Refer to the Erlang Specification.
 	     binary_field ->{refac_syntax:add_ann({category, binary_field}, Node), false};
+	     size_qualifier ->{refac_syntax:add_ann({category, size_qualifier}, Node), false};
 	     _ -> {refac_syntax:add_ann({category, C}, Node), false}
 	   end
     end.
@@ -2193,3 +2196,31 @@ concat_toks([T|Ts], Acc) ->
 	 {V, _} -> 
 	     concat_toks(Ts, [V|Acc])
      end.
+
+is_callback_fun(ModInfo, Funname, Arity) ->
+    case lists:keysearch(attributes, 1, ModInfo) of
+      {value, {attributes, Attrs}} ->
+	  case lists:keysearch(behaviour, 1, Attrs) of
+	    {value, {behaviour, B}} ->
+		lists:member({Funname, Arity},
+			     callback_funs(B));
+	    _ -> false
+	  end;
+      _ -> false
+    end.
+-spec(write_files/3::(Editor::atom(), Results::[{{filename(), filename()}, syntaxTree()}], string()) ->
+	     {ok, [filename()]} | {ok, [{filename(), filename(), string()}]}).
+
+write_files(Editor, Results, Cmd) ->
+    case Editor of
+      emacs ->
+	  write_refactored_files_for_preview(Results, Cmd),
+	  ChangedFiles = [F || {{F, _F}, _AST} <- Results],
+	  ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
+		       [ChangedFiles]),
+	  {ok, ChangedFiles};
+      eclipse ->
+	  Res = [{FName, NewFName, refac_prettypr:print_ast(file_format(FName), AST)}
+		 || {{FName, NewFName}, AST} <- Results],
+	  {ok, Res}
+    end.

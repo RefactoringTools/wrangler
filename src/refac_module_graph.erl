@@ -31,9 +31,7 @@
 
 -module(refac_module_graph). 
 
--export([module_graph/1, module_graph_to_dot/2, module_subgraph_to_dot/3]). 
-
--export([collect_called_modules/2]).
+-export([module_graph/1, get_called_mods/2, module_graph_to_dot/4, module_subgraph_to_dot/4]). 
 
 %%-define(DEBUG, true).
 
@@ -44,7 +42,7 @@
 -endif.
 
 -include("../include/wrangler.hrl").
- 
+
 -spec(module_graph/1::([dir()]) -> [{filename(), [filename()]}]).
 module_graph(SearchPaths) ->
     ModCallerCallee = create_caller_callee_graph(SearchPaths),
@@ -57,84 +55,84 @@ create_caller_callee_graph(SearchPaths) ->
     analyze_all_files(ModMap, SearchPaths).
    
     
-analyze_all_files([], _SearchPaths)->
-    ets:foldr(fun({{Mod, Dir}, CalledMods, _CheckSum}, S) -> 
-			    FileName = filename:join(Dir, atom_to_list(Mod)++".erl"),
-			    case filelib:is_file(FileName) of 
-				true ->
-				    [{{Mod, Dir}, CalledMods}|S];
-				_ -> S
-			    end
-		    end, [], ?ModuleGraphTab);
-    
-analyze_all_files([{Mod, Dir}|Left], SearchPaths) ->  
-    FileName = filename:join(Dir,atom_to_list(Mod)++".erl"),
-    NewCheckSum = wrangler_ast_server:filehash(FileName),
+analyze_all_files([], _SearchPaths) ->
+    ets:foldr(fun ({{Mod, Dir}, CalledMods, _CheckSum}, S) ->
+		      FileName = filename:join(Dir, atom_to_list(Mod) ++ ".erl"),
+		      case filelib:is_file(FileName) of
+			true ->
+			    [{{Mod, Dir}, CalledMods}| S];
+			_ -> S
+		      end
+	      end, [], ?ModuleGraphTab);
+
+analyze_all_files([{Mod, Dir}| Left], SearchPaths) ->
+    FileName = filename:join(Dir, atom_to_list(Mod) ++ ".erl"),
+    NewCheckSum = refac_misc:filehash(FileName),
     case ets:lookup(?ModuleGraphTab, {Mod, Dir}) of
-    	[] -> 
-	    {called_modules, Called} = analyze_mod({Mod, Dir}, SearchPaths),
-	    ets:insert(?ModuleGraphTab, {{Mod, Dir}, Called,NewCheckSum}),
-	    analyze_all_files(Left, SearchPaths);
-	[{{Mod, Dir}, _CalledMods, OldCheckSum}] ->
-	    case NewCheckSum =:= OldCheckSum of 
-		true ->
-		    analyze_all_files(Left, SearchPaths);
-		false -> 
-		    ets:delete(?ModuleGraphTab, {Mod, Dir}),
-		    {called_modules, CalledMods1} = analyze_mod({Mod, Dir}, SearchPaths),
-		    ets:insert(?ModuleGraphTab, {{Mod, Dir}, CalledMods1, NewCheckSum}),
-		    analyze_all_files(Left, SearchPaths)		
-	    end
+      [] ->
+	  Called = get_called_mods(FileName, SearchPaths),
+	  ets:insert(?ModuleGraphTab, {{Mod, Dir}, Called, NewCheckSum}),
+	  analyze_all_files(Left, SearchPaths);
+      [{{Mod, Dir}, _CalledMods, OldCheckSum}] ->
+	  case NewCheckSum =:= OldCheckSum of
+	    true ->
+		analyze_all_files(Left, SearchPaths);
+	    false ->
+		ets:delete(?ModuleGraphTab, {Mod, Dir}),
+		CalledMods1 = get_called_mods(FileName, SearchPaths),
+		ets:insert(?ModuleGraphTab, {{Mod, Dir}, CalledMods1, NewCheckSum}),
+		analyze_all_files(Left, SearchPaths)
+	  end
     end.
    
-analyze_mod({Mod, Dir}, SearchPaths) ->
-    File = filename:join(Dir, atom_to_list(Mod) ++ ".erl"),
+get_called_mods(File, SearchPaths) ->
     Files = refac_util:expand_files(SearchPaths, ".erl"),
     ModNames = [M || {M, _} <- refac_util:get_modules_by_file(Files)],
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(File, true, SearchPaths),
     ImportedMods0 = case lists:keysearch(imports, 1, Info) of
 		      {value, {imports, Imps}} ->
-			  lists:map(fun ({M, _Funs}) -> M end, Imps);
+			  [M || {M, _Funs} <- Imps];
 		      false -> []
 		    end,
     ImportedMods1 = case lists:keysearch(module_imports, 1, Info) of
-		      {value, {module_imports, Mods}} -> Mods;
+		      {value, {module_imports, Mods}} ->
+			  Mods;
 		      _ -> []
 		    end,
     %% I took a conservative approach here.
-    {CalledMods, PossibleCalledMods} = collect_called_modules(AnnAST, ModNames),
-    CalledMods1 = [M || M <- CalledMods, lists:member(M, ModNames)],
-    {called_modules, lists:usort(ImportedMods0 ++ ImportedMods1 ++ 
-				 CalledMods1 ++ PossibleCalledMods)}.
+    {CalledMods, PossibleCalledMods} = do_collect_called_mods(AnnAST, ModNames),
+    AllCalledMods = ImportedMods0 ++ ImportedMods1 ++ CalledMods ++ PossibleCalledMods,
+    lists:usort([M || M <- AllCalledMods, lists:member(M, ModNames)]).
 
--spec(collect_called_modules(AnnAST::syntaxTree(), ModNames::[atom()])
+-spec(do_collect_called_mods(AnnAST::syntaxTree(), ModNames::[atom()])
       ->{[modulename()], [modulename()]}).
-collect_called_modules(AnnAST, ModNames) ->
-    Fun1 = fun(T, Acc) ->
-		  case refac_syntax:type(T) of 
-		      atom ->
-			  As = refac_syntax:get_ann(T),
-			  case lists:keysearch(type, 1, As) of
-			      {value, {type, m_atom}} ->
-				  ModName = refac_syntax:atom_value(T),
-				  ordsets:add_element(ModName, Acc);
-			      _ -> Acc
-			  end;
-		      _-> Acc
-		  end
-	  end,
-    CalledMods = refac_syntax_lib:fold(Fun1, ordsets:new(), AnnAST),
-    Fun2 = fun(T, Acc) ->
+do_collect_called_mods(AnnAST, ModNames) ->
+    Fun1 = fun (T, Acc) ->
 		   case refac_syntax:type(T) of
-		       function ->
-			   Acc++refac_rename_fun:collect_atoms(T, ModNames);
-		       _ -> Acc
+		     atom ->
+			 As = refac_syntax:get_ann(T),
+			 case lists:keysearch(type, 1, As) of
+			   {value, {type, m_atom}} ->
+			       ModName = refac_syntax:atom_value(T),
+			       ordsets:add_element(ModName, Acc);
+			   _ -> Acc
+			 end;
+		     _ -> Acc
+		   end
+	   end,
+    CalledMods = refac_syntax_lib:fold(Fun1, ordsets:new(), AnnAST),
+    Fun2 = fun (T, Acc) ->
+		   case refac_syntax:type(T) of
+		     function ->
+			 Acc ++ refac_atom_utils:collect_atoms(T, ModNames);
+		     _ -> Acc
 		   end
 	   end,
     UnSures = refac_syntax_lib:fold(Fun2, [], AnnAST),
-    UnSures1 = [Name||{atom, _Pos, Name} <- UnSures, 
-	        not lists:member(Name, CalledMods)],
+    UnSures1 = [Name || {atom, _Pos, Name} <- UnSures,
+			not lists:member(Name, CalledMods)],
     {CalledMods, ordsets:from_list(UnSures1)}.
+
 
 reverse_module_graph(List) ->
     reverse_module_graph_1(List,List, []).
@@ -160,39 +158,98 @@ get_client_modules({Mod, Dir}, List) ->
 	end,
     {filename:join([Dir, atom_to_list(Mod) ++ ".erl"]), lists:flatmap(F, List)}.
 
--spec (module_subgraph_to_dot/3::(filename(), [modulename()], [filename()|dir()]) ->true).
-module_subgraph_to_dot(OutFile, ModNames, SearchPaths) ->
+%%=========================================================================================%%
+%%
+%% Functionalities for  module re-structure.
+%%
+%%==========================================================================================
+
+create_caller_callee_graph_with_called_funs(SearchPaths) ->
+    Files = refac_util:expand_files(SearchPaths, ".erl"),
+    refac_io:format("Files:\n~p\n", [Files]),
+    ModMap = refac_util:get_modules_by_file(Files),
+    analyze_all_files_with_called_funs(ModMap, SearchPaths).
+
+
+analyze_all_files_with_called_funs(ModDirs, SearchPaths)->
+    Files = refac_util:expand_files(SearchPaths, ".erl"),
+    ModNames = [M || {M, _} <- refac_util:get_modules_by_file(Files)],
+    [{{Mod, Dir},analyze_mod_with_called_funs({Mod, Dir}, ModNames, SearchPaths)}
+     || {Mod, Dir}<-ModDirs].
+   
+
+analyze_mod_with_called_funs({Mod, Dir}, ModNames, SearchPaths) ->
+    File = filename:join(Dir, atom_to_list(Mod) ++ ".erl"),
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(File, true, SearchPaths),
+    ImportedMods0 = case lists:keysearch(imports, 1, Info) of
+			{value, {imports, Imps}} ->
+			    [{M, []}||{M, _Funs}<-Imps, lists:member(M, ModNames)];
+			false -> []
+		    end,
+    ImportedMods1 = case lists:keysearch(module_imports, 1, Info) of
+			{value, {module_imports, Mods}} -> 
+			    [{M,[]}||M<-Mods, lists:member(M, ModNames)];
+			_ -> []
+		    end,
+    CalledModFuns = collect_called_modules_with_called_funs(Mod, AnnAST, ModNames),
+    Res = ImportedMods0 ++ ImportedMods1 ++ CalledModFuns,
+    refac_io:format("Mod:\n~p\n", [Mod]),
+    ordsets:from_list(group_by_mod_names(Res)).
+   
+
+-spec(collect_called_modules_with_called_funs(ModName::modulename(),AnnAST::syntaxTree(), ModNames::[atom()])
+      ->[{modulename(), {functionname(), functionarity()}}]).
+
+collect_called_modules_with_called_funs(ModName, AnnAST, ModNames) ->
+    CalledFuns= lists:append([wrangler_callgraph_server:called_funs(F)
+			      ||F<-refac_syntax:form_list_elements(AnnAST)]),
+    [{M, [{F,A}]}||{M, F, A}<-CalledFuns, M/=ModName, lists:member(M, ModNames)].
+   
+ 
+group_by_mod_names(ModFuns) ->
+    ModFuns1 = refac_misc:group_by(1, ModFuns),
+    [{hd(Ms), lists:append(Fs)}||MFs<-ModFuns1, {Ms, Fs} <-[lists:unzip(MFs)]].
+    
+
+-spec (module_subgraph_to_dot/4::(filename(), [modulename()],[filename()|dir()], boolean()) ->true).
+module_subgraph_to_dot(OutFile, ModNames, SearchPaths, WithLabel) ->
     DotFile = filename:dirname(OutFile)++filename:rootname(OutFile)++".dot",
-    ModCallerCallees = create_caller_callee_graph(SearchPaths),
+    ModCallerCallees = create_caller_callee_graph_with_called_funs(SearchPaths),
     MG = digraph:new(),
-    add_edges(ModCallerCallees, MG),
+    add_edges(ModCallerCallees, [], MG),
     SG=digraph_utils:subgraph(MG, ModNames, []),
-    to_dot(SG,DotFile),
+    to_dot(SG,DotFile, WithLabel),
     digraph:delete(SG),
     digraph:delete(MG).
 
--spec (module_graph_to_dot/2::(filename(), [filename()|dir()]) ->true).				  
-module_graph_to_dot(OutFile, SearchPaths) -> 
-    DotFile = filename:dirname(OutFile)++filename:rootname(OutFile)++".dot",
-    ModCallerCallees = create_caller_callee_graph(SearchPaths),
+-spec (module_graph_to_dot/4::(filename(), [modulename()], [filename()|dir()], boolean()) ->true). 			  
+module_graph_to_dot(OutFile, NotCareMods, SearchPaths, WithLabel) -> 
+    DotFile = filename:rootname(OutFile)++".dot",
+    ModCallerCallees = create_caller_callee_graph_with_called_funs(SearchPaths),
     MG = digraph:new(),
-    add_edges(ModCallerCallees, MG),
-    to_dot(MG,DotFile),
+    add_edges(ModCallerCallees,NotCareMods,  MG),
+    to_dot(MG,DotFile, WithLabel),
     digraph:delete(MG).
 
-add_edges([], MG) ->
+add_edges([], _NotCareMods, MG) ->
     MG;
-add_edges([{{CallerMod,_}, CalleeMods}|Left], MG) ->
-    Edges =[{CallerMod, CalleeMod} || CalleeMod <- CalleeMods],
-    add_edges(Left, digraph_add_edges(Edges, MG)).
+add_edges([{{CallerMod,_}, CalleeMods}|Left], NotCareMods, MG) ->
+    Edges =[{CallerMod, {CalleeMod, CallerFuns}} || {CalleeMod, CallerFuns} <- CalleeMods],
+    add_edges(Left, NotCareMods, digraph_add_edges(Edges, NotCareMods, MG)).
 
-digraph_add_edges([], MG)-> 
+digraph_add_edges([], _NotCareMods, MG)-> 
     MG;
-digraph_add_edges([{From, To}|Left], MG) ->
-    digraph_add_edges(Left, digraph_add_edge(From, To, MG)).    
+digraph_add_edges([{From, {To, CallerFuns}}|Left], NotCareMods, MG) ->
+    case lists:member(From, NotCareMods) orelse 
+	lists:member(To, NotCareMods) of 
+	true ->
+	    digraph_add_edges(Left, NotCareMods, MG);
+	false ->
+	    digraph_add_edges(Left, NotCareMods, digraph_add_edge(From, To, CallerFuns, MG))
+    end.
     
     
-digraph_add_edge(From, To, MG) ->
+digraph_add_edge(From, To, Label, MG) ->
     case digraph:vertex(MG, From) of 
 	false ->
 	    digraph:add_vertex(MG, From);
@@ -204,10 +261,61 @@ digraph_add_edge(From, To, MG) ->
 	    digraph:add_vertex(MG, To);
 	{To,_} -> ok
     end,
-    digraph:add_edge(MG, {From, To}, From, To, []),
+    digraph:add_edge(MG, {From, To}, From, To, Label),
     MG.
 
-to_dot(MG, File) ->
-    Edges = digraph:edges(MG),
-    hipe_dot:translate_list(Edges, File, "ModuleGraph", []).
+to_dot(MG, File, WithLabel) ->
+    Edges = [digraph:edge(MG, X) || X <- digraph:edges(MG)],
+    EdgeList=[{X, Y, Label} || {_, X, Y, Label} <- Edges],
+    edge_list_to_dot(EdgeList, File, "ModuleGraph", WithLabel).
     
+edge_list_to_dot(Edges, OutFileName, GraphName, WithLabel) ->
+    {NodeList1, NodeList2, _} = lists:unzip3(Edges),
+    NodeList = NodeList1 ++ NodeList2,
+    NodeSet = ordsets:from_list(NodeList),
+    Start = ["digraph ",GraphName ," {"],
+    VertexList = [node_format(V) ||V <- NodeSet],
+    End = ["graph [", GraphName, "=", GraphName, "]}"],
+    EdgeList = [edge_format(X, Y, Label, WithLabel) || {X,Y, Label} <- Edges],
+    String = [Start, VertexList, EdgeList, End],
+    ok = file:write_file(OutFileName, list_to_binary(String)).
+
+
+node_format(V) ->
+    String = io_lib:format("~p", [V]),
+    {Width, Heigth} = calc_dim(String),
+    W = (Width div 7 + 1) * 0.55,
+    H = Heigth * 0.4,
+    SL = io_lib:format("~f", [W]),
+    SH = io_lib:format("~f", [H]),
+    [String, " [width=", SL, " heigth=", SH, " ", "", "];\n"].
+
+calc_dim(String) ->
+  calc_dim(String, 1, 0, 0).
+
+calc_dim("\\n" ++ T, H, TmpW, MaxW) ->
+  calc_dim(T, H+1, 0, erlang:max(TmpW, MaxW));
+calc_dim([_|T], H, TmpW, MaxW) ->
+  calc_dim(T, H, TmpW+1, MaxW);
+calc_dim([], H, TmpW, MaxW) ->
+  {erlang:max(TmpW, MaxW), H}.
+
+
+edge_format(V1, V2, Label, WithLabel) ->
+    String = [io_lib:format("~p", [V1]), " -> ",
+	      io_lib:format("~p", [V2])],
+    case WithLabel of 
+	true ->
+	    [String, " [", "label=", "\"", format_label(Label),  "\"", "];\n"];
+	false ->
+	    [String, " [", "];\n"]
+    end.
+  
+
+format_label([]) ->
+    "";
+format_label([{F,A}|T]) ->
+    io_lib:format("~p/~p", [F, A]) ++ format_label(T).
+
+
+ %% refac_module_graph:module_graph_to_dot("c:/cygwin/home/hl/wrangler-0.8.8/src/modulegraph", [wrangler, wrangler_distel, refac_util, refac_syntax_lib, refac_syntax, refac_io, refac_prettypr, refac_parse, refac_statem_to_fsm, refac_fun_to_process, refac_instrument, refac_tuple_to_record, refac_misc, refac_add_a_tag,refac_rename_process,refac_annotate_pid, refac_register_pid, refac_recomment, refac_scan, refac_epp, refac_epp_dodger, refac_atom_utils], ["c:/cygwin/home/hl/wrangler-0.8.8./src"], true).

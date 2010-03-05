@@ -63,68 +63,69 @@ sim_code_detection_in_buffer(FileName, MinLen, MinFreq, SimiScore, SearchPaths, 
 -spec(sim_code_detection/6::(DirFileList::[filename()|dir()], MinLen::string(), MinFreq::string(), MinScore::string(), 
 			     SearchPaths::[dir()], TabWidth::integer()) -> {ok, string()}). 			     
 sim_code_detection(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:sim_code_detection(~p,~p,~p,~p,~p,~p).\n", 
+    ?wrangler_io("\nCMD: ~p:sim_code_detection(~p,~p,~p,~p,~p,~p).\n",
 		 [?MODULE, DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabWidth]),
     
     MinLen = try
-		 case MinLen1 == [] orelse list_to_integer(MinLen1) <1 of
-		     true -> 
-			 ?DEFAULT_LEN;
-		     _ -> list_to_integer(MinLen1)
-		 end
-	     catch 
-		 V -> V;
-		   _:_ -> throw({error, "Parameter input is invalid."})
+	       case MinLen1 == [] orelse list_to_integer(MinLen1) < 1 of
+		 true ->
+		     ?DEFAULT_LEN;
+		 _ -> list_to_integer(MinLen1)
+	       end
+	     catch
+	       V -> V;
+	       _:_ -> throw({error, "Parameter input is invalid."})
 	     end,
-    MinFreq = try 
-		  case MinFreq1 == [] orelse list_to_integer(MinFreq1) < ?DEFAULT_FREQ of
-		      true -> ?DEFAULT_FREQ;
-		      _ -> list_to_integer(MinFreq1)
-		  end
-	      catch 
-		      V1 -> V1;
-		    _:_ ->throw({error, "Parameter input is invalid."})
+    MinFreq = try
+		case MinFreq1 == [] orelse list_to_integer(MinFreq1) < ?DEFAULT_FREQ of
+		  true -> ?DEFAULT_FREQ;
+		  _ -> list_to_integer(MinFreq1)
+		end
+	      catch
+		V1 -> V1;
+		_:_ -> throw({error, "Parameter input is invalid."})
 	      end,
-    SimiScore = try 
-		    case SimiScore1 of 
-			[] -> ?DefaultSimiScore;
-			_ -> S = list_to_float(SimiScore1),
-			     case (S>=0.1) andalso (S =<1.0) of 
-				 true ->S;
-				 _ -> ?DefaultSimiScore
-			     end
-		    end
-		catch V2 -> V2;
-		      _:_ -> throw({error, "Parameter input is invalid."})
+    SimiScore = try
+		  case SimiScore1 of
+		    [] -> ?DefaultSimiScore;
+		    _ -> S = list_to_float(SimiScore1),
+			 case S >= 0.1 andalso S =< 1.0 of
+			   true -> S;
+			   _ -> ?DefaultSimiScore
+			 end
+		  end
+		catch
+		  V2 -> V2;
+		  _:_ -> throw({error, "Parameter input is invalid."})
 		end,
     Pid = start_hash_process(),
     ASTTab = ets:new(ast_tab, [set, public]),
     VarTab = ets:new(var_tab, [set, public]),
-    RangeTab= ets:new(range_tab, [set, public]),
+    RangeTab = ets:new(range_tab, [set, public]),
     Files = refac_util:expand_files(DirFileList, ".erl"),
     case Files of
-	[] -> ?wrangler_io("Warning: No files found in the searchpaths specified.",[]);
-	_ ->
-	    _Time1 = now(),
-	    ?debug("Searching for initial clone candidates...\n", []),
-	    %% ?debug("current time:~p\n", [time()]),
-	    generalise_and_hash_ast(Files, Pid, SearchPaths, TabWidth, ASTTab, VarTab),
-	    %%?debug("\ngeneralise and hash ast done.\n",[]),
-	    Dir = filename:dirname(hd(Files)),
-	    Cs = get_clones(Pid, MinLen, MinFreq, Dir, RangeTab),
-	    stop_hash_process(Pid),
-	    %% ?debug("\nInitial candiates finished\n",[]),
-	    ?debug("\nNumber of initial clone candidates: ~p\n", [length(Cs)]),
- 	    CloneCheckPid = start_clone_check_process(),		   
- 	    Cs2 = examine_clone_sets(Cs, MinFreq, SimiScore, ASTTab, VarTab, RangeTab,CloneCheckPid, 1),
- 	    _Time2 = now(),		
-	    %% ?debug("current time:~p\n", [time()]),
-	    %% ?debug("total time used:~p\n", [timer:now_diff(_Time2,_Time1)/1000000]),
-	    stop_clone_check_process(CloneCheckPid),
-	    ets:delete(ASTTab),
-	    ets:delete(VarTab),
-	    ets:delete(RangeTab),
-	    display_clone_result(remove_fun_info(Cs2), "Similar")
+      [] -> ?wrangler_io("Warning: No files found in the searchpaths specified.", []);
+      _ ->
+	  _Time1 = now(),
+	  ?debug("Searching for initial clone candidates...\n", []),
+	  %% ?debug("current time:~p\n", [time()]),
+	  generalise_and_hash_ast(Files, Pid, SearchPaths, TabWidth, ASTTab, VarTab),
+	  %%?debug("\ngeneralise and hash ast done.\n",[]),
+	  Dir = filename:dirname(hd(Files)),
+	  Cs = get_clones(Pid, MinLen, MinFreq, Dir, RangeTab),
+	  stop_hash_process(Pid),
+	  %% ?debug("\nInitial candiates finished\n",[]),
+	  ?debug("\nNumber of initial clone candidates: ~p\n", [length(Cs)]),
+	  CloneCheckPid = start_clone_check_process(),
+	  Cs2 = examine_clone_sets(Cs, MinFreq, SimiScore, ASTTab, VarTab, RangeTab, CloneCheckPid, 1),
+	  _Time2 = now(),
+	  %% ?debug("current time:~p\n", [time()]),
+	  %% ?debug("total time used:~p\n", [timer:now_diff(_Time2,_Time1)/1000000]),
+	  stop_clone_check_process(CloneCheckPid),
+	  ets:delete(ASTTab),
+	  ets:delete(VarTab),
+	  ets:delete(RangeTab),
+	  display_clone_result(remove_fun_info(Cs2), "Similar")
     end,
     {ok, "Similar code detection finished."}.
     
@@ -133,39 +134,39 @@ sim_code_detection(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabW
 				  SimScore::float(),  SearchPaths::[dir()], TabWidth::integer()) ->
  	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer(), string()}]).
 sim_code_detection_eclipse(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabWidth) ->
-    MinLen = case MinLen1 =<1 of 
-		 true ->
-		     ?DEFAULT_LEN;
-		 _ -> MinLen1
+    MinLen = case MinLen1 =< 1 of
+	       true ->
+		   ?DEFAULT_LEN;
+	       _ -> MinLen1
 	     end,
-    MinFreq = case MinFreq1 =<1 of 
-		  true ->
-		      ?DEFAULT_FREQ;
-		  _ -> MinFreq1
+    MinFreq = case MinFreq1 =< 1 of
+		true ->
+		    ?DEFAULT_FREQ;
+		_ -> MinFreq1
 	      end,
-    SimiScore = case (SimiScore1==0.1) andalso (SimiScore1 =<1.0) of 
-		    true ->SimiScore1;
-		    _ -> ?DefaultSimiScore
+    SimiScore = case SimiScore1 == 0.1 andalso SimiScore1 =< 1.0 of
+		  true -> SimiScore1;
+		  _ -> ?DefaultSimiScore
 		end,
     Pid = start_hash_process(),
     ASTTab = ets:new(ast_tab, [set, public]),
     VarTab = ets:new(var_tab, [set, public]),
-    RangeTab= ets:new(range_tab, [set, public]),
+    RangeTab = ets:new(range_tab, [set, public]),
     Files = refac_util:expand_files(DirFileList, ".erl"),
     case Files of
-	[] -> [];
-	_ ->
-	    generalise_and_hash_ast(Files, Pid, SearchPaths, TabWidth, ASTTab, VarTab),
-	    Dir = filename:dirname(hd(Files)),
-	    Cs = get_clones(Pid, MinLen, MinFreq, Dir, RangeTab),
-	    stop_hash_process(Pid),
-	    CloneCheckPid = start_clone_check_process(),		   
- 	    Cs2 = examine_clone_sets(Cs, MinFreq, SimiScore, ASTTab, VarTab, RangeTab,CloneCheckPid, 1),
-	    stop_clone_check_process(CloneCheckPid),
-	    ets:delete(ASTTab),
-	    ets:delete(VarTab),
-	    ets:delete(RangeTab),
-	    remove_fun_info(Cs2)
+      [] -> [];
+      _ ->
+	  generalise_and_hash_ast(Files, Pid, SearchPaths, TabWidth, ASTTab, VarTab),
+	  Dir = filename:dirname(hd(Files)),
+	  Cs = get_clones(Pid, MinLen, MinFreq, Dir, RangeTab),
+	  stop_hash_process(Pid),
+	  CloneCheckPid = start_clone_check_process(),
+	  Cs2 = examine_clone_sets(Cs, MinFreq, SimiScore, ASTTab, VarTab, RangeTab, CloneCheckPid, 1),
+	  stop_clone_check_process(CloneCheckPid),
+	  ets:delete(ASTTab),
+	  ets:delete(VarTab),
+	  ets:delete(RangeTab),
+	  remove_fun_info(Cs2)
     end.
    
 generalise_and_hash_ast(Files, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
@@ -175,21 +176,21 @@ generalise_and_hash_ast(Files, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
 
 
 generalise_and_hash_ast_1(FName, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
-    Fun = fun(Form) ->
-		  case refac_syntax:type(Form) of 
-		      function ->
-			  FunName = refac_syntax:atom_value(refac_syntax:function_name(Form)),
-			  Arity = refac_syntax:function_arity(Form),
-			  AllVars = refac_fold_expression:collect_var_source_def_pos_info(Form),
-			  ets:insert(VarTab, {{FName, FunName, Arity}, AllVars}),
-			  refac_util:full_tdTP(fun generalise_and_hash_ast_2/2, 
-					       Form, {FName, FunName, Arity, ASTTab,Pid});
-			  _ -> ok
+    Fun = fun (Form) ->
+		  case refac_syntax:type(Form) of
+		    function ->
+			FunName = refac_syntax:atom_value(refac_syntax:function_name(Form)),
+			Arity = refac_syntax:function_arity(Form),
+			AllVars = refac_misc:collect_var_source_def_pos_info(Form),
+			ets:insert(VarTab, {{FName, FunName, Arity}, AllVars}),
+			refac_util:full_tdTP(fun generalise_and_hash_ast_2/2,
+					     Form, {FName, FunName, Arity, ASTTab, Pid});
+		    _ -> ok
 		  end
 	  end,
-    {ok, {AnnAST, _Info}} = parse_annotate_file(FName,SearchPaths, TabWidth),
+    {ok, {AnnAST, _Info}} = parse_annotate_file(FName, SearchPaths, TabWidth),
     refac_syntax:form_list_elements(AnnAST),
-    lists:foreach(fun(F)->Fun(F) end, refac_syntax:form_list_elements(AnnAST)),
+    lists:foreach(fun (F) -> Fun(F) end, refac_syntax:form_list_elements(AnnAST)),
     insert_dummy_entry(Pid).
 
 
@@ -240,18 +241,18 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab,Pid}) ->
 
 
 variable_replaceable(Exp) ->
-    case lists:keysearch(category,1, refac_syntax:get_ann(Exp)) of 
-	{value, {category, record_field}} -> false;
-	{value, {category, record_type}} -> false;	 
-	{value, {category, guard_expression}} -> false;
-	{value, {category, macro_name}} -> false;
-	{value, {category, pattern}} -> 
- 	    refac_syntax:type(Exp)==variable;
-	_ -> T = refac_syntax:type(Exp),
-	     (not (lists:member(T, [match_expr, operator, case_expr, 
-				    block_expr, catch_expr, fun_expr,
- 				    receive_expr, try_expr, clause,
-				    binary_field, query_expr])))
+    case lists:keysearch(category, 1, refac_syntax:get_ann(Exp)) of
+      {value, {category, record_field}} -> false;
+      {value, {category, record_type}} -> false;
+      {value, {category, guard_expression}} -> false;
+      {value, {category, macro_name}} -> false;
+      {value, {category, pattern}} ->
+	  refac_syntax:type(Exp) == variable;
+      _ -> T = refac_syntax:type(Exp),
+	   not lists:member(T, [match_expr, operator, case_expr,
+				block_expr, catch_expr, fun_expr,
+				receive_expr, try_expr, clause,
+				binary_field, query_expr])
     end.
 
 
@@ -528,12 +529,10 @@ search_for_clones(Dir, Data, MinLen, MinFreq, RangeTab) ->
     IndexStr = lists:append([F0(I)|| {I, _}<-Data]),
     NewData =lists:append([F(Elem) ||Elem <-Data]),
     Cs= get_clones_by_suffix_tree(Dir, IndexStr++"&",MinLen, MinFreq,"0123456789,#&", 1),
-  %%  ?debug("Num of clones from suffix tree:\n~p\n", [length(Cs)]),
     Cs1 = lists:append([strip_a_clone({[{S,E} |Ranges], {Len, Freq}}, SubStr, MinLen, MinFreq)
 			|| {[{S,E} |Ranges], Len, Freq} <- Cs, 
 			      SubStr <-[lists:sublist(IndexStr, S, E-S+1)]]),
     Cs2 =refac_duplicated_code:remove_sub_clones([{R,Len,Freq}||{R, {Len, Freq}}<-Cs1]),
-  %%  ?debug("num of clones after stripping clones:\n~p\n", [length(Cs2)]),
     get_clones_in_ranges([{R,{Len, Freq}}||{R, Len, Freq}<-Cs2], 
 			 NewData, MinLen, MinFreq, RangeTab).
    
@@ -593,14 +592,14 @@ remove_overlapped_ranges(Rs) ->
     Rs1 = lists:sort(Rs),
     R = hd(Rs1),
     remove_overlapped_ranges(tl(Rs1), R, [R]).
-remove_overlapped_ranges([], _ , Acc) ->
+remove_overlapped_ranges([], _, Acc) ->
     lists:reverse(Acc);
-remove_overlapped_ranges([{S, E}|Rs], {S1, E1},Acc) ->
-      case (S1=<S) andalso (S=<E1) of 
-	true ->
-	   remove_overlapped_ranges(Rs, {S1, E1}, Acc);
-	false ->
-	    remove_overlapped_ranges(Rs, {S, E}, [{S, E}|Acc])
+remove_overlapped_ranges([{S, E}| Rs], {S1, E1}, Acc) ->
+    case S1 =< S andalso S =< E1 of
+      true ->
+	  remove_overlapped_ranges(Rs, {S1, E1}, Acc);
+      false ->
+	  remove_overlapped_ranges(Rs, {S, E}, [{S, E}| Acc])
     end.
 	     
     
@@ -631,16 +630,17 @@ get_clones_in_ranges(Cs, Data, MinLen, MinFreq, RangeTab) ->
 
 
 remove_duplicated_clones([], Acc) ->
-     lists:reverse(Acc);
-remove_duplicated_clones([Cs|T], Acc) ->
-    Cs1 =[{Ranges, {Len, Freq}}|| {Ranges, {Len, Freq}}<-Cs,
-		not(lists:any(fun(Cs2) ->
-				      lists:any(fun({Ranges1, {Len1, Freq1}}) ->
-							(Len==Len1) andalso (Freq =<Freq1) 
-							    andalso  (Ranges--Ranges1==[])
-						end, Cs2)
-			      end, Acc))],
-    remove_duplicated_clones(T, [Cs1|Acc]).
+    lists:reverse(Acc);
+remove_duplicated_clones([Cs| T], Acc) ->
+    Cs1 = [{Ranges, {Len, Freq}} || {Ranges, {Len, Freq}} <- Cs,
+				    not lists:any(fun (Cs2) ->
+							  lists:any(fun
+								      ({Ranges1, {Len1, Freq1}}) ->
+									  Len == Len1 andalso Freq =< Freq1
+									    andalso Ranges -- Ranges1 == []
+								    end, Cs2)
+						  end, Acc)],
+    remove_duplicated_clones(T, [Cs1| Acc]).
 			  
 
 
@@ -681,7 +681,7 @@ pmap_gather([]) ->
     [].
 
 pmap_f(Parent, F, I) ->
-    Parent ! {self(), (catch F(I))}.
+    Parent ! {self(), catch F(I)}.
 
 
 parse_annotate_file(FName, SearchPaths, TabWidth) ->

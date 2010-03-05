@@ -51,9 +51,10 @@
 
 -export([tuple_funpar/7]).  %% For testing purpose.
 
--import(refac_rename_fun, [testserver_callback_funs/0, is_callback_fun/3, 
-			   eqc_statem_callback_funs/0, commontest_callback_funs/0,
-			   write_files/3, apply_style_funs/0, try_eval/4]).
+-import(refac_misc, [try_eval/4, commontest_callback_funs/0,
+		     eqc_statem_callback_funs/0,testserver_callback_funs/0,
+		     apply_style_funs/0]).
+
 -include("../include/wrangler.hrl").
 
 %%-spec(tuple_funpar/5::(filename(), pos(), pos(), [dir()], integer()) ->
@@ -127,33 +128,34 @@ tuple_par_0(FileName, AnnAST, Info, FunName, Arity, Index, Num, SearchPaths, Tab
 	    ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
 	    try tuple_pars_in_client_modules(ClientFiles,FunDefMod, FunName,Arity, Index, Num, SearchPaths, TabWidth) of
 		Results ->
-		    write_files(Editor, [{{FileName, FileName}, AnnAST1}| Results], Cmd)
+		    refac_util:write_files(Editor, [{{FileName, FileName}, AnnAST1}| Results], Cmd)
 	    catch
 		throw:Err ->
 		    Err
 	    end;
 	false ->
-	    write_files(Editor, [{{FileName, FileName}, AnnAST1}], Cmd)
+	    refac_util:write_files(Editor, [{{FileName, FileName}, AnnAST1}], Cmd)
     end.
 
 
 pre_cond_check(FileName, FunName, OldArity, NewArity, Info) ->
-    Inscope_Funs = [{F, A}||{_M, F, A}<-refac_util:inscope_funs(Info)],
+    Inscope_Funs = [{F, A} || {_M, F, A} <- refac_util:inscope_funs(Info)],
     case lists:member({FunName, NewArity}, Inscope_Funs) orelse
-	erlang:is_builtin(erlang, FunName, NewArity) orelse
-	erl_internal:bif(erlang, FunName, NewArity) of
-	true ->
-	    throw({error, atom_to_list(FunName) ++ "/" ++ 
-		  integer_to_list(NewArity) ++" is already in scope, "
-		  "or is an auto-imported builtin function."});
-	false -> 
-	    case refac_rename_fun:is_callback_fun(Info,FunName, OldArity) of
-		true ->throw({warning, "The function to be renamed is"
-			      "a callback function, continue?"}); 
-		false-> 
-		    test_framework_aware_name_checking(
-		      FileName, FunName, OldArity, NewArity)
-	    end
+	   erlang:is_builtin(erlang, FunName, NewArity) orelse
+	     erl_internal:bif(erlang, FunName, NewArity)
+	of
+      true ->
+	  throw({error, atom_to_list(FunName) ++ "/" ++
+			  integer_to_list(NewArity) ++ " is already in scope, "
+						       "or is an auto-imported builtin function."});
+      false ->
+	  case refac_util:is_callback_fun(Info, FunName, OldArity) of
+	    true -> throw({warning, "The function to be renamed is"
+				    "a callback function, continue?"});
+	    false ->
+		test_framework_aware_name_checking(
+		  FileName, FunName, OldArity, NewArity)
+	  end
     end.
 
 
@@ -289,23 +291,23 @@ collect_implicit_funs(AnnAST, {FunName, Arity}) ->
 	end,		    
     element(1, refac_util:once_tdTU(F, AnnAST, {})).
     
-tuple_pars(AnnAST, ModName, FunName, Arity, Index, Num, Info, SearchPaths, TabWidth)->
+tuple_pars(AnnAST, ModName, FunName, Arity, Index, Num, Info, SearchPaths, TabWidth) ->
     Forms = refac_syntax:form_list_elements(AnnAST),
-    Args = {ModName, ModName, FunName, Arity, Index, 
-	    Num,SearchPaths, TabWidth},
-    Forms1 =[F1 || F <-Forms, F1 <- do_tuple_fun_pars(F, Args)],
+    Args = {ModName, ModName, FunName, Arity, Index,
+	    Num, SearchPaths, TabWidth},
+    Forms1 = [F1 || F <- Forms, F1 <- do_tuple_fun_pars(F, Args)],
     AnnAST1 = refac_syntax:form_list(Forms1),
     case refac_util:is_exported({FunName, Arity}, Info) of
-	true -> 
-	    AnnAST1;
-	false ->
-	    case collect_implicit_funs(AnnAST1, {FunName, Arity}) of
-		[] ->
-		    Forms2 = [F||F<-Forms1, not(defines(F, {FunName, Arity}))],
-		    refac_syntax:form_list(Forms2);
-		_ ->
-		    AnnAST1
-	    end
+      true ->
+	  AnnAST1;
+      false ->
+	  case collect_implicit_funs(AnnAST1, {FunName, Arity}) of
+	    [] ->
+		Forms2 = [F || F <- Forms1, not defines(F, {FunName, Arity})],
+		refac_syntax:form_list(Forms2);
+	    _ ->
+		AnnAST1
+	  end
     end.
 
 defines(F, {FunName, Arity}) ->

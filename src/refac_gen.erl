@@ -95,7 +95,11 @@
 
 -include("../include/wrangler.hrl").
 
--import(refac_rename_fun,[apply_style_funs/0, try_eval/4, collect_atoms/2]).
+-import(refac_atom_utils, [collect_atoms/2]).
+
+-import(refac_misc, [try_eval/4]).
+
+-import(refac_misc, [apply_style_funs/0]).
 
 -export([generalise/6, gen_fun_1/11, gen_fun_clause/10]).
 

@@ -322,52 +322,52 @@ eunit_name_checking(UsedFrameWorks, NewFunName, Arity) ->
     end.
        
 eqc_name_checking(UsedFrameWorks, NewFunName, Arity) ->
-    case lists:member(eqc_statem,UsedFrameWorks) of 
-	true -> 
-	    case lists:member({NewFunName, Arity}, refac_rename_fun:eqc_statem_callback_funs()) of 
-		true ->
-		    throw({warning, "The new function name means that "
-			   "the new function is a quickcheck callback function, continue?"});
-		false -> ok
-	    end;
-	false -> ok
+    case lists:member(eqc_statem, UsedFrameWorks) of
+      true ->
+	  case lists:member({NewFunName, Arity}, refac_misc:eqc_statem_callback_funs()) of
+	    true ->
+		throw({warning, "The new function name means that "
+				"the new function is a quickcheck callback function, continue?"});
+	    false -> ok
+	  end;
+      false -> ok
     end,
-    case lists:member(eqc,UsedFrameWorks) of 
-	true -> 
-	    case lists:prefix("prop_", atom_to_list(NewFunName)) of 
-		true ->
-		    throw({warning, "The new function name means that "
-			   "the new function is a quickcheck property, continue?"});
-		false -> ok
-	    end;
-	false -> ok
+    case lists:member(eqc, UsedFrameWorks) of
+      true ->
+	  case lists:prefix("prop_", atom_to_list(NewFunName)) of
+	    true ->
+		throw({warning, "The new function name means that "
+				"the new function is a quickcheck property, continue?"});
+	    false -> ok
+	  end;
+      false -> ok
     end.
    
 
 
 testserver_name_checking(UsedFrameWorks, NewFunName, Arity) ->
-    case lists:member(testserver, UsedFrameWorks) of 
-	true ->
-	    case lists:member({NewFunName, Arity}, refac_rename_fun:testserver_callback_funs()) of 
-		true ->
-		    throw({warning, "The new function name means that "
-			   "the new function is a Test Server callback function, continue?"});
-		false -> ok
-	    end;
-	false -> ok
+    case lists:member(testserver, UsedFrameWorks) of
+      true ->
+	  case lists:member({NewFunName, Arity}, refac_misc:testserver_callback_funs()) of
+	    true ->
+		throw({warning, "The new function name means that "
+				"the new function is a Test Server callback function, continue?"});
+	    false -> ok
+	  end;
+      false -> ok
     end.
    
 
-commontest_name_checking(UsedFrameWorks, NewFunName, Arity)->
-    case lists:member(commontest,UsedFrameWorks) of 
-	true ->
-	    case lists:member({NewFunName, Arity}, refac_rename_fun:commontest_callback_funs()) of 
-		true ->
-		    throw({warning, "The new function name means that "
-			   "the new function is a Common Test callback function, continue?"});
-		false -> ok
-	    end;
-	false -> ok
+commontest_name_checking(UsedFrameWorks, NewFunName, Arity) ->
+    case lists:member(commontest, UsedFrameWorks) of
+      true ->
+	  case lists:member({NewFunName, Arity}, refac_misc:commontest_callback_funs()) of
+	    true ->
+		throw({warning, "The new function name means that "
+				"the new function is a Common Test callback function, continue?"});
+	    false -> ok
+	  end;
+      false -> ok
     end.
 
 

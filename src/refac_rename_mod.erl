@@ -61,8 +61,13 @@
 
 -export([rename_mod/4, rename_mod_1/5, rename_mod_eclipse/4, rename_mod_1_eclipse/5]).
 
--import(refac_rename_fun, [check_atoms/4, start_atom_process/0, 
-			   output_atom_warning_msg/3, stop_atom_process/1]).
+-import(refac_atom_utils, [output_atom_warning_msg/3]).
+
+-import(refac_atom_utils, [check_atoms/4]).
+
+-import(refac_atom_utils, [stop_atom_process/1]).
+
+-import(refac_atom_utils, [start_atom_process/0]).
 
 -include("../include/wrangler.hrl").
 
@@ -185,11 +190,11 @@ rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod, Editor) ->
 do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, Cmd) ->
     {OldModName, NewModName} = hd(OldNewModPairs),
     NewFileName = filename:dirname(FileName) ++ "/" ++ atom_to_list(NewModName) ++ ".erl",
-    {TestFileName, NewTestFileName} 
-	= case find_eunit_test_file(OldModName, SearchPaths) of
-	     [F] -> {F, filename:dirname(F) ++ "/" ++ atom_to_list(NewModName) ++ "_tests.erl"};
-	      _ -> {none, none}
-	  end,
+    {TestFileName, NewTestFileName} =
+	case find_eunit_test_file(OldModName, SearchPaths) of
+	  [F] -> {F, filename:dirname(F) ++ "/" ++ atom_to_list(NewModName) ++ "_tests.erl"};
+	  _ -> {none, none}
+	end,
     Pid = start_atom_process(),
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     {AnnAST1, _C1} = do_rename_mod_1(AnnAST, {FileName, OldNewModPairs, Pid}),
@@ -197,7 +202,7 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, C
     check_atoms(FileName, AnnAST1, OldModNames, Pid),
     TestModRes = case length(OldNewModPairs) of
 		   2 -> ?wrangler_io("The current file under refactoring is:\n~p\n", [TestFileName]),
-			{TestAnnAST,_Info} =  parse_file_with_type_ann(TestFileName, SearchPaths, TabWidth),
+			{TestAnnAST, _Info} = parse_file_with_type_ann(TestFileName, SearchPaths, TabWidth),
 			{TestAnnAST1, _C2} = do_rename_mod_1(TestAnnAST, {FileName, OldNewModPairs, Pid}),
 			check_atoms(FileName, TestAnnAST1, OldModNames, Pid),
 			[{{TestFileName, NewTestFileName}, TestAnnAST1}];
@@ -216,29 +221,29 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, C
 		  end,
     Results = rename_mod_in_client_modules(ClientFiles, OldModName, OldNewModPairs, SearchPaths, TabWidth, Pid),
     case Editor of
-	emacs ->
-	    HasWarningMsg = refac_rename_fun:has_warning_msg(Pid),
-	    case HasWarningMsg of
-	      true ->
-		    output_atom_warning_msg(Pid, not_renamed_warn_msg(OldModNames), renamed_warn_msg(OldModNames));
-		false ->
-		    ok
-	    end,
-	    stop_atom_process(Pid),
-	    refac_util:write_refactored_files_for_preview([{{FileName, NewFileName}, AnnAST1}| TestModRes ++ Results], Cmd),
-	    ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-	    ChangedFiles = case length(OldNewModPairs) of
-			       2 -> [FileName, TestFileName| ChangedClientFiles];
-			       1 -> [FileName| ChangedClientFiles]
-			   end,
-	    ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n", [ChangedFiles]),
-	    {ok, ChangedFiles, HasWarningMsg};
-	eclipse ->
-	    Results1 = [{{FileName, NewFileName}, AnnAST1}| TestModRes ++ Results],
-	    Res = lists:map(fun ({{FName, NewFName}, AST}) -> {FName, NewFName,
-							       refac_prettypr:print_ast(refac_util:file_format(FName), AST)}
-			    end, Results1),
-	    {ok, Res}
+      emacs ->
+	  HasWarningMsg = refac_atom_utils:has_warning_msg(Pid),
+	  case HasWarningMsg of
+	    true ->
+		output_atom_warning_msg(Pid, not_renamed_warn_msg(OldModNames), renamed_warn_msg(OldModNames));
+	    false ->
+		ok
+	  end,
+	  stop_atom_process(Pid),
+	  refac_util:write_refactored_files_for_preview([{{FileName, NewFileName}, AnnAST1}| TestModRes ++ Results], Cmd),
+	  ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+	  ChangedFiles = case length(OldNewModPairs) of
+			   2 -> [FileName, TestFileName| ChangedClientFiles];
+			   1 -> [FileName| ChangedClientFiles]
+			 end,
+	  ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n", [ChangedFiles]),
+	  {ok, ChangedFiles, HasWarningMsg};
+      eclipse ->
+	  Results1 = [{{FileName, NewFileName}, AnnAST1}| TestModRes ++ Results],
+	  Res = lists:map(fun ({{FName, NewFName}, AST}) -> {FName, NewFName,
+							     refac_prettypr:print_ast(refac_util:file_format(FName), AST)}
+			  end, Results1),
+	  {ok, Res}
     end.
   
  

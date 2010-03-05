@@ -32,7 +32,7 @@
 
 -export([expr_search_in_buffer/5, expr_search_in_dirs/5, expr_search_eclipse/4]).
 
--export([contained_exprs/2, var_binding_structure/1, compose_search_result_info/1]).
+-export([contained_exprs/2]).
 
 -include("../include/wrangler.hrl").
 %% ================================================================================================
@@ -60,11 +60,11 @@
 expr_search_in_buffer(FileName, Start = {Line, Col}, End = {Line1, Col1}, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:expr_search_in_buffer(~p, {~p,~p},{~p,~p},~p, ~p).\n",
 		 [?MODULE, FileName, Line, Col, Line1, Col1, SearchPaths, TabWidth]),
-    Es =  get_expr_selected(FileName, Start, End, SearchPaths, TabWidth),
+    Es = get_expr_selected(FileName, Start, End, SearchPaths, TabWidth),
     Res = do_expr_search(FileName, Es, SearchPaths, TabWidth),
-    SE = refac_sim_expr_search:get_start_end_loc(Es),
-    Res1 =[{FileName, SE}| Res -- [{FileName, SE}]],
-    display_search_result(Res1).
+    SE = refac_misc:get_start_end_loc(Es),
+    Res1 = [{FileName, SE}| Res -- [{FileName, SE}]],
+    refac_code_search_utils:display_search_results(Res1, none, "indentical").
 
 
 %% ================================================================================================
@@ -91,12 +91,12 @@ expr_search_in_buffer(FileName, Start = {Line, Col}, End = {Line1, Col1}, Search
 expr_search_in_dirs(FileName, Start = {Line, Col}, End = {Line1, Col1}, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:expr_search_in_dirs(~p, {~p,~p},{~p,~p},~p, ~p, ~p).\n",
 		 [?MODULE, FileName, Line, Col, Line1, Col1, SearchPaths, SearchPaths, TabWidth]),
-    Files =[FileName|(refac_util:expand_files(SearchPaths, ".erl")-- [FileName])],
-    Es =  get_expr_selected(FileName, Start, End, SearchPaths, TabWidth),
-    Res =lists:append([do_expr_search(F, Es, SearchPaths, TabWidth) ||F<-Files]),
-    SE = refac_sim_expr_search:get_start_end_loc(Es),
-    Res1 =[{FileName, SE}| Res -- [{FileName, SE}]],
-    display_search_result(Res1).
+    Files = [FileName| refac_util:expand_files(SearchPaths, ".erl") -- [FileName]],
+    Es = get_expr_selected(FileName, Start, End, SearchPaths, TabWidth),
+    Res = lists:append([do_expr_search(F, Es, SearchPaths, TabWidth) || F <- Files]),
+    SE = refac_misc:get_start_end_loc(Es),
+    Res1 = [{FileName, SE}| Res -- [{FileName, SE}]],
+    refac_code_search_utils:display_search_result(Res1).
 
 
 -spec(expr_search_eclipse/4::(filename(), pos(), pos(), integer()) ->
@@ -138,21 +138,23 @@ do_expr_search(FileName, Es, SearchPaths, TabWidth) ->
 %% Search the clones of an expression from Tree.
 search_one_expr(FileName, Tree, Exp) ->
     SimplifiedExp = simplify_expr(Exp),
-    BdStructExp = var_binding_structure([Exp]),
+    BdStructExp = refac_code_search_utils:var_binding_structure([Exp]),
     F = fun (T, Acc) ->
 		case refac_util:is_expr(T) of
 		  true -> T1 = simplify_expr(T),
 			  case SimplifiedExp == T1 of
-			      true ->
-				  case var_binding_structure([T]) of
-				      BdStructExp ->
-					  StartEndLoc = refac_util:get_range(T),
-					  [{FileName, StartEndLoc}| Acc];
-				      _ -> Acc
-				  end;
-			      _ -> Acc
+			    true ->
+				case
+				  refac_code_search_utils:var_binding_structure([T])
+				    of
+				  BdStructExp ->
+				      StartEndLoc = refac_util:get_range(T),
+				      [{FileName, StartEndLoc}| Acc];
+				  _ -> Acc
+				end;
+			    _ -> Acc
 			  end;
-		    _ -> Acc
+		  _ -> Acc
 		end
 	end,
     lists:reverse(refac_syntax_lib:fold(F, [], Tree)).
@@ -171,21 +173,21 @@ get_clone(FileName, ExpList1, ExpList2) ->
 	  SimplifiedExpList2 = simplify_expr(ExpList2),
 	  case lists:prefix(SimplifiedExpList1, SimplifiedExpList2) of
 	    true ->
-		  List22 = lists:sublist(ExpList2, Len1),
-		  BdList1 = var_binding_structure(ExpList1),
-		  BdList2 = var_binding_structure(List22),
-		  case BdList1 == BdList2 of
-		      true ->
-			  E1 = hd(List22),
-			  En = lists:last(List22),
-			  {StartLoc, _EndLoc} = refac_util:get_range(E1),
-			  {_StartLoc1, EndLoc1} = refac_util:get_range(En),
-			  [{FileName, {StartLoc, EndLoc1}}] ++ get_clone(FileName, ExpList1, tl(ExpList2));
-		      _ -> get_clone(FileName, ExpList1, tl(ExpList2))
-		  end;
-	      _ -> get_clone(FileName, ExpList1, tl(ExpList2))
+		List22 = lists:sublist(ExpList2, Len1),
+		BdList1 = refac_code_search_utils:var_binding_structure(ExpList1),
+		BdList2 = refac_code_search_utils:var_binding_structure(List22),
+		case BdList1 == BdList2 of
+		  true ->
+		      E1 = hd(List22),
+		      En = lists:last(List22),
+		      {StartLoc, _EndLoc} = refac_util:get_range(E1),
+		      {_StartLoc1, EndLoc1} = refac_util:get_range(En),
+		      [{FileName, {StartLoc, EndLoc1}}] ++ get_clone(FileName, ExpList1, tl(ExpList2));
+		  _ -> get_clone(FileName, ExpList1, tl(ExpList2))
+		end;
+	    _ -> get_clone(FileName, ExpList1, tl(ExpList2))
 	  end;
-	_ -> []
+      _ -> []
     end.
 	    
 
@@ -200,40 +202,40 @@ simplify_expr(Exp) ->
 
 
 do_simplify_expr(Node) ->
-    Node1 = case refac_syntax:type(Node) of 
-		macro ->
-		    case refac_syntax:macro_arguments(Node) of 
-			none -> 
-			    refac_syntax:default_literals_vars(Node, '*');
-			_ -> Node
-		    end;
-		variable ->
-		    refac_syntax:default_literals_vars(Node, '&');
-		integer ->
-		    refac_syntax:default_literals_vars(Node, 0);
-		float ->
-		    refac_syntax:default_literals_vars(Node, 0);
-		char ->
-		    refac_syntax:default_literals_vars(Node, '%');
-		string ->
-		    refac_syntax:default_literals_vars(Node, '%');
-		atom -> case refac_sim_expr_search:variable_replaceable(Node) of
-			    true -> 
-				As = refac_syntax:get_ann(Node), 
-				case lists:keysearch(type,1, As) of 
-				    {value, _} -> 
-					refac_syntax:default_literals_vars(
-					  Node, refac_syntax:atom_value(Node));
-				    false ->
-					refac_syntax:default_literals_vars(Node, '%') 
-				end;					
-			    _ -> refac_syntax:default_literals_vars(
-				   Node, refac_syntax:atom_value(Node))
-			end;
-		nil -> refac_syntax:default_literals_vars(Node, nil);
-		underscore ->refac_syntax:default_literals_vars(Node, '&');
-		_ ->
-		    Node
+    Node1 = case refac_syntax:type(Node) of
+	      macro ->
+		  case refac_syntax:macro_arguments(Node) of
+		    none ->
+			refac_syntax:default_literals_vars(Node, '*');
+		    _ -> Node
+		  end;
+	      variable ->
+		  refac_syntax:default_literals_vars(Node, '&');
+	      integer ->
+		  refac_syntax:default_literals_vars(Node, 0);
+	      float ->
+		  refac_syntax:default_literals_vars(Node, 0);
+	      char ->
+		  refac_syntax:default_literals_vars(Node, '%');
+	      string ->
+		  refac_syntax:default_literals_vars(Node, '%');
+	      atom -> case refac_misc:variable_replaceable(Node) of
+			true ->
+			    As = refac_syntax:get_ann(Node),
+			    case lists:keysearch(type, 1, As) of
+			      {value, _} ->
+				  refac_syntax:default_literals_vars(
+				    Node, refac_syntax:atom_value(Node));
+			      false ->
+				  refac_syntax:default_literals_vars(Node, '%')
+			    end;
+			_ -> refac_syntax:default_literals_vars(
+			       Node, refac_syntax:atom_value(Node))
+		      end;
+	      nil -> refac_syntax:default_literals_vars(Node, nil);
+	      underscore -> refac_syntax:default_literals_vars(Node, '&');
+	      _ ->
+		  Node
 	    end,
     set_default_ann(Node1).
 			  
@@ -268,74 +270,3 @@ contained_exprs(Tree, MinLen) ->
 	end,
     Es = refac_syntax_lib:fold(F, [], Tree),
     [E ||  E <- Es, length(E) >= MinLen].
-
-
-%% Get the binding structure of variables.
--spec(var_binding_structure/1::([syntaxTree()]) -> [{integer(), integer()}]).      
-var_binding_structure(ASTList) ->
-    VarLocs = lists:keysort(2, collect_vars(ASTList)),
-    case VarLocs of
-      [] ->
-	  [];
-      _ -> var_binding_structure_1(VarLocs)
-    end.
-
-var_binding_structure_1(VarLocs) ->
-    SrcLocs = [SrcLoc || {_Name, SrcLoc, _DefLoc} <- VarLocs],
-    IndexedLocs = lists:zip(SrcLocs, lists:seq(1, length(SrcLocs))),
-    Fun = fun ({_Name, SrcLoc, DefLoc}) ->
-		  DefLoc1 = hd(DefLoc),
-		  {value, {SrcLoc, Index1}} = lists:keysearch(SrcLoc, 1, IndexedLocs),
-		  Index2 = case lists:keysearch(DefLoc1, 1, IndexedLocs) of
-			       {value, {_, Ind}} -> Ind;
-			       _ -> 0 %% free variable
-			   end,
-		  {Index1, Index2}
-	  end,
-    BS = [Fun(VL) || VL <- VarLocs],
-    lists:keysort(1, lists:usort(BS)).
-
-collect_vars(AST) when is_list(AST) ->
-    lists:flatmap(fun (T) -> collect_vars(T) end, AST);
-collect_vars(AST) ->
-    Fun = fun (T, S) ->
-		  case refac_syntax:type(T) of
-		    variable ->
-			Name = refac_syntax:variable_name(T),
-			SrcLoc = refac_syntax:get_pos(T),
-			As = refac_syntax:get_ann(T),
-			case lists:keysearch(def, 1, As) of
-			  {value, {def, DefLoc}} ->
-				[{atom_to_list(Name), SrcLoc, DefLoc}| S];
-			    _ -> S
-			end;
-		      _ -> S
-		  end
-	  end,
-    refac_syntax_lib:fold(Fun, [], AST).
-
-
-compose_search_result_info(Ranges) ->
-    compose_search_result_info(Ranges, "").
-compose_search_result_info([], Str) ->
-    Str;
-compose_search_result_info([{FileName, {{StartLine, StartCol}, {EndLine, EndCol}}}|Ranges], Str) ->
-    Str1 =Str ++ "\n"++FileName++io_lib:format(":~p.~p-~p.~p: ", [StartLine, StartCol, EndLine, EndCol]),
-    compose_search_result_info(Ranges, Str1).
-					       
-    
-display_search_result(Res) ->
-    case Res of
-	[_] ->
-	    ?wrangler_io("No identical expression has been found. \n", []),
-	    {ok, []};
-	_ -> ?wrangler_io("\n~p identical expressions(including the "
-			  "expression selected) have been found.\n", [length(Res)]),
-	     ?wrangler_io(compose_search_result_info(Res), []),
-	     ?wrangler_io("\n\nNOTE: Use 'M-x compilation-minor-mode' to make the result "
-			  "mouse clickable if this mode is not already enabled.\n",[]),
-	     ?wrangler_io("      Use 'C-c C-e' to remove highlights!\n", []),
-	     {ok, Res}
-    end.
-        
-    

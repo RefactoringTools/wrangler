@@ -39,9 +39,7 @@
 
 -module(refac_type_annotation).
 
--export([type_ann_ast/5, type_ann_file/3]).
-
--export([try_eval/2]).
+-export([type_ann_ast/5]).
 
 %%-define(DEBUG, true).
 
@@ -58,21 +56,21 @@ type_ann_ast(FileName, Info, AnnAST, SearchPaths, TabWidth) ->
     case lists:keysearch(module, 1, Info) of
       false -> AnnAST; %% this should only happen for .hrl files.
       {value, {module, ModName}} ->
-	  TestFrameWorkUsed = refac_util:test_framework_used(FileName),
-	  Pid = start_type_env_process(),
-	  Fs = refac_syntax:form_list_elements(AnnAST),
-	  Funs = sorted_funs(ModName, AnnAST),
-	  Funs1 = lists:map(fun ({{M, F, A}, FunDef}) ->
-				    {{M, F, A}, do_type_ann(FileName, FunDef, TestFrameWorkUsed, SearchPaths, TabWidth, Pid)}
-			    end, Funs),
-	  Fs1 = lists:map(fun (Form) ->
-				  case refac_syntax:type(Form) of
-				    function -> find_fun(Funs1, Form);
-				    _ -> Form
-				  end
-			  end, Fs),
-	  AnnAST1 = refac_util:rewrite(AnnAST, refac_syntax:form_list(Fs1)),
-	  case get_all_type_info(Pid) of
+	    TestFrameWorkUsed = refac_util:test_framework_used(FileName),
+	    Pid = start_type_env_process(),
+	    Fs = refac_syntax:form_list_elements(AnnAST),
+	    Funs = wrangler_callgraph_server:get_sorted_funs(ModName, AnnAST),
+	    Funs1 = lists:map(fun ({{M, F, A}, FunDef}) ->
+				      {{M, F, A}, do_type_ann(FileName, FunDef, TestFrameWorkUsed, SearchPaths, TabWidth, Pid)}
+			      end, Funs),
+	    Fs1 = lists:map(fun (Form) ->
+				    case refac_syntax:type(Form) of
+					function -> find_fun(Funs1, Form);
+					_ -> Form
+				    end
+			    end, Fs),
+	    AnnAST1 = refac_util:rewrite(AnnAST, refac_syntax:form_list(Fs1)),
+	    case get_all_type_info(Pid) of
 	    [] ->
 		stop_type_env_process(Pid),
 		AnnAST1;
@@ -81,33 +79,6 @@ type_ann_ast(FileName, Info, AnnAST, SearchPaths, TabWidth) ->
 		stop_type_env_process(Pid),
 		prop_type_info(AnnAST1, TypeInfo)
 	  end
-    end.
-
-type_ann_file(L, SearchPaths, TabWidth) ->
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(L, true, SearchPaths),
-    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
-    TestFrameWorkUsed = refac_util:test_framework_used(L),
-    Pid = start_type_env_process(),
-    Fs = refac_syntax:form_list_elements(AnnAST),
-    Funs = sorted_funs(ModName, AnnAST),
-    Funs1 = lists:map(fun ({{M, F, A}, FunDef}) ->
-			      {{M, F, A}, do_type_ann(L, FunDef, TestFrameWorkUsed, SearchPaths, TabWidth, Pid)}
-		      end, Funs),
-    Fs1 = lists:map(fun (Form) ->
-			    case refac_syntax:type(Form) of
-			      function -> find_fun(Funs1, Form);
-			      _ -> Form
-			    end
-		    end, Fs),
-    AnnAST1 = refac_util:rewrite(AnnAST, refac_syntax:form_list(Fs1)),
-    case get_all_type_info(Pid) of
-      [] ->
-	  stop_type_env_process(Pid),
-	  AnnAST1;
-      TypeInfo ->
-	  ?debug("Typeinfo:\n~p\n", [TypeInfo]),
-	  stop_type_env_process(Pid),
-	  prop_type_info(AnnAST1, TypeInfo)
     end.
 
 find_fun(Funs, Form) ->
@@ -124,7 +95,6 @@ find_fun(Funs, Form) ->
 	false ->
 	    Form
     end.
-
 
 
 do_type_ann(FileName, Form, TestFrameWorkUsed, SearchPaths, TabWidth, Pid) ->
@@ -431,26 +401,26 @@ try_eval(Expr, Cond) when is_function(Expr) ->
 try_eval(Expr, Cond) ->
     try_eval(none, Expr, [], 8, Cond).
 
-try_eval(FileName, E, SearchPaths, TabWidth, Cond) ->	
+try_eval(FileName, E, SearchPaths, TabWidth, Cond) ->
     As = refac_syntax:get_ann(E),
     case lists:keysearch(value, 1, As) of
-	{value, {value, {{_, V}, _DefPos}}} ->
-	    case Cond(V) of
-		true ->
-		    ?debug("V:\n~p\n", [V]),
-		    V;
-		_ -> '_'
-	    end;
-	_ -> 
-	    case refac_rename_fun:try_eval(FileName,E,SearchPaths, TabWidth) of
-		{value, V} ->
-		    ?debug("V:\n~p\n", [V]),
-		    case Cond(V) of
-			true -> V;
-			_ -> '_'
-		    end;
-		{error, _} ->'_'
-	    end
+      {value, {value, {{_, V}, _DefPos}}} ->
+	  case Cond(V) of
+	    true ->
+		?debug("V:\n~p\n", [V]),
+		V;
+	    _ -> '_'
+	  end;
+      _ ->
+	  case refac_misc:try_eval(FileName, E, SearchPaths, TabWidth) of
+	    {value, V} ->
+		?debug("V:\n~p\n", [V]),
+		case Cond(V) of
+		  true -> V;
+		  _ -> '_'
+		end;
+	    {error, _} -> '_'
+	  end
     end.
 		    
 try_eval_length(Expr) when is_function(Expr) ->
@@ -603,23 +573,7 @@ f_atom_type() ->
 		      try_eval(A2, fun is_atom/1),
 		      try_eval_length(A3)]}
     end.
-
-    
-sorted_funs(ModName, AnnAST) ->
-    F1 = fun (T, S) ->
-		 case refac_syntax:type(T) of
-		     function ->
-			 FunName = refac_syntax:data(refac_syntax:function_name(T)),
-			 Arity = refac_syntax:function_arity(T),
-			 Caller ={{ModName, FunName, Arity}, T},  
-			 CalledFuns = wrangler_callgraph_server:called_funs(T),
-			 ordsets:add_element({Caller, CalledFuns}, S);
-		     _ -> S
-		 end
-	 end,
-    CallerCallees=lists:usort(refac_syntax_lib:fold(F1, ordsets:new(), AnnAST)),
-    {Sccs, _E} = refac_callgraph:construct(CallerCallees),
-    lists:append(Sccs).
+   
 
 %% mod_name_as_pars_1() ->
 %%     [{{erlang, apply, 3}, [modulenmae, functionname, arglist], term},

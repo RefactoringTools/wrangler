@@ -385,26 +385,25 @@ collect_registration_and_self_apps(DirList, TabWidth) ->
     
 
 evaluate_expr(FileName, Expr, SearchPaths, TabWidth) ->
-    Val=refac_rename_fun:try_eval(FileName, Expr, SearchPaths, TabWidth),
+    Val = refac_misc:try_eval(FileName, Expr, SearchPaths, TabWidth),
     case Val of
-	{value, V} -> [{value, V}];
-	_ ->{{StartLine, _StartCol}, _} = refac_util:get_range(Expr),
-	    [{unknown, {FileName, StartLine}}]
+      {value, V} -> [{value, V}];
+      _ -> {{StartLine, _StartCol}, _} = refac_util:get_range(Expr),
+	   [{unknown, {FileName, StartLine}}]
     end.
    
 
 is_recursive_fun({ModName, FunName, Arity, FunDef}, SearchPaths) ->
-    case is_direct_recursive_fun(ModName, FunName, Arity, FunDef) of 
-	true -> 
-	    true;
-	false ->
-	    CallGraph = wrangler_callgraph_server:get_callgraph(SearchPaths),
-	    Sccs1 =[[Fun||{Fun, _FunDef}<-Scc]||Scc<-CallGraph#callgraph.scc_order],
-	    lists:any(fun(E)-> (length(E)>1) andalso 
-			  (lists:member({ModName, FunName, Arity}, E)) 
-		      end,
-		      Sccs1)
-    
+    case is_direct_recursive_fun(ModName, FunName, Arity, FunDef) of
+      true ->
+	  true;
+      false ->
+	  CallGraph = wrangler_callgraph_server:get_callgraph(SearchPaths),
+	  Sccs1 = [[Fun || {Fun, _FunDef} <- Scc] || Scc <- CallGraph#callgraph.scc_order],
+	  lists:any(fun (E) -> length(E) > 1 andalso
+				 lists:member({ModName, FunName, Arity}, E)
+		    end,
+		    Sccs1)
     end.
 	
 is_direct_recursive_fun(ModName, FunName, Arity, FunDef) ->
@@ -461,4 +460,4 @@ is_self_app(T) ->
 
 is_process_name(Name) ->
     refac_util:is_fun_name(Name) andalso
-    (list_to_atom(Name) =/= undefined).
+      list_to_atom(Name) =/= undefined.

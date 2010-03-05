@@ -40,7 +40,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
--export([start_ast_server/0, get_ast/1, update_ast/2, filehash/1]).
+-export([start_ast_server/0, get_ast/1, update_ast/2]).
 
 -record(state, {dets_tab=none, asts=[]}).
 
@@ -178,56 +178,56 @@ get_ast({FileName, false, SearchPaths, TabWidth, FileFormat}, State) -> %% alway
     wrangler_error_logger:remove_error_from_logger(FileName),
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file_1(FileName, false, SearchPaths, TabWidth, FileFormat),
     log_errors(FileName, Info),
-    {{ok, {AnnAST, Info}}, State};	
-get_ast(Key={FileName,ByPassPreP, SearchPaths, TabWidth, FileFormat}, State=#state{dets_tab=TabFile, asts=ASTs}) ->
-    case TabFile of 
-	none -> 
-	    case lists:keysearch(Key, 1, ASTs) of
-		{value, {Key, {AnnAST, Info, Checksum}}} ->
-                    NewChecksum = filehash(FileName),
-		    case (Checksum =:= NewChecksum) andalso (NewChecksum=/=0) of
-			true -> 
-			    log_errors(FileName, Info),
-                            {{ok, {AnnAST, Info}}, State};
-			false ->
-			    wrangler_error_logger:remove_error_from_logger(FileName),
-			    {ok, {AnnAST1, Info1}} = refac_util:parse_annotate_file_1(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
-			    log_errors(FileName, Info1),
-			    {{ok, {AnnAST1, Info1}}, #state{asts=lists:keyreplace(Key, 1, ASTs, {Key, {AnnAST1, Info1, NewChecksum}})}}
-		    end;
-		false ->
-		    wrangler_error_logger:remove_error_from_logger(FileName),
-		    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file_1(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
-		    log_errors(FileName, Info),
-		    {{ok, {AnnAST, Info}}, #state{asts=[{Key, {AnnAST, Info, filehash(FileName)}} | ASTs]}}
-	    end;
-	_ -> 
-	    NewChecksum = filehash(FileName),
-	    case dets:lookup(TabFile, Key) of
-		[{Key, {AnnAST, Info, Checksum}}] when Checksum =:= NewChecksum->
-		    {{ok, {AnnAST, Info}}, State};
-		_ ->
-		    wrangler_error_logger:remove_error_from_logger(FileName),
-		    {ok, {AnnAST1, Info1}} = refac_util:parse_annotate_file_1(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
-		    dets:insert(TabFile, {Key, {AnnAST1, Info1, NewChecksum}}),
-		    log_errors(FileName, Info1),
-		    {{ok, {AnnAST1, Info1}}, State}
-	    end
+    {{ok, {AnnAST, Info}}, State};
+get_ast(Key = {FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, State = #state{dets_tab = TabFile, asts = ASTs}) ->
+    case TabFile of
+      none ->
+	  case lists:keysearch(Key, 1, ASTs) of
+	    {value, {Key, {AnnAST, Info, Checksum}}} ->
+		NewChecksum = refac_misc:filehash(FileName),
+		case Checksum =:= NewChecksum andalso NewChecksum =/= 0 of
+		  true ->
+		      log_errors(FileName, Info),
+		      {{ok, {AnnAST, Info}}, State};
+		  false ->
+		      wrangler_error_logger:remove_error_from_logger(FileName),
+		      {ok, {AnnAST1, Info1}} = refac_util:parse_annotate_file_1(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
+		      log_errors(FileName, Info1),
+		      {{ok, {AnnAST1, Info1}}, #state{asts = lists:keyreplace(Key, 1, ASTs, {Key, {AnnAST1, Info1, NewChecksum}})}}
+		end;
+	    false ->
+		wrangler_error_logger:remove_error_from_logger(FileName),
+		{ok, {AnnAST, Info}} = refac_util:parse_annotate_file_1(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
+		log_errors(FileName, Info),
+		{{ok, {AnnAST, Info}}, #state{asts = [{Key, {AnnAST, Info, refac_misc:filehash(FileName)}}| ASTs]}}
+	  end;
+      _ ->
+	  NewChecksum = refac_misc:filehash(FileName),
+	  case dets:lookup(TabFile, Key) of
+	    [{Key, {AnnAST, Info, Checksum}}] when Checksum =:= NewChecksum ->
+		{{ok, {AnnAST, Info}}, State};
+	    _ ->
+		wrangler_error_logger:remove_error_from_logger(FileName),
+		{ok, {AnnAST1, Info1}} = refac_util:parse_annotate_file_1(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
+		dets:insert(TabFile, {Key, {AnnAST1, Info1, NewChecksum}}),
+		log_errors(FileName, Info1),
+		{{ok, {AnnAST1, Info1}}, State}
+	  end
     end.
 
-update_ast_1({Key, {AnnAST, Info, _Time}}, _State=#state{dets_tab=TabFile, asts=ASTs}) ->
+update_ast_1({Key, {AnnAST, Info, _Time}}, _State = #state{dets_tab = TabFile, asts = ASTs}) ->
     {FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat} = Key,
-    Checksum = filehash(FileName),
+    Checksum = refac_misc:filehash(FileName),
     case TabFile of
-	none ->  case lists:keysearch(Key, 1, ASTs) of
-		     {value, {Key,  {_AnnAST1, _Info1, _Time}}} ->  
-			 #state{asts=lists:keyreplace(Key, 1, ASTs, {Key, {AnnAST, Info, Checksum}})};
-		     false ->
-			 #state{asts=[{Key, {AnnAST, Info, Checksum}} | ASTs]}
-		 end;
-	_ ->
-	    dets:delete(TabFile, Key),
-	    dets:insert(TabFile, [{Key, {AnnAST, Info, Checksum}}])
+      none -> case lists:keysearch(Key, 1, ASTs) of
+		{value, {Key, {_AnnAST1, _Info1, _Time}}} ->
+		    #state{asts = lists:keyreplace(Key, 1, ASTs, {Key, {AnnAST, Info, Checksum}})};
+		false ->
+		    #state{asts = [{Key, {AnnAST, Info, Checksum}}| ASTs]}
+	      end;
+      _ ->
+	  dets:delete(TabFile, Key),
+	  dets:insert(TabFile, [{Key, {AnnAST, Info, Checksum}}])
     end.
     
 log_errors(FileName, Info) ->
@@ -235,24 +235,4 @@ log_errors(FileName, Info) ->
       {value, {errors, Error}} ->
 	  wrangler_error_logger:add_error_to_logger({FileName, Error});
       false -> ok
-    end.
-
-
-filehash(FileName) ->
-    case file:open(FileName, [read, raw, binary]) of
-	 {ok, IoDevice} ->
-	    Hash = filehash(IoDevice,  0),
-	    file:close(IoDevice),
-	    Hash;
-	_ -> 0
-    end.
-
-filehash(IoDevice, Crc) ->
-    case file:read(IoDevice, 1024) of
-        {ok, Data} ->
-            filehash(IoDevice, erlang:crc32(Crc, Data));
-        eof ->
-            Crc;
-        {error, _Reason} ->
-            0 %% TODO error handling
     end.

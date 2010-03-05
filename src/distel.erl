@@ -11,6 +11,7 @@
 
 -include_lib("kernel/include/file.hrl").
 
+
 -import(lists, [flatten/1, member/2, sort/1, map/2, foldl/3, foreach/2]).
 -import(filename, [dirname/1,join/1,basename/2]).
 
@@ -27,6 +28,8 @@
 -export([reload_module/2,reload_modules/0]).
 
 -export([gl_proxy/1, tracer_init/2, null_gl/0]).
+
+-compile(export_all).   
 
 to_bin(X) -> list_to_binary(to_list(X)).
 to_atom(X) -> list_to_atom(to_list(X)).
