@@ -36,7 +36,10 @@
 
 %% API
 -export([start_callgraph_server/0, get_callgraph/1, get_sccs_including_fun/2,
-	build_scc_callgraph/1,build_callercallee_callgraph/1, called_funs/1]).
+	 build_scc_callgraph/1,build_callercallee_callgraph/1, called_funs/1,
+	 get_sorted_funs/2, fun_callgraph_to_dot/1, fun_callgraph_to_dot/2,
+	 fun_callgraph_to_png/1]).
+
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -216,3 +219,129 @@ called_funs(Tree) ->
 		end
 	end,
     refac_syntax_lib:fold(Fun, ordsets:new(), Tree).
+
+    
+get_sorted_funs(ModName, AnnAST) ->
+    F1 = fun (T, S) ->
+		 case refac_syntax:type(T) of
+		   function ->
+		       FunName = refac_syntax:data(refac_syntax:function_name(T)),
+		       Arity = refac_syntax:function_arity(T),
+		       Caller = {{ModName, FunName, Arity}, T},
+		       CalledFuns = called_funs(T),
+		       ordsets:add_element({Caller, CalledFuns}, S);
+		   _ -> S
+		 end
+	 end,
+    CallerCallees = lists:usort(refac_syntax_lib:fold(F1, ordsets:new(), AnnAST)),
+    {Sccs, _E} = refac_callgraph:construct(CallerCallees),
+    lists:append(Sccs).
+
+-spec(fun_callgraph_to_png/1::([filename()|dir()]) -> ok()).
+fun_callgraph_to_png(FileNameDirs) ->
+    Files = refac_util:expand_files(FileNameDirs, ".erl"),
+    lists:foreach(fun(FName)->
+			  refac_io:format("currentfile:\n~p\n", [FName]),
+			  BaseName = filename:basename(FName, ".erl"),
+			  DotFileName=BaseName++"_callgraph.dot",
+			  PngFileName =BaseName++"_callgraph.png",
+			  fun_callgraph_to_dot(DotFileName, FName),
+			  os:cmd("dot -Tpng "++DotFileName++" > "++PngFileName)			  
+		  end, Files).
+
+-spec(fun_callgraph_to_dot/1::([filename()|dir()]) -> true).
+fun_callgraph_to_dot(FileNameDirs) ->
+    Files = refac_util:expand_files(FileNameDirs, ".erl"),
+    lists:foreach(fun(FName)->
+			  refac_io:format("currentfile:\n~p\n", [FName]),
+			  BaseName = filename:basename(FName, ".erl"),
+			  DotFileName=BaseName++"_callgraph.dot",
+			  fun_callgraph_to_dot(DotFileName, FName)
+		  end, Files).
+
+-spec(fun_callgraph_to_dot/2::(filename(), filename()) -> true).
+fun_callgraph_to_dot(DotFile, FileName) ->
+    CallerCalleesWithDef = build_callercallee_callgraph([FileName]),
+    CallerCallees = [{{M,F,A}, [{M1,F1,A1}||{M1,F1,A1}<-Callee, M1==M]}
+		     || {{{M,F,A}, _}, Callee}<-CallerCalleesWithDef],
+    CallerCallees1=[{Caller, Callees}||{Caller, Callees}<-CallerCallees, 
+				       Callees/=[]],
+    MG = digraph:new(),
+    add_edges(CallerCallees1,  MG),
+    to_dot(MG,DotFile),
+    digraph:delete(MG).
+
+add_edges([], MG) ->
+    MG;
+add_edges([{Caller, Callees}|Left], MG) ->
+    Edges =[{Caller, Callee} ||  Callee <- Callees],
+    add_edges(Left, digraph_add_edges(Edges, MG)).
+
+digraph_add_edges([], MG)-> 
+    MG;
+digraph_add_edges([{From, To}|Left],  MG) ->
+    digraph_add_edges(Left,digraph_add_edge(From, To, MG)).   
+    
+    
+digraph_add_edge(From, To,  MG) ->
+    case digraph:vertex(MG, From) of 
+	false ->
+	    digraph:add_vertex(MG, From);
+	{From, _} ->
+	    ok
+    end,
+    case digraph:vertex(MG, To) of 
+	false ->
+	    digraph:add_vertex(MG, To);
+	{To,_} -> ok
+    end,
+    digraph:add_edge(MG, From, To),
+    MG.
+
+to_dot(MG, File) ->
+    Edges = [digraph:edge(MG, X) || X <- digraph:edges(MG)],
+    EdgeList=[{X, Y} || {_, X, Y, _} <- Edges],
+    edge_list_to_dot(EdgeList, File, "CallGraph").
+    					
+    
+edge_list_to_dot(Edges, OutFileName, GraphName) ->
+    {NodeList1, NodeList2} = lists:unzip(Edges),
+    NodeList = NodeList1 ++ NodeList2,
+    NodeSet = ordsets:from_list(NodeList),
+    Start = ["digraph ",GraphName ," {"],
+    VertexList = [node_format(V) ||V <- NodeSet],
+    End = ["graph [", GraphName, "=", GraphName, "]}"],
+    EdgeList = [edge_format(X, Y) || {X,Y} <- Edges],
+    String = [Start, VertexList, EdgeList, End],
+    ok = file:write_file(OutFileName, list_to_binary(String)).
+
+node_format(V) ->
+    {_M, F, A} = V,
+    String = io_lib:format("~p/~p", [F,A]),
+    {Width, Heigth} = calc_dim(String),
+    W = (Width div 7 + 1) * 0.55,
+    H = Heigth * 0.4,
+    SL = io_lib:format("~f", [W]),
+    SH = io_lib:format("~f", [H]),
+    ["\"", String, "\"", " [width=", SL, " heigth=", SH, " ", "", "];\n"].
+
+calc_dim(String) ->
+  calc_dim(String, 1, 0, 0).
+
+calc_dim("\\n" ++ T, H, TmpW, MaxW) ->
+  calc_dim(T, H+1, 0, erlang:max(TmpW, MaxW));
+calc_dim([_|T], H, TmpW, MaxW) ->
+  calc_dim(T, H, TmpW+1, MaxW);
+calc_dim([], H, TmpW, MaxW) ->
+  {erlang:max(TmpW, MaxW), H}.
+
+
+edge_format(V1, V2) ->
+    {_,F1,A1} =V1, 
+    {_,F2,A2} =V2,
+    String = ["\"",io_lib:format("~p/~p", [F1,A1]),"\"", " -> ",
+	      "\"", io_lib:format("~p/~p", [F2, A2]), "\""],
+    [String, "[", "];\n"].
+    
+ 
+ %% refac_module_graph:module_graph_to_dot("c:/cygwin/home/hl/wrangler-0.8.8/src/modulegraph", [wrangler, wrangler_distel, refac_util, refac_syntax_lib, refac_syntax, refac_io, refac_prettypr, refac_parse, refac_statem_to_fsm, refac_fun_to_process, refac_instrument, refac_tuple_to_record, refac_misc, refac_add_a_tag,refac_rename_process,refac_annotate_pid, refac_register_pid, refac_recomment, refac_scan, refac_epp, refac_epp_dodger, refac_atom_utils], ["c:/cygwin/home/hl/wrangler-0.8.8./src"], true).
