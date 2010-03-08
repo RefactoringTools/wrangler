@@ -44,7 +44,6 @@
 
 -include("../include/wrangler.hrl").
 
-
 -define(Msg, "Wrangler failed to infer the current data type of the state.").
 
 %% =============================================================================================
