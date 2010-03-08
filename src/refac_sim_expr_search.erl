@@ -39,13 +39,6 @@
 
 -define(DefaultSimiScore, 0.8).
 
-%%-define(DEBUG, true).
-
--ifdef(DEBUG).
--define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
--else.
--define(debug(__String, __Args), ok).
--endif.
 
 %% ================================================================================================
 %% @doc Search for expressions that are 'similar' to an expression/expression sequence selected by

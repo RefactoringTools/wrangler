@@ -47,14 +47,6 @@
 
 -define(DEFAULT_MAX_PARS, 5).
 
-%%-define(DEBUG, true).
-
--ifdef(DEBUG).
--define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
--else.
--define(debug(__String, __Args), ok).
--endif.
-
 start_suffix_tree_clone_detector() ->
     SuffixTreeExec = filename:join(?WRANGLER_DIR,"bin/suffixtree"),
     ?debug("suffixTreeExec:\n~p\n", [SuffixTreeExec]),

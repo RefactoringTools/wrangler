@@ -35,12 +35,6 @@
 
 %%-define(DEBUG, true).
 
--ifdef(DEBUG).
--define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
--else.
--define(debug(__String, __Args), ok).
--endif.
-
 -include("../include/wrangler.hrl").
 
 -spec(module_graph/1::([dir()]) -> [{filename(), [filename()]}]).

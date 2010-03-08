@@ -9,15 +9,6 @@
 
 -include("../include/wrangler.hrl").
 
-%%-define(DEBUG, true).
-
--ifdef(DEBUG).
--define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
--else.
--define(debug(__String, __Args), ok).
--endif.    
-
-
 -record(tmpAcc, {file,		
 		 module,		
 		 funcAcc=[],	

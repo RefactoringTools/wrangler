@@ -41,15 +41,6 @@
 
 -export([type_ann_ast/5]).
 
-%%-define(DEBUG, true).
-
--ifdef(DEBUG).
--define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
--else.
--define(debug(__String, __Args), ok).
--endif.
-
-
 -include("../include/wrangler.hrl").
 
 type_ann_ast(FileName, Info, AnnAST, SearchPaths, TabWidth) ->

@@ -237,7 +237,7 @@ get_sorted_funs(ModName, AnnAST) ->
     {Sccs, _E} = refac_callgraph:construct(CallerCallees),
     lists:append(Sccs).
 
--spec(fun_callgraph_to_png/1::([filename()|dir()]) -> ok()).
+-spec(fun_callgraph_to_png/1::([filename()|dir()]) -> ok).
 fun_callgraph_to_png(FileNameDirs) ->
     Files = refac_util:expand_files(FileNameDirs, ".erl"),
     lists:foreach(fun(FName)->

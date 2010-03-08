@@ -41,14 +41,6 @@
 
 -include("../include/wrangler.hrl").
 
-%% -define(DEBUG, true).
-
--ifdef(DEBUG).
--define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
--else.
--define(debug(__String, __Args), ok).
--endif.
-
 
 %% =============================================================================================
 -spec(new_let/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->

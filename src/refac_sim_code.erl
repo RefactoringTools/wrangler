@@ -41,14 +41,6 @@
 
 -import(refac_duplicated_code, [get_clones_by_suffix_tree/6, display_clone_result/2]).
 
--define(DEBUG, true).
-
--ifdef(DEBUG).
--define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
--else.
--define(debug(__String, __Args), ok).
--endif.
-
 -define(DEFAULT_LEN, 5).
 -define(DEFAULT_FREQ, 2).
 -define(DEFAULT_SIMI_SCORE, 0.8).

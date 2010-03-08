@@ -57,14 +57,6 @@
 
 -include("../include/wrangler.hrl").
 
-%%-define(DEBUG, true).
-
--ifdef(DEBUG).
--define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
--else.
-
--define(debug(__String, __Args), ok).
--endif.
 
 -spec(rename_fun/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
 	     {error, string()} | {warning, string()} |{ok, [filename()]}).
