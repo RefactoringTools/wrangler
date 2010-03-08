@@ -39,8 +39,6 @@
 
 -define(DefaultSimiScore, 0.8).
 
--import(refac_duplicated_code, [get_clones_by_suffix_tree/6, display_clone_result/2]).
-
 -define(DEFAULT_LEN, 5).
 -define(DEFAULT_FREQ, 2).
 -define(DEFAULT_SIMI_SCORE, 0.8).
@@ -51,95 +49,49 @@
 sim_code_detection_in_buffer(FileName, MinLen, MinFreq, SimiScore, SearchPaths, TabWidth) ->
     sim_code_detection([FileName],MinLen, MinFreq, SimiScore, SearchPaths, TabWidth).
 
-    
+
 -spec(sim_code_detection/6::(DirFileList::[filename()|dir()], MinLen::string(), MinFreq::string(), MinScore::string(), 
 			     SearchPaths::[dir()], TabWidth::integer()) -> {ok, string()}). 			     
 sim_code_detection(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:sim_code_detection(~p,~p,~p,~p,~p,~p).\n",
 		 [?MODULE, DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabWidth]),
-    
-    MinLen = try
-	       case MinLen1 == [] orelse list_to_integer(MinLen1) < 1 of
-		 true ->
-		     ?DEFAULT_LEN;
-		 _ -> list_to_integer(MinLen1)
-	       end
-	     catch
-	       V -> V;
-	       _:_ -> throw({error, "Parameter input is invalid."})
-	     end,
-    MinFreq = try
-		case MinFreq1 == [] orelse list_to_integer(MinFreq1) < ?DEFAULT_FREQ of
-		  true -> ?DEFAULT_FREQ;
-		  _ -> list_to_integer(MinFreq1)
-		end
-	      catch
-		V1 -> V1;
-		_:_ -> throw({error, "Parameter input is invalid."})
-	      end,
-    SimiScore = try
-		  case SimiScore1 of
-		    [] -> ?DefaultSimiScore;
-		    _ -> S = list_to_float(SimiScore1),
-			 case S >= 0.1 andalso S =< 1.0 of
-			   true -> S;
-			   _ -> ?DefaultSimiScore
-			 end
-		  end
-		catch
-		  V2 -> V2;
-		  _:_ -> throw({error, "Parameter input is invalid."})
-		end,
+    {MinLen, MinFreq, SimiScore} =  get_parameters(MinLen1, MinFreq1, SimiScore1),
     Pid = start_hash_process(),
     ASTTab = ets:new(ast_tab, [set, public]),
     VarTab = ets:new(var_tab, [set, public]),
     RangeTab = ets:new(range_tab, [set, public]),
     Files = refac_util:expand_files(DirFileList, ".erl"),
     case Files of
-      [] -> ?wrangler_io("Warning: No files found in the searchpaths specified.", []);
-      _ ->
-	  _Time1 = now(),
-	  ?debug("Searching for initial clone candidates...\n", []),
-	  %% ?debug("current time:~p\n", [time()]),
-	  generalise_and_hash_ast(Files, Pid, SearchPaths, TabWidth, ASTTab, VarTab),
-	  %%?debug("\ngeneralise and hash ast done.\n",[]),
-	  Dir = filename:dirname(hd(Files)),
-	  Cs = get_clones(Pid, MinLen, MinFreq, Dir, RangeTab),
-	  stop_hash_process(Pid),
-	  %% ?debug("\nInitial candiates finished\n",[]),
-	  ?debug("\nNumber of initial clone candidates: ~p\n", [length(Cs)]),
-	  CloneCheckPid = start_clone_check_process(),
-	  Cs2 = examine_clone_sets(Cs, MinFreq, SimiScore, ASTTab, VarTab, RangeTab, CloneCheckPid, 1),
-	  _Time2 = now(),
-	  %% ?debug("current time:~p\n", [time()]),
-	  %% ?debug("total time used:~p\n", [timer:now_diff(_Time2,_Time1)/1000000]),
-	  stop_clone_check_process(CloneCheckPid),
-	  ets:delete(ASTTab),
-	  ets:delete(VarTab),
-	  ets:delete(RangeTab),
-	  display_clone_result(remove_fun_info(Cs2), "Similar")
+	[] -> ?wrangler_io("Warning: No files found in the searchpaths specified.", []);
+	_ ->
+	    _Time1 = now(),
+	    ?debug("Searching for initial clone candidates...\n", []),
+	    %% ?debug("current time:~p\n", [time()]),
+	    generalise_and_hash_ast(Files, Pid, SearchPaths, TabWidth, ASTTab, VarTab),
+	    %%?debug("\ngeneralise and hash ast done.\n",[]),
+	    Dir = filename:dirname(hd(Files)),
+	    Cs = get_clones(Pid, MinLen, MinFreq, Dir, RangeTab),
+	    stop_hash_process(Pid),
+	    %% ?debug("\nInitial candiates finished\n",[]),
+	    ?debug("\nNumber of initial clone candidates: ~p\n", [length(Cs)]),
+	    CloneCheckPid = start_clone_check_process(),
+	    Cs2 = examine_clone_sets(Cs, MinFreq, SimiScore, ASTTab, VarTab, RangeTab, CloneCheckPid, 1),
+	    _Time2 = now(),
+	    %% ?debug("current time:~p\n", [time()]),
+	    %% ?debug("total time used:~p\n", [timer:now_diff(_Time2,_Time1)/1000000]),
+	    stop_clone_check_process(CloneCheckPid),
+	    ets:delete(ASTTab),
+	    ets:delete(VarTab),
+	    ets:delete(RangeTab),
+	    refac_code_search_utils:display_clone_result(remove_fun_info(Cs2), "Similar")
     end,
     {ok, "Similar code detection finished."}.
-    
 
 -spec(sim_code_detection_eclipse/6::(DirFileList::dir(), MinLen::integer(), MinFreq::integer(), 
-				  SimScore::float(),  SearchPaths::[dir()], TabWidth::integer()) ->
+				     SimScore::float(),  SearchPaths::[dir()], TabWidth::integer()) ->
  	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer(), string()}]).
 sim_code_detection_eclipse(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabWidth) ->
-    MinLen = case MinLen1 =< 1 of
-	       true ->
-		   ?DEFAULT_LEN;
-	       _ -> MinLen1
-	     end,
-    MinFreq = case MinFreq1 =< 1 of
-		true ->
-		    ?DEFAULT_FREQ;
-		_ -> MinFreq1
-	      end,
-    SimiScore = case SimiScore1 == 0.1 andalso SimiScore1 =< 1.0 of
-		  true -> SimiScore1;
-		  _ -> ?DefaultSimiScore
-		end,
+    {MinLen, MinFreq, SimiScore} =  get_parameters_eclipse(MinLen1, MinFreq1, SimiScore1),
     Pid = start_hash_process(),
     ASTTab = ets:new(ast_tab, [set, public]),
     VarTab = ets:new(var_tab, [set, public]),
@@ -160,7 +112,62 @@ sim_code_detection_eclipse(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPat
 	  ets:delete(RangeTab),
 	  remove_fun_info(Cs2)
     end.
-   
+
+-spec(get_parameters/3::(string(), string(), string())->
+	     {integer(), integer(), integer()}).
+get_parameters(MinLen1, MinFreq1, SimiScore1) ->
+    MinLen = get_parameters_1(MinLen1, ?DEFAULT_LEN, 1),
+    MinFreq = get_parameters_1(MinFreq1, ?DEFAULT_FREQ,?DEFAULT_FREQ),
+    SimiScore = try
+		    case SimiScore1 of
+			[] -> ?DefaultSimiScore;
+			_ -> S = list_to_float(SimiScore1),
+			     case S >= 0.1 andalso S =< 1.0 of
+				 true -> S;
+				 _ -> ?DefaultSimiScore
+			     end
+		    end
+		catch
+		    V2 -> V2;
+		    _:_ -> throw({error, "Parameter input is invalid."})
+		end,
+    {MinLen, MinFreq, SimiScore}.
+
+get_parameters_1(Input, DefaultVal, MinVal) ->
+    try
+      case Input == [] orelse list_to_integer(Input) < MinVal of
+	true -> DefaultVal;
+	_ -> list_to_integer(Input)
+      end
+    catch
+      V -> V;
+      _:_ -> throw({error, "Parameter input is invalid."})
+    end.
+    
+
+
+-spec(get_parameters_eclipse/3::(integer(), integer(), integer())->
+			      {integer(), integer(), integer()}).
+get_parameters_eclipse(MinLen1, MinFreq1, SimiScore1) ->
+    MinLen = case MinLen1 =< 1 of
+		 true ->
+		     ?DEFAULT_LEN;
+	       _ -> MinLen1
+	     end,
+    MinFreq = case MinFreq1 =< ?DEFAULT_FREQ of
+		  true ->
+		      ?DEFAULT_FREQ;
+		_ -> MinFreq1
+	      end,
+    SimiScore = case SimiScore1 == 0.1 andalso SimiScore1 =< 1.0
+		of
+		    true -> SimiScore1;
+		    _ -> ?DefaultSimiScore
+		end,
+    {MinLen, MinFreq, SimiScore}.
+
+
+%%==================================================================
 generalise_and_hash_ast(Files, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
     lists:foreach(fun(F) ->
 			  generalise_and_hash_ast_1(F, Pid, SearchPaths, TabWidth, ASTTab, VarTab)
@@ -180,16 +187,14 @@ generalise_and_hash_ast_1(FName, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
 		    _ -> ok
 		  end
 	  end,
-    {ok, {AnnAST, _Info}} = parse_annotate_file(FName, SearchPaths, TabWidth),
+    {ok, {AnnAST, _Info}} = refac_util:quick_parse_annotate_file(FName, SearchPaths, TabWidth),
     refac_syntax:form_list_elements(AnnAST),
     lists:foreach(fun (F) -> Fun(F) end, refac_syntax:form_list_elements(AnnAST)),
     insert_dummy_entry(Pid).
 
-
-
 generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab,Pid}) ->
     F0 = fun(T, _Others) ->
-		case variable_replaceable(T) of 
+		case refac_code_search_utils:variable_replaceable(T) of 
 		    true ->
 			{refac_syntax:variable('Var'), true};
 		    false -> {T, false}
@@ -230,25 +235,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab,Pid}) ->
 	_ -> {Node, false}
     end.
 
-
-
-variable_replaceable(Exp) ->
-    case lists:keysearch(category, 1, refac_syntax:get_ann(Exp)) of
-      {value, {category, record_field}} -> false;
-      {value, {category, record_type}} -> false;
-      {value, {category, guard_expression}} -> false;
-      {value, {category, macro_name}} -> false;
-      {value, {category, pattern}} ->
-	  refac_syntax:type(Exp) == variable;
-      _ -> T = refac_syntax:type(Exp),
-	   not lists:member(T, [match_expr, operator, case_expr,
-				block_expr, catch_expr, fun_expr,
-				receive_expr, try_expr, clause,
-				binary_field, query_expr])
-    end.
-
-
-
+%%=============================================================================
 examine_clone_sets([], _MinFreq, _SimiScore, ASTTab, _VarTab, RangeTab,Pid, _Num)->
     Pid ! {get_clones, self()},
     receive
@@ -393,20 +380,27 @@ examine_a_clone_member(Range={FName, _Start, _End}, {Rs, {Len, _Freq}},  MinFreq
     end.
     
 
-find_anti_unifier(FileName, Exprs1, Range,SimiScore, ASTTab, VarTab,RangeTab)->
+find_anti_unifier(_FileName, Exprs1, Range, SimiScore, ASTTab, VarTab, RangeTab) ->
     {Exprs2, VarsToExport} = get_expr_list_and_vars_to_export(Range, ASTTab, VarTab, RangeTab),
-    Res =refac_sim_expr_search:find_anti_unifier(FileName, Exprs1, Exprs2, SimiScore, VarsToExport),
-    case Res of 
-	[] ->
-	     Res;
-	[{_, EVs, SubSt}] -> [{Range, EVs, SubSt}]
+    Res = anti_unification:find_anti_unifier(Exprs1, Exprs2, SimiScore),
+    case Res of
+	none ->
+	    [];
+	SubSt->
+	    EVs = [E1 || {E1, E2} <- SubSt, refac_syntax:type(E2) == variable,
+			 lists:member({refac_syntax:variable_name(E2), get_var_define_pos(E2)}, VarsToExport)],
+	    [{Range, EVs, SubSt}]
     end.
 
+
+get_var_define_pos(V) ->
+    {value, {def, DefinePos}} = lists:keysearch(def,1, refac_syntax:get_ann(V)),
+    DefinePos.
 
 
 get_generalised_form(ASTTab, RangeTab, {Ranges, {Len, Freq}, {Range, SubSt, ExportVars}}) ->
     Exprs1 = get_expr_list(Range, ASTTab, RangeTab),
-    AntiUnifier=refac_sim_expr_search:generalise_expr(Exprs1,SubSt, ExportVars),
+    AntiUnifier = anti_unification:generate_anti_unifier(Exprs1, SubSt, ExportVars),
     {Ranges, {Len, Freq}, refac_prettypr:format(AntiUnifier)}.
    
 
@@ -520,11 +514,11 @@ search_for_clones(Dir, Data, MinLen, MinFreq, RangeTab) ->
        end,
     IndexStr = lists:append([F0(I)|| {I, _}<-Data]),
     NewData =lists:append([F(Elem) ||Elem <-Data]),
-    Cs= get_clones_by_suffix_tree(Dir, IndexStr++"&",MinLen, MinFreq,"0123456789,#&", 1),
+    Cs= suffix_tree:get_clones_by_suffix_tree(Dir, IndexStr++"&",MinLen, MinFreq,"0123456789,#&", 1),
     Cs1 = lists:append([strip_a_clone({[{S,E} |Ranges], {Len, Freq}}, SubStr, MinLen, MinFreq)
 			|| {[{S,E} |Ranges], Len, Freq} <- Cs, 
 			      SubStr <-[lists:sublist(IndexStr, S, E-S+1)]]),
-    Cs2 =refac_duplicated_code:remove_sub_clones([{R,Len,Freq}||{R, {Len, Freq}}<-Cs1]),
+    Cs2 =refac_code_search_utils:remove_sub_clones([{R,Len,Freq}||{R, {Len, Freq}}<-Cs1]),
     get_clones_in_ranges([{R,{Len, Freq}}||{R, Len, Freq}<-Cs2], 
 			 NewData, MinLen, MinFreq, RangeTab).
    
@@ -635,7 +629,8 @@ remove_duplicated_clones([Cs| T], Acc) ->
     remove_duplicated_clones(T, [Cs1| Acc]).
 			  
 
-
+%% ================================================
+%% some_utils functions
 
 zip(L) ->[nested_tuple_to_list(E)||E<-zip_1(L)].
 zip_1([]) ->[];
@@ -644,12 +639,12 @@ zip_1([L,H|T]) ->
     zip_1([lists:zip(L,H)|T]).
 
 nested_tuple_to_list({A,B}) ->
-			  nested_tuple_to_list(A)++[B];
+    nested_tuple_to_list(A)++[B];
 nested_tuple_to_list(A) ->
     [A].
 
 sub_list(List, Len, MaxLen) ->
-   sub_list_1(List, Len, MaxLen, []).
+    sub_list_1(List, Len, MaxLen, []).
 sub_list_1(_List, Len, MaxLen, Acc) when Len>MaxLen ->
     Acc;
 sub_list_1(List, Len, MaxLen, Acc) when Len==MaxLen ->
@@ -674,32 +669,3 @@ pmap_gather([]) ->
 
 pmap_f(Parent, F, I) ->
     Parent ! {self(), catch F(I)}.
-
-
-parse_annotate_file(FName, SearchPaths, TabWidth) ->
-    FileFormat=refac_util:file_format(FName),
-    case refac_epp_dodger:parse_file(FName, [{tab, TabWidth}, {format, FileFormat}]) of
-	{ok, Forms} -> 
-	    Dir = filename:dirname(FName),
-	    DefaultIncl2 = [filename:join(Dir, X) || X <-refac_util:default_incls()],
-	    Includes = SearchPaths++DefaultIncl2,
-	    Ms =case refac_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
-		    {ok, _, {MDefs, MUses}}  -> 
-			{dict:from_list(MDefs), dict:from_list(MUses)};
-		    _ -> []
-		end,	
-	    SyntaxTree = refac_recomment:recomment_forms(Forms, []),
-	    Info = refac_syntax_lib:analyze_forms(SyntaxTree),
-	    AnnAST = annotate_bindings(FName, SyntaxTree, Info, Ms, TabWidth),
-	    {ok, {AnnAST, Info}};
-	{error, Reason} -> erlang:error(Reason)
-    end.
-annotate_bindings(FName, AST, Info, Ms, TabWidth) ->
-    Toks = refac_util:tokenize(FName, true, TabWidth),
-    AnnAST0 = refac_syntax_lib:annotate_bindings(refac_util:add_range(AST, Toks), ordsets:new(), Ms),
-    refac_util:add_category(refac_annotate_ast:add_fun_define_locations(AnnAST0, Info)).
- 
-
-
-
-

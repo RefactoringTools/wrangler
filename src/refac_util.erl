@@ -2224,3 +2224,22 @@ write_files(Editor, Results, Cmd) ->
 		 || {{FName, NewFName}, AST} <- Results],
 	  {ok, Res}
     end.
+
+quick_parse_annotate_file(FName, SearchPaths, TabWidth) ->
+    FileFormat = file_format(FName),
+    case refac_epp_dodger:parse_file(FName, [{tab, TabWidth}, {format, FileFormat}]) of
+      {ok, Forms} ->
+	  Dir = filename:dirname(FName),
+	  DefaultIncl2 = [filename:join(Dir, X) || X <- default_incls()],
+	  Includes = SearchPaths ++ DefaultIncl2,
+	  Ms = case refac_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
+		 {ok, _, {MDefs, MUses}} ->
+		     {dict:from_list(MDefs), dict:from_list(MUses)};
+		 _ -> []
+	       end,
+	  SyntaxTree = refac_recomment:recomment_forms(Forms, []),
+	  Info = refac_syntax_lib:analyze_forms(SyntaxTree),
+	  AnnAST = annotate_bindings(FName, SyntaxTree, Info, Ms, TabWidth),
+	  {ok, {AnnAST, Info}};
+      {error, Reason} -> erlang:error(Reason)
+    end.

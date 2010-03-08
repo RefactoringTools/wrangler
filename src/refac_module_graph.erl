@@ -33,8 +33,6 @@
 
 -export([module_graph/1, get_called_mods/2, module_graph_to_dot/4, module_subgraph_to_dot/4]). 
 
-%%-define(DEBUG, true).
-
 -include("../include/wrangler.hrl").
 
 -spec(module_graph/1::([dir()]) -> [{filename(), [filename()]}]).
