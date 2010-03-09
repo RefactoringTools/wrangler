@@ -622,7 +622,7 @@ do_expr_anti_unification(Exp1, Exp2) ->
 do_expr_anti_unification_1(Exp1, Exp2) ->
     T1 = refac_syntax:type(Exp1),
     T2 = refac_syntax:type(Exp2),
-    case refac_syntax:is_literal(T1) andalso refac_syntax:is_literal(T2) of
+    case refac_syntax:is_literal(Exp1) andalso refac_syntax:is_literal(Exp2) of
 	true ->
 	  do_anti_unify_literals(Exp1, Exp2);
 	false ->
