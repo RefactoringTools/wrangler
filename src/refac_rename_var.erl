@@ -128,7 +128,7 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 
 
 %% =====================================================================
--spec cond_check(syntaxTree(), pos(), string(),string())-> term().
+-spec cond_check(syntaxTree(), [pos()], atom(),atom())-> term().
 cond_check(Form, Pos, _VarName,  NewName) ->
     Env_Bd_Fr_Vars = envs_bounds_frees(Form),
     BdVars = [B || {_, B, _}<-Env_Bd_Fr_Vars],
@@ -180,7 +180,7 @@ pos_to_form_1(Node, Pos) ->
 	   orelse refac_syntax:type(Node) == attribute
 	of
       true ->
-	  {S, E} = refac_util:get_range(Node),
+	  {S, E} = refac_misc:get_start_end_loc(Node),
 	  if (S =< Pos) and (Pos =< E) ->
 		 {Node, true};
 	     true -> {[], false}
