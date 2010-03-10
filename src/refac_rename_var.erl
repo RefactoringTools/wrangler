@@ -211,7 +211,6 @@ do_rename(Node, {DefinePos, NewName}) ->
 %% =====================================================================
 %% @doc Return the input environment of the subtree, the variables that are
 %% bound as well as the variables that are free in the subtree.
--spec envs_bounds_frees(syntaxTree())-> {value, [{env|bound|free, [atom()]}]}.
 envs_bounds_frees(Tree) ->
     F = fun (T, B) ->
 		As = refac_syntax:get_ann(T),
