@@ -88,7 +88,7 @@ pre_cond_check(FileName, AnnAST, NewMacroName, Start, End, SearchPaths, TabWidth
 			[] -> {error, "You have not selected a sequence of expressions/patterns!"};
 			_ ->
 			    ExprList = [hd(Sel)],
-			    NeedBracket = need_bracket(refac_util:get_toks(FunDef), ExprList),
+			    NeedBracket = need_bracket(refac_misc:get_toks(FunDef), ExprList),
 			    {ok, AnnAST, [hd(Sel)], NeedBracket}
 		      end;
 		  _ -> {error, "You have not selected a sequence of expressions/patterns!"}
@@ -112,10 +112,10 @@ do_intro_new_macro(AnnAST, MacroName, SelExpList, NeedBracket) ->
     {S1, E1} = refac_misc:get_start_end_loc(SelExpList),
     MApp = mk_macro_app(MName, Args),
     Fun = fun (F) ->
-		  {S, E} = refac_util:get_range(F),
+		  {S, E} = refac_misc:get_start_end_loc(F),
 		  case (S =< S1) and (E1 =< E) of
-		      true -> replace_expr_with_macro(F, {SelExpList, S1, E1}, MApp);
-		      _ -> F
+		    true -> replace_expr_with_macro(F, {SelExpList, S1, E1}, MApp);
+		    _ -> F
 		  end
 	  end,
     Forms11 = [Fun(F) || F <- Forms1],
@@ -148,16 +148,16 @@ mk_macro_app(Args, MName) ->
 
 -spec(replace_expr_with_macro/3::(syntaxTree(), {[syntaxTree()], pos(), pos()}, syntaxTree()) ->
 				       syntaxTree()).
-replace_expr_with_macro(Form, {ExpList, SLoc, ELoc},  MApp) ->
-    case (length(ExpList)==1) of 
-	true ->
-	    element(1,refac_util:stop_tdTP(fun replace_single_expr_with_macro_app/2, Form, {MApp, SLoc, ELoc}));
-	_ ->
-	    element(1, refac_util:stop_tdTP(fun replace_expr_list_with_macro_app/2, Form, {MApp, SLoc, ELoc}))
+replace_expr_with_macro(Form, {ExpList, SLoc, ELoc}, MApp) ->
+    case length(ExpList) == 1 of
+      true ->
+	  element(1, ast_traverse_api:stop_tdTP(fun replace_single_expr_with_macro_app/2, Form, {MApp, SLoc, ELoc}));
+      _ ->
+	  element(1, ast_traverse_api:stop_tdTP(fun replace_expr_list_with_macro_app/2, Form, {MApp, SLoc, ELoc}))
     end.
 
 replace_single_expr_with_macro_app(Tree, {MApp, SLoc, ELoc}) ->
-    case refac_util:get_range(Tree) of
+    case refac_misc:get_start_end_loc(Tree) of
       {SLoc, ELoc} ->
 	  {MApp, true};
       _ -> {Tree, false}
@@ -211,21 +211,21 @@ replace_expr_list_with_macro_app(Tree, {MApp, SLoc, ELoc}) ->
 	  {Tree, false}
     end.
 
-process_exprs(Exprs, {MApp, SLoc, ELoc}) ->    
-    {Exprs1, Exprs2} = lists:splitwith(fun(E) -> 
-					       {SLoc1, _} =refac_util:get_range(E),
-					       SLoc1 =/= SLoc 
+process_exprs(Exprs, {MApp, SLoc, ELoc}) ->
+    {Exprs1, Exprs2} = lists:splitwith(fun (E) ->
+					       {SLoc1, _} = refac_misc:get_start_end_loc(E),
+					       SLoc1 =/= SLoc
 				       end, Exprs),
-    case Exprs2 of 
-	[] -> {Exprs, false};
-	_ -> {_Exprs21, Exprs22} = lists:splitwith(fun(E) -> 
-							   {_, ELoc1} = refac_util:get_range(E),
-							   ELoc1=/= ELoc 
-						   end, Exprs2),
-	     case Exprs22 of 
-		 [] -> {Exprs, false}; %% THIS SHOULD NOT HAPPEN.
-		 _ -> {Exprs1 ++ [MApp|tl(Exprs22)], true}
-	     end
+    case Exprs2 of
+      [] -> {Exprs, false};
+      _ -> {_Exprs21, Exprs22} = lists:splitwith(fun (E) ->
+							 {_, ELoc1} = refac_misc:get_start_end_loc(E),
+							 ELoc1 =/= ELoc
+						 end, Exprs2),
+	   case Exprs22 of
+	     [] -> {Exprs, false}; %% THIS SHOULD NOT HAPPEN.
+	     _ -> {Exprs1 ++ [MApp| tl(Exprs22)], true}
+	   end
     end.
     
 
@@ -238,35 +238,34 @@ existing_macros(FileName, SearchPaths, TabWidth) ->
 	  lists:usort([Name || {{_, Name}, _Def} <- MDefs ++ MUses]);
       _ -> {error, "The current file does not compile!"}
     end.
-	    
 need_bracket(Toks, Exprs) ->
-    case Exprs of 
-	[E] ->
-	    {Start, End} = refac_util:get_range(E),
-	    Toks1 = lists:reverse(lists:takewhile(
-				    fun (B) -> 
-					    element(2, B) =/= Start
-				    end, Toks)),
-	    Toks2 = lists:dropwhile(fun (B) -> 
-					    case B of
-						{whitespace, _, _} -> true;
-						_ -> false
-					    end
-				    end, Toks1),
-	    Toks3 = lists:dropwhile(fun(B) ->
-					    element(2, B) =< End orelse 
-						element(1,B)==whitespace
-				    end, Toks),
-	    case Toks2 of
-		[{'(',_}| _] -> 
-		    case Toks3 of
-			[{')',_}| _] ->
-			    true;
-			_ -> false
-		    end;
-		_ ->false
-	    end;
-	_ ->false
+    case Exprs of
+      [E] ->
+	  {Start, End} = refac_misc:get_start_end_loc(E),
+	  Toks1 = lists:reverse(lists:takewhile(
+				  fun (B) ->
+					  element(2, B) =/= Start
+				  end, Toks)),
+	  Toks2 = lists:dropwhile(fun (B) ->
+					  case B of
+					    {whitespace, _, _} -> true;
+					    _ -> false
+					  end
+				  end, Toks1),
+	  Toks3 = lists:dropwhile(fun (B) ->
+					  element(2, B) =< End orelse
+					    element(1, B) == whitespace
+				  end, Toks),
+	  case Toks2 of
+	    [{'(', _}| _] ->
+		case Toks3 of
+		  [{')', _}| _] ->
+		      true;
+		  _ -> false
+		end;
+	    _ -> false
+	  end;
+      _ -> false
     end.
 
 collect_names_to_avoid(AnnAST) ->
