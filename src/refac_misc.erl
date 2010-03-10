@@ -49,7 +49,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -spec group_by(integer(), [tuple()]) -> [tuple()].
 group_by(N, TupleList) ->
-    SortedTupleList = lists:keysort(N, lists:usort(TupleList)),
+    SortedTupleList = lists:ukeysort(N, TupleList),
     group_by(N, SortedTupleList, []).
 
 group_by(_N,[],Acc) -> Acc;
@@ -649,7 +649,7 @@ callback_funs(Behaviour) ->
       _ -> []
     end.
 
--spec is_callback_fun(atom(), atom(), integer()) ->boolean().
+-spec is_callback_fun(moduleInfo(), atom(), integer()) ->boolean().
 is_callback_fun(ModInfo, Funname, Arity) ->
     case lists:keysearch(attributes, 1, ModInfo) of
       {value, {attributes, Attrs}} ->
