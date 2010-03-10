@@ -55,7 +55,7 @@ commit() ->
 abort() ->
     gen_server:call(wrangler_preview_server, abort).
    
--spec(add_files/1::([filename()]) -> ok).
+-spec(add_files/1::({[filename()], string()}) -> ok).
 add_files({Files,LogMsg})->
     gen_server:cast(wrangler_preview_server, {add, {Files, LogMsg}}).
 %%====================================================================
