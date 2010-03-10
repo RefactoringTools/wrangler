@@ -382,7 +382,7 @@ examine_a_clone_member(Range={FName, _Start, _End}, {Rs, {Len, _Freq}},  MinFreq
 
 find_anti_unifier(_FileName, Exprs1, Range, SimiScore, ASTTab, VarTab, RangeTab) ->
     {Exprs2, VarsToExport} = get_expr_list_and_vars_to_export(Range, ASTTab, VarTab, RangeTab),
-    Res = anti_unification:anti_unifier_with_score(Exprs1, Exprs2, SimiScore),
+    Res = anti_unification:anti_unification_with_score(Exprs1, Exprs2, SimiScore),
     case Res of
 	none ->
 	    [];
@@ -511,7 +511,7 @@ search_for_clones(Dir, Data, MinLen, MinFreq, RangeTab) ->
 	 end,
     F =fun({I, Range}) ->
 	       lists:duplicate(length(F0(I)), {I, Range})
-       end,
+       end, 
     IndexStr = lists:append([F0(I)|| {I, _}<-Data]),
     NewData =lists:append([F(Elem) ||Elem <-Data]),
     SuffixTreeExec = filename:join(?WRANGLER_DIR,"bin/suffixtree"),
