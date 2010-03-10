@@ -146,8 +146,8 @@ get_parameters_1(Input, DefaultVal, MinVal) ->
     
 
 
--spec(get_parameters_eclipse/3::(integer(), integer(), integer())->
-			      {integer(), integer(), integer()}).
+-spec(get_parameters_eclipse/3::(integer(), integer(), float())->
+			      {integer(), integer(), float()}).
 get_parameters_eclipse(MinLen1, MinFreq1, SimiScore1) ->
     MinLen = case MinLen1 =< 1 of
 		 true ->
@@ -385,7 +385,7 @@ find_anti_unifier(_FileName, Exprs1, Range, SimiScore, ASTTab, VarTab, RangeTab)
     Res = anti_unification:anti_unification_with_score(Exprs1, Exprs2, SimiScore),
     case Res of
 	none ->
-	    [];
+	    []; 
 	SubSt->
 	    EVs = [E1 || {E1, E2} <- SubSt, refac_syntax:type(E2) == variable,
 			 lists:member({refac_syntax:variable_name(E2), get_var_define_pos(E2)}, VarsToExport)],

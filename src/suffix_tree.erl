@@ -6,6 +6,7 @@
 
 -export([init/1]).
 
+
 -spec(get_clones_by_suffix_tree/7::(dir(), string(),integer(), integer(), string(), integer(), filename()) ->
 					 [{[{integer(),integer()}], integer(), integer()}]).					   
 get_clones_by_suffix_tree(Dir, ProcessedToks, MinLength, MinClones, Alphabet, AllowOverLap, SuffixTreeExec) ->

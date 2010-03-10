@@ -117,8 +117,8 @@ get_free_bd_vars(ExpList) ->
 
 side_cond_analysis(FileName, Info, Fun, ExpList, NewFunName) ->
     lists:foreach(fun (E) -> check_expr_category(Fun, E) end, ExpList),
-    {FrVars,_} = get_free_bd_vars(ExpList),
-    InScopeFuns = [{F, A} || {_M, F, A} <- refac_util:inscope_funs(Info)],
+    {FrVars, _} = get_free_bd_vars(ExpList),
+    InScopeFuns = [{F, A} || {_M, F, A} <- refac_misc:inscope_funs(Info)],
     case lists:member({NewFunName, length(FrVars)}, InScopeFuns) orelse
 	   erlang:is_builtin(erlang, NewFunName, length(FrVars)) orelse
 	     erl_internal:bif(erlang, NewFunName, length(FrVars))
@@ -135,59 +135,58 @@ side_cond_analysis(FileName, Info, Fun, ExpList, NewFunName) ->
 
 
 check_unsafe_vars(ExpList) ->
-    BoundVars = refac_util:get_bound_vars(ExpList),   
-    BoundLocs = [Loc||{_, Loc} <- BoundVars],
-    Fun = fun(Node, S) ->
-		  case refac_syntax:type(Node) of 
-		      variable ->
-			  As = refac_syntax:get_ann(Node),
-			  case lists:keysearch(def,1,As) of
-			      {value, {def, DefinePos}} ->
-				  case length(DefinePos)>1 of 
-				      true-> case DefinePos -- BoundLocs of 
-						 [] -> S;
-						 _ -> 
-						     Name = refac_syntax:variable_name(Node),
-						     throw({error, "Extracting the expression(s) selected into a new function would "
-							    "make variable '" ++ atom_to_list(Name) ++"' unsafe."})
-						 end;
-					  _ -> S
-				      end;
-			      _ -> 
-				  S
-			  end;
-		      _ -> S
+    BoundVars = refac_misc:get_bound_vars(ExpList),
+    BoundLocs = [Loc || {_, Loc} <- BoundVars],
+    Fun = fun (Node, S) ->
+		  case refac_syntax:type(Node) of
+		    variable ->
+			As = refac_syntax:get_ann(Node),
+			case lists:keysearch(def, 1, As) of
+			  {value, {def, DefinePos}} ->
+			      case length(DefinePos) > 1 of
+				true -> case DefinePos -- BoundLocs of
+					  [] -> S;
+					  _ ->
+					      Name = refac_syntax:variable_name(Node),
+					      throw({error, "Extracting the expression(s) selected into a new function would "
+							    "make variable '" ++ atom_to_list(Name) ++ "' unsafe."})
+					end;
+				_ -> S
+			      end;
+			  _ ->
+			      S
+			end;
+		    _ -> S
 		  end
 	  end,
-    refac_syntax_lib:fold(Fun,[], refac_syntax:block_expr(ExpList)).
+    refac_syntax_lib:fold(Fun, [], refac_syntax:block_expr(ExpList)).
     
 funcall_replaceable(Fun, ExpList) ->
     case ExpList of
-      [Exp]->
-	    case is_guard_expr(Exp) of
-		true -> throw({error, "The selected guard expression "
-			       "cannot be replaced by a function call!"});
-		_ -> {StartPos, EndPos} = refac_util:get_range(Exp),
-		     Ranges = collect_prime_expr_ranges(Fun),
-		     Res = lists:any(
-			     fun ({StartPos1, EndPos1}) ->
-				     StartPos >= StartPos1
-					 andalso EndPos =< EndPos1
-			     end, Ranges),
-		     case Res of
-			 true -> throw({error, "The selected expression "
-					"cannot be replaced by a function call!"});
-			 _ ->
-			     ok
-		     end
-	    end;
-	_ ->
-	    ExpList1 = filter_exprs_via_ast(Fun, ExpList),
-	    case ExpList1 of
-		[] -> ok;
-		_ -> throw({error, "The expression sequence selected "
-		      "cannot be replaced by a function call!"})
-	    end
+      [Exp] ->
+	  case is_guard_expr(Exp) of
+	    true -> throw({error, "The selected guard expression "
+				  "cannot be replaced by a function call!"});
+	    _ -> {StartPos, EndPos} = refac_misc:get_start_end_loc(Exp),
+		 Ranges = collect_prime_expr_ranges(Fun),
+		 Res = lists:any(
+			 fun ({StartPos1, EndPos1}) ->
+				 StartPos >= StartPos1 andalso EndPos =< EndPos1
+			 end, Ranges),
+		 case Res of
+		   true -> throw({error, "The selected expression "
+					 "cannot be replaced by a function call!"});
+		   _ ->
+		       ok
+		 end
+	  end;
+      _ ->
+	  ExpList1 = filter_exprs_via_ast(Fun, ExpList),
+	  case ExpList1 of
+	    [] -> ok;
+	    _ -> throw({error, "The expression sequence selected "
+			       "cannot be replaced by a function call!"})
+	  end
     end.
 
 check_expr_category(Fun, Exp) ->
@@ -225,62 +224,60 @@ check_expr_category_1(Fun, Exp) ->
 
 is_part_of_guard_expr(Fun, Exp) ->
     GuardRanges = collect_guard_ranges(Fun),
-    {Start, End} = refac_util:get_range(Exp),
+    {Start, End} = refac_misc:get_start_end_loc(Exp),
     lists:any(fun ({S1, E1}) ->
 		      S1 =< Start andalso End =< E1
 	      end, GuardRanges).
 
 is_macro_arg(Fun, Exp) ->
     MacroArgRanges = collect_macro_arg_ranges(Fun),
-    {Start, End} = refac_util:get_range(Exp),
+    {Start, End} = refac_misc:get_start_end_loc(Exp),
     lists:any(fun ({S1, E1}) ->
 		      S1 =< Start andalso End =< E1
 	      end, MacroArgRanges).
     
   
 collect_prime_expr_ranges(Tree) ->
-    F= fun(T, S) ->
-	       case refac_syntax:type(T) of 
-		   application ->
-		       Operator = refac_syntax:application_operator(T),
-		       Range = refac_util:get_range(Operator),
-		       S++[Range];
-		   _ -> S
-	       end
-       end,
+    F = fun (T, S) ->
+		case refac_syntax:type(T) of
+		  application ->
+		      Operator = refac_syntax:application_operator(T),
+		      Range = refac_misc:get_start_end_loc(Operator),
+		      S ++ [Range];
+		  _ -> S
+		end
+	end,
     refac_syntax_lib:fold(F, [], Tree).
 
 
 %% This function is a duplicated of refac_gen:collect_guard_ranges/1, and 
 %% will be removed later on.
 collect_guard_ranges(Node) ->
-    Fun=fun(T, Acc) ->
-		case refac_syntax:type(T) of
+    Fun = fun (T, Acc) ->
+		  case refac_syntax:type(T) of
 		    clause ->
 			G = refac_syntax:clause_guard(T),
-			case G of 
-			    none ->
-				Acc;
-			    _ -> 
-				[refac_util:get_range(G)|Acc]
+			case G of
+			  none ->
+			      Acc;
+			  _ ->
+			      [refac_misc:get_start_end_loc(G)| Acc]
 			end;
-		    _ ->Acc
-		end
-	end,
+		    _ -> Acc
+		  end
+	  end,
     refac_syntax_lib:fold(Fun, [], Node).
-  	
-
-collect_macro_arg_ranges(Node) ->	
-    Fun = fun(T, Acc) ->
-		  case refac_syntax:type(T) of 
-		      macro ->
-			  Args = refac_syntax:macro_arguments(T),
-			  case Args of 
-			      none -> Acc;
-			      _ -> 
-				  [refac_util:get_range(A)||A<-Args]++Acc
-			  end;
-		      _ -> Acc
+collect_macro_arg_ranges(Node) ->
+    Fun = fun (T, Acc) ->
+		  case refac_syntax:type(T) of
+		    macro ->
+			Args = refac_syntax:macro_arguments(T),
+			case Args of
+			  none -> Acc;
+			  _ ->
+			      [refac_misc:get_start_end_loc(A) || A <- Args] ++ Acc
+			end;
+		    _ -> Acc
 		  end
 	  end,
     refac_syntax_lib:fold(Fun, [], Node).
@@ -372,44 +369,44 @@ commontest_name_checking(UsedFrameWorks, NewFunName, Arity) ->
 
 do_fun_extraction(AnnAST, ExpList, NewFunName, ParNames, VarsToExport, EnclosingFunName, EnclosingFunArity) ->
     NewFunName1 = refac_syntax:atom(NewFunName),
-    Pars = [refac_syntax:variable(P)||P<-ParNames],
-    LastExprExportVars =[V|| {V, _Pos} <-refac_util:get_var_exports(lists:last(ExpList))],
-    ExpList1 = case VarsToExport--LastExprExportVars of 
-		   [] -> case ExpList of 
-			     [E] -> case refac_syntax:type(E) of
-					match_expr -> [refac_syntax:match_expr_body(E)];
-					_ -> [E]
-				    end;
-			     _ -> ExpList
-			 end;
-		   _ ->case VarsToExport of
-			   [V] -> 
-			       E = refac_syntax:variable(V),
-			       ExpList++[E];
-			   [_V|_Vs] -> 
-			       Elems =[refac_syntax:variable(V)||V<-VarsToExport], 
-			       ExpList ++ [refac_syntax:tuple(Elems)]
-		       end
-	       end,		
+    Pars = [refac_syntax:variable(P) || P <- ParNames],
+    LastExprExportVars = [V || {V, _Pos} <- refac_misc:get_var_exports(lists:last(ExpList))],
+    ExpList1 = case VarsToExport -- LastExprExportVars of
+		 [] -> case ExpList of
+			 [E] -> case refac_syntax:type(E) of
+				  match_expr -> [refac_syntax:match_expr_body(E)];
+				  _ -> [E]
+				end;
+			 _ -> ExpList
+		       end;
+		 _ -> case VarsToExport of
+			[V] ->
+			    E = refac_syntax:variable(V),
+			    ExpList ++ [E];
+			[_V| _Vs] ->
+			    Elems = [refac_syntax:variable(V) || V <- VarsToExport],
+			    ExpList ++ [refac_syntax:tuple(Elems)]
+		      end
+	       end,
     Clause = refac_syntax:clause(Pars, [], ExpList1),
     NewFun = refac_syntax:function(NewFunName1, [Clause]),
     Forms = refac_syntax:form_list_elements(AnnAST),
-    Fun = fun(Form) ->
-		  case refac_syntax:type(Form) of 
-		      function -> 
-			  Name = refac_syntax:atom_value(refac_syntax:function_name(Form)),
-			  Arity = refac_syntax:function_arity(Form),
-			  case {Name, Arity} == {EnclosingFunName, EnclosingFunArity} of
-			      true -> 
-				  Form1 = replace_expr_with_fun_call(
-					    Form, ExpList, NewFunName, ParNames, VarsToExport), 
-				  [Form1, NewFun];
-			      _ -> [Form]
-			  end;
-		      _ -> [Form]
+    Fun = fun (Form) ->
+		  case refac_syntax:type(Form) of
+		    function ->
+			Name = refac_syntax:atom_value(refac_syntax:function_name(Form)),
+			Arity = refac_syntax:function_arity(Form),
+			case {Name, Arity} == {EnclosingFunName, EnclosingFunArity} of
+			  true ->
+			      Form1 = replace_expr_with_fun_call(
+					Form, ExpList, NewFunName, ParNames, VarsToExport),
+			      [Form1, NewFun];
+			  _ -> [Form]
+			end;
+		    _ -> [Form]
 		  end
 	  end,
-    refac_syntax:form_list([F||Form<-Forms, F <-Fun(Form)]).
+    refac_syntax:form_list([F || Form <- Forms, F <- Fun(Form)]).
 
 
 replace_expr_with_fun_call(Form, ExpList, NewFunName, ParNames, VarsToExport) ->
@@ -436,59 +433,59 @@ replace_expr_with_fun_call(Form, ExpList, NewFunName, ParNames, VarsToExport) ->
     end.
     
 do_replace_expr_with_fun_call_1(Tree, {NewExpr, Expr}) ->
-    Range = refac_util:get_range(Expr),
-    case refac_util:get_range(Tree) of
-	Range -> 
-	    case refac_syntax:type(Tree) of 
-		binary_field ->
-		    {refac_util:rewrite(Tree, refac_syntax:binary_field(NewExpr)), true};
-		_ -> {NewExpr, true}
-	    end;
-	_  -> {Tree, false}
+    Range = refac_misc:get_start_end_loc(Expr),
+    case refac_misc:get_start_end_loc(Tree) of
+      Range ->
+	  case refac_syntax:type(Tree) of
+	    binary_field ->
+		{refac_misc:rewrite(Tree, refac_syntax:binary_field(NewExpr)), true};
+	    _ -> {NewExpr, true}
+	  end;
+      _ -> {Tree, false}
     end.
     
 do_replace_expr_with_fun_call_2(Tree, {MApp, ExpList}) ->
-    Range1 = refac_util:get_range(hd(ExpList)),
-    Range2 = refac_util:get_range(lists:last(ExpList)),
-    Fun = fun(Exprs) ->
+    Range1 = refac_misc:get_start_end_loc(hd(ExpList)),
+    Range2 = refac_misc:get_start_end_loc(lists:last(ExpList)),
+    Fun = fun (Exprs) ->
 		  {Exprs1, Exprs2} = lists:splitwith(
-				       fun(E) -> 
-					       refac_util:get_range(E) =/= Range1
+				       fun (E) ->
+					       refac_misc:get_start_end_loc(E) =/= Range1
 				       end, Exprs),
 		  case Exprs2 of
-		      [] -> {Exprs, false};
-		      _ -> {_Exprs21, Exprs22} =
-			       lists:splitwith(fun(E) -> 
-						       refac_util:get_range(E) =/= Range2
-					       end, Exprs2),
-			   case Exprs22 of
-			       [] -> {Exprs, false}; %% THIS SHOULD NOT HAPPEN.
-			       _ -> {Exprs1 ++ [MApp| tl(Exprs22)], true}
-			   end
+		    [] -> {Exprs, false};
+		    _ -> {_Exprs21, Exprs22} =
+			     lists:splitwith(fun (E) ->
+						     refac_misc:get_start_end_loc(E) =/= Range2
+					     end, Exprs2),
+			 case Exprs22 of
+			   [] -> {Exprs, false}; %% THIS SHOULD NOT HAPPEN.
+			   _ -> {Exprs1 ++ [MApp| tl(Exprs22)], true}
+			 end
 		  end
 	  end,
     case refac_syntax:type(Tree) of
-	clause ->
-	    Exprs = refac_syntax:clause_body(Tree),
-	    {NewBody, Modified} = Fun(Exprs),
-	    Pats = refac_syntax:clause_patterns(Tree),
-	    G = refac_syntax:clause_guard(Tree),
-	    Tree1=refac_util:rewrite(Tree, refac_syntax:clause(Pats, G, NewBody)),
-	    {Tree1, Modified};
-	block_expr ->
-	    Exprs = refac_syntax:block_expr_body(Tree),
-	    {NewBody, Modified} = Fun(Exprs),
-	    Tree1 =refac_util:rewrite(Tree, refac_syntax:block_expr(NewBody)),
-	    {Tree1,Modified};
+      clause ->
+	  Exprs = refac_syntax:clause_body(Tree),
+	  {NewBody, Modified} = Fun(Exprs),
+	  Pats = refac_syntax:clause_patterns(Tree),
+	  G = refac_syntax:clause_guard(Tree),
+	  Tree1 = refac_misc:rewrite(Tree, refac_syntax:clause(Pats, G, NewBody)),
+	  {Tree1, Modified};
+      block_expr ->
+	  Exprs = refac_syntax:block_expr_body(Tree),
+	  {NewBody, Modified} = Fun(Exprs),
+	  Tree1 = refac_misc:rewrite(Tree, refac_syntax:block_expr(NewBody)),
+	  {Tree1, Modified};
       try_expr ->
-	    Exprs = refac_syntax:try_expr_body(Tree),
-	    {NewBody, Modified} = Fun(Exprs),
-	    Cs = refac_syntax:try_expr_clauses(Tree),
-	    Handlers = refac_syntax:try_expr_handlers(Tree),
-	    After = refac_syntax:try_expr_after(Tree),
-	    Tree1 = refac_util:rewrite(Tree, refac_syntax:try_expr(NewBody, Cs, Handlers, After)),
-	    {Tree1, Modified};
-	_ -> {Tree, false}
+	  Exprs = refac_syntax:try_expr_body(Tree),
+	  {NewBody, Modified} = Fun(Exprs),
+	  Cs = refac_syntax:try_expr_clauses(Tree),
+	  Handlers = refac_syntax:try_expr_handlers(Tree),
+	  After = refac_syntax:try_expr_after(Tree),
+	  Tree1 = refac_misc:rewrite(Tree, refac_syntax:try_expr(NewBody, Cs, Handlers, After)),
+	  {Tree1, Modified};
+      _ -> {Tree, false}
     end.
    
 

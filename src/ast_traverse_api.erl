@@ -100,7 +100,7 @@ stop_tdTP(Function, Node, Others) ->
 		Gs2 = [[N || {N, _B} <- G] || G <- Gs1],
 		G = [[B || {_N, B} <- G] || G <- Gs1],
 		Node2 = refac_syntax:make_tree(refac_syntax:type(Node1), Gs2),
-		{refac_util:rewrite(Node1, Node2), lists:member(true, lists:flatten(G))}
+		{refac_misc:rewrite(Node1, Node2), lists:member(true, lists:flatten(G))}
 	  end
     end.
 
@@ -118,7 +118,7 @@ full_tdTP(Function, Node, Others) ->
 		Gs2 = [[N || {N, _B} <- G] || G <- Gs1],
 		G = [[B || {_N, B} <- G] || G <- Gs1],
 		Node2 = refac_syntax:make_tree(refac_syntax:type(Node1), Gs2),
-		{refac_util:rewrite(Node1, Node2), Changed or lists:member(true, lists:flatten(G))}
+		{refac_misc:rewrite(Node1, Node2), Changed or lists:member(true, lists:flatten(G))}
 	  end
     end.
 
@@ -140,5 +140,5 @@ full_buTP(Fun, Tree, Others) ->
       Gs ->
 	  Gs1 = [[full_buTP(Fun, T, Others) || T <- G] || G <- Gs],
 	  Tree1 = refac_syntax:make_tree(refac_syntax:type(Tree), Gs1),
-	  Fun(refac_util:rewrite(Tree, Tree1), Others)
+	  Fun(refac_misc:rewrite(Tree, Tree1), Others)
     end.

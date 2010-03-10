@@ -47,7 +47,7 @@
 %% =============================================================================================
 
 -spec(new_macro/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
-	       {ok, string()}).
+	       {ok, [filename()]}).
 new_macro(FileName, Start, End, NewMacroName, SearchPaths, TabWidth) ->
     new_macro(FileName, Start, End, NewMacroName, SearchPaths, TabWidth, emacs).
 
@@ -68,7 +68,7 @@ new_macro(FileName, Start = {SLine, SCol}, End = {ELine, ECol}, NewMacroName, Se
     case pre_cond_check(FileName, AnnAST, NewMacroName, Start, End, SearchPaths, TabWidth) of
       {ok, AnnAST, Sel, NeedBracket} ->
 	  AnnAST1 = do_intro_new_macro(AnnAST, NewMacroName, Sel, NeedBracket),
-	  return_refac_result(FileName, Editor, Cmd, AnnAST1);
+	  return_refac_result(FileName, AnnAST1, Editor, Cmd);
       {error, Reason} -> throw({error, Reason})
     end.
 
@@ -136,7 +136,7 @@ mk_macro_def(MName, Args, Exps) ->
 	  refac_syntax:attribute(refac_syntax:atom(define), [MApp| Exps])
     end.
 
-mk_macro_app(Args, MName) ->
+mk_macro_app(MName, Args) ->
     case Args of
       [] ->
 	  refac_syntax:macro(MName);

@@ -12,8 +12,18 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -spec anti_unification([syntaxTree()]|syntaxTree(), [syntaxTree()]|syntaxTree()) ->
-			      [{syntaxTree(), syntaxTree()}].
-anti_unification(Exprs1, Exprs2) when is_list(Exprs1) andalso is_list(Exprs2) ->
+			      [{syntaxTree(), syntaxTree()}] |none.
+anti_unification(Expr1, Expr2) ->
+    try do_anti_unification(Expr1, Expr2) of 
+	Res ->
+	    Res
+    catch
+	throw:_E2 ->
+	    none
+    end.
+       
+	
+do_anti_unification(Exprs1, Exprs2) when is_list(Exprs1) andalso is_list(Exprs2) ->
     case length(Exprs1) == length(Exprs2) of
 	true ->
 	    case Exprs1 of
@@ -21,20 +31,20 @@ anti_unification(Exprs1, Exprs2) when is_list(Exprs1) andalso is_list(Exprs2) ->
 		    [];
 		_ ->
 		    ZippedExprs = lists:zip(Exprs1, Exprs2),
-		    Res = [anti_unification(E1, E2) || {E1, E2} <- ZippedExprs],
+		    Res = [do_anti_unification(E1, E2) || {E1, E2} <- ZippedExprs],
 		    lists:append(Res)
 	    end;
 	false ->
 	    ?debug("Does not anti-unify 1:\n~p\n", [{Exprs1, Exprs2}]),
 	    throw(not_anti_unifiable)
     end;
-anti_unification(Expr1, _Expr2) when is_list(Expr1) ->
+do_anti_unification(Expr1, _Expr2) when is_list(Expr1) ->
     ?debug("Does not anti-unify 2:n~p\n", [{Expr1, _Expr2}]),
     throw(not_anti_unifiable);
-anti_unification(_Expr1, Expr2) when is_list(Expr2) ->
+do_anti_unification(_Expr1, Expr2) when is_list(Expr2) ->
     ?debug("Does not anti-unify 3:\n~p\n", [{_Expr1, Expr2}]),
     throw(not_anti_unifiable);
-anti_unification(Expr1, Expr2) ->
+do_anti_unification(Expr1, Expr2) ->
     T1 = refac_syntax:type(Expr1),
     T2 = refac_syntax:type(Expr2),
     case T1 == T2 of
@@ -119,11 +129,11 @@ anti_unification_same_type_1(E1,E2) ->
     SubExprs1 = refac_syntax:subtrees(E1),
     SubExprs2 = refac_syntax:subtrees(E2),
     try
-	anti_unification(SubExprs1, SubExprs2)
+	do_anti_unification(SubExprs1, SubExprs2)
     of
 	Subst -> Subst
     catch
-	_ -> case variable_replaceable(E1, E2) of
+	throw:_ -> case variable_replaceable(E1, E2) of
 		 true ->
 		     [{E1, E2}];
 		 _ -> throw(non_unificable)
@@ -139,10 +149,10 @@ anti_unification_same_type_1(E1,E2) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -spec anti_unification_with_score([syntaxTree()]|syntaxTree(), [syntaxTree()]|syntaxTree(), float()) ->
-					 [{syntaxTree(), syntaxTree()}] |none.
+					 [{syntaxTree(), syntaxTree()}]|none.
 anti_unification_with_score(Expr1, Expr2, SimiScore) ->
     try
-	anti_unification(Expr1, Expr2)
+	do_anti_unification(Expr1, Expr2)
     of
 	SubSt ->
 	    {SubExprs1, SubExprs2} = lists:unzip(SubSt),
@@ -159,7 +169,7 @@ anti_unification_with_score(Expr1, Expr2, SimiScore) ->
 		_ -> none
 	    end
     catch
-	_ -> none
+	throw:_ -> none
     end.
 
 
@@ -176,19 +186,19 @@ simi_score(Expr, SubExprs) ->
     end.
 
 subst_sanity_check(Expr1, SubSt) ->
-    BVs = refac_util:get_bound_vars(Expr1),
+    BVs = refac_misc:get_bound_vars(Expr1),
     F = fun ({E1, E2}) ->
 		case refac_syntax:type(E1) of
 		  variable ->
 		      case is_macro_name(E1) of
 			true ->
-			      false;
-			  _ ->
+			    false;
+			_ ->
 			    {value, {def, DefPos}} = lists:keysearch(def, 1, refac_syntax:get_ann(E1)),
-			      %% local vars should have the same substitute.
-			      not lists:any(fun ({E11, E21}) ->
-						    refac_syntax:type(E11) == variable andalso
-							{value, {def, DefPos}} == lists:keysearch(def, 1, refac_syntax:get_ann(E11))
+			    %% local vars should have the same substitute.
+			    not lists:any(fun ({E11, E21}) ->
+						  refac_syntax:type(E11) == variable andalso
+						    {value, {def, DefPos}} == lists:keysearch(def, 1, refac_syntax:get_ann(E11))
 						      andalso
 						      refac_prettypr:format(reset_attrs(E2))
 							=/= refac_prettypr:format(reset_attrs(E21))
@@ -196,7 +206,7 @@ subst_sanity_check(Expr1, SubSt) ->
 		      end;
 		  _ ->
 		      %% the expression to be replaced should not contain local variables.
-		      BVs -- refac_util:get_free_vars(E1) == BVs
+		      BVs -- refac_misc:get_free_vars(E1) == BVs
 		end
 	end,
     case BVs of
@@ -229,8 +239,8 @@ no_of_nodes(Node) ->
 			     {[atom()], [atom()]}) -> syntaxTree().
 generate_anti_unifier(Exprs, SearchRes, ExportVars) ->
     FunName = refac_syntax:atom(new_fun),
-    BVs = refac_util:get_bound_vars(Exprs),
-    FVs = lists:ukeysort(2, refac_util:get_free_vars(Exprs)),
+    BVs = refac_misc:get_bound_vars(Exprs),
+    FVs = lists:ukeysort(2, refac_misc:get_free_vars(Exprs)),
     {NewExprs, NewExportVars} = generalise_expr_1(Exprs, SearchRes, ExportVars),
     NewExprs1 = case NewExportVars of
 		  [] -> NewExprs;
@@ -247,11 +257,11 @@ generate_anti_unifier(Exprs, SearchRes, ExportVars) ->
 
 generalise_expr_1(Exprs, Subst, ExportVars) when is_list(Exprs) ->
     BlockExpr = refac_syntax:block_expr(Exprs),
-    FVs = refac_util:get_free_vars(Exprs),
+    FVs = refac_misc:get_free_vars(Exprs),
     {E, NewExportVars} = generalise_expr_2(BlockExpr, Subst, FVs, ExportVars),
     {refac_syntax:block_expr_body(E), NewExportVars};
 generalise_expr_1(Expr, Subst, ExportVars) ->
-    FVs = refac_util:get_free_vars(Expr),
+    FVs = refac_misc:get_free_vars(Expr),
     {E, NewExportVars} = generalise_expr_2(Expr, Subst, FVs, ExportVars),
     {[E], NewExportVars}.
 
@@ -284,7 +294,7 @@ do_replace_expr_with_var_1(Node, {SubSt, ExprFreeVars, Pid, ExportExprs}) ->
     ExprsToReplace = sets:from_list([E1 || S <- SubSt, {E1, _E2} <- S]),
     case sets:is_element(Node, ExprsToReplace) of
       true ->
-	  FVs = refac_util:get_free_vars(Node),
+	  FVs = refac_misc:get_free_vars(Node),
 	  case refac_syntax:type(Node) of
 	    variable ->
 		case FVs of
@@ -300,7 +310,7 @@ do_replace_expr_with_var_1(Node, {SubSt, ExprFreeVars, Pid, ExportExprs}) ->
 					  refac_code_search_utils:add_new_export_var(Pid, NewVar);
 				      _ -> ok
 				    end,
-				    {refac_util:rewrite(Node, refac_syntax:variable(NewVar)), true}
+				    {refac_misc:rewrite(Node, refac_syntax:variable(NewVar)), true}
 			     end;
 			 _ -> {Node, false}
 		       end
@@ -312,7 +322,7 @@ do_replace_expr_with_var_1(Node, {SubSt, ExprFreeVars, Pid, ExportExprs}) ->
 		      refac_code_search_utils:add_new_export_var(Pid, NewVar);
 		  _ -> ok
 		end,
-		{refac_util:rewrite(Node, refac_syntax:variable(NewVar)), true}
+		{refac_misc:rewrite(Node, refac_syntax:variable(NewVar)), true}
 	  end;
       _ -> {Node, false}
     end.

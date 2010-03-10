@@ -81,11 +81,9 @@ print_ast(FileFmt, AST,Options) ->
 		 format = FileFmt},
     Fs = refac_syntax:form_list_elements(AST),
     Es = seq_pr(Fs,none,reset_prec(Ctxt),fun lay/2),
-    LayoutedEs = lists:map(fun (E) ->
-				   refac_prettypr_0:layout(E, FileFmt)
-			   end,Es),
-    Res=vertical_concat(lists:zip(LayoutedEs,Fs), FileFmt),
-    Res.
+    LayoutedEs = [refac_prettypr_0:layout(E, FileFmt)||E<-Es],
+    vertical_concat(lists:zip(LayoutedEs,Fs), FileFmt).
+  
 
 seq_pr([H| T],Separator,Ctxt,Fun) ->
     {Paper,Ribbon} = get_paper_ribbon_width(H),
@@ -100,7 +98,7 @@ seq_pr([],_,_,_) -> [].
 vertical_concat(Es, FileFormat) -> vertical_concat(Es,FileFormat,"").
 
 vertical_concat([], _FileFormat, Acc) -> Acc;
-vertical_concat([{E,Form}| T], FileFormat, Acc) ->
+vertical_concat([{E, Form}| T], FileFormat, Acc) ->
     SpecialForm = fun (F) ->
 			  case refac_syntax:type(F) of
 			    error_marker -> true;
@@ -110,48 +108,48 @@ vertical_concat([{E,Form}| T], FileFormat, Acc) ->
 				  'spec' -> true;
 				  record -> [_R, FieldTuple] = refac_syntax:attribute_arguments(F),
 					    Fields = refac_syntax:tuple_elements(FieldTuple),
-					    lists:any(fun(Field) -> case refac_syntax:type(Field) of 
-									typed_record_field ->
-									    true;
-									_ -> false
-								    end
+					    lists:any(fun (Field) -> case refac_syntax:type(Field) of
+								       typed_record_field ->
+									   true;
+								       _ -> false
+								     end
 						      end, Fields);
-				    _ -> false
+				  _ -> false
 				end;
 			    _ -> false
 			  end
 		  end,
-    Delimitor = case FileFormat of 
-		    dos -> "\r\n";
-		    mac -> "\r";
-		    _ -> "\n"
+    Delimitor = case FileFormat of
+		  dos -> "\r\n";
+		  mac -> "\r";
+		  _ -> "\n"
 		end,
-    F = refac_util:concat_toks(refac_util:get_toks(Form)),
-    {ok,EToks,_} = refac_scan:string(E),
-    {ok,FToks,_} = refac_scan:string(F),
-    EStr = [S||S<-refac_util:concat_toks(EToks), S=/=$\s, S=/=$'],
-    FStr = [S||S<-refac_util:concat_toks(FToks), S=/=$\s, S=/=$'],
+    F = refac_util:concat_toks(refac_misc:get_toks(Form)),
+    {ok, EToks, _} = refac_scan:string(E),
+    {ok, FToks, _} = refac_scan:string(F),
+    EStr = [S || S <- refac_util:concat_toks(EToks), S =/= $\s, S =/= $'],
+    FStr = [S || S <- refac_util:concat_toks(FToks), S =/= $\s, S =/= $'],
     Acc1 = case Acc of
 	     "" -> Acc;
 	     _ ->
 		 case (EStr == FStr) or SpecialForm(Form) of
-		   true -> 
-			 Acc;
-		   false when F=/="" ->
-			 LeadEmptyLines =lists:takewhile(fun(C) -> (C==$\s) or (C==$\n) or (C==$\r) end, F),
-			 LeadEmptyLines1 = lists:reverse(lists:dropwhile(fun(C) -> C==$\s end, lists:reverse(LeadEmptyLines))),
-			 Acc ++ LeadEmptyLines1;
-		     _ -> Acc++Delimitor
+		   true ->
+		       Acc;
+		   false when F =/= "" ->
+		       LeadEmptyLines = lists:takewhile(fun (C) -> (C == $\s) or (C == $\n) or (C == $\r) end, F),
+		       LeadEmptyLines1 = lists:reverse(lists:dropwhile(fun (C) -> C == $\s end, lists:reverse(LeadEmptyLines))),
+		       Acc ++ LeadEmptyLines1;
+		   _ -> Acc ++ Delimitor
 		 end
 	   end,
     Str = case (EStr == FStr) or SpecialForm(Form) of
-	    true -> 
-		  refac_util:concat_toks(refac_util:get_toks(Form));
+	    true ->
+		refac_util:concat_toks(refac_misc:get_toks(Form));
 	    false ->
-		  case T of
-		      [] -> E;
-		      [{_E1,_Form1}| _] -> E ++ Delimitor
-		  end
+		case T of
+		  [] -> E;
+		  [{_E1, _Form1}| _] -> E ++ Delimitor
+		end
 	  end,
     case T of
       [] -> Acc1 ++ Str;
@@ -165,39 +163,34 @@ get_paper_ribbon_width(Form) ->
       attribute -> {?PAPER, ?RIBBON};
       _ ->
 	  Fun = fun (T, Acc) ->
-			{S, E} = refac_util:get_range(T),
+			{S, E} = refac_misc:get_start_end_loc(T),
 			[S, E] ++ Acc
 		end,
 	  AllRanges = refac_syntax_lib:fold(Fun, [], Form),
-	  {Start, End} = refac_util:get_range(Form),
+	  {Start, End} = refac_misc:get_start_end_loc(Form),
 	  GroupedRanges = refac_misc:group_by(1, lists:filter(fun (Loc) ->
 								      (Loc >= Start) and (Loc =< End)
 							      end, AllRanges)),
 	  case (AllRanges == []) or (GroupedRanges == []) of
 	    true -> {?PAPER, ?RIBBON};
-	    _ ->
-		MinMaxCols = lists:map(fun (Rs) -> Cols = lists:map(fun ({_Ln, Col}) -> Col
-								    end, Rs),
-						   case Cols of
-						     [] -> {1, 80};
-						     _ -> {lists:min(Cols), lists:max(Cols)}
-						   end
-				       end, GroupedRanges),
-		Paper = lists:max(lists:map(fun ({_Min, Max}) ->
-						    Max
-					    end, MinMaxCols)),
-		Ribbon = lists:max(lists:map(fun ({Min, Max}) ->
-						     Max - Min + 1
-					     end, MinMaxCols)),
-		Paper1 = case Paper < ?PAPER of
-			   true -> ?PAPER;
-			   _ -> Paper
-			 end,
-		Ribbon1 = case Ribbon < ?RIBBON of
-			    true -> ?RIBBON;
-			    _ -> Ribbon
-			  end,
-		{Paper1 + 5, Ribbon1 + 5}  %% adjustion to take the ending tokens such as brackets/commas into account.
+	      _ ->
+		  MinMaxCols = lists:map(fun (Rs) -> Cols = [Col||{_, Col}<-Rs],
+						     case Cols of
+							 [] -> {1, 80};
+							 _ -> {lists:min(Cols), lists:max(Cols)}
+						     end
+					 end, GroupedRanges),
+		  Paper = lists:max([Max||{_Min, Max}<-MinMaxCols]),
+		  Ribbon = lists:max([Max-Min+1|| {Min, Max}<-MinMaxCols]),
+		  Paper1 = case Paper < ?PAPER of
+			       true -> ?PAPER;
+			       _ -> Paper
+			   end,
+		  Ribbon1 = case Ribbon < ?RIBBON of
+				true -> ?RIBBON;
+				_ -> Ribbon
+			    end,
+		  {Paper1 + 5, Ribbon1 + 5}  %% adjustion to take the ending tokens such as brackets/commas into account.
 	  end
     end.
 
@@ -468,38 +461,38 @@ lay(Node,Ctxt) ->
 %% This handles attached comments:
 
 
-lay_1(Node,Ctxt) ->
+lay_1(Node, Ctxt) ->
     case refac_syntax:has_comments(Node) of
       true ->
-	    {{NodeStartLn, _}, {NodeEndLn, _}}= refac_util:get_range(Node),
-	    D1 = lay_2(Node,Ctxt),
-	    PreCs = refac_syntax:get_precomments(Node),
-	    PostCs= refac_syntax:get_postcomments(Node),
-	    D2 = case PostCs of 
-		     [] ->
-			 D1;
-		     _ ->
-			 PostCsLn = element(1, refac_syntax:get_pos(hd(PostCs))),
-			 case PostCsLn > NodeEndLn+1 of
-			     true ->
-				 lay_postcomments(refac_syntax:get_postcomments(Node),above(D1, text("")));
-			     false ->
-				 lay_postcomments(refac_syntax:get_postcomments(Node),D1)
-			 end
-		 end,
-	    case PreCs of
-		[] -> D2;
-		_ -> LastPreC = lists:last(PreCs),
-		     PreCLn=element(1, refac_syntax:get_pos(LastPreC)),
-		     LastPreCLines = length(refac_syntax:comment_text(LastPreC)),
-		     case NodeStartLn > PreCLn+LastPreCLines of
-			 true ->
-			     lay_precomments(refac_syntax:get_precomments(Node),above(text(""),D2));
-			 false ->
-			     lay_precomments(refac_syntax:get_precomments(Node),D2)
+	  {{NodeStartLn, _}, {NodeEndLn, _}} = refac_misc:get_start_end_loc(Node),
+	  D1 = lay_2(Node, Ctxt),
+	  PreCs = refac_syntax:get_precomments(Node),
+	  PostCs = refac_syntax:get_postcomments(Node),
+	  D2 = case PostCs of
+		 [] ->
+		     D1;
+		 _ ->
+		     PostCsLn = element(1, refac_syntax:get_pos(hd(PostCs))),
+		     case PostCsLn > NodeEndLn + 1 of
+		       true ->
+			   lay_postcomments(refac_syntax:get_postcomments(Node), above(D1, text("")));
+		       false ->
+			   lay_postcomments(refac_syntax:get_postcomments(Node), D1)
 		     end
-	    end;
-	false -> lay_2(Node,Ctxt)
+	       end,
+	  case PreCs of
+	    [] -> D2;
+	    _ -> LastPreC = lists:last(PreCs),
+		 PreCLn = element(1, refac_syntax:get_pos(LastPreC)),
+		 LastPreCLines = length(refac_syntax:comment_text(LastPreC)),
+		 case NodeStartLn > PreCLn + LastPreCLines of
+		   true ->
+		       lay_precomments(refac_syntax:get_precomments(Node), above(text(""), D2));
+		   false ->
+		       lay_precomments(refac_syntax:get_precomments(Node), D2)
+		 end
+	  end;
+      false -> lay_2(Node, Ctxt)
     end.
 
 %% For pre-comments, all padding is ignored.
@@ -1297,22 +1290,22 @@ tidy_float_2([]) -> [].
 
 get_start_line(Node) ->
     PreComs = refac_syntax:get_precomments(Node),
-    {{L, _C}, _}= refac_util:get_range(Node),
-    case PreComs of 
-	[] -> L;
-	_ -> element(1, refac_syntax:get_pos(hd(PreComs)))
+    {{L, _C}, _} = refac_misc:get_start_end_loc(Node),
+    case PreComs of
+      [] -> L;
+      _ -> element(1, refac_syntax:get_pos(hd(PreComs)))
     end.
    
   
 get_end_line(Node) ->
     PostComs = refac_syntax:get_postcomments(Node),
-    {_, {L, _C}} =refac_util:get_range(Node),
+    {_, {L, _C}} = refac_misc:get_start_end_loc(Node),
     case PostComs of
-	[] -> L;
-	_ -> LastCom =lists:last(PostComs),
-	     LastComText = refac_syntax:comment_text(LastCom),
-	     element(1, refac_syntax:get_pos(LastCom))+ 
-		 length(LastComText) -1
+      [] -> L;
+      _ -> LastCom = lists:last(PostComs),
+	   LastComText = refac_syntax:comment_text(LastCom),
+	   element(1, refac_syntax:get_pos(LastCom)) +
+	     length(LastComText) - 1
     end.
 	     
 

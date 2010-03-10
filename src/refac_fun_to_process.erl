@@ -146,7 +146,7 @@ pre_cond_check(AnnAST, Pos, ModName, FunName, Arity, ProcessName, SearchPaths, T
 	  ?wrangler_io("The value returned by 'self()', which is used at the location(s) listed below, will be changed "
 		       " by this refactoring, and this could possibly change the behaviour of the program!\n", []),
 	  lists:foreach(fun ({{File, _Fun, _Ari}, SelfExpr, _}) ->
-				{{Line, _}, _} = refac_util:get_range(SelfExpr),
+				{{Line, _}, _} = refac_misc:get_start_end_loc(SelfExpr),
 				Msg = File ++ io_lib:format(":~p: \n", [Line]),
 				?wrangler_io(Msg, [])
 			end, SelfRes),
@@ -172,7 +172,7 @@ pre_cond_check(AnnAST, Pos, ModName, FunName, Arity, ProcessName, SearchPaths, T
 	  ?wrangler_io("The value returned by 'self()', which is used at the location(s) listed below, will be changed "
 		       " by this refactoring, and this could possibly change the behaviour of the program!\n", []),
 	  lists:foreach(fun ({{File, _Fun, _Ari}, SelfExpr, _}) ->
-				{{Line, _}, _} = refac_util:get_range(SelfExpr),
+				{{Line, _}, _} = refac_misc:get_start_end_loc(SelfExpr),
 				Msg = File ++ io_lib:format(":~p: \n", [Line]),
 				?wrangler_io(Msg, [])
 			end, SelfRes),
@@ -239,10 +239,10 @@ reached_funs_1(CallerCallee, Acc) ->
     end.
 
 do_fun_to_process(AnnAST, Info, DefPos, FunName, Arity, ProcessName) ->
-    InScopeFuns = [{F, A} ||{_M, F, A}<-refac_util:inscope_funs(Info)],
-    RpcFunName = new_fun_name(atom_to_list(FunName)++ "_rpc", 2, 0, InScopeFuns),
-    NewFunName = new_fun_name(atom_to_list(FunName), 0, 0, InScopeFuns--[{FunName, Arity}]),
-    do_fun_to_process_1(AnnAST, DefPos, ProcessName,FunName,  NewFunName, RpcFunName).
+    InScopeFuns = [{F, A} || {_M, F, A} <- refac_misc:inscope_funs(Info)],
+    RpcFunName = new_fun_name(atom_to_list(FunName) ++ "_rpc", 2, 0, InScopeFuns),
+    NewFunName = new_fun_name(atom_to_list(FunName), 0, 0, InScopeFuns -- [{FunName, Arity}]),
+    do_fun_to_process_1(AnnAST, DefPos, ProcessName, FunName, NewFunName, RpcFunName).
     
 
 new_fun_name(BaseName, Arity, Index, InScopeFuns) ->
@@ -384,7 +384,7 @@ evaluate_expr(FileName, Expr, SearchPaths, TabWidth) ->
     Val = refac_misc:try_eval(FileName, Expr, SearchPaths, TabWidth),
     case Val of
       {value, V} -> [{value, V}];
-      _ -> {{StartLine, _StartCol}, _} = refac_util:get_range(Expr),
+      _ -> {{StartLine, _StartCol}, _} = refac_misc:get_start_end_loc(Expr),
 	   [{unknown, {FileName, StartLine}}]
     end.
    

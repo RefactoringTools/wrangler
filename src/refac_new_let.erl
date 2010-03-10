@@ -115,9 +115,9 @@ side_cond_analysis(FunDef, Expr, NewPatName) ->
     end,
     case get_parent_expr(FunDef, Expr) of
       {ok, ParentExpr} ->
-	  FrVars = refac_util:get_free_vars(ParentExpr),
-	  BdVars = refac_util:get_bound_vars(ParentExpr),
-	  EnvVars = refac_util:get_env_vars(ParentExpr),
+	  FrVars = refac_misc:get_free_vars(ParentExpr),
+	  BdVars = refac_misc:get_bound_vars(ParentExpr),
+	  EnvVars = refac_misc:get_env_vars(ParentExpr),
 	  Vars = element(1, lists:unzip(FrVars ++ BdVars ++ EnvVars)),
 	  case lists:member(list_to_atom(NewPatName), Vars) of
 	    true ->
@@ -228,48 +228,48 @@ do_intro_new_let(Node, Exp, NewPatName, ParentExpr, LetMacro) ->
     element(1, ast_traverse_api:stop_tdTP(fun do_intro_new_let/2, Node, {Exp, NewPatName, ParentExpr, LetMacro})).
 
 do_intro_new_let(Node, {Expr, NewPatName, ParentExpr, LetMacro}) ->
-    case Node of 
-	LetMacro when LetMacro=/=none ->
-	    Args = list_to_tuple(refac_syntax:macro_arguments(LetMacro)),
-	    Pats = element(1, Args),
-	    G1 = element(2, Args),
-	    BdVars = refac_util:get_bound_vars(Pats),
-	    FrVars = refac_util:get_free_vars(Expr),
-	    case FrVars -- BdVars of 
-		FrVars -> 
-		    ParentExpr1 = replace_expr_with_var(ParentExpr, {Expr, NewPatName}),
-		    NewPat =refac_syntax:variable(NewPatName),
-		    {NewPats, NewG1} = 
-			case {refac_syntax:type(Pats), refac_syntax:type(G1)} of 
-			    {tuple, tuple} -> 
-				Ps = refac_syntax:tuple_elements(Pats),
-				Gs = refac_syntax:tuple_elements(G1),
-				{refac_util:rewrite(Pats, refac_syntax:tuple(Ps++[NewPat])),
-				 refac_util:rewrite(G1, refac_syntax:tuple(Gs++[Expr]))};
-			    _ -> 
-				{refac_syntax:tuple([Pats, NewPat]),
-				 refac_syntax:tuple([G1, Expr])}
-			end,
-		    NewArgs = [NewPats, NewG1, ParentExpr1],
-		    {refac_syntax:macro(refac_syntax:variable('LET'), NewArgs), true};
-		_ -> {Node, false}
-	    end;
-	ParentExpr ->
-	    ParentExpr1 = replace_expr_with_var(ParentExpr, {Expr, NewPatName}),
-	    Args = [refac_syntax:variable(NewPatName),
-		    Expr, ParentExpr1],
-	    {refac_syntax:macro(refac_syntax:variable('LET'), Args), true};	    
-	_ -> {Node, false}
+    case Node of
+      LetMacro when LetMacro =/= none ->
+	  Args = list_to_tuple(refac_syntax:macro_arguments(LetMacro)),
+	  Pats = element(1, Args),
+	  G1 = element(2, Args),
+	  BdVars = refac_misc:get_bound_vars(Pats),
+	  FrVars = refac_misc:get_free_vars(Expr),
+	  case FrVars -- BdVars of
+	    FrVars ->
+		ParentExpr1 = replace_expr_with_var(ParentExpr, {Expr, NewPatName}),
+		NewPat = refac_syntax:variable(NewPatName),
+		{NewPats, NewG1} =
+		    case {refac_syntax:type(Pats), refac_syntax:type(G1)} of
+		      {tuple, tuple} ->
+			  Ps = refac_syntax:tuple_elements(Pats),
+			  Gs = refac_syntax:tuple_elements(G1),
+			  {refac_misc:rewrite(Pats, refac_syntax:tuple(Ps ++ [NewPat])),
+			   refac_misc:rewrite(G1, refac_syntax:tuple(Gs ++ [Expr]))};
+		      _ ->
+			  {refac_syntax:tuple([Pats, NewPat]),
+			   refac_syntax:tuple([G1, Expr])}
+		    end,
+		NewArgs = [NewPats, NewG1, ParentExpr1],
+		{refac_syntax:macro(refac_syntax:variable('LET'), NewArgs), true};
+	    _ -> {Node, false}
+	  end;
+      ParentExpr ->
+	  ParentExpr1 = replace_expr_with_var(ParentExpr, {Expr, NewPatName}),
+	  Args = [refac_syntax:variable(NewPatName),
+		  Expr, ParentExpr1],
+	  {refac_syntax:macro(refac_syntax:variable('LET'), Args), true};
+      _ -> {Node, false}
     end.
 
 replace_expr_with_var(Node, {Expr, Var}) ->
     element(1, ast_traverse_api:stop_tdTP(fun do_replace_expr_with_var/2, Node, {Expr, Var})).
 
 do_replace_expr_with_var(Node, {Expr, Var}) ->
-    case Node of 
-	Expr ->
-	    {refac_util:rewrite(Expr, refac_syntax:variable(Var)), true};
-	_ ->{Node, false}
+    case Node of
+      Expr ->
+	  {refac_misc:rewrite(Expr, refac_syntax:variable(Var)), true};
+      _ -> {Node, false}
     end.
 
 is_generator(Expr) ->
@@ -471,11 +471,11 @@ do_merge(AnnAST, Candidates) ->
     element(1, ast_traverse_api:stop_tdTP(fun do_merge_1/2, AnnAST, Candidates)).
 
 do_merge_1(Tree, Candidates) ->
-    {{StartLine, StartCol}, {EndLine, EndCol}} = refac_util:get_range(Tree),
+    {{StartLine, StartCol}, {EndLine, EndCol}} = refac_misc:get_start_end_loc(Tree),
     case lists:keysearch({StartLine, StartCol, EndLine, EndCol}, 1, Candidates) of
-	{value, {_, NewLetApp}} ->
-	    {list_to_term(NewLetApp), true};
-	_ -> {Tree, false}
+      {value, {_, NewLetApp}} ->
+	  {list_to_term(NewLetApp), true};
+      _ -> {Tree, false}
     end.
 
 search_merge_candiates(AnnAST, MacroName) ->
@@ -519,8 +519,8 @@ collect_mergeable_lets_or_foralls(Node, MacroName) ->
     case Res == [P, G1, G2] of
       true ->
 	  [];
-      _ -> [{refac_util:get_range(Node),
-	     refac_util:reset_attrs(refac_syntax:macro(refac_syntax:variable(MacroName), Res))}]
+      _ -> [{refac_misc:get_start_end_loc(Node),
+	     refac_misc:reset_attrs(refac_syntax:macro(refac_syntax:variable(MacroName), Res))}]
     end.
 
 collect_mergeable_lets_or_foralls_1(Res = [P, G1, G2], MacroName) ->
@@ -528,12 +528,12 @@ collect_mergeable_lets_or_foralls_1(Res = [P, G1, G2], MacroName) ->
       true ->
 	  Args1 = refac_syntax:macro_arguments(G2),
 	  [P1, G11, G12] = Args1,
-	  BdVars = refac_util:get_bound_vars(P),
-	  FrVars = refac_util:get_free_vars(G11),
+	  BdVars = refac_misc:get_bound_vars(P),
+	  FrVars = refac_misc:get_free_vars(G11),
 	  case FrVars -- BdVars of
 	    FrVars ->
-		{Ps, Gs} =  get_pats_gens(P, G1),
-		{Ps1, Gs1} =  get_pats_gens(P1, G11),
+		{Ps, Gs} = get_pats_gens(P, G1),
+		{Ps1, Gs1} = get_pats_gens(P1, G11),
 		NewP = refac_syntax:tuple(Ps ++ Ps1),
 		NewG1 = refac_syntax:tuple(Gs ++ Gs1),
 		collect_mergeable_lets_or_foralls_1([NewP, NewG1, G12], MacroName);

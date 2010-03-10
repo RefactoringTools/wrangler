@@ -279,37 +279,36 @@ process_a_file(File, Cs, MinLength, TabWidth) ->
     Vars = refac_misc:collect_var_source_def_pos_info(AnnAST),
     Fun0 = fun (Node) ->
 		   case refac_syntax:type(Node) of
-		       function ->
-			   true;
-		       _ ->
-			   refac_util:is_expr(Node) andalso 
-			       refac_syntax:type(Node) /= guard_expression
+		     function ->
+			 true;
+		     _ ->
+			 refac_misc:is_expr(Node) andalso refac_syntax:type(Node) /= guard_expression
 		   end
 	   end,
     Fun1 = fun (Range) ->
 		   case Range of
-		       {{File1, L1, C1}, {File2, L2, C2}} ->
-			   case File1 /= File2 of
-			       true -> [];
-			       _ when File == File1 ->
-				   Units = pos_to_syntax_units(AnnAST, {L1, C1}, {L2, C2}, Fun0, MinLength),
-				   [process_a_unit(Vars, File1, U) || U <- Units];
-			       _ -> Range
-			   end;
-		       _ -> Range
+		     {{File1, L1, C1}, {File2, L2, C2}} ->
+			 case File1 /= File2 of
+			   true -> [];
+			   _ when File == File1 ->
+			       Units = pos_to_syntax_units(AnnAST, {L1, C1}, {L2, C2}, Fun0, MinLength),
+			       [process_a_unit(Vars, File1, U) || U <- Units];
+			   _ -> Range
+			 end;
+		     _ -> Range
 		   end
 	   end,
-    [{NewRanges, Len, Freq} ||
-	C <- Cs, 
+    [{NewRanges, Len, Freq}
+     || C <- Cs,
 	{Range, Len, Freq} <- [C],
 	NewRanges <- [lists:map(Fun1, Range)], NewRanges /= []].
 
 process_a_unit(VarsUsed, FileName, Unit) ->
-    {{StartLn, StartCol}, _} = refac_util:get_range(hd(Unit)),
-    {_, {EndLn, EndCol}} = refac_util:get_range(lists:last(Unit)),
+    {{StartLn, StartCol}, _} = refac_misc:get_start_end_loc(hd(Unit)),
+    {_, {EndLn, EndCol}} = refac_misc:get_start_end_loc(lists:last(Unit)),
     BdStruct = refac_code_search_utils:var_binding_structure(Unit),
     Range = {{FileName, StartLn, StartCol}, {FileName, EndLn, EndCol}},
-    ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_util:get_bound_vars(Unit)],
+    ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_misc:get_bound_vars(Unit)],
     VarsToExport = [{V, DefPos} || {V, SourcePos, DefPos} <- VarsUsed,
 				   SourcePos > {EndLn, EndCol},
 				   lists:subtract(DefPos, ExprBdVarsPos) == []],
@@ -329,16 +328,16 @@ pos_to_syntax_units_1(Tree, Start, End, F, Type) ->
 		  [[lists:append(pos_to_syntax_units_1(T, Start, End, F, Type1)) || T <- G]
 		   || G <- Ts]
 	  end,
-    {S, E} = refac_util:get_range(Tree),
+    {S, E} = refac_misc:get_start_end_loc(Tree),
     if (S >= Start) and (E =< End) ->
-	    case F(Tree) of
-		true -> 
-		    [{Tree, Type}];
-		_ -> []			
+	   case F(Tree) of
+	     true ->
+		 [{Tree, Type}];
+	     _ -> []
 	   end;
        (S > End) or (E < Start) -> [];
        (S < Start) or (E > End) ->
-	    Fun(Tree);
+	   Fun(Tree);
        true -> []
     end.
 
@@ -715,7 +714,7 @@ generalise_expr({Exprs = [H| _T], EVs}, {NodeVarPairs, VarsToExport}) ->
 	  generalise_fun(H, NodeVarPairs);
       _ ->
 	  FunName = refac_syntax:atom(new_fun),
-	  FVs = lists:ukeysort(2, refac_util:get_free_vars(Exprs)),
+	  FVs = lists:ukeysort(2, refac_misc:get_free_vars(Exprs)),
 	  EVs1 = lists:ukeysort(2, EVs ++ VarsToExport),
 	  NewExprs = generalise_expr_1(Exprs, NodeVarPairs),
 	  NewExprs1 = case EVs1 of

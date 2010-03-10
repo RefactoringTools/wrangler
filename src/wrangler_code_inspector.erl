@@ -59,7 +59,7 @@ find_var_instances(FName, Line, Col, SearchPaths, TabWidth) ->
 			       variable ->
 				   case lists:keysearch(def, 1, refac_syntax:get_ann(T)) of
 				     {value, {def, DefinePos}} ->
-					 Range = refac_util:get_range(T),
+					 Range = refac_misc:get_start_end_loc(T),
 					 [Range| S];
 				     _ -> S
 				   end;
@@ -136,19 +136,19 @@ nested_exprs_1(FName, NestLevel, ExprType, SearchPaths, TabWidth) ->
     ModName = get_module_name(FName, Info),
     Fun = fun (T, S) ->
 		  case refac_syntax:type(T) of
-		      function ->
-			  FunName = refac_syntax:atom_value(refac_syntax:function_name(T)),
-			  Arity = refac_syntax:function_arity(T),
-			  Fun1 = fun (Node, S1) ->
-					 case refac_syntax:type(Node) of
-					     ExprType ->
-						 Range = refac_util:get_range(Node),
-						 [{ModName, FunName, Arity, Range} | S1];
-					     _ -> S1
-					 end
-				 end,
-			  refac_syntax_lib:fold(Fun1, S, T);
-		      _ -> S
+		    function ->
+			FunName = refac_syntax:atom_value(refac_syntax:function_name(T)),
+			Arity = refac_syntax:function_arity(T),
+			Fun1 = fun (Node, S1) ->
+				       case refac_syntax:type(Node) of
+					 ExprType ->
+					     Range = refac_misc:get_start_end_loc(Node),
+					     [{ModName, FunName, Arity, Range}| S1];
+					 _ -> S1
+				       end
+			       end,
+			refac_syntax_lib:fold(Fun1, S, T);
+		    _ -> S
 		  end
 	  end,
     Ranges = lists:usort(refac_syntax_lib:fold(Fun, [], AnnAST)),
@@ -221,7 +221,7 @@ caller_funs(FName, Line, Col, SearchPaths, TabWidth) ->
 	    {value, {fun_def, {M, F, A, _, _}}} ->
 		?wrangler_io("\nSearching for caller function of ~p:~p/~p ...\n", [M, F, A]),
 		{Res1, Res2} = get_caller_funs(FName, {M, F, A}, SearchPaths, TabWidth),
-		case refac_util:is_exported({F, A}, Info) of
+		case refac_misc:is_exported({F, A}, Info) of
 		  true ->
 		      ?wrangler_io("\nChecking client modules in the following paths: \n~p\n",
 				   [SearchPaths]),
@@ -380,7 +380,7 @@ long_functions_2(FName, Lines, SearchPaths, TabWidth) ->
     Fun = fun (Node, S) ->
 		  case refac_syntax:type(Node) of
 		    function ->
-			Toks = refac_util:get_toks(Node),
+			Toks = refac_misc:get_toks(Node),
 			CodeLines = [element(1, element(2, T)) || T <- Toks, element(1, T) /= whitespace, element(1, T) /= comment],
 			CodeLines1 = refac_misc:remove_duplicates(CodeLines),
 			case length(CodeLines1) > Lines of
@@ -496,18 +496,18 @@ non_tail_format_results(Funs) ->
     
 
 has_receive_expr(FunDef) ->
-    F = fun(T, S) ->
-		case refac_syntax:type(T) of 
-		    receive_expr -> 
-			{{StartLine, _}, _} = refac_util:get_range(T),
-			[StartLine|S];
-		    _ -> S
+    F = fun (T, S) ->
+		case refac_syntax:type(T) of
+		  receive_expr ->
+		      {{StartLine, _}, _} = refac_misc:get_start_end_loc(T),
+		      [StartLine| S];
+		  _ -> S
 		end
 	end,
     LineNums = refac_syntax_lib:fold(F, [], FunDef),
-    case LineNums of 
-	[] -> false;
-	_ -> {true, lists:min(LineNums)}
+    case LineNums of
+      [] -> false;
+      _ -> {true, lists:min(LineNums)}
     end.
 
 is_non_tail_recursive_server(FunDef, {ModName, FunName, Arity}, Line, SearchPaths) ->
@@ -556,7 +556,7 @@ check_candidate_scc(FunDef, Scc, Line) ->
 	end,
     F1 = fun (Es) ->
 		 F11 = fun (E) ->
-			       {_, {EndLine, _}} = refac_util:get_range(E),
+			       {_, {EndLine, _}} = refac_misc:get_start_end_loc(E),
 			       case EndLine >= Line of
 				 true ->
 				     CalledFuns = wrangler_callgraph_server:called_funs(E),
@@ -642,15 +642,15 @@ is_server(_FileName, _Info, FunDef, Scc, Line) ->
     F = fun (T, Acc) ->
 		case
 		  refac_syntax:type(T)      %% To think: any other cases here?
-		of
-		    application -> Acc ++ [T];
-		    _ -> Acc
+		    of
+		  application -> Acc ++ [T];
+		  _ -> Acc
 		end
 	end,
     F1 = fun (E) ->
-		 {_, {EndLine, _}} = refac_util:get_range(E),
+		 {_, {EndLine, _}} = refac_misc:get_start_end_loc(E),
 		 case EndLine >= Line of
-		     true ->
+		   true ->
 		       CalledFuns = wrangler_callgraph_server:called_funs(E),
 		       case lists:subtract(CalledFuns, MFAs) of
 			 CalledFuns -> false;
@@ -664,28 +664,28 @@ is_server(_FileName, _Info, FunDef, Scc, Line) ->
   
 
 not_has_flush_fun(FunDef) ->
-    F = fun(T,S) ->
-		case refac_syntax:type(T) of 
-		    receive_expr ->
-			Cs = refac_syntax:receive_expr_clauses(T),
-			R = lists:any(fun(C) ->
-					      Pat = refac_syntax:clause_patterns(C),
-					      case length(Pat) of 
-						  1 -> P = hd(Pat),
-						       case refac_syntax:type(P) of 
-							   variable -> 
-							       case refac_util:get_free_vars(P) of 
-								   [] -> true;
-								   _ -> false
-							       end;
-							   under_score -> true;
+    F = fun (T, S) ->
+		case refac_syntax:type(T) of
+		  receive_expr ->
+		      Cs = refac_syntax:receive_expr_clauses(T),
+		      R = lists:any(fun (C) ->
+					    Pat = refac_syntax:clause_patterns(C),
+					    case length(Pat) of
+					      1 -> P = hd(Pat),
+						   case refac_syntax:type(P) of
+						     variable ->
+							 case refac_misc:get_free_vars(P) of
+							   [] -> true;
 							   _ -> false
-						       end;
-						  _ -> false
-					      end
-				      end, Cs),
-			[R =/= true|S];
-		    _ -> S
+							 end;
+						     under_score -> true;
+						     _ -> false
+						   end;
+					      _ -> false
+					    end
+				    end, Cs),
+		      [R =/= true| S];
+		  _ -> S
 		end
 	end,
     lists:member(true, refac_syntax_lib:fold(F, [], FunDef)).

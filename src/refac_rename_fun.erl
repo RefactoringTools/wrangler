@@ -113,7 +113,7 @@ rename_fun_0(FileName, NewName, SearchPaths, TabWidth, Editor,
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     {AnnAST1, _C} = do_rename_fun(AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}),
     refac_atom_utils:check_atoms(FileName, AnnAST1, [Fun], Pid),
-    case refac_util:is_exported({Fun, Arity}, Info) of
+    case refac_misc:is_exported({Fun, Arity}, Info) of
       true ->
 	  ?wrangler_io("\nChecking possible client modules in the following search paths: \n~p\n", [SearchPaths]),
 	  ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
@@ -161,7 +161,7 @@ rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     Pid = refac_atom_utils:start_atom_process(),
     {AnnAST1, _C} = do_rename_fun(AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}),
-    case refac_util:is_exported({Fun, Arity}, Info) of
+    case refac_misc:is_exported({Fun, Arity}, Info) of
       true ->
 	  ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
 	  ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
@@ -198,7 +198,7 @@ write_files(Editor, Results, Cmd, HasWarningMsg) ->
     end.
 pre_cond_check(FileName, Info, NewFunName, OldFunDefMod, OldFunName, Arity) ->
     {ok, ModName} = get_module_name(Info),
-    Inscope_Funs = [{F, A} || {_M, F, A} <- refac_util:inscope_funs(Info)],
+    Inscope_Funs = [{F, A} || {_M, F, A} <- refac_misc:inscope_funs(Info)],
     if OldFunDefMod == ModName ->
 	   case lists:member({NewFunName, Arity}, Inscope_Funs) orelse
 		  erlang:is_builtin(erlang, NewFunName, Arity) orelse
@@ -209,7 +209,7 @@ pre_cond_check(FileName, Info, NewFunName, OldFunDefMod, OldFunName, Arity) ->
 			   integer_to_list(Arity) ++ " is already in scope, "
 						     "or is an auto-imported builtin function."};
 	     _ ->
-		 case refac_util:is_callback_fun(Info, OldFunName, Arity) of
+		 case refac_misc:is_callback_fun(Info, OldFunName, Arity) of
 		   true ->
 		       {warning, "The function to be renamed is a callback function, continue?"};
 		   _ -> TestFrameWorkUsed = refac_util:test_framework_used(FileName),
@@ -339,7 +339,7 @@ get_fun_def_info(Node) ->
 rename_fun_in_client_module_1({Tree, Info}, {M, OldName, Arity}, NewName) ->
     case lists:keysearch(module, 1, Info) of
       {value, {module, ClientModName}} ->
-	  Inscope_Funs = [{F, A} || {_M, F, A} <- refac_util:inscope_funs(Info)],
+	  Inscope_Funs = [{F, A} || {_M, F, A} <- refac_misc:inscope_funs(Info)],
 	  case lists:member({list_to_atom(NewName), Arity}, Inscope_Funs)
 		 and lists:member({OldName, Arity}, Inscope_Funs)
 	      of

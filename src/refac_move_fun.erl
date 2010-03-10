@@ -144,7 +144,7 @@ move_fun_1(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, Editor)
 				TargetModName, SearchPaths, TabWidth, Pid),
 	  check_atoms(FName, AnnAST1, [FunName], Pid),
 	  check_atoms(TargetFName, TargetAnnAST1, [FunName], Pid),
-	  Results = case refac_util:is_exported({FunName, Arity}, Info) of
+	  Results = case refac_misc:is_exported({FunName, Arity}, Info) of
 		      true ->
 			  ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
 			  ClientFiles = lists:delete(TargetFName, refac_util:get_client_files(FName, SearchPaths)),
@@ -196,7 +196,7 @@ create_new_file(TargetFName, TargetModName) ->
 
 side_cond_check({FileName, ModName, FunName, Arity}, TargetFileName, TargetModName, FunDef, SearchPaths, TabWidth) ->
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(TargetFileName, true, SearchPaths, TabWidth),
-    InscopeFuns = refac_util:inscope_funs(Info),
+    InscopeFuns = refac_misc:inscope_funs(Info),
     check_macros_records(FileName, TargetFileName, FunDef, SearchPaths, TabWidth),
     Clash = lists:any(fun ({M, F, A}) ->
 			      {FunName, Arity} == {F, A} andalso ModName =/= M
@@ -345,15 +345,14 @@ get_mod_info_from_parse_tree(AST) ->
 
 do_transformation(FileName, {AnnAST, Info}, {TargetAnnAST, Info1}, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth, Pid) ->
     Forms = refac_syntax:form_list_elements(AnnAST),
-    FormsToBeMoved = [F || F <- Forms, defines(F,{ModName, FunName, Arity}) orelse
-			       type_specifies(F, {FunName, Arity})],
+    FormsToBeMoved = [F || F <- Forms, defines(F, {ModName, FunName, Arity}) orelse type_specifies(F, {FunName, Arity})],
     FunToBeMoved = hd([F || F <- FormsToBeMoved, refac_syntax:type(F) == function]),
     SpecToBeMove = [F || F <- FormsToBeMoved, refac_syntax:type(F) == attribute],
     FunsToBeExported = local_funs_to_be_exported(FunToBeMoved, {ModName, FunName, Arity}, Info),
-    InScopeFunsInTargetMod = refac_util:inscope_funs(Info1),
+    InScopeFunsInTargetMod = refac_misc:inscope_funs(Info1),
     FunToBeMoved1 = transform_fun(FileName, FunToBeMoved, {ModName, FunName, Arity}, TargetModName, InScopeFunsInTargetMod, SearchPaths, TabWidth, Pid),
     {AnnAST1, FunIsUsed} = do_remove_fun(FileName, AnnAST, {ModName, FunName, Arity}, FunsToBeExported, TargetModName, SearchPaths, TabWidth, Pid),
-    IsExported = refac_util:is_exported({FunName, Arity}, Info),
+    IsExported = refac_misc:is_exported({FunName, Arity}, Info),
     Export = FunIsUsed or IsExported,
     TargetAnnAST1 = do_add_fun(FileName, {TargetAnnAST, Info1}, SpecToBeMove ++ [FunToBeMoved1],
 			       {ModName, FunName, Arity}, TargetModName, Export, SearchPaths, TabWidth, Pid),
@@ -528,7 +527,7 @@ do_add_fun(FileName, {TargetAnnAST, Info}, FunToBeMoved, {ModName, FunName, Arit
 	     end,
     Forms1 = lists:append([process_a_form_in_target_module(FileName, Form, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth, Pid)
 			   || Form <- Forms]),
-    IsExported = refac_util:is_exported({FunName, Arity}, Info),
+    IsExported = refac_misc:is_exported({FunName, Arity}, Info),
     NewForms = case ToBeExported andalso not IsExported of
 		 false -> Forms1 ++ NewFun;
 		 true ->

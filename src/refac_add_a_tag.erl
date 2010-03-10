@@ -106,62 +106,62 @@ collect_process_initial_funs(SearchPaths, TabWidth) ->
 			  collect_process_initial_funs_1({F, AnnAST, Info}, SearchPaths)
 		  end, Files).
 
-collect_process_initial_funs_1({FileName, AnnAST, Info}, _SearchPaths) ->  
+collect_process_initial_funs_1({FileName, AnnAST, Info}, _SearchPaths) ->
     ModName = get_module_name(FileName, Info),
-    HandleSpecialFuns = fun(Node) ->
-				{{Ln, _}, _} = refac_util:get_range(Node),
+    HandleSpecialFuns = fun (Node) ->
+				{{Ln, _}, _} = refac_misc:get_start_end_loc(Node),
 				Op = refac_syntax:application_operator(Node),
 				Arguments = refac_syntax:application_arguments(Node),
 				Ann = refac_syntax:get_ann(Op),
-				{value, {fun_def, {erlang, FunName, _Arity, _, _}}}=lists:keysearch(fun_def, 1, Ann),
-				case lists:member(FunName, [spawn, spawn_link]) of 
-				    true ->
-					{value, {pid, PidInfo}} = lists:keysearch(pid, 1, refac_syntax:get_ann(Node)),
-					case Arguments of 
-					    [FunExpr] -> 
-						[{PidInfo, {FunExpr, {ModName, Ln}}, {FileName, Node}}];   %%Question: what about if the FunExpr contains free variables?
-					    [_N, FunExpr] -> [{PidInfo, FunExpr,{FileName, Node}}];
-					    [M, F, A] -> 
-						case {refac_syntax:type(M), refac_syntax:type(F), refac_syntax:type(A)} of
-						    {atom, atom, list} ->
-							[{PidInfo, {refac_syntax:atom_value(M),   %%TODO: need to use backward slice
-								   refac_syntax:atom_value(F), 
-								   refac_syntax:list_length(A)}, {FileName, Node}}];    
-						    _ -> ?wrangler_io("\n*************************************Warning****************************************\n",[]),
-							 ?wrangler_io("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName,Ln]),
-							 []
-						end;
-					    [_N, M, F, A] ->
-						case {refac_syntax:type(M), refac_syntax:type(F), refac_syntax:type(A)} of
-						    {atom, atom, list} ->
-							[{PidInfo, {refac_syntax:atom_value(M),   %%TODO: need to use backward slice
-								   refac_syntax:atom_value(F), 
-								   refac_syntax:list_length(A)}, {FileName, Node}}];    
-						    _ -> ?wrangler_io("\n*************************************Warning****************************************\n",[]),
-							 ?wrangler_io("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName,Ln]),
-							 []
-						end
+				{value, {fun_def, {erlang, FunName, _Arity, _, _}}} = lists:keysearch(fun_def, 1, Ann),
+				case lists:member(FunName, [spawn, spawn_link]) of
+				  true ->
+				      {value, {pid, PidInfo}} = lists:keysearch(pid, 1, refac_syntax:get_ann(Node)),
+				      case Arguments of
+					[FunExpr] ->
+					    [{PidInfo, {FunExpr, {ModName, Ln}}, {FileName, Node}}];   %%Question: what about if the FunExpr contains free variables?
+					[_N, FunExpr] -> [{PidInfo, FunExpr, {FileName, Node}}];
+					[M, F, A] ->
+					    case {refac_syntax:type(M), refac_syntax:type(F), refac_syntax:type(A)} of
+					      {atom, atom, list} ->
+						  [{PidInfo, {refac_syntax:atom_value(M),   %%TODO: need to use backward slice
+							      refac_syntax:atom_value(F),
+							      refac_syntax:list_length(A)}, {FileName, Node}}];
+					      _ -> ?wrangler_io("\n*************************************Warning****************************************\n", []),
+						   ?wrangler_io("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName, Ln]),
+						   []
 					    end;
-				    _ ->
-					?wrangler_io("\n*************************************Warning****************************************\n",[]),
-					?wrangler_io("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName,Ln]),
-					[]   
+					[_N, M, F, A] ->
+					    case {refac_syntax:type(M), refac_syntax:type(F), refac_syntax:type(A)} of
+					      {atom, atom, list} ->
+						  [{PidInfo, {refac_syntax:atom_value(M),   %%TODO: need to use backward slice
+							      refac_syntax:atom_value(F),
+							      refac_syntax:list_length(A)}, {FileName, Node}}];
+					      _ -> ?wrangler_io("\n*************************************Warning****************************************\n", []),
+						   ?wrangler_io("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName, Ln]),
+						   []
+					    end
+				      end;
+				  _ ->
+				      ?wrangler_io("\n*************************************Warning****************************************\n", []),
+				      ?wrangler_io("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName, Ln]),
+				      []
 				end
-			end, 
-    Fun= fun(Node, Acc) ->			       
-		 case refac_syntax:type(Node) of 
-		     function ->
-			 F = fun(T, S) ->
-				     case is_spawn_expr(T) of 
-					 true -> HandleSpecialFuns(T)++S;
-					 _ -> S
-				     end
-			     end,
-			 Res = refac_syntax_lib:fold(F, [],  Node),
-			 lists:usort(Res ++ Acc);
-		     _ -> Acc
-		 end
-	 end,
+			end,
+    Fun = fun (Node, Acc) ->
+		  case refac_syntax:type(Node) of
+		    function ->
+			F = fun (T, S) ->
+				    case is_spawn_expr(T) of
+				      true -> HandleSpecialFuns(T) ++ S;
+				      _ -> S
+				    end
+			    end,
+			Res = refac_syntax_lib:fold(F, [], Node),
+			lists:usort(Res ++ Acc);
+		    _ -> Acc
+		  end
+	  end,
     refac_syntax_lib:fold(Fun, [], AnnAST).
 do_add_a_tag(FileName, {AnnAST, Info}, Tag, AffectedInitialFuns, SearchPaths, TabWidth) ->
     ModName = get_module_name(FileName, Info),
@@ -239,73 +239,73 @@ do_add_tag_to_receive_exprs(Node, Tag) ->
     end.
 
 do_add_tag_to_send_exprs(Node, {ModName, Tag, AffectedInitialFuns}) ->
-     case refac_syntax:type(Node) of
-	infix_expr ->
-	    case is_send_expr(Node) of 
-		true ->{{Ln, _},_} = refac_util:get_range(Node), 
-		        Dest = refac_syntax:infix_expr_left(Node),
-			Msg = refac_syntax:infix_expr_right(Node),
-			Ann = refac_syntax:get_ann(Dest),
-			Op  = refac_syntax:infix_expr_operator(Node),
-			InitialFuns = case lists:keysearch(pid,1, Ann) of 
-					  {value, {pid, InitialFuns1}} ->
-					      InitialFuns1;
-					  _ -> case lists:keysearch(pname, 1, Ann) of 
-						   {value, {pname, InitialFuns2}} ->
-						       InitialFuns2;
-						   _ -> []
-					       end
-				      end,						   
-			case InitialFuns of 
-			    [] -> ?wrangler_io("\n*************************************Warning****************************************\n",[]),
-				  ?wrangler_io("Wrangler could not identify the recipent process of the send expression in module ~p at line ~p\n", [ModName,Ln]),
-				{Node, false};
-			    _ -> case InitialFuns -- AffectedInitialFuns of 
-				     [] ->
-					 Msg1 = case refac_syntax:type(Msg) of 
-						    tuple ->
-							refac_syntax:tuple([refac_syntax:atom(Tag) | refac_syntax:tuple_elements(Msg)]);
-						    _ -> refac_syntax:tuple([refac_syntax:atom(Tag), Msg])
-						end,
-					 Node1 = refac_syntax:copy_attrs(Node, refac_syntax:infix_expr(Dest, Op, Msg1)), 
-					 {Node1, true};
-				     InitialFuns -> 
-					 {Node, false};  
-				     _ -> %% ?wrangler_io("\n*************************************Warning****************************************\n"),
-%% 					  ?wrangler_io("The recipent process of the send expression in module ~p at line ~p could refer to multiple processes. \n", [ModName,Ln]),
-					  {Node, false}
-				 end
-			end;
-		_ -> {Node, false}
-	    end;
-	application ->
-	    case is_send_expr(Node) of 
-		true -> [ReceiverPid, Msg] = refac_syntax:application_arguments(Node),
-			Operator = refac_syntax:application_operator(Node),
-			Ann = refac_syntax:get_ann(ReceiverPid),
-			case lists:keysearch(pid,1, Ann) of 
-			    {value, {pid, InitialFuns}} ->
-				case InitialFuns of 
-				    [] -> {Node, false};
-				    _ -> case InitialFuns -- AffectedInitialFuns of 
-					     [] ->
-						 Msg1 = case refac_syntax:type(Msg) of 
-							    tuple ->
-								refac_syntax:tuple([Tag | refac_syntax:tuple_elements(Msg)]);
-							    _ -> refac_syntax:tuple([Tag, Msg])
-							end,
-						 Node1 = refac_syntax:copy_attrs(Node, refac_syntax:application(Operator, [ReceiverPid, Msg1])), 
-						 {Node1, true};
-					     InitialFuns -> 
-						 {Node, false};
-					     _ ->  {Node, false}
+    case refac_syntax:type(Node) of
+      infix_expr ->
+	  case is_send_expr(Node) of
+	    true -> {{Ln, _}, _} = refac_misc:get_start_end_loc(Node),
+		    Dest = refac_syntax:infix_expr_left(Node),
+		    Msg = refac_syntax:infix_expr_right(Node),
+		    Ann = refac_syntax:get_ann(Dest),
+		    Op = refac_syntax:infix_expr_operator(Node),
+		    InitialFuns = case lists:keysearch(pid, 1, Ann) of
+				    {value, {pid, InitialFuns1}} ->
+					InitialFuns1;
+				    _ -> case lists:keysearch(pname, 1, Ann) of
+					   {value, {pname, InitialFuns2}} ->
+					       InitialFuns2;
+					   _ -> []
 					 end
-				end;
-			    _ -> {Node, false}  %%TODO: undicicabels.
-			end;	
-		false -> {Node, false}
-	    end;	
-	_ -> {Node, false}
+				  end,
+		    case InitialFuns of
+		      [] -> ?wrangler_io("\n*************************************Warning****************************************\n", []),
+			    ?wrangler_io("Wrangler could not identify the recipent process of the send expression in module ~p at line ~p\n", [ModName, Ln]),
+			    {Node, false};
+		      _ -> case InitialFuns -- AffectedInitialFuns of
+			     [] ->
+				 Msg1 = case refac_syntax:type(Msg) of
+					  tuple ->
+					      refac_syntax:tuple([refac_syntax:atom(Tag)| refac_syntax:tuple_elements(Msg)]);
+					  _ -> refac_syntax:tuple([refac_syntax:atom(Tag), Msg])
+					end,
+				 Node1 = refac_syntax:copy_attrs(Node, refac_syntax:infix_expr(Dest, Op, Msg1)),
+				 {Node1, true};
+			     InitialFuns ->
+				 {Node, false};
+			     _ -> %% ?wrangler_io("\n*************************************Warning****************************************\n"),
+				 %% 					  ?wrangler_io("The recipent process of the send expression in module ~p at line ~p could refer to multiple processes. \n", [ModName,Ln]),
+				 {Node, false}
+			   end
+		    end;
+	    _ -> {Node, false}
+	  end;
+      application ->
+	  case is_send_expr(Node) of
+	    true -> [ReceiverPid, Msg] = refac_syntax:application_arguments(Node),
+		    Operator = refac_syntax:application_operator(Node),
+		    Ann = refac_syntax:get_ann(ReceiverPid),
+		    case lists:keysearch(pid, 1, Ann) of
+		      {value, {pid, InitialFuns}} ->
+			  case InitialFuns of
+			    [] -> {Node, false};
+			    _ -> case InitialFuns -- AffectedInitialFuns of
+				   [] ->
+				       Msg1 = case refac_syntax:type(Msg) of
+						tuple ->
+						    refac_syntax:tuple([Tag| refac_syntax:tuple_elements(Msg)]);
+						_ -> refac_syntax:tuple([Tag, Msg])
+					      end,
+				       Node1 = refac_syntax:copy_attrs(Node, refac_syntax:application(Operator, [ReceiverPid, Msg1])),
+				       {Node1, true};
+				   InitialFuns ->
+				       {Node, false};
+				   _ -> {Node, false}
+				 end
+			  end;
+		      _ -> {Node, false}  %%TODO: undicicabels.
+		    end;
+	    false -> {Node, false}
+	  end;
+      _ -> {Node, false}
     end.
 pos_to_receive_fun(AnnAST, Pos) ->
     case interface_api:pos_to_fun_def(AnnAST, Pos) of
@@ -483,7 +483,7 @@ forward_slice([{FileName, Expr}|T], SearchPaths, Acc, TabWidth) ->
 
 forward_slice_1(FileName, Expr, SearchPaths, TabWidth) ->
     Files = refac_util:expand_files(SearchPaths, ".erl"),
-    {StartPos, EndPos} = refac_util:get_range(Expr),
+    {StartPos, EndPos} = refac_misc:get_start_end_loc(Expr),
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     ModName = get_module_name(FileName, Info),
     case interface_api:pos_to_expr(AnnAST, StartPos, EndPos) of

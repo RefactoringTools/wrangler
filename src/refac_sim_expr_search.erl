@@ -140,7 +140,7 @@ do_search_similar_expr_1(FileName, Exprs1, Exprs2, RecordInfo, SimiScore, FunNod
 		_ ->
 		    NormalisedExprs21 =normalise_expr(Exprs21, RecordInfo),
 		    ExportedVars = vars_to_export(FunNode, E2, Exprs21),
-		    case anti_unification:find_anti_unifier(Exprs1, NormalisedExprs21) of
+		    case anti_unification:anti_unification(Exprs1, NormalisedExprs21) of
 			none ->
 			    do_search_similar_expr_1(FileName, Exprs1, tl(Exprs2), RecordInfo, SimiScore, FunNode);
 			SubSt ->
@@ -229,7 +229,7 @@ normalise_record_expr_1(FName, AnnAST, Pos, ShowDefault, SearchPaths, TabWidth) 
 do_normalise_record_expr(Node, {Pos, RecordInfo, ShowDefault}) ->
     case refac_syntax:type(Node) of
       record_expr ->
-	  {S, E} = refac_util:get_range(Node),
+	  {S, E} = refac_misc:get_start_end_loc(Node),
 	  case S =< Pos andalso Pos =< E of
 	    true ->
 		{ast_traverse_api:full_buTP(fun do_normalise_record_expr_1/2,
@@ -277,7 +277,7 @@ do_normalise_record_expr_1(Node, {RecordInfo, ShowDefault}) ->
 		case lists:keysearch(refac_syntax:concrete(Type), 1, RecordInfo) of
 		  {value, {_, Fields1}} ->
 		      Fields2 = lists:append([Fun(F, Fields) || F <- Fields1]),
-		      refac_util:rewrite(Node, refac_syntax:record_expr(Arg, Type, Fields2));
+		      refac_misc:rewrite(Node, refac_syntax:record_expr(Arg, Type, Fields2));
 		  _ ->
 		      Node
 		end;
@@ -303,7 +303,7 @@ pos_to_record_expr(Tree, Pos) ->
 pos_to_record_expr_1(Node, Pos) ->
     case refac_syntax:type(Node) of
       record_expr ->
-	  {S, E} = refac_util:get_range(Node),
+	  {S, E} = refac_misc:get_start_end_loc(Node),
 	  case S =< Pos andalso Pos =< E of
 	    true -> {Node, true};
 	    _ -> {[], false}
@@ -334,7 +334,7 @@ get_module_record_info(FName, SearchPaths, TabWidth) ->
 
 vars_to_export(Fun, ExprEndPos, Expr) ->
     AllVars = refac_misc:collect_var_source_def_pos_info(Fun),
-    ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_util:get_bound_vars(Expr)],
+    ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_misc:get_bound_vars(Expr)],
     [{V, DefPos} || {V, SourcePos, DefPos} <- AllVars,
 		    SourcePos > ExprEndPos,
 		    lists:subtract(DefPos, ExprBdVarsPos) == []].

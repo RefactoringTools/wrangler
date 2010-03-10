@@ -199,9 +199,27 @@ collect_called_modules_with_called_funs(ModName, AnnAST, ModNames) ->
    
  
 group_by_mod_names(ModFuns) ->
-    ModFuns1 = refac_misc:group_by(1, ModFuns),
-    [{hd(Ms), lists:append(Fs)}||MFs<-ModFuns1, {Ms, Fs} <-[lists:unzip(MFs)]].
+    ModFuns1 = group_by(1, ModFuns),
+    refac_io:format("ModFuns1:\n~p\n", [ModFuns1]),
+    Res =[{hd(Ms), lists:append(Fs)}||MFs<-ModFuns1, {Ms, Fs} <-[lists:unzip(MFs)]],
+    refac_io:format("Res:\n~p\n", [Res]),
+    Res.
     
+
+-spec group_by(integer(), [tuple()]) -> [tuple()].
+group_by(N, TupleList) ->
+    SortedTupleList = lists:keysort(N, lists:usort(TupleList)),
+    group_by(N, SortedTupleList, []).
+
+group_by(_N,[],Acc) -> Acc;
+group_by(N,TupleList = [T| _Ts],Acc) ->
+    E = element(N,T),
+    {TupleList1,TupleList2} = 
+	lists:partition(fun (T1) ->
+				element(N,T1) == E
+			end,
+			TupleList),
+    group_by(N,TupleList2,Acc ++ [TupleList1]).
 
 -spec (module_subgraph_to_dot/4::(filename(), [modulename()],[filename()|dir()], boolean()) ->true).
 module_subgraph_to_dot(OutFile, ModNames, SearchPaths, WithLabel) ->
@@ -306,8 +324,11 @@ edge_format(V1, V2, Label, WithLabel) ->
 
 format_label([]) ->
     "";
+format_label([{F,A},{F1,A1}|T]) ->
+    io_lib:format("~p/~p,~p/~p\n", [F, A,F1, A1]) ++ format_label(T);
 format_label([{F,A}|T]) ->
-    io_lib:format("~p/~p", [F, A]) ++ format_label(T).
+    io_lib:format("~p/~p.", [F, A])++format_label(T).
+
 
 
  %% refac_module_graph:module_graph_to_dot("c:/cygwin/home/hl/wrangler-0.8.8/src/modulegraph", [wrangler, wrangler_distel, refac_util, refac_syntax_lib, refac_syntax, refac_io, refac_prettypr, refac_parse, refac_statem_to_fsm, refac_fun_to_process, refac_instrument, refac_tuple_to_record, refac_misc, refac_add_a_tag,refac_rename_process,refac_annotate_pid, refac_register_pid, refac_recomment, refac_scan, refac_epp, refac_epp_dodger, refac_atom_utils], ["c:/cygwin/home/hl/wrangler-0.8.8./src"], true).

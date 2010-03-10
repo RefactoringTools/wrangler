@@ -297,7 +297,7 @@ annotate_bindings(FName, AST, Info, Ms, TabWidth) ->
  
 
 %% Attach tokens to each form in the AST.
--spec add_tokens(syntaxTree(), [token()]) -> syntaxTree().			 
+-spec add_tokens(syntaxTree(), [token()]) -> syntaxTree(). 		 
 add_tokens(SyntaxTree, Toks) ->
     Fs = refac_syntax:form_list_elements(SyntaxTree),
     rewrite(SyntaxTree, refac_syntax:form_list(do_add_tokens(Toks, Fs))).
@@ -306,49 +306,49 @@ do_add_tokens(Toks, Fs) ->
     do_add_tokens(Toks, lists:reverse(Fs), []).
 
 do_add_tokens(_, [], NewFs) ->
-     NewFs;
-do_add_tokens(Toks, [F|Fs], NewFs)->
-    {StartPos, RemFs}  =
-	case refac_syntax:type(F) of 
-	    error_marker ->
-		case Fs of 
-		    [] -> {{1,1},[]};
-		    _ ->Fs1 = lists:dropwhile(fun(F1) ->
-						      lists:member(refac_syntax:type(F1),[comment, error_marker])
-					      end, Fs),
-			case Fs1 of 
-			    [] ->
-				{{1, 1}, []};
-			    _ -> {_, {Line, _}} = get_range(hd(Fs1)),
-				 {{Line+1, 1}, Fs1}
-			end
-		end;
-	    _ -> case refac_syntax:get_precomments(F) of 
-		     [] -> {Start, _End} = get_range(F),
-			   {Start, Fs};
-		     [Com|_Tl] -> {refac_syntax:get_pos(Com),Fs}
-		 end
+    NewFs;
+do_add_tokens(Toks, [F| Fs], NewFs) ->
+    {StartPos, RemFs} =
+	case refac_syntax:type(F) of
+	  error_marker ->
+	      case Fs of
+		[] -> {{1, 1}, []};
+		_ -> Fs1 = lists:dropwhile(fun (F1) ->
+						   lists:member(refac_syntax:type(F1), [comment, error_marker])
+					   end, Fs),
+		     case Fs1 of
+		       [] ->
+			   {{1, 1}, []};
+		       _ -> {_, {Line, _}} = get_range(hd(Fs1)),
+			    {{Line + 1, 1}, Fs1}
+		     end
+	      end;
+	  _ -> case refac_syntax:get_precomments(F) of
+		 [] -> {Start, _End} = get_range(F),
+		       {Start, Fs};
+		 [Com| _Tl] -> {refac_syntax:get_pos(Com), Fs}
+	       end
 	end,
-    {Toks1, Toks2} = lists:splitwith(fun(T) ->
-					     element(2,T) < StartPos
+    {Toks1, Toks2} = lists:splitwith(fun (T) ->
+					     element(2, T) < StartPos
 				     end, Toks),
-    {Toks11, Toks12} = lists:splitwith(fun(T) -> 
-					       element(1,T) == whitespace 
+    {Toks11, Toks12} = lists:splitwith(fun (T) ->
+					       element(1, T) == whitespace
 				       end, lists:reverse(Toks1)),
-    {FormToks, RemainToks} = 
-	case Toks12 of 
-	    [] ->  {Toks,[]};
-	    [H|_T] -> Line1 = element(1, element(2, H)), 
-		      {Toks13, Toks14} = lists:splitwith(fun(T) -> 
-								 element(1, element(2,T)) == Line1 
-							 end, lists:reverse(Toks11)),
-		      {Toks14++Toks2, lists:reverse(Toks12)++Toks13}					
+    {FormToks, RemainToks} =
+	case Toks12 of
+	  [] -> {Toks, []};
+	  [H| _T] -> Line1 = element(1, element(2, H)),
+		     {Toks13, Toks14} = lists:splitwith(fun (T) ->
+								element(1, element(2, T)) == Line1
+							end, lists:reverse(Toks11)),
+		     {Toks14 ++ Toks2, lists:reverse(Toks12) ++ Toks13}
 	end,
-    F1 =refac_syntax:add_ann({toks, FormToks}, F),
-    do_add_tokens(RemainToks, RemFs, [F1|NewFs]).
+    F1 = refac_syntax:add_ann({toks, FormToks}, F),
+    do_add_tokens(RemainToks, RemFs, [F1| NewFs]).
 
 
--spec add_range(syntaxTree(), [token()]) -> syntaxTree().	
+-spec add_range(syntaxTree(), [token()]) -> syntaxTree(). 
 add_range(AST, Toks) ->
     ast_traverse_api:full_buTP(fun do_add_range/2, AST, Toks).
 do_add_range(Node, Toks) ->
@@ -735,12 +735,12 @@ do_add_range(Node, Toks) ->
 
 
 get_range(Node) ->
-    As = refac_syntax:get_ann(Node),
-    case lists:keysearch(range, 1, As) of
-      {value, {range, {S, E}}} -> {S, E};
-      _ -> {?DEFAULT_LOC,
-	   ?DEFAULT_LOC} 
-    end.
+     As = refac_syntax:get_ann(Node),
+     case lists:keysearch(range, 1, As) of
+       {value, {range, {S, E}}} -> {S, E};
+       _ -> {?DEFAULT_LOC,
+ 	   ?DEFAULT_LOC} 
+     end.
 
 
 add_range_to_list_node(Node, Toks, Es, Str1, Str2, KeyWord1, KeyWord2) ->
@@ -822,7 +822,7 @@ add_category(Node) ->
       warning_marker -> add_category(Node, warning_marker);
       eof_marker -> add_category(Node, eof_marker);
       comment -> add_category(Node, comment);
-     %%  macro -> add_category(Node, macro);
+      %%  macro -> add_category(Node, macro);
       _ -> add_category(Node, unknown)
     end.
 
@@ -1018,7 +1018,7 @@ get_modules_by_file([File | Left], Acc) ->
 get_modules_by_file([], Acc) -> lists:reverse(Acc).
 
 
--spec file_format(filename()) ->dos|mac|unix.			 
+-spec file_format(filename()) ->dos|mac|unix. 		 
 file_format(File) ->  
     {ok, Bin} = file:read_file(File),
     S = erlang:binary_to_list(Bin),
@@ -1061,7 +1061,7 @@ scan_line_endings([_C|Cs], Cs1, Acc)->
 scan_line_endings([], Cs1, Acc)->
     lists:reverse([lists:usort(lists:reverse(Cs1))|Acc]).
 
--spec test_framework_used(filename()) ->[atom()].				 
+-spec test_framework_used(filename()) ->[atom()]. 			 
 test_framework_used(FileName) ->
     case refac_epp_dodger:parse_file(FileName, []) of
       {ok, Forms} ->
@@ -1131,4 +1131,3 @@ concat_toks([T|Ts], Acc) ->
 	 {V, _} -> 
 	     concat_toks(Ts, [V|Acc])
      end.
-		

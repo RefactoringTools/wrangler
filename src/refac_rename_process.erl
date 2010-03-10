@@ -111,7 +111,7 @@ pos_to_process_name_1(Node, Pos) ->
     As = refac_syntax:get_ann(Node),
     case refac_syntax:type(Node) of
       atom ->
-	  {Start, End} = refac_util:get_range(Node),
+	  {Start, End} = refac_misc:get_start_end_loc(Node),
 	  case Start =< Pos andalso Pos =< End of
 	    true ->
 		case lists:keysearch(pname, 1, As) of

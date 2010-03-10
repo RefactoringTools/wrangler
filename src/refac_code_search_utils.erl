@@ -26,7 +26,7 @@
 start_counter_process() ->
     start_counter_process(sets:new()).
 
--spec start_counter_process([string()]) -> pid(). 
+-spec start_counter_process(set()) -> pid(). 
 start_counter_process(UsedNames) ->
     spawn_link(fun () -> counter_loop({1, UsedNames, []}) end).
 
