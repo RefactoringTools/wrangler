@@ -72,7 +72,9 @@
 	 tuple_funpar_eclipse/5, tuple_funpar_eclipse_1/5,
 	 fold_expr_by_loc_eclipse/5,
 	 fold_expr_by_name_eclipse/7, fold_expr_1_eclipse/5,
-	 new_macro_eclipse/6, rename_process_eclipse/6,
+	 new_macro_eclipse/6, 
+         rename_process_eclipse/6, 
+	 fold_against_macro_eclipse/5, fold_against_macro_1_eclipse/5,
 	 rename_process_1_eclipse/5, fun_to_process_eclipse/6,
 	 fun_to_process_1_eclipse/6, unfold_fun_app_eclipse/4,
 	 duplicated_code_eclipse/5, sim_code_detection_eclipse/6,
@@ -864,9 +866,25 @@ new_macro_eclipse(FileName, Start, End, NewMacroName, SearchPaths, TabWidth) ->
 %% </p>
 
 -spec(fold_against_macro/5::(filename(), integer(), integer(), [dir()], integer()) ->
-	      {error, string()} | {ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}).
+				  {error, string()} |{ok, [{integer(), integer(), integer(), integer(), 
+							    syntaxTree(), syntaxTree()}], string()}).
 fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth) ->
     try_refactoring(refac_fold_against_macro, fold_against_macro, [FileName, Line, Col, SearchPaths, TabWidth]).
+
+
+
+%%@private
+-spec(fold_against_macro_eclipse/5::(filename(), integer(), integer(), [dir()], integer()) ->
+					  {error, string()} | {ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}],syntaxTree()}).
+fold_against_macro_eclipse(FileName, Line, Col, SearchPaths, TabWidth) ->
+    try_refactoring(refac_fold_against_macro, fold_against_macro, [FileName, Line, Col, SearchPaths, TabWidth]).
+
+%%@privat
+-spec(fold_against_macro_1_eclipse/5::(filename(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}], syntaxTree(), 
+				       [dir()], integer()) -> {error, string()} | {ok, [{filename(), filename(), string()}]}).
+					
+fold_against_macro_1_eclipse(FileName, CandidatesToFold, MacroDef, SearchPaths, TabWidth) ->
+    try_refactoring(refac_fold_against_macro, fold_against_macro, [FileName, CandidatesToFold, MacroDef, SearchPaths, TabWidth]).
 
 
 %% =============================================================================================
