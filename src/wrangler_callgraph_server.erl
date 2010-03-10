@@ -248,7 +248,7 @@ fun_callgraph_to_png(FileNameDirs) ->
 			  os:cmd("dot -Tpng "++DotFileName++" > "++PngFileName)			  
 		  end, Files).
 
--spec(fun_callgraph_to_dot/1::([filename()|dir()]) -> true).
+-spec(fun_callgraph_to_dot/1::([filename()|dir()]) -> ok).
 fun_callgraph_to_dot(FileNameDirs) ->
     Files = refac_util:expand_files(FileNameDirs, ".erl"),
     lists:foreach(fun(FName)->
