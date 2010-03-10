@@ -30,7 +30,8 @@
 
 -module(refac_fold_against_macro).
 
--export([fold_against_macro/5, fold_against_macro_1/5, fold_against_macro_eclipse/5]).
+-export([fold_against_macro/5, fold_against_macro_1/5, 
+	 fold_against_macro_eclipse/5, fold_against_macro_1_eclipse/5]).
 
 
 -export([fold_against_macro/7]).
@@ -57,14 +58,18 @@
 
 %%=============================================================================================
 
-fold_against_macro(FileName, Line, Col,  SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:fold_against_macro(~p, ~p,~p, ~p,~p).\n", 
+-spec(fold_against_macro/5::(filename(), integer(), integer(), [dir()], integer()) ->
+	 {error, string()} | {ok, [{integer(), integer(), integer(), integer(), 
+				    syntaxTree(), syntaxTree()}], string()}).
+fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:fold_against_macro(~p, ~p,~p, ~p,~p).\n",
 		 [?MODULE, FileName, Line, Col, SearchPaths, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fold_against_macro(" ++ "\"" ++
-	FileName ++ "\", " ++ integer_to_list(Line) ++
-	", " ++ integer_to_list(Col) ++ ", " 
-	++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+	    FileName ++ "\", " ++ integer_to_list(Line) ++
+	      ", " ++ integer_to_list(Col) ++ ", "
+		++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, emacs, Cmd).
+
 
 fold_against_macro_eclipse(FileName, Line, Col,  SearchPaths, TabWidth) ->
     fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, eclipse, "").
@@ -85,16 +90,31 @@ fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, Editor, Cmd) ->
 						   Candidates),
 			      {ok, Regions, Cmd};
 			  eclipse ->
-			      {ok, Candidates}
+			      {ok, Candidates, MacroDef}
 		      end
 	    end;
 	{error, _} ->
 	    {error, "You have not selected a macro definition, or the selected macro definition does not have a syntactially well-formed body!"}
     end.
 
+
+
+-spec(fold_against_macro_1_eclipse/5::(filename(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}], syntaxTree(), 
+				       [dir()], integer()) ->
+					    {ok, [filename()]}).
+fold_against_macro_1_eclipse(FileName, CandidatesToFold, MacroDef, SearchPaths, TabWidth) ->
+    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    CandidatesToFold1 =[{StartLine, StartCol, EndLine, EndCol, MacroApp, MacroDef} ||
+			   {{{StartLine, StartCol}, {EndLine, EndCol}}, MacroApp} <- CandidatesToFold],
+    AnnAST1 = fold_against_macro_1_1(AnnAST, CandidatesToFold1),
+    Src = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST1),
+    Res = [{FileName, FileName, Src}],
+    {ok, Res}.
+ 
+
 -spec(fold_against_macro_1/5::(filename(), [{integer(), integer(), integer(), integer(), syntaxTree(), syntaxTree()}],
 			       [dir()], integer(), string()) ->
-	     {ok, [filename()]}).
+				    {ok, [filename()]}).
 fold_against_macro_1(FileName, CandidatesToFold, SearchPaths, TabWidth, Cmd) ->
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     AnnAST1 = fold_against_macro_1_1(AnnAST, CandidatesToFold),
@@ -115,20 +135,20 @@ fold_against_macro_1_1(AnnAST, [{StartLine, StartCol, EndLine, EndCol,MacroApp0,
 
 search_candidate_exprs(AnnAST, MacroDef) ->
     Args = refac_syntax:attribute_arguments(MacroDef),
-    MacroHead = refac_util:ghead("refac_fold_against_macro:search_candiate_exprs", Args),
-    MacroParNames = case refac_syntax:type(MacroHead) of 
-		   application ->
-		       Pars = refac_syntax:application_arguments(MacroHead),
-		       lists:map(fun(A) ->refac_syntax:variable_name(A) end, Pars);
-		   _ -> []
-	       end,	    
+    MacroHead = refac_misc:ghead("refac_fold_against_macro:search_candiate_exprs", Args),
+    MacroParNames = case refac_syntax:type(MacroHead) of
+		      application ->
+			  Pars = refac_syntax:application_arguments(MacroHead),
+			  [refac_syntax:variable_name(A) || A <- Pars];
+		      _ -> []
+		    end,
     MacroBody = tl(Args),
     Res = do_search_candidate_exprs(AnnAST, MacroBody, MacroParNames),
-    case MacroBody of 
-	[] ->[];
-	_ -> lists:map(fun({Range, Subst}) ->
-			       {Range, make_macro_app(MacroHead, Subst)}
-		       end, Res)
+    case MacroBody of
+      [] ->
+	  [];
+      _ ->
+	  [{Range, make_macro_app(MacroHead, Subst)} || {Range, Subst} <- Res]
     end.
 
 
@@ -210,7 +230,7 @@ make_macro_app(MacroHead,Subst) ->
 	application ->
 	    Op  = refac_syntax:application_operator(MacroHead),
 	    Args1 = refac_syntax:application_arguments(MacroHead),
-	    Args= lists:map(fun(A) -> refac_syntax:variable_name(A) end, Args1),
+	    Args= [refac_syntax:variable_name(A)||A<-Args1],
 	    Pars = lists:map(fun(P) -> case lists:keysearch(P, 1, Subst) of 
 					   {value, {P, Par}} -> 
 					       refac_util:reset_attrs(Par);
@@ -225,28 +245,29 @@ make_macro_app(MacroHead,Subst) ->
 
 %%=====================================================================================
 expr_unification(Exp1, Exp2, MacroParNames) ->
-    case refac_fold_expression:expr_unification(Exp1, Exp2) of
+    case unification:expr_unification(Exp1, Exp2) of
       false -> false;
       {true, Subst} ->
-	  Subst1 = lists:usort(lists:map(fun ({E1, E2}) -> {E1, refac_prettypr:format(E2)} end, Subst)),
-	  Vars = lists:map(fun ({E1, _E2}) -> E1 end, Subst1),
+	  Subst1 = lists:usort([{E1, refac_prettypr:format(E2)}||{E1,E2}<-Subst]),
+	  Vars = [E1||{E1, _E2}<-Subst1],
 	  SVars = lists:usort(Vars),
 	  case length(Vars) == length(SVars) of
-	      true ->
-		  case lists:subtract(SVars, MacroParNames) of
-		      [] ->{true, Subst};
-		      Res ->
-			  ResSubst = lists:filter(fun({E1,_E2}) -> 
-							  lists:member(E1, Res) 
-						  end, Subst),
-			  case lists:all(fun({E1,E2}) ->
-						 list_to_atom(refac_prettypr:format(E2)) == E1
-					 end, ResSubst) of 
-			      true -> {true, Subst};
-			      _ -> false
-			  end			  
-		  end;
-	      _ -> false
+	    true ->
+		case lists:subtract(SVars, MacroParNames) of
+		  [] -> {true, Subst};
+		  Res ->
+		      ResSubst = lists:filter(fun ({E1, _E2}) ->
+						      lists:member(E1, Res)
+					      end, Subst),
+		      case lists:all(fun ({E1, E2}) ->
+					     list_to_atom(refac_prettypr:format(E2)) == E1
+				     end, ResSubst)
+			  of
+			true -> {true, Subst};
+			_ -> false
+		      end
+		end;
+	    _ -> false
 	  end
     end.
 
@@ -260,11 +281,13 @@ sublists(List, Len) ->
 
 %%==========================================================================
 pos_to_macro_define(AnnAST, Pos) ->
-    case refac_util:once_tdTU(fun pos_to_macro_define_1/2, AnnAST, Pos) of 
-	{_, false} ->
-	    {error, none};
-	{R, true} ->
-	    {ok, R}
+    case
+      ast_traverse_api:once_tdTU(fun pos_to_macro_define_1/2, AnnAST, Pos)
+	of
+      {_, false} ->
+	  {error, none};
+      {R, true} ->
+	  {ok, R}
     end.
 
 pos_to_macro_define_1(Node, Pos) ->
@@ -291,10 +314,10 @@ is_expr_or_pat(Node) ->
 %% Distel seems turn {wrapper, nil, ...} into {wrapper, [], ...}
 %% We have to turn it back.
 transform(Node) ->
-    refac_util:full_buTP(fun(T, _Others) ->
-				 case T of 
-				     {wrapper, [], A, {[], B}} ->
-					 {wrapper, nil, A, {nil, B}};
-				     _  -> T
-				 end
-			 end, Node, {}).
+    ast_traverse_api:full_buTP(fun (T, _Others) ->
+				       case T of
+					 {wrapper, [], A, {[], B}} ->
+					     {wrapper, nil, A, {nil, B}};
+					 _ -> T
+				       end
+			       end, Node, {}).
