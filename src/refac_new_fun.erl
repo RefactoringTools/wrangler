@@ -39,16 +39,16 @@
 -include("../include/wrangler.hrl").
 
 %% =============================================================================================
-%% -spec(fun_extraction/5::(filename(), pos(), pos(), string(), integer()) ->
-%% 	     {'ok', [filename()]}).
+-spec(fun_extraction/5::(filename(), pos(), pos(), string(), integer()) ->
+ 	     {'ok', [filename()]}).
 fun_extraction(FileName, Start, End, NewFunName, TabWidth) ->
     fun_extraction(FileName, Start, End, NewFunName, TabWidth, emacs).
 
 fun_extraction_1(FileName, Start, End, NewFunName, TabWidth) ->
     fun_extraction_1(FileName, Start, End, NewFunName, TabWidth, emacs).
 
-%% -spec(fun_extraction_eclipse/5::(filename(), pos(), pos(), string(),integer()) ->
-%% 	      {ok, [{filename(), filename(), string()}]}).
+-spec(fun_extraction_eclipse/5::(filename(), pos(), pos(), string(),integer()) ->
+ 	      {ok, [{filename(), filename(), string()}]}).
 fun_extraction_eclipse(FileName, Start, End, NewFunName, TabWidth) ->
     fun_extraction(FileName, Start, End, NewFunName, TabWidth, eclipse).
 
@@ -56,41 +56,39 @@ fun_extraction_1_eclipse(FileName, Start, End, NewFunName, TabWidth) ->
     fun_extraction_1(FileName, Start, End, NewFunName, TabWidth, eclipse).
 
 
-fun_extraction_1(FileName, Start={Line, Col}, End={Line1, Col1}, NewFunName, TabWidth, Editor) ->
+fun_extraction_1(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewFunName, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fun_extraction(" ++ "\"" ++
-	FileName ++ "\", {" ++ integer_to_list(Line) ++	", " ++ integer_to_list(Col) ++ "},"++
-	"{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "},"  ++ "\"" ++ NewFunName ++ "\","
-	++ integer_to_list(TabWidth) ++ ").",
+	    FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++
+	      "{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ NewFunName ++ "\","
+		++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, [], TabWidth),
-    ExpList = refac_util:pos_to_expr_list(AnnAST, Start, End),
-    {ok, Fun} = refac_util:expr_to_fun(AnnAST, hd(ExpList)),
+    ExpList = interface_api:pos_to_expr_list(AnnAST, Start, End),
+    {ok, Fun} = interface_api:expr_to_fun(AnnAST, hd(ExpList)),
     fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor, Cmd).
 
 
-fun_extraction(FileName, Start = {Line, Col}, End = {Line1, Col1},NewFunName, TabWidth, Editor) ->
+fun_extraction(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewFunName, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:fun_extraction(~p, {~p,~p}, {~p,~p}, ~p, ~p).\n",
 		 [?MODULE, FileName, Line, Col, Line1, Col1, NewFunName, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fun_extraction(" ++ "\"" ++
-	FileName ++ "\", {" ++ integer_to_list(Line) ++	", " ++ integer_to_list(Col) ++ "},"++
-	"{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "},"  ++ "\"" ++ NewFunName ++ "\","
-	++ integer_to_list(TabWidth) ++ ").",    
-    case refac_util:is_fun_name(NewFunName) of
+	    FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++
+	      "{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ NewFunName ++ "\","
+		++ integer_to_list(TabWidth) ++ ").",
+    case refac_misc:is_fun_name(NewFunName) of
       true -> ok;
       false -> throw({error, "Invalid function name!"})
     end,
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, [], TabWidth),
-    case refac_util:pos_to_expr_list(AnnAST, Start, End) of
-	[] -> ExpList = [],
-	      throw({error, "You have not selected an expression or a sequence of expressions, "
-		     "or the function containing the expression(s) selected is malformed."});
-	ExpList -> 
-	    ExpList
+    case interface_api:pos_to_expr_list(AnnAST, Start, End) of
+      [] -> ExpList = [],
+	    throw({error, "You have not selected an expression or a sequence of expressions, "
+			  "or the function containing the expression(s) selected is malformed."});
+      ExpList ->
+	  ExpList
     end,
-    {ok, Fun} = refac_util:expr_to_fun(AnnAST, hd(ExpList)),
-    ok=side_cond_analysis(FileName, Info, Fun, ExpList, list_to_atom(NewFunName)),
+    {ok, Fun} = interface_api:expr_to_fun(AnnAST, hd(ExpList)),
+    ok = side_cond_analysis(FileName, Info, Fun, ExpList, list_to_atom(NewFunName)),
     fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor, Cmd).
-
-
 
 fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor,Cmd) ->
     FunName = refac_syntax:atom_value(refac_syntax:function_name(Fun)),
@@ -112,8 +110,8 @@ get_free_bd_vars(ExpList) ->
     FrBdVars = [envs_bounds_frees(E) || E <- ExpList],
     BdVars = lists:usort(lists:append([Vars || {{bound, Vars}, _} <- FrBdVars])),
     FrVars1 = lists:usort(lists:append([Vars || {_, {free, Vars}} <- FrBdVars])),
-    FrVars = refac_util:remove_duplicates(
-	       [VarName || {VarName, _Pos} <- lists:keysort(2, FrVars1 --BdVars)]),
+    FrVars = refac_misc:remove_duplicates(
+	       [VarName || {VarName, _Pos} <- lists:keysort(2, FrVars1 -- BdVars)]),
     {FrVars, BdVars}.
     
 
@@ -241,15 +239,15 @@ is_macro_arg(Fun, Exp) ->
     
   
 collect_prime_expr_ranges(Tree) ->
-     F= fun(T, S) ->
- 		   case refac_syntax:type(T) of 
- 		       application ->
-			   Operator = refac_syntax:application_operator(T),
-			   Range = refac_util:get_range(Operator),
-		           S++[Range];
-		       _ -> S
-		   end
-	end,
+    F= fun(T, S) ->
+	       case refac_syntax:type(T) of 
+		   application ->
+		       Operator = refac_syntax:application_operator(T),
+		       Range = refac_util:get_range(Operator),
+		       S++[Range];
+		   _ -> S
+	       end
+       end,
     refac_syntax_lib:fold(F, [], Tree).
 
 
@@ -430,13 +428,11 @@ replace_expr_with_fun_call(Form, ExpList, NewFunName, ParNames, VarsToExport) ->
 	      end,
     case length(ExpList) == 1 andalso refac_syntax:type(hd(ExpList)) =/= match_expr of
       true ->
-	  {Form1, _} = refac_util:stop_tdTP(
-			 fun do_replace_expr_with_fun_call_1/2, Form, {NewExpr, hd(ExpList)}),
-	  Form1;
+	  element(1, ast_traverse_api:stop_tdTP(
+		       fun do_replace_expr_with_fun_call_1/2, Form, {NewExpr, hd(ExpList)}));
       _ ->
-	  {Form1, _} = refac_util:stop_tdTP(
-			 fun do_replace_expr_with_fun_call_2/2, Form, {NewExpr, ExpList}),
-	  Form1
+	  element(1, ast_traverse_api:stop_tdTP(
+		       fun do_replace_expr_with_fun_call_2/2, Form, {NewExpr, ExpList}))
     end.
     
 do_replace_expr_with_fun_call_1(Tree, {NewExpr, Expr}) ->
@@ -512,41 +508,22 @@ envs_bounds_frees(Node) ->
 
 
 vars_to_export(Fun,ExprEndPos, ExprBdVars) ->
-    AllVars = collect_vars(Fun),
+    AllVars = refac_misc:collect_var_source_def_pos_info(Fun),
     ExprBdVarsPos = [Pos ||{_Var, Pos} <- ExprBdVars],
     VarsToExport = lists:keysort(2, [{V, SourcePos} || 
 					{V, SourcePos, DefPos} <- AllVars,
 					SourcePos > ExprEndPos,
 					lists:subtract(DefPos, ExprBdVarsPos) == []]),
-    case VarsToExport of 
-	[] -> [];
-	_ ->
-	    lists:reverse(lists:foldl(fun({V,_Pos}, Acc) -> 
-					      case lists:member(V, Acc) of 
-						  false -> [V|Acc];
-						  _ -> Acc
-					      end
-				      end,[], VarsToExport))
-    end.
-collect_vars(Tree) ->
-     F= fun(T, S) ->
-		case refac_syntax:type(T) of 
-		    variable ->
-			SourcePos = refac_syntax:get_pos(T),
-			Ann = refac_syntax:get_ann(T),
-			case lists:keysearch(def, 1, Ann) of
-			    {value, {def, DefinePos}} ->
-				VarName = refac_syntax:variable_name(T),
-				S++[{VarName, SourcePos, DefinePos}];
-			    _ -> S
-			end;
-		       _  -> S
-		end
-	end,
-    refac_syntax_lib:fold(F, [], Tree).
+    lists:reverse(lists:foldl(fun({V,_Pos}, Acc) -> 
+				      case lists:member(V, Acc) of 
+					  false -> [V|Acc];
+					  _ -> Acc
+				      end
+			      end,[], VarsToExport)).
+    
+
 
 %% The following functions should be combined with those in 'refac_expr_search.erl'
-
 filter_exprs_via_ast(Tree, ExpList) ->
     F = fun(T, Acc) ->
 		case refac_syntax:type(T) of

@@ -26,11 +26,14 @@
 
 -module(refac_annotate_ast).
 
--import(refac_util, [rewrite/2,update_ann/2]).
+
 -export([add_fun_define_locations/2]).
 
+
+-import(refac_util, [rewrite/2,update_ann/2]).
 -include("../include/wrangler.hrl").
 
+-spec(add_fun_define_locations/2::(syntaxTree(), moduleInfo()) -> syntaxTree()).
 add_fun_define_locations(AST, ModInfo) ->
     case lists:keysearch(module, 1, ModInfo) of
 	{value, {module, ModName}} -> ModName;
@@ -143,7 +146,7 @@ add_fun_def_info_in_export(F, ModName, DefinedFuns) ->
     end.
 
 add_fun_def_info_in_form(F, ModName, DefinedFuns, ImportedFuns) ->
-    {F1, _} =refac_util:full_tdTP(fun add_fun_def_info_1/2, F, {ModName, DefinedFuns, ImportedFuns}),
+    {F1, _} = ast_traverse_api:full_tdTP(fun add_fun_def_info_1/2, F, {ModName, DefinedFuns, ImportedFuns}),
     F1.
 
 								  

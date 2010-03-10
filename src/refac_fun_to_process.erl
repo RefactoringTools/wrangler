@@ -55,39 +55,39 @@ fun_to_process_eclipse(FName, Line, Col, ProcessName, SearchPaths, TabWidth) ->
     fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, eclipse).
 
 fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor) ->
-    ?wrangler_io("\nCMD: ~p:fun_to_process(~p, ~p, ~p, ~p,~p, ~p).\n",  
-		 [?MODULE, FName,  Line, Col, ProcessName, SearchPaths, TabWidth]),
+    ?wrangler_io("\nCMD: ~p:fun_to_process(~p, ~p, ~p, ~p,~p, ~p).\n",
+		 [?MODULE, FName, Line, Col, ProcessName, SearchPaths, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fun_to_process(" ++ "\"" ++
-	FName ++ "\", " ++ integer_to_list(Line) ++
-	", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ ProcessName ++ "\","
-	++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+	    FName ++ "\", " ++ integer_to_list(Line) ++
+	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ ProcessName ++ "\","
+		++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case is_process_name(ProcessName) of
-	true -> ok;
-	false -> throw({error, "Invalid process name."})
+      true -> ok;
+      false -> throw({error, "Invalid process name."})
     end,
-    _Res =refac_annotate_pid:ann_pid_info(SearchPaths, TabWidth),
-    {ok, {AnnAST,Info}}= refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth), 
+    _Res = refac_annotate_pid:ann_pid_info(SearchPaths, TabWidth),
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
-    ProcessName1 = list_to_atom(ProcessName), 
-    case refac_util:pos_to_fun_def(AnnAST, {Line, Col}) of
-	{ok, FunDef} ->
-	    {value, {fun_def, {ModName, FunName, Arity, _Pos1, DefinePos}}} =
-		lists:keysearch(fun_def, 1, refac_syntax:get_ann(FunDef)),
-	    pre_cond_check(AnnAST, {Line, Col}, ModName,FunName,Arity, ProcessName1, SearchPaths, TabWidth, Cmd),
-	    AnnAST2 = do_fun_to_process(AnnAST, Info, DefinePos, FunName, Arity, ProcessName1),
-	    case Editor of 
-		emacs ->
-		    refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST2}], Cmd),
-		    ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
-				 [FName]),								    
-		    {ok, [FName]};
-		eclipse ->
-		    Content = refac_prettypr:print_ast(refac_util:file_format(FName),AnnAST2),
-		    Res = [{FName, FName, Content}],
-		    {ok, Res}
-	    end;
-	_ -> throw({error, "You have not selected a function definition, "
-		    "or the function definition selected does not parse."})
+    ProcessName1 = list_to_atom(ProcessName),
+    case interface_api:pos_to_fun_def(AnnAST, {Line, Col}) of
+      {ok, FunDef} ->
+	  {value, {fun_def, {ModName, FunName, Arity, _Pos1, DefinePos}}} =
+	      lists:keysearch(fun_def, 1, refac_syntax:get_ann(FunDef)),
+	  pre_cond_check(AnnAST, {Line, Col}, ModName, FunName, Arity, ProcessName1, SearchPaths, TabWidth, Cmd),
+	  AnnAST2 = do_fun_to_process(AnnAST, Info, DefinePos, FunName, Arity, ProcessName1),
+	  case Editor of
+	    emacs ->
+		refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST2}], Cmd),
+		?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
+			     [FName]),
+		{ok, [FName]};
+	    eclipse ->
+		Content = refac_prettypr:print_ast(refac_util:file_format(FName), AnnAST2),
+		Res = [{FName, FName, Content}],
+		{ok, Res}
+	  end;
+      _ -> throw({error, "You have not selected a function definition, "
+			 "or the function definition selected does not parse."})
     end.
 
 -spec(fun_to_process_1_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer())
@@ -96,22 +96,22 @@ fun_to_process_1_eclipse(FName, Line, Col, ProcessName, SearchPaths, TabWidth) -
     fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, eclipse, "").
 
 fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor, LogMsg) ->
-    {ok, {AnnAST,Info}}= refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth), 
+    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
-    ProcessName1 = list_to_atom(ProcessName), 
-    {ok, FunDef}=refac_util:pos_to_fun_def(AnnAST, {Line,Col}),
+    ProcessName1 = list_to_atom(ProcessName),
+    {ok, FunDef} = interface_api:pos_to_fun_def(AnnAST, {Line, Col}),
     {value, {fun_def, {ModName, FunName, Arity, _Pos1, DefinePos}}} =
 	lists:keysearch(fun_def, 1, refac_syntax:get_ann(FunDef)),
     AnnAST1 = do_fun_to_process(AnnAST, Info, DefinePos, FunName, Arity, ProcessName1),
-    case Editor of 
-	emacs ->
-	    Res =[{{FName, FName}, AnnAST1}],
-	    refac_util:write_refactored_files_for_preview(Res, LogMsg), 
-	    {ok, [FName]};		     
-	eclipse ->
-	    Content = refac_prettypr:print_ast(refac_util:file_format(FName),AnnAST1),
-	    Res = [{FName, FName, Content}],
-	    {ok, Res}
+    case Editor of
+      emacs ->
+	  Res = [{{FName, FName}, AnnAST1}],
+	  refac_util:write_refactored_files_for_preview(Res, LogMsg),
+	  {ok, [FName]};
+      eclipse ->
+	  Content = refac_prettypr:print_ast(refac_util:file_format(FName), AnnAST1),
+	  Res = [{FName, FName, Content}],
+	  {ok, Res}
     end.
     
 %% Side conditios:
@@ -126,63 +126,59 @@ fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor, L
 %% Support the original function is f/n, then the new function name would be f/0 and the rpc function name would be f_rpc/2; if 
 %% any conflicts occur, '_i' will be attached to the end of the function name where i is a smallest number that make the name fresh.
 %% 
-pre_cond_check(AnnAST, Pos, ModName,FunName,Arity, ProcessName, SearchPaths, TabWidth, Cmd)->
-    {ok, FunDef} = refac_util:pos_to_fun_def(AnnAST, Pos),    
-    case is_recursive_fun({ModName, FunName, Arity, FunDef}, SearchPaths) of  
-	true ->
-	    throw({error, "The function is a recursive (direct or indirect) function.\n"});
-	false -> ok
+pre_cond_check(AnnAST, Pos, ModName, FunName, Arity, ProcessName, SearchPaths, TabWidth, Cmd) ->
+    {ok, FunDef} = interface_api:pos_to_fun_def(AnnAST, Pos),
+    case is_recursive_fun({ModName, FunName, Arity, FunDef}, SearchPaths) of
+      true ->
+	  throw({error, "The function is a recursive (direct or indirect) function.\n"});
+      false -> ok
     end,
-    {SelfApps, _Pids, PNames, UnKnowns} = collect_registration_and_self_apps(SearchPaths, TabWidth), 
-    case lists:member(ProcessName, PNames) of 
-	true -> throw({error, "The process name provided is already in use, please choose another name."});
-	_ -> ok
+    {SelfApps, _Pids, PNames, UnKnowns} = collect_registration_and_self_apps(SearchPaths, TabWidth),
+    case lists:member(ProcessName, PNames) of
+      true -> throw({error, "The process name provided is already in use, please choose another name."});
+      _ -> ok
     end,
-    SelfRes = check_self_exprs(SelfApps, {ModName,FunName, Arity}, SearchPaths),
+    SelfRes = check_self_exprs(SelfApps, {ModName, FunName, Arity}, SearchPaths),
     case {UnKnowns, SelfRes} of
-	{[], []} -> ok;
-	{[], _} ->
-	    ?wrangler_io("\n*************************************Warning****************************************\n",[]),
-	    ?wrangler_io("The value returned by 'self()', which is used at the location(s) listed below, will be changed "
-			 " by this refactoring, and this could possibly change the behaviour of the program!\n",[]),
-	    lists:foreach(fun({{File, _Fun, _Ari}, SelfExpr, _}) ->
-				  {{Line,_}, _} = refac_util:get_range(SelfExpr),
-				  Msg = File ++ io_lib:format(":~p: \n",[Line]),
-				  ?wrangler_io(Msg, [])
-			  end, SelfRes),
-	    throw({undecidables, "there are undecidable cases.", Cmd});
-	{_, []} -> 
-	    ?wrangler_io("\n*************************************Warning****************************************\n",[]),
-	    ?wrangler_io("Wrangler could not decide whether the process name provided conflicts with the process name(s) "
-			 "used by the following registeration expression(s):\n",[]),
-	    lists:foreach(fun({File,L}) ->
-				  Msg = File ++ io_lib:format(":~p: \n",[L]),
-				  ?wrangler_io(Msg, [])
-			  end, UnKnowns),
-	    throw({undecidables, "there are undecidable cases.", Cmd});
-	_ ->
-	    ?wrangler_io("\n*************************************Warning****************************************\n",[]),
-	    ?wrangler_io("Wrangler could not decide whether the process name provided conflicts with the process name(s) "
-			 "used by the following registeration expression(s):\n",[]),
-	    lists:foreach(fun({File,L}) ->
-				  Msg = File ++ io_lib:format(":~p: \n",[L]),
-				  ?wrangler_io(Msg, [])
-			  end, UnKnowns),
-	    ?wrangler_io("\n*************************************Warning****************************************\n",[]),
-	    ?wrangler_io("The value returned by 'self()', which is used at the location(s) listed below, will be changed "
-			 " by this refactoring, and this could possibly change the behaviour of the program!\n",[]),
-	    lists:foreach(fun({{File, _Fun, _Ari}, SelfExpr, _}) ->
-				  {{Line,_}, _} = refac_util:get_range(SelfExpr),
-				  Msg = File ++ io_lib:format(":~p: \n",[Line]),
-				  ?wrangler_io(Msg, [])
-			  end, SelfRes),
-	    throw({undecidables, "there are undecidable cases.", Cmd})
+      {[], []} -> ok;
+      {[], _} ->
+	  ?wrangler_io("\n*************************************Warning****************************************\n", []),
+	  ?wrangler_io("The value returned by 'self()', which is used at the location(s) listed below, will be changed "
+		       " by this refactoring, and this could possibly change the behaviour of the program!\n", []),
+	  lists:foreach(fun ({{File, _Fun, _Ari}, SelfExpr, _}) ->
+				{{Line, _}, _} = refac_util:get_range(SelfExpr),
+				Msg = File ++ io_lib:format(":~p: \n", [Line]),
+				?wrangler_io(Msg, [])
+			end, SelfRes),
+	  throw({undecidables, "there are undecidable cases.", Cmd});
+      {_, []} ->
+	  ?wrangler_io("\n*************************************Warning****************************************\n", []),
+	  ?wrangler_io("Wrangler could not decide whether the process name provided conflicts with the process name(s) "
+		       "used by the following registeration expression(s):\n", []),
+	  lists:foreach(fun ({File, L}) ->
+				Msg = File ++ io_lib:format(":~p: \n", [L]),
+				?wrangler_io(Msg, [])
+			end, UnKnowns),
+	  throw({undecidables, "there are undecidable cases.", Cmd});
+      _ ->
+	  ?wrangler_io("\n*************************************Warning****************************************\n", []),
+	  ?wrangler_io("Wrangler could not decide whether the process name provided conflicts with the process name(s) "
+		       "used by the following registeration expression(s):\n", []),
+	  lists:foreach(fun ({File, L}) ->
+				Msg = File ++ io_lib:format(":~p: \n", [L]),
+				?wrangler_io(Msg, [])
+			end, UnKnowns),
+	  ?wrangler_io("\n*************************************Warning****************************************\n", []),
+	  ?wrangler_io("The value returned by 'self()', which is used at the location(s) listed below, will be changed "
+		       " by this refactoring, and this could possibly change the behaviour of the program!\n", []),
+	  lists:foreach(fun ({{File, _Fun, _Ari}, SelfExpr, _}) ->
+				{{Line, _}, _} = refac_util:get_range(SelfExpr),
+				Msg = File ++ io_lib:format(":~p: \n", [Line]),
+				?wrangler_io(Msg, [])
+			end, SelfRes),
+	  throw({undecidables, "there are undecidable cases.", Cmd})
     end.
   
-		 
-	    
-
-
 %% This refactoring changes the value returned by those 'self()' which are reachable from the function under consideration,
 %% and there is a possiblity that this will change the program's behaviour when, for example, the value returned by 'self()' is 
 %% used as part of a message sent/received between processes.
@@ -405,21 +401,20 @@ is_recursive_fun({ModName, FunName, Arity, FunDef}, SearchPaths) ->
 		    end,
 		    Sccs1)
     end.
-	
 is_direct_recursive_fun(ModName, FunName, Arity, FunDef) ->
-    F = fun(Node, {Mod, Fun, Ari}) ->
-		case refac_syntax:type(Node) of 
-		    application ->
-			Op = refac_syntax:application_operator(Node),
-			case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of 
-			    {value, {fun_def, {Mod, Fun, Ari, _, _}}} ->
-				{true, true};
-			    _ -> {[],false}
-			end;
-		    _ -> {[], false}
+    F = fun (Node, {Mod, Fun, Ari}) ->
+		case refac_syntax:type(Node) of
+		  application ->
+		      Op = refac_syntax:application_operator(Node),
+		      case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
+			{value, {fun_def, {Mod, Fun, Ari, _, _}}} ->
+			    {true, true};
+			_ -> {[], false}
+		      end;
+		  _ -> {[], false}
 		end
-	end,	   
-    R = refac_util:once_tdTU(F,  FunDef, {ModName, FunName, Arity}),
+	end,
+    R = ast_traverse_api:once_tdTU(F, FunDef, {ModName, FunName, Arity}),
     element(2, R).
    
 
@@ -459,5 +454,5 @@ is_self_app(T) ->
      end.
 
 is_process_name(Name) ->
-    refac_util:is_fun_name(Name) andalso
+    refac_misc:is_fun_name(Name) andalso
       list_to_atom(Name) =/= undefined.

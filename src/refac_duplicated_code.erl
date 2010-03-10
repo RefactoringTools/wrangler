@@ -258,17 +258,17 @@ connect_clones(C1={Range1, Len1, F1}, {Range2, Len2, F2}) ->
 %% This phase needs to get access to the abstract syntax tree.
 
 trim_clones(Cs, MinLength, MinClones, MaxPars, TabWidth) ->
-    Files0 = [File || C <- Cs, {Range, _Len, _Freq} <- [C], 
+    Files0 = [File || C <- Cs, {Range, _Len, _Freq} <- [C],
 		      {File, _, _} <- element(1, lists:unzip(Range))],
-    Files = refac_util:remove_duplicates(Files0),
+    Files = refac_misc:remove_duplicates(Files0),
     Fun = fun (File, Cs0) -> process_a_file(File, Cs0, MinLength, TabWidth) end,
     Fun2 = fun (ListsOfUnitsList) ->
 		   case lists:usort(lists:map(fun length/1, ListsOfUnitsList)) of
-		       [_N] -> ZippedUnitsList = zip_list(ListsOfUnitsList),
-			       NewCs = lists:append([group_by_index(4, ZippedUnits) || ZippedUnits <- ZippedUnitsList]),
-			       lists:append([get_anti_unifier(C, MaxPars, MinLength) || C <- NewCs, C /= [], length(C) >= MinClones,
-											element(5, hd(C)) >= MinLength]);
-		       _ -> []
+		     [_N] -> ZippedUnitsList = zip_list(ListsOfUnitsList),
+			     NewCs = lists:append([group_by_index(4, ZippedUnits) || ZippedUnits <- ZippedUnitsList]),
+			     lists:append([get_anti_unifier(C, MaxPars, MinLength) || C <- NewCs, C /= [], length(C) >= MinClones,
+										      element(5, hd(C)) >= MinLength]);
+		     _ -> []
 		   end
 	   end,
     Cs1 = lists:foldl(Fun, Cs, Files),
@@ -677,29 +677,29 @@ do_anti_unify_literals(Exp1, Exp2) ->
 
 do_anti_unify_atoms(Exp1, Exp2) ->
     case has_the_same_value(Exp1, Exp2) of
-	true ->
-	    case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Exp1)) of
-		{value, {fun_def, {M, _, A, _, _}}} ->
-		    case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Exp2)) of
-			{value, {fun_def, {M, _, A, _, _}}} ->
-			    [];
-			_ -> [{Exp1, Exp2}]
-		    end;
-		false ->
-		    case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Exp2)) of
-			{value, {fun_def, _}} ->
-			    [{Exp1, Exp2}];
-			false ->
-			    []
-		    end
-	    end;
-	_ ->
-	    case refac_code_search_utils:variable_replaceable(Exp1) of
-		true ->
-		    [{Exp1, Exp2}];
-		_ -> 
-		    throw({error, anti_unification_failed})
-	    end
+      true ->
+	  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Exp1)) of
+	    {value, {fun_def, {M, _, A, _, _}}} ->
+		case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Exp2)) of
+		  {value, {fun_def, {M, _, A, _, _}}} ->
+		      [];
+		  _ -> [{Exp1, Exp2}]
+		end;
+	    false ->
+		case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Exp2)) of
+		  {value, {fun_def, _}} ->
+		      [{Exp1, Exp2}];
+		  false ->
+		      []
+		end
+	  end;
+      _ ->
+	  case refac_misc:variable_replaceable(Exp1) of
+	    true ->
+		[{Exp1, Exp2}];
+	    _ ->
+		throw({error, anti_unification_failed})
+	  end
     end.
 
 has_the_same_value(Node1, Node2) ->
@@ -713,24 +713,24 @@ generalise_expr({Exprs = [H| _T], EVs}, {NodeVarPairs, VarsToExport}) ->
     case refac_syntax:type(H) of
       function ->
 	  generalise_fun(H, NodeVarPairs);
-      _ -> 
-	    FunName = refac_syntax:atom(new_fun),
-	    FVs = lists:ukeysort(2, refac_util:get_free_vars(Exprs)),
-	    EVs1 = lists:ukeysort(2, EVs ++ VarsToExport),
-	    NewExprs = generalise_expr_1(Exprs, NodeVarPairs),
-	    NewExprs1 = case EVs1 of
-			    [] -> NewExprs;
-			    [{V, _}] -> E = refac_syntax:variable(V),
-					NewExprs ++ [E];
-			    [_V| _Vs] -> E = refac_syntax:tuple([refac_syntax:variable(V) || {V, _} <- EVs1]),
-					 NewExprs ++ [E]
-			end,
-	    NewVars = refac_misc:collect_var_names(NewExprs) -- refac_misc:collect_var_names(Exprs),
-	    Pars = [refac_syntax:variable(V)||{V,_}<-FVs]++
-		[refac_syntax:variable(V)||V<-NewVars],
-	    Pars1 = refac_util:remove_duplicates(Pars),
-	    C = refac_syntax:clause(Pars1, none, NewExprs1),
-	    {refac_prettypr:format(refac_syntax:function(FunName, [C])), length(Pars1)}
+      _ ->
+	  FunName = refac_syntax:atom(new_fun),
+	  FVs = lists:ukeysort(2, refac_util:get_free_vars(Exprs)),
+	  EVs1 = lists:ukeysort(2, EVs ++ VarsToExport),
+	  NewExprs = generalise_expr_1(Exprs, NodeVarPairs),
+	  NewExprs1 = case EVs1 of
+			[] -> NewExprs;
+			[{V, _}] -> E = refac_syntax:variable(V),
+				    NewExprs ++ [E];
+			[_V| _Vs] -> E = refac_syntax:tuple([refac_syntax:variable(V) || {V, _} <- EVs1]),
+				     NewExprs ++ [E]
+		      end,
+	  NewVars = refac_misc:collect_var_names(NewExprs) -- refac_misc:collect_var_names(Exprs),
+	  Pars = [refac_syntax:variable(V) || {V, _} <- FVs] ++
+		   [refac_syntax:variable(V) || V <- NewVars],
+	  Pars1 = refac_misc:remove_duplicates(Pars),
+	  C = refac_syntax:clause(Pars1, none, NewExprs1),
+	  {refac_prettypr:format(refac_syntax:function(FunName, [C])), length(Pars1)}
     end.
 
 generalise_fun(F, NodesToGen) ->
@@ -740,12 +740,12 @@ generalise_fun(F, NodesToGen) ->
 		       lists:map(
 			 fun (C) ->
 				 C1 = generalise_expr_2(C, NodesToGen),
-				 NewVars = refac_misc:collect_var_names(C1) -- 
-				     refac_misc:collect_var_names(C),
+				 NewVars = refac_misc:collect_var_names(C1) --
+					     refac_misc:collect_var_names(C),
 				 {C1, NewVars}
 			 end, Cs)),
-    NewVars1 = refac_util:remove_duplicates(lists:append(NewVars)),
-    NewCs = [generalise_clause(C,NewVars1)||C<-Cs1],
+    NewVars1 = refac_misc:remove_duplicates(lists:append(NewVars)),
+    NewCs = [generalise_clause(C, NewVars1) || C <- Cs1],
     %% Here only count the new vars.
     {refac_prettypr:format(refac_syntax:function(FunName, NewCs)), length(NewVars)}.
 
@@ -762,7 +762,7 @@ generalise_expr_1(Expr, NodesToGen) ->
     generalise_expr_2(Expr, NodesToGen).
    
 generalise_expr_2(Expr, NodesToGen) ->
-    element(1,refac_util:stop_tdTP(fun do_replace_expr_with_var_1/2, Expr, NodesToGen)).
+    element(1, ast_traverse_api:stop_tdTP(fun do_replace_expr_with_var_1/2, Expr, NodesToGen)).
  
 do_replace_expr_with_var_1(Node, NodeVarPairs) ->
     case lists:keysearch(Node,1, NodeVarPairs) of

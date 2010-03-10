@@ -71,14 +71,14 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_var(" ++ "\"" ++
 	     FName ++ "\", " ++ integer_to_list(Line) ++
 	       ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
-		 ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    case refac_util:is_var_name(NewName) of
+		 ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    case refac_misc:is_var_name(NewName) of
       true -> ok;
       false -> throw({error, "Invalid new variable name."})
     end,
     NewName1 = list_to_atom(NewName),
     {ok, {AnnAST1, _Info1}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-    case refac_util:pos_to_var_name(AnnAST1, {Line, Col}) of
+    case interface_api:pos_to_var_name(AnnAST1, {Line, Col}) of
       {ok, {VarName, DefinePos, C}} ->
 	  {VarName, DefinePos, C};
       {error, _} ->
@@ -128,32 +128,15 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 
 
 %% =====================================================================
-%% @spec cond_check(Tree::syntaxTree(), Pos::{integer(),integer()}, NewName::string())-> term()
-%%   		
+-spec cond_check(syntaxTree(), pos(), string(),string())-> term().
 cond_check(Form, Pos, _VarName,  NewName) ->
     Env_Bd_Fr_Vars = envs_bounds_frees(Form),
     BdVars = [B || {_, B, _}<-Env_Bd_Fr_Vars],
     %% The new name clashes with existing bound variables.
     F = fun({bound, Bds}) ->
 		{Names, Poss} = lists:unzip(Bds),
-		case lists:any(fun(P) -> lists:member(P, Poss) end, Pos)
-		    andalso lists:member(NewName, Names) of 
-		    false -> 
-			false;
-		    true -> 
-			true  %% This might be too strict?
-		%% 	DefPoss = [P||{N, P} <- Bds, NewName==N],
-%% 			refac_io:format("DefPoss:\n~p\n", [DefPoss]),
-%% 			VarEnvs = [defpos_to_var_env(Form, [P])|| P<-DefPoss],
-%% 			VarToRenameEnv = defpos_to_var_env(Form, Pos),
-%% 			case lists:any(fun({N,_P}) ->N==NewName end, VarToRenameEnv) of 
-%% 			    true ->
-%% 				true;
-%% 			    false ->
-%% 				lists:any(fun(E) -> lists:any(fun({N,_P})-> N==VarName end, E) 
-%% 					  end, VarEnvs)
-%% 			end
-		end	      
+		 lists:any(fun(P) -> lists:member(P, Poss) end, Pos)
+		    andalso lists:member(NewName, Names) 
 	end,
     Clash = lists:any(F, BdVars),
     %% The new name will shadow an existing free variable within the scope.
@@ -186,36 +169,10 @@ cond_check(Form, Pos, _VarName,  NewName) ->
 			       end, Env_Bd_Fr_Vars),
     {Clash, Shadow1 or Shadow2, BindingChange1 or BindingChange2}.
 
-
-%% defpos_to_var_env(Node, DefPos) ->
-%%     case refac_util:once_tdTU(fun defpos_to_var/2, Node, DefPos) of
-%% 	{_, false} ->
-%% 	    throw({error, "Refactoring failed because of a Wrangerl error."});
-%% 	{R, true} -> 
-%% 	    As = refac_syntax:get_ann(R),
-%% 	    case lists:keysearch(env, 1, As) of
-%% 		{value, {env, Env}} ->
-%% 		    Env;
-%% 		_ -> []
-%% 	    end
-%%     end.
-%% defpos_to_var(Node, DefPos) ->
-%%     case refac_syntax:type(Node) of
-%% 	variable ->
-%% 	    Pos = refac_syntax:get_pos(Node),
-%% 	    case lists:member(Pos, DefPos) of
-%% 		true ->
-%% 		    {Node, true};
-%% 		_ -> {[],false}
-%% 	    end;
-%% 	_ -> {[], false}
-%%     end.
-    
-    
 pos_to_form(Node, Pos) ->
-    case refac_util:once_tdTU(fun pos_to_form_1/2, Node, Pos) of
-	{_, false} -> throw({error, "Refactoring failed because of a Wrangler error."});
-	{R, true} -> R
+    case ast_traverse_api:once_tdTU(fun pos_to_form_1/2, Node, Pos) of
+      {_, false} -> throw({error, "Refactoring failed because of a Wrangler error."});
+      {R, true} -> R
     end.
 
 pos_to_form_1(Node, Pos) ->
@@ -232,18 +189,12 @@ pos_to_form_1(Node, Pos) ->
     end.
 
 
-
-%% =====================================================================
-%% @spec rename(Tree::syntaxTree(), DefinePos::{integer(),integer()}, NewName::string())-> term()
-%%
-
-%%-spec rename(syntaxTree(), [{integer(), integer()}], atom()) ->
-%%	     {syntaxTree(), boolean()}.
+-spec rename(syntaxTree(), [{integer(), integer()}], atom()) ->
+	     {syntaxTree(), boolean()}.
 rename(Tree, DefinePos, NewName) ->
-    refac_util:stop_tdTP(fun do_rename/2, Tree, {DefinePos, NewName}).
+    ast_traverse_api:stop_tdTP(fun do_rename/2, Tree, {DefinePos, NewName}).
 
 %% =====================================================================
-%%
 do_rename(Node, {DefinePos, NewName}) ->
     case refac_syntax:type(Node) of
       variable ->
@@ -258,10 +209,9 @@ do_rename(Node, {DefinePos, NewName}) ->
 
 
 %% =====================================================================
-%% @spec envs_bounds_frees(Node::syntaxTree())-> {value, [{Key, [atom()}]}
-%%       Key = env | bound | free
 %% @doc Return the input environment of the subtree, the variables that are
 %% bound as well as the variables that are free in the subtree.
+-spec envs_bounds_frees(syntaxTree())-> {value, [{env|bound|free, [atom()]}]}.
 envs_bounds_frees(Tree) ->
     F = fun (T, B) ->
 		As = refac_syntax:get_ann(T),

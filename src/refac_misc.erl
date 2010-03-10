@@ -7,6 +7,27 @@
 	eqc_fsm_callback_funs/0,commontest_callback_funs/0, try_eval/4,
 	make_new_name/2,collect_var_names/1]).
 
+-export([collect_used_macros/1]).
+
+-export([collect_used_records/1]).
+
+-export([ghead/2]).
+
+-export([glast/2]).
+
+-export([to_upper/1]).
+
+-export([to_lower/1]).
+
+-export([is_var_name/1]).
+
+-export([remove_duplicates/1]).
+
+-export([is_fun_name/1]).
+
+-export([format_search_paths/1]).
+
+-export([default_incls/0]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 group_by(N, TupleList) ->
@@ -85,14 +106,9 @@ variable_replaceable(Exp) ->
 	{value, {category, guard_expression}} -> false;
 	{value, {category, macro_name}} -> false;
 	{value, {category, pattern}} ->
-	    case refac_syntax:is_literal(Exp) orelse
-		refac_syntax:type(Exp) == variable
-	    of
-		true ->
-		    true;
-		_ -> false
-	    end;
-      _ -> 
+	    refac_syntax:is_literal(Exp) orelse
+		refac_syntax:type(Exp) == variable;	    
+	_ -> 
 	    T = refac_syntax:type(Exp),
 	    not lists:member(T, [match_expr, operator]) andalso
 		refac_util:get_var_exports(Exp) == []
@@ -144,7 +160,7 @@ try_eval(FileName, Node, SearchPaths, TabWidth) ->
 	  case has_macros(Node) andalso refac_util:get_free_vars(Node) == [] of
 	    true ->
 		Dir = filename:dirname(FileName),
-		DefaultIncl2 = [filename:join(Dir, X) || X <- refac_util:default_incls()],
+		DefaultIncl2 = [filename:join(Dir, X) || X <- default_incls()],
 		NewSearchPaths = SearchPaths ++ DefaultIncl2,
 		{Ms, UMs} = case refac_epp:parse_file(FileName, NewSearchPaths, []) of
 			      {ok, _, {Defs, Uses}} ->
@@ -198,7 +214,7 @@ has_macros(Node) ->
 		  _ -> {[], false}
 		end
 	end,
-    {_, Res} = refac_util:once_tdTU(F, Node, []),
+    {_, Res} = ast_traverse_api:once_tdTU(F, Node, []),
     Res.
     
 
@@ -232,3 +248,162 @@ collect_var_names_1(Node) ->
 	end,
     ordsets:to_list(refac_syntax_lib:fold(F, ordsets:new(), Node)).
 
+
+collect_used_macros(Node) ->
+    F = fun(T, S) ->
+		case refac_syntax:type(T) of
+		    macro ->
+			Name = refac_syntax:macro_name(T),
+			case refac_syntax:type(Name) of 
+			    variable -> [refac_syntax:variable_name(Name)|S];
+			    atom -> [refac_syntax:atom_value(Name) |S]
+			end;
+		    _  -> S
+		end
+	end,
+    lists:usort(refac_syntax_lib:fold(F, [], Node)).
+
+collect_used_records(Node) ->
+    Fun = fun(T, S) ->
+		  case refac_syntax:type(T) of
+		      record_access ->
+			  Type = refac_syntax:record_access_type(T),
+			  case refac_syntax:type(Type) of
+			      atom -> 
+				  ordsets:add_element(refac_syntax:atom_value(Type), S);
+			      _ -> S
+			  end;
+		      record_expr ->
+			  Type = refac_syntax:record_expr_type(T),
+			  case refac_syntax:type(Type) of
+			      atom -> 
+				  ordsets:add_element(refac_syntax:atom_value(Type), S);
+			      _ -> S
+			  end;
+		      record_index_expr->
+			  Type = refac_syntax:record_index_expr_type(T),
+			  case refac_syntax:type(Type) of
+			      atom ->
+				  ordsets:add_element(refac_syntax:atom_value(Type), S);
+			      _ -> S
+			  end;
+		      _ -> S		  
+		  end
+	  end,
+    ordsets:to_list(refac_syntax_lib:fold(Fun, ordsets:new(), Node)).
+
+%% =====================================================================
+%% @spec(ghead(Info::string(),List::[any()]) -> any()).
+%% @doc Same as erlang:hd/1, except the first argument which is the
+%%  error message when the list is empty.
+%% @see glast/2
+
+-spec(ghead(Info::string(),List::[any()]) -> any()).
+ghead(Info, []) -> erlang:error(Info);
+ghead(_Info, List) -> hd(List).
+
+%% =====================================================================
+%% @spec glast(Info::term(), List::[term()]) -> term()
+%% @doc Same as lists:last(L), except the first argument which is the 
+%%  error message when the list is empty.
+%% @see ghead/2
+
+-spec(glast(Info::string(), List::[any()]) -> any()).
+glast(Info, []) -> erlang:error(Info);
+glast(_Info, List) -> lists:last(List).
+
+%% =====================================================================
+%% @spec to_upper(Str::string()) -> string()
+%% @doc Convert a string into upper case.
+%% @see to_lower/1
+
+-spec(to_upper(Str::string()) -> string()).
+to_upper(Str) ->
+    to_upper(Str, []).
+
+to_upper([C | Cs], Acc) when C >= 97, C =< 122 ->
+    to_upper(Cs, [C - (97 - 65) | Acc]);
+to_upper([C | Cs], Acc) -> to_upper(Cs, [C | Acc]);
+to_upper([], Acc) -> lists:reverse(Acc).
+
+
+%% =====================================================================
+%% @spec to_lower(Str::string()) -> string()
+%% @doc Convert a string into lower case.
+%% @see to_upper/1
+
+-spec(to_lower(Str::string()) -> string()).
+to_lower(Str) ->
+    to_lower(Str, []).
+
+to_lower([C | Cs], Acc) when C >= 65, C =< 90 ->
+    to_lower(Cs, [C + (97 - 65) | Acc]);
+to_lower([C | Cs], Acc) -> to_lower(Cs, [C | Acc]);
+to_lower([], Acc) -> lists:reverse(Acc).
+
+%% =====================================================================
+%% @spec is_var_name(Name:: [any()])-> boolean()
+%% @doc Return true if a string is lexically a  variable name.
+-spec(is_var_name(Name:: [any()])-> boolean()).
+is_var_name(Name) ->
+    case Name of
+      [] -> false;
+      [H] -> is_upper(H) and (H =/= 95);
+      [H| T] -> (is_upper(H) or (H == 95)) and is_var_name_tail(T)
+    end.
+
+is_var_name_tail(Name) ->
+    case Name of
+      [H| T] ->
+	  (is_upper(H) or is_lower(H) or 
+	   is_digit(H) or (H == 64) or (H == 95)) and
+	    is_var_name_tail(T);
+      [] -> true
+    end.
+
+is_upper(L) -> (L >= 65) and (90 >= L).
+
+is_lower(L) -> (L >= 97) and (122 >= L).
+
+is_digit(L) -> (L >= 48) and (57 >= L).
+    
+
+%% =====================================================================
+%% @spec is_fun_name(Name:: [any()])-> boolean()
+%% @doc Return true if a name is lexically a function name.
+-spec(is_fun_name(Name:: [any()])-> boolean()).
+is_fun_name(Name) ->
+    case Name of
+      [H| T] -> is_lower(H) and is_var_name_tail(T);
+      [] -> false
+    end.
+
+
+remove_duplicates(L) ->
+    remove_duplicates(L, []).
+remove_duplicates([],Acc) ->
+     lists:reverse(Acc);
+remove_duplicates([H|T], Acc) ->
+    case lists:member(H, Acc) of
+	true ->
+	    remove_duplicates(T, Acc);
+	_ ->
+	    remove_duplicates(T, [H|Acc])
+    end.
+
+
+ 
+format_search_paths(Paths) ->
+    format_search_paths(Paths, "").
+format_search_paths([], Str)->
+    Str;
+format_search_paths([P|T], Str)->
+    case Str of
+	[] ->format_search_paths(T, "\""++P++"\"");
+	_ ->format_search_paths(T, Str++", \""++P++"\"")
+    end.
+    
+default_incls() ->
+  [".", "..", "../hrl", "../incl", "../inc", "../include",
+   "../../hrl", "../../incl", "../../inc", "../../include",
+   "../../../hrl", "../../../incl", "../../../inc", "../../../include"].

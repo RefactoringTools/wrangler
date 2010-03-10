@@ -53,7 +53,7 @@ rename_process(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_process(" ++ "\"" ++
 	    FileName ++ "\", " ++ integer_to_list(Line) ++
 	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
-		++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+		++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case is_process_name(NewName) of
       true ->
 	  _Res = refac_annotate_pid:ann_pid_info(SearchPaths, TabWidth),  %%TODO: check whether asts are already annotated.
@@ -102,10 +102,10 @@ rename_process_1(FileName, OldProcessName1, NewProcessName1, SearchPaths, TabWid
 
 
 pos_to_process_name(Node, Pos) ->
-    case refac_util:once_tdTU(fun pos_to_process_name_1/2, Node, Pos) of
+    case ast_traverse_api:once_tdTU(fun pos_to_process_name_1/2, Node, Pos) of
       {_, false} -> {error, "Wrangler could not infer that the atom selected represents a process name!"};
       {R, true} -> {ok, R}
-    end. 
+    end.
 
 pos_to_process_name_1(Node, Pos) ->
     As = refac_syntax:get_ann(Node),
@@ -191,10 +191,10 @@ is_register_app(T) ->
 
 
 do_rename_process(CurrentFileName, AnnAST, OldProcessName, NewProcessName, SearchPaths, TabWidth) ->
-    {AnnAST1, _Changed} = refac_util:stop_tdTP(fun do_rename_process/2, AnnAST, {OldProcessName, NewProcessName}),
+    {AnnAST1, _Changed} = ast_traverse_api:stop_tdTP(fun do_rename_process/2, AnnAST, {OldProcessName, NewProcessName}),
     OtherFiles = refac_util:expand_files(SearchPaths, ".erl") -- [CurrentFileName],
     Results = do_rename_process_in_other_modules(OtherFiles, OldProcessName, NewProcessName, SearchPaths, TabWidth),
-    [{{CurrentFileName, CurrentFileName}, AnnAST1} | Results].
+    [{{CurrentFileName, CurrentFileName}, AnnAST1}| Results].
 
 do_rename_process_in_other_modules(Files, OldProcessName, NewProcessName, SearchPaths, TabWidth) ->
     case Files of 
@@ -338,5 +338,4 @@ collect_atoms(File, SearchPaths, TabWidth)->
     lists:subtract(lists:usort(Res11), lists:usort(Res21)).
 
 is_process_name(Name) ->
-    refac_util:is_fun_name(Name) and (list_to_atom(Name) =/= undefined).
-
+    refac_misc:is_fun_name(Name) and (list_to_atom(Name) =/= undefined).

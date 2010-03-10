@@ -3,10 +3,12 @@
 
 -compile(export_all).
 
--export([var_binding_structure/1, display_search_results/3, display_clone_result/2,
+-export([var_binding_structure/1,
+	 display_search_results/3, display_clone_result/2,
 	 start_counter_process/0, stop_counter_process/1,
-	 add_new_export_var/2,get_new_export_vars/1, identifier_name/1,
-	 gen_new_var_name/1, remove_sub_clones/1, variable_replaceable/1]).
+	 add_new_export_var/2, get_new_export_vars/1,
+	 identifier_name/1, gen_new_var_name/1,
+	 remove_sub_clones/1]).
 
 -include("../include/wrangler.hrl").
 
@@ -20,11 +22,11 @@
 
 %% A refactoring candidate: from non-gen_server to gen_server.
 
--spec start_counter_process() -> pid().				   
+-spec start_counter_process() -> pid(). 			   
 start_counter_process() ->
     start_counter_process(sets:new()).
 
--spec start_counter_process([string()]) -> pid().	
+-spec start_counter_process([string()]) -> pid(). 
 start_counter_process(UsedNames) ->
     spawn_link(fun () -> counter_loop({1, UsedNames, []}) end).
 
@@ -60,7 +62,7 @@ get_new_export_vars(Pid) ->
 	{Pid, Vars} ->
 	     Vars
     end.
--spec gen_new_var_name(atom() | pid() | port() | {atom(),atom()}) -> string().	
+-spec gen_new_var_name(atom() | pid() | port() | {atom(),atom()}) -> string(). 
 gen_new_var_name(Pid) -> 
     Pid ! {self(), next},
     receive
@@ -116,32 +118,6 @@ sub_clone(C1, C2) ->
 		      end, Range1);
 	false ->
 	    false
-    end.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
-%%                                                                      %%
-%%  Returns true if a node can be replaced by a variable syntactically  %%
-%%                                                                      %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--spec variable_replaceable(syntaxTree()) -> boolean().	
-variable_replaceable(Exp) ->
-    case lists:keysearch(category, 1, refac_syntax:get_ann(Exp)) of
-	{value, {category, record_field}} -> false;
-	{value, {category, record_type}} -> false;
-	{value, {category, guard_expression}} -> false;
-	{value, {category, macro_name}} -> false;
-	{value, {category, pattern}} ->
-	    case refac_syntax:is_literal(Exp) orelse
-		refac_syntax:type(Exp) == variable
-	    of
-		true ->
-		    true;
-		_ -> false
-	    end;
-      _ -> 
-	    T = refac_syntax:type(Exp),
-	    not lists:member(T, [match_expr, operator]) andalso
-		refac_util:get_var_exports(Exp) == []
     end.
 
 

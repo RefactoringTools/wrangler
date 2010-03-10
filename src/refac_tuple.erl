@@ -46,7 +46,6 @@
 -module(refac_tuple).
 
 -export([tuple_funpar/5, tuple_funpar_1/5]).
-
 -export([tuple_funpar_eclipse/5, tuple_funpar_1_eclipse/5]).
 
 -export([tuple_funpar/7]).  %% For testing purpose.
@@ -57,14 +56,14 @@
 
 -include("../include/wrangler.hrl").
 
-%%-spec(tuple_funpar/5::(filename(), pos(), pos(), [dir()], integer()) ->
-%%	     {error, string()} | {ok, [filename()]}).
+-spec(tuple_funpar/5::(filename(), pos(), pos(), [dir()], integer()) ->
+	     {error, string()} | {ok, [filename()]}).
 tuple_funpar(FileName, StartLoc, EndLoc, SearchPaths, TabWidth)->
     tuple_funpar(FileName, StartLoc, EndLoc, SearchPaths, TabWidth, emacs).
 
 
-%%-spec(tuple_funpar_eclipse/5::(filename(), pos(), pos(), [dir()], integer()) ->
-%%	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
+-spec(tuple_funpar_eclipse/5::(filename(), pos(), pos(), [dir()], integer()) ->
+	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 tuple_funpar_eclipse(FileName, StartLoc, EndLoc,  SearchPaths, TabWidth)->
     tuple_funpar(FileName, StartLoc, EndLoc, SearchPaths, TabWidth, eclipse).
 
@@ -83,24 +82,24 @@ tuple_funpar_1_eclipse(FileName, StartLoc, EndLoc, SearchPaths, TabWidth)->
 
 tuple_funpar(FileName, Line, Col, Index, Num, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:tuple_funpar(~p, ~p,~p,~p,~p, ~p, ~p).\n",
-		 [?MODULE, FileName, Line,Col, Index, Num, SearchPaths, TabWidth]),
+		 [?MODULE, FileName, Line, Col, Index, Num, SearchPaths, TabWidth]),
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-    {ok, FunDef} = refac_util:pos_to_fun_def(AnnAST, {Line, Col}),
+    {ok, FunDef} = interface_api:pos_to_fun_def(AnnAST, {Line, Col}),
     FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
     FunArity = refac_syntax:function_arity(FunDef),
-    NewArity = FunArity-Num+1,
-    ok=pre_cond_check(FileName, FunName, FunArity, NewArity, Info),
-    tuple_par_0(FileName, AnnAST, Info, FunName, FunArity, 
+    NewArity = FunArity - Num + 1,
+    ok = pre_cond_check(FileName, FunName, FunArity, NewArity, Info),
+    tuple_par_0(FileName, AnnAST, Info, FunName, FunArity,
 		Index, Num, SearchPaths, TabWidth, emacs, "").
 
-tuple_funpar_1(FileName, StartLoc={StartLine, StartCol}, EndLoc={EndLine, EndCol}, SearchPaths, TabWidth, Editor)->
+tuple_funpar_1(FileName, StartLoc = {StartLine, StartCol}, EndLoc = {EndLine, EndCol}, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":tuple_funpar(" ++ "\"" ++
-	FileName ++ "\", {" ++ integer_to_list(StartLine) ++	", " ++ integer_to_list(StartCol) ++ "},"++
-	"{" ++ integer_to_list(EndLine) ++ ", " ++ integer_to_list(EndCol) ++ "}, [" 
-       	++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+	    FileName ++ "\", {" ++ integer_to_list(StartLine) ++ ", " ++ integer_to_list(StartCol) ++ "}," ++
+	      "{" ++ integer_to_list(EndLine) ++ ", " ++ integer_to_list(EndCol) ++ "}, ["
+		++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {FunName, FunArity, Index, Num} = pos_to_pars(AnnAST, StartLoc, EndLoc),
-    tuple_par_0(FileName, AnnAST, Info, FunName, FunArity, 
+    tuple_par_0(FileName, AnnAST, Info, FunName, FunArity,
 		Index, Num, SearchPaths, TabWidth, Editor, Cmd).
 
 tuple_funpar(FileName, StartLoc = {StartLine, StartCol}, EndLoc = {EndLine, EndCol},
@@ -108,14 +107,14 @@ tuple_funpar(FileName, StartLoc = {StartLine, StartCol}, EndLoc = {EndLine, EndC
     ?wrangler_io("\nCMD: ~p:tuple_funpar(~p, {~p,~p}, {~p,~p}, ~p, ~p).\n",
 		 [?MODULE, FileName, StartLine, StartCol, EndLine, EndCol, SearchPaths, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":tuple_funpar(" ++ "\"" ++
-	FileName ++ "\", {" ++ integer_to_list(StartLine) ++	", " ++ integer_to_list(StartCol) ++ "},"++
-	"{" ++ integer_to_list(EndLine) ++ ", " ++ integer_to_list(EndCol) ++ "}, [" 
-       	++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+	    FileName ++ "\", {" ++ integer_to_list(StartLine) ++ ", " ++ integer_to_list(StartCol) ++ "}," ++
+	      "{" ++ integer_to_list(EndLine) ++ ", " ++ integer_to_list(EndCol) ++ "}, ["
+		++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {FunName, FunArity, Index, Num} = pos_to_pars(AnnAST, StartLoc, EndLoc),
-    NewArity = FunArity-Num+1,
-    ok=pre_cond_check(FileName, FunName, FunArity, NewArity, Info),
-    tuple_par_0(FileName, AnnAST, Info, FunName, FunArity, 
+    NewArity = FunArity - Num + 1,
+    ok = pre_cond_check(FileName, FunName, FunArity, NewArity, Info),
+    tuple_par_0(FileName, AnnAST, Info, FunName, FunArity,
 		Index, Num, SearchPaths, TabWidth, Editor, Cmd).
 
 tuple_par_0(FileName, AnnAST, Info, FunName, Arity, Index, Num, SearchPaths, TabWidth, Editor, Cmd)->
@@ -128,13 +127,13 @@ tuple_par_0(FileName, AnnAST, Info, FunName, Arity, Index, Num, SearchPaths, Tab
 	    ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
 	    try tuple_pars_in_client_modules(ClientFiles,FunDefMod, FunName,Arity, Index, Num, SearchPaths, TabWidth) of
 		Results ->
-		    refac_util:write_files(Editor, [{{FileName, FileName}, AnnAST1}| Results], Cmd)
+		    refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1}| Results], Editor,Cmd)
 	    catch
 		throw:Err ->
 		    Err
 	    end;
 	false ->
-	    refac_util:write_files(Editor, [{{FileName, FileName}, AnnAST1}], Cmd)
+	    refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1}],Editor, Cmd)
     end.
 
 
@@ -232,64 +231,64 @@ commontest_name_checking(FunName, OldArity,NewArity) ->
     end.
 
 pos_to_pars(AnnAST, StartLoc, EndLoc) ->
-    case refac_util:pos_to_fun_def(AnnAST, EndLoc) of 
-	{ok, FunDef} ->
-	    FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
-	    FunArity = refac_syntax:function_arity(FunDef),
-	    Cs=refac_syntax:function_clauses(FunDef),
-	    C = [C||C<-Cs, {StartLoc1, EndLoc1} <- [refac_util:get_range(C)],
-		    StartLoc1 =< StartLoc, EndLoc=<EndLoc1],
-	    case C of 
-		[] -> throw({error, "You have not selected a sequence parameters,"
-			     "or the function containing the parameters selected does not parse."});
-		[C1|_] ->
-		    Pars = refac_syntax:clause_patterns(C1),
-		    {Pars1, Pars2} = lists:splitwith(
-				       fun(P) ->
-					       {S, _E} = refac_util:get_range(P),
-					       S< StartLoc
-				       end,  Pars),
-		    {Pars21, _Pars22} =lists:splitwith(
-					 fun(P) ->
-						 {_S, E} = refac_util:get_range(P),
-						 E =<EndLoc
-					 end, Pars2),
-		    case Pars21 of 
-			[] ->  throw({error, "You have not selected a sequence of parameters,"
+    case interface_api:pos_to_fun_def(AnnAST, EndLoc) of
+      {ok, FunDef} ->
+	  FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
+	  FunArity = refac_syntax:function_arity(FunDef),
+	  Cs = refac_syntax:function_clauses(FunDef),
+	  C = [C || C <- Cs, {StartLoc1, EndLoc1} <- [refac_util:get_range(C)],
+		    StartLoc1 =< StartLoc, EndLoc =< EndLoc1],
+	  case C of
+	    [] -> throw({error, "You have not selected a sequence parameters,"
+				"or the function containing the parameters selected does not parse."});
+	    [C1| _] ->
+		Pars = refac_syntax:clause_patterns(C1),
+		{Pars1, Pars2} = lists:splitwith(
+				   fun (P) ->
+					   {S, _E} = refac_util:get_range(P),
+					   S < StartLoc
+				   end, Pars),
+		{Pars21, _Pars22} = lists:splitwith(
+				      fun (P) ->
+					      {_S, E} = refac_util:get_range(P),
+					      E =< EndLoc
+				      end, Pars2),
+		case Pars21 of
+		  [] -> throw({error, "You have not selected a sequence of parameters,"
 				      "or the function containing the parameters selected does not parse."});
-			[_H] -> throw({error, "Tupling one argument is not supported by Wrangler."});
-			_ -> {FunName, FunArity, length(Pars1)+1, length(Pars21)}
-		    end
-	    end;
-	{error, _Reason} -> throw({error, "You have not selected a sequence parameters,"
-				  "or the function containing the parameters selected does not parse."})
+		  [_H] -> throw({error, "Tupling one argument is not supported by Wrangler."});
+		  _ -> {FunName, FunArity, length(Pars1) + 1, length(Pars21)}
+		end
+	  end;
+      {error, _Reason} -> throw({error, "You have not selected a sequence parameters,"
+					"or the function containing the parameters selected does not parse."})
     end.
 
 
 
 collect_implicit_funs(AnnAST, {FunName, Arity}) ->
-    F = fun(Node, _) ->
+    F = fun (Node, _) ->
 		case refac_syntax:type(Node) of
-		    implicit_fun ->
-			Name = refac_syntax:implicit_fun_name(Node),
-			case refac_syntax:type(Name) of
-			    arity_qualifier ->
-				Body = refac_syntax:arity_qualifier_body(Name),
-				Arg = refac_syntax:arity_qualifier_argument(Name),
-				F = refac_syntax:atom_value(Body),
-				A = refac_syntax:integer_value(Arg),
-				case {F, A} of
-				    {FunName, Arity} ->
-					{[Node], true};
-				    _ ->{[], false}
-				end;
-			    _ -> 
-				{[], false}
-			end;
-		    _ -> {[], false}
+		  implicit_fun ->
+		      Name = refac_syntax:implicit_fun_name(Node),
+		      case refac_syntax:type(Name) of
+			arity_qualifier ->
+			    Body = refac_syntax:arity_qualifier_body(Name),
+			    Arg = refac_syntax:arity_qualifier_argument(Name),
+			    F = refac_syntax:atom_value(Body),
+			    A = refac_syntax:integer_value(Arg),
+			    case {F, A} of
+			      {FunName, Arity} ->
+				  {[Node], true};
+			      _ -> {[], false}
+			    end;
+			_ ->
+			    {[], false}
+		      end;
+		  _ -> {[], false}
 		end
-	end,		    
-    element(1, refac_util:once_tdTU(F, AnnAST, {})).
+	end,
+    element(1, ast_traverse_api:once_tdTU(F, AnnAST, {})).
     
 tuple_pars(AnnAST, ModName, FunName, Arity, Index, Num, Info, SearchPaths, TabWidth) ->
     Forms = refac_syntax:form_list_elements(AnnAST),
@@ -333,43 +332,41 @@ do_tuple_fun_pars(Form, Args) ->
     end.
 
 
-tuple_pars_in_function(Form, _Others={CurModName, FunDefMod, FunName, Arity,
-				     Index, Num, SearchPaths, TabWidth}) ->
+tuple_pars_in_function(Form, _Others = {CurModName, FunDefMod, FunName, Arity,
+					Index, Num, SearchPaths, TabWidth}) ->
     Fun1 = refac_syntax:function_name(Form),
     FunName1 = refac_syntax:data(Fun1),
     FunArity1 = refac_syntax:function_arity(Form),
     Args = {CurModName, FunDefMod, FunName, Arity, Index, Num, SearchPaths, TabWidth},
-    case {FunName1,FunArity1} of
-	{FunName, Arity} ->
-	    Cs = refac_syntax:function_clauses(Form),
-	    NewCs = lists:map(
-		      fun (C) ->
-			      Body = refac_syntax:clause_body(C),
-			      Guard = refac_syntax:clause_guard(C),
-			      Pats = refac_syntax:clause_patterns(C),
-			      NewPats = process_pars(Pats, Index, Num),
-			      NewBody = lists:map(fun(B) ->
-							  tuple_actual_pars(B, Args)
-						  end, Body),
-			      refac_util:rewrite(C, refac_syntax:clause(NewPats, Guard, NewBody))
-		      end, Cs),
-	    NewForm = refac_util:rewrite(Form, refac_syntax:function(Fun1, NewCs)),
-	    Cs1 = refac_syntax:function_clauses(Form),
-	    NewCs1 = lists:map(
-		       fun (C) ->
-			       Pats = refac_syntax:clause_patterns(C),
-			       Pats1  = [P1|| P<-Pats,{P1, _} <-
-						  [refac_util:full_tdTP(
-						     fun do_replace_underscore/2, P,[])]],
-			       G = refac_syntax:clause_guard(C),
-			       Op = refac_syntax:atom(FunName),
-			       Pats2 = process_pars(Pats1, Index, Num),
-			       Body = [refac_syntax:application(Op, Pats2)],
-			       refac_syntax:clause(Pats, G, Body)
-		       end, Cs1),
-	    NewForm1 = refac_syntax:function(refac_syntax:atom(FunName), NewCs1),
-	    [NewForm1, NewForm];
-	_ -> [tuple_actual_pars(Form, Args)]
+    case {FunName1, FunArity1} of
+      {FunName, Arity} ->
+	  Cs = refac_syntax:function_clauses(Form),
+	  NewCs = lists:map(
+		    fun (C) ->
+			    Body = refac_syntax:clause_body(C),
+			    Guard = refac_syntax:clause_guard(C),
+			    Pats = refac_syntax:clause_patterns(C),
+			    NewPats = process_pars(Pats, Index, Num),
+			    NewBody = [tuple_actual_pars(B, Args) || B <- Body],
+			    refac_util:rewrite(C, refac_syntax:clause(NewPats, Guard, NewBody))
+		    end, Cs),
+	  NewForm = refac_util:rewrite(Form, refac_syntax:function(Fun1, NewCs)),
+	  Cs1 = refac_syntax:function_clauses(Form),
+	  NewCs1 = lists:map(
+		     fun (C) ->
+			     Pats = refac_syntax:clause_patterns(C),
+			     Pats1 = [P1 || P <- Pats, {P1, _}
+							   <- [ast_traverse_api:full_tdTP(
+								 fun do_replace_underscore/2, P, [])]],
+			     G = refac_syntax:clause_guard(C),
+			     Op = refac_syntax:atom(FunName),
+			     Pats2 = process_pars(Pats1, Index, Num),
+			     Body = [refac_syntax:application(Op, Pats2)],
+			     refac_syntax:clause(Pats, G, Body)
+		     end, Cs1),
+	  NewForm1 = refac_syntax:function(refac_syntax:atom(FunName), NewCs1),
+	  [NewForm1, NewForm];
+      _ -> [tuple_actual_pars(Form, Args)]
     end.
 
 
@@ -420,7 +417,7 @@ process_pars(Pars, Index, Num)->
 
 
 tuple_actual_pars(Node, Args) ->
-    element(1,refac_util:full_tdTP(fun do_tuple_actual_pars/2,Node, Args)).
+    element(1, ast_traverse_api:full_tdTP(fun do_tuple_actual_pars/2, Node, Args)).
  
 
 do_tuple_actual_pars(Node, Others={CurModName, FunDefMod, FunName, 
@@ -591,9 +588,9 @@ tuple_pars_in_client_modules(ClientFiles,FunDefMod, FunName,Arity, Index, Num, S
     end.
 
 
-tuple_pars_in_client_modules_1(AnnAST, CurModName,FunDefMod, FunName, Arity, Index, Num, SearchPaths, TabWidth) ->
+tuple_pars_in_client_modules_1(AnnAST, CurModName, FunDefMod, FunName, Arity, Index, Num, SearchPaths, TabWidth) ->
     Args = {CurModName, FunDefMod, FunName, Arity, Index, Num, SearchPaths, TabWidth},
-    refac_util:full_tdTP(fun do_tuple_actual_pars/2, AnnAST, Args).
+    ast_traverse_api:full_tdTP(fun do_tuple_actual_pars/2, AnnAST, Args).
     
 
     

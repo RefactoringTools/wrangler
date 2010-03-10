@@ -145,23 +145,23 @@ generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPa
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":generalise(" ++ "\"" ++
 	    FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++
 	      "{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ ParName ++ "\","
-		++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    case refac_util:is_var_name(ParName) of
+		++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    case refac_misc:is_var_name(ParName) of
       false -> throw({error, "Invalid parameter name!"});
       true -> ok
     end,
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {ok, ModName} = get_module_name(Info),
-    case refac_util:pos_to_expr(AnnAST, Start, End) of
-      {ok, Exp} -> 
-	    Exp;
+    case interface_api:pos_to_expr(AnnAST, Start, End) of
+      {ok, Exp} ->
+	  Exp;
       {error, _} -> throw({error, "You have not selected an expression, "
 				  "or the function containing the expression does not parse."}),
 		    Exp = none
     end,
-    case refac_util:expr_to_fun(AnnAST, Exp) of
-      {ok, Fun} -> 
-	    Fun;
+    case interface_api:expr_to_fun(AnnAST, Exp) of
+      {ok, Fun} ->
+	  Fun;
       {error, _} -> throw({error, "You have not selected an expression within a function."}),
 		    Fun = none
     end,
@@ -188,7 +188,7 @@ generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPa
     DupsInClause = search_duplications(expr_to_fun_clause(Fun, Exp), Exp),
     case SideEffect of
       unknown ->
-	    {unknown_side_effect, {ParName1, FunName, FunArity,
+	  {unknown_side_effect, {ParName1, FunName, FunArity,
 				 FunDefPos, Exp, NoOfClauses, DupsInFun, DupsInClause, Cmd}};
       _ ->
 	  case NoOfClauses > 1 of
@@ -228,12 +228,12 @@ gen_fun_1(SideEffect, FileName, ParName, FunName, Arity, DefPos, Exp, SearchPath
     {ok, ModName} = get_module_name(Info),
     AnnAST1 = case to_keep_original_fun(FileName, AnnAST, ModName, FunName, Arity, Exp, Info) of
 		true -> add_function(ModName, AnnAST, FunName, DefPos, Exp, SideEffect);
-		  false -> AnnAST
+		false -> AnnAST
 	      end,
     ActualPar = make_actual_parameter(ModName, Exp, SideEffect),
-    {AnnAST2, _} = refac_util:stop_tdTP(fun do_gen_fun/2, AnnAST1,
-					{FileName, ParName, FunName, Arity, DefPos, Info,
-					 Exp, ActualPar, SideEffect, Dups, SearchPaths, TabWidth}),
+    {AnnAST2, _} = ast_traverse_api:stop_tdTP(fun do_gen_fun/2, AnnAST1,
+					      {FileName, ParName, FunName, Arity, DefPos, Info,
+					       Exp, ActualPar, SideEffect, Dups, SearchPaths, TabWidth}),
     refac_util:write_refactored_files(FileName, AnnAST2, Editor, LogCmd).
 
 
@@ -373,53 +373,53 @@ gen_cond_analysis(Fun, Exp, ParName) ->
     end.
 
   
-gen_fun(FileName, ModName, Tree, ParName, FunName, Arity, DefPos,Info, Exp, SideEffect, Dups, SearchPaths, TabWidth) ->
+gen_fun(FileName, ModName, Tree, ParName, FunName, Arity, DefPos, Info, Exp, SideEffect, Dups, SearchPaths, TabWidth) ->
     Tree1 = case to_keep_original_fun(FileName, Tree, ModName, FunName, Arity, Exp, Info) of
-		true  -> 
-		    add_function(ModName, Tree, FunName,DefPos, Exp, SideEffect);
-		false -> Tree
-	    end,		  
-    ActualPar =  make_actual_parameter(ModName, Exp, SideEffect),
-    refac_util:stop_tdTP(fun do_gen_fun/2, Tree1, 
-			 {FileName, ParName, FunName, Arity, DefPos,Info, Exp, ActualPar, SideEffect, Dups, SearchPaths, TabWidth}).
+	      true ->
+		  add_function(ModName, Tree, FunName, DefPos, Exp, SideEffect);
+	      false -> Tree
+	    end,
+    ActualPar = make_actual_parameter(ModName, Exp, SideEffect),
+    ast_traverse_api:stop_tdTP(fun do_gen_fun/2, Tree1,
+			       {FileName, ParName, FunName, Arity, DefPos, Info, Exp, ActualPar, SideEffect, Dups, SearchPaths, TabWidth}).
 
 
 
 %% =====================================================================
 %% @spec add_function(Tree::syntaxTree(),FunName::atom(),DefPos::Pos, Exp::expression()) ->syntaxTree()
 %%
-add_function(ModName, Tree, FunName, DefPos, Exp, SideEffect) -> 				
+add_function(ModName, Tree, FunName, DefPos, Exp, SideEffect) ->
     Forms = refac_syntax:form_list_elements(Tree),
-    MakeClause = 
-	fun(C, Expr, Name) ->
+    MakeClause =
+	fun (C, Expr, Name) ->
 		Pats = refac_syntax:clause_patterns(C),
-		Fun = fun(P)->
-			      {P1, _} =refac_util:stop_tdTP(fun do_replace_underscore/2, P, []),
+		Fun = fun (P) ->
+			      {P1, _} = ast_traverse_api:stop_tdTP(fun do_replace_underscore/2, P, []),
 			      P1
 		      end,
 		Pats1 = lists:map(Fun, Pats),
-		G =  refac_syntax:clause_guard(C),
-		Op = refac_syntax:operator(Name),    
+		G = refac_syntax:clause_guard(C),
+		Op = refac_syntax:operator(Name),
 		Args = Pats1 ++ [refac_util:reset_attrs(Expr)],
 		Body = [refac_syntax:application(Op, Args)],
 		refac_syntax:clause(Pats, G, Body)
 	end,
-    F = fun(Form) ->
-		case refac_syntax:type(Form) of 
-		    function ->
-			case get_fun_def_loc(Form) of 
-			    DefPos -> 
-				Exp1 = make_actual_parameter(ModName, Exp, SideEffect),
-				NewCs =[MakeClause(C, Exp1,FunName) 
-					|| C <- refac_syntax:function_clauses(Form)],
-				NewForm = refac_syntax:function(refac_syntax:atom(FunName),NewCs),
-				[NewForm, Form];
-			    _ -> [Form]
-			end;
-		    _ -> [Form] 
+    F = fun (Form) ->
+		case refac_syntax:type(Form) of
+		  function ->
+		      case get_fun_def_loc(Form) of
+			DefPos ->
+			    Exp1 = make_actual_parameter(ModName, Exp, SideEffect),
+			    NewCs = [MakeClause(C, Exp1, FunName)
+				     || C <- refac_syntax:function_clauses(Form)],
+			    NewForm = refac_syntax:function(refac_syntax:atom(FunName), NewCs),
+			    [NewForm, Form];
+			_ -> [Form]
+		      end;
+		  _ -> [Form]
 		end
-	end,		
-    refac_syntax:form_list([T|| Form<-Forms, T <- F(Form)]).
+	end,
+    refac_syntax:form_list([T || Form <- Forms, T <- F(Form)]).
 
 %% =====================================================================
 %%
@@ -458,15 +458,15 @@ replace_clause_body(C, FunName, Exp, ActualPar) ->
 	  G = refac_syntax:clause_guard(C),
 	  Body = [refac_syntax:application(refac_syntax:atom(FunName), Pats ++ [ActualPar])],
 	  Body1 = [B1 || B <- Body,
-			 {B1, _} <- [refac_util:stop_tdTP(fun do_replace_underscore/2, B, [])]],
+			 {B1, _} <- [ast_traverse_api:stop_tdTP(fun do_replace_underscore/2, B, [])]],
 	  refac_util:rewrite(C, refac_syntax:clause(Pats, G, Body1));
       _ -> C %% add_actual_parameter(C, {FileName, FunName, Arity, Exp1, Info, SearchPaths, TabWidth})
     end.
 
 
 replace_exp_with_var(Tree, {ParName, Exp, SideEffect, Dups}) ->
-    {Tree1, _} =refac_util:stop_tdTP(fun do_replace_exp_with_var/2, 
-				     Tree, {ParName, Exp, SideEffect, Dups}),
+    {Tree1, _} = ast_traverse_api:stop_tdTP(fun do_replace_exp_with_var/2,
+					    Tree, {ParName, Exp, SideEffect, Dups}),
     Tree1.
 
 do_replace_exp_with_var(Tree, {ParName, Exp, SideEffect, Dups}) ->
@@ -491,9 +491,8 @@ do_replace_exp_with_var(Tree, {ParName, Exp, SideEffect, Dups}) ->
 	_ -> {Tree, false}
     end.
    
-		
-add_actual_parameter(Tree, Args={_FileName, _FunName, _Arity, _Exp, _Info, _SearchPaths, _TabWidth})->
-   {Tree1, _} =refac_util:stop_tdTP(fun do_add_actual_parameter/2,Tree, Args),
+add_actual_parameter(Tree, Args = {_FileName, _FunName, _Arity, _Exp, _Info, _SearchPaths, _TabWidth}) ->
+    {Tree1, _} = ast_traverse_api:stop_tdTP(fun do_add_actual_parameter/2, Tree, Args),
     Tree1.
     
 
@@ -685,58 +684,59 @@ check_atoms(AnnAST, AtomNames) ->
     R1 -- R2 =/= [].
    
 check_implicit_and_apply_style_calls(AnnAST, ModName, FunName, Arity) ->
-    F = fun(Node, _Others) ->
-		case refac_syntax:type(Node) of 
-		    application ->
-			Op = refac_syntax:application_operator(Node),
-			case get_fun_def_info(Op) of
-			    {M1, F1, A1} ->
-				case lists:keysearch({M1, F1, A1}, 1, apply_style_funs()) of
-				    {value, _} ->
-					{Node, true};
-				    _ ->
-					{[], false}
-				end;
-			    _ -> {[], false}
-			end;
-		    implicit_fun ->
-			Name = refac_syntax:implicit_fun_name(Node),
-			case refac_syntax:type(Name) of
-			    arity_qualifier ->
-				FunName1 = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Name)),
-				Arity1 = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Name)),
-				case {FunName1, Arity1} of
-				    {FunName, Arity} ->{Node, true};
-				    _ ->{[], false}
-				end;
-			    module_qualifier ->
-				Mod = refac_syntax:module_qualifier_argument(Name),
-				Body = refac_syntax:module_qualifier_body(Name),
-				case refac_syntax:type(Mod) == atom andalso 
-				    refac_syntax:atom_value(Mod) == ModName of
-				    true ->
-					FunName1 = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Body)),
-					Arity1 = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Body)),
-					case {FunName1, Arity1} of
-					    {FunName, Arity} -> {Node, true};
-					    _ -> {[], false}
-					end;
-				    false ->{[], false}
-				end
-			end;
-		    _ -> {[], false}
+    F = fun (Node, _Others) ->
+		case refac_syntax:type(Node) of
+		  application ->
+		      Op = refac_syntax:application_operator(Node),
+		      case get_fun_def_info(Op) of
+			{M1, F1, A1} ->
+			    case lists:keysearch({M1, F1, A1}, 1, apply_style_funs()) of
+			      {value, _} ->
+				  {Node, true};
+			      _ ->
+				  {[], false}
+			    end;
+			_ -> {[], false}
+		      end;
+		  implicit_fun ->
+		      Name = refac_syntax:implicit_fun_name(Node),
+		      case refac_syntax:type(Name) of
+			arity_qualifier ->
+			    FunName1 = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Name)),
+			    Arity1 = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Name)),
+			    case {FunName1, Arity1} of
+			      {FunName, Arity} -> {Node, true};
+			      _ -> {[], false}
+			    end;
+			module_qualifier ->
+			    Mod = refac_syntax:module_qualifier_argument(Name),
+			    Body = refac_syntax:module_qualifier_body(Name),
+			    case refac_syntax:type(Mod) == atom andalso refac_syntax:atom_value(Mod) == ModName
+				of
+			      true ->
+				  FunName1 = refac_syntax:atom_value(refac_syntax:arity_qualifier_body(Body)),
+				  Arity1 = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Body)),
+				  case {FunName1, Arity1} of
+				    {FunName, Arity} -> {Node, true};
+				    _ -> {[], false}
+				  end;
+			      false -> {[], false}
+			    end
+		      end;
+		  _ -> {[], false}
 		end
 	end,
-    element(2, refac_util:once_tdTU(F, AnnAST, [])).
+    element(2, ast_traverse_api:once_tdTU(F, AnnAST, [])).
 
 
 check_side_effect(FileName, Exp, SearchPaths) ->
-    case refac_util:has_side_effect(FileName, Exp, SearchPaths) of
-	unknown -> case refac_util:get_free_vars(Exp) of
-		       [] -> unknown;
-		       _ -> true
-		   end;
-	V -> V
+    case side_effect_api:has_side_effect(FileName, Exp, SearchPaths)
+	of
+      unknown -> case refac_util:get_free_vars(Exp) of
+		   [] -> unknown;
+		   _ -> true
+		 end;
+      V -> V
     end.
 
 get_fun_def_loc(Node) ->
@@ -810,11 +810,11 @@ do_replace_underscore(Tree, _Others) ->
     
 
 reset_attr(Node, Key) ->
-    refac_util:full_buTP(fun (T, _Others) ->
-				 Ann = refac_syntax:get_ann(T), 
-				 NewAnn = lists:keydelete(Key, 1, Ann),
-				 refac_syntax:set_ann(T, NewAnn)
-			 end, Node, {}).
+    ast_traverse_api:full_buTP(fun (T, _Others) ->
+				       Ann = refac_syntax:get_ann(T),
+				       NewAnn = lists:keydelete(Key, 1, Ann),
+				       refac_syntax:set_ann(T, NewAnn)
+			       end, Node, {}).
 
 collect_guard_ranges(Node) ->
     Fun=fun(T, Acc) ->

@@ -164,10 +164,8 @@ normalise_expr(Exprs, RecordInfo) ->
 	_E1:_E2 ->
 	    Exprs
     end.
-	    
-  
-normalise_record_expr(Exprs, RecordInfo)->
-     [refac_util:full_buTP(fun do_normalise_record_expr_1/2, E, {RecordInfo, true})|| E<-Exprs].
+normalise_record_expr(Exprs, RecordInfo) ->
+    [ast_traverse_api:full_buTP(fun do_normalise_record_expr_1/2, E, {RecordInfo, true}) || E <- Exprs].
     
 get_simi_score(SimiScore0) ->
     try  case SimiScore0 of
@@ -185,9 +183,9 @@ get_simi_score(SimiScore0) ->
 
 get_fundef_and_expr(FName, Start, End, SearchPaths, TabWidth) ->
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-    case refac_util:pos_to_fun_def(AnnAST, Start) of
+    case interface_api:pos_to_fun_def(AnnAST, Start) of
       {ok, FunDef} ->
-	  Exprs = refac_util:pos_to_expr_list(FunDef, Start, End),
+	  Exprs = interface_api:pos_to_expr_list(FunDef, Start, End),
 	  case Exprs of
 	    [] -> throw({error, "You have not selected an expression!"});
 	    _ ->
@@ -205,27 +203,27 @@ get_fundef_and_expr(FName, Start, End, SearchPaths, TabWidth) ->
 
 
 -spec(normalise_record_expr/5::(filename(), pos(), boolean(), [dir()], integer()) -> {ok, [filename()]}).
-normalise_record_expr(FName, Pos={Line, Col}, ShowDefault, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:normalise_record_expr(~p, {~p,~p},~p, ~p, ~p).\n", 
-		 [?MODULE, FName, Line, Col, ShowDefault, SearchPaths,TabWidth]),
+normalise_record_expr(FName, Pos = {Line, Col}, ShowDefault, SearchPaths, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:normalise_record_expr(~p, {~p,~p},~p, ~p, ~p).\n",
+		 [?MODULE, FName, Line, Col, ShowDefault, SearchPaths, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":normalise_record_expr(" ++ "\"" ++
-	FName ++ "\", {" ++ integer_to_list(Line) ++", " ++ integer_to_list(Col) ++ "},"
-	 ++ atom_to_list(ShowDefault)++ " [" ++ refac_util:format_search_paths(SearchPaths)
-	++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    {ok, {AnnAST, _Info}} =refac_util:parse_annotate_file(FName,true, [], TabWidth),
-    RecordExpr =pos_to_record_expr(AnnAST, Pos),
+	    FName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "},"
+											   ++ atom_to_list(ShowDefault) ++ " [" ++ refac_misc:format_search_paths(SearchPaths)
+	      ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, [], TabWidth),
+    RecordExpr = pos_to_record_expr(AnnAST, Pos),
     case refac_syntax:type(refac_syntax:record_expr_type(RecordExpr)) of
-	atom -> ok;
-	_ -> throw({error, "Wrangler can only normalise a record expression with an atom as the record name."})
+      atom -> ok;
+      _ -> throw({error, "Wrangler can only normalise a record expression with an atom as the record name."})
     end,
-    {AnnAST1, _Changed} = normalise_record_expr_1(FName, AnnAST,Pos,ShowDefault, SearchPaths, TabWidth),
+    {AnnAST1, _Changed} = normalise_record_expr_1(FName, AnnAST, Pos, ShowDefault, SearchPaths, TabWidth),
     refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST1}], Cmd),
     {ok, [FName]}.
 
 
-normalise_record_expr_1(FName, AnnAST,Pos, ShowDefault, SearchPaths, TabWidth) ->
+normalise_record_expr_1(FName, AnnAST, Pos, ShowDefault, SearchPaths, TabWidth) ->
     RecordInfo = get_module_record_info(FName, SearchPaths, TabWidth),
-    refac_util:stop_tdTP(fun do_normalise_record_expr/2, AnnAST, {Pos,RecordInfo, ShowDefault}).
+    ast_traverse_api:stop_tdTP(fun do_normalise_record_expr/2, AnnAST, {Pos, RecordInfo, ShowDefault}).
     
 
 do_normalise_record_expr(Node, {Pos, RecordInfo, ShowDefault}) ->
@@ -234,8 +232,8 @@ do_normalise_record_expr(Node, {Pos, RecordInfo, ShowDefault}) ->
 	  {S, E} = refac_util:get_range(Node),
 	  case S =< Pos andalso Pos =< E of
 	    true ->
-		{refac_util:full_buTP(fun do_normalise_record_expr_1/2,
-				      Node, {RecordInfo, ShowDefault}), true};
+		{ast_traverse_api:full_buTP(fun do_normalise_record_expr_1/2,
+					    Node, {RecordInfo, ShowDefault}), true};
 	    _ -> {Node, false}
 	  end;
       _ -> {Node, false}
@@ -292,12 +290,14 @@ set_random_pos(Node) ->
     refac_syntax:set_pos(Node, {-random:uniform(200), -random:uniform(200)}).
  
 pos_to_record_expr(Tree, Pos) ->
-    case refac_util:once_tdTU(fun pos_to_record_expr_1/2, Tree, Pos) of 
-	{_, false} ->
-	     throw({error, "You have not selected a record expression, "
-		   "or the function containing the record expression selected does not parse."});
-	{R, true} -> 
-	    R
+    case
+      ast_traverse_api:once_tdTU(fun pos_to_record_expr_1/2, Tree, Pos)
+	of
+      {_, false} ->
+	  throw({error, "You have not selected a record expression, "
+			"or the function containing the record expression selected does not parse."});
+      {R, true} ->
+	  R
     end.
 
 pos_to_record_expr_1(Node, Pos) ->
@@ -314,21 +314,21 @@ pos_to_record_expr_1(Node, Pos) ->
 
 get_module_record_info(FName, SearchPaths, TabWidth) ->
     Dir = filename:dirname(FName),
-    DefaultIncl = [filename:join(Dir, X) || X <-refac_util:default_incls()],
-    Includes = SearchPaths++DefaultIncl,
-    case refac_epp:parse_file(FName, Includes,[], TabWidth, refac_util:file_format(FName)) of 
-	{ok, Forms, _} -> Forms1 =[F || F <-Forms, case F of 
-						       {attribute, _, file, _} -> false;
-						       {attribute, _, type, {{record, _}, _, _}} -> false;
-						       _ -> true
+    DefaultIncl = [filename:join(Dir, X) || X <- refac_misc:default_incls()],
+    Includes = SearchPaths ++ DefaultIncl,
+    case refac_epp:parse_file(FName, Includes, [], TabWidth, refac_util:file_format(FName)) of
+      {ok, Forms, _} -> Forms1 = [F || F <- Forms, case F of
+						     {attribute, _, file, _} -> false;
+						     {attribute, _, type, {{record, _}, _, _}} -> false;
+						     _ -> true
 						   end],
-			  SyntaxTree = refac_recomment:recomment_forms(Forms1,[]),
-			  Info = refac_syntax_lib:analyze_forms(SyntaxTree),
-			  case lists:keysearch(records,1, Info) of 
-			      {value, {records, Records}} -> Records;
-			      _ ->[]
-			  end;
-	{error, _Reason} -> []
+			SyntaxTree = refac_recomment:recomment_forms(Forms1, []),
+			Info = refac_syntax_lib:analyze_forms(SyntaxTree),
+			case lists:keysearch(records, 1, Info) of
+			  {value, {records, Records}} -> Records;
+			  _ -> []
+			end;
+      {error, _Reason} -> []
     end.
 
 

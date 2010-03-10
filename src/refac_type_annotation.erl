@@ -92,26 +92,27 @@ do_type_ann(FileName, Form, TestFrameWorkUsed, SearchPaths, TabWidth, Pid) ->
     case refac_syntax:type(Form) of
       function ->
 	  Ann = refac_syntax:get_ann(Form),
-	  {value, {fun_def, {M, F, A, _, _}}}=lists:keysearch(fun_def,1,Ann),
+	  {value, {fun_def, {M, F, A, _, _}}} = lists:keysearch(fun_def, 1, Ann),
 	  Name = refac_syntax:function_name(Form),
-	  Name1=refac_syntax:add_ann({type, {f_atom, [M, F, A]}}, Name),
-	  Cs = [refac_util:full_buTP(fun do_type_ann_clause/2, C, 
-				     {FileName, refac_syntax:clause_patterns(C), 
-				      TestFrameWorkUsed, SearchPaths, TabWidth, Pid})
+	  Name1 = refac_syntax:add_ann({type, {f_atom, [M, F, A]}}, Name),
+	  Cs = [ast_traverse_api:full_buTP(fun do_type_ann_clause/2, C,
+					   {FileName, refac_syntax:clause_patterns(C),
+					    TestFrameWorkUsed, SearchPaths, TabWidth, Pid})
 		|| C <- refac_syntax:function_clauses(Form)],
 	  CsPats = [refac_syntax:clause_patterns(C) || C <- refac_syntax:function_clauses(Form)],
 	  TypeInfo = get_all_type_info(Pid),
-	  CsPatsTypes = [[get_pat_type(P, TypeInfo)|| P <- CPats] || CPats <- CsPats],
+	  CsPatsTypes = [[get_pat_type(P, TypeInfo) || P <- CPats] || CPats <- CsPats],
 	  ZippedCsPatsTypes = zip_list(CsPatsTypes),
 	  PatTypes = [lists:usort(Ts) || Ts <- ZippedCsPatsTypes],
-	  ?debug("MFA:\n~p\n", [{M,F,A}]),
-	  ?debug("ParTypes:\n~p\n", [[hd(PT)||PT<-PatTypes]]),
-	  case lists:all(fun (T) -> length(T) == 1 end, PatTypes) andalso 
-	       lists:any(fun(T) -> T/=[any] end, PatTypes) of
+	  ?debug("MFA:\n~p\n", [{M, F, A}]),
+	  ?debug("ParTypes:\n~p\n", [[hd(PT) || PT <- PatTypes]]),
+	  case lists:all(fun (T) -> length(T) == 1 end, PatTypes) andalso
+		 lists:any(fun (T) -> T /= [any] end, PatTypes)
+	      of
 	    true ->
-		  Ts = {{M, F, A}, {[hd(PT)||PT<-PatTypes], any}},
-		  add_to_type_env(Pid, [Ts]);
-	      _ -> ok
+		Ts = {{M, F, A}, {[hd(PT) || PT <- PatTypes], any}},
+		add_to_type_env(Pid, [Ts]);
+	    _ -> ok
 	  end,
 	  refac_util:rewrite(Form, refac_syntax:function(Name1, Cs));
       _ ->
@@ -310,8 +311,8 @@ get_pat_type(P, TypeInfo) ->
 %%                 Propagate Type Information to Atoms                   %%
 %%                                                                       %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-prop_type_info(AnnAST, TypeEnv) ->  
-    element(1,refac_util:stop_tdTP(fun do_prop_type_info/2, AnnAST, TypeEnv)).    
+prop_type_info(AnnAST, TypeEnv) ->
+    element(1, ast_traverse_api:stop_tdTP(fun do_prop_type_info/2, AnnAST, TypeEnv)).
   
 do_prop_type_info(Node, TypeEnv) ->
     case refac_syntax:type(Node) of 

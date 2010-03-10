@@ -64,8 +64,8 @@ bottom_up_ann(Funs, TypeSigPid) ->
 bottom_up_ann_1({{ModName, FunName, Arity}, FunDef}, TypeSigPid) ->
     EnvPid = start_env_process(),
     FunDef1 = annotate_special_fun_apps({{ModName, FunName, Arity}, FunDef}, EnvPid),
-    FunDef2 = refac_util:full_buTP(fun annotate_within_fun/2, FunDef1, {ModName, FunName, Arity, EnvPid, TypeSigPid}),
-    EnvPid ! stop, 
+    FunDef2 = ast_traverse_api:full_buTP(fun annotate_within_fun/2, FunDef1, {ModName, FunName, Arity, EnvPid, TypeSigPid}),
+    EnvPid ! stop,
     {{ModName, FunName, Arity}, FunDef2}.
 
 
@@ -104,8 +104,8 @@ fixpoint(Funs, TypeSigPid) ->
 update_function(File, FunList, DirList, TabWidth) ->
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(File, true, DirList, TabWidth),
     ModName = case lists:keysearch(module, 1, Info) of
-		  {value, {module, Mod}} -> Mod;
-		  _ -> list_to_atom(filename:basename(File, ".erl"))
+		{value, {module, Mod}} -> Mod;
+		_ -> list_to_atom(filename:basename(File, ".erl"))
 	      end,
     F = fun (Node, []) ->
 		case refac_syntax:type(Node) of
@@ -113,15 +113,15 @@ update_function(File, FunList, DirList, TabWidth) ->
 		      FunName = refac_syntax:data(refac_syntax:function_name(Node)),
 		      Arity = refac_syntax:function_arity(Node),
 		      case lists:keysearch({ModName, FunName, Arity}, 1, FunList) of
-			{value, {{ModName, FunName, Arity}, FunDef}} -> 
-			      {FunDef, true};
+			{value, {{ModName, FunName, Arity}, FunDef}} ->
+			    {FunDef, true};
 			_ -> {Node, false}
 		      end;
 		  _ -> {Node, false}
 		end
 	end,
-    {AnnAST1, _} = refac_util:stop_tdTP(F, AnnAST, []),
-    wrangler_ast_server:update_ast({File, true, DirList, TabWidth, refac_util:file_format(File)},  {AnnAST1, Info, filelib:last_modified(File)}),
+    {AnnAST1, _} = ast_traverse_api:stop_tdTP(F, AnnAST, []),
+    wrangler_ast_server:update_ast({File, true, DirList, TabWidth, refac_util:file_format(File)}, {AnnAST1, Info, filelib:last_modified(File)}),
     ok.
 
 annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
@@ -251,94 +251,93 @@ annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
     end.
 
 
-prop_from_calls(FunDef,  TypeSigPid) ->
+prop_from_calls(FunDef, TypeSigPid) ->
     F = fun (Pat, Typ) ->
- 		Ann = refac_syntax:get_ann(Pat),
- 		case lists:keysearch(pid, 1, Ann) of
- 		  {value, {pid, Value}} ->
- 		      case Typ of
-			  {pid, Vs} -> {pid,lists:usort(Value++Vs)};
-			  _ -> {pid, Value}		 		 
+		Ann = refac_syntax:get_ann(Pat),
+		case lists:keysearch(pid, 1, Ann) of
+		  {value, {pid, Value}} ->
+		      case Typ of
+			{pid, Vs} -> {pid, lists:usort(Value ++ Vs)};
+			_ -> {pid, Value}
 		      end;
-		    false ->
-			case Typ of 
-			    any -> Typ;
-			    %% Special case: some application sites are deciable pids, some are undeciable.
-			    {pid, Vs} -> {pid, lists:usort([any|Vs])};
-			    {pname, V} -> {pname, V}
-
-			end
- 		end
- 	end,
+		  false ->
+		      case Typ of
+			any -> Typ;
+			%% Special case: some application sites are deciable pids, some are undeciable.
+			{pid, Vs} -> {pid, lists:usort([any| Vs])};
+			{pname, V} -> {pname, V}
+		      end
+		end
+	end,
     F2 = fun (Node, _Others) ->
 		 case refac_syntax:type(Node) of
-		     application ->    %% propagate from call sites to function.
-			 Operator = refac_syntax:application_operator(Node),
-			 Ann = refac_syntax:get_ann(Operator),
-			 case lists:keysearch(fun_def, 1, Ann) of
-			     {value, {fun_def, {M1, F1, A1, _P1, _P2}}} ->
-				 Args = refac_syntax:application_arguments(Node),
-				 TypeSigPid ! {self(), get, {M1, F1, A1}},
-				 receive
-				     {TypeSigPid, value, {ParSig, RtnSig}} ->
-					 ArgsInfo = lists:map(fun ({A, P}) -> F(A, P) end, lists:zip(Args, ParSig)),
-					 Info = {{M1, F1, A1}, {ArgsInfo, RtnSig}}, %% any is for the return type of the function.
-					 TypeSigPid ! {add, Info};
-				     {TypeSigPid, false} ->
-					 ParSig = lists:duplicate(A1, any),
-					 ArgsInfo = lists:map(fun({A, P}) -> F(A, P) end, lists:zip(Args, ParSig)),
-					 case ArgsInfo == ParSig of 
-					     true -> ok;
-					     _ -> 
-						 Info ={{M1, F1, A1}, {ArgsInfo, any}}, 
-						 TypeSigPid ! {add, Info}
-					 end
-				 end,
-				 Node;
-			     _ -> Node
-			 end;
-		     _ -> Node
+		   application ->    %% propagate from call sites to function.
+		       Operator = refac_syntax:application_operator(Node),
+		       Ann = refac_syntax:get_ann(Operator),
+		       case lists:keysearch(fun_def, 1, Ann) of
+			 {value, {fun_def, {M1, F1, A1, _P1, _P2}}} ->
+			     Args = refac_syntax:application_arguments(Node),
+			     TypeSigPid ! {self(), get, {M1, F1, A1}},
+			     receive
+			       {TypeSigPid, value, {ParSig, RtnSig}} ->
+				   ArgsInfo = lists:map(fun ({A, P}) -> F(A, P) end, lists:zip(Args, ParSig)),
+				   Info = {{M1, F1, A1}, {ArgsInfo, RtnSig}}, %% any is for the return type of the function.
+				   TypeSigPid ! {add, Info};
+			       {TypeSigPid, false} ->
+				   ParSig = lists:duplicate(A1, any),
+				   ArgsInfo = lists:map(fun ({A, P}) -> F(A, P) end, lists:zip(Args, ParSig)),
+				   case ArgsInfo == ParSig of
+				     true -> ok;
+				     _ ->
+					 Info = {{M1, F1, A1}, {ArgsInfo, any}},
+					 TypeSigPid ! {add, Info}
+				   end
+			     end,
+			     Node;
+			 _ -> Node
+		       end;
+		   _ -> Node
 		 end
 	 end,
-    refac_util:full_buTP(F2, FunDef, []).
+    ast_traverse_api:full_buTP(F2, FunDef, []).
 
 
 annotate_within_fun_1({{ModName, FunName, Arity}, FunDef}, TypeSigPid) ->
     EnvPid = start_env_process(),
     TypeSigPid ! {self(), get, {ModName, FunName, Arity}},
-    FunDef1= receive
-		 {TypeSigPid, value, {ParSig, _RtnSig}} ->
-		     FunName1 =refac_syntax:function_name(FunDef),
-		     Cs =refac_syntax:function_clauses(FunDef),
-		     Cs1 = lists:map(fun(C) ->
-					     Ps = refac_syntax:clause_patterns(C),
-					     B = refac_syntax:clause_body(C),
-					     G = refac_syntax:clause_guard(C),	     
-					     Ps1 = lists:map(fun ({P, T}) ->  %% don't care about complex parameters.
-								     case refac_syntax:type(P) of
-									 variable ->
-									     case T of
-										 any -> P;
-										 Pid ->
-										     Ann1 = refac_syntax:get_ann(P),
-										     {value, {def, DefinePos}} = lists:keysearch(def, 1, Ann1),
-										     EnvPid ! {add, {{def, DefinePos}, Pid}},
-										     refac_util:update_ann(P, Pid)
-									     end;
-									 _ -> P
-								     end
-							     end,
-							     lists:zip(Ps, ParSig)),
-					     refac_syntax:copy_attrs(C, refac_syntax:clause(Ps1, G, B))
-				     end, Cs),
-		     FunDef0 = refac_syntax:copy_attrs(FunDef, refac_syntax:function(FunName1, Cs1)),
-		     refac_util:full_buTP(fun annotate_within_fun/2, FunDef0, {ModName, FunName, Arity, EnvPid, TypeSigPid});
-		     
-		 _ -> %% refac_util:full_buTP(fun annotate_within_fun/2, FunDef, {ModName, FunName, Arity, EnvPid, TypeSigPid})
-		     FunDef
-	     end,
+    FunDef1 = receive
+		{TypeSigPid, value, {ParSig, _RtnSig}} ->
+		    FunName1 = refac_syntax:function_name(FunDef),
+		    Cs = refac_syntax:function_clauses(FunDef),
+		    Cs1 = lists:map(fun (C) ->
+					    Ps = refac_syntax:clause_patterns(C),
+					    B = refac_syntax:clause_body(C),
+					    G = refac_syntax:clause_guard(C),
+					    Ps1 = lists:map(fun ({P, T}) ->  %% don't care about complex parameters.
+								    case refac_syntax:type(P) of
+								      variable ->
+									  case T of
+									    any -> P;
+									    Pid ->
+										Ann1 = refac_syntax:get_ann(P),
+										{value, {def, DefinePos}} = lists:keysearch(def, 1, Ann1),
+										EnvPid ! {add, {{def, DefinePos}, Pid}},
+										refac_util:update_ann(P, Pid)
+									  end;
+								      _ -> P
+								    end
+							    end,
+							    lists:zip(Ps, ParSig)),
+					    refac_syntax:copy_attrs(C, refac_syntax:clause(Ps1, G, B))
+				    end, Cs),
+		    FunDef0 = refac_syntax:copy_attrs(FunDef, refac_syntax:function(FunName1, Cs1)),
+		    ast_traverse_api:full_buTP(fun annotate_within_fun/2, FunDef0, {ModName, FunName, Arity, EnvPid, TypeSigPid});
+		
+		_ -> %% refac_util:full_buTP(fun annotate_within_fun/2, FunDef, {ModName, FunName, Arity, EnvPid, TypeSigPid})
+		    FunDef
+	      end,
     EnvPid ! stop,
-    {{ModName, FunName, Arity},FunDef1}.
+    {{ModName, FunName, Arity}, FunDef1}.
     
 start_counter_process() ->               
     Pid = spawn_link(fun() -> counter_loop({1,1}) end),
@@ -365,47 +364,46 @@ counter_loop({Spawn, Self}) ->
     end.
 
 %%% TO think: any other problems/restrictions with thus fun?
-annotate_special_fun_apps({CurrentFun,FunDef}, EnvPid) ->
+annotate_special_fun_apps({CurrentFun, FunDef}, EnvPid) ->
     init_counter(),
-    {FunDef1, _} = refac_util:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, FunDef, {CurrentFun, EnvPid}),
-    refac_util:full_buTP(fun do_annotate_special_fun_apps_pname/2, FunDef1, EnvPid).
+    {FunDef1, _} = ast_traverse_api:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, FunDef, {CurrentFun, EnvPid}),
+    ast_traverse_api:full_buTP(fun do_annotate_special_fun_apps_pname/2, FunDef1, EnvPid).
    
 
 
 do_annotate_special_fun_apps_pid(Node, {CurrentFun, EnvPid}) ->
     case refac_syntax:type(Node) of
-	application ->
-	    case refac_register_pid:is_spawn_app(Node) of   %% TODO:How about meta application of spawn?
-		true ->
-		    Op = refac_syntax:application_operator(Node),
-		    Args = refac_syntax:application_arguments(Node),
-		    Args1 = case Args of 
-				     [A] -> {A1,_} = refac_util:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, A, {refac_prettypr:format(A), EnvPid}),
-					    [A1];
-				     [Node, A] -> 
-					 {A1, _} = refac_util:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, A, {refac_prettypr:format(A), EnvPid}),
-					 [Node, A1];
-				     _ -> Args			    
-				 end,	    
-		    counter1 ! {self(), next_spawn},
-		    receive
-			{counter1, N} -> N
-		    end,
-		    Node1 = refac_syntax:copy_attrs(Node, refac_syntax:application(Op, Args1)),
-		    Node2 = refac_util:update_ann(Node1,
-						  {pid, [{spawn, CurrentFun, N}]}),
-		    {Node2, true};
-		_ -> 
-		    Op = refac_syntax:application_operator(Node),
-		    OpAnn= refac_syntax:get_ann(Op),
-		    case lists:keysearch(fun_def, 1, OpAnn) of 
-			{value, {fun_def, {erlang, self, 0, _, _}}} ->
-			    Node1 = refac_util:update_ann(Node, {pid, [{self, CurrentFun}]}),
-			    {Node1, true};
-			_->{Node, false}
-		    end
-	    end;
-	_ -> {Node, false}
+      application ->
+	  case refac_register_pid:is_spawn_app(Node)   %% TODO:How about meta application of spawn?
+	      of
+	    true ->
+		Op = refac_syntax:application_operator(Node),
+		Args = refac_syntax:application_arguments(Node),
+		Args1 = case Args of
+			  [A] -> {A1, _} = ast_traverse_api:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, A, {refac_prettypr:format(A), EnvPid}),
+				 [A1];
+			  [Node, A] ->
+			      {A1, _} = ast_traverse_api:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, A, {refac_prettypr:format(A), EnvPid}),
+			      [Node, A1];
+			  _ -> Args
+			end,
+		counter1 ! {self(), next_spawn},
+		receive {counter1, N} -> N end,
+		Node1 = refac_syntax:copy_attrs(Node, refac_syntax:application(Op, Args1)),
+		Node2 = refac_util:update_ann(Node1,
+					      {pid, [{spawn, CurrentFun, N}]}),
+		{Node2, true};
+	    _ ->
+		Op = refac_syntax:application_operator(Node),
+		OpAnn = refac_syntax:get_ann(Op),
+		case lists:keysearch(fun_def, 1, OpAnn) of
+		  {value, {fun_def, {erlang, self, 0, _, _}}} ->
+		      Node1 = refac_util:update_ann(Node, {pid, [{self, CurrentFun}]}),
+		      {Node1, true};
+		  _ -> {Node, false}
+		end
+	  end;
+      _ -> {Node, false}
     end.
 
 
@@ -583,7 +581,7 @@ is_process_related_fun(FunDef) ->
 		  _ -> {[], false}
 		end
 	end,
-    case refac_util:once_tdTU(F, FunDef, []) of
+    case ast_traverse_api:once_tdTU(F, FunDef, []) of
       {_, false} -> false;
       {_R, true} -> true
     end.

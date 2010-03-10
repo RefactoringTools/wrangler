@@ -102,25 +102,25 @@ expr_search_in_dirs(FileName, Start = {Line, Col}, End = {Line1, Col1}, SearchPa
 -spec(expr_search_eclipse/4::(filename(), pos(), pos(), integer()) ->
    {ok, [{{integer(), integer()}, {integer(), integer()}}]} | {error, string()}).
 expr_search_eclipse(FileName, Start, End, TabWidth) ->
-    {ok, {AnnAST, _Info}} =refac_util:parse_annotate_file(FileName,true, [], TabWidth),
-    case refac_util:pos_to_expr_list(AnnAST, Start, End) of 
-	[E|Es] -> 
-	    Res = case Es == [] of 
-		      true ->
-			  search_one_expr(FileName, AnnAST, E);
-		      _ -> 
-			  search_expr_seq(FileName, AnnAST, [E|Es])
-		  end,
-	    {ok, [SE||{_File, SE} <-Res]};	
-	_   -> {error, "You have not selected an expression!"}
-    end.     
+    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, [], TabWidth),
+    case interface_api:pos_to_expr_list(AnnAST, Start, End) of
+      [E| Es] ->
+	  Res = case Es == [] of
+		  true ->
+		      search_one_expr(FileName, AnnAST, E);
+		  _ ->
+		      search_expr_seq(FileName, AnnAST, [E| Es])
+		end,
+	  {ok, [SE || {_File, SE} <- Res]};
+      _ -> {error, "You have not selected an expression!"}
+    end.
 
 get_expr_selected(FileName, Start, End, SearchPaths, TabWidth) ->
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-    Es = refac_util:pos_to_expr_list(AnnAST, Start, End),
+    Es = interface_api:pos_to_expr_list(AnnAST, Start, End),
     case Es of
-	[] -> throw({error, "You have not selected an expression!"});
-	_ -> Es
+      [] -> throw({error, "You have not selected an expression!"});
+      _ -> Es
     end.
    
 do_expr_search(FileName, Es, SearchPaths, TabWidth) ->
@@ -169,36 +169,35 @@ get_clone(FileName, ExpList1, ExpList2) ->
     Len2 = length(ExpList2),
     case Len1 =< Len2 of
       true ->
-	  SimplifiedExpList1 = simplify_expr(ExpList1),
-	  SimplifiedExpList2 = simplify_expr(ExpList2),
-	  case lists:prefix(SimplifiedExpList1, SimplifiedExpList2) of
+	    SimplifiedExpList1 = simplify_expr(ExpList1),
+	    SimplifiedExpList2 = simplify_expr(ExpList2),
+	    case lists:prefix(SimplifiedExpList1, SimplifiedExpList2) of
 	    true ->
-		List22 = lists:sublist(ExpList2, Len1),
-		BdList1 = refac_code_search_utils:var_binding_structure(ExpList1),
-		BdList2 = refac_code_search_utils:var_binding_structure(List22),
-		case BdList1 == BdList2 of
-		  true ->
-		      E1 = hd(List22),
-		      En = lists:last(List22),
-		      {StartLoc, _EndLoc} = refac_util:get_range(E1),
-		      {_StartLoc1, EndLoc1} = refac_util:get_range(En),
-		      [{FileName, {StartLoc, EndLoc1}}] ++ get_clone(FileName, ExpList1, tl(ExpList2));
-		  _ -> get_clone(FileName, ExpList1, tl(ExpList2))
-		end;
-	    _ -> get_clone(FileName, ExpList1, tl(ExpList2))
-	  end;
-      _ -> []
+		    List22 = lists:sublist(ExpList2, Len1),
+		    BdList1 = refac_code_search_utils:var_binding_structure(ExpList1),
+		    BdList2 = refac_code_search_utils:var_binding_structure(List22),
+		    case BdList1 == BdList2 of
+			true ->
+			    E1 = hd(List22),
+			    En = lists:last(List22),
+			    {StartLoc, _EndLoc} = refac_util:get_range(E1),
+			    {_StartLoc1, EndLoc1} = refac_util:get_range(En),
+			    [{FileName, {StartLoc, EndLoc1}}] ++ get_clone(FileName, ExpList1, tl(ExpList2));
+			_ -> get_clone(FileName, ExpList1, tl(ExpList2))
+		    end;
+		_ ->
+		    get_clone(FileName, ExpList1, tl(ExpList2))
+	    end;
+	_ -> []
     end.
-	    
-
 %% Simplify expressions by masking variable names, literals and locations.
-simplify_expr(Exp)when is_list(Exp) ->
-    [simplify_expr(E)|| E<-Exp];
+simplify_expr(Exp) when is_list(Exp) ->
+    [simplify_expr(E) || E <- Exp];
 simplify_expr(Exp) ->
-    refac_util:full_buTP(
-      fun(Node,_Others)->
-	      do_simplify_expr(Node) 
-      end, Exp,{}).
+    ast_traverse_api:full_buTP(
+      fun (Node, _Others) ->
+	      do_simplify_expr(Node)
+      end, Exp, {}).
 
 
 do_simplify_expr(Node) ->

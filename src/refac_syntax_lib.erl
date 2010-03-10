@@ -2428,7 +2428,7 @@ adjust_locations(Form, Toks) ->
 								  end
 							  end,
 							  Toks1),
-				  P = element(2, refac_util:ghead("refac_util: adjust_locations,P", Toks2)),
+				  P = element(2, refac_misc:ghead("refac_util: adjust_locations,P", Toks2)),
 				  Fun2 = refac_syntax:set_pos(Fun, P),
 				  Toks3 = lists:dropwhile(fun (B) ->
 								  case B of
@@ -2438,7 +2438,7 @@ adjust_locations(Form, Toks) ->
 							  end,
 							  Toks2),
 				  A2 = refac_syntax:set_pos(A,
-							    element(2, refac_util:ghead("refac_util:adjust_locations:A2", Toks3))),
+							    element(2, refac_misc:ghead("refac_util:adjust_locations:A2", Toks3))),
 				  rewrite(T, refac_syntax:implicit_fun(refac_syntax:set_pos(rewrite(Name,
 												    refac_syntax:arity_qualifier(Fun2, A2)), P)));
 			      _ -> T

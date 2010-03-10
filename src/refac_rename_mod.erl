@@ -94,21 +94,20 @@ rename_mod_1_eclipse(FileName, NewName, SearchPaths, TabWidth, RenameTestMod) ->
     rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod, eclipse).
 
 rename_mod(FileName, NewName, SearchPaths, TabWidth, Editor) ->
-    ?wrangler_io("\nCMD: ~p:rename_mod(~p, ~p,~p, ~p).\n", 
+    ?wrangler_io("\nCMD: ~p:rename_mod(~p, ~p,~p, ~p).\n",
 		 [?MODULE, FileName, NewName, SearchPaths, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_mod(" ++ "\"" ++
-	FileName ++ "\", " ++ NewName ++ "\"," ++ "[" ++
-	refac_util:format_search_paths(SearchPaths) ++ "]," ++ 
-	integer_to_list(TabWidth) ++ ").",
-    case refac_util:is_fun_name(NewName)  of  
+	    FileName ++ "\", " ++ NewName ++ "\"," ++ "[" ++
+	      refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    case refac_misc:is_fun_name(NewName) of
       true ->
-	    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-	    case lists:keysearch(module, 1, Info) of
+	  {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+	  case lists:keysearch(module, 1, Info) of
 	    {value, {module, OldModName}} ->
 		NewModName = list_to_atom(NewName),
 		TestFrameWorkUsed = refac_util:test_framework_used(FileName),
 		case pre_cond_check(FileName, OldModName, NewModName, TestFrameWorkUsed, SearchPaths) of
-		  ok -> do_rename_mod(FileName, [{OldModName, NewModName}], 
+		  ok -> do_rename_mod(FileName, [{OldModName, NewModName}],
 				      AnnAST, SearchPaths, Editor, TabWidth, Cmd);
 		  Other -> Other
 		end;
@@ -167,24 +166,24 @@ pre_cond_test_file_checking(OldModName, NewModName,TestFrameWorkUsed, SearchPath
     end.
 
     
-rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod, Editor) ->  
-    ?wrangler_io("\nCMD: ~p:rename_mod_1(~p, ~p,~p, ~p, ~p, ~p).\n", 
-		  [?MODULE, FileName, NewName, SearchPaths, TabWidth, RenameTestMod, Editor]),
+rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod, Editor) ->
+    ?wrangler_io("\nCMD: ~p:rename_mod_1(~p, ~p,~p, ~p, ~p, ~p).\n",
+		 [?MODULE, FileName, NewName, SearchPaths, TabWidth, RenameTestMod, Editor]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_mod(" ++ "\"" ++
-	FileName ++ "\", " ++ NewName ++ "\"," ++ "[" ++ 
-	refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",    
-    {AnnAST,Info} =  parse_file_with_type_ann(FileName, SearchPaths, TabWidth),
-    {value, {module, OldModName}} = lists:keysearch(module, 1, Info), 
+	    FileName ++ "\", " ++ NewName ++ "\"," ++ "[" ++
+	      refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    {AnnAST, Info} = parse_file_with_type_ann(FileName, SearchPaths, TabWidth),
+    {value, {module, OldModName}} = lists:keysearch(module, 1, Info),
     NewModName = list_to_atom(NewName),
-    TestFrameWorkUsed = refac_util:test_framework_used(FileName), 
-    case lists:member(eunit, TestFrameWorkUsed) andalso RenameTestMod of 
-	true ->
-	    TestModName = list_to_atom(atom_to_list(OldModName) ++ "_tests"),
-	    NewTestModName = list_to_atom(NewName++"_tests"),
-	    do_rename_mod(FileName, [{OldModName, NewModName}, {TestModName, NewTestModName}], 
-			  AnnAST, SearchPaths, Editor, TabWidth, Cmd);
-	false ->
-	    do_rename_mod(FileName, [{OldModName, NewModName}], AnnAST, SearchPaths, Editor, TabWidth, Cmd)
+    TestFrameWorkUsed = refac_util:test_framework_used(FileName),
+    case lists:member(eunit, TestFrameWorkUsed) andalso RenameTestMod of
+      true ->
+	  TestModName = list_to_atom(atom_to_list(OldModName) ++ "_tests"),
+	  NewTestModName = list_to_atom(NewName ++ "_tests"),
+	  do_rename_mod(FileName, [{OldModName, NewModName}, {TestModName, NewTestModName}],
+			AnnAST, SearchPaths, Editor, TabWidth, Cmd);
+      false ->
+	  do_rename_mod(FileName, [{OldModName, NewModName}], AnnAST, SearchPaths, Editor, TabWidth, Cmd)
     end.
 
 do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, Cmd) ->
@@ -248,12 +247,12 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, C
   
  
    
-do_rename_mod_1(Tree, {FileName, OldNewModPairs,Pid}) ->
-    TestFrameWorkUsed =refac_util:test_framework_used(FileName),
-    {AnnAST1, C1}=refac_util:full_tdTP(fun do_rename_mod_2/2, Tree, {FileName,OldNewModPairs, Pid}),
-    {AnnAST2, C2} = case lists:member(eunit, TestFrameWorkUsed) of 
-			true ->do_rename_mod_in_eunit_funs(FileName, AnnAST1, OldNewModPairs,Pid);
-			_ -> {AnnAST1, C1}
+do_rename_mod_1(Tree, {FileName, OldNewModPairs, Pid}) ->
+    TestFrameWorkUsed = refac_util:test_framework_used(FileName),
+    {AnnAST1, C1} = ast_traverse_api:full_tdTP(fun do_rename_mod_2/2, Tree, {FileName, OldNewModPairs, Pid}),
+    {AnnAST2, C2} = case lists:member(eunit, TestFrameWorkUsed) of
+		      true -> do_rename_mod_in_eunit_funs(FileName, AnnAST1, OldNewModPairs, Pid);
+		      _ -> {AnnAST1, C1}
 		    end,
     {AnnAST2, C1 or C2}.
 
@@ -360,7 +359,7 @@ copy_pos_attrs(E1, E2) ->
     refac_syntax:copy_pos(E1, refac_syntax:copy_attrs(E1, E2)).
 
 do_rename_mod_in_eunit_funs(FileName, AnnAST, OldNewModPairs, Pid) ->
-    refac_util:full_tdTP(fun do_rename_mod_in_eunit_funs_1/2, AnnAST, {FileName, OldNewModPairs, Pid}).
+    ast_traverse_api:full_tdTP(fun do_rename_mod_in_eunit_funs_1/2, AnnAST, {FileName, OldNewModPairs, Pid}).
 do_rename_mod_in_eunit_funs_1(Node, Others) ->
     case refac_syntax:type(Node) of
       function ->
@@ -368,7 +367,7 @@ do_rename_mod_in_eunit_funs_1(Node, Others) ->
 	  Arity = refac_syntax:function_arity(Node),
 	  case (Arity == 0) and lists:suffix(?DEFAULT_EUNIT_GENERATOR_SUFFIX, atom_to_list(FunName)) of
 	    true ->
-		refac_util:full_tdTP(fun do_rename_mod_in_eunit_funs_3/2, Node, Others);
+		ast_traverse_api:full_tdTP(fun do_rename_mod_in_eunit_funs_3/2, Node, Others);
 	    _ -> {Node, false}
 	  end;
       _ -> {Node, false}

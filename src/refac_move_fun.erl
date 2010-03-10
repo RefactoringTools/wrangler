@@ -61,19 +61,13 @@
 
 -export([move_fun/6, move_fun_1/6, move_fun_eclipse/6, move_fun_1_eclipse/6]).
 
--import(refac_atom_utils, [output_atom_warning_msg/3]).
-
--import(refac_atom_utils, [check_atoms/4]).
-
--import(refac_atom_utils, [stop_atom_process/1]).
-
--import(refac_atom_utils, [start_atom_process/0]).
-
--export([remove_duplicates/2]).
-
--export([application_info/1]).
+-import(refac_atom_utils, [output_atom_warning_msg/3, check_atoms/4, 
+			   stop_atom_process/1, start_atom_process/0]).
 
 -include("../include/wrangler.hrl").
+
+
+%%TODO: The current implementation will be simplified when the type info for atoms is avaialble.
 
 %==========================================================================================
 -spec(move_fun/6::(filename(),integer(),integer(), string(), [dir()], integer())->
@@ -119,49 +113,49 @@ move_fun_1(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, Editor)
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":move_fun_1(" ++ "\"" ++
 	    FName ++ "\", " ++ integer_to_list(Line) ++
 	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ TargetModorFileName ++ "\","
-		++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+		++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-    case refac_util:pos_to_fun_def(AnnAST, {Line, Col}) of
+    case interface_api:pos_to_fun_def(AnnAST, {Line, Col}) of
       {ok, Def} ->
 	  {value, {fun_def, {ModName, FunName, Arity, _Pos1, _Pos2}}} =
 	      lists:keysearch(fun_def, 1, refac_syntax:get_ann(Def)),
-	    TargetFName = get_target_file_name(FName, TargetModorFileName),
-	    TargetModName = list_to_atom(filename:basename(TargetFName, ".erl")),
-	    NewTargetFile = case not filelib:is_file(TargetFName) of
-				true -> create_new_file(TargetFName, TargetModName),
-					true;
-				_ -> false
+	  TargetFName = get_target_file_name(FName, TargetModorFileName),
+	  TargetModName = list_to_atom(filename:basename(TargetFName, ".erl")),
+	  NewTargetFile = case not filelib:is_file(TargetFName) of
+			    true -> create_new_file(TargetFName, TargetModName),
+				    true;
+			    _ -> false
 			  end,
-	    case side_cond_check({FName, ModName, FunName, Arity}, TargetFName,
-				 TargetModName, Def, SearchPaths, TabWidth)
-		of
-		{error, Reason} ->
-		    case NewTargetFile of
-			true -> file:delete(TargetFName);
-			_ -> ok
+	  case side_cond_check({FName, ModName, FunName, Arity}, TargetFName,
+			       TargetModName, Def, SearchPaths, TabWidth)
+	      of
+	    {error, Reason} ->
+		case NewTargetFile of
+		  true -> file:delete(TargetFName);
+		  _ -> ok
+		end,
+		throw({error, Reason});
+	    true -> ok
+	  end,
+	  Pid = start_atom_process(),
+	  {ok, {TargetAnnAST, TargetInfo}} = refac_util:parse_annotate_file(TargetFName, true, SearchPaths, TabWidth),
+	  {AnnAST1, TargetAnnAST1} =
+	      do_transformation(FName, {AnnAST, Info}, {TargetAnnAST, TargetInfo}, {ModName, FunName, Arity},
+				TargetModName, SearchPaths, TabWidth, Pid),
+	  check_atoms(FName, AnnAST1, [FunName], Pid),
+	  check_atoms(TargetFName, TargetAnnAST1, [FunName], Pid),
+	  Results = case refac_util:is_exported({FunName, Arity}, Info) of
+		      true ->
+			  ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
+			  ClientFiles = lists:delete(TargetFName, refac_util:get_client_files(FName, SearchPaths)),
+			  refactor_in_client_modules(ClientFiles, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth, Pid);
+		      false ->
+			  []
 		    end,
-		    throw({error, Reason});
-		true -> ok
-	    end,
-	    Pid = start_atom_process(),
-	    {ok, {TargetAnnAST, TargetInfo}} = refac_util:parse_annotate_file(TargetFName, true, SearchPaths, TabWidth),
-	    {AnnAST1, TargetAnnAST1} =
-		do_transformation(FName, {AnnAST, Info}, {TargetAnnAST, TargetInfo}, {ModName, FunName, Arity},
-				  TargetModName, SearchPaths, TabWidth, Pid),
-	    check_atoms(FName, AnnAST1, [FunName], Pid),
-	    check_atoms(TargetFName, TargetAnnAST1, [FunName], Pid),
-	    Results = case refac_util:is_exported({FunName, Arity}, Info) of
-			  true ->
-			      ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
-			      ClientFiles = lists:delete(TargetFName, refac_util:get_client_files(FName, SearchPaths)),
-			      refactor_in_client_modules(ClientFiles, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth, Pid);
-			  false ->
-			      []
-		      end,
-	    output_atom_warning_msg(Pid, not_renamed_warn_msg(FunName), renamed_warn_msg(ModName)),
-	    stop_atom_process(Pid),
-	    output_refactor_results(FName, TargetFName, Editor, Cmd, NewTargetFile, AnnAST1, TargetAnnAST1, Results);
-	{error, Reason} -> {error, Reason}
+	  output_atom_warning_msg(Pid, not_renamed_warn_msg(FunName), renamed_warn_msg(ModName)),
+	  stop_atom_process(Pid),
+	  output_refactor_results(FName, TargetFName, Editor, Cmd, NewTargetFile, AnnAST1, TargetAnnAST1, Results);
+      {error, Reason} -> {error, Reason}
     end.
 
 output_refactor_results(FName, TargetFName, Editor, Cmd, NewTargetFile, AnnAST1, TargetAnnAST1, Results) ->
@@ -169,33 +163,30 @@ output_refactor_results(FName, TargetFName, Editor, Cmd, NewTargetFile, AnnAST1,
 	emacs ->
 	    refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST1},
 							   {{TargetFName, TargetFName, NewTargetFile}, TargetAnnAST1}| Results], Cmd),
-	    ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F
-					   end, Results),
+	    ChangedClientFiles = [F ||{{F, _F}, _AST} <- Results],
 	    ChangedFiles = [FName, TargetFName| ChangedClientFiles],
 	    ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n", [ChangedFiles]),
 	    {ok, ChangedFiles};
       eclipse ->
 	    Results1 = [{{FName, FName}, AnnAST1}, {{TargetFName, TargetFName}, TargetAnnAST1}| Results],
-	    Res = lists:map(fun ({{FName1, NewFName1}, AST}) ->
-				    {FName1, NewFName1, refac_prettypr:print_ast(refac_util:file_format(FName1), AST)}
-			    end,
-			    Results1),
+	    Res = [{FName1, NewFName1, refac_prettypr:print_ast(refac_util:file_format(FName1), AST)} ||			    
+		      {{FName1, NewFName1}, AST}<-Results1],
 	    {ok, Res}
     end.
 
 get_target_file_name(CurrentFName, TargetModorFileName) ->
     ErrMsg = {error, "Illegal target module/file name."},
-    TargetModName = case filename:extension(TargetModorFileName) of 
-			".erl" -> filename:basename(TargetModorFileName, ".erl");
-			[] -> filename:basename(TargetModorFileName, ".erl");
-			_ -> throw(ErrMsg)			
+    TargetModName = case filename:extension(TargetModorFileName) of
+		      ".erl" -> filename:basename(TargetModorFileName, ".erl");
+		      [] -> filename:basename(TargetModorFileName, ".erl");
+		      _ -> throw(ErrMsg)
 		    end,
     TargetFileName = filename:join([filename:dirname(CurrentFName), filename:dirname(TargetModorFileName),
-				    TargetModName++".erl"]),
-    case refac_util:is_fun_name(TargetModName) of 
-	true -> 
-	    TargetFileName;			  
-	_  -> throw(ErrMsg)
+				    TargetModName ++ ".erl"]),
+    case refac_misc:is_fun_name(TargetModName) of
+      true ->
+	  TargetFileName;
+      _ -> throw(ErrMsg)
     end.
 
 
@@ -249,13 +240,13 @@ is_the_same_fun(FunDef1, FunDef2) ->
 
 
 check_macros_records(FileName, TargetFileName, FunDef, SearchPaths, TabWidth) ->
-    UsedMacros = collect_used_macros(FunDef),
-    UsedRecords = collect_used_records(FunDef),
+    UsedMacros = refac_misc:collect_used_macros(FunDef),
+    UsedRecords = refac_misc:collect_used_records(FunDef),
     case UsedMacros == [] andalso UsedRecords == [] of
       true -> true;
       _ ->
 	  Dir = filename:dirname(FileName),
-	  DefaultIncls = [filename:join(Dir, X) || X <- refac_util:default_incls()],
+	  DefaultIncls = [filename:join(Dir, X) || X <- refac_misc:default_incls()],
 	  NewSearchPaths = SearchPaths ++ DefaultIncls,
 	  case refac_epp:parse_file(FileName, NewSearchPaths, [], TabWidth, refac_util:file_format(FileName)) of
 	    {ok, AST, {MDefs, _MUses}} ->
@@ -348,38 +339,10 @@ get_mod_info_from_parse_tree(AST) ->
 				end
 			end, AST),
     SyntaxTree = refac_recomment:recomment_forms(AST1, []),
-    Info=refac_syntax_lib:analyze_forms(SyntaxTree),
-    Info.
+    refac_syntax_lib:analyze_forms(SyntaxTree).
     
-		    
-collect_used_macros(FunDef) ->
-    F = fun(T, S) ->
-		case refac_syntax:type(T) of
-		    macro ->
-			Name = refac_syntax:macro_name(T),
-			case refac_syntax:type(Name) of 
-			    variable -> [refac_syntax:variable_name(Name)|S];
-			    atom -> [refac_syntax:atom_value(Name) |S]
-			end;
-		    _  -> S
-		end
-	end,
-    lists:usort(refac_syntax_lib:fold(F, [], FunDef)).
 
-collect_used_records(FunDef) ->
-    F = fun(T, S) ->
-		case refac_syntax:type(T) of 
-		    record_expr ->
-			Type = refac_syntax:record_expr_type(T),
-			[refac_syntax:atom_value(Type) |S];
-		    record_access ->
-			Type = refac_syntax:record_access_type(T),
-			[refac_syntax:atom_value(Type)|S];
-		    _ -> S
-		end
-	end,
-    lists:usort(refac_syntax_lib:fold(F,[], FunDef)).
-		
+
 do_transformation(FileName, {AnnAST, Info}, {TargetAnnAST, Info1}, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth, Pid) ->
     Forms = refac_syntax:form_list_elements(AnnAST),
     FormsToBeMoved = [F || F <- Forms, defines(F,{ModName, FunName, Arity}) orelse
@@ -446,11 +409,11 @@ local_funs_to_be_exported(Node, {ModName, FunName, Arity}, ModInfo) ->
 %%======================================================================================
 %% Transform the function to be moved.
 %%======================================================================================
-transform_fun(FileName, Form, {ModName, FunName, Arity}, TargetModName, InScopeFunsInTargetMod, SearchPaths, TabWidth, Pid) -> 
-    element(1,refac_util:full_tdTP(fun do_transform_fun/2, Form, 
-				   {FileName,{ModName, FunName, Arity},
-				    TargetModName, InScopeFunsInTargetMod, 
-				    SearchPaths, TabWidth, Pid})).
+transform_fun(FileName, Form, {ModName, FunName, Arity}, TargetModName, InScopeFunsInTargetMod, SearchPaths, TabWidth, Pid) ->
+    element(1, ast_traverse_api:full_tdTP(fun do_transform_fun/2, Form,
+					  {FileName, {ModName, FunName, Arity},
+					   TargetModName, InScopeFunsInTargetMod,
+					   SearchPaths, TabWidth, Pid})).
   
 do_transform_fun(Node, {FileName, {ModName, FunName, Arity}, TargetModName, InScopeFunsInTargetMod, SearchPaths, TabWidth, Pid}) ->
     case refac_syntax:type(Node) of
@@ -541,10 +504,9 @@ do_transform_fun(Node, {FileName, {ModName, FunName, Arity}, TargetModName, InSc
 %%=========================================================================
 do_remove_fun(FileName, AnnAST, {ModName, FunName, Arity}, FunsToBeExported, TargetModName, SearchPaths, TabWidth, Pid) ->
     Forms  = refac_syntax:form_list_elements(AnnAST),
-    {Forms1, C}= lists:unzip(lists:map(fun(Form) ->
-					       process_a_form_in_original_mod(FileName, Form, {ModName, FunName, Arity}, 
-									      TargetModName, SearchPaths, TabWidth, Pid)
-				       end, Forms)),
+    {Forms1, C}= lists:unzip([process_a_form_in_original_mod(FileName, Form, {ModName, FunName, Arity}, 
+								      TargetModName, SearchPaths, TabWidth, Pid)
+			      || Form<-Forms]),
     Forms2 = lists:append(Forms1),
     Fun_is_Used = lists:member(true, C),
     NewForms = case FunsToBeExported of 
@@ -679,10 +641,10 @@ process_a_form_in_target_module(FileName, Form, {ModName, FunName, Arity}, Targe
 %%============================================================================
 %% Add/remove module qualifier.
 %%============================================================================
-remove_module_qualifier(FileName,Form, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth,Pid) ->    
-    element(1,refac_util:full_tdTP(fun do_remove_module_qualifier/2, Form, 
-				   {FileName, {ModName, FunName, Arity}, 
-				    TargetModName, SearchPaths, TabWidth, Pid})).
+remove_module_qualifier(FileName, Form, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth, Pid) ->
+    element(1, ast_traverse_api:full_tdTP(fun do_remove_module_qualifier/2, Form,
+					  {FileName, {ModName, FunName, Arity},
+					   TargetModName, SearchPaths, TabWidth, Pid})).
   
 
 do_remove_module_qualifier(Node, {FileName, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth, Pid}) ->
@@ -745,10 +707,9 @@ process_implicit_fun(Node, ModName, FunName, Arity, TargetModName) ->
 	      _ ->{Node, false}
 	  end
     end.
-	    
 add_change_module_qualifier(FileName, Form, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth, Pid) ->
-    refac_util:full_tdTP(fun do_add_change_module_qualifier/2,
-			 Form, {FileName, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth, Pid}).
+    ast_traverse_api:full_tdTP(fun do_add_change_module_qualifier/2,
+			       Form, {FileName, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth, Pid}).
 
 do_add_change_module_qualifier(Node, {FileName, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth, Pid}) ->
     MakeApp = fun (Node1, Operator1, Arguments1, TargetModName1, FunName1) ->
@@ -893,8 +854,8 @@ process_in_client_module(FileName, Form, {ModName, FunName, Arity}, TargetModNam
 
 
 change_module_qualifier(FileName, Form, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth, Pid) ->
-    refac_util:full_tdTP(fun do_change_module_qualifier/2,
-			 Form, {FileName, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth, Pid}).
+    ast_traverse_api:full_tdTP(fun do_change_module_qualifier/2,
+			       Form, {FileName, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth, Pid}).
 
 do_change_module_qualifier(Node, {FileName, {ModName, FunName, Arity}, TargetModName, SearchPaths, TabWidth, Pid}) ->
     MakeApp = fun (Node1, Operator1, Arguments1, TargetModName1, FunName1) ->
@@ -1064,14 +1025,7 @@ reset_attrs(Node, {M, F, A}) ->
 
 do_rename_fun_in_tuples(Node, {FileName, SearchPaths, ModName, FunName, TargetModName, Arity, Pid, TabWidth}) ->
     case refac_syntax:tuple_elements(Node) of
-      %% 	[E1, E2] ->
-      %% 	    As = refac_syntax:get_ann(Node),
-      %% 	    case lists:keysearch(fun_def,1,As) of
-      %% 		{value, {fun_def, {ModName, FunName,Arity, _,_}}} ->
-      %% 		    {copy_pos_attrs(Node, refac_syntax:tuple([copy_pos_attrs(E1, refac_syntax:atom(TargetModName)), E2])), true};
-      %% 		_ -> {Node, false}
-      %% 	    end;
-      [E1, E2, E3] ->
+	[E1, E2, E3] ->
 	  case refac_misc:try_eval(FileName, E1, SearchPaths, TabWidth) of
 	    {value, ModName} ->
 		case refac_syntax:type(E2) == atom andalso refac_syntax:atom_value(E2) == FunName of
@@ -1147,13 +1101,5 @@ not_renamed_warn_msg(FunName) ->
      "WARNING: Wrangler could not infer whether the uses of '" ++atom_to_list(FunName) ++"' at the following positions "
      "refer to the function moved.\n Please check manually for necessary module name changes!\n".
     
-remove_duplicates([],Acc) ->
-     lists:reverse(Acc);
-remove_duplicates([H|T], Acc) ->
-    case lists:member(H, Acc) of
-	true ->
-	    remove_duplicates(T, Acc);
-	_ ->
-	    remove_duplicates(T, [H|Acc])
-    end.
+
 

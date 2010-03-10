@@ -38,7 +38,6 @@
 	 merge_forall/3, merge_forall_1/5,
 	 merge_forall_eclipse/3]).
 
-
 -include("../include/wrangler.hrl").
 
 
@@ -50,7 +49,6 @@ new_let(FileName, Start, End, NewPatName, SearchPaths, TabWidth) ->
 
 new_let_eclipse(FileName, Start, End, NewPatName, SearchPaths, TabWidth) ->
     new_let(FileName, Start, End, NewPatName, SearchPaths, TabWidth, eclipse).
-
 
 new_let(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewPatName, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:new_let(~p, {~p,~p}, {~p,~p}, ~p, ~p,~p).\n",
@@ -64,9 +62,9 @@ new_let(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewPatName, SearchPa
       true -> ok;
       false -> throw({error, "QuickCheck is not used by this module."})
     end,
-    case refac_util:pos_to_fun_def(AnnAST, Start) of
+    case interface_api:pos_to_fun_def(AnnAST, Start) of
       {ok, FunDef} ->
-	  case refac_util:pos_to_expr(FunDef, Start, End) of
+	  case interface_api:pos_to_expr(FunDef, Start, End) of
 	    {ok, Expr} ->
 		?debug("Expr:\n~p\n", [Expr]),
 		case side_cond_analysis(FunDef, Expr, NewPatName) of
@@ -86,8 +84,6 @@ new_let(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewPatName, SearchPa
     end.
 
 new_let_1(FileName, NewPatName, Expr, ParentExpr, SearchPaths, TabWidth, Cmd) ->
-    %% ?wrangler_io("\nCMD: ~p:new_let_1(~p, ~p, ~p,~p, ~p, ~p).\n",
-    %% 		 [?MODULE, FileName, NewPatName, Expr, ParentExpr, SearchPaths, TabWidth]),
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     Expr1 = list_to_term(Expr),
     ParentExpr1 = list_to_term(ParentExpr),
@@ -113,22 +109,22 @@ new_let_2(FileName, AnnAST, NewPatName, Expr, ParentExpr, LetMacro, Editor, Cmd)
 
 
 side_cond_analysis(FunDef, Expr, NewPatName) ->
-    case refac_util:is_var_name(NewPatName) of
+    case refac_misc:is_var_name(NewPatName) of
       true -> ok;
       _ -> throw({error, "Invalid pattern variable name."})
     end,
     case get_parent_expr(FunDef, Expr) of
-	{ok, ParentExpr} ->
-	    FrVars = refac_util:get_free_vars(ParentExpr),
-	    BdVars = refac_util:get_bound_vars(ParentExpr),
-	    EnvVars = refac_util:get_env_vars(ParentExpr),
-	    Vars = element(1, lists:unzip(FrVars ++ BdVars ++ EnvVars)),
-	    case lists:member(list_to_atom(NewPatName), Vars) of
-		true ->
-		    throw({error, "The new pattern variable chould cause name shadow or semantics change."});
-		false ->
-		    ok
-	    end,
+      {ok, ParentExpr} ->
+	  FrVars = refac_util:get_free_vars(ParentExpr),
+	  BdVars = refac_util:get_bound_vars(ParentExpr),
+	  EnvVars = refac_util:get_env_vars(ParentExpr),
+	  Vars = element(1, lists:unzip(FrVars ++ BdVars ++ EnvVars)),
+	  case lists:member(list_to_atom(NewPatName), Vars) of
+	    true ->
+		throw({error, "The new pattern variable chould cause name shadow or semantics change."});
+	    false ->
+		ok
+	  end,
 	  ?debug("Parent Expr:\n~p\n", [ParentExpr]),
 	  case enclosing_macro(FunDef, ParentExpr, 'LET', 3) of
 	    none ->
@@ -143,19 +139,21 @@ side_cond_analysis(FunDef, Expr, NewPatName) ->
 		{ok, {ParentExpr, LetMacro}}
 	  end;
       {error, _} ->
-	    case is_generator(Expr) of
-		false -> throw({error, "The expression selected is not a QuickCheck generator."});
-		_ -> {ok, {Expr, none}}
+	  case is_generator(Expr) of
+	    false -> throw({error, "The expression selected is not a QuickCheck generator."});
+	    _ -> {ok, {Expr, none}}
 	  end
     end.
 
     
 get_parent_expr(Node, Exp) ->
-    case refac_util:once_tdTU(fun get_parent_expr_1/2, Node, Exp) of 
-	{_, false} ->
-	    {error, none};
-	{R, true} -> 
-	    {ok, R}
+    case
+      ast_traverse_api:once_tdTU(fun get_parent_expr_1/2, Node, Exp)
+	of
+      {_, false} ->
+	  {error, none};
+      {R, true} ->
+	  {ok, R}
     end.
 
 get_parent_expr_1(Node, Exp) ->
@@ -190,7 +188,9 @@ get_parent_expr_1(Node, Exp) ->
 
 
 enclosing_macro(Node, Expr, MacroName, Nth) ->
-    case refac_util:once_tdTU(fun get_enclosing_macro/2, Node, {Expr, MacroName, Nth}) of
+    case
+      ast_traverse_api:once_tdTU(fun get_enclosing_macro/2, Node, {Expr, MacroName, Nth})
+	of
       {_, false} ->
 	  none;
       {R, true} ->
@@ -224,9 +224,8 @@ get_enclosing_macro(Node, {Expr, Macro, Nth}) ->
 	    {[], false}
     end.
 
-do_intro_new_let(Node, Exp, NewPatName, ParentExpr, LetMacro)->
-    {Node1, _} = refac_util:stop_tdTP(fun do_intro_new_let/2, Node, {Exp, NewPatName, ParentExpr, LetMacro}),
-    Node1.
+do_intro_new_let(Node, Exp, NewPatName, ParentExpr, LetMacro) ->
+    element(1, ast_traverse_api:stop_tdTP(fun do_intro_new_let/2, Node, {Exp, NewPatName, ParentExpr, LetMacro})).
 
 do_intro_new_let(Node, {Expr, NewPatName, ParentExpr, LetMacro}) ->
     case Node of 
@@ -264,7 +263,7 @@ do_intro_new_let(Node, {Expr, NewPatName, ParentExpr, LetMacro}) ->
     end.
 
 replace_expr_with_var(Node, {Expr, Var}) ->
-    element(1, refac_util:stop_tdTP(fun do_replace_expr_with_var/2, Node, {Expr, Var})).
+    element(1, ast_traverse_api:stop_tdTP(fun do_replace_expr_with_var/2, Node, {Expr, Var})).
 
 do_replace_expr_with_var(Node, {Expr, Var}) ->
     case Node of 
@@ -422,7 +421,7 @@ merge_forall_eclipse(FileName, SearchPaths, TabWidth) ->
 merge(FileName, MacroName, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":merge_let(" ++ "\"" ++
 	    FileName ++ "\"," ++ atom_to_list(MacroName) ++ ", " ++ "["
-								      ++ refac_util:format_search_paths(SearchPaths) ++ "],"
+								      ++ refac_misc:format_search_paths(SearchPaths) ++ "],"
 	      ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case is_quickcheck_used(Info) of
@@ -441,7 +440,6 @@ merge(FileName, MacroName, SearchPaths, TabWidth, Editor) ->
 							     {{StartLine, StartCol, EndLine, EndCol}, NewLetApp1}
 						     end,
 						     Candidates)),
-		%% merge_let_1(FileName, Regions, SearchPaths, TabWidth, Cmd),
 		{ok, Regions, Cmd};
 	    eclipse ->
 		{ok, Candidates}
@@ -470,7 +468,7 @@ merge_1(FileName, Candidates, SearchPaths, TabWidth, Cmd) ->
 do_merge(AnnAST, []) ->
     AnnAST;
 do_merge(AnnAST, Candidates) ->
-    element(1, refac_util:stop_tdTP(fun do_merge_1/2, AnnAST, Candidates)).
+    element(1, ast_traverse_api:stop_tdTP(fun do_merge_1/2, AnnAST, Candidates)).
 
 do_merge_1(Tree, Candidates) ->
     {{StartLine, StartCol}, {EndLine, EndCol}} = refac_util:get_range(Tree),

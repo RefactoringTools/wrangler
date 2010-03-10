@@ -242,7 +242,7 @@ generate_anti_unifier(Exprs, SearchRes, ExportVars) ->
     FVPars = [V || {V, _} <- FVs, lists:member(V, Pars)],
     NewVarPars = Pars -- FVPars,
     Pars1 = [refac_syntax:variable(V) || V <- FVPars] ++ [refac_syntax:variable(V) || V <- NewVarPars],
-    C = refac_syntax:clause(refac_util:remove_duplicates(Pars1), none, NewExprs1),
+    C = refac_syntax:clause(refac_misc:remove_duplicates(Pars1), none, NewExprs1),
     refac_syntax:function(FunName, [C]).
 
 generalise_expr_1(Exprs, Subst, ExportVars) when is_list(Exprs) ->
@@ -262,15 +262,15 @@ generalise_expr_2(Expr, Subst, ExprFreeVars, {ExportVars1, ExportVars2}) ->
 	  UsedVarNames = sets:from_list(refac_misc:collect_var_names(Expr)),
 	  Pid = refac_code_search_utils:start_counter_process(UsedVarNames),
 	  ExportVars3 = [E || E <- ExportVars2, refac_syntax:type(E) =/= variable],
-	  {Expr1, _} = refac_util:stop_tdTP(fun do_replace_expr_with_var_1/2, Expr,
-					    {Subst, ExprFreeVars, Pid, ExportVars3}),
+	  {Expr1, _} = ast_traverse_api:stop_tdTP(fun do_replace_expr_with_var_1/2, Expr,
+						  {Subst, ExprFreeVars, Pid, ExportVars3}),
 	  NewVarsToExport = refac_code_search_utils:get_new_export_vars(Pid),
 	  refac_code_search_utils:stop_counter_process(Pid),
 	  VarsToExport1 = ExportVars1 ++
 			    [refac_syntax:variable_name(E)
 			     || E <- ExportVars2, refac_syntax:type(E) == variable] ++
 			      NewVarsToExport,
-	  VarsToExport = refac_util:remove_duplicates(VarsToExport1),
+	  VarsToExport = refac_misc:remove_duplicates(VarsToExport1),
 	  {Expr1, VarsToExport}
     end.
 
@@ -337,9 +337,8 @@ is_macro_name(Exp) ->
   
 
 reset_attrs(Node) ->
-    refac_util:full_buTP(fun (T, _Others) ->
-				 T1 =refac_syntax:set_ann(T, []),
-				 refac_syntax:remove_comments(T1)
-			 end, 
-			 Node, {}).
-   
+    ast_traverse_api:full_buTP(fun (T, _Others) ->
+				       T1 = refac_syntax:set_ann(T, []),
+				       refac_syntax:remove_comments(T1)
+			       end,
+			       Node, {}).

@@ -37,7 +37,6 @@
 
 -spec(rename_var/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
 	     {error, string()} | {ok, string()}).
-
 rename_var(Fname, Line, Col, NewName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, rename_var, [Fname, Line, Col, NewName, SearchPaths, TabWidth], SearchPaths).
  
@@ -133,7 +132,6 @@ new_macro(FName, StartLine, StartCol, EndLine, EndCol, MacroName, SearchPaths, T
 
 -spec(fold_against_macro/5::(filename(), integer(), integer(), [dir()], integer()) ->
 	      {error, string()} | {ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}).
-
 fold_against_macro(FileName, Line, Col,  SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, fold_against_macro, [FileName, Line, Col, SearchPaths, TabWidth], SearchPaths).
 
@@ -152,24 +150,12 @@ fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, T
     apply_refactoring(wrangler, fold_expr_by_name, [FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth], SearchPaths).
 
 
-	       
--spec(instrument_prog/3::(filename(), [dir()], integer()) ->{ok, [filename()]} | {error, string()}).
-
-instrument_prog(FName, SearchPaths, TabWidth) ->
-    apply_refactoring(wrangler, instrument_prog, [FName, SearchPaths, TabWidth], SearchPaths).
-
-
 -spec(tuple_funpar/7::(filename(), integer(), integer(), integer(), integer(), [dir()], integer()) ->
 	     {error, string()} | {ok, [filename()]}).
 tuple_funpar(Fname, StartLine, StartCol, EndLine, EndCol, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler, tuple_funpar, [Fname, {StartLine, StartCol}, {EndLine, EndCol},SearchPaths, TabWidth], SearchPaths).
 
     
--spec(uninstrument_prog/3::(filename(), [dir()], integer()) ->{ok, [filename()]} | {error, string()}).
-uninstrument_prog(FName, SearchPaths, TabWidth) ->
-    apply_refactoring(wrangler, uninstrument_prog, [FName, SearchPaths, TabWidth], SearchPaths).
-
-
 -spec(add_a_tag/6::(filename(), integer(), integer(), string(), [dir()], filename()) ->
 	     {error, string()} | {ok, [filename()]}).
 add_a_tag(FileName, Line, Col, Tag, SearchPaths, TabWidth) ->

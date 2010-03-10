@@ -182,8 +182,8 @@ generalise_and_hash_ast_1(FName, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
 			Arity = refac_syntax:function_arity(Form),
 			AllVars = refac_misc:collect_var_source_def_pos_info(Form),
 			ets:insert(VarTab, {{FName, FunName, Arity}, AllVars}),
-			refac_util:full_tdTP(fun generalise_and_hash_ast_2/2,
-					     Form, {FName, FunName, Arity, ASTTab, Pid});
+			ast_traverse_api:full_tdTP(fun generalise_and_hash_ast_2/2,
+						   Form, {FName, FunName, Arity, ASTTab, Pid});
 		    _ -> ok
 		  end
 	  end,
@@ -192,47 +192,47 @@ generalise_and_hash_ast_1(FName, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
     lists:foreach(fun (F) -> Fun(F) end, refac_syntax:form_list_elements(AnnAST)),
     insert_dummy_entry(Pid).
 
-generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab,Pid}) ->
-    F0 = fun(T, _Others) ->
-		case refac_code_search_utils:variable_replaceable(T) of 
-		    true ->
-			{refac_syntax:variable('Var'), true};
-		    false -> {T, false}
-		end
-	end,
-    F1 = fun(T) ->
-		 {T1, _} =refac_util:stop_tdTP(F0, T, []),
+generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
+    F0 = fun (T, _Others) ->
+		 case refac_misc:variable_replaceable(T) of
+		   true ->
+		       {refac_syntax:variable('Var'), true};
+		   false -> {T, false}
+		 end
+	 end,
+    F1 = fun (T) ->
+		 {T1, _} = ast_traverse_api:stop_tdTP(F0, T, []),
 		 HashVal = erlang:md5(refac_prettypr:format(T1)),
 		 {S, E} = refac_util:get_range(T),
 		 insert_hash(Pid, HashVal, {{FName, FunName, Arity}, S, E}),
 		 T1
 	 end,
-    case refac_syntax:type(Node) of 
-	clause -> 
-	    Body = refac_syntax:clause_body(Node),
-	    [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
-	     ||E <- Body,
-	       {StartLoc, EndLoc} <-[refac_util:get_range(E)]],
-	    insert_dummy_entry(Pid),
-	    _NewBody = [F1(E) || E <-Body],
-	    {Node, true};
-	block_expr ->
-	    insert_dummy_entry(Pid),
-	    Body = refac_syntax:block_expr_body(Node),
-	    [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
-	     ||E <- Body,
-	       {StartLoc, EndLoc} <-[refac_util:get_range(E)]],
-	    _NewBody = [F1(E) || E <-Body],
-	    {Node,true};
-	try_expr  ->
-	    insert_dummy_entry(Pid),
-	    Body = refac_syntax:try_expr_body(Node),
-	    [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
-	     ||E <- Body,
-	       {StartLoc, EndLoc} <-[refac_util:get_range(E)]],
-	    _NewBody=[F1(E) || E <-Body],
-	    {Node, true};
-	_ -> {Node, false}
+    case refac_syntax:type(Node) of
+      clause ->
+	  Body = refac_syntax:clause_body(Node),
+	  [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
+	   || E <- Body,
+	      {StartLoc, EndLoc} <- [refac_util:get_range(E)]],
+	  insert_dummy_entry(Pid),
+	  _NewBody = [F1(E) || E <- Body],
+	  {Node, true};
+      block_expr ->
+	  insert_dummy_entry(Pid),
+	  Body = refac_syntax:block_expr_body(Node),
+	  [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
+	   || E <- Body,
+	      {StartLoc, EndLoc} <- [refac_util:get_range(E)]],
+	  _NewBody = [F1(E) || E <- Body],
+	  {Node, true};
+      try_expr ->
+	  insert_dummy_entry(Pid),
+	  Body = refac_syntax:try_expr_body(Node),
+	  [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
+	   || E <- Body,
+	      {StartLoc, EndLoc} <- [refac_util:get_range(E)]],
+	  _NewBody = [F1(E) || E <- Body],
+	  {Node, true};
+      _ -> {Node, false}
     end.
 
 %%=============================================================================
@@ -587,32 +587,31 @@ remove_overlapped_ranges([{S, E}| Rs], {S1, E1}, Acc) ->
       false ->
 	  remove_overlapped_ranges(Rs, {S, E}, [{S, E}| Acc])
     end.
-	     
-    
 get_clones_in_ranges(Cs, Data, MinLen, MinFreq, RangeTab) ->
-    F0 = fun({S, E}) ->
-		 {_, Ranges}=lists:unzip(lists:sublist(Data, S, E-S+1)),
-		 Ranges1=refac_util:remove_duplicates(Ranges),
+    F0 = fun ({S, E}) ->
+		 {_, Ranges} = lists:unzip(lists:sublist(Data, S, E - S + 1)),
+		 Ranges1 = refac_misc:remove_duplicates(Ranges),
 		 sub_list(Ranges1, MinLen, length(Ranges1))
 	 end,
-    F1 = fun(Rs) ->
-		 [begin {MFA, S1, _E1} = hd(R),
-			{_, _, E2} = lists:last(R),
-			ets:insert(RangeTab, {{MFA, S1, E2}, R}),
-			{MFA, S1, E2}
-		  end ||R<-Rs]
-	 end,	
-    F= fun({Ranges, {_Len, Freq}}) ->
-	       case Freq>=MinFreq of 
-		   true -> 
-		       NewRanges0 = [F0(R)|| R <- Ranges],
-		       NewRanges = zip(NewRanges0),
-		       [{F1(Rs),{length(hd(Rs)), Freq}}|| Rs <-NewRanges];
-		   _ ->[]
-	       end
-       end, 
-    Res =[lists:reverse(F(C)) || C<-Cs],
-    remove_duplicated_clones(Res,[]).
+    F1 = fun (Rs) ->
+		 [begin
+		    {MFA, S1, _E1} = hd(R),
+		    {_, _, E2} = lists:last(R),
+		    ets:insert(RangeTab, {{MFA, S1, E2}, R}),
+		    {MFA, S1, E2}
+		  end || R <- Rs]
+	 end,
+    F = fun ({Ranges, {_Len, Freq}}) ->
+		case Freq >= MinFreq of
+		  true ->
+		      NewRanges0 = [F0(R) || R <- Ranges],
+		      NewRanges = zip(NewRanges0),
+		      [{F1(Rs), {length(hd(Rs)), Freq}} || Rs <- NewRanges];
+		  _ -> []
+		end
+	end,
+    Res = [lists:reverse(F(C)) || C <- Cs],
+    remove_duplicated_clones(Res, []).
 
 
 remove_duplicated_clones([], Acc) ->

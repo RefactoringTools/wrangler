@@ -76,35 +76,35 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_fun(" ++ "\"" ++
 	     FileName ++ "\", " ++ integer_to_list(Line) ++
 	       ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
-		 ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    case refac_util:is_fun_name(NewName) of
+		 ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    case refac_misc:is_fun_name(NewName) of
       true -> ok;
       false -> throw({error, "Invalid new function name!"})
     end,
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     NewName1 = list_to_atom(NewName),
     {ok, ModName} = get_module_name(Info),
-    case refac_util:pos_to_fun_name(AnnAST, {Line, Col}) of
+    case interface_api:pos_to_fun_name(AnnAST, {Line, Col}) of
       {ok, {Mod, Fun, Arity, _, DefinePos}} ->
 	  case {ModName, NewName1} =/= {Mod, Fun} of
 	    true ->
 		case pre_cond_check(FileName, Info, NewName1, Mod, Fun, Arity) of
-		    ok ->
-			rename_fun_0(FileName, NewName, SearchPaths, TabWidth,
-				     Editor, AnnAST, Info, NewName1,
-				     Mod, Fun, Arity, DefinePos, Cmd1);
-		    Others -> Others
+		  ok ->
+		      rename_fun_0(FileName, NewName, SearchPaths, TabWidth,
+				   Editor, AnnAST, Info, NewName1,
+				   Mod, Fun, Arity, DefinePos, Cmd1);
+		  Others -> Others
 		end;
 	    _ ->
-		  case Editor of
-		      emacs -> {ok, []};
-		      eclipse ->
-			  FileContent = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST),
-			  {ok, [{FileName, FileName, FileContent}]}
-		  end
+		case Editor of
+		  emacs -> {ok, []};
+		  eclipse ->
+		      FileContent = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST),
+		      {ok, [{FileName, FileName, FileContent}]}
+		end
 	  end;
-	{error, _Reason} ->
-	    {error, "You have not selected a function name!"}
+      {error, _Reason} ->
+	  {error, "You have not selected a function name!"}
     end.
 
 rename_fun_0(FileName, NewName, SearchPaths, TabWidth, Editor,
@@ -154,10 +154,10 @@ rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_fun(" ++ "\"" ++
 	    FileName ++ "\", " ++ integer_to_list(Line) ++
 	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
-		++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+		++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     NewName1 = list_to_atom(NewName),
-    {ok, {Mod, Fun, Arity, _, DefinePos}} = refac_util:pos_to_fun_name(AnnAST, {Line, Col}),
+    {ok, {Mod, Fun, Arity, _, DefinePos}} = interface_api:pos_to_fun_name(AnnAST, {Line, Col}),
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     Pid = refac_atom_utils:start_atom_process(),
     {AnnAST1, _C} = do_rename_fun(AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}),
@@ -227,8 +227,8 @@ pre_cond_check(FileName, Info, NewFunName, OldFunDefMod, OldFunName, Arity) ->
     end.
 
 do_rename_fun(Tree, {ModName, OldName, Arity}, {DefinePos, NewName}) ->
-    refac_util:full_tdTP(fun do_rename_fun_1/2, Tree,
-			 {{ModName, OldName, Arity}, {DefinePos, NewName}}).
+    ast_traverse_api:full_tdTP(fun do_rename_fun_1/2, Tree,
+			       {{ModName, OldName, Arity}, {DefinePos, NewName}}).
 
 do_rename_fun_1(Tree, {{M, OldName, Arity}, {DefinePos, NewName}}) ->
     case refac_syntax:type(Tree) of
@@ -340,9 +340,8 @@ rename_fun_in_client_module_1({Tree, Info}, {M, OldName, Arity}, NewName) ->
     case lists:keysearch(module, 1, Info) of
       {value, {module, ClientModName}} ->
 	  Inscope_Funs = [{F, A} || {_M, F, A} <- refac_util:inscope_funs(Info)],
-	  case
-	    lists:member({list_to_atom(NewName), Arity}, Inscope_Funs)
-	      and lists:member({OldName, Arity}, Inscope_Funs)
+	  case lists:member({list_to_atom(NewName), Arity}, Inscope_Funs)
+		 and lists:member({OldName, Arity}, Inscope_Funs)
 	      of
 	    true ->
 		throw({error, "The new function name causes confliction in module '"
@@ -351,8 +350,8 @@ rename_fun_in_client_module_1({Tree, Info}, {M, OldName, Arity}, NewName) ->
 	  end;
       _ -> ok
     end,
-    refac_util:full_tdTP(fun do_rename_fun_in_client_module_1/2, Tree,
-			 {{M, OldName, Arity}, NewName}).
+    ast_traverse_api:full_tdTP(fun do_rename_fun_in_client_module_1/2, Tree,
+			       {{M, OldName, Arity}, NewName}).
 
 do_rename_fun_in_client_module_1(Tree, {{M, OldName, Arity}, NewName}) ->
     case refac_syntax:type(Tree) of

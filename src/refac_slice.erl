@@ -35,6 +35,8 @@
 %%      not handle message passing, and is not fully tested yet.
 %% @end
 
+
+%%THIS MODULE IS NOT COMPLETE YET, and will be rewritten.
 -module(refac_slice). 
 
 -export([forward_slice/5, backward_slice/5]). 
@@ -168,25 +170,6 @@ process_a_clause(Files, AnnAST, ModName, FunName, Arity, C, Expr) ->
 
 rm_unrelated_exprs(_Files, _AnnAST, _ModName, _FunName, _Arity, [], _Expr, _Vars) ->
     [];
-%% rm_unrelated_exprs(_Files,_AnnAST, _ModName, _FunName, _Arity,[E], Expr, Vars) ->
-%%     FreeVars = refac_util:get_free_vars(E),
-%%     ExportedVars = refac_util:get_var_exports(E),
-%%     ?wrangler_io("FreeVars:\n~p\n", [{Vars, FreeVars, ExportedVars}]),
-%%     case (ExportedVars -- Vars =/= ExportedVars) of 
-%% 	true -> ?wrangler_io("E:\n~p\n", [E]),
-%% 		[E];
-%% 	false -> case FreeVars -- Vars =/= FreeVars of   %% HERE Should check whether the returned value depends on the slice criteron or not!!.
-%% 		     true ->
-%% 			 [E]; %% , refac_syntax:atom(undefined)];
-%% 		     _ ->
-%% 			 {Start1, End1} = refac_util:get_range(Expr),
-%% 			 {Start2, End2} =refac_util:get_range(E),
-%% 			 case (Start2 =< Start1) andalso (End1 =< End2) of 
-%% 			     true -> [E];        %%, refac_syntax:atom(undefined)];
-%% 			     _ -> [refac_syntax:atom(undefined)]
-%% 			 end
-%% 		 end
-%%     end;
 rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, [E| Exprs], Expr, Vars) ->
     FreeVars = refac_util:get_free_vars(E),
     ExportedVars = refac_util:get_var_exports(E),
@@ -225,13 +208,13 @@ rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, [E| Exprs], Expr, Var
 
     
 reset_attrs(Node) ->
-    refac_util:full_buTP(fun (T, _Others) ->  
-				 As =refac_syntax:get_ann(T),
-				 As0 = lists:keydelete(free, 1, As),
-				 As1 = lists:keydelete(bound, 1, As0),
-				 As2 = lists:keydelete(env,1,As1),
-				 refac_syntax:set_ann(T, As2)				 
-			 end, Node, {}).
+    ast_traverse_api:full_buTP(fun (T, _Others) ->
+				       As = refac_syntax:get_ann(T),
+				       As0 = lists:keydelete(free, 1, As),
+				       As1 = lists:keydelete(bound, 1, As0),
+				       As2 = lists:keydelete(env, 1, As1),
+				       refac_syntax:set_ann(T, As2)
+			       end, Node, {}).
 
 	    
 	    
@@ -283,61 +266,64 @@ process_fun_body(Files, AnnAST, ModName, FunName, Arity, [E| Exprs], Vars) ->
     end.
 
 
-process_fun_applications(Files,AnnAST, ModName, FunName, Arity, E, Vars) ->
-    refac_util:full_buTP(fun do_process_fun_applications/2, E, {Files,AnnAST, ModName, FunName, Arity, Vars}).
+process_fun_applications(Files, AnnAST, ModName, FunName, Arity, E, Vars) ->
+    ast_traverse_api:full_buTP(fun do_process_fun_applications/2, E, {Files, AnnAST, ModName, FunName, Arity, Vars}).
 
-do_process_fun_applications(Node, {Files,AnnAST, ModName, FunName, Arity,Vars}) ->
-      case refac_syntax:type(Node) of 
-	application ->
-	    FreeVars = refac_util:get_free_vars(Node),
-	    case FreeVars -- Vars =/= FreeVars of   %% the function application makes use of some of the variables in Vars;
-		true -> Operator = refac_syntax:application_operator(Node),
-			Ann = refac_syntax:get_ann(Operator),
-			Args = refac_syntax:application_arguments(Node),
-			IndexedArgs = lists:zip(lists:seq(1, length(Args)), Args),
-			FilteredIndexedArgs = lists:filter(fun({_, Arg}) ->
-								  FVars = refac_util:get_free_vars(Arg),
-								  FVars -- Vars =/= FVars
-							  end, IndexedArgs), 
-			FilteredIndex=element(1, lists:unzip(FilteredIndexedArgs)),
-			case lists:keysearch(fun_def, 1, Ann) of 
-			    {value, {fun_def, {M, F, A, _, DefPos}}} ->  
-				case {M,F,A} of 
-				    {ModName, FunName, Arity} -> Node;
-				    _ ->
-					sliced_funs ! {self(), get, {M, F, A, FilteredIndex}},
-					receive 
-					    {sliced_funs, value, {{M, F, A, FilteredIndex}, FunDef1}} ->
-						case returns_undefined(FunDef1) of 
-						    true ->refac_syntax:atom(undefined);
-						    _ ->Node
-						end;
-					    _ -> 
-						FileName1 =lists:filter(fun(F1) -> list_to_atom(filename:basename(F1, ".erl"))==M end, Files),
-						case FileName1 of 
-						    [] ->
-							Node;
-						    _ -> FileName = hd(FileName1),
-							 {ok, {AnnAST1, _Info}} = refac_util:parse_annotate_file(FileName, true, Files),
-							 case refac_util:pos_to_fun_def(AnnAST1, DefPos) of    %% TO check: how to you have this DefPos.
-							     {ok, FunDef} -> 
-								 FunDef1= intra_fun_forward_slice(Files,AnnAST, ModName, FunDef, FilteredIndex),
-								 sliced_funs ! {add, {{M, F, A, FilteredIndex}, FunDef1}},
-								 case returns_undefined(FunDef1) of 
-								     true -> refac_syntax:atom(undefined);
-								     _ -> Node
-								 end;
-							     _ -> Node
-							 end
-						end
-					end
-					end;
-				    _ -> Node   %% no fun_def annotation. This should not happen.
-				end;			    
-			    _  -> refac_syntax:atom(undefined)
-			end;
-		_ -> Node
-	    end.
+do_process_fun_applications(Node, {Files, AnnAST, ModName, FunName, Arity, Vars}) ->
+    case refac_syntax:type(Node) of
+      application ->
+	  FreeVars = refac_util:get_free_vars(Node),
+	  case
+	    FreeVars -- Vars =/= FreeVars   %% the function application makes use of some of the variables in Vars;
+	      of
+	    true -> Operator = refac_syntax:application_operator(Node),
+		    Ann = refac_syntax:get_ann(Operator),
+		    Args = refac_syntax:application_arguments(Node),
+		    IndexedArgs = lists:zip(lists:seq(1, length(Args)), Args),
+		    FilteredIndexedArgs = lists:filter(fun ({_, Arg}) ->
+							       FVars = refac_util:get_free_vars(Arg),
+							       FVars -- Vars =/= FVars
+						       end, IndexedArgs),
+		    FilteredIndex = element(1, lists:unzip(FilteredIndexedArgs)),
+		    case lists:keysearch(fun_def, 1, Ann) of
+		      {value, {fun_def, {M, F, A, _, DefPos}}} ->
+			  case {M, F, A} of
+			    {ModName, FunName, Arity} -> Node;
+			    _ ->
+				sliced_funs ! {self(), get, {M, F, A, FilteredIndex}},
+				receive
+				  {sliced_funs, value, {{M, F, A, FilteredIndex}, FunDef1}} ->
+				      case returns_undefined(FunDef1) of
+					true -> refac_syntax:atom(undefined);
+					_ -> Node
+				      end;
+				  _ ->
+				      FileName1 = lists:filter(fun (F1) -> list_to_atom(filename:basename(F1, ".erl")) == M end, Files),
+				      case FileName1 of
+					[] ->
+					    Node;
+					_ -> FileName = hd(FileName1),
+					     {ok, {AnnAST1, _Info}} = refac_util:parse_annotate_file(FileName, true, Files),
+					     case interface_api:pos_to_fun_def(AnnAST1, DefPos)    %% TO check: how to you have this DefPos.
+						 of
+					       {ok, FunDef} ->
+						   FunDef1 = intra_fun_forward_slice(Files, AnnAST, ModName, FunDef, FilteredIndex),
+						   sliced_funs ! {add, {{M, F, A, FilteredIndex}, FunDef1}},
+						   case returns_undefined(FunDef1) of
+						     true -> refac_syntax:atom(undefined);
+						     _ -> Node
+						   end;
+					       _ -> Node
+					     end
+				      end
+				end
+			  end;
+		      _ -> Node   %% no fun_def annotation. This should not happen.
+		    end;
+	    _ -> refac_syntax:atom(undefined)
+	  end;
+      _ -> Node
+    end.
 
 %%=========================================================================================================
 %% @spec backward_slice(Files:[filename()], AnnAST:syntaxTree(), ModName::atom(), FunDef::syntaxTree() Expr::syntaxTree()) -> term(). %% Need to think what term() really is.
@@ -437,30 +423,28 @@ collect_app_sites(AnnAST, ModName, FunName, Arity) ->
 		end
 	end,
     refac_syntax_lib:fold(F, [], AnnAST).
-			
-
 unfold_fun_defs(_Files, AnnAST, ModName, FunDef) -> %% How about recursive functions?
-    F = fun(Node, _Others) ->
-		case refac_syntax:type(Node) of 
-		    application ->
-			Operator = refac_syntax:application_operator(Node),
-			Ann = refac_syntax:get_ann(Operator),
-			case lists:keysearch(fun_def,1,Ann) of 
-			    {value, {fun_def, {ModName, _F, _A, _, DefPos}}} ->  %% TOCHANGE: temporaly assume the function is local.
-				case refac_util:pos_to_fun_def(AnnAST, DefPos) of 
-				    {ok, Def} -> 
-					Cs = refac_syntax:function_clauses(Def),
-					FunExpr = refac_syntax:fun_expr(Cs),
-					Args = refac_syntax:application_arguments(Node),
-					{refac_syntax:application(FunExpr, Args),true};
-				    _ -> {Node, false}
-				end;
-			    _ -> {Node, false}
-			end;
-		    _ -> {Node, false}
+    F = fun (Node, _Others) ->
+		case refac_syntax:type(Node) of
+		  application ->
+		      Operator = refac_syntax:application_operator(Node),
+		      Ann = refac_syntax:get_ann(Operator),
+		      case lists:keysearch(fun_def, 1, Ann) of
+			{value, {fun_def, {ModName, _F, _A, _, DefPos}}} ->  %% TOCHANGE: temporaly assume the function is local.
+			    case interface_api:pos_to_fun_def(AnnAST, DefPos) of
+			      {ok, Def} ->
+				  Cs = refac_syntax:function_clauses(Def),
+				  FunExpr = refac_syntax:fun_expr(Cs),
+				  Args = refac_syntax:application_arguments(Node),
+				  {refac_syntax:application(FunExpr, Args), true};
+			      _ -> {Node, false}
+			    end;
+			_ -> {Node, false}
+		      end;
+		  _ -> {Node, false}
 		end
-	end,	
-    {FunDef1, _} = refac_util:stop_tdTP(F, FunDef, []),
+	end,
+    {FunDef1, _} = ast_traverse_api:stop_tdTP(F, FunDef, []),
     FunDef2 = refac_syntax_lib:annotate_bindings(reset_attrs(FunDef1), []),
     FunDef2.
     

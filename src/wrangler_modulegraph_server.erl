@@ -42,6 +42,8 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
+-include("../include/wrangler.hrl").
+
 -record(state, {}).
 
 %%====================================================================
@@ -55,10 +57,12 @@ start_modulegraph_server() ->
     gen_server:start_link({local, wrangler_modulegraph_server}, ?MODULE, [], []).
 
 
+-spec get_client_files/2::(filename(), [dir()]) -> [filename()].			       
 get_client_files(File, SearchPaths) ->
     gen_server:call(wrangler_modulegraph_server, {get_client_files, File, SearchPaths}, 5000000).
 
 
+-spec get_called_modules/2::(filename(), [dir()]) ->[atom()].				  
 get_called_modules(File, SearchPahts) ->
     gen_server:call(wrangler_modulegraph_server, {get_called_modules, File, SearchPahts}, 5000000).
 %%====================================================================
