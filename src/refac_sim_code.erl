@@ -203,7 +203,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
     F1 = fun (T) ->
 		 {T1, _} = ast_traverse_api:stop_tdTP(F0, T, []),
 		 HashVal = erlang:md5(refac_prettypr:format(T1)),
-		 {S, E} = refac_util:get_range(T),
+		 {S, E} = refac_misc:get_start_end_loc(T),
 		 insert_hash(Pid, HashVal, {{FName, FunName, Arity}, S, E}),
 		 T1
 	 end,
@@ -212,7 +212,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
 	  Body = refac_syntax:clause_body(Node),
 	  [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
 	   || E <- Body,
-	      {StartLoc, EndLoc} <- [refac_util:get_range(E)]],
+	      {StartLoc, EndLoc} <- [refac_misc:get_start_end_loc(E)]],
 	  insert_dummy_entry(Pid),
 	  _NewBody = [F1(E) || E <- Body],
 	  {Node, true};
@@ -221,7 +221,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
 	  Body = refac_syntax:block_expr_body(Node),
 	  [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
 	   || E <- Body,
-	      {StartLoc, EndLoc} <- [refac_util:get_range(E)]],
+	      {StartLoc, EndLoc} <- [refac_misc:get_start_end_loc(E)]],
 	  _NewBody = [F1(E) || E <- Body],
 	  {Node, true};
       try_expr ->
@@ -229,7 +229,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
 	  Body = refac_syntax:try_expr_body(Node),
 	  [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
 	   || E <- Body,
-	      {StartLoc, EndLoc} <- [refac_util:get_range(E)]],
+	      {StartLoc, EndLoc} <- [refac_misc:get_start_end_loc(E)]],
 	  _NewBody = [F1(E) || E <- Body],
 	  {Node, true};
       _ -> {Node, false}
@@ -382,7 +382,7 @@ examine_a_clone_member(Range={FName, _Start, _End}, {Rs, {Len, _Freq}},  MinFreq
 
 find_anti_unifier(_FileName, Exprs1, Range, SimiScore, ASTTab, VarTab, RangeTab) ->
     {Exprs2, VarsToExport} = get_expr_list_and_vars_to_export(Range, ASTTab, VarTab, RangeTab),
-    Res = anti_unification:find_anti_unifier(Exprs1, Exprs2, SimiScore),
+    Res = anti_unification:anti_unifier_with_score(Exprs1, Exprs2, SimiScore),
     case Res of
 	none ->
 	    [];
@@ -420,14 +420,14 @@ get_expr_list({{FName, FunName, Arity}, StartLoc, EndLoc}, ASTTab, RangeTab) ->
 get_expr_list_and_vars_to_export({{FName, FunName, Arity}, StartLoc, EndLoc}, ASTTab, VarTab, RangeTab) ->
     Es = get_expr_list({{FName, FunName, Arity}, StartLoc, EndLoc}, ASTTab, RangeTab),
     AllVars = ets:lookup(VarTab, {FName, FunName, Arity}),
-    case AllVars of 
-	[] -> {Es, []};
-	[{_, Vars}] ->
-	    ExprBdVarsPos = [Pos || {_Var, Pos}<-refac_util:get_bound_vars(Es)],
-	    VarsToExport =[{V, DefPos} || {V, SourcePos, DefPos} <- Vars,
-					  SourcePos > EndLoc,
-					  lists:subtract(DefPos, ExprBdVarsPos) == []],
-	    {Es, VarsToExport}
+    case AllVars of
+      [] -> {Es, []};
+      [{_, Vars}] ->
+	  ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_misc:get_bound_vars(Es)],
+	  VarsToExport = [{V, DefPos} || {V, SourcePos, DefPos} <- Vars,
+					 SourcePos > EndLoc,
+					 lists:subtract(DefPos, ExprBdVarsPos) == []],
+	  {Es, VarsToExport}
     end.
 
 
@@ -514,7 +514,8 @@ search_for_clones(Dir, Data, MinLen, MinFreq, RangeTab) ->
        end,
     IndexStr = lists:append([F0(I)|| {I, _}<-Data]),
     NewData =lists:append([F(Elem) ||Elem <-Data]),
-    Cs= suffix_tree:get_clones_by_suffix_tree(Dir, IndexStr++"&",MinLen, MinFreq,"0123456789,#&", 1),
+    SuffixTreeExec = filename:join(?WRANGLER_DIR,"bin/suffixtree"),
+    Cs= suffix_tree:get_clones_by_suffix_tree(Dir, IndexStr++"&",MinLen, MinFreq,"0123456789,#&", 1, SuffixTreeExec),
     Cs1 = lists:append([strip_a_clone({[{S,E} |Ranges], {Len, Freq}}, SubStr, MinLen, MinFreq)
 			|| {[{S,E} |Ranges], Len, Freq} <- Cs, 
 			      SubStr <-[lists:sublist(IndexStr, S, E-S+1)]]),
