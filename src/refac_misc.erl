@@ -143,7 +143,6 @@ variable_replaceable(Exp) ->
     end.
 
 %% This function will be removed.
--spec apply_style_funs()->[{atom(), atom(), integer()}]. 		      
 apply_style_funs() ->
     [{{erlang, apply, 3}, [modulename, functionname, arglist], term},
      {{erlang, spawn, 3}, [modulename, functionname, arglist], term},
