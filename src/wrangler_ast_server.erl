@@ -126,8 +126,7 @@ handle_call({get, Key}, _From, State) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
--spec(handle_cast/2::({update, {{filename(), boolean(), [dir()], integer()}, {syntaxTree(), moduleInfo(), modifyTime()}}}, #state{}) ->
-    {noreply, #state{}}).
+
 handle_cast({update, {Key, {AnnAST, Info, Time}}}, State) ->
     update_ast_1({Key, {AnnAST, Info, Time}}, State),
     {noreply, State}.
