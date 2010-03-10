@@ -96,7 +96,8 @@ expr_search_in_dirs(FileName, Start = {Line, Col}, End = {Line1, Col1}, SearchPa
     Res = lists:append([do_expr_search(F, Es, SearchPaths, TabWidth) || F <- Files]),
     SE = refac_misc:get_start_end_loc(Es),
     Res1 = [{FileName, SE}| Res -- [{FileName, SE}]],
-    refac_code_search_utils:display_search_result(Res1).
+    refac_code_search_utils:display_search_results(Res1, none, "indentical").
+
 
 
 -spec(expr_search_eclipse/4::(filename(), pos(), pos(), integer()) ->
@@ -140,15 +141,13 @@ search_one_expr(FileName, Tree, Exp) ->
     SimplifiedExp = simplify_expr(Exp),
     BdStructExp = refac_code_search_utils:var_binding_structure([Exp]),
     F = fun (T, Acc) ->
-		case refac_util:is_expr(T) of
+		case refac_misc:is_expr(T) of
 		  true -> T1 = simplify_expr(T),
 			  case SimplifiedExp == T1 of
 			    true ->
-				case
-				  refac_code_search_utils:var_binding_structure([T])
-				    of
+				case refac_code_search_utils:var_binding_structure([T]) of
 				  BdStructExp ->
-				      StartEndLoc = refac_util:get_range(T),
+				      StartEndLoc = refac_misc:get_start_end_loc(T),
 				      [{FileName, StartEndLoc}| Acc];
 				  _ -> Acc
 				end;
@@ -169,26 +168,26 @@ get_clone(FileName, ExpList1, ExpList2) ->
     Len2 = length(ExpList2),
     case Len1 =< Len2 of
       true ->
-	    SimplifiedExpList1 = simplify_expr(ExpList1),
-	    SimplifiedExpList2 = simplify_expr(ExpList2),
-	    case lists:prefix(SimplifiedExpList1, SimplifiedExpList2) of
+	  SimplifiedExpList1 = simplify_expr(ExpList1),
+	  SimplifiedExpList2 = simplify_expr(ExpList2),
+	  case lists:prefix(SimplifiedExpList1, SimplifiedExpList2) of
 	    true ->
-		    List22 = lists:sublist(ExpList2, Len1),
-		    BdList1 = refac_code_search_utils:var_binding_structure(ExpList1),
-		    BdList2 = refac_code_search_utils:var_binding_structure(List22),
-		    case BdList1 == BdList2 of
-			true ->
-			    E1 = hd(List22),
-			    En = lists:last(List22),
-			    {StartLoc, _EndLoc} = refac_util:get_range(E1),
-			    {_StartLoc1, EndLoc1} = refac_util:get_range(En),
-			    [{FileName, {StartLoc, EndLoc1}}] ++ get_clone(FileName, ExpList1, tl(ExpList2));
-			_ -> get_clone(FileName, ExpList1, tl(ExpList2))
-		    end;
-		_ ->
-		    get_clone(FileName, ExpList1, tl(ExpList2))
-	    end;
-	_ -> []
+		List22 = lists:sublist(ExpList2, Len1),
+		BdList1 = refac_code_search_utils:var_binding_structure(ExpList1),
+		BdList2 = refac_code_search_utils:var_binding_structure(List22),
+		case BdList1 == BdList2 of
+		  true ->
+		      E1 = hd(List22),
+		      En = lists:last(List22),
+		      {StartLoc, _EndLoc} = refac_misc:get_start_end_loc(E1),
+		      {_StartLoc1, EndLoc1} = refac_misc:get_start_end_loc(En),
+		      [{FileName, {StartLoc, EndLoc1}}] ++ get_clone(FileName, ExpList1, tl(ExpList2));
+		  _ -> get_clone(FileName, ExpList1, tl(ExpList2))
+		end;
+	    _ ->
+		get_clone(FileName, ExpList1, tl(ExpList2))
+	  end;
+      _ -> []
     end.
 %% Simplify expressions by masking variable names, literals and locations.
 simplify_expr(Exp) when is_list(Exp) ->
