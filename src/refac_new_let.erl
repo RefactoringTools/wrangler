@@ -378,7 +378,7 @@ returns_gen({eqc_gen, shrink_int, 3}) ->
     true;
 returns_gen({eqc_gen, shrink_list, 1}) ->
     true;
-returns_gen({eqc_gen, shrin_without_duplicates, 1}) ->
+returns_gen({eqc_gen, shrink_without_duplicates, 1}) ->
     true;
 returns_gen({eqc_gen, timeout, 2}) ->
     true;
