@@ -1093,25 +1093,18 @@ is_bound_var(P) ->
 	_ -> false
     end.
 
-atom_value_or_length(E) ->
-    case refac_syntax:type(E) of 
-	atom ->
-	    {atom, refac_syntax:atom_value(E)};
-	list ->
-	    {list, refac_syntax:list_length(E)}
-    end.
 cons_prop_match_expr(Tree) ->
     E = refac_syntax:match_expr_body(Tree),
     P = refac_syntax:match_expr_pattern(Tree),
-    case refac_syntax:type(E) == atom orelse refac_syntax:type(E) == list of
+    case refac_syntax:is_literal(E) of 
       true ->
 	  case is_bound_var(P) of
 	    true ->
 		case lists:keysearch(def, 1, refac_syntax:get_ann(P)) of
 		  {value, {def, DefPos}} ->
-		      add_value({DefPos, {atom_value_or_length(E), refac_syntax:get_pos(E)}}),
-		      P1 = refac_syntax:add_ann({value, {atom_value_or_length(E), refac_syntax:get_pos(E)}}, P),
-		      rewrite(Tree, refac_syntax:match_expr(P1, E));
+			add_value({DefPos, {refac_syntax:concrete(E), refac_syntax:get_pos(E)}}),
+			P1 = refac_syntax:add_ann({value, {refac_syntax:concrete(E), refac_syntax:get_pos(E)}}, P),
+			rewrite(Tree, refac_syntax:match_expr(P1, E));
 		  false ->
 		      Tree
 		end;
@@ -1122,14 +1115,14 @@ cons_prop_match_expr(Tree) ->
 	    match_expr ->
 		E1 = cons_prop_match_expr(E),
 		P1 = refac_syntax:match_expr_pattern(E1),
-		case lists:keysearch(value, 1, refac_syntax:get_ann(P1)) of
-		  {value, {value, V}} ->
-		      P2 = refac_syntax:add_ann({value, V}, P),
-		      rewrite(Tree, refac_syntax:match_expr(P2, E));
-		  _ -> Tree
-		end;
-	    _ ->
-		Tree
+		  case lists:keysearch(value, 1, refac_syntax:get_ann(P1)) of
+		      {value, {value, V}} ->
+			  P2 = refac_syntax:add_ann({value, V}, P),
+			  rewrite(Tree, refac_syntax:match_expr(P2, E));
+		      _ -> Tree
+		  end;
+	      _ ->
+		  Tree
 	  end
     end.
 	
