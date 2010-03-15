@@ -52,11 +52,11 @@
 -spec(sim_expr_search_in_buffer/6::(filename(), pos(), pos(), string(),[dir()],integer())
       -> {ok, [{integer(), integer(), integer(), integer()}]}).    
 sim_expr_search_in_buffer(FName, Start = {Line, Col}, End = {Line1, Col1}, SimiScore0, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:sim_expr_search(~p, {~p,~p},{~p,~p},~p, ~p, ~p).\n",
+    ?wrangler_io("\nCMD: ~p:sim_expr_search_in_buffer(~p, {~p,~p},{~p,~p},~p, ~p, ~p).\n",
 		 [?MODULE, FName, Line, Col, Line1, Col1, SimiScore0, SearchPaths, TabWidth]),
     SimiScore = get_simi_score(SimiScore0),
     {FunDef, Exprs, SE} = get_fundef_and_expr(FName, Start, End, SearchPaths, TabWidth),
-    {Ranges, AntiUnifier} = search_and_gen_anti_unifier(FName, {FName, FunDef, Exprs, SE}, SimiScore, SearchPaths, TabWidth),
+    {Ranges, AntiUnifier} = search_and_gen_anti_unifier([FName], {FName, FunDef, Exprs, SE}, SimiScore, SearchPaths, TabWidth),
     refac_code_search_utils:display_search_results(Ranges, AntiUnifier, "similar").
 
 
@@ -89,16 +89,32 @@ search_similar_expr_1(FName, Exprs, SimiScore, SearchPaths, TabWidth) ->
 	_E1:_E2 ->
 	    []
     end.
-
+ 
 do_search_similar_expr(FileName, AnnAST, RecordInfo, Exprs, SimiScore) when is_list(Exprs) ->
-    F0 = fun (FunNode, Acc) ->
-		 F = fun (T, Acc1) ->
-			     Exprs1 = get_expr_seqs(T),
-			     do_search_similar_expr_1(FileName, Exprs, Exprs1, RecordInfo, SimiScore, FunNode) ++ Acc1
-		     end,
-		 refac_syntax_lib:fold(F, Acc, FunNode)
-	 end,
-    do_search_similar_expr_1(AnnAST, F0).
+    case length(Exprs)>1 of 
+	true ->
+	    F0 = fun (FunNode, Acc) ->
+			 F = fun (T, Acc1) ->
+				     Exprs1 = get_expr_seqs(T),
+				     do_search_similar_expr_1(FileName, Exprs, Exprs1, RecordInfo, SimiScore, FunNode) ++ Acc1
+			     end,
+			 refac_syntax_lib:fold(F, Acc, FunNode)
+		 end,
+	    do_search_similar_expr_1(AnnAST, F0);
+	false ->
+	    Expr = hd(Exprs),
+	    F0 = fun (FunNode, Acc) ->
+			 F = fun (T, Acc1) ->
+				     case refac_misc:is_expr(T) of 
+					 true ->
+					     do_search_similar_expr_1(FileName, Expr, T, RecordInfo, SimiScore, FunNode) ++ Acc1;
+					 _ -> Acc1
+				     end
+			     end,
+			 refac_syntax_lib:fold(F, Acc, FunNode)
+		 end,
+	    do_search_similar_expr_1(AnnAST, F0)
+    end.
 
 
 do_search_similar_expr_1(AnnAST, Fun) ->
@@ -127,7 +143,7 @@ overlapped_locs({Start1, End1}, {Start2, End2}) ->
       Start2 =< Start1 andalso End1 =< End2.
 
 
-do_search_similar_expr_1(FileName, Exprs1, Exprs2, RecordInfo, SimiScore, FunNode) ->
+do_search_similar_expr_1(FileName, Exprs1, Exprs2, RecordInfo, SimiScore, FunNode) when is_list(Exprs1) ->
     Len1 = length(Exprs1),
     Len2 = length(Exprs2),
     case Len1 =< Len2 of
@@ -140,7 +156,7 @@ do_search_similar_expr_1(FileName, Exprs1, Exprs2, RecordInfo, SimiScore, FunNod
 		_ ->
 		    NormalisedExprs21 =normalise_expr(Exprs21, RecordInfo),
 		    ExportedVars = vars_to_export(FunNode, E2, Exprs21),
-		    case anti_unification:anti_unification(Exprs1, NormalisedExprs21) of
+		    case anti_unification:anti_unification_with_score(Exprs1, NormalisedExprs21, SimiScore) of
 			none ->
 			    do_search_similar_expr_1(FileName, Exprs1, tl(Exprs2), RecordInfo, SimiScore, FunNode);
 			SubSt ->
@@ -149,8 +165,28 @@ do_search_similar_expr_1(FileName, Exprs1, Exprs2, RecordInfo, SimiScore, FunNod
 			    [{{FileName, {S2, E2}}, EVs, SubSt}]++
 				do_search_similar_expr_1(FileName, Exprs1, tl(Exprs2), RecordInfo, SimiScore, FunNode)
 		    end
+	    end;
+	_ ->[]
+    end;
+do_search_similar_expr_1(FileName, Expr1, Expr2, RecordInfo, SimiScore, FunNode) ->
+    {S1, E1} = refac_misc:get_start_end_loc(Expr1),
+    {S2, E2} = refac_misc:get_start_end_loc(Expr2),
+    case overlapped_locs({S1, E1}, {S2, E2}) of
+	true -> [];
+	_ ->
+	    NormalisedExpr21 =normalise_expr(Expr2, RecordInfo),
+	    ExportedVars = vars_to_export(FunNode, E2, Expr2),
+	    Res =anti_unification:anti_unification_with_score(Expr1, NormalisedExpr21, SimiScore),
+	    case Res of 
+		none ->
+		    [];
+		SubSt ->
+		    EVs = [SE1 || {SE1, SE2} <- SubSt, refac_syntax:type(SE2) == variable,
+				  lists:member({refac_syntax:variable_name(SE2), get_var_define_pos(SE2)}, ExportedVars)],
+		    [{{FileName, {S2, E2}}, EVs, SubSt}]
 	    end
     end.
+
     
 get_var_define_pos(V) ->
     {value, {def, DefinePos}} = lists:keysearch(def,1, refac_syntax:get_ann(V)),
@@ -208,7 +244,7 @@ normalise_record_expr(FName, Pos = {Line, Col}, ShowDefault, SearchPaths, TabWid
 		 [?MODULE, FName, Line, Col, ShowDefault, SearchPaths, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":normalise_record_expr(" ++ "\"" ++
 	    FName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "},"
-											   ++ atom_to_list(ShowDefault) ++ " [" ++ refac_misc:format_search_paths(SearchPaths)
+	++ atom_to_list(ShowDefault) ++ " [" ++ refac_misc:format_search_paths(SearchPaths)
 	      ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, [], TabWidth),
     RecordExpr = pos_to_record_expr(AnnAST, Pos),
