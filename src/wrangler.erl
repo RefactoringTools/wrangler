@@ -1052,7 +1052,7 @@ try_refactoring(Mod, Fun, Args) ->
 
 %%@private
 try_inspector(Mod, Fun, Args) -> 
-    Msg ="Wrangler failed to perform this functionality, "
+    Msg ="Wrangler failed to perform this functionality, "  
 	"please report error to erlang-refactor@kent.ac.uk.",
     try_to_apply(Mod, Fun, Args, Msg).
 
