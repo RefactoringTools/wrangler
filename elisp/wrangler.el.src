@@ -253,6 +253,9 @@
       ("Nested Receive Expression" erl-wrangler-code-inspector-nested-receives)
       ("Long Functions" erl-wrangler-code-inspector-long-funs)
       ("Large Modules" erl-wrangler-code-inspector-large-mods)
+      ("Generate Function Callgraph" erl-wrangler-code-inspector-callgraph)
+      ("Generate Modulegraph" erl-wrangler-code-inspector-module-graph)
+      ("Generate Modulegraph for Mutually Recursive Modules" erl-wrangler-code-inspector-module-scc-graph)
      ;; ("UnCalled Exported Functions" erl-wrangler-code-inspector-uncalled-exports)
       ("Non Tail-recursive Servers" erl-wrangler-code-inspector-non-tail-recursive-servers)
       ("Not Flush UnKnown Messages" erl-wrangler-code-inspector-no-flush)))
@@ -352,7 +355,7 @@
   (interactive)
   (require 'comint)
   (setq opts (list "-name" wrangler-erl-node-string
-		   "-pa"  "C:/cygwin/home/hl/wrangler/share/wrangler/ebin"
+		   "-pa"  %EBIN_DIR%
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))
@@ -579,7 +582,7 @@
 			      (preview-commit-cancel current-file-name modified)
 			    )))
 		      (message "Refactoring aborted.")
-		      ))))
+		      )))))
 	     (['rex ['question msg]]
 	      (progn
 		(if (y-or-n-p msg)
@@ -613,11 +616,9 @@
 		)))
 	   (['rex ['ok modified warning]]
 	    (progn
-	      (message "haswarng: %s" warning)
 	      (setq has-warning warning)
 	      (preview-commit-cancel current-file-name modified)
-	      )
-	    )))))
+	      )))))
     (message "Refactoring aborted."))))
 
 
@@ -1480,7 +1481,38 @@
     (remove-highlights)
     (if (current-buffer-saved buffer)
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'similar_expression_search
+	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'similar_expression_search_in_buffer
+			(list current-file-name start-line-no start-col-no end-line-no end-col-no similarity-score wrangler-search-paths tab-width))
+	  (erl-receive (buffer)
+	      ((['rex ['badrpc rsn]]
+		(message "Searching failed: %S" rsn))
+	       (['rex ['error rsn]]
+	    (message "Searching failed: %s" rsn))
+	       (['rex ['ok regions]]
+		(with-current-buffer buffer 
+		  (highlight-instances-1 regions (car regions) buffer)
+		  (message "Searching finished; use 'C-c C-e' to remove highlights.\n")
+		  )))))
+      (message "Refactoring aborted."))))
+
+
+
+(defun erl-refactor-similar-expression-search-in-dirs(similarity-score start end)
+  "Search expressions that are similar to an user-selected expression or expression sequence in the current buffer."
+  (interactive (list (read-string "Please input a similarity score between 0.1 and 1.0 (default value: 0.8):")
+		(region-beginning)
+		(region-end)
+		))
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer))
+	(start-line-no (line-no-pos start))
+	(start-col-no  (current-column-pos start))
+	(end-line-no   (line-no-pos end))
+	(end-col-no    (current-column-pos end)))
+    (remove-highlights)
+    (if (current-buffer-saved buffer)
+	(erl-spawn
+	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'similar_expression_search_in_dirs
 			(list current-file-name start-line-no start-col-no end-line-no end-col-no similarity-score wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
@@ -2451,6 +2483,83 @@
 	  )
       (message "Searching aborted."))))
  
+
+
+(defun erl-wrangler-code-inspector-callgraph(outputfile)
+  "Generate function callgraph for a module"
+  (interactive (list (read-file-name "Output .dot file name: " nil nil nil "callgraph.dot")
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer)))
+    (if (buffers-saved)
+	(erl-spawn
+	      (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'gen_function_callgraph(list 
+                          outputfile current-file-name wrangler-search-paths)))
+	      (erl-receive (outputfile)
+		  ((['rex ['badrpc rsn]]
+		    (message "Error: %S" rsn))
+		   (['rex ['error rsn]]
+		    (message "Error: %s" rsn))
+		   (['rex 'true]
+		    (find-file outputfile)
+		    (message "Function callgraph generation finished.")))))
+      (message "Callgraph generation aborted."))))
+ 
+
+(defun erl-wrangler-code-inspector-module-scc-graph(outputfile)
+  "Generate module scc graph"
+  (interactive (list (read-file-name "Output .dot file name: " nil nil nil "modulegraph.dot")))		   		  
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer)))
+    (if (buffers-saved)
+	(progn
+	  (if (y-or-n-p "Label edges with function names called?")
+	      (setq withlabel 'true)
+	    (setq withlabel 'false)
+	    )
+	  (erl-spawn
+	    (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'gen_module_scc_graph(list 
+										  outputfile wrangler-search-paths withlabel)))
+	    (erl-receive (outputfile)
+		((['rex ['badrpc rsn]]
+		  (message "Error: %S" rsn))
+		 (['rex ['error rsn]]
+		    (message "Error: %s" rsn))
+		 (['rex 'true]
+		  (find-file outputfile)
+		  (message "Module SCC graph generation finished.")))))
+	  )
+      (message "Module SCC graph generation aborted."))))
+ 
+
+
+
+(defun erl-wrangler-code-inspector-module-graph(outputfile notcaremods)
+  "Generate module graph"
+  (interactive (list (read-file-name "Output .dot file name: " nil nil nil "modulegraph.dot")
+		     (read-string "Module names not to be included in the module graph (separate names by ','): ")))				  
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer)))
+    (if (buffers-saved)
+	(progn
+	  (if (y-or-n-p "Label edges with function names called?")
+	      (setq withlabel 'true)
+	    (setq withlabel 'false)
+	    )
+	  (erl-spawn
+	      (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'gen_module_graph(list 
+                          outputfile notcaremods wrangler-search-paths withlabel)))
+	      (erl-receive (outputfile)
+		  ((['rex ['badrpc rsn]]
+		    (message "Error: %S" rsn))
+		   (['rex ['error rsn]]
+		    (message "Error: %s" rsn))
+		   (['rex 'true]
+		    (find-file outputfile 'true)
+		    (message "Module graph generation finished."))))))
+      (message "Module graph generation aborted."))))
+ 
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
