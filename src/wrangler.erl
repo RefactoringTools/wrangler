@@ -875,16 +875,16 @@ fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth) ->
 
 %%@private
 -spec(fold_against_macro_eclipse/5::(filename(), integer(), integer(), [dir()], integer()) ->
-					  {error, string()} | {ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}],syntaxTree()}).
+					  {error, string()} | {ok, syntaxTree(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}).
 fold_against_macro_eclipse(FileName, Line, Col, SearchPaths, TabWidth) ->
-    try_refactoring(refac_fold_against_macro, fold_against_macro, [FileName, Line, Col, SearchPaths, TabWidth]).
+    try_refactoring(refac_fold_against_macro, fold_against_macro_eclipse, [FileName, Line, Col, SearchPaths, TabWidth]).
 
 %%@privat
 -spec(fold_against_macro_1_eclipse/5::(filename(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}], syntaxTree(), 
 				       [dir()], integer()) -> {error, string()} | {ok, [{filename(), filename(), string()}]}).
 					
 fold_against_macro_1_eclipse(FileName, CandidatesToFold, MacroDef, SearchPaths, TabWidth) ->
-    try_refactoring(refac_fold_against_macro, fold_against_macro, [FileName, CandidatesToFold, MacroDef, SearchPaths, TabWidth]).
+    try_refactoring(refac_fold_against_macro, fold_against_macro_1_eclipse, [FileName, CandidatesToFold, MacroDef, SearchPaths, TabWidth]).
 
 
 %% =============================================================================================
