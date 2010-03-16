@@ -90,7 +90,7 @@ fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, Editor, Cmd) ->
 						   Candidates),
 			      {ok, Regions, Cmd};
 			  eclipse ->
-			      {ok, MacroDef, Candidates}
+			      {ok, {MacroDef, Candidates}}
 		      end
 	    end;
 	{error, _} ->
