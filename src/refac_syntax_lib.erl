@@ -1096,15 +1096,16 @@ is_bound_var(P) ->
 cons_prop_match_expr(Tree) ->
     E = refac_syntax:match_expr_body(Tree),
     P = refac_syntax:match_expr_pattern(Tree),
-    case refac_syntax:is_literal(E) of 
-      true ->
-	  case is_bound_var(P) of
-	    true ->
-		case lists:keysearch(def, 1, refac_syntax:get_ann(P)) of
-		  {value, {def, DefPos}} ->
-			add_value({DefPos, {refac_syntax:concrete(E), refac_syntax:get_pos(E)}}),
-			P1 = refac_syntax:add_ann({value, {refac_syntax:concrete(E), refac_syntax:get_pos(E)}}, P),
-			rewrite(Tree, refac_syntax:match_expr(P1, E));
+    case refac_syntax:is_literal(E) orelse refac_syntax:type(E)==list of 
+	true ->
+	    case is_bound_var(P) of
+		true ->
+		    case lists:keysearch(def, 1, refac_syntax:get_ann(P)) of
+			{value, {def, DefPos}} ->
+			    Val = literal_value_or_length(E),
+			    add_value({DefPos, {Val, refac_syntax:get_pos(E)}}),
+			    P1 = refac_syntax:add_ann({value, {Val, refac_syntax:get_pos(E)}}, P),
+			    rewrite(Tree, refac_syntax:match_expr(P1, E));
 		  false ->
 		      Tree
 		end;
@@ -1127,6 +1128,14 @@ cons_prop_match_expr(Tree) ->
     end.
 	
 
+literal_value_or_length(E) ->
+    case refac_syntax:is_literal(E) of 
+	true ->
+	    {literal, refac_syntax:concrete(E)};
+	false ->
+	    {list, refac_syntax:list_length(E)}
+    end.
+  
 %% =====================================================================
 %% @spec is_fail_expr(Tree::syntaxTree()) -> bool()
 %%

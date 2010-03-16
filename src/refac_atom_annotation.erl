@@ -223,6 +223,10 @@ get_sorted_funs(ModName, AnnAST) ->
     {Sccs, _E} = refac_callgraph:construct(CallerCallees),
     lists:append(Sccs).
 
+
+%% This function is actually defined in wrangler_callgraph_server.erl, 
+%% but I would like to keep it here so that this module does not 
+%% depends on the wrangler_callgraph_server.
 called_funs(Tree) ->
     Fun = fun (T, S) ->
 		  case refac_syntax:type(T) of
@@ -608,48 +612,60 @@ try_eval(Expr, Cond) ->
 try_eval(FileName, E, SearchPaths, TabWidth, Cond) ->
     As = refac_syntax:get_ann(E),
     case lists:keysearch(value, 1, As) of
-      {value, {value, {V, _DefPos}}} ->
-	  case Cond(V) of
-	      true ->
-		?debug("V:\n~p\n", [V]),
-		V;
-	    _ -> '_'
-	  end;
-      _ ->
-	  case refac_misc:try_eval(FileName, E, SearchPaths, TabWidth) of
-	    {value, V} ->
-		?debug("V:\n~p\n", [V]),
-		case Cond(V) of
-		  true -> V;
-		  _ -> '_'
-		end;
-	    {error, _} -> '_'
-	  end
+	{value, {value, {{literal, V}, _DefPos}}} ->
+	    case Cond(V) of
+		true ->
+		    ?debug("V:\n~p\n", [V]),
+		    V;
+		_ -> '_'
+	    end;
+	_ ->
+	    case refac_misc:try_eval(FileName, E, SearchPaths, TabWidth) of
+		{value, V} ->
+		    ?debug("V:\n~p\n", [V]),
+		    case Cond(V) of
+			true -> V;
+			_ -> '_'
+		    end;
+		{error, _} -> '_'
+	    end
     end.
 		    
 try_eval_length(Expr) when is_function(Expr) ->
     fun (X) -> try_eval_length(Expr(X)) end;
 try_eval_length(Expr) ->
-    E = refac_syntax:revert(mk_length_app(Expr)),
-    try
-      erl_eval:expr(E, [])
-    of
-      {value, V, _} ->
-	  V
-    catch
-      _E1:_E2 ->
-	  As = refac_syntax:get_ann(Expr),
-	  ?debug("As:\n~p\n", [As]),
-	  case lists:keysearch(value, 1, As) of
-	    {value, {value, {V, _DefPos}}} ->
-		  case is_list(V) of
-		      true -> length(V);
-		      _ -> '_'
-		  end;
-	      _ ->'_'
-	  end	      
+    case refac_syntax:type(Expr) of
+	list -> refac_syntax:list_length(Expr);
+	_ -> 
+	    As = refac_syntax:get_ann(Expr),
+	    ?debug("As:\n~p\n", [As]),
+	    case lists:keysearch(value, 1, As) of
+		{value, {value, {V, _DefPos}}} ->
+		    case V of 
+			{list, L} -> L;
+			{literal, L} ->
+			    case is_list(L) of 
+				true -> length(L);
+				_-> 
+				    '_'
+			    end
+		    end;
+		false ->
+		    E = refac_syntax:revert(mk_length_app(Expr)),
+		    try
+			erl_eval:expr(E, [])
+		    of
+			{value, V, _} ->
+			    V
+		    catch
+			_E1:_E2 ->
+			    '_'
+				
+		    end
+	    end
     end.
-
+	    
+   
 mk_length_app(Expr) ->
     refac_syntax:set_pos(refac_syntax:application(
 			   refac_syntax:set_pos(
