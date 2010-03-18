@@ -1834,43 +1834,28 @@
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
     (if (current-buffer-saved buffer)
-	(if (y-or-n-p "Show record fields with default values?")	    
-	    (erl-spawn
-	      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'normalise_record_expr(list current-file-name line-no column-no 'true wrangler-search-paths tab-width))
-	      (erl-receive (line-no column-no current-file-name)
-		  ((['rex ['badrpc rsn]]
-		    (message "Refactoring failed: %S" rsn))
-		   (['rex ['error rsn]]
-		    (message "Refactoring failed: %s" rsn))
-		   (['rex ['ok modified]]
-		    (progn
-		      (if (equal modified nil)
-			  (message "Refactoring finished, and no file has been changed.")
-			(if (y-or-n-p "Do you want to preview the changes to be performed?")
-			    (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
-			  (commit)))
-		      (with-current-buffer (get-file-buffer current-file-name)
-			(goto-line line-no)
-			(goto-column column-no))))
-		   )))
+	(progn
+	  (if (y-or-n-p "Show record fields with default values?")	    
+	    (setq showdefault 'true)
+	    (setq showdefault 'false)
+	    )
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler_distel 'normalise_record_expr(list current-file-name line-no column-no 'false wrangler-search-paths tab-width))
+	    (erl-send-rpc wrangler-erl-node 'wrangler_distel 'normalise_record_expr(list current-file-name 
+							       line-no column-no showdefault wrangler-search-paths tab-width))
 	    (erl-receive (line-no column-no current-file-name)
 		((['rex ['badrpc rsn]]
 		  (message "Refactoring failed: %S" rsn))
-		   (['rex ['error rsn]]
-		    (message "Refactoring failed: %s" rsn))
-		   (['rex ['ok modified]]
-		    (progn
-		      (if (equal modified nil)
-			  (message "Refactoring finished, and no file has been changed.")
-			(if (y-or-n-p "Do you want to preview the changes to be performed?")
-			    (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
-			  (commit)))
-		      (with-current-buffer (get-file-buffer current-file-name)
-			(goto-line line-no)
-			(goto-column column-no))))
-		   ))))
+		 (['rex ['error rsn]]
+		  (message "Refactoring failed: %s" rsn))
+		 (['rex ['ok modified]]
+		  (progn
+		    (if (equal modified nil)
+			(message "Refactoring finished, and no file has been changed.")
+			(preview-commit-cancel current-file-name modified)
+			(with-current-buffer (get-file-buffer current-file-name)
+			  (goto-line line-no)
+			  (goto-column column-no))))
+		  )))))
       (message "Refactoring aborted.")
       )))
 		  
