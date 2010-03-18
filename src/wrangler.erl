@@ -79,6 +79,9 @@
 	 fun_to_process_1_eclipse/6, unfold_fun_app_eclipse/4,
 	 duplicated_code_eclipse/5, sim_code_detection_eclipse/6,
 	 expr_search_eclipse/4,
+	 simi_expr_search_in_buffer_eclipse/6, 
+	 simi_expr_search_in_dirs_eclipse/6,
+	 normalise_record_expr_eclipse/5,
 	 eqc_statem_to_fsm_eclipse/4]).
 
 -export([try_refactoring/3, try_inspector/3]).
@@ -485,8 +488,8 @@ expr_search_eclipse(FileName, Start, End, TabWidth) ->
 %% Usage: highlight the expression sequence of interest, then selected  <em> Similar Expression Search in Current Buffer </em> 
 %% from  <em> Similar Code Detection </em>.
 
--spec(similar_expression_search_in_buffer/6::(filename(), pos(), pos(), string(), [dir()], integer()) -> 
-					 {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
+-spec(similar_expression_search_in_buffer/6::(filename(), pos(), pos(), string(),[dir()],integer())
+      -> {ok, [{filename(), {{integer(), integer()}, {integer(), integer()}}}]}).   
 similar_expression_search_in_buffer(FileName, Start, End, SimiScore, SearchPaths, TabWidth) ->
     try_refactoring(refac_sim_expr_search, sim_expr_search_in_buffer, [FileName, Start, End, SimiScore, SearchPaths, TabWidth]).
 
@@ -499,11 +502,22 @@ similar_expression_search_in_buffer(FileName, Start, End, SimiScore, SearchPaths
 %% </p>
 %% Usage: highlight the expression sequence of interest, then selected  <em> Similar Expression Search in Dirs</em> from  <em>Simiar Code Detection</em>.
 
--spec(similar_expression_search_in_dirs/6::(filename(), pos(), pos(), string(), [dir()], integer()) -> 
-						 {ok, [{integer(), integer(), integer(), integer()}]} | {error, string()}).
+-spec(similar_expression_search_in_dirs/6::(filename(), pos(), pos(), string(),[dir()],integer())
+      ->{ok, [{filename(), {{integer(), integer()}, {integer(), integer()}}}]}).
 similar_expression_search_in_dirs(FileName, Start, End, SimiScore, SearchPaths, TabWidth) ->
     try_refactoring(refac_sim_expr_search, sim_expr_search_in_dirs, [FileName, Start, End, SimiScore, SearchPaths, TabWidth]).
 
+
+-spec(simi_expr_search_in_buffer_eclipse/6::(filename(), pos(), pos(), float(),[dir()],integer())
+      -> {[{{filename(), integer(), integer()}, {filename(), integer(), integer()}}], string()}).
+simi_expr_search_in_buffer_eclipse(FName, Start, End, SimiScore0, SearchPaths, TabWidth) ->
+    try_refactoring(refac_sim_expr_search, sim_expr_search_in_buffer_eclipse, [FName, Start, End, SimiScore0, SearchPaths, TabWidth]).
+
+
+-spec(simi_expr_search_in_dirs_eclipse/6::(filename(), pos(), pos(), float(),[dir()],integer())
+      -> {[{{filename(), integer(), integer()}, {filename(), integer(), integer()}}], string()}).
+simi_expr_search_in_dirs_eclipse(FName, Start, End, SimiScore0, SearchPaths, TabWidth) ->
+    try_refactoring(refac_sim_expr_search, sim_expr_search_in_dirs_eclipse, [FName, Start, End, SimiScore0, SearchPaths, TabWidth]).
 
 %% =====================================================================================================
 %%@doc Introduce a new function to represent an expression or expression sequence.
@@ -896,6 +910,12 @@ fold_against_macro_1_eclipse(FileName, CandidatesToFold, MacroDef, SearchPaths, 
 -spec(normalise_record_expr/6::(filename(), integer(), integer(), boolean(), [dir()], integer()) -> {error, string()} | {ok, [filename()]}).
 normalise_record_expr(FileName, Line, Col, ShowDefault, SearchPaths, TabWidth) ->
     try_refactoring(refac_sim_expr_search, normalise_record_expr, [FileName, {Line, Col}, ShowDefault,SearchPaths, TabWidth]).
+
+
+-spec normalise_record_expr_eclipse/5::(filename(), pos(), boolean(), [dir()], integer()) ->
+				{error, string()}| {ok, [{filename(), filename(), string()}]}.
+normalise_record_expr_eclipse(FileName, Pos, ShowDefault, SearchPaths, TabWidth) ->
+    try_refactoring(refac_sim_expr_search, normalise_record_expr_eclipse, [FileName, Pos, ShowDefault,SearchPaths, TabWidth]).
 
 
 %% =============================================================================================
