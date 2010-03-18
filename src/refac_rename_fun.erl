@@ -112,7 +112,6 @@ rename_fun_0(FileName, NewName, SearchPaths, TabWidth, Editor,
     Pid = refac_atom_utils:start_atom_process(),
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     {AnnAST1, _C} = do_rename_fun(AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}),
-    refac_io:format("AnnASt1\:n~p\n", [AnnAST1]),
     refac_atom_utils:check_atoms(FileName, AnnAST1, [Fun], Pid),
     case refac_misc:is_exported({Fun, Arity}, Info) of
       true ->
