@@ -32,6 +32,9 @@
 
 -export([sim_expr_search_in_buffer/6,sim_expr_search_in_dirs/6, normalise_record_expr/5]).
 
+-export([sim_expr_search_in_buffer_eclipse/6, sim_expr_search_in_dirs_eclipse/6, 
+	 normalise_record_expr_eclipse/5]).
+
 -include("../include/wrangler.hrl").
 
 -define(DefaultSimiScore, 0.8).
@@ -50,7 +53,7 @@
 %% <p>
 
 -spec(sim_expr_search_in_buffer/6::(filename(), pos(), pos(), string(),[dir()],integer())
-      -> {ok, [{integer(), integer(), integer(), integer()}]}).    
+      -> {ok, [{filename(), {{integer(), integer()}, {integer(), integer()}}}]}).    
 sim_expr_search_in_buffer(FName, Start = {Line, Col}, End = {Line1, Col1}, SimiScore0, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:sim_expr_search_in_buffer(~p, {~p,~p},{~p,~p},~p, ~p, ~p).\n",
 		 [?MODULE, FName, Line, Col, Line1, Col1, SimiScore0, SearchPaths, TabWidth]),
@@ -61,7 +64,7 @@ sim_expr_search_in_buffer(FName, Start = {Line, Col}, End = {Line1, Col1}, SimiS
 
 
 -spec(sim_expr_search_in_dirs/6::(filename(), pos(), pos(), string(),[dir()],integer())
-      -> {ok, [{integer(), integer(), integer(), integer()}]}).    
+      ->{ok, [{filename(), {{integer(), integer()}, {integer(), integer()}}}]}).     
 sim_expr_search_in_dirs(FileName, Start = {Line, Col}, End = {Line1, Col1}, SimiScore0, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:sim_expr_search_in_dirs(~p, {~p,~p},{~p,~p},~p, ~p, ~p).\n",
 		 [?MODULE, FileName, Line, Col, Line1, Col1, SearchPaths, SearchPaths, TabWidth]),
@@ -71,6 +74,36 @@ sim_expr_search_in_dirs(FileName, Start = {Line, Col}, End = {Line1, Col1}, Simi
     {Ranges, AntiUnifier} = search_and_gen_anti_unifier(Files, {FileName, FunDef, Exprs, SE}, SimiScore, SearchPaths, TabWidth),
     refac_code_search_utils:display_search_results(Ranges, AntiUnifier, "similar").
 
+
+-spec(sim_expr_search_in_buffer_eclipse/6::(filename(), pos(), pos(), float(),[dir()],integer())
+      -> {[{{filename(), integer(), integer()}, {filename(), integer(), integer()}}], string()}).
+sim_expr_search_in_buffer_eclipse(FName, Start, End, SimiScore0, SearchPaths, TabWidth) ->
+    sim_expr_search_eclipse(FName, Start, End, [FName], SimiScore0, SearchPaths, TabWidth).
+
+  
+
+-spec(sim_expr_search_in_dirs_eclipse/6::(filename(), pos(), pos(), float(),[dir()],integer())
+    -> {[{{filename(), integer(), integer()}, {filename(), integer(), integer()}}], string()}).
+sim_expr_search_in_dirs_eclipse(FileName, Start, End, SimiScore0, SearchPaths, TabWidth) ->
+    Files = [FileName| refac_util:expand_files(SearchPaths, ".erl") -- [FileName]],
+    sim_expr_search_eclipse(FileName, Start, End, Files, SimiScore0, SearchPaths, TabWidth).
+    
+
+sim_expr_search_eclipse(CurFileName, Start, End, FilesToSearch, SimiScore0, SearchPaths, TabWidth) ->
+    SimiScore = get_simi_score_eclipse(SimiScore0),
+    {FunDef, Exprs, SE} = get_fundef_and_expr(CurFileName, Start, End, SearchPaths, TabWidth),
+    {Ranges, AntiUnifier} = search_and_gen_anti_unifier(FilesToSearch, {CurFileName, FunDef, Exprs, SE},
+							SimiScore, SearchPaths, TabWidth),
+    Ranges1 = [{{FileName, StartLine, StartCol}, {FileName, EndLine, EndCol}}
+	       || {FileName, {{StartLine, StartCol}, {EndLine, EndCol}}} <- Ranges],
+    case length(Ranges1) =< 1 of
+      true ->
+	  {[], ""};
+      _ ->
+	  {Ranges1, refac_prettypr:format(AntiUnifier)}
+    end.
+
+   
 search_and_gen_anti_unifier(Files, {FName, FunDef, Exprs, SE}, SimiScore, SearchPaths, TabWidth) ->
     {_Start, End} = SE,
     Res = lists:append([search_similar_expr_1(F, Exprs, SimiScore, SearchPaths, TabWidth) || F <- Files]),
@@ -215,7 +248,13 @@ get_simi_score(SimiScore0) ->
 	     end;			      
 	_:_ -> throw({error, "Parameter input is invalid."})
     end.
-    
+
+get_simi_score_eclipse(SimiScore) ->
+    case SimiScore>=0.1 andalso SimiScore=<1.0 of 
+	true -> SimiScore;
+	_ ->?DefaultSimiScore
+    end.
+
 
 get_fundef_and_expr(FName, Start, End, SearchPaths, TabWidth) ->
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
@@ -246,6 +285,16 @@ normalise_record_expr(FName, Pos = {Line, Col}, ShowDefault, SearchPaths, TabWid
 	    FName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "},"
 	++ atom_to_list(ShowDefault) ++ " [" ++ refac_misc:format_search_paths(SearchPaths)
 	      ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    normalise_record_expr_0(FName, Pos, ShowDefault, SearchPaths, TabWidth, emacs, Cmd).
+   
+
+-spec normalise_record_expr_eclipse/5::(filename(), pos(), boolean(), [dir()], integer()) ->
+				       {ok, [{filename(), filename(), string()}]}.
+normalise_record_expr_eclipse(FName, Pos, ShowDefault, SearchPaths, TabWidth) ->
+    normalise_record_expr_0(FName, Pos, ShowDefault, SearchPaths, TabWidth, eclipse, "").
+     
+
+normalise_record_expr_0(FName, Pos, ShowDefault, SearchPaths, TabWidth, Editor, Cmd) ->
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, [], TabWidth),
     RecordExpr = pos_to_record_expr(AnnAST, Pos),
     case refac_syntax:type(refac_syntax:record_expr_type(RecordExpr)) of
@@ -253,8 +302,7 @@ normalise_record_expr(FName, Pos = {Line, Col}, ShowDefault, SearchPaths, TabWid
       _ -> throw({error, "Wrangler can only normalise a record expression with an atom as the record name."})
     end,
     {AnnAST1, _Changed} = normalise_record_expr_1(FName, AnnAST, Pos, ShowDefault, SearchPaths, TabWidth),
-    refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST1}], Cmd),
-    {ok, [FName]}.
+    refac_util:write_refactored_files(FName, AnnAST1, Editor, Cmd).
 
 
 normalise_record_expr_1(FName, AnnAST, Pos, ShowDefault, SearchPaths, TabWidth) ->
