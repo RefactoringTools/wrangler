@@ -76,14 +76,14 @@ sim_expr_search_in_dirs(FileName, Start = {Line, Col}, End = {Line1, Col1}, Simi
 
 
 -spec(sim_expr_search_in_buffer_eclipse/6::(filename(), pos(), pos(), float(),[dir()],integer())
-      -> {[{{filename(), integer(), integer()}, {filename(), integer(), integer()}}], string()}).
+      -> {ok, {[{{filename(), integer(), integer()}, {filename(), integer(), integer()}}], string()}}).
 sim_expr_search_in_buffer_eclipse(FName, Start, End, SimiScore0, SearchPaths, TabWidth) ->
     sim_expr_search_eclipse(FName, Start, End, [FName], SimiScore0, SearchPaths, TabWidth).
 
   
 
 -spec(sim_expr_search_in_dirs_eclipse/6::(filename(), pos(), pos(), float(),[dir()],integer())
-    -> {[{{filename(), integer(), integer()}, {filename(), integer(), integer()}}], string()}).
+    ->{ok,  {[{{filename(), integer(), integer()}, {filename(), integer(), integer()}}], string()}}).
 sim_expr_search_in_dirs_eclipse(FileName, Start, End, SimiScore0, SearchPaths, TabWidth) ->
     Files = [FileName| refac_util:expand_files(SearchPaths, ".erl") -- [FileName]],
     sim_expr_search_eclipse(FileName, Start, End, Files, SimiScore0, SearchPaths, TabWidth).
@@ -98,9 +98,9 @@ sim_expr_search_eclipse(CurFileName, Start, End, FilesToSearch, SimiScore0, Sear
 	       || {FileName, {{StartLine, StartCol}, {EndLine, EndCol}}} <- Ranges],
     case length(Ranges1) =< 1 of
       true ->
-	  {[], ""};
+	  {ok, {[], ""}};
       _ ->
-	  {Ranges1, refac_prettypr:format(AntiUnifier)}
+	  {ok, {Ranges1, refac_prettypr:format(AntiUnifier)}}
     end.
 
    
