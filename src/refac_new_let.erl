@@ -47,6 +47,9 @@
 new_let(FileName, Start, End, NewPatName, SearchPaths, TabWidth) ->
     new_let(FileName, Start, End, NewPatName, SearchPaths, TabWidth, emacs).
 
+
+-spec(new_let_eclipse/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
+	     {'ok', [{filename(), filename(),string()}]} | {question, string(), {list(), list()}}).
 new_let_eclipse(FileName, Start, End, NewPatName, SearchPaths, TabWidth) ->
     new_let(FileName, Start, End, NewPatName, SearchPaths, TabWidth, eclipse).
 
@@ -75,7 +78,7 @@ new_let(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewPatName, SearchPa
 			emacs ->
 			    {question, Msg, term_to_list(Expr), term_to_list(ParentExpr), Cmd};
 			eclipse ->
-			    {question, Msg, ParentExpr}
+			    {question, Msg, Expr, ParentExpr}
 		      end
 		end;
 	    {error, Reason} -> throw({error, Reason})
@@ -83,6 +86,8 @@ new_let(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewPatName, SearchPa
       {error, _Reason} -> throw({error, "You have not selected an expresison."})
     end.
 
+-spec(new_let_1/7::(filename(), string(), list(), list(), [dir()], integer(), string()) ->			 
+			 {ok,[filename()]}).
 new_let_1(FileName, NewPatName, Expr, ParentExpr, SearchPaths, TabWidth, Cmd) ->
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     Expr1 = list_to_term(Expr),
@@ -90,6 +95,8 @@ new_let_1(FileName, NewPatName, Expr, ParentExpr, SearchPaths, TabWidth, Cmd) ->
     new_let_2(FileName, AnnAST, NewPatName, Expr1, ParentExpr1, none, emacs, Cmd).
 
 
+-spec(new_let_1_eclipse/6::(filename(), string(), syntaxTree(), syntaxTree(), [dir()], integer()) ->	
+			 {'ok', [{filename(), filename(),string()}]}).		
 new_let_1_eclipse(FileName, NewPatName, Expr, ParentExpr, SearchPaths, TabWidth) ->
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     new_let_2(FileName, AnnAST, NewPatName, Expr, ParentExpr, none, eclipse, "").
