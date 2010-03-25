@@ -82,7 +82,8 @@
 	 simi_expr_search_in_buffer_eclipse/6, 
 	 simi_expr_search_in_dirs_eclipse/6,
 	 normalise_record_expr_eclipse/5,
-	 eqc_statem_to_fsm_eclipse/4]).
+	 eqc_statem_to_fsm_eclipse/4, 
+	 new_let_eclipse/6, new_let_1_eclipse/6]).
 
 -export([try_refactoring/3, try_inspector/3]).
 -include("../include/wrangler.hrl").
@@ -930,13 +931,27 @@ normalise_record_expr_eclipse(FileName, Pos, ShowDefault, SearchPaths, TabWidth)
 %%</p>
 
 -spec(new_let/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
-	      {error, string()} | {ok, string()}).
+	      {error, string()} | {ok, [filename()]} |{question, string(), {list(), list()}}).
 new_let(FileName, Start, End, PatName, SearchPaths, TabWidth) -> 
     try_refactoring(refac_new_let, new_let, [FileName, Start, End, PatName, SearchPaths, TabWidth]).
 
 %%@private
+-spec(new_let_1/7::(filename(), string(), list(), list(), [dir()], integer(), string()) ->			 
+			 {error, string()} |{ok,[filename()]}).
 new_let_1(FileName, NewPatName, Expr, ParentExpr, SearchPaths, TabWidth, Cmd) ->
     try_refactoring(refac_new_let, new_let_1, [FileName, NewPatName, Expr, ParentExpr, SearchPaths, TabWidth, Cmd]).
+
+
+-spec(new_let_eclipse/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
+	    {error, string()}|{'ok', [{filename(), filename(),string()}]} | {question, string(), {syntaxTree(), syntaxTree()}}).
+new_let_eclipse(FileName, Start, End, NewPatName, SearchPaths, TabWidth) ->
+    try_refactoring(refac_new_let, new_let_eclipse, [FileName, Start, End, NewPatName, SearchPaths, TabWidth]).
+
+-spec(new_let_1_eclipse/6::(filename(), string(), syntaxTree(), syntaxTree(), [dir()], integer()) ->			 
+				 {error, string()}|{'ok', [{filename(), filename(),string()}]}).
+new_let_1_eclipse(FileName, NewPatName, Expr, ParentExpr, SearchPaths, TabWidth) ->
+    try_refactoring(refac_new_let, new_let_1_eclipse, [FileName, NewPatName, Expr, ParentExpr, SearchPaths, TabWidth]).
+
 
 %% =============================================================================================
 %% @doc Merge nested but independent ?LETs into one ?LET.
