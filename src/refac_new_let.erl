@@ -516,7 +516,7 @@ do_merge_1(Tree, Candidates) ->
     {{StartLine, StartCol}, {EndLine, EndCol}} = refac_misc:get_start_end_loc(Tree),
     case lists:keysearch({StartLine, StartCol, EndLine, EndCol}, 1, Candidates) of
       {value, {_, NewLetApp}} ->
-	  {list_to_term(NewLetApp), true};
+	  {NewLetApp, true};
       _ -> {Tree, false}
     end.
 
