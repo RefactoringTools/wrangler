@@ -11,6 +11,8 @@
 
 (provide 'wrangler)
 
+
+
 ;; Compatibility with XEmacs
 (unless (fboundp 'define-minor-mode)
   (defalias 'define-minor-mode 'easy-mmode-define-minor-mode))
@@ -101,9 +103,9 @@
 	      (message "Commit failed: %s" rsn))
 	     (['rex ['ok files logmsg]]
 	      ;; check in into the refactor monitoring repository before commiting changes.
-	      (condition-case nil
+	;;      (condition-case nil
 		  (update-repository files logmsg)
-		(error "The refactoring monitor is not working properly!"))
+	;;	(error "The refactoring monitor is not working properly!"))
 	      (dolist (f files)
 		(progn
 		  (setq old-file-name (elt f 0))
@@ -429,12 +431,13 @@
 		(let ((dir (is-a-monitored-file curfile)))
 		  (if (equal nil dir)
 		      nil
-		    (condition-case nil
+		   ;; (condition-case nil
 			(progn
 			  (let ((reason (read-string "Reason for undo: " nil nil "" nil)))
 			    (write-to-refac-logfile dir (concat "UNDO: " logmsg "Reason: " reason)))
 			  )
-		      (error nil))))
+		      ;;(error nil)
+		      ))
 		    (message "Undo succeeded")))))
       (message "Undo aborted."))))
 
@@ -2555,22 +2558,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(defun write-to-refac-logfile(dir-to-monitor logmsg)
-  "write log infomation to the log file and check in to the repository"
-  (let* ((refac-monitor-path (concat (file-name-as-directory refac-monitor-repository-path)
-				     (file-name-nondirectory dir-to-monitor)))
-	 (logfile (concat (file-name-as-directory refac-monitor-path) "refac_cmd_log"))
-	 (exist (file-regular-p logfile)))
-    (write-region (concat "\n" logmsg) nil logfile 'true)
-    (setq olddir default-directory)
-    (cd refac-monitor-repository-path)
-    (setq logfile1 (file-relative-name logfile refac-monitor-repository-path))
-    (if (eq exist nil)
-	(vc-call-backend (backend-used) 'register (list logfile1) nil "new file")
-      nil)
-    (vc-call-backend (backend-used) 'checkin (list logfile1) nil "new command")
-    (cd olddir)))
-
 
 (defun backend-used()
   "Get the version control system used by the monitor"
@@ -2583,11 +2570,12 @@
     (let ((dir (is-a-monitored-file (elt (car files) 0))))
       (if (equal nil dir)
 	  (message-box "Reminder: the file under refactoring is not being monitored by Wrangler's refactoring monitor.")
-	(setq olddir default-directory)
-	(cd refac-monitor-repository-path)
-	(update-repository-1 dir (concat wrangler-version logmsg))
-	(cd olddir)
-	))))
+	(progn
+	  (setq olddir default-directory)
+	  (cd refac-monitor-repository-path)
+	  (update-repository-1 dir (concat wrangler-version logmsg))
+	  (cd olddir)
+	  )))))
 	   
 
 (defun update-repository-1 (dir-to-monitor logmsg)
@@ -2679,24 +2667,8 @@
 	 (dired-log "Can't set date on %s:\n%s\n" from err))))))
 
      
-(defun register-and-checkin-new-files(dir-to-check logmsg)
-  "Register and check new files into the version control system."
-  (if (and (equal 'unregistered (vc-call-backend (backend-used) 'state dir-to-check))
-	   (not (equal (backend-used) 'Git)))
-      (progn
-	(vc-call-backend (backend-used) 'register (list dir-to-check) nil "new directory")
-	(vc-call-backend (backend-used) 'checkin (list dir-to-check) nil "new direcotry"))
-    (let ((files (collect-files dir-to-check)))
-      (when files 
-	(progn
-	  (setq files1 (mapcar #'(lambda (f) (file-relative-name f refac-monitor-repository-path)) files))
-	  (setq files2 (cons (backend-used) (list files1)))
-	  (register nil files2 "new files")
-	  (checkin files2 logmsg)
-	  ))
-      )))
 
-(defun collect-files (dir-to-check)
+(defun collect-files-svn (dir-to-check)
   "Expands directories in a file list specification.
       Within directories, only files not already under version control are noticed."
   (let ((file-or-dir-list (list dir-to-check)))
@@ -2710,7 +2682,27 @@
 		 (push f flattened)
 	       flattened))
 	   nil))
-	(unless (file-directory-p node) (push node flattened)))
+	;;(unless (file-directory-p node) (push node flattened))
+	(push node flattened)
+	)
+      flattened)))
+
+(defun collect-files-git (dir-to-check)
+  "Expands directories in a file list specification.
+      Within directories, only files not already under version control are noticed."
+  (let ((file-or-dir-list (list dir-to-check)))
+    (let ((flattened '()))
+      (dolist (node file-or-dir-list)
+	(when (file-directory-p node)
+	  (file-tree-walk
+	   (expand-file-name node) 
+	   (lambda (f) 
+	     (if (or (equal (file-name-extension f) "erl") (equal (file-name-extension f) "hrl"))
+		 (push f flattened)
+	       flattened))
+	   nil))
+	(unless (file-directory-p node) (push node flattened))
+	)
       flattened)))
 
 
@@ -2727,31 +2719,79 @@
 		      (file-tree-walk dirf func args))))
        (directory-files dir)))))
 
-(defun checkin (vc-fileset comment)
-  (let* ((backend (car vc-fileset))
-	 (files (nth 1 vc-fileset))
-	 (ready-for-commit files))
-    (dolist (file files)
-       (unless (file-writable-p file)
-     	(set-file-modes file (logior (file-modes file) 128))
-     	(let ((visited (get-file-buffer file)))
-     	  (when visited
-     	    (with-current-buffer visited
-    	    (toggle-read-only -1))))))
-    (if (not ready-for-commit)
-	nil
-      (if (not (equal backend 'Git))
-	  (vc-call-backend backend 'checkin ready-for-commit nil comment)
-	(progn
-	  (vc-git-command nil 'async ready-for-commit "commit" "-m" comment "--only" "--"))))
-      ))
 
-(defun register (&optional set-revision vc-fileset comment)
-  (let* ((fileset-arg  vc-fileset)
-	  (backend (car fileset-arg))
-	  (files (nth 1 fileset-arg)))
-     (vc-call-backend backend 'register files nil comment)
-     (dolist (file files)
-       (vc-file-setprop file 'vc-backend backend)
-       )))
-   
+(defun register-and-checkin-new-files(dir-to-check logmsg)
+  "Register and check new files into the version control system."
+  ;;(message "Current directory being checked: %s" dir-to-check)
+  (if (equal (backend-used) 'SVN)
+      (progn
+	(let ((files (collect-files-svn dir-to-check)))
+	  (register 'SVN nil (list dir-to-check) "new directory")
+	  (checkin 'SVN (list dir-to-check) logmsg)))
+    (progn
+      (let ((files (collect-files-git dir-to-check)))
+	(setq files1 (mapcar #'(lambda (f) (file-relative-name f refac-monitor-repository-path)) files))
+	(register 'Git nil files1 "new directory")
+	(checkin 'Git files1 logmsg)
+	))))
+
+
+(defun register (backend &optional set-revision files comment)
+  (if (>= emacs-major-version  23)
+      (progn
+	(vc-call-backend backend 'register files nil comment)
+	(dolist (file files)
+	 ;; (message "current file to set prop: %s" file)
+	  (vc-file-setprop file 'vc-backend backend)
+	  ))
+    (progn
+      (dolist (file files)
+	;;(message "current file to set prop: %s" file)
+	(vc-call-backend backend 'register file nil comment)
+	(vc-file-setprop file 'vc-backend backend)
+	))))
+  
+
+ 
+(defun checkin (backend files comment)
+  (dolist (file files)
+    ;;(message "file being commited: %s" file)
+    (unless (file-writable-p file)
+      (set-file-modes file (logior (file-modes file) 128))
+      (let ((visited (get-file-buffer file)))
+	(when visited
+	  (with-current-buffer visited
+    	    (toggle-read-only -1))))))
+  (if (not files)
+      nil
+    (if (equal backend 'SVN)
+	(progn
+	  (if (>= emacs-major-version  23)
+	      (vc-call-backend backend 'checkin files nil comment)
+	    (dolist (file files)
+	      (vc-call-backend backend 'checkin file nil comment)
+	      ))
+	  )
+      (progn
+	(if (>= emacs-major-version  23)
+	    (vc-call-backend backend 'checkin files nil comment)
+	  (dolist (file files)
+	    (vc-git-command nil 'async file "commit" "-m" comment "--only" "--")
+	    ))))
+  ))
+
+ (defun write-to-refac-logfile(dir-to-monitor logmsg)
+  "write log infomation to the log file and check in to the repository"
+  (let* ((refac-monitor-path (concat (file-name-as-directory refac-monitor-repository-path)
+				     (file-name-nondirectory dir-to-monitor)))
+	 (logfile (concat (file-name-as-directory refac-monitor-path) "refac_cmd_log"))
+	 (exist (file-regular-p logfile)))
+    (write-region (concat "\n" logmsg) nil logfile 'true)
+    (setq olddir default-directory)
+    (cd refac-monitor-repository-path)
+    (setq logfile1 (file-relative-name logfile refac-monitor-repository-path))
+    (if (eq exist nil)
+	(register (backend-used) nil (list logfile1) "new file")
+      nil)
+    (checkin (backend-used) (list logfile1) "UNDO")
+    (cd olddir)))
