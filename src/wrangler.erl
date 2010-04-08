@@ -92,6 +92,8 @@
 	]).
 
 -export([try_refactoring/3, try_inspector/3]).
+
+-export([init_eclipse/0]).
 -include("../include/wrangler.hrl").
 
 %% ====================================================================================================
@@ -1184,3 +1186,8 @@ try_inspector(Mod, Fun, Args) ->
 	"please report error to erlang-refactor@kent.ac.uk.",
     try_to_apply(Mod, Fun, Args, Msg).
 
+
+%%@private
+init_eclipse() ->
+    application:start(wrangler_app).
+    
