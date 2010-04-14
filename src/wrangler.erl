@@ -939,7 +939,7 @@ normalise_record_expr_eclipse(FileName, Pos, ShowDefault, SearchPaths, TabWidth)
 %%</p>
 
 -spec(new_let/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
-	      {error, string()} | {ok, [filename()]} |{question, string(), {list(), list()}}).
+	      {error, string()} | {ok, [filename()]} |{question, string(), list(), list(),string()}).
 new_let(FileName, Start, End, PatName, SearchPaths, TabWidth) -> 
     try_refactoring(refac_new_let, new_let, [FileName, Start, End, PatName, SearchPaths, TabWidth]).
 
