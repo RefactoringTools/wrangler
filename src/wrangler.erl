@@ -1169,8 +1169,8 @@ try_to_apply(Mod, Fun, Args, Msg) ->
      catch
 	 throw:Error -> 
 	     Error;    %% wrangler always throws Error in the format of '{error, string()}';
-	 E1:E2->
-     	     refac_io:format("E1E2:\n~p\n", [{E1, E2}]),
+	 _E1:_E2->
+     	     %%refac_io:format("E1E2:\n~p\n", [{E1, E2}]),
 	     {error, Msg}
      end.
 
