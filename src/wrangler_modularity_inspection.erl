@@ -466,30 +466,6 @@ remove_a_link(File, Funs) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                     %%
-%%  Partition a big module into two smaller ones.                      %%
-%%                                                                     %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% TODO: Take function names into account.
-
-partition_a_module_into_two(File) ->
-    {ok, {_, Info}} = refac_util:parse_annotate_file(File, true),
-    {value, {module, ModName}} =lists:keysearch(module,1,Info),
-    ExportedFuns = exported_funs(File),
-    CallerCalleesWithDef = wrangler_callgraph_server:build_callercallee_callgraph([File]),
-    CallerCallees = [{{M,F,A}, [{M, F, A}||[{M1,F1,A1}||{M1,F1,A1}<-Callee, M1==ModName]]}
-		     ||{{{M,F,A}, _}, Callee}<-CallerCalleesWithDef],
-    MG = digraph:new(),
-    add_edges(CallerCallees,  MG),
-    Coms = digraph_utils:components(MG),
-    Coms1 =[[MFA||MFA<-C, lists:member(MFA, ExportedFuns)]||C<-Coms],
-    refac_io:format("Coms:\n~p\n", [Coms1]).
-    
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                                                                     %%
 %%  Detect and eliminate modules with very big fanin.                  %%
 %%                                                                     %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -559,7 +535,8 @@ remove_sub_lists([L|T], Acc) ->
 is_prop_sub_list(L1, L2) ->
     S1 = ordsets:from_list(L1),
     S2 = ordsets:from_list(L2),
-    size(S1) < size(S2) andalso ordsets:is_subset(S1, S2).
+    (ordsets:size(S1) < ordsets:size(S2))
+	andalso ordsets:is_subset(S1, S2).
 
 add_edges([], MG) ->
     MG;
