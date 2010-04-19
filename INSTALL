@@ -2,8 +2,8 @@
 Installation
 -------------
 
-Note: Intallation of Erlang and Emacs is required in order to use 
-      Wrangler. XEmacs is *not* supported yet.  
+Note: Intallation of Erlang and Emacs (or XEmacs) is required in order to use 
+      Wrangler.  
 
 Step 1) Build and install the software in the usual way:
        ./configure && make && [sudo] make install
@@ -14,7 +14,9 @@ Step 1) Build and install the software in the usual way:
          'prefix' flag of 'configure')
 
 Step 2) If you have Erlang mode for Emacs installed, goto Step 3); 
-     	otherwise add the following lines to your ~/.emacs file.           
+     	otherwise add the following lines to your ~/.emacs 
+	(or ~/.xemacs/init.el for XEmacs) file.
+	
 
         (setq load-path (cons  "/usr/local/otp/lib/tools-<ToolsVer>/emacs"
 	    	      load-path))
@@ -29,8 +31,8 @@ Step 2) If you have Erlang mode for Emacs installed, goto Step 3);
          version number)   
 	
 
-Step 3) Add these lines to your ~/.emacs:
-	  
+Step 3) Add these lines to your ~/.emacs (or ./.xemacs/init.el for XEmacs):
+	    
         (add-to-list 'load-path "/usr/local/share/wrangler/elisp")
         (require 'wrangler)
    
