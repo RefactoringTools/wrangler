@@ -7,7 +7,6 @@ datarootdir = @datarootdir@
 datadir     = @datadir@
 erl         = @ERL@
 erlc        = @ERLC@
-emacs       = @emacs@
 
 ELISP_DIR = ${datadir}/wrangler/elisp
 EBIN_DIR = ${datadir}/wrangler/ebin
@@ -23,17 +22,15 @@ ERL_OBJ := $(patsubst src/%.erl,ebin/%.beam,${ERL_SRC})
 
 SRC := ${ERL_SRC} 
 
-ELISP_SRC := elisp/erlext.el
-ELISP_OBJ := $(patsubst %.el,%.elc,${ELISP_SRC})
 
 ELISP_WRANGLER_OBJ := elisp/wrangler.el
 INCLUDE_OBJ :=include/wrangler.hrl
 
 
-OBJECTS := ${ERL_OBJ} ${ELISP_OBJ} ${C_OBJ} ${ELISP_WRANGLER_OBJ} ${INCLUDE_OBJ}
+OBJECTS := ${ERL_OBJ} ${C_OBJ} ${ELISP_WRANGLER_OBJ} ${INCLUDE_OBJ}
 
-default: prepare c ${ERL_OBJ} ${ELISP_OBJ} ${C_OBJ} 
-base: ${ERL_OBJ} ${ELISP_OBJ} ${C_OBJ}
+default: prepare c ${ERL_OBJ} ${C_OBJ} 
+base: ${ERL_OBJ} ${C_OBJ}
 all: prepare base c 
 
 erl: ${ERL_OBJ} 
@@ -45,9 +42,6 @@ erl: ${ERL_OBJ}
 ebin/%.beam: ${SRC}  
 	${erlc} -I include -W -o ebin +debug_info ${SRC} 
 
-## Elisp
-elisp/%.elc: elisp/%.el
-	${emacs} -batch -f batch-byte-compile $<
 
 ## this is ugly code.
 prepare:
@@ -92,7 +86,7 @@ distclean: clean
 install: base
 	@echo "* Installing Emacs Lisp Library"
 	install -m 775 -d ${ELISP_DIR} 
-	install -m 775 elisp/*.el elisp/*.elc ${ELISP_DIR}
+	install -m 775 elisp/*.el ${ELISP_DIR}
 	@echo
 	@echo "* Installing Erlang Library"
 	install -m 775 -d ${EBIN_DIR} ${ERL_SRC_DIR}
