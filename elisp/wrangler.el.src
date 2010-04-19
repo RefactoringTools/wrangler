@@ -3,34 +3,26 @@
 ;; Prerequisites
 
 (require 'vc-hooks)
-(require 'vc-dispatcher)
 (require 'vc)
 (require 'erlang)
-(require 'easy-mmode)
 (require 'read-char-spec)
+(require 'ediff-init)
 
 (provide 'wrangler)
 
 
-
-;; Compatibility with XEmacs
-(unless (fboundp 'define-minor-mode)
-  (defalias 'define-minor-mode 'easy-mmode-define-minor-mode))
-
-
-(defgroup wrangler '()
-  "Wrangler options."
-  :group 'tools)
+(defgroup wrangler nil
+  "Wrangler options.")
 
 (defcustom wrangler-search-paths (cons (expand-file-name ".") nil )
 	"List of directories to search for .erl and .hrl files to refactor."
 	:type '(repeat directory)
 	:group 'wrangler)
 
-(defcustom dirs-to-monitor nil
-  "List of directories to be monitored by Wrangler to log refactoring activities."
-  :type '(repeat directory)
-  :group 'wrangler)
+(defcustom dirs-to-monitor (cons (expand-file-name ".") nil )
+	"List of directories to be monitored by Wrangler to log refactoring activities."
+	:type '(repeat directory)
+	:group 'wrangler)
 
 (defcustom refac-monitor-repository-path ""     
       "Path to the wrangler monitor"
@@ -45,6 +37,9 @@
 (require 'erl)
 (require 'erl-service)
 
+;; Compatibility with XEmacs
+(unless (fboundp 'define-minor-mode)
+  (defalias 'define-minor-mode 'easy-mmode-define-minor-mode))
 
 (setq modified-files nil)
 (setq refactoring-committed nil)
@@ -67,7 +62,7 @@
 	    (progn
 	      (setq file-to-diff (car modified-files))
 	      (setq modified-files (cdr modified-files))
-	      (if (get-file-buffer file-to-diff)
+	      (if (get-file-buffer-1 file-to-diff)
 		  nil
 		(setq unopened-files (cons file-to-diff unopened-files))
 		)
@@ -82,8 +77,11 @@
   "check if a file is monitored by Wrangler for refactoring activities."
   (setq monitored nil)
   (setq dirs dirs-to-monitor)
+  (setq file1 (if (featurep 'xemacs)
+		  (replace-in-string file "/" "\\\\")
+		file))
   (while (and (not monitored) (not (equal dirs nil)))
-    (if (string-match (file-name-as-directory (car dirs)) file)
+    (if (string-match (regexp-quote (file-name-as-directory (car dirs))) file1)
 	(setq monitored 'true)
       (setq dirs (cdr dirs))
       ))
@@ -103,19 +101,21 @@
 	      (message "Commit failed: %s" rsn))
 	     (['rex ['ok files logmsg]]
 	      ;; check in into the refactor monitoring repository before commiting changes.
-	;;      (condition-case nil
+	      (condition-case nil
 		  (update-repository files logmsg)
-	;;	(error "The refactoring monitor is not working properly!"))
+		(error (message-box "The refactor monitor of Wrangler is not working properly!"))
+		)
 	      (dolist (f files)
 		(progn
 		  (setq old-file-name (elt f 0))
 		  (setq new-file-name (elt f 1))
 		  (setq swp-file-name (elt f 2))
-		  (let ((swp-buff (get-file-buffer swp-file-name)))
+		  (let ((swp-buff (get-file-buffer-1 swp-file-name)))
+		    ;; (message "swp-buff %s" swp-buff)
 		    (if swp-buff (kill-buffer swp-buff)
 		      nil))
 		  (delete-file  swp-file-name)
-		  (let ((buffer (get-file-buffer old-file-name)))
+		  (let ((buffer (get-file-buffer-1 old-file-name)))
 		    (if buffer
 			(if (equal old-file-name new-file-name)
 			    (with-current-buffer buffer (revert-buffer nil t t))
@@ -126,14 +126,16 @@
 		      nil))))
 	          (setq refactoring-committed t)
 		  (dolist (uf unopened-files)
-		    (kill-buffer (get-file-buffer uf)))
+		    (kill-buffer (get-file-buffer-1 uf)))
 		  (setq unopened-files nil)
 		  (setq refactor-mode nil)
-		  (if (equal has-warning 'true)
+ 		  (if (equal has-warning 'true)
 		      (progn
 			(message "Refactoring succeeded, but please read the warning message in the *erl-output* buffer.")
 			(setq has-warning 'false))
-		    (message "Refactoring succeeded."))
+		    nil
+		   ;; (message "Refactoring succeeded.")
+		    )
 		  )))))
 
 (defun abort-changes()
@@ -150,12 +152,12 @@
 	 (['rex ['ok files]]
 	  (dolist (f files)
 	    (progn
-	      (let ((buff (get-file-buffer f)))
-		(if buff (kill-buffer (get-file-buffer f))
+	      (let ((buff (get-file-buffer-1 f)))
+		(if buff (kill-buffer (get-file-buffer-1 f))
 		  nil))
 	      (delete-file f)))
 	  (dolist (uf unopened-files)
-	    (kill-buffer (get-file-buffer uf)))
+	    (kill-buffer (get-file-buffer-1 uf)))
 	  (setq unopened-files nil)
 	  (setq refactor-mode nil)
 	  (message "Refactoring aborted."))))))      
@@ -177,12 +179,12 @@
 	   (['rex ['ok files]]
 	    (dolist (f files)
 	      (progn
-		(let ((buff (get-file-buffer f)))
-		  (if buff (kill-buffer (get-file-buffer f))
+		(let ((buff (get-file-buffer-1 f)))
+		  (if buff (kill-buffer (get-file-buffer-1 f))
 		    nil))
 		(delete-file f)))
 	    (dolist (uf unopened-files)
-	      (kill-buffer (get-file-buffer uf)))
+	      (kill-buffer (get-file-buffer-1 uf)))
 	    (setq unopened-files nil)
 	    (setq refactor-mode nil)
 	    (message "Refactoring aborted.")))))))
@@ -257,7 +259,7 @@
       ("Large Modules" erl-wrangler-code-inspector-large-mods)
       ("Generate Function Callgraph" erl-wrangler-code-inspector-callgraph)
       ("Generate Modulegraph" erl-wrangler-code-inspector-module-graph)
-      ("Generate Modulegraph for Mutually Recursive Modules" erl-wrangler-code-inspector-module-scc-graph)
+     ;; ("Generate Modulegraph for Mutually Recursive Modules" erl-wrangler-code-inspector-module-scc-graph)
      ;; ("UnCalled Exported Functions" erl-wrangler-code-inspector-uncalled-exports)
       ("Non Tail-recursive Servers" erl-wrangler-code-inspector-non-tail-recursive-servers)
       ("Not Flush UnKnown Messages" erl-wrangler-code-inspector-no-flush)))
@@ -384,23 +386,30 @@
   (define-key erlang-mode-map "\C-c\C-_"  'erl-refactor-undo)
   (define-key erlang-mode-map  "\C-c\C-b" 'erl-wrangler-code-inspector-var-instances)
   (define-key erlang-mode-map "\C-c\C-e" 'remove-highlights)
-  (erlang-menu-install "Inspector" inspector-menu-items erlang-mode-map t)
-  (erlang-menu-install "Refactor" refactor-menu-items erlang-mode-map t))
-
+  (cond (erlang-xemacs-p
+	 (progn
+	   (erlang-menu-install "Refactor" refactor-menu-items erlang-mode-map t)
+	   (erlang-menu-install "Inspector" inspector-menu-items erlang-mode-map t)
+	   ))
+	(t
+	 (progn
+	   (erlang-menu-install "Inspector" inspector-menu-items erlang-mode-map t)
+	   (erlang-menu-install "Refactor" refactor-menu-items erlang-mode-map t)))
+	 ))
+  
 (defun wrangler-menu-remove()
   "Remove Wrangler menus."
   (define-key erlang-mode-map "\C-c\C-_"  nil)
   (define-key erlang-mode-map  "\C-c\C-b" nil)
   (define-key erlang-mode-map "\C-c\C-e"  nil)
-  (erlang-menu-uninstall "Inspector" inspector-menu-items erlang-mode-map t)
-  (erlang-menu-uninstall "Refactor" refactor-menu-items erlang-mode-map t))
+  (erlang-menu-uninstall '("Inspector") inspector-menu-items erlang-mode-map t)
+  (erlang-menu-uninstall '("Refactor") refactor-menu-items erlang-mode-map t))
 
 (defun erlang-menu-uninstall (name items keymap &optional popup)
   "UnInstall a menu in Emacs or XEmacs based on an abstract description."
-    (cond (erlang-xemacs-p
-	 (let ((menu (erlang-menu-xemacs name items keymap)))
-	   (funcall (symbol-function 'delete-menu-item) menu)))
-	  ((>= erlang-emacs-major-version 19)
+  (cond (erlang-xemacs-p
+	 (delete-menu-item name))
+	((>= erlang-emacs-major-version 19)
 	 (define-key keymap (vector 'menu-bar (intern name))
 	   'undefined))
 	(t nil)))
@@ -421,7 +430,7 @@
 		(dolist (f modified1)
 		  (let ((oldfilename (car f))
 			(newfilename (car (cdr f)))
-			(buffer (get-file-buffer (car (cdr f)))))
+			(buffer (get-file-buffer-1 (car (cdr f)))))
 		    (if buffer (if (not (equal oldfilename newfilename))
 				   (with-current-buffer buffer
 				     (progn (set-visited-file-name oldfilename)
@@ -431,13 +440,12 @@
 		(let ((dir (is-a-monitored-file curfile)))
 		  (if (equal nil dir)
 		      nil
-		   ;; (condition-case nil
+		    (condition-case nil
 			(progn
 			  (let ((reason (read-string "Reason for undo: " nil nil "" nil)))
 			    (write-to-refac-logfile dir (concat "UNDO: " logmsg "Reason: " reason)))
 			  )
-		      ;;(error nil)
-		      ))
+		      (error nil))))
 		    (message "Undo succeeded")))))
       (message "Undo aborted."))))
 
@@ -448,7 +456,8 @@
 		    (?n n "Answer n to abort the changes")))))
     (cond ((eq answer 'p) 
 	   (setq modified-files (cdr modified))
-	   (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))	  ((eq answer 'c)
+	   (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
+	  ((eq answer 'c)
 	   (commit))
 	  ((eq answer 'n)
 	   (abort-changes)))))
@@ -500,7 +509,7 @@
 		  (if (equal modified nil)
 		      (message "Refactoring finished, and no file has been changed.")
 		    (preview-commit-cancel current-file-name modified)
-		    (with-current-buffer (get-file-buffer current-file-name)
+		    (with-current-buffer (get-file-buffer-1 current-file-name)
 		      (goto-line line-no)
 		      (goto-column column-no))))
 	       )))
@@ -537,7 +546,7 @@
 			      (progn
 				(setq has-warning warning)
 				(preview-commit-cancel current-file-name modified)
-				(with-current-buffer (get-file-buffer current-file-name)
+				(with-current-buffer (get-file-buffer-1 current-file-name)
 				  (goto-line line-no)
 				  (goto-column column-no)))))))
 		    (message "Refactoring aborted.")
@@ -881,7 +890,7 @@
 	    nil))
       nil)  
     (setq instances (cdr instances)))
-  (delete-overlay highlight-region-overlay)
+  (org-delete-overlay highlight-region-overlay)
   instances-to-gen)
   
 
@@ -1308,7 +1317,7 @@
 		  ((eq answer 'N)
 		   (setq candidates nil)))))
       (setq candidates nil)))
-  (delete-overlay highlight-region-overlay)
+  (org-delete-overlay highlight-region-overlay)
   candidates-to-fold)
 	      
 
@@ -1611,48 +1620,31 @@
 
 (defvar highlight-region-overlay
   ;; Dummy initialisation
-  (make-overlay 1 1)
+  (cond (erlang-xemacs-p
+	 (make-extent 1 1))
+	(t make-overlay 1 1))
   "Overlay for highlighting.")
 
 (defface highlight-region-face
   '((t (:background "CornflowerBlue")))
     "Face used to highlight current line.")
 
+(defface def-instance-face
+   '((t (:background "Orange")))
+    "Face used to highlight def instance.")
+
+
 (defun highlight-region(line1 col1 line2 col2 buffer)
   "hightlight the specified region"
-  (overlay-put highlight-region-overlay
+  (org-overlay-put highlight-region-overlay
 	       'face 'highlight-region-face)
  ;; (message "pos: %s, %s, %s, %s" line1 col1 line2 col2)
-  (move-overlay highlight-region-overlay (get-position line1 col1)
+  (org-move-overlay highlight-region-overlay (get-position line1 col1)
 		(get-position line2 (+ 1 col2)) buffer)
    (goto-line line2)
    (goto-column col2)
   )
 
-
-(defun highlight-search-results(regions buffer highlight-region-overlay)
-  "highlight the found results one by one"
-  (while (not (equal regions nil))
-    (setq reg (car regions))
-    (setq line1 (elt reg 0))
-    (setq col1  (elt  reg 1))
-    (setq line2 (elt reg 2))
-    (setq col2  (elt  reg 3))
-    (highlight-region line1 col1 line2  col2 buffer)
-   ;; (message "Press 'Enter' key to go to the next instance, any other key to exit.")
-    (let ((input (read-event)))
-      (if (equal input 'return)
-	  (progn (setq regions (cdr regions))
-	         (message  " ")
-	   )
-	(if (equal input 'escape)
-	    (setq regions nil)
-	  (message "Press 'Enter' key to go to the next instance, 'Esc' key to exit.")
-	  )
-	)
-      ))
-  (delete-overlay highlight-region-overlay)
-  )
 
 (defun erl-refactor-instrument-prog ()
   "Instrument an Erlang program to trace process communication."
@@ -1770,7 +1762,7 @@
 					   (message "Refactoring failed: %s" rsn))
 					  (['rex ['ok res]]
 					   (with-current-buffer buffer (revert-buffer nil t t)
-						(delete-overlay highlight-region-overlay))
+						(org-delete-overlay highlight-region-overlay))
 					  ))))
 				(delete-overlay highlight-region-overlay)
 			       )))))))
@@ -1837,28 +1829,43 @@
         (column-no         (current-column-no))
 	(buffer (current-buffer)))
     (if (current-buffer-saved buffer)
-	(progn
-	  (if (y-or-n-p "Show record fields with default values?")	    
-	    (setq showdefault 'true)
-	    (setq showdefault 'false)
-	    )
+	(if (y-or-n-p "Show record fields with default values?")	    
+	    (erl-spawn
+	      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'normalise_record_expr(list current-file-name line-no column-no 'true wrangler-search-paths tab-width))
+	      (erl-receive (line-no column-no current-file-name)
+		  ((['rex ['badrpc rsn]]
+		    (message "Refactoring failed: %S" rsn))
+		   (['rex ['error rsn]]
+		    (message "Refactoring failed: %s" rsn))
+		   (['rex ['ok modified]]
+		    (progn
+		      (if (equal modified nil)
+			  (message "Refactoring finished, and no file has been changed.")
+			(if (y-or-n-p "Do you want to preview the changes to be performed?")
+			    (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
+			  (commit)))
+		      (with-current-buffer (get-file-buffer current-file-name)
+			(goto-line line-no)
+			(goto-column column-no))))
+		   )))
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler_distel 'normalise_record_expr(list current-file-name 
-							       line-no column-no showdefault wrangler-search-paths tab-width))
+	    (erl-send-rpc wrangler-erl-node 'wrangler_distel 'normalise_record_expr(list current-file-name line-no column-no 'false wrangler-search-paths tab-width))
 	    (erl-receive (line-no column-no current-file-name)
 		((['rex ['badrpc rsn]]
 		  (message "Refactoring failed: %S" rsn))
-		 (['rex ['error rsn]]
-		  (message "Refactoring failed: %s" rsn))
-		 (['rex ['ok modified]]
-		  (progn
-		    (if (equal modified nil)
-			(message "Refactoring finished, and no file has been changed.")
-			(preview-commit-cancel current-file-name modified)
-			(with-current-buffer (get-file-buffer current-file-name)
-			  (goto-line line-no)
-			  (goto-column column-no))))
-		  )))))
+		   (['rex ['error rsn]]
+		    (message "Refactoring failed: %s" rsn))
+		   (['rex ['ok modified]]
+		    (progn
+		      (if (equal modified nil)
+			  (message "Refactoring finished, and no file has been changed.")
+			(if (y-or-n-p "Do you want to preview the changes to be performed?")
+			    (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
+			  (commit)))
+		      (with-current-buffer (get-file-buffer current-file-name)
+			(goto-line line-no)
+			(goto-column column-no))))
+		   ))))
       (message "Refactoring aborted.")
       )))
 		  
@@ -2008,7 +2015,7 @@
 		  ((eq answer 'N)
 		   (setq candidates nil)))))
       (setq candidates nil)))
-  (delete-overlay highlight-region-overlay)
+  (org-delete-overlay highlight-region-overlay)
   candidates-to-merge)
 
 (defun erl-refactor-eqc-statem-to-record()
@@ -2155,9 +2162,13 @@
 (defun remove-highlights()
   "remove highligths in the buffer"
   (interactive)
-  (dolist (ov (overlays-in  1 10000))
-    (delete-overlay ov))				 
-  (remove-overlays))
+  (dolist (ov (if (featurep 'xemacs)
+		  (extent-list (current-buffer))
+		(overlays-in  1 10000)))
+    (if (equal ov highlight-region-overlay)
+	nil
+      (org-delete-overlay ov))))
+    
 
 (defun highlight-instances(regions defpos buffer)
   "highlight regions in the buffer"
@@ -2174,31 +2185,48 @@
 	(highlight-def-instance (elt r 1) buffer)
       (highlight-use-instance (elt r 1) buffer))))
 
-;; shouldn't code this really.
 (defun highlight-def-instance(region buffer)
    "highlight one region in the buffer"
    (let ((line1 (elt (elt region 0) 0))
 	  (col1 (elt (elt region 0) 1))
 	  (line2 (elt (elt region 1) 0))
-	  (col2 (elt (elt region 1) 1))
-	 (overlay (make-overlay 1 1)))
-     (overlay-put overlay  'face '((t (:background "orange"))))
-     (move-overlay overlay (get-position line1 col1)
-		   (get-position line2 (+ col2 1)) buffer)
-     ))
-
+	  (col2 (elt (elt region 1) 1)))
+     (highlight-region-with-face line1 col1 line2 col2 buffer 'def-instance-face)))
+	
 
 (defun highlight-use-instance(region buffer)
    "highlight one region in the buffer"
    (let ((line1 (elt (elt region 0) 0))
 	  (col1 (elt (elt region 0) 1))
 	  (line2 (elt (elt region 1) 0))
-	  (col2 (elt (elt region 1) 1))
-	 (overlay (make-overlay 1 1)))
-     (overlay-put overlay  'face '((t (:background "CornflowerBlue"))))
-     (move-overlay overlay (get-position line1 col1)
-		   (get-position line2 (+ col2 1)) buffer)
-     ))
+	  (col2 (elt (elt region 1) 1)))
+     (highlight-region-with-face line1 col1 line2 col2 buffer 'highlight-region-face)))
+
+
+(defun highlight-region-with-face(line1 col1 line2 col2 buffer face)
+  "hightlight the specified region"
+  (org-overlay-put (org-make-overlay (get-position line1 col1) (get-position line2 (+ 1 col2)))
+		   'face face))
+  
+
+(defun org-make-overlay(beg end)
+   ;; make a overlay
+   (if (featurep 'xemacs)
+       (make-extent beg end)
+     (make-overlay beg end)))
+
+(defun org-move-overlay (ovl beg end &optional buffer)
+  (if (featurep 'xemacs)
+      (set-extent-endpoints ovl beg end (or buffer (current-buffer)))	
+    (move-overlay ovl beg end buffer)))
+
+(defun org-overlay-put (ovl prop value)
+  (if (featurep 'xemacs)
+      (set-extent-property  ovl prop value)
+    (overlay-put ovl prop value)))
+
+(defun org-delete-overlay (ovl)
+  (if (featurep 'xemacs) (progn (detach-extent ovl) nil) (delete-overlay ovl)))
 
 
 (defun erl-wrangler-code-inspector-nested-cases(level)
@@ -2472,6 +2500,26 @@
       (message "Searching aborted."))))
  
 
+   
+(defun get-file-buffer-1(f)
+  (if (featurep 'xemacs)
+      (progn
+	(setq file-buffer nil)
+	(setq buffers (buffer-list))
+	(setq f1 (replace-in-string f "/" "\\\\"))
+	(while (and (not file-buffer) (not (equal buffers nil)))
+	   (let ((filename (buffer-file-name (car buffers))))
+	     (if filename
+		 (progn
+		   (if (equal (downcase f1) (downcase filename))
+		       (setq file-buffer (car buffers))
+		     (setq buffers (cdr buffers)))
+		   )
+	       (setq buffers (cdr buffers))
+	       )))
+	file-buffer)
+    (get-file-buffer f)))
+
 
 (defun erl-wrangler-code-inspector-callgraph(outputfile)
   "Generate function callgraph for a module"
@@ -2520,8 +2568,6 @@
       (message "Module SCC graph generation aborted."))))
  
 
-
-
 (defun erl-wrangler-code-inspector-module-graph(outputfile notcaremods)
   "Generate module graph"
   (interactive (list (read-file-name "Output .dot file name: " nil nil nil "modulegraph.dot")
@@ -2547,18 +2593,12 @@
 		    (message "Module graph generation finished."))))))
       (message "Module graph generation aborted."))))
  
-
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; The following functions are for monitoring refactoring activities purpose, and ;;
 ;; will be moved to a separate module.                                            ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-
 (defun backend-used()
   "Get the version control system used by the monitor"
      (vc-responsible-backend (concat (file-name-as-directory  refac-monitor-repository-path) ".")))
@@ -2580,7 +2620,7 @@
 
 (defun update-repository-1 (dir-to-monitor logmsg)
   "copy changed files to the working copy of refactor monitor"
-   (require 'dired-aux)
+  (require 'dired-aux)
   (let* ((refac-monitor-path (concat (file-name-as-directory refac-monitor-repository-path)
 				     (file-name-nondirectory dir-to-monitor)))
 	 (logfile (concat (file-name-as-directory refac-monitor-path) "refac_cmd_log")))
@@ -2605,7 +2645,7 @@
 	  (let ((mode (or (file-modes from) #o700))
 		(files
 		 (condition-case err
-		     (directory-files from nil dired-re-no-dot)
+		     (directory-files from nil  "^\\([^.]\\|\\.\\([^.]\\|\\..\\)\\).*")
 		   (file-error
 		  (push (dired-make-relative from)
 			dired-create-files-failures)
@@ -2710,7 +2750,7 @@
   (if (not (file-directory-p file))
       (apply func file args)
     (let ((dir (file-name-as-directory file)))
-      (mapcar
+       (mapcar
        (lambda (f) (or
 		    (string-equal f ".")
 		    (string-equal f "..")
