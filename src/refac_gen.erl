@@ -95,12 +95,6 @@
 
 -include("../include/wrangler.hrl").
 
--import(refac_atom_utils, [collect_atoms/2]).
-
--import(refac_misc, [try_eval/4]).
-
--import(refac_misc, [apply_style_funs/0]).
-
 -export([generalise/6, gen_fun_1/11, gen_fun_clause/10]).
 
 -export([generalise_eclipse/6, gen_fun_1_eclipse/11, gen_fun_clause_eclipse/10]).
@@ -505,7 +499,7 @@ do_add_actual_parameter(Tree, Others = {_FileName, FunName, Arity, Exp, Info, _S
 	  Args = refac_syntax:application_arguments(Tree),
 	  case get_fun_def_info(Op) of
 	    {M1, F1, A1} ->
-		case lists:keysearch({M1, F1, A1}, 1, apply_style_funs()) of
+		case lists:keysearch({M1, F1, A1}, 1, refac_misc:apply_style_funs()) of
 		  {value, _} ->
 		      transform_apply_style_calls(Tree, Others);
 		  false ->
@@ -604,8 +598,8 @@ transform_apply_style_calls(Node, {FileName, FunName, Arity, Exp, Info, SearchPa
 				 4 -> [none| Args];
 				 3 -> [none, none| Args]
 			       end,
-    Mod1 = try_eval(FileName, Mod, SearchPaths, TabWidth),
-    Fun1 = try_eval(FileName, Fun, SearchPaths, TabWidth),
+    Mod1 = refac_misc:try_eval(FileName, Mod, SearchPaths, TabWidth),
+    Fun1 = refac_misc:try_eval(FileName, Fun, SearchPaths, TabWidth),
     NewApp = fun () ->
 		     Exp1 = refac_misc:update_ann(Exp, {range, ?DEFAULT_RANGE}),
 		     Pars0 = refac_syntax:list(refac_syntax:list_elements(Pars) ++ [Exp1]),
@@ -649,13 +643,14 @@ add_parameter(C, NewPar) ->
 
 
 
-to_keep_original_fun(FileName, AnnAST, ModName, FunName, Arity, _Exp, Info) ->
+to_keep_original_fun(FileName, AnnAST, ModName, FunName, Arity, Exp, Info) ->
     refac_misc:is_exported({FunName, Arity}, Info) orelse
       is_eunit_special_function(FileName, atom_to_list(FunName), Arity) orelse
 	check_atoms(AnnAST, [FunName]) orelse
-	  check_implicit_and_apply_style_calls(AnnAST, ModName, FunName, Arity).
+	  check_implicit_and_apply_style_calls(AnnAST, ModName, FunName, Arity) orelse 
+	generalise_recursive_function_call(Exp, ModName, FunName, Arity).
 
-    
+   
 is_eunit_special_function(FileName, FunName, Arity) ->
     UsedTestFrameWorks = refac_util:test_framework_used(FileName),
     case lists:member(eunit, UsedTestFrameWorks) of
@@ -670,7 +665,7 @@ is_eunit_special_function(FileName, FunName, Arity) ->
 check_atoms(AnnAST, AtomNames) ->
     F = fun (T) ->
 		case refac_syntax:type(T) of
-		    function -> collect_atoms(T, AtomNames);
+		    function -> refac_atom_utils:collect_atoms(T, AtomNames);
 		    _ -> []
 		end
 	end,
@@ -692,7 +687,7 @@ check_implicit_and_apply_style_calls(AnnAST, ModName, FunName, Arity) ->
 		      Op = refac_syntax:application_operator(Node),
 		      case get_fun_def_info(Op) of
 			{M1, F1, A1} ->
-			    case lists:keysearch({M1, F1, A1}, 1, apply_style_funs()) of
+			    case lists:keysearch({M1, F1, A1}, 1, refac_misc:apply_style_funs()) of
 			      {value, _} ->
 				  {Node, true};
 			      _ ->
@@ -730,6 +725,22 @@ check_implicit_and_apply_style_calls(AnnAST, ModName, FunName, Arity) ->
 	end,
     element(2, ast_traverse_api:once_tdTU(F, AnnAST, [])).
 
+
+generalise_recursive_function_call(Exp, ModName, FunName, Arity)->
+    case refac_syntax:type(Exp) of
+	atom -> case refac_syntax:atom_value(Exp) of
+		    FunName ->
+			case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Exp)) of
+			    {value, {fun_def, {ModName, FunName, Arity, _P1, _P2}}} ->
+				true;
+			    _ -> false 
+			end;
+		    _ -> false
+		end;
+	_ -> false
+    end.
+			    
+    
 
 check_side_effect(FileName, Exp, SearchPaths) ->
     case side_effect_api:has_side_effect(FileName, Exp, SearchPaths) of
