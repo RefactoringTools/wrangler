@@ -72,9 +72,12 @@ see."
          (current read-char-spec-not-found))
     ;; Loop until the user types a char actually in `specification'
     (while (eq current read-char-spec-not-found)
-      (setq char-read (read-event prompt-with-keys))
-
-      (let ((entry (assoc char-read spec-with-help)))
+      (if (fboundp 'next-command-event) ; XEmacs
+          (setq event (next-command-event nil prompt-with-keys)
+		char-read (and (fboundp 'event-to-character)
+			       (event-to-character event)))
+        (setq char-read  (read-event prompt-with-keys)))
+	(let ((entry (assoc char-read spec-with-help)))
         (when entry
           (setq current (cadr entry))))
 
