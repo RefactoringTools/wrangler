@@ -249,10 +249,10 @@
 
 (defvar inspector-menu-items
   '(nil
-    ("Variable Search" erl-wrangler-code-inspector-var-instances) 
-      ("Caller Functions" erl-wrangler-code-inspector-caller-funs)
-      ("Caller/Called Modules" erl-wrangler-code-inspector-caller-called-mods)
-      ("Nested If Expresssions" erl-wrangler-code-inspector-nested-ifs)
+    ("Instances of a Variable" erl-wrangler-code-inspector-var-instances) 
+      ("Calls to a Function" erl-wrangler-code-inspector-caller-funs)
+      ("Dependencies of a Module" erl-wrangler-code-inspector-caller-called-mods)
+      ("Nested If Expressions" erl-wrangler-code-inspector-nested-ifs)
       ("Nested Case Expressions" erl-wrangler-code-inspector-nested-cases)
       ("Nested Receive Expression" erl-wrangler-code-inspector-nested-receives)
       ("Long Functions" erl-wrangler-code-inspector-long-funs)
@@ -261,8 +261,8 @@
       ("Generate Modulegraph" erl-wrangler-code-inspector-module-graph)
      ;; ("Generate Modulegraph for Mutually Recursive Modules" erl-wrangler-code-inspector-module-scc-graph)
      ;; ("UnCalled Exported Functions" erl-wrangler-code-inspector-uncalled-exports)
-      ("Non Tail-recursive Servers" erl-wrangler-code-inspector-non-tail-recursive-servers)
-      ("Not Flush UnKnown Messages" erl-wrangler-code-inspector-no-flush)))
+      ("Show Non Tail Recursive Servers" erl-wrangler-code-inspector-non-tail-recursive-servers)
+      ("Incomplete Receive Patterns" erl-wrangler-code-inspector-no-flush)))
  
    
 (global-set-key (kbd "C-c C-r") 'toggle-erlang-refactor)
