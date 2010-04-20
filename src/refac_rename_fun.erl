@@ -201,8 +201,7 @@ pre_cond_check(FileName, Info, NewFunName, OldFunDefMod, OldFunName, Arity) ->
     Inscope_Funs = [{F, A} || {_M, F, A} <- refac_misc:inscope_funs(Info)],
     if OldFunDefMod == ModName ->
 	   case lists:member({NewFunName, Arity}, Inscope_Funs) orelse
-		  erlang:is_builtin(erlang, NewFunName, Arity) orelse
-		    erl_internal:bif(erlang, NewFunName, Arity)
+	       erl_internal:bif(erlang, NewFunName, Arity)
 	       of
 	     true ->
 		 {error, atom_to_list(NewFunName) ++ "/" ++

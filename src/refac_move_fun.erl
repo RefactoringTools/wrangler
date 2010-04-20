@@ -423,21 +423,21 @@ do_transform_fun(Node, {FileName, {ModName, FunName, Arity}, TargetModName, InSc
 	    {value, {fun_def, {M, F, A, _, _}}} ->
 		case refac_syntax:type(Op) of
 		  atom ->
-		      case lists:member({M, F, A}, InScopeFunsInTargetMod) orelse
-			     erlang:is_builtin(M, F, A) orelse erl_internal:bif(M, F, A) orelse {M, F, A} == {ModName, FunName, Arity}
-			  of
-			true ->
-			    {Node, false};
-			_ when M =/= '_' ->
-			    {copy_pos_attrs(Node, refac_syntax:application(
-						    copy_pos_attrs(Op, refac_syntax:module_qualifier(refac_syntax:atom(M), Op)), Args)),
+			case lists:member({M, F, A}, InScopeFunsInTargetMod) orelse
+			    erl_internal:bif(M, F, A) orelse {M, F, A} == {ModName, FunName, Arity}
+			of
+			    true ->
+				{Node, false};
+			    _ when M =/= '_' ->
+				{copy_pos_attrs(Node, refac_syntax:application(
+							copy_pos_attrs(Op, refac_syntax:module_qualifier(refac_syntax:atom(M), Op)), Args)),
 			     true};
-			_ ->
-			    {Line, Col} = refac_syntax:get_pos(Op),
-			    Str = "Wrangler could not infer where the function " ++ atom_to_list(F) ++ "/" ++ integer_to_list(A) ++
+			    _ ->
+				{Line, Col} = refac_syntax:get_pos(Op),
+				Str = "Wrangler could not infer where the function " ++ atom_to_list(F) ++ "/" ++ integer_to_list(A) ++
 				    ", used at location {" ++ integer_to_list(Line) ++ "," ++ integer_to_list(Col) ++ "} in the current module, is defined.",
-			    throw({error, Str})
-		      end;
+				throw({error, Str})
+			end;
 		  _ ->
 		      case M == TargetModName of
 			true ->

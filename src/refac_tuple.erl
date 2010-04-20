@@ -142,8 +142,7 @@ tuple_par_0(FileName, AnnAST, Info, FunName, Arity, Index, Num, SearchPaths, Tab
 pre_cond_check(FileName, FunName, OldArity, NewArity, Info) ->
     Inscope_Funs = [{F, A} || {_M, F, A} <- refac_misc:inscope_funs(Info)],
     case lists:member({FunName, NewArity}, Inscope_Funs) orelse
-	   erlang:is_builtin(erlang, FunName, NewArity) orelse
-	     erl_internal:bif(erlang, FunName, NewArity)
+	erl_internal:bif(erlang, FunName, NewArity)
 	of
       true ->
 	  throw({error, atom_to_list(FunName) ++ "/" ++
