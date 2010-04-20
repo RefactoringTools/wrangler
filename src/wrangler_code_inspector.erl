@@ -216,6 +216,7 @@ get_enclosed(Cur, Rs) ->
 	     {error, string()} | {ok, {[{modulename(), functionname(), functionarity()}],
 				       [{modulename(), functionname(), functionarity()}]}}).
 caller_funs(FName, Line, Col, SearchPaths, TabWidth) ->
+    check_search_paths(FName, SearchPaths),
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     case interface_api:pos_to_fun_def(AnnAST, {Line, Col}) of
       {ok, Def} ->
@@ -327,6 +328,7 @@ collect_apps(FileName, Node, {M, F, A}) ->
 %%==========================================================================================
 -spec(caller_called_modules(FName::filename(), SearchPaths::[dir()], TabWidth::integer()) -> ok).
 caller_called_modules(FName, SearchPaths, _TabWidth) ->
+    check_search_paths(FName, SearchPaths),
     %% I use 'false' in the following function call, so that macro can get expanded;
     AbsFileName = filename:absname(filename:join(filename:split(FName))),
     ClientFiles = wrangler_modulegraph_server:get_client_files(AbsFileName, SearchPaths),
@@ -453,11 +455,16 @@ is_large_module(FName, Lines, TabWidth) ->
 
 -spec(non_tail_recursive_servers_in_file(FName::filename(), SearchPaths::[dir()], TabWidth::integer()) -> ok).
 non_tail_recursive_servers_in_file(FName, SearchPaths, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:non_tail_recursive_servers_in_file(~p, ~p, ~p).\n",
+		    [?MODULE, FName,SearchPaths, TabWidth]),
+    check_search_paths(FName, SearchPaths),
     Funs = non_tail_recursive_servers(FName, SearchPaths, TabWidth),
     non_tail_format_results(Funs).
  
 -spec(non_tail_recursive_servers_in_dirs(SearchPaths::[dir()], TabWidth::integer()) -> ok).
 non_tail_recursive_servers_in_dirs(SearchPaths, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:non_tail_recursive_servers_in_dir(~p, ~p).\n",
+		 [?MODULE,SearchPaths, TabWidth]),
     Files = refac_util:expand_files(SearchPaths, ".erl"),
     Funs = lists:flatmap(fun(F) ->
 				 non_tail_recursive_servers(F, SearchPaths, TabWidth)
@@ -475,7 +482,7 @@ non_tail_recursive_servers(FName, SearchPaths, TabWidth) ->
 			Arity = refac_syntax:function_arity(T),
 			case has_receive_expr(T) of
 			  {true, Line} ->
-			      case is_non_tail_recursive_server(T, {ModName, FunName, Arity}, Line, SearchPaths) of
+				case is_non_tail_recursive_server(T, {ModName, FunName, Arity}, Line, SearchPaths) of
 				true -> [{ModName, FunName, Arity} | S];
 				_ -> S
 			      end;
@@ -536,8 +543,11 @@ check_candidate_scc(FunDef, Scc, Line) ->
     F = fun (T, Acc) ->
 		case refac_syntax:type(T)      %% To think: any other cases here?
 		    of
-		  clause -> Exprs = refac_syntax:clause_body(T),
-			    Acc ++ [Exprs];
+		  clause -> 
+			Exprs = refac_syntax:clause_body(T),
+			Acc ++ [Exprs];
+		  try_expr -> Exprs=refac_syntax:try_expr_body(T),
+			      Acc ++ [Exprs ++ [DummyExp]];			
 		  application -> Exprs = refac_syntax:application_arguments(T),
 				 Acc ++ [Exprs ++ [DummyExp]];
 		  tuple -> Exprs = refac_syntax:tuple_elements(T),
@@ -561,8 +571,8 @@ check_candidate_scc(FunDef, Scc, Line) ->
 			       {_, {EndLine, _}} = refac_misc:get_start_end_loc(E),
 			       case EndLine >= Line of
 				 true ->
-				     CalledFuns = wrangler_callgraph_server:called_funs(E),
-				     case lists:subtract(CalledFuns, MFAs) of
+				       CalledFuns = wrangler_callgraph_server:called_funs(E),
+				       case lists:subtract(CalledFuns, MFAs) of
 				       CalledFuns -> false;
 				       _ -> true
 				     end;
@@ -726,6 +736,27 @@ gen_function_callgraph(OutFile, FileName, SearchPaths)->
  		 [?MODULE, OutFile, FileName, SearchPaths]),
      wrangler_callgraph_server:fun_callgraph_to_dot(OutFile, FileName).
    
+
+check_search_paths(FileName, SearchPaths) ->
+    InValidSearchPaths = lists:filter(fun (X) -> not filelib:is_dir(X) end, SearchPaths),
+    case InValidSearchPaths of
+	[] -> ok;
+	_ -> ?wrangler_io("\n===============================WARNING===============================\n",[]), 
+	     ?wrangler_io("The following directories specified in the search paths do not exist:\n~s", [InValidSearchPaths]),
+	     throw({error, "Some directories specified in the search paths do not exist!"})
+    end,
+    Files = refac_util:expand_files(SearchPaths, ".erl") ++
+	 refac_util:expand_files(SearchPaths, ".hrl"),
+    case lists:member(FileName, Files) of
+	true ->
+	    ok;
+	_ ->
+    	    throw({error, "The current Erlang file does not belong to any of the search paths specified; please check!"})
+    end.
+
+
+	
+
 
 
 
