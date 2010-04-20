@@ -402,8 +402,15 @@
   (define-key erlang-mode-map "\C-c\C-_"  nil)
   (define-key erlang-mode-map  "\C-c\C-b" nil)
   (define-key erlang-mode-map "\C-c\C-e"  nil)
-  (erlang-menu-uninstall '("Inspector") inspector-menu-items erlang-mode-map t)
-  (erlang-menu-uninstall '("Refactor") refactor-menu-items erlang-mode-map t))
+  (cond (erlang-xemacs-p
+	 (progn
+	   (erlang-menu-uninstall '("Inspector") inspector-menu-items erlang-mode-map t)
+	   (erlang-menu-uninstall '("Refactor") refactor-menu-items erlang-mode-map t)))
+	(t
+	 (progn
+	   (erlang-menu-uninstall "Inspector" inspector-menu-items erlang-mode-map t)
+	   (erlang-menu-uninstall "Refactor" refactor-menu-items erlang-mode-map t)))
+	))
 
 (defun erlang-menu-uninstall (name items keymap &optional popup)
   "UnInstall a menu in Emacs or XEmacs based on an abstract description."
@@ -1622,8 +1629,8 @@
   ;; Dummy initialisation
   (cond (erlang-xemacs-p
 	 (make-extent 1 1))
-	(t make-overlay 1 1))
-  "Overlay for highlighting.")
+	(t (make-overlay 1 1))
+  "Overlay for highlighting."))
 
 (defface highlight-region-face
   '((t (:background "CornflowerBlue")))
