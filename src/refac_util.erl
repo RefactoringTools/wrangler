@@ -275,7 +275,6 @@ quick_parse_annotate_file(FName, SearchPaths, TabWidth) ->
 %% =====================================================================
 -spec(tokenize(File::filename(), WithLayout::boolean(), TabWidth::integer()) -> [token()]).
 tokenize(File, WithLayout, TabWidth) ->
-    refac_io:format("File:\n~p\n", [File]),
     {ok, Bin} = file:read_file(File),
     S = erlang:binary_to_list(Bin),
     case WithLayout of 
