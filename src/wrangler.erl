@@ -91,7 +91,7 @@
 	 gen_fsm_to_record_eclipse/3,gen_fsm_to_record_1_eclipse/7
 	]).
 
--export([try_refactoring/3, try_inspector/3]).
+-export([try_refactoring/3, try_inspector/3, get_log_msg/0]).
 
 -export([init_eclipse/0]).
 -include("../include/wrangler.hrl").
@@ -1191,3 +1191,34 @@ try_inspector(Mod, Fun, Args) ->
 init_eclipse() ->
     application:start(wrangler_app).
     
+
+
+get_log_msg() ->
+    Errors = wrangler_error_logger:get_logged_info(),
+    FileErrors = [{File, Error} || {File, Error} <- Errors, File /= warning],
+    ErrorMsg= 
+	case FileErrors of 
+	    [] -> "";
+	    _ ->
+		Msg1=io_lib:format("There are syntax errors, or syntaxes not supported by Wrangler;"
+				   " functions/attribute containing these syntaxes are not affected by the refactoring.\n", []),
+		Msg2 = lists:flatmap(fun ({FileName, Errs}) ->
+					     Str = io_lib:format("File:\n ~p\n", [FileName]),
+					     Str1 = Str ++ io_lib:format("Error(s):\n", []),
+					     Str1 ++ lists:flatmap(fun (E) ->
+									   case E of
+									       {Pos, _Mod, Msg} -> io_lib:format(" ** ~p:~p **\n", [Pos, Msg]);
+									       M -> io_lib:format("**~p**\n", [M])
+									   end
+									 end,
+								   lists:reverse(Errs))
+				     end, Errors),
+		Msg1++Msg2
+	end,
+    WarningMsg=case lists:keysearch(warning, 1, Errors) of 
+		   {value, {warning, Str}} ->
+		       Str;
+		   false -> ""
+	       end,
+    ErrorMsg++WarningMsg.
+   
