@@ -92,7 +92,7 @@ init([]) ->
 %%--------------------------------------------------------------------
 %% this function also reset the state of the error logger.
 handle_call(get_errors, _From, _State=#state{errors=Errors}) ->
-    {reply, Errors,  #state{}}.
+    {reply, Errors,  #state{errors=[]}}.
 
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
