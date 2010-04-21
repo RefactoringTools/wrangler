@@ -658,7 +658,9 @@ to_keep_original_fun(FileName, AnnAST, ModName, FunName, Arity, Exp, Info) ->
       is_eunit_special_function(FileName, atom_to_list(FunName), Arity) orelse
 	check_atoms(AnnAST, [FunName]) orelse
 	  check_implicit_and_apply_style_calls(AnnAST, ModName, FunName, Arity) orelse 
-	generalise_recursive_function_call(Exp, ModName, FunName, Arity).
+	generalise_recursive_function_call(Exp, ModName, FunName, Arity) orelse
+        has_multiple_definitions(AnnAST, ModName, FunName, Arity). 
+     
 
    
 is_eunit_special_function(FileName, FunName, Arity) ->
@@ -746,6 +748,19 @@ generalise_recursive_function_call(Exp, ModName, FunName, Arity)->
 		 end
 	 end,
     lists:member(true, refac_syntax_lib:fold(Fun, [], Exp)).
+
+has_multiple_definitions(AnnAST, ModName, FunName, Arity) ->
+    Fun=fun(F) ->
+		case  lists:keysearch(fun_def, 1, refac_syntax:get_ann(F)) of 
+		    {value, {fun_def, {ModName, FunName,Arity, _, _}}} ->
+			true;
+		    false -> false
+		end
+	end,
+    Forms = refac_syntax:form_list_elements(AnnAST),
+    Fs =[F||F<-Forms, Fun(F)],
+    length(Fs)>1.
+	
 		     
 
 check_side_effect(FileName, Exp, SearchPaths) ->
