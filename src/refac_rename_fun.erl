@@ -535,7 +535,7 @@ renamed_warn_msg(FunName) ->
 not_renamed_warn_msg(FunName) ->
     "\n=================================================================================\n"
     "WARNING: Wrangler could not infer whether the uses of '" ++ atom_to_list(FunName) ++
-      "' at the following positions refer to the function renamed, and they are not renamed."
+      "' at the following position(line)s refer to the function renamed, and they are not renamed."
       " Please check manually!\n".
 
 rewrite(E1, E2) ->
