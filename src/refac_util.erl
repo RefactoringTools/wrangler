@@ -192,7 +192,7 @@ parse_annotate_file(FName, ByPassPreP, SearchPaths, TabWidth) ->
     FileFormat = file_format(FName),
     case whereis(wrangler_ast_server) of
       undefined ->        %% this should not happen with Wrangler + Emacs.
-	  ?wrangler_io("wrangler_ast_aserver is not defined\n", []),
+	  ?wrangler_io("wrangler_ast_server is not defined\n", []),
 	  parse_annotate_file(FName, ByPassPreP, SearchPaths, TabWidth, FileFormat);
       _ ->
 	  wrangler_ast_server:get_ast({FName, ByPassPreP, SearchPaths, TabWidth, FileFormat})
@@ -275,6 +275,7 @@ quick_parse_annotate_file(FName, SearchPaths, TabWidth) ->
 %% =====================================================================
 -spec(tokenize(File::filename(), WithLayout::boolean(), TabWidth::integer()) -> [token()]).
 tokenize(File, WithLayout, TabWidth) ->
+    refac_io:format("File:\n~p\n", [File]),
     {ok, Bin} = file:read_file(File),
     S = erlang:binary_to_list(Bin),
     case WithLayout of 
