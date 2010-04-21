@@ -457,13 +457,12 @@ is_large_module(FName, Lines, TabWidth) ->
 non_tail_recursive_servers_in_file(FName, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:non_tail_recursive_servers_in_file(~p, ~p, ~p).\n",
 		    [?MODULE, FName,SearchPaths, TabWidth]),
-    check_search_paths(FName, SearchPaths),
-    Funs = non_tail_recursive_servers(FName, SearchPaths, TabWidth),
+    Funs = non_tail_recursive_servers(FName, [FName], TabWidth), 
     non_tail_format_results(Funs).
  
 -spec(non_tail_recursive_servers_in_dirs(SearchPaths::[dir()], TabWidth::integer()) -> ok).
 non_tail_recursive_servers_in_dirs(SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:non_tail_recursive_servers_in_dir(~p, ~p).\n",
+    ?wrangler_io("\nCMD: ~p:non_tail_recursive_servers_in_dirs(~p, ~p).\n",
 		 [?MODULE,SearchPaths, TabWidth]),
     Files = refac_util:expand_files(SearchPaths, ".erl"),
     Funs = lists:flatmap(fun(F) ->
@@ -482,7 +481,7 @@ non_tail_recursive_servers(FName, SearchPaths, TabWidth) ->
 			Arity = refac_syntax:function_arity(T),
 			case has_receive_expr(T) of
 			  {true, Line} ->
-				case is_non_tail_recursive_server(T, {ModName, FunName, Arity}, Line, SearchPaths) of
+				case is_non_tail_recursive_server(FName, T, {ModName, FunName, Arity}, Line, SearchPaths) of
 				true -> [{ModName, FunName, Arity} | S];
 				_ -> S
 			      end;
@@ -519,51 +518,55 @@ has_receive_expr(FunDef) ->
       _ -> {true, lists:min(LineNums)}
     end.
 
-is_non_tail_recursive_server(FunDef, {ModName, FunName, Arity}, Line, SearchPaths) ->
+is_non_tail_recursive_server(FileName, FunDef, {ModName, FunName, Arity}, Line, _SearchPaths) ->
     Fun = fun (T, S) ->
 		  case refac_syntax:type(T) of
 		    receive_expr ->
-			ResSccs = wrangler_callgraph_server:get_sccs_including_fun({ModName, FunName, Arity}, SearchPaths),
-			ResSccs ++ S;
-		    _ -> S
+			  %% it is too slow to search the whole directory for those very rare cases
+			  %% when a server function is defined across multiple modules; so SearchPaths
+			  %% is not used here.
+			  ResSccs = wrangler_callgraph_server:get_sccs_including_fun(
+				      {ModName, FunName, Arity}, [FileName]),
+			  ResSccs ++ S;
+		      _ -> S
 		  end
 	  end,
     CandidateSccs = refac_syntax_lib:fold(Fun, [], FunDef),
     case CandidateSccs of
       [] -> false;
-      _ -> lists:any(fun (Scc) -> check_candidate_scc(FunDef, Scc, Line) end, CandidateSccs)
+      _ -> lists:any(fun (Scc) -> 
+			     check_candidate_scc(FunDef, Scc, Line) 
+		     end, CandidateSccs)
     end.
 
 
 
 check_candidate_scc(FunDef, Scc, Line) ->
-    %%InscopeFuns = refac_util:auto_imported_bifs() ++ refac_util:inscope_funs(Info), 
     MFAs = [MFA || {MFA, _} <- Scc],
     DummyExp = refac_syntax:atom(undefined),
     F = fun (T, Acc) ->
-		case refac_syntax:type(T)      %% To think: any other cases here?
-		    of
-		  clause -> 
+		case refac_syntax:type(T)  of  
+		    clause -> 
 			Exprs = refac_syntax:clause_body(T),
 			Acc ++ [Exprs];
-		  try_expr -> Exprs=refac_syntax:try_expr_body(T),
-			      Acc ++ [Exprs ++ [DummyExp]];			
-		  application -> Exprs = refac_syntax:application_arguments(T),
-				 Acc ++ [Exprs ++ [DummyExp]];
-		  tuple -> Exprs = refac_syntax:tuple_elements(T),
-			   Acc ++ [Exprs ++ [DummyExp]];
-		  list -> Exprs = refac_syntax:list_prefix(T),
-			  Acc ++ [Exprs ++ [DummyExp]];
-		  list_comp ->
-		      Acc ++ [[T, DummyExp]];
-		  block_expr ->
-		      Exprs = refac_syntax:block_expr_body(T),
-		      Acc ++ [Exprs];
-		  infix_expr ->
-		      Acc ++ [[T, DummyExp]];
-		  prefix_expr ->
-		      Acc ++ [[T, DummyExp]];
-		  _ -> Acc
+		    try_expr -> Exprs=refac_syntax:try_expr_body(T),
+				Acc ++ [Exprs ++ [DummyExp]];			
+		    application -> Exprs = refac_syntax:application_arguments(T),
+				   Acc ++ [Exprs ++ [DummyExp]];
+		    tuple -> Exprs = refac_syntax:tuple_elements(T),
+			     Acc ++ [Exprs ++ [DummyExp]];
+		    list -> Exprs = refac_syntax:list_prefix(T),
+			    Acc ++ [Exprs ++ [DummyExp]];
+		    list_comp ->
+			Acc ++ [[T, DummyExp]];
+		    block_expr ->
+			Exprs = refac_syntax:block_expr_body(T),
+			Acc ++ [Exprs];
+		    infix_expr ->
+			Acc ++ [[T, DummyExp]];
+		    prefix_expr ->
+			Acc ++ [[T, DummyExp]];
+		    _ -> Acc   %% Any other cases here?
 		end
 	end,
     F1 = fun (Es) ->
@@ -624,16 +627,18 @@ not_flush_unknown_messages(FName, SearchPaths, TabWidth) ->
     refac_syntax_lib:fold(Fun, [], AnnAST).
     
 
-has_receive_expr_without_flush(FileName, Info, ModName, FunDef, Line, SearchPaths) ->
+has_receive_expr_without_flush(FileName, Info, ModName, FunDef, Line, _SearchPaths) ->
     FunName = refac_syntax:atom_value(refac_syntax:function_name(FunDef)),
     Arity = refac_syntax:function_arity(FunDef),
     F = fun(T,S) ->
 		case refac_syntax:type(T) of 
 		    receive_expr ->
-			ResSccs = wrangler_callgraph_server:get_sccs_including_fun({ModName, FunName, Arity}, SearchPaths),
+			ResSccs = wrangler_callgraph_server:get_sccs_including_fun(
+				    {ModName, FunName, Arity}, [FileName]),
      			case ResSccs of 
 			    [] -> S;  %% This should not happen;
-			    _ -> [lists:all(fun(Scc) -> not_has_flush_scc(FileName, Info, FunDef, Scc, Line) end, ResSccs)|S]				
+			    _ -> [lists:all(fun(Scc) ->
+						    not_has_flush_scc(FileName, Info, FunDef, Scc, Line) end, ResSccs)|S]				
 			end;
 		    _ -> S
 		end
@@ -648,25 +653,23 @@ not_has_flush_scc(FileName, Info, FunDef, Scc, Line) ->
     end.
 
 is_server(_FileName, _Info, FunDef, Scc, Line) ->
-    %% ModName = get_module_name(FileName, Info),
-    %%InscopeFuns = refac_util:auto_imported_bifs() ++ refac_util:inscope_funs(Info), 
     MFAs = [MFA || {MFA, _} <- Scc],
     F = fun (T, Acc) ->
 		case
-		  refac_syntax:type(T)      %% To think: any other cases here?
-		    of
-		  application -> Acc ++ [T];
-		  _ -> Acc
+		    refac_syntax:type(T)      %% Any other cases here?
+		of
+		    application -> Acc ++ [T];
+		    _ -> Acc
 		end
 	end,
     F1 = fun (E) ->
 		 {_, {EndLine, _}} = refac_misc:get_start_end_loc(E),
 		 case EndLine >= Line of
-		   true ->
-		       CalledFuns = wrangler_callgraph_server:called_funs(E),
+		     true ->
+			 CalledFuns = wrangler_callgraph_server:called_funs(E),
 		       case lists:subtract(CalledFuns, MFAs) of
-			 CalledFuns -> false;
-			 _ -> true
+			   CalledFuns -> false;
+			   _ -> true
 		       end;
 		   _ -> false
 		 end
