@@ -359,7 +359,7 @@
   (interactive)
   (require 'comint)
   (setq opts (list "-name" wrangler-erl-node-string
-		   "-pa"  %EBIN_DIR%
+		   "-pa"  "C:/cygwin/home/hl/wrangler/share/wrangler/ebin"
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))
@@ -820,11 +820,29 @@
 		      (erl-spawn
 			(erl-send-rpc wrangler-erl-node 'wrangler 'move_fun_1 
 					       (list current-file-name line-no column-no name wrangler-search-paths tab-width))
-			(erl-receive (line-no column-no current-file-name)
+			(erl-receive (name line-no column-no current-file-name)
 			    ((['rex ['badrpc rsn]]
 			      (message "Refactoring failed: %S" rsn))
 			     (['rex ['error rsn]]
 			      (message "Refactoring failed: %s" rsn))
+			     (['rex ['warning msg]]
+			      (progn 
+				(if (y-or-n-p msg)
+				    (erl-spawn
+				      (erl-send-rpc wrangler-erl-node 'wrangler 'move_fun_1 
+						    (list current-file-name line-no column-no name wrangler-search-paths tab-width))
+				      (erl-receive (line-no column-no current-file-name)
+					  ((['rex ['badrpc rsn]]
+					    (message "Refactoring failed: %S" rsn))
+					   (['rex ['error rsn]]
+					    (message "Refactoring failed: %s" rsn))
+					   (['rex ['ok modified]]
+					    (progn
+					      (preview-commit-cancel current-file-name modified)
+					      (with-current-buffer (get-file-buffer current-file-name)
+						(goto-line line-no)
+						(goto-column column-no)))))))
+				  (message "Refactoring aborted."))))
 			     (['rex ['ok modified]]
 			      (progn
 				(preview-commit-cancel current-file-name modified)
