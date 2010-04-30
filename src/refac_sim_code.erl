@@ -159,7 +159,7 @@ get_parameters_eclipse(MinLen1, MinFreq1, SimiScore1) ->
 		      ?DEFAULT_FREQ;
 		_ -> MinFreq1
 	      end,
-    SimiScore = case SimiScore1 == 0.1 andalso SimiScore1 =< 1.0
+    SimiScore = case SimiScore1 >= 0.1 andalso SimiScore1 =< 1.0
 		of
 		    true -> SimiScore1;
 		    _ -> ?DefaultSimiScore
