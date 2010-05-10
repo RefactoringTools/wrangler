@@ -164,7 +164,6 @@ get_parameters_eclipse(MinLen1, MinFreq1, SimiScore1) ->
 		    true -> SimiScore1;
 		    _ -> ?DefaultSimiScore
 		end,
-    refac_io:format("\n~p\n", [{MinLen, MinFreq, SimiScore}]),
     {MinLen, MinFreq, SimiScore}.
 
 
