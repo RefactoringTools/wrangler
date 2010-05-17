@@ -103,8 +103,8 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 		      {ok, [{FileName, FileName, FileContent}]}
 		end
 	  end;
-      {error, _Reason} ->
-	  {error, "You have not selected a function name!"}
+      {error, Reason} ->
+	  {error, Reason}
     end.
 
 rename_fun_0(FileName, NewName, SearchPaths, TabWidth, Editor,
