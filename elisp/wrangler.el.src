@@ -228,7 +228,7 @@
       ("eqc_statem State Data to Record" erl-refactor-eqc-statem-to-record)
       ("eqc_fsm State Data to Record" erl-refactor-eqc-fsm-to-record)
       ("gen_fsm State Data to Record" erl-refactor-gen-fsm-to-record)
-     ;; ("eqc_statem to eqc_fsm"  erl-refactor-statem-to-fsm)
+      ("Test Cases to Property"  erl-refactor-test-cases-to-property)
      ))
     nil
     ("Process Refactorings (Beta)"
@@ -359,7 +359,7 @@
   (interactive)
   (require 'comint)
   (setq opts (list "-name" wrangler-erl-node-string
-		   "-pa"  "C:/cygwin/home/hl/wrangler/share/wrangler/ebin"
+		   "-pa"  %EBIN_DIR%
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))
@@ -377,9 +377,9 @@
 
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 0.8.7"))
+  (message "Wrangler version 0.8.8"))
 
-(setq wrangler-version  "(wrangler-0.8.7) ")
+(setq wrangler-version  "(wrangler-0.8.8) ")
 
 (defun wrangler-menu-init()
   "Init Wrangler menus."
@@ -2159,6 +2159,40 @@
 		    )))))
       (message "Refactoring aborted.")))))
 
+
+(defun erl-refactor-test-cases-to-property()
+  "Create a oneof QuickCheck generator."
+  (interactive)
+  (let ((current-file-name (buffer-file-name))
+	(line-no           (current-line-no))
+        (column-no         (current-column-no))
+	(buffer (current-buffer)))
+    (if (buffers-saved)
+	(erl-spawn
+	  (erl-send-rpc wrangler-erl-node 'refac_qc_gen 'test_cases_to_property (list current-file-name line-no column-no wrangler-search-paths tab-width))
+	  (erl-receive (line-no column-no current-file-name)
+	      ((['rex ['badrpc rsn]]
+		(message "Refactoring failed: %S" rsn))
+	       (['rex ['error rsn]]
+		(message "Refactoring failed: %s" rsn))
+	       (['rex ['ok modified warning]]
+		(progn
+		  (setq has-warning warning)
+		  (preview-commit-cancel current-file-name modified)
+		  (with-current-buffer (get-file-buffer current-file-name)
+		    (goto-line line-no)
+		    (goto-column column-no))))
+	       )))
+      (message "Refactoring aborted."))))
+  	 
+	      
+
+
+;;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+;;                                                                    %%
+;;  Code Inspector                                                    %%
+;;                                                                    %%
+;;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   
 (defun erl-wrangler-code-inspector-var-instances()
   "Sematic search of instances of a variable"
@@ -2171,7 +2205,7 @@
     (save-buffer)
     (erl-spawn
       (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'find_var_instances(list 
-											   current-file-name line-no column-no wrangler-search-paths tab-width)))
+						   current-file-name line-no column-no wrangler-search-paths tab-width)))
       (erl-receive (buffer)
 	  ((['rex ['badrpc rsn]]
 	    (message "Error: %S" rsn))
@@ -2189,7 +2223,7 @@
   (interactive)
   (dolist (ov (if (featurep 'xemacs)
 		  (extent-list (current-buffer))
-		(overlays-in  1 10000)))
+		(overlays-in  1 100000)))
     (if (equal ov highlight-region-overlay)
 	nil
       (org-delete-overlay ov))))
