@@ -41,7 +41,8 @@
 	 large_modules/3, non_tail_recursive_servers_in_file/3, non_tail_recursive_servers_in_dirs/2,
 	 not_flush_unknown_messages_in_file/3, not_flush_unknown_messages_in_dirs/2]).
 
--export([gen_module_graph/4, gen_module_scc_graph/3, gen_function_callgraph/3]).
+-export([gen_module_graph/4, gen_function_callgraph/3,
+	 cyclic_dependent_modules/3, improper_inter_module_calls/2, partition_exports/3]).
 
 -include("../include/wrangler.hrl").
 
@@ -722,15 +723,26 @@ gen_module_graph(OutFile, NotCareMods, SearchPaths, WithLabel) ->
     ?wrangler_io("\nCMD: ~p:gen_module_graph(~p, ~p, ~p, ~p).\n",
 		 [?MODULE, OutFile, NotCareMods, SearchPaths, WithLabel]),
     NotCareMods1 = [list_to_atom(T)|| T<-string:tokens(NotCareMods, ", ")],
-    refac_module_graph:module_graph_to_dot(OutFile, NotCareMods1, SearchPaths, WithLabel).
+    wrangler_modularity_inspection:gen_module_graph(OutFile, NotCareMods1, SearchPaths, WithLabel).
    
--spec(gen_module_scc_graph/3::(filename(), [filename()|dir()], boolean()) ->true).
-gen_module_scc_graph(OutFile, SearchPaths, WithLabel)->
-    ?wrangler_io("\nCMD: ~p:gen_module_scc_graph(~p, ~p, ~p).\n",
+-spec(cyclic_dependent_modules/3::(filename(), [filename()|dir()], boolean()) ->true).
+cyclic_dependent_modules(OutFile, SearchPaths, WithLabel)->
+    ?wrangler_io("\nCMD: ~p:cyclic_dependent_modules(~p, ~p, ~p).\n",
 		 [?MODULE, OutFile, SearchPaths, WithLabel]),
-    refac_module_graph:scc_graph_to_dot(OutFile, SearchPaths, WithLabel).
-    
+    wrangler_modularity_inspection:cyclic_dependent_modules(OutFile, SearchPaths, WithLabel).
+        
 
+-spec(improper_inter_module_calls/2::(filename(), [filename()|dir()]) ->true).
+improper_inter_module_calls(OutFile, SearchPaths)->
+    ?wrangler_io("\nCMD: ~p:improper_inter_module_calls(~p, ~p).\n",
+		 [?MODULE, OutFile, SearchPaths]),
+    wrangler_modularity_inspection:improper_inter_module_calls(OutFile, SearchPaths).
+        
+partition_exports(File, SearchPaths, DistThreshold)->
+    ?wrangler_io("\nCMD: ~p:partition_exports(~p,~p,~p).\n",
+		 [?MODULE, File, SearchPaths, DistThreshold]),
+    wrangler_modularity_inspection:partition_exports(File, SearchPaths, DistThreshold).
+   
 
    
 -spec(gen_function_callgraph/3::(filename(), filename(),[filename()|dir()]) ->true).
