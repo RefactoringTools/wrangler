@@ -78,29 +78,30 @@
 		      info}).
 %==========================================================================================
 -spec(move_fun/6::(filename(),integer(),integer(), string(), [dir()], integer())->
-	     {ok, [filename()]} | {question, string()}| {error, string()}).
+	     {ok, [filename()]} | {question, string()}).
 %%==========================================================================================
 move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) ->
     move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, emacs).
 
 -spec(move_fun_1/7::(filename(),integer(),integer(), string(),boolean(), [dir()], integer())->
-	     {ok, [filename()]} | {error, string()}).
+	     {ok, [filename()]}).
 move_fun_1(FName, Line, Col, TargetModorFileName, CheckCond, SearchPaths, TabWidth) ->
     move_fun_1(FName, Line, Col, TargetModorFileName, CheckCond, SearchPaths, TabWidth, emacs).
 
 
 -spec(move_fun_eclipse/6::(filename(),integer(),integer(), string(),[dir()], integer())
-        ->  {ok, [{filename(), filename(), string()}]} | {question, string()} |{error, string()}).
+        ->  {ok, [{filename(), filename(), string()}]} | {question, string()}).
 
 move_fun_eclipse(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) ->
     move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, eclipse).
 
 
+%% THIS interface need to be changed; and should inform George of the changes.
 -spec(move_fun_1_eclipse/6::(filename(),integer(),integer(), string(),[dir()], integer())
-        ->  {ok, [{filename(), filename(), string()}]} | {error, string()}).
+        ->  {ok, [{filename(), filename(), string()}]}).
 
 move_fun_1_eclipse(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) ->
-    move_fun_1(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, eclipse).
+    move_fun_1(FName, Line, Col, TargetModorFileName, true, SearchPaths, TabWidth, eclipse).
 
 
 move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, Editor) ->
@@ -160,6 +161,10 @@ move_fun_2(CurModInfo, MFAs, TargetModorFileName, CheckCond, SearchPaths, TabWid
 		    end,
     Forms = refac_syntax:form_list_elements(CurModInfo#module_info.ast),
     FunDefs = [{get_fun_mfa(F), F} || F <- Forms, defines(F, MFAs)],
+    case FunDefs of
+	[] ->  throw({error, "You have not selected a well-formed function definition or an export attribute."});
+	_ -> ok
+    end,		   
     TargetModInfo = analyze_file(TargetFName, SearchPaths, TabWidth),
     {UnDefinedMs, UnDefinedRs} = side_cond_check(FunDefs, CurModInfo, TargetModInfo, NewTargetFile, CheckCond),
     CG = wrangler_callgraph_server:gen_digraph_callgraph(FName),
@@ -210,13 +215,16 @@ do_transformation(CurModInfo, TargetModInfo, MFAs, {UnDefinedMs, UnDefinedRs},
     FileName=CurModInfo#module_info.filename,
     Forms = refac_syntax:form_list_elements(CurModInfo#module_info.ast),
     AttrsToAdd = get_attrs(Forms, UnDefinedMs, UnDefinedRs, TargetModInfo#module_info.includes),
-    FormsToBeMoved = [F || F <- Forms, defines(F, MFAs) orelse type_specifies(F, MFAs)],
+    GroupedForms = group_forms(Forms),
+    %% FormsToBeMoved = [F || F <- Forms, defines(F, MFAs) orelse type_specifies(F, MFAs)],
+    FormsToBeMoved=lists:append([Fs||Fs<-GroupedForms, one_of_defines(Fs, MFAs) orelse
+					 one_of_type_specifies(Fs, MFAs)]),
     TargetModName=TargetModInfo#module_info.modname,
     InScopeFunsInTargetMod = TargetModInfo#module_info.inscope_funs,
     Args={FileName,MFAs, TargetModName,InScopeFunsInTargetMod, SearchPaths, TabWidth, Pid},
     FormsToBeMoved1 = transform_forms_to_be_moved(FormsToBeMoved, Args), 
     Args1={FileName, MFAs, FunsToExportInCurMod,TargetModName, SearchPaths, TabWidth, Pid},
-    AnnAST1 = do_remove_fun(Forms,Args1),
+    AnnAST1 = do_remove_fun(Forms,FormsToBeMoved, Args1),
     TargetAnnAST1 = do_add_fun(TargetModInfo, FormsToBeMoved1, AttrsToAdd,
      			       MFAs,FunsToExportInTargetMod, SearchPaths, TabWidth, Pid),
     {AnnAST1, TargetAnnAST1}.
@@ -352,8 +360,9 @@ transform_application_node(Node, MFAs, TargetModName, InScopeFunsInTargetMod) ->
 %%=========================================================================
 %% Remove the function from the current module. 
 %%=========================================================================
-do_remove_fun(Forms, Args={_,_,FunsToBeExported,_,_,_,_}) ->
-    {Forms1, _C}= lists:unzip([process_a_form_in_original_mod(Form, Args)|| Form<-Forms]),
+do_remove_fun(Forms, FormsToBemoved, Args={_,_,FunsToBeExported,_,_,_,_}) ->
+    Forms0 =Forms -- FormsToBemoved,
+    {Forms1, _C}= lists:unzip([process_a_form_in_original_mod(Form, Args)|| Form<-Forms0]),
     Forms2 = lists:append(Forms1),
     NewForms = case FunsToBeExported of 
 		   [] -> Forms2;
@@ -494,6 +503,8 @@ insert_export_form(Attrs, Forms) ->
 						 is_attribute(F, module) orelse
 					         is_attribute(F, export) orelse
 					         is_attribute(F, import) orelse 
+						 is_attribute(F, include) orelse
+						 is_attribute(F, include_lib) orelse
 					         refac_syntax:type(F) == comment
 					 end, Forms),
     {Forms111, Forms112}= lists:splitwith(fun(F) -> 
@@ -619,7 +630,7 @@ do_add_change_module_qualifier(Node, {FileName, MFAs=[{ModName,_,_}|_], TargetMo
 			    case {refac_syntax:type(B), refac_syntax:type(A)} of
 			      {atom, integer} ->
 				    B1 = refac_syntax:atom_value(B),
-				    A1 = refac_syntax:integer_valuye(A),
+				    A1 = refac_syntax:integer_value(A),
 				    case lists:member({ModName, B1, A1}, MFAs) of
 					true ->
 					    {copy_pos_attrs(
@@ -976,6 +987,7 @@ analyze_file(FName, SearchPaths, TabWidth) ->
 side_cond_check(FunDefs, CurModInfo, TargetModInfo, NewTargetFile, CheckCond) ->
     try side_cond_check(FunDefs, CurModInfo, TargetModInfo, CheckCond) 
     catch
+	throw:E2 -> throw(E2);
 	E1:E2 ->
 	    case NewTargetFile of 
 		true -> 
@@ -1237,8 +1249,9 @@ get_dependent_funs(Info, MFAs = [{ModName, _, _}| _], CG) ->
 get_closed_dependent_funs([], MFAs, _CG) ->
     MFAs;
 get_closed_dependent_funs(Vs, MFAs, CG) ->
+    AllVs = lists:usort(Vs++MFAs),
     Vs1=[V||V<-Vs, not lists:member(V, MFAs),
-		     digraph:in_neighbours(CG, V)--Vs/=[]],
+		     digraph:in_neighbours(CG, V)--AllVs/=[]],
     case Vs1 of
 	[] ->
 	    Vs;
@@ -1307,6 +1320,34 @@ defines(Form, MFAs) ->
 	  end;
 	_ -> false
     end.
+
+one_of_defines(Forms, MFAs) ->
+    lists:any(fun(F) ->
+		      defines(F, MFAs)
+	      end, Forms).
+
+one_of_type_specifies(Forms, MFAs) ->
+    lists:any(fun(F) ->
+		      type_specifies(F, MFAs)
+	      end, Forms).
+
+group_forms(Forms) ->
+    group_forms(lists:reverse(Forms), []).
+
+group_forms([], Acc)->
+    Acc;
+group_forms([F|Fs], Acc) ->
+    case refac_syntax:type(F)==function orelse
+	is_attribute(F, 'spec') of
+	true ->
+	    {Fs1, Fs2} = lists:splitwith(fun(Form)->
+						 refac_syntax:type(Form)==comment
+					 end, Fs),
+	    group_forms(Fs2, [lists:reverse([F|Fs1])|Acc]);
+	_ -> 
+	    group_forms(Fs, [[F]|Acc])
+    end.
+
   
 get_fun_mfa(Form) ->
     case refac_syntax:type(Form) of

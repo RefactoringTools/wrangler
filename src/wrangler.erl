@@ -35,7 +35,7 @@
 %% @author Huiqing Li, Simon Thompson
 %%   [http://www.cs.kent.ac.uk/projects/wrangler]
 
-%% @version 0.8.7
+%% @version 0.8.8
 %% @end
 %%
 %% @doc This module describes the refactorings that are currently supported by Wrangler.
@@ -43,7 +43,7 @@
 
 -export([rename_var/6, rename_fun/6, rename_mod/4,
 	 rename_process/6, generalise/6, gen_fun_1/11, gen_fun_clause/10,
-	 move_fun/6, move_fun_1/6,
+	 move_fun/6, move_fun_1/7,
 	 duplicated_code_in_buffer/5,
 	 duplicated_code_in_dirs/5,
 	 identical_expression_search_in_buffer/5, identical_expression_search_in_dirs/5, 
@@ -338,10 +338,10 @@ move_fun(FileName, Line, Col, TargetModName,SearchPaths, TabWidth) ->
 
 
 %%@private
--spec(move_fun_1/6::(filename(),integer(),integer(), string(), [dir()], integer())
+-spec(move_fun_1/7::(filename(),integer(),integer(), string(),  boolean(),[dir()], integer())
       -> {ok, [filename()]} |{error, string()}).
-move_fun_1(FileName, Line, Col, TargetModName,SearchPaths, TabWidth) ->
-    try_refactoring(refac_move_fun, move_fun_1, [FileName, Line, Col, TargetModName, SearchPaths, TabWidth]).
+move_fun_1(FileName, Line, Col, TargetModName, CheckCond, SearchPaths, TabWidth) ->
+    try_refactoring(refac_move_fun, move_fun_1, [FileName, Line, Col, TargetModName, CheckCond, SearchPaths, TabWidth]).
 
 %%@private
 -spec(move_fun_eclipse/6::(filename(),integer(),integer(), string(), [dir()], integer())

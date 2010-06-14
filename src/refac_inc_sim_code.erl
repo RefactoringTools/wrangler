@@ -32,6 +32,8 @@
 
 -export([inc_sim_code_detection/7]).
 
+-compile(export_all).
+
 -include("../include/wrangler.hrl").
 
 -include_lib("stdlib/include/ms_transform.hrl").
@@ -43,34 +45,47 @@
 -define(DEFAULT_FREQ, 2).
 -define(DEFAULT_SIMI_SCORE, 0.8).
 
+-define(ASTTab, list_to_atom(filename:join(?WRANGLER_DIR, "plt/ast_tab"))).
+-define(FileHashTab, list_to_atom(filename:join(?WRANGLER_DIR, "plt/file_hash_tab"))).
+-define(VarTab, list_to_atom(filename:join(?WRANGLER_DIR, "plt/var_tab"))).
+-define(ExpHashTab, list_to_atom(filename:join(?WRANGLER_DIR, "plt/exp_hash_tab"))).
+-define(ExpSeqFile, list_to_atom(filename:join(?WRANGLER_DIR, "plt/exp_seq_file"))).
+
+
 -spec(inc_sim_code_detection/7::(DirFileList::[filename()|dir()], MinLen::float(), MinToks::integer(),MinFreq::integer(), MinScore::float(), 
 			     SearchPaths::[dir()], TabWidth::integer()) -> {ok, string()}). 			     
 inc_sim_code_detection(DirFileList, MinLen, MinToks, MinFreq, SimiScore, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:sim_code_detection(~p,~p,~p,~p, ~p,~p,~p).\n",
 		 [?MODULE, DirFileList, MinLen, MinToks, MinFreq, SimiScore, SearchPaths, TabWidth]),
     Files = refac_util:expand_files(DirFileList, ".erl"),
-    ASTTab = ets:new(ast_tab, [set, public]),
-    VarTab = ets:new(var_tab, [set, public]),
+    ASTTab =from_dets(ast_tab, ?ASTTab),
+    VarTab= from_dets(var_tab, ?VarTab),
+    FileHashTab=from_dets(file_hash_tab,?FileHashTab),
+    ExpHashTab =from_dets(expr_hash_tab, ?ExpHashTab),
     ASTPid = start_ast_process(ASTTab),
     case Files of
       [] ->
 	  ?wrangler_io("Warning: No files found in the searchpaths specified.", []);
       _ ->
-	  _Time1 = now(),
-	  generalise_and_hash_ast(Files, ASTPid, MinLen, VarTab, SearchPaths, TabWidth),
-	  Dir = filename:dirname(hd(Files)),
-	  Cs = get_clones(ASTPid, MinLen, MinToks, MinFreq, Dir),
-	  refac_io:format("Cs:\n~p\n", [Cs]),
-	  ?debug("\nInitial candiates finished\n", []),
-	  ?wrangler_io("\nNumber of initial clone candidates: ~p\n", [length(Cs)]),
-	  CloneCheckerPid = start_clone_check_process(),
-	  Cs2 = examine_clone_class_sets(Cs, MinLen, MinFreq, SimiScore, ASTTab, VarTab, CloneCheckerPid, 1),
-	  refac_io:format("Cs2:\n~p\n", [Cs2]),
-	  stop_clone_check_process(CloneCheckerPid),
-	  _Time2 = now(),
-	  ?wrangler_io("generalise and hash ast finished.\n", [])
+	    _Time1 = now(),
+	    generalise_and_hash_ast(Files, FileHashTab, ASTPid, MinLen, VarTab, SearchPaths, TabWidth),
+	    ?wrangler_io("Generalise and has hash finished.\n",[]),
+	    Dir = filename:dirname(hd(Files)),
+	    Cs = get_clone_candidates(ASTPid, MinLen, MinToks, MinFreq, Dir),
+	    ?debug("\nInitial candiates finished\n", []),
+	    ?wrangler_io("\nNumber of initial clone candidates: ~p\n", [length(Cs)]),
+	    CloneCheckerPid = start_clone_check_process(),
+	    Cs2 = examine_clone_candidates(Cs, MinLen, MinFreq, SimiScore, ASTTab, VarTab, CloneCheckerPid, 1),
+	    stop_clone_check_process(CloneCheckerPid),
+	    _Time2 = now(),
+	    refac_code_search_utils:display_clone_result(Cs2, "Similar")
     end,
-    stop_ast_process(ASTPid).
+    stop_ast_process(ASTPid),
+    to_dets(ASTTab, ?ASTTab),
+    to_dets(VarTab, ?VarTab),
+    to_dets(FileHashTab, ?FileHashTab),
+    to_dets(ExpHashTab, ?ExpHashTab).
+    
  
 %% Serialise, in breath-first order, and generalise each expression in the AST,
 %% and insert them into the AST table. Each object in the AST table has the following format:
@@ -81,9 +96,15 @@ inc_sim_code_detection(DirFileList, MinLen, MinToks, MinFreq, SimiScore, SearchP
 %% for files, use MD5; for functions, a function has to be parsed and prettyprinted before
 %% calculating its MD5 value.
 
-generalise_and_hash_ast(Files, ASTPid, MinLen, VarTab, SearchPaths, TabWidth) ->	     
+generalise_and_hash_ast(Files, FileHashTab, ASTPid, MinLen, VarTab, SearchPaths, TabWidth) ->	     
     lists:foreach(fun(File) ->
-			  generalise_and_hash_ast_1(File, ASTPid, MinLen, VarTab, SearchPaths, TabWidth)
+			  NewCheckSum=refac_misc:filehash(File),
+			  case ets:lookup(FileHashTab, File) of
+			      [{File, NewCheckSum}]->
+				  ok;
+			      _ ->
+				  generalise_and_hash_ast_1(File, ASTPid, MinLen, VarTab, SearchPaths, TabWidth)
+			  end
 		  end, Files).
 
 
@@ -107,14 +128,14 @@ generalise_and_hash_ast_1(FName, ASTPid, MinLen, VarTab, SearchPaths, TabWidth) 
 
 generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTPid, MinLen}) ->
     F=fun(Body) ->
-	      case length(Body)>=MinLen of
-		  true ->  
-		      %% only store those expression sequences whose length is 
+	       case length(Body)>=MinLen of
+	       	  true ->  
+		       %% only store those expression sequences whose length is 
 		      %% greater than the threshold specified.
-		      insert_to_ast_tab(ASTPid, {{FName, FunName, Arity}, Body});
-		  false ->
-		      ok
-	      end
+		       insert_to_ast_tab(ASTPid, {{FName, FunName, Arity}, Body});
+		   false ->
+		       ok
+	       end
       end,
     case refac_syntax:type(Node) of
 	clause ->
@@ -128,7 +149,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTPid, MinLen}) ->
 	try_expr ->
 	    Body = refac_syntax:try_expr_body(Node),
 	    F(Body),
-	    {Node, fasle};
+	    {Node, false};
 	_ -> {Node, false}
     end.
 
@@ -168,11 +189,11 @@ stop_ast_process(Pid)->
 insert_to_ast_tab(Pid, {{M, F, A}, ExprASTs}) ->
     Pid ! {add, {{M, F, A}, ExprASTs}}.
 
-get_clones(Pid, MinLen, MinToks, MinFreq, Dir) ->
-    Pid! {get_clones, self(), MinLen, MinToks, MinFreq, Dir},
+get_clone_candidates(Pid, MinLen, MinToks, MinFreq, Dir) ->
+    Pid ! {get_clone_candidates, self(), MinLen, MinToks, MinFreq, Dir},
     receive
-	{Pid, Cs} -> 
-	    Cs
+      {Pid, Cs} ->
+	  Cs
     end.
 
 ast_loop(ASTTab, {CurM, CurF, CurA, Index, HashPid}) ->
@@ -183,7 +204,7 @@ ast_loop(ASTTab, {CurM, CurF, CurA, Index, HashPid}) ->
 		Len = length(ExprASTs),
 		ExprASTsWithIndex = lists:zip(ExprASTs, lists:seq(0, Len - 1)),
 		[begin
-		   ets:insert(ASTTab, {{M, F, A, Index + I}, E}),
+		   ets:insert(ASTTab, {{M, F, A, Index + I}, remove_env_attr(E)}),
 		   NoOfToks = no_of_tokens(E),
 		   E1 = do_generalise(E),
 		   HashVal = erlang:md5(refac_prettypr:format(E1)),
@@ -192,26 +213,28 @@ ast_loop(ASTTab, {CurM, CurF, CurA, Index, HashPid}) ->
 		insert_dummy_entry(HashPid),
 		ast_loop(ASTTab, {CurM, CurF, CurA, Index + Len, HashPid});
 	    false ->
-		  Len = length(ExprASTs),
-		  ExprASTsWithIndex = lists:zip(ExprASTs, lists:seq(1, Len)),
-		  [begin
-		       ets:insert(ASTTab, {{M, F, A, I}, E}),
-		       NoOfToks = no_of_tokens(E),
-		       E1 = do_generalise(E),
-		       HashVal = erlang:md5(refac_prettypr:format(E1)),
-		       insert_hash(HashPid, {HashVal, {{M, F, A, I}, NoOfToks}})
-		   end || {E, I} <- ExprASTsWithIndex],
-		  insert_dummy_entry(HashPid),
-		  ast_loop(ASTTab, {M, F, A, Len + 1, HashPid})
+		Len = length(ExprASTs),
+		ExprASTsWithIndex = lists:zip(ExprASTs, lists:seq(1, Len)),
+		[begin
+		   ets:insert(ASTTab, {{M, F, A, I}, remove_env_attr(E)}),
+		   NoOfToks = no_of_tokens(E),
+		   E1 = do_generalise(E),
+		   HashVal = erlang:md5(refac_prettypr:format(E1)),
+		   insert_hash(HashPid, {HashVal, {{M, F, A, I}, NoOfToks}})
+		 end || {E, I} <- ExprASTsWithIndex],
+		insert_dummy_entry(HashPid),
+		ast_loop(ASTTab, {M, F, A, Len + 1, HashPid})
 	  end;
-      {get_clones, From, MinLen, MinToks, MinFreq, Dir} ->
-	  Cs = get_clones(HashPid, MinLen, MinToks, MinFreq, Dir),
+      {get_clone_candidates, From, MinLen, MinToks, MinFreq, Dir} ->
+	  Cs = get_clone_candidates(HashPid, MinLen, MinToks, MinFreq, Dir),
 	  From ! {self(), Cs},
 	  ast_loop(ASTTab, {CurM, CurF, CurA, Index, HashPid});
       stop ->
-	  stop_hash_process(HashPid),
-	  ets:delete(ASTTab),
-	  ok
+	    stop_hash_process(HashPid),
+	    ok;
+	_Msg -> 
+	    ?wrangler_io("Unexpected message:\n~p\n",[_Msg]),
+	    ok
     end.
 	    
     
@@ -233,9 +256,15 @@ do_generalise(Node) ->
 %%                                                                    %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-start_hash_process() ->		     
-    HashTab = ets:new(hash_value_tab, [set, public]),
-    spawn_link(fun()->hash_loop({1,HashTab,[]}) end).
+start_hash_process() ->	
+    ExpHashTab =from_dets(expr_hash_tab, ?ExpHashTab),
+    case file:consult(?ExpSeqFile) of
+	{ok, Data} ->
+	    Data;
+	_ -> Data=[{{{'_','_','_','_'},0},'#'}],
+	     Data
+    end,
+    spawn_link(fun()->hash_loop({1,ExpHashTab,Data}) end).
 
 stop_hash_process(Pid) ->
     Pid!stop.
@@ -246,25 +275,26 @@ insert_hash(Pid, {HashVal, Elem={{_M,_F, _A, _Index}, _NumTok}}) ->
 insert_dummy_entry(Pid) ->
     Pid ! add_dummy.
 
-hash_loop({Index, HashTab, Data}) ->
+hash_loop({Index, ExpHashTab, Data}) ->
     receive
-	{add, {Key, {{M, F, A, Index1}, NumOfToks}}} ->
-	    case ets:lookup(HashTab, Key) of
-		[{Key, I}] ->
-		    hash_loop({Index, HashTab, [{{{M,F, A, Index1},NumOfToks},I}| Data]});
-		[] -> ets:insert(HashTab, {Key, Index}),
-		      hash_loop({Index + 1, HashTab, [{{{M,F, A, Index1},NumOfToks},Index}| Data]})
-	    end;
-	 add_dummy ->
-		hash_loop({Index, HashTab, [{{{'_','_','_','_'}, 0},'#'}| Data]});
-	 {get_clones, From, MinLen, MinToks, MinFreq, Dir} ->
-		Cs = search_for_clones(Dir,lists:reverse(Data), MinLen, MinToks,MinFreq),
-		From ! {self(), Cs},
-		hash_loop({Index, HashTab, Data});
-	 stop ->
-		ets:delete(HashTab),
-		ok
-	end.
+      {add, {Key, {{M, F, A, Index1}, NumOfToks}}} ->
+	  case ets:lookup(ExpHashTab, Key) of
+	    [{Key, I}] ->
+		hash_loop({Index, ExpHashTab, [{{{M, F, A, Index1}, NumOfToks}, I}| Data]});
+	    [] -> ets:insert(ExpHashTab, {Key, Index}),
+		  hash_loop({Index + 1, ExpHashTab, [{{{M, F, A, Index1}, NumOfToks}, Index}| Data]})
+	  end;
+      add_dummy ->
+	  hash_loop({Index, ExpHashTab, [{{{'_', '_', '_', '_'}, 0}, '#'}| Data]});
+      {get_clone_candidates, From, MinLen, MinToks, MinFreq, Dir} ->
+	    Cs = search_for_clones(Dir, lists:reverse(Data), MinLen, MinToks, MinFreq),
+	    From ! {self(), Cs},
+	    hash_loop({Index, ExpHashTab, Data});
+	stop ->
+	    to_dets(ExpHashTab, ?ExpHashTab),
+	    file:write_file(?ExpSeqFile, term_to_binary(Data)),
+	    ok
+    end.
 
 
 
@@ -283,17 +313,22 @@ stop_clone_check_process(Pid) ->
 add_new_clones(Pid, Clones) ->
     Pid ! {add_clone, Clones}.
 
+get_final_clone_classes(Pid, ASTTab) ->
+    Pid ! {get_clones, self(), ASTTab},
+    receive
+      {Pid, Cs} ->
+	  Cs
+    end.
 
 clone_check_loop(Cs) ->
     receive
 	{add_clone,  Clones} ->
-	    clone_check_loop(lists:keysort(2, Clones++Cs));
-	{is_sub_clone, From, {Ranges,{Len, Freq}}} ->
-	    From! {self(),is_sub_clone({Ranges, {Len, Freq},none}, Cs)},
-	    clone_check_loop(Cs);
-	{get_clones, From} ->
-	    From ! {self(), remove_sub_clones(Cs)},
-	    clone_check_loop(Cs);       
+	    clone_check_loop(Clones++Cs);
+	{get_clones, From, ASTTab} ->
+	    Cs1 = remove_sub_clones(lists:keysort(2,Cs)),
+	    Cs2=[get_clone_class_in_absolute_locs(C, ASTTab)||C<-Cs1],
+	    From ! {self(), Cs2},
+	    clone_check_loop(Cs1);       
 	stop ->
 	    ok;
 	_Msg -> 
@@ -302,51 +337,146 @@ clone_check_loop(Cs) ->
     end.
  
 %%=============================================================================
-examine_clone_class_sets([], _MinLen, _MinFreq, _SimiScore, ASTTab, _VarTab, Pid, _Num) ->
-    Pid ! {get_clones, self()},
-    receive
-      {Pid, Cs} ->
-	  [get_generalised_form(ASTTab, C) || C <- Cs]
-    end;
-examine_clone_class_sets([C| Cs], MinLen, MinFreq, SimiScore, ASTTab, VarTab, Pid, Num) ->
+examine_clone_candidates([], _MinLen, _MinFreq, _SimiScore, ASTTab, _VarTab, Pid, _Num) ->
+    get_final_clone_classes(Pid, ASTTab);
+examine_clone_candidates([C| Cs], MinLen, MinFreq, SimiScore, ASTTab, VarTab, Pid, Num) ->
     ?wrangler_io("\nChecking the ~pth clone candidate...", [Num]),
-    {Res,_}= examine_a_clone_class_set(C, MinLen, MinFreq, SimiScore, ASTTab, VarTab, Pid),
-    add_new_clones(Pid, Res),
-    examine_clone_class_sets(Cs, MinLen, MinFreq, SimiScore, ASTTab, VarTab, Pid, Num + 1).
+    case examine_a_clone_candidate(C, MinLen, MinFreq, SimiScore, ASTTab, VarTab) of
+	[] ->
+	    ok;
+	Clones ->
+	    ClonesWithAntiUnifier=[{Ranges, {Len, Freq}, get_anti_unifier(ASTTab, Info)}
+				   ||{Ranges, {Len, Freq}, Info}<-Clones],
+	    add_new_clones(Pid, ClonesWithAntiUnifier)
+    end,
+    examine_clone_candidates(Cs, MinLen, MinFreq, SimiScore, ASTTab, VarTab, Pid, Num + 1).
 
-examine_a_clone_class_set(C, MinLen, MinFreq, SimiScore, ASTTab, VarTab, Pid) ->
-    refac_io:format("C:\n~p\n", [C]),
-    {Ranges, {Len, Freq}}=C,
-    Res = examine_a_clone_class(C, MinFreq, SimiScore, ASTTab, VarTab),
-    case Res of
-	[R] when element(2, R) == Freq ->
-	    %% the clone class candiate is a real clone clones;
-	    %% the checking of this clone set finishes here;
-	    {Res,[]};
-	_ ->
-	    case Len-MinLen>1 of 
+examine_a_clone_candidate(C, MinLen, MinFreq, SimiScore, ASTTab, VarTab) ->
+    {Ranges, {_Len, _Freq}} = C,
+    examine_clone_class_members(Ranges, C, MinLen, MinFreq, SimiScore, ASTTab, VarTab, []).
+  
+examine_clone_class_members([], _, _, _, _, _,_, Acc) ->
+    remove_sub_clones(lists:keysort(2, Acc));
+examine_clone_class_members([Range1| Rs], _C = {Ranges, {Len, Freq}}, MinLen, MinFreq, SimiScore, ASTTab, VarTab, Acc) ->
+    {Exprs1, _VarsToExport} = get_expr_list_and_vars_to_export(Range1, ASTTab, VarTab),
+    %% refac_io:format("Rs:\n~p\n", [Rs]),
+    Res = lists:map(fun (Range2) ->
+		       case Range2 == Range1 of
+			   true ->  [];
+			   _ ->
+			       %% refac_io:format("Range2:\n~p\n", [Range2]),
+			       {Exprs2, _VarsToExport2} = get_expr_list_and_vars_to_export(Range2, ASTTab, VarTab),
+			       do_anti_unification({Range1, Exprs1}, {Range2, Exprs2})
+		       end
+	       end, Rs),
+    Length=length(Range1),
+    Clones=process_au_result(Res, Length, MinLen, MinFreq, SimiScore, ASTTab, VarTab,[]),
+    case Clones==[] orelse element(1, element(2, (hd(Clones))))/=Length of
+	true ->
+  	    RemainedRanges=Ranges--[Range1],
+	    case length(RemainedRanges)>=MinFreq of 
 		true ->
-		    %% the clone class candidate is devided into smaller ones;
-		    %% continue checking the remainng ones;
-		    NewRanges0=sub_list(Ranges, Len-1),
-		    NewRanges=zip(NewRanges0),
-		    NewCs =[{Rs, {length(hd(Rs)), Freq}} || Rs <- NewRanges],
-		    examine_clone_class_sets_1(NewCs, MinLen, MinFreq, SimiScore, ASTTab, VarTab, Pid,Res);  
+		    %% refac_io:format("RemainedRanges:\n~p\n",[RemainedRanges]),
+		    examine_clone_class_members(Rs, {RemainedRanges, {Len, Freq}}, MinLen,
+						MinFreq, SimiScore, ASTTab, VarTab, Clones++Acc);
 		false ->
-		    {Res,[]}
+		    Clones++Acc
+	    end;
+	false->
+	    Rs1 = element(1, hd(Clones)),
+	    RemainedRanges=Ranges--Rs1,
+	    case length(RemainedRanges)>=MinFreq of
+		true ->
+		    %% refac_io:format("RemainedRanges1:\n~p\n",[RemainedRanges]),
+		    examine_clone_class_members(Rs -- Rs1, {RemainedRanges, {Len, Freq}}, MinLen, 
+						MinFreq, SimiScore, ASTTab, VarTab, Clones++Acc);
+		false ->
+		    Clones++Acc
+	    end			
+    end.
+    
+
+process_au_result(_AURes, CurLen, MinLen, _MinFreq, _SimiScore, _ASTTab, _VarTab, Acc)
+  when CurLen<MinLen ->
+    Res =lists:reverse(remove_sub_clones(lists:keysort(2, Acc))),
+    Res;
+process_au_result(AURes, CurLen, MinLen, MinFreq, SimiScore, ASTTab, VarTab, Acc) ->
+    AUSubReses=sub_list(AURes, CurLen),
+    Clones=lists:append([process_a_sub_au_result(AUSubRes, MinFreq, SimiScore, ASTTab, VarTab)||AUSubRes<-AUSubReses]),
+    case Clones/=[] andalso length(element(1,hd(Clones)))== length(AURes)+1 of
+	true -> 
+	    TotalLen=length(hd(AURes)),
+	    %% refac_io:format("CurLen:\n~p\n", [CurLen]),
+	    %% case TotalLen-CurLen<CurLen of
+	    %% 	true ->
+	    %% 	    process_au_result(AURes, TotalLen-CurLen,MinLen, MinFreq, SimiScore, ASTTab, VarTab, Clones++Acc);
+	    %% 	false ->
+	    process_au_result(AURes, MinLen-1,MinLen, MinFreq, SimiScore, ASTTab, VarTab, Clones++Acc);
+	    %%end;		    
+	false ->
+	    process_au_result(AURes, CurLen-1,MinLen, MinFreq, SimiScore, ASTTab, VarTab, Clones++Acc)
+    end.
+    
+process_a_sub_au_result(Res, MinFreq,SimiScore, ASTTab, VarTab) ->
+    {Range, _, _}=lists:unzip3(hd(Res)),
+    {_, VarsToExport} = get_expr_list_and_vars_to_export(Range, ASTTab, VarTab),			       
+    NewRes=lists:append([process_a_sub_au_result_1(R, SimiScore, ASTTab, VarTab)||R<-Res]),
+    case length(NewRes)< MinFreq-1 of
+	true->[];
+	_ ->
+	    {Ranges, ExportVars, SubSt} = lists:unzip3(NewRes),
+	    ExportVars1 = {element(1, lists:unzip(VarsToExport)), lists:usort(lists:append(ExportVars))},
+	    [{[Range| Ranges], {length(hd(Res)), length(Ranges) + 1}, {Range,SubSt, ExportVars1}}]
+    end.
+    
+    
+process_a_sub_au_result_1(AURes, SimiScore, ASTTab, VarTab) ->
+    {Range1, Range2, Subst} = lists:unzip3(AURes),
+   %% refac_io:format("R1R2S:\n~p\n", [{Range1, Range2, Subst}]),
+    {Exprs1, _VarsToExport1} = get_expr_list_and_vars_to_export(Range1, ASTTab, VarTab),
+    {Exprs2, VarsToExport2} = get_expr_list_and_vars_to_export(Range2, ASTTab, VarTab),
+    case lists:member(none, Subst) of
+	true ->
+	    %% refac_io:format("Subst:\n~p\n", [Subst]),
+	    [];
+	false ->
+	    Subst1=lists:append(Subst),
+	    {SubExprs1, SubExprs2}=lists:unzip(Subst1),
+	    %% refac_io:format("SubExprs2::\n~p\n", [SubExprs2]),
+	    %% refac_io:format("Exprs1:~p\n", [Exprs1]),
+	    Score1 = simi_score(Exprs1, SubExprs1),
+	    Score2 = simi_score(Exprs2, SubExprs2),
+	    %% refac_io:format("Score1:\n~p\n", [Score1]),
+	    %% refac_io:format("Score2:\n~p\n", [Score2]),
+	    case Score1 >= SimiScore andalso Score2 >= SimiScore of
+		true ->
+		    case anti_unification:subst_sanity_check(Exprs1, Subst1) of
+			false ->
+			    [];
+			_ ->
+			    EVs = [E1 || {E1, E2} <- Subst1, refac_syntax:type(E2) == variable,
+					 lists:member({refac_syntax:variable_name(E2), get_var_define_pos(E2)}, 
+						      VarsToExport2)],
+			    [{Range2, EVs, Subst1}]
+		    end;
+		_ -> []
 	    end
     end.
- 
 
-examine_clone_class_sets_1([], _, _, _, _, _, _, Acc) -> {Acc,[]};
-examine_clone_class_sets_1([C| Cs], MinLen, MinFreq, SimiScore, ASTTab, VarTab, Pid, Acc) ->
-    {Res, NewCs}= examine_a_clone_class_set(C, MinLen, MinFreq, SimiScore, ASTTab, VarTab, Pid),
-    examine_clone_class_sets_1(NewCs++Cs, MinLen, MinFreq, SimiScore, ASTTab, VarTab, Pid, Acc++Res).
-
-
+do_anti_unification({Range1,Exprs1}, {Range2, Exprs2}) ->
+    %% refac_io:format("Range1 Range2:\n~p\n", [{Range1, Range2}]),
+    ZippedExprs1=lists:zip(Range1, Exprs1),
+    ZippedExprs2=lists:zip(Range2, Exprs2),
+    ZippedExprs=lists:zip(ZippedExprs1, ZippedExprs2),
+    [begin
+	 %% refac_io:format("Index1, Index2:\n~p\n", [{Index1, Index2}]),
+	 %% refac_io:format("anti_unification:\n~p\n", [ anti_unification:anti_unification(E1,E2)]),
+	 {Index1, Index2,
+	  anti_unification:anti_unification(E1,E2)}
+     end|| {{Index1,E1}, {Index2, E2}}<-ZippedExprs].
+    
 remove_sub_clones(Cs) ->
     remove_sub_clones(lists:reverse(Cs),[]).
-
 remove_sub_clones([], Acc_Cs) ->
     lists:reverse(Acc_Cs);
 remove_sub_clones([C|Cs], Acc_Cs) ->
@@ -385,63 +515,15 @@ is_sub_clone({Ranges, {Len, Freq}}, ExistingClones) ->
 		_ ->
 		    false
 	    end
-    end.
+    end;
+is_sub_clone(_,_) ->
+     false.
 is_sub_ranges(Ranges1, Ranges2) ->
     lists:all(fun (R1)  -> 
 		      lists:any(fun (R2) ->
 					R1--R2==[]
 				end, Ranges2) 
 	      end, Ranges1).
-	 
-    
-examine_a_clone_class({Ranges, {Len, Freq}}, MinFreq, SimiScore, ASTTab, VarTab) ->
-    examine_clone_members(Ranges, {Ranges, {Len, Freq}}, MinFreq, SimiScore, ASTTab, VarTab,[]).
-  
- 
-examine_clone_members([], _, _, _, _, _, Acc) ->
-    Acc;
-examine_clone_members([R| Rs], C = {Ranges, {Len, Freq}}, MinFreq, SimiScore, ASTTab, VarTab, Acc) ->
-    Res = examine_a_clone_class_member(R, C, MinFreq, SimiScore, ASTTab, VarTab),
-    case Res of
-      [] ->
-	  Ranges1 = Ranges -- [R],
-	  examine_clone_members(Rs, {Ranges1, {Len, Freq}},
-				MinFreq, SimiScore, ASTTab, VarTab, Acc);
-      {Rs1, {_Len1, _Freq1}, _Str} ->
-	  examine_clone_members(Rs -- Rs1, {Ranges -- Rs1, {Len, Freq}}, MinFreq,
-				SimiScore, ASTTab, VarTab, [Res| Acc])
-    end.
-
-examine_a_clone_class_member(Range = [{{FName, _Fun, _Arity, _Index},_}| _T], {Rs, {Len, _Freq}}, MinFreq, SimiScore, ASTTab, VarTab) ->
-    {Exprs1, VarsToExport} = get_expr_list_and_vars_to_export(Range, ASTTab, VarTab),
-    Res = pmap(fun (R) ->
-		       case R == Range of
-			 true -> [];
-			 _ ->
-			     find_anti_unifier(FName, Exprs1, R, SimiScore, ASTTab, VarTab)
-		       end
-	       end, Rs),
-    Res1 = lists:append(Res),
-    case length(Res1) < MinFreq - 1 of
-      true -> [];
-      _ ->
-	  {Ranges, ExportVars, SubSt} = lists:unzip3(Res1),
-	  ExportVars1 = {element(1, lists:unzip(VarsToExport)), lists:usort(lists:append(ExportVars))},
-	  {[Range| Ranges], {Len, length(Ranges) + 1}, {Range, SubSt, ExportVars1}}
-    end.
-    
-
-find_anti_unifier(_FileName, Exprs1, Range, SimiScore, ASTTab, VarTab) ->
-    {Exprs2, VarsToExport} = get_expr_list_and_vars_to_export(Range, ASTTab, VarTab),
-    Res = anti_unification:anti_unification_with_score(Exprs1, Exprs2, SimiScore),
-    case Res of
-	none ->
-	    []; 
-	SubSt->
-	    EVs = [E1 || {E1, E2} <- SubSt, refac_syntax:type(E2) == variable,
-			 lists:member({refac_syntax:variable_name(E2), get_var_define_pos(E2)}, VarsToExport)],
-	    [{Range, EVs, SubSt}]
-    end.
 
 
 get_var_define_pos(V) ->
@@ -449,11 +531,27 @@ get_var_define_pos(V) ->
     DefinePos.
 
 
-get_generalised_form(ASTTab,{Ranges, {Len, Freq}, {ExprKeys, SubSt, ExportVars}}) ->
-    Exprs1 = [ExpAST||{ExprKey,_}<-ExprKeys, {_Key, ExpAST}<-ets:lookup(ASTTab, ExprKey)],
-    AntiUnifier = anti_unification:generate_anti_unifier(Exprs1, SubSt, ExportVars),
-    {Ranges, {Len, Freq}, refac_prettypr:format(AntiUnifier)}.
+get_anti_unifier(ASTTab, {ExprKeys, SubSt, ExportVars}) ->
+    Exprs1 = [ExpAST || {ExprKey, _} <- ExprKeys, {_Key, ExpAST} <- ets:lookup(ASTTab, ExprKey)],
+    refac_prettypr:format(anti_unification:generate_anti_unifier(Exprs1, SubSt, ExportVars)).
+
+
+	    
+get_clone_class_in_absolute_locs({Ranges, {Len, Freq}, AntiUnifier}, ASTTab)->
+    StartEndLocs = [get_clone_member_start_end_loc(R, ASTTab) || R <- Ranges],
+    {StartEndLocs, Len, Freq, AntiUnifier}.
    
+get_clone_member_start_end_loc(ExprKeys, ASTTab) ->
+    {{File, Fun, Arity, Index}, _NumToks} = hd(ExprKeys),
+    {{File, Fun, Arity, Index1}, _} = lists:last(ExprKeys),
+    [{_, Expr1}] = ets:lookup(ASTTab, {File, Fun, Arity, Index}),
+    [{_, Expr2}] = ets:lookup(ASTTab,  {File, Fun, Arity, Index1}),
+    {{StartLine, StartCol}, _} = refac_misc:get_start_end_loc(Expr1),
+    {_, {EndLine, EndCol}} = refac_misc:get_start_end_loc(Expr2),
+    {{File, StartLine, StartCol}, {File, EndLine, EndCol}}.
+    
+    
+
 
 get_expr_list_and_vars_to_export(ExprKeys=[{{FName, FunName, Arity, _Index}, _}|_T], ASTTab, VarTab) ->
     Es = [ExpAST||{ExprKey,_}<-ExprKeys, {_Key, ExpAST}<-ets:lookup(ASTTab, ExprKey)],
@@ -470,7 +568,11 @@ get_expr_list_and_vars_to_export(ExprKeys=[{{FName, FunName, Arity, _Index}, _}|
     end.
 
 
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                            %%
+%%        Search for cloned candidates                        %%
+%%                                                            %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 search_for_clones(Dir, Data, MinLen, MinToks, MinFreq) ->
     F0 = fun (I) ->
 		 case is_integer(I) of
@@ -482,15 +584,17 @@ search_for_clones(Dir, Data, MinLen, MinToks, MinFreq) ->
 		lists:duplicate(length(F0(I)), {I, Elem})
 	end,
     IndexStr = lists:append([F0(I) || {_, I} <- Data]),
-    refac_io:format("Data:\n~p\n", [Data]),
-    refac_io:format("IndexStr:\n~p\n",[IndexStr]),
+   %% refac_io:format("IndexStr:\n~p\n", [IndexStr]),
     SuffixTreeExec = filename:join(?WRANGLER_DIR, "bin/suffixtree"),
-    Cs = suffix_tree:get_clones_by_suffix_tree(Dir, IndexStr ++ "&", MinLen, MinFreq, "0123456789,#&", 1, SuffixTreeExec),
+    Cs = suffix_tree:get_clones_by_suffix_tree(Dir, IndexStr ++ "&", MinLen, 
+					       MinFreq, "0123456789,#&", 1, SuffixTreeExec),
+    %%refac_io:format("Cs:\n~p\n", [length(Cs)]),
     Cs1 = lists:append([strip_a_clone({[{S, E}| Ranges], {Len, Freq}}, SubStr, MinLen, MinFreq)
 			|| {[{S, E}| Ranges], Len, Freq} <- Cs,
 			   SubStr <- [lists:sublist(IndexStr, S, E - S + 1)]]),
+    %%refac_io:format("Cs1:\n~p\n", [length(Cs1)]),
     Cs2 = refac_code_search_utils:remove_sub_clones([{R, Len, Freq} || {R, {Len, Freq}} <- Cs1]),
-    refac_io:format("Cs2:\n~p\n", [Cs2]),
+    %%refac_io:format("Cs2:\n~p\n", [length(Cs2)]),
     NewData = lists:append([F(Elem) || Elem <- Data]),
     get_clones_in_ranges([{R, {Len, Freq}} || {R, Len, Freq} <- Cs2],
 			 NewData, MinLen, MinToks, MinFreq).
@@ -545,8 +649,7 @@ split_a_clone({Ranges, {Len, F}}, Str, MinLen, MinFreq) ->
 		    split_a_clone({RemainedRanges, {Len, F}}, Str22, MinLen,MinFreq)
 	    end
     end.
-
-   
+  
 remove_overlapped_ranges(Rs) ->
     Rs1 = lists:sort(Rs),
     R = hd(Rs1),
@@ -560,30 +663,32 @@ remove_overlapped_ranges([{S, E}| Rs], {S1, E1}, Acc) ->
       false ->
 	  remove_overlapped_ranges(Rs, {S, E}, [{S, E}| Acc])
     end.
-get_clones_in_ranges(Cs, Data, _MinLen, MinToks, MinFreq) ->
+get_clones_in_ranges(Cs, Data, MinLen, MinToks, MinFreq) ->
     F0 = fun ({S, E}) ->
 		 {_, Ranges} = lists:unzip(lists:sublist(Data, S, E - S + 1)),
-		 refac_misc:remove_duplicates(Ranges)
+		 Ranges1=refac_misc:remove_duplicates(Ranges)
 		 %% %% get all the clones with length between MinLen and length(Ranges1);
-		 %% sub_list(Ranges1, MinLen, length(Ranges1))
+		%% sub_list(Ranges1, MinLen, length(Ranges1))
 	 end,
     F = fun ({Ranges, {_Len, Freq}}) ->
 		case Freq >= MinFreq of
 		  true ->
 			NewRanges = [F0(R) || R <- Ranges],
+			%%refac_io:format("NewRanges:\n~p\n", [NewRanges]),
 			{NewRanges, {length(hd(NewRanges)), Freq}};
 		    _ -> []
 		end
 	end,
     NewCs=[F(C) || C <- Cs],
-    remove_short_clones(NewCs, MinToks,MinFreq).
+    NewCs1=remove_short_clones(NewCs, MinToks,MinFreq),
+    NewCs1.
   
 remove_short_clones(Cs, MinToks, MinFreq) ->
     F= fun({Rs, {Len, _Freq}}) ->
-	       Rs1=[R||R<-Rs, {Ranges, NumToks}<-[lists:unzip(R)] ,
+	       Rs1=[R||R<-Rs, {_Ranges, NumToks}<-[lists:unzip(R)] ,
 			    lists:sum(NumToks)>=MinToks],
 	       Freq1 = length(Rs1),
-	       case Freq1>MinFreq of
+	       case Freq1>=MinFreq of
 		   true ->
 		       [{Rs1, {Len, Freq1}}];
 		   false->
@@ -592,24 +697,35 @@ remove_short_clones(Cs, MinToks, MinFreq) ->
        end,
     lists:append([F({Rs, {Len, Freq}})||{Rs, {Len, Freq}}<-Cs]).
 
-%% ================================================
-%% some_utils functions
 
-zip(L) ->[nested_tuple_to_list(E)||E<-zip_1(L)].
-zip_1([]) ->[];
-zip_1([L]) ->L;
-zip_1([L,H|T]) ->
-    zip_1([lists:zip(L,H)|T]).
 
-nested_tuple_to_list({A,B}) ->
-    nested_tuple_to_list(A)++[B];
-nested_tuple_to_list(A) ->
-    [A].
 
-sub_list(List, Len) ->
-    [sub_list_1(L, Len) ||L<-List].
+sub_list(ListOfList, Len) ->
+    zip_list([sub_list_1(L, Len) ||L<-ListOfList]).
+    
 sub_list_1(List, Len)->
     [lists:sublist(List, I, Len)||I<- lists:seq(1, length(List)-Len+1)].
+
+zip_list(ListOfLists) ->    
+    zip_list_1(ListOfLists, []).
+
+zip_list_1([[]|_T], Acc)  ->
+    Acc;
+zip_list_1(ListOfLists, Acc)->      
+    zip_list_1([tl(L) || L <-ListOfLists],
+	       Acc ++ [[hd(L)|| L  <- ListOfLists]]).
+
+
+sub_list(List, Len, MaxLen) ->
+    sub_list_1(List, Len, MaxLen, []).
+sub_list_1(_List, Len, MaxLen, Acc) when Len>MaxLen ->
+    Acc;
+sub_list_1(List, Len, MaxLen, Acc) when Len==MaxLen ->
+    [List|Acc];
+sub_list_1(List, Len, MaxLen, Acc) ->
+    SubLists = [lists:sublist(List, I, Len)||I<- lists:seq(1, length(List)-Len+1)],    
+    sub_list_1(List, Len+1, MaxLen, SubLists++Acc).
+
 
 
 pmap(F, L) ->
@@ -635,8 +751,65 @@ no_of_tokens(Node) ->
     Str = refac_prettypr:format(Node),
     {ok, Toks,_} =refac_scan:string(Str, {1,1}, 8, unix),
     length(Toks).
-   
 
+
+from_dets(Ets, Dets) when is_atom(Ets) ->
+    EtsRef = ets:new(Ets, [set, public]),
+    case dets:open_file(Dets, [{access, read}]) of
+      {ok, D} ->
+	  true = ets:from_dets(EtsRef, D),
+	  ok = dets:close(D),
+	  EtsRef;
+      {error, _Reason} -> 
+	    EtsRef
+    end.
+
+to_dets(Ets, Dets) ->
+    try file:delete(Dets) 
+    catch 
+	{error, {file_error, _, enoent}} -> ok;
+	{error, Reason} -> throw({error, Reason})
+    end,
+    MinSize = ets:info(Ets, size),
+    Res= dets:open_file(Dets, [{min_no_slots, MinSize}]),
+    {ok, DetsRef} = Res,
+    ok = dets:from_ets(DetsRef, Ets),
+    ok = dets:sync(DetsRef),
+    ok = dets:close(DetsRef),
+    ets:delete(Ets).
+	
+
+
+
+simi_score(Expr, SubExprs) ->
+    %% refac_io:format("Expr:\n~p\n", [Expr]),
+    %% refac_io:format("SubExprs:\n~p\n", [SubExprs]),
+    %% refac_io:format("Size1:\n~p\n", [no_of_nodes(Expr)]),
+    %% refac_io:format("Size2:\n~p\n", [no_of_nodes(SubExprs)]),
+    case no_of_nodes(Expr) of
+      0 -> 0;
+      ExprSize ->
+	    NonVarExprs = [E || E <- SubExprs, refac_syntax:type(E) =/= variable],
+	    NoOfNewVars = length(NonVarExprs),
+	    Res = 1 - (no_of_nodes(SubExprs) - length(SubExprs)
+		       + NoOfNewVars * (NoOfNewVars + 1) / 2) / ExprSize,
+	    %% Res =1 -((no_of_nodes(SubExprs)-length(SubExprs))/ExprSize),
+	    Res
+    end.
+   
+no_of_nodes(Nodes) when is_list(Nodes) ->
+    lists:sum([no_of_nodes(N)||N<-Nodes]);
+no_of_nodes(Node) ->
+    case refac_syntax:is_leaf(Node) of
+	true -> 1;
+	_ ->
+	    lists:sum([no_of_nodes(T)||
+			  T<-refac_syntax:subtrees(Node)])
+    end.
+
+remove_env_attr(Node) ->
+    ast_traverse_api:full_buTP(fun (T, _Others) -> refac_misc:delete_from_ann(T, env)
+			       end, Node, {}).
 
 %% Some notes:
 
@@ -648,4 +821,4 @@ no_of_tokens(Node) ->
 
 
 
-%% refac_inc_sim_code:inc_sim_code_detection(["c:/cygwin/home/hl/wrangler-0.8.8/src/refac_inc_sim_code.erl"],5, 20, 2, 0.8,[],8).
+%% refac_inc_sim_code:inc_sim_code_detection(["c:/cygwin/home/hl/suites/bearer_handling_and_qos/test"],5, 20, 2, 0.8,[],8).

@@ -389,7 +389,7 @@ get_module_name(ModInfo) ->
 
 test_framework_aware_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName) ->
     eunit_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName),
-    eqc_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName),
+    eqc_name_checking(UsedFrameWorks , OldFunName, Arity, NewFunName),
     testserver_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName),
     commontest_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName).
 
