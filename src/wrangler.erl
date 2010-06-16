@@ -91,7 +91,7 @@
 	 gen_fsm_to_record_eclipse/3,gen_fsm_to_record_1_eclipse/7
 	]).
 
--export([try_refactoring/3, try_inspector/3, get_log_msg/0]).
+-export([try_refactoring/3, get_log_msg/0]).
 
 -export([init_eclipse/0]).
 -include("../include/wrangler.hrl").
@@ -1163,6 +1163,25 @@ eqc_statem_to_fsm(FileName, StateName, SearchPaths, TabWidth) ->
 eqc_statem_to_fsm_eclipse(FileName, StateName, SearchPaths, TabWidth) ->
     try_refactoring(refac_statem_to_fsm, eqc_statem_to_fsm_eclipse, [FileName, StateName, SearchPaths, TabWidth]).
 
+
+
+%% %%==========================================================================================
+%% -spec(partition_exports/3::(File::filename(), SearchPaths::[filename()|dir()],DistTreshold::float()) ->
+%% 			{error, string()}|{ok, [filename()]}). 		  
+%% partition_exports(File, SearchPaths, DistThreshold)->
+%%     ?wrangler_io("\nCMD: ~p:partition_exports(~p,~p,~p).\n",
+%% 		 [?MODULE, File, SearchPaths, DistThreshold]),
+%%     wrangler_modularity_inspection:partition_exports(File, SearchPaths, DistThreshold, emacs).
+   
+   
+%% -spec(partition_exports_eclipse/3::(File::filename(), SearchPaths::[filename()|dir()],DistTreshold::float()) ->
+%% 			{error, string()}| {ok, [{filename(), filename(), string()}]}). 	  
+%% partition_exports_eclipse(File, SearchPaths, DistThreshold)->
+%%     wrangler_modularity_inspection:partition_exports(File, SearchPaths, DistThreshold, eclipse).  
+
+
+
+
 %%@private
 try_to_apply(Mod, Fun, Args, Msg) -> 
     try apply(Mod, Fun, Args)
@@ -1179,13 +1198,6 @@ try_refactoring(Mod, Fun, Args) ->
     Msg = "Wrangler failed to perform this refactoring, "
 	"please report error to erlang-refactor@kent.ac.uk.",
     try_to_apply(Mod, Fun, Args, Msg).
-
-%%@private
-try_inspector(Mod, Fun, Args) -> 
-    Msg ="Wrangler failed to perform this functionality, "  
-	"please report error to erlang-refactor@kent.ac.uk.",
-    try_to_apply(Mod, Fun, Args, Msg).
-
 
 %%@private
 init_eclipse() ->
