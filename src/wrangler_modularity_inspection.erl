@@ -40,7 +40,7 @@
 -export([gen_module_graph/4, gen_function_callgraph/3]).
 
 -export([cyclic_dependent_modules/3,
-	 improper_inter_module_calls/2, partition_exports/3,
+	 improper_inter_module_calls/2, partition_exports/4,
 	 component_extraction_suggestion/1]).
 
 -export([modules_with_big_fanin/4, modules_with_big_fanout/4]).
@@ -78,6 +78,8 @@ gen_function_callgraph(OutFile, FileName, SearchPaths)->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 improper_inter_module_calls(OutFile, SearchPaths) ->
+    ?wrangler_io("\nCMD: ~p:improper_inter_module_calls(~p, ~p).\n",
+		   [?MODULE, OutFile, SearchPaths]),
     ModCallerCallees = refac_module_graph:module_graph_with_funs(SearchPaths),
     FullMG = digraph:new(),
     refac_module_graph:add_edges(ModCallerCallees, [], FullMG),
@@ -95,13 +97,19 @@ improper_inter_module_calls(OutFile, SearchPaths) ->
 		       || {{CallerMod, _}, CalleeMods} <- ImroperDepMG,
 			  {CalleeMod, CalleeFuns} <- CalleeMods,
 			  {CalleeFun, CalleeFunArity} <- CalleeFuns],
-    GroupedEdges = refac_misc:group_by(2, ImproperModDeps),
-    RefacSuggestions = [find_best_target_module(ImproperModDeps, EdgeGroup, NonAPIFunsWithDepMods, FullMG, Files) 
-			|| EdgeGroup <- GroupedEdges],
-    refac_io:format("\n Refactoring suggestions:\n"),
-    refac_io:format(RefacSuggestions),
-    refac_io:format("\n"),
+    case ImproperModDeps of
+	[] ->
+	    ?wrangler_io("\n No improper inter-module dependencies have been found.\n",[]);
+	_ ->
+	    GroupedEdges = refac_misc:group_by(2, ImproperModDeps),
+	    RefacSuggestions = [find_best_target_module(ImproperModDeps, EdgeGroup, NonAPIFunsWithDepMods, FullMG, Files) 
+				|| EdgeGroup <- GroupedEdges],
+	    ?wrangler_io("\n Refactoring suggestions:\n",[]),
+	    ?wrangler_io(RefacSuggestions,[]),
+	    ?wrangler_io("\n",[])
+    end,
     digraph:delete(FullMG).
+    
 
 %%TODO: compare the result of using NonAPIs and ClosedNonAPIs.
 non_api_funs(FileName, ModNames) ->
@@ -255,7 +263,7 @@ is_gen_server_fun(FunDef) ->
 
 exported_funs(File) ->
     {ok, {_, Info}} = refac_util:parse_annotate_file(File, true),
-    {value, {module, ModName}} =lists:keysearch(module,1,Info),
+    ModName = get_module_name(File, Info),
     ImpExports = 
 	case lists:keysearch(attributes, 1, Info) of
 	    {value, {attributes, Attrs}} ->
@@ -283,6 +291,13 @@ exported_funs(File) ->
 	_ -> ImpExports
     end.
 
+
+get_module_name(FName, Info) ->
+    case lists:keysearch(module, 1, Info) of
+	{value, {module, Mod}} -> Mod;
+	_ -> list_to_atom(filename:basename(FName, ".erl"))
+    end.
+
    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                     %%
@@ -302,7 +317,12 @@ cyclic_dependent_modules(OutFile, SearchPaths, WithLabel) ->
     Cycles = [digraph:get_short_cycle(MG, V) || SCC<-SCCs, V <-SCC],
     Cycles1 = remove_duplicated_cycles(Cycles),
     CycleWeakestLinkPairs= [{C, break_a_cycle(C, ModCallerCallees, MG, Files)}|| C<-Cycles1],
-    cycles_to_dot(MG, OutFile,CycleWeakestLinkPairs),
+    case CycleWeakestLinkPairs of 
+	[] ->
+	    ?wrangler_io("\nNo cyclic module dependencies have been found.\n", []);
+	_ ->		
+	    cycles_to_dot(MG, OutFile,CycleWeakestLinkPairs)
+    end,
     digraph:delete(MG).
 
 
@@ -370,9 +390,9 @@ break_a_cycle(Cycle, ModCallerCallees, MG, Files) ->
     CycleCallerCallees0 = get_cycle_caller_callees_1(Cycle, ModCallerCallees),
     case find_weakest_link(CycleCallerCallees0, MG, Files) of 
 	{WeakestLink, RefacCmds} -> 
-	    refac_io:format("Cyclic module dependency caused by exporting of non-API functions:\n~p\n", [Cycle]),
-	    refac_io:format("\n Refactoring suggestions:\n"),
-	    refac_io:format("\n~p\n", [RefacCmds]),
+	    ?wrangler_io("Cyclic module dependency caused by exporting of non-API functions:\n~p\n", [Cycle]),
+	    ?wrangler_io("\n Refactoring suggestions:\n",[]),
+	    ?wrangler_io("\n~p\n", [RefacCmds]),
 	    {WeakestLink,'_'};
 	none ->
 	    CycleCallerCallees = get_cycle_caller_callees(Cycle, ModCallerCallees),
@@ -382,16 +402,16 @@ break_a_cycle(Cycle, ModCallerCallees, MG, Files) ->
 				   end, CycleCallerCallees),
 	    case FlawMods of 
 		[] -> 
-		    refac_io:format("Intra-layer cyclic module dependency found:~p\n",[Cycle]),
+		    ?wrangler_io("Intra-layer cyclic module dependency found:~p\n",[Cycle]),
 		    {{'_','_'},'_'};
 		_ -> 
-		    refac_io:format("\nInter-layer cyclic module dependency found:~p\n",[Cycle]),
+		    ?wrangler_io("\nInter-layer cyclic module dependency found:~p\n",[Cycle]),
 		    FlawMods1=lists:sort(fun({_,_,_,Fs1,_},{_,_,_,Fs2, _})->
 						    length(Fs1)=<length(Fs2)
 					    end, FlawMods),
 		    {M, _, FunsToMove,_,_}=hd(FlawMods1),
-		    refac_io:format("Refactoring suggestion:\n"),
-		    refac_io:format("move_fun(~p, ~p, user_supplied_target_mod).\n", [M, FunsToMove]),
+		    ?wrangler_io("Refactoring suggestion:\n",[]),
+		    ?wrangler_io("move_fun(~p, ~p, user_supplied_target_mod).\n", [M, FunsToMove]),
 		    {{'_','_'}, M}
 	    end  
     end.
@@ -432,9 +452,8 @@ score_a_link(_Link={M1, M2, {File, FAs}}, ModNames) ->
 			       lists:member({F, A}, FAs),
 			       APIScore > ?SimiScore orelse MoveScore/=0],
     digraph:delete(CG),
-    Res={{M1, M2}, NonAPIFunsWithDepMods, APIDeps},
-    %% refac_io:format("Res:\n~p\n", [Res]),
-    Res.
+    {{M1, M2}, NonAPIFunsWithDepMods, APIDeps}.
+  
 
     
 get_caller_mods(MG, {M,F,A}) ->
@@ -706,7 +725,7 @@ format_label([{F,A}|T]) ->
 %%                                                                        %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-partition_exports(File, SearchPaths, DistThreshold1) ->
+partition_exports(File, SearchPaths, DistThreshold1, Editor) ->
     case exported_funs(File) of
 	[] -> throw({error, "This module does not export any functions."});
 	_ -> ok
@@ -733,7 +752,7 @@ partition_exports(File, SearchPaths, DistThreshold1) ->
     digraph:delete(MG),
     digraph:delete(CG),
     AnnAST1=rewrite_export_list(File, NewCs),
-    refac_util:write_refactored_files(File, AnnAST1, emacs, "").
+    refac_util:write_refactored_files(File, AnnAST1, Editor, "").
     
     
    
@@ -848,8 +867,8 @@ group_small_clusters(Cs) ->
     lists:zip(lists:seq(1, length(Cs4)),Cs4).
 
 format_a_cluster({Index, {InMods, OutMods, C}}) ->
-    refac_io:format("\nGroup ~p: Indegree:~p, OutDegree:~p,\n~p\n", 
-		    [Index, InMods, OutMods, C]).
+    ?wrangler_io("\nGroup ~p: Indegree:~p, OutDegree:~p,\n~p\n", 
+		 [Index, InMods, OutMods, C]).
 
 
 is_attribute(F, Name) ->
@@ -918,7 +937,6 @@ group_funs(Matrix, {C1, C2}) ->
 			      (D1+D2)/2
 		      end}
 		 || {{Es, D1}, {Es, D2}}<-lists:zip(RowElems1, RowElems2)],
-    %% refac_io:format("NewRowElems:\n~p\n", [NewRowElems]),
     Matrix1 =[{RowKey1, group_cols(RowKey, NewRowElems1, {C1, C2})}
 	      || {RowKey, RowElems} <- Matrix, 
 		 {RowKey1, NewRowElems1}<-
@@ -926,9 +944,8 @@ group_funs(Matrix, {C1, C2}) ->
 			  true -> {C1++C2, NewRowElems};
 			  false -> {RowKey, RowElems}
 		      end]],
-    Matrix2=remove_duplicated_keys(Matrix1),
-    %%refac_io:format("Matrix1:\n~p\n", [Matrix2]),
-    Matrix2.
+    remove_duplicated_keys(Matrix1).
+   
     
 					
 group_cols(_RowKey, RowElems, {C1, C2}) ->
@@ -1015,15 +1032,15 @@ component_extraction_suggestion(File) ->
     
     Res = [moveability(F, CG, FunSizePairs) || F <- InternalFuns],
     Res1 = lists:reverse(lists:keysort(5, Res)),
-    refac_io:format("\nComponent extraction suggestion:\n"),
-    refac_io:format("{                        Function, LOC to move, LOC left, LOC shared, Score}):\n"), 
+    ?wrangler_io("\nComponent extraction suggestion:\n",[]),
+    ?wrangler_io("{                        Function, LOC to move, LOC left, LOC shared, Score}):\n",[]), 
     format_result(lists:sublist(Res1, 10)).
 
 
 format_result([]) ->
-    refac_io:format("\n");
+    ?wrangler_io("\n",[]);
 format_result([{{_M,F,A}, Loc1, Loc2, Loc3, Score}|Ts]) ->
-    refac_io:format("{~30s/~p,     ~p,      ~p,       ~p,       ~p}\n",[F,A, Loc1, Loc2,Loc3,Score]),
+    ?wrangler_io("{~30s/~p,     ~p,      ~p,       ~p,       ~p}\n",[F,A, Loc1, Loc2,Loc3,Score]),
     format_result(Ts).
    
 
