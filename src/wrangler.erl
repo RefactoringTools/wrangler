@@ -61,7 +61,8 @@
 	 eqc_statem_to_record/3, eqc_statem_to_record_1/7,
  	 eqc_fsm_to_record/3, eqc_fsm_to_record_1/7, 
 	 gen_fsm_to_record/3, gen_fsm_to_record_1/7,
-	 eqc_statem_to_fsm/4]).
+	 eqc_statem_to_fsm/4,
+	 partition_exports/4]).
 
 -export([rename_var_eclipse/6, rename_fun_eclipse/6,
 	 rename_fun_1_eclipse/6, rename_mod_eclipse/4,
@@ -88,7 +89,8 @@
          merge_let_eclipse/3, merge_let_1_eclipse/4,
 	 eqc_statem_to_record_eclipse/3,eqc_statem_to_record_1_eclipse/7,
 	 eqc_fsm_to_record_eclipse/3,eqc_fsm_to_record_1_eclipse/7,
-	 gen_fsm_to_record_eclipse/3,gen_fsm_to_record_1_eclipse/7
+	 gen_fsm_to_record_eclipse/3,gen_fsm_to_record_1_eclipse/7,
+	 partition_exports_eclipse/4
 	]).
 
 -export([try_refactoring/3, get_log_msg/0]).
@@ -1165,21 +1167,22 @@ eqc_statem_to_fsm_eclipse(FileName, StateName, SearchPaths, TabWidth) ->
 
 
 
-%% %%==========================================================================================
-%% -spec(partition_exports/3::(File::filename(), SearchPaths::[filename()|dir()],DistTreshold::float()) ->
-%% 			{error, string()}|{ok, [filename()]}). 		  
-%% partition_exports(File, SearchPaths, DistThreshold)->
-%%     ?wrangler_io("\nCMD: ~p:partition_exports(~p,~p,~p).\n",
-%% 		 [?MODULE, File, SearchPaths, DistThreshold]),
-%%     wrangler_modularity_inspection:partition_exports(File, SearchPaths, DistThreshold, emacs).
+%=========================================================================================
+%%@doc Partition the exports of a module.
+-spec(partition_exports/4::(File::filename(), DistTreshold::string(), 
+			    SearchPaths::[filename()|dir()],TabWidth::integer()) ->
+				 {error, string()}|{ok, [filename()]}). 		  
+partition_exports(File, DistThreshold, SearchPaths, TabWidth)->
+     try_refactoring(wrangler_modularity_inspection, partition_exports, 
+		     [File, DistThreshold, SearchPaths, TabWidth]).
    
-   
-%% -spec(partition_exports_eclipse/3::(File::filename(), SearchPaths::[filename()|dir()],DistTreshold::float()) ->
-%% 			{error, string()}| {ok, [{filename(), filename(), string()}]}). 	  
-%% partition_exports_eclipse(File, SearchPaths, DistThreshold)->
-%%     wrangler_modularity_inspection:partition_exports(File, SearchPaths, DistThreshold, eclipse).  
-
-
+%%@private
+-spec(partition_exports_eclipse/4::(File::filename(), DistTreshold::float(), 
+				    SearchPaths::[filename()|dir()], TabWidth::integer()) ->
+					 {error, string()}| {ok, [{filename(), filename(), string()}]}). 	  
+partition_exports_eclipse(File, DistThreshold, SearchPaths, TabWidth)->
+    try_refactoring(wrangler_modularity_inspection, partition_exports_eclipse, 
+		    [File, DistThreshold, SearchPaths, TabWidth]).
 
 
 %%@private
