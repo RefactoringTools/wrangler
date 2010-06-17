@@ -116,6 +116,9 @@ find_var_instances(FileName, {Line, Col},TabWidth) ->
 		  [FileName, Line, Col, [], TabWidth]).
 
 %% @private interface function for Emacs & Eclipse.
+%% This function return all the places where the variable selected occurs. With 
+%% Emacs, these places are hightlighted, but defining and use occurrances hightlighted
+%% in different color.
 -spec(find_var_instances(FileName::filename(), Line::integer(), Col::integer(), 
 			 SearchPaths::[dir()], TabWidth:: integer()) ->
 	     {error, string()} | {ok, [StartEnd::{pos(), pos()}], [VarDefPos::pos()]}).
