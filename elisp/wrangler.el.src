@@ -239,6 +239,7 @@
       ("From Function to Process" erl-refactor-fun-to-process)
       ))
     ("Normalise Record Expression" erl-refactor-normalise-record-expr)
+    ("Partition Exported Functions"  erl-wrangler-code-inspector-partition-exports)
     nil
     ("Undo" erl-refactor-undo)
     nil
@@ -258,9 +259,10 @@
       ("Long Functions" erl-wrangler-code-inspector-long-funs)
       ("Large Modules" erl-wrangler-code-inspector-large-mods)
       ("Generate Function Callgraph" erl-wrangler-code-inspector-callgraph)
-      ("Generate Modulegraph" erl-wrangler-code-inspector-module-graph)
-     ;; ("Generate Modulegraph for Mutually Recursive Modules" erl-wrangler-code-inspector-module-scc-graph)
-     ;; ("UnCalled Exported Functions" erl-wrangler-code-inspector-uncalled-exports)
+      ("Generate Module Graph" erl-wrangler-code-inspector-module-graph)
+      ("Cyclic Module Dependency" erl-wrangler-code-inspector-cyclic-graph)
+      ("Improper Inter Module Dependency" erl-wrangler-code-inspector-improper-module-dependency)
+      ;;("Component Extraction Suggestion" erl-wrangler-code-component-extraction)
       ("Show Non Tail Recursive Servers" erl-wrangler-code-inspector-non-tail-recursive-servers)
       ("Incomplete Receive Patterns" erl-wrangler-code-inspector-no-flush)))
  
@@ -359,7 +361,7 @@
   (interactive)
   (require 'comint)
   (setq opts (list "-name" wrangler-erl-node-string
-		   "-pa"  %EBIN_DIR%
+		   "-pa"  "C:/cygwin/home/hl/wrangler/share/wrangler/ebin"
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))
@@ -818,8 +820,8 @@
 		(progn 
 		  (if (y-or-n-p msg)
 		      (erl-spawn
-			(erl-send-rpc wrangler-erl-node 'wrangler 'move_fun_1 
-					       (list current-file-name line-no column-no name wrangler-search-paths tab-width))
+			(erl-send-rpc wrangler-erl-node 'refac_move_fun 'move_fun_1 
+					       (list current-file-name line-no column-no name 'true wrangler-search-paths tab-width))
 			(erl-receive (name line-no column-no current-file-name)
 			    ((['rex ['badrpc rsn]]
 			      (message "Refactoring failed: %S" rsn))
@@ -829,8 +831,8 @@
 			      (progn 
 				(if (y-or-n-p msg)
 				    (erl-spawn
-				      (erl-send-rpc wrangler-erl-node 'wrangler 'move_fun_1 
-						    (list current-file-name line-no column-no name wrangler-search-paths tab-width))
+				      (erl-send-rpc wrangler-erl-node 'refac_move_fun 'move_fun_1 
+						    (list current-file-name line-no column-no name 'false wrangler-search-paths tab-width))
 				      (erl-receive (line-no column-no current-file-name)
 					  ((['rex ['badrpc rsn]]
 					    (message "Refactoring failed: %S" rsn))
@@ -854,8 +856,8 @@
 		(progn 
 		  (if (y-or-n-p msg)
 		      (erl-spawn
-			(erl-send-rpc wrangler-erl-node 'wrangler 'move_fun_1 
-				      (list current-file-name line-no column-no name wrangler-search-paths tab-width))
+			(erl-send-rpc wrangler-erl-node 'refac_move_fun 'move_fun_1 
+				      (list current-file-name line-no column-no name 'false wrangler-search-paths tab-width))
 			(erl-receive (line-no column-no current-file-name)
 			    ((['rex ['badrpc rsn]]
 			      (message "Refactoring failed: %S" rsn))
@@ -1391,7 +1393,7 @@
 		    (message "Duplicated code detection finished.")))))
 	  (message "Duplicated code detection aborted.")
 	  ))
-    (message "Please customize Wrangler Search Paths to check duplicated code in other directories.")
+    (message "Please customize Wrangler SearchPaths to check duplicated code in other directories.")
     ))
 		   
   
@@ -2204,8 +2206,8 @@
     (remove-highlights)
     (save-buffer)
     (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'find_var_instances(list 
-						   current-file-name line-no column-no wrangler-search-paths tab-width)))
+      (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'find_var_instances 
+			  (list current-file-name line-no column-no wrangler-search-paths tab-width))
       (erl-receive (buffer)
 	  ((['rex ['badrpc rsn]]
 	    (message "Error: %S" rsn))
@@ -2299,9 +2301,8 @@
 	(if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
 	    (erl-send-rpc wrangler-erl-node 
-			  'wrangler
-			  'try_inspector(list 'wrangler_code_inspector 'nested_case_exprs_in_file 
-						(list current-file-name level wrangler-search-paths tab-width)))
+			  'wrangler_code_inspector 'nested_exprs_in_file 
+			  (list current-file-name level 'case wrangler-search-paths tab-width))
 	    (erl-receive (buffer)
 		((['rex ['badrpc rsn]]
 		  (message "Error: %S" rsn))
@@ -2312,9 +2313,8 @@
 		  ))))
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 
-			'wrangler
-			'try_inspector(list 'wrangler_code_inspector 'nested_case_exprs_in_dirs 
-					      (list level wrangler-search-paths tab-width)))
+			'wrangler_code_inspector 'nested_exprs_in_dirs 
+			(list level 'case wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
 		(message "Error: %S" rsn))
@@ -2337,8 +2337,8 @@
     (if (buffers-saved)
       	(if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'nested_if_exprs_in_file(list 
-                                           current-file-name level wrangler-search-paths tab-width)))
+	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'nested_exprs_in_file 
+				(list current-file-name level 'if wrangler-search-paths tab-width))
 	    (erl-receive (buffer)
 		((['rex ['badrpc rsn]]
 		  (message "Error: %S" rsn))
@@ -2348,8 +2348,8 @@
 		  (message "Searching finished.")
 		  ))))
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 
-                                           'nested_if_exprs_in_dirs(list level wrangler-search-paths tab-width)))
+	  (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 
+			      'nested_exprs_in_dirs (list level 'if wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
 		(message "Error: %S" rsn))
@@ -2371,8 +2371,8 @@
     (if (buffers-saved)
    	(if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'nested_receive_exprs_in_file(list 
-                                   current-file-name level wrangler-search-paths tab-width)))
+	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'nested_exprs_in_file 
+				(list current-file-name level 'receive wrangler-search-paths tab-width))
 	    (erl-receive (buffer)
 		((['rex ['badrpc rsn]]
 		  (message "Error: %S" rsn))
@@ -2382,8 +2382,8 @@
 		  (message "Searching finished.")
 		  ))))
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'nested_receive_exprs_in_dirs(list 
-                                                 level wrangler-search-paths tab-width)))
+	  (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'nested_exprs_in_dirs 
+			      (list level 'receive wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
 		(message "Error: %S" rsn))
@@ -2406,8 +2406,8 @@
 	(buffer (current-buffer)))
     (if  (buffers-saved)
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'caller_called_modules(list
-                     current-file-name wrangler-search-paths tab-width)))
+	  (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'dependencies_of_a_module
+			      (list current-file-name wrangler-search-paths))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
 		(message "Error: %S" rsn))
@@ -2429,8 +2429,8 @@
     (if (buffers-saved)
       	(if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'long_functions_in_file(list 
-                      current-file-name lines wrangler-search-paths tab-width)))
+	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'long_functions_in_file 
+				(list current-file-name lines wrangler-search-paths tab-width))
 	    (erl-receive (buffer)
 		((['rex ['badrpc rsn]]
 		  (message "Error: %S" rsn))
@@ -2440,8 +2440,8 @@
 		  (message "Searching finished.")
 		  ))))
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'long_functions_in_dirs(list 
-                             lines wrangler-search-paths tab-width)))
+	  (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'long_functions_in_dirs 
+			      (list lines wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
 		(message "Error: %S" rsn))
@@ -2459,12 +2459,13 @@
   (let 	(buffer (current-buffer))
     (if (buffers-saved)
       (erl-spawn
-	(erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'large_modules(list lines wrangler-search-paths tab-width)))
+	(erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'large_modules 
+			    (list lines wrangler-search-paths tab-width))
 	(erl-receive (buffer)
 	    ((['rex ['badrpc rsn]]
-	      (message "Error: %S" rsn))
+	      (message "Searching for large modules failed: %S" rsn))
 	     (['rex ['error rsn]]
-	      (message "Error: %s" rsn))
+	      (message "Searching for large modules failded: %s" rsn))
 	     (['rex ['ok mods]]
 	      (message "Searching finished.")
 	      ))))
@@ -2479,13 +2480,14 @@
 	(buffer (current-buffer)))
     (if (buffers-saved)
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'caller_funs(list 
-                            current-file-name line-no column-no  wrangler-search-paths tab-width)))
+	  (erl-send-rpc wrangler-erl-node
+			'wrangler_code_inspector 'calls_to_fun
+			(list current-file-name line-no column-no  wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
 	    ((['rex ['badrpc rsn]]
-	      (message "Error: %S" rsn))
+	      (message "Searching for calls to a function: %S" rsn))
 	     (['rex ['error rsn]]
-	      (message "Error: %s" rsn))
+	      (message "Searching for calls to a function: %s" rsn))
 	     (['rex ['ok funs]]
 	      (message "Searching finished.")))))
       (message "Searching aborted.")
@@ -2500,24 +2502,25 @@
     (if (buffers-saved)
 	(if (y-or-n-p "Only check the current buffer?")
 	    (erl-spawn
-	      (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'non_tail_recursive_servers_in_file(list 
-                            current-file-name wrangler-search-paths tab-width)))
+	      (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'non_tail_recursive_servers_in_file 
+				  (list current-file-name wrangler-search-paths tab-width))
 	      (erl-receive (buffer)
 		  ((['rex ['badrpc rsn]]
-		    (message "Error: %S" rsn))
+		    (message "Searching failed: %S" rsn))
 		   (['rex ['error rsn]]
-		    (message "Error: %s" rsn))
+		    (message "Searching failed: %s" rsn))
 		   (['rex ['ok regions]]
 		    (message "Searching finished.")
 		    ))))
 	  (erl-spawn
 	    (erl-send-rpc wrangler-erl-node 
-			  'wrangler 'try_inspector (list 'wrangler_code_inspector  'non_tail_recursive_servers_in_dirs(list wrangler-search-paths tab-width)))
+			  'wrangler_code_inspector  'non_tail_recursive_servers_in_dirs 
+			  (list wrangler-search-paths tab-width))
 	    (erl-receive (buffer)
 		((['rex ['badrpc rsn]]
-		  (message "Error: %S" rsn))
+		  (message "Searching failed: %S" rsn))
 		 (['rex ['error rsn]]
-		  (message "Error: %s" rsn))
+		  (message "Searching failed: %s" rsn))
 		 (['rex ['ok regions]]
 		  (message "Searching finished.")
 		  )))))
@@ -2534,24 +2537,24 @@
     (if (buffers-saved)
   	(if (y-or-n-p "Only check the current buffer?")
 	    (erl-spawn
-	      (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'not_flush_unknown_messages_in_file(list 
-                          current-file-name wrangler-search-paths tab-width)))
+	      (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'not_flush_unknown_messages_in_file 
+				  (list current-file-name wrangler-search-paths tab-width))
 	      (erl-receive (buffer)
 		  ((['rex ['badrpc rsn]]
-		    (message "Error: %S" rsn))
+		    (message "Searching failed: %S" rsn))
 		   (['rex ['error rsn]]
-		    (message "Error: %s" rsn))
+		    (message "Searching failed: %s" rsn))
 		   (['rex ['ok regions]]
 		    (message "Searching finished.")
 		    ))))
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'not_flush_unknown_messages_in_dirs(list 
-                       wrangler-search-paths tab-width)))
+	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'not_flush_unknown_messages_in_dirs 
+				(list wrangler-search-paths tab-width))
 	    (erl-receive (buffer)
 		((['rex ['badrpc rsn]]
-		  (message "Error: %S" rsn))
+		  (message "Searching failed: %S" rsn))
 		 (['rex ['error rsn]]
-		  (message "Error: %s" rsn))
+		  (message "Searching faild: %s" rsn))
 		 (['rex ['ok regions]]
 		  (message "Searching finished.")
 		  ))))
@@ -2588,13 +2591,13 @@
 	(buffer (current-buffer)))
     (if (buffers-saved)
 	(erl-spawn
-	      (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'gen_function_callgraph(list 
-                          outputfile current-file-name wrangler-search-paths)))
+	      (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'gen_function_callgraph 
+				  (list outputfile current-file-name wrangler-search-paths))
 	      (erl-receive (outputfile)
 		  ((['rex ['badrpc rsn]]
-		    (message "Error: %S" rsn))
+		    (message "Callgraph generation failed: %S" rsn))
 		   (['rex ['error rsn]]
-		    (message "Error: %s" rsn))
+		    (message "Callgraph generation failed: %s" rsn))
 		   (['rex 'true]
 		    (find-file outputfile)
 		    (message "Function callgraph generation finished.")))))
@@ -2613,13 +2616,13 @@
 	    (setq withlabel 'false)
 	    )
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'gen_module_scc_graph(list 
-										  outputfile wrangler-search-paths withlabel)))
+	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'gen_module_scc_graph 
+				(list outputfile wrangler-search-paths withlabel))
 	    (erl-receive (outputfile)
 		((['rex ['badrpc rsn]]
-		  (message "Error: %S" rsn))
+		  (message "Module SCC graph generation failed: %S" rsn))
 		 (['rex ['error rsn]]
-		    (message "Error: %s" rsn))
+		    (message "Module SCC graph generation failed: %s" rsn))
 		 (['rex 'true]
 		  (find-file outputfile)
 		  (message "Module SCC graph generation finished.")))))
@@ -2627,31 +2630,127 @@
       (message "Module SCC graph generation aborted."))))
  
 
-(defun erl-wrangler-code-inspector-module-graph(outputfile notcaremods)
+(defun erl-wrangler-code-inspector-module-graph(outputfile)
   "Generate module graph"
-  (interactive (list (read-file-name "Output .dot file name: " nil nil nil "modulegraph.dot")
-		     (read-string "Module names not to be included in the module graph (separate names by ','): ")))				  
+  (interactive (list (read-file-name "Output .dot file name: " nil nil nil "modulegraph.dot")))
+		   ;;  (read-string "Module names not to be included in the module graph (separate names by ','): ")))				  
+  (if (y-or-n-p (format "Generate module graph for modules in the following directories: %s" wrangler-search-paths))
+      (let ((current-file-name (buffer-file-name))
+	    (buffer (current-buffer)))
+	(if (buffers-saved)
+	    (progn
+	      (if (y-or-n-p "Label edges with function names called?")
+		  (setq withlabel 'true)
+		(setq withlabel 'false)
+		)
+	      (erl-spawn
+		(erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'gen_module_graph 
+				    (list outputfile wrangler-search-paths withlabel))
+		(erl-receive (outputfile)
+		    ((['rex ['badrpc rsn]]
+		    (message "Module graph generation failed: %S" rsn))
+		     (['rex ['error rsn]]
+		      (message "Module graph generation failed: %s" rsn))
+		     (['rex 'true]
+		      (find-file outputfile 'true)
+		      (message "Module graph generation finished."))))))
+	  (message "Module graph generation aborted.")))
+    (message "Please customize Wrangler SearchPaths to generate modulegraph for other directories.")))
+
+
+(defun erl-wrangler-code-inspector-cyclic-graph(outputfile)
+  "Detect cyclic module dependencies"
+  (interactive (list (read-file-name "Output .dot file name: " nil nil nil "cyclic_module_dependency.dot")))		     
+  (if (y-or-n-p (format "Check for modules in the following directories: %s" wrangler-search-paths))
+      (let ((current-file-name (buffer-file-name))
+	    (buffer (current-buffer)))
+	(if (buffers-saved)
+	    (progn
+	      (if (y-or-n-p "Label edges with function names called?")
+		  (setq withlabel 'true)
+		(setq withlabel 'false)
+		)
+	      (erl-spawn
+		(erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'cyclic_dependent_modules 
+				    (list outputfile wrangler-search-paths withlabel))
+		(erl-receive (outputfile)
+		    ((['rex ['badrpc rsn]]
+		    (message "Cyclic module dependency detection failed: %s" rsn))
+		     (['rex ['error rsn]]
+		      (message "Cyclic module dependency detection failed: %s" rsn))
+		     (['rex 'true]
+		      (find-file outputfile 'true)
+		      (message "Cyclic module dependency detection finished."))))))
+	  (message "Cyclic module dependency detection aborted.")))
+    (message "Please customize Wrangler SearchPaths to check for modules in other directories.")))
+
+
+(defun erl-wrangler-code-inspector-improper-module-dependency(outputfile)
+  "Detect improper module dependency"
+  (interactive (list (read-file-name "Output .dot file name: " nil nil nil "improper_module_dependency.dot")))		     
+  (if (y-or-n-p (format "Check for modules in the following directories: %s" wrangler-search-paths))
+      (let ((current-file-name (buffer-file-name))
+	    (buffer (current-buffer)))
+	(if (buffers-saved)
+	    (progn
+	      (erl-spawn
+		(erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'improper_inter_module_calls
+				    (list outputfile wrangler-search-paths))
+		(erl-receive (outputfile)
+		    ((['rex ['badrpc rsn]]
+		      (message "Improper module dependency detection failed: %S" rsn))
+		     (['rex ['error rsn]]
+		      (message "Improper module dependency detection failed: %s" rsn))
+		     (['rex 'true]
+		      (find-file outputfile 'true)
+		      (message "Improper module dependency detection finished."))))))
+	  (message "Improper module depdendency detection aborted.")))
+    (message "Please customize Wrangler SearchPaths to check for modules in other directories.")))
+
+
+
+(defun erl-wrangler-code-inspector-partition-exports(distthreshold)
+  "Partition functions exported by a module"
+  (interactive (list 
+		(read-string "Please input a distance threshould between 0 and 1.0 (default value: 0.8):")
+		))
   (let ((current-file-name (buffer-file-name))
 	(buffer (current-buffer)))
     (if (buffers-saved)
 	(progn
-	  (if (y-or-n-p "Label edges with function names called?")
-	      (setq withlabel 'true)
-	    (setq withlabel 'false)
-	    )
 	  (erl-spawn
-	      (erl-send-rpc wrangler-erl-node 'wrangler 'try_inspector (list 'wrangler_code_inspector 'gen_module_graph(list 
-                          outputfile notcaremods wrangler-search-paths withlabel)))
-	      (erl-receive (outputfile)
-		  ((['rex ['badrpc rsn]]
-		    (message "Error: %S" rsn))
-		   (['rex ['error rsn]]
-		    (message "Error: %s" rsn))
-		   (['rex 'true]
-		    (find-file outputfile 'true)
-		    (message "Module graph generation finished."))))))
-      (message "Module graph generation aborted."))))
- 
+	    (erl-send-rpc wrangler-erl-node 'wrangler_distel 'partition_exports (list current-file-name distthreshold wrangler-search-paths tab-width))
+	    (erl-receive (buffer current-file-name)
+		((['rex ['badrpc rsn]]
+		  (message "Partition of exported functions failed: %S" rsn))
+		 (['rex ['error rsn]]
+		  (message "Partition of exported functions failed: %s" rsn))
+		 (['rex ['ok modified]]
+		  (preview-commit-cancel current-file-name modified)
+		  (message "Partition of exported functions finished."))))))
+      (message "Partition of exported functions aborted."))))
+   
+
+;; (defun erl-wrangler-code-component-extraction()
+;;    "Component extraction suggestions."
+;;    (interactive)
+;;    (let ((current-file-name (buffer-file-name))
+;;  	(buffer (current-buffer)))
+;;      (if (buffers-saved)
+;;  	(progn
+;;  	  (erl-spawn
+;;  	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'try_inspector 
+;;  			  (list 'wrangler_modularity_inspection 'component_extraction_suggestion (list current-file-name)))
+;;  	    (erl-receive (buffer current-file-name) 
+;;  		((['rex ['badrpc rsn]]
+;;  		  (message "Component extraction suggestion failed: %S" rsn))
+;;  		 (['rex ['error rsn]]
+;;  		  (message "Component extraction suggestion failed: %s" rsn))
+;;  		 (['rex 'ok]
+;;  		  (message "Component extraction suggestion finished."))))))
+;;        (message "Compoent extraction suggestion aborted."))))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; The following functions are for monitoring refactoring activities purpose, and ;;
