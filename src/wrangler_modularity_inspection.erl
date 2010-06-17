@@ -40,7 +40,9 @@
 -export([gen_module_graph/4, gen_function_callgraph/3]).
 
 -export([cyclic_dependent_modules/3,
-	 improper_inter_module_calls/2, partition_exports/4,
+	 improper_inter_module_calls/2, 
+	 partition_exports/4,
+	 partition_exports_eclipse/4,
 	 component_extraction_suggestion/1]).
 
 -export([modules_with_big_fanin/4, modules_with_big_fanout/4]).
@@ -724,35 +726,61 @@ format_label([{F,A}|T]) ->
 %%                    Clustering API functions                            %%
 %%                                                                        %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-spec(partition_exports/4::(File::filename(), DistTreshold::string(), 
+			    SearchPaths::[filename()|dir()], TabWidth::integer()) ->
+ 			{ok, [filename()]}).
+partition_exports(File, DistThreshold, SearchPaths, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:partition_exports(~p,~p,~p,~p).\n",
+ 		 [?MODULE, File, DistThreshold, SearchPaths, TabWidth]),
+    DistThreshold1 = get_dist_threshold(DistThreshold),
+    partition_exports(File, DistThreshold1, false, SearchPaths, TabWidth, emacs).
 
-partition_exports(File, SearchPaths, DistThreshold1, Editor) ->
+-spec(partition_exports_eclipse/4::(File::filename(), DistTreshold::float(),
+				    SearchPaths::[filename()|dir()], TabWidth::integer()) ->
+					 {ok, [{filename(), filename(), string()}]}).
+partition_exports_eclipse(File, DistThreshold, SearchPaths, TabWidth) ->
+    partition_exports(File, DistThreshold, false, SearchPaths, TabWidth, eclipse).
+
+
+
+partition_exports(File, DistThreshold, WithInOutDegree, SearchPaths, TabWidth, Editor) ->
+    Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":partition_exports(" ++ "\"" ++
+	File ++ "\", " ++ float_to_list(DistThreshold) ++
+	", " ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," 
+	++ integer_to_list(TabWidth) ++ ").",
     case exported_funs(File) of
 	[] -> throw({error, "This module does not export any functions."});
 	_ -> ok
     end,		  
-    DistThreshold =  get_dist_threshold(DistThreshold1),
-    Mods = [list_to_atom(filename:basename(F, ".erl")) || F <- SearchPaths],
     #callgraph{callercallee = CallerCallees} =
 	wrangler_callgraph_server:get_callgraph([File]),
     CG = digraph:new(),
     add_edges(CallerCallees, CG),
-
-    ModCallerCallees = refac_module_graph:module_graph_with_funs(SearchPaths),
-    MG = digraph:new(),
-    refac_module_graph:add_edges(ModCallerCallees, [], MG),
-
     UsedMRWs = used_macros_records_words(File),
     Coms = gen_components(File),
     Matrix = generate_fun_dist_matrix(File, CG, Coms, UsedMRWs, true),
+    Mods = [list_to_atom(filename:basename(F, ".erl")) || F <- SearchPaths],
     Cs=agglomerative_cluster(Matrix, CG, Coms, UsedMRWs, DistThreshold, Mods),
     ModName = list_to_atom(filename:basename(File, ".erl")),
+    MG = digraph:new(),
+    case WithInOutDegree of 
+	true ->
+	    ModCallerCallees = refac_module_graph:module_graph_with_funs(SearchPaths),
+	    refac_module_graph:add_edges(ModCallerCallees, [], MG);
+	false ->
+	    ok
+    end,
     CsWithInOutDegree =[get_in_out_degree(ModName, C, MG, CG) ||C<-Cs],
     NewCs= group_small_clusters(CsWithInOutDegree),
-    [format_a_cluster(C)||C<-NewCs],
+    case WithInOutDegree of 
+	true ->
+	    [format_a_cluster(C)||C<-NewCs];
+	false -> ok
+    end,
     digraph:delete(MG),
     digraph:delete(CG),
     AnnAST1=rewrite_export_list(File, NewCs),
-    refac_util:write_refactored_files(File, AnnAST1, Editor, "").
+    refac_util:write_refactored_files(File, AnnAST1, Editor, Cmd1).
     
     
    
