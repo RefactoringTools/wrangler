@@ -1,0 +1,199 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>Module wrangler_code_inspector</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module wrangler_code_inspector</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>This module describes the code inspection functions
+       that are currently supported by Wrangler.
+<p>Copyright © 2006-2011 Huiqing Li, Simon Thompson
+ </p>
+
+<p><b>Version:</b> 0.1</p>
+<p><b>Authors:</b> Huiqing Li, Simon Thompson [<em>web site:</em> <tt><a href="http://www.cs.kent.ac.uk/projects/wrangler" target="_top">http://www.cs.kent.ac.uk/projects/wrangler</a></tt>].</p>
+
+<h2><a name="description">Description</a></h2>This module describes the code inspection functions
+       that are currently supported by Wrangler.
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-col">col()</a></h3>
+<p><tt>col() = integer()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-dir">dir()</a></h3>
+<p><tt>dir() = string()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-filename">filename()</a></h3>
+<p><tt>filename() = string()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-functionarity">functionarity()</a></h3>
+<p><tt>functionarity() = integer()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-functionname">functionname()</a></h3>
+<p><tt>functionname() = atom()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-line">line()</a></h3>
+<p><tt>line() = integer()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-modulename">modulename()</a></h3>
+<p><tt>modulename() = atom()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-pos">pos()</a></h3>
+<p><tt>pos() = {integer(), integer()}</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#calls_to_fun-4">calls_to_fun/4</a></td><td>Report the functions by which the function specified is called.</td></tr>
+<tr><td valign="top"><a href="#cyclic_dependent_modules-3">cyclic_dependent_modules/3</a></td><td>Report the cyclic module dependencies, if there is any, for a given list of
+       directories of Erlang source code.</td></tr>
+<tr><td valign="top"><a href="#dependencies_of_a_module-2">dependencies_of_a_module/2</a></td><td>Report modules that depend on the module specified, as well as modules on which the
+       module specified in dependent.</td></tr>
+<tr><td valign="top"><a href="#find_var_instances-3">find_var_instances/3</a></td><td>Find all the instances of a variable, including both defining and use instances.</td></tr>
+<tr><td valign="top"><a href="#gen_function_callgraph-3">gen_function_callgraph/3</a></td><td>Generate the function callgraph for a given Erlang file.</td></tr>
+<tr><td valign="top"><a href="#gen_module_graph-3">gen_module_graph/3</a></td><td>Generate the module graph for a given list of directories of Erlang source code.</td></tr>
+<tr><td valign="top"><a href="#improper_inter_module_calls-2">improper_inter_module_calls/2</a></td><td>Report improper module dependencies, if there is any, for a given list of
+       directories of Erlang source code.</td></tr>
+<tr><td valign="top"><a href="#large_modules-2">large_modules/2</a></td><td>Report all the modules that consist of more than a specified number of lines of code.</td></tr>
+<tr><td valign="top"><a href="#long_functions-2">long_functions/2</a></td><td>Report all the functions that consist of more than specified number of lines of code.</td></tr>
+<tr><td valign="top"><a href="#nested_exprs-3">nested_exprs/3</a></td><td>Find all the functions that contain certain type of expressions that are nested a
+  specified number of levels or more.</td></tr>
+<tr><td valign="top"><a href="#non_tail_recursive_servers-1">non_tail_recursive_servers/1</a></td><td>Report non tail-recursive server functions.</td></tr>
+<tr><td valign="top"><a href="#not_flush_unknown_messages-1">not_flush_unknown_messages/1</a></td><td>Report functions whose receive expression, if there is one,  does not flush unknown messages.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="calls_to_fun-4">calls_to_fun/4</a></h3>
+<div class="spec">
+<p><tt>calls_to_fun(FileName::<a href="#type-filename">filename()</a>, FunctionName::<a href="#type-functionname">functionname()</a>, Arity::integer(), SearchPaths::[<a href="#type-dir">dir()</a>]) -&gt; {error, string()} | ok</tt></p>
+</div><p>Report the functions by which the function specified is called. A function is reported
+  only if Wrangler is certain that it calls the function specified.</p>
+
+<h3 class="function"><a name="cyclic_dependent_modules-3">cyclic_dependent_modules/3</a></h3>
+<div class="spec">
+<p><tt>cyclic_dependent_modules(OutputDotFileName::<a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>], WithLabel::<a href="#type-boolean">boolean()</a>) -&gt; true</tt></p>
+</div><p>Report the cyclic module dependencies, if there is any, for a given list of
+       directories of Erlang source code.</p>
+
+<h3 class="function"><a name="dependencies_of_a_module-2">dependencies_of_a_module/2</a></h3>
+<div class="spec">
+<p><tt>dependencies_of_a_module(ModOrFileName::<a href="#type-modulename">modulename()</a> | <a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>]) -&gt; ok</tt></p>
+</div><p>Report modules that depend on the module specified, as well as modules on which the
+       module specified in dependent.</p>
+
+<h3 class="function"><a name="find_var_instances-3">find_var_instances/3</a></h3>
+<div class="spec">
+<p><tt>find_var_instances(FileName::<a href="#type-filename">filename()</a>, X2::{Line::integer(), Col::integer()}, TabWidth::integer()) -&gt; {error, string()} | {ok, [{<a href="#type-pos">pos()</a>, <a href="#type-pos">pos()</a>}], [<a href="#type-pos">pos()</a>]}</tt></p>
+</div><p>Find all the instances of a variable, including both defining and use instances.</p>
+
+<h3 class="function"><a name="gen_function_callgraph-3">gen_function_callgraph/3</a></h3>
+<div class="spec">
+<p><tt>gen_function_callgraph(OutputDotFileName::<a href="#type-filename">filename()</a>, FileName::<a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>]) -&gt; true</tt></p>
+</div><p>Generate the function callgraph for a given Erlang file.</p>
+
+<h3 class="function"><a name="gen_module_graph-3">gen_module_graph/3</a></h3>
+<div class="spec">
+<p><tt>gen_module_graph(OutputDotFileName::<a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>], WithLabel::<a href="#type-boolean">boolean()</a>) -&gt; true</tt></p>
+</div><p>Generate the module graph for a given list of directories of Erlang source code.</p>
+
+<h3 class="function"><a name="improper_inter_module_calls-2">improper_inter_module_calls/2</a></h3>
+<div class="spec">
+<p><tt>improper_inter_module_calls(OutputDotFileName::<a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>]) -&gt; true</tt></p>
+</div><p>Report improper module dependencies, if there is any, for a given list of
+       directories of Erlang source code.</p>
+
+<h3 class="function"><a name="large_modules-2">large_modules/2</a></h3>
+<div class="spec">
+<p><tt>large_modules(SearchPaths::[<a href="#type-dir">dir()</a>], Lines::integer()) -&gt; {error, string()} | ok</tt></p>
+</div><p>Report all the modules that consist of more than a specified number of lines of code.</p>
+
+<h3 class="function"><a name="long_functions-2">long_functions/2</a></h3>
+<div class="spec">
+<p><tt>long_functions(FileOrDirNames::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>], Lines::integer()) -&gt; {error, string()} | ok</tt></p>
+</div><p>Report all the functions that consist of more than specified number of lines of code.</p>
+
+<h3 class="function"><a name="nested_exprs-3">nested_exprs/3</a></h3>
+<div class="spec">
+<p><tt>nested_exprs(FileOrDirNames::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>], NestLevel::integer(), ExprType::'if' | 'case' | 'receive') -&gt; {error, string()} | ok</tt></p>
+</div><p>Find all the functions that contain certain type of expressions that are nested a
+  specified number of levels or more.</p>
+
+<h3 class="function"><a name="non_tail_recursive_servers-1">non_tail_recursive_servers/1</a></h3>
+<div class="spec">
+<p><tt>non_tail_recursive_servers(FileOrDirNames::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>]) -&gt; ok</tt></p>
+</div><p>Report non tail-recursive server functions.
+  <p>
+  The Erlang Programming Rules says:
+  All servers must be tail-recursive, otherwise the server will consume memory until the system runs out of it.
+ 
+  Don't program like this:
+ 
+  <pre>      loop() -&gt;
+        receive
+          {msg1, Msg1} -&gt;
+            ...,
+            loop();
+          stop -&gt;
+            true;
+          Other -&gt;
+            error_logger:log({error, {process_got_other, self(), Other}}),
+            loop()
+        end,
+        io:format("Server going down").
+ 
+  The above is not tail-recusive. This is a correct solution:
+ 
+      loop() -&gt;
+        receive
+          {msg1, Msg1} -&gt;
+            ...,
+            loop();
+          stop -&gt;
+            io:format("Server going down");
+          Other -&gt;
+            error_logger:log({error, {process_got_other, self(), Other}}),
+            loop()
+        end.</pre>
+  </p></p>
+
+<h3 class="function"><a name="not_flush_unknown_messages-1">not_flush_unknown_messages/1</a></h3>
+<div class="spec">
+<p><tt>not_flush_unknown_messages(FileOrDirNames::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>]) -&gt; ok</tt></p>
+</div><p>Report functions whose receive expression, if there is one,  does not flush unknown messages.
+  <p>
+  The Erlang Programming Rules says:
+  Every server should have an Other alternative in at least one receive statement.
+  This is to avoid filling up message queues. Example:
+ 
+ <pre>      main_loop() -&gt;
+        receive
+          {msg1, Msg1} -&gt;
+            ...,
+            main_loop();
+          {msg2, Msg2} -&gt;
+            ...,
+            main_loop();
+          Other -&gt; % Flushes the message queue.
+            error_logger:error_msg(
+                "Error: Process ~w got unknown msg ~w~n.",
+                [self(), Other]),
+            main_loop()
+        end.</pre>
+ </p></p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Jun 16 2010, 21:59:57.</i></p>
+</body>
+</html>
