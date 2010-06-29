@@ -19,13 +19,14 @@
 	:type '(repeat directory)
 	:group 'wrangler)
 
-(defcustom dirs-to-monitor (cons (expand-file-name ".") nil )
-	"List of directories to be monitored by Wrangler to log refactoring activities."
+(defcustom dirs-to-monitor nil
+	"This is only for case study purpose, please leave it empty otherwise;
+	List of directories to be monitored by Wrangler to log refactoring activities."             
 	:type '(repeat directory)
 	:group 'wrangler)
 
 (defcustom refac-monitor-repository-path ""     
-      "Path to the wrangler monitor"
+      "Path to the wrangler monitor;"
       :type 'directory
       :group 'wrangler)
 
@@ -361,7 +362,7 @@
   (interactive)
   (require 'comint)
   (setq opts (list "-name" wrangler-erl-node-string
-		   "-pa"  "C:/cygwin/home/hl/wrangler/share/wrangler/ebin"
+		   "-pa"  %EBIN_DIR%
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))
@@ -2730,7 +2731,7 @@
 		  (message "Partition of exported functions finished."))))))
       (message "Partition of exported functions aborted."))))
    
-
+ 
 ;; (defun erl-wrangler-code-component-extraction()
 ;;    "Component extraction suggestions."
 ;;    (interactive)
