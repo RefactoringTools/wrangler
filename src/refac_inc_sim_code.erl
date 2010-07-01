@@ -68,12 +68,12 @@
 	 clone_tab}).
 
 %% A record representing a clone class.
- -record(clone, 
-	 {ranges,  %% start end end locations/expression of each clone instance.
-	  len,     %% the length of each clone instance.
-	  freq,    %% the number of duplication times.
-	  au       %% the anti-unification of the clone class.
-	 }).
+ %% -record(clone, 
+ %% 	 {ranges,  %% start end end locations/expression of each clone instance.
+ %% 	  len,     %% the length of each clone instance.
+ %% 	  freq,    %% the number of duplication times.
+ %% 	  au       %% the anti-unification of the clone class.
+ %% 	 }).
 
 -spec(inc_sim_code_detection/8::(DirFileList::[filename()|dir()], MinLen::float(), MinToks::integer(),
 				 MinFreq::integer(),  MaxVars:: integer(),SimiScore::float(), 
@@ -145,11 +145,10 @@ get_deleted_files(Files, Tabs) ->
 
 %% get files that has been changed since the last run of clone detection.
 get_changed_files(Files, Tabs)->
-    FileHashTab=Tabs#tabs.file_hash_tab,
     lists:filter(fun(F)->
-		    CheckSum= refac_misc:filepath(F),
+		    CheckSum= refac_misc:filehash(F),
 		    case ets:lookup(Tabs#tabs.file_hash_tab, F) of
-			[{File, CheckSum1}] when CheckSum/=CheckSum1 ->
+			[{F, CheckSum1}] when CheckSum/=CheckSum1 ->
 			    true;
 			_ ->false
 		    end
@@ -181,15 +180,15 @@ generalise_and_hash_file_ast(File, Threshold, Tabs, ASTPid, SearchPaths, TabWidt
     NewCheckSum = refac_misc:filehash(File),
     case ets:lookup(Tabs#tabs.file_hash_tab, File) of
 	[{File, NewCheckSum}] ->
-	    ?debug("\nFile Not changed:~p\n", [File]),
+	    refac_io:format("\nFile Not changed:~p\n", [File]),
 	    ok;
 	[{File, _NewCheckSum1}] ->
-	    ?debug("\n File changed:~p\n", [File]),
+	    refac_io:format("\n File changed:~p\n", [File]),
 	    ets:insert(Tabs#tabs.file_hash_tab, {File, NewCheckSum}),
 	    generalise_and_hash_file_ast_1(
 	      File, Threshold, Tabs,ASTPid, false,SearchPaths, TabWidth);
 	[] ->
-	    ?debug("New file:~p\n",[File]),
+	    refac_io:format("New file:~p\n",[File]),
 	    ets:insert(Tabs#tabs.file_hash_tab, {File, NewCheckSum}),
 	    generalise_and_hash_file_ast_1(
 	      File, Threshold, Tabs, ASTPid, true,SearchPaths, TabWidth)
@@ -293,10 +292,10 @@ get_clone_candidates(Pid, Thresholds, Dir) ->
 
 ast_loop(ASTTab, {CurM, CurF, CurA, Index, HashPid}) ->
     receive
-      {add, {{M, F, A}, ExprASTs, StartLine}} ->
+	{add, {{M, F, A}, ExprASTs, StartLine}} ->
 	    NewIndex = case {M, F, A} == {CurM, CurF, CurA} of
 			   true -> Index;
-			   fasle ->1
+			   false ->1
 		       end,
 	    Len = length(ExprASTs),
 	    ExprASTsWithIndex = lists:zip(ExprASTs, lists:seq(0, Len - 1)),
@@ -310,10 +309,11 @@ ast_loop(ASTTab, {CurM, CurF, CurA, Index, HashPid}) ->
 				       {{M, F, A, NewIndex+I}, 
 					NoOfToks, {StartEndLoc, StartLine}}})
 	     end || {E, I} <- ExprASTsWithIndex],
-	    insert_dummy_entry(HashPid),
+	    insert_dummy_entry(HashPid, M),
 	    ast_loop(ASTTab, {M, F, A, NewIndex+Len, HashPid});
 	{quick_hash, {{FName, FunName, Arity}, StartLine}}->
-	    update_hash(HashPid, {{FName, FunName, Arity}, StartLine});
+	    update_hash(HashPid, {{FName, FunName, Arity}, StartLine}),
+	    ast_loop(ASTTab, {FName, FunName, Arity, Index, HashPid});
 	{get_clone_candidates, From, Thresholds, Dir} ->
 	    Cs = get_clone_candidates(HashPid, Thresholds, Dir),
 	    From ! {self(), Cs},
@@ -372,9 +372,9 @@ start_hash_process(FilesDeleted, FilesChanged) ->
 		[{{{File, F, A, I}, Toks, Loc, false}, HashValIndex}
 		 ||{{{File, F, A, I}, Toks, Loc, _IsNew}, HashValIndex}<-Data,
 		   not lists:member(File, ObsoleteFiles)],
-	    ChangedData=[Elem||Elem={{{File, F, A, I}, Toks, Loc, _IsNew}, HashValIndex}<-Data,
+	    ChangedData=[Elem||Elem={{{File, _F, _A, _I}, _Toks, _Loc, _IsNew}, _HashValIndex}<-Data,
 			       lists:member(File, FilesChanged)],			  
-	    spawn_link(fun()->hash_loop({1,ExpHashTab,{NewData, ChangedData}}) end);
+	    spawn_link(fun()->hash_loop({1,ExpHashTab,{NewData, lists:reverse(ChangedData)}}) end);
 	_Res ->
 	    Data={[{{{'_','_','_','_'},0, {{0,0},0}, false},'#'}],[]},
 	    spawn_link(fun()->hash_loop({1,ExpHashTab,Data}) end)	    
@@ -389,8 +389,8 @@ insert_hash(Pid, {HashVal, Elem={_MFAI, _NumofToks, _Loc}}) ->
 update_hash(Pid, {{FileName, FunName, Arity}, StartLine})->
     Pid ! {quick_hash,{{FileName, FunName, Arity}, StartLine}}.
 
-insert_dummy_entry(Pid) ->
-    Pid ! add_dummy.
+insert_dummy_entry(Pid,FName) ->
+    Pid ! {add_dummy, FName}.
 
 hash_loop({Index, ExpHashTab, {NewData, OldData}}) ->
     receive
@@ -404,17 +404,27 @@ hash_loop({Index, ExpHashTab, {NewData, OldData}}) ->
 		      hash_loop({Index + 1, ExpHashTab, {[Elem|NewData], OldData}})
 	    end;
 	{quick_hash,{{FileName, FunName, Arity}, StartLine}} ->
-	    DataToAdd=[{{M,F,A, I}, NumOfToks, {StartEndLoc, StartLine},true}
-		       ||{{M,F,A, I}, NumOfToks, {StartEndLoc, _}, _}<-Data1,
-			 {M,F,A}=={FileName, FunName, Arity}],
-	    hash_loop({Index, ExpHashTab, Data});    %% Fix this!
-	add_dummy ->
-	    DummyElem={{{'_', '_', '_', '_'}, 0, {{0,0},0}, false}, '#'},
+	    %%refac_io:format("OldData:\n~p\n", [OldData]),
+	    OldData1 = lists:dropwhile(fun({{{M,F,A,_}, _,_,_},_}) ->
+					       {M,F,A} /={FileName, FunName, Arity}
+				       end, OldData),
+	    %%refac_io:format("OldData1:\n~p\n", [OldData1]),
+	    DataNeeded=lists:takewhile(fun({{{M,F,A,_}, _,_,_},_}) ->
+					       {M,F,A} =={FileName, FunName, Arity}
+						   orelse
+						     {M,F,A} =={FileName,'_','_'}
+				       end, OldData1),
+	    DataToAdd=[{{{M,F,A, I}, NumOfToks, {StartEndLoc, StartLine},false}, ExprHashIndex}
+		       ||{{{M,F,A, I}, NumOfToks, {StartEndLoc, _}, _},ExprHashIndex}<-DataNeeded],
+	    %%refac_io:format("DataToAdd:\n~p\n", [DataToAdd]),
+	    hash_loop({Index, ExpHashTab, {lists:reverse(DataToAdd)++NewData, OldData}});    %% Fix this!
+	{add_dummy, FName} ->
+	    DummyElem={{{FName, '_', '_', '_'}, 0, {{0,0},0}, false}, '#'},
 	    hash_loop({Index, ExpHashTab, {[DummyElem|NewData], OldData}});
 	{get_clone_candidates, From, Thresholds, Dir} ->
 	    Cs = search_for_clones(Dir, lists:reverse(NewData), Thresholds),
 	    From ! {self(), Cs},
-	    hash_loop({Index, ExpHashTab, {NewData, OldData});
+	    hash_loop({Index, ExpHashTab, {NewData, OldData}});
 	stop ->
 	    to_dets(ExpHashTab, ?ExpHashTab),
 	    file:write_file(?ExpSeqFile, term_to_binary(lists:reverse(NewData))),
@@ -471,18 +481,26 @@ examine_clone_candidates([C| Cs], Thresholds, Tabs, TmpASTTab, Pid, Num) ->
 	[] ->
 	  ok;
 	ClonesWithAU ->
+	    %%refac_io:format("\nAdd new clones\n"),
 	    add_new_clones(Pid, ClonesWithAU)
     end,
     examine_clone_candidates(Cs, Thresholds, Tabs, TmpASTTab,Pid, Num + 1).
 
 examine_a_clone_candidate(C={Ranges, {_Len, _Freq}}, Thresholds,Tabs, TmpASTTab) ->
     Hash = hash_a_clone_candidate(C),
+    %%refac_io:format("\n NEW:~p\n", [has_new_exprs(C)]),
     case has_new_exprs(C) of
 	false ->
+	    %%refac_io:format("HASH:\n~p\n", [Hash]),
+	    %%refac_io:format("cached clones:\n~p\n", [ets:match(Tabs#tabs.clone_tab,'$1')]),
 	    case ets:lookup(Tabs#tabs.clone_tab, Hash) of
 		[{Hash, Clones}] ->
+		    %refac_io:format("\nUse cached result.\n"),
 		    ets:delete_all_objects(TmpASTTab),
-		    update_clone_class_locations(Ranges, Clones);
+		    Res =update_clone_class_locations(Ranges, Clones),
+		    ClonesWithAbsoluteLocs=[get_clone_class_in_absolute_locs(Clone)||Clone<-Res],
+		    %refac_io:format("ClonesWithAbsoluteLocs:\n~p\n", [ClonesWithAbsoluteLocs]),
+		    ClonesWithAbsoluteLocs;
 		_->
 		    examine_a_clone_candidate_1(C,Thresholds,Tabs, TmpASTTab)
 	    end;
@@ -496,10 +514,10 @@ examine_a_clone_candidate_1(C={Ranges, {_Len, _Freq}}, Thresholds,Tabs, TmpASTTa
 			  ets:insert(TmpASTTab, ets:lookup(ASTTab, Key))
 		  end, Ranges1),
     Clones=examine_clone_class_members(Ranges, Thresholds,Tabs, TmpASTTab, []),
-    refac_io:format("Clones:\n~p\n", [Clones]),
+    %refac_io:format("Clones:\n~p\n", [Clones]),
     ClonesWithAU = [{Rs, {Len, Freq}, get_anti_unifier(TmpASTTab, Info)}
 		    || {Rs, {Len, Freq}, Info} <- Clones],
-    ets:insert(Tabs#tabs.file_hash_tab, {hash_a_clone_candidate(C), ClonesWithAU}),
+    ets:insert(Tabs#tabs.clone_tab, {hash_a_clone_candidate(C), ClonesWithAU}),
     ClonesWIthAUInAbsoluteLocs=[get_clone_class_in_absolute_locs(Clone)||Clone<-ClonesWithAU],
     ets:delete_all_objects(TmpASTTab),
     ClonesWIthAUInAbsoluteLocs.
@@ -514,17 +532,18 @@ hash_a_clone_candidate(_C={Ranges, {_Len, _Freq}}) ->
 	end,
     erlang:md5(lists:usort([erlang:md5(lists:flatten(io_lib:format("~p", [[F(E)||E<-R]])))||R<-Ranges])).
     
-update_clone_class_locations(_CandidateClone={Ranges,_}, Clones) ->
-    NewRs = lists:append(Ranges),
-    [{update_clone_class_locations_1(NewRs, Ranges1),
+update_clone_class_locations(Ranges, Clones) ->
+    [{update_clone_class_locations_1(lists:append(Ranges), Ranges1),
       {Len, Freq}, AU}||{Ranges1, {Len, Freq}, AU}<-Clones].
 
 update_clone_class_locations_1(RsWithNewLineOffset, Ranges)->
+    %%refac_io:format("\nUpdated clone class locations.\n"),
     [[begin
-	  {value, {MFAI, Toks, {{{L1, C1}, {L2, C2}},NewStartLine}}}=lists:keysearch(MFAI, 1, RsWithNewLineOffset),
-	  {MFAI, Toks, {{{L1, C1}, {L2, C2}},NewStartLine}}
+	  {value, {MFAI, Toks, {{{L1, C1}, {L2, C2}},NewStartLine}, _}}=lists:keysearch(MFAI, 1, RsWithNewLineOffset),
+	  %%refac_io:format("NewStartLine:\n~p\n", [NewStartLine]),
+	  {MFAI, Toks, {{{L1, C1}, {L2, C2}},NewStartLine}, IsNew}
       end
-      ||{MFAI, Toks, {{{L1, C1}, {L2, C2}},_StartLine}}<-Rs]
+      ||{MFAI, Toks, {{{L1, C1}, {L2, C2}},_StartLine}, IsNew}<-Rs]
      ||Rs<-Ranges].
  
 examine_clone_class_members(Rs, Thresholds, _, _, Acc) 
@@ -871,7 +890,7 @@ get_var_define_pos(V) ->
 
 get_anti_unifier(TmpASTTab, {ExprKeys, SubSt, ExportVars}) ->
     Exprs1 = [ExpAST || {ExprKey, _,_,_} <- ExprKeys, {_Key, ExpAST} <- ets:lookup(TmpASTTab, ExprKey)],
-    refac_io:format("ExportVars:\n~p\n", [ExportVars]),
+    %%refac_io:format("ExportVars:\n~p\n", [ExportVars]),
     refac_prettypr:format(anti_unification:generate_anti_unifier(Exprs1, SubSt, ExportVars)).
 
 
@@ -891,9 +910,9 @@ get_expr_list(ExprKeys=[{{_FName, _FunName, _Arity, _Index}, _Toks, {_StartEndLo
 
 get_vars_to_export(Es, {FName, FunName, Arity}, VarTab) ->
     AllVars = ets:lookup(VarTab, {FName, FunName, Arity}),
-    refac_io:format("AllVars:\n~p\n", [AllVars]),
+    %%refac_io:format("AllVars:\n~p\n", [AllVars]),
     {_, EndLoc} = refac_misc:get_start_end_loc(lists:last(Es)),
-    refac_io:format("\nEndLoc:\n~p\n", [EndLoc]),
+    %%refac_io:format("\nEndLoc:\n~p\n", [EndLoc]),
       case AllVars of
 	  [] -> [];
 	  [{_, _, Vars}] ->
@@ -921,7 +940,7 @@ search_for_clones(Dir, Data, Thresholds) ->
     F = fun ({Elem, I}) ->
 		lists:duplicate(length(F0(I)), {I, Elem})
 	end,
-    refac_io:format("Data:\n~p\n", [Data]),
+    %% refac_io:format("Data:\n~p\n", [Data]),
     IndexStr = lists:append([F0(I) || {_, I} <- Data]),
     SuffixTreeExec = filename:join(?WRANGLER_DIR, "bin/suffixtree"),
     Cs = suffix_tree:get_clones_by_suffix_tree(Dir, IndexStr ++ "&", MinLen, 
@@ -930,9 +949,9 @@ search_for_clones(Dir, Data, Thresholds) ->
 			|| {[{S, E}| Ranges], Len, Freq} <- Cs,
 			   SubStr <- [lists:sublist(IndexStr, S, E - S + 1)]]),
     Cs2 = refac_code_search_utils:remove_sub_clones([{R, Len, Freq} || {R, {Len, Freq}} <- Cs1]),
-    refac_io:format("Cs2:\n~p\n", [Cs2]),
+    %% refac_io:format("Cs2:\n~p\n", [Cs2]),
     NewData = lists:append([F(Elem) || Elem <- Data]),
-    refac_io:format("Cs from suffixtree:\n~p\n",[NewData]),
+    %%refac_io:format("Cs from suffixtree:\n~p\n",[NewData]),
     get_clones_in_ranges([{R, {Len, Freq}} || {R, Len, Freq} <- Cs2],
 			 NewData, MinLen, MinToks, MinFreq).
    
@@ -995,7 +1014,6 @@ remove_overlapped_ranges([{S, E}| Rs], {S1, E1}, Acc) ->
 	  remove_overlapped_ranges(Rs, {S, E}, [{S, E}| Acc])
     end.
 get_clones_in_ranges(Cs, Data, _MinLen, MinToks, MinFreq) ->
-    refac_io:format("Cs:\n~p\n", [Cs]),
     F0 = fun ({S, E}) ->
 		 {_, Ranges} = lists:unzip(lists:sublist(Data, S, E - S + 1)),
 		 refac_misc:remove_duplicates(Ranges)
@@ -1009,7 +1027,7 @@ get_clones_in_ranges(Cs, Data, _MinLen, MinToks, MinFreq) ->
 		end
 	end,
     NewCs=[F(C) || C <- Cs],
-    refac_io:format("NewCs1:\n~p\n", [NewCs]),
+    %% refac_io:format("NewCs1:\n~p\n", [NewCs]),
     NewCs1=remove_short_clones(NewCs, MinToks,MinFreq),
     NewCs1.
   
@@ -1092,7 +1110,7 @@ abs_to_relative_loc_in_ann(Ann, StartLine) ->
     end.
 to_relative(Line, StartLine) when Line>0->
     Line-StartLine+1;
-to_relative(Line, StartLine) -> 
+to_relative(Line, _StartLine) -> 
     Line.
 
 is_macro_name(Exp) ->
