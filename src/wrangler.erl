@@ -91,7 +91,7 @@
 	 eqc_statem_to_record_eclipse/3,eqc_statem_to_record_1_eclipse/7,
 	 eqc_fsm_to_record_eclipse/3,eqc_fsm_to_record_1_eclipse/7,
 	 gen_fsm_to_record_eclipse/3,gen_fsm_to_record_1_eclipse/7,
-	 partition_exports_eclipse/4,, intro_new_var_eclipse/6
+	 partition_exports_eclipse/4, intro_new_var_eclipse/6
 	]).
 
 -export([try_refactoring/3, get_log_msg/0]).
@@ -876,7 +876,7 @@ intro_new_var(FileName, Start, End, NewVarName, SearchPaths, TabWidth) ->
 -spec(intro_new_var_eclipse/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
 	      {error, string()} | {ok, [{filename(), filename(), string()}]}).
 intro_new_var_eclipse(FileName, Start, End, NewVarName, SearchPaths, TabWidth) -> 
-    try_refactoring(refac_intro_new_var, intro_new_var, [FileName, Start, End, NewVarName, SearchPaths, TabWidth]).
+    try_refactoring(refac_intro_new_var, intro_new_var_eclipse, [FileName, Start, End, NewVarName, SearchPaths, TabWidth]).
 
 
 -spec(new_macro/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
