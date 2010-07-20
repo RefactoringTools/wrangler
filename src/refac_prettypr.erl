@@ -83,8 +83,7 @@ print_ast(FileFmt, AST,Options) ->
     Es = seq_pr(Fs,none,reset_prec(Ctxt),fun lay/2),
     LayoutedEs = [refac_prettypr_0:layout(E, FileFmt)||E<-Es],
     vertical_concat(lists:zip(LayoutedEs,Fs), FileFmt).
-  
-
+ 
 seq_pr([H| T],Separator,Ctxt,Fun) ->
     {Paper,Ribbon} = get_paper_ribbon_width(H),
     case T of
@@ -95,71 +94,79 @@ seq_pr([H| T],Separator,Ctxt,Fun) ->
     end;
 seq_pr([],_,_,_) -> [].
 
-vertical_concat(Es, FileFormat) -> vertical_concat(Es,FileFormat,"").
+vertical_concat(Es, FileFmt) -> vertical_concat(Es, FileFmt, "").
+
 
 vertical_concat([], _FileFormat, Acc) -> Acc;
-vertical_concat([{E, Form}| T], FileFormat, Acc) ->
-    SpecialForm = fun (F) ->
-			  case refac_syntax:type(F) of
-			    error_marker -> true;
-			    attribute ->
-				case refac_syntax:atom_value(refac_syntax:attribute_name(F)) of
-				  type -> true;
-				  'spec' -> true;
-				  record -> [_R, FieldTuple] = refac_syntax:attribute_arguments(F),
-					    Fields = refac_syntax:tuple_elements(FieldTuple),
-					    lists:any(fun (Field) -> case refac_syntax:type(Field) of
-								       typed_record_field ->
-									   true;
-								       _ -> false
-								     end
-						      end, Fields);
-				  _ -> false
-				end;
-			    _ -> false
-			  end
-		  end,
+vertical_concat([{PPStr,Form}| T], FileFormat, Acc) ->
+    UseOriginalCode = form_not_changed(Form),
     Delimitor = case FileFormat of
-		  dos -> "\r\n";
-		  mac -> "\r";
-		  _ -> "\n"
+		    dos -> "\r\n";
+		    mac -> "\r";
+		    _ -> "\n"
 		end,
-    F = refac_util:concat_toks(refac_misc:get_toks(Form)),
-    {ok, EToks, _} = refac_scan:string(E),
-    {ok, FToks, _} = refac_scan:string(F),
-    EStr = [S || S <- refac_util:concat_toks(EToks), S =/= $\s, S =/= $'],
-    FStr = [S || S <- refac_util:concat_toks(FToks), S =/= $\s, S =/= $'],
-    UseOriginalCode = (EStr == FStr) orelse
-	lists:usort(FStr--EStr)=="()" orelse
-	SpecialForm(Form),
-    Acc1 = case Acc of
-	     "" -> Acc;
-	     _ ->
-		   case UseOriginalCode of
-		   true ->
-		       Acc;
-		   false when F =/= "" ->
-		       LeadEmptyLines = lists:takewhile(fun (C) -> (C == $\s) or (C == $\n) or (C == $\r) end, F),
-		       LeadEmptyLines1 = lists:reverse(lists:dropwhile(fun (C) -> C == $\s end, lists:reverse(LeadEmptyLines))),
-		       Acc ++ LeadEmptyLines1;
-		   _ -> Acc ++ Delimitor
-		 end
+    Acc1 = case UseOriginalCode of
+	       true ->
+		   Acc;
+	       false ->
+		   Acc ++ Delimitor ++ Delimitor
 	   end,
     Str = case UseOriginalCode of
-	    true ->
-		refac_util:concat_toks(refac_misc:get_toks(Form));
-	    false ->
-		case T of
-		  [] -> E;
-		  [{_E1, _Form1}| _] -> E ++ Delimitor
-		end
+	      true ->
+		  refac_util:concat_toks(refac_misc:get_toks(Form));
+	      false ->
+		  PPStr
 	  end,
-    case T of
-      [] -> Acc1 ++ Str;
-      _ -> vertical_concat(T, FileFormat, Acc1 ++ Str)
+    vertical_concat(T, FileFormat, Acc1++Str).
+ 
+is_special_form(Form) ->
+    case refac_syntax:type(Form) of
+	error_marker -> true;
+	comment -> true;
+	attribute ->
+	    case refac_syntax:atom_value(refac_syntax:attribute_name(Form)) of
+		type -> true;
+		spec -> true;
+		record -> [_R, FieldTuple] = refac_syntax:attribute_arguments(Form),
+			  Fields = refac_syntax:tuple_elements(FieldTuple),
+			  lists:any(fun (Field) -> case refac_syntax:type(Field) of
+						       typed_record_field ->
+							   true;
+						       _ -> false
+						   end
+				    end, Fields);
+		_ -> false
+	    end;
+	_ -> false
     end.
 
-
+form_not_changed(Form) ->
+    case is_special_form(Form) of 
+	true -> true;   %% These forms are not touched by Wrangler at the 
+                        %% moment, but this might change!
+	false ->
+	    Toks = refac_misc:get_toks(Form),
+	    case Toks of 
+		[] -> false;
+		_ ->
+		    try 
+			Str = refac_util:concat_toks(Toks),
+			{ok, Toks1, _} = refac_scan:string(Str, {1,1}, 8, 'unix'),
+			OrigialForm = refac_epp_dodger:normal_parser(Toks1, []),
+			
+			NewStr = format(Form, []),
+			{ok, Toks2, _} = refac_scan:string(NewStr, {1,1}, 8, 'unix'),
+			NewForm = refac_epp_dodger:normal_parser(Toks2, []),
+			best(OrigialForm) == best(NewForm)
+		    of
+			Res -> Res
+		    catch
+			_E1:_E2 ->
+			    false
+		    end
+	    end
+    end.
+    
 %% Do this still need this function?
 get_paper_ribbon_width(Form) ->
     case refac_syntax:type(Form) of
