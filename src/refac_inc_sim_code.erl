@@ -81,7 +81,7 @@
 				 MinFreq::integer(),  MaxVars:: integer(),SimiScore::float(), 
 				 SearchPaths::[dir()], TabWidth::integer()) -> {ok, string()}).
 inc_sim_code_detection(DirFileList, MinLen1, MinToks1, MinFreq1, MaxVars1, SimiScore1, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:sim_code_detection(~p,~p,~p,~p,~p, ~p,~p,~p).\n",
+    ?wrangler_io("\nCMD: ~p:inc_sim_code_detection(~p,~p,~p,~p,~p, ~p,~p,~p).\n",
 		 [?MODULE, DirFileList, MinLen1, MinToks1, MinFreq1, MaxVars1,SimiScore1, SearchPaths, TabWidth]),
     {MinLen, MinToks, MinFreq, MaxVars, SimiScore} = get_parameters(MinLen1, MinToks1, MinFreq1, MaxVars1, SimiScore1),
     Files = refac_util:expand_files(DirFileList, ".erl"),
@@ -369,46 +369,18 @@ insert_and_hash_expr(ASTTab, HashPid, {M, F, A}, StartLine,
     StartEndLoc = refac_misc:get_start_end_loc(Expr),
     insert_hash(HashPid, {HashVal, {{M, F, A, StartIndex + RelativeIndex},
 				    NoOfToks, {StartEndLoc, StartLine}}}).
-   
+
 %% replace an AST node if the node can be generalised.
 do_generalise(Node) ->
     F0 = fun (T, _Others) ->
-		 case generalisable(T) of
+		 case refac_code_search_utils:generalisable(T) of
 		   true ->
 		       {refac_syntax:variable('Var'), true};
 		   false -> {T, false}
 		 end
 	 end,
     element(1, ast_traverse_api:stop_tdTP(F0, Node, [])).
-
-%% returns true is an AST node can be generalised. 
-generalisable(Node) ->
-    case lists:keysearch(category, 1, refac_syntax:get_ann(Node)) of
-      {value, {category, record_field}} -> false;
-      {value, {category, record_type}} -> false;
-      {value, {category, guard_expression}} -> false;
-      {value, {category, macro_name}} -> false;
-      {value, {category, pattern}} ->
-	  refac_syntax:is_literal(Node) orelse
-	    refac_syntax:type(Node) == variable;
-      _ ->
-	  %% While syntactically, expressions of some of the listed types
-	  %% can be replaced by a variable, in practice, generalise a function 
-	  %% over this kind of expression could make the code harder to understand.
-	  T = refac_syntax:type(Node),
-	  not lists:member(T, [match_expr, operator, generator, case_expr,
-			       if_expr, fun_expr, receive_expr, clause,
-			       query_expr, try_expr, catch_expr, cond_expr,
-			       block_expr]) andalso
-	    refac_misc:get_var_exports(Node) == [] andalso
-	      %% generalise expressions with free variables need to 
-	      %% wrap the expression with a fun expression; we try to 
-	      %% avoid this case.
-	      refac_misc:get_free_vars(Node) == []
-    end.
-                %% Note: side effect is not considered here.
-
-
+   
 	
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                    %%
@@ -720,7 +692,7 @@ subst_sanity_check(Expr1, SubSt) ->
 		  variable ->
 			E1Ann = refac_syntax:get_ann(E1),
 			case lists:keysearch(category, 1, E1Ann) of
-			    {value, {category, macro_name}} ->
+			    {value, {category, {macro_name, _,_}}} ->
 				false;
 			    _ -> has_same_subst(E1, E2, SubSt)
 			end;
@@ -827,9 +799,15 @@ get_var_subst(SubSt) ->
     [F({E1,E2})||
 	{E1,E2}<-SubSt, 
 	refac_syntax:type(E1)==variable, 
-	not ({value, {category, macro_name}} == 
-		 lists:keysearch(category, 1, refac_syntax:get_ann(E1)))].
- 
+	not is_macro_name(E1)].
+
+is_macro_name(Exp) ->
+    case lists:keysearch(category, 1, refac_syntax:get_ann(Exp)) of
+	 {value, {category, {macro_name,_,_}}} ->
+	    true;
+	_ -> false
+    end.
+
 var_sub_conflicts(SubSts, ExistingVarSubsts) ->
     lists:any(fun ({DefPos, E}) ->
 		      case lists:keysearch(DefPos, 1, ExistingVarSubsts) of

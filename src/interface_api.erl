@@ -146,16 +146,23 @@ pos_to_var_name_1(Node, _Pos = {Ln, Col}) ->
 	    true ->
 		case lists:keysearch(def, 1, refac_syntax:get_ann(Node)) of
 		  {value, {def, DefinePos}} ->
-		      lists:keysearch(def, 1, refac_syntax:get_ann(Node)),
-		      {value, {category, C}} = lists:keysearch(category, 1, refac_syntax:get_ann(Node)),
-		      {{refac_syntax:variable_name(Node), DefinePos, C}, true};
-		  false ->
-		      {value, {category, C}} = lists:keysearch(category, 1, refac_syntax:get_ann(Node)),
-		      {{refac_syntax:variable_name(Node), [?DEFAULT_LOC], C}, true}
+			{value, {category, C}} = lists:keysearch(category, 1, refac_syntax:get_ann(Node)),
+			C1 =case C of 
+				{macro_name, _, _} -> macro_name;
+				_ -> C
+			    end,
+			{{refac_syntax:variable_name(Node), DefinePos, C1}, true};
+		    false ->
+			{value, {category, C}} = lists:keysearch(category, 1, refac_syntax:get_ann(Node)),
+			C1 =case C of 
+				{macro_name, _, _} -> macro_name;
+				_ -> C
+			    end,
+			{{refac_syntax:variable_name(Node), [?DEFAULT_LOC], C1}, true}
 		end;
-	    false -> {[], false}
+	      false -> {[], false}
 	  end;
-      _ -> {[], false}
+	_ -> {[], false}
     end.
 
 

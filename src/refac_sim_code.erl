@@ -194,7 +194,7 @@ generalise_and_hash_ast_1(FName, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
 
 generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
     F0 = fun (T, _Others) ->
-		 case refac_misc:variable_replaceable(T) of
+		 case refac_code_search_utils:generalisable(T) of
 		   true ->
 		       {refac_syntax:variable('Var'), true};
 		   false -> {T, false}

@@ -124,8 +124,6 @@ fold_expr_by_name_eclipse(FileName, ModName, FunName, Arity, ClauseIndex, Search
     fold_expr_by_name(FileName, list_to_atom(ModName), list_to_atom(FunName), Arity, 
 		      ClauseIndex, SearchPaths, TabWidth, eclipse).
 
-
-
 fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:fold_expression(~p,~p,~p,~p,~p,~p).\n",
 		 [?MODULE, FileName, ModName, FunName, Arity, ClauseIndex, TabWidth]),
@@ -333,7 +331,7 @@ search_for_single_not_match_expr(AnnAST, Exp) ->
     Fun = fun (T, S) ->
 		  As = refac_syntax:get_ann(T),
 		  case lists:keysearch(category, 1, As) of
-		      {value, {category, C}} when C == expression ->
+		      {value, {category, expression}} ->
 			  case T =/= Exp of
 			      true ->
 				  R = get_start_end_locations(T),

@@ -140,15 +140,6 @@ side_cond_analysis_1(FunDef, App, AnnAST) ->
 	  throw(E2)
     end.
  
-
-min(P1, P2) when P1>P2 -> P2;
-min(P1,_P2) -> P1.
-
- 
-max(P1, P2) when P1>=P2 -> P1;
-max(_P1,P2) -> P2.
-
-
 return_error_msg(Ms) ->
     MsStr = format(Ms),
     case length(Ms) of
@@ -679,6 +670,10 @@ get_bound_vars_1([_ | Bs]) -> get_bound_vars_1(Bs);
 get_bound_vars_1([]) -> [].
 
 
-is_macro_name(Exp1) ->
-    {value, {category, macro_name}} ==
-      lists:keysearch(category, 1, refac_syntax:get_ann(Exp1)).
+is_macro_name(Exp) ->
+    case lists:keysearch(category, 1, refac_syntax:get_ann(Exp)) of
+	{value, {category, {macro_name,_,_}}} ->
+	    true;
+	_  ->
+	    false
+    end.

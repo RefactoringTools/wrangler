@@ -217,7 +217,7 @@ do_simplify_expr(Node) ->
 		  refac_syntax:default_literals_vars(Node, '%');
 	      string ->
 		  refac_syntax:default_literals_vars(Node, '%');
-	      atom -> case refac_misc:variable_replaceable(Node) of
+	      atom -> case refac_code_search_utils:generalisable(Node) of
 			true ->
 			    As = refac_syntax:get_ann(Node),
 			    case lists:keysearch(type, 1, As) of

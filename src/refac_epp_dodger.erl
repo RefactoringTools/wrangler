@@ -67,7 +67,7 @@
 
 -module(refac_epp_dodger).
 
--export([parse_file/2]).
+-export([parse_file/2, normal_parser/2]).
 
 %% The following should be: 1) pseudo-uniquely identifiable, and 2)
 %% cause nice looking error messages when the parser has to give up.
@@ -199,7 +199,7 @@ parse_form(Dev, L0, Parser, Options) ->
     Res = refac_io:scan_erl_form(Dev, "", L0, TabWidth, FileFormat),
     case Res of    
         {ok, Ts, L1} ->
-            case catch {ok, Parser(Ts, Opt)} of
+	    case catch {ok, Parser(Ts, Opt)} of
                 {'EXIT', Term} ->
                     {error, io_error(L1, {unknown, Term}), L1};
                 {error, Term} ->

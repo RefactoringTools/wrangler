@@ -343,9 +343,6 @@ start_range(S) ->
     max(sets:size(S) * (?START_RANGE_FACTOR),
 	?MINIMUM_RANGE).
 
-max(X, Y) when X > Y -> X;
-max(_, Y) -> Y.
-
 %% The previous number might or might not be used to compute the
 %% next number to be tried. It is currently not used.
 %%

@@ -698,7 +698,7 @@ do_anti_unify_atoms(Exp1, Exp2) ->
 		end
 	  end;
       _ ->
-	  case refac_misc:variable_replaceable(Exp1) of
+	  case refac_code_search_utils:generalisable(Exp1) of
 	    true ->
 		[{Exp1, Exp2}];
 	    _ ->
@@ -781,8 +781,12 @@ get_var_define_pos(V) ->
 	false -> []
     end.
                
+
 is_macro_name(Exp) ->
-    {value, {category, macro_name}} == 
-	lists:keysearch(category, 1, refac_syntax:get_ann(Exp)).
-
-
+    case lists:keysearch(category, 1, refac_syntax:get_ann(Exp)) of
+	{value, {category, {macro_name, _, _}}} ->
+	    true;
+	false ->
+	    false
+    end.
+ 

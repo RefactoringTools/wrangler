@@ -33,7 +33,7 @@
 -module(refac_misc).
 
 -export([group_by/2, filehash/1,collect_var_source_def_pos_info/1,
-	 get_start_end_loc/1,variable_replaceable/1,apply_style_funs/0,
+	 get_start_end_loc/1,apply_style_funs/0,
 	 testserver_callback_funs/0,eqc_statem_callback_funs/0,
 	 eqc_fsm_callback_funs/0,commontest_callback_funs/0, try_eval/4,
 	 make_new_name/2,collect_var_names/1,collect_used_macros/1,
@@ -124,26 +124,6 @@ get_range(Node) ->
 	{value, {range, {S, E}}} -> {S, E};
 	_ -> {?DEFAULT_LOC,
 	      ?DEFAULT_LOC} 
-    end.
-
-
--spec variable_replaceable(syntaxTree()) ->boolean().
-variable_replaceable(Exp) ->
-    case lists:keysearch(category, 1, refac_syntax:get_ann(Exp)) of
-      {value, {category, record_field}} -> false;
-      {value, {category, record_type}} -> false;
-      {value, {category, guard_expression}} -> false;
-      {value, {category, macro_name}} -> false;
-      {value, {category, pattern}} ->
-	  refac_syntax:is_literal(Exp) orelse
-	    refac_syntax:type(Exp) == variable;
-      _ ->
-	  T = refac_syntax:type(Exp),
-	  not lists:member(T, [match_expr, operator, generator, receive_expr, try_expr, 
-			      catch_expr]) andalso
-	    get_var_exports(Exp) == [] 
-		%% andalso
-		%%  refac_misc:get_free_vars(Exp)/=[]
     end.
 
 %% This function will be removed.
@@ -283,7 +263,7 @@ collect_var_names_1(Node) ->
 		case refac_syntax:type(N) of
 		    variable ->
 			case lists:keysearch(category, 1, refac_syntax:get_ann(N)) of
-			    {value, {category, macro_name}} -> S;
+			    {value, {category, {macro_name, _, _}}} -> S;
 			    _ ->
 				VarName = refac_syntax:variable_name(N),
 				ordsets:add_element(VarName, S)
@@ -536,15 +516,14 @@ get_free_vars_1([]) -> [].
 is_expr(Node) ->
     As = refac_syntax:get_ann(Node),
     case lists:keysearch(category, 1, As) of
-      {value, {category, C}} ->
-	  case C of
-	      expression -> true;
-	      guard_expression -> true;
-	      application_op -> true;
-	      generator -> true;
-	    _ -> false
-	  end;
-      _ -> false
+	{value, {category, C}} ->
+	    case C of
+		expression -> true;
+		{_, _, expression} -> true;
+		guard_expression -> true;
+		_ -> false
+	    end;
+	_ -> false
     end.
 
 %% =====================================================================
@@ -554,6 +533,8 @@ is_pattern(Node) ->
     As = refac_syntax:get_ann(Node),
     case lists:keysearch(category, 1, As) of
 	{value, {category, pattern}} ->
+	    true;
+	{value, {category, {_, _, pattern}}} ->
 	    true;
 	_ -> false
     end.

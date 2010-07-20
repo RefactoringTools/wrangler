@@ -163,7 +163,7 @@ non_same_type_expr_unification(Exp1, Exp2) ->
     T1 = refac_syntax:type(Exp1),
     case T1 of
       variable ->
-	  case refac_misc:variable_replaceable(Exp2) of
+	  case refac_code_search_utils:generalisable(Exp2) of
 	      false ->
 		  false;
 	      true ->

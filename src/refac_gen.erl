@@ -326,31 +326,28 @@ make_actual_parameter(ModName, Exp, SideEffect) ->
     end.
 gen_cond_analysis(Fun, Exp, ParName) ->
     Cs = refac_syntax:function_clauses(Fun),
-    case lists:keysearch(category, 1, refac_syntax:get_ann(Exp)) of
-      {value, {category, record_field}} ->
-	  throw({error, "Record field cannot be replaced by a variable."});
-      {value, {category, record_type}} ->
-	  throw({error, "Record type cannot be replaced by a variable."});
-      {value, {category, guard_expression}} ->
-	  throw({error, "Generalisation over a guard expression is not supported."});
-      {value, {category, application_op}} ->
-	    GuardRanges = collect_guard_ranges(Fun),
-	    {Start, End} = refac_misc:get_start_end_loc(Exp),
-	    case [{S, E} || {S, E} <- GuardRanges, S =< Start, End =< E] of
-	      [] -> case refac_misc:get_free_vars(Exp) of
+    Ann = refac_syntax:get_ann(Exp),
+    case lists:keysearch(category, 1, Ann) of
+	{value, {category, record_field}} ->
+	    throw({error, "Record field cannot be replaced by a variable."});
+	{value, {category, record_type}} ->
+	    throw({error, "Record type cannot be replaced by a variable."});
+	{value, {category, guard_expression}} ->
+	    case lists:keysearch(fun_def,1,Ann) of
+		{value, {fun_def,_}} ->
+		    throw({error, "Generalisation over a function application "
+			   "in a guard expression is not supported."});
+		_ ->
+		    case refac_misc:get_free_vars(Exp) of
 			[] -> ok;
 			_ ->
-			    case refac_syntax:type(Exp) of 
-				module_qualifier ->
-				    throw({error,"Generalisation over a qualified function name "
-					   "with free variables is not supported."});
-				_ -> ok
-			    end
-		    end;
-	      _ -> throw({error, "Generalisation over a function application "
-			       "in a guard expression is not supported."})
-	  end;
-      _ -> ok
+			    throw({error,"Generalisation over an expression with free variables in "
+				   " a guard expression is not supported."})
+		    end
+	    end;
+	{value, {category, {macro_name, Num, _}}} when Num/=none->
+	    throw({error, "Generalisation over a macro name in an macro application is not supported."});
+	_ -> ok
     end,
     Exp_Free_Vars = refac_misc:get_free_vars(Exp),
     Exp_Export_Vars = refac_misc:get_var_exports(Exp),
@@ -850,23 +847,6 @@ reset_attr(Node, Key) ->
 				       NewAnn = lists:keydelete(Key, 1, Ann),
 				       refac_syntax:set_ann(T, NewAnn)
 			       end, Node, {}).
-
-collect_guard_ranges(Node) ->
-    Fun = fun (T, Acc) ->
-		  case refac_syntax:type(T) of
-		    clause ->
-			G = refac_syntax:clause_guard(T),
-			case G of
-			  none ->
-			      Acc;
-			  _ ->
-			      [refac_misc:get_start_end_loc(G)| Acc]
-			end;
-		    _ -> Acc
-		  end
-	  end,
-    refac_syntax_lib:fold(Fun, [], Node).
-
 
 list_elements(Node) ->
     lists:reverse(list_elements(Node, [])).

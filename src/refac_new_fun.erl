@@ -116,7 +116,7 @@ get_free_bd_vars(ExpList) ->
     
 
 side_cond_analysis(FileName, Info, Fun, ExpList, NewFunName) ->
-    lists:foreach(fun (E) -> check_expr_category(Fun, E) end, ExpList),
+    funcall_replaceable(Fun, ExpList),
     {FrVars, _} = get_free_bd_vars(ExpList),
     InScopeFuns = [{F, A} || {_M, F, A} <- refac_misc:inscope_funs(Info)],
     case lists:member({NewFunName, length(FrVars)}, InScopeFuns) orelse
@@ -128,7 +128,6 @@ side_cond_analysis(FileName, Info, Fun, ExpList, NewFunName) ->
 	_ -> ok
     end,
     check_unsafe_vars(ExpList),
-    funcall_replaceable(Fun, ExpList),
     TestFrameWorkUsed = refac_util:test_framework_used(FileName),
     test_framework_aware_name_checking(TestFrameWorkUsed, NewFunName, length(FrVars)).
 
@@ -160,73 +159,60 @@ check_unsafe_vars(ExpList) ->
 	  end,
     refac_syntax_lib:fold(Fun, [], refac_syntax:block_expr(ExpList)).
     
+funcall_replaceable(Fun,[Exp])->
+    case check_expr_category(Fun, Exp) of
+	false ->
+	    false;
+	true ->
+	    {StartPos, EndPos} = refac_misc:get_start_end_loc(Exp),
+	    Ranges = collect_prime_expr_ranges(Fun),
+	    Res = lists:any(
+		    fun ({StartPos1, EndPos1}) ->
+			    StartPos >= StartPos1 andalso EndPos =< EndPos1
+		    end, Ranges),
+	    case Res of
+		true -> throw({error, "The expression selected "
+			       "cannot be replaced by a function call!"});
+		_ ->
+		    true
+	    end
+    end;
 funcall_replaceable(Fun, ExpList) ->
-    case ExpList of
-      [Exp] ->
-	  case is_guard_expr(Exp) of
-	    true -> throw({error, "The selected guard expression "
-				  "cannot be replaced by a function call!"});
-	    _ -> {StartPos, EndPos} = refac_misc:get_start_end_loc(Exp),
-		 Ranges = collect_prime_expr_ranges(Fun),
-		 Res = lists:any(
-			 fun ({StartPos1, EndPos1}) ->
-				 StartPos >= StartPos1 andalso EndPos =< EndPos1
-			 end, Ranges),
-		 case Res of
-		   true -> throw({error, "The selected expression "
-					 "cannot be replaced by a function call!"});
-		   _ ->
-		       ok
-		 end
-	  end;
-      _ ->
-	  ExpList1 = filter_exprs_via_ast(Fun, ExpList),
-	  case ExpList1 of
-	    [] -> ok;
-	    _ -> throw({error, "The expression sequence selected "
-			       "cannot be replaced by a function call!"})
-	  end
+    ExpList1 = filter_exprs_via_ast(Fun, ExpList),
+    case ExpList1 of
+	[] -> true;
+	_ -> throw({error, "The expression sequence selected "
+		    "cannot be replaced by a function call!"})
     end.
-
+  
 check_expr_category(Fun, Exp) ->
     case is_macro_arg(Fun, Exp) of
 	true ->
 	    throw({warning, "The expression selected is part of a macro application, "
 		   "Wrangler cannot guarantee the correctness of transformation. Still continue?"});
 	false ->
-	    check_expr_category_1(Fun, Exp)
+	    check_expr_category_1(Exp)
     end.
 
-check_expr_category_1(Fun, Exp) ->
+check_expr_category_1(Exp) ->
     case lists:keysearch(category, 1, refac_syntax:get_ann(Exp)) of
-      {value, {category, record_field}} ->
-	  throw({error, "Record field cannot be replaced "
-			"by a function application."});
-      {value, {category, record_type}} ->
-	  throw({error, "Record type cannot be replaced "
-			"by a function application."});
-      {value, {category, guard_expression}} ->
-	  throw({error, "Function abstraction whithin a "
-			"guard expression is not supported."});
-      {value, {category, generator}} ->
-	  throw({error, "Function abstraction over a generator"
-			"is not supported."});
-      {value, {category, application_op}} ->
-	  case is_part_of_guard_expr(Fun, Exp) of 
-	      true ->
-		  throw({error, "Function abastraction within "
-			 "a guard expression is not supported."});
-	      false -> ok
-	  end;
-      _ -> ok
+	{value, {category, record_field}} ->
+	    throw({error, "Record field cannot be replaced "
+		 "by a function application."});
+	{value, {category, record_type}} ->
+	    throw({error, "Record type cannot be replaced "
+		 "by a function application."});
+	{value, {category, guard_expression}} ->
+	    throw({error, "Function abstraction whithin a "
+		 "guard expression is not supported."});
+	{value, {category, generator}} ->
+	    throw({error, "Function abstraction over a generator"
+		   "is not supported."});
+	{value, {category, {macro_name, _Num, _}}} ->
+	    throw({error, "Function abstraction over a macro name in a"
+		   "macro application is not supported."});
+	_ -> true
     end.
-
-is_part_of_guard_expr(Fun, Exp) ->
-    GuardRanges = collect_guard_ranges(Fun),
-    {Start, End} = refac_misc:get_start_end_loc(Exp),
-    lists:any(fun ({S1, E1}) ->
-		      S1 =< Start andalso End =< E1
-	      end, GuardRanges).
 
 is_macro_arg(Fun, Exp) ->
     MacroArgRanges = collect_macro_arg_ranges(Fun),
@@ -249,23 +235,6 @@ collect_prime_expr_ranges(Tree) ->
     refac_syntax_lib:fold(F, [], Tree).
 
 
-%% This function is a duplicated of refac_gen:collect_guard_ranges/1, and 
-%% will be removed later on.
-collect_guard_ranges(Node) ->
-    Fun = fun (T, Acc) ->
-		  case refac_syntax:type(T) of
-		    clause ->
-			G = refac_syntax:clause_guard(T),
-			case G of
-			  none ->
-			      Acc;
-			  _ ->
-			      [refac_misc:get_start_end_loc(G)| Acc]
-			end;
-		    _ -> Acc
-		  end
-	  end,
-    refac_syntax_lib:fold(Fun, [], Node).
 collect_macro_arg_ranges(Node) ->
     Fun = fun (T, Acc) ->
 		  case refac_syntax:type(T) of
@@ -280,14 +249,6 @@ collect_macro_arg_ranges(Node) ->
 		  end
 	  end,
     refac_syntax_lib:fold(Fun, [], Node).
-
-is_guard_expr(Node) ->
-    As = refac_syntax:get_ann(Node),
-    case lists:keysearch(category,1, As) of
-	{value, {category, guard_expression}} ->
-	    true;
-	_  -> false
-    end.
 
 test_framework_aware_name_checking(UsedFrameWorks, NewFunName, Arity) ->
     eunit_name_checking(UsedFrameWorks, NewFunName, Arity),

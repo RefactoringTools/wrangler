@@ -1,18 +1,13 @@
 -module(refac_code_search_utils).
 
-
--compile(export_all).
-
 -export([var_binding_structure/1,
 	 display_search_results/3, display_clone_result/2,
 	 start_counter_process/0, stop_counter_process/1,
 	 add_new_export_var/2, get_new_export_vars/1,
 	 identifier_name/1, gen_new_var_name/1,
-	 remove_sub_clones/1]).
+	 remove_sub_clones/1, generalisable/1]).
 
 -include("../include/wrangler.hrl").
-
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
 %%                                                                      %%
@@ -303,5 +298,31 @@ compose_search_result_info([{FileName, {{StartLine, StartCol}, {EndLine, EndCol}
     Str1 =Str ++ "\n"++FileName++io_lib:format(":~p.~p-~p.~p: ", [StartLine, StartCol, EndLine, EndCol]),
     compose_search_result_info(Ranges, Str1).
 
-
- 
+%% returns true is an AST node can be generalised. 
+%% This is more restrict that what is necessary.
+%% TODO:how about side effect?
+generalisable(Node) ->
+    case lists:keysearch(category, 1, refac_syntax:get_ann(Node)) of
+	{value, {category, record_field}} -> false;
+	{value, {category, record_type}} -> false;
+	{value, {category, guard_expression}} -> false;
+	{value, {category, generator}} -> false;
+	{value, {category, {macro_name, Num, _}}} when Num/=none -> false;
+	{value, {category, pattern}} ->
+	    refac_syntax:is_literal(Node) orelse
+		refac_syntax:type(Node) == variable;
+	_ ->
+	  %% While syntactically, expressions of some of the listed types
+	  %% can be replaced by a variable, in practice, generalise a function 
+	  %% over this kind of expression could make the code harder to understand.
+	    T = refac_syntax:type(Node),
+	    not lists:member(T, [match_expr, operator, case_expr,
+				 if_expr, fun_expr, receive_expr, clause,
+				 query_expr, try_expr, catch_expr, cond_expr,
+				 block_expr]) andalso
+	    refac_misc:get_var_exports(Node) == [] andalso
+	    %% generalise expressions with free variables need to 
+	    %% wrap the expression with a fun expression; we try to 
+	    %% avoid this case.
+		refac_misc:get_free_vars(Node) == []
+    end.

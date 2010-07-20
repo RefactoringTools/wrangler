@@ -80,6 +80,7 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     {ok, {AnnAST1, _Info1}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     case interface_api:pos_to_var_name(AnnAST1, {Line, Col}) of
       {ok, {VarName, DefinePos, C}} ->
+	    refac_io:format("Vars:\n~p\n",[{VarName, DefinePos, C}]),
 	  {VarName, DefinePos, C};
       {error, _} ->
 	  throw({error, "You have not selected a variable name, "
