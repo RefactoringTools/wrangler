@@ -1206,9 +1206,8 @@ try_to_apply(Mod, Fun, Args, Msg) ->
      catch
 	 throw:Error -> 
 	     Error;    %% wrangler always throws Error in the format of '{error, string()}';
-	 E1:E2->
-     	     refac_io:format("E1E2:\n~p\n", [{E1, E2}]),
-	     {error, Msg}
+	 _E1:_E2->
+    	     {error, Msg}
      end.
 
 %%@private
@@ -1226,29 +1225,22 @@ init_eclipse() ->
 get_log_msg() ->
     Errors = wrangler_error_logger:get_logged_info(),
     FileErrors = [{File, Error} || {File, Error} <- Errors, File /= warning],
-    ErrorMsg= 
-	case FileErrors of 
-	    [] -> "";
-	    _ ->
-		Msg1=io_lib:format("There are syntax errors, or syntaxes not supported by Wrangler;"
-				   " functions/attribute containing these syntaxes are not affected by the refactoring.\n", []),
-		Msg2 = lists:flatmap(fun ({FileName, Errs}) ->
-					     Str = io_lib:format("File:\n ~p\n", [FileName]),
-					     Str1 = Str ++ io_lib:format("Error(s):\n", []),
-					     Str1 ++ lists:flatmap(fun (E) ->
-									   case E of
-									       {Pos, _Mod, Msg} -> io_lib:format(" ** ~p:~p **\n", [Pos, Msg]);
-									       M -> io_lib:format("**~p**\n", [M])
-									   end
-									 end,
-								   lists:reverse(Errs))
-				     end, Errors),
-		Msg1++Msg2
-	end,
-    WarningMsg=case lists:keysearch(warning, 1, Errors) of 
-		   {value, {warning, Str}} ->
-		       Str;
-		   false -> ""
-	       end,
-    ErrorMsg++WarningMsg.
-   
+    case FileErrors of 
+	[] -> "";
+	_ ->
+	    Msg1=io_lib:format("There are syntax errors, or syntaxes not supported by Wrangler;"
+			       " functions/attribute containing these syntaxes are not affected by the refactoring.\n", []),
+	    Msg2 = lists:flatmap(fun ({FileName, Errs}) ->
+					 Str = io_lib:format("File:\n ~p\n", [FileName]),
+					 Str1 = Str ++ io_lib:format("Error(s):\n", []),
+					 Str1 ++ lists:flatmap(fun (E) ->
+								       case E of
+									   {Pos, _Mod, Msg} -> io_lib:format(" ** ~p:~p **\n", [Pos, Msg]);
+									   M -> io_lib:format("**~p**\n", [M])
+								       end
+							       end,
+							       lists:reverse(Errs))
+				 end, FileErrors),
+	    Msg1++Msg2
+    end.
+ 
