@@ -93,9 +93,10 @@ fun_extraction(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewFunName, T
 fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor,Cmd) ->
     FunName = refac_syntax:atom_value(refac_syntax:function_name(Fun)),
     FunArity = refac_syntax:function_arity(Fun),
+    FunPos = refac_syntax:get_pos(Fun),
     {FrVars, BdVars} = get_free_bd_vars(ExpList),
     VarsToExport = vars_to_export(Fun, End, BdVars),
-    AnnAST1 = do_fun_extraction(AnnAST, ExpList, NewFunName,FrVars, VarsToExport, FunName, FunArity),
+    AnnAST1 = do_fun_extraction(AnnAST, ExpList, NewFunName,FrVars, VarsToExport, {FunName, FunArity, FunPos}),
     case Editor of
       emacs ->
 	  Res = [{{FileName, FileName}, AnnAST1}],
@@ -327,7 +328,7 @@ commontest_name_checking(UsedFrameWorks, NewFunName, Arity) ->
 
 
 
-do_fun_extraction(AnnAST, ExpList, NewFunName, ParNames, VarsToExport, EnclosingFunName, EnclosingFunArity) ->
+do_fun_extraction(AnnAST, ExpList, NewFunName, ParNames, VarsToExport, {EncFunName, EncFunArity, EncFunPos}) ->
     NewFunName1 = refac_syntax:atom(NewFunName),
     Pars = [refac_syntax:variable(P) || P <- ParNames],
     LastExprExportVars = [V || {V, _Pos} <- refac_misc:get_var_exports(lists:last(ExpList))],
@@ -354,16 +355,17 @@ do_fun_extraction(AnnAST, ExpList, NewFunName, ParNames, VarsToExport, Enclosing
     Fun = fun (Form) ->
 		  case refac_syntax:type(Form) of
 		    function ->
-			Name = refac_syntax:atom_value(refac_syntax:function_name(Form)),
-			Arity = refac_syntax:function_arity(Form),
-			case {Name, Arity} == {EnclosingFunName, EnclosingFunArity} of
-			  true ->
-			      Form1 = replace_expr_with_fun_call(
-					Form, ExpList, NewFunName, ParNames, VarsToExport),
-			      [Form1, NewFun];
-			  _ -> [Form]
-			end;
-		    _ -> [Form]
+			  Name = refac_syntax:atom_value(refac_syntax:function_name(Form)),
+			  Arity = refac_syntax:function_arity(Form),
+			  Pos = refac_syntax:get_pos(Form),
+			  case {Name, Arity, Pos} == {EncFunName, EncFunArity, EncFunPos} of
+			      true ->
+				  Form1 = replace_expr_with_fun_call(
+					    Form, ExpList, NewFunName, ParNames, VarsToExport),
+				  [Form1, NewFun];
+			      _ -> [Form]
+			  end;
+		      _ -> [Form]
 		  end
 	  end,
     refac_syntax:form_list([F || Form <- Forms, F <- Fun(Form)]).
