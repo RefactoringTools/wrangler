@@ -157,11 +157,12 @@ pre_cond_test_file_checking(OldModName, NewModName,TestFrameWorkUsed, SearchPath
 	    case filelib:is_file(NewTestFileName) of
 		false ->
 		    {question, "Also rename the test module: " ++ F ++ "?"};
-		true -> {warning, "This module has a test module, but Wrangler cannot rename it"
-			 " because the new test module name is already in use, still continue?"}
+		true -> 
+		    {warning, "This module has a test module, but Wrangler cannot rename it"
+		     " because the new test module name is already in use, still continue?"}
 	    end;
 	_ -> {warning, "There are multiple EUnit test files for this module, "++output_filenames(EUnitTestFiles)++
-	      ", and Wrangler will not rename them, still continue?"}
+		  ", and Wrangler will not rename them, still continue?"}
     end.
 
     
@@ -203,10 +204,9 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, C
 			{TestAnnAST, _Info} = parse_file_with_type_ann(TestFileName, SearchPaths, TabWidth),
 			{TestAnnAST1, _C2} = do_rename_mod_1(TestAnnAST, {FileName, OldNewModPairs, Pid}),
 			check_atoms(FileName, TestAnnAST1, OldModNames, Pid),
-			[{{TestFileName, NewTestFileName}, TestAnnAST1}];
+			[{{TestFileName, NewTestFileName}, TestAnnAST1}]; 
 		   _ -> []
 		 end,
-    
     ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
     ClientFiles1 = refac_util:get_client_files(FileName, SearchPaths),
     ClientFiles2 = case length(OldNewModPairs) == 2 of
@@ -217,7 +217,7 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, C
 		    2 -> lists:usort(ClientFiles1 ++ ClientFiles2) -- [FileName, TestFileName];
 		    _ -> ClientFiles1
 		  end,
-    Results = rename_mod_in_client_modules(ClientFiles, OldModName, OldNewModPairs, SearchPaths, TabWidth, Pid),
+    Results = rename_mod_in_client_modules(ClientFiles, OldModName, OldNewModPairs, SearchPaths, TabWidth, Pid),  
     case Editor of
       emacs ->
 	  HasWarningMsg = refac_atom_utils:has_warning_msg(Pid),
