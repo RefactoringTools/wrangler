@@ -105,7 +105,7 @@ vertical_concat([{PPStr,Form}| T], FileFormat, Acc) ->
 		    mac -> "\r";
 		    _ -> "\n"
 		end,
-    Acc1 = case UseOriginalCode of
+    Acc1 = case UseOriginalCode orelse Acc=="" of
 	       true ->
 		   Acc;
 	       false ->
