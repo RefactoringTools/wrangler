@@ -401,7 +401,12 @@ scan_string([$\r | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFo
 scan_string([$\n | Cs], Stack, Toks, {Line, _Col}, State,  Errors, TabWidth,FileFormat) ->
     scan_string(Cs, [$\n | Stack], Toks, {Line + 1, 1}, State, Errors, TabWidth,FileFormat);
 scan_string([$\\,$" | Cs], Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
-      scan_string(Cs, [$", $\\| Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
+    case reverse(Stack) of 
+	[StartPos, $" |S] ->
+	    scan(Cs, [], [{string, StartPos, S++[$\\]} | Toks],{Line, Col+2}, State, Errors, TabWidth,FileFormat);
+	_ ->
+	    scan_string(Cs, [$", $\\| Stack], Toks, {Line, Col+2}, State, Errors, TabWidth,FileFormat)
+    end;
 %% scan_string([$\\ | Cs], Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
 %%     sub_scan_escape( Cs, [fun scan_string_escape/8, $\\ | Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
 scan_string([C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) 
