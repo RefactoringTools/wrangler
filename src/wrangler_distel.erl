@@ -247,7 +247,7 @@ check_searchpaths(SearchPaths) ->
 check_undo_process() ->
     case erlang:whereis(refactor_undo) of
 	undefined ->
-	    {error, "The Wrangler application is started, or is not working properly, please restart the refactorer!"};
+	    {error, "The Wrangler application is not started, or is not working properly, please restart the refactorer!"};
 	_ ->
 	    ok
     end.
