@@ -188,7 +188,7 @@ pos_to_expr(Tree, Start, End) ->
 pos_to_expr_1(Tree, Start, End) ->
     {S, E} = refac_misc:get_start_end_loc(Tree),
     if (S >= Start) and (E =< End) ->
-	   case refac_misc:is_expr(Tree) of
+	   case is_expr(Tree) of
 	     true ->
 		   [Tree];
 	     _ ->
@@ -209,16 +209,9 @@ pos_to_expr_1(Tree, Start, End) ->
 -spec(pos_to_expr_list(Tree::syntaxTree(), Start::pos(), End::pos()) ->
 	     [syntaxTree()]).
 pos_to_expr_list(AnnAST, Start, End) ->
-    Es = pos_to_expr_list_1(AnnAST, Start, End, fun refac_misc:is_expr/1),
+    Es = pos_to_expr_list_1(AnnAST, Start, End, fun is_expr/1),
     get_expr_list(Es).
 
-pos_to_expr_or_pat_list(AnnAST, Start, End) ->
-    F = fun
-	  (E) -> refac_misc:is_expr(E) orelse refac_misc:is_pattern(E)
-	end,
-    Es = pos_to_expr_list_1(AnnAST, Start, End, F),
-    get_expr_list(Es).
- 
 pos_to_expr_list_1(Tree, Start, End, F) ->
     {S, E} = refac_misc:get_start_end_loc(Tree),
     if (S >= Start) and (E =< End) ->
@@ -257,7 +250,15 @@ get_expr_list_1(L) ->
     [L].
 
 
+pos_to_expr_or_pat_list(AnnAST, Start, End) ->
+    F = fun
+	  (E) -> is_expr(E) orelse refac_misc:is_pattern(E)
+	end,
+    Es = pos_to_expr_list_1(AnnAST, Start, End, F),
+    get_expr_list(Es).
 
+is_expr(Node) ->
+    refac_misc:is_expr(Node) orelse refac_syntax:type(Node)==match_expr.
 %% ===========================================================================
 %% @spec expr_to_fun(Tree::syntaxTree(), Exp::syntaxTree())->
 %%                   {ok, syntaxTree()} | {error, none}
