@@ -869,7 +869,10 @@ decompose_clone_pair_by_simi_score_2(ClonePairWithSimiScore, Thresholds, Acc) ->
 	++ decompose_clone_pair_by_simi_score_3(ClonePairs2, Thresholds) 
 	++ Acc.
 
-
+%% TODO: CHECK THIS ERROR!!!
+%% refac_inc_sim_code.erl:881: The pattern [{{_, Expr1}, {_, Expr2}, 
+%%{SubEs1, SubEs2}, _} | _] can never match the type [{{_,_},{_,_},[any()],{_,_}}]
+%%
 decompose_clone_pair_by_simi_score_3(ClonePairs, Thresholds)->
     MinLen = Thresholds#threshold.min_len,
     SimiScoreThreshold = Thresholds#threshold.simi_score,
@@ -879,8 +882,8 @@ decompose_clone_pair_by_simi_score_3(ClonePairs, Thresholds)->
 	false ->
 	    {Exprs1SubEs1Pairs, Exprs2SubEs2Pairs}
 		=lists:unzip([{{Expr1, SubEs1}, {Expr2, SubEs2}}
-			     ||{{_, Expr1}, {_, Expr2}, {SubEs1, SubEs2}, _}
-				   <-ClonePairs]),
+			      ||{{_, Expr1}, {_, Expr2}, {SubEs1, SubEs2}, _}
+				    <-ClonePairs]),
 	    {Exprs1, SubEs1} = lists:unzip(Exprs1SubEs1Pairs),
 	    {Exprs2, SubEs2} = lists:unzip(Exprs2SubEs2Pairs),
 	    SimiScore1 = simi_score(Exprs1,SubEs1),

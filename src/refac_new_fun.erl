@@ -161,22 +161,18 @@ check_unsafe_vars(ExpList) ->
     refac_syntax_lib:fold(Fun, [], refac_syntax:block_expr(ExpList)).
     
 funcall_replaceable(Fun,[Exp])->
-    case check_expr_category(Fun, Exp) of
-	false ->
-	    false;
-	true ->
-	    {StartPos, EndPos} = refac_misc:get_start_end_loc(Exp),
-	    Ranges = collect_prime_expr_ranges(Fun),
-	    Res = lists:any(
-		    fun ({StartPos1, EndPos1}) ->
-			    StartPos >= StartPos1 andalso EndPos =< EndPos1
-		    end, Ranges),
-	    case Res of
-		true -> throw({error, "The expression selected "
-			       "cannot be replaced by a function call!"});
-		_ ->
-		    true
-	    end
+   check_expr_category(Fun, Exp),
+    {StartPos, EndPos} = refac_misc:get_start_end_loc(Exp),
+    Ranges = collect_prime_expr_ranges(Fun),
+    Res = lists:any(
+	    fun ({StartPos1, EndPos1}) ->
+		    StartPos >= StartPos1 andalso EndPos =< EndPos1
+	    end, Ranges),
+    case Res of
+	true -> throw({error, "The expression selected "
+		       "cannot be replaced by a function call!"});
+	_ ->
+	    true
     end;
 funcall_replaceable(Fun, ExpList) ->
     ExpList1 = filter_exprs_via_ast(Fun, ExpList),

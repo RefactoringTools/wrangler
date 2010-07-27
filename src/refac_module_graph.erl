@@ -117,14 +117,7 @@ do_collect_called_mods(AnnAST, ModNames) ->
 		   end
 	   end,
     CalledMods = refac_syntax_lib:fold(Fun1, ordsets:new(), AnnAST),
-    Fun2 = fun (T, Acc) ->
-		   case refac_syntax:type(T) of
-		     function ->
-			 Acc ++ refac_atom_utils:collect_atoms(T, ModNames);
-		     _ -> Acc
-		   end
-	   end,
-    UnSures = refac_syntax_lib:fold(Fun2, [], AnnAST),
+    UnSures = refac_atom_utils:collect_unsure_atoms_in_file(AnnAST, ModNames, m_atom),
     UnSures1 = [Name || {atom, _Pos, Name} <- UnSures,
 			not lists:member(Name, CalledMods)],
     {CalledMods, ordsets:from_list(UnSures1)}.

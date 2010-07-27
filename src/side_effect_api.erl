@@ -34,7 +34,7 @@
 %%=================================================================
 
 has_side_effect(Node) ->
-    has_side_effect(unknown, Node, []).
+    has_side_effect("unknown", Node, []).
     
 %% @doc Return true if the abstract syntax tree represented by Node has side effect, 
 %%      otherwise return false. As to parameters, File represents filename of the

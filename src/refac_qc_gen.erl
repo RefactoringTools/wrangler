@@ -45,7 +45,7 @@
 %%  3). Try to generate sensable variable names.
 
 %% =============================================================================================
--spec(test_cases_to_property/5::(filename(), integer(), integer(), [dir()], integer()) -> {'ok', [filename()]} | {error, string()}).
+-spec(test_cases_to_property/5::(filename(), integer(), integer(), [dir()], integer()) -> {'ok', [filename()], boolean()} | {error, string()}).
 test_cases_to_property(FileName, Line, Col, SearchPaths, TabWidth) ->
     test_cases_to_property(FileName, Line, Col, SearchPaths, TabWidth, emacs).
 

@@ -71,7 +71,7 @@ fold_expr_by_loc(FileName, Line, Col, SearchPaths, TabWidth) ->
     fold_expression(FileName, Line, Col, SearchPaths, TabWidth, emacs).
 
 -spec(fold_expr_by_loc_eclipse/5::(filename(), integer(), integer(), [dir()], integer()) ->
-	     {ok,  {syntaxTree(),[{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}}).
+	     {ok,  {syntaxTree(),[{{{integer(), integer()}, {integer(), integer()}}, syntaxTree(),syntaxTree()}]}}).
 fold_expr_by_loc_eclipse(FileName, Line, Col, SearchPaths, TabWidth) ->
     fold_expression(FileName, Line, Col, SearchPaths, TabWidth, eclipse).
 
@@ -119,7 +119,7 @@ fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex,
 		      SearchPaths, TabWidth, emacs).
 
 -spec(fold_expr_by_name_eclipse/7::(filename(), string(), string(), integer(), integer(), [dir()], integer())
-				   -> {ok, {syntaxTree(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}}).
+				   -> {ok, {syntaxTree(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree(),syntaxTree()}]}}).
 fold_expr_by_name_eclipse(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth) ->
     fold_expr_by_name(FileName, list_to_atom(ModName), list_to_atom(FunName), Arity, 
 		      ClauseIndex, SearchPaths, TabWidth, eclipse).

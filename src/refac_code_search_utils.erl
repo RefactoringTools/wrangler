@@ -2,7 +2,8 @@
 
 -export([var_binding_structure/1,
 	 display_search_results/3, display_clone_result/2,
-	 start_counter_process/0, stop_counter_process/1,
+	 start_counter_process/0, start_counter_process/1,
+	 stop_counter_process/1,
 	 add_new_export_var/2, get_new_export_vars/1,
 	 identifier_name/1, gen_new_var_name/1,
 	 remove_sub_clones/1, generalisable/1]).

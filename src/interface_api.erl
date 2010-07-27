@@ -211,6 +211,7 @@ pos_to_expr_1(Tree, Start, End) ->
 pos_to_expr_list(AnnAST, Start, End) ->
     Es = pos_to_expr_list_1(AnnAST, Start, End, fun refac_misc:is_expr/1),
     get_expr_list(Es).
+
 pos_to_expr_or_pat_list(AnnAST, Start, End) ->
     F = fun
 	  (E) -> refac_misc:is_expr(E) orelse refac_misc:is_pattern(E)
@@ -222,36 +223,39 @@ pos_to_expr_list_1(Tree, Start, End, F) ->
     {S, E} = refac_misc:get_start_end_loc(Tree),
     if (S >= Start) and (E =< End) ->
 	   case F(Tree) of
-	     true ->
-		 [Tree];
-	     _ ->
+	       true ->
+		   [[Tree]];
+	       _ ->
 		 Ts = refac_syntax:subtrees(Tree),
 		 [[lists:append(pos_to_expr_list_1(T, Start, End, F)) || T <- G]
 		  || G <- Ts]
 	   end;
-       (S > End) or (E < Start) -> [];
+       (S > End) or (E < Start) -> [[]];
        (S < Start) or (E > End) ->
 	   Ts = refac_syntax:subtrees(Tree),
 	   [[lists:append(pos_to_expr_list_1(T, Start, End, F)) || T <- G]
-	    || G <- Ts];
-       true -> []
+	    || G <- Ts]
     end.
 get_expr_list(Es) ->
-    case [E || E <- Es, lists:flatten(E) /= []] of
+    case [lists:append(E) || E <- Es, lists:flatten(E) /= []] of
       [] ->
 	  [];
-      [H| _T] ->
-	  get_expr_list_1(H)
+      [H|_T] ->
+	    get_expr_list_1(H)
     end.
 
-get_expr_list_1(L) ->
+get_expr_list_1(L) when is_list(L) ->
     F = fun (E) -> not is_list(E) orelse E == [] end,
     case lists:all(F, L) of
       true ->
 	  [E || E <- L, E /= []];
       false ->
 	  get_expr_list(L)
-    end.
+    end;
+%% can 'L' not be a lists?
+get_expr_list_1(L) ->
+    [L].
+
 
 
 %% ===========================================================================

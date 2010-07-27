@@ -61,7 +61,7 @@
 
 -export([rename_mod/4, rename_mod_1/5, rename_mod_eclipse/4, rename_mod_1_eclipse/5]).
 
--import(refac_atom_utils, [output_atom_warning_msg/3,check_atoms/4,start_atom_process/0,stop_atom_process/1]).
+-import(refac_atom_utils, [output_atom_warning_msg/3,check_unsure_atoms/5,start_atom_process/0,stop_atom_process/1]).
 
 -include("../include/wrangler.hrl").
 
@@ -198,12 +198,12 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, C
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     {AnnAST1, _C1} = do_rename_mod_1(AnnAST, {FileName, OldNewModPairs, Pid}),
     OldModNames = element(1, lists:unzip(OldNewModPairs)),
-    check_atoms(FileName, AnnAST1, OldModNames, Pid),
+    check_unsure_atoms(FileName, AnnAST1, OldModNames, m_atom, Pid),
     TestModRes = case length(OldNewModPairs) of
 		   2 -> ?wrangler_io("The current file under refactoring is:\n~p\n", [TestFileName]),
 			{TestAnnAST, _Info} = parse_file_with_type_ann(TestFileName, SearchPaths, TabWidth),
 			{TestAnnAST1, _C2} = do_rename_mod_1(TestAnnAST, {FileName, OldNewModPairs, Pid}),
-			check_atoms(FileName, TestAnnAST1, OldModNames, Pid),
+			check_unsure_atoms(FileName, TestAnnAST1, OldModNames, m_atom,  Pid),
 			[{{TestFileName, NewTestFileName}, TestAnnAST1}]; 
 		   _ -> []
 		 end,
@@ -344,7 +344,7 @@ rename_mod_in_client_modules(Files, OldModName, OldNewModPairs, SearchPaths, Tab
 	    end,
 	    {AnnAST1, Changed} = do_rename_mod_1(AnnAST, {F, OldNewModPairs,Pid}),
 	    OldModNames = element(1, lists:unzip(OldNewModPairs)),
-	    check_atoms(F, AnnAST1, OldModNames, Pid),
+	    check_unsure_atoms(F, AnnAST1, OldModNames, m_atom,Pid),
 	    if Changed ->
 		    [{{F,F}, AnnAST1}|rename_mod_in_client_modules(
 					Fs, OldModName, OldNewModPairs, SearchPaths, TabWidth, Pid)];

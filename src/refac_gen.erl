@@ -655,7 +655,7 @@ add_parameter(C, NewPar) ->
 to_keep_original_fun(FileName, AnnAST, ModName, FunName, Arity, Exp, Info) ->
     refac_misc:is_exported({FunName, Arity}, Info) orelse
       is_eunit_special_function(FileName, atom_to_list(FunName), Arity) orelse
-	check_atoms(AnnAST, [FunName]) orelse
+	has_unsure_atoms(AnnAST, [FunName], f_atom) orelse
 	  check_implicit_and_apply_style_calls(AnnAST, ModName, FunName, Arity) orelse 
 	generalise_recursive_function_call(Exp, ModName, FunName, Arity) orelse
         has_multiple_definitions(AnnAST, ModName, FunName, Arity). 
@@ -673,23 +673,10 @@ is_eunit_special_function(FileName, FunName, Arity) ->
       _ -> false
     end.
 
-check_atoms(AnnAST, AtomNames) ->
-    F = fun (T) ->
-		case refac_syntax:type(T) of
-		    function -> refac_atom_utils:collect_atoms(T, AtomNames);
-		    _ -> []
-		end
-	end,
-    R = lists:flatmap(F, refac_syntax:form_list_elements(AnnAST)),
-    R1 = [X ||{atom, X, _} <- R],
-    R2 = [X ||{_, X, _} <- lists:filter(fun (X) ->
-					     case X of
-						 {atom, _X,_} -> false;
-						 _ -> true
-					     end
-				     end,
-				     R)],
-    R1 -- R2 =/= [].
+has_unsure_atoms(AnnAST, AtomNames, AtomType) ->
+    refac_atom_utils:collect_unsure_atoms_in_file(
+      AnnAST, AtomNames, AtomType)/=[].
+
    
 check_implicit_and_apply_style_calls(AnnAST, ModName, FunName, Arity) ->
     F = fun (Node, _Others) ->

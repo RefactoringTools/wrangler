@@ -41,10 +41,10 @@
 	 get_ctxt_hook/1,set_ctxt_hook/2,get_ctxt_user/1,
 	 set_ctxt_user/2,print_ast/2]).
 
--import(prettypr,
+-import(refac_prettypr_0,
 	[text/1,nest/2,above/2,beside/2,sep/1,par/1,par/2,
 	 floating/3,floating/1,break/1,follow/2,follow/3,
-	 empty/0]).
+	 empty/0, format/3, best/3]).
 
 -import(refac_parse,
 	[preop_prec/1,inop_prec/1,func_prec/0,max_prec/0]).
@@ -80,16 +80,17 @@ print_ast(FileFmt, AST,Options) ->
 		 user = proplists:get_value(user,Options),
 		 format = FileFmt},
     Fs = refac_syntax:form_list_elements(AST),
-    Es = seq_pr(Fs,none,reset_prec(Ctxt),fun lay/2),
-    LayoutedEs = [refac_prettypr_0:layout(E, FileFmt)||E<-Es],
-    vertical_concat(lists:zip(LayoutedEs,Fs), FileFmt).
+    %% Es = seq_pr(Fs,none,reset_prec(Ctxt),fun lay/2),
+    %% LayoutedEs = [refac_prettypr_0:layout(E, FileFmt)||E<-Es],
+    LayoutedFs = [format(F)||F<-Fs],
+    vertical_concat(lists:zip(LayoutedFs,Fs), FileFmt).
  
 seq_pr([H| T],Separator,Ctxt,Fun) ->
     {Paper,Ribbon} = get_paper_ribbon_width(H),
     case T of
-      [] -> [prettypr:best(Fun(H,Ctxt),Paper,Ribbon)];
+      [] -> [best(Fun(H,Ctxt),Paper,Ribbon)];
       _ ->
-	  [maybe_append(Separator,prettypr:best(Fun(H,Ctxt),Paper,Ribbon))
+	  [maybe_append(Separator,best(Fun(H,Ctxt),Paper,Ribbon))
 	   | seq_pr(T,Separator,Ctxt,Fun)]
     end;
 seq_pr([],_,_,_) -> [].
@@ -152,12 +153,12 @@ form_not_changed(Form) ->
 		    try 
 			Str = refac_util:concat_toks(Toks),
 			{ok, Toks1, _} = refac_scan:string(Str, {1,1}, 8, 'unix'),
-			OrigialForm = refac_epp_dodger:normal_parser(Toks1, []),
+			OriginalForm = refac_epp_dodger:normal_parser(Toks1, []),
 			
 			NewStr = format(Form, []),
 			{ok, Toks2, _} = refac_scan:string(NewStr, {1,1}, 8, 'unix'),
 			NewForm = refac_epp_dodger:normal_parser(Toks2, []),
-			best(OrigialForm) == best(NewForm)
+			best(OriginalForm) == best(NewForm)
 		    of
 			Res -> Res
 		    catch
@@ -312,8 +313,9 @@ set_ctxt_user(Ctxt,X) -> Ctxt#ctxt{user = X}.
 %% @equiv format(Tree, [])
 
 
-format(Node) -> format(Node,[]).
-
+format(Node) -> 
+    format(Node,[]).
+   
 
 %% =====================================================================
 %% @spec format(Tree::syntaxTree(), Options::[term()]) -> string()
@@ -388,7 +390,7 @@ format(Node) -> format(Node,[]).
 format(Node,Options) ->
     W = proplists:get_value(paper,Options,?PAPER),
     L = proplists:get_value(ribbon,Options,?RIBBON),
-    prettypr:format(layout(Node,Options),W,L).
+    format(layout(Node,Options),W,L).
 
 %% =====================================================================
 %% @spec best(Tree::syntaxTree()) -> empty | document()
@@ -417,7 +419,7 @@ best(Node) -> best(Node,[]).
 best(Node,Options) ->
     W = proplists:get_value(paper,Options,?PAPER),
     L = proplists:get_value(ribbon,Options,?RIBBON),
-    prettypr:best(layout(Node,Options),W,L).
+    best(layout(Node,Options),W,L).
 
 %% =====================================================================
 %% @spec layout(Tree::syntaxTree()) -> document()
@@ -567,17 +569,19 @@ lay_2(Node, Ctxt) ->
 	    39 -> text("'" ++ atom_to_list(refac_syntax:atom_value(Node)) ++ "'");
 	    _ -> text(Lit)
 	  end;
-      integer -> text(refac_syntax:integer_literal(Node));
-      float ->
-	  text(tidy_float(refac_syntax:float_literal(Node)));
-      char ->
-	  V = refac_syntax:char_value(Node),
-	  case is_integer(V) and (V > 127) of
-	    true -> {ok, [Num], _} = io_lib:fread("~u", integer_to_list(V)),
-		    [CharStr] = io_lib:fwrite("~.8B", [Num]),
-		    text("$\\" ++ CharStr);
-	    _ -> text(refac_syntax:char_literal(Node))
-	  end;
+	integer -> text(refac_syntax:integer_literal(Node));
+	float ->
+	    text(tidy_float(refac_syntax:float_literal(Node)));
+	char ->
+	    V = refac_syntax:char_value(Node),
+	   case is_integer(V) and (V > 127) of
+	       true -> {ok, [Num], _} = io_lib:fread("~u", integer_to_list(V)),
+		       [CharStr] = io_lib:fwrite("~.8B", [Num]),
+		       text("$\\" ++ CharStr);
+	       _ when is_atom(V)-> 
+                 text(atom_to_list(V));
+               _ -> text(refac_syntax:char_literal(Node))
+	   end;
       string ->  %% done;
 	  Str = refac_syntax:string_literal(Node),
 	  StrVal = "\"" ++ refac_syntax:string_value(Node) ++ "\"",
@@ -744,7 +748,7 @@ lay_2(Node, Ctxt) ->
 	  D3 = lay_elems(fun refac_prettypr_0:sep/1, BodyDocs, Body),
 	  HeadLastLn = case refac_syntax:clause_guard(Node) of
 			 none -> case Pats of
-				   [] -> get_end_line(Node);
+				   [] -> get_start_line(Node);
 				   _ ->  get_end_line(lists:last(Pats))
 				 end;
 			 _ -> get_end_line(refac_syntax:clause_guard(Node))
@@ -1215,6 +1219,7 @@ append_rule_body(B,D,Ctxt, SameLine={BodyStartLn, HeadLastLn}) ->
     append_clause_body(B,D,floating(R),Ctxt, SameLine).
 
 append_clause_body(B,D,S,Ctxt, _SameLine={BodyStartLn, HeadLastLn}) ->
+    refac_io:format("SameLine:\n~p\n", [{BodyStartLn, HeadLastLn}]),
     case BodyStartLn-HeadLastLn of 
 	0 -> beside(beside(D,S), nest(Ctxt#ctxt.break_indent,B));
 	1 -> above(beside(D,S),nest(Ctxt#ctxt.break_indent,B));

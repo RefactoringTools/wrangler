@@ -746,6 +746,7 @@ get_line(Node) ->
 	{_, L, _} when is_integer(L) ->
 	    L;
 	Pos ->
+	    refac_io:format("Node:\n~p\n", [Node]),
 	    exit({bad_position, Pos})
     end.
 

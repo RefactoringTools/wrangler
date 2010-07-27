@@ -2411,17 +2411,17 @@ adjust_locations(Form, Toks) ->
 			_ -> T
 		      end;
 		  implicit_fun ->
-		      Pos = refac_syntax:get_pos(T),
-		      Name = refac_syntax:implicit_fun_name(T),
-		      case refac_syntax:type(Name) of
-			arity_qualifier ->
+			Pos = refac_syntax:get_pos(T),
+			Name = refac_syntax:implicit_fun_name(T),
+			case refac_syntax:type(Name) of
+			    arity_qualifier ->
 			    Fun = refac_syntax:arity_qualifier_body(Name),
 			    A = refac_syntax:arity_qualifier_argument(Name),
 			    case {refac_syntax:type(Fun), refac_syntax:type(A)} of
 			      {atom, integer} ->
-				  Toks1 = lists:dropwhile(fun (B) -> element(2, B) =/= Pos end, Toks),
-				  Fun1 = refac_syntax:atom_value(Fun),
-				  Toks2 = lists:dropwhile(fun (B) ->
+				    Toks1 = lists:dropwhile(fun (B) -> element(2, B) =/= Pos end, Toks),
+				    Fun1 = refac_syntax:atom_value(Fun),
+				    Toks2 = lists:dropwhile(fun (B) ->
 								  case B of
 								    {atom, _, Fun1} -> false;
 								    _ -> true
