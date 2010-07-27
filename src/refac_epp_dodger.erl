@@ -299,7 +299,7 @@ skip_macro_args([], _Es, _As) ->
 %% Normal parsing - try to preserve all information
 
 normal_parser(Ts, Opt) ->
-    rewrite_form(parse_tokens(scan_form(Ts, Opt))).
+    rewrite_form(parse_tokens(scan_form(Ts, Opt)), element(2, hd(Ts))).
 
 scan_form([{'-', _L}, {atom, La, define} | Ts], Opt) ->
     [{atom, La, ?pp_form}, {'(', La}, {')', La}, {'->', La},
@@ -422,16 +422,22 @@ scan_macros_1(Args, Rest, As, Opt) ->
     %% normal case - continue scanning
     scan_macros(Args ++ Rest, As, Opt).
 
-rewrite_form({function, L, ?pp_form, _,
-              [{clause, _, [], [], [{call, _, A, As}]}]}) ->
-    refac_syntax:set_pos(refac_syntax:attribute(A, rewrite_list(As)), L);
-rewrite_form({function, L, ?pp_form, _, [{clause, _, [], [], [A]}]}) ->
-    refac_syntax:set_pos(refac_syntax:attribute(A), L);
-rewrite_form(T={attribute, _, spec, _}) -> T;
-rewrite_form(T={attribute, _, type, _}) -> 
-     T;
-rewrite_form(T) ->
-    rewrite(T).
+rewrite_form({function, _L, ?pp_form, _,
+              [{clause, _, [], [], [{call, _, A, As}]}]}, L0) ->
+    refac_syntax:set_pos(refac_syntax:attribute(A, rewrite_list(As)), L0);
+rewrite_form({function, _L, ?pp_form, _, [{clause, _, [], [], [A]}]} , L0) ->
+    refac_syntax:set_pos(refac_syntax:attribute(A), L0);
+rewrite_form(T={attribute, _Pos, spec, _}, L0) ->
+    setelement(2, T, L0);
+rewrite_form(T={attribute, _Pos, type, _}, L0) -> 
+    setelement(2, T, L0);
+rewrite_form(T, L0) ->
+    case element(1, T) of
+	attribute ->
+	    rewrite(setelement(2, T, L0));
+	_ ->
+	    rewrite(T)
+    end.
 
 rewrite_list([T | Ts]) ->
     [rewrite(T) | rewrite_list(Ts)];
