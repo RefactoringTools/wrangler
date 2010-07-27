@@ -372,18 +372,24 @@ name_char(_) -> false.
 
 scan_char([$\\ | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     sub_scan_escape(Cs, [fun scan_char_escape/8, $\\|Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
-scan_char([$\n | Cs], Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
-    scan(Cs, Stack, [{char, {Line, Col}, $\n} | Toks], {Line + 1, Col}, State, Errors, TabWidth,FileFormat);
+scan_char([$\n | Cs], _Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
+    scan(Cs, [], [{char, {Line, Col}, $\n} | Toks], {Line + 1, Col}, State, Errors, TabWidth,FileFormat);
+scan_char([$  | Cs], _Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
+    scan(Cs, [], [{char, {Line, Col}, '$ '} | Toks], {Line, Col+1}, State, Errors, TabWidth,FileFormat);
 scan_char([], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     more([], Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat, fun scan_char/8);
 scan_char(Cs, Stack, Toks, {Line, Col}, State,Errors, TabWidth,FileFormat) ->
     scan_char_escape(Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat).
  
-scan_char_escape([nl | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    scan(Cs, Stack, [{char, {Line, Col}, $\n} | Toks], {Line + 1, 1}, State, Errors, TabWidth,FileFormat);
+scan_char_escape([nl | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
+    scan(Cs, [], [{char, {Line, Col}, $\n} | Toks], {Line + 1, 1}, State, Errors, TabWidth,FileFormat);
 scan_char_escape([C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    C1 = case Stack of  [$\\|_] -> escape_char(C);  _ -> C end,
-    scan(Cs, Stack, [{char, {Line, Col-1}, C1} | Toks],{Line, Col + 1}, State, Errors, TabWidth,FileFormat);
+     C1 = case Stack of  [$\\|_] ->
+		  list_to_atom("$\\"++[C]);
+	     _ ->
+		 C 
+	 end,
+    scan(Cs, [], [{char, {Line, Col-1}, C1} | Toks],{Line, Col + 1}, State, Errors, TabWidth,FileFormat);
 scan_char_escape(Eof, _Stack, _Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     done(Eof, [{char, {Line, Col}} | Errors], [], {Line, Col + 1}, State, TabWidth,FileFormat).
 
@@ -400,15 +406,8 @@ scan_string([$\r | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFo
     end;
 scan_string([$\n | Cs], Stack, Toks, {Line, _Col}, State,  Errors, TabWidth,FileFormat) ->
     scan_string(Cs, [$\n | Stack], Toks, {Line + 1, 1}, State, Errors, TabWidth,FileFormat);
-scan_string([$\\,$" | Cs], Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
-    case reverse(Stack) of 
-	[StartPos, $" |S] ->
-	    scan(Cs, [], [{string, StartPos, S++[$\\]} | Toks],{Line, Col+2}, State, Errors, TabWidth,FileFormat);
-	_ ->
-	    scan_string(Cs, [$", $\\| Stack], Toks, {Line, Col+2}, State, Errors, TabWidth,FileFormat)
-    end;
-%% scan_string([$\\ | Cs], Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
-%%     sub_scan_escape( Cs, [fun scan_string_escape/8, $\\ | Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
+scan_string([$\\ | Cs], Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
+     sub_scan_escape( Cs, [fun scan_string_escape/8, $\\ | Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
 scan_string([C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) 
    when C==$\t ->
     scan_string(Cs, [C | Stack], Toks, {Line, Col+TabWidth}, State,Errors, TabWidth,FileFormat);
@@ -485,8 +484,8 @@ sub_scan_escape([O1, O2, O3 | Cs], [Fun | Stack], Toks,
 		{Line, Col}, State, Errors, TabWidth,FileFormat)
     when O1 >= $0, O1 =< $7, O2 >= $0, O2 =< $7, O3 >= $0,
 	 O3 =< $7 ->
-    Val = (O1 * 8 + O2) * 8 + O3 - 73 * $0,
-    Fun([Val | Cs], Stack, Toks, {Line, Col+2}, State,
+    %%Val = (O1 * 8 + O2) * 8 + O3 - 73 * $0,
+    Fun([O1, O2,O3 | Cs], Stack, Toks, {Line, Col+2}, State,
 	Errors, TabWidth,FileFormat);
 sub_scan_escape([O1, O2] = Cs, Stack, Toks, {Line, Col},
 		State, Errors, TabWidth,FileFormat)
@@ -496,8 +495,8 @@ sub_scan_escape([O1, O2] = Cs, Stack, Toks, {Line, Col},
 sub_scan_escape([O1, O2 | Cs], [Fun | Stack], Toks,
 		{Line, Col}, State, Errors, TabWidth,FileFormat)
     when O1 >= $0, O1 =< $7, O2 >= $0, O2 =< $7 ->
-    Val = O1 * 8 + O2 - 9 * $0,
-    Fun([Val | Cs], Stack, Toks, {Line, Col+1}, State,
+    %%Val = O1 * 8 + O2 - 9 * $0,
+    Fun([O1,O2 | Cs], Stack, Toks, {Line, Col+1}, State,
 	Errors, TabWidth,FileFormat);
 sub_scan_escape([O1] = Cs, Stack, Toks, {Line, Col},
 		State, Errors, TabWidth,FileFormat)
@@ -507,14 +506,14 @@ sub_scan_escape([O1] = Cs, Stack, Toks, {Line, Col},
 sub_scan_escape([O1 | Cs], [Fun | Stack], Toks,
 		{Line, Col}, State, Errors, TabWidth,FileFormat)
     when O1 >= $0, O1 =< $7 ->
-    Val = O1 - $0,
-    Fun([Val | Cs], Stack, Toks, {Line, Col}, State,
+   %% Val = O1 - $0,
+    Fun([O1 | Cs], Stack, Toks, {Line, Col}, State,
 	Errors, TabWidth,FileFormat);
 %% \^X -> CTL-X
 sub_scan_escape([$^, C | Cs], [Fun | Stack], Toks,
 		{Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    Val = C band 31,
-    Fun([Val | Cs], Stack, Toks, {Line, Col}, State,
+   %% Val = C band 31,
+    Fun([C | Cs], Stack, Toks, {Line, Col}, State,
 	Errors, TabWidth,FileFormat);
 sub_scan_escape([$^] = Cs, Stack, Toks, {Line, Col},
 		State, Errors, TabWidth,FileFormat) ->
