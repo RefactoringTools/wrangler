@@ -350,7 +350,8 @@ get_comment_form_toks(Toks, F, _Fs) ->
     StartPos =start_pos(F),
     {Ts1,Ts2} = lists:splitwith(
 		  fun(T) ->
-			  token_loc(T)>=StartPos 
+			  token_loc(T)>=StartPos andalso 
+			   is_whitespace_or_comment(T)
 		  end, Toks),
     {Ts21, Ts22} = lists:splitwith(fun(T) ->
 					   is_whitespace(T)
@@ -904,7 +905,8 @@ do_add_category(Node, C) ->
 	    P1 = add_category(P, pattern),
 	    B1 = add_category(B, expression),
 	    Node1=rewrite(Node, refac_syntax:match_expr(P1, B1)),
-	    {Node1, true};		       
+	    %%{refac_syntax:add_ann({category, C}, Node1), true};
+	    {Node1, true};
 	generator ->
 	    P = refac_syntax:generator_pattern(Node),
 	    B = refac_syntax:generator_body(Node),
@@ -1143,15 +1145,16 @@ concat_toks([T|Ts], Acc) ->
 	 {qatom, _, V} -> S=atom_to_list(V),
 			  concat_toks(Ts, [S|Acc]);
 	 {string, _, V} -> concat_toks(Ts,["\"", V, "\""|Acc]);
+	 {char, _, V} when is_atom(V)->concat_toks(Ts,[atom_to_list(V)|Acc]);
 	 {char, _, V} when is_integer(V) and (V =< 127)-> concat_toks(Ts,[io_lib:write_char(V)|Acc]);
 	 {char, _, V} when is_integer(V) ->
 	     {ok, [Num], _} = io_lib:fread("~u", integer_to_list(V)),
 	     [Str] = io_lib:fwrite("~.8B", [Num]),
 	     S = "$\\"++Str,
-	     concat_toks(Ts, [S|Acc]); 
+	      concat_toks(Ts, [S|Acc]); 
 	 {float, _, V} -> concat_toks(Ts,[io_lib:write(V)|Acc]);
-	 {_, _, V} -> concat_toks(Ts, [V|Acc]);
+     	 {_, _, V} -> concat_toks(Ts, [V|Acc]);
 	 {dot, _} ->concat_toks(Ts, ['.'|Acc]);
-	 {V, _} -> 
+      	 {V, _} -> 
 	     concat_toks(Ts, [V|Acc])
      end.
