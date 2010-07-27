@@ -201,24 +201,24 @@ parse_form(Dev, L0, Parser, Options) ->
         {ok, Ts, L1} ->
 	    case catch {ok, Parser(Ts, Opt)} of
                 {'EXIT', Term} ->
-                    {error, io_error(L1, {unknown, Term}), L1};
+                    {error, {io_error(L1, {unknown, Term}), {start_pos(Ts, L1),end_pos(Ts,L1)}}, L1};
                 {error, Term} ->
 		    IoErr = io_error(L1, Term),
-		    {error, IoErr, L1};
+		    {error, {IoErr, {start_pos(Ts, L1), end_pos(Ts, L1)}}, L1};
                 {parse_error, _IoErr} when NoFail ->
 		    {ok, refac_syntax:set_pos(
 			   refac_syntax:text(tokens_to_string(Ts)),
 			   start_pos(Ts, L1)),
 		     L1};
                 {parse_error, IoErr} ->
-		    {error, IoErr, L1};
+		    {error, {IoErr, {start_pos(Ts, L1), end_pos(Ts, L1)}}, L1};
 		{parse_error, IoErr, Range} ->
 		    {error, {IoErr, Range}, L1};
                 {ok, F} ->
 		    {ok, F, L1}
             end;
         {error, IoErr, L1} ->
-            {error, IoErr, L1};
+            {error, {IoErr, {L0, L1}}, L1};
         {eof, L1} ->
             {eof, L1}
     end.
@@ -231,6 +231,11 @@ start_pos([T | _Ts], _L) ->
 start_pos([], L) ->
     L.
 
+
+end_pos([], L) ->
+    L;
+end_pos(Ts, _L) ->
+    element(2, lists:last(Ts)).
 %% Exception-throwing wrapper for the standard Erlang parser stage
 
 parse_tokens(Ts) ->
