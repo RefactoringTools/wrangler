@@ -597,14 +597,14 @@ lay_2(Node, Ctxt) ->
 	  end;
       nil -> text("[]");
       tuple -> %% done;
-	  Es = seq(refac_syntax:tuple_elements(Node), floating(text(",")), reset_prec(Ctxt), fun lay/2),
+	  Es = seq(refac_syntax:tuple_elements(Node), floating(text(", ")), reset_prec(Ctxt), fun lay/2),
 	  beside(floating(text("{")),
 		 beside(lay_elems(fun refac_prettypr_0:par/1, Es, refac_syntax:tuple_elements(Node)), floating(text("}"))));
       list ->   %% done;
 	  Ctxt1 = reset_prec(Ctxt),
 	  Node1 = refac_syntax:compact_list(Node),
 	  PrefixElems = refac_syntax:list_prefix(Node1),
-	  D0 = seq(PrefixElems, floating(text(",")), Ctxt1, fun lay/2),
+	  D0 = seq(PrefixElems, floating(text(", ")), Ctxt1, fun lay/2),
 	  D1 = lay_elems(fun refac_prettypr_0:par/1, D0, PrefixElems),
 	  D = case refac_syntax:list_suffix(Node1) of
 		none -> beside(D1, floating(text("]")));
@@ -694,7 +694,7 @@ lay_2(Node, Ctxt) ->
       application ->  %% done.
 	  {PrecL, Prec} = func_prec(),
 	  D = lay(refac_syntax:application_operator(Node), set_prec(Ctxt, PrecL)),
-	  As = seq(refac_syntax:application_arguments(Node), floating(text(",")), reset_prec(Ctxt), fun lay/2),
+	  As = seq(refac_syntax:application_arguments(Node), floating(text(", ")), reset_prec(Ctxt), fun lay/2),
 	  Op = refac_syntax:application_operator(Node),
 	  Args = refac_syntax:application_arguments(Node),
 	  D1 = case Args of
@@ -739,13 +739,13 @@ lay_2(Node, Ctxt) ->
 	  Ctxt1 = (reset_prec(Ctxt))#ctxt{clause = undefined},
 	  Pats = refac_syntax:clause_patterns(Node),
 	  Body = refac_syntax:clause_body(Node),
-	  PatDocs = seq(Pats, floating(text(",")), Ctxt1, fun lay/2),
+	  PatDocs = seq(Pats, floating(text(", ")), Ctxt1, fun lay/2),
 	  D1 = lay_elems(fun refac_prettypr_0:par/1, PatDocs, Pats),
 	  D2 = case refac_syntax:clause_guard(Node) of
 		 none -> none;
 		 G -> lay(G, Ctxt1)
 	       end,
-	  BodyDocs = seq(Body, floating(text(",")), Ctxt1, fun lay/2),
+	  BodyDocs = seq(Body, floating(text(", ")), Ctxt1, fun lay/2),
 	  D3 = lay_elems(fun refac_prettypr_0:sep/1, BodyDocs, Body),
 	  HeadLastLn = case refac_syntax:clause_guard(Node) of
 			 none -> case Pats of
@@ -821,7 +821,7 @@ lay_2(Node, Ctxt) ->
 	  D = case refac_syntax:attribute_arguments(Node) of
 		none -> lay(N, Ctxt1);
 		Args ->
-		    As = seq(Args, floating(text(",")), Ctxt1, fun lay/2),
+		    As = seq(Args, floating(text(", ")), Ctxt1, fun lay/2),
 		    beside(lay(N, Ctxt1), beside(text("("), beside(lay_elems(fun refac_prettypr_0:par/1, As, Args), floating(text(")")))))
 	      end,
 	  beside(floating(text("-")), beside(D, floating(text("."))));
@@ -863,7 +863,7 @@ lay_2(Node, Ctxt) ->
       block_expr -> %% done;
 	  Ctxt1 = reset_prec(Ctxt),
 	  Body = refac_syntax:block_expr_body(Node),
-	  Es = seq(Body, floating(text(",")), Ctxt1, fun lay/2),
+	  Es = seq(Body, floating(text(", ")), Ctxt1, fun lay/2),
 	  sep([text("begin"), nest(Ctxt1#ctxt.sub_indent, lay_elems(fun refac_prettypr_0:sep/1, Es, Body)), text("end")]);
       catch_expr ->  %% done;
 	  {Prec, PrecR} = preop_prec('catch'),
@@ -883,7 +883,7 @@ lay_2(Node, Ctxt) ->
 	    P -> floating(break(beside(text(spaces(P)), D)))
 	  end;
       conjunction -> %% done;
-	  Es = seq(refac_syntax:conjunction_body(Node), floating(text(",")), reset_prec(Ctxt), fun lay/2),
+	  Es = seq(refac_syntax:conjunction_body(Node), floating(text(", ")), reset_prec(Ctxt), fun lay/2),
 	  lay_elems(fun refac_prettypr_0:par/1, Es, refac_syntax:conjunction_body(Node));
       disjunction -> %% done;
 	  %% For clarity, we don't paragraph-format
@@ -920,7 +920,7 @@ lay_2(Node, Ctxt) ->
       list_comp ->  %% done;
 	  Ctxt1 = reset_prec(Ctxt),
 	  D1 = lay(refac_syntax:list_comp_template(Node), Ctxt1),
-	  Es = seq(refac_syntax:list_comp_body(Node), floating(text(",")), Ctxt1, fun lay/2),
+	  Es = seq(refac_syntax:list_comp_body(Node), floating(text(", ")), Ctxt1, fun lay/2),
 	  D2 = lay_elems(fun refac_prettypr_0:par/1, Es, refac_syntax:list_comp_body(Node)),
 	  D1EndLn = get_end_line(refac_syntax:list_comp_template(Node)),
 	  D2StartLn = get_start_line(hd(refac_syntax:list_comp_body(Node))),
@@ -939,7 +939,7 @@ lay_2(Node, Ctxt) ->
 		[H| _] ->
 		    EndLn = get_end_line(N),
 		    StartLn = get_start_line(H),
-		    As = seq(Args, floating(text(",")), reset_prec(Ctxt), fun lay/2),
+		    As = seq(Args, floating(text(", ")), reset_prec(Ctxt), fun lay/2),
 		    case StartLn > EndLn of
 		      true ->
 			  above(beside(lay(N, Ctxt1), text("(")),
@@ -977,7 +977,7 @@ lay_2(Node, Ctxt) ->
 		 T ->
 		     D3 = lay(T, Ctxt1),
 		     A = refac_syntax:receive_expr_action(Node),
-		     D4 = lay_elems(fun refac_prettypr_0:sep/1, seq(A, floating(text(",")), Ctxt1, fun lay/2), A),
+		     D4 = lay_elems(fun refac_prettypr_0:sep/1, seq(A, floating(text(", ")), Ctxt1, fun lay/2), A),
 		     sep([D1, follow(floating(text("after")), append_clause_body(D4, D3, Ctxt1, {1, 1}), Ctxt1#ctxt.sub_indent)])
 	       end,
 	  sep([text("receive"), nest(Ctxt1#ctxt.sub_indent, D2), text("end")]);
@@ -996,7 +996,7 @@ lay_2(Node, Ctxt) ->
 	  Ctxt1 = reset_prec(Ctxt),
 	  D1 = lay(refac_syntax:record_expr_type(Node), Ctxt1),
 	  Fields = refac_syntax:record_expr_fields(Node),
-	  D2 = lay_elems(fun refac_prettypr_0:par/1, seq(refac_syntax:record_expr_fields(Node), floating(text(",")), Ctxt1, fun lay/2), Fields),
+	  D2 = lay_elems(fun refac_prettypr_0:par/1, seq(refac_syntax:record_expr_fields(Node), floating(text(", ")), Ctxt1, fun lay/2), Fields),
 	  D3 = beside(beside(floating(text("#")), D1), beside(text("{"), beside(D2, floating(text("}"))))),
 	  D4 = case refac_syntax:record_expr_argument(Node) of
 		 none -> D3;
@@ -1050,12 +1050,12 @@ lay_2(Node, Ctxt) ->
       try_expr ->
 	      Ctxt1 = reset_prec(Ctxt),
 	      Body = refac_syntax:try_expr_body(Node),
-	      D1 = lay_elems(fun refac_prettypr_0:sep/1, seq(Body,floating(text(",")),Ctxt1,fun lay/2),Body),			 
+	      D1 = lay_elems(fun refac_prettypr_0:sep/1, seq(Body,floating(text(", ")),Ctxt1,fun lay/2),Body),			 
 	      Es0 = [text("end")],
 	      Es1 = case refac_syntax:try_expr_after(Node) of
 			[] -> Es0;
 			As ->
-			    D2 = lay_elems(fun refac_prettypr_0:sep/1,seq(As,floating(text(",")),Ctxt1,fun lay/2), As),
+			    D2 = lay_elems(fun refac_prettypr_0:sep/1,seq(As,floating(text(", ")),Ctxt1,fun lay/2), As),
 			    [text("after"),nest(Ctxt1#ctxt.sub_indent,D2)| Es0]
 		    end,
 	      Es2 = case refac_syntax:try_expr_handlers(Node) of
@@ -1266,7 +1266,7 @@ lay_error_info({L,M,T} = T0,Ctxt)
     case catch M:format_error(T) of
       S when is_list(S) ->
 	  if L > 0 ->
-		 beside(text(io_lib:format("~w: ",[L])),text(S));
+		 beside(text(io_lib:format("~w: ", [L])),text(S));
 	     true -> text(S)
 	  end;
       _ -> lay_concrete(T0,Ctxt)
@@ -1378,7 +1378,7 @@ lay_elems_1(Fun, [{D, {SLn, ELn}}| Ts], [H| T], LastLn) ->
     end.
                     %%lay_elems_1(Fun, Ts,[[D],H| T],ELn)
 
-nil() -> text(" ").
+nil() -> text("").
 
 get_prev_keyword_line_num(FormToks, StartPos, KeyWord)->
     Ts1 = lists:takewhile(
