@@ -168,7 +168,9 @@ var_binding_structure_1(VarLocs) ->
 %%  Display clone detection results                                     %%
 %%                                                                      %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--spec display_clone_result([{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer(), string()}],
+-spec display_clone_result([{[{{filename(), integer(), integer()},
+			       {filename(), integer(), integer()}}], 
+			     integer(), integer(), string()}],
 			   string()) -> ok.
 display_clone_result(Cs, Str) ->
     case length(Cs) >=1  of 
@@ -200,57 +202,32 @@ display_clones(Cs, Str) ->
     ?wrangler_io("\n"++Str++" detection finished with *** ~p *** clone(s) found.\n", [Num]),
     case Num of 
 	0 -> ok;
-	_ -> display_clones_1(Cs)
+	_ -> display_clones_1(Cs,1)
     end.
 
-display_clones_1(Cs) ->
-    lists:foreach(fun(C) -> 
-			  display_a_clone(C)
-		  end, Cs).
-
-display_a_clone(_C={Ranges, _Len, F,Code}) ->
+display_clones_1([],_) ->
+    ?wrangler_io("\n",[]),
+    ok;
+display_clones_1([C|Cs], Num) ->
+    display_a_clone(C, Num),
+    display_clones_1(Cs, Num+1).
+  
+display_a_clone(_C={Ranges, _Len, F,Code},Num) ->
     [R| _Rs] = lists:keysort(1, Ranges),
-    NewStr = compose_clone_info(R, F, Ranges, ""),
+    NewStr = compose_clone_info(R, F, Ranges, "", Num),
     NewStr1 = NewStr ++ "The cloned expression/function after generalisation:\n\n" ++ Code,
     ?wrangler_io("~s", [NewStr1]).
 
-%% display_clones_1(Cs) ->
-%%     Str = display_clones_1(Cs, ""),
-%%     refac_io:format("~s", [Str]).
 
-%% display_clones_1([], Str) -> Str ++ "\n";
-%% display_clones_1([{Ranges, _Len, F, Code}| Cs], Str) ->
-%%     [R| _Rs] = lists:keysort(1, Ranges),
-%%     NewStr = compose_clone_info(R, F, Ranges, Str),
-%%     NewStr1 = NewStr ++ "The cloned expression/function after generalisation:\n\n" ++ Code,
-%%     display_clones_1(Cs, NewStr1).
-
-%% io:format("~s",["dddd~p\nddd"])
-compose_clone_info({{File, StartLine, StartCol}, {File, EndLine, EndCol}}, F, Range, Str) ->
-    case F - 1 of
-	1 -> Str1 = Str ++ "\n" ++ File ++ io_lib:format(":~p.~p-~p.~p: This code has been cloned once:\n",
-							 [StartLine, lists:max([1, StartCol-1]), EndLine, EndCol]),
+compose_clone_info(_, F, Range, Str, Num) ->
+    case F of
+	2 -> Str1 =Str ++ "\n\n" ++"Clone "++io_lib:format("~p. ", [Num])++ "This code appears twice:\n",
 	     display_clones_2(Range, Str1);
-	2 -> Str1 = Str ++ "\n" ++ File ++ io_lib:format(":~p.~p-~p.~p: This code has been cloned twice:\n",
-							 [StartLine, lists:max([1, StartCol-1]), EndLine, EndCol]),
-	     display_clones_2(Range, Str1);
-	_ -> Str1 = Str ++ "\n" ++ File ++ io_lib:format(":~p.~p-~p.~p: This code has been cloned ~p times:\n",
-							 [StartLine, lists:max([1, StartCol-1]), EndLine, EndCol, F - 1]),
+	_ -> Str1 =Str ++ "\n\n" ++"Clone "++io_lib:format("~p. ", [Num])++ 
+		 io_lib:format("This code appears ~p times:\n",[F]),
 	     display_clones_2(Range, Str1)
-    end;
-compose_clone_info({{{File, StartLine, StartCol}, {File, EndLine, EndCol}}, _FunCall}, F, Range, Str) ->
-      case F - 1 of
-	  1 -> Str1 = Str ++ "\n" ++ File ++ io_lib:format(":~p.~p-~p.~p: This code has been cloned once:\n",
-							   [StartLine, lists:max([1, StartCol-1]), EndLine, EndCol]),
-	       display_clones_2(Range, Str1);
-	  2 -> Str1 = Str ++ "\n" ++ File ++ io_lib:format(":~p.~p-~p.~p: This code has been cloned twice:\n",
-							   [StartLine, lists:max([1, StartCol-1]), EndLine, EndCol]),
-	       display_clones_2(Range, Str1);
-	  _ -> Str1 = Str ++ "\n" ++ File ++ io_lib:format(":~p.~p-~p.~p: This code has been cloned ~p times:\n",
-							   [StartLine, lists:max([1, StartCol-1]), EndLine, EndCol, F - 1]),
-	       display_clones_2(Range, Str1)
-      end.
-    
+    end.
+
 display_clones_2([], Str) -> Str ++ "\n";
 display_clones_2([{{File, StartLine, StartCol}, {File, EndLine, EndCol}}|Rs], Str) ->
     Str1 =Str ++ File++io_lib:format(":~p.~p-~p.~p:  \n", [StartLine, lists:max([1,StartCol-1]), EndLine, EndCol]),
