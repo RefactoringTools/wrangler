@@ -24,7 +24,7 @@
 -include("../include/wrangler.hrl").
 
 %% minimal number of tokens.
--define(DEFAULT_CLONE_LEN, 20).
+-define(DEFAULT_CLONE_LEN, 40).
 
 %% Minimal number of class members.
 -define(DEFAULT_CLONE_MEMBER, 2).
@@ -287,7 +287,8 @@ process_a_file(File, Cs, MinLength, TabWidth) ->
 		     function ->
 			 true;
 		     _ ->
-			 refac_misc:is_expr(Node) andalso refac_syntax:type(Node) /= guard_expression
+			 (refac_misc:is_expr(Node) orelse refac_syntax:type(Node)==match_expr) 
+			       andalso refac_syntax:type(Node) /= guard_expression
 		   end
 	   end,
     Fun1 = fun (Range) ->
@@ -551,32 +552,39 @@ get_anti_unifier_1([]) ->
     throw({error, anti_unification_failed});
 get_anti_unifier_1([{Expr, EVs}]) -> generalise_expr({Expr, EVs}, []);
 get_anti_unifier_1([{Expr, EVs}| Exprs]) ->
-    Res = [expr_anti_unification(Expr, E, ExportedVars)
-	   || {E, ExportedVars} <- Exprs],
-    {Nodes1, EVs1} = lists:unzip(Res),
-    GroupedNodes = group_subst_nodes(Nodes1),
-    Pid = refac_code_search_utils:start_counter_process(),
-    NodeVarPairs = lists:append([lists:zip(Ns, lists:duplicate(length(Ns),
-							       refac_code_search_utils:gen_new_var_name(Pid)))
-				 || Ns <- GroupedNodes]),
-    refac_code_search_utils:stop_counter_process(Pid),
-    generalise_expr({Expr, EVs}, {NodeVarPairs, lists:usort(lists:append(EVs1))}).
-
+    try 
+	Res = [expr_anti_unification(Expr, E, ExportedVars)
+	       || {E, ExportedVars} <- Exprs],
+	{Nodes1, EVs1} = lists:unzip(Res),
+	GroupedNodes = group_subst_nodes(Nodes1),
+	Pid = refac_code_search_utils:start_counter_process(),
+	NodeVarPairs = lists:append([lists:zip(Ns, lists:duplicate(length(Ns),
+								   refac_code_search_utils:gen_new_var_name(Pid)))
+				     || Ns <- GroupedNodes]),
+	refac_code_search_utils:stop_counter_process(Pid),
+	generalise_expr({Expr, EVs}, {NodeVarPairs, lists:usort(lists:append(EVs1))})
+    of
+	Result ->
+	    Result
+    catch
+	_ ->
+	    throw({error, "anti_unification_failed"})
+    end.
 
 expr_anti_unification(Exp1, Exp2, Expr2ExportedVars) ->
     try
       do_expr_anti_unification(Exp1, Exp2)
     of
       SubSt ->
-	  EVs1 = [{refac_syntax:variable_name(E1), get_var_define_pos(E1)}
-		  || {E1, E2} <- SubSt, refac_syntax:type(E2) == variable,
-		     lists:member({refac_syntax:variable_name(E2), get_var_define_pos(E2)}, Expr2ExportedVars)],
-	  SubSt1 = [{E1, E2} || {E1, E2} <- SubSt, refac_syntax:type(E1) /= variable orelse is_macro_name(E1)],
-	  Nodes = group_substs(SubSt1),
-	  {Nodes, EVs1}
+	    EVs1 = [{refac_syntax:variable_name(E1), get_var_define_pos(E1)}
+		    || {E1, E2} <- SubSt, refac_syntax:type(E2) == variable,
+		       lists:member({refac_syntax:variable_name(E2), get_var_define_pos(E2)}, Expr2ExportedVars)],
+	    SubSt1 = [{E1, E2} || {E1, E2} <- SubSt, refac_syntax:type(E1) /= variable orelse is_macro_name(E1)],
+	    Nodes = group_substs(SubSt1),
+	    {Nodes, EVs1}
     catch
       _ ->
-	  {[], []}
+	  throw({error, "anti_unification_failed"})
     end.
 
 group_substs(Subst) ->
@@ -640,7 +648,21 @@ do_expr_anti_unification_1(Exp1, Exp2) ->
 			false ->
 			    [{Exp1, Exp2}]
 		    end;
-		{_, _} ->
+		{binary, binary} ->  %% choose not to generalise over binary fields.
+		    SubTrees1 = erl_syntax:subtrees(Exp1),
+		    SubTrees2 = erl_syntax:subtrees(Exp2),
+		    try do_expr_anti_unification(SubTrees1, SubTrees2) of
+			[] ->
+			    [];
+			_ ->
+			    throw({error, anti_unification_failed})
+		    catch
+			_E1:_E2 ->
+			    throw({error, anti_unification_failed})
+		    end;
+		_ when T1/=T2 ->
+		    throw({error, anti_unification_failed});
+		_ ->
 		    SubTrees1 = erl_syntax:subtrees(Exp1),
 		    SubTrees2 = erl_syntax:subtrees(Exp2),
 		    do_expr_anti_unification(SubTrees1, SubTrees2)
@@ -678,6 +700,7 @@ do_anti_unify_literals(Exp1, Exp2) ->
 		_ -> [{Exp1, Exp2}]
 	    end
     end.
+
 
 do_anti_unify_atoms(Exp1, Exp2) ->
     case has_the_same_value(Exp1, Exp2) of
@@ -786,7 +809,8 @@ is_macro_name(Exp) ->
     case lists:keysearch(category, 1, refac_syntax:get_ann(Exp)) of
 	{value, {category, {macro_name, _, _}}} ->
 	    true;
-	false ->
+	_ ->
 	    false
     end.
  
+
