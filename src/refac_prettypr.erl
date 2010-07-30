@@ -77,15 +77,10 @@ print_ast(FileFmt, AST,Options) ->
     Fs = refac_syntax:form_list_elements(AST),
     vertical_concat(Fs, FileFmt, Options).
  
-seq_pr([H| T],Separator,Ctxt,Fun) ->
-    {Paper,Ribbon} = get_paper_ribbon_width(H),
-    case T of
-      [] -> [best(Fun(H,Ctxt),Paper,Ribbon)];
-      _ ->
-	  [maybe_append(Separator,best(Fun(H,Ctxt),Paper,Ribbon))
-	   | seq_pr(T,Separator,Ctxt,Fun)]
-    end;
-seq_pr([],_,_,_) -> [].
+print_form(F,Ctxt,Fun) ->
+    {Paper,Ribbon} = get_paper_ribbon_width(F),
+    best(Fun(F,Ctxt),Paper,Ribbon).
+ 
 
 vertical_concat(Forms, FileFmt, Options) -> 
     vertical_concat(Forms, FileFmt, Options,"").
@@ -116,7 +111,7 @@ vertical_concat([Form|T], FileFormat, Options, Acc) ->
 			       user = proplists:get_value(user,Options),
 			       format = FileFormat,
 			       tokens = refac_misc:get_toks(Form)},
-		  [E] = seq_pr([Form],none,reset_prec(Ctxt),fun lay/2),
+		  E = print_form(Form,reset_prec(Ctxt),fun lay/2),
 		  refac_prettypr_0:layout(E, FileFormat)
 	  end,
      vertical_concat(T, FileFormat, Options, Acc1++Str).
