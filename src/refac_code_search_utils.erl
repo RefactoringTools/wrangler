@@ -294,7 +294,7 @@ generalisable(Node) ->
 	  %% can be replaced by a variable, in practice, generalise a function 
 	  %% over this kind of expression could make the code harder to understand.
 	    T = refac_syntax:type(Node),
-	    not lists:member(T, [match_expr, operator, case_expr,
+	    not lists:member(T, [match_expr, operator, case_expr, 
 				 if_expr, fun_expr, receive_expr, clause,
 				 query_expr, try_expr, catch_expr, cond_expr,
 				 block_expr]) andalso
