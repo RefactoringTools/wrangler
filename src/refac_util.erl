@@ -31,7 +31,7 @@
 %% =====================================================================
 
 -module(refac_util).   
-
+ 
 -export([parse_annotate_file/2,parse_annotate_file/3, parse_annotate_file/4,
 	 parse_annotate_file/5, quick_parse_annotate_file/3,
 	 write_refactored_files/1, write_refactored_files/3,
@@ -42,7 +42,7 @@
 	 get_modules_by_file/1]).
 
 -include("../include/wrangler.hrl").
-
+ 
 %% =====================================================================
 %% @doc Pretty-print the abstract syntax trees to a files, and add the previous 
 %% version to history for undo purpose. <code>Files</code> is a list of three element 
@@ -949,14 +949,14 @@ do_add_category(Node, C) ->
 			    _ -> add_category(Argument, C)
 			end,
 	    Type1 = add_category(Type, record_type),
-	    Fields1 =[refac_syntax:record_field(
+	    Fields1 =[refac_syntax:add_ann({category, record_field},rewrite(F, refac_syntax:record_field(
 			add_category(refac_syntax:record_field_name(F), record_field),
 			case refac_syntax:record_field_value(F) of 
 			    none -> 
 				none;
 			    V -> 
 				add_category(V, C)
-			end) || F<-Fields],
+			end))) || F<-Fields],
 	    Node1 = rewrite(Node, refac_syntax:record_expr(Argument1, Type1, Fields1)),
 	    {refac_syntax:add_ann({category, C}, Node1), true};
 	record_index_expr ->
@@ -1158,3 +1158,4 @@ concat_toks([T|Ts], Acc) ->
       	 {V, _} -> 
 	     concat_toks(Ts, [V|Acc])
      end.
+
