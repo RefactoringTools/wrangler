@@ -41,7 +41,7 @@
 	 is_var_name/1,is_fun_name/1, remove_duplicates/1,
 	 format_search_paths/1,default_incls/0, get_toks/1,reset_attrs/1,
 	 get_env_vars/1,get_var_exports/1,get_bound_vars/1,get_free_vars/1,
-	 is_expr/1,is_pattern/1, is_exported/2, inscope_funs/1,update_ann/2,
+	 is_expr/1,is_expr_or_match/1, is_pattern/1, is_exported/2, inscope_funs/1,update_ann/2,
 	 delete_from_ann/2, callback_funs/1, is_callback_fun/3, rewrite/2,
 	 get_range/1, max/2, min/2]).
 
@@ -526,6 +526,11 @@ is_expr(Node) ->
 	_ -> false
     end.
 
+is_expr_or_match(Node) ->
+    is_expr(Node) orelse refac_syntax:type(Node)==match_expr.
+  
+    
+ 
 %% =====================================================================
 %% @doc Return true if an AST node represents a pattern.
 -spec(is_pattern(Node:: syntaxTree())-> boolean()).
