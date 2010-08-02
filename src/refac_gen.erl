@@ -179,20 +179,24 @@ generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPa
     SideEffect = check_side_effect(FileName, Exp, SearchPaths),
     DupsInFun = search_duplications(Fun, Exp),
     DupsInClause = search_duplications(expr_to_fun_clause(Fun, Exp), Exp),
+    Exp1 = case Editor of 
+	       emacs -> term_to_list(Exp);
+	       _ -> Exp
+	   end,
     case SideEffect of
       unknown ->
 	  {unknown_side_effect, {ParName1, FunName, FunArity,
-				 FunDefPos, Exp, NoOfClauses, DupsInFun, DupsInClause, Cmd}};
+				 FunDefPos, Exp1, NoOfClauses, DupsInFun, DupsInClause, Cmd}};
       _ ->
 	  case NoOfClauses > 1 of
 	    true ->
 		{more_than_one_clause,
-		 {ParName1, FunName, FunArity, FunDefPos, Exp, SideEffect, DupsInFun, DupsInClause, Cmd}};
+		 {ParName1, FunName, FunArity, FunDefPos, Exp1, SideEffect, DupsInFun, DupsInClause, Cmd}};
 	    _ ->
 		case DupsInFun of
 		  [_| _] ->
 		      {multiple_instances,
-		       {ParName1, FunName, FunArity, FunDefPos, Exp, SideEffect, DupsInFun, Cmd}};
+		       {ParName1, FunName, FunArity, FunDefPos, Exp1, SideEffect, DupsInFun, Cmd}};
 		  _ ->
 		      {AnnAST1, _} = gen_fun(FileName, ModName, AnnAST, ParName1, FunName,
 					     FunArity, FunDefPos, Info, Exp, SideEffect, [], SearchPaths, TabWidth),
@@ -207,8 +211,8 @@ generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPa
 		     TabWidth::integer(), Dups::[{pos(), pos()}], LogCmd::string())
       -> {ok, [filename()]}).
 gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth, Dups, LogCmd) ->
-     %% ?wrangler_io("\nCMD: ~p:gen_fun_1(~p, ~p, ~p, ~p,~p,~p,~p,~p,~p,~p,~p).\n",
-     %% 		  [?MODULE,SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth, Dups, LogCmd]),
+    %% ?wrangler_io("\nCMD: ~p:gen_fun_1(~p, ~p, ~p, ~p,~p,~p,~p,~p,~p,~p,~p).\n",
+    %%  		  [?MODULE,SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth, Dups, LogCmd]),
     gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth,Dups, emacs, LogCmd).
 
 -spec(gen_fun_1_eclipse/11::(SideEffect::boolean(), FileName::filename(),ParName::atom(), FunName::atom(), 
@@ -218,9 +222,13 @@ gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths
 gen_fun_1_eclipse(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth, Dups, LogCmd) ->
     gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths, TabWidth, Dups, eclipse,LogCmd).
 
-gen_fun_1(SideEffect, FileName, ParName, FunName, Arity, DefPos, Exp, SearchPaths, TabWidth, Dups, Editor, LogCmd) ->
+gen_fun_1(SideEffect, FileName, ParName, FunName, Arity, DefPos, Exp0, SearchPaths, TabWidth, Dups, Editor, LogCmd) ->
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, [], TabWidth),
     {ok, ModName} = get_module_name(Info),
+    Exp = case Editor of
+	       emacs -> list_to_term(Exp0);
+	       _ -> Exp0
+	   end,
     AnnAST1 = case to_keep_original_fun(FileName, AnnAST, ModName, FunName, Arity, Exp, Info) of
 		true -> add_function(ModName, AnnAST, FunName, DefPos, Exp, SideEffect);
 		false -> AnnAST
@@ -245,9 +253,13 @@ gen_fun_clause_eclipse(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth,
 gen_fun_clause(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEffect, Dups, LogCmd) ->
     gen_fun_clause_1(FileName, ParName, FunName, Arity, DefPos, Exp, [], TabWidth, SideEffect, Dups,emacs, LogCmd).
 
-gen_fun_clause_1(FileName, ParName, FunName, _Arity, DefPos, Exp, SearchPaths, TabWidth, SideEffect, Dups, Editor, LogCmd) ->
+gen_fun_clause_1(FileName, ParName, FunName, _Arity, DefPos, Exp0, SearchPaths, TabWidth, SideEffect, Dups, Editor, LogCmd) ->
     {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {ok, ModName} = get_module_name(Info),
+    Exp = case Editor of 
+	      emacs -> list_to_term(Exp0);
+	      _ -> Exp0
+	  end,
     Forms = refac_syntax:form_list_elements(AnnAST),
     Exp1 = make_actual_parameter(ModName, Exp, SideEffect),
     F = fun (Form) ->
@@ -255,11 +267,11 @@ gen_fun_clause_1(FileName, ParName, FunName, _Arity, DefPos, Exp, SearchPaths, T
 		  function ->
 		      case get_fun_def_loc(Form) of
 			DefPos ->
-			    NewPar = refac_syntax:variable(ParName),
-			    Cs = refac_syntax:function_clauses(Form),
-			    Cs1 = [replace_clause_body(C, FunName, Exp, Exp1) || C <- Cs],
-			    Form1 = refac_misc:rewrite(Form, refac_syntax:function(refac_syntax:atom(FunName), Cs1)),
-			    ClauseToGen = hd(lists:filter(fun (C) -> {EStart, EEnd} = refac_misc:get_start_end_loc(Exp),
+			      NewPar = refac_syntax:variable(ParName),
+			      Cs = refac_syntax:function_clauses(Form),
+			      Cs1 = [replace_clause_body(C, FunName, Exp, Exp1) || C <- Cs],
+			      Form1 = refac_misc:rewrite(Form, refac_syntax:function(refac_syntax:atom(FunName), Cs1)),
+			      ClauseToGen = hd(lists:filter(fun (C) -> {EStart, EEnd} = refac_misc:get_start_end_loc(Exp),
 								     {CStart, CEnd} = refac_misc:get_start_end_loc(C),
 								     CStart =< EStart andalso EEnd =< CEnd
 							  end, Cs)),
@@ -848,3 +860,10 @@ list_elements(Node, As) ->
 	    end;
 	_ -> As  %% not necessary to be a proper list here.
     end.
+
+term_to_list(Term) ->
+    binary_to_list(term_to_binary(Term)).
+
+list_to_term(List)->
+    binary_to_term(list_to_binary(List)).
+
