@@ -30,14 +30,14 @@
 %% 
 -module(refac_inc_sim_code).
 
--export([inc_sim_code_detection/8]).
+-export([inc_sim_code_detection/8, inc_sim_code_detection_in_buffer/8]).
 
 -include("../include/wrangler.hrl").
 
 %% default threshold values.
 -define(DefaultSimiScore, 0.8).
 -define(DEFAULT_LEN, 5).
--define(DEFAULT_TOKS, 20).
+-define(DEFAULT_TOKS, 40).
 -define(DEFAULT_FREQ, 2).
 -define(DEFAULT_SIMI_SCORE, 0.8).
 -define(DEFAULT_NEW_VARS, 3).
@@ -58,15 +58,16 @@
 -define(ExpHashTab, list_to_atom(filename:join(?WRANGLER_DIR, "plt/exp_hash_tab"))).
 -define(ExpSeqFile, list_to_atom(filename:join(?WRANGLER_DIR, "plt/exp_seq_file"))).
 -define(CloneTab,  list_to_atom(filename:join(?WRANGLER_DIR, "plt/clone_tab"))).
-
+-define(Threshold, list_to_atom(filename:join(?WRANGLER_DIR, "plt/threshold"))).
 %% record the store the ets/dets table names.
+
 -record(tabs, 
 	{ast_tab,
 	 var_tab, 
 	 file_hash_tab,
 	 exp_hash_tab,
 	 clone_tab,
-	 tmp_ast_tab
+	 tmp_ast_tab	 
 	}).
 
 %% A record representing a clone class.
@@ -77,9 +78,15 @@
  %% 	  au       %% the anti-unification of the clone class.
  %% 	 }).
 
--spec(inc_sim_code_detection/8::(DirFileList::[filename()|dir()], MinLen::float(), MinToks::integer(),
-				 MinFreq::integer(),  MaxVars:: integer(),SimiScore::float(), 
-				 SearchPaths::[dir()], TabWidth::integer()) -> {ok, string()}).
+%%-spec(inc_sim_code_detection_in_buffer/8::(FileName::filename(), MinLen::float(), MinToks::integer(),
+%%				 MinFreq::integer(),  MaxVars:: integer(),SimiScore::float(), 
+%%				 SearchPaths::[dir()], TabWidth::integer()) -> {ok, string()}).
+inc_sim_code_detection_in_buffer(FileName, MinLen1, MinToks1, MinFreq1, MaxVars1, SimiScore1, SearchPaths, TabWidth)->
+    inc_sim_code_detection([FileName], MinLen1, MinToks1, MinFreq1, MaxVars1, SimiScore1, SearchPaths, TabWidth).
+  
+%%-spec(inc_sim_code_detection/8::(DirFileList::[filename()|dir()], MinLen::float(), MinToks::integer(),
+%%				 MinFreq::integer(),  MaxVars:: integer(),SimiScore::float(), 
+%%				 SearchPaths::[dir()], TabWidth::integer()) -> {ok, string()}).
 inc_sim_code_detection(DirFileList, MinLen1, MinToks1, MinFreq1, MaxVars1, SimiScore1, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:inc_sim_code_detection(~p,~p,~p,~p,~p, ~p,~p,~p).\n",
 		 [?MODULE, DirFileList, MinLen1, MinToks1, MinFreq1, MaxVars1,SimiScore1, SearchPaths, TabWidth]),
@@ -112,6 +119,7 @@ inc_sim_code_detection(DirFileList, MinLen1, MinToks1, MinFreq1, MaxVars1, SimiS
 	    to_dets(Tabs#tabs.file_hash_tab, ?FileHashTab),
 	    to_dets(Tabs#tabs.exp_hash_tab, ?ExpHashTab),	    
 	    to_dets(Tabs#tabs.clone_tab, ?CloneTab),
+	    file:write_file(?Threshold, term_to_binary(Threshold)),
 	    ets:delete(Tabs#tabs.tmp_ast_tab)
     end,
     {ok, "Clone detection finish."}.
@@ -121,7 +129,7 @@ inc_sim_code_detection(Files, Thresholds, Tabs, SearchPaths, TabWidth) ->
    
     %%Time1 = time(),
     %% get file status change info.
-    {FilesDeleted, FilesChanged, NewFiles} = get_file_status_info(Files, Tabs),
+    {FilesDeleted, FilesChanged, NewFiles} = get_file_status_info(Files, Tabs,Thresholds),
     
     %% remove information related to files that no longer exist from ets tables.
     remove_old_file_entries(FilesDeleted, Tabs),
@@ -151,22 +159,36 @@ inc_sim_code_detection(Files, Thresholds, Tabs, SearchPaths, TabWidth) ->
     
 %% Get files that are deleted/changed/newly added since the last 
 %% run of the clone detection.
-get_file_status_info(Files, Tabs) ->
-    Fun =fun(F)->
-		  CheckSum= refac_misc:filehash(F),
-		  case ets:lookup(Tabs#tabs.file_hash_tab, F) of
-		      [{F, CheckSum1}] when CheckSum/=CheckSum1 ->
-			  true;
-		      _ ->false
-		  end
-	  end,
+%% This function 
+get_file_status_info(Files, Tabs, Threshold) ->
     FileHashTab=Tabs#tabs.file_hash_tab,
     %% all the files process during the last run of clone detection.
     OldFiles = lists:append(ets:match(FileHashTab,{'$1', '_'})),
-    DeletedFiles = OldFiles -- Files,
-    NewFiles = Files -- OldFiles, 
-    ChangedFiles = lists:filter(Fun, Files),
-    {DeletedFiles, ChangedFiles, NewFiles}.
+    case file:read_file(?Threshold) of
+	{ok, Binary} ->
+	    LastThreshold = binary_to_term(Binary),
+	    case LastThreshold == Threshold of
+		true ->
+		    Fun =fun(F)->
+				 CheckSum= refac_misc:filehash(F),
+				 case ets:lookup(Tabs#tabs.file_hash_tab, F) of
+				     [{F, CheckSum1}] when CheckSum/=CheckSum1 ->
+					 true;
+				     _ ->false
+				 end
+			 end,
+		    DeletedFiles = OldFiles -- Files,
+		    NewFiles = Files -- OldFiles, 
+		    ChangedFiles = lists:filter(Fun, Files),
+		    {DeletedFiles, ChangedFiles, NewFiles};
+		false ->
+		    OldFiles = lists:append(ets:match(FileHashTab,{'$1', '_'})),
+		    {OldFiles, [], Files}
+	    end;
+	{error, _Reason} ->
+	    OldFiles = lists:append(ets:match(FileHashTab,{'$1', '_'})),
+	    {OldFiles, [], Files}
+    end.
 
 %% Remove data for deleted files.
 remove_old_file_entries(FilesDeleted, Tabs) ->
@@ -530,12 +552,7 @@ examine_clone_candidates([C| Cs], Thresholds, Tabs, Pid, Num) ->
 output_progress_msg(Num) ->
     case Num rem 10 of
 	1 -> 
-	    case Num of
-		1 ->
-		    ?wrangler_io("\nChecking the first clone candidate...", []);
-		_ ->
-		    ?wrangler_io("\nChecking the ~pst clone candidate...", [Num])
-	    end;
+	    ?wrangler_io("\nChecking clone candidate no. ~p ... ", [Num]);
 	_-> ok
     end.
 	
@@ -829,7 +846,7 @@ decompose_clone_pair_by_simi_score(ClonePair, Thresholds, Tabs) ->
     MaxNewVars = Thresholds#threshold.max_new_vars,
     case Score1 >= SimiScoreThreshold  andalso
 	simi_score(Exprs2, SubExprs2) >= SimiScoreThreshold  andalso
-	num_of_new_vars(Subst) =< MaxNewVars of	
+	sets:size(exprs_to_be_generalised(Subst)) =< MaxNewVars of	
       true ->
 	  [ClonePair];
       false ->
@@ -868,10 +885,7 @@ decompose_clone_pair_by_simi_score_2(ClonePairWithSimiScore, Thresholds, Acc) ->
 	++ decompose_clone_pair_by_simi_score_3(ClonePairs2, Thresholds) 
 	++ Acc.
 
-%% TODO: CHECK THIS ERROR!!!
-%% refac_inc_sim_code.erl:881: The pattern [{{_, Expr1}, {_, Expr2}, 
-%%{SubEs1, SubEs2}, _} | _] can never match the type [{{_,_},{_,_},[any()],{_,_}}]
-%%
+
 decompose_clone_pair_by_simi_score_3(ClonePairs, Thresholds)->
     MinLen = Thresholds#threshold.min_len,
     SimiScoreThreshold = Thresholds#threshold.simi_score,
@@ -910,10 +924,6 @@ simi_score(Expr, SubExprs) ->
 	    Res
     end.
    
-num_of_new_vars(SubSt) ->
-    length(lists:usort([{refac_prettypr:format(refac_misc:reset_attrs(E1)),
-			 refac_prettypr:format(refac_misc:reset_attrs(E2))}
-			||{E1,E2}<-SubSt, refac_syntax:type(E1)/=variable])).
 
 no_of_nodes(Nodes) when is_list(Nodes) ->
     lists:sum([no_of_nodes(N)||N<-Nodes]);
@@ -990,48 +1000,60 @@ get_one_clone_class_1(Range, _ClonePair = {Range1, Range2, Subst}, Tabs) ->
 				      VarsToExport2)],
 	    %% EVs are variables from Exprs1 that need to be exported.
 	    NumOfNewVars = num_of_new_vars(SubSubst),
-	    [{{SubRange2, EVs, SubSubst}, NumOfNewVars}];
+	    [{{SubRange2, EVs, SubSubst},NumOfNewVars}];
       	false ->
 	    []
     end.
 
 group_clone_pairs(ClonePairs, Thresholds) ->
     ClonePairs1=lists:keysort(2,ClonePairs),
-    group_clone_pairs(ClonePairs1,Thresholds, 0,[],[]).
+    group_clone_pairs(ClonePairs1, Thresholds, []).
 
-group_clone_pairs([], _,_, TmpAcc, Acc) ->
-    case TmpAcc of
-	[] -> lists:reverse(Acc);
-	_ -> lists:reverse([TmpAcc|Acc])
-    end;
-group_clone_pairs([_ClonePairs={C,NumOfNewVars}|T], Thresholds, Sum, TmpAcc, Acc) ->
-    MaxNewVars = Thresholds#threshold.max_new_vars,
+group_clone_pairs([], _, Acc) ->
+    lists:reverse(Acc);
+group_clone_pairs(ClonePairs, Thresholds, Acc) ->
     MinFreq= Thresholds#threshold.min_freq -1,
-    NewSum = NumOfNewVars+Sum,
-    case NewSum =< MaxNewVars of 
+    {NewCs, LeftPairs}=group_clone_pairs(ClonePairs,Thresholds, sets:new(),[],[]),
+    NewAcc = case length(NewCs)>=MinFreq of
+		 true->[NewCs|Acc];
+		 false ->
+		     Acc
+	     end,
+    case length(LeftPairs)<MinFreq of 
 	true ->
-	    group_clone_pairs(T, Thresholds, NewSum, [C|TmpAcc], Acc);
+	    NewAcc;
 	false ->
-	    case length(TmpAcc)>=MinFreq of 
+	    group_clone_pairs(LeftPairs, Thresholds, NewAcc)
+    end.
+
+group_clone_pairs([], _, _, Acc, LeftPairs) ->
+    {lists:reverse(Acc), lists:reverse(LeftPairs)};
+group_clone_pairs([CP={C={_R, _EVs, Subst}, NumOfNewVars}|T], Thresholds, ExprsToBeGenAcc, Acc, LeftPairs) ->
+    MaxNewVars = Thresholds#threshold.max_new_vars,
+    ExprsToBeGen=exprs_to_be_generalised(Subst),
+    NewExprsToBeGenAcc =sets:union(ExprsToBeGen, ExprsToBeGenAcc),
+    case sets:size(NewExprsToBeGenAcc)=<MaxNewVars of
+    	true ->
+	    group_clone_pairs(T, Thresholds, NewExprsToBeGenAcc, [C|Acc], LeftPairs);
+	false ->
+	    case NumOfNewVars>MaxNewVars of 
 		true ->
-		    case NumOfNewVars=<MaxNewVars of
-			true ->
-			    group_clone_pairs(T, Thresholds, NumOfNewVars, [C],
-					      [lists:reverse(TmpAcc)|Acc]);
-			false ->
-			    group_clone_pairs(T, Thresholds, NumOfNewVars, [],
-					      [lists:reverse(TmpAcc)|Acc])
-		    end;
+		    group_clone_pairs([], Thresholds, ExprsToBeGenAcc, Acc, LeftPairs);
 		false ->
-		    case NumOfNewVars=<MaxNewVars of 
-			true ->
-			    group_clone_pairs(T, Thresholds, NumOfNewVars, [C], Acc);
-			false ->
-			    group_clone_pairs(T, Thresholds, NumOfNewVars, [], Acc)
-		    end
+		    group_clone_pairs(T, Thresholds, ExprsToBeGenAcc, Acc, [CP|LeftPairs])
 	    end
     end.
-	    
+
+%% This is not accurate, and will be improved!
+exprs_to_be_generalised(SubSt) ->
+    sets:from_list([refac_prettypr:format(refac_misc:reset_attrs(E1))||
+		       {E1,_E2}<-SubSt, refac_syntax:type(E1)/=variable]).
+
+   
+num_of_new_vars(SubSt) ->
+     length(lists:usort([{refac_prettypr:format(refac_misc:reset_attrs(E1)),
+ 			 refac_prettypr:format(refac_misc:reset_attrs(E2))}
+ 			||{E1,E2}<-SubSt, refac_syntax:type(E1)/=variable])).
 
 
     
@@ -1060,13 +1082,13 @@ generate_fun_call_1(Range, AUForm, Tabs) ->
 		SubAUBody = lists:sublist(AUBody, 1, length(AUBody) - 1),
 		Res=unification:expr_unification(SubAUBody, Exprs),
 		case Res of 
-		    false ->
+		    false -> 
 			?wrangler_io("\n not same length\n",[]),
 			?wrangler_io(" Case1:\n",[]),
 			?wrangler_io("\nAUBody:\n",[]),
-			?wrangler_io("~p", [refac_prettypr:format(refac_syntax:block_expr(AUBody))]),
+			?wrangler_io("~s", [refac_prettypr:format(refac_syntax:block_expr(AUBody))]),
 			?wrangler_io("\nExprs:\n",[]),		   
-			?wrangler_io("~p", [refac_prettypr:format(refac_syntax:block_expr(Exprs))]),
+			?wrangler_io("~s", [refac_prettypr:format(refac_syntax:block_expr(Exprs))]),
 			Res;
 		    _ -> Res
 		end;
@@ -1076,9 +1098,9 @@ generate_fun_call_1(Range, AUForm, Tabs) ->
 		    false ->
 			?wrangler_io("\nsame length\n",[]),
 			?wrangler_io("\nAUBody:\n",[]),
-			?wrangler_io("~p", [refac_prettypr:format(refac_syntax:block_expr(AUBody))]),
+			?wrangler_io("~s", [refac_prettypr:format(refac_syntax:block_expr(AUBody))]),
 			?wrangler_io("\nExprs:\n",[]),		   
-			?wrangler_io("~p", [refac_prettypr:format(refac_syntax:block_expr(Exprs))]),
+			?wrangler_io("~s", [refac_prettypr:format(refac_syntax:block_expr(Exprs))]),
 			Res;
 		    _ -> Res
 		end
@@ -1466,31 +1488,34 @@ same_expr(Expr1, Expr2) ->
 from_dets(Ets, Dets) when is_atom(Ets) ->
     EtsRef = ets:new(Ets, [set, public]),
     case dets:open_file(Dets, [{access, read}]) of
-      {ok, D} ->
-	  true = ets:from_dets(EtsRef, D),
-	  ok = dets:close(D),
-	  EtsRef;
-      {error, _Reason} -> 
+	{ok, D} ->
+	    true = ets:from_dets(EtsRef, D),
+	    ok = dets:close(D),
+	    EtsRef;
+	{error, _Reason} -> 
 	    EtsRef
     end.
 
+	
 to_dets(Ets, Dets) ->
-    try file:delete(Dets) 
-    catch 
-	{error, {file_error, _, enoent}} -> ok;
-	{error, Reason} -> throw({error, Reason})
-    end,
-    MinSize = ets:info(Ets, size),
-    Res= dets:open_file(Dets, [{min_no_slots, MinSize}]),
-    {ok, DetsRef} = Res,
-    ok = dets:from_ets(DetsRef, Ets),
-    ok = dets:sync(DetsRef),
-    ok = dets:close(DetsRef),
-    ets:delete(Ets).
+    try file:delete(Dets), 
+	 MinSize = ets:info(Ets, size),
+	 Res= dets:open_file(Dets, [{min_no_slots, MinSize}]),
+	 {ok, DetsRef} = Res,
+	 ok = dets:from_ets(DetsRef, Ets),
+	 ok = dets:sync(DetsRef),
+	 ok = dets:close(DetsRef),
+	 ets:delete(Ets)
+    catch
+	_E1:_E2 ->
+	    ok
+    end.
+	
+	 
 
 get_parameters(MinLen1, MinToks1 ,MinFreq1, MaxVars1, SimiScore1) ->
     MinLen = get_parameters_1(MinLen1, ?DEFAULT_LEN, 1),
-    MinToks = get_parameters_1(MinToks1,?DEFAULT_TOKS, 20),
+    MinToks = get_parameters_1(MinToks1,20, 20),
     MinFreq = get_parameters_1(MinFreq1, ?DEFAULT_FREQ,?DEFAULT_FREQ),
     MaxVars = get_parameters_1(MaxVars1, ?DEFAULT_NEW_VARS, 0),
     SimiScore = try
@@ -1523,4 +1548,3 @@ get_parameters_1(Input, DefaultVal, MinVal) ->
 
 %% refac_inc_sim_code:inc_sim_code_detection(["c:/cygwin/home/hl/suites/bearer_handling_and_qos/test"],"5", "20", "2", "5","0.8",[],8).
 %% refac_inc_sim_code:inc_sim_code_detection(["c:/cygwin/home/hl/test/ch2.erl"],3, 0, 2, 5,0.8,[],8).
-%%efac_inc_sim_code.erl:884: The pattern [{{_, Expr1}, {_, Expr2}, {SubEs1, SubEs2}, _} | _] can never match the type [{{_,_},{_,_},[any()],{_,_}}]
