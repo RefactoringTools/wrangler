@@ -65,25 +65,25 @@
 
 -include("../include/wrangler.hrl").
 
--spec(rename_mod/4::(filename(), string(), [dir()], integer()) -> 
-	     {error, string()} | {question, string()} |{ok, [filename()], boolean()}).
+%%-spec(rename_mod/4::(filename(), string(), [dir()], integer()) -> 
+%%	     {error, string()} | {question, string()} |{ok, [filename()], boolean()}).
 rename_mod(FileName, NewName, SearchPaths, TabWidth) ->
     rename_mod(FileName, NewName, SearchPaths, TabWidth, emacs).
 
--spec(rename_mod_eclipse/4::(filename(), string(), [dir()], integer()) ->
-	     {error, string()} | {question, string()} | {warning, string()} |
-		 {ok, [{filename(), filename(), string()}]}).
+%%-spec(rename_mod_eclipse/4::(filename(), string(), [dir()], integer()) ->
+%%	     {error, string()} | {question, string()} | {warning, string()} |
+%%		 {ok, [{filename(), filename(), string()}]}).
 rename_mod_eclipse(FileName, NewName, SearchPaths, TabWidth) ->
     rename_mod(FileName, NewName, SearchPaths, TabWidth, eclipse).
 
 
--spec(rename_mod_1/5::(filename(), string(), [dir()], integer(),boolean()) ->
-			    {ok, [filename()], boolean()} |  {ok, [{filename(), filename(), string()}]}).
+%%-spec(rename_mod_1/5::(filename(), string(), [dir()], integer(),boolean()) ->
+%%			    {ok, [filename()], boolean()} |  {ok, [{filename(), filename(), string()}]}).
 rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod) ->
     rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod, emacs).
 
--spec(rename_mod_1_eclipse/5::(filename(), string(), [dir()], integer(),boolean()) ->
-				    {ok, [{filename(), filename(), string()}]}).
+%%-spec(rename_mod_1_eclipse/5::(filename(), string(), [dir()], integer(),boolean()) ->
+%%				    {ok, [{filename(), filename(), string()}]}).
 rename_mod_1_eclipse(FileName, NewName, SearchPaths, TabWidth, RenameTestMod) ->
     rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod, eclipse).
 

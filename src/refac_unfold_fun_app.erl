@@ -58,13 +58,13 @@
 %% select <em>Unfold Function Application</em> from <em>Refactor</em>.
 %% </p>
 
--spec(unfold_fun_app/4::(FileName::filename(), Pos::pos(), SearchPaths::[dir()], TabWidth::integer())
-      ->{'ok', [filename()]}).
+%%-spec(unfold_fun_app/4::(FileName::filename(), Pos::pos(), SearchPaths::[dir()], TabWidth::integer())
+%%      ->{'ok', [filename()]}).
 unfold_fun_app(FileName, Pos, SearchPaths, TabWidth) ->
     unfold_fun_app(FileName, Pos, SearchPaths, TabWidth, emacs).
 
--spec(unfold_fun_app_eclipse/4::(FileName::filename(), Pos::pos(), SearchPaths::[dir()], TabWidth::integer())
-      ->{ok, [{filename(), filename(), string()}]}).
+%%-spec(unfold_fun_app_eclipse/4::(FileName::filename(), Pos::pos(), SearchPaths::[dir()], TabWidth::integer())
+%%      ->{ok, [{filename(), filename(), string()}]}).
 unfold_fun_app_eclipse(FileName,Pos,SearchPaths, TabWidth) ->
     unfold_fun_app(FileName, Pos, SearchPaths, TabWidth, eclipse).
 
@@ -130,7 +130,7 @@ side_cond_analysis_1(FunDef, App, AnnAST) ->
 	  UsedMacros = refac_misc:collect_used_macros(C),
 	  CPos = refac_syntax:get_pos(C),
 	  AppPos = refac_syntax:get_pos(App),
-	  case check_macro_defs(Fs, UsedMacros, min(CPos, AppPos), max(CPos, AppPos)) of
+	  case check_macro_defs(Fs, UsedMacros, lists:min([CPos, AppPos]), lists:max([CPos, AppPos])) of
 	    [] ->
 		{ok, {C, {Subst, MatchExprs}}};
 	    Ms -> return_error_msg(Ms)

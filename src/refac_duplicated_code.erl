@@ -42,9 +42,9 @@
 %% </p>
 %% ====================================================================================
 
--spec(duplicated_code_eclipse/5::([dir()|filename()], integer(),integer(), integer(), filename()) ->
-	[{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], 
-	  integer(), integer(), string()}]).
+%%-spec(duplicated_code_eclipse/5::([dir()|filename()], integer(),integer(), integer(), filename()) ->
+%%	[{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], 
+%%	  integer(), integer(), string()}]).
 duplicated_code_eclipse(DirFileList, MinLength1, MinClones1, TabWidth, SuffixTreeExec) ->
     MinLength = case MinLength1 =< 1 of
 		  true ->
@@ -59,7 +59,7 @@ duplicated_code_eclipse(DirFileList, MinLength1, MinClones1, TabWidth, SuffixTre
     Cs = duplicated_code_detection(DirFileList, MinClones, MinLength, 10, SuffixTreeExec, TabWidth),
     refac_code_search_utils:remove_sub_clones(Cs).
 
--spec(duplicated_code/5::([dir()|filename()],string(),string(), string(),integer()) ->{ok, string()}).
+%%-spec(duplicated_code/5::([dir()|filename()],string(),string(), string(),integer()) ->{ok, string()}).
 duplicated_code(DirFileList, MinLength1, MinClones1, MaxPars1, TabWidth) ->
     {MinClones, MinLength, MaxPars} = get_parameters(MinLength1, MinClones1, MaxPars1),
     ?wrangler_io("\nCMD: ~p:duplicated_code(~p,~p,~p,~p,~p).\n",
@@ -75,9 +75,9 @@ duplicated_code(DirFileList, MinLength1, MinClones1, MaxPars1, TabWidth) ->
     ?debug("Clones:\n~p\n", [Cs1]),
     {ok, "Duplicated code detection finished."}.
 
--spec(duplicated_code_detection/6::([dir()|filename()], integer(),integer(), integer(), filename(),integer()) ->
-					 [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], 
-					   integer(), integer(), string()}]).
+%%-spec(duplicated_code_detection/6::([dir()|filename()], integer(),integer(), integer(), filename(),integer()) ->
+%%					 [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], 
+%%					   integer(), integer(), string()}]).
 duplicated_code_detection(DirFileList, MinClones, MinLength, MaxPars, SuffixTreeExec, TabWidth) ->
     FileNames = refac_util:expand_files(DirFileList, ".erl"),
     case FileNames of 
@@ -104,8 +104,8 @@ duplicated_code_detection(DirFileList, MinClones, MinLength, MaxPars, SuffixTree
 
 %%=====================================================================================
 %% process the parameters input by the user.
--spec(get_parameters/3::(string(), string(), string()) ->
-			      {integer(), integer(), integer()}).
+%%-spec(get_parameters/3::(string(), string(), string()) ->
+%%			      {integer(), integer(), integer()}).
 get_parameters(MinLengthStr, MinClonesStr, MinParsStr) ->
     MinLength = try
 		    case MinLengthStr == [] orelse list_to_integer(MinLengthStr) =< 1 of
@@ -321,7 +321,7 @@ process_a_unit(VarsUsed, FileName, Unit) ->
     {Range, Unit, VarsToExport, BdStruct, num_of_tokens(Unit)}.
 
 
--spec(pos_to_syntax_units(syntaxTree(),pos(),pos(),function(), integer()) ->[syntaxTree()]).
+%%-spec(pos_to_syntax_units(syntaxTree(),pos(),pos(),function(), integer()) ->[syntaxTree()]).
 pos_to_syntax_units(Tree, Start, End, F, MinLength) ->
     Type = refac_syntax:type(Tree),
     Res = pos_to_syntax_units_1(Tree, Start, End, F, Type),
@@ -505,7 +505,7 @@ add_filename_to_token(FileName,T) ->
 
 %% =====================================================================
 %% get the alphabet on which the suffix tree is going to be built.
--spec(alphabet/0::()-> string()).
+%%-spec(alphabet/0::()-> string()).
 alphabet() ->
     lists:concat([Y||{_X, Y}<-alphabet_1()]) ++ "ACFISV&".
 		  
@@ -524,10 +524,10 @@ alphabet_1() ->
 
 %% =====================================================================
 
--spec(get_anti_unifier([{{{filename(), integer(), integer()},{filename(), integer(), integer()}}, 
-			 syntaxTree(), any(), any(), integer()}],integer(), integer()) ->
-	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], 
-	       integer(), integer(), string()}]).
+%%-spec(get_anti_unifier([{{{filename(), integer(), integer()},{filename(), integer(), integer()}}, 
+%%			 syntaxTree(), any(), any(), integer()}],integer(), integer()) ->
+%%	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], 
+%%	       integer(), integer(), string()}]).
 get_anti_unifier(C, MaxPars, MinLength) ->
     Freq = length(C),
     Len =  element(5, hd(C)),

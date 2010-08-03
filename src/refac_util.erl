@@ -875,7 +875,7 @@ is_string(_) -> false.
 %% -type (category():: pattern|expression|guard_expression|record_type|generator
 %%                    record_field| {macro_name, none|int(), pattern|expression}
 %%                    |operator
--spec(add_category(Node::syntaxTree()) -> syntaxTree()).
+%%-spec(add_category(Node::syntaxTree()) -> syntaxTree()).
 add_category(Node) ->
     add_category(Node, none).
 
@@ -903,10 +903,14 @@ do_add_category(Node, C) ->
 	    P = refac_syntax:match_expr_pattern(Node),
 	    B = refac_syntax:match_expr_body(Node),
 	    P1 = add_category(P, pattern),
-	    B1 = add_category(B, expression),
+	    B1 = add_category(B, C),
 	    Node1=rewrite(Node, refac_syntax:match_expr(P1, B1)),
-	    %%{refac_syntax:add_ann({category, C}, Node1), true};
-	    {Node1, true};
+	    case C/=expression of 
+		true ->
+		    {refac_syntax:add_ann({category, C}, Node1), true};
+		false ->
+		    {Node1, true}
+	    end;
 	generator ->
 	    P = refac_syntax:generator_pattern(Node),
 	    B = refac_syntax:generator_body(Node),

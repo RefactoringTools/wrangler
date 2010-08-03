@@ -6100,7 +6100,6 @@ default_literals_vars(Node, Value) ->
     end.
 
  
-TODO:
-
- %% Add support for bc (binary comprehension?).
- %% eg. << <<X:1>> || X <- List >>.
+%%TODO:
+%% Add support for bc (binary comprehension?).
+%% eg. << <<X:1>> || X <- List >>.

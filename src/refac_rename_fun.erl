@@ -58,14 +58,14 @@
 -include("../include/wrangler.hrl").
 
 
--spec(rename_fun/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-	     {error, string()} | {warning, string()} |{ok, [filename()]}).
+%%-spec(rename_fun/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
+%%	     {error, string()} | {warning, string()} |{ok, [filename()]}).
 
 rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
 
--spec(rename_fun_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-	     {error, string()} | {warning, string()} | {ok, [{filename(), filename(), string()}]}).
+%%-spec(rename_fun_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
+%%	     {error, string()} | {warning, string()} | {ok, [{filename(), filename(), string()}]}).
 
 rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
@@ -138,14 +138,14 @@ rename_fun_0(FileName, NewName, SearchPaths, TabWidth, Editor,
 	  write_files(Editor, [{{FileName, FileName}, AnnAST1}], Cmd, HasWarningMsg)
     end.
 
--spec(rename_fun_1/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-	     {error, string()} | {ok, [filename()]}).
+%%-spec(rename_fun_1/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
+%%	     {error, string()} | {ok, [filename()]}).
 
 rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
     
--spec(rename_fun_1_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-	     {error, string()} | {ok, [filename()]}).
+%%-spec(rename_fun_1_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
+%%	     {error, string()} | {ok, [filename()]}).
 
 rename_fun_1_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).

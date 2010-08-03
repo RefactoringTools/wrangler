@@ -18,15 +18,15 @@
 
 %% A refactoring candidate: from non-gen_server to gen_server.
 
--spec start_counter_process() -> pid(). 			   
+%%-spec start_counter_process() -> pid(). 			   
 start_counter_process() ->
     start_counter_process(sets:new()).
 
--spec start_counter_process(set()) -> pid(). 
+%%-spec start_counter_process(set()) -> pid(). 
 start_counter_process(UsedNames) ->
     spawn_link(fun () -> counter_loop({1, UsedNames, []}) end).
 
--spec stop_counter_process(atom() | pid() | port() | {atom(),atom()}) -> 'stop'.
+%%-spec stop_counter_process(atom() | pid() | port() | {atom(),atom()}) -> 'stop'.
 stop_counter_process(Pid) ->
     Pid!stop.
 
@@ -45,20 +45,20 @@ counter_loop({SuffixNum, UsedNames, NewExportVars}) ->
 	  ok
     end.
 
--spec add_new_export_var(atom() | pid() | port() | {atom(),atom()},string()) -> {'add', string()}.
+%%-spec add_new_export_var(atom() | pid() | port() | {atom(),atom()},string()) -> {'add', string()}.
 add_new_export_var(Pid, VarName) ->
     Pid ! {add, VarName}.
 
 
 
--spec get_new_export_vars(atom() | pid() | port() | {atom(),atom()}) -> [string()].
+%%-spec get_new_export_vars(atom() | pid() | port() | {atom(),atom()}) -> [string()].
 get_new_export_vars(Pid) ->
     Pid !{self(), get},
     receive
 	{Pid, Vars} ->
 	     Vars
     end.
--spec gen_new_var_name(atom() | pid() | port() | {atom(),atom()}) -> string(). 
+%%-spec gen_new_var_name(atom() | pid() | port() | {atom(),atom()}) -> string(). 
 gen_new_var_name(Pid) -> 
     Pid ! {self(), next},
     receive
@@ -81,8 +81,8 @@ make_new_name(SuffixNum, UsedNames) ->
 %%                                                                      %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec remove_sub_clones([{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}]
-			  ,integer(), integer()}]) -> any().
+%%-spec remove_sub_clones([{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}]
+%%			  ,integer(), integer()}]) -> any().
 remove_sub_clones(Cs) ->
     Cs1 = lists:sort(fun(C1,C2)
 			-> {element(3, C1), element(2, C1)} >= {element(3, C2), element(2, C2)}
@@ -123,7 +123,7 @@ sub_clone(C1, C2) ->
 %%                                                                          %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec identifier_name(syntaxTree()) -> atom().
+%%-spec identifier_name(syntaxTree()) -> atom().
 identifier_name(Exp) ->
     case refac_syntax:type(Exp) of
 	atom ->
@@ -139,7 +139,7 @@ identifier_name(Exp) ->
 %%                                                                      %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec(var_binding_structure/1::([syntaxTree()]) -> [{integer(), integer()}]).      
+%%-spec(var_binding_structure/1::([syntaxTree()]) -> [{integer(), integer()}]).      
 var_binding_structure(ASTList) ->
     VarLocs = lists:keysort(2, refac_misc:collect_var_source_def_pos_info(ASTList)),
     case VarLocs of
@@ -168,10 +168,10 @@ var_binding_structure_1(VarLocs) ->
 %%  Display clone detection results                                     %%
 %%                                                                      %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--spec display_clone_result([{[{{filename(), integer(), integer()},
-			       {filename(), integer(), integer()}}], 
-			     integer(), integer(), string()}],
-			   string()) -> ok.
+%%-spec display_clone_result([{[{{filename(), integer(), integer()},
+%%			       {filename(), integer(), integer()}}], 
+%%			     integer(), integer(), string()}],
+%%			   string()) -> ok.
 display_clone_result(Cs, Str) ->
     case length(Cs) >=1  of 
      	true -> display_clones_by_freq(Cs, Str),
@@ -245,9 +245,9 @@ display_clones_2([{{{File, StartLine, StartCol}, {File, EndLine, EndCol}}, FunCa
 %%                                                                      %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec display_search_results([{filename(),{{integer(), integer()}, {integer(), integer()}}}],
-			     syntaxTree()|none, string()) ->
-				    {ok, [{filename(),{{integer(), integer()}, {integer(), integer()}}}]}.
+%%-spec display_search_results([{filename(),{{integer(), integer()}, {integer(), integer()}}}],
+%%			     syntaxTree()|none, string()) ->
+%%				    {ok, [{filename(),{{integer(), integer()}, {integer(), integer()}}}]}.
 display_search_results(Ranges, AntiUnifier, Type) ->
     case Ranges of
 	[_] -> 
@@ -285,9 +285,9 @@ generalisable(Node) ->
 	{value, {category, record_type}} -> false;
 	{value, {category, guard_expression}} -> false;
 	{value, {category, generator}} -> false;
-	{value, {category, {macro_name, Num, _}}} when Num/=none -> false;
+	{value, {category, {macro_name, Num, expression}}} when Num/=none -> false;
 	{value, {category, pattern}} ->
-	    refac_syntax:is_literal(Node) orelse
+	   %% refac_syntax:is_literal(Node) orelse ;; in theory it is ok.
 		refac_syntax:type(Node) == variable;
 	_ ->
 	  %% While syntactically, expressions of some of the listed types
@@ -298,9 +298,11 @@ generalisable(Node) ->
 				 if_expr, fun_expr, receive_expr, clause,
 				 query_expr, try_expr, catch_expr, cond_expr,
 				 block_expr]) andalso
-	    refac_misc:get_var_exports(Node) == [] andalso
-	    %% generalise expressions with free variables need to 
-	    %% wrap the expression with a fun expression; we try to 
-	    %% avoid this case.
-		refac_misc:get_free_vars(Node) == []
+		refac_misc:get_var_exports(Node) == []
+		andalso
+	    %% %% generalise expressions with free variables need to 
+	    %% %% wrap the expression with a fun expression; we try to 
+	    %% %% avoid this case.
+	    (refac_misc:get_free_vars(Node) == [] orelse
+	     T==variable)
     end.

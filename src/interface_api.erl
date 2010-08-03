@@ -50,8 +50,8 @@
 %% @see pos_to_expr/3
 %% @see pos_to_fun_def/2.
 
--spec (pos_to_fun_name(Node::syntaxTree(), Pos::pos()) ->
-	      {ok, {atom(), atom(), integer(), pos(), pos()}} | {error, string()}).
+%%-spec (pos_to_fun_name(Node::syntaxTree(), Pos::pos()) ->
+%%	      {ok, {atom(), atom(), integer(), pos(), pos()}} | {error, string()}).
 pos_to_fun_name(Node, Pos) ->
     case
       ast_traverse_api:once_tdTU(fun pos_to_fun_name_1/2, Node, Pos)
@@ -81,8 +81,8 @@ pos_to_fun_name_1(Node, Pos = {Ln, Col}) ->
 %% location specified by Pos falls.
 %%               
 %% @see pos_to_fun_name/2.
--spec(pos_to_fun_def(Node::syntaxTree(), Pos::pos()) 
-      -> {ok, syntaxTree()} | {error, string()}).
+%%-spec(pos_to_fun_def(Node::syntaxTree(), Pos::pos()) 
+%%      -> {ok, syntaxTree()} | {error, string()}).
 pos_to_fun_def(Node, Pos) ->
     case
       ast_traverse_api:once_tdTU(fun pos_to_fun_def_1/2, Node, Pos)
@@ -124,9 +124,9 @@ pos_to_fun_def_1(Node, Pos) ->
 
 %%TODO: This function returns more than what the function name indicates, try to refactor it.
 
--type(category()::expression|pattern|macro_name|application_op|operator).
--spec(pos_to_var_name(Node::syntaxTree(), Pos::pos())->
-	     {ok, {atom(), [pos()], category()}} | {error, string()}).
+%%-type(category()::expression|pattern|macro_name|application_op|operator).
+%%-spec(pos_to_var_name(Node::syntaxTree(), Pos::pos())->
+%%	     {ok, {atom(), [pos()], category()}} | {error, string()}).
 pos_to_var_name(Node, UsePos) ->
     case
       ast_traverse_api:once_tdTU(fun pos_to_var_name_1/2, Node, UsePos)
@@ -176,7 +176,7 @@ pos_to_var_name_1(Node, _Pos = {Ln, Col}) ->
 %% @see pos_to_fun_name/2
 %% @see pos_to_fun_def/2
 %% @see pos_to_var_name/2
--spec(pos_to_expr(Tree::syntaxTree(), Start::pos(), End::pos()) ->{ok, syntaxTree()} | {error, string()}).
+%%-spec(pos_to_expr(Tree::syntaxTree(), Start::pos(), End::pos()) ->{ok, syntaxTree()} | {error, string()}).
 pos_to_expr(Tree, Start, End) ->
     Es = lists:flatten(pos_to_expr_1(Tree, Start, End)),
     case Es of
@@ -206,8 +206,8 @@ pos_to_expr_1(Tree, Start, End) ->
 
 %% =====================================================================
 %% get the list expressions enclosed by start and end locations.
--spec(pos_to_expr_list(Tree::syntaxTree(), Start::pos(), End::pos()) ->
-	     [syntaxTree()]).
+%%-spec(pos_to_expr_list(Tree::syntaxTree(), Start::pos(), End::pos()) ->
+%%	     [syntaxTree()]).
 pos_to_expr_list(AnnAST, Start, End) ->
     Es = pos_to_expr_list_1(AnnAST, Start, End, fun refac_misc:is_expr_or_match/1),
     get_expr_list(Es).
@@ -268,7 +268,7 @@ pos_to_expr_or_pat_list(AnnAST, Start, End) ->
 %%                   {ok, syntaxTree()} | {error, none}
 %%
 %% @doc Return the AST of the function to which Exp (an expression node) belongs.
--spec(expr_to_fun(Tree::syntaxTree(), Exp::syntaxTree())->{ok, syntaxTree()} | {error, none}).
+%%-spec(expr_to_fun(Tree::syntaxTree(), Exp::syntaxTree())->{ok, syntaxTree()} | {error, none}).
 expr_to_fun(Tree, Exp) ->
     Res = expr_to_fun_1(Tree, Exp),
     case Res of

@@ -77,28 +77,28 @@
 		      ast, 
 		      info}).
 %==========================================================================================
--spec(move_fun/6::(filename(),integer(),integer(), string(), [dir()], integer())->
-	     {ok, [filename()]} | {question, string()}).
+%%-spec(move_fun/6::(filename(),integer(),integer(), string(), [dir()], integer())->
+%%	     {ok, [filename()]} | {question, string()}).
 %%==========================================================================================
 move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) ->
     move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, emacs).
 
--spec(move_fun_1/7::(filename(),integer(),integer(), string(),boolean(), [dir()], integer())->
-	     {ok, [filename()]}).
+%%-spec(move_fun_1/7::(filename(),integer(),integer(), string(),boolean(), [dir()], integer())->
+%%	     {ok, [filename()]}).
 move_fun_1(FName, Line, Col, TargetModorFileName, CheckCond, SearchPaths, TabWidth) ->
     move_fun_1(FName, Line, Col, TargetModorFileName, CheckCond, SearchPaths, TabWidth, emacs).
 
 
--spec(move_fun_eclipse/6::(filename(),integer(),integer(), string(),[dir()], integer())
-        ->  {ok, [{filename(), filename(), string()}]} | {question, string()}).
+%%-spec(move_fun_eclipse/6::(filename(),integer(),integer(), string(),[dir()], integer())
+%%        ->  {ok, [{filename(), filename(), string()}]} | {question, string()}).
 
 move_fun_eclipse(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) ->
     move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, eclipse).
 
 
 %% THIS interface need to be changed; and should inform George of the changes.
--spec(move_fun_1_eclipse/6::(filename(),integer(),integer(), string(),[dir()], integer())
-        ->  {ok, [{filename(), filename(), string()}]}).
+%%-spec(move_fun_1_eclipse/6::(filename(),integer(),integer(), string(),[dir()], integer())
+%%        ->  {ok, [{filename(), filename(), string()}]}).
 
 move_fun_1_eclipse(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) ->
     move_fun_1(FName, Line, Col, TargetModorFileName, true, SearchPaths, TabWidth, eclipse).

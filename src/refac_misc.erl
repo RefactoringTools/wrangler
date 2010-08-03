@@ -48,7 +48,7 @@
 -include("../include/wrangler.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--spec group_by(integer(), [tuple()]) -> [[tuple()]].
+%%-spec group_by(integer(), [tuple()]) -> [[tuple()]].
 group_by(N, TupleList) ->
     SortedTupleList = lists:keysort(N, lists:usort(TupleList)),
     group_by(N, SortedTupleList, []).
@@ -65,7 +65,7 @@ group_by(N,TupleList = [T| _Ts],Acc) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec filehash(filename()) -> integer(). 	      
+%%-spec filehash(filename()) -> integer(). 	      
 filehash(FileName) ->
     case file:open(FileName, [read, raw, binary]) of
       {ok, IoDevice} ->
@@ -86,8 +86,8 @@ filehash(IoDevice, Crc) ->
     end.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec collect_var_source_def_pos_info([syntaxTree()]|syntaxTree()) ->
-					     [{atom(), pos(), [pos()]}].
+%%-spec collect_var_source_def_pos_info([syntaxTree()]|syntaxTree()) ->
+%%					     [{atom(), pos(), [pos()]}].
 collect_var_source_def_pos_info(Nodes) when is_list(Nodes) ->
     lists:flatmap(fun (N) -> collect_var_source_def_pos_info(N) end, Nodes);
 collect_var_source_def_pos_info(Node) ->
@@ -107,8 +107,8 @@ collect_var_source_def_pos_info(Node) ->
        end,
     refac_syntax_lib:fold(F, [], Node).
 
--spec get_start_end_loc([syntaxTree()]|syntaxTree()) ->
- 			       {pos(), pos()}.
+%%-spec get_start_end_loc([syntaxTree()]|syntaxTree()) ->
+%% 			       {pos(), pos()}.
 get_start_end_loc(Exprs) when is_list(Exprs) ->
     E1 = hd(Exprs),
     En = lists:last(Exprs),
@@ -141,26 +141,26 @@ apply_style_funs() ->
      {{test_server, call_crash, 5}, [term, term, modulename, functionname, arglist], term}].
  
 
--spec testserver_callback_funs()->[{atom(), integer()}].
+%%-spec testserver_callback_funs()->[{atom(), integer()}].
 testserver_callback_funs() ->
     [{all, 0}, {init_per_suite, 1}, {end_per_suite, 1}, {init_per_testcase, 2}, {fin_per_testcase, 2}].
 
--spec eqc_statem_callback_funs()->[{atom(), integer()}].
+%%-spec eqc_statem_callback_funs()->[{atom(), integer()}].
 eqc_statem_callback_funs() ->
     [{initial_state, 0}, {precondition, 2}, {command, 1}, {postcondition, 3}, {next_state, 3}].
 
--spec eqc_fsm_callback_funs()->[{atom(), integer()}].
+%%-spec eqc_fsm_callback_funs()->[{atom(), integer()}].
 eqc_fsm_callback_funs() ->
     [{initial_state, 0}, {initial_state_data, 0}, {next_state_data, 5},
      {precondition, 4}, {postcondition, 5}].
 
--spec commontest_callback_funs()->[{atom(), integer()}].
+%%-spec commontest_callback_funs()->[{atom(), integer()}].
 commontest_callback_funs() ->
     [{all, 0}, {groups, 0}, {suite, 0}, {init_per_suite, 1}, {end_per_suite, 1}, {init_per_group, 2},
      {end_per_group, 2}, {init_per_testcase, 2}, {end_per_testcase, 2}, {testcase, 0}, {testcase, 1}].
 
--spec try_eval(filename()|none, syntaxTree(), [dir()], integer()) ->
-		      term().
+%%-spec try_eval(filename()|none, syntaxTree(), [dir()], integer()) ->
+%%		      term().
 try_eval(none, Node, _, _) ->
     try
       erl_eval:exprs([refac_syntax:revert(Node)], [])
@@ -212,8 +212,8 @@ try_eval(FileName, Node, SearchPaths, TabWidth) ->
     end.
 
 
--spec get_toks(filename(), syntaxTree(), integer()) ->
-		      [token()].
+%%-spec get_toks(filename(), syntaxTree(), integer()) ->
+%%		      [token()].
 get_toks(FileName, Node, TabWidth) ->
     Toks = refac_util:tokenize(FileName, false, TabWidth),
     {StartPos, EndPos} = get_start_end_loc(Node),
@@ -242,7 +242,7 @@ has_macros(Node) ->
     
 
 
--spec make_new_name(atom(), [atom()]) ->atom().			   
+%%-spec make_new_name(atom(), [atom()]) ->atom().			   
 make_new_name(VarName, UsedVarNames) ->
     NewVarName = list_to_atom(atom_to_list(VarName)++"_1"),
     case ordsets:is_element(NewVarName, UsedVarNames) of
@@ -252,8 +252,8 @@ make_new_name(VarName, UsedVarNames) ->
 	    NewVarName
     end.
 
--spec collect_var_names(syntaxTree()|[syntaxTree()]) ->
-			       [atom()].
+%%-spec collect_var_names(syntaxTree()|[syntaxTree()]) ->
+%%			       [atom()].
 collect_var_names(Node) when is_list(Node) ->
     collect_var_names_1(refac_syntax:block_expr(Node));
 collect_var_names(Node) ->
@@ -274,8 +274,8 @@ collect_var_names_1(Node) ->
     ordsets:to_list(refac_syntax_lib:fold(F, ordsets:new(), Node)).
 
 
--spec collect_used_macros(syntaxTree()) ->
-				 [atom()].
+%%-spec collect_used_macros(syntaxTree()) ->
+%%				 [atom()].
 collect_used_macros(Node) ->
     F = fun(T, S) ->
 		case refac_syntax:type(T) of
@@ -290,7 +290,7 @@ collect_used_macros(Node) ->
 	end,
     lists:usort(refac_syntax_lib:fold(F, [], Node)).
 
--spec collect_used_records(syntaxTree())-> [atom()].
+%%-spec collect_used_records(syntaxTree())-> [atom()].
 collect_used_records(Node) ->
     Fun = fun(T, S) ->
 		  case refac_syntax:type(T) of
@@ -325,7 +325,7 @@ collect_used_records(Node) ->
 %%  error message when the list is empty.
 %% @see glast/2
 
--spec(ghead(Info::string(),List::[any()]) -> any()).
+%%-spec(ghead(Info::string(),List::[any()]) -> any()).
 ghead(Info, []) -> erlang:error(Info);
 ghead(_Info, List) -> hd(List).
 
@@ -334,7 +334,7 @@ ghead(_Info, List) -> hd(List).
 %%  error message when the list is empty.
 %% @see ghead/2
 
--spec(glast(Info::string(), List::[any()]) -> any()).
+%%-spec(glast(Info::string(), List::[any()]) -> any()).
 glast(Info, []) -> erlang:error(Info);
 glast(_Info, List) -> lists:last(List).
 
@@ -342,7 +342,7 @@ glast(_Info, List) -> lists:last(List).
 %% @doc Convert a string into upper case.
 %% @see to_lower/1
 
--spec(to_upper(Str::string()) -> string()).
+%%-spec(to_upper(Str::string()) -> string()).
 to_upper(Str) ->
     to_upper(Str, []).
 
@@ -356,7 +356,7 @@ to_upper([], Acc) -> lists:reverse(Acc).
 %% @doc Convert a string into lower case.
 %% @see to_upper/1
 
--spec(to_lower(Str::string()) -> string()).
+%%-spec(to_lower(Str::string()) -> string()).
 to_lower(Str) ->
     to_lower(Str, []).
 
@@ -367,7 +367,7 @@ to_lower([], Acc) -> lists:reverse(Acc).
 
 %% =====================================================================
 %% @doc Return true if a string is lexically a  variable name.
--spec(is_var_name(Name:: [any()])-> boolean()).
+%%-spec(is_var_name(Name:: [any()])-> boolean()).
 is_var_name(Name) ->
     case Name of
       [] -> false;
@@ -394,7 +394,7 @@ is_digit(L) -> (L >= 48) and (57 >= L).
 %% =====================================================================
 %% @doc Return true if a name is lexically a function name.
 
--spec(is_fun_name(Name:: [any()])-> boolean()).
+%%-spec(is_fun_name(Name:: [any()])-> boolean()).
 is_fun_name(Name) ->
     case Name of
       [H| T] -> is_lower(H) and is_var_name_tail(T);
@@ -402,7 +402,7 @@ is_fun_name(Name) ->
     end.
 
 
--spec remove_duplicates([any()]) ->[any()].
+%%-spec remove_duplicates([any()]) ->[any()].
 remove_duplicates(L) ->
     remove_duplicates(L, []).
 remove_duplicates([],Acc) ->
@@ -416,7 +416,7 @@ remove_duplicates([H|T], Acc) ->
     end.
 
 
--spec format_search_paths([dir()]) -> string().				 
+%%-spec format_search_paths([dir()]) -> string().				 
 format_search_paths(Paths) ->
     format_search_paths(Paths, "").
 format_search_paths([], Str)->
@@ -427,7 +427,7 @@ format_search_paths([P|T], Str)->
 	_ ->format_search_paths(T, Str++", \""++P++"\"")
     end.
     
--spec default_incls()->[string()].			   
+%%-spec default_incls()->[string()].			   
 default_incls() ->
   [".", "..", "../hrl", "../incl", "../inc", "../include",
    "../../hrl", "../../incl", "../../inc", "../../include",
@@ -436,7 +436,7 @@ default_incls() ->
 %% ============================================================================
 %% @doc Return the token list annoated to a form if there is any.
 
--spec(get_toks(Node::syntaxTree())-> [token()]).
+%%-spec(get_toks(Node::syntaxTree())-> [token()]).
 get_toks(Node) ->
     As = refac_syntax:get_ann(Node),
     case lists:keysearch(toks, 1, As) of
@@ -447,7 +447,7 @@ get_toks(Node) ->
 %% =====================================================================
 %% @doc Reset all the annotations in the subtree to the default (empty) annotation.
 
--spec(reset_attrs(Node::syntaxTree()) -> syntaxTree()).
+%%-spec(reset_attrs(Node::syntaxTree()) -> syntaxTree()).
 reset_attrs(Node) ->
     ast_traverse_api:full_buTP(fun (T, _Others) -> 
 				       T1=refac_syntax:set_ann(T, []),
@@ -457,7 +457,7 @@ reset_attrs(Node) ->
 %% =====================================================================
 %% @doc Return the environment variables of an AST node.
 
--spec(get_env_vars(Node::syntaxTree())-> [{atom(), pos()}]).
+%%-spec(get_env_vars(Node::syntaxTree())-> [{atom(), pos()}]).
 get_env_vars(Node) ->
     get_env_vars_1(refac_syntax:get_ann(Node)).
 
@@ -468,7 +468,7 @@ get_env_vars_1([]) -> [].
 %% =====================================================================
 %% @doc Return the exported variables of an AST node.
 
--spec(get_var_exports(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
+%%-spec(get_var_exports(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
 get_var_exports(Nodes) when is_list(Nodes) ->
     lists:flatmap(fun (Node) -> get_var_exports(Node) end, Nodes);
 get_var_exports(Node) ->
@@ -482,7 +482,7 @@ get_var_exports_1([]) -> [].
 %% =====================================================================
 %% @doc Return the bound variables of an AST node.
 
--spec(get_bound_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
+%%-spec(get_bound_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
 get_bound_vars(Nodes) when is_list(Nodes) ->
     lists:usort(lists:flatmap(fun (Node) -> get_bound_vars(Node) end, Nodes));
 get_bound_vars(Node) ->
@@ -496,7 +496,7 @@ get_bound_vars_1([]) -> [].
 
 %% =====================================================================
 %% @doc Return the free variables of an AST node.
--spec(get_free_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
+%%-spec(get_free_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
 get_free_vars(Nodes) when is_list(Nodes) ->
     FBVs = lists:map(fun (Node) ->
 			     {get_free_vars(Node), get_bound_vars(Node)}
@@ -512,7 +512,7 @@ get_free_vars_1([]) -> [].
      
 %% =====================================================================
 %% @doc Return true if an AST node represents an expression.
--spec(is_expr(Node:: syntaxTree())-> boolean()).
+%%-spec(is_expr(Node:: syntaxTree())-> boolean()).
 is_expr(Node) ->
     As = refac_syntax:get_ann(Node),
     case lists:keysearch(category, 1, As) of
@@ -527,13 +527,16 @@ is_expr(Node) ->
     end.
 
 is_expr_or_match(Node) ->
-    is_expr(Node) orelse refac_syntax:type(Node)==match_expr.
+    is_expr(Node) 
+	orelse 
+	  (refac_syntax:type(Node)==match_expr andalso
+	   lists:keysearch(category, 1, refac_syntax:get_ann(Node))==false).
   
     
  
 %% =====================================================================
 %% @doc Return true if an AST node represents a pattern.
--spec(is_pattern(Node:: syntaxTree())-> boolean()).
+%%-spec(is_pattern(Node:: syntaxTree())-> boolean()).
 is_pattern(Node) ->
     As = refac_syntax:get_ann(Node),
     case lists:keysearch(category, 1, As) of
@@ -552,7 +555,7 @@ is_pattern(Node) ->
 %% @doc Return true if the function is exported by its defining module.
 %% @TODO: Think about the interface of this function again.
 
--spec(is_exported({FunName::atom(), Arity::integer()},ModInfo::moduleInfo()) -> boolean()).
+%%-spec(is_exported({FunName::atom(), Arity::integer()},ModInfo::moduleInfo()) -> boolean()).
 is_exported({FunName, Arity}, ModInfo) ->
     ImpExport = case lists:keysearch(attributes, 1, ModInfo) of
 		    {value, {attributes, Attrs}} -> 
@@ -581,7 +584,7 @@ is_exported({FunName, Arity}, ModInfo) ->
 %% module or defined within the module) in the current module.
 %% @TODO: Think about the interface of this function again.
 
--spec(inscope_funs(moduleInfo()) -> [{atom(), atom(), integer()}]).
+%%-spec(inscope_funs(moduleInfo()) -> [{atom(), atom(), integer()}]).
 inscope_funs(ModuleInfo) ->
     case lists:keysearch(module, 1, ModuleInfo) of
       {value, {module, M}} ->
@@ -607,7 +610,7 @@ inscope_funs(ModuleInfo) ->
 %% value is replaced with the new one, otherwise the given annotation info 
 %% is added to the node.
 
--spec(update_ann(Node::syntaxTree(), {Key::atom(), Val::anyterm()}) -> syntaxTree()).
+%%-spec(update_ann(Node::syntaxTree(), {Key::atom(), Val::anyterm()}) -> syntaxTree()).
 update_ann(Tree, {Key, Val}) ->
     As0 = refac_syntax:get_ann(Tree),
     As1 = case lists:keysearch(Key, 1, As0) of
@@ -617,7 +620,7 @@ update_ann(Tree, {Key, Val}) ->
     refac_syntax:set_ann(Tree, As1).
 
 
--spec(delete_from_ann(Node::syntaxTree(), Key::atom()) -> syntaxTree()).
+%%-spec(delete_from_ann(Node::syntaxTree(), Key::atom()) -> syntaxTree()).
 delete_from_ann(Tree, Key) ->
     As0=refac_syntax:get_ann(Tree),
     As1 = lists:keydelete(Key, 1,As0),
@@ -631,8 +634,8 @@ delete_from_ann(Tree, Key) ->
 %%       Arity = integer()
 %% @doc Pre-defined callback functions by the standard Erlang behaviours.
 
--type(behaviour()::gen_server | gen_event | gen_fsm | supervisor).
--spec(callback_funs(behaviour())->[{atom(), integer()}]).
+%%-type(behaviour()::gen_server | gen_event | gen_fsm | supervisor).
+%%-spec(callback_funs(behaviour())->[{atom(), integer()}]).
 callback_funs(Behaviour) ->
     case Behaviour of
       gen_server ->
@@ -648,7 +651,7 @@ callback_funs(Behaviour) ->
       _ -> []
     end.
 
--spec is_callback_fun(moduleInfo(), atom(), integer()) ->boolean().
+%%-spec is_callback_fun(moduleInfo(), atom(), integer()) ->boolean().
 is_callback_fun(ModInfo, Funname, Arity) ->
     case lists:keysearch(attributes, 1, ModInfo) of
       {value, {attributes, Attrs}} ->
@@ -660,8 +663,8 @@ is_callback_fun(ModInfo, Funname, Arity) ->
 	  end;
       _ -> false
     end.
-
--spec rewrite(syntaxTree(), syntaxTree())->syntaxTree().
+ 
+%%-spec rewrite(syntaxTree(), syntaxTree())->syntaxTree().
 rewrite(Tree, Tree1) ->
     refac_syntax:copy_attrs(Tree, Tree1).
 
