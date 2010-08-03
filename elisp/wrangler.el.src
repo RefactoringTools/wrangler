@@ -20,13 +20,12 @@
 	:group 'wrangler)
 
 (defcustom dirs-to-monitor nil
-	"This is only for case study purpose, please leave it empty otherwise;
-	List of directories to be monitored by Wrangler to log refactoring activities."             
+	" (FOR INTERNAL USE ONLY, PLEASE LEAVE IT EMPTY.) List of directories to be monitored by Wrangler to log refactoring activities."
 	:type '(repeat directory)
 	:group 'wrangler)
 
 (defcustom refac-monitor-repository-path ""     
-      "Path to the wrangler monitor;"
+      " (FOR INTERNAL USE ONLY, PLEASE LEAVE IT EMPTY.) Path to the wrangler monitor"
       :type 'directory
       :group 'wrangler)
 
@@ -200,6 +199,7 @@
     ("Generalise Function Definition" erl-refactor-generalisation)
     ("Move Function to Another Module" erl-refactor-move-fun)
     ("Function Extraction" erl-refactor-fun-extraction)
+    ("Introduce New Variable"  erl-refactor-new-variable)
     ("Fold Expression Against Function" erl-refactor-fold-expression)
     ("Tuple Function Arguments" erl-refactor-tuple-funpar)
     ("Unfold Function Application" erl-refactor-unfold-fun)
@@ -215,8 +215,8 @@
       ))
     nil
     ("Similar Code Detection"
-     (("Detect Similar Code in Current Buffer" erl-refactor-similar-code-in-buffer)
-      ("Detect Similar Code in Dirs" erl-refactor-similar-code-in-dirs)
+     (("Detect Similar Code in Current Buffer" erl-refactor-inc-sim-code-detection-in-buffer)
+      ("Detect Similar Code in Dirs" erl-refactor-inc-sim-code-detection-in-dirs)
       ("Similar Expression Search in Current Buffer" erl-refactor-similar-expression-search)
       ("Similar Expression Search in Dirs" erl-refactor-similar-expression-search-in-dirs)
       ))
@@ -380,9 +380,9 @@
 
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 0.8.8"))
+  (message "Wrangler version 0.8.9"))
 
-(setq wrangler-version  "(wrangler-0.8.8) ")
+(setq wrangler-version  "(wrangler-0.8.9) ")
 
 (defun wrangler-menu-init()
   "Init Wrangler menus."
@@ -1131,6 +1131,7 @@
       (message "Refactoring aborted."))))
       
 	   
+
 (defun erl-refactor-fun-extraction(name start end)
   "Introduce a new function to represent an user-selected expression/expression sequence."
   (interactive (list (read-string "New function name: ")
@@ -1168,6 +1169,34 @@
 			  ))))
 		(message "Refactoring aborted.")
 		)))
+	       (['rex ['ok modified]]
+		(preview-commit-cancel current-file-name modified)
+		(with-current-buffer (get-file-buffer current-file-name)
+		  (goto-line start-line-no)
+		  (goto-column start-col-no))))))
+      (message "Refactoring aborted."))))
+		
+(defun erl-refactor-new-variable(name start end)
+  "Introduce a new variable to represent a user-selected expression."
+  (interactive (list (read-string "New variable name: ")
+		     (region-beginning)
+		     (region-end)
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer))
+	(start-line-no (line-no-pos start))
+	(start-col-no  (current-column-pos start))
+	(end-line-no   (line-no-pos end))
+	(end-col-no    (current-column-pos end)))
+    (if (current-buffer-saved buffer)
+  	(erl-spawn
+	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'intro_new_var
+			(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name tab-width))
+	  (erl-receive (start-line-no start-col-no end-line-no end-col-no name current-file-name)
+	      ((['rex ['badrpc rsn]]
+		(message "Refactoring failed: %S" rsn))
+	       (['rex ['error rsn]]
+		(message "Refactoring failed: %s" rsn))
 	       (['rex ['ok modified]]
 		(preview-commit-cancel current-file-name modified)
 		(with-current-buffer (get-file-buffer current-file-name)
@@ -1351,7 +1380,7 @@
 
 (defun erl-refactor-duplicated-code-in-buffer(mintokens minclones maxpars)
   "Find code clones in the current buffer."
-  (interactive (list (read-string "Minimum number of tokens a code clone should have (default value: 20): ")
+  (interactive (list (read-string "Minimum number of tokens a code clone should have (default value: 40): ")
 		     (read-string "Minimum number of appearance times (minimum and default value: 2): ")
 		     (read-string "Maximum number of parameters of least general common abstraction (default value: 5): ")
 		     ))
@@ -1374,7 +1403,7 @@
 
 (defun erl-refactor-duplicated-code-in-dirs(mintokens minclones maxpars)
   "Find code clones in the directories specified by the search paths."
-  (interactive (list (read-string "Minimum number of tokens a code clone should have (default value: 20): ")
+  (interactive (list (read-string "Minimum number of tokens a code clone should have (default value: 40): ")
 		     (read-string "Minimum number of appearance times (minimum and default value: 2): ")
 		     (read-string "Maximum number of parameters of least general common abstraction (default value: 5): ")  
 		     ))
@@ -1412,6 +1441,59 @@
 	   (erl-spawn
 	     (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_sim_code 'sim_code_detection
 			   (list wrangler-search-paths minlen minfreq simiscore wrangler-search-paths tab-width)))
+	     (erl-receive (buffer)
+		 ((['rex ['badrpc rsn]]
+		   (message "Similar code detection failed: %S" rsn))
+		  (['rex ['error rsn]]
+		   (message "Similar code detection failed: %s" rsn))
+		  (['rex ['ok result]]
+		   (message "Similar code detection finished.")))))
+	 (message "Similar code detection aborted.")
+	 ))
+     (message "Please customize Wrangler Search Paths to check similar code in other directories.")
+    ))
+
+(defun erl-refactor-inc-sim-code-detection-in-buffer(minlen mintoks minfreq maxvars simiscore)
+  "Similar code detection in buffer."
+ (interactive (list (read-string "Minimum length of an expression sequence (default value: 5): ")
+		    (read-string "Minimum number of tokens a code clone should have (default value: 40): ")
+		    (read-string "Minimum number of appearance times (minimum and default value: 2): ")
+		    (read-string "Maxinum number of new parameters of the least-general common abstraction (default value: 4): ")
+		    (read-string "Please input a similarity score between 0.1 and 1.0 (default value: 0.8):")
+		    ))
+   (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer)))
+   (remove-highlights)
+   (if (current-buffer-saved buffer)
+       (erl-spawn
+         (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_inc_sim_code 'inc_sim_code_detection_in_buffer
+			   (list current-file-name minlen mintoks minfreq maxvars simiscore wrangler-search-paths tab-width)))
+	 (erl-receive (buffer current-file-name)
+	     ((['rex ['badrpc rsn]]
+	       (message "Searching failed: %S" rsn))
+	      (['rex ['error rsn]]
+	       (message "Searching failed: %s" rsn))
+	      (['rex ['ok result]]
+	       (message "Similar code detection finished.")
+	       ))))
+       (message "Similar code detection aborted.")
+       )))
+
+(defun erl-refactor-inc-sim-code-detection-in-dirs(minlen mintoks minfreq maxvars simiscore)
+  "Similar code detection in dirs."
+ (interactive (list (read-string "Minimum length of an expression sequence (default value: 5): ")
+		    (read-string "Minimum number of tokens a code clone should have (default value: 40): ")
+		    (read-string "Minimum number of appearance times (minimum and default value: 2): ")
+		    (read-string "Maxinum number of new parameters of the least-general common abstraction (default value: 4): ")
+		    (read-string "Please input a similarity score between 0.1 and 1.0 (default value: 0.8):")
+		    ))
+ (if (y-or-n-p (format "Find similar code in the following directories: %s" wrangler-search-paths))
+     (let ((current-file-name (buffer-file-name))
+	   (buffer (current-buffer)))
+       (if (buffers-saved)
+	   (erl-spawn
+	     (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_inc_sim_code 'inc_sim_code_detection
+			   (list wrangler-search-paths minlen mintoks minfreq maxvars simiscore wrangler-search-paths tab-width)))
 	     (erl-receive (buffer)
 		 ((['rex ['badrpc rsn]]
 		   (message "Similar code detection failed: %S" rsn))
@@ -2731,7 +2813,7 @@
 		  (message "Partition of exported functions finished."))))))
       (message "Partition of exported functions aborted."))))
    
- 
+
 ;; (defun erl-wrangler-code-component-extraction()
 ;;    "Component extraction suggestions."
 ;;    (interactive)
