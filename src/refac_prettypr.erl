@@ -592,14 +592,14 @@ lay_2(Node, Ctxt) ->
 	  end;
       nil -> text("[]");
       tuple -> %% done;
-	  Es = seq(refac_syntax:tuple_elements(Node), floating(text(", ")), reset_prec(Ctxt), fun lay/2),
+	  Es = seq(refac_syntax:tuple_elements(Node), floating(text(",")), reset_prec(Ctxt), fun lay/2),
 	  beside(floating(text("{")),
 		 beside(lay_elems(fun refac_prettypr_0:par/1, Es, refac_syntax:tuple_elements(Node)), floating(text("}"))));
       list ->   %% done;
 	  Ctxt1 = reset_prec(Ctxt),
 	  Node1 = refac_syntax:compact_list(Node),
 	  PrefixElems = refac_syntax:list_prefix(Node1),
-	  D0 = seq(PrefixElems, floating(text(", ")), Ctxt1, fun lay/2),
+	  D0 = seq(PrefixElems, floating(text(",")), Ctxt1, fun lay/2),
 	  D1 = lay_elems(fun refac_prettypr_0:par/1, D0, PrefixElems),
 	  D = case refac_syntax:list_suffix(Node1) of
 		none -> beside(D1, floating(text("]")));
@@ -622,7 +622,16 @@ lay_2(Node, Ctxt) ->
 	      end,
 	  beside(floating(text("[")), D);
       operator ->
-	  floating(text(refac_syntax:operator_literal(Node)));
+	  Op = refac_syntax:operator_literal(Node),
+	  case lists:member(Op, ["bnot", "not", "div", "rem",
+				 "band", "and", "bor", "bxor", 
+                                 "bsl", "bsr", "or", "xor", 
+				 "andalso","orelse", "catch"]) of
+	      true ->
+		  floating(text(" "++Op++" "));
+	      false ->
+		  floating(text(Op))
+	  end;
       infix_expr ->  %% done;
 	  Left = refac_syntax:infix_expr_left(Node),
 	  Operator = refac_syntax:infix_expr_operator(Node),
@@ -689,7 +698,7 @@ lay_2(Node, Ctxt) ->
       application ->  %% done.
 	  {PrecL, Prec} = func_prec(),
 	  D = lay(refac_syntax:application_operator(Node), set_prec(Ctxt, PrecL)),
-	  As = seq(refac_syntax:application_arguments(Node), floating(text(", ")), reset_prec(Ctxt), fun lay/2),
+	  As = seq(refac_syntax:application_arguments(Node), floating(text(",")), reset_prec(Ctxt), fun lay/2),
 	  Op = refac_syntax:application_operator(Node),
 	  Args = refac_syntax:application_arguments(Node),
 	  D1 = case Args of
@@ -719,7 +728,7 @@ lay_2(Node, Ctxt) ->
 	  D2 = lay(refac_syntax:match_expr_body(Node), set_prec(Ctxt, PrecR)),
 	  D3 = case (EndLn == 0) or (StartLn == 0) of
 		 true ->
-		     follow(beside(D1, floating(text(" = "))), D2, Ctxt#ctxt.break_indent);
+		     follow(beside(D1, floating(text(" ="))), D2, Ctxt#ctxt.break_indent);
 		 false ->
 		     case EndLn == StartLn of
 		       true -> beside(beside(D1, text(" = ")), D2);
@@ -734,7 +743,7 @@ lay_2(Node, Ctxt) ->
 	  Ctxt1 = (reset_prec(Ctxt))#ctxt{clause = undefined},
 	  Pats = refac_syntax:clause_patterns(Node),
 	  Body = refac_syntax:clause_body(Node),
-	  PatDocs = seq(Pats, floating(text(", ")), Ctxt1, fun lay/2),
+	  PatDocs = seq(Pats, floating(text(",")), Ctxt1, fun lay/2),
 	  D1 = lay_elems(fun refac_prettypr_0:par/1, PatDocs, Pats),
 	  D2 = case refac_syntax:clause_guard(Node) of
 		 none -> none;
@@ -816,7 +825,7 @@ lay_2(Node, Ctxt) ->
 	  D = case refac_syntax:attribute_arguments(Node) of
 		none -> lay(N, Ctxt1);
 		Args ->
-		    As = seq(Args, floating(text(", ")), Ctxt1, fun lay/2),
+		    As = seq(Args, floating(text(",")), Ctxt1, fun lay/2),
 		    beside(lay(N, Ctxt1), beside(text("("), beside(lay_elems(fun refac_prettypr_0:par/1, As, Args), floating(text(")")))))
 	      end,
 	  beside(floating(text("-")), beside(D, floating(text("."))));
@@ -915,7 +924,7 @@ lay_2(Node, Ctxt) ->
       list_comp ->  %% done;
 	  Ctxt1 = reset_prec(Ctxt),
 	  D1 = lay(refac_syntax:list_comp_template(Node), Ctxt1),
-	  Es = seq(refac_syntax:list_comp_body(Node), floating(text(", ")), Ctxt1, fun lay/2),
+	  Es = seq(refac_syntax:list_comp_body(Node), floating(text(",")), Ctxt1, fun lay/2),
 	  D2 = lay_elems(fun refac_prettypr_0:par/1, Es, refac_syntax:list_comp_body(Node)),
 	  D1EndLn = get_end_line(refac_syntax:list_comp_template(Node)),
 	  D2StartLn = get_start_line(hd(refac_syntax:list_comp_body(Node))),
@@ -934,7 +943,7 @@ lay_2(Node, Ctxt) ->
 		[H| _] ->
 		    EndLn = get_end_line(N),
 		    StartLn = get_start_line(H),
-		    As = seq(Args, floating(text(", ")), reset_prec(Ctxt), fun lay/2),
+		    As = seq(Args, floating(text(",")), reset_prec(Ctxt), fun lay/2),
 		    case StartLn > EndLn of
 		      true ->
 			  above(beside(lay(N, Ctxt1), text("(")),
