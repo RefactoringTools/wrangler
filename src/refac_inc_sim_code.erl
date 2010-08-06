@@ -516,10 +516,7 @@ clone_check_loop(Cs) ->
 	{add_clone,  Clones} ->
 	    clone_check_loop(Clones++Cs);
 	{get_clones, From, _ASTTab} ->
-	    %% refac_io:format("Num of Cs:\n~p\n", [length(Cs)]),
-	    %% refac_io:format("Cs:\n~p\n", [[element(1,C)||C<-Cs]]),
 	    Cs0=remove_sub_clones(Cs),
-	    %% refac_io:format("Num of Cs0:\n~p\n", [length(Cs0)]),
 	    Cs1=[{AbsRanges, Len, Freq, AntiUnifier}||
 		    {_, {Len, Freq}, AntiUnifier,AbsRanges}<-Cs0],
 	    From ! {self(), Cs1},
@@ -744,7 +741,7 @@ process_au_result(AURes, Thresholds, Tabs) ->
 %% pair of expression sequences do not anti-unify, get those 
 %% pairs of sub sequences that do anti-unify.
 process_one_au_result(OneAURes, Thresholds, Tabs) ->
-    SubAULists=group_au_result(OneAURes),
+    SubAULists=group_au_result(OneAURes, Thresholds),
     ClonePairs =lists:append([get_clone_pairs(SubAUList, Thresholds, Tabs)
 			      ||SubAUList<-SubAULists]),
     ClonePairs1 =[lists:unzip3(CP)||CP<-ClonePairs],
@@ -752,34 +749,40 @@ process_one_au_result(OneAURes, Thresholds, Tabs) ->
 
 %% examine the result of anti-unifying a pair of expression sequences and 
 %% get the sub expression sequences pairs that are anti-unifiable.
-group_au_result([])->
+group_au_result([], _Thresholds)->
     [];
-group_au_result(AURes) ->
+group_au_result(AURes, Thresholds) ->
     %% here 'none' means the two expressions E1 an E2 do not anti-unify.
     {AUResList1,AUResList2} =
 	lists:splitwith(fun({_E1,_E2, S}) ->S/=none end, AURes),
-    case AUResList2 of
-	[] ->
-	    [AUResList1];
-	[_|T] ->
-	    case AUResList1/=[] of
-		true ->
-		    [AUResList1]++group_au_result(T);
-		false ->
-		    group_au_result(T)
-	    end
+    AUResList3 = case AUResList2 of
+		     [] -> [];
+		     [_|T] -> T
+		 end,
+    case clone_pair_above_min_size(AUResList1, Thresholds) of
+	true ->
+	    [AUResList1]++group_au_result(AUResList3, Thresholds);
+	false ->
+	    group_au_result(AUResList3, Thresholds)
     end.
+  
+
+clone_pair_above_min_size(CP, Thresholds) ->
+    length(CP)>=Thresholds#threshold.min_len andalso
+	lists:sum([element(2, E1)||{E1,_E2, _S}<-CP])
+	>=Thresholds#threshold.min_toks.
 
 get_clone_pairs(AURes, Thresholds, Tabs) ->
     get_clone_pairs(AURes, Thresholds, Tabs, {[],[]},[]).
 
 get_clone_pairs([], Thresholds, Tabs, {_, ClonePairAcc}, Acc) ->
-    case length(ClonePairAcc) < Thresholds#threshold.min_len of
-      true -> Acc;
-      _ ->
-	  ClonePairs = decompose_clone_pair_by_simi_score(
-			 lists:reverse(ClonePairAcc), Thresholds, Tabs),
-	  ClonePairs ++ Acc
+    case clone_pair_above_min_size(ClonePairAcc, Thresholds) of
+	true ->
+	    ClonePairs = decompose_clone_pair_by_simi_score(
+			   lists:reverse(ClonePairAcc), Thresholds, Tabs),
+	    ClonePairs ++ Acc;
+	false ->
+	    Acc
     end;
 get_clone_pairs([CurPair = {_E1, _E2, SubSt}| AURes], Thresholds, Tabs,
 		{VarSubAcc, ClonePairAcc}, Acc) ->
@@ -790,7 +793,7 @@ get_clone_pairs([CurPair = {_E1, _E2, SubSt}| AURes], Thresholds, Tabs,
     case var_sub_conflicts(CurVarSubsts, VarSubAcc) of
       true ->
 	    %% conflicting variable substitution.
-	  case length(ClonePairAcc) >= Thresholds#threshold.min_len of
+	  case clone_pair_above_min_size(ClonePairAcc, Thresholds) of
 	      true ->
 		  NewClonePairs = decompose_clone_pair_by_simi_score(
 				    lists:reverse(ClonePairAcc), Thresholds, Tabs),
@@ -887,9 +890,8 @@ decompose_clone_pair_by_simi_score_2(ClonePairWithSimiScore, Thresholds, Acc) ->
 
 
 decompose_clone_pair_by_simi_score_3(ClonePairs, Thresholds)->
-    MinLen = Thresholds#threshold.min_len,
     SimiScoreThreshold = Thresholds#threshold.simi_score,
-    case length(ClonePairs)< MinLen of 
+    case not clone_pair_above_min_size(ClonePairs, Thresholds) of 
 	true ->
 	    [];
 	false ->
@@ -916,12 +918,11 @@ simi_score(Expr, SubExprs) ->
     case no_of_nodes(Expr) of
       0 -> 0;
       ExprSize ->
-	    NonVarExprs = [E || E <- SubExprs, refac_syntax:type(E) =/= variable],
-	    NoOfNewVars = length(NonVarExprs),
-	    Res = 1 - (no_of_nodes(SubExprs) - length(SubExprs)
-		       + NoOfNewVars * (NoOfNewVars + 1) / 2) / ExprSize,
-	    %% Res =1 -((no_of_nodes(SubExprs)-length(SubExprs))/ExprSize),
-	    Res
+	    %% NonVarExprs = [E || E <- SubExprs, refac_syntax:type(E) =/= variable],
+	    %% NoOfNewVars = length(NonVarExprs),
+	    %% Res = 1 - (no_of_nodes(SubExprs) - length(SubExprs)
+	    %% 	       + NoOfNewVars * (NoOfNewVars + 1) / 2) / ExprSize,
+	    1 -((no_of_nodes(SubExprs)-length(SubExprs))/ExprSize)
     end.
    
 
@@ -1279,10 +1280,15 @@ search_for_clones(Dir, Data, Thresholds) ->
 			   SubStr <- [lists:sublist(IndexStr, S, E - S + 1)]]),
     Cs2 = refac_code_search_utils:remove_sub_clones([{R, Len, Freq} || {R, {Len, Freq}} <- Cs1]),
     NewData = lists:append([F(Elem) || Elem <- Data]),
-    %%?debug("Cs from suffixtree:\n~p\n",[NewData]),
     get_clones_in_ranges([{R, {Len, Freq}} || {R, Len, Freq} <- Cs2],
 			 NewData, MinLen, MinToks, MinFreq).
    
+%% This is necessary when the min_len is very small, e.g 1.
+remove_duplicates_in_ranges({Ranges, {Len, _Freq}}) ->
+    Ranges1=sets:to_list(sets:from_list(Ranges)),
+    Freq1 = length(Ranges1),
+    {Ranges1, {Len, Freq1}}.
+
 strip_a_clone({Ranges, {Len, F}}, Str, MinLen, MinFreq) ->
     {Str1, Str2} = lists:splitwith(fun(C) ->C==$# orelse C ==$, end, Str),
     {Str21, Str22} = lists:splitwith(fun(C) ->C==$# orelse C ==$, end, lists:reverse(Str2)),
@@ -1350,14 +1356,13 @@ get_clones_in_ranges(Cs, Data, _MinLen, MinToks, MinFreq) ->
 		case Freq >= MinFreq of
 		  true ->
 			NewRanges = [F0(R) || R <- Ranges],
-			{NewRanges, {length(hd(NewRanges)), Freq}};
+			remove_duplicates_in_ranges({NewRanges, {length(hd(NewRanges)), Freq}});
 		    _ -> []
 		end
 	end,
     NewCs=[F(C) || C <- Cs],
-    %% ?debug("NewCs1:\n~p\n", [NewCs]),
-    NewCs1=remove_short_clones(NewCs, MinToks,MinFreq),
-    NewCs1.
+    remove_short_clones(NewCs, MinToks,MinFreq).
+    
   
 remove_short_clones(Cs, MinToks, MinFreq) ->
     F= fun({Rs, {Len, _Freq}}) ->
