@@ -1,5 +1,5 @@
 PACKAGE := wrangler
-VERSION := 0.8.7
+VERSION := 0.8.9
 
 prefix      = @prefix@
 exec_prefix = @exec_prefix@
@@ -98,6 +98,7 @@ install: base
 	install -m 775 c_src/suffixtree* ${BIN_DIR}
 	install -m 775 include/*.hrl ${ERL_SRC_DIR}
 	install -m 775 plt/side_effect_plt ${PLT_DIR}
+	install -m 775 plt/dialyzer_plt ${PLT_DIR}
 	@echo
 	@echo "*** Successfully installed. See README for usage instructions."
 	@echo
