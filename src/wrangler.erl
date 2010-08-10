@@ -63,7 +63,8 @@
 	 gen_fsm_to_record/3, gen_fsm_to_record_1/7,
 	 eqc_statem_to_fsm/4,
 	 partition_exports/4,
-	 intro_new_var/6]).
+	 intro_new_var/6,
+	 inline_var/5]).
 
 -export([rename_var_eclipse/6, rename_fun_eclipse/6,
 	 rename_fun_1_eclipse/6, rename_mod_eclipse/4,
@@ -91,7 +92,8 @@
 	 eqc_statem_to_record_eclipse/3,eqc_statem_to_record_1_eclipse/7,
 	 eqc_fsm_to_record_eclipse/3,eqc_fsm_to_record_1_eclipse/7,
 	 gen_fsm_to_record_eclipse/3,gen_fsm_to_record_1_eclipse/7,
-	 partition_exports_eclipse/4, intro_new_var_eclipse/6
+	 partition_exports_eclipse/4, intro_new_var_eclipse/6,
+	 inline_var_eclipse/5, inline_var_eclipse_1/6
 	]).
 
 -export([try_refactoring/3, get_log_msg/0]).
@@ -864,19 +866,6 @@ rename_process_1_eclipse(FileName, OldProcessName, NewProcessName, SearchPaths, 
 %% Usage: Highlight the expression of interest, then selected the <em>Introduce a Macro</em> 
 %% from <em>Refactor</em>, Wrangler will then prompt for the new macro name.
 %% </p> 
-
-
-%%-spec(intro_new_var/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
-%%	      {error, string()} | {ok, string()}).
-intro_new_var(FileName, Start, End, NewVarName, SearchPaths, TabWidth) -> 
-    try_refactoring(refac_intro_new_var, intro_new_var, [FileName, Start, End, NewVarName, SearchPaths, TabWidth]).
-
-%%@private
-%%-spec(intro_new_var_eclipse/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
-%%	      {error, string()} | {ok, [{filename(), filename(), string()}]}).
-intro_new_var_eclipse(FileName, Start, End, NewVarName, SearchPaths, TabWidth) -> 
-    try_refactoring(refac_intro_new_var, intro_new_var_eclipse, [FileName, Start, End, NewVarName, SearchPaths, TabWidth]).
-
 %%@doc Introduce a new macro to represent an expression selected.
 %%-spec(new_macro/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
 %%	      {error, string()} | {ok, string()}).
@@ -889,6 +878,55 @@ new_macro(FileName, Start, End, MacroName, SearchPaths, TabWidth) ->
 new_macro_eclipse(FileName, Start, End, NewMacroName, SearchPaths, TabWidth) ->
     try_refactoring(refac_new_macro, new_macro_eclipse, [FileName, Start, End, NewMacroName, SearchPaths, TabWidth]).
 
+
+%% =====================================================================================================
+%% @doc Introduce a new variable to represent an expression selected.
+%% <p>
+%% Usage: Highlight the expression of interest, then selected the <em>Introduce New Variable</em> 
+%% from <em>Refactor</em>, Wrangler will then prompt for the new variable name.
+%% </p> 
+%%-spec(intro_new_var/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
+%%	      {error, string()} | {ok, string()}).
+intro_new_var(FileName, Start, End, NewVarName, SearchPaths, TabWidth) -> 
+    try_refactoring(refac_intro_new_var, intro_new_var, [FileName, Start, End, NewVarName, SearchPaths, TabWidth]).
+
+%%@private
+%%-spec(intro_new_var_eclipse/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
+%%	      {error, string()} | {ok, [{filename(), filename(), string()}]}).
+intro_new_var_eclipse(FileName, Start, End, NewVarName, SearchPaths, TabWidth) -> 
+    try_refactoring(refac_intro_new_var, intro_new_var_eclipse, [FileName, Start, End, NewVarName, SearchPaths, TabWidth]).
+
+
+
+%% =====================================================================================================
+%% @doc Inline a variable definition.
+%% <p> To unfold a particular use instance of a variable, point the cursor to that instance, and then select
+%% <em> Inline Variable </em> from the <em> Refactor </em> menu; to unfold some, or all, use instances of 
+%% a variable, point the cursor to the define occurrence of the variable, then select <em> Inline Variable </em> 
+%% from the <em> Refactor </em> menu, Wrangler will search for the use occurrences of the variable selected, and 
+%% let you choose which instances to unfold. Only variables defined via a match expression of the 
+%% format: VarName=Expr can be inlined.
+%% </p>
+-spec (inline_var/5::(filename(), integer(), integer(),[dir()], integer()) ->
+			   {error, string()} | {ok, string()} | 
+			   {ok, [{pos(), pos()}], string()}).
+inline_var(FName, Line, Col, SearchPaths, TabWidth) ->
+    try_refactoring(refac_inline_var, inline_var, [FName, Line, Col, SearchPaths, TabWidth]).
+
+
+-spec (inline_var_eclipse/5::(FileName::filename(), Line::integer(), Col::integer(), SearchPaths::[dir()], TabWidth::integer()) ->
+				   {error, string()} |{ok, [{filename(), filename(), string()}]}|
+				   {ok, Candidates::[{{StartLine::integer(), StartCol::integer()},{EndLine::integer(), EndCol::integer()}}]}).
+inline_var_eclipse(FileName, Line, Col, SearchPaths, TabWidth) ->
+     try_refactoring(refac_inline_var, inline_var_eclipse, [FileName, Line, Col, SearchPaths, TabWidth]).
+
+-spec (inline_var_eclipse_1/6::(FileName::filename(), Line::integer(), Col::integer(), 
+				Candidates::[{{StartLine::integer(), StartCol::integer()},{EndLine::integer(), EndCol::integer()}}], 
+				SearchPaths::[dir()], TabWidth::integer()) ->
+				     {error, string()}| {ok, [{filename(), filename(), string()}]}).				   
+inline_var_eclipse_1(FileName, Line, Col, Candidates, SearchPaths, TabWidth) ->
+    try_refactoring(refac_inline_var, inline_var_eclipse_1, [FileName, Line, Col, Candidates, SearchPaths, TabWidth]).
+  
 %% =============================================================================================
 %% @doc Fold expressions/patterns against a macro definition.
 %% <p>
