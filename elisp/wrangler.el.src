@@ -200,6 +200,7 @@
     ("Move Function to Another Module" erl-refactor-move-fun)
     ("Function Extraction" erl-refactor-fun-extraction)
     ("Introduce New Variable"  erl-refactor-new-variable)
+    ("Inline Variable" erl-refactor-inline-variable)
     ("Fold Expression Against Function" erl-refactor-fold-expression)
     ("Tuple Function Arguments" erl-refactor-tuple-funpar)
     ("Unfold Function Application" erl-refactor-unfold-fun)
@@ -1203,7 +1204,52 @@
 		  (goto-line start-line-no)
 		  (goto-column start-col-no))))))
       (message "Refactoring aborted."))))
-		
+	
+
+(defun erl-refactor-inline-variable()
+  "Inline variable definition."
+  (interactive)
+  (let ((current-file-name (buffer-file-name))
+	(line-no           (current-line-no))
+        (column-no         (current-column-no))
+	(buffer (current-buffer)))
+    (if (current-buffer-saved buffer)
+    	(erl-spawn
+	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'inline_var(list current-file-name line-no column-no wrangler-search-paths tab-width))
+	  (erl-receive (buffer line-no column-no current-file-name)			 
+	      ((['rex ['badrpc rsn]]	  
+		(message "Refactoring failed: %S" rsn))
+	       (['rex ['error rsn]]   
+		(message "Refactoring failed: %s" rsn))
+	       (['rex ['ok modified]]
+		(progn	   
+		  (preview-commit-cancel current-file-name modified)
+		  (with-current-buffer (get-file-buffer current-file-name)
+		    (goto-line line-no)
+		    (goto-column column-no))))
+	         (['rex ['ok candidates logmsg]]
+		  (with-current-buffer buffer
+		    (setq candidates-to-unfold (get-candidates-to-unfold candidates buffer))
+		    (if (equal candidates-to-unfold nil)
+			(message "Refactoring finished, and no file has been changed.")
+		      (erl-spawn
+			(erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_inline_var 'inline_var_1(list 
+                                      current-file-name line-no column-no candidates-to-unfold wrangler-search-paths tab-width logmsg)))
+			(erl-receive (current-file-name line-no column-no)
+			    ((['rex ['badrpc rsn]]
+			      (message "Refactoring failed: %S" rsn))
+			     (['rex ['error rsn]]
+			      (message "Refactoring failed: %s" rsn))
+			     (['rex ['ok modified]]
+			      (preview-commit-cancel current-file-name modified)
+			      (with-current-buffer (get-file-buffer current-file-name)
+				(goto-line line-no)
+				(goto-column column-no)))))))))
+		  
+		  )))
+      (message "Refactoring aborted."))))
+		  
+	
 (defun erl-refactor-new-macro(name start end)
   "Introduce a new marco to represent an user-selected syntax phrase."
   (interactive (list (read-string "New macro name: ")
@@ -1377,6 +1423,38 @@
   (org-delete-overlay highlight-region-overlay)
   candidates-to-fold)
 	      
+
+(defun get-candidates-to-unfold (candidates buffer)
+  (setq candidates-to-unfold nil)
+  (setq last-position 0)
+  (while (not (equal candidates nil))
+    (setq new-cand (car candidates))
+    (setq line1 (elt (elt new-cand 0) 0))
+    (setq col1  (elt  (elt new-cand 0)1))
+    (setq line2 (elt (elt new-cand 1) 0))
+    (setq col2  (elt  (elt new-cand 1) 1))
+    (if  (> (get-position line1 col1) last-position)
+	(progn 
+	  (highlight-region line1 col1 line2  col2 buffer)
+	  (let ((answer (read-char-spec "Please answer y/n to unfold/not unfold this variable occurrence, or Y/N to unfold all/none of remaining occurrences including the one highlighted: "
+					'((?y y "Answer y to unfold this variable occurrence;")
+					  (?n n "Answer n not to unfold this variable occurrence;")
+					  (?Y Y "Answer Y to unfold all the remaining occurrences of the variable selected;")
+					  (?N N "Answer N to unfold none of remaining occurrences of the variable selected")))))
+	    (cond ((eq answer 'y)
+		   (setq candidates-to-unfold  (cons new-cand candidates-to-unfold))
+		   (setq last-position (get-position line2 col2))
+		   (setq candidates (cdr candidates)))
+		  ((eq answer 'n)
+		   (setq candidates (cdr candidates)))
+		  ((eq answer 'Y)
+		   (setq candidates-to-unfold  (append candidates candidates-to-unfold))
+		   (setq candidates nil))
+		  ((eq answer 'N)
+		   (setq candidates nil)))))
+      (setq candidates nil)))
+  (org-delete-overlay highlight-region-overlay)
+  candidates-to-unfold)
 
 (defun erl-refactor-duplicated-code-in-buffer(mintokens minclones maxpars)
   "Find code clones in the current buffer."
