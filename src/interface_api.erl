@@ -28,7 +28,7 @@
 -module(interface_api).
 
 
--export([pos_to_fun_name/2,pos_to_fun_def/2,pos_to_var_name/2,pos_to_expr/3,
+-export([pos_to_fun_name/2,pos_to_fun_def/2,pos_to_var_name/2,pos_to_var/2,pos_to_expr/3,
 	 pos_to_expr_list/3,pos_to_expr_or_pat_list/3,expr_to_fun/2]).
 
 -include("../include/wrangler.hrl").
@@ -165,6 +165,36 @@ pos_to_var_name_1(Node, _Pos = {Ln, Col}) ->
 	_ -> {[], false}
     end.
 
+
+
+-spec(pos_to_var(Node::syntaxTree(), Pos::pos())->
+	     {ok, syntaxTree()} | {error, string()}).
+pos_to_var(Node, Pos) ->
+    case
+	ast_traverse_api:once_tdTU(fun pos_to_var_1/2, Node, Pos)
+    of
+	{_, false} -> {error, "You have not selected a variable, "
+		       "or the function containing the variable does not parse."};
+	{R, true} -> {ok, R}
+    end.
+
+pos_to_var_1(Node, _Pos = {Ln, Col}) ->
+    case refac_syntax:type(Node) of
+	variable ->
+	    {Ln1, Col1} = refac_syntax:get_pos(Node),
+	    case (Ln == Ln1) and (Col1 =< Col) and
+		(Col =< Col1 + length(atom_to_list(refac_syntax:variable_name(Node))) - 1)
+	    of
+		true ->
+		    {value, {category, C}} = lists:keysearch(category, 1, refac_syntax:get_ann(Node)),
+		    case C of 
+			{macro_name, _, _} -> {[], false};
+			_ -> {Node, true}
+		    end;
+		false -> {[], false}
+	    end;
+	_ -> {[], false}
+    end.
 
 %% =====================================================================
 %% @spec pos_to_expr(Tree::syntaxTree(), Start::Pos, End::Pos) ->

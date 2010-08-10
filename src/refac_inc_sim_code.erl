@@ -1400,10 +1400,6 @@ combine_clones_by_au_1([Cs=[{_Ranges, Len, _Freq, Code}|_]|T], Acc) ->
     combine_clones_by_au_1(T, [{NewRanges, Len, NewFreq, Code}|Acc]).
     
     
-
-    
-    
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%     transform the absolute locations in an AST to          %%
 %%     relative locations                                     %%

@@ -135,6 +135,12 @@ new_macro(FName, StartLine, StartCol, EndLine, EndCol, MacroName, SearchPaths, T
 intro_new_var(FName, StartLine, StartCol, EndLine, EndCol, NewVarName, TabWidth) ->
     apply_refactoring(wrangler, intro_new_var, [FName, {StartLine, StartCol}, {EndLine, EndCol}, NewVarName, [],TabWidth], []).
 
+
+-spec(inline_var/5::(filename(), integer(), integer(), [dir()],integer()) ->
+			   {error, string()} | {ok, string()}).
+inline_var(FName, Line, Col, SearchPaths, TabWidth) ->
+    apply_refactoring(wrangler, inline_var, [FName, Line, Col, SearchPaths,TabWidth], []).
+
 %%-spec(fold_against_macro/5::(filename(), integer(), integer(), [dir()], integer()) ->
 %%	      {error, string()} | {ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}).
 fold_against_macro(FileName, Line, Col,  SearchPaths, TabWidth) ->
