@@ -42,7 +42,6 @@
 -define(DEFAULT_SIMI_SCORE, 0.8).
 -define(DEFAULT_NEW_VARS, 3).
 
-
 %% record to store the threshold values.
 -record(threshold, 
 	{min_len = ?DEFAULT_LEN,
@@ -52,15 +51,23 @@
 	 simi_score=?DEFAULT_SIMI_SCORE}).
 
 %% Ets tables uses to cache data to avoid re-evaluation.
--define(ASTTab, list_to_atom(filename:join(?WRANGLER_DIR, "plt/ast_tab"))).
--define(FileHashTab, list_to_atom(filename:join(?WRANGLER_DIR, "plt/file_hash_tab"))).
--define(VarTab, list_to_atom(filename:join(?WRANGLER_DIR, "plt/var_tab"))).
--define(ExpHashTab, list_to_atom(filename:join(?WRANGLER_DIR, "plt/exp_hash_tab"))).
--define(ExpSeqFile, list_to_atom(filename:join(?WRANGLER_DIR, "plt/exp_seq_file"))).
--define(CloneTab,  list_to_atom(filename:join(?WRANGLER_DIR, "plt/clone_tab"))).
--define(Threshold, list_to_atom(filename:join(?WRANGLER_DIR, "plt/threshold"))).
+-define(ASTTab, get_temp_file_path("ast_tab")).
+-define(FileHashTab, get_temp_file_path("file_hash_tab")).
+-define(VarTab, get_temp_file_path("var_tab")).
+-define(ExpHashTab, get_temp_file_path("exp_hash_tab")).
+-define(ExpSeqFile, get_temp_file_path("exp_seq_file")).
+-define(CloneTab,  get_temp_file_path("clone_tab")).
+-define(Threshold, get_temp_file_path("threshold")).
 %% record the store the ets/dets table names.
 
+get_temp_file_path(Tab) ->
+    Res=list_to_atom(case wrangler_ast_server:get_temp_dir() of
+			 none ->
+			     "none";
+			 Dir ->filename:join(Dir, Tab)
+		     end),
+    refac_io:format("Res:\n~p\n", [Res]),
+    Res.
 -record(tabs, 
 	{ast_tab,
 	 var_tab, 
@@ -1488,16 +1495,21 @@ same_expr(Expr1, Expr2) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 from_dets(Ets, Dets) when is_atom(Ets) ->
     EtsRef = ets:new(Ets, [set, public]),
-    case dets:open_file(Dets, [{access, read}]) of
-	{ok, D} ->
-	    true = ets:from_dets(EtsRef, D),
-	    ok = dets:close(D),
-	    EtsRef;
-	{error, _Reason} -> 
-	    EtsRef
+    case Dets of 
+	none -> EtsRef;
+	_ ->
+	    case dets:open_file(Dets, [{access, read}]) of
+		{ok, D} ->
+		    true = ets:from_dets(EtsRef, D),
+		    ok = dets:close(D),
+		    EtsRef;
+		{error, _Reason} -> 
+		    EtsRef
+	    end
     end.
 
-	
+to_dets(Ets, none) ->
+    ets:delete(Ets);   
 to_dets(Ets, Dets) ->
     try file:delete(Dets), 
 	 MinSize = ets:info(Ets, size),
