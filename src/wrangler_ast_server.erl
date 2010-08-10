@@ -40,7 +40,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
--export([start_ast_server/0, get_ast/1, update_ast/2]).
+-export([start_ast_server/0, get_ast/1, update_ast/2, get_temp_dir/0]).
 
 -record(state, {dets_tab=none, asts=[]}).
 
@@ -98,12 +98,15 @@ init(_Args) ->
 get_ast(Key={_FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat}) ->
     gen_server:call(wrangler_ast_server, {get,Key}, 500000).
 
- 
+
 %%-type(modifyTime()::{{integer(), integer(), integer()},{integer(), integer(), integer()}}).
 %%-spec(update_ast/2::({filename(),boolean(), [dir()], integer(), atom()}, {syntaxTree(), moduleInfo(), modifyTime()}) -> ok).
 update_ast(Key={_FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat}, {AnnAST, Info, Time}) ->
     gen_server:cast(wrangler_ast_server, {update, {Key, {AnnAST, Info, Time}}}).
  
+
+get_temp_dir() ->
+    gen_server:call(wrangler_ast_server, get_temp_dir).
 %%--------------------------------------------------------------------
 %% Function: %% handle_call(Request, From, State) -> {reply, Reply, State} |
 %%                                      {reply, Reply, State, Timeout} |
@@ -118,7 +121,13 @@ update_ast(Key={_FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat}, {
 %%			   {reply, {ok, {syntaxTree(), moduleInfo()}}, #state{}}).
 handle_call({get, Key}, _From, State) ->
     {Reply, State1} = get_ast(Key, State),
-    {reply, Reply, State1}.
+    {reply, Reply, State1};
+handle_call(get_temp_dir, _From, State=#state{dets_tab=TabFile}) ->
+    TempDir = case TabFile of 
+		  none -> none;
+		  _ -> filename:dirname(TabFile)
+	      end,
+    {reply, TempDir, State}.
 
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
