@@ -32,6 +32,8 @@
 
 -export([inc_sim_code_detection/8, inc_sim_code_detection_in_buffer/8]).
 
+-export([inc_sim_code_detection_eclipse/8]).
+
 -include("../include/wrangler.hrl").
 
 %% default threshold values.
@@ -61,13 +63,11 @@
 %% record the store the ets/dets table names.
 
 get_temp_file_path(Tab) ->
-    Res=list_to_atom(case wrangler_ast_server:get_temp_dir() of
+    list_to_atom(case wrangler_ast_server:get_temp_dir() of
 			 none ->
 			     "none";
 			 Dir ->filename:join(Dir, Tab)
-		     end),
-    refac_io:format("Res:\n~p\n", [Res]),
-    Res.
+		     end).
 -record(tabs, 
 	{ast_tab,
 	 var_tab, 
@@ -85,54 +85,78 @@ get_temp_file_path(Tab) ->
  %% 	  au       %% the anti-unification of the clone class.
  %% 	 }).
 
-%%-spec(inc_sim_code_detection_in_buffer/8::(FileName::filename(), MinLen::float(), MinToks::integer(),
-%%				 MinFreq::integer(),  MaxVars:: integer(),SimiScore::float(), 
-%%				 SearchPaths::[dir()], TabWidth::integer()) -> {ok, string()}).
+-spec(inc_sim_code_detection_in_buffer/8::(FileName::filename(), MinLen::float(), MinToks::integer(),
+				 MinFreq::integer(),  MaxVars:: integer(),SimiScore::float(), 
+				 SearchPaths::[dir()], TabWidth::integer()) -> {ok, string()}).
 inc_sim_code_detection_in_buffer(FileName, MinLen1, MinToks1, MinFreq1, MaxVars1, SimiScore1, SearchPaths, TabWidth)->
     inc_sim_code_detection([FileName], MinLen1, MinToks1, MinFreq1, MaxVars1, SimiScore1, SearchPaths, TabWidth).
   
-%%-spec(inc_sim_code_detection/8::(DirFileList::[filename()|dir()], MinLen::float(), MinToks::integer(),
-%%				 MinFreq::integer(),  MaxVars:: integer(),SimiScore::float(), 
-%%				 SearchPaths::[dir()], TabWidth::integer()) -> {ok, string()}).
-inc_sim_code_detection(DirFileList, MinLen1, MinToks1, MinFreq1, MaxVars1, SimiScore1, SearchPaths, TabWidth) ->
+-spec(inc_sim_code_detection/8::(DirFileList::[filename()|dir()], MinLen::float(), MinToks::integer(),
+				 MinFreq::integer(),  MaxVars:: integer(),SimiScore::float(), 
+				 SearchPaths::[dir()], TabWidth::integer()) -> {ok, string()}).
+
+inc_sim_code_detection(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1,SearchPaths,TabWidth) ->
     ?wrangler_io("\nCMD: ~p:inc_sim_code_detection(~p,~p,~p,~p,~p, ~p,~p,~p).\n",
-		 [?MODULE, DirFileList, MinLen1, MinToks1, MinFreq1, MaxVars1,SimiScore1, SearchPaths, TabWidth]),
-    {MinLen, MinToks, MinFreq, MaxVars, SimiScore} = get_parameters(MinLen1, MinToks1, MinFreq1, MaxVars1, SimiScore1),
-    Files = refac_util:expand_files(DirFileList, ".erl"),
+		 [?MODULE,DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1,SearchPaths,TabWidth]), 
+    {MinLen,MinToks,MinFreq,MaxVars,SimiScore} = get_parameters(MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1), 
+    Files = refac_util:expand_files(DirFileList,".erl"), 
+    case Files of
+      [] ->
+	    ?wrangler_io("Warning: No files found in the searchpaths specified.",[]);
+	_ -> inc_sim_code_detection_0(Files, MinLen, MinToks, MinFreq, MaxVars, SimiScore, SearchPaths, TabWidth, emacs)
+    end, 
+    {ok,"Clone detection finish."}.
+
+
+-spec(inc_sim_code_detection_eclipse/8::(DirFileList::[filename()|dir()], MinLen::float(), MinToks::integer(),
+				 MinFreq::integer(),  MaxVars:: integer(),SimiScore::float(), 
+				 SearchPaths::[dir()], TabWidth::integer()) ->
+				       [{[{{{File::filename(), StartLine::integer(), StartCol::integer()},
+					    {File::filename(), StartLine::integer(), StartCol::integer()}}, FunCall::string()}], 
+					 Len::integer(), Freq::integer(), AntiUnifier::string()}]).
+inc_sim_code_detection_eclipse(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1,SearchPaths,TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:inc_sim_code_detection(~p,~p,~p,~p,~p, ~p,~p,~p).\n",
+		 [?MODULE,DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1,SearchPaths,TabWidth]), 
+    {MinLen,MinToks,MinFreq,MaxVars,SimiScore} = get_parameters_eclipse(MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1), 
+    Files = refac_util:expand_files(DirFileList,".erl"), 
     case Files of
 	[] ->
-	    ?wrangler_io("Warning: No files found in the searchpaths specified.", []);
-	_ ->
-	    %% dets tables used to cache information.
-	    Tabs=#tabs{ast_tab=from_dets(ast_tab, ?ASTTab),
-		       var_tab=from_dets(var_tab, ?VarTab),
-		       file_hash_tab=from_dets(file_hash_tab, ?FileHashTab),
-		       exp_hash_tab=from_dets(expr_hash_tab, ?ExpHashTab),
-		       clone_tab = from_dets(expr_clone_tab, ?CloneTab),
-		       tmp_ast_tab = ets:new(tmp_ast_tab, [set, public])},
+	    [];
+	_ -> inc_sim_code_detection_0(Files, MinLen, MinToks, MinFreq, MaxVars, 
+				    SimiScore, SearchPaths, TabWidth, eclipse)
+    end.
 
-            %% Threshold parameters.
-	    Threshold=#threshold{min_len=MinLen, 
-				 min_freq=MinFreq, 
-				 min_toks=MinToks, 
-				 max_new_vars=MaxVars,
-				 simi_score=SimiScore},
-            %% Clone detection.
-	    inc_sim_code_detection(Files, Threshold, Tabs, SearchPaths, TabWidth),
-           
-            %% output cache information to dets tables.
-	    to_dets(Tabs#tabs.ast_tab, ?ASTTab),
-	    to_dets(Tabs#tabs.var_tab, ?VarTab),
-	    to_dets(Tabs#tabs.file_hash_tab, ?FileHashTab),
-	    to_dets(Tabs#tabs.exp_hash_tab, ?ExpHashTab),	    
-	    to_dets(Tabs#tabs.clone_tab, ?CloneTab),
-	    file:write_file(?Threshold, term_to_binary(Threshold)),
-	    ets:delete(Tabs#tabs.tmp_ast_tab)
-    end,
-    {ok, "Clone detection finish."}.
-
+inc_sim_code_detection_0(Files, MinLen, MinToks, MinFreq, MaxVars, 
+			 SimiScore, SearchPaths, TabWidth, Editor) ->
+    %% dets tables used to cache information.
+    Tabs = #tabs{ast_tab = from_dets(ast_tab,?ASTTab), 
+		 var_tab = from_dets(var_tab,?VarTab), 
+		 file_hash_tab = from_dets(file_hash_tab,?FileHashTab), 
+		 exp_hash_tab = from_dets(expr_hash_tab,?ExpHashTab), 
+		 clone_tab = from_dets(expr_clone_tab,?CloneTab), 
+		 tmp_ast_tab = ets:new(tmp_ast_tab,[set,public])}, 
+    
+    %% Threshold parameters.
+    Threshold = #threshold{min_len = MinLen, 
+			   min_freq = MinFreq, 
+			   min_toks = MinToks, 
+			   max_new_vars = MaxVars, 
+			   simi_score = SimiScore}, 
+    %% Clone detection.
+    Cs = inc_sim_code_detection(Files,Threshold,Tabs,SearchPaths,TabWidth, Editor), 
+    
+    %% output cache information to dets tables.
+    to_dets(Tabs#tabs.ast_tab,?ASTTab), 
+    to_dets(Tabs#tabs.var_tab,?VarTab), 
+    to_dets(Tabs#tabs.file_hash_tab,?FileHashTab), 
+    to_dets(Tabs#tabs.exp_hash_tab,?ExpHashTab), 
+    to_dets(Tabs#tabs.clone_tab,?CloneTab), 
+    file:write_file(?Threshold,term_to_binary(Threshold)), 
+    ets:delete(Tabs#tabs.tmp_ast_tab), 
+    Cs.
+ 
 %% incremental clone detection.
-inc_sim_code_detection(Files, Thresholds, Tabs, SearchPaths, TabWidth) ->
+inc_sim_code_detection(Files, Thresholds, Tabs, SearchPaths, TabWidth, Editor) ->
    
     %%Time1 = time(),
     %% get file status change info.
@@ -150,7 +174,8 @@ inc_sim_code_detection(Files, Thresholds, Tabs, SearchPaths, TabWidth) ->
     %% Generate clone candidates using suffix tree based clone detection techniques.
     Dir = filename:dirname(hd(Files)),
     Cs = get_clone_candidates(ASTPid, Thresholds, Dir),
-    ?debug("\nInitial candiates finished\n", []),
+    %% Time2 = time(),
+    %%?wrangler_io("\nInitial candiates finished\n", []),
     
     ?wrangler_io("\nNumber of initial clone candidates: ~p\n", [length(Cs)]),
     CloneCheckerPid = start_clone_check_process(),
@@ -160,10 +185,13 @@ inc_sim_code_detection(Files, Thresholds, Tabs, SearchPaths, TabWidth) ->
     stop_clone_check_process(CloneCheckerPid),
     stop_ast_process(ASTPid),
     Cs3 = combine_clones_by_au(Cs2),
-    %%Time2 = time(),
-    refac_code_search_utils:display_clone_result(Cs3, "Similar"),
-    ?debug("Time used: \n~p\n", [{Time1, Time2}]).
-    
+   %% ?wrangler_io("Time used: \n~p\n", [{Time1, Time2}]).
+    case Editor of 
+	emacs ->
+	    refac_code_search_utils:display_clone_result(Cs3, "Similar");
+	_ -> Cs3
+    end.
+   
 %% Get files that are deleted/changed/newly added since the last 
 %% run of the clone detection.
 %% This function 
@@ -1526,9 +1554,41 @@ to_dets(Ets, Dets) ->
 	
 	 
 
+-spec(get_parameters_eclipse/5::(MinLen::integer(), MinToks::integer(), MinFreq::integer(), 
+					 MaxNewVars::integer(),SimiScore::float())->
+					      {integer(), integer(), integer(), integer(),float()}).
+get_parameters_eclipse(MinLen1, MinToks1, MinFreq1, MaxNewVars1,SimiScore1) ->
+    MinLen = case MinLen1 < 1 of
+		 true ->
+		     ?DEFAULT_LEN;
+	       _ -> MinLen1
+	     end,
+    MinFreq = case MinFreq1 < ?DEFAULT_FREQ of
+		  true ->
+		      ?DEFAULT_FREQ;
+		  _ -> MinFreq1
+	      end,
+    MinToks = case MinToks1 < 20 of
+		  true ->
+		      ?DEFAULT_TOKS;
+		  _ -> MinToks1
+	      end,
+    MaxNewVars = case MaxNewVars1<0 of 
+		     true ->
+			 ?DEFAULT_NEW_VARS;
+		     _ -> MaxNewVars1
+		 end,			      
+    SimiScore = case SimiScore1 >= 0.1 andalso SimiScore1 =< 1.0
+		of
+		    true -> SimiScore1;
+		    _ -> ?DefaultSimiScore
+		end,
+    {MinLen, MinToks, MinFreq, MaxNewVars, SimiScore}.
+
+
 get_parameters(MinLen1, MinToks1 ,MinFreq1, MaxVars1, SimiScore1) ->
     MinLen = get_parameters_1(MinLen1, ?DEFAULT_LEN, 1),
-    MinToks = get_parameters_1(MinToks1,20, 20),
+    MinToks = get_parameters_1(MinToks1,?DEFAULT_TOKS, 20),
     MinFreq = get_parameters_1(MinFreq1, ?DEFAULT_FREQ,?DEFAULT_FREQ),
     MaxVars = get_parameters_1(MaxVars1, ?DEFAULT_NEW_VARS, 0),
     SimiScore = try
