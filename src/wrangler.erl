@@ -80,7 +80,7 @@
 	 fold_against_macro_eclipse/5, fold_against_macro_1_eclipse/5,
 	 rename_process_1_eclipse/5, fun_to_process_eclipse/6,
 	 fun_to_process_1_eclipse/6, unfold_fun_app_eclipse/4,
-	 duplicated_code_eclipse/5, sim_code_detection_eclipse/6,
+	 duplicated_code_eclipse/5, sim_code_detection_eclipse/8,
 	 expr_search_eclipse/4,
 	 simi_expr_search_in_buffer_eclipse/6, 
 	 simi_expr_search_in_dirs_eclipse/6,
@@ -387,11 +387,15 @@ duplicated_code_eclipse(DirFileList, MinLength, MinClones, TabWidth, SuffixTreeE
     try_refactoring(refac_duplicated_code, duplicated_code_eclipse, [DirFileList, MinLength, MinClones, TabWidth, SuffixTreeExec]).
 
 %%@private
-%%-spec(sim_code_detection_eclipse/6::(DirFileList::dir(), MinLen::integer(), MinFreq::integer(), 
-%%				  SimScore::integer(),  SearchPaths::[dir()], TabWidth::integer()) ->
-%% 	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer(), string()}]).
-sim_code_detection_eclipse(DirFileList, MinLen, MinFreq, SimiScore, SearchPaths, TabWidth) ->
-    try_refactoring(refac_sim_code, sim_code_detection_eclipse, [DirFileList, MinLen, MinFreq, SimiScore, SearchPaths, TabWidth]).
+-spec(sim_code_detection_eclipse/8::(DirFileList::[filename()|dir()], MinLen::float(), MinToks::integer(),
+					 MinFreq::integer(),  MaxVars:: integer(),SimiScore::float(), 
+					 SearchPaths::[dir()], TabWidth::integer()) ->
+					      [{[{{{File::filename(), StartLine::integer(), StartCol::integer()},
+						   {File::filename(), StartLine::integer(), StartCol::integer()}}, FunCall::string()}], 
+						Len::integer(), Freq::integer(), AntiUnifier::string()}]).
+sim_code_detection_eclipse(DirFileList, MinLen,MinToks,MinFreq,MaxNewVars,SimiScore,SearchPaths,TabWidth) ->
+    try_refactoring(refac_inc_sim_code, inc_sim_code_detection_eclipse, 
+		    [DirFileList, MinLen, MinToks, MinFreq, MaxNewVars, SimiScore, SearchPaths, TabWidth]).
 
 %% =====================================================================================
 %% @doc An identical code detector that searches for identical code across multiple Erlang modules.
@@ -430,7 +434,7 @@ duplicated_code_in_dirs(FileDirList, MinToks, MinClones, MaxPars, TabWidth) ->
 %%-spec(similar_code_detection_in_buffer/6::(FileName::filename(), MinLen::string(), MinFreq::string(), MinScore::string(), 
 %%					   SearchPaths::[dir()], TabWidth::integer()) ->  {ok, string()}).
 similar_code_detection_in_buffer(FileName, MinLen, MinFreq, SimiScore, SearchPaths, TabWidth) ->
-    try_refactoring(refac_sim_code, sim_code_detection, [[FileName],MinLen, MinFreq, SimiScore, SearchPaths, TabWidth]).
+    try_refactoring(refac_incsim_code, sim_code_detection, [[FileName],MinLen, MinFreq, SimiScore, SearchPaths, TabWidth]).
        
  
 %% ==================================================================================================
