@@ -229,7 +229,6 @@
       ("Merge ?FORALLs"   erl-refactor-merge-forall)
       ("eqc_statem State Data to Record" erl-refactor-eqc-statem-to-record)
       ("eqc_fsm State Data to Record" erl-refactor-eqc-fsm-to-record)
-      ("gen_fsm State Data to Record" erl-refactor-gen-fsm-to-record)
       ("Test Cases to Property"  erl-refactor-test-cases-to-property)
      ))
     nil
@@ -242,6 +241,7 @@
       ))
     ("Normalise Record Expression" erl-refactor-normalise-record-expr)
     ("Partition Exported Functions"  erl-wrangler-code-inspector-partition-exports)
+    ("gen_fsm State Data to Record" erl-refactor-gen-fsm-to-record)
     nil
     ("Undo" erl-refactor-undo)
     nil
@@ -381,15 +381,31 @@
 
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 0.8.9"))
+  (message "Wrangler version 0.9.0"))
 
-(setq wrangler-version  "(wrangler-0.8.9) ")
+(setq wrangler-version  "(wrangler-0.9.0) ")
 
 (defun wrangler-menu-init()
   "Init Wrangler menus."
-  (define-key erlang-mode-map "\C-c\C-_"  'erl-refactor-undo)
-  (define-key erlang-mode-map  "\C-c\C-b" 'erl-wrangler-code-inspector-var-instances)
-  (define-key erlang-mode-map "\C-c\C-e" 'remove-highlights)
+  (define-key erlang-mode-map "\C-c\C-w_"  'erl-refactor-undo)
+  (define-key erlang-mode-map "\C-c\C-wb" 'erl-wrangler-code-inspector-var-instances)
+  (define-key erlang-mode-map "\C-c\C-we" 'remove-highlights)
+  (define-key erlang-mode-map "\C-c\C-wrv" 'erl-refactor-rename-var)
+  (define-key erlang-mode-map "\C-c\C-wrf"  'erl-refactor-rename-fun)
+  (define-key erlang-mode-map "\C-c\C-wrm"  'erl-refactor-rename-mod)
+  (define-key erlang-mode-map "\C-c\C-g"    'erl-refactor-generalisation)
+  (define-key erlang-mode-map "\C-c\C-wm"   'erl-refactor-move-fun)
+  (define-key erlang-mode-map "\C-c\C-wnv"  'erl-refactor-new-variable)
+  (define-key erlang-mode-map "\C-c\C-wi"  'erl-refactor-inline-variable)
+  (define-key erlang-mode-map "\C-c\C-wnf"  'erl-refactor-fun-extraction)
+  (define-key erlang-mode-map "\C-c\C-wff"   'erl-refactor-fold-expression)
+  (define-key erlang-mode-map "\C-c\C-wt"  'erl-refactor-tuple-funpar)
+  (define-key erlang-mode-map "\C-c\C-wu"  'erl-refactor-unfold-fun)
+  (define-key erlang-mode-map "\C-c\C-wnm"  'erl-refactor-new-macro)
+  (define-key erlang-mode-map "\C-c\C-wfm"  'erl-refactor-fold-against-macro)
+  (define-key erlang-mode-map "\C-c\C-ws"  'erl-refactor-similar-expression-search)
+  (define-key erlang-mode-map "\C-c\C-wcb"  'erl-refactor-inc-sim-code-detection-in-buffer)
+  (define-key erlang-mode-map "\C-c\C-wcd"  'erl-refactor-inc-sim-code-detection-in-dirs) 
   (cond (erlang-xemacs-p
 	 (progn
 	   (erlang-menu-install "Refactor" refactor-menu-items erlang-mode-map t)
@@ -403,15 +419,15 @@
   
 (defun wrangler-menu-remove()
   "Remove Wrangler menus."
-  (define-key erlang-mode-map "\C-c\C-_"  nil)
-  (define-key erlang-mode-map  "\C-c\C-b" nil)
-  (define-key erlang-mode-map "\C-c\C-e"  nil)
+  (define-key erlang-mode-map "\C-c\C-w\C-_"  nil)
+  (define-key erlang-mode-map  "\C-c\C-w\C-b" nil)
+  (define-key erlang-mode-map "\C-c\C-w\C-e"  nil)
   (cond (erlang-xemacs-p
 	 (progn
 	   (erlang-menu-uninstall '("Inspector") inspector-menu-items erlang-mode-map t)
 	   (erlang-menu-uninstall '("Refactor") refactor-menu-items erlang-mode-map t)))
 	(t
-	 (progn
+	 (progn 
 	   (erlang-menu-uninstall "Inspector" inspector-menu-items erlang-mode-map t)
 	   (erlang-menu-uninstall "Refactor" refactor-menu-items erlang-mode-map t)))
 	))
@@ -1635,7 +1651,7 @@
 	       (['rex ['ok regions]]
 		(with-current-buffer buffer
 		  (highlight-instances-1 regions (car regions) buffer)
-		  (message "Searching finished; use 'C-c C-e' to remove highlights.\n")
+		  (message "Searching finished; use 'C-c C-w e' to remove highlights.\n")
 		  )))))
       (message "Refactoring aborted."))))
 
@@ -1691,7 +1707,7 @@
 	       (['rex ['ok regions]]
 		(with-current-buffer buffer 
 		  (highlight-instances-1 regions (car regions) buffer)
-		  (message "Searching finished; use 'C-c C-e' to remove highlights.\n")
+		  (message "Searching finished; use 'C-c C-w e' to remove highlights.\n")
 		  )))))
       (message "Refactoring aborted."))))
 
@@ -1722,7 +1738,7 @@
 	       (['rex ['ok regions]]
 		(with-current-buffer buffer 
 		  (highlight-instances-1 regions (car regions) buffer)
-		  (message "Searching finished; use 'C-c C-e' to remove highlights.\n")
+		  (message "Searching finished; use 'C-c C-w e' to remove highlights.\n")
 		  )))))
       (message "Refactoring aborted."))))
 
@@ -2376,7 +2392,7 @@
 	    (message "Error: %s" rsn))
 	   (['rex ['ok regions defpos]]
 	    (with-current-buffer buffer (highlight-instances regions defpos buffer)
-				 (message "\nUse 'C-c C-e' to remove highlights.\n")
+				 (message "\nUse 'C-c C-w e' to remove highlights.\n")
 				 )
 				       		
 	    ))))))
