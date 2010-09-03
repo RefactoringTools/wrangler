@@ -896,7 +896,7 @@ lay_2(Node, Ctxt) ->
 	    P -> floating(break(beside(text(spaces(P)), D)))
 	  end;
       conjunction -> %% done;
-	  Body = refac_syntax:conjuction_body(Node),
+	  Body = refac_syntax:conjunction_body(Node),
 	  Sep = get_separator(Body, Ctxt#ctxt.tokens, ", "),
 	  Es = seq(Body, floating(text(Sep)), reset_prec(Ctxt), fun lay/2),
 	  lay_elems(fun refac_prettypr_0:par/1, Es, refac_syntax:conjunction_body(Node));
@@ -1436,6 +1436,8 @@ token_loc(T) ->
     end.
 
 get_separator(_NodeList, [], Default) ->
+    Default;
+get_separator([],_, Default) ->
     Default;
 get_separator(NodeList, Toks, Default) when is_list(NodeList) -> 
     NodeToks = get_node_toks(Toks,NodeList),
