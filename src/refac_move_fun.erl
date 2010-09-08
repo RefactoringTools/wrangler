@@ -1306,9 +1306,15 @@ get_target_file_name(CurrentFName, TargetModorFileName) ->
     end.
 
 
-create_new_file(TargetFName, TargetModName) ->
+create_new_file(TargetFName,xs TargetModName) ->
     S = "-module("++atom_to_list(TargetModName)++").",
-    file:write_file(TargetFName, list_to_binary(S)).
+    case file:write_file(TargetFName, list_to_binary(S)) of 
+	ok -> ok;
+	{error, Reason} ->
+	    Msg = io_lib:format("Wrangler could not write to file ~s: ~w \n",
+				[TargetFName, Reason]),
+	    throw({error, Msg})
+    end.
 
 defines(Form, MFAs) ->
     case refac_syntax:type(Form) of
