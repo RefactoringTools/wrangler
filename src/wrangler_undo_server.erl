@@ -105,17 +105,20 @@ handle_call(undo, _From, State=#state{history=History}) ->
 handle_call(files_to_change, _From, State=#state{history=History}) ->
     case History of 
 	[] ->
-	    [];
+	    {reply, {ok, [], []}, State};
 	[{Files, _LogMsg, _CurFile}|_T] -> 
 	    ok = undo_files(Files),
 	    FilesToChange = lists:flatmap(fun({{OldFileName, NewFileName,_}, _Con})->
 						  case OldFileName==NewFileName of 
 						      true -> [OldFileName];
-						      false -> [OldFileName, NewFileName]
+						      false -> [NewFileName]
 						  end
 					  end,
 					  Files),
-	    {reply,{ok, FilesToChange}, State}
+	    FilesToRename = [{NewFileName, OldFileName}||
+				{{OldFileName, NewFileName, _}, _Con}<-Files, 
+				OldFileName/=NewFileName],
+	    {reply,{ok, FilesToChange, FilesToRename}, State}
     end.
 
 %%--------------------------------------------------------------------
