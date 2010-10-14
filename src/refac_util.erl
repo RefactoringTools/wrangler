@@ -111,7 +111,7 @@ write_refactored_files_for_preview(Files, LogMsg) ->
 			      end, FilePairs),
 		throw({error, "Wrangler failed to output the refactoring result."});
 	_ ->
-	    LogMsgAboutChanges= io_lib:format(" Num of files affected: ~p;"
+	    LogMsgAboutChanges= io_lib:format(" Num of files affected: ~p; "
 					      "Num of functions/attributes affected: ~p.\n",
 					      [length(FilePairs), TotalNoOfChangedFuns]),
 	    NewLogMsg = LogMsg++ lists:flatten(LogMsgAboutChanges),
