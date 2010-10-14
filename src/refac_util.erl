@@ -76,17 +76,23 @@ write_refactored_files_for_preview(Files, LogMsg) ->
 			FileFormat = file_format(FileName),
 			SwpFileName = filename:rootname(FileName, ".erl") ++ ".erl.swp",  %% .erl.swp or .swp.erl?
 			case file:write_file(SwpFileName, list_to_binary(refac_prettypr:print_ast(FileFormat, AST))) of 
-			    ok -> {{filename:join([FileName]),
-				    filename:join([NewFileName]), false},filename:join([SwpFileName])};
-			    {error,Reason} -> Msg = io_lib:format("Wrangler could not write to directory ~s: ~w \n",
-								  [filename:dirname(FileName), Reason]),
-					      throw({error, Msg})
+			    ok -> NoOfChangedFuns= refac_prettypr:no_of_changed_funs(AST), 
+				  {{{filename:join([FileName]),
+				    filename:join([NewFileName]), false},
+				    filename:join([SwpFileName])}, NoOfChangedFuns};
+			    {error,Reason} -> 
+				Msg = io_lib:format("Wrangler could not write to directory ~s: ~w \n",
+						    [filename:dirname(FileName), Reason]),
+				throw({error, Msg})
 			end;			
 		    {{FileName,NewFileName, IsNew}, AST} ->
 			FileFormat = file_format(FileName),
 			SwpFileName = filename:rootname(FileName, ".erl") ++ ".erl.swp", 
 			case file:write_file(SwpFileName, list_to_binary(refac_prettypr:print_ast(FileFormat, AST))) of 
-			    ok -> {{filename:join([FileName]),filename:join([NewFileName]), IsNew},filename:join([SwpFileName])};
+			    ok ->  
+				NoOfChangedFuns= refac_prettypr:no_of_changed_funs(AST), 
+				{{{filename:join([FileName]),filename:join([NewFileName]), IsNew},
+				 filename:join([SwpFileName])}, NoOfChangedFuns};
 			    {error, Reason}  -> 
 				Msg = io_lib:format("Wrangler could not write to directory ~s: ~w \n",
 						    [filename:dirname(FileName), Reason]),
@@ -94,7 +100,8 @@ write_refactored_files_for_preview(Files, LogMsg) ->
 			end
 		end
 	end,
-    FilePairs = lists:map(F, Files),
+    {FilePairs, ListOfNoOfChangedFuns} = lists:unzip(lists:map(F, Files)),
+    TotalNoOfChangedFuns=lists:sum(ListOfNoOfChangedFuns),
     case lists:any(fun(R) -> R == error end, FilePairs) of 
 	true -> lists:foreach(fun(P) ->
 				      case P of 
@@ -103,7 +110,12 @@ write_refactored_files_for_preview(Files, LogMsg) ->
 				      end
 			      end, FilePairs),
 		throw({error, "Wrangler failed to output the refactoring result."});
-	_ -> wrangler_preview_server:add_files({FilePairs, LogMsg})
+	_ ->
+	    LogMsgAboutChanges= io_lib:format(" Num of files affected: ~p;"
+					      "Num of functions/attributes affected: ~p.\n",
+					      [length(FilePairs), TotalNoOfChangedFuns]),
+	    NewLogMsg = LogMsg++ lists:flatten(LogMsgAboutChanges),
+	    wrangler_preview_server:add_files({FilePairs, NewLogMsg})
     end.
 
 
@@ -111,7 +123,7 @@ write_refactored_files(FileName, AnnAST, Editor, Cmd) ->
     case Editor of
       emacs ->
 	  refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST}], Cmd),
-	  {ok, [FileName]};
+	  {ok, [FileName], []};
       eclipse ->
 	  Content = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST),
 	  {ok, [{FileName, FileName, Content}]}
@@ -119,13 +131,14 @@ write_refactored_files(FileName, AnnAST, Editor, Cmd) ->
 
 write_refactored_files(Results, Editor, Cmd) ->
     case Editor of
-      emacs ->
-	  refac_util:write_refactored_files_for_preview(Results, Cmd),
-	  ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-	  ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
-		       [ChangedFiles]),
-	  {ok, ChangedFiles};
-      eclipse ->
+	emacs ->
+	    refac_util:write_refactored_files_for_preview(Results, Cmd),
+	    ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+	    FilesToRename=[{F1,F2}||{{F1, F2}, _AST}<-Results, F1/=F2],
+	    ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
+			 [ChangedFiles]),
+	  {ok, ChangedFiles, FilesToRename};
+	eclipse ->
 	  Res = lists:map(fun ({{OldFName, NewFName}, AST}) ->
 				  {OldFName, NewFName,
 				   refac_prettypr:print_ast(refac_util:file_format(OldFName), AST)}
