@@ -134,10 +134,9 @@ write_refactored_files(Results, Editor, Cmd) ->
 	emacs ->
 	    refac_util:write_refactored_files_for_preview(Results, Cmd),
 	    ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-	    FilesToRename=[{F1,F2}||{{F1, F2}, _AST}<-Results, F1/=F2],
 	    ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
 			 [ChangedFiles]),
-	  {ok, ChangedFiles, FilesToRename};
+	  {ok, ChangedFiles};
 	eclipse ->
 	  Res = lists:map(fun ({{OldFName, NewFName}, AST}) ->
 				  {OldFName, NewFName,
