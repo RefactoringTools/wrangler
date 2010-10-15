@@ -34,12 +34,17 @@
 
 -module(refac_prettypr).
 
+-compile(export_all).
+
 -export([format/1,format/2,best/1,best/2,layout/1,lay_string/1,
 	 layout/2,get_ctxt_precedence/1,set_ctxt_precedence/2,
 	 get_ctxt_paperwidth/1,set_ctxt_paperwidth/2,
 	 get_ctxt_linewidth/1,set_ctxt_linewidth/2,
 	 get_ctxt_hook/1,set_ctxt_hook/2,get_ctxt_user/1,
 	 set_ctxt_user/2,print_ast/2]).
+
+-export([no_of_changed_funs/1]). %% For casestudy purpose.
+
 
 -import(refac_prettypr_0,
 	[text/1,nest/2,above/2,beside/2,sep/1,par/1,par/2,
@@ -81,6 +86,14 @@ print_form(F,Ctxt,Fun) ->
     {Paper,Ribbon} = get_paper_ribbon_width(F),
     best(Fun(F,Ctxt),Paper,Ribbon).
  
+no_of_changed_funs(AST) ->
+    Forms = refac_syntax:form_list_elements(AST),
+    Res =[case form_not_changed(Form) of 
+	      true -> 0;
+	      false -> 1
+	  end || Form <-Forms],
+    lists:sum(Res).
+
 
 vertical_concat(Forms, FileFmt, Options) -> 
     vertical_concat(Forms, FileFmt, Options,"").
@@ -112,7 +125,8 @@ vertical_concat([Form|T], FileFormat, Options, Acc) ->
 			       format = FileFormat,
 			       tokens = refac_misc:get_toks(Form)},
 		  E = print_form(Form,reset_prec(Ctxt),fun lay/2),
-		  refac_prettypr_0:layout(E, FileFormat)
+		  Str1=refac_prettypr_0:layout(E, FileFormat),
+		  remove_whitespace(Str1)
 	  end,
      vertical_concat(T, FileFormat, Options, Acc1++Str).
  
@@ -929,6 +943,22 @@ lay_2(Node, Ctxt) ->
 		  _ -> par([D1, beside(text("<- "), D2)], Ctxt1#ctxt.sub_indent)
 		end
 	  end;
+      binary_generator ->
+	      Ctxt1 = reset_prec(Ctxt),
+	      D1 = lay(erl_syntax:binary_generator_pattern(Node), Ctxt1),
+	      D2 = lay(erl_syntax:binary_generator_body(Node), Ctxt1),
+	      D1EndLn = get_end_line(refac_syntax:generator_pattern(Node)),
+	      D2StartLn = get_start_line(refac_syntax:generator_body(Node)),
+	      case (D1EndLn == 0) or (D2StartLn == 0) of
+		  true ->
+		      par([D1, beside(text("<- "), D2)], Ctxt1#ctxt.break_indent);
+		  _ ->
+		      case D2StartLn - D1EndLn of
+			  0 -> beside(D1, beside(text(" <- "), D2));
+			  1 -> above(D1, nest(Ctxt#ctxt.break_indent, beside(text("<- "), D2)));
+			  _ -> par([D1, beside(text("<- "), D2)], Ctxt1#ctxt.sub_indent)
+		      end
+	      end;
       implicit_fun -> %%done;
 	  D = lay(refac_syntax:implicit_fun_name(Node), reset_prec(Ctxt)),
 	  beside(floating(text("fun ")), D);
@@ -946,6 +976,15 @@ lay_2(Node, Ctxt) ->
 		 _ -> par([D1, beside(floating(text("|| ")), beside(D2, floating(text("]"))))])
 	       end,
 	  beside(floating(text("[")), D3);
+      binary_comp ->
+	    Ctxt1 = reset_prec(Ctxt),
+	    D1 = lay(erl_syntax:binary_comp_template(Node), Ctxt1),
+	    D2 = par(seq(erl_syntax:binary_comp_body(Node),
+			 floating(text(",")), Ctxt1,
+			 fun lay/2)),
+	    beside(floating(text("<< ")),
+		   par([D1, beside(floating(text(" || ")),
+				   beside(D2, floating(text(" >>"))))]));
       macro ->  %%done;
 	  %% This is formatted similar to a normal function call, but
 	  %% prefixed with a "?".
@@ -1520,5 +1559,17 @@ get_operator_text(Node, Toks, Default) ->
 	    end
     end.
 		
-	    
-    
+
+remove_whitespace(Str) ->
+    remove_whitespace(Str, []). 
+remove_whitespace([], Acc) ->    
+    lists:reverse(Acc);
+remove_whitespace([$,,$ ,$\r|S], Acc) ->
+    remove_whitespace(S, [$\r,$,|Acc]);
+remove_whitespace([$,,$ ,$\n|S], Acc) ->
+    remove_whitespace(S, [$\n,$,|Acc]);
+remove_whitespace([C|S], Acc) ->
+    remove_whitespace(S, [C|Acc]).
+
+			  
+			  
