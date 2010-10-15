@@ -285,16 +285,8 @@ gen_fun_clause_1(FileName, ParName, FunName, _Arity, DefPos, Exp0, SearchPaths, 
 		end
 	end,
     AnnAST1 = refac_syntax:form_list([T || Form <- Forms, T <- F(Form)]),
-    case Editor of
-      emacs ->
-	  refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], LogCmd),
-	  {ok, [FileName]};
-      eclipse ->
-	  Content = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST1),
-	  Res = [{FileName, FileName, Content}],
-	  {ok, Res}
-    end.
-
+    refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1}], Editor, LogCmd).
+ 
 
 make_actual_parameter(ModName, Exp, SideEffect) ->
     FreeVars = [V || {V, _} <- refac_misc:get_free_vars(Exp)],
