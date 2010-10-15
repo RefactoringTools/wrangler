@@ -123,7 +123,7 @@ write_refactored_files(FileName, AnnAST, Editor, Cmd) ->
     case Editor of
       emacs ->
 	  refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST}], Cmd),
-	  {ok, [FileName], []};
+	  {ok, [FileName]};
       eclipse ->
 	  Content = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST),
 	  {ok, [{FileName, FileName, Content}]}
