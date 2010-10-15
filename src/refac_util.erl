@@ -613,6 +613,12 @@ do_add_range(Node, Toks) ->
 	  {S1, _E1} = get_range(P),
 	  {_S2, E2} = get_range(B),
 	  refac_syntax:add_ann({range, {S1, E2}}, Node);
+      binary_generator ->
+	  P = refac_syntax:binary_generator_pattern(Node),
+	  B = refac_syntax:binary_generator_body(Node),
+	  {S1, _E1} = get_range(P),
+	  {_S2, E2} = get_range(B),
+	  refac_syntax:add_ann({range, {S1, E2}}, Node);   
       tuple ->
 	  Es = refac_syntax:tuple_elements(Node),
 	  case length(Es) of
@@ -630,6 +636,15 @@ do_add_range(Node, Toks) ->
 	  S11 = extend_forwards(Toks, S1, '['),
 	  E21 = extend_backwards(Toks, E2, ']'),
 	  refac_syntax:add_ann({range, {S11, E21}}, Node);
+      binary_comp ->
+	  T = refac_syntax:binary_comp_template(Node),
+	  B = refac_misc:glast("refac_util:do_add_range,binary_comp", 
+			       refac_syntax:binary_comp_body(Node)),
+	  {S1, _E1} = get_range(T),
+	  {_S2, E2} = get_range(B),
+	  S11 = extend_forwards(Toks, S1, '<<'),
+	  E21 = extend_backwards(Toks, E2, '>>'),
+	  refac_syntax:add_ann({range, {S11, E21}}, Node);    
       block_expr ->
 	  Es = refac_syntax:block_expr_body(Node),
 	  add_range_to_list_node(Node, Toks, Es, "refac_util:do_add_range, block_expr",
@@ -936,6 +951,13 @@ do_add_category(Node, C) ->
 	    P1 = add_category(P, pattern),
 	    B1 = add_category(B, expression),
 	    Node1=rewrite(Node, refac_syntax:generator(P1, B1)),
+	    {refac_syntax:add_ann({category, generator}, Node1), true};
+	binary_generator ->
+	    P = refac_syntax:binary_generator_pattern(Node),
+	    B = refac_syntax:binary_generator_body(Node),
+	    P1 = add_category(P, pattern),
+	    B1 = add_category(B, expression),
+	    Node1=rewrite(Node, refac_syntax:binary_generator(P1, B1)),
 	    {refac_syntax:add_ann({category, generator}, Node1), true};
 	macro ->
 	    Name = refac_syntax:macro_name(Node),
