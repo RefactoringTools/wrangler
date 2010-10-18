@@ -159,16 +159,15 @@ get_file_name(ModName, SearchPaths) ->
 		  
     end.
 
-%%-spec(fold_expr_1_eclipse/5::(filename(), syntaxTree(), 
-%%			      [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}], 
-%%			      [dir()], integer()) -> {ok, [{filename(), filename(), string()}]}).
+-spec(fold_expr_1_eclipse/5::(filename(), syntaxTree(), 
+			      [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}], 
+			      [dir()], integer()) -> {ok, [{filename(), filename(), string()}]}).
 fold_expr_1_eclipse(FileName, FunClauseDef, RangeNewExpList, SearchPaths, TabWidth) ->
     {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     Body = refac_syntax:clause_body(FunClauseDef),
     AnnAST1 = fold_expression_1_eclipse_1(AnnAST, Body, RangeNewExpList),
     FileContent = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST1),
     {ok, [{FileName, FileName, FileContent}]}.
-
 
 fold_expression_1_eclipse_1(AnnAST, _Body, []) ->
     AnnAST;

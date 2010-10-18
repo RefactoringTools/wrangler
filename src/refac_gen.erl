@@ -494,7 +494,7 @@ do_replace_exp_with_var(Tree, {ParName, Exp, SideEffect, Dups}) ->
 		Op1 = refac_syntax:operator(ParName),
 		{refac_misc:rewrite(Tree, refac_syntax:application(Op1, Pars)), true}
 	  end;
-      _ -> {Tree, false}
+      _ -> {Tree, false} 
     end.
    
 add_actual_parameter(Tree, Args = {_FileName, _FunName, _Arity, _Exp, _Info, _SearchPaths, _TabWidth}) ->
