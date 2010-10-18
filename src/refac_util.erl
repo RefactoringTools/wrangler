@@ -484,11 +484,9 @@ do_add_range(Node, Toks) ->
 		Es= refac_syntax:list_elements(Node),
 		case Es/=[] of 
 		    true->
-			Fst=refac_misc:ghead("refac_util:do_add_range,list", Es),
 			Last=refac_misc:glast("refac_util:do_add_range,list", Es),
-			{S1, _E1} = get_range(Fst),
 			{_, E2} = get_range(Last),
-			refac_syntax:add_ann({range, {S1, E2}}, Node);
+			refac_syntax:add_ann({range, {{L,C}, E2}}, Node);
 		    false ->
 			Node
 		end
@@ -631,20 +629,16 @@ do_add_range(Node, Toks) ->
       list_comp ->
 	  T = refac_syntax:list_comp_template(Node),
 	  B = refac_misc:glast("refac_util:do_add_range,list_comp", refac_syntax:list_comp_body(Node)),
-	  {S1, _E1} = get_range(T),
 	  {_S2, E2} = get_range(B),
-	  S11 = extend_forwards(Toks, S1, '['),
 	  E21 = extend_backwards(Toks, E2, ']'),
-	  refac_syntax:add_ann({range, {S11, E21}}, Node);
+	  refac_syntax:add_ann({range, {{L,C}, E21}}, Node);
       binary_comp ->
 	  T = refac_syntax:binary_comp_template(Node),
 	  B = refac_misc:glast("refac_util:do_add_range,binary_comp", 
 			       refac_syntax:binary_comp_body(Node)),
-	  {S1, _E1} = get_range(T),
-	  {_S2, E2} = get_range(B),
-	  S11 = extend_forwards(Toks, S1, '<<'),
+	 {_S2, E2} = get_range(B),
 	  E21 = extend_backwards(Toks, E2, '>>'),
-	  refac_syntax:add_ann({range, {S11, E21}}, Node);    
+	  refac_syntax:add_ann({range, {{L,C}, E21}}, Node);    
       block_expr ->
 	  Es = refac_syntax:block_expr_body(Node),
 	  add_range_to_list_node(Node, Toks, Es, "refac_util:do_add_range, block_expr",
