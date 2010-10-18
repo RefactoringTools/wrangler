@@ -171,9 +171,9 @@ fold_expr_1_eclipse(FileName, FunClauseDef, RangeNewExpList, SearchPaths, TabWid
 
 fold_expression_1_eclipse_1(AnnAST, _Body, []) ->
     AnnAST;
-fold_expression_1_eclipse_1(AnnAST, Body, [{{StartLoc, EndLoc}, Exp}| Tail]) ->
+fold_expression_1_eclipse_1(AnnAST, Body, [Cand| Tail]) ->
     {AnnAST1, _} = ast_traverse_api:stop_tdTP(fun do_replace_expr_with_fun_call/2,
-					      AnnAST, {Body, {{StartLoc, EndLoc}, Exp}}),
+					      AnnAST, {Body, Cand}),
     fold_expression_1_eclipse_1(AnnAST1, Body, Tail).
 
 
