@@ -211,8 +211,8 @@ generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPa
 %%		     TabWidth::integer(), Dups::[{pos(), pos()}], LogCmd::string())
 %%      -> {ok, [filename()]}).
 gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth, Dups, LogCmd) ->
-    %% ?wrangler_io("\nCMD: ~p:gen_fun_1(~p, ~p, ~p, ~p,~p,~p,~p,~p,~p,~p,~p).\n",
-    %%  		  [?MODULE,SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth, Dups, LogCmd]),
+    %% ?wrangler_io(lists:flatten(io_lib:format("\nCMD: ~p:gen_fun_1(~p, ~p, ~p, ~p,~p,~p,~p,~p,~p,~p,~p).\n",
+    %%   		  [?MODULE,SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth, Dups, LogCmd])), []),
     gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth,Dups, emacs, LogCmd).
 
 %%-spec(gen_fun_1_eclipse/11::(SideEffect::boolean(), FileName::filename(),ParName::atom(), FunName::atom(), 
@@ -485,14 +485,14 @@ do_replace_exp_with_var(Tree, {ParName, Exp, SideEffect, Dups}) ->
 	    false ->
 		case FreeVars == [] of
 		  true ->
-		      {refac_syntax:variable(ParName), true};
+		      {refac_misc:rewrite(Tree, refac_syntax:variable(ParName)), true};
 		  _ ->
 		      Op1 = refac_syntax:operator(ParName),
-		      {refac_syntax:application(Op1, Pars), true}
+		      {refac_misc:rewrite(Tree, refac_syntax:application(Op1, Pars)), true}
 		end;
 	    _ ->
 		Op1 = refac_syntax:operator(ParName),
-		{refac_syntax:application(Op1, Pars), true}
+		{refac_misc:rewrite(Tree, refac_syntax:application(Op1, Pars)), true}
 	  end;
       _ -> {Tree, false}
     end.
