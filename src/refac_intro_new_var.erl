@@ -175,13 +175,9 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
 		  {Start, End} = refac_misc:get_start_end_loc(ExprStatement),
 		  case Start =< ExprPos andalso ExprPos =< End of
 		    true ->
-			case ExprStatement of
-			  Expr -> [MatchExpr];
-			  _ ->
-			      {ExprStatement1, _}= replace_expr_with_var(Expr, NewVarName,
-									 ExprStatement),
-			      [MatchExpr, ExprStatement1]
-			end;
+			  {ExprStatement1, _}= replace_expr_with_var(Expr, NewVarName,
+								     ExprStatement),
+			  [MatchExpr, ExprStatement1];
 		    false ->
 			[ExprStatement]
 		  end
@@ -253,6 +249,7 @@ get_inmost_enclosing_clause(Form, Expr) ->
 
 get_inmost_enclosing_body_expr(Form, Expr) ->
     ExprPos = refac_syntax:get_pos(Expr),
+    refac_io:format("ExprPos:\n~p\n", [ExprPos]),
     Fun = fun (Node, S) ->
 		  Type =  refac_syntax:type(Node),
 		  case lists:member(Type, [clause, block_expr, try_expr]) of
@@ -266,7 +263,9 @@ get_inmost_enclosing_body_expr(Form, Expr) ->
 					 refac_syntax:try_expr_body(Node)
 				 end,
 			  {Start, _End} = refac_misc:get_range(hd(Body)),
+			  refac_io:format("Body:\n~p\n", [Body]),
 			  {_, End} = refac_misc:get_range(lists:last(Body)),
+			  refac_io:format("StartEnd:\n~p\n", [{Start, End}]),
 			  case Start =< ExprPos andalso ExprPos =< End of
 			      true ->
 				  EnclosingExpr = get_enclosing_expr(Body, Expr),
