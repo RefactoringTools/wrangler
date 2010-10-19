@@ -1,1646 +1,2119 @@
-/******************************************************************************
-Suffix Tree Version 2.1
+ /**************************************************************************
+ * stree.c, code for generalized standard and k-truncated suffix trees    *
+ * Copyright (C) <2006> Marcel Schulz, Sebastian Bauer, Peter N. Robinson *
+ * This program is free software; you can redistribute it and/or modify   *
+ * it under the terms of the GNU General Public License as published by   *
+ * the Free Software Foundation; either version 2 of the License, or      *
+ * (at your option) any later version.                                    *
+ *                                                                        *
+ * This program is distributed in the hope that it will be useful,        *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of         *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          *
+ * GNU General Public License for more details.                           *
+ *                                                                        *
+ * You should have received a copy of the GNU General Public License      *
+ * along with this program; if not, write to the Free Software            *
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,                 *
+ * MA  02110-1301  USA                                                    *
+ * Contact: peter.robinson@charite.de                                     *
+ *                                                                        *
+ **************************************************************************/
 
-AUTHORS
-
-Dotan Tsadok
-Instructor: Mr. Shlomo Yona, University of Haifa, Israel. December 2002.
-Current maintainer: Shlomo Yona	<shlomo@cs.haifa.ac.il>
-
-COPYRIGHT
-
-Copyright 2002-2003 Shlomo Yona
-
-LICENSE
-
-This library is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
-
-
-DESCRIPTION OF THIS FILE:
-
-This is the implementation file suffix_tree.c implementing the header file
-suffix_tree.h.
-
-This code is an Open Source implementation of Ukkonen's algorithm for
-constructing a suffix tree over a string in time and space complexity
-O(length of the string). The code is written under strict ANSI C.
-
-For a complete understanding of the code see Ukkonen's algorithm and the
-readme.txt file.
-
-The general pseudo code is:
-
-n = length of the string.
-ST_CreateTree:
-   Calls n times to SPA (Single Phase Algorithm). SPA:  
-      Increase the variable e (virtual end of all leaves).
-   Calls SEA (Single Extension Algorithm) starting with the first extension that
-   does not already exist in the tree and ending at the first extension that
-   already exists. SEA :  
-      Follow suffix link.
-      Check if current suffix exists in the tree.
-      If it does not - apply rule 2 and then create a new suffix link.
-      apply_rule_2:  
-         Create a new leaf and maybe a new internal node as well.
-         create_node:  
-            Create a new node or a leaf.
-
-
-For implementation interpretations see Basic Ideas paragraph in the Developement
-section of the readme.txt file.
-
-An example of the implementations of a node and its sons using linked lists
-instead of arrays:
-
-   (1)
-    |
-    |
-    |
-   (2)--(3)--(4)--(5)
-
-(2) is the only son of (1) (call it the first son). Other sons of (1) are
-connected using a linked lists starting from (2) and going to the right. (3) is
-the right sibling of (2) (and (2) is the left sibling of (3)), (4) is the right
-sibling of (3), etc.
-The father field of all (2), (3), (4) and (5) points to (1), but the son field
-of (1) points only to (2).
-
-*******************************************************************************/
-
-#include "stdlib.h"
-#include "stdio.h"
-#include "string.h"
+#include <assert.h>
+#include <string.h>  /* memset */
+#include <stdlib.h>
+#include <stdio.h>
 #include "suffix_tree.h"
 
-/* See function body */
-void ST_PrintTree(SUFFIX_TREE* tree);
-/* See function body */
-void ST_PrintFullNode(SUFFIX_TREE* tree, NODE* node);
 
-/* Used in function trace_string for skipping (Ukkonen's Skip Trick). */
-typedef enum SKIP_TYPE     {skip, no_skip}                 SKIP_TYPE;
-/* Used in function apply_rule_2 - two types of rule 2 - see function for more
-   details.*/
-typedef enum RULE_2_TYPE   {new_son, split}                RULE_2_TYPE;
-/* Signals whether last matching position is the last one of the current edge */
-typedef enum LAST_POS_TYPE {last_char_in_edge, other_char} LAST_POS_TYPE;
+/* some assert macros */
+#define ASSERT_IS_LEAF(node)			(assert((node)->isaleaf))
+#define ASSERT_IS_INTERNAL_NODE(node) 	(assert(!((node)->isaleaf)))
 
-/* Used for statistic measures of speed. */
-WORD counter;
-/* Used for statistic measures of space. */
-WORD heap;
-/* Used to mark the node that has no suffix link yet. By Ukkonen, it will have
-   one by the end of the current phase. */
-NODE*    suffixless;
+#define USE_LINKEDLIST
 
-typedef struct SUFFIXTREEPATH
-{
-   WORD   begin;
-   WORD   end;
-} PATH;
-
-typedef struct SUFFIXTREEPOS
-{
-   NODE*      node;
-   WORD   edge_pos;
-}POS;
-
-/******************************************************************************/
-/*
-   Define STATISTICS in order to view measures of speed and space while
-   constructing and searching the suffix tree. Measures will be printed on the
-   screen.
-*/
-/* #define STATISTICS */
-
-/*
-   Define DEBUG in order to view debug printouts to the screen while
-   constructing and searching the suffix tree.
-*/
-/* #define DEBUG */
-
-/******************************************************************************/
-/*
-   create_node :
-   Creates a node with the given init field-values.
-
-  Input : The father of the node, the starting and ending indices 
-  of the incloming edge to that node, 
-        the path starting position of the node.
-
-  Output: A pointer to that node.
-*/
-
-
-NODE* create_node(NODE* father, WORD start, WORD end, WORD position)
-{
-   /*Allocate a node.*/
-   NODE* node   = (NODE*)malloc(sizeof(NODE));
-   if(node == 0)
-   {
-      printf("\nOut of memory.\n");
-      exit(0);
-   }
-
-#ifdef STATISTICS
-   heap+=sizeof(NODE);
-#endif
-
-   /* Initialize node fields. For detailed description of the fields see
-      suffix_tree.h */
-   node->sons             = 0;
-   node->right_sibling    = 0;
-   node->left_sibling     = 0;
-   node->suffix_link      = 0;
-   node->father           = father;
-   node->path_position    = position;
-   node->edge_label_start = start;
-   node->edge_label_end   = end;
-   node->frequency        = 0;
-   node->ranges           =0;
-   node->length           =0;
-   return node;
-}
-
-/******************************************************************************/
-/*
-   find_son :
-   Finds son of node that starts with a certain character. 
-
-   Input : the tree, the node to start searching from and the character to be
-           searched in the sons.
-  
-   Output: A pointer to the found son, 0 if no such son.
-*/
-
-NODE* find_son(SUFFIX_TREE* tree, NODE* node, char character)
-{
-   /* Point to the first son. */
-   node = node->sons;
-   /* scan all sons (all right siblings of the first son) for their first
-   character (it has to match the character given as input to this function. */
-   while(node != 0 && tree->tree_string[node->edge_label_start] != character)
-   {
-#ifdef STATISTICS
-      counter++;
-#endif
-      node = node->right_sibling;
-   }
-   return node;
-}
-
-/******************************************************************************/
-/*
-   get_node_label_end :
-   Returns the end index of the incoming edge to that node. This function is
-   needed because for leaves the end index is not relevant, instead we must look
-   at the variable "e" (the global virtual end of all leaves). Never refer
-   directly to a leaf's end-index.
-
-   Input : the tree, the node its end index we need.
-
-   Output: The end index of that node (meaning the end index of the node's
-   incoming edge).
-*/
-
-WORD get_node_label_end(SUFFIX_TREE* tree, NODE* node)
-{
-   /* If it's a leaf - return e */
-   if(node->sons == 0)
-      return tree->e;
-   /* If it's not a leaf - return its real end */
-   return node->edge_label_end;
-}
-
-/******************************************************************************/
-/*
-   get_node_label_length :
-   Returns the length of the incoming edge to that node. Uses get_node_label_end
-   (see above).
-
-   Input : The tree and the node its length we need.
-
-   Output: the length of that node.
-*/
-
-WORD get_node_label_length(SUFFIX_TREE* tree, NODE* node)
-{
-   /* Calculate and return the lentgh of the node */
-   return get_node_label_end(tree, node) - node->edge_label_start + 1;
-}
-
-/******************************************************************************/
-/*
-   is_last_char_in_edge :
-   Returns 1 if edge_pos is the last position in node's incoming edge.
-
-   Input : The tree, the node to be checked and the position in its incoming
-           edge.
-
-   Output: the length of that node.
-*/
-
-char is_last_char_in_edge(SUFFIX_TREE* tree, NODE* node, WORD edge_pos)
-{
-   if(edge_pos == get_node_label_length(tree,node)-1)
-      return 1;
-   return 0;
-}
-
-/******************************************************************************/
-/*
-   connect_siblings :
-   Connect right_sib as the right sibling of left_sib and vice versa.
-
-   Input : The two nodes to be connected.
-
-   Output: None.
-*/
-
-void connect_siblings(NODE* left_sib, NODE* right_sib)
-{
-   /* Connect the right node as the right sibling of the left node */
-   if(left_sib != 0)
-      left_sib->right_sibling = right_sib;
-   /* Connect the left node as the left sibling of the right node */
-   if(right_sib != 0)
-      right_sib->left_sibling = left_sib;
-}
-
-/******************************************************************************/
-/*
-   apply_extension_rule_2 :
-   Apply "extension rule 2" in 2 cases:
-   1. A new son (leaf 4) is added to a node that already has sons:
-                (1)	       (1)
-               /   \	 ->   / | \
-              (2)  (3)      (2)(3)(4)
-
-   2. An edge is split and a new leaf (2) and an internal node (3) are added:
-              | 	  |
-              | 	 (3)
-              |     ->   / \
-             (1)       (1) (2)
-
-   Input : See parameters.
-
-   Output: A pointer to the newly created leaf (new_son case) or internal node
-   (split case).
-*/
-
-NODE* apply_extension_rule_2(
-                      /* Node 1 (see drawings) */
-                      NODE*           node,            
-                      /* Start index of node 2's incoming edge */
-                      WORD        edge_label_begin,   
-                      /* End index of node 2's incoming edge */
-                      WORD        edge_label_end,      
-                      /* Path start index of node 2 */
-                      WORD        path_pos,         
-                      /* Position in node 1's incoming edge where split is to be
-		         performed */
-                      WORD        edge_pos,         
-                      /* Can be 'new_son' or 'split' */
-                      RULE_2_TYPE     type)            
-{
-   NODE *new_leaf,
-        *new_internal,
-        *son;
-   /*-------new_son-------*/
-   if(type == new_son)                                       
-   {
-#ifdef DEBUG   
-      printf("rule 2: new leaf (%lu,%lu)\n",edge_label_begin,edge_label_end);
-#endif
-      /* Create a new leaf (4) with the characters of the extension */
-      new_leaf = create_node(node, edge_label_begin , edge_label_end, path_pos);
-      /* Connect new_leaf (4) as the new son of node (1) */
-      son = node->sons;
-      while(son->right_sibling != 0)
-         son = son->right_sibling;
-      connect_siblings(son, new_leaf);
-      /* return (4) */
-      return new_leaf;
-   }
-   /*-------split-------*/
-#ifdef DEBUG   
-   printf("rule 2: split (%lu,%lu)\n",edge_label_begin,edge_label_end);
-#endif
-   /* Create a new internal node (3) at the split point */
-   new_internal = create_node(
-                      node->father,
-                      node->edge_label_start,
-                      node->edge_label_start+edge_pos,
-                      node->path_position);
-   /* Update the node (1) incoming edge starting index (it now starts where node
-   (3) incoming edge ends) */
-   node->edge_label_start += edge_pos+1;
-
-   /* Create a new leaf (2) with the characters of the extension */
-   new_leaf = create_node(
-                      new_internal,
-                      edge_label_begin,
-                      edge_label_end,
-                      path_pos);
-   
-   /* Connect new_internal (3) where node (1) was */
-   /* Connect (3) with (1)'s left sibling */
-   connect_siblings(node->left_sibling, new_internal);   
-   /* connect (3) with (1)'s right sibling */
-   connect_siblings(new_internal, node->right_sibling);
-   node->left_sibling = 0;
-
-   /* Connect (3) with (1)'s father */
-   if(new_internal->father->sons == node)            
-      new_internal->father->sons = new_internal;
-   
-   /* Connect new_leaf (2) and node (1) as sons of new_internal (3) */
-   new_internal->sons = node;
-   node->father = new_internal;
-   connect_siblings(node, new_leaf);
-   /* return (3) */
-   return new_internal;
-}
-
-/******************************************************************************/
-/*
-   trace_single_edge :
-   Traces for a string in a given node's OUTcoming edge. It searches only in the
-   given edge and not other ones. Search stops when either whole string was
-   found in the given edge, a part of the string was found but the edge ended
-   (and the next edge must be searched too - performed by function trace_string)
-   or one non-matching character was found.
-
-   Input : The string to be searched, given in indices of the main string.
-
-   Output: (by value) the node where tracing has stopped.
-           (by reference) the edge position where last match occured, the string
-	   position where last match occured, number of characters found, a flag
-	   for signaling whether search is done, and a flag to signal whether
-	   search stopped at a last character of an edge.
-*/
-
-NODE* trace_single_edge(
-                      SUFFIX_TREE*    tree, 
-                      /* Node to start from */
-                      NODE*           node,         
-                      /* String to trace */
-                      PATH            str,         
-                      /* Last matching position in edge */
-                      WORD*       edge_pos,      
-                      /* Last matching position in tree source string */
-                      WORD*       chars_found,   
-                      /* Skip or no_skip*/
-                      SKIP_TYPE       type,          
-                      /* 1 if search is done, 0 if not */
-                      int*            search_done)   
-{
-   NODE*      cont_node;
-   WORD   length,str_len;
-
-   /* Set default return values */
-   *search_done = 1;
-   *edge_pos    = 0;
-
-   /* Search for the first character of the string in the outcoming edge of
-      node */
-   cont_node = find_son(tree, node, tree->tree_string[str.begin]);
-   if(cont_node == 0)
-   {
-      /* Search is done, string not found */
-      *edge_pos = get_node_label_length(tree,node)-1;
-      *chars_found = 0;
-      return node;
-   }
-   
-   /* Found first character - prepare for continuing the search */
-   node    = cont_node;
-   length  = get_node_label_length(tree,node);
-   str_len = str.end - str.begin + 1;
-
-   /* Compare edge length and string length. */
-   /* If edge is shorter then the string being searched and skipping is
-      enabled - skip edge */
-   if(type == skip)
-   {
-      if(length <= str_len)
-      {
-         (*chars_found)   = length;
-         (*edge_pos)      = length-1;
-         if(length < str_len)
-            *search_done  = 0;
-      }
-      else
-      {
-         (*chars_found)   = str_len;
-         (*edge_pos)      = str_len-1;
-      }
-
-#ifdef STATISTICS
-      counter++;
-#endif
-
-      return node;
-   }
-   else
-   {
-      /* Find minimum out of edge length and string length, and scan it */
-      if(str_len < length)
-         length = str_len;
-
-      for(*edge_pos=1, *chars_found=1; *edge_pos<length; (*chars_found)++,(*edge_pos)++)
-      {
-
-#ifdef STATISTICS
-         counter++;
-#endif
-
-         /* Compare current characters of the string and the edge. If equal - 
-	    continue */
-         if(tree->tree_string[node->edge_label_start+*edge_pos] != tree->tree_string[str.begin+*edge_pos])
-         {
-            (*edge_pos)--;
-            return node;
-         }
-      }
-   }
-
-   /* The loop has advanced *edge_pos one too much */
-   (*edge_pos)--;
-
-   if((*chars_found) < str_len)
-      /* Search is not done yet */
-      *search_done = 0;
-
-   return node;
-}
-
-/******************************************************************************/
-/*
-   trace_string :
-   Traces for a string in the tree. This function is used in construction
-   process only, and not for after-construction search of substrings. It is
-   tailored to enable skipping (when we know a suffix is in the tree (when
-   following a suffix link) we can avoid comparing all symbols of the edge by
-   skipping its length immediately and thus save atomic operations - see
-   Ukkonen's algorithm, skip trick).
-   This function, in contradiction to the function trace_single_edge, 'sees' the
-   whole picture, meaning it searches a string in the whole tree and not just in
-   a specific edge.
-
-   Input : The string, given in indice of the main string.
-
-   Output: (by value) the node where tracing has stopped.
-           (by reference) the edge position where last match occured, the string
-	   position where last match occured, number of characters found, a flag
-	   for signaling whether search is done.
-*/
-
-NODE* trace_string(
-                      SUFFIX_TREE*    tree, 
-                      /* Node to start from */
-                      NODE*           node,         
-                      /* String to trace */
-                      PATH            str,         
-                      /* Last matching position in edge */
-                      WORD*       edge_pos,      
-                      /* Last matching position in tree string */
-                      WORD*       chars_found,
-                      /* skip or not */
-                      SKIP_TYPE       type)         
-{
-   /* This variable will be 1 when search is done.
-      It is a return value from function trace_single_edge */
-   int      search_done = 0;
-
-   /* This variable will hold the number of matching characters found in the
-      current edge. It is a return value from function trace_single_edge */
-   WORD edge_chars_found;
-
-   *chars_found = 0;
-
-   while(search_done == 0)
-   {
-      *edge_pos        = 0;
-      edge_chars_found = 0;
-      node = trace_single_edge(tree, node, str, edge_pos, &edge_chars_found, type, &search_done);
-      str.begin       += edge_chars_found;
-      *chars_found    += edge_chars_found;
-   }
-   return node;
-}
-
-/******************************************************************************/
-/*
-   ST_FindSubstring :
-   See suffix_tree.h for description.
-*/
-
-WORD ST_FindSubstring(
-                      /* The suffix array */
-                      SUFFIX_TREE*    tree,      
-                      /* The substring to find */
-                      char*  W,         
-                      /* The length of W */
-                      WORD        P)         
-{
-   /* Starts with the root's son that has the first character of W as its
-      incoming edge first character */
-   NODE* node   = find_son(tree, tree->root, W[0]);
-   WORD k,j = 0, node_label_end;
-
-   /* Scan nodes down from the root untill a leaf is reached or the substring is
-      found */
-   while(node!=0)
-   {
-      k=node->edge_label_start;
-      node_label_end = get_node_label_end(tree,node);
-      
-      /* Scan a single edge - compare each character with the searched string */
-      while(j<P && k<=node_label_end && tree->tree_string[k] == W[j])
-      {
-         j++;
-         k++;
-
-#ifdef STATISTICS
-         counter++;
-#endif
-      }
-      
-      /* Checking which of the stopping conditions are true */
-      if(j == P)
-      {
-         /* W was found - it is a substring. Return its path starting index */
-         return node->path_position;
-      }
-      else if(k > node_label_end)
-         /* Current edge is found to match, continue to next edge */
-         node = find_son(tree, node, W[j]);
-      else
-      {
-         /* One non-matching symbols is found - W is not a substring */
-         return ST_ERROR;
-      }
-   }
-   return ST_ERROR;
-}
-
-/******************************************************************************/
-/*
-   follow_suffix_link :
-   Follows the suffix link of the source node according to Ukkonen's rules. 
-
-   Input : The tree, and pos. pos is a combination of the source node and the 
-           position in its incoming edge where suffix ends.
-   Output: The destination node that represents the longest suffix of node's 
-           path. Example: if node represents the path "abcde" then it returns 
-           the node that represents "bcde".
-*/
-
-void follow_suffix_link(SUFFIX_TREE* tree, POS* pos)
-{
-   /* gama is the string between node and its father, in case node doesn't have
-      a suffix link */
-   PATH      gama;            
-   /* dummy argument for trace_string function */
-   WORD  chars_found = 0;   
-   
-   if(pos->node == tree->root)
-   {
-      return;
-   }
-
-   /* If node has no suffix link yet or in the middle of an edge - remember the
-      edge between the node and its father (gama) and follow its father's suffix
-      link (it must have one by Ukkonen's lemma). After following, trace down 
-      gama - it must exist in the tree (and thus can use the skip trick - see 
-      trace_string function description) */
-   if(pos->node->suffix_link == 0 || is_last_char_in_edge(tree,pos->node,pos->edge_pos) == 0)
-   {
-      /* If the node's father is the root, than no use following it's link (it 
-         is linked to itself). Tracing from the root (like in the naive 
-         algorithm) is required and is done by the calling function SEA uppon 
-         recieving a return value of tree->root from this function */
-      if(pos->node->father == tree->root)
-      {
-         pos->node = tree->root;
-         return;
-      }
-      
-      /* Store gama - the indices of node's incoming edge */
-      gama.begin      = pos->node->edge_label_start;
-      gama.end      = pos->node->edge_label_start + pos->edge_pos;
-      /* Follow father's suffix link */
-      pos->node      = pos->node->father->suffix_link;
-      /* Down-walk gama back to suffix_link's son */
-      pos->node      = trace_string(tree, pos->node, gama, &(pos->edge_pos), &chars_found, skip);
-   }
-   else
-   {
-      /* If a suffix link exists - just follow it */
-      pos->node      = pos->node->suffix_link;
-      pos->edge_pos   = get_node_label_length(tree,pos->node)-1;
-   }
-}
-
-/******************************************************************************/
-/*
-   create_suffix_link :
-   Creates a suffix link between node and the node 'link' which represents its 
-   largest suffix. The function could be avoided but is needed to monitor the 
-   creation of suffix links when debuging or changing the tree.
-
-   Input : The node to link from, the node to link to.
-
-   Output: None.
-*/
-
-void create_suffix_link(NODE* node, NODE* link)
-{
-   node->suffix_link = link;
-}
-
-/******************************************************************************/
-/*
-   SEA :
-   Single-Extension-Algorithm (see Ukkonen's algorithm). Ensure that a certain 
-   extension is in the tree.
-
-   1. Follows the current node's suffix link.
-   2. Check whether the rest of the extension is in the tree.
-   3. If it is - reports the calling function SPA of rule 3 (= current phase is 
-      done).
-   4. If it's not - inserts it by applying rule 2.
-
-   Input : The tree, pos - the node and position in its incoming edge where 
-           extension begins, str - the starting and ending indices of the 
-           extension, a flag indicating whether the last phase ended by rule 3 
-           (last extension of the last phase already existed in the tree - and 
-           if so, the current phase starts at not following the suffix link of 
-           the first extension).
-
-   Output: The rule that was applied to that extension. Can be 3 (phase is done)
-           or 2 (a new leaf was created).
-*/
-
-void SEA(
-                      SUFFIX_TREE*   tree, 
-                      POS*           pos,
-                      PATH           str, 
-                      WORD*      rule_applied,
-                      char           after_rule_3)
-{
-   WORD   chars_found = 0 , path_pos = str.begin;
-   NODE*      tmp;
  
-#ifdef DEBUG   
-   ST_PrintTree(tree);
-   printf("extension: %lu  phase+1: %lu",str.begin, str.end);
-   if(after_rule_3 == 0)
-      printf("   followed from (%lu,%lu | %lu) ", pos->node->edge_label_start, get_node_label_end(tree,pos->node), pos->edge_pos);
-   else
-      printf("   starting at (%lu,%lu | %lu) ", pos->node->edge_label_start, get_node_label_end(tree,pos->node), pos->edge_pos);
+/*****************************************************************/
+
+#define MIN(a,b) ((a)<(b)?(a):(b))
+
+/*****************************************************************/
+
+/* The "trick" of renaming functions */
+#ifdef SHORTINTLEAF
+#define FUNCTIONNAME(x) sh ## x
+typedef unsigned short int_type;
+#else
+#define FUNCTIONNAME(x) lo ## x
+typedef unsigned int int_type;
 #endif
 
-#ifdef STATISTICS
-   counter++;
-#endif
 
-   /* Follow suffix link only if it's not the first extension after rule 3 was applied */
-   if(after_rule_3 == 0)
-      follow_suffix_link(tree, pos);
+#define DNA_SZ 4
 
-#ifdef DEBUG   
-#ifdef STATISTICS
-   if(after_rule_3 == 0)
-      printf("to (%lu,%lu | %lu). counter: %lu\n", pos->node->edge_label_start, get_node_label_end(tree,pos->node),pos->edge_pos,counter);
-   else
-      printf(". counter: %lu\n", counter);
-#endif
-#endif
 
-   /* If node is root - trace whole string starting from the root, else - trace last character only */
-   if(pos->node == tree->root)
-   {
-      pos->node = trace_string(tree, tree->root, str, &(pos->edge_pos), &chars_found, no_skip);
-   }
-   else
-   {
-      str.begin = str.end;
-      chars_found = 0;
 
-      /* Consider 2 cases:
-         1. last character matched is the last of its edge */
-      if(is_last_char_in_edge(tree,pos->node,pos->edge_pos))
-      {
-         /* Trace only last symbol of str, search in the  NEXT edge (node) */
-         tmp = find_son(tree, pos->node, tree->tree_string[str.end]);
-         if(tmp != 0)
-         {
-            pos->node      = tmp;
-            pos->edge_pos   = 0;
-            chars_found      = 1;
-         }
-      }
-      /* 2. last character matched is NOT the last of its edge */
-      else
-      {
-         /* Trace only last symbol of str, search in the CURRENT edge (node) */
-         if(tree->tree_string[pos->node->edge_label_start+pos->edge_pos+1] == tree->tree_string[str.end])
-         {
-            pos->edge_pos++;
-            chars_found   = 1;
-         }
-      }
-   }
+/*****************************************************************/
 
-   /* If whole string was found - rule 3 applies */
-   if(chars_found == str.end - str.begin + 1)
-   {
-      *rule_applied = 3;
-      /* If there is an internal node that has no suffix link yet (only one may 
-         exist) - create a suffix link from it to the father-node of the 
-         current position in the tree (pos) */
-      if(suffixless != 0)
-      {
-         create_suffix_link(suffixless, pos->node->father);
-         /* Marks that no internal node with no suffix link exists */
-         suffixless = 0;
-      }
-
-      #ifdef DEBUG   
-         printf("rule 3 (%lu,%lu)\n",str.begin,str.end);
-      #endif
-      return;
-   }
-   
-   /* If last char found is the last char of an edge - add a character at the 
-      next edge */
-   if(is_last_char_in_edge(tree,pos->node,pos->edge_pos) || pos->node == tree->root)
-   {
-      /* Decide whether to apply rule 2 (new_son) or rule 1 */
-      if(pos->node->sons != 0)
-      {
-         /* Apply extension rule 2 new son - a new leaf is created and returned 
-            by apply_extension_rule_2 */
-         apply_extension_rule_2(pos->node, str.begin+chars_found, str.end, path_pos, 0, new_son);
-         *rule_applied = 2;
-         /* If there is an internal node that has no suffix link yet (only one 
-            may exist) - create a suffix link from it to the father-node of the 
-            current position in the tree (pos) */
-         if(suffixless != 0)
-         {
-            create_suffix_link(suffixless, pos->node);
-            /* Marks that no internal node with no suffix link exists */
-            suffixless = 0;
-         }
-      }
-   }
-   else
-   {
-      /* Apply extension rule 2 split - a new node is created and returned by 
-         apply_extension_rule_2 */
-      tmp = apply_extension_rule_2(pos->node, str.begin+chars_found, str.end, path_pos, pos->edge_pos, split);
-      if(suffixless != 0)
-         create_suffix_link(suffixless, tmp);
-      /* Link root's sons with a single character to the root */
-      if(get_node_label_length(tree,tmp) == 1 && tmp->father == tree->root)
-      {
-         tmp->suffix_link = tree->root;
-         /* Marks that no internal node with no suffix link exists */
-         suffixless = 0;
-      }
-      else
-         /* Mark tmp as waiting for a link */
-         suffixless = tmp;
-      
-      /* Prepare pos for the next extension */
-      pos->node = tmp;
-      *rule_applied = 2;
-   }
-}
-
-/******************************************************************************/
-/*
-   SPA :
-   Performs all insertion of a single phase by calling function SEA starting 
-   from the first extension that does not already exist in the tree and ending 
-   at the first extension that already exists in the tree. 
-
-   Input :The tree, pos - the node and position in its incoming edge where 
-          extension begins, the phase number, the first extension number of that
-          phase, a flag signaling whether the extension is the first of this 
-          phase, after the last phase ended with rule 3. If so - extension will 
-          be executed again in this phase, and thus its suffix link would not be
-          followed.
-
-   Output:The extension number that was last executed on this phase. Next phase 
-          will start from it and not from 1
-*/
-
-void SPA(
-                      /* The tree */
-                      SUFFIX_TREE*    tree,            
-                      /* Current node */
-                      POS*            pos,            
-                      /* Current phase number */
-                      WORD        phase,            
-                      /* The last extension performed in the previous phase */
-                      WORD*       extension,         
-                      /* 1 if the last rule applied is 3 */
-                      char*           repeated_extension)   
+typedef struct RANGE
 {
-   /* No such rule (0). Used for entering the loop */
-   WORD   rule_applied = 0;   
-   PATH       str;
-   
-   /* Leafs Trick: Apply implicit extensions 1 through prev_phase */
-   tree->e = phase+1;
+  int string_index;
+  int start_pos;
+  struct RANGE* next;
+}RANGE;
 
-   /* Apply explicit extensions untill last extension of this phase is reached 
-      or extension rule 3 is applied once */
-   while(*extension <= phase+1)            
-   {
-      str.begin       = *extension;
-      str.end         = phase+1;
-      
-      /* Call Single-Extension-Algorithm */
-      SEA(tree, pos, str, &rule_applied, *repeated_extension);
-      
-      /* Check if rule 3 was applied for the current extension */
-      if(rule_applied == 3)
-      {
-         /* Signaling that the next phase's first extension will not follow a 
-            suffix link because same extension is repeated */
-         *repeated_extension = 1;
-         break;
-      }
-      *repeated_extension = 0;
-      (*extension)++;
-   }
-   return;
-}
-
-/******************************************************************************/
-/*
-   ST_CreateTree :
-   Allocates memory for the tree and starts Ukkonen's construction algorithm by 
-   calling SPA n times, where n is the length of the source string.
-
-   Input : The source string and its length. The string is a sequence of 
-           unsigned characters (maximum of 256 different symbols) and not 
-           null-terminated. The only symbol that must not appear in the string 
-           is $ (the dollar sign). It is used as a unique symbol by the 
-           algorithm ans is appended automatically at the end of the string (by 
-           the program, not by the user!). The meaning of the $ sign is 
-           connected to the implicit/explicit suffix tree transformation, 
-           detailed in Ukkonen's algorithm.
-
-   Output: A pointer to the newly created tree. Keep this pointer in order to 
-           perform operations like search and delete on that tree. Obviously, no
-	   de-allocating of the tree space could be done if this pointer is 
-	   lost, as the tree is allocated dynamically on the heap.
-*/
-
-SUFFIX_TREE* ST_CreateTree(unsigned char* str, WORD length)
-{
-   SUFFIX_TREE*  tree;
-   WORD      phase , extension;
-   char          repeated_extension = 0;
-   POS           pos;
-
-   if(str == 0)
-      return 0;
-
-   /* Allocating the tree */
-   tree = malloc(sizeof(SUFFIX_TREE));
-   if(tree == 0)
-   {
-      printf("\nOut of memory.\n");
-      exit(0);
-   }
-   heap+=sizeof(SUFFIX_TREE);
-
-   /* Calculating string length (with an ending $ sign) */
-   tree->length         = length+1;
-   ST_ERROR            = length+10;
-   
-   /* Allocating the only real string of the tree */
-   tree->tree_string = malloc((tree->length+1)*sizeof(char));
-   if(tree->tree_string == 0)
-   {
-      printf("\nOut of memory.\n");
-      exit(0);
-   }
-   heap+=(tree->length+1)*sizeof(char);
-
-   memcpy(tree->tree_string+sizeof(char),str,length*sizeof(char));
-   /* & is considered a uniqe symbol */
-   tree->tree_string[tree->length] = '&';
-   
-   /* Allocating the tree root node */
-   tree->root            = create_node(0, 0, 0, 0);
-   tree->root->suffix_link = 0;
-
-   /* Initializing algorithm parameters */
-   extension = 2;
-   phase = 2;
-   
-   /* Allocating first node, son of the root (phase 0), the longest path node */
-   tree->root->sons = create_node(tree->root, 1, tree->length, 1);
-   suffixless       = 0;
-   pos.node         = tree->root;
-   pos.edge_pos     = 0;
-
-   /* Ukkonen's algorithm begins here */
-   for(; phase < tree->length; phase++)
-   {
-      /* Perform Single Phase Algorithm */
-      SPA(tree, &pos, phase, &extension, &repeated_extension);
-   }
-   return tree;
-}
-
-/******************************************************************************/
-/*
-   ST_DeleteSubTree :
-   Deletes a subtree that is under node. It recoursively calls itself for all of
-   node's right sons and then deletes node.
-
-  Input : The node that is the root of the subtree to be deleted.
-
-  Output: None.
-*/
-
-void ST_DeleteSubTree(NODE* node)
-{
-   /* Recoursion stoping condition */
-   if(node == 0)
-      return;
-   /* Recoursive call for right sibling */
-   if(node->right_sibling!=0)
-      ST_DeleteSubTree(node->right_sibling);
-   /* Recoursive call for first son */
-   if(node->sons!=0)
-      ST_DeleteSubTree(node->sons);
-   /* Delete node itself, after its whole tree was deleted as well */
-   free(node);
-}
-
-/******************************************************************************/
-/*
-   ST_DeleteTree :
-   Deletes a whole suffix tree by starting a recoursive call to ST_DeleteSubTree
-   from the root. After all of the nodes have been deleted, the function deletes
-   the structure that represents the tree.
-
-   Input : The tree to be deleted.
-
-   Output: None.
-*/
-
-void ST_DeleteTree(SUFFIX_TREE* tree)
-{
-   if(tree == 0)
-      return;
-   ST_DeleteSubTree(tree->root);
-   free(tree);
-}
-
-// int ST_InnerNodes1(NODE* node, WORD sum)
-// {
-//     if (node==0)
-// 	return sum;
-//     if (node->right_sibling!=0)
-// 	sum=ST_InnerNodes1(node->right_sibling, sum);
-//     if (node->sons!=0)
-// 	{
-// 	    sum=sum+1;
-// 	    sum=ST_InnerNodes1(node->sons, sum);
-// 	}
-//    return sum;
-// }
-
-// int ST_InnerNodes(SUFFIX_TREE* tree)
-// {
-//     WORD sum=1;
-//     if (tree==0)
-// 	return 0;
-//     return ST_InnerNodes1(tree->root, sum);
-// }
-
-
-/******************************************************************************/
-/*
-   ST_PrintNode :
-   Prints a subtree under a node of a certain tree-depth.
-
-   Input : The tree, the node that is the root of the subtree, and the depth of 
-           that node. The depth is used for printing the branches that are 
-           coming from higher nodes and only then the node itself is printed. 
-           This gives the effect of a tree on screen. In each recoursive call, 
-           the depth is increased.
-  
-   Output: A printout of the subtree to the screen.
-*/
-
-
-
-void ST_PrintNode(SUFFIX_TREE* tree, NODE* node1, long depth)
-{
-   NODE* node2 = node1->sons;
-   long  d = depth , start = node1->edge_label_start , end;
-   end     = get_node_label_end(tree, node1);
-   RANGE* ranges;
-   if(depth>0)
-   {
-      /* Print the branches coming from higher nodes */
-      while(d>1)
-      {
-         printf("|");
-         d--;
-      }
-      printf("+");
-      /* Print the node itself */
-       while(start<=end)
-       {
-          printf("%c",tree->tree_string[start]);
-          start++;
-       }
-      ranges = node1->ranges;
-      while(ranges!=0)
-	  {
-	      printf("{%d,%d},", ranges->start, ranges->end);
-	      ranges = ranges-> next;
-	  }
-      printf("{%d,%d}", node1->length, node1->frequency),
-      #ifdef DEBUG
-         printf("  \t\t\t(%lu,%lu | %lu)",node1->edge_label_start,end,node1->path_position);
-      #endif
-      printf("\n");
-   }
-   /* Recoursive call for all node1's sons */
-   while(node2!=0)
-   {
-      ST_PrintNode(tree,node2, depth+1);
-      node2 = node2->right_sibling;
-   }
-}
-
-/******************************************************************************/
-/*
-   ST_PrintFullNode :
-   This function prints the full path of a node, starting from the root. It 
-   calls itself recoursively and than prints the last edge.
-
-   Input : the tree and the node its path is to be printed.
-
-   Output: Prints the path to the screen, no return value.
-*/
-
-void ST_PrintFullNode(SUFFIX_TREE* tree, NODE* node)
-{
-   long start, end;
-   if(node==NULL)
-      return;
-   /* Calculating the begining and ending of the last edge */
-   start   = node->edge_label_start;
-   end     = get_node_label_end(tree, node);
-   
-   /* Stoping condition - the root */
-   if(node->father!=tree->root)
-      ST_PrintFullNode(tree,node->father);
-   /* Print the last edge */
-   while(start<=end)
-   {
-      printf("%c",tree->tree_string[start]);
-      start++;
-   }
-}
-
-
-/******************************************************************************/
-/*
-   ST_PrintTree :
-   This function prints the tree. It simply starts the recoursive function 
-   ST_PrintNode with depth 0 (the root).
-
-   Input : The tree to be printed.
-  
-   Output: A print out of the tree to the screen.
-*/
-
-void ST_PrintTree(SUFFIX_TREE* tree)
-{
-   printf("\nroot\n");
-   ST_PrintNode(tree, tree->root, 0);
-}
-
-/******************************************************************************/
-/*
-   ST_SelfTest :
-   Self test of the tree - search for all substrings of the main string. See 
-   testing paragraph in the readme.txt file.
-
-   Input : The tree to test.
-
-   Output: 1 for success and 0 for failure. Prints a result message to the screen.
-*/
-
-WORD ST_SelfTest(SUFFIX_TREE* tree)
-{
-   WORD k,j,i;
-
-#ifdef STATISTICS
-   WORD old_counter = counter;
-#endif
-
-   /* Loop for all the prefixes of the tree source string */
-   for(k = 1; k<tree->length; k++)
-   {
-      /* Loop for each suffix of each prefix */
-      for(j = 1; j<=k; j++)
-      {
-#ifdef STATISTICS
-         counter = 0;
-#endif
-         /* Search the current suffix in the tree */
-         i = ST_FindSubstring(tree, (char*)(tree->tree_string+j), k-j+1);
-         if(i == ST_ERROR)
-         {
-            printf("\n\nTest Results: Fail in string (%u,%u).\n\n",j,k);
-            return 0;
-         }
-      }
-   }
-#ifdef STATISTICS
-   counter = old_counter;
-#endif
-   /* If we are here no search has failed and the test passed successfuly */
-   printf("\n\nTest Results: Success.\n\n");
-   return 1;
-}
-
-
-
-int number_of_children(NODE* node)
-{
-    int no;
-    NODE* son;
-    if (node->sons == 0)
-	return 1;
-    son = node->sons;
-    no = son->frequency;
-    while(son->right_sibling !=0)
-	{  son=son->right_sibling;
-	   no=no+son->frequency;
-	}
-    return no;	       
-}
-
-RANGE* calculate_ranges(SUFFIX_TREE* tree, NODE* node, int Freq)
-{
-    WORD end, start, len;
-    NODE* son;
-    RANGE* tail;
-    RANGE* rs;
-    RANGE* next_range;
-    RANGE* range = (RANGE*) malloc(sizeof(RANGE));
-    start = node->edge_label_start;
-    end = get_node_label_end(tree,node);
-    len = end-start+1;
-    if (node->sons==0)
-	{
-	    range->start=start;
-	    range->end=end;
-	    range->next=0;
-	    return range;
-	}
-    son = node->sons;
-    tail = range;
-    rs = son->ranges;
-    range ->start= rs-> start-len;
-    range -> end = rs -> start-1;
-    range -> next = 0;
-    rs = rs -> next;
-    while(rs !=0)
-	{
-	    next_range = (struct RANGE *) malloc(sizeof(RANGE));
-	    next_range->start = rs -> start -len;
-	    next_range->end = rs -> start -1;
-	    next_range -> next = 0;
-	    tail -> next = next_range;
-	    tail = next_range;
-	    rs = rs-> next;
-	}
-    while(son->right_sibling!=0)
-	{   son=son->right_sibling;
-	    rs = son->ranges;
-	    while(rs!=0)
-		{
-		    next_range = (struct RANGE *) malloc(sizeof(RANGE));
-		    next_range->start = rs -> start -len;
-		    next_range->end = rs -> start -1;
-		    next_range->next=0;
-		    tail -> next = next_range;
-		    tail = next_range;
-		    rs = rs -> next;
-		}
-	}
-    return range;
-}
-
-
-NODE* ST_Add_Freq_And_Range_1(SUFFIX_TREE* tree, NODE* node)
-{
-    if (node==0)
-	return node;
-    if (node->right_sibling !=0)
-	node->right_sibling = ST_Add_Freq_And_Range_1(tree, node->right_sibling);
-    if (node->sons!=0)
-	node ->sons =ST_Add_Freq_And_Range_1(tree, node->sons);
-    node->frequency = number_of_children(node);
-    node->ranges = calculate_ranges(tree, node, node->frequency);
-    if (node->ranges==0)
- 	node->length=0;
-    else
- 	node->length = node->ranges->end-node->ranges->start+1;
-    return node;
-}
-
-
-SUFFIX_TREE* ST_Add_Freq_And_Range(SUFFIX_TREE* tree)
-{
-    if (tree==0)
-	return tree;
-    tree->root=ST_Add_Freq_And_Range_1(tree, tree->root);
-    return(tree);	
-}
-
-
-
-int overlapped_range(RANGE* ranges)
- {
-     
-     RANGE* cur_range;
-     RANGE* pt;
-     int overlap=0;
-     WORD cur_start, cur_end;
-     cur_range = ranges;
-     while ( overlap==0  && cur_range!=0)
-	 {  cur_start =cur_range->start;
- 	    cur_end = cur_range->end;
-	    pt = ranges;
- 	    while(pt!=0 && overlap==0)
- 		{
- 		    if ((cur_start< pt->start && pt->start < cur_end) ||
-			(pt->start< cur_start && cur_start<pt->end))
-			       overlap=1;
-		    pt = pt->next;			       
- 		}
- 	    cur_range = cur_range->next;
- 	}
-     return overlap;
- }
-			
-WORD combine_range(RANGE* prev_ranges, WORD startloc)
-{
-    while(prev_ranges!=0)
-	{
-	    if (prev_ranges->end==startloc-1)
-		return (prev_ranges->start);
-	    prev_ranges=prev_ranges->next;	    
-	}
-    return startloc;
-}
-
-	
-RANGE* extend_ranges(RANGE* ranges, RANGE* prev_ranges, SUFFIX_TREE* tree, int length, long overlap_allowed)
-{
-    RANGE* temp;
-    temp = ranges;
-    while(temp!=0)
-	{
-	    temp->start = combine_range(prev_ranges, temp->start);
-	    temp=temp->next;
-	}
-    if ((overlap_allowed ==0) && (overlapped_range(ranges)==1))
-      { 
-	temp = ranges; 
-	while(temp!=0) 
-	  { 
-	    temp -> start = temp->end - length +1; 
-	    temp = temp-> next; 
-	  } 
-      } 
-    return ranges;
-}
-
-NODE* ST_ExtendRangesInSubTree(NODE* node,RANGE* ranges,SUFFIX_TREE* tree, long overlap_allowed)
-{
-    NODE* temp;
-    if (node==0)
-	return node;
-    node->ranges = extend_ranges(node->ranges, ranges, tree, node->length,overlap_allowed);
-    if (node->ranges==0)
-	node->length=0;
-    else
-	node->length=node->ranges->end - node->ranges->start +1;   	 
-    node->sons = ST_ExtendRangesInSubTree(node->sons, node->ranges, tree, overlap_allowed);
-    temp = node->right_sibling;
-    while(temp!=0)
-	{
-	  temp->ranges= extend_ranges(temp->ranges, ranges, tree, temp->length, overlap_allowed);
- 	    if (temp->ranges==0)
- 		temp->length =0;
- 	    else
- 		temp->length=temp->ranges->end-temp->ranges->start+1;
- 	    temp->sons=ST_ExtendRangesInSubTree(temp->sons, temp->ranges, tree, overlap_allowed);
-	    temp= temp->right_sibling;
-	}
-    return node;
-}
-
-
-
-SUFFIX_TREE* ST_ExtendRanges(SUFFIX_TREE* tree, long overlap_allowed)
-{
-    if (tree==0)
-	return tree;
-    tree->root->ranges=NULL;
-    tree->root = ST_ExtendRangesInSubTree(tree->root, 0, tree, overlap_allowed);
-    return tree;
-}
 
 typedef struct clone
 {
-    int   length;
-    int   freq;
-    struct RANGE*  ranges;
-    struct clone *next;
-    struct clone *prev;
+  int   length;
+  char *string;
+  int   freq;
+  struct RANGE*  ranges;
+  struct clone *next;
+  struct clone *prev;
 }CLONE;
 
 
-int sub_ranges(RANGE* ranges1, RANGE* ranges2)
+/* Common node structure used for leaves as well as for
+ * internal nodes / leaves */
+struct node
 {
-    int found;
-    RANGE* temp;
-     while(ranges1!=NULL)
+  int isaleaf;
+  char *edgestr;
+  char *str_acc;
+  int edgelen;
+  CLONE *clone;
+  struct node *parent;
+  struct node *next; /* Pointer to next sibling */
+};
+
+
+/* Internal leaf. A simple linked list */
+struct int_leaf
+{
+  int_type strid, pos;
+  struct int_leaf *next;
+};
+
+
+/* Internals nodes can have children and can contain kmers (stored within internal leaves) */
+struct internal_node
+{
+	struct node n;
+	struct node *suffix_link;
+
+	struct int_leaf *leaves;
+
+	struct node *first; /* Pointer to first child */
+};
+
+#define INTERNAL_NODE_SET_SUFFIXLINK(node,sl) ((((struct internal_node*)node)->suffix_link) = (sl))
+#define INTERNAL_NODE_GET_SUFFIXLINK(node) (((struct internal_node*)node)->suffix_link)
+
+/* Structure for real leaves, we don't need the suffix link or children */
+struct leaf_node
+{
+	struct node n;
+	int strid, pos;
+};
+
+/* The truncated suffix tree struct differs to the normal suffix tree only
+ * that it has maximum depth k, i.e. no suffix is longer than k.
+ * The variable k thus only has meaning for the trucated version of
+ * the suffix tree.
+ */
+struct stree
+{
+  struct item_pool *node_pool;
+  struct freeable_item_pool *leaf_node_pool;
+  struct item_pool *int_leaf_pool;
+
+  struct node *root;
+
+  int num_nodes;
+
+  char **strings;
+  int *lengths, *ids;
+  int alpha_size;
+  int nextslot, strsize;
+
+  int tree_size;
+  int num_compares, edges_traversed, links_traversed;
+  int child_cost, nodes_created, creation_cost;
+
+  int (*hitcallback) (int, int, void *);    /* temporary storage for the hitcallback */
+  int (*hitcallback3) (int,int,int,void *); /* Alternatve hit callback with 3 int args */
+  void *userdata;			    /* temporary storage for the userdata */
+  int hits;				    /* temporary storage for the hit counter */
+  int k;				    /* the maximum depth of the tree */
+  struct clone *clones;
+};
+
+
+
+void print_clones(CLONE *clones);
+int print_node(struct stree *tree, struct node *node);
+/*****************************************************************/
+
+/* intleaf */
+#define intleaf_get_strid(ileaf) (ileaf->strid)
+
+/* node prototypes */
+#define node_isaleaf(n) ((n)->isaleaf)
+#define node_get_edgestr(node)  ((node)->edgestr)
+#define node_get_edgelen(node)  ((node)->edgelen)
+#define node_get_char(node)  (*((node)->edgestr))
+#define node_get_parent(node) ((node)->parent)
+#define leaf_get_strid(leaf) ((leaf)->strid)
+
+/* stree prototypes */
+#define stree_get_string(tree,id)  ((tree)->strings[(id)])
+#define stree_get_length(tree,id)  ((tree)->lengths[(id)])
+
+/* Some forward declarations (prototypes) */
+static struct node *stree_edge_split(struct stree *tree,
+				     struct node *node,
+				     int len);
+static void node_reconnect(struct stree *stree, struct internal_node *parent,
+                           struct node *oldchild, struct node *newchild);
+
+void stree_delete_tree(struct stree *tree);
+
+void debugPrintTruncatedTree(struct stree *tree);
+
+/*****************************************************************/
+
+/***************************************************************
+ Allocate and initialize a new internal node instance
+
+ Parameters:  tree    - A suffix tree
+              edgestr - The edge label on the edge to the node.
+              edgelen - The edge label's length.
+
+ Returns:  The structure or NULL.
+****************************************************************/
+static struct internal_node *new_internal_node(struct stree *stree,
+					       char *edgestr,
+					       int_type edgelen)
+{
+	struct internal_node *node;
+
+	node = item_pool_alloc(stree->node_pool);
+
+	memset(node, 0, sizeof(*node));
+	node->n.edgestr = edgestr;
+	node->n.edgelen = edgelen;
+	return node;
+}
+
+
+/***************************************************************
+ Allocate and initialize a new leaf instance
+
+ Parameters:  tree   - A suffix tree
+              strid  - The id of the string containing the new
+                       suffix to be added to the tree.
+             edgestr - A pointer to the BEGINNING of the string
+                       in which we have the  edge
+             edgepos - The position of the edge label in the string.
+             leafpos - The position of the new suffix in the string.
+
+  Also, we pass the length of the edge directly. See the MACROs in
+  stree.h stree_get_string and stree_get_length
+
+  Returns:  The leaf_node structure (crashes if no memory left).
+****************************************************************/
+static struct leaf_node *new_leaf(struct stree *st, int_type strid, char *edgestr,  int_type edgelen, int_type leafpos)
+{
+ 	struct leaf_node *leaf;
+
+	leaf = freeable_item_pool_alloc(st->leaf_node_pool);
+
+	/* We touch every member and hence we don't need to initialize the structure
+	 * via memset() */
+	leaf->n.isaleaf = 1;
+	leaf->n.edgestr = edgestr;
+ 	leaf->n.edgelen = edgelen;
+ 	leaf->n.parent = NULL;
+ 	leaf->n.next = NULL;
+	leaf->strid = strid;
+	leaf->pos = leafpos;
+
+	return leaf;
+}
+
+/***************************************************************
+ Free the memory associated with the leaf
+****************************************************************/
+static void free_leaf(struct stree *st, struct leaf_node *leaf)
+{
+	freeable_item_pool_free(st->leaf_node_pool,leaf);
+}
+
+/***************************************************************
+ Adds an intleaf initialized with the given parameters
+ to the given node.
+
+ Parameters:  stree - a truncated or standard suffix tree.
+              n     -  A tree node.
+              id    -  The internal identifier of the string.
+              pos   -  The position of the suffix in the string.
+
+ Returns:  Non-zero on success, zero on error.
+****************************************************************/
+static int node_add_intleaf(struct stree *stree, struct node *n, int_type strid, int_type pos)
+{
+	struct int_leaf *intleaf;
+	struct internal_node *node;
+
+	ASSERT_IS_INTERNAL_NODE(n);
+
+	node = (struct internal_node*)n;
+	/* create the new internal leaf element */
+	intleaf = item_pool_alloc(stree->int_leaf_pool);
+	intleaf->strid = strid;
+	intleaf->pos = pos;
+
+	/* Prepend the element  */
+	intleaf->next = node->leaves;
+	node->leaves = intleaf;
+
+	return 1;
+}
+
+/***************************************************************
+ Find the child of a node whose edge label begins with the
+ character given as a parameter.
+
+ Parameters:  node  -  a tree node
+              ch    -  a character
+
+ Returns:  a tree node or NULL.
+****************************************************************/
+struct node *node_find_child(struct node *node, char ch)
+{
+	if (node_isaleaf(node))
+		return NULL;
+	else
 	{
-	    found = 0;
-	    temp = ranges2;
-	    while(temp!=NULL && found==0)
+		struct node *child;
+		for (child = ((struct internal_node*)node)->first;child != NULL;child = child->next)
 		{
-		    if ((temp->start <=ranges1->start) && (ranges1->end <= temp->end))
-			found=1;
-		    else
-			temp = temp->next;
+			if (node_get_char(child) == ch)
+				return child;
 		}
-	    if (found==0)
+		return NULL;
+	}
+}
+
+/***************************************************************
+ Convert a LEAF structure into a NODE structure and replace the
+ NODE for the LEAF in the suffix tree..
+
+ Parameters:  node  -  a leaf of the tree
+
+ Returns:  The NODE structure corresponding to the leaf, or NULL.
+****************************************************************/
+static struct node *convert_leaf_into_internal_node(struct stree *stree, struct node *node)
+{
+	struct internal_node *newnode;
+	struct leaf_node *leaf;
+	struct int_leaf *ileaf;
+
+	ASSERT_IS_LEAF(node);
+	leaf = (struct leaf_node*)node;
+	newnode = new_internal_node(stree,leaf->n.edgestr,leaf->n.edgelen);
+
+	ileaf = item_pool_alloc(stree->int_leaf_pool);
+	ileaf->next = NULL;
+	ileaf->strid = leaf->strid;
+	ileaf->pos = leaf->pos;
+	newnode->leaves = ileaf;
+
+	node_reconnect(stree,(struct internal_node*)node->parent, node, &newnode->n);
+	free_leaf(stree,leaf);
+
+	return &newnode->n;
+}
+
+/***************************************************************
+ Connect a node as the child of another node.
+
+ Parameters:  parent -  The node to get the new child.
+              child  -  The child being replaced
+
+ Returns:  The parent after the child has been connected (if the
+           parent was originally a leaf, this may mean replacing
+           the leaf with a node).
+****************************************************************/
+static struct node *node_connect(struct stree *stree, struct node *p, struct node *child)
+{
+	struct internal_node *parent;
+
+	if (node_isaleaf(p))
+	{
+		p = convert_leaf_into_internal_node(stree,p);
+	}
+
+	child->parent = p;
+	parent = (struct internal_node*)p;
+
+	if (parent->first)
+	{
+		child->next = parent->first;
+	}
+	parent->first = child;
+	return p;
+}
+
+/***************************************************************
+ Disconnect the given node to_remove from its parent
+****************************************************************/
+static void node_disconnect(struct internal_node *parent, struct node *to_remove)
+{
+	struct node *child;
+	struct node *prev_child = NULL;
+
+	for (child = parent->first;child != NULL;child = child->next)
+	{
+		if (child == to_remove)
+		{
+			if (!prev_child)
+				parent->first = to_remove->next;
+			else
+				prev_child->next = to_remove->next;
+
+			to_remove->next = NULL;
+			break;
+		}
+		prev_child = child;
+	}
+}
+
+/***************************************************************
+ Replaces one node with another in the suffix tree, reconnecting
+ the link from the parent to the new node.
+
+ Parameters:  parent    -  The parent of the node being replaced
+              oldchild  -  The child being replaced
+              newchild  -  The new child
+
+ Returns:  nothing
+****************************************************************/
+static void node_reconnect(struct stree *stree, struct internal_node *parent,
+                           struct node *oldchild, struct node *newchild)
+{
+	node_disconnect(parent,oldchild);
+	node_connect(stree,&parent->n,newchild);
+	newchild->parent = &parent->n;
+	oldchild->parent = NULL;
+}
+
+/***************************************************************
+ Return the root of the tree.
+****************************************************************/
+static struct node *stree_get_root(struct stree *tree)
+{
+  return tree->root;
+}
+
+/****************************************************************
+ Insert a string into the list of strings maintained in the
+ TRUNC_SUFFIX_TREE structure, in preparation for adding the
+ suffixes of the string to the tree.
+
+ Parameters:  tree  -  A truncated suffix tree
+              S     -  The sequence
+              M     -  The sequence length
+              strid -  The id of the string being inserted.
+
+ Returns:  The internal index into the TRUNC_SUFFIX_TREE structure's
+           strings/lengths/ids arrays.
+****************************************************************/
+static int stree_insert_string(struct stree *tree, char *S,
+                            int M, int strid)
+{
+  int slot;
+
+  slot = tree->nextslot;
+  tree->strings[slot] = S;
+
+  tree->lengths[slot] = M;
+  tree->ids[slot] = strid;
+
+  tree->nextslot++;
+
+  return slot;
+}
+
+
+
+static int stree_ukkonen_add_string(struct stree *tree, char *S, int M, int strid)
+{
+	int i, j, g, h, gprime, edgelen, id;
+	char *edgestr;
+	struct node *node, *lastnode, *root, *child, *parent;
+	struct leaf_node *leaf;
+
+	if ((id = stree_insert_string(tree, S, M, strid)) == -1)
 		return 0;
-	    else
-		ranges1=ranges1->next;
-	}
-     if (ranges1==NULL)
-	 return 1;
-     else
-	 return 0;
-}
-	    
-    
-int sub_clone(CLONE *temp, CLONE* cur)
-{
-    RANGE* ranges1;
-    RANGE* ranges2;
-    ranges1= temp->ranges;
-    ranges2 = cur-> ranges;
-   if ((cur->length >= temp->length) && (cur->freq >= temp-> freq))
-  	{
-  	    if (sub_ranges(temp->ranges, cur->ranges)==1)
-  		return 1;
-  	    else
-  		return 0;
-  	}
-      else
-  	{ if ((cur->length<=temp->length) && (cur->freq <= temp-> freq))
-  		{
-  		       if (sub_ranges(cur->ranges, temp->ranges)==1)
-  			   return 2;
-  		       else
-  			   return 0;
-  		}
-  	    else
-  		return 0;
-  	}
-}
 
-void print_clones(struct clone* head, char*filename) 
-{
-    FILE *fp;
-    struct clone *temp;
-    RANGE* ranges;
-    int first=1;
-    fp = fopen((const char*)filename, "w");
-    if (head==NULL)
-	{
-	    fclose(fp);
-	    return;
-	}
-    fprintf(fp, "[");
-    for (temp=head; temp!=NULL; temp=temp->next)
-	{
-	    if (first==1)
-		{   first=0;
-		    fprintf(fp, "{");		 
-		}
-    
-	    else
-		fprintf(fp, ",{");
-	    ranges = temp->ranges;
-	    fprintf(fp, "[");
-	    if (ranges!=0)
-		{
-		    fprintf(fp, "{%d,%d}", ranges->start, ranges->end);
-		    ranges = ranges-> next;
-		}
-	    while(ranges!=0)
-		{
-		    fprintf(fp, ",{%d,%d}", ranges->start, ranges->end);
-		    ranges = ranges-> next;
-		}
-	    fprintf(fp, "],%d,%d}", temp->length, temp->freq);
-	}
-    fprintf(fp, "].");
-    fclose(fp);
-}
+  /*
+   * Run Ukkonen's algorithm to add the string to the suffix tree.
+   *
+   * This implementation differs from the Gusfield book description in
+   * several ways:
+   *    1) The algorithm begins at the root of the tree and
+   *       constructs I_{1} (the implicit suffix tree for just
+   *       the first character) using the normal extension rules.
+   *       The reason for this is to be able to handle generalized
+   *       suffix trees, where that first character may already
+   *       be in the tree. 
+   *    2) The algorithm inserts the complete suffix into the
+   *       tree when extension rule 2 applies (rather than deal
+   *       with the business of "increasing" suffices on the leaf
+   *       nodes).
+   *    3) All of the offsets into the sequence, and the phases of
+   *       the algorithm, use the C array indices of 0 to M-1, not 1 to M.
+   *    4) The algorithm handles the conversion from implicit tree
+   *       to true suffix tree by adding an additional "phase" M.  In
+   *       that phase, the leaves that normally would be added because
+   *       of the end of string symbol '$' are added (without resorting
+   *       to the use of a special symbol).
+   *    5) The constructed suffix tree only has suffix links in
+   *       the internal nodes of the tree (to save space).  However,
+   *       the stree_get_suffix_link function will return the suffix links
+   *       even for leaves (it computes the leaves' suffix links on the
+   *       fly).
+   */
 
-struct clone*  insert_node(struct clone* head, RANGE* ranges, int length, int freq)
-{
-    CLONE* temp;
-    CLONE* cur;
-    CLONE* temppt;
-    int first=1;
-    int inserted=0;
-    int result;
-    temp = (CLONE *)malloc(sizeof(CLONE));
-    temp->next=NULL;
-    temp->prev=NULL;
-    temp ->length = length;
-    temp -> freq = freq;
-    temp -> ranges = ranges;
-    if(head==NULL)
-	head = temp;
-    else
+	root = stree_get_root(tree);
+	node = lastnode = root;
+
+	/* Represents the current offset within the edge currently chosen to be walked down.
+   	 * Note that if g == 0 or edgelen we are at a node! */
+	g = 0;
+
+	edgelen = 0;
+	edgestr = NULL;
+
+	for (i=0,j=0; i <= M; i++)
 	{
-	    cur=head;
-	    while(cur!=NULL)
+		for ( ; j <= i && j < M; j++)
 		{
-		    result = sub_clone(temp, cur);
-		    if (result==0)   /* temp is not a sub-clone of cur, and cur is not a sub-clone of temp either. */
+			/* Perform the extension from S[j..i-1] to S[j..i].  One of the
+			 * following two cases holds:
+			 *    a) g == 0, node == root and i == j.
+			 *         (meaning that in the previous outer loop,
+			 *          all of the extensions S[1..i-1], S[2..i-1], ...,
+		     *          S[i-1..i-1] were done.)
+		     *    b) g > 0, node != root and the string S[j..i-1]
+		     *       ends at the g'th character of node's edge. */
+			if (g == 0 || g == edgelen)
 			{
-			    if (cur->next!=NULL)
-				cur= cur-> next;
-			    else
-				{ if (inserted==0)
-					{
-					    cur->next=temp;
-					    temp->prev=cur;
-					}
-				    cur =NULL;
-				}
-			}
-			    
-		    else
-			{
-			    if (result==1)   /*temp is a cub-clone of cur, so nothing need to do */
+				if (i < M)
 				{
-				    inserted=1;
-				    cur=NULL;
+					/* If an outgoing edge matches the next character, move down
+				     * that edge. */
+					if ((child = node_find_child(node, S[i])) != NULL)
+					{
+						node = child;
+						g = 1;
+						edgestr = node_get_edgestr(node);
+						edgelen = node_get_edgelen(node);
+						break;
+					}
+
+					/* Otherwise, add a new leaf out of the current node. */
+					leaf = new_leaf(tree, id, stree_get_string(tree,id)+i, stree_get_length(tree,id)-i, j);
+					node = node_connect(tree, node, (struct node*) leaf);
+					tree->num_nodes++;
+				} else
+				{
+					/* If i == M, then the suffix ends inside the tree, so
+				     * add a new intleaf at the current node. */
+           			if (node_isaleaf (node)) node = convert_leaf_into_internal_node(tree, node);
+					if (!node_add_intleaf(tree, node, id, j)) return 0;
 				}
-			    else
-				if(result==2) /* cur is a sub-clone of temp, so need to replace cur with temp, and remove following sub clones */
-				    {
-					if (first==1)
-					    {
-						cur-> length = temp-> length;
-						cur-> freq =  temp-> freq;
-						cur->ranges = temp-> ranges;
-						cur->length=temp->ranges->end - temp->ranges->start +1;
-						first=0;
-						inserted=1;
-						cur= cur-> next;			        
-					    }
-					else
-					    {
-						if (cur-> next==NULL)
-						    {
-							temppt = cur->prev;
-							cur-> prev->next=NULL;
-							cur->prev=NULL;
-							cur =NULL;
-							inserted=1;
-														
-						    }
-						else
-						    {
-							temppt= cur-> next;
-							cur->prev->next=cur->next;
-							cur->next->prev=cur->prev;
-							cur->next=NULL;
-							cur->prev=NULL;
-							cur=temppt;
-							inserted=1;
-							
-						    }
-						
-					    }
-				    }			  
+
+				ASSERT_IS_INTERNAL_NODE(lastnode);
+				if (lastnode != root && !INTERNAL_NODE_GET_SUFFIXLINK(lastnode))
+					INTERNAL_NODE_SET_SUFFIXLINK(lastnode,node);
+				lastnode = node;
+			} else /* g != 0 */
+			{
+				/* If the next character in the edge label matches the next
+				 * input character, keep moving down that edge (i.e. do nothing
+				 * within this extension). */
+
+				if (i < M && S[i] == edgestr[g])
+				{
+					g++;
+					break;
+				}
+
+				/* Otherwise, split the edge at that point and add a new leaf for the suffix. */
+				if ((node = stree_edge_split (tree, node, g)) == NULL)
+					return 0;
+
+				edgestr = node_get_edgestr(node);
+				edgelen = node_get_edgelen(node);
+
+				if (i < M)
+				{
+					leaf = new_leaf(tree, id, stree_get_string(tree,id)+i, stree_get_length(tree,id)-i, j);
+					node = node_connect(tree, node, (struct node*) leaf);
+					tree->num_nodes++;
+				} else
+				{
+					/* If i == M, then the suffix ends inside the tree, so
+					 * add a new intleaf at the node created by the edge split. */
+					if (node_isaleaf (node)) node = convert_leaf_into_internal_node(tree, node);
+					if (!node_add_intleaf(tree, node, id, j)) return 0;
+				}
+				ASSERT_IS_INTERNAL_NODE(lastnode);
+				if (lastnode != root && !INTERNAL_NODE_GET_SUFFIXLINK(lastnode))
+					INTERNAL_NODE_SET_SUFFIXLINK(lastnode,node);
+				lastnode = node;
+			}
+
+			/* Now, having extended S[j..i-1] to S[j..i] by rule 2, find where
+			 * S[j+1..i-1] is.  Note that the values of node and g have not
+			 * changed in the above code (since stree_edge_split splits the
+			 * node on the g'th character), so either g == 0 and node == root
+			 * or the string S[j..i-1] ends at the g-1'th character of node's
+			 * edge (and node is not the root). */
+			if (node == root);
+			else if (g == edgelen && INTERNAL_NODE_GET_SUFFIXLINK(node) != NULL)
+			{
+				node = INTERNAL_NODE_GET_SUFFIXLINK(node);
+				edgestr = node_get_edgestr(node);
+				edgelen = node_get_edgelen(node);
+				g = edgelen;
+				//continue;
+			} else
+			{
+				/* Move across the suffix link of the parent (unless the
+				 * parent is the root). */
+        			parent = node_get_parent(node);
+				if (parent != root)
+					node = INTERNAL_NODE_GET_SUFFIXLINK(parent);
+				else
+				{
+					node = root;
+					g--;
+				}
+				edgelen = node_get_edgelen(node);
+
+				/* Use the skip/count trick to move g characters down the tree. */
+				h = i - g;
+
+				while (g > 0)
+				{
+					node = node_find_child(node, S[h]);
+					gprime = node_get_edgelen(node);
+					if (gprime > g)
+						break;
+
+					g -= gprime;
+					h += gprime;
+				}
+
+				edgestr = node_get_edgestr(node);
+
+				edgelen = node_get_edgelen(node);
+
+				/* After the walk down, either "g > 0" and S[j+1..i-1] ends g
+				 * characters down the edge to `node', or "g == 0" and S[j+1..i-1]
+				 * really ends at `node' (i.e., all of the characters on the edge
+				 * label to `node' match the end of S[j+1..i-1]).
+				 *
+				 * If "g > 0" or "g == 0" but `node' points to a leaf (which could
+				 * happen if S[j+1..i-1] was the suffix of a previously added
+				 * string), then we must delay the setting of the suffix link
+				 * until a node has been created.  (With the suffix tree data
+				 * structure, no suffix links can safely point to leaves of the
+				 * tree because a leaf may be converted into a node at some future
+				 * time.) */
+
+				if (g == 0)
+				{
+					if (lastnode != root &&
+					    !node_isaleaf(node) &&
+					    INTERNAL_NODE_GET_SUFFIXLINK(lastnode) == NULL)
+					{
+						INTERNAL_NODE_SET_SUFFIXLINK(lastnode,node);
+						lastnode = node;
+					}
+
+					if (node != root)
+						g = edgelen;
+				}
 			}
 		}
 	}
-    return head;
+	return 1;
 }
 
 
 
-CLONE* ST_CollectClones_new_1(CLONE* head, SUFFIX_TREE* tree, NODE* node, int minlen, int minf)
+/* static void kTstree_traverse_subtree(struct stree *tree, struct node *node, */
+/*                             int (*preorder_fn)(), int (*postorder_fn)()); */
+
+
+/***********************************************************
+ Allocates a new truncated suffix tree data structure.
+
+ Returns:  A TRUNC_SUFFIX_TREE structure
+***********************************************************/
+static struct stree *kTstree_new_tree(int number_of_strings,
+				      int alphabet_size, int k)
 {
-    if(node ==0)
-	return NULL;
-    if (node->length>=minlen && node->frequency>=minf)
+	struct stree *tree;
+	int i;
+
+	tree = gsuffix_malloc(sizeof(*tree));
+	memset(tree, 0, sizeof(*tree));
+
+	tree->node_pool = item_pool_create(sizeof(struct internal_node));
+	tree->int_leaf_pool = item_pool_create(sizeof(struct int_leaf));
+	tree->leaf_node_pool = freeable_item_pool_create(sizeof(struct leaf_node));
+
+	tree->k = k;
+	tree->alpha_size = alphabet_size;
+
+	tree->strsize = number_of_strings;
+	tree->strings = gsuffix_malloc(tree->strsize * sizeof(char *));
+	tree->lengths = gsuffix_malloc(tree->strsize * sizeof(int));
+	tree->ids = gsuffix_malloc(tree->strsize * sizeof(int));
+
+	for (i = 0; i < tree->strsize; i++)
 	{
-	    head=insert_node(head, node->ranges, node->ranges->end-node->ranges->start+1, node->frequency);	    
+		tree->strings[i] = NULL;
+		tree->lengths[i] = tree->ids[i] = 0;
 	}
-    if (node->right_sibling != 0)
-	head=ST_CollectClones_new_1(head, tree, node->right_sibling, minlen, minf);
-    if (node ->sons!=0)
-	head=ST_CollectClones_new_1(head, tree, node->sons, minlen, minf);
-    return head;
+
+	tree->nextslot = 0;			/* Where to put the next string? */
+	tree->root = &new_internal_node(tree, NULL, 0)->n;
+	tree->num_nodes = 1;		/* just the root */
+	return tree;
 }
 
 
-    
-void ST_CollectClones_new(SUFFIX_TREE* tree, int minlen, int minf, char*filename)
-{      
-    CLONE* head=NULL;
-    head=ST_CollectClones_new_1(head, tree, tree->root->sons, minlen, minf);
-    print_clones(head, filename);
+/***********************************************************
+ * Allocates a standard generalized suffix tree datastructure.
+ * A standard suffix tree has no need of the variable k. Otherwise
+ * the structure is identical. Set k to -1, and pass work onto
+ * the corresponding kTstree function.
+ *************************************************************/
+static struct stree *stree_new_tree(int number_of_strings,int alphabet_size)
+{
+  return kTstree_new_tree(number_of_strings,alphabet_size,-1);
 }
+
+
+
+/***********************************************************
+ Splits an edge of the truncated suffix tree, and adds a new
+ node between two existing nodes at that split point.
+
+ Parameters:  tree  -  The truncated suffix tree
+			  node  -  The tree node just below the split.
+              len   -  How far down node's edge label the
+                       split is.
+ Return:  The new node added at the split.
+***********************************************************/
+static struct node *stree_edge_split(struct stree *tree,
+				       struct node *node, int len)
+{
+  struct internal_node *newnode, *parent;
+  if (node == stree_get_root(tree) ||
+      len == 0 || node_get_edgelen(node) <= len)
+    return NULL;
+
+  newnode = new_internal_node(tree, node->edgestr, len);
+  if (newnode == NULL)
+    return NULL;
+
+  parent = (struct internal_node*)node_get_parent(node);
+  node_reconnect(tree, parent, node, &newnode->n);
+
+  node->edgestr += len;
+  node->edgelen -= len;
+
+  if (node_connect(tree, &newnode->n, node) == NULL)
+  {
+  	/* TODO: This cannot happen in our implementation */
+    fprintf(stderr,"Error in reconnecting node at %s (%d), terminating program.\n",
+	    __FILE__,__LINE__);
+    /*
+      
+    node->edgestr -= len;
+    node->edgelen += len;
+    node_reconnect(tree, (struct internal_node*)parent, &newnode->n, node);
+      free_node(newnode);
   
-void clone_detection_by_suffix_tree(char *filename, long minlen, long minclones, long overlap_allowed)
-{
-    SUFFIX_TREE* tree;
-    unsigned char *str = NULL, freestr = 0;
-    FILE* file = 0;
-    WORD len = 0;
-    
-    file = fopen((const char*)filename,"r");
-    /*Check for validity of the file.*/
-    if(file == 0)
-	{
-	    printf("can't open file.\n");
-	    return;
-	}
-    /*Calculate the file length in bytes. This will be the length of the source string.*/
-    fseek(file, 0, SEEK_END);
-    len = ftell(file);
-    fseek(file, 0, SEEK_SET);
-    str = (unsigned char*)malloc(len*sizeof(unsigned char));
-    if(str == 0)
-	{
-	    printf("\nOut of memory.\n");
-	    exit(0);
-	}
-    fread(str, sizeof(unsigned char), len, file);
-    /*When freestr = 1 it means that a temporary string has been allocated and therefor 
-      must be deleted afterwards.*/
-    freestr = 1;
-    /*printf("Constructing tree.....");*/
-    tree = ST_CreateTree(str,len);
-    tree =ST_Add_Freq_And_Range(tree);
-    tree =ST_ExtendRanges(tree, overlap_allowed);
-    fclose(file);
-    ST_CollectClones_new(tree,minlen, minclones, filename);
-    if(freestr == 1)
-	free(str);
-    ST_DeleteTree(tree);
-    return;
+    return NULL;
+    */
+  }
+
+  /* tree->num_nodes++; */
+  return &newnode->n;
 }
 
-// SUFFIX_TREE* ST_CreateTree1(unsigned char* str, WORD length)
-//  {
-//      SUFFIX_TREE* tree;
-//      SUFFIX_TREE* tree1;
-//      int no=0;
-//      tree = ST_CreateTree(str,length);
-//      tree =ST_Add_Freq_And_Range(tree);
-//      ST_PrintTree(tree);
-//      tree1 =ST_ExtendRanges(tree);
-//      ST_PrintTree(tree1);
-//     //  no = ST_InnerNodes(tree),
-//      printf("\n intial no of clones %d\n", no);
-//      return tree;
-//  }
+
+
+
+
+
+/***********************************************************
+ Traverses the suffix link from a node, and returns the node
+ at the end of the suffix link.
+
+ Parameters:  tree     -  A truncated suffix tree
+              node     -  The starting node of the walk
+              pos      -  The starting point on the node's edge.
+              T        -  The string to match
+              N        -  The matching string's length
+              node_out - Where the walk ends
+              pos_out  - Where on the node's edge does the walk end.
+
+ Return:  The number of characters matched during the walk.
+***********************************************************/
+static int kTstree_walk_to_leaf(struct stree *tree, struct node *node, int pos,
+                           const char *T, int N, struct node **node_out, int *pos_out)
+{
+	int len, edgelen;
+	char *edgestr;
+	struct node *child;
+	if (node_isaleaf(node))
+	{
+		*node_out = node;
+		*pos_out = pos;
+		return 0;
+	}
+
+	edgestr = node_get_edgestr(node);
+	edgelen = node_get_edgelen(node);
+	len = 0;
+	while (1)
+	{
+	  while (len < N && pos < edgelen && T[len] == edgestr[pos])
+	    {
+	      pos++;
+	      len++;
+	    }
+	  
+	  if (len == N || pos < edgelen || (child = node_find_child(node, T[len])) == NULL) {
+	    break;
+	  }
+	  
+	  if (node_isaleaf(child))
+	    {
+	      print_node(NULL,child);
+	      *node_out = child;
+	      *pos_out = 0; 
+	      return len;
+	    }
+	  
+	  node = child;
+	  edgestr = node_get_edgestr(node);
+	  edgelen = node_get_edgelen(node);
+	  pos = 1;
+	  len++;
+	}
+	
+	*node_out = node;
+	*pos_out = pos;
+	return len;
+}
+
+/***********************************************************
+ ...
+***********************************************************/
+static int kTstree_walk(struct stree *tree, struct node *node,
+			int pos, const char *T, int N,
+               struct node **node_out, int *pos_out)
+{
+  int len, endpos, edgelen;
+  char *edgestr;
+  struct node *endnode;
+
+  len = kTstree_walk_to_leaf(tree, node, pos, T, N, &endnode, &endpos);
+
+  /* find the match; commented by HL */
+  if (!node_isaleaf(endnode) || len == N)
+  {
+    *node_out = endnode;
+    *pos_out = endpos;
+    return len;
+  }
+
+  edgestr = node_get_edgestr(endnode);
+  edgelen = node_get_edgelen(endnode);
+  /* match ends half way through the edge string;; commented by HL */
+  while (len < N && endpos < edgelen && T[len] == edgestr[endpos])
+  {
+    len++;
+    endpos++;
+  }
+
+  *node_out = endnode;
+  *pos_out = endpos;
+  return len;
+}
+
+
+
+
+/***********************************************************
+ Traverse the path down the tree whose path label matches T, and return
+ the number of characters of T matches, and the node and position along
+ the node's edge where the matching to T ends.
+
+ Parameters:  tree      -  a truncated suffix tree
+              node      -  what node to start the walk down the tree
+              pos       -  position along node's edge to start the walk
+                              (`node' and `pos' are kTstree_walk only)
+              T         -  the sequence to match
+              N         -  the sequence length
+              node_out  -  address of where to store the node where
+                           the traversal ends
+              pos_out   -  address of where to store the character position
+                           along the ending node's edge of the endpoint of
+                           the traversal
+
+ Returns:  The number of characters of T matched.
+************************************************************/
+static int kTstree_match(struct stree *tree, const char *T, int N,
+                struct node **node_out, int *pos_out)
+{
+  return kTstree_walk(tree, stree_get_root(tree), 0, T, N, node_out, pos_out);
+}
+
+
+/***********************************************************
+ Return the number of children of a node.
+
+ Parameters:  tree  -  a truncated suffix tree
+              node  -  a tree node
+
+ Returns:  the number of children.
+************************************************************/
+static int kTstree_get_num_children(struct stree *tree, struct node *node)
+{
+
+  int count;
+  struct node *child;
+
+  if (node_isaleaf(node)) return 0;
+
+  for (child = ((struct internal_node*)node)->first,count=0;child != NULL;child = child->next)
+	count++;
+
+  return count;
+  
+}
+
+/*
+ * kTstree_traverse & kTstree_traverse_subtree
+ *
+ * Use a non-recursive traversal of the tree (or a subtree), calling the
+ * two function parameters before and after recursing at each node, resp.
+ * When memory is at a premium, this traversal may be useful.
+ *
+ * Note that either of the function parameters can be NULL, if you just
+ * need to do pre-order or post-order processing.
+ *
+ * The traversal uses the `isaleaf' field of the tree nodes to hold its
+ * state information.  Since `isaleaf' will always be 0 at the internal
+ * nodes where the state information is needed, this will not affect the
+ * values at the nodes (and all changes to `isaleaf' will be undone.
+ *
+ * Parameters:  tree          -  a truncated suffix tree
+ *              node          -  root node of the traversal
+ *                                 (kTstree_traverse_subtree only)
+ *              preorder_fn   -  function to call before visiting the children
+ *              postorder_fn  -  function to call after visiting all children
+ *
+ * Returns:  nothing.
+ */
+
+/*******************************************************
+ Looks up a given p with length m. On every hit,
+ hit_callback is called with arguments "index" and "pos"
+ The index argument determines the string index as upon
+ creation of the genarray and the argument "pos"
+ determines the position of the hit within that string.
+
+ Returns the number of hits.
+
+ Note this function can be called eighter using a suffix
+ tree or a trunctated suffix tree.
+ ********************************************************* */
+/* int gsuffix_lookup(struct stree *tree, const char *pattern, int pattern_length, int (*hitcallback)(int index, int pos, void *userdata), void *userdata) */
+/* { */
+/* 	int pos,matchlen; */
+/* 	struct node *node; */
+/* 	char *mapped_pattern; */
+
+/* #ifndef USE_LINKEDLIST */
+/* 	char buf[16]; */
+/* #endif */
+
+/* 	/\* store hitcallback function and the hits in the truncated suffix tree *\/ */
+/* 	tree->hitcallback = hitcallback; */
+/* 	tree->userdata = userdata; */
+/* 	tree->hits = 0; */
+
+/* #ifndef USE_LINKEDLIST */
+/* 	/\* For patterns of small size we rather use a local buffer than allocating */
+/* 	 * new memory *\/ */
+/* 	if (pattern_length < sizeof(buf)) mapped_pattern = buf; */
+/* 	else mapped_pattern = gsuffix_malloc(pattern_length*sizeof(char)); */
+/* 	memcpy(mapped_pattern,pattern,pattern_length); */
+/* 	map_string(mapped_pattern,pattern_length); */
+/* #else */
+/* 	mapped_pattern = (char*)pattern; */
+/* #endif */
+
+/* 	node = stree_get_root(tree); */
+
+/* 	/\* Test whether the string matches any edge of the truncated suffix tree,i.e. */
+/* 	 * is present in the truncated suffix tree *\/ */
+/* 	matchlen = kTstree_match(tree, mapped_pattern, pattern_length, &node, &pos); */
+/*         printf("MatchLen: %d\n", matchlen); */
+/* 	if (matchlen == pattern_length) */
+/* 		kTstree_traverse_subtree(tree, node, add_match, (int (*)()) NULL); */
+
+/* #ifndef USE_LINKEDLIST */
+/* 	/\* Free the pattern if it was allocated above *\/ */
+/* 	if (pattern_length >= sizeof(buf)) */
+/* 		gsuffix_free(mapped_pattern); */
+/* #endif */
+/* 	printf("Match Hits: %d\n", tree->hits); */
+/* 	return tree->hits; */
+/* } */
+
+
+
+/*******************************************************
+ Looks up a given p with length m.
+
+ Returns 1 if the pattern exists in
+ the tree or 0 otherwise.
+
+ Note this function can be called either using a suffix
+ tree or a trunctated suffix tree.(it is used to compare
+ wotd against gsuffix)
+*********************************************************/
+int gsuffix_lookup_exists(struct stree *tree, const char *pattern, int pattern_length)
+{
+	int pos,matchlen;
+	struct node *node;
+	char *mapped_pattern;
+
+#ifndef USE_LINKEDLIST
+	char buf[16];
+#endif
+
+#ifndef USE_LINKEDLIST
+	/* For patterns of small size we rather use a local buffer than allocating
+	 * new memory */
+	if (pattern_length < sizeof(buf)) mapped_pattern = buf;
+	else mapped_pattern = gsuffix_malloc(pattern_length*sizeof(char));
+	memcpy(mapped_pattern,pattern,pattern_length);
+	map_string(mapped_pattern,pattern_length);
+#else
+	mapped_pattern = (char*)pattern;
+#endif
+
+	node = stree_get_root(tree);
+
+	/* Test whether the string matches any edge of the truncated suffix tree,i.e.
+	 * is present in the truncated suffix tree */
+	matchlen = kTstree_match(tree, mapped_pattern, pattern_length, &node, &pos);
+
+   #ifndef USE_LINKEDLIST
+	/* Free the pattern if it was allocated above */
+	if (pattern_length >= sizeof(buf))
+		gsuffix_free(mapped_pattern);
+#endif
+
+    /* if the whole pattern could be matched the pattern exists */
+	if (matchlen == pattern_length)
+		return 1;
+	else
+		return 0;
+
+}
+
+
+/***********************************************************
+ Create the stree from ASCII string. Does mapping and so on.
+ Parameters:
+	 strings:  array of C strings
+	 nstrings: number of strings in array.
+***********************************************************/
+struct stree *stree_create_from_char (char **strings, int nstrings)
+{
+	int i,len;
+	char *str;
+	struct stree *tree;
+
+	if (!(tree = stree_new_tree(nstrings,DNA_SZ)))
+		return NULL;
+
+	for (i = 0; i < nstrings; ++i)
+	{
+		len = strlen(strings[i]);
+
+#ifndef USE_LINKEDLIST
+		str = create_mapped_string(strings[i], len);
+#else
+		str = strings[i];
+#endif
+		//	printf("\nstring to add: %s\n", str);
+		if (stree_ukkonen_add_string(tree, str, len, i+1) < 1)
+		{
+		  stree_delete_tree(tree);
+		  return NULL;
+		}
+	}
+	/*	debugPrintTruncatedTree(tree);*/
+	return tree;
+}
+
+/****************************************************
+ Free all memory associated with the given tree
+*****************************************************/
+void stree_delete_tree(struct stree *tree)
+{
+	item_pool_delete(tree->node_pool);
+	item_pool_delete(tree->int_leaf_pool);
+	freeable_item_pool_delete(tree->leaf_node_pool);
+#ifndef USE_LINKEDLIST
+	{
+		int i;
+		for (i = 0; i < tree->strsize; i++)
+			gsuffix_free(tree->strings[i]);
+	}
+#endif
+	gsuffix_free(tree->strings);
+	gsuffix_free(tree->lengths);
+	gsuffix_free(tree->ids);
+	gsuffix_free(tree);
+}
+
+
+
+/************************************************************
+ Does the same like malloc(), but exits when failing and
+ tracks memory
+*************************************************************/
+
+static int memallocated;
+static int maxmem;
+
+void *gsuffix_malloc(int size)
+{
+	int *mem = malloc(size+sizeof(int));
+	if (!mem)
+	{
+		printf("Could not allocate %d bytes of memory! Aborting\n",size+4);
+		exit(20);
+	}
+	mem[0] = size;
+	memallocated += size;
+	if (memallocated > maxmem) maxmem = memallocated;
+	return mem+1;
+}
+
+/************************************************************
+ Frees the memory which must have been allocated with
+ gsuffix_malloc()
+*************************************************************/
+void gsuffix_free(void *mem)
+{
+	int *m = (int*)mem;
+	if (!m) return;
+
+	memallocated -= m[-1];
+	free(m-1);
+}
+
+
+/***************************************************************************/
+
+/* This is a basic implementation of an item pool. It's a quite restricted one
+ * because it is optimized for speed. Once allocated, an item cannot be freed
+ * individually. You can only free all items at once */
+
+struct mypage
+{
+	struct mypage *next;	/* embedded node structure */
+
+	int size;				/* number of bytes covered by the page */
+	char *mem;				/* address of the page covered by the page */
+
+	char *next_item;		/* pointer to next item */
+	int items_left;			/* how many items are left within this page? */
+};
+
+struct item_pool
+{
+	struct mypage *head;
+	int item_size;
+};
+
+/************************************************
+ Instanciate a new item pool. The paramenter
+ item_size specifies the number size for every
+ individual item.
+*************************************************/
+struct item_pool *item_pool_create(int item_size)
+{
+	struct item_pool *ip = gsuffix_malloc(sizeof(*ip));
+
+	ip->head = NULL;
+	ip->item_size = (item_size + 3)/4*4;
+
+	return ip;
+}
+
+/************************************************
+ Free the complete item pool
+*************************************************/
+void item_pool_delete(struct item_pool *ip)
+{
+	struct mypage *p = ip->head;
+	while (p)
+	{
+		struct mypage *next;
+
+		next = p->next;
+		gsuffix_free(p->mem);
+		gsuffix_free(p);
+		p = next;
+	}
+	gsuffix_free(ip);
+}
+
+
+/**************************************************
+ Allocate a new page
+***************************************************/
+static struct mypage *item_pool_alloc_page(int item_size, int page_size)
+{
+	struct mypage *p;
+
+	p = gsuffix_malloc(sizeof(*p));
+	p->mem = p->next_item = gsuffix_malloc(page_size);
+	p->size = page_size;
+	p->next = NULL;
+	p->items_left = page_size / item_size;
+
+	return p;
+}
+
+/**************************************************
+ Allocate a new item from the given item pool. May
+ return NULL on failure.
+***************************************************/
+void *item_pool_alloc(struct item_pool *pool)
+{
+	char *item;
+
+	if (!pool->head || pool->head->items_left == 0)
+	{
+		struct mypage *p = item_pool_alloc_page(pool->item_size,32768);
+		p->next = pool->head;
+		pool->head = p;
+	}
+
+	item = pool->head->next_item;
+	pool->head->next_item += pool->item_size;
+	pool->head->items_left--;
+	return item;
+}
+
+/**************************************************************/
+
+/* Unlike the item pool implementation above, this one allows the freeing of
+ * items but requires 4 bytes of extra storage */
+
+struct mypage2
+{
+	struct mypage2 *next;	/* embedded node structure */
+
+	int size;				/* number of bytes covered by the page */
+	void *mem;				/* address of the page covered by the page */
+
+	int nitems;
+};
+
+struct item
+{
+	struct item *next;
+};
+
+struct freeable_item_pool
+{
+	struct mypage2 *page_head;
+	struct item *items_head;
+	int item_size;
+};
+
+/************************************************
+ Instanciate a new item pool. The paramenter
+ item_size specifies the number size for every
+ individual item.
+*************************************************/
+struct freeable_item_pool *freeable_item_pool_create(int item_size)
+{
+	struct freeable_item_pool *ip = gsuffix_malloc(sizeof(*ip));
+
+	ip->page_head = NULL;
+	ip->items_head = NULL;
+	ip->item_size = (item_size + 7)/4*4;
+
+	return ip;
+}
+
+/************************************************
+ Free the complete item pool
+*************************************************/
+void freeable_item_pool_delete(struct freeable_item_pool *ip)
+{
+	struct mypage2 *p = ip->page_head;
+	while (p)
+	{
+		struct mypage2 *next;
+
+		next = p->next;
+		gsuffix_free(p->mem);
+		gsuffix_free(p);
+		p = next;
+	}
+	gsuffix_free(ip);
+}
+
+
+/**************************************************
+ Allocate a new page
+***************************************************/
+static struct mypage2 *freeable_item_pool_alloc_page(int item_size, int page_size)
+{
+	struct mypage2 *p;
+
+	p = gsuffix_malloc(sizeof(*p));
+	p->mem = gsuffix_malloc(page_size);
+	p->size = page_size;
+	p->next = NULL;
+	p->nitems = page_size / item_size;
+	return p;
+}
+
+/**************************************************
+ Allocate a new item from the given item pool. May
+ return NULL on failure.
+***************************************************/
+void *freeable_item_pool_alloc(struct freeable_item_pool *pool)
+{
+	struct item *item;
+
+	if (!pool->items_head)
+	{
+		/* Create a new page and add all items to the free list */
+		struct mypage2 *p;
+		int i;
+
+		p = freeable_item_pool_alloc_page(pool->item_size,32768);
+		item = pool->items_head = p->mem;
+
+		for (i=0;i < p->nitems - 1;i++)
+		{
+			struct item *next_item = (struct item*)(((unsigned char*)item) + pool->item_size);
+			item->next = next_item;
+			item = next_item;
+		}
+		item->next = NULL;
+
+		p->next = pool->page_head;
+		pool->page_head = p;
+	}
+
+	item = pool->items_head;
+	pool->items_head = item->next;
+
+	return ((unsigned char*)item)+4;
+}
+
+/**************************************************
+ Give back the given item to the given pool
+***************************************************/
+void freeable_item_pool_free(struct freeable_item_pool *pool, void *mem)
+{
+	struct item *item = (struct item*)(((unsigned char*)mem) - 4);
+	item->next = pool->items_head;
+	pool->items_head = item;
+}
+
+
+
+
+
+
+/**************************************************************************
+ * 		DEBUGGING
+ **************************************************************************
+ *
+ * debugPrintTree
+ *
+ * print out tree values and the root values
+ ********************************************/
+
+
+/* debugPrintNode */
+
+/* print out node values */
+void debugPrintNode(struct node *node, int depth)
+{
+	struct internal_node *node1; 
+	struct leaf_node *leaf; 
+	struct int_leaf *ileaf;
+
+	if (!node) return;
+
+	if (depth  == 0)
+	{
+		printf("root\n");
+	}
+	printf("%s l. %d: debugPrintNode\n",__FILE__,__LINE__);
+	printf("depth: %d,\t isaleaf:\t%d;\n",depth,node_isaleaf(node));
+	printf("\tedgestr: %s\t\n",node->edgestr);
+	printf("\tedgelen:%d\n",node->edgelen);
+	if (!node_isaleaf(node)){
+	  node1 = (struct internal_node*)node;
+	  printf("Not a leaf node\n");
+	  if (node1->leaves != NULL){
+	        printf("leaves not NULL \n");
+		int num;
+		num = kTstree_get_num_children(NULL, node);
+		printf("Num of children %d\n", num);
+	  	printf("depth %d ,nodeedgelen: %d, char %c (ILEAF)",depth,node->edgelen,*(node->edgestr)+48);
+	  	ileaf = node1->leaves;
+	  	while(ileaf!=NULL){
+	  	  printf(" id: %d, pos: %d\t", ileaf->strid ,ileaf->pos);
+	  	  ileaf = ileaf->next;
+	  	}
+		printf("\n");
+	  }
+	  debugPrintNode(node_find_child(node, 'A'),depth+1);
+	  
+	  debugPrintNode(node_find_child(node, 'T'),depth+1);
+	  
+	  debugPrintNode(node_find_child(node, '$'),depth+1);  
+
+	  /* debugPrintNode(node_find_child(node, 'd'),depth+1);  */
+	  
+	  
+	}
+	else{
+	  leaf = (struct leaf_node *) node;
+	  printf("depth: %d, strid: %d, pos: %d, char %c ,edgelen: %d (LEAF)\n",depth,leaf->strid,leaf->pos,*(node->edgestr)+48,node->edgelen);
+	}
+}
+
+void debugPrintTruncatedTree(struct stree *tree)
+{       int i;
+	printf("%s l. %d: debugPrintTree\n",__FILE__,__LINE__);
+	printf("\tnum_nodes:\t\t%d\n",tree->num_nodes);
+	printf("\troot node:\n*****\n");
+	debugPrintNode(tree->root,0);
+	printf("*****\n");
+	printf("\ttree_size:%d\n",tree->tree_size);
+	printf("\tstrsize:%d\n",tree->strsize);
+	printf("\tstrings entered in tree structure:\n");
+	for (i=0;i<tree->nextslot;++i) {
+		printf("\t\tstring %d: %s\n", i ,tree->strings[i]);
+	}
+	printf("\tnextslot: %d\n",tree->nextslot);
+}
+
+
+/* static int pint_node(struct stree *tree, struct node *node) */
+/* { */
+/*   struct leaf_node *leaf; */
+/*   struct int_leaf *intleaf; */
+/*   int pos, id; */
+
+/*   /\* if node is a leaf there can be only one match*\/ */
+/*   if (node_isaleaf(node)) */
+/*     { */
+/*       leaf = (struct leaf_node *) node; */
+/*       printf("depth: %d, strid: %d, pos: %d, char %c ,edgelen: %d (LEAF)\n",depth,leaf->strid,leaf->pos,*(node->edgestr)+48,node->edgelen); */
+/*     } */
+/*   else */
+/*     { */
+      
+/*     } */
+/*       leaf = (struct leaf_node*)node; */
+/*       pos = leaf->pos; */
+
+/*       id = leaf_get_strid(leaf); */
+/*       tree->hits++; */
+
+/*       return tree->hitcallback(id, pos, tree->userdata); */
+/*     }  else */
+/*     { */
+/*       /\* traverse the linked list of intleafs and report every match *\/ */
+/*       intleaf = ((struct internal_node*)node)->leaves; */
+
+/*       for (;intleaf != NULL;intleaf=intleaf->next) */
+/* 	{ */
+/* 	  pos = intleaf->pos; */
+/* 	  id = leaf_get_strid(intleaf); */
+
+/* 	  tree->hits++; */
+/* 	  if (!tree->hitcallback(id, pos, tree->userdata)) */
+/* 	    return 0; */
+/* 	} */
+/*     } */
+/*   return 1; */
+/* } */
+
+
+int print_node(struct stree *tree, struct node *node)
+{
+  struct internal_node *node1;
+  struct leaf_node *leaf;
+  struct int_leaf *ileaf;
+  int num;
+  /* if node is a leaf there can be only one match*/
+  num = kTstree_get_num_children(tree, node);
+  printf("\nNumber of children %d\n", num);
+  if (node_isaleaf(node))
+    {
+      printf(" Is a  leaf node\n");
+      leaf = (struct leaf_node *) node;
+      printf("strid: %d, pos: %d, edgestr: %s edgelen: %d (LEAF)\n",leaf->strid+1,leaf->pos+1, node->edgestr, node->edgelen);
+    }
+  else
+    {
+      node1 = (struct internal_node*)node;
+      printf("\nNot a leaf node\n");
+      if (node1->leaves != NULL){
+	printf("leaves not NULL \n");
+	printf("node_edge_len: %d, edgestr: %s",node->edgelen, node->edgestr);
+	ileaf = node1->leaves;
+	while(ileaf!=NULL){
+	  printf(" id: %d, pos: %d\t", ileaf->strid+1 ,ileaf->pos+1);
+	  ileaf = ileaf->next;
+	}
+	printf("\n");
+      }
+      else
+	{
+	  printf("leaves NULL\n");
+	  printf("node_edge_len: %d, edgestr: %s \n ",node->edgelen, node->edgestr);
+	}
+    }
+  return 1;
+}
+
+/* void stree_print(struct stree *tree) */
+/* { */
+/*   kTstree_traverse(tree, (int (*)()) NULL, print_node); */
+/* } */
+
+void print_clones(CLONE *clones)
+{
+  struct clone *temp;
+  struct RANGE* r;
+  if (clones==NULL) 
+    return;
+  temp = clones;
+  while(temp!=NULL)
+    {
+      printf("\n{clone string: %s\n", temp->string); 
+      printf("clone length: %d;",temp->length);
+      printf("clone freq: %d}:", temp->freq);
+      for(r=temp->ranges; r!=NULL; r=r->next)
+	printf("{strid:%d, pos: %d} ", r->string_index, r->start_pos);
+      temp = temp->next;
+    }
+}
+
+
+void print_a_clone_to_file(FILE *fp, CLONE *clone)
+{
+  struct RANGE* r;
+  fprintf(fp, "{");
+  fprintf(fp, "[");
+  r = clone->ranges;
+  if (r != NULL) 
+    {
+      fprintf(fp, "{%d,%d}", r->string_index, r->start_pos);
+      r = r-> next;
+      while(r!=NULL)
+	{
+	  fprintf(fp, ",{%d,%d}", r->string_index, r->start_pos);
+	  r = r-> next;
+	}
+      fprintf(fp, "],%d,%d}.", clone->length, clone->freq);
+    }
+}
+
+void print_clones_to_file(char *filename, CLONE *clones) 
+{
+  FILE *fp;
+  struct clone *temp;
+  struct RANGE* r;
+  int first=1;
+  fp = fopen((const char*)filename, "w");
+  temp = clones;
+  if (temp==NULL)
+    {
+      fprintf(fp, "[].");
+      fclose(fp);
+      return;
+    }
+  fprintf(fp, "[");
+  
+  while(temp!=NULL)
+    {
+      if (first==1)
+	{
+	  first=0;
+	  fprintf(fp, "{");
+	}
+      else 
+	fprintf(fp, ",{");
+      r = temp->ranges;
+      fprintf(fp, "[");
+      if (r != NULL) 
+	{
+	  fprintf(fp, "{%d,%d}", r->string_index, r->start_pos);
+	  r = r-> next;
+	  while(r!=NULL)
+	    {
+	      fprintf(fp, ",{%d,%d}", r->string_index, r->start_pos);
+	      r = r-> next;
+	    }
+	  fprintf(fp, "],%d,%d}", temp->length, temp->freq);
+	}
+      temp = temp->next;
+    }
+  fprintf(fp, "].");
+  fclose(fp); 
+}
+
+void free_child_clones(struct internal_node *node) 
+{
+  struct node *temp;
+  struct RANGE* head_range, *temp_range;
+  CLONE *clone;
+  for (temp =node->first; temp!=NULL; temp=temp->next)
+    { 
+      clone = temp-> clone;
+      head_range= clone->ranges;
+      while(head_range!=NULL) 
+	{
+	  temp_range = head_range-> next;
+	  free(head_range);
+	  head_range=temp_range;
+	}
+      free(clone->string);
+      free(clone);
+    }
+  return;
+}
+ 
+
+int num_of_exprs_in_str(char* clone_str)
+{
+  int num=0;
+  char *tl;
+  char str[2048]="\0";
+  strcpy(str, clone_str);
+  /* printf("\n clinesss: %s\n", clone_str); */
+  for (tl=strtok(str, ",$"); tl!=NULL;
+       tl=strtok(NULL, ",$"))
+    
+    num++;
+  /* printf("\n num: %d\n", num); */
+  return num;
+}
+
+void free_a_clone_node(struct clone *clone)
+{
+  struct RANGE *temp_range, *head_range;
+  head_range= clone->ranges;
+  while(head_range!=NULL) 
+    {
+      temp_range = head_range-> next;
+      free(head_range);
+      head_range=temp_range;
+    }
+  free(clone);
+}
+
+void free_clone_nodes(struct clone *clone_head)
+{
+  struct clone *temp;
+  while(clone_head!=NULL)
+    {
+      temp = clone_head->next;
+      clone_head->next=NULL;
+      free_a_clone_node(clone_head);
+      clone_head=temp;
+    }
+}
+
+/*
+  return 1 if range1 is sub-ranges of ranges2;
+  otherwise return 0;
+*/
+int sub_ranges(struct RANGE *ranges1, struct RANGE *ranges2)
+{
+
+  int found=0;
+  struct RANGE *temp;
+  while(ranges1!=NULL)
+    {
+      found = 0;
+      /* printf("Temp is null: %d", ranges1==NULL); */
+      temp = ranges2;
+      while((temp!=NULL) && (found==0))
+	{
+	  /* printf("temp string index: %d;", temp->string_index); */
+	  /* printf("temp start pos: %d\n", temp->start_pos); */
+	  /* printf("ranges string index: %d;", ranges1->string_index); */
+	  /* printf("rangs1 start pos: %d\n", ranges1->start_pos); */
+	  if ((temp->string_index ==ranges1->string_index) && (temp->start_pos < ranges1->start_pos))
+	    found=1;
+	  else
+	    temp = temp->next;
+	}
+      /* printf("\n found %d\n", found); */
+      if (found==0)
+	return 0;
+      else
+	ranges1=ranges1->next;
+    }
+  if (ranges1==NULL)
+    return 1;
+  else
+    return 0;
+}
+
+/* return 1 if clone1 is a sub-clone of clone2;
+   return 2 if clone2 is a sub-clone of clone1;
+   return 0 otherwise
+*/
+
+int sub_clone(struct clone *clone1, struct clone *clone2) 
+{
+  if ((clone2->length>= clone1->length) && (clone2->freq>= clone1->freq))
+    {
+      /* printf("check sub ranges1\n"); */
+      if (sub_ranges(clone1->ranges, clone2->ranges)==1)
+	return 1;
+      else
+	return 0;
+    }
+  else
+    if ((clone1->length>= clone2->length) && (clone1->freq>= clone2->freq))
+      {
+	/* printf("check sub ranges2\n"); */
+	if (sub_ranges(clone2->ranges, clone1->ranges)==1)
+	  return 2;
+	else
+	  return 0;
+      }
+  return 0;
+}
+
+
+void map_a_clone(struct clone* clone, char** seq_array, int  minlen, int minfreq)
+{
+  struct RANGE* r;
+  int strid;
+  int start_pos;
+  char str[4096]="\0";
+  int num_of_prev_exprs;
+  char prev_str[4096]="\0";
+  char clone_str[4096]="\0";
+  int i;
+  r=clone->ranges;
+  strid = r->string_index-1;
+  start_pos = r->start_pos;
+  strcpy(str, seq_array[strid]);
+  strncpy(prev_str, str, start_pos-1);
+  prev_str[start_pos-1]='\0';
+  for (i=0; i<clone->length; i++)
+    clone_str[i]=str[start_pos+i-1];
+  clone_str[clone->length]='\0';
+  clone->length=num_of_exprs_in_str(clone_str);
+  if (clone->length< minlen)
+    {
+      clone->ranges=NULL;
+      return;
+    }
+  else
+    while(r!=NULL)
+      {
+	strid = r->string_index-1;
+	start_pos = r->start_pos;
+	strcpy(str, seq_array[strid]);
+	strncpy(prev_str, str, start_pos-1);
+	prev_str[start_pos-1]='\0';
+	num_of_prev_exprs=num_of_exprs_in_str(prev_str);
+	if ((start_pos!=1) && (str[start_pos-2]!=',') && (str[start_pos-1]!=','))
+	  r-> start_pos=num_of_prev_exprs;
+	else 
+	  r->start_pos=num_of_prev_exprs+1;
+	r = r->next;
+      }
+  return;
+}
+
+int over_lapped_range(int strid, int start_pos, int length, struct RANGE* ranges) 
+{
+  int found=0;
+  struct RANGE* cur_range;
+  cur_range=ranges;
+  while(cur_range!=NULL && found==0)
+    {
+      if (cur_range->string_index==strid)
+	if ((start_pos >= cur_range->start_pos) &&
+	    (start_pos <cur_range->start_pos+length-1))
+	  found=1;
+      cur_range=cur_range->next;
+    }
+  return found;
+}
+
+
+struct clone* add_to_clone_list(struct clone* clone_list_head, struct clone* clone, 
+				char** seq_array, int minlen, int minfreq)
+{
+  struct clone *temp, *temp1,*cur;
+  struct RANGE *ranges, *cur_range, *range;
+  
+  int first=1;
+  int inserted=0;
+  int result;
+  int i=0;
+  
+  temp =(CLONE*) malloc(sizeof(CLONE));
+  temp->length=clone->length;
+  temp->string=(char*) malloc(sizeof(char)*(clone->length+1));
+  strcpy(temp->string, clone->string);
+  cur_range=NULL;
+  ranges=clone->ranges;
+  while (ranges!=NULL) 
+    {
+      if (over_lapped_range(ranges->string_index, ranges->start_pos, clone->length, cur_range)==1)
+	ranges=ranges->next;
+      else
+	{ i++;
+	  range = (RANGE*) malloc(sizeof(RANGE)); 
+	  range ->string_index=ranges->string_index;
+	  range->start_pos=ranges->start_pos;
+	  range->next=cur_range;
+	  cur_range=range;
+	  ranges=ranges->next;
+	}
+    }
+  temp->freq=i;
+  temp->ranges=cur_range;
+  temp->next=NULL;
+  temp->prev=NULL;
+  map_a_clone(temp, seq_array, minlen, minfreq);
+  if ((temp->length< minlen) || (temp->freq <-minfreq))
+    { free_a_clone_node(temp);
+      return clone_list_head;
+    }
+  if (clone_list_head==NULL)
+    {
+      inserted=1;
+      clone_list_head=temp;
+    }
+  else
+    {
+      cur=clone_list_head;
+      while(cur!=NULL)
+      {
+	result=sub_clone(temp, cur);
+	//printf("Results: %d \n", result);
+	if (result==0) /* clone is not a sub-clone of cur; neither the other way*/
+	  {
+	    if (cur-> next!=NULL)
+	      cur=cur->next;
+	    else
+	      {
+		if (inserted==0)
+		  {
+		    cur->next=temp;
+		    temp->prev=cur;
+		    cur=NULL;
+		    inserted=1;
+		  }
+		else
+		  cur=cur->next;
+	      }
+	  }
+	else 
+	  { if (result==1) /* temp is a sub-clone of cur; so do nothing */
+	      	cur=NULL;
+	    else    /* cur is a sun-clone of temp; do replace*/
+	      {
+		/* printf("result: %d", result); */
+		/* printf("first: %d", first);  */
+		if (first==1)
+		  { temp->next=cur->next;
+		    temp->prev=cur->prev;
+		    if (cur->prev != NULL)
+		      cur->prev->next=temp;
+		    if (cur->next !=NULL) 
+		      cur->next->prev=temp;
+		    first=0;
+		    inserted=1;
+		    if (cur->prev==NULL)
+		      clone_list_head=temp;
+		    cur->next=NULL;
+		    cur->prev=NULL;
+		    free_a_clone_node(cur);
+		    cur=temp->next;
+		  }
+		else
+		  {
+		    if (cur->next==NULL)
+		      {
+			cur->prev->next=NULL;
+			cur->prev=NULL;
+			free_a_clone_node(cur);
+			cur=NULL;
+		      }
+		    else
+		      {
+			temp1=cur->next;
+			cur->prev->next=cur->next;
+			cur->next->prev=cur->prev;
+			cur->next=NULL;
+			cur->prev=NULL;
+			free_a_clone_node(cur);
+			cur=temp1;
+		      }
+		  }
+	      }
+	  }
+      }
+    }
+   if (inserted==0)  
+     free_a_clone_node(temp); 
+  /* rintf("Inserted: %d\n", inserted); */
+   return clone_list_head;
+}
+    
+
+
+
+void collect_clones(struct stree *stree, int minlen, int minclones, char* filename, char** seq_array)
+{
+
+  enum { START, FIRST, MIDDLE, DONE, DONELEAF } state;
+  int i, num, childnum;
+  struct node *root, *child, *temp, *node;
+  struct leaf_node *leaf;
+  struct internal_node *int_node;
+  struct int_leaf *int_leaf;
+  char str_acc[4096]="\0";
+  CLONE *clone, *collected_clones=NULL;
+  int freq;
+  RANGE *range;
+  
+  /* char clone_str[4096]="\0"; */
+  int edge_len;
+  
+  /*
+   * Use a non-recursive traversal where the `isaleaf' field of each node
+   * is used as the value remembering the child currently being
+   * traversed.
+   */
+  root =stree_get_root(stree);
+  node=root;
+  /* printf("root->str_acc: %s", root->str_acc); */
+  state = START;
+  while (1) {
+    /* printf(" loop again\n"); */
+    /*
+     * The first time we get to a node.
+     */
+    if (state == START) {
+      num = kTstree_get_num_children(stree, node);
+       if (num > 0 && ((struct internal_node*)node)->leaves==NULL)
+        { 
+	  temp = node_get_parent(node);
+	  if (temp ==NULL)
+	    { 
+	      node->str_acc=(char*) malloc(sizeof(char)*(node->edgelen+1));
+	      strcpy(node->str_acc, "\0");
+	      if (node->edgestr!=NULL)
+		{ 
+		  /* printf("node->str_acc: %s\n", node->str_acc); */
+		  strncat(node->str_acc, node->edgestr, node->edgelen);
+		}
+	    }
+	  else
+	    {
+	      node->str_acc=(char*) malloc(sizeof(char)*(strlen(temp->str_acc)+node->edgelen+1));
+	      strcpy(node->str_acc, "\0");
+	      strcpy(node->str_acc, temp->str_acc);
+	      (node->str_acc)[strlen(temp->str_acc)]='\0';
+	      /* printf("node->str_acc: %s\n", node->str_acc); */
+	      strncat(node->str_acc, node->edgestr, node->edgelen);
+	    }
+	  strcpy(str_acc, node->str_acc);
+	  str_acc[strlen(node->str_acc)]='\0';
+	  state = FIRST;
+	}
+      else 
+        { state = DONELEAF;
+	  /* printf("STATE is DONELEAF\n"); */
+	  if (node_isaleaf(node))
+	    { leaf = (struct leaf_node*) node;
+	      clone = (CLONE*) malloc(sizeof(CLONE));
+	      edge_len=node_get_edgelen(node);
+	      node->str_acc=(char*) malloc(sizeof(char)*(strlen(str_acc)+edge_len+1));
+	      strcpy(node->str_acc, str_acc);
+	      /* printf("str_acc: %s\n", str_acc); */
+	      /* printf("node_edge_str: %s \n", node_get_edgestr(node)); */
+	      /* printf("edge_len: %d\n", edge_len); */
+	      strncat(node->str_acc, node_get_edgestr(node), edge_len);
+	      /* printf("node->str_acc: %s\n", node->str_acc); */
+	      clone->length = strlen(node->str_acc);
+	      clone->freq = 1;
+	      clone->string=(char *) malloc(sizeof(char)*((clone->length+1)));
+	      strcpy(clone->string,node->str_acc);
+	      range = (RANGE*) malloc(sizeof(RANGE));
+	      range->string_index = leaf->strid+1;
+	      range->start_pos = leaf-> pos+1;
+	      range->next=NULL;
+	      clone->ranges=range;
+	      clone->next=NULL;
+	      clone->prev=NULL;
+	      (leaf->n).clone= clone;
+	    }
+	  else
+	    { /* printf("This is a false leaf node\n");  */
+	      int_node=(struct internal_node*) node;
+	      clone =(CLONE *) malloc(sizeof(CLONE));
+	      edge_len=node_get_edgelen(node);
+	      node->str_acc=(char*) malloc(sizeof(char)*(strlen(str_acc)+node->edgelen+1));
+	      strcpy(node->str_acc, str_acc);
+	      strncat(node->str_acc, node_get_edgestr(node), edge_len);
+	      clone->length = strlen(node->str_acc);
+	      clone->string=(char *) malloc(sizeof(char)*(1+strlen(node->str_acc)));
+	      strcpy(clone->string,node->str_acc);
+	      int_leaf = ((struct internal_node*)node)->leaves;
+	      freq=0;
+	      RANGE *last=NULL;
+	      for (;int_leaf != NULL;int_leaf=int_leaf->next)
+		{
+		  RANGE* temp_range = (RANGE*) malloc(sizeof(RANGE));
+		  temp_range->string_index = int_leaf->strid+1;  
+		  temp_range->start_pos = int_leaf-> pos+1; 
+		  temp_range->next=last; 
+		  last=temp_range; 
+		  freq++;
+		}
+	      clone -> freq = freq;
+	      clone->ranges=last;
+	      clone -> next =NULL;
+	      clone -> prev = NULL;
+	      (int_node->n).clone=clone;
+	      if (strcmp(node_get_edgestr(node), "$") && freq>=minclones &&
+		  num_of_exprs_in_str(clone->string)>=minlen)
+		 collected_clones=add_to_clone_list(collected_clones, clone, seq_array, minlen, minclones); 
+	    }
+	}
+    }
+    /*
+     * Start or continue recursing on the children of the node.
+     */
+    if (state == FIRST || state == MIDDLE) {
+      /*
+       * Look for the next child to traverse down to.
+       */
+      if (state == FIRST)
+	{ childnum = 0;
+	}
+      else
+        { childnum = node->isaleaf;
+	}
+      /* TODO: Make this more efficient, there is no need to traverse this all time */
+      for (child = ((struct internal_node*)node)->first,i=0;child != NULL && i<childnum;child = child->next,i++);
+
+      if (child == NULL)
+        state = DONE;
+      else {
+        node->isaleaf = i + 1;
+        node = child;
+        state = START;
+      }
+    }
+
+    /*
+     * Last time we get to a node, do the post-processing and move back up,
+     * unless we're at the root of the traversal, in which case we stop.
+     */
+
+    if (state == DONE  || state == DONELEAF) {
+      if (state == DONE && node!=root)
+        {  node->isaleaf = 0; 
+	   clone =  (CLONE *) malloc(sizeof(CLONE));
+	   clone->string=(char *) malloc(sizeof(char)*(strlen(node->str_acc)+1));
+	   strcpy(clone->string, node->str_acc); 
+	   clone->length=strlen(clone->string); 
+	   freq=0; 
+	   RANGE *last=NULL, *child_range=NULL, *temp_range=NULL; 
+	   for (temp =((struct internal_node*)node)->first; temp!=NULL; temp=temp->next) 
+	    {
+	      freq=freq+(temp->clone)->freq;
+	      child_range=(temp->clone)->ranges;
+	      for(; child_range!=NULL; child_range=child_range->next)
+	  	{ temp_range = (RANGE*) malloc(sizeof(RANGE));
+	  	  temp_range->string_index = child_range->string_index;
+	  	  temp_range->start_pos = child_range-> start_pos;
+	  	  temp_range->next=last;
+	  	  last=temp_range;
+	  	}
+	    }
+	  clone-> freq=freq; 
+	  clone->ranges=last;
+	  clone -> next =NULL; 
+	  clone -> prev=NULL;
+	  node->clone=clone; 
+	  if (strcmp(node_get_edgestr(node), "$") && freq>=minclones
+	      && num_of_exprs_in_str(clone->string)>=minlen)
+	    collected_clones=add_to_clone_list(collected_clones, clone, seq_array, minlen, minclones);
+	    //free_child_clones((struct internal_node *)node);
+	}
+      if (node == root)
+        { //free_child_clones((struct internal_node *)node);
+	  break;
+	}
+      node = node_get_parent(node);
+      state = MIDDLE;
+    }
+  }
+  /* print_clones(collected_clones);  */
+  print_clones_to_file(filename, collected_clones); 
+  free_clone_nodes(collected_clones); 
+}
+
+
 

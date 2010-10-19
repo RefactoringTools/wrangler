@@ -5,13 +5,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include "suffix_tree.h"
 
 #define BUF_SIZE 250
 
-
 typedef char byte;
+
 
 int read_cmd(byte *buf, int *size);
 int write_cmd(ei_x_buff* x);
@@ -19,12 +18,103 @@ int read_exact(byte *buf, int len);
 int write_exact(byte *buf, int len);
 
 
+struct count { int n; };
+int callback(int index, int pos, void *userdata)
+{
+  struct count *c = (struct count *)userdata;
+  c->n++;
+  printf("%d) seq.: %d, pos.: %d.\n",c->n, index+1,pos);
+  return 1;
+}
+
+void free_seq_array(char **array, int size)
+{
+  int i;
+  for(i=0; i<size; i++)
+    free(array[i]);
+   free(array);
+}
+  
+int main1()
+{
+  char *filename="data.txt";
+  char *outfilename="clones.txt";
+  FILE* file = 0;
+  char* *seq_array;
+  char str[2048]="\0";
+  int array_index=0;
+  int num_of_strings=0;
+  struct stree *stree;
+  file = fopen((const char*)filename,"r");
+  /*Check for validity of the file.*/
+  if(file == 0)
+    {
+      printf("Failed to open file: %s.\n", filename);
+      return 0;
+    }
+  fscanf(file, "%d", &num_of_strings);
+  // printf("Num of strings: %d", num_of_strings);
+  seq_array = (char * *) malloc((num_of_strings+1)*sizeof(char *));
+  array_index=0;
+  while(fscanf(file, "%s", str)==1)
+    { /* printf("str: %s\n", str);  */
+      seq_array[array_index]=malloc((strlen(str)+1)*sizeof(char));
+      strcpy(seq_array[array_index], str);
+      //printf("array str: %s\n", seq_array[array_index]); 
+      array_index++;
+    }
+  fclose(file);
+  if ((stree=stree_create_from_char(seq_array, array_index)))
+    { collect_clones(stree, 4, 2, outfilename, seq_array); 
+      free_seq_array(seq_array, num_of_strings); 
+      stree_delete_tree(stree); 
+      return 1;
+    }
+  return 0;
+}
+
+
+int clone_detection_by_suffix_tree(char *filename, long minlen, long minclones, long overlap_allowed)
+{
+  FILE* file = 0;
+  char* *seq_array;
+  char str[2048]="\0";
+  int array_index=0;
+  int num_of_strings;
+  struct stree *stree;
+  file = fopen((const char*)filename,"r");
+  /*Check for validity of the file.*/
+  if(file == 0)
+    {
+      printf("Failed to open file: %s.\n", filename);
+      return 0;
+    }
+  fscanf(file, "%d", &num_of_strings);
+  /* printf("Num of strings: %d", num_of_strings); */
+  seq_array = (char * *) malloc((num_of_strings+1)*sizeof(char *));
+  array_index=0;
+  while(fscanf(file, "%s", str)==1)
+    { seq_array[array_index]=malloc((strlen(str)+1)*sizeof(char));
+      strcpy(seq_array[array_index], str);
+      array_index++;
+    }
+  fclose(file);
+  if ((stree=stree_create_from_char(seq_array, array_index)))
+    { collect_clones(stree, minlen, minclones, filename, seq_array);
+      free_seq_array(seq_array, num_of_strings);
+      stree_delete_tree(stree);
+      return 1;
+    }
+  return 0;
+}
+
+
 int main()
 {
     char  *filename;
     
     byte*     buf;
-    int       size = BUF_SIZE;
+    int       size = 500;
     char      command[MAXATOMLEN];
     int       index, version, arity;
     long      a, b, d, o;
@@ -36,17 +126,17 @@ int main()
 	 */
 	setmode(fileno(stdout), O_BINARY);
 	setmode(fileno(stdin), O_BINARY);
-#endif 
-	if ((buf = (byte *) malloc(size)) == NULL) 
+#endif
+	if ((buf = (byte *) malloc(size)) == NULL)
 	    return -1;
 	if ((filename=(char *) malloc(size)) ==NULL)
 	    return -1;
 	while (read_cmd(buf, &size) > 0) {
-	    /* Reset the index, so that ei functions can decode terms from the 
+	    /* Reset the index, so that ei functions can decode terms from the
 	     * beginning of the buffer */
 	    index = 0;
 	    
-	    /* Ensure that we are receiving the binary term by reading and 
+	    /* Ensure that we are receiving the binary term by reading and
 	     * stripping the version byte */
 	    if (ei_decode_version(buf, &index, &version)) return 1;
     
@@ -70,7 +160,7 @@ int main()
 		if (ei_x_encode_atom(&result, "ok") || ei_x_encode_long(&result, d)) return 10;
 		
 	    }  else {
-	      if (ei_x_encode_atom(&result, "error") || ei_x_encode_atom(&result, "unsupported_command")) 
+	      if (ei_x_encode_atom(&result, "error") || ei_x_encode_atom(&result, "unsupported_command"))
 		return 99;
 	    }
 	    
@@ -80,6 +170,7 @@ int main()
 	}
 	return 0;
 }
+
 
 
 /*-----------------------------------------------------------------
@@ -139,3 +230,5 @@ int write_exact(byte *buf, int len)
 
   return len;
 }
+
+
