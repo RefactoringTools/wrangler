@@ -34,16 +34,18 @@
 
 -module(refac_prettypr).
 
--compile(export_all).
+-export([format/1,print_ast/2, print_ast/3]).
 
--export([format/1,format/2,best/1,best/2,layout/1,lay_string/1,
+ %% For casestudy purpose.
+-export([no_of_changed_funs_toks/1]).
+
+%% This functions are not actually used.
+-export([format/2,best/1,best/2,layout/1,lay_string/1,
 	 layout/2,get_ctxt_precedence/1,set_ctxt_precedence/2,
 	 get_ctxt_paperwidth/1,set_ctxt_paperwidth/2,
 	 get_ctxt_linewidth/1,set_ctxt_linewidth/2,
 	 get_ctxt_hook/1,set_ctxt_hook/2,get_ctxt_user/1,
-	 set_ctxt_user/2,print_ast/2]).
-
--export([no_of_changed_funs/1]). %% For casestudy purpose.
+	 set_ctxt_user/2]).
 
 
 -import(refac_prettypr_0,
@@ -64,43 +66,42 @@
 
 -define(NOHOOK, none).
 
+-define(TabWidth, 8).
+
 -record(ctxt,
 	{prec = 0,sub_indent = 2,break_indent = 4,
 	 clause = undefined,hook = ?NOHOOK,paper = ?PAPER,
 	 ribbon = ?RIBBON,user = ?NOUSER,
 	 tokens = [],
+	 tabwidth=?TabWidth,
 	 format = unknown}).
+
 
 %% Start of added by HL
 %% ====================================================================
 %% user-program guided pretty-printing of an abstract syntax tree which
 %% must be a form list.
-print_ast(FileFmt, AST) -> 
-    print_ast(FileFmt, AST,[]).
 
-print_ast(FileFmt, AST,Options) ->
+print_ast(FileFmt,AST) ->
+    print_ast(FileFmt,AST, 8).
+
+print_ast(FileFmt, AST, TabWidth) ->
+    print_ast(FileFmt, AST, [], TabWidth).
+
+print_ast(FileFmt, AST, Options, TabWidth) ->
     Fs = refac_syntax:form_list_elements(AST),
-    vertical_concat(Fs, FileFmt, Options).
+    vertical_concat(Fs, FileFmt, Options, TabWidth).
  
 print_form(F,Ctxt,Fun) ->
     {Paper,Ribbon} = get_paper_ribbon_width(F),
     best(Fun(F,Ctxt),Paper,Ribbon).
- 
-no_of_changed_funs(AST) ->
-    Forms = refac_syntax:form_list_elements(AST),
-    Res =[case form_not_changed(Form) of 
-	      true -> 0;
-	      false -> 1
-	  end || Form <-Forms],
-    lists:sum(Res).
 
+vertical_concat(Forms, FileFmt, Options, TabWidth) ->
+    vertical_concat(Forms, FileFmt, Options, "", TabWidth).
 
-vertical_concat(Forms, FileFmt, Options) -> 
-    vertical_concat(Forms, FileFmt, Options,"").
-
-vertical_concat([], _FileFormat, _Options, Acc) -> 
+vertical_concat([], _FileFormat, _Options, Acc, _TabWidth) ->
     Acc;
-vertical_concat([Form|T], FileFormat, Options, Acc) ->
+vertical_concat([Form| T], FileFormat, Options, Acc, TabWidth) ->
     UseOriginalCode = form_not_changed(Form),
     Delimitor = case FileFormat of
 		    dos -> "\r\n";
@@ -117,18 +118,26 @@ vertical_concat([Form|T], FileFormat, Options, Acc) ->
 	      true ->
 		  refac_util:concat_toks(refac_misc:get_toks(Form));
 	      false ->
-		  Ctxt = #ctxt{hook =
-				   proplists:get_value(hook,Options,?NOHOOK),
-			       paper = proplists:get_value(paper,Options,?PAPER),
-			       ribbon = proplists:get_value(ribbon,Options,?RIBBON),
-			       user = proplists:get_value(user,Options),
-			       format = FileFormat,
-			       tokens = refac_misc:get_toks(Form)},
-		  E = print_form(Form,reset_prec(Ctxt),fun lay/2),
-		  Str1=refac_prettypr_0:layout(E, FileFormat),
-		  remove_whitespace(Str1)
+		  print_a_form(Form, FileFormat, Options, TabWidth)
 	  end,
-     vertical_concat(T, FileFormat, Options, Acc1++Str).
+    vertical_concat(T, FileFormat, Options, Acc1++Str, TabWidth).
+
+
+print_a_form(Form, FileFormat, Options) ->
+    print_a_form(Form, FileFormat, Options, ?TabWidth).
+
+print_a_form(Form, FileFormat, Options, TabWidth) ->
+    Ctxt = #ctxt{hook  = 
+		     proplists:get_value(hook,Options,?NOHOOK),
+		 paper = proplists:get_value(paper,Options,?PAPER),
+		 ribbon = proplists:get_value(ribbon,Options,?RIBBON),
+		 user = proplists:get_value(user,Options),
+		 format = FileFormat,
+		 tabwidth = TabWidth,
+		 tokens = refac_misc:get_toks(Form)},
+    E = print_form(Form,reset_prec(Ctxt),fun lay/2),
+    Str1 = refac_prettypr_0:layout(E,FileFormat,TabWidth),
+    remove_trailing_whitespace(Str1).
  
 is_special_form(Form) ->
     case refac_syntax:type(Form) of
@@ -162,11 +171,11 @@ form_not_changed(Form) ->
 		_ ->
 		    try 
 			Str = refac_util:concat_toks(Toks),
-			{ok, Toks1, _} = refac_scan:string(Str, {1,1}, 8, 'unix'),
+			{ok, Toks1, _} = refac_scan:string(Str, {1,1}, ?TabWidth, 'unix'),
 			OriginalForm = refac_epp_dodger:normal_parser(Toks1, []),
 			
 			NewStr = format(Form, []),
-			{ok, Toks2, _} = refac_scan:string(NewStr, {1,1}, 8, 'unix'),
+			{ok, Toks2, _} = refac_scan:string(NewStr, {1,1}, ?TabWidth, 'unix'),
 			NewForm = refac_epp_dodger:normal_parser(Toks2, []),
 			best(OriginalForm) == best(NewForm)
 		    of
@@ -1602,18 +1611,18 @@ get_operator_text(Node, Toks, Default) ->
 		    Pre ++ Default++Post
 	    end
     end.
-		
 
-remove_whitespace(Str) ->
-    remove_whitespace(Str, []). 
-remove_whitespace([], Acc) ->    
+remove_trailing_whitespace(Str) ->
+    remove_trailing_whitespace(Str, []).
+
+remove_trailing_whitespace([], Acc) ->
     lists:reverse(Acc);
-remove_whitespace([$,,$ ,$\r|S], Acc) ->
-    remove_whitespace(S, [$\r,$,|Acc]);
-remove_whitespace([$,,$ ,$\n|S], Acc) ->
-    remove_whitespace(S, [$\n,$,|Acc]);
-remove_whitespace([C|S], Acc) ->
-    remove_whitespace(S, [C|Acc]).
+remove_trailing_whitespace([$,,$ ,$\r| S], Acc) ->
+    remove_trailing_whitespace(S, [$\r,$,| Acc]);
+remove_trailing_whitespace([$,,$ ,$\n| S], Acc) ->
+    remove_trailing_whitespace(S, [$\n,$,| Acc]);
+remove_trailing_whitespace([C| S], Acc) ->
+    remove_trailing_whitespace(S, [C| Acc]).
 
 
 has_parentheses(Node, Toks) ->
@@ -1654,3 +1663,52 @@ followed_by_close_bracket(Node, Toks)->
 		    false
 	    end
     end.
+
+
+no_of_changed_funs_toks(AST) ->
+    Forms = refac_syntax:form_list_elements(AST),
+    Res =[case form_not_changed(Form) of 
+	      true -> {0, 0, 0};
+	      false ->
+		  {ToksRemoved, ToksAdded} =
+		      change_of_tokens(Form),
+		  {1, ToksRemoved, ToksAdded}
+	  end || Form <-Forms],
+    {ChangedFuns, TotalToksRemoved, TotalToksAdded} =
+	lists:unzip3(Res),
+    {lists:sum(ChangedFuns), lists:sum(TotalToksRemoved),
+     lists:sum(TotalToksAdded)}.
+
+change_of_tokens(Form) ->
+    OriginalToks = rm_loc_in_toks(refac_misc:get_toks(Form)),
+    {ok, NewToks0, _} = refac_scan:string(print_a_form(Form, undefined, [])),
+    NewToks = rm_loc_in_toks(NewToks0),
+    ToksRemoved = OriginalToks--NewToks,
+    ToksAdded = NewToks--OriginalToks,
+    {length(ToksRemoved), length(ToksAdded)}.
+
+
+rm_loc_in_toks(Ts) ->
+    [rm_loc_in_a_tok(T)||T<-Ts, not(is_whitespace_or_comment(T))].
+
+rm_loc_in_a_tok(T) ->
+    D = {0,0},
+    case T of 
+	{var, _L, V} -> {var, D, V};
+	{integer, _L, V} -> {integer, D, V};
+	{string, _L, V} -> {string, D, V};
+	{float, _L, V} -> {float, D, V}; 
+	{char, _L, V}  -> {char, D, V};
+	{atom, _L, V} -> {atom, D, V};
+	{A, _L} ->{A, D};
+	Other  -> 
+	    Other
+    end.
+
+
+is_whitespace_or_comment({whitespace, _, _}) ->
+    true;
+is_whitespace_or_comment({comment, _, _}) ->
+    true;
+is_whitespace_or_comment(_) -> false.
+
