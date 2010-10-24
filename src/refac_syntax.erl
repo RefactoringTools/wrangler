@@ -2363,8 +2363,8 @@ binary_field_size(Node) ->
 %%	Body = Size = syntaxTree()
 
 size_qualifier(Body, Size) ->
-    tree(size_qualifier,
-	 #size_qualifier{body = Body, size = Size}).
+    copy_pos(Body, tree(size_qualifier,
+	 #size_qualifier{body = Body, size = Size})).
 
 %% =====================================================================
 %% @spec size_qualifier_body(syntaxTree()) -> syntaxTree()
@@ -3276,7 +3276,7 @@ clause_body(Node) ->
 %% type(Node) = disjunction
 %% data(Node) = [syntaxTree()]
 
-disjunction(Tests) -> tree(disjunction, Tests).
+disjunction(Tests) -> copy_pos(hd(Tests),tree(disjunction, Tests)).
 
 %% =====================================================================
 %% @spec disjunction_body(syntaxTree()) -> [syntaxTree()]
@@ -3301,7 +3301,7 @@ disjunction_body(Node) -> data(Node).
 %% type(Node) = conjunction
 %% data(Node) = [syntaxTree()]
 
-conjunction(Tests) -> tree(conjunction, Tests).
+conjunction(Tests) -> copy_pos(hd(Tests), tree(conjunction, Tests)).
 
 %% =====================================================================
 %% @spec conjunction_body(syntaxTree()) -> [syntaxTree()]
