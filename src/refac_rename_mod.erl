@@ -70,14 +70,15 @@
 
 -spec(rename_mod/3::(modulename()|filename(), modulename(), [dir()]) -> 
 			  {error, string()} | {ok, [filename()]}).
+
 rename_mod(OldModOrFileName, NewModName, SearchPaths) ->
-    case filelib:is_file(OldModOrFileName) of 
+    case filelib:is_file(OldModOrFileName) of
 	true ->
-	    rename_mod_command_line(OldModOrFileName, NewModName, SearchPaths, 8);
+	    rename_mod_command_line(OldModOrFileName, atom_to_list(NewModName), SearchPaths, 8);
 	false ->
-	    case is_atom(OldModOrFileName) of 
+	    case is_atom(OldModOrFileName) of
 		true ->
-		    case modname_to_filename(OldModOrFileName, SearchPaths) of 
+		    case refac_misc:modname_to_filename(OldModOrFileName, SearchPaths) of
 			{ok, FileName} ->
 			    rename_mod_command_line(FileName, atom_to_list(NewModName), SearchPaths, 8);
 			{error, Msg} ->
@@ -278,7 +279,7 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, C
 		ok
 	  end,
 	  stop_atom_process(Pid),
-	  refac_util:write_refactored_files_for_preview([{{FileName, NewFileName}, AnnAST1}| TestModRes ++ Results], Cmd),
+	  refac_util:write_refactored_files_for_preview([{{FileName, NewFileName}, AnnAST1}| TestModRes ++ Results], TabWidth,Cmd),
 	  ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
 	  ChangedFiles = case length(OldNewModPairs) of
 			   2 -> [FileName, TestFileName| ChangedClientFiles];
@@ -290,7 +291,7 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, C
 	eclipse ->
 	    Results1 = [{{FileName, NewFileName}, AnnAST1}| TestModRes ++ Results],
 	    Res = lists:map(fun ({{FName, NewFName}, AST}) -> {FName, NewFName,
-							       refac_prettypr:print_ast(refac_util:file_format(FName), AST)}
+							       refac_prettypr:print_ast(refac_util:file_format(FName), AST, TabWidth)}
 			    end, Results1),
 	    {ok, Res}
     end.
@@ -563,37 +564,3 @@ output_filenames([], Acc) ->
     Acc;
 output_filenames([F|T], Acc) ->
     output_filenames(T, Acc++", "++F).
-
-modname_to_filename(ModName, Dirs)->
-    Files = refac_util:expand_files(Dirs, ".erl"),
-    Fs=[F || F<-Files,
-	     list_to_atom(filename:basename(F, ".erl"))==ModName],
-    case Fs of 
-	[] ->
-	    {error, "Could not find file whose module name is "
-	     ++atom_to_list(ModName)};
-	[FileName] ->
-	    {ok, FileName};
-	_ -> {error, "Multiple files found:" ++ 
-		  format_file_names(Fs)++"\n"}
-    end.
-			   
-
-format_file_names([]) -> "[]";
-format_file_names(Fs) ->
-    "[" ++ format_file_names_1(Fs).
-  
-format_file_names_1([F|T]) ->
-    case T of 
-	[] ->
-	    io_lib:format("~p]", [F])++
-		format_file_names_1(T);
-	_ ->
-	    io_lib:format("~p,", [F])++
-		format_file_names_1(T)
-    end.	 
-			     
-			    
-    
-    
-

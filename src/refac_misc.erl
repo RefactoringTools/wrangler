@@ -43,7 +43,7 @@
 	 get_env_vars/1,get_var_exports/1,get_bound_vars/1,get_free_vars/1,
 	 is_expr/1,is_expr_or_match/1, is_pattern/1, is_exported/2, inscope_funs/1,update_ann/2,
 	 delete_from_ann/2, callback_funs/1, is_callback_fun/3, rewrite/2,
-	 get_range/1, max/2, min/2]).
+	 get_range/1, max/2, min/2, modname_to_filename/2]).
 
 -include("../include/wrangler.hrl").
 
@@ -676,3 +676,38 @@ max(_,Y) -> Y.
 min(X,Y) when X>Y ->
      Y;
 min(X,_) -> X.
+
+
+modname_to_filename(ModName, Dirs)->
+    Files = refac_util:expand_files(Dirs, ".erl"),
+    Fs=[F || F<-Files,
+	     list_to_atom(filename:basename(F, ".erl"))==ModName],
+    case Fs of 
+	[] ->
+	    {error, "Could not find file whose module name is "
+	     ++atom_to_list(ModName)};
+	[FileName] ->
+	    {ok, FileName};
+	_ -> {error, "Multiple files found:" ++ 
+		  format_file_names(Fs)++"\n"}
+    end.
+			   
+
+format_file_names([]) -> "[]";
+format_file_names(Fs) ->
+    "[" ++ format_file_names_1(Fs).
+  
+format_file_names_1([F|T]) ->
+    case T of 
+	[] ->
+	    io_lib:format("~p]", [F])++
+		format_file_names_1(T);
+	_ ->
+	    io_lib:format("~p,", [F])++
+		format_file_names_1(T)
+    end.	 
+			     
+			    
+    
+    
+
