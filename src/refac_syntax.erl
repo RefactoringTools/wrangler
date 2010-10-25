@@ -220,7 +220,7 @@
 %% where `Pos' `Ann' and `Comments' are the corresponding values of a
 %% `tree' or `wrapper' record.
 
--record(attr, {pos = 0    :: term(),
+-record(attr, {pos = {0,0}    :: term(),
 	       ann = []   :: [term()],
 	       com = none :: 'none' | #com{}}).
 
