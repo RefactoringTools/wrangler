@@ -660,34 +660,35 @@ do_add_change_module_qualifier(Node, {FileName, MFAs=[{ModName,_,_}|_], TargetMo
 				end;
 			_ -> {Node, false}
 		    end;
-	    module_qualifier ->
-		Mod = refac_syntax:module_qualifier_argument(Name),
-		Body = refac_syntax:module_qualifier_body(Name),
-		case refac_syntax:type(Mod) of
-		  atom ->
-		      case refac_syntax:atom_value(Mod) of
-			  ModName ->
-			    B = refac_syntax:arity_qualifier_body(Body),
-			    A = refac_syntax:arity_qualifier_argument(Body),
-			    case {refac_syntax:type(B), refac_syntax:type(A)} of
-			      {atom, integer} ->
-				    B1 = refac_syntax:atom_value(B),
-				    A1 = refac_syntax:integer_value(A),
-				    case lists:member({ModName, B1, A1}, MFAs) of
-					true ->
-					    {copy_pos_attrs(
-					       Node,refac_syntax:implicit_fun(
-						      copy_pos_attrs(
-							Name,refac_syntax:module_qualifier(
-							       copy_pos_attrs(Mod,refac_syntax:atom(TargetModName)), Body)))), true};
-				    _ -> {Node, false}
-				  end;
-			      _ -> {Node, false}
+		module_qualifier ->
+		    Mod = refac_syntax:module_qualifier_argument(Name),
+		    Body = refac_syntax:module_qualifier_body(Name),
+		    case refac_syntax:type(Mod) of
+			atom ->
+			    case refac_syntax:atom_value(Mod) of
+				ModName ->
+				    B = refac_syntax:arity_qualifier_body(Body),
+				    A = refac_syntax:arity_qualifier_argument(Body),
+				    case {refac_syntax:type(B), refac_syntax:type(A)} of
+					{atom, integer} ->
+					    B1 = refac_syntax:atom_value(B),
+					    A1 = refac_syntax:integer_value(A),
+					    case lists:member({ModName, B1, A1}, MFAs) of
+						true ->
+						    {copy_pos_attrs(
+						       Node,refac_syntax:implicit_fun(
+							      copy_pos_attrs(
+								Name,refac_syntax:module_qualifier(
+								       copy_pos_attrs(Mod,refac_syntax:atom(TargetModName)), Body)))), true};
+						_ -> {Node, false}
+					    end;
+					_ -> {Node, false}
+				    end;
+				_ -> {Node, false}
 			    end;
-			_ -> {Node, false}
-		      end
-		end
-	  end;
+			_ -> {Node, false} 
+		    end
+	    end;
 	tuple -> do_rename_fun_in_tuples(Node, {FileName, SearchPaths, MFAs, TargetModName, Pid, TabWidth});
 	_ -> {Node, false}
     end.
