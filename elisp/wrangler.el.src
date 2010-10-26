@@ -3,6 +3,7 @@
 ;; Prerequisites
 
 (require 'vc-hooks)
+(require 'wrangler-clearcase-hooks)
 (require 'vc)
 (require 'erlang)
 (require 'read-char-spec)
@@ -10,29 +11,45 @@
 
 (provide 'wrangler)
 
-
 (defgroup wrangler nil
   "Wrangler options.")
-
+ 
 (defcustom wrangler-search-paths (cons (expand-file-name ".") nil )
 	"List of directories to search for .erl and .hrl files to refactor."
 	:type '(repeat directory)
 	:group 'wrangler)
 
+
+(defcustom version-control-system 'none
+  "* FOR CASESTUDY USE ONLY.* Version control system used for storing casestudy results."
+  :type '(choice
+	  (const none)
+	  (const ClearCase)
+	  (const Git)
+	  (const SVN))
+  :group 'wrangler)
+
 (defcustom dirs-to-monitor nil
-	" (FOR INTERNAL USE ONLY, PLEASE LEAVE IT EMPTY.) List of directories to be monitored by Wrangler to log refactoring activities."
-	:type '(repeat directory)
-	:group 'wrangler)
+  "*FOR CASESTUDY USE ONLY.* List of directories to be monitored by Wrangler to log refactoring activities."
+  :type '(repeat directory)
+  :group 'wrangler)
+
+
+(defcustom refactor-log-file ""
+  "*FOR CASESTUDY WITH ClearCase ONLY.* Path and name of the refactoring log file."
+  :type '(file :must-match t)
+  :group 'wrangler)
+
 
 (defcustom refac-monitor-repository-path ""     
-      " (FOR INTERNAL USE ONLY, PLEASE LEAVE IT EMPTY.) Path to the wrangler monitor"
-      :type 'directory
-      :group 'wrangler)
+  "*FOR CASESTUDY WITH Git/SVN ONLY.* Path to the Wrangler monitor reposiotry"
+  :type 'directory
+  :group 'wrangler)
 
 (defun wrangler-customize ()
- 	  "Customization of group `wrangler' for the Erlang refactorer."
-	  (interactive)
- 	  (customize-group "wrangler"))
+  "Customization of group `wrangler' for the Erlang refactorer."
+  (interactive)
+  (customize-group 'wrangler))
 
 (require 'erl)
 (require 'erl-service)
@@ -41,7 +58,13 @@
 (unless (fboundp 'define-minor-mode)
   (defalias 'define-minor-mode 'easy-mmode-define-minor-mode))
 
+(setq kill-buffer-query-functions 
+      (remove 'process-kill-buffer-query-function 
+	      kill-buffer-query-functions)) 
+
 (setq modified-files nil)
+(setq files-to-write nil)
+(setq files-to-rename nil)
 (setq refactoring-committed nil)
 (setq unopened-files nil)
 (setq ediff-ignore-similar-regions t)
@@ -88,56 +111,93 @@
   (if monitored 
       (car dirs)
     nil))
-	    
-	    
-(defun commit()
-  "commit the refactoring result."
-      (erl-spawn
-	(erl-send-rpc wrangler-erl-node 'wrangler_preview_server 'commit (list))
-	(erl-receive ()
-	    ((['rex ['badrpc rsn]]
-	      (message "Commit failed: %S" rsn))
-	     (['rex ['error rsn]]
-	      (message "Commit failed: %s" rsn))
-	     (['rex ['ok files logmsg]]
-	      ;; check in into the refactor monitoring repository before commiting changes.
-	      (condition-case nil
-		  (update-repository files logmsg)
-		(error (message-box "The refactor monitor of Wrangler is not working properly!"))
-		)
-	      (dolist (f files)
-		(progn
-		  (setq old-file-name (elt f 0))
-		  (setq new-file-name (elt f 1))
-		  (setq swp-file-name (elt f 2))
-		  (let ((swp-buff (get-file-buffer-1 swp-file-name)))
-		    ;; (message "swp-buff %s" swp-buff)
-		    (if swp-buff (kill-buffer swp-buff)
-		      nil))
-		  (delete-file  swp-file-name)
-		  (let ((buffer (get-file-buffer-1 old-file-name)))
-		    (if buffer
-			(if (equal old-file-name new-file-name)
-			    (with-current-buffer buffer (revert-buffer nil t t))
-			  (with-current-buffer buffer
-			    (set-visited-file-name new-file-name)
-			    (delete-file old-file-name)
-			    (revert-buffer nil t t)))
-		      nil))))
-	          (setq refactoring-committed t)
-		  (dolist (uf unopened-files)
-		    (kill-buffer (get-file-buffer-1 uf)))
-		  (setq unopened-files nil)
-		  (setq refactor-mode nil)
- 		  (if (equal has-warning 'true)
-		      (progn
-			(message "Refactoring succeeded, but please read the warning message in the *erl-output* buffer.")
-			(setq has-warning 'false))
-		    nil
-		   ;; (message "Refactoring succeeded.")
-		    )
-		  )))))
 
+(defun log-search-result(curfilename logmsg)
+  (let ((dir (is-a-monitored-file curfilename)))
+    (message-box "Dir: %s" dir)
+    (if (equal nil dir)
+	nil
+      (cond 
+       ((equal version-control-system 'ClearCase)
+	(add-logmsg-to-logfile-clearcase logmsg))
+       ((or (equal version-control-system 'Git)
+	    (equal version-control-system 'SVN))
+	(write-to-refac-logfile dir logmsg "Clone Detection"))
+       (t nil)
+       ))))
+  
+(defun add-logmsg-to-logfile-clearcase(logmsg)
+  "Add logmsg to the refactor log file which is stored in a clearase repository." 
+  (run-hook-with-args 'before-commit-functions (list refactor-log-file) nil)
+  (run-hook-with-args 'after-commit-functions refactor-log-file logmsg)
+)
+ 
+(defun prepare-to-commit()
+  ";make sure the files are writeable when cleaecase is used as the repository."
+  (run-hook-with-args 'before-commit-functions files-to-write files-to-rename)
+  (setq files-to-write nil)
+  (setq files-to-rename nil)
+  )
+
+(defun commit() 
+  "commit the refactoring result."
+  (if (equal version-control-system 'ClearCase)
+      (prepare-to-commit)
+    nil
+    )
+  (do-commit)
+  )
+
+    
+(defun do-commit()
+  "commit the refactoring result."
+  (erl-spawn
+    (erl-send-rpc wrangler-erl-node 'wrangler_preview_server 'commit (list))
+    (erl-receive ()
+	((['rex ['badrpc rsn]]
+	  (message "Commit failed: badrpc, %s" rsn))
+	 (['rex ['error rsn]]
+	  (message "Commit failed: error, %s" rsn))
+	 (['rex ['ok files logmsg]]
+	 ;; (condition-case nil
+	      (update-repository files logmsg)
+	   ;; (error (message-box "The refactor monitor of Wrangler is not working properly!"))
+	   ;; )
+	  (delete-swp-file-and-buffers files)
+	  (setq refactoring-committed t)
+	  (dolist (uf unopened-files)
+	    (kill-buffer (get-file-buffer-1 uf)))
+	  (setq unopened-files nil)
+	  (setq refactor-mode nil) 
+	  (if (equal has-warning 'true)
+	      (progn
+		(message "Refactoring succeeded, but please read the warning message in the *erl-output* buffer.")
+		(setq has-warning 'false))
+  	    nil
+  	    ))))))
+  
+
+(defun delete-swp-file-and-buffers (files)
+ "delete those .swp file and buffers generated by the refactorer."
+ (dolist (f files)
+   (progn
+     (setq old-file-name (elt f 0))
+     (setq new-file-name (elt f 1))
+     (setq swp-file-name (elt f 2))
+     (let ((swp-buff (get-file-buffer-1 swp-file-name)))
+       (if swp-buff (kill-buffer swp-buff)
+	 nil))
+     (delete-file  swp-file-name)
+     (let ((buffer (get-file-buffer-1 old-file-name)))
+       (if buffer
+	   (if (equal old-file-name new-file-name)
+	       (with-current-buffer buffer (revert-buffer nil t t))
+	     (with-current-buffer buffer
+	       (set-visited-file-name new-file-name)
+	       ;;(delete-file old-file-name)
+	       (revert-buffer nil t t)))
+	 nil)))))
+ 
 (defun abort-changes()
   "abort the refactoring results"
   (erl-spawn
@@ -150,7 +210,7 @@
 	  (setq refactor-mode nil)
 	  (message "Aborting refactoring failed: %s" rsn))
 	 (['rex ['ok files]]
-	  (dolist (f files)
+	  (dolist (f files) 
 	    (progn
 	      (let ((buff (get-file-buffer-1 f)))
 		(if buff (kill-buffer (get-file-buffer-1 f))
@@ -220,9 +280,11 @@
       ("Detect Similar Code in Dirs" erl-refactor-inc-sim-code-detection-in-dirs)
       ("Similar Expression Search in Current Buffer" erl-refactor-similar-expression-search)
       ("Similar Expression Search in Dirs" erl-refactor-similar-expression-search-in-dirs)
+      ("Detect Similar Code in Current Buffer (Old)" erl-refactor-sim-code-detection-in-buffer)
+      ("Detect Similar Code in Dirs (Old)" erl-refactor-sim-code-detection-in-dirs)
       ))
     nil
-    ("Refactorings for QuickCheck" 
+    ("Refactorings for QuickCheck"  
      (
       ("Introduce ?LET" erl-refactor-introduce-let)
       ("Merge ?LETs"    erl-refactor-merge-let)
@@ -323,17 +385,14 @@
 	)
    (error nil))
   (sleep-for 1.0)
-  (condition-case nil   ;; (get-buffer "*Wrangler-Erl-Shell*")
+  (condition-case nil  
       (kill-buffer "*Wrangler-Erl-Shell*")
     (error nil))
   (message "Wrangler stopped."))
 
 (defun erlang-refactor-on()
   (interactive)
-  ;;(if (get-buffer "*Wrangler-Erl-Shell*")
-  ;;    (kill-buffer "*Wrangler-Erl-Shell*"))
-  
-  (condition-case nil   ;; (get-buffer "*Wrangler-Erl-Shell*")
+  (condition-case nil   
       (kill-buffer "*Wrangler-Erl-Shell*")
     (error nil)
    )
@@ -381,9 +440,9 @@
 
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 0.9.0"))
+  (message "Wrangler version 0.9.1"))
 
-(setq wrangler-version  "(wrangler-0.9.0) ")
+(setq wrangler-version  "(wrangler-0.9.1) ")
 
 (defun wrangler-menu-init()
   "Init Wrangler menus."
@@ -446,37 +505,69 @@
   (interactive)
   (let (buffer (current-buffer))
     (if (y-or-n-p "Undo a refactoring will also undo the editings done after the refactoring, undo anyway?")
-	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_undo_server 'undo (list))
-	  (erl-receive (buffer)
-	      ((['rex ['badrpc rsn]]
-		(message "Undo failed: %S" rsn))
-	       (['rex ['error rsn]]
-		(message "Undo failed: %s" rsn))
-	       (['rex ['ok modified1 logmsg curfile]]
-		(dolist (f modified1)
-		  (let ((oldfilename (car f))
-			(newfilename (car (cdr f)))
-			(buffer (get-file-buffer-1 (car (cdr f)))))
-		    (if buffer (if (not (equal oldfilename newfilename))
-				   (with-current-buffer buffer
-				     (progn (set-visited-file-name oldfilename)
-					    (revert-buffer nil t t)))
-				 (with-current-buffer buffer (revert-buffer nil t t)))
-		      nil)))
-		(let ((dir (is-a-monitored-file curfile)))
-		  (if (equal nil dir)
-		      nil
-		    (condition-case nil
-			(progn
-			  (let ((reason (read-string "Reason for undo: " nil nil "" nil)))
-			    (write-to-refac-logfile dir (concat "UNDO: " logmsg "Reason: " reason)))
-			  )
-		      (error nil))))
-		    (message "Undo succeeded")))))
-      (message "Undo aborted."))))
+	(progn
+	  (if (equal version-control-system 'ClearCase)
+	      (erl-spawn
+		(erl-send-rpc wrangler-erl-node 'wrangler_undo_server 'files_to_change (list))
+		(erl-receive (buffer)
+		    ((['rex ['badrpc rsn]]
+		      (message "Undo failed: %S" rsn))
+		     (['rex ['error rsn]]
+		      (message "Undo failed: %s" rsn))
+		     (['rex ['ok files-to-recover  filenames-to-recover]]
+		      (progn 
+			(setq files-to-write files-to-recover)
+			(setq files-to-rename filenames-to-recover)
+			(prepare-to-commit) )))))
+	    nil
+	    )
+	  (erl-spawn
+	    (erl-send-rpc wrangler-erl-node 'wrangler_undo_server 'undo_emacs (list))
+	    (erl-receive (buffer)
+		((['rex ['badrpc rsn]]
+		  (message "Undo failed: %S" rsn))
+		 (['rex ['error rsn]]
+		  (message "Undo failed: %s" rsn))
+		 (['rex ['ok modified1 logmsg curfile]]
+		  (dolist (f modified1)
+		    (let ((oldfilename (car f))
+			  (newfilename (car (cdr f)))
+			  (buffer (get-file-buffer-1 (car (cdr f)))))
+		      (if buffer (if (not (equal oldfilename newfilename))
+				     (with-current-buffer buffer
+				       (progn (set-visited-file-name oldfilename)
+					      (revert-buffer nil t t)))
+				   (with-current-buffer buffer (revert-buffer nil t t)))
+			nil)))
+		  (let ((dir (is-a-monitored-file curfile)))  
+		    (if (equal nil dir)
+			nil
+		      (cond  
+		       ((equal version-control-system 'ClearCase)
+			(let* ((reason (read-string "Reason for undo: " nil nil "" nil))
+			      (new-logmsg (concat "UNDO: " logmsg "Reason: " reason "\n")))
+			  (add-logmsg-to-logfile-clearcase new-logmsg)))
+		       ((or (equal version-control-system 'Git)
+			    (equal version-control-system 'SVN))
+			(let ((reason (read-string "Reason for undo: " nil nil "" nil)))
+			  (write-to-refac-logfile dir (concat "UNDO: " logmsg "Reason: " reason "\n") "UNDO"))
+			)
+		       (t nil))
+		      (message "Undo succeeded")))))))
+	  )
+      (message "Undo aborted."))
+    )
+  )
 
-(defun preview-commit-cancel(current-file-name modified)
+(defun preview-commit-cancel(current-file-nane modified renamed)
+  "preview, commit or cancel the refactoring result"
+  (setq files-to-write modified)
+  (setq files-to-rename renamed)
+  (preview-commit-cancel-1 current-file-name modified)
+  )
+
+(defun preview-commit-cancel-1 (current-file-name modified)
+  "preview, commit or cancel the refactoring result"
   (let ((answer (read-char-spec "Do you want to preview(p)/commit(c)/cancel(n) the changes to be performed?(p/c/n):"
 		  '((?p p "Answer p to preview the changes")
 		    (?c c "Answer c to commit the changes without preview")
@@ -535,7 +626,7 @@
 		(progn
 		  (if (equal modified nil)
 		      (message "Refactoring finished, and no file has been changed.")
-		    (preview-commit-cancel current-file-name modified)
+		    (preview-commit-cancel current-file-name modified nil)
 		    (with-current-buffer (get-file-buffer-1 current-file-name)
 		      (goto-line line-no)
 		      (goto-column column-no))))
@@ -572,7 +663,7 @@
 			     (['rex ['ok modified warning]]
 			      (progn
 				(setq has-warning warning)
-				(preview-commit-cancel current-file-name modified)
+				(preview-commit-cancel current-file-name modified nil)
 				(with-current-buffer (get-file-buffer-1 current-file-name)
 				  (goto-line line-no)
 				  (goto-column column-no)))))))
@@ -581,7 +672,7 @@
 	       (['rex ['ok modified warning]]
 		(progn
 		  (setq has-warning warning)
-		  (preview-commit-cancel current-file-name modified)
+		  (preview-commit-cancel current-file-name modified nil)
 		  (with-current-buffer (get-file-buffer current-file-name)
 		    (goto-line line-no)
 		    (goto-column column-no))))
@@ -615,10 +706,10 @@
 			    (message "Refactoring failed: %S" rsn))
 			   (['rex ['error rsn]]
 			    (message "Refactoring failed: %s" rsn))
-			   (['rex ['ok modified warning]]
+			   (['rex ['ok modified renamed  warning]]
 			    (progn 
 			      (setq has-warning warning)
-			      (preview-commit-cancel current-file-name modified)
+			      (preview-commit-cancel current-file-name modified renamed)
 			    )))
 		      (message "Refactoring aborted.")
 		      )))))
@@ -633,10 +724,10 @@
 			  (message "Refactoring failed: %S" rsn))
 			 (['rex ['error rsn]]
 			  (message "Refactoring failed: %s" rsn))
-			 (['rex ['ok modified warning]]
+			 (['rex ['ok modified renamed warning]]
 			  (progn 
 			    (setq has-warning warning)
-			    (preview-commit-cancel current-file-name modified))
+			    (preview-commit-cancel current-file-name modified renamed))
 			  ))))
 		(erl-spawn
 		  (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring(list 'refac_rename_mod 
@@ -646,17 +737,17 @@
 			  (message "Refactoring failed: %S" rsn))
 			 (['rex ['error rsn]]
 			  (message "Refactoring failed: %s" rsn))
-			 (['rex ['ok modified warning]]
+			 (['rex ['ok modified renamed warning]]
 			  (progn 
 			    (setq has-warning warning)
-			    (preview-commit-cancel current-file-name modified)
+			    (preview-commit-cancel current-file-name modified renamed)
 			    )))))
 			   
 		)))
-	   (['rex ['ok modified warning]]
+	   (['rex ['ok modified renamed warning]]
 	    (progn
 	      (setq has-warning warning)
-	      (preview-commit-cancel current-file-name modified)
+	      (preview-commit-cancel current-file-name modified renamed)
 	      )))))
     (message "Refactoring aborted."))))
 
@@ -689,14 +780,14 @@
 		       (message "Refactoring failed: %s" rsn))
 		      (['rex ['ok modified]]
 		       (progn
-			 (preview-commit-cancel current-file-name modified)
+			 (preview-commit-cancel current-file-name modified nil)
 			 (with-current-buffer (get-file-buffer current-file-name)
 			   (goto-line line-no)
 			   (goto-column column-no)))))))
 	     (message "Refactoring aborted!")))
 	   (['rex ['ok modified]]
 	    (progn
-	      (preview-commit-cancel current-file-name modified)
+	      (preview-commit-cancel current-file-name modified nil)
 	      (with-current-buffer (get-file-buffer current-file-name)
 		(goto-line line-no)
 		(goto-column column-no))))
@@ -725,7 +816,7 @@
 		(progn
 		  (if (equal modified nil)
 		      (message "Refactoring finished, and no file has been changed.")
-		    (preview-commit-cancel current-file-name modified))
+		    (preview-commit-cancel current-file-name modified nil))
 		  (with-current-buffer (get-file-buffer current-file-name)
 		    (goto-line line-no)
 		    (goto-column column-no))))
@@ -776,7 +867,7 @@
 					(message "Refactoring failed: %s" rsn))
 				       (['rex ['ok modified]]
 					(progn
-					  (preview-commit-cancel current-file-name modified)
+					  (preview-commit-cancel current-file-name modified nil)
 					  (with-current-buffer (get-file-buffer current-file-name)
 					    (goto-line start-line-no)
 					    (goto-column start-column-no)))
@@ -784,7 +875,7 @@
 			      (message "Refactoring aborted!")))
 			   (['rex ['ok modified]]
 			    (progn
-			      (preview-commit-cancel current-file-name modified)
+			      (preview-commit-cancel current-file-name modified nil)
 			      (with-current-buffer (get-file-buffer current-file-name)
 				(goto-line start-line-no)
 				(goto-column start-column-no)))
@@ -802,7 +893,7 @@
 			    (message "Refactoring failed: %s" rsn))
 			   (['rex ['ok modified]]
 			    (progn
-			      (preview-commit-cancel current-file-name modified)
+			      (preview-commit-cancel current-file-name modified nil)
 			      (with-current-buffer (get-file-buffer current-file-name)
 				(goto-line start-line-no)
 				(goto-column start-column-no)))
@@ -810,7 +901,7 @@
 		  (message "Refactoring aborted!")))
 	       (['rex ['ok modified]]
 		 (progn
-		   (preview-commit-cancel current-file-name modified)
+		   (preview-commit-cancel current-file-name modified nil)
 		   (with-current-buffer (get-file-buffer current-file-name)
 		     (goto-line start-line-no)
 		     (goto-column start-column-no))))
@@ -858,14 +949,14 @@
 					    (message "Refactoring failed: %s" rsn))
 					   (['rex ['ok modified]]
 					    (progn
-					      (preview-commit-cancel current-file-name modified)
+					      (preview-commit-cancel current-file-name modified nil)
 					      (with-current-buffer (get-file-buffer current-file-name)
 						(goto-line line-no)
 						(goto-column column-no)))))))
 				  (message "Refactoring aborted."))))
 			     (['rex ['ok modified]]
 			      (progn
-				(preview-commit-cancel current-file-name modified)
+				(preview-commit-cancel current-file-name modified nil)
 				(with-current-buffer (get-file-buffer current-file-name)
 				  (goto-line line-no)
 				  (goto-column column-no)))))))
@@ -883,14 +974,14 @@
 			      (message "Refactoring failed: %s" rsn))
 			     (['rex ['ok modified]]
 			      (progn
-				(preview-commit-cancel current-file-name modified)
+				(preview-commit-cancel current-file-name modified nil)
 				(with-current-buffer (get-file-buffer current-file-name)
 				  (goto-line line-no)
 				  (goto-column column-no)))))))
 		    (message "Refactoring aborted."))))	
 	       (['rex ['ok modified]]
 		(progn
-		  (preview-commit-cancel current-file-name modified)
+		  (preview-commit-cancel current-file-name modified nil)
 		  (with-current-buffer (get-file-buffer current-file-name)
 		    (goto-line line-no)
 		    (goto-column column-no))))
@@ -983,7 +1074,7 @@
 		       (['rex ['error rsn]]
 			(message "Refactoring failed: %s" rsn))
 		       (['rex ['ok modified]]
-			(preview-commit-cancel current-file-name modified)
+			(preview-commit-cancel current-file-name modified nil)
 			(with-current-buffer (get-file-buffer current-file-name)
 			  (goto-line start-line-no)
 			  (goto-column start-col-no)))))))
@@ -999,7 +1090,7 @@
 		       (['rex ['error rsn]]
 			(message "Refactoring failed: %s" rsn))
 		       (['rex ['ok modified]]
-			(preview-commit-cancel current-file-name modified)
+			(preview-commit-cancel current-file-name modified nil)
 			(with-current-buffer (get-file-buffer current-file-name)
 			  (goto-line start-line-no)
 			  (goto-column start-col-no)))))))))
@@ -1028,7 +1119,7 @@
 			       (['rex ['error rsn]]
 				(message "Refactoring failed: %s" rsn))
 			       (['rex ['ok modified]]
-				(preview-commit-cancel current-file-name modified)
+				(preview-commit-cancel current-file-name modified nil)
 				(with-current-buffer (get-file-buffer current-file-name)
 				  (goto-line start-line-no)
 				  (goto-column start-col-no)))))))
@@ -1044,7 +1135,7 @@
 			       (['rex ['error rsn]]
 				(message "Refactoring failed: %s" rsn))
 			       (['rex ['ok modified]]
-				(preview-commit-cancel current-file-name modified)
+				(preview-commit-cancel current-file-name modified nil)
 				(with-current-buffer (get-file-buffer current-file-name)
 				  (goto-line start-line-no)
 				  (goto-column start-col-no))))))))
@@ -1060,7 +1151,7 @@
 			       (['rex ['error rsn]]
 				(message "Refactoring failed: %s" rsn))
 			       (['rex ['ok modified]]
-				(preview-commit-cancel current-file-name modified)
+				(preview-commit-cancel current-file-name modified nil)
 				(with-current-buffer (get-file-buffer current-file-name)
 				  (goto-line start-line-no)
 				  (goto-column start-col-no)))))))
@@ -1079,7 +1170,7 @@
 			       (['rex ['error rsn]]
 				(message "Refactoring failed: %s" rsn))
 			       (['rex ['ok modified]]
-				(preview-commit-cancel current-file-name modified)
+				(preview-commit-cancel current-file-name modified nil)
 				(with-current-buffer (get-file-buffer current-file-name)
 				  (goto-line start-line-no)
 				  (goto-column start-col-no)))))))
@@ -1095,7 +1186,7 @@
 			     (['rex ['error rsn]]
 			      (message "Refactoring failed: %s" rsn))
 			     (['rex ['ok modified]]
-			      (preview-commit-cancel current-file-name modified)
+			      (preview-commit-cancel current-file-name modified nil)
 			      (with-current-buffer (get-file-buffer current-file-name)
 				(goto-line start-line-no)
 				(goto-column start-col-no))))))))
@@ -1111,7 +1202,7 @@
 			 (['rex ['error rsn]]
 			  (message "Refactoring failed: %s" rsn))
 			 (['rex ['ok modified]]
-			  (preview-commit-cancel current-file-name modified)
+			  (preview-commit-cancel current-file-name modified nil)
 			  (with-current-buffer (get-file-buffer current-file-name)
 			    (goto-line start-line-no)
 			    (goto-column start-col-no)))))))
@@ -1136,12 +1227,12 @@
 		   (['rex ['error rsn]]
 		    (message "Refactoring failed: %s" rsn))
 		   (['rex ['ok modified]]
-		    (preview-commit-cancel current-file-name modified)
+		    (preview-commit-cancel current-file-name modified nil)
 		    (with-current-buffer (get-file-buffer current-file-name)
 		      (goto-line start-line-no)
 		      (goto-column start-col-no)))))))
 	   (['rex ['ok modified]]
-	    (preview-commit-cancel current-file-name modified)
+	    (preview-commit-cancel current-file-name modified nil)
 	    (with-current-buffer (get-file-buffer current-file-name)
 	      (goto-line start-line-no)
 	      (goto-column start-col-no))))))
@@ -1182,12 +1273,12 @@
 			 (['rex ['error rsn]]
 			  (message "Refactoring failed: %s" rsn))
 			 (['rex ['ok modified]]
-			  (preview-commit-cancel current-file-name modified)
+			  (preview-commit-cancel current-file-name modified nil)
 			  ))))
 		(message "Refactoring aborted.")
 		)))
 	       (['rex ['ok modified]]
-		(preview-commit-cancel current-file-name modified)
+		(preview-commit-cancel current-file-name modified nil)
 		(with-current-buffer (get-file-buffer current-file-name)
 		  (goto-line start-line-no)
 		  (goto-column start-col-no))))))
@@ -1215,7 +1306,7 @@
 	       (['rex ['error rsn]]
 		(message "Refactoring failed: %s" rsn))
 	       (['rex ['ok modified]]
-		(preview-commit-cancel current-file-name modified)
+		(preview-commit-cancel current-file-name modified nil)
 		(with-current-buffer (get-file-buffer current-file-name)
 		  (goto-line start-line-no)
 		  (goto-column start-col-no))))))
@@ -1239,7 +1330,7 @@
 		(message "Refactoring failed: %s" rsn))
 	       (['rex ['ok modified]]
 		(progn	   
-		  (preview-commit-cancel current-file-name modified)
+		  (preview-commit-cancel current-file-name modified nil)
 		  (with-current-buffer (get-file-buffer current-file-name)
 		    (goto-line line-no)
 		    (goto-column column-no))))
@@ -1257,7 +1348,7 @@
 			     (['rex ['error rsn]]
 			      (message "Refactoring failed: %s" rsn))
 			     (['rex ['ok modified]]
-			      (preview-commit-cancel current-file-name modified)
+			      (preview-commit-cancel current-file-name modified nil)
 			      (with-current-buffer (get-file-buffer current-file-name)
 				(goto-line line-no)
 				(goto-column column-no)))))))))
@@ -1288,7 +1379,7 @@
 	       (['rex ['error rsn]]
 		(message "Refactoring failed: %s" rsn))
 	       (['rex ['ok modified]]
-		(preview-commit-cancel current-file-name modified)
+		(preview-commit-cancel current-file-name modified nil)
 		(with-current-buffer (get-file-buffer current-file-name)
 		  (goto-line start-line-no)
 		  (goto-column start-col-no))))))
@@ -1324,7 +1415,7 @@
 		       (['rex ['error rsn]]
 			(message "Refactoring failed: %s" rsn))
 		       (['rex ['ok modified]]
-			(preview-commit-cancel current-file-name modified)
+			(preview-commit-cancel current-file-name modified nil)
 			(with-current-buffer (get-file-buffer current-file-name)
 			  (goto-line line-no)
 			  (goto-column column-no))))))))
@@ -1369,7 +1460,7 @@
 		      (['rex ['error rsn]]
 		       (message "Refactoring failed: %s" rsn))
 		      (['rex ['ok modified]]
-		       (preview-commit-cancel current-file-name modified)
+		       (preview-commit-cancel current-file-name modified nil)
 		       (with-current-buffer (get-file-buffer current-file-name)
 			 (goto-line line-no)
 			 (goto-column column-no))))))))
@@ -1398,7 +1489,7 @@
 		     (['rex ['error rsn]]
 		      (message "Refactoring failed: %s" rsn))
 		     (['rex ['ok modified]]
-		      (preview-commit-cancel current-file-name modified)
+		      (preview-commit-cancel current-file-name modified nil)
 		      (with-current-buffer (get-file-buffer current-file-name)
 			(goto-line line-no)
 			(goto-column column-no))))))))
@@ -1484,12 +1575,13 @@
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'wrangler_distel 'duplicated_code_in_buffer
 									   (list current-file-name mintokens minclones maxpars tab-width)))
-	  (erl-receive (buffer)
+	  (erl-receive (buffer current-file-name)
 	      ((['rex ['badrpc rsn]]
 		(message "Duplicated code detection failed: %S" rsn))
 	       (['rex ['error rsn]]
 		(message "Duplicated code detection failed: %s" rsn))
 	       (['rex ['ok result]]
+		(log-search-result current-file-name result)
 		(message "Duplicated code detection finished!")))))
       (message "Duplicated code detection aborted."))))
 
@@ -1514,6 +1606,7 @@
 		   (['rex ['error rsn]]
 		    (message "Duplicated code detection failed: %s" rsn))
 		   (['rex ['ok result]]
+		    (log-search-result current-file-name result)
 		    (message "Duplicated code detection finished.")))))
 	  (message "Duplicated code detection aborted.")
 	  ))
@@ -1521,32 +1614,6 @@
     ))
 		   
   
-
-(defun erl-refactor-similar-code-in-dirs(minlen minfreq simiscore)
-  "Similar code detection in dirs."
- (interactive (list (read-string "Minimum length of an expression sequence (default value: 5): ")
-		    (read-string "Minimum number of appearance times (minimum and default value: 2): ")
-		    (read-string "Please input a similarity score between 0.1 and 1.0 (default value: 0.8):")
-		    ))
- (if (y-or-n-p (format "Find similar code in the following directories: %s" wrangler-search-paths))
-     (let ((current-file-name (buffer-file-name))
-	   (buffer (current-buffer)))
-       (if (buffers-saved)
-	   (erl-spawn
-	     (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_sim_code 'sim_code_detection
-			   (list wrangler-search-paths minlen minfreq simiscore wrangler-search-paths tab-width)))
-	     (erl-receive (buffer)
-		 ((['rex ['badrpc rsn]]
-		   (message "Similar code detection failed: %S" rsn))
-		  (['rex ['error rsn]]
-		   (message "Similar code detection failed: %s" rsn))
-		  (['rex ['ok result]]
-		   (message "Similar code detection finished.")))))
-	 (message "Similar code detection aborted.")
-	 ))
-     (message "Please customize Wrangler Search Paths to check similar code in other directories.")
-    ))
-
 (defun erl-refactor-inc-sim-code-detection-in-buffer(minlen mintoks minfreq maxvars simiscore)
   "Similar code detection in buffer."
  (interactive (list (read-string "Minimum length of an expression sequence (default value: 5): ")
@@ -1568,6 +1635,7 @@
 	      (['rex ['error rsn]]
 	       (message "Searching failed: %s" rsn))
 	      (['rex ['ok result]]
+	       (log-search-result current-file-name result)
 	       (message "Similar code detection finished.")
 	       ))))
        (message "Similar code detection aborted.")
@@ -1588,12 +1656,40 @@
 	   (erl-spawn
 	     (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_inc_sim_code 'inc_sim_code_detection
 			   (list wrangler-search-paths minlen mintoks minfreq maxvars simiscore wrangler-search-paths tab-width)))
-	     (erl-receive (buffer)
+	     (erl-receive (buffer current-file-name)
 		 ((['rex ['badrpc rsn]]
 		   (message "Similar code detection failed: %S" rsn))
 		  (['rex ['error rsn]]
 		   (message "Similar code detection failed: %s" rsn))
 		  (['rex ['ok result]]
+		   (log-search-result current-file-name result)
+		   (message "Similar code detection finished."))))
+	     )
+	 (message "Similar code detection aborted.")
+	 ))
+     (message "Please customize Wrangler Search Paths to check similar code in other directories.")
+    ))
+
+(defun erl-refactor-sim-code-detection-in-dirs(minlen minfreq simiscore)
+  "Similar code detection in dirs."
+ (interactive (list (read-string "Minimum length of an expression sequence (default value: 5): ")
+		    (read-string "Minimum number of appearance times (minimum and default value: 2): ")
+		    (read-string "Please input a similarity score between 0.1 and 1.0 (default value: 0.8):")
+		    ))
+ (if (y-or-n-p (format "Find similar code in the following directories: %s" wrangler-search-paths))
+     (let ((current-file-name (buffer-file-name))
+	   (buffer (current-buffer)))
+       (if (buffers-saved)
+	   (erl-spawn
+	     (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list 'refac_sim_code 'sim_code_detection
+			   (list wrangler-search-paths minlen minfreq simiscore wrangler-search-paths tab-width)))
+	     (erl-receive (buffer current-file-name)
+		 ((['rex ['badrpc rsn]]
+		   (message "Similar code detection failed: %S" rsn))
+		  (['rex ['error rsn]]
+		   (message "Similar code detection failed: %s" rsn))
+		  (['rex ['ok result]]
+		   (log-search-result current-file-name result)
 		   (message "Similar code detection finished.")))))
 	 (message "Similar code detection aborted.")
 	 ))
@@ -1602,7 +1698,7 @@
 
 		   
   
-(defun erl-refactor-similar-code-in-buffer(minlen minfreq simiscore)
+(defun erl-refactor-sim-code-detection-in-buffer(minlen minfreq simiscore)
   "Similar code detection in the current buffer."
  (interactive (list (read-string "Minimum length of an expression sequence (default value: 5): ")
 		    (read-string "Minimum number of appearance times (minimum and default value: 2): ")
@@ -1621,11 +1717,12 @@
 	      (['rex ['error rsn]]
 	       (message "Searching failed: %s" rsn))
 	      (['rex ['ok result]]
+	       (log-search-result current-file-name result)
 	       (message "Similar code detection finished.")
 	       ))))
        (message "Similar code detection aborted.")
        )))
-	
+ 
 
 (defun erl-refactor-expression-search(start end)
   "Search an user-selected expression or expression sequence in the current buffer."
@@ -1768,14 +1865,14 @@
 			(['rex ['error rsn]]
 			 (message "Refactoring failed: %s" rsn))
 			(['rex ['ok modified]]
-			 (preview-commit-cancel current-file-name modified)
+			 (preview-commit-cancel current-file-name modified nil)
 			 (with-current-buffer (get-file-buffer current-file-name)
 			   (goto-line line-no)
 			   (goto-column column-no)))))))
 	     (message "Refactoring aborted!")))
 	   (['rex ['ok modified]]
 	    (progn
-	      (preview-commit-cancel current-file-name modified)
+	      (preview-commit-cancel current-file-name modified nil)
 	      (with-current-buffer (get-file-buffer current-file-name)
 		(goto-line line-no)
 		(goto-column column-no))))
@@ -1867,7 +1964,6 @@
 	       (dolist (f modified)
 		 (let ((buffer (get-file-buffer f)))
 		   (if buffer (with-current-buffer buffer (revert-buffer nil t t))
-		     ;;(message-box (format "modified unopened file: %s" f))))))
 		     nil))))
 	       (message "Refactoring succeeded!")))))))
 
@@ -1888,7 +1984,6 @@
 	       (dolist (f modified)
 		 (let ((buffer (get-file-buffer f)))
 		   (if buffer (with-current-buffer buffer (revert-buffer nil t t))
-		     ;;(message-box (format "modified unopened file: %s" f))))))
 		     nil))))
 	       (message "Refactoring succeeded!")))))))
 
@@ -1910,7 +2005,7 @@
 	    (message "Refactoring failed: %s" rsn))
 	   (['rex ['ok modified]]
 	    (progn
-	      (preview-commit-cancel current-file-name modified)
+	      (preview-commit-cancel current-file-name modified nil)
 	      (with-current-buffer (get-file-buffer current-file-name)
 		(goto-line line-no)
 		(goto-column column-no)))))))))
@@ -2008,7 +2103,7 @@
 			  (message "Refactoring failed: %s" rsn))
 			 (['rex ['ok modified]]
 			  (progn
-			    (preview-commit-cancel current-file-name modified)
+			    (preview-commit-cancel current-file-name modified nil)
 			    (with-current-buffer (get-file-buffer current-file-name)
 			      (goto-line line-no)
 			      (goto-column column-no)))))))
@@ -2016,7 +2111,7 @@
 		)))
 	   (['rex ['ok modified]]
 	    (progn
-	      (preview-commit-cancel current-file-name modified)
+	      (preview-commit-cancel current-file-name modified nil)
 	      (with-current-buffer (get-file-buffer current-file-name)
 		(goto-line start-line-no)
 		(goto-column start-col-no))))
@@ -2045,9 +2140,7 @@
 		    (progn
 		      (if (equal modified nil)
 			  (message "Refactoring finished, and no file has been changed.")
-			(if (y-or-n-p "Do you want to preview the changes to be performed?")
-			    (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
-			  (commit)))
+			(preview-commit-cancel current-file-name modified nil))
 		      (with-current-buffer (get-file-buffer current-file-name)
 			(goto-line line-no)
 			(goto-column column-no))))
@@ -2063,9 +2156,7 @@
 		    (progn
 		      (if (equal modified nil)
 			  (message "Refactoring finished, and no file has been changed.")
-			(if (y-or-n-p "Do you want to preview the changes to be performed?")
-			    (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp"))
-			  (commit)))
+			(preview-commit-cancel current-file-name modified nil))
 		      (with-current-buffer (get-file-buffer current-file-name)
 			(goto-line line-no)
 			(goto-column column-no))))
@@ -2108,12 +2199,12 @@
 			     (['rex ['error rsn]]
 			      (message "Refactoring failed: %s" rsn))
 			     (['rex ['ok modified]]
-			      (preview-commit-cancel current-file-name modified)
+			      (preview-commit-cancel current-file-name modified nil)
 			      ))))
 		    (message "Refactoring failed: the expression selected is not a QuickCheck generator.")
 		    )))		
 	       (['rex ['ok modified]]
-		(preview-commit-cancel current-file-name modified)
+		(preview-commit-cancel current-file-name modified nil)
 		(with-current-buffer (get-file-buffer current-file-name)
 		  (goto-line start-line-no)
 		  (goto-column start-col-no))))))
@@ -2149,7 +2240,7 @@
 		       (['rex ['error rsn]]
 			(message "Refactoring failed: %s" rsn))
 		       (['rex ['ok modified]]
-			(preview-commit-cancel current-file-name modified)
+			(preview-commit-cancel current-file-name modified nil)
 			))))))
 	    ))))))
 	      
@@ -2184,7 +2275,7 @@
 		       (['rex ['error rsn]]
 			(message "Refactoring failed: %s" rsn))
 		       (['rex ['ok modified]]
-			(preview-commit-cancel current-file-name modified)
+			(preview-commit-cancel current-file-name modified nil)
 			))))))
 	    ))))))
 
@@ -2311,7 +2402,7 @@
  	       (['rex ['error rsn]]
  		(message "Refactoring failed: %s" rsn))
  	       (['rex ['ok modified]]
-		(preview-commit-cancel current-file-name modified)
+		(preview-commit-cancel current-file-name modified nil)
 	       ))))
 	  (message "Refactoring aborted."))))
 
@@ -2334,7 +2425,7 @@
 		(progn
 		  (if (equal modified nil)
 		      (message "Refactoring finished, and no file has been changed.")
-		    (preview-commit-cancel current-file-name modified)
+		    (preview-commit-cancel current-file-name modified nil)
 		    )))))
       (message "Refactoring aborted.")))))
 
@@ -2357,7 +2448,7 @@
 	       (['rex ['ok modified warning]]
 		(progn
 		  (setq has-warning warning)
-		  (preview-commit-cancel current-file-name modified)
+		  (preview-commit-cancel current-file-name modified nil)
 		  (with-current-buffer (get-file-buffer current-file-name)
 		    (goto-line line-no)
 		    (goto-column column-no))))
@@ -2903,7 +2994,7 @@
 		 (['rex ['error rsn]]
 		  (message "Partition of exported functions failed: %s" rsn))
 		 (['rex ['ok modified]]
-		  (preview-commit-cancel current-file-name modified)
+		  (preview-commit-cancel current-file-name modified nil)
 		  (message "Partition of exported functions finished."))))))
       (message "Partition of exported functions aborted."))))
    
@@ -2938,19 +3029,34 @@
   "Get the version control system used by the monitor"
      (vc-responsible-backend (concat (file-name-as-directory  refac-monitor-repository-path) ".")))
 
-(defun update-repository(files logmsg)
+
+
+ (defun update-repository(files logmsg)
   "commit refactoring files to the monitoring repository if they should be monitored"
   (if (or (equal files nil) (equal dirs-to-monitor nil))
       nil
     (let ((dir (is-a-monitored-file (elt (car files) 0))))
       (if (equal nil dir)
-	  (message-box "Reminder: the file under refactoring is not being monitored by Wrangler's refactoring monitor.")
-	(progn
-	  (setq olddir default-directory)
-	  (cd refac-monitor-repository-path)
-	  (update-repository-1 dir (concat wrangler-version logmsg))
-	  (cd olddir)
-	  )))))
+	  (message-box "Reminder: the file under refactoring is not  being monitored by Wrangler's refactoring monitor.")
+	(let ((extended-logmsg (concat "Time:" (current-time-string) 
+				     ", User:" (user-login-name) ", " logmsg)))
+	  (cond  
+	   ((equal version-control-system 'ClearCase)
+	    (add-logmsg-to-logfile-clearcase extended-logmsg))
+	   ((or (equal version-control-system 'Git)
+		(equal version-control-system 'SVN))
+	    (progn
+	      (setq olddir default-directory)
+	      (cd refac-monitor-repository-path)
+	      (update-repository-1 dir (concat wrangler-version extended-logmsg))
+	      (cd olddir)
+	      ))
+	   (t nil))
+	  )
+	)
+      )
+    )
+  )
 	   
 
 (defun update-repository-1 (dir-to-monitor logmsg)
@@ -3147,15 +3253,19 @@
 	      (vc-call-backend backend 'checkin file nil comment)
 	      ))
 	  )
-      (progn
+      (progn 
 	(if (>= emacs-major-version  23)
 	    (vc-call-backend backend 'checkin files nil comment)
 	  (dolist (file files)
 	    (vc-git-command nil 'async file "commit" "-m" comment "--only" "--")
 	    ))))
   ))
+ 
+    
 
- (defun write-to-refac-logfile(dir-to-monitor logmsg)
+ 
+
+ (defun write-to-refac-logfile(dir-to-monitor logmsg checkin-comment)
   "write log infomation to the log file and check in to the repository"
   (let* ((refac-monitor-path (concat (file-name-as-directory refac-monitor-repository-path)
 				     (file-name-nondirectory dir-to-monitor)))
@@ -3168,5 +3278,6 @@
     (if (eq exist nil)
 	(register (backend-used) nil (list logfile1) "new file")
       nil)
-    (checkin (backend-used) (list logfile1) "UNDO")
+    (checkin (backend-used) (list logfile1) checkin-comment)
     (cd olddir)))
+
