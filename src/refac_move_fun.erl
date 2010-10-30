@@ -79,8 +79,8 @@
 		      ast, 
 		      info}).
 %==========================================================================================
--spec(move_fun/6::(filename(),integer(),integer(), string(), [dir()], integer())->
-	     {ok, [filename()]} | {question, string()}).
+%%-spec(move_fun/6::(filename(),integer(),integer(), string(), [dir()], integer())->
+%%	     {ok, [filename()]} | {question, string()}).
 move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) ->
     move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, emacs).
 
@@ -90,8 +90,8 @@ move_fun_1(FName, Line, Col, TargetModorFileName, CheckCond, SearchPaths, TabWid
     move_fun_1(FName, Line, Col, TargetModorFileName, CheckCond, SearchPaths, TabWidth, emacs).
 
 
--spec(move_fun_eclipse/6::(filename(),integer(),integer(), string(),[dir()], integer())
-        ->  {ok, [{filename(), filename(), string()}]} | {question, string()}).
+%%-spec(move_fun_eclipse/6::(filename(),integer(),integer(), string(),[dir()], integer())
+%%        ->  {ok, [{filename(), filename(), string()}]} | {question, string()}).
 
 move_fun_eclipse(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) ->
     move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, eclipse).
@@ -104,8 +104,8 @@ move_fun_eclipse(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) -
 move_fun_1_eclipse(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) ->
     move_fun_1(FName, Line, Col, TargetModorFileName, true, SearchPaths, TabWidth, eclipse).
 
--spec(move_fun_command/5::(modulename()|filename(), atom(), integer(), modulename()|filename(),[dir()])->
-				 {error, string()} | {ok, [filename()]}).
+%%-spec(move_fun_command/5::(modulename()|filename(), atom(), integer(), modulename()|filename(),[dir()])->
+%%				 {error, string()} | {ok, [filename()]}).
 move_fun_command(ModorFileName, FunName, Arity, TargetModorFileName, SearchPaths) ->
     case get_file_name(ModorFileName, SearchPaths) of 
 	{ok, OriginalFileName} ->

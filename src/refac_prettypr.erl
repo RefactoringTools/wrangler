@@ -1500,7 +1500,7 @@ lay_body_elems_1(Fun, [], Acc, _LastLine) ->
     Docs = lists:map(fun (Ds) -> horizontal(Ds) end, Acc),
     Fun(lists:reverse(Docs));
 lay_body_elems_1(Fun, [{D, {_SLn, ELn}}| Ts], [], _LastLn) ->
-    lay_elems_1(Fun, Ts, [[D]], ELn);
+    lay_body_elems_1(Fun, Ts, [[D]], ELn);
 lay_body_elems_1(Fun, [{D, {SLn, ELn}}| Ts], [H| T], LastLn) ->
     case SLn == 0 orelse LastLn == 0 orelse SLn < LastLn of
 	true -> 
