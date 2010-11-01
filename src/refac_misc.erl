@@ -687,7 +687,7 @@ modname_to_filename(ModName, Dirs)->
 	    {error, "No file with module name '" ++ atom_to_list(ModName)++"' has been found."};
 	[FileName] ->
 	    {ok, FileName};
-	_ -> {error, "Multiple files found:" ++ 
+	_ -> {error, "Multiple files found: " ++ 
 		  format_file_names(Fs)++"\n"}
     end.
 			   
@@ -699,10 +699,9 @@ format_file_names(Fs) ->
 format_file_names_1([F|T]) ->
     case T of 
 	[] ->
-	    io_lib:format("~p]", [F])++
-		format_file_names_1(T);
+	    io_lib:format("~s]", [F]);
 	_ ->
-	    io_lib:format("~p,", [F])++
+	    io_lib:format("~s,", [F])++
 		format_file_names_1(T)
     end.	 
 
