@@ -7,15 +7,16 @@
 -export([init/1]).
 
 
-%%-spec(get_clones_by_suffix_tree_inc/6::(dir(), string(),integer(), integer(), integer(), filename()) ->
-%%					 {ok, string()}).					   
+%% Note: preferly there should be no white spaces in the Filepath of the SuffixTreeExec.
+%% Trie to install Wrangler in a path like C:/Program Files (x86)/Wrangler, but the port process
+%% dies automatically before call_port is called.
+-spec(get_clones_by_suffix_tree_inc/6::(dir(), string(),integer(), integer(), integer(), filename()) ->
+					 {ok, string()}).					   
 get_clones_by_suffix_tree_inc(Dir, ProcessedToks, MinLength, MinClones, AllowOverLap, SuffixTreeExec) ->
     start_suffix_tree_clone_detector(SuffixTreeExec),
     OutFileName = filename:join(Dir, "wrangler_suffix_tree"),
     case file:write_file(OutFileName, ProcessedToks) of
 	ok -> 
-	    %% refac_io:format("Before callig ported\n"),
-	    %% refac_io:format("\n~p\n", [{MinLength, MinClones, AllowOverLap, OutFileName}]),
 	    case catch call_port({get, MinLength, MinClones, AllowOverLap, OutFileName}) of
 		{ok, _Res} ->
 		    ?debug("Initial clones are calculated using C suffixtree implementation.\n", []),
@@ -32,8 +33,8 @@ get_clones_by_suffix_tree_inc(Dir, ProcessedToks, MinLength, MinClones, AllowOve
 
 
 
-%%-spec(get_clones_by_suffix_tree/7::(dir(), string(),integer(), integer(), string(), integer(), filename()) ->
-%%					 [{[{integer(),integer()}], integer(), integer()}]).					   
+-spec(get_clones_by_suffix_tree/7::(dir(), string(),integer(), integer(), string(), integer(), filename()) ->
+					 [{[{integer(),integer()}], integer(), integer()}]).					   
 get_clones_by_suffix_tree(Dir, ProcessedToks, MinLength, MinClones, Alphabet, AllowOverLap, SuffixTreeExec) ->
     start_suffix_tree_clone_detector(SuffixTreeExec),
     OutFileName = filename:join(Dir, "wrangler_suffix_tree"),
@@ -41,8 +42,7 @@ get_clones_by_suffix_tree(Dir, ProcessedToks, MinLength, MinClones, Alphabet, Al
 	ok -> 
 	    case catch call_port({get, MinLength, MinClones, AllowOverLap, OutFileName}) of
 	    	{ok, _Res} ->
-	    	    %% refac_io:format("After calling port\n"),
-	    	    refac_io:format("Initial clones are calculated using C suffixtree implementation.\n", []),
+		    refac_io:format("Initial clones are calculated using C suffixtree implementation.\n", []),
 		    {ok, Res} = file:consult(OutFileName),
 		    stop_suffix_tree_clone_detector(),
 		    file:delete(OutFileName),
@@ -50,8 +50,7 @@ get_clones_by_suffix_tree(Dir, ProcessedToks, MinLength, MinClones, Alphabet, Al
 		     	[] -> []; 
 			[Cs] -> Cs
 		     end;
-		_E -> %% refac_io:format("Reason:\n~p\n", [E]),
-		     stop_suffix_tree_clone_detector(),
+		_E -> stop_suffix_tree_clone_detector(),
 		     file:delete(OutFileName),
 		     get_clones_by_erlang_suffix_tree(ProcessedToks, MinLength, MinClones, Alphabet, AllowOverLap)
 	    end;
@@ -62,6 +61,7 @@ get_clones_by_suffix_tree(Dir, ProcessedToks, MinLength, MinClones, Alphabet, Al
 start_suffix_tree_clone_detector(SuffixTreeExec) ->
     process_flag(trap_exit, true),
     spawn_link(?MODULE, init, [SuffixTreeExec]).
+
 
 stop_suffix_tree_clone_detector() ->
     case catch (?MODULE) ! stop of _ -> ok end.
@@ -86,13 +86,11 @@ init(ExtPrg) ->
     register(?MODULE, self()),
     process_flag(trap_exit, true),
     Port = open_port({spawn, ExtPrg}, [{packet, 2}, binary, exit_status]),
-    ?debug("Port:~p\n", [Port]),
     loop(Port).
 
 loop(Port) ->
     receive
-    {call, Caller, Msg} ->
-	    ?debug("Calling port with ~p~n", [Msg]),
+	{call, Caller, Msg} ->
 	    erlang:port_command(Port, term_to_binary(Msg)),
 	    receive
 		{Port, {data, Data}} ->
@@ -108,8 +106,8 @@ loop(Port) ->
 		    exit(Reason)
 	    end,
 	    loop(Port);
-    stop ->
-        erlang:port_close(Port)
+	stop ->
+	    erlang:port_close(Port)
     end.
 
  
