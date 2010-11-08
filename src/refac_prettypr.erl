@@ -1185,15 +1185,20 @@ maybe_parentheses(D,Prec,Ctxt) ->
 
 maybe_parentheses_1(D, Node, Ctxt) ->
     Str=refac_prettypr_0:format(D),
-    case hd(Str)==$\( andalso lists:last(Str)==$\) of 
-	true ->
+    case Str="" of 
+	true -> 
 	    D;
 	false ->
-	    case has_parentheses(Node, Ctxt#ctxt.tokens) of 
-		true ->		
-		   lay_parentheses(D, Ctxt); 
+	    case hd(Str)==$\( andalso lists:last(Str)==$\) of 
+		true ->
+		    D;
 		false ->
-		    D
+		    case has_parentheses(Node, Ctxt#ctxt.tokens) of 
+			true ->		
+			    lay_parentheses(D, Ctxt); 
+			false ->
+			    D
+		    end
 	    end
     end.
 lay_qualified_name([S| Ss1] = Ss,Ctxt) ->
