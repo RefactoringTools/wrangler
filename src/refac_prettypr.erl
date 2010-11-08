@@ -1185,7 +1185,7 @@ maybe_parentheses(D,Prec,Ctxt) ->
 
 maybe_parentheses_1(D, Node, Ctxt) ->
     Str=refac_prettypr_0:format(D),
-    case Str="" of 
+    case Str=="" of 
 	true -> 
 	    D;
 	false ->
