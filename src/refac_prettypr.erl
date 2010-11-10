@@ -1146,7 +1146,7 @@ lay_2(Node, Ctxt) ->
 			      sep([text("try"),nest(Ctxt1#ctxt.break_indent, D1)| Es2])
 	    	      end;
 		  Cs ->
-		      {_, {L0,C0}} = refac_misc:get_range(lists:last(Body)),
+		      {_, {L0,C0}} = refac_misc:get_start_end_loc(lists:last(Body)),
 		      OfLineNum = get_post_keyword_line_num(Ctxt1#ctxt.tokens, {L0,C0}, 'of'),
 		      D4 = lay_clauses(Cs, try_expr, Ctxt1),
 		      Es3 = [nest(Ctxt1#ctxt.break_indent, D4)| Es2],
