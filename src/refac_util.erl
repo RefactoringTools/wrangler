@@ -103,7 +103,7 @@ write_refactored_files_for_preview(Files, TabWidth, LogMsg) ->
 			    {error,Reason} -> 
 				Msg = io_lib:format("Wrangler could not write to file ~s: ~w \n",
 						    [FileName, Reason]),
-				throw({error, Msg})
+				throw({error, lists:flatten(Msg)})
 			end;			
 		    {{FileName,NewFileName, IsNew}, AST} ->
 			FileFormat = file_format(FileName),
@@ -116,7 +116,7 @@ write_refactored_files_for_preview(Files, TabWidth, LogMsg) ->
 			    {error, Reason}  -> 
 				Msg = io_lib:format("Wrangler could not write to directory ~s: ~w \n",
 						    [filename:dirname(FileName), Reason]),
-				throw({error, Msg})
+				throw({error, lists:flatten(Msg)})
 			end
 		end
 	end,
@@ -203,8 +203,8 @@ check_access({OldFileName, NewFileName}) ->
 	    case writable(OldFileName) of
 		true -> ok;
 		false ->
-		    Msg = lists:flatten(io_lib:format("File ~s is not writeable\n", [OldFileName])),
-		    throw({error, lists:flatten(Msg)})
+		    Msg = io_lib:format("File ~s is not writeable\n", [OldFileName]),
+		    throw({error,lists:flatten(Msg)})
 	    end;
 	false ->
 	    Dir=filename:dirname(NewFileName),
@@ -213,7 +213,7 @@ check_access({OldFileName, NewFileName}) ->
 		    ok;
 		false ->
 		    Msg = lists:flatten(io_lib:format("Dirctory ~s is not writeable\n", [Dir])),
-		    throw({error, lists:flatten(Msg)})
+		    throw({error, Msg})
 	    end
     end;
 
@@ -387,8 +387,8 @@ tokenize(File, WithLayout, TabWidth) ->
 		     Ts
 	    end;
 	{error, Reason} ->
-	    Msg = io_lib:format("Wrangler could not read file ~s: ~w \n", 
-				[filename:dirname(File), Reason]),
+	    Msg = lists:flatten(io_lib:format("Wrangler could not read file ~s: ~w \n", 
+				[filename:dirname(File), Reason])),
 	    throw({error, Msg})
     end.
 
@@ -1128,7 +1128,7 @@ expand_files([FileOrDir | Left], Ext, Acc) ->
 		{error, Reason} ->
 		     Msg = io_lib:format("Wrangler could not read directory ~s: ~w \n", 
 				[filename:dirname(FileOrDir), Reason]),
-		    throw({error, Msg})
+		    throw({error, lists:flatten(Msg)})
 	    end;
 	false ->
 	    case filelib:is_regular(FileOrDir) of
@@ -1204,7 +1204,7 @@ file_format(File) ->
 	{error, Reason} ->
 	    Msg = io_lib:format("Wrangler could not read file ~s: ~w \n", 
 				[filename:dirname(File), Reason]),
-	    throw({error, Msg})
+	    throw({error, lists:flatten(Msg)})
     end.
 
 scan_line_endings(Cs)->

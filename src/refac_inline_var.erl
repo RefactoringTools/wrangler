@@ -233,11 +233,6 @@ cond_check_1(MatchExprBody, VarNode) ->
     end.
 
     
-%% list_intersection(List1, List2) ->
-%%     sets:to_list(sets:intersection(
-%% 		   sets:from_list(List1),
-%% 		   sets:from_list(List2))).
-    
 get_bound_vars(Tree) ->
     F = fun (T, B) ->
 		As = refac_syntax:get_ann(T),

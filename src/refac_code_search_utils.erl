@@ -222,7 +222,12 @@ display_a_clone(_C={Ranges, _Len, F,Code},Num) ->
     [R| _Rs] = lists:keysort(1, Ranges),
     NewStr = compose_clone_info(R, F, Ranges, "", Num),
     NewStr1 = NewStr ++ "The cloned expression/function after generalisation:\n\n" ++ Code,
-    ?wrangler_io("~s", [NewStr1]).
+    ?wrangler_io("~s", [NewStr1]);
+display_a_clone(C={Ranges, _Len, F,{Code, _}, ChangeStatus},Num) ->
+    [R| _Rs] = lists:keysort(1, Ranges),
+    NewStr = compose_clone_info(R, F, Ranges, "", Num, ChangeStatus),
+    NewStr1 = NewStr ++ "The cloned expression/function after generalisation:\n\n" ++ Code,
+    ?wrangler_io("~s", [lists:flatten(NewStr1)]).
 
 compose_clone_info(_, F, Range, Str, Num) ->
     case F of
@@ -232,6 +237,16 @@ compose_clone_info(_, F, Range, Str, Num) ->
 		 io_lib:format("This code appears ~p times:\n",[F]),
 	     display_clones_2(Range, Str1)
     end.
+compose_clone_info(_, F, Range, Str, Num, ChangeStatus) ->
+    case F of
+	2 -> Str1 =Str ++ "\n\n" ++"Clone "++io_lib:format("~p. ", [Num])++ io_lib:format("~p:", [ChangeStatus])
+		 ++ " This code appears twice:\n",
+	     display_clones_2(Range, Str1);
+	_ -> Str1 =Str ++ "\n\n" ++"Clone "++io_lib:format("~p. ", [Num])++io_lib:format("~p:", [ChangeStatus])++ 
+		 io_lib:format("This code appears ~p times:\n",[F]),
+	     display_clones_2(Range, Str1)
+    end.
+
 
 display_clones_2([], Str) -> Str ++ "\n";
 display_clones_2([{{File, StartLine, StartCol}, {File, EndLine, EndCol}}|Rs], Str) ->

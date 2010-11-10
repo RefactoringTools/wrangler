@@ -30,11 +30,18 @@
 %% 
 -module(refac_inc_sim_code).
 
--export([inc_sim_code_detection/8, inc_sim_code_detection_in_buffer/8]).
+%% API for emacs use.
+-export([inc_sim_code_detection/8, 
+	 inc_sim_code_detection_in_buffer/8]).
 
+%% API for eclipse use.
 -export([inc_sim_code_detection_eclipse/8]).
 
+%% API for command line use.
 -export([inc_sim_code_detection_command/8]).
+
+%% API.
+-export([inc_sim_code_detection/6]). 
 
 %%-define(debug, true).
 
@@ -86,12 +93,12 @@ get_temp_file_path(Tab) ->
 	}).
 
 %% A record representing a clone class.
- %% -record(clone, 
- %% 	 {ranges,  %% start end end locations/expression of each clone instance.
- %% 	  len,     %% the length of each clone instance.
- %% 	  freq,    %% the number of duplication times.
- %% 	  au       %% the anti-unification of the clone class.
- %% 	 }).
+%% -record(clone, 
+%% 	 {ranges,  %% start end end locations/expression of each clone instance.
+%% 	  len,     %% the length of each clone instance.
+%% 	  freq,    %% the number of duplication times.
+%% 	  au       %% the anti-unification of the clone class.
+%% 	 }).
 
 -spec(inc_sim_code_detection_in_buffer/8::(FileName::filename(), MinLen::float(), MinToks::integer(),
  				 MinFreq::integer(),  MaxVars:: integer(),SimiScore::float(), 
@@ -102,20 +109,21 @@ inc_sim_code_detection_in_buffer(FileName, MinLen1, MinToks1, MinFreq1, MaxVars1
 -spec(inc_sim_code_detection/8::(DirFileList::[filename()|dir()], MinLen::float(), MinToks::integer(),
  				 MinFreq::integer(),  MaxVars:: integer(),SimiScore::float(), 
  				 SearchPaths::[dir()], TabWidth::integer()) -> {ok, string()}).
+
 inc_sim_code_detection(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1,SearchPaths,TabWidth) ->
     ?wrangler_io("\nCMD: ~p:inc_sim_code_detection(~p,~p,~p,~p,~p, ~p,~p,~p).\n",
-		 [?MODULE,DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1,SearchPaths,TabWidth]), 
-    {MinLen,MinToks,MinFreq,MaxVars,SimiScore} = get_parameters(MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1), 
+		 [?MODULE,DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1,SearchPaths,TabWidth]),
+    {MinLen,MinToks,MinFreq,MaxVars,SimiScore} = get_parameters(MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1),
     Cmd = io_lib:format("\nCMD: ~p:inc_sim_code_detection(~p,~p,~p,~p,~p, ~p,~p,~p).",
 			[?MODULE,DirFileList,MinLen,MinToks,MinFreq,MaxVars,SimiScore,SearchPaths,TabWidth]),
-    Files = refac_util:expand_files(DirFileList,".erl"), 
-    Cs=case Files of
-	   [] ->
-	       ?wrangler_io("Warning: No files found in the searchpaths specified.",[]),
-	       [];
-	   _-> inc_sim_code_detection_0(Files, MinLen, MinToks, MinFreq, MaxVars, 
-					SimiScore, SearchPaths, TabWidth, emacs)
-       end, 
+    Files = refac_util:expand_files(DirFileList,".erl"),
+    Cs = case Files of
+	     [] ->
+		 ?wrangler_io("Warning: No files found in the searchpaths specified.",[]),
+		 [];
+	     _ -> inc_sim_code_detection(Files, {MinLen, MinToks, MinFreq, MaxVars,SimiScore},
+					 SearchPaths, TabWidth, emacs, ?INC)
+	 end,
     CloneReport = gen_clone_report(Cs),
     LogMsg = Cmd ++ " \nNum of clones detected: "++ integer_to_list(length(Cs)) ++ ".\n",
     {ok, lists:flatten(LogMsg)++CloneReport}.
@@ -124,16 +132,17 @@ inc_sim_code_detection(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1
 -spec(inc_sim_code_detection_command/8::(DirFileList::[filename()|dir()], MinLen::integer(), MinToks::integer(),
 					      MinFreq::integer(),  MaxVars::integer(),SimiScore::float(), 
 					      SearchPaths::[dir()], TabWidth::integer()) -> {ok, string()}).
+
 inc_sim_code_detection_command(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1,SearchPaths,TabWidth) ->
-    {MinLen,MinToks,MinFreq,MaxVars,SimiScore} = get_parameters_eclipse(MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1), 
-    Files = refac_util:expand_files(DirFileList,".erl"), 
+    {MinLen,MinToks,MinFreq,MaxVars,SimiScore} = get_parameters_eclipse(MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1),
+    Files = refac_util:expand_files(DirFileList,".erl"),
     case Files of
 	[] ->
 	    ?wrangler_io("Warning: No files found in the searchpaths specified.",[]);
-	_-> Cs=inc_sim_code_detection_0(Files, MinLen, MinToks, MinFreq, MaxVars, 
-					SimiScore, SearchPaths, TabWidth, command),
-	    refac_code_search_utils:display_clone_result(lists:reverse(Cs), "Similar")
-    end, 
+	_ -> Cs = inc_sim_code_detection(Files, {MinLen, MinToks, MinFreq, MaxVars,SimiScore},
+					 SearchPaths, TabWidth, command, ?INC),
+	     refac_code_search_utils:display_clone_result(lists:reverse(Cs), "Similar")
+    end,
     {ok, "Similar code detection finished."}.
 
 
@@ -143,62 +152,60 @@ inc_sim_code_detection_command(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,Si
 				       [{[{{{filename(), integer(), integer()},
 					    {filename(), integer(), integer()}}, string()}], 
 					 integer(), integer(), string()}]).
+
 inc_sim_code_detection_eclipse(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1,SearchPaths,TabWidth) ->
     ?wrangler_io("\nCMD: ~p:inc_sim_code_detection(~p,~p,~p,~p,~p, ~p,~p,~p).\n",
-		 [?MODULE,DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1,SearchPaths,TabWidth]), 
-    {MinLen,MinToks,MinFreq,MaxVars,SimiScore} = get_parameters_eclipse(MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1), 
-    Files = refac_util:expand_files(DirFileList,".erl"), 
+		 [?MODULE,DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1,SearchPaths,TabWidth]),
+    {MinLen,MinToks,MinFreq,MaxVars,SimiScore} = get_parameters_eclipse(MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1),
+    Files = refac_util:expand_files(DirFileList,".erl"),
     case Files of
 	[] ->
 	    [];
-	_ -> inc_sim_code_detection_0(Files, MinLen, MinToks, MinFreq, MaxVars, 
-				    SimiScore, SearchPaths, TabWidth, eclipse)
+	_ -> inc_sim_code_detection(Files, {MinLen, MinToks, MinFreq, MaxVars,SimiScore},
+				    SearchPaths, TabWidth, eclipse, ?INC)
     end.
 
-inc_sim_code_detection_0(Files, MinLen, MinToks, MinFreq, MaxVars, 
-			 SimiScore, SearchPaths, TabWidth, Editor) ->
+inc_sim_code_detection(Files, {MinLen, MinToks, MinFreq, MaxVars, SimiScore},
+		       SearchPaths, TabWidth, Editor, Inc) ->
     %% dets tables used to cache information.
-    Tabs = #tabs{ast_tab = from_dets(ast_tab,?ASTTab), 
-		 var_tab = from_dets(var_tab,?VarTab), 
-		 file_hash_tab = from_dets(file_hash_tab,?FileHashTab), 
-		 exp_hash_tab = from_dets(expr_hash_tab,?ExpHashTab), 
-		 clone_tab = from_dets(expr_clone_tab,?CloneTab)}, 
+    Tabs = #tabs{ast_tab = from_dets(ast_tab,?ASTTab,Inc),
+		 var_tab = from_dets(var_tab,?VarTab,Inc),
+		 file_hash_tab = from_dets(file_hash_tab,?FileHashTab,Inc),
+		 exp_hash_tab = from_dets(expr_hash_tab,?ExpHashTab,Inc),
+		 clone_tab = from_dets(expr_clone_tab,?CloneTab,Inc)},
     %% Threshold parameters.
-    Threshold = #threshold{min_len = MinLen, 
-			   min_freq = MinFreq, 
-			   min_toks = MinToks, 
-			   max_new_vars = MaxVars, 
-			   simi_score = SimiScore}, 
+    Threshold = #threshold{min_len = MinLen,
+			   min_freq = MinFreq,
+			   min_toks = MinToks,
+			   max_new_vars = MaxVars,
+			   simi_score = SimiScore},
     %% Clone detection.
-    Cs = inc_sim_code_detection(Files,Threshold,Tabs,SearchPaths,TabWidth, Editor), 
-    case ?INC of 
+    Cs = inc_sim_code_detection(Files,Threshold,Tabs,SearchPaths,TabWidth,Editor,Inc),
+    case Inc of
 	true ->
 	    %% output cache information to dets tables.
-	    to_dets(Tabs#tabs.ast_tab,?ASTTab), 
-	    to_dets(Tabs#tabs.var_tab,?VarTab), 
-	    to_dets(Tabs#tabs.file_hash_tab,?FileHashTab), 
-	    to_dets(Tabs#tabs.exp_hash_tab,?ExpHashTab), 
-	    to_dets(Tabs#tabs.clone_tab,?CloneTab), 
+	    to_dets(Tabs#tabs.ast_tab,?ASTTab),
+	    to_dets(Tabs#tabs.var_tab,?VarTab),
+	    to_dets(Tabs#tabs.file_hash_tab,?FileHashTab),
+	    to_dets(Tabs#tabs.exp_hash_tab,?ExpHashTab),
+	    to_dets(Tabs#tabs.clone_tab,?CloneTab),
 	    write_file(?Threshold,term_to_binary(Threshold));
-	false->
+	false ->
 	    ok
     end,
     Cs.
- 
+
 %% incremental clone detection.
-inc_sim_code_detection(Files, Thresholds, Tabs, SearchPaths, TabWidth, Editor) ->
-   
-    {FilesDeleted, _FilesChanged, _NewFiles} = get_file_status_info(Files, Tabs,Thresholds),
+inc_sim_code_detection(Files, Thresholds, Tabs, SearchPaths, TabWidth, Editor, Inc) ->
+    {FilesDeleted, _FilesChanged, _NewFiles} = get_file_status_info(Files, Tabs, Thresholds),
     ?debug("FileChanged: ~p\n", [length(FilesDeleted++FilesChanged++NewFiles)]),
     _Time1 = time(),
     ?debug("Time1:\n~p\n", [Time1]),
-    %% get file status change info.
-    FilesDeleted= get_deleted_files(Files, Tabs,Thresholds),
     
     %% remove information related to files that no longer exist from ets tables.
     remove_old_file_entries(FilesDeleted, Tabs),
     
-    HashPid = start_hash_process(FilesDeleted),
+    HashPid = start_hash_process(FilesDeleted,Inc),
     
     ASTPid = start_ast_process(Tabs#tabs.ast_tab, HashPid),
     
@@ -212,24 +219,24 @@ inc_sim_code_detection(Files, Thresholds, Tabs, SearchPaths, TabWidth, Editor) -
     {ok, Res} = file:consult(OutFileName),
     file:delete(OutFileName),
     Cs0 = case Res of
-	     [] -> [];
-	     [R] ->R
-	 end,
+	      [] -> [];
+	      [R] -> R
+	  end,
     %%This will be removed once I've fixed the problem with the C 
     %%suffix tree implementation.
     %% The problem was that that are some duplications in the 
     %% list of {Strid, StartIndex}.
-    Cs = process_initial_clones(Cs0), 
-                                      
+    Cs = process_initial_clones(Cs0),
+    
     %%?wrangler_io("\nInitial candiates finished\n", []),
     refac_io:format("Number of initial clone candidates: ~p\n", [length(Cs)]),
     CloneCheckerPid = start_clone_check_process(Tabs),
-     %% examine each clone candiate and filter false positives.
+    %% examine each clone candiate and filter false positives.
     Cs2 = examine_clone_candidates(Cs, Thresholds, Tabs, CloneCheckerPid, ASTPid, 1),
     _Time2 = time(),
     Cs3 = combine_clones_by_au(Cs2),
     ?debug("\n Time Used: ~p\n", [{Time1, Time2}]),
-    case Editor of 
+    case Editor of
 	emacs ->
 	    refac_code_search_utils:display_clone_result(lists:reverse(Cs3), "Similar"),
 	    stop_clone_check_process(CloneCheckerPid),
@@ -237,10 +244,10 @@ inc_sim_code_detection(Files, Thresholds, Tabs, SearchPaths, TabWidth, Editor) -
 	    stop_ast_process(ASTPid),
 	    Cs3;
 	_ ->
-	     stop_clone_check_process(CloneCheckerPid),
+	    stop_clone_check_process(CloneCheckerPid),
 	    stop_hash_process(HashPid),
 	    stop_ast_process(ASTPid),
-   	    Cs3
+	    Cs3
     end.
    
 process_initial_clones(Cs) ->
@@ -249,30 +256,6 @@ process_initial_clones(Cs) ->
 	 {Rs1, Len, length(Rs1)}
      end
      ||{Rs, Len, _Freq}<-Cs].
-
-%% Get files that are deleted/changed/newly added since the last 
-%% run of the clone detection.
-%% This function 
-get_deleted_files(Files, Tabs, Threshold) ->
-    FileHashTab=Tabs#tabs.file_hash_tab,
-    %% all the files process during the last run of clone detection.
-    OldFiles = lists:append(ets:match(FileHashTab,{'$1', '_'})),
-    case file:read_file(?Threshold) of
-	{ok, Binary} ->
-	    LastThreshold = binary_to_term(Binary),
-	    case LastThreshold == Threshold of
-		true ->
-		    OldFiles -- Files;
-		false ->
-		    file:delete(?ExpSeqFile),
-		    file:delete(?FileHashTab),
-		    lists:append(ets:match(FileHashTab,{'$1', '_'}))
-	    end;
-	{error, _Reason} ->
-	    file:delete(?ExpSeqFile),
-	    file:delete(?FileHashTab),
-	    lists:append(ets:match(FileHashTab,{'$1', '_'}))
-    end.
 
 %% Remove data for deleted files.
 remove_old_file_entries(FilesDeleted, Tabs) ->
@@ -531,23 +514,25 @@ do_generalise(Node) ->
 %%                                                                    %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-start_hash_process(FilesDeleted) ->
+
+start_hash_process(FilesDeleted,Inc) ->
     %% I put NewFiles here too! 
     %ObsoleteFiles = FilesDeleted ++ FilesChanged ++ NewFiles,  
-    ExpHashTab = from_dets(expr_hash_tab, ?ExpHashTab),
+    ExpHashTab = from_dets(expr_hash_tab, ?ExpHashTab, Inc),
     case file:read_file(?ExpSeqFile) of
-      {ok, Binary} ->
+	{ok, Binary} ->
 	    Data = binary_to_term(Binary),
 	    %% remove obsolete entries.
-	    NewData =filter_out_data_to_reuse(Data, FilesDeleted),
+	    NewData = filter_out_data_to_reuse(Data, FilesDeleted),
 	    NextSeqNo = case NewData of
 			    [] -> 1;
-			    [{No, _,_}|_] -> No+1
+			    [{No, _, _}| _] -> No+1
 			end,
-	    spawn_link(fun () -> hash_loop({NextSeqNo,ExpHashTab, NewData}) end);
+	    spawn_link(fun () -> hash_loop({NextSeqNo, ExpHashTab, NewData},Inc)
+		       end);
 	_Res ->
 	    ets:delete_all_objects(ExpHashTab),
-	    spawn_link(fun () -> hash_loop({1, ExpHashTab, []}) end)
+	    spawn_link(fun () -> hash_loop({1, ExpHashTab, []},Inc) end)
     end.
 
 filter_out_data_to_reuse(Data, FilesDeleted)->
@@ -581,54 +566,54 @@ get_index(ExpHashTab, Key) ->
 	    ets:insert(ExpHashTab, {Key, NewIndex}),
 	    NewIndex
     end.
-   
-hash_loop({NextSeqNo, ExpHashTab, NewData}) ->
+
+hash_loop({NextSeqNo, ExpHashTab, NewData},Inc) ->
     receive
 	%% add a new entry.
 	{add, {{M, F, A}, KeyExprPairs}} ->
 	    KeyExprPairs1 =
 		[{{Index1, NumOfToks, StartEndLoc, StartLine, true}, HashIndex}
-		 ||{Key, {Index1, NumOfToks,StartEndLoc, StartLine}}<-KeyExprPairs,
-		   HashIndex<-[get_index(ExpHashTab, Key)]],
-	    hash_loop({NextSeqNo+1, ExpHashTab, [{NextSeqNo, {M,F,A}, KeyExprPairs1}|NewData]});
+		 || {Key, {Index1, NumOfToks, StartEndLoc, StartLine}} <- KeyExprPairs,
+		    HashIndex <- [get_index(ExpHashTab, Key)]],
+	    hash_loop({NextSeqNo+1, ExpHashTab, [{NextSeqNo, {M,F,A}, KeyExprPairs1}| NewData]},Inc);
 	{quick_hash,{{FileName, FunName, Arity}, StartLine}} ->
-	    NewData1=[ case {M,F, A} of 
-			   {FileName, FunName, Arity} ->
-			       {Seq, {M, F, A}, [{{Index1, NumOfToks, StartEndLoc, StartLine, false}, HashKey} ||
-						    {{Index1, NumOfToks, StartEndLoc, _StartLine, _}, HashKey}<-KeyExprPairs]};
-			   _ ->
-			       {Seq, {M, F, A}, KeyExprPairs}
-		       end ||{Seq, {M, F, A},KeyExprPairs}<-NewData],
-	    hash_loop({NextSeqNo, ExpHashTab, NewData1});
+	    NewData1 = [case {M, F, A} of
+			    {FileName, FunName, Arity} ->
+				{Seq, {M, F, A}, [{{Index1, NumOfToks, StartEndLoc, StartLine, false}, HashKey}
+						  || {{Index1, NumOfToks, StartEndLoc, _StartLine, _}, HashKey} <- KeyExprPairs]};
+			    _ ->
+				{Seq, {M, F, A}, KeyExprPairs}
+			end || {Seq, {M, F, A}, KeyExprPairs} <- NewData],
+	    hash_loop({NextSeqNo, ExpHashTab, NewData1},Inc);
 	{get_clone_candidates, From, Thresholds, Dir} ->
 	    {ok, OutFileName} = search_for_clones(Dir, lists:reverse(NewData), Thresholds),
 	    From ! {self(), {ok, OutFileName}},
-	    case ?INC of 
+	    case Inc of
 		true ->
 		    write_file(?ExpSeqFile, term_to_binary(NewData));
 		false ->
 		    ok
 	    end,
-	    hash_loop({NextSeqNo,ExpHashTab, lists:reverse(NewData)});%%!!!! Data Reorded!!!
+	    hash_loop({NextSeqNo, ExpHashTab, lists:reverse(NewData)},Inc);%%!!!! Data Reorded!!!
 	{get_clone_in_range, From, {Ranges, Len, Freq}} ->
 	    F0 = fun ({ExprSeqId, ExprIndex}, L) ->
-			 {ExprSeqId, {M, F, A}, Exprs}=lists:nth(ExprSeqId, NewData),
-			 Es=lists:sublist(Exprs, ExprIndex, L),
-			 [{{M,F,A, Index}, Toks, {{StartLoc, EndLoc}, StartLine}, IsNew}||
-			     {{Index, Toks, {StartLoc, EndLoc}, StartLine, IsNew}, _HashIndex}<-Es]
+			 {ExprSeqId, {M, F, A}, Exprs} = lists:nth(ExprSeqId, NewData),
+			 Es = lists:sublist(Exprs, ExprIndex, L),
+			 [{{M,F,A,Index}, Toks, {{StartLoc, EndLoc}, StartLine}, IsNew}
+			  || {{Index, Toks, {StartLoc, EndLoc}, StartLine, IsNew}, _HashIndex} <- Es]
 		 end,
-	    C1={[F0(R, Len)||R<-Ranges], {Len, Freq}},
+	    C1 = {[F0(R, Len) || R <- Ranges], {Len, Freq}},
 	    From ! {self(), C1},
-	    hash_loop({NextSeqNo, ExpHashTab, NewData});
+	    hash_loop({NextSeqNo, ExpHashTab, NewData},Inc);
 	{remove_entry, {M, F, A}} ->
-	    NewData1=[case {M,F,A}/={M1, F1, A1} of 
-			  true ->
-			      {Seq, {M1,F1, A1}, KeyExprPairs};
-			  false->
-			      {Seq, {M1, F1, A1}, []}
-		      end
-		      ||{Seq, {M1,F1, A1}, KeyExprPairs}<-NewData],
-	    hash_loop({NextSeqNo, ExpHashTab, NewData1});
+	    NewData1 = [case {M,F,A}/={M1, F1, A1} of
+			    true ->
+				{Seq, {M1, F1, A1}, KeyExprPairs};
+			    false ->
+				{Seq, {M1, F1, A1}, []}
+			end
+			|| {Seq, {M1, F1, A1}, KeyExprPairs} <- NewData],
+	    hash_loop({NextSeqNo, ExpHashTab, NewData1},Inc);
 	stop ->
 	    %%file:write_file(?ExpSeqFile, term_to_binary(NewData)),
 	    ok
@@ -1610,11 +1595,12 @@ same_expr(Expr1, Expr2) ->
 %%                                                            %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-from_dets(Ets, Dets) when is_atom(Ets) ->
+
+from_dets(Ets, Dets, Inc) when is_atom(Ets) ->
     EtsRef = ets:new(Ets, [set, public]),
-    case ?INC of 
+    case Inc of
 	true ->
-	    case Dets of 
+	    case Dets of
 		none -> EtsRef;
 		_ ->
 		    case dets:open_file(Dets, [{access, read}]) of
@@ -1622,7 +1608,7 @@ from_dets(Ets, Dets) when is_atom(Ets) ->
 			    true = ets:from_dets(EtsRef, D),
 			    ok = dets:close(D),
 			    EtsRef;
-			{error, _Reason} -> 
+			{error, _Reason} ->
 			    EtsRef
 		    end
 	    end;
@@ -1730,10 +1716,12 @@ get_file_status_info(Files, Tabs, Threshold) ->
 		    ChangedFiles = lists:filter(Fun, Files),
 		    {DeletedFiles, ChangedFiles, NewFiles};
 		false ->
+		    file:delete(?ExpSeqFile),
 		    OldFiles = lists:append(ets:match(FileHashTab,{'$1', '_'})),
 		    {OldFiles, [], Files}
 	    end;
 	{error, _Reason} ->
+	    file:delete(?ExpSeqFile),
 	    OldFiles = lists:append(ets:match(FileHashTab,{'$1', '_'})),
 	    {OldFiles, [], Files}
     end.

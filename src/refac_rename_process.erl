@@ -154,7 +154,7 @@ collect_process_names(DirList) ->
 							 case is_register_app(Node1) of 
 							     true -> 
 								 [RegName, _Pid] = refac_syntax:application_arguments(Node1),
-								 RegNameValues = refac_register_pid:evaluate_expr(Files, ModName, AnnAST, Node, RegName),
+								 RegNameValues = evaluate_expr(Files, ModName, AnnAST, Node, RegName),
 								 RegNameValues++FunAcc;
 							     _ -> FunAcc
 							 end; 
@@ -248,3 +248,25 @@ collect_atoms(CurrentFile, AtomName, SearchPaths, TabWidth) ->
   
 is_process_name(Name) ->
     refac_misc:is_fun_name(Name) and (list_to_atom(Name) =/= undefined).
+
+
+%% An duplication of function defined in refac_register_pid. 
+%% Need to be refactored.
+evaluate_expr(Files, ModName, AnnAST, FunDef, Expr) ->
+    F = fun (E) ->
+		Es = [refac_syntax:revert(E)],
+		case catch erl_eval:exprs(Es, []) of
+		  {value, V, _} -> {value, V};
+		  _ ->
+		      FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
+		      Arity = refac_syntax:function_arity(FunDef),
+		      {StartPos, _} = refac_misc:get_start_end_loc(Expr),
+		      {unknown, {ModName, FunName, Arity, StartPos}}
+		end
+	end,
+    Exprs = case refac_misc:get_free_vars(Expr) of
+	      [] -> [Expr];
+	      _ -> refac_slice:backward_slice(Files, AnnAST, ModName, FunDef, Expr)
+	    end,
+    lists:map(F, Exprs).
+   

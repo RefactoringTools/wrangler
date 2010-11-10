@@ -136,7 +136,7 @@ full_tdTP(Function, Node, Others) ->
 %%	     syntaxTree()).       
 full_buTP(Fun, Tree, Others) ->
     case refac_syntax:subtrees(Tree) of
-      [] -> Fun(Tree, Others);
+      [] -> Fun(Tree, Others); 
       Gs ->
 	  Gs1 = [[full_buTP(Fun, T, Others) || T <- G] || G <- Gs],
 	  Tree1 = refac_syntax:make_tree(refac_syntax:type(Tree), Gs1),
