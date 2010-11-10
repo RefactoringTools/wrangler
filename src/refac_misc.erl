@@ -43,7 +43,8 @@
 	 get_env_vars/1,get_var_exports/1,get_bound_vars/1,get_free_vars/1,
 	 is_expr/1,is_expr_or_match/1, is_pattern/1, is_exported/2, inscope_funs/1,update_ann/2,
 	 delete_from_ann/2, callback_funs/1, is_callback_fun/3, rewrite/2,
-	 get_range/1, max/2, min/2, modname_to_filename/2, funname_to_defpos/2]).
+	 get_range/1, max/2, min/2, modname_to_filename/2, funname_to_defpos/2,
+  	 spawn_funs/0,is_spawn_app/1]).
 
 -include("../include/wrangler.hrl").
 
@@ -721,3 +722,21 @@ funname_to_defpos(AnnAST, {M, F, A}) ->
 	    {error, lists:flatten(io_lib:format("Function ~p/~p is defined more than once in module ~p", [F, A, M]))}
     end.
 		 
+   
+is_spawn_app(Tree) ->
+    SpawnFuns1 =  spawn_funs(),
+    case refac_syntax:type(Tree) of
+	application ->
+	    Operator = refac_syntax:application_operator(Tree),
+	    Ann = refac_syntax:get_ann(Operator),
+	    case lists:keysearch(fun_def, 1, Ann) of
+		{value, {fun_def, {Mod, Fun, Arity, _, _}}} -> lists:member({Mod, Fun, Arity}, SpawnFuns1);
+		_ -> false
+	    end;
+	_ -> false
+    end.
+ 
+spawn_funs() ->
+    [{erlang, spawn, 1}, {erlang, spawn, 2}, {erlang, spawn, 3}, {erlang, spawn, 4},
+     {erlang, spawn_link, 1}, {erlang, spawn_link, 2}, {erlang, spawn_link, 3}, {erlang, spawn_link, 4},
+     {erlang, spawn_opt, 3}, {erlang, spawn_opt, 5}].

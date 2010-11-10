@@ -445,22 +445,21 @@ is_send_expr(Tree) ->
     
     end.
 
-
 is_spawn_expr(Tree) ->
-    SpawnFuns1 = refac_register_pid:spawn_funs(),
+    SpawnFuns1 = refac_misc:spawn_funs(),
     SpawnFuns2 = [{erlang, spawn_monitor, 1}, {erlang, spawn_monitor, 3}, {erlang, spawn_opt, 2},
- 		  {erlang, spawn_opt, 4}],  %% These funs return more than a single Pid.
+		  {erlang, spawn_opt, 4}],  %% These funs return more than a single Pid.
     case refac_syntax:type(Tree) of
-      application ->
-	  Operator = refac_syntax:application_operator(Tree),
-	  Ann = refac_syntax:get_ann(Operator),
-	  case lists:keysearch(fun_def, 1, Ann) of
-	    {value, {fun_def, {Mod, Fun, Arity, _, _}}} 
-	      -> lists:member({Mod, Fun, Arity}, SpawnFuns1) orelse 
-		     lists:member({Mod, Fun, Arity}, SpawnFuns2);
-	      _ -> false
-	  end;
-      _ -> false
+	application ->
+	    Operator = refac_syntax:application_operator(Tree),
+	    Ann = refac_syntax:get_ann(Operator),
+	    case lists:keysearch(fun_def, 1, Ann) of
+		{value, {fun_def, {Mod, Fun, Arity, _, _}}} ->
+		    lists:member({Mod, Fun, Arity}, SpawnFuns1) orelse 
+		      lists:member({Mod, Fun, Arity}, SpawnFuns2);
+		_ -> false
+	    end;
+	_ -> false
     end.
 
 get_affected_mods_and_funs(SpawnExprs, SearchPaths, TabWidth) ->

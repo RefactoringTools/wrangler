@@ -56,8 +56,6 @@
 
 -export([register_pid/6, register_pid_eclipse/6, register_pid_1/10, register_pid_2/9]).
 
--export([spawn_funs/0, is_spawn_app/1, evaluate_expr/5]).
-
 -include("../include/wrangler.hrl").
 
 %% ==============================================================================================================
@@ -478,24 +476,7 @@ do_add_register_expr(Node, {MatchExpr, RegExpr}) ->
 		     {Node1, true}
 	    end;
 	_  -> {Node, false}
-    end.   
-is_spawn_app(Tree) ->
-    SpawnFuns1 =  spawn_funs(),
-    case refac_syntax:type(Tree) of
-	application ->
-	    Operator = refac_syntax:application_operator(Tree),
-	    Ann = refac_syntax:get_ann(Operator),
-	    case lists:keysearch(fun_def, 1, Ann) of
-		{value, {fun_def, {Mod, Fun, Arity, _, _}}} -> lists:member({Mod, Fun, Arity}, SpawnFuns1);
-		_ -> false
-	    end;
-	_ -> false
     end.
-
-spawn_funs() ->
-    [{erlang, spawn, 1}, {erlang, spawn, 2}, {erlang, spawn, 3}, {erlang, spawn, 4},
-     {erlang, spawn_link, 1}, {erlang, spawn_link, 2}, {erlang, spawn_link, 3}, {erlang, spawn_link, 4},
-     {erlang, spawn_opt, 3}, {erlang, spawn_opt, 5}].
    
 
 evaluate_expr(Files, ModName, AnnAST, FunDef, Expr) ->
@@ -514,8 +495,8 @@ evaluate_expr(Files, ModName, AnnAST, FunDef, Expr) ->
 	      [] -> [Expr];
 	      _ -> refac_slice:backward_slice(Files, AnnAST, ModName, FunDef, Expr)
 	    end,
-    Values = lists:map(F, Exprs),
-    Values.
+    lists:map(F, Exprs).
+   
 
 
 funs_called(Node) ->
@@ -564,24 +545,22 @@ funs_called(Node) ->
 	 end,
     lists:usort(refac_syntax_lib:fold(F2, [], Node)).
 
-
-
 pos_to_spawn_match_expr(AnnAST, Start, End) ->
     Message = "You have not selected a match expression whose left-hand side is a PID, and right-hand side is a spawn expression!",
     case interface_api:pos_to_expr(AnnAST, Start, End) of
-      {ok, Expr} ->
-	  case refac_syntax:type(Expr) of
-	    match_expr ->
-		P = refac_syntax:match_expr_pattern(Expr),
-		B = refac_syntax:match_expr_body(Expr),
-		case {is_spawn_app(B), refac_syntax:type(P) == variable} of
-		  {true, true} ->
-		      {ok, Expr};
-		  _ -> {error, Message}
-		end;
-	    _ -> {error, Message}
-	  end;
-      _ -> {error, Message}
+	{ok, Expr} ->
+	    case refac_syntax:type(Expr) of
+		match_expr ->
+		    P = refac_syntax:match_expr_pattern(Expr),
+		    B = refac_syntax:match_expr_body(Expr),
+		    case {refac_misc:is_spawn_app(B), refac_syntax:type(P) == variable} of
+			{true, true} ->
+			    {ok, Expr};
+			_ -> {error, Message}
+		    end;
+		_ -> {error, Message}
+	    end;
+	_ -> {error, Message}
     end.
 
 

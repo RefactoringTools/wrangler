@@ -368,42 +368,40 @@ annotate_special_fun_apps({CurrentFun, FunDef}, EnvPid) ->
     init_counter(),
     {FunDef1, _} = ast_traverse_api:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, FunDef, {CurrentFun, EnvPid}),
     ast_traverse_api:full_buTP(fun do_annotate_special_fun_apps_pname/2, FunDef1, EnvPid).
-   
-
 
 do_annotate_special_fun_apps_pid(Node, {CurrentFun, EnvPid}) ->
     case refac_syntax:type(Node) of
-      application ->
-	  case refac_register_pid:is_spawn_app(Node)   %% TODO:How about meta application of spawn?
-	      of
-	    true ->
-		Op = refac_syntax:application_operator(Node),
-		Args = refac_syntax:application_arguments(Node),
-		Args1 = case Args of
-			  [A] -> {A1, _} = ast_traverse_api:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, A, {refac_prettypr:format(A), EnvPid}),
-				 [A1];
-			  [Node, A] ->
-			      {A1, _} = ast_traverse_api:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, A, {refac_prettypr:format(A), EnvPid}),
-			      [Node, A1];
-			  _ -> Args
-			end,
-		counter1 ! {self(), next_spawn},
-		receive {counter1, N} -> N end,
-		Node1 = refac_syntax:copy_attrs(Node, refac_syntax:application(Op, Args1)),
-		Node2 = refac_misc:update_ann(Node1,
-					      {pid, [{spawn, CurrentFun, N}]}),
-		{Node2, true};
-	    _ ->
-		Op = refac_syntax:application_operator(Node),
-		OpAnn = refac_syntax:get_ann(Op),
-		case lists:keysearch(fun_def, 1, OpAnn) of
-		  {value, {fun_def, {erlang, self, 0, _, _}}} ->
-		      Node1 = refac_misc:update_ann(Node, {pid, [{self, CurrentFun}]}),
-		      {Node1, true};
-		  _ -> {Node, false}
-		end
-	  end;
-      _ -> {Node, false}
+	application ->
+	    case refac_misc:is_spawn_app(Node)   %% TODO:How about meta application of spawn?
+		of
+		true ->
+		    Op = refac_syntax:application_operator(Node),
+		    Args = refac_syntax:application_arguments(Node),
+		    Args1 = case Args of
+				[A] -> {A1, _} = ast_traverse_api:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, A, {refac_prettypr:format(A), EnvPid}),
+				       [A1];
+				[Node, A] ->
+				    {A1, _} = ast_traverse_api:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, A, {refac_prettypr:format(A), EnvPid}),
+				    [Node, A1];
+				_ -> Args
+			    end,
+		    counter1 ! {self(), next_spawn},
+		    receive {counter1, N} -> N end,
+		    Node1 = refac_syntax:copy_attrs(Node, refac_syntax:application(Op, Args1)),
+		    Node2 = refac_misc:update_ann(Node1,
+						  {pid, [{spawn, CurrentFun, N}]}),
+		    {Node2, true};
+		_ ->
+		    Op = refac_syntax:application_operator(Node),
+		    OpAnn = refac_syntax:get_ann(Op),
+		    case lists:keysearch(fun_def, 1, OpAnn) of
+			{value, {fun_def, {erlang, self, 0, _, _}}} ->
+			    Node1 = refac_misc:update_ann(Node, {pid, [{self, CurrentFun}]}),
+			    {Node1, true};
+			_ -> {Node, false}
+		    end
+	    end;
+	_ -> {Node, false}
     end.
 
 
