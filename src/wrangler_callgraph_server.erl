@@ -165,14 +165,12 @@ build_scc_callgraph(DirList) ->
 			      end, CallerCalleesWithDef),
     {Sccs, E} = refac_callgraph:construct(CallerCalleesWithDef),
     #callgraph{callercallee = CallerCallees, scc_order = Sccs, external_calls = E}.
-    
-   
 
 %%-spec(build_callercallee_callgraph/1::([dir()]) -> 
 %%	     [{{{atom(), atom(), integer()}, syntaxTree()}, [{atom(), atom(), integer()}]}]).
 build_callercallee_callgraph(DirList) ->
     Files = refac_util:expand_files(DirList, ".erl"),
-    lists:flatmap(fun(FName) ->do_build_callgraph(FName, DirList)
+    lists:flatmap(fun (FName) -> do_build_callgraph(FName, DirList)
 		  end, Files).
 
 %%-spec(do_build_callgraph/2::(filename(), [dir()]) -> 
@@ -271,22 +269,22 @@ get_sorted_funs(ModName, AnnAST) ->
 %%-spec(fun_callgraph_to_png/1::([filename()|dir()]) -> ok).
 fun_callgraph_to_png(FileNameDirs) ->
     Files = refac_util:expand_files(FileNameDirs, ".erl"),
-    lists:foreach(fun(FName)->
+    lists:foreach(fun (FName) ->
 			  %% refac_io:format("currentfile:\n~p\n", [FName]),
 			  BaseName = filename:basename(FName, ".erl"),
-			  DotFileName=BaseName++"_callgraph.dot",
-			  PngFileName =BaseName++"_callgraph.png",
+			  DotFileName = BaseName++"_callgraph.dot",
+			  PngFileName = BaseName++"_callgraph.png",
 			  fun_callgraph_to_dot(DotFileName, FName),
-			  os:cmd("dot -Tpng "++DotFileName++" > "++PngFileName)			  
+			  os:cmd("dot -Tpng "++DotFileName++" > "++PngFileName)
 		  end, Files).
 
 %%-spec(fun_callgraph_to_dot/1::([filename()|dir()]) -> ok).
 fun_callgraph_to_dot(FileNameDirs) ->
     Files = refac_util:expand_files(FileNameDirs, ".erl"),
-    lists:foreach(fun(FName)->
+    lists:foreach(fun (FName) ->
 			  %% refac_io:format("currentfile:\n~p\n", [FName]),
 			  BaseName = filename:basename(FName, ".erl"),
-			  DotFileName=BaseName++"_callgraph.dot",
+			  DotFileName = BaseName++"_callgraph.dot",
 			  fun_callgraph_to_dot(DotFileName, FName)
 		  end, Files).
 
@@ -368,11 +366,11 @@ calc_dim(String) ->
   calc_dim(String, 1, 0, 0).
 
 calc_dim("\\n" ++ T, H, TmpW, MaxW) ->
-  calc_dim(T, H+1, 0, refac_misc:max(TmpW, MaxW));
-calc_dim([_|T], H, TmpW, MaxW) ->
-  calc_dim(T, H, TmpW+1, MaxW);
+    calc_dim(T, H+1, 0, refac_util:max(TmpW, MaxW));
+calc_dim([_| T], H, TmpW, MaxW) ->
+    calc_dim(T, H, TmpW+1, MaxW);
 calc_dim([], H, TmpW, MaxW) ->
-  {refac_misc:max(TmpW, MaxW), H}.
+    {refac_util:max(TmpW, MaxW), H}.
 
 
 edge_format(V1, V2) ->

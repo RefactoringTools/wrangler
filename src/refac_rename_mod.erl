@@ -70,13 +70,13 @@
 %%-spec(rename_mod_command/3::(modulename()|filename(), modulename(), [dir()]) -> 
 %%			  {error, string()} | {ok, [filename()]}).
 rename_mod_command(OldModOrFileName, NewModName, SearchPaths) ->
-    case is_atom(NewModName) of 
-	true -> 
+    case is_atom(NewModName) of
+	true ->
 	    ok;
 	false ->
 	    throw({error, "Invalud new module name."})
     end,
-    FileName = case is_list(OldModOrFileName) of 
+    FileName = case is_list(OldModOrFileName) of
 		   true ->
 		       case filelib:is_file(OldModOrFileName) of
 			   true ->
@@ -87,7 +87,7 @@ rename_mod_command(OldModOrFileName, NewModName, SearchPaths) ->
 		   false ->
 		       case is_atom(OldModOrFileName) of
 			   true ->
-			       case refac_misc:modname_to_filename(OldModOrFileName, SearchPaths) of
+			       case refac_util:modname_to_filename(OldModOrFileName, SearchPaths) of
 				   {ok, OldFileName} ->
 				       OldFileName;
 				   {error, Msg} ->
@@ -109,18 +109,18 @@ rename_mod_command(OldFileName, NewModName, SearchPaths, TabWidth) ->
     do_rename_mod(OldFileName, [{OldModName, NewModNameAtom}], AnnAST,
 		  SearchPaths, command, TabWidth, "").
 
-rename_mod_command_precond_check(OldFileName,NewModName, Info, SearchPaths) ->
-    case refac_misc:is_fun_name(NewModName) of
+rename_mod_command_precond_check(OldFileName, NewModName, Info, SearchPaths) ->
+    case refac_util:is_fun_name(NewModName) of
 	true ->
 	    case lists:keysearch(module, 1, Info) of
 		{value, {module, OldModName}} ->
 		    case is_tuple(OldModName) of
-			true -> 
+			true ->
 			    {error, "Renaming of parameterised module is not supported yet."};
-			false -> 
-			    NewModNameAtom=list_to_atom(NewModName),
+			false ->
+			    NewModNameAtom = list_to_atom(NewModName),
 			    pre_cond_check(OldFileName, OldModName, NewModNameAtom, [], SearchPaths)
-			end;
+		    end;
 		false -> ok
 	    end;
 	false -> {error, "Invalid new module name!"}
@@ -156,8 +156,8 @@ rename_mod(FileName, NewName, SearchPaths, TabWidth, Editor) ->
 		 [?MODULE, FileName, NewName, SearchPaths, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_mod(" ++ "\"" ++ 
 	    FileName ++ "\", " ++ NewName ++ "\"," ++ "[" ++ 
-	      refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    case refac_misc:is_fun_name(NewName) of
+	      refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    case refac_util:is_fun_name(NewName) of
 	true ->
 	    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
 	    case lists:keysearch(module, 1, Info) of
@@ -207,8 +207,8 @@ pre_cond_check(FileName, OldModName, NewModName, TestFrameWorkUsed, SearchPaths)
 find_eunit_test_file(ModName, SearchPaths) ->
     TestFileName = atom_to_list(ModName)++"_tests",
     Files = refac_util:expand_files(SearchPaths, ".erl"),
-    [F || F<-Files, filename:basename(F, ".erl")==TestFileName,
-                   lists:member(eunit, refac_util:test_framework_used(F))].
+    [F || F <- Files, filename:basename(F, ".erl")==TestFileName,
+	  lists:member(eunit, refac_util:test_framework_used(F))].
     
 	
 pre_cond_test_file_checking(OldModName, NewModName,TestFrameWorkUsed, SearchPaths) ->
@@ -229,25 +229,24 @@ pre_cond_test_file_checking(OldModName, NewModName,TestFrameWorkUsed, SearchPath
 		  ", and Wrangler will not rename them, still continue?"}
     end.
 
-    
 rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod, Editor) ->
     ?wrangler_io("\nCMD: ~p:rename_mod_1(~p, ~p,~p, ~p, ~p, ~p).\n",
 		 [?MODULE, FileName, NewName, SearchPaths, TabWidth, RenameTestMod, Editor]),
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_mod(" ++ "\"" ++
-	    FileName ++ "\", " ++ NewName ++ "\"," ++ "[" ++
-	      refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_mod(" ++ "\"" ++ 
+	    FileName ++ "\", " ++ NewName ++ "\"," ++ "[" ++ 
+	      refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {AnnAST, Info} = parse_file_with_type_ann(FileName, SearchPaths, TabWidth),
     {value, {module, OldModName}} = lists:keysearch(module, 1, Info),
     NewModName = list_to_atom(NewName),
     TestFrameWorkUsed = refac_util:test_framework_used(FileName),
     case lists:member(eunit, TestFrameWorkUsed) andalso RenameTestMod of
-      true ->
-	  TestModName = list_to_atom(atom_to_list(OldModName) ++ "_tests"),
-	  NewTestModName = list_to_atom(NewName ++ "_tests"),
-	  do_rename_mod(FileName, [{OldModName, NewModName}, {TestModName, NewTestModName}],
-			AnnAST, SearchPaths, Editor, TabWidth, Cmd);
-      false ->
-	  do_rename_mod(FileName, [{OldModName, NewModName}], AnnAST, SearchPaths, Editor, TabWidth, Cmd)
+	true ->
+	    TestModName = list_to_atom(atom_to_list(OldModName) ++ "_tests"),
+	    NewTestModName = list_to_atom(NewName ++ "_tests"),
+	    do_rename_mod(FileName, [{OldModName, NewModName}, {TestModName, NewTestModName}],
+			  AnnAST, SearchPaths, Editor, TabWidth, Cmd);
+	false ->
+	    do_rename_mod(FileName, [{OldModName, NewModName}], AnnAST, SearchPaths, Editor, TabWidth, Cmd)
     end.
 
 do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, Cmd) ->
@@ -305,15 +304,13 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, C
 	    Results1 = [{{FileName, NewFileName}, AnnAST1}| TestModRes ++ Results],
 	    refac_write_file:write_refactored_files(Results1, Editor, TabWidth, "")
     end.
-  
- 
-   
+
 do_rename_mod_1(Tree, {FileName, OldNewModPairs, Pid}) ->
     TestFrameWorkUsed = refac_util:test_framework_used(FileName),
     {AnnAST1, C1} = ast_traverse_api:full_tdTP(fun do_rename_mod_2/2, Tree, {FileName, OldNewModPairs, Pid}),
     {AnnAST2, C2} = case lists:member(eunit, TestFrameWorkUsed) of
-		      true -> do_rename_mod_in_eunit_funs(FileName, AnnAST1, OldNewModPairs, Pid);
-		      _ -> {AnnAST1, C1}
+			true -> do_rename_mod_in_eunit_funs(FileName, AnnAST1, OldNewModPairs, Pid);
+			_ -> {AnnAST1, C1}
 		    end,
     {AnnAST2, C1 or C2}.
 

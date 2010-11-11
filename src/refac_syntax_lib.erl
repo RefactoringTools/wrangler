@@ -326,7 +326,7 @@ vann(Tree, Env, Ms, VI, Pid) ->
 	macro -> vann_macro(Tree, Env, Ms, VI, Pid);
 	%% Added by HL, begin.
 	attribute ->
-	    Toks0 = refac_misc:get_toks(Tree),
+	    Toks0 = refac_util:get_toks(Tree),
 	    Tree1 = adjust_locations(Tree, Toks0),
 	    case refac_syntax:atom_value(refac_syntax:attribute_name(Tree1)) of
 		define -> vann_define(Tree1, Env, Ms, VI, Pid);
@@ -360,27 +360,27 @@ vann_list(Ts, Env, Ms, VI, Pid) ->
     lists:mapfoldl(vann_list_join(Env, Ms, VI, Pid), {[], []}, Ts).
 
 vann_function(Tree, Env, Ms, _VI, Pid) ->
-    Toks0 = refac_misc:get_toks(Tree),
+    Toks0 = refac_util:get_toks(Tree),
     Tree1 = adjust_locations(Tree, Toks0),
     F = fun () ->
 		Toks1 = remove_whites(Toks0),
 		Toks2 = refac_epp:expand_macros(Toks1, Ms),
 		case Toks1 of
-		  Toks2 -> [];
-		  _ ->
-		      {ok, Form} = refac_parse:parse_form(Toks2),
-		      [Form1] = refac_syntax:form_list_elements(
-				  refac_recomment:recomment_forms([Form], [])),
-		      {Form2, _, _} = vann_function_1(Form1, Env, Ms, [], Pid),
-		      get_var_info(Form2)
+		    Toks2 -> [];
+		    _ ->
+			{ok, Form} = refac_parse:parse_form(Toks2),
+			[Form1] = refac_syntax:form_list_elements(
+				    refac_recomment:recomment_forms([Form], [])),
+			{Form2, _, _} = vann_function_1(Form1, Env, Ms, [], Pid),
+			get_var_info(Form2)
 		end
 	end,
     {Tree2, Bound, Free} = try
-			     F()
+			       F()
 			   of
-			     VI -> vann_function_1(Tree1, Env, Ms, VI, Pid)
+			       VI -> vann_function_1(Tree1, Env, Ms, VI, Pid)
 			   catch
-			     _E1:_E2_ -> vann_function_1(Tree1, Env, Ms, [], Pid)
+			       _E1:_E2_ -> vann_function_1(Tree1, Env, Ms, [], Pid)
 			   end,
     {update_var_define_locations(Tree2), Bound, Free}.
     
@@ -2222,13 +2222,13 @@ adjust_locations(Form, Toks) ->
 							end, Toks),
 				StrTok = hd(Toks1),
 				StrPos = element(2, StrTok),
-				{_, EndPos} = refac_misc:get_start_end_loc(File),
+				{_, EndPos} = refac_util:get_start_end_loc(File),
 				File1 = refac_syntax:add_ann({toks, [StrTok]},
-							     refac_misc:update_ann(refac_syntax:set_pos(File, StrPos),
+							     refac_util:update_ann(refac_syntax:set_pos(File, StrPos),
 										   {range, {StrPos, EndPos}})),
 				Toks2 = lists:dropwhile(fun (B) -> element(1, B) =/= integer end, Toks1),
 				Data1 = refac_syntax:set_pos(Data, element(2, hd(Toks2))),
-				refac_misc:rewrite(T, refac_syntax:attribute(Name, [File1, Data1]));
+				refac_util:rewrite(T, refac_syntax:attribute(Name, [File1, Data1]));
 			    _ -> T
 			end;
 		    implicit_fun ->
@@ -2249,7 +2249,7 @@ adjust_locations(Form, Toks) ->
 									end
 								end,
 								Toks1),
-					P = element(2, refac_misc:ghead("refac_util: adjust_locations,P", Toks2)),
+					P = element(2, refac_util:ghead("refac_util: adjust_locations,P", Toks2)),
 					Fun2 = refac_syntax:set_pos(Fun, P),
 					Toks3 = lists:dropwhile(fun (B) ->
 									case B of
@@ -2259,7 +2259,7 @@ adjust_locations(Form, Toks) ->
 								end,
 								Toks2),
 					A2 = refac_syntax:set_pos(A,
-								  element(2, refac_misc:ghead("refac_util:adjust_locations:A2", Toks3))),
+								  element(2, refac_util:ghead("refac_util:adjust_locations:A2", Toks3))),
 					rewrite(T, refac_syntax:implicit_fun(refac_syntax:set_pos(rewrite(Name,
 													  refac_syntax:arity_qualifier(Fun2, A2)), P)));
 				    _ -> T
@@ -2312,7 +2312,7 @@ update_var_define_locations(Node) ->
 				Defs = lists:merge([V1
 						    || V1 <- DefineLocs,
 						       ordsets:intersection(ordsets:from_list(V1), ordsets:from_list(Define)) /= []]),
-				refac_misc:update_ann(T, {def, lists:usort(Defs)});
+				refac_util:update_ann(T, {def, lists:usort(Defs)});
 			    _ -> T
 			end;
 		    _ -> T

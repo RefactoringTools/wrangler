@@ -51,7 +51,7 @@ find_var_instances(FName, Line, Col, SearchPaths, TabWidth) ->
 				   variable ->
 				       case lists:keysearch(def, 1, refac_syntax:get_ann(T)) of
 					   {value, {def, DefinePos}} ->
-					       Range = refac_misc:get_start_end_loc(T),
+					       Range = refac_util:get_start_end_loc(T),
 					       [Range| S];
 					   _ -> S
 				       end;
@@ -63,7 +63,6 @@ find_var_instances(FName, Line, Col, SearchPaths, TabWidth) ->
 	    end;
 	{error, Reason} -> throw({error, Reason})
     end.
-
 
 %%==========================================================================================
 nested_exprs(DirFileNames, NestLevel, ExprType, SearchPaths, TabWidth) ->
@@ -87,7 +86,7 @@ nested_exprs_1(FName, NestLevel, ExprType, SearchPaths, TabWidth) ->
 			  Fun1 = fun (Node, S1) ->
 					 case refac_syntax:type(Node) of
 					     ExprType1 ->
-						 Range = refac_misc:get_start_end_loc(Node),
+						 Range = refac_util:get_start_end_loc(Node),
 						 [{ModName, FunName, Arity, Range}| S1];
 					     _ -> S1
 					 end
@@ -156,7 +155,7 @@ calls_to_fun_1(FName, FunctionName, Arity, SearchPaths, TabWidth) ->
 caller_funs_2(FName, M, F, A, Info, SearchPaths, TabWidth) ->
     ?wrangler_io("\nSearching for caller function of ~p:~p/~p ...\n", [M, F, A]),
     {Res1, Res2} = get_caller_funs(FName, {M, F, A}, SearchPaths, TabWidth),
-    case refac_misc:is_exported({F, A}, Info) of
+    case refac_util:is_exported({F, A}, Info) of
 	true ->
 	    ?wrangler_io("\nChecking client modules in the following paths: \n~p\n",
 			 [SearchPaths]),
@@ -259,15 +258,17 @@ dependencies_of_a_module(FName, SearchPaths) ->
 
 
  %%==========================================================================================
+
+
 %%-spec(long_functions(DirFileNames::[filename()|dir()], Lines::integer(), SearchPaths::[dir()], TabWidth::integer()) ->
 %%	    {ok, [{modulename(), functionname(), functionarity()}]}).
 long_functions(DirFileNames, Lines, SearchPaths, TabWidth) ->
-     ?wrangler_io("\nCMD: ~p:long_functions(~p, ~p,~p,~p).\n",
-		  [?MODULE, DirFileNames, Lines,SearchPaths, TabWidth]),
+    ?wrangler_io("\nCMD: ~p:long_functions(~p, ~p,~p,~p).\n",
+		 [?MODULE, DirFileNames, Lines, SearchPaths, TabWidth]),
     Files = refac_util:expand_files(DirFileNames, ".erl"),
-    MFAs=lists:flatmap(fun (F) ->
-			       long_functions_2(F, Lines, SearchPaths, TabWidth)
-		       end, Files),
+    MFAs = lists:flatmap(fun (F) ->
+				 long_functions_2(F, Lines, SearchPaths, TabWidth)
+			 end, Files),
     {ok,MFAs}.
 
 long_functions_2(FName, Lines, SearchPaths, TabWidth) ->
@@ -277,9 +278,9 @@ long_functions_2(FName, Lines, SearchPaths, TabWidth) ->
     Fun = fun (Node, S) ->
 		  case refac_syntax:type(Node) of
 		      function ->
-			  Toks = refac_misc:get_toks(Node),
+			  Toks = refac_util:get_toks(Node),
 			  CodeLines = [element(1, element(2, T)) || T <- Toks, element(1, T) /= whitespace, element(1, T) /= comment],
-			  CodeLines1 = refac_misc:remove_duplicates(CodeLines),
+			  CodeLines1 = refac_util:remove_duplicates(CodeLines),
 			  case length(CodeLines1) > Lines of
 			      true ->
 				  FunName = refac_syntax:atom_value(refac_syntax:function_name(Node)),
@@ -297,19 +298,17 @@ long_functions_2(FName, Lines, SearchPaths, TabWidth) ->
 %%	     {ok, [modulename()]}).
 large_modules(Lines, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:large_modules(~p,~p,~p).\n",
-		  [?MODULE, Lines, SearchPaths, TabWidth]),
+		 [?MODULE, Lines, SearchPaths, TabWidth]),
     Files = refac_util:expand_files(SearchPaths, ".erl"),
-    LargeMods=lists:filter(fun (File) ->
-				  is_large_module(File, Lines, TabWidth)
-			  end, Files),
+    LargeMods = lists:filter(fun (File) ->
+				     is_large_module(File, Lines, TabWidth)
+			     end, Files),
     {ok, LargeMods}.
- 
+
 is_large_module(FName, Lines, TabWidth) ->
     Toks = refac_util:tokenize(FName, false, TabWidth),
-    CodeLines = refac_misc:remove_duplicates([element(1, element(2, T)) || T <- Toks]),
+    CodeLines = refac_util:remove_duplicates([element(1, element(2, T)) || T <- Toks]),
     length(CodeLines) >= Lines.
-
-
 
 %%==========================================================================================
 %%-spec(non_tail_recursive_servers(FileOrDirs::[filename()], SearchPaths::[dir()], TabWidth::integer()) -> 
@@ -318,9 +317,9 @@ non_tail_recursive_servers(FileOrDirs, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:non_tail_recursive_servers(~p, ~p, ~p).\n",
 		 [?MODULE, FileOrDirs, SearchPaths, TabWidth]),
     Files = refac_util:expand_files(FileOrDirs, ".erl"),
-    MFAs=lists:flatmap(fun (F) ->
-			       non_tail_recursive_servers_1(F, SearchPaths, TabWidth)
-		       end, Files),
+    MFAs = lists:flatmap(fun (F) ->
+				 non_tail_recursive_servers_1(F, SearchPaths, TabWidth)
+			 end, Files),
     {ok, MFAs}.
 
 non_tail_recursive_servers_1(FName, SearchPaths, TabWidth) ->
@@ -395,7 +394,7 @@ check_candidate_scc(FunDef, Scc, Line) ->
 	end,
     F1 = fun (Es) ->
 		 F11 = fun (E) ->
-			       {_, {EndLine, _}} = refac_misc:get_start_end_loc(E),
+			       {_, {EndLine, _}} = refac_util:get_start_end_loc(E),
 			       case EndLine >= Line of
 				   true ->
 				       CalledFuns = wrangler_callgraph_server:called_funs(E),
@@ -418,8 +417,8 @@ check_candidate_scc(FunDef, Scc, Line) ->
 %%	     {ok, [{modulename(), functionname(), functionarity()}]}).
 not_flush_unknown_messages(FileOrDirs, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:not_flush_unknown_messages(~p, ~p, ~p).\n",
- 		 [?MODULE, FileOrDirs, SearchPaths, TabWidth]),
-    Files =refac_util:expand_files(FileOrDirs, ".erl"),
+		 [?MODULE, FileOrDirs, SearchPaths, TabWidth]),
+    Files = refac_util:expand_files(FileOrDirs, ".erl"),
     Funs = lists:flatmap(fun (F) ->
 				 not_flush_unknown_messages_1(F, SearchPaths, TabWidth)
 			 end, Files),
@@ -482,7 +481,7 @@ is_server(_FileName, _Info, FunDef, Scc, Line) ->
 		end
 	end,
     F1 = fun (E) ->
-		 {_, {EndLine, _}} = refac_misc:get_start_end_loc(E),
+		 {_, {EndLine, _}} = refac_util:get_start_end_loc(E),
 		 case EndLine >= Line of
 		     true ->
 			 CalledFuns = wrangler_callgraph_server:called_funs(E),
@@ -507,7 +506,7 @@ not_has_flush_fun(FunDef) ->
 						  1 -> P = hd(Pat),
 						       case refac_syntax:type(P) of
 							   variable ->
-							       case refac_misc:get_free_vars(P) of
+							       case refac_util:get_free_vars(P) of
 								   [] -> true;
 								   _ -> false
 							       end;
@@ -522,23 +521,21 @@ not_has_flush_fun(FunDef) ->
 		end
 	end,
     lists:member(true, ast_traverse_api:fold(F, [], FunDef)).
-   
 
 check_search_paths(FileName, SearchPaths) ->
-    InValidSearchPaths = lists:filter(fun (X) -> not filelib:is_dir(X) end, SearchPaths),
+    InValidSearchPaths = lists:filter(fun (X) ->  not  filelib:is_dir(X) end, SearchPaths),
     case InValidSearchPaths of
 	[] -> ok;
-	_ -> ?wrangler_io("\n===============================WARNING===============================\n",[]), 
+	_ -> ?wrangler_io("\n===============================WARNING===============================\n",[]),
 	     ?wrangler_io("The following directories specified in the search paths do not exist:\n~s", [InValidSearchPaths]),
 	     throw({error, "Some directories specified in the search paths do not exist!"})
     end,
-    Files = refac_util:expand_files(SearchPaths, ".erl") ++
-	 refac_util:expand_files(SearchPaths, ".hrl"),
+    Files = refac_util:expand_files(SearchPaths, ".erl") ++ refac_util:expand_files(SearchPaths, ".hrl"),
     case lists:member(FileName, Files) of
 	true ->
 	    ok;
 	_ ->
-    	    throw({error, "The current Erlang file does not belong to any of the search paths specified; please check!"})
+	    throw({error, "The current Erlang file does not belong to any of the search paths specified; please check!"})
     end.
 
 
@@ -552,7 +549,7 @@ has_receive_expr(FunDef) ->
     F = fun (T, S) ->
 		case refac_syntax:type(T) of
 		    receive_expr ->
-			{{StartLine, _}, _} = refac_misc:get_start_end_loc(T),
+			{{StartLine, _}, _} = refac_util:get_start_end_loc(T),
 			[StartLine| S];
 		    _ -> S
 		end

@@ -63,7 +63,7 @@ inline_var_eclipse(FName, Line, Col, SearchPaths, TabWidth) ->
 inline_var(FName, Line, Col, SearchPaths, TabWidth, Editor) ->
     Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":inline_var(" ++ "\"" ++ 
 	     FName ++ "\", " ++ integer_to_list(Line) ++ 
-	       ", " ++ integer_to_list(Col) ++ ", " ++ "[" ++ refac_misc:format_search_paths(SearchPaths)
+	       ", " ++ integer_to_list(Col) ++ ", " ++ "[" ++ refac_util:format_search_paths(SearchPaths)
 								 ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     Form = pos_to_form(AnnAST, {Line, Col}),
@@ -73,7 +73,7 @@ inline_var(FName, Line, Col, SearchPaths, TabWidth, Editor) ->
 	    cond_check(MatchExpr, VarNode),
 	    case is_use_instance(VarNode) of
 		true ->
-		    AnnAST1 = inline(AnnAST, Form, MatchExpr, VarNode, [refac_misc:get_range(VarNode)]),
+		    AnnAST1 = inline(AnnAST, Form, MatchExpr, VarNode, [refac_util:get_range(VarNode)]),
 		    refac_write_file:write_refactored_files([{{FName,FName},AnnAST1}], Editor, TabWidth, Cmd1);
 		false ->
 		    Cands = search_for_unfold_candidates(Form, MatchExpr, VarNode),
@@ -132,11 +132,11 @@ pos_to_form(Node, Pos) ->
     end.
 
 pos_to_form_1(Node, Pos) ->
-    case refac_syntax:type(Node) of 
+    case refac_syntax:type(Node) of
 	function ->
-	    {S, E} = refac_misc:get_start_end_loc(Node),
+	    {S, E} = refac_util:get_start_end_loc(Node),
 	    if (S =< Pos) and (Pos =< E) ->
-		    {Node, true};
+		   {Node, true};
 	       true -> {[], false}
 	    end;
 	_ -> {[], false}
@@ -168,7 +168,7 @@ search_for_unfold_candidates(Form, MatchExprBody, VarNode) ->
 			    {value, {def, DefinePos}} ->
 				case cond_check_1(MatchExprBody, Node) of
 				    ok ->
-					[refac_misc:get_range(Node)| Acc];
+					[refac_util:get_range(Node)| Acc];
 				    _ -> Acc
 				end;
 			    _ -> Acc
@@ -189,7 +189,7 @@ collect_all_uses(Form, VarNode) ->
 				Pos = refac_syntax:get_pos(Node),
 				case  not  lists:member(Pos, DefinePos) of
 				    true ->
-					[refac_misc:get_range(Node)| Acc];
+					[refac_util:get_range(Node)| Acc];
 				    false ->
 					[]
 				end;
@@ -201,20 +201,19 @@ collect_all_uses(Form, VarNode) ->
 	end,
     lists:sort(ast_traverse_api:fold(F, [], Form)).
 
-
 cond_check_1(MatchExprBody, VarNode) ->
-    MatchExprFreeVars = refac_misc:get_free_vars(MatchExprBody),
+    MatchExprFreeVars = refac_util:get_free_vars(MatchExprBody),
     MatchExprBoundVars = get_bound_vars(MatchExprBody),
-    VarEnvs = refac_misc:get_env_vars(VarNode),
-    case  MatchExprFreeVars--VarEnvs of 
-	[] -> 
+    VarEnvs = refac_util:get_env_vars(VarNode),
+    case MatchExprFreeVars--VarEnvs of
+	[] ->
 	    VarEnvs1 = VarEnvs -- MatchExprBoundVars,
-	    ShadowVs=[{V, Pos}||{V,Pos}<-MatchExprBoundVars,  
-				[{V1,P1}||{V1, P1}<-VarEnvs1, V1==V, P1/=Pos]=/=[]],
+	    ShadowVs = [{V, Pos} || {V,Pos} <- MatchExprBoundVars,
+				    [{V1,P1} || {V1, P1} <- VarEnvs1, V1==V, P1/=Pos]=/=[]],
 	    case ShadowVs of
 		[] -> ok;
 		Vs ->
-		    VNames = [V||{V,_}<-Vs],
+		    VNames = [V || {V,_} <- Vs],
 		    Msg = lists:flatten(io_lib:format("Vairable(s), ~p, used by the definition of the variable "
 						      "selected could cause name shadowing, or semantics changes, "
 						      "after inlining.", [VNames])),
@@ -225,7 +224,7 @@ cond_check_1(MatchExprBody, VarNode) ->
 					      "not visible to the variable instance to unfold.",[V])),
 	    {error, Msg};
 	Vs ->
-	    VNames = [V||{V,_}<-Vs],
+	    VNames = [V || {V,_} <- Vs],
 	    Msg = lists:flatten(io_lib:format("Variables, ~p, used by definition of the variable selected are "
 					      "not visible to the variable instance to unfold.",[VNames])),
 	    {error, Msg}
@@ -270,15 +269,15 @@ pos_to_match_expr_1(Node, DefinePos) ->
 	_ ->
 	    {[], false}
     end.
-		    
+
 inline(AnnAST, Form, MatchExpr, VarNode, Ps) ->
     FormPos = refac_syntax:get_pos(Form),
     Forms = refac_syntax:form_list_elements(AnnAST),
     NewForms = [case refac_syntax:get_pos(F) of
 		    FormPos -> do_inline_in_form(F, MatchExpr, VarNode, Ps);
 		    _ -> F
-		end||F<-Forms],
-    refac_misc:rewrite(AnnAST, refac_syntax:form_list(NewForms)).
+		end || F <- Forms],
+    refac_util:rewrite(AnnAST, refac_syntax:form_list(NewForms)).
 
    
 do_inline_in_form(Form, MatchExpr, VarNode, Ps) ->
@@ -300,67 +299,67 @@ remove_match_expr(Form, MatchExpr) ->
 
 do_remove_match_expr(Node,MatchExpr) ->
     case refac_syntax:type(Node) of
-      clause ->
-	    Pat = refac_syntax:clause_patterns(Node), 
-	    Guard = refac_syntax:clause_guard(Node), 
-	    Body = refac_syntax:clause_body(Node), 
-	    NewBody = remove_match_expr_from_body(MatchExpr,Body), 
-	    case NewBody == Body of 
+	clause ->
+	    Pat = refac_syntax:clause_patterns(Node),
+	    Guard = refac_syntax:clause_guard(Node),
+	    Body = refac_syntax:clause_body(Node),
+	    NewBody = remove_match_expr_from_body(MatchExpr,Body),
+	    case NewBody == Body of
 		true ->
 		    {Node, false};
 		false ->
 		    Node1 = refac_syntax:clause(Pat,Guard,NewBody),
-		    {refac_misc:rewrite(Node,Node1),true}
+		    {refac_util:rewrite(Node,Node1),true}
 	    end;
-      block_expr ->
+	block_expr ->
 	    Body = refac_syntax:block_expr_body(Node),
-	    NewBody = remove_match_expr_from_body(MatchExpr,Body), 
-	    NewBody = Body--[MatchExpr], 
+	    NewBody = remove_match_expr_from_body(MatchExpr,Body),
+	    NewBody = Body--[MatchExpr],
 	    case NewBody==Body of
 		true ->
 		    {Node,false};
 		false ->
-		    Node1 = refac_syntax:block_expr(NewBody), 
-		    {refac_misc:rewrite(Node,Node1),true}
+		    Node1 = refac_syntax:block_expr(NewBody),
+		    {refac_util:rewrite(Node,Node1),true}
 	    end;
-      try_expr ->
-	    C = refac_syntax:try_expr_clauses(Node), 
-	    H = refac_syntax:try_expr_handlers(Node), 
-	    A = refac_syntax:try_expr_after(Node), 
-	    Body = refac_syntax:try_expr_body(Node), 
-	    NewBody = remove_match_expr_from_body(MatchExpr,Body), 
+	try_expr ->
+	    C = refac_syntax:try_expr_clauses(Node),
+	    H = refac_syntax:try_expr_handlers(Node),
+	    A = refac_syntax:try_expr_after(Node),
+	    Body = refac_syntax:try_expr_body(Node),
+	    NewBody = remove_match_expr_from_body(MatchExpr,Body),
 	    case NewBody==Body of
 		true ->
 		    {Node,false};
 		false ->
-		    Node1 = refac_syntax:try_expr(NewBody,C,H,A), 
-		    {refac_misc:rewrite(Node,Node1),true}
+		    Node1 = refac_syntax:try_expr(NewBody,C,H,A),
+		    {refac_util:rewrite(Node,Node1),true}
 	    end;
-      _ -> {Node,false}
+	_ -> {Node,false}
     end.
 
 remove_match_expr_from_body(MatchExpr,Body) ->
-    {Start,_End} = refac_misc:get_range(MatchExpr), 
+    {Start,_End} = refac_util:get_range(MatchExpr),
     {B1,B2} = lists:splitwith(fun (B) ->
 				      B/=MatchExpr
-			      end,Body), 
+			      end,Body),
     case B2 of
 	[] -> Body;
 	[_] -> B1;
 	[_| B3] ->
-	    B3Hd = hd(B3), 
-	    B3Tl = tl(B3), 
-	    {_,End} = refac_misc:get_range(B3Hd), 
-	    B3Hd1 = refac_misc:update_ann(B3Hd,{range,{Start,End}}), 
+	    B3Hd = hd(B3),
+	    B3Tl = tl(B3),
+	    {_,End} = refac_util:get_range(B3Hd),
+	    B3Hd1 = refac_util:update_ann(B3Hd,{range,{Start,End}}),
 	    B1++[B3Hd1| B3Tl]
     end.
-    
-do_inline(Node, {MatchExprBody, Ranges})->
-    case refac_syntax:type(Node) of 
+
+do_inline(Node, {MatchExprBody, Ranges}) ->
+    case refac_syntax:type(Node) of
 	variable ->
-	    case lists:member(refac_misc:get_range(Node), Ranges) of 
+	    case lists:member(refac_util:get_range(Node), Ranges) of
 		true ->
-		    {refac_misc:rewrite(Node, MatchExprBody), true};
+		    {refac_util:rewrite(Node, MatchExprBody), true};
 		false ->
 		    {Node, false}
 	    end;

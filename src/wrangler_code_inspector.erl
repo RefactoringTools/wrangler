@@ -376,7 +376,6 @@ dependencies_of_a_module_1(ModOrFileName, SearchPaths) ->
 dependencies_of_a_module_eclipse(FileName, SearchPaths) ->
     try_inspector(wrangler_code_inspector_lib, dependencies_of_a_module, [FileName, SearchPaths]).
 
-
 %%==========================================================================================
 %% @doc Report non tail-recursive server functions.
 %% <p>
@@ -419,7 +418,7 @@ dependencies_of_a_module_eclipse(FileName, SearchPaths) ->
 %%-spec(non_tail_recursive_servers(FileOrDirNames::[filename()|dir()])-> ok).
 non_tail_recursive_servers(FileOrDirNames) ->
     try_inspector(wrangler_code_inspector, non_tail_recursive_servers_1,
-		  [refac_util:expand_files(FileOrDirNames, ".erl"), 
+		  [refac_util:expand_files(FileOrDirNames, ".erl"),
 		   FileOrDirNames, ?DEFAULT_TABWIDTH]).
  
 

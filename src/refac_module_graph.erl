@@ -49,36 +49,35 @@ create_caller_callee_graph(SearchPaths) ->
     ?debug("Files:\n~p\n", [Files]),
     ModMap = refac_util:get_modules_by_file(Files),
     analyze_all_files(ModMap, SearchPaths).
-   
-    
+
 analyze_all_files([], _SearchPaths) ->
     ets:foldr(fun ({{Mod, Dir}, CalledMods, _CheckSum}, S) ->
 		      FileName = filename:join(Dir, atom_to_list(Mod) ++ ".erl"),
 		      case filelib:is_file(FileName) of
-			true ->
-			    [{{Mod, Dir}, CalledMods}| S];
-			_ -> S
+			  true ->
+			      [{{Mod, Dir}, CalledMods}| S];
+			  _ -> S
 		      end
 	      end, [], ?ModuleGraphTab);
 
 analyze_all_files([{Mod, Dir}| Left], SearchPaths) ->
     FileName = filename:join(Dir, atom_to_list(Mod) ++ ".erl"),
-    NewCheckSum = refac_misc:filehash(FileName),
+    NewCheckSum = refac_util:filehash(FileName),
     case ets:lookup(?ModuleGraphTab, {Mod, Dir}) of
-      [] ->
-	  Called = get_called_mods(FileName, SearchPaths),
-	  ets:insert(?ModuleGraphTab, {{Mod, Dir}, Called, NewCheckSum}),
-	  analyze_all_files(Left, SearchPaths);
-      [{{Mod, Dir}, _CalledMods, OldCheckSum}] ->
-	  case NewCheckSum =:= OldCheckSum of
-	    true ->
-		analyze_all_files(Left, SearchPaths);
-	    false ->
-		ets:delete(?ModuleGraphTab, {Mod, Dir}),
-		CalledMods1 = get_called_mods(FileName, SearchPaths),
-		ets:insert(?ModuleGraphTab, {{Mod, Dir}, CalledMods1, NewCheckSum}),
-		analyze_all_files(Left, SearchPaths)
-	  end
+	[] ->
+	    Called = get_called_mods(FileName, SearchPaths),
+	    ets:insert(?ModuleGraphTab, {{Mod, Dir}, Called, NewCheckSum}),
+	    analyze_all_files(Left, SearchPaths);
+	[{{Mod, Dir}, _CalledMods, OldCheckSum}] ->
+	    case NewCheckSum =:= OldCheckSum of
+		true ->
+		    analyze_all_files(Left, SearchPaths);
+		false ->
+		    ets:delete(?ModuleGraphTab, {Mod, Dir}),
+		    CalledMods1 = get_called_mods(FileName, SearchPaths),
+		    ets:insert(?ModuleGraphTab, {{Mod, Dir}, CalledMods1, NewCheckSum}),
+		    analyze_all_files(Left, SearchPaths)
+	    end
     end.
 
 get_called_mods(File, SearchPaths) ->
@@ -161,12 +160,11 @@ create_caller_callee_graph_with_called_funs(SearchPaths) ->
     ModMap = refac_util:get_modules_by_file(Files),
     analyze_all_files_with_called_funs(ModMap, SearchPaths).
 
-
-analyze_all_files_with_called_funs(ModDirs, SearchPaths)->
+analyze_all_files_with_called_funs(ModDirs, SearchPaths) ->
     Files = refac_util:expand_files(SearchPaths, ".erl"),
     ModNames = [M || {M, _} <- refac_util:get_modules_by_file(Files)],
     [{{Mod, Dir},analyze_mod_with_called_funs({Mod, Dir}, ModNames, SearchPaths)}
-     || {Mod, Dir}<-ModDirs].
+     || {Mod, Dir} <- ModDirs].
 
 analyze_mod_with_called_funs({Mod, Dir}, ModNames, SearchPaths) ->
     File = filename:join(Dir, atom_to_list(Mod) ++ ".erl"),
@@ -193,11 +191,10 @@ collect_called_modules_with_called_funs(ModName, AnnAST, ModNames) ->
     CalledFuns= lists:append([wrangler_callgraph_server:called_funs(F)
 			      ||F<-refac_syntax:form_list_elements(AnnAST)]),
     [{M, [{F,A}]}||{M, F, A}<-CalledFuns, M/=ModName, lists:member(M, ModNames)].
-   
 
 group_by_mod_names(ModFuns) ->
-    ModFuns1 = refac_misc:group_by(1, ModFuns),
-    [{hd(Ms), lists:append(Fs)}||MFs<-ModFuns1, {Ms, Fs} <-[lists:unzip(MFs)]].
+    ModFuns1 = refac_util:group_by(1, ModFuns),
+    [{hd(Ms), lists:append(Fs)} || MFs <- ModFuns1, {Ms, Fs} <- [lists:unzip(MFs)]].
    
   
 %%-spec (module_subgraph_to_dot/4::(filename(), [modulename()],[filename()|dir()], boolean()) ->true).
@@ -346,11 +343,11 @@ calc_dim(String) ->
   calc_dim(String, 1, 0, 0).
 
 calc_dim("\\n" ++ T, H, TmpW, MaxW) ->
-  calc_dim(T, H+1, 0, refac_misc:max(TmpW, MaxW));
-calc_dim([_|T], H, TmpW, MaxW) ->
-  calc_dim(T, H, TmpW+1, MaxW);
+    calc_dim(T, H+1, 0, refac_util:max(TmpW, MaxW));
+calc_dim([_| T], H, TmpW, MaxW) ->
+    calc_dim(T, H, TmpW+1, MaxW);
 calc_dim([], H, TmpW, MaxW) ->
-  {refac_misc:max(TmpW, MaxW), H}.
+    {refac_util:max(TmpW, MaxW), H}.
 
 edge_format([],_,_,_) ->
     "";

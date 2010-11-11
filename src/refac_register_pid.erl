@@ -81,7 +81,7 @@ register_pid(FName, Start = {Line1, Col1}, End = {Line2, Col2}, RegName, SearchP
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":register_pid(" ++ "\"" ++ 
 	    FName ++ "\", {" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ 
 	      "{" ++ integer_to_list(Line2) ++ ", " ++ integer_to_list(Col2) ++ "}," ++ "\"" ++ RegName ++ "\","
-													      ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+													      ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case is_process_name(RegName) of
 	true -> {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
 		case pos_to_spawn_match_expr(AnnAST, Start, End) of
@@ -148,11 +148,11 @@ register_pid_1(FName, StartLine, StartCol, EndLine, EndCol, RegName, RegPids, Se
 		      {ok, ChangedFiles};
 		  {error, Reason} -> {error, Reason}
 	      end;
-	{registered, RegExpr} -> {{Line, _Col}, _} = refac_misc:get_start_end_loc(RegExpr),
+	{registered, RegExpr} -> {{Line, _Col}, _} = refac_util:get_start_end_loc(RegExpr),
 				 {error, "The selected process is already registered at line " ++ integer_to_list(Line)};
 	{unknown_pids, RegExprs} ->
 	    ?wrangler_io("\nWrangler could not decide the process(s) registered by the following expression(s), please check!\n", []),
-	    lists:foreach(fun ({{M, F, A}, PidExpr}) -> {{Ln, _}, _} = refac_misc:get_start_end_loc(PidExpr),
+	    lists:foreach(fun ({{M, F, A}, PidExpr}) -> {{Ln, _}, _} = refac_util:get_start_end_loc(PidExpr),
 							?wrangler_io("Location: module:~p, function: ~p/~p, line: ~p\n ", [M, F, A, Ln]),
 							?wrangler_io(refac_prettypr:format(PidExpr) ++ "\n", [])
 			  end, RegExprs),
@@ -188,6 +188,7 @@ register_pid_2(FName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPaths
 %%   3.4) the registeration should not be in a receive expression, list comprehension (done)
 %% Why do I need slicing? mostly for reduced the number of unclear registration expressions.
 
+
 %% Side condition checking:
 %% So far, this cond-checking still cannot guarantee that only one process spawned by the 
 %% expression seleted exist during anytime of the running of the system.
@@ -196,42 +197,43 @@ pre_cond_check(ModName, AnnAST, Start, MatchExpr, RegName, _Info, SearchPaths, T
     FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
     Arity = refac_syntax:function_arity(FunDef),
     case is_recursive_fun(SearchPaths, {ModName, FunName, Arity, FunDef}) of
-      true -> {error, "The function containing the spawn  expression is a recursive function"};
-      _ -> case pos_to_receive_expr(FunDef, Start) of
-	     true -> {error, "Wrangler do not support registering a process spawned in a received expression\n"};
-	     _ -> case pos_to_list_comp_expr(FunDef, Start) of
-		    true -> {error, "The spawn expression selected in part of a list comprehension expression\n"};
-		    _ -> {RegPids, {ExistingProcessNames, UnKnowns}} = collect_registered_names_and_pids(SearchPaths, TabWidth),
-			 %%   ?wrangler_io("registeredd:\n~p\n", [{ExistingProcessNames, UnKnowns}]),
-			 case lists:member(RegName, ExistingProcessNames) of
-			   true -> {error, "The process name provided is already in use, please choose another name."};
-			   _ -> case UnKnowns of
-				  [] ->
-				      Res = check_registration(MatchExpr, SearchPaths, RegPids),
-				      case Res of
-					ok -> ok;
-					{registered, RegExprs1} ->
-					    {{_M, F, A}, _R} = hd(RegExprs1),
-					    {error, "The process is already registered in function " ++ atom_to_list(F) ++ "/" ++ integer_to_list(A) ++ "\n"};
-					{unknown_pids, RegExprs} ->
-					    ?wrangler_io("Wrangler could not decide the processe(s) registered by the followling expression(s):\n", []),
-					    lists:foreach(fun ({{M, F, A}, PidExpr}) ->
-								  {{Ln, _}, _} = refac_misc:get_start_end_loc(PidExpr),
-								  ?wrangler_io("Location: module:~p, function: ~p/~p, line: ~p\n ", [M, F, A, Ln])
-							  end,
-							  %% ?wrangler_io(refac_prettypr:format(PidExpr)++"\n") 
-							  RegExprs),
-					    {unknown_pids, RegExprs}
-				      end;
-				  _ -> ?wrangler_io("Wrangler could not decide the process name(s) used by the following register expression(s):\n", []),
-				       UnKnowns1 = lists:map(fun ({_, V}) -> V end, UnKnowns),
-				       lists:foreach(fun ({M, F, A, {L, _}}) -> ?wrangler_io("Location: module: ~p, function:~p/~p, line:~p\n", [M, F, A, L])
-						     end, UnKnowns1),
-				       {unknown_pnames, UnKnowns, RegPids}
-				end
-			 end
-		  end
-	   end
+	true -> {error, "The function containing the spawn  expression is a recursive function"};
+	_ -> case pos_to_receive_expr(FunDef, Start) of
+		 true -> {error, "Wrangler do not support registering a process spawned in a received expression\n"};
+		 _ -> case pos_to_list_comp_expr(FunDef, Start) of
+			  true -> {error, "The spawn expression selected in part of a list comprehension expression\n"};
+			  _ -> {RegPids, {ExistingProcessNames, UnKnowns}} = collect_registered_names_and_pids(SearchPaths, TabWidth),
+			       %%   ?wrangler_io("registeredd:\n~p\n", [{ExistingProcessNames, UnKnowns}]),
+			       case lists:member(RegName, ExistingProcessNames) of
+				   true -> {error, "The process name provided is already in use, please choose another name."};
+				   _ -> case UnKnowns of
+					    [] ->
+						Res = check_registration(MatchExpr, SearchPaths, RegPids),
+						case Res of
+						    ok -> ok;
+						    {registered, RegExprs1} ->
+							{{_M, F, A}, _R} = hd(RegExprs1),
+							{error, "The process is already registered in function " ++ atom_to_list(F) ++ "/" ++ integer_to_list(A) ++ "\n"};
+						    {unknown_pids, RegExprs} ->
+							?wrangler_io("Wrangler could not decide the processe(s) registered by the followling expression(s):\n", []),
+							lists:foreach(fun ({{M, F, A}, PidExpr}) ->
+									      {{Ln, _}, _} = refac_util:get_start_end_loc(PidExpr),
+									      ?wrangler_io("Location: module:~p, function: ~p/~p, line: ~p\n ", [M, F, A, Ln])
+								      end,
+								      %% ?wrangler_io(refac_prettypr:format(PidExpr)++"\n") 
+								      RegExprs),
+							{unknown_pids, RegExprs}
+						end;
+					    _ -> ?wrangler_io("Wrangler could not decide the process name(s) used by the following register expression(s):\n", []),
+						 UnKnowns1 = lists:map(fun ({_, V}) -> V end, UnKnowns),
+						 lists:foreach(fun
+								   ({M, F, A, {L, _}}) -> ?wrangler_io("Location: module: ~p, function:~p/~p, line:~p\n", [M, F, A, L])
+							       end, UnKnowns1),
+						 {unknown_pnames, UnKnowns, RegPids}
+					end
+			       end
+		      end
+	     end
     end.
 
     
@@ -475,23 +477,22 @@ do_add_register_expr(Node, {MatchExpr, RegExpr}) ->
 	    end;
 	_  -> {Node, false}
     end.
-   
 
 evaluate_expr(Files, ModName, AnnAST, FunDef, Expr) ->
     F = fun (E) ->
 		Es = [refac_syntax:revert(E)],
 		case catch erl_eval:exprs(Es, []) of
-		  {value, V, _} -> {value, V};
-		  _ ->
-		      FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
-		      Arity = refac_syntax:function_arity(FunDef),
-		      {StartPos, _} = refac_misc:get_start_end_loc(Expr),
-		      {unknown, {ModName, FunName, Arity, StartPos}}
+		    {value, V, _} -> {value, V};
+		    _ ->
+			FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
+			Arity = refac_syntax:function_arity(FunDef),
+			{StartPos, _} = refac_util:get_start_end_loc(Expr),
+			{unknown, {ModName, FunName, Arity, StartPos}}
 		end
 	end,
-    Exprs = case refac_misc:get_free_vars(Expr) of
-	      [] -> [Expr];
-	      _ -> refac_slice:backward_slice(Files, AnnAST, ModName, FunDef, Expr)
+    Exprs = case refac_util:get_free_vars(Expr) of
+		[] -> [Expr];
+		_ -> refac_slice:backward_slice(Files, AnnAST, ModName, FunDef, Expr)
 	    end,
     lists:map(F, Exprs).
 
@@ -549,7 +550,7 @@ pos_to_spawn_match_expr(AnnAST, Start, End) ->
 		match_expr ->
 		    P = refac_syntax:match_expr_pattern(Expr),
 		    B = refac_syntax:match_expr_body(Expr),
-		    case {refac_misc:is_spawn_app(B), refac_syntax:type(P) == variable} of
+		    case {refac_util:is_spawn_app(B), refac_syntax:type(P) == variable} of
 			{true, true} ->
 			    {ok, Expr};
 			_ -> {error, Message}
@@ -569,7 +570,7 @@ pos_to_receive_expr(FunDef, Start) ->
 	end,
     ReceiveExprs = ast_traverse_api:fold(F, [], FunDef),
     lists:any(fun (E) ->
-		      {Start1, End1} = refac_misc:get_start_end_loc(E),
+		      {Start1, End1} = refac_util:get_start_end_loc(E),
 		      Start1 =< Start andalso Start =< End1
 	      end, ReceiveExprs).
 
@@ -582,11 +583,9 @@ pos_to_list_comp_expr(FunDef, Start) ->
 	end,
     ReceiveExprs = ast_traverse_api:fold(F, [], FunDef),
     lists:any(fun (E) ->
-		      {Start1, End1} = refac_misc:get_start_end_loc(E),
+		      {Start1, End1} = refac_util:get_start_end_loc(E),
 		      Start1 =< Start andalso Start =< End1
 	      end, ReceiveExprs).
 
-
-
 is_process_name(Name) ->
-    refac_misc:is_fun_name(Name) and (list_to_atom(Name) =/= undefined).
+    refac_util:is_fun_name(Name) and (list_to_atom(Name) =/= undefined).

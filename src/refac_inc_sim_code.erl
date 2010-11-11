@@ -121,7 +121,7 @@ inc_sim_code_detection(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1
 	     [] ->
 		 ?wrangler_io("Warning: No files found in the searchpaths specified.",[]),
 		 [];
-	     _ -> inc_sim_code_detection(Files, {MinLen, MinToks, MinFreq, MaxVars,SimiScore},
+	     _ -> inc_sim_code_detection(Files, {MinLen, MinToks, MinFreq, MaxVars, SimiScore},
 					 SearchPaths, TabWidth, emacs, ?INC)
 	 end,
     CloneReport = gen_clone_report(Cs),
@@ -139,7 +139,7 @@ inc_sim_code_detection_command(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,Si
     case Files of
 	[] ->
 	    ?wrangler_io("Warning: No files found in the searchpaths specified.",[]);
-	_ -> Cs = inc_sim_code_detection(Files, {MinLen, MinToks, MinFreq, MaxVars,SimiScore},
+	_ -> Cs = inc_sim_code_detection(Files, {MinLen, MinToks, MinFreq, MaxVars, SimiScore},
 					 SearchPaths, TabWidth, command, ?INC),
 	     refac_code_search_utils:display_clone_result(lists:reverse(Cs), "Similar")
     end,
@@ -161,7 +161,7 @@ inc_sim_code_detection_eclipse(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,Si
     case Files of
 	[] ->
 	    [];
-	_ -> inc_sim_code_detection(Files, {MinLen, MinToks, MinFreq, MaxVars,SimiScore},
+	_ -> inc_sim_code_detection(Files, {MinLen, MinToks, MinFreq, MaxVars, SimiScore},
 				    SearchPaths, TabWidth, eclipse, ?INC)
     end.
 
@@ -279,7 +279,7 @@ generalise_and_hash_ast(Files, Threshold, Tabs, ASTPid, HashPid ,SearchPaths, Ta
 		  end, Files).
 
 generalise_and_hash_file_ast(File, Threshold, Tabs, ASTPid, HashPid, SearchPaths, TabWidth) ->
-    NewCheckSum = refac_misc:filehash(File),
+    NewCheckSum = refac_util:filehash(File),
     case ets:lookup(Tabs#tabs.file_hash_tab, File) of
 	[{File, NewCheckSum}] ->
 	    ?debug("\nFile not changed:~p\n", [File]),
@@ -288,12 +288,12 @@ generalise_and_hash_file_ast(File, Threshold, Tabs, ASTPid, HashPid, SearchPaths
 	    ?debug("\n File changed:~p\n", [File]),
 	    ets:insert(Tabs#tabs.file_hash_tab, {File, NewCheckSum}),
 	    generalise_and_hash_file_ast_1(
-	      File, Threshold, Tabs,ASTPid, HashPid, false,SearchPaths, TabWidth);
+	      File, Threshold, Tabs, ASTPid, HashPid, false, SearchPaths, TabWidth);
 	[] ->
 	    ?debug("New file:~p\n",[File]),
 	    ets:insert(Tabs#tabs.file_hash_tab, {File, NewCheckSum}),
 	    generalise_and_hash_file_ast_1(
-	      File, Threshold, Tabs, ASTPid, HashPid, true,SearchPaths, TabWidth)
+	      File, Threshold, Tabs, ASTPid, HashPid, true, SearchPaths, TabWidth)
     end.
 
 %% %% Generalise and hash the AST for an single Erlang file.
@@ -357,6 +357,7 @@ generalise_and_hash_function_ast(Form, FName, IsNewFile, Threshold, Tabs, ASTPid
 		    generalise_and_hash_function_ast_1(FName, Form, FunName, Arity, HashVal, Threshold, Tabs, ASTPid, HashPid)
 	    end
     end.
+
 %% generalise and hash a function that is either new or has been changed since last run of clone detection.
 generalise_and_hash_function_ast_1(FName, Form, FunName, Arity, HashVal, Threshold, Tabs, ASTPid, HashPid) ->
     {StartLine, _} = refac_syntax:get_pos(Form),
@@ -365,7 +366,7 @@ generalise_and_hash_function_ast_1(FName, Form, FunName, Arity, HashVal, Thresho
     Form1 = absolute_to_relative_loc(Form, StartLine),
     %% all locations are relative locations.
     %% variable binding information is needed by the anti-unification process.
-    AllVars = refac_misc:collect_var_source_def_pos_info(Form1),
+    AllVars = refac_util:collect_var_source_def_pos_info(Form1),
     %% I also put the Hashvalue of a function in var_tab.
     ets:insert(Tabs#tabs.var_tab, {{FName, FunName, Arity}, HashVal, AllVars}),
     ast_traverse_api:full_tdTP(fun generalise_and_hash_function_ast_2/2,
@@ -481,8 +482,9 @@ insert_and_hash_exprs(ASTTab, HashPid, {M,F,A}, StartLine,
 					       NewIndex, {E, I})
 		      ||{E, I}<-ExprASTsWithIndex],
     insert_hash(HashPid, {{M, F, A}, HashValExprPairs}).
+
 generalise_and_hash_expr(ASTTab, {M, F, A}, StartLine,
-		     StartIndex, {Expr, RelativeIndex}) ->
+			 StartIndex, {Expr, RelativeIndex}) ->
     %% Num of tokens is used to chech the size of a clone candidate.
     NoOfToks = no_of_tokens(Expr),
     %% insert the AST of an expression into the ast table.
@@ -491,7 +493,7 @@ generalise_and_hash_expr(ASTTab, {M, F, A}, StartLine,
     %% get the hash values of the generalised expression.
     HashVal = erlang:md5(refac_prettypr:format(E1)),
     %% the location here is relative location.
-    StartEndLoc = refac_misc:get_start_end_loc(Expr),
+    StartEndLoc = refac_util:get_start_end_loc(Expr),
     {HashVal, {StartIndex + RelativeIndex,
 	       NoOfToks, StartEndLoc, StartLine}}.
 
@@ -835,19 +837,19 @@ do_anti_unification_1(E1, E2) ->
     end.
 
 subst_sanity_check(Expr1, SubSt) ->
-    BVs = refac_misc:get_bound_vars(Expr1),
+    BVs = refac_util:get_bound_vars(Expr1),
     F = fun ({E1, E2}) ->
 		case refac_syntax:type(E1) of
-		  variable ->
+		    variable ->
 			E1Ann = refac_syntax:get_ann(E1),
 			case lists:keysearch(category, 1, E1Ann) of
-			    {value, {category, {macro_name, _,_}}} ->
+			    {value, {category, {macro_name, _, _}}} ->
 				false;
 			    _ -> has_same_subst(E1, E2, SubSt)
 			end;
 		    _ ->
 			%% the expression to be replaced should not contain local variables.
-			BVs -- refac_misc:get_free_vars(E1) == BVs
+			BVs -- refac_util:get_free_vars(E1) == BVs
 		end
 	end,
     lists:all(F, SubSt).
@@ -856,15 +858,15 @@ has_same_subst(E1, E2, SubSt) ->
     E1Ann = refac_syntax:get_ann(E1),
     {value, {def, DefPos}} = lists:keysearch(def, 1, E1Ann),
     %% local vars should have the same substitute.
-    not lists:any(
-	  fun ({E11, E21}) ->
-		  refac_syntax:type(E11) == variable andalso
+     not  lists:any(
+	    fun ({E11, E21}) ->
+		    refac_syntax:type(E11) == variable andalso 
 		      {value, {def, DefPos}} == lists:keysearch(
 						  def, 1, refac_syntax:get_ann(E11))
-		      andalso
-		      refac_prettypr:format(refac_misc:reset_attrs(E2))
-		      =/= refac_prettypr:format(refac_misc:reset_attrs(E21))
-	  end, SubSt).
+			 andalso 
+			refac_prettypr:format(refac_util:reset_attrs(E2))
+			   =/= refac_prettypr:format(refac_util:reset_attrs(E21))
+	    end, SubSt).
 
 %% process anti-unification result.
 process_au_result(AURes, Thresholds, Tabs) ->
@@ -936,17 +938,16 @@ get_clone_pairs([CurPair = {_E1,_E2,SubSt}| AURes],Thresholds,
 			  {CurVarSubsts++VarSubAcc,[CurPair]++ClonePairAcc},Acc)
     end.
 
-
 get_var_subst(SubSt) ->
-    F=fun({E1, E2}) ->
-	      {value, {def, DefPos}} = 
-		  lists:keysearch(def, 1, refac_syntax:get_ann(E1)),
-	      {DefPos, refac_prettypr:format(refac_misc:reset_attrs(E2))}
-      end,	      
-    [F({E1,E2})||
-	{E1,E2}<-SubSt, 
-	refac_syntax:type(E1)==variable, 
-	not is_macro_name(E1)].
+    F = fun ({E1, E2}) ->
+		{value, {def, DefPos}} =
+		    lists:keysearch(def, 1, refac_syntax:get_ann(E1)),
+		{DefPos, refac_prettypr:format(refac_util:reset_attrs(E2))}
+	end,
+    [F({E1,E2})
+     || {E1,E2} <- SubSt,
+	refac_syntax:type(E1)==variable,
+	 not  is_macro_name(E1)].
 
 is_macro_name(Exp) ->
     case lists:keysearch(category, 1, refac_syntax:get_ann(Exp)) of
@@ -1209,14 +1210,13 @@ group_clone_pairs([CP={C={_R, _EVs, Subst}, NumOfNewVars}|T], Thresholds, ExprsT
 
 %% This is not accurate, and will be improved!
 exprs_to_be_generalised(SubSt) ->
-    sets:from_list([refac_prettypr:format(refac_misc:reset_attrs(E1))||
-		       {E1,_E2}<-SubSt, refac_syntax:type(E1)/=variable]).
+    sets:from_list([refac_prettypr:format(refac_util:reset_attrs(E1))
+		    || {E1,_E2} <- SubSt, refac_syntax:type(E1)/=variable]).
 
-   
 num_of_new_vars(SubSt) ->
-     length(lists:usort([{refac_prettypr:format(refac_misc:reset_attrs(E1)),
- 			 refac_prettypr:format(refac_misc:reset_attrs(E2))}
- 			||{E1,E2}<-SubSt, refac_syntax:type(E1)/=variable])).
+    length(lists:usort([{refac_prettypr:format(refac_util:reset_attrs(E1)),
+			 refac_prettypr:format(refac_util:reset_attrs(E2))}
+			|| {E1,E2} <- SubSt, refac_syntax:type(E1)/=variable])).
 
 
     
@@ -1254,28 +1254,28 @@ generate_fun_call_1(RangeWithAST, AUForm, FromSameFile) ->
 	_E1:_E2 ->
 	    "wrangler-failed-to-generate-the-function-application."
     end.
- 
+
 make_fun_call(FunName, Pats, Subst, FromSameFile) ->
     Fun = fun (P) ->
 		  case refac_syntax:type(P) of
 		      variable ->
 			  PName = refac_syntax:variable_name(P),
 			  case lists:keysearch(PName, 1, Subst) of
-			      {value, {PName, Par}} -> 
+			      {value, {PName, Par}} ->
 				  case refac_syntax:type(Par) of
 				      atom ->
-					  case FromSameFile of 
+					  case FromSameFile of
 					      true -> Par;
-					      false -> 
+					      false ->
 						  As = refac_syntax:get_ann(Par),
-						  case lists:keysearch(fun_def,1, As) of
+						  case lists:keysearch(fun_def, 1, As) of
 						      {value, {fun_def, {M, _F, A, _, _}}} ->
-							  case M== erlang orelse M=='_' of 
+							  case M== erlang orelse M=='_' of
 							      true ->
 								  Par;
 							      false ->
-								  Mod =refac_syntax:atom(M),
-								  ModQualifier =refac_syntax:module_qualifier(Mod, Par),
+								  Mod = refac_syntax:atom(M),
+								  ModQualifier = refac_syntax:module_qualifier(Mod, Par),
 								  refac_syntax:implicit_fun(ModQualifier, refac_syntax:integer(A))
 							  end;
 						      _ -> Par
@@ -1283,7 +1283,7 @@ make_fun_call(FunName, Pats, Subst, FromSameFile) ->
 					  end;
 				      module_qualifier ->
 					  As = refac_syntax:get_ann(Par),
-					  case lists:keysearch(fun_def,1, As) of
+					  case lists:keysearch(fun_def, 1, As) of
 					      {value, {fun_def, {_M, _F, A, _, _}}} ->
 						  refac_syntax:implicit_fun(Par, refac_syntax:integer(A));
 					      _ -> Par   %% This should not happen!
@@ -1302,7 +1302,7 @@ make_fun_call(FunName, Pats, Subst, FromSameFile) ->
 	  end,
     Pars = lists:map(Fun, Pats),
     Op = refac_syntax:atom(FunName),
-    refac_misc:reset_attrs(refac_syntax:application(Op, [P|| P <- Pars])).
+    refac_util:reset_attrs(refac_syntax:application(Op, [P || P <- Pars])).
 
 	 
 
@@ -1381,27 +1381,27 @@ from_same_file(RangesWithAST) ->
 
 post_process_anti_unifier(FunAST) ->
     {FunAST1, _} = ast_traverse_api:stop_tdTP(fun do_post_process_anti_unifier/2, FunAST, none),
-    FunAST1. 
+    FunAST1.
 
 do_post_process_anti_unifier(Node, _Others) ->
     case refac_syntax:type(Node) of
 	application ->
 	    Operator = refac_syntax:application_operator(Node),
-	    Arguments =refac_syntax:application_arguments(Node),
+	    Arguments = refac_syntax:application_arguments(Node),
 	    case refac_syntax:type(Operator) of
 		atom ->
 		    As = refac_syntax:get_ann(Operator),
 		    {value, {fun_def, {M, _F, _A, _, _}}} = lists:keysearch(fun_def,1,As),
-		    case M== erlang orelse M=='_' of 
+		    case M== erlang orelse M=='_' of
 			true ->
 			    {Node, false};
 			false ->
 			    Mod = refac_syntax:atom(M),
-			    Operator1 = refac_misc:rewrite(Operator, refac_syntax:module_qualifier(Mod, Operator)),
-			    Node1 = refac_misc:rewrite(Node, refac_syntax:application(Operator1, Arguments)),
+			    Operator1 = refac_util:rewrite(Operator, refac_syntax:module_qualifier(Mod, Operator)),
+			    Node1 = refac_util:rewrite(Node, refac_syntax:application(Operator1, Arguments)),
 			    {Node1, false}
 		    end;
-		_ -> 
+		_ ->
 		    {Node, false}
 	    end;
 	_ -> {Node, false}
@@ -1418,18 +1418,17 @@ get_clone_class_in_absolute_locs({Ranges, {Len, Freq}, AntiUnifier}) ->
     RangesWithoutFunCalls=[R||{R,_}<-Ranges],
     {RangesWithoutFunCalls, {Len, Freq}, AntiUnifier,StartEndLocsWithFunCall}.
 
-
 get_vars_to_export(Es, {FName, FunName, Arity}, VarTab) ->
     AllVars = ets:lookup(VarTab, {FName, FunName, Arity}),
-    {_, EndLoc} = refac_misc:get_start_end_loc(lists:last(Es)),
+    {_, EndLoc} = refac_util:get_start_end_loc(lists:last(Es)),
     case AllVars of
-	  [] -> [];
-	  [{_, _, Vars}] ->
-	      ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_misc:get_bound_vars(Es)],
-	      [{V, DefPos} || {V, SourcePos, DefPos} <- Vars,
+	[] -> [];
+	[{_, _, Vars}] ->
+	    ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_util:get_bound_vars(Es)],
+	    [{V, DefPos} || {V, SourcePos, DefPos} <- Vars,
 			    SourcePos > EndLoc,
-			      lists:subtract(DefPos, ExprBdVarsPos) == []]
-      end.
+			    lists:subtract(DefPos, ExprBdVarsPos) == []]
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                            %%
@@ -1495,9 +1494,9 @@ no_of_tokens(Node) ->
     {ok, Toks,_} =refac_scan:string(Str, {1,1}, 8, unix),
     length(Toks).
 
-combine_clones_by_au([]) ->[];
-combine_clones_by_au(Cs=[{_Ranges, _Len, _F, _Code}|_T]) ->
-    Cs1 =refac_misc:group_by(4, Cs),
+combine_clones_by_au([]) -> [];
+combine_clones_by_au(Cs = [{_Ranges, _Len, _F, _Code}| _T]) ->
+    Cs1 = refac_util:group_by(4, Cs),
     combine_clones_by_au_1(Cs1,[]).
 
 combine_clones_by_au_1([], Acc) ->
@@ -1583,10 +1582,11 @@ simplify_anti_unifier_body(AUBody) ->
 	    end;
 	_ -> AUBody
     end.
+
 same_expr(Expr1, Expr2) ->
-     {ok, Ts1, _} = erl_scan:string(refac_prettypr:format(Expr1)),
-     {ok, Ts2, _} = erl_scan:string(refac_prettypr:format(Expr2)),
-     refac_util:concat_toks(Ts1)==refac_util:concat_toks(Ts2).
+    {ok, Ts1, _} = erl_scan:string(refac_prettypr:format(Expr1)),
+    {ok, Ts2, _} = erl_scan:string(refac_prettypr:format(Expr2)),
+    refac_util:concat_toks(Ts1)==refac_util:concat_toks(Ts2).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1693,9 +1693,8 @@ get_parameters_1(Input, DefaultVal, MinVal) ->
 	_:_ -> throw({error, "Parameter input is invalid."})
     end.
 
-
 get_file_status_info(Files, Tabs, Threshold) ->
-    FileHashTab=Tabs#tabs.file_hash_tab,
+    FileHashTab = Tabs#tabs.file_hash_tab,
     %% all the files process during the last run of clone detection.
     OldFiles = lists:append(ets:match(FileHashTab,{'$1', '_'})),
     case file:read_file(?Threshold) of
@@ -1703,16 +1702,16 @@ get_file_status_info(Files, Tabs, Threshold) ->
 	    LastThreshold = binary_to_term(Binary),
 	    case LastThreshold == Threshold of
 		true ->
-		    Fun =fun(F)->
-				 CheckSum= refac_misc:filehash(F),
-				 case ets:lookup(Tabs#tabs.file_hash_tab, F) of
-				     [{F, CheckSum1}] when CheckSum/=CheckSum1 ->
-					 true;
-				     _ ->false
-				 end
-			 end,
+		    Fun = fun (F) ->
+				  CheckSum = refac_util:filehash(F),
+				  case ets:lookup(Tabs#tabs.file_hash_tab, F) of
+				      [{F, CheckSum1}] when CheckSum/=CheckSum1 ->
+					  true;
+				      _ -> false
+				  end
+			  end,
 		    DeletedFiles = OldFiles -- Files,
-		    NewFiles = Files -- OldFiles, 
+		    NewFiles = Files -- OldFiles,
 		    ChangedFiles = lists:filter(Fun, Files),
 		    {DeletedFiles, ChangedFiles, NewFiles};
 		false ->

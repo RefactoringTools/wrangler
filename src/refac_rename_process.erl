@@ -52,7 +52,7 @@ rename_process(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_process(" ++ "\"" ++ 
 	    FileName ++ "\", " ++ integer_to_list(Line) ++ 
 	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
-									    ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+									    ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case is_process_name(NewName) of
 	true ->
 	    _Res = refac_annotate_pid:ann_pid_info(SearchPaths, TabWidth),  %%TODO: check whether asts are already annotated.
@@ -109,18 +109,18 @@ pos_to_process_name(Node, Pos) ->
 pos_to_process_name_1(Node, Pos) ->
     As = refac_syntax:get_ann(Node),
     case refac_syntax:type(Node) of
-      atom ->
-	  {Start, End} = refac_misc:get_start_end_loc(Node),
-	  case Start =< Pos andalso Pos =< End of
-	    true ->
-		case lists:keysearch(pname, 1, As) of
-		  {value, {pname, _V}} ->
-		      {refac_syntax:atom_value(Node), true};
-		  _ -> {[], false}
-		end;
-	    _ -> {[], false}
-	  end;
-      _ -> {[], false}
+	atom ->
+	    {Start, End} = refac_util:get_start_end_loc(Node),
+	    case Start =< Pos andalso Pos =< End of
+		true ->
+		    case lists:keysearch(pname, 1, As) of
+			{value, {pname, _V}} ->
+			    {refac_syntax:atom_value(Node), true};
+			_ -> {[], false}
+		    end;
+		_ -> {[], false}
+	    end;
+	_ -> {[], false}
     end.
 
 pre_cond_check(NewProcessName, SearchPaths) ->
@@ -188,7 +188,6 @@ is_register_app(T) ->
        _ -> false
      end.
 
-
 do_rename_process(CurrentFileName, AnnAST, OldProcessName, NewProcessName, SearchPaths, TabWidth) ->
     {AnnAST1, _Changed} = ast_traverse_api:stop_tdTP(fun do_rename_process/2, AnnAST, {OldProcessName, NewProcessName}),
     OtherFiles = refac_util:expand_files(SearchPaths, ".erl") -- [CurrentFileName],
@@ -244,10 +243,9 @@ collect_atoms(CurrentFile, AtomName, SearchPaths, TabWidth) ->
 			  {ok, {AnnAST,_Info}} = wrangler_ast_server:parse_annotate_file(F, true, SearchPaths, TabWidth),
 			  refac_atom_utils:collect_unsure_atoms_in_file(AnnAST, AtomName, p_atom)
 		  end, Files).
-  
-is_process_name(Name) ->
-    refac_misc:is_fun_name(Name) and (list_to_atom(Name) =/= undefined).
 
+is_process_name(Name) ->
+    refac_util:is_fun_name(Name) and (list_to_atom(Name) =/= undefined).
 
 %% An duplication of function defined in refac_register_pid. 
 %% Need to be refactored.
@@ -255,17 +253,16 @@ evaluate_expr(Files, ModName, AnnAST, FunDef, Expr) ->
     F = fun (E) ->
 		Es = [refac_syntax:revert(E)],
 		case catch erl_eval:exprs(Es, []) of
-		  {value, V, _} -> {value, V};
-		  _ ->
-		      FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
-		      Arity = refac_syntax:function_arity(FunDef),
-		      {StartPos, _} = refac_misc:get_start_end_loc(Expr),
-		      {unknown, {ModName, FunName, Arity, StartPos}}
+		    {value, V, _} -> {value, V};
+		    _ ->
+			FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
+			Arity = refac_syntax:function_arity(FunDef),
+			{StartPos, _} = refac_util:get_start_end_loc(Expr),
+			{unknown, {ModName, FunName, Arity, StartPos}}
 		end
 	end,
-    Exprs = case refac_misc:get_free_vars(Expr) of
-	      [] -> [Expr];
-	      _ -> refac_slice:backward_slice(Files, AnnAST, ModName, FunDef, Expr)
+    Exprs = case refac_util:get_free_vars(Expr) of
+		[] -> [Expr];
+		_ -> refac_slice:backward_slice(Files, AnnAST, ModName, FunDef, Expr)
 	    end,
     lists:map(F, Exprs).
-   

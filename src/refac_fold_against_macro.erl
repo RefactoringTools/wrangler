@@ -58,16 +58,17 @@
 
 %%=============================================================================================
 
+
 %%-spec(fold_against_macro/5::(filename(), integer(), integer(), [dir()], integer()) ->
-%%	 {error, string()} | {ok, [{integer(), integer(), integer(), integer(), 
+%%	 {error, string()} | {ok, [{integer(), integer(), integer(), integer(),
 %%				    syntaxTree(), syntaxTree()}], string()}).
 fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:fold_against_macro(~p, ~p,~p, ~p,~p).\n",
 		 [?MODULE, FileName, Line, Col, SearchPaths, TabWidth]),
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fold_against_macro(" ++ "\"" ++
-	    FileName ++ "\", " ++ integer_to_list(Line) ++
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fold_against_macro(" ++ "\"" ++ 
+	    FileName ++ "\", " ++ integer_to_list(Line) ++ 
 	      ", " ++ integer_to_list(Col) ++ ", "
-		++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+						 ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, emacs, Cmd).
 
 
@@ -139,23 +140,22 @@ fold_against_macro_1_1(AnnAST, [{StartLine, StartCol, EndLine, EndCol,MacroApp0,
     AnnAST1 = refac_new_macro:replace_expr_with_macro(AnnAST, {MacroBody, {StartLine, StartCol}, {EndLine, EndCol}}, TMacroApp),
     fold_against_macro_1_1(AnnAST1, Tail).
 
-
 search_candidate_exprs(AnnAST, MacroDef) ->
     Args = refac_syntax:attribute_arguments(MacroDef),
-    MacroHead = refac_misc:ghead("refac_fold_against_macro:search_candiate_exprs", Args),
+    MacroHead = refac_util:ghead("refac_fold_against_macro:search_candiate_exprs", Args),
     MacroParNames = case refac_syntax:type(MacroHead) of
-		      application ->
-			  Pars = refac_syntax:application_arguments(MacroHead),
-			  [refac_syntax:variable_name(A) || A <- Pars];
-		      _ -> []
+			application ->
+			    Pars = refac_syntax:application_arguments(MacroHead),
+			    [refac_syntax:variable_name(A) || A <- Pars];
+			_ -> []
 		    end,
     MacroBody = tl(Args),
     Res = do_search_candidate_exprs(AnnAST, MacroBody, MacroParNames),
     case MacroBody of
-      [] ->
-	  [];
-      _ ->
-	  [{Range, make_macro_app(MacroHead, Subst)} || {Range, Subst} <- Res]
+	[] ->
+	    [];
+	_ ->
+	    [{Range, make_macro_app(MacroHead, Subst)} || {Range, Subst} <- Res]
     end.
 
 
@@ -176,7 +176,7 @@ do_search_candidate_exprs_1(AnnAST, MacroBody, MacroParNames) ->
 			      true ->
 				  case expr_unification(MacroBody, T, MacroParNames) of
 				      {true, Subst} ->
-					  S ++ [{refac_misc:get_start_end_loc(T), Subst}];
+					  S ++ [{refac_util:get_start_end_loc(T), Subst}];
 				      _ -> S
 				  end;
 			      _ -> S
@@ -216,37 +216,35 @@ get_candidate_exprs(Exprs, Len, MacroBody, MacroParNames) ->
     SubExprs = sublists(Exprs, Len),
     lists:map(fun (E) ->
 		      case MacroBody =/= E of
-			true ->
-			    case expr_unification(MacroBody, E, MacroParNames) of
-			      {true, Subst} ->
-				  {StartLoc1, _EndLoc1} = refac_misc:get_start_end_loc(hd(E)),
-				  {_StartLoc2, EndLoc2} = refac_misc:get_start_end_loc(lists:last(E)),
-				  {{StartLoc1, EndLoc2}, Subst};
-			      _ -> false
-			    end;
-			_ -> false
+			  true ->
+			      case expr_unification(MacroBody, E, MacroParNames) of
+				  {true, Subst} ->
+				      {StartLoc1, _EndLoc1} = refac_util:get_start_end_loc(hd(E)),
+				      {_StartLoc2, EndLoc2} = refac_util:get_start_end_loc(lists:last(E)),
+				      {{StartLoc1, EndLoc2}, Subst};
+				  _ -> false
+			      end;
+			  _ -> false
 		      end
 	      end,
 	      SubExprs).
 
-
-
 make_macro_app(MacroHead, Subst) ->
     case refac_syntax:type(MacroHead) of
-      application ->
-	  Op = refac_syntax:application_operator(MacroHead),
-	  Args1 = refac_syntax:application_arguments(MacroHead),
-	  Args = [refac_syntax:variable_name(A) || A <- Args1],
-	  Pars = lists:map(fun (P) -> case lists:keysearch(P, 1, Subst) of
-					{value, {P, Par}} ->
-					    refac_misc:reset_attrs(Par);
-					_ -> refac_syntax:atom(undefined)
-				      end
-			   end, Args),
-	  
-	  refac_syntax:macro(Op, Pars);
-      _ ->
-	  refac_syntax:macro(MacroHead)
+	application ->
+	    Op = refac_syntax:application_operator(MacroHead),
+	    Args1 = refac_syntax:application_arguments(MacroHead),
+	    Args = [refac_syntax:variable_name(A) || A <- Args1],
+	    Pars = lists:map(fun (P) -> case lists:keysearch(P, 1, Subst) of
+					    {value, {P, Par}} ->
+						refac_util:reset_attrs(Par);
+					    _ -> refac_syntax:atom(undefined)
+					end
+			     end, Args),
+	    
+	    refac_syntax:macro(Op, Pars);
+	_ ->
+	    refac_syntax:macro(MacroHead)
     end.
 
 %%=====================================================================================
@@ -298,22 +296,22 @@ pos_to_macro_define(AnnAST, Pos) ->
 
 pos_to_macro_define_1(Node, Pos) ->
     case refac_syntax:type(Node) of
-      attribute -> case refac_syntax:atom_value(refac_syntax:attribute_name(Node)) of
-		     define ->
-			 {S, E} = refac_misc:get_start_end_loc(Node),
-			 case (S =< Pos) and (Pos =< E) of
-			   true ->
-			       {Node, true};
-			   _ -> {[], false}
-			 end;
-		     _ -> {[], false}
-		   end;
-      _ ->
-	  {[], false}
+	attribute -> case refac_syntax:atom_value(refac_syntax:attribute_name(Node)) of
+			 define ->
+			     {S, E} = refac_util:get_start_end_loc(Node),
+			     case (S =< Pos) and (Pos =< E) of
+				 true ->
+				     {Node, true};
+				 _ -> {[], false}
+			     end;
+			 _ -> {[], false}
+		     end;
+	_ ->
+	    {[], false}
     end.
 
 is_expr_or_pat(Node) ->
-    refac_misc:is_expr(Node) orelse refac_misc:is_pattern(Node).
+    refac_util:is_expr(Node) orelse refac_util:is_pattern(Node).
 
 %%==========================================================================
 
