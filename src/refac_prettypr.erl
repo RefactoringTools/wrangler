@@ -857,11 +857,12 @@ lay_2(Node, Ctxt) ->
 	  Ctxt1 = reset_prec(Ctxt),
 	  N = refac_syntax:attribute_name(Node),
 	  D = case refac_syntax:attribute_arguments(Node) of
-		none -> lay(N, Ctxt1);
-		Args ->
-		    Sep = get_separator(Args, Ctxt#ctxt.tokens, ","),
-		    As = seq(Args, floating(text(Sep)), Ctxt1, fun lay/2),
-		    beside(lay(N, Ctxt1), beside(text("("), beside(lay_elems(fun refac_prettypr_0:par/1, As, Args), floating(text(")")))))
+		  none -> lay(N, Ctxt1);
+		  Args -> 
+		      Sep = get_separator(Args, Ctxt1#ctxt.tokens, ","),
+		      As = seq(Args, floating(text(Sep)), Ctxt1, fun lay/2),
+		      Elems=lay_elems(fun refac_prettypr_0:par/1, As, Args),
+		      beside(lay(N, Ctxt1), beside(text("("), beside(Elems, floating(text(")")))))
 	      end,
 	  beside(floating(text("-")), beside(D, floating(text("."))));
       binary ->   %% done
@@ -1471,7 +1472,12 @@ lay_elems(Fun, ElemDocs,Elems) ->
 				{get_start_line(A), get_end_line(A)}
 			end,
 			Elems),
-    lay_elems_1(Fun, lists:zip(ElemDocs,ARanges),[],0).
+    case lists:all(fun(R) -> R=={0,0} end, ARanges) of 
+	true ->
+	    Fun(ElemDocs);
+	false ->
+	    lay_elems_1(Fun, lists:zip(ElemDocs,ARanges),[],0)
+    end.
 
 lay_elems_1(Fun, [], Acc, _LastLine) ->
     Docs = lists:map(fun (Ds) -> horizontal(Ds) end, Acc),
@@ -1491,7 +1497,6 @@ lay_elems_1(Fun, [{D, {SLn, ELn}}| Ts], [H| T], LastLn) ->
 		lay_elems_1(Fun, Ts, [[above(horizontal(H), above(text(""), D))]| T], ELn)
 	    end
     end.
-
 
 lay_body_elems(_Fun, _ElemDocs,[]) -> null;
 lay_body_elems(Fun, ElemDocs,Elems) ->
