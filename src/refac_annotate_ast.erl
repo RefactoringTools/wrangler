@@ -43,20 +43,20 @@ add_fun_define_locations(AST, ModInfo) ->
     end,
     Funs = fun (T, S) ->
 		   case refac_syntax:type(T) of
-		     function ->
-			 FunName = refac_syntax:data(refac_syntax:function_name(T)),
-			 Arity = refac_syntax:function_arity(T),
-			 Pos = refac_syntax:get_pos(T),
-			 ordsets:add_element({{ModName, FunName, Arity}, Pos}, S);
-		     _ -> S
+		       function ->
+			   FunName = refac_syntax:data(refac_syntax:function_name(T)),
+			   Arity = refac_syntax:function_arity(T),
+			   Pos = refac_syntax:get_pos(T),
+			   ordsets:add_element({{ModName, FunName, Arity}, Pos}, S);
+		       _ -> S
 		   end
 	   end,
-    DefinedFuns = refac_syntax_lib:fold(Funs, ordsets:new(), AST),
+    DefinedFuns = ast_traverse_api:fold(Funs, ordsets:new(), AST),
     ImportedFuns = case lists:keysearch(imports, 1, ModInfo) of
-		     {value, {imports, I}} ->
-			 lists:append([[{{M, F, A}, ?DEFAULT_LOC}
-					|| {F, A} <- Fs] || {M, Fs} <- I]);
-		     _ -> []
+		       {value, {imports, I}} ->
+			   lists:append([[{{M, F, A}, ?DEFAULT_LOC}
+					  || {F, A} <- Fs] || {M, Fs} <- I]);
+		       _ -> []
 		   end,
     Fs = refac_syntax:form_list_elements(AST),
     Fs1 = [add_fun_def_info(F, ModName, DefinedFuns, ImportedFuns) || F <- Fs],

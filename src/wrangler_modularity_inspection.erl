@@ -236,44 +236,44 @@ reachable_mods(V={M,_F,_A}, CG) ->
     lists:usort(Ms).
 
 get_funs(File, OnlyAPIs) ->
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(File, true, []),
+    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(File, true, []),
     Forms = refac_syntax:form_list_elements(AnnAST),
-    MFAs=[case lists:keysearch(fun_def,1,refac_syntax:get_ann(Form)) of 
-	      {value, {fun_def, {M, F, A, _,_}}} ->
-		  case refac_misc:is_callback_fun(Info,F,A) or is_gen_server_fun(Form) of
-		      true ->[];
-		      false ->
-			  case OnlyAPIs of 
-			      true ->
-				  case refac_misc:is_exported({F,A}, Info) of
-				      true ->
-					  [{M, F, A}];
-				      false ->
-					  []
-				  end;
-			      false ->
-				  [{M, F, A}]				  
-			  end
-		  end;
-	      false ->
-		  []
-	  end || Form<- Forms],
+    MFAs = [case lists:keysearch(fun_def,1,refac_syntax:get_ann(Form)) of
+		{value, {fun_def, {M, F, A, _, _}}} ->
+		    case refac_misc:is_callback_fun(Info,F,A) or is_gen_server_fun(Form) of
+			true -> [];
+			false ->
+			    case OnlyAPIs of
+				true ->
+				    case refac_misc:is_exported({F,A}, Info) of
+					true ->
+					    [{M, F, A}];
+					false ->
+					    []
+				    end;
+				false ->
+				    [{M, F, A}]
+			    end
+		    end;
+		false ->
+		    []
+	    end || Form <- Forms],
     lists:append(MFAs).
 
 is_gen_server_fun(FunDef) ->
    lists:member(gen_server, called_mods(FunDef)).
 
 exported_funs(File) ->
-    {ok, {_, Info}} = refac_util:parse_annotate_file(File, true),
+    {ok, {_, Info}} = wrangler_ast_server:parse_annotate_file(File, true),
     ModName = get_module_name(File, Info),
-    ImpExports = 
+    ImpExports =
 	case lists:keysearch(attributes, 1, Info) of
 	    {value, {attributes, Attrs}} ->
 		case lists:member({compile, export_all}, Attrs) of
-		    true -> 
+		    true ->
 			case lists:keysearch(functions, 1, Info) of
 			    {value, {functions, Funs}} ->
-				[{ModName, F, A}||{F, A}<-Funs];
+				[{ModName, F, A} || {F, A} <- Funs];
 			    false ->
 				[]
 			end;
@@ -285,8 +285,8 @@ exported_funs(File) ->
     case ImpExports of
 	[] ->
 	    case lists:keysearch(exports, 1, Info) of
-	      {value, {exports, ExpFuns}} ->
-		    [{ModName, F, A}||{F, A}<-ExpFuns];
+		{value, {exports, ExpFuns}} ->
+		    [{ModName, F, A} || {F, A} <- ExpFuns];
 		false ->
 		    []
 	    end;
@@ -542,23 +542,23 @@ get_caller_funs(File, CalledFuns, Funs) ->
 		    V <-CalledFuns],
     digraph:delete(CG),
     list_insection(lists:append(Reaching), Funs).
-    
+
 called_mods(Tree) ->
-    Fun= fun(T,S) ->
-		 case refac_syntax:type(T) of
-		     application ->
-			 Op = refac_syntax:application_operator(T),
-			 case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
-			      {value, {fun_def, {M, F, _A, _, _}}} 
-			       when M =/= '_' andalso F =/= '_' ->
-				 ordsets:add_element(M ,S);
-			     _ ->
-				 S
-			 end;
-		     _ ->S
-		 end
-	 end,
-    ordsets:from_list(refac_syntax_lib:fold(Fun, ordsets:new(), Tree)).
+    Fun = fun (T,S) ->
+		  case refac_syntax:type(T) of
+		      application ->
+			  Op = refac_syntax:application_operator(T),
+			  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
+			      {value, {fun_def, {M, F, _A, _, _}}}
+				  when M =/= '_' andalso F =/= '_' ->
+				  ordsets:add_element(M,S);
+			      _ ->
+				  S
+			  end;
+		      _ -> S
+		  end
+	  end,
+    ordsets:from_list(ast_traverse_api:fold(Fun, ordsets:new(), Tree)).
     
 		       
 
@@ -742,14 +742,14 @@ partition_exports_eclipse(File, DistThreshold, SearchPaths, TabWidth) ->
     partition_exports(File, DistThreshold, false, SearchPaths, TabWidth, eclipse).
 
 partition_exports(File, DistThreshold, WithInOutDegree, SearchPaths, TabWidth, Editor) ->
-    Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":partition_exports(" ++ "\"" ++
-	File ++ "\", " ++ float_to_list(DistThreshold) ++
-	", " ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," 
-	++ integer_to_list(TabWidth) ++ ").",
+    Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":partition_exports(" ++ "\"" ++ 
+	     File ++ "\", " ++ float_to_list(DistThreshold) ++ 
+	       ", " ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "],"
+									        ++ integer_to_list(TabWidth) ++ ").",
     case exported_funs(File) of
 	[] -> throw({error, "This module does not export any functions."});
 	_ -> ok
-    end,		  
+    end,
     #callgraph{callercallee = CallerCallees} =
 	wrangler_callgraph_server:get_callgraph([File]),
     CG = digraph:new(),
@@ -758,27 +758,27 @@ partition_exports(File, DistThreshold, WithInOutDegree, SearchPaths, TabWidth, E
     Coms = gen_components(File),
     Matrix = generate_fun_dist_matrix(File, CG, Coms, UsedMRWs, true),
     Mods = [list_to_atom(filename:basename(F, ".erl")) || F <- SearchPaths],
-    Cs=agglomerative_cluster(Matrix, CG, Coms, UsedMRWs, DistThreshold, Mods),
+    Cs = agglomerative_cluster(Matrix, CG, Coms, UsedMRWs, DistThreshold, Mods),
     ModName = list_to_atom(filename:basename(File, ".erl")),
     MG = digraph:new(),
-    case WithInOutDegree of 
+    case WithInOutDegree of
 	true ->
 	    ModCallerCallees = refac_module_graph:module_graph_with_funs(SearchPaths),
 	    refac_module_graph:add_edges(ModCallerCallees, [], MG);
 	false ->
 	    ok
     end,
-    CsWithInOutDegree =[get_in_out_degree(ModName, C, MG, CG) ||C<-Cs],
-    NewCs= group_small_clusters(CsWithInOutDegree),
-    case WithInOutDegree of 
+    CsWithInOutDegree = [get_in_out_degree(ModName, C, MG, CG) || C <- Cs],
+    NewCs = group_small_clusters(CsWithInOutDegree),
+    case WithInOutDegree of
 	true ->
-	    [format_a_cluster(C)||C<-NewCs];
+	    [format_a_cluster(C) || C <- NewCs];
 	false -> ok
     end,
     digraph:delete(MG),
     digraph:delete(CG),
-    AnnAST1=rewrite_export_list(File, NewCs),
-    refac_util:write_refactored_files([{{File,File}, AnnAST1}], Editor, TabWidth, Cmd1).
+    AnnAST1 = rewrite_export_list(File, NewCs),
+    refac_write_file:write_refactored_files([{{File,File}, AnnAST1}], Editor, TabWidth, Cmd1).
     
     
    
@@ -798,11 +798,11 @@ get_dist_threshold(DistThreshold) ->
       V2 -> V2;
       _:_ -> throw({error, "Parameter input is invalid."})
     end.
-    
+
 used_macros_records_words(File) ->
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(File, true,[]),
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(File, true, []),
     Forms = refac_syntax:form_list_elements(AnnAST),
-    [used_macros_records_words_1(F) ||F<-Forms, refac_syntax:type(F)==function].
+    [used_macros_records_words_1(F) || F <- Forms, refac_syntax:type(F)==function].
   
 used_macros_records_words_1(FunDef) ->
     UsedMacros= refac_misc:collect_used_macros(FunDef),
@@ -813,18 +813,18 @@ used_macros_records_words_1(FunDef) ->
     {{M,F,A}, {UsedMacros, UsedRecords, Words}}.
 
 collect_words({_M,F,_A}, FunDef) ->
-    Fun=fun(Node, Acc) ->
-		case refac_syntax:type(Node) of 
-		    atom ->
-		       	Name = refac_syntax:atom_value(Node),
-		       	Acc++string:tokens(atom_to_list(Name), "_");
-		    variable ->
-			Name = refac_syntax:variable_literal(Node),
-			Acc++string:tokens(Name, "_");
-		    _ -> Acc
-		end
-	end,
-    lists:usort(refac_syntax_lib:fold(Fun, string:tokens(atom_to_list(F), "_"), FunDef)).
+    Fun = fun (Node, Acc) ->
+		  case refac_syntax:type(Node) of
+		      atom ->
+			  Name = refac_syntax:atom_value(Node),
+			  Acc++string:tokens(atom_to_list(Name), "_");
+		      variable ->
+			  Name = refac_syntax:variable_literal(Node),
+			  Acc++string:tokens(Name, "_");
+		      _ -> Acc
+		  end
+	  end,
+    lists:usort(ast_traverse_api:fold(Fun, string:tokens(atom_to_list(F), "_"), FunDef)).
 
 gen_components(FileName) ->
     CallerCalleesWithDef = wrangler_callgraph_server:build_callercallee_callgraph([FileName]),
@@ -908,32 +908,31 @@ make_export(Names) ->
 	  || {F, A} <- Names],
     refac_syntax:attribute(refac_syntax:atom('export'), [refac_syntax:list(Es)]).
 
-
 rewrite_export_list(FName, Cs) ->
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, []),
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, []),
     Forms = refac_syntax:form_list_elements(AnnAST),
     {Forms1, Forms2} = case lists:splitwith(fun (F) ->
-						    not is_attribute(F, export)
+						     not  is_attribute(F, export)
 					    end, Forms)
 			   of
-			 {_Fs, []} ->
-			     case lists:splitwith(fun (F) ->
-							  not is_attribute(F, compile)
-						  end, Forms)
-				 of
-			       {_, []} ->
-				   throw({error, "No export attribute has been found in the file."});
-			       {Fs1, Fs2} ->
-				   {Fs1, Fs2}
-			     end;
-			 {Fs1, Fs2} ->
-			     {Fs1, Fs2}
+			   {_Fs, []} ->
+			       case lists:splitwith(fun (F) ->
+							     not  is_attribute(F, compile)
+						    end, Forms)
+				   of
+				   {_, []} ->
+				       throw({error, "No export attribute has been found in the file."});
+				   {Fs1, Fs2} ->
+				       {Fs1, Fs2}
+			       end;
+			   {Fs1, Fs2} ->
+			       {Fs1, Fs2}
 		       end,
-    Forms21 = [F || F <- tl(Forms2), not is_attribute(F, export)],
+    Forms21 = [F || F <- tl(Forms2),  not  is_attribute(F, export)],
     NewExports = [begin
-		    {_, {_, _, MFAs}} = C,
-		    FAs = [{F, A} || {_, F, A} <- MFAs],
-		    make_export(FAs)
+		      {_, {_, _, MFAs}} = C,
+		      FAs = [{F, A} || {_, F, A} <- MFAs],
+		      make_export(FAs)
 		  end || C <- Cs],
     NewForms = Forms1 ++ NewExports ++ Forms21,
     refac_syntax:form_list(NewForms).
@@ -1086,32 +1085,31 @@ moveability(V = {M, _F, _A}, CG, FunSizePairs) ->
      refac_misc:min(RsSize - 2 * SharedVsSize, RemainedVsSize) /
      refac_misc:max(RsSize - 2 * SharedVsSize, RemainedVsSize)}.
 
-get_fun_size_pairs(File, SearchPaths)->    
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(File, true, SearchPaths),
+get_fun_size_pairs(File, SearchPaths) ->
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(File, true, SearchPaths),
     Forms = refac_syntax:form_list_elements(AnnAST),
-    Fun = fun(Form) ->
-		  case lists:keysearch(fun_def,1,refac_syntax:get_ann(Form)) of 
-		      {value, {fun_def, {M, F, A, _,_}}} ->
+    Fun = fun (Form) ->
+		  case lists:keysearch(fun_def,1,refac_syntax:get_ann(Form)) of
+		      {value, {fun_def, {M, F, A, _, _}}} ->
 			  Toks = refac_misc:get_toks(Form),
-			  CodeLines = [element(1, element(2, T)) ||
-					  T <- Toks, element(1, T) /= whitespace, 
+			  CodeLines = [element(1, element(2, T))
+				       || T <- Toks, element(1, T) /= whitespace,
 					  element(1, T) /= comment],
 			  [{{M, F, A}, length(refac_misc:remove_duplicates(CodeLines))}];
 		      false ->
 			  []
 		  end
 	  end,
-    lists:append([Fun(F)||F<-Forms]).
+    lists:append([Fun(F) || F <- Forms]).
 
 
 get_size(Vs, FunSizePairs) ->
     lists:sum([Size||{F, Size}<-FunSizePairs, lists:member(F, Vs)]).
 
-
 is_behaviour_file(File) ->
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(File, true, []),
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(File, true, []),
     Forms = refac_syntax:form_list_elements(AnnAST),
-    lists:any(fun(F) ->
+    lists:any(fun (F) ->
 		      case refac_syntax:type(F) of
 			  attribute ->
 			      case refac_syntax:type(refac_syntax:attribute_name(F)) of

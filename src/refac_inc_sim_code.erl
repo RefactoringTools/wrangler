@@ -313,21 +313,21 @@ generalise_and_hash_file_ast(File, Threshold, Tabs, ASTPid, HashPid, SearchPaths
 
 %% Generalise and hash the AST for an single Erlang file.
 generalise_and_hash_file_ast_1(FName, Threshold, Tabs, ASTPid, HashPid, IsNewFile, SearchPaths, TabWidth) ->
-    Forms = try refac_util:quick_parse_annotate_file(FName, SearchPaths, TabWidth) of 
+    Forms = try wrangler_ast_server:quick_parse_annotate_file(FName, SearchPaths, TabWidth) of
 		{ok, {AnnAST, _Info}} ->
 		    refac_syntax:form_list_elements(AnnAST)
 	    catch
 		_E1:_E2 -> []
 	    end,
-    F =fun (Form) -> 
-	       case refac_syntax:type(Form) of 
-		   function ->
-		       %% only process function definitions.
-		       generalise_and_hash_function_ast(Form, FName, IsNewFile, Threshold, Tabs, ASTPid, HashPid);
-		   _ -> ok
-	       end
-       end,
-    lists:foreach(fun(Form) -> F(Form) end, Forms).
+    F = fun (Form) ->
+		case refac_syntax:type(Form) of
+		    function ->
+			%% only process function definitions.
+			generalise_and_hash_function_ast(Form, FName, IsNewFile, Threshold, Tabs, ASTPid, HashPid);
+		    _ -> ok
+		end
+	end,
+    lists:foreach(fun (Form) -> F(Form) end, Forms).
 
 
 %% generalise and hash the AST of a single function.

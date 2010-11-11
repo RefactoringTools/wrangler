@@ -98,36 +98,34 @@ expr_search_in_dirs(FileName, Start = {Line, Col}, End = {Line1, Col1}, SearchPa
     Res1 = [{FileName, SE}| Res -- [{FileName, SE}]],
     refac_code_search_utils:display_search_results(Res1, none, "indentical").
 
-
-
 %%-spec(expr_search_eclipse/4::(filename(), pos(), pos(), integer()) ->
 %%   {ok, [{{integer(), integer()}, {integer(), integer()}}]} | {error, string()}).
 expr_search_eclipse(FileName, Start, End, TabWidth) ->
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, [], TabWidth),
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, [], TabWidth),
     case interface_api:pos_to_expr_list(AnnAST, Start, End) of
-      [E| Es] ->
-	  Res = case Es == [] of
-		  true ->
-		      search_one_expr(FileName, AnnAST, E);
-		  _ ->
-		      search_expr_seq(FileName, AnnAST, [E| Es])
-		end,
-	  {ok, [SE || {_File, SE} <- Res]};
-      _ -> {error, "You have not selected an expression!"}
+	[E| Es] ->
+	    Res = case Es == [] of
+		      true ->
+			  search_one_expr(FileName, AnnAST, E);
+		      _ ->
+			  search_expr_seq(FileName, AnnAST, [E| Es])
+		  end,
+	    {ok, [SE || {_File, SE} <- Res]};
+	_ -> {error, "You have not selected an expression!"}
     end.
 
 get_expr_selected(FileName, Start, End, SearchPaths, TabWidth) ->
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     Es = interface_api:pos_to_expr_list(AnnAST, Start, End),
     case Es of
-      [] -> throw({error, "You have not selected an expression!"});
-      _ -> Es
+	[] -> throw({error, "You have not selected an expression!"});
+	_ -> Es
     end.
-   
+
 do_expr_search(FileName, Es, SearchPaths, TabWidth) ->
-    try  refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth) of
+    try wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth) of
 	{ok, {AnnAST, _}} ->
-	    case length(Es) of 
+	    case length(Es) of
 		1 -> search_one_expr(FileName, AnnAST, hd(Es));
 		_ -> search_expr_seq(FileName, AnnAST, Es)
 	    end
@@ -141,23 +139,23 @@ search_one_expr(FileName, Tree, Exp) ->
     SimplifiedExp = simplify_expr(Exp),
     BdStructExp = refac_code_search_utils:var_binding_structure([Exp]),
     F = fun (T, Acc) ->
-		case refac_misc:is_expr(T) orelse 
-		    refac_syntax:type(T)==match_expr of
-		  true -> T1 = simplify_expr(T),
-			  case SimplifiedExp == T1 of
-			    true ->
-				case refac_code_search_utils:var_binding_structure([T]) of
-				  BdStructExp ->
-				      StartEndLoc = refac_misc:get_start_end_loc(T),
-				      [{FileName, StartEndLoc}| Acc];
-				  _ -> Acc
-				end;
-			    _ -> Acc
-			  end;
-		  _ -> Acc
+		case refac_misc:is_expr(T) orelse  refac_syntax:type(T)==match_expr of
+		    true -> T1 = simplify_expr(T),
+			    case SimplifiedExp == T1 of
+				true ->
+				    case refac_code_search_utils:var_binding_structure([T])
+					of
+					BdStructExp ->
+					    StartEndLoc = refac_misc:get_start_end_loc(T),
+					    [{FileName, StartEndLoc}| Acc];
+					_ -> Acc
+				    end;
+				_ -> Acc
+			    end;
+		    _ -> Acc
 		end
 	end,
-    lists:reverse(refac_syntax_lib:fold(F, [], Tree)).
+    lists:reverse(ast_traverse_api:fold(F, [], Tree)).
     
 %% Search for the clones of an expresion sequence.
 search_expr_seq(FileName, Tree, ExpList) ->
@@ -244,28 +242,28 @@ set_default_ann(Node) ->
 
 %% get all the expression sequences contained in Tree.	    
 contained_exprs(Tree, MinLen) ->
-    F = fun(T, Acc) ->
+    F = fun (T, Acc) ->
 		case refac_syntax:type(T) of
 		    clause ->
 			Exprs = refac_syntax:clause_body(T),  %% HOW ABOUT CLAUSE_GUARD?
 			Acc ++ [Exprs];
-		    application -> 
+		    application ->
 			Exprs = refac_syntax:application_arguments(T),
 			Acc++ [Exprs];
-		    tuple -> 
+		    tuple ->
 			Exprs = refac_syntax:tuple_elements(T),
 			Acc++ [Exprs];
-		    lists -> 
+		    lists ->
 			Exprs = refac_syntax:list_prefix(T),
 			Acc++ [Exprs];
 		    block_expr ->
 			Exprs = refac_syntax:block_expr_body(T),
-			Acc++ [Exprs];    
+			Acc++ [Exprs];
 		    try_expr ->
 			Exprs = refac_syntax:try_expr_body(T),
 			Acc ++ [Exprs];
-		    _  -> Acc
+		    _ -> Acc
 		end
 	end,
-    Es = refac_syntax_lib:fold(F, [], Tree),
-    [E ||  E <- Es, length(E) >= MinLen].
+    Es = ast_traverse_api:fold(F, [], Tree),
+    [E || E <- Es, length(E) >= MinLen].

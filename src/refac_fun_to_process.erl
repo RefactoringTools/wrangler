@@ -57,37 +57,37 @@ fun_to_process_eclipse(FName, Line, Col, ProcessName, SearchPaths, TabWidth) ->
 fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:fun_to_process(~p, ~p, ~p, ~p,~p, ~p).\n",
 		 [?MODULE, FName, Line, Col, ProcessName, SearchPaths, TabWidth]),
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fun_to_process(" ++ "\"" ++
-	    FName ++ "\", " ++ integer_to_list(Line) ++
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fun_to_process(" ++ "\"" ++ 
+	    FName ++ "\", " ++ integer_to_list(Line) ++ 
 	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ ProcessName ++ "\","
-		++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+									        ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case is_process_name(ProcessName) of
-      true -> ok;
-      false -> throw({error, "Invalid process name."})
+	true -> ok;
+	false -> throw({error, "Invalid process name."})
     end,
     _Res = refac_annotate_pid:ann_pid_info(SearchPaths, TabWidth),
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
+    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     ProcessName1 = list_to_atom(ProcessName),
     case interface_api:pos_to_fun_def(AnnAST, {Line, Col}) of
-      {ok, FunDef} ->
-	  {value, {fun_def, {ModName, FunName, Arity, _Pos1, DefinePos}}} =
-	      lists:keysearch(fun_def, 1, refac_syntax:get_ann(FunDef)),
-	  pre_cond_check(AnnAST, {Line, Col}, ModName, FunName, Arity, ProcessName1, SearchPaths, TabWidth, Cmd),
-	  AnnAST2 = do_fun_to_process(AnnAST, Info, DefinePos, FunName, Arity, ProcessName1),
-	  case Editor of
-	    emacs ->
-		refac_util:write_refactored_files_for_preview([{{FName, FName}, AnnAST2}], TabWidth, Cmd),
-		?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
-			     [FName]),
-		{ok, [FName]};
-	    eclipse ->
-		Content = refac_prettypr:print_ast(refac_util:file_format(FName), AnnAST2, TabWidth),
-		Res = [{FName, FName, Content}],
-		{ok, Res}
-	  end;
-      _ -> throw({error, "You have not selected a function definition, "
-			 "or the function definition selected does not parse."})
+	{ok, FunDef} ->
+	    {value, {fun_def, {ModName, FunName, Arity, _Pos1, DefinePos}}} =
+		lists:keysearch(fun_def, 1, refac_syntax:get_ann(FunDef)),
+	    pre_cond_check(AnnAST, {Line, Col}, ModName, FunName, Arity, ProcessName1, SearchPaths, TabWidth, Cmd),
+	    AnnAST2 = do_fun_to_process(AnnAST, Info, DefinePos, FunName, Arity, ProcessName1),
+	    case Editor of
+		emacs ->
+		    refac_write_file:write_refactored_files_for_preview([{{FName, FName}, AnnAST2}], TabWidth, Cmd),
+		    ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
+				 [FName]),
+		    {ok, [FName]};
+		eclipse ->
+		    Content = refac_prettypr:print_ast(refac_util:file_format(FName), AnnAST2, TabWidth),
+		    Res = [{FName, FName, Content}],
+		    {ok, Res}
+	    end;
+	_ -> throw({error, "You have not selected a function definition, "
+			   "or the function definition selected does not parse."})
     end.
 
 %%-spec(fun_to_process_1_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer())
@@ -96,7 +96,7 @@ fun_to_process_1_eclipse(FName, Line, Col, ProcessName, SearchPaths, TabWidth) -
     fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, eclipse, "").
 
 fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor, LogMsg) ->
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
+    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     ProcessName1 = list_to_atom(ProcessName),
     {ok, FunDef} = interface_api:pos_to_fun_def(AnnAST, {Line, Col}),
@@ -104,14 +104,14 @@ fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor, L
 	lists:keysearch(fun_def, 1, refac_syntax:get_ann(FunDef)),
     AnnAST1 = do_fun_to_process(AnnAST, Info, DefinePos, FunName, Arity, ProcessName1),
     case Editor of
-      emacs ->
-	  Res = [{{FName, FName}, AnnAST1}],
-	  refac_util:write_refactored_files_for_preview(Res, TabWidth, LogMsg),
-	  {ok, [FName]};
-      eclipse ->
-	  Content = refac_prettypr:print_ast(refac_util:file_format(FName), AnnAST1, TabWidth),
-	  Res = [{FName, FName, Content}],
-	  {ok, Res}
+	emacs ->
+	    Res = [{{FName, FName}, AnnAST1}],
+	    refac_write_file:write_refactored_files_for_preview(Res, TabWidth, LogMsg),
+	    {ok, [FName]};
+	eclipse ->
+	    Content = refac_prettypr:print_ast(refac_util:file_format(FName), AnnAST1, TabWidth),
+	    Res = [{FName, FName, Content}],
+	    {ok, Res}
     end.
     
 %% Side conditios:
@@ -178,50 +178,50 @@ pre_cond_check(AnnAST, Pos, ModName, FunName, Arity, ProcessName, SearchPaths, T
 			end, SelfRes),
 	  throw({undecidables, "there are undecidable cases.", Cmd})
     end.
-  
+
 %% This refactoring changes the value returned by those 'self()' which are reachable from the function under consideration,
 %% and there is a possiblity that this will change the program's behaviour when, for example, the value returned by 'self()' is 
 %% used as part of a message sent/received between processes.
 check_self_exprs([], _, _SearchPaths) ->
     [];
-check_self_exprs(SelfApps, InitialFun={_ModName, _FunName, _Arity},SearchPaths) ->
+check_self_exprs(SelfApps, InitialFun = {_ModName, _FunName, _Arity}, SearchPaths) ->
     Files = refac_util:expand_files(SearchPaths, ".erl"),
-    CallGraph= wrangler_callgraph_server:get_callgraph(SearchPaths), 
+    CallGraph = wrangler_callgraph_server:get_callgraph(SearchPaths),
     CallerCallee = CallGraph#callgraph.callercallee,
-    ReachedFuns = [InitialFun|reached_funs_1(CallerCallee, [InitialFun])],
-    SelfApps1 = lists:filter(fun({{M, F, A}, {_File, _FunDef, _SelfExpr}}) ->
-				     lists:member({M,F, A}, ReachedFuns)
+    ReachedFuns = [InitialFun| reached_funs_1(CallerCallee, [InitialFun])],
+    SelfApps1 = lists:filter(fun ({{M, F, A}, {_File, _FunDef, _SelfExpr}}) ->
+				     lists:member({M, F, A}, ReachedFuns)
 			     end, SelfApps),
-    F1 = fun(Node, {Regs, Recs, Sends}) ->
-		 case refac_syntax:type(Node) of 
+    F1 = fun (Node, {Regs, Recs, Sends}) ->
+		 case refac_syntax:type(Node) of
 		     application ->
-			 case is_register_app(Node) of 
+			 case is_register_app(Node) of
 			     true ->
-				 {[Node|Regs], Recs, Sends};
+				 {[Node| Regs], Recs, Sends};
 			     _ ->
 				 {Regs, Recs, Sends}
 			 end;
 		     receive_expr ->
-			 {Regs, [Node|Recs], Sends};
+			 {Regs, [Node| Recs], Sends};
 		     send_expr ->
-			 {Regs, Recs, [Node|Sends]};
+			 {Regs, Recs, [Node| Sends]};
 		     _ -> {Regs, Recs, Sends}
 		 end
 	 end,
-    F = fun({{Mod, Fun, Arity}, {File, FunDef, SelfExpr}}) ->
-		{ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(File, true, SearchPaths),
+    F = fun ({{Mod, Fun, Arity}, {File, FunDef, SelfExpr}}) ->
+		{ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(File, true, SearchPaths),
 		Res = refac_slice:forward_slice(Files, AnnAST, Mod, FunDef, SelfExpr),
-	        Res1 = [FunDef1||{_,FunDef1}<-Res],
+		Res1 = [FunDef1 || {_,FunDef1} <- Res],
 		{RegAcc, RecAcc, SendAcc} = lists:unzip3(
-					      lists:map(fun(FunDef1) ->
-								refac_syntax_lib:fold(F1, {[],[],[]}, FunDef1)
+					      lists:map(fun (FunDef1) ->
+								ast_traverse_api:fold(F1, {[],[],[]}, FunDef1)
 							end,Res1)),
-		{{Mod,Fun,Arity}, SelfExpr,{RegAcc, RecAcc, SendAcc}}
+		{{Mod,Fun,Arity}, SelfExpr, {RegAcc, RecAcc, SendAcc}}
 	end,
-    lists:filter(fun({_, _, {Regs, Recs, Sends}}) ->
-			(Regs=/=[]) or (Recs=/=[]) or (Sends =/= [])
-		end,
-		lists:map(F, SelfApps1)).
+    lists:filter(fun ({_, _, {Regs, Recs, Sends}}) ->
+			 (Regs=/=[]) or (Recs=/=[]) or (Sends =/= [])
+		 end,
+		 lists:map(F, SelfApps1)).
    		       
    
 reached_funs_1(CallerCallee, Acc) ->
@@ -332,51 +332,50 @@ do_fun_to_process_2(FunDef, FunName, NewFunName, RpcFunName, ProcessName)->
     C = refac_syntax:clause(none, [ReceiveExp]),		    
     [refac_syntax:function(refac_syntax:atom(FunName), Cs2),
      refac_syntax:function(NewFunName1, [C])].
- 
-  
+
 collect_registration_and_self_apps(DirList, TabWidth) ->
     Files = refac_util:expand_files(DirList, ".erl"),
-    F = fun(File, FileAcc) ->
-		{ok, {AnnAST, Info}} = refac_util:parse_annotate_file(File, true, DirList),
+    F = fun (File, FileAcc) ->
+		{ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(File, true, DirList),
 		{value, {module, ModName}} = lists:keysearch(module, 1, Info),
-		F1 = fun(Node, ModAcc) ->
-			     case refac_syntax:type(Node) of 
+		F1 = fun (Node, ModAcc) ->
+			     case refac_syntax:type(Node) of
 				 function ->
 				     FunName = refac_syntax:data(refac_syntax:function_name(Node)),
 				     Arity = refac_syntax:function_arity(Node),
-				     F2= fun (Node1, FunAcc) ->    
-						 case refac_syntax:type(Node1) of 
-						     application ->
-							 case is_register_app(Node1) of 
-							     true -> 
-								 [RegName, Pid] = refac_syntax:application_arguments(Node1),
-								 RegNameValues = evaluate_expr(File, RegName, DirList, TabWidth),
-								 RegNameValues1 = [{pname, R} || R<- RegNameValues],
-								 [{pid, {{ModName, FunName, Arity}, Pid}}|RegNameValues1++FunAcc];
-							    false ->
-								 case is_self_app(Node1) of 
-								     true -> 
-									 [{self, {{File, FunName, Arity},
-										  {File, Node, Node1}}}|FunAcc];
-								     false ->
-									 FunAcc
-								 end
-							 end; 
-						     _ ->  FunAcc
-						 end
-					 end,
-				     refac_syntax_lib:fold(F2, [], Node)++ModAcc;
-				 _-> ModAcc 
+				     F2 = fun (Node1, FunAcc) ->
+						  case refac_syntax:type(Node1) of
+						      application ->
+							  case is_register_app(Node1) of
+							      true ->
+								  [RegName, Pid] = refac_syntax:application_arguments(Node1),
+								  RegNameValues = evaluate_expr(File, RegName, DirList, TabWidth),
+								  RegNameValues1 = [{pname, R} || R <- RegNameValues],
+								  [{pid, {{ModName, FunName, Arity}, Pid}}| RegNameValues1++FunAcc];
+							      false ->
+								  case is_self_app(Node1) of
+								      true ->
+									  [{self, {{File, FunName, Arity},
+										   {File, Node, Node1}}}| FunAcc];
+								      false ->
+									  FunAcc
+								  end
+							  end;
+						      _ -> FunAcc
+						  end
+					  end,
+				     ast_traverse_api:fold(F2, [], Node)++ModAcc;
+				 _ -> ModAcc
 			     end
 		     end,
-		refac_syntax_lib:fold(F1, [], AnnAST) ++ FileAcc
-	   end,			 
-    Acc =lists:foldl(F, [], Files),
-    PNameAcc  =[A||{pname, A}<- Acc],
-    PidAcc = [A||{pid, A} <- Acc],
-    SelfApps = [A||{self, A} <-Acc],
-    Names = lists:usort([V||{value, V}<-PNameAcc]),
-    UnKnowns = lists:usort([V||{unknown, V}<-PNameAcc]),
+		ast_traverse_api:fold(F1, [], AnnAST) ++ FileAcc
+	end,
+    Acc = lists:foldl(F, [], Files),
+    PNameAcc = [A || {pname, A} <- Acc],
+    PidAcc = [A || {pid, A} <- Acc],
+    SelfApps = [A || {self, A} <- Acc],
+    Names = lists:usort([V || {value, V} <- PNameAcc]),
+    UnKnowns = lists:usort([V || {unknown, V} <- PNameAcc]),
     {SelfApps, PidAcc, Names, UnKnowns}.
     
 

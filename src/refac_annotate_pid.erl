@@ -100,24 +100,23 @@ fixpoint(Funs, TypeSigPid) ->
  	    fixpoint(Funs1, TypeSigPid)
      end.
 
-
 update_function(File, FunList, DirList, TabWidth) ->
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(File, true, DirList, TabWidth),
+    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(File, true, DirList, TabWidth),
     ModName = case lists:keysearch(module, 1, Info) of
-		{value, {module, Mod}} -> Mod;
-		_ -> list_to_atom(filename:basename(File, ".erl"))
+		  {value, {module, Mod}} -> Mod;
+		  _ -> list_to_atom(filename:basename(File, ".erl"))
 	      end,
     F = fun (Node, []) ->
 		case refac_syntax:type(Node) of
-		  function ->
-		      FunName = refac_syntax:data(refac_syntax:function_name(Node)),
-		      Arity = refac_syntax:function_arity(Node),
-		      case lists:keysearch({ModName, FunName, Arity}, 1, FunList) of
-			{value, {{ModName, FunName, Arity}, FunDef}} ->
-			    {FunDef, true};
-			_ -> {Node, false}
-		      end;
-		  _ -> {Node, false}
+		    function ->
+			FunName = refac_syntax:data(refac_syntax:function_name(Node)),
+			Arity = refac_syntax:function_arity(Node),
+			case lists:keysearch({ModName, FunName, Arity}, 1, FunList) of
+			    {value, {{ModName, FunName, Arity}, FunDef}} ->
+				{FunDef, true};
+			    _ -> {Node, false}
+			end;
+		    _ -> {Node, false}
 		end
 	end,
     {AnnAST1, _} = ast_traverse_api:stop_tdTP(F, AnnAST, []),

@@ -204,7 +204,6 @@ do_type_ann(FileName, {{M, F, A}, Form}, TestFrameWorkUsed, SearchPaths, TabWidt
 	  {{M, F, A}, Form}
     end.
 
-
 get_sorted_funs(ModName, AnnAST) ->
     F1 = fun (T, S) ->
 		 case refac_syntax:type(T) of
@@ -217,12 +216,11 @@ get_sorted_funs(ModName, AnnAST) ->
 		     _ -> S
 		 end
 	 end,
-    CallerCallees = lists:usort(refac_syntax_lib:fold(F1, ordsets:new(), AnnAST)),
+    CallerCallees = lists:usort(ast_traverse_api:fold(F1, ordsets:new(), AnnAST)),
     {Sccs, _E} = refac_callgraph:construct(CallerCallees),
     lists:append(Sccs).
 
-
-%% This function is actually defined in wrangler_callgraph_server.erl, 
+%% This function is actually defined in wrangler_callgraph_server.erl,
 %% but I would like to keep it here so that this module does not 
 %% depends on the wrangler_callgraph_server.
 called_funs(Tree) ->
@@ -231,22 +229,22 @@ called_funs(Tree) ->
 		      application ->
 			  Op = refac_syntax:application_operator(T),
 			  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
-			      {value, {fun_def, {M, F, A, _, _}}} 
-				when M =/= '_' andalso F =/= '_' ->
+			      {value, {fun_def, {M, F, A, _, _}}}
+				  when M =/= '_' andalso F =/= '_' ->
 				  ordsets:add_element({M, F, A}, S);
 			      _ -> S
 			  end;
 		      implicit_fun ->
 			  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(T)) of
-			      {value, {fun_def, {M, F, A, _, _}}} 
-				when M =/= '_' andalso F =/= '_' ->
+			      {value, {fun_def, {M, F, A, _, _}}}
+				  when M =/= '_' andalso F =/= '_' ->
 				  ordsets:add_element({M, F, A}, S);
 			      _ -> S
 			  end;
 		      _ -> S
-		end
-	end,
-    refac_syntax_lib:fold(Fun, ordsets:new(), Tree).
+		  end
+	  end,
+    ast_traverse_api:fold(Fun, ordsets:new(), Tree).
 
 
 

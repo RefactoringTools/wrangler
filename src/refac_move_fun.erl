@@ -107,15 +107,15 @@ move_fun_1_eclipse(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth)
 %%-spec(move_fun_command/5::(modulename()|filename(), atom(), integer(), modulename()|filename(),[dir()])->
 %%				 {error, string()} | {ok, [filename()]}).
 move_fun_command(ModorFileName, FunName, Arity, TargetModorFileName, SearchPaths) ->
-    case get_file_name(ModorFileName, SearchPaths) of 
+    case get_file_name(ModorFileName, SearchPaths) of
 	{ok, OriginalFileName} ->
-	    case get_file_name(TargetModorFileName, SearchPaths) of 
+	    case get_file_name(TargetModorFileName, SearchPaths) of
 		{ok, TargetFileName} ->
-		    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(OriginalFileName, true, SearchPaths, 8),
-		    ModName=get_module_name(Info),
+		    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(OriginalFileName, true, SearchPaths, 8),
+		    ModName = get_module_name(Info),
 		    case refac_misc:funname_to_defpos(AnnAST, {ModName, FunName, Arity}) of
 			{ok, Pos} ->
-			    case Pos of 
+			    case Pos of
 				{Line, Col} ->
 				    move_fun_1(OriginalFileName, Line, Col, TargetFileName, true, SearchPaths, 8, command);
 				_ -> {error, "Wrangler could not infer the location of the function in the program."}
@@ -130,7 +130,6 @@ move_fun_command(ModorFileName, FunName, Arity, TargetModorFileName, SearchPaths
 	    throw({error, Reason})
     end.
 
- 
 move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:move_fun(~p, ~p, ~p, ~p, ~p, ~p).\n",
 		 [?MODULE, FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth]),
@@ -139,13 +138,13 @@ move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, Editor) -
 	FName -> throw({error, "The target module is the same as the current module."});
 	_ -> ok
     end,
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     case interface_api:pos_to_fun_def(AnnAST, {Line, Col}) of
 	{ok, _Def} ->
 	    ok;
 	{error, _Reason} ->
 	    case pos_to_export(AnnAST, {Line, Col}) of
-		{ok,_ExpAttr} -> 
+		{ok,_ExpAttr} ->
 		    ok;
 		{error, _} ->
 		    throw({error, "You have not selected a well-formed function definition or an export attribute."})
@@ -208,40 +207,40 @@ move_fun_2(CurModInfo, MFAs, TargetModorFileName, CheckCond, SearchPaths, TabWid
     move_fun_3(CurModInfo, TargetModInfo, NewMFAs, {NewUnDefinedMs, NewUnDefinedRs},
 	       FunsToExportInCurMod, FunsToExportInTargetMod, 
 	       AtomsToCheck, NewTargetFile,SearchPaths, TabWidth, Editor, Cmd).
-  
+
 move_fun_3(CurModInfo, TargetModInfo, MFAs, {UnDefinedMs, UnDefinedRs},
-	   FunsToExportInCurMod, FunsToExportInTargetMod, 
-	   AtomsToCheck, NewTargetFile,SearchPaths, TabWidth, Editor, Cmd) ->
+	   FunsToExportInCurMod, FunsToExportInTargetMod,
+	   AtomsToCheck, NewTargetFile, SearchPaths, TabWidth, Editor, Cmd) ->
     Pid = start_atom_process(),
     {AnnAST1, TargetAnnAST1} =
 	do_transformation(CurModInfo, TargetModInfo, MFAs, {UnDefinedMs, UnDefinedRs},
 			  FunsToExportInCurMod, FunsToExportInTargetMod, Pid,
-			 SearchPaths, TabWidth),
-    FName =CurModInfo#module_info.filename,
-    ModName=CurModInfo#module_info.modname,
+			  SearchPaths, TabWidth),
+    FName = CurModInfo#module_info.filename,
+    ModName = CurModInfo#module_info.modname,
     TargetFName = TargetModInfo#module_info.filename,
-    TargetModName=TargetModInfo#module_info.modname,
+    TargetModName = TargetModInfo#module_info.modname,
     check_unsure_atoms(FName, AnnAST1, AtomsToCheck, f_atom, Pid),
     check_unsure_atoms(TargetFName, TargetAnnAST1, AtomsToCheck, f_atom, Pid),
     ExportedMFAs = exported_funs(MFAs, CurModInfo#module_info.info),
     Results = case ExportedMFAs/=[] of
 		  true ->
 		      ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
-		      ClientFiles = lists:delete(TargetFName, refac_util:get_client_files(FName, SearchPaths)),
+		      ClientFiles = lists:delete(TargetFName, wrangler_modulegraph_server:get_client_files(FName, SearchPaths)),
 		      refactor_in_client_modules(ClientFiles, ExportedMFAs, TargetModName, SearchPaths, TabWidth, Pid);
 		  false ->
 		      []
 	      end,
     output_atom_warning_msg(Pid, not_renamed_warn_msg(AtomsToCheck), renamed_warn_msg(ModName)),
     stop_atom_process(Pid),
-    FinalResults = case Editor of 
-			emacs ->
-			    [{{FName, FName}, AnnAST1},
-			     {{TargetFName, TargetFName, NewTargetFile}, TargetAnnAST1}| Results];
-			_ ->
-			    [{{FName, FName}, AnnAST1}, {{TargetFName, TargetFName}, TargetAnnAST1}| Results]
-		    end,
-    refac_util:write_refactored_files(FinalResults, Editor, TabWidth, Cmd).
+    FinalResults = case Editor of
+		       emacs ->
+			   [{{FName, FName}, AnnAST1},
+			    {{TargetFName, TargetFName, NewTargetFile}, TargetAnnAST1}| Results];
+		       _ ->
+			   [{{FName, FName}, AnnAST1}, {{TargetFName, TargetFName}, TargetAnnAST1}| Results]
+		   end,
+    refac_write_file:write_refactored_files(FinalResults, Editor, TabWidth, Cmd).
  
 
 do_transformation(CurModInfo, TargetModInfo, MFAs, {UnDefinedMs, UnDefinedRs},
@@ -704,19 +703,20 @@ rename_in_qualified_app(Operator1, FunName1, Arguments1, TargetModName1) ->
 %%  Processing Client modules.
 %%====================================================================================
 
+
 refactor_in_client_modules(ClientFiles, MFAs, TargetModName, SearchPaths, TabWidth, Pid) ->
     case ClientFiles of
-      [] -> [];
-      [F| Fs] ->
-	  ?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
-	  {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(F, true, SearchPaths, TabWidth),
-	  {AnnAST1, Changed} = refactor_in_client_module_1(F, {AnnAST, Info}, MFAs, TargetModName, SearchPaths, TabWidth, Pid),
-	  AtomsToCheck = lists:usort([FunName || {_M, FunName, _A} <- MFAs]),
-	  check_unsure_atoms(F, AnnAST1, AtomsToCheck, f_atom, Pid),
-	  if Changed ->
-		 [{{F, F}, AnnAST1}| refactor_in_client_modules(Fs, MFAs, TargetModName, SearchPaths, TabWidth, Pid)];
-	     true -> refactor_in_client_modules(Fs, MFAs, TargetModName, SearchPaths, TabWidth, Pid)
-	  end
+	[] -> [];
+	[F| Fs] ->
+	    ?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
+	    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(F, true, SearchPaths, TabWidth),
+	    {AnnAST1, Changed} = refactor_in_client_module_1(F, {AnnAST, Info}, MFAs, TargetModName, SearchPaths, TabWidth, Pid),
+	    AtomsToCheck = lists:usort([FunName || {_M, FunName, _A} <- MFAs]),
+	    check_unsure_atoms(F, AnnAST1, AtomsToCheck, f_atom, Pid),
+	    if Changed ->
+		   [{{F, F}, AnnAST1}| refactor_in_client_modules(Fs, MFAs, TargetModName, SearchPaths, TabWidth, Pid)];
+	       true -> refactor_in_client_modules(Fs, MFAs, TargetModName, SearchPaths, TabWidth, Pid)
+	    end
     end.
 refactor_in_client_module_1(FileName,{AnnAST, _Info}, MFAs, TargetModName, SearchPaths, TabWidth,Pid) ->
     Forms  = refac_syntax:form_list_elements(AnnAST),
@@ -947,8 +947,8 @@ is_the_same_fun(FunDef1, FunDef2) ->
     FunDef11 == FunDef21.
 
 reset_attrs(Node, {M, F, A}) ->
-    Fun = fun(T) -> 
-		  T1 = case refac_syntax:type(T) of 
+    Fun = fun (T) ->
+		  T1 = case refac_syntax:type(T) of
 			   module_qualifier ->
 			       {value, {fun_def, DefInfo}} = lists:keysearch(fun_def,1,refac_syntax:get_ann(T)),
 			       refac_syntax:add_ann({fun_def, DefInfo}, refac_syntax:module_qualifier_body(T));
@@ -965,21 +965,21 @@ reset_attrs(Node, {M, F, A}) ->
 			   atom ->
 			       refac_syntax:default_literals_vars(T, refac_syntax:atom_value(T));
 			   nil -> refac_syntax:default_literals_vars(T, nil);
-			   underscore ->refac_syntax:default_literals_vars(T, '_');
+			   underscore -> refac_syntax:default_literals_vars(T, '_');
 			   _ -> T
 		       end,
 		  case lists:keysearch(fun_def,1,refac_syntax:get_ann(T1)) of
 		      {value, {fun_def, {ModName, FunName, Arity, _, _}}} ->
-			  case {ModName, FunName, Arity} of 
+			  case {ModName, FunName, Arity} of
 			      {M, F, A} -> refac_syntax:set_pos(refac_syntax:remove_comments(refac_syntax:set_ann(T1, [])), {0,0});
 			      _ -> refac_syntax:set_pos(
 				     refac_syntax:remove_comments(
-				       refac_syntax:set_ann(T1,[{fun_def, {ModName, FunName, Arity, {0,0},{0,0}}}])),{0,0})
-			  end;	      
+				       refac_syntax:set_ann(T1,[{fun_def, {ModName, FunName, Arity, {0,0}, {0,0}}}])),{0,0})
+			  end;
 		      _ -> refac_syntax:set_pos(refac_syntax:remove_comments(refac_syntax:set_ann(T1, [])), {0,0})
 		  end
 	  end,
-    refac_syntax_lib:map(Fun, Node).
+    ast_traverse_api:map(Fun, Node).
 
 
 
@@ -988,41 +988,42 @@ reset_attrs(Node, {M, F, A}) ->
 %%              Side Condition Checking. 
 %%================================================================================
 
-analyze_file(FName, SearchPaths, TabWidth) ->   
+
+analyze_file(FName, SearchPaths, TabWidth) ->
     Dir = filename:dirname(FName),
     DefaultIncls = [filename:join(Dir, X) || X <- refac_misc:default_incls()],
     NewSearchPaths = SearchPaths ++ DefaultIncls,
     case refac_epp:parse_file(FName, NewSearchPaths, [], TabWidth,
-			      refac_util:file_format(FName)) of
+			      refac_util:file_format(FName))
+	of
 	{ok, TargetAST, {MDefs, _MUses1}} ->
-	    MacroDefs= [{Name, {Args, refac_util:concat_toks(Toks)}}
-			|| {{_, Name}, {Args, Toks}} <- MDefs],
+	    MacroDefs = [{Name, {Args, refac_util:concat_toks(Toks)}} || {{_, Name}, {Args, Toks}} <- MDefs],
 	    TargetModInfo = get_mod_info_from_parse_tree(TargetAST),
-	    RecordDefs=case lists:keysearch(records,1, TargetModInfo) of
-			   {value, {records, RecordDefsInTargetFile}} ->
-			       [{Name, lists:keysort(1, [{F, prettyprint(FDef)} || {F, FDef} <- Fields])}
-				|| {Name, Fields} <- RecordDefsInTargetFile];
-			   _ -> []
-		       end,
-	    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
+	    RecordDefs = case lists:keysearch(records, 1, TargetModInfo) of
+			     {value, {records, RecordDefsInTargetFile}} ->
+				 [{Name, lists:keysort(1, [{F, prettyprint(FDef)} || {F, FDef} <- Fields])}
+				  || {Name, Fields} <- RecordDefsInTargetFile];
+			     _ -> []
+			 end,
+	    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
 	    Forms = refac_syntax:form_list_elements(AnnAST),
-	    Includes=lists:append([lists:flatmap(fun (A) -> 
-					    case refac_syntax:type(A) of
-						string-> [refac_syntax:string_value(A)];
-						_ -> []
-					    end
-				    end, Args)
-		      ||F<-Forms, is_attribute(F, include) orelse is_attribute(F, include_lib),
-			Args<-[refac_syntax:attribute_arguments(F)]]),		       
+	    Includes = lists:append([lists:flatmap(fun (A) ->
+							   case refac_syntax:type(A) of
+							       string -> [refac_syntax:string_value(A)];
+							       _ -> []
+							   end
+						   end, Args)
+				     || F <- Forms, is_attribute(F, include) orelse is_attribute(F, include_lib),
+					Args <- [refac_syntax:attribute_arguments(F)]]),
 	    InscopeFuns = refac_misc:inscope_funs(TargetModInfo),
-	    #module_info{filename=FName,
-			 modname=get_module_name(Info),
-			 inscope_funs=InscopeFuns, 
-			 macro_defs=MacroDefs, 
-			 record_defs=RecordDefs,
-			 includes=Includes, 
-			 ast=AnnAST,
-			 info=Info};
+	    #module_info{filename = FName,
+			 modname = get_module_name(Info),
+			 inscope_funs = InscopeFuns,
+			 macro_defs = MacroDefs,
+			 record_defs = RecordDefs,
+			 includes = Includes,
+			 ast = AnnAST,
+			 info = Info};
 	_ ->
 	    throw({error, "Refactoring failed because Wrangler could not parse the target module."})
     end.

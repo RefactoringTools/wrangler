@@ -225,24 +225,24 @@ check_existing_records(RecordName, FieldNames, Info) ->
 %%                  Transformation                                             %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
 state_to_record(FileName, SearchPaths, TabWidth, SM) ->
-    {ok, {_,  ModInfo}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    {ok, {_, ModInfo}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {value, {module, ModName}} = lists:keysearch(module, 1, ModInfo),
     case is_statemachine_used(ModInfo, SM) of
 	true ->
 	    check_current_state_type(FileName, ModName, ModInfo, SM);
-	{error, Msg}-> throw({error, Msg})
+	{error, Msg} -> throw({error, Msg})
     end.
 
-
 state_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SM, SearchPaths, TabWidth, Editor, Cmd) ->
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     RecordExists = pre_cond_check(RecordName, RecordFields, Info),
     RecordFields1 = [list_to_atom(F) || F <- RecordFields],
-    AnnAST1 = do_state_to_record(ModName, Info, AnnAST, list_to_atom(RecordName), RecordFields1, 
-				 StateFuns,RecordExists, IsTuple, SM),
-    refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}], Editor, TabWidth, Cmd).
+    AnnAST1 = do_state_to_record(ModName, Info, AnnAST, list_to_atom(RecordName), RecordFields1,
+				 StateFuns, RecordExists, IsTuple, SM),
+    refac_write_file:write_refactored_files([{{FileName,FileName}, AnnAST1}], Editor, TabWidth, Cmd).
   
 
 
@@ -692,52 +692,52 @@ wrap_fun_interface_in_return(Form, ModName, RecordName, RecordFields, IsTuple, S
 check_use_of_run_commands(Form, SM) ->
     Fun = fun (Node, {Acc1, Acc2}) ->
 		  case refac_syntax:type(Node) of
-		    match_expr ->
-			P = refac_syntax:match_expr_pattern(Node),
-			B = refac_syntax:match_expr_body(Node),
-			case is_app(B, {SM, run_commands, 2}) orelse
-			       is_app(B, {SM, run_commands, 3})
-			    of
-			  true ->
-			      case refac_syntax:type(P) of
-				tuple ->
-				    Es = refac_syntax:tuple_elements(P),
-				    case Es of
-				      [_H, S, _Res] ->
-					  case refac_syntax:type(S) of
-					    variable ->
-						case refac_misc:get_free_vars(S) of
-						  [] ->
-						      {[refac_syntax:get_pos(S)| Acc1],
-						       [refac_syntax:get_pos(B)| Acc2]};
-						  _ ->
-						      {[refac_syntax:get_pos(B)| Acc1], Acc2}
-						end;
-					    _ -> {[refac_syntax:get_pos(B)| Acc1], Acc2}
+		      match_expr ->
+			  P = refac_syntax:match_expr_pattern(Node),
+			  B = refac_syntax:match_expr_body(Node),
+			  case is_app(B, {SM, run_commands, 2}) orelse 
+				 is_app(B, {SM, run_commands, 3})
+			      of
+			      true ->
+				  case refac_syntax:type(P) of
+				      tuple ->
+					  Es = refac_syntax:tuple_elements(P),
+					  case Es of
+					      [_H, S, _Res] ->
+						  case refac_syntax:type(S) of
+						      variable ->
+							  case refac_misc:get_free_vars(S) of
+							      [] ->
+								  {[refac_syntax:get_pos(S)| Acc1],
+								   [refac_syntax:get_pos(B)| Acc2]};
+							      _ ->
+								  {[refac_syntax:get_pos(B)| Acc1], Acc2}
+							  end;
+						      _ -> {[refac_syntax:get_pos(B)| Acc1], Acc2}
+						  end;
+					      _ -> {[refac_syntax:get_pos(B)| Acc1], Acc2}
 					  end;
 				      _ -> {[refac_syntax:get_pos(B)| Acc1], Acc2}
-				    end;
-				_ -> {[refac_syntax:get_pos(B)| Acc1], Acc2}
-			      end;
-			  _ -> {Acc1, Acc2}
-			end;
-		    application -> case is_app(Node, {SM, run_commands, 2}) orelse
-					  is_app(Node, {SM, run_commands, 3})
-				       of
-				     true ->
-					 Pos = refac_syntax:get_pos(Node),
-					 case lists:member(Pos, Acc2) of
-					   true -> {Acc1, Acc2};
-					   false ->
-					       {[Pos| Acc1], Acc2}
-					 end;
-				     false ->
-					 {Acc1, Acc2}
-				   end;
-		    _ -> {Acc1, Acc2}
+				  end;
+			      _ -> {Acc1, Acc2}
+			  end;
+		      application -> case is_app(Node, {SM, run_commands, 2}) orelse 
+					    is_app(Node, {SM, run_commands, 3})
+					 of
+					 true ->
+					     Pos = refac_syntax:get_pos(Node),
+					     case lists:member(Pos, Acc2) of
+						 true -> {Acc1, Acc2};
+						 false ->
+						     {[Pos| Acc1], Acc2}
+					     end;
+					 false ->
+					     {Acc1, Acc2}
+				     end;
+		      _ -> {Acc1, Acc2}
 		  end
 	  end,
-    {Acc1, Acc2} = refac_syntax_lib:fold(Fun, {[], []}, Form),
+    {Acc1, Acc2} = ast_traverse_api:fold(Fun, {[], []}, Form),
     lists:usort(Acc1) -- lists:usort(Acc2).
    
     
@@ -971,52 +971,52 @@ unfold_conversion_apps(Forms, RecordToTupleFunName, TupleToRecordFunName, Record
 add_util_funs(Forms, ModInfo, RecordName, RecordFields, TupleToRecordFunName, RecordToTupleFunName) ->
     Fun = fun (Node, Acc) ->
 		  case refac_syntax:type(Node) of
-		    application ->
-			case is_app(Node, {RecordToTupleFunName, 1}) of
-			  true ->
-			      [{RecordToTupleFunName, 1}| Acc];
-			  false ->
-			      case is_app(Node, {TupleToRecordFunName, 1}) of
-				true ->
-				    [{TupleToRecordFunName, 1}| Acc];
-				false ->
-				    Acc
-			      end
-			end;
-		    _ -> Acc
+		      application ->
+			  case is_app(Node, {RecordToTupleFunName, 1}) of
+			      true ->
+				  [{RecordToTupleFunName, 1}| Acc];
+			      false ->
+				  case is_app(Node, {TupleToRecordFunName, 1}) of
+				      true ->
+					  [{TupleToRecordFunName, 1}| Acc];
+				      false ->
+					  Acc
+				  end
+			  end;
+		      _ -> Acc
 		  end
 	  end,
-    Acc = lists:append([refac_syntax_lib:fold(Fun, [], F) || F <- Forms]),
+    Acc = lists:append([ast_traverse_api:fold(Fun, [], F) || F <- Forms]),
     ExistingFuns = case lists:keysearch(functions, 1, ModInfo) of
-		     {value, {functions, Funs}} ->
-			 Funs;
-		     _ ->
-			 []
+		       {value, {functions, Funs}} ->
+			   Funs;
+		       _ ->
+			   []
 		   end,
-    case lists:member({RecordToTupleFunName, 1}, Acc) andalso
-	   not lists:member({RecordToTupleFunName, 1}, ExistingFuns)
+    case lists:member({RecordToTupleFunName, 1}, Acc) andalso 
+	    not  lists:member({RecordToTupleFunName, 1}, ExistingFuns)
 	of
-      true ->
-	  F1 = mk_record_to_tuple_fun(RecordName, RecordFields, RecordToTupleFunName),
-	  case lists:member({TupleToRecordFunName, 1}, Acc) andalso
-		 not lists:member({TupleToRecordFunName, 1}, ExistingFuns)
-	      of
-	    true ->
-		F2 = mk_tuple_to_record_fun(RecordName, RecordFields, TupleToRecordFunName),
-		Forms ++ [F1, F2];
-	    false ->
-		Forms ++ [F1]
-	  end;
-      false ->
-	  case lists:member({TupleToRecordFunName, 1}, Acc) andalso
-		 not lists:member({TupleToRecordFunName, 1}, ExistingFuns)
-	      of
-	    true ->
-		F2 = mk_tuple_to_record_fun(RecordName, RecordFields, TupleToRecordFunName),
-		Forms ++ [F2];
-	    false ->
-		Forms
-	  end
+	true ->
+	    F1 = mk_record_to_tuple_fun(RecordName, RecordFields, RecordToTupleFunName),
+	    case lists:member({TupleToRecordFunName, 1}, Acc) andalso 
+		    not  lists:member({TupleToRecordFunName, 1}, ExistingFuns)
+		of
+		true ->
+		    F2 = mk_tuple_to_record_fun(RecordName, RecordFields, TupleToRecordFunName),
+		    Forms ++ [F1, F2];
+		false ->
+		    Forms ++ [F1]
+	    end;
+	false ->
+	    case lists:member({TupleToRecordFunName, 1}, Acc) andalso 
+		    not  lists:member({TupleToRecordFunName, 1}, ExistingFuns)
+		of
+		true ->
+		    F2 = mk_tuple_to_record_fun(RecordName, RecordFields, TupleToRecordFunName),
+		    Forms ++ [F2];
+		false ->
+		    Forms
+	    end
     end.
 %% ======================================================================
 
@@ -1413,98 +1413,45 @@ setelement_to_record_expr_1(Expr, Index, Val, RecordName, RecordFields, IsTuple,
     make_record_to_tuple_app(RecordExpr, RecordName, RecordFields, IsTuple, 
 			     TupleToRecordFunName, RecordToTupleFunName).
 
-
-
 remove_record_tuple_conversions(Tree, TupleToRecordFunName, RecordToTupleFunName) ->
     Fun = fun (Node, Acc) ->
 		  case refac_syntax:type(Node) of
-		    match_expr ->
-			P = refac_syntax:match_expr_pattern(Node),
-			B = refac_syntax:match_expr_body(Node),
-			case {refac_syntax:type(P), refac_syntax:type(B)} of
-			  {variable, application} ->
-			      Pos = refac_syntax:get_pos(P),
-			      case is_app(B, {RecordToTupleFunName, 1}) of
-				true ->
-				    case check_sole_use_of_var(Tree, Pos, TupleToRecordFunName) of
+		      match_expr ->
+			  P = refac_syntax:match_expr_pattern(Node),
+			  B = refac_syntax:match_expr_body(Node),
+			  case {refac_syntax:type(P), refac_syntax:type(B)} of
+			      {variable, application} ->
+				  Pos = refac_syntax:get_pos(P),
+				  case is_app(B, {RecordToTupleFunName, 1}) of
 				      true ->
-					  [{Pos, TupleToRecordFunName}| Acc];
-				      false ->
-					  Acc
-				    end;
-				false ->
-				    case is_app(B, {TupleToRecordFunName, 1}) of
-				      true ->
-					  case check_sole_use_of_var(Tree, Pos, RecordToTupleFunName) of
-					    true ->
-						[{Pos, RecordToTupleFunName}| Acc];
-					    false ->
-						Acc
+					  case check_sole_use_of_var(Tree, Pos, TupleToRecordFunName) of
+					      true ->
+						  [{Pos, TupleToRecordFunName}| Acc];
+					      false ->
+						  Acc
 					  end;
 				      false ->
-					  Acc
-				    end
-			      end;
-			  _ -> Acc
-			end;
-		    _ -> Acc
+					  case is_app(B, {TupleToRecordFunName, 1}) of
+					      true ->
+						  case
+						      check_sole_use_of_var(Tree, Pos, RecordToTupleFunName)
+						      of
+						      true ->
+							  [{Pos, RecordToTupleFunName}| Acc];
+						      false ->
+							  Acc
+						  end;
+					      false ->
+						  Acc
+					  end
+				  end;
+			      _ -> Acc
+			  end;
+		      _ -> Acc
 		  end
 	  end,
     Fun1 = fun (Node, {Pos, FunName}) ->
 		   case refac_syntax:type(Node) of
-		     application ->
-			 case is_app(Node, {FunName, 1}) of
-			   true ->
-			       [T] = refac_syntax:application_arguments(Node),
-			       case refac_syntax:type(T) of
-				 variable ->
-				     As1 = refac_syntax:get_ann(T),
-				     case lists:keysearch(def, 1, As1) of
-				       {value, {def, [Pos]}} ->
-					   T;
-				       false ->
-					   Node
-				     end;
-				 _ -> Node
-			       end;
-			   false -> Node
-			 end;
-		     match_expr ->
-			 P = refac_syntax:match_expr_pattern(Node),
-			 B = refac_syntax:match_expr_body(Node),
-			 case {refac_syntax:type(P), refac_syntax:type(B)} of
-			   {variable, application} ->
-			       case refac_syntax:get_pos(P) of
-				 Pos ->
-				     [T] = refac_syntax:application_arguments(B),
-				     refac_misc:rewrite(Node, refac_syntax:match_expr(P, T));
-				 _ -> Node
-			       end;
-			   _ -> Node
-			 end;
-		     _ -> Node
-		   end
-	   end,
-    Vs = refac_syntax_lib:fold(Fun, [], Tree),
-    Fun2 = fun (V, Node) -> ast_traverse_api:full_buTP(Fun1, Node, V) end,
-    lists:foldl(Fun2, Tree, Vs).
-    
-	
-check_sole_use_of_var(Tree, Pos, FunName) ->    
-     Fun = fun(Node, {Acc1, Acc2}) ->
-		   case refac_syntax:type(Node) of
-		       variable ->
-			   case refac_syntax:get_pos(Node) of
-			       Pos -> {Acc1, Acc2};
-			       _ ->
-				   As = refac_syntax:get_ann(Node),
-				   case lists:keysearch(def, 1, As) of
-				       {value, {def, [Pos]}} ->
-					   {[refac_syntax:get_pos(Node)|Acc1], Acc2};
-				       _ ->
-					   {Acc1, Acc2}
-				   end
-			   end;
 		       application ->
 			   case is_app(Node, {FunName, 1}) of
 			       true ->
@@ -1514,21 +1461,73 @@ check_sole_use_of_var(Tree, Pos, FunName) ->
 					   As1 = refac_syntax:get_ann(T),
 					   case lists:keysearch(def, 1, As1) of
 					       {value, {def, [Pos]}} ->
-						   {Acc1, [refac_syntax:get_pos(T)|Acc2]};
-					       _ ->
-						   {Acc1, Acc2}
+						   T;
+					       false ->
+						   Node
 					   end;
-				       _ ->
-					   {Acc1, Acc2}
+				       _ -> Node
 				   end;
-			       false ->  
-				   {Acc1, Acc2}
+			       false -> Node
 			   end;
-		       _ ->
-			   {Acc1, Acc2}
+		       match_expr ->
+			   P = refac_syntax:match_expr_pattern(Node),
+			   B = refac_syntax:match_expr_body(Node),
+			   case {refac_syntax:type(P), refac_syntax:type(B)} of
+			       {variable, application} ->
+				   case refac_syntax:get_pos(P) of
+				       Pos ->
+					   [T] = refac_syntax:application_arguments(B),
+					   refac_misc:rewrite(Node, refac_syntax:match_expr(P, T));
+				       _ -> Node
+				   end;
+			       _ -> Node
+			   end;
+		       _ -> Node
 		   end
 	   end,
-    {Acc1, Acc2} = refac_syntax_lib:fold(Fun, {[],[]}, Tree),
+    Vs = ast_traverse_api:fold(Fun, [], Tree),
+    Fun2 = fun (V, Node) -> ast_traverse_api:full_buTP(Fun1, Node, V) end,
+    lists:foldl(Fun2, Tree, Vs).
+
+check_sole_use_of_var(Tree, Pos, FunName) ->
+    Fun = fun (Node, {Acc1, Acc2}) ->
+		  case refac_syntax:type(Node) of
+		      variable ->
+			  case refac_syntax:get_pos(Node) of
+			      Pos -> {Acc1, Acc2};
+			      _ ->
+				  As = refac_syntax:get_ann(Node),
+				  case lists:keysearch(def, 1, As) of
+				      {value, {def, [Pos]}} ->
+					  {[refac_syntax:get_pos(Node)| Acc1], Acc2};
+				      _ ->
+					  {Acc1, Acc2}
+				  end
+			  end;
+		      application ->
+			  case is_app(Node, {FunName, 1}) of
+			      true ->
+				  [T] = refac_syntax:application_arguments(Node),
+				  case refac_syntax:type(T) of
+				      variable ->
+					  As1 = refac_syntax:get_ann(T),
+					  case lists:keysearch(def, 1, As1) of
+					      {value, {def, [Pos]}} ->
+						  {Acc1, [refac_syntax:get_pos(T)| Acc2]};
+					      _ ->
+						  {Acc1, Acc2}
+					  end;
+				      _ ->
+					  {Acc1, Acc2}
+				  end;
+			      false ->
+				  {Acc1, Acc2}
+			  end;
+		      _ ->
+			  {Acc1, Acc2}
+		  end
+	  end,
+    {Acc1, Acc2} = ast_traverse_api:fold(Fun, {[],[]}, Tree),
     ?debug("Acc1Acc2:\n~p\n", [{Acc1, Acc2}]),
     Acc1 == Acc2.
 
@@ -1741,28 +1740,28 @@ is_not_type_attrubute(F) ->
 	  end;
       _ -> false
     end.
-		
+
 is_used_only_once(Body, DefinePos) ->
-    Fun= fun(Node, Acc) ->
-	     case refac_syntax:type(Node) of 
-		 variable ->
-		     As = refac_syntax:get_ann(Node),
-		     case lists:keysearch(def, 1, As) of 
-			 {value, {def, DefinePos}} ->
-			     Pos = refac_syntax:get_pos(Node),
-			     case lists:member(Pos, DefinePos) of
-				 true ->
-				    Acc; 
-				 false ->
-				     [Node|Acc]
-			     end;
-			 _->
-			     Acc
-		     end;
-		 _ -> Acc
-	     end
-	 end,
-    length(refac_syntax_lib:fold(Fun, [], Body))==1.
+    Fun = fun (Node, Acc) ->
+		  case refac_syntax:type(Node) of
+		      variable ->
+			  As = refac_syntax:get_ann(Node),
+			  case lists:keysearch(def, 1, As) of
+			      {value, {def, DefinePos}} ->
+				  Pos = refac_syntax:get_pos(Node),
+				  case lists:member(Pos, DefinePos) of
+				      true ->
+					  Acc;
+				      false ->
+					  [Node| Acc]
+				  end;
+			      _ ->
+				  Acc
+			  end;
+		      _ -> Acc
+		  end
+	  end,
+    length(ast_traverse_api:fold(Fun, [], Body))==1.
 
 format_state_funs([]) -> "[]";
 format_state_funs(MFAs) ->

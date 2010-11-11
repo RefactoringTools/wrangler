@@ -56,20 +56,19 @@ new_macro(FileName, Start, End, NewMacroName, SearchPaths, TabWidth) ->
 new_macro_eclipse(FileName, Start, End, NewMacroName, SearchPaths, TabWidth) ->
     new_macro(FileName, Start, End, NewMacroName, SearchPaths, TabWidth, eclipse).
 
-
 new_macro(FileName, Start = {SLine, SCol}, End = {ELine, ECol}, NewMacroName, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:new_macro(~p, {~p,~p}, {~p,~p}, ~p, ~p,~p).\n",
 		 [?MODULE, FileName, SLine, SCol, ELine, ECol, NewMacroName, SearchPaths, TabWidth]),
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":new_macro(" ++ "\"" ++
-	    FileName ++ "\", {" ++ integer_to_list(SLine) ++ ", " ++ integer_to_list(SCol) ++ "}," ++
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":new_macro(" ++ "\"" ++ 
+	    FileName ++ "\", {" ++ integer_to_list(SLine) ++ ", " ++ integer_to_list(SCol) ++ "}," ++ 
 	      "{" ++ integer_to_list(ELine) ++ ", " ++ integer_to_list(ECol) ++ "}," ++ "\"" ++ NewMacroName ++ "\","
-		++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+														   ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case pre_cond_check(FileName, AnnAST, NewMacroName, Start, End, SearchPaths, TabWidth) of
-      {ok, AnnAST, Sel, NeedBracket} ->
-	  AnnAST1 = do_intro_new_macro(AnnAST, NewMacroName, Sel, NeedBracket),
-	  return_refac_result(FileName, AnnAST1, Editor, Cmd, TabWidth);
-      {error, Reason} -> throw({error, Reason})
+	{ok, AnnAST, Sel, NeedBracket} ->
+	    AnnAST1 = do_intro_new_macro(AnnAST, NewMacroName, Sel, NeedBracket),
+	    return_refac_result(FileName, AnnAST1, Editor, Cmd, TabWidth);
+	{error, Reason} -> throw({error, Reason})
     end.
 
 pre_cond_check(FileName, AnnAST, NewMacroName, Start, End, SearchPaths, TabWidth) ->
@@ -280,16 +279,14 @@ collect_names_to_avoid_1(F) ->
 	    [list_to_atom(refac_prettypr:format(A))||A<-Args];
 	_ -> []
     end.
-    
-
 
 return_refac_result(FileName, AnnAST, Editor, Cmd, TabWidth) ->
     case Editor of
-      emacs ->
-	  refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST}], TabWidth, Cmd),
-	  {ok, [FileName]};
-      eclipse ->
-	  Src = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST, TabWidth),
-	  Res = [{FileName, FileName, Src}],
-	  {ok, Res}
+	emacs ->
+	    refac_write_file:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST}], TabWidth, Cmd),
+	    {ok, [FileName]};
+	eclipse ->
+	    Src = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST, TabWidth),
+	    Res = [{FileName, FileName, Src}],
+	    {ok, Res}
     end.

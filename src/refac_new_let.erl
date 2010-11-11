@@ -55,62 +55,60 @@ new_let_eclipse(FileName, Start, End, NewPatName, SearchPaths, TabWidth) ->
 new_let(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewPatName, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:new_let(~p, {~p,~p}, {~p,~p}, ~p, ~p,~p).\n",
 		 [?MODULE, FileName, Line, Col, Line1, Col1, NewPatName, SearchPaths, TabWidth]),
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":new_let(" ++ "\"" ++
-	    FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":new_let(" ++ "\"" ++ 
+	    FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++ 
 	      "{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ NewPatName ++ "\","
-		++ integer_to_list(TabWidth) ++ ").",
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+														 ++ integer_to_list(TabWidth) ++ ").",
+    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case is_quickcheck_used(Info) of
-      true -> ok;
-      false -> throw({error, "QuickCheck is not used by this module."})
+	true -> ok;
+	false -> throw({error, "QuickCheck is not used by this module."})
     end,
     case interface_api:pos_to_fun_def(AnnAST, Start) of
-      {ok, FunDef} ->
-	  case interface_api:pos_to_expr(FunDef, Start, End) of
-	    {ok, Expr} ->
-		?debug("Expr:\n~p\n", [Expr]),
-		case side_cond_analysis(FunDef, Expr, NewPatName) of
-		  {ok, {ParentExpr, LetMacro}} ->
-			new_let_2(FileName, AnnAST, NewPatName, Expr, ParentExpr, LetMacro, Editor, Cmd, TabWidth);
-		  {question, Msg, ParentExpr} ->
-		      case Editor of
-			emacs ->
-			    {question, Msg, term_to_list(Expr), term_to_list(ParentExpr), Cmd};
-			eclipse ->
-			    {question, Msg, {Expr, ParentExpr}}
-		      end
-		end;
-	    {error, Reason} -> throw({error, Reason})
-	  end;
-      {error, _Reason} -> throw({error, "You have not selected an expresison."})
+	{ok, FunDef} ->
+	    case interface_api:pos_to_expr(FunDef, Start, End) of
+		{ok, Expr} ->
+		    ?debug("Expr:\n~p\n", [Expr]),
+		    case side_cond_analysis(FunDef, Expr, NewPatName) of
+			{ok, {ParentExpr, LetMacro}} ->
+			    new_let_2(FileName, AnnAST, NewPatName, Expr, ParentExpr, LetMacro, Editor, Cmd, TabWidth);
+			{question, Msg, ParentExpr} ->
+			    case Editor of
+				emacs ->
+				    {question, Msg, term_to_list(Expr), term_to_list(ParentExpr), Cmd};
+				eclipse ->
+				    {question, Msg, {Expr, ParentExpr}}
+			    end
+		    end;
+		{error, Reason} -> throw({error, Reason})
+	    end;
+	{error, _Reason} -> throw({error, "You have not selected an expresison."})
     end.
 
 %%-spec(new_let_1/7::(filename(), string(), list(), list(), [dir()], integer(), string()) ->			 
 %%			 {ok,[filename()]}).
 new_let_1(FileName, NewPatName, Expr, ParentExpr, SearchPaths, TabWidth, Cmd) ->
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     Expr1 = list_to_term(Expr),
     ParentExpr1 = list_to_term(ParentExpr),
     new_let_2(FileName, AnnAST, NewPatName, Expr1, ParentExpr1, none, emacs, Cmd, TabWidth).
 
-
 %%-spec(new_let_1_eclipse/6::(filename(), string(), syntaxTree(), syntaxTree(), [dir()], integer()) ->	
 %%			 {'ok', [{filename(), filename(),string()}]}).		
 new_let_1_eclipse(FileName, NewPatName, Expr, ParentExpr, SearchPaths, TabWidth) ->
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     new_let_2(FileName, AnnAST, NewPatName, Expr, ParentExpr, none, eclipse, "", TabWidth).
-
 
 new_let_2(FileName, AnnAST, NewPatName, Expr, ParentExpr, LetMacro, Editor, Cmd, TabWidth) ->
     AnnAST1 = do_intro_new_let(AnnAST, Expr, list_to_atom(NewPatName), ParentExpr, LetMacro),
     case Editor of
-      emacs ->
-	  Res = [{{FileName, FileName}, AnnAST1}],
-	  refac_util:write_refactored_files_for_preview(Res, TabWidth,Cmd),
-	  {ok, [FileName]};
-      eclipse ->
-	  FileContent = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST1, TabWidth),
-	  {ok, [{FileName, FileName, FileContent}]}
+	emacs ->
+	    Res = [{{FileName, FileName}, AnnAST1}],
+	    refac_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd),
+	    {ok, [FileName]};
+	eclipse ->
+	    FileContent = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST1, TabWidth),
+	    {ok, [{FileName, FileName, FileContent}]}
     end.
 
 
@@ -431,31 +429,30 @@ merge_forall_eclipse(FileName, SearchPaths, TabWidth) ->
     merge(FileName, 'FORALL', SearchPaths, TabWidth, eclipse).
 
 merge(FileName, MacroName, SearchPaths, TabWidth, Editor) ->
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":merge_let(" ++ "\"" ++
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":merge_let(" ++ "\"" ++ 
 	    FileName ++ "\"," ++ atom_to_list(MacroName) ++ ", " ++ "["
-								      ++ refac_misc:format_search_paths(SearchPaths) ++ "],"
-	      ++ integer_to_list(TabWidth) ++ ").",
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+								       ++ refac_misc:format_search_paths(SearchPaths) ++ "],"  ++ integer_to_list(TabWidth) ++ ").",
+    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case is_quickcheck_used(Info) of
-      true -> ok;
-      false -> throw({error, "QuickCheck is not used by this module."})
+	true -> ok;
+	false -> throw({error, "QuickCheck is not used by this module."})
     end,
     Candidates = search_merge_candiates(AnnAST, MacroName),
     case Candidates of
-      [] ->
-	  {not_found, "No ?" ++ atom_to_list(MacroName) ++ " applications to merge."};
-      _ ->
-	  case Editor of
-	    emacs ->
-		Regions = lists:keysort(1, lists:map(fun ({{{StartLine, StartCol}, {EndLine, EndCol}}, NewLetApp}) ->
-							     NewLetApp1 = term_to_list(NewLetApp),
-							     {{StartLine, StartCol, EndLine, EndCol}, NewLetApp1}
-						     end,
-						     Candidates)),
-		{ok, Regions, Cmd};
-	    eclipse ->
-		{ok, Candidates}
-	  end
+	[] ->
+	    {not_found, "No ?" ++ atom_to_list(MacroName) ++ " applications to merge."};
+	_ ->
+	    case Editor of
+		emacs ->
+		    Regions = lists:keysort(1, lists:map(fun ({{{StartLine, StartCol}, {EndLine, EndCol}}, NewLetApp}) ->
+								 NewLetApp1 = term_to_list(NewLetApp),
+								 {{StartLine, StartCol, EndLine, EndCol}, NewLetApp1}
+							 end,
+							 Candidates)),
+		    {ok, Regions, Cmd};
+		eclipse ->
+		    {ok, Candidates}
+	    end
     end.
 
 %%-spec(merge_let_1/5::(FileName::filename(), Candidates::[{{integer(), integer(), integer(), integer()}, string()}],
@@ -488,18 +485,17 @@ merge_forall_1_eclipse(FileName, Candidates, SearchPaths, TabWidth) ->
 		      {{{StartLine, StartCol}, {EndLine, EndCol}}, NewLetApp}<-Candidates],
     merge_1(FileName, Candidates1, SearchPaths, TabWidth, "", eclipse,TabWidth).
 
-
 merge_1(FileName, Candidates, SearchPaths, TabWidth, Cmd, Editor, TabWidth) ->
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-    Candidates1 = case Editor of 
-		      emacs -> [{SE, list_to_term(NewLetApp)} || {SE, NewLetApp}<-Candidates];
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    Candidates1 = case Editor of
+		      emacs -> [{SE, list_to_term(NewLetApp)} || {SE, NewLetApp} <- Candidates];
 		      eclipse -> Candidates
 		  end,
     AnnAST1 = do_merge(AnnAST, Candidates1),
     case Editor of
 	emacs ->
 	    Res = [{{FileName, FileName}, AnnAST1}],
-	    refac_util:write_refactored_files_for_preview(Res, TabWidth, Cmd),
+	    refac_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd),
 	    {ok, [FileName]};
 	eclipse ->
 	    FileContent = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST1, TabWidth),
@@ -523,12 +519,12 @@ do_merge_1(Tree, Candidates) ->
 search_merge_candiates(AnnAST, MacroName) ->
     F = fun (Node, Acc) ->
 		case is_macro_app(Node, MacroName) of
-		  true ->
-		      collect_mergeable_lets_or_foralls(Node, MacroName) ++ Acc;
-		  _ -> Acc
+		    true ->
+			collect_mergeable_lets_or_foralls(Node, MacroName) ++ Acc;
+		    _ -> Acc
 		end
 	end,
-    refac_syntax_lib:fold(F, [], AnnAST).
+    ast_traverse_api:fold(F, [], AnnAST).
 
 is_macro_app(Node, MacroName) ->
     case refac_syntax:type(Node) of

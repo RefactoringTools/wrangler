@@ -75,37 +75,36 @@ fold_against_macro_eclipse(FileName, Line, Col,  SearchPaths, TabWidth) ->
     fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, eclipse, "").
 
 fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, Editor, Cmd) ->
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-    case pos_to_macro_define(AnnAST, {Line, Col}) of 
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    case pos_to_macro_define(AnnAST, {Line, Col}) of
 	{ok, MacroDef} ->
 	    Candidates = search_candidate_exprs(AnnAST, MacroDef),
-	    case Candidates of 
+	    case Candidates of
 		[] -> {error, "No syntax phrase that is suitable for folding against the selected macro definition has been found!"};
-		_  -> case Editor of 
-			  emacs ->
-			      MacroDef1 = binary_to_list(term_to_binary(MacroDef)),
-			      Regions  = lists:map(fun({{{StartLine, StartCol}, {EndLine, EndCol}}, MacroApp}) ->
-							   MacroApp1 = binary_to_list(term_to_binary(MacroApp)),
-							   {StartLine, StartCol, EndLine, EndCol, MacroApp1, MacroDef1} end,
-						   Candidates),
-			      {ok, Regions, Cmd};
-			  eclipse ->
-			      {ok, {MacroDef, Candidates}}
-		      end
+		_ -> case Editor of
+			 emacs ->
+			     MacroDef1 = binary_to_list(term_to_binary(MacroDef)),
+			     Regions = lists:map(fun ({{{StartLine, StartCol}, {EndLine, EndCol}}, MacroApp}) ->
+							 MacroApp1 = binary_to_list(term_to_binary(MacroApp)),
+							 {StartLine, StartCol, EndLine, EndCol, MacroApp1, MacroDef1}
+						 end,
+						 Candidates),
+			     {ok, Regions, Cmd};
+			 eclipse ->
+			     {ok, {MacroDef, Candidates}}
+		     end
 	    end;
 	{error, _} ->
 	    {error, "You have not selected a macro definition, or the selected macro definition does not have a syntactially well-formed body!"}
     end.
 
-
-
-%%-spec(fold_against_macro_1_eclipse/5::(filename(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}], syntaxTree(), 
+%%-spec(fold_against_macro_1_eclipse/5::(filename(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}], syntaxTree(),
 %%				       [dir()], integer()) ->
 %%					     {ok, [{filename(), filename(), string()}]}).
 fold_against_macro_1_eclipse(FileName, CandidatesToFold, MacroDef, SearchPaths, TabWidth) ->
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-    CandidatesToFold1 =[{StartLine, StartCol, EndLine, EndCol, MacroApp, MacroDef} ||
-			   {{{StartLine, StartCol}, {EndLine, EndCol}}, MacroApp} <- CandidatesToFold],
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    CandidatesToFold1 = [{StartLine, StartCol, EndLine, EndCol, MacroApp, MacroDef}
+			 || {{{StartLine, StartCol}, {EndLine, EndCol}}, MacroApp} <- CandidatesToFold],
     AnnAST1 = fold_against_macro_1_1_eclipse(AnnAST, CandidatesToFold1),
     Src = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST1, TabWidth),
     Res = [{FileName, FileName, Src}],
@@ -120,14 +119,13 @@ fold_against_macro_1_1_eclipse(AnnAST, [{StartLine, StartCol, EndLine, EndCol,Ma
     AnnAST1 = refac_new_macro:replace_expr_with_macro(AnnAST, {MacroBody, {StartLine, StartCol}, {EndLine, EndCol}}, TMacroApp),
     fold_against_macro_1_1_eclipse(AnnAST1, Tail).
 
-
 %%-spec(fold_against_macro_1/5::(filename(), [{integer(), integer(), integer(), integer(), syntaxTree(), syntaxTree()}],
 %%			       [dir()], integer(), string()) ->
 %%				    {ok, [filename()]}).
 fold_against_macro_1(FileName, CandidatesToFold, SearchPaths, TabWidth, Cmd) ->
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     AnnAST1 = fold_against_macro_1_1(AnnAST, CandidatesToFold),
-    refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], TabWidth, Cmd),
+    refac_write_file:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], TabWidth, Cmd),
     {ok, [FileName]}.
    
 fold_against_macro_1_1(AnnAST, []) ->
@@ -170,25 +168,24 @@ do_search_candidate_exprs(AnnAST,MacroBody, MacroParNames) ->
 	    do_search_candidate_exprs_2(AnnAST,MacroBody, MacroParNames)
     end.
 
-
 do_search_candidate_exprs_1(AnnAST, MacroBody, MacroParNames) ->
     Fun = fun (T, S) ->
 		  case is_expr_or_pat(T) of
-		    true ->
-			case T =/= MacroBody of
-			  true ->
-			      case expr_unification(MacroBody, T, MacroParNames) of
-				{true, Subst} ->
-				    S ++ [{refac_misc:get_start_end_loc(T), Subst}];
-				_ -> S
-			      end;
-			  _ -> S
-			end;
-		    false ->
-			S
+		      true ->
+			  case T =/= MacroBody of
+			      true ->
+				  case expr_unification(MacroBody, T, MacroParNames) of
+				      {true, Subst} ->
+					  S ++ [{refac_misc:get_start_end_loc(T), Subst}];
+				      _ -> S
+				  end;
+			      _ -> S
+			  end;
+		      false ->
+			  S
 		  end
 	  end,
-    refac_syntax_lib:fold(Fun, [], AnnAST).
+    ast_traverse_api:fold(Fun, [], AnnAST).
 
 do_search_candidate_exprs_2(AnnAST, MacroBody, MacroParNames) ->
     Len = length(MacroBody),
@@ -213,7 +210,7 @@ do_search_candidate_exprs_2(AnnAST, MacroBody, MacroParNames) ->
 		      _ -> S
 		  end
 	  end,
-    refac_syntax_lib:fold(Fun, [], AnnAST).
+    ast_traverse_api:fold(Fun, [], AnnAST).
 
 get_candidate_exprs(Exprs, Len, MacroBody, MacroParNames) ->
     SubExprs = sublists(Exprs, Len),

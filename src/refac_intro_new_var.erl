@@ -51,48 +51,46 @@ intro_new_var(FileName, Start={SLine,SCol}, End={ELine, ECol}, NewVarName, Searc
 intro_new_var_eclipse(FileName, Start, End, NewVarName, SearchPaths, TabWidth) ->
     intro_new_var(FileName, Start, End, NewVarName, SearchPaths, TabWidth, eclipse).
 
-
 intro_new_var(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewVarName0, SearchPaths, TabWidth, Editor) ->
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":intro_new_var(" ++ "\"" ++
-	FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ 
-	integer_to_list(Col) ++ "}," ++  "{" ++ integer_to_list(Line1) ++ ", " 
-        ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ NewVarName0 ++ "\","
-	++ integer_to_list(TabWidth) ++ ").",
-    case refac_misc:is_var_name(NewVarName0) of 
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":intro_new_var(" ++ "\"" ++ 
+	    FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ 
+	      integer_to_list(Col) ++ "}," ++ "{" ++ integer_to_list(Line1) ++ ", "
+										  ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ NewVarName0 ++ "\","  ++ integer_to_list(TabWidth) ++ ").",
+    case refac_misc:is_var_name(NewVarName0) of
 	true -> ok;
 	false -> throw({error, "Invalid new variable name."})
     end,
     NewVarName = list_to_atom(NewVarName0),
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths,TabWidth),
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case interface_api:pos_to_expr(AnnAST, Start, End) of
 	{ok, Exp} ->
 	    Exp;
-	{error, _} -> 
+	{error, _} ->
 	    throw({error, "You have not selected an expression, "
-		   "or the function containing the expression does not parse."}),
+			  "or the function containing the expression does not parse."}),
 	    Exp = none
     end,
     case interface_api:expr_to_fun(AnnAST, Exp) of
 	{ok, Fun} ->
 	    Fun;
-	{error, _} -> 
+	{error, _} ->
 	    throw({error, "You have not selected an expression within a function."}),
 	    Fun = none
     end,
-    ok=cond_check(Fun, Exp, NewVarName),
-    intro_new_var_1(FileName, AnnAST,Fun, Exp, NewVarName, Editor, TabWidth, Cmd).
+    ok = cond_check(Fun, Exp, NewVarName),
+    intro_new_var_1(FileName, AnnAST, Fun, Exp, NewVarName, Editor, TabWidth, Cmd).
 
 intro_new_var_1(FileName, AnnAST, Fun, Expr, NewVarName, Editor, TabWidth, Cmd) ->
     AnnAST1 = do_intro_new_var(AnnAST, Fun, Expr, NewVarName),
     case Editor of
-      emacs ->
-	  Res = [{{FileName, FileName}, AnnAST1}],
-	  refac_util:write_refactored_files_for_preview(Res, TabWidth, Cmd),
-	  {ok, [FileName]};
-      eclipse ->
-	  FileFormat =  refac_util:file_format(FileName),
-	  FileContent = refac_prettypr:print_ast(FileFormat, AnnAST1, TabWidth),
-	  {ok, [{FileName, FileName, FileContent}]}
+	emacs ->
+	    Res = [{{FileName, FileName}, AnnAST1}],
+	    refac_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd),
+	    {ok, [FileName]};
+	eclipse ->
+	    FileFormat = refac_util:file_format(FileName),
+	    FileContent = refac_prettypr:print_ast(FileFormat, AnnAST1, TabWidth),
+	    {ok, [{FileName, FileName, FileContent}]}
     end.
 
 cond_check(Form, Expr, NewVarName) ->
@@ -115,7 +113,7 @@ cond_check(Form, Expr, NewVarName) ->
 		   "existing variable declarations."});
 	false -> ok
     end.
-    
+
 get_bound_vars(Tree) ->
     F = fun (T, B) ->
 		As = refac_syntax:get_ann(T),
@@ -124,7 +122,7 @@ get_bound_vars(Tree) ->
 		    _ -> B
 		end
 	end,
-    lists:usort(refac_syntax_lib:fold(F, [], Tree)).
+    lists:usort(ast_traverse_api:fold(F, [], Tree)).
 
 do_intro_new_var(AnnAST, FunForm, Expr, NewVarName) ->
     NewFun = do_intro_new_var_in_fun(FunForm, Expr, NewVarName),
@@ -214,14 +212,13 @@ make_match_expr(Expr, NewVarName) ->
     Pat = refac_syntax:variable(NewVarName),
     refac_syntax:match_expr(Pat, Expr).
 
-
 get_inmost_enclosing_clause(Form, Expr) ->
     ExprPos = refac_syntax:get_pos(Expr),
     Fun = fun (Node, S) ->
-		  Type =  refac_syntax:type(Node),
+		  Type = refac_syntax:type(Node),
 		  case lists:member(Type, [clause, block_expr, try_expr]) of
 		      true ->
-			  Body = case Type of 
+			  Body = case Type of
 				     clause ->
 					 refac_syntax:clause_body(Node);
 				     block_expr ->
@@ -233,27 +230,27 @@ get_inmost_enclosing_clause(Form, Expr) ->
 			  {_, End} = refac_misc:get_range(lists:last(Body)),
 			  case Start =< ExprPos andalso ExprPos =< End of
 			      true ->
-				 [{Node, End}|S];
+				  [{Node, End}| S];
 			      _ -> S
 			  end;
 		      _ ->
 			  S
 		  end
-	  end,		 
-    Res = lists:keysort(2, refac_syntax_lib:fold(Fun, [], Form)),
+	  end,
+    Res = lists:keysort(2, ast_traverse_api:fold(Fun, [], Form)),
     case Res of
 	[{Node, _}| _] ->
-	  Node;
+	    Node;
 	_ -> throw({error, "Wrangler internal error."})
     end.
 
 get_inmost_enclosing_body_expr(Form, Expr) ->
     ExprPos = refac_syntax:get_pos(Expr),
     Fun = fun (Node, S) ->
-		  Type =  refac_syntax:type(Node),
+		  Type = refac_syntax:type(Node),
 		  case lists:member(Type, [clause, block_expr, try_expr]) of
 		      true ->
-			  Body = case Type of 
+			  Body = case Type of
 				     clause ->
 					 refac_syntax:clause_body(Node);
 				     block_expr ->
@@ -273,11 +270,11 @@ get_inmost_enclosing_body_expr(Form, Expr) ->
 			  S
 		  end
 	  end,
-    Res = lists:keysort(2, refac_syntax_lib:fold(Fun, [], Form)),
+    Res = lists:keysort(2, ast_traverse_api:fold(Fun, [], Form)),
     case Res of
 	[{Body, _, E}| _] ->
 	    {Body, E};
-	_ -> 
+	_ ->
 	    throw({error, "Wrangler failed to perform this refactoring."})
     end.
 

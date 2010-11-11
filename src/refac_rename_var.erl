@@ -68,62 +68,62 @@ rename_var_eclipse(FName, Line, Col, NewName, SearchPaths, TabWidth) ->
 rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:rename_var(~p, ~p, ~p, ~p, ~p, ~p).\n",
 		 [?MODULE, FName, Line, Col, NewName, SearchPaths, TabWidth]),
-    Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_var(" ++ "\"" ++
-	     FName ++ "\", " ++ integer_to_list(Line) ++
+    Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_var(" ++ "\"" ++ 
+	     FName ++ "\", " ++ integer_to_list(Line) ++ 
 	       ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
-		 ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+									     ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case refac_misc:is_var_name(NewName) of
-      true -> ok;
-      false -> throw({error, "Invalid new variable name."})
+	true -> ok;
+	false -> throw({error, "Invalid new variable name."})
     end,
     NewName1 = list_to_atom(NewName),
-    {ok, {AnnAST1, _Info1}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
+    {ok, {AnnAST1, _Info1}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     case interface_api:pos_to_var_name(AnnAST1, {Line, Col}) of
-      {ok, {VarName, DefinePos, C}} ->
+	{ok, {VarName, DefinePos, C}} ->
 	    {VarName, DefinePos, C};
-      {error, _} ->
-	  throw({error, "You have not selected a variable name, "
-			"or the variable selected does not belong to "
-			"a syntactically well-formed function!"}),
-	  {VarName, DefinePos, C} = {none, none, none}
+	{error, _} ->
+	    throw({error, "You have not selected a variable name, "
+			  "or the variable selected does not belong to "
+			  "a syntactically well-formed function!"}),
+	    {VarName, DefinePos, C} = {none, none, none}
     end,
     if DefinePos == [{0, 0}] ->
 	   case C of
-	     macro_name ->
-		 throw({error, "Renaming of a macro name is not supported by this refactoring!"});
-	     _ ->
-		 throw({error, "Renaming of a free variable is not supported by this refactoring!"})
+	       macro_name ->
+		   throw({error, "Renaming of a macro name is not supported by this refactoring!"});
+	       _ ->
+		   throw({error, "Renaming of a free variable is not supported by this refactoring!"})
 	   end;
        true -> ok
     end,
     if VarName /= NewName1 ->
 	   case C of
-	     macro_name ->
-		 throw({error, "Renaming of macro names is not supported yet."});
-	     _ -> ok
+	       macro_name ->
+		   throw({error, "Renaming of macro names is not supported yet."});
+	       _ -> ok
 	   end,
 	   Form = pos_to_form(AnnAST1, {Line, Col}),
 	   Res = cond_check(Form, DefinePos, VarName, NewName1),
 	   case Res of
-	     {true, _, _} ->
-		 throw({error, "The new name is already declared in the same scope."});
-	     {_, true, _} ->
-		 throw({error, "The new name could cause name shadowing."});
-	     {_, _, true} ->
-		 throw({error, "The new name could change the "
-			       "existing binding structure of variables."});
-	     _ -> ok
+	       {true, _, _} ->
+		   throw({error, "The new name is already declared in the same scope."});
+	       {_, true, _} ->
+		   throw({error, "The new name could cause name shadowing."});
+	       {_, _, true} ->
+		   throw({error, "The new name could change the "
+				 "existing binding structure of variables."});
+	       _ -> ok
 	   end,
-	    {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
-	    refac_util:write_refactored_files([{{FName,FName}, AnnAST2}], Editor, TabWidth, Cmd1);
+	   {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
+	   refac_write_file:write_refactored_files([{{FName,FName}, AnnAST2}], Editor, TabWidth, Cmd1);
        true ->
-	    case Editor of
-		emacs ->
-		    {ok, []};
-		_ ->
-		    Content = refac_prettypr:print_ast(refac_util:file_format(FName), AnnAST1, TabWidth),
-		    {ok, [{FName, FName, Content}]}
-	    end
+	   case Editor of
+	       emacs ->
+		   {ok, []};
+	       _ ->
+		   Content = refac_prettypr:print_ast(refac_util:file_format(FName), AnnAST1, TabWidth),
+		   {ok, [{FName, FName, Content}]}
+	   end
     end.
 
 
@@ -207,7 +207,6 @@ do_rename(Node, {DefinePos, NewName}) ->
       _ -> {Node, false}
     end.
 
-
 %% =====================================================================
 %% @doc Return the input environment of the subtree, the variables that are
 %% bound as well as the variables that are free in the subtree.
@@ -215,21 +214,20 @@ envs_bounds_frees(Tree) ->
     F = fun (T, B) ->
 		As = refac_syntax:get_ann(T),
 		EnVars = case lists:keysearch(env, 1, As) of
-			   {value, {env, EnVars1}} -> EnVars1;
-			   _ -> []
+			     {value, {env, EnVars1}} -> EnVars1;
+			     _ -> []
 			 end,
 		BdVars = case lists:keysearch(bound, 1, As) of
-			   {value, {bound, BdVars1}} -> BdVars1;
-			   _ -> []
+			     {value, {bound, BdVars1}} -> BdVars1;
+			     _ -> []
 			 end,
 		FrVars = case lists:keysearch(free, 1, As) of
-			   {value, {free, FrVars1}} -> FrVars1;
-			   _ -> []
+			     {value, {free, FrVars1}} -> FrVars1;
+			     _ -> []
 			 end,
 		case (EnVars == []) and (BdVars == []) and (FrVars == []) of
-		  true -> B;
-		  _ -> [{{env, EnVars}, {bound, BdVars}, {free, FrVars}}| B]
+		    true -> B;
+		    _ -> [{{env, EnVars}, {bound, BdVars}, {free, FrVars}}| B]
 		end
 	end,
-    lists:usort(refac_syntax_lib:fold(F, [], Tree)).
-  
+    lists:usort(ast_traverse_api:fold(F, [], Tree)).

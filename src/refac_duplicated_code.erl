@@ -303,28 +303,28 @@ trim_clones(Cs, MinLength, MinClones, MaxPars, TabWidth) ->
     lists:append([Fun2(Ranges) || {Ranges, _, _} <- Cs1]).
 
 process_a_file(File, Cs, MinLength, TabWidth) ->
-    {ok, {AnnAST, _}} = refac_util:parse_annotate_file(File, true, [], TabWidth),
+    {ok, {AnnAST, _}} = wrangler_ast_server:parse_annotate_file(File, true, [], TabWidth),
     Vars = refac_misc:collect_var_source_def_pos_info(AnnAST),
     Fun0 = fun (Node) ->
 		   case refac_syntax:type(Node) of
-		     function ->
-			 true;
-		     _ ->
-			 (refac_misc:is_expr(Node) orelse refac_syntax:type(Node)==match_expr) 
-			       andalso refac_syntax:type(Node) /= guard_expression
+		       function ->
+			   true;
+		       _ ->
+			   (refac_misc:is_expr(Node) orelse refac_syntax:type(Node)==match_expr)
+			      andalso refac_syntax:type(Node) /= guard_expression
 		   end
 	   end,
     Fun1 = fun (Range) ->
 		   case Range of
-		     {{File1, L1, C1}, {File2, L2, C2}} ->
-			 case File1 /= File2 of
-			   true -> [];
-			   _ when File == File1 ->
-			       Units = pos_to_syntax_units(AnnAST, {L1, C1}, {L2, C2}, Fun0, MinLength),
-			       [process_a_unit(Vars, File1, U) || U <- Units];
-			   _ -> Range
-			 end;
-		     _ -> Range
+		       {{File1, L1, C1}, {File2, L2, C2}} ->
+			   case File1 /= File2 of
+			       true -> [];
+			       _ when File == File1 ->
+				   Units = pos_to_syntax_units(AnnAST, {L1, C1}, {L2, C2}, Fun0, MinLength),
+				   [process_a_unit(Vars, File1, U) || U <- Units];
+			       _ -> Range
+			   end;
+		       _ -> Range
 		   end
 	   end,
     [{NewRanges, Len, Freq}

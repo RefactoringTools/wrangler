@@ -79,11 +79,10 @@ tuple_funpar_1(FileName, StartLoc, EndLoc, SearchPaths, TabWidth)->
 tuple_funpar_1_eclipse(FileName, StartLoc, EndLoc, SearchPaths, TabWidth)->
     tuple_funpar_1(FileName, StartLoc, EndLoc, SearchPaths, TabWidth, emacs).
 
-
 tuple_funpar(FileName, Line, Col, Index, Num, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:tuple_funpar(~p, ~p,~p,~p,~p, ~p, ~p).\n",
 		 [?MODULE, FileName, Line, Col, Index, Num, SearchPaths, TabWidth]),
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {ok, FunDef} = interface_api:pos_to_fun_def(AnnAST, {Line, Col}),
     FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
     FunArity = refac_syntax:function_arity(FunDef),
@@ -93,11 +92,11 @@ tuple_funpar(FileName, Line, Col, Index, Num, SearchPaths, TabWidth) ->
 		Index, Num, SearchPaths, TabWidth, emacs, "").
 
 tuple_funpar_1(FileName, StartLoc = {StartLine, StartCol}, EndLoc = {EndLine, EndCol}, SearchPaths, TabWidth, Editor) ->
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":tuple_funpar(" ++ "\"" ++
-	    FileName ++ "\", {" ++ integer_to_list(StartLine) ++ ", " ++ integer_to_list(StartCol) ++ "}," ++
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":tuple_funpar(" ++ "\"" ++ 
+	    FileName ++ "\", {" ++ integer_to_list(StartLine) ++ ", " ++ integer_to_list(StartCol) ++ "}," ++ 
 	      "{" ++ integer_to_list(EndLine) ++ ", " ++ integer_to_list(EndCol) ++ "}, ["
-		++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+										       ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {FunName, FunArity, Index, Num} = pos_to_pars(AnnAST, StartLoc, EndLoc),
     tuple_par_0(FileName, AnnAST, Info, FunName, FunArity,
 		Index, Num, SearchPaths, TabWidth, Editor, Cmd).
@@ -106,11 +105,11 @@ tuple_funpar(FileName, StartLoc = {StartLine, StartCol}, EndLoc = {EndLine, EndC
 	     SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:tuple_funpar(~p, {~p,~p}, {~p,~p}, ~p, ~p).\n",
 		 [?MODULE, FileName, StartLine, StartCol, EndLine, EndCol, SearchPaths, TabWidth]),
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":tuple_funpar(" ++ "\"" ++
-	    FileName ++ "\", {" ++ integer_to_list(StartLine) ++ ", " ++ integer_to_list(StartCol) ++ "}," ++
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":tuple_funpar(" ++ "\"" ++ 
+	    FileName ++ "\", {" ++ integer_to_list(StartLine) ++ ", " ++ integer_to_list(StartCol) ++ "}," ++ 
 	      "{" ++ integer_to_list(EndLine) ++ ", " ++ integer_to_list(EndCol) ++ "}, ["
-		++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+										       ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {FunName, FunArity, Index, Num} = pos_to_pars(AnnAST, StartLoc, EndLoc),
     NewArity = FunArity - Num + 1,
     ok = pre_cond_check(FileName, FunName, FunArity, NewArity, Info),
@@ -122,20 +121,20 @@ tuple_par_0(FileName, AnnAST, Info, FunName, Arity, Index, Num, SearchPaths, Tab
     {ok, FunDefMod} = get_module_name(FileName, Info),
     AnnAST1 = tuple_pars(FileName, AnnAST, FunDefMod, FunName, Arity, Index, Num, Info, SearchPaths, TabWidth),
     case refac_misc:is_exported({FunName, Arity}, Info) of
-      true ->
-	  ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
-	  ClientFiles = refac_util:get_client_files(FileName, SearchPaths),
-	  try
-	    tuple_pars_in_client_modules(ClientFiles, FunDefMod, FunName, Arity, Index, Num, SearchPaths, TabWidth)
-	  of
-	    Results ->
-		refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1}| Results], Editor, TabWidth, Cmd)
-	  catch
-	    throw:Err ->
-		Err
-	  end;
-      false ->
-	  refac_util:write_refactored_files([{{FileName, FileName}, AnnAST1}], Editor, TabWidth,Cmd)
+	true ->
+	    ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
+	    ClientFiles = wrangler_modulegraph_server:get_client_files(FileName, SearchPaths),
+	    try
+		tuple_pars_in_client_modules(ClientFiles, FunDefMod, FunName, Arity, Index, Num, SearchPaths, TabWidth)
+	    of
+		Results ->
+		    refac_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}| Results], Editor, TabWidth, Cmd)
+	    catch
+		throw:Err ->
+		    Err
+	    end;
+	false ->
+	    refac_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}], Editor, TabWidth, Cmd)
     end.
 
 
@@ -564,24 +563,23 @@ transform_apply_style_calls(Node, {FileName, _ModName, FunDefMod, FunName, Arity
       _ -> {Node, false}
     end.
 
-
-tuple_pars_in_client_modules(ClientFiles,FunDefMod, FunName,Arity, Index, Num, SearchPaths, TabWidth) ->
+tuple_pars_in_client_modules(ClientFiles, FunDefMod, FunName, Arity, Index, Num, SearchPaths, TabWidth) ->
     case ClientFiles of
 	[] -> [];
-	[F | Fs] ->
+	[F| Fs] ->
 	    ?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
-	    {ok, {AnnAST, ModInfo}}= refac_util:parse_annotate_file(F, true, [], TabWidth),
+	    {ok, {AnnAST, ModInfo}} = wrangler_ast_server:parse_annotate_file(F, true, [], TabWidth),
 	    {ok, CurModName} = get_module_name(F, ModInfo),
 	    {AnnAST1, Modified} = tuple_pars_in_client_modules_1(
-				    F,AnnAST, CurModName,FunDefMod, FunName, Arity, Index, Num, SearchPaths, TabWidth),
+				    F, AnnAST, CurModName, FunDefMod, FunName, Arity, Index, Num, SearchPaths, TabWidth),
 	    case Modified of
 		true ->
-		    [{{F, F}, AnnAST1} | 
-		     tuple_pars_in_client_modules(
-		       Fs, FunDefMod, FunName,Arity, Index, Num, SearchPaths, TabWidth)];
+		    [{{F, F}, AnnAST1}
+		     | tuple_pars_in_client_modules(
+			 Fs, FunDefMod, FunName, Arity, Index, Num, SearchPaths, TabWidth)];
 		false ->
 		    tuple_pars_in_client_modules(
-		      Fs, FunDefMod, FunName,Arity, Index, Num, SearchPaths, TabWidth)
+		      Fs, FunDefMod, FunName, Arity, Index, Num, SearchPaths, TabWidth)
 	    end
     end.
 

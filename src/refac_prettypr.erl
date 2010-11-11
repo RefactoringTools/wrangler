@@ -186,42 +186,42 @@ form_not_changed(Form) ->
 		    end
 	    end
     end.
-    
+
 %% Do this still need this function?
 get_paper_ribbon_width(Form) ->
     case refac_syntax:type(Form) of
 	attribute -> {?PAPER, ?RIBBON};
 	_ ->
-	  Fun = fun (T, Acc) ->
-			{S, E} = refac_misc:get_start_end_loc(T),
-			[S, E] ++ Acc
-		end,
-	  AllRanges = refac_syntax_lib:fold(Fun, [], Form),
-	  {Start, End} = refac_misc:get_start_end_loc(Form),
-	  GroupedRanges = refac_misc:group_by(1, lists:filter(fun (Loc) ->
-								      (Loc >= Start) and (Loc =< End)
-							      end, AllRanges)),
-	  case (AllRanges == []) or (GroupedRanges == []) of
-	    true -> {?PAPER, ?RIBBON};
-	      _ ->
-		  MinMaxCols = lists:map(fun (Rs) -> Cols = [Col||{_, Col}<-Rs],
-						     case Cols of
-							 [] -> {1, 80};
-							 _ -> {lists:min(Cols), lists:max(Cols)}
-						     end
-					 end, GroupedRanges),
-		  Paper = lists:max([Max||{_Min, Max}<-MinMaxCols]),
-		  Ribbon = lists:max([Max-Min+1|| {Min, Max}<-MinMaxCols]),
-		  Paper1 = case Paper < ?PAPER of
-			       true -> ?PAPER;
-			       _ -> Paper
-			   end,
-		  Ribbon1 = case Ribbon < ?RIBBON of
-				true -> ?RIBBON;
-				_ -> Ribbon
-			    end,
-		  {Paper1 + 5, Ribbon1 + 5}  %% adjustion to take the ending tokens such as brackets/commas into account.
-	  end
+	    Fun = fun (T, Acc) ->
+			  {S, E} = refac_misc:get_start_end_loc(T),
+			  [S, E] ++ Acc
+		  end,
+	    AllRanges = ast_traverse_api:fold(Fun, [], Form),
+	    {Start, End} = refac_misc:get_start_end_loc(Form),
+	    GroupedRanges = refac_misc:group_by(1, lists:filter(fun (Loc) ->
+									(Loc >= Start) and (Loc =< End)
+								end, AllRanges)),
+	    case (AllRanges == []) or (GroupedRanges == []) of
+		true -> {?PAPER, ?RIBBON};
+		_ ->
+		    MinMaxCols = lists:map(fun (Rs) -> Cols = [Col || {_, Col} <- Rs],
+						       case Cols of
+							   [] -> {1, 80};
+							   _ -> {lists:min(Cols), lists:max(Cols)}
+						       end
+					   end, GroupedRanges),
+		    Paper = lists:max([Max || {_Min, Max} <- MinMaxCols]),
+		    Ribbon = lists:max([Max-Min+1 || {Min, Max} <- MinMaxCols]),
+		    Paper1 = case Paper < ?PAPER of
+				 true -> ?PAPER;
+				 _ -> Paper
+			     end,
+		    Ribbon1 = case Ribbon < ?RIBBON of
+				  true -> ?RIBBON;
+				  _ -> Ribbon
+			      end,
+		    {Paper1 + 5, Ribbon1 + 5}  %% adjustion to take the ending tokens such as brackets/commas into account.
+	    end
     end.
 
 %% End of added by HL.

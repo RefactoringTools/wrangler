@@ -68,26 +68,25 @@ unfold_fun_app(FileName, Pos, SearchPaths, TabWidth) ->
 unfold_fun_app_eclipse(FileName,Pos,SearchPaths, TabWidth) ->
     unfold_fun_app(FileName, Pos, SearchPaths, TabWidth, eclipse).
 
-
 unfold_fun_app(FName, Pos = {Line, Col}, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:unfold_fun_app(~p, {~p,~p}, ~p, ~p).\n",
 		 [?MODULE, FName, Line, Col, SearchPaths, TabWidth]),
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":unfold_fun_app(" ++ "\"" ++
-	    FName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":unfold_fun_app(" ++ "\"" ++ 
+	    FName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++ 
 	      "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
+    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     case pos_to_fun_clause_app(AnnAST, Pos) of
-      {ok, {Clause, App}} ->
-	  {ok, {FunClause, {Subst, MatchExprs}}} = side_cond_analysis(ModName, AnnAST, App),
-	  SubstLocs = [Loc || {_, Loc, _} <- Subst],
-	  Subst1 = [{Loc, P2} || {_P1, Loc, P2} <- Subst],
-	  {FunClause1, MatchExprs1} = auto_rename_vars({FunClause, MatchExprs}, {Clause, App}, SubstLocs),
-	  UsedRecords = refac_misc:collect_used_records(FunClause),
-	  fun_inline_1(FName, AnnAST, Pos, {FunClause1, Subst1, MatchExprs1},
-		       {Clause, App}, UsedRecords, Editor, TabWidth, Cmd);
-      {error, _} -> throw({error, "You have not selected a function application, "
-				  "or the function containing the function application selected does not parse."})
+	{ok, {Clause, App}} ->
+	    {ok, {FunClause, {Subst, MatchExprs}}} = side_cond_analysis(ModName, AnnAST, App),
+	    SubstLocs = [Loc || {_, Loc, _} <- Subst],
+	    Subst1 = [{Loc, P2} || {_P1, Loc, P2} <- Subst],
+	    {FunClause1, MatchExprs1} = auto_rename_vars({FunClause, MatchExprs}, {Clause, App}, SubstLocs),
+	    UsedRecords = refac_misc:collect_used_records(FunClause),
+	    fun_inline_1(FName, AnnAST, Pos, {FunClause1, Subst1, MatchExprs1},
+			 {Clause, App}, UsedRecords, Editor, TabWidth, Cmd);
+	{error, _} -> throw({error, "You have not selected a function application, "
+				    "or the function containing the function application selected does not parse."})
     end.
 
 
@@ -335,6 +334,7 @@ is_non_reducible_term(T) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
 fun_inline_1(FName, AnnAST, Pos, {FunClauseToInline, Subst, MatchExprsToAdd}, {Clause, App},
 	     UsedRecords, Editor, TabWidth, Cmd) ->
     B = refac_syntax:clause_body(FunClauseToInline),
@@ -345,7 +345,7 @@ fun_inline_1(FName, AnnAST, Pos, {FunClauseToInline, Subst, MatchExprsToAdd}, {C
     Fs0 = Fs -- RecordDefs,
     Fs1 = lists:append([do_inline(F, Pos, Clause, App, SubstedBody, RecordDefs) || F <- Fs0]),
     AnnAST1 = refac_misc:rewrite(AnnAST, refac_syntax:form_list(Fs1)),
-    refac_util:write_refactored_files([{{FName,FName}, AnnAST1}], Editor, TabWidth, Cmd).
+    refac_write_file:write_refactored_files([{{FName,FName}, AnnAST1}], Editor, TabWidth, Cmd).
   
 
 

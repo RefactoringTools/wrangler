@@ -76,12 +76,11 @@ fold_expr_by_loc_eclipse(FileName, Line, Col, SearchPaths, TabWidth) ->
     fold_expression(FileName, Line, Col, SearchPaths, TabWidth, eclipse).
 
 fold_expression(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fold_expression(" ++ "\"" ++
-	FileName ++ "\", " ++ integer_to_list(Line) ++
-	", " ++ integer_to_list(Col) ++ ", "
-	++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," 
-	++ integer_to_list(TabWidth) ++ ").",
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fold_expression(" ++ "\"" ++ 
+	    FileName ++ "\", " ++ integer_to_list(Line) ++ 
+	      ", " ++ integer_to_list(Col) ++ ", "  ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "],"
+													        ++ integer_to_list(TabWidth) ++ ").",
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case pos_to_fun_clause(AnnAST, {Line, Col}) of
 	{ok, {Mod, FunName, _Arity, FunClauseDef, _ClauseIndex}} ->
 	    side_condition_analysis(FunClauseDef),
@@ -127,21 +126,21 @@ fold_expr_by_name_eclipse(FileName, ModName, FunName, Arity, ClauseIndex, Search
 fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:fold_expression(~p,~p,~p,~p,~p,~p).\n",
 		 [?MODULE, FileName, ModName, FunName, Arity, ClauseIndex, TabWidth]),
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fold_expression(" ++ "\"" ++
-	    FileName ++ "\", " ++ atom_to_list(ModName) ++ ", " ++ atom_to_list(FunName) ++
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fold_expression(" ++ "\"" ++ 
+	    FileName ++ "\", " ++ atom_to_list(ModName) ++ ", " ++ atom_to_list(FunName) ++ 
 	      ", " ++ integer_to_list(Arity) ++ ", " ++ integer_to_list(ClauseIndex) ++ ", ["
-		++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+											   ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {value, {module, CurrentModName}} = lists:keysearch(module, 1, Info),
     FileName1 = get_file_name(ModName, SearchPaths),
-    {ok, {AnnAST1, _Info1}} = refac_util:parse_annotate_file(FileName1, true, SearchPaths, TabWidth),
+    {ok, {AnnAST1, _Info1}} = wrangler_ast_server:parse_annotate_file(FileName1, true, SearchPaths, TabWidth),
     case get_fun_clause_def(AnnAST1, FunName, Arity, ClauseIndex) of
-      {ok, {Mod, _FunName, _Arity, FunClauseDef}} ->
-	  side_condition_analysis(FunClauseDef),
-	  Candidates = search_candidate_exprs(AnnAST, {Mod, CurrentModName}, FunName, FunClauseDef),
-	  fold_expression_0(Candidates, FunClauseDef, Cmd, Editor);
-      {error, _Reason} ->
-	  throw({error, "The specified funcion clause does not exist!"})
+	{ok, {Mod, _FunName, _Arity, FunClauseDef}} ->
+	    side_condition_analysis(FunClauseDef),
+	    Candidates = search_candidate_exprs(AnnAST, {Mod, CurrentModName}, FunName, FunClauseDef),
+	    fold_expression_0(Candidates, FunClauseDef, Cmd, Editor);
+	{error, _Reason} ->
+	    throw({error, "The specified funcion clause does not exist!"})
     end.
 
 get_file_name(ModName, SearchPaths) ->
@@ -159,14 +158,14 @@ get_file_name(ModName, SearchPaths) ->
 		  
     end.
 
-%%-spec(fold_expr_1_eclipse/5::(filename(), syntaxTree(), 
-%%			      [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}], 
+%%-spec(fold_expr_1_eclipse/5::(filename(), syntaxTree(),
+%%			      [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}],
 %%			      [dir()], integer()) -> {ok, [{filename(), filename(), string()}]}).
 fold_expr_1_eclipse(FileName, FunClauseDef, RangeNewExpList, SearchPaths, TabWidth) ->
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     Body = refac_syntax:clause_body(FunClauseDef),
     AnnAST1 = fold_expression_1_eclipse_1(AnnAST, Body, RangeNewExpList),
-    FileContent = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST1,TabWidth),
+    FileContent = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST1, TabWidth),
     {ok, [{FileName, FileName, FileContent}]}.
 
 fold_expression_1_eclipse_1(AnnAST, _Body, []) ->
@@ -176,12 +175,10 @@ fold_expression_1_eclipse_1(AnnAST, Body, [Cand| Tail]) ->
 					      AnnAST, {Body, Cand}),
     fold_expression_1_eclipse_1(AnnAST1, Body, Tail).
 
-
-
 do_fold_expression(FileName, CandidatesToFold, SearchPaths, TabWidth, LogMsg) ->
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-    AnnAST1= fold_expression_1_1(AnnAST,  CandidatesToFold),
-    refac_util:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], TabWidth, LogMsg),
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    AnnAST1 = fold_expression_1_1(AnnAST, CandidatesToFold),
+    refac_write_file:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], TabWidth, LogMsg),
     {ok, [FileName]}.
 
 fold_expression_1_1(AnnAST, []) ->
@@ -348,40 +345,39 @@ search_for_single_not_match_expr(AnnAST, Exp) ->
 		      _ -> S
 		  end
 	  end,
-    refac_syntax_lib:fold(Fun, [], AnnAST).
+    ast_traverse_api:fold(Fun, [], AnnAST).
 
 collect_op_ranges(Tree) ->
     F = fun (T, S) ->
 		case refac_syntax:type(T) of
-		  application ->
-		      Operator = refac_syntax:application_operator(T),
-		      Range = get_start_end_locations(Operator),
-		      S ++ [Range];
-		  _ -> S
+		    application ->
+			Operator = refac_syntax:application_operator(T),
+			Range = get_start_end_locations(Operator),
+			S ++ [Range];
+		    _ -> S
 		end
 	end,
-    refac_syntax_lib:fold(F, [], Tree).
-
+    ast_traverse_api:fold(F, [], Tree).
 
 search_for_expr_list(AnnAST, ExpList) ->
     Fun = fun (T, S) ->
 		  case refac_syntax:type(T) of
-		    clause ->
-			Exprs = refac_syntax:clause_body(T),
-			CandidateExprs = get_candidate_exprs(ExpList, Exprs),
-			S ++ CandidateExprs;
-		    block_expr ->
-			Exprs = refac_syntax:block_expr_body(T),
-			CandidateExprs = get_candidate_exprs(ExpList, Exprs),
-			S ++ CandidateExprs;
-		    try_expr ->
-			Exprs = refac_syntax:try_expr_body(T),
-			CandidateExprs = get_candidate_exprs(ExpList, Exprs),
-			S ++ CandidateExprs;
-		    _ -> S
+		      clause ->
+			  Exprs = refac_syntax:clause_body(T),
+			  CandidateExprs = get_candidate_exprs(ExpList, Exprs),
+			  S ++ CandidateExprs;
+		      block_expr ->
+			  Exprs = refac_syntax:block_expr_body(T),
+			  CandidateExprs = get_candidate_exprs(ExpList, Exprs),
+			  S ++ CandidateExprs;
+		      try_expr ->
+			  Exprs = refac_syntax:try_expr_body(T),
+			  CandidateExprs = get_candidate_exprs(ExpList, Exprs),
+			  S ++ CandidateExprs;
+		      _ -> S
 		  end
 	  end,
-    refac_syntax_lib:fold(Fun, [], AnnAST).
+    ast_traverse_api:fold(Fun, [], AnnAST).
 
 get_candidate_exprs(FoldFunBodyExprList, CurExprList)->
     Len = length(FoldFunBodyExprList),
@@ -716,15 +712,16 @@ list_to_term(List)->
 
 %%The following is only used by tests.
 
+
 %%-spec(fold_expression_1/5::(filename(), atom(), integer(), [dir()], integer()) -> 
 %%	     {syntaxTree(), moduleInfo()} | {error, string()}).
 fold_expression_1(FileName, FunName, Arity, SearchPaths, TabWidth) ->
-    {ok, {AnnAST, Info}} =refac_util:parse_annotate_file(FileName,true, SearchPaths, TabWidth),
+    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
-    FunClauseDef= name_to_fun_clause(AnnAST, FunName, Arity),
+    FunClauseDef = name_to_fun_clause(AnnAST, FunName, Arity),
     Candidates = search_candidate_exprs(AnnAST, {ModName, ModName}, FunName, FunClauseDef),
     Body = refac_syntax:clause_body(FunClauseDef),
-    AnnAST1= fold_expression_1_eclipse_1(AnnAST, Body, Candidates),
+    AnnAST1 = fold_expression_1_eclipse_1(AnnAST, Body, Candidates),
     {AnnAST1, Info}.
 
 name_to_fun_clause(AnnAST, FunName, Arity) ->

@@ -47,13 +47,13 @@ comment_out(Dirs) ->
     lists:foreach(fun(F) ->
 			  comment_out_spec_type_1(F, Dirs) end,
 		  HeaderFiles++FileNames).
-    
+
 comment_out_spec_type_1(FileName, SearchPaths) ->
     refac_io:format("Current file being processed:\n~p\n", [FileName]),
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName,  true, SearchPaths),
-    Fs = refac_syntax:form_list_elements(AnnAST), 
-	Str = vertical_concat(Fs,  ""),
-	file:write_file(FileName, list_to_binary(Str)).
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths),
+    Fs = refac_syntax:form_list_elements(AnnAST),
+    Str = vertical_concat(Fs, ""),
+    file:write_file(FileName, list_to_binary(Str)).
 
 
 vertical_concat([], Acc) -> Acc;

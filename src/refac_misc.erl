@@ -87,26 +87,27 @@ filehash(IoDevice, Crc) ->
     end.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
 %%-spec collect_var_source_def_pos_info([syntaxTree()]|syntaxTree()) ->
 %%					     [{atom(), pos(), [pos()]}].
 collect_var_source_def_pos_info(Nodes) when is_list(Nodes) ->
     lists:flatmap(fun (N) -> collect_var_source_def_pos_info(N) end, Nodes);
 collect_var_source_def_pos_info(Node) ->
-    F= fun(T, S) ->
-	       case refac_syntax:type(T) of 
-		   variable ->
-		       SourcePos = refac_syntax:get_pos(T),
-		       case lists:keysearch(def, 1, refac_syntax:get_ann(T)) of 
-			   {value, {def, DefinePos}} ->
-			       VarName = refac_syntax:variable_name(T),
-			       S ++ [{VarName, SourcePos, DefinePos}];
-			   _ ->
-			       S
-		       end;
-		   _  -> S
-	       end
-       end,
-    refac_syntax_lib:fold(F, [], Node).
+    F = fun (T, S) ->
+		case refac_syntax:type(T) of
+		    variable ->
+			SourcePos = refac_syntax:get_pos(T),
+			case lists:keysearch(def, 1, refac_syntax:get_ann(T)) of
+			    {value, {def, DefinePos}} ->
+				VarName = refac_syntax:variable_name(T),
+				S ++ [{VarName, SourcePos, DefinePos}];
+			    _ ->
+				S
+			end;
+		    _ -> S
+		end
+	end,
+    ast_traverse_api:fold(F, [], Node).
 
 %%-spec get_start_end_loc([syntaxTree()]|syntaxTree()) ->
 %% 			       {pos(), pos()}.
@@ -259,6 +260,7 @@ collect_var_names(Node) when is_list(Node) ->
     collect_var_names_1(refac_syntax:block_expr(Node));
 collect_var_names(Node) ->
     collect_var_names_1(Node).
+
 collect_var_names_1(Node) ->
     F = fun (N, S) ->
 		case refac_syntax:type(N) of
@@ -272,54 +274,53 @@ collect_var_names_1(Node) ->
 		    _ -> S
 		end
 	end,
-    ordsets:to_list(refac_syntax_lib:fold(F, ordsets:new(), Node)).
-
+    ordsets:to_list(ast_traverse_api:fold(F, ordsets:new(), Node)).
 
 %%-spec collect_used_macros(syntaxTree()) ->
 %%				 [atom()].
 collect_used_macros(Node) ->
-    F = fun(T, S) ->
+    F = fun (T, S) ->
 		case refac_syntax:type(T) of
 		    macro ->
 			Name = refac_syntax:macro_name(T),
-			case refac_syntax:type(Name) of 
-			    variable -> [refac_syntax:variable_name(Name)|S];
-			    atom -> [refac_syntax:atom_value(Name) |S]
+			case refac_syntax:type(Name) of
+			    variable -> [refac_syntax:variable_name(Name)| S];
+			    atom -> [refac_syntax:atom_value(Name)| S]
 			end;
-		    _  -> S
+		    _ -> S
 		end
 	end,
-    lists:usort(refac_syntax_lib:fold(F, [], Node)).
+    lists:usort(ast_traverse_api:fold(F, [], Node)).
 
 %%-spec collect_used_records(syntaxTree())-> [atom()].
 collect_used_records(Node) ->
-    Fun = fun(T, S) ->
+    Fun = fun (T, S) ->
 		  case refac_syntax:type(T) of
 		      record_access ->
 			  Type = refac_syntax:record_access_type(T),
 			  case refac_syntax:type(Type) of
-			      atom -> 
+			      atom ->
 				  ordsets:add_element(refac_syntax:atom_value(Type), S);
 			      _ -> S
 			  end;
 		      record_expr ->
 			  Type = refac_syntax:record_expr_type(T),
 			  case refac_syntax:type(Type) of
-			      atom -> 
+			      atom ->
 				  ordsets:add_element(refac_syntax:atom_value(Type), S);
 			      _ -> S
 			  end;
-		      record_index_expr->
+		      record_index_expr ->
 			  Type = refac_syntax:record_index_expr_type(T),
 			  case refac_syntax:type(Type) of
 			      atom ->
 				  ordsets:add_element(refac_syntax:atom_value(Type), S);
 			      _ -> S
 			  end;
-		      _ -> S		  
+		      _ -> S
 		  end
 	  end,
-    ordsets:to_list(refac_syntax_lib:fold(Fun, ordsets:new(), Node)).
+    ordsets:to_list(ast_traverse_api:fold(Fun, ordsets:new(), Node)).
 
 %% =====================================================================
 %% @doc Same as erlang:hd/1, except the first argument which is the
@@ -483,11 +484,12 @@ get_var_exports_1([]) -> [].
 %% =====================================================================
 %% @doc Return the bound variables of an AST node.
 
+
 %%-spec(get_bound_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
 get_bound_vars(Nodes) when is_list(Nodes) ->
     lists:usort(lists:flatmap(fun (Node) -> get_bound_vars(Node) end, Nodes));
 get_bound_vars(Node) ->
-    lists:usort(refac_syntax_lib:fold(fun (N, Acc) ->
+    lists:usort(ast_traverse_api:fold(fun (N, Acc) ->
 					      get_bound_vars_1(refac_syntax:get_ann(N)) ++ Acc
 				      end, [], Node)).
 					       

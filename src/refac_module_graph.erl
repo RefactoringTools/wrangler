@@ -80,20 +80,20 @@ analyze_all_files([{Mod, Dir}| Left], SearchPaths) ->
 		analyze_all_files(Left, SearchPaths)
 	  end
     end.
-   
+
 get_called_mods(File, SearchPaths) ->
     Files = refac_util:expand_files(SearchPaths, ".erl"),
     ModNames = [M || {M, _} <- refac_util:get_modules_by_file(Files)],
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(File, true, SearchPaths),
+    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(File, true, SearchPaths),
     ImportedMods0 = case lists:keysearch(imports, 1, Info) of
-		      {value, {imports, Imps}} ->
-			  [M || {M, _Funs} <- Imps];
-		      false -> []
+			{value, {imports, Imps}} ->
+			    [M || {M, _Funs} <- Imps];
+			false -> []
 		    end,
     ImportedMods1 = case lists:keysearch(module_imports, 1, Info) of
-		      {value, {module_imports, Mods}} ->
-			  Mods;
-		      _ -> []
+			{value, {module_imports, Mods}} ->
+			    Mods;
+			_ -> []
 		    end,
     %% I took a conservative approach here.
     {CalledMods, PossibleCalledMods} = do_collect_called_mods(AnnAST, ModNames),
@@ -105,21 +105,21 @@ get_called_mods(File, SearchPaths) ->
 do_collect_called_mods(AnnAST, ModNames) ->
     Fun1 = fun (T, Acc) ->
 		   case refac_syntax:type(T) of
-		     atom ->
-			 As = refac_syntax:get_ann(T),
-			 case lists:keysearch(type, 1, As) of
-			   {value, {type, m_atom}} ->
-			       ModName = refac_syntax:atom_value(T),
-			       ordsets:add_element(ModName, Acc);
-			   _ -> Acc
-			 end;
-		     _ -> Acc
+		       atom ->
+			   As = refac_syntax:get_ann(T),
+			   case lists:keysearch(type, 1, As) of
+			       {value, {type, m_atom}} ->
+				   ModName = refac_syntax:atom_value(T),
+				   ordsets:add_element(ModName, Acc);
+			       _ -> Acc
+			   end;
+		       _ -> Acc
 		   end
 	   end,
-    CalledMods = refac_syntax_lib:fold(Fun1, ordsets:new(), AnnAST),
+    CalledMods = ast_traverse_api:fold(Fun1, ordsets:new(), AnnAST),
     UnSures = refac_atom_utils:collect_unsure_atoms_in_file(AnnAST, ModNames, m_atom),
     UnSures1 = [Name || {atom, _Pos, Name} <- UnSures,
-			not lists:member(Name, CalledMods)],
+			 not  lists:member(Name, CalledMods)],
     {CalledMods, ordsets:from_list(UnSures1)}.
 
 
@@ -167,18 +167,18 @@ analyze_all_files_with_called_funs(ModDirs, SearchPaths)->
     ModNames = [M || {M, _} <- refac_util:get_modules_by_file(Files)],
     [{{Mod, Dir},analyze_mod_with_called_funs({Mod, Dir}, ModNames, SearchPaths)}
      || {Mod, Dir}<-ModDirs].
-  
+
 analyze_mod_with_called_funs({Mod, Dir}, ModNames, SearchPaths) ->
     File = filename:join(Dir, atom_to_list(Mod) ++ ".erl"),
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(File, true, SearchPaths),
+    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(File, true, SearchPaths),
     ImportedMods0 = case lists:keysearch(imports, 1, Info) of
 			{value, {imports, Imps}} ->
-			    [{M, []}||{M, _Funs}<-Imps, lists:member(M, ModNames)];
+			    [{M, []} || {M, _Funs} <- Imps, lists:member(M, ModNames)];
 			false -> []
 		    end,
     ImportedMods1 = case lists:keysearch(module_imports, 1, Info) of
-			{value, {module_imports, Mods}} -> 
-			    [{M,[]}||M<-Mods, lists:member(M, ModNames)];
+			{value, {module_imports, Mods}} ->
+			    [{M,[]} || M <- Mods, lists:member(M, ModNames)];
 			_ -> []
 		    end,
     CalledModFuns = collect_called_modules_with_called_funs(Mod, AnnAST, ModNames),

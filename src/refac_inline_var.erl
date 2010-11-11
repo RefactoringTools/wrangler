@@ -61,20 +61,20 @@ inline_var_eclipse(FName, Line, Col, SearchPaths, TabWidth) ->
     inline_var(FName, Line, Col, SearchPaths, TabWidth, eclipse).
 
 inline_var(FName, Line, Col, SearchPaths, TabWidth, Editor) ->
-    Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":inline_var(" ++ "\"" ++
-	FName ++ "\", " ++ integer_to_list(Line) ++
-	", " ++ integer_to_list(Col) ++ ", " ++ "[" ++ refac_misc:format_search_paths(SearchPaths) 
-	++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
+    Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":inline_var(" ++ "\"" ++ 
+	     FName ++ "\", " ++ integer_to_list(Line) ++ 
+	       ", " ++ integer_to_list(Col) ++ ", " ++ "[" ++ refac_misc:format_search_paths(SearchPaths)
+								 ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     Form = pos_to_form(AnnAST, {Line, Col}),
     case interface_api:pos_to_var(Form, {Line, Col}) of
 	{ok, VarNode} ->
 	    {ok, MatchExpr} = get_var_define_match_expr(Form, VarNode),
 	    cond_check(MatchExpr, VarNode),
-	    case is_use_instance(VarNode) of 
+	    case is_use_instance(VarNode) of
 		true ->
 		    AnnAST1 = inline(AnnAST, Form, MatchExpr, VarNode, [refac_misc:get_range(VarNode)]),
-		    refac_util:write_refactored_files([{{FName,FName},AnnAST1}], Editor, TabWidth,Cmd1);
+		    refac_write_file:write_refactored_files([{{FName,FName},AnnAST1}], Editor, TabWidth, Cmd1);
 		false ->
 		    Cands = search_for_unfold_candidates(Form, MatchExpr, VarNode),
 		    case Cands of
@@ -82,9 +82,9 @@ inline_var(FName, Line, Col, SearchPaths, TabWidth, Editor) ->
 			    throw({error, "No unfoldable use instances of this variable were found."});
 			[C] ->
 			    AnnAST1 = inline(AnnAST, Form, MatchExpr, VarNode, [C]),
-			    refac_util:write_refactored_files([{{FName,FName},AnnAST1}],Editor, TabWidth, Cmd1);
+			    refac_write_file:write_refactored_files([{{FName,FName},AnnAST1}], Editor, TabWidth, Cmd1);
 			_ ->
-			    case Editor of 
+			    case Editor of
 				emacs ->
 				    {ok, Cands, Cmd1};
 				_ ->
@@ -94,8 +94,8 @@ inline_var(FName, Line, Col, SearchPaths, TabWidth, Editor) ->
 	    end;
 	_ ->
 	    throw({error, "You have not selected a variable name, "
-		   "or the variable selected does not belong to "
-		   "a syntactically well-formed function."})
+			  "or the variable selected does not belong to "
+			  "a syntactically well-formed function."})
     end.
 
 
@@ -112,12 +112,12 @@ inline_var_eclipse_1(FileName, Line, Col, Candidates, SearchPaths, TabWidth) ->
     inline_var_1(FileName, Line, Col, Candidates, SearchPaths, TabWidth, "", eclipse).
 
 inline_var_1(FileName, Line, Col, Candidates, SearchPaths, TabWidth, Cmd, Editor) ->
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     Form = pos_to_form(AnnAST, {Line, Col}),
-    {ok, VarNode} =interface_api:pos_to_var(Form, {Line, Col}),
+    {ok, VarNode} = interface_api:pos_to_var(Form, {Line, Col}),
     {ok, MatchExpr} = get_var_define_match_expr(Form, VarNode),
     AnnAST1 = inline(AnnAST, Form, MatchExpr, VarNode, Candidates),
-    refac_util:write_refactored_files([{{FileName,FileName}, AnnAST1}], Editor, TabWidth, Cmd).
+    refac_write_file:write_refactored_files([{{FileName,FileName}, AnnAST1}], Editor, TabWidth, Cmd).
 
 %% inline_var_1(FileName, Line, Cols, Cands, SearchPaths, TabWidth, Cmd)
 is_use_instance(VarNode) ->
@@ -159,17 +159,16 @@ cond_check(MatchExpr, VarNode) ->
 	    throw({error, Msg})
     end.
 
-
 search_for_unfold_candidates(Form, MatchExprBody, VarNode) ->
     {value, {def, DefinePos}} = lists:keysearch(def, 1, refac_syntax:get_ann(VarNode)),
-    F = fun(Node, Acc) ->
+    F = fun (Node, Acc) ->
 		case refac_syntax:type(Node) of
 		    variable when Node/=VarNode ->
-			case lists:keysearch(def,1, refac_syntax:get_ann(Node)) of
+			case lists:keysearch(def, 1, refac_syntax:get_ann(Node)) of
 			    {value, {def, DefinePos}} ->
-				case cond_check_1(MatchExprBody, Node) of 
+				case cond_check_1(MatchExprBody, Node) of
 				    ok ->
-					[refac_misc:get_range(Node)|Acc];
+					[refac_misc:get_range(Node)| Acc];
 				    _ -> Acc
 				end;
 			    _ -> Acc
@@ -178,19 +177,19 @@ search_for_unfold_candidates(Form, MatchExprBody, VarNode) ->
 			Acc
 		end
 	end,
-    lists:sort(refac_syntax_lib:fold(F, [], Form)).
+    lists:sort(ast_traverse_api:fold(F, [], Form)).
 
 collect_all_uses(Form, VarNode) ->
     {value, {def, DefinePos}} = lists:keysearch(def, 1, refac_syntax:get_ann(VarNode)),
-    F = fun(Node, Acc) ->
+    F = fun (Node, Acc) ->
 		case refac_syntax:type(Node) of
 		    variable ->
-			case lists:keysearch(def,1, refac_syntax:get_ann(Node)) of
+			case lists:keysearch(def, 1, refac_syntax:get_ann(Node)) of
 			    {value, {def, DefinePos}} ->
 				Pos = refac_syntax:get_pos(Node),
-				case not (lists:member(Pos, DefinePos)) of 
+				case  not  lists:member(Pos, DefinePos) of
 				    true ->
-					[refac_misc:get_range(Node)|Acc];
+					[refac_misc:get_range(Node)| Acc];
 				    false ->
 					[]
 				end;
@@ -200,7 +199,7 @@ collect_all_uses(Form, VarNode) ->
 			Acc
 		end
 	end,
-    lists:sort(refac_syntax_lib:fold(F, [], Form)).
+    lists:sort(ast_traverse_api:fold(F, [], Form)).
 
 
 cond_check_1(MatchExprBody, VarNode) ->
@@ -232,7 +231,6 @@ cond_check_1(MatchExprBody, VarNode) ->
 	    {error, Msg}
     end.
 
-    
 get_bound_vars(Tree) ->
     F = fun (T, B) ->
 		As = refac_syntax:get_ann(T),
@@ -241,7 +239,7 @@ get_bound_vars(Tree) ->
 		    _ -> B
 		end
 	end,
-    lists:usort(refac_syntax_lib:fold(F, [], Tree)).
+    lists:usort(ast_traverse_api:fold(F, [], Tree)).
     
 
 get_var_define_match_expr(Form, VarNode)->

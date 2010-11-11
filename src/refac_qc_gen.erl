@@ -57,16 +57,16 @@ test_cases_to_property_eclipse(FileName, Line, Col,SearchPaths, TabWidth) ->
 
 test_cases_to_property(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:test_cases_to_property( ~p, ~p, ~p, ~p, ~p).\n",
-		 [?MODULE, FileName, Line, Col,SearchPaths, TabWidth]),
-    Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":create_oneof(" ++ "\"" ++
-	     FileName ++ "\", " ++ integer_to_list(Line) ++
-	       ", " ++ integer_to_list(Col) ++ ", " 
-		 ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    {ok, {AnnAST, Info}} = refac_util:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+		 [?MODULE, FileName, Line, Col, SearchPaths, TabWidth]),
+    Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":create_oneof(" ++ "\"" ++ 
+	     FileName ++ "\", " ++ integer_to_list(Line) ++ 
+	       ", " ++ integer_to_list(Col) ++ ", "
+						  ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case interface_api:pos_to_fun_name(AnnAST, {Line, Col}) of
-      {ok, {Mod, Fun, Arity, _, DefPos}} ->
+	{ok, {Mod, Fun, Arity, _, DefPos}} ->
 	    AnnAST1 = do_intro_oneof(AnnAST, {Mod, Fun, Arity, DefPos}),
-	    HasWarningMsg = not is_quickcheck_used(Info),
+	    HasWarningMsg =  not  is_quickcheck_used(Info),
 	    case HasWarningMsg of
 		true ->
 		    ?wrangler_io("\n=================================================================\n", []),
@@ -75,9 +75,9 @@ test_cases_to_property(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
 		    ok
 	    end,
 	    case Editor of
-	    emacs ->
+		emacs ->
 		    Res = [{{FileName, FileName}, AnnAST1}],
-		    refac_util:write_refactored_files_for_preview(Res, TabWidth, Cmd1),
+		    refac_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd1),
 		    {ok, [FileName], HasWarningMsg};
 		eclipse ->
 		    FileContent = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST1, TabWidth),
@@ -98,25 +98,25 @@ is_quickcheck_used(ModuleInfo) ->
     end.
 
 do_collect_parameters(AnnAST, {M, F, A}) ->
-    Fun = fun(Node, Acc) ->
+    Fun = fun (Node, Acc) ->
 		  case refac_syntax:type(Node) of
 		      application ->
 			  Op = refac_syntax:application_operator(Node),
 			  As = refac_syntax:get_ann(Op),
-			  case lists:keysearch(fun_def, 1, As) of 
+			  case lists:keysearch(fun_def, 1, As) of
 			      {value, {fun_def, {M, F, A, _, _}}} ->
 				  Args = refac_syntax:application_arguments(Node),
 				  case refac_misc:get_free_vars(Args) of
 				      [] ->
-					  [Args |Acc];
+					  [Args| Acc];
 				      _ -> Acc
 				  end;
 			      _ -> Acc
 			  end;
 		      _ -> Acc
 		  end
-	  end,			  
-    lists:reverse(refac_syntax_lib:fold(Fun, [], AnnAST)).
+	  end,
+    lists:reverse(ast_traverse_api:fold(Fun, [], AnnAST)).
 
 
 do_intro_oneof(AnnAST, {Mod, Fun, Arity, DefPos}) ->

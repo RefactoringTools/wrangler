@@ -178,21 +178,20 @@ generalise_and_hash_ast(Files, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
 			  generalise_and_hash_ast_1(F, Pid, SearchPaths, TabWidth, ASTTab, VarTab)
 		  end, Files).
 
-
 generalise_and_hash_ast_1(FName, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
     Fun = fun (Form) ->
 		  case refac_syntax:type(Form) of
-		    function ->
-			FunName = refac_syntax:atom_value(refac_syntax:function_name(Form)),
-			Arity = refac_syntax:function_arity(Form),
-			AllVars = refac_misc:collect_var_source_def_pos_info(Form),
-			ets:insert(VarTab, {{FName, FunName, Arity}, AllVars}),
-			ast_traverse_api:full_tdTP(fun generalise_and_hash_ast_2/2,
-						   Form, {FName, FunName, Arity, ASTTab, Pid});
-		    _ -> ok
+		      function ->
+			  FunName = refac_syntax:atom_value(refac_syntax:function_name(Form)),
+			  Arity = refac_syntax:function_arity(Form),
+			  AllVars = refac_misc:collect_var_source_def_pos_info(Form),
+			  ets:insert(VarTab, {{FName, FunName, Arity}, AllVars}),
+			  ast_traverse_api:full_tdTP(fun generalise_and_hash_ast_2/2,
+						     Form, {FName, FunName, Arity, ASTTab, Pid});
+		      _ -> ok
 		  end
 	  end,
-    {ok, {AnnAST, _Info}} = refac_util:quick_parse_annotate_file(FName, SearchPaths, TabWidth),
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:quick_parse_annotate_file(FName, SearchPaths, TabWidth),
     refac_syntax:form_list_elements(AnnAST),
     lists:foreach(fun (F) -> Fun(F) end, refac_syntax:form_list_elements(AnnAST)),
     insert_dummy_entry(Pid).

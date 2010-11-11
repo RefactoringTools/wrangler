@@ -114,24 +114,24 @@ search_and_gen_anti_unifier(Files, {FName, FunDef, Exprs, SE}, SimiScore, Search
     {[{FName, SE}| Ranges -- [{FName, SE}]], AntiUnifier}.
 
 search_similar_expr_1(FName, Exprs, SimiScore, SearchPaths, TabWidth) ->
-    try refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth) of
+    try wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth) of
 	{ok, {AnnAST, _}} ->
 	    RecordInfo = get_module_record_info(FName, SearchPaths, TabWidth),
 	    do_search_similar_expr(FName, AnnAST, RecordInfo, Exprs, SimiScore)
-    catch 
+    catch
 	_E1:_E2 ->
 	    []
     end.
- 
+
 do_search_similar_expr(FileName, AnnAST, RecordInfo, Exprs, SimiScore) when is_list(Exprs) ->
-    case length(Exprs)>1 of 
+    case length(Exprs)>1 of
 	true ->
 	    F0 = fun (FunNode, Acc) ->
 			 F = fun (T, Acc1) ->
 				     Exprs1 = get_expr_seqs(T),
 				     do_search_similar_expr_1(FileName, Exprs, Exprs1, RecordInfo, SimiScore, FunNode) ++ Acc1
 			     end,
-			 refac_syntax_lib:fold(F, Acc, FunNode)
+			 ast_traverse_api:fold(F, Acc, FunNode)
 		 end,
 	    do_search_similar_expr_1(AnnAST, F0);
 	false ->
@@ -144,20 +144,19 @@ do_search_similar_expr(FileName, AnnAST, RecordInfo, Exprs, SimiScore) when is_l
 					 _ -> Acc1
 				     end
 			     end,
-			 refac_syntax_lib:fold(F, Acc, FunNode)
+			 ast_traverse_api:fold(F, Acc, FunNode)
 		 end,
 	    do_search_similar_expr_1(AnnAST, F0)
     end.
 
-
 do_search_similar_expr_1(AnnAST, Fun) ->
     F1 = fun (Node, Acc) ->
 		 case refac_syntax:type(Node) of
-		   function -> Fun(Node, Acc);
-		   _ -> Acc
+		     function -> Fun(Node, Acc);
+		     _ -> Acc
 		 end
 	 end,
-    lists:reverse(refac_syntax_lib:fold(F1, [], AnnAST)).
+    lists:reverse(ast_traverse_api:fold(F1, [], AnnAST)).
 
 
 get_expr_seqs(T) ->
@@ -255,21 +254,20 @@ get_simi_score_eclipse(SimiScore) ->
 	_ ->?DefaultSimiScore
     end.
 
-
 get_fundef_and_expr(FName, Start, End, SearchPaths, TabWidth) ->
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     case interface_api:pos_to_fun_def(AnnAST, Start) of
-      {ok, FunDef} ->
+	{ok, FunDef} ->
 	    Exprs = interface_api:pos_to_expr_list(FunDef, Start, End),
 	    case Exprs of
-	    [] -> throw({error, "You have not selected an expression!"});
-	    _ ->
-		SE = refac_misc:get_start_end_loc(Exprs),
-		RecordInfo = get_module_record_info(FName, SearchPaths, TabWidth),
-		Exprs1 = normalise_expr(Exprs, RecordInfo),
-		{FunDef, Exprs1, SE}
-	  end;
-      {error, _} -> throw({error, "You have not selected an expression!"})
+		[] -> throw({error, "You have not selected an expression!"});
+		_ ->
+		    SE = refac_misc:get_start_end_loc(Exprs),
+		    RecordInfo = get_module_record_info(FName, SearchPaths, TabWidth),
+		    Exprs1 = normalise_expr(Exprs, RecordInfo),
+		    {FunDef, Exprs1, SE}
+	    end;
+	{error, _} -> throw({error, "You have not selected an expression!"})
     end.
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -292,17 +290,16 @@ normalise_record_expr(FName, Pos = {Line, Col}, ShowDefault, SearchPaths, TabWid
 %%				       {ok, [{filename(), filename(), string()}]}.
 normalise_record_expr_eclipse(FName, Pos, ShowDefault, SearchPaths, TabWidth) ->
     normalise_record_expr_0(FName, Pos, ShowDefault, SearchPaths, TabWidth, eclipse, "").
-     
 
 normalise_record_expr_0(FName, Pos, ShowDefault, SearchPaths, TabWidth, Editor, Cmd) ->
-    {ok, {AnnAST, _Info}} = refac_util:parse_annotate_file(FName, true, [], TabWidth),
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, [], TabWidth),
     RecordExpr = pos_to_record_expr(AnnAST, Pos),
     case refac_syntax:type(refac_syntax:record_expr_type(RecordExpr)) of
-      atom -> ok;
-      _ -> throw({error, "Wrangler can only normalise a record expression with an atom as the record name."})
+	atom -> ok;
+	_ -> throw({error, "Wrangler can only normalise a record expression with an atom as the record name."})
     end,
     {AnnAST1, _Changed} = normalise_record_expr_1(FName, AnnAST, Pos, ShowDefault, SearchPaths, TabWidth),
-    refac_util:write_refactored_files([{{FName,FName}, AnnAST1}], Editor, TabWidth,Cmd).
+    refac_write_file:write_refactored_files([{{FName,FName}, AnnAST1}], Editor, TabWidth, Cmd).
 
 
 normalise_record_expr_1(FName, AnnAST, Pos, ShowDefault, SearchPaths, TabWidth) ->

@@ -291,9 +291,9 @@ generalise_and_hash_file_ast(FilePair={CurRevFileName, PreRevFileName}, Threshol
     end.
 
 %% Generalise and hash the AST for an single Erlang file.
-generalise_and_hash_file_ast_1(FilePair={CurRevFileName, PreRevFileName}, Threshold, Tabs, ASTPid, 
+generalise_and_hash_file_ast_1(FilePair = {CurRevFileName, PreRevFileName}, Threshold, Tabs, ASTPid,
 			       HashPid, IsNewFile, SearchPaths, TabWidth) ->
-    Forms = try refac_util:quick_parse_annotate_file(CurRevFileName, SearchPaths, TabWidth) of 
+    Forms = try wrangler_ast_server:quick_parse_annotate_file(CurRevFileName, SearchPaths, TabWidth) of
 		{ok, {AnnAST, _Info}} ->
 		    refac_syntax:form_list_elements(AnnAST)
 	    catch
@@ -301,17 +301,17 @@ generalise_and_hash_file_ast_1(FilePair={CurRevFileName, PreRevFileName}, Thresh
 	    end,
     FAs = [{refac_syntax:atom_value(refac_syntax:function_name(Form)),
 	    refac_syntax:function_arity(Form)}
-	   ||Form<-Forms, refac_syntax:type(Form)==function],
+	   || Form <- Forms, refac_syntax:type(Form)==function],
     remove_deleted_function_entries(HashPid, PreRevFileName, FAs),
-    F =fun (Form) -> 
-	       case refac_syntax:type(Form) of 
-		   function ->
-		       %% only process function definitions.
-		       generalise_and_hash_function_ast(Form, FilePair, IsNewFile, Threshold, Tabs, ASTPid, HashPid);
-		   _ -> ok
-	       end
-       end,
-    lists:foreach(fun(Form) -> F(Form) end, Forms).
+    F = fun (Form) ->
+		case refac_syntax:type(Form) of
+		    function ->
+			%% only process function definitions.
+			generalise_and_hash_function_ast(Form, FilePair, IsNewFile, Threshold, Tabs, ASTPid, HashPid);
+		    _ -> ok
+		end
+	end,
+    lists:foreach(fun (Form) -> F(Form) end, Forms).
 
 %% generalise and hash the AST of a single function.
 generalise_and_hash_function_ast(Form, _FilePair={CurRevFileName, PreRevFileName}, 
