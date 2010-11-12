@@ -62,16 +62,16 @@
 
 -include("../include/wrangler.hrl").
 
-%%-spec(fold_expr_by_loc/5::(filename(), integer(), integer(), [dir()], integer())->
-%%	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), 
-%%		    {filename(), atom(), syntaxTree(), integer()}}], string()}).
+-spec(fold_expr_by_loc/5::(filename(), integer(), integer(), [dir()], integer())->
+	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), 
+		    {filename(), atom(), syntaxTree(), integer()}}], string()}).
 fold_expr_by_loc(FileName, Line, Col, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:fold_expr_by_loc(~p, ~p,~p,~p, ~p).\n", 
 		 [?MODULE, FileName, Line, Col, SearchPaths, TabWidth]),
     fold_expression(FileName, Line, Col, SearchPaths, TabWidth, emacs).
 
-%%-spec(fold_expr_by_loc_eclipse/5::(filename(), integer(), integer(), [dir()], integer()) ->
-%%	     {ok,  {syntaxTree(),[{{{integer(), integer()}, {integer(), integer()}}, syntaxTree(),syntaxTree()}]}}).
+-spec(fold_expr_by_loc_eclipse/5::(filename(), integer(), integer(), [dir()], integer()) ->
+	     {ok,  {syntaxTree(),[{{{integer(), integer()}, {integer(), integer()}}, syntaxTree(),syntaxTree()}]}}).
 fold_expr_by_loc_eclipse(FileName, Line, Col, SearchPaths, TabWidth) ->
     fold_expression(FileName, Line, Col, SearchPaths, TabWidth, eclipse).
 
@@ -106,10 +106,10 @@ fold_expression_0(Candidates, FunClauseDef, Cmd, Editor) ->
 	eclipse -> {ok, {FunClauseDef, Candidates}}
     end.
 
-%%-spec(fold_expr_by_name/7::(filename(), string(), string(), string(), 
-%%			    string(), [dir()], integer()) ->
-%%	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), 
-%%		    {filename(), atom(), syntaxTree(), integer()}}], string()}).
+-spec(fold_expr_by_name/7::(filename(), string(), string(), string(), 
+			    string(), [dir()], integer()) ->
+	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), 
+		    {filename(), atom(), syntaxTree(), integer()}}], string()}).
 fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex,
 		  SearchPaths, TabWidth) ->
     fold_by_name_par_checking(ModName, FunName, Arity, ClauseIndex),
@@ -117,8 +117,8 @@ fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex,
 		      list_to_integer(Arity), list_to_integer(ClauseIndex),
 		      SearchPaths, TabWidth, emacs).
 
-%%-spec(fold_expr_by_name_eclipse/7::(filename(), string(), string(), integer(), integer(), [dir()], integer())
-%%				   -> {ok, {syntaxTree(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree(),syntaxTree()}]}}).
+-spec(fold_expr_by_name_eclipse/7::(filename(), string(), string(), integer(), integer(), [dir()], integer())
+				   -> {ok, {syntaxTree(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree(),syntaxTree()}]}}).
 fold_expr_by_name_eclipse(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth) ->
     fold_expr_by_name(FileName, list_to_atom(ModName), list_to_atom(FunName), Arity, 
 		      ClauseIndex, SearchPaths, TabWidth, eclipse).
@@ -157,9 +157,9 @@ get_file_name(ModName, SearchPaths) ->
 											   ++ ", folloing the SearchPaths  specified!"})
     end.
 
-%%-spec(fold_expr_1_eclipse/5::(filename(), syntaxTree(),
-%%			      [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}],
-%%			      [dir()], integer()) -> {ok, [{filename(), filename(), string()}]}).
+-spec(fold_expr_1_eclipse/5::(filename(), syntaxTree(),
+			      [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}],
+			      [dir()], integer()) -> {ok, [{filename(), filename(), string()}]}).
 fold_expr_1_eclipse(FileName, FunClauseDef, RangeNewExpList, SearchPaths, TabWidth) ->
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     Body = refac_syntax:clause_body(FunClauseDef),
@@ -242,7 +242,7 @@ do_replace_expr_with_fun_call_1(Tree, {Range, Expr, NewExp}) ->
 		Tree== Expr  %% This is necessary due to the inaccuracy of Range.
 		of
 		true ->
-		    {refac_util:update_ann(NewExp, {range, Range}), true};
+		    {refac_util:rewrite(Tree, NewExp), true};
 		false ->
 		    {Tree, false}
 	    end;
@@ -289,8 +289,7 @@ do_replace_expr(Exprs, {StartLoc, EndLoc}, NewExp) ->
 	    case Exprs22 of
 		[] -> {Exprs, false};  %% THIS SHOULD NOT HAPPEN.
 		_ ->
-		    NewExp1 = refac_util:update_ann(
-				NewExp, {range, get_start_end_locations(hd(Exprs22))}),
+		    NewExp1 = refac_util:rewrite(get_start_end_locations(hd(Exprs22)), NewExp),
 		    {Exprs1 ++ [NewExp1| tl(Exprs22)], true}
 	    end
     end.
@@ -402,7 +401,7 @@ check_expr_list_ends_with_match(FoldFunBodyExprList, CurExprList, SubExprs) ->
 	    VarsToExport = vars_to_export(CurExprList, SubExprs),
 	    case VarsToExport of
 		[] ->
-		    [{get_start_end_locations(SubExprs), SubExprs, Subst,none}];
+		    [{get_start_end_locations(SubExprs), SubExprs, Subst, none}];
 		_ ->
 		    [Last| _Es] = lists:reverse(SubExprs),
 		    VarsToExportByLastExpr = vars_to_export(CurExprList, [Last]),
@@ -415,7 +414,7 @@ check_expr_list_ends_with_match(FoldFunBodyExprList, CurExprList, SubExprs) ->
 		    end
 	    end;
 	_ ->
-	    [false]
+	    check_expr_list_minus_last_expr(FoldFunBodyExprList, CurExprList, SubExprs)
     end.
 
 check_expr_list_not_ends_with_match(FoldFunBodyExprList, CurExprList, SubExprs) ->
@@ -433,9 +432,10 @@ check_expr_list_not_ends_with_match(FoldFunBodyExprList, CurExprList, SubExprs) 
 			{true, Subst} ->
 			    [{get_start_end_locations(SubExprs), SubExprs, Subst, Pats}];
 			_ ->
-			    [false]
+			    check_expr_list_minus_last_expr(FoldFunBodyExprList,CurExprList, SubExprs)
 		    end;
-		_ -> [false]
+		_ ->
+		    check_expr_list_minus_last_expr(FoldFunBodyExprList, CurExprList,SubExprs)
 	    end;
 	_ ->
 	    case unification:expr_unification(FoldFunBodyExprList, SubExprs) of
@@ -450,13 +450,7 @@ check_expr_list_not_ends_with_match(FoldFunBodyExprList, CurExprList, SubExprs) 
 			    [false]
 		    end;
 		_ ->
-		    LastBodyExpr = lists:last(FoldFunBodyExprList),
-		    case is_simple_expr(LastBodyExpr) of
-			true ->
-			    [check_expr_list_not_ends_with_match_2(FoldFunBodyExprList, CurExprList, SubEs)
-			     || SubEs <- sublists(SubExprs, length(SubExprs) - 1)];
-			_ -> [false]
-		    end
+		    check_expr_list_minus_last_expr(FoldFunBodyExprList, CurExprList,SubExprs)
 	    end
     end.
     
@@ -475,6 +469,17 @@ check_expr_list_not_ends_with_match_2(FoldFunBodyExprList, CurExprList, Es) ->
 	    end;
 	_ -> false
     end.
+
+check_expr_list_minus_last_expr(FoldFunBodyExprList, CurExprList, SubExprs) ->
+    LastBodyExpr = lists:last(FoldFunBodyExprList),
+    case is_simple_expr(LastBodyExpr) of
+	true ->
+	    [check_expr_list_not_ends_with_match_2(FoldFunBodyExprList,CurExprList,SubEs)
+	     || SubEs <- sublists(SubExprs,length(SubExprs)-1)];
+	_ -> [false]
+    end.
+
+
 
 %% ==================================================
 %% Variables defined and exported by an expression list in
@@ -707,11 +712,6 @@ term_to_list(Term) ->
 
 list_to_term(List)->
     binary_to_term(list_to_binary(List)).
-
-
-
-%%The following is only used by tests.
-
 
 %%-spec(fold_expression_1/5::(filename(), atom(), integer(), [dir()], integer()) -> 
 %%	     {syntaxTree(), moduleInfo()} | {error, string()}).
