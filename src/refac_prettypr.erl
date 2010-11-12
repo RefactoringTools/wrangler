@@ -944,37 +944,13 @@ lay_2(Node, Ctxt) ->
 	    %% I leave this as it is. (HL).
 	    vertical_sep(text(""), Es);
 	generator -> %% done;
-	    Ctxt1 = reset_prec(Ctxt),
-	    D1 = lay(refac_syntax:generator_pattern(Node), Ctxt1),
-	    D2 = lay(refac_syntax:generator_body(Node), Ctxt1),
-	    D1EndLn = get_end_line(refac_syntax:generator_pattern(Node)),
-	    D2StartLn = get_start_line(refac_syntax:generator_body(Node)),
-	    case (D1EndLn == 0) or (D2StartLn == 0) of
-		true ->
-		    par([D1, beside(text("<- "), D2)], Ctxt1#ctxt.break_indent);
-		_ ->
-		    case D2StartLn - D1EndLn of
-			0 -> beside(D1, beside(text(" <- "), D2));
-			1 -> above(D1, nest(Ctxt#ctxt.break_indent, beside(text("<- "), D2)));
-			_ -> par([D1, beside(text("<- "), D2)], Ctxt1#ctxt.sub_indent)
-		    end
-	    end;
+	    Pat = refac_syntax:generator_pattern(Node),
+	    Body = refac_syntax:generator_body(Node),
+	    lay_generator(Ctxt, Pat, Body);
 	binary_generator ->
-	    Ctxt1 = reset_prec(Ctxt),
-	    D1 = lay(erl_syntax:binary_generator_pattern(Node), Ctxt1),
-	    D2 = lay(erl_syntax:binary_generator_body(Node), Ctxt1),
-	    D1EndLn = get_end_line(refac_syntax:generator_pattern(Node)),
-	    D2StartLn = get_start_line(refac_syntax:generator_body(Node)),
-	    case (D1EndLn == 0) or (D2StartLn == 0) of
-		true ->
-		    par([D1, beside(text("<- "), D2)], Ctxt1#ctxt.break_indent);
-		_ ->
-		    case D2StartLn - D1EndLn of
-			0 -> beside(D1, beside(text(" <- "), D2));
-			1 -> above(D1, nest(Ctxt#ctxt.break_indent, beside(text("<- "), D2)));
-			_ -> par([D1, beside(text("<- "), D2)], Ctxt1#ctxt.sub_indent)
-		    end
-	    end;
+	    Pat = refac_syntax:binary_generator_pattern(Node),
+	    Body = efac_syntax:binary_generator_body(Node),
+	    lay_generator(Ctxt, Pat, Body);
 	implicit_fun -> %%done;
 	    D = lay(refac_syntax:implicit_fun_name(Node), reset_prec(Ctxt)),
 	    beside(floating(text("fun ")), D);
@@ -1174,6 +1150,23 @@ lay_2(Node, Ctxt) ->
 	    beside(text("%% WARNING: "), lay_error_info(E, reset_prec(Ctxt)));
 	type -> empty();  %% tempory fix!!
 	typed_record_field -> empty() %% tempory fix!!!
+    end.
+
+lay_generator(Ctxt, Pat, Body) ->
+    Ctxt1 = reset_prec(Ctxt),
+    D1 = lay(Pat,Ctxt1),
+    D2 = lay(Body,Ctxt1),
+    D1EndLn = get_end_line(Pat),
+    D2StartLn = get_start_line(Body),
+    case (D1EndLn==0) or (D2StartLn==0) of
+	true ->
+	    par([D1,beside(text("<- "),D2)],Ctxt1#ctxt.break_indent);
+	_ ->
+	    case D2StartLn-D1EndLn of
+		0 -> beside(D1,beside(text(" <- "),D2));
+		1 -> above(D1,nest(Ctxt#ctxt.break_indent,beside(text("<- "),D2)));
+		_ -> par([D1,beside(text("<- "),D2)],Ctxt1#ctxt.sub_indent)
+	    end
     end.
 
 lay_parentheses(D,_Ctxt) ->
