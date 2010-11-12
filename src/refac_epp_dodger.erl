@@ -448,27 +448,14 @@ rewrite_list([]) ->
 %% functions, we cannot assume that we know the exact representation of
 %% the syntax tree anymore - we must use refac_syntax functions to analyze
 %% and decompose the data.
-
 rewrite(Node) ->
     case refac_syntax:type(Node) of
 	atom ->
 	    case atom_to_list(refac_syntax:atom_value(Node)) of
 		?atom_prefix ++As ->
-		    {L,_} = refac_syntax:get_pos(Node),
-		    {_Ln, A1} =lists:splitwith(fun(A) -> A=/= 95 end, As), %% This can be removed;
-		    {Col, A2} = lists:splitwith(fun(A) -> A=/=95 end, tl(A1)),
-		    A = list_to_atom(tl(A2)),	
-		    N = refac_syntax:set_pos(refac_syntax:atom(A),{L,list_to_integer(Col)-1}),
-		    refac_syntax:set_pos(refac_syntax:macro(N),{L, list_to_integer(Col)-1});
-		   %% refac_syntax:copy_pos(Node, refac_syntax:macro(N));
+		    rewrite_macro(Node, As, ?atom_prefix);
 		?var_prefix ++As ->
-		    {L,_} = refac_syntax:get_pos(Node),
-		    {_Ln, A1} =lists:splitwith(fun(A) -> A=/= 95 end, As), %% This can be removed;
-		    {Col, A2} = lists:splitwith(fun(A) -> A=/=95 end, tl(A1)),
-		    A = list_to_atom(tl(A2)),		    
-		    N = refac_syntax:set_pos(refac_syntax:variable(A), {L,list_to_integer(Col)-1}),
-		    refac_syntax:set_pos(refac_syntax:macro(N),{L, list_to_integer(Col)-1});
-		   %%  refac_syntax:copy_pos(Node, refac_syntax:macro(N));
+		    rewrite_macro(Node, As, ?var_prefix);
 		_ ->
 		    Node
 	    end;
@@ -478,7 +465,7 @@ rewrite(Node) ->
 		atom ->
 		    case refac_syntax:atom_value(F) of
 			?macro_call ->
-			    [A | As] = refac_syntax:application_arguments(Node),
+			    [A| As] = refac_syntax:application_arguments(Node),
 			    M = refac_syntax:macro(A, rewrite_list(As)),
 			    refac_syntax:copy_pos(Node, M);
 			_ ->
@@ -490,6 +477,19 @@ rewrite(Node) ->
 	_ ->
 	    rewrite_1(Node)
     end.
+
+make_macro_name(Name, ?atom_prefix) ->
+    refac_syntax:atom(Name);
+make_macro_name(Name, ?var_prefix) ->
+    refac_syntax:variable(Name).
+
+rewrite_macro(Node, As, Prefix) ->
+    {L,_} = refac_syntax:get_pos(Node),
+    {_Ln,A1} = lists:splitwith(fun (A) -> A=/=95 end,As), %% This can be removed;
+    {Col,A2} = lists:splitwith(fun (A) -> A=/=95 end,tl(A1)),
+    A = list_to_atom(tl(A2)),
+    N = refac_syntax:set_pos(make_macro_name(A,Prefix),{L,list_to_integer(Col)-1}),
+    refac_syntax:set_pos(refac_syntax:macro(N),{L,list_to_integer(Col)-1}).
 
 rewrite_1(Node) ->
     case refac_syntax:subtrees(Node) of
