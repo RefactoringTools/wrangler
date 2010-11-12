@@ -552,11 +552,7 @@ do_add_range(Node, Toks) ->
 	eof_marker -> refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node);
 	nil -> refac_syntax:add_ann({range, {{L, C}, {L, C + 1}}}, Node);
 	module_qualifier ->
-	    M = refac_syntax:module_qualifier_argument(Node),
-	    F = refac_syntax:module_qualifier_body(Node),
-	    {S1, _E1} = get_range(M),
-	    {_S2, E2} = get_range(F),
-	    refac_syntax:add_ann({range, {S1, E2}}, Node);
+	    calc_and_add_range_to_node(Node, module_qualifier_argument, module_qualifier_body);
 	list ->  %% temporay fix!
 	    try
 		Es = refac_syntax:list_elements(Node),
@@ -619,18 +615,9 @@ do_add_range(Node, Toks) ->
 	    add_range_to_list_node(Node, Toks, Cs, "refac_util:do_add_range, cond_expr",
 				   "refac_util:do_add_range, cond_expr", 'cond', 'end');
 	infix_expr ->
-	    Left = refac_syntax:infix_expr_left(Node),
-	    Right = refac_syntax:infix_expr_right(Node),
-	    {S1, _E1} = get_range(Left),
-	    {_S2, E2} = get_range(Right),
-	    refac_syntax:add_ann({range, {S1, E2}}, Node);
+	    calc_and_add_range_to_node(Node, infix_expr_left, infix_expr_right);
 	prefix_expr ->
-	    Op = refac_syntax:prefix_expr_operator(Node),
-	    Ar = refac_syntax:prefix_expr_argument(Node),
-	    {S1, _E1} = get_range(Op),
-	    {_S2, E2} = get_range(Ar),
-	    %% E21 = extend_backwards(Toks, E2, ')'),  %% the parser should keey the parathesis!
-	    refac_syntax:add_ann({range, {S1, E2}}, Node);
+	    calc_and_add_range_to_node(Node, prefix_expr_operator, prefix_expr_argument);
 	conjunction ->
 	    B = refac_syntax:conjunction_body(Node),
 	    add_range_to_body(Node, B, "refac_util:do_add_range,conjunction",
@@ -655,11 +642,7 @@ do_add_range(Node, Toks) ->
 				   'end'),   %% S starts from 'fun', so there is no need to extend forwards/
 	    refac_syntax:add_ann({range, {S, E11}}, Node);
 	arity_qualifier ->
-	    B = refac_syntax:arity_qualifier_body(Node),
-	    A = refac_syntax:arity_qualifier_argument(Node),
-	    {S1, _E1} = get_range(B),
-	    {_S2, E2} = get_range(A),
-	    refac_syntax:add_ann({range, {S1, E2}}, Node);
+	    calc_and_add_range_to_node(Node, arity_qualifier_body, arity_qualifier_argument);
 	implicit_fun ->
 	    S = refac_syntax:get_pos(Node),
 	    N = refac_syntax:implicit_fun_name(Node),
@@ -684,17 +667,9 @@ do_add_range(Node, Toks) ->
 		     end
 	    end;
 	generator ->
-	    P = refac_syntax:generator_pattern(Node),
-	    B = refac_syntax:generator_body(Node),
-	    {S1, _E1} = get_range(P),
-	    {_S2, E2} = get_range(B),
-	    refac_syntax:add_ann({range, {S1, E2}}, Node);
+	    calc_and_add_range_to_node(Node, generator_pattern, generator_body);
 	binary_generator ->
-	    P = refac_syntax:binary_generator_pattern(Node),
-	    B = refac_syntax:binary_generator_body(Node),
-	    {S1, _E1} = get_range(P),
-	    {_S2, E2} = get_range(B),
-	    refac_syntax:add_ann({range, {S1, E2}}, Node);
+	    calc_and_add_range_to_node(Node, binary_generator_pattern, binary_generator_body);
 	tuple ->
 	    Es = refac_syntax:tuple_elements(Node),
 	    case length(Es) of
@@ -789,11 +764,7 @@ do_add_range(Node, Toks) ->
 		    refac_syntax:add_ann({range, {S1, E1}}, Node)
 	    end;
 	match_expr ->
-	    P = refac_syntax:match_expr_pattern(Node),
-	    B = refac_syntax:match_expr_body(Node),
-	    {S1, _E1} = get_range(P),
-	    {_S2, E2} = get_range(B),
-	    refac_syntax:add_ann({range, {S1, E2}}, Node);
+	    calc_and_add_range_to_node(Node, match_expr_pattern, match_expr_body);
 	form_list ->
 	    Es = refac_syntax:form_list_elements(Node),
 	    
@@ -806,11 +777,7 @@ do_add_range(Node, Toks) ->
 	    E1 = extend_backwards(Toks, E, ')'),
 	    refac_syntax:add_ann({range, {S1, E1}}, Node);
 	class_qualifier ->
-	    A = refac_syntax:class_qualifier_argument(Node),
-	    B = refac_syntax:class_qualifier_body(Node),
-	    {S1, _E1} = get_range(A),
-	    {_S2, E2} = get_range(B),
-	    refac_syntax:add_ann({range, {S1, E2}}, Node);
+	    calc_and_add_range_to_node(Node, class_qualifier_argument, class_qualifier_body);
 	qualified_name ->
 	    Es = refac_syntax:qualified_name_segments(Node),
 	    
@@ -851,17 +818,9 @@ do_add_range(Node, Toks) ->
 		    refac_syntax:add_ann({range, {S1, E21}}, Node)
 	    end;
 	record_access ->
-	    Arg = refac_syntax:record_access_argument(Node),
-	    Field = refac_syntax:record_access_field(Node),
-	    {S1, _E1} = get_range(Arg),
-	    {_S2, E2} = get_range(Field),
-	    refac_syntax:add_ann({range, {S1, E2}}, Node);
+	    calc_and_add_range_to_node(Node, record_access_argument, record_access_field);
 	record_index_expr ->
-	    Type = refac_syntax:record_index_expr_type(Node),
-	    Field = refac_syntax:record_index_expr_field(Node),
-	    {S1, _E1} = get_range(Type),
-	    {_S2, E2} = get_range(Field),
-	    refac_syntax:add_ann({range, {S1, E2}}, Node);
+	    calc_and_add_range_to_node(Node, record_index_expr_type, record_index_expr_field);
 	comment ->
 	    T = refac_syntax:comment_text(Node),
 	    Lines = length(T),
@@ -886,11 +845,7 @@ do_add_range(Node, Toks) ->
 		    end
 	    end;
 	size_qualifier ->
-	    Body = refac_syntax:size_qualifier_body(Node),
-	    Arg = refac_syntax:size_qualifier_argument(Node),
-	    {S1, _E1} = get_range(Body),
-	    {_S2, E2} = get_range(Arg),
-	    refac_syntax:add_ann({range, {S1, E2}}, Node);
+	    calc_and_add_range_to_node(Node, size_qualifier_body, size_qualifier_argument);
 	error_marker ->
 	    refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node);
 	type ->   %% This is not correct, and need to be fixed!!
@@ -901,6 +856,12 @@ do_add_range(Node, Toks) ->
 	    Node
     end.
 
+calc_and_add_range_to_node(Node, Fun1, Fun2) ->
+    Arg = refac_syntax:Fun1(Node),
+    Field = refac_syntax:Fun2(Node),
+    {S1,_E1} = get_range(Arg),
+    {_S2,E2} = get_range(Field),
+    refac_syntax:add_ann({range,{S1,E2}},Node).
 
 get_range(Node) ->
      As = refac_syntax:get_ann(Node),
