@@ -114,7 +114,6 @@
 
 (defun log-search-result(curfilename logmsg)
   (let ((dir (is-a-monitored-file curfilename)))
-    (message-box "Dir: %s" dir)
     (if (equal nil dir)
 	nil
       (cond 
@@ -159,10 +158,10 @@
 	 (['rex ['error rsn]]
 	  (message "Commit failed: error, %s" rsn))
 	 (['rex ['ok files logmsg]]
-	 ;; (condition-case nil
+	  (condition-case nil
 	      (update-repository files logmsg)
-	   ;; (error (message-box "The refactor monitor of Wrangler is not working properly!"))
-	   ;; )
+	    (error (message-box "The refactor monitor of Wrangler is not working properly!"))
+	    )
 	  (delete-swp-file-and-buffers files)
 	  (setq refactoring-committed t)
 	  (dolist (uf unopened-files)
@@ -440,7 +439,7 @@
 
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 0.9.1"))
+  (message "Wrangler version 0.9.1")) 
 
 (setq wrangler-version  "(wrangler-0.9.1) ")
 
@@ -630,8 +629,8 @@
 		    (with-current-buffer (get-file-buffer-1 current-file-name)
 		      (goto-line line-no)
 		      (goto-column column-no))))
-	       )))
-      (message "Refactoring aborted.")))))
+	       ))))
+      (message "Refactoring aborted."))))
 
 (defun erl-refactor-rename-fun (name)
   "Rename an identified function name."
@@ -661,21 +660,25 @@
 			     (['rex ['error rsn]]
 			      (message "Refactoring failed: %s" rsn))
 			     (['rex ['ok modified warning]]
-			      (progn
-				(setq has-warning warning)
-				(preview-commit-cancel current-file-name modified nil)
-				(with-current-buffer (get-file-buffer-1 current-file-name)
+			      (if (equal modified nil)
+				  (message "Refactoring finished, and no file has been changed.")
+				(progn
+				  (setq has-warning warning)
+				  (preview-commit-cancel current-file-name modified nil)
+				  (with-current-buffer (get-file-buffer-1 current-file-name)
 				  (goto-line line-no)
-				  (goto-column column-no)))))))
+				  (goto-column column-no))))))))
 		    (message "Refactoring aborted.")
 		    )))
 	       (['rex ['ok modified warning]]
-		(progn
-		  (setq has-warning warning)
-		  (preview-commit-cancel current-file-name modified nil)
-		  (with-current-buffer (get-file-buffer current-file-name)
-		    (goto-line line-no)
-		    (goto-column column-no))))
+		(if (equal modified nil)
+		    (message "Refactoring finished, and no file has been changed.")
+		  (progn
+		    (setq has-warning warning)
+		    (preview-commit-cancel current-file-name modified nil)
+		    (with-current-buffer (get-file-buffer current-file-name)
+		      (goto-line line-no)
+		      (goto-column column-no)))))
 	       )))
       (message "Refactoring aborted."))))
   	 
@@ -3037,9 +3040,9 @@
       nil
     (let ((dir (is-a-monitored-file (elt (car files) 0))))
       (if (equal nil dir)
-	  (message-box "Reminder: the file under refactoring is not  being monitored by Wrangler's refactoring monitor.")
+	  nil
 	(let ((extended-logmsg (concat "Time:" (current-time-string) 
-				     ", User:" (user-login-name) ", " logmsg)))
+				       ", User:" (user-login-name) ", " logmsg)))
 	  (cond  
 	   ((equal version-control-system 'ClearCase)
 	    (add-logmsg-to-logfile-clearcase extended-logmsg))
