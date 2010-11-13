@@ -57,7 +57,7 @@
 -define(DEFAULT_TOKS, 40).
 -define(DEFAULT_FREQ, 2).
 -define(DEFAULT_SIMI_SCORE, 0.8).
--define(DEFAULT_NEW_VARS, 3).
+-define(DEFAULT_NEW_VARS, 4).
 -define(MIN_TOKS, 10).
 
 %% record to store the threshold values.
