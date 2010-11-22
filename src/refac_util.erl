@@ -530,6 +530,7 @@ is_expr(Node) ->
 		expression -> true;
 		{_, _, expression} -> true;
 		guard_expression -> true;
+		application_op -> true;
 		_ -> false
 	    end;
 	_ -> false
