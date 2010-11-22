@@ -79,7 +79,7 @@ fold_expression(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fold_expression(" ++ "\"" ++ 
 	    FileName ++ "\", " ++ integer_to_list(Line) ++ 
 	      ", " ++ integer_to_list(Col) ++ ", " ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "],"
-													       ++ integer_to_list(TabWidth) ++ ").",
+	++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case pos_to_fun_clause(AnnAST, {Line, Col}) of
 	{ok, {Mod, FunName, _Arity, FunClauseDef, _ClauseIndex}} ->
@@ -324,9 +324,8 @@ do_search_candidate_exprs(AnnAST, ExpList) ->
 search_for_single_not_match_expr(AnnAST, Exp) ->
     OpRanges = collect_op_ranges(AnnAST),
     Fun = fun (T, S) ->
-		  As = refac_syntax:get_ann(T),
-		  case lists:keysearch(category, 1, As) of
-		      {value, {category, expression}} ->
+		  case refac_util:is_expr(T) of
+		      true->
 			  case T =/= Exp of
 			      true ->
 				  R = get_start_end_locations(T),
@@ -335,13 +334,14 @@ search_for_single_not_match_expr(AnnAST, Exp) ->
 					  case unification:expr_unification(Exp, T) of
 					      {true, Subst} ->
 						  S ++ [{get_start_end_locations(T), T, Subst, none}];
-					      _ -> S
+					      _ ->
+						  S
 					  end;
 				      _ -> S
 				  end;
 			      _ -> S
 			  end;
-		      _ -> S
+		      false -> S
 		  end
 	  end,
     ast_traverse_api:fold(Fun, [], AnnAST).
