@@ -28,6 +28,9 @@
 %%
 %% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
 %% 
+
+%% THIS FILE WILL BE REMOVED!!!
+
 -module(refac_sim_code).
 
 -export([sim_code_detection/6, sim_code_detection_in_buffer/6]).
@@ -44,20 +47,20 @@
 -define(DEFAULT_SIMI_SCORE, 0.8).
 
 
-%%-spec(sim_code_detection_in_buffer/6::(FileName::filename(), MinLen::string(), MinFreq::string(), MinScore::string(), 
-%%				       SearchPaths::[dir()], TabWidth::integer()) ->  {ok, string()}).
+-spec(sim_code_detection_in_buffer/6::(FileName::filename(), MinLen::string(), MinFreq::string(), MinScore::string(), 
+				       SearchPaths::[dir()], TabWidth::integer()) ->  {ok, string()}).
 sim_code_detection_in_buffer(FileName, MinLen, MinFreq, SimiScore, SearchPaths, TabWidth) ->
     sim_code_detection([FileName],MinLen, MinFreq, SimiScore, SearchPaths, TabWidth).
 
-%%-spec(sim_code_detection/6::(DirFileList::[filename()|dir()], MinLen::string(), MinFreq::string(), MinScore::string(),
-%%			     SearchPaths::[dir()], TabWidth::integer()) -> {ok, string()}). 			     
+-spec(sim_code_detection/6::(DirFileList::[filename()|dir()], MinLen::string(), MinFreq::string(), MinScore::string(),
+			     SearchPaths::[dir()], TabWidth::integer()) -> {ok, string()}).
+
 sim_code_detection(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:sim_code_detection(~p,~p,~p,~p,~p,~p).\n",
 		 [?MODULE, DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabWidth]),
     {MinLen, MinFreq, SimiScore} = get_parameters(MinLen1, MinFreq1, SimiScore1),
     Cmd = io_lib:format("\nCMD: ~p:inc_sim_code_detection(~p,~p,~p,~p,~p,~p).",
 			[?MODULE,DirFileList,MinLen,MinFreq,SimiScore,SearchPaths,TabWidth]),
-    Pid = start_hash_process(),
     ASTTab = ets:new(ast_tab, [set, public]),
     VarTab = ets:new(var_tab, [set, public]),
     RangeTab = ets:new(range_tab, [set, public]),
@@ -68,13 +71,7 @@ sim_code_detection(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabW
 		  _ ->
 		      _Time1 = now(),
 		      ?wrangler_io("Searching for initial clone candidates...\n", []),
-		      %% ?debug("current time:~p\n", [time()]),
-		      generalise_and_hash_ast(Files, Pid, SearchPaths, TabWidth, ASTTab, VarTab),
-		      %%?debug("\ngeneralise and hash ast done.\n",[]),
-		      Dir = filename:dirname(hd(Files)),
-		      Cs = get_clones(Pid, MinLen, MinFreq, Dir, RangeTab),
-		      stop_hash_process(Pid),
-		      %% ?debug("\nInitial candiates finished\n",[]),
+		      Cs = get_initial_clone_candidates(Files, MinLen, MinFreq, ASTTab, VarTab, RangeTab, SearchPaths,TabWidth),
 		      ?wrangler_io("\nNumber of initial clone candidates: ~p\n", [length(Cs)]),
 		      CloneCheckPid = start_clone_check_process(),
 		      Cs2 = examine_clone_sets(Cs, MinFreq, SimiScore, ASTTab, VarTab, RangeTab, CloneCheckPid, 1),
@@ -90,12 +87,12 @@ sim_code_detection(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabW
     LogMsg = Cmd ++ " \nNum of clones detected: "++ integer_to_list(length(FinalCs)) ++ ".\n",
     {ok, lists:flatten(LogMsg++CloneReport)}.
 
-%%-spec(sim_code_detection_eclipse/6::(DirFileList::dir(), MinLen::integer(), MinFreq::integer(),
-%%				     SimScore::float(),  SearchPaths::[dir()], TabWidth::integer()) ->
-%% 	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer(), string()}]).
+-spec(sim_code_detection_eclipse/6::(DirFileList::dir(), MinLen::integer(), MinFreq::integer(),
+				     SimScore::float(),  SearchPaths::[dir()], TabWidth::integer()) ->
+ 	     [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}], integer(), integer(), string()}]).
+
 sim_code_detection_eclipse(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabWidth) ->
     {MinLen, MinFreq, SimiScore} = get_parameters_eclipse(MinLen1, MinFreq1, SimiScore1),
-    Pid = start_hash_process(),
     ASTTab = ets:new(ast_tab, [set, public]),
     VarTab = ets:new(var_tab, [set, public]),
     RangeTab = ets:new(range_tab, [set, public]),
@@ -103,10 +100,7 @@ sim_code_detection_eclipse(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPat
     case Files of
 	[] -> [];
 	_ ->
-	    generalise_and_hash_ast(Files, Pid, SearchPaths, TabWidth, ASTTab, VarTab),
-	    Dir = filename:dirname(hd(Files)),
-	    Cs = get_clones(Pid, MinLen, MinFreq, Dir, RangeTab),
-	    stop_hash_process(Pid),
+	    Cs = get_initial_clone_candidates(Files, MinLen, MinFreq, ASTTab, VarTab, RangeTab, SearchPaths,TabWidth),
 	    CloneCheckPid = start_clone_check_process(),
 	    Cs2 = examine_clone_sets(Cs, MinFreq, SimiScore, ASTTab, VarTab, RangeTab, CloneCheckPid, 1),
 	    stop_clone_check_process(CloneCheckPid),
@@ -116,8 +110,8 @@ sim_code_detection_eclipse(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPat
 	    remove_fun_info(Cs2)
     end.
 
-%%-spec(get_parameters/3::(string(), string(), string())->
-%%	     {integer(), integer(), integer()}).
+-spec(get_parameters/3::(string(), string(), string())->
+	     {integer(), integer(), integer()}).
 get_parameters(MinLen1, MinFreq1, SimiScore1) ->
     MinLen = get_parameters_1(MinLen1, ?DEFAULT_LEN, 1),
     MinFreq = get_parameters_1(MinFreq1, ?DEFAULT_FREQ,?DEFAULT_FREQ),
@@ -149,8 +143,8 @@ get_parameters_1(Input, DefaultVal, MinVal) ->
     
 
 
-%%-spec(get_parameters_eclipse/3::(integer(), integer(), float())->
-%%			      {integer(), integer(), float()}).
+-spec(get_parameters_eclipse/3::(integer(), integer(), float())->
+			      {integer(), integer(), float()}).
 get_parameters_eclipse(MinLen1, MinFreq1, SimiScore1) ->
     MinLen = case MinLen1 < 1 of
 		 true ->
@@ -171,6 +165,15 @@ get_parameters_eclipse(MinLen1, MinFreq1, SimiScore1) ->
 
 
 %%==================================================================
+
+get_initial_clone_candidates(Files, MinLen, MinFreq, ASTTab, VarTab, RangeTab, SearchPaths, TabWidth) ->
+    Pid = start_hash_process(),
+    generalise_and_hash_ast(Files,Pid,SearchPaths,TabWidth,ASTTab,VarTab),
+    Dir = filename:dirname(hd(Files)),
+    Cs = get_clones(Pid,MinLen,MinFreq,Dir,RangeTab),
+    stop_hash_process(Pid),
+    Cs.
+
 generalise_and_hash_ast(Files, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
     lists:foreach(fun(F) ->
 			  generalise_and_hash_ast_1(F, Pid, SearchPaths, TabWidth, ASTTab, VarTab)

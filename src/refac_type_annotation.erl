@@ -78,8 +78,6 @@ find_fun(Funs, Form) ->
     {value, {fun_def, {M, F, A, _, _}}} = lists:keysearch(fun_def, 1, Ann),
     {value, {{M, F, A}, FunDef}} = lists:keysearch({M, F, A}, 1, Funs),
     Pos1 = refac_syntax:get_pos(FunDef),   
-    %%This is to handle the case when the same function name/arity is defined multiple time,
-    %%which is illegal but accepted by Wrangler.
     case Pos==Pos1 of  
 	true ->
 	    FunDef;
@@ -103,8 +101,6 @@ do_type_ann(FileName, Form, TestFrameWorkUsed, SearchPaths, TabWidth, Pid) ->
 	    CsPatsTypes = [[get_pat_type(P, TypeInfo) || P <- CPats] || CPats <- CsPats],
 	    ZippedCsPatsTypes = zip_list(CsPatsTypes),
 	    PatTypes = [lists:usort(Ts) || Ts <- ZippedCsPatsTypes],
-	    ?debug("MFA:\n~p\n", [{M, F, A}]),
-	    ?debug("ParTypes:\n~p\n", [[hd(PT) || PT <- PatTypes]]),
 	    case lists:all(fun (T) -> length(T) == 1 end, PatTypes) andalso 
 		   lists:any(fun (T) -> T /= [any] end, PatTypes)
 		of
@@ -208,33 +204,25 @@ do_type_ann_args_1(ParTypes, MappedArgs, Args, Pid) ->
 			any ->
 			    Arg;
 			_ when is_function(ParType) ->
-			    ?debug("MappedArgS:\n~p\n", [MappedArgs]),
-			    ?debug("TMappedArgs:\n~p\n", [ParType(MappedArgs)]),
-			    add_type_info({type, ParType(MappedArgs)}, Arg, Pid);
+			      add_type_info({type, ParType(MappedArgs)}, Arg, Pid);
 			{f_atom, [M, F, Arity]} ->
-			    ?debug("T:\n~p\n", [ParType]),
-			    M1 = case is_function(M) of
-				   true -> M(MappedArgs);
-				   _ -> M
+			      M1 = case is_function(M) of
+				     true -> M(MappedArgs);
+				     _ -> M
 				 end,
-			    F1 = case is_function(F) of
-				   true ->
-				       F(MappedArgs);
-				   _ -> M
+			      F1 = case is_function(F) of
+				     true ->
+					   F(MappedArgs);
+				     _ -> M
 				 end,
-			    Arity1 = case is_function(Arity) of
-				       true ->
+			      Arity1 = case is_function(Arity) of
+					 true ->
 					   Arity(MappedArgs);
-				       _ -> Arity
+					 _ -> Arity
 				     end,
-			    ?debug("M1:\n~p\n", [M1]),
-			    ?debug("F1:\n~p\n", [F1]),
-			    ?debug("Arity1:\n~p\n", [Arity1]),
-			    add_type_info({type, {f_atom, [M1, F1, Arity1]}}, Arg, Pid);
-			_ ->
-			    ?debug("T:\n~p\n", [ParType]),
-			    ?debug("A:\n~p\n", [Arg]),
-			    add_type_info({type, ParType}, Arg, Pid)
+			      add_type_info({type, {f_atom, [M1, F1, Arity1]}}, Arg, Pid);
+			  _ ->
+			      add_type_info({type, ParType}, Arg, Pid)
 		      end
 	      end, ZippedParTypeArgs).
 

@@ -437,11 +437,13 @@ do_replace_expr_with_fun_call_2(Tree, {MApp, ExpList}) ->
 	    Cs = refac_syntax:try_expr_clauses(Tree),
 	    Handlers = refac_syntax:try_expr_handlers(Tree),
 	    After = refac_syntax:try_expr_after(Tree),
-	    Tree1 = refac_util:rewrite(Tree, refac_syntax:try_expr(NewBody, Cs, Handlers, After)),
+	    Tree1 = refac_util:rewrite(Tree, refac_syntax:try_expr(
+					       NewBody, Cs, Handlers, After)),
 	    {Tree1, Modified};
 	_ -> {Tree, false}
     end.
    
+
 
 envs_bounds_frees(Node) ->
     As = refac_syntax:get_ann(Node),

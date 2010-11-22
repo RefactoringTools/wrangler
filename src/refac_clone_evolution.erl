@@ -32,6 +32,7 @@
 
 -export([gen_clone_report/1]).
 -export([gen_clone_report/3]).
+-export([inc_sim_code_detection_in_buffer/8]).
 
 -include("../include/wrangler.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
@@ -48,7 +49,7 @@
 -define(DEFAULT_TOKS, 40).
 -define(DEFAULT_FREQ, 2).
 -define(DEFAULT_SIMI_SCORE, 0.8).
--define(DEFAULT_NEW_VARS, 3).
+-define(DEFAULT_NEW_VARS, 4).
 -define(MIN_TOKS, 10).
 
 %% record to store the threshold values.
@@ -135,6 +136,18 @@ gen_clone_report_2(Rev, Cs)->
     refac_io:format("Report:\n~p\n", [lists:flatten(Report)]),
     lists:flatten(Report).
 
+
+inc_sim_code_detection_in_buffer(FileName, MinLen1, MinToks1, MinFreq1, MaxVars1, SimiScore1, SearchPaths, TabWidth)->
+    {MinLen,MinToks,MinFreq,MaxVars,SimiScore} = get_parameters(MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1),
+    Thresholds = #threshold{min_len = MinLen,
+			    min_freq = MinFreq,
+			    min_toks = MinToks,
+			    max_new_vars = MaxVars,
+			    simi_score = SimiScore},
+    refac_io:format("Threshold:\n~p\n",[Thresholds]),
+    inc_sim_code_detection([FileName], Thresholds, SearchPaths, TabWidth,
+			   "c:/cygwin/home/hl/test/clone_report.txt").
+  
 inc_sim_code_detection(Dir, Thresholds, SearchPaths, TabWidth, OutFile) ->
     Files = refac_util:expand_files(Dir, ".erl"),
     case Files of
@@ -1032,6 +1045,7 @@ decompose_clone_pair_by_simi_score_3(ClonePair, Thresholds)->
 decompose_clone_pair_by_new_vars(ClonePair, Thresholds)->
     MinLen = Thresholds#threshold.min_len,
     MaxNewVars = Thresholds#threshold.max_new_vars,
+    refac_io:format("MaxNewVars:\n~p\n", [MaxNewVars]),
     {{CurLen, _}, CurClonePair, ClonePairs}=
 	lists:foldl(fun({R1,R2, Subst}, {{Len, SubstAcc}, Acc1,  Acc2})->
 			    case Subst of 
@@ -1039,6 +1053,7 @@ decompose_clone_pair_by_new_vars(ClonePair, Thresholds)->
 				    {{Len+1, SubstAcc}, [{R1,R2,Subst}|Acc1], Acc2};
 				_ -> 
 				    NewVars=num_of_new_vars(Subst++SubstAcc),
+				    refac_io:format("NewVars:\n~p\n", [NewVars]),
 				    case NewVars> MaxNewVars of 
 					true ->
 					    {NewAcc1, NewSubst} = get_sub_clone_pair(lists:reverse([{R1,R2,Subst}|Acc1]), MaxNewVars),
@@ -1207,7 +1222,9 @@ group_clone_pairs(ClonePairs, Thresholds, Acc) ->
 group_clone_pairs([], _, _, Acc, LeftPairs) ->
     {lists:reverse(Acc), lists:reverse(LeftPairs)};
 group_clone_pairs([CP={C={_R, _EVs, Subst}, NumOfNewVars}|T], Thresholds, ExprsToBeGenAcc, Acc, LeftPairs) ->
+    refac_io:format("NumOfNewVars:\n~p\n", [NumOfNewVars]),
     MaxNewVars = Thresholds#threshold.max_new_vars,
+    refac_io:format("MaxNewVars:\n~p\n", [MaxNewVars]),
     ExprsToBeGen=exprs_to_be_generalised(Subst),
     NewExprsToBeGenAcc =sets:union(ExprsToBeGen, ExprsToBeGenAcc),
     case sets:size(NewExprsToBeGenAcc)=<MaxNewVars of
@@ -1731,6 +1748,38 @@ write_file(File, Data) ->
 	_->
 	    file:write_file(File, Data)
     end.
+
+
+get_parameters(MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1) ->
+    MinLen = get_parameters_1(MinLen1,?DEFAULT_LEN,1), 
+    MinToks = get_parameters_1(MinToks1,?DEFAULT_TOKS, ?MIN_TOKS), 
+    MinFreq = get_parameters_1(MinFreq1,?DEFAULT_FREQ,?DEFAULT_FREQ), 
+    MaxVars = get_parameters_1(MaxVars1,?DEFAULT_NEW_VARS,0), 
+    SimiScore = try
+		  case SimiScore1 of
+		    [] -> ?DefaultSimiScore;
+		    _ -> S = list_to_float(SimiScore1), 
+			 case S>=0.1 andalso S=<1.0 of
+			   true -> S;
+			   _ -> ?DefaultSimiScore
+			 end
+		  end
+		catch
+		    _:_ -> throw({error,"Parameter input is invalid."})
+		end, 
+    {MinLen,MinToks,MinFreq,MaxVars,SimiScore}.
+
+get_parameters_1(Input, DefaultVal, MinVal) ->
+    try
+      case Input == [] orelse list_to_integer(Input) < MinVal of
+	true -> DefaultVal;
+	_ -> list_to_integer(Input)
+      end
+    catch
+	_:_ -> throw({error, "Parameter input is invalid."})
+    end.
+
+
 
 %%refac_clone_evolution:gen_clone_report("c:/cygwin/home/hl/wrangler_code").
 

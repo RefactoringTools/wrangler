@@ -32,14 +32,14 @@
 -module(refac_module_graph). 
 
 -export([module_graph/1, get_called_mods/2, module_graph_to_dot/3, module_graph_to_dot/4,
-	 module_subgraph_to_dot/4, scc_graph_to_dot/3, module_graph_with_funs/1,
+	 module_subgraph_to_dot/4, module_graph_with_funs/1,
 	 module_callergraph_to_dot/4]). 
 
 -export([add_edges/3]).
 
 -include("../include/wrangler.hrl").
 
-%%-spec(module_graph/1::([dir()]) -> [{filename(), [filename()]}]).
+-spec(module_graph/1::([dir()]) -> [{filename(), [filename()]}]).
 module_graph(SearchPaths) ->
     ModCallerCallee = create_caller_callee_graph(SearchPaths),
     reverse_module_graph(ModCallerCallee).
@@ -99,8 +99,8 @@ get_called_mods(File, SearchPaths) ->
     AllCalledMods = ImportedMods0 ++ ImportedMods1 ++ CalledMods ++ PossibleCalledMods,
     lists:usort([M || M <- AllCalledMods, lists:member(M, ModNames)]).
 
-%%-spec(do_collect_called_mods(AnnAST::syntaxTree(), ModNames::[atom()])
-%%      ->{[modulename()], [modulename()]}).
+-spec(do_collect_called_mods(AnnAST::syntaxTree(), ModNames::[atom()])
+      ->{[modulename()], [modulename()]}).
 do_collect_called_mods(AnnAST, ModNames) ->
     Fun1 = fun (T, Acc) ->
 		   case refac_syntax:type(T) of
@@ -184,8 +184,8 @@ analyze_mod_with_called_funs({Mod, Dir}, ModNames, SearchPaths) ->
     ordsets:from_list(group_by_mod_names(Res)).
    
 
-%%-spec(collect_called_modules_with_called_funs(ModName::modulename(),AnnAST::syntaxTree(), ModNames::[atom()])
-%%      ->[{modulename(), {functionname(), functionarity()}}]).
+-spec(collect_called_modules_with_called_funs(ModName::modulename(),AnnAST::syntaxTree(), ModNames::[atom()])
+      ->[{modulename(), {functionname(), functionarity()}}]).
 
 collect_called_modules_with_called_funs(ModName, AnnAST, ModNames) ->
     CalledFuns= lists:append([wrangler_callgraph_server:called_funs(F)
@@ -197,7 +197,7 @@ group_by_mod_names(ModFuns) ->
     [{hd(Ms), lists:append(Fs)} || MFs <- ModFuns1, {Ms, Fs} <- [lists:unzip(MFs)]].
    
   
-%%-spec (module_subgraph_to_dot/4::(filename(), [modulename()],[filename()|dir()], boolean()) ->true).
+-spec (module_subgraph_to_dot/4::(filename(), [modulename()],[filename()|dir()], boolean()) ->true).
 module_subgraph_to_dot(OutFile, ModNames, SearchPaths, WithLabel) ->
     DotFile = filename:dirname(OutFile)++filename:rootname(OutFile)++".dot",
     ModCallerCallees = create_caller_callee_graph_with_called_funs(SearchPaths),
@@ -209,7 +209,7 @@ module_subgraph_to_dot(OutFile, ModNames, SearchPaths, WithLabel) ->
     digraph:delete(MG).
 
 
-%%-spec (module_callergraph_to_dot/4::(filename(), [modulename()],[filename()|dir()], boolean()) ->true).
+-spec (module_callergraph_to_dot/4::(filename(), [modulename()],[filename()|dir()], boolean()) ->true).
 module_callergraph_to_dot(OutFile, ModNames, SearchPaths, WithLabel) ->
     DotFile = filename:rootname(OutFile)++".dot",
     ModCallerCallees = create_caller_callee_graph_with_called_funs(SearchPaths),
@@ -223,7 +223,7 @@ module_callergraph_to_dot(OutFile, ModNames, SearchPaths, WithLabel) ->
     digraph:delete(MG).
 
 
-%%-spec (module_graph_to_dot/4::(filename(), [modulename()], [filename()|dir()], boolean()) ->true). 			  
+-spec (module_graph_to_dot/4::(filename(), [modulename()], [filename()|dir()], boolean()) ->true). 			  
 module_graph_to_dot(OutFile, NotCareMods, SearchPaths, WithLabel) -> 
     DotFile = filename:rootname(OutFile)++".dot",
     ModCallerCallees = create_caller_callee_graph_with_called_funs(SearchPaths),
@@ -240,19 +240,6 @@ module_graph_to_dot(DotFile, ModGraph, WithLabel) ->
     add_edges(ModGraph, [], MG),
     to_dot(MG, DotFile, WithLabel, [], false),
     digraph:delete(MG).
-
-
-%%-spec (scc_graph_to_dot/3::(filename(), [filename()|dir()], boolean()) ->true). 			  
-scc_graph_to_dot(OutFile, SearchPaths, WithLabel) -> 
-    DotFile = filename:rootname(OutFile)++".dot",
-    ModCallerCallees = create_caller_callee_graph_with_called_funs(SearchPaths),
-    MG = digraph:new(),
-    add_edges(ModCallerCallees,[],  MG),
-    Sccs = digraph_utils:cyclic_strong_components(MG),
-    Sccs1 = [Scc||Scc<-Sccs, length(Scc)>1],
-    to_dot(MG,DotFile, WithLabel, Sccs1, true),
-    digraph:delete(MG).
-
 
 add_edges([], _NotCareMods, MG) ->
     MG;

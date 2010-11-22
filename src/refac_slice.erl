@@ -50,8 +50,8 @@
 %% @spec forward_slice(Files:[filename()], AnnAST:syntaxTree(), ModName::atom(), FunDef::syntaxTree(), Expr::syntaxTree()) -> [syntaxTree()].
 %% @doc Forward slice the program with expression Expr, which in contained in function FunDef, as the slicing criterion.                     
  
-%%-spec(forward_slice/5::([filename()], syntaxTree(), atom(), syntaxTree(), syntaxTree())->
-%%	     [syntaxTree()]).
+-spec(forward_slice/5::([filename()], syntaxTree(), atom(), syntaxTree(), syntaxTree())->
+	     [syntaxTree()]).
 forward_slice(Files, AnnAST, ModName, FunDef, Expr)  ->
     start_slice_env_process(),
     Res = forward_slice_1(Files, AnnAST, ModName, {FunDef, Expr}),
@@ -63,9 +63,7 @@ forward_slice_1(Files, AnnAST, ModName, {FunDef, Expr}) ->
     FunName1 = refac_syntax:data(FunName),
     Arity = refac_syntax:function_arity(FunDef),
     FunClauses = refac_syntax:function_clauses(FunDef),
-    NewFunClauses = lists:map(fun (Cs) ->
-				      process_a_clause(Files, AnnAST, ModName, FunName1, Arity, Cs, Expr)
-			      end, FunClauses),
+    NewFunClauses = [process_a_clause(Files, AnnAST, ModName, FunName1, Arity, C, Expr)||C<-FunClauses],
     NewFunDef = refac_syntax:copy_attrs(FunDef, refac_syntax:function(FunName, NewFunClauses)),
     sliced_funs ! {add, {{ModName, FunName1, Arity, refac_util:get_start_end_loc(Expr)}, NewFunDef}},
     case returns_undefined(NewFunDef) of
@@ -220,12 +218,11 @@ reset_attrs(Node) ->
   
 intra_fun_forward_slice(Files, AnnAST, ModName, FunDef, PatIndex) ->
     FunName = refac_syntax:function_name(FunDef),
-    FunName1 = refac_syntax:data(FunName),    
     Arity = refac_syntax:function_arity(FunDef),
     Cs = refac_syntax:function_clauses(FunDef),
-    Cs1 = lists:map(fun(C) ->
-			    process_a_clause_1(Files, AnnAST, ModName, FunName1, Arity,C, PatIndex) end, Cs),
-    refac_syntax:function(FunName, Cs1).
+    FunName1 = refac_syntax:data(FunName),
+    Cs1 = [process_a_clause_1(Files, AnnAST, ModName, FunName1, Arity,C, PatIndex)||C<-Cs],
+    refac_syntax:copy_attrs(FunDef, refac_syntax:function(FunName, Cs1)).
 
 process_a_clause_1(Files, AnnAST, ModName, FunName, Arity, C, PatIndex) ->
     Patterns = refac_syntax:clause_patterns(C),

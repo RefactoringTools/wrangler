@@ -60,7 +60,8 @@ get_clones_by_suffix_tree(Dir, ProcessedToks, MinLength, MinClones, Alphabet, Al
 
 start_suffix_tree_clone_detector(SuffixTreeExec) ->
     process_flag(trap_exit, true),
-    spawn_link(?MODULE, init, [SuffixTreeExec]).
+    Pid=spawn_link(?MODULE, init, [SuffixTreeExec]),
+    Pid.
 
 
 stop_suffix_tree_clone_detector() ->
@@ -73,7 +74,6 @@ get_clones_by_erlang_suffix_tree(ProcessedToks, MinLength, MinClones, Alphabet, 
     Cs = lists:flatten([collect_clones(MinLength, MinClones, B)||B<-Tree]),
     refac_code_search_utils:remove_sub_clones(Cs).
 
-    
 call_port(Msg) ->
     (?MODULE) ! {call, self(), Msg},
     receive Result -> Result end.

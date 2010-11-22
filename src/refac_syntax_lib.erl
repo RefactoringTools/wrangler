@@ -52,7 +52,7 @@
 
 -export([annotate_bindings/2, annotate_bindings/3,
 	 var_annotate_clause/4, annotate_bindings/1]).
-
+ 
 -export([to_comment/1, to_comment/2, to_comment/3,strip_comments/1]).
 
 -export([limit/2, limit/3]).
@@ -384,24 +384,26 @@ vann_function(Tree, Env, Ms, _VI, Pid) ->
 			   end,
     {update_var_define_locations(Tree2), Bound, Free}.
     
-
+%% The following two functions are clones; but I leave them 
+%% there because refactoring makes the code harder to understand.
 vann_function_1(Tree, Env, Ms, VI, Pid) ->
     Cs = refac_syntax:function_clauses(Tree),
-    {Cs1, {_, Free}} = vann_clauses(Cs, Env, Ms, VI, Pid),
     N = refac_syntax:function_name(Tree),
+    {Cs1, {_, Free}} = vann_clauses(Cs, Env, Ms, VI, Pid),
     {N1, _, _} = vann(N, Env, Ms, VI, Pid),
     Tree1 = rewrite(Tree, refac_syntax:function(N1, Cs1)),
-    Bound = [],
+    Bound=[],
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
 vann_rule(Tree, Env, Ms, VI, Pid) ->
     Cs = refac_syntax:rule_clauses(Tree),
-    {Cs1, {_, Free}} = vann_clauses(Cs, Env, Ms, VI, Pid),
     N = refac_syntax:rule_name(Tree),
+    {Cs1, {_, Free}} = vann_clauses(Cs, Env, Ms, VI, Pid),
     {N1, _, _} = vann(N, Env, Ms, VI, Pid),
     Tree1 = rewrite(Tree, refac_syntax:rule(N1, Cs1)),
-    Bound = [],
+    Bound=[],
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+
 
 vann_fun_expr(Tree, Env, Ms, VI, Pid) ->
     Cs = refac_syntax:fun_expr_clauses(Tree),
@@ -611,15 +613,7 @@ vann_pattern(Tree, Env, Ms, VI, Pid) ->
 		    end
 	    end;
 	match_expr ->
-	    %% Alias pattern
-	    P = refac_syntax:match_expr_pattern(Tree),
-	    {P1, Bound1, Free1} = vann_pattern(P, Env, Ms, VI, Pid),
-	    E = refac_syntax:match_expr_body(Tree),
-	    {E1, Bound2, Free2} = vann_pattern(E, Env, Ms, VI, Pid),
-	    Bound = ordsets:union(Bound1, Bound2),
-	    Free = ordsets:union(Free1, Free2),
-	    Tree1 = rewrite(Tree, refac_syntax:match_expr(P1, E1)),
-	    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free};
+	    vann_alias_pattern(Tree, Env, Ms, VI, Pid);
 	macro ->
 	    %% The macro name must be ignored. The arguments are treated
 	    %% as patterns.
@@ -656,15 +650,7 @@ vann_fun_expr_pattern(Tree, Env, Ms, VI, Pid) ->
 		    {ann_bindings(Tree, Env, Bound, Free, Def), Bound, Free}
 	    end;
 	match_expr ->
-	    %% Alias pattern
-	    P = refac_syntax:match_expr_pattern(Tree),
-	    {P1, Bound1, Free1} = vann_pattern(P, Env, Ms, VI, Pid),
-	    E = refac_syntax:match_expr_body(Tree),
-	    {E1, Bound2, Free2} = vann_pattern(E, Env, Ms, VI, Pid),
-	    Bound = ordsets:union(Bound1, Bound2),
-	    Free = ordsets:union(Free1, Free2),
-	    Tree1 = rewrite(Tree, refac_syntax:match_expr(P1, E1)),
-	    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free};
+	    vann_alias_pattern(Tree, Env, Ms, VI, Pid);
 	macro ->
 	    %% The macro name must be ignored. The arguments are treated
 	    %% as patterns.
@@ -680,6 +666,17 @@ vann_fun_expr_pattern(Tree, Env, Ms, VI, Pid) ->
 	    {Tree1, {Bound, Free}} = ast_traverse_api:mapfold_subtrees(F, {[], []}, Tree),
 	    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}
     end.
+
+vann_alias_pattern(Tree, Env, Ms, VI, Pid) ->
+    P = refac_syntax:match_expr_pattern(Tree),
+    {P1,Bound1,Free1} = vann_pattern(P,Env,Ms,VI,Pid),
+    E = refac_syntax:match_expr_body(Tree),
+    {E1,Bound2,Free2} = vann_pattern(E,Env,Ms,VI,Pid),
+    Bound = ordsets:union(Bound1,Bound2),
+    Free = ordsets:union(Free1,Free2),
+    Tree1 = rewrite(Tree,refac_syntax:match_expr(P1,E1)),
+    {ann_bindings(Tree1,Env,Bound,Free),Bound,Free}.
+
 
 vann_patterns_join(Env, Ms, VI, Pid) ->
     fun (T, {Bound, Free}) ->
@@ -750,23 +747,12 @@ adjust_define_body(Body, Env) ->
 		end
 	end,
     lists:map(fun (T) -> ast_traverse_api:map(F, T) end, Body).
-	   
+
 vann_clause(C, Env, Ms, VI, Pid) ->
     init_env_process(Pid),
     {Ps, {Bound1, Free1}} =
 	vann_patterns(refac_syntax:clause_patterns(C), Env, Ms, VI, Pid),
-    Env1 = ordsets:union(Env, Bound1),
-    %% Guards cannot add bindings
-    {G1, _, Free2} = case refac_syntax:clause_guard(C) of
-		       none -> {none, [], []};
-		       G -> vann(G, Env1, Ms, VI, Pid)
-		     end,
-    {Es, {Bound2, Free3}} =
-	vann_body(refac_syntax:clause_body(C), Env1, Ms, VI, Pid),
-    Bound = ordsets:union(Bound1, Bound2),
-    Free = ordsets:union(Free1,
-			 ordsets:subtract(ordsets:union(Free2, Free3), Bound1)),
-    Tree1 = rewrite(C, refac_syntax:clause(Ps, G1, Es)),
+    {Tree1, Bound, Free} = vann_clause_1(C, Ps, Ms, VI, Pid, Bound1,Free1, Env),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
 vann_fun_expr_clause(C, Env, Ms, VI, Pid) ->
@@ -774,19 +760,24 @@ vann_fun_expr_clause(C, Env, Ms, VI, Pid) ->
 	vann_fun_expr_patterns(refac_syntax:clause_patterns(C),
 			       Env, Ms, VI, Pid),
     Env0 = [{V, P} || {V, P} <- Env, lists:keysearch(V, 1, Bound1) == false],
-    Env1 = ordsets:union(Env0, Bound1),
-    %% Guards cannot add bindings
-    {G1, _, Free2} = case refac_syntax:clause_guard(C) of
-		       none -> {none, [], []};
-		       G -> vann(G, Env1, Ms, VI, Pid)
-		     end,
-    {Es, {Bound2, Free3}} =
-	vann_body(refac_syntax:clause_body(C), Env1, Ms, VI, Pid),
-    Bound = ordsets:union(Bound1, Bound2),
-    Free = ordsets:union(Free1,
-			 ordsets:subtract(ordsets:union(Free2, Free3), Bound1)),
-    Tree1 = rewrite(C, refac_syntax:clause(Ps, G1, Es)),
+    {Tree1, Bound, Free} = vann_clause_1(C, Ps, Ms, VI, Pid, Bound1, Free1,Env0),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+
+vann_clause_1(Clause, Pats, Ms, VI, Pid, Bound, Free, Env) ->
+    Env1 = ordsets:union(Env,Bound),
+    %% Guards cannot add bindings
+    {G1,_,Free1} = case refac_syntax:clause_guard(Clause) of
+		       none -> {none,[],[]};
+		       G -> vann(G,Env1,Ms,VI,Pid)
+		   end,
+    {Es,{Bound2,Free2}} =
+	vann_body(refac_syntax:clause_body(Clause),Env1,Ms,VI,Pid),
+    Bound3 = ordsets:union(Bound,Bound2),
+    Free3 = ordsets:union(Free,
+			  ordsets:subtract(ordsets:union(Free1,Free2),Bound)),
+    NewClause = rewrite(Clause,refac_syntax:clause(Pats,G1,Es)),
+    {NewClause, Bound3, Free3}.
+
 
 vann_clauses_join(Env, Ms, VI, Pid) ->
     fun (C, {Bound, Free}) ->

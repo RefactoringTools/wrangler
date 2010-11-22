@@ -181,12 +181,9 @@ do_type_ann(FileName, {{M, F, A}, Form}, TestFrameWorkUsed, SearchPaths, TabWidt
 		  || C <- refac_syntax:function_clauses(Form)],
 	    CsPats = [refac_syntax:clause_patterns(C) || C <- refac_syntax:function_clauses(Form)],
 	    TypeInfo = get_all_type_info(Pid),
-	    ?debug("TypeInfo:\n~p\n", [TypeInfo]),
 	    CsPatsTypes = [[get_pat_type(P, TypeInfo) || P <- CPats] || CPats <- CsPats],
 	    ZippedCsPatsTypes = zip_list(CsPatsTypes),
 	    PatTypes = [lists:usort(Ts) || Ts <- ZippedCsPatsTypes],
-	    ?debug("MFA:\n~p\n", [{M, F, A}]),
-	    ?debug("ParTypes:\n~p\n", [[hd(PT) || PT <- PatTypes]]),
 	    case lists:all(fun (T) -> length(T) == 1 end, PatTypes) andalso 
 		   lists:any(fun (T) -> T /= [any] end, PatTypes)
 		of

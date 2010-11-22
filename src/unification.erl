@@ -159,10 +159,11 @@ same_type_expr_unification(Exp1, Exp2, Type) ->
 	nil -> {true, []};
 	application when Type==semantics ->
 	    Op = refac_syntax:application_operator(Exp1),
-	    Args = refac_syntax:application_arguments(Exp1),
-	    case refac_syntax:type(Op)==variable andalso Args==[] andalso 
-		   refac_util:get_free_vars(Exp2) == []
-		of
+	    Args1 = refac_syntax:application_arguments(Exp1),
+	    Args2 = refac_syntax:application_arguments(Exp2),
+	    case refac_syntax:type(Op)==variable andalso Args1==[] andalso
+		Args2/=[] andalso refac_util:get_free_vars(Exp2) == [] 
+	    of
 		true ->
 		    OpName = refac_syntax:variable_name(Op),
 		    {true, [{OpName, refac_syntax:fun_expr([refac_syntax:clause([], none, [Exp2])])}]};
@@ -194,9 +195,9 @@ non_same_type_expr_unification(Exp1, Exp2,_Type) ->
 	      false ->
 		  false;
 	      true ->
-		  Exp2Ann = refac_syntax:get_ann(Exp2),
-		  Exp1Name = refac_syntax:variable_name(Exp1),
-		  case lists:keysearch(category, 1, Exp2Ann) of
+		    Exp2Ann = refac_syntax:get_ann(Exp2),
+		    Exp1Name = refac_syntax:variable_name(Exp1),
+		    case lists:keysearch(category, 1, Exp2Ann) of
 		      {value, {category, application_op}} ->
 			  case lists:keysearch(fun_def, 1, Exp2Ann) of
 			      {value, {fun_def, {_M, _N, A, _P1, _P2}}} ->
