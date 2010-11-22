@@ -591,11 +591,7 @@ do_add_range(Node, Toks) ->
 	case_expr ->
 	    A = refac_syntax:case_expr_argument(Node),
 	    Lc = refac_util:glast("refac_util:do_add_range,case_expr", refac_syntax:case_expr_clauses(Node)),
-	    {S1, _E1} = get_range(A),
-	    {_S2, E2} = get_range(Lc),
-	    S11 = extend_forwards(Toks, S1, 'case'),
-	    E21 = extend_backwards(Toks, E2, 'end'),
-	    refac_syntax:add_ann({range, {S11, E21}}, Node);
+	    calc_and_add_range_to_node_1(Node, Toks, A, Lc, 'case', 'end');
 	clause ->
 	    P = refac_syntax:get_pos(Node),
 	    Body = refac_util:glast("refac_util:do_add_range, clause", refac_syntax:clause_body(Node)),
@@ -743,11 +739,7 @@ do_add_range(Node, Toks) ->
 		_ ->
 		    Hd = refac_util:ghead("do_add_range:binary", Fs),
 		    Last = refac_util:glast("do_add_range:binary", Fs),
-		    {S1, _E1} = get_range(Hd),
-		    {_S2, E2} = get_range(Last),
-		    S11 = extend_forwards(Toks, S1, "<<"),
-		    E21 = extend_backwards(Toks, E2, ">>"),
-		    refac_syntax:add_ann({range, {S11, E21}}, Node)
+		    calc_and_add_range_to_node_1(Node, Toks, Hd, Last, "<<", ">>")
 	    end;
 	binary_field ->
 	    Body = refac_syntax:binary_field_body(Node),
@@ -863,6 +855,14 @@ calc_and_add_range_to_node(Node, Fun1, Fun2) ->
     {_S2,E2} = get_range(Field),
     refac_syntax:add_ann({range,{S1,E2}},Node).
 
+calc_and_add_range_to_node_1(Node, Toks, StartNode, EndNode, StartWord, EndWord) ->
+    {S1,_E1} = get_range(StartNode),
+    {_S2,E2} = get_range(EndNode),
+    S11 = extend_forwards(Toks,S1,StartWord),
+    E21 = extend_backwards(Toks,E2,EndWord),
+    refac_syntax:add_ann({range,{S11,E21}},Node).
+
+
 get_range(Node) ->
      As = refac_syntax:get_ann(Node),
      case lists:keysearch(range, 1, As) of
@@ -874,11 +874,7 @@ get_range(Node) ->
 add_range_to_list_node(Node, Toks, Es, Str1, Str2, KeyWord1, KeyWord2) ->
     Hd = refac_util:ghead(Str1, Es),
     La = refac_util:glast(Str2, Es),
-    {S1, _E1} = get_range(Hd),
-    {_S2, E2} = get_range(La),
-    S11 = extend_forwards(Toks, S1, KeyWord1),
-    E21 = extend_backwards(Toks, E2, KeyWord2),
-    refac_syntax:add_ann({range, {S11, E21}}, Node).
+    calc_and_add_range_to_node_1(Node, Toks, Hd, La, KeyWord1, KeyWord2).
 
 add_range_to_body(Node, B, Str1, Str2) ->
     H = refac_util:ghead(Str1, B),
@@ -965,6 +961,14 @@ do_add_category(Node, C) ->
 		 end,
 	    Node1 =rewrite(Node, refac_syntax:clause(P1, G1, Body1)),
 	    {Node1, true};
+	application ->
+	    Op = refac_syntax:application_operator(Node),
+	    Args = refac_syntax:application_arguments(Node),
+	    Op1 = add_category(Op, C),
+	    Op2 = refac_util:update_ann(Op1,{category, application_op}),
+	    Args1 = add_category(Args, C),
+	    Node1 = rewrite(Node, refac_syntax:application(Op2, Args1)),
+	    {refac_syntax:add_ann({category, C}, Node1), true};
 	match_expr ->
 	    P = refac_syntax:match_expr_pattern(Node),
 	    B = refac_syntax:match_expr_body(Node),
