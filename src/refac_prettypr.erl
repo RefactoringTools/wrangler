@@ -112,7 +112,13 @@ vertical_concat([Form| T], FileFormat, Options, Acc, TabWidth) ->
 	       true ->
 		   Acc;
 	       false ->
-		   Acc ++ Delimitor ++ Delimitor
+		   Toks = refac_util:get_toks(Form),
+		   case Toks of
+		       [] -> Acc++ Delimitor++Delimitor;
+		       _ ->OriginalStr=refac_util:concat_toks(Toks),
+			   NewLns=lists:takewhile(fun(C)->C==$\n end, OriginalStr),
+			   Acc++NewLns
+		   end
 	   end,
     Str = case UseOriginalCode of
 	      true ->
