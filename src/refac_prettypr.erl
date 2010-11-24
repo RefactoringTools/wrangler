@@ -1515,14 +1515,16 @@ lay_body_elems_1(Fun, [{D, {SLn, ELn}}| Ts], [H| T], LastLn) ->
     case SLn == 0 orelse LastLn == 0 orelse SLn < LastLn of
 	true -> 
 	    lay_body_elems_1(Fun, Ts, [[above(horizontal(H), D)]| T], ELn);
-	false ->
+	false -> %% This may still change layout; need a better solution.
 	    case SLn - LastLn of
 		0 -> 
 		    lay_body_elems_1(Fun, Ts, [H ++ [D]| T], ELn);
 		1 ->
 		    lay_body_elems_1(Fun, Ts, [[above(horizontal(H), D)]| T], ELn);
+		2 ->
+		    lay_body_elems_1(Fun, Ts, [[above(horizontal(H), above(text(""), D))]| T], ELn);
 		_ ->
-		    lay_body_elems_1(Fun, Ts, [[above(horizontal(H), above(text(""), D))]| T], ELn)
+		    lay_body_elems_1(Fun, Ts, [[above(horizontal(H), D)]| T], ELn)
 	    end
     end.
   
