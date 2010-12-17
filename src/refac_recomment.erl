@@ -122,22 +122,22 @@ recomment_forms(Tree, Cs, Insert) ->
 	form_list ->
 	    BadFormLocs = lists:flatten([lists:seq(L1,L2) ||{error, {_ErrInfo, {{L1,_},{L2,_}}}} 
 								<-refac_syntax:form_list_elements(Tree)]),
-	    Cs1 = [ {L, Col, Ind, Text} ||{L,Col, Ind, Text} <-Cs, not(lists:member(L, BadFormLocs))],
+	    Cs1 = [ {L, Col, Ind, PreTok, Text} ||{L,Col, Ind, PreTok, Text} <-Cs, not(lists:member(L, BadFormLocs))],
 	    Tree1 = refac_syntax:flatten_form_list(Tree),
 	    Node = build_tree(Tree1),
 	    %% Here we make a small assumption about the substructure of
 	    %% a `form_list' tree: it has exactly one group of subtrees.
 	    [Node1] = node_subtrees(Node),
-	  %%  List = filter_forms(node_subtrees(Node1)),  %% don't understand whey filter_forms is needed; HL
+            %%  List = filter_forms(node_subtrees(Node1)),  %% don't understand whey filter_forms is needed; HL
 	    List =node_subtrees(Node1),    %% 
-       	    List1 = recomment_forms_1(Cs1, List, Insert),
+            List1 = recomment_forms_1(Cs1, List, Insert),
 	    revert_tree(set_node_subtrees(Node,
 					  [set_node_subtrees(Node1,
 							     List1)]));
 	_ ->
 	    %% Not a form list - just call `recomment_tree' and
 	    %% append any leftover comments.
-	    {Tree1, Cs1} = recomment_tree(Tree, Cs),
+            {Tree1, Cs1} = recomment_tree(Tree, Cs),
 	    revert_tree(append_comments(Cs1, Tree1))
     end.
 
@@ -156,7 +156,7 @@ recomment_forms_1([], Ns, _Insert) ->
     Ns.
 
 recomment_forms_2(C, [Node | Ns], Insert) ->
-    {L, Col, Ind, Text} = C,
+    {L, Col, Ind, _PreTok, Text} = C,
     Min = node_min(Node),
     Max = node_max(Node),
     N = comment_delta(Text),
@@ -181,7 +181,7 @@ recomment_forms_2(C, [Node | Ns], Insert) ->
 		    [Node, Node1 | Ns]
 	    end;
        Insert == true ->
-	    [insert(Node, L, Col, Ind, C) | Ns];
+    	    [insert(Node, L, Col, Ind, C) | Ns];
        true ->
 	    [Node | Ns]    % skipping non-toplevel comment
     end;
@@ -191,9 +191,9 @@ recomment_forms_2(C, [], _Top) ->
 %% Creating a leaf node for a standalone comment. Note that we try to
 %% preserve the original starting column rather than the indentation.
 
-standalone_comment({L, Col, _Ind, Text}) ->
+standalone_comment({L, Col, Ind, _PreTok, Text}) ->
     leaf_node(L, L + comment_delta(Text),
-	      refac_syntax:set_pos(refac_syntax:comment(Col - 1, Text), {L,Col-1})).  %% Modified by Huiqing
+	      refac_syntax:set_pos(refac_syntax:comment(Ind, Text), {L,Col})).  %% Modified by Huiqing
 
 %% Compute delta between first and last line of a comment, given
 %% the lines of text.
@@ -344,7 +344,7 @@ insert_comments(Cs, Node) ->
     insert_comments(Cs, Node, []).
 
 insert_comments([C | Cs], Node, Cs1) ->
-    {L, Col, Ind, _Text} = C,
+    {L, Col, Ind, _PrevTok,  _Text} = C,
     Max = node_max(Node),
     if L =< Max ->
 	    insert_comments(Cs, insert(Node, L, Col, Ind, C),
@@ -377,7 +377,7 @@ insert(Node, L, Col, Ind, C) ->
 		    %% The whole node is on a single line (this
 		    %% should usually catch all leaf nodes), so we
 		    %% postfix the comment.
-		    node_add_postcomment(C, Node);
+                    node_add_postcomment(C, Node);
 	       true ->
 		    %% The comment should be inserted in the
 		    %% subrange of the node, i.e., attached either
@@ -390,14 +390,14 @@ insert(Node, L, Col, Ind, C) ->
 insert_1(Node, L, Col, Ind, C) ->
     case node_type(Node) of
 	tree_node ->
-	    %% Insert in one of the subtrees.
+            %% Insert in one of the subtrees.
 	    set_node_subtrees(Node,
 			      insert_in_list(node_subtrees(Node),
 					     L, Col, Ind, C));
 	leaf_node ->
 	    %% Odd case: no components, but not on a single line.
 	    %% (Never mind anyway - just postfix the comment.)
-	    node_add_postcomment(C, Node)
+            node_add_postcomment(C, Node)
     end.
 
 %% We assume that there exists at least one tree node in some tree
@@ -411,7 +411,6 @@ insert_in_list([Node | Ns], L, Col, Ind, C) ->
     %% flattened left-to-right order, or -1 (minus one) if no such
     %% tree node exists.
     NextMin = next_min_in_list(Ns),
-    
     %% `NextMin' could be less than `Max', in inconsistent trees.
     if NextMin < 0 ->
 	    %% There is no following leaf/tree node, so we try
@@ -421,8 +420,13 @@ insert_in_list([Node | Ns], L, Col, Ind, C) ->
 	    %% Tend to select the later node, in case the next
 	    %% node should also match.
 	    insert_later(Node, L, Col, Ind, C, Ns);
-       L =< Max ->
-	    insert_here(Node, L, Col, Ind, C, Ns);
+       L =< Max ->  %% was L =< Max
+            case comment_follows_special_keyword(C) of
+                false ->
+                    insert_here(Node, L, Col, Ind, C, Ns);
+                true ->
+                    insert_later(Node, L, Col, Ind, C, Ns)
+            end;
        true ->
 	    insert_later(Node, L, Col, Ind, C, Ns)
     end;
@@ -564,9 +568,12 @@ expand_comments([]) ->
     [].
 
 expand_comment(C) ->
-    {L, _Col, Ind, Text} = C,
-    refac_syntax:set_pos(refac_syntax:comment(Ind, Text), {L,Ind}).  %% Modified by Huiqing
+    {L, Col, Ind, _PreTok, Text} = C,
+    refac_syntax:set_pos(refac_syntax:comment(Ind, Text), {L,Col}).  %% Modified by Huiqing
 
+
+comment_follows_special_keyword({_L, _Col, _Ind, PreTok, _Text}) ->
+    lists:member(PreTok, ['of', '->']).
 
 %% =====================================================================
 %% Abstract data type for extended syntax trees.
