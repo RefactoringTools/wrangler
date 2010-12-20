@@ -354,7 +354,9 @@ do_fun_extraction(AnnAST, ExpList, NewFunName, ParNames, VarsToExport, {EncFunNa
 			      true ->
 				  Form1 = replace_expr_with_fun_call(
 					    Form, ExpList, NewFunName, ParNames, VarsToExport),
-				  [Form1, NewFun];
+                                  Toks = get_node_toks(refac_util:get_toks(Form), ExpList),
+                                  NewFun1 = refac_util:update_ann(NewFun, {toks, Toks}),
+				  [Form1, NewFun1];
 			      _ -> [Form]
 			  end;
 		      _ -> [Form]
@@ -393,7 +395,7 @@ do_replace_expr_with_fun_call_1(Tree, {NewExpr, Expr}) ->
 	    case refac_syntax:type(Tree) of
 		binary_field ->
 		    {refac_util:rewrite(Tree, refac_syntax:binary_field(NewExpr)), true};
-		_ -> {NewExpr, true}
+		_ -> {refac_util:rewrite(Tree, NewExpr), true}
 	    end;
 	_ -> {Tree, false}
     end.
@@ -408,13 +410,15 @@ do_replace_expr_with_fun_call_2(Tree, {MApp, ExpList}) ->
 				       end, Exprs),
 		  case Exprs2 of
 		      [] -> {Exprs, false};
-		      _ -> {_Exprs21, Exprs22} =
+		      _ -> {Exprs21, Exprs22} =
 			       lists:splitwith(fun (E) ->
 						       refac_util:get_start_end_loc(E) =/= Range2
 					       end, Exprs2),
 			   case Exprs22 of
 			       [] -> {Exprs, false}; %% THIS SHOULD NOT HAPPEN.
-			       _ -> {Exprs1 ++ [MApp| tl(Exprs22)], true}
+			       _ -> 
+                                   {Exprs1 ++ [refac_util:update_ann(MApp, {range, refac_util:get_start_end_loc(Exprs21)})
+                                               | tl(Exprs22)], true}
 			   end
 		  end
 	  end,
@@ -490,4 +494,18 @@ filter_exprs_via_ast(Tree, ExpList) ->
     case ExpList--AllExprSeqs of
 	[] -> [];
 	_ -> ExpList
+    end.
+
+get_node_toks(Toks, Node) ->
+    {Start, End} = refac_util:get_start_end_loc(Node),
+    case Start =={0,0} orelse End=={0,0} of
+	true -> [];
+	false ->
+	    Toks1 = lists:dropwhile(
+		      fun(T) ->
+			      element(2, T)<Start
+		      end, Toks),
+	    lists:takewhile(fun(T)->
+				    element(2, T)=<End
+			    end, Toks1)
     end.
