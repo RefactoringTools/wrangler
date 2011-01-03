@@ -41,11 +41,11 @@
 %% =============================================================================================
 %%-spec(fun_extraction/5::(filename(), pos(), pos(), string(), integer()) ->
 %% 	     {'ok', [filename()]}).
-fun_extraction(FileName, Start, End, NewFunName, TabWidth) ->
-    fun_extraction(FileName, Start, End, NewFunName, TabWidth, emacs).
+fun_extraction(FName, Start, End, NewFunName, TabWidth) ->
+    fun_extraction(FName, Start, End, NewFunName, TabWidth, emacs).
 
-fun_extraction_1(FileName, Start, End, NewFunName, TabWidth) ->
-    fun_extraction_1(FileName, Start, End, NewFunName, TabWidth, emacs).
+fun_extraction_1(FName, Start, End, NewFunName, TabWidth) ->
+    fun_extraction_1(FName, Start, End, NewFunName, TabWidth, emacs).
 
 %%-spec(fun_extraction_eclipse/5::(filename(), pos(), pos(), string(),integer()) ->
 %% 	      {ok, [{filename(), filename(), string()}]}).
@@ -94,7 +94,7 @@ fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor, TabWid
     FunPos = refac_syntax:get_pos(Fun),
     {FrVars, BdVars} = get_free_bd_vars(ExpList),
     VarsToExport = vars_to_export(Fun, End, BdVars),
-    AnnAST1 = do_fun_extraction(AnnAST, ExpList, NewFunName, FrVars, VarsToExport, {FunName, FunArity, FunPos}),
+    AnnAST1 = do_fun_extraction(FileName, AnnAST, ExpList, NewFunName, FrVars, VarsToExport, {FunName, FunArity, FunPos}),
     case Editor of
 	emacs ->
 	    Res = [{{FileName, FileName}, AnnAST1}],
@@ -320,7 +320,7 @@ commontest_name_checking(UsedFrameWorks, NewFunName, Arity) ->
 	false -> ok
     end.
 
-do_fun_extraction(AnnAST, ExpList, NewFunName, ParNames, VarsToExport, {EncFunName, EncFunArity, EncFunPos}) ->
+do_fun_extraction(FileName, AnnAST, ExpList, NewFunName, ParNames, VarsToExport, {EncFunName, EncFunArity, EncFunPos}) ->
     NewFunName1 = refac_syntax:atom(NewFunName),
     Pars = [refac_syntax:variable(P) || P <- ParNames],
     LastExprExportVars = [V || {V, _Pos} <- refac_util:get_var_exports(lists:last(ExpList))],
@@ -354,7 +354,7 @@ do_fun_extraction(AnnAST, ExpList, NewFunName, ParNames, VarsToExport, {EncFunNa
 			      true ->
 				  Form1 = replace_expr_with_fun_call(
 					    Form, ExpList, NewFunName, ParNames, VarsToExport),
-                                  Toks = get_node_toks(refac_util:get_toks(Form), ExpList),
+                                  Toks = get_node_toks(FileName, refac_util:get_toks(Form), ExpList),
                                   NewFun1 = refac_util:update_ann(NewFun, {toks, Toks}),
 				  [Form1, NewFun1];
 			      _ -> [Form]
@@ -406,19 +406,19 @@ do_replace_expr_with_fun_call_2(Tree, {MApp, ExpList}) ->
     Fun = fun (Exprs) ->
 		  {Exprs1, Exprs2} = lists:splitwith(
 				       fun (E) ->
-					       refac_util:get_start_end_loc(E) =/= Range1
+                                               refac_util:get_start_end_loc(E) =/= Range1
 				       end, Exprs),
 		  case Exprs2 of
 		      [] -> {Exprs, false};
 		      _ -> {Exprs21, Exprs22} =
 			       lists:splitwith(fun (E) ->
-						       refac_util:get_start_end_loc(E) =/= Range2
+                                                       refac_util:get_start_end_loc(E) =/= Range2
 					       end, Exprs2),
 			   case Exprs22 of
 			       [] -> {Exprs, false}; %% THIS SHOULD NOT HAPPEN.
 			       _ -> 
-                                   {Exprs1 ++ [refac_util:update_ann(MApp, {range, refac_util:get_start_end_loc(Exprs21)})
-                                               | tl(Exprs22)], true}
+                                   Range3=get_start_end_loc_with_comment(Exprs21++[hd(Exprs22)]),
+                                   {Exprs1 ++ [refac_util:update_ann(MApp, {range, Range3})| tl(Exprs22)], true}
 			   end
 		  end
 	  end,
@@ -496,7 +496,7 @@ filter_exprs_via_ast(Tree, ExpList) ->
 	_ -> ExpList
     end.
 
-get_node_toks(Toks, Node) ->
+get_node_toks(FileName,Toks, Node) ->
     {Start, End} = refac_util:get_start_end_loc(Node),
     case Start =={0,0} orelse End=={0,0} of
 	true -> [];
@@ -505,7 +505,53 @@ get_node_toks(Toks, Node) ->
 		      fun(T) ->
 			      element(2, T)<Start
 		      end, Toks),
-	    lists:takewhile(fun(T)->
-				    element(2, T)=<End
-			    end, Toks1)
+	    Toks2=lists:takewhile(fun(T)->
+                                          element(2, T)=<End
+                                  end, Toks1),
+            get_delimitor(FileName)++Toks2
+    end.
+
+
+get_start_end_loc_with_comment(Node) when is_list(Node) ->
+    E1 = hd(Node),
+    En = lists:last(Node),
+    {S, _E} = get_start_end_loc_with_comment(E1),
+    {_S, E} = get_start_end_loc_with_comment(En),
+    {S, E};
+
+get_start_end_loc_with_comment(Node) ->
+    {Start, End} = refac_util:get_start_end_loc(Node),
+    PreCs = refac_syntax:get_precomments(Node),
+    PostCs = refac_syntax:get_postcomments(Node),
+    Start1 = case PreCs of
+                 [] ->
+                     Start;
+                 _ ->
+                     refac_syntax:get_pos(hd(PreCs))
+             end,
+    End1 = case PostCs of
+               [] ->
+                   End;
+               _ ->
+                   LastC = refac_syntax:comment_text(lists:last(PostCs)),
+                   {L, C}=refac_syntax:get_pos(lists:last(PostCs)),
+                   {L, C+length(LastC)-1}
+           end,
+    {Start1, End1}.
+
+
+
+get_delimitor(FileName) ->        
+    case refac_util:file_format(FileName) of
+        dos ->
+            [{whitespace, {0,0}, '\r'},
+             {whitespace, {0,0}, '\n'},
+             {whitespace, {0,0}, '\r'},
+             {whitespace, {0,0}, '\n'}];
+        mac -> 
+            [{whitespace, {0,0}, '\r'},
+            {whitespace, {0,0}, '\r'}];
+        _ -> 
+            [{whitespace, {0,0}, '\n'},
+             {whitespace, {0,0}, '\n'}]
     end.
