@@ -326,15 +326,15 @@ parse_annotate_file(FName, true, SearchPaths, TabWidth, FileFormat) ->
 	    Includes = SearchPaths ++ DefaultIncl2,
 	    {Info0, Ms} = case refac_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
 			      {ok, Fs, {MDefs, MUses}} ->
-				  ST = refac_recomment:recomment_forms(Fs, []),
+                                  ST = refac_recomment:recomment_forms(Fs, []),
 				  Info1 = refac_syntax_lib:analyze_forms(ST),
 				  Ms1 = {dict:from_list(MDefs), dict:from_list(MUses)},
 				  {Info1, Ms1};
 			      _ -> {[], {dict:from_list([]), dict:from_list([])}}
 			  end,
-	    Comments = refac_comment_scan:file(FName),
-	    SyntaxTree = refac_recomment:recomment_forms(Forms, Comments),
-	    Info = refac_syntax_lib:analyze_forms(SyntaxTree),
+	    Comments = refac_comment_scan:file(FName, TabWidth),
+            SyntaxTree = refac_recomment:recomment_forms(Forms, Comments),
+            Info = refac_syntax_lib:analyze_forms(SyntaxTree),
 	    Info2 = merge_module_info(Info0, Info),
 	    AnnAST0 = annotate_bindings(FName, SyntaxTree, Info2, Ms, TabWidth),
 	    AnnAST = refac_atom_annotation:type_ann_ast(FName, Info2, AnnAST0, SearchPaths, TabWidth),
@@ -489,9 +489,10 @@ start_pos(F) ->
 
 %%-spec add_range(syntaxTree(), [token()]) -> syntaxTree(). 
 add_range(AST, Toks) ->
-    ast_traverse_api:full_buTP(fun do_add_range/2, AST, Toks).
+    QAtomPs= [Pos||{qatom, Pos, _Atom}<-Toks],
+    ast_traverse_api:full_buTP(fun do_add_range/2, AST, {Toks, QAtomPs}).
 
-do_add_range(Node, Toks) ->
+do_add_range(Node, {Toks, QAtomPs}) ->
     {L, C} = case refac_syntax:get_pos(Node) of
 		 {Line, Col} -> {Line, Col};
 		 Line -> {Line, 0}
@@ -501,20 +502,16 @@ do_add_range(Node, Toks) ->
 	    Len = length(refac_syntax:variable_literal(Node)),
 	    refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
 	atom ->
-	    Lit = refac_syntax:atom_literal(Node),
-	    case hd(Lit) of
-		39 -> Toks1 = lists:dropwhile(fun (T) -> token_loc(T) =< {L, C} end, Toks),
-		      case Toks1   %% this should not happen;
-			  of
-			  [] -> Len = length(atom_to_list(refac_syntax:atom_value(Node))),  %% This is problematic!!
-				refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
-			  _ -> {L2, C2} = token_loc(hd(Toks1)),
-			       refac_syntax:add_ann({range, {{L, C}, {L2, C2 - 1}}}, Node)
-		      end;
-		_ -> Len = length(atom_to_list(refac_syntax:atom_value(Node))),  %% This is problematic!!
-		     refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node)
+            case lists:member({L,C}, QAtomPs) of
+                true ->
+                    Len = length(atom_to_list(refac_syntax:atom_value(Node))), 
+                    Node1 = refac_syntax:add_ann({qatom, true}, Node),
+                    refac_syntax:add_ann({range, {{L, C}, {L, C + Len + 1}}}, Node1); 
+                false ->
+                    Len = length(atom_to_list(refac_syntax:atom_value(Node))), 
+                    refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node)
 	    end;
-	operator ->
+        operator ->
 	    Len = length(atom_to_list(refac_syntax:atom_value(Node))),
 	    refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
 	char -> refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node);
@@ -560,7 +557,8 @@ do_add_range(Node, Toks) ->
 		    true ->
 			Last = refac_util:glast("refac_util:do_add_range,list", Es),
 			{_, E2} = get_range(Last),
-			refac_syntax:add_ann({range, {{L,C}, E2}}, Node);
+                        E21 = extend_backwards(Toks, E2, ']'),
+                        refac_syntax:add_ann({range, {{L,C}, E21}}, Node);
 		    false ->
 			Node
 		end
@@ -568,7 +566,7 @@ do_add_range(Node, Toks) ->
 		_:_ ->
 		    LP = refac_util:ghead("refac_util:do_add_range,list", refac_syntax:list_prefix(Node)),
 		    {{L1, C1}, {L2, C2}} = get_range(LP),
-		    case refac_syntax:list_suffix(Node) of
+                    case refac_syntax:list_suffix(Node) of
 			none ->
 			    refac_syntax:add_ann({range, {{L1, C1 - 1}, {L2, C2 + 1}}}, Node);
 			Tail ->
@@ -593,10 +591,16 @@ do_add_range(Node, Toks) ->
 	    Lc = refac_util:glast("refac_util:do_add_range,case_expr", refac_syntax:case_expr_clauses(Node)),
 	    calc_and_add_range_to_node_1(Node, Toks, A, Lc, 'case', 'end');
 	clause ->
-	    P = refac_syntax:get_pos(Node),
-	    Body = refac_util:glast("refac_util:do_add_range, clause", refac_syntax:clause_body(Node)),
+            {S1,_} = case refac_syntax:clause_patterns(Node) of 
+                          [] -> case refac_syntax:clause_guard(Node) of 
+                                    none ->{{L,C}, {0,0}};
+                                    _ ->get_range(refac_syntax:clause_guard(Node))
+                                end;
+                          Ps -> get_range(hd(Ps))
+                      end,         
+            Body = refac_util:glast("refac_util:do_add_range, clause", refac_syntax:clause_body(Node)),
 	    {_S2, E2} = get_range(Body),
-	    refac_syntax:add_ann({range, {P, E2}}, Node);
+	    refac_syntax:add_ann({range, {min(S1, {L,C}), E2}}, Node);
 	catch_expr ->
 	    B = refac_syntax:catch_expr_body(Node),
 	    {S, E} = get_range(B),
@@ -739,7 +743,7 @@ do_add_range(Node, Toks) ->
 		_ ->
 		    Hd = refac_util:ghead("do_add_range:binary", Fs),
 		    Last = refac_util:glast("do_add_range:binary", Fs),
-		    calc_and_add_range_to_node_1(Node, Toks, Hd, Last, "<<", ">>")
+		    calc_and_add_range_to_node_1(Node, Toks, Hd, Last, '<<', '>>')
 	    end;
 	binary_field ->
 	    Body = refac_syntax:binary_field_body(Node),
@@ -822,7 +826,8 @@ do_add_range(Node, Toks) ->
 	macro ->
 	    Name = refac_syntax:macro_name(Node),
 	    Args = refac_syntax:macro_arguments(Node),
-	    {_S1, E1} = get_range(Name),
+	    {_S1, {L1, C1}} = get_range(Name),
+            E1={L1, C1+1},
 	    case Args of
 		none -> refac_syntax:add_ann({range, {{L, C}, E1}}, Node);
 		Ls ->
@@ -1059,3 +1064,6 @@ do_add_category(Node, C) ->
 
 rewrite(Tree, Tree1) ->
     refac_syntax:copy_attrs(Tree, Tree1).
+
+
+           
