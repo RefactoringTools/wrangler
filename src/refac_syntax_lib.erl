@@ -2203,26 +2203,7 @@ adjust_locations(Form, []) -> Form;
 adjust_locations(Form, Toks) ->
     F = fun (T) ->
 		case refac_syntax:type(T) of
-		    attribute ->
-			Name = refac_syntax:attribute_name(T),
-			case refac_syntax:type(Name) == atom andalso refac_syntax:atom_value(Name) == file of
-			    true ->
-				[File, Data] = refac_syntax:attribute_arguments(T),
-				Pos = refac_syntax:get_pos(File),
-				Toks1 = lists:dropwhile(fun (B) -> element(2, B) =< Pos orelse element(1, B) =/= string
-							end, Toks),
-				StrTok = hd(Toks1),
-				StrPos = element(2, StrTok),
-				{_, EndPos} = refac_util:get_start_end_loc(File),
-				File1 = refac_syntax:add_ann({toks, [StrTok]},
-							     refac_util:update_ann(refac_syntax:set_pos(File, StrPos),
-										   {range, {StrPos, EndPos}})),
-				Toks2 = lists:dropwhile(fun (B) -> element(1, B) =/= integer end, Toks1),
-				Data1 = refac_syntax:set_pos(Data, element(2, hd(Toks2))),
-				refac_util:rewrite(T, refac_syntax:attribute(Name, [File1, Data1]));
-			    _ -> T
-			end;
-		    implicit_fun ->
+                    implicit_fun ->
 			Pos = refac_syntax:get_pos(T),
 			Name = refac_syntax:implicit_fun_name(T),
 			case refac_syntax:type(Name) of

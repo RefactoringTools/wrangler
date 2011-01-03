@@ -366,9 +366,9 @@ do_inline_1(Node, {App, SubstedBody}) ->
 	App ->
 	    case SubstedBody of 
 		[B] ->
-		    {B, true};
+		    {refac_util:rewrite(App, B), true};
 		[_|_] ->
-		    {refac_syntax:block_expr(SubstedBody), true}
+		    {refac_util:rewrite(App, refac_syntax:block_expr(SubstedBody)), true}
 	    end;
 	_ -> {Node, false}
     end.

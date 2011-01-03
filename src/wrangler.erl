@@ -1267,7 +1267,6 @@ init_eclipse() ->
     application:start(wrangler_app).
     
 
-%%@private
 get_log_msg() ->
     Errors = wrangler_error_logger:get_logged_info(),
     FileErrors = [{File, Error} || {File, Error} <- Errors, File /= warning],

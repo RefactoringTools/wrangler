@@ -61,7 +61,12 @@ parse_erl_form(Epp) ->
     Res = epp_request(Epp, scan_erl_form), 
     case Res of
 	{ok,Toks} ->
-	   refac_parse:parse_form(Toks);
+            case refac_parse:parse_form(Toks) of
+                {ok, Form} ->
+                    {ok, refac_epp_dodger:fix_pos_in_form(Toks, Form)};
+                Other ->
+                    Other
+            end;
 	Other ->
 	    Other
     end.

@@ -420,13 +420,17 @@ insert_in_list([Node | Ns], L, Col, Ind, C) ->
 	    %% Tend to select the later node, in case the next
 	    %% node should also match.
 	    insert_later(Node, L, Col, Ind, C, Ns);
-       L =< Max ->  %% was L =< Max
-            case comment_follows_special_keyword(C) of
-                false ->
-                    insert_here(Node, L, Col, Ind, C, Ns);
-                true ->
-                    insert_later(Node, L, Col, Ind, C, Ns)
-            end;
+       %% L == Max ->
+       %%      case comment_follows_special_keyword(C) of
+       %%          false ->
+       %%              refac_io:format("Insert here\n"),
+       %%              insert_here(Node, L, Col, Ind, C, Ns);
+       %%          true ->
+       %%              refac_io:format("Insert later\n"),
+       %%              insert_later(Node, L, Col, Ind, C, Ns)
+       %%      end;
+       L=<Max ->
+            insert_here(Node, L, Col, Ind, C, Ns);
        true ->
 	    insert_later(Node, L, Col, Ind, C, Ns)
     end;

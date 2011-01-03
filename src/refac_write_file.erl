@@ -57,11 +57,12 @@ write_refactored_files_for_preview(Files, TabWidth, LogMsg) ->
 		    {{FileName,NewFileName}, AST} ->
 			FileFormat = refac_util:file_format(FileName),
 			SwpFileName = filename:rootname(FileName, ".erl") ++ ".erl.swp",  %% .erl.swp or .swp.erl?
-			case file:write_file(SwpFileName, list_to_binary(refac_prettypr:print_ast(FileFormat, AST, TabWidth))) of
-			    ok -> NoOfChangedFunsToks = refac_prettypr:no_of_changed_funs_toks(AST),
-				  {{{filename:join([FileName]),
-				     filename:join([NewFileName]), false},
-				    filename:join([SwpFileName])}, NoOfChangedFunsToks};
+                        {Content, Changes} = refac_prettypr:print_ast_and_get_changes(FileFormat, AST, TabWidth),
+			case file:write_file(SwpFileName, list_to_binary(Content)) of
+			    ok ->
+                                {{{filename:join([FileName]),
+                                   filename:join([NewFileName]), false},
+                                  filename:join([SwpFileName])}, Changes};
 			    {error,Reason} ->
 				Msg = io_lib:format("Wrangler could not write to file ~s: ~w \n",
 						    [FileName, Reason]),

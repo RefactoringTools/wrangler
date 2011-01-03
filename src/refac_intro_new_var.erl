@@ -175,7 +175,7 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
 		      true ->
 			  {ExprStatement1, _} = replace_expr_with_var(Expr, NewVarName,
 								      ExprStatement),
-			  [MatchExpr, ExprStatement1];
+                          [refac_util:rewrite(ExprStatement1, MatchExpr), ExprStatement1];
 		      false ->
 			  [ExprStatement]
 		  end
@@ -185,14 +185,15 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
 	clause ->
 	    Pat = refac_syntax:clause_patterns(Node),
 	    Guard = refac_syntax:clause_guard(Node),
-	    refac_syntax:clause(Pat, Guard, NewBody);
+	    refac_util:rewrite(Node, refac_syntax:clause
+                                       (Pat, Guard, NewBody));
 	block_expr ->
-	    refac_syntax:block_expr(NewBody);
+	    refac_util:rewrite(Node,refac_syntax:block_expr(NewBody));
 	try_expr ->
 	    C = refac_syntax:try_expr_clauses(Node),
 	    H = refac_syntax:try_expr_handlers(Node),
 	    A = refac_syntax:try_expr_after(Node),
-	    refac_syntax:try_expr(NewBody, C, H, A)
+	    refac_util:rewrite(Node,refac_syntax:try_expr(NewBody, C, H, A))
     end.
 
 replace_expr_with_var(Expr, NewVarName, ExprStatement) ->

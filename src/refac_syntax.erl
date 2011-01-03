@@ -1654,8 +1654,9 @@ is_atom(Node, Value) ->
 
 atom_value(Node) ->
     case unwrap(Node) of
-      {atom, _, Name} -> Name;
-      Node1 -> data(Node1)
+        {atom, _, Name} when is_list(Name) -> list_to_atom(Name);
+        {atom, _, Name} -> Name;
+        Node1 -> data(Node1)
     end.
 
 %% =====================================================================
@@ -2326,8 +2327,8 @@ binary_field_types(Node) ->
 			   end,
 		  %% TODO: the type info is not accurate here;
                   %% should change the parse to return tokens of type
-		  %% instead of kust values.
-		  unfold_binary_field_types(Types, {L, C+10}) 
+		  %% instead of just values.
+		  unfold_binary_field_types(Types, {L, C+4}) 
 	  end;
       Node1 -> (data(Node1))#binary_field.types
     end.
@@ -2756,48 +2757,66 @@ attribute_arguments(Node) ->
     case unwrap(Node) of
       {attribute, Pos, Name, Data} ->
 	  case Name of
-	    module ->
-		{M1, Vs} = case Data of
-			     {M0, Vs0} -> {M0, unfold_variable_names(Vs0, Pos)};
-			     M0 -> {M0, none}
-			   end,
-		M2 = if is_list(M1) ->
-			    qualified_name([atom(A) || A <- M1]);
-			true -> atom(M1)
-		     end,
-		M = set_pos(M2, Pos),
-		if Vs == none -> [M];
-		   true -> [M, set_pos(list(Vs), Pos)]
-		end;
-	    export ->
-		[set_pos(list(unfold_function_names(Data, Pos)), Pos)];
+              module ->
+                  {M1, Vs} = case Data of
+                                 {M0, Vs0} -> {M0, unfold_variable_names(Vs0, Pos)};
+                                 M0 -> {M0, none}
+                             end,
+                  M2 = if is_list(M1) ->
+                               M3=[set_pos(atom(A),P) || {atom, P, A} <- M1],
+                               set_pos(qualified_name(M3), get_pos(hd(M3)));
+                          true -> {atom, P, A}=M1, 
+                                  set_pos(atom(A),P)
+                       end,
+                  if Vs == none -> [M2];
+                     true -> [M2, set_pos(list(Vs), get_pos(hd(Vs)))]
+                  end;
+            export ->
+                  [set_pos(list(unfold_function_names(Data, Pos)), Pos)];
 	    import ->
-		case Data of
-		  {Module, Imports} ->
-		      [if is_list(Module) ->
-			      qualified_name([atom(A) || A <- Module]);
-			  true -> set_pos(atom(Module), Pos)
-		       end,
-		       set_pos(list(unfold_function_names(Imports, Pos)),
-			       Pos)];
-		  _ -> [qualified_name([atom(A) || A <- Data])]
-		end;
-	    file ->
-		{File, Line} = Data,
-		[set_pos(string(File), Pos),
-		 set_pos(integer(Line), Pos)];
-	    record ->
-		%% Note that we create a tuple as container
-		%% for the second argument!
-		{Type, Entries} = Data,
-		[set_pos(atom(Type), Pos),
-		 set_pos(tuple(unfold_record_fields(Entries)), Pos)];
-	     spec ->
+                  case Data of
+                      {Module, Imports} ->
+                          M1=if is_list(Module) ->
+                                     Ms=qualified_name([set_pos(atom(A), Pos1)
+                                                        || {_,Pos1, A} <- Module]),
+                                     set_pos(Ms, get_pos(hd(Ms)));
+                                true -> 
+                                     {_, Pos1, A} = Module,
+                                     set_pos(atom(A), Pos1)
+                             end,
+                          [M1, Imports];
+                      _ -> 
+                          Ms = qualified_name([set_pos(atom(A), Pos1) 
+                                               || {_, Pos1,A} <- Data]),
+                          [set_pos(Ms, get_pos(Ms))]
+                  end;
+              file ->
+                  {{string, Pos1, File}, {integer, Pos2, Line}}=Data,
+                  [set_pos(string(File), Pos1),
+                   set_pos(integer(Line), Pos2)];
+              record ->
+                  %% Note that we create a tuple as container
+                  %% for the second argument!
+                  {Type, Entries} = Data,
+                  {atom, Pos1,T}=Type,
+                  Fields=unfold_record_fields(Entries),
+                  Pos2 = case Entries of 
+                             [] -> Pos;
+                             _ -> get_pos(hd(Fields))
+                         end,
+                  [set_pos(atom(T), Pos1),
+                   set_pos(tuple(Fields), Pos2)];
+              spec ->
   		  {FunSpec, TypeSpec} = Data,
   		  case FunSpec of 
-  		      {Fun, Arity} -> [set_pos(tuple([set_pos(atom(Fun),Pos), set_pos(integer(Arity),Pos)]), Pos),list(TypeSpec)];
+  		      {Fun, Arity} -> [set_pos(tuple([set_pos(atom(Fun),Pos), 
+                                                      set_pos(integer(Arity),Pos)]), Pos),
+                                       list(TypeSpec)];
 		      {Mod, Fun,Arity} ->
-			  [set_pos(tuple([set_pos(atom(Mod), Pos), set_pos(atom(Fun),Pos), set_pos(integer(Arity),Pos)]), Pos),list(TypeSpec)]
+			  [set_pos(tuple([set_pos(atom(Mod), Pos), 
+                                          set_pos(atom(Fun),Pos), 
+                                          set_pos(integer(Arity),Pos)]), Pos),
+                           list(TypeSpec)]
   		  end;	
 	      type ->
 		  {TypeName, TypeSpec1, TypeSpec2} = Data,
@@ -6228,8 +6247,8 @@ fold_function_name(N) ->
 fold_variable_names(Vs) ->
     [variable_name(V) || V <- Vs].
 
-unfold_variable_names(Vs, Pos) ->
-    [set_pos(variable(V), Pos) || V <- Vs].
+unfold_variable_names(Vs, _Pos) ->
+    [set_pos(variable(V), P) || {var, P, V} <- Vs].
 
 %% Support functions for qualified names ("foo.bar.baz",
 %% "erl.lang.lists", etc.). The representation overlaps with the weird
