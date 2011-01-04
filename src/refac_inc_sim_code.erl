@@ -211,7 +211,7 @@ inc_sim_code_detection(Files, Thresholds, Tabs, SearchPaths, TabWidth, Editor, I
     
     %% generate and hash those new, or changed, files.
     generalise_and_hash_ast(Files, Thresholds, Tabs, ASTPid, HashPid, SearchPaths, TabWidth),
-    ?wrangler_io("Generalise and hash finished.\n", []),
+    ?wrangler_io("Generalisation and hash finished.\n", []),
     
     %% Generate clone candidates using suffix tree based clone detection techniques.
     Dir = filename:dirname(hd(Files)),
@@ -1458,7 +1458,10 @@ integer_list_to_string([I|Is], Acc) ->
     integer_list_to_string(Is, S++Acc).
 
     
-
+search_for_clones(Dir, [], _Thresholds) ->
+    OutFileName = filename:join(Dir, "wrangler_suffix_tree"),
+    write_file(OutFileName, []),
+    {ok, OutFileName};
 search_for_clones(Dir, Data, Thresholds) ->
     MinLen = Thresholds#threshold.min_len,
     MinFreq= Thresholds#threshold.min_freq,
