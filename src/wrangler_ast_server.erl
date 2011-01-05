@@ -550,31 +550,18 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	nil -> refac_syntax:add_ann({range, {{L, C}, {L, C + 1}}}, Node);
 	module_qualifier ->
 	    calc_and_add_range_to_node(Node, module_qualifier_argument, module_qualifier_body);
-	list ->  %% temporay fix!
-	    try
-		Es = refac_syntax:list_elements(Node),
-		case Es/=[] of
-		    true ->
-			Last = refac_util:glast("refac_util:do_add_range,list", Es),
-			{_, E2} = get_range(Last),
-                        E21 = extend_backwards(Toks, E2, ']'),
-                        refac_syntax:add_ann({range, {{L,C}, E21}}, Node);
-		    false ->
-			Node
-		end
-	    catch
-		_:_ ->
-		    LP = refac_util:ghead("refac_util:do_add_range,list", refac_syntax:list_prefix(Node)),
-		    {{L1, C1}, {L2, C2}} = get_range(LP),
-                    case refac_syntax:list_suffix(Node) of
-			none ->
-			    refac_syntax:add_ann({range, {{L1, C1 - 1}, {L2, C2 + 1}}}, Node);
-			Tail ->
-			    {_S2, {L3, C3}} = get_range(Tail),
-			    refac_syntax:add_ann({range, {{L1, C1 - 1}, {L3, C3}}}, Node)
-		    end
-	    end;
-	application ->
+	list ->  
+            Es = list_elements(Node),
+            case Es/=[] of
+                true ->
+                    Last = refac_util:glast("refac_util:do_add_range,list", Es),
+                    {_, E2} = get_range(Last),
+                    E21 = extend_backwards(Toks, E2, ']'),
+                    refac_syntax:add_ann({range, {{L,C}, E21}}, Node);
+                false ->
+                    Node
+            end;
+        application ->
 	    O = refac_syntax:application_operator(Node),
 	    Args = refac_syntax:application_arguments(Node),
 	    {S1, E1} = get_range(O),
@@ -1066,4 +1053,19 @@ rewrite(Tree, Tree1) ->
     refac_syntax:copy_attrs(Tree, Tree1).
 
 
+list_elements(Node) ->
+    lists:reverse(list_elements(Node, [])).
+
+list_elements(Node, As) ->
+    case refac_syntax:type(Node) of
+      list ->
+	    As1 = lists:reverse(refac_syntax:list_prefix(Node)) ++ As,
+	    case refac_syntax:list_suffix(Node) of
+                none -> As1;
+                Tail ->
+                    list_elements(Tail, As1)
+            end;
+        nil -> As;
+        _ ->[Node|As]
+    end.
            
