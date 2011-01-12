@@ -94,13 +94,15 @@ intro_new_var_1(FileName, AnnAST, Fun, Expr, NewVarName, Editor, TabWidth, Cmd) 
     end.
 
 cond_check(Form, Expr, NewVarName) ->
+    ok=variable_replaceable(Expr),
     {Body, Statement} = get_inmost_enclosing_body_expr(Form, Expr),
     ExprFVs = refac_util:get_free_vars(Expr),
     SEnvs = refac_util:get_env_vars(Statement),
-    case ExprFVs -- SEnvs of
-	[] ->
+    Vs = [V||{V, Loc}<-ExprFVs--SEnvs, Loc/={0,0}],
+    case Vs of
+        [] ->
 	    ok;
-	Vs ->
+	_ ->
 	    Msg = io_lib:format("The exprssion selected contains locally "
 				"declared variables(s) ~p.", [Vs]),
 	    throw({error, lists:flatten(Msg)})
@@ -112,6 +114,20 @@ cond_check(Form, Expr, NewVarName) ->
 	    throw({error, "The new variable name conflicts with, or shadows, "
 			  "existing variable declarations."});
 	false -> ok
+    end.
+
+variable_replaceable(Exp) ->
+    Ann = refac_syntax:get_ann(Exp),
+    case lists:keysearch(category, 1, Ann) of
+	{value, {category, record_field}} ->
+	    throw({error, "Record field cannot be replaced by a variable."});
+	{value, {category, record_type}} ->
+	    throw({error, "Record type cannot be replaced by a variable."});
+	{value, {category, guard_expression}} ->
+            throw({error, "Introducing a variable in a guard expression is not supported."});
+        {value, {category, {macro_name, Num, _}}} when Num/=none ->
+	    throw({error, "Replacing a macro name with a variable is not supported."});
+	_ -> ok
     end.
 
 get_bound_vars(Tree) ->
@@ -170,17 +186,78 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
 		   refac_syntax:try_expr_body(Node)
 	   end,
     Fun = fun (ExprStatement) ->
-		  {Start, End} = refac_util:get_start_end_loc(ExprStatement),
-		  case Start =< ExprPos andalso ExprPos =< End of
-		      true ->
-			  {ExprStatement1, _} = replace_expr_with_var(Expr, NewVarName,
-								      ExprStatement),
-                          [refac_util:rewrite(ExprStatement1, MatchExpr), ExprStatement1];
-		      false ->
-			  [ExprStatement]
-		  end
-	  end,
-    NewBody = [E1 || E <- Body, E1 <- Fun(E)],
+                  Range = refac_util:get_start_end_loc_with_comment(ExprStatement),
+                  NewExpr=refac_syntax:copy_pos(ExprStatement, refac_util:update_ann(MatchExpr, {range, Range})),
+                  {ExprStatement1, _} = replace_expr_with_var(Expr, NewVarName, ExprStatement),
+                  [NewExpr, ExprStatement1]
+          end,
+    {Body1, Body2} = lists:splitwith(
+                       fun(E) ->
+                               {Start, End} = refac_util:get_start_end_loc(E),
+                               not (Start=<ExprPos andalso ExprPos=<End)
+                       end, Body),
+    NewBody =case Body2 of 
+                 [] ->  
+                     Body1; 
+                 [B|Bs] ->
+                     [B1,B2] = Fun(B),
+                     case refac_syntax:type(B2)==variable andalso Bs/=[] of
+                         true ->
+                             Body1++[B1|Bs];
+                         false ->
+                             case {lists:reverse(Body1), Bs} of
+                                 {[], []} ->
+                                     [B1,refac_syntax:add_ann({layout, vertical}, B2)];
+                                 {[], [B3|Bs1]} ->
+                                     {{BL, _}, _} = refac_util:get_start_end_loc(B),
+                                     {{B3L, _},_} = refac_util:get_start_end_loc(B3),
+                                     case BL==B3L of 
+                                         true ->
+                                             B21=refac_syntax:add_ann({layout, horizontal}, B2),
+                                             B31=refac_syntax:add_ann({layout, horizontal}, B3),
+                                             [B1, B21, B31|Bs1];
+                                         false ->
+                                             B21=refac_syntax:add_ann({layout, vertical}, B2),
+                                             B31=refac_syntax:add_ann({layout, vertical}, B3),
+                                             [B1, B21, B31|Bs1]
+                                     end;
+                                 {[B0|_], []} ->
+                                     {{B0L, _},_} =refac_util:get_start_end_loc(B0),
+                                     {{BL, _}, _} = refac_util:get_start_end_loc(B),
+                                     case B0L==BL of 
+                                         true ->
+                                     B21=refac_syntax:add_ann({layout, horizontal}, B2),
+                                             Body1++[B1,B21];
+                                         false->
+                                             B21=refac_syntax:add_ann({layout, vertical}, B2),
+                                             Body1++[B1, B21]
+                                     end;
+                                 {[B0|_], [B3|Bs1]} ->
+                                     {{B0L, _},_} =refac_util:get_start_end_loc(B0),
+                                     {{BL, _}, _} = refac_util:get_start_end_loc(B),
+                                     B21= case B0L==BL of 
+                                              true ->
+                                          refac_syntax:add_ann({layout, horizontal}, B2);
+                                              false->
+                                                  refac_syntax:add_ann({layout, vertical}, B2)
+                                          end,
+                                     case Bs of
+                                         [] ->
+                                             Body1++[B1, B21];
+                                         [B3|Bs1] ->
+                                             {{B3L, _},_} = refac_util:get_start_end_loc(B3),
+                                             case BL==B3L of 
+                                                 true ->
+                                                     B31=refac_syntax:add_ann({layout, horizontal}, B3),
+                                                     Body1++[B1, B21, B31|Bs1];
+                                                 false ->
+                                                     B31=refac_syntax:add_ann({layout, vertical}, B3),
+                                                     Body1++[B1, B21, B31|Bs1]
+                                             end
+                                     end
+                             end
+                     end
+             end,
     case refac_syntax:type(Node) of
 	clause ->
 	    Pat = refac_syntax:clause_patterns(Node),
@@ -195,6 +272,7 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
 	    A = refac_syntax:try_expr_after(Node),
 	    refac_util:rewrite(Node,refac_syntax:try_expr(NewBody, C, H, A))
     end.
+
 
 replace_expr_with_var(Expr, NewVarName, ExprStatement) ->
     ast_traverse_api:stop_tdTP(fun do_replace_expr_with_var/2,
@@ -211,9 +289,13 @@ do_replace_expr_with_var(Node, {Expr, NewVarName}) ->
 
 make_match_expr(Expr, NewVarName) ->
     Pat = refac_syntax:variable(NewVarName),
-    refac_syntax:match_expr(Pat, Expr).
+    PreComs = refac_syntax:get_precomments(Expr),
+    PostComs=refac_syntax:get_postcomments(Expr),
+    Expr1=refac_syntax:set_precomments(refac_syntax:set_postcomments(Expr, []),[]),
+    MatchExpr=refac_syntax:match_expr(Pat, Expr1),
+    refac_syntax:set_precomments(refac_syntax:set_postcomments(MatchExpr, PostComs), PreComs).
 
-get_inmost_enclosing_clause(Form, Expr) ->
+get_inmost_enclosing_clause(Form, Expr) -> 
     ExprPos = refac_syntax:get_pos(Expr),
     Fun = fun (Node, S) ->
 		  Type = refac_syntax:type(Node),
