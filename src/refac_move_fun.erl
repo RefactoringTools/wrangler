@@ -1295,9 +1295,8 @@ get_closed_dependent_funs(Vs, MFAs, CG) ->
 check_dependent_funs(MFAs=[{ModName,_,_}|_T], FunDefs, CurModInfo, TargetModInfo, CG) ->
     TargetInScopeFuns = TargetModInfo#module_info.inscope_funs,
     FAs = [{F, A}||{_M, F, A}<-MFAs],
-    Clash = lists:filter(fun ({M, F, A}) ->
-				 lists:member({F,A}, FAs) andalso ModName =/= M
-			 end, TargetInScopeFuns),
+    Clash = [{ModName, F, A}||{_M,F,A}<-TargetInScopeFuns, 
+                              lists:member({F,A}, FAs)],
     NewMFAs = MFAs--Clash,
     NewFunDefs=[{F, Def}||{F, Def}<-FunDefs, lists:member(F, NewMFAs)],
     FMRs=lists:append([try check_macros_records([{F,FunDef}], CurModInfo,TargetModInfo) of
