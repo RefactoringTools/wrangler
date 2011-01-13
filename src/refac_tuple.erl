@@ -403,7 +403,7 @@ tuple_pars_in_attribute(Form, Args = {_FileName, _CurModName, _FunDefMod, FunNam
 process_pars(Pars, Index, Num) ->
     Pars1 = lists:sublist(Pars, Index - 1),
     Pars2 = lists:sublist(Pars, Index, Num),
-    Pars21 = [refac_util:rewrite(hd(Pars2), refac_syntax:tuple(Pars2))],
+    Pars21 = [refac_util:rewrite_with_wrapper(Pars2, refac_syntax:tuple(Pars2))],
     Pars3 = lists:nthtail(Index + Num - 1, Pars),
     Pars1 ++ Pars21 ++ Pars3.
 
