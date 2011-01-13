@@ -242,7 +242,7 @@ do_replace_expr_with_fun_call_1(Tree, {Range, Expr, NewExp}) ->
 		Tree== Expr  %% This is necessary due to the inaccuracy of Range.
 		of
 		true ->
-		    {refac_util:rewrite(Tree, NewExp), true};
+		    {refac_util:rewrite_with_wrapper(Tree, NewExp), true};
 		false ->
 		    {Tree, false}
 	    end;
@@ -281,16 +281,16 @@ do_replace_expr(Exprs, {StartLoc, EndLoc}, NewExp) ->
     case Exprs2 of
 	[] -> {Exprs, false};
 	_ ->
-	    {_Exprs21, Exprs22} =
+	    {Exprs21, Exprs22} =
 		lists:splitwith(
 		  fun (E) ->
 			  element(2, get_start_end_locations(E)) =/= EndLoc
-		  end, Exprs),
+		  end, Exprs2),
 	    case Exprs22 of
 		[] -> {Exprs, false};  %% THIS SHOULD NOT HAPPEN.
 		_ ->
-		    NewExp1 = refac_util:rewrite(get_start_end_locations(hd(Exprs22)), NewExp),
-		    {Exprs1 ++ [NewExp1| tl(Exprs22)], true}
+                    NewExp1 = refac_util:rewrite_with_wrapper(Exprs21++[hd(Exprs22)], NewExp),
+                    {Exprs1 ++ [NewExp1| tl(Exprs22)], true}
 	    end
     end.
 
