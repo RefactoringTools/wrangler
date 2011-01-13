@@ -43,16 +43,15 @@
 	 format_search_paths/1,default_incls/0, get_toks/1,reset_attrs/1,
 	 get_env_vars/1,get_var_exports/1,get_bound_vars/1,get_free_vars/1,
 	 is_expr/1,is_expr_or_match/1, is_pattern/1, is_exported/2, inscope_funs/1,update_ann/2,
-	 delete_from_ann/2, callback_funs/1, is_callback_fun/3, rewrite/2,
+	 delete_from_ann/2, callback_funs/1, is_callback_fun/3, rewrite/2, rewrite_with_wrapper/2,
 	 get_range/1, max/2, min/2, modname_to_filename/2, funname_to_defpos/2,
-  	 spawn_funs/0,is_spawn_app/1]).
+  	 spawn_funs/0,is_spawn_app/1, get_start_end_loc_with_comment/1]).
 
 -export([tokenize/3, file_format/1, expand_files/2,
 	 get_modules_by_file/1, test_framework_used/1,
 	 concat_toks/1]).
 
 -include("../include/wrangler.hrl").
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -678,6 +677,8 @@ is_callback_fun(ModInfo, Funname, Arity) ->
 rewrite(Tree, Tree1) ->
     refac_syntax:copy_attrs(Tree, Tree1).
 
+rewrite_with_wrapper(Tree, Tree1) ->
+    refac_syntax:copy_attrs(Tree, refac_syntax:tree(fake_parentheses, Tree1)).
 
 max(X,Y) when X>Y ->
      X;
@@ -940,3 +941,31 @@ concat_toks([T|Ts], Acc) ->
 	     concat_toks(Ts, [V|Acc])
      end.
 
+
+
+get_start_end_loc_with_comment(Node) when Node==[] ->
+    {{0,0},{0,0}};
+get_start_end_loc_with_comment(Node) when is_list(Node) ->
+    {Start, _} = get_start_end_loc_with_comment(hd(Node)),
+    {_, End} = get_start_end_loc_with_comment(lists:last(Node)),
+    {Start, End};
+get_start_end_loc_with_comment(Node) ->
+    {Start={_StartLn, StartCol}, End} = refac_prettypr:get_start_end_loc(Node),
+    PreCs = refac_syntax:get_precomments(Node),
+    PostCs = refac_syntax:get_postcomments(Node),
+    Start1 = case PreCs of
+                 [] -> 
+                     Start;
+                 _ ->
+                     {StartLn1, StartCol1}=refac_syntax:get_pos(hd(PreCs)),
+                     {StartLn1, erlang:max(StartCol, StartCol1)}
+             end,
+    End1 = case PostCs of
+               [] ->
+                   End;
+               _ ->
+                   LastC = refac_syntax:comment_text(lists:last(PostCs)),
+                   {L, C}=refac_syntax:get_pos(lists:last(PostCs)),
+                   {L, C+length(LastC)-1}
+           end,
+    {Start1, End1}.
