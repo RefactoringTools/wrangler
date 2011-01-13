@@ -274,7 +274,8 @@ inline(AnnAST, Form, MatchExpr, VarNode, Ps) ->
     FormPos = refac_syntax:get_pos(Form),
     Forms = refac_syntax:form_list_elements(AnnAST),
     NewForms = [case refac_syntax:get_pos(F) of
-		    FormPos -> do_inline_in_form(F, MatchExpr, VarNode, Ps);
+		    FormPos ->
+                        do_inline_in_form(F, MatchExpr, VarNode, Ps);
 		    _ -> F
 		end || F <- Forms],
     refac_util:rewrite(AnnAST, refac_syntax:form_list(NewForms)).
@@ -283,15 +284,14 @@ inline(AnnAST, Form, MatchExpr, VarNode, Ps) ->
 do_inline_in_form(Form, MatchExpr, VarNode, Ps) ->
     MatchExprBody = refac_syntax:match_expr_body(MatchExpr),
     AllUseInstances = collect_all_uses(Form, VarNode),
-    case lists:usort(AllUseInstances)==lists:usort(Ps) of 
-	true ->
-	    %% IMPORTANT: order matters here!!!
-	    {Form2, _} = ast_traverse_api:stop_tdTP(fun do_inline/2, Form, {MatchExprBody, Ps}),
-	    remove_match_expr(Form2, MatchExpr);
-	false ->
-	    Form
+    {Form2, _} = ast_traverse_api:stop_tdTP(fun do_inline/2, Form, {MatchExprBody, Ps}),
+    case lists:usort(AllUseInstances) == lists:usort(Ps) of 
+        true ->
+            remove_match_expr(Form2, MatchExpr);
+        false ->
+            Form2
     end.
-   
+ 
 remove_match_expr(Form, MatchExpr) ->
     {NewForm, _} = ast_traverse_api:stop_tdTP(
 		     fun do_remove_match_expr/2, Form, MatchExpr),
@@ -314,8 +314,7 @@ do_remove_match_expr(Node,MatchExpr) ->
 	block_expr ->
 	    Body = refac_syntax:block_expr_body(Node),
 	    NewBody = remove_match_expr_from_body(MatchExpr,Body),
-	    NewBody = Body--[MatchExpr],
-	    case NewBody==Body of
+            case NewBody==Body of
 		true ->
 		    {Node,false};
 		false ->
@@ -359,9 +358,12 @@ do_inline(Node, {MatchExprBody, Ranges}) ->
 	variable ->
 	    case lists:member(refac_util:get_range(Node), Ranges) of
 		true ->
-		    {refac_util:rewrite(Node, MatchExprBody), true};
-		false ->
+                    {refac_util:rewrite_with_wrapper(Node, MatchExprBody), true};
+                false ->
 		    {Node, false}
 	    end;
 	_ -> {Node, false}
     end.
+
+
+
