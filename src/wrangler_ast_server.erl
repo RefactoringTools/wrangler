@@ -332,12 +332,11 @@ parse_annotate_file(FName, true, SearchPaths, TabWidth, FileFormat) ->
 				  {Info1, Ms1};
 			      _ -> {[], {dict:from_list([]), dict:from_list([])}}
 			  end,
-	    Comments = refac_comment_scan:file(FName, TabWidth),
-            SyntaxTree = refac_recomment:recomment_forms(Forms, Comments),
+            SyntaxTree = refac_recomment:recomment_forms(Forms, []),
             Info = refac_syntax_lib:analyze_forms(SyntaxTree),
 	    Info2 = merge_module_info(Info0, Info),
 	    AnnAST0 = annotate_bindings(FName, SyntaxTree, Info2, Ms, TabWidth),
-	    AnnAST = refac_atom_annotation:type_ann_ast(FName, Info2, AnnAST0, SearchPaths, TabWidth),
+            AnnAST = refac_atom_annotation:type_ann_ast(FName, Info2, AnnAST0, SearchPaths, TabWidth),
 	    {ok, {AnnAST, Info2}};
 	{error, Reason} -> erlang:error(Reason)
     end;
@@ -403,7 +402,10 @@ merge_module_info(Info1, Info2) ->
 annotate_bindings(FName, AST, Info, Ms, TabWidth) ->
     Toks = refac_util:tokenize(FName, true, TabWidth),
     AnnAST0 = refac_syntax_lib:annotate_bindings(add_token_and_ranges(AST, Toks), ordsets:new(), Ms),
-    refac_annotate_ast:add_fun_define_locations(AnnAST0, Info).
+    Comments = refac_comment_scan:file(FName, TabWidth),
+    AnnAST1= refac_recomment:recomment_forms(AnnAST0, Comments),
+    AnnAST2 =update_toks(Toks,AnnAST1),
+    refac_annotate_ast:add_fun_define_locations(AnnAST2, Info).
 
   
 %% Attach tokens to each form in the AST, and also add 
@@ -418,6 +420,19 @@ add_token_and_ranges(SyntaxTree, Toks) ->
 %% do it backwards starting from the last form. 
 %% all the white spaces after a form belong to the next form if
 %% there is one. 
+
+update_toks(Toks, AnnAST) ->
+    Fs = refac_syntax:form_list_elements(AnnAST),
+    NewFs=do_update_toks(lists:reverse(Toks), lists:reverse(Fs), []),
+    rewrite(AnnAST, refac_syntax:form_list(NewFs)).
+
+do_update_toks(_, [], NewFs) ->
+    NewFs;
+do_update_toks(Toks, _Forms=[F|Fs], NewFs) ->
+    {FormToks0, RemToks} = get_form_tokens(Toks, F, Fs), 
+    FormToks = lists:reverse(FormToks0),
+    F1 = refac_util:update_ann(F, {toks, FormToks}),
+    do_update_toks(RemToks, Fs, [F1| NewFs]).
 
 do_add_token_and_ranges(Toks, Fs) ->
     do_add_token_and_ranges(lists:reverse(Toks), lists:reverse(Fs), []).
@@ -472,7 +487,7 @@ get_non_comment_form_toks(Toks, F, _Fs) ->
 start_pos(F) ->
     case refac_syntax:type(F) of 
 	error_marker ->
-	    case F of
+	    case refac_syntax:revert(F) of
 		{error, {_, {{Line, Col}, {_Line1, _Col1}}}} ->
 		    {Line, Col};
 		_ ->
@@ -490,7 +505,8 @@ start_pos(F) ->
 %%-spec add_range(syntaxTree(), [token()]) -> syntaxTree(). 
 add_range(AST, Toks) ->
     QAtomPs= [Pos||{qatom, Pos, _Atom}<-Toks],
-    ast_traverse_api:full_buTP(fun do_add_range/2, AST, {Toks, QAtomPs}).
+    Toks1 =[Tok||Tok<-Toks, not (is_whitespace_or_comment(Tok))],
+    ast_traverse_api:full_buTP(fun do_add_range/2, AST, {Toks1, QAtomPs}).
 
 do_add_range(Node, {Toks, QAtomPs}) ->
     {L, C} = case refac_syntax:get_pos(Node) of
@@ -500,24 +516,25 @@ do_add_range(Node, {Toks, QAtomPs}) ->
     case refac_syntax:type(Node) of
 	variable ->
 	    Len = length(refac_syntax:variable_literal(Node)),
-	    refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
+	    refac_util:update_ann(Node,{range, {{L, C}, {L, C + Len - 1}}});
 	atom ->
-            case lists:member({L,C}, QAtomPs) of
+            case lists:member({L,C}, QAtomPs) orelse 
+                lists:member({L,C+1}, QAtomPs) of  
                 true ->
                     Len = length(atom_to_list(refac_syntax:atom_value(Node))), 
                     Node1 = refac_syntax:add_ann({qatom, true}, Node),
-                    refac_syntax:add_ann({range, {{L, C}, {L, C + Len + 1}}}, Node1); 
+                    refac_util:update_ann(Node1,{range, {{L, C}, {L, C + Len + 1}}}); 
                 false ->
                     Len = length(atom_to_list(refac_syntax:atom_value(Node))), 
-                    refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node)
+                     refac_util:update_ann(Node, {range, {{L, C}, {L, C + Len - 1}}})
 	    end;
         operator ->
 	    Len = length(atom_to_list(refac_syntax:atom_value(Node))),
 	    refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
 	char -> refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node);
 	integer ->
-	    Len = length(refac_syntax:integer_literal(Node)),
-	    refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
+            Len = length(refac_syntax:integer_literal(Node)),
+	    refac_util:update_ann(Node, {range, {{L, C}, {L, C + Len - 1}}});
 	string ->
 	    Toks1 = lists:dropwhile(fun (T) -> token_loc(T) < {L, C} end, Toks),
 	    {Toks21, Toks22} = lists:splitwith(fun (T) -> is_string(T) orelse is_whitespace_or_comment(T) end, Toks1),
@@ -549,7 +566,12 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	eof_marker -> refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node);
 	nil -> refac_syntax:add_ann({range, {{L, C}, {L, C + 1}}}, Node);
 	module_qualifier ->
-	    calc_and_add_range_to_node(Node, module_qualifier_argument, module_qualifier_body);
+            Arg = refac_syntax:module_qualifier_argument(Node),
+            Field = refac_syntax:module_qualifier_body(Node),
+            {S1,_E1} = get_range(Arg),
+            {_S2,E2} = get_range(Field),
+            Node1 = refac_syntax:set_pos(Node, S1),
+            refac_syntax:add_ann({range,{S1,E2}},Node1);
 	list ->  
             Es = list_elements(Node),
             case Es/=[] of
@@ -629,13 +651,10 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 				   'end'),   %% S starts from 'fun', so there is no need to extend forwards/
 	    refac_syntax:add_ann({range, {S, E11}}, Node);
 	arity_qualifier ->
-	    calc_and_add_range_to_node(Node, arity_qualifier_body, arity_qualifier_argument);
+            calc_and_add_range_to_node(Node, arity_qualifier_body, arity_qualifier_argument);
 	implicit_fun ->
-	    S = refac_syntax:get_pos(Node),
-	    N = refac_syntax:implicit_fun_name(Node),
-	    {_S1, E1} = get_range(N),
-	    refac_syntax:add_ann({range, {S, E1}}, Node);
-	attribute ->
+                adjust_implicit_fun_loc(Node, Toks);
+        attribute ->
 	    Name = refac_syntax:attribute_name(Node),
 	    Args = refac_syntax:attribute_arguments(Node),
 	    case Args of
@@ -643,11 +662,12 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 			S11 = extend_forwards(Toks, S1, '-'),
 			refac_syntax:add_ann({range, {S11, E1}}, Node);
 		_ -> case length(Args) > 0 of
-			 true -> Arg = refac_util:glast("refac_util:do_add_range,attribute", Args),
-				 {S1, _E1} = get_range(Name),
-				 {_S2, E2} = get_range(Arg),
-				 S11 = extend_forwards(Toks, S1, '-'),
-				 refac_syntax:add_ann({range, {S11, E2}}, Node);
+			 true -> 
+                             Arg = refac_util:glast("refac_util:do_add_range,attribute", Args),
+                             {S1, _E1} = get_range(Name),
+                             {_S2, E2} = get_range(Arg),
+                             S11 = extend_forwards(Toks, S1, '-'),
+                             refac_syntax:add_ann({range, {S11, E2}}, Node);
 			 _ -> {S1, E1} = get_range(Name),
 			      S11 = extend_forwards(Toks, S1, '-'),
 			      refac_syntax:add_ann({range, {S11, E1}}, Node)
@@ -779,27 +799,34 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 		_ -> {_S2, E2} = get_range(Value),refac_syntax:add_ann({range, {S1, E2}}, Node)
 	    end;
 	typed_record_field ->   %% This is not correct; need to be fixed later!
-	    Field = refac_syntax:typed_record_field(Node),
-	    {S1, _E1} = get_range(Field),
-	    Type = refac_syntax:typed_record_type(Node),
-	    {_S2, E2} = get_range(Type),
-	    refac_syntax:add_ann({range, {S1, E2}}, Node);
+                Field = refac_syntax:typed_record_field(Node),
+                {S1, _E1} = get_range(Field),
+                Type = refac_syntax:typed_record_type(Node),
+                {_S2, E2} = get_range(Type),
+                refac_syntax:add_ann({range, {S1, E2}}, Node);
 	record_expr ->
-	    Arg = refac_syntax:record_expr_argument(Node),
-	    Type = refac_syntax:record_expr_type(Node),
-	    Fields = refac_syntax:record_expr_fields(Node),
-	    {S1, E1} = case Arg of
-			   none -> get_range(Type);
-			   _ -> get_range(Arg)
-		       end,
-	    case Fields of
-		[] -> E11 = extend_backwards(Toks, E1, '}'),
-		      refac_syntax:add_ann({range, {S1, E11}}, Node);
-		_ ->
-		    {_S2, E2} = get_range(refac_util:glast("refac_util:do_add_range,record_expr", Fields)),
-		    E21 = extend_backwards(Toks, E2, '}'),
-		    refac_syntax:add_ann({range, {S1, E21}}, Node)
-	    end;
+                Arg = refac_syntax:record_expr_argument(Node),
+                Type = refac_syntax:record_expr_type(Node),
+                Toks2 = lists:dropwhile(fun(B)->
+                                               element(2, B)/= {L,C}
+                                       end, Toks),
+                [{'#', _}, {_, Pos1, _}|_] = Toks2,
+                Type1 = add_range(refac_syntax:set_pos(Type, Pos1), Toks),
+                Fields = refac_syntax:record_expr_fields(Node),
+                {S1, E1} = case Arg of
+                               none -> get_range(Type);
+                               _ -> get_range(Arg)
+                           end,
+                case Fields of
+                    [] -> E11 = extend_backwards(Toks, E1, '}'),
+                          Node1 =rewrite(Node, refac_syntax:record_expr(Arg, Type1, Fields)),
+                          refac_syntax:add_ann({range, {S1, E11}}, Node1);
+                    _ ->
+                        {_S2, E2} = get_range(refac_util:glast("refac_util:do_add_range,record_expr", Fields)),
+                        E21 = extend_backwards(Toks, E2, '}'),
+                        Node1 =rewrite(Node, refac_syntax:record_expr(Arg, Type1, Fields)),
+                        refac_syntax:add_ann({range, {S1, E21}}, Node1)
+                end;
 	record_access ->
 	    calc_and_add_range_to_node(Node, record_access_argument, record_access_field);
 	record_index_expr ->
@@ -815,7 +842,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	    Args = refac_syntax:macro_arguments(Node),
 	    {_S1, {L1, C1}} = get_range(Name),
             E1={L1, C1+1},
-	    case Args of
+	    M=case Args of
 		none -> refac_syntax:add_ann({range, {{L, C}, E1}}, Node);
 		Ls ->
 		    case Ls of
@@ -827,11 +854,19 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 			    E21 = extend_backwards(Toks, E2, ')'),
 			    refac_syntax:add_ann({range, {{L, C}, E21}}, Node)
 		    end
-	    end;
+              end,
+            refac_syntax:add_ann(
+              {with_bracket, 
+               refac_prettypr:has_parentheses(M, Toks)}, M);
 	size_qualifier ->
 	    calc_and_add_range_to_node(Node, size_qualifier_body, size_qualifier_argument);
 	error_marker ->
-	    refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node);
+                case refac_syntax:revert(Node) of
+                    {error, {_, {Start, End}}} ->
+                        refac_syntax:add_ann({range, {Start, End}}, Node);
+                    _ ->
+                        refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node)
+                end;
 	type ->   %% This is not correct, and need to be fixed!!
 	    refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node);
 	_ ->
@@ -1069,3 +1104,48 @@ list_elements(Node, As) ->
         _ ->[Node|As]
     end.
            
+
+adjust_implicit_fun_loc(T, Toks)->
+    Pos = refac_syntax:get_pos(T),
+    Name = refac_syntax:implicit_fun_name(T),
+    Toks2 = lists:dropwhile(fun (B) -> element(2, B) =/= Pos end, Toks),
+    case refac_syntax:type(Name) of
+        module_qualifier ->
+            Arg = refac_syntax:module_qualifier_argument(Name),
+            Body = refac_syntax:module_qualifier_body(Name),
+            Fun = refac_syntax:arity_qualifier_body(Body),
+            A = refac_syntax:arity_qualifier_argument(Body),
+            [{'fun', Pos1},{atom, Pos2, _ModName}, {':', _},
+             {atom, Pos4, _FunName}, {'/', _},
+             {integer, Pos5, _Arity}|_Ts] = Toks2,
+            Arg1 =add_range(refac_syntax:set_pos(Arg, Pos2),Toks),
+            Fun1= add_range(refac_syntax:set_pos(Fun, Pos4),Toks),
+            A1 = add_range(refac_syntax:set_pos(A, Pos5),Toks),
+            Body1 = add_range(
+                      refac_syntax:set_pos(
+                        rewrite(Body,refac_syntax:arity_qualifier(Fun1, A1)),
+                        Pos4),Toks),
+            Name1= add_range(refac_syntax:set_pos(
+                               refac_syntax:module_qualifier(
+                                 Arg1, Body1), Pos2), Toks),
+            {_S,E} = get_range(A1),
+            T1=rewrite(T, refac_syntax:implicit_fun(Name1)),
+            refac_util:update_ann(T1, {range, {Pos1, E}}); 
+        arity_qualifier->
+            Fun = refac_syntax:arity_qualifier_body(Name),
+            A = refac_syntax:arity_qualifier_argument(Name),
+            [{'fun', Pos1}, {atom, Pos4, _FunName}, {'/', _},
+             {integer, Pos5, _Arity}|_Ts] = Toks2,
+            Fun1= add_range(refac_syntax:set_pos(Fun, Pos4),Toks),
+            A1 = add_range(refac_syntax:set_pos(A, Pos5),Toks),
+            Name1 = add_range(
+                      refac_syntax:set_pos(
+                        rewrite(Name,refac_syntax:arity_qualifier(Fun1, A1)),
+                        Pos4),Toks),
+            {_S,E} = get_range(A1),
+            T1=rewrite(T, refac_syntax:implicit_fun(Name1)),
+            refac_util:update_ann(T1, {range, {Pos1, E}}); 
+        _ -> T
+    end.
+  
+   
