@@ -201,7 +201,7 @@ do_search_candidate_exprs_2(AnnAST, MacroBody, MacroParNames) ->
 			  Exprs = refac_syntax:block_expr_body(T),
 			  CandidateExprs = get_candidate_exprs(Exprs, Len, MacroBody, MacroParNames),
 			  S ++ lists:filter(fun (C) -> C =/= false end, CandidateExprs);
-		      appication ->
+		      application ->
 			  Args = refac_syntax:application_arguments(T),
 			  CandidateExprs = get_candidate_exprs(Args, Len, MacroBody, MacroParNames),
 			  S ++ lists:filter(fun (C) -> C =/= false end, CandidateExprs);
