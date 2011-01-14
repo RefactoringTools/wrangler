@@ -61,8 +61,8 @@ new_macro(FileName, Start = {SLine, SCol}, End = {ELine, ECol}, NewMacroName, Se
 		 [?MODULE, FileName, SLine, SCol, ELine, ECol, NewMacroName, SearchPaths, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":new_macro(" ++ "\"" ++ 
 	    FileName ++ "\", {" ++ integer_to_list(SLine) ++ ", " ++ integer_to_list(SCol) ++ "}," ++ 
-	      "{" ++ integer_to_list(ELine) ++ ", " ++ integer_to_list(ECol) ++ "}," ++ "\"" ++ NewMacroName ++ "\","
-														   ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+	      "{" ++ integer_to_list(ELine) ++ ", " ++ integer_to_list(ECol) ++ "}," ++ "\"" ++ NewMacroName 
+        ++ "\"," ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case pre_cond_check(FileName, AnnAST, NewMacroName, Start, End, SearchPaths, TabWidth) of
 	{ok, AnnAST, Sel, NeedBracket} ->
@@ -86,9 +86,8 @@ pre_cond_check(FileName, AnnAST, NewMacroName, Start, End, SearchPaths, TabWidth
 			    case Sel of
 				[] -> {error, "You have not selected a sequence of expressions/patterns!"};
 				_ ->
-				    ExprList = [hd(Sel)],
-				    NeedBracket = need_bracket(refac_util:get_toks(FunDef), ExprList),
-				    {ok, AnnAST, [hd(Sel)], NeedBracket}
+                                    NeedBracket = need_bracket(refac_util:get_toks(FunDef),Sel),
+				    {ok, AnnAST,Sel, NeedBracket}
 			    end;
 			_ -> {error, "You have not selected a sequence of expressions/patterns!"}
 		    end
@@ -129,19 +128,20 @@ mk_macro_name(MacroName) ->
     end.
 
 mk_macro_def(MName, Args, Exps) ->
+    Exps1 =refac_util:reset_ann_and_pos(Exps),
     case Args of
-      [] -> refac_syntax:attribute(refac_syntax:atom(define), [MName| Exps]);
+      [] -> refac_syntax:attribute(refac_syntax:atom(define), [MName| Exps1]);
       _ ->
 	  MApp = refac_syntax:application(MName, Args),
-	  refac_syntax:attribute(refac_syntax:atom(define), [MApp| Exps])
+	  refac_syntax:attribute(refac_syntax:atom(define), [MApp| Exps1])
     end.
 
 mk_macro_app(MName, Args) ->
     case Args of
       [] ->
-	  refac_syntax:macro(MName);
+	  refac_util:reset_ann_and_pos(refac_syntax:macro(MName));
       _ ->
-	  refac_syntax:macro(MName, Args)
+	  refac_util:reset_ann_and_pos(refac_syntax:macro(MName, Args))
     end.
 
  
@@ -159,7 +159,7 @@ replace_expr_with_macro(Form, {ExpList, SLoc, ELoc}, MApp) ->
 replace_single_expr_with_macro_app(Tree, {MApp, SLoc, ELoc}) ->
     case refac_util:get_start_end_loc(Tree) of
 	{SLoc, ELoc} ->
-	    {refac_util:rewrite(Tree, MApp), true};
+	    {refac_util:rewrite_with_wrapper(Tree, MApp), true};
 	_ -> {Tree, false}
     end.
 
@@ -174,9 +174,7 @@ replace_expr_list_with_macro_app(Tree, {MApp, SLoc, ELoc}) ->
 	  case Modified or Modified1 of
 	    true ->
 		G = refac_syntax:clause_guard(Tree),
-		{refac_syntax:copy_pos(
-		   Tree, refac_syntax:copy_attrs(
-			   Tree, refac_syntax:clause(NewPats, G, NewBody))), true};
+		{rewrite(Tree,refac_syntax:clause(NewPats, G, NewBody)), true};
 	    _ ->
 		{Tree, false}
 	  end;
@@ -185,9 +183,7 @@ replace_expr_list_with_macro_app(Tree, {MApp, SLoc, ELoc}) ->
 	  {NewArgs, Modified} = process_exprs(Args, {MApp, SLoc, ELoc}),
 	  case Modified of
 	    true -> Op = refac_syntax:application_operator(Tree),
-		    {refac_syntax:copy_pos(
-		       Tree, refac_syntax:copy_attrs(
-			       Tree, refac_syntax:application(Op, NewArgs))), true};
+		    {rewrite(Tree,refac_syntax:application(Op, NewArgs)), true};
 	    false -> {Tree, false}
 	  end;
       tuple ->
@@ -195,16 +191,14 @@ replace_expr_list_with_macro_app(Tree, {MApp, SLoc, ELoc}) ->
 	  {NewElems, Modified} = process_exprs(Elems, {MApp, SLoc, ELoc}),
 	  case Modified of
 	    true ->
-		{refac_syntax:copy_pos(Tree, refac_syntax:copy_attrs(
-					       Tree, refac_syntax:tuple(NewElems))), true};
+		{rewrite(Tree, refac_syntax:tuple(NewElems)), true};
 	    false -> {Tree, false}
 	  end;
       block_expr ->
 	  Exprs = refac_syntax:block_expr_body(Tree),
 	  {NewExprs, Modified} = process_exprs(Exprs, {MApp, SLoc, ELoc}),
 	  case Modified of
-	    true -> {refac_syntax:copy_pos(Tree, refac_syntax:copy_attrs(
-						   Tree, refac_syntax:block_expr(NewExprs))), true};
+	    true -> {rewrite(Tree,refac_syntax:block_expr(NewExprs)), true};
 	    _ -> {Tree, false}
 	  end;
       _ ->
@@ -212,19 +206,23 @@ replace_expr_list_with_macro_app(Tree, {MApp, SLoc, ELoc}) ->
     end.
 
 process_exprs(Exprs, {MApp, SLoc, ELoc}) ->
-    {Exprs1, Exprs2} = lists:splitwith(fun (E) ->
-					       {SLoc1, _} = refac_util:get_start_end_loc(E),
-					       SLoc1 =/= SLoc
-				       end, Exprs),
+    {Exprs1, Exprs2} = lists:splitwith(
+                         fun (E) ->
+                                 {SLoc1, _} = refac_util:get_start_end_loc(E),
+                                 SLoc1 =/= SLoc
+                         end, Exprs),
     case Exprs2 of
 	[] -> {Exprs, false};
-	_ -> {_Exprs21, Exprs22} = lists:splitwith(fun (E) ->
-							   {_, ELoc1} = refac_util:get_start_end_loc(E),
-							   ELoc1 =/= ELoc
-						   end, Exprs2),
+	_ -> {Exprs21, Exprs22} = 
+                 lists:splitwith(
+                   fun (E) ->
+                           {_, ELoc1} = refac_util:get_start_end_loc(E),
+                           ELoc1 =/= ELoc
+                   end, Exprs2),
 	     case Exprs22 of
 		 [] -> {Exprs, false}; %% THIS SHOULD NOT HAPPEN.
-		 _ -> {Exprs1 ++ [MApp| tl(Exprs22)], true}
+		 _ -> {Exprs1 ++ [refac_util:rewrite_with_wrapper(Exprs21, MApp)
+                                  | tl(Exprs22)], true}
 	     end
     end.
 
@@ -291,3 +289,6 @@ return_refac_result(FileName, AnnAST, Editor, Cmd, TabWidth) ->
 	    Res = [{FileName, FileName, Src}],
 	    {ok, Res}
     end.
+
+rewrite(Source, Target) ->
+    refac_syntax:copy_pos(Source, refac_syntax:copy_attrs(Source, Target)).
