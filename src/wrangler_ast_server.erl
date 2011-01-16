@@ -431,7 +431,7 @@ do_update_toks(_, [], NewFs) ->
 do_update_toks(Toks, _Forms=[F|Fs], NewFs) ->
     {FormToks0, RemToks} = get_form_tokens(Toks, F, Fs), 
     FormToks = lists:reverse(FormToks0),
-    F1 = refac_util:update_ann(F, {toks, FormToks}),
+    F1 = update_ann(F, {toks, FormToks}),
     do_update_toks(RemToks, Fs, [F1| NewFs]).
 
 do_add_token_and_ranges(Toks, Fs) ->
@@ -442,7 +442,7 @@ do_add_token_and_ranges(_, [], NewFs) ->
 do_add_token_and_ranges(Toks, _Forms=[F| Fs], NewFs) ->
     {FormToks0, RemToks} = get_form_tokens(Toks, F, Fs), 
     FormToks = lists:reverse(FormToks0),
-    F1 = refac_syntax:add_ann({toks, FormToks}, F),
+    F1 = update_ann(F, {toks, FormToks}),
     F2 = add_category(add_range(F1, FormToks)),
     do_add_token_and_ranges(RemToks, Fs, [F2| NewFs]).
 
@@ -516,62 +516,72 @@ do_add_range(Node, {Toks, QAtomPs}) ->
     case refac_syntax:type(Node) of
 	variable ->
 	    Len = length(refac_syntax:variable_literal(Node)),
-	    refac_util:update_ann(Node,{range, {{L, C}, {L, C + Len - 1}}});
+	    update_ann(Node, {range, {{L, C}, {L, C + Len - 1}}});
 	atom ->
             case lists:member({L,C}, QAtomPs) orelse 
                 lists:member({L,C+1}, QAtomPs) of  
                 true ->
                     Len = length(atom_to_list(refac_syntax:atom_value(Node))), 
-                    Node1 = refac_syntax:add_ann({qatom, true}, Node),
-                    refac_util:update_ann(Node1,{range, {{L, C}, {L, C + Len + 1}}}); 
+                    Node1 = update_ann(Node, {qatom, true}),
+                    update_ann(Node1, {range, {{L, C}, {L, C + Len + 1}}});
                 false ->
                     Len = length(atom_to_list(refac_syntax:atom_value(Node))), 
-                     refac_util:update_ann(Node, {range, {{L, C}, {L, C + Len - 1}}})
+                    update_ann(Node, {range, {{L, C}, {L, C + Len - 1}}})
 	    end;
         operator ->
 	    Len = length(atom_to_list(refac_syntax:atom_value(Node))),
-	    refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
-	char -> refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node);
+	    update_ann(Node, {range, {{L, C}, {L, C + Len - 1}}});
+	char -> update_ann(Node, {range, {{L, C}, {L, C}}});
 	integer ->
             Len = length(refac_syntax:integer_literal(Node)),
-	    refac_util:update_ann(Node, {range, {{L, C}, {L, C + Len - 1}}});
+	    update_ann(Node, {range, {{L, C}, {L, C + Len - 1}}});
 	string ->
-	    Toks1 = lists:dropwhile(fun (T) -> token_loc(T) < {L, C} end, Toks),
-	    {Toks21, Toks22} = lists:splitwith(fun (T) -> is_string(T) orelse is_whitespace_or_comment(T) end, Toks1),
+            Toks1 = lists:dropwhile(fun (T) -> 
+                                            token_loc(T) < {L, C} 
+                                    end, Toks),
+            {Toks21, _Toks22} = lists:splitwith(fun (T) -> 
+                                                       is_string(T) orelse 
+                                                           is_whitespace_or_comment(T)
+                                               end, Toks1),
 	    Toks3 = lists:filter(fun (T) -> is_string(T) end, Toks21),
-	    case Toks3 of
-		[] ->
-		    Len = length(refac_syntax:string_literal(Node)),
-		    Toks23 = lists:takewhile(fun (T) -> token_loc(T) < {L, C + Len - 1} end, Toks22),
-		    Toks31 = lists:filter(fun (T) -> is_string(T) end, Toks23),
-		    case Toks31 of
-			[] ->
-			    refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node);
-			_ ->
-			    Node1 = refac_syntax:add_ann({range, {{L, C}, {L, C + Len - 1}}}, Node),
-			    refac_syntax:add_ann({toks, Toks31}, Node1)
-		    end;
-		_ -> Toks4 = lists:takewhile(fun (T) -> is_whitespace_or_comment(T) end, lists:reverse(Toks21)),
-		     {L3, C3} = case Toks4 of
-				    [] -> token_loc(hd(Toks22));
-				    _ -> token_loc(lists:last(Toks4))
-				end,
-		     R = {token_loc(hd(Toks21)), {L3, C3 - 1}},
-		     Node1 = refac_syntax:add_ann({range, R}, Node),
-		     refac_syntax:add_ann({toks, Toks3}, Node1)
-	    end;
-	float ->
-	    refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node); %% This is problematic.
-	underscore -> refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node);
-	eof_marker -> refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node);
-	nil -> refac_syntax:add_ann({range, {{L, C}, {L, C + 1}}}, Node);
+            Str = refac_syntax:string_value(Node),
+            Lines = refac_syntax_lib:split_lines(Str),
+            {NumOfLines, LastLen}= case Lines of 
+                                       [] -> 
+                                           {1, 0};
+                                       _ ->
+                                           {length(Lines),length(lists:last(Lines))}
+                                   end,
+            case Toks3 of 
+                [] ->  %% this might happen with attributes when the loc info is not accurate.
+                    Range = {{L, C}, {L+NumOfLines-1, C+LastLen+1}},
+                    update_ann(Node, {range, Range});
+                _ ->
+                    {string, {L1, C1},_}= refac_util:glast("do_add_range, string", Toks3),
+                    L2 = L1+NumOfLines-1,
+                    C2 = case NumOfLines of
+                             1 -> C1+LastLen+1;
+                             _ -> LastLen+1
+                         end,
+                    Range ={token_loc(hd(Toks3)), {L2, C2}},
+                    Node1 = update_ann(Node, {range, Range}),
+                    update_ann(Node1, {toks, Toks3})
+            end;
+        float ->
+	    update_ann(Node,
+	               {range, {{L, C}, {L, C}}}); %% This is problematic.
+	underscore -> update_ann(Node,
+	                         {range, {{L, C}, {L, C}}});
+        eof_marker -> update_ann(Node,
+                                 {range, {{L, C}, {L, C}}});
+        nil -> update_ann(Node, {range, {{L, C}, {L, C + 1}}});
 	module_qualifier ->
             Arg = refac_syntax:module_qualifier_argument(Node),
             Field = refac_syntax:module_qualifier_body(Node),
             {S1,_E1} = get_range(Arg),
             {_S2,E2} = get_range(Field),
             Node1 = refac_syntax:set_pos(Node, S1),
-            refac_syntax:add_ann({range,{S1,E2}},Node1);
+            update_ann(Node1, {range, {S1, E2}});
 	list ->  
             Es = list_elements(Node),
             case Es/=[] of
@@ -579,7 +589,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                     Last = refac_util:glast("refac_util:do_add_range,list", Es),
                     {_, E2} = get_range(Last),
                     E21 = extend_backwards(Toks, E2, ']'),
-                    refac_syntax:add_ann({range, {{L,C}, E21}}, Node);
+                    update_ann(Node, {range, {{L, C}, E21}});
                 false ->
                     Node
             end;
@@ -594,7 +604,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 				{S1, E2}
 		       end,
 	    E31 = extend_backwards(Toks, E3, ')'),
-	    refac_syntax:add_ann({range, {S3, E31}}, Node);
+	    update_ann(Node, {range, {S3, E31}});
 	case_expr ->
 	    A = refac_syntax:case_expr_argument(Node),
 	    Lc = refac_util:glast("refac_util:do_add_range,case_expr", refac_syntax:case_expr_clauses(Node)),
@@ -609,12 +619,12 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                       end,         
             Body = refac_util:glast("refac_util:do_add_range, clause", refac_syntax:clause_body(Node)),
 	    {_S2, E2} = get_range(Body),
-	    refac_syntax:add_ann({range, {min(S1, {L,C}), E2}}, Node);
+	    update_ann(Node, {range, {min(S1, {L, C}), E2}});
 	catch_expr ->
 	    B = refac_syntax:catch_expr_body(Node),
 	    {S, E} = get_range(B),
 	    S1 = extend_forwards(Toks, S, 'catch'),
-	    refac_syntax:add_ann({range, {S1, E}}, Node);
+	    update_ann(Node, {range, {S1, E}});
 	if_expr ->
 	    Cs = refac_syntax:if_expr_clauses(Node),
 	    add_range_to_list_node(Node, Toks, Cs, "refac_util:do_add_range, if_expr",
@@ -641,7 +651,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	    Lc = refac_util:glast("refac_util:do_add_range,function", Cs),
 	    {S1, _E1} = get_range(F),
 	    {_S2, E2} = get_range(Lc),
-	    refac_syntax:add_ann({range, {S1, E2}}, Node);
+	    update_ann(Node, {range, {S1, E2}});
 	fun_expr ->
 	    Cs = refac_syntax:fun_expr_clauses(Node),
 	    S = refac_syntax:get_pos(Node),
@@ -649,9 +659,9 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	    {_S1, E1} = get_range(Lc),
 	    E11 = extend_backwards(Toks, E1,
 				   'end'),   %% S starts from 'fun', so there is no need to extend forwards/
-	    refac_syntax:add_ann({range, {S, E11}}, Node);
+	    update_ann(Node, {range, {S, E11}});
 	arity_qualifier ->
-            calc_and_add_range_to_node(Node, arity_qualifier_body, arity_qualifier_argument);
+                calc_and_add_range_to_node(Node, arity_qualifier_body, arity_qualifier_argument);
 	implicit_fun ->
                 adjust_implicit_fun_loc(Node, Toks);
         attribute ->
@@ -660,17 +670,17 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	    case Args of
 		none -> {S1, E1} = get_range(Name),
 			S11 = extend_forwards(Toks, S1, '-'),
-			refac_syntax:add_ann({range, {S11, E1}}, Node);
+			update_ann(Node, {range, {S11, E1}});
 		_ -> case length(Args) > 0 of
 			 true -> 
                              Arg = refac_util:glast("refac_util:do_add_range,attribute", Args),
                              {S1, _E1} = get_range(Name),
                              {_S2, E2} = get_range(Arg),
                              S11 = extend_forwards(Toks, S1, '-'),
-                             refac_syntax:add_ann({range, {S11, E2}}, Node);
+                             update_ann(Node, {range, {S11, E2}});
 			 _ -> {S1, E1} = get_range(Name),
 			      S11 = extend_forwards(Toks, S1, '-'),
-			      refac_syntax:add_ann({range, {S11, E1}}, Node)
+			      update_ann(Node, {range, {S11, E1}})
 		     end
 	    end;
 	generator ->
@@ -680,7 +690,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	tuple ->
 	    Es = refac_syntax:tuple_elements(Node),
 	    case length(Es) of
-		0 -> refac_syntax:add_ann({range, {{L, C}, {L, C + 1}}}, Node);
+		0 -> update_ann(Node, {range, {{L, C}, {L, C + 1}}});
 		_ ->
 		    add_range_to_list_node(Node, Toks, Es, "refac_util:do_add_range, tuple",
 					   "refac_util:do_add_range, tuple",
@@ -691,14 +701,14 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	    B = refac_util:glast("refac_util:do_add_range,list_comp", refac_syntax:list_comp_body(Node)),
 	    {_S2, E2} = get_range(B),
 	    E21 = extend_backwards(Toks, E2, ']'),
-	    refac_syntax:add_ann({range, {{L,C}, E21}}, Node);
+	    update_ann(Node, {range, {{L, C}, E21}});
 	binary_comp ->
 	    %%T = refac_syntax:binary_comp_template(Node),
 	    B = refac_util:glast("refac_util:do_add_range,binary_comp",
 				 refac_syntax:binary_comp_body(Node)),
 	    {_S2, E2} = get_range(B),
 	    E21 = extend_backwards(Toks, E2, '>>'),
-	    refac_syntax:add_ann({range, {{L,C}, E21}}, Node);
+	    update_ann(Node, {range, {{L, C}, E21}});
 	block_expr ->
 	    Es = refac_syntax:block_expr_body(Node),
 	    add_range_to_list_node(Node, Toks, Es, "refac_util:do_add_range, block_expr",
@@ -706,29 +716,16 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	receive_expr ->
 	    case refac_syntax:receive_expr_timeout(Node) of
 		none ->
+                    %% Cs cannot be empty here.
 		    Cs = refac_syntax:receive_expr_clauses(Node),
-		    case length(Cs) of
-			0 -> refac_syntax:add_ann({range, {L, C}, {L, C}}, Node);
-			_ ->
-			    add_range_to_list_node(Node, Toks, Cs, "refac_util:do_add_range, receive_expr1",
-						   "refac_util:do_add_range, receive_expr1", 'receive', 'end')
-		    end;
-		_E ->
-		    Cs = refac_syntax:receive_expr_clauses(Node),
-		    A = refac_syntax:receive_expr_action(Node),
-		    case length(Cs) of
-			0 ->
-			    {_S2, E2} = get_range(refac_util:glast("refac_util:do_add_range, receive_expr2", A)),
-			    refac_syntax:add_ann({range, {{L, C}, E2}}, Node);
-			_ ->
-			    Hd = refac_util:ghead("refac_util:do_add_range,receive_expr2", Cs),
-			    {S1, _E1} = get_range(Hd),
-			    {_S2, E2} = get_range(refac_util:glast("refac_util:do_add_range, receive_expr3", A)),
-			    S11 = extend_forwards(Toks, S1, 'receive'),
-			    E21 = extend_backwards(Toks, E2, 'end'),
-			    refac_syntax:add_ann({range, {S11, E21}}, Node)
-		    end
-	    end;
+                    add_range_to_list_node(Node, Toks, Cs, "refac_util:do_add_range, receive_expr1",
+                                           "refac_util:do_add_range, receive_expr1", 'receive', 'end');
+                _E ->
+                    A = refac_syntax:receive_expr_action(Node),
+                    {_S2, E2} = get_range(refac_util:glast("refac_util:do_add_range, receive_expr2", A)),
+                    E21 = extend_backwards(Toks, E2, 'end'),
+                    update_ann(Node, {range, {{L, C}, E21}})
+            end;
 	try_expr ->
 	    B = refac_syntax:try_expr_body(Node),
 	    After = refac_syntax:try_expr_after(Node),
@@ -742,11 +739,11 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 			end,
 	    S11 = extend_forwards(Toks, S1, 'try'),
 	    E21 = extend_backwards(Toks, E2, 'end'),
-	    refac_syntax:add_ann({range, {S11, E21}}, Node);
+	    update_ann(Node, {range, {S11, E21}});
 	binary ->
 	    Fs = refac_syntax:binary_fields(Node),
 	    case Fs == [] of
-		true -> refac_syntax:add_ann({range, {{L, C}, {L, C + 3}}}, Node);
+		true -> update_ann(Node, {range, {{L, C}, {L, C + 3}}});
 		_ ->
 		    Hd = refac_util:ghead("do_add_range:binary", Fs),
 		    Last = refac_util:glast("do_add_range:binary", Fs),
@@ -762,9 +759,9 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	    case E2 > E1  %%Temporal fix; need to change refac_syntax to make the pos info correct.
 		of
 		true ->
-		    refac_syntax:add_ann({range, {S1, E2}}, Node);
+		    update_ann(Node, {range, {S1, E2}});
 		false ->
-		    refac_syntax:add_ann({range, {S1, E1}}, Node)
+		    update_ann(Node, {range, {S1, E1}})
 	    end;
 	match_expr ->
 	    calc_and_add_range_to_node(Node, match_expr_pattern, match_expr_body);
@@ -778,7 +775,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	    {S, E} = get_range(B),
 	    S1 = extend_forwards(Toks, S, '('),
 	    E1 = extend_backwards(Toks, E, ')'),
-	    refac_syntax:add_ann({range, {S1, E1}}, Node);
+	    update_ann(Node, {range, {S1, E1}});
 	class_qualifier ->
 	    calc_and_add_range_to_node(Node, class_qualifier_argument, class_qualifier_body);
 	qualified_name ->
@@ -789,21 +786,22 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	query_expr ->
 	    B = refac_syntax:query_expr_body(Node),
 	    {S, E} = get_range(B),
-	    refac_syntax:add_ann({range, {S, E}}, Node);
+	    update_ann(Node, {range, {S, E}});
 	record_field ->
 	    Name = refac_syntax:record_field_name(Node),
 	    {S1, E1} = get_range(Name),
 	    Value = refac_syntax:record_field_value(Node),
 	    case Value of
-		none -> refac_syntax:add_ann({range, {S1, E1}}, Node);
-		_ -> {_S2, E2} = get_range(Value),refac_syntax:add_ann({range, {S1, E2}}, Node)
+		none -> update_ann(Node, {range, {S1, E1}});
+		_ -> {_S2, E2} = get_range(Value), update_ann(Node,
+                                                              {range, {S1, E2}})
 	    end;
 	typed_record_field ->   %% This is not correct; need to be fixed later!
                 Field = refac_syntax:typed_record_field(Node),
                 {S1, _E1} = get_range(Field),
                 Type = refac_syntax:typed_record_type(Node),
                 {_S2, E2} = get_range(Type),
-                refac_syntax:add_ann({range, {S1, E2}}, Node);
+                update_ann(Node, {range, {S1, E2}});
 	record_expr ->
                 Arg = refac_syntax:record_expr_argument(Node),
                 Type = refac_syntax:record_expr_type(Node),
@@ -820,12 +818,12 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                 case Fields of
                     [] -> E11 = extend_backwards(Toks, E1, '}'),
                           Node1 =rewrite(Node, refac_syntax:record_expr(Arg, Type1, Fields)),
-                          refac_syntax:add_ann({range, {S1, E11}}, Node1);
+                          update_ann(Node1, {range, {S1, E11}});
                     _ ->
                         {_S2, E2} = get_range(refac_util:glast("refac_util:do_add_range,record_expr", Fields)),
                         E21 = extend_backwards(Toks, E2, '}'),
                         Node1 =rewrite(Node, refac_syntax:record_expr(Arg, Type1, Fields)),
-                        refac_syntax:add_ann({range, {S1, E21}}, Node1)
+                        update_ann(Node1, {range, {S1, E21}})
                 end;
 	record_access ->
 	    calc_and_add_range_to_node(Node, record_access_argument, record_access_field);
@@ -834,41 +832,45 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	comment ->
 	    T = refac_syntax:comment_text(Node),
 	    Lines = length(T),
-	    refac_syntax:add_ann({range, {{L, C}, {L + Lines - 1,
-						   length(refac_util:glast("refac_util:do_add_range,comment", T))}}},
-				 Node);
+	    update_ann(Node,
+		       {range,
+			{{L, C},
+                         {L + Lines - 1,
+                          length(refac_util:glast("refac_util:do_add_range,comment",
+                                                  T))}}});
 	macro ->
 	    Name = refac_syntax:macro_name(Node),
 	    Args = refac_syntax:macro_arguments(Node),
 	    {_S1, {L1, C1}} = get_range(Name),
             E1={L1, C1+1},
 	    M=case Args of
-		none -> refac_syntax:add_ann({range, {{L, C}, E1}}, Node);
+		none -> update_ann(Node, {range, {{L, C}, E1}});
 		Ls ->
 		    case Ls of
 			[] -> E21 = extend_backwards(Toks, E1, ')'),
-			      refac_syntax:add_ann({range, {{L, C}, E21}}, Node);
+			      update_ann(Node, {range, {{L, C}, E21}});
 			_ ->
 			    La = refac_util:glast("refac_util:do_add_range,macro", Ls),
 			    {_S2, E2} = get_range(La),
 			    E21 = extend_backwards(Toks, E2, ')'),
-			    refac_syntax:add_ann({range, {{L, C}, E21}}, Node)
+			    update_ann(Node, {range, {{L, C}, E21}})
 		    end
               end,
-            refac_syntax:add_ann(
-              {with_bracket, 
-               refac_prettypr:has_parentheses(M, Toks)}, M);
+            update_ann(M,
+                       {with_bracket,
+                        refac_prettypr:has_parentheses(M, Toks)});
 	size_qualifier ->
 	    calc_and_add_range_to_node(Node, size_qualifier_body, size_qualifier_argument);
 	error_marker ->
                 case refac_syntax:revert(Node) of
                     {error, {_, {Start, End}}} ->
-                        refac_syntax:add_ann({range, {Start, End}}, Node);
+                        update_ann(Node, {range, {Start, End}});
                     _ ->
-                        refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node)
+                        update_ann(Node, {range, {{L, C}, {L, C}}})
                 end;
-	type ->   %% This is not correct, and need to be fixed!!
-	    refac_syntax:add_ann({range, {{L, C}, {L, C}}}, Node);
+	type   %% This is not correct, and need to be fixed!!
+	     ->
+            update_ann(Node, {range, {{L, C}, {L, C}}});
 	_ ->
 	    %% refac_io:format("Node;\n~p\n",[Node]),
 	    %% ?wrangler_io("Unhandled syntax category:\n~p\n", [refac_syntax:type(Node)]),
@@ -880,14 +882,14 @@ calc_and_add_range_to_node(Node, Fun1, Fun2) ->
     Field = refac_syntax:Fun2(Node),
     {S1,_E1} = get_range(Arg),
     {_S2,E2} = get_range(Field),
-    refac_syntax:add_ann({range,{S1,E2}},Node).
+    update_ann(Node, {range, {S1, E2}}).
 
 calc_and_add_range_to_node_1(Node, Toks, StartNode, EndNode, StartWord, EndWord) ->
     {S1,_E1} = get_range(StartNode),
     {_S2,E2} = get_range(EndNode),
     S11 = extend_forwards(Toks,S1,StartWord),
     E21 = extend_backwards(Toks,E2,EndWord),
-    refac_syntax:add_ann({range,{S11,E21}},Node).
+    update_ann(Node, {range, {S11, E21}}).
 
 
 get_range(Node) ->
@@ -908,7 +910,7 @@ add_range_to_body(Node, B, Str1, Str2) ->
     La = refac_util:glast(Str2, B),
     {S1, _E1} = get_range(H),
     {_S2, E2} = get_range(La),
-    refac_syntax:add_ann({range, {S1, E2}}, Node).
+    update_ann(Node, {range, {S1, E2}}).
    
 extend_forwards(Toks, StartLoc, Val) ->
     Toks1 = lists:takewhile(fun (T) -> token_loc(T) < StartLoc end, Toks),
@@ -992,10 +994,10 @@ do_add_category(Node, C) ->
 	    Op = refac_syntax:application_operator(Node),
 	    Args = refac_syntax:application_arguments(Node),
 	    Op1 = add_category(Op, C),
-	    Op2 = refac_util:update_ann(Op1,{category, application_op}),
+	    Op2 = update_ann(Op1, {category, application_op}),
 	    Args1 = add_category(Args, C),
 	    Node1 = rewrite(Node, refac_syntax:application(Op2, Args1)),
-	    {refac_syntax:add_ann({category, C}, Node1), true};
+	    {update_ann(Node1, {category, C}), true};
 	match_expr ->
 	    P = refac_syntax:match_expr_pattern(Node),
 	    B = refac_syntax:match_expr_body(Node),
@@ -1004,7 +1006,7 @@ do_add_category(Node, C) ->
 	    Node1=rewrite(Node, refac_syntax:match_expr(P1, B1)),
 	    case C/=expression of 
 		true ->
-		    {refac_syntax:add_ann({category, C}, Node1), true};
+		    {update_ann(Node1, {category, C}), true};
 		false ->
 		    {Node1, true}
 	    end;
@@ -1014,14 +1016,14 @@ do_add_category(Node, C) ->
 	    P1 = add_category(P, pattern),
 	    B1 = add_category(B, expression),
 	    Node1=rewrite(Node, refac_syntax:generator(P1, B1)),
-	    {refac_syntax:add_ann({category, generator}, Node1), true};
+	    {update_ann(Node1, {category, generator}), true};
 	binary_generator ->
 	    P = refac_syntax:binary_generator_pattern(Node),
 	    B = refac_syntax:binary_generator_body(Node),
 	    P1 = add_category(P, pattern),
 	    B1 = add_category(B, expression),
 	    Node1=rewrite(Node, refac_syntax:binary_generator(P1, B1)),
-	    {refac_syntax:add_ann({category, generator}, Node1), true};
+	    {update_ann(Node1, {category, generator}), true};
 	macro ->
 	    Name = refac_syntax:macro_name(Node),
 	    Args = refac_syntax:macro_arguments(Node),
@@ -1035,19 +1037,19 @@ do_add_category(Node, C) ->
 			_ -> add_category(Args, C) 
 		    end,
 	    Node1 = rewrite(Node, refac_syntax:macro(Name1, Args1)),
-	    {refac_syntax:add_ann({category, C}, Node1), true};
-	 record_access ->
-	    Argument = refac_syntax:record_access_argument(Node),
-	    Type = refac_syntax:record_access_type(Node),
-	    Field = refac_syntax:record_access_field(Node),
-	    Argument1 = add_category(Argument, C),
-	    Type1 = case Type of
-			none -> none;
-			_ -> add_category(Type, record_type)
-		    end,
-	    Field1 = add_category(Field, record_field),
-	    Node1 = rewrite(Node, refac_syntax:record_access(Argument1, Type1, Field1)),
-	    {refac_syntax:add_ann({category, C}, Node1), true};
+	    {update_ann(Node1, {category, C}), true};
+	record_access ->
+	   Argument = refac_syntax:record_access_argument(Node),
+	   Type = refac_syntax:record_access_type(Node),
+	   Field = refac_syntax:record_access_field(Node),
+	   Argument1 = add_category(Argument, C),
+	   Type1 = case Type of
+		       none -> none;
+		       _ -> add_category(Type, record_type)
+		   end,
+	   Field1 = add_category(Field, record_field),
+	   Node1 = rewrite(Node, refac_syntax:record_access(Argument1, Type1, Field1)),
+	   {update_ann(Node1, {category, C}), true};
 	record_expr ->
 	    Argument = refac_syntax:record_expr_argument(Node),
 	    Type = refac_syntax:record_expr_type(Node),
@@ -1066,21 +1068,21 @@ do_add_category(Node, C) ->
 				add_category(V, C)
 			end))) || F<-Fields],
 	    Node1 = rewrite(Node, refac_syntax:record_expr(Argument1, Type1, Fields1)),
-	    {refac_syntax:add_ann({category, C}, Node1), true};
+	    {update_ann(Node1, {category, C}), true};
 	record_index_expr ->
 	    Type = refac_syntax:record_index_expr_type(Node),
 	    Field = refac_syntax:record_index_expr_field(Node),
 	    Type1 = add_category(Type, record_type),
 	    Field1 = add_category(Field, record_field),
 	    Node1 = rewrite(Node, refac_syntax:record_index_expr(Type1, Field1)),
-	    {refac_syntax:add_ann({category, C}, Node1), true};
+	    {update_ann(Node1, {category, C}), true};
 	operator ->
-	    {refac_syntax:add_ann({category, operator}, Node), true};
+	    {update_ann(Node, {category, operator}), true};
 	_ -> case C of
 		 none ->
 		     {Node, false};
 		 _ -> 
-		     {refac_syntax:add_ann({category,C}, Node),false}
+		     {update_ann(Node, {category, C}),false}
 	     end
     end.
 
@@ -1108,16 +1110,17 @@ list_elements(Node, As) ->
 adjust_implicit_fun_loc(T, Toks)->
     Pos = refac_syntax:get_pos(T),
     Name = refac_syntax:implicit_fun_name(T),
-    Toks2 = lists:dropwhile(fun (B) -> element(2, B) =/= Pos end, Toks),
+    Toks1 = lists:dropwhile(fun (B) -> element(2, B) =/= Pos end, Toks),
+    Toks2 = [Tok||Tok<-Toks1,element(1, Tok)/='?' ],
     case refac_syntax:type(Name) of
         module_qualifier ->
             Arg = refac_syntax:module_qualifier_argument(Name),
             Body = refac_syntax:module_qualifier_body(Name),
             Fun = refac_syntax:arity_qualifier_body(Body),
             A = refac_syntax:arity_qualifier_argument(Body),
-            [{'fun', Pos1},{atom, Pos2, _ModName}, {':', _},
-             {atom, Pos4, _FunName}, {'/', _},
-             {integer, Pos5, _Arity}|_Ts] = Toks2,
+            [{'fun', Pos1},{_, Pos2, _ModName}, {':', _},
+             {_, Pos4, _FunName}, {'/', _},
+             {_, Pos5, _Arity}|_Ts] = Toks2,
             Arg1 =add_range(refac_syntax:set_pos(Arg, Pos2),Toks),
             Fun1= add_range(refac_syntax:set_pos(Fun, Pos4),Toks),
             A1 = add_range(refac_syntax:set_pos(A, Pos5),Toks),
@@ -1130,12 +1133,12 @@ adjust_implicit_fun_loc(T, Toks)->
                                  Arg1, Body1), Pos2), Toks),
             {_S,E} = get_range(A1),
             T1=rewrite(T, refac_syntax:implicit_fun(Name1)),
-            refac_util:update_ann(T1, {range, {Pos1, E}}); 
+            update_ann(T1, {range, {Pos1, E}});
         arity_qualifier->
             Fun = refac_syntax:arity_qualifier_body(Name),
             A = refac_syntax:arity_qualifier_argument(Name),
-            [{'fun', Pos1}, {atom, Pos4, _FunName}, {'/', _},
-             {integer, Pos5, _Arity}|_Ts] = Toks2,
+            [{'fun', Pos1}, {_, Pos4, _FunName}, {'/', _},
+             {_, Pos5, _Arity}|_Ts] = Toks2,
             Fun1= add_range(refac_syntax:set_pos(Fun, Pos4),Toks),
             A1 = add_range(refac_syntax:set_pos(A, Pos5),Toks),
             Name1 = add_range(
@@ -1144,8 +1147,10 @@ adjust_implicit_fun_loc(T, Toks)->
                         Pos4),Toks),
             {_S,E} = get_range(A1),
             T1=rewrite(T, refac_syntax:implicit_fun(Name1)),
-            refac_util:update_ann(T1, {range, {Pos1, E}}); 
+            update_ann(T1, {range, {Pos1, E}});
         _ -> T
     end.
   
    
+update_ann(Node, Ann) ->
+    refac_util:update_ann(Node, Ann).
