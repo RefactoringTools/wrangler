@@ -141,7 +141,9 @@
 	 meta/1, module_qualifier/2, module_qualifier_argument/1,
 	 module_qualifier_body/1, nil/0, normalize_list/1,
 	 operator/1, operator_literal/1, operator_name/1,
-	 parentheses/1, parentheses_body/1, prefix_expr/2,
+	 parentheses/1, parentheses_body/1,
+         fake_parentheses/1, fake_parentheses_body/1,
+         prefix_expr/2,
 	 prefix_expr_argument/1, prefix_expr_operator/1,
 	 qualified_name/1, qualified_name_segments/1,
 	 query_expr/1, query_expr_body/1, receive_expr/1,
@@ -2037,10 +2039,11 @@ list_elements(Node, As) ->
       list ->
 	    As1 = lists:reverse(list_prefix(Node)) ++ As,
 	    case list_suffix(Node) of
-	    none -> As1;
-	    Tail -> list_elements(Tail, As1)
-	  end;
-      nil -> As
+                none -> As1;
+                Tail ->
+                    list_elements(Tail, As1)
+            end;
+        nil -> As
     end.
 
 %% =====================================================================
@@ -2778,8 +2781,8 @@ attribute_arguments(Node) ->
                       {Module, Imports} ->
                           M1=if is_list(Module) ->
                                      Ms=qualified_name([set_pos(atom(A), Pos1)
-                                                        || {_,Pos1, A} <- Module]),
-                                     set_pos(Ms, get_pos(hd(Ms)));
+                                                        || {_,Pos1, A} <-Module]),
+                                     set_pos(Ms, get_pos(hd(Module)));
                                 true -> 
                                      {_, Pos1, A} = Module,
                                      set_pos(atom(A), Pos1)
@@ -2788,7 +2791,7 @@ attribute_arguments(Node) ->
                       _ -> 
                           Ms = qualified_name([set_pos(atom(A), Pos1) 
                                                || {_, Pos1,A} <- Data]),
-                          [set_pos(Ms, get_pos(Ms))]
+                          [set_pos(Ms, get_pos(hd(Data)))]
                   end;
               file ->
                   {{string, Pos1, File}, {integer, Pos2, Line}}=Data,
@@ -2819,19 +2822,26 @@ attribute_arguments(Node) ->
                            list(TypeSpec)]
   		  end;	
 	      type ->
-		  {TypeName, TypeSpec1, TypeSpec2} = Data,
+                  {TypeName, TypeSpec1, TypeSpec2} = Data,
 		  case TypeName of 
 		      {_TypeName1, _TypeName2} ->
 			  [];  %% FIX THIS (TYPED RECORD).
 		      %% set_pos(atom(TypeName2), Pos),set_pos(list(TypeSpec1),Pos), list(TypeSpec2)];
-		       _ ->
-			  [set_pos(atom(TypeName), Pos), TypeSpec1, list(TypeSpec2)]			     
+		       _  when TypeSpec2 ==[] ->
+                           [set_pos(atom(TypeName), Pos), TypeSpec1];
+                      _ ->
+                          [set_pos(atom(TypeName), Pos), TypeSpec1, list(TypeSpec2)]			     
 		  end;
 	      _ ->
-	       [set_pos(abstract(Data), Pos)]
+                  [set_pos_rec(abstract(Data), Pos)]
 	  end;
       Node1 -> (data(Node1))#attribute.args
     end.
+
+set_pos_rec(Node, Pos) ->
+    ast_traverse_api:full_buTP(fun (T, _Others) -> 
+                                       set_pos(T, Pos)
+                               end, Node, {}).
 
   
 
@@ -5153,16 +5163,32 @@ revert_implicit_fun(Node) ->
     Pos = get_pos(Node),
     Name = implicit_fun_name(Node),
     case type(Name) of
-      arity_qualifier ->
-	  F = arity_qualifier_body(Name),
-	  A = arity_qualifier_argument(Name),
-	  case {type(F), type(A)} of
-	    {atom, integer} ->
-		{'fun', Pos, {function, concrete(F), concrete(A)}};
-	    _ -> Node
-	  end;
-      _ -> Node
+	arity_qualifier ->
+	    F = arity_qualifier_body(Name),
+	    A = arity_qualifier_argument(Name),
+	    case {type(F), type(A)} of
+		{atom, integer} ->
+		    {'fun', Pos,
+		     {function, concrete(F), concrete(A)}};
+		_ ->
+		    Node
+	    end;
+	module_qualifier ->
+	    M = module_qualifier_argument(Name),
+	    Name1 = module_qualifier_body(Name),
+	    F = arity_qualifier_body(Name1),
+	    A = arity_qualifier_argument(Name1),
+	    case {type(M), type(F), type(A)} of
+		{atom, atom, integer} ->
+		    {'fun', Pos,
+		     {function, concrete(M), concrete(F), concrete(A)}};
+		_ ->
+		    Node
+	    end;
+	_ ->
+	    Node
     end.
+
 
 %% =====================================================================
 %% @spec implicit_fun_name(Node::syntaxTree()) -> syntaxTree()
@@ -5278,6 +5304,12 @@ parentheses(Expr) -> tree(parentheses, Expr).
 
 revert_parentheses(Node) -> parentheses_body(Node).
 
+
+fake_parentheses(Expr) -> tree(fake_parentheses, Expr).
+
+revert_fake_parentheses(Node) -> fake_parentheses_body(Node).
+
+
 %% =====================================================================
 %% @spec parentheses_body(syntaxTree()) -> syntaxTree()
 %%
@@ -5286,6 +5318,8 @@ revert_parentheses(Node) -> parentheses_body(Node).
 %% @see parentheses/1
 
 parentheses_body(Node) -> data(Node).
+
+fake_parentheses_body(Node) -> data(Node).
 
 %% =====================================================================
 %% @spec macro(Name) -> syntaxTree()
@@ -5589,6 +5623,8 @@ revert_root(Node) ->
 		revert_nil(Node);
 	     parentheses -> 
 		revert_parentheses(Node);
+             fake_parentheses -> 
+		revert_fake_parentheses(Node);
 	     prefix_expr -> 
 		revert_prefix_expr(Node);
 	     qualified_name -> 
@@ -5798,6 +5834,7 @@ subtrees(T) ->
 		[[module_qualifier_argument(T)],
 		 [module_qualifier_body(T)]];
 	    parentheses -> [[parentheses_body(T)]];
+            fake_parentheses -> [[fake_parentheses_body(T)]];
 	    prefix_expr ->
 		[[prefix_expr_operator(T)], [prefix_expr_argument(T)]];
 	    qualified_name -> [qualified_name_segments(T)];
@@ -5922,6 +5959,7 @@ make_tree(macro, [[N], A]) -> macro(N, A);
 make_tree(match_expr, [[P], [E]]) -> match_expr(P, E);
 make_tree(module_qualifier, [[M], [N]]) ->
     module_qualifier(M, N);
+make_tree(fake_parentheses, [[E]]) -> fake_parentheses(E);
 make_tree(parentheses, [[E]]) -> parentheses(E);
 make_tree(prefix_expr, [[F], [A]]) -> prefix_expr(F, A);
 make_tree(qualified_name, [S]) -> qualified_name(S);
