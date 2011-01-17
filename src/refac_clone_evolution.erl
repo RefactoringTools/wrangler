@@ -43,7 +43,6 @@
 	 exp_hash_tab,
 	 clone_tab
 	}).
-
 -define(DefaultSimiScore, 0.8).
 -define(DEFAULT_LEN, 5).
 -define(DEFAULT_TOKS, 40).
@@ -144,7 +143,7 @@ inc_sim_code_detection_in_buffer(FileName, MinLen1, MinToks1, MinFreq1, MaxVars1
 			    min_toks = MinToks,
 			    max_new_vars = MaxVars,
 			    simi_score = SimiScore},
-    refac_io:format("Threshold:\n~p\n",[Thresholds]),
+    %% refac_io:format("Threshold:\n~p\n",[Thresholds]),
     inc_sim_code_detection([FileName], Thresholds, SearchPaths, TabWidth,
 			   "c:/cygwin/home/hl/test/clone_report.txt").
   
@@ -1045,7 +1044,7 @@ decompose_clone_pair_by_simi_score_3(ClonePair, Thresholds)->
 decompose_clone_pair_by_new_vars(ClonePair, Thresholds)->
     MinLen = Thresholds#threshold.min_len,
     MaxNewVars = Thresholds#threshold.max_new_vars,
-    refac_io:format("MaxNewVars:\n~p\n", [MaxNewVars]),
+    %% refac_io:format("MaxNewVars:\n~p\n", [MaxNewVars]),
     {{CurLen, _}, CurClonePair, ClonePairs}=
 	lists:foldl(fun({R1,R2, Subst}, {{Len, SubstAcc}, Acc1,  Acc2})->
 			    case Subst of 
@@ -1053,7 +1052,7 @@ decompose_clone_pair_by_new_vars(ClonePair, Thresholds)->
 				    {{Len+1, SubstAcc}, [{R1,R2,Subst}|Acc1], Acc2};
 				_ -> 
 				    NewVars=num_of_new_vars(Subst++SubstAcc),
-				    refac_io:format("NewVars:\n~p\n", [NewVars]),
+				    %% refac_io:format("NewVars:\n~p\n", [NewVars]),
 				    case NewVars> MaxNewVars of 
 					true ->
 					    {NewAcc1, NewSubst} = get_sub_clone_pair(lists:reverse([{R1,R2,Subst}|Acc1]), MaxNewVars),
@@ -1921,3 +1920,8 @@ get_parameters_1(Input, DefaultVal, MinVal) ->
 %% Number of initial clone candidates: 140
 %% Num of clones: 28
 %% {ok,"Clone report generation finished."}
+
+%% refac_clone_evolution.erl:95: The specification for refac_clone_evolution:gen_clone_report/3 states that the function might also return {'error',string()} but the inferred return is {'ok',[1..255,...]}
+%% refac_clone_evolution.erl:1712: The pattern 'none' can never match the type string()
+%% refac_clone_evolution.erl:1724: The pattern <Ets, 'none'> can never match the type <atom() | tid(),string()>
+%% refac_clone_evolution.erl:1746: The pattern 'none' can never match the type string()

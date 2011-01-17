@@ -57,7 +57,7 @@
 
 -export([limit/2, limit/3]).
 
--export([function_name_expansions/1]).
+-export([function_name_expansions/1, split_lines/1]).
 
 %% =====================================================================
 %% @spec variables(syntaxTree()) -> set(atom())
@@ -361,7 +361,6 @@ vann_list(Ts, Env, Ms, VI, Pid) ->
 
 vann_function(Tree, Env, Ms, _VI, Pid) ->
     Toks0 = refac_util:get_toks(Tree),
-    Tree1 = adjust_locations(Tree, Toks0),
     F = fun () ->
 		Toks1 = remove_whites(Toks0),
 		Toks2 = refac_epp:expand_macros(Toks1, Ms),
@@ -375,14 +374,14 @@ vann_function(Tree, Env, Ms, _VI, Pid) ->
 			get_var_info(Form2)
 		end
 	end,
-    {Tree2, Bound, Free} = try
+    {Tree1, Bound, Free} = try
 			       F()
 			   of
-			       VI -> vann_function_1(Tree1, Env, Ms, VI, Pid)
+			       VI -> vann_function_1(Tree, Env, Ms, VI, Pid)
 			   catch
-			       _E1:_E2_ -> vann_function_1(Tree1, Env, Ms, [], Pid)
+			       _E1:_E2_ -> vann_function_1(Tree, Env, Ms, [], Pid)
 			   end,
-    {update_var_define_locations(Tree2), Bound, Free}.
+    {update_var_define_locations(Tree1), Bound, Free}.
     
 %% The following two functions are clones; but I leave them 
 %% there because refactoring makes the code harder to understand.
@@ -2140,8 +2139,8 @@ module_name_to_atom(M) ->
 %% This splits lines at line terminators and expands tab characters to
 %% spaces. The width of a tab is assumed to be 8.
 
-% split_lines(Cs) ->
-%     split_lines(Cs, "").
+split_lines(Cs) ->
+    split_lines(Cs, "").
 
 split_lines(Cs, Prefix) -> split_lines(Cs, Prefix, 0).
 
@@ -2221,8 +2220,10 @@ adjust_locations(Form, Toks) ->
 									end
 								end,
 								Toks1),
-					P = element(2, refac_util:ghead("refac_util: adjust_locations,P", Toks2)),
-					Fun2 = refac_syntax:set_pos(Fun, P),
+					{L0,C0} = element(2, refac_util:ghead("refac_util: adjust_locations,P", Toks2)),
+					Fun2 = refac_syntax:set_pos(Fun, {L0,C0}),
+                                        AtomLen= length(refac_syntax:atom_literal(Fun)),
+                                        Fun3 = refac_util:update_ann(Fun2, {range, {{L0,C0}, {L0, C0+AtomLen-1}}}),
 					Toks3 = lists:dropwhile(fun (B) ->
 									case B of
 									    {integer, _, _} -> false;
@@ -2230,29 +2231,25 @@ adjust_locations(Form, Toks) ->
 									end
 								end,
 								Toks2),
-					A2 = refac_syntax:set_pos(A,
-								  element(2, refac_util:ghead("refac_util:adjust_locations:A2", Toks3))),
-					rewrite(T, refac_syntax:implicit_fun(refac_syntax:set_pos(rewrite(Name,
-													  refac_syntax:arity_qualifier(Fun2, A2)), P)));
+                                        {L,C} = element(2, refac_util:ghead("refac_util:adjust_locations:A2", Toks3)),
+					A2 = refac_syntax:set_pos(A, {L,C}),
+                                        Len =length(refac_syntax:integer_literal(A)),
+                                        A3=refac_util:update_ann(A2, {range, {{L, C}, {L, C + Len - 1}}}),
+                                        AQ =refac_syntax:set_pos(
+                                              rewrite(Name,
+                                                      refac_syntax:arity_qualifier(Fun3, A3)), {L0, C0}),
+                                        AQ1=refac_util:update_ann(AQ,{range, {{L0,C0}, {L, C+Len-1}}}),
+					T1=rewrite(T, refac_syntax:implicit_fun(AQ1)),
+                                        refac_util:update_ann(T1, {range, {Pos, {L, C+Len-1}}});                                    
 				    _ -> T
 				end;
 			    _ -> T
 			end;
-		    macro -> {L, C} = refac_syntax:get_pos(T),
-			     Toks1 = lists:reverse(lists:takewhile(fun (B) -> element(2, B) =/= {L, C} end, Toks)),
-			     Toks2 = lists:dropwhile(fun (B) -> case B of
-								    {whitespace, _, _} -> true;
-								    _ -> false
-								end
-						     end, Toks1),
-			     case Toks2 of
-				 [] -> refac_syntax:add_ann({with_bracket, false}, T);
-				 [H| _] -> case H of
-					       {'(', _} -> refac_syntax:add_ann({with_bracket, true}, T);
-					       _ -> refac_syntax:add_ann({with_bracket, false}, T)
-					   end
-			     end;
-		    _ -> T
+		    macro ->
+                        refac_syntax:add_ann(
+                          {with_bracket, 
+                           refac_prettypr:has_parentheses(T, Toks)}, T);
+                    _ -> T
 		end
 	end,
     ast_traverse_api:map(F, Form).

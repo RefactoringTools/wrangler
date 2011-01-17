@@ -173,22 +173,12 @@ scan_comment([], Cs1, L, Col, M, Str, Ack, TabWidth) ->
 %% internally, but the column values in the comment descriptors
 %% should start at 1.
 
-seen_comment(Cs, Cs1, L, Col, M, Str, Ack, TabWidth) ->
+seen_comment(Cs, Cs1, L, Col, M, _Str, Ack, TabWidth) ->
     %% Compute indentation and strip trailing spaces
     N = Col - M,
     Text = lists:reverse(Cs1),  %% not strip following whitespaces; changed by HL;
-    Toks = refac_scan:string(lists:reverse(Str), {1,1}),
-    PreTok =case Toks of 
-                {ok, Toks1, _} ->
-                    case lists:reverse(Toks1) of
-                        [{T, _}|_] ->
-                            T;
-                        _ ->
-                            none
-                    end;
-                _ -> none
-            end,
-    Ack1 = [{L, Col + 1, N, PreTok, Text} | Ack],
+    NextTok = none,
+    Ack1 = [{L, Col + 1, N, NextTok, Text} | Ack],
     scan_lines(Cs, L + 1, 0, 0, [], Ack1, TabWidth).
 
 scan_string([Quote | Cs], Quote, L, Col, Ack, TabWidth) ->

@@ -32,7 +32,7 @@
 -module(refac_module_graph). 
 
 -export([module_graph/1, get_called_mods/2, module_graph_to_dot/3, module_graph_to_dot/4,
-	 module_subgraph_to_dot/4, module_graph_with_funs/1,
+	 module_subgraph_to_dot/4, module_graph_with_funs/1,module_sccs_to_dot/4,
 	 module_callergraph_to_dot/4]). 
 
 -export([add_edges/3]).
@@ -232,6 +232,17 @@ module_graph_to_dot(OutFile, NotCareMods, SearchPaths, WithLabel) ->
     Sccs = digraph_utils:strong_components(MG),
     Sccs1 = [Scc||Scc<-Sccs, length(Scc)>1],
     to_dot(MG,DotFile, WithLabel, Sccs1, false),
+    digraph:delete(MG).
+
+
+module_sccs_to_dot(OutFile, NotCareMods, SearchPaths, WithLabel) -> 
+    DotFile = filename:rootname(OutFile)++".dot",
+    ModCallerCallees = create_caller_callee_graph_with_called_funs(SearchPaths),
+    MG = digraph:new(),
+    add_edges(ModCallerCallees,NotCareMods,  MG),
+    Sccs = digraph_utils:strong_components(MG),
+    Sccs1 = [Scc||Scc<-Sccs, length(Scc)>1],
+    to_dot(MG,DotFile, WithLabel, Sccs1, true),
     digraph:delete(MG).
 
 

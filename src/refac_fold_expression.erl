@@ -331,7 +331,7 @@ search_for_single_not_match_expr(AnnAST, Exp) ->
 				  R = get_start_end_locations(T),
 				  case lists:member(R, OpRanges) of
 				      false ->
-					  case unification:expr_unification(Exp, T) of
+                                          case unification:expr_unification(Exp, T) of
 					      {true, Subst} ->
 						  S ++ [{get_start_end_locations(T), T, Subst, none}];
 					      _ ->

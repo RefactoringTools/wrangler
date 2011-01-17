@@ -63,7 +63,7 @@ expr_unification_1(Exp1, Exp2, Type) ->
 	    case length(Exp1) == length(Exp2) of
 	    true ->
 		    Res = [expr_unification(E1, E2, Type) || {E1, E2} <- lists:zip(Exp1, Exp2)],
-		    Unifiable = not lists:member(false, [false || false <- Res]),
+                    Unifiable = not lists:member(false, [false || false <- Res]),
 		    case Unifiable of
 			true ->
 			    {true, lists:usort(lists:append([S || {true, S} <- Res]))};
@@ -193,9 +193,9 @@ non_same_type_expr_unification(Exp1, Exp2,_Type) ->
       variable ->
 	    case refac_code_search_utils:generalisable(Exp2) of
 	      false ->
-		  false;
+                    false;
 	      true ->
-		    Exp2Ann = refac_syntax:get_ann(Exp2),
+                    Exp2Ann = refac_syntax:get_ann(Exp2),
 		    Exp1Name = refac_syntax:variable_name(Exp1),
 		    case lists:keysearch(category, 1, Exp2Ann) of
 		      {value, {category, application_op}} ->
@@ -212,8 +212,9 @@ non_same_type_expr_unification(Exp1, Exp2,_Type) ->
 			      false ->
 				  {true, [{Exp1Name, rm_comments(Exp2)}]};
 			      _ ->
-				  C = refac_syntax:clause([],[], [rm_comments(Exp2)]),
-				  {true, [{Exp1Name, refac_syntax:fun_expr([C])}]}
+                                  {true, [{Exp1Name, rm_comments(Exp2)}]}
+				  %% C = refac_syntax:clause([],[], [rm_comments(Exp2)]),
+				  %% {true, [{Exp1Name, refac_syntax:fun_expr([C])}]}
 			  end
 		  end
 	  end;

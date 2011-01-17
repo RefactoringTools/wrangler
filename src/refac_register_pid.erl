@@ -152,9 +152,9 @@ register_pid_1(FName, StartLine, StartCol, EndLine, EndCol, RegName, RegPids, Se
 				 {error, "The selected process is already registered at line " ++ integer_to_list(Line)};
 	{unknown_pids, RegExprs} ->
 	    ?wrangler_io("\nWrangler could not decide the process(s) registered by the following expression(s), please check!\n", []),
-	    lists:foreach(fun ({{M, F, A}, PidExpr}) -> {{Ln, _}, _} = refac_util:get_start_end_loc(PidExpr),
-							?wrangler_io("Location: module:~p, function: ~p/~p, line: ~p\n ", [M, F, A, Ln]),
-							?wrangler_io(refac_prettypr:format(PidExpr) ++ "\n", [])
+	    lists:foreach(fun ({{_M, _F, _A}, PidExpr}) -> {{_Ln, _}, _} = refac_util:get_start_end_loc(PidExpr),
+							   ?wrangler_io("Location: module:~p, function: ~p/~p, line: ~p\n ", [_M, _F, _A, _Ln]),
+							   ?wrangler_io(refac_prettypr:format(PidExpr) ++ "\n", [])
 			  end, RegExprs),
 	    {unknown_pids, RegExprs, LogMsg}
     end.
@@ -216,9 +216,9 @@ pre_cond_check(ModName, AnnAST, Start, MatchExpr, RegName, _Info, SearchPaths, T
 							{error, "The process is already registered in function " ++ atom_to_list(F) ++ "/" ++ integer_to_list(A) ++ "\n"};
 						    {unknown_pids, RegExprs} ->
 							?wrangler_io("Wrangler could not decide the processe(s) registered by the followling expression(s):\n", []),
-							lists:foreach(fun ({{M, F, A}, PidExpr}) ->
-									      {{Ln, _}, _} = refac_util:get_start_end_loc(PidExpr),
-									      ?wrangler_io("Location: module:~p, function: ~p/~p, line: ~p\n ", [M, F, A, Ln])
+							lists:foreach(fun ({{_M, _F, _A}, PidExpr}) ->
+									      {{_Ln, _}, _} = refac_util:get_start_end_loc(PidExpr),
+									      ?wrangler_io("Location: module:~p, function: ~p/~p, line: ~p\n ", [_M, _F, _A, _Ln])
 								      end,
 								      %% ?wrangler_io(refac_prettypr:format(PidExpr)++"\n") 
 								      RegExprs),
@@ -227,7 +227,7 @@ pre_cond_check(ModName, AnnAST, Start, MatchExpr, RegName, _Info, SearchPaths, T
 					    _ -> ?wrangler_io("Wrangler could not decide the process name(s) used by the following register expression(s):\n", []),
 						 UnKnowns1 = lists:map(fun ({_, V}) -> V end, UnKnowns),
 						 lists:foreach(fun
-								   ({M, F, A, {L, _}}) -> ?wrangler_io("Location: module: ~p, function:~p/~p, line:~p\n", [M, F, A, L])
+								   ({_M, _F, _A, {_L, _}}) -> ?wrangler_io("Location: module: ~p, function:~p/~p, line:~p\n", [_M, _F, _A, _L])
 							       end, UnKnowns1),
 						 {unknown_pnames, UnKnowns, RegPids}
 					end

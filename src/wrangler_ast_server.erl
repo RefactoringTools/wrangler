@@ -544,26 +544,30 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                                                            is_whitespace_or_comment(T)
                                                end, Toks1),
 	    Toks3 = lists:filter(fun (T) -> is_string(T) end, Toks21),
-            Str = refac_syntax:string_value(Node),
+            Str = case Toks3 of 
+                      [] -> refac_syntax:string_value(Node);
+                      _ -> element(3, lists:last(Toks3))
+                  end,
             Lines = refac_syntax_lib:split_lines(Str),
-            {NumOfLines, LastLen}= case Lines of 
-                                       [] -> 
-                                           {1, 0};
-                                       _ ->
-                                           {length(Lines),length(lists:last(Lines))}
-                                   end,
+            {NumOfLines, LastLen}= 
+                case Lines of 
+                    [] -> 
+                        {1, 0};
+                    _ ->
+                        {length(Lines),length(lists:last(Lines))}
+                end,
             case Toks3 of 
                 [] ->  %% this might happen with attributes when the loc info is not accurate.
                     Range = {{L, C}, {L+NumOfLines-1, C+LastLen+1}},
                     update_ann(Node, {range, Range});
                 _ ->
-                    {string, {L1, C1},_}= refac_util:glast("do_add_range, string", Toks3),
+                    {string, {L1, C1}, _} = lists:last(Toks3),
                     L2 = L1+NumOfLines-1,
                     C2 = case NumOfLines of
                              1 -> C1+LastLen+1;
                              _ -> LastLen+1
                          end,
-                    Range ={token_loc(hd(Toks3)), {L2, C2}},
+                    Range ={token_loc(hd(Toks3)),{L2, C2}},
                     Node1 = update_ann(Node, {range, Range}),
                     update_ann(Node1, {toks, Toks3})
             end;

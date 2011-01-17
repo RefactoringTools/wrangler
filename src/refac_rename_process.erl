@@ -52,7 +52,7 @@ rename_process(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_process(" ++ "\"" ++ 
 	    FileName ++ "\", " ++ integer_to_list(Line) ++ 
 	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
-									    ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+        ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case is_process_name(NewName) of
 	true ->
 	    _Res = refac_annotate_pid:ann_pid_info(SearchPaths, TabWidth),  %%TODO: check whether asts are already annotated.
@@ -133,7 +133,7 @@ pre_cond_check(NewProcessName, SearchPaths) ->
 			  ?wrangler_io("Wrangler could not decide whether the new process name provided conflicts with the process name(s) "
 				    "used by the following registeration expression(s):\n",[]),
 			  UnDecidables1 = lists:map(fun({_, V}) -> V end, UnDecidables),
-			  lists:foreach(fun({M, F,A, {L,_}}) -> ?wrangler_io("Location: module: ~p, function:~p/~p, line:~p\n", [M, F, A, L])
+			  lists:foreach(fun({_M, _F, _A, {_L,_}}) -> ?wrangler_io("Location: module: ~p, function:~p/~p, line:~p\n", [_M, _F, _A, _L])
 					end, UnDecidables1),
 			  undecidables
 		 end
@@ -233,8 +233,8 @@ check_atoms(CurrentFile, AtomName, SearchPaths, TabWidth) ->
 	    ok;
 	_ -> ?wrangler_io("\n*************************************Warning****************************************\n",[]),
 	     ?wrangler_io("Wrangler could not decide whether to rename atom(s) occuring at the followng location(s):\n",[]),
-	     lists:foreach(fun({M, Pos,_}) ->
-				      ?wrangler_io("Location: module:~p, {line,col}:~p\n", [M,Pos]) end, Atoms)
+	     lists:foreach(fun({_M, _Pos, _}) ->
+				      ?wrangler_io("Location: module:~p, {line,col}:~p\n", [_M,_Pos]) end, Atoms)
     end.
 
 collect_atoms(CurrentFile, AtomName, SearchPaths, TabWidth) ->

@@ -53,9 +53,10 @@
 add_a_tag(FileName, Line, Col, Tag, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:add_a_tag(~p, ~p, ~p, ~p,~p, ~p).\n", [?MODULE, FileName, Line, Col, Tag, SearchPaths, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":add_a_tag(" ++ "\"" ++ 
-	    FileName ++ "\", " ++ integer_to_list(Line) ++ 
-	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ Tag ++ "\","
-								        ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+        FileName ++ "\", " ++ integer_to_list(Line) ++ 
+        ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ 
+        Tag ++ "\"," ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," 
+        ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST1, _Info1}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case pos_to_receive_fun(AnnAST1, {Line, Col}) of
 	{ok, _FunDef} ->
@@ -240,11 +241,11 @@ do_add_tag_to_receive_exprs(Node, Tag) ->
 	_ -> Node
     end.
 
-do_add_tag_to_send_exprs(Node, {ModName, Tag, AffectedInitialFuns}) ->
+do_add_tag_to_send_exprs(Node, {_ModName, Tag, AffectedInitialFuns}) ->
     case refac_syntax:type(Node) of
 	infix_expr ->
 	    case is_send_expr(Node) of
-		true -> {{Ln, _}, _} = refac_util:get_start_end_loc(Node),
+		true -> {{_Ln, _}, _} = refac_util:get_start_end_loc(Node),
 			Dest = refac_syntax:infix_expr_left(Node),
 			Msg = refac_syntax:infix_expr_right(Node),
 			Ann = refac_syntax:get_ann(Dest),
@@ -260,7 +261,7 @@ do_add_tag_to_send_exprs(Node, {ModName, Tag, AffectedInitialFuns}) ->
 				      end,
 			case InitialFuns of
 			    [] -> ?wrangler_io("\n*************************************Warning****************************************\n", []),
-				  ?wrangler_io("Wrangler could not identify the recipent process of the send expression in module ~p at line ~p\n", [ModName, Ln]),
+				  ?wrangler_io("Wrangler could not identify the recipent process of the send expression in module ~p at line ~p\n", [_ModName, _Ln]),
 				  {Node, false};
 			    _ -> case InitialFuns -- AffectedInitialFuns of
 				     [] ->
@@ -335,7 +336,7 @@ has_receive_expr(Node, []) ->
 	_  ->{[], false}
     end.
 
-collect_fun_apps(Expr, {ModName, Ln}) ->
+collect_fun_apps(Expr, {_ModName, _Ln}) ->
     Fun = fun (T, S) ->
 		  case refac_syntax:type(T) of
 		      application ->
@@ -344,7 +345,7 @@ collect_fun_apps(Expr, {ModName, Ln}) ->
 			      {value, {fun_def, {M, F, A, _, _}}} ->
 				  ordsets:add_element({M, F, A},S);
 			      _ -> ?wrangler_io("\n*************************************Warning****************************************\n",[]),
-				   ?wrangler_io("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [ModName,Ln])
+				   ?wrangler_io("Wrangler could not handle the spawn expression used in module ~p at line ~p\n", [_ModName,_Ln])
 			  end;
 		      arity_qualifier ->
 			  {value, {fun_def, {M, F, A, _, _}}} = lists:keysearch(fun_def, 1, refac_syntax:get_ann(T)),
@@ -440,7 +441,6 @@ is_send_expr(Tree) ->
 			   _ -> false
 		       end;
  	_ ->false
-    
     end.
 
 is_spawn_expr(Tree) ->

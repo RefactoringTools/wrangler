@@ -348,55 +348,67 @@ fun_inline_1(FName, AnnAST, Pos, {FunClauseToInline, Subst, MatchExprsToAdd}, {C
     refac_write_file:write_refactored_files([{{FName,FName}, AnnAST1}], Editor, TabWidth, Cmd).
 
 do_inline(Form, Pos, _Clause, App, SubstedBody, RecordDefs) ->
+    SubstedBody1 = refac_util:reset_ann_and_pos(SubstedBody),
     {S, E} = refac_util:get_start_end_loc(Form),
     if (S =< Pos) and (Pos =< E) ->
-	   {NewForm, _} = ast_traverse_api:stop_tdTP(fun do_inline_1/2, Form, {App, SubstedBody}),
-	   case length(SubstedBody) > 1 of
-	       true ->
-		   {NewForm1, _} = ast_traverse_api:stop_tdTP(fun remove_begin_end/2, NewForm, SubstedBody),
-		   RecordDefs ++ [NewForm1];
-	       _ -> RecordDefs ++ [NewForm]
-	   end;
+            {NewForm, _} = ast_traverse_api:stop_tdTP(
+                            fun do_inline_1/2, Form, {App, SubstedBody1}),
+            case length(SubstedBody) > 1 of
+                true ->
+		   {NewForm1, _} = ast_traverse_api:stop_tdTP(
+                                     fun remove_begin_end/2, NewForm, SubstedBody1),
+                    RecordDefs ++ [NewForm1];
+                _ -> RecordDefs ++ [NewForm]
+            end;
        true ->
-	   [Form]
+            [Form]
     end.
 
 do_inline_1(Node, {App, SubstedBody}) ->
     case Node of
 	App ->
-	    case SubstedBody of 
-		[B] ->
-		    {refac_util:rewrite(App, B), true};
-		[_|_] ->
-		    {refac_util:rewrite(App, refac_syntax:block_expr(SubstedBody)), true}
-	    end;
+            case SubstedBody of 
+                [B] ->
+                    {refac_util:rewrite_with_wrapper(App, B), true};
+                [B|Bs] ->
+                        {refac_util:rewrite_with_wrapper(
+                          App, refac_syntax:block_expr([B|Bs])), 
+                         true}
+            end;
 	_ -> {Node, false}
     end.
 
 remove_begin_end(Node, BlockBody) ->
     Fun = fun (E) ->
 		  case refac_syntax:type(E) of
-		      block_expr ->
-			  case refac_syntax:block_expr_body(E) of
-			      BlockBody ->
-				  BlockBody;
-			      _ -> [E]
-			  end;
-		      match_expr ->
+                      fake_parentheses ->
+                          B=refac_syntax:fake_parentheses_body(E),
+                          case refac_syntax:type(B) of 
+                              block_expr ->
+                                  [B1|Bs] = refac_syntax:block_expr_body(B),
+                                  [refac_util:rewrite_with_wrapper(E, B1)
+                                   |Bs];
+                              _ -> [E]
+                          end;
+  		      match_expr ->
 			  Ps = match_expr_patterns(E),
 			  B = match_expr_body(E),
-			  case refac_syntax:type(B) of
-			      block_expr ->
-				  case refac_syntax:block_expr_body(B) of
-				      BlockBody ->
-					  Last = lists:last(BlockBody),
-					  NewLast = make_match_expr([refac_util:reset_attrs(P) || P <- Ps], Last),
-					  lists:sublist(BlockBody, length(BlockBody) - 1) ++ [NewLast];
-				      _ -> [E]
-				  end;
-			      _ -> [E]
-			  end;
-		      _ -> [E]
+                          case refac_syntax:type(B) of
+                              fake_parentheses ->
+                                  FB=refac_syntax:fake_parentheses_body(B),
+                                  case refac_syntax:type(FB) of
+                                      block_expr ->
+                                          [FB1|FBs] = refac_syntax:block_expr_body(FB),
+                                          Last = lists:last(FBs),
+                                        NewLast = make_match_expr([refac_util:reset_ann(P) || P <- Ps], Last),
+                                        NewFB1 =refac_util:rewrite_with_wrapper(Ps, FB1),
+                                        FBs1 = lists:reverse(FBs),
+                                        [NewFB1|lists:reverse([NewLast|tl(FBs1)])];
+                                    _ -> [E]
+                                end;
+                            _ -> [E]
+                        end;
+                      _ -> [E]
 		  end
 	  end,
     case refac_syntax:type(Node) of
@@ -423,7 +435,7 @@ remove_begin_end(Node, BlockBody) ->
 	    Cs = refac_syntax:try_expr_clauses(Node),
 	    Handlers = refac_syntax:try_expr_handlers(Node),
 	    After = refac_syntax:try_expr_after(Node),
-	    {refac_util:rewrite(Node, refac_syntax:try_expr(B, Cs, Handlers, After)),
+	    {refac_util:rewrite(Node, refac_syntax:try_expr(B1, Cs, Handlers, After)),
 	     length(B) =/= length(B1)};
 	_ ->
 	    {Node, false}
@@ -437,7 +449,7 @@ do_subst(Node, Subst) ->
 		{value, {def, DefinePos}} ->
 		    case lists:keysearch(DefinePos, 1, Subst) of
 			{value, {DefinePos, Expr}} ->
-			    {refac_util:rewrite(Node, Expr), true};
+			    {refac_util:rewrite_with_wrapper(Node, Expr), true};
 			_ -> {Node, false}
 		    end;
 		_ -> {Node, false}
@@ -466,7 +478,8 @@ pos_to_fun_clause_app_1(Node, Pos) ->
 				S1 =< Pos, Pos =< E1],
 		   case pos_to_fun_app(C, Pos) of
 		       {_, false} -> throw({error, "You have not selected a function application, "
-						   "or the function containing the function application selected does not parse."});
+                                            "or the function containing the function "
+                                            "application selected does not parse."});
 		       {App, true} ->
 			   {{C, App}, true}
 		   end;
@@ -498,7 +511,7 @@ auto_rename_vars({ClauseToInline, MatchExprs}, {Clause, App}, SubStLocs) ->
     NewVarPat = refac_syntax:copy_pos(App, refac_syntax:copy_pos(App, refac_syntax:variable(VarName))),
     MatchExpr = refac_syntax:copy_pos(App, refac_syntax:match_expr(NewVarPat, refac_syntax:atom(ok))),
     {Clause1, _} = ast_traverse_api:stop_tdTP(fun do_replace_app_with_match/2, Clause, {App, MatchExpr}),
-    Clause2 = refac_syntax_lib:var_annotate_clause(refac_util:reset_attrs(Clause1), [], [], []),
+    Clause2 = refac_syntax_lib:var_annotate_clause(refac_util:reset_ann(Clause1), [], [], []),
     BdsInFunToInline = get_bound_vars(ClauseToInline),
     NewNames = [{Name, DefinePos} || {Name, DefinePos} <- BdsInFunToInline,
 				      not  lists:member(DefinePos, SubStLocs)],
@@ -510,7 +523,7 @@ auto_rename_vars({ClauseToInline, MatchExprs}, {Clause, App}, SubStLocs) ->
 do_replace_app_with_match(Node, {App, MatchExpr}) ->
     case Node of
 	App ->
-	    {refac_util:rewrite(App, MatchExpr), true};
+	    {refac_util:rewrite_with_wrapper(App, MatchExpr), true};
 	_ -> {Node, false}
     end.
 
@@ -520,7 +533,7 @@ get_vars_to_rename(Clause, Pos, VarName, NewNames, ClauseToInline) ->
 			  {ok, {_, DefinePos, _}} <- [interface_api:pos_to_var_name(ClauseToInline, P)]].
 
 do_rename_var({Node, MatchExprs}, [], _UsedVarNames) ->
-    {Node, [refac_util:reset_attrs(M) || M <- MatchExprs]};
+    {Node, [refac_util:reset_ann(M) || M <- MatchExprs]};
 do_rename_var({Node, MatchExprs}, [V| Vs], UsedVarNames) ->
     {Node1, MatchExprs1} = do_rename_var_1({Node, MatchExprs}, V, UsedVarNames),
     do_rename_var({Node1, MatchExprs1}, Vs, UsedVarNames).

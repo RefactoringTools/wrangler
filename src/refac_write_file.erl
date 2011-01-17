@@ -80,7 +80,7 @@ write_refactored_files_for_preview(Files, TabWidth, LogMsg) ->
 				Msg = io_lib:format("Wrangler could not write to directory ~s: ~w \n",
 						    [filename:dirname(FileName), Reason]),
 				throw({error, lists:flatten(Msg)})
-			end
+			end 
 		end
 	end,
     {FilePairs, ListOfNoOfChangedFunsToks} = lists:unzip(lists:map(F, Files)),

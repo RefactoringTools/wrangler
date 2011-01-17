@@ -70,9 +70,9 @@ gen_module_graph(OutFile, NotCareMods, SearchPaths, WithLabel) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
  
 %%-spec(gen_function_callgraph/3::(filename(), filename(),[filename()|dir()]) ->true).
-gen_function_callgraph(OutFile, FileName, SearchPaths)->
+gen_function_callgraph(OutFile, FileName, _SearchPaths) ->
      ?wrangler_io("\nCMD: ~p:gen_function_callgraph(~p, ~p, ~p).\n",
- 		 [?MODULE, OutFile, FileName, SearchPaths]),
+                  [?MODULE, OutFile, FileName, _SearchPaths]),
      wrangler_callgraph_server:fun_callgraph_to_dot(OutFile, FileName).
    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -105,10 +105,10 @@ improper_inter_module_calls(OutFile, SearchPaths) ->
 	    ?wrangler_io("\n No improper inter-module dependencies have been found.\n",[]);
 	_ ->
 	    GroupedEdges = refac_util:group_by(2, ImproperModDeps),
-	    RefacSuggestions = [find_best_target_module(ImproperModDeps, EdgeGroup, NonAPIFunsWithDepMods, FullMG, Files)
+	    _RefacSuggestions = [find_best_target_module(ImproperModDeps, EdgeGroup, NonAPIFunsWithDepMods, FullMG, Files)
 				|| EdgeGroup <- GroupedEdges],
 	    ?wrangler_io("\n Refactoring suggestions:\n",[]),
-	    ?wrangler_io(RefacSuggestions,[]),
+	    ?wrangler_io(_RefacSuggestions,[]),
 	    ?wrangler_io("\n",[])
     end,
     digraph:delete(FullMG).
@@ -310,9 +310,9 @@ get_module_name(FName, Info) ->
 
 
 %% Instead of trying to break a SCC, I should try to break cycles.
-cyclic_dependent_modules(OutFile, SearchPaths, WithLabel) ->
+cyclic_dependent_modules(OutFile, SearchPaths, _WithLabel) ->
     ?wrangler_io("\nCMD: ~p:cyclic_dependent_modules(~p, ~p, ~p).\n",
-		 [?MODULE, OutFile, SearchPaths, WithLabel]),
+		 [?MODULE, OutFile, SearchPaths, _WithLabel]),
     Files = refac_util:expand_files(SearchPaths, ".erl"),
     ModCallerCallees = refac_module_graph:module_graph_with_funs(SearchPaths),
     MG = digraph:new(),
@@ -393,10 +393,10 @@ get_renamed_edge_list_3([{X, Y, Label, Weak, Score}|T], Vs, NewVs, NewEdges) ->
 break_a_cycle(Cycle, ModCallerCallees, MG, Files) ->
     CycleCallerCallees0 = get_cycle_caller_callees_1(Cycle, ModCallerCallees),
     case find_weakest_link(CycleCallerCallees0, MG, Files) of 
-	{WeakestLink, RefacCmds} -> 
+	{WeakestLink, _RefacCmds} -> 
 	    ?wrangler_io("Cyclic module dependency caused by exporting of non-API functions:\n~p\n", [Cycle]),
 	    ?wrangler_io("\n Refactoring suggestions:\n",[]),
-	    ?wrangler_io("\n~p\n", [RefacCmds]),
+	    ?wrangler_io("\n~p\n", [_RefacCmds]),
 	    {WeakestLink,'_'};
 	none ->
 	    CycleCallerCallees = get_cycle_caller_callees(Cycle, ModCallerCallees),
@@ -413,9 +413,9 @@ break_a_cycle(Cycle, ModCallerCallees, MG, Files) ->
 		    FlawMods1=lists:sort(fun({_,_,_,Fs1,_},{_,_,_,Fs2, _})->
 						    length(Fs1)=<length(Fs2)
 					    end, FlawMods),
-		    {M, _, FunsToMove,_,_}=hd(FlawMods1),
+		    {M, _, _FunsToMove,_,_}=hd(FlawMods1),
 		    ?wrangler_io("Refactoring suggestion:\n",[]),
-		    ?wrangler_io("move_fun(~p, ~p, user_supplied_target_mod).\n", [M, FunsToMove]),
+		    ?wrangler_io("move_fun(~p, ~p, user_supplied_target_mod).\n", [M, _FunsToMove]),
 		    {{'_','_'}, M}
 	    end  
     end.
@@ -746,8 +746,7 @@ partition_exports_eclipse(File, DistThreshold, SearchPaths, TabWidth) ->
 partition_exports(File, DistThreshold, WithInOutDegree, SearchPaths, TabWidth, Editor) ->
     Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":partition_exports(" ++ "\"" ++ 
 	     File ++ "\", " ++ float_to_list(DistThreshold) ++ 
-	       ", " ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "],"
-									        ++ integer_to_list(TabWidth) ++ ").",
+	       ", " ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case exported_funs(File) of
 	[] -> throw({error, "This module does not export any functions."});
 	_ -> ok
@@ -894,9 +893,9 @@ group_small_clusters(Cs) ->
 	 end,
     lists:zip(lists:seq(1, length(Cs4)),Cs4).
 
-format_a_cluster({Index, {InMods, OutMods, C}}) ->
+format_a_cluster({_Index, {_InMods, _OutMods, _C}}) ->
     ?wrangler_io("\nGroup ~p: Indegree:~p, OutDegree:~p,\n~p\n", 
-		 [Index, InMods, OutMods, C]).
+		 [_Index, _InMods, _OutMods, _C]).
 
 
 is_attribute(F, Name) ->
@@ -1066,8 +1065,9 @@ component_extraction_suggestion(File) ->
 
 format_result([]) ->
     ?wrangler_io("\n",[]);
-format_result([{{_M,F,A}, Loc1, Loc2, Loc3, Score}|Ts]) ->
-    ?wrangler_io("{~30s/~p,     ~p,      ~p,       ~p,       ~p}\n",[F,A, Loc1, Loc2,Loc3,Score]),
+format_result([{{_M,_F,_A}, _Loc1, _Loc2, _Loc3, _Score}|Ts]) ->
+    ?wrangler_io("{~30s/~p,     ~p,      ~p,       ~p,       ~p}\n",
+                 [_F,_A, _Loc1, _Loc2,_Loc3,_Score]),
     format_result(Ts).
 
 moveability(V = {M, _F, _A}, CG, FunSizePairs) ->

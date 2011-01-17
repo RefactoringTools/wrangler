@@ -139,7 +139,7 @@ generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPa
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":generalise(" ++ "\"" ++ 
 	    FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++ 
 	      "{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ ParName ++ "\","
-													      ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+        ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case refac_util:is_var_name(ParName) of
 	false -> throw({error, "Invalid parameter name!"});
 	true -> ok
@@ -276,8 +276,9 @@ gen_fun_clause_1(FileName, ParName, FunName, _Arity, DefPos, Exp0, SearchPaths, 
 							      end, Cs)),
 				ClauseToGen1 = replace_exp_with_var(ClauseToGen, {ParName, Exp, SideEffect, Dups}),
 				ClauseToGen2 = add_parameter(ClauseToGen1, NewPar),
-				NewForm = refac_syntax:function(refac_syntax:atom(FunName), [ClauseToGen2]),
-				[Form1, NewForm];
+                                NewForm = refac_syntax:function(refac_syntax:function_name(Form), [ClauseToGen2]),
+                                NewForm1 =refac_util:rewrite(Form, NewForm),
+				[Form1, NewForm1];
 			    _ -> [Form]
 			end;
 		    _ -> [Form]
@@ -431,8 +432,8 @@ do_gen_fun(Tree, {FileName, ParName, FunName, Arity, DefPos, Info, Exp,
 	    case get_fun_def_loc(Tree) of
 		DefPos ->
 		    A1 = refac_syntax:function_arity(Tree),
-		    if A1 == Arity ->
-			   Name = refac_syntax:function_name(Tree),
+		    if A1 == Arity ->		
+                            Name = refac_syntax:function_name(Tree),
 			   NewPar = refac_syntax:variable(ParName),
 			   Cs = [add_parameter(C1, NewPar)
 				 || C1 <- [add_actual_parameter(replace_exp_with_var(C, {ParName, Exp, SideEffect, Dups}),

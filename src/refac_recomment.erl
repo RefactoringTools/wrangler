@@ -120,8 +120,9 @@ recomment_forms(Tree, Cs, Insert) when is_list(Tree) ->
 recomment_forms(Tree, Cs, Insert) ->
     case refac_syntax:type(Tree) of
 	form_list ->
-	    BadFormLocs = lists:flatten([lists:seq(L1,L2) ||{error, {_ErrInfo, {{L1,_},{L2,_}}}} 
-								<-refac_syntax:form_list_elements(Tree)]),
+	    BadFormLocs = lists:flatten([lists:seq(L1,L2) ||
+                                            {error, {_ErrInfo, {{L1,_},{L2,_}}}} 
+                                                <-refac_syntax:form_list_elements(revert(Tree))]),
 	    Cs1 = [ {L, Col, Ind, PreTok, Text} ||{L,Col, Ind, PreTok, Text} <-Cs, not(lists:member(L, BadFormLocs))],
 	    Tree1 = refac_syntax:flatten_form_list(Tree),
 	    Node = build_tree(Tree1),
@@ -370,13 +371,15 @@ insert(Node, L, Col, Ind, C) ->
 	    %% the range of the current node.
 	    Min = node_min(Node),
 	    Max = node_max(Node),
-	    if L < Min ->
+            if L < Min ->
 		    %% The comment line should be above this node.
 		    node_add_precomment(C, Node);
 	       Min == Max  ->
 		    %% The whole node is on a single line (this
 		    %% should usually catch all leaf nodes), so we
 		    %% postfix the comment.
+                    node_add_postcomment(C, Node);
+               L == Max  ->
                     node_add_postcomment(C, Node);
 	       true ->
 		    %% The comment should be inserted in the
@@ -406,7 +409,6 @@ insert_1(Node, L, Col, Ind, C) ->
 
 insert_in_list([Node | Ns], L, Col, Ind, C) ->
     Max = node_max(Node),
-    
     %% Get the `Min' of the next node that follows in the
     %% flattened left-to-right order, or -1 (minus one) if no such
     %% tree node exists.
@@ -415,24 +417,15 @@ insert_in_list([Node | Ns], L, Col, Ind, C) ->
     if NextMin < 0 ->
 	    %% There is no following leaf/tree node, so we try
 	    %% to insert at this node.
-	    insert_here(Node, L, Col, Ind, C, Ns);
+            insert_here(Node, L, Col, Ind, C, Ns);
        L >= NextMin, NextMin >= Max ->
-	    %% Tend to select the later node, in case the next
+	    %% Tend to select the later node, in case the next 
 	    %% node should also match.
-	    insert_later(Node, L, Col, Ind, C, Ns);
-       %% L == Max ->
-       %%      case comment_follows_special_keyword(C) of
-       %%          false ->
-       %%              refac_io:format("Insert here\n"),
-       %%              insert_here(Node, L, Col, Ind, C, Ns);
-       %%          true ->
-       %%              refac_io:format("Insert later\n"),
-       %%              insert_later(Node, L, Col, Ind, C, Ns)
-       %%      end;
+            insert_later(Node, L, Col, Ind, C, Ns);
        L=<Max ->
             insert_here(Node, L, Col, Ind, C, Ns);
        true ->
-	    insert_later(Node, L, Col, Ind, C, Ns)
+            insert_later(Node, L, Col, Ind, C, Ns)
     end;
 insert_in_list([], L, Col, _, _) ->
     exit({bad_tree, L, Col}).
@@ -471,6 +464,7 @@ next_min_in_node(Node, Ack) ->
 	    next_min_in_list(node_subtrees(Node), Ack)
     end.
 
+
 %% Building an extended syntax tree from an `erl_syntax' abstract
 %% syntax tree.
 
@@ -483,10 +477,17 @@ build_tree(Node) ->
 	Ts ->
 	    %% `Ts' is a list of lists of abstract terms.
 	    {Subtrees, Min, Max} = build_list_list(Ts),
-	    
-	    %% Include L, while preserving Min =< Max.
-	    tree_node(minpos(L, Min),
-		      lists:max([L, Max]),
+	    As = refac_syntax:get_ann(Node),
+            {Min1, Max1} =
+                case lists:keysearch(range, 1, As) of 
+                    {value, {range, {{L1, _}, {L2,_}}}} ->
+                        {L1, L2};
+                    false ->
+                        {minpos(L, Min), lists:max([L, Max])}
+                end,
+            %% Include L, while preserving Min =< Max.
+	    tree_node(Min1,
+		      Max1,
 		      refac_syntax:type(Node),
 		      refac_syntax:get_attrs(Node),
 		      Subtrees)
@@ -574,10 +575,6 @@ expand_comments([]) ->
 expand_comment(C) ->
     {L, Col, Ind, _PreTok, Text} = C,
     refac_syntax:set_pos(refac_syntax:comment(Ind, Text), {L,Col}).  %% Modified by Huiqing
-
-
-comment_follows_special_keyword({_L, _Col, _Ind, PreTok, _Text}) ->
-    lists:member(PreTok, ['of', '->']).
 
 %% =====================================================================
 %% Abstract data type for extended syntax trees.
@@ -761,5 +758,12 @@ get_line(Node) ->
 	    exit({bad_position, Pos})
     end.
 
-
+revert(Tree)->
+    try refac_syntax:revert(Tree) of
+        Res -> Res
+    catch
+        _E1:_E2 ->
+            Tree
+    end.
+        
 %% =====================================================================

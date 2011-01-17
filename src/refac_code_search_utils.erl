@@ -8,6 +8,8 @@
 	 identifier_name/1, gen_new_var_name/1,
 	 remove_sub_clones/1, generalisable/1]).
 
+-compile(export_all).
+
 -include("../include/wrangler.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
@@ -182,28 +184,28 @@ display_clone_result(Cs, Str) ->
      	false -> ?wrangler_io("\n"++Str++" code detection finished with no clones found.\n", [])
      end.
     
-display_clones_by_freq(Cs, Str) ->
+display_clones_by_freq(_Cs, _Str) ->
     ?wrangler_io("\n===================================================================\n",[]),
-    ?wrangler_io(Str++" Code Detection Results Sorted by the Number of Code Instances.\n",[]),
+    ?wrangler_io(_Str ++ " Code Detection Results Sorted by the Number of Code Instances.\n",[]),
     ?wrangler_io("======================================================================\n",[]),		 
-    Cs1 = lists:reverse(lists:keysort(3, Cs)),
-    ?wrangler_io(display_clones(Cs1, Str),[]).
+    _Cs1 = lists:reverse(lists:keysort(3, _Cs)),
+    ?wrangler_io(display_clones(_Cs1, _Str),[]).
 
-display_clones_by_length(Cs, Str) ->
+display_clones_by_length(_Cs, _Str) ->
     ?wrangler_io("\n===================================================================\n",[]),
-    ?wrangler_io(Str ++ " Code Detection Results Sorted by Code Size.\n",[]),
+    ?wrangler_io(_Str ++ " Code Detection Results Sorted by Code Size.\n",[]),
     ?wrangler_io("======================================================================\n",[]),		 
-    Cs1 = lists:keysort(2,Cs),
-    ?wrangler_io(display_clones(Cs1, Str),[]).
+    _Cs1 = lists:keysort(2,_Cs),
+    ?wrangler_io(display_clones(_Cs1, _Str),[]).
 
 
 %% display the found-out clones to the user.
-display_clones(Cs, Str) ->
-    Num = length(Cs),
-    ?wrangler_io("\n"++Str++" detection finished with *** ~p *** clone(s) found.\n", [Num]),
+display_clones(_Cs, _Str) ->
+    Num = length(_Cs),
+    ?wrangler_io("\n" ++ _Str ++ " detection finished with *** ~p *** clone(s) found.\n", [Num]),
     case Num of 
 	0 -> ok;
-	_ -> display_clones_1(Cs,1)
+	_ -> display_clones_1(_Cs,1)
     end.
 
 display_clones_1([],_) ->
@@ -217,18 +219,21 @@ display_clones_1([C|Cs], Num) ->
 display_a_clone(_C={Ranges, _Len, F,{Code, _}},Num) ->
     [R| _Rs] = lists:keysort(1, Ranges),
     NewStr = compose_clone_info(R, F, Ranges, "", Num),
-    NewStr1 = NewStr ++ "The cloned expression/function after generalisation:\n\n" ++ Code,
-    ?wrangler_io("~s", [NewStr1]);
+    _NewStr1 = NewStr ++ "The cloned expression/function after generalisation:\n\n" ++ Code,
+    _ = length(_NewStr1),
+    ?wrangler_io("~s", [_NewStr1]);
 display_a_clone(_C={Ranges, _Len, F,Code},Num) ->
     [R| _Rs] = lists:keysort(1, Ranges),
     NewStr = compose_clone_info(R, F, Ranges, "", Num),
-    NewStr1 = NewStr ++ "The cloned expression/function after generalisation:\n\n" ++ Code,
-    ?wrangler_io("~s", [NewStr1]);
+    _NewStr1 = NewStr ++ "The cloned expression/function after generalisation:\n\n" ++ Code,
+    _ = length(_NewStr1),
+    ?wrangler_io("~s", [_NewStr1]);
 display_a_clone(_C={Ranges, _Len, F,{Code, _}, ChangeStatus},Num) ->
     [R| _Rs] = lists:keysort(1, Ranges),
     NewStr = compose_clone_info(R, F, Ranges, "", Num, ChangeStatus),
-    NewStr1 = NewStr ++ "The cloned expression/function after generalisation:\n\n" ++ Code,
-    ?wrangler_io("~s", [lists:flatten(NewStr1)]).
+    _NewStr1 = NewStr ++ "The cloned expression/function after generalisation:\n\n" ++ Code,
+    _ = length(_NewStr1),
+    ?wrangler_io("~s", [lists:flatten(_NewStr1)]).
 
 compose_clone_info(_, F, Range, Str, Num) ->
     case F of
@@ -269,14 +274,14 @@ display_clones_2([{{{File, StartLine, StartCol}, {File, EndLine, EndCol}}, FunCa
 %%-spec display_search_results([{filename(),{{integer(), integer()}, {integer(), integer()}}}],
 %%			     syntaxTree()|none, string()) ->
 %%				    {ok, [{filename(),{{integer(), integer()}, {integer(), integer()}}}]}.
-display_search_results(Ranges, AntiUnifier, Type) ->
+display_search_results(Ranges, AntiUnifier, _Type) ->
     case Ranges of
 	[_] -> 
-	    ?wrangler_io("No "++Type++" expression has been found.\n", []),
+	    ?wrangler_io("No " ++ _Type ++ " expression has been found.\n", []),
 	    {ok, Ranges};
 	_ -> 
 	    ?wrangler_io("~p expressions (including the expression selected)"
-			 " which are "++Type++" to the expression selected have been found. \n", [length(Ranges)]),
+			 " which are " ++ _Type ++ " to the expression selected have been found. \n", [length(Ranges)]),
 	    ?wrangler_io(compose_search_result_info(Ranges), []),
 	    case AntiUnifier of 
 		none -> ok;
@@ -315,13 +320,14 @@ generalisable(Node) ->
 	    %% can be replaced by a variable, in practice, generalise a function 
 	    %% over this kind of expression could make the code harder to understand.
 	    T = refac_syntax:type(Node),
-	     not  lists:member(T, [match_expr, operator, case_expr,
-				   if_expr, fun_expr, receive_expr, clause,
-				   query_expr, try_expr, catch_expr, cond_expr,
-				   block_expr]) andalso 
-	      refac_util:get_var_exports(Node) == []  andalso 
-		%% %% generalise expressions with free variables need to 
-		%% %% wrap the expression with a fun expression; we try to 
-		%% %% avoid this case.
-		(refac_util:get_free_vars(Node) == [] orelse  T==variable)
+            not  lists:member(T, [match_expr, operator, case_expr,
+                                  if_expr, fun_expr, receive_expr, clause,
+                                  query_expr, try_expr, catch_expr, cond_expr,
+                                  block_expr]) andalso 
+                refac_util:get_var_exports(Node) == []
+                %% andalso 
+		%% %% %% generalise expressions with free variables need to 
+		%% %% %% wrap the expression with a fun expression; we try to 
+		%% %% %% avoid this case.
+            %% (refac_util:get_free_vars(Node) == [] orelse  T==variable)
     end.

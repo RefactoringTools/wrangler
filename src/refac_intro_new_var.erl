@@ -41,9 +41,9 @@
 %% =============================================================================================
 %%-spec(intro_new_var/6::(filename(), pos(), pos(), string(), [dir()],integer()) ->
 %% 	     {'ok', [filename()]}).
-intro_new_var(FileName, Start={SLine,SCol}, End={ELine, ECol}, NewVarName, SearchPaths, TabWidth) ->
+intro_new_var(FileName, Start={_SLine,_SCol}, End={_ELine, _ECol}, NewVarName, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:intro_new_var(~p, {~p,~p}, {~p,~p}, ~p, ~p,~p).\n",
-		 [?MODULE, FileName, SLine, SCol, ELine, ECol, NewVarName, SearchPaths, TabWidth]),
+		 [?MODULE, FileName, _SLine, _SCol, _ELine, _ECol, NewVarName, SearchPaths, TabWidth]),
     intro_new_var(FileName, Start, End, NewVarName, SearchPaths, TabWidth, emacs).
 
 %%-spec(intro_new_var_eclipse/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
@@ -55,7 +55,7 @@ intro_new_var(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewVarName0, S
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":intro_new_var(" ++ "\"" ++ 
 	    FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ 
 	      integer_to_list(Col) ++ "}," ++ "{" ++ integer_to_list(Line1) ++ ", "
-										  ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ NewVarName0 ++ "\"," ++ integer_to_list(TabWidth) ++ ").",
+        ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ NewVarName0 ++ "\"," ++ integer_to_list(TabWidth) ++ ").",
     case refac_util:is_var_name(NewVarName0) of
 	true -> ok;
 	false -> throw({error, "Invalid new variable name."})
@@ -241,19 +241,14 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
                                               false->
                                                   refac_syntax:add_ann({layout, vertical}, B2)
                                           end,
-                                     case Bs of
-                                         [] ->
-                                             Body1++[B1, B21];
-                                         [B3|Bs1] ->
-                                             {{B3L, _},_} = refac_util:get_start_end_loc(B3),
-                                             case BL==B3L of 
-                                                 true ->
-                                                     B31=refac_syntax:add_ann({layout, horizontal}, B3),
-                                                     Body1++[B1, B21, B31|Bs1];
-                                                 false ->
-                                                     B31=refac_syntax:add_ann({layout, vertical}, B3),
-                                                     Body1++[B1, B21, B31|Bs1]
-                                             end
+                                     {{B3L, _},_} = refac_util:get_start_end_loc(B3),
+                                     case BL==B3L of 
+                                         true ->
+                                             B31=refac_syntax:add_ann({layout, horizontal}, B3),
+                                             Body1++[B1, B21, B31|Bs1];
+                                         false ->
+                                             B31=refac_syntax:add_ann({layout, vertical}, B3),
+                                             Body1++[B1, B21, B31|Bs1]
                                      end
                              end
                      end
