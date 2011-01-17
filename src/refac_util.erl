@@ -712,8 +712,7 @@ modname_to_filename(ModName, Dirs) ->
     end.
 			   
 
-format_file_names([]) -> "[]";
-format_file_names(Fs) ->
+format_file_names(Fs) when Fs/=[] ->
     "[" ++ format_file_names_1(Fs).
   
 format_file_names_1([F|T]) ->
@@ -932,7 +931,7 @@ get_start_end_loc_with_comment(Node) when is_list(Node) ->
     {_, End} = get_start_end_loc_with_comment(lists:last(Node)),
     {Start, End};
 get_start_end_loc_with_comment(Node) ->
-    {Start={_StartLn, StartCol}, End} = refac_prettypr:get_start_end_loc(Node),
+    {Start={_StartLn, StartCol}, End} = get_start_end_loc(Node),
     PreCs = refac_syntax:get_precomments(Node),
     PostCs = refac_syntax:get_postcomments(Node),
     Start1 = case PreCs of
