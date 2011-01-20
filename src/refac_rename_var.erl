@@ -57,8 +57,8 @@
 
 %%-spec rename_var(filename(), integer(), integer(), string(), [dir()], integer()) ->
 %%	     {ok, string()}.
-rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth) ->
-    rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
+rename_var(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
+    rename_var(FileName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
 
 %%-spec rename_var_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
 %%	     {ok, [{filename(), filename(), string()}]}.
@@ -210,7 +210,7 @@ do_rename(Node, {DefinePos, NewName}) ->
 %% =====================================================================
 %% @doc Return the input environment of the subtree, the variables that are
 %% bound as well as the variables that are free in the subtree.
-envs_bounds_frees(Tree) ->
+envs_bounds_frees(Node) ->
     F = fun (T, B) ->
 		As = refac_syntax:get_ann(T),
 		EnVars = case lists:keysearch(env, 1, As) of
@@ -230,4 +230,4 @@ envs_bounds_frees(Tree) ->
 		    _ -> [{{env, EnVars}, {bound, BdVars}, {free, FrVars}}| B]
 		end
 	end,
-    lists:usort(ast_traverse_api:fold(F, [], Tree)).
+    lists:usort(ast_traverse_api:fold(F, [], Node)).

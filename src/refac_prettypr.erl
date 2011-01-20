@@ -34,13 +34,13 @@
 -module(refac_prettypr).
 
 -export([format/1,print_ast/2, print_ast/3, 
-         print_ast_and_get_changes/3]).
+         print_ast_and_get_changes/3, print_a_form/4]).
 
 %% this should removed to refac_util.
 -export([has_parentheses/2]).
 
 %% used by testing.
--export([calc_levenshtein_dist/3]).
+-export([calc_levenshtein_dist/3, levenshtein_dist/3]).
 
 -import(refac_prettypr_0,
 	[text/1,nest/2,above/2,beside/2,sep/1,par/1,par/2,
@@ -410,7 +410,7 @@ lay_precomments(Cs,D, {DStartLine, DStartCol}) ->
     {_, Col} = refac_syntax:get_pos(hd(Cs)),
     {Line, _Col} = refac_syntax:get_pos(LastCom),
     LastComTest = refac_syntax:comment_text(LastCom),
-    Offset = min(abs(DStartCol-Col),0),
+    Offset = lists:min([abs(DStartCol-Col),0]),
     N = DStartLine-(Line+length(LastComTest)),
     case N=<0 orelse Line ==0 orelse DStartLine==0 of
         true ->
@@ -960,7 +960,7 @@ lay_2(Node, Ctxt) ->
                                          [] -> refac_syntax:get_pos(Node);
                                          _ ->get_end_loc(Cs)
                                      end,
-                        case HeadStartLn == EndLn of
+                        case HeadStartLn == EndLn andalso EndLn/=0 of
                             true ->
                                 refac_prettypr_0:horizontal([D2,D6]);
                             false ->
@@ -1022,9 +1022,12 @@ lay_2(Node, Ctxt) ->
                          EqLoc = get_keyword_loc_after('=', Ctxt, LEnd),
                          LeftEq=append_elems(fun refac_prettypr_0:horizontal/1,
                                              {D1, {LStart, LEnd}}, {text("="), {EqLoc, EqLoc}}),
-                         append_elems(fun ([Doc1,Doc2]) ->
-                                              follow(Doc1, Doc2, Ctxt#ctxt.break_indent)
-                                      end, {LeftEq, {LStart, EqLoc}},
+                         %%append_elems(fun ([Doc1,Doc2]) ->
+                         %%                     follow(Doc1, Doc2, Ctxt#ctxt.break_indent)
+                         %%             end, {LeftEq, {LStart, EqLoc}},
+                         %%             {D2,{RStart, REnd}})
+                         append_elems(fun refac_prettypr_0:horizontal/1,
+                                      {LeftEq, {LStart, EqLoc}},
                                       {D2,{RStart, REnd}})
                 end;
 	record_index_expr ->
@@ -1535,7 +1538,7 @@ append_keywords(KeyWord1, KeyWord2, CsD, Node, Ctxt) ->
     {KeyWord1Line, KeyWord1Col} =
 	get_keyword_loc_before(list_to_atom(KeyWord1), Ctxt,
 			       {CsStartLn, CsStartCol}),
-    {KeyWord2Line, KeyWord2Col} =
+    {KeyWord2Line, _KeyWord2Col} =
 	get_keyword_loc_after(list_to_atom(KeyWord2), Ctxt,
 			      {CsEndLn, CsEndCol}),
     KeyWord1CsD = case KeyWord1Line == 0 of
@@ -1557,7 +1560,8 @@ append_keywords(KeyWord1, KeyWord2, CsD, Node, Ctxt) ->
 	false when KeyWord2Line==CsEndLn ->
 	    refac_prettypr_0:horizontal(KeyWord1CsD++[text(KeyWord2)]);
 	false when KeyWord2Line-CsEndLn>=1 ->
-	    above(sep(KeyWord1CsD), nest(KeyWord2Col-KeyWord1Col, text(KeyWord2)));
+	    above(sep(KeyWord1CsD), text(KeyWord2));
+                  %% nest(KeyWord2Col-KeyWord1Col, text(KeyWord2)));
 	_ ->
 	    sep(KeyWord1CsD ++ [text(KeyWord2)])
     end.

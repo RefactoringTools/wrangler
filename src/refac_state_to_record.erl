@@ -1620,9 +1620,10 @@ make_record_to_tuple_app(Expr, RecordName, RecordFields, IsTuple, TupleToRecordF
     end.
 
 mk_record_field(Name, Val) ->
-    refac_util:rewrite(Val, refac_syntax:record_field(
-			      refac_util:rewrite(Val, refac_syntax:atom(Name)),
-			      refac_syntax:remove_comments(Val))).
+    refac_util:rewrite_with_wrapper(Val, refac_util:reset_ann_and_pos(
+                                          refac_syntax:record_field(
+                                            refac_syntax:atom(Name), 
+                                            refac_syntax:remove_comments(Val)))).
 
 mk_record_fields(RecordFields, Es) ->
     [mk_record_field(Name, Val)|| {Name, Val} <- lists:zip(RecordFields, Es),

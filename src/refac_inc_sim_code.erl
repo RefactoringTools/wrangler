@@ -130,9 +130,9 @@ inc_sim_code_detection(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1
     {ok, lists:flatten(LogMsg)++CloneReport}.
 
 
--spec(inc_sim_code_detection_command/8::(DirFileList::[filename()|dir()], MinLen::integer(), MinToks::integer(),
-					      MinFreq::integer(),  MaxVars::integer(),SimiScore::float(), 
-					      SearchPaths::[dir()], TabWidth::integer()) -> {ok, string()}).
+%%-spec(inc_sim_code_detection_command/8::(DirFileList::[filename()|dir()], MinLen::integer(), MinToks::integer(),
+%%					      MinFreq::integer(),  MaxVars::integer(),SimiScore::float(), 
+%%					      SearchPaths::[dir()], TabWidth::integer()) -> {ok, string()}).
 
 inc_sim_code_detection_command(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1,SearchPaths,TabWidth) ->
     {MinLen,MinToks,MinFreq,MaxVars,SimiScore} = get_parameters_eclipse(MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1),
@@ -147,12 +147,12 @@ inc_sim_code_detection_command(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,Si
     {ok, "Similar code detection finished."}.
 
 
--spec(inc_sim_code_detection_eclipse/8::(DirFileList::[filename()|dir()], MinLen::integer(), MinToks::integer(),
-				 MinFreq::integer(),  MaxVars:: integer(),SimiScore::float(), 
-				 SearchPaths::[dir()], TabWidth::integer())->
-				       [{[{{{filename(), integer(), integer()},
-					    {filename(), integer(), integer()}}, string()}], 
-					 integer(), integer(), string()}]).
+%%-spec(inc_sim_code_detection_eclipse/8::(DirFileList::[filename()|dir()], MinLen::integer(), MinToks::integer(),
+%%				 MinFreq::integer(),  MaxVars:: integer(),SimiScore::float(), 
+%%				 SearchPaths::[dir()], TabWidth::integer())->
+%%				       [{[{{{filename(), integer(), integer()},
+%%					    {filename(), integer(), integer()}}, string()}], 
+%%					 integer(), integer(), string()}]).
 
 inc_sim_code_detection_eclipse(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1,SearchPaths,TabWidth) ->
     ?wrangler_io("\nCMD: ~p:inc_sim_code_detection(~p,~p,~p,~p,~p, ~p,~p,~p).\n",
@@ -335,7 +335,7 @@ generalise_and_hash_file_ast_1(FName, Threshold, Tabs, ASTPid, HashPid, IsNewFil
 generalise_and_hash_function_ast(Form, FName, IsNewFile, Threshold, Tabs, ASTPid, HashPid) ->
     FunName = refac_syntax:atom_value(refac_syntax:function_name(Form)),
     Arity = refac_syntax:function_arity(Form),
-    HashVal = erlang:md5(refac_prettypr:format(Form)),
+    HashVal = erlang:md5(format(Form)),
     case IsNewFile of
 	true ->
 	  %% a new file;
@@ -372,7 +372,7 @@ generalise_and_hash_function_ast_1(FName, Form, FunName, Arity, HashVal, Thresho
     ets:insert(Tabs#tabs.var_tab, {{FName, FunName, Arity}, HashVal, AllVars}),
     ast_traverse_api:full_tdTP(fun generalise_and_hash_function_ast_2/2,
 			       Form1, {FName, FunName, Arity, ASTPid, HashPid, Threshold, StartLine}).
-
+   
 %% generalise and has the function AST.
 generalise_and_hash_function_ast_2(Node, {FName, FunName, Arity, ASTPid, _HashPid,  Threshold, StartLine}) ->
     F = fun (Body) ->
@@ -492,7 +492,7 @@ generalise_and_hash_expr(ASTTab, {M, F, A}, StartLine,
     ets:insert(ASTTab, {{M, F, A, StartIndex + RelativeIndex}, Expr}),
     E1 = do_generalise(Expr),
     %% get the hash values of the generalised expression.
-    HashVal = erlang:md5(refac_prettypr:format(E1)),
+    HashVal = erlang:md5(format(E1)),
     %% the location here is relative location.
     StartEndLoc = refac_util:get_start_end_loc(Expr),
     {HashVal, {StartIndex + RelativeIndex,
@@ -508,6 +508,7 @@ do_generalise(Node) ->
 		 end
 	 end,
     element(1, ast_traverse_api:stop_tdTP(F0, Node, [])).
+    
    
 	
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -679,11 +680,11 @@ examine_clone_candidates([C| Cs],Thresholds,Tabs,CloneCheckerPid,ASTPid,Num) ->
       [] ->
 	  ok;
       [C2] ->
-	  case examine_a_clone_candidate(C2,Thresholds,Tabs) of
+            case examine_a_clone_candidate(C2,Thresholds,Tabs) of
 	    [] ->
 		ok;
 	    ClonesWithAU ->
-		  add_new_clones(CloneCheckerPid,{C2, ClonesWithAU})
+                  add_new_clones(CloneCheckerPid,{C2, ClonesWithAU})
 	  end
     end, 
     examine_clone_candidates(Cs,Thresholds,Tabs,CloneCheckerPid,ASTPid,Num+1).
@@ -753,8 +754,8 @@ examine_a_clone_candidate_1(_C={Ranges, {_Len, _Freq}}, Thresholds, Tabs) ->
     ClonesWithAU = [
 		    begin
 			FromSameFile=from_same_file(Rs),
-			AU = get_anti_unifier(Info, FromSameFile),
-			{Rs1, AU1} = attach_fun_call_to_range(Rs, AU, FromSameFile),
+                        AU= get_anti_unifier(Info, FromSameFile),
+                        {Rs1, AU1} = attach_fun_call_to_range(Rs, AU, FromSameFile),
 			{Rs1, {Len, Freq}, AU1}
 		    end
 		    || {Rs, {Len, Freq}, Info} <- Clones],
@@ -865,9 +866,9 @@ has_same_subst(E1, E2, SubSt) ->
 		      {value, {def, DefPos}} == lists:keysearch(
 						  def, 1, refac_syntax:get_ann(E11))
 			 andalso 
-			refac_prettypr:format(refac_util:reset_attrs(E2))
-			   =/= refac_prettypr:format(refac_util:reset_attrs(E21))
-	    end, SubSt).
+		      format(E2)
+			=/= format(E21)
+	  end, SubSt).
 
 %% process anti-unification result.
 process_au_result(AURes, Thresholds, Tabs) ->
@@ -943,7 +944,7 @@ get_var_subst(SubSt) ->
     F = fun ({E1, E2}) ->
 		{value, {def, DefPos}} =
 		    lists:keysearch(def, 1, refac_syntax:get_ann(E1)),
-		{DefPos, refac_prettypr:format(refac_util:reset_attrs(E2))}
+		{DefPos, format(E2)}
 	end,
     [F({E1,E2})
      || {E1,E2} <- SubSt,
@@ -1089,14 +1090,15 @@ simi_score(ExprRanges, SubExprs) ->
     end.
     
 num_of_tokens(Exprs) ->
-   lists:sum([num_of_tokens_in_string(refac_prettypr:format(E))
+   lists:sum([num_of_tokens_in_string(format(E))
 	      ||E<-Exprs]).
 
 
 num_of_tokens_in_string(Str) ->
     case refac_scan:string(Str, {1,1}, 8, 'unix') of
 	{ok, Ts, _} -> 
-	    length(Ts);
+            Ts1 = [T||T<-Ts, not is_whitespace_or_comment(T)],
+	    length(Ts1);
 	_ ->
 	    0
     end.
@@ -1211,15 +1213,16 @@ group_clone_pairs([CP={C={_R, _EVs, Subst}, NumOfNewVars}|T], Thresholds, ExprsT
 
 %% This is not accurate, and will be improved!
 exprs_to_be_generalised(SubSt) ->
-    sets:from_list([refac_prettypr:format(refac_util:reset_attrs(E1))
+    sets:from_list([format(E1)
 		    || {E1,_E2} <- SubSt, refac_syntax:type(E1)/=variable]).
 
 num_of_new_vars(SubSt) ->
-    length(lists:usort([{refac_prettypr:format(refac_util:reset_attrs(E1)),
-			 refac_prettypr:format(refac_util:reset_attrs(E2))}
+    length(lists:usort([{format(E1), format(E2)}
 			|| {E1,E2} <- SubSt, refac_syntax:type(E1)/=variable])).
 
 
+format(Node) ->
+    refac_prettypr:format(refac_util:reset_ann_and_pos(Node)).
     
     
 
@@ -1250,7 +1253,7 @@ generate_fun_call_1(RangeWithAST, AUForm, FromSameFile) ->
 	    end,
 	%% Need to check side-effect here. but it is a bit slow!!!
 	FunCall=make_fun_call(new_fun, Pats, Subst, FromSameFile),
-	{Range, refac_prettypr:format(FunCall)}
+	{Range, format(FunCall)}
     catch 
 	_E1:_E2 ->
 	    "wrangler-failed-to-generate-the-function-application."
@@ -1368,7 +1371,8 @@ get_var_define_pos(V) ->
     DefinePos.
 
 get_anti_unifier({Exprs, SubSt, ExportVars}, FromSameFile) ->
-    {AU, {NumOfPars, NumOfNewVars}} =anti_unification:generate_anti_unifier_and_num_of_new_vars(Exprs, SubSt, ExportVars),
+    {AU, {NumOfPars, NumOfNewVars}} =anti_unification:generate_anti_unifier_and_num_of_new_vars(
+                                       Exprs, SubSt, ExportVars),
     case FromSameFile of
 	true -> 
 	    {AU,{NumOfPars, NumOfNewVars}};
@@ -1490,11 +1494,11 @@ remove_short_clones(_C={Rs, {Len, _Freq}}, MinToks, MinFreq) ->
 
    
 no_of_tokens(Node) when is_list(Node)->
-    Str = refac_prettypr:format(refac_syntax:block_expr(Node)),
+    Str = format(refac_syntax:block_expr(Node)),
     {ok, Toks,_}=refac_scan:string(Str, {1,1}, 8, unix),
     length(Toks)-2;
 no_of_tokens(Node) ->
-    Str = refac_prettypr:format(Node),
+    Str = format(Node),
     {ok, Toks,_} =refac_scan:string(Str, {1,1}, 8, unix),
     length(Toks).
 
@@ -1568,7 +1572,7 @@ simplify_anti_unifier(AUForm) ->
     AUBody1 = simplify_anti_unifier_body(AUBody),
     C = refac_syntax:clause(Pats, none, AUBody1),
     NewAU=refac_syntax:function(FunName, [C]),
-    refac_prettypr:format(NewAU).
+    format(NewAU).
     
 simplify_anti_unifier_body(AUBody) when length(AUBody)<2 ->
     AUBody;
@@ -1588,8 +1592,8 @@ simplify_anti_unifier_body(AUBody) ->
     end.
 
 same_expr(Expr1, Expr2) ->
-    {ok, Ts1, _} = erl_scan:string(refac_prettypr:format(Expr1)),
-    {ok, Ts2, _} = erl_scan:string(refac_prettypr:format(Expr2)),
+    {ok, Ts1, _} = erl_scan:string(format(Expr1)),
+    {ok, Ts2, _} = erl_scan:string(format(Expr2)),
     refac_util:concat_toks(Ts1)==refac_util:concat_toks(Ts2).
 
 
@@ -1638,9 +1642,9 @@ to_dets(Ets, Dets) ->
 	
 	 
 
--spec(get_parameters_eclipse/5::(MinLen::integer(), MinToks::integer(), MinFreq::integer(), 
-					 MaxNewVars::integer(),SimiScore::float())->
-					      {integer(), integer(), integer(), integer(),float()}).
+%%-spec(get_parameters_eclipse/5::(MinLen::integer(), MinToks::integer(), MinFreq::integer(), 
+%%					 MaxNewVars::integer(),SimiScore::float())->
+%%					      {integer(), integer(), integer(), integer(),float()}).
 get_parameters_eclipse(MinLen1,MinToks1,MinFreq1,MaxNewVars1,SimiScore1) ->
     MinLen = case MinLen1<1 of
 	       true ->
@@ -1747,4 +1751,11 @@ gen_clone_report([_C={_Ranges, Len, F, {Code, {Pars,NewVars}}}|Cs], Num, Str) ->
 			"number of parameters in AU: ~p, number of NewVars in AU: ~p, AU:\n",
 			[Num,F,Len, Pars, NewVars])++Code++"\n",
     gen_clone_report(Cs, Num+1, lists:reverse(lists:flatten(Str1))++Str).
+
+
+is_whitespace_or_comment({whitespace, _, _}) ->
+    true;
+is_whitespace_or_comment({comment, _, _}) ->
+    true;
+is_whitespace_or_comment(_) -> false.
 

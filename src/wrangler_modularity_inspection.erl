@@ -758,7 +758,8 @@ partition_exports(File, DistThreshold, WithInOutDegree, SearchPaths, TabWidth, E
     UsedMRWs = used_macros_records_words(File),
     Coms = gen_components(File),
     Matrix = generate_fun_dist_matrix(File, CG, Coms, UsedMRWs, true),
-    Mods = [list_to_atom(filename:basename(F, ".erl")) || F <- SearchPaths],
+    Files = refac_util:expand_files(SearchPaths, ".erl"),
+    Mods = [list_to_atom(filename:basename(F, ".erl")) || F <- Files],
     Cs = agglomerative_cluster(Matrix, CG, Coms, UsedMRWs, DistThreshold, Mods),
     ModName = list_to_atom(filename:basename(File, ".erl")),
     MG = digraph:new(),
@@ -847,8 +848,8 @@ generate_fun_dist_matrix(File, CG, Coms, UsedMRWs, OnlyAPIs) ->
 agglomerative_cluster(Matrix, CG, Coms, UsedMRWs, DistThreshold, Mods) ->
     agglomerative_cluster(Matrix, CG, Coms,UsedMRWs, DistThreshold, Mods, []).
 
-agglomerative_cluster(_Matric=[_], _CG,  _Coms,_, _,_, Acc) ->
-    lists:reverse(Acc);
+agglomerative_cluster(_Matrix=[{Cs, _}], _CG,  _Coms,_, _,_, Acc) ->
+    ordsets:to_list(ordsets:from_list(lists:reverse([Cs|Acc])));
 agglomerative_cluster(Matrix,CG, Coms, UsedMRWs,  DistThreshold, Mods, Acc) ->
     {{RowKey, ColKey}, Dist} = find_min_dist(Matrix),
     case {RowKey, ColKey} == {[],[]} orelse Dist>DistThreshold of 
@@ -856,8 +857,7 @@ agglomerative_cluster(Matrix,CG, Coms, UsedMRWs,  DistThreshold, Mods, Acc) ->
 	    [F||{F, _}<- Matrix];
 	false ->
 	    Matrix1=group_funs(Matrix, {RowKey, ColKey}),
-	    %%Matrix2 = update_dist(Matrix1, CG, Coms, UsedMRWs),
-	    Cs = [F||{F, _}<- Matrix1],
+            Cs = [F||{F, _}<- Matrix1],
 	    agglomerative_cluster(Matrix1, CG, Coms, UsedMRWs, DistThreshold, Mods, 
 				  Cs++Acc)
     end.

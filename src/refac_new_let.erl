@@ -247,8 +247,8 @@ do_intro_new_let(Node, {Expr, NewPatName, ParentExpr, LetMacro}) ->
 			    {tuple, tuple} ->
 				Ps = refac_syntax:tuple_elements(Pats),
 				Gs = refac_syntax:tuple_elements(G1),
-				{refac_util:rewrite(Pats, refac_syntax:tuple(Ps ++ [NewPat])),
-				 refac_util:rewrite(G1, refac_syntax:tuple(Gs ++ [Expr]))};
+				{refac_util:rewrite_with_wrapper(Pats, refac_syntax:tuple(Ps ++ [NewPat])),
+				 refac_util:rewrite_with_wrapper(G1, refac_syntax:tuple(Gs ++ [Expr]))};
 			    _ ->
 				{refac_syntax:tuple([Pats, NewPat]),
 				 refac_syntax:tuple([G1, Expr])}
@@ -271,7 +271,7 @@ replace_expr_with_var(Node, {Expr, Var}) ->
 do_replace_expr_with_var(Node, {Expr, Var}) ->
     case Node of
 	Expr ->
-	    {refac_util:rewrite(Expr, refac_syntax:variable(Var)), true};
+	    {refac_util:rewrite_with_wrapper(Expr, refac_syntax:variable(Var)), true};
 	_ -> {Node, false}
     end.
 
@@ -511,7 +511,7 @@ do_merge_1(Tree, Candidates) ->
     {{StartLine, StartCol}, {EndLine, EndCol}} = refac_util:get_start_end_loc(Tree),
     case lists:keysearch({StartLine, StartCol, EndLine, EndCol}, 1, Candidates) of
 	{value, {_, NewLetApp}} ->
-	    {NewLetApp, true};
+	    {refac_util:rewrite_with_wrapper(Tree, NewLetApp), true};
 	_ -> {Tree, false}
     end.
 

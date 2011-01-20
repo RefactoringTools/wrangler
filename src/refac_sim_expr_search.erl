@@ -65,13 +65,14 @@ sim_expr_search_in_buffer(FName, Start = {_Line, _Col}, End = {_Line1, _Col1}, S
 %%-spec(sim_expr_search_in_dirs/6::(filename(), pos(), pos(), string(),[dir()],integer())
 %%      ->{ok, [{filename(), {{integer(), integer()}, {integer(), integer()}}}]}).     
 sim_expr_search_in_dirs(FileName, Start = {_Line, _Col}, End = {_Line1, _Col1}, SimiScore0, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:sim_expr_search_in_dirs(~p, {~p,~p},{~p,~p},~p, ~p, ~p).\n",
-		 [?MODULE, FileName, _Line, _Col, _Line1, _Col1, SearchPaths, SearchPaths, TabWidth]),
-    Files = [FileName| refac_util:expand_files(SearchPaths, ".erl") -- [FileName]],
+    ?wrangler_io("\nCMD: ~p:sim_expr_search_in_dirs(~p, {~p,~p},{~p,~p}, ~p, ~p, ~p).\n",
+		 [?MODULE, FileName, _Line, _Col, _Line1, _Col1, SimiScore0, SearchPaths, TabWidth]),
+    FileName1 = refac_util:expand_files([FileName], ".erl"),
+    Files = FileName1++ (refac_util:expand_files(SearchPaths, ".erl") -- FileName1),
     SimiScore = get_simi_score(SimiScore0),
     {FunDef, Exprs, SE} = get_fundef_and_expr(FileName, Start, End, SearchPaths, TabWidth),
     {Ranges, AntiUnifier} = search_and_gen_anti_unifier(Files, {FileName, FunDef, Exprs, SE}, SimiScore, SearchPaths, TabWidth),
-    refac_code_search_utils:display_search_results(Ranges, AntiUnifier, "similar").
+    refac_code_search_utils:display_search_results(lists:usort(Ranges), AntiUnifier, "similar").
 
 
 %%-spec(sim_expr_search_in_buffer_eclipse/6::(filename(), pos(), pos(), float(),[dir()],integer())
@@ -97,7 +98,7 @@ sim_expr_search_eclipse(CurFileName, Start, End, FilesToSearch, SimiScore0, Sear
       true ->
 	  {ok, {[], ""}};
       _ ->
-	  {ok, {Ranges1, refac_prettypr:format(AntiUnifier)}}
+	  {ok, {Ranges1, format(AntiUnifier)}}
     end.
 
    
@@ -277,8 +278,8 @@ normalise_record_expr(FName, Pos = {Line, Col}, ShowDefault, SearchPaths, TabWid
 		 [?MODULE, FName, Line, Col, ShowDefault, SearchPaths, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":normalise_record_expr(" ++ "\"" ++ 
 	    FName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "},"
-											    ++ atom_to_list(ShowDefault) ++ " [" ++ refac_util:format_search_paths(SearchPaths)
-																       ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+        ++ atom_to_list(ShowDefault) ++ " [" ++ refac_util:format_search_paths(SearchPaths)
+        ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     normalise_record_expr_0(FName, Pos, ShowDefault, SearchPaths, TabWidth, emacs, Cmd).
    
 
@@ -323,7 +324,7 @@ do_normalise_record_expr_1(Node, {RecordInfo, ShowDefault}) ->
 		      [F] when ShowDefault -> [F];
 		      [F] -> V = refac_syntax:record_field_value(F),
 			     Cond = refac_syntax:type(V) == atom andalso refac_syntax:concrete(V) == undefined orelse 
-				      FVal =/= none andalso refac_prettypr:format(V) == refac_prettypr:format(FVal),
+				      FVal =/= none andalso format(V) == format(FVal),
 			     case Cond of
 				 true -> [];
 				 false -> [F]
@@ -412,3 +413,7 @@ vars_to_export(Fun, ExprEndPos, Expr) ->
     [{V, DefPos} || {V, SourcePos, DefPos} <- AllVars,
 		    SourcePos > ExprEndPos,
 		    lists:subtract(DefPos, ExprBdVarsPos) == []].
+
+
+format(Node) ->
+    refac_prettypr:format(refac_util:reset_ann_and_pos(Node)).

@@ -2839,11 +2839,20 @@ attribute_arguments(Node) ->
     end.
 
 set_pos_rec(Node, Pos) ->
-    ast_traverse_api:full_buTP(fun (T, _Others) -> 
-                                       set_pos(T, Pos)
-                               end, Node, {}).
+    full_buTP(fun (T, _Others) -> 
+                      set_pos(T, Pos)
+              end, Node, {}).
 
   
+full_buTP(Fun, Tree, Others) ->
+    case subtrees(Tree) of
+        [] -> Fun(Tree, Others); 
+        Gs ->
+            Gs1 = [[full_buTP(Fun, T, Others) || T <- G] || G <- Gs],
+            Tree1 = make_tree(type(Tree), Gs1),
+            Fun(copy_attrs(Tree, Tree1), Others)
+    end.
+
 
 %% =====================================================================
 %% @spec arity_qualifier(Body::syntaxTree(), Arity::syntaxTree()) ->

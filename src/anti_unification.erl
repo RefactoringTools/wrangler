@@ -292,7 +292,7 @@ generate_anti_unifier_and_num_of_new_vars(Exprs, Subst, ExportVars) ->
     FVPars = [V || {V, _} <- FVs, lists:member(V, Pars)],
     NewVarPars = refac_util:remove_duplicates(Pars -- FVPars),
     Pars1 = [refac_syntax:variable(V) || V <- FVPars] ++ 
-	      [refac_syntax:variable(V) || V <- NewVarPars],
+        [refac_syntax:variable(V) || V <- NewVarPars],
     FinalPars = refac_util:remove_duplicates(Pars1),
     C = refac_syntax:clause(FinalPars, none, NewExprs1),
     {refac_syntax:function(FunName, [C]), {length(FinalPars), length(NewVarPars)}}.
@@ -364,7 +364,8 @@ do_replace_expr_with_var_1(Node, {ExprNewVarPairs, SubSt, ExprFreeVars, Pid, Exp
 		    end;
 		application ->
 		    NewVar = refac_syntax:variable(get_new_var_name(Node, ExprNewVarPairs, Pid)),
-		    {refac_util:rewrite(Node, refac_syntax:application(NewVar, FVs)), true};
+                    NewFVs = [refac_syntax:variable(FV)||{FV,_Pos}<-FVs],
+		    {refac_util:rewrite(Node, refac_syntax:application(NewVar, NewFVs)), true};
 		_ ->
 		    NewVar = get_new_var_name(Node, ExprNewVarPairs, Pid),
 		    case lists:member(Node, ExportExprs) of
