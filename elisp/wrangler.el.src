@@ -11,6 +11,11 @@
 
 (provide 'wrangler)
 
+; Is it XEmacs?
+(defconst ediff-xemacs-p (featurep 'xemacs))
+
+(defconst ediff-emacs-p (not ediff-xemacs-p))
+
 (defgroup wrangler nil
   "Wrangler options.")
  
@@ -267,13 +272,13 @@
     ("Introduce a Macro" erl-refactor-new-macro)
     ("Fold Against Macro Definition" erl-refactor-fold-against-macro)
     nil 
-    ("Identical Code Detection"
-     (("Detect Identical Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
-      ("Detect Identical Code in Dirs" erl-refactor-duplicated-code-in-dirs)
-      ("Identical Expression Search in Current Buffer" erl-refactor-expression-search)
-      ("Identical Expression Search in Dirs" erl-refactor-expression-search-in-dirs)
-      ))
-    nil
+    ;;("Identical Code Detection"
+    ;; (("Detect Identical Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
+    ;;  ("Detect Identical Code in Dirs" erl-refactor-duplicated-code-in-dirs)
+    ;;  ("Identical Expression Search in Current Buffer" erl-refactor-expression-search)
+    ;;  ("Identical Expression Search in Dirs" erl-refactor-expression-search-in-dirs)
+    ;;  ))
+    ;;nil
     ("Similar Code Detection"
      (("Detect Similar Code in Current Buffer" erl-refactor-inc-sim-code-detection-in-buffer)
       ("Detect Similar Code in Dirs" erl-refactor-inc-sim-code-detection-in-dirs)
@@ -332,8 +337,6 @@
    
 (global-set-key (kbd "C-c C-r") 'toggle-erlang-refactor)
 
-(setq erlang-refactor-status 0)
-
 (add-hook 'erl-nodedown-hook 'wrangler-nodedown)
 
 (setq wrangler-erl-node-string (concat "wrangler" (number-to-string (random 1000)) "@localhost"))
@@ -343,19 +346,15 @@
 (defun wrangler-nodedown(node)
   ( if (equal node wrangler-erl-node)
      (progn (wrangler-menu-remove)
-            (setq erlang-refactor-status 0)	
             (message "Wrangler stopped.")
      )
    nil))
 
 (defun toggle-erlang-refactor ()
   (interactive)
-  (cond ((= erlang-refactor-status 0)
-	 (call-interactively 'erlang-refactor-on)
-	 (setq erlang-refactor-status 1))
-	((= erlang-refactor-status 1)
-	 (call-interactively 'erlang-refactor-off)
-	 (setq erlang-refactor-status 0))))
+  (if (get-buffer "*Wrangler-Erl-Shell*")
+      (call-interactively 'erlang-refactor-off)
+    (call-interactively 'erlang-refactor-on)))
 
 
 (defun start-wrangler-app()
@@ -366,42 +365,64 @@
 	((['rex 'ok]
 	  (wrangler-menu-init)
 	  (message "Wrangler started.")
-	  (setq erlang-refactor-status 1))
+          )
 	 (['rex ['error ['already_started app]]]
-	  (message "Wrangler failed to start: another Wrangler application is running.")
-	  (setq erlang-refactor-status 0))	 
+          (message "Wrangler failed to start: another Wrangler application is running.")
+          )	 
 	 (['rex ['error rsn]]
 	  (message "Wrangler failed to start:%s" rsn)
-	  (setq erlang-refactor-status 0))))))
+	)))))
 
 (defun erlang-refactor-off()
   (interactive)
   (wrangler-menu-remove) 
-  (setq erlang-refactor-status 0)		
-  (condition-case nil
+  (if (not (get-buffer "*Wrangler-Erl-Shell*"))
+      t
+    (progn
       (erl-spawn
-	(erl-send-rpc wrangler-erl-node 'application 'stop (list 'wrangler_app))
-	)
-   (error nil))
-  (sleep-for 1.0)
-  (condition-case nil  
-      (kill-buffer "*Wrangler-Erl-Shell*")
-    (error nil))
-  (message "Wrangler stopped."))
+        (erl-send-rpc wrangler-erl-node 'application 'stop (list 'wrangler_app))
+        (erl-receive()
+            ((['rex 'ok]
+              (kill-buffer "*Wrangler-Erl-Shell*")
+              (message "Wrangler stopped"))
+             (['rex ['error rsn]]
+              (kill-buffer "*Wrangler-Erl-Shell*")
+              (message "Wrangler stopped"))
+             ))))
+    ))
+
+
+(defun erlang-refactor-off-1()
+  (interactive)
+  (wrangler-menu-remove) 
+  (if (not (get-buffer "*Wrangler-Erl-Shell*"))
+      t
+    (progn
+      (erl-spawn
+        (erl-send-rpc wrangler-erl-node 'application 'stop (list 'wrangler_app))
+        (erl-receive()
+            ((['rex 'ok]
+              (kill-buffer "*Wrangler-Erl-Shell*")
+             )
+             (['rex ['error rsn]]
+              (kill-buffer "*Wrangler-Erl-Shell*")
+              )))))))
+   
+  
 
 (defun erlang-refactor-on()
   (interactive)
-  (condition-case nil   
-      (kill-buffer "*Wrangler-Erl-Shell*")
-    (error nil)
-   )
+  (if   (get-buffer "*Wrangler-Erl-Shell*")
+      (erlang-refactor-off-1)
+    t)
   (setq wrangler-erl-node-string (concat "wrangler" (number-to-string (random 1000)) "@localhost"))
   (setq wrangler-erl-node (intern  wrangler-erl-node-string))
   (sleep-for 1.0)
   (save-window-excursion
-     (wrangler-erlang-shell))
+    (wrangler-erlang-shell))
   (sleep-for 2.0)
   (start-wrangler-app))
+  
 
 (defun wrangler-erlang-shell()
   "Start a Erlang shell for Wrangler"
@@ -421,7 +442,7 @@
   (interactive)
   (require 'comint)
   (setq opts (list "-name" wrangler-erl-node-string
-		   "-pa"  %EBIN_DIR%
+		   "-pa" %EBIN_DIR% 
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))
@@ -431,7 +452,6 @@
 	       nil opts))
   (setq wrangler-erlang-process
 	(get-buffer-process wrangler-erlang-buffer))
-  ;;(process-kill-without-query wrangler-erlang-process)
   (switch-to-buffer wrangler-erlang-buffer)
   (if (and (not (eq system-type 'windows-nt))
 	   (eq wrangler-erlang-shell-type 'newshell))
@@ -439,9 +459,9 @@
 
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 0.9.1")) 
+  (message "Wrangler version 0.9.2")) 
 
-(setq wrangler-version  "(wrangler-0.9.1) ")
+(setq wrangler-version  "(wrangler-0.9.2) ")
 
 (defun wrangler-menu-init()
   "Init Wrangler menus."
@@ -558,6 +578,7 @@
     )
   )
 
+
 (defun preview-commit-cancel(current-file-nane modified renamed)
   "preview, commit or cancel the refactoring result"
   (setq files-to-write modified)
@@ -602,6 +623,20 @@
 	    nil)
 	t)
       ))
+
+
+(defun buffers-changed-warning()
+  (let (changed)
+    (dolist (b (buffer-list) changed)
+      (let* ((n (buffer-name b)) (n1 (substring n 0 1)))
+        (if (and (not (or (string= " " n1) (string= "*" n1))) (buffer-modified-p b))
+            (setq changed (cons (buffer-name b) changed)))))
+    (if changed 
+        (if (y-or-n-p (format "Undo a refactoring could also undo the editings done after the refactoring, undo anyway?" changed))
+            t
+          nil)
+      t)
+    ))
 	
 
 	   
@@ -2859,18 +2894,19 @@
   (interactive (list (read-file-name "Output .dot file name: " nil nil nil "callgraph.dot")
 		     ))
   (let ((current-file-name (buffer-file-name))
-	(buffer (current-buffer)))
+	(buffer (current-buffer))
+        (outputfile1 (expand-file-name outputfile)))
     (if (buffers-saved)
 	(erl-spawn
 	      (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'gen_function_callgraph 
-				  (list outputfile current-file-name wrangler-search-paths))
-	      (erl-receive (outputfile)
+				  (list outputfile1 current-file-name wrangler-search-paths))
+	      (erl-receive (outputfile1)
 		  ((['rex ['badrpc rsn]]
 		    (message "Callgraph generation failed: %S" rsn))
 		   (['rex ['error rsn]]
 		    (message "Callgraph generation failed: %s" rsn))
 		   (['rex 'true]
-		    (find-file outputfile)
+		    (find-file outputfile1)
 		    (message "Function callgraph generation finished.")))))
       (message "Callgraph generation aborted."))))
  
@@ -2879,7 +2915,8 @@
   "Generate module scc graph"
   (interactive (list (read-file-name "Output .dot file name: " nil nil nil "modulegraph.dot")))		   		  
   (let ((current-file-name (buffer-file-name))
-	(buffer (current-buffer)))
+	(buffer (current-buffer))
+        (outputfile1 (expand-file-name outputfile)))
     (if (buffers-saved)
 	(progn
 	  (if (y-or-n-p "Label edges with function names called?")
@@ -2888,14 +2925,14 @@
 	    )
 	  (erl-spawn
 	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'gen_module_scc_graph 
-				(list outputfile wrangler-search-paths withlabel))
-	    (erl-receive (outputfile)
-		((['rex ['badrpc rsn]]
+				(list outputfile1 wrangler-search-paths withlabel))
+	    (erl-receive (outputfile1)
+		((['rex ['badrpc rsn]] 
 		  (message "Module SCC graph generation failed: %S" rsn))
 		 (['rex ['error rsn]]
 		    (message "Module SCC graph generation failed: %s" rsn))
 		 (['rex 'true]
-		  (find-file outputfile)
+		  (find-file outputfile1)
 		  (message "Module SCC graph generation finished.")))))
 	  )
       (message "Module SCC graph generation aborted."))))
@@ -2904,10 +2941,10 @@
 (defun erl-wrangler-code-inspector-module-graph(outputfile)
   "Generate module graph"
   (interactive (list (read-file-name "Output .dot file name: " nil nil nil "modulegraph.dot")))
-		   ;;  (read-string "Module names not to be included in the module graph (separate names by ','): ")))				  
   (if (y-or-n-p (format "Generate module graph for modules in the following directories: %s" wrangler-search-paths))
       (let ((current-file-name (buffer-file-name))
-	    (buffer (current-buffer)))
+	    (buffer (current-buffer))
+            (outputfile1 (expand-file-name outputfile)))
 	(if (buffers-saved)
 	    (progn
 	      (if (y-or-n-p "Label edges with function names called?")
@@ -2916,14 +2953,14 @@
 		)
 	      (erl-spawn
 		(erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'gen_module_graph 
-				    (list outputfile wrangler-search-paths withlabel))
-		(erl-receive (outputfile)
+				    (list outputfile1 wrangler-search-paths withlabel))
+		(erl-receive (outputfile1)
 		    ((['rex ['badrpc rsn]]
 		    (message "Module graph generation failed: %S" rsn))
 		     (['rex ['error rsn]]
 		      (message "Module graph generation failed: %s" rsn))
 		     (['rex 'true]
-		      (find-file outputfile 'true)
+		      (find-file outputfile1)
 		      (message "Module graph generation finished."))))))
 	  (message "Module graph generation aborted.")))
     (message "Please customize Wrangler SearchPaths to generate modulegraph for other directories.")))
@@ -2934,7 +2971,8 @@
   (interactive (list (read-file-name "Output .dot file name: " nil nil nil "cyclic_module_dependency.dot")))		     
   (if (y-or-n-p (format "Check for modules in the following directories: %s" wrangler-search-paths))
       (let ((current-file-name (buffer-file-name))
-	    (buffer (current-buffer)))
+	    (buffer (current-buffer))
+            (outputfile1 (expand-file-name outputfile)))
 	(if (buffers-saved)
 	    (progn
 	      (if (y-or-n-p "Label edges with function names called?")
@@ -2943,14 +2981,14 @@
 		)
 	      (erl-spawn
 		(erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'cyclic_dependent_modules 
-				    (list outputfile wrangler-search-paths withlabel))
-		(erl-receive (outputfile)
+				    (list outputfile1 wrangler-search-paths withlabel))
+		(erl-receive (outputfile1)
 		    ((['rex ['badrpc rsn]]
 		    (message "Cyclic module dependency detection failed: %s" rsn))
 		     (['rex ['error rsn]]
 		      (message "Cyclic module dependency detection failed: %s" rsn))
 		     (['rex 'true]
-		      (find-file outputfile 'true)
+		      (find-file outputfile1)
 		      (message "Cyclic module dependency detection finished."))))))
 	  (message "Cyclic module dependency detection aborted.")))
     (message "Please customize Wrangler SearchPaths to check for modules in other directories.")))
@@ -2961,19 +2999,20 @@
   (interactive (list (read-file-name "Output .dot file name: " nil nil nil "improper_module_dependency.dot")))		     
   (if (y-or-n-p (format "Check for modules in the following directories: %s" wrangler-search-paths))
       (let ((current-file-name (buffer-file-name))
-	    (buffer (current-buffer)))
+	    (buffer (current-buffer))
+            (outputfile1 (expand-file-name outputfile)))
 	(if (buffers-saved)
 	    (progn
 	      (erl-spawn
 		(erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'improper_inter_module_calls
-				    (list outputfile wrangler-search-paths))
-		(erl-receive (outputfile)
+				    (list outputfile1 wrangler-search-paths))
+		(erl-receive (outputfile1)
 		    ((['rex ['badrpc rsn]]
 		      (message "Improper module dependency detection failed: %S" rsn))
 		     (['rex ['error rsn]]
 		      (message "Improper module dependency detection failed: %s" rsn))
 		     (['rex 'true]
-		      (find-file outputfile 'true)
+		      (find-file outputfile1)
 		      (message "Improper module dependency detection finished."))))))
 	  (message "Improper module depdendency detection aborted.")))
     (message "Please customize Wrangler SearchPaths to check for modules in other directories.")))
@@ -3028,9 +3067,12 @@
 ;; will be moved to a separate module.                                            ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defun backend-used()
   "Get the version control system used by the monitor"
-     (vc-responsible-backend (concat (file-name-as-directory  refac-monitor-repository-path) ".")))
+  version-control-system)
+
+  ;;   (vc-responsible-backend (concat (file-name-as-directory  refac-monitor-repository-path) ".")))
 
 
 
@@ -3061,7 +3103,6 @@
     )
   )
 	   
-
 (defun update-repository-1 (dir-to-monitor logmsg)
   "copy changed files to the working copy of refactor monitor"
   (require 'dired-aux)
@@ -3070,8 +3111,10 @@
 	 (logfile (concat (file-name-as-directory refac-monitor-path) "refac_cmd_log")))
     (copy-dir-recursive  dir-to-monitor refac-monitor-path 'true nil nil 'always)
     (write-region (concat "\n" logmsg) nil logfile 'true)
-    (register-and-checkin-new-files refac-monitor-path logmsg)
+    (register-and-checkin-new-files refac-monitor-path (list logfile) logmsg)
     ))
+    
+
     
 (defun copy-dir-recursive (from to ok-flag &optional preserve-time top recursive)
   (let ((attrs (file-attributes from))
@@ -3203,8 +3246,7 @@
 		      (file-tree-walk dirf func args))))
        (directory-files dir)))))
 
-
-(defun register-and-checkin-new-files(dir-to-check logmsg)
+(defun register-and-checkin-new-files(dir-to-check logfile logmsg)
   "Register and check new files into the version control system."
   ;;(message "Current directory being checked: %s" dir-to-check)
   (if (equal (backend-used) 'SVN)
@@ -3215,9 +3257,10 @@
     (progn
       (let ((files (collect-files-git dir-to-check)))
 	(setq files1 (mapcar #'(lambda (f) (file-relative-name f refac-monitor-repository-path)) files))
-	(register 'Git nil files1 "new directory")
-	(checkin 'Git files1 logmsg)
+	(register 'Git nil logfile "new directory")
+	(checkin 'Git logfile logmsg)
 	))))
+
 
 
 (defun register (backend &optional set-revision files comment)
