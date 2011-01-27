@@ -234,13 +234,13 @@ new_variable_names(0, Names, _, _, _) -> Names.
 
 annotate_bindings(Tree, Env) ->
     Pid=start_env_process(),
-    {Tree1, _, _} = vann(Tree, Env, [],[], Pid), 
+    {Tree1, _, _} = vann(Tree, Env, {[],[]},[], Pid), 
     stop_env_process(Pid),
     Tree1.
 
-annotate_bindings(Tree, Env, MDefs) ->
+annotate_bindings(Tree, Env, Ms={_MsDef, _MsUses}) ->
     Pid=start_env_process(),
-    {Tree1, _, _} = vann(Tree, Env, MDefs,[], Pid),
+    {Tree1, _, _} = vann(Tree, Env, Ms, [], Pid),
     stop_env_process(Pid),
     Tree1.
     
@@ -364,7 +364,7 @@ vann_function(Tree, Env, Ms, _VI, Pid) ->
     F = fun () ->
 		Toks1 = remove_whites(Toks0),
 		Toks2 = refac_epp:expand_macros(Toks1, Ms),
-		case Toks1 of
+                case Toks1 of
 		    Toks2 -> [];
 		    _ ->
 			{ok, Form} = refac_parse:parse_form(Toks2),
@@ -574,9 +574,60 @@ vann_macro(Tree, Env, Ms, VI, Pid) ->
 			  end,
     Free1 = ordsets:subtract(Free, Bound),
     N = refac_syntax:macro_name(Tree),
+    MacroName = case refac_syntax:type(N) of
+                    variable -> refac_syntax:variable_name(N);
+                    atom -> refac_syntax:atom_value(N)
+                end,
+    {MsDefs0, _MsUses}=Ms,
+    MsDefs =case is_list(MsDefs0) of
+                 true -> dict:from_list(MsDefs0);
+                 _ -> MsDefs0
+             end,
     N1 = ann_bindings(N, Env, [],[]),  
     Tree1 = rewrite(Tree, refac_syntax:macro(N1, As)),
-    {ann_bindings(Tree1, Env, Bound, Free1), Bound, Free1}.
+    Tree2 = case dict:find({atom, MacroName}, MsDefs) of
+                {ok, Def} -> 
+                    case get_macro_def_toks(Def) of
+                        none -> Tree1;
+                        Toks ->
+                            case try_to_get_value(Toks) of
+                                {error, no_value} ->
+                                    Tree1;
+                                {ok, Val}->
+                                    refac_util:update_ann(
+                                      Tree1, 
+                                      {value, {Val,refac_syntax:get_pos(Tree1)}})
+                            end
+                    end;
+                _ ->
+                    Tree1
+            end,
+    {ann_bindings(Tree2, Env, Bound, Free1), Bound, Free1}.
+
+get_macro_def_toks([{none, {none, Toks}}]) ->
+    Toks;
+get_macro_def_toks({none, Toks}) ->
+    Toks;
+get_macro_def_toks(_) ->
+    none.
+
+try_to_get_value(Toks) ->
+    case refac_parse:parse_exprs(Toks++[{dot, {999,0}}]) of
+        {ok, [E]} ->
+            case refac_syntax:type(E) of
+                list ->
+                    {ok, {list, refac_syntax:list_length(E)}};
+                _ ->
+                    case refac_syntax:is_literal(E) of
+                        true ->
+                            {ok, {literal, refac_syntax:concrete(E)}};
+                        false ->
+                            {error, no_value}
+                    end
+            end;
+        _ ->
+            {error, no_value}
+    end.
 
 vann_pattern(Tree, Env, Ms, VI, Pid) ->
     case refac_syntax:type(Tree) of
@@ -589,7 +640,13 @@ vann_pattern(Tree, Env, Ms, VI, Pid) ->
 		    {value, {free, Free1}} = lists:keysearch(free, 1, As),
 		    {value, {def, Def1}} = lists:keysearch(def, 1, As),
 		    {value, {env, Env1}} = lists:keysearch(env, 1, As),
-		    {ann_bindings(Tree, Env1, Bound1, Free1, Def1), Bound1, Free1};
+                    case lists:keysearch(value, 1, As) of 
+                        {value, {value, Val}} ->
+                            Tree1 = refac_util:update_ann(Tree, {value, Val}),
+                            {ann_bindings(Tree1, Env1, Bound1, Free1, Def1), Bound1, Free1};
+                        _ ->
+                            {ann_bindings(Tree, Env1, Bound1, Free1, Def1), Bound1, Free1}
+                    end;
 		_ ->
 		    case [V2 || V2 <- Env, vann_1(V2, V)] of
 			[] ->
@@ -843,9 +900,9 @@ get_value(Pid, DefPos) ->
     Pid ! {self(), get, DefPos},
     receive
 	{Pid, V} ->
-	    V;
-	_Other ->
-	    throw({error, "Wrangler error: unexpected message"})    
+            V;
+	_Other -> 
+            false
     end.
 
 add_value(Pid, {DefPos, V}) ->
@@ -870,8 +927,7 @@ env_loop(Env) ->
 	init ->
 	    env_loop([]);
 	stop ->
-	   %% refac_io:format("process stoped.\n"),
-	    ok
+            ok
     end.
 
 
@@ -897,48 +953,53 @@ is_bound_var(P) ->
     end.
 
 cons_prop_match_expr(Tree,Pid) ->
-    E = refac_syntax:match_expr_body(Tree),
+    E0 = refac_syntax:match_expr_body(Tree),
+    E = case refac_syntax:type(E0) of
+            match_expr ->
+                cons_prop_match_expr(E0, Pid);
+            _ ->
+                E0
+        end,
     P = refac_syntax:match_expr_pattern(Tree),
-    case refac_syntax:is_literal(E) orelse refac_syntax:type(E)==list of 
-	true ->
+    As =refac_syntax:get_ann(E),
+    case refac_syntax:is_literal(E) orelse refac_syntax:type(E)==list  orelse 
+        lists:keysearch(value,1, As)=/=false of
+      	true ->
 	    case is_bound_var(P) of
 		true ->
 		    case lists:keysearch(def, 1, refac_syntax:get_ann(P)) of
 			{value, {def, DefPos}} ->
 			    Val = literal_value_or_length(E),
 			    add_value(Pid, {DefPos, {Val, refac_syntax:get_pos(E)}}),
-			    P1 = refac_syntax:add_ann({value, {Val, refac_syntax:get_pos(E)}}, P),
-			    rewrite(Tree, refac_syntax:match_expr(P1, E));
-		  false ->
-		      Tree
-		end;
-	    _ -> Tree
-	  end;
-      false ->
-	  case refac_syntax:type(E) of
-	    match_expr ->
-		E1 = cons_prop_match_expr(E, Pid),
-		P1 = refac_syntax:match_expr_pattern(E1),
-		  case lists:keysearch(value, 1, refac_syntax:get_ann(P1)) of
-		      {value, {value, V}} ->
-			  P2 = refac_syntax:add_ann({value, V}, P),
-			  rewrite(Tree, refac_syntax:match_expr(P2, E));
-		      _ -> Tree
-		  end;
-	      _ ->
-		  Tree
-	  end
+                            V ={Val, refac_syntax:get_pos(E)},
+			    P1 = refac_util:update_ann(P,{value, V}),
+                            Tree1=rewrite(Tree,refac_syntax:match_expr(P1, E)),
+			    refac_util:update_ann(Tree1,{value, V});
+                        false ->
+                            Tree
+                    end;
+                _ -> Tree
+            end;
+        false ->
+            Tree
     end.
+     
 	
 
 literal_value_or_length(E) ->
-    case refac_syntax:is_literal(E) of 
-	true ->
-	    {literal, refac_syntax:concrete(E)};
-	false ->
-	    {list, refac_syntax:list_length(E)}
+    case refac_syntax:type(E) of
+        list ->
+            {list, refac_syntax:list_length(E)};
+        _ -> case refac_syntax:is_literal(E) of
+                 true ->
+                     {literal, refac_syntax:concrete(E)};
+                 false ->
+                     As = refac_syntax:get_ann(E),
+                     {value, {value, {V,_}}} = lists:keysearch(value, 1, As),
+                     V
+             end
     end.
-  
+          
 %% =====================================================================
 %% @spec is_fail_expr(Tree::syntaxTree()) -> bool()
 %%

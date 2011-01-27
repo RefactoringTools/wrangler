@@ -108,6 +108,9 @@
 %%@spec find_var_instances(FileName::filename(), {Line::integer(), Col::integer()}, 
 %%			 TabWidth:: integer()) ->
 %%	     {error, string()} | {ok, [{pos(), pos()}], [pos()]}
+%%-spec(find_var_instances(FileName::filename(), {Line::integer(), Col::integer()}, 
+%%			 TabWidth:: integer()) ->
+%%	     {error, string()} | {ok, [{pos(), pos()}], [pos()]}).
 find_var_instances(FileName, {Line, Col},TabWidth) ->
    try_inspector(wrangler_code_inspector_lib, find_var_instances, 
 		  [FileName, Line, Col, [], TabWidth]).
@@ -132,12 +135,15 @@ find_var_instances(FileName, Line, Col, SearchPaths, TabWidth) ->
 %%@spec nested_exprs(FileOrDirNames::[filename()|dir()], NestLevel::integer(), 
 %%		   ExprType::'if'|'case'|'receive') 
 %%      ->{error, string()} | ok
+%%-spec(nested_exprs(FileOrDirNames::[filename()|dir()], NestLevel::integer(), 
+%%		   ExprType::'if'|'case'|'receive') 
+%%      ->{error, string()} | ok).
 nested_exprs(FileOrDirNames, NestLevel, ExprType) ->
     try_inspector(wrangler_code_inspector, nested_exprs_1,
 		  [FileOrDirNames, NestLevel, ExprType, FileOrDirNames, ?DEFAULT_TABWIDTH]).
 
 %% @private  interface function for emacs.
-%%@spec(nested_exprs_in_file(FileName::filename(), NestLevel::string(), 
+%%-spec(nested_exprs_in_file(FileName::filename(), NestLevel::string(), 
 %%			   ExprType::'if'|'case'|'receive',
 %%			   SearchPaths::[dir()], TabWidth::integer()) ->
 %%	     {error, string()} | ok).

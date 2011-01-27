@@ -10,8 +10,8 @@
 %% Note: preferly there should be no white spaces in the Filepath of the SuffixTreeExec.
 %% Trie to install Wrangler in a path like C:/Program Files (x86)/Wrangler, but the port process
 %% dies automatically before call_port is called.
--spec(get_clones_by_suffix_tree_inc/6::(dir(), string(),integer(), integer(), integer(), filename()) ->
-					 {ok, string()}).					   
+%%-spec(get_clones_by_suffix_tree_inc/6::(dir(), string(),integer(), integer(), integer(), filename()) ->
+%%					 {ok, string()}).					   
 get_clones_by_suffix_tree_inc(Dir, ProcessedToks, MinLength, MinClones, AllowOverLap, SuffixTreeExec) ->
     start_suffix_tree_clone_detector(SuffixTreeExec),
     OutFileName = filename:join(Dir, "wrangler_suffix_tree"),
@@ -33,8 +33,8 @@ get_clones_by_suffix_tree_inc(Dir, ProcessedToks, MinLength, MinClones, AllowOve
 
 
 
--spec(get_clones_by_suffix_tree/7::(dir(), string(),integer(), integer(), string(), integer(), filename()) ->
-					 [{[{integer(),integer()}], integer(), integer()}]).					   
+%%-spec(get_clones_by_suffix_tree/7::(dir(), string(),integer(), integer(), string(), integer(), filename()) ->
+%%					 [{[{integer(),integer()}], integer(), integer()}]).					   
 get_clones_by_suffix_tree(Dir, ProcessedToks, MinLength, MinClones, Alphabet, AllowOverLap, SuffixTreeExec) ->
     start_suffix_tree_clone_detector(SuffixTreeExec),
     OutFileName = filename:join(Dir, "wrangler_suffix_tree"),

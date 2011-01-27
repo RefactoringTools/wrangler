@@ -159,8 +159,8 @@ move_fun_1(FName, Line, Col, TargetModorFileName, CondCheck, SearchPaths, TabWid
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":move_fun_1(" ++ "\"" ++ 
 	    FName ++ "\", " ++ integer_to_list(Line) ++ 
 	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ TargetModorFileName ++ "\", " ++ "\""
-												  ++atom_to_list(CondCheck)++"\", "
-															        ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+        ++atom_to_list(CondCheck)++"\", "
+        ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     CurModInfo = analyze_file(FName, SearchPaths, TabWidth),
     AnnAST = CurModInfo#module_info.ast,
     case interface_api:pos_to_fun_def(AnnAST, {Line, Col}) of
@@ -190,7 +190,7 @@ move_fun_2(CurModInfo, MFAs, TargetModorFileName, CheckCond, SearchPaths, TabWid
     case FunDefs of
 	[] ->  throw({error, "You have not selected a well-formed function definition or an export attribute."});
 	_ -> ok
-    end,		   
+    end,
     TargetModInfo = analyze_file(TargetFName, SearchPaths, TabWidth),
     {UnDefinedMs, UnDefinedRs} = side_cond_check(FunDefs, CurModInfo, TargetModInfo, NewTargetFile, CheckCond),
     CG = wrangler_callgraph_server:gen_digraph_callgraph(FName),
@@ -223,6 +223,7 @@ move_fun_3(CurModInfo, TargetModInfo, MFAs, {UnDefinedMs, UnDefinedRs},
     check_unsure_atoms(FName, AnnAST1, AtomsToCheck, f_atom, Pid),
     check_unsure_atoms(TargetFName, TargetAnnAST1, AtomsToCheck, f_atom, Pid),
     ExportedMFAs = exported_funs(MFAs, CurModInfo#module_info.info),
+    
     Results = case ExportedMFAs/=[] of
 		  true ->
 		      ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
@@ -590,7 +591,7 @@ process_a_form_in_original_mod(Form, Args) ->
 				false -> 
 				    case length(Es1) == length(Es) of 
 					true -> {[Form], false};
-					_ -> {[copy_pos_attrs(Form,refac_syntax:attribute(Name,[refac_syntax:list(Es1)]))], true}
+					_ -> {[copy_pos_attrs(Form,refac_syntax:attribute(Name,[copy_pos_attrs(L, refac_syntax:list(Es1))]))], true}
 				    end
 			    end;
 			spec -> case type_specifies(Form, MFAs) of 
@@ -748,7 +749,7 @@ process_in_client_module(FileName, Form, MFAs = [{ModName, _, _}| _T], TargetMod
 					    {[Form], false};
 					false ->
 					    Imp1 = copy_pos_attrs(Form, refac_syntax:attribute(
-									  Name, [H, refac_syntax:list(Es1)])),
+									  Name, [H, copy_pos_attrs(L,refac_syntax:list(Es1))])),
 					    Imp2 = refac_syntax:attribute(refac_syntax:atom(import),
 									  [refac_syntax:atom(TargetModName),
 									   refac_syntax:list(Es2)]),
@@ -993,7 +994,7 @@ analyze_file(FName, SearchPaths, TabWidth) ->
 			      refac_util:file_format(FName))
 	of
 	{ok, TargetAST, {MDefs, _MUses1}} ->
-	    MacroDefs = [{Name, {Args, refac_util:concat_toks(Toks)}} || {{_, Name}, {Args, Toks}} <- MDefs],
+	    MacroDefs = get_macro_defs(MDefs),
 	    TargetModInfo = get_mod_info_from_parse_tree(TargetAST),
 	    RecordDefs = case lists:keysearch(records, 1, TargetModInfo) of
 			     {value, {records, RecordDefsInTargetFile}} ->
@@ -1024,6 +1025,15 @@ analyze_file(FName, SearchPaths, TabWidth) ->
 	    throw({error, "Refactoring failed because Wrangler could not parse the target module."})
     end.
 
+get_macro_defs(MDefs) ->
+    lists:flatmap(fun get_macro_def_1/1, MDefs).
+get_macro_def_1({{_,Name}, {Args, Toks}})->
+     [{Name, {Args, refac_util:concat_toks(Toks)}}];
+get_macro_def_1({{_, Name}, ArgToks}) when is_list(ArgToks) ->
+    [{Name, {Args, refac_util:concat_toks(Toks)}} || {_Arity, {Args, Toks}}<-ArgToks];
+get_macro_def_1({{_, _Name}, _ArgToks}) ->
+    [].
+ 
 side_cond_check(FunDefs, CurModInfo, TargetModInfo, NewTargetFile, CheckCond) ->
     try side_cond_check(FunDefs, CurModInfo, TargetModInfo, CheckCond) 
     catch
@@ -1046,15 +1056,15 @@ side_cond_check(FunDefs, CurModInfo, TargetModInfo, CheckCond) ->
       false ->
 	  ok
     end,
-    check_macros_records(FunDefs, CurModInfo, TargetModInfo).
+    check_macros_records(FunDefs, CurModInfo, TargetModInfo, CheckCond).
 
-check_macros_records(FunDefs, CurModInfo, TargetModInfo) ->
+check_macros_records(FunDefs, CurModInfo, TargetModInfo, CheckCond) ->
     CurRecordDefs=CurModInfo#module_info.record_defs,
     TargetRecordDefs=TargetModInfo#module_info.record_defs,
-    UnDefinedRecords = check_records(FunDefs, CurRecordDefs, TargetRecordDefs),
+    UnDefinedRecords = check_records(FunDefs, CurRecordDefs, TargetRecordDefs, CheckCond),
     CurMacroDefs=CurModInfo#module_info.macro_defs,
     TargetMacroDefs=TargetModInfo#module_info.macro_defs,
-    UnDefinedMacros = check_macros(FunDefs,CurMacroDefs, TargetMacroDefs),
+    UnDefinedMacros = check_macros(FunDefs,CurMacroDefs, TargetMacroDefs, CheckCond),
     {UnDefinedMacros, UnDefinedRecords}.
 
 
@@ -1084,7 +1094,7 @@ check_fun_name_clash(FunDefs=[{{ModName, _, _},_}|_T],TargetModInfo)->
 	    end
     end.
 
-check_records(FunDefs,CurRecordDefs,TargetRecordDefs) ->
+check_records(FunDefs,CurRecordDefs,TargetRecordDefs, CheckCond) ->
     UsedRecords = lists:usort(lists:append([refac_util:collect_used_records(FunDef) || {_, FunDef} <- FunDefs])),
     UsedRecordDefs = [{Name, lists:keysort(1, Fields)} || {Name, Fields} <- CurRecordDefs, lists:member(Name, UsedRecords)],
     CurUnDefinedUsedRecords = UsedRecords -- [Name || {Name, _Fields} <- UsedRecordDefs],
@@ -1099,32 +1109,43 @@ check_records(FunDefs,CurRecordDefs,TargetRecordDefs) ->
 					false
 				end],
     UnDefinedRecords = UsedRecords-- element(1, lists:unzip(UsedRecordDefsInTargetFile)),
-    case RecordsWithDiffDefs of
-	[] ->
-	    ok;
-	[_] ->
-	    Msg = format("Record: ~p, used by the function(s) to be moved, "
-			 "is defined differently in the target module.",RecordsWithDiffDefs),
-	    throw({error, Msg});
-	_ ->
-	    Msg = "The following records: "++format_names(RecordsWithDiffDefs)++" used by the function(s) to be moved,"
-										"are defined differently in the target module.",
-	    throw({error, Msg})
+    case CheckCond of 
+        true ->
+            case RecordsWithDiffDefs of
+                [] ->
+                    ok;
+                [_] ->
+                    Msg = format("Record: ~p, used by the function(s) to be moved, "
+                                 "is defined differently in the target module.",RecordsWithDiffDefs),
+                    throw({error, Msg});
+                _ ->
+                    Msg = "The following records: "++format_names(RecordsWithDiffDefs)++" used by the function(s) to be moved,"
+                        "are defined differently in the target module.",
+                    throw({error, Msg})
+            end;
+        false ->
+            ok
     end,
-    case CurUnDefinedUsedRecords of
-	[] ->
-	    UnDefinedRecords;
-	[_R] ->
-	    Msg1 = format("Record: ~p, is used by the function(s) to be moved, but not defined in the current module.",
-			  CurUnDefinedUsedRecords),
-	    throw({error, Msg1});
-	_ ->
-	    Msg1 = format("The following records: ~p are used by the function(s) to be moved, but not defined in the current module",
-			  [CurUnDefinedUsedRecords]),
-	    throw({error, Msg1})
-    end.
+    case CheckCond of 
+        true ->
+            case CurUnDefinedUsedRecords of
+                [] ->
+                    ok;
+                [_R] ->
+                    Msg1 = format("Record: ~p, is used by the function(s) to be moved, but not defined in the current module.",
+                                  CurUnDefinedUsedRecords),
+                    throw({error, Msg1});
+                _ ->
+                    Msg1 = format("The following records: ~p are used by the function(s) to be moved, but not defined in the current module",
+                                  [CurUnDefinedUsedRecords]),
+                    throw({error, Msg1})
+            end;
+        false ->
+            ok
+    end,
+    UnDefinedRecords.
 
-check_macros(FunDefs, CurMacroDefs, TargetMacroDefs) ->
+check_macros(FunDefs, CurMacroDefs, TargetMacroDefs, CheckCond) ->
     UsedMacros = lists:usort(lists:append([refac_util:collect_used_macros(FunDef) || {_, FunDef} <- FunDefs])),
     UsedMacroDefs = [{Name, {Args, Def}}
 		     || {Name, {Args, Def}} <- CurMacroDefs,
@@ -1140,24 +1161,33 @@ check_macros(FunDefs, CurMacroDefs, TargetMacroDefs) ->
 			       false ->
 				   false
 			   end],
-    case UnDefinedUsedMacros of
-	[] -> ok;
-	[_] -> Msg = format("Macro: ~p, is used by the function(s) to be moved, but not defined in the current module",
-			    UnDefinedUsedMacros),
-	       throw({error, Msg});
-	_ -> Msg = format("The following macros: ~p are used by the function(s) to be moved, but not defined in the current module",
-			  [UnDefinedUsedMacros]),
-	     throw({error, Msg})
+    case CheckCond of 
+        true -> case UnDefinedUsedMacros of
+                    [] -> ok;
+                    [_] -> Msg = format("Macro: ~p, is used by the function(s) to be moved, but not defined in the current module.",
+                                        UnDefinedUsedMacros),
+                           throw({error, Msg});
+                    _ -> Msg = format("The following macros: ~p are used by the function(s) to be moved, but not defined in the current module.",
+                                      [UnDefinedUsedMacros]),
+                         throw({error, Msg})
+                end;
+        false ->
+            ok
     end,
-    case MsWithDiffDefs of
-	[] -> UnDefinedMacros;
-	[_] -> Msg1 = format("Macro: ~p, used by the function(s) to be moved "
-			     "is defined differently in the target module", MsWithDiffDefs),
-	       throw({warning, Msg1 ++ ", still continue?"});
-	_ -> Msg1 = "Macros: "++format_names(MsWithDiffDefs)++" used by the function(s) to be moved "
-							      "are defined differently in the target module",
-	     throw({warning, Msg1 ++ ", still continue?"})
-    end.
+    case CheckCond of 
+        true -> case MsWithDiffDefs of
+                    [] ->  ok;
+                    [_] -> Msg1 = format("Macro: ~p, used by the function(s) to be moved "
+                                         "is defined differently in the target module", MsWithDiffDefs),
+                           throw({warning, Msg1 ++ ", still continue?"});
+                    _ -> Msg1 = "Macros: "++format_names(MsWithDiffDefs)++" used by the function(s) to be moved "
+                             "are defined differently in the target module",
+                         throw({warning, Msg1 ++ ", still continue?"})
+                end;
+        false ->
+            ok
+    end,
+    UnDefinedMacros.
 
 
 get_mod_info_from_parse_tree(AST) ->
@@ -1299,7 +1329,7 @@ check_dependent_funs(MFAs=[{ModName,_,_}|_T], FunDefs, CurModInfo, TargetModInfo
                               lists:member({F,A}, FAs)],
     NewMFAs = MFAs--Clash,
     NewFunDefs=[{F, Def}||{F, Def}<-FunDefs, lists:member(F, NewMFAs)],
-    FMRs=lists:append([try check_macros_records([{F,FunDef}], CurModInfo,TargetModInfo) of
+    FMRs=lists:append([try check_macros_records([{F,FunDef}], CurModInfo,TargetModInfo, false) of
 	     {Ms, Rs} ->
 		   [{F, Ms,Rs}]
 	  catch

@@ -148,7 +148,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%===============================================================================
 %% @doc Return the list of files (Erlang modules) which make use of the functions 
 %% defined in File.
--spec(get_client_files(File::filename(), SearchPaths::[dir()]) -> [filename()]).
+%%-spec(get_client_files(File::filename(), SearchPaths::[dir()]) -> [filename()]).
 
 get_client_files(File, SearchPaths) ->
     File1 = filename:absname(filename:join(filename:split(File))),

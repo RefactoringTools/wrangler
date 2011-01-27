@@ -59,9 +59,9 @@
 %%=============================================================================================
 
 
--spec(fold_against_macro/5::(filename(), integer(), integer(), [dir()], integer()) ->
-	 {error, string()} | {ok, [{integer(), integer(), integer(), integer(),
-				    syntaxTree(), syntaxTree()}], string()}).
+%%-spec(fold_against_macro/5::(filename(), integer(), integer(), [dir()], integer()) ->
+%%	 {error, string()} | {ok, [{integer(), integer(), integer(), integer(),
+%%				    syntaxTree(), syntaxTree()}], string()}).
 fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:fold_against_macro(~p, ~p,~p, ~p,~p).\n",
 		 [?MODULE, FileName, Line, Col, SearchPaths, TabWidth]),
@@ -99,9 +99,9 @@ fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, Editor, Cmd) ->
 	    {error, "You have not selected a macro definition, or the selected macro definition does not have a syntactially well-formed body!"}
     end.
 
--spec(fold_against_macro_1_eclipse/5::(filename(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}], syntaxTree(),
-				       [dir()], integer()) ->
-					     {ok, [{filename(), filename(), string()}]}).
+%%-spec(fold_against_macro_1_eclipse/5::(filename(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}], syntaxTree(),
+%%				       [dir()], integer()) ->
+%%					     {ok, [{filename(), filename(), string()}]}).
 fold_against_macro_1_eclipse(FileName, CandidatesToFold, MacroDef, SearchPaths, TabWidth) ->
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     CandidatesToFold1 = [{StartLine, StartCol, EndLine, EndCol, MacroApp, MacroDef}
@@ -117,9 +117,9 @@ fold_against_macro_1_1_eclipse(AnnAST, [Inst={_StartLine, _StartCol, _EndLine, _
     AnnAST1 = fold_againt_macro_1_2(AnnAST, Inst),
     fold_against_macro_1_1_eclipse(AnnAST1, Tail).
 
--spec(fold_against_macro_1/5::(filename(), [{integer(), integer(), integer(), integer(), syntaxTree(), syntaxTree()}],
-			       [dir()], integer(), string()) ->
-				    {ok, [filename()]}).
+%%-spec(fold_against_macro_1/5::(filename(), [{integer(), integer(), integer(), integer(), syntaxTree(), syntaxTree()}],
+%%			       [dir()], integer(), string()) ->
+%%				    {ok, [filename()]}).
 fold_against_macro_1(FileName, CandidatesToFold, SearchPaths, TabWidth, Cmd) ->
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     AnnAST1 = fold_against_macro_1_1(AnnAST, CandidatesToFold),

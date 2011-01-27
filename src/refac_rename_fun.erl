@@ -60,19 +60,19 @@
 -include("../include/wrangler.hrl").
 
 
--spec(rename_fun/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-	     {error, string()} | {warning, string()} |{ok, [filename()]}).
+%%-spec(rename_fun/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
+%%	     {error, string()} | {warning, string()} |{ok, [filename()]}).
 
 rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
 
--spec(rename_fun_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-				  {error, string()} | {warning, string()} | {ok, [{filename(), filename(), string()}]}).
+%%-spec(rename_fun_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
+%%				  {error, string()} | {warning, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
 
--spec(rename_fun_command/5::(modulename()|filename(), atom(), integer(), atom(),[dir()])->
-				       {error, string()} | {ok, [filename()]}).
+%%-spec(rename_fun_command/5::(modulename()|filename(), atom(), integer(), atom(),[dir()])->
+%%				       {error, string()} | {ok, [filename()]}).
 
 rename_fun_command(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths) ->
     OldFunNameStr = case is_atom(OldFunName) of
@@ -157,7 +157,7 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_fun(" ++ "\"" ++ 
 	     FileName ++ "\", " ++ integer_to_list(Line) ++ 
 	       ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
-									     ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+        ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case refac_util:is_fun_name(NewName) of
 	true -> ok;
 	false -> throw({error, "Invalid new function name!"})
@@ -193,7 +193,7 @@ rename_fun_0(FileName, {AnnAST, Info}, {Mod, OldFunNameAtom, Arity}, {DefinePos,
     Pid = refac_atom_utils:start_atom_process(),
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     {AnnAST1, _C} = do_rename_fun(AnnAST, {Mod, OldFunNameAtom, Arity}, {DefinePos, NewNameAtom}),
-    refac_atom_utils:check_unsure_atoms(FileName, AnnAST1, [OldFunNameAtom], f_atom, Pid),
+    refac_atom_utils:check_unsure_atoms(FileName, AnnAST1, [OldFunNameAtom], {f_atom, {Mod, OldFunNameAtom, Arity}}, Pid),
     case refac_util:is_exported({OldFunNameAtom, Arity}, Info) of
 	true ->
 	    ?wrangler_io("\nChecking possible client modules in the following search paths: \n~p\n", [SearchPaths]),
@@ -215,19 +215,19 @@ rename_fun_0(FileName, {AnnAST, Info}, {Mod, OldFunNameAtom, Arity}, {DefinePos,
 	    end;
 	false ->
 	    HasWarningMsg = refac_atom_utils:has_warning_msg(Pid),
-	    refac_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(OldFunNameAtom), renamed_warn_msg(OldFunNameAtom)),
+            refac_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(OldFunNameAtom), renamed_warn_msg(OldFunNameAtom)),
 	    refac_atom_utils:stop_atom_process(Pid),
 	    refac_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}],
 						    HasWarningMsg, Editor, TabWidth, Cmd)
     end.
 
--spec(rename_fun_1/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-	     {error, string()} | {ok, [filename()]}).
+%%-spec(rename_fun_1/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
+%%	     {error, string()} | {ok, [filename()]}).
 rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
     
--spec(rename_fun_1_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-	     {error, string()} | {ok, [filename()]}).
+%%-spec(rename_fun_1_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
+%%	     {error, string()} | {ok, [filename()]}).
 
 rename_fun_1_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
@@ -236,7 +236,7 @@ rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_fun(" ++ "\"" ++ 
 	    FileName ++ "\", " ++ integer_to_list(Line) ++ 
 	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
-									    ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+        ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     NewName1 = list_to_atom(NewName),
     {ok, {Mod, Fun, Arity, _, DefinePos}} = interface_api:pos_to_fun_name(AnnAST, {Line, Col}),
@@ -388,7 +388,7 @@ rename_fun_in_client_modules(Files, {Mod, Fun, Arity}, NewNameStr, SearchPaths, 
 	    ?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
 	    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(F, true, SearchPaths, TabWidth),
 	    {AnnAST1, Changed} = rename_fun_in_client_module_1({AnnAST, Info}, {Mod, Fun, Arity}, NewNameStr),
-	    refac_atom_utils:check_unsure_atoms(F, AnnAST1, [Fun], f_atom, Pid),
+            refac_atom_utils:check_unsure_atoms(F, AnnAST1, [Fun], {f_atom, {Mod, Fun, Arity}}, Pid),
 	    if Changed ->
 		   [{{F, F}, AnnAST1}| rename_fun_in_client_modules(
 					 Fs, {Mod, Fun, Arity}, NewNameStr, SearchPaths, TabWidth, Pid)];

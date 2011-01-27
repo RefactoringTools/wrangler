@@ -251,19 +251,19 @@ do_atom_annotation(FileName, C, TestFrameWorkUsed, SearchPaths, TabWidth, Pid) -
 do_atom_annotation(Node, {FileName, Pats, TestFrameWorkUsed, SearchPaths, TabWidth, Pid}) ->
     case refac_syntax:type(Node) of
 	application ->
-	    Op = refac_syntax:application_operator(Node),
+            Op = refac_syntax:application_operator(Node),
 	    Args = refac_syntax:application_arguments(Node),
 	    Arity = length(Args),
-	    Op1 = case refac_syntax:type(Op) of
+            Op1 = case refac_syntax:type(Op) of
 		      variable ->
 			  add_type_info({f_atom, ['_', try_eval(FileName, Op, SearchPaths, TabWidth,
 								fun is_atom/1), Arity]}, Op, Pid);
 		      _ -> Op
 		  end,
-	    case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op1)) of
+            case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op1)) of
 		{value, {fun_def, {M, F, A, _, _}}} when M =/= '_' andalso F =/= '_' ->
 		    Args1 = do_type_ann_args({M, F, A}, map_args(Pats, Args), Args, Pid),
-		    {refac_util:rewrite(Node, refac_syntax:application(Op1, Args1)), true};
+                    {refac_util:rewrite(Node, refac_syntax:application(Op1, Args1)), true};
 		_ ->
 		    {Node, false}
 	    end;
@@ -360,7 +360,7 @@ do_type_ann_args({M, F, A}, MappedArgs, Args, Pid) ->
 		    do_type_ann_args_1(ParTypes, MappedArgs, Args, Pid)
 	    end;
 	{ParTypes, _RtnType} ->
-	    do_type_ann_args_1(ParTypes, MappedArgs, Args, Pid)	    
+            do_type_ann_args_1(ParTypes, MappedArgs, Args, Pid)	    
     end.
 
 do_type_ann_args_1(ParTypes, MappedArgs, Args, Pid) ->
@@ -439,37 +439,40 @@ add_type_info(Type, Node, Pid) ->
 
 map_args(Pats, ActualArgs) ->
     Fun = fun (ActualArg) ->
-		  case refac_syntax:type(ActualArg) of
-		      literal ->
-			  ActualArg;
-		      variable ->
-			  As = refac_syntax:get_ann(ActualArg),
-			  case lists:keysearch(def, 1, As) of
-			      {value, {def, DefinePos}} ->
-				  {Ps1, _Ps2} = lists:splitwith(
-					      fun (P) -> case refac_syntax:type(P) of
-							     variable ->
-								 As1 = refac_syntax:get_ann(P),
-								 case lists:keysearch(def, 1, As1) of
-								     {value, {def, DefinePos}} ->
-									 false;
-								     _ -> true
-								 end;
-							     _ -> true
-							 end
-					      end, Pats),
-				  case length(Ps1) == length(Pats) of
-				      true ->
-					  ActualArg;
-				      _ ->
-					  fun (P) -> lists:nth(length(Ps1) + 1, P) end
-				  end;
-			      _ ->
-				  ActualArg
-			  end;
-		      _ -> ActualArg
-		  end
-	  end,
+                  case refac_syntax:is_literal(ActualArg) of 
+                      true -> 
+                          ActualArg;
+                      _ ->
+                          case refac_syntax:type(ActualArg) of
+                              variable ->
+                                  As = refac_syntax:get_ann(ActualArg),
+                                  case lists:keysearch(def, 1, As) of
+                                      {value, {def, DefinePos}} ->
+                                          {Ps1, _Ps2} = lists:splitwith(
+                                                          fun (P) -> case refac_syntax:type(P) of
+                                                                         variable ->
+                                                                             As1 = refac_syntax:get_ann(P),
+                                                                             case lists:keysearch(def, 1, As1) of
+                                                                                 {value, {def, DefinePos}} ->
+                                                                                     false;
+                                                                                 _ -> true
+                                                                             end;
+                                                                         _ -> true
+                                                                     end
+                                                          end, Pats),
+                                          case length(Ps1) == length(Pats) of
+                                              true ->
+                                                  ActualArg;
+                                              _ ->
+                                                  fun (P) -> lists:nth(length(Ps1) + 1, P) end
+                                          end;
+                                      _ ->
+                                          ActualArg
+                                  end;
+                              _ -> ActualArg
+                          end
+                  end
+          end,
     lists:map(Fun, ActualArgs).
    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
@@ -594,14 +597,15 @@ try_eval(FileName, E, SearchPaths, TabWidth, Cond) ->
 		_ -> '_'
 	    end;
 	_ ->
-	    case refac_util:try_eval(FileName, E, SearchPaths, TabWidth) of
+            case refac_util:try_eval(FileName, E, SearchPaths, TabWidth) of
 		{value, V} ->
 		    ?debug("V:\n~p\n", [V]),
 		    case Cond(V) of
 			true -> V;
 			_ -> '_'
 		    end;
-		{error, _} -> '_'
+		{error, _} -> 
+                    '_'
 	    end
     end.
 		    

@@ -99,7 +99,6 @@
 
 -export([generalise_eclipse/6, gen_fun_1_eclipse/11, gen_fun_clause_eclipse/10]).
 
--define(DEFAULT_RANGE, {?DEFAULT_LOC, ?DEFAULT_LOC}).
 %% =====================================================================
 %%-spec generalise(FileName::filename(),Start::pos(), End::pos(),ParName::string(),
 %%		 SearchPaths::[dir()], TabWidth::integer()) ->
@@ -510,7 +509,7 @@ do_add_actual_parameter(Tree, Others = {_FileName, FunName, Arity, Exp, Info, _S
 			false ->
 			    case {M1, F1, A1} of
 				{ModName, FunName, Arity} ->
-				    Exp1 = refac_util:update_ann(Exp, {range, ?DEFAULT_RANGE}),
+				    Exp1 = refac_util:reset_ann_and_pos(Exp),
 				    Args1 = Args ++ [reset_attr(Exp1, fun_def)],
 				    Op1 = refac_util:update_ann(Op, {fun_def, {}}),
 				    Tree1 = refac_syntax:application(Op1, Args1),
@@ -543,7 +542,7 @@ transform_apply_with_arity_of_2(Tree, ModName, FunName, Arity, Exp) ->
 		    A = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Name)),
 		    case {F, A} of
 			{FunName, Arity} ->
-			    Exp1 = refac_util:update_ann(Exp, {range, ?DEFAULT_RANGE}),
+			    Exp1 = refac_util:reset_ann_and_pos(Exp),
 			    case refac_syntax:type(Pars) of
 				list ->
 				    Pars0 = refac_syntax:list(list_elements(Pars) ++ [Exp1]),
@@ -570,7 +569,7 @@ transform_apply_with_arity_of_2(Tree, ModName, FunName, Arity, Exp) ->
 			    A = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Body)),
 			    case {B, A} of
 				{FunName, Arity} ->
-				    Exp1 = refac_util:update_ann(Exp, {range, ?DEFAULT_RANGE}),
+				    Exp1 = refac_util:reset_ann_and_pos(Exp),
 				    case refac_syntax:type(Pars) of
 					list ->
 					    Pars0 = refac_syntax:list(list_elements(Pars) ++ [Exp1]),
@@ -607,7 +606,7 @@ transform_apply_style_calls(Node, {FileName, FunName, Arity, Exp, Info, SearchPa
     Mod1 = refac_util:try_eval(FileName, Mod, SearchPaths, TabWidth),
     Fun1 = refac_util:try_eval(FileName, Fun, SearchPaths, TabWidth),
     NewApp = fun () ->
-		     Exp1 = refac_util:update_ann(Exp, {range, ?DEFAULT_RANGE}),
+		     Exp1 = refac_util:reset_ann_and_pos(Exp),
 		     Pars0 = refac_syntax:list(list_elements(Pars) ++ [Exp1]),
 		     Pars1 = refac_util:rewrite(Pars, Pars0),
 		     App = case length(Args) of

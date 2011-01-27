@@ -511,7 +511,7 @@ auto_rename_vars({ClauseToInline, MatchExprs}, {Clause, App}, SubStLocs) ->
     NewVarPat = refac_syntax:copy_pos(App, refac_syntax:copy_pos(App, refac_syntax:variable(VarName))),
     MatchExpr = refac_syntax:copy_pos(App, refac_syntax:match_expr(NewVarPat, refac_syntax:atom(ok))),
     {Clause1, _} = ast_traverse_api:stop_tdTP(fun do_replace_app_with_match/2, Clause, {App, MatchExpr}),
-    Clause2 = refac_syntax_lib:var_annotate_clause(refac_util:reset_ann(Clause1), [], [], []),
+    Clause2 = refac_syntax_lib:var_annotate_clause(refac_util:reset_ann(Clause1), [], {[],[]}, []),
     BdsInFunToInline = get_bound_vars(ClauseToInline),
     NewNames = [{Name, DefinePos} || {Name, DefinePos} <- BdsInFunToInline,
 				      not  lists:member(DefinePos, SubStLocs)],

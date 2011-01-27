@@ -259,7 +259,14 @@ pos_to_match_expr_1(Node, DefinePos) ->
 		variable ->
 		    case lists:keysearch(def, 1, refac_syntax:get_ann(Pattern)) of
 			{value, {def, DefinePos}} ->
-			    {Node, true};
+                            Body = refac_syntax:match_expr_body(Node),
+                            case refac_syntax:type(Body) of 
+                                match_expr ->
+                                    Body1 = get_match_expr_body(Node),
+                                    {refac_syntax:match_expr(Pattern, Body1), true};
+                                _ ->
+                                    {Node, true}
+                            end;
 			_ ->
 			   {[], false}
 		    end;
@@ -270,6 +277,13 @@ pos_to_match_expr_1(Node, DefinePos) ->
 	    {[], false}
     end.
 
+get_match_expr_body(Node) ->
+    case refac_syntax:type(Node) of
+        match_expr ->
+            get_match_expr_body(refac_syntax:match_expr_body(Node));
+        _ ->
+            Node
+    end.
 inline(AnnAST, Form, MatchExpr, VarNode, Ps) ->
     FormPos = refac_syntax:get_pos(Form),
     Forms = refac_syntax:form_list_elements(AnnAST),

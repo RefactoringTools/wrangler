@@ -2774,9 +2774,9 @@ attribute_arguments(Node) ->
                   if Vs == none -> [M2];
                      true -> [M2, set_pos(list(Vs), get_pos(hd(Vs)))]
                   end;
-            export ->
-                  [set_pos(list(unfold_function_names(Data, Pos)), Pos)];
-	    import ->
+              export -> 
+                  [Data];
+              import ->
                   case Data of
                       {Module, Imports} ->
                           M1=if is_list(Module) ->
@@ -6266,19 +6266,19 @@ is_printable(S) -> io_lib:printable_list(S).
 %% Support functions for transforming lists of function names
 %% specified as `arity_qualifier' nodes.
 
-%% unfold_function_names(Ns, Pos) ->
-%%     F = fun ({Atom, Arity}) ->
-%% 		N = arity_qualifier(atom(Atom), integer(Arity)),
-%% 		set_pos(N, Pos)
+%% %% unfold_function_names(Ns, Pos) ->
+%% %%     F = fun ({Atom, Arity}) ->
+%% %% 		N = arity_qualifier(atom(Atom), integer(Arity)),
+%% %% 		set_pos(N, Pos)
+%% %% 	end,
+%% %%     [F(N) || N <- Ns].
+
+%% unfold_function_names(Ns, _Pos) ->
+%%     F = fun ({{atom, Pos1, Atom},{integer, Pos2, Arity}}) ->
+%% 		N = arity_qualifier(set_pos(atom(Atom), Pos1), set_pos(integer(Arity),Pos2)),
+%% 		set_pos(N, Pos1)
 %% 	end,
 %%     [F(N) || N <- Ns].
-
-unfold_function_names(Ns, _Pos) ->
-    F = fun ({{atom, Pos1, Atom},{integer, Pos2, Arity}}) ->
-		N = arity_qualifier(set_pos(atom(Atom), Pos1), set_pos(integer(Arity),Pos2)),
-		set_pos(N, Pos1)
-	end,
-    [F(N) || N <- Ns].
 
 fold_function_names(Ns) ->
     [fold_function_name(N) || N <- Ns].

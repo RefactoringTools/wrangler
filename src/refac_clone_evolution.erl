@@ -91,9 +91,9 @@ gen_clone_report(Dir) ->
 
     
      
--spec(gen_clone_report/3::(DirList::[dir()], {MinLen::integer(), MinToks::integer(), MinFreq::integer(),
-					      MaxVars::integer(), SimiScore::float()}, OutFile::filename()) ->
-				{ok, string()} |{error, string()}).
+%%-spec(gen_clone_report/3::(DirList::[dir()], {MinLen::integer(), MinToks::integer(), MinFreq::integer(),
+%%					      MaxVars::integer(), SimiScore::float()}, OutFile::filename()) ->
+%%				{ok, string()} |{error, string()}).
 gen_clone_report(DirList, {MinLen, MinToks, MinFreq, MaxVars, SimiScore}, OutFile) ->
     ?wrangler_io("\nCMD: ~p:gen_clone_report(~p,~p,~p).\n",
 		 [?MODULE,DirList,{MinLen,MinToks,MinFreq,MaxVars},SimiScore]),

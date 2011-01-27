@@ -1133,7 +1133,8 @@ lay_list(Node, Ctxt) ->
                         Pad = PrefixStartCol-StartCol-1,
                         case Pad>0 of
                             true ->
-                                beside(text("["), beside(text(spaces(Pad)), D1));
+                                %% beside(text("["), beside(text(spaces(Pad)), D1));
+                                beside(text("["), D1);
                             false ->
                                 beside(text("["), D1)
                         end;
@@ -1141,7 +1142,7 @@ lay_list(Node, Ctxt) ->
                         above(text("["), nest(Offset, D1))
                 end,
             N1 = EndLn - PrefixEndLn,
-            case N1 =< 0 of
+            case N1 =< 0 orelse EndLn==0 orelse PrefixEndLn==0 of
                 true ->
                     beside(D2, text("]"));
                 false ->
@@ -1160,16 +1161,18 @@ lay_list(Node, Ctxt) ->
                      true ->
                          Pad = PrefixStartCol-StartCol-1,
                          case Pad>0 of
-                             true ->
-                           beside(text("["), beside(text(spaces(Pad)), D1BarD2));
+                             true ->  
+                                 %% this cause problem when the first element is removed.
+                                 %% beside(text("["), beside(text(spaces(Pad)), D1BarD2));
+                                 beside(text("["), D1BarD2);
                              false ->
-                           beside(text("["), D1BarD2)
+                                 beside(text("["), D1BarD2)
                          end;
                      _ ->
                          above(text("["), nest(Offset, D1BarD2))
                  end,
             N1 = EndLn - SuffixEndLn,
-            case N1 =< 0 of
+            case N1 =< 0 orelse EndLn==0 orelse SuffixEndLn==0 of
                 true ->
                     beside(D3, text("]"));
                 false ->

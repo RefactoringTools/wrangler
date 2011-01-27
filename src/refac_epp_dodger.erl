@@ -634,6 +634,13 @@ fix_pos([{'-', _}, {atom, _, import}|Ts], {attribute, Pos, Name, Data}) ->
             {M1, _Ts1} = unfold_atoms(Data, Ts, Pos),
             {attribute, Pos, Name, M1}
     end;
+
+fix_pos([{'-', _}, {atom, _, export}|Ts], {attribute, Pos, Name, Data}) ->
+    {Pos2, _Ts2} = get_token_pos(Ts, {'[',0}, Pos),
+    Es1=unfold_function_names(Data),
+    Data1=refac_syntax:set_pos(refac_syntax:list(Es1), Pos2),
+    {attribute, Pos, Name, Data1};
+
 fix_pos([{'-', _}, {atom, Pos, file}|Ts], {attribute, Pos, Name, Data}) ->
     {File, Line} = Data,
     {Pos1, Ts1} = get_token_pos(Ts, {string, 0, File}, Pos),

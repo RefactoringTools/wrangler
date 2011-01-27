@@ -1272,11 +1272,12 @@ init_eclipse() ->
 get_log_msg() ->
     Errors = wrangler_error_logger:get_logged_info(),
     FileErrors = [{File, Error} || {File, Error} <- Errors, File /= warning],
+    WarningMsg = [Error || {File, Error} <- Errors, File == warning],
     case FileErrors of 
-	[] -> "";
+	[] -> lists:flatten(WarningMsg);
 	_ ->
 	    Msg1=io_lib:format("There are syntax errors, or syntaxes not supported by Wrangler;"
-			       " functions/attribute containing these syntaxes are not affected by the refactoring.\n", []),
+			       " functions/attribute containing these syntaxes may not be affected by the refactoring.\n", []),
 	    Msg2 = lists:flatmap(fun ({FileName, Errs}) ->
 					 Str = io_lib:format("File:\n ~p\n", [FileName]),
 					 Str1 = Str ++ io_lib:format("Error(s):\n", []),
@@ -1288,7 +1289,7 @@ get_log_msg() ->
 							       end,
 							       lists:reverse(Errs))
 				 end, FileErrors),
-	    Msg1++Msg2
+	    Msg1++Msg2 ++ lists:flatten(WarningMsg)
     end.
  
  

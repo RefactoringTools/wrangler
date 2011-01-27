@@ -321,10 +321,10 @@ parse_annotate_file(FName, ByPassPreP, SearchPaths, TabWidth) ->
 parse_annotate_file(FName, true, SearchPaths, TabWidth, FileFormat) ->
     case refac_epp_dodger:parse_file(FName, [{tab, TabWidth}, {format, FileFormat}]) of
 	{ok, Forms} ->
-	    Dir = filename:dirname(FName),
-	    DefaultIncl2 = [filename:join(Dir, X) || X <- refac_util:default_incls()],
-	    Includes = SearchPaths ++ DefaultIncl2,
-	    {Info0, Ms} = case refac_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
+            Dir = filename:dirname(FName),
+            DefaultIncl2 = [filename:join(Dir, X) || X <- refac_util:default_incls()],
+            Includes = SearchPaths ++ DefaultIncl2,
+            {Info0, Ms} = case refac_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
 			      {ok, Fs, {MDefs, MUses}} ->
                                   ST = refac_recomment:recomment_forms(Fs, []),
 				  Info1 = refac_syntax_lib:analyze_forms(ST),
@@ -623,7 +623,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                       end,         
             Body = refac_util:glast("refac_util:do_add_range, clause", refac_syntax:clause_body(Node)),
 	    {_S2, E2} = get_range(Body),
-	    update_ann(Node, {range, {min(S1, {L, C}), E2}});
+	    update_ann(Node, {range, {lists:min([S1, {L, C}]), E2}});
 	catch_expr ->
 	    B = refac_syntax:catch_expr_body(Node),
 	    {S, E} = get_range(B),
@@ -812,7 +812,8 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                 Toks2 = lists:dropwhile(fun(B)->
                                                element(2, B)/= {L,C}
                                        end, Toks),
-                [{'#', _}, {_, Pos1, _}|_] = Toks2,
+                [{'#', _}, T|_] = Toks2,
+                Pos1 = token_loc(T),
                 Type1 = add_range(refac_syntax:set_pos(Type, Pos1), Toks),
                 Fields = refac_syntax:record_expr_fields(Node),
                 {S1, E1} = case Arg of
@@ -843,26 +844,25 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                           length(refac_util:glast("refac_util:do_add_range,comment",
                                                   T))}}});
 	macro ->
-	    Name = refac_syntax:macro_name(Node),
-	    Args = refac_syntax:macro_arguments(Node),
-	    {_S1, {L1, C1}} = get_range(Name),
-            E1={L1, C1+1},
-	    M=case Args of
-		none -> update_ann(Node, {range, {{L, C}, E1}});
-		Ls ->
-		    case Ls of
-			[] -> E21 = extend_backwards(Toks, E1, ')'),
-			      update_ann(Node, {range, {{L, C}, E21}});
-			_ ->
-			    La = refac_util:glast("refac_util:do_add_range,macro", Ls),
-			    {_S2, E2} = get_range(La),
-			    E21 = extend_backwards(Toks, E2, ')'),
-			    update_ann(Node, {range, {{L, C}, E21}})
-		    end
-              end,
-            update_ann(M,
-                       {with_bracket,
-                        refac_prettypr:has_parentheses(M, Toks)});
+                Name = refac_syntax:macro_name(Node),
+                Args = refac_syntax:macro_arguments(Node),
+                {_S1, {L1, C1}} = get_range(Name),
+                E1={L1, C1+1},
+                M=case Args of
+                      none -> update_ann(Node, {range, {{L, C}, E1}});
+                      Ls ->
+                          case Ls of
+                              [] -> E21 = extend_backwards(Toks, E1, ')'),
+                                    update_ann(Node, {range, {{L, C}, E21}});
+                              _ ->
+                                  La = refac_util:glast("refac_util:do_add_range,macro", Ls),
+                                  {_S2, E2} = get_range(La),
+                                  E21 = extend_backwards(Toks, E2, ')'),
+                                  update_ann(Node, {range, {{L, C}, E21}})
+                          end
+                  end,
+                update_ann(M,{with_bracket,
+                            refac_prettypr:has_parentheses(M, Toks)});
 	size_qualifier ->
 	    calc_and_add_range_to_node(Node, size_qualifier_body, size_qualifier_argument);
 	error_marker ->

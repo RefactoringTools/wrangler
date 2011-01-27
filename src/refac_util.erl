@@ -54,7 +54,6 @@
 
 -include("../include/wrangler.hrl").
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%-spec group_by(integer(), [tuple()]) -> [[tuple()]].
 group_by(N, TupleList) ->
@@ -181,9 +180,9 @@ try_eval(none, Node, _, _) ->
     end;
 try_eval(FileName, Node, SearchPaths, TabWidth) ->
     try
-      erl_eval:exprs([refac_syntax:revert(Node)], [])
+        erl_eval:exprs([refac_syntax:revert(Node)], [])
     of
-      {value, Val, _} -> {value, Val}
+        {value, Val, _} -> {value, Val}
     catch
       _:_ ->
 	  case has_macros(Node) andalso get_free_vars(Node) == [] of
@@ -939,7 +938,7 @@ get_start_end_loc_with_comment(Node) ->
                      Start;
                  _ ->
                      {StartLn1, StartCol1}=refac_syntax:get_pos(hd(PreCs)),
-                     {StartLn1, erlang:max(StartCol, StartCol1)}
+                     {StartLn1, lists:max([StartCol, StartCol1])}
              end,
     End1 = case PostCs of
                [] ->
