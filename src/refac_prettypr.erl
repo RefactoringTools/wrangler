@@ -719,7 +719,7 @@ lay_2(Node, Ctxt) ->
 		undefined ->
 		    %% If a clause is formatted out of context, we
 		    %% use a "fun-expression" clause style.
-		    make_fun_clause(D1, D2, D3, Guard, Ctxt, SameLine, HeadStartLoc)
+		    make_fun_clause(D1, D2, D3, Node, Ctxt, SameLine, HeadStartLoc)
 	    end;
 	function ->  
             %% Comments on the name itself will be repeated for each
