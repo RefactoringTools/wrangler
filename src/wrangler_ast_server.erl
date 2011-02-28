@@ -965,11 +965,11 @@ is_string(_) -> false.
 
 
 %% =====================================================================
-% @doc Attach syntax category information to AST nodes.
+% @doc Attach syntax category information to AST nodes of functions.
 %% =====================================================================
-%% -type (category():: pattern|expression|guard_expression|record_type|generator
-%%                    record_field| {macro_name, none|int(), pattern|expression}
-%%                    |operator
+%% -type (category():: pattern|expression|guard_expression|record_type|record_field|
+%%                     generator|{macro_name, none|int()|pattern|expression}|macro_arg|
+%%                     operator|name|arity|binary_field).
 %%-spec(add_category(Node::syntaxTree()) -> syntaxTree()).
 add_category(Node) ->
     add_category(Node, none).
@@ -997,11 +997,17 @@ do_add_category(Node, C) ->
 	application ->
 	    Op = refac_syntax:application_operator(Node),
 	    Args = refac_syntax:application_arguments(Node),
-	    Op1 = add_category(Op, C),
-	    Op2 = update_ann(Op1, {category, application_op}),
+            Op2 = update_ann(Op, {category, application_op}),
 	    Args1 = add_category(Args, C),
 	    Node1 = rewrite(Node, refac_syntax:application(Op2, Args1)),
 	    {update_ann(Node1, {category, C}), true};
+        arity_qualifier ->
+            Name = refac_syntax:arity_qualifier_body(Node),
+            Arity = refac_syntax:arity_qualifier_argument(Node),
+            Name1 = update_ann(Name, {category, name}),
+            Arity1 = update_ann(Arity, {category, arity}),
+            Node1 = rewrite(Node, refac_syntax:arity_qualifier(Name1, Arity1)),
+            {update_ann(Node1, {category, C}), true};
 	match_expr ->
 	    P = refac_syntax:match_expr_pattern(Node),
 	    B = refac_syntax:match_expr_body(Node),
@@ -1028,6 +1034,23 @@ do_add_category(Node, C) ->
 	    B1 = add_category(B, expression),
 	    Node1=rewrite(Node, refac_syntax:binary_generator(P1, B1)),
 	    {update_ann(Node1, {category, generator}), true};
+        binary_field ->
+            Body = refac_syntax:binary_field_body(Node),
+            Size = refac_syntax:binary_field_size(Node),
+            Types = refac_syntax:binary_field_types(Node),
+            Body1 = case refac_syntax:type(Body) of 
+                        size_qualifier ->
+                            add_category(refac_syntax:size_qualifier_body(Body));
+                        _ ->
+                            add_category(Body, C)
+                    end,
+            Size1 = case Size of 
+                        none -> none;
+                        _ ->add_category(Size, C)
+                    end,
+            Types1 = [add_category(T, type)||T<-Types],
+            Node1 = rewrite(Node, refac_syntax:binary_field(Body1, Size1, Types1)),
+            {update_ann(Node1, {category, binary_field}), true};            
 	macro ->
 	    Name = refac_syntax:macro_name(Node),
 	    Args = refac_syntax:macro_arguments(Node),
@@ -1038,9 +1061,11 @@ do_add_category(Node, C) ->
 	    Name1 = add_category(Name, {macro_name, NumOfArgs, C}),
 	    Args1 = case Args of
 			none -> none;
-			_ -> add_category(Args, C) 
+			_ -> add_category(Args, C)  
 		    end,
-	    Node1 = rewrite(Node, refac_syntax:macro(Name1, Args1)),
+            %% this is not the best solution!!!
+            Args2 = [update_ann(A, {category, macro_arg})||A<-Args1],
+	    Node1 = rewrite(Node, refac_syntax:macro(Name1, Args2)),
 	    {update_ann(Node1, {category, C}), true};
 	record_access ->
 	   Argument = refac_syntax:record_access_argument(Node),
