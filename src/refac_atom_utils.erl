@@ -71,11 +71,7 @@ collect_unsure_atoms_in_file(FileAST, AtomNames, AtomType) ->
     F = fun (T) ->
 		case refac_syntax:type(T) of
 		    function ->
-                        refac_io:format("AtomType:\n~p\n", [AtomType]),
-                        refac_io:format("AtomNames:\n~p\n", [AtomNames]),
-                        refac_io:format("T:\n~p\n", [T]),
-                        
-			collect_unsure_atoms(T, AtomNames, AtomType);
+                        collect_unsure_atoms(T, AtomNames, AtomType);
 		    _ -> []
 		end
 	end,
