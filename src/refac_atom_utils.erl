@@ -71,6 +71,10 @@ collect_unsure_atoms_in_file(FileAST, AtomNames, AtomType) ->
     F = fun (T) ->
 		case refac_syntax:type(T) of
 		    function ->
+                        refac_io:format("AtomType:\n~p\n", [AtomType]),
+                        refac_io:format("AtomNames:\n~p\n", [AtomNames]),
+                        refac_io:format("T:\n~p\n", [T]),
+                        
 			collect_unsure_atoms(T, AtomNames, AtomType);
 		    _ -> []
 		end
@@ -123,10 +127,10 @@ collect_unsure_atoms(Tree, AtomNames, AtomType) ->
 	end,
     ast_traverse_api:fold(F, [], Tree).
 
-unsure_match({M, A}, {M1, A1}) when is_integer(A1)->
-    A1==A andalso M/=M1;
+unsure_match({M, A}, {_M1, A1}) when is_integer(A1)->
+    A1==A andalso (not is_atom(M) orelse M=='_');
 unsure_match({M, _A}, {M1,A1}) when not is_integer(A1)->
-    (M==M1) orelse (not (is_atom(M1) andalso M/='_')).
+    (M==M1) orelse M=='_' orelse (not is_atom(M)).
 
 unsure_match({M,A}) when is_integer(A) ->
     not (is_atom(M) andalso M/='_');
