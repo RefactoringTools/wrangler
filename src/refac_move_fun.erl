@@ -370,7 +370,7 @@ transform_application_node(FileName, Node, MFAs, TargetModName,
 			{value, _} ->
 			    transform_apply_style_calls(FileName, Node, MFAs, TargetModName, SearchPaths, TabWidth);
 			false ->
-			    case lists:member({M, F, A}, InScopeFunsInTargetMod) orelse  erl_internal:bif(M, F, A) orelse lists:member({M, F, A}, MFAs)
+			    case lists:member({M, F, A}, InScopeFunsInTargetMod) orelse  erl_internal:bif(erlang, F, A) orelse lists:member({M, F, A}, MFAs)
 				of
 				true ->
 				    {Node, false};
