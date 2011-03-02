@@ -125,36 +125,8 @@ side_cond_analysis(FileName, Info, Fun, ExpList, NewFunName) ->
 			  "or is used as an Erlang builtin function name, please choose another name!"});
 	_ -> ok
     end,
-    check_unsafe_vars(ExpList),
     TestFrameWorkUsed = refac_util:test_framework_used(FileName),
     test_framework_aware_name_checking(TestFrameWorkUsed, NewFunName, length(FrVars)).
-
-check_unsafe_vars(ExpList) ->
-    BoundVars = refac_util:get_bound_vars(ExpList),
-    BoundLocs = [Loc || {_, Loc} <- BoundVars],
-    Fun = fun (Node, S) ->
-		  case refac_syntax:type(Node) of
-		      variable ->
-			  As = refac_syntax:get_ann(Node),
-			  case lists:keysearch(def, 1, As) of
-			      {value, {def, DefinePos}} ->
-				  case length(DefinePos) > 1 of
-				      true -> case DefinePos -- BoundLocs of
-						  [] -> S;
-						  _ ->
-						      Name = refac_syntax:variable_name(Node),
-						      throw({error, "Extracting the expression(s) selected into a new function would "
-								    "make variable '" ++ atom_to_list(Name) ++ "' unsafe."})
-					      end;
-				      _ -> S
-				  end;
-			      _ ->
-				  S
-			  end;
-		      _ -> S
-		  end
-	  end,
-    ast_traverse_api:fold(Fun, [], refac_syntax:block_expr(ExpList)).
 
 funcall_replaceable(Fun,[Exp]) ->
     check_expr_category(Fun, Exp),
@@ -491,13 +463,16 @@ envs_bounds_frees(Node) ->
 	     end,
     {{bound, BdVars},{free, FrVars}}.
 
+vars_to_export(_Fun,_ExpEndPos, []) ->
+    [];
 vars_to_export(Fun, ExprEndPos, ExprBdVars) ->
     AllVars = refac_util:collect_var_source_def_pos_info(Fun),
     ExprBdVarsPos = [Pos || {_Var, Pos} <- ExprBdVars],
-    VarsToExport = lists:keysort(2, [{V, SourcePos}
-				     || {V, SourcePos, DefPos} <- AllVars,
-					SourcePos > ExprEndPos,
-					lists:subtract(DefPos, ExprBdVarsPos) == []]),
+    VarsToExport = 
+        lists:keysort(2, [{V, SourcePos}
+                          || {V, SourcePos, DefPos} <- AllVars,
+                             SourcePos > ExprEndPos,
+                             ExprBdVarsPos --DefPos==[] ]),
     lists:reverse(lists:foldl(fun ({V,_Pos}, Acc) ->
 				      case lists:member(V, Acc) of
 					  false -> [V| Acc];
