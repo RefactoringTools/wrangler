@@ -95,16 +95,12 @@ same_type_expr_unification(Exp1, Exp2, Type,CheckGen) ->
 	    Exp2Ann = refac_syntax:get_ann(Exp2),
 	    Exp1Name = refac_syntax:variable_name(Exp1),
 	    Exp2Name = refac_syntax:variable_name(Exp2),
-	    case lists:keysearch(category, 1, Exp1Ann) of
-		{value, {category, macro_name, none, _}} ->
-		    case lists:keysearch(category, 1, Exp2Ann) of
-			{value, {category, {macro_name, none, expression}}} ->
-			    case Exp1Name of
-				Exp2Name -> {true, []};
-				_ -> false
-			    end;
-			_ -> false
-		    end;
+            case is_macro_name(Exp1) andalso is_macro_name(Exp2) of
+                true ->
+                    if Exp1Name==Exp2Name ->
+                            {true, []};
+                       true -> false
+                    end;
 		_ -> {true, [{Exp1Name, rm_comments(Exp2)}]}
 	    end;
 	atom ->
@@ -200,27 +196,28 @@ non_same_type_expr_unification(Exp1, Exp2,_Type, CheckGen) ->
                 false ->
                     Exp2Ann = refac_syntax:get_ann(Exp2),
 		    Exp1Name = refac_syntax:variable_name(Exp1),
-		    case lists:keysearch(category, 1, Exp2Ann) of
-                        {value, {category, application_op}} ->
-			  case lists:keysearch(fun_def, 1, Exp2Ann) of
-			      {value, {fun_def, {_M, _N, A, _P1, _P2}}} ->
-				  {true, [{Exp1Name, rm_comments(
-						 refac_syntax:implicit_fun(
-					 	   Exp2, refac_syntax:integer(A)))}]};
-			      _ -> %% this is the function name part of a M:F. 
-				  {true, [{Exp1Name, rm_comments(Exp2)}]}
-			  end;
-		      _ ->
-			  case side_effect_api:has_side_effect(Exp2) of
-			      false ->
-				  {true, [{Exp1Name, rm_comments(Exp2)}]};
-			      _ ->
-                                  {true, [{Exp1Name, rm_comments(Exp2)}]}
-				  %% C = refac_syntax:clause([],[], [rm_comments(Exp2)]),
-				  %% {true, [{Exp1Name, refac_syntax:fun_expr([C])}]}
-			  end
+		    case lists:keysearch(syntax_path, 1, Exp2Ann) of
+                        {value, {syntax_path, application_op}} ->
+                            case lists:keysearch(fun_def, 1, Exp2Ann) of
+                                {value, {fun_def, {_M, _N, A, _P1, _P2}}} ->
+                                    {true, [{Exp1Name, rm_comments(
+                                                         refac_syntax:implicit_fun(
+                                                           Exp2, refac_syntax:integer(A)))}]};
+                                _ -> 
+                                    %% this is the function name part of a M:F. 
+                                    {true, [{Exp1Name, rm_comments(Exp2)}]}
+                            end;
+                        _ ->
+                            case side_effect_api:has_side_effect(Exp2) of
+                                false ->
+                                    {true, [{Exp1Name, rm_comments(Exp2)}]};
+                                _ ->
+                                    {true, [{Exp1Name, rm_comments(Exp2)}]}
+                                    %% C = refac_syntax:clause([],[], [rm_comments(Exp2)]),
+                                    %% {true, [{Exp1Name, refac_syntax:fun_expr([C])}]}
+                            end
                     end
-	  end;
+            end;
 	_ ->  T2 = refac_syntax:type(Exp2),
 	    case {T1, T2} == {atom, module_qualifier} orelse 
                  {T1,T2}  == {module_qualifier, atom} of 
@@ -254,3 +251,7 @@ format(Es)when is_list(Es) ->
 format(E) ->
     refac_prettypr:format(refac_util:reset_ann_and_pos(E)).
 
+is_macro_name(Exp) ->
+    Ann = refac_syntax:get_ann(Exp),
+    {value, {syntax_path, macro_name}} == 
+        lists:keysearch(syntax_path, 1, Ann).
