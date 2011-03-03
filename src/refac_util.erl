@@ -43,7 +43,7 @@
 	 format_search_paths/1,default_incls/0, get_toks/1,
          reset_attrs/1, reset_ann_and_pos/1, reset_ann/1,
 	 get_env_vars/1,get_var_exports/1,get_bound_vars/1,get_free_vars/1,
-	 is_expr/1,is_expr_or_match/1, is_pattern/1, is_exported/2, inscope_funs/1,update_ann/2,
+	 is_expr/1, is_pattern/1, is_exported/2, inscope_funs/1,update_ann/2,
 	 delete_from_ann/2, callback_funs/1, is_callback_fun/3, rewrite/2, rewrite_with_wrapper/2,
 	 get_range/1, max/2, min/2, modname_to_filename/2, funname_to_defpos/2,
   	 spawn_funs/0,is_spawn_app/1, get_start_end_loc_with_comment/1]).
@@ -270,8 +270,9 @@ collect_var_names_1(Node) ->
     F = fun (N, S) ->
 		case refac_syntax:type(N) of
 		    variable ->
-			case lists:keysearch(category, 1, refac_syntax:get_ann(N)) of
-			    {value, {category, {macro_name, _, _}}} -> S;
+			Ann = refac_syntax:get_ann(N),
+                        case lists:keysearch(syntax_path, 1, Ann) of
+			    {value, {syntax_path, macro_name}} -> S;
 			    _ ->
 				VarName = refac_syntax:variable_name(N),
 				ordsets:add_element(VarName, S)
@@ -528,38 +529,19 @@ get_free_vars_1([]) -> [].
 %%-spec(is_expr(Node:: syntaxTree())-> boolean()).
 is_expr(Node) ->
     As = refac_syntax:get_ann(Node),
-    case lists:keysearch(category, 1, As) of
-	{value, {category, C}} ->
-	    case C of
-		expression -> true;
-		{_, _, expression} -> true;
-		guard_expression -> true;
-		application_op -> true;
-		_ -> false
-	    end;
-	_ -> false
-    end.
+    {category, expression} == lists:keyfind(category, 1, As) orelse 
+        {category, guard_expression} == lists:keyfind(category, 1, As).
 
-is_expr_or_match(Node) ->
-    is_expr(Node) 
-	orelse 
-	  (refac_syntax:type(Node)==match_expr andalso
-	   lists:keysearch(category, 1, refac_syntax:get_ann(Node))==false).
-  
-    
  
 %% =====================================================================
 %% @doc Return true if an AST node represents a pattern.
 %%-spec(is_pattern(Node:: syntaxTree())-> boolean()).
+
+-spec(is_pattern(Node:: syntaxTree())-> boolean()).
 is_pattern(Node) ->
     As = refac_syntax:get_ann(Node),
-    case lists:keysearch(category, 1, As) of
-	{value, {category, pattern}} ->
-	    true;
-	{value, {category, {_, _, pattern}}} ->
-	    true;
-	_ -> false
-    end.
+    {category, pattern}==lists:keyfind(category, 1, As).
+
 
 %%===============================================================================
 %% @spec is_exported({FunName::atom(), Arity::integer()},ModuleInfo) -> boolean()
