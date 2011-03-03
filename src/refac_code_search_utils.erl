@@ -142,7 +142,9 @@ identifier_name(Exp) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-%%-spec(var_binding_structure/1::([syntaxTree()]) -> [{integer(), integer()}]).      
+%%-spec(var_binding_structure/1::([syntaxTree()]) -> [{integer(), integer()}]).  
+var_binding_structure(AST) when not is_list(AST) ->
+    var_binding_structure([AST]);
 var_binding_structure(ASTList) ->
     VarLocs = lists:keysort(2, refac_util:collect_var_source_def_pos_info(ASTList)),
     case VarLocs of
@@ -306,28 +308,23 @@ compose_search_result_info([{FileName, {{StartLine, StartCol}, {EndLine, EndCol}
 %% This is more restrict that what is necessary.
 %% TODO:how about side effect?
 generalisable(Node) ->
-    case lists:keysearch(category, 1, refac_syntax:get_ann(Node)) of
-	{value, {category, record_field}} -> false;
-	{value, {category, record_type}} -> false;
-	{value, {category, guard_expression}} -> false;
-	{value, {category, generator}} -> false;
-	{value, {category, {macro_name, Num, expression}}} when Num/=none -> false;
-	{value, {category, pattern}} ->
+    Ann = refac_syntax:get_ann(Node),
+    case lists:keysearch(category, 1, Ann) of
+        expression ->
+            T = refac_syntax:type(Node),
+            case T of 
+                macro ->
+                    none == refac_syntax:macro_arguments(Node);
+                _ ->
+                    not  lists:member(T, [match_expr, operator, case_expr,
+                                          if_expr, fun_expr, receive_expr, clause,
+                                          query_expr, try_expr, catch_expr, cond_expr,
+                                          block_expr]) andalso 
+                        refac_util:get_var_exports(Node) == []
+            end;
+        {value, {category, pattern}} ->
 	    %% refac_syntax:is_literal(Node) orelse ;; in theory it is ok.
 	    refac_syntax:type(Node) == variable;
-	_ ->
-	    %% While syntactically, expressions of some of the listed types
-	    %% can be replaced by a variable, in practice, generalise a function 
-	    %% over this kind of expression could make the code harder to understand.
-	    T = refac_syntax:type(Node),
-            not  lists:member(T, [match_expr, operator, case_expr,
-                                  if_expr, fun_expr, receive_expr, clause,
-                                  query_expr, try_expr, catch_expr, cond_expr,
-                                  block_expr]) andalso 
-                refac_util:get_var_exports(Node) == []
-                %% andalso 
-		%% %% %% generalise expressions with free variables need to 
-		%% %% %% wrap the expression with a fun expression; we try to 
-		%% %% %% avoid this case.
-            %% (refac_util:get_free_vars(Node) == [] orelse  T==variable)
+        {value, {category, guard_expression}} -> false;
+   	_ -> false
     end.
