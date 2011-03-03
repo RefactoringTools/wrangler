@@ -161,21 +161,9 @@ check_expr_category(Fun, Exp) ->
 
 check_expr_category_1(Exp) ->
     case lists:keysearch(category, 1, refac_syntax:get_ann(Exp)) of
-	{value, {category, record_field}} ->
-	    throw({error, "Record field cannot be replaced "
-		 "by a function application."});
-	{value, {category, record_type}} ->
-	    throw({error, "Record type cannot be replaced "
-		 "by a function application."});
-	{value, {category, guard_expression}} ->
+        {value, {category, guard_expression}} ->
 	    throw({error, "Function abstraction whithin a "
-		 "guard expression is not supported."});
-	{value, {category, generator}} ->
-	    throw({error, "Function abstraction over a generator"
-		   "is not supported."});
-	{value, {category, {macro_name, _Num, _}}} ->
-	    throw({error, "Function abstraction over a macro name in a"
-		   "macro application is not supported."});
+                   "guard expression is not supported."});
 	_ ->
 	    case refac_syntax:type(Exp) of 
 		binary_field ->
