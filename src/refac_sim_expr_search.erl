@@ -136,7 +136,7 @@ do_search_similar_expr(FileName, AnnAST, RecordInfo, Exprs, SimiScore) when is_l
 	    Expr = hd(Exprs),
 	    F0 = fun (FunNode, Acc) ->
 			 F = fun (T, Acc1) ->
-				     case refac_util:is_expr_or_match(T) of
+				     case refac_util:is_expr(T) of
 					 true ->
 					     do_search_similar_expr_1(FileName, Expr, T, RecordInfo, SimiScore, FunNode) ++ Acc1;
 					 _ -> Acc1
