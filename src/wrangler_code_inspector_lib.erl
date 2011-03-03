@@ -42,9 +42,9 @@
 find_var_instances(FName, Line, Col, SearchPaths, TabWidth) ->
     {ok, {AnnAST, _Info0}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     case interface_api:pos_to_var_name(AnnAST, {Line, Col}) of
-	{ok, {_VarName, DefinePos, _C}} ->
+	{ok, {_VarName, DefinePos}} ->
 	    if DefinePos == [{0, 0}] ->
-		   throw({error, "The identifier selected is a macro, or not defined!"});
+		   throw({error, "The identifier selected is not defined!"});
 	       true ->
 		   F = fun (T, S) ->
 			       case refac_syntax:type(T) of
