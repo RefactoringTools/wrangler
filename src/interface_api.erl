@@ -279,7 +279,7 @@ get_expr_list_1(L) ->
 
 pos_to_expr_or_pat_list(AnnAST, Start, End) ->
     F = fun
-	    (E) -> refac_util:is_expr_or_match(E) orelse refac_util:is_pattern(E)
+	    (E) -> refac_util:is_expr(E) orelse refac_util:is_pattern(E)
 	end,
     Es = pos_to_expr_list_1(AnnAST, Start, End, F),
     get_expr_list(Es).
