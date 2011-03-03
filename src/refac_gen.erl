@@ -331,25 +331,19 @@ gen_cond_analysis(Fun, Exp, ParName) ->
     Cs = refac_syntax:function_clauses(Fun),
     Ann = refac_syntax:get_ann(Exp),
     case lists:keysearch(category, 1, Ann) of
-	{value, {category, record_field}} ->
-	    throw({error, "Record field cannot be replaced by a variable."});
-	{value, {category, record_type}} ->
-	    throw({error, "Record type cannot be replaced by a variable."});
-	{value, {category, guard_expression}} ->
+        {value, {category, guard_expression}} ->
 	    case lists:keysearch(fun_def,1,Ann) of
 		{value, {fun_def,_}} ->
 		    throw({error, "Generalisation over a function application "
-				  "in a guard expression is not supported."});
+                           "in a guard expression is not supported."});
 		_ ->
 		    case refac_util:get_free_vars(Exp) of
 			[] -> ok;
 			_ ->
 			    throw({error,"Generalisation over an expression with free variables in "
-					 " a guard expression is not supported."})
+                                   " a guard expression is not supported."})
 		    end
 	    end;
-	{value, {category, {macro_name, Num, _}}} when Num/=none ->
-	    throw({error, "Generalisation over a macro name in an macro application is not supported."});
 	_ -> ok
     end,
     Exp_Free_Vars = refac_util:get_free_vars(Exp),
