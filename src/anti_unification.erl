@@ -451,8 +451,7 @@ reset_attrs(Node) ->
 			       end,
 			       Node, {}).
 is_macro_name(Exp) ->
-    case lists:keysearch(category, 1, refac_syntax:get_ann(Exp)) of
-	 {value, {category, {macro_name,_,_}}} ->
-	    true;
-	_ -> false
-    end.
+    Ann = refac_syntax:get_ann(Exp),
+    {value, {syntax_path, macro_name}} == 
+        lists:keysearch(syntax_path, 1, Ann).
+
