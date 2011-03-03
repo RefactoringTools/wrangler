@@ -867,11 +867,10 @@ subst_sanity_check(Expr1, SubSt) ->
     F = fun ({E1, E2}) ->
 		case refac_syntax:type(E1) of
 		    variable ->
-			E1Ann = refac_syntax:get_ann(E1),
-			case lists:keysearch(category, 1, E1Ann) of
-			    {value, {category, {macro_name, _, _}}} ->
-				false;
-			    _ -> has_same_subst(E1, E2, SubSt)
+                        case is_macro_name(E1) of 
+                            true ->
+                                false;
+                            _ -> has_same_subst(E1, E2, SubSt)
 			end;
 		    _ ->
 			%% the expression to be replaced should not contain local variables.
@@ -976,11 +975,9 @@ get_var_subst(SubSt) ->
 	 not  is_macro_name(E1)].
 
 is_macro_name(Exp) ->
-    case lists:keysearch(category, 1, refac_syntax:get_ann(Exp)) of
-	 {value, {category, {macro_name,_,_}}} ->
-	    true;
-	_ -> false
-    end.
+    Ann = refac_syntax:get_ann(Exp),
+    {value, {syntax_path, macro_name}} == 
+        lists:keysearch(syntax_path, 1, Ann).
 
 var_sub_conflicts(SubSts, ExistingVarSubsts) ->
     lists:any(fun ({DefPos, E}) ->
