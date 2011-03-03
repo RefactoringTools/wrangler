@@ -108,25 +108,18 @@ pos_to_fun_def_1(Node, Pos) ->
 
 %% =====================================================================
 %% @spec pos_to_var_name(Node::syntaxTree(), Pos::{integer(), integer()})->
-%%                      {ok, {VarName,DefPos, Category}} | {error, string()}
+%%                      {ok, {VarName,DefPos}} | {error, string()}
 %%
 %%      VarName = atom()
 %%      DefPos = [{integer(), integer()}]
-%%      Category = expression | pattern | macro_name
 %%
 %% @doc Get the variable name that occurs at the position specified by Pos.
-%% Apart from the variable name, this function all returns other information 
-%% including its defining position and its syntax category information.
-%%
 %% @see pos_to_fun_name/2
 %% @see pos_to_fun_def/2
 %% @see pos_to_expr/3
 
-%%TODO: This function returns more than what the function name indicates, try to refactor it.
-
-%%-type(category()::expression|pattern|macro_name|application_op|operator).
 %%-spec(pos_to_var_name(Node::syntaxTree(), Pos::pos())->
-%%	     {ok, {atom(), [pos()], category()}} | {error, string()}).
+%%	     {ok, {atom(), [pos()]} | {error, string()}).
 pos_to_var_name(Node, UsePos) ->
     case
       ast_traverse_api:once_tdTU(fun pos_to_var_name_1/2, Node, UsePos)
@@ -141,24 +134,21 @@ pos_to_var_name_1(Node, _Pos = {Ln, Col}) ->
       variable ->
             {Ln1, Col1} = refac_syntax:get_pos(Node),
             case (Ln == Ln1) and (Col1 =< Col) and
-		 (Col =< Col1 + length(atom_to_list(refac_syntax:variable_name(Node))) - 1)
+                (Col =< Col1 + length(atom_to_list(refac_syntax:variable_name(Node))) - 1)
             of
                 true ->
-                    case lists:keysearch(def, 1, refac_syntax:get_ann(Node)) of
-                        {value, {def, DefinePos}} ->
-                            {value, {category, C}} = lists:keysearch(category, 1, refac_syntax:get_ann(Node)),
-			C1 =case C of 
-				{macro_name, _, _} -> macro_name;
-				_ -> C
-			    end,
-                            {{refac_syntax:variable_name(Node), DefinePos, C1}, true};
-                        false ->
-			{value, {category, C}} = lists:keysearch(category, 1, refac_syntax:get_ann(Node)),
-                            C1 =case C of 
-                                    {macro_name, _, _} -> macro_name;
-                                    _ -> C
-                                end,
-                            {{refac_syntax:variable_name(Node), [?DEFAULT_LOC], C1}, true}
+                    Ann =refac_syntax:get_ann(Node),
+                    DefLoc =case lists:keysearch(def, 1, refac_syntax:get_ann(Node)) of
+                                {value, {def, DefinePos}} ->
+                                    DefinePos;
+                                false ->
+                                    [?DEFAULT_LOC]
+                            end,
+                    case lists:keysearch(syntax_path,1,Ann) of 
+                        {value, {syntax_path, macro_name}} ->
+                            {[], false};
+                        _ ->
+                            {{refac_syntax:variable_name(Node), DefLoc}, true}
                     end;
                 false -> {[], false}
 	  end;
@@ -186,12 +176,14 @@ pos_to_var_1(Node, _Pos = {Ln, Col}) ->
 		(Col =< Col1 + length(atom_to_list(refac_syntax:variable_name(Node))) - 1)
 	    of
 		true ->
-		    {value, {category, C}} = lists:keysearch(category, 1, refac_syntax:get_ann(Node)),
-		    case C of 
-			{macro_name, _, _} -> {[], false};
-			_ -> {Node, true}
-		    end;
-		false -> {[], false}
+                    Ann = refac_syntax:get_ann(Node),
+                    case lists:keysearch(syntax_path, 1, Ann) of
+                        {value, {syntax_path, macro_name}} ->
+                            {[], false};
+                        _ ->
+                            {Node, true}
+                    end;
+                false -> {[], false}
 	    end;
 	_ -> {[], false}
     end.
@@ -239,7 +231,7 @@ pos_to_expr_1(Tree, Start, End) ->
 %%-spec(pos_to_expr_list(Tree::syntaxTree(), Start::pos(), End::pos()) ->
 %%	     [syntaxTree()]).
 pos_to_expr_list(AnnAST, Start, End) ->
-    Es = pos_to_expr_list_1(AnnAST, Start, End, fun refac_util:is_expr_or_match/1),
+    Es = pos_to_expr_list_1(AnnAST, Start, End, fun refac_util:is_expr/1),
     get_expr_list(Es).
 
 pos_to_expr_list_1(Tree, Start, End, F) ->
