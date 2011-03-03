@@ -119,15 +119,9 @@ cond_check(Form, Expr, NewVarName) ->
 variable_replaceable(Exp) ->
     Ann = refac_syntax:get_ann(Exp),
     case lists:keysearch(category, 1, Ann) of
-	{value, {category, record_field}} ->
-	    throw({error, "Record field cannot be replaced by a variable."});
-	{value, {category, record_type}} ->
-	    throw({error, "Record type cannot be replaced by a variable."});
 	{value, {category, guard_expression}} ->
             throw({error, "Introducing a variable in a guard expression is not supported."});
-        {value, {category, {macro_name, Num, _}}} when Num/=none ->
-	    throw({error, "Replacing a macro name with a variable is not supported."});
-	_ -> ok
+      	_ -> ok
     end.
 
 get_bound_vars(Tree) ->
