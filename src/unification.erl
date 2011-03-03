@@ -91,9 +91,7 @@ same_type_expr_unification(Exp1, Exp2, Type,CheckGen) ->
     T1 = refac_syntax:type(Exp1),
     case T1 of
 	variable ->
-	    Exp1Ann = refac_syntax:get_ann(Exp1),
-	    Exp2Ann = refac_syntax:get_ann(Exp2),
-	    Exp1Name = refac_syntax:variable_name(Exp1),
+            Exp1Name = refac_syntax:variable_name(Exp1),
 	    Exp2Name = refac_syntax:variable_name(Exp2),
             case is_macro_name(Exp1) andalso is_macro_name(Exp2) of
                 true ->
