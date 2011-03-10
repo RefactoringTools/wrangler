@@ -122,7 +122,8 @@
 	 float_value/1, form_list/1, form_list_elements/1,
 	 fun_expr/1, fun_expr_arity/1, fun_expr_clauses/1,
 	 function/2, function_arity/1, function_clauses/1,
-	 function_name/1, generator/2, generator_body/1,
+	 function_name/1, function_clause/2, function_clause_name/1,
+         function_clause/1, generator/2, generator_body/1,
 	 generator_pattern/1, get_ann/1, get_attrs/1, get_pos/1,
 	 get_postcomments/1, get_precomments/1, has_comments/1,
 	 if_expr/1, if_expr_clauses/1, implicit_fun/1,
@@ -172,7 +173,7 @@
 	 tuple_size/1, type/1, underscore/0, update_tree/2,
 	 variable/1, variable_literal/1, variable_name/1,
 	 warning_marker/1, warning_marker_info/1,
-	 default_literals_vars/2]).
+	 default_literals_vars/2, empty_node/0]).
 	
 
 %% =====================================================================
@@ -987,6 +988,8 @@ set_ann(Node, As) ->
 	  set_ann(wrap(Node), As)
     end.
 
+
+
 %% =====================================================================
 %% @spec add_ann(Annotation::term(), Node::syntaxTree()) -> syntaxTree()
 %%
@@ -1009,8 +1012,19 @@ add_ann(A, Node) ->
       _ ->
 	  %% Assume we have an `erl_parse' node and create a wrapper
 	  %% structure to carry the annotation.
-	  add_ann(A, wrap(Node))
+	  Node  %%add_ann(A, wrap(Node))
     end.
+
+
+update_ann(_, none) -> none;
+update_ann({Key, Val},Node) ->
+    As0 = refac_syntax:get_ann(Node),
+    As1 = case lists:keysearch(Key, 1, As0) of
+	    {value, _} -> lists:keyreplace(Key, 1, As0, {Key, Val});
+	    _ -> [{Key, Val}|As0]
+	  end,
+    refac_syntax:set_ann(Node, As1).
+
 
 %% =====================================================================
 %% @spec copy_ann(Source::syntaxTree(), Target::syntaxTree()) ->
@@ -1179,7 +1193,7 @@ comment_padding(Node) -> (data(Node))#comment.pad.
 %%	Form = syntaxTree()
 %%	is_form(Form) = true
 
-form_list(Forms) -> tree(form_list, Forms).
+form_list(Forms) -> tree(form_list, [update_ann({syntax_path, form_list_element},F)||F<-Forms]).
 
 %% =====================================================================
 %% @spec form_list_elements(syntaxTree()) -> [syntaxTree()]
@@ -1379,10 +1393,12 @@ integer_value(Node) ->
     case is_integer(Res) of 
 	true ->
 	     Res;
-	_ -> try list_to_integer(Res) of   %% list_to_integer does not work with based integers; this is only a temp fix.
-		 V -> V
-	     catch 
-		 _E1:_E2_ -> Res
+	_ -> 
+            %% list_to_integer does not work with based integers; this is only a temp fix.
+            try list_to_integer(Res) of  
+                V -> V
+            catch 
+                _E1:_E2_ -> Res
 	     end
     end.
 
@@ -1711,7 +1727,7 @@ atom_literal(Node) ->
 %%
 %%	Elements = [erl_parse()]
 
-tuple(List) -> tree(tuple, List).
+tuple(List) -> tree(tuple, [update_ann({syntax_path, tuple_element},L)||L<-List]).
 
 revert_tuple(Node) ->
     Pos = get_pos(Node), {tuple, Pos, tuple_elements(Node)}.
@@ -1816,7 +1832,8 @@ list(List) -> list(List, none).
 
 list([], none) -> nil();
 list(Elements, Tail) when Elements /= [] ->
-    tree(list, #list{prefix = Elements, suffix = Tail}).
+    tree(list, #list{prefix = [update_ann({syntax_path, list_prefix}, E)||E<-Elements], 
+                     suffix = update_ann({syntax_path, list_suffix}, Tail)}).
 
 revert_list(Node) ->
     Pos = get_pos(Node),
@@ -1857,7 +1874,7 @@ revert_nil(Node) -> Pos = get_pos(Node), {nil, Pos}.
 %% En]</code>.
 %%
 %% @see list/2
-
+ 
 list_prefix(Node) ->
     case unwrap(Node) of
       {cons, _, Head, _} -> [Head];
@@ -2191,7 +2208,7 @@ compact_list(Node) ->
 %%	See `binary_field' for documentation on `erl_parse' binary
 %%	fields (or "elements").
 
-binary(List) -> tree(binary, List).
+binary(List) -> tree(binary, [update_ann({syntax_path, binary_field}, L) ||L<-List]).
 
 revert_binary(Node) ->
     Pos = get_pos(Node), {bin, Pos, binary_fields(Node)}.
@@ -2228,7 +2245,7 @@ binary_field(Body) -> binary_field(Body, []).
 %% equivalent to "<code>binary_field(size_qualifier(Body, Size),
 %% Types)</code>".
 %%
-%% @see binary/1
+%% @see binary/1B
 %% @see binary_field/2
 %% @see size_qualifier/2
 
@@ -2273,7 +2290,9 @@ binary_field(Body, Size, Types) ->
 
 binary_field(Body, Types) ->
     tree(binary_field,
-	 #binary_field{body = Body, types = Types}).
+	 #binary_field{body = update_ann({syntax_path, binary_field_body}, Body), 
+                       types = [update_ann({syntax_path, binary_field_type}, T)
+                                ||T<-Types]}).
 
 revert_binary_field(Node) ->
     Pos = get_pos(Node),
@@ -2281,7 +2300,7 @@ revert_binary_field(Node) ->
     {Expr, Size} = case type(Body) of
 		     size_qualifier ->
 			 %% Note that size qualifiers are not
-			 %% revertible out of context.
+			 %% revertible out of syntax_path.
 			 {size_qualifier_body(Body),
 			  size_qualifier_argument(Body)};
 		     _ -> {Body, default}
@@ -2383,7 +2402,8 @@ binary_field_size(Node) ->
 
 size_qualifier(Body, Size) ->
     copy_pos(Body, tree(size_qualifier,
-	 #size_qualifier{body = Body, size = Size})).
+	 #size_qualifier{body = update_ann({syntax_path, size_qualifier_body},Body), 
+                         size = update_ann({syntax_path, size_qualifier_size}, Size)})).
 
 %% =====================================================================
 %% @spec size_qualifier_body(syntaxTree()) -> syntaxTree()
@@ -2633,7 +2653,9 @@ attribute(Name) -> attribute(Name, none).
 %%	Representing `-Name(Term).'.
 
 attribute(Name, Args) ->
-    tree(attribute, #attribute{name = Name, args = Args}).
+    tree(attribute, #attribute{name = update_ann({syntax_path, attribute_name}, Name), 
+                               args = [update_ann({syntax_path, attribute_arg},A)
+                                       ||A<-Args]}).
 
 revert_attribute(Node) ->
     Name = attribute_name(Node),
@@ -2768,8 +2790,9 @@ attribute_arguments(Node) ->
                   M2 = if is_list(M1) ->
                                M3=[set_pos(atom(A),P) || {atom, P, A} <- M1],
                                set_pos(qualified_name(M3), get_pos(hd(M3)));
-                          true -> {atom, P, A}=M1, 
-                                  set_pos(atom(A),P)
+                          true -> 
+                               {atom, P, A}=M1, 
+                               set_pos(atom(A),P)
                        end,
                   if Vs == none -> [M2];
                      true -> [M2, set_pos(list(Vs), get_pos(hd(Vs)))]
@@ -2784,8 +2807,12 @@ attribute_arguments(Node) ->
                                                         || {_,Pos1, A} <-Module]),
                                      set_pos(Ms, get_pos(hd(Module)));
                                 true -> 
-                                     {_, Pos1, A} = Module,
-                                     set_pos(atom(A), Pos1)
+                                    case Module of 
+                                        {_, Pos1, A} ->
+                                            set_pos(atom(A), Pos1);
+                                        _ ->
+                                            set_pos(atom(Module), Pos)
+                                    end
                              end,
                           [M1, Imports];
                       _ -> 
@@ -2873,7 +2900,8 @@ full_buTP(Fun, Tree, Others) ->
 
 arity_qualifier(Body, Arity) ->
     tree(arity_qualifier,
-	 #arity_qualifier{body = Body, arity = Arity}).
+	 #arity_qualifier{body = update_ann({syntax_path, arity_qualifier_body},Body), 
+                          arity = update_ann({syntax_path, arity_qualifier_arity}, Arity)}).
 
 %% =====================================================================
 %% @spec arity_qualifier_body(syntaxTree()) -> syntaxTree()
@@ -2922,7 +2950,8 @@ arity_qualifier_argument(Node) ->
 
 module_qualifier(Module, Body) ->
     tree(module_qualifier,
-	 #module_qualifier{module = Module, body = Body}).
+	 #module_qualifier{module = update_ann({syntax_path, module_qualifier_argument}, Module), 
+                           body = update_ann({syntax_path, module_qualifier_body}, Body)}).
 
 revert_module_qualifier(Node) ->
     Pos = get_pos(Node),
@@ -2981,7 +3010,8 @@ module_qualifier_body(Node) ->
 %% see type/1 for details.
 
 qualified_name(Segments) ->
-    tree(qualified_name, Segments).
+    tree(qualified_name, [update_ann({syntax_path, qualified_name_segment}, S)
+                          ||S<-Segments]).
 
 revert_qualified_name(Node) ->
     Pos = get_pos(Node),
@@ -3052,7 +3082,9 @@ qualified_name_segments(Node) ->
 
 function(Name, Clauses) ->
     tree(function,
-	 #function{name = Name, clauses = Clauses}).
+	 #function{name = update_ann({syntax_path, function_name}, Name), 
+                   clauses = [update_ann({syntax_path, function_clause}, C)
+                              ||C<-Clauses]}).
 
 revert_function(Node) ->
     Name = function_name(Node),
@@ -3099,6 +3131,21 @@ function_clauses(Node) ->
       {function, _, _, _, Clauses} -> Clauses;
       Node1 -> (data(Node1))#function.clauses
     end.
+%%=============================================
+%% Added by HL;
+%%=============================================
+-record(function_clause, {name, clause}).
+function_clause(Name, Clause) ->
+    set_pos(tree(function_clause, 
+                 #function_clause{name=update_ann({syntax_path, function_name},Name), 
+                                  clause=update_ann({syntax_path, function_clause},Clause)}),
+            get_pos(Clause)).
+
+function_clause_name(Node) ->
+    (data(Node))#function_clause.name.
+
+function_clause(Node) ->
+    (data(Node))#function_clause.clause.
 
 %% =====================================================================
 %% @spec function_arity(Node::syntaxTree()) -> integer()
@@ -3203,8 +3250,9 @@ clause(Patterns, Guard, Body) ->
 		   Guard
 	     end,
     tree(clause,
-	 #clause{patterns = Patterns, guard = Guard1,
-		 body = Body}).
+	 #clause{patterns = [update_ann({syntax_path, clause_pattern}, P)||P<-Patterns], 
+                 guard = update_ann({syntax_path, clause_guard}, Guard1),
+                 body = [update_ann({syntax_path,body_expr},B)||B<-Body]}).
 
 conjunction_list([L | Ls]) ->
     [conjunction(L) | conjunction_list(Ls)];
@@ -3383,7 +3431,7 @@ conjunction_body(Node) -> data(Node).
 %%
 %%	Expr = erl_parse()
 
-catch_expr(Expr) -> tree(catch_expr, Expr).
+catch_expr(Expr) -> tree(catch_expr, update_ann({syntax_path, catch_expr_body}, Expr)).
 
 revert_catch_expr(Node) ->
     Pos = get_pos(Node),
@@ -3428,7 +3476,8 @@ catch_expr_body(Node) ->
 
 match_expr(Pattern, Body) ->
     tree(match_expr,
-	 #match_expr{pattern = Pattern, body = Body}).
+	 #match_expr{pattern = update_ann({syntax_path, match_expr_pattern}, Pattern), 
+                     body = update_ann({syntax_path, match_expr_body},Body)}).
 
 revert_match_expr(Node) ->
     Pos = get_pos(Node),
@@ -3480,9 +3529,15 @@ match_expr_body(Node) ->
 %% type(Node) = operator
 %% data(Node) = atom()
 
+%% operator(Name) when is_atom(Name) ->
+%%     tree(operator, update_ann({syntax_path, operator_name}, Name));
+%% operator(Name) -> tree(operator, update_ann({syntax_path, operator_name},list_to_atom(Name))).
+
+
 operator(Name) when is_atom(Name) ->
-    tree(operator, Name);
+    tree(operator,Name);
 operator(Name) -> tree(operator, list_to_atom(Name)).
+
 
 %% =====================================================================
 %% @spec operator_name(syntaxTree())-> atom()
@@ -3536,8 +3591,9 @@ operator_literal(Node) ->
 
 infix_expr(Left, Operator, Right) ->
     tree(infix_expr,
-	 #infix_expr{operator = Operator, left = Left,
-		     right = Right}).
+	 #infix_expr{operator = update_ann({syntax_path, infix_expr_operator},Operator), 
+                     left = update_ann({syntax_path, infix_expr_left}, Left),
+		     right = update_ann({syntax_path, infix_expr_right},Right)}).
 
 revert_infix_expr(Node) ->
     Pos = get_pos(Node),
@@ -3547,7 +3603,7 @@ revert_infix_expr(Node) ->
     case type(Operator) of
       operator ->
 	  %% Note that the operator itself is not revertible out
-	  %% of context.
+	  %% of syntax_path.
 	  {op, Pos, operator_name(Operator), Left, Right};
       _ -> Node
     end.
@@ -3623,7 +3679,8 @@ infix_expr_right(Node) ->
 
 prefix_expr(Operator, Argument) ->
     tree(prefix_expr,
-	 #prefix_expr{operator = Operator, argument = Argument}).
+	 #prefix_expr{operator = update_ann({syntax_path, prefix_expr_operator},Operator), 
+                      argument = update_ann({syntax_path, prefix_expr_argument},Argument)}).
 
 revert_prefix_expr(Node) ->
     Pos = get_pos(Node),
@@ -3694,27 +3751,29 @@ record_field(Name) -> record_field(Name, none).
 
 record_field(Name, Value) ->
     tree(record_field,
-	 #record_field{name = Name, value = Value}).
+	 #record_field{name = update_ann({syntax_path, record_field_name}, Name), 
+                       value = update_ann({syntax_path, record_field_value}, Value)}).
 
 
--record(typed_record_field, {recordfield, type}).
+-record(typed_record_field, {record_field, type}).
 
 
 typed_record_field(RecordField, Type) ->
     tree(typed_record_field,
-	 #typed_record_field{recordfield=RecordField, type=Type}).
+	 #typed_record_field{record_field=update_ann({syntax_path, record_field}, RecordField), 
+                             type=update_ann({syntax_path, record_type},Type)}).
 
       
 typed_record_field_name(Node) ->
-    Field = (data(Node))#typed_record_field.recordfield,
+    Field = (data(Node))#typed_record_field.record_field,
     (data(Field))#record_field.name.
 
 typed_record_field_value(Node) ->
-    Field = (data(Node))#typed_record_field.recordfield,
+    Field = (data(Node))#typed_record_field.record_field,
     (data(Field))#record_field.value.
 
 typed_record_field(Node) ->
-    (data(Node))#typed_record_field.recordfield.
+    (data(Node))#typed_record_field.record_field.
 
 typed_record_type(Node) ->
     (data(Node))#typed_record_field.type.
@@ -3775,7 +3834,8 @@ record_field_value(Node) ->
 
 record_index_expr(Type, Field) ->
     tree(record_index_expr,
-	 #record_index_expr{type = Type, field = Field}).
+	 #record_index_expr{type = update_ann({syntax_path, record_index_expr_type},Type), 
+                            field = update_ann({syntax_path, record_index_expr_field},Field)}).
 
 revert_record_index_expr(Node) ->
     Pos = get_pos(Node),
@@ -3861,8 +3921,9 @@ record_access(Argument, Field) ->
 
 record_access(Argument, Type, Field) ->
     tree(record_access,
-	 #record_access{argument = Argument, type = Type,
-			field = Field}).
+	 #record_access{argument = update_ann({syntax_path, record_access_argument}, Argument),
+                        type = update_ann({syntax_path, record_access_type}, Type),
+                        field = update_ann({syntax_path, record_access_field}, Field)}).
 
 revert_record_access(Node) ->
     Pos = get_pos(Node),
@@ -3877,7 +3938,6 @@ revert_record_access(Node) ->
 	     _ -> Node
 	   end
     end.
-
 %% =====================================================================
 %% @spec record_access_argument(syntaxTree()) -> syntaxTree()
 %%
@@ -3980,8 +4040,9 @@ record_expr(Type, Fields) ->
 
 record_expr(Argument, Type, Fields) ->
     tree(record_expr,
-	 #record_expr{argument = Argument, type = Type,
-		      fields = Fields}).
+	 #record_expr{argument = update_ann({syntax_path, record_expr_argument},Argument),
+                      type = update_ann({syntax_path, record_expr_type}, Type),
+		      fields = [update_ann({syntax_path, record_expr_field}, F)|| F<-Fields]}).
 
 revert_record_expr(Node) ->
     Pos = get_pos(Node),
@@ -4108,8 +4169,8 @@ application(Module, Name, Arguments) ->
 
 application(Operator, Arguments) ->
     tree(application,
-	 #application{operator = Operator,
-		      arguments = Arguments}).
+	 #application{operator = update_ann({syntax_path, application_operator}, Operator),
+		      arguments = [update_ann({syntax_path, application_argument}, A)||A<-Arguments]}).
 
 revert_application(Node) ->
     Pos = get_pos(Node),
@@ -4179,7 +4240,8 @@ application_arguments(Node) ->
 
 list_comp(Template, Body) ->
     tree(list_comp,
-	 #list_comp{template = Template, body = Body}).
+	 #list_comp{template = update_ann({syntax_path, list_comp_template},Template), 
+                    body = [update_ann({syntax_path, list_comp_body}, B)||B<-Body]}).
 
 revert_list_comp(Node) ->
     Pos = get_pos(Node),
@@ -4245,7 +4307,8 @@ list_comp_body(Node) ->
 %%-spec binary_comp(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
 binary_comp(Template, Body) ->
-    tree(binary_comp, #binary_comp{template = Template, body = Body}).
+    tree(binary_comp, #binary_comp{template = update_ann({syntax_path, binary_comp_template},Template), 
+                                   body = [update_ann({syntax_path, binary_comp_body}, B) || B<-Body]}).
 
 revert_binary_comp(Node) ->
     Pos = get_pos(Node),
@@ -4310,7 +4373,7 @@ binary_comp_body(Node) ->
 %%
 %%	Body = erl_parse()
 
-query_expr(Body) -> tree(query_expr, Body).
+query_expr(Body) -> tree(query_expr, update_ann({syntax_path, query_expr_body}, Body)).
 
 revert_query_expr(Node) ->
     Pos = get_pos(Node),
@@ -4374,7 +4437,8 @@ query_expr_body(Node) ->
 %%	`erl_parse' clauses.
 
 rule(Name, Clauses) ->
-    tree(rule, #rule{name = Name, clauses = Clauses}).
+    tree(rule, #rule{name = update_ann({syntax_path, rule_name},Name), 
+                     clauses =[update_ann({syntax_path, rule_clause}, C)||C<-Clauses]}).
 
 revert_rule(Node) ->
     Name = rule_name(Node),
@@ -4461,7 +4525,8 @@ rule_arity(Node) ->
 
 generator(Pattern, Body) ->
     tree(generator,
-	 #generator{pattern = Pattern, body = Body}).
+	 #generator{pattern = update_ann({syntax_path, generator_pattern}, Pattern), 
+                    body = update_ann({syntax_path, generator_body}, Body)}).
 
 revert_generator(Node) ->
     Pos = get_pos(Node),
@@ -4524,7 +4589,9 @@ generator_body(Node) ->
 %%-spec binary_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
 
 binary_generator(Pattern, Body) ->
-    tree(binary_generator, #binary_generator{pattern = Pattern, body = Body}).
+    tree(binary_generator, 
+         #binary_generator{pattern = update_ann({syntax_path, binary_generator_pattern},Pattern), 
+                           body = update_ann({syntax_path, binary_generator_body},Body)}).
 
 revert_binary_generator(Node) ->
     Pos = get_pos(Node),
@@ -4589,7 +4656,7 @@ binary_generator_body(Node) ->
 %%
 %%	    Body = [erl_parse()] \ []
 
-block_expr(Body) -> tree(block_expr, Body).
+block_expr(Body) -> tree(block_expr, [update_ann({syntax_path, body_expr}, B)||B<-Body]).
 
 revert_block_expr(Node) ->
     Pos = get_pos(Node),
@@ -4639,7 +4706,7 @@ block_expr_body(Node) ->
 %%
 %%	See `clause' for documentation on `erl_parse' clauses.
 
-if_expr(Clauses) -> tree(if_expr, Clauses).
+if_expr(Clauses) -> tree(if_expr, [update_ann({syntax_path, if_expr_clause}, C)||C<-Clauses]).
 
 revert_if_expr(Node) ->
     Pos = get_pos(Node),
@@ -4704,7 +4771,8 @@ if_expr_clauses(Node) ->
 
 case_expr(Argument, Clauses) ->
     tree(case_expr,
-	 #case_expr{argument = Argument, clauses = Clauses}).
+	 #case_expr{argument = update_ann({syntax_path, case_expr_argument}, Argument), 
+                    clauses = [update_ann({syntax_path, case_expr_clause}, C)||C<-Clauses]}).
 
 revert_case_expr(Node) ->
     Pos = get_pos(Node),
@@ -4769,7 +4837,7 @@ case_expr_clauses(Node) ->
 %%
 %%	See `clause' for documentation on `erl_parse' clauses.
 
-cond_expr(Clauses) -> tree(cond_expr, Clauses).
+cond_expr(Clauses) -> tree(cond_expr, [update_ann({syntax_path, cond_expr_clause}, C)||C<-Clauses]).
 
 revert_cond_expr(Node) ->
     Pos = get_pos(Node),
@@ -4863,8 +4931,10 @@ receive_expr(Clauses, Timeout, Action) ->
 		_ -> Action
 	      end,
     tree(receive_expr,
-	 #receive_expr{clauses = Clauses, timeout = Timeout,
-		       action = Action1}).
+	 #receive_expr{clauses = [update_ann({syntax_path, receive_expr_clause}, C)
+                                  ||C<-Clauses], 
+                       timeout = update_ann({syntax_path, receive_expr_timeout}, Timeout),
+                       action = [update_ann({syntax_path, receive_expr_action}, A)||A<-Action1]}).
 
 revert_receive_expr(Node) ->
     Pos = get_pos(Node),
@@ -5016,8 +5086,10 @@ try_after_expr(Body, After) ->
 
 try_expr(Body, Clauses, Handlers, After) ->
     tree(try_expr,
-	 #try_expr{body = Body, clauses = Clauses,
-		   handlers = Handlers, 'after' = After}).
+	 #try_expr{body = [update_ann({syntax_path, body_expr}, B)||B<-Body], 
+                   clauses = [update_ann({syntax_path, try_expr_clause}, C)||C<-Clauses],
+		   handlers =[update_ann({syntax_path, try_expr_handler}, H)||H<-Handlers], 
+                   'after' = [update_ann({syntax_path, body_expr}, B)||B<-After]}).
 
 revert_try_expr(Node) ->
     Pos = get_pos(Node),
@@ -5108,7 +5180,8 @@ try_expr_after(Node) ->
 
 class_qualifier(Class, Body) ->
     tree(class_qualifier,
-	 #class_qualifier{class = Class, body = Body}).
+	 #class_qualifier{class = update_ann({syntax_path, class_qualifier_class},Class), 
+                          body = update_ann({syntax_path, class_qualifier_body}, Body)}).
 
 %% =====================================================================
 %% @spec class_qualifier_argument(syntaxTree()) -> syntaxTree()
@@ -5166,7 +5239,7 @@ implicit_fun(Name, Arity) ->
 %%	Name = atom()
 %%	Arity = integer()
 
-implicit_fun(Name) -> tree(implicit_fun, Name).
+implicit_fun(Name) -> tree(implicit_fun, update_ann({syntax_path, implicit_fun_name},Name)).
 
 revert_implicit_fun(Node) ->
     Pos = get_pos(Node),
@@ -5309,12 +5382,12 @@ fun_expr_arity(Node) ->
 %% type(Node) = parentheses
 %% data(Node) = syntaxTree()
 
-parentheses(Expr) -> tree(parentheses, Expr).
+parentheses(Expr) -> tree(parentheses, update_ann({syntax_path, parentheses_body}, Expr)).
 
 revert_parentheses(Node) -> parentheses_body(Node).
 
 
-fake_parentheses(Expr) -> tree(fake_parentheses, Expr).
+fake_parentheses(Expr) -> tree(fake_parentheses, update_ann({syntax_path, fake_parentheses_body}, Expr)).
 
 revert_fake_parentheses(Node) -> fake_parentheses_body(Node).
 
@@ -5329,6 +5402,8 @@ revert_fake_parentheses(Node) -> fake_parentheses_body(Node).
 parentheses_body(Node) -> data(Node).
 
 fake_parentheses_body(Node) -> data(Node).
+
+empty_node() ->tree(empty_node, none).
 
 %% =====================================================================
 %% @spec macro(Name) -> syntaxTree()
@@ -5371,7 +5446,13 @@ macro(Name) -> macro(Name, none).
 %%	Arguments = none | [syntaxTree()]
 
 macro(Name, Arguments) ->
-    tree(macro, #macro{name = Name, arguments = Arguments}).
+    tree(macro, #macro{name = update_ann({syntax_path, macro_name}, Name), 
+                       arguments = case Arguments of 
+                                       none -> none;
+                                       _ ->[update_ann({syntax_path, macro_argument}, A)
+                                            ||A<-Arguments]
+                                   end
+                       }).
 
 %% =====================================================================
 %% @spec macro_name(syntaxTree()) -> syntaxTree()
@@ -5818,6 +5899,7 @@ subtrees(T) ->
 	    form_list -> [form_list_elements(T)];
 	    fun_expr -> [fun_expr_clauses(T)];
 	    function -> [[function_name(T)], function_clauses(T)];
+            function_clause ->[[function_clause_name(T)], [function_clause(T)]];
 	    generator ->
 		[[generator_pattern(T)], [generator_body(T)]];
 	    if_expr -> [if_expr_clauses(T)];
@@ -5887,6 +5969,7 @@ subtrees(T) ->
 		 try_expr_handlers(T), try_expr_after(T)];
 	    tuple -> [tuple_elements(T)];
 	    type -> [];
+            empty_node -> [];
 		_ ->[]  %% added by huiqing li to handle {wrapper, [] ...} which could be returned from Elisp.
 	    end
     end.
@@ -5955,6 +6038,7 @@ make_tree(disjunction, [E]) -> disjunction(E);
 make_tree(form_list, [E]) -> form_list(E);
 make_tree(fun_expr, [C]) -> fun_expr(C);
 make_tree(function, [[N], C]) -> function(N, C);
+make_tree(function_clause, [[N], [C]]) -> function_clause(N, C);
 make_tree(generator, [[P], [E]]) -> generator(P, E);
 make_tree(if_expr, [C]) -> if_expr(C);
 make_tree(implicit_fun, [[N]]) -> implicit_fun(N);

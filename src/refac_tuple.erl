@@ -95,8 +95,8 @@ tuple_funpar(FileName, Line, Col, Index, Num, SearchPaths, TabWidth) ->
 tuple_funpar_1(FileName, StartLoc = {StartLine, StartCol}, EndLoc = {EndLine, EndCol}, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":tuple_funpar(" ++ "\"" ++ 
 	    FileName ++ "\", {" ++ integer_to_list(StartLine) ++ ", " ++ integer_to_list(StartCol) ++ "}," ++ 
-	      "{" ++ integer_to_list(EndLine) ++ ", " ++ integer_to_list(EndCol) ++ "}, ["
-										       ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+        "{" ++ integer_to_list(EndLine) ++ ", " ++ integer_to_list(EndCol) ++ "}, ["
+        ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {FunName, FunArity, Index, Num} = pos_to_pars(AnnAST, StartLoc, EndLoc),
     tuple_par_0(FileName, AnnAST, Info, FunName, FunArity,
@@ -109,7 +109,7 @@ tuple_funpar(FileName, StartLoc = {StartLine, StartCol}, EndLoc = {EndLine, EndC
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":tuple_funpar(" ++ "\"" ++ 
 	    FileName ++ "\", {" ++ integer_to_list(StartLine) ++ ", " ++ integer_to_list(StartCol) ++ "}," ++ 
 	      "{" ++ integer_to_list(EndLine) ++ ", " ++ integer_to_list(EndCol) ++ "}, ["
-										       ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+        ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {FunName, FunArity, Index, Num} = pos_to_pars(AnnAST, StartLoc, EndLoc),
     NewArity = FunArity - Num + 1,

@@ -27,9 +27,8 @@
 
 -module(interface_api).
 
-
 -export([pos_to_fun_name/2,pos_to_fun_def/2,pos_to_var_name/2,pos_to_var/2,pos_to_expr/3,
-	 pos_to_expr_list/3,pos_to_expr_or_pat_list/3,expr_to_fun/2]).
+	 pos_to_expr_list/2,pos_to_expr_list/3,pos_to_expr_or_pat_list/3,expr_to_fun/2]).
 
 -include("../include/wrangler.hrl").
 %% ==========================================================================
@@ -83,16 +82,29 @@ pos_to_fun_name_1(Node, Pos = {Ln, Col}) ->
 %% @see pos_to_fun_name/2.
 %%-spec(pos_to_fun_def(Node::syntaxTree(), Pos::pos()) 
 %%      -> {ok, syntaxTree()} | {error, string()}).
-pos_to_fun_def(Node, Pos) ->
-    case
-      ast_traverse_api:once_tdTU(fun pos_to_fun_def_1/2, Node, Pos)
-	of
-      {_, false} -> {error, "You have not selected a function definition, "
-			    "or the function definition selected does not parse."};
-      {R, true} -> {ok, R}
+
+pos_to_fun_def(FileOrTree, Pos) ->
+    case filelib:is_regular(FileOrTree) of 
+        true ->
+            {ok, {AnnAST, _}} = wrangler_ast_server:parse_annotate_file(FileOrTree, true),
+            pos_to_fun_def_1(AnnAST, Pos);
+        false ->
+            case refac_syntax:is_tree(FileOrTree) of 
+                true ->
+                    pos_to_fun_def_1(FileOrTree, Pos);
+                false ->
+                    throw({error, "Badarg to function interface_api:pos_to_fun_def/2"})
+            end
+    end.
+               
+pos_to_fun_def_1(Node, Pos) ->
+    case ast_traverse_api:once_tdTU(fun pos_to_fun_def_2/2, Node, Pos) of
+        {_, false} -> {error, "You have not selected a function definition, "
+                       "or the function definition selected does not parse."};
+        {R, true} -> {ok, R}
     end.
 
-pos_to_fun_def_1(Node, Pos) ->
+pos_to_fun_def_2(Node, Pos) ->
     case refac_syntax:type(Node) of
 	function ->
 	    {S, E} = refac_util:get_start_end_loc(Node),
@@ -102,9 +114,6 @@ pos_to_fun_def_1(Node, Pos) ->
 	    end;
 	_ -> {[], false}
     end.
-
-
-
 
 %% =====================================================================
 %% @spec pos_to_var_name(Node::syntaxTree(), Pos::{integer(), integer()})->
@@ -226,13 +235,32 @@ pos_to_expr_1(Tree, Start, End) ->
        true -> []
     end.
 
+
 %% =====================================================================
-%% get the list expressions enclosed by start and end locations.
-%%-spec(pos_to_expr_list(Tree::syntaxTree(), Start::pos(), End::pos()) ->
-%%	     [syntaxTree()]).
-pos_to_expr_list(AnnAST, Start, End) ->
-    Es = pos_to_expr_list_1(AnnAST, Start, End, fun refac_util:is_expr/1),
-    get_expr_list(Es).
+%% Return the list expressions enclosed by start and end locations.
+%% ====================================================================
+-spec(pos_to_expr_list(filename()|syntaxTree(), {Start::pos(), End::pos()}) ->
+	     [syntaxTree()]).
+pos_to_expr_list(FileOrTree, {Start, End}) ->
+    pos_to_expr_list(FileOrTree, Start, End).
+
+-spec(pos_to_expr_list(filename()|syntaxTree(), Start::pos(), End::pos()) ->
+	     [syntaxTree()]).
+pos_to_expr_list(FileOrTree, Start, End) ->
+  case filelib:is_regular(FileOrTree) of 
+      true ->
+          {ok, {AnnAST, _}} = wrangler_ast_server:parse_annotate_file(FileOrTree, true),
+          Es=pos_to_expr_list_1(AnnAST, Start, End, fun refac_util:is_expr/1),
+          get_expr_list(Es);
+      false ->
+          case refac_syntax:is_tree(FileOrTree) of 
+              true ->
+                  Es=pos_to_expr_list_1(FileOrTree, Start, End, fun refac_util:is_expr/1),
+                  get_expr_list(Es);
+              false ->
+                  []
+          end
+  end.
 
 pos_to_expr_list_1(Tree, Start, End, F) ->
     {S, E} = refac_util:get_start_end_loc(Tree),

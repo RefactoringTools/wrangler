@@ -71,7 +71,7 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_var(" ++ "\"" ++ 
 	     FName ++ "\", " ++ integer_to_list(Line) ++ 
 	       ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
-									     ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+        ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case refac_util:is_var_name(NewName) of
 	true -> ok;
 	false -> throw({error, "Invalid new variable name."})
@@ -79,32 +79,22 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     NewName1 = list_to_atom(NewName),
     {ok, {AnnAST1, _Info1}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     case interface_api:pos_to_var_name(AnnAST1, {Line, Col}) of
-	{ok, {VarName, DefinePos, C}} ->
-	    {VarName, DefinePos, C};
+	{ok, {VarName, DefinePos}} ->
+	    {VarName, DefinePos};
 	{error, _} ->
 	    throw({error, "You have not selected a variable name, "
 			  "or the variable selected does not belong to "
 			  "a syntactically well-formed function!"}),
-	    {VarName, DefinePos, C} = {none, none, none}
+	    {VarName, DefinePos} = {none, none}
     end,
     if DefinePos == [{0, 0}] ->
-	   case C of
-	       macro_name ->
-		   throw({error, "Renaming of a macro name is not supported by this refactoring!"});
-	       _ ->
-		   throw({error, "Renaming of a free variable is not supported by this refactoring!"})
-	   end;
+            throw({error, "Renaming of a free variable is not supported by this refactoring!"});
        true -> ok
     end,
     if VarName /= NewName1 ->
-	   case C of
-	       macro_name ->
-		   throw({error, "Renaming of macro names is not supported yet."});
-	       _ -> ok
-	   end,
-	   Form = pos_to_form(AnnAST1, {Line, Col}),
-	   Res = cond_check(Form, DefinePos, VarName, NewName1),
-	   case Res of
+            Form = pos_to_form(AnnAST1, {Line, Col}),
+            Res = cond_check(Form, DefinePos, VarName, NewName1),
+            case Res of
 	       {true, _, _} ->
 		   throw({error, "The new name is already declared in the same scope."});
 	       {_, true, _} ->

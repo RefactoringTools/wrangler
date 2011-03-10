@@ -70,47 +70,108 @@ once_tdTU(Function, Node, Others) ->
     end.
 
 
-until(_F, [], _Others) -> {[], false};
-until(F, [H| T], Others) ->
-    case once_tdTU(F, H, Others) of
-      {_R, true} -> {_R, true};
-      {_Rq, false} -> until(F, T, Others)
-    end.
+ until(_F, [], _Others) -> {[], false};
+ until(F, [H| T], Others) ->
+     case once_tdTU(F, H, Others) of
+       {_R, true} -> {_R, true};
+       {_Rq, false} -> until(F, T, Others)
+     end.
 
-%% =====================================================================
-%% @spec stop_tdTP(Function, Tree::syntaxTree(), Others::[term()])->  syntaxTree()
-%%       Function = (syntaxTree(),{term()}) -> {syntaxTree(), boolean()}
-%%
-%% @doc Stop-topdown type-preserving traversal of the abstract syntax tree.
-%% This function does a pre-order traversal of the abstract syntax tree, and
-%% modifies certain nodes according to Function. Once a node has been modified, 
-%% its subtrees are not going to be traversed.
-%% 'Function' must have a arity of two, with the first being the AST node, and 
-%% the second being a tuple containing all the other needed info; 'Function' 
-%% should returns a tuple containing the possibly modified node and a bool value, 
-%% with the bool value indicating whether the node has been modified.
-%%
-%% @see full_buTP/2
-%% @see once_tdTU/3
-%%-spec(stop_tdTP/3::(fun((syntaxTree(), anyterm()) ->
-%%			       {syntaxTree(), boolean()}), syntaxTree(), anyterm()) ->
-%%	     {syntaxTree(), boolean()}).
+ %% =====================================================================
+ %% @spec stop_tdTP(Function, Tree::syntaxTree(), Others::[term()])->  syntaxTree()
+ %%       Function = (syntaxTree(),{term()}) -> {syntaxTree(), boolean()}
+ %%
+ %% @doc Stop-topdown type-preserving traversal of the abstract syntax tree.
+ %% This function does a pre-order traversal of the abstract syntax tree, and
+ %% modifies certain nodes according to Function. Once a node has been modified, 
+ %% its subtrees are not going to be traversed.
+ %% 'Function' must have a arity of two, with the first being the AST node, and 
+ %% the second being a tuple containing all the other needed info; 'Function' 
+ %% should returns a tuple containing the possibly modified node and a bool value, 
+ %% with the bool value indicating whether the node has been modified.
+ %%
+ %% @see full_buTP/2
+ %% @see once_tdTU/3
+ %%-spec(stop_tdTP/3::(fun((syntaxTree(), anyterm()) ->
+ %%			       {syntaxTree(), boolean()}), syntaxTree(), anyterm()) ->
+ %%	     {syntaxTree(), boolean()}).
 stop_tdTP(Function, Node, Others) ->
-    case Function(Node, Others) of
-      {Node1, true} -> {Node1, true};
-      {Node1, false} ->
-	  case refac_syntax:subtrees(Node1) of
-	    [] -> {Node1, false};
-	    Gs ->
-		Gs1 = [[stop_tdTP(Function, T, Others) || T <- G] || G <- Gs],
-		Gs2 = [[N || {N, _B} <- G] || G <- Gs1],
-		G = [[B || {_N, B} <- G] || G <- Gs1],
-		Node2 = refac_syntax:make_tree(refac_syntax:type(Node1), Gs2),
-		{rewrite(Node1, Node2), lists:member(true, lists:flatten(G))}
-	  end
-    end.
+     case Function(Node, Others) of
+       {Node1, true} -> {Node1, true};
+       {Node1, false} ->
+           case refac_syntax:subtrees(Node1) of
+             [] -> {Node1, false};
+             Gs ->
+                 Gs1 = [[stop_tdTP(Function, T, Others) || T <- G] || G <- Gs],
+                 Gs2 = [[N || {N, _B} <- G] || G <- Gs1],
+                 G = [[B || {_N, B} <- G] || G <- Gs1],
+                 Node2 = refac_syntax:make_tree(refac_syntax:type(Node1), Gs2),
+                 {rewrite(Node1, Node2), lists:member(true, lists:flatten(G))}
+           end
+     end.
+
+%% stop_buTP(Fun, Tree, Others) ->
+%%      case refac_syntax:subtrees(Tree) of 
+%%          [] ->
+%%              Fun(Tree, Others);
+%%          Gs ->
+%%              Gs1 = [[stop_buTP(Function, T, Others) || T <- G] || G <- Gs],
+%%              Gs2 = [[N || {N, _C} <- G] || G <- Gs1],
+%%              Changed = lists:member(true, lists:flatten([[C || {_N, C} <- G] || G <- Gs1])),
+%%              Tree1 = rewrite(Tree, refac_syntax:make_tree(refac_syntax:type(Tree), Gs2)),
+%%              if Changed ->
+%%                      {Tree1, Changed};
+%%                 true ->
+%%                      Fun(Tree1)
+%%              end
+%%      end.
+
+%% once_buTP(Fun, Tree, Opters) ->   
+%%     case refac_syntax:subtrees(Tree) of 
+%%         [] ->
+%%             Fun(Tree, Others);
+%%         Gs ->
+%%             Gs1 =[once(Fun, G)||G <- Gs],
+%%             Gs2 = [[N || N<- G] || {G, _} <- Gs1],
+%%             Changed = lists:member(true, lists:flatten([C || {G, C} <- Gs1])),
+%%             Tree1 = rewrite(Tree, refac_syntax:make_tree(refac_syntax:type(Tree), Gs2)),
+%%             if Changed ->
+%%                     Tree1;
+%%                true ->
+%%                     Fun(Tree1)
+%%             end
+%%     end.
 
 
+%% once(Fun, Gs) ->
+%%     once(Fun, Gs, []).
+
+%% once(Fun, [], Acc) ->
+%%     {lists:reverse(Acc), false}.
+%% once(Fun, [H|T], Acc) ->
+%%     case Fun(H) of
+%%        {H1, true} ->
+%%            {lists:reverse(Acc)++[H1|T], true};
+%%        {H1, false} ->
+%%            once(T, [H1|Acc])
+%%    end.
+
+%% stop_buTP(Fun, Tree, Others) ->
+%%     case refac_syntax:subtrees(Tree) of 
+%%         [] ->
+%%             Fun(Tree, Others);
+%%          Gs ->
+%%             Gs1 = [[stop_buTP(Function, T, Others) || T <- G] || G <- Gs],
+%%             Gs2 = [[N || {N, _C} <- G] || G <- Gs1],
+%%              Changed = lists:member(true, lists:flatten([[C || {_N, C} <- G] || G <- Gs1])),
+%%             Tree1 = rewrite(Tree, refac_syntax:make_tree(refac_syntax:type(Tree), Gs2)),
+%%             if Changed ->
+%%                      Tree1;
+%%                true ->
+%%                      Fun(Tree1)
+%%             end
+%%     end.
+%%
 %%-spec(full_tdTP/3::(fun((syntaxTree(), anyterm()) ->
 %%			       {syntaxTree(), boolean()}), syntaxTree(), anyterm()) ->
 %%	     {syntaxTree(), boolean()}).

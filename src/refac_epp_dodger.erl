@@ -67,7 +67,8 @@
 
 -module(refac_epp_dodger).
 
--export([parse_file/2, normal_parser/2, fix_pos_in_form/2]).
+-export([parse_file/2, normal_parser/2, parse_tokens/1, fix_pos_in_form/2,
+        scan_form/2, scan_macros/2, rewrite_list/1]).
 
 %% The following should be: 1) pseudo-uniquely identifiable, and 2)
 %% cause nice looking error messages when the parser has to give up.
@@ -237,6 +238,7 @@ end_pos([], L) ->
 end_pos(Ts, _L) ->
     element(2, lists:last(Ts)).
 %% Exception-throwing wrapper for the standard Erlang parser stage
+
 
 parse_tokens(Ts) ->
     parse_tokens(Ts, fun fix_form/1).

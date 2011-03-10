@@ -2321,35 +2321,48 @@ adjust_locations(Form, Toks) ->
 %% @doc  Update the defining locations of those binding occurrences which are
 %% associated with more than one binding occurrence.
 
-
 update_var_define_locations(Node) ->
-    F1 = fun (T, S) ->
+    F1 = fun (T, {S1,S2}) ->
 		 case refac_syntax:type(T) of
 		     variable ->
-			 R = lists:keysearch(def, 1, refac_syntax:get_ann(T)),
+			 Ann = refac_syntax:get_ann(T),
+                         Pos = refac_syntax:get_pos(T),
+                         R = lists:keysearch(def, 1, Ann),
 			 case R of
-			     {value, {def, P}} -> S ++ [P];
-			     _ -> S
+			     {value, {def, P}} ->
+                                 {[{Pos, P}|S1], [P|S2]};
+                             false ->
+                                 %% This should not happen.
+                                 {S1,S2}
 			 end;
-		     _ -> S
+		     _ -> {S1, S2}
 		 end
 	 end,
-    DefineLocs = lists:usort(ast_traverse_api:fold(F1, [], Node)),
+    {SrcDefLocs, DefLocs} =ast_traverse_api:fold(F1, {[],[]}, Node),
     F = fun (T) ->
 		case refac_syntax:type(T) of
 		    variable ->
-			case lists:keysearch(def, 1, refac_syntax:get_ann(T)) of
+			Ann = refac_syntax:get_ann(T),
+                        case lists:keysearch(def, 1, Ann) of
 			    {value, {def, Define}} ->
-				Defs = lists:merge([V1
-						    || V1 <- DefineLocs,
-						       ordsets:intersection(ordsets:from_list(V1), ordsets:from_list(Define)) /= []]),
-				refac_util:update_ann(T, {def, lists:usort(Defs)});
-			    _ -> T
+				Defs = lists:merge(
+                                         [V1|| V1 <- DefLocs,
+                                               list_intersection(Define,V1) /= []]),
+                                Uses=[P||{P, D} <- SrcDefLocs, list_intersection(D, Defs) /= []],
+                                T1=refac_util:update_ann(T, {def, lists:usort(Defs)}),
+                                refac_util:update_ann(T1, {use, lists:usort(Uses)});
+			    false -> T
 			end;
 		    _ -> T
 		end
 	end,
     ast_traverse_api:map(F, Node).
+
+list_intersection(L1, L2) ->
+    ordsets:to_list(ordsets:intersection(
+                      ordsets:from_list(L1),
+                      ordsets:from_list(L2))).
+
 
 update_ann(Tree, {Key, Val}) ->
     As0 = refac_syntax:get_ann(Tree),

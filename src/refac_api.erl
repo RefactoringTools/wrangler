@@ -31,26 +31,31 @@
 %% =====================================================================
 
 
--module(refac_util).
+-module(refac_api).
 
 -export([group_by/2, filehash/1,collect_var_source_def_pos_info/1,
-	 get_start_end_loc/1,apply_style_funs/0,
+	 start_end_loc/1, apply_style_funs/0,
 	 testserver_callback_funs/0,eqc_statem_callback_funs/0,
 	 eqc_fsm_callback_funs/0,commontest_callback_funs/0, try_eval/4,
 	 make_new_name/2,collect_var_names/1,collect_used_macros/1,
 	 collect_used_records/1, ghead/2, glast/2, to_upper/1, to_lower/1, 
 	 is_var_name/1,is_fun_name/1, remove_duplicates/1,
 	 format_search_paths/1,default_incls/0, get_toks/1,
-         reset_attrs/1, reset_ann_and_pos/1, reset_ann/1, reset_pos/1,
-	 get_env_vars/1,get_var_exports/1,get_bound_vars/1,get_free_vars/1,
-	 is_expr/1, is_pattern/1, is_exported/2, inscope_funs/1,update_ann/2,
+         reset_attrs/1, reset_ann_and_pos/1, reset_ann/1,
+	 env_vars/1, env_var_names/1, exported_vars/1, exported_var_names/1,
+         bound_vars/1, bound_var_names/1, free_vars/1, free_var_names/1,
+	 is_expr/1, is_guard_expr/1, is_pattern/1,
+         exported_funs/1, inscope_funs/1, defined_funs/1,update_ann/2,
 	 delete_from_ann/2, callback_funs/1, is_callback_fun/3, rewrite/2, rewrite_with_wrapper/2,
 	 get_range/1, max/2, min/2, modname_to_filename/2, funname_to_defpos/2,
   	 spawn_funs/0,is_spawn_app/1, get_start_end_loc_with_comment/1]).
 
--export([tokenize/3, file_format/1, expand_files/2,
+-export([tokenize/3, file_format/1, expand_files/2, client_files/2,
 	 get_modules_by_file/1, test_framework_used/1,
-	 concat_toks/1]).
+	 concat_toks/1, is_exported/2, fun_define_info/1]).
+
+-export([splice/1, quote/1,syntax_path/1, get_ast/1, get_module_info/1,
+         insert_an_attr/2]).
 
 -include("../include/wrangler.hrl").
 
@@ -115,15 +120,14 @@ collect_var_source_def_pos_info(Node) ->
 	end,
     ast_traverse_api:fold(F, [], Node).
 
-%%-spec get_start_end_loc([syntaxTree()]|syntaxTree()) ->
-%% 			       {pos(), pos()}.
-get_start_end_loc(Exprs) when is_list(Exprs) ->
+-spec start_end_loc([syntaxTree()]|syntaxTree()) ->{pos(), pos()}.
+start_end_loc(Exprs) when is_list(Exprs) ->
     E1 = hd(Exprs),
     En = lists:last(Exprs),
     {S, _E} = get_range(E1),
     {_S, E} = get_range(En),
     {S, E};
-get_start_end_loc(Expr) ->
+start_end_loc(Expr) ->
     get_range(Expr).
 
 get_range(Node) ->
@@ -185,7 +189,7 @@ try_eval(FileName, Node, SearchPaths, TabWidth) ->
         {value, Val, _} -> {value, Val}
     catch
       _:_ ->
-	  case has_macros(Node) andalso get_free_vars(Node) == [] of
+	  case has_macros(Node) andalso free_vars(Node) == [] of
 	    true ->
 		Dir = filename:dirname(FileName),
 		DefaultIncl2 = [filename:join(Dir, X) || X <- default_incls()],
@@ -223,7 +227,7 @@ try_eval(FileName, Node, SearchPaths, TabWidth) ->
 %%		      [token()].
 get_toks(FileName, Node, TabWidth) ->
     Toks = tokenize(FileName, false, TabWidth),
-    {StartPos, EndPos} = get_start_end_loc(Node),
+    {StartPos, EndPos} = start_end_loc(Node),
     Toks1 = lists:dropwhile(fun (T) ->
 				    token_loc(T) < StartPos
 			    end, Toks),
@@ -468,137 +472,191 @@ reset_attrs(Node) ->
 
 
 %% =====================================================================
-%% @doc Return the environment variables of an AST node.
-
-%%-spec(get_env_vars(Node::syntaxTree())-> [{atom(), pos()}]).
-get_env_vars(Node) ->
-    get_env_vars_1(refac_syntax:get_ann(Node)).
-
-get_env_vars_1([{env, B} | _Bs]) -> B;
-get_env_vars_1([_ | Bs]) -> get_env_vars_1(Bs);
-get_env_vars_1([]) -> [].
-
+%% @doc Return the variables that are visible to this node.
 %% =====================================================================
-%% @doc Return the exported variables of an AST node.
+-spec(env_vars(Node::syntaxTree())-> [{atom(), pos()}]).
+env_vars(Node) ->
+    Ann = refac_syntax:get_ann(Node),
+    case lists:keyfind(env, 1, Ann) of
+         {env, Vs} ->
+            Vs;
+        false ->
+            []
+    end.
 
-%%-spec(get_var_exports(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
-get_var_exports(Nodes) when is_list(Nodes) ->
-    lists:flatmap(fun (Node) -> get_var_exports(Node) end, Nodes);
-get_var_exports(Node) ->
-    get_var_exports_1(refac_syntax:get_ann(Node)).
-
-get_var_exports_1([{bound, B} | _Bs]) -> B; %% Think about this again!!
-get_var_exports_1([_ | Bs]) -> get_var_exports_1(Bs);
-get_var_exports_1([]) -> [].
-
-
+env_var_names(Node) ->
+    element(1, lists:unzip(env_vars(Node))).
+   
 %% =====================================================================
-%% @doc Return the bound variables of an AST node.
-
-
-%%-spec(get_bound_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
-get_bound_vars(Nodes) when is_list(Nodes) ->
-    lists:usort(lists:flatmap(fun (Node) -> get_bound_vars(Node) end, Nodes));
-get_bound_vars(Node) ->
-    lists:usort(ast_traverse_api:fold(fun (N, Acc) ->
-					      get_bound_vars_1(refac_syntax:get_ann(N)) ++ Acc
-				      end, [], Node)).
-					       
-get_bound_vars_1([{bound, B} | _Bs]) -> B;
-get_bound_vars_1([_ | Bs]) -> get_bound_vars_1(Bs);
-get_bound_vars_1([]) -> [].
-
+%% @doc Return the variables that are declared in this node, but also
+%%      used by code following it.
 %% =====================================================================
-%% @doc Return the free variables of an AST node.
-%%-spec(get_free_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
-get_free_vars(Nodes) when is_list(Nodes) ->
-    FBVs = lists:map(fun (Node) ->
-			     {get_free_vars(Node), get_bound_vars(Node)}
-		     end, Nodes),
-    {FVs, BVs} = lists:unzip(FBVs),
+-spec(exported_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
+exported_vars(Nodes) when is_list(Nodes) ->
+    {StartLoc, EndLoc} = start_end_loc(Nodes),
+    lists:flatmap(fun (Node) -> exported_vars_1(Node, {StartLoc, EndLoc}) end, Nodes);
+exported_vars(Node) ->
+    {StartLoc, EndLoc} = start_end_loc(Node),
+    exported_vars_1(Node, {StartLoc, EndLoc}).
+
+exported_vars_1(Node, {StartLoc, EndLoc}) ->
+    Fun = fun (N, Acc) ->
+                  case is_bound_variable(N) of
+                      true ->
+                          Ann = refac_syntax:get_ann(N),
+                          case lists:keyfind(use,1,Ann) of 
+                              {use, Locs} ->
+                                  case lists:any(fun(L)->
+                                                         L>EndLoc orelse 
+                                                             L < StartLoc
+                                                 end, Locs) of 
+                                      true ->
+                                          Name = refac_syntax:variable_name(N),
+                                          Pos = refac_syntax:get_pos(N),
+                                          case lists:member(Name, Acc) of 
+                                              true ->
+                                                  Acc;
+                                              false ->
+                                                  [{Name, Pos}|Acc]
+                                          end;
+                                      false ->
+                                          Acc
+                                  end;
+                              false ->
+                                  Acc
+                          end;
+                      false -> Acc
+                  end
+          end,
+    Vars=ast_traverse_api:fold(Fun,[], Node),
+    lists:reverse(Vars).
+
+is_bound_variable(Node) ->
+    case refac_syntax:type(Node) of
+        variable ->
+            Pos = refac_syntax:get_pos(Node),
+            Ann = refac_syntax:get_ann(Node),
+            case lists:keyfind(def,1, Ann) of 
+                {def, Defs} ->
+                    lists:member(Pos, Defs);
+                false ->
+                    false
+            end;
+        _->
+            false
+    end.
+
+exported_var_names(Node) ->            
+    element(1, lists:unzip(exported_vars(Node))).
+
+%% =================================================================================
+%% @doc Return the bound variables contained in an AST node (or a list of AST nodes).
+%% =================================================================================
+-spec(bound_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
+bound_vars(Nodes) when is_list(Nodes) ->
+    lists:usort(lists:flatmap(fun (Node) -> bound_vars(Node) end, Nodes));
+bound_vars(Node) ->
+    Vars=ast_traverse_api:fold(
+           fun (N, Acc) ->
+                   Ann = refac_syntax:get_ann(N),
+                   case lists:keyfind(bound,1,Ann) of 
+                       {bound, Vs} ->
+                           Vs++Acc;
+                       false ->
+                           Acc
+                   end
+           end, [], Node),
+    lists:usort(Vars).
+			
+bound_var_names(Node)->		       
+    element(1, lists:unzip(bound_vars(Node))).
+
+%% ================================================================================
+%% @doc Return the free variables contained in an AST node (or a list of AST nodes).
+
+-spec(free_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
+free_vars(Nodes) when is_list(Nodes) ->
+    {FVs, BVs} = lists:unzip([{free_vars(Node), bound_vars(Node)}
+                              ||Node<-Nodes]),
     lists:usort(lists:append(FVs)) -- lists:usort(lists:append(BVs));
-get_free_vars(Node) ->
-    get_free_vars_1(refac_syntax:get_ann(Node)).
 
-get_free_vars_1([{free, B} | _Bs]) -> B;
-get_free_vars_1([_ | Bs]) -> get_free_vars_1(Bs);
-get_free_vars_1([]) -> [].
-     
+free_vars(Node) ->
+    Ann = refac_syntax:get_ann(Node),
+    case lists:keyfind(free,1,Ann) of 
+        {free, Vs} ->
+            Vs;
+        false ->
+            []
+    end.
+
+free_var_names(Node) ->
+    element(1, lists:unzip(free_vars(Node))).
+
+   
 %% =====================================================================
-%% @doc Return true if an AST node represents an expression.
-%%-spec(is_expr(Node:: syntaxTree())-> boolean()).
+%%@doc Return true if the node represents a guard expression.
+-spec(is_guard_expr(Node:: syntaxTree())-> boolean()).
+is_guard_expr(Node) ->
+    As = refac_syntax:get_ann(Node),
+    {category, guard_expression} == lists:keyfind(category, 1, As).
+    
+   
+%% =====================================================================
+%%@doc Return true if the node represents an expression.
+%% =====================================================================
+-spec(is_expr(Node:: syntaxTree())-> boolean()).
 is_expr(Node) ->
     As = refac_syntax:get_ann(Node),
     {category, expression} == lists:keyfind(category, 1, As) orelse 
         {category, guard_expression} == lists:keyfind(category, 1, As).
 
- 
+   
 %% =====================================================================
-%% @doc Return true if an AST node represents a pattern.
-%%-spec(is_pattern(Node:: syntaxTree())-> boolean()).
-
+%% @doc Return true if the node represents a pattern.
+%% =====================================================================
 -spec(is_pattern(Node:: syntaxTree())-> boolean()).
 is_pattern(Node) ->
     As = refac_syntax:get_ann(Node),
     {category, pattern}==lists:keyfind(category, 1, As).
 
 
-%%===============================================================================
-%% @spec is_exported({FunName::atom(), Arity::integer()},ModuleInfo) -> boolean()
-%%       ModuleInfo = [{Key, term()}]
-%%       Key = attributes | errors | exports | functions | imports | module
-%%             | records | rules | warnings
-%% @doc Return true if the function is exported by its defining module.
-%% @TODO: Think about the interface of this function again.
-
-%%-spec(is_exported({FunName::atom(), Arity::integer()},ModInfo::moduleInfo()) -> boolean()).
-is_exported({FunName, Arity}, ModInfo) ->
-    ImpExport = case lists:keysearch(attributes, 1, ModInfo) of
-		    {value, {attributes, Attrs}} -> 
-			lists:member({compile, export_all}, Attrs);
-		    false -> false
-		end,
-    ExpExport= 	case lists:keysearch(exports, 1, ModInfo) of
-		    {value, {exports, ExportList}} ->
-			 lists:member({FunName, Arity}, ExportList);
-		    _ -> false
-		end,
-    ImpExport or ExpExport.
-
-
-
-%%===============================================================================
-%% @spec inscope_funs(ModuleInfo) -> [{ModName, FunName, Arity}]
-%%       ModuleInfo = [{Key, term()}]
-%%       Key = attributes | errors | exports | functions | imports | module
-%%             | records | rules | warnings
-%%       ModName = atom()
-%%       FunName = atom()
-%%       Arity = integer()
-%%
-%% @doc Returns the functions that are inscope (either imported by the 
-%% module or defined within the module) in the current module.
-%% @TODO: Think about the interface of this function again.
-
-%%-spec(inscope_funs(moduleInfo()) -> [{atom(), atom(), integer()}]).
-inscope_funs(ModuleInfo) ->
-    case lists:keysearch(module, 1, ModuleInfo) of
-      {value, {module, M}} ->
-	  Imps = case lists:keysearch(imports, 1, ModuleInfo) of
-		   {value, {imports, I}} ->
-		       lists:append([lists:map(fun ({F, A}) -> {M1, F, A} end, Fs) || {M1, Fs} <- I]);
-		   _ -> []
-		 end,
-	  Funs = case lists:keysearch(functions, 1, ModuleInfo) of
-		   {value, {functions, Fs}} -> lists:map(fun ({F, A}) -> {M, F, A} end, Fs);
-		   _ -> []
-		 end,
-	  PreDefinedFuns=[{M, module_info, 1}, {M, module_info, 2}, {M, record_info, 2}],
-	  Imps ++ Funs ++ PreDefinedFuns;
-      _ -> []
+%% =====================================================================
+%% @doc Return the functions exported by a module.
+%% =====================================================================
+-spec(exported_funs/1::(filename()) -> [{Function::atom(), Arity::integer()}]).
+exported_funs(File) ->
+    {ok, {_, Info}} = wrangler_ast_server:parse_annotate_file(File, true),
+    case lists:keysearch(exports, 1, Info) of
+        {value, {exports, Funs}} ->
+            Funs;
+        false ->
+            []
     end.
-		
+  
+%% =====================================================================
+%% @doc Returns the functions that are inscope in the current module.
+%%      A in-scope function could be an imported function, or a function
+%%      that is defined in the current module.
+%% =====================================================================
+-spec(inscope_funs/1::(filename()) -> [Function::{atom(), Arity::integer()}]).
+inscope_funs(File) ->
+    {ok, {_, Info}} = wrangler_ast_server:parse_annotate_file(File, true),
+    case lists:keysearch(inscope_funs, 1, Info) of
+        {value, {inscope_funs, Funs}} ->
+            Funs;
+        false ->
+            []
+    end.
+  	
 
+defined_funs(File) ->
+     {ok, {_, Info}} = wrangler_ast_server:parse_annotate_file(File, true),
+    case lists:keysearch(functions, 1, Info) of
+        {value, {functions, Funs}} ->
+            Funs;
+        false ->
+            []
+    end.
 %% =====================================================================
 %% @spec update_ann(Node::syntaxTree(), {Key::atom(), Val::term()}) -> syntaxTree()
 %% @doc Update a specific annotation of the Node with the given one.
@@ -609,9 +667,9 @@ inscope_funs(ModuleInfo) ->
 %%-spec(update_ann(Node::syntaxTree(), {Key::atom(), Val::anyterm()}) -> syntaxTree()).
 update_ann(Tree, {Key, Val}) ->
     As0 = refac_syntax:get_ann(Tree),
-    As1 = case lists:keysearch(Key, 1, As0) of
-	    {value, _} -> lists:keyreplace(Key, 1, As0, {Key, Val});
-	    _ -> As0 ++ [{Key, Val}]
+    As1 = case lists:keymemeber(Key, 1, As0) of 
+              true ->lists:keyreplace(Key, 1, As0, {Key, Val});
+              _ -> [{Key,Val}|As0]
 	  end,
     refac_syntax:set_ann(Tree, As1).
 
@@ -770,7 +828,7 @@ expand_files(FileDirs, Ext) ->
 
 expand_files([FileOrDir | Left], Ext, Acc) ->
     case filelib:is_dir(FileOrDir) of
-        true ->
+      true ->
 	    case file:list_dir(FileOrDir) of 
 		{ok, List} ->
 		    NewFiles = [filename:join(FileOrDir, X)
@@ -778,8 +836,8 @@ expand_files([FileOrDir | Left], Ext, Acc) ->
 		    NewDirs = [filename:join(FileOrDir, X) || X <- List, filelib:is_dir(filename:join(FileOrDir, X))],
 		    expand_files(NewDirs ++ Left, Ext, NewFiles ++ Acc);
 		{error, Reason} ->
-                    Msg = io_lib:format("Wrangler could not read directory ~s: ~w \n", 
-                                        [filename:dirname(FileOrDir), Reason]),
+		     Msg = io_lib:format("Wrangler could not read directory ~s: ~w \n", 
+				[filename:dirname(FileOrDir), Reason]),
 		    throw({error, lists:flatten(Msg)})
 	    end;
 	false ->
@@ -912,7 +970,7 @@ get_start_end_loc_with_comment(Node) when is_list(Node) ->
     {_, End} = get_start_end_loc_with_comment(lists:last(Node)),
     {Start, End};
 get_start_end_loc_with_comment(Node) ->
-    {Start={_StartLn, StartCol}, End} = get_start_end_loc(Node),
+    {Start={_StartLn, StartCol}, End} = start_end_loc(Node),
     PreCs = refac_syntax:get_precomments(Node),
     PostCs = refac_syntax:get_postcomments(Node),
     Start1 = case PreCs of
@@ -934,14 +992,6 @@ get_start_end_loc_with_comment(Node) ->
     {Start1, End1}.
 
 
-reset_pos(Node) when is_list(Node) ->
-    [reset_pos(N)||N<-Node];
-reset_pos(Node) ->
-    ast_traverse_api:full_buTP(
-      fun (T, _Others) -> 
-              refac_syntax:set_pos(T, {0,0})
-      end, Node, {}).
-
 reset_ann_and_pos(Node) when is_list(Node) ->
     [reset_ann_and_pos(N)||N<-Node];
 reset_ann_and_pos(Node) ->
@@ -958,6 +1008,94 @@ reset_ann(Node) ->
       fun (T, _Others) -> 
               refac_syntax:set_ann(T, [])
       end, Node, {}).
+
+
+
+splice(Expr) when is_list(Expr) ->
+    splice_1(Expr);
+splice(Expr) ->
+    refac_prettypr:format(Expr).
+
+splice_1([E]) ->
+    refac_prettypr:format(E);
+splice_1([E|Es]) ->  
+    refac_prettypr:format(E)++","++splice_1(Es).
+
+
+quote(Str) ->
+    gen_refac:parse_annotate_expr(Str).
+
+syntax_path(Node) ->
+    Ann = refac_syntax:get_ann(Node),
+    case lists:keysearch(syntax_path, 1, Ann) of
+        {value, {syntax_path, P}} -> P;
+        false ->
+            throw({error, "Wrangler internal error in refac_api:syntax_path/1"})
+    end.
+
+
+    
+client_files(File, SearchPaths) ->
+    wrangler_modulegraph_server:get_client_files(File, SearchPaths).
+
+
+is_exported({FunName, Arity}, File) ->
+    {ok, {_, ModInfo}} = wrangler_ast_server:parse_annotate_file(File, true),
+    ImpExport = case lists:keysearch(attributes, 1, ModInfo) of
+		    {value, {attributes, Attrs}} -> 
+			lists:member({compile, export_all}, Attrs);
+		    false -> false
+		end,
+    ExpExport= 	case lists:keysearch(exports, 1, ModInfo) of
+		    {value, {exports, ExportList}} ->
+			 lists:member({FunName, Arity}, ExportList);
+		    _ -> false
+		end,
+    ImpExport or ExpExport.
+
+get_module_info(File) ->
+    case wrangler_ast_server:parse_annotate_file(File, true) of 
+        {ok, {_AST, ModuleInfo}} ->
+            {ok, ModuleInfo};
+        {error, Reason} ->
+            {error, Reason}
+    end.
+get_ast(File) ->
+    case wrangler_ast_server:parse_annotate_file(File, true) of 
+        {ok, {AST, _}} ->
+            {ok, AST};
+        {error, Reason} ->
+            {error, Reason}
+    end.
+
+
+%% some utility functions.
+fun_define_info(Node) ->
+    Ann = refac_syntax:get_ann(Node),
+    case lists:keysearch(fun_def,1, Ann) of
+        {value, {fun_def, {M, F, A, _, _}}} ->
+            {M,F,A};
+        _ ->
+            case lists:keysearch(type,1, Ann) of
+                {value, {type, {f_atom, [M,F,A]}}} ->
+                    {M,F,A};
+                _ -> unknown
+            end
+    end.
+    
+
+insert_an_attr(AST, Attr) ->
+    Forms = refac_syntax:form_list_elements(AST),
+    {Forms1, Forms2} = lists:splitwith(
+                       fun(F) ->
+                               refac_syntax:type(F)==attribute orelse
+                               refac_syntax:type(F)==comment
+                       end, Forms),
+    {Forms12, Forms11} = lists:splitwith(fun(F) ->
+                                                refac_syntax:type(F)==comment
+                                        end, lists:reverse(Forms1)),
+    NewForms=lists:reverse(Forms11)++[Attr]++lists:reverse(Forms12)++Forms2,
+    refac_syntax:form_list(NewForms).
 
 
 %%-spec(concat_toks(Toks::[token()]) ->string()).
@@ -986,3 +1124,5 @@ concat_toks([T|Ts], Acc) ->
       	 {V, _} -> 
 	     concat_toks(Ts, [V|Acc])
      end.
+
+
