@@ -719,12 +719,12 @@ lay_2(Node, Ctxt) ->
 		undefined ->
 		    %% If a clause is formatted out of context, we
 		    %% use a "fun-expression" clause style.
-		    make_fun_clause(D1, D2, D3, Node, Ctxt, SameLine, HeadStartLoc)
+		    make_fun_clause(D1, D2, D3, Guard, Ctxt, SameLine, HeadStartLoc)
 	    end;
 	function ->  
-            %% Comments on the name itself will be repeated for each
+	    %% Comments on the name itself will be repeated for each
 	    %% clause, but that seems to be the best way to handle it.
-            Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
+	    Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
 	    D1 = lay(refac_syntax:function_name(Node), Ctxt1),
 	    D2 = lay_clauses(refac_syntax:function_clauses(Node), {function, D1}, Ctxt1),
 	    beside(D2, floating(text(".")));
@@ -1465,23 +1465,23 @@ append_clause_body(B,D, Symbol,Ctxt, _SameLine={{BodyStartLn,BodyStartCol},
 		    beside(beside(D,S1),B);
 		N when N>=1->
 		    Offset=BodyStartCol-HeadStartCol,
-                    {SymbolLn, SymbolCol} = get_keyword_loc_before(Symbol, Ctxt,
-							           {BodyStartLn, BodyStartCol}),
-                    D1=case SymbolLn - HeadLastLn =< 0 orelse SymbolLn == 0 of
+                    {SLn, SCol} = get_keyword_loc_before(Symbol,Ctxt,
+							 {BodyStartLn, BodyStartCol}),
+                    D1=case SLn-HeadLastLn=<0 orelse SLn==0 of
 			   true ->
 			       beside(D, S);
-			   false when SymbolLn - HeadLastLn > 1 ->
-                               SD=nest(SymbolCol - HeadStartCol, text(atom_to_list(Symbol))),
-			       vertical([D, white_lines(SymbolLn - HeadLastLn - 1), SD]);
+			   false when SLn-HeadLastLn>1->
+                               SD=nest(SCol-HeadStartCol, text(atom_to_list(Symbol))),
+			       vertical([D, white_lines(SLn-HeadLastLn-1), SD]);
                            _ ->
-                               SD=nest(SymbolCol - HeadStartCol, text(atom_to_list(Symbol))),
+                               SD=nest(SCol-HeadStartCol, text(atom_to_list(Symbol))),
                                vertical([D,SD])
                        end,
-                    case SymbolLn == BodyStartLn of
+                    case SLn==BodyStartLn of 
 			true ->
 			    refac_prettypr_0:horizontal([D1, B]);
-                        _ when BodyStartLn - SymbolLn > 1 andalso SymbolLn/=0->
-                            vertical([D1, white_lines(BodyStartLn - SymbolLn - 1), nest(Offset,B)]);
+                        _ when BodyStartLn-SLn>1 andalso SLn/=0 ->
+                            vertical([D1, white_lines(BodyStartLn-SLn-1), nest(Offset,B)]);
                         _ ->
                             vertical([D1, nest(Offset, B)])
 		    end;
