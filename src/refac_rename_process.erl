@@ -52,7 +52,7 @@ rename_process(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_process(" ++ "\"" ++ 
 	    FileName ++ "\", " ++ integer_to_list(Line) ++ 
 	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
-        ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+       ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case is_process_name(NewName) of
 	true ->
 	    _Res = refac_annotate_pid:ann_pid_info(SearchPaths, TabWidth),  %%TODO: check whether asts are already annotated.
@@ -110,7 +110,7 @@ pos_to_process_name_1(Node, Pos) ->
     As = refac_syntax:get_ann(Node),
     case refac_syntax:type(Node) of
 	atom ->
-	    {Start, End} = refac_util:get_start_end_loc(Node),
+	    {Start, End} = refac_api:start_end_loc(Node),
 	    case Start =< Pos andalso Pos =< End of
 		true ->
 		    case lists:keysearch(pname, 1, As) of
@@ -140,7 +140,7 @@ pre_cond_check(NewProcessName, SearchPaths) ->
     end.
 
 collect_process_names(DirList) ->
-    Files = refac_util:expand_files(DirList, ".erl"),
+    Files = refac_misc:expand_files(DirList, ".erl"),
     F = fun (File, FileAcc) ->
 		{ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(File, true, DirList),
 		{value, {module, ModName}} = lists:keysearch(module, 1, Info),
@@ -190,7 +190,7 @@ is_register_app(T) ->
 
 do_rename_process(CurrentFileName, AnnAST, OldProcessName, NewProcessName, SearchPaths, TabWidth) ->
     {AnnAST1, _Changed} = ast_traverse_api:stop_tdTP(fun do_rename_process/2, AnnAST, {OldProcessName, NewProcessName}),
-    OtherFiles = refac_util:expand_files(SearchPaths, ".erl") -- [CurrentFileName],
+    OtherFiles = refac_misc:expand_files(SearchPaths, ".erl") -- [CurrentFileName],
     Results = do_rename_process_in_other_modules(OtherFiles, OldProcessName, NewProcessName, SearchPaths, TabWidth),
     [{{CurrentFileName, CurrentFileName}, AnnAST1}| Results].
 
@@ -238,14 +238,14 @@ check_atoms(CurrentFile, AtomName, SearchPaths, TabWidth) ->
     end.
 
 collect_atoms(CurrentFile, AtomName, SearchPaths, TabWidth) ->
-    Files = [CurrentFile| refac_util:expand_files(SearchPaths, ".erl") -- [CurrentFile]],
+    Files = [CurrentFile| refac_misc:expand_files(SearchPaths, ".erl") -- [CurrentFile]],
     lists:flatmap(fun (F) ->
 			  {ok, {AnnAST,_Info}} = wrangler_ast_server:parse_annotate_file(F, true, SearchPaths, TabWidth),
 			  refac_atom_utils:collect_unsure_atoms_in_file(AnnAST, AtomName, p_atom)
 		  end, Files).
 
 is_process_name(Name) ->
-    refac_util:is_fun_name(Name) and (list_to_atom(Name) =/= undefined).
+    refac_api:is_fun_name(Name) and (list_to_atom(Name) =/= undefined).
 
 %% An duplication of function defined in refac_register_pid. 
 %% Need to be refactored.
@@ -257,11 +257,11 @@ evaluate_expr(Files, ModName, AnnAST, FunDef, Expr) ->
 		    _ ->
 			FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
 			Arity = refac_syntax:function_arity(FunDef),
-			{StartPos, _} = refac_util:get_start_end_loc(Expr),
+			{StartPos, _} = refac_api:start_end_loc(Expr),
 			{unknown, {ModName, FunName, Arity, StartPos}}
 		end
 	end,
-    Exprs = case refac_util:get_free_vars(Expr) of
+    Exprs = case refac_api:free_vars(Expr) of
 		[] -> [Expr];
 		_ -> refac_slice:backward_slice(Files, AnnAST, ModName, FunDef, Expr)
 	    end,

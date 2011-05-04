@@ -51,9 +51,20 @@
 -export([tuple_funpar/7]).  %% For testing purpose.
 
 
--import(refac_util,[try_eval/4, commontest_callback_funs/0,
-		    eqc_statem_callback_funs/0, testserver_callback_funs/0,
-		    apply_style_funs/0]).
+-import(refac_api,[]).
+
+-import(refac_misc,
+        [
+                             try_eval/4]).
+
+-import(refac_misc,
+        [
+                                         commontest_callback_funs/0,
+                             eqc_statem_callback_funs/0,testserver_callback_funs/0]).
+
+-import(refac_misc,
+        [
+                             apply_style_funs/0]).
 
 -include("../include/wrangler.hrl").
 
@@ -96,7 +107,7 @@ tuple_funpar_1(FileName, StartLoc = {StartLine, StartCol}, EndLoc = {EndLine, En
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":tuple_funpar(" ++ "\"" ++ 
 	    FileName ++ "\", {" ++ integer_to_list(StartLine) ++ ", " ++ integer_to_list(StartCol) ++ "}," ++ 
         "{" ++ integer_to_list(EndLine) ++ ", " ++ integer_to_list(EndCol) ++ "}, ["
-        ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+       ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {FunName, FunArity, Index, Num} = pos_to_pars(AnnAST, StartLoc, EndLoc),
     tuple_par_0(FileName, AnnAST, Info, FunName, FunArity,
@@ -109,7 +120,7 @@ tuple_funpar(FileName, StartLoc = {StartLine, StartCol}, EndLoc = {EndLine, EndC
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":tuple_funpar(" ++ "\"" ++ 
 	    FileName ++ "\", {" ++ integer_to_list(StartLine) ++ ", " ++ integer_to_list(StartCol) ++ "}," ++ 
 	      "{" ++ integer_to_list(EndLine) ++ ", " ++ integer_to_list(EndCol) ++ "}, ["
-        ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+       ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {FunName, FunArity, Index, Num} = pos_to_pars(AnnAST, StartLoc, EndLoc),
     NewArity = FunArity - Num + 1,
@@ -121,7 +132,7 @@ tuple_par_0(FileName, AnnAST, Info, FunName, Arity, Index, Num, SearchPaths, Tab
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     {ok, FunDefMod} = get_module_name(FileName, Info),
     AnnAST1 = tuple_pars(FileName, AnnAST, FunDefMod, FunName, Arity, Index, Num, Info, SearchPaths, TabWidth),
-    case refac_util:is_exported({FunName, Arity}, Info) of
+    case refac_api:is_exported({FunName, Arity}, Info) of
 	true ->
 	    ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
 	    ClientFiles = wrangler_modulegraph_server:get_client_files(FileName, SearchPaths),
@@ -139,7 +150,7 @@ tuple_par_0(FileName, AnnAST, Info, FunName, Arity, Index, Num, SearchPaths, Tab
     end.
 
 pre_cond_check(FileName, FunName, OldArity, NewArity, Info) ->
-    Inscope_Funs = [{F, A} || {_M, F, A} <- refac_util:inscope_funs(Info)],
+    Inscope_Funs = [{F, A} || {_M, F, A} <- refac_api:inscope_funs(Info)],
     case lists:member({FunName, NewArity}, Inscope_Funs) orelse 
 	   erl_internal:bif(erlang, FunName, NewArity)
 	of
@@ -148,7 +159,7 @@ pre_cond_check(FileName, FunName, OldArity, NewArity, Info) ->
 			    integer_to_list(NewArity) ++ " is already in scope, "
 							 "or is an auto-imported builtin function."});
 	false ->
-	    case refac_util:is_callback_fun(Info, FunName, OldArity) of
+	    case refac_misc:is_callback_fun(Info, FunName, OldArity) of
 		true -> throw({warning, "The function to be renamed is"
 					"a callback function, continue?"});
 		false ->
@@ -158,7 +169,7 @@ pre_cond_check(FileName, FunName, OldArity, NewArity, Info) ->
     end.
 
 test_framework_aware_name_checking(FileName, FunName, OldArity, NewArity) ->
-    UsedTestFrameWorks = refac_util:test_framework_used(FileName),
+    UsedTestFrameWorks = refac_misc:test_framework_used(FileName),
     eunit_name_checking(UsedTestFrameWorks, FunName, OldArity, NewArity),
     eqc_name_checking(UsedTestFrameWorks, FunName, OldArity, NewArity),
     testserver_name_checking(UsedTestFrameWorks, FunName, OldArity, NewArity),
@@ -235,7 +246,7 @@ pos_to_pars(AnnAST, StartLoc, EndLoc) ->
 	    FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
 	    FunArity = refac_syntax:function_arity(FunDef),
 	    Cs = refac_syntax:function_clauses(FunDef),
-	    C = [C || C <- Cs, {StartLoc1, EndLoc1} <- [refac_util:get_start_end_loc(C)],
+	    C = [C || C <- Cs, {StartLoc1, EndLoc1} <- [refac_api:start_end_loc(C)],
 		      StartLoc1 =< StartLoc, EndLoc =< EndLoc1],
 	    case C of
 		[] -> throw({error, "You have not selected a sequence parameters,"
@@ -244,12 +255,12 @@ pos_to_pars(AnnAST, StartLoc, EndLoc) ->
 		    Pars = refac_syntax:clause_patterns(C1),
 		    {Pars1, Pars2} = lists:splitwith(
 				       fun (P) ->
-					       {S, _E} = refac_util:get_start_end_loc(P),
+					       {S, _E} = refac_api:start_end_loc(P),
 					       S < StartLoc
 				       end, Pars),
 		    {Pars21, _Pars22} = lists:splitwith(
 					  fun (P) ->
-						  {_S, E} = refac_util:get_start_end_loc(P),
+						  {_S, E} = refac_api:start_end_loc(P),
 						  E =< EndLoc
 					  end, Pars2),
 		    case Pars21 of
@@ -294,7 +305,7 @@ tuple_pars(FileName, AnnAST, ModName, FunName, Arity, Index, Num, Info, SearchPa
     Args = {FileName, ModName, ModName, FunName, Arity, Index, Num, SearchPaths, TabWidth},
     Forms1 = [F1 || F <- Forms, F1 <- do_tuple_fun_pars(F, Args)],
     AnnAST1 = refac_syntax:form_list(Forms1),
-    case refac_util:is_exported({FunName, Arity}, Info) of
+    case refac_api:is_exported({FunName, Arity}, Info) of
 	true ->
 	    AnnAST1;
 	false ->
@@ -344,9 +355,9 @@ tuple_pars_in_function(Form, Args = {_FileName, _CurModName, _FunDefMod, FunName
 			      Pats = refac_syntax:clause_patterns(C),
 			      NewPats = process_pars(Pats, Index, Num),
 			      NewBody = [tuple_actual_pars(B, Args) || B <- Body],
-			      refac_util:rewrite(C, refac_syntax:clause(NewPats, Guard, NewBody))
+			      refac_misc:rewrite(C, refac_syntax:clause(NewPats, Guard, NewBody))
 		      end, Cs),
-	    NewForm = refac_util:rewrite(Form, refac_syntax:function(Fun1, NewCs)),
+	    NewForm = refac_misc:rewrite(Form, refac_syntax:function(Fun1, NewCs)),
 	    Cs1 = refac_syntax:function_clauses(Form),
 	    NewCs1 = lists:map(
 		       fun (C) ->
@@ -385,13 +396,13 @@ tuple_pars_in_attribute(Form, Args = {_FileName, _CurModName, _FunDefMod, FunNam
 					    case {FunName1, ArityVal} of
 						{FunName, Arity} ->
 						    NewArity = Arity - Num + 1,
-						    NewArity1 = refac_util:rewrite(Arity1, refac_syntax:integer(NewArity)),
+						    NewArity1 = refac_misc:rewrite(Arity1, refac_syntax:integer(NewArity)),
 						    [A, refac_syntax:arity_qualifier(Fun, NewArity1)];
 						_ -> [A]
 					    end
 				    end, refac_syntax:list_elements(AttrArgs)),
-		    NewAttrArgs1 = [refac_util:rewrite(AttrArgs, refac_syntax:list(NewAttrArgs))],
-		    NewAttr = refac_util:rewrite(Form, refac_syntax:attribute(AttrName, NewAttrArgs1)),
+		    NewAttrArgs1 = [refac_misc:rewrite(AttrArgs, refac_syntax:list(NewAttrArgs))],
+		    NewAttr = refac_misc:rewrite(Form, refac_syntax:attribute(AttrName, NewAttrArgs1)),
 		    [NewAttr];
 		_ ->
 		    [tuple_actual_pars(Form, Args)]
@@ -403,7 +414,7 @@ tuple_pars_in_attribute(Form, Args = {_FileName, _CurModName, _FunDefMod, FunNam
 process_pars(Pars, Index, Num) ->
     Pars1 = lists:sublist(Pars, Index - 1),
     Pars2 = lists:sublist(Pars, Index, Num),
-    Pars21 = [refac_util:rewrite_with_wrapper(Pars2, refac_syntax:tuple(Pars2))],
+    Pars21 = [refac_misc:rewrite_with_wrapper(Pars2, refac_syntax:tuple(Pars2))],
     Pars3 = lists:nthtail(Index + Num - 1, Pars),
     Pars1 ++ Pars21 ++ Pars3.
 
@@ -421,7 +432,7 @@ do_tuple_actual_pars(Node, Others = {_FileName, CurModName, FunDefMod, FunName,
 		{FunDefMod, FunName, Arity} ->
 		    NewArgs = process_pars(Args, Index, Num),
 		    Node1 = refac_syntax:application(Op, NewArgs),
-		    {refac_util:rewrite(Node, Node1), true};
+		    {refac_misc:rewrite(Node, Node1), true};
 		{erlang, apply, 2} ->
 		    transform_apply_with_arity_of_2(
 		      Node, CurModName, FunDefMod, FunName, Arity, Index, Num);
@@ -458,15 +469,15 @@ transform_apply_with_arity_of_2(Tree, CurModName, FunDefMod, FunName, Arity, Ind
 				    Pars0 = refac_syntax:list_elements(Pars),
 				    case length(Pars0) of
 					Arity ->
-					    NewPars = refac_util:rewrite(
+					    NewPars = refac_misc:rewrite(
 							Pars, refac_syntax:list(process_pars(Pars0, Index, Num))),
-					    NewArg = refac_util:rewrite(Arg, refac_syntax:integer(NewArity)),
-					    NewName = refac_util:rewrite(
+					    NewArg = refac_misc:rewrite(Arg, refac_syntax:integer(NewArity)),
+					    NewName = refac_misc:rewrite(
 							Name, refac_syntax:arity_qualifier(Body, NewArg)),
-					    NewFun = refac_util:rewrite(
+					    NewFun = refac_misc:rewrite(
 						       Fun, refac_syntax:implicit_fun(NewName)),
 					    Tree1 = refac_syntax:application(Op, [NewFun, NewPars]),
-					    {refac_util:rewrite(Tree, Tree1), true};
+					    {refac_misc:rewrite(Tree, Tree1), true};
 					_ -> {Tree, false}
 				    end;
 				_ -> {Tree, false}
@@ -490,14 +501,14 @@ transform_apply_with_arity_of_2(Tree, CurModName, FunDefMod, FunName, Arity, Ind
 					    case length(Pars0) of
 						Arity ->
 						    NewPars = process_pars(Pars0, Index, Num),
-						    NewArg = refac_util:rewrite(Arg, refac_syntax:integer(NewArity)),
-						    NewMBody = refac_util:rewrite(
+						    NewArg = refac_misc:rewrite(Arg, refac_syntax:integer(NewArity)),
+						    NewMBody = refac_misc:rewrite(
 								 MBody, refac_syntax:arity_qualifier(ABody, NewArg)),
-						    NewName = refac_util:rewrite(
+						    NewName = refac_misc:rewrite(
 								Name, refac_syntax:module_qualifier(Mod, NewMBody)),
-						    Fun1 = refac_util:rewrite(
+						    Fun1 = refac_misc:rewrite(
 							     Fun, refac_syntax:implicit_fun(NewName)),
-						    Tree1 = refac_util:rewrite(
+						    Tree1 = refac_misc:rewrite(
 							      Tree, refac_syntax:application(Op, [Fun1, NewPars])),
 						    {Tree1, true};
 						_ -> {Tree, false}
@@ -525,7 +536,7 @@ transform_apply_style_calls(Node, {FileName, _ModName, FunDefMod, FunName, Arity
     Fun1 = try_eval(FileName, Fun, SearchPaths, TabWidth),
     NewApp = fun () ->
 		     Pars0 = refac_syntax:list_elements(Pars),
-		     NewPars = refac_util:rewrite(
+		     NewPars = refac_misc:rewrite(
 				 Pars, refac_syntax:list(process_pars(Pars0, Index, Num))),
 		     NewArgs = case length(Args) of
 				   5 ->
@@ -535,7 +546,7 @@ transform_apply_style_calls(Node, {FileName, _ModName, FunDefMod, FunName, Arity
 				   3 ->
 				       [Mod, Fun, NewPars]
 			       end,
-		     refac_util:rewrite(
+		     refac_misc:rewrite(
 		       Node, refac_syntax:application(Op, NewArgs))
 	     end,
     case Fun1 of

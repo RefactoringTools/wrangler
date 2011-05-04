@@ -81,7 +81,7 @@ register_pid(FName, Start = {Line1, Col1}, End = {Line2, Col2}, RegName, SearchP
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":register_pid(" ++ "\"" ++ 
 	    FName ++ "\", {" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ 
 	      "{" ++ integer_to_list(Line2) ++ ", " ++ integer_to_list(Col2) ++ "}," ++ "\"" ++ RegName ++ "\","
-													      ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+													     ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case is_process_name(RegName) of
 	true -> {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
 		case pos_to_spawn_match_expr(AnnAST, Start, End) of
@@ -108,7 +108,7 @@ register_pid(FName, Start = {Line1, Col1}, End = {Line2, Col2}, RegName, SearchP
 						    eclipse ->
 							Res = lists:map(fun ({{OldFName, NewFName}, AST}) ->
 										{OldFName, NewFName,
-										 refac_prettypr:print_ast(refac_util:file_format(OldFName), AST, TabWidth)}
+										 refac_prettypr:print_ast(refac_misc:file_format(OldFName), AST, TabWidth)}
 									end, Results),
 							{ok, Res}
 						end;
@@ -148,11 +148,11 @@ register_pid_1(FName, StartLine, StartCol, EndLine, EndCol, RegName, RegPids, Se
 		      {ok, ChangedFiles};
 		  {error, Reason} -> {error, Reason}
 	      end;
-	{registered, RegExpr} -> {{Line, _Col}, _} = refac_util:get_start_end_loc(RegExpr),
+	{registered, RegExpr} -> {{Line, _Col}, _} = refac_api:start_end_loc(RegExpr),
 				 {error, "The selected process is already registered at line " ++ integer_to_list(Line)};
 	{unknown_pids, RegExprs} ->
 	    ?wrangler_io("\nWrangler could not decide the process(s) registered by the following expression(s), please check!\n", []),
-	    lists:foreach(fun ({{_M, _F, _A}, PidExpr}) -> {{_Ln, _}, _} = refac_util:get_start_end_loc(PidExpr),
+	    lists:foreach(fun ({{_M, _F, _A}, PidExpr}) -> {{_Ln, _}, _} = refac_api:start_end_loc(PidExpr),
 							   ?wrangler_io("Location: module:~p, function: ~p/~p, line: ~p\n ", [_M, _F, _A, _Ln]),
 							   ?wrangler_io(refac_prettypr:format(PidExpr) ++ "\n", [])
 			  end, RegExprs),
@@ -217,7 +217,7 @@ pre_cond_check(ModName, AnnAST, Start, MatchExpr, RegName, _Info, SearchPaths, T
 						    {unknown_pids, RegExprs} ->
 							?wrangler_io("Wrangler could not decide the processe(s) registered by the followling expression(s):\n", []),
 							lists:foreach(fun ({{_M, _F, _A}, PidExpr}) ->
-									      {{_Ln, _}, _} = refac_util:get_start_end_loc(PidExpr),
+									      {{_Ln, _}, _} = refac_api:start_end_loc(PidExpr),
 									      ?wrangler_io("Location: module:~p, function: ~p/~p, line: ~p\n ", [_M, _F, _A, _Ln])
 								      end,
 								      %% ?wrangler_io(refac_prettypr:format(PidExpr)++"\n") 
@@ -338,7 +338,7 @@ is_recursive_fun(Files, {ModName, FunName, Arity, FunDef}) ->
 
 
 collect_registered_names_and_pids(DirList, TabWidth) ->
-    Files = refac_util:expand_files(DirList, ".erl"),
+    Files = refac_misc:expand_files(DirList, ".erl"),
     F = fun (File, FileAcc) ->
 		{ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(File, true, DirList, TabWidth),
 		{value, {module, ModName}} = lists:keysearch(module, 1, Info),
@@ -407,7 +407,7 @@ do_register(FName, AnnAST, MatchExpr, Pid, RegName, SearchPaths, TabWidth) ->
 refactor_send_exprs(FName, AnnAST, PidInfo, RegName, SearchPaths, TabWidth) ->
     {AnnAST1, _} = ast_traverse_api:stop_tdTP(fun do_refactor_send_exprs/2, AnnAST, {PidInfo, RegName}),
     %%This can be refined to check the client and parent modules of the current module.
-    Files = refac_util:expand_files(SearchPaths, ".erl") -- [FName],
+    Files = refac_misc:expand_files(SearchPaths, ".erl") -- [FName],
     Results = lists:flatmap(fun (File) ->
 				    ?wrangler_io("The current file under refactoring is:\n~p\n", [File]),
 				    {ok, {AnnAST2, _Info}} = wrangler_ast_server:parse_annotate_file(File, true, SearchPaths, TabWidth),
@@ -486,11 +486,11 @@ evaluate_expr(Files, ModName, AnnAST, FunDef, Expr) ->
 		    _ ->
 			FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
 			Arity = refac_syntax:function_arity(FunDef),
-			{StartPos, _} = refac_util:get_start_end_loc(Expr),
+			{StartPos, _} = refac_api:start_end_loc(Expr),
 			{unknown, {ModName, FunName, Arity, StartPos}}
 		end
 	end,
-    Exprs = case refac_util:get_free_vars(Expr) of
+    Exprs = case refac_api:free_vars(Expr) of
 		[] -> [Expr];
 		_ -> refac_slice:backward_slice(Files, AnnAST, ModName, FunDef, Expr)
 	    end,
@@ -550,7 +550,7 @@ pos_to_spawn_match_expr(AnnAST, Start, End) ->
 		match_expr ->
 		    P = refac_syntax:match_expr_pattern(Expr),
 		    B = refac_syntax:match_expr_body(Expr),
-		    case {refac_util:is_spawn_app(B), refac_syntax:type(P) == variable} of
+		    case {refac_misc:is_spawn_app(B), refac_syntax:type(P) == variable} of
 			{true, true} ->
 			    {ok, Expr};
 			_ -> {error, Message}
@@ -570,7 +570,7 @@ pos_to_receive_expr(FunDef, Start) ->
 	end,
     ReceiveExprs = ast_traverse_api:fold(F, [], FunDef),
     lists:any(fun (E) ->
-		      {Start1, End1} = refac_util:get_start_end_loc(E),
+		      {Start1, End1} = refac_api:start_end_loc(E),
 		      Start1 =< Start andalso Start =< End1
 	      end, ReceiveExprs).
 
@@ -583,9 +583,9 @@ pos_to_list_comp_expr(FunDef, Start) ->
 	end,
     ReceiveExprs = ast_traverse_api:fold(F, [], FunDef),
     lists:any(fun (E) ->
-		      {Start1, End1} = refac_util:get_start_end_loc(E),
+		      {Start1, End1} = refac_api:start_end_loc(E),
 		      Start1 =< Start andalso Start =< End1
 	      end, ReceiveExprs).
 
 is_process_name(Name) ->
-    refac_util:is_fun_name(Name) and (list_to_atom(Name) =/= undefined).
+    refac_api:is_fun_name(Name) and (list_to_atom(Name) =/= undefined).

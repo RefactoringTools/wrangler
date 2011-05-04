@@ -146,7 +146,7 @@ identifier_name(Exp) ->
 var_binding_structure(AST) when not is_list(AST) ->
     var_binding_structure([AST]);
 var_binding_structure(ASTList) ->
-    VarLocs = lists:keysort(2, refac_util:collect_var_source_def_pos_info(ASTList)),
+    VarLocs = lists:keysort(2, refac_misc:collect_var_source_def_pos_info(ASTList)),
     case VarLocs of
 	[] ->
 	    [];
@@ -292,7 +292,7 @@ display_search_results(Ranges, AntiUnifier, _Type) ->
 	    end,
 	    ?wrangler_io("\n\nNOTE: Use 'M-x compilation-minor-mode' to make the result "
 			 "mouse clickable if this mode is not already enabled.\n",[]),
-	    ?wrangler_io("      Use 'C-c C-e' to remove highlights!\n", []),
+	    ?wrangler_io("      Use 'C-c C-w e' to remove highlights!\n", []),
 	    {ok, Ranges}
     end.
 
@@ -320,7 +320,7 @@ generalisable(Node) ->
                                           if_expr, fun_expr, receive_expr, clause,
                                           query_expr, try_expr, catch_expr, cond_expr,
                                           block_expr]) andalso 
-                        refac_util:get_var_exports(Node) == []
+                        refac_api:exported_vars(Node) == []
             end;
         {value, {category, pattern}} ->
 	    %% refac_syntax:is_literal(Node) orelse ;; in theory it is ok.

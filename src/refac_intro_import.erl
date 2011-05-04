@@ -1,56 +1,70 @@
+
+%%@doc This module shows how to write refactorings 
+%% use the Wrangler API. 
+
+%% The refactoring implemented in this module adds an 
+%% import attribute which explicitly imports the 
+%% functions which are defined in a user specified 
+%% module, and used in the current module by remote 
+%% function calls.
 -module(refac_intro_import).
 
-%-behaviour(gen_refac).
+-behaviour(gen_refac).
 
+%% export of callback function.
 -export([input_pars/0, select_focus/1, 
          pre_cond_check/1, transform/1]).
 
 -include("../include/gen_refac.hrl").
 
-%% The Emacs mini-buffer prompts for the user input parameters. 
+%% Ask the user which module to import. 
 -spec (input_pars/0::() -> [string()]).                           
 input_pars()->
     ["Module name:"].
 
-%% Select the focus of interest. If no selection is neeeded, 
-%% then return {ok, none}.
+%% no focus selection is needed.
 -spec (select_focus/1::(#args{}) -> {ok, syntaxTree()}|{ok, none}).  
-                           
 select_focus(_Args) ->
     {ok, none}.
     
-%% Pre-condition checking to ensure that the refactoring preserves the 
-%% behaviour of the program.
--spec (pre_cond_check/1::(#args{}) -> ok).  
+%% Pre-condition checking. 
+-spec (pre_cond_check/1::(#args{}) -> ok | {error, term()}).  
 pre_cond_check(Args=#args{user_inputs=[ModuleName]}) ->
     case collect_uses(Args) of 
         [] ->
-            Msg =lists:flatten(io_lib:format(
-                                 "There is no qualified uses of "
-                                 "functions from module '~s'.",
-                                 [ModuleName])),
-            throw({error, Msg});
+            Msg =io_lib:format(
+                   "There is no remote calls to "
+                   "functions from module '~s'.",
+                   [ModuleName]),
+            {error, lists:flatten(Msg)};
         _-> ok
     end.
-   
+
 %%Do the actual program transformation here.
--spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}
-                                     | {error, term()}).    
+-spec (transform/1::(#args{}) -> 
+                          {ok, [{filename(), filename(), syntaxTree()}]}
+                              | {error, term()}).    
 transform(Args=#args{current_file_name=File,
                      user_inputs=[ModuleName]}) ->
-    FAs=collect_uses(Args),
-    FAs1 = imported_funs(File, ModuleName),
+    %% collect the functions that are defined 
+    %% in ModuleNaem, and are remotely called
+    %% in the current module.
+    FAs=lists:usort(collect_uses(Args)),
+    FAs1 = refac_api: imported_funs(File, ModuleName),
+    %% Functions that need to be imported.
     FunsToImport=FAs--FAs1,
     {ok,AST} = refac_api:get_ast(File),
     case FunsToImport of 
         [] ->
-            ?FOREACH([rule(Args)], {File,AST});
+            [NewAST]=?FULL_TD([rule(Args)], [AST]),
+            {ok, [{{File, File}, NewAST}]};
         _ ->
             Import=make_import_attr(ModuleName, FunsToImport),
             AST1=refac_api:insert_an_attr(AST,Import),
-            ?FOREACH([rule(Args)], {File,AST1})
+            [NewAST]=?FULL_TD([rule(Args)], [AST1]),
+            {ok, [{{File, File}, NewAST}]}
     end.
-  
+
 collect_uses(_Args=#args{current_file_name=File,
                          user_inputs=[ModuleName]}) ->
     ?COLLECT("M@:F@(Args@@)", ?SPLICE(M@)==ModuleName, 
@@ -58,21 +72,12 @@ collect_uses(_Args=#args{current_file_name=File,
              [File]).
 
 rule(_Args=#args{user_inputs=[ModuleName]}) ->
-    ?RULE("M@:F@(Args@@)",?QUOTE("F@(Args@@)"),?SPLICE(M@)==ModuleName).
-
-imported_funs(File, ModuleName) ->    
-    {ok, ModInfo} = refac_api:get_module_info(File),
-    case lists:keyfind(imports,1,ModInfo) of 
-        {imports, MFAs} ->
-            case lists:keyfind(list_to_atom(ModuleName), 1, MFAs) of 
-                {_, FAs}->FAs;
-                _ -> []
-            end;
-        _ -> []
-    end.
+    ?RULE("M@:F@(Args@@)",?QUOTE("F@(Args@@)"),
+          ?SPLICE(M@)==ModuleName).
 
 make_import_attr(ModuleName, FAs) ->
-    ?QUOTE("-import("++ModuleName++","++format_fa_list(FAs)++").").
+    ?QUOTE("-import("++ModuleName++","++
+               format_fa_list(FAs)++").").
 
 format_fa_list([]) ->
     "[]";

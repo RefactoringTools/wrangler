@@ -24,7 +24,7 @@
 %% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %% =====================================================================
-%% Wrangler API.
+%% The refactoring command level API that can be run in an Erlang shell.
 %%
 %% Author contact: H.Li@kent.ac.uk, Simon.J.Thompson@kent.ac.uk
 %%
@@ -42,9 +42,6 @@
 %% <p>All refactorings commands should be run in the context of a Wrangler application. 
 %% Use wrangler_api:start() to start a Wrangler application, and wrangler_api:stop() the 
 %% application.
-%% </p>
-%% <p>
-%% The Wrangler API is not completed yet, more API functions will be added.
 %% </p>
 
 -module(wrangler_api).

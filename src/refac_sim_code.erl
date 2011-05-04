@@ -64,7 +64,7 @@ sim_code_detection(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabW
     ASTTab = ets:new(ast_tab, [set, public]),
     VarTab = ets:new(var_tab, [set, public]),
     RangeTab = ets:new(range_tab, [set, public]),
-    Files = refac_util:expand_files(DirFileList, ".erl"),
+    Files = refac_misc:expand_files(DirFileList, ".erl"),
     FinalCs = case Files of
 		  [] -> ?wrangler_io("Warning: No files found in the searchpaths specified.", []),
 			[];
@@ -96,7 +96,7 @@ sim_code_detection_eclipse(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPat
     ASTTab = ets:new(ast_tab, [set, public]),
     VarTab = ets:new(var_tab, [set, public]),
     RangeTab = ets:new(range_tab, [set, public]),
-    Files = refac_util:expand_files(DirFileList, ".erl"),
+    Files = refac_misc:expand_files(DirFileList, ".erl"),
     case Files of
 	[] -> [];
 	_ ->
@@ -185,7 +185,7 @@ generalise_and_hash_ast_1(FName, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
 		      function ->
 			  FunName = refac_syntax:atom_value(refac_syntax:function_name(Form)),
 			  Arity = refac_syntax:function_arity(Form),
-			  AllVars = refac_util:collect_var_source_def_pos_info(Form),
+			  AllVars = refac_misc:collect_var_source_def_pos_info(Form),
 			  ets:insert(VarTab, {{FName, FunName, Arity}, AllVars}),
 			  ast_traverse_api:full_tdTP(fun generalise_and_hash_ast_2/2,
 						     Form, {FName, FunName, Arity, ASTTab, Pid});
@@ -208,7 +208,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
     F1 = fun (T) ->
 		 {T1, _} = ast_traverse_api:stop_tdTP(F0, T, []),
 		 HashVal = erlang:md5(format(T1)),
-		 {S, E} = refac_util:get_start_end_loc(T),
+		 {S, E} = refac_api:start_end_loc(T),
 		 insert_hash(Pid, HashVal, {{FName, FunName, Arity}, S, E}),
 		 T1
 	 end,
@@ -217,7 +217,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
 	    Body = refac_syntax:clause_body(Node),
 	    [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
 	     || E <- Body,
-		{StartLoc, EndLoc} <- [refac_util:get_start_end_loc(E)]],
+		{StartLoc, EndLoc} <- [refac_api:start_end_loc(E)]],
 	    insert_dummy_entry(Pid),
 	    _NewBody = [F1(E) || E <- Body],
 	    {Node, true};
@@ -226,7 +226,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
 	    Body = refac_syntax:block_expr_body(Node),
 	    [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
 	     || E <- Body,
-		{StartLoc, EndLoc} <- [refac_util:get_start_end_loc(E)]],
+		{StartLoc, EndLoc} <- [refac_api:start_end_loc(E)]],
 	    _NewBody = [F1(E) || E <- Body],
 	    {Node, true};
 	try_expr ->
@@ -234,7 +234,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
 	    Body = refac_syntax:try_expr_body(Node),
 	    [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
 	     || E <- Body,
-		{StartLoc, EndLoc} <- [refac_util:get_start_end_loc(E)]],
+		{StartLoc, EndLoc} <- [refac_api:start_end_loc(E)]],
 	    _NewBody = [F1(E) || E <- Body],
 	    {Node, true};
 	_ -> {Node, false}
@@ -436,7 +436,7 @@ get_expr_list_and_vars_to_export({{FName, FunName, Arity}, StartLoc, EndLoc}, AS
     case AllVars of
 	[] -> {Es, []};
 	[{_, Vars}] ->
-	    ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_util:get_bound_vars(Es)],
+	    ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_api:bound_vars(Es)],
 	    VarsToExport = [{V, DefPos} || {V, SourcePos, DefPos} <- Vars,
 					   SourcePos > EndLoc,
 					   lists:subtract(DefPos, ExprBdVarsPos) == []],
@@ -605,7 +605,7 @@ remove_overlapped_ranges([{S, E}| Rs], {S1, E1}, Acc) ->
 get_clones_in_ranges(Cs, Data, MinLen, MinFreq, RangeTab) ->
     F0 = fun ({S, E}) ->
 		 {_, Ranges} = lists:unzip(lists:sublist(Data, S, E - S + 1)),
-		 Ranges1 = refac_util:remove_duplicates(Ranges),
+		 Ranges1 = refac_misc:remove_duplicates(Ranges),
 		 sub_list(Ranges1, MinLen, length(Ranges1))
 	 end,
     F1 = fun (Rs) ->
@@ -713,8 +713,8 @@ do_post_process_anti_unifier(Node, _Others) ->
 			    {Node, false};
 			false ->
 			    Mod = refac_syntax:atom(M),
-			    Operator1 = refac_util:rewrite(Operator, refac_syntax:module_qualifier(Mod, Operator)),
-			    Node1 = refac_util:rewrite(Node, refac_syntax:application(Operator1, Arguments)),
+			    Operator1 = refac_misc:rewrite(Operator, refac_syntax:module_qualifier(Mod, Operator)),
+			    Node1 = refac_misc:rewrite(Node, refac_syntax:application(Operator1, Arguments)),
 			    {Node1, false}
 		    end;
 		_ ->
@@ -724,4 +724,4 @@ do_post_process_anti_unifier(Node, _Others) ->
     end.
 
 format(Node) ->
-    refac_prettypr:format(refac_util:reset_ann_and_pos(Node)).
+    refac_prettypr:format(refac_misc:reset_ann_and_pos(Node)).

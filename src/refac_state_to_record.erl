@@ -174,14 +174,14 @@ pre_cond_check(RecordName, FieldNames, ModInfo) ->
     check_existing_records(list_to_atom(RecordName),  FieldNames1, ModInfo).
 
 check_record_and_field_names(RecordName, FieldNames) ->
-    case refac_util:is_fun_name(RecordName) of
+    case refac_api:is_fun_name(RecordName) of
 	true ->
 	    ok;
 	_ -> throw({error, "Invalid record name."})
     end,
     lists:foreach(
       fun (F) ->
-	      case refac_util:is_fun_name(F) of
+	      case refac_api:is_fun_name(F) of
 		  true ->
 		      ok;
 		  _ -> throw({error, "Invalid field name: " ++ F ++ "."})
@@ -299,7 +299,7 @@ do_state_to_record_in_callback_fun(PatIndex, Fun, RecordName, RecordFields, IsTu
 						 IsTuple, ReturnState, SM, TupleToRecordFunName,
 						 RecordToTupleFunName)
 	   || C <- Cs],
-    refac_util:rewrite(Fun, refac_syntax:function(FunName, Cs1)).
+    refac_misc:rewrite(Fun, refac_syntax:function(FunName, Cs1)).
 
 do_state_to_record_in_callback_clause(PatIndex, C, RecordName, RecordFields, IsTuple, ReturnState, SM,
 				      TupleToRecordFunName, RecordToTupleFunName) ->
@@ -311,7 +311,7 @@ do_state_to_record_in_callback_clause(PatIndex, C, RecordName, RecordFields, IsT
 	   B, RecordName, RecordFields, DefPs, IsTuple, ReturnState, SM, TupleToRecordFunName, RecordToTupleFunName),
     B2 = remove_record_tuple_conversions(refac_syntax:block_expr(B1), TupleToRecordFunName, RecordToTupleFunName),
     B3 = refac_syntax:block_expr_body(B2),
-    refac_util:rewrite(C, refac_syntax:clause(Ps1, G, B3)).
+    refac_misc:rewrite(C, refac_syntax:clause(Ps1, G, B3)).
 
 
 do_state_to_record_in_pats(Ps, PatIndex, RecordName, RecordFields, IsTuple) ->
@@ -334,7 +334,7 @@ do_state_to_record_in_pats_2(P, RecordName, RecordFields, IsTuple) ->
 	    {P, [refac_syntax:get_pos(P)]};
 	tuple when IsTuple ->
 	    RecordExpr = tuple_to_record_expr(P, RecordName, RecordFields),
-	    {refac_util:rewrite(P, RecordExpr), []};
+	    {refac_misc:rewrite(P, RecordExpr), []};
 	match_expr ->
 	    tuple_to_record_in_match_expr_pattern(
 	      P, RecordName, RecordFields, IsTuple);
@@ -346,7 +346,7 @@ do_state_to_record_in_pats_2(P, RecordName, RecordFields, IsTuple) ->
 			     ++ io_lib:format("~p", [Pos])});
 	_ when length(RecordFields) == 1 ->
 	    Fields = [mk_record_field(hd(RecordFields), P)],
-	    P1 = refac_util:rewrite(P, mk_record_expr(RecordName, Fields)),
+	    P1 = refac_misc:rewrite(P, mk_record_expr(RecordName, Fields)),
 	    {P1, []};
 	_ ->
 	    Pos = refac_syntax:get_pos(P),
@@ -361,7 +361,7 @@ tuple_to_record_in_match_expr_pattern(State, RecordName, RecordFields, IsTuple) 
 	do_state_to_record_in_pats_2(P, RecordName, RecordFields, IsTuple),
     {B1, Pos2} =
 	do_state_to_record_in_pats_2(B, RecordName, RecordFields, IsTuple),
-    {refac_util:rewrite(State, refac_syntax:match_expr(P1, B1)), Pos1 ++ Pos2}.
+    {refac_misc:rewrite(State, refac_syntax:match_expr(P1, B1)), Pos1 ++ Pos2}.
 
 
 do_state_to_record_in_callback_fun_clause_body(Body, RecordName, RecordFields,
@@ -419,7 +419,7 @@ do_state_to_record_in_init_fun_clause(C, RecordName, RecordFields, IsTuple, SM,
     B = refac_syntax:clause_body(C),
     B1 = do_state_to_record_in_init_fun_clause_body(B, RecordName, RecordFields, [], IsTuple, SM,
 						    TupleToRecordFunName, RecordToTupleFunName),
-    refac_util:rewrite(C, refac_syntax:clause(P, G, B1)).
+    refac_misc:rewrite(C, refac_syntax:clause(P, G, B1)).
 
 do_state_to_record_in_init_fun_clause_body(Body, RecordName, RecordFields, DefPs, IsTuple, SM,
 					   TupleToRecordFunName, RecordToTupleFunName) ->
@@ -465,25 +465,25 @@ do_state_to_record_in_init_fun_clause_body(Body, RecordName, RecordFields, DefPs
 	    Cs = refac_syntax:case_expr_clauses(LastExpr),
 	    Cs1 = [do_state_to_record_in_init_fun_clause(C, RecordName, RecordFields, IsTuple, SM,
 							 TupleToRecordFunName, RecordToTupleFunName) || C <- Cs],
-	    LastExpr1 = refac_util:rewrite(LastExpr, refac_syntax:case_expr(Args, Cs1)),
+	    LastExpr1 = refac_misc:rewrite(LastExpr, refac_syntax:case_expr(Args, Cs1)),
 	    lists:reverse([LastExpr1| Exprs]);
 	if_expr ->
 	    Cs = refac_syntax:if_expr_clauses(LastExpr),
 	    Cs1 = [do_state_to_record_in_init_fun_clause(C, RecordName, RecordFields, IsTuple, SM,
 							 TupleToRecordFunName, RecordToTupleFunName) || C <- Cs],
-	    LastExpr1 = refac_util:rewrite(LastExpr, refac_syntax:if_expr(Cs1)),
+	    LastExpr1 = refac_misc:rewrite(LastExpr, refac_syntax:if_expr(Cs1)),
 	    lists:reverse([LastExpr1| Exprs]);
 	cond_expr ->
 	    Cs = refac_syntax:cond_expr_clauses(LastExpr),
 	    Cs1 = [do_state_to_record_in_init_fun_clause(C, RecordName, RecordFields, IsTuple, SM,
 							 TupleToRecordFunName, RecordToTupleFunName) || C <- Cs],
-	    LastExpr1 = refac_util:rewrite(LastExpr, refac_syntax:cond_expr(Cs1)),
+	    LastExpr1 = refac_misc:rewrite(LastExpr, refac_syntax:cond_expr(Cs1)),
 	    lists:reverse([LastExpr1| Exprs]);
 	block_expr ->
 	    B = refac_syntax:block_expr_body(LastExpr),
 	    B1 = do_state_to_record_in_init_fun_clause_body(B, RecordName, RecordFields, DefPs, IsTuple, SM,
 							    TupleToRecordFunName, RecordToTupleFunName),
-	    LastExpr1 = refac_util:rewrite(LastExpr, refac_syntax:block_expr(B1)),
+	    LastExpr1 = refac_misc:rewrite(LastExpr, refac_syntax:block_expr(B1)),
 	    lists:reverse([LastExpr1| Exprs]);
 	receive_expr ->
 	    Cs = refac_syntax:receive_expr_clauses(LastExpr),
@@ -491,7 +491,7 @@ do_state_to_record_in_init_fun_clause_body(Body, RecordName, RecordFields, DefPs
 	    A = refac_syntax:receive_expr_action(LastExpr),
 	    Cs1 = [do_state_to_record_in_init_fun_clause(C, RecordName, RecordFields, IsTuple, SM,
 							 TupleToRecordFunName, RecordToTupleFunName) || C <- Cs],
-	    LastExpr1 = refac_util:rewrite(LastExpr, refac_syntax:receive_expr(Cs1, T, A)),
+	    LastExpr1 = refac_misc:rewrite(LastExpr, refac_syntax:receive_expr(Cs1, T, A)),
 	    lists:reverse([LastExpr1| Exprs]);
 	atom when SM == gen_fsm ->
 	    Body;
@@ -502,7 +502,7 @@ do_state_to_record_in_init_fun_clause_body(Body, RecordName, RecordFields, DefPs
 	    throw({error, Msg});  %%  ++ io_lib:format("~p", [Pos])});
 	_ ->
 	    Fields = [mk_record_field(hd(RecordFields), LastExpr)],
-	    LastExpr1 = refac_util:rewrite(LastExpr, mk_record_expr(RecordName, Fields)),
+	    LastExpr1 = refac_misc:rewrite(LastExpr, mk_record_expr(RecordName, Fields)),
 	    lists:reverse([LastExpr1| Exprs])
     end.
 
@@ -536,8 +536,8 @@ do_state_to_record_in_match_expr(Body, _LastExpr, DefinePos, RecordName, RecordF
 					  case refac_syntax:type(B) of
 					      tuple ->
 						  B1 = tuple_to_record_expr(B, RecordName, RecordFields),
-						  Node1 = refac_syntax:match_expr(P, refac_util:rewrite(B, B1)),
-						  {refac_util:rewrite(Node, Node1), true};
+						  Node1 = refac_syntax:match_expr(P, refac_misc:rewrite(B, B1)),
+						  {refac_misc:rewrite(Node, Node1), true};
 					      application ->
 						  case is_app(B, {RecordToTupleFunName, 1}) of
 						      true ->
@@ -589,7 +589,7 @@ do_state_to_record_in_match_expr(Body, LastExpr, DefinePos, RecordName, RecordFi
 					  case Modified of
 					      true ->
 						  Node1 = refac_syntax:match_expr(P, B1),
-						  {refac_util:rewrite(Node, Node1), true};
+						  {refac_misc:rewrite(Node, Node1), true};
 					      false ->
 						  {Node, false}
 					  end;
@@ -641,12 +641,12 @@ gen_fsm_state_to_record(RecordName, RecordFields, B, Nth, IsTuple,
 	tuple when IsTuple ->
 	    State1 = tuple_to_record_expr(State, RecordName, RecordFields),
 	    Es1 = tuple_to_list(setelement(Nth, Es, State1)),
-	    refac_util:rewrite(B, refac_syntax:tuple(Es1));
+	    refac_misc:rewrite(B, refac_syntax:tuple(Es1));
 	_ ->
 	    State1 = make_tuple_to_record_app(State, RecordName, RecordFields, IsTuple,
 					      TupleToRecordFunName, RecordToTupleFunName),
 	    Es1 = tuple_to_list(setelement(Nth, Es, State1)),
-	    refac_util:rewrite(B, refac_syntax:tuple(Es1))
+	    refac_misc:rewrite(B, refac_syntax:tuple(Es1))
     end.
 
 
@@ -685,7 +685,7 @@ wrap_fun_interface_in_return(Form, ModName, RecordName, RecordFields, IsTuple, S
 		_ ->
 		    {Form2, _} = ast_traverse_api:stop_tdTP(fun wrap_run_commands_result/2, Form1,
 							    {RecordName, RecordFields, Res, IsTuple,
-							     refac_util:collect_var_names(Form1), SM}),
+							     refac_misc:collect_var_names(Form1), SM}),
 		    Form2
 	    end
     end.
@@ -707,7 +707,7 @@ check_use_of_run_commands(Form, SM) ->
 					      [_H, S, _Res] ->
 						  case refac_syntax:type(S) of
 						      variable ->
-							  case refac_util:get_free_vars(S) of
+							  case refac_api:free_vars(S) of
 							      [] ->
 								  {[refac_syntax:get_pos(S)| Acc1],
 								   [refac_syntax:get_pos(B)| Acc2]};
@@ -761,11 +761,11 @@ wrap_run_commands_result(Node, {RecordName, RecordFields, DefPs, IsTuple, UsedVa
 			true ->
 			    case SM of
 				eqc_statem ->
-				    Node1 = refac_syntax:remove_comments(refac_util:reset_attrs(Node)),
+				    Node1 = refac_syntax:remove_comments(refac_misc:reset_attrs(Node)),
 				    Es2 = transform_run_command_statem(Node1, RecordName, RecordFields, IsTuple),
 				    {refac_syntax:copy_comments(Node, set_pos(refac_syntax:get_pos(Node), Es2)), true};
 				eqc_fsm ->
-				    Node1 = refac_syntax:remove_comments(refac_util:reset_attrs(Node)),
+				    Node1 = refac_syntax:remove_comments(refac_misc:reset_attrs(Node)),
 				    Node2 = transform_run_command_fsm(Node1, RecordName, RecordFields, IsTuple),
 				    {refac_syntax:copy_comments(Node, set_pos(refac_syntax:get_pos(Node), Node2)), true}
 			    end;
@@ -779,10 +779,10 @@ wrap_run_commands_result(Node, {RecordName, RecordFields, DefPs, IsTuple, UsedVa
     end.
 
 transform_run_command(Node, UsedVars, RecordName, RecordFields, IsTuple, SM) ->
-    Node1 = refac_util:reset_attrs(Node),
-    H = refac_syntax:variable(refac_util:make_new_name('H', UsedVars)),
-    S = refac_syntax:variable(refac_util:make_new_name('S', UsedVars)),
-    Res = refac_syntax:variable(refac_util:make_new_name('Res', UsedVars)),
+    Node1 = refac_misc:reset_attrs(Node),
+    H = refac_syntax:variable(refac_api:make_new_name('H', UsedVars)),
+    S = refac_syntax:variable(refac_api:make_new_name('S', UsedVars)),
+    Res = refac_syntax:variable(refac_api:make_new_name('Res', UsedVars)),
     Es = [H, S, Res],
     Tuple = refac_syntax:tuple(Es),
     Expr1 = refac_syntax:match_expr(Tuple, Node1),
@@ -801,13 +801,13 @@ transform_run_command_statem(State, RecordName, RecordFields, IsTuple) ->
 	      true -> refac_syntax:tuple(Es1);
 	      false -> hd(Es1)
 	  end,
-    refac_util:rewrite(State, Res).
+    refac_misc:rewrite(State, Res).
 
 transform_run_command_fsm(State, RecordName, RecordFields, IsTuple) ->
     StateName = refac_syntax:application(refac_syntax:atom(element), [refac_syntax:integer(1), State]),
     StateVal = refac_syntax:application(refac_syntax:atom(element), [refac_syntax:integer(2), State]),
     Es2 = transform_run_command_statem(StateVal, RecordName, RecordFields, IsTuple),
-    refac_util:rewrite(State, refac_syntax:tuple([StateName, Es2])).
+    refac_misc:rewrite(State, refac_syntax:tuple([StateName, Es2])).
   
 
 wrap_fun_interface_in_arg(Form, ModName, RecordName, RecordFields, IsTuple, StateFuns, SM,
@@ -831,7 +831,7 @@ do_transform_actual_pars(Node, PatIndexes, RecordName, RecordFields, IsTuple,
 					  TupleToRecordFunName, RecordToTupleFunName)
 	       || {A, Index} <- lists:zip(Args, lists:seq(1, length(Args)))],
     Node1 = refac_syntax:application(Op, NewArgs),
-    refac_util:rewrite(Node, Node1).
+    refac_misc:rewrite(Node, Node1).
 
 do_transform_actual_pars_1({Arg, Index}, PatIndexes, RecordName, RecordFields, IsTuple,
 			  TupleToRecordFunName, RecordToTupleFunName) ->
@@ -874,14 +874,14 @@ is_callback_fun_app(Node, ModName, StateFuns, SM) ->
 record_to_tuple_fun_name(ModInfo, Funs, RecordName, RecordFields) ->
     FunName = list_to_atom(atom_to_list(RecordName) ++ "_to_tuple"),
     {value, {module, ModName}} = lists:keysearch(module, 1, ModInfo),
-    InscopeFuns = refac_util:inscope_funs(ModInfo),
+    InscopeFuns = refac_api:inscope_funs(ModInfo),
     gen_fun_name(ModName, Funs, RecordName, RecordFields,
 		 FunName, InscopeFuns, 0, record_to_tuple).
 
 tuple_to_record_fun_name(ModInfo, Funs, RecordName, RecordFields) ->
     FunName = list_to_atom("tuple_to_" ++ atom_to_list(RecordName)),
     {value, {module, ModName}} = lists:keysearch(module, 1, ModInfo),
-    InscopeFuns = refac_util:inscope_funs(ModInfo),
+    InscopeFuns = refac_api:inscope_funs(ModInfo),
     gen_fun_name(ModName, Funs, RecordName, RecordFields,
 		 FunName, InscopeFuns, 0, tuple_to_record).
 
@@ -1371,7 +1371,7 @@ element_to_record_access_1(Tuple, Nth, RecordName, RecordFields) ->
     FieldName = lists:nth(refac_syntax:integer_value(Nth), RecordFields),
     RecordName1 = refac_syntax:atom(RecordName),
     FieldName1 = refac_syntax:atom(FieldName),
-    refac_util:rewrite(Tuple, refac_syntax:record_access(Tuple, RecordName1, FieldName1)).
+    refac_misc:rewrite(Tuple, refac_syntax:record_access(Tuple, RecordName1, FieldName1)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
 %%                 Transformation: setelement to record expression             %%
@@ -1476,7 +1476,7 @@ remove_record_tuple_conversions(Tree, TupleToRecordFunName, RecordToTupleFunName
 				   case refac_syntax:get_pos(P) of
 				       Pos ->
 					   [T] = refac_syntax:application_arguments(B),
-					   refac_util:rewrite(Node, refac_syntax:match_expr(P, T));
+					   refac_misc:rewrite(Node, refac_syntax:match_expr(P, T));
 				       _ -> Node
 				   end;
 			       _ -> Node
@@ -1592,7 +1592,7 @@ make_tuple_to_record_app(Expr, RecordName, RecordFields, IsTuple, TupleToRecordF
 	    Field = mk_record_field(hd(RecordFields), Expr),
 	    mk_record_expr(RecordName, [Field]);
 	true ->
-	    NewExpr = refac_util:rewrite(
+	    NewExpr = refac_misc:rewrite(
 			Expr, refac_syntax:application(
 				refac_syntax:atom(TupleToRecordFunName), [Expr])),
 	    case is_app(Expr, {RecordToTupleFunName, 1}) of
@@ -1606,10 +1606,10 @@ make_tuple_to_record_app(Expr, RecordName, RecordFields, IsTuple, TupleToRecordF
 make_record_to_tuple_app(Expr, RecordName, RecordFields, IsTuple, TupleToRecordFunName, RecordToTupleFunName) ->
     case IsTuple of
 	false ->
-	    refac_util:rewrite(Expr, refac_syntax:record_access(Expr, refac_syntax:atom(RecordName),
+	    refac_misc:rewrite(Expr, refac_syntax:record_access(Expr, refac_syntax:atom(RecordName),
 								refac_syntax:atom(hd(RecordFields))));
 	true ->
-	    NewExpr = refac_util:rewrite(Expr, refac_syntax:application(
+	    NewExpr = refac_misc:rewrite(Expr, refac_syntax:application(
 						 refac_syntax:atom(RecordToTupleFunName), [Expr])),
 	    case is_app(Expr, {TupleToRecordFunName, 1}) of
 		true ->
@@ -1620,7 +1620,7 @@ make_record_to_tuple_app(Expr, RecordName, RecordFields, IsTuple, TupleToRecordF
     end.
 
 mk_record_field(Name, Val) ->
-    refac_util:rewrite_with_wrapper(Val, refac_util:reset_ann_and_pos(
+    refac_misc:rewrite_with_wrapper(Val, refac_misc:reset_ann_and_pos(
                                           refac_syntax:record_field(
                                             refac_syntax:atom(Name), 
                                             refac_syntax:remove_comments(Val)))).
@@ -1697,7 +1697,7 @@ insert_record_attribute(Forms, RecordDef) ->
 tuple_to_record_expr(Tuple, RecordName, RecordFields) ->
     Es = refac_syntax:tuple_elements(Tuple),
     Fields = mk_record_fields(RecordFields, Es),
-    refac_util:rewrite(Tuple, mk_record_expr(RecordName, Fields)).
+    refac_misc:rewrite(Tuple, mk_record_expr(RecordName, Fields)).
     
 is_app(Expr, {F, A}) ->
     case refac_syntax:type(Expr) of

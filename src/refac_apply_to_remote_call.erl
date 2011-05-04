@@ -1,6 +1,6 @@
 -module(refac_apply_to_remote_call).
 
-%-behaviour(gen_refac).
+-behaviour(gen_refac).
 
 -export([input_pars/0, select_focus/1, 
          pre_cond_check/1, transform/1]).
@@ -26,7 +26,7 @@ pre_cond_check(_Args)->
 -spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}
                                      | {error, term()}).    
 transform(_Args=#args{search_paths=SearchPaths})->
-    ?FOREACH([rule()], SearchPaths).
+    ?FULL_TD([rule()], SearchPaths).
 
 rule() ->
     ?RULE("Op@(M@, F@, Args@)",

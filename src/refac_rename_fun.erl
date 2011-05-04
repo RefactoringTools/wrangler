@@ -92,7 +92,7 @@ rename_fun_command(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths) ->
 	    throw({error, "New function name is the same as old function name!"});
 	false -> ok
     end,
-    case refac_util:is_fun_name(NewFunNameStr) of
+    case refac_api:is_fun_name(NewFunNameStr) of
 	true -> ok;
 	false -> throw({error, "Invalid new function name!"})
     end,
@@ -103,7 +103,7 @@ rename_fun_command(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths) ->
 	false ->
 	    case is_atom(ModOrFileName) of
 		true ->
-		    case refac_util:modname_to_filename(ModOrFileName, SearchPaths) of
+		    case refac_misc:modname_to_filename(ModOrFileName, SearchPaths) of
 			{ok, FileName} ->
 			    rename_fun_command_1(FileName, OldFunNameStr, Arity,
 						 NewFunNameStr, SearchPaths, 8);
@@ -120,7 +120,7 @@ rename_fun_command_1(FileName, OldFunName, Arity, NewFunName, SearchPaths, TabWi
     OldFunNameAtom = list_to_atom(OldFunName),
     NewFunNameAtom = list_to_atom(NewFunName),
     {ok, ModName} = get_module_name(Info),
-    case refac_util:funname_to_defpos(AnnAST, {ModName, OldFunNameAtom, Arity}) of
+    case refac_misc:funname_to_defpos(AnnAST, {ModName, OldFunNameAtom, Arity}) of
 	{ok, DefPos} ->
 	    case pre_cond_check_command(Info, NewFunNameAtom, ModName, OldFunNameAtom, Arity) of
 		ok ->
@@ -133,11 +133,13 @@ rename_fun_command_1(FileName, OldFunName, Arity, NewFunName, SearchPaths, TabWi
     end.
 
 pre_cond_check_command(Info, NewFunNameAtom, ModName, OldFunNameAtom, Arity) ->
-    DefinedFuns = [{F, A} || {M, F, A} <- refac_util:inscope_funs(Info), M==ModName],
-    InscopeFuns = [{F, A} || {_M, F, A} <- refac_util:inscope_funs(Info)],
+    DefinedFuns = [{F, A} || {M, F, A} <- refac_api:inscope_funs(Info), M == ModName],
+    InscopeFuns = [{F, A} || {_M, F, A} <- refac_api:inscope_funs(Info)],
     case  not  lists:member({OldFunNameAtom, Arity}, DefinedFuns) of
 	true ->
-	    {error, "The function specified does not exist!"};
+            Msg=io_lib:format("The function specified does not exist: ~p!", 
+                              [{OldFunNameAtom, Arity}]),
+	    {error, lists:flatten(Msg)};
 	false ->
 	    case lists:member({NewFunNameAtom, Arity}, InscopeFuns) orelse 
 		   erl_internal:bif(erlang, NewFunNameAtom, Arity)
@@ -157,8 +159,8 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_fun(" ++ "\"" ++ 
 	     FileName ++ "\", " ++ integer_to_list(Line) ++ 
 	       ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
-        ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    case refac_util:is_fun_name(NewName) of
+       ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    case refac_api:is_fun_name(NewName) of
 	true -> ok;
 	false -> throw({error, "Invalid new function name!"})
     end,
@@ -179,7 +181,7 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 		    case Editor of
 			emacs -> {ok, [], false};
 			eclipse ->
-			    FileContent = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST, TabWidth),
+			    FileContent = refac_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST, TabWidth),
 			    {ok, [{FileName, FileName, FileContent}]}
 		    end
 	    end;
@@ -194,7 +196,7 @@ rename_fun_0(FileName, {AnnAST, Info}, {Mod, OldFunNameAtom, Arity}, {DefinePos,
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     {AnnAST1, _C} = do_rename_fun(AnnAST, {Mod, OldFunNameAtom, Arity}, {DefinePos, NewNameAtom}),
     refac_atom_utils:check_unsure_atoms(FileName, AnnAST1, [OldFunNameAtom], {f_atom, {Mod, OldFunNameAtom, Arity}}, Pid),
-    case refac_util:is_exported({OldFunNameAtom, Arity}, Info) of
+    case refac_api:is_exported({OldFunNameAtom, Arity}, Info) of
 	true ->
 	    ?wrangler_io("\nChecking possible client modules in the following search paths: \n~p\n", [SearchPaths]),
 	    ClientFiles = wrangler_modulegraph_server:get_client_files(FileName, SearchPaths),
@@ -236,14 +238,14 @@ rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_fun(" ++ "\"" ++ 
 	    FileName ++ "\", " ++ integer_to_list(Line) ++ 
 	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
-        ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+       ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     NewName1 = list_to_atom(NewName),
     {ok, {Mod, Fun, Arity, _, DefinePos}} = interface_api:pos_to_fun_name(AnnAST, {Line, Col}),
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     Pid = refac_atom_utils:start_atom_process(),
     {AnnAST1, _C} = do_rename_fun(AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}),
-    case refac_util:is_exported({Fun, Arity}, Info) of
+    case refac_api:is_exported({Fun, Arity}, Info) of
 	true ->
 	    ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
 	    ClientFiles = wrangler_modulegraph_server:get_client_files(FileName, SearchPaths),
@@ -269,7 +271,7 @@ rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 
 pre_cond_check(FileName, Info, NewFunName, OldFunDefMod, OldFunName, Arity) ->
     {ok, ModName} = get_module_name(Info),
-    Inscope_Funs = [{F, A} || {_M, F, A} <- refac_util:inscope_funs(Info)],
+    Inscope_Funs = [{F, A} || {_M, F, A} <- refac_api:inscope_funs(Info)],
     if OldFunDefMod == ModName ->
 	   case lists:member({NewFunName, Arity}, Inscope_Funs) orelse 
 		  erl_internal:bif(erlang, NewFunName, Arity)
@@ -279,10 +281,10 @@ pre_cond_check(FileName, Info, NewFunName, OldFunDefMod, OldFunName, Arity) ->
 			     integer_to_list(Arity) ++ " is already in scope, "
 						       "or is an auto-imported builtin function."};
 	       _ ->
-		   case refac_util:is_callback_fun(Info, OldFunName, Arity) of
+		   case refac_misc:is_callback_fun(Info, OldFunName, Arity) of
 		       true ->
 			   {warning, "The function to be renamed is a callback function, continue?"};
-		       _ -> TestFrameWorkUsed = refac_util:test_framework_used(FileName),
+		       _ -> TestFrameWorkUsed = refac_misc:test_framework_used(FileName),
 			    case TestFrameWorkUsed of
 				[] -> ok;
 				_ ->
@@ -410,7 +412,7 @@ rename_fun_in_client_module_1({Tree, Info}, {M, OldName, Arity}, NewNameStr) ->
     NewNameAtom = list_to_atom(NewNameStr),
     case lists:keysearch(module, 1, Info) of
 	{value, {module, ClientModName}} ->
-	    Inscope_Funs = [{F, A} || {_M, F, A} <- refac_util:inscope_funs(Info)],
+	    Inscope_Funs = [{F, A} || {_M, F, A} <- refac_api:inscope_funs(Info)],
 	    case lists:member({NewNameAtom, Arity}, Inscope_Funs)
 		    and lists:member({OldName, Arity}, Inscope_Funs)
 		of
@@ -518,12 +520,12 @@ eunit_name_checking_1(OldFunName, NewFunName) ->
 eqc_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName) ->
     case lists:member(eqc_statem, UsedFrameWorks) andalso  not  lists:member(eqc_fsm, UsedFrameWorks) of
 	true ->
-	    eqc_callback_name_checking(OldFunName, Arity, NewFunName, refac_util:eqc_statem_callback_funs());
+	    eqc_callback_name_checking(OldFunName, Arity, NewFunName, refac_misc:eqc_statem_callback_funs());
 	false -> ok
     end,
     case lists:member(eqc_fsm, UsedFrameWorks) of
 	true ->
-	    eqc_callback_name_checking(OldFunName, Arity, NewFunName, refac_util:eqc_fsm_callback_funs());
+	    eqc_callback_name_checking(OldFunName, Arity, NewFunName, refac_misc:eqc_fsm_callback_funs());
 	false -> ok
     end,
     case lists:member(eqc, UsedFrameWorks) of
@@ -569,11 +571,11 @@ testserver_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName) ->
     end.
 
 testserver_name_checking(OldFunName, Arity, NewFunName) ->
-    case lists:member({OldFunName, Arity}, refac_util:testserver_callback_funs()) of
+    case lists:member({OldFunName, Arity}, refac_misc:testserver_callback_funs()) of
 	true ->
 	    throw({warning, "The function selected is mandatory in a Test Server test suite, continue?"});
 	false ->
-	    case lists:member({NewFunName, Arity}, refac_util:testserver_callback_funs()) of
+	    case lists:member({NewFunName, Arity}, refac_misc:testserver_callback_funs()) of
 		true ->
 		    throw({warning, "The new function would be Test Server special function, continue?"});
 		false -> ok
@@ -588,11 +590,11 @@ commontest_name_checking(UsedFrameWorks, OldFunName, Arity, NewFunName) ->
     end.
 
 commontest_name_checking(OldFunName, Arity, NewFunName) ->
-    case lists:member({OldFunName, Arity}, refac_util:commontest_callback_funs()) of
+    case lists:member({OldFunName, Arity}, refac_misc:commontest_callback_funs()) of
 	true ->
 	    throw({warning, "The function selected is a Common Test callback function, continue?"});
 	false ->
-	    case lists:member({NewFunName, Arity}, refac_util:commontest_callback_funs()) of
+	    case lists:member({NewFunName, Arity}, refac_misc:commontest_callback_funs()) of
 		true ->
 		    throw({warning, "The new function would be a Common Test callback function, continue?"});
 		false -> ok

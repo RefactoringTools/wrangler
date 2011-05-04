@@ -159,7 +159,7 @@ same_type_expr_unification(Exp1, Exp2, Type,CheckGen) ->
 	    Args1 = refac_syntax:application_arguments(Exp1),
 	    Args2 = refac_syntax:application_arguments(Exp2),
 	    case refac_syntax:type(Op)==variable andalso Args1==[] andalso
-		Args2/=[] andalso refac_util:get_free_vars(Exp2) == [] 
+		    Args2 /= [] andalso refac_api:free_vars(Exp2) == []
 	    of
 		true ->
 		    OpName = refac_syntax:variable_name(Op),
@@ -245,9 +245,9 @@ rm_comments(Node) ->
     refac_syntax:remove_comments(Node).
 
 format(Es)when is_list(Es) ->
-    [refac_prettypr:format(refac_util:reset_ann_and_pos(E))||E<-Es];
+    [refac_prettypr:format(refac_misc:reset_ann_and_pos(E))||E <- Es];
 format(E) ->
-    refac_prettypr:format(refac_util:reset_ann_and_pos(E)).
+    refac_prettypr:format(refac_misc:reset_ann_and_pos(E)).
 
 is_macro_name(Exp) ->
     Ann = refac_syntax:get_ann(Exp),

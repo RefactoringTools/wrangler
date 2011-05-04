@@ -107,20 +107,20 @@ new_let_2(FileName, AnnAST, NewPatName, Expr, ParentExpr, LetMacro, Editor, Cmd,
 	    refac_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd),
 	    {ok, [FileName]};
 	eclipse ->
-	    FileContent = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST1, TabWidth),
+	    FileContent = refac_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST1, TabWidth),
 	    {ok, [{FileName, FileName, FileContent}]}
     end.
 
 side_cond_analysis(FunDef, Expr, NewPatName) ->
-    case refac_util:is_var_name(NewPatName) of
+    case refac_api:is_var_name(NewPatName) of
 	true -> ok;
 	_ -> throw({error, "Invalid pattern variable name."})
     end,
     case get_parent_expr(FunDef, Expr) of
 	{ok, ParentExpr} ->
-	    FrVars = refac_util:get_free_vars(ParentExpr),
-	    BdVars = refac_util:get_bound_vars(ParentExpr),
-	    EnvVars = refac_util:get_env_vars(ParentExpr),
+	    FrVars = refac_api:free_vars(ParentExpr),
+	    BdVars = refac_api:bound_vars(ParentExpr),
+	    EnvVars = refac_api:env_vars(ParentExpr),
 	    Vars = element(1, lists:unzip(FrVars ++ BdVars ++ EnvVars)),
 	    case lists:member(list_to_atom(NewPatName), Vars) of
 		true ->
@@ -236,8 +236,8 @@ do_intro_new_let(Node, {Expr, NewPatName, ParentExpr, LetMacro}) ->
 	    Args = list_to_tuple(refac_syntax:macro_arguments(LetMacro)),
 	    Pats = element(1, Args),
 	    G1 = element(2, Args),
-	    BdVars = refac_util:get_bound_vars(Pats),
-	    FrVars = refac_util:get_free_vars(Expr),
+	    BdVars = refac_api:bound_vars(Pats),
+	    FrVars = refac_api:free_vars(Expr),
 	    case FrVars -- BdVars of
 		FrVars ->
 		    ParentExpr1 = replace_expr_with_var(ParentExpr, {Expr, NewPatName}),
@@ -247,8 +247,8 @@ do_intro_new_let(Node, {Expr, NewPatName, ParentExpr, LetMacro}) ->
 			    {tuple, tuple} ->
 				Ps = refac_syntax:tuple_elements(Pats),
 				Gs = refac_syntax:tuple_elements(G1),
-				{refac_util:rewrite_with_wrapper(Pats, refac_syntax:tuple(Ps ++ [NewPat])),
-				 refac_util:rewrite_with_wrapper(G1, refac_syntax:tuple(Gs ++ [Expr]))};
+				{refac_misc:rewrite_with_wrapper(Pats, refac_syntax:tuple(Ps ++ [NewPat])),
+				 refac_misc:rewrite_with_wrapper(G1, refac_syntax:tuple(Gs ++ [Expr]))};
 			    _ ->
 				{refac_syntax:tuple([Pats, NewPat]),
 				 refac_syntax:tuple([G1, Expr])}
@@ -271,7 +271,7 @@ replace_expr_with_var(Node, {Expr, Var}) ->
 do_replace_expr_with_var(Node, {Expr, Var}) ->
     case Node of
 	Expr ->
-	    {refac_util:rewrite_with_wrapper(Expr, refac_syntax:variable(Var)), true};
+	    {refac_misc:rewrite_with_wrapper(Expr, refac_syntax:variable(Var)), true};
 	_ -> {Node, false}
     end.
 
@@ -430,7 +430,7 @@ merge_forall_eclipse(FileName, SearchPaths, TabWidth) ->
 merge(FileName, MacroName, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":merge_let(" ++ "\"" ++ 
 	    FileName ++ "\"," ++ atom_to_list(MacroName) ++ ", " ++ "["
-								       ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+								      ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case is_quickcheck_used(Info) of
 	true -> ok;
@@ -497,7 +497,7 @@ merge_1(FileName, Candidates, SearchPaths, TabWidth, Cmd, Editor, TabWidth) ->
 	    refac_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd),
 	    {ok, [FileName]};
 	eclipse ->
-	    FileContent = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST1, TabWidth),
+	    FileContent = refac_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST1, TabWidth),
 	    {ok, [{FileName, FileName, FileContent}]}
     end.
 
@@ -508,10 +508,10 @@ do_merge(AnnAST, Candidates) ->
     element(1, ast_traverse_api:stop_tdTP(fun do_merge_1/2, AnnAST, Candidates)).
 
 do_merge_1(Tree, Candidates) ->
-    {{StartLine, StartCol}, {EndLine, EndCol}} = refac_util:get_start_end_loc(Tree),
+    {{StartLine, StartCol}, {EndLine, EndCol}} = refac_api:start_end_loc(Tree),
     case lists:keysearch({StartLine, StartCol, EndLine, EndCol}, 1, Candidates) of
 	{value, {_, NewLetApp}} ->
-	    {refac_util:rewrite_with_wrapper(Tree, NewLetApp), true};
+	    {refac_misc:rewrite_with_wrapper(Tree, NewLetApp), true};
 	_ -> {Tree, false}
     end.
 
@@ -556,8 +556,8 @@ collect_mergeable_lets_or_foralls(Node, MacroName) ->
     case Res == [P, G1, G2] of
 	true ->
 	    [];
-	_ -> [{refac_util:get_start_end_loc(Node),
-	       refac_util:reset_attrs(refac_syntax:macro(refac_syntax:variable(MacroName), Res))}]
+	_ -> [{refac_api:start_end_loc(Node),
+	       refac_misc:reset_attrs(refac_syntax:macro(refac_syntax:variable(MacroName), Res))}]
     end.
 
 collect_mergeable_lets_or_foralls_1(Res = [P, G1, G2], MacroName) ->
@@ -565,8 +565,8 @@ collect_mergeable_lets_or_foralls_1(Res = [P, G1, G2], MacroName) ->
 	true ->
 	    Args1 = refac_syntax:macro_arguments(G2),
 	    [P1, G11, G12] = Args1,
-	    BdVars = refac_util:get_bound_vars(P),
-	    FrVars = refac_util:get_free_vars(G11),
+	    BdVars = refac_api:bound_vars(P),
+	    FrVars = refac_api:free_vars(G11),
 	    case FrVars -- BdVars of
 		FrVars ->
 		    {Ps, Gs} = get_pats_gens(P, G1),

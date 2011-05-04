@@ -21,65 +21,96 @@
 
 
 parse_transform(Forms, Options) ->
-    Forms1=parse_transform_1({gen_refac, make_rule, 3},
+    Forms1=parse_transform_1({refac_api, make_rule, 3},
                              fun(Form, _Context) ->
                                      case erl_syntax:application_arguments(Form) of
                                          [Before, After, Cond] ->
                                              {Before1, After1, Cond1} = expand_transform_rule(Before, After, Cond),
                                              Op = erl_syntax:application_operator(Form),
-                                             erl_syntax:application(Op, [Before1, After1, Cond1]);
+                                             NewCode=erl_syntax:application(Op, [Before1, After1, Cond1]),
+                                             %%refac_io:format("Cond:\n~s\n", [erl_prettypr:format(NewCode)]),
+                                             NewCode;
                                          _Args ->
-                                             Msg ="Illegal application of function gen_refac:make_rule/3",
+                                             Msg ="Illegal application of function refac_api:make_rule/3",
                                              erlang:error(Msg)
                                      end
                              end, Forms, Options),
-    parse_transform_1({gen_refac, collect, 4},
+    Forms2=parse_transform_1({wrangler_code_inspection_api, collect, 3},
+                      fun(Form, _Context) ->
+                              case erl_syntax:application_arguments(Form) of
+                                  [TempStr, Cond, FileOrDirs] ->
+                                      {Before1, After1} = expand_collect(TempStr, Cond),
+                                      Op = erl_syntax:application_operator(Form),
+                                      Res=erl_syntax:application(Op, [Before1, After1, FileOrDirs]),
+                                      %% refac_io:format("Res:\n~s\n",[erl_prettypr:format(Res)]),
+                                      Res;
+                                  _Args ->
+                                      Msg ="Illegal application of function refac_api:collect/4",
+                                      erlang:error(Msg)
+                              end
+                      end, Forms1, Options),
+    Forms3=parse_transform_1({refac_api, collect, 4},
                       fun(Form, _Context) ->
                               case erl_syntax:application_arguments(Form) of
                                   [TempStr, Cond, ReturnFun, FileOrDirs] ->
                                       {Before1, After1, Cond1} = expand_collect(TempStr, Cond, ReturnFun),
                                       Op = erl_syntax:application_operator(Form),
-                                      erl_syntax:application(Op, [Before1, After1, Cond1, FileOrDirs]);
+                                      Res=erl_syntax:application(Op, [Before1, After1, Cond1, FileOrDirs]),
+                                      %% refac_io:format("Res:\n~s\n",[erl_prettypr:format(Res)]),
+                                      Res;
                                   _Args ->
-                                      Msg ="Illegal application of function gen_refac:collect/4",
+                                      Msg ="Illegal application of function refac_api:collect/4",
                                       erlang:error(Msg)
                               end
-                      end, Forms1, Options).
-
+                      end, Forms2, Options),
+    parse_transform_1({refac_api, match, 2},
+                      fun(Form, _Context) ->
+                              case erl_syntax:application_arguments(Form) of
+                                  [TempStr, Tree] ->
+                                      expand_match(TempStr, Tree);
+                                  _Args ->
+                                      Msg ="Illegal application of function refac_api:match/2",
+                                      erlang:error(Msg)
+                              end
+                      end, Forms3, Options).
 
 expand_transform_rule(TempBefore, TempAfter, Cond) ->
-    NewTempAfter = expand_temp_after(TempBefore, TempAfter),
-    NewCond = expand_cond(Cond),
+    BindVarName=list_to_atom("_Bind"++integer_to_list(random:uniform(1000))),
+    NewTempAfter = expand_temp_after(TempBefore, TempAfter, BindVarName),
+    NewCond = expand_cond(Cond, BindVarName),
+    %% refac_io:format("TempBefore:\n~s\n", [refac_prettypr:format(TempBefore)]),
+    %% refac_io:format("NewCond:\n~s\n", [refac_prettypr:format(NewCond)]),
+    %% refac_io:format("NewTempAfter:\n~s\n", [refac_prettypr:format(NewTempAfter)]),
     {TempBefore, NewTempAfter, NewCond}.
    
 
-expand_temp_after(TempBefore, TempAfter) ->
-    case refac_syntax:type(TempAfter) of 
+expand_temp_after(TempBefore, TempAfter, BindVarName) ->
+    case erl_syntax:type(TempAfter) of 
         block_expr ->
-            expand_temp_after_1(TempBefore, TempAfter);
+            expand_temp_after_1(TempBefore, TempAfter, BindVarName);
         _ ->
             expand_temp_after_1(TempBefore, 
-                                erl_syntax:block_expr([TempAfter]))
+                                erl_syntax:block_expr([TempAfter]), BindVarName)
     end.
 
-expand_temp_after_1(_TempBefore, TempAfter) ->
+expand_temp_after_1(_TempBefore, TempAfter, BindVarName) ->
     TempAfter1 = refac_syntax_lib:annotate_bindings(TempAfter, []),
-    FreeVars = refac_util:get_free_vars(TempAfter1),
-    MatchExprs = [make_match_expr(V)||{V,_} <- FreeVars, is_meta_variable_name(V)],
-    TempAfter2 = expand_quote(TempAfter1),
+    FreeVars = refac_api:free_vars(TempAfter1),
+    MatchExprs = [make_match_expr(V, BindVarName)||{V,_} <- FreeVars, is_meta_variable_name(V)],
+    TempAfter2 = expand_macro(TempAfter1, BindVarName),
     Body = erl_syntax:block_expr_body(TempAfter2),
-    make_fun_expr(MatchExprs++Body).
+    make_fun_expr(MatchExprs++Body, BindVarName, refac_syntax:get_pos(TempAfter)).
 
 
-expand_quote(Node) ->
-    {Node1, _} = ast_traverse_api:stop_tdTP(fun expand_quote/2, Node, {}),
+expand_macro(Node, BindVarName) ->
+    {Node1, _} = ast_traverse_api:stop_tdTP(fun expand_macro_1/2, Node, BindVarName),
     Node1.
-expand_quote(Node, _Others) ->
+expand_macro_1(Node, BindVarName) ->
     case erl_syntax:type(Node) of
         application ->
             case erl_syntax_lib:analyze_application(Node) of
                 {refac_api, {quote, 1}} ->
-                    {expand_quote_1(Node), true};
+                    {expand_quote(Node, BindVarName), true};
                 _ ->
                     {Node, false}
             end;
@@ -87,48 +118,77 @@ expand_quote(Node, _Others) ->
             {Node, false}
     end.
 
-expand_quote_1(Node) ->
-    [Str] = erl_syntax:application_arguments(Node),
+expand_quote(QuoteApp, BindVarName) ->
+    [Str] = erl_syntax:application_arguments(QuoteApp),
     Pos = erl_syntax:get_pos(Str),
-    FreeVars = element(1, lists:unzip(refac_util:get_env_vars(Str))),
+    FreeVars = element(1, lists:unzip(refac_api:env_vars(Str))),
     NewBinds=[erl_syntax:tuple([erl_syntax:atom(VarName),
                                 erl_syntax:variable(VarName)])
               ||VarName<-FreeVars],
     Binds = erl_syntax:infix_expr(erl_syntax:list(NewBinds),
                                   erl_syntax:operator('++'),
-                                  erl_syntax:variable('_Bind')),
-    Op= erl_syntax:module_qualifier(erl_syntax:atom(gen_refac), erl_syntax:atom(parse_annotate_expr)),
+                                  erl_syntax:variable(BindVarName)),
+    Op= erl_syntax:module_qualifier(erl_syntax:atom(refac_api), erl_syntax:atom(parse_annotate_expr)),
     App =erl_syntax:application(Op, [Str, erl_syntax:integer(Pos)]),
-    Op1 = erl_syntax:module_qualifier(erl_syntax:atom(gen_refac), erl_syntax:atom(subst)),
+    Op1 = erl_syntax:module_qualifier(erl_syntax:atom(refac_api), erl_syntax:atom(subst)),
     erl_syntax:application(Op1,[App, Binds]).
-       
 
-
+expand_match(TempStr, Node) ->
+    Pos = erl_syntax:get_pos(TempStr),
+    Op= erl_syntax:module_qualifier(erl_syntax:atom(refac_api), 
+                                    erl_syntax:atom(match)),
+    Args=[erl_syntax:application(erl_syntax:module_qualifier(erl_syntax:atom(refac_api), 
+                                      erl_syntax:atom(parse_annotate_expr)),
+                                   [TempStr, erl_syntax:integer(Pos)]), Node],
+    Temp = refac_api:parse_annotate_expr(erl_syntax:string_value(TempStr)),
+    App =erl_syntax:application(Op, Args),
+    NewVar1=list_to_atom("_Bind"++integer_to_list(random:uniform(1000))),
+    NewVar2=list_to_atom("_Bind"++integer_to_list(random:uniform(1000))),
+    Cs =[erl_syntax:clause([erl_syntax:atom('false')], none, 
+                           [erl_syntax:application(
+                              erl_syntax:module_qualifier(erl_syntax:atom(erlang), 
+                                                         erl_syntax:atom(error)),
+                            [erl_syntax:string("Template does not match AST node "
+                                               "at line "++integer_to_list(Pos))])]),
+         erl_syntax:clause([erl_syntax:tuple([erl_syntax:atom('true'), 
+                             erl_syntax:variable(NewVar1)])], none, 
+                           [erl_syntax:variable(NewVar1)])],                            
+    MatchExpr= erl_syntax:match_expr(erl_syntax:variable(NewVar2),
+                                      erl_syntax:case_expr(App, Cs)),
+    %% refac_io:format("App:\n~p\n", [MatchExpr]),
+    FreeVars = refac_api:free_vars(Temp),
+    MatchExprs = [make_match_expr(V, NewVar2)||{V,_} <- FreeVars, 
+                                               is_meta_variable_name(V)],
+    NewCode=erl_syntax:block_expr([MatchExpr|MatchExprs]),
+    NewCode.
+  
 
 is_meta_variable_name(VarName) ->
     lists:prefix("@", lists:reverse(atom_to_list(VarName))).
                     
-expand_cond(Cond) ->
+expand_cond(Cond, BindVarName) ->
     Cond1 = convert_meta_atom_to_meta_var(Cond),
     Cond2 = refac_syntax_lib:annotate_bindings(Cond1, []),
-    FreeVars1 = refac_util:get_free_vars(Cond2),
-    MatchExprs = [make_match_expr(V)||{V,_} <- FreeVars1, is_meta_variable_name(V)],
-    make_fun_expr(MatchExprs ++ [Cond1]).
+    FreeVars1 = refac_api:free_vars(Cond2),
+    MatchExprs = [make_match_expr(V, BindVarName)||
+                     {V,_} <- FreeVars1, 
+                     is_meta_variable_name(V)],
+    make_fun_expr(MatchExprs ++ [Cond1], BindVarName, refac_syntax:get_pos(Cond)).
 
-
+ 
 convert_meta_atom_to_meta_var(Node) ->
     {Node1, _} = ast_traverse_api:stop_tdTP(fun do_convert/2, Node, {}),
     Node1.
 
 do_convert(Node, _Others) ->
-    case refac_syntax:type(Node) of 
+    case erl_syntax:type(Node) of 
         atom ->
             case is_meta_atom(Node) of 
                 true ->
-                    AtomValue = refac_syntax:atom_value(Node),
+                    AtomValue = erl_syntax:atom_value(Node),
                     AtomValueList=atom_to_list(AtomValue),
                     UpperAtomValue=list_to_atom(string:to_upper(AtomValueList)),
-                    {refac_syntax:variable(UpperAtomValue), true};
+                    {erl_syntax:variable(UpperAtomValue), true};
                 false ->
                     {Node, false}
             end;
@@ -137,27 +197,28 @@ do_convert(Node, _Others) ->
     end.
                 
 is_meta_atom(Node) ->
-    case refac_syntax:type(Node) of 
+    case erl_syntax:type(Node) of 
         atom ->
-            AtomValue = refac_syntax:atom_value(Node),
+            AtomValue = erl_syntax:atom_value(Node),
             AtomValueList=atom_to_list(AtomValue),
-            refac_util:is_fun_name(AtomValueList) andalso
+            refac_api:is_fun_name(AtomValueList) andalso
                 lists:prefix("@", lists:reverse(AtomValueList));
         _ ->
             false
     end.
 
 %% TODO : add a sensable location here!
-make_fun_expr(Body) ->
-    Pats =[erl_syntax:variable('_Bind')],
+make_fun_expr(Body, BindVarName, StartLoc) when is_integer(StartLoc) ->
+    make_fun_expr(Body,BindVarName, {StartLoc, 1});
+make_fun_expr(Body, BindVarName, StartLoc={_L, _C}) ->
+    Pats =[erl_syntax:variable(BindVarName)],
     C= erl_syntax:clause(Pats, none, Body),
     FunExpr=erl_syntax:fun_expr([C]),
     FunExprStr = erl_prettypr:format(FunExpr),
-    refac_io:format("Cond:\n~s\n", [FunExprStr]),
-    parse_str(FunExprStr).
+    parse_str(FunExprStr, StartLoc).
 
-parse_str(Str) ->
-    {ok, Toks, _} = erl_scan:string(Str),
+parse_str(Str, StartLoc) ->
+    {ok, Toks, _} = erl_scan:string(Str, StartLoc),
     case erl_parse:parse_exprs(Toks++[{dot, {999,0}}]) of
         {ok, Exprs} ->
             Exprs1=erl_syntax:form_list_elements(
@@ -167,11 +228,12 @@ parse_str(Str) ->
             erlang:error("cannot parse")
     end.
 
-make_match_expr(VarName) ->
+make_match_expr(VarName, BindVarName) ->
     VarNameStr = io_lib:write_atom(VarName),
+    BindVarNameStr=atom_to_list(BindVarName),
     ValueVar = atom_to_list(VarName)++"_V",
     Str="case lists:keysearch(" ++ VarNameStr ++
-        ", 1, _Bind) of {value, {"++
+        ", 1, "++BindVarNameStr++") of {value, {"++
         VarNameStr++","++ValueVar++"}} -> " ++ValueVar++"; false -> no_bind end",
     {ok, Toks, _} = erl_scan:string(Str),
     case erl_parse:parse_exprs(Toks++[{dot, {999,0}}]) of
@@ -185,9 +247,15 @@ make_match_expr(VarName) ->
         _ -> erlang:error("cannot parse")
     end.
 
+expand_collect(Temp, Cond) ->
+    BindVarName=list_to_atom("_Bind"++integer_to_list(random:uniform(1000))),
+    NewCond = expand_cond(Cond, BindVarName),
+    {Temp, NewCond}.
+
 expand_collect(Temp, Cond, ReturnFun) ->
-    NewReturnFun =expand_temp_after(Temp,ReturnFun),
-    NewCond = expand_cond(Cond),
+    BindVarName=list_to_atom("_Bind"++integer_to_list(random:uniform(1000))),
+    NewReturnFun =expand_temp_after(Temp,ReturnFun, BindVarName),
+    NewCond = expand_cond(Cond, BindVarName),
     {Temp, NewCond, NewReturnFun}.
 
 

@@ -72,7 +72,7 @@ fun_extraction(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewFunName, T
 	    FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++ 
 	      "{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ NewFunName ++ "\","
         ++ integer_to_list(TabWidth) ++ ").",
-    case refac_util:is_fun_name(NewFunName) of
+    case refac_api:is_fun_name(NewFunName) of
 	true -> ok;
 	false -> throw({error, "Invalid function name!"})
     end,
@@ -101,7 +101,7 @@ fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor, TabWid
 	    refac_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd),
 	    {ok, [FileName]};
 	eclipse ->
-	    FileContent = refac_prettypr:print_ast(refac_util:file_format(FileName), AnnAST1, TabWidth),
+	    FileContent = refac_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST1, TabWidth),
 	    {ok, [{FileName, FileName, FileContent}]}
     end.
 
@@ -109,14 +109,14 @@ get_free_bd_vars(ExpList) ->
     FrBdVars = [envs_bounds_frees(E) || E <- ExpList],
     BdVars = lists:usort(lists:append([Vars || {{bound, Vars}, _} <- FrBdVars])),
     FrVars1 = lists:usort(lists:append([Vars || {_, {free, Vars}} <- FrBdVars])),
-    FrVars = refac_util:remove_duplicates(
+    FrVars = refac_misc:remove_duplicates(
 	       [VarName || {VarName, _Pos} <- lists:keysort(2, FrVars1 -- BdVars)]),
     {FrVars, BdVars}.
 
 side_cond_analysis(FileName, Info, Fun, ExpList, NewFunName) ->
     funcall_replaceable(Fun, ExpList),
     {FrVars, _} = get_free_bd_vars(ExpList),
-    InScopeFuns = [{F, A} || {_M, F, A} <- refac_util:inscope_funs(Info)],
+    InScopeFuns = [{F, A} || {_M, F, A} <- refac_api:inscope_funs(Info)],
     case lists:member({NewFunName, length(FrVars)}, InScopeFuns) orelse 
 	   erl_internal:bif(erlang, NewFunName, length(FrVars))
 	of
@@ -125,12 +125,12 @@ side_cond_analysis(FileName, Info, Fun, ExpList, NewFunName) ->
 			  "or is used as an Erlang builtin function name, please choose another name!"});
 	_ -> ok
     end,
-    TestFrameWorkUsed = refac_util:test_framework_used(FileName),
+    TestFrameWorkUsed = refac_misc:test_framework_used(FileName),
     test_framework_aware_name_checking(TestFrameWorkUsed, NewFunName, length(FrVars)).
 
 funcall_replaceable(Fun,[Exp]) ->
     check_expr_category(Fun, Exp),
-    {StartPos, EndPos} = refac_util:get_start_end_loc(Exp),
+    {StartPos, EndPos} = refac_api:start_end_loc(Exp),
     Ranges = collect_prime_expr_ranges(Fun),
     Res = lists:any(
 	    fun ({StartPos1, EndPos1}) ->
@@ -176,7 +176,7 @@ check_expr_category_1(Exp) ->
 
 is_macro_arg(Fun, Exp) ->
     MacroArgRanges = collect_macro_arg_ranges(Fun),
-    {Start, End} = refac_util:get_start_end_loc(Exp),
+    {Start, End} = refac_api:start_end_loc(Exp),
     lists:any(fun ({S1, E1}) ->
 		      S1 =< Start andalso End =< E1
 	      end, MacroArgRanges).
@@ -186,7 +186,7 @@ collect_prime_expr_ranges(Tree) ->
 		case refac_syntax:type(T) of
 		    application ->
 			Operator = refac_syntax:application_operator(T),
-			Range = refac_util:get_start_end_loc(Operator),
+			Range = refac_api:start_end_loc(Operator),
 			S ++ [Range];
 		    _ -> S
 		end
@@ -201,7 +201,7 @@ collect_macro_arg_ranges(Node) ->
 			  case Args of
 			      none -> Acc;
 			      _ ->
-				  [refac_util:get_start_end_loc(A) || A <- Args] ++ Acc
+				  [refac_api:start_end_loc(A) || A <- Args] ++ Acc
 			  end;
 		      _ -> Acc
 		  end
@@ -237,7 +237,7 @@ eunit_name_checking(UsedFrameWorks, NewFunName, Arity) ->
 eqc_name_checking(UsedFrameWorks, NewFunName, Arity) ->
     case lists:member(eqc_statem, UsedFrameWorks) of
 	true ->
-	    case lists:member({NewFunName, Arity}, refac_util:eqc_statem_callback_funs()) of
+	    case lists:member({NewFunName, Arity}, refac_misc:eqc_statem_callback_funs()) of
 		true ->
 		    throw({warning, "The new function name means that "
 				    "the new function is a quickcheck callback function, continue?"});
@@ -259,7 +259,7 @@ eqc_name_checking(UsedFrameWorks, NewFunName, Arity) ->
 testserver_name_checking(UsedFrameWorks, NewFunName, Arity) ->
     case lists:member(testserver, UsedFrameWorks) of
 	true ->
-	    case lists:member({NewFunName, Arity}, refac_util:testserver_callback_funs()) of
+	    case lists:member({NewFunName, Arity}, refac_misc:testserver_callback_funs()) of
 		true ->
 		    throw({warning, "The new function name means that "
 				    "the new function is a Test Server callback function, continue?"});
@@ -271,7 +271,7 @@ testserver_name_checking(UsedFrameWorks, NewFunName, Arity) ->
 commontest_name_checking(UsedFrameWorks, NewFunName, Arity) ->
     case lists:member(commontest, UsedFrameWorks) of
 	true ->
-	    case lists:member({NewFunName, Arity}, refac_util:commontest_callback_funs()) of
+	    case lists:member({NewFunName, Arity}, refac_misc:commontest_callback_funs()) of
 		true ->
 		    throw({warning, "The new function name means that "
 				    "the new function is a Common Test callback function, continue?"});
@@ -298,7 +298,7 @@ do_fun_extraction(FileName, AnnAST, ExpList, NewFunName, ParNames, VarsToExport,
                            match_expr ->
                                Pat = refac_syntax:match_expr_pattern(E),
                                case refac_syntax:type(Pat)==variable andalso 
-                                   refac_util:get_free_vars(Pat)==[] of 
+                                   refac_api:free_vars(Pat) == [] of
                                    true ->
                                        lists:reverse([refac_syntax:match_expr_body(E)|Es]);
                                    false ->
@@ -342,8 +342,8 @@ do_fun_extraction(FileName, AnnAST, ExpList, NewFunName, ParNames, VarsToExport,
 			      true ->
 				  Form1 = replace_expr_with_fun_call(
 					    Form, ExpList, NewFunName, ParNames, VarsToExport),
-                                  Toks = get_node_toks(FileName, refac_util:get_toks(Form), ExpList),
-                                  NewFun1 = refac_util:update_ann(NewFun, {toks, Toks}),
+                                  Toks = get_node_toks(FileName, refac_misc:get_toks(Form), ExpList),
+                                  NewFun1 = refac_misc:update_ann(NewFun, {toks, Toks}),
 				  [Form1, NewFun1];
 			      _ -> [Form]
 			  end;
@@ -377,36 +377,36 @@ replace_expr_with_fun_call(Form, ExpList, NewFunName, ParNames, VarsToExport) ->
     end.
 
 do_replace_expr_with_fun_call_1(Tree, {NewExpr, Expr}) ->
-    Range = refac_util:get_start_end_loc(Expr),
-    case refac_util:get_start_end_loc(Tree) of
+    Range = refac_api:start_end_loc(Expr),
+    case refac_api:start_end_loc(Tree) of
 	Range ->
 	    case refac_syntax:type(Tree) of
 		binary_field ->
-		    {refac_util:rewrite(Tree, refac_syntax:binary_field(NewExpr)), true};
-		_ -> {refac_util:rewrite(Tree, NewExpr), true}
+		    {refac_misc:rewrite(Tree, refac_syntax:binary_field(NewExpr)), true};
+		_ -> {refac_misc:rewrite(Tree, NewExpr), true}
 	    end;
 	_ -> {Tree, false}
     end.
 
 do_replace_expr_with_fun_call_2(Tree, {MApp, ExpList}) ->
-    Range1 = refac_util:get_start_end_loc(hd(ExpList)),
-    Range2 = refac_util:get_start_end_loc(lists:last(ExpList)),
+    Range1 = refac_api:start_end_loc(hd(ExpList)),
+    Range2 = refac_api:start_end_loc(lists:last(ExpList)),
     Fun = fun (Exprs) ->
 		  {Exprs1, Exprs2} = lists:splitwith(
 				       fun (E) ->
-                                               refac_util:get_start_end_loc(E) =/= Range1
+                                               refac_api:start_end_loc(E) =/= Range1
 				       end, Exprs),
 		  case Exprs2 of
 		      [] -> {Exprs, false};
 		      _ -> {Exprs21, Exprs22} =
 			       lists:splitwith(fun (E) ->
-                                                       refac_util:get_start_end_loc(E) =/= Range2
+                                                       refac_api:start_end_loc(E) =/= Range2
 					       end, Exprs2),
 			   case Exprs22 of
 			       [] -> {Exprs, false}; %% THIS SHOULD NOT HAPPEN.
 			       _ -> 
                                    Range3=get_start_end_loc_with_comment(Exprs21++[hd(Exprs22)]),
-                                   {Exprs1 ++ [refac_util:update_ann(MApp, {range, Range3})| tl(Exprs22)], true}
+                                   {Exprs1 ++ [refac_misc:update_ann(MApp, {range, Range3})| tl(Exprs22)], true}
 			   end
 		  end
 	  end,
@@ -416,12 +416,12 @@ do_replace_expr_with_fun_call_2(Tree, {MApp, ExpList}) ->
 	    {NewBody, Modified} = Fun(Exprs),
 	    Pats = refac_syntax:clause_patterns(Tree),
 	    G = refac_syntax:clause_guard(Tree),
-	    Tree1 = refac_util:rewrite(Tree, refac_syntax:clause(Pats, G, NewBody)),
+	    Tree1 = refac_misc:rewrite(Tree, refac_syntax:clause(Pats, G, NewBody)),
 	    {Tree1, Modified};
 	block_expr ->
 	    Exprs = refac_syntax:block_expr_body(Tree),
 	    {NewBody, Modified} = Fun(Exprs),
-	    Tree1 = refac_util:rewrite(Tree, refac_syntax:block_expr(NewBody)),
+	    Tree1 = refac_misc:rewrite(Tree, refac_syntax:block_expr(NewBody)),
 	    {Tree1, Modified};
 	try_expr ->
 	    Exprs = refac_syntax:try_expr_body(Tree),
@@ -429,7 +429,7 @@ do_replace_expr_with_fun_call_2(Tree, {MApp, ExpList}) ->
 	    Cs = refac_syntax:try_expr_clauses(Tree),
 	    Handlers = refac_syntax:try_expr_handlers(Tree),
 	    After = refac_syntax:try_expr_after(Tree),
-	    Tree1 = refac_util:rewrite(Tree, refac_syntax:try_expr(
+	    Tree1 = refac_misc:rewrite(Tree, refac_syntax:try_expr(
 					       NewBody, Cs, Handlers, After)),
 	    {Tree1, Modified};
 	_ -> {Tree, false}
@@ -454,7 +454,7 @@ envs_bounds_frees(Node) ->
 vars_to_export(_Fun,_ExpEndPos, []) ->
     [];
 vars_to_export(Fun, ExprEndPos, ExprBdVars) ->
-    AllVars = refac_util:collect_var_source_def_pos_info(Fun),
+    AllVars = refac_misc:collect_var_source_def_pos_info(Fun),
     ExprBdVarsPos = [Pos || {_Var, Pos} <- ExprBdVars],
     VarsToExport = 
         lists:keysort(2, [{V, SourcePos}
@@ -488,7 +488,7 @@ filter_exprs_via_ast(Tree, ExpList) ->
     end.
 
 get_node_toks(FileName,Toks, Node) ->
-    {Start, End} = refac_util:get_start_end_loc(Node),
+    {Start, End} = refac_api:start_end_loc(Node),
     case Start =={0,0} orelse End=={0,0} of
 	true -> [];
 	false ->
@@ -511,7 +511,7 @@ get_start_end_loc_with_comment(Node) when is_list(Node) ->
     {S, E};
 
 get_start_end_loc_with_comment(Node) ->
-    {Start, End} = refac_util:get_start_end_loc(Node),
+    {Start, End} = refac_api:start_end_loc(Node),
     PreCs = refac_syntax:get_precomments(Node),
     PostCs = refac_syntax:get_postcomments(Node),
     Start1 = case PreCs of
@@ -533,7 +533,7 @@ get_start_end_loc_with_comment(Node) ->
 
 
 get_delimitor(FileName) ->        
-    case refac_util:file_format(FileName) of
+    case refac_misc:file_format(FileName) of
         dos ->
             [{whitespace, {0,0}, '\r'},
              {whitespace, {0,0}, '\n'},

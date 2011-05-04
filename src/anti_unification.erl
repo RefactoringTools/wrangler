@@ -222,7 +222,7 @@ simi_score(Expr, SubExprs) ->
     end.
 
 subst_sanity_check(Expr1, SubSt) ->
-    BVs = refac_util:get_bound_vars(Expr1),
+    BVs = refac_api:bound_vars(Expr1),
     F = fun ({E1, E2}) ->
 		case refac_syntax:type(E1) of
 		    variable ->
@@ -242,7 +242,7 @@ subst_sanity_check(Expr1, SubSt) ->
 			end;
 		    _ ->
 			%% the expression to be replaced should not contain local variables.
-			BVs -- refac_util:get_free_vars(E1) == BVs
+			BVs -- refac_api:free_vars(E1) == BVs
 		end
 	end,
     lists:all(F, SubSt).
@@ -277,8 +277,8 @@ generate_anti_unifier(Exprs, Subst, ExportVars) ->
 
 generate_anti_unifier_and_num_of_new_vars(Exprs, Subst, ExportVars) ->
     FunName = refac_syntax:atom(new_fun),
-    BVs = refac_util:get_bound_vars(Exprs),
-    FVs = lists:ukeysort(2, refac_util:get_free_vars(Exprs)),
+    BVs = refac_api:bound_vars(Exprs),
+    FVs = lists:ukeysort(2, refac_api:free_vars(Exprs)),
     {NewExprs, NewExportVars} = generalise_expr_1(Exprs, Subst, ExportVars),
     NewExprs1 = case NewExportVars of
 		    [] -> NewExprs;
@@ -288,22 +288,22 @@ generate_anti_unifier_and_num_of_new_vars(Exprs, Subst, ExportVars) ->
 			 NewExprs++[LastExpr]
 		end,
     %% BVs: [{name, pos}]. FVs: [{name, pos}]
-    Pars = refac_util:collect_var_names(NewExprs) -- element(1, lists:unzip(BVs)),
+    Pars = refac_misc:collect_var_names(NewExprs) -- element(1, lists:unzip(BVs)),
     FVPars = [V || {V, _} <- FVs, lists:member(V, Pars)],
-    NewVarPars = refac_util:remove_duplicates(Pars -- FVPars),
+    NewVarPars = refac_misc:remove_duplicates(Pars -- FVPars),
     Pars1 = [refac_syntax:variable(V) || V <- FVPars] ++ 
         [refac_syntax:variable(V) || V <- NewVarPars],
-    FinalPars = refac_util:remove_duplicates(Pars1),
+    FinalPars = refac_misc:remove_duplicates(Pars1),
     C = refac_syntax:clause(FinalPars, none, NewExprs1),
     {refac_syntax:function(FunName, [C]), {length(FinalPars), length(NewVarPars)}}.
 
 generalise_expr_1(Exprs, Subst, ExportVars) when is_list(Exprs) ->
     BlockExpr = refac_syntax:block_expr(Exprs),
-    FVs = refac_util:get_free_vars(Exprs),
+    FVs = refac_api:free_vars(Exprs),
     {E, NewExportVars} = generalise_expr_2(BlockExpr, Subst, FVs, ExportVars),
     {refac_syntax:block_expr_body(E), NewExportVars};
 generalise_expr_1(Expr, Subst, ExportVars) ->
-    FVs = refac_util:get_free_vars(Expr),
+    FVs = refac_api:free_vars(Expr),
     {E, NewExportVars} = generalise_expr_2(Expr, Subst, FVs, ExportVars),
     {[E], NewExportVars}.
 
@@ -315,7 +315,7 @@ generalise_expr_2(Expr, Subst, ExprFreeVars, {ExportVars1, ExportVars2}) ->
 	    {Expr, ExportVars1};
 	_ ->
 	    %% New variables needed.
-	    UsedVarNames = sets:from_list(refac_util:collect_var_names(Expr)),
+	    UsedVarNames = sets:from_list(refac_misc:collect_var_names(Expr)),
 	    Pid = refac_code_search_utils:start_counter_process(UsedVarNames),
 	    ExportVars3 = [E || E <- ExportVars2, refac_syntax:type(E) =/= variable],
 	    ExprNewVarPairs = generate_new_var_names(Subst,Pid),
@@ -327,7 +327,7 @@ generalise_expr_2(Expr, Subst, ExprFreeVars, {ExportVars1, ExportVars2}) ->
 			      [refac_syntax:variable_name(E)
 			       || E <- ExportVars2, refac_syntax:type(E) == variable] ++ 
 				NewVarsToExport,
-	    VarsToExport = refac_util:remove_duplicates(VarsToExport1),
+	    VarsToExport = refac_misc:remove_duplicates(VarsToExport1),
 	    {Expr1, VarsToExport}
     end.
 
@@ -341,7 +341,7 @@ do_replace_expr_with_var_1(Node, {ExprNewVarPairs, SubSt, ExprFreeVars, Pid, Exp
     ExprsToReplace = [E || {E,_} <- ExprNewVarPairs],
     case lists:member(Node, ExprsToReplace) of
 	true ->
-	    FVs = refac_util:get_free_vars(Node),
+	    FVs = refac_api:free_vars(Node),
 	    case refac_syntax:type(Node) of
 		variable ->
 		    case FVs of
@@ -357,7 +357,7 @@ do_replace_expr_with_var_1(Node, {ExprNewVarPairs, SubSt, ExprFreeVars, Pid, Exp
 						      refac_code_search_utils:add_new_export_var(Pid, NewVar);
 						  _ -> ok
 					      end,
-					      {refac_util:rewrite(Node, refac_syntax:variable(NewVar)), true}
+					      {refac_misc:rewrite(Node, refac_syntax:variable(NewVar)), true}
 				     end;
 				 _ -> {Node, false}
 			     end
@@ -365,7 +365,7 @@ do_replace_expr_with_var_1(Node, {ExprNewVarPairs, SubSt, ExprFreeVars, Pid, Exp
 		application ->
 		    NewVar = refac_syntax:variable(get_new_var_name(Node, ExprNewVarPairs, Pid)),
                     NewFVs = [refac_syntax:variable(FV)||{FV,_Pos}<-FVs],
-		    {refac_util:rewrite(Node, refac_syntax:application(NewVar, NewFVs)), true};
+		    {refac_misc:rewrite(Node, refac_syntax:application(NewVar, NewFVs)), true};
 		_ ->
 		    NewVar = get_new_var_name(Node, ExprNewVarPairs, Pid),
 		    case lists:member(Node, ExportExprs) of
@@ -373,7 +373,7 @@ do_replace_expr_with_var_1(Node, {ExprNewVarPairs, SubSt, ExprFreeVars, Pid, Exp
 			    refac_code_search_utils:add_new_export_var(Pid, NewVar);
 			_ -> ok
 		    end,
-		    {refac_util:rewrite(Node, refac_syntax:variable(NewVar)), true}
+		    {refac_misc:rewrite(Node, refac_syntax:variable(NewVar)), true}
 	    end;
 	_ -> {Node, false}
     end.
@@ -399,7 +399,7 @@ generate_new_var_names(Subst, NewVarGenPid) ->
 				  E
 			  end} || E <- SortedExprsToBeReplacedByLoc] || S <- Subst],
     ZippedSubst = zip_subst(CompleteSubst),
-    GroupedSubst = refac_util:group_by(2, ZippedSubst),
+    GroupedSubst = refac_misc:group_by(2, ZippedSubst),
     GroupedExprsToBeReplaced = [element(1, lists:unzip(G)) || G <- GroupedSubst],
     SortedGroupedExprsToBeReplacedByLoc = lists:sort(fun (G1,G2) ->
 							     min_src_pos(G1)=<min_src_pos(G2)

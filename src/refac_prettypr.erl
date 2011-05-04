@@ -108,7 +108,7 @@ print_a_form(Form, FileFmt, Options, TabWidth) ->
     %% refac_io:format("Form:\n~p\n", [Form]),
     case form_not_changed(Form) of
         true ->
-            FormStr=refac_util:concat_toks(refac_util:get_toks(Form)),
+            FormStr=refac_misc:concat_toks(refac_misc:get_toks(Form)),
             {FormStr, {0, 0, 0}};
         false ->
             print_a_form_and_get_changes(Form, FileFmt, Options, TabWidth)
@@ -122,8 +122,8 @@ print_a_form_and_get_changes(Form, FileFormat, Options, TabWidth) ->
 		 user = proplists:get_value(user,Options),
 		 format = FileFormat,
 		 tabwidth = TabWidth,
-		 tokens = refac_util:get_toks(Form)},
-    OrigFormStr=refac_util:concat_toks(refac_util:get_toks(Form)),
+		 tokens = refac_misc:get_toks(Form)},
+    OrigFormStr=refac_misc:concat_toks(refac_misc:get_toks(Form)),
     NewFormStr0= print_form(Form,reset_prec(Ctxt),fun lay/2),
     %% NewFormStr0=erl_prettypr:format(Form),
     NewFormStr=repair_new_form_str(OrigFormStr, NewFormStr0, TabWidth,FileFormat),
@@ -149,7 +149,7 @@ print_form(Form,Ctxt,Fun) ->
     TabWidth = Ctxt#ctxt.tabwidth,
     FStr0=refac_prettypr_0:layout(D,FileFormat,TabWidth),
     FStr=remove_trailing_whitespace(FStr0, TabWidth, FileFormat), 
-    Toks = refac_util:get_toks(Form),
+    Toks = refac_misc:get_toks(Form),
     if Toks ==[] ->
             Delimitor = get_delimitor(FileFormat),
             Delimitor++Delimitor++FStr; 
@@ -193,7 +193,7 @@ form_not_changed(Form) ->
             %% This might change!
             true;  
 	false ->
-            Toks = refac_util:get_toks(Form),
+            Toks = refac_misc:get_toks(Form),
             case Toks of
                 [] -> false;
                 _ ->
@@ -204,8 +204,8 @@ form_not_changed(Form) ->
 
 form_not_change_1(Form) ->
     try
-        Toks = refac_util:get_toks(Form),
-        Str = refac_util:concat_toks(Toks),
+        Toks = refac_misc:get_toks(Form),
+        Str = refac_misc:concat_toks(Toks),
         {ok,Toks1,_} = refac_scan:string(Str,{1,1},?TabWidth,unix),
         OriginalForm = refac_epp_dodger:normal_parser(Toks1,[]),
         NewStr = format(Form,[]),
@@ -719,7 +719,7 @@ lay_2(Node, Ctxt) ->
 		undefined ->
 		    %% If a clause is formatted out of context, we
 		    %% use a "fun-expression" clause style.
-		    make_fun_clause(D1, D2, D3, Guard, Ctxt, SameLine, HeadStartLoc)
+		    make_fun_clause(D1, D2, D3, Node, Ctxt, SameLine, HeadStartLoc)
 	    end;
 	function ->  
 	    %% Comments on the name itself will be repeated for each
@@ -740,9 +740,13 @@ lay_2(Node, Ctxt) ->
             CaseArgD=case CaseStartLine==ArgStartLine orelse ArgStartLine==0 
 	         	 orelse CaseStartLine==0 of 
 	         	 true when CaseStartLine==0 ->
-	         	     refac_prettypr_0:horizontal([text("case"), D1]);
+                             refac_prettypr_0:horizontal([text("case"), D1]);
                          true ->
-                             P = ArgStartCol-CaseStartCol-4,
+                             P0 =ArgStartCol-CaseStartCol-4,
+                             P = if P0=<0 ->
+                                         1;
+                                    true -> P0
+                                 end,
                              horizontal([text("case"), text(spaces(P)), D1]);
 	         	 false ->
 	         	     above(text("case"),nest(ArgStartCol-CaseStartCol, D1))
@@ -952,7 +956,7 @@ lay_2(Node, Ctxt) ->
                         As=seq(A, floating(text(", ")), Ctxt1, fun lay/2),
                         D4 = lay_elems(fun refac_prettypr_0:sep/1, As, A, Ctxt),
                         AStartLoc=get_start_loc_with_comment(hd(A)),
-                        {{HeadStartLn, HeadStartCol}, {HeadLastLn, _}} = refac_util:get_start_end_loc_with_comment(T),
+                        {{HeadStartLn, HeadStartCol}, {HeadLastLn, _}} = refac_misc:get_start_end_loc_with_comment(T),
                         D5 =append_clause_body(D4, D3, Ctxt1, {AStartLoc, {HeadStartCol, HeadLastLn}}),
                         D2= append_leading_keyword("receive", D1, Cs, Ctxt),
                         D6 = append_keywords("after", "end", D5, [T|A], Ctxt),
@@ -1104,7 +1108,11 @@ lay_2(Node, Ctxt) ->
            E = refac_syntax:warning_marker_info(Node),
           beside(text("%% WARNING: "), lay_error_info(E, reset_prec(Ctxt)));
 	type -> empty();  %% tempory fix!!
-      	typed_record_field -> empty() %% tempory fix!!!
+      	typed_record_field -> empty(); %% tempory fix!!!
+        function_clause ->
+              lay_2(refac_syntax:function_clause(Node), Ctxt);
+        empty_node->
+            empty()
     end.
 
 lay_list(Node, Ctxt) ->
@@ -1150,7 +1158,7 @@ lay_list(Node, Ctxt) ->
             end;
 	S ->
             D2 = lay(S, Ctxt1),
-            {SuffixStart, SuffixEnd={SuffixEndLn,_}} = refac_util:get_start_end_loc_with_comment(S),
+            {SuffixStart, SuffixEnd={SuffixEndLn,_}} = refac_misc:get_start_end_loc_with_comment(S),
             {BarLn, BarCol} = get_keyword_loc_before('|', Ctxt1, SuffixStart),
             BarD2=append_elems(fun refac_prettypr_0:horizontal/1,
                                {text("|"), {{BarLn, BarCol}, {BarLn, BarCol}}},
@@ -1410,7 +1418,7 @@ make_args(Pats, P,Ctxt,FunNameLoc,LeftBracket,RightBracket) ->
     {LeftBracketLine,LeftBracketCol} = 
 	get_keyword_loc_after(LeftBracket,Ctxt,FunNameLoc),
     {{PatStartLine, PatStartCol}, {PatEndLine, _PatEndCol}} =
-        refac_util:get_start_end_loc_with_comment(Pats),
+        refac_misc:get_start_end_loc_with_comment(Pats),
     {RightBracketLine,RightBracketCol} =
 	get_right_bracket_loc(Ctxt#ctxt.tokens,{LeftBracketLine,LeftBracketCol},
                               LeftBracket, RightBracket),
@@ -1499,6 +1507,15 @@ append_guard(G,D,Ctxt) ->
 append_guard(none,D,_CsNode,_) -> 
       D;
 append_guard(G,D,CsNode,Ctxt) ->
+    Guard= refac_syntax:clause_guard(CsNode),
+    case revert_clause_guard(Guard) of 
+        [[E]] -> case refac_syntax:type(E)==nil of 
+                     true -> D;
+                     _ -> append_guard_1(G, D, CsNode, Ctxt)
+                 end;
+        _ -> append_guard_1(G, D, CsNode, Ctxt)
+    end.
+append_guard_1(G, D, CsNode, Ctxt) ->
     Guard= refac_syntax:clause_guard(CsNode),
     {{StartLn, StartCol},{_EndLn, _EndCol}}=get_start_end_loc(Guard),
     {WhenLn, WhenCol}=get_prev_keyword_loc(Ctxt#ctxt.tokens, {StartLn, StartCol}, 'when'),
@@ -1687,7 +1704,7 @@ horizontal_1([]) -> [].
 
 lay_elems(_Fun, _ElemDocs,[], _Ctxt) -> null;
 lay_elems(Fun, ElemDocs,Elems,Ctxt) ->
-    ARanges = [refac_util:get_start_end_loc_with_comment(E) || E <- Elems],
+    ARanges = [refac_misc:get_start_end_loc_with_comment(E) || E <- Elems],
     case lists:all(fun(R) -> R=={{0,0},{0,0}} end, ARanges) of 
 	true ->
 	    Fun(ElemDocs);
@@ -1729,11 +1746,11 @@ lay_body_elems_1([], _Ctxt, Acc, _LastRange) ->
     Docs = lists:map(fun (Ds) -> refac_prettypr_0:horizontal(Ds) end, Acc),
     vertical(lists:reverse(Docs));
 lay_body_elems_1([{D, Elem}| Ts],  Ctxt,[], _LastLoc) ->
-    {SLoc, ELoc} = refac_util:get_start_end_loc_with_comment(Elem),
+    {SLoc, ELoc} = refac_misc:get_start_end_loc_with_comment(Elem),
     lay_body_elems_1(Ts,  Ctxt,[[D]], {SLoc, ELoc});
 lay_body_elems_1([{D, Elem}| Ts], Ctxt, [H| T], 
 		 _LastLoc={{_LastSLn, _LastSCol}, {LastELn, LastECol}}) ->
-    Range={{SLn, SCol},{_ELn, _ECol}} = refac_util:get_start_end_loc_with_comment(Elem),
+    Range={{SLn, SCol},{_ELn, _ECol}} = refac_misc:get_start_end_loc_with_comment(Elem),
     As = refac_syntax:get_ann(Elem),
     case lists:keysearch(layout, 1, As) of 
         {value, {layout, horizontal}} ->
@@ -2040,9 +2057,9 @@ has_parentheses(Node, Toks, Left, Right)->
               fun(T) -> 
                       token_loc(T) =< EndLoc 
               end, Toks2),
-    Ts1Str=refac_util:concat_toks(lists:reverse(Toks1)),
-    Ts2Str=refac_util:concat_toks(Ts2),
-    Str21 =refac_util:concat_toks(Toks21),
+    Ts1Str=refac_misc:concat_toks(lists:reverse(Toks1)),
+    Ts2Str=refac_misc:concat_toks(Ts2),
+    Str21 =refac_misc:concat_toks(Toks21),
     case well_formed_parentheses(Str21) of
         true ->
             lists:prefix(Left, Ts1Str) andalso
@@ -2084,7 +2101,7 @@ remove_trailing_whitespace(Str, TabWidth, FileFormat) ->
     {ok, Toks, _} = refac_scan_with_layout:string(Str,{1,1}, TabWidth, FileFormat),
     remove_trailing_whitespace(Toks, []).
 remove_trailing_whitespace([], Acc) ->
-    refac_util:concat_toks(lists:reverse(Acc));
+    refac_misc:concat_toks(lists:reverse(Acc));
 remove_trailing_whitespace([{',',L},{whitespace, _, ' '}, {whitespace, L1, '\r'}| S], Acc) ->
     remove_trailing_whitespace(S, [{whitespace, L1, '\r'},{',',L}| Acc]);
 remove_trailing_whitespace([{',',L},{whitespace, _, ' '}, {whitespace, L1, '\n'}| S], Acc) ->
@@ -2103,7 +2120,7 @@ get_leading_whites(OriginalToks) ->
     Ts1=lists:takewhile(fun(Ts) ->
                                 all_whites(Ts)
                         end, OriginalToks),
-    refac_util:concat_toks(lists:append(Ts1)).
+    refac_misc:concat_toks(lists:append(Ts1)).
 
 get_trailing_whites(Str) ->   
     lists:reverse(lists:takewhile(fun(S) ->
@@ -2121,22 +2138,22 @@ get_end_loc(Node) ->
     {_, L} = get_start_end_loc(Node),
     L.
 get_start_end_loc(Node)->
-    refac_util:get_start_end_loc(Node).
+    refac_api:start_end_loc(Node).
 
 get_start_line_with_comment(Node) ->
-    {{L, _}, _} = refac_util:get_start_end_loc_with_comment(Node),
+    {{L, _}, _} = refac_misc:get_start_end_loc_with_comment(Node),
     L.
    
 get_end_line_with_comment(Node) ->
-    {_, {L, _}} = refac_util:get_start_end_loc_with_comment(Node),
+    {_, {L, _}} = refac_misc:get_start_end_loc_with_comment(Node),
     L.
 
 get_start_loc_with_comment(Node) ->
-    {Start, _}= refac_util:get_start_end_loc_with_comment(Node),
+    {Start, _}= refac_misc:get_start_end_loc_with_comment(Node),
     Start.
 
 get_end_loc_with_comment(Node) ->
-    {_, End}=refac_util:get_start_end_loc_with_comment(Node),
+    {_, End}=refac_misc:get_start_end_loc_with_comment(Node),
     End.
 
  
@@ -2159,7 +2176,7 @@ repair_new_form_str(OldFormStr, NewFormStr, TabWidth, FileFormat)->
 repair_form_layout(DiffByLine, TabWidth) ->
     repair_form_layout(DiffByLine, none, TabWidth, []).
 repair_form_layout([], _, _TabWidth, Acc) ->
-    refac_util:concat_toks(lists:append(lists:reverse(Acc)));
+    refac_misc:concat_toks(lists:append(lists:reverse(Acc)));
 repair_form_layout([{'*', LineToks}|Lines], PrevDiff, TabWidth, Acc) ->
     case all_whites(LineToks) of
         true ->
@@ -2176,7 +2193,7 @@ repair_form_layout([{'s', OldLineToks, NewLineToks}|Lines], PrevDiff, TabWidth, 
         true ->
             case Lines of 
                 [{i, Toks}|Lines1] ->
-                    case refac_util:concat_toks(remove_whites(Toks)) of
+                    case refac_misc:concat_toks(remove_whites(Toks)) of
                         S when S=="->" orelse S=="of" ->
                             case remove_loc_and_whites(OldLineToks)--
                                 remove_loc_and_whites(NewLineToks) of
@@ -2442,6 +2459,16 @@ remove_locs_whites_and_comments(Toks) ->
     [remove_loc(T)||T<-Toks,
          not is_whitespace_or_comment(T)].
 
+revert_clause_guard(E)->
+    case  refac_syntax:type(E) of
+        disjunction -> refac_syntax:revert_clause_disjunction(E);
+        conjunction ->
+            %% Only the top level expression is
+            %% unfolded here; no recursion.
+            [refac_syntax:revert(refac_syntax:conjunction_body(E))];
+        _ ->
+            [[E]]       % a single expression
+    end.
 %%% known problems:
 %% patchFroIdLines([Line, X| []]) ->
 %%     a:patchTheFroId(Line).

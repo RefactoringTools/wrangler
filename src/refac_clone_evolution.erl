@@ -148,7 +148,7 @@ inc_sim_code_detection_in_buffer(FileName, MinLen1, MinToks1, MinFreq1, MaxVars1
 			   "c:/cygwin/home/hl/test/clone_report.txt").
   
 inc_sim_code_detection(Dir, Thresholds, SearchPaths, TabWidth, OutFile) ->
-    Files = refac_util:expand_files(Dir, ".erl"),
+    Files = refac_misc:expand_files(Dir, ".erl"),
     case Files of
 	[] ->
 	    [];
@@ -163,7 +163,7 @@ get_file_status_info(CurVerFiles, Tabs) ->
     PreVerFileHashList = ets:tab2list(FileHashTab),
     Fun = fun (CurVerFile, {UnChanged, Changed, New}) ->
 		  FileBaseName = filename:basename(CurVerFile, ".erl"),
-		  CurVerFileCheckSum = refac_util:filehash(CurVerFile),
+		  CurVerFileCheckSum = refac_misc:filehash(CurVerFile),
 		  Entries = [{PreVerFileName, PreVerFileCheckSum}
 			     || {PreVerFileName, PreVerFileCheckSum} <- PreVerFileHashList,
 				FileBaseName==filename:basename(PreVerFileName, ".erl")],
@@ -286,7 +286,7 @@ generalise_and_hash_ast(CurPreRevFileNameMap, Threshold, Tabs, ASTPid, HashPid ,
 		  end, CurPreRevFileNameMap).
 
 generalise_and_hash_file_ast(FilePair = {CurRevFileName, PreRevFileName}, Threshold, Tabs, ASTPid, HashPid, SearchPaths, TabWidth) ->
-    NewCheckSum = refac_util:filehash(CurRevFileName),
+    NewCheckSum = refac_misc:filehash(CurRevFileName),
     case PreRevFileName of
 	none ->
 	    ets:insert(Tabs#tabs.file_hash_tab, {CurRevFileName, NewCheckSum}),
@@ -366,7 +366,7 @@ generalise_and_hash_function_ast_1(FName, Form, FunName, Arity, HashVal, Thresho
     Form1 = absolute_to_relative_loc(Form, StartLine),
     %% all locations are relative locations.
     %% variable binding information is needed by the anti-unification process.
-    AllVars = refac_util:collect_var_source_def_pos_info(Form1),
+    AllVars = refac_misc:collect_var_source_def_pos_info(Form1),
     %% I also put the Hashvalue of a function in var_tab.
     ets:insert(Tabs#tabs.var_tab, {{FName, FunName, Arity}, HashVal, AllVars}),
     ast_traverse_api:full_tdTP(fun generalise_and_hash_function_ast_2/2,
@@ -493,7 +493,7 @@ generalise_and_hash_expr(ASTTab, {M, F, A}, StartLine,
     %% get the hash values of the generalised expression.
     HashVal = erlang:md5(refac_prettypr:format(E1)),
     %% the location here is relative location.
-    StartEndLoc = refac_util:get_start_end_loc(Expr),
+    StartEndLoc = refac_api:start_end_loc(Expr),
     {HashVal, {StartIndex + RelativeIndex,
 	       NoOfToks, StartEndLoc, StartLine}}.
 
@@ -758,7 +758,7 @@ update_clone_class_locations(Ranges, Clones) ->
       Len, Freq, AU}||{Ranges1, Len, Freq, AU}<-Clones].
 
 update_clone_class_locations_1(RangesWithNewStartLine, RangesWithOldStartLine) ->
-    [{[refac_util:ghead("update_clone_class_locations_1",
+    [{[refac_misc:ghead("update_clone_class_locations_1",
 			lists:flatmap(fun (R) ->
 					      case R of
 						  {MFAI, Toks, {StartEndLoc, NewStartLine}, IsNew} ->
@@ -863,7 +863,7 @@ do_anti_unification_1(E1, E2) ->
     end.
 
 subst_sanity_check(Expr1, SubSt) ->
-    BVs = refac_util:get_bound_vars(Expr1),
+    BVs = refac_api:bound_vars(Expr1),
     F = fun ({E1, E2}) ->
 		case refac_syntax:type(E1) of
 		    variable ->
@@ -874,7 +874,7 @@ subst_sanity_check(Expr1, SubSt) ->
 			end;
 		    _ ->
 			%% the expression to be replaced should not contain local variables.
-			BVs -- refac_util:get_free_vars(E1) == BVs
+			BVs -- refac_api:free_vars(E1) == BVs
 		end
 	end,
     lists:all(F, SubSt).
@@ -889,9 +889,9 @@ has_same_subst(E1, E2, SubSt) ->
 		      {value, {def, DefPos}} == lists:keysearch(
 						  def, 1, refac_syntax:get_ann(E11))
 			 andalso 
-			refac_prettypr:format(refac_util:reset_attrs(E2))
-			   =/= refac_prettypr:format(refac_util:reset_attrs(E21))
-	    end, SubSt).
+		      refac_prettypr:format(refac_misc:reset_attrs(E2))
+			=/= refac_prettypr:format(refac_misc:reset_attrs(E21))
+	  end, SubSt).
 
 %% process anti-unification result.
 process_au_result(AURes, Thresholds, Tabs) ->
@@ -967,7 +967,7 @@ get_var_subst(SubSt) ->
     F = fun ({E1, E2}) ->
 		{value, {def, DefPos}} =
 		    lists:keysearch(def, 1, refac_syntax:get_ann(E1)),
-		{DefPos, refac_prettypr:format(refac_util:reset_attrs(E2))}
+		{DefPos, refac_prettypr:format(refac_misc:reset_attrs(E2))}
 	end,
     [F({E1,E2})
      || {E1,E2} <- SubSt,
@@ -1237,12 +1237,12 @@ group_clone_pairs([CP={C={_R, _EVs, Subst}, NumOfNewVars}|T], Thresholds, ExprsT
 
 %% This is not accurate, and will be improved!
 exprs_to_be_generalised(SubSt) ->
-    sets:from_list([refac_prettypr:format(refac_util:reset_attrs(E1))
+    sets:from_list([refac_prettypr:format(refac_misc:reset_attrs(E1))
 		    || {E1,_E2} <- SubSt, refac_syntax:type(E1)/=variable]).
 
 num_of_new_vars(SubSt) ->
-    length(lists:usort([{refac_prettypr:format(refac_util:reset_attrs(E1)),
-			 refac_prettypr:format(refac_util:reset_attrs(E2))}
+    length(lists:usort([{refac_prettypr:format(refac_misc:reset_attrs(E1)),
+			 refac_prettypr:format(refac_misc:reset_attrs(E2))}
 			|| {E1,E2} <- SubSt, refac_syntax:type(E1)/=variable])).
 
 
@@ -1329,7 +1329,7 @@ make_fun_call(FunName, Pats, Subst, FromSameFile) ->
 	  end,
     Pars = lists:map(Fun, Pats),
     Op = refac_syntax:atom(FunName),
-    refac_util:reset_attrs(refac_syntax:application(Op, [P || P <- Pars])).
+    refac_misc:reset_attrs(refac_syntax:application(Op, [P || P <- Pars])).
 
 	 
 
@@ -1424,8 +1424,8 @@ do_post_process_anti_unifier(Node, _Others) ->
 			    {Node, false};
 			false ->
 			    Mod = refac_syntax:atom(M),
-			    Operator1 = refac_util:rewrite(Operator, refac_syntax:module_qualifier(Mod, Operator)),
-			    Node1 = refac_util:rewrite(Node, refac_syntax:application(Operator1, Arguments)),
+			    Operator1 = refac_misc:rewrite(Operator, refac_syntax:module_qualifier(Mod, Operator)),
+			    Node1 = refac_misc:rewrite(Node, refac_syntax:application(Operator1, Arguments)),
 			    {Node1, false}
 		    end;
 		_ ->
@@ -1448,11 +1448,11 @@ get_clone_class_in_absolute_locs(_Clone={Ranges, Len, Freq, AntiUnifier}) ->
 
 get_vars_to_export(Es, {FName, FunName, Arity}, VarTab) ->
     AllVars = ets:lookup(VarTab, {FName, FunName, Arity}),
-    {_, EndLoc} = refac_util:get_start_end_loc(lists:last(Es)),
+    {_, EndLoc} = refac_api:start_end_loc(lists:last(Es)),
     case AllVars of
 	[] -> [];
 	[{_, _, Vars}] ->
-	    ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_util:get_bound_vars(Es)],
+	    ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_api:bound_vars(Es)],
 	    [{V, DefPos} || {V, SourcePos, DefPos} <- Vars,
 			    SourcePos > EndLoc,
 			    lists:subtract(DefPos, ExprBdVarsPos) == []]
@@ -1524,7 +1524,7 @@ no_of_tokens(Node) ->
 
 combine_clones_by_au([]) -> [];
 combine_clones_by_au(Cs = [{_RelRanges, _Len, _F, _Code, _AbsRanges}| _T]) ->
-    Cs1 = refac_util:group_by(4, Cs),
+    Cs1 = refac_misc:group_by(4, Cs),
     combine_clones_by_au_1(Cs1,[]).
 
 combine_clones_by_au_1([], Acc) ->
@@ -1615,7 +1615,7 @@ simplify_anti_unifier_body(AUBody) ->
 same_expr(Expr1, Expr2) ->
     {ok, Ts1, _} = erl_scan:string(refac_prettypr:format(Expr1)),
     {ok, Ts2, _} = erl_scan:string(refac_prettypr:format(Expr2)),
-    refac_util:concat_toks(Ts1)==refac_util:concat_toks(Ts2).
+    refac_misc:concat_toks(Ts1) == refac_misc:concat_toks(Ts2).
 
 
 update_file_name_in_clones(Cs, CurPreRevFileNameMap) ->

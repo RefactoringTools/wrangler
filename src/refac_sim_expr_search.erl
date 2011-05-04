@@ -67,8 +67,8 @@ sim_expr_search_in_buffer(FName, Start = {_Line, _Col}, End = {_Line1, _Col1}, S
 sim_expr_search_in_dirs(FileName, Start = {_Line, _Col}, End = {_Line1, _Col1}, SimiScore0, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:sim_expr_search_in_dirs(~p, {~p,~p},{~p,~p}, ~p, ~p, ~p).\n",
 		 [?MODULE, FileName, _Line, _Col, _Line1, _Col1, SimiScore0, SearchPaths, TabWidth]),
-    FileName1 = refac_util:expand_files([FileName], ".erl"),
-    Files = FileName1++ (refac_util:expand_files(SearchPaths, ".erl") -- FileName1),
+    FileName1 = refac_misc:expand_files([FileName], ".erl"),
+    Files = FileName1 ++ (refac_misc:expand_files(SearchPaths, ".erl") -- FileName1),
     SimiScore = get_simi_score(SimiScore0),
     {FunDef, Exprs, SE} = get_fundef_and_expr(FileName, Start, End, SearchPaths, TabWidth),
     {Ranges, AntiUnifier} = search_and_gen_anti_unifier(Files, {FileName, FunDef, Exprs, SE}, SimiScore, SearchPaths, TabWidth),
@@ -83,7 +83,7 @@ sim_expr_search_in_buffer_eclipse(FName, Start, End, SimiScore0, SearchPaths, Ta
 %%-spec(sim_expr_search_in_dirs_eclipse/6::(filename(), pos(), pos(), float(),[dir()],integer())
 %%    ->{ok,  {[{{filename(), integer(), integer()}, {filename(), integer(), integer()}}], string()}}).
 sim_expr_search_in_dirs_eclipse(FileName, Start, End, SimiScore0, SearchPaths, TabWidth) ->
-    Files = [FileName| refac_util:expand_files(SearchPaths, ".erl") -- [FileName]],
+    Files = [FileName| refac_misc:expand_files(SearchPaths, ".erl") -- [FileName]],
     sim_expr_search_eclipse(FileName, Start, End, Files, SimiScore0, SearchPaths, TabWidth).
     
 
@@ -136,7 +136,7 @@ do_search_similar_expr(FileName, AnnAST, RecordInfo, Exprs, SimiScore) when is_l
 	    Expr = hd(Exprs),
 	    F0 = fun (FunNode, Acc) ->
 			 F = fun (T, Acc1) ->
-				     case refac_util:is_expr(T) of
+				     case refac_api:is_expr(T) of
 					 true ->
 					     do_search_similar_expr_1(FileName, Expr, T, RecordInfo, SimiScore, FunNode) ++ Acc1;
 					 _ -> Acc1
@@ -178,8 +178,8 @@ do_search_similar_expr_1(FileName, Exprs1, Exprs2, RecordInfo, SimiScore, FunNod
     case Len1 =< Len2 of
 	true ->
 	    Exprs21 = lists:sublist(Exprs2, Len1),
-	    {S1, E1} = refac_util:get_start_end_loc(Exprs1),
-	    {S2, E2} = refac_util:get_start_end_loc(Exprs21),
+	    {S1, E1} = refac_api:start_end_loc(Exprs1),
+	    {S2, E2} = refac_api:start_end_loc(Exprs21),
 	    case overlapped_locs({S1, E1}, {S2, E2}) of
 		true -> [];
 		_ ->
@@ -198,8 +198,8 @@ do_search_similar_expr_1(FileName, Exprs1, Exprs2, RecordInfo, SimiScore, FunNod
 	_ -> []
     end;
 do_search_similar_expr_1(FileName, Expr1, Expr2, RecordInfo, SimiScore, FunNode) ->
-    {S1, E1} = refac_util:get_start_end_loc(Expr1),
-    {S2, E2} = refac_util:get_start_end_loc(Expr2),
+    {S1, E1} = refac_api:start_end_loc(Expr1),
+    {S2, E2} = refac_api:start_end_loc(Expr2),
     case overlapped_locs({S1, E1}, {S2, E2}) of
 	true -> [];
 	_ ->
@@ -259,7 +259,7 @@ get_fundef_and_expr(FName, Start, End, SearchPaths, TabWidth) ->
 	    case Exprs of
 		[] -> throw({error, "You have not selected an expression!"});
 		_ ->
-		    SE = refac_util:get_start_end_loc(Exprs),
+		    SE = refac_api:start_end_loc(Exprs),
 		    RecordInfo = get_module_record_info(FName, SearchPaths, TabWidth),
 		    Exprs1 = normalise_expr(Exprs, RecordInfo),
 		    {FunDef, Exprs1, SE}
@@ -278,8 +278,8 @@ normalise_record_expr(FName, Pos = {Line, Col}, ShowDefault, SearchPaths, TabWid
 		 [?MODULE, FName, Line, Col, ShowDefault, SearchPaths, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":normalise_record_expr(" ++ "\"" ++ 
 	    FName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "},"
-        ++ atom_to_list(ShowDefault) ++ " [" ++ refac_util:format_search_paths(SearchPaths)
-        ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+       ++ atom_to_list(ShowDefault) ++ " [" ++ refac_misc:format_search_paths(SearchPaths)
+      ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     normalise_record_expr_0(FName, Pos, ShowDefault, SearchPaths, TabWidth, emacs, Cmd).
    
 
@@ -306,7 +306,7 @@ normalise_record_expr_1(FName, AnnAST, Pos, ShowDefault, SearchPaths, TabWidth) 
 do_normalise_record_expr(Node, {Pos, RecordInfo, ShowDefault}) ->
     case refac_syntax:type(Node) of
 	record_expr ->
-	    {S, E} = refac_util:get_start_end_loc(Node),
+	    {S, E} = refac_api:start_end_loc(Node),
 	    case S =< Pos andalso Pos =< E of
 		true ->
 		    {ast_traverse_api:full_buTP(fun do_normalise_record_expr_1/2,
@@ -354,7 +354,7 @@ do_normalise_record_expr_1(Node, {RecordInfo, ShowDefault}) ->
 		    case lists:keysearch(refac_syntax:concrete(Type), 1, RecordInfo) of
 			{value, {_, Fields1}} ->
 			    Fields2 = lists:append([Fun(F, Fields) || F <- Fields1]),
-			    refac_util:rewrite(Node, refac_syntax:record_expr(Arg, Type, Fields2));
+			    refac_misc:rewrite(Node, refac_syntax:record_expr(Arg, Type, Fields2));
 			_ ->
 			    Node
 		    end;
@@ -380,7 +380,7 @@ pos_to_record_expr(Tree, Pos) ->
 pos_to_record_expr_1(Node, Pos) ->
     case refac_syntax:type(Node) of
 	record_expr ->
-	    {S, E} = refac_util:get_start_end_loc(Node),
+	    {S, E} = refac_api:start_end_loc(Node),
 	    case S =< Pos andalso Pos =< E of
 		true -> {Node, true};
 		_ -> {[], false}
@@ -390,9 +390,9 @@ pos_to_record_expr_1(Node, Pos) ->
 
 get_module_record_info(FName, SearchPaths, TabWidth) ->
     Dir = filename:dirname(FName),
-    DefaultIncl = [filename:join(Dir, X) || X <- refac_util:default_incls()],
+    DefaultIncl = [filename:join(Dir, X) || X <- refac_misc:default_incls()],
     Includes = SearchPaths ++ DefaultIncl,
-    case refac_epp:parse_file(FName, Includes, [], TabWidth, refac_util:file_format(FName)) of
+    case refac_epp:parse_file(FName, Includes, [], TabWidth, refac_misc:file_format(FName)) of
 	{ok, Forms, _} -> Forms1 = [F || F <- Forms, case F of
 							 {attribute, _, file, _} -> false;
 							 {attribute, _, type, {{record, _}, _, _}} -> false;
@@ -408,12 +408,12 @@ get_module_record_info(FName, SearchPaths, TabWidth) ->
     end.
 
 vars_to_export(Fun, ExprEndPos, Expr) ->
-    AllVars = refac_util:collect_var_source_def_pos_info(Fun),
-    ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_util:get_bound_vars(Expr)],
+    AllVars = refac_misc:collect_var_source_def_pos_info(Fun),
+    ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_api:bound_vars(Expr)],
     [{V, DefPos} || {V, SourcePos, DefPos} <- AllVars,
 		    SourcePos > ExprEndPos,
 		    lists:subtract(DefPos, ExprBdVarsPos) == []].
 
 
 format(Node) ->
-    refac_prettypr:format(refac_util:reset_ann_and_pos(Node)).
+    refac_prettypr:format(refac_misc:reset_ann_and_pos(Node)).

@@ -71,8 +71,8 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_var(" ++ "\"" ++ 
 	     FName ++ "\", " ++ integer_to_list(Line) ++ 
 	       ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
-        ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    case refac_util:is_var_name(NewName) of
+       ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    case refac_api:is_var_name(NewName) of
 	true -> ok;
 	false -> throw({error, "Invalid new variable name."})
     end,
@@ -111,7 +111,7 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 	       emacs ->
 		   {ok, []};
 	       _ ->
-		   Content = refac_prettypr:print_ast(refac_util:file_format(FName), AnnAST1, TabWidth),
+		   Content = refac_prettypr:print_ast(refac_misc:file_format(FName), AnnAST1, TabWidth),
 		   {ok, [{FName, FName, Content}]}
 	   end
     end.
@@ -170,7 +170,7 @@ pos_to_form_1(Node, Pos) ->
 	    orelse refac_syntax:type(Node) == attribute
 	of
 	true ->
-	    {S, E} = refac_util:get_start_end_loc(Node),
+	    {S, E} = refac_api:start_end_loc(Node),
 	    if (S =< Pos) and (Pos =< E) ->
 		   {Node, true};
 	       true -> {[], false}

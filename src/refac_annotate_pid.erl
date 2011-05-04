@@ -43,7 +43,7 @@
 
 %%-spec(ann_pid_info/2::([dir()], integer())->ok).
 ann_pid_info(DirList, TabWidth) ->
-    Files = refac_util:expand_files(DirList, ".erl"),
+    Files = refac_misc:expand_files(DirList, ".erl"),
     SortedFuns = sort_funs(DirList),
     start_counter_process(),
     Pid = start_fun_typesig_process([]),            %% Refactor this USING WRANGLER:  register a process, and remove the uses of Pid.
@@ -120,7 +120,7 @@ update_function(File, FunList, DirList, TabWidth) ->
 		end
 	end,
     {AnnAST1, _} = ast_traverse_api:stop_tdTP(F, AnnAST, []),
-    wrangler_ast_server:update_ast({File, true, DirList, TabWidth, refac_util:file_format(File)}, {AnnAST1, Info, filelib:last_modified(File)}),
+    wrangler_ast_server:update_ast({File, true, DirList, TabWidth, refac_misc:file_format(File)}, {AnnAST1, Info, filelib:last_modified(File)}),
     ok.
 
 annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
@@ -132,7 +132,7 @@ annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
 		    EnvPid ! {self(), get, {def, DefinePos}},
 		    receive
 			{EnvPid, value, Value} ->
-			    refac_util:update_ann(Node, Value);
+			    refac_misc:update_ann(Node, Value);
 			{EnvPid, false} -> Node
 		    end;
 		_ -> Node
@@ -148,8 +148,9 @@ annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
 			{TypeSigPid, value, {ParSig, RtnSig}} ->
 			    F = fun ({A, S}) ->
 					case S of
-					    {pname, _} ->    %% Can you do this to Pid?
-						refac_util:update_ann(A, S);
+					    {pname, _}    %% Can you do this to Pid?
+						       ->
+                                                refac_misc:update_ann(A, S);
 					    _ -> A
 					end
 				end,
@@ -157,7 +158,7 @@ annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
 			    Node1 = refac_syntax:copy_attrs(Node, refac_syntax:application(Operator, Args1)),
 			    case RtnSig of
 				any -> Node1;
-				Pid -> Node2 = refac_util:update_ann(Node1, Pid),
+				Pid -> Node2 = refac_misc:update_ann(Node1, Pid),
 				       Node2
 			    end;
 			{TypeSigPid, false} ->
@@ -171,7 +172,7 @@ annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
 	    Ann = refac_syntax:get_ann(B),
 	    case lists:keysearch(pid, 1, Ann) of
 		{value, {pid, Value}} ->
-		    P1 = refac_util:update_ann(P, {pid, Value}),
+		    P1 = refac_misc:update_ann(P, {pid, Value}),
 		    case refac_syntax:type(P) of
 			variable ->
 			    Ann1 = refac_syntax:get_ann(P),
@@ -183,7 +184,7 @@ annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
 		_ ->
 		    case lists:keysearch(pname, 1, Ann) of
 			{value, {pname, Value}} ->
-			    P1 = refac_util:update_ann(P, {pname, Value}),
+			    P1 = refac_misc:update_ann(P, {pname, Value}),
 			    case refac_syntax:type(P) of
 				variable ->
 				    Ann1 = refac_syntax:get_ann(P),
@@ -311,7 +312,8 @@ annotate_within_fun_1({{ModName, FunName, Arity}, FunDef}, TypeSigPid) ->
 					      Ps = refac_syntax:clause_patterns(C),
 					      B = refac_syntax:clause_body(C),
 					      G = refac_syntax:clause_guard(C),
-					      Ps1 = lists:map(fun ({P, T}) ->  %% don't care about complex parameters.
+					      Ps1 = lists:map(fun ({P, T}  %% don't care about complex parameters.
+                                                                         ) ->
 								      case refac_syntax:type(P) of
 									  variable ->
 									      case T of
@@ -320,7 +322,7 @@ annotate_within_fun_1({{ModName, FunName, Arity}, FunDef}, TypeSigPid) ->
 										      Ann1 = refac_syntax:get_ann(P),
 										      {value, {def, DefinePos}} = lists:keysearch(def, 1, Ann1),
 										      EnvPid ! {add, {{def, DefinePos}, Pid}},
-										      refac_util:update_ann(P, Pid)
+										      refac_misc:update_ann(P, Pid)
 									      end;
 									  _ -> P
 								      end
@@ -370,7 +372,7 @@ annotate_special_fun_apps({CurrentFun, FunDef}, EnvPid) ->
 do_annotate_special_fun_apps_pid(Node, {CurrentFun, EnvPid}) ->
     case refac_syntax:type(Node) of
 	application ->
-	    case refac_util:is_spawn_app(Node)   %% TODO:How about meta application of spawn?
+	    case refac_misc:is_spawn_app(Node)   %% TODO:How about meta application of spawn?
 		of
 		true ->
 		    Op = refac_syntax:application_operator(Node),
@@ -386,7 +388,7 @@ do_annotate_special_fun_apps_pid(Node, {CurrentFun, EnvPid}) ->
 		    counter1 ! {self(), next_spawn},
 		    receive {counter1, N} -> N end,
 		    Node1 = refac_syntax:copy_attrs(Node, refac_syntax:application(Op, Args1)),
-		    Node2 = refac_util:update_ann(Node1,
+		    Node2 = refac_misc:update_ann(Node1,
 						  {pid, [{spawn, CurrentFun, N}]}),
 		    {Node2, true};
 		_ ->
@@ -394,7 +396,7 @@ do_annotate_special_fun_apps_pid(Node, {CurrentFun, EnvPid}) ->
 		    OpAnn = refac_syntax:get_ann(Op),
 		    case lists:keysearch(fun_def, 1, OpAnn) of
 			{value, {fun_def, {erlang, self, 0, _, _}}} ->
-			    Node1 = refac_util:update_ann(Node, {pid, [{self, CurrentFun}]}),
+			    Node1 = refac_misc:update_ann(Node, {pid, [{self, CurrentFun}]}),
 			    {Node1, true};
 			_ -> {Node, false}
 		    end
@@ -414,7 +416,7 @@ do_annotate_special_fun_apps_pname(Node, EnvPid) ->
 				  {value, {pid, PidInfo1}} -> PidInfo1;
 				  _ -> []
 			      end,
-		    Arg11 = refac_util:update_ann(Arg1, {pname, PidInfo}),
+		    Arg11 = refac_misc:update_ann(Arg1, {pname, PidInfo}),
 		    Node1 = refac_syntax:copy_attrs(Node, refac_syntax:application(Op, [Arg11, Arg2])),
 		    case lists:keysearch(def, 1, refac_syntax:get_ann(Arg1)) of
 			{value, {def, DefinePos}} ->  %% the process name is a variable.
@@ -432,14 +434,14 @@ do_annotate_special_fun_apps_pname(Node, EnvPid) ->
 			    EnvPid ! {self(), get, {def, DefinePos}},
 			    receive
 				{EnvPid, value, Value} ->
-				    Arg11 = refac_util:update_ann(Arg1, Value),
+				    Arg11 = refac_misc:update_ann(Arg1, Value),
 				    refac_syntax:copy_attrs(Node, refac_syntax:application(Op, [Arg11]));
 				{EnvPid, false} ->
-				    Arg11 = refac_util:update_ann(Arg1, {pname, []}), %% keep an empty list for information extension.
+				    Arg11 = refac_misc:update_ann(Arg1, {pname, []}), %% keep an empty list for information extension.
 				    EnvPid ! {add, {{def, DefinePos}, {pname, []}}},
 				    refac_syntax:copy_attrs(Node, refac_syntax:application(Op, [Arg11]))
 			    end;
-			_ -> Arg11 = refac_util:update_ann(Arg1, {pname, []}),
+			_ -> Arg11 = refac_misc:update_ann(Arg1, {pname, []}),
 			     refac_syntax:copy_attrs(Node, refac_syntax:application(Op, [Arg11]))
 		    end;
 		{value, {fun_def, {erlang, whereis, 1, _, _}}} ->
@@ -449,21 +451,21 @@ do_annotate_special_fun_apps_pname(Node, EnvPid) ->
 			    EnvPid ! {self(), get, {def, DefinePos}},
 			    receive
 				{EnvPid, value, Value} ->
-				    Arg11 = refac_util:update_ann(Arg1, Value),
+				    Arg11 = refac_misc:update_ann(Arg1, Value),
 				    refac_syntax:copy_attrs(Node, refac_syntax:application(Op, [Arg11]));
 				{EnvPid, false} ->
-				    Arg11 = refac_util:update_ann(Arg1, {pname, []}),
+				    Arg11 = refac_misc:update_ann(Arg1, {pname, []}),
 				    EnvPid ! {add, {{def, DefinePos}, {pname, []}}},
 				    refac_syntax:copy_attrs(Node, refac_syntax:application(Op, [Arg11]))
 			    end;
 			_ ->
-			    Arg11 = refac_util:update_ann(Arg1, {pname, []}),
+			    Arg11 = refac_misc:update_ann(Arg1, {pname, []}),
 			    refac_syntax:copy_attrs(Node, refac_syntax:application(Op, [Arg11]))
 		    end;
 		{value, {fun_def, {erlang, send, 2, _, _}}} ->
 		    [Arg1, Arg2] = refac_syntax:application_arguments(Node),
 		    Arg11 = case refac_syntax:type(Arg1) of
-				atom -> refac_util:update_ann(Arg1, {pname, []});
+				atom -> refac_misc:update_ann(Arg1, {pname, []});
 				_ -> Arg1
 			    end,
 		    Node1 = refac_syntax:copy_attrs(Node, refac_syntax:application(Op, [Arg11, Arg2])),
@@ -483,7 +485,7 @@ do_annotate_special_fun_apps_pname(Node, EnvPid) ->
 			      Right = refac_syntax:infix_expr_right(Node),
 			      case refac_syntax:type(Left) of
 				  atom ->
-				      Left1 = refac_util:update_ann(Left, {pname, []}),
+				      Left1 = refac_misc:update_ann(Left, {pname, []}),
 				      refac_syntax:copy_attrs(Node, refac_syntax:infix_expr(Left1, Op, Right));
 				  _ -> Node
 			      end;

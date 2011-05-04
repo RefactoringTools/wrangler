@@ -26,7 +26,7 @@
 
 -module(ast_traverse_api).
 
--export([once_tdTU/3, stop_tdTP/3, full_tdTP/3, full_buTP/3]).
+-export([once_tdTU/3, stop_tdTU/3, stop_tdTP/3, full_tdTP/3, full_buTP/3]).
 
 -export([map/2, map_subtrees/2, mapfold/3,
 	 mapfold_subtrees/3, fold/3, fold_subtrees/3]).
@@ -106,7 +106,7 @@ stop_tdTP(Function, Node, Others) ->
                  Gs2 = [[N || {N, _B} <- G] || G <- Gs1],
                  G = [[B || {_N, B} <- G] || G <- Gs1],
                  Node2 = refac_syntax:make_tree(refac_syntax:type(Node1), Gs2),
-                 {rewrite(Node1, Node2), lists:member(true, lists:flatten(G))}
+                   {rewrite(Node1, Node2), lists:member(true, lists:flatten(G))}
            end
      end.
 
@@ -214,26 +214,26 @@ rewrite(Tree, Tree1) ->
     refac_syntax:copy_attrs(Tree, Tree1).
 
 
-%% stop_tdTU(Function, S, Node) ->
-%%     {Res, _} = stop_tdTU_1(Function, S, Node),
-%%     Res.
+stop_tdTU(Function, S, Node) ->
+    {Res, _} = stop_tdTU_1(Function, S, Node),
+    lists:reverse(Res).
 
-%% stop_tdTU_1(Function, S, Node) ->
-%%     case Function(Node, S) of
-%%       {R, true} -> {R, true};
-%%       {_R, false} ->
-%% 	  case erl_syntax:subtrees(Node) of
-%% 	    [] -> {[], false};
-%% 	    Gs ->
-%% 		Flattened_Gs = [T || G <- Gs, T <- G],
-%% 		case Flattened_Gs of
-%% 		  [] -> {[], false};
-%% 		  [_H | _T1] -> S1 = [[stop_tdTU_1(Function, [], T) || T <- G] || G <- Gs],
-%% 			      S2 = [S12 || G<-S1, {S12, _B} <- G],
-%% 				{S++lists:append(S2), true}
-%% 		end
-%% 	  end
-%%     end.
+stop_tdTU_1(Function, S, Node) ->
+     case Function(Node) of
+         {R, true} -> {[R|S], true};
+         {_R, false} ->
+             case erl_syntax:subtrees(Node) of
+                 [] -> {S, false};
+                 Gs ->
+                     Flattened_Gs = [T || G <- Gs, T <- G],
+                     case Flattened_Gs of
+                         [] -> {S, false};
+                         [_H | _T1] -> S1 = [[stop_tdTU_1(Function, [], T) || T <- G] || G <- Gs],
+                                       S2 = [S12 || G<-S1, {S12, _B} <- G],
+                                       {S++lists:append(S2), true}
+ 		end
+ 	  end
+     end.
 
 
 %% =====================================================================

@@ -1,20 +1,39 @@
+%% This module shows how to use Wrangler's refactoring 
+%% level API to compose more complex refactorings.
+%% This example refactoring tries to rename all the 
+%% function names that are in camlCase format to camel_case
+%% format. An error message is issued each time the 
+%% refactoring fails to rename a function because of 
+%% name conflict.
+%%
+%% This refactoring is supposed to run in command line.
+%% Before run this refactoring, you can use
+%% wrangler_api:start() to start the Wrangler application.
+%% Doing this will allow you to undo the refactoring 
+%% if you are not happy with the result; and when you 
+%% finish, you can use wrangler_api:stop() to stop the 
+%% wrangler application.
+
+%%@author  Huiqing Li <H.Li@kent.ac.uk>
+
 -module(refac_batch_rename_fun).
 
 -export([rename_fun_to_camel_case/1]).
 
 rename_fun_to_camel_case(SearchPaths)->
-    wrangler_api:start(),
-    Files = refac_api:expand_files(SearchPaths, ".erl"),
+    %% start the Wrangler application.
+    Files = refac_misc:expand_files(SearchPaths, ".erl"),
     Res=[rename_in_file(File, SearchPaths)||File<-Files],
-    wrangler_api:stop(),
     {ok, lists:usort(lists:append(Res))}.
 
-rename_in_file(File, SearchPaths) ->   
+rename_in_file(File, SearchPaths) ->
+    %% get all the functions defined in this file.
     FAs = refac_api:defined_funs(File),
-    Res=[rename_one_function(File, SearchPaths, F, A) 
-         ||{F,A} <- FAs, camelCase_to_camel_case(F) /= F],
-    lists:append(Res).
+    [rename_one_function(File, SearchPaths, F, A) 
+     ||{F,A} <- FAs, camelCase_to_camel_case(F) /= F].
+    
 
+%% rename one function whose name is in camelCase.
 rename_one_function(File, SearchPaths, F, A) ->
     NewName = camelCase_to_camel_case(F),
     refac_io:format("\nRenaming function ~p/~p to ~p/~p in ~p ...\n",
@@ -24,13 +43,16 @@ rename_one_function(File, SearchPaths, F, A) ->
         {ok, FilesChanged} ->
             FilesChanged;
         {error, Reason} ->
-            refac_io:format("\nRenaming ~p/~p in file, ~p, failed: ~p.\n", 
+            refac_io:format("\nRenaming ~p/~p in file, ~p, "
+                            "failed: ~p.\n", 
                             [F,A,File,Reason]),
             []
     end.
 
+%%===================================================
+%% Some utility functions.
 
-%% utility functions.
+%% transform camelCase atom to camel_case.
 camelCase_to_camel_case(Name) ->
     list_to_atom(camelCase_to_camel_case_1(
                    atom_to_list(Name),[])).

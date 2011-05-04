@@ -60,7 +60,7 @@ fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fun_to_process(" ++ "\"" ++ 
 	    FName ++ "\", " ++ integer_to_list(Line) ++ 
 	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ ProcessName ++ "\","
-									        ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+									       ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case is_process_name(ProcessName) of
 	true -> ok;
 	false -> throw({error, "Invalid process name."})
@@ -82,7 +82,7 @@ fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor) ->
 				 [FName]),
 		    {ok, [FName]};
 		eclipse ->
-		    Content = refac_prettypr:print_ast(refac_util:file_format(FName), AnnAST2, TabWidth),
+		    Content = refac_prettypr:print_ast(refac_misc:file_format(FName), AnnAST2, TabWidth),
 		    Res = [{FName, FName, Content}],
 		    {ok, Res}
 	    end;
@@ -109,7 +109,7 @@ fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor, L
 	    refac_write_file:write_refactored_files_for_preview(Res, TabWidth, LogMsg),
 	    {ok, [FName]};
 	eclipse ->
-	    Content = refac_prettypr:print_ast(refac_util:file_format(FName), AnnAST1, TabWidth),
+	    Content = refac_prettypr:print_ast(refac_misc:file_format(FName), AnnAST1, TabWidth),
 	    Res = [{FName, FName, Content}],
 	    {ok, Res}
     end.
@@ -146,7 +146,7 @@ pre_cond_check(AnnAST, Pos, ModName, FunName, Arity, ProcessName, SearchPaths, T
 	    ?wrangler_io("The value returned by 'self()', which is used at the location(s) listed below, will be changed "
 			 " by this refactoring, and this could possibly change the behaviour of the program!\n", []),
 	    lists:foreach(fun ({{File, _Fun, _Ari}, SelfExpr, _}) ->
-				  {{Line, _}, _} = refac_util:get_start_end_loc(SelfExpr),
+				  {{Line, _}, _} = refac_api:start_end_loc(SelfExpr),
 				  _Msg = File ++ io_lib:format(":~p: \n", [Line]),
                                   _ = length(_Msg),
 				  ?wrangler_io(_Msg, [])
@@ -175,7 +175,7 @@ pre_cond_check(AnnAST, Pos, ModName, FunName, Arity, ProcessName, SearchPaths, T
 	    ?wrangler_io("The value returned by 'self()', which is used at the location(s) listed below, will be changed "
 			 " by this refactoring, and this could possibly change the behaviour of the program!\n", []),
 	    lists:foreach(fun ({{File, _Fun, _Ari}, SelfExpr, _}) ->
-				  {{Line, _}, _} = refac_util:get_start_end_loc(SelfExpr),
+				  {{Line, _}, _} = refac_api:start_end_loc(SelfExpr),
 				  _Msg = File ++ io_lib:format(":~p: \n", [Line]),
                                   _ = length(_Msg),
 				  ?wrangler_io(_Msg, [])
@@ -189,7 +189,7 @@ pre_cond_check(AnnAST, Pos, ModName, FunName, Arity, ProcessName, SearchPaths, T
 check_self_exprs([], _, _SearchPaths) ->
     [];
 check_self_exprs(SelfApps, InitialFun = {_ModName, _FunName, _Arity}, SearchPaths) ->
-    Files = refac_util:expand_files(SearchPaths, ".erl"),
+    Files = refac_misc:expand_files(SearchPaths, ".erl"),
     CallGraph = wrangler_callgraph_server:get_callgraph(SearchPaths),
     CallerCallee = CallGraph#callgraph.callercallee,
     ReachedFuns = [InitialFun| reached_funs_1(CallerCallee, [InitialFun])],
@@ -243,7 +243,7 @@ reached_funs_1(CallerCallee, Acc) ->
     end.
 
 do_fun_to_process(AnnAST, Info, DefPos, FunName, Arity, ProcessName) ->
-    InScopeFuns = [{F, A} || {_M, F, A} <- refac_util:inscope_funs(Info)],
+    InScopeFuns = [{F, A} || {_M, F, A} <- refac_api:inscope_funs(Info)],
     RpcFunName = new_fun_name(atom_to_list(FunName) ++ "_rpc", 2, 0, InScopeFuns),
     NewFunName = new_fun_name(atom_to_list(FunName), 0, 0, InScopeFuns -- [{FunName, Arity}]),
     do_fun_to_process_1(AnnAST, DefPos, ProcessName, FunName, NewFunName, RpcFunName).
@@ -338,7 +338,7 @@ do_fun_to_process_2(FunDef, FunName, NewFunName, RpcFunName, ProcessName)->
      refac_syntax:function(NewFunName1, [C])].
 
 collect_registration_and_self_apps(DirList, TabWidth) ->
-    Files = refac_util:expand_files(DirList, ".erl"),
+    Files = refac_misc:expand_files(DirList, ".erl"),
     F = fun (File, FileAcc) ->
 		{ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(File, true, DirList),
 		{value, {module, ModName}} = lists:keysearch(module, 1, Info),
@@ -383,10 +383,10 @@ collect_registration_and_self_apps(DirList, TabWidth) ->
     {SelfApps, PidAcc, Names, UnKnowns}.
 
 evaluate_expr(FileName, Expr, SearchPaths, TabWidth) ->
-    Val = refac_util:try_eval(FileName, Expr, SearchPaths, TabWidth),
+    Val = refac_misc:try_eval(FileName, Expr, SearchPaths, TabWidth),
     case Val of
 	{value, V} -> [{value, V}];
-	_ -> {{StartLine, _StartCol}, _} = refac_util:get_start_end_loc(Expr),
+	_ -> {{StartLine, _StartCol}, _} = refac_api:start_end_loc(Expr),
 	     [{unknown, {FileName, StartLine}}]
     end.
    
@@ -456,5 +456,5 @@ is_self_app(T) ->
      end.
 
 is_process_name(Name) ->
-    refac_util:is_fun_name(Name) andalso 
+    refac_api:is_fun_name(Name) andalso
       list_to_atom(Name) =/= undefined.

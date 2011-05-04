@@ -117,7 +117,7 @@ inc_sim_code_detection(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1
     {MinLen,MinToks,MinFreq,MaxVars,SimiScore} = get_parameters(MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1),
     Cmd = io_lib:format("\nCMD: ~p:inc_sim_code_detection(~p,~p,~p,~p,~p, ~p,~p,~p).",
 			[?MODULE,DirFileList,MinLen,MinToks,MinFreq,MaxVars,SimiScore,SearchPaths,TabWidth]),
-    Files = refac_util:expand_files(DirFileList,".erl"),
+    Files = refac_misc:expand_files(DirFileList,".erl"),
     Cs = case Files of
 	     [] ->
 		 ?wrangler_io("Warning: No files found in the searchpaths specified.",[]),
@@ -136,7 +136,7 @@ inc_sim_code_detection(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1
 
 inc_sim_code_detection_command(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1,SearchPaths,TabWidth) ->
     {MinLen,MinToks,MinFreq,MaxVars,SimiScore} = get_parameters_eclipse(MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1),
-    Files = refac_util:expand_files(DirFileList,".erl"),
+    Files = refac_misc:expand_files(DirFileList,".erl"),
     case Files of
 	[] ->
 	    ?wrangler_io("Warning: No files found in the searchpaths specified.",[]);
@@ -158,7 +158,7 @@ inc_sim_code_detection_eclipse(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,Si
     ?wrangler_io("\nCMD: ~p:inc_sim_code_detection(~p,~p,~p,~p,~p, ~p,~p,~p).\n",
 		 [?MODULE,DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1,SearchPaths,TabWidth]),
     {MinLen,MinToks,MinFreq,MaxVars,SimiScore} = get_parameters_eclipse(MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1),
-    Files = refac_util:expand_files(DirFileList,".erl"),
+    Files = refac_misc:expand_files(DirFileList,".erl"),
     case Files of
 	[] ->
 	    [];
@@ -280,7 +280,7 @@ generalise_and_hash_ast(Files, Threshold, Tabs, ASTPid, HashPid ,SearchPaths, Ta
 		  end, Files).
 
 generalise_and_hash_file_ast(File, Threshold, Tabs, ASTPid, HashPid, SearchPaths, TabWidth) ->
-    NewCheckSum = refac_util:filehash(File),
+    NewCheckSum = refac_misc:filehash(File),
     case ets:lookup(Tabs#tabs.file_hash_tab, File) of
 	[{File, NewCheckSum}] ->
 	    ?debug("\nFile not changed:~p\n", [File]),
@@ -367,7 +367,7 @@ generalise_and_hash_function_ast_1(FName, Form, FunName, Arity, HashVal, Thresho
     Form1 = absolute_to_relative_loc(Form, StartLine),
     %% all locations are relative locations.
     %% variable binding information is needed by the anti-unification process.
-    AllVars = refac_util:collect_var_source_def_pos_info(Form1),
+    AllVars = refac_misc:collect_var_source_def_pos_info(Form1),
     %% I also put the Hashvalue of a function in var_tab.
     ets:insert(Tabs#tabs.var_tab, {{FName, FunName, Arity}, HashVal, AllVars}),
     ast_traverse_api:full_tdTP(fun generalise_and_hash_function_ast_2/2,
@@ -494,7 +494,7 @@ generalise_and_hash_expr(ASTTab, {M, F, A}, StartLine,
     %% get the hash values of the generalised expression.
     HashVal = erlang:md5(format(E1)),
     %% the location here is relative location.
-    StartEndLoc = refac_util:get_start_end_loc(Expr),
+    StartEndLoc = refac_api:start_end_loc(Expr),
     {HashVal, {StartIndex + RelativeIndex,
 	       NoOfToks, StartEndLoc, StartLine}}.
 
@@ -839,7 +839,7 @@ do_anti_unification_1(E1, E2) ->
     end.
 
 subst_sanity_check(Expr1, SubSt) ->
-    BVs = refac_util:get_bound_vars(Expr1),
+    BVs = refac_api:bound_vars(Expr1),
     F = fun ({E1, E2}) ->
 		case refac_syntax:type(E1) of
 		    variable ->
@@ -850,7 +850,7 @@ subst_sanity_check(Expr1, SubSt) ->
 			end;
 		    _ ->
 			%% the expression to be replaced should not contain local variables.
-			BVs -- refac_util:get_free_vars(E1) == BVs
+			BVs -- refac_api:free_vars(E1) == BVs
 		end
 	end,
     lists:all(F, SubSt).
@@ -1220,7 +1220,7 @@ num_of_new_vars(SubSt) ->
 
 
 format(Node) ->
-    refac_prettypr:format(refac_util:reset_ann_and_pos(Node)).
+    refac_prettypr:format(refac_misc:reset_ann_and_pos(Node)).
     
     
 
@@ -1304,7 +1304,7 @@ make_fun_call(FunName, Pats, Subst, FromSameFile) ->
 	  end,
     Pars = lists:map(Fun, Pats),
     Op = refac_syntax:atom(FunName),
-    refac_util:reset_attrs(refac_syntax:application(Op, [P || P <- Pars])).
+    refac_misc:reset_attrs(refac_syntax:application(Op, [P || P <- Pars])).
 
 	 
 
@@ -1400,8 +1400,8 @@ do_post_process_anti_unifier(Node, _Others) ->
 			    {Node, false};
 			false ->
 			    Mod = refac_syntax:atom(M),
-			    Operator1 = refac_util:rewrite(Operator, refac_syntax:module_qualifier(Mod, Operator)),
-			    Node1 = refac_util:rewrite(Node, refac_syntax:application(Operator1, Arguments)),
+			    Operator1 = refac_misc:rewrite(Operator, refac_syntax:module_qualifier(Mod, Operator)),
+			    Node1 = refac_misc:rewrite(Node, refac_syntax:application(Operator1, Arguments)),
 			    {Node1, false}
 		    end;
 		_ ->
@@ -1423,11 +1423,11 @@ get_clone_class_in_absolute_locs({Ranges, {Len, Freq}, AntiUnifier}) ->
 
 get_vars_to_export(Es, {FName, FunName, Arity}, VarTab) ->
     AllVars = ets:lookup(VarTab, {FName, FunName, Arity}),
-    {_, EndLoc} = refac_util:get_start_end_loc(lists:last(Es)),
+    {_, EndLoc} = refac_api:start_end_loc(lists:last(Es)),
     case AllVars of
 	[] -> [];
 	[{_, _, Vars}] ->
-	    ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_util:get_bound_vars(Es)],
+	    ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_api:bound_vars(Es)],
 	    [{V, DefPos} || {V, SourcePos, DefPos} <- Vars,
 			    SourcePos > EndLoc,
 			    lists:subtract(DefPos, ExprBdVarsPos) == []]
@@ -1502,7 +1502,7 @@ no_of_tokens(Node) ->
 
 combine_clones_by_au([]) -> [];
 combine_clones_by_au(Cs = [{_Ranges, _Len, _F, _Code}| _T]) ->
-    Cs1 = refac_util:group_by(4, Cs),
+    Cs1 = refac_misc:group_by(4, Cs),
     combine_clones_by_au_1(Cs1,[]).
 
 combine_clones_by_au_1([], Acc) ->
@@ -1592,7 +1592,7 @@ simplify_anti_unifier_body(AUBody) ->
 same_expr(Expr1, Expr2) ->
     {ok, Ts1, _} = erl_scan:string(format(Expr1)),
     {ok, Ts2, _} = erl_scan:string(format(Expr2)),
-    refac_util:concat_toks(Ts1)==refac_util:concat_toks(Ts2).
+    refac_misc:concat_toks(Ts1) == refac_misc:concat_toks(Ts2).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1709,7 +1709,7 @@ get_file_status_info(Files, Tabs, Threshold) ->
 	    case LastThreshold == Threshold of
 		true ->
 		    Fun = fun (F) ->
-				  CheckSum = refac_util:filehash(F),
+				  CheckSum = refac_misc:filehash(F),
 				  case ets:lookup(Tabs#tabs.file_hash_tab, F) of
 				      [{F, CheckSum1}] when CheckSum/=CheckSum1 ->
 					  true;

@@ -108,9 +108,9 @@
 %%@spec find_var_instances(FileName::filename(), {Line::integer(), Col::integer()}, 
 %%			 TabWidth:: integer()) ->
 %%	     {error, string()} | {ok, [{pos(), pos()}], [pos()]}
-%%-spec(find_var_instances(FileName::filename(), {Line::integer(), Col::integer()}, 
-%%			 TabWidth:: integer()) ->
-%%	     {error, string()} | {ok, [{pos(), pos()}], [pos()]}).
+-spec(find_var_instances(FileName::filename(), {Line::integer(), Col::integer()}, 
+			 TabWidth:: integer()) ->
+	     {error, string()} | {ok, [{pos(), pos()}], [pos()]}).
 find_var_instances(FileName, {Line, Col},TabWidth) ->
    try_inspector(wrangler_code_inspector_lib, find_var_instances, 
 		  [FileName, Line, Col, [], TabWidth]).
@@ -119,9 +119,9 @@ find_var_instances(FileName, {Line, Col},TabWidth) ->
 %% This function return all the places where the variable selected occurs. With 
 %% Emacs, these places are hightlighted, but defining and use occurrances hightlighted
 %% in different color.
-%%-spec(find_var_instances(FileName::filename(), Line::integer(), Col::integer(), 
-%%			 SearchPaths::[dir()], TabWidth:: integer()) ->
-%%	     {error, string()} | {ok, [StartEnd::{pos(), pos()}], [VarDefPos::pos()]}).
+-spec(find_var_instances(FileName::filename(), Line::integer(), Col::integer(), 
+			 SearchPaths::[dir()], TabWidth:: integer()) ->
+	     {error, string()} | {ok, [StartEnd::{pos(), pos()}], [VarDefPos::pos()]}).
 find_var_instances(FileName, Line, Col, SearchPaths, TabWidth) ->
     try_inspector(wrangler_code_inspector_lib, find_var_instances, 
 		  [FileName, Line, Col, SearchPaths, TabWidth]).
@@ -135,9 +135,9 @@ find_var_instances(FileName, Line, Col, SearchPaths, TabWidth) ->
 %%@spec nested_exprs(FileOrDirNames::[filename()|dir()], NestLevel::integer(), 
 %%		   ExprType::'if'|'case'|'receive') 
 %%      ->{error, string()} | ok
-%%-spec(nested_exprs(FileOrDirNames::[filename()|dir()], NestLevel::integer(), 
-%%		   ExprType::'if'|'case'|'receive') 
-%%      ->{error, string()} | ok).
+-spec(nested_exprs(FileOrDirNames::[filename()|dir()], NestLevel::integer(), 
+		   ExprType::'if'|'case'|'receive') 
+      ->{error, string()} | ok).
 nested_exprs(FileOrDirNames, NestLevel, ExprType) ->
     try_inspector(wrangler_code_inspector, nested_exprs_1,
 		  [FileOrDirNames, NestLevel, ExprType, FileOrDirNames, ?DEFAULT_TABWIDTH]).
@@ -275,8 +275,8 @@ long_functions_in_dirs_eclipse(Lines, SearchPaths, TabWidth) ->
 %%	     {error, string()} | ok
 %% @end
 %% Command line API.
-%%-spec(large_modules(SearchPaths::[dir()],Lines::integer()) ->				  
-%%	     {error, string()} | ok).
+-spec(large_modules(SearchPaths::[dir()],Lines::integer()) ->				  
+	     {error, string()} | ok).
 large_modules(SearchPaths, Lines) ->
     try_inspector(wrangler_code_inspector, large_modules_1,
 		  [Lines, SearchPaths, ?DEFAULT_TABWIDTH]).
@@ -418,7 +418,7 @@ dependencies_of_a_module_eclipse(FileName, SearchPaths) ->
 %%-spec(non_tail_recursive_servers(FileOrDirNames::[filename()|dir()])-> ok).
 non_tail_recursive_servers(FileOrDirNames) ->
     try_inspector(wrangler_code_inspector, non_tail_recursive_servers_1,
-		  [refac_util:expand_files(FileOrDirNames, ".erl"),
+		  [refac_misc:expand_files(FileOrDirNames, ".erl"),
 		   FileOrDirNames, ?DEFAULT_TABWIDTH]).
  
 
@@ -606,7 +606,8 @@ long_funs_format_results(LongFuns, _Lines) ->
 	_ ->
 	    ?wrangler_io("\n The following function(s) have more than ~p lines of code:\n",
 			 [_Lines]),
-	    format_result_1(LongFuns)
+            {LongFuns1, _} = lists:unzip(LongFuns),
+	    format_result_1(LongFuns1)
     end.
 
 large_modules_format_results(LargeModules, _Lines) ->

@@ -82,7 +82,7 @@
 %% constant Erlang terms and their syntactic representations. The set of
 %% syntax tree nodes is extensible through the <a
 %% href="#tree-2"><code>tree/2</code></a> function.</p>
-%%
+%
 %% <p>A syntax tree can be transformed to the <code>erl_parse</code>
 %% representation with the <a href="#revert-1"><code>revert/1</code></a>
 %% function.</p>
@@ -132,7 +132,7 @@
 	 infix_expr_right/1, integer/1, integer_literal/1,
 	 integer_value/1, is_atom/2, is_char/2, is_form/1,
 	 is_integer/2, is_leaf/1, is_list_skeleton/1,
-	 is_literal/1, is_proper_list/1, is_string/2, is_tree/1,
+	 is_literal/1, is_proper_list/1, is_string/2, is_tree/1, is_wrapper/1,
 	 join_comments/2, list/1, list/2, list_comp/2,
 	 list_comp_body/1, list_comp_template/1, list_elements/1,
 	 list_head/1, list_length/1, list_prefix/1,
@@ -160,7 +160,8 @@
 	 typed_record_field/1, typed_record_type/1,
 	 record_index_expr/2, record_index_expr_field/1,
 	 record_index_expr_type/1, remove_comments/1, revert/1,
-	 revert_forms/1, rule/2, rule_arity/1, rule_clauses/1,
+	 revert_forms/1, revert_clause_disjunction/1,
+         rule/2, rule_arity/1, rule_clauses/1,
 	 rule_name/1, set_ann/2, set_attrs/2,
 	 set_name/2, set_pos/2, set_postcomments/2,
 	 set_precomments/2, size_qualifier/2,
@@ -1727,7 +1728,8 @@ atom_literal(Node) ->
 %%
 %%	Elements = [erl_parse()]
 
-tuple(List) -> tree(tuple, [update_ann({syntax_path, tuple_element},L)||L<-List]).
+tuple(List) -> 
+    tree(tuple, [update_ann({syntax_path, tuple_element},L)||L<-List]).
 
 revert_tuple(Node) ->
     Pos = get_pos(Node), {tuple, Pos, tuple_elements(Node)}.
@@ -3087,16 +3089,27 @@ function(Name, Clauses) ->
                               ||C<-Clauses]}).
 
 revert_function(Node) ->
-    Name = function_name(Node),
+    Node1 = remove_function_clause(Node),
+    Name = function_name(Node1),
     Clauses = [revert_clause(C)
-	       || C <- function_clauses(Node)],
-    Pos = get_pos(Node),
+               || C <- function_clauses(Node1)],
+    Pos = get_pos(Node1),
     case type(Name) of
       atom ->
-	  A = function_arity(Node),
+	  A = function_arity(Node1),
 	  {function, Pos, concrete(Name), A, Clauses};
-      _ -> Node
+      _ -> Node1
     end.
+
+remove_function_clause(Node) ->
+    FunName = refac_syntax:function_name(Node),
+    Cs = refac_syntax:function_clauses(Node),
+    Cs1=[case refac_syntax:type(C) of 
+             function_clause->function_clause(C);
+             _ -> C
+         end||C<-Cs],
+    copy_attrs(Node, function(FunName, Cs1)).
+    
 
 %% =====================================================================
 %% function_name(Node) -> Name
@@ -3324,7 +3337,8 @@ unfold_try_clause({clause, Pos, [{tuple, _, [C, V, _]}],
 clause_patterns(Node) ->
     case unwrap(Node) of
       {clause, _, Patterns, _, _} -> Patterns;
-      Node1 -> (data(Node1))#clause.patterns
+      Node1 -> 
+            (data(Node1))#clause.patterns
     end.
 
 %% =====================================================================
@@ -3401,7 +3415,7 @@ disjunction_body(Node) -> data(Node).
 
 %% type(Node) = conjunction
 %% data(Node) = [syntaxTree()]
-
+conjunction([])->[];
 conjunction(Tests) -> copy_pos(hd(Tests), tree(conjunction, Tests)).
 
 %% =====================================================================
@@ -6077,7 +6091,8 @@ make_tree(size_qualifier, [[N], [A]]) ->
     size_qualifier(N, A);
 make_tree(try_expr, [B, C, H, A]) ->
     try_expr(B, C, H, A);
-make_tree(tuple, [E]) -> tuple(E).
+make_tree(tuple, [E]) -> tuple(E);
+make_tree(empty_node, []) -> empty_node(). 
 
 
 %% =====================================================================
@@ -6334,13 +6349,10 @@ unwrap(Node) ->
 %% @doc Returns <code>true</code> if the argument is a wrapper
 %% structure, otherwise <code>false</code>.
 
--ifndef(NO_UNUSED).
 is_wrapper(#wrapper{}) ->
     true;
 is_wrapper(_) ->
     false.
--endif.
-
 %% =====================================================================
 %% General utility functions for internal use
 %% =====================================================================

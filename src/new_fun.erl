@@ -1,6 +1,6 @@
 -module(new_fun).
 
-%%-behaviour(gen_refac).
+-behaviour(gen_refac).
 
 -export([input_pars/0, select_focus/1, 
          pre_cond_check/1, transform/1]).
@@ -56,7 +56,7 @@ check_name_conflict(File, Exprs, NewFunName) ->
     end.
 
 check_funcall_replaceable([E]) ->
-    Type= refac_api:syntax_path(E),
+    Type= refac_api:syntax_context(E),
     case lists:member(Type, [application_op,
                              module_quailifier_argument,
                              module_qualifier_body]) of
@@ -67,7 +67,7 @@ check_funcall_replaceable([E]) ->
             ok
     end;
 check_funcall_replaceable([E|_Es]) ->
-    P= refac_api:syntax_path(E),
+    P= refac_api:syntax_context(E),
     if P == body_expr -> 
             ok;
        true ->
@@ -80,60 +80,60 @@ check_funcall_replaceable([E|_Es]) ->
 -spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}
                                      | {error, term()}).    
 transform(Args=#args{current_file_name=File}) ->
-    ?FOREACH([rule1(Args)], [File]).
+    ?FULL_TD([rule1(Args)], [File]).
 
 rule1(Args=#args{focus_sel=Exprs, user_inputs=[NewFunName]}) ->
     ?RULE("F@",
           begin
               ExVars = refac_api:exported_var_names(Exprs),
               Pars=format_pars(refac_api:free_var_names(Exprs)),
-              {ok, F1}=?FOREACH([rule2(Args)],_This@),
+              {ok, F1}=?FULL_TD([rule2(Args)],_This@),
               if ExVars == []-> 
                       [F1,
                        ?QUOTE(NewFunName++"("++Pars++") ->"
                               ++?SPLICE(Exprs))];
-                  true->
+                 true->
                       [F1, ?QUOTE(NewFunName++"("++Pars++") ->"++?SPLICE(Exprs)++","
                                   ++format_tuple(ExVars)++".")]
-              end
+              end 
           end,
           refac_syntax:type(F@)==function andalso contains(F@, Exprs)).
 
 rule2(_Args=#args{focus_sel=Exprs, user_inputs=[NewFunName]}) ->
-    ?RULE(?SPLICE(Exprs), 
-          begin
-              ExVars=refac_api:exported_var_names(Exprs),
-              FreeVars=refac_api:free_var_names(Exprs),
-              if  ExVars==[] ->
-                      ?QUOTE(NewFunName++"("++format_pars(FreeVars)++")");
-                  true ->
-                      ?QUOTE(format_tuple(ExVars)++ 
-                                 "="++NewFunName++"("++format_pars(FreeVars)++")")
-              end
-          end,
-          refac_api:start_end_loc(_This@)=refac_api:start_end_loc(Exprs)
-         ).
+     ?RULE(?SPLICE(Exprs), 
+           begin
+               ExVars=refac_api:exported_var_names(Exprs),
+               FreeVars=refac_api:free_var_names(Exprs),
+               if  ExVars==[] ->
+                       ?QUOTE(NewFunName++"("++format_pars(FreeVars)++")");
+                   true ->
+                       ?QUOTE(format_tuple(ExVars)++ 
+                                  "="++NewFunName++"("++format_pars(FreeVars)++")")
+               end
+           end,
+           refac_api:start_end_loc(_This@)==refac_api:start_end_loc(Exprs)
+          ).
         
 %% Some utility functions.
 format_tuple([]) ->
-    "{}";
+     "{}";
 format_tuple([V]) ->
-    lists:flatten(io_lib:format("~s", [V]));
+     lists:flatten(io_lib:format("~s", [V]));
 format_tuple(Vars) ->
-    lists:flatten("{"++format_pars(Vars)++"}").
+     lists:flatten("{"++format_pars(Vars)++"}").
 
 
 format_pars([]) -> "";
-format_pars(Vars) ->
-    lists:flatten(format_pars_1(Vars)).
+ format_pars(Vars) ->
+     lists:flatten(format_pars_1(Vars)).
 format_pars_1([V]) ->
-    io_lib:format("~s", [V]);
+     io_lib:format("~s", [V]);
 format_pars_1([V|Vs]) ->
-    io_lib:format("~s,", [V]) ++ format_pars_1(Vs).
+     io_lib:format("~s,", [V]) ++ format_pars_1(Vs).
 
 contains(Expr1, Expr2) ->
-    {Start1, End1} = refac_api:start_end_loc(Expr1),
-    {Start2, End2} = refac_api:start_end_loc(Expr2),
-    (Start1 =< Start2) andalso (End2 =< End1).
+     {Start1, End1} = refac_api:start_end_loc(Expr1),
+     {Start2, End2} = refac_api:start_end_loc(Expr2),
+     (Start1 =< Start2) andalso (End2 =< End1).
 
              

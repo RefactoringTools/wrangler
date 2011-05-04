@@ -55,8 +55,8 @@ add_a_tag(FileName, Line, Col, Tag, SearchPaths, TabWidth) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":add_a_tag(" ++ "\"" ++ 
         FileName ++ "\", " ++ integer_to_list(Line) ++ 
         ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ 
-        Tag ++ "\"," ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," 
-        ++ integer_to_list(TabWidth) ++ ").",
+        Tag ++ "\"," ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "],"
+       ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST1, _Info1}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case pos_to_receive_fun(AnnAST1, {Line, Col}) of
 	{ok, _FunDef} ->
@@ -102,7 +102,7 @@ get_affected_initial_funs(InitialFuns, {ModName, FunName, Arity}, SearchPaths, T
 			 lists:member({ModName, FunName, Arity}, Fs) end, ReachedReceiveFuns).
 
 collect_process_initial_funs(SearchPaths, TabWidth) ->
-    Files = refac_util:expand_files(SearchPaths, ".erl"),
+    Files = refac_misc:expand_files(SearchPaths, ".erl"),
     lists:flatmap(fun
 		      (F) -> {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(F, true, SearchPaths, TabWidth),
 			     collect_process_initial_funs_1({F, AnnAST, Info}, SearchPaths)
@@ -111,7 +111,7 @@ collect_process_initial_funs(SearchPaths, TabWidth) ->
 collect_process_initial_funs_1({FileName, AnnAST, Info}, _SearchPaths) ->
     ModName = get_module_name(FileName, Info),
     HandleSpecialFuns = fun (Node) ->
-				{{Ln, _}, _} = refac_util:get_start_end_loc(Node),
+				{{Ln, _}, _} = refac_api:start_end_loc(Node),
 				Op = refac_syntax:application_operator(Node),
 				Arguments = refac_syntax:application_arguments(Node),
 				Ann = refac_syntax:get_ann(Op),
@@ -175,7 +175,7 @@ do_add_a_tag(FileName, {AnnAST, Info}, Tag, AffectedInitialFuns, SearchPaths, Ta
     ReceiveFuns = lists:usort(lists:append(ReceiveFuns1)),
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     {AnnAST1, _Changed} = ast_traverse_api:stop_tdTP(fun do_add_a_tag_1/2, AnnAST, {ModName, Tag, InitialFuns, ReceiveFuns, AffectedModsFuns}),
-    OtherFiles = refac_util:expand_files(SearchPaths, ".erl") -- [FileName],
+    OtherFiles = refac_misc:expand_files(SearchPaths, ".erl") -- [FileName],
     Results = do_add_a_tag_in_other_modules(OtherFiles, Tag, InitialFuns, ReceiveFuns, AffectedModsFuns, SearchPaths, TabWidth),
     [{{FileName, FileName}, AnnAST1}| Results].
 
@@ -222,7 +222,7 @@ do_add_a_tag_1(Node, {ModName, Tag, InitialFuns, ReceiveFuns, {_Mods, Funs}}) ->
 
 do_add_tag_to_receive_exprs(Node, Tag) ->
     F = fun (C) ->
-		P = refac_util:ghead("do_add_tag_to_receive_exprs", refac_syntax:clause_patterns(C)), %%
+		P = refac_misc:ghead("do_add_tag_to_receive_exprs", refac_syntax:clause_patterns(C)), %%
 		G = refac_syntax:clause_guard(C),
 		B = refac_syntax:clause_body(C),
 		P1 = case refac_syntax:type(P) of
@@ -245,7 +245,7 @@ do_add_tag_to_send_exprs(Node, {_ModName, Tag, AffectedInitialFuns}) ->
     case refac_syntax:type(Node) of
 	infix_expr ->
 	    case is_send_expr(Node) of
-		true -> {{_Ln, _}, _} = refac_util:get_start_end_loc(Node),
+		true -> {{_Ln, _}, _} = refac_api:start_end_loc(Node),
 			Dest = refac_syntax:infix_expr_left(Node),
 			Msg = refac_syntax:infix_expr_right(Node),
 			Ann = refac_syntax:get_ann(Dest),
@@ -368,7 +368,7 @@ get_fun_def({M, F, A}, SearchPaths, TabWidth) ->
 		      _ -> {[], false}
 		  end
 	  end,
-    Files = refac_util:expand_files(SearchPaths, ".erl"),
+    Files = refac_misc:expand_files(SearchPaths, ".erl"),
     FileNames = lists:filter(fun (F1) -> list_to_atom(filename:basename(F1, ".erl")) == M end, Files),
     case FileNames of
 	[] ->
@@ -444,7 +444,7 @@ is_send_expr(Tree) ->
     end.
 
 is_spawn_expr(Tree) ->
-    SpawnFuns1 = refac_util:spawn_funs(),
+    SpawnFuns1 = refac_misc:spawn_funs(),
     SpawnFuns2 = [{erlang, spawn_monitor, 1}, {erlang, spawn_monitor, 3}, {erlang, spawn_opt, 2},
 		  {erlang, spawn_opt, 4}],  %% These funs return more than a single Pid.
     case refac_syntax:type(Tree) of
@@ -478,8 +478,8 @@ forward_slice([{FileName, Expr}|T], SearchPaths, Acc, TabWidth) ->
    end.
 
 forward_slice_1(FileName, Expr, SearchPaths, TabWidth) ->
-    Files = refac_util:expand_files(SearchPaths, ".erl"),
-    {StartPos, EndPos} = refac_util:get_start_end_loc(Expr),
+    Files = refac_misc:expand_files(SearchPaths, ".erl"),
+    {StartPos, EndPos} = refac_api:start_end_loc(Expr),
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     ModName = get_module_name(FileName, Info),
     case interface_api:pos_to_expr(AnnAST, StartPos, EndPos) of

@@ -27,15 +27,117 @@
 
 -module(interface_api).
 
--export([pos_to_fun_name/2,pos_to_fun_def/2,pos_to_var_name/2,pos_to_var/2,pos_to_expr/3,
+-export([pos_to_node/3, range_to_node/3,
+         pos_to_fun_name/2,pos_to_fun_def/2,pos_to_var_name/2,pos_to_var/2,pos_to_expr/3,
 	 pos_to_expr_list/2,pos_to_expr_list/3,pos_to_expr_or_pat_list/3,expr_to_fun/2]).
 
 -include("../include/wrangler.hrl").
+
+%% =================================================================================
+%%-spec (pos_to_node(FileOrTree::filename()|syntaxTree(), Pos::pos(), Cond::Pred) ->
+%%	      {ok, syntaxTree()} | {error, string()})
+%%    Pred = fun(Elem) -> bool().
+%%@doc Returns the outmost Node which encloses the cursor and 
+%%     makes Pred(Node) return true.
+%% =================================================================================
+pos_to_node(FileOrTree, Pos, Pred) ->
+    case filelib:is_regular(FileOrTree) of 
+        true ->
+            case wrangler_ast_server:parse_annotate_file(FileOrTree, true) of 
+                {ok, {AnnAST, _}} ->
+                    pos_to_node_1(AnnAST, Pos, Pred);
+                {error, Reason} ->
+                    {error, Reason}
+            end;
+        false ->
+            case refac_syntax:is_tree(FileOrTree) of 
+                true ->
+                    pos_to_node_1(FileOrTree, Pos, Pred);
+                false ->
+                    throw({error, "Badarg to function pos_to_node/3"})
+            end
+    end.
+
+pos_to_node_1(Node, Pos, Pred) ->
+    case ast_traverse_api:once_tdTU(
+           fun pos_to_node_2/2, Node, {Pos, Pred}) of
+        {_, false} ->
+            {error, "No node satisfying the condition has been selected."};
+        {R, true} -> 
+            {ok, R}
+    end.
+
+pos_to_node_2(Node, {Pos, Pred}) ->
+    case Pred(Node) of
+	true ->
+	    {S, E} = refac_api:start_end_loc(Node),
+	    if (S =< Pos) and (Pos =< E) ->
+                    {Node, true};
+	       true -> {[], false}
+	    end;
+	_ -> {[], false}
+    end.
+
+
+%% ==========================================================================================
+%% @spec range_to_node(FileOrTree::filename()|syntaxTree(), Range::Range, Cond::Pred)->
+%%	      {ok, syntaxTree()} | {error, string()})
+%%      Range = {Pos(), Pos()}
+%%      Pos = {integer(), integer()}
+%% @doc Returns the largest, left-most Node which is enclosed by the location range specified,
+%%      and also makes Pred(Node) return true.
+%%===========================================================================================
+range_to_node(FileOrTree, Pos, Pred) ->
+    case filelib:is_regular(FileOrTree) of 
+        true ->
+            case wrangler_ast_server:parse_annotate_file(FileOrTree, true) of 
+                {ok, {AnnAST, _}} ->
+                    range_to_node_1(AnnAST, Pos, Pred);
+                {error, Reason} ->
+                    {error, Reason}
+            end;
+        false ->
+            case refac_syntax:is_tree(FileOrTree) of 
+                true ->
+                    range_to_node_1(FileOrTree, Pos, Pred);
+                false ->
+                    throw({error, "Badarg to function range_ro_node/3/3"})
+            end
+    end.
+
+range_to_node_1(Tree, {Start, End}, Pred) ->
+    Es = lists:flatten(range_to_node_2(Tree, {Start, End}, Pred)),
+    case Es of
+        [] -> {error, "No node satisfying the condition has been selected."};
+        _ -> {ok, hd(Es)}
+    end.
+
+range_to_node_2(Tree, {Start, End}, Pred) ->
+    {S, E} = refac_api:start_end_loc(Tree),
+    if (S >= Start) and (E =< End) ->
+            case Pred(Tree) of
+                true ->
+		   [Tree];
+                _ ->
+                    Ts = refac_syntax:subtrees(Tree),
+                    R0 = [[range_to_node_2(T, {Start, End}, Pred) || T <- G] || G <- Ts],
+                    lists:append(R0)
+	   end;
+       (S > End) or (E < Start) -> [];
+       (S < Start) or (E > End) ->
+	   Ts = refac_syntax:subtrees(Tree),
+            R0 = [[range_to_node_2(T, {Start, End}, Pred) || T <- G] || G <- Ts],
+            lists:append(R0);
+       true -> []
+    end.
+
+
+
 %% ==========================================================================
 %% @spec pos_to_fun_name(Node::syntaxTree(), Pos::{integer(), integer()}) ->
 %%                        {ok, {Mod, Fun, Arity, OccurPos, DefPos}} | {error, string()}
 %%    Mod = atom()
-%%    Fun = atom()
+%%    Fun = atom()s
 %%    Arity = integer()
 %%    OccurPos = {integer(), integer()}
 %%    DefPos = {integer(), integer()}
@@ -107,7 +209,7 @@ pos_to_fun_def_1(Node, Pos) ->
 pos_to_fun_def_2(Node, Pos) ->
     case refac_syntax:type(Node) of
 	function ->
-	    {S, E} = refac_util:get_start_end_loc(Node),
+	    {S, E} = refac_api:start_end_loc(Node),
 	    if (S =< Pos) and (Pos =< E) ->
 		   {Node, true};
 	       true -> {[], false}
@@ -217,9 +319,9 @@ pos_to_expr(Tree, Start, End) ->
     end.
 
 pos_to_expr_1(Tree, Start, End) ->
-    {S, E} = refac_util:get_start_end_loc(Tree),
+    {S, E} = refac_api:start_end_loc(Tree),
     if (S >= Start) and (E =< End) ->
-	   case refac_util:is_expr(Tree) of
+	   case refac_api:is_expr(Tree) of
 	       true ->
 		   [Tree];
 	       _ ->
@@ -250,12 +352,12 @@ pos_to_expr_list(FileOrTree, Start, End) ->
   case filelib:is_regular(FileOrTree) of 
       true ->
           {ok, {AnnAST, _}} = wrangler_ast_server:parse_annotate_file(FileOrTree, true),
-          Es=pos_to_expr_list_1(AnnAST, Start, End, fun refac_util:is_expr/1),
+          Es=pos_to_expr_list_1(AnnAST, Start, End, fun refac_api:is_expr/1),
           get_expr_list(Es);
       false ->
           case refac_syntax:is_tree(FileOrTree) of 
               true ->
-                  Es=pos_to_expr_list_1(FileOrTree, Start, End, fun refac_util:is_expr/1),
+                  Es=pos_to_expr_list_1(FileOrTree, Start, End, fun refac_api:is_expr/1),
                   get_expr_list(Es);
               false ->
                   []
@@ -263,7 +365,7 @@ pos_to_expr_list(FileOrTree, Start, End) ->
   end.
 
 pos_to_expr_list_1(Tree, Start, End, F) ->
-    {S, E} = refac_util:get_start_end_loc(Tree),
+    {S, E} = refac_api:start_end_loc(Tree),
     if (S >= Start) and (E =< End) ->
 	   case F(Tree) of
 	       true ->
@@ -307,7 +409,7 @@ get_expr_list_1(L) ->
 
 pos_to_expr_or_pat_list(AnnAST, Start, End) ->
     F = fun
-	    (E) -> refac_util:is_expr(E) orelse refac_util:is_pattern(E)
+	    (E) -> refac_api:is_expr(E) orelse refac_api:is_pattern(E)
 	end,
     Es = pos_to_expr_list_1(AnnAST, Start, End, F),
     get_expr_list(Es).
@@ -326,8 +428,8 @@ expr_to_fun(Tree, Exp) ->
     end.
 
 expr_to_fun_1(Tree, Exp) ->
-    {Start, End} = refac_util:get_start_end_loc(Exp),
-    {S, E} = refac_util:get_start_end_loc(Tree),
+    {Start, End} = refac_api:start_end_loc(Exp),
+    {S, E} = refac_api:start_end_loc(Tree),
     if (S < Start) and (E >= End) ->
 	   case refac_syntax:type(Tree) of
 	       function -> [Tree];

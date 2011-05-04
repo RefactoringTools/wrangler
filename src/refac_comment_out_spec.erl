@@ -41,8 +41,8 @@
 
 %%-spec comment_out/1::([filename()|dir()]) ->ok.
 comment_out(Dirs) ->
-    FileNames = refac_util:expand_files(Dirs, ".erl"),
-    HeaderFiles = refac_util:expand_files(Dirs, ".hrl"),
+    FileNames = refac_misc:expand_files(Dirs, ".erl"),
+    HeaderFiles = refac_misc:expand_files(Dirs, ".hrl"),
     lists:foreach(fun (F) ->
 			  comment_out_spec_type_1(F, Dirs)
 		  end,
@@ -61,17 +61,17 @@ vertical_concat([F| T], Acc) ->
 	       attribute ->
 		   case refac_syntax:atom_value(refac_syntax:attribute_name(F)) of
 		       type ->
-			   Toks1 = refac_util:get_toks(F),
+			   Toks1 = refac_misc:get_toks(F),
 			   turn_to_comments(Toks1);
 		       spec ->
-			   Toks1 = refac_util:get_toks(F),
+			   Toks1 = refac_misc:get_toks(F),
 			   turn_to_comments(Toks1);
-		       _ -> refac_util:get_toks(F)
+		       _ -> refac_misc:get_toks(F)
 		   end;
 	       _ ->
-		   refac_util:get_toks(F)
+		   refac_misc:get_toks(F)
 	   end,
-    vertical_concat(T, Acc ++ refac_util:concat_toks(Toks)).
+    vertical_concat(T, Acc ++ refac_misc:concat_toks(Toks)).
 
 turn_to_comments(Toks) ->
     {Toks1, Toks2} = lists:splitwith(fun(T) ->

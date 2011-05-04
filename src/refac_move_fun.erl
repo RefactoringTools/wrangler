@@ -112,8 +112,8 @@ move_fun_command(ModorFileName, FunName, Arity, TargetModorFileName, SearchPaths
 	    case get_file_name(TargetModorFileName, SearchPaths) of
 		{ok, TargetFileName} ->
 		    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(OriginalFileName, true, SearchPaths, 8),
-		    ModName = get_module_name(Info),
-		    case refac_util:funname_to_defpos(AnnAST, {ModName, FunName, Arity}) of
+                    ModName = get_module_name(Info),
+		    case refac_misc:funname_to_defpos(AnnAST, {ModName, FunName, Arity}) of
 			{ok, Pos} ->
 			    case Pos of
 				{Line, Col} ->
@@ -139,6 +139,7 @@ move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, Editor) -
 	_ -> ok
     end,
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
+    
     case interface_api:pos_to_fun_def(AnnAST, {Line, Col}) of
 	{ok, _Def} ->
 	    ok;
@@ -160,7 +161,7 @@ move_fun_1(FName, Line, Col, TargetModorFileName, CondCheck, SearchPaths, TabWid
 	    FName ++ "\", " ++ integer_to_list(Line) ++ 
 	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ TargetModorFileName ++ "\", " ++ "\""
         ++atom_to_list(CondCheck)++"\", "
-        ++ "[" ++ refac_util:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+         ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     CurModInfo = analyze_file(FName, SearchPaths, TabWidth),
     AnnAST = CurModInfo#module_info.ast,
     case interface_api:pos_to_fun_def(AnnAST, {Line, Col}) of
@@ -274,11 +275,11 @@ local_funs_to_be_exported_in_cur_module(MFAs = [{ModName,_,_}| _T], CG, Info) ->
     Ns = [digraph:out_neighbours(CG, {M,F,A}) || {M,F,A} <- MFAs],
     Ns1 = lists:usort(lists:append(Ns)) --MFAs,
     [{F,A} || {M, F, A} <- Ns1, M==ModName,
-	       not  refac_util:is_exported({F,A}, Info)].
+	       not refac_api:is_exported({F,A}, Info)].
 
 get_funs_to_export_in_target_mod(MFAs, CG, Info) ->
     [{F, A} || {M, F, A} <- MFAs,
-	       refac_util:is_exported({F, A}, Info) orelse 
+	       refac_api:is_exported({F, A}, Info) orelse
 		 digraph:in_neighbours(CG, {M, F, A}) -- MFAs /= []].
 
 
@@ -366,13 +367,11 @@ transform_application_node(FileName, Node, MFAs, TargetModName,
 	{value, {fun_def, {M, F, A, _, _}}} ->
 	    case refac_syntax:type(Op) of
 		atom ->
-		    case lists:keysearch({M, F, A}, 1, refac_util:apply_style_funs()) of
+		    case lists:keysearch({M, F, A}, 1, refac_misc:apply_style_funs()) of
 			{value, _} ->
 			    transform_apply_style_calls(FileName, Node, MFAs, TargetModName, SearchPaths, TabWidth);
 			false ->
-			    case lists:member({M, F, A}, InScopeFunsInTargetMod) orelse  
-                                erl_internal:bif(erlang, F, A) orelse
-                                lists:member({M, F, A}, MFAs)
+			    case lists:member({M, F, A}, InScopeFunsInTargetMod) orelse  erl_internal:bif(M, F, A) orelse lists:member({M, F, A}, MFAs)
 				of
 				true ->
 				    {Node, false};
@@ -429,14 +428,14 @@ do_add_fun(TargetModInfo, FormsToAdd, AttrsToAdd, MFAs = [{ModName, _, _}| _T],
     Args = {FileName, MFAs, TargetModName, SearchPaths, TabWidth, Pid},
     ProcessedForms = lists:append([process_a_form_in_target_module(Form, Args) || Form <- Forms]),
     IsExported = [{F, A} || {_M, F, A} <- MFAs,
-			    refac_util:is_exported({F, A}, Info)],
+			    refac_api:is_exported({F, A}, Info)],
     FunsToExport1 = FunsToExport--IsExported,
     NewForms = case FunsToExport1 of
 		   [] ->
 		       insert_export_form(AttrsToAdd, ProcessedForms)++ NewFormsToAdd;
 		   _ ->
 		       Export = make_export(FunsToExport1),
-		       insert_export_form([Export| AttrsToAdd], ProcessedForms) ++ NewFormsToAdd
+                       insert_export_form([Export| AttrsToAdd], ProcessedForms) ++ NewFormsToAdd
 	       end,
     refac_syntax:form_list(NewForms).
 
@@ -494,11 +493,16 @@ do_remove_module_qualifier(Node, {FileName, MFAs, TargetModName, SearchPaths, Ta
 		{{ModName, FunName}, Arity} ->
 		    case lists:member({ModName, FunName, Arity}, MFAs) of
 			true ->
-			    Op1 = copy_pos_attrs(Op, refac_syntax:atom(FunName)),
-			    Node1 = copy_pos_attrs(Node, refac_syntax:application(Op1, Args)),
-			    {Node1, true};
+                            case refac_syntax:type(Op) of 
+                                module_qualifier ->
+                                    Op1 = refac_syntax:module_qualifier_body(Op),
+                                    Node1 = copy_pos_attrs(Node, refac_syntax:application(Op1, Args)),
+                                    {Node1, true};
+                                _ ->
+                                    {Node, false}
+                            end;
 			_ ->
-			    case lists:keysearch({ModName, FunName, Arity}, 1, refac_util:apply_style_funs()) of
+			    case lists:keysearch({ModName, FunName, Arity}, 1, refac_misc:apply_style_funs()) of
 				{value, _} ->
 				    transform_apply_style_calls(FileName, Node, MFAs, TargetModName, SearchPaths, TabWidth);
 				false -> {Node, false}
@@ -543,16 +547,19 @@ process_implicit_fun(Node, MFAs, TargetModName) ->
 
 insert_export_form(Attrs, Forms) ->
     {Forms11, Forms12} = lists:splitwith(fun (F) -> 
-						 is_attribute(F, module) orelse
-					         is_attribute(F, export) orelse
-					         is_attribute(F, import) orelse 
-						 is_attribute(F, include) orelse
-						 is_attribute(F, include_lib) orelse
-					         refac_syntax:type(F) == comment
+                                                 refac_syntax:type(F) == attribute orelse
+                                                     refac_syntax:type(F) == comment
 					 end, Forms),
-    {Forms111, Forms112}= lists:splitwith(fun(F) -> 
-						  refac_syntax:type(F)==comment 
-					  end, lists:reverse(Forms11)),
+    {Forms111, Forms112} =case lists:splitwith(fun(F) -> 
+                                                       not is_attribute(F, export) 
+                                               end, lists:reverse(Forms11)) of
+                              {_, []} ->
+                                  lists:splitwith(fun(F) -> 
+                                                          refac_syntax:type(F)==comment 
+                                                  end, lists:reverse(Forms11));
+                              {Fs1, Fs2} ->
+                                  {Fs1, Fs2}
+                          end,
     lists:reverse(Forms112)++Attrs ++ lists:reverse(Forms111) ++ Forms12.
     
    
@@ -624,7 +631,7 @@ do_add_change_module_qualifier(Node, {FileName, MFAs = [{ModName,_,_}| _], Targe
 	    Args = refac_syntax:application_arguments(Node),
 	    case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Operator)) of
 		{value, {fun_def, {Mod1, Fun1, Ari1, _, _}}} ->
-		    case lists:keysearch({Mod1, Fun1, Ari1}, 1, refac_util:apply_style_funs()) of
+		    case lists:keysearch({Mod1, Fun1, Ari1}, 1, refac_misc:apply_style_funs()) of
 			{value, _} ->
 			    transform_apply_style_calls(FileName, Node, MFAs, TargetModName, SearchPaths, 8);
 			false ->
@@ -780,7 +787,7 @@ do_change_module_qualifier(Node, {FileName, MFAs, TargetModName, SearchPaths, Ta
 	    Args = refac_syntax:application_arguments(Node),
 	    case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
 		{value, {fun_def, {Mod1, Fun1, Ari1, _, _}}} ->
-		    case lists:keysearch({Mod1, Fun1, Ari1}, 1, refac_util:apply_style_funs()) of
+		    case lists:keysearch({Mod1, Fun1, Ari1}, 1, refac_misc:apply_style_funs()) of
 			{value, _} ->
 			    transform_apply_style_calls(FileName, Node, MFAs, TargetModName, SearchPaths, TabWidth);
 			false ->
@@ -812,7 +819,7 @@ rename_fun_in_tuple_op(App,Op, Args, TargetModName) ->
 
 exported_funs(MFAs, Info) ->
     lists:filter(fun ({_M,F,A}) ->
-			 refac_util:is_exported({F, A}, Info)
+			 refac_api:is_exported({F, A}, Info)
 		 end, MFAs).
       
 %% =====================================================================
@@ -859,8 +866,8 @@ transform_apply_style_calls(FileName, Node, MFAs, NewModName, SearchPaths, TabWi
 				   4 -> [none| Arguments];
 				   3 -> [none, none| Arguments]
 			       end,
-    M1 = refac_util:try_eval(FileName, Mod, SearchPaths, TabWidth),
-    F1 = refac_util:try_eval(FileName, Fun, SearchPaths, TabWidth),
+    M1 = refac_misc:try_eval(FileName, Mod, SearchPaths, TabWidth),
+    F1 = refac_misc:try_eval(FileName, Fun, SearchPaths, TabWidth),
     case F1 of
 	{value, FunName} ->
 	    case M1 of
@@ -893,7 +900,7 @@ do_rename_fun_in_tuples(Node, {FileName, SearchPaths, MFAs, TargetModName, Pid, 
     case length(Es) >= 3 of
 	true ->
 	    [E3, E2, E1| _T] = lists:reverse(Es),
-	    case refac_util:try_eval(FileName, E1, SearchPaths, TabWidth) of
+	    case refac_misc:try_eval(FileName, E1, SearchPaths, TabWidth) of
 		{value, ModName} ->
 		    case refac_syntax:type(E2) of
 			atom ->
@@ -990,10 +997,10 @@ reset_attrs(Node, {M, F, A}) ->
 
 analyze_file(FName, SearchPaths, TabWidth) ->
     Dir = filename:dirname(FName),
-    DefaultIncls = [filename:join(Dir, X) || X <- refac_util:default_incls()],
+    DefaultIncls = [filename:join(Dir, X) || X <- refac_misc:default_incls()],
     NewSearchPaths = SearchPaths ++ DefaultIncls,
     case refac_epp:parse_file(FName, NewSearchPaths, [], TabWidth,
-			      refac_util:file_format(FName))
+			      refac_misc:file_format(FName))
 	of
 	{ok, TargetAST, {MDefs, _MUses1}} ->
 	    MacroDefs = get_macro_defs(MDefs),
@@ -1005,7 +1012,7 @@ analyze_file(FName, SearchPaths, TabWidth) ->
 			     _ -> []
 			 end,
 	    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-	    Forms = refac_syntax:form_list_elements(AnnAST),
+            Forms = refac_syntax:form_list_elements(AnnAST),
 	    Includes = lists:append([lists:flatmap(fun (A) ->
 							   case refac_syntax:type(A) of
 							       string -> [refac_syntax:string_value(A)];
@@ -1014,7 +1021,7 @@ analyze_file(FName, SearchPaths, TabWidth) ->
 						   end, Args)
 				     || F <- Forms, is_attribute(F, include) orelse is_attribute(F, include_lib),
 					Args <- [refac_syntax:attribute_arguments(F)]]),
-	    InscopeFuns = refac_util:inscope_funs(TargetModInfo),
+	    InscopeFuns = refac_api:inscope_funs(TargetModInfo),
 	    #module_info{filename = FName,
 			 modname = get_module_name(Info),
 			 inscope_funs = InscopeFuns,
@@ -1030,9 +1037,9 @@ analyze_file(FName, SearchPaths, TabWidth) ->
 get_macro_defs(MDefs) ->
     lists:flatmap(fun get_macro_def_1/1, MDefs).
 get_macro_def_1({{_,Name}, {Args, Toks}})->
-     [{Name, {Args, refac_util:concat_toks(Toks)}}];
+     [{Name, {Args, refac_misc:concat_toks(Toks)}}];
 get_macro_def_1({{_, Name}, ArgToks}) when is_list(ArgToks) ->
-    [{Name, {Args, refac_util:concat_toks(Toks)}} || {_Arity, {Args, Toks}}<-ArgToks];
+    [{Name, {Args, refac_misc:concat_toks(Toks)}} || {_Arity, {Args, Toks}} <- ArgToks];
 get_macro_def_1({{_, _Name}, _ArgToks}) ->
     [].
  
@@ -1097,7 +1104,7 @@ check_fun_name_clash(FunDefs=[{{ModName, _, _},_}|_T],TargetModInfo)->
     end.
 
 check_records(FunDefs,CurRecordDefs,TargetRecordDefs, CheckCond) ->
-    UsedRecords = lists:usort(lists:append([refac_util:collect_used_records(FunDef) || {_, FunDef} <- FunDefs])),
+    UsedRecords = lists:usort(lists:append([refac_misc:collect_used_records(FunDef) || {_, FunDef} <- FunDefs])),
     UsedRecordDefs = [{Name, lists:keysort(1, Fields)} || {Name, Fields} <- CurRecordDefs, lists:member(Name, UsedRecords)],
     CurUnDefinedUsedRecords = UsedRecords -- [Name || {Name, _Fields} <- UsedRecordDefs],
     UsedRecordDefsInTargetFile = [{Name, lists:keysort(1, Fields)}
@@ -1148,7 +1155,7 @@ check_records(FunDefs,CurRecordDefs,TargetRecordDefs, CheckCond) ->
     UnDefinedRecords.
 
 check_macros(FunDefs, CurMacroDefs, TargetMacroDefs, CheckCond) ->
-    UsedMacros = lists:usort(lists:append([refac_util:collect_used_macros(FunDef) || {_, FunDef} <- FunDefs])),
+    UsedMacros = lists:usort(lists:append([refac_misc:collect_used_macros(FunDef) || {_, FunDef} <- FunDefs])),
     UsedMacroDefs = [{Name, {Args, Def}}
 		     || {Name, {Args, Def}} <- CurMacroDefs,
 			lists:member(Name, UsedMacros)],
@@ -1308,7 +1315,7 @@ get_moveable_dependent_funs(MFAs, CurModInfo, TargetModInfo, CG) ->
 get_dependent_funs(Info, MFAs = [{ModName, _, _}| _], CG) ->
     Reachable = digraph_utils:reachable(MFAs, CG),
     Reachable1 = [{M, F, A} || {M, F, A} <- Reachable, M == ModName,
-			        not  refac_util:is_exported({F, A}, Info)],
+			        not refac_api:is_exported({F, A}, Info)],
     Funs = get_closed_dependent_funs(Reachable1, MFAs, CG),
     Funs -- MFAs.
 
@@ -1364,7 +1371,7 @@ get_target_file_name(CurrentFName, TargetModorFileName) ->
 		    end,
     TargetFileName = filename:join([filename:dirname(CurrentFName), filename:dirname(TargetModorFileName),
 				    TargetModName ++ ".erl"]),
-    case refac_util:is_fun_name(TargetModName) of
+    case refac_api:is_fun_name(TargetModName) of
 	true ->
 	    TargetFileName;
 	_ -> throw(ErrMsg)
@@ -1433,7 +1440,7 @@ pos_to_export(AnnAST, Pos) ->
     Forms = refac_syntax:form_list_elements(AnnAST),
     Fs = [F || F <- Forms,
 	       is_export_attribute(F),
-	       {Start, End} <- [refac_util:get_start_end_loc(F)],
+	       {Start, End} <- [refac_api:start_end_loc(F)],
 	       Start=<Pos,
 	       End>=Pos],
     case Fs of
@@ -1504,5 +1511,5 @@ get_file_name(ModorFileName, SearchPaths) ->
 	true ->
 	    {ok, ModorFileName};
 	false ->
-	    refac_util:modname_to_filename(ModorFileName, SearchPaths)
+	    refac_misc:modname_to_filename(ModorFileName, SearchPaths)
     end.
