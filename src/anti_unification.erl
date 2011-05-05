@@ -5,7 +5,6 @@
 
 -include("../include/wrangler.hrl").
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
 %%                                                                      %%
 %%  Try to find the anti-unifier to two expression/expression sequences %%
@@ -66,9 +65,9 @@ anti_unfication_different_type(Expr1, Expr2) ->
     end.
 
 anti_unification_same_type(Expr1, Expr2) ->
-    case refac_syntax:is_literal(Expr1) andalso refac_syntax:is_literal(Expr2) of
+    case is_literal(Expr1) andalso is_literal(Expr2) of
       true ->
-	  case refac_syntax:concrete(Expr1) == refac_syntax:concrete(Expr2) of
+            case refac_syntax:concrete(Expr1) == refac_syntax:concrete(Expr2) of
 	    true ->
 		case refac_syntax:type(Expr1) of
 		  atom ->
@@ -98,23 +97,24 @@ anti_unification_same_type(Expr1, Expr2) ->
 			[]
 		end;
 	    _ ->
-		case generalisable(Expr1, Expr2) of
-		  true ->
-		      case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Expr1)) of
-			{value, {fun_def, {M, F, A, _, _}}} ->
-			    case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Expr2)) of
-			      {value, {fun_def, {M, F, A, _, _}}} ->
-				  [];
-			      _ -> [{Expr1, Expr2}]
-			    end;
-			_ ->
-			    [{Expr1, Expr2}]
-		      end;
-		  false -> throw(non_unificable)
-		end
-	  end;
+                    case generalisable(Expr1, Expr2) of
+                        true ->
+                            case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Expr1)) of
+                                {value, {fun_def, {M, F, A, _, _}}} ->
+                                    case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Expr2)) of
+                                        {value, {fun_def, {M, F, A, _, _}}} ->
+                                            [];
+                                        _ -> [{Expr1, Expr2}]
+                                    end;
+                                _ ->
+                                    [{Expr1, Expr2}]
+                            end;
+                        false -> 
+                            throw(non_unificable)
+                    end
+            end;
 	_ ->
-	    case refac_syntax:type(Expr1) of
+            case refac_syntax:type(Expr1) of
 		variable ->
 		    case {is_macro_name(Expr1), is_macro_name(Expr2)} of
 			{true, true} ->
@@ -455,3 +455,14 @@ is_macro_name(Exp) ->
     {value, {syntax_path, macro_name}} == 
         lists:keysearch(syntax_path, 1, Ann).
 
+
+is_literal(T) ->
+    case refac_syntax:type(T) of
+        atom -> true;
+        integer -> true;
+        float -> true;
+        char -> true;
+        string -> true;
+        nil -> true;
+        _ -> false
+    end.
