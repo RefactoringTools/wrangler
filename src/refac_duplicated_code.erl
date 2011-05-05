@@ -659,7 +659,7 @@ do_expr_anti_unification(Exp1, Exp2) ->
 do_expr_anti_unification_1(Exp1, Exp2) ->
     T1 = refac_syntax:type(Exp1),
     T2 = refac_syntax:type(Exp2),
-    case refac_syntax:is_literal(Exp1) andalso refac_syntax:is_literal(Exp2) of
+    case is_literal(Exp1) andalso is_literal(Exp2) of
 	true ->
 	  do_anti_unify_literals(Exp1, Exp2);
 	false ->
@@ -835,3 +835,13 @@ is_macro_name(Exp) ->
         lists:keysearch(syntax_path, 1, Ann).
 
 
+is_literal(T) -> 
+    case refac_syntax:type(T) of
+        atom -> true;
+        integer -> true;
+        float -> true;
+        char -> true;
+        string -> true;
+        nil -> true;
+        _ -> false
+    end.
