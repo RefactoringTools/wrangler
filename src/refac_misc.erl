@@ -48,7 +48,7 @@
          format_search_paths/1,
          modname_to_filename/2, funname_to_defpos/2,
          group_by/2,filehash/1,apply_style_funs/0,
-         try_eval/4]).
+         try_eval/4, is_macro_name/1, is_literal/1]).
 
 -export([callback_funs/1, 
          is_callback_fun/3,
@@ -63,6 +63,7 @@
          collect_var_source_def_pos_info/1]).
 
 -export([test_framework_used/1]).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%-spec group_by(integer(), [tuple()]) -> [[tuple()]].
@@ -800,3 +801,21 @@ test_framework_used(FileName) ->
       _ -> []
     end.
 
+
+is_macro_name(Node) ->
+    Ann = refac_syntax:get_ann(Node),
+    {value, {syntax_path, macro_name}} == 
+        lists:keysearch(syntax_path, 1, Ann).
+
+
+
+is_literal(Node) ->
+    case refac_syntax:type(Node) of
+        atom -> true;
+        integer -> true;
+        float -> true;
+        char -> true;
+        string -> true;
+        nil -> true;
+        _ -> false
+    end.
