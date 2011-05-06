@@ -604,7 +604,8 @@ expr_anti_unification(Exp1, Exp2, Expr2ExportedVars) ->
 	    EVs1 = [{refac_syntax:variable_name(E1), get_var_define_pos(E1)}
 		    || {E1, E2} <- SubSt, refac_syntax:type(E2) == variable,
 		       lists:member({refac_syntax:variable_name(E2), get_var_define_pos(E2)}, Expr2ExportedVars)],
-	    SubSt1 = [{E1, E2} || {E1, E2} <- SubSt, refac_syntax:type(E1) /= variable orelse is_macro_name(E1)],
+	    SubSt1 = [{E1, E2} || {E1, E2} <- SubSt, refac_syntax:type(E1) /= variable 
+                                      orelse refac_misc:is_macro_name(E1)],
 	    Nodes = group_substs(SubSt1),
 	    {Nodes, EVs1}
     catch
@@ -659,7 +660,7 @@ do_expr_anti_unification(Exp1, Exp2) ->
 do_expr_anti_unification_1(Exp1, Exp2) ->
     T1 = refac_syntax:type(Exp1),
     T2 = refac_syntax:type(Exp2),
-    case is_literal(Exp1) andalso is_literal(Exp2) of
+    case refac_misc:is_literal(Exp1) andalso refac_misc:is_literal(Exp2) of
 	true ->
 	  do_anti_unify_literals(Exp1, Exp2);
 	false ->
@@ -667,7 +668,7 @@ do_expr_anti_unification_1(Exp1, Exp2) ->
 		{macro, macro} -> do_anti_unify_macros(Exp1, Exp2);
 		{macro, _} -> throw({error, anti_unification_failed});
 		{variable, variable} ->
-		    case is_macro_name(Exp1) or is_macro_name(Exp2) of
+		    case refac_misc:is_macro_name(Exp1) or refac_misc:is_macro_name(Exp2) of
 			true ->
 			    throw({error, anti_unification_failed});
 			false ->
@@ -828,20 +829,3 @@ get_var_define_pos(V) ->
 	false -> []
     end.
                
-
-is_macro_name(Exp) ->
-    Ann = refac_syntax:get_ann(Exp),
-    {value, {syntax_path, macro_name}} == 
-        lists:keysearch(syntax_path, 1, Ann).
-
-
-is_literal(T) -> 
-    case refac_syntax:type(T) of
-        atom -> true;
-        integer -> true;
-        float -> true;
-        char -> true;
-        string -> true;
-        nil -> true;
-        _ -> false
-    end.
