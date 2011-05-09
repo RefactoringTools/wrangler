@@ -28,7 +28,7 @@
 
 -include("../include/gen_refac.hrl").
 
--export([apply_code_inspection/1]).
+-export([apply_code_inspection/1, input_pars/2]).
 
 %%@doc The function called by Emacs to invoke a code inspection function. All code 
 %% inspection function should have an arity of 0. 
@@ -54,13 +54,26 @@ apply_code_inspection(Args=[ModName, FunName, CurFileName,
     try apply(M, F, [Args0]) of
         Res -> 
             display_search_results(Res),
-            {ok, "Code inspection finished."}        
+            {ok, "Code inspection finished."}         
     catch
         throw:Error -> 
             Error;   
         _E1:E2->
             {error, {E2, lists:flatten(io_lib:format("~p", [erlang:get_stacktrace()]))}}
     end.
+
+input_pars(ModName, FunName) ->
+    M = if is_list(ModName) ->
+                list_to_atom(ModName);
+           true ->
+                ModName
+        end,
+    F = if is_list(FunName) ->
+                list_to_atom(FunName);
+           true ->
+                FunName
+        end,
+    {ok, M:F(input_pars)}.
 
 %%@private
 display_search_results(Res) ->
