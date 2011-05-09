@@ -132,7 +132,8 @@
 	 infix_expr_right/1, integer/1, integer_literal/1,
 	 integer_value/1, is_atom/2, is_char/2, is_form/1,
 	 is_integer/2, is_leaf/1, is_list_skeleton/1,
-	 is_literal/1, is_proper_list/1, is_string/2, is_tree/1, is_wrapper/1,
+	 is_literal/1, is_proper_list/1, is_string/2, is_tree/1, 
+         is_wrapper/1,
 	 join_comments/2, list/1, list/2, list_comp/2,
 	 list_comp_body/1, list_comp_template/1, list_elements/1,
 	 list_head/1, list_length/1, list_prefix/1,
@@ -611,10 +612,12 @@ get_pos(#wrapper{attr = Attr}) -> Attr#attr.pos;
 get_pos({error, {Pos, _, _}}) -> Pos;
 get_pos({error, {{Pos, _, _}, _}}) -> Pos;
 get_pos({warning, {Pos, _, _}}) -> Pos;
-get_pos(Node) ->
+get_pos(Node) when is_tuple(Node)->
     %% Here, we assume that we have an `erl_parse' node with position
     %% information in element 2.
-    element(2, Node).
+    element(2, Node);
+get_pos(_Node) ->
+    {0,0}.
 
 %% =====================================================================
 %% @spec set_pos(Node::syntaxTree(), Pos::term()) -> syntaxTree()
@@ -1019,12 +1022,17 @@ add_ann(A, Node) ->
 
 update_ann(_, none) -> none;
 update_ann({Key, Val},Node) ->
-    As0 = refac_syntax:get_ann(Node),
-    As1 = case lists:keysearch(Key, 1, As0) of
-	    {value, _} -> lists:keyreplace(Key, 1, As0, {Key, Val});
-	    _ -> [{Key, Val}|As0]
-	  end,
-    refac_syntax:set_ann(Node, As1).
+    case is_tree(Node) of
+        true ->
+            As0 = refac_syntax:get_ann(Node),
+            As1 = case lists:keysearch(Key, 1, As0) of
+                      {value, _} -> lists:keyreplace(Key, 1, As0, {Key, Val});
+                      _ -> [{Key, Val}|As0]
+                  end,
+            refac_syntax:set_ann(Node, As1);
+        false ->
+            Node
+    end.
 
 
 %% =====================================================================
@@ -5460,13 +5468,14 @@ macro(Name) -> macro(Name, none).
 %%	Arguments = none | [syntaxTree()]
 
 macro(Name, Arguments) ->
-    tree(macro, #macro{name = update_ann({syntax_path, macro_name}, Name), 
-                       arguments = case Arguments of 
-                                       none -> none;
-                                       _ ->[update_ann({syntax_path, macro_argument}, A)
-                                            ||A<-Arguments]
-                                   end
-                       }).
+    tree(macro, 
+         #macro{name = update_ann({syntax_path, macro_name}, Name), 
+         arguments = case Arguments of 
+                         none -> none;
+                         _ ->[update_ann({syntax_path, macro_argument}, A)
+                              ||A<-Arguments]
+                     end
+        }).
 
 %% =====================================================================
 %% @spec macro_name(syntaxTree()) -> syntaxTree()
