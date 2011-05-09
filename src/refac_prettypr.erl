@@ -1132,8 +1132,15 @@ lay_list(Node, Ctxt) ->
                 {get_start_loc_with_comment(hd(PrefixElems)),
                  get_end_loc_with_comment(lists:last(PrefixElems))}
         end,
-    N = PrefixStartLn - StartLn,
-    Offset = PrefixStartCol - StartCol,
+    N = case StartLn of
+            0 -> 0;
+            _ ->PrefixStartLn - StartLn
+        end,
+    Offset = case StartCol of 
+                 0 -> 0;
+                 _ ->
+                     PrefixStartCol - StartCol
+             end,
     case refac_syntax:list_suffix(Node1) of
         none ->
             D2 =case N =< 0 of
