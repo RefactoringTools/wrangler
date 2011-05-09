@@ -5,34 +5,34 @@
 -include_lib("eqc/include/eqc.hrl").
 
 collect_par_locs(FileName, Dirs) ->
-    {ok, {AST, _Info}} = refac_util:parse_annotate_file(FileName, true, Dirs, 8),
+    {ok, {AST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, Dirs, 8),
     F = fun (T, S) ->
-		case refac_syntax:type(T) of 
+		case refac_syntax:type(T) of
 		    function ->
 			Cs = refac_syntax:function_clauses(T),
 			Patterns = refac_syntax:clause_patterns(hd(Cs)),
-			case Patterns of 
+			case Patterns of
 			    [] -> S;
 			    _ ->
 				IndexedPats = lists:zip(Patterns, lists:reverse(lists:seq(1, length(Patterns)))),
-				Pars =lists:map(fun({P, Index}) -> {Start, End} = refac_util:get_range(P),
-								   {{Start, End}, length(Patterns)-Index+1, Index}
-						end, IndexedPats),
-				[P||P={{_S1, _E1}, _Index1, Index2}<-Pars, Index2>1]++S
+				Pars = lists:map(fun ({P, Index}) -> {Start, End} = refac_api:start_end_loc(P),
+								     {{Start, End}, length(Patterns)-Index+1, Index}
+						 end, IndexedPats),
+				[P || P = {{_S1, _E1}, _Index1, Index2} <- Pars, Index2>1]++S
 			end;
 		    _ -> S
 		end
 	end,
-    Res = lists:usort(refac_syntax_lib:fold(F, [], AST)),
-    case Res of 
+    Res = lists:usort(ast_traverse_api:fold(F, [], AST)),
+    case Res of
 	[] ->
-	     [{{{0,0},{0,0}},0,0}];
+	    [{{{0,0},{0,0}},0,0}];
 	_ -> Res
     end.
 
 %% filename newerator
 gen_filename(Dirs) ->
-    AllErlFiles = refac_util:expand_files(Dirs, ".erl"),
+    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
     oneof(AllErlFiles).
 
 

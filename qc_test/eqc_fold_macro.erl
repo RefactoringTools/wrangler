@@ -6,23 +6,24 @@
 
 % filename generator
 gen_filename(Dirs) ->
-    AllErlFiles = refac_util:expand_files(Dirs, ".erl"),
+    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
     oneof(AllErlFiles).
 
 %% collect function define locations in an AST
 collect_fold_candidates(FName, SearchPaths, TabWidth) ->
-    {ok, {AST, _Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
+    {ok, {AST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     F = fun (T, S) ->
-		case refac_syntax:type(T) of 
+		case refac_syntax:type(T) of
 		    attribute ->
-			case refac_syntax:atom_value(refac_syntax:attribute_name(T)) of 
+			case refac_syntax:atom_value(refac_syntax:attribute_name(T)) of
 			    define ->
-				{{Line, Col}, _EndLoc} = refac_util:get_range(T),
-				Args = [FName,Line, Col, SearchPaths, TabWidth, emacs],
-				case apply(refac_fold_against_macro, fold_against_macro, Args) of 
+				{{Line, Col}, _EndLoc} = refac_api:start_end_loc(T),
+				Args = [FName, Line, Col, SearchPaths, TabWidth, emacs],
+				case apply(refac_fold_against_macro, fold_against_macro, Args) of
 				    {ok, Regions} ->
-					Regions1 = lists:map(fun(Reg) ->
-								     list_to_tuple([FName |tuple_to_list(Reg)]) end,
+					Regions1 = lists:map(fun (Reg) ->
+								     list_to_tuple([FName| tuple_to_list(Reg)])
+							     end,
 							     Regions),
 					Regions1 ++ S;
 				    _ -> S
@@ -32,8 +33,8 @@ collect_fold_candidates(FName, SearchPaths, TabWidth) ->
 		    _ -> S
 		end
 	end,
-    Res = lists:usort(refac_syntax_lib:fold(F, [], AST)),
-    case Res of 
+    Res = lists:usort(ast_traverse_api:fold(F, [], AST)),
+    case Res of
 	[] ->
 	    [{0,0,0,0,0,0,0}];
 	_ -> Res

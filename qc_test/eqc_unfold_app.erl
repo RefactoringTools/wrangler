@@ -6,23 +6,23 @@
 
 collect_app_locs(AST, ModName) ->
     F = fun (T, S) ->
-		case refac_syntax:type(T) of 
+		case refac_syntax:type(T) of
 		    application ->
 			Op = refac_syntax:application_operator(T),
 			case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
-			    {value, {fun_def, {ModName, _, _, _,_}}} ->
-				{SLoc, _ELoc} = refac_util:get_range(Op),
-				[SLoc|S];
+			    {value, {fun_def, {ModName, _, _, _, _}}} ->
+				{SLoc, _ELoc} = refac_api:start_end_loc(Op),
+				[SLoc| S];
 			    _ -> S
 			end;
 		    _ -> S
 		end
 	end,
-   refac_syntax_lib:fold(F, [{0,0}], AST).
- 
+    ast_traverse_api:fold(F, [{0,0}], AST).
+
 %% filename newerator
 gen_filename(Dirs) ->
-    AllErlFiles = refac_util:expand_files(Dirs, ".erl"),
+    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
     oneof(AllErlFiles).
 
 
@@ -59,9 +59,9 @@ gen_new_fun_commands(Dirs) ->
 
 %% generate 'gen a function' commands.
 gen_unfold_fun_commands_1(FileName, Dirs) ->
-    {ok, {AST, Info}} = refac_util:parse_annotate_file(FileName, true, Dirs, 8),
+    {ok, {AST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, Dirs, 8),
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
-    noshrink( {FileName, oneof(collect_app_locs(AST, ModName)), Dirs, 8}).
+    noshrink({FileName, oneof(collect_app_locs(AST, ModName)), Dirs, 8}).
 
 test_unfold_fun_app(Dirs) ->
     application:start(wrangler_app),

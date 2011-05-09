@@ -11,9 +11,11 @@ parse_file(FName) ->
     get_AST(FName, []).
 
 get_AST(FName, SearchPaths) ->
-    case refac_util:parse_annotate_file(FName, true, SearchPaths) of
-      {ok, {AST, Info}} -> {ok, {AST, Info}};
-      {error, Reason} -> {error, Reason}
+    case
+	wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths)
+	of
+	{ok, {AST, Info}} -> {ok, {AST, Info}};
+	{error, Reason} -> {error, Reason}
     end.
 
 %% Default variable names.
@@ -26,55 +28,55 @@ madeup_fun_names() -> ["aaa", "bbb", "ccc", "DDD"].
 all_funs(AST) ->
     Fun = fun (T, S) ->
 		  case refac_syntax:type(T) of
-		    function ->
-			ordsets:add_element({refac_syntax:data(refac_syntax:function_name(T)),
-					     refac_syntax:function_arity(T), refac_syntax:get_pos(T)},
-					    S);
-		    _ -> S
+		      function ->
+			  ordsets:add_element({refac_syntax:data(refac_syntax:function_name(T)),
+					       refac_syntax:function_arity(T), refac_syntax:get_pos(T)},
+					      S);
+		      _ -> S
 		  end
 	  end,
-    refac_syntax_lib:fold(Fun, ordsets:new(), AST).
+    ast_traverse_api:fold(Fun, ordsets:new(), AST).
 
 %% Collect all the variable names in an AST.
 all_vars(AST) ->
     Fun1 = fun (T, S) ->
 		   case refac_syntax:type(T) of
-		     variable ->
-			 Name = refac_syntax:variable_name(T),
-			 ordsets:add_element(atom_to_list(Name), S);
-		     _ -> S
+		       variable ->
+			   Name = refac_syntax:variable_name(T),
+			   ordsets:add_element(atom_to_list(Name), S);
+		       _ -> S
 		   end
 	   end,
-    refac_syntax_lib:fold(Fun1, ordsets:new(), AST).
+    ast_traverse_api:fold(Fun1, ordsets:new(), AST).
 
 %% collect all the variables in a function definition in terms of position or name as specified by PosOrName.
 vars_within_a_fun(AST, Function, PosOrName) ->
     Fun1 = fun (T, S) ->
 		   case refac_syntax:type(T) of
-		     variable ->
-			 Name = refac_syntax:variable_name(T),
-			 Pos = refac_syntax:get_pos(T),
-			 case PosOrName of
-			   pos -> ordsets:add_element(Pos, S);
-			   _ -> ordsets:add_element(atom_to_list(Name), S)
-			 end;
-		     _ -> S
+		       variable ->
+			   Name = refac_syntax:variable_name(T),
+			   Pos = refac_syntax:get_pos(T),
+			   case PosOrName of
+			       pos -> ordsets:add_element(Pos, S);
+			       _ -> ordsets:add_element(atom_to_list(Name), S)
+			   end;
+		       _ -> S
 		   end
 	   end,
     Fun2 = fun (Node, {FunName, Arity, Pos}) ->
 		   case refac_syntax:type(Node) of
-		     function ->
-			 case {refac_syntax:data(refac_syntax:function_name(Node)),
-			       refac_syntax:function_arity(Node), refac_syntax:get_pos(Node)}
-			     of
-			   {FunName, Arity, Pos} ->
-			       {refac_syntax_lib:fold(Fun1, ordsets:new(), Node), true};
-			   _ -> {[], false}
-			 end;
-		     _ -> {[], false}
+		       function ->
+			   case {refac_syntax:data(refac_syntax:function_name(Node)),
+				 refac_syntax:function_arity(Node), refac_syntax:get_pos(Node)}
+			       of
+			       {FunName, Arity, Pos} ->
+				   {ast_traverse_api:fold(Fun1, ordsets:new(), Node), true};
+			       _ -> {[], false}
+			   end;
+		       _ -> {[], false}
 		   end
 	   end,
-    {R, true} = refac_util:once_tdTU(Fun2, AST, Function),
+    {R, true} = refac_api:once_tdTU(Fun2, AST, Function),
     R.
 
 %% collect function define locations in a Erlang file.
@@ -83,27 +85,27 @@ collect_fun_locs(FileName) ->
     F = fun (T, S) ->
 		As = refac_syntax:get_ann(T),
 		case lists:keysearch(fun_def, 1, As) of
-		  {value, {fun_def, {_Mod, _Fun, _Arity, Pos, DefPos}}} ->
-		      if DefPos == {0, 0} -> S;
-			 true -> [Pos] ++ S
-		      end;
-		  _ -> S
+		    {value, {fun_def, {_Mod, _Fun, _Arity, Pos, DefPos}}} ->
+			if DefPos == {0, 0} -> S;
+			   true -> [Pos] ++ S
+			end;
+		    _ -> S
 		end
 	end,
-    lists:usort(refac_syntax_lib:fold(F, [], AST)).
+    lists:usort(ast_traverse_api:fold(F, [], AST)).
 
 %% Collect atoms in an Erlang file.
 collect_atoms(FileName) ->
     {ok, {AST, _Info}} = parse_file(FileName),
     F = fun (T, S) ->
 		case refac_syntax:type(T) of
-		  atom ->
-		      Name = refac_syntax:atom_value(T),
-		      [atom_to_list(Name)] ++ S;
-		  _ -> S
+		    atom ->
+			Name = refac_syntax:atom_value(T),
+			[atom_to_list(Name)] ++ S;
+		    _ -> S
 		end
 	end,
-    lists:usort(refac_syntax_lib:fold(F, madeup_fun_names(), AST)).
+    lists:usort(ast_traverse_api:fold(F, madeup_fun_names(), AST)).
 
 %% function  generator			
 gen_funs(AST) -> oneof(all_funs(AST)).
@@ -148,21 +150,22 @@ rename_fun_commands(Dir) ->
 	 [FileName, oneof(collect_fun_locs(FileName)),
 	  oneof(collect_atoms(FileName)), [Dir]]).  %% need to specify a percentage here.
 
+
 %% get the function name binding structure of an Erlang file.
 fun_binding_structure(AST) ->
-      Fun1 = fun (T, S) ->
+    Fun1 = fun (T, S) ->
 		   case refac_syntax:type(T) of
-		     atom ->
-			 As = refac_syntax:get_ann(T),
-			 case lists:keysearch(fun_def, 1, As) of
-			   {value, {fun_def, {Mod, Fun, Arity, SrcLoc, DefPos}}} ->
-			       S ++ [{Mod, Fun, Arity, SrcLoc, DefPos}];
-			   _ -> S
-			 end;
-		     _ -> S
+		       atom ->
+			   As = refac_syntax:get_ann(T),
+			   case lists:keysearch(fun_def, 1, As) of
+			       {value, {fun_def, {Mod, Fun, Arity, SrcLoc, DefPos}}} ->
+				   S ++ [{Mod, Fun, Arity, SrcLoc, DefPos}];
+			       _ -> S
+			   end;
+		       _ -> S
 		   end
 	   end,
-    lists:keysort(4, refac_syntax_lib:fold(Fun1, [], AST)).
+    lists:keysort(4, ast_traverse_api:fold(Fun1, [], AST)).
 
 
 rename_in_binding_structure(B, {Mod, FunName, Arity}, {Mod, NewFunName, Arity}) ->
@@ -173,32 +176,30 @@ rename_in_binding_structure(B, {Mod, FunName, Arity}, {Mod, NewFunName, Arity}) 
 			  _ -> T
 		      end
 	      end, B).
-		 
 
 %% get the variable binding structure of an Erlang file
 var_binding_structure(AST) ->
     Fun1 = fun (T, S) ->
 		   case refac_syntax:type(T) of
-		     variable ->
-			 Name = refac_syntax:variable_name(T),
-			 SrcLoc = refac_syntax:get_pos(T),
-			 As = refac_syntax:get_ann(T),
-			 case lists:keysearch(def, 1, As) of
-			   {value, {def, DefLoc}} -> ordsets:add_element({atom_to_list(Name), SrcLoc, DefLoc}, S);
-			   _ -> S
-			 end;
-		     _ -> S
+		       variable ->
+			   Name = refac_syntax:variable_name(T),
+			   SrcLoc = refac_syntax:get_pos(T),
+			   As = refac_syntax:get_ann(T),
+			   case lists:keysearch(def, 1, As) of
+			       {value, {def, DefLoc}} -> ordsets:add_element({atom_to_list(Name), SrcLoc, DefLoc}, S);
+			       _ -> S
+			   end;
+		       _ -> S
 		   end
 	   end,
-    B = refac_syntax_lib:fold(Fun1, ordsets:new(), AST),
+    B = ast_traverse_api:fold(Fun1, ordsets:new(), AST),
     DefLocs = lists:usort(lists:map(fun ({_Name, _SrcLoc, DefLoc}) -> DefLoc end, B)),
     SrcLocs = lists:map(fun ({_Name, SrcLoc, _DefLoc}) -> SrcLoc end, B),
     Locs = lists:usort(lists:concat(DefLocs) ++ SrcLocs),
     IndexedLocs = lists:zip(Locs, lists:seq(1, length(Locs))),
     B1 = lists:usort(lists:map(fun ({_Name, SrcLoc, DefLoc}) ->
 				       {value, {SrcLoc, Index1}} = lists:keysearch(SrcLoc, 1, IndexedLocs),
-				       Index2 = lists:map(fun (L) -> {value, {L, Index}} = lists:keysearch(L, 1, IndexedLocs), Index
-							  end,
+				       Index2 = lists:map(fun (L) -> {value, {L, Index}} = lists:keysearch(L, 1, IndexedLocs),Index end,
 							  DefLoc),
 				       {Index1, Index2}
 			       end,
@@ -210,7 +211,7 @@ valid_rename_var_command1(AST, {_FName, Loc, NewName, _SearchPaths}) ->
     case Loc of
       {0, 0} -> false;
       _ ->
-	  case refac_util:pos_to_var_name(AST, Loc) of
+	  case refac_api:pos_to_var_name(AST, Loc) of
 	    {ok, {OldName, DefinePos, _}} ->
 		DefinePos =/= {0, 0} andalso OldName =/= NewName;
 	    _ -> false
@@ -218,7 +219,7 @@ valid_rename_var_command1(AST, {_FName, Loc, NewName, _SearchPaths}) ->
     end.
 
 pos_to_fun_name(AnnAST, {Line, Col}) ->
-    {ok, {_Mod, Fun, Arity, _, _DefinePos}} = refac_util:pos_to_fun_name(AnnAST, {Line, Col}),
+    {ok, {_Mod, Fun, Arity, _, _DefinePos}} = refac_api:pos_to_fun_name(AnnAST, {Line, Col}),
     {Fun, Arity}.
 
 %% Properties for 'rename a variable name'
@@ -263,7 +264,7 @@ get_callback_funs(ModInfo) ->
       {value, {attributes, Attrs}} ->
 	  case lists:keysearch(behaviour, 1, Attrs) of
 	    {value, {behaviour, B}} ->
-		refac_util:callback_funs(B);
+		refac_misc:callback_funs(B);
 	    _ -> []
 	  end;
       _ -> []

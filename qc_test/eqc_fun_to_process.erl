@@ -6,35 +6,34 @@
 
 % filename generator
 gen_filename(Dirs) ->
-    AllErlFiles = refac_util:expand_files(Dirs, ".erl"),
+    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
     oneof(AllErlFiles).
 
 gen_target_mod(Dirs) ->
-    AllErlFiles = refac_util:expand_files(Dirs, ".erl"),
-    AllMods = lists:map(fun(F) ->filename:basename(F, ".erl") end, AllErlFiles),
+    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
+    AllMods = lists:map(fun (F) -> filename:basename(F, ".erl") end, AllErlFiles),
     oneof(AllMods++madeup_mod_names()).
 
 %% Default function names.
 madeup_mod_names() -> ["aaa", "aaa.erl"].
-   
 
 %% collect function define locations in an AST
 collect_fun_locs(AST) ->
     F = fun (T, S) ->
 		As = refac_syntax:get_ann(T),
 		case lists:keysearch(fun_def, 1, As) of
-		  {value, {fun_def, {_Mod, _Fun, _Arity, Pos, DefPos}}} ->
-		      if DefPos == {0, 0} -> S;
-			 true -> [Pos] ++ S
-		      end;
-		  _ -> S
+		    {value, {fun_def, {_Mod, _Fun, _Arity, Pos, DefPos}}} ->
+			if DefPos == {0, 0} -> S;
+			   true -> [Pos] ++ S
+			end;
+		    _ -> S
 		end
 	end,
-    Res =lists:usort(refac_syntax_lib:fold(F, [], AST)),
-    case Res of 
+    Res = lists:usort(ast_traverse_api:fold(F, [], AST)),
+    case Res of
 	[] ->
-	     [{0,0}];
-	_  -> Res
+	    [{0,0}];
+	_ -> Res
     end.
 
 %% Default function names.
@@ -101,7 +100,7 @@ gen_fun_to_process_commands(Dirs) ->
 	 gen_fun_to_process_commands_1(FileName, Dirs)).
 
 gen_fun_to_process_commands_1(FileName, Dirs) ->
-    {ok, {AST, _Info}} = refac_util:parse_annotate_file(FileName, true, Dirs, 8),
+    {ok, {AST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, Dirs, 8),
     noshrink({FileName, oneof(collect_fun_locs(AST)), oneof(madeup_process_names()), Dirs, 8}).
 
 

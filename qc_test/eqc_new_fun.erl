@@ -5,24 +5,24 @@
 -include_lib("eqc/include/eqc.hrl").
 
 collect_expr_locs(AST) ->
-    F1 = fun(T,S) ->
-		 case refac_util:is_expr(T) of 
-		     true ->Range = refac_util:get_range(T),
-			    [Range|S];
+    F1 = fun (T,S) ->
+		 case refac_api:is_expr_or_match(T) of
+		     true -> Range = refac_api:start_end_loc(T),
+			     [Range| S];
 		     _ -> S
 		 end
 	 end,
     F = fun (T, S) ->
-		case refac_syntax:type(T) of 
+		case refac_syntax:type(T) of
 		    function ->
-			refac_syntax_lib:fold(F1, [],T) ++ S;
+			ast_traverse_api:fold(F1, [], T) ++ S;
 		    _ -> S
 		end
 	end,
-    Res = lists:usort(refac_syntax_lib:fold(F, [], AST)),
-    case Res of 
+    Res = lists:usort(ast_traverse_api:fold(F, [], AST)),
+    case Res of
 	[] ->
-	     [{{0,0}, {0,0}}];
+	    [{{0,0}, {0,0}}];
 	_ -> Res
     end.
 
@@ -31,24 +31,28 @@ madeup_fun_names() -> ["aaa", "bbb", "ccc", "DDD"].
 
 %% Collect atoms in an AST.
 collect_atoms(AST) ->
-     F = fun (T, S) ->
+    F = fun (T, S) ->
 		case refac_syntax:type(T) of
-		  atom ->
-		      Name = refac_syntax:atom_value(T),
-		      [atom_to_list(Name)] ++ S;
-		  _ -> S
+		    atom ->
+			Name = refac_syntax:atom_value(T),
+			[atom_to_list(Name)] ++ S;
+		    _ -> S
 		end
 	end,
-    lists:usort(refac_syntax_lib:fold(F, madeup_fun_names(), AST)).
+    lists:usort(ast_traverse_api:fold(F, madeup_fun_names(), AST)).
 
 %% filename newerator
 gen_filename(Dirs) ->
-    AllErlFiles = refac_util:expand_files(Dirs, ".erl"),
+    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
     oneof(AllErlFiles).
 
 
 %% Properties for 'generalise a function'
 prop_new_fun({FName, Range, NewName, SearchPaths, TabWidth}) ->
+    Res0= case (catch compile:file(FName, [{i, "c:/cygwin/home/hl/test_codebase"}])) of
+	      {ok, _} -> ok;
+	      _ -> fail
+	  end,
     {Start, End} = Range,
     Args = [FName,Start, End, NewName, TabWidth],
     try  apply(refac_new_fun, fun_extraction, Args)  of
@@ -59,9 +63,14 @@ prop_new_fun({FName, Range, NewName, SearchPaths, TabWidth}) ->
 		    wrangler_undo_server:undo(),
 		    io:format("\n~p\n", [{ok, Res}]),
 		    true;
-		_ -> wrangler_undo_server:undo(), 
-		     io:format("\nResulted file does not compile!\n"),
-			       false
+		_ -> 
+		    case Res0 of 
+			ok ->
+			    io:format("\nResulted file does not Compile!\n"),
+			    wrangler_undo_server:undo(),false;
+			fail ->
+			    wrangler_undo_server:undo(),true
+		    end
 	    end;
 	 {error, Msg} -> 
 	    io:format("\n~p\n", [{error,Msg}]),
@@ -81,8 +90,8 @@ gen_new_fun_commands(Dirs) ->
 
 %% generate 'gen a function' commands.
 gen_new_fun_commands_1(FileName, Dirs) ->
-    {ok, {AST, _Info}} = refac_util:parse_annotate_file(FileName, true, Dirs, 8),
-    noshrink( {FileName, oneof(collect_expr_locs(AST)), oneof(collect_atoms(AST)), Dirs, 8}).
+    {ok, {AST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, Dirs, 8),
+    noshrink({FileName, oneof(collect_expr_locs(AST)), oneof(collect_atoms(AST)), Dirs, 8}).
 
 show_new_fun_commands(Dirs)->
     eqc:quickcheck(?FORALL (C, (gen_new_fun_commands(Dirs)), (eqc:collect(C, true)))).
@@ -94,38 +103,38 @@ test_new_fun(Dirs) ->
     application:start(wrangler_app).
 	
     
-
+   
 test_new_fun1() ->
-    test_new_fun(["c:/cygwin/home/hl/test_codebase/tableau"]).
+    test_new_fun(["c:/cygwin/home/hl/test_codebase/lampera"]).
 
 test_new_fun2() ->
-    test_new_fun(["c:/cygwin/home/hl/test_codebase/inets-5.0.12"]).
+    test_new_fun(["c:/cygwin/home/hl/test_codebase/eunit"]).
 
 test_new_fun3() ->
-    test_new_fun(["c:/cygwin/home/hl/test_codebase/refactorerl-0.5"]).
+    test_new_fun(["c:/cygwin/home/hl/test_codebase/refactorerl"]).
 
 test_new_fun4() ->
-    test_new_fun(["c:/cygwin/home/hl/test_codebase/suite"]).
+    test_new_fun(["c:/cygwin/home/hl/test_codebase/suites"]).
 
 test_new_fun5() ->
-    test_new_fun(["c:/cygwin/home/hl/test_codebase/wrangler-0.7"]).
+    test_new_fun(["c:/cygwin/home/hl/test_codebase/wrangler"]).
 
 test_new_fun6() ->
-    test_new_fun(["c:/cygwin/home/hl/test_codebase/umbria"]).
+    test_new_fun(["c:/cygwin/home/hl/test_codebase/stdlib"]).
 
 test_new_fun7() ->
-    test_new_fun(["c:/cygwin/home/hl/test_codebase/yaws-1.77"]).
+    test_new_fun(["c:/cygwin/home/hl/test_codebase/yxa"]).
 
 test_new_fun8() ->
-    test_new_fun(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
+    test_new_fun(["c:/cygwin/home/hl/test_codebase/dialyzer"]).
 
-
-run_test() ->
+run_test_new_fun() ->
     test_new_fun1(),
     test_new_fun2(),
-   %%  test_new_fun3(),
-%%     test_new_fun4(),
-%%     test_new_fun5(),
-    test_new_fun6().
-   %%  test_new_fun7(),
-%%     test_new_fun8().
+    test_new_fun3(),
+    test_new_fun4(),
+    test_new_fun5(),
+    test_new_fun6(),
+    test_new_fun7(),
+    test_new_fun8().
+    

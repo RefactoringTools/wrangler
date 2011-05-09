@@ -6,39 +6,40 @@
 
 % filename generator
 gen_filename(Dirs) ->
-    AllErlFiles = refac_util:expand_files(Dirs, ".erl"),
+    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
     oneof(AllErlFiles).
 
 %% collect function define locations in an AST
 collect_fold_candidates(FName, SearchPaths, TabWidth) ->
-    {ok, {AST, _Info}} = refac_util:parse_annotate_file(FName, true, SearchPaths, TabWidth),
+    {ok, {AST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     F = fun (T, S) ->
-		case refac_syntax:type(T) of 
+		case refac_syntax:type(T) of
 		    function ->
-			FunName =refac_syntax:data(refac_syntax:function_name(T)),
+			FunName = refac_syntax:data(refac_syntax:function_name(T)),
 			Arity1 = refac_syntax:function_arity(T),
 			Cs = refac_syntax:function_clauses(T),
-			Rs =lists:map(fun(C) -> refac_util:get_range(C) end, Cs),
-			Res =lists:flatmap(fun(R) ->
-						   {{StartLine, StartCol}, _} = R,
-						   Args = [FName,StartLine, StartCol, SearchPaths, TabWidth, emacs],
-						   try apply(refac_fold_expression, fold_expression, Args) of 
-						       {ok, Regions} ->
-							   Regions1 = lists:map(fun(Reg) ->
-											list_to_tuple([FunName, Arity1 |tuple_to_list(Reg)]) end,
-										Regions),
-							   Regions1;
-						       _ -> []
-						   catch 
-						       E1:E2 -> []					   
-						   end
-					   end, Rs),
-			Res ++ S;			                                
+			Rs = lists:map(fun (C) -> refac_api:start_end_loc(C) end, Cs),
+			Res = lists:flatmap(fun (R) ->
+						    {{StartLine, StartCol}, _} = R,
+						    Args = [FName, StartLine, StartCol, SearchPaths, TabWidth, emacs],
+						    try apply(refac_fold_expression, fold_expression, Args) of
+							{ok, Regions} ->
+							    Regions1 = lists:map(fun (Reg) ->
+											 list_to_tuple([FunName, Arity1| tuple_to_list(Reg)])
+										 end,
+										 Regions),
+							    Regions1;
+							_ -> []
+						    catch
+							E1:E2 -> []
+						    end
+					    end, Rs),
+			Res ++ S;
 		    _ -> S
 		end
-	end,	
-    Res = lists:usort(refac_syntax_lib:fold(F, [], AST)),
-    case Res of 
+	end,
+    Res = lists:usort(ast_traverse_api:fold(F, [], AST)),
+    case Res of
 	[] ->
 	    [{0,0,0,0,0,0,0,{0,0,0,0}}];
 	_ -> Res

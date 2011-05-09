@@ -6,39 +6,38 @@
 
 % filename generator
 gen_filename(Dirs) ->
-    AllErlFiles = refac_util:expand_files(Dirs, ".erl"),
+    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
     oneof(AllErlFiles).
 
 gen_target_mod(Dirs) ->
-    AllErlFiles = refac_util:expand_files(Dirs, ".erl"),
-    AllMods = lists:map(fun(F) ->filename:basename(F, ".erl") end, AllErlFiles),
+    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
+    AllMods = lists:map(fun (F) -> filename:basename(F, ".erl") end, AllErlFiles),
     oneof(AllErlFiles++madeup_mod_names()).
 
 %% Default function names.
 madeup_mod_names() -> ["aaa", "aaa.erl"].
-   
 
 %% collect function define locations in an AST
 collect_fun_locs(AST) ->
     F = fun (T, S) ->
 		As = refac_syntax:get_ann(T),
 		case lists:keysearch(fun_def, 1, As) of
-		  {value, {fun_def, {_Mod, _Fun, _Arity, Pos, DefPos}}} ->
-		      if DefPos == {0, 0} -> S;
-			 true -> [Pos] ++ S
-		      end;
-		  _ -> S
+		    {value, {fun_def, {_Mod, _Fun, _Arity, Pos, DefPos}}} ->
+			if DefPos == {0, 0} -> S;
+			   true -> [Pos] ++ S
+			end;
+		    _ -> S
 		end
 	end,
-    Res =lists:usort(refac_syntax_lib:fold(F, [], AST)),
-    case Res of 
+    Res = lists:usort(ast_traverse_api:fold(F, [], AST)),
+    case Res of
 	[] ->
-	     [{0,0}];
-	_  -> Res
+	    [{0,0}];
+	_ -> Res
     end.
 
 is_mod_name(A) ->
-    refac_util:is_fun_name(A).
+    refac_api:is_fun_name(A).
 
 default_incls() ->
   [".", "..", "../hrl", "../incl", "../inc", "../include",
@@ -108,7 +107,7 @@ gen_move_fun_commands(Dirs) ->
 	 gen_move_fun_commands_1(FileName, Dirs)).
 
 gen_move_fun_commands_1(FileName, Dirs) ->
-    {ok, {AST, _Info}} = refac_util:parse_annotate_file(FileName, true, Dirs, 8),
+    {ok, {AST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, Dirs, 8),
     noshrink({FileName, oneof(collect_fun_locs(AST)), gen_target_mod(Dirs), Dirs, 8}).
 
 
@@ -119,29 +118,29 @@ test_move_fun(Dirs) ->
     application:stop(wrangler_app).
 
 test_move_fun1() ->
-    test_move_fun(["c:/cygwin/home/hl/test_codebase/tableau"]).
+    test_move_fun(["c:/cygwin/home/hl/test_codebase/lampera"]).
 
 
 test_move_fun2() ->
     test_move_fun(["c:/cygwin/home/hl/test_codebase/eunit"]).
 
 test_move_fun3() ->
-    test_move_fun(["c:/cygwin/home/hl/test_codebase/refactorerl-0.5"]).
+    test_move_fun(["c:/cygwin/home/hl/test_codebase/refactorerl"]).
 
 test_move_fun4() ->
     test_move_fun(["c:/cygwin/home/hl/test_codebase/suite"]).
 
 test_move_fun5() ->
-    test_move_fun(["c:/cygwin/home/hl/test_codebase/wrangler-0.7"]).
+    test_move_fun(["c:/cygwin/home/hl/test_codebase/wrangler"]).
 
 test_move_fun6() ->
     test_move_fun(["c:/cygwin/home/hl/test_codebase/umbria"]).
 
 test_move_fun7() ->
-    test_move_fun(["c:/cygwin/home/hl/test_codebase/yaws-1.77"]).
+    test_move_fun(["c:/cygwin/home/hl/test_codebase/yaws"]).
 
 test_move_fun8() ->
-    test_move_fun(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
+    test_move_fun(["c:/cygwin/home/hl/test_codebase/dialyzer"]).
 
 test_move_fun() ->
     test_move_fun(["c:/cygwin/home/hl/test_codebase"]).
@@ -149,9 +148,9 @@ test_move_fun() ->
 run_test() ->
     test_move_fun1(),
     test_move_fun2(),
-  %%   test_move_fun3(),
-%%     test_move_fun4(),
-%%     test_move_fun5(),
-    test_move_fun6().
-   %%  test_move_fun7(),
-%%     test_move_fun8().
+    test_move_fun3(),
+    test_move_fun4(),
+    test_move_fun5(),
+    test_move_fun6(),
+    test_move_fun7(),
+    test_move_fun8().

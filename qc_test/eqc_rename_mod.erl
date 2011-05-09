@@ -9,19 +9,33 @@ madeup_mod_names() -> ["aaa", "aaa_SUITE","aaa.erl","bbb", "ccc", "DDD", "111", 
 
 %% filename generator
 gen_filename(Dirs) ->
-    AllErlFiles = refac_util:expand_files(Dirs, ".erl"),
+    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
     oneof(AllErlFiles).
 
 %% collect function define locations in an AST
 collect_mod_names(Dirs) ->
-    AllErlFiles  = refac_util:expand_files(Dirs, ".erl"),
-    lists:map(fun(F) ->filename:basename(F, ".erl") end, AllErlFiles).
+    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
+    lists:map(fun (F) -> filename:basename(F, ".erl") end, AllErlFiles).
    
 %% Properties for 'rename a function name'
 prop_rename_mod({FName, NewName, SearchPaths, TabWidth}) ->
     Args = [FName, NewName, SearchPaths, TabWidth],
     try  apply(refac_rename_mod, rename_mod, Args) of
 	 {ok, ChangedFiles} -> 
+	    wrangler_preview_server:commit(),
+	    NewFileName = filename:dirname(FName)++"/"++NewName++".erl",
+	    ChangedFiles1= [NewFileName] ++ ChangedFiles -- [FName],
+	    Res =lists:all(fun(F) -> case compile:file(F, [{i, "c:/cygwin/home/hl/test_codebase"}]) of 
+					 {ok, _} ->
+					     true;
+				 	 _ -> io:format("\nResulted file does not compile:~p\n", [F]),
+					      false
+				     end
+				  end, ChangedFiles1),
+	    wrangler_undo_server:undo(),
+	    io:format("\n~p\n", [{ok, ChangedFiles}]),
+	    Res;
+	 {ok, ChangedFiles,_, _} -> 
 	    wrangler_preview_server:commit(),
 	    NewFileName = filename:dirname(FName)++"/"++NewName++".erl",
 	    ChangedFiles1= [NewFileName] ++ ChangedFiles -- [FName],
@@ -45,6 +59,20 @@ prop_rename_mod({FName, NewName, SearchPaths, TabWidth}) ->
 						  {ok, _} ->
 						      true;
 						  _ -> io:format("\nResulted file does not compole!\n"),
+						       false
+					      end
+				    end, ChangedFiles1),
+		     wrangler_undo_server:undo(),
+		     io:format("\n~p\n", [{ok, ChangedFiles}]),
+		     Res;
+		 {ok, ChangedFiles,_, _} -> 
+		     wrangler_preview_server:commit(),
+		     NewFileName = filename:dirname(FName)++"/"++NewName++".erl",
+		     ChangedFiles1= [NewFileName] ++ ChangedFiles -- [FName],
+		     Res =lists:all(fun(F) -> case compile:file(F, [{i, "c:/cygwin/home/hl/test_codebase"}]) of 
+						  {ok, _} ->
+						      true;
+						  _ -> io:format("\nResulted file does not compile:~p\n", [F]),
 						       false
 					      end
 				    end, ChangedFiles1),
@@ -76,6 +104,20 @@ prop_rename_mod({FName, NewName, SearchPaths, TabWidth}) ->
 						 _ -> io:format("\nResulted file does not compole!\n"),
 						      false
 					      end
+				   end, ChangedFiles1),
+		    wrangler_undo_server:undo(),
+		    io:format("\n~p\n", [{ok, ChangedFiles}]),
+		    Res;
+		{ok, ChangedFiles,_, _} -> 
+		    wrangler_preview_server:commit(),
+		    NewFileName = filename:dirname(FName)++"/"++NewName++".erl",
+		    ChangedFiles1= [NewFileName] ++ ChangedFiles -- [FName],
+		    Res =lists:all(fun(F) -> case compile:file(F, [{i, "c:/cygwin/home/hl/test_codebase"}]) of 
+						 {ok, _} ->
+						     true;
+						 _ -> io:format("\nResulted file does not compile:~p\n", [F]),
+						      false
+					     end
 				   end, ChangedFiles1),
 		    wrangler_undo_server:undo(),
 		    io:format("\n~p\n", [{ok, ChangedFiles}]),
