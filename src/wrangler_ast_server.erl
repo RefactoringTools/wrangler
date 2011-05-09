@@ -611,7 +611,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	    E31 = extend_backwards(Toks, E3, ')'),
 	    update_ann(Node, {range, {S3, E31}});
 	case_expr ->
-	    A = refac_syntax:case_expr_argument(Node),
+            A = refac_syntax:case_expr_argument(Node),
 	    Lc = refac_misc:glast("refac_util:do_add_range,case_expr", refac_syntax:case_expr_clauses(Node)),
 	    calc_and_add_range_to_node_1(Node, Toks, A, Lc, 'case', 'end');
 	clause ->
@@ -995,14 +995,6 @@ do_add_category(Node, C) ->
 		 end,
 	    Node1 =rewrite(Node, refac_syntax:clause(P1, G1, Body1)),
 	    {Node1, true};
-	application ->
-	    Op = refac_syntax:application_operator(Node),
-	    Args = refac_syntax:application_arguments(Node),
-	    Op1 = add_category(Op, C),
-	    Op2 = update_ann(Op1, {category, application_op}),
-	    Args1 = add_category(Args, C),
-	    Node1 = rewrite(Node, refac_syntax:application(Op2, Args1)),
-	    {update_ann(Node1, {category, C}), true};
 	match_expr ->
 	    P = refac_syntax:match_expr_pattern(Node),
 	    B = refac_syntax:match_expr_body(Node),
@@ -1027,11 +1019,10 @@ do_add_category(Node, C) ->
 	macro ->
 	    Name = refac_syntax:macro_name(Node),
 	    Args = refac_syntax:macro_arguments(Node),
-	    NumOfArgs = case Args of
-			    none -> none;
-			    _ -> length(Args)
-			end,
-	    Name1 = add_category(Name, {macro_name, NumOfArgs, C}),
+            Name1 = case Args of 
+                        none -> add_category(Name, C);  %% macro with no args are not annoated as macro_name.
+                        _ ->add_category(Name, macro_name)
+                    end,
 	    Args1 = case Args of
 			none -> none;
 			_ -> add_category(Args, C) 
@@ -1039,17 +1030,17 @@ do_add_category(Node, C) ->
 	    Node1 = rewrite(Node, refac_syntax:macro(Name1, Args1)),
 	    {update_ann(Node1, {category, C}), true};
 	record_access ->
-	   Argument = refac_syntax:record_access_argument(Node),
-	   Type = refac_syntax:record_access_type(Node),
-	   Field = refac_syntax:record_access_field(Node),
-	   Argument1 = add_category(Argument, C),
-	   Type1 = case Type of
-		       none -> none;
-		       _ -> add_category(Type, record_type)
+            Argument = refac_syntax:record_access_argument(Node),
+            Type = refac_syntax:record_access_type(Node),
+            Field = refac_syntax:record_access_field(Node),
+            Argument1 = add_category(Argument, C),
+            Type1 = case Type of
+                        none -> none;
+                        _ -> add_category(Type, record_type)
 		   end,
-	   Field1 = add_category(Field, record_field),
-	   Node1 = rewrite(Node, refac_syntax:record_access(Argument1, Type1, Field1)),
-	   {update_ann(Node1, {category, C}), true};
+            Field1 = add_category(Field, record_field),
+            Node1 = rewrite(Node, refac_syntax:record_access(Argument1, Type1, Field1)),
+            {update_ann(Node1, {category, C}), true};
 	record_expr ->
 	    Argument = refac_syntax:record_expr_argument(Node),
 	    Type = refac_syntax:record_expr_type(Node),
@@ -1059,14 +1050,15 @@ do_add_category(Node, C) ->
 			    _ -> add_category(Argument, C)
 			end,
 	    Type1 = add_category(Type, record_type),
-	    Fields1 =[refac_syntax:add_ann({category, record_field},rewrite(F, refac_syntax:record_field(
-			add_category(refac_syntax:record_field_name(F), record_field),
-			case refac_syntax:record_field_value(F) of 
-			    none -> 
-				none;
-			    V -> 
-				add_category(V, C)
-			end))) || F<-Fields],
+	    Fields1 =[refac_syntax:add_ann({category, record_field},
+                                           rewrite(F, refac_syntax:record_field(
+                                                        add_category(refac_syntax:record_field_name(F), record_field),
+                                                        case refac_syntax:record_field_value(F) of 
+                                                            none -> 
+                                                                none;
+                                                            V -> 
+                                                                add_category(V, C)
+                                                        end))) || F<-Fields],
 	    Node1 = rewrite(Node, refac_syntax:record_expr(Argument1, Type1, Fields1)),
 	    {update_ann(Node1, {category, C}), true};
 	record_index_expr ->
