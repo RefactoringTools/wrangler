@@ -1,15 +1,8 @@
-%%@doc This module contains some transformation 
-%% examples related to list operations. Please 
-%% note that not all of these transformations 
-%% are desirable in practice, the major purpose 
-%% of these examples is just to show how to write 
-%% transformation rules using the Wrangler 
-%% API, and how to use the `gen_refac' behaviour for 
-%% writing transformations each of which is local, but 
-%% may apply to many instances.
+%%@doc This module shows how to write refactorings 
+%% use the Wrangler API. 
 
-%%@author  Huiqing Li <H.Li@kent.ac.uk>
-
+%% This refactoring replace the use of lists:keysearch/3 with
+%% the use of lists:keyfind/3 whenever it is safe to do so.
 -module(refac_keysearch_to_keyfind).
 
 -behaviour(gen_refac).
@@ -34,53 +27,54 @@ pre_cond_check(_Args)->
 
 %% Apply the transformation rules to all the Erlang files included in the 
 %% SearchPaths.
--spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}
-                                     | {error, term()}).    
+-spec (transform/1::(#args{}) -> 
+                          {ok, [{filename(), filename(), syntaxTree()}]}
+                              | {error, term()}).    
 transform(_Args=#args{search_paths=SearchPaths})->
-    ?FULL_TD([rule_keysearch_to_keyfind_1(),
-              rule_keysearch_to_keyfind_2()
-            ], SearchPaths).
+    ?FULL_TD([rule_keysearch_to_keyfind()], SearchPaths).
 
-%%=========================================================
-%% replace the use of lists:append/2 with the use of ++.
-rule_keysearch_to_keyfind_1() ->
-    ?RULE("case lists:keysearch(Key@, N@, TupleList@) of
-              {value, Tuple@} ->
-                   Body1@@;
-                false->
-                   Body2@@
-          end",
-          case ?SPLICE(Tuple@) of 
-             "_" ->
-                  ?QUOTE("case lists:keyfind(Key@, N@, TupleList@) of 
-                          false ->
-                            Body2@@;
-                          _ ->
-                           Body1@@
-                        end");
-              _ ->
-                  ?QUOTE("case lists:keyfind(Key@, N@, TupleList@) of 
-                             Tuple@ ->
-                               Body1@@;
-                            false ->
-                              Body2@@
-                          end")  
-              end,
+rule_keysearch_to_keyfind() ->
+    ?RULE(?T("case lists:keysearch(Key@, N@, TupleList@) of 
+                         Pats@@@ when Guards@@@ ->
+                             Body@@@
+                    end"),
+          begin
+              try make_new_pats(Pats@@@) of 
+                  NewPats@@@ ->
+                      ?QUOTE(?T("case lists:keyfind(Key@, N@, TupleList@) of 
+                         NewPats@@@ when Guards@@@ ->
+                             Body@@@
+                         end"))
+              catch
+                  _E1:_E2 ->
+                      _This@
+              end
+          end,
           true).
 
-rule_keysearch_to_keyfind_2() ->
-    ?RULE("case lists:keysearch(Key@, N@, TupleList@) of
-              false ->
-                   Body1@@;
-              {value, Tuple@} ->
-                   Body2@@
-           end",
-           ?QUOTE("case lists:keyfind(Key@, N@, TupleList@) of 
-                  false ->
-                     Body1@@;
-                  Tuple@ ->
-                     Body2@@
-                end"), 
-          true).
-
-
+make_new_pats(ListOfPats) ->
+    [make_new_pat(Pats)||Pats<-ListOfPats].
+make_new_pat([Pat]) ->
+    case ?MATCH(?T("{value, T@}"), Pat) of
+        true ->
+            case refac_syntax:type(T@) of
+                variable ->
+                    [?QUOTE(?SPLICE(T@)++"={_,_}")];
+                underscore->
+                    [?QUOTE("{_,_}")];
+                _ ->
+                    [T@]
+            end;
+        false ->
+            case ?MATCH(?T("false"), Pat) of 
+                true ->
+                    [Pat];
+                false ->
+                    case ?MATCH(?T("_"), Pat) of 
+                        true ->
+                            [Pat];
+                        false ->
+                            throw({error, "Transformation aborted."})
+                    end
+            end
+    end.
