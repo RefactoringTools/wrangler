@@ -72,8 +72,8 @@ try_to_apply(Mod, Fun, Args) ->
 
 create_one_feedback_message({Msg, Options}) ->
     #fTFeedbackMessage{feedback_type=wrangler,
-                       message = Msg,
-                       options= Options}.
+                message = Msg,
+                options= Options}.
 
 %% In this test, I try to detect two code code smells. One is 
 %% function definitions with 40 or more lines of code, and the
