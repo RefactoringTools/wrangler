@@ -1,5 +1,5 @@
 PACKAGE := wrangler
-VERSION := 0.9.0
+VERSION := 0.9.3
 
 prefix      = @prefix@
 exec_prefix = @exec_prefix@
@@ -20,7 +20,7 @@ PLT_DIR = ${datadir}/wrangler/plt
 ERL_SRC := $(wildcard src/*.erl)
 ERL_OBJ := $(patsubst src/%.erl,ebin/%.beam,${ERL_SRC})
 
-SRC := ${ERL_SRC} 
+SRC := src/refac_syntax.erl src/refac_syntax_lib.erl src/refac_api.erl src/expand_rule.erl ${ERL_SRC} 
 
 
 ELISP_WRANGLER_OBJ := elisp/wrangler.el
@@ -40,7 +40,7 @@ erl: ${ERL_OBJ}
 
 ## Erlang
 ebin/%.beam: ${SRC}  
-	${erlc} -I include -W -o ebin +debug_info ${SRC} 
+	${erlc} -pa ebin -I include -W -o ebin +debug_info ${SRC} 
 
 
 ## this is ugly code.
