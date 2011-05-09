@@ -160,6 +160,9 @@
 %%<a href="file:refac_swap_args.erl" > Swap arguments of a function;</a>.
 %%</li>
 %%<li>
+%%<a href="file:refac_keysearch_to_keyfind.erl"> replace the use of lists:keysearch/3 with lists:keyfind/3; </a>
+%%</li>
+%%<li>
 %%<a href="file:refac_specialise.erl"> Specialise a function definition; </a>
 %%</li>
 %%<li>
@@ -451,7 +454,9 @@ syntax_context(Node) ->
 %%@doc Returns the syntax category of `Node'.
 %%@spec syntax_category(syntaxTree()) -> pattern|expression|guard_expression|unknown
 -spec(syntax_category(Node::syntaxTree()) -> 
-             pattern|expression|guard_expression|unknown).
+             pattern|expression|guard_expression|operator|
+             generator|record_type|record_field|macro_name|
+             unknown).
 syntax_category(Node) ->
     As = refac_syntax:get_ann(Node),
     case lists:keyfind(category, 1, As) of 
@@ -1036,10 +1041,11 @@ make_tree(Tree) ->
 %%@private
 subst(Expr, Subst) when is_list(Expr) ->
     [subst(E, Subst)||E<-Expr];
-  
+
 subst(Expr, Subst) ->
     {Expr1, _} =ast_traverse_api:stop_tdTP(fun do_subst/2, Expr, Subst),
-    remove_fake_begin_end(Expr1).
+    Expr2=expand_meta_clauses(Expr1),
+    remove_fake_begin_end(Expr2).
  
 do_subst(Node, Subst) ->
     case refac_syntax:type(Node) of
@@ -1054,17 +1060,17 @@ do_subst(Node, Subst) ->
                                 [] -> {refac_syntax:list(Expr), true};
                                 [E] ->
                                     %% No longer can guarantee the correctness of annotations.
-                                    {refac_misc:reset_pos(E), true};
+                                    {reset_pos_and_range(E), true};
                                 _ ->
                                     E1=refac_syntax:add_ann(
                                          {fake_block_expr, true},
                                          %%refac_syntax:block_expr(Expr)),
-                                         refac_misc:reset_pos(
+                                         reset_pos_and_range(
                                            refac_syntax:block_expr(Expr))),
                                     {E1, true}
                             end;
                         false ->
-                            E1=refac_misc:reset_pos(Expr),
+                            E1=reset_pos_and_range(Expr),
                             {E1,  true}
                     end;
                 _ -> {Node, false}
@@ -1075,20 +1081,32 @@ do_subst(Node, Subst) ->
                 true ->
                     case lists:keysearch(AtomValue, 1, Subst) of
                         {value, {AtomValue, Expr}} ->
-                            {refac_misc:reset_pos(Expr), true};
+                            {reset_pos_and_range(Expr), true};
                         false ->
                             {Node, false} %% TODO: SHOULD ISSUE AN ERROR MSG HERE!!!
                     end;
                 _ ->
-                    {Node, false}
+                    {Node, false} 
             end;
 	_ -> {Node, false}
     end.
                                    
 is_meta_list_variable(VarName) ->
-    lists:prefix("@@", lists:reverse(atom_to_list(VarName))).
-  
+    VarName1 = lists:reverse(atom_to_list(VarName)),
+    lists:prefix("@@", VarName1) andalso 
+        (not lists:prefix("@@@",VarName1)).
 
+reset_pos_and_range(Node) when is_list(Node) ->
+    [reset_pos_and_range(N)||N<-Node];
+reset_pos_and_range(Node) ->
+    case is_tree(Node) of 
+        true ->
+            refac_syntax:set_pos(
+              refac_misc:update_ann(Node, {range, {{0,0},{0,0}}}),
+              {0,0});
+        false ->
+            Node
+    end.
 
 %%=================================================================
 %%-spec(reverse_function_clause(Tree::syntaxTree()) -> syntaxTree()).   
@@ -1305,7 +1323,7 @@ make_fake_block_expr(Es) ->
 %%@private
 match(Temp, Node) -> 
     generalised_unification:expr_match(Temp, Node).
-            
+          
     
 try_expr_match([], _Node) ->false;
 try_expr_match([{BeforeExpr, AfterExpr, Cond}|T], Node) 
@@ -1600,5 +1618,94 @@ extend_function_clause_2(Node) ->
 is_tree(Node) ->
     refac_syntax:is_tree(Node) orelse refac_syntax:is_wrapper(Node).
 
+expand_meta_clauses(Tree) ->
+    {Tree1, _}  = ast_traverse_api:full_tdTP(fun expand_meta_clause_1/2, Tree, {}),
+    Tree1.
 
+expand_meta_clause_1(Node, _OtherInfo) ->
+    case refac_syntax:type(Node) of 
+        function ->
+            {Node, false};
+        case_expr ->
+            Arg = refac_syntax:case_expr_argument(Node),
+            Cs = refac_syntax:case_expr_clauses(Node),
+            Cs1 = lists:append([expand_meta_clause_2(C)||C<-Cs]),
+            case Cs=/=Cs1 of
+                 true ->
+                     Node1=refac_misc:rewrite(
+                             Node,
+                             refac_syntax:case_expr(Arg, Cs1)),
+                     {Node1, false};
+                 false ->
+                     {Node, false}
+            end;
+        receive_expr ->
+            {Node, false};
+        if_expr ->
+            {Node, false};
+        try_expr->
+            {Node, false};
+        fun_expr ->
+            {Node, false};
+        _ ->
+            {Node, false}
+    end.
 
+expand_meta_clause_2(Clause) ->
+    case is_meta_clause(Clause) of 
+        true->
+            [Pat] = refac_syntax:clause_patterns(Clause),
+            [[Guard]] = revert_clause_guard(refac_syntax:clause_guard(Clause)),
+            [Body] = refac_syntax:clause_body(Clause),
+            ZippedPGB = lists:zip3(Pat, Guard, Body),
+            [refac_syntax:clause(P, G, B)||
+                {P, G, B} <-ZippedPGB];
+        false ->
+            [Clause]
+    end.
+
+is_meta_clause(Clause)->
+    Pat = refac_syntax:clause_patterns(Clause),
+    Guard = refac_syntax:clause_guard(Clause),
+    Body = refac_syntax:clause_body(Clause),
+    case Pat of 
+        [P] ->
+            case is_list_of_lists(P) of 
+                true ->
+                    case revert_clause_guard(Guard) of
+                        [[G]] ->
+                            case is_list_of_lists(G) of 
+                                true ->
+                                    case Body of
+                                        [B]->
+                                            is_list_of_lists(B);
+                                        _ ->
+                                            false
+                                    end;
+                                false -> false
+                            end;
+                        _ -> false 
+                    end;
+                false ->
+                    false
+            end;
+        _ -> false
+    end.
+ 
+is_list_of_lists(L) ->
+    is_list(L) andalso 
+        lists:all(fun(E) ->
+                          is_list(E)
+                  end, L).
+
+revert_clause_guard(none) -> [[]];
+revert_clause_guard(E)->
+    case  refac_syntax:type(E) of
+        disjunction -> refac_syntax:revert_clause_disjunction(E);
+        conjunction ->
+            %% Only the top level expression is
+            %% unfolded here; no recursion.
+            [refac_syntax:conjunction_body(E)];
+        _ ->
+            [[E]]       % a single expression
+    end.
