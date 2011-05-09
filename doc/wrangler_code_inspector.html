@@ -76,62 +76,62 @@
 
 <h3 class="function"><a name="calls_to_fun-4">calls_to_fun/4</a></h3>
 <div class="spec">
-<p><tt>calls_to_fun(FileName::<a href="#type-filename">filename()</a>, FunctionName::<a href="#type-functionname">functionname()</a>, Arity::integer(), SearchPaths::[<a href="#type-dir">dir()</a>]) -&gt; {error, string()} | ok</tt></p>
+<p><tt>calls_to_fun(FileName::<a href="#type-filename">filename()</a>, FunctionName::<a href="#type-functionname">functionname()</a>, Arity::integer(), SearchPaths::[<a href="#type-dir">dir()</a>]) -&gt; {error, string()} | ok</tt><br></p>
 </div><p>Report the functions by which the function specified is called. A function is reported
   only if Wrangler is certain that it calls the function specified.</p>
 
 <h3 class="function"><a name="cyclic_dependent_modules-3">cyclic_dependent_modules/3</a></h3>
 <div class="spec">
-<p><tt>cyclic_dependent_modules(OutputDotFileName::<a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>], WithLabel::<a href="#type-boolean">boolean()</a>) -&gt; true</tt></p>
+<p><tt>cyclic_dependent_modules(OutputDotFileName::<a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>], WithLabel::boolean()) -&gt; true</tt><br></p>
 </div><p>Report the cyclic module dependencies, if there is any, for a given list of
        directories of Erlang source code.</p>
 
 <h3 class="function"><a name="dependencies_of_a_module-2">dependencies_of_a_module/2</a></h3>
 <div class="spec">
-<p><tt>dependencies_of_a_module(ModOrFileName::<a href="#type-modulename">modulename()</a> | <a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>]) -&gt; ok</tt></p>
+<p><tt>dependencies_of_a_module(ModOrFileName::<a href="#type-modulename">modulename()</a> | <a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>]) -&gt; ok</tt><br></p>
 </div><p>Report modules that depend on the module specified, as well as modules on which the
        module specified in dependent.</p>
 
 <h3 class="function"><a name="find_var_instances-3">find_var_instances/3</a></h3>
 <div class="spec">
-<p><tt>find_var_instances(FileName::<a href="#type-filename">filename()</a>, X2::{Line::integer(), Col::integer()}, TabWidth::integer()) -&gt; {error, string()} | {ok, [{<a href="#type-pos">pos()</a>, <a href="#type-pos">pos()</a>}], [<a href="#type-pos">pos()</a>]}</tt></p>
+<p><tt>find_var_instances(FileName::<a href="#type-filename">filename()</a>, X2::{Line::integer(), Col::integer()}, TabWidth::integer()) -&gt; {error, string()} | {ok, [{<a href="#type-pos">pos()</a>, <a href="#type-pos">pos()</a>}], [<a href="#type-pos">pos()</a>]}</tt><br></p>
 </div><p>Find all the instances of a variable, including both defining and use instances.</p>
 
 <h3 class="function"><a name="gen_function_callgraph-3">gen_function_callgraph/3</a></h3>
 <div class="spec">
-<p><tt>gen_function_callgraph(OutputDotFileName::<a href="#type-filename">filename()</a>, FileName::<a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>]) -&gt; true</tt></p>
+<p><tt>gen_function_callgraph(OutputDotFileName::<a href="#type-filename">filename()</a>, FileName::<a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>]) -&gt; true</tt><br></p>
 </div><p>Generate the function callgraph for a given Erlang file.</p>
 
 <h3 class="function"><a name="gen_module_graph-3">gen_module_graph/3</a></h3>
 <div class="spec">
-<p><tt>gen_module_graph(OutputDotFileName::<a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>], WithLabel::<a href="#type-boolean">boolean()</a>) -&gt; true</tt></p>
+<p><tt>gen_module_graph(OutputDotFileName::<a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>], WithLabel::boolean()) -&gt; true</tt><br></p>
 </div><p>Generate the module graph for a given list of directories of Erlang source code.</p>
 
 <h3 class="function"><a name="improper_inter_module_calls-2">improper_inter_module_calls/2</a></h3>
 <div class="spec">
-<p><tt>improper_inter_module_calls(OutputDotFileName::<a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>]) -&gt; true</tt></p>
+<p><tt>improper_inter_module_calls(OutputDotFileName::<a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>]) -&gt; true</tt><br></p>
 </div><p>Report improper module dependencies, if there is any, for a given list of
        directories of Erlang source code.</p>
 
 <h3 class="function"><a name="large_modules-2">large_modules/2</a></h3>
 <div class="spec">
-<p><tt>large_modules(SearchPaths::[<a href="#type-dir">dir()</a>], Lines::integer()) -&gt; {error, string()} | ok</tt></p>
+<p><tt>large_modules(SearchPaths::[<a href="#type-dir">dir()</a>], Lines::integer()) -&gt; {error, string()} | ok</tt><br></p>
 </div><p>Report all the modules that consist of more than a specified number of lines of code.</p>
 
 <h3 class="function"><a name="long_functions-2">long_functions/2</a></h3>
 <div class="spec">
-<p><tt>long_functions(FileOrDirNames::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>], Lines::integer()) -&gt; {error, string()} | ok</tt></p>
+<p><tt>long_functions(FileOrDirNames::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>], Lines::integer()) -&gt; {error, string()} | ok</tt><br></p>
 </div><p>Report all the functions that consist of more than specified number of lines of code.</p>
 
 <h3 class="function"><a name="nested_exprs-3">nested_exprs/3</a></h3>
 <div class="spec">
-<p><tt>nested_exprs(FileOrDirNames::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>], NestLevel::integer(), ExprType::'if' | 'case' | 'receive') -&gt; {error, string()} | ok</tt></p>
+<p><tt>nested_exprs(FileOrDirNames::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>], NestLevel::integer(), ExprType::'if' | 'case' | 'receive') -&gt; {error, string()} | ok</tt><br></p>
 </div><p>Find all the functions that contain certain type of expressions that are nested a
   specified number of levels or more.</p>
 
 <h3 class="function"><a name="non_tail_recursive_servers-1">non_tail_recursive_servers/1</a></h3>
 <div class="spec">
-<p><tt>non_tail_recursive_servers(FileOrDirNames::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>]) -&gt; ok</tt></p>
+<p><tt>non_tail_recursive_servers(FileOrDirNames::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>]) -&gt; ok</tt><br></p>
 </div><p>Report non tail-recursive server functions.
   <p>
   The Erlang Programming Rules says:
@@ -169,7 +169,7 @@
 
 <h3 class="function"><a name="not_flush_unknown_messages-1">not_flush_unknown_messages/1</a></h3>
 <div class="spec">
-<p><tt>not_flush_unknown_messages(FileOrDirNames::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>]) -&gt; ok</tt></p>
+<p><tt>not_flush_unknown_messages(FileOrDirNames::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>]) -&gt; ok</tt><br></p>
 </div><p>Report functions whose receive expression, if there is one,  does not flush unknown messages.
   <p>
   The Erlang Programming Rules says:
@@ -194,6 +194,6 @@
 <hr>
 
 <div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, Jun 16 2010, 21:59:57.</i></p>
+<p><i>Generated by EDoc, May 3 2011, 14:45:48.</i></p>
 </body>
 </html>

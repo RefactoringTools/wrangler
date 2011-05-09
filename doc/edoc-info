@@ -1,2 +1,3 @@
 {packages,[]}.
-{modules,[wrangler]}.
+{modules,[code_inspector_examples,gen_refac,refac_api,wrangler_api,
+          wrangler_code_inspector]}.
