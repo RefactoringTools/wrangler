@@ -65,7 +65,7 @@ anti_unfication_different_type(Expr1, Expr2) ->
     end.
 
 anti_unification_same_type(Expr1, Expr2) ->
-    case is_literal(Expr1) andalso is_literal(Expr2) of
+    case refac_misc:is_literal(Expr1) andalso refac_misc:is_literal(Expr2) of
       true ->
             case refac_syntax:concrete(Expr1) == refac_syntax:concrete(Expr2) of
 	    true ->
@@ -116,23 +116,23 @@ anti_unification_same_type(Expr1, Expr2) ->
 	_ ->
             case refac_syntax:type(Expr1) of
 		variable ->
-		    case {is_macro_name(Expr1), is_macro_name(Expr2)} of
-			{true, true} ->
-			    case has_same_name(Expr1, Expr2) of
-				true -> [];
-				false -> throw(not_anti_unifiable)
-			    end;
-			{false, false} -> [{Expr1, Expr2}];
-			_ ->
-			    ?debug("Does not anti-unify 5:\n~p\n", [{Expr1, Expr2}]),
-			    throw(not_anti_unifiable)
-		end;
-	    operator -> case refac_syntax:operator_name(Expr1) == refac_syntax:operator_name(Expr2) of
-			  true -> [];
-			  false ->
-			      ?debug("Does not anti-unify 6:\n~p\n", [{Expr1, Expr2}]),
-			      throw(not_anti_unifiable)
-			end;
+		  case {refac_misc:is_macro_name(Expr1), refac_misc:is_macro_name(Expr2)} of
+		      {true, true} ->
+			  case has_same_name(Expr1, Expr2) of
+			      true -> [];
+			      false -> throw(not_anti_unifiable)
+			  end;
+		      {false, false} -> [{Expr1, Expr2}];
+		      _ ->
+			  ?debug("Does not anti-unify 5:\n~p\n", [{Expr1, Expr2}]),
+			  throw(not_anti_unifiable)
+		  end;
+	      operator -> case refac_syntax:operator_name(Expr1) == refac_syntax:operator_name(Expr2) of
+			    true -> [];
+			    false ->
+			        ?debug("Does not anti-unify 6:\n~p\n", [{Expr1, Expr2}]),
+			        throw(not_anti_unifiable)
+			  end;
 	      underscore -> [];
 	      macro -> 
 		  MacroName1 = refac_syntax:macro_name(Expr1),
@@ -226,7 +226,7 @@ subst_sanity_check(Expr1, SubSt) ->
     F = fun ({E1, E2}) ->
 		case refac_syntax:type(E1) of
 		    variable ->
-			case is_macro_name(E1) of
+			case refac_misc:is_macro_name(E1) of
 			    true ->
 				false;
 			    _ ->
@@ -445,24 +445,8 @@ generalisable(E1, E2) ->
 	refac_code_search_utils:generalisable(E2).
 
 reset_attrs(Node) ->
-    ast_traverse_api:full_buTP(fun (T, _Others) ->
+    ast_traverse_api:full_buTP(fun (T, _Others) -> 
 				       T1 = refac_syntax:set_ann(T, []),
 				       refac_syntax:remove_comments(T1)
 			       end,
 			       Node, {}).
-is_macro_name(Exp) ->
-    Ann = refac_syntax:get_ann(Exp),
-    {value, {syntax_path, macro_name}} == 
-        lists:keysearch(syntax_path, 1, Ann).
-
-
-is_literal(T) ->
-    case refac_syntax:type(T) of
-        atom -> true;
-        integer -> true;
-        float -> true;
-        char -> true;
-        string -> true;
-        nil -> true;
-        _ -> false
-    end.
