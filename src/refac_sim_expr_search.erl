@@ -114,7 +114,7 @@ search_and_gen_anti_unifier(Files, {FName, FunDef, Exprs, SE}, SimiScore, Search
 search_similar_expr_1(FName, Exprs, SimiScore, SearchPaths, TabWidth) ->
     try wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth) of
 	{ok, {AnnAST, _}} ->
-	    RecordInfo = get_module_record_info(FName, SearchPaths, TabWidth),
+            RecordInfo = get_module_record_info(FName, SearchPaths, TabWidth),
 	    do_search_similar_expr(FName, AnnAST, RecordInfo, Exprs, SimiScore)
     catch
 	_E1:_E2 ->
@@ -134,7 +134,7 @@ do_search_similar_expr(FileName, AnnAST, RecordInfo, Exprs, SimiScore) when is_l
 	    do_search_similar_expr_1(AnnAST, F0);
 	false ->
 	    Expr = hd(Exprs),
-	    F0 = fun (FunNode, Acc) ->
+            F0 = fun (FunNode, Acc) ->
 			 F = fun (T, Acc1) ->
 				     case refac_api:is_expr(T) of
 					 true ->
@@ -201,16 +201,17 @@ do_search_similar_expr_1(FileName, Expr1, Expr2, RecordInfo, SimiScore, FunNode)
     {S1, E1} = refac_api:start_end_loc(Expr1),
     {S2, E2} = refac_api:start_end_loc(Expr2),
     case overlapped_locs({S1, E1}, {S2, E2}) of
-	true -> [];
+	true -> 
+            [];
 	_ ->
 	    NormalisedExpr21 = normalise_expr(Expr2, RecordInfo),
 	    ExportedVars = vars_to_export(FunNode, E2, Expr2),
-	    Res = anti_unification:anti_unification_with_score(Expr1, NormalisedExpr21, SimiScore),
+            Res = anti_unification:anti_unification_with_score(Expr1, NormalisedExpr21, SimiScore),
 	    case Res of
 		none ->
 		    [];
 		SubSt ->
-		    EVs = [SE1 || {SE1, SE2} <- SubSt, refac_syntax:type(SE2) == variable,
+                    EVs = [SE1 || {SE1, SE2} <- SubSt, refac_syntax:type(SE2) == variable,
 				  lists:member({refac_syntax:variable_name(SE2), get_var_define_pos(SE2)}, ExportedVars)],
 		    [{{FileName, {S2, E2}}, EVs, SubSt}]
 	    end
