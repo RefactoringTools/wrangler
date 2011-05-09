@@ -20,7 +20,7 @@ PLT_DIR = ${datadir}/wrangler/plt
 ERL_SRC := $(wildcard src/*.erl)
 ERL_OBJ := $(patsubst src/%.erl,ebin/%.beam,${ERL_SRC})
 
-SRC := src/refac_syntax.erl src/refac_syntax_lib.erl src/refac_api.erl src/expand_rule.erl ${ERL_SRC} 
+SRC := src/refac_syntax.erl src/refac_syntax_lib.erl src/refac_api.erl src/expand_rule.erl src/ast_traverse_api.erl src/refac_epp_dodger.erl src/refac_scan.erl ${ERL_SRC} 
 
 
 ELISP_WRANGLER_OBJ := elisp/wrangler.el
