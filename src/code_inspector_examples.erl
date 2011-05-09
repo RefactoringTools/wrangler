@@ -92,10 +92,7 @@
          non_tail_recursive_function/1,
          calls_to_specific_function/1]).
          
--export([test/1, 
-         test1/1, 
-         test2/1, 
-         test3/1]).
+-export([test/1,test1/1,test2/1,test3/1,test4/1]).
 
 -import(refac_api, [fun_define_info/1]).
 
@@ -301,3 +298,13 @@ test3(_Args=#args{search_paths=SearchPaths}) ->
 
 
  
+test4(input_pars) ->
+    [];
+test4(_Args=#args{search_paths=SearchPaths}) ->
+    ?COLLECT_LOC(?T("case lists:keysearch(Key@, N@, TupleList@) of 
+                         Pats@@@ when Guards@@@ ->
+                             Body@@@
+                    end"),
+                 true,
+                 [SearchPaths]).
+
