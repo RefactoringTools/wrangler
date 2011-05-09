@@ -74,7 +74,5 @@ init(_Args) ->
 		permanent, 10000, worker, [wrangler_undo_server]},
     PreviewServer={wrangler_preview_server, {wrangler_preview_server, start_preview_server, []}, 
 		   permanent, 10000, worker, [wrangler_preview_server]},
-    PreviewServer={wrangler_preview_server, {wrangler_preview_server, start_preview_server, []}, 
-		   permanent, 10000, worker, [wrangler_preview_server]},
     {ok,{{one_for_one,3,60}, [ASTServer, CallGraphServer, ModuleGraphServer, ErrorLogger, UndoServer, PreviewServer]}}.
 
