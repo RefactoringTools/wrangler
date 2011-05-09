@@ -1,7 +1,7 @@
 
                     Wrangler, the Erlang Refactorer
                 a snapshot of our current prototype
-                            15/01/2010
+                          09/05/2011 
               http://www.cs.kent.ac.uk/projects/wrangler/
 
 ------------------------------------------------------------------------
@@ -134,16 +134,18 @@ the Eclipse environment. Integration with XEmacs is *not* supported yet.
                                   input a similarity score. 
 
      Detect similar code in     : select the refactoring command from the 
-     current buffer               menu, and you'll be prompted for 3 parameters,
+     current buffer               menu, and you'll be prompted for 5 parameters,
                                   i.e. the minimum number of expressions in a 
-                                  expression sequence, the minimum number of 
+                                  expression sequence, the minimum number of tokens, 
+                                  the minimum number of, the maximum number of New_Vars,
                                   duplication, and a similarity score.
 
      Detect similar code in     : select the refactoring command from the menu,
-     dirs                         and you'll be prompted for 3 parameters, i.e.
-                                  the minimum number of expressions in a   
-                                  expression sequence, the minimum number of 
-                                  times of duplication, and a similarity score.
+     dirs                         and you'll be prompted for 5 parameters, i.e.
+                                  i.e. the minimum number of expressions in a 
+                                  expression sequence, the minimum number of tokens, 
+                                  the minimum number of, the maximum number of New_Vars,
+                                  duplication, and a similarity score.
                                   Wrangler searchs similar code in the   
                                   directories specified by the search-paths.
                                   (see Customize Wrangler).
@@ -189,16 +191,95 @@ the Eclipse environment. Integration with XEmacs is *not* supported yet.
     eqc_fsm State To Record     : Select the refactoring command, and Wrangler will
                                   check the current type of the state machine, and prompt 
 				  you to input the record and field names if Wrangler is 
-                                  able to process the refactoring.                                  	
+                                  able to process the refactoring.
+
+    Introduce a new variable    : Highlight the expression of interest, then select
+                                  'Introduce New Variable' from the Refactor menu, 
+                                  Wrangler will then prompt for the new variable name.
+
+    Inline a variable           : To unfold a particular use instance of a variable,
+                                  point the cursor to that instance, and then select
+                                  'Inline Variable' from the 'Refactor'  menu; to unfold
+                                  some, or all, use instances of a variable, point the 
+                                  cursor to the define occurrence of the variable, then 
+                                  the refactoring command, Wrangler will search for the 
+                                  use occurrences of the variable selected, and let you
+                                  choose which instances to unfold. Only variables defined
+                                  via a match expression of the format: VarName=Expr 
+                                  can be inlined.
 
  6. The 'Customize Wrangler' menu in the 'Refactor' submenu allows you specify 
  the boundary of the system by giving the list of directories to
  search for Erlang source files/header files that could be affected by a
  refactoring.
 
--------------------------Major changes form Wrangler-0.8.6------------
+------------------------Major changes from Wrangler-0.9.2.4--------
+-- A framefork for users to compose their own refactoring or 
+   code inspection functions.
 
--- A number of bug fixes for QuickCheck related refactorngs.
+------------------------Major changes from Wrangler-0.9.2.3-------
+      
+-- Fixed a bug in the refactor monitor. 
+-- Fixed a bug in similar code detection.
+ 
+------------------------Major changes from Wrangler-0.9.2.2--------
+
+-- (for casestudy purpose only). Added one more   
+   choice to the refactor monitor customisation,
+   so that the user is able to choose whether to 
+   log the source code. 
+-- bugfix with move function(s) between modules.
+-- bugfix with the side-effect table for bifs. 
+-- minor improvement to modularity inspection.
+-- improvment made to expression folding.
+ 
+------------------------Major changes from Wrangler-0.9.2.1--------
+-- fixed a layout problem.
+-- fixed a problem with the refactor monitor.
+ 
+------------------------Major changes from Wrangler-0.9.2 ---------
+-- Bugfix with function extraction.
+-- Removed unwanted warning messages from function renaming.
+
+------------------------Major changes from Wrangler-0.9.1 ----------
+-- Layout preservation improved. 
+-- A number of bug fixes.
+
+------------------------Major changes from Wrangler-0.9.0 -----------
+-- Similar code detection improved.
+-- A number of refactorings can now be run in an Erlang shell.
+-- For casestudy purpose: 
+      more information collected after each refactoring;
+      integration with ClearCase version control system.
+-- Bug fixes.
+
+-------------------------Major changes from Wrangler-0.8.9-----------
+-- New Refactoring: inline a variable.
+-- Incremental similar code detection improved. 
+-- Bug fixes.
+-------------------------Major changes from Wrangler-0.8.8-----------
+
+-- New refactoring: introduce a local variable.
+-- Similar code detection improved.
+-- Bug fixes.
+-------------------------Major changes from Wrangler-0.8.7-----------
+
+-- Added support for XEmacs.
+-- 'move function from one module to anther' has been extended.
+-- Some functionalities supporting modularity maintanence have been added. 
+
+-------------------------Major changes from Wrangler-0.8.6------------
+
+-- The performance of identical clone detection has been improved.
+-- Expression search has been extended to allow searching for an expression/
+   expression sequence across multiple modules.
+-- More options have been added to fold/merge related refactorings regarding
+   the selection of candidates to fold/merge.
+-- A number of bug fixes.
+
+-------------------------Major changes from Wrangler-0.8.5------------
+
+-- A number of bug fixes for QuickCheck related refactorings.
 
 -------------------------Major changes from Wrangler-0.8.4-------------
 -- New Refactorings for QuickCheck:
@@ -248,7 +329,7 @@ the Eclipse environment. Integration with XEmacs is *not* supported yet.
 -- A number of bug fixes.
 
 -------------------------Major Changes from Wrangler-0.7.3-------------
--- A number of refactorings have been extended to be testframe work aware.
+-- A number of refactorings have been extended to be test-framework-aware.
 -- A prototype of similar expression search.
 -- A number of bug fixes.
 
@@ -256,14 +337,14 @@ the Eclipse environment. Integration with XEmacs is *not* supported yet.
 -- New feature: 
     Wrangler now support previewing of refactoring results before making the 
     actual changes to user's source code.
--- The workflow of folding expressions against a function/macro definition has
+-- The work-flow of folding expressions against a function/macro definition has
    been changed slightly.
 -- The way in which the expression search result is shown has been changed. 
 -- Undoing 'move a function to another module' now also deletes the target 
    module if it is created by Wrangler.
 -- Added support for generalising a single function clause of a function of 
    multiple clauses.
--- Bugfix with prettypring integers.
+-- Bugfix with prettyprinting of integers.
 -- Bugfix with renaming a variable to a name that causes the 'unsafe' problem.
 
 -------------------------Changes from Wrangler-0.7.1--------------
