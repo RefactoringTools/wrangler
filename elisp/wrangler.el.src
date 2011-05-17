@@ -5,9 +5,12 @@
 (require 'vc-hooks)
 (require 'wrangler-clearcase-hooks)
 (require 'vc)
-(require 'erlang) 
+(require 'erlang)
 (require 'read-char-spec)
-(require 'ediff-init)
+
+(if (eq (substring emacs-version 0 4) "22.2")
+    (require 'ediff-init1)
+  (require 'ediff-init))
 
 (provide 'wrangler)
 
@@ -17,7 +20,7 @@
 (defcustom wrangler-search-paths (cons (expand-file-name ".") nil )
 	"List of directories to search for .erl and .hrl files to refactor."
 	:type '(repeat directory)
-	:group 'wrangler) 
+	:group 'wrangler)
 
 
 (defcustom version-control-system 'none
@@ -44,6 +47,12 @@
 (defcustom refac-monitor-repository-path ""     
   "*FOR CASESTUDY WITH Git/SVN ONLY.* Path to the Wrangler monitor reposiotry"
   :type 'directory
+  :group 'wrangler)
+
+(defcustom log-source-code nil
+  "*FOR CASESTUDY USE ONLY* 'off' means to log the refactoring commands; 'on' means
+  to log both refactoring commands and source code."      
+  :type 'boolean
   :group 'wrangler)
 
 (defun wrangler-customize ()
@@ -158,10 +167,10 @@
 	 (['rex ['error rsn]]
 	  (message "Commit failed: error, %s" rsn))
 	 (['rex ['ok files logmsg]]
-	  (condition-case nil
+	 (condition-case nil
 	      (update-repository files logmsg)
-	    (error (message-box "The refactor monitor of Wrangler is not working properly!"))
-	    )
+	   (error (message-box "The refactor monitor of Wrangler is not working properly!"))
+	   )
 	  (delete-swp-file-and-buffers files)
 	  (setq refactoring-committed t)
 	  (dolist (uf unopened-files)
@@ -304,6 +313,7 @@
     ("Partition Exported Functions"  erl-wrangler-code-inspector-partition-exports)
     ("gen_fsm State Data to Record" erl-refactor-gen-fsm-to-record)
     nil
+    ("gen_refac Skeleton"  skeleton-gen-refac)
     ("Apply Adhoc Refactoring"  apply-adhoc-refac)
     nil
     ("Undo" erl-refactor-undo)
@@ -326,17 +336,15 @@
       ("Generate Function Callgraph" erl-wrangler-code-inspector-callgraph)
       ("Generate Module Graph" erl-wrangler-code-inspector-module-graph)
       ("Cyclic Module Dependency" erl-wrangler-code-inspector-cyclic-graph)
-      ("Improper Inter Module Dependency" erl-wrangler-code-inspector-improper-module-dependency)
+      ("Module Dependency via Only Internal Functions" erl-wrangler-code-inspector-improper-module-dependency)
       ;;("Component Extraction Suggestion" erl-wrangler-code-component-extraction)
       ("Show Non Tail Recursive Servers" erl-wrangler-code-inspector-non-tail-recursive-servers)
       ("Incomplete Receive Patterns" erl-wrangler-code-inspector-no-flush)
       nil
-      ("Apply My Code Inspection" apply_my_code_inspection)))
- 
-   
-(global-set-key (kbd "C-c C-r") 'toggle-erlang-refactor)
+      ("Apply Adhoc Code Inspection" apply-my-code-inspection)))
 
-(setq erlang-refactor-status 0)
+
+(global-set-key (kbd "C-c C-r") 'toggle-erlang-refactor)
 
 (add-hook 'erl-nodedown-hook 'wrangler-nodedown)
 
@@ -347,19 +355,15 @@
 (defun wrangler-nodedown(node)
   ( if (equal node wrangler-erl-node)
      (progn (wrangler-menu-remove)
-            (setq erlang-refactor-status 0)	
             (message "Wrangler stopped.")
      )
    nil))
 
 (defun toggle-erlang-refactor ()
   (interactive)
-  (cond ((= erlang-refactor-status 0)
-	 (call-interactively 'erlang-refactor-on)
-	 (setq erlang-refactor-status 1))
-	((= erlang-refactor-status 1)
-	 (call-interactively 'erlang-refactor-off)
-	 (setq erlang-refactor-status 0))))
+  (if (get-buffer "*Wrangler-Erl-Shell*")
+      (call-interactively 'erlang-refactor-off)
+    (call-interactively 'erlang-refactor-on)))
 
 
 (defun start-wrangler-app()
@@ -370,43 +374,64 @@
 	((['rex 'ok]
 	  (wrangler-menu-init)
 	  (message "Wrangler started.")
-	  (setq erlang-refactor-status 1))
+          )
 	 (['rex ['error ['already_started app]]]
-	  (message "Wrangler failed to start: another Wrangler application is running.")
-	  (setq erlang-refactor-status 0))	 
+          (message "Wrangler failed to start: another Wrangler application is running.")
+          )	 
 	 (['rex ['error rsn]]
 	  (message "Wrangler failed to start:%s" rsn)
-	  (setq erlang-refactor-status 0))))))
+	)))))
 
 (defun erlang-refactor-off()
   (interactive)
   (wrangler-menu-remove) 
-  (setq erlang-refactor-status 0)		
-  (condition-case nil
+  (if (not (get-buffer "*Wrangler-Erl-Shell*"))
+      t
+    (progn
       (erl-spawn
-	(erl-send-rpc wrangler-erl-node 'application 'stop (list 'wrangler_app))
-	)
-   (error nil))
-  (sleep-for 1.0)
-  (condition-case nil  
-      (kill-buffer "*Wrangler-Erl-Shell*")
-    (error nil))
-  (message "Wrangler stopped."))
+        (erl-send-rpc wrangler-erl-node 'application 'stop (list 'wrangler_app))
+        (erl-receive()
+            ((['rex 'ok]
+              (kill-buffer "*Wrangler-Erl-Shell*")
+              (message "Wrangler stopped"))
+             (['rex ['error rsn]]
+              (kill-buffer "*Wrangler-Erl-Shell*")
+              (message "Wrangler stopped"))
+             ))))
+    ))
+
+
+(defun erlang-refactor-off-1()
+  (interactive)
+  (wrangler-menu-remove) 
+  (if (not (get-buffer "*Wrangler-Erl-Shell*"))
+      t
+    (progn
+      (erl-spawn
+        (erl-send-rpc wrangler-erl-node 'application 'stop (list 'wrangler_app))
+        (erl-receive()
+            ((['rex 'ok]
+              (kill-buffer "*Wrangler-Erl-Shell*")
+             )
+             (['rex ['error rsn]]
+              (kill-buffer "*Wrangler-Erl-Shell*")
+              )))))))
+   
+  
 
 (defun erlang-refactor-on()
   (interactive)
-  (condition-case nil   
-      (kill-buffer "*Wrangler-Erl-Shell*")
-    (error nil)
-   )
+  (if   (get-buffer "*Wrangler-Erl-Shell*")
+      (erlang-refactor-off-1)
+    t)
   (setq wrangler-erl-node-string (concat "wrangler" (number-to-string (random 1000)) "@localhost"))
   (setq wrangler-erl-node (intern  wrangler-erl-node-string))
-  (message "%s" wrangler-erl-node)
   (sleep-for 1.0)
   (save-window-excursion
-     (wrangler-erlang-shell))
+    (wrangler-erlang-shell))
   (sleep-for 2.0)
   (start-wrangler-app))
+  
 
 (defun wrangler-erlang-shell()
   "Start a Erlang shell for Wrangler"
@@ -426,13 +451,13 @@
   (interactive)
   (require 'comint)
   (setq opts (list "-name" wrangler-erl-node-string
-		   "-pa"  "C:/cygwin/home/hl/wrangler/share/wrangler/ebin"
+		   "-pa" "C:/cygwin/home/hl/wrangler/share/wrangler/ebin"
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))
   (setq wrangler-erlang-buffer
-	(apply 'make-comint
-	       "Wrangler-Erl-Shell" "erl"
+ 	(apply 'make-comint
+	       "Wrangler-Erl-Shell" "erl" 
 	       nil opts))
   (setq wrangler-erlang-process
 	(get-buffer-process wrangler-erlang-buffer))
@@ -443,9 +468,9 @@
 
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 0.9.2")) 
+  (message "Wrangler version 0.9.3")) 
 
-(setq wrangler-version  "(wrangler-0.9.2) ")
+(setq wrangler-version  "(wrangler-0.9.3) ")
 
 (defun wrangler-menu-init()
   "Init Wrangler menus."
@@ -507,7 +532,7 @@
   "Undo the latest refactoring."
   (interactive)
   (let (buffer (current-buffer))
-    (if (buffers-changed-warning)
+    (if (y-or-n-p "Undo a refactoring will also undo the editings done after the refactoring, undo anyway?")
 	(progn
 	  (if (equal version-control-system 'ClearCase)
 	      (erl-spawn
@@ -561,6 +586,7 @@
       (message "Undo aborted."))
     )
   )
+
 
 (defun preview-commit-cancel(current-file-nane modified renamed)
   "preview, commit or cancel the refactoring result"
@@ -1517,7 +1543,7 @@
 	  )))))
 
 
-(defun get-candidates-to-fold (candidates buffer)
+(defun get-candidates-to-fold (candidates buffer) 
   (setq candidates-to-fold nil)
   (setq last-position 0)
   (while (not (equal candidates nil))
@@ -1531,7 +1557,7 @@
     (if  (> (get-position line1 col1) last-position)
 	(progn 
 	  (highlight-region line1 col1 line2  col2 buffer)
-	  (let ((answer (read-char-spec "Please answer y/n to fold/not fold this expression, or Y/N to fold all/none of remaining candidates including the one highlighted: "
+	  (let ((answer (read-char-spec "Please answer y/n RET to fold/not fold this expression, or Y/N RET to fold all/none of remaining candidates including the one highlighted: "
 					'((?y y "Answer y to fold this candidate expression;")
 					  (?n n "Answer n not to fold this candidate expression;")
 					  (?Y Y "Answer Y to fold all the remaining candidate expressions;")
@@ -1564,7 +1590,7 @@
     (if  (> (get-position line1 col1) last-position)
 	(progn 
 	  (highlight-region line1 col1 line2  col2 buffer)
-	  (let ((answer (read-char-spec "Please answer y/n to unfold/not unfold this variable occurrence, or Y/N to unfold all/none of remaining occurrences including the one highlighted: "
+	  (let ((answer (read-char-spec "Please answer y/n RET to unfold/not unfold this variable occurrence, or Y/N RET to unfold all/none of remaining occurrences including the one highlighted: "
 					'((?y y "Answer y to unfold this variable occurrence;")
 					  (?n n "Answer n not to unfold this variable occurrence;")
 					  (?Y Y "Answer Y to unfold all the remaining occurrences of the variable selected;")
@@ -2314,7 +2340,7 @@
     (if  (> (get-position line1 col1) last-position)
 	(progn 
 	  (highlight-region line1 col1 line2  col2 buffer)
-	  (let ((answer (read-char-spec "Please answer y/n to merge/not merge this expression, or Y/N to merge all/none of remaining candidates including the one highlighted: "
+	  (let ((answer (read-char-spec "Please answer y/n RET to merge/not merge this expression, or Y/N RET to merge all/none of remaining candidates including the one highlighted: "
 					'((?y y "Answer y to merge this candidate expression;")
 					  (?n n "Answer n not to merge this candidate expression;")
 					  (?Y Y "Answer Y to merge all the remaining candidate expressions;")
@@ -2943,7 +2969,7 @@
 		     (['rex ['error rsn]]
 		      (message "Module graph generation failed: %s" rsn))
 		     (['rex 'true]
-		      (find-file outputfile1 'true)
+		      (find-file outputfile1)
 		      (message "Module graph generation finished."))))))
 	  (message "Module graph generation aborted.")))
     (message "Please customize Wrangler SearchPaths to generate modulegraph for other directories.")))
@@ -2971,7 +2997,7 @@
 		     (['rex ['error rsn]]
 		      (message "Cyclic module dependency detection failed: %s" rsn))
 		     (['rex 'true]
-		      (find-file outputfile1 'true)
+		      (find-file outputfile1)
 		      (message "Cyclic module dependency detection finished."))))))
 	  (message "Cyclic module dependency detection aborted.")))
     (message "Please customize Wrangler SearchPaths to check for modules in other directories.")))
@@ -2995,7 +3021,7 @@
 		     (['rex ['error rsn]]
 		      (message "Improper module dependency detection failed: %s" rsn))
 		     (['rex 'true]
-		      (find-file outputfile1 'true)
+		      (find-file outputfile1)
 		      (message "Improper module dependency detection finished."))))))
 	  (message "Improper module depdendency detection aborted.")))
     (message "Please customize Wrangler SearchPaths to check for modules in other directories.")))
@@ -3050,16 +3076,14 @@
 ;; will be moved to a separate module.                                            ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;(defun backend-used()
-;;  "Get the version control system used by the monitor"
-;;     (vc-responsible-backend (concat (file-name-as-directory  refac-monitor-repository-path) ".")))
 
 (defun backend-used()
   "Get the version control system used by the monitor"
   version-control-system)
 
+  ;;   (vc-responsible-backend (concat (file-name-as-directory  refac-monitor-repository-path) ".")))
 
-(defun update-repository(files logmsg)
+ (defun update-repository(files logmsg)
   "commit refactoring files to the monitoring repository if they should be monitored"
   (if (or (equal files nil) (equal dirs-to-monitor nil))
       nil
@@ -3086,9 +3110,14 @@
       )
     )
   )
-
- 
+	   
 (defun update-repository-1 (dir-to-monitor logmsg)
+  "log refactoring command and souce code is flag is set"
+  (if (equal log-source-code 't)
+      (update-repository-2 dir-to-monitor logmsg)
+    (update-repository-3 dir-to-monitor logmsg)))
+
+(defun update-repository-2 (dir-to-monitor logmsg)
   "copy changed files to the working copy of refactor monitor"
   (require 'dired-aux)
   (let* ((refac-monitor-path (concat (file-name-as-directory refac-monitor-repository-path)
@@ -3096,8 +3125,17 @@
 	 (logfile (concat (file-name-as-directory refac-monitor-path) "refac_cmd_log")))
     (copy-dir-recursive  dir-to-monitor refac-monitor-path 'true nil nil 'always)
     (write-region (concat "\n" logmsg) nil logfile 'true)
-    (register-and-checkin-new-files refac-monitor-path logmsg)
+    (register-and-checkin-new-files refac-monitor-path (list logfile) logmsg)
     ))
+    
+
+(defun update-repository-3 (dir-to-monitor logmsg)
+  "update refac_cmd_log"
+  (let* ((logfile (concat (file-name-as-directory refac-monitor-repository-path) "refac_cmd_log"))
+         )
+    (write-region (concat "\n" logmsg) nil logfile 'true)
+    ))
+
     
 (defun copy-dir-recursive (from to ok-flag &optional preserve-time top recursive)
   (let ((attrs (file-attributes from))
@@ -3229,8 +3267,7 @@
 		      (file-tree-walk dirf func args))))
        (directory-files dir)))))
 
-
-(defun register-and-checkin-new-files(dir-to-check logmsg)
+(defun register-and-checkin-new-files(dir-to-check logfile logmsg)
   "Register and check new files into the version control system."
   ;;(message "Current directory being checked: %s" dir-to-check)
   (if (equal (backend-used) 'SVN)
@@ -3241,9 +3278,10 @@
     (progn
       (let ((files (collect-files-git dir-to-check)))
 	(setq files1 (mapcar #'(lambda (f) (file-relative-name f refac-monitor-repository-path)) files))
-	(register 'Git nil files1 "new directory")
-	(checkin 'Git files1 logmsg)
+	(register 'Git nil logfile "new directory")
+	(checkin 'Git logfile logmsg)
 	))))
+
 
 
 (defun register (backend &optional set-revision files comment)
@@ -3295,17 +3333,23 @@
   "write log infomation to the log file and check in to the repository"
   (let* ((refac-monitor-path (concat (file-name-as-directory refac-monitor-repository-path)
 				     (file-name-nondirectory dir-to-monitor)))
-	 (logfile (concat (file-name-as-directory refac-monitor-path) "refac_cmd_log"))
+	 (logfile (if (equal log-source-code 't)
+                      (concat (file-name-as-directory refac-monitor-path) "refac_cmd_log")
+                    (concat (file-name-as-directory refac-monitor-repository-path) "refac_cmd_log")))
 	 (exist (file-regular-p logfile)))
     (write-region (concat "\n" logmsg) nil logfile 'true)
-    (setq olddir default-directory)
-    (cd refac-monitor-repository-path)
-    (setq logfile1 (file-relative-name logfile refac-monitor-repository-path))
-    (if (eq exist nil)
-	(register (backend-used) nil (list logfile1) "new file")
+    (if (equal log-source-code 't)
+        (progn
+          (setq olddir default-directory)
+          (cd refac-monitor-repository-path)
+          (setq logfile1 (file-relative-name logfile refac-monitor-repository-path))
+          (if (eq exist nil)
+              (register (backend-used) nil (list logfile1) "new file")
+            nil) 
+          (checkin (backend-used) (list logfile1) checkin-comment)
+          (cd olddir))
       nil)
-    (checkin (backend-used) (list logfile1) checkin-comment)
-    (cd olddir)))
+    ))
 
 (defun wrangler-t-hash (str)
   "Portably hash string STR.
@@ -3343,7 +3387,7 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
     ))
 
 (defun apply-adhoc-refac(callback-module-name) 
-  "Get the paraters that need inputs from the user"
+  "Get the parameters that need inputs from the user"
   (interactive (list (read-string "Refactoring Callback module name: ")))
   (let* ((buffer (current-buffer))
         (current-file-name (buffer-file-name))
@@ -3361,7 +3405,7 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
           (erl-receive (buffer current-file-name callback-module-name line-no column-no 
                                start-line-no start-col-no end-line-no end-col-no)
               ((['rex ['badrpc rsn]]
-                (message "Refactoring failed: badrpc, %s" rsn))
+                (message "Refactoring failed: the refactoring does not exist!"))        
                (['rex ['error rsn]]
                 (message "Refactoring failed: error, %s" rsn))
                (['rex ['ok pars]]
@@ -3371,7 +3415,8 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
                 ))))
       (message "Refactoring aborted."))))
 
-(defun apply-adhoc-refac-1(callback-module-name current-file-name line-no column-no start-line-no start-col-no end-line-no end-col-no pars)  
+(defun apply-adhoc-refac-1(callback-module-name current-file-name line-no column-no 
+                           start-line-no start-col-no end-line-no end-col-no pars)  
   "apply a user-defined refactoring/transformation"
   (interactive)
   (let* ((par_vals (mapcar 'read-string pars)) 
@@ -3384,11 +3429,29 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
         (progn
           (erl-spawn
             (erl-send-rpc wrangler-erl-node 'gen_refac 'run_refac args)
-            (erl-receive (current-file-name)
+            (erl-receive (current-file-name buffer)
                 ((['rex ['badrpc rsn]]
-                  (message "Refactoring failed: %S" rsn))
+                  (message "Refactoring failed: %s" rsn))
                  (['rex ['error rsn]]
                   (message "Refactoring failed: %s" rsn))
+                 (['rex ['change_sets changes callback-module args]]
+                  (if (equal changes nil)
+                      (message "Refactoring finished, and no file has been changed.")
+                     (progn
+                       (setq candidates-not-to-change (get-candidates-not-to-change changes))
+                       (if (equal (length candidates-not-to-change) (length changes))
+                           (message "Refactoring finished, and no file has been changed.")
+                         (erl-spawn
+                           (erl-send-rpc wrangler-erl-node 'gen_refac 'apply_changes 
+                                         (list callback-module args candidates-not-to-change))
+                           (erl-receive (current-file-name)
+                               ((['rex ['badrpc rsn]] 
+                                 (message "Refactoring failed: %S" rsn))
+                                (['rex ['error rsn]]
+                                 (message "Refactoring failed: %s" rsn))
+                                (['rex ['ok modified]]
+                                 (preview-commit-cancel current-file-name modified nil)
+                                 ))))))))
                  (['rex ['ok modified]]
                   (progn
                     (if (equal modified nil)
@@ -3399,32 +3462,92 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
           )
       (message "Refactoring aborted."))))
 
-(defun apply_my_code_inspection(module-name function-name)
-  "apply a user-defined code inspection function"
+(defun apply-my-code-inspection(module-name function-name)
+  "get the parameters that need inputs from the user"
   (interactive (list (read-string "Code inspection module name: ")
                      (read-string "Code inspection function name: ")))
   (let* 
-      ((buffer (current-buffer))
+      ((current-file-name (buffer-file-name))
+       (buffer (current-buffer))
        (line-no (current-line-no))
-       (column-no (current-column-no))
-       (arg (list module-name function-name)))
-    (if (current-buffer-saved buffer)
-        (progn
-          (erl-spawn
-            (erl-send-rpc wrangler-erl-node 'wrangler_code_inspection_api 'apply_code_inspection (list arg))
-            (erl-receive (buffer)
-                ((['rex ['badrpc rsn]]
-                  (message "Code inspection failed: %S" rsn))
+       (column-no (current-column-no)))
+    (if (current-buffer-saved buffer) 
+        (erl-spawn            
+          (erl-send-rpc wrangler-erl-node 'wrangler_code_inspection_api 'input_pars (list module-name function-name))             
+          (erl-receive (buffer module-name function-name current-file-name) 
+              ((['rex ['badrpc rsn]]
+                (message "Code inspection failed: %s" rsn))
                  (['rex ['error rsn]]
                   (message "Code inspection failed: %s" rsn))
-                 (['rex ['ok res]]
-                  (message "Code inspection finished.")
+                 (['rex ['ok pars]]
+                  (apply-code-inspection module-name function-name current-file-name pars)
                   ))))
-          )
       (message "Code inspection aborted."))))
 
-               
-                     
-                     
-  
-                     
+   
+(defun apply-code-inspection(module-name function-name current-file-name pars)
+  "apply a user-defined code inspection function"
+  (interactive)
+  (let* 
+      ((par_vals (mapcar 'read-string pars))
+       (buffer (current-buffer))
+       (line-no (current-line-no))
+       (column-no (current-column-no))
+       (args (list module-name function-name current-file-name par_vals wrangler-search-paths tab-width)))
+    (if (current-buffer-saved buffer)
+        (erl-spawn
+          (erl-send-rpc wrangler-erl-node 'wrangler_code_inspection_api 'apply_code_inspection  (list args))
+          (erl-receive (buffer) 
+              ((['rex ['badrpc rsn]]
+                (message "Code inspection failed: %s" rsn))
+               (['rex ['error rsn]]
+                (message "Code inspection failed: %s" rsn))
+               (['rex ['ok res]]
+                  (message "Code inspection finished.")
+                  ))))
+      (message "Code inspection aborted."))))
+              
+
+(defun get-candidates-not-to-change (candidates) 
+  (setq candidates-not-to-change nil)
+  (while (not (equal candidates nil))
+    (setq new-cand (car candidates))
+    (setq new-cand-key (elt new-cand 0))
+    (setq  file-name (elt new-cand-key 0))
+    (setq line1 (elt new-cand-key 1))
+    (setq col1  (elt  new-cand-key 2))
+    (setq line2 (elt new-cand-key 3))
+    (setq col2  (elt  new-cand-key 4))
+    (setq new-code (elt new-cand 1))
+    (setq current-buffer (find-file file-name))
+    (highlight-region line1 col1 line2  col2 current-buffer)
+    (save-excursion
+      (with-current-buffer (get-buffer-create "*erl-output*")
+        (save-selected-window
+          (select-window (or (get-buffer-window (current-buffer))
+                             (display-buffer (current-buffer))))
+          (goto-char (point-max))
+          (setq pos (point-max))
+          (insert "*** The code highlighted will be replaced with: ***\n\n")
+          (insert new-code)
+          (insert "\n\n")
+          (set-window-start (get-buffer-window (current-buffer)) pos)
+          )))
+    (let ((answer (read-char-spec "Please answer y/n RET to change/not change this candidate, or Y/N RET to change all/none of remaining candidates including the one highlighted: "
+                                  '((?y y "Answer y to change this candidate;")
+                                    (?n n "Answer n not to change this candidate;")
+                                    (?Y Y "Answer Y to fold all the remaining candidates;")
+                                    (?N N "Answer N to fold none of remaining candidates")))))
+      (cond ((eq answer 'y)
+             (setq candidates (cdr candidates)))
+            ((eq answer 'n)
+             (setq candidates-not-to-change  (cons new-cand candidates-not-to-change))
+             (setq candidates (cdr candidates)))
+            ((eq answer 'Y)
+             (setq candidates nil))
+            ((eq answer 'N)
+             (setq candidates-not-to-change  (append candidates candidates-not-to-change))
+             (setq candidates nil)))))
+  (org-delete-overlay highlight-region-overlay)
+  candidates-not-to-change)
+	      
