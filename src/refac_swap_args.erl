@@ -18,7 +18,8 @@
 -behaviour(gen_refac).
 
 -export([input_pars/0, select_focus/1, 
-         pre_cond_check/1, transform/1]).
+         pre_cond_check/1,selective/0,
+         transform/1]).
 
 -include("../include/gen_refac.hrl").
 
@@ -63,6 +64,8 @@ pre_cond_check(_Args=#args{focus_sel=FunDef,
             {error, "Index 1 and Index 2 are the same."}
     end.
                 
+selective() ->
+    false.
 %% Do the program transformation here.
 transform(Args=#args{current_file_name=File,focus_sel=FunDef, 
                      user_inputs=[I, J]}) ->
