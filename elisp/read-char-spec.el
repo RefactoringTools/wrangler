@@ -76,7 +76,7 @@ see."
           (setq event (next-command-event nil prompt-with-keys)
 		char-read (and (fboundp 'event-to-character)
 			       (event-to-character event)))
-        (setq char-read  (read-event prompt-with-keys)))
+        (setq char-read  (string-to-char (read-string prompt-with-keys))))
 	(let ((entry (assoc char-read spec-with-help)))
         (when entry
           (setq current (cadr entry))))
