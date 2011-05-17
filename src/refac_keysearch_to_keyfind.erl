@@ -36,7 +36,7 @@ selective() ->
                           {ok, [{filename(), filename(), syntaxTree()}]}
                               | {error, term()}).    
 transform(_Args=#args{search_paths=SearchPaths})->
-    ?STOP_TD([rule_keysearch_to_keyfind()], SearchPaths).
+    ?FULL_TD([rule_keysearch_to_keyfind()], SearchPaths).
 
 rule_keysearch_to_keyfind() ->
     ?RULE(?T("case lists:keysearch(Key@, N@, TupleList@) of 
