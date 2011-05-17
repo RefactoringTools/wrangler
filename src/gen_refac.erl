@@ -137,7 +137,9 @@
 -module(gen_refac).
 
 -export([run_refac/2, 
-         input_pars/1]).
+         input_pars/1,
+         apply_changes/3
+        ]).
 
 -export([behaviour_info/1]).
 
@@ -147,7 +149,8 @@
 -spec behaviour_info(atom()) -> 'undefined' | [{atom(), arity()}].
 behaviour_info(callbacks) ->
     [{input_pars,0}, {select_focus,1}, 
-     {pre_cond_check, 1}, {transform, 1}].
+     {pre_cond_check, 1}, {transform, 1},
+     {selective, 0}].
 
 -spec(select_focus(Module::module(), Args::[term()]) ->
              {ok, term()} | {error, term()}). 
@@ -159,11 +162,26 @@ select_focus(Module, Args) ->
 pre_cond_check(Module, Args) ->
     apply(Module, pre_cond_check, [Args]).
 
--spec(transform(Module::module(), Args::[term()]) ->
-             {ok, [{filename(), filename(), syntaxTree()}]} |
-             {error, term()}).
-transform(Module, Args) ->
-    apply(Module, transform, [Args]).
+-spec(selective(Module::module()) ->
+             boolean()).
+selective(Module) ->
+    Module:selective().
+   
+
+-spec(apply_changes(Module::module(), Args::[term()], CandsNotToChange::[term()]) ->
+              {ok, [{filename(), filename(), syntaxTree()}]} |
+              {error, term()}).
+apply_changes(Module, Args, CandsNotToChange) ->
+    wrangler_gen_refac_server:add_value({self(), {false, CandsNotToChange}}),
+    case apply(Module, transform, [Args]) of
+        {ok, Res} ->
+            wrangler_gen_refac_server:delete_value(self()),
+            refac_write_file:write_refactored_files(
+              Res, 'emacs', Args#args.tabwidth, "");
+        {error, Reason} ->
+            wrangler_gen_refac_server:delete_value(self()),
+            {error, Reason}
+    end.
 
 %%@doc The interface function for invoking a refactoring defined 
 %% in module `ModName'.
@@ -194,12 +212,26 @@ run_refac(ModName, Args=[CurFileName, [Line,Col],
             Args1 = Args0#args{focus_sel=Sel},
             case pre_cond_check(Module, Args1) of
                 ok -> 
-                    case transform(Module,Args1) of
-                        {ok, Res} ->
-                            refac_write_file:write_refactored_files(
-                              Res, 'emacs', TabWidth, "");
-                        {error, Reason} ->
-                            {error, Reason}
+                    Selective=selective(Module),
+                    wrangler_gen_refac_server:add_value({self(), Selective}),
+                    Args2 = Args1#args{selective=Selective},
+                    case Selective of 
+                        true ->
+                            case apply(Module, transform, [Args2]) of
+                                {change_sets, Cands} ->
+                                    {change_sets, Cands, Module, Args2};
+                                {error, Reason} ->
+                                    {error, Reason}
+                            end;
+                        false->
+                            case apply(Module, transform, [Args2]) of
+                              {ok, Res} ->
+                                    wrangler_gen_refac_server:delete_value(self()),
+                                    refac_write_file:write_refactored_files(Res,emacs,TabWidth,"");
+                                {error, Reason} ->
+                                    wrangler_gen_refac_server:delete_value(self()),
+                                    {error, Reason}
+                            end
                     end;
                 {error, Reason} ->
                     {error, Reason}
@@ -208,6 +240,7 @@ run_refac(ModName, Args=[CurFileName, [Line,Col],
             {error, Reason}
     end.
 
+   
 %%@private
 input_pars(CallBackMod) ->
     Res =input_pars_1(CallBackMod),
@@ -220,3 +253,4 @@ input_pars_1(CallBackMod) when is_list(CallBackMod)->
 input_pars_1(_) ->
     throw:error(badarg).
  
+
