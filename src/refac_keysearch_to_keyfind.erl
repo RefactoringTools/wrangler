@@ -8,7 +8,8 @@
 -behaviour(gen_refac).
 
 -export([input_pars/0, select_focus/1, 
-         pre_cond_check/1, transform/1]).
+         pre_cond_check/1, selective/0,
+         transform/1]).
 
 -include("../include/gen_refac.hrl").
 
@@ -25,13 +26,17 @@ select_focus(_Args) ->{ok, none}.
 pre_cond_check(_Args)->
     ok.
 
+-spec (selective/0::()-> boolean()).                          
+selective() ->
+    true.
+
 %% Apply the transformation rules to all the Erlang files included in the 
 %% SearchPaths.
 -spec (transform/1::(#args{}) -> 
                           {ok, [{filename(), filename(), syntaxTree()}]}
                               | {error, term()}).    
 transform(_Args=#args{search_paths=SearchPaths})->
-    ?FULL_TD([rule_keysearch_to_keyfind()], SearchPaths).
+    ?STOP_TD([rule_keysearch_to_keyfind()], SearchPaths).
 
 rule_keysearch_to_keyfind() ->
     ?RULE(?T("case lists:keysearch(Key@, N@, TupleList@) of 
