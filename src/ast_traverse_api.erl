@@ -26,7 +26,8 @@
 
 -module(ast_traverse_api).
 
--export([once_tdTU/3, stop_tdTU/3, stop_tdTP/3, full_tdTP/3, full_buTP/3]).
+-export([once_tdTU/3, stop_tdTU/3, full_tdTU/3, 
+         stop_tdTP/3, full_tdTP/3, full_buTP/3]).
 
 -export([map/2, map_subtrees/2, mapfold/3,
 	 mapfold_subtrees/3, fold/3, fold_subtrees/3]).
@@ -214,27 +215,38 @@ rewrite(Tree, Tree1) ->
     refac_syntax:copy_attrs(Tree, Tree1).
 
 
-stop_tdTU(Function, S, Node) ->
-    {Res, _} = stop_tdTU_1(Function, S, Node),
-    lists:reverse(Res).
 
-stop_tdTU_1(Function, S, Node) ->
-     case Function(Node) of
-         {R, true} -> {[R|S], true};
-         {_R, false} ->
-             case erl_syntax:subtrees(Node) of
-                 [] -> {S, false};
-                 Gs ->
-                     Flattened_Gs = [T || G <- Gs, T <- G],
-                     case Flattened_Gs of
-                         [] -> {S, false};
-                         [_H | _T1] -> S1 = [[stop_tdTU_1(Function, [], T) || T <- G] || G <- Gs],
-                                       S2 = [S12 || G<-S1, {S12, _B} <- G],
-                                       {S++lists:append(S2), true}
- 		end
- 	  end
-     end.
+stop_tdTU(F, S, Node) ->
+    case F(Node, S) of
+        {R, true} -> R;
+        {R, false} ->
+            Gs = refac_syntax:subtrees(Node),
+            stop_tdTU_1(F, R, Gs)
+    end.
 
+stop_tdTU_1(F, S, [L | Ls]) ->
+    stop_tdTU_1(F, stop_tdTU_2(F, S, L), Ls);
+stop_tdTU_1(_, S, []) -> S.
+
+stop_tdTU_2(F, S, [T | Ts]) -> stop_tdTU_2(F, stop_tdTU(F, S, T), Ts);
+stop_tdTU_2(_, S, []) -> S.
+
+       
+full_tdTU(F, S, Tree) ->
+    R = F(Tree, S),
+    case refac_syntax:subtrees(Tree) of
+        [] -> 
+            R;
+        Gs -> 
+            full_tdTU_1(F, R, Gs)
+    end.
+
+full_tdTU_1(F, S, [L | Ls]) ->
+    full_tdTU_1(F, full_tdTU_2(F, S, L), Ls);
+full_tdTU_1(_, S, []) -> S.
+
+full_tdTU_2(F, S, [T | Ts]) -> full_tdTU_2(F, full_tdTU(F, S, T), Ts);
+full_tdTU_2(_, S, []) -> S.
 
 %% =====================================================================
 %% @spec map(Function, Tree::syntaxTree()) -> syntaxTree()
