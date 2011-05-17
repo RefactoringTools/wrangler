@@ -160,7 +160,7 @@
 %%<a href="file:refac_swap_args.erl" > Swap arguments of a function;</a>.
 %%</li>
 %%<li>
-%%<a href="file:refac_keysearch_to_keyfind.erl"> replace the use of lists:keysearch/3 with lists:keyfind/3; </a>
+%%<a href="file:refac_keysearch_to_keyfind.erl"> replace the uses of lists:keysearch/3 with lists:keyfind/3; </a>
 %%</li>
 %%<li>
 %%<a href="file:refac_specialise.erl"> Specialise a function definition; </a>
@@ -198,6 +198,7 @@
          start_end_loc/1,
          syntax_context/1,
          syntax_category/1,
+         type/1,
          is_expr/1, 
          is_guard_expr/1,
          is_pattern/1, 
@@ -230,9 +231,8 @@
          make_rule/3,
          collect/4,
          match/2,
-         full_td_search_and_transform/2,
-         stop_td_search_and_transform/2]).
-
+         search_and_transform/3]).
+        
 -include("../include/wrangler.hrl"). 
 
 %% ====================================================================
@@ -368,7 +368,7 @@ exported_vars_1(Node, {StartLoc, EndLoc}) ->
                           Acc
                   end
           end,
-    ordsets:to_list(ast_traverse_api:fold(Fun,ordsets:new(),Node)).
+    ordsets:to_list(ast_traverse_api:full_tdTU(Fun,ordsets:new(),Node)).
  
 %%@doc Returns all the variable names that are declared within `Node', and 
 %%    also used by the code outside `Node'.
@@ -1152,18 +1152,6 @@ reverse_function_clause_2(FunDef) ->
 
 
 %%======================================================================
-%%@private 
-full_td_search_and_transform(Rules,Input) ->
-    search_and_transform(Rules,Input,fun full_tdTP/3).
-
-%%======================================================================
-%%@private
-stop_td_search_and_transform(Rules,Input) when is_list(Input) ->
-    search_and_transform(Rules,Input,fun stop_tdTP/3);
-stop_td_search_and_transform(Rules,Input) ->
-    search_and_transform(Rules,Input,fun stop_tdTP/3).
-
-%%======================================================================
 %% -spec(search_and_transform([rules()], [filename()|dir()]|syntaxTree()) ->
 %%              [{{filename(),filename()}, syntaxTree()}]|syntaxTree()).
 %%@private
@@ -1173,7 +1161,7 @@ search_and_transform(Rules,Input,TraverseStrategy)
                            filelib:is_file(I) 
                    end, Input) of 
         true -> 
-            search_and_transform_2(Rules, Input,TraverseStrategy);
+            search_and_transform_2(Rules, Input, TraverseStrategy);
         false ->
             case lists:all(fun(I) ->
                                    is_tree(I)
@@ -1184,48 +1172,116 @@ search_and_transform(Rules,Input,TraverseStrategy)
                     erlang:error(badarg)
             end
     end;
-search_and_transform(Rules,Input,TraverseStrategy) ->
+search_and_transform(Rules, Input, TraverseStrategy) ->
     case is_tree(Input) of
         true ->
-            {Input1, _} =search_and_transform_4(Rules,Input,TraverseStrategy),
+            {Input1, _} =search_and_transform_4(none, Rules,Input,
+                                                TraverseStrategy, false),
             Input1;
         false->
             erlang:error(bagarg)
     end.
 
-search_and_transform_2(Rules, FileOrDirs,TraverseStrategy)  ->
+search_and_transform_2(Rules, FileOrDirs, TraverseStrategy) ->
+    Selective =try wrangler_gen_refac_server:get_value(self()) of 
+                   {ok, Val} ->
+                       Val
+               catch
+                   _E1:_E2 ->
+                       {false,[]}
+               end,
     Files = refac_misc:expand_files(FileOrDirs, ".erl"),
     Res=lists:append([begin
-                          search_and_transform_3(Rules, File,TraverseStrategy)
+                          search_and_transform_3(Rules, File, TraverseStrategy, Selective)
                       end||File<-Files]),
-    {ok, Res}.
-
-search_and_transform_3(Rules, File,TraverseStrategy) ->
-    ?wrangler_io("The current file under refactoring is:\n~p\n", [File]),
-    {ok, {AST, _}} = wrangler_ast_server:parse_annotate_file(File, true, [], 8),
-    {AST1, Changed}=search_and_transform_4(Rules,AST,TraverseStrategy),
-    if Changed -> 
-            AST2= reverse_function_clause(AST1),
-            [{{File, File}, AST2}];
-       true ->
-            []
+    case Selective of
+        true ->
+            {change_sets, Res};
+        {false, _} ->
+            {ok, Res}
     end.
 
-search_and_transform_4(Rules,Tree,TraverseStrategy) ->
+search_and_transform_3(Rules, File, TraverseStrategy, Selective) ->
+    ?wrangler_io("The current file under refactoring is:\n~p\n", [File]),
+    {ok, {AST, _}} = wrangler_ast_server:parse_annotate_file(File, true, [], 8),
+    case Selective of
+        true ->
+            search_and_transform_4(File, Rules, AST, TraverseStrategy, Selective);
+        {false, _} ->
+            {AST1, Changed}=search_and_transform_4(File, Rules, AST, TraverseStrategy, Selective),
+            if Changed -> 
+                    AST2= reverse_function_clause(AST1),
+                    [{{File, File}, AST2}];
+               true ->
+                    []
+            end
+    end.
+
+search_and_transform_4(File,Rules,Tree,TraverseStrategy,Selective) ->
     ParsedBeforeAfterConds=[{parse_annotate_expr(R#rule.template_before),
                              R#rule.template_after,
                              R#rule.condition}|| R<-Rules],
-    Fun = fun(Node, _) ->
+    Fun = fun(Node, CandsNotToChange)->
                   Res = try_expr_match(ParsedBeforeAfterConds, Node),
                   case Res of
                       {true, NewExprAfter} ->
-                          {NewExprAfter, true};
+                          case Selective of 
+                              {false, []} ->
+                                  {NewExprAfter, true};
+                              {false, CandsNotToChange} ->
+                                  {{SLn, SCol}, {ELn, ECol}}=refac_api:start_end_loc(Node),
+                                  MD5 =erlang:md5(refac_prettypr:format(Node)),
+                                  Key ={File, SLn, SCol, ELn, ECol,MD5},
+                                  case lists:keysearch(Key,1,CandsNotToChange) of 
+                                      false ->
+                                          {NewExprAfter, true};
+                                      _ ->
+                                          {Node, false}
+                                  end
+                          end;
                       false ->
                           {Node, false}
                   end
           end,
+    Fun1 = fun(Node,Acc) ->
+                  Res = try_expr_match(ParsedBeforeAfterConds, Node),
+                  case Res of
+                      {true, NewExprAfter} ->
+                          {{SLn, SCol}, {ELn, ECol}}=refac_api:start_end_loc(Node),
+                          [{{File, SLn, SCol, ELn, ECol, erlang:md5(refac_prettypr:format(Node))},
+                            refac_prettypr:format(NewExprAfter)}|Acc];
+                      false ->
+                          Acc
+                  end
+          end,
+    Fun2 = fun(Node,Acc) ->
+                  Res = try_expr_match(ParsedBeforeAfterConds, Node),
+                  case Res of
+                      {true, NewExprAfter} ->
+                          {{SLn, SCol}, {ELn, ECol}}=refac_api:start_end_loc(Node),
+                          {[{{File, SLn, SCol, ELn, ECol, erlang:md5(refac_prettypr:format(Node))},
+                             refac_prettypr:format(NewExprAfter)}|Acc],true};
+                      false ->
+                          {Acc, false}
+                  end
+           end,
     Tree1 = extend_function_clause(Tree),
-    TraverseStrategy(Fun, Tree1, {}).
+    case Selective of
+        true ->
+            case TraverseStrategy of
+                full_td ->
+                    lists:reverse(ast_traverse_api:full_tdTU(Fun1, [], Tree1));
+                stop_td ->
+                    lists:reverse(ast_traverse_api:stop_tdTU(Fun2, [], Tree1))  
+            end;
+        {false,CandsNotToChange} ->
+            case TraverseStrategy of 
+                full_td ->
+                    full_tdTP(Fun, Tree1, CandsNotToChange);
+                stop_td  ->
+                    stop_tdTP(Fun, Tree1, CandsNotToChange)
+            end
+    end.
     
 %% pre_order or post_order?
 full_tdTP(Fun, Node, Others) ->
@@ -1482,7 +1538,7 @@ do_search_matching_code_list(FileName, AST, {Template, Cond, ReturnFun}) ->
                           Acc
                   end
           end,
-    lists:reverse(ast_traverse_api:fold(Fun, [], AST)).
+    lists:reverse(ast_traverse_api:full_tdTU(Fun, [], AST)).
   
 
 get_expr_seqs(T) ->
@@ -1508,7 +1564,7 @@ do_search_matching_code_non_list(FileName, AST, {Template, Cond, ReturnFun}) ->
     end.
 
 stop_td_collect(FileName, AST, {Template, Cond, ReturnFun}, Type) ->
-    Fun= fun(Node) ->
+    Fun= fun(Node, Acc) ->
                  Res = generalised_unification:expr_match(Template, Node),
                  case Res of
                      {true, Binds} ->
@@ -1516,9 +1572,9 @@ stop_td_collect(FileName, AST, {Template, Cond, ReturnFun}, Type) ->
                          Binds1 = [{'_This@', Node}|Binds0],
                          try Cond(Binds1) of
                              true ->
-                                 {ReturnFun([{'_File@', FileName}|Binds1]), true};
+                                 {[ReturnFun([{'_File@', FileName}|Binds1])|Acc], true};
                              false ->
-                                 {[], true}; %% pretend to be sucessful;
+                                 {Acc, true}; %% pretend to be sucessful;
                              _ ->
                                  throw({error, "Condition checking returns a non-boolean value."})
                          catch
@@ -1526,40 +1582,16 @@ stop_td_collect(FileName, AST, {Template, Cond, ReturnFun}, Type) ->
                                  throw({error, "Condition checking returns a non-boolean value."})
                          end;
                      false ->
-                         {[], false}
+                         case refac_syntax:type(Node)==Type of 
+                             true ->
+                                 {Acc, true};
+                             false ->
+                                 {Acc, false}
+                         end
                  end
          end,
     AST1=extend_function_clause(AST),
-    lists:reverse(stop_tdTU(Fun, [], AST1, Type)).
-
-stop_tdTU(Function, S, Node, Type) ->
-    {Res, _} = stop_tdTU_1(Function, S, Node,Type),
-    lists:reverse(Res).
-
-stop_tdTU_1(Function, S, Node, Type) ->
-    case Function(Node) of
-        {R, true} when R==[]-> 
-            {S, true};
-        {R, true} ->
-            {[R|S], true};
-        {_R, false} ->
-            case refac_syntax:type(Node)==Type of
-                true ->
-                    {S, true};
-                false ->
-                    case refac_syntax:subtrees(Node) of
-                        [] -> {S, true};
-                        Gs ->
-                            Flattened_Gs = [T || G <- Gs, T <- G],
-                            case Flattened_Gs of
-                                [] -> {S, true};
-                                [_H | _T1] -> S1 = [[stop_tdTU_1(Function, [], T, Type) || T <- G] || G <- Gs],
-                                              S2 = [S12 || G<-S1, {S12, _B} <- G],
-                                              {S++lists:append(S2), true}
-                            end
-                    end
-            end
-    end.
+    lists:reverse(ast_traverse_api:stop_tdTU(Fun, [], AST1)).
 
 
 full_td_collect(FileName, AST, {Template, Cond, ReturnFun}) ->
@@ -1584,7 +1616,7 @@ full_td_collect(FileName, AST, {Template, Cond, ReturnFun}) ->
                          Acc
                  end
          end,
-    lists:reverse(ast_traverse_api:fold(Fun, [], AST)).
+    lists:reverse(ast_traverse_api:full_tdTU(Fun, [], AST)).
   
 %%================================================================
 %%@spec(extend_function_clause(Tree::syntaxTree()) -> syntaxTree()).
@@ -1709,3 +1741,81 @@ revert_clause_guard(E)->
         _ ->
             [[E]]       % a single expression
     end.
+
+%% =====================================================================
+%% @spec type(Node::syntaxTree()) -> atom()
+%%
+%% @doc The function is the same as erl_syntax:type/1. It returns the 
+%% type tag of <code>Node</code>. If <code>Node</code>
+%% does not represent a syntax tree, evaluation fails with reason
+%% <code>badarg</code>. Node types currently defined are:
+%% <p><center><table border="1">
+%%  <tr>
+%%   <td>application</td>
+%%   <td>arity_qualifier</td>
+%%   <td>atom</td>
+%%   <td>attribute</td>
+%%  </tr><tr>
+%%   <td>binary</td>
+%%   <td>binary_field</td>
+%%   <td>block_expr</td>
+%%   <td>case_expr</td>
+%%  </tr><tr>
+%%   <td>catch_expr</td>
+%%   <td>char</td>
+%%   <td>class_qualifier</td>
+%%   <td>clause</td>
+%%  </tr><tr>
+%%   <td>comment</td>
+%%   <td>cond_expr</td>
+%%   <td>conjunction</td>
+%%   <td>disjunction</td>
+%%  </tr><tr>
+%%   <td>eof_marker</td>
+%%   <td>error_marker</td>
+%%   <td>float</td>
+%%   <td>form_list</td>
+%%  </tr><tr>
+%%   <td>fun_expr</td>
+%%   <td>function</td>
+%%   <td>generator</td>
+%%   <td>if_expr</td>
+%%  </tr><tr>
+%%   <td>implicit_fun</td>
+%%   <td>infix_expr</td>
+%%   <td>integer</td>
+%%   <td>list</td>
+%%  </tr><tr>
+%%   <td>list_comp</td>
+%%   <td>macro</td>
+%%   <td>match_expr</td>
+%%   <td>module_qualifier</td>
+%%  </tr><tr>
+%%   <td>nil</td>
+%%   <td>operator</td>
+%%   <td>parentheses</td>
+%%   <td>prefix_expr</td>
+%%  </tr><tr>
+%%   <td>qualified_name</td>
+%%   <td>query_expr</td>
+%%   <td>receive_expr</td>
+%%   <td>record_access</td>
+%%  </tr><tr>
+%%   <td>record_expr</td>
+%%   <td>record_field</td>
+%%   <td>record_index_expr</td>
+%%   <td>rule</td>
+%%  </tr><tr>
+%%   <td>size_qualifier</td>
+%%   <td>string</td>
+%%   <td>text</td>
+%%   <td>try_expr</td>
+%%  </tr><tr>
+%%   <td>tuple</td>
+%%   <td>underscore</td>
+%%   <td>variable</td>
+%%   <td>warning_marker</td>
+%%  </tr>
+%% </table></center></p>
+type(Node) ->
+    refac_syntax:type(Node).
