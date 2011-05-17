@@ -38,7 +38,7 @@
 %%	      {ok, syntaxTree()} | {error, string()})
 %%    Pred = fun(Elem) -> bool().
 %%@doc Returns the outmost Node which encloses the cursor and 
-%%     makes Pred(Node) return true.
+%%     makes Pred(Node) return `true'.
 %% =================================================================================
 pos_to_node(FileOrTree, Pos, Pred) ->
     case filelib:is_regular(FileOrTree) of 
@@ -80,12 +80,10 @@ pos_to_node_2(Node, {Pos, Pred}) ->
 
 
 %% ==========================================================================================
-%% @spec range_to_node(FileOrTree::filename()|syntaxTree(), Range::Range, Cond::Pred)->
-%%	      {ok, syntaxTree()} | {error, string()})
-%%      Range = {Pos(), Pos()}
-%%      Pos = {integer(), integer()}
+%% @spec range_to_node(FileOrTree::filename()|syntaxTree(), Range::{pos(),pos()}, Cond::Pred)
+%%   ->syntaxTree() | {error, string()}
 %% @doc Returns the largest, left-most Node which is enclosed by the location range specified,
-%%      and also makes Pred(Node) return true.
+%%      and also makes Pred(Node) return `true'.
 %%===========================================================================================
 range_to_node(FileOrTree, Pos, Pred) ->
     case filelib:is_regular(FileOrTree) of 
@@ -137,11 +135,11 @@ range_to_node_2(Tree, {Start, End}, Pred) ->
 %% @spec pos_to_fun_name(Node::syntaxTree(), Pos::{integer(), integer()}) ->
 %%                        {ok, {Mod, Fun, Arity, OccurPos, DefPos}} | {error, string()}
 %%    Mod = atom()
-%%    Fun = atom()s
+%%    Fun = atom()
 %%    Arity = integer()
 %%    OccurPos = {integer(), integer()}
 %%    DefPos = {integer(), integer()}
-%% @doc Get information about the function name which occurs at the specified
+%% @doc Returns information about the function name which occurs at the specified
 %% position in the code. If successful, the returned information contains: 
 %% the module in which the function is defined, the function name, the 
 %% function's arity, the occurrence position (same as Pos), and the defining 
@@ -178,8 +176,8 @@ pos_to_fun_name_1(Node, Pos = {Ln, Col}) ->
 %%============================================================================
 %% @spec pos_to_fun_def(Node::syntaxTree(), Pos::{integer(), integer()}) 
 %%                     -> {ok, syntaxTree()} | {error, string()}
-%% @doc Get the AST representation of the function definition in which the 
-%% location specified by Pos falls.
+%% @doc Returns the AST representation of the function definition in which the 
+%% location specified by `Pos' falls.
 %%               
 %% @see pos_to_fun_name/2.
 %%-spec(pos_to_fun_def(Node::syntaxTree(), Pos::pos()) 
@@ -224,7 +222,7 @@ pos_to_fun_def_2(Node, Pos) ->
 %%      VarName = atom()
 %%      DefPos = [{integer(), integer()}]
 %%
-%% @doc Get the variable name that occurs at the position specified by Pos.
+%% @doc Returns the variable name that occurs at the position specified by position `Pos'.
 %% @see pos_to_fun_name/2
 %% @see pos_to_fun_def/2
 %% @see pos_to_expr/3
@@ -267,9 +265,8 @@ pos_to_var_name_1(Node, _Pos = {Ln, Col}) ->
     end.
 
 
-
-%%-spec(pos_to_var(Node::syntaxTree(), Pos::pos())->
-%%	     {ok, syntaxTree()} | {error, string()}).
+%%@doc Returns the variable node at position `Pos'.
+%%@spec pos_to_var(Node::syntaxTree(), Pos::pos())->{ok, syntaxTree()} | {error, string()}
 pos_to_var(Node, Pos) ->
     case
 	ast_traverse_api:once_tdTU(fun pos_to_var_1/2, Node, Pos)
@@ -304,12 +301,10 @@ pos_to_var_1(Node, _Pos = {Ln, Col}) ->
 %%                  {ok, syntaxTree()} | {error, string()}
 %%
 %%       Pos={integer(), integer()}
-%% @doc Get the largest, left-most expression enclosed by the start and end locations.
+%% @doc Returns the largest, left-most expression enclosed by the start and end locations.
 %%
 %% @see pos_to_fun_name/2
 %% @see pos_to_fun_def/2
-%% @see pos_to_var_name/2
-%%-spec(pos_to_expr(Tree::syntaxTree(), Start::pos(), End::pos()) ->{ok, syntaxTree()} | {error, string()}).
 pos_to_expr(Tree, Start, End) ->
     Es = lists:flatten(pos_to_expr_1(Tree, Start, End)),
     case Es of
@@ -339,13 +334,16 @@ pos_to_expr_1(Tree, Start, End) ->
 
 
 %% =====================================================================
-%% Return the list expressions enclosed by start and end locations.
+%% @spec(pos_to_expr_list(filename()|syntaxTree(), {Start::pos(), End::pos()}) ->
+%%	     [syntaxTree()])
+%% @doc Return the expression sequence enclosed by start and end locations.
 %% ====================================================================
 -spec(pos_to_expr_list(filename()|syntaxTree(), {Start::pos(), End::pos()}) ->
 	     [syntaxTree()]).
 pos_to_expr_list(FileOrTree, {Start, End}) ->
     pos_to_expr_list(FileOrTree, Start, End).
 
+%%@private
 -spec(pos_to_expr_list(filename()|syntaxTree(), Start::pos(), End::pos()) ->
 	     [syntaxTree()]).
 pos_to_expr_list(FileOrTree, Start, End) ->
@@ -407,6 +405,7 @@ get_expr_list_1(L) ->
 	  get_expr_list(L)
     end.
 
+%%@private
 pos_to_expr_or_pat_list(AnnAST, Start, End) ->
     F = fun
 	    (E) -> refac_api:is_expr(E) orelse refac_api:is_pattern(E)
@@ -440,3 +439,4 @@ expr_to_fun_1(Tree, Exp) ->
 	   end;
        true -> []
     end.
+ 

@@ -297,7 +297,7 @@ test3(_Args=#args{search_paths=SearchPaths}) ->
               [SearchPaths]).
 
 
- 
+%%@private 
 test4(input_pars) ->
     [];
 test4(_Args=#args{search_paths=SearchPaths}) ->

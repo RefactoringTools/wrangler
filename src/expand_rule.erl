@@ -138,8 +138,8 @@ expand_match(TempStr, Node) ->
     Op= erl_syntax:module_qualifier(erl_syntax:atom(refac_api), 
                                     erl_syntax:atom(match)),
     Args=[erl_syntax:application(erl_syntax:module_qualifier(erl_syntax:atom(refac_api), 
-                                      erl_syntax:atom(parse_annotate_expr)),
-                                   [TempStr, erl_syntax:integer(Pos)]), Node],
+                                                             erl_syntax:atom(parse_annotate_expr)),
+                                 [TempStr, erl_syntax:integer(Pos)]), Node],
     Temp = refac_api:parse_annotate_expr(erl_syntax:string_value(TempStr)),
     App =erl_syntax:application(Op, Args),
     NewVar0=list_to_atom("_Res"++integer_to_list(random:uniform(1000))),
@@ -335,7 +335,7 @@ transform(Forms, Before, After, Context) ->
 		    error:Reason2 ->
 			?ERROR(Reason2, 'after', After, 
 			       [{type, Type2},
-				{context, Context},
+				{context, {erlang:get_stacktrace(),Context}},
 				{form, Form2}])
 		end
 	end,
