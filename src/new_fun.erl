@@ -2,15 +2,15 @@
 
 -behaviour(gen_refac).
 
--export([input_pars/0, select_focus/1, 
-         pre_cond_check/1, selective/0,
+-export([input_par_prompts/0, select_focus/1,
+         check_pre_cond/1, selective/0,
          transform/1]).
 
--include("../include/gen_refac.hrl").
+-include("../include/wrangler.hrl").
 
 %% The Emacs mini-buffer prompts for the user input parameters. 
--spec (input_pars/0::() -> [string()]).                           
-input_pars()->
+-spec (input_par_prompts/0::() -> [string()]).                           
+input_par_prompts() ->
     ["New function name:"].
 
 %% Select the focus of interest. If no selection is neeeded, 
@@ -23,8 +23,8 @@ select_focus(Args=#args{current_file_name=File}) ->
 
 %% Pre-condition checking to ensure that the refactoring preserves the 
 %% behaviour of the program.
--spec (pre_cond_check/1::(#args{}) -> ok).  
-pre_cond_check(_Args=#args{current_file_name=File, focus_sel=Exprs, 
+-spec (check_pre_cond/1::(#args{}) -> ok).  
+check_pre_cond(_Args=#args{current_file_name=File, focus_sel=Exprs,
                           user_inputs=[NewFunName]}) ->
     check_selection(Exprs),
     check_function_name(NewFunName),    
