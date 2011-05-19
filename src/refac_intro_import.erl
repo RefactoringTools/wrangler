@@ -12,15 +12,15 @@
 -behaviour(gen_refac).
 
 %% export of callback function.
--export([input_pars/0, select_focus/1, 
-         pre_cond_check/1, selective/0,
+-export([input_par_prompts/0, select_focus/1,
+         check_pre_cond/1, selective/0,
          transform/1]).
 
--include("../include/gen_refac.hrl").
+-include("../include/wrangler.hrl").
 
 %% Ask the user which module to import. 
--spec (input_pars/0::() -> [string()]).                           
-input_pars()->
+-spec (input_par_prompts/0::() -> [string()]).                           
+input_par_prompts() ->
     ["Module name:"].
 
 %% no focus selection is needed.
@@ -29,8 +29,8 @@ select_focus(_Args) ->
     {ok, none}.
     
 %% Pre-condition checking. 
--spec (pre_cond_check/1::(#args{}) -> ok | {error, term()}).  
-pre_cond_check(Args=#args{user_inputs=[ModuleName]}) ->
+-spec (check_pre_cond/1::(#args{}) -> ok | {error, term()}).  
+check_pre_cond(Args=#args{user_inputs=[ModuleName]}) ->
     case collect_uses(Args) of 
         [] ->
             Msg =io_lib:format(
@@ -42,7 +42,7 @@ pre_cond_check(Args=#args{user_inputs=[ModuleName]}) ->
     end.
 
 selective() ->
-    false.
+    true.
 
 %%Do the actual program transformation here.
 -spec (transform/1::(#args{}) -> 
@@ -60,12 +60,12 @@ transform(Args=#args{current_file_name=File,
     {ok,AST} = refac_api:get_ast(File),
     case FunsToImport of 
         [] ->
-            [NewAST]=?FULL_TD([rule(Args)], [AST]),
+            [{_, NewAST}]=?FULL_TD([rule(Args)], [{File, AST}]),
             {ok, [{{File, File}, NewAST}]};
         _ ->
             Import=make_import_attr(ModuleName, FunsToImport),
             AST1=refac_api:insert_an_attr(AST,Import),
-            [NewAST]=?FULL_TD([rule(Args)], [AST1]),
+            [{_,NewAST}]=?FULL_TD([rule(Args)], [{File, AST1}]),
             {ok, [{{File, File}, NewAST}]}
     end.
 
