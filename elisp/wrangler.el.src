@@ -313,13 +313,13 @@
     ("Partition Exported Functions"  erl-wrangler-code-inspector-partition-exports)
     ("gen_fsm State Data to Record" erl-refactor-gen-fsm-to-record)
     nil
-    ("gen_refac Skeleton"  skeleton-gen-refac)
+    ("gen_refac Skeleton"  tempo-template-gen-refac)
     ("Apply Adhoc Refactoring"  apply-adhoc-refac)
     nil
     ("Undo" erl-refactor-undo)
     nil
     ("Customize Wrangler" wrangler-customize)
-    nil
+    nil 
     ("Version" erl-refactor-version)))
 
 
@@ -446,16 +446,19 @@
 	"variable need to make Wrangler start with Ubuntu"
 )
 
+
+(setq pa (concat %WRANGLER_DIR% "/ebin"))
+
 (defun wrangler-erlang()
   "Run an Wrangler Erlang shell"
   (interactive)
   (require 'comint)
   (setq opts (list "-name" wrangler-erl-node-string
-		   "-pa" "C:/cygwin/home/hl/wrangler/share/wrangler/ebin"
+		   "-pa" pa
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))
-  (setq wrangler-erlang-buffer
+  (setq wrangler-erlang-buffer 
  	(apply 'make-comint
 	       "Wrangler-Erl-Shell" "erl" 
 	       nil opts))
@@ -597,7 +600,7 @@
 
 (defun preview-commit-cancel-1 (current-file-name modified)
   "preview, commit or cancel the refactoring result"
-  (let ((answer (read-char-spec "Do you want to preview(p)/commit(c)/cancel(n) the changes to be performed?(p/c/n):"
+  (let ((answer (read-char-spec-1 "Do you want to preview(p)/commit(c)/cancel(n) the changes to be performed?(p/c/n):"
 		  '((?p p "Answer p to preview the changes")
 		    (?c c "Answer c to commit the changes without preview")
 		    (?n n "Answer n to abort the changes")))))
@@ -3434,7 +3437,7 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
                   (message "Refactoring failed: %s" rsn))
                  (['rex ['error rsn]]
                   (message "Refactoring failed: %s" rsn))
-                 (['rex ['change_sets changes callback-module args]]
+                 (['rex ['change_set changes callback-module args]]
                   (if (equal changes nil)
                       (message "Refactoring finished, and no file has been changed.")
                      (progn
@@ -3510,6 +3513,7 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
 
 (defun get-candidates-not-to-change (candidates) 
   (setq candidates-not-to-change nil)
+  (setq unopened-files nil)
   (while (not (equal candidates nil))
     (setq new-cand (car candidates))
     (setq new-cand-key (elt new-cand 0))
@@ -3519,6 +3523,10 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
     (setq line2 (elt new-cand-key 3))
     (setq col2  (elt  new-cand-key 4))
     (setq new-code (elt new-cand 1))
+    (if (get-file-buffer-1 file-name)
+        nil
+      (setq unopened-files (cons file-name unopened-files))
+      )
     (setq current-buffer (find-file file-name))
     (highlight-region line1 col1 line2  col2 current-buffer)
     (save-excursion
@@ -3549,5 +3557,89 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
              (setq candidates-not-to-change  (append candidates candidates-not-to-change))
              (setq candidates nil)))))
   (org-delete-overlay highlight-region-overlay)
+  (dolist (uf unopened-files)
+    (kill-buffer (get-file-buffer-1 uf)))
+  (setq unopened-files nil)
   candidates-not-to-change)
-	      
+
+
+(require 'tempo)
+(setq tempo-interactive t)
+
+
+(tempo-define-template "gen-refac"
+  '((erlang-skel-include erlang-skel-large-header)
+    "-behaviour(gen_refac)." n n
+   
+    "%% Include files" n 
+    "-include(\""%WRANGLER_DIR%"/include/wrangler.hrl\")." n n
+    (erlang-skel-double-separator-start 3)
+    "%% gen_refac callbacks" n
+    "-export([input_par_prompts/0,select_focus/1, " n>
+    "check_pre_cond/1, selective/0, " n>
+    "transform/1])." n n 
+
+    (erlang-skel-double-separator-start 3)
+    "%%% gen_refac callbacks" n
+    (erlang-skel-double-separator-end 3)
+    n
+    (erlang-skel-separator-start 2)
+    "%% @private" n 
+    "%% @doc" n
+    "%% Prompts for parameter inputs" n
+    "%%" n
+    "%% @spec input_par_prompts() -> [string()]" n
+    (erlang-skel-separator-end 2)
+    "input_par_prompts() ->" n>
+    "[]." n
+    n
+    (erlang-skel-separator-start 2)
+    "%% @private" n
+    "%% @doc" n
+    "%% Select the focus of the refactoring." n
+    "%%" n
+    "%% @spec select_focus(Args::#args{}) ->" n
+    "%%                {ok, syntaxTree()} |" n
+    "%%                {ok, none}" n
+    (erlang-skel-separator-end 2)
+    "select_focus(_Args) ->" n>
+    "{ok, none}." n>
+     n
+    (erlang-skel-separator-start 2)
+    "%% @private" n
+    "%% @doc" n
+    "%% Check the pre-conditions of the refactoring." n
+    "%%" n
+    "%% @spec check_pre_cond(Args#args{}) -> ok | {error, Reason}" n
+    (erlang-skel-separator-end 2)
+    "check_pre_cond(_Args) ->" n>
+    "ok." n
+    n
+    (erlang-skel-separator-start 2)
+    "%% @private" n
+    "%% @doc" n
+    "%% Selective transformation or not." n
+    "%%" n
+    "%% @spec selective() -> boolean()" n
+    (erlang-skel-separator-end 2)
+    "selective() ->" n>
+    "false." n
+    n
+    (erlang-skel-separator-start 2)
+    "%% @private" n
+    "%% @doc" n
+    "%% This function does the actual transformation." n
+    "%%" n
+    "%% @spec transform(Args::#args{}) -> " n
+    "%%            {ok, [{filename(), filename(), syntaxTree()}]} |" n
+    "%%            {error, Reason}" n
+    (erlang-skel-separator-end 2)
+    "transform(_Args) ->" n>
+    "{ok, []}." n
+    n
+    (erlang-skel-double-separator-start 3)
+    "%%% Internal functions" n
+    (erlang-skel-double-separator-end 3)
+    )
+  "*The template of a gen_refac.
+Please see the function `tempo-define-template'.")
