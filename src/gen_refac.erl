@@ -49,9 +49,9 @@
 %% to all refactorings.
 %%  
 %% The user module should export:
-%% ```input_pars() 
+%% ```input_par_prompts() 
 %%      ===> [string()]'''
-%%  `input_pars' returns the list of prompt strings to be used when 
+%%  `input_par_prompts' returns the list of prompt strings to be used when 
 %%   the refactorer asks the user for input. There should be one 
 %%   prompt string for each input.
 %% ```select_focus(Args::#args{}) 
@@ -61,7 +61,7 @@
 %%   `{error, Reason}' if the user didn't select the kind of entity 
 %%   expected; or `{ok, term()' when a valid focus of interest has been
 %%   selected.
-%%  ```pre_cond_check(Args::#args{})
+%%  ```check_pre_cond(Args::#args{})
 %%       ===> ok | {error, Reason}'''
 %%   This function checks whether the pre-conditions of the refactoring 
 %%   hold, and returns `ok' if the pre-condition checking passes, otherwise
@@ -132,24 +132,22 @@
 %%</li>
 %%</ul>
 %%</doc>
-
-
 -module(gen_refac).
 
 -export([run_refac/2, 
-         input_pars/1,
+         input_par_prompts/1,
          apply_changes/3
         ]).
 
 -export([behaviour_info/1]).
 
--include("../include/gen_refac.hrl").
+-include("../include/wrangler.hrl").
 
 %%@private
 -spec behaviour_info(atom()) -> 'undefined' | [{atom(), arity()}].
 behaviour_info(callbacks) ->
-    [{input_pars,0}, {select_focus,1}, 
-     {pre_cond_check, 1}, {transform, 1},
+    [{input_par_prompts,0}, {select_focus,1}, 
+     {check_pre_cond, 1}, {transform, 1},
      {selective, 0}].
 
 -spec(select_focus(Module::module(), Args::[term()]) ->
@@ -157,10 +155,10 @@ behaviour_info(callbacks) ->
 select_focus(Module, Args) ->
     apply(Module, select_focus, [Args]).
 
--spec(pre_cond_check(Module::module(), Args::[term()]) ->
+-spec(check_pre_cond(Module::module(), Args::[term()]) ->
              ok | {error, term()}).
-pre_cond_check(Module, Args) ->
-    apply(Module, pre_cond_check, [Args]).
+check_pre_cond(Module, Args) ->
+    apply(Module,check_pre_cond, [Args]).
 
 -spec(selective(Module::module()) ->
              boolean()).
@@ -172,14 +170,14 @@ selective(Module) ->
               {ok, [{filename(), filename(), syntaxTree()}]} |
               {error, term()}).
 apply_changes(Module, Args, CandsNotToChange) ->
-    wrangler_gen_refac_server:add_value({self(), {false, CandsNotToChange}}),
+    wrangler_gen_refac_server:set_flag({self(), {false, CandsNotToChange}}),
     case apply(Module, transform, [Args]) of
         {ok, Res} ->
-            wrangler_gen_refac_server:delete_value(self()),
+            wrangler_gen_refac_server:delete_flag(self()),
             refac_write_file:write_refactored_files(
               Res, 'emacs', Args#args.tabwidth, "");
         {error, Reason} ->
-            wrangler_gen_refac_server:delete_value(self()),
+            wrangler_gen_refac_server:delete_flag(self()),
             {error, Reason}
     end.
 
@@ -210,26 +208,28 @@ run_refac(ModName, Args=[CurFileName, [Line,Col],
     case select_focus(Module, Args0) of
         {ok, Sel} ->
             Args1 = Args0#args{focus_sel=Sel},
-            case pre_cond_check(Module, Args1) of
+            case check_pre_cond(Module, Args1) of
                 ok -> 
                     Selective=selective(Module),
-                    wrangler_gen_refac_server:add_value({self(), Selective}),
+                    wrangler_gen_refac_server:set_flag({self(), Selective}),
                     Args2 = Args1#args{selective=Selective},
                     case Selective of 
                         true ->
                             case apply(Module, transform, [Args2]) of
-                                {change_sets, Cands} ->
-                                    {change_sets, Cands, Module, Args2};
                                 {error, Reason} ->
-                                    {error, Reason}
+                                    {error, Reason};
+                                _ ->
+                                    {ok, ChangeSets}=wrangler_gen_refac_server:get_change_set(self()),     
+                                    %% wrangler_gen_refac_server:delete_change_set(self()),
+                                    {change_set, ChangeSets, Module, Args2}
                             end;
                         false->
                             case apply(Module, transform, [Args2]) of
                               {ok, Res} ->
-                                    wrangler_gen_refac_server:delete_value(self()),
+                                    wrangler_gen_refac_server:delete_flag(self()),
                                     refac_write_file:write_refactored_files(Res,emacs,TabWidth,"");
                                 {error, Reason} ->
-                                    wrangler_gen_refac_server:delete_value(self()),
+                                    wrangler_gen_refac_server:delete_flag(self()),
                                     {error, Reason}
                             end
                     end;
@@ -242,14 +242,14 @@ run_refac(ModName, Args=[CurFileName, [Line,Col],
 
    
 %%@private
-input_pars(CallBackMod) ->
+input_par_prompts(CallBackMod) ->
     Res =input_pars_1(CallBackMod),
     {ok, Res}.
 
 input_pars_1(CallBackMod) when is_atom(CallBackMod)->
-    erlang:apply(CallBackMod, input_pars, []);
+    erlang:apply(CallBackMod, input_par_prompts, []);
 input_pars_1(CallBackMod) when is_list(CallBackMod)->
-    erlang:apply(list_to_atom(CallBackMod), input_pars, []);
+    erlang:apply(list_to_atom(CallBackMod), input_par_prompts, []);
 input_pars_1(_) ->
     throw:error(badarg).
  
