@@ -14,23 +14,23 @@
 
 -behaviour(gen_refac).
 
--export([input_pars/0, select_focus/1, 
-         pre_cond_check/1, selective/0,
+-export([input_par_prompts/0, select_focus/1,
+         check_pre_cond/1, selective/0,
          transform/1]).
 
--include("../include/gen_refac.hrl").
+-include("../include/wrangler.hrl").
 
 %% No parameter input is required.
--spec (input_pars/0::() -> [string()]).                           
-input_pars()->[].
+-spec (input_par_prompts/0::() -> [string()]).                           
+input_par_prompts() -> [].
 
 %% No focus selection is required.
 -spec (select_focus/1::(#args{}) -> {ok, syntaxTree()}|{ok, none}).  
 select_focus(_Args) ->{ok, none}.
 
 %% No precondition checking is required.
--spec (pre_cond_check/1::(#args{}) -> ok).  
-pre_cond_check(_Args)->
+-spec (check_pre_cond/1::(#args{}) -> ok).  
+check_pre_cond(_Args) ->
     ok.
 
 selective() ->
