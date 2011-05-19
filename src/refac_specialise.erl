@@ -12,15 +12,15 @@
 
 -behaviour(gen_refac).
 
--export([input_pars/0, select_focus/1, 
-         pre_cond_check/1, selective/0,
+-export([input_par_prompts/0, select_focus/1, 
+         check_pre_cond/1, selective/0,
          transform/1]).
 
--include("../include/gen_refac.hrl").
+-include("../include/wrangler.hrl").
 
 %% The Emacs mini-buffer prompts for the user input parameters. 
--spec (input_pars/0::() -> [string()]).                           
-input_pars()->
+-spec (input_par_prompts/0::() -> [string()]).                           
+input_par_prompts()->
     [].
 
 %% Select the focus of interest. If no selection is neeeded, 
@@ -53,26 +53,26 @@ select_focus(#args{current_file_name=File,
     end.
 
 %% Pre-condition checking.
--spec (pre_cond_check/1::(#args{}) -> ok).  
-pre_cond_check(Args=#args{current_file_name=File, 
+-spec (check_pre_cond/1::(#args{}) -> ok).  
+check_pre_cond(Args=#args{current_file_name=File, 
                           focus_sel={{M,_F,_A},_Expr,_Nth}}) ->
     case {ok, M}==refac_api:module_name(File) of 
         true ->   
-            pre_cond_check_1(Args);
+            check_pre_cond_1(Args);
         false ->
             throw({error, "The function selected is not defined"
                    "in the current module."})
     end.        
 
-pre_cond_check_1(Args=#args{focus_sel={_MFA,Expr, _Nth}}) ->
+check_pre_cond_1(Args=#args{focus_sel={_MFA, Expr, _Nth}}) ->
     case refac_api:free_vars(Expr) of 
         [] ->
-            pre_cond_check_2(Args);
+            check_pre_cond_2(Args);
         _ ->
             throw({error, "The argument selected contains free variables."})
     end.
 
-pre_cond_check_2(#args{current_file_name=File, 
+check_pre_cond_2(#args{current_file_name=File,
                        focus_sel={MFA,_Expr, Nth}}) ->
     FunDef= refac_api:mfa_to_fun_def(MFA, File),
     NthPars = ?COLLECT("f@(Args@@)-> Bs@@;", 
