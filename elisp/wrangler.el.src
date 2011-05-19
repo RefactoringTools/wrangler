@@ -313,7 +313,10 @@
     ("Partition Exported Functions"  erl-wrangler-code-inspector-partition-exports)
     ("gen_fsm State Data to Record" erl-refactor-gen-fsm-to-record)
     nil
-    ("gen_refac Skeleton"  tempo-template-gen-refac)
+    ("Skeletons"
+      (("gen_refac Skeleton"  tempo-template-gen-refac)
+       ("Include wrangler.hrl"    tempo-template-include-wrangler)
+       ))
     ("Apply Adhoc Refactoring"  apply-adhoc-refac)
     nil
     ("Undo" erl-refactor-undo)
@@ -3561,12 +3564,15 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
     (kill-buffer (get-file-buffer-1 uf)))
   (setq unopened-files nil)
   candidates-not-to-change)
-
+ 
 
 (require 'tempo)
 (setq tempo-interactive t)
 
-
+(tempo-define-template "include-wrangler"
+   '("-include(\""%WRANGLER_DIR%"/include/wrangler.hrl\")." n n  
+   )
+)
 (tempo-define-template "gen-refac"
   '((erlang-skel-include erlang-skel-large-header)
     "-behaviour(gen_refac)." n n
