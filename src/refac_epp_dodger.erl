@@ -583,8 +583,12 @@ unfold_function_names(Ns) ->
     F = fun ({{atom, Pos1, Atom},{integer, Pos2, Arity}}) ->
 		N = refac_syntax:arity_qualifier(refac_syntax:set_pos(refac_syntax:atom(Atom), Pos1), 
                                                  refac_syntax:set_pos(refac_syntax:integer(Arity),Pos2)),
+		refac_syntax:set_pos(N, Pos1);
+            ({{var, Pos1, MetaFunName}, {var, Pos2, MetaArity}}) ->
+                N = refac_syntax:arity_qualifier(refac_syntax:set_pos(refac_syntax:variable(MetaFunName), Pos1), 
+                                                 refac_syntax:set_pos(refac_syntax:variable(MetaArity),Pos2)),
 		refac_syntax:set_pos(N, Pos1)
-	end,
+  	end,
     [F(N) || N <- Ns].
        
 fix_pos_in_form(Ts, Form) ->
