@@ -295,7 +295,7 @@ vann(Tree, Env, Ms, VI, Pid) ->
 		    case [V2 || V2 <- Env, vann_1(V2, V)] of
 			[] ->
 			    Bound = [],
-			    Free = [{V, ?DEFAULT_LOC}],
+			    Free = [{V, P}],
 			    Def = [?DEFAULT_LOC],
 			    {ann_bindings(Tree, Env, Bound, Free, Def), Bound, Free};
 			L ->
@@ -480,7 +480,7 @@ vann_receive_expr(Tree, Env, Ms, VI, Pid) ->
 	    Tree1 = rewrite(Tree, refac_syntax:receive_expr(Cs1, none, [])),
 	    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free};
 	_ ->
-	    C = refac_syntax:clause([], Es),
+	    C = refac_syntax:clause(none, Es),
 	    {[C1 | Cs1], {Bound, Free1}} = vann_clauses([C | Cs],
 							Env, Ms, VI, Pid),
 	    Es1 = refac_syntax:clause_body(C1),
@@ -783,8 +783,9 @@ vann_define(D, Env, Ms, VI, Pid) ->
 
 adjust_define_body(Body, Env) ->
     F = fun (Tree1) ->
-		case refac_syntax:type(Tree1) of
+                case refac_syntax:type(Tree1) of
 		    variable ->
+                        P = refac_syntax:get_pos(Tree1),
 			V = refac_syntax:variable_name(Tree1),
 			case lists:keysearch(V, 1, Env) of
 			    {value, {V, L}} ->
@@ -796,7 +797,7 @@ adjust_define_body(Body, Env) ->
 			    false ->
 				%% Free occurrence; 
 				Bound = [],
-				Free = [{V, ?DEFAULT_LOC}],
+				Free = [{V, P}],
 				Def = [?DEFAULT_LOC],
 				ann_bindings(Tree1, Env, Bound, Free, Def)
 			end;
