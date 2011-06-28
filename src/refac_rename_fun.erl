@@ -57,7 +57,7 @@
 
 -export([rename_fun_command/5]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 
 %%-spec(rename_fun/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
@@ -81,7 +81,10 @@ rename_fun_command(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths) ->
 		    end,
     NewFunNameStr = case is_atom(NewFunName) of
 			true -> atom_to_list(NewFunName);
-			false -> throw({error, "New function name should be an atom."})
+			false when is_list(NewFunName) ->
+                            NewFunName;
+                        false ->
+                            throw({error, "New function name should be an atom or a string."})
 		    end,
     case is_integer(Arity) of
 	true -> ok;
