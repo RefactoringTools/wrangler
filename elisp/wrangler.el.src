@@ -318,6 +318,7 @@
        ("Include wrangler.hrl"    tempo-template-include-wrangler)
        ))
     ("Apply Adhoc Refactoring"  apply-adhoc-refac)
+    ("Apply Composite Refactoring" apply-composite-refac)
     nil
     ("Undo" erl-refactor-undo)
     nil
@@ -450,7 +451,7 @@
 )
 
 
-(setq pa (concat %WRANGLER_DIR% "/ebin"))
+(setq pa (concat  %WRANGLER_DIR% "/ebin"))
 
 (defun wrangler-erlang()
   "Run an Wrangler Erlang shell"
@@ -601,6 +602,7 @@
   (preview-commit-cancel-1 current-file-name modified)
   )
 
+
 (defun preview-commit-cancel-1 (current-file-name modified)
   "preview, commit or cancel the refactoring result"
   (let ((answer (read-char-spec-1 "Do you want to preview(p)/commit(c)/cancel(n) the changes to be performed?(p/c/n):"
@@ -608,12 +610,14 @@
 		    (?c c "Answer c to commit the changes without preview")
 		    (?n n "Answer n to abort the changes")))))
     (cond ((eq answer 'p) 
+           (setq first-file (car modified))
 	   (setq modified-files (cdr modified))
-	   (wrangler-ediff current-file-name (concat (file-name-sans-extension current-file-name) ".erl.swp")))
+           (wrangler-ediff first-file (concat (file-name-sans-extension first-file) ".erl.swp")))
 	  ((eq answer 'c)
 	   (commit))
 	  ((eq answer 'n)
 	   (abort-changes)))))
+
 
 (defun current-buffer-saved(buffer)
   (let* ((n (buffer-name buffer)) (n1 (substring n 0 1)))
@@ -698,7 +702,7 @@
 		(message "Refactoring failed: %S" rsn))
 	       (['rex ['error rsn]]
 		(message "Refactoring failed: %s" rsn))
-	       (['rex ['warning msg]]
+	       (['rex ['warning msg]] 
 		(progn
 		  (if (y-or-n-p msg)
 		      (erl-spawn
@@ -3407,7 +3411,7 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
         (end-col-no    (current-column-pos region-end)))
      (if (current-buffer-saved buffer)
         (erl-spawn
-          (erl-send-rpc wrangler-erl-node 'gen_refac 'input_pars (list callback-module-name))
+          (erl-send-rpc wrangler-erl-node 'gen_refac 'input_par_prompts (list callback-module-name))
           (erl-receive (buffer current-file-name callback-module-name line-no column-no 
                                start-line-no start-col-no end-line-no end-col-no)
               ((['rex ['badrpc rsn]]
@@ -3479,7 +3483,7 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
        (column-no (current-column-no)))
     (if (current-buffer-saved buffer) 
         (erl-spawn            
-          (erl-send-rpc wrangler-erl-node 'wrangler_code_inspection_api 'input_pars (list module-name function-name))             
+          (erl-send-rpc wrangler-erl-node 'wrangler_code_inspection_api 'input_par_prompts (list module-name function-name))             
           (erl-receive (buffer module-name function-name current-file-name) 
               ((['rex ['badrpc rsn]]
                 (message "Code inspection failed: %s" rsn))
@@ -3566,11 +3570,132 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
   candidates-not-to-change)
  
 
+(defun apply-composite-refac(callback-module-name) 
+  "Apply a composite refactoring defined by behaviour gen_composite_refac"
+  (interactive (list (read-string "Refactoring Callback module name: ")))
+  (let* ((buffer (current-buffer))
+        (current-file-name (buffer-file-name))
+        (line-no (current-line-no))
+        (column-no (current-column-no))
+        (region-begin (my-region-beginning))
+        (region-end   (my-region-end))
+        (start-line-no (line-no-pos region-begin))
+        (start-col-no  (current-column-pos region-begin))
+        (end-line-no   (line-no-pos region-end))
+        (end-col-no    (current-column-pos region-end)))
+    (if (current-buffer-saved buffer)
+        (erl-spawn
+          (erl-send-rpc wrangler-erl-node 'gen_composite_refac 'input_par_prompts (list callback-module-name))
+          (erl-receive (buffer current-file-name callback-module-name line-no column-no 
+                               start-line-no start-col-no end-line-no end-col-no)
+              ((['rex ['badrpc rsn]]
+                (message "Refactoring failed: the refactoring does not exist!"))        
+               (['rex ['error rsn]]
+                (message "Refactoring failed: error, %s" rsn))
+               (['rex ['ok pars]]
+                (apply-composite-refac-1 callback-module-name current-file-name line-no column-no 
+                                         start-line-no start-col-no end-line-no end-col-no pars)
+                ))))
+      (message "Refactoring aborted."))))
+
+
+(defun apply-composite-refac-1(callback-module-name current-file-name line-no column-no 
+                           start-line-no start-col-no end-line-no end-col-no pars)  
+  "apply a composite refactoring"
+  (interactive)
+  (let* ((par_vals (mapcar 'read-string pars)) 
+         (buffer (current-buffer))
+         (args (list callback-module-name 
+                     (list current-file-name  (list line-no column-no) (list (list start-line-no start-col-no)
+                                                                             (list end-line-no end-col-no))
+                           par_vals wrangler-search-paths tab-width))))
+    (if (current-buffer-saved buffer)
+        (progn
+          (erl-spawn
+            (erl-send-rpc wrangler-erl-node 'gen_composite_refac 'init_composite_refac args)
+            (erl-receive (current-file-name buffer)
+                ((['rex ['badrpc rsn]]
+                  (message "Refactoring failed: %s" rsn))
+                 (['rex ['error rsn]]
+                  (message "Refactoring failed: %s" rsn))
+                 (['rex pid]
+                  (apply-refac-cmds pid nil)
+                  )))))
+      (message "Refactoring aborted.")))) 
+
+(defun apply-refac-cmds(pid modified-files)
+  "apply a sequence of refactoring commands."
+  ;;(message "pid: %s" pid)
+  (erl-spawn
+    (erl-send-rpc wrangler-erl-node 'gen_composite_refac 'get_next_command (list pid))
+    (erl-receive (pid modified-files)
+        ((['rex ['badrpc rsn]]
+          (message "Refactoring failed: %s" rsn))
+         (['rex ['error rsn]]
+          (message "Refactoring failed: %s" rsn))
+         (['rex ['ok 'none modified]] 
+          (message "Refactoring finished: %s" (append modified modified-files))
+          )
+         (['rex ['ok ['refactoring cmd]]]
+          (apply-a-refac-cmd pid cmd modified-files)) 
+         (['rex ['ok ['question msg]]] 
+          (message-box msg))))))
+
+
+(defun apply-a-refac-cmd(pid cmd modified-files)  
+  "apply a sub refactoring of a composite refactorings."
+  (interactive) 
+  (setq mod_name (elt cmd 0))
+  (setq refac_name (elt cmd 1))
+  (setq args (elt cmd 2))
+  (setq newargs (get_user_inputs args))
+ ;; (message "newargs: %s" newargs)
+  (erl-spawn 
+    (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list mod_name refac_name newargs))
+    (erl-receive(pid modified-files)
+        ((['rex ['badrpc rsn]]
+          (progn
+            (message "Refactoring failed: %S" rsn)
+            (apply-refac-cmds pid modified-files)))
+         (['rex ['error rsn]]
+          (progn
+            (message "Refactoring failed: %s" rsn)
+            (apply-refac-cmds pid modified-files)))
+         (['rex ['ok modified]]
+          (progn
+            (message "Refactoring succeeded %s" modified)
+            (apply-refac-cmds pid (append modified modified-files))))
+         ))))
+          
+(defun get_user_inputs(args)
+  "get the user input for parameters that need user input."
+  (interactive)
+  (setq new-args nil)
+  (while (not (equal args nil))
+    (let ((cur-arg (car args)))
+    ;;  (message "cur-arg: %s" cur-arg)
+      (if (sequencep cur-arg)
+          (progn
+          ;;  (message "ddd: %s" (elt cur-arg 0))
+            (if (eq (elt cur-arg 0) 'prompt)
+                (let ((prompt (elt cur-arg 1)))
+                  (setq new-args (cons (read-string prompt) new-args)))
+              (setq new-args (cons cur-arg new-args))
+              ))
+        (setq new-args (cons cur-arg new-args))
+        ))
+    (setq args (cdr args)))
+  (reverse new-args)
+)
+ 
+
+
+ 
 (require 'tempo)
 (setq tempo-interactive t)
 
 (tempo-define-template "include-wrangler"
-   '("-include(\""%WRANGLER_DIR%"/include/wrangler.hrl\")." n n  
+   '("-include(\"""C:/cygwin/home/hl/wrangler/share/wrangler""/include/wrangler.hrl\")." n n  
    )
 )
 (tempo-define-template "gen-refac"
@@ -3578,7 +3703,7 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
     "-behaviour(gen_refac)." n n
    
     "%% Include files" n 
-    "-include(\""%WRANGLER_DIR%"/include/wrangler.hrl\")." n n
+    "-include(\"""C:/cygwin/home/hl/wrangler/share/wrangler""/include/wrangler.hrl\")." n n
     (erlang-skel-double-separator-start 3)
     "%% gen_refac callbacks" n
     "-export([input_par_prompts/0,select_focus/1, " n>
