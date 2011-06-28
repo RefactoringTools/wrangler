@@ -55,7 +55,7 @@
 
 -export([rename_fun/6, rename_fun_1/6,  rename_fun_eclipse/6, rename_fun_1_eclipse/6]).
 
--export([rename_fun_command/5]).
+-export([rename_fun_by_name/6]).
 
 -include("../include/wrangler_internal.hrl").
 
@@ -71,10 +71,9 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
 rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
 
-%%-spec(rename_fun_command/5::(modulename()|filename(), atom(), integer(), atom(),[dir()])->
+%%-spec(rename_fun_command/6::(modulename()|filename(), atom(), integer(), atom(),[dir()], atom())->
 %%				       {error, string()} | {ok, [filename()]}).
-
-rename_fun_command(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths) ->
+rename_fun_by_name(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths, Editor) ->
     OldFunNameStr = case is_atom(OldFunName) of
 			true -> atom_to_list(OldFunName);
 			false -> throw({error, "Original function name should be an atom."})
@@ -102,14 +101,14 @@ rename_fun_command(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths) ->
     case filelib:is_file(ModOrFileName) of
 	true ->
 	    rename_fun_command_1(ModOrFileName, OldFunNameStr, Arity,
-				 NewFunNameStr, SearchPaths, 8);
+				 NewFunNameStr, SearchPaths, 8, Editor);
 	false ->
 	    case is_atom(ModOrFileName) of
 		true ->
 		    case refac_misc:modname_to_filename(ModOrFileName, SearchPaths) of
 			{ok, FileName} ->
 			    rename_fun_command_1(FileName, OldFunNameStr, Arity,
-						 NewFunNameStr, SearchPaths, 8);
+						 NewFunNameStr, SearchPaths, 8, Editor);
 			{error, Msg} ->
 			    {error, lists:flatten(Msg)}
 		    end;
@@ -118,7 +117,7 @@ rename_fun_command(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths) ->
 	    end
     end.
 
-rename_fun_command_1(FileName, OldFunName, Arity, NewFunName, SearchPaths, TabWidth) ->
+rename_fun_command_1(FileName, OldFunName, Arity, NewFunName, SearchPaths, TabWidth, Editor) ->
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     OldFunNameAtom = list_to_atom(OldFunName),
     NewFunNameAtom = list_to_atom(NewFunName),
@@ -128,7 +127,7 @@ rename_fun_command_1(FileName, OldFunName, Arity, NewFunName, SearchPaths, TabWi
 	    case pre_cond_check_command(Info, NewFunNameAtom, ModName, OldFunNameAtom, Arity) of
 		ok ->
 		    rename_fun_0(FileName, {AnnAST, Info}, {ModName, OldFunNameAtom, Arity}, {DefPos, NewFunNameAtom},
-				 SearchPaths, TabWidth, command, "");
+				 SearchPaths, TabWidth, Editor, "");
 		Others -> Others
 	    end;
 	{error, Reason} ->
