@@ -36,7 +36,7 @@
 -export([test_cases_to_property/5, test_cases_to_property_eclipse/5]).
 
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %% THE CURRENT IMPLEMENTATION IS STILL A PROTOTYPE, NOT READY FOR RELEASE YET. 
 %% TODO:

@@ -68,7 +68,7 @@
 -import(refac_atom_utils, [output_atom_warning_msg/3, check_unsure_atoms/5, 
 			   stop_atom_process/1, start_atom_process/0]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 -record(module_info, {filename, 
 		      modname,

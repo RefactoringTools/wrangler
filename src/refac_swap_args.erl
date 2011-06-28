@@ -83,7 +83,7 @@ transform(Args=#args{current_file_name=File,focus_sel=FunDef,
     
 %% transform the current file.
 transform_in_cur_file(_Args=#args{current_file_name=File},MFA, I, J)->
-    ?FULL_TD([rule1(MFA, I, J),
+    ?FULL_TD_TP([rule1(MFA, I, J),
               rule2(MFA, I, J),
               rule3(MFA, I, J),
               rule4(MFA, I, J),
@@ -95,7 +95,7 @@ transform_in_cur_file(_Args=#args{current_file_name=File},MFA, I, J)->
 transform_in_client_files(_Args=#args{current_file_name=File,
                                      search_paths=SearchPaths}, 
                           MFA, I, J) ->
-    ?FULL_TD([rule2(MFA, I, J),
+    ?FULL_TD_TP([rule2(MFA, I, J),
               rule3(MFA, I, J),
               rule4(MFA, I, J),
               rule5(MFA, I, J),
@@ -104,62 +104,66 @@ transform_in_client_files(_Args=#args{current_file_name=File,
                   
 
 %% transform the function definition itself.
-rule1({_M,F,A}, I, J) ->
-    ?RULE("f@(Args@@) when Guard@@ -> Bs@@;", 
+rule1({M,F,A}, I, J) ->
+    ?RULE(?T("f@(Args@@) when Guard@@ -> Bs@@;"), 
           begin NewArgs@@=swap(Args@@,I,J),
                 ?QUOTE("f@(NewArgs@@) when Guard@@->Bs@@;")
           end,
-          length(Args@@) == A andalso refac_syntax:is_atom(f@, F)).
+          refac_api:fun_define_info(f@)=={M, F,A}).
 
 %% the following rules transform the different kinds of 
 %% application senarioes of the function.
 rule2({M,F,A}, I, J) ->
-    ?RULE("F@(Args@@)", 
+    ?RULE(?T("F@(Args@@)"), 
           begin NewArgs@@=swap(Args@@, I, J),
                 ?QUOTE("F@(NewArgs@@)")
           end,
           fun_define_info(F@) == {M, F, A}).
 
 rule3({M,F,A}, I, J)->
-     ?RULE("Fun@(Args@@, M@, F@, Args2@)",
-           begin
-               NewArgs2@=refac_syntax:list(swap(refac_syntax:list_elements(Args2@), I, J)),
-               ?QUOTE("Fun@(Args@@, M@, F@,NewArgs2@)")
-           end,
-           case fun_define_info(Fun@) of
-               {erlang, apply, _} -> true;
-               _ -> false
-           end andalso
-           refac_syntax:is_atom(M@, M) andalso
-           refac_syntax:is_atom(F@, F) andalso
-           refac_syntax:type(Args2@) == list andalso
-           refac_syntax:list_length(Args2@) == A).
+    ?RULE(?T("Fun@(N@@, M@, F@, [Args@@])"),
+          begin
+              NewArgs@@=swap(Args@@, I, J),
+              ?QUOTE("Fun@(N@@, M@, F@,[NewArgs@@])")
+          end,
+          case fun_define_info(Fun@) of
+              {erlang, apply, _} -> 
+                  refac_api:fun_define_info(F@)=={M,F,A};
+              _ -> false
+          end).
 
 rule4({M,F,A}, I, J) ->
-    ?RULE("Fun@(Args@@, M@, F@, Args2@)",
+    ?RULE(?T("Fun@(N@@, M@, F@, Args@)"),
           begin
               AfterStr =lists:flatten(
                           io_lib:format(
-                            "Fun@(Args@@, M@, F@, 
+                            "Fun@(N@@, M@, F@, 
                                     fun(List) ->
                                        Ith = lists:nth(~p, List),
                                        Jth = lists:nth(~p, List),
                                        T = list_to_tuple(List),
                                        T1=setelement(~p, setelement(~p, T, Jth), Ith),
                                        tuple_to_list(T1)
-                                    end(Args2@))", [I, J,J ,I])),
+                                    end(Args@))", [I, J,J,I])),
               ?QUOTE(AfterStr)
           end,
           case fun_define_info(Fun@) of 
-              {erlang,apply, _} -> true;
+              {erlang,apply, _} -> 
+                  refac_api:fun_define_info(F@)=={M,F,A};
               _ -> false
-          end andalso
-          refac_syntax:is_atom(M@, M) andalso 
-          fun_define_info(F@) == {M,F,A} andalso
-          refac_syntax:type(Args2@) =/= list).
+          end).
 
-rule5({M,F,A}, I, J)->
-    ?RULE("Fun@(F@, Args@)", 
+rule5({M,F,A}, I, J) ->
+    ?RULE(?T("Fun@(F@, [Args@@])"), 
+          begin
+              NewArgs@@= swap(Args@@, I,J),
+              ?QUOTE("Fun@(F@, [NewArgs@@])")
+          end, 
+          fun_define_info(Fun@)=={erlang, apply, 2} andalso 
+          fun_define_info(F@)=={M,F,A}).
+
+rule6({M,F,A}, I, J)->
+    ?RULE(?T("Fun@(F@, Args@)"), 
           begin
               AfterStr =lists:flatten(
                           io_lib:format(
@@ -173,22 +177,8 @@ rule5({M,F,A}, I, J)->
                                     end(Args@))", [I, J,J ,I])),
               ?QUOTE(AfterStr)
           end,
-           fun_define_info(Fun@)=={erlang, apply, 2} andalso 
-           refac_syntax:type(F@)==implicit_fun       andalso
-           fun_define_info(F@)=={M,F,A}       andalso
-           refac_syntax:type(Args@) =/= list).
-
-rule6({M,F,A}, I, J) ->
-     ?RULE("Fun@(F@, Args@)", 
-           begin
-               NewArgs2@=refac_syntax:list(
-                           swap(refac_syntax:list_elements(Args@), I,J)),
-               ?QUOTE("Fun@(F@, NewArgs2@)")
-           end, 
-           fun_define_info(Fun@)=={erlang, apply, 2} andalso 
-           refac_syntax:type(F@)==implicit_fun       andalso
-           fun_define_info(F@)=={M,F,A}       andalso
-           refac_syntax:type(Args@) == list).
+          fun_define_info(Fun@)=={erlang, apply, 2} andalso
+          fun_define_info(F@)=={M,F,A}).
 
 
 %% utility functions.
@@ -199,4 +189,4 @@ swap(List, I, J) ->
     T1=setelement(J, setelement(I, T, Jth), Ith),
     tuple_to_list(T1).
  
-
+ 

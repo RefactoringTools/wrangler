@@ -36,7 +36,7 @@
 -export([sim_code_detection/6, sim_code_detection_in_buffer/6]).
 -export([sim_code_detection_eclipse/6]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 -include_lib("stdlib/include/ms_transform.hrl").
 

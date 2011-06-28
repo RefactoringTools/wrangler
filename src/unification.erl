@@ -29,7 +29,7 @@
 -export([expr_unification/2, expr_unification_extended/2, expr_match/2]).
 
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 
 %%TODO: should expr_unification(Exp1, Exp2) == expr_unification(Exp2, Exp1)?

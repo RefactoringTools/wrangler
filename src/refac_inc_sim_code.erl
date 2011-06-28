@@ -47,7 +47,7 @@
 
 -define(INC, false).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 -include_lib("stdlib/include/ms_transform.hrl").
 

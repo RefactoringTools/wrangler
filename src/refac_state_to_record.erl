@@ -43,7 +43,7 @@
 -export([is_statemachine_used/2]).
 
 -export([format_state_funs/1, format_field_names/1]).
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 
 -define(Msg, "Wrangler failed to infer the current data type of the state.").

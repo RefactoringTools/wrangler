@@ -53,7 +53,7 @@
 -export([rename/3, cond_check/4]).
 
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %%-spec rename_var(filename(), integer(), integer(), string(), [dir()], integer()) ->
 %%	     {ok, string()}.

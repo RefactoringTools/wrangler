@@ -84,14 +84,14 @@ selective() ->
 -spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}
                                      | {error, term()}).    
 transform(Args=#args{current_file_name=File}) ->
-    ?FULL_TD([rule1(Args)], [File]).
+    ?FULL_TD_TP([rule1(Args)], [File]).
 
 rule1(Args=#args{focus_sel=Exprs, user_inputs=[NewFunName]}) ->
-    ?RULE("F@",
+    ?RULE(?T("F@"),
           begin
               ExVars = refac_api:exported_var_names(Exprs),
               Pars=format_pars(refac_api:free_var_names(Exprs)),
-              {ok, F1}=?FULL_TD([rule2(Args)],_This@),
+              {ok, F1}=?FULL_TD_TP([rule2(Args)],_This@),
               if ExVars == []-> 
                       [F1,
                        ?QUOTE(NewFunName++"("++Pars++") ->"
@@ -104,7 +104,7 @@ rule1(Args=#args{focus_sel=Exprs, user_inputs=[NewFunName]}) ->
           refac_syntax:type(F@)==function andalso contains(F@, Exprs)).
 
 rule2(_Args=#args{focus_sel=Exprs, user_inputs=[NewFunName]}) ->
-     ?RULE(?SPLICE(Exprs), 
+    ?RULE(?T("E@"), 
            begin
                ExVars=refac_api:exported_var_names(Exprs),
                FreeVars=refac_api:free_var_names(Exprs),
@@ -115,7 +115,7 @@ rule2(_Args=#args{focus_sel=Exprs, user_inputs=[NewFunName]}) ->
                                   "="++NewFunName++"("++format_pars(FreeVars)++")")
                end
            end,
-           refac_api:start_end_loc(_This@)==refac_api:start_end_loc(Exprs)
+           refac_api:start_end_loc(E@)==refac_api:start_end_loc(Exprs)
           ).
         
 %% Some utility functions.

@@ -34,7 +34,7 @@
 
 -export([foldl_listlist/3, mapfoldl_listlist/3]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 
 %% =====================================================================
@@ -111,68 +111,7 @@ stop_tdTP(Function, Node, Others) ->
            end
      end.
 
-%% stop_buTP(Fun, Tree, Others) ->
-%%      case refac_syntax:subtrees(Tree) of 
-%%          [] ->
-%%              Fun(Tree, Others);
-%%          Gs ->
-%%              Gs1 = [[stop_buTP(Function, T, Others) || T <- G] || G <- Gs],
-%%              Gs2 = [[N || {N, _C} <- G] || G <- Gs1],
-%%              Changed = lists:member(true, lists:flatten([[C || {_N, C} <- G] || G <- Gs1])),
-%%              Tree1 = rewrite(Tree, refac_syntax:make_tree(refac_syntax:type(Tree), Gs2)),
-%%              if Changed ->
-%%                      {Tree1, Changed};
-%%                 true ->
-%%                      Fun(Tree1)
-%%              end
-%%      end.
 
-%% once_buTP(Fun, Tree, Opters) ->   
-%%     case refac_syntax:subtrees(Tree) of 
-%%         [] ->
-%%             Fun(Tree, Others);
-%%         Gs ->
-%%             Gs1 =[once(Fun, G)||G <- Gs],
-%%             Gs2 = [[N || N<- G] || {G, _} <- Gs1],
-%%             Changed = lists:member(true, lists:flatten([C || {G, C} <- Gs1])),
-%%             Tree1 = rewrite(Tree, refac_syntax:make_tree(refac_syntax:type(Tree), Gs2)),
-%%             if Changed ->
-%%                     Tree1;
-%%                true ->
-%%                     Fun(Tree1)
-%%             end
-%%     end.
-
-
-%% once(Fun, Gs) ->
-%%     once(Fun, Gs, []).
-
-%% once(Fun, [], Acc) ->
-%%     {lists:reverse(Acc), false}.
-%% once(Fun, [H|T], Acc) ->
-%%     case Fun(H) of
-%%        {H1, true} ->
-%%            {lists:reverse(Acc)++[H1|T], true};
-%%        {H1, false} ->
-%%            once(T, [H1|Acc])
-%%    end.
-
-%% stop_buTP(Fun, Tree, Others) ->
-%%     case refac_syntax:subtrees(Tree) of 
-%%         [] ->
-%%             Fun(Tree, Others);
-%%          Gs ->
-%%             Gs1 = [[stop_buTP(Function, T, Others) || T <- G] || G <- Gs],
-%%             Gs2 = [[N || {N, _C} <- G] || G <- Gs1],
-%%              Changed = lists:member(true, lists:flatten([[C || {_N, C} <- G] || G <- Gs1])),
-%%             Tree1 = rewrite(Tree, refac_syntax:make_tree(refac_syntax:type(Tree), Gs2)),
-%%             if Changed ->
-%%                      Tree1;
-%%                true ->
-%%                      Fun(Tree1)
-%%             end
-%%     end.
-%%
 %%-spec(full_tdTP/3::(fun((syntaxTree(), anyterm()) ->
 %%			       {syntaxTree(), boolean()}), syntaxTree(), anyterm()) ->
 %%	     {syntaxTree(), boolean()}).
@@ -189,6 +128,7 @@ full_tdTP(Function, Node, Others) ->
 		{rewrite(Node1, Node2), Changed or lists:member(true, lists:flatten(G))}
 	  end
     end.
+
 
 %% =====================================================================
 %% @spec full_buTP(Function, Tree::syntaxTree(), {term()})-> syntaxTree()

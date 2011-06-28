@@ -23,7 +23,7 @@
 	 duplicated_code_eclipse/5,
 	 duplicated_code_command_line/5]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %% minimal number of tokens.
 -define(DEFAULT_CLONE_LEN, 40).

@@ -41,7 +41,7 @@
 
 -export([type_ann_ast/5]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 type_ann_ast(FileName, Info, AnnAST, SearchPaths, TabWidth) ->
     case lists:keysearch(module, 1, Info) of

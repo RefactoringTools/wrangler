@@ -34,7 +34,7 @@
 	 not_flush_unknown_messages/3,
          calls_to_specific_function/2]).
 
--include("../include/gen_refac.hrl").
+-include("../include/wrangler.hrl").
 
 %%==========================================================================================
 %%-spec(find_var_instances(FileName::filename(), Line::integer(), Col::integer(),
@@ -565,7 +565,7 @@ has_receive_expr(FunDef) ->
 calls_to_specific_function(MFA={_M, _F, _A}, SearchPaths) ->
     ?wrangler_io("\nCMD: ~p:calls_to_specific_function(~p, ~p).\n",
 		 [?MODULE, MFA, SearchPaths]),
-    {ok, ?COLLECT_LOC(?T("F@(Args@@)"), 
-                     MFA==refac_api:fun_define_info(F@), 
+    {ok, ?FULL_TD_TU([?COLLECT_LOC(?T("F@(Args@@)"), 
+                                  MFA==refac_api:fun_define_info(F@))],
                      [SearchPaths])}.
     

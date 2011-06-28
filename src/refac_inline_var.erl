@@ -44,7 +44,7 @@
 -export([inline_var/5, inline_var_eclipse/5,
 	 inline_var_1/7, inline_var_eclipse_1/6]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %%-spec (inline_var/5::(filename(), integer(), integer(),[dir()], integer()) ->
 %%			   {ok, string()}|

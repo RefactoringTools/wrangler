@@ -31,7 +31,7 @@
          pos_to_fun_name/2,pos_to_fun_def/2,pos_to_var_name/2,pos_to_var/2,pos_to_expr/3,
 	 pos_to_expr_list/2,pos_to_expr_list/3,pos_to_expr_or_pat_list/3,expr_to_fun/2]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %% =================================================================================
 %%-spec (pos_to_node(FileOrTree::filename()|syntaxTree(), Pos::pos(), Cond::Pred) ->

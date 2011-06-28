@@ -56,7 +56,7 @@
 
 -export([register_pid/6, register_pid_eclipse/6, register_pid_1/10, register_pid_2/9]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %% ==============================================================================================================
 %% @spec register_pid(FileName::filename(), Start::Pos, End::Pos, RegName::string(),SearchPaths::[dir()])-> term()

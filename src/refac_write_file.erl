@@ -2,7 +2,7 @@
 
 -export([write_refactored_files/5,write_refactored_files/4,write_refactored_files_for_preview/3]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 -include_lib("kernel/include/file.hrl"). 
 %% =====================================================================
@@ -38,8 +38,7 @@ write_refactored_files_emacs(Results, TabWidth, Cmd) ->
     ChangedFiles = lists:map(fun ({FileInfo,_AST}) -> 
 				     element(1, FileInfo)
 			     end,Results),
-    ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
-		 [ChangedFiles]),
+    output_msg(ChangedFiles),
     {ok,ChangedFiles}.
 
 write_refactored_files_emacs(Results, HasWarningMsg, TabWidth, Cmd) ->
@@ -47,9 +46,17 @@ write_refactored_files_emacs(Results, HasWarningMsg, TabWidth, Cmd) ->
     ChangedFiles = lists:map(fun ({FileInfo,_AST}) -> 
 				     element(1, FileInfo)
 			     end,Results),
-    ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
-		 [ChangedFiles]),
+    output_msg(ChangedFiles),
     {ok,ChangedFiles, HasWarningMsg}.
+
+output_msg(ChangedFiles) ->
+    case ChangedFiles of 
+        [] ->
+            ?wrangler_io("No file has been changed by this refactoring.\n",[]);
+        _ ->
+            ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
+                         [ChangedFiles])
+    end.
 
 write_refactored_files_for_preview(Files, TabWidth, LogMsg) ->
     F = fun (FileAST) ->

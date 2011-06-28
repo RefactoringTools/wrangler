@@ -38,6 +38,7 @@
          rewrite/2, rewrite_with_wrapper/2,
          reset_attrs/1,reset_ann_and_pos/1, 
          reset_ann/1, reset_pos/1,
+         reset_pos_and_range/1,
          default_incls/0,update_ann/2,
          delete_from_ann/2, max/2, min/2, 
          spawn_funs/0,is_spawn_app/1, 
@@ -554,6 +555,18 @@ reset_ann(Node) ->
               refac_syntax:set_ann(T, [])
       end, Node, {}).
 
+
+reset_pos_and_range(Node) when is_list(Node) ->
+    [reset_pos_and_range(N)||N<-Node];
+reset_pos_and_range(Node) ->
+    case refac_syntax:is_tree(Node) orelse refac_syntax:is_wrapper(Node) of
+        true ->
+            refac_syntax:set_pos(
+              refac_misc:update_ann(Node, {range, {{0,0},{0,0}}}),
+              {0,0});
+        false ->
+            Node
+    end.
 
 %%-spec try_eval(filename()|none, syntaxTree(), [dir()], integer()) ->
 %%		      term().

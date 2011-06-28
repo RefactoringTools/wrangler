@@ -34,7 +34,7 @@
 
 -export([contained_exprs/2]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 %% ================================================================================================
 %% @doc Search for identical clones of an expression/ expression sequence in the current Erlang buffer.
 %%

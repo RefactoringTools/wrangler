@@ -34,7 +34,7 @@
 -export([gen_clone_report/3]).
 -export([inc_sim_code_detection_in_buffer/8]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
 -record(tabs, 
 	{ast_tab,

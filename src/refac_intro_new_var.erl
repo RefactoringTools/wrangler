@@ -36,7 +36,7 @@
 -export([intro_new_var/6, intro_new_var_eclipse/6]).
 
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %% =============================================================================================
 %%-spec(intro_new_var/6::(filename(), pos(), pos(), string(), [dir()],integer()) ->

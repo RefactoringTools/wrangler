@@ -66,6 +66,10 @@
 %%   This function checks whether the pre-conditions of the refactoring 
 %%   hold, and returns `ok' if the pre-condition checking passes, otherwise
 %%   `{error, Reason}'.
+%%  ```selective() 
+%%       ===> true | false'''
+%%   This function should returns `true' if the user is allowed to browse 
+%%   through and select the changes to be made.
 %% ```transform(Args::#args()) 
 %%      ===> {ok, [{filename(), syntaxTree()}] | {error, Reason}}'''
 %%   Function `transform' carries out the transformation part of the 
@@ -80,14 +84,20 @@
 %%                   highlight_range   :: {pos(), pos()},     %% the start and end location of the highlighted code if there is any.
 %%                   user_inputs       :: [string()],         %% the data inputted by the user.
 %%                   focus_sel         :: any(),              %% the focus of interest selected by the user.
+%%                   selective         :: boolean(),          %% selective refactoring or not.
 %%                   search_paths      ::[dir()|filename()],  %% the list of directories or files which specify the scope of the project.
 %%                   tabwidth =8        ::integer()           %% the number of white spaces denoted by a tab key.
 %%                  }).'''
 %%
 %% Some example refactorings implemented using the Wrangler API:
-%%<ul>
 %%<li>
 %%<a href="file:refac_swap_args.erl" > Swap arguments of a function;</a>.
+%%</li>
+%%<li>
+%%<a href="file:refac_remove_arg.erl" > Remove an argument of a function;</a>.
+%%</li>
+%%<li>
+%%<a href="file:refac_keysearch_to_keyfind.erl"> replace the uses of lists:keysearch/3 with lists:keyfind/3; </a>
 %%</li>
 %%<li>
 %%<a href="file:refac_specialise.erl"> Specialise a function definition; </a>
@@ -107,30 +117,9 @@
 %%<li>
 %%<a href="file:refac_batch_rename_fun.erl"> Batch renaming of function names from camelCaseto camel_case. </a>
 %%</li>
-%%</ul>
-%%</doc>
-%%</ul>
-%% Some example refactorings implemented using the Wrangler API:
-%%<ul>
 %%<li>
-%%<a href="file:refac_swap_args.erl" > Swap arguments of a function;</a>.
+%%<a href="file:code_inspector_examples.erl"> A collection of code inspectors written using the Wrangler API. </a>
 %%</li>
-%%<li>
-%%<a href="file:refac_specialise.erl"> Specialise a function definition; </a>
-%%</li>
-%%<li>
-%%<a href="file:refac_apply_to_remote_call.erl"> Apply to remote function call; </a>
-%%</li>
-%%<li>
-%%<a href="file:refac_intro_import.erl">Introduce an import attribute; </a>
-%%</li>
-%%<li>
-%%<a href="file:refac_remove_import.erl">Remove an import attribute;</a>
-%%</li>
-%%<li>
-%%<a href="file:refac_list.erl"> Various list-related transformations;</a>
-%%</li>
-%%</ul>
 %%</doc>
 -module(gen_refac).
 
@@ -144,19 +133,19 @@
 -include("../include/wrangler.hrl").
 
 %%@private
--spec behaviour_info(atom()) -> 'undefined' | [{atom(), arity()}].
+-spec behaviour_info(atom()) ->[{atom(), arity()}].
 behaviour_info(callbacks) ->
     [{input_par_prompts,0}, {select_focus,1}, 
      {check_pre_cond, 1}, {transform, 1},
      {selective, 0}].
 
--spec(select_focus(Module::module(), Args::[term()]) ->
-             {ok, term()} | {error, term()}). 
+-spec(select_focus(Module::module(), Args::args()) ->
+             {ok, term()} | {error, term()}).
 select_focus(Module, Args) ->
     apply(Module, select_focus, [Args]).
 
--spec(check_pre_cond(Module::module(), Args::[term()]) ->
-             ok | {error, term()}).
+%% -spec(check_pre_cond(Module::module(), Args::[term()]) ->
+%%              ok | {error, term()}).
 check_pre_cond(Module, Args) ->
     apply(Module,check_pre_cond, [Args]).
 
@@ -166,6 +155,7 @@ selective(Module) ->
     Module:selective().
    
 
+%%@private
 -spec(apply_changes(Module::module(), Args::[term()], CandsNotToChange::[term()]) ->
               {ok, [{filename(), filename(), syntaxTree()}]} |
               {error, term()}).
@@ -183,10 +173,12 @@ apply_changes(Module, Args, CandsNotToChange) ->
 
 %%@doc The interface function for invoking a refactoring defined 
 %% in module `ModName'.
-%%@spec(run_refac(Module::module(), Args::[term()]) ->
-%%            {ok, string()} | {error, term()}).
--spec(run_refac(Module::module(), Args::[term()]) ->
-             {ok, string()} | {error, term()}).
+%%@spec(run_refac(Module::module()|string(), Args::args()) ->
+%%    {ok, string()} | {change_set, [{string(), string()}], module(), args()}|
+%%              {error, term()}
+-spec(run_refac(Module::module()|string(), Args::args()) ->
+    {ok, string()} | {change_set, [{string(), string()}], module(), args()}|
+              {error, term()}).
 run_refac(ModName, Args=[CurFileName, [Line,Col],
                          [[StartLine, StartCol],
                           [EndLn, EndCol]], UserInputs,
@@ -225,22 +217,32 @@ run_refac(ModName, Args=[CurFileName, [Line,Col],
                             end;
                         false->
                             case apply(Module, transform, [Args2]) of
-                              {ok, Res} ->
+                                {ok, Res} ->
                                     wrangler_gen_refac_server:delete_flag(self()),
                                     refac_write_file:write_refactored_files(Res,emacs,TabWidth,"");
                                 {error, Reason} ->
                                     wrangler_gen_refac_server:delete_flag(self()),
-                                    {error, Reason}
-                            end
+                                    {error, Reason};
+                                _ ->
+                                    {error, "The value returned by callback function transform/1 "
+                                     "is different from the return type expected."}     
+                            end;
+                        _ -> 
+                            {error, "The value returned by callback function selective/1 "
+                             "is different from the return type expected."}
                     end;
                 {error, Reason} ->
-                    {error, Reason}
+                    {error, Reason};
+                _  ->
+                    {error, "The value returned by callback function check_pre_cond/1 "
+                     "is different from the return type expected."}
             end;
         {error, Reason} ->
-            {error, Reason}
+            {error, Reason};
+        _ ->
+            {error, "The value returned by callback function select_focus/1 "
+             "is different from the return type expected."}
     end.
-
-   
 %%@private
 input_par_prompts(CallBackMod) ->
     Res =input_pars_1(CallBackMod),

@@ -3,7 +3,7 @@
 -export([anti_unification/2,anti_unification_with_score/3,generate_anti_unifier/3,
 	generate_anti_unifier_and_num_of_new_vars/3,subst_sanity_check/2]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
 %%                                                                      %%

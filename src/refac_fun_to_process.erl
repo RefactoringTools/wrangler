@@ -35,7 +35,7 @@
 -export([fun_to_process/6, fun_to_process_eclipse/6, 
 	 fun_to_process_1/7, fun_to_process_1_eclipse/6]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 
 %%-spec(fun_to_process/6::(filename(), integer(), integer(), string(), [dir()], integer()) 

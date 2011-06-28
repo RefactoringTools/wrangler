@@ -37,7 +37,7 @@
 -export([comment_out/1]).
 
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %%-spec comment_out/1::([filename()|dir()]) ->ok.
 comment_out(Dirs) ->

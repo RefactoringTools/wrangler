@@ -91,7 +91,7 @@
 	 non_tail_recursive_servers_1/3,
 	 dependencies_of_a_module_1/2]).  
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %%@type filename()=string().
 %% @type modulename()=atom().

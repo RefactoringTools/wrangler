@@ -50,7 +50,7 @@
 -define(SimiScore, 0.2).  
 -define(DefaultDist, 0.8).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

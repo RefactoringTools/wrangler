@@ -93,7 +93,7 @@
 
 -module(refac_gen).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 -export([generalise/6, gen_fun_1/11, gen_fun_clause/10]).
 

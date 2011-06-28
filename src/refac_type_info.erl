@@ -7,7 +7,7 @@
 
 -export([get_type_info_using_typer/1]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 -record(tmpAcc, {file,		
 		 module,		

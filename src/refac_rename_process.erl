@@ -35,7 +35,7 @@
 
 -export([rename_process/6, rename_process_eclipse/6, rename_process_1/6, rename_process_1_eclipse/5]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %%-spec(rename_process/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
 %%	     {error, string()} | {undecidables, string(), string()}| {ok, [filename()]}).

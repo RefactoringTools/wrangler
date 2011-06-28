@@ -31,7 +31,7 @@
 
 -module(wrangler_distel).    
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
   
 -compile(export_all).
 

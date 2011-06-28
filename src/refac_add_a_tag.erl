@@ -43,7 +43,7 @@
 
 -export([add_a_tag/6]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %%TODO: THIS MODULE IS IN NEED OF UPDATED.
 

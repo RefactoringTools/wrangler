@@ -29,19 +29,9 @@
 
 -export([add_fun_define_locations/2]).
 
--import(refac_api,[]).
+-import(refac_misc,[rewrite/2, update_ann/2]).
 
--import(refac_misc,
-        [
-                             rewrite/2]).
-
--import(refac_api,[]).
-
--import(refac_misc,
-        [
-                             update_ann/2]).
-
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %%-spec(add_fun_define_locations/2::(syntaxTree(), moduleInfo()) -> syntaxTree()).
 add_fun_define_locations(AST, ModInfo) ->

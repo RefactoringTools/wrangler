@@ -35,7 +35,7 @@
 -export([sim_expr_search_in_buffer_eclipse/6, sim_expr_search_in_dirs_eclipse/6, 
 	 normalise_record_expr_eclipse/5]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 -define(DefaultSimiScore, 0.8).
 

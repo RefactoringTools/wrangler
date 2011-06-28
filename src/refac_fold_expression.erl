@@ -60,7 +60,7 @@
 
 -export([fold_expression_1/5]).  %% used by tests.
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %%-spec(fold_expr_by_loc/5::(filename(), integer(), integer(), [dir()], integer())->
 %%	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), 

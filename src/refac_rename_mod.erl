@@ -65,7 +65,7 @@
 
 -import(refac_atom_utils, [output_atom_warning_msg/3,check_unsure_atoms/5,start_atom_process/0,stop_atom_process/1]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %%-spec(rename_mod_command/3::(modulename()|filename(), modulename(), [dir()]) -> 
 %%			  {error, string()} | {ok, [filename()]}).

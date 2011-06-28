@@ -37,7 +37,7 @@
 
 -export([add_edges/3]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 
 %%-spec(module_graph/1::([dir()]) -> [{filename(), [filename()]}]).

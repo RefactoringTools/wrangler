@@ -42,7 +42,7 @@
 
 -export([replace_expr_with_macro/3]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %% =============================================================================================
 

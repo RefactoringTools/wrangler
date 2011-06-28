@@ -36,7 +36,7 @@
 -export([fun_extraction/5, fun_extraction_1/5, fun_extraction_eclipse/5, fun_extraction_1_eclipse/5]).
 
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %% =============================================================================================
 %%-spec(fun_extraction/5::(filename(), pos(), pos(), string(), integer()) ->

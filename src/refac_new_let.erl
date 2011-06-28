@@ -37,7 +37,7 @@
 	 merge_let/3, merge_let_1/5, merge_let_eclipse/3, merge_let_1_eclipse/4,
 	 merge_forall/3, merge_forall_1/5,merge_forall_eclipse/3, merge_forall_1_eclipse/4]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 
 %% =============================================================================================

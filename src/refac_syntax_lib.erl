@@ -295,7 +295,7 @@ vann(Tree, Env, Ms, VI, Pid) ->
 		    case [V2 || V2 <- Env, vann_1(V2, V)] of
 			[] ->
 			    Bound = [],
-			    Free = [{V, P}],
+			    Free = [{V,?DEFAULT_LOC}],
 			    Def = [?DEFAULT_LOC],
 			    {ann_bindings(Tree, Env, Bound, Free, Def), Bound, Free};
 			L ->

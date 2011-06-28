@@ -32,7 +32,7 @@
 	 check_unsure_atoms/5,collect_unsure_atoms_in_file/3,
 	 has_warning_msg/1, output_atom_warning_msg/3]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 
 start_atom_process() ->

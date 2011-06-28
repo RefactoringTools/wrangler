@@ -36,7 +36,7 @@
 
 -export([fold_against_macro/7]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %% =============================================================================================
 %% @doc This refactoring replaces instances of the macro body by the corresponding macro head 

@@ -28,15 +28,21 @@
 -behaviour(gen_server).
 
 %% API
--export([add_value/1, get_value/1, delete_value/1, start_gen_refac_server/0]).
+-export([set_flag/1, 
+         get_flag/1, 
+         delete_flag/1,
+         add_change_cand/2,
+         get_change_set/1,
+         delete_change_set/1,
+         start_gen_refac_server/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
--record(state, {flags=[]}).
+-record(state, {flags=[], change_set=[]}).
 
 %%====================================================================
 %% API
@@ -47,19 +53,27 @@ start_gen_refac_server() ->
     process_flag(trap_exit, true),
     gen_server:start_link({local, wrangler_gen_refac_server}, ?MODULE, [], []).
 
-add_value({Pid, Selective})->
+set_flag({Pid, Selective}) ->
     case Selective of
         false ->
             gen_server:cast(wrangler_gen_refac_server, {add, {Pid, {Selective,[]}}});
         _ ->
             gen_server:cast(wrangler_gen_refac_server, {add, {Pid, Selective}})
     end.
-get_value(Pid) ->
+get_flag(Pid) ->
     gen_server:call(wrangler_gen_refac_server, {get, Pid}).
 
-delete_value(Pid) ->
+delete_flag(Pid) ->
     gen_server:cast(wrangler_gen_refac_server, {delete, Pid}).
 
+add_change_cand(Pid, ChangeCand) ->
+    gen_server:cast(wrangler_gen_refac_server, {add_change_cand, {Pid, ChangeCand}}).
+
+get_change_set(Pid) ->
+     gen_server:call(wrangler_gen_refac_server, {get_change_set, Pid}).
+
+delete_change_set(Pid) ->
+    gen_server:cast(wrangler_gen_refac_server, {delete_change_set, Pid}).
 
 %%====================================================================
 %% gen_server callbacks
@@ -90,8 +104,15 @@ handle_call({get,Pid}, _From, State=#state{flags=Flags}) ->
         {Pid, Flag} ->
             {reply, {ok, Flag}, State};
         false ->
-            {reply, {ok, false}, State}
-    end. 
+            {reply, {ok, {false,[]}}, State}
+    end;
+handle_call({get_change_set,Pid}, _From, State=#state{change_set=ChangeSet}) ->
+    case lists:keyfind(Pid, 1,ChangeSet) of
+        {Pid, Cands} ->
+            {reply, {ok, lists:reverse(Cands)}, State};
+        false ->
+            {reply, {ok, []}, State}
+    end.
 
 
 %%--------------------------------------------------------------------
@@ -102,8 +123,18 @@ handle_call({get,Pid}, _From, State=#state{flags=Flags}) ->
 %%--------------------------------------------------------------------
 handle_cast({add, {Pid, Selective}},_State=#state{flags=Flags}) ->
     {noreply, #state{flags=[{Pid, Selective}|Flags]}};
+handle_cast({add_change_cand, {Pid, ChangeCand}}, _State=#state{change_set=ChangeSet}) ->
+    case lists:keyfind(Pid, 1, ChangeSet) of
+        {Pid, Cand} ->
+            NewCand = [ChangeCand|Cand],
+            {noreply, #state{change_set=lists:keyreplace(Pid, 1, ChangeSet, {Pid, NewCand})}};
+        false ->
+            {noreply, #state{change_set=[{Pid, [ChangeCand]}|ChangeSet]}}
+    end;
 handle_cast({delete, Pid},_State=#state{flags=Flags}) ->
-    {noreply, #state{flags=lists:keydelete(Pid, 1, Flags)}}.
+    {noreply, #state{flags=lists:keydelete(Pid, 1, Flags)}};
+handle_cast({delete_change_set, Pid},_State=#state{change_set=ChangeSet}) ->
+    {noreply, #state{change_set=lists:keydelete(Pid, 1, ChangeSet)}}.
 
 %%-------------------------------------------------------------------
 %% Function: handle_info(Info, State) -> {noreply, State} |

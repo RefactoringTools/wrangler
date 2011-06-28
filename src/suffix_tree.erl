@@ -1,6 +1,6 @@
 -module(suffix_tree).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 -export([get_clones_by_suffix_tree/7,  get_clones_by_suffix_tree_inc/6]).
 

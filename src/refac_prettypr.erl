@@ -105,7 +105,6 @@ print_ast_and_get_changes(FileFmt, AST, Options, TabWidth) ->
     {Content, Change}.
 
 print_a_form(Form, FileFmt, Options, TabWidth) ->
-    %% refac_io:format("Form:\n~p\n", [Form]),
     case form_not_changed(Form) of
         true ->
             FormStr=refac_misc:concat_toks(refac_misc:get_toks(Form)),
@@ -2176,7 +2175,6 @@ repair_new_form_str(OldFormStr, NewFormStr, TabWidth, FileFormat)->
     {ok, NewToks0, _} = refac_scan_with_layout:string(NewFormStr1, {1,1}, TabWidth, FileFormat),
     NewToksByLine = group_toks_by_line(NewToks0),
     DiffByLine = levenshtein_dist(OldToksByLine, NewToksByLine, TabWidth),
-    %% refac_io:format("DiffByLine:\n~p\n", [DiffByLine]),
     repair_form_layout(DiffByLine, TabWidth).
     
  

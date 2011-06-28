@@ -34,14 +34,14 @@ check_pre_cond(_Args) ->
     ok.
 
 selective() ->
-    false.
+    true.
 
 %% Apply the transformation rules to all the Erlang files included in the 
 %% SearchPaths.
 -spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}
                                      | {error, term()}).    
 transform(_Args=#args{search_paths=SearchPaths})->
-    ?FULL_TD([rule_replace_append(),
+    ?FULL_TD_TP([rule_replace_append(),
               rule_replace_substract(),
               rule_map_to_list_comp_1(),
               rule_map_to_list_comp_2(),
@@ -54,14 +54,14 @@ transform(_Args=#args{search_paths=SearchPaths})->
 %%=========================================================
 %% replace the use of lists:append/2 with the use of ++.
 rule_replace_append() ->
-    ?RULE("F@(L1@, L2@)",
+    ?RULE(?T("F@(L1@, L2@)"),
           ?QUOTE("L1@++L2@"),
           {lists, append, 2}==refac_api:fun_define_info(F@)).
 
 %%=========================================================
 %% replace the use of lists:subtract with the use of --.
 rule_replace_substract() ->
-    ?RULE("F@(L1@, L2@)", 
+    ?RULE(?T("F@(L1@, L2@)"), 
           ?QUOTE("L1@--L2@"),
           {lists, subtract, 2}==refac_api:fun_define_info(F@)).
 
@@ -73,7 +73,7 @@ rule_replace_substract() ->
 
 % In this example, Body@@ maps a list of expressions
 rule_map_to_list_comp_1()->
-    ?RULE("Op@(fun(V@)->Body@@ end, L@)", 
+    ?RULE(?T("Op@(fun(V@)->Body@@ end, L@)"), 
           begin
               case length(Body@@)==1 of 
                   true ->
@@ -85,7 +85,7 @@ rule_map_to_list_comp_1()->
           end,
           {lists, map, 2} == refac_api:fun_define_info(Op@) 
           andalso
-          refac_syntax:type(V@)==variable).
+          refac_api:type(V@)==variable).
 
 %% Rule 2: handles the case when the first argument of 
 %% lists:map/2 is an implicit fun expression.
@@ -93,7 +93,7 @@ rule_map_to_list_comp_1()->
 %% In this example, '_This@' maps to the whose node that 
 %% matches the template, and f@ represents a meta atom.
 rule_map_to_list_comp_2()->
-    ?RULE("Op@(fun f@/1, L@)",
+    ?RULE(?T("Op@(fun f@/1, L@)"),
           begin
               VisibleNames = refac_api:env_var_names(_This@),
               V = atom_to_list(refac_api:make_new_name('NewVar', VisibleNames)),
@@ -104,14 +104,14 @@ rule_map_to_list_comp_2()->
 %%Rule 3:  handles the case when the first argument of lists:map/2
 %% is a variable.
 rule_map_to_list_comp_3()->
-    ?RULE("Op@(F@, L@)",
+    ?RULE(?T("Op@(F@, L@)"),
           begin
               VisibleNames = refac_api:env_var_names(_This@),
               V = atom_to_list(refac_api:make_new_name('NewVar', VisibleNames)),
               ?QUOTE("[F@("++V++")||" ++ V++"<-L@]")
           end,
           {lists, map, 2} == refac_api:fun_define_info(Op@) andalso
-          refac_syntax:type(F@)==variable).
+          refac_api:type(F@)==variable).
         
 
 %%=============================================================
@@ -120,7 +120,7 @@ rule_map_to_list_comp_3()->
 %% Rule 1: handles the case when the first argument of lists:filter/2
 %% is a fun expression whose only argument is a variable.
 rule_filter_to_list_comp_1()->
-    ?RULE("Op@(fun(V@)-> Body@@ end, L@)",
+    ?RULE(?T("Op@(fun(V@)-> Body@@ end, L@)"),
           begin
               case length(Body@@)==1 of 
                   true ->
@@ -131,12 +131,12 @@ rule_filter_to_list_comp_1()->
               end
           end,
           {lists, filter, 2} == refac_api:fun_define_info(Op@) andalso
-          refac_syntax:type(V@)==variable). 
+          refac_api:type(V@)==variable). 
 
 %% Rule 2: handles the case when the first argument of 
 %% lists:filter/2 is an implicit fun expression.
 rule_filter_to_list_comp_2()->
-    ?RULE("Op@(fun f@/1, L@)",
+    ?RULE(?T("Op@(fun f@/1, L@)"),
           begin
               VisibleNames = refac_api:env_var_names(_This@),
               V = atom_to_list(refac_api:make_new_name('NewVar', VisibleNames)),
@@ -147,12 +147,12 @@ rule_filter_to_list_comp_2()->
 %% Rule 3: handles the case when the first argument of lists:filter/2
 %% is an implicit fun expression or a variable.
 rule_filter_to_list_comp_3()->
-    ?RULE("Op@(F@, L@)",
+    ?RULE(?T("Op@(F@, L@)"),
           begin
               VisibleNames = refac_api:env_var_names(_This@),
               V = atom_to_list(refac_api:make_new_name('NewVar', VisibleNames)),
               ?QUOTE("["++V++"||"++ V++"<-L@,F@("++V++")]")
           end,
           {lists, filter, 2} == refac_api:fun_define_info(Op@) andalso
-          refac_syntax:type(F@)==variable).
+          refac_api:type(F@)==variable).
 

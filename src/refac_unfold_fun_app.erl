@@ -50,7 +50,7 @@
 
 -import(refac_code_search_utils, [identifier_name/1]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %% =============================================================================================
 %% <p>

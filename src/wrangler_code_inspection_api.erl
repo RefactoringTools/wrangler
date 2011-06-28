@@ -26,9 +26,9 @@
 
 -module(wrangler_code_inspection_api).
 
--include("../include/gen_refac.hrl").
+-include("../include/wrangler.hrl").
 
--export([apply_code_inspection/1, input_pars/2]).
+-export([apply_code_inspection/1, input_par_prompts/2]).
 
 %%@doc The function called by Emacs to invoke a code inspection function. All code 
 %% inspection function should have an arity of 0. 
@@ -62,7 +62,7 @@ apply_code_inspection(Args=[ModName, FunName, CurFileName,
             {error, {E2, lists:flatten(io_lib:format("~p", [erlang:get_stacktrace()]))}}
     end.
 
-input_pars(ModName, FunName) ->
+input_par_prompts(ModName, FunName) ->
     M = if is_list(ModName) ->
                 list_to_atom(ModName);
            true ->
@@ -73,27 +73,27 @@ input_pars(ModName, FunName) ->
            true ->
                 FunName
         end,
-    {ok, M:F(input_pars)}.
+    {ok, M:F(input_par_prompts)}.
 
 %%@private
 display_search_results(Res) ->
-    case lists:all(fun(R) ->
-                           case R of  
-                               {File, {{StartLn, StartCol}, {EndLn, EndCol}}} -> 
-                                     filelib:is_regular(File) andalso 
-                                     is_integer(StartLn) andalso 
-                                     is_integer(StartCol) andalso 
-                                     is_integer(EndLn) andalso 
-                                     is_integer(EndCol);
-                                     _ -> 
-                                   false
-                           end
-                   end, Res) of 
-        true ->
-            display_search_results_1(Res);
-        _ ->
-            ?wrangler_io("Code inspection result:\n~p\n", [Res])
-    end.
+    %% case lists:all(fun(R) ->
+    %%                        case R of  
+    %%                            {File, {{StartLn, StartCol}, {EndLn, EndCol}}} -> 
+    %%                                  filelib:is_regular(File) andalso 
+    %%                                  is_integer(StartLn) andalso 
+    %%                                  is_integer(StartCol) andalso 
+    %%                                  is_integer(EndLn) andalso 
+    %%                                  is_integer(EndCol);
+    %%                                  _ -> 
+    %%                                false
+    %%                        end
+    %%                end, Res) of 
+    %%     true ->
+            display_search_results_1(Res).
+     %%    _ ->
+    %%         ?wrangler_io("Code inspection result:\n~p\n", [Res])
+    %% end.
                 
 display_search_results_1(Ranges) ->
     case Ranges of
@@ -120,7 +120,11 @@ compose_search_result_info([], Str) ->
     Str;
 compose_search_result_info([{FileName, {{StartLine, StartCol}, {EndLine, EndCol}}}|Ranges], Str) ->
     Str1 =Str ++ "\n"++FileName++io_lib:format(":~p.~p-~p.~p: ", [StartLine, StartCol, EndLine, EndCol]),
+    compose_search_result_info(Ranges, Str1);
+compose_search_result_info([OtherFormat|Ranges], Str) ->
+    Str1 = Str ++ "\n" ++ lists:flatten(io_lib:format("~p", [OtherFormat])),
     compose_search_result_info(Ranges, Str1).
+
 
 %%Known problem.
 %%1: when the same meta variable occurs multiple time, what

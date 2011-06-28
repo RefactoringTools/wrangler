@@ -42,7 +42,7 @@ check_pre_cond(Args=#args{user_inputs=[ModuleName]}) ->
     end.
 
 selective() ->
-    true.
+    false.
 
 %%Do the actual program transformation here.
 -spec (transform/1::(#args{}) -> 
@@ -60,23 +60,24 @@ transform(Args=#args{current_file_name=File,
     {ok,AST} = refac_api:get_ast(File),
     case FunsToImport of 
         [] ->
-            [{_, NewAST}]=?FULL_TD([rule(Args)], [{File, AST}]),
+            {ok, [{_, NewAST}]}=?FULL_TD_TP([rule(Args)], [{File, AST}]),
             {ok, [{{File, File}, NewAST}]};
         _ ->
             Import=make_import_attr(ModuleName, FunsToImport),
             AST1=refac_api:insert_an_attr(AST,Import),
-            [{_,NewAST}]=?FULL_TD([rule(Args)], [{File, AST1}]),
+            {ok, [{_,NewAST}]}=?FULL_TD_TP([rule(Args)], [{File, AST1}]),
             {ok, [{{File, File}, NewAST}]}
     end.
 
 collect_uses(_Args=#args{current_file_name=File,
                          user_inputs=[ModuleName]}) ->
-    ?COLLECT("M@:F@(Args@@)", ?SPLICE(M@)==ModuleName, 
-             {list_to_atom(?SPLICE(F@)), length(Args@@)},
-             [File]).
+    ?FULL_TD_TU([?COLLECT(?T("M@:F@(Args@@)"),
+                          {list_to_atom(?SPLICE(F@)), length(Args@@)},
+                          ?SPLICE(M@)==ModuleName)],
+                [File]).
 
 rule(_Args=#args{user_inputs=[ModuleName]}) ->
-    ?RULE("M@:F@(Args@@)",?QUOTE("F@(Args@@)"),
+    ?RULE(?T("M@:F@(Args@@)"),?QUOTE("F@(Args@@)"),
           ?SPLICE(M@)==ModuleName).
 
 make_import_attr(ModuleName, FAs) ->

@@ -478,6 +478,7 @@ type(Node) ->
       {'try', _, _, _, _, _} -> try_expr;
       {type, _, _, _} -> type;     
       {tuple, _, _} -> tuple;
+      {fake_parentheses, _} -> fake_parentheses;
      %% {bc,_, _, _} -> bc;
         _ -> erlang:error({badarg, Node})
     end.
@@ -1022,7 +1023,7 @@ add_ann(A, Node) ->
 
 update_ann(_, none) -> none;
 update_ann({Key, Val},Node) ->
-    case is_tree(Node) of
+    case is_tree(Node) orelse is_wrapper(Node) of
         true ->
             As0 = refac_syntax:get_ann(Node),
             As1 = case lists:keysearch(Key, 1, As0) of
@@ -2013,7 +2014,7 @@ is_list_skeleton(Node) ->
     end.
 
 %% =====================================================================
-%% @spec is_proper_list(Node::syntaxTree()) -> bool()
+%% @spec is_ proper_list(Node::syntaxTree()) -> bool()
 %%
 %% @doc Returns <code>true</code> if <code>Node</code> represents a
 %% proper list, and <code>false</code> otherwise. A proper list is a
@@ -2664,8 +2665,11 @@ attribute(Name) -> attribute(Name, none).
 
 attribute(Name, Args) ->
     tree(attribute, #attribute{name = update_ann({syntax_path, attribute_name}, Name), 
-                               args = [update_ann({syntax_path, attribute_arg},A)
-                                       ||A<-Args]}).
+                               args = case Args of 
+                                          none -> none;
+                                          _ ->[update_ann({syntax_path, attribute_arg},A)
+                                               ||A<-Args]
+                                      end}).
 
 revert_attribute(Node) ->
     Name = attribute_name(Node),
@@ -3259,22 +3263,27 @@ clause(Guard, Body) -> clause([], Guard, Body).
 %%	trees, which is equivalent to the new form `[[E1, ..., En]]'.
 
 clause(Patterns, Guard, Body) ->
-    Guard1 = case Guard of
-	       [] -> none;
-	       [X | _] when is_list(X) ->
-		   disjunction(conjunction_list(Guard));
-	       [_ | _] ->
-		   %% Handle older forms also.
-		   conjunction(Guard);
-	       _ ->
-		   %% This should be `none' or a syntax tree.
-		   Guard
-	     end,
+    Guard1 = case revert_clause_guard(Guard) of 
+                 [[]] ->
+                     none;
+                 _ ->
+                     case Guard of
+                         [] -> none;
+                         [X | _] when is_list(X) ->
+                             disjunction(conjunction_list(Guard));
+                         [_ | _] ->
+                             %% Handle older forms also.
+                             conjunction(Guard);
+                         _ ->
+                             %% This should be `none' or a syntax tree.
+                             Guard
+                     end
+             end,
     tree(clause,
-	 #clause{patterns = [update_ann({syntax_path, clause_pattern}, P)||P<-Patterns], 
-                 guard = update_ann({syntax_path, clause_guard}, Guard1),
-                 body = [update_ann({syntax_path,body_expr},B)||B<-Body]}).
-
+             #clause{patterns = [update_ann({syntax_path, clause_pattern}, P)||P<-Patterns], 
+                     guard = update_ann({syntax_path, clause_guard}, Guard1),
+                     body = [update_ann({syntax_path,body_expr},B)||B<-Body]}).
+    
 conjunction_list([L | Ls]) ->
     [conjunction(L) | conjunction_list(Ls)];
 conjunction_list([]) -> [].
@@ -3296,6 +3305,23 @@ revert_clause(Node) ->
 	    end,
     {clause, Pos, clause_patterns(Node), Guard,
      clause_body(Node)}.
+
+revert_clause_guard(none) -> [[]];
+revert_clause_guard(E)->
+    case is_tree(E) orelse is_wrapper(E) of
+        true ->
+            case  refac_syntax:type(E) of
+                disjunction -> refac_syntax:revert_clause_disjunction(E);
+                conjunction ->
+                    %% Only the top level expression is
+                    %% unfolded here; no recursion.
+                    [refac_syntax:conjunction_body(E)];
+                _ ->
+                    [[E]]       % a single expression
+            end;
+        false ->
+            [[E]]
+    end.
 
 revert_clause_disjunction(D) ->
     %% We handle conjunctions within a disjunction, but only at
@@ -3399,7 +3425,13 @@ clause_body(Node) ->
 %% type(Node) = disjunction
 %% data(Node) = [syntaxTree()]
 
-disjunction(Tests) -> copy_pos(hd(Tests),tree(disjunction, Tests)).
+disjunction(Tests) ->
+    case Tests of
+        [] ->
+            tree(disjuction, []);
+        _ ->
+            copy_pos(hd(Tests),tree(disjunction, Tests))
+    end.
 
 %% =====================================================================
 %% @spec disjunction_body(syntaxTree()) -> [syntaxTree()]
@@ -3423,7 +3455,8 @@ disjunction_body(Node) -> data(Node).
 
 %% type(Node) = conjunction
 %% data(Node) = [syntaxTree()]
-conjunction([])->[];
+conjunction([])->
+    tree(conjunction, []);
 conjunction(Tests) -> copy_pos(hd(Tests), tree(conjunction, Tests)).
 
 %% =====================================================================

@@ -28,7 +28,7 @@
 
 -export([has_side_effect/1, has_side_effect/3, build_local_side_effect_tab/2, build_lib_side_effect_tab/1]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 
 %%=================================================================

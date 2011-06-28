@@ -26,24 +26,48 @@
 %% =====================================================================
 -module(generalised_unification).
 
--export([expr_match/2]).
+-export([expr_match/3, expr_match/2]).
 
--include("../include/wrangler.hrl").
+-compile(export_all).
 
--spec(expr_match/2::(syntaxTree(), syntaxTree()) ->
-                          {true, [{atom(), syntaxTree()}]} | false).
+-include("../include/wrangler_internal.hrl").
+
 expr_match(Exp1, Exp2) ->
-    Res = expr_unification(Exp1, Exp2),
-    case Res of
-	{true, Subst} ->
-            static_semantics_check(Subst);
-        _ -> 
-	    false
+    expr_match(Exp1, Exp2, fun(_) ->true end).
+
+-spec(expr_match/3::(syntaxTree(), syntaxTree(), function()) ->
+                          {true, [{atom(), syntaxTree()}]} | false).
+expr_match(Exp1, Exp2, Cond) ->
+    Res = unification(Exp1, Exp2),
+    PossibleMatches=[case static_semantics_check(Subst) of 
+                         false -> [];
+                         {true, S} ->
+                             case Cond(S) of
+                                 true ->
+                                     [{true, S}];
+                                 false ->
+                                     [];
+                                 _ ->
+                                     throw({error, lists:flatten(io_lib:format
+                                                                   ("Condition checking of rule/collector "
+                                                                    "returns non-boolean value. Template being matched: ~s.",
+                                                                    [refac_prettypr:format(Exp1)]))})
+                             end
+                     end||{true,Subst}<-Res],
+    case lists:append(PossibleMatches) of
+        [] ->
+            false;
+        [{true, Subst}|_] ->
+            {true, Subst}
     end.
 
+
 static_semantics_check(Subst) ->
-    Subst1 = [{refac_syntax:variable_name(V), Exp}
-        ||{V, Exp}<-Subst],
+    Subst1 = [{case refac_syntax:type(V) of
+                   variable -> refac_syntax:variable_name(V);
+                   atom -> refac_syntax:atom_value(V)
+               end, Exp} 
+              ||{V, Exp}<-Subst],
     GroupedSubst = group_by_index(1, Subst1),
     Res =[static_semantics_check_1(G)||G<-GroupedSubst],
     case lists:member(false, Res) of 
@@ -69,174 +93,207 @@ static_semantics_check_1(Subst=[{V, S}|_]) ->
                 _ -> false
             end;
         _ ->
-            false
+            false 
     end.
         
-expr_unification(Exp1, Exp2) ->
+-spec(unification/2::(syntaxTree(), syntaxTree()) ->
+                           [{true, [tuple()]}]|[false]).
+unification(Exp1, Exp2) ->
     case {is_list(Exp1), is_list(Exp2)} of
         {true, true} ->   
             %%both are list of expressions
-            expr_list_unification(Exp1, Exp2);
+            list_unification_1(Exp1, Exp2);
         {false, false} -> 
             %% both are single expressions.
 	    T1 = refac_syntax:type(Exp1),
 	    T2 = refac_syntax:type(Exp2),
 	    case T1 == T2 of
 		true ->
-                    same_type_expr_unification(Exp1, Exp2);
-                _ -> non_same_type_expr_unification(Exp1, Exp2)
+                    same_type_unification(Exp1, Exp2);
+                _ -> non_same_type_unification(Exp1, Exp2)
 	    end;
         {false, true}-> 
             case is_meta_list_variable(Exp1) of 
                 true ->
-                    {true, {Exp1, Exp2}};
+                    %% make sure a meta list variable is mapped to a list of exprs.
+                    [{true, [{Exp1, Exp2}]}];
                 false->
-                    false
+                    [false]
             end;
-        _ -> false
+        _ -> [false]
     end.
 
-expr_list_unification(Exp1, Exp2)  
-  when is_list(Exp1) andalso is_list(Exp2)->
+-spec(list_unification_1/2::([syntaxTree()|[syntaxTree()]], [syntaxTree()|[syntaxTree()]]) ->
+                                  [{true, [tuple()]}]|[false]).
+list_unification_1(Exp1, Exp2)->
     LEs1 = [E||E<-Exp1,is_list(E)],
     LEs2 = [E||E<-Exp2,is_list(E)],
-    case LEs1==[] andalso LEs2==[] of 
-        true ->
-            expr_list_unification_1(Exp1, Exp2);
+    case LEs1==[] andalso LEs2==[] andalso 
+        has_meta_list(Exp1) of 
         false ->
-            expr_list_unification_2(Exp1, Exp2)
+            list_unification_2(Exp1, Exp2);
+        true ->
+            list_unification_3(Exp1, Exp2)
     end.
 
+has_meta_list(NodeList) ->
+    [E ||E<-NodeList, is_meta_list(E)]/=[].
 
-expr_list_unification_1(ExpList1, ExpList2) ->
-    case has_meta_list(ExpList1) of
-        false ->
-            expr_list_unification_2(ExpList1, ExpList2);
-        true ->
-            expr_list_unification_3(ExpList1, ExpList2)
-    end.
 
-expr_list_unification_2(Exp1, Exp2) ->
+
+-spec(list_unification_2/2::([syntaxTree()|[syntaxTree()]], [syntaxTree()|[syntaxTree()]]) ->
+                           [{true, [tuple()]}]|[false]).
+list_unification_2(Exp1, Exp2) ->
     case length(Exp1) == length(Exp2) of
         true ->
-            Res = [expr_unification(E1, E2)|| 
+            Res = [unification(E1, E2)|| 
                       {E1, E2} <- lists:zip(Exp1, Exp2)],
-            case not lists:member(false, Res) of 
-                true ->
-                    {true, lists:append([S || {true, S} <- Res])};
-                _ -> false
-            end;
-        _ -> false
+            zip_unification_results(Res);
+        _ -> [false]
     end.
 
-
-%% Exp1 has meta list variable.
-expr_list_unification_3(List1, List2) ->
-    L1 = [L||L<-List1, not is_meta_list(L)],
-    case length(L1) > length(List2) of 
+zip_unification_results([]) ->
+    [];
+zip_unification_results(Res=[R|Rs]) ->
+    case lists:member([false], Res) of 
         true ->
-            false;
-        _  ->
-            expr_list_unification_4(List1, List2)
-    end.
-
-expr_list_unification_4(List1, List2) ->
-    Res =expr_list_unification_4(List1,List2, []),
-    case not lists:member(false, Res) of 
-        true ->
-            {true, lists:append([S || {true, S} <- Res])};
-        false ->
-            false
+            [false];
+        false ->      
+            case Rs of 
+                [] ->
+                    [{true, E}||{true, E}<-R];
+                _ ->
+                    [{true, E1++E2}||{true,E1}<-R, 
+                                     {true,E2}<-zip_unification_results(Rs)]
+            end
     end.
     
-expr_list_unification_4([], [], Acc) -> 
-    lists:reverse(Acc);
-expr_list_unification_4(T, [], Acc) -> 
+          
+           
+-spec(list_unification_3/2::([syntaxTree()], [syntaxTree()]) ->
+                               [{true, [tuple()]}]|[false]).
+list_unification_3([], []) ->
+    [];
+list_unification_3(T, []) ->
     NonMetaList=[T1||T1<-T, not is_meta_list(T1)],
     case NonMetaList of 
         [] ->
-            Sub = lists:append([create_sub(T1,[])||T1<-T]),
-            lists:reverse(Sub++Acc);
+            lists:append([create_sub(T1,[])||T1<-T]);
         _ -> 
-            lists:reverse([false|Acc])
+            [false]
     end;
-expr_list_unification_4([], _, Acc) ->
-    lists:reverse([false|Acc]);
-expr_list_unification_4(_List1=[H1|T1], List2=[H2|T2], Acc) ->
+list_unification_3([], _) ->
+    [false];
+list_unification_3(_List1=[H1|T1], List2=[H2|T2]) ->
     case is_meta_list(H1) of
-        false ->
-            Res = expr_unification(H1, H2),
-            expr_list_unification_4(T1,T2, [Res|Acc]);
         true ->
             T11= [T||T<-T1, not is_meta_list(T)],
             Len1 = length(T11),
-            Len2 = length(List2), %% List2 does not have meta variables. 
-            case try_list_unification(T1, List2, Len2-Len1) of
-                {true, Len, Acc1} ->
-                    Sub=create_sub(H1,lists:sublist(List2, Len)),
-                    lists:reverse(Acc)++(Sub++Acc1);
-                false ->
-                    [false]
-            end 
+            Len2 = length(List2),
+            case Len1 > Len2 of 
+                true -> [false];
+                _->
+                    Res=[begin
+                             H1Sub = create_sub(H1, lists:sublist(List2, I)),
+                             Res=list_unification_1(T1, lists:nthtail(I, List2)),
+                             combine_unification_results(H1Sub, Res)
+                         end||I<-lists:seq(0,Len2-Len1)],
+                    lists:append(Res)
+            end;
+        false ->
+            Res= unification(H1, H2),
+            Ms = list_unification_3(T1, T2),
+            combine_unification_results(Res, Ms)
     end.
+
+combine_unification_results([], []) ->
+    [];
+combine_unification_results(Sub1,[]) ->
+    Sub1;
+combine_unification_results([], Sub2) ->
+    Sub2;
+combine_unification_results([false],_) ->
+    [false];
+combine_unification_results(_, [false]) ->
+    [false];
+combine_unification_results(Sub1,Sub2) ->
+    [{true, M++R}||{true,M}<-Sub1, {true,R}<-Sub2].
+
+
+
+    
 
 create_sub(T1, T2List)->
     case is_meta_list_variable(T1) of 
         true ->
             [{true,[{T1, T2List}]}];
-        _ ->
-            T= refac_syntax:type(T1),
-            case lists:member(T, [clause, function_clause]) of 
-                false ->
-                    [false];
-                true ->
-                    T11=case refac_syntax:type(T1) of 
-                            function_clause ->
-                                refac_syntax:function_clause(T1);
-                            _ -> T1
-                        end,
-                    [Pat]= refac_syntax:clause_patterns(T11),
-                    [[Guard]]= clause_guard(T11),
-                    [Body]= refac_syntax:clause_body(T11),
-                    T2List1=[case refac_syntax:type(T2) of 
-                                 function_clause ->
-                                     refac_syntax:function_clause(T2);
-                                 _ -> T2
-                             end || T2<-T2List],
-                   T2Pats=[refac_syntax:clause_patterns(T2)||T2 <- T2List1],
-                   T2Gs=[G2||T2 <- T2List1, G2<-clause_guard(T2)],
-                    T2Body=[refac_syntax:clause_body(T2)||T2 <- T2List1],
-                   [{true, [{Pat, T2Pats}, {Guard, T2Gs}, {Body, T2Body}]}]
-           end
-    end. 
-          
-            
-try_list_unification(_T1, _T2, Len) when Len<0  ->
-    false;
-try_list_unification(T1, T2, Len) ->
-    T21 = lists:nthtail(Len, T2),
-    case try_expr_match(T1, T21) of
-        {true, Subst} ->
-            {true, Len, [{true,Subst}]};
         false ->
-            try_list_unification(T1,T2, Len-1)
-    end.
- 
-try_expr_match(Exp1, Exp2) ->
-    Res = expr_unification(Exp1, Exp2),
-    case Res of
-	{true, Subst} ->
-            case static_semantics_check(Subst) of
-                {true, _} ->
-                    {true, Subst};
+            case is_meta_function_arity_list(T1) of
+                true ->
+                    case lists:all(fun(L) -> 
+                                           refac_syntax:type(L)==arity_qualifier
+                                   end, T2List) of 
+                        true ->
+                            create_sub_for_arity_qualifier(T1, T2List);
+                        false ->
+                            [false]
+                    end;
                 false ->
-                    false
-            end;                    
-	_ -> 
-	    false
+                    create_sub_for_clause(T1, T2List)
+            end
     end.
 
-same_type_expr_unification(Exp1, Exp2) ->
+
+         
+create_sub_for_arity_qualifier(MetaAQList, AQList) ->
+    MetaFunName=refac_syntax:arity_qualifier_body(MetaAQList),
+    MetaArity = refac_syntax:arity_qualifier_argument(MetaAQList),
+    {FunNames, Arities} = lists:unzip([{refac_syntax:arity_qualifier_body(T),
+                                        refac_syntax:arity_qualifier_argument(T)}
+                                       ||T <- AQList]),
+    [{true, [{MetaFunName, FunNames}, {MetaArity, Arities}]}].
+                                        
+    
+create_sub_for_clause(MetaClause, ClauseList) ->
+    T= refac_syntax:type(MetaClause),
+    case lists:member(T, [clause, function_clause]) of
+        false ->
+            [false];
+        true ->
+            T11=case refac_syntax:type(MetaClause) of
+            function_clause ->
+                        refac_syntax:function_clause(MetaClause);
+            _ -> MetaClause
+                end,
+            [Pat]= refac_syntax:clause_patterns(T11),
+            T2List1=[case refac_syntax:type(T2) of
+                         function_clause ->
+                             refac_syntax:function_clause(T2);
+                         _ -> T2
+                     end || T2 <- ClauseList],
+            case clause_guard(T11) of
+                [[]] ->
+                    T2Gs=[G2||T2 <- T2List1, G2 <- clause_guard(T2), G2 /= []],
+                    case T2Gs of
+                        [] ->
+                            [Body]= refac_syntax:clause_body(T11),
+                            T2Pats=[refac_syntax:clause_patterns(T2)||T2 <- T2List1],
+                            T2Body=[refac_syntax:clause_body(T2)||T2 <- T2List1],
+                            [{true, [{Pat, T2Pats},{Body, T2Body}]}];
+                        _ -> [false]
+                    end;
+                [[Guard]] ->
+                    [Body]= refac_syntax:clause_body(T11),
+                    T2Pats=[refac_syntax:clause_patterns(T2)||T2 <- T2List1],
+                    T2Gs=[G2||T2 <- T2List1, G2 <- clause_guard(T2)],
+                    T2Body=[refac_syntax:clause_body(T2)||T2 <- T2List1],
+                    [{true, [{Pat, T2Pats}, {Guard, T2Gs}, {Body, T2Body}]}]
+            end
+    end.
+          
+-spec(same_type_unification/2::(syntaxTree(), syntaxTree()) ->
+                                     [{true, [tuple()]}]|[false]).
+same_type_unification(Exp1, Exp2) ->
     T1 = refac_syntax:type(Exp1),
     case T1 of
 	variable ->
@@ -245,10 +302,10 @@ same_type_expr_unification(Exp1, Exp2) ->
             case is_macro_name(Exp1) andalso is_macro_name(Exp2) of
                 true ->
                     if Exp1Name==Exp2Name ->
-                            {true, []};
-                       true -> false
+                            [{true, []}];
+                       true -> [false]
                     end;
-                _ -> {true, [{Exp1, Exp2}]}
+                _ -> [{true, [{Exp1, Exp2}]}]
 	    end;
 	atom ->
             Exp1Val = refac_syntax:atom_value(Exp1),
@@ -262,125 +319,95 @@ same_type_expr_unification(Exp1, Exp2) ->
                             case lists:keysearch(fun_def,1,Ann2) of
 		         	{value, {fun_def, {M1,F1,A1,_,_}}} ->
 		         	    case {M, F, A}=={M1, F1, A1} of
-		        		true -> {true, []};
+		        		true -> [{true, []}];
 		         		false ->
-		         		    false
+		         		    [false]
 		         	    end;
 		         	false ->
-		         	    false
+		         	    [false]
 		            end;
                         false ->
-                            {true, []}
-                            %% case lists:keysearch(fun_def, 1, Ann2) of
-                            %%      {value, _} ->
-                            %%          false;
-                            %%      false ->
-                            %%          {true, []}
-		            %%  end
-                             %% This is not accurate!
+                            [{true, []}]
                     end;
 		_ -> 
                     case is_meta_atom(Exp1) of
                         true ->
-                            {true, [{Exp1, Exp2}]};
+                            [{true, [{Exp1, Exp2}]}];
                         false ->
-                            false
+                            [false]
                     end
 	    end;
 	operator ->
 	    case refac_syntax:operator_name(Exp1) 
                 == refac_syntax:operator_name(Exp2) of
-		true -> {true, []};
-		_ -> false
+		true -> [{true, []}];
+		_ -> [false]
 	    end;
-	char ->
+        char ->
 	    case refac_syntax:char_value(Exp1) 
                 == refac_syntax:char_value(Exp2) of
-		true -> {true, []};
-		_ -> false
+		true -> [{true, []}];
+		_ -> [false]
 	    end;
 	integer ->
 	    case refac_syntax:integer_value(Exp1)
                 == refac_syntax:integer_value(Exp2) of
-		true -> {true, []};
-		_ -> false
+		true -> [{true, []}];
+		_ -> [false]
 	    end;
 	string ->
 	    case refac_syntax:string_value(Exp1)
                 == refac_syntax:string_value(Exp2) of
-		true -> {true, []};
-		_ -> false
+		true -> [{true, []}];
+		_ -> [false]
 	    end;
 	float ->
 	    case refac_syntax:float_value(Exp1) 
                 == refac_syntax:float_value(Exp2) of
-		true -> {true, []}
+		true -> [{true, []}]
 	    end;
-	underscore -> {true, []};
-	nil -> {true, []};
+	underscore -> [{true, []}];
+	nil -> [{true, []}];
+        list ->
+            case refac_syntax:is_proper_list(Exp1) andalso
+                refac_syntax:is_proper_list(Exp2) of 
+                true ->
+                    Es1 = refac_syntax:list_elements(Exp1),
+                    Es2 = refac_syntax:list_elements(Exp2),
+                    list_unification_1(Es1, Es2);
+                false ->
+                    SubTrees1 = subtrees(Exp1),
+                    SubTrees2 = subtrees(Exp2),
+                    case length(SubTrees1) == length(SubTrees2) of
+                        true ->
+                            unification(SubTrees1, SubTrees2);
+                        _ -> [false]
+                    end
+            end;
         _ ->
 	    SubTrees1 = subtrees(Exp1),
             SubTrees2 = subtrees(Exp2),
             case length(SubTrees1) == length(SubTrees2) of
 		true ->
-                    expr_unification(SubTrees1, SubTrees2);
-		_ -> false
+                    unification(SubTrees1, SubTrees2);
+                _ -> [false]
 	    end
     end.
 
-%% normalise_application(App) ->
-%%     Op = refac_syntax:application_operator(App),
-%%     Args = refac_syntax:application_arguments(App),
-%%     case refac_syntax:type(Op) of
-%%         atom ->
-%%             Ann =refac_syntax:get_ann(Op),
-%%             case lists:keysearch(fun_def, 1, Ann) of
-%%                 {value, {fun_def, {M, _F, _A, _, _}}} when M /= '_' ->
-%%                     M1 = refac_syntax:atom(M),
-%%                     refac_syntax:application(M1, Op, Args);
-%%                 _ ->
-%%                     App
-%%             end;
-%%         _ -> App
-%%     end.
-   
-non_same_type_expr_unification(Exp1, Exp2) ->
+
+non_same_type_unification(Exp1, Exp2) ->
     T1 = refac_syntax:type(Exp1),
     case T1 of
         variable ->
             case is_object_variable(Exp1) of
-                true -> false;
+                true -> [false];
                 _ ->
-                    {true, [{Exp1, Exp2}]}
+                    [{true, [{Exp1, Exp2}]}]
             end;
         _ ->
-            false
+            [false]
     end.
-            %%  T2 = refac_syntax:type(Exp2),
-	    %% case {T1, T2} == {atom, module_qualifier} orelse 
-            %%      {T1,T2}  == {module_qualifier, atom} of 
-	    %%     true ->
-	    %%         Ann1=refac_syntax:get_ann(Exp1),
-	    %%         Ann2=refac_syntax:get_ann(Exp2),
-	    %%         case lists:keysearch(fun_def,1,Ann1) of
-	    %%     	{value, {fun_def, {M,F, A, _, _}}} ->
-	    %%     	    case lists:keysearch(fun_def,1,Ann2) of
-	    %%     		{value, {fun_def, {M1,F1,A1, _,_}}} ->
-	    %%     		    case {M, F,A}=={M1, F1, A1} of
-	    %%     			true-> {true, []};
-	    %%     			false ->
-	    %%     			    false
-	    %%     		    end;
-	    %%     		false->
-	    %%     		    false
-	    %%     	    end;
-	    %%     	false ->
-	    %%     	    false
-	    %%         end;
-	    %%     _ -> false
-	    %% end
-    %% end.
-
+       
 var_binding_structure(AST) when not is_list(AST) ->
     var_binding_structure([AST]);
 var_binding_structure(ASTList) ->
@@ -392,14 +419,9 @@ var_binding_structure(ASTList) ->
             [DefLoc|| {_Name, _SrcLoc, DefLoc} <- VarLocs]
     end.
 
-
-
-
 is_meta_list(Node) ->
-    is_meta_list_variable(Node) orelse is_meta_clause_list(Node).
-
-has_meta_list(NodeList) ->
-    [E ||E<-NodeList, is_meta_list(E)]/=[].
+    is_meta_list_variable(Node) orelse is_meta_clause_list(Node) orelse
+        is_meta_function_arity_list(Node).
 
 is_meta_clause_list(C) ->
     T = refac_syntax:type(C),
@@ -412,20 +434,71 @@ is_meta_clause_list(C) ->
                 end,
             Pat = refac_syntax:clause_patterns(C1),
             Body = refac_syntax:clause_body(C1),
+            Guard = clause_guard(C1),
             case Pat of 
                 [P] ->
-                    case Body of 
-                        [B] ->
-                            is_meta_meta_list_variable(P) andalso 
-                                 is_meta_meta_list_variable(B);  
-                         _ -> false
-                     end;
-                 _ -> false
-             end;
-         _ ->
-             false
-     end.
-            
+                    case Guard of 
+                        [[]] ->
+                            case Body of 
+                                [B] ->
+                                    is_meta_meta_list_variable(P) andalso 
+                                        is_meta_meta_list_variable(B);  
+                                _ -> false
+                            end;
+                        [[G]] ->
+                            case Body of 
+                                [B] ->
+                                    is_meta_meta_list_variable(P) andalso 
+                                        is_meta_meta_list_variable(G) andalso
+                                        is_meta_meta_list_variable(B);  
+                                _ -> false
+                            end;
+                        _ -> false
+                    end;
+                _ ->
+                    false
+            end;
+        _ -> false
+    end.
+
+is_meta_function_arity_list(Node) ->
+    case refac_syntax:type(Node) of
+        arity_qualifier ->
+            Body = refac_syntax:arity_qualifier_body(Node),
+            Arity = refac_syntax:arity_qualifier_argument(Node),
+            is_meta_list_variable(Body) andalso
+                is_meta_list_variable(Arity);
+        _  ->
+            false
+    end. 
+    
+is_object_variable(Var) ->
+    case refac_syntax:type(Var) of
+        variable ->
+            VarName = atom_to_list(refac_syntax:variable_name(Var)),
+            not (lists:prefix("@", lists:reverse(VarName)));
+        _ ->
+          false
+    end.
+
+%% is_meta_variable(Var) ->
+%%     case refac_syntax:type(Var) of
+%%         variable ->
+%%             VarName = atom_to_list(refac_syntax:variable_name(Var)),
+%%             lists:prefix("@", lists:reverse(VarName));
+%%         _ ->
+%%           false
+%%     end.
+
+is_meta_atom(Node) ->
+    case refac_syntax:type(Node) of
+        atom ->
+            AtomName = atom_to_list(refac_syntax:atom_value(Node)),
+            lists:prefix("@", lists:reverse(AtomName));
+        _ ->
+            false
+    end.
+        
 is_meta_list_variable(Var) ->
     case refac_syntax:type(Var) of
         variable ->
@@ -440,23 +513,6 @@ is_meta_meta_list_variable(Var) ->
         variable ->
             VarName = refac_syntax:variable_name(Var),
             lists:prefix("@@@", lists:reverse(atom_to_list(VarName)));
-        _ ->
-            false
-    end.
-is_object_variable(Var) ->
-    case refac_syntax:type(Var) of
-        variable ->
-            VarName = atom_to_list(refac_syntax:variable_name(Var)),
-            not (lists:prefix("@", lists:reverse(VarName)));
-        _ ->
-          false
-    end.
-
-is_meta_atom(Node) ->
-    case refac_syntax:type(Node) of
-        atom ->
-            AtomName = atom_to_list(refac_syntax:atom_value(Node)),
-            lists:prefix("@", lists:reverse(AtomName));
         _ ->
             false
     end.
@@ -513,3 +569,33 @@ subtrees(T) ->
         _ ->
             refac_syntax:subtrees(T)
     end.
+
+
+collect_meta_vars_and_atoms(Tree) when is_list(Tree) ->
+    lists:usort(lists:append([collect_meta_vars_and_atoms(T)||T<-Tree]));
+collect_meta_vars_and_atoms(Tree) ->
+    F=fun(Node, Acc) ->
+              case erl_syntax:type(Node) of
+                  variable ->
+                      VarName = erl_syntax:variable_name(Node),
+                      case is_meta_name(VarName) of 
+                          true ->
+                              [VarName|Acc];
+                          _ ->
+                              Acc
+                      end;
+                  atom ->
+                      AtomValue = erl_syntax:atom_value(Node),
+                      case is_meta_name(AtomValue) of 
+                          true ->
+                              [AtomValue|Acc];
+                          _ ->
+                              Acc
+                      end;
+                  _ -> Acc
+              end
+      end,
+    lists:usort(ast_traverse_api:fold(F, [], Tree)).
+
+is_meta_name(VarName) ->
+    lists:prefix("@", lists:reverse(atom_to_list(VarName))).

@@ -52,7 +52,7 @@
 
 -export([test_similar_code/1]).
 
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %% @type(modulename()::atom()).
 %% @type(filename()::string()).

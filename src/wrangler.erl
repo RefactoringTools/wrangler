@@ -102,7 +102,7 @@
 -export([try_refactoring/3, get_log_msg/0]).
 
 -export([init_eclipse/0]).
--include("../include/wrangler.hrl").
+-include("../include/wrangler_internal.hrl").
 
 %% ====================================================================================================
 %% @doc Rename a variable.

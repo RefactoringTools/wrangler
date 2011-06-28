@@ -50,51 +50,42 @@
 
 -export([tuple_funpar/7]).  %% For testing purpose.
 
+-import(refac_misc,[commontest_callback_funs/0,
+                    try_eval/4, 
+                    apply_style_funs/0,
+                    eqc_statem_callback_funs/0,
+                    testserver_callback_funs/0]).
 
--import(refac_api,[]).
+-include("../include/wrangler_internal.hrl").
 
--import(refac_misc,
-        [
-                             try_eval/4]).
-
--import(refac_misc,
-        [
-                                         commontest_callback_funs/0,
-                             eqc_statem_callback_funs/0,testserver_callback_funs/0]).
-
--import(refac_misc,
-        [
-                             apply_style_funs/0]).
-
--include("../include/wrangler.hrl").
-
-%%-spec(tuple_funpar/5::(filename(), pos(), pos(), [dir()], integer()) ->
-%%	     {error, string()} | {ok, [filename()]}).
+-spec(tuple_funpar/5::(filename(), pos(), pos(), [dir()], integer()) ->
+	     {error, string()} | {ok, [filename()]}).
 tuple_funpar(FileName, StartLoc, EndLoc, SearchPaths, TabWidth)->
     tuple_funpar(FileName, StartLoc, EndLoc, SearchPaths, TabWidth, emacs).
 
 
-%%-spec(tuple_funpar_eclipse/5::(filename(), pos(), pos(), [dir()], integer()) ->
-%%	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
+-spec(tuple_funpar_eclipse/5::(filename(), pos(), pos(), [dir()], integer()) ->
+	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 tuple_funpar_eclipse(FileName, StartLoc, EndLoc,  SearchPaths, TabWidth)->
     tuple_funpar(FileName, StartLoc, EndLoc, SearchPaths, TabWidth, eclipse).
 
 
-%%-spec(tuple_funpar_1/5::(filename(), pos(), pos(), [dir()], integer()) ->
-%%	     {error, string()} | {ok, [filename()]}).
+-spec(tuple_funpar_1/5::(filename(), pos(), pos(), [dir()], integer()) ->
+	     {error, string()} | {ok, [filename()]}).
 tuple_funpar_1(FileName, StartLoc, EndLoc, SearchPaths, TabWidth)->
     tuple_funpar_1(FileName, StartLoc, EndLoc, SearchPaths, TabWidth, emacs).
 
 
-%%-spec(tuple_funpar_1_eclipse/5::(filename(), pos(), pos(), [dir()], integer()) ->
-%%	     {error, string()} | {ok, [filename()]}).
+-spec(tuple_funpar_1_eclipse/5::(filename(), pos(), pos(), [dir()], integer()) ->
+	     {error, string()} | {ok, [filename()]}).
 tuple_funpar_1_eclipse(FileName, StartLoc, EndLoc, SearchPaths, TabWidth)->
     tuple_funpar_1(FileName, StartLoc, EndLoc, SearchPaths, TabWidth, emacs).
 
 tuple_funpar(FileName, Line, Col, Index, Num, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:tuple_funpar(~p, ~p,~p,~p,~p, ~p, ~p).\n",
 		 [?MODULE, FileName, Line, Col, Index, Num, SearchPaths, TabWidth]),
-    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(
+                             FileName, true, SearchPaths, TabWidth),
     {ok, FunDef} = interface_api:pos_to_fun_def(AnnAST, {Line, Col}),
     FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
     FunArity = refac_syntax:function_arity(FunDef),
@@ -373,7 +364,8 @@ tuple_pars_in_function(Form, Args = {_FileName, _CurModName, _FunDefMod, FunName
 		       end, Cs1),
 	    NewForm1 = refac_syntax:function(refac_syntax:atom(FunName), NewCs1),
 	    [NewForm1, NewForm];
-	_ -> [tuple_actual_pars(Form, Args)]
+	_ -> 
+            [tuple_actual_pars(Form, Args)]
     end.
 
 tuple_pars_in_attribute(Form, Args = {_FileName, _CurModName, _FunDefMod, FunName, Arity,
@@ -471,7 +463,7 @@ transform_apply_with_arity_of_2(Tree, CurModName, FunDefMod, FunName, Arity, Ind
 					Arity ->
 					    NewPars = refac_misc:rewrite(
 							Pars, refac_syntax:list(process_pars(Pars0, Index, Num))),
-					    NewArg = refac_misc:rewrite(Arg, refac_syntax:integer(NewArity)),
+                                            NewArg = refac_misc:rewrite(Arg, refac_syntax:integer(NewArity)),
 					    NewName = refac_misc:rewrite(
 							Name, refac_syntax:arity_qualifier(Body, NewArg)),
 					    NewFun = refac_misc:rewrite(
@@ -500,8 +492,8 @@ transform_apply_with_arity_of_2(Tree, CurModName, FunDefMod, FunName, Arity, Ind
 					    Pars0 = refac_syntax:list_elements(Pars),
 					    case length(Pars0) of
 						Arity ->
-						    NewPars = process_pars(Pars0, Index, Num),
-						    NewArg = refac_misc:rewrite(Arg, refac_syntax:integer(NewArity)),
+						    NewPars = refac_syntax:list(process_pars(Pars0, Index, Num)),
+                                                    NewArg = refac_misc:rewrite(Arg, refac_syntax:integer(NewArity)),
 						    NewMBody = refac_misc:rewrite(
 								 MBody, refac_syntax:arity_qualifier(ABody, NewArg)),
 						    NewName = refac_misc:rewrite(
