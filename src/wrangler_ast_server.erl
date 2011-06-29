@@ -106,10 +106,13 @@ get_ast(Key={_FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat}) ->
 
 %%-type(modifyTime()::{{integer(), integer(), integer()},{integer(), integer(), integer()}}).
 %%-spec(update_ast/2::({filename(),boolean(), [dir()], integer(), atom()}, {syntaxTree(), moduleInfo(), modifyTime()}) -> ok).
-update_ast(Key={_FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat}, {AnnAST, Info, Time}) ->
-    gen_server:cast(wrangler_ast_server, {update, {Key, {AnnAST, Info, Time}}}).
+update_ast(Key={_FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat}, {AnnAST, Info, CheckSum}) ->
+    gen_server:cast(wrangler_ast_server, {update, {Key, {AnnAST, Info, CheckSum}}});
+update_ast(Key={FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, SwpFileName) ->
+    {ok, {AnnAST, Info}} = parse_annotate_file(SwpFileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
+    CheckSum = refac_misc:filehash(FileName),
+    gen_server:cast(wrangler_ast_server, {update, {Key, {AnnAST, Info, CheckSum}}}).
  
-
 get_temp_dir() ->
     gen_server:call(wrangler_ast_server, get_temp_dir).
 %%--------------------------------------------------------------------
@@ -229,12 +232,12 @@ get_ast(Key = {FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, State =
 	    end
     end.
 
-update_ast_1({Key, {AnnAST, Info, _Time}}, _State = #state{dets_tab = TabFile, asts = ASTs}) ->
+update_ast_1({Key, {AnnAST, Info, _CheckSum}}, _State = #state{dets_tab = TabFile, asts = ASTs}) ->
     {FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat} = Key,
     Checksum = refac_misc:filehash(FileName),
     case TabFile of
 	none -> case lists:keysearch(Key, 1, ASTs) of
-		    {value, {Key, {_AnnAST1, _Info1, _Time}}} ->
+		    {value, {Key, {_AnnAST1, _Info1, _CheckSum}}} ->
 			#state{asts = lists:keyreplace(Key, 1, ASTs, {Key, {AnnAST, Info, Checksum}})};
 		    false ->
 			#state{asts = [{Key, {AnnAST, Info, Checksum}}| ASTs]}

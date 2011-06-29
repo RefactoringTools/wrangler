@@ -34,6 +34,7 @@ write_refactored_files(Results, Editor, TabWidth, Cmd) ->
     end.
 
 write_refactored_files_emacs(Results, TabWidth, Cmd) ->
+    refac_io:format("DDDDD\n"),
     write_refactored_files_for_preview(Results,TabWidth,Cmd),
     ChangedFiles = lists:map(fun ({FileInfo,_AST}) -> 
 				     element(1, FileInfo)
@@ -42,6 +43,7 @@ write_refactored_files_emacs(Results, TabWidth, Cmd) ->
     {ok,ChangedFiles}.
 
 write_refactored_files_emacs(Results, HasWarningMsg, TabWidth, Cmd) ->
+    refac_io:format("DDDDDdddd\n"),
     write_refactored_files_for_preview(Results,TabWidth,Cmd),
     ChangedFiles = lists:map(fun ({FileInfo,_AST}) -> 
 				     element(1, FileInfo)
@@ -59,6 +61,8 @@ output_msg(ChangedFiles) ->
     end.
 
 write_refactored_files_for_preview(Files, TabWidth, LogMsg) ->
+    write_refactored_files_for_preview(Files, TabWidth, LogMsg, []).
+write_refactored_files_for_preview(Files, TabWidth, LogMsg, SearchPaths) ->
     F = fun (FileAST) ->
 		case FileAST of
 		    {{FileName,NewFileName}, AST} ->
@@ -67,6 +71,7 @@ write_refactored_files_for_preview(Files, TabWidth, LogMsg) ->
                         {Content, Changes} = refac_prettypr:print_ast_and_get_changes(FileFormat, AST, TabWidth),
 			case file:write_file(SwpFileName, list_to_binary(Content)) of
 			    ok ->
+                                wrangler_ast_server:update_ast({FileName, true, SearchPaths, TabWidth, FileFormat}, SwpFileName),
                                 {{{filename:join([FileName]),
                                    filename:join([NewFileName]), false},
                                   filename:join([SwpFileName])}, Changes};
