@@ -53,10 +53,13 @@
 %% =============================================================================================
 -module(refac_fold_expression).
 
--export([fold_expr_by_loc/5, fold_expr_by_loc_eclipse/5, 
+-export([fold_expr_by_loc/5, 
+         fold_expr_by_loc_eclipse/5, 
 	 fold_expr_1_eclipse/5,
 	 do_fold_expression/5,
-	 fold_expr_by_name/7, fold_expr_by_name_eclipse/7]).
+	 fold_expr_by_name/7, 
+         fold_expr_by_name/8,
+         fold_expr_by_name_eclipse/7]).
 
 -export([fold_expression_1/5]).  %% used by tests.
 
@@ -85,25 +88,27 @@ fold_expression(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
 	{ok, {Mod, FunName, _Arity, FunClauseDef, _ClauseIndex}} ->
 	    side_condition_analysis(FunClauseDef),
 	    Candidates = search_candidate_exprs(AnnAST, {Mod, Mod}, FunName, FunClauseDef),
-	    fold_expression_0(Candidates, FunClauseDef, Cmd, Editor);
+	    fold_expression_0(FileName, Candidates, FunClauseDef, Cmd, Editor, SearchPaths, TabWidth);
 	{error, _Reason} -> throw({error, "No function clause has been selected!"})
     end.
 
-fold_expression_0(Candidates, FunClauseDef, Cmd, Editor) ->
+fold_expression_0(FileName, Candidates, FunClauseDef, Cmd, Editor, SearchPaths, TabWidth)->
     case Candidates of
 	[] ->
 	    throw({error, "No expressions that are suitable for folding "
 		   "against the selected function have been found!"});
 	_ -> ok
     end,
+    FunClauseDef1 = term_to_list(FunClauseDef),
+    Regions = [{SLine, SCol, ELine, ECol, term_to_list(Expr), 
+                  term_to_list(NewExp), FunClauseDef1}
+                 || {{{SLine, SCol}, {ELine, ECol}}, Expr, NewExp} <- Candidates],
     case Editor of
-	emacs ->
-	    FunClauseDef1 = term_to_list(FunClauseDef),
-	    Regions = [{SLine, SCol, ELine, ECol, term_to_list(Expr), 
-			term_to_list(NewExp), FunClauseDef1}
-		       || {{{SLine, SCol}, {ELine, ECol}}, Expr, NewExp} <- Candidates],
-	    {ok, Regions, Cmd};
-	eclipse -> {ok, {FunClauseDef, Candidates}}
+        emacs ->
+            {ok, Regions, Cmd};
+        eclipse -> {ok, {FunClauseDef, Candidates}};
+        command ->
+            do_fold_expression(FileName, Regions, SearchPaths, TabWidth, "")
     end.
 
 %%-spec(fold_expr_by_name/7::(filename(), string(), string(), string(), 
@@ -115,20 +120,20 @@ fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex,
     fold_by_name_par_checking(ModName, FunName, Arity, ClauseIndex),
     fold_expr_by_name(FileName, list_to_atom(ModName), list_to_atom(FunName),
 		      list_to_integer(Arity), list_to_integer(ClauseIndex),
-		      SearchPaths, TabWidth, emacs).
+		      SearchPaths, emacs, TabWidth).
 
 %%-spec(fold_expr_by_name_eclipse/7::(filename(), string(), string(), integer(), integer(), [dir()], integer())
 %%				   -> {ok, {syntaxTree(), [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree(),syntaxTree()}]}}).
 fold_expr_by_name_eclipse(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth) ->
     fold_expr_by_name(FileName, list_to_atom(ModName), list_to_atom(FunName), Arity, 
-		      ClauseIndex, SearchPaths, TabWidth, eclipse).
+		      ClauseIndex, SearchPaths, eclipse, TabWidth).
 
-fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth, Editor) ->
-    ?wrangler_io("\nCMD: ~p:fold_expression(~p,~p,~p,~p,~p,~p).\n",
-		 [?MODULE, FileName, ModName, FunName, Arity, ClauseIndex, TabWidth]),
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fold_expression(" ++ "\"" ++ 
-	    FileName ++ "\", " ++ atom_to_list(ModName) ++ ", " ++ atom_to_list(FunName) ++ 
-	      ", " ++ integer_to_list(Arity) ++ ", " ++ integer_to_list(ClauseIndex) ++ ", ["
+fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, Editor, TabWidth) ->
+     ?wrangler_io("\nCMD: ~p:fold_expression(~p,~p,~p,~p,~p,~p).\n",
+		  [?MODULE, FileName, ModName, FunName, Arity, ClauseIndex, TabWidth]),
+     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fold_expression(" ++ "\"" ++
+	     FileName ++ "\", " ++ atom_to_list(ModName) ++ ", " ++ atom_to_list(FunName) ++
+	       ", " ++ integer_to_list(Arity) ++ ", " ++ integer_to_list(ClauseIndex) ++ ", ["
 											  ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {value, {module, CurrentModName}} = lists:keysearch(module, 1, Info),
@@ -138,8 +143,8 @@ fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, T
 	{ok, {Mod, _FunName, _Arity, FunClauseDef}} ->
 	    side_condition_analysis(FunClauseDef),
 	    Candidates = search_candidate_exprs(AnnAST, {Mod, CurrentModName}, FunName, FunClauseDef),
-	    fold_expression_0(Candidates, FunClauseDef, Cmd, Editor);
-	{error, _Reason} ->
+            fold_expression_0(FileName, Candidates, FunClauseDef, Cmd, Editor, SearchPaths, TabWidth);
+        {error, _Reason} ->
 	    throw({error, "The specified funcion clause does not exist!"})
     end.
 
