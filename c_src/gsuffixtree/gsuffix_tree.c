@@ -19,16 +19,16 @@
  *                                                                        *
  **************************************************************************/
 
-#include <assert.h>
+/* #include <assert.h> */
 #include <string.h>  /* memset */
 #include <stdlib.h>
 #include <stdio.h>
-#include "gsuffix_tree.h"
+#include "gsuffix_tree.h" 
 
 
 /* some assert macros */
-#define ASSERT_IS_LEAF(node)			(assert((node)->isaleaf))
-#define ASSERT_IS_INTERNAL_NODE(node) 	(assert(!((node)->isaleaf)))
+/* #define ASSERT_IS_LEAF(node)			(assert((node)->isaleaf)) */
+/* #define ASSERT_IS_INTERNAL_NODE(node) 	(assert(!((node)->isaleaf))) */
 
 #define USE_LINKEDLIST
 
@@ -266,7 +266,7 @@ static int node_add_intleaf(struct stree *stree, struct node *n, int_type strid,
 	struct int_leaf *intleaf;
 	struct internal_node *node;
 
-	ASSERT_IS_INTERNAL_NODE(n);
+	/*ASSERT_IS_INTERNAL_NODE(n);*/  
 
 	node = (struct internal_node*)n;
 	/* create the new internal leaf element */
@@ -320,7 +320,7 @@ static struct node *convert_leaf_into_internal_node(struct stree *stree, struct 
 	struct leaf_node *leaf;
 	struct int_leaf *ileaf;
 
-	ASSERT_IS_LEAF(node);
+	/* ASSERT_IS_LEAF(node); */
 	leaf = (struct leaf_node*)node;
 	newnode = new_internal_node(stree,leaf->n.edgestr,leaf->n.edgelen);
 
@@ -536,7 +536,7 @@ static int stree_ukkonen_add_string(struct stree *tree, char *S, int M, int stri
 					if (!node_add_intleaf(tree, node, id, j)) return 0;
 				}
 
-				ASSERT_IS_INTERNAL_NODE(lastnode);
+				/* ASSERT_IS_INTERNAL_NODE(lastnode); */
 				if (lastnode != root && !INTERNAL_NODE_GET_SUFFIXLINK(lastnode))
 					INTERNAL_NODE_SET_SUFFIXLINK(lastnode,node);
 				lastnode = node;
@@ -571,7 +571,7 @@ static int stree_ukkonen_add_string(struct stree *tree, char *S, int M, int stri
 					if (node_isaleaf (node)) node = convert_leaf_into_internal_node(tree, node);
 					if (!node_add_intleaf(tree, node, id, j)) return 0;
 				}
-				ASSERT_IS_INTERNAL_NODE(lastnode);
+				/* ASSERT_IS_INTERNAL_NODE(lastnode); */
 				if (lastnode != root && !INTERNAL_NODE_GET_SUFFIXLINK(lastnode))
 					INTERNAL_NODE_SET_SUFFIXLINK(lastnode,node);
 				lastnode = node;
@@ -744,8 +744,7 @@ static struct node *stree_edge_split(struct stree *tree,
   if (node_connect(tree, &newnode->n, node) == NULL)
   {
   	/* TODO: This cannot happen in our implementation */
-    fprintf(stderr,"Error in reconnecting node at %s (%d), terminating program.\n",
-	    __FILE__,__LINE__);
+    /* fprintf(stderr,"Error in reconnecting node, terminating program.\n"); */
     /*
       
     node->edgestr -= len;
@@ -755,6 +754,7 @@ static struct node *stree_edge_split(struct stree *tree,
   
     return NULL;
     */
+    return NULL;
   }
 
   /* tree->num_nodes++; */

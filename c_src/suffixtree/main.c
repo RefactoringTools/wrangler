@@ -5,25 +5,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <fcntl.h> /*  _O_BINARY *; this is needed for Windows */
 #include "suffix_tree.h"
 
 #define BUF_SIZE 250
 
 
-typedef char byte;
+typedef char mybyte;
 
-int read_cmd(byte *buf, int *size);
+int read_cmd(mybyte *buf, int *size);
 int write_cmd(ei_x_buff* x);
-int read_exact(byte *buf, int len);
-int write_exact(byte *buf, int len);
+int read_exact(mybyte *buf, int len);
+int write_exact(mybyte *buf, int len);
 
 
 int main()
 {
     char  *filename;
     
-    byte*     buf;
+    mybyte*     buf;
     int       size = BUF_SIZE;
     char      command[MAXATOMLEN];
     int       index, version, arity;
@@ -37,7 +37,7 @@ int main()
 	setmode(fileno(stdout), O_BINARY);
 	setmode(fileno(stdin), O_BINARY);
 #endif 
-	if ((buf = (byte *) malloc(size)) == NULL) 
+	if ((buf = (mybyte *) malloc(size)) == NULL) 
 	    return -1;
 	if ((filename=(char *) malloc(size)) ==NULL)
 	    return -1;
@@ -85,7 +85,7 @@ int main()
 /*-----------------------------------------------------------------
  * Data marshalling functions
  *----------------------------------------------------------------*/
-int read_cmd(byte *buf, int *size)
+int read_cmd(mybyte *buf, int *size)
 {
   int len;
 
@@ -94,7 +94,7 @@ int read_cmd(byte *buf, int *size)
   len = (buf[0] << 8) | buf[1];
 
   if (len > *size) {
-    buf = (byte *) realloc(buf, len);
+    buf = (mybyte *) realloc(buf, len);
     if (buf == NULL)
       return -1;
     *size = len;
@@ -104,7 +104,7 @@ int read_cmd(byte *buf, int *size)
 
 int write_cmd(ei_x_buff *buff)
 {
-  byte li;
+  mybyte li;
 
   li = (buff->index >> 8) & 0xff; 
   write_exact(&li, 1);
@@ -114,7 +114,7 @@ int write_cmd(ei_x_buff *buff)
   return write_exact(buff->buff, buff->index);
 }
 
-int read_exact(byte *buf, int len)
+int read_exact(mybyte *buf, int len)
 {
   int i, got=0;
 
@@ -127,7 +127,7 @@ int read_exact(byte *buf, int len)
   return len;
 }
 
-int write_exact(byte *buf, int len)
+int write_exact(mybyte *buf, int len)
 {
   int i, wrote = 0;
 

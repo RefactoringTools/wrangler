@@ -1,7 +1,7 @@
  
 
-ERL_CFLAGS  = -Ic:/erl5.8/lib/erl_interface-3.7/include -Ic:/erl5.8/usr/include
-ERL_LIB     = -Lc:/erl5.8/lib/erl_interface-3.7/lib -lerl_interface -lei
+ERL_CFLAGS  = -Ic:/ERL58~1.3/lib/erl_interface-3.7.3/include -Ic:/ERL58~1.3/usr/include
+ERL_LIB     = -Lc:/ERL58~1.3/lib/erl_interface-3.7.3/lib -lerl_interface -lei
 CFLAGS      = -g -O2 -Wall -m32
 LDFLAGS     =  -m32
 

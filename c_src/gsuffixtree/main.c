@@ -5,17 +5,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h> /*  _O_BINARY; this is needed for Windows*/
 #include "gsuffix_tree.h"
 
 #define BUF_SIZE 250
 
-typedef char byte;
+typedef char mybyte;
 
 
-int read_cmd(byte *buf, int *size);
+int read_cmd(mybyte *buf, int *size);
 int write_cmd(ei_x_buff* x);
-int read_exact(byte *buf, int len);
-int write_exact(byte *buf, int len);
+int read_exact(mybyte *buf, int len);
+int write_exact(mybyte *buf, int len);
 
 
 struct count { int n; };
@@ -35,44 +36,6 @@ void free_seq_array(char **array, int size)
    free(array);
 }
   
-int main1()
-{
-  char *filename="data.txt";
-  char *outfilename="clones.txt";
-  FILE* file = 0;
-  char* *seq_array;
-  char str[2048]="\0";
-  int array_index=0;
-  int num_of_strings=0;
-  struct stree *stree;
-  file = fopen((const char*)filename,"r");
-  /*Check for validity of the file.*/
-  if(file == 0)
-    {
-      printf("Failed to open file: %s.\n", filename);
-      return 0;
-    }
-  fscanf(file, "%d", &num_of_strings);
-  // printf("Num of strings: %d", num_of_strings);
-  seq_array = (char * *) malloc((num_of_strings+1)*sizeof(char *));
-  array_index=0;
-  while(fscanf(file, "%s", str)==1)
-    { /* printf("str: %s\n", str);  */
-      seq_array[array_index]=malloc((strlen(str)+1)*sizeof(char));
-      strcpy(seq_array[array_index], str);
-      //printf("array str: %s\n", seq_array[array_index]); 
-      array_index++;
-    }
-  fclose(file);
-  if ((stree=stree_create_from_char(seq_array, array_index)))
-    { collect_clones(stree, 4, 2, outfilename, seq_array); 
-      free_seq_array(seq_array, num_of_strings); 
-      stree_delete_tree(stree); 
-      return 1;
-    }
-  return 0;
-}
-
 
 int clone_detection_by_suffix_tree(char *filename, long minlen, long minclones, long overlap_allowed)
 {
@@ -113,7 +76,7 @@ int main()
 {
     char  *filename;
     
-    byte*     buf;
+    mybyte*     buf;
     int       size = 500;
     char      command[MAXATOMLEN];
     int       index, version, arity;
@@ -127,7 +90,7 @@ int main()
 	setmode(fileno(stdout), O_BINARY);
 	setmode(fileno(stdin), O_BINARY);
 #endif
-	if ((buf = (byte *) malloc(size)) == NULL)
+	if ((buf = (mybyte *) malloc(size)) == NULL)
 	    return -1;
 	if ((filename=(char *) malloc(size)) ==NULL)
 	    return -1;
@@ -176,7 +139,7 @@ int main()
 /*-----------------------------------------------------------------
  * Data marshalling functions
  *----------------------------------------------------------------*/
-int read_cmd(byte *buf, int *size)
+int read_cmd(mybyte *buf, int *size)
 {
   int len;
 
@@ -185,7 +148,7 @@ int read_cmd(byte *buf, int *size)
   len = (buf[0] << 8) | buf[1];
 
   if (len > *size) {
-    buf = (byte *) realloc(buf, len);
+    buf = (mybyte *) realloc(buf, len);
     if (buf == NULL)
       return -1;
     *size = len;
@@ -195,7 +158,7 @@ int read_cmd(byte *buf, int *size)
 
 int write_cmd(ei_x_buff *buff)
 {
-  byte li;
+  mybyte li;
 
   li = (buff->index >> 8) & 0xff; 
   write_exact(&li, 1);
@@ -205,7 +168,7 @@ int write_cmd(ei_x_buff *buff)
   return write_exact(buff->buff, buff->index);
 }
 
-int read_exact(byte *buf, int len)
+int read_exact(mybyte *buf, int len)
 {
   int i, got=0;
 
@@ -218,7 +181,7 @@ int read_exact(byte *buf, int len)
   return len;
 }
 
-int write_exact(byte *buf, int len)
+int write_exact(mybyte *buf, int len)
 {
   int i, wrote = 0;
 
