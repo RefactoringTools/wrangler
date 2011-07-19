@@ -30,7 +30,9 @@
 
 -module(batch_rename_fun).
 
--export([composite_refac/0, is_atomic/0, input_par_prompts/0]).
+-export([composite_refac/1, is_atomic/0, input_par_prompts/0]).
+
+-compile(export_all).
 
 -behaviour(gen_composite_refac).
 
@@ -40,22 +42,15 @@
 is_atomic()->
     false.
 
-
 input_par_prompts() ->
     [].
 
-composite_refac() ->
+composite_refac(_Args) ->
     [rename_fun_extended:rename_fun({filter, file, fun(_M) -> true end}, 
-                                    bar, 
-                                    {filter, fun(_A)-> true end}, 
-                                    {user_input, fun({M,F,A})->
-                                                         lists:flatten(io_lib:format("New function name for ~p:~p/~p: ", 
-                                                                                     [M,F,A])) 
+                                    {filter, fun(_F) -> true end},
+                                    {filter, fun(A)-> A==2 end}, 
+                                    {generator, fun({M,F,_A})->
+                                                         atom_to_list(M)++"_"++atom_to_list(F)
                                                  end},
-                                    ["c:/cygwin/home/hl/test"])].
+                                    ["c:/cygwin/home/hl/test/refac_api.erl"])].
 
-
-     %% {maybe, "Would you like to rename other functions?", 
-     %%  rename_fun_extended:rename_fun(test, test1, 2,
-     %%                                 {user_input,  fun(_)->"new funcion name: " end}, 
-     %%                                 ["c:/cygwin/home/hl/test"])}].
