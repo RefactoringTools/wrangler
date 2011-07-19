@@ -51,6 +51,7 @@
 %% <p> This refactoring does not support folding against function clauses with guard expressions, and 
 %% function clauses with complex formal parameters, such as tuples, lists, or records.
 %% =============================================================================================
+%%@private
 -module(refac_fold_expression).
 
 -export([fold_expr_by_loc/5, 

@@ -45,6 +45,8 @@
 %% Many punctuation characters region have special meaning.  Must
 %% watch using × \327, bvery close to x \170
 
+%% @hidden
+%% @private
 -module(refac_scan_with_layout).
 
 -export([string/1,string/2,string/3, string/4]).

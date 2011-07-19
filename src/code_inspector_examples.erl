@@ -82,6 +82,7 @@
 %%<a href="file:code_inspector_examples.erl" > code_inspector_examples.erl.</a>.
 %%</li>
 %%</ul>
+
 -module(code_inspector_examples).
 
 -include("../include/wrangler.hrl").

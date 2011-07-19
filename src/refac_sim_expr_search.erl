@@ -28,6 +28,7 @@
 %%
 %% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
 %% 
+%% @private
 -module(refac_sim_expr_search).
 
 -export([sim_expr_search_in_buffer/6,sim_expr_search_in_dirs/6, normalise_record_expr/5]).
@@ -50,7 +51,7 @@
 %% <p> In the case that code selected contains multiple, but non-continuous, sequence of expressions, the first
 %% continuous sequence of expressions is taken as the expression selected by the user. A continuous sequence of
 %% expressions is a sequence of expressions separated by ','.
-%% <p>
+%% </p>
 
 %%-spec(sim_expr_search_in_buffer/6::(filename(), pos(), pos(), string(),[dir()],integer())
 %%      -> {ok, [{filename(), {{integer(), integer()}, {integer(), integer()}}}]}).    

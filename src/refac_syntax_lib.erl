@@ -1,4 +1,3 @@
-
 %% =====================================================================
 %% Support library for abstract Erlang syntax trees.
 %%
@@ -35,6 +34,8 @@
 %% @type syntaxTree() = refac_syntax:syntaxTree(). An abstract syntax
 %% tree. See the <code>erl_syntax</code> module for details.
 
+%% @private
+%% @hidden
 -module(refac_syntax_lib).
 
 -export([is_fail_expr/1, analyze_function_name/1,

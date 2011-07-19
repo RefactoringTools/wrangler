@@ -29,6 +29,8 @@
 %% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
 %%======================================================================
 
+%% @private
+%% @hidden
 -module(refac_module_graph). 
 
 -export([module_graph/1, get_called_mods/2, module_graph_to_dot/3, module_graph_to_dot/4,

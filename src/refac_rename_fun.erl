@@ -51,6 +51,7 @@
 %% EQC: Issue a warning when renaming callback functions, also handld the use of 'call' quardruples.
 %% CommonTest, Issue a warning message when renaing a non-test function to a test function and vice versa.
 
+%% @private
 -module(refac_rename_fun).
 
 -export([rename_fun/6, rename_fun_1/6,  rename_fun_eclipse/6, rename_fun_1_eclipse/6]).

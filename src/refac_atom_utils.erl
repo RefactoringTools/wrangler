@@ -25,6 +25,8 @@
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %% =====================================================================
 
+%%@hidden
+%%@private
 -module(refac_atom_utils).
 
 

@@ -29,6 +29,8 @@
 %% 
 %% =====================================================================
 
+%% @private
+%% @hidden
 -module(wrangler_distel).    
 
 -include("../include/wrangler_internal.hrl").

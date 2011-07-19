@@ -32,6 +32,7 @@
 %% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
 %% 
 
+%%@private
 -module(refac_comment_out_spec).
 
 -export([comment_out/1]).

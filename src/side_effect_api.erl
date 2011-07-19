@@ -24,6 +24,8 @@
 %% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+%% @hidden
+%% @private
 -module(side_effect_api).
 
 -export([has_side_effect/1, has_side_effect/3, build_local_side_effect_tab/2, build_lib_side_effect_tab/1]).
@@ -78,7 +80,7 @@ has_side_effect(_File, Node, _SearchPaths) ->
 
 
 %%=================================================================
-%% @spec build_local_side_effect_tab(File::filename(), SearchPaths::[dir()]) -> true.
+%% @spec build_local_side_effect_tab(File::filename(), SearchPaths::[dir()]) -> true
 %% @doc Build a local side effect table for File and the files contained in SearchPaths, and
 %% put the result to the dets file: local_side_effect_tab. 
 %%
@@ -112,7 +114,7 @@ build_local_side_effect_tab(File, SearchPaths) ->
     ets:delete(LibPlt).
 
 %%=================================================================
-%% @spec build_lib_side_effect_tab(FileOrDirs::[fileName()|dir()]) -> true.
+%% @spec build_lib_side_effect_tab(FileOrDirs::[fileName()|dir()]) -> true
 %% @doc Build the side effect table for Erlang libraries specified in FileOrDirs, and
 %% put the result to the dets file: plt/side_effect_plt. 
 %%

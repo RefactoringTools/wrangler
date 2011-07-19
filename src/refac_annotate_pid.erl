@@ -35,6 +35,7 @@
 
 
 %% TODO: Summarise the limitations of this module.
+%%@private
 -module(refac_annotate_pid).
 
 -export([ann_pid_info/2]).

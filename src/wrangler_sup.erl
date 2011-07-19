@@ -28,6 +28,8 @@
 %%% Author  :  <Huiqing Li>
 %%% Created : 15 Aug 2008 by  <Huiqing Li>
 %%%-------------------------------------------------------------------
+%%%@private
+%%%@hidden
 -module(wrangler_sup).
 
 -behaviour(supervisor).

@@ -1,3 +1,5 @@
+%%@private
+%%@hidden
 -module(new_fun).
 
 -behaviour(gen_refac).

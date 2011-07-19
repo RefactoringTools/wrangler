@@ -28,6 +28,7 @@
 %% 
 %% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
 %% 
+%%@private
 -module(refac_clone_evolution).
 
 -export([gen_clone_report/1]).

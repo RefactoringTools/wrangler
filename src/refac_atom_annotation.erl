@@ -44,6 +44,7 @@
 %% literal; it only tells you that Wrangler cound not infer its role.
 
 
+%%@private
 -module(refac_atom_annotation).
 
 

@@ -16,6 +16,8 @@
 
 %%@author  Huiqing Li <H.Li@kent.ac.uk>
 
+%%@hidden
+%%@private
 -module(refac_batch_rename_fun).
 
 -export([rename_fun_to_camel_case/1]).

@@ -28,6 +28,7 @@
 %%
 %% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
 
+%%@private
 -module(refac_fold_against_macro).
 
 -export([fold_against_macro/5, fold_against_macro_1/5, 

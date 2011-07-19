@@ -31,6 +31,8 @@
 %%%
 %%% Created : 13 Sep 2008 by  <Huiqing Li>
 %%%-------------------------------------------------------------------
+%%%@hidden
+%%%@private
 -module(wrangler_modulegraph_server).
 
 -export([get_client_files/2]).

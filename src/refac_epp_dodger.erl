@@ -14,11 +14,11 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id$
-%%
 %% @copyright 2001-2006 Richard Carlsson
 %% @author Richard Carlsson <richardc@it.uu.se>
 %% @end
+%% @hidden
+%% @private
 %% =====================================================================
 
 %% @doc `epp_dodger' - bypasses the Erlang preprocessor.
@@ -145,7 +145,6 @@ parse_file(File, Parser, Options) ->
 %% @see parse/2
 %% @see parse_file/2
 %% @see parse_form/2
-%% @see quick_parse/3
 
 parse(Dev, L0, Options) ->
     parse(Dev, L0, fun parse_form/3, Options).
@@ -168,19 +167,6 @@ parse(Dev, L0, Fs, Parser, Options) ->
 
 parse_form(Dev, L0, Options) ->
     parse_form(Dev, L0, fun normal_parser/2, Options).
-
-%% @spec quick_parse_form(IODevice, StartLine) ->
-%%           {ok, Form, LineNo}
-%%         | {eof, LineNo}
-%%         | {error, errorinfo(), LineNo}
-%%       IODevice = pid()
-%%       StartLine = integer()
-%%       Form = refac_syntax:syntaxTree() | none
-%%       LineNo = integer()
-%%
-%% @equiv quick_parse_form(IODevice, StartLine, [])
-%%
-%% @see parse_form/2
 
 
 -record(opt, {clever = false}).

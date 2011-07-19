@@ -8,6 +8,7 @@
 %% then select 'Apply adhoc refactoring' from the menu, 
 %% and Wrangler will prompt you to input the refactoring 
 %% name, which is supposed to be the module name.
+%% @private
 -module(refac_specialise).
 
 -behaviour(gen_refac).

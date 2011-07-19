@@ -31,6 +31,7 @@
 %% =====================================================================
 
 %% TOADD: functionalities to check OTP behaviours.
+%% @private
 -module(refac_rename_process).
 
 -export([rename_process/6, rename_process_eclipse/6, rename_process_1/6, rename_process_1_eclipse/5]).

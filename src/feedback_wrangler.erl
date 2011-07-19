@@ -8,6 +8,7 @@
 %%
 %% @doc Wrangler's feedback interface module to Erlang E-learning
 
+%%@private
 -module(feedback_wrangler).
 
 %%-behaviour(feedback).

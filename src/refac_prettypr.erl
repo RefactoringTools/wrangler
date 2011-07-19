@@ -30,7 +30,8 @@
 %% <code>prettypr</code>, for text formatting of abstract syntax trees
 %% defined by the module <code>refac_syntax</code>.</p>
 
-
+%% @hidden
+%% @private
 -module(refac_prettypr).
 
 -export([format/1,print_ast/2, print_ast/3, 

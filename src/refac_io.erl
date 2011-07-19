@@ -15,6 +15,8 @@
 %% 
 %%     $Id$
 %%
+%% @private
+%% @hidden
 -module(refac_io).
 
 -export([scan_erl_form/5]).

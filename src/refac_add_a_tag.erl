@@ -39,6 +39,7 @@
 %% 3) limitations:
 %%    a). the current implementation only handles processes spawned using spawn or spawn_link;
 %% =============================================================================================
+%%@private
 -module(refac_add_a_tag).
 
 -export([add_a_tag/6]).
