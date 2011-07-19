@@ -79,6 +79,7 @@
 (setq ediff-ignore-similar-regions t)
 (setq refactor-mode nil)
 (setq has-warning 'false)
+(setq composite_refac 'false)
 
 (defun wrangler-ediff(file1 file2)
   "run ediff on file1 ans file2"
@@ -209,7 +210,7 @@
 (defun abort-changes()
   "abort the refactoring results"
   (erl-spawn
-    (erl-send-rpc wrangler-erl-node 'wrangler_preview_server 'abort (list))
+    (erl-send-rpc wrangler-erl-node 'wrangler_preview_server 'abort (list composite_refac))
     (erl-receive ()
 	((['rex ['badrpc rsn]]
 	  (setq refactor-mode nil)
@@ -228,15 +229,17 @@
 	    (kill-buffer (get-file-buffer-1 uf)))
 	  (setq unopened-files nil)
 	  (setq refactor-mode nil)
-	  (message "Refactoring aborted."))))))      
+	  (message "Refactoring aborted.")))))
+  (setq composite_refac 'false))
   
       
 (defun commit-or-abort()
   "commit or abort the refactoring result."
+ ;; (message "composite_refac: %s"  composite_refac)
   (if (y-or-n-p "Do you want to perform the changes?")
       (commit)
      (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler_preview_server 'abort (list))
+      (erl-send-rpc wrangler-erl-node 'wrangler_preview_server 'abort (list composite_refac))
       (erl-receive ()
 	  ((['rex ['badrpc rsn]]
 	    (setq refactor-mode nil)
@@ -244,7 +247,7 @@
 	   (['rex ['error rsn]]
 	    (setq refactor-mode nil)
 	    (message "Aborting refactoring failed: %s" rsn))
-	   (['rex ['ok files]]
+	   (['rex ['ok files]]  
 	    (dolist (f files)
 	      (progn
 		(let ((buff (get-file-buffer-1 f)))
@@ -255,7 +258,8 @@
 	      (kill-buffer (get-file-buffer-1 uf)))
 	    (setq unopened-files nil)
 	    (setq refactor-mode nil)
-	    (message "Refactoring aborted.")))))))
+	    (message "Refactoring aborted."))))))
+  (setq composite_refac 'false))
       
 (add-hook 'ediff-quit-hook 'my-ediff-qh)
 
@@ -450,8 +454,7 @@
 	"variable need to make Wrangler start with Ubuntu"
 )
 
-
-(setq pa (concat  %WRANGLER_DIR% "/ebin"))
+(setq pa (concat %WRANGLER_DIR% "/ebin"))
 
 (defun wrangler-erlang()
   "Run an Wrangler Erlang shell"
@@ -595,7 +598,7 @@
   )
 
 
-(defun preview-commit-cancel(current-file-nane modified renamed)
+(defun preview-commit-cancel(current-file-name modified renamed)
   "preview, commit or cancel the refactoring result"
   (setq files-to-write modified)
   (setq files-to-rename renamed)
@@ -2422,7 +2425,7 @@
    (let ((current-file-name (buffer-file-name))
  	(buffer (current-buffer)))
      (if (current-buffer-saved buffer)
-	 (erl-spawn
+	 (erl-spawn 
 	   (erl-send-rpc wrangler-erl-node 'wrangler_distel 'gen_fsm_to_record (list current-file-name wrangler-search-paths tab-width))
 	   (erl-receive (current-file-name)
  	      ((['rex ['badrpc rsn]]
@@ -2554,8 +2557,26 @@
     (if (equal ov highlight-region-overlay)
 	nil
       (org-delete-overlay ov))))
-    
 
+
+(defun highlight-instances-with-same-color(filename regions)
+  "highlight regions in the buffer with the same color"
+  (setq buffer (find-file filename))
+  (with-current-buffer buffer
+    (dolist (r regions)
+      (highlight-a-instance r buffer))))
+
+
+(defun highlight-a-instance(region buffer)
+   "highlight one region in the buffer"
+   (let ((line1 (elt (elt region 0) 0))
+	  (col1 (elt (elt region 0) 1))
+	  (line2 (elt (elt region 1) 0))
+	  (col2 (elt (elt region 1) 1)))
+     (goto-char (get-position line1 (- col1 1)))
+     (highlight-region line1 col1 line2 col2 buffer)
+       ))
+    
 (defun highlight-instances(regions defpos buffer)
   "highlight regions in the buffer"
   (dolist (r regions)
@@ -2578,7 +2599,7 @@
 	  (line2 (elt (elt region 1) 0))
 	  (col2 (elt (elt region 1) 1)))
      (highlight-region-with-face line1 col1 line2 col2 buffer 'def-instance-face)))
-	
+    
 
 (defun highlight-use-instance(region buffer)
    "highlight one region in the buffer"
@@ -2586,8 +2607,11 @@
 	  (col1 (elt (elt region 0) 1))
 	  (line2 (elt (elt region 1) 0))
 	  (col2 (elt (elt region 1) 1)))
-     (highlight-region-with-face line1 col1 line2 col2 buffer 'highlight-region-face)))
+     (highlight-region-with-face line1 col1 line2 col2 buffer 'use-instance-face)))
+       
 
+ 
+ 
 
 (defun highlight-region-with-face(line1 col1 line2 col2 buffer face)
   "hightlight the specified region"
@@ -3573,6 +3597,7 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
 (defun apply-composite-refac(callback-module-name) 
   "Apply a composite refactoring defined by behaviour gen_composite_refac"
   (interactive (list (read-string "Refactoring Callback module name: ")))
+  (setq composite_refac 'true)
   (let* ((buffer (current-buffer))
         (current-file-name (buffer-file-name))
         (line-no (current-line-no))
@@ -3603,7 +3628,7 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
                            start-line-no start-col-no end-line-no end-col-no pars)  
   "apply a composite refactoring"
   (interactive)
-  (let* ((par_vals (mapcar 'read-string pars)) 
+  (let* ((par_vals (mapcar 'read-string pars))
          (buffer (current-buffer))
          (args (list callback-module-name 
                      (list current-file-name  (list line-no column-no) (list (list start-line-no start-col-no)
@@ -3619,64 +3644,103 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
                  (['rex ['error rsn]]
                   (message "Refactoring failed: %s" rsn))
                  (['rex pid]
-                  (apply-refac-cmds pid nil)
+                  (apply-refac-cmds current-file-name pid 'none)
                   )))))
       (message "Refactoring aborted.")))) 
 
-(defun apply-refac-cmds(pid modified-files)
+(defun apply-refac-cmds(current-file-name pid previous_result)
   "apply a sequence of refactoring commands."
-  ;;(message "pid: %s" pid)
+  (message "pid: %s" pid) 
   (erl-spawn
-    (erl-send-rpc wrangler-erl-node 'gen_composite_refac 'get_next_command (list pid))
-    (erl-receive (pid modified-files)
+    (erl-send-rpc wrangler-erl-node 'gen_composite_refac 'get_next_command (list pid previous_result))
+    (erl-receive (current-file-name pid)
         ((['rex ['badrpc rsn]]
           (message "Refactoring failed: %s" rsn))
          (['rex ['error rsn]]
-          (message "Refactoring failed: %s" rsn))
-         (['rex ['ok 'none modified]] 
-          (message "Refactoring finished: %s" (append modified modified-files))
-          )
-         (['rex ['ok ['refactoring cmd]]]
-          (apply-a-refac-cmd pid cmd modified-files)) 
-         (['rex ['ok ['question msg]]] 
-          (message-box msg))))))
-
-
-(defun apply-a-refac-cmd(pid cmd modified-files)  
-  "apply a sub refactoring of a composite refactorings."
+          (message "Refactoring failed: %s" rsn)) 
+         (['rex ['ok 'none modified ['atomic_cr_failed rsn]]]
+                (message "Composite refactoring failed: %s" rsn)) 
+         (['rex ['ok 'none modified msg]] 
+          (progn
+            (if (eq modified nil)
+                (message "Refactoring finished, and no file has been changed.")
+              (update-buffers modified)
+              (preview-commit-cancel current-file-name modified nil)
+              (with-current-buffer (get-file-buffer-1 current-file-name)
+                nil))))
+         (['rex ['ok ['refactoring cmd] next_pid]]
+          (apply-a-refac-cmd current-file-name next_pid cmd)) 
+         (['rex ['ok ['question msg cmd] next_pid]]
+          (if (y-or-n-p msg)
+              (apply-a-refac-cmd current-file-name next_pid cmd)
+            (apply-refac-cmds current-file-name next_pid 'none)))
+         (['rex ['ok ['repeat_question msg cmd] next_pid]]
+          (message "next_pid %s" next_pid)
+          (if (y-or-n-p msg)
+              (apply-a-refac-cmd current-file-name next_pid cmd)
+            (apply-refac-cmds current-file-name next_pid 'none)))
+         (['rex result]
+          (message "Result: %s" result))
+          ))))
+ 
+ 
+(defun apply-a-refac-cmd(current-file-name pid cmd)  
+  "apply a sub refayctoring of a composite refactorings."
   (interactive) 
-  (setq mod_name (elt cmd 0))
-  (setq refac_name (elt cmd 1))
+  (setq mod_name (elt cmd 0)) 
+  (setq refac_name (elt cmd 1)) 
   (setq args (elt cmd 2))
+  (highlight_sels args)
   (setq newargs (get_user_inputs args))
- ;; (message "newargs: %s" newargs)
+  (message "newargs: %s" newargs)
+  (org-delete-overlay highlight-region-overlay)
   (erl-spawn 
-    (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list mod_name refac_name newargs))
-    (erl-receive(pid modified-files)
+    (erl-send-rpc wrangler-erl-node 'wrangler 'try_refactoring (list mod_name refac_name (append newargs (list tab-width))))
+    (erl-receive(current-file-name pid)
         ((['rex ['badrpc rsn]]
-          (progn
+          (progn 
             (message "Refactoring failed: %S" rsn)
-            (apply-refac-cmds pid modified-files)))
+            (apply-refac-cmds current-file-name pid (list 'error rsn))))
          (['rex ['error rsn]]
+           (progn
+             (message "Refactoring failed: %s" rsn)
+             (apply-refac-cmds current-file-name pid (list 'error rsn))))
+         (['rex [['ok modified] name_change]]
           (progn
-            (message "Refactoring failed: %s" rsn)
-            (apply-refac-cmds pid modified-files)))
+            (message "Refactoring succeeded %s" modified)
+            (update-buffers modified)
+            (apply-refac-cmds current-file-name pid (list (list 'ok modified) name_change))))
          (['rex ['ok modified]]
           (progn
             (message "Refactoring succeeded %s" modified)
-            (apply-refac-cmds pid (append modified modified-files))))
-         ))))
+            (update-buffers modified)
+            (apply-refac-cmds current-file-name pid (list (list 'ok modified) nil))))
+         (['rex ['ok modified warning-msg]]
+          (progn
+            (message "Refactoring succeeded %s" modified)
+            (update-buffers modified)
+            (apply-refac-cmds current-file-name pid (list 'ok modified))))
+         (['rex result]
+          (message "Result: %s" result))
+         )))) 
           
+(defun update-buffers(files)
+  "update the buffers for files that have been changed"
+  (dolist (f files)
+    (let ((buffer (get-file-buffer f)))
+      (if buffer
+          (with-current-buffer buffer (revert-buffer nil t t))
+        nil))))
+
 (defun get_user_inputs(args)
   "get the user input for parameters that need user input."
   (interactive)
   (setq new-args nil)
   (while (not (equal args nil))
     (let ((cur-arg (car args)))
-    ;;  (message "cur-arg: %s" cur-arg)
+     ;; (message "cur-arg: %s" cur-arg)
       (if (sequencep cur-arg)
           (progn
-          ;;  (message "ddd: %s" (elt cur-arg 0))
             (if (eq (elt cur-arg 0) 'prompt)
                 (let ((prompt (elt cur-arg 1)))
                   (setq new-args (cons (read-string prompt) new-args)))
@@ -3689,6 +3753,22 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
 )
  
 
+(defun highlight_sels(args)
+  "highlightget the selections."
+  (interactive)
+  (while (not (equal args nil))
+    (let ((cur-arg (car args)))
+       (message "cur-arg: %s" cur-arg)
+      (if (sequencep cur-arg)
+          (if(eq (elt cur-arg 0) 'range)
+              (let ((file (elt (elt cur-arg 1) 0))
+                    (ranges (elt (elt cur-arg 1) 1)))
+                (highlight-instances-with-same-color file ranges))
+            nil)
+        nil))
+    (setq args (cdr args)))
+  )
+ 
 
  
 (require 'tempo)
@@ -3747,7 +3827,7 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
     "ok." n
     n
     (erlang-skel-separator-start 2)
-    "%% @private" n
+    "%% @private" n 
     "%% @doc" n
     "%% Selective transformation or not." n
     "%%" n
