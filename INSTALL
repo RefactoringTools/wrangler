@@ -2,7 +2,7 @@
 Installation
 -------------
 
-Note: Intallation of Erlang and Emacs (or XEmacs) is required in order to use 
+Note: Installation of Erlang and Emacs (or XEmacs) is required in order to use 
       Wrangler.  
 
 Step 1) Build and install the software in the usual way:
@@ -35,8 +35,15 @@ Step 3) Add these lines to your ~/.emacs (or ./.xemacs/init.el for XEmacs):
 	    
         (add-to-list 'load-path "/usr/local/share/wrangler/elisp")
         (require 'wrangler)
+
+       Some code inspection functionalities of Wrangler generate .dot files, 
+       which can be compiled and previewed in Emacs if the Graphviz mode for 
+       Emacs is enabled. If you would like to enable the Graphviz mode for 
+       Emacs, add the following line into your .emacs.
+
+       (load-file "/usr/local/share/wrangler/elisp/graphviz-dot-mode.el")
    
-       (If you used an install prefix other than '/usr/local', replace
+       (NOTE: If you used an install prefix other than '/usr/local', replace
        '/usr/local/' with the correct directory)
 
 Step 4) Wrangler requires a .erlang.cookie file in your $HOME directory, 
