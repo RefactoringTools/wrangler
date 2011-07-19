@@ -31,13 +31,11 @@ ERL_OBJ = $(BUILD_FIRST) $(patsubst src/%.erl,ebin/%.beam,$(ERL_SRC))
 ELISP_WRANGLER_OBJ = elisp/wrangler.el
 INCLUDE_OBJ = include/wrangler_internal.hrl
 
-OBJECTS = $(ERL_OBJ) $(C_OBJ) $(ELISP_WRANGLER_OBJ) $(INCLUDE_OBJ)
+OBJECTS = $(ERL_OBJ) $(ELISP_WRANGLER_OBJ) $(INCLUDE_OBJ)
 
-default: prepare c $(ERL_OBJ) $(C_OBJ)
+default: prepare erl c
 
-base: $(ERL_OBJ) $(C_OBJ)
-
-all: prepare base c
+all: default docs
 
 erl: $(ERL_OBJ)
 
@@ -77,6 +75,7 @@ prepare:
                   elisp/wrangler.el.src>elisp/wrangler.el \
              ;; \
          esac
+
 c:
 	@cd ./c_src; make; cd ../..
 
@@ -85,7 +84,7 @@ c:
 
 clean:
 	@cd ./c_src; make clean; cd ../..
-	@-rm -f $(OBJECTS)
+	@-rm -f $(OBJECTS) ebin/erl_parse.beam
 	@-rm -f $(BIN_DIR)/*
 	@-rm -f doc/*.html doc/edoc-info doc/erlang.png doc/stylesheet.css
 	@-rm -f doc/*.erl
@@ -133,3 +132,6 @@ EXAMPLE_CODE = code_inspector_examples.erl refac_list.erl \
 docs:
 	$(ERL) -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS)])" -s init stop
 	(cd src ; cp $(EXAMPLE_CODE) ../doc/)
+
+privdocs:
+	$(MAKE) DOC_OPTS='$(DOC_OPTS)',private docs
