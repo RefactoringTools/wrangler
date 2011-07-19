@@ -92,6 +92,55 @@ see."
 
     current))
 
+
+(defun read-char-spec-1 (prompt specification
+                              &optional inherit-input-method seconds)
+  "Ask the user a question with multiple possible answers.
+No confirmation of the answer is requested; a single character is
+enough.
+
+PROMPT is the string to display to ask the question. It should end in a
+space; `read-char-spec' adds help text to the end of it.
+
+SPECIFICATION is a list of key specs, each of the form (KEY VALUE
+HELP-TEXT).
+
+Arguments INHERIT-INPUT-METHOD and SECONDS are as in `read-char', which
+see."
+  (let* ((spec-with-help
+          (append (list (list ?? read-char-spec-help-cmd
+                              "Get help"))
+                  specification))
+         (keys (mapconcat (lambda (cell)
+                            (read-char-spec-format-key (car cell)))
+                          specification
+                          ", "))
+         (prompt-with-keys (format "%s (%s, or ? for help) "
+                                   prompt keys))
+         char-read
+         (current read-char-spec-not-found))
+    ;; Loop until the user types a char actually in `specification'
+    (while (eq current read-char-spec-not-found)
+      (if (fboundp 'next-command-event) ; XEmacs
+          (setq event (next-command-event nil prompt-with-keys)
+		char-read (and (fboundp 'event-to-character)
+			       (event-to-character event)))
+        (setq char-read  (read-event prompt-with-keys)))
+	(let ((entry (assoc char-read spec-with-help)))
+        (when entry
+          (setq current (cadr entry))))
+
+      ;; Provide help when requested
+      (when (eq current read-char-spec-help-cmd)
+        (read-char-spec-generate-help prompt specification)
+        (setq current read-char-spec-not-found))
+
+      (setq prompt-with-keys
+            (format "Please answer %s. %s (%s, or ? for help) "
+                    keys prompt keys)))
+
+    current))
+
 ;;; There be dragons here
 
 (defconst read-char-spec-not-found
