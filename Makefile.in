@@ -1,5 +1,5 @@
-PACKAGE := wrangler
-VERSION := 0.9.3
+APPNAME = wrangler
+include vsn.mk
 
 prefix      = @prefix@
 exec_prefix = @exec_prefix@
@@ -15,6 +15,9 @@ ERL_SRC_DIR = ${datadir}/wrangler/src
 WRANGLER_DIR = ${datadir}/wrangler
 PLT_DIR = ${datadir}/wrangler/plt
 INCLUDE_DIR = ${datadir}/wrangler/include
+
+DOC_OPTS={def,{version,\"$(VERSION)\"}}
+
 ########################################
 ## Main part
 
@@ -121,5 +124,5 @@ wc:
 	@echo "* C"
 	@wc -l */*.c | sort -nr
 
-.PHONY: always
- 
+docs:
+	${erl} -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS)])" -s init stop
