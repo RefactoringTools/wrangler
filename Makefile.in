@@ -18,11 +18,12 @@ INCLUDE_DIR = ${datadir}/wrangler/include
 ########################################
 ## Main part
 
+BUILD_FIRST = ebin/refac_parse.beam ebin/expand_rule.beam ebin/refac_api.beam \
+   ebin/refac_scan.beam ebin/refac_epp_dodger.beam ebin/refac_syntax.beam \
+   ebin/refac_syntax_lib.beam ebin/refac_misc.beam ebin/ast_traverse_api.beam
+
 ERL_SRC := $(wildcard src/*.erl)
-ERL_OBJ := $(patsubst src/%.erl,ebin/%.beam,${ERL_SRC})
-
-SRC := src/refac_syntax.erl src/refac_syntax_lib.erl src/refac_api.erl src/ast_traverse_api.erl src/refac_misc.erl src/expand_rule.erl src/refac_epp_dodger.erl src/refac_scan.erl ${ERL_SRC} 
-
+ERL_OBJ := $(BUILD_FIRST) $(patsubst src/%.erl,ebin/%.beam,${ERL_SRC})
 
 ELISP_WRANGLER_OBJ := elisp/wrangler.el
 INCLUDE_OBJ :=include/wrangler_internal.hrl
@@ -39,10 +40,14 @@ erl: ${ERL_OBJ}
 ########################################
 ## Rules
 
-## Erlang
-ebin/%.beam: ${SRC}  
-	${erlc} -pa ebin -I include -W -o ebin +debug_info ${SRC} 
+.SUFFIXES: .erl .yrl
 
+## Erlang
+ebin/%.beam: src/%.erl
+	${erlc} -pa ebin -I include -W -o ebin +debug_info $<
+
+src/%.erl: src/%.yrl
+	${erlc} -o src $<
 
 ## this is ugly code.
 prepare:
@@ -73,7 +78,7 @@ c:
 
 
 Makefile: Makefile.in config.status
-	./config.status
+	./configure
 
 clean:
 	cd ./c_src; make clean; cd ../..	
