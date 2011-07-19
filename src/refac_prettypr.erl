@@ -175,6 +175,7 @@ is_special_form(Form) ->
             case refac_syntax:atom_value(AtrName) of
 		type -> true;
 		spec -> true;
+                opaque -> true;
 		record -> 
                     [_R, FieldTuple] = refac_syntax:attribute_arguments(Form),
                     Fields = refac_syntax:tuple_elements(FieldTuple),
