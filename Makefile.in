@@ -21,11 +21,11 @@ INCLUDE_DIR = ${datadir}/wrangler/include
 ERL_SRC := $(wildcard src/*.erl)
 ERL_OBJ := $(patsubst src/%.erl,ebin/%.beam,${ERL_SRC})
 
-SRC := src/refac_syntax.erl src/refac_syntax_lib.erl src/expand_rule.erl src/refac_api.erl src/ast_traverse_api.erl src/refac_epp_dodger.erl src/refac_scan.erl ${ERL_SRC} 
+SRC := src/refac_syntax.erl src/refac_syntax_lib.erl src/refac_api.erl src/ast_traverse_api.erl src/refac_misc.erl src/expand_rule.erl src/refac_epp_dodger.erl src/refac_scan.erl ${ERL_SRC} 
 
 
 ELISP_WRANGLER_OBJ := elisp/wrangler.el
-INCLUDE_OBJ :=include/wrangler.hrl
+INCLUDE_OBJ :=include/wrangler_internal.hrl
 
 
 OBJECTS := ${ERL_OBJ} ${C_OBJ} ${ELISP_WRANGLER_OBJ} ${INCLUDE_OBJ}
@@ -49,11 +49,11 @@ prepare:
 	@case `uname` in \
           CYGWIN*) \
               sed -e "s;%WRANGLER_DIR%;\"`cygpath -m ${WRANGLER_DIR}`\";" \
-                  include/wrangler.hrl.src>include/wrangler.hrl  \
+                  include/wrangler_internal.hrl.src>include/wrangler_internal.hrl  \
               ;; \
               *) \
               sed -e "s;%WRANGLER_DIR%;\"${WRANGLER_DIR}\";" \
-                  include/wrangler.hrl.src>include/wrangler.hrl \
+                  include/wrangler_internal.hrl.src>include/wrangler_internal.hrl \
               ;; \
          esac
 	@case `uname` in \
