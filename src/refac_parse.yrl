@@ -711,11 +711,17 @@ build_attribute({atom,La,Attr}, Val) ->
 	_Other -> ret_err(La, "bad attribute")
     end.
 
-var_list({cons,_Lc,{var,_,V},Tail}) ->
-    [V|var_list(Tail)];
+var_list({cons,_Lc,{var,L,V},Tail}) ->
+    [{var, L, V}|var_list(Tail)];  %% Modified by Huiqing Li (hl@kent.ac.uk).
 var_list({nil,_Ln}) -> [];
 var_list(Other) ->
-    ret_err(?line(Other), "bad variable list").
+    return_error(?line(Other), "bad variable list").
+
+%% var_list({cons,_Lc,{var,_,V},Tail}) ->
+%%     [V|var_list(Tail)];
+%% var_list({nil,_Ln}) -> [];
+%% var_list(Other) ->
+%%     ret_err(?line(Other), "bad variable list").
 
 attribute_farity({cons,L,H,T}) ->
     {cons,L,attribute_farity(H),attribute_farity(T)};
@@ -734,11 +740,39 @@ attribute_farity_list(Args) ->
 error_bad_decl(L, S) ->
     ret_err(L, io_lib:format("bad ~w declaration", [S])).
 
-farity_list({cons,_Lc,{op,_Lo,'/',{atom,_La,A},{integer,_Li,I}},Tail}) ->
-    [{A,I}|farity_list(Tail)];
+
+farity_list({cons,_Lc,{op,_Lo,'/',{atom,La,A},{integer,Li,I}},Tail}) ->
+    [{{atom, La,A},{integer, Li, I}}|farity_list(Tail)];     %% Modified by Huiqing Li.
+farity_list({cons,Lc,{op,_Lo,'/',{var,La,A},{var,Li,I}},Tail}) ->
+    case is_meta_farity(A, I) of 
+        true ->
+            [{{var, La,A},{var, Li, I}}|farity_list(Tail)];     %% Modified by Huiqing Li
+        false ->
+             return_error(?line(Lc), "bad function arity")
+    end;
 farity_list({nil,_Ln}) -> [];
 farity_list(Other) ->
-    ret_err(?line(Other), "bad function arity").
+    return_error(?line(Other), "bad function arity").
+
+is_meta_farity(F, A) ->
+    FStr = lists:reverse(atom_to_list(F)),
+    AStr = lists:reverse(atom_to_list(A)),
+    FSubStr=lists:takewhile(fun(C)->
+                                    C==64
+                            end, FStr),
+    ASubStr=lists:takewhile(fun(C)->
+                                    C==64
+                            end, AStr),
+    L = length(FSubStr),
+    L==length(ASubStr) andalso L>=1 andalso L=<2.
+   
+
+    
+%% farity_list({cons,_Lc,{op,_Lo,'/',{atom,_La,A},{integer,_Li,I}},Tail}) ->
+%%     [{A,I}|farity_list(Tail)];
+%% farity_list({nil,_Ln}) -> [];
+%% farity_list(Other) ->
+%%     ret_err(?line(Other), "bad function arity").
 
 record_tuple({tuple,_Lt,Fields}) ->
     record_fields(Fields);
