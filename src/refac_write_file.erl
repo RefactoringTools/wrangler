@@ -1,3 +1,5 @@
+%% @hidden
+%% @private
 -module(refac_write_file).
 
 -export([write_refactored_files/5,write_refactored_files/4,write_refactored_files_for_preview/3]).

@@ -25,6 +25,8 @@
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %%
 %%
+%% @private
+%% @hidden
 -module(wrangler_code_inspector_lib).
 
 -export([find_var_instances/5, nested_exprs/5,

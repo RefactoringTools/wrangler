@@ -1,3 +1,5 @@
+%% @hidden
+%% @private
 -module(anti_unification).
 
 -export([anti_unification/2,anti_unification_with_score/3,generate_anti_unifier/3,

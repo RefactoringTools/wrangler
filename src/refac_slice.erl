@@ -37,6 +37,7 @@
 
 
 %%THIS MODULE IS NOT COMPLETE YET, and will be rewritten.
+%% @private
 -module(refac_slice). 
 
 -export([forward_slice/5, backward_slice/5]). 
@@ -47,7 +48,7 @@
 %% TODO: extend the slicer to go into the inner of case/receive/if exprs.
 
 
-%% @spec forward_slice(Files:[filename()], AnnAST:syntaxTree(), ModName::atom(), FunDef::syntaxTree(), Expr::syntaxTree()) -> [syntaxTree()].
+%% @spec forward_slice(Files::[filename()], AnnAST::syntaxTree(), ModName::atom(), FunDef::syntaxTree(), Expr::syntaxTree()) -> [syntaxTree()]
 %% @doc Forward slice the program with expression Expr, which in contained in function FunDef, as the slicing criterion.                     
  
 %%-spec(forward_slice/5::([filename()], syntaxTree(), atom(), syntaxTree(), syntaxTree())->
@@ -324,7 +325,8 @@ do_process_fun_applications(Node, {Files, AnnAST, ModName, FunName, Arity, Vars}
     end.
 
 %%=========================================================================================================
-%% @spec backward_slice(Files:[filename()], AnnAST:syntaxTree(), ModName::atom(), FunDef::syntaxTree() Expr::syntaxTree()) -> term(). %% Need to think what term() really is.
+%% TODO: Need to think what term() returned by backward_slice() really is
+%% @spec backward_slice(Files::[filename()], AnnAST::syntaxTree(), ModName::atom(), FunDef::syntaxTree(), Expr::syntaxTree()) -> term()
 %% @doc Backward slice the program with expression Expr, which is contained in function FunDef, as the slicing criterion.      
 
 

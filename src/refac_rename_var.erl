@@ -45,7 +45,7 @@
 %% </p>
 %% @end
 
-
+%% @private
 -module(refac_rename_var).
 
 -export([rename_var/6, rename_var_eclipse/6]).

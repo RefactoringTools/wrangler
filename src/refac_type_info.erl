@@ -3,6 +3,7 @@
 %% This module makes use of functionalities from TypEr and Dialyzer to get some type information
 %% for an Erlang module.
 %% =============================================================================================
+%% @private
 -module(refac_type_info).
 
 -export([get_type_info_using_typer/1]).

@@ -23,6 +23,8 @@
 %% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
 %% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+%%
+%% @private
 
 -module(ast_traverse_api).
 
@@ -93,6 +95,7 @@ once_tdTU(Function, Node, Others) ->
  %%
  %% @see full_buTP/2
  %% @see once_tdTU/3
+
  %%-spec(stop_tdTP/3::(fun((syntaxTree(), anyterm()) ->
  %%			       {syntaxTree(), boolean()}), syntaxTree(), anyterm()) ->
  %%	     {syntaxTree(), boolean()}).
@@ -140,6 +143,7 @@ full_tdTP(Function, Node, Others) ->
 %% the nodes in the abstract syntax tree are traversed by this function. 
 %% @see stop_tdTP/2
 %% @see once_tdTU/3
+
 %%-spec(full_buTP/3::(fun((syntaxTree(), any()) -> syntaxTree()), syntaxTree(), anyterm())->
 %%	     syntaxTree()).       
 full_buTP(Fun, Tree, Others) ->

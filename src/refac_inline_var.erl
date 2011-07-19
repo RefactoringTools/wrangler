@@ -39,6 +39,7 @@
 %% </p>
 %% @end
 
+%% @private
 -module(refac_inline_var).
 
 -export([inline_var/5, inline_var_eclipse/5,

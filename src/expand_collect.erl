@@ -1,3 +1,5 @@
+%%@hidden
+%%@private
 -module(expand_collect).
 
 -export([parse_transform/2]).

@@ -1,11 +1,4 @@
-%%%-------------------------------------------------------------------
-%%% @author  <>
-%%% @copyright (C) 2011, 
-%%% @doc
-%%%
-%%% @end
-%%% Created : 25 May 2011 by  <>
-%%%-------------------------------------------------------------------
+%% @private
 -module(refac_remove_arg).
 
 -behaviour(gen_refac).
@@ -55,7 +48,7 @@ select_focus(_Args=#args{current_file_name=File,
 %% @doc
 %% Check the pre-conditions of the refactoring.
 %%
-%% @spec check_pre_cond(Args#args{}) -> ok | {error, Reason}
+%% @spec check_pre_cond(Args::#args{}) -> ok | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
 check_pre_cond(Args=#args{focus_sel=FunDef,

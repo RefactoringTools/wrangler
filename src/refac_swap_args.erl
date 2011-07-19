@@ -13,6 +13,7 @@
 %% the module name, and then you will prompted to 
 %% input the values of Ith and Jth.
 
+%% @private
 -module(refac_swap_args).
 
 -behaviour(gen_refac).

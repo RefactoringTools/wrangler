@@ -57,6 +57,7 @@
 %%CommonTest: Need to issue a warning message when a non-test module name is renamed to
 %%            a test module namel or vice versa.
 
+%% @private
 -module(refac_rename_mod).
 
 -export([rename_mod/4, rename_mod_1/5, 

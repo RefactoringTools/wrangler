@@ -6,6 +6,7 @@
 %% module, and qualify the calls to those functions 
 %% imported from that module.
 
+%% @private
 -module(refac_remove_import).
 
 -behaviour(gen_refac).

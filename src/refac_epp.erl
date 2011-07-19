@@ -15,6 +15,8 @@
 %% 
 %%     $Id $
 %%
+%%@hidden
+%%@private
 -module(refac_epp).
 
 %% An Erlang code preprocessor.

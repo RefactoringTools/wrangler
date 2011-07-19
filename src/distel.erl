@@ -5,6 +5,8 @@
 %%%
 %%% Created : 18 Mar 2002 by Luke Gorrie <luke@bluetail.com>
 %%%-------------------------------------------------------------------
+%%%@hidden
+%%%@private
 -module(distel).
 
 -author('luke@bluetail.com').

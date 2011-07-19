@@ -28,6 +28,7 @@
 %%
 %% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
 %% 
+%%@private
 -module(refac_expr_search).
 
 -export([expr_search_in_buffer/5, expr_search_in_dirs/5, expr_search_eclipse/4]).
@@ -50,9 +51,11 @@
 %% continuous sequence of expressions is taken as the user-selected expression. A continuous sequence of
 %% expressions is a sequence of expressions separated by ','.
 %% </p>
+%% @end
 %% =================================================================================================
 %% @spec expr_search_in_buffer(FileName::filename(), Start::Pos, End::Pos,SearchPaths::[dir()], TabWidth::integer())-> 
-%%           {ok, [{filename(), {{integer(), integer()}, {integer(), integer()}}}]}.
+%%           {ok, [{filename(), {{integer(), integer()}, {integer(), integer()}}}]}
+%% @end
 %% =================================================================================================         
 
 
@@ -82,9 +85,11 @@ expr_search_in_buffer(FileName, Start = {_Line, _Col}, End = {_Line1, _Col1}, Se
 %% continuous sequence of expressions is taken as the user-selected expression. A continuous sequence of
 %% expressions is a sequence of expressions separated by ','.
 %% </p>
+%% @end
 %% =================================================================================================
 %% @spec expr_search_in_dirs(FileName::filename(), Start::Pos, End::Pos,SearchPaths::[dir()], TabWidth::integer())-> 
-%%           {ok, [{filename(), {{integer(), integer()}, {integer(), integer()}}}]}.
+%%           {ok, [{filename(), {{integer(), integer()}, {integer(), integer()}}}]}
+%% @end
 %% =================================================================================================         
 %%-spec(expr_search_in_dirs/5::(filename(), pos(), pos(), [dir()], integer()) -> 
 %%    {ok, [{filename(),{{integer(), integer()}, {integer(), integer()}}}]}).   

@@ -24,6 +24,8 @@
 %% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %% =====================================================================
+%%@hidden
+%%@private
 -module(generalised_unification).
 
 -export([expr_match/3, expr_match/2]).

@@ -23,6 +23,7 @@
 
 %% @doc Functions for reading comment lines from Erlang source code.
 
+%%@private
 -module(refac_comment_scan).
 
 -export([file/1, file/2, join_lines/1, scan_lines/1, string/1]).

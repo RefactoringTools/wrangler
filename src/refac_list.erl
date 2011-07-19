@@ -10,6 +10,7 @@
 
 %%@author  Huiqing Li <H.Li@kent.ac.uk>
 
+%% @private
 -module(refac_list).
 
 -behaviour(gen_refac).

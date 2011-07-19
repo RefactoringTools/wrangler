@@ -30,6 +30,8 @@
 %% by position, indentation and text, as attachments on an abstract
 %% syntax tree, at the correct places.</p>
 
+%% @private
+%% @hidden
 -module(refac_recomment).
 
 -export([recomment_forms/2, quick_recomment_forms/2, recomment_tree/2, build_tree/1]).

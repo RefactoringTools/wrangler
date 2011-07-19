@@ -27,6 +27,8 @@
 %%@author  Huiqing Li <H.Li@kent.ac.uk>
 %%
 %%
+%%@hidden
+%%@private
 -module(gen_composite_refac).
 
 -export([init_composite_refac/2,get_next_command/1, input_par_prompts/1]).

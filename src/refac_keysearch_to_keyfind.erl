@@ -1,3 +1,5 @@
+%% @private
+%% @hidden
 -module(refac_keysearch_to_keyfind).
 
 -behaviour(gen_refac).

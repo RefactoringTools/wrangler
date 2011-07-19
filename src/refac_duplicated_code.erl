@@ -17,6 +17,7 @@
 %%
 %% =====================================================================
 
+%%@private
 -module(refac_duplicated_code).
 
 -export([duplicated_code/5, 

@@ -41,6 +41,8 @@
 
 %% @TODO can floats be moved in/out of sep:s without too much pain?
 
+%% @private
+%% @hidden
 -module(refac_prettypr_0).
 -export([above/2, beside/2, best/3, break/1, empty/0, floating/1,
 	 floating/3, follow/2, follow/3, format/1, format/2, format/3,

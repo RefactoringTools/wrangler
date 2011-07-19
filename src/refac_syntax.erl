@@ -90,6 +90,8 @@
 %% @end
 %% =====================================================================
 
+%% @private
+%% @hidden
 -module(refac_syntax).
 
 -export([abstract/1, add_ann/2, add_postcomments/2,
@@ -2014,7 +2016,7 @@ is_list_skeleton(Node) ->
     end.
 
 %% =====================================================================
-%% @spec is_ proper_list(Node::syntaxTree()) -> bool()
+%% @spec is_proper_list(Node::syntaxTree()) -> bool()
 %%
 %% @doc Returns <code>true</code> if <code>Node</code> represents a
 %% proper list, and <code>false</code> otherwise. A proper list is a
@@ -2256,7 +2258,7 @@ binary_field(Body) -> binary_field(Body, []).
 %% equivalent to "<code>binary_field(size_qualifier(Body, Size),
 %% Types)</code>".
 %%
-%% @see binary/1B
+%% @see binary/1
 %% @see binary_field/2
 %% @see size_qualifier/2
 
@@ -6543,4 +6545,4 @@ default_literals_vars(Node, Value) ->
  
 %%TODO:
 %% Add support for bc (binary comprehension?).
-%% eg. << <<X:1>> || X <- List >>.
+%% eg. `<< <<X:1>> || X <- List >>'.
