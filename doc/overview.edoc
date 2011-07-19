@@ -16,7 +16,7 @@
   <li><a href="#The Interface of Wrangler">The Interface of Wrangler</a></li>
   <li><a href="#Macros">Support for Macros</a></li>
   <li><a href="#Refactoring Code with Syntax Errors">Refactoring Code with Syntax Errors</a> </li>
-  <li><a href="Types">Typed Records and Type Specifications</a></li>
+  <li><a href="#Types">Typed Records and Type Specifications</a></li>
   <li><a href="#References">References</a></li>
   <li><a href="#Acknowledgements">Acknowledgements</a></li>
 </ol>
@@ -52,7 +52,7 @@ to the status right before the last refactoring performed. However, PLEASE NOTE 
 <p> Below is a snapshot of Wrangler embedded in Eclipse + Erlide.</p>
 <img src="Erlide.JPG" alt=" "> </img>
 
-<h3><a name="Support for Macros">Support for Macros</a></h3>
+<h3><a name="Macros">Support for Macros</a></h3>
 
 <p>Wrangler makes use of functionalities provided by the <code>epp_dodger</code> module from Erlang <em>SyntaxTools</em> to parse Erlang source code, and should be able to 
 refactor Erlang modules containing preprocessor directives and macro applications, as long as the macro definitions are syntactically "well-behaved".</p> 
@@ -76,6 +76,6 @@ especially Haskell, programs; and our progress and ideas about refactoring Erlan
 
 The work was initially supported by EPSRC in the UK, and is now by the European Commission. We are very grateful that we were able to build the tool on top of 
 <a href="http://code.google.com/p/distel/">Distel</a>, 
-<a href="http://www.erlang.org/doc/doc-5.4/lib/syntax_tools-0.1/doc/html/index.html"> Erlang SyntaxTools</a>
+<a href="http://www.erlang.org/doc/apps/syntax_tools/index.html"> Erlang SyntaxTools</a>
 and make use some of the ideas from <a href="http://www.it.uu.se/research/group/hipe/dialyzer/"> DIALYZER</a>.
 @end
