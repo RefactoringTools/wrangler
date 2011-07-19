@@ -84,7 +84,7 @@
 %%</ul>
 -module(code_inspector_examples).
 
--include("../include/gen_refac.hrl").
+-include("../include/wrangler.hrl").
 
 -export([top_level_if/1, 
          append_two_lists/1,
@@ -92,10 +92,7 @@
          non_tail_recursive_function/1,
          calls_to_specific_function/1]).
          
--export([test/1, 
-         test1/1, 
-         test2/1, 
-         test3/1]).
+-export([test/1,test1/1,test2/1,test3/1,test4/1, test5/1]).
 
 -import(refac_api, [fun_define_info/1]).
 
@@ -107,30 +104,28 @@
 %% collect functions both with guard expressions and without guard 
 %% expression (i.e. `Guard@@' is `[]').
 
--spec(top_level_if/1::(#args{}) ->[{modulename(), functionname(), arity()}]
-                                      |{error, term()}).
+-spec(top_level_if/1::(#args{}) ->[{modulename(), functionname(), arity()}]).
 %% No user inputs needed.   
-top_level_if(input_pars) ->
+top_level_if(input_par_prompts) ->
     [];
-top_level_if(_Args=#args{current_file_name=CurFileName})->
-    ?COLLECT(?T("f@(Args@@) when Guard@@ ->Body@@."), 
-             length(Body@@)==1 andalso 
-             refac_syntax:type(hd(Body@@))==if_expr,
-             refac_api:fun_define_info(F@),
-             [CurFileName]).
+top_level_if(_Args=#args{search_paths=SearchPaths})->
+    ?FULL_TD_TU([?COLLECT(?T("f@(Args@@) when Guard@@ ->Body@."), 
+                          refac_api:fun_define_info(f@),
+                          refac_api:type(Body@)==if_expr)],
+                [SearchPaths]).
 
 %%=====================================================================
 %% Collects the uses of `lists:append/2' in the project, and returns 
 %% the location information of each application instance found.
 
--spec(append_two_lists/1::(#args{}) ->[{filename(), {pos(),pos()}}]
-                                         |{error, term()}).
+-spec(append_two_lists/1::(#args{}) ->[{filename(), {pos(),pos()}}]).
 %% No user inputs needed.
-append_two_lists(input_pars) -> [];
+append_two_lists(input_par_prompts) -> [];
 append_two_lists(_Args=#args{search_paths=SearchPaths}) ->
-    ?COLLECT_LOC(?T("F@(L1@, L2@)"), 
-                 {lists, append, 2} == refac_api:fun_define_info(F@), 
-                 SearchPaths).
+    ?STOP_TD_TU([?COLLECT(?T("F@(L1@, L2@)"), 
+                          {_File@, refac_api:start_end_loc(_This@)},
+                          {lists, append, 2} == refac_api:fun_define_info(F@))],
+                SearchPaths). 
 
 %%=====================================================================
 %% Collects the uses of a specific function, and returns the location
@@ -138,26 +133,26 @@ append_two_lists(_Args=#args{search_paths=SearchPaths}) ->
 %% location information of each application instance found.
 
 %% Ask the user to input the MFA information of the function to check.
--spec(calls_to_specific_function/1::(#args{}) ->[{filename(), {pos(),pos()}}]
-                                         |{error, term()}).
-calls_to_specific_function(input_pars) ->
+-spec(calls_to_specific_function/1::(#args{}) ->[{filename(), {pos(),pos()}}]).
+calls_to_specific_function(input_par_prompts) ->
     ["Module name: ", "Function name: ", "Arity: "];
 
 calls_to_specific_function(_Args=#args{user_inputs=[M,F,A], 
                                        search_paths=SearchPaths}) ->
     MFA={list_to_atom(M), list_to_atom(F), list_to_integer(A)},                              
-    ?COLLECT_LOC(?T("F@(Args@@)"), 
-                 MFA==refac_api:fun_define_info(F@), 
-                 [SearchPaths]).
+    ?FULL_TD_TU([?COLLECT_LOC(?T("F@(Args@@)"), 
+                              MFA==refac_api:fun_define_info(F@))],
+                [SearchPaths]).
 
+ 
 %%===================================================================
 %% Collects clause bodies that ends in the format of `Var=Expr, Var',
 %% and returns the location information of `Var=Expr, Var'.
 
 %% No user inputs are needed.
--spec(unnecessary_match/1::(#args{}) ->[{filename(), {pos(),pos()}}]
-                                           |{error, term()}).
-unnecessary_match(input_pars) ->[];
+-spec(unnecessary_match/1::(#args{}) ->[{filename(), {pos(),pos()}}]).
+                                    
+unnecessary_match(input_par_prompts) ->[];
   
 %% Instead of collecting the location of the whole matching node, this
 %% function only returns the location of the last two expressions; therefore
@@ -169,23 +164,23 @@ unnecessary_match(input_pars) ->[];
 %% {File,{StartPos, EndPos}}, Wrangler will display the result in such a way 
 %% that the location information is mouse clickable. 
 unnecessary_match(_Args=#args{search_paths=SearchPaths}) ->
-    ?COLLECT(?T("Body@@, V@=Expr@, V@"), 
-             refac_syntax:type(V@)==variable, 
-             {_File@, refac_api:start_end_loc(lists:nthtail(length(Body@@), _This@))},
-             SearchPaths).
+    ?FULL_TD_TU([?COLLECT(?T("Body@@, V@=Expr@, V@"), 
+                          {_File@, refac_api:start_end_loc(lists:nthtail(length(Body@@), _This@))},
+                          refac_api:type(V@)==variable)],
+                SearchPaths).
 
 
 %%===================================================================
 %% Collects the recursive function definitions that are not tail-recursive,
 %% and returns the MFA information of those functions.
--spec(non_tail_recursive_function/1::(#args{}) ->[{modulename(), functionname(), arity()}]
-                                      |{error, term()}).
-non_tail_recursive_function(input_pars)-> [];
+-spec(non_tail_recursive_function/1::(#args{}) ->[{modulename(), functionname(), arity()}]).
+                                
+non_tail_recursive_function(input_par_prompts)-> [];
 non_tail_recursive_function(_Args=#args{search_paths=SearchPaths}) ->
-    ?COLLECT(?T("f@(Args@@@) when Guard@@@-> Body@@@."), 
-             is_non_tail_recursive(_This@),
-             fun_define_info(F@),
-             [SearchPaths]).
+    ?FULL_TD_TU([?COLLECT(?T("f@(Args@@@) when Guard@@@-> Body@@@."), 
+                          fun_define_info(f@),
+                          is_non_tail_recursive(_This@))],
+                 [SearchPaths]).
 
 %% Returns `true' if a recursive function definition is not tail recursive. 
 is_non_tail_recursive(FunDef) ->
@@ -200,10 +195,10 @@ is_non_tail_recursive(FunDef) ->
                                          orelse EnclosedApps /= [])
          end,
     %% collect each function clause that is not tail recursive.
-    Res=?COLLECT(?T("f@(Args@@) when Guard@@ -> Body@@, Last@;"),
-                 Cond(_This@, Last@),
-                 true,
-                 FunDef),
+    Res=?FULL_TD_TU([?COLLECT(?T("f@(Args@@) when Guard@@ -> Body@@, Last@;"),
+                              true,
+                              Cond(_This@, Last@))],
+                    FunDef),
     %% A function is not tail-recursive if any of its function 
     %% clause is recursive, but not tail-recursive.
     lists:member(true, Res).
@@ -211,29 +206,31 @@ is_non_tail_recursive(FunDef) ->
 %% collect all the function application instances of 
 %% a specific function.
 collect_apps(FunDef, MFA) ->
-    ?COLLECT(?T("F@(Args@@)"),
-             fun_define_info(F@) == MFA,
-             refac_api:start_end_loc(_This@),
-             FunDef).
+    ?FULL_TD_TU([?COLLECT(?T("F@(Args@@)"),
+                          refac_api:start_end_loc(_This@),
+                          fun_define_info(F@) == MFA)],
+                 FunDef).
 
 %% collect all the last clause body expressions that 
 %% are function applications.
 collect_last_apps(Last, MFA) ->
-    ?COLLECT(?T("Body@@, F@(Args@@)"),
-             fun_define_info(F@)==MFA,
-             refac_api:start_end_loc(lists:last(_This@)),
-             Last).
+    ?FULL_TD_TU([?COLLECT(?T("Body@@, F@(Args@@)"),
+                          refac_api:start_end_loc(lists:last(_This@)),
+                          fun_define_info(F@)==MFA
+                         )],
+                Last).
 %% collect all the expressions that is part of `LastExpr', but
 %% is not a `case'/`if'/`receive'/`block'/'parentheses' expression.
 collect_simple_exprs(LastExpr) ->
-    ?COLLECT(?T("E@"),
-             refac_api:is_expr(E@) andalso
-             not (lists:member(refac_syntax:type(E@), 
-                               [case_expr, receive_expr, 
-                                if_expr,parentheses,
-                                block_expr])),
-             refac_api:start_end_loc(E@),
-             LastExpr).
+    ?FULL_TD_TU([?COLLECT(?T("E@"),
+                          refac_api:start_end_loc(E@),
+                          refac_api:is_expr(E@) andalso
+                          not (lists:member(refac_api:type(E@), 
+                                            [case_expr, receive_expr, 
+                                             if_expr,parentheses,
+                                             block_expr]))
+                         )],
+                LastExpr).
 
 %% returns the subset of `Apps' that each of which is  
 %% locationally enclosed by at least one member of `Exprs'.
@@ -255,49 +252,71 @@ enclose(_Loc1={Start1, End1},_Loc2={Start2,End2}) ->
 %% Collects all function clauses whose clause body have a sequence of 
 %% two or more expressions.
 %%@private
-test(input_pars)->
+test(input_par_prompts)->
     [];
 test(_Args=#args{search_paths=SearchPaths}) ->
-    ?COLLECT(?T("f@(Args@@) when Guard@@-> First@, Second@,Body@@;"),
-             true,
-             refac_api:fun_define_info(F@),
-             [SearchPaths]).
+    ?FULL_TD_TU([?COLLECT(?T("f@(Args@@) when Guard@@-> First@, Second@,Body@@;"),
+                          refac_api:fun_define_info(f@),
+                          true)],
+                [SearchPaths]).
 
 
 %%===================================================================
 %% Collects all functions, and returns the MFA info of each function.
 %%@private
-test1(input_pars)->
+test1(input_par_prompts)->
     [];
 test1(_Args=#args{search_paths=SearchPaths}) ->
-     ?COLLECT(?T("f@(Args@@@) when Guard@@@-> Body@@@."),
-              true,
-              refac_api:fun_define_info(F@),
-              [SearchPaths]).
+     ?FULL_TD_TU([?COLLECT(?T("f@(Args@@@) when Guard@@@-> Body@@@."),
+                           refac_api:fun_define_info(f@),
+                          true)],
+                 [SearchPaths]).
 
 %%===================================================================
 %% Collects all function clauses, and returns the MFA info of each 
 %% function clause collected.
 %%@private
-test2(input_pars)->
+test2(input_par_prompts)->
     [];
 test2(_Args=#args{search_paths=SearchPaths}) ->
-     ?COLLECT(?T("f@(Args@@)when Guard@@-> Body@@;"),
-              true,
-              refac_api:fun_define_info(F@),
-              [SearchPaths]).
+    ?FULL_TD_TU([?COLLECT(?T("f@(Args@@)when Guard@@-> Body@@;"),
+                         refac_api:fun_define_info(f@),
+                         true)],
+                [SearchPaths]).
 
 %%===================================================================
 %% Collects all function clause without guards, and returns the MFA 
 %% info of each function clause collected.
 %%@private
-test3(input_pars)->
+test3(input_par_prompts)->
     [];
 test3(_Args=#args{search_paths=SearchPaths}) ->
-     ?COLLECT(?T("f@(Args@@)-> Body@@;"),
-              true,
-              refac_api:fun_define_info(F@),
-              [SearchPaths]).
+    ?FULL_TD_TU([?COLLECT(?T("f@(Args@@)-> Body@@;"),
+                          refac_api:fun_define_info(f@),
+                          true)],
+                [SearchPaths]).
 
 
- 
+%%@private 
+test4(input_par_prompts) ->
+    [];
+test4(_Args=#args{search_paths=SearchPaths}) ->
+    ?FULL_TD_TU([?COLLECT(?T("case lists:keysearch(Key@, N@, TupleList@) of 
+                         Pats@@@ when Guards@@@ ->
+                             Body@@@
+                    end"),
+                          {_File@, refac_api:start_end_loc(_This@)},
+                          true),
+                 ?COLLECT(?T("f@(Args@@) when Guard@@ ->Body@."), 
+                          refac_api:fun_define_info(f@),
+                          refac_api:type(Body@)==if_expr)],
+                [SearchPaths]).
+
+
+
+test5(input_par_prompts)->
+    [];
+test5(_Args=#args{current_file_name=CurFileName}) ->
+    ?FULL_TD_TU([?COLLECT_LOC(?T("[1,2,F@]"),
+                              true)],
+                [CurFileName]).

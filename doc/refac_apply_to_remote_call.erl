@@ -2,14 +2,15 @@
 
 -behaviour(gen_refac).
 
--export([input_pars/0, select_focus/1, 
-         pre_cond_check/1, transform/1]).
+-export([input_par_prompts/0, select_focus/1,
+         check_pre_cond/1, selective/0,
+         transform/1]).
 
--include("../include/gen_refac.hrl").
+-include("../include/wrangler.hrl").
 
 %% The Emacs mini-buffer prompts for the user input parameters. 
--spec (input_pars/0::() -> [string()]).                           
-input_pars()->[].
+-spec (input_par_prompts/0::() -> [string()]).                           
+input_par_prompts() -> [].
 
 %% Select the focus of interest. If no selection is neeeded, 
 %% then return {ok, none}.
@@ -18,25 +19,42 @@ select_focus(_Args) ->{ok, none}.
 
 %% Pre-condition checking to ensure that the refactoring preserves the 
 %% behaviour of the program.
--spec (pre_cond_check/1::(#args{}) -> ok).  
-pre_cond_check(_Args)->
+-spec (check_pre_cond/1::(#args{}) -> ok).  
+check_pre_cond(_Args) ->
     ok.
+
+selective() ->
+    true.
 
 %%Do the actual program transformation here.
 -spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}
                                      | {error, term()}).    
 transform(_Args=#args{search_paths=SearchPaths})->
-    ?FULL_TD([rule()], SearchPaths).
+    ?FULL_TD_TP([rule(),
+                 rule1(),
+                 rule2()
+                ], [SearchPaths]).
 
 rule() ->
-    ?RULE("Op@(M@, F@, Args@)",
+    ?RULE(?T("Op@(N@@, M@, F@, [Args@@])"),
+          ?QUOTE("M@:F@(Args@@)"),
+          {erlang,apply,3}==refac_api:fun_define_info(Op@)).
+          
+rule1() ->
+    ?RULE(?T("Op@(N@@, M@, F@, [])"),
+          ?QUOTE("M@:F@()"),
+          {erlang,apply,3}==refac_api:fun_define_info(Op@)). 
+         
+rule2() ->
+    ?RULE(?T("Op@(Fun@, [Args@@])"),
           begin
-              ArgStr=?SPLICE(Args@),
-              Args = lists:sublist(ArgStr,2,length(ArgStr)-2),
-              ?QUOTE("M@:F@("++Args++")")
+              {M,F,_A} = refac_api:fun_define_info(Fun@),
+              ?QUOTE(atom_to_list(M)++":"++atom_to_list(F)++"(Args@@)")
           end,
-          {erlang,apply,3}==refac_api:fun_define_info(Op@) 
-          andalso refac_syntax:type(Args@)== list).
-
-
-     
+          case refac_api:fun_define_info(Fun@) of
+              {_,_,_}->
+                  true;
+              _ -> 
+                  false
+          end).
+          

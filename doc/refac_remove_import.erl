@@ -11,22 +11,23 @@
 -behaviour(gen_refac).
 
 %% export of callback function.
--export([input_pars/0, select_focus/1, 
-         pre_cond_check/1, transform/1]).
+-export([input_par_prompts/0, select_focus/1,
+         check_pre_cond/1, selective/0,
+         transform/1]).
 
--include("../include/gen_refac.hrl").
+-include("../include/wrangler.hrl").
 
 %% The user needs to input the module name. 
--spec (input_pars/0::() -> [string()]).                           
-input_pars()->["Module name:"].
+-spec (input_par_prompts/0::() -> [string()]).                           
+input_par_prompts() -> ["Module name:"].
 
 %% No focus selection is needed.
 -spec (select_focus/1::(#args{}) -> {ok, syntaxTree()}|{ok, none}).  
 select_focus(_Args) ->{ok, none}.
 
 %% Pre-condition checking.
--spec (pre_cond_check/1::(#args{}) -> ok|{error, term()}).  
-pre_cond_check(_Args=#args{current_file_name=File, 
+-spec (check_pre_cond/1::(#args{}) -> ok|{error, term()}).  
+check_pre_cond(_Args=#args{current_file_name=File,
                            user_inputs=[ModuleName]}) ->
     case is_imported(File, ModuleName) of 
         true -> 
@@ -35,24 +36,27 @@ pre_cond_check(_Args=#args{current_file_name=File,
             {error, "The module specified is not imported"}
     end.
 
+selective()->
+    false.
+
 %%Do the actual program transformation here.
 -spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}
                                      | {error, term()}).    
 transform(Args=#args{current_file_name=File})->
-    ?FULL_TD([rule1(Args),
-              rule2(Args)], [File]).
+    ?FULL_TD_TP([rule1(Args),
+                 rule2(Args)], [File]).
 
 %% qualify function calls.
 rule1(_Args=#args{user_inputs=[ModuleName]}) ->
-    ?RULE("F@(Args@@)",
+    ?RULE(?T("F@(Args@@)"),
           ?QUOTE(ModuleName++":F@(Args@@)"),
-          refac_syntax:type(F@)/=module_qualifier andalso
+          refac_api:type(F@)/=module_qualifier andalso
           list_to_atom(ModuleName)== element(1,refac_api:fun_define_info(F@))).
 
 
 %% remove import attributes related.
 rule2(_Args=#args{user_inputs=[ModuleName]}) ->
-    ?RULE("A@", ?QUOTE(""),
+    ?RULE(?T("A@"), ?QUOTE(""),
           refac_api:is_import(A@, list_to_atom(ModuleName))).
 
 %%utility functions.

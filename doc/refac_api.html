@@ -9,92 +9,208 @@
 <hr>
 
 <h1>Module refac_api</h1>
-<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>  
-This module defines the API exposed by Wrangler for users to compose their  
-own refactoring or code inspection functions.
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>  
+This module defines the API exposed by Wrangler for users to compose  
+refactorings or code inspectors that meet their own needs.
 
 <p><b>Version:</b> 0.1</p>
 <p><b>Authors:</b> Huiqing Li (<a href="mailto:H.Li@kent.ac.uk"><tt>H.Li@kent.ac.uk</tt></a>).</p>
 
 <h2><a name="description">Description</a></h2><p>  
-This module defines the API exposed by Wrangler for users to compose their  
-own refactoring or code inspection functions. A refactoring consist of  
-two parts: program analysis and program transformation. Both program analysis  
-and program transformation involves various AST traversals and manipulations,  
-and requires deep knowledge of the AST representation details. To make the  
-processing of writing a refactoring easier, through this refactoring API, we  
-aim to provide a template and rule based program analysis and transformation  
-framework to allow users to express their own program transformation in  
-a very concise way. This is achieved through the following aspects:</p>
+This module defines the API exposed by Wrangler for users to compose  
+refactorings or code inspectors that meet their own needs. A refactoring  
+consists of two parts: program analysis and program transformation, both  
+of which involve various AST traversals and manipulations, and require  
+deep knowledge of the AST representation details. To make the processing  
+of writing a refactoring easier, we have extended Wrangler with a framework  
+that allows users to define refactorings or code inspectors in an intuitive  
+and concise way. With this framework, user-defined refactorings are no  
+second-class refactorings. Like the existing refactorings supported by Wrangler,  
+user-defined refactoring can also be invoked from the refactoring menu, and  
+also benefit the existing features such as preview of refactoring results,  
+layout preservation, selective refactoring, undo of refactorings, etc, for free.</p>
  
-  <p>-- The use of code templates to make the composition/decomposition of     
-of AST nodes straightforward.</p>
+  <p>The user-extensibility of Wrangler is achieved by introducing a new layer on top
+  of the existing low-level API which provides direct access to the details of syntactic
+  and semantic representation of the Erlang language. We call the new layer the
+  <code>Wrangler API</code>. The <code>Wrangler API</code> consists of three parts:</p>
  
-  <p>-- The use of template-based transformation rules to allow concise     
-representation of transformations.</p>
+  <p>-- A template and rule based program analysis and transformation framework that  
+allows users to express their analysis and transformation in an intuitive and  
+concise way without diving into the details of internal program representation  
+used by the refactoring tool;</p>
  
-  <p>-- Context information annotated to each AST node to make the program     
-analysis easier to implement.</p>
+  <p>-- A generic behaviour especially for refactoring encapsulates the generic parts
+  that are common to all refactorings, while the user only has to provide the
+  parts that are specific to the refactoring under consideration. See <a href="gen_refac.html">gen_refac</a>.</p>
  
-  <p>-- A collect of predefined macros and API functions to capture the     
-most frequently used functionalities when writing a refactoring.</p>
+  <p>-- A collection of API functions, such as API functions for abstract syntax tree
+  traversal, API functions for retrieving context information from AST nodes, API
+  functions for mapping the textual selection of program source to its internal
+  representation (see <a href="interface_api.html">interface_api</a>), etc.</p>
  
-  <p>-- A refactoring behaviour <code>gen_refac</code> to provide a high-level abstraction     
-of the logic work-flow of a refactoring process.</p>
- 
-  Some macros:
+  Here are some macros that can be used to expression transformation rules and/or
+  information collectors:
  <ul>
- <li><p> 
-?T(TemplateStr).</p>
+ <li><p>
+ ?T(TemplateStr).
+ With Wrangler, a template is denoted by a Erlang macro <code>?T</code> whose only argument 
+is the string representation of an Erlang code fragment that may contain meta-variables.  
+The template code fragment can be a sequence of  expressions, a function definition, 
+an attribute, or a single function clause. As a convention, a template representing a 
+function/attribute should always ends with a full stop; whereas a single function 
+clause must end with a semicolon, otherwise it will be interpreted as an Erlang 
+function consisting of a single function clause by default.</p>
  
- <p>?T(TemplateStr) denotes a template code fragment. A template code fragment
-  is a string
- representing an Erlang expression, function, or a function clause.
-  Both object variables and meta variables can be
-  used in a template string. Variable names ending with <code>@</code>, <code>@</code><code>@</code>, or <code>@</code><code>@</code><code>@</code>
-  are meta-variables; and variable names not ending with <code>@</code> are object
-  variables. A meta variable ending with only one <code>@</code> is a place holder
-  for a single program entity which maps to a single AST tree; whereas
-  a meta variable ending with <code>@</code><code>@</code> represents a list of program entities
-  seperated by comma, which map to a list of AST trees; a meta variable
-  ending with <code>@</code><code>@</code><code>@</code> is only used for writing templates that match
-  a function with arbitray function clauses or a clause with arbitray
-  clause bodies. For example <code>?T("f@(Args@</code><code>@</code><code>@</code><code>) when Guard@</code><code>@</code><code>@</code><code>-&gt; Body@</code><code>@</code><code>@</code><code>.")</code> can be  
-used to match function definitions with arbitray number of function  
-clauses.</p>
+ <p>A meta-variable is a placeholder for a syntax element in the program, or a sequence of  
+syntax elements of the same kind. Templates syntactically are Erlang code, therefore 
+the use of meta-variables in a template must not violate the syntactic correctness of  
+the code fragment. Templates are matched at AST level, that is, the template's AST is  
+matched to the program's AST. A template consists of only a single meta-variable can  
+match any subtrees within the AST.</p>
  
+ <p>Syntactically a meta-variable is an Erlang variable ending with the character <code>@</code>.
+  Three kinds of meta-variables are supported:
+  -- A meta-variable ending with a single <code>@</code> represents a single language element,  
+and matches a single subtree in the AST. For example, a remote function call which  
+a placeholder for the function name can be represented as:</p>
+ 
+                 	<p><code>?T("M:F@(1, 2)")</code></p>
+ 
+ <p>In the template above, variable <code>M</code> is an object variable, and only matches an AST node
+  representing a variable of the same name; whereas <code>F@</code> is a meta- variable,
+ and therefore matches any node that represents the function name part of a remote
+ function call module name is represented by variable <code>M</code>, and arguments are literals
+ <code>1</code> and <code>2</code>.</p>
+ 
+  <p>-- A meta-variable ending with<code>@</code><code>@</code> represents a <code>list meta-variable</code>, which matches  
+an arbitrary sequence of elements of the same sort, e.g. a list of arguments of a  
+function calls, a sequence of expressions in a clause body, etc. For instance the 
+template:</p>
+ 
+                                     <p><code>?T("spawn(Arg@</code><code>@</code><code>)")</code></p>
+ 
+ <p>matches the application of function <code>spawn</code> to an arbitrary number of arguments, and
+ <code>Arg@</code><code>@</code> is the place holder for the sequence of argument. 
+As another example, the template</p>
+ 
+ 	                <p><code>?T("spawn(Arg1@, Arg2@, Args@</code><code>@)")</code></p>
+ 
+   <p>will match the application of function <code>spawn</code> to two or more arguments, where
+  <code>Arg1@</code> and <code>Arg2@</code> are placeholders for the first and second argument respectively,
+   and <code>Args@</code><code>@</code> is the placeholder for the remaining arguments. If there is no more
+   remaining arguments, then <code>Args@</code><code>@</code> is an empty list.</p>
+ 	
+  <p>In order to template an arbitrary sequence of clauses, either function clauses or
+  expression clauses, we introduce a especial meta-variable which ends with <code>@</code><code>@</code><code>@</code>.
+  A meta variable ending with <code>@</code><code>@</code><code>@</code> is mapped to a list, each element of which is a  
+list of subtrees of the same kind. For example, a case expression with an arbitrary  
+number of clauses can be template as:</p>
+ 
+               <p><code>?T("case Expr@ of Pats@</code><code>@</code><code>@</code> <code>when Guards</code><code>@</code><code>@</code><code>@</code><code>-&gt; Body</code><code>@</code><code>@</code><code>@")</code></p>
+ 	
+ <p>in which <code>Pats@@</code> matches the collection of patterns from each clause of the case
+ expression in the same order;  <code>Body@@</code> matches the collection of body expressions
+ from each clause; and <code>Guard@@</code> matches the collection of guards from each clause. 
+In the case that a clause does not have a guard expression, its guard is represented 
+as an empty list.</p>
+ 
+ <p><code>Meta-atoms</code>. Certain syntax elements in Erlang, such as the function name part of a
+ function definition, the record name/field in an record expression, etc, can only be
+ atoms, and cannot be replaced by a variable. In order to represent a placeholder for
+ this kind of <code>atom-only</code> syntax elements, we introduce the notion of
+ <code>meta-atom</code>, which acts as a place holder for a single atom. Syntactically, a
+ meta-atom is an Erlang atom ending with a single <code>@</code>.  For example, with the use of  
+meta-atom, an arbitrary function clause can be templated as</p>
+ 
+            <p><code>?T("f@(Args@</code><code>@</code><code>)when Guard@</code><code>@</code><code>-&gt; Body@</code><code>@;")</code></p>
+ 
+ where <code>f@</code> is a placeholder for the function name.
  </li>
  
- <li><p> 
-?RULE(TemplateBefore, TemplateAfter, Cond).</p>
+ <li><p>
+ ?RULE(Template, NewCode, Cond).
+  A conditional transformation rule is denoted by a macro <code>?RULE</code>. In
+  <code>?RULE(Template, NewCode, Cond)</code>, <code>Template</code> is a template representing the kind
+  of code fragments to search for; <code>Cond</code> is an Erlang expression that evaluates to
+  either <code>true</code> or <code>false</code>; and <code>NewCode</code> is another Erlang expression that returns
+  the new code fragment. By means of parse transform, all the meta-variables, and also
+  meta-atoms, from the <code>Template</code>, are make visible to <code>NewCode</code> and <code>Cond</code>, therefore  
+can be referred by them.</p>
  
-  <p>If the AST node represented by <code>TemplateBefore</code> pattern matches with the
-  current AST node, and <code>Cond</code> evaluates to <code>true</code>, then transform the node
-  according to <code>TemplateAfter</code>. When a code template pattern matches to an
-  AST nodes, each meta variable in the template code is bound to an AST
-  node, and meta variables with the same name should always map to AST nodes
-  that are semantically the same. A special meta variable names <code>_@This</code> is
-  implicitly bound to the whole AST node that matches the code template.
-  All these meta-variables are visible, and can be used, in <code>TemplateAfter</code> and
-  <code>Cond</code>.</p>
+  <p>A conditional transformation rule is always used with an AST traversal strategy. An
+  AST traversal strategy takes one or more conditional transformation rules, and an AST
+  as input. It walks through the AST in a specific order, and for each node it
+  encounters, the traversal strategy tries to pattern match the AST representation of
+  the <code>Template</code> part of the first rule with the current node, if the pattern matching
+  succeeds, the <code>Cond</code> part of the rule is then evaluated to check whether certain
+  properties are satisfied by the nodes that matches the meta-variables/meta-atoms.
+  The <code>NewCode</code> part is executed only if the evaluation of <code>Cond</code> returns <code>true</code>, and
+  in that case, the current node is replaced with the AST generated by <code>NewCode</code>, and
+  the traversal goes on after that. However, it the first rule is not applicable either
+  because the pattern matching fails, or the <code>Cond</code> evaluates to <code>false</code>, the next rule  
+will be tried in the same way until no more rules is available, and the traversal  
+will continue to other nodes in the AST.</p>
+ 
+  As mentioned above, <code>NewCode</code> specifies the AST representation of the new code after
+  the transformation. While <code>NewCode</code> should evaluate to an AST node, or a sequence of
+  AST nodes, the user does not have to compose the AST manually, instead the general
+  way is to create the string representation of the new code fragment, and use the
+  macro <code>?QUOTE</code>, which is also part of the Wrangler API, to turn the string
+  representation  of a code fragment into its AST representation. All the
+  meta-variables/atoms bound in <code>Template</code> are visible, and can be used by <code>NewCode</code>,
+  and further more, it is also possible for <code>NewCode</code> to define its own meta variables
+  as shown in the example below.
+  <pre>         rule({M,F,A}, N) -&gt;
+             ?RULE(?T("F@(Args@@)"),
+                   begin
+                      NewArgs@@=delete(N, Args@@),
+                      ?QUOTE("F@(NewArgs@@)")
+                    end,
+                    refac_api:fun_define_info(F@) == {M, F, A}).
+ 
+         delete(N, List) -&gt;
+             lists:sublist(List, N-1)++ lists:nthtail(N, List).</pre>
+ 
+  </li>
+  <li>
+  ?QUOTE(Str).
+  This macro takes a string representation of a code fragment as input, which
+  may contain meta-variables, parses the string into the AST representation of the code,
+  and then substitutes the meta-variables and/or meta-atoms with the AST nodes
+  represented.
+  </li>
+  <li><p>  
+?COLLECT(Template,Collector, Cond).</p>
+ 
+  <p>?COLLECT is a macro used to collect information from code fragements that are
+  of interest. In <code>?COLLECT(Template,Collector, Cond)</code>, <code>Template</code> is a template
+  representing the kind of code fragments to search for; <code>Cond</code> is an Erlang expression
+  that evaluates to either <code>true</code> or <code>false</code>; and <code>Collector</code> is an Erlang expression
+  which extract the information needed from the current node. Information is collected
+  when the AST representation of the template pattern matches the current AST node,
+  and <code>Cond</code> evaluates to <code>true</code>. As an example, the macro application shown below can
+  be used to collect those clause bodies, which an unnecessary match expression at the
+  end. This collector returns the location information of those clause bodies found.
+  Two special pre-defined meta-variables are used in this macro application. One is
+  <code>_File@</code>, whose value is the file name of the source code to which the macro is
+  applied to, or <code>none</code> is no such information is available; and the other one is
+  <code>_This@</code>, whose value if the entire subtree that pattern matches the template.</p>
+ 
+          <pre>             ?COLLECT(?T("Body@, V@=Expr@, V@"),
+                      {_File@, refac_api:start_end_loc(_This@)},
+                      refac_api:type(V@)==variable)</pre>
  
  </li>
  <li><p> 
-?COLLECT(Template, CollectorFun, Cond, Scope).</p>
+?COLLECT_LOC(Template, Cond).</p>
  
-  For every AST node in <code>Scope</code> that pattern matches the AST represented by <code>Template</code>, if
-  <code>Cond</code> evaluates to <code>true</code>, then information about this node is collected using
-  the function specified by <code>CollectorFun</code>. <code>Scope</code> can be an AST or a list of Erlang
-  files/directories, and in the latter case, each Erlang file included is parsed into
-  an AST first.
- </li>
- <li><p> 
-?COLLECT_LOC(Template, CollectorFun, Cond, Scope).</p>
+  <p>A special case of ?COLLECT, which returns the location information of the AST node that  
+matches the template, as shown in the previous example. The code below functions the  
+same the example above.</p>
  
-  <p>For every AST node in <code>Scope</code> that pattern matches the AST represented by <code>Template</code>, if
-  <code>Cond</code> evaluates to <code>true</code>, then the location information of this node in the format of
-  <code>{filename(), {pos(),pos()}}</code> is collected. <code>Scope</code> should list of Erlang  
-files/directories.</p>
+          <pre>             ?COLLEC_LOC(?T("Body@, V@=Expr@, V@"),
+                         refac_api:type(V@)==variable)</pre>
  
  </li>
  <li><p> 
@@ -103,13 +219,6 @@ files/directories.</p>
   <p>Returns <code>true</code> if <code>Tree1</code> and <code>Tree2</code> are syntactically the same up to normalization.  
 The normalization process includes consistent variable renaming and turning un-qualified  
 function calls into qualified function calls.</p>
- 
- </li>
- <li><p> 
-?QUOTE(Str).</p>
- 
- <p>Returns the AST representation of the code represented by <code>Str</code>, which can be an 
-Erlang expression, an Erlang function or a function clause.</p>
  
  </li>
  <li><p> 
@@ -122,30 +231,38 @@ Erlang expression, an Erlang function or a function clause.</p>
 ?MATCH(Template, Tree).</p>
  
  <p>Pattern matches the AST representation of <code>Template</code> with the AST <code>Tree</code>, and returns
- <code>false</code> if the pattern matching fails, and <code>{true, Binds}</code> if succeeds, where <code>Bind</code> represents the
- binding of meta-variables to AST nodes in the
- format: <code>[{MetaVariableName, syntaxTreee()}]</code>.</p>
+ <code>false</code> if the pattern matching fails, and 'true' if succeeds.</p>
  
  </li>
  <li><p> 
-?FULL_TD(Rules, Scope).</p>
+?FULL_TD_TP(Rules, Scope).</p>
  
-  <p>Traverse the AST in a topdown order, and for each node apply the first rule that  
+  <p>Traverses the AST in a topdown order, and for each node apply the first rule that  
 succeeds; after a rule has been applied to a node, the subtrees of the node will  
 continued to be traversed.</p>
  
  </li>
- <li>
- ?STOP_TD(Rules, Scope).
-  Traverse the AST in a topdown order, and for each node apply the first rule that
+ <li><p> 
+?STOP_TD_TP(Rules, Scope).</p>
+ 
+  Traverses the AST in a topdown order, and for each node apply the first rule that
   succeeds; after a rule has been applied to a node, the subtrees of the node will
   not to be traversed.
+ </li>
+ <li><p>  
+?STOP_TD_TU(Collectors, Scope).</p>
+ 
+  Traverses the AST in a topdown order, and for each node apply the collectors one by
+  one, and collects information returns by each collector.
  </li>
  </ul>
   Some example refactorings implemented using the Wrangler API:
  <ul>
  <li>
  <a href="file:refac_swap_args.erl"> Swap arguments of a function;</a>.
+ </li>
+ <li>
+ <a href="file:refac_remove_arg.erl"> Remove an argument of a function;</a>.
  </li>
  <li>
  <a href="file:refac_keysearch_to_keyfind.erl"> replace the uses of lists:keysearch/3 with lists:keyfind/3; </a>
@@ -168,17 +285,10 @@ continued to be traversed.</p>
  <li>
  <a href="file:refac_batch_rename_fun.erl"> Batch renaming of function names from camelCaseto camel_case. </a>
  </li>
+ <li>
+ <a href="file:code_inspector_examples.erl"> A collection of code inspectors written using the Wrangler API. </a>
+ </li>
  </ul>
-<h2><a name="types">Data Types</a></h2>
-
-<h3 class="typedecl"><a name="type-fa">fa()</a></h3>
-<p><tt>fa() = {<a href="#type-functionname">functionname()</a>, arity()}</tt></p>
-
-
-<h3 class="typedecl"><a name="type-pos">pos()</a></h3>
-<p><tt>pos() = {integer(), integer()}</tt></p>
-
-
 <h2><a name="index">Function Index</a></h2>
 <table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#add_to_export_after-3">add_to_export_after/3</a></td><td>Adds an entity <code>FAtoAdd</code> to the export list of an export attribute
       right after another entity <code>FA</code>; if <code>FA</code> is <code>none</code> then append
@@ -192,8 +302,6 @@ continued to be traversed.</p>
 <tr><td valign="top"><a href="#env_var_names-1">env_var_names/1</a></td><td>Returns all the variable names that are visible to <code>Node</code>.</td></tr>
 <tr><td valign="top"><a href="#env_vars-1">env_vars/1</a></td><td>Returns all the variables, including both variable name and
       define location, that are visible to <code>Node</code>.</td></tr>
-<tr><td valign="top"><a href="#equal-2">equal/2</a></td><td>Returns <code>true</code> if <code>Tree1</code> and <code>Tree2</code> are syntactically the
-       same up to normalization.</td></tr>
 <tr><td valign="top"><a href="#exported_funs-1">exported_funs/1</a></td><td>Returns all the functions that are exported by an Erlang file.</td></tr>
 <tr><td valign="top"><a href="#exported_var_names-1">exported_var_names/1</a></td><td>Returns all the variable names that are declared within <code>Node</code>, and
      also used by the code outside <code>Node</code>.</td></tr>
@@ -236,7 +344,10 @@ continued to be traversed.</p>
       of AST node.</td></tr>
 <tr><td valign="top"><a href="#syntax_category-1">syntax_category/1</a></td><td>Returns the syntax category of <code>Node</code>.</td></tr>
 <tr><td valign="top"><a href="#syntax_context-1">syntax_context/1</a></td><td>Returns the syntax context of <code>Node</code>.</td></tr>
-<tr><td valign="top"><a href="#tokenize-3">tokenize/3</a></td><td>Tokenises an Erlang file, and returns the tokens.</td></tr>
+<tr><td valign="top"><a href="#type-1">type/1</a></td><td>The function is the same as erl_syntax:type/1.</td></tr>
+<tr><td valign="top"><a href="#var_refs-1">var_refs/1</a></td><td>Returns all the locations where a variable is used, not including
+      the locations where the variable is bound, when <code>Node</code> represents
+      a variable, otherwise returns an empty list.</td></tr>
 <tr><td valign="top"><a href="#variable_define_pos-1">variable_define_pos/1</a></td><td>Returns the define location of the variable represented by <code>Node</code>;
   [{0,0}] is returned is the variable is a free variable or <code>Node</code> is
   not properly annotated.</td></tr>
@@ -246,7 +357,7 @@ continued to be traversed.</p>
 
 <h3 class="function"><a name="add_to_export_after-3">add_to_export_after/3</a></h3>
 <div class="spec">
-<p><tt>add_to_export_after(Node::<a href="#type-attribute">attribute()</a>, FAtoAdd::<a href="#type-fa">fa()</a>, FA::<a href="#type-fa">fa()</a> | none) -&gt; <a href="#type-attribute">attribute()</a></tt><br></p>
+<p><tt>add_to_export_after(Node::<a href="#type-attribute">attribute()</a>, FAtoAdd::{function(), arity()}, FA::{function(), arity()} | none) -&gt; <a href="#type-attribute">attribute()</a></tt><br></p>
 </div><p>Adds an entity <code>FAtoAdd</code> to the export list of an export attribute
       right after another entity <code>FA</code>; if <code>FA</code> is <code>none</code> then append
       the new entity to the end of the export list.</p>
@@ -283,14 +394,6 @@ continued to be traversed.</p>
 <p><tt>env_vars(Node::<a href="#type-syntaxTree">syntaxTree()</a>) -&gt; [{atom(), <a href="#type-pos">pos()</a>}]</tt><br></p>
 </div><p>Returns all the variables, including both variable name and
       define location, that are visible to <code>Node</code>.</p>
-
-<h3 class="function"><a name="equal-2">equal/2</a></h3>
-<div class="spec">
-<p><tt>equal(Tree1::<a href="#type-syntaxTree">syntaxTree()</a>, Tree2::<a href="#type-syntaxTree">syntaxTree()</a>) -&gt; boolean()</tt><br></p>
-</div><p>Returns <code>true</code> if <code>Tree1</code> and <code>Tree2</code> are syntactically the
-       same up to normalization. The normalization process includes
-       consistent variable renaming and turning un-qualified
-       function calls into qualified function calls.</p>
 
 <h3 class="function"><a name="exported_funs-1">exported_funs/1</a></h3>
 <div class="spec">
@@ -336,18 +439,8 @@ continued to be traversed.</p>
 
 <h3 class="function"><a name="get_module_info-1">get_module_info/1</a></h3>
 <div class="spec">
-<p><tt>get_module_info(File::<a href="#type-filename">filename()</a>) -&gt; #module_info{} | {error, <a href="#type-errorInfo">errorInfo()</a>}</tt><br></p>
-</div><p>Returns the module-level information about the Erlang file.
-  <pre>     -record(module_info,
-          {module,
-           exports,
-           module_imports,
-           imports,
-           attributes,
-           records,
-           errors,
-           warnings,
-           functions}).</pre></p>
+<p><tt>get_module_info(File::<a href="#type-filename">filename()</a>) -&gt; {ok, <a href="#type-module_info">module_info()</a>}</tt><br></p>
+</div><p>Returns the module-level information about the Erlang file.</p>
 
 <h3 class="function"><a name="imported_funs-1">imported_funs/1</a></h3>
 <div class="spec">
@@ -361,7 +454,7 @@ continued to be traversed.</p>
 
 <h3 class="function"><a name="inscope_funs-1">inscope_funs/1</a></h3>
 <div class="spec">
-<p><tt>inscope_funs(FileOrModInfo::<a href="#type-filename">filename()</a>) -&gt; [{atom(), integer()}]</tt><br></p>
+<p><tt>inscope_funs(FileOrModInfo::<a href="#type-filename">filename()</a> | <a href="#type-moduleInfo">moduleInfo()</a>) -&gt; [{atom(), atom(), integer()}]</tt><br></p>
 </div><p>Returns all the functions that are in-scope in the current module.
        An in-scope function could be an (auto-)imported function, or a
        function that is defined in the current module.</p>
@@ -431,7 +524,7 @@ continued to be traversed.</p>
 
 <h3 class="function"><a name="module_name-1">module_name/1</a></h3>
 <div class="spec">
-<p><tt>module_name(File::<a href="#type-filename">filename()</a>) -&gt; <a href="#type-modulename">modulename()</a></tt><br></p>
+<p><tt>module_name(File::<a href="#type-filename">filename()</a>) -&gt; {ok, <a href="#type-modulename">modulename()</a>} | {error, any()}</tt><br></p>
 </div><p>Returns the name of the module defined in <code>File</code>,</p>
 
 <h3 class="function"><a name="remove_from_import-2">remove_from_import/2</a></h3>
@@ -457,10 +550,88 @@ continued to be traversed.</p>
 <p><tt>syntax_context(Node::<a href="#type-syntaxTree">syntaxTree()</a>) -&gt; atom()</tt><br></p>
 </div><p>Returns the syntax context of <code>Node</code>.</p>
 
-<h3 class="function"><a name="tokenize-3">tokenize/3</a></h3>
+<h3 class="function"><a name="type-1">type/1</a></h3>
 <div class="spec">
-<p><tt>tokenize(File::<a href="#type-filename">filename()</a>, WithLayout::boolean(), TabWidth::integer()) -&gt; [<a href="#type-token">token()</a>] | {error, term()}</tt><br></p>
-</div><p>Tokenises an Erlang file, and returns the tokens.</p>
+<p><tt>type(Node::<a href="#type-syntaxTree">syntaxTree()</a>) -&gt; atom()</tt><br></p>
+</div><p>The function is the same as erl_syntax:type/1. It returns the
+  type tag of <code>Node</code>. If <code>Node</code>
+  does not represent a syntax tree, evaluation fails with reason
+  <code>badarg</code>. Node types currently defined are:
+  <p><center><table border="1">
+   <tr>
+    <td>application</td>
+    <td>arity_qualifier</td>
+    <td>atom</td>
+    <td>attribute</td>
+   </tr><tr>
+    <td>binary</td>
+    <td>binary_field</td>
+    <td>block_expr</td>
+    <td>case_expr</td>
+   </tr><tr>
+    <td>catch_expr</td>
+    <td>char</td>
+    <td>class_qualifier</td>
+    <td>clause</td>
+   </tr><tr>
+    <td>comment</td>
+    <td>cond_expr</td>
+    <td>conjunction</td>
+    <td>disjunction</td>
+   </tr><tr>
+    <td>eof_marker</td>
+    <td>error_marker</td>
+    <td>float</td>
+    <td>form_list</td>
+   </tr><tr>
+    <td>fun_expr</td>
+    <td>function</td>
+    <td>generator</td>
+    <td>if_expr</td>
+   </tr><tr>
+    <td>implicit_fun</td>
+    <td>infix_expr</td>
+    <td>integer</td>
+    <td>list</td>
+   </tr><tr>
+    <td>list_comp</td>
+    <td>macro</td>
+    <td>match_expr</td>
+    <td>module_qualifier</td>
+   </tr><tr>
+    <td>nil</td>
+    <td>operator</td>
+    <td>parentheses</td>
+    <td>prefix_expr</td>
+   </tr><tr>
+    <td>qualified_name</td>
+    <td>query_expr</td>
+    <td>receive_expr</td>
+    <td>record_access</td>
+   </tr><tr>
+    <td>record_expr</td>
+    <td>record_field</td>
+    <td>record_index_expr</td>
+    <td>rule</td>
+   </tr><tr>
+    <td>size_qualifier</td>
+    <td>string</td>
+    <td>text</td>
+    <td>try_expr</td>
+   </tr><tr>
+    <td>tuple</td>
+    <td>underscore</td>
+    <td>variable</td>
+    <td>warning_marker</td>
+   </tr>
+  </table></center></p></p>
+
+<h3 class="function"><a name="var_refs-1">var_refs/1</a></h3>
+<div class="spec">
+<p><tt>var_refs(Node::<a href="#type-syntaxTree">syntaxTree()</a>) -&gt; [<a href="#type-pos">pos()</a>]</tt><br></p>
+</div><p>Returns all the locations where a variable is used, not including
+      the locations where the variable is bound, when <code>Node</code> represents
+      a variable, otherwise returns an empty list.</p>
 
 <h3 class="function"><a name="variable_define_pos-1">variable_define_pos/1</a></h3>
 <div class="spec">
@@ -471,6 +642,6 @@ continued to be traversed.</p>
 <hr>
 
 <div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, May 9 2011, 15:19:36.</i></p>
+<p><i>Generated by EDoc, Jun 7 2011, 12:34:38.</i></p>
 </body>
 </html>

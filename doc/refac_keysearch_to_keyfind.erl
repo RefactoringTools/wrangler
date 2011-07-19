@@ -1,29 +1,29 @@
-%%@doc This module shows how to write refactorings 
-%% use the Wrangler API. 
-
-%% This refactoring replace the use of lists:keysearch/3 with
-%% the use of lists:keyfind/3 whenever it is safe to do so.
 -module(refac_keysearch_to_keyfind).
 
 -behaviour(gen_refac).
 
--export([input_pars/0, select_focus/1, 
-         pre_cond_check/1, transform/1]).
+-export([input_par_prompts/0, select_focus/1,
+         check_pre_cond/1, selective/0,
+         transform/1]).
 
--include("../include/gen_refac.hrl").
+-include("../include/wrangler.hrl").
 
 %% No parameter input is required.
--spec (input_pars/0::() -> [string()]).                           
-input_pars()->[].
+-spec (input_par_prompts/0::() -> [string()]).                           
+input_par_prompts() -> [].
 
 %% No focus selection is required.
 -spec (select_focus/1::(#args{}) -> {ok, syntaxTree()}|{ok, none}).  
 select_focus(_Args) ->{ok, none}.
 
 %% No precondition checking is required.
--spec (pre_cond_check/1::(#args{}) -> ok).  
-pre_cond_check(_Args)->
+-spec (check_pre_cond/1::(#args{}) -> ok).  
+check_pre_cond(_Args) ->
     ok.
+
+-spec (selective/0::()-> boolean()).                          
+selective() ->
+    true.
 
 %% Apply the transformation rules to all the Erlang files included in the 
 %% SearchPaths.
@@ -31,7 +31,7 @@ pre_cond_check(_Args)->
                           {ok, [{filename(), filename(), syntaxTree()}]}
                               | {error, term()}).    
 transform(_Args=#args{search_paths=SearchPaths})->
-    ?FULL_TD([rule_keysearch_to_keyfind()], SearchPaths).
+    ?STOP_TD_TP([rule_keysearch_to_keyfind()], [SearchPaths]).
 
 rule_keysearch_to_keyfind() ->
     ?RULE(?T("case lists:keysearch(Key@, N@, TupleList@) of 
@@ -39,42 +39,35 @@ rule_keysearch_to_keyfind() ->
                              Body@@@
                     end"),
           begin
-              try make_new_pats(Pats@@@) of 
-                  NewPats@@@ ->
-                      ?QUOTE(?T("case lists:keyfind(Key@, N@, TupleList@) of 
-                         NewPats@@@ when Guards@@@ ->
-                             Body@@@
-                         end"))
-              catch
-                  _E1:_E2 ->
-                      _This@
-              end
+              NewPats@@@=make_new_pats(Pats@@@),
+              ?QUOTE("case lists:keyfind(Key@, N@, TupleList@) of 
+                                NewPats@@@ when Guards@@@ ->
+                                   Body@@@
+                    end")
           end,
           true).
 
 make_new_pats(ListOfPats) ->
-    [make_new_pat(Pats)||Pats<-ListOfPats].
-make_new_pat([Pat]) ->
+    [[make_new_pat(P)||P<-Pats]||Pats<-ListOfPats].
+make_new_pat(Pat) ->
     case ?MATCH(?T("{value, T@}"), Pat) of
         true ->
-            case refac_syntax:type(T@) of
+            case refac_api:type(T@) of
                 variable ->
-                    [?QUOTE(?SPLICE(T@)++"={_,_}")];
+                    ?QUOTE("T@={_,_}");
                 underscore->
-                    [?QUOTE("{_,_}")];
+                    ?QUOTE("{_,_}");
                 _ ->
-                    [T@]
+                    T@
             end;
         false ->
-            case ?MATCH(?T("false"), Pat) of 
+            case ?MATCH(?T("false"), Pat) orelse 
+                ?MATCH(?T("_"),Pat) of
                 true ->
-                    [Pat];
+                    Pat;
                 false ->
-                    case ?MATCH(?T("_"), Pat) of 
-                        true ->
-                            [Pat];
-                        false ->
-                            throw({error, "Transformation aborted."})
-                    end
+                    throw({error, "Transformation aborted."})
             end
     end.
+
+

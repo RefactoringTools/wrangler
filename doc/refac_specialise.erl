@@ -12,14 +12,15 @@
 
 -behaviour(gen_refac).
 
--export([input_pars/0, select_focus/1, 
-         pre_cond_check/1, transform/1]).
+-export([input_par_prompts/0, select_focus/1, 
+         check_pre_cond/1, selective/0,
+         transform/1]).
 
--include("../include/gen_refac.hrl").
+-include("../include/wrangler.hrl").
 
 %% The Emacs mini-buffer prompts for the user input parameters. 
--spec (input_pars/0::() -> [string()]).                           
-input_pars()->
+-spec (input_par_prompts/0::() -> [string()]).                           
+input_par_prompts()->
     [].
 
 %% Select the focus of interest. If no selection is neeeded, 
@@ -38,7 +39,7 @@ select_focus(#args{current_file_name=File,
                                         is_the_enclosing_app(Node, Expr)
                                 end) of 
                 {ok, App} ->
-                    ?MATCH("Op@(As@@)", App),
+                    ?MATCH(?T("Op@(As@@)"), App),
                     {M, F, A}=refac_api:fun_define_info(Op@),
                     {As1,_As2}=lists:splitwith(fun(E)->E/=Expr end, As@@),
                     Nth = length(As1)+1,
@@ -52,31 +53,32 @@ select_focus(#args{current_file_name=File,
     end.
 
 %% Pre-condition checking.
--spec (pre_cond_check/1::(#args{}) -> ok).  
-pre_cond_check(Args=#args{current_file_name=File, 
+-spec (check_pre_cond/1::(#args{}) -> ok).  
+check_pre_cond(Args=#args{current_file_name=File, 
                           focus_sel={{M,_F,_A},_Expr,_Nth}}) ->
     case {ok, M}==refac_api:module_name(File) of 
         true ->   
-            pre_cond_check_1(Args);
+            check_pre_cond_1(Args);
         false ->
             throw({error, "The function selected is not defined"
                    "in the current module."})
     end.        
 
-pre_cond_check_1(Args=#args{focus_sel={_MFA,Expr, _Nth}}) ->
+check_pre_cond_1(Args=#args{focus_sel={_MFA, Expr, _Nth}}) ->
     case refac_api:free_vars(Expr) of 
         [] ->
-            pre_cond_check_2(Args);
+            check_pre_cond_2(Args);
         _ ->
             throw({error, "The argument selected contains free variables."})
     end.
 
-pre_cond_check_2(#args{current_file_name=File, 
+check_pre_cond_2(#args{current_file_name=File,
                        focus_sel={MFA,_Expr, Nth}}) ->
     FunDef= refac_api:mfa_to_fun_def(MFA, File),
-    NthPars = ?COLLECT("f@(Args@@)-> Bs@@;", 
-                       true, lists:nth(Nth, Args@@),
-                       FunDef),
+    NthPars = ?FULL_TD_TU([?COLLECT(?T("f@(Args@@)-> Bs@@;"), 
+                                    lists:nth(Nth, Args@@),
+                                    true)],
+                          FunDef),
     case lists:all(fun(P)-> 
                            refac_syntax:type(P)==variable
                    end, NthPars) of 
@@ -86,6 +88,9 @@ pre_cond_check_2(#args{current_file_name=File,
             throw({error, "Wrangler only supports specialisation over "
                    "a formal parameter that is a variable"})
     end.
+
+selective()->
+    false.
 
 %% Do the actual program transformation here.
 -spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}
@@ -117,31 +122,31 @@ transform(Args=#args{current_file_name=File,
     end.
 
 transform_in_cur_file(Args=#args{current_file_name=File}, NewFunName, true)->
-    ?STOP_TD([rule0(Args,NewFunName),
-              rule1(Args, NewFunName), 
-              rule2(Args, NewFunName), 
-              rule3(Args, NewFunName)
-             ], [File]);
+    ?STOP_TD_TP([rule0(Args,NewFunName),
+                 rule1(Args, NewFunName), 
+                 rule2(Args, NewFunName), 
+                 rule3(Args, NewFunName)
+                ], [File]);
 transform_in_cur_file(Args=#args{current_file_name=File}, NewFunName, false) ->
-    ?STOP_TD([rule0(Args, NewFunName),
-              rule1(Args, NewFunName),
-              rule2(Args,NewFunName)], [File]).
+    ?STOP_TD_TP([rule0(Args, NewFunName),
+                 rule1(Args, NewFunName),
+                 rule2(Args,NewFunName)], [File]).
 
 transform_in_client_files(Args=#args{current_file_name=File,
                                      search_paths=SearchPaths}, 
                           NewFunName) ->
-    ?FULL_TD([rule0(Args, NewFunName),
-              rule1(Args, NewFunName)], 
-             refac_api:client_files(File, SearchPaths)).
+    ?FULL_TD_TP([rule0(Args, NewFunName),
+                 rule1(Args, NewFunName)], 
+                refac_api:client_files(File, SearchPaths)).
 
 %% transformation rule:
 %% remove the nth argument from a qualified application.
 rule0(Args=#args{focus_sel={{M,F,A}, Expr, Nth}}, NewFunName) ->
-    ?RULE("M@:F@(Args@@)",
+    ?RULE(?T("M@:F@(Args@@)"),
           begin
               NewArgs@@=delete(Nth,Args@@),
-              NewArgs1@@=?FULL_TD([rule0(Args, NewFunName),
-                                   rule1(Args, NewFunName)], NewArgs@@), 
+              {ok,NewArgs1@@}=?FULL_TD_TP([rule0(Args, NewFunName),
+                                           rule1(Args, NewFunName)], NewArgs@@), 
               ?QUOTE("M@:"++NewFunName++"(NewArgs1@@)")
           end,
           refac_api:fun_define_info(F@)=={M,F,A} andalso
@@ -150,11 +155,11 @@ rule0(Args=#args{focus_sel={{M,F,A}, Expr, Nth}}, NewFunName) ->
 %% transformation rule:
 %% remove the nth argument from an unqualified application.
 rule1(Args=#args{focus_sel={{M,F,A}, Expr, Nth}}, NewFunName) ->
-    ?RULE("F@(Args@@)",
+    ?RULE(?T("F@(Args@@)"),
           begin
               NewArgs@@=delete(Nth,Args@@),
-              NewArgs1@@=?FULL_TD([rule0(Args, NewFunName),
-                                   rule1(Args, NewFunName)], NewArgs@@), 
+              {ok,NewArgs1@@}=?FULL_TD_TP([rule0(Args, NewFunName),
+                                           rule1(Args, NewFunName)], NewArgs@@), 
               ?QUOTE(NewFunName++"(NewArgs1@@)")
           end,
           refac_api:fun_define_info(F@)=={M,F,A} andalso
@@ -163,11 +168,11 @@ rule1(Args=#args{focus_sel={{M,F,A}, Expr, Nth}}, NewFunName) ->
 %% transformation rule:
 %% insert the new function right after the original one. 
 rule2(Args=#args{focus_sel={{M,F,A},_Expr,_Nth}}, NewFunName) ->
-    ?RULE("F@",
+    ?RULE(?T("F@"),
           begin
               NewFun=generate_specialised_fun(Args, F@, NewFunName),
-              NewF@= ?FULL_TD([rule0(Args, NewFunName),
-                               rule1(Args, NewFunName)], F@), 
+              {ok,NewF@}= ?FULL_TD_TP([rule0(Args, NewFunName),
+                                       rule1(Args, NewFunName)], F@), 
               [NewF@, NewFun]
           end,
           refac_syntax:type(F@)==function andalso 
@@ -176,28 +181,30 @@ rule2(Args=#args{focus_sel={{M,F,A},_Expr,_Nth}}, NewFunName) ->
 %% transformation rule:
 %% add the new function to export list.
 rule3(_Args=#args{focus_sel={{_M,F,A},_Expr,_Nth}}, NewFunName) ->
-    ?RULE("F@",
+    ?RULE(?T("F@"),
           refac_api:add_to_export_after(F@, {NewFunName, A-1}, {F,A}),
           refac_api:is_attribute(F@, export)).
 
 generate_specialised_fun(Args, FunDef, NewFunName) ->
-    ?FULL_TD([rule4(Args, NewFunName)], FunDef).
+    {ok,NewFunDef}=?FULL_TD_TP([rule4(Args, NewFunName)], FunDef),
+    NewFunDef.
 
 rule4(Args=#args{focus_sel={{_M,F,A}, _Expr, Nth}}, NewFunName) ->
-    ?RULE("f@(Args@@) -> Bs@@;", 
+    ?RULE(?T("f@(Args@@) -> Bs@@;"), 
           begin NewArgs@@=delete(Nth, Args@@),
                 NthPar = lists:nth(Nth, Args@@),
                 NewBs@@=transform_in_body(Args,Bs@@,NthPar, NewFunName),
                 ?QUOTE(NewFunName++"(NewArgs@@)->NewBs@@;")
           end,
-          length(Args@@) == A andalso refac_syntax:is_atom(f@, F)).
+          length(Args@@) == A andalso refac_syntax:is_atom(F@, F)).
 
 transform_in_body(Args, Body, NthPar, NewFunName) ->
-    ?FULL_TD([rule5(Args,NthPar,NewFunName),
-              rule6(Args, NthPar, NewFunName)], Body).
+    {ok, Body1}=?FULL_TD_TP([rule5(Args,NthPar,NewFunName),
+                             rule6(Args, NthPar, NewFunName)], Body),
+    Body1.
 
 rule5(#args{focus_sel={{M,F,A}, Expr, Nth}},NthPar, NewFunName) ->
-    ?RULE("F@(Args@@)",
+    ?RULE(?T("F@(Args@@)"),
           begin
               NewArgs@@=delete(Nth, Args@@),
               ?QUOTE(NewFunName++"(NewArgs@@)")
@@ -207,7 +214,7 @@ rule5(#args{focus_sel={{M,F,A}, Expr, Nth}},NthPar, NewFunName) ->
 
 %% replace the use of the formal parameter with the expression selected.
 rule6(#args{focus_sel={_MFA,Expr,_Nth}}, NthPar, _NewFunName) ->
-    ?RULE("V@",
+    ?RULE(?T("V@"),
           Expr,
           refac_syntax:type(V@)==variable andalso 
           refac_api:variable_define_pos(V@) == 
