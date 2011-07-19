@@ -28,6 +28,7 @@
 %% 
 %% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
 %% 
+%% @private
 -module(refac_inc_sim_code).
 
 %% API for emacs use.

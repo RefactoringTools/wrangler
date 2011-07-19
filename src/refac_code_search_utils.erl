@@ -1,3 +1,5 @@
+%%@hidden
+%%@private
 -module(refac_code_search_utils).
 
 -export([var_binding_structure/1,

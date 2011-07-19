@@ -30,6 +30,7 @@
 %%
 %% =====================================================================
 
+%% @private
 -module(refac_fun_to_process).
 
 -export([fun_to_process/6, fun_to_process_eclipse/6, 

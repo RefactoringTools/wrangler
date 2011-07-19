@@ -50,8 +50,8 @@
 %% Transformation:
 %% To perform the transformation, Wrangler needs to know, for each Pid!Msg expression, where the Pid is spawned. 
 %% A Pid is replacable only if Wrangler is sure that it is only associated with the spawn expression selected.
-%% @endi
 
+%% @private
 -module(refac_register_pid).
 
 -export([register_pid/6, register_pid_eclipse/6, register_pid_1/10, register_pid_2/9]).
@@ -59,7 +59,7 @@
 -include("../include/wrangler_internal.hrl").
 
 %% ==============================================================================================================
-%% @spec register_pid(FileName::filename(), Start::Pos, End::Pos, RegName::string(),SearchPaths::[dir()])-> term()
+%% @spec register_pid(FileName::filename(), Start::Pos, End::Pos, RegName::string(), SearchPaths::[dir()], TabWidth::integer())-> term()
 %% @doc This function associates a name, which must be an atom, with a pid, and replaces the uses of this pid in 
 %% send expressions with the name.
 

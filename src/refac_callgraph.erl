@@ -7,6 +7,8 @@
 %%% Modified: 17 Jan 2007 by Huiiqng Li <hl@kent.ac.uk>
 %%%-------------------------------------------------------------------
 
+%%@hidden
+%%@private
 -module(refac_callgraph).
 
 -export([construct/1]). 

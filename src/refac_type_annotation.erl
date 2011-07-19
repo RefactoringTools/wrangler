@@ -37,6 +37,7 @@
 
 %%NOTE: THIS MODULE IS STILL UNDERDEVELOPEMENT!
 
+%% @private
 -module(refac_type_annotation).
 
 -export([type_ann_ast/5]).
@@ -593,7 +594,6 @@ f_atom_type() ->
 %%     [{{test_server, call_crash, 5}, [term, term, modulename, functionname, arglist], term}].
     
 %% =====================================================================
-%% @spec application_info(Tree::syntaxTree())->term()
 
 %% Three ways that function name can be used in test data:
 %% {modulename, functionname}

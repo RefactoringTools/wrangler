@@ -58,6 +58,7 @@
 %% @author Huiqing Li <hl@kent.ac.uk>
 %% @version 0.1
 
+%% @private
 -module(refac_move_fun).
 
 -export([move_fun/6, move_fun_1/7, move_fun_eclipse/6, move_fun_1_eclipse/6,
@@ -823,8 +824,8 @@ exported_funs(MFAs, Info) ->
 		 end, MFAs).
       
 %% =====================================================================
-%% @spec applicaation_info(Tree::syntaxTree())->term()
-%% ====================================================================       
+%% @spec application_info(Tree::syntaxTree())->term()
+%%
 application_info(Node) ->
     case refac_syntax:type(Node) of 
 	application ->

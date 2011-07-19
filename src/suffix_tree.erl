@@ -1,3 +1,5 @@
+%% @private
+%% @hidden
 -module(suffix_tree).
 
 -include("../include/wrangler_internal.hrl").

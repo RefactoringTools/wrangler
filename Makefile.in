@@ -87,6 +87,8 @@ clean:
 	@cd ./c_src; make clean; cd ../..
 	@-rm -f $(OBJECTS)
 	@-rm -f $(BIN_DIR)/*
+	@-rm -f doc/*.html doc/edoc-info doc/erlang.png doc/stylesheet.css
+	@-rm -f doc/*.erl
 
 distclean: clean
 	@-rm -f c_src/suffixtree/Makefile c_src/gsuffixtree/Makefile
@@ -122,5 +124,12 @@ wc:
 	@echo "* C"
 	@wc -l */*.c | sort -nr
 
+
+EXAMPLE_CODE = code_inspector_examples.erl refac_list.erl \
+    refac_apply_to_remote_call.erl refac_remove_arg.erl \
+    refac_batch_rename_fun.erl refac_remove_import.erl refac_intro_import.erl \
+    refac_specialise.erl refac_keysearch_to_keyfind.erl refac_swap_args.erl
+
 docs:
 	$(ERL) -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS)])" -s init stop
+	(cd src ; cp $(EXAMPLE_CODE) ../doc/)

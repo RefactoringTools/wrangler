@@ -1,3 +1,5 @@
+%%@hidden
+%%@private
 -module(refac_apply_to_remote_call).
 
 -behaviour(gen_refac).

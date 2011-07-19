@@ -28,6 +28,8 @@
 %%% Description : A gen server manageing the callgraph of the program under refactoring.
 %%% Created : 28 Aug 2008 by  <Huiqing>
 %%%-------------------------------------------------------------------
+%% @hidden
+%% @private
 -module(wrangler_callgraph_server).
 
 -behaviour(gen_server).

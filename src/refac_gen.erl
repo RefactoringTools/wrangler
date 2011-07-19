@@ -91,6 +91,7 @@
 %% @end
 %% =====================================================================
 
+%% @private
 -module(refac_gen).
 
 -include("../include/wrangler_internal.hrl").
@@ -381,7 +382,7 @@ gen_fun(FileName, ModName, Tree, ParName, FunName, Arity, DefPos, Info, Exp, Sid
 			       {FileName, ParName, FunName, Arity, DefPos, Info, Exp, ActualPar, SideEffect, Dups, SearchPaths, TabWidth}).
 
 %% =====================================================================
-%% @spec add_function(Tree::syntaxTree(),FunName::atom(),DefPos::Pos, Exp::expression()) ->syntaxTree()
+%% @spec add_function(ModName::atom(),Tree::syntaxTree(),FunName::atom(),DefPos::Pos,Exp::expression(),SideEffect::boolean()) ->syntaxTree()
 %%
 add_function(ModName, Tree, FunName, DefPos, Exp, SideEffect) ->
     Forms = refac_syntax:form_list_elements(Tree),

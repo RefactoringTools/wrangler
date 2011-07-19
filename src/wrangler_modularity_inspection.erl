@@ -1,4 +1,3 @@
-
 %% Copyright (c) 2010, Huiqing Li, Simon Thompson
 %% All rights reserved.
 %%
@@ -34,6 +33,8 @@
 
 %% NOTE:: THIS MODULE IS IN NEED OF REAFCTORING AND DOCUMENTATION!!!
 
+%%%@hidden
+%%%@private
 -module(wrangler_modularity_inspection).
 
 

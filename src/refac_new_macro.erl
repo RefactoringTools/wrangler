@@ -36,6 +36,7 @@
 %% arbitrary sequence of toks is not a programming style we should recommend.
 %% =============================================================================================
 
+%% @private
 -module(refac_new_macro).
 
 -export([new_macro/6, new_macro_eclipse/6]).

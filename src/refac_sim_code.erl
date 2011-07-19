@@ -31,6 +31,7 @@
 
 %% THIS FILE WILL BE REMOVED!!!
 
+%% @private
 -module(refac_sim_code).
 
 -export([sim_code_detection/6, sim_code_detection_in_buffer/6]).

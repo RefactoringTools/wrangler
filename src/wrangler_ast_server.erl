@@ -30,6 +30,8 @@
 %%%
 %%% Created : 28 Aug 2008 by  <Huiqing Li>
 %%%-------------------------------------------------------------------
+%% @hidden
+%% @private
 -module(wrangler_ast_server).
 
 -behaviour(gen_server).

@@ -28,6 +28,8 @@
 %%% Author  :  <Huiqing>
 %% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
 %%%-------------------------------------------------------------------
+%%%@private
+%%%@hidden
 -module(wrangler_undo_server).
 
 -behaviour(gen_server).
