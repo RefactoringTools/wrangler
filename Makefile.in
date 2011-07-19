@@ -1,20 +1,20 @@
 APPNAME = wrangler
 include vsn.mk
 
+ERL         = @ERL@
+ERLC        = @ERLC@
 prefix      = @prefix@
 exec_prefix = @exec_prefix@
 datarootdir = @datarootdir@
 datadir     = @datadir@
-erl         = @ERL@
-erlc        = @ERLC@
 
-ELISP_DIR = ${datadir}/wrangler/elisp
-EBIN_DIR = ${datadir}/wrangler/ebin
-BIN_DIR = ${datadir}/wrangler/bin
-ERL_SRC_DIR = ${datadir}/wrangler/src
-WRANGLER_DIR = ${datadir}/wrangler
-PLT_DIR = ${datadir}/wrangler/plt
-INCLUDE_DIR = ${datadir}/wrangler/include
+ELISP_DIR = $(datadir)/wrangler/elisp
+EBIN_DIR = $(datadir)/wrangler/ebin
+BIN_DIR = $(datadir)/wrangler/bin
+ERL_SRC_DIR = $(datadir)/wrangler/src
+WRANGLER_DIR = $(datadir)/wrangler
+PLT_DIR = $(datadir)/wrangler/plt
+INCLUDE_DIR = $(datadir)/wrangler/include
 
 DOC_OPTS={def,{version,\"$(VERSION)\"}}
 
@@ -25,20 +25,21 @@ BUILD_FIRST = ebin/refac_parse.beam ebin/expand_rule.beam ebin/refac_api.beam \
    ebin/refac_scan.beam ebin/refac_epp_dodger.beam ebin/refac_syntax.beam \
    ebin/refac_syntax_lib.beam ebin/refac_misc.beam ebin/ast_traverse_api.beam
 
-ERL_SRC := $(wildcard src/*.erl)
-ERL_OBJ := $(BUILD_FIRST) $(patsubst src/%.erl,ebin/%.beam,${ERL_SRC})
+ERL_SRC = $(wildcard src/*.erl)
+ERL_OBJ = $(BUILD_FIRST) $(patsubst src/%.erl,ebin/%.beam,$(ERL_SRC))
 
-ELISP_WRANGLER_OBJ := elisp/wrangler.el
-INCLUDE_OBJ :=include/wrangler_internal.hrl
+ELISP_WRANGLER_OBJ = elisp/wrangler.el
+INCLUDE_OBJ = include/wrangler_internal.hrl
 
+OBJECTS = $(ERL_OBJ) $(C_OBJ) $(ELISP_WRANGLER_OBJ) $(INCLUDE_OBJ)
 
-OBJECTS := ${ERL_OBJ} ${C_OBJ} ${ELISP_WRANGLER_OBJ} ${INCLUDE_OBJ}
+default: prepare c $(ERL_OBJ) $(C_OBJ)
 
-default: prepare c ${ERL_OBJ} ${C_OBJ} 
-base: ${ERL_OBJ} ${C_OBJ}
-all: prepare base c 
+base: $(ERL_OBJ) $(C_OBJ)
 
-erl: ${ERL_OBJ} 
+all: prepare base c
+
+erl: $(ERL_OBJ)
 
 ########################################
 ## Rules
@@ -47,74 +48,71 @@ erl: ${ERL_OBJ}
 
 ## Erlang
 ebin/%.beam: src/%.erl
-	${erlc} -pa ebin -I include -W -o ebin +debug_info $<
+	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
+
+ebin/%.beam: include/wrangler.hrl include/wrangler_internal.hrl
 
 src/%.erl: src/%.yrl
-	${erlc} -o src $<
+	$(ERLC) -o src $<
 
 ## this is ugly code.
 prepare:
 	@case `uname` in \
           CYGWIN*) \
-              sed -e "s;%WRANGLER_DIR%;\"`cygpath -m ${WRANGLER_DIR}`\";" \
+              sed -e "s;%WRANGLER_DIR%;\"`cygpath -m $(WRANGLER_DIR)`\";" \
                   include/wrangler_internal.hrl.src>include/wrangler_internal.hrl  \
               ;; \
               *) \
-              sed -e "s;%WRANGLER_DIR%;\"${WRANGLER_DIR}\";" \
+              sed -e "s;%WRANGLER_DIR%;\"$(WRANGLER_DIR)\";" \
                   include/wrangler_internal.hrl.src>include/wrangler_internal.hrl \
               ;; \
          esac
 	@case `uname` in \
           CYGWIN*) \
-              sed -e "s;%WRANGLER_DIR%;\"`cygpath -m ${WRANGLER_DIR}`\";" \
+              sed -e "s;%WRANGLER_DIR%;\"`cygpath -m $(WRANGLER_DIR)`\";" \
                   elisp/wrangler.el.src>elisp/wrangler.el  \
               ;; \
               *) \
-              sed -e "s;%WRANGLER_DIR%;\"${WRANGLER_DIR}\";" \
+              sed -e "s;%WRANGLER_DIR%;\"$(WRANGLER_DIR)\";" \
                   elisp/wrangler.el.src>elisp/wrangler.el \
              ;; \
          esac
 c:
-	cd ./c_src; make; cd ../..
+	@cd ./c_src; make; cd ../..
 
 ########################################
 
 
-Makefile: Makefile.in config.status
-	./configure
-
 clean:
-	cd ./c_src; make clean; cd ../..	
-	-rm -f ${OBJECTS} 2>/dev/null
-	-rm -f ${BIN_DIR}/* 2>/dev/null
+	@cd ./c_src; make clean; cd ../..
+	@-rm -f $(OBJECTS)
+	@-rm -f $(BIN_DIR)/*
 
 distclean: clean
-	-rm -f ./c_src/Makefile *~
-	-rm -f config.* configure.scan Makefile *~ */*~ 2>/dev/null
+	@-rm -f c_src/suffixtree/Makefile c_src/gsuffixtree/Makefile
+	@-rm -f config.* configure.scan Makefile
 
 install: base
 	@echo "* Installing Emacs Lisp Library"
-	install -m 775 -d ${ELISP_DIR} 
-	install -m 775 elisp/*.el ${ELISP_DIR}
+	install -m 775 -d $(ELISP_DIR)
+	install -m 775 elisp/*.el $(ELISP_DIR)
 	@echo
 	@echo "* Installing Erlang Library"
-	install -m 775 -d ${EBIN_DIR} ${ERL_SRC_DIR}
-	install -m 775 -d ${BIN_DIR}
-	install -m 775 -d ${PLT_DIR}
-	install -m 775 -d ${INCLUDE_DIR}
-	install -m 775 ebin/*.beam ${EBIN_DIR}
-	install -m 775 src/*.erl ${ERL_SRC_DIR}
-	install -m 775 ebin/*.app ${EBIN_DIR}
-	install -m 775 c_src/suffixtree/suffixtree* ${BIN_DIR}
-	install -m 755 c_src/gsuffixtree/gsuffixtree* ${BIN_DIR}
-	install -m 775 include/*.hrl ${INCLUDE_DIR}
-	install -m 775 plt/side_effect_plt ${PLT_DIR}
-	install -m 775 plt/dialyzer_plt ${PLT_DIR}
+	install -m 775 -d $(EBIN_DIR) $(ERL_SRC_DIR)
+	install -m 775 -d $(BIN_DIR)
+	install -m 775 -d $(PLT_DIR)
+	install -m 775 -d $(INCLUDE_DIR)
+	install -m 775 ebin/*.beam $(EBIN_DIR)
+	install -m 775 src/*.erl $(ERL_SRC_DIR)
+	install -m 775 ebin/*.app $(EBIN_DIR)
+	install -m 775 c_src/suffixtree/suffixtree* $(BIN_DIR)
+	install -m 755 c_src/gsuffixtree/gsuffixtree* $(BIN_DIR)
+	install -m 775 include/*.hrl $(INCLUDE_DIR)
+	install -m 775 plt/side_effect_plt $(PLT_DIR)
+	install -m 775 plt/dialyzer_plt $(PLT_DIR)
 	@echo
 	@echo "*** Successfully installed. See README for usage instructions."
 	@echo
-
-
 
 wc:
 	@echo "* Emacs Lisp"
@@ -125,4 +123,4 @@ wc:
 	@wc -l */*.c | sort -nr
 
 docs:
-	${erl} -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS)])" -s init stop
+	$(ERL) -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS)])" -s init stop

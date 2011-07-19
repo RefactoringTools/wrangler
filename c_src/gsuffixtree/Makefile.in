@@ -1,5 +1,3 @@
- 
-
 ERL_CFLAGS  = @ERL_CFLAGS@
 ERL_LIB     = @ERL_LIB@
 CFLAGS      = @CFLAGS@
@@ -18,7 +16,6 @@ gsuffix_tree.o:	gsuffix_tree.c gsuffix_tree.h
 main.o:	gsuffix_tree.h 
 	gcc ${CFLAGS} ${ERL_CFLAGS} -o main.o -c main.c 
 
-clean: 
-	-rm -f *.o 
-	-rm -f gsuffixtree* 
-
+clean:
+	@-rm -f *.o
+	@-rm -f gsuffixtree*
