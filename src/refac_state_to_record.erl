@@ -1092,12 +1092,12 @@ format_funs([{F,A}|T]) ->
 %%=====================================================================
 
 check_current_state_type(File, ModName, ModInfo, SM) ->
-    TypeInfo = try refac_type_info:get_type_info_using_typer(File) of
- 		   V -> V
- 	       catch
- 		   _E1:E2 ->
- 		       throw({error, E2})
- 	       end,
+    TypeInfo = try wrangler_type_info:get_type_info_using_typer(File) of
+                       V -> V
+               catch
+                   _E1:E2 ->
+                       throw({error, E2})
+               end,
     ?debug("TypeInfo:\n~p\n", [TypeInfo]),
     TypeInfo1 =[{F, Type, RecDict} || {F, Type, RecDict} <-TypeInfo, F == File],
     {Type, RecDict} = case TypeInfo1 of
