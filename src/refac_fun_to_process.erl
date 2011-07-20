@@ -215,7 +215,7 @@ check_self_exprs(SelfApps, InitialFun = {_ModName, _FunName, _Arity}, SearchPath
 	 end,
     F = fun ({{Mod, Fun, Arity}, {File, FunDef, SelfExpr}}) ->
 		{ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(File, true, SearchPaths),
-		Res = refac_slice:forward_slice(Files, AnnAST, Mod, FunDef, SelfExpr),
+		Res = wrangler_slice:forward_slice(Files, AnnAST, Mod, FunDef, SelfExpr),
 		Res1 = [FunDef1 || {_,FunDef1} <- Res],
 		{RegAcc, RecAcc, SendAcc} = lists:unzip3(
 					      lists:map(fun (FunDef1) ->

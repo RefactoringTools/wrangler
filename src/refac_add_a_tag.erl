@@ -487,7 +487,7 @@ forward_slice_1(FileName, Expr, SearchPaths, TabWidth) ->
 	{ok, Expr} ->
 	    case api_interface:pos_to_fun_def(AnnAST, StartPos) of
 		{ok, FunDef} ->
-		    {ok, refac_slice:forward_slice(Files, AnnAST, ModName, FunDef, Expr)};
+		    {ok, wrangler_slice:forward_slice(Files, AnnAST, ModName, FunDef, Expr)};
 		_ ->
 		    {error, "Forward slicing failed"}
 	    end;

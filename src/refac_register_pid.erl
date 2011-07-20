@@ -492,7 +492,7 @@ evaluate_expr(Files, ModName, AnnAST, FunDef, Expr) ->
 	end,
     Exprs = case api_refac:free_vars(Expr) of
 		[] -> [Expr];
-		_ -> refac_slice:backward_slice(Files, AnnAST, ModName, FunDef, Expr)
+		_ -> wrangler_slice:backward_slice(Files, AnnAST, ModName, FunDef, Expr)
 	    end,
     lists:map(F, Exprs).
 
