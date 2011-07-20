@@ -100,8 +100,8 @@ init(_Args) ->
     end.
   
 %%------------------------------------------------------------------
--spec(get_ast/1::({filename(), boolean(), [dir()], integer(), atom()}) ->
-	     {ok, {syntaxTree(), moduleInfo()}}).
+%% -spec(get_ast/1::({filename(), boolean(), [dir()], integer(), atom()}) ->
+%% 	     {ok, {syntaxTree(), moduleInfo()}}).
 get_ast(Key={_FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat}) ->
     gen_server:call(wrangler_ast_server, {get,Key}, 500000).
 
@@ -298,19 +298,19 @@ log_errors(FileName, Info) ->
 %%  For the data structures used by the AST nodes, please refer to <a href="refac_syntax.html"> refac_syntax </a>.
 
 
--spec(parse_annotate_file(FName::filename(), ByPassPreP::boolean())
-                           -> {ok, {syntaxTree(), moduleInfo()}}).
+%% -spec(parse_annotate_file(FName::filename(), ByPassPreP::boolean())
+%%                            -> {ok, {syntaxTree(), moduleInfo()}}).
 parse_annotate_file(FName, ByPassPreP) ->
     parse_annotate_file(FName, ByPassPreP, [], ?DEFAULT_TABWIDTH).
 
 
--spec(parse_annotate_file(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()])
-                           -> {ok, {syntaxTree(), moduleInfo()}}).
+%% -spec(parse_annotate_file(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()])
+%%                            -> {ok, {syntaxTree(), moduleInfo()}}).
 parse_annotate_file(FName, ByPassPreP, SearchPaths) ->
     parse_annotate_file(FName, ByPassPreP, SearchPaths, ?DEFAULT_TABWIDTH).
 
--spec(parse_annotate_file(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()], TabWidth::integer())
-      -> {ok, {syntaxTree(), moduleInfo()}}).
+%% -spec(parse_annotate_file(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()], TabWidth::integer())
+ %%      -> {ok, {syntaxTree(), moduleInfo()}}).
 parse_annotate_file(FName, ByPassPreP, SearchPaths, TabWidth) ->
     FileFormat = refac_misc:file_format(FName),
     case whereis(wrangler_ast_server) of
@@ -321,8 +321,8 @@ parse_annotate_file(FName, ByPassPreP, SearchPaths, TabWidth) ->
 	    get_ast({FName, ByPassPreP, SearchPaths, TabWidth, FileFormat})
     end.
 
--spec(parse_annotate_file(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()], integer(), atom())
-      -> {ok, {syntaxTree(), moduleInfo()}}).
+%% -spec(parse_annotate_file(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()], integer(), atom())
+%%       -> {ok, {syntaxTree(), moduleInfo()}}).
 parse_annotate_file(FName, true, SearchPaths, TabWidth, FileFormat) ->
     case refac_epp_dodger:parse_file(FName, [{tab, TabWidth}, {format, FileFormat}]) of
 	{ok, Forms} ->

@@ -25,7 +25,7 @@
                            }).
 
 -record(fTFeedback, {status = true  ::boolean(),
-                     messages =[]   ::#fTFeedbackMessage{}
+                     messages =[]   ::[#fTFeedbackMessage{}]
                     }).
 
 %% the callback function.
@@ -35,7 +35,7 @@ do(SearchPaths, Options) ->
     wrangler_api:start(),
     Messages = do_code_inspection(SearchPaths, Options),
     wrangler_api:stop(),
-    {ok, #fTFeedback{status = true, messages=Messages}}.
+    {ok, #fTFeedback{status =true, messages=Messages}}.
 
 
 do_code_inspection(SearchPaths, Options) ->
@@ -73,8 +73,8 @@ try_to_apply(Mod, Fun, Args) ->
 
 create_one_feedback_message({Msg, Options}) ->
     #fTFeedbackMessage{feedback_type=wrangler,
-                message = Msg,
-                options= Options}.
+                       message = Msg,
+                       options= Options}.
 
 %% In this test, I try to detect two code code smells. One is 
 %% function definitions with 40 or more lines of code, and the

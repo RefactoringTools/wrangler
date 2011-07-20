@@ -48,10 +48,11 @@ check_function_name(NewFunName) ->
     end.
 
 check_name_conflict(File, Exprs, NewFunName) ->
+    ModName = list_to_atom(filename:basename(File, ".erl")),
     FvVars = refac_api:free_var_names(Exprs),
     Arity = length(FvVars),
     InscopeFuns = refac_api:inscope_funs(File),
-    case lists:member({NewFunName,Arity}, InscopeFuns) of 
+    case lists:member({ModName, NewFunName,Arity}, InscopeFuns) of 
         true ->
             throw({error, "The function is also inscope in this module."});
         false ->
@@ -83,8 +84,8 @@ selective() ->
     false.
 
 %% Do the actual program transformation here.
--spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}
-                                     | {error, term()}).    
+-spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}).
+                                     
 transform(Args=#args{current_file_name=File}) ->
     ?FULL_TD_TP([rule1(Args)], [File]).
 

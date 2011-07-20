@@ -77,7 +77,7 @@
 		      macro_defs, 
 		      record_defs, 
 		      includes, 
-		      ast, 
+		      ast :: syntaxTree(),
 		      info}).
 %==========================================================================================
 %%-spec(move_fun/6::(filename(),integer(),integer(), string(), [dir()], integer())->
@@ -140,7 +140,6 @@ move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, Editor) -
 	_ -> ok
     end,
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-    
     case interface_api:pos_to_fun_def(AnnAST, {Line, Col}) of
 	{ok, _Def} ->
 	    ok;

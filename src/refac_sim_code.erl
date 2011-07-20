@@ -388,7 +388,7 @@ examine_a_clone_member(Range={FName, _Start, _End}, {Rs, {Len, _Freq}},  MinFreq
 
 find_anti_unifier(_FileName, Exprs1, Range, SimiScore, ASTTab, VarTab, RangeTab) ->
     {Exprs2, VarsToExport} = get_expr_list_and_vars_to_export(Range, ASTTab, VarTab, RangeTab),
-    Res = anti_unification:anti_unification_with_score(Exprs1, Exprs2, SimiScore),
+    Res = wrangler_anti_unification:anti_unification_with_score(Exprs1, Exprs2, SimiScore),
     case Res of
 	none ->
 	    []; 
@@ -406,7 +406,7 @@ get_var_define_pos(V) ->
 
 get_generalised_form(ASTTab, RangeTab, {Ranges, {Len, Freq}, {Range, SubSt, ExportVars}}) ->
     Exprs1 = get_expr_list(Range, ASTTab, RangeTab),
-    {AntiUnifier,{NumOfPars, NumOfNewVars}} = anti_unification:generate_anti_unifier_and_num_of_new_vars(Exprs1, SubSt, ExportVars),
+    {AntiUnifier,{NumOfPars, NumOfNewVars}} = wrangler_anti_unification:generate_anti_unifier_and_num_of_new_vars(Exprs1, SubSt, ExportVars),
     Files = [element(1, element(1,R)) ||R<-Ranges],
     case length(lists:usort(Files)) ==1 of 
 	true ->

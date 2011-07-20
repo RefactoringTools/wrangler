@@ -48,8 +48,8 @@ selective() ->
 
 %%Do the actual program transformation here.
 -spec (transform/1::(#args{}) -> 
-                          {ok, [{filename(), filename(), syntaxTree()}]}
-                              | {error, term()}).    
+                          {ok, [{filename(), filename(), syntaxTree()}]}).
+                                
 transform(Args=#args{current_file_name=File,
                      user_inputs=[ModuleName]}) ->
     %% collect the functions that are defined 

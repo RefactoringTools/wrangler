@@ -109,7 +109,7 @@ search_and_gen_anti_unifier(Files, {FName, FunDef, Exprs, SE}, SimiScore, Search
     {Ranges, ExportVars, SubSt} = lists:unzip3(Res),
     ExportVars1 = {element(1, lists:unzip(vars_to_export(FunDef, End, Exprs))),
 		   lists:usort(lists:append(ExportVars))},
-    AntiUnifier = anti_unification:generate_anti_unifier(Exprs, SubSt, ExportVars1),
+    AntiUnifier = wrangler_anti_unification:generate_anti_unifier(Exprs, SubSt, ExportVars1),
     {[{FName, SE}| Ranges -- [{FName, SE}]], AntiUnifier}.
 
 search_similar_expr_1(FName, Exprs, SimiScore, SearchPaths, TabWidth) ->
@@ -186,7 +186,7 @@ do_search_similar_expr_1(FileName, Exprs1, Exprs2, RecordInfo, SimiScore, FunNod
 		_ ->
 		    NormalisedExprs21 = normalise_expr(Exprs21, RecordInfo),
 		    ExportedVars = vars_to_export(FunNode, E2, Exprs21),
-		    case anti_unification:anti_unification_with_score(Exprs1, NormalisedExprs21, SimiScore) of
+		    case wrangler_anti_unification:anti_unification_with_score(Exprs1, NormalisedExprs21, SimiScore) of
 			none ->
 			    do_search_similar_expr_1(FileName, Exprs1, tl(Exprs2), RecordInfo, SimiScore, FunNode);
 			SubSt ->
@@ -207,7 +207,7 @@ do_search_similar_expr_1(FileName, Expr1, Expr2, RecordInfo, SimiScore, FunNode)
 	_ ->
 	    NormalisedExpr21 = normalise_expr(Expr2, RecordInfo),
 	    ExportedVars = vars_to_export(FunNode, E2, Expr2),
-            Res = anti_unification:anti_unification_with_score(Expr1, NormalisedExpr21, SimiScore),
+            Res = wrangler_anti_unification:anti_unification_with_score(Expr1, NormalisedExpr21, SimiScore),
 	    case Res of
 		none ->
 		    [];

@@ -23,15 +23,14 @@ select_focus(_Args) ->{ok, none}.
 check_pre_cond(_Args) ->
     ok.
 
--spec (selective/0::()-> boolean()).                          
+-spec (selective/0::()-> true).                          
 selective() ->
     true.
 
 %% Apply the transformation rules to all the Erlang files included in the 
 %% SearchPaths.
--spec (transform/1::(#args{}) -> 
-                          {ok, [{filename(), filename(), syntaxTree()}]}
-                              | {error, term()}).    
+-spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}).
+                                  
 transform(_Args=#args{search_paths=SearchPaths})->
     ?STOP_TD_TP([rule_keysearch_to_keyfind()], [SearchPaths]).
 

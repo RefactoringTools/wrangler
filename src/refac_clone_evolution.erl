@@ -852,7 +852,7 @@ do_anti_unification(RangeWithExpr1, RangeWithExpr2) ->
     
 %% try to anti_unift two expressions.
 do_anti_unification_1(E1, E2) ->
-    SubSt=anti_unification:anti_unification(E1,E2),
+    SubSt=wrangler_anti_unification:anti_unification(E1,E2),
     case SubSt of 
 	none -> none;
 	_ -> case subst_sanity_check(E1, SubSt) of
@@ -1395,7 +1395,7 @@ get_var_define_pos(V) ->
     DefinePos.
 
 get_anti_unifier({Exprs, SubSt, ExportVars}, FromSameFile) ->
-    {AU, {NumOfPars, NumOfNewVars}} =anti_unification:generate_anti_unifier_and_num_of_new_vars(Exprs, SubSt, ExportVars),
+    {AU, {NumOfPars, NumOfNewVars}} =wrangler_anti_unification:generate_anti_unifier_and_num_of_new_vars(Exprs, SubSt, ExportVars),
     case FromSameFile of
 	true -> 
 	    {AU,{NumOfPars, NumOfNewVars}};
@@ -1705,21 +1705,16 @@ intersection(List1, List2) ->
 
 from_dets(Ets, Dets) when is_atom(Ets) ->
     EtsRef = ets:new(Ets, [set, public]),
-    case Dets of
-	none -> EtsRef;
-	_ ->
-	    case dets:open_file(Dets, [{access, read}]) of
-		{ok, D} ->
-		    true = ets:from_dets(EtsRef, D),
-		    ok = dets:close(D),
-		    EtsRef;
-		{error, _Reason} ->
-		    EtsRef
-	    end
+    case dets:open_file(Dets, [{access, read}]) of
+        {ok, D} ->
+            true = ets:from_dets(EtsRef, D),
+            ok = dets:close(D),
+            EtsRef;
+        {error, _Reason} ->
+            EtsRef
     end.
+    
 
-to_dets(Ets, none) ->
-    ets:delete(Ets);
 to_dets(Ets, DetsFile) ->
     try
 	MinSize = ets:info(Ets, size),
@@ -1739,12 +1734,8 @@ to_dets(Ets, DetsFile) ->
 	 
 
 write_file(File, Data) ->
-    case File of 
-	none ->
-	    ok;
-	_->
-	    file:write_file(File, Data)
-    end.
+    file:write_file(File, Data).
+    
 
 
 get_parameters(MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1) ->

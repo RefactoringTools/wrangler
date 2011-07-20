@@ -737,15 +737,11 @@ defined_funs(File) ->
 %% =====================================================================
 %% @doc Returns the AST representation of an Erlang file.
 %%@spec get_ast(filename()) -> syntaxTree()|{error, errorInfo()}
--spec(get_ast(File::filename()) -> syntaxTree()|{error, term()}).
+-spec(get_ast(File::filename()) -> {ok,syntaxTree()}).
 get_ast(File) ->
-    case wrangler_ast_server:parse_annotate_file(File, true) of 
-        {ok, {AST, _}} ->
-            {ok, AST};
-        {error, Reason} ->
-            {error, Reason}
-    end.
-
+    {ok, {AST, _}}=wrangler_ast_server:parse_annotate_file(File, true),
+    {ok, AST}.
+ 
 %% =====================================================================
 %% @doc Returns the module-level information about the Erlang file.
 -spec(get_module_info(File::filename()) -> {ok, module_info()}).
@@ -896,57 +892,48 @@ fun_define_info(Node) ->
 %% @doc Returns the function form that defines `MFA'; none is returns if no 
 %% such function definition found.
 %% @spec mfa_to_fun_def(mfa(), filename()|syntaxTree) ->syntaxTree()|none
--spec (mfa_to_fun_def(mfa(), filename()|syntaxTree()) ->syntaxTree()|none).
+%%-spec (mfa_to_fun_def(mfa(), filename()|syntaxTree()) ->syntaxTree()|none).
 mfa_to_fun_def(MFA,FileOrTree) ->
     case filelib:is_regular(FileOrTree) of 
         true ->
-            case wrangler_ast_server:parse_annotate_file(FileOrTree, true) of 
-                {ok, {AnnAST, _}} ->
-                    mfa_to_fundef_1(AnnAST,MFA);
-                {error, Reason} ->
-                    {error, Reason}
-            end;
+            {ok, {AnnAST, _}}= wrangler_ast_server:parse_annotate_file(FileOrTree, true),  
+            mfa_to_fundef_1(AnnAST,MFA);
         false ->
-            case is_tree(FileOrTree) of 
-                true ->
-                    mfa_to_fundef_1(FileOrTree, MFA);
-                false ->
-                    erlang:error(bagarg)
-            end
-    end.
-mfa_to_fundef_1(AnnAST, {M,F,A}) ->
-    Forms=refac_syntax:form_list_elements(AnnAST),
-    Fun = fun(Form) ->
-                  Ann= refac_syntax:get_ann(Form),
-                  case lists:keysearch(fun_def, 1, Ann) of
-                      {value, {fun_def, {M, F, A, _, _}}} ->
-                          false;
-                      _ -> true
-                  end
-          end,
-    case lists:dropwhile(Fun, Forms) of
-        [Form|_] ->
-            Form;
-        _ ->
-            none
+            mfa_to_fundef_1(FileOrTree, MFA)
     end.
    
+mfa_to_fundef_1(AnnAST, {M,F,A}) ->
+    case is_tree(AnnAST) of 
+        true ->
+            Forms=refac_syntax:form_list_elements(AnnAST),
+            Fun = fun(Form) ->
+                          Ann= refac_syntax:get_ann(Form),
+                          case lists:keysearch(fun_def, 1, Ann) of
+                              {value, {fun_def, {M, F, A, _, _}}} ->
+                                  false;
+                              _ -> true
+                  end
+                  end,
+            case lists:dropwhile(Fun, Forms) of
+                [Form|_] ->
+            Form;
+                _ -> 
+                    none
+            end;
+        _ -> none
+    end.
+  
 %%=====================================================================
 %%@doc Returns the name of the module defined in `File', 
 -spec (module_name(File::filename()) -> {ok, modulename()} |{error,  any()}).
 module_name(File) ->
-    case wrangler_ast_server:parse_annotate_file(File, true) of 
-        {ok, {_AST, ModuleInfo}} ->
-            case lists:keysearch(module,1, ModuleInfo) of
-                {value, {module, ModName}} ->
-                    {ok, ModName};
-                false ->
-                    {error, "Wrangler failed to the module name"}
-            end;
-        {error, Reason}->
-            {error, Reason}
+    {ok, {_AST, ModuleInfo}}=wrangler_ast_server:parse_annotate_file(File, true), 
+    case lists:keysearch(module,1, ModuleInfo) of
+        {value, {module, ModName}} ->
+            {ok, ModName};
+        false ->
+            {error, "Wrangler failed to the module name"}
     end.
-
 
 %% =====================================================================
 %%@doc Inserts an attribute before the first function definition.
@@ -1347,8 +1334,8 @@ search_and_transform_1(Rules, Tree, Fun) ->
 
 search_and_transform_2(Rules, FileOrDirs, Fun) ->
     Selective =try wrangler_gen_refac_server:get_flag(self()) of
-                  {ok, Val} ->
-                      Val
+                   {ok, Val} ->
+                       Val
                catch
                    _E1:_E2 ->
                        {false,[]}
@@ -1364,7 +1351,7 @@ search_and_transform_3(Rules, File, Fun, Selective) ->
     {ok, {AST, _}} = wrangler_ast_server:parse_annotate_file(File, true, [], 8),
     AST0 = extend_function_clause(AST),
     {AST1, Changed}=search_and_transform_4(File, Rules, AST0, Fun, Selective),
-    if Changed andalso (not Selective) ->
+    if Changed andalso Selective/=true ->
             AST2= reverse_function_clause(AST1),
             [{{File, File}, AST2}];
        true ->
@@ -2161,7 +2148,7 @@ type(Node) ->
 
 %%@private
 -spec(make_arity_qualifier(atom(), integer()) ->
-             syntaxTree()).
+             {tree, any(), any(), any()}).
 make_arity_qualifier(FunName, Arity) when 
       is_atom(FunName) andalso is_integer(Arity) ->
     refac_syntax:arity_qualifier(refac_syntax:atom(FunName),

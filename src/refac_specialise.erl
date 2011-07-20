@@ -29,30 +29,20 @@ input_par_prompts()->
 %% has been selected, this function returns the {M,F,A} of 
 %% the function under consideration, the actual parameter 
 %% selected, and the index the parameter selected.
--spec (select_focus/1::(#args{}) -> {ok, none}|{ok, syntaxTree()}|
-                                    {error, string()}).
+-spec (select_focus/1::(args()) -> {ok, {{atom(), atom(), integer()},syntaxTree(),integer()}}).
 select_focus(#args{current_file_name=File, 
                    highlight_range={Start, End}}) ->
-    case interface_api:range_to_node(File, {Start,End},fun is_expr/1) of 
-        {ok, Expr} ->
-            case interface_api:pos_to_node(
-                   File, Start, fun(Node)->
-                                        is_the_enclosing_app(Node, Expr)
-                                end) of 
-                {ok, App} ->
-                    ?MATCH(?T("Op@(As@@)"), App),
-                    {M, F, A}=refac_api:fun_define_info(Op@),
-                    {As1,_As2}=lists:splitwith(fun(E)->E/=Expr end, As@@),
-                    Nth = length(As1)+1,
-                    {ok, {{M,F,A},Expr,Nth}};
-                none ->
-                    {error, "The expression selected is not "
-                     "an argument of a function application."}
-            end;
-        none ->
-            {error, "You have not selected an expression."}
-    end.
-
+    {ok, Expr}=interface_api:range_to_node(File, {Start,End},fun is_expr/1), 
+    {ok, App}= interface_api:pos_to_node(
+                 File, Start, fun(Node)->
+                                      is_the_enclosing_app(Node, Expr)
+                              end),
+    ?MATCH(?T("Op@(As@@)"), App),
+    {M, F, A}=refac_api:fun_define_info(Op@),
+    {As1,_As2}=lists:splitwith(fun(E)->E/=Expr end, As@@),
+    Nth = length(As1)+1,
+    {ok, {{M,F,A},Expr,Nth}}.
+         
 %% Pre-condition checking.
 -spec (check_pre_cond/1::(#args{}) -> ok).  
 check_pre_cond(Args=#args{current_file_name=File, 
@@ -94,8 +84,7 @@ selective()->
     false.
 
 %% Do the actual program transformation here.
--spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}
-                                     | {error, term()}).    
+-spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}).                                    
 transform(Args=#args{current_file_name=File,
                      focus_sel={{_M,F,A},_Expr, _Nth}})->
     InscopeFuns = refac_api:inscope_funs(File),

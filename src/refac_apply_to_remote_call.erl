@@ -29,8 +29,7 @@ selective() ->
     true.
 
 %%Do the actual program transformation here.
--spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}
-                                     | {error, term()}).    
+-spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}).
 transform(_Args=#args{search_paths=SearchPaths})->
     ?FULL_TD_TP([rule(),
                  rule1(),

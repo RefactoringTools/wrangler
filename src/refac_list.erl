@@ -39,8 +39,8 @@ selective() ->
 
 %% Apply the transformation rules to all the Erlang files included in the 
 %% SearchPaths.
--spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}
-                                     | {error, term()}).    
+-spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}).
+                                        
 transform(_Args=#args{search_paths=SearchPaths})->
     ?FULL_TD_TP([rule_replace_append(),
               rule_replace_substract(),

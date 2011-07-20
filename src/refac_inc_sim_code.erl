@@ -828,7 +828,7 @@ do_anti_unification(RangeWithExpr1, RangeWithExpr2) ->
     
 %% try to anti_unift two expressions.
 do_anti_unification_1(E1, E2) ->
-    SubSt=anti_unification:anti_unification(E1,E2),
+    SubSt=wrangler_anti_unification:anti_unification(E1,E2),
     case SubSt of 
 	none -> none;
 	_ -> case subst_sanity_check(E1, SubSt) of
@@ -1370,8 +1370,8 @@ get_var_define_pos(V) ->
     DefinePos.
 
 get_anti_unifier({Exprs, SubSt, ExportVars}, FromSameFile) ->
-    {AU, {NumOfPars, NumOfNewVars}} =anti_unification:generate_anti_unifier_and_num_of_new_vars(
-                                       Exprs, SubSt, ExportVars),
+    {AU, {NumOfPars, NumOfNewVars}} =wrangler_anti_unification:generate_anti_unifier_and_num_of_new_vars(
+                                                Exprs, SubSt, ExportVars),
     case FromSameFile of
 	true -> 
 	    {AU,{NumOfPars, NumOfNewVars}};

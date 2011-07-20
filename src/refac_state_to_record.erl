@@ -1795,11 +1795,11 @@ format_field_names_1([F|T]) ->
     
 
 lookup_record(Tag, Arity, RecDict) when is_atom(Tag) ->
-  case dict:find({record, Tag}, RecDict) of
-    {ok, [{Arity, Fields}]} -> {ok, Fields};
-    {ok, OrdDict} -> orddict:find(Arity, OrdDict);
-    error -> error
-  end.
+    case dict:find({record, Tag}, RecDict) of
+        {ok, [{Arity, Fields}]} -> {ok, Fields};
+        {ok, OrdDict} -> orddict:find(Arity, OrdDict);
+        error -> error
+    end.
 
 
 set_pos(Pos, Node) ->
