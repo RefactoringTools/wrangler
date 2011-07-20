@@ -144,7 +144,7 @@ search_one_expr(FileName, Tree, Exp) ->
     SimplifiedExp = simplify_expr(Exp),
     BdStructExp = refac_code_search_utils:var_binding_structure([Exp]),
     F = fun (T, Acc) ->
-		case api_refac:is_expr(T) orelse refac_syntax:type(T) == match_expr of
+		case api_refac:is_expr(T) orelse wrangler_syntax:type(T) == match_expr of
 		    true -> T1 = simplify_expr(T),
 			    case SimplifiedExp == T1 of
 				true ->
@@ -203,38 +203,38 @@ simplify_expr(Exp) ->
 
 
 do_simplify_expr(Node) ->
-    Node1 = case refac_syntax:type(Node) of
+    Node1 = case wrangler_syntax:type(Node) of
 	      macro ->
-		  case refac_syntax:macro_arguments(Node) of
+		  case wrangler_syntax:macro_arguments(Node) of
 		    none ->
-			refac_syntax:default_literals_vars(Node, '*');
+			wrangler_syntax:default_literals_vars(Node, '*');
 		    _ -> Node
 		  end;
 	      variable ->
-		  refac_syntax:default_literals_vars(Node, '&');
+		  wrangler_syntax:default_literals_vars(Node, '&');
 	      integer ->
-		  refac_syntax:default_literals_vars(Node, 0);
+		  wrangler_syntax:default_literals_vars(Node, 0);
 	      float ->
-		  refac_syntax:default_literals_vars(Node, 0);
+		  wrangler_syntax:default_literals_vars(Node, 0);
 	      char ->
-		  refac_syntax:default_literals_vars(Node, '%');
+		  wrangler_syntax:default_literals_vars(Node, '%');
 	      string ->
-		  refac_syntax:default_literals_vars(Node, '%');
+		  wrangler_syntax:default_literals_vars(Node, '%');
 	      atom -> case refac_code_search_utils:generalisable(Node) of
 			true ->
-			    As = refac_syntax:get_ann(Node),
+			    As = wrangler_syntax:get_ann(Node),
 			    case lists:keysearch(type, 1, As) of
 			      {value, _} ->
-				  refac_syntax:default_literals_vars(
-				    Node, refac_syntax:atom_value(Node));
+				  wrangler_syntax:default_literals_vars(
+				       Node, wrangler_syntax:atom_value(Node));
 			      false ->
-				  refac_syntax:default_literals_vars(Node, '%')
+				  wrangler_syntax:default_literals_vars(Node, '%')
 			    end;
-			_ -> refac_syntax:default_literals_vars(
-			       Node, refac_syntax:atom_value(Node))
+			_ -> wrangler_syntax:default_literals_vars(
+			          Node, wrangler_syntax:atom_value(Node))
 		      end;
-	      nil -> refac_syntax:default_literals_vars(Node, nil);
-	      underscore -> refac_syntax:default_literals_vars(Node, '&');
+	      nil -> wrangler_syntax:default_literals_vars(Node, nil);
+	      underscore -> wrangler_syntax:default_literals_vars(Node, '&');
 	      _ ->
 		  Node
 	    end,
@@ -242,29 +242,29 @@ do_simplify_expr(Node) ->
 			  
 
 set_default_ann(Node) ->
-    refac_syntax:set_pos(refac_syntax:remove_comments(refac_syntax:set_ann(Node, [])), {0,0}).
+    wrangler_syntax:set_pos(wrangler_syntax:remove_comments(wrangler_syntax:set_ann(Node, [])), {0,0}).
 
 %% get all the expression sequences contained in Tree.	    
 contained_exprs(Tree, MinLen) ->
     F = fun (T, Acc) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    clause ->
-			Exprs = refac_syntax:clause_body(T),  %% HOW ABOUT CLAUSE_GUARD?
+			Exprs = wrangler_syntax:clause_body(T),  %% HOW ABOUT CLAUSE_GUARD?
 			Acc ++ [Exprs];
 		    application ->
-			Exprs = refac_syntax:application_arguments(T),
+			Exprs = wrangler_syntax:application_arguments(T),
 			Acc++ [Exprs];
 		    tuple ->
-			Exprs = refac_syntax:tuple_elements(T),
+			Exprs = wrangler_syntax:tuple_elements(T),
 			Acc++ [Exprs];
 		    lists ->
-			Exprs = refac_syntax:list_prefix(T),
+			Exprs = wrangler_syntax:list_prefix(T),
 			Acc++ [Exprs];
 		    block_expr ->
-			Exprs = refac_syntax:block_expr_body(T),
+			Exprs = wrangler_syntax:block_expr_body(T),
 			Acc++ [Exprs];
 		    try_expr ->
-			Exprs = refac_syntax:try_expr_body(T),
+			Exprs = wrangler_syntax:try_expr_body(T),
 			Acc ++ [Exprs];
 		    _ -> Acc
 		end

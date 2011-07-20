@@ -193,9 +193,9 @@ parse_form(Dev, L0, Parser, Options) ->
 		    IoErr = io_error(L1, Term),
 		    {error, {IoErr, {start_pos(Ts, L1), end_pos(Ts, L1)}}, L1};
                 {parse_error, _IoErr} when NoFail ->
-		    {ok, refac_syntax:set_pos(
-			   refac_syntax:text(tokens_to_string(Ts)),
-			   start_pos(Ts, L1)),
+		    {ok, wrangler_syntax:set_pos(
+			      wrangler_syntax:text(tokens_to_string(Ts)),
+			      start_pos(Ts, L1)),
 		     L1};
                 {parse_error, IoErr} ->
 		    {error, {IoErr, {start_pos(Ts, L1), end_pos(Ts, L1)}}, L1};
@@ -437,9 +437,9 @@ rewrite_list([]) ->
 %% the syntax tree anymore - we must use refac_syntax functions to analyze
 %% and decompose the data.
 rewrite(Node) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
 	atom ->
-            case atom_to_list(refac_syntax:atom_value(Node)) of
+            case atom_to_list(wrangler_syntax:atom_value(Node)) of
 		?atom_prefix ++As ->
 		    rewrite_macro(Node, As, ?atom_prefix);
 		?var_prefix ++As ->
@@ -448,14 +448,14 @@ rewrite(Node) ->
 		    Node
 	    end;
 	application ->
-	    F = refac_syntax:application_operator(Node),
-	    case refac_syntax:type(F) of
+	    F = wrangler_syntax:application_operator(Node),
+	    case wrangler_syntax:type(F) of
 		atom ->
-		    case refac_syntax:atom_value(F) of
+		    case wrangler_syntax:atom_value(F) of
 			?macro_call ->
-                            [A| As] = refac_syntax:application_arguments(Node),
-                            M = refac_syntax:macro(A, rewrite_list(As)),
-                            refac_syntax:copy_pos(Node, M);
+                            [A| As] = wrangler_syntax:application_arguments(Node),
+                            M = wrangler_syntax:macro(A, rewrite_list(As)),
+                            wrangler_syntax:copy_pos(Node, M);
 			_ ->
 			    rewrite_1(Node)
 		    end;
@@ -467,27 +467,27 @@ rewrite(Node) ->
     end.
 
 make_macro_name(Name, ?atom_prefix) ->
-    refac_syntax:atom(Name);
+    wrangler_syntax:atom(Name);
 make_macro_name(Name, ?var_prefix) ->
-    refac_syntax:variable(Name).
+    wrangler_syntax:variable(Name).
 
 rewrite_macro(Node, As, Prefix) ->
-    {L,_} = refac_syntax:get_pos(Node),
+    {L,_} = wrangler_syntax:get_pos(Node),
     {_Ln,A1} = lists:splitwith(fun (A) -> A=/=95 end,As), %% This can be removed;
     {Col,A2} = lists:splitwith(fun (A) -> A=/=95 end,tl(A1)),
     A = list_to_atom(tl(A2)),
-    N = refac_syntax:set_pos(make_macro_name(A,Prefix),{L,list_to_integer(Col)-1}),
-    refac_syntax:set_pos(refac_syntax:macro(N),{L,list_to_integer(Col)-1}).
+    N = wrangler_syntax:set_pos(make_macro_name(A,Prefix),{L,list_to_integer(Col) - 1}),
+    wrangler_syntax:set_pos(wrangler_syntax:macro(N),{L,list_to_integer(Col) - 1}).
 
 rewrite_1(Node) ->
-    case refac_syntax:subtrees(Node) of
+    case wrangler_syntax:subtrees(Node) of
 	[] ->
 	    Node;
 	Gs ->
-            Node1 = refac_syntax:make_tree(refac_syntax:type(Node),
-					 [[rewrite(T) || T <- Ts]
-					  || Ts <- Gs]),
-	    refac_syntax:copy_pos(Node, Node1)
+            Node1 = wrangler_syntax:make_tree(wrangler_syntax:type(Node),
+					    [[rewrite(T) || T <- Ts]
+					     || Ts <- Gs]),
+	    wrangler_syntax:copy_pos(Node, Node1)
     end.
 
 %% attempting a rescue operation on a token sequence for a single form
@@ -511,9 +511,9 @@ fix_define([{atom, L, ?pp_form}, {'(', _}, {')', _}, {'->', _},
 	    {atom, La, define}, {'(', _}, N, {',', _} | Ts]) ->
     [{dot, _}, {')', _} | Ts1] = lists:reverse(Ts),
     S = tokens_to_string(lists:reverse(Ts1)),
-    A = refac_syntax:set_pos(refac_syntax:atom(define), La),
-    Txt = refac_syntax:set_pos(refac_syntax:text(S), La),
-    {form, refac_syntax:set_pos(refac_syntax:attribute(A, [N, Txt]), L)};
+    A = wrangler_syntax:set_pos(wrangler_syntax:atom(define), La),
+    Txt = wrangler_syntax:set_pos(wrangler_syntax:text(S), La),
+    {form, wrangler_syntax:set_pos(wrangler_syntax:attribute(A, [N, Txt]), L)};
 fix_define(_Ts) ->
     error.
 
@@ -567,14 +567,14 @@ unfold_vars([A|As], Ts, DefaultPos, Acc) ->
 
 unfold_function_names(Ns) ->
     F = fun ({{atom, Pos1, Atom},{integer, Pos2, Arity}}) ->
-		N = refac_syntax:arity_qualifier(refac_syntax:set_pos(refac_syntax:atom(Atom), Pos1), 
-                                                 refac_syntax:set_pos(refac_syntax:integer(Arity),Pos2)),
-		refac_syntax:set_pos(N, Pos1);
+		N = wrangler_syntax:arity_qualifier(wrangler_syntax:set_pos(wrangler_syntax:atom(Atom), Pos1),
+                                                    wrangler_syntax:set_pos(wrangler_syntax:integer(Arity),Pos2)),
+		wrangler_syntax:set_pos(N, Pos1);
             ({{var, Pos1, MetaFunName}, {var, Pos2, MetaArity}}) ->
-                N = refac_syntax:arity_qualifier(refac_syntax:set_pos(refac_syntax:variable(MetaFunName), Pos1), 
-                                                 refac_syntax:set_pos(refac_syntax:variable(MetaArity),Pos2)),
-		refac_syntax:set_pos(N, Pos1)
-  	end,
+                N = wrangler_syntax:arity_qualifier(wrangler_syntax:set_pos(wrangler_syntax:variable(MetaFunName), Pos1),
+                                                    wrangler_syntax:set_pos(wrangler_syntax:variable(MetaArity),Pos2)),
+		wrangler_syntax:set_pos(N, Pos1)
+        end,
     [F(N) || N <- Ns].
        
 fix_pos_in_form(Ts, Form) ->
@@ -620,7 +620,7 @@ fix_pos([{'-', _}, {atom, _, import}|Ts], {attribute, Pos, Name, Data}) ->
                end,
             {Pos2, _Ts2} = get_token_pos(Ts, {'[',0}, Pos),
             Is1=unfold_function_names(Imports),
-            Is2 = refac_syntax:set_pos(refac_syntax:list(Is1), Pos2),
+            Is2 = wrangler_syntax:set_pos(wrangler_syntax:list(Is1), Pos2),
             {attribute, Pos, Name, {M2, Is2}};
         _ ->
             {M1, _Ts1} = unfold_atoms(Data, Ts, Pos),
@@ -630,7 +630,7 @@ fix_pos([{'-', _}, {atom, _, import}|Ts], {attribute, Pos, Name, Data}) ->
 fix_pos([{'-', _}, {atom, _, export}|Ts], {attribute, Pos, Name, Data}) ->
     {Pos2, _Ts2} = get_token_pos(Ts, {'[',0}, Pos),
     Es1=unfold_function_names(Data),
-    Data1=refac_syntax:set_pos(refac_syntax:list(Es1), Pos2),
+    Data1=wrangler_syntax:set_pos(wrangler_syntax:list(Es1), Pos2),
     {attribute, Pos, Name, Data1};
 
 fix_pos([{'-', _}, {atom, Pos, file}|Ts], {attribute, Pos, Name, Data}) ->

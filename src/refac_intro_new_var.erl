@@ -109,7 +109,7 @@ cond_check(Form, Expr, NewVarName) ->
 				"declared variables(s) ~p.", [Vs]),
 	    throw({error, lists:flatten(Msg)})
     end,
-    BodyBdVars = get_bound_vars(refac_syntax:block_expr(Body)),
+    BodyBdVars = get_bound_vars(wrangler_syntax:block_expr(Body)),
     ExistingVars = element(1, lists:unzip(BodyBdVars ++ SEnvs)),
     case lists:member(NewVarName, ExistingVars) of
 	true ->
@@ -119,7 +119,7 @@ cond_check(Form, Expr, NewVarName) ->
     end.
 
 variable_replaceable(Exp) ->
-    Ann = refac_syntax:get_ann(Exp),
+    Ann = wrangler_syntax:get_ann(Exp),
     case lists:keysearch(category, 1, Ann) of
 	{value, {category, guard_expression}} ->
             throw({error, "Introducing a variable in a guard expression is not supported."});
@@ -128,7 +128,7 @@ variable_replaceable(Exp) ->
 
 get_bound_vars(Tree) ->
     F = fun (T, B) ->
-		As = refac_syntax:get_ann(T),
+		As = wrangler_syntax:get_ann(T),
 		case lists:keysearch(bound, 1, As) of
 		    {value, {bound, BdVars1}} -> BdVars1++B;
 		    _ -> B
@@ -138,12 +138,12 @@ get_bound_vars(Tree) ->
 
 do_intro_new_var(AnnAST, FunForm, Expr, NewVarName) ->
     NewFun = do_intro_new_var_in_fun(FunForm, Expr, NewVarName),
-    Forms = refac_syntax:form_list_elements(AnnAST),
+    Forms = wrangler_syntax:form_list_elements(AnnAST),
     Fun = fun (Form) ->
-		  case refac_syntax:type(Form) of
+		  case wrangler_syntax:type(Form) of
 		    function ->
-			  FormPos = refac_syntax:get_pos(Form),
-			  FunFormPos =  refac_syntax:get_pos(FunForm),
+			  FormPos = wrangler_syntax:get_pos(Form),
+			  FunFormPos =  wrangler_syntax:get_pos(FunForm),
 			  case FormPos == FunFormPos of
 			      true ->
 				  NewFun;
@@ -154,7 +154,7 @@ do_intro_new_var(AnnAST, FunForm, Expr, NewVarName) ->
 			  Form
 		  end
 	  end,
-    refac_syntax:form_list([Fun(Form) || Form <- Forms]).
+    wrangler_syntax:form_list([Fun(Form) || Form <- Forms]).
 
 do_intro_new_var_in_fun(Fun, Expr, NewVarName) ->
     Body = get_inmost_enclosing_clause(Fun, Expr),
@@ -172,18 +172,18 @@ insert_and_replace(Node, {InMostClauseExpr, Expr, NewVarName}) ->
 
 do_insert_and_replace(Node, Expr, NewVarName) ->
     MatchExpr = make_match_expr(Expr, NewVarName),
-    ExprPos = refac_syntax:get_pos(Expr),
-    Body = case refac_syntax:type(Node) of
+    ExprPos = wrangler_syntax:get_pos(Expr),
+    Body = case wrangler_syntax:type(Node) of
 	       clause ->
-		   refac_syntax:clause_body(Node);
+		   wrangler_syntax:clause_body(Node);
 	       block_expr ->
-		   refac_syntax:block_expr_body(Node);
+		   wrangler_syntax:block_expr_body(Node);
 	       try_expr ->
-		   refac_syntax:try_expr_body(Node)
+		   wrangler_syntax:try_expr_body(Node)
 	   end,
     Fun = fun (ExprStatement) ->
                   Range = refac_misc:get_start_end_loc_with_comment(ExprStatement),
-                  NewExpr=refac_syntax:copy_pos(ExprStatement, refac_misc:update_ann(MatchExpr, {range, Range})),
+                  NewExpr=wrangler_syntax:copy_pos(ExprStatement, refac_misc:update_ann(MatchExpr, {range, Range})),
                   {ExprStatement1, _} = replace_expr_with_var(Expr, NewVarName, ExprStatement),
                   [NewExpr, ExprStatement1]
           end,
@@ -197,24 +197,24 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
                      Body1; 
                  [B|Bs] ->
                      [B1,B2] = Fun(B),
-                     case refac_syntax:type(B2)==variable andalso Bs/=[] of
+                     case wrangler_syntax:type(B2) == variable andalso Bs /= [] of
                          true ->
                              Body1++[B1|Bs];
                          false ->
                              case {lists:reverse(Body1), Bs} of
                                  {[], []} ->
-                                     [B1,refac_syntax:add_ann({layout, vertical}, B2)];
+                                     [B1,wrangler_syntax:add_ann({layout, vertical}, B2)];
                                  {[], [B3|Bs1]} ->
                                      {{BL, _}, _} = api_refac:start_end_loc(B),
                                      {{B3L, _},_} = api_refac:start_end_loc(B3),
                                      case BL==B3L of 
                                          true ->
-                                             B21=refac_syntax:add_ann({layout, horizontal}, B2),
-                                             B31=refac_syntax:add_ann({layout, horizontal}, B3),
+                                             B21=wrangler_syntax:add_ann({layout, horizontal}, B2),
+                                             B31=wrangler_syntax:add_ann({layout, horizontal}, B3),
                                              [B1, B21, B31|Bs1];
                                          false ->
-                                             B21=refac_syntax:add_ann({layout, vertical}, B2),
-                                             B31=refac_syntax:add_ann({layout, vertical}, B3),
+                                             B21=wrangler_syntax:add_ann({layout, vertical}, B2),
+                                             B31=wrangler_syntax:add_ann({layout, vertical}, B3),
                                              [B1, B21, B31|Bs1]
                                      end;
                                  {[B0|_], []} ->
@@ -222,10 +222,10 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
                                      {{BL, _}, _} = api_refac:start_end_loc(B),
                                      case B0L==BL of 
                                          true ->
-                                     B21=refac_syntax:add_ann({layout, horizontal}, B2),
-                                             Body1++[B1,B21];
+                                     B21=wrangler_syntax:add_ann({layout, horizontal}, B2),
+                                     Body1 ++ [B1,B21];
                                          false->
-                                             B21=refac_syntax:add_ann({layout, vertical}, B2),
+                                             B21=wrangler_syntax:add_ann({layout, vertical}, B2),
                                              Body1++[B1, B21]
                                      end;
                                  {[B0|_], [B3|Bs1]} ->
@@ -233,35 +233,35 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
                                      {{BL, _}, _} = api_refac:start_end_loc(B),
                                      B21= case B0L==BL of 
                                               true ->
-                                          refac_syntax:add_ann({layout, horizontal}, B2);
+                                          wrangler_syntax:add_ann({layout, horizontal}, B2);
                                               false->
-                                                  refac_syntax:add_ann({layout, vertical}, B2)
+                                                  wrangler_syntax:add_ann({layout, vertical}, B2)
                                           end,
                                      {{B3L, _},_} = api_refac:start_end_loc(B3),
                                      case BL==B3L of 
                                          true ->
-                                             B31=refac_syntax:add_ann({layout, horizontal}, B3),
+                                             B31=wrangler_syntax:add_ann({layout, horizontal}, B3),
                                              Body1++[B1, B21, B31|Bs1];
                                          false ->
-                                             B31=refac_syntax:add_ann({layout, vertical}, B3),
+                                             B31=wrangler_syntax:add_ann({layout, vertical}, B3),
                                              Body1++[B1, B21, B31|Bs1]
                                      end
                              end
                      end
              end,
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
 	clause ->
-	    Pat = refac_syntax:clause_patterns(Node),
-	    Guard = refac_syntax:clause_guard(Node),
-	    refac_misc:rewrite(Node, refac_syntax:clause
+	    Pat = wrangler_syntax:clause_patterns(Node),
+	    Guard = wrangler_syntax:clause_guard(Node),
+	    refac_misc:rewrite(Node, wrangler_syntax:clause
                                        (Pat, Guard, NewBody));
 	block_expr ->
-	    refac_misc:rewrite(Node,refac_syntax:block_expr(NewBody));
+	    refac_misc:rewrite(Node,wrangler_syntax:block_expr(NewBody));
 	try_expr ->
-	    C = refac_syntax:try_expr_clauses(Node),
-	    H = refac_syntax:try_expr_handlers(Node),
-	    A = refac_syntax:try_expr_after(Node),
-	    refac_misc:rewrite(Node,refac_syntax:try_expr(NewBody, C, H, A))
+	    C = wrangler_syntax:try_expr_clauses(Node),
+	    H = wrangler_syntax:try_expr_handlers(Node),
+	    A = wrangler_syntax:try_expr_after(Node),
+	    refac_misc:rewrite(Node,wrangler_syntax:try_expr(NewBody, C, H, A))
     end.
 
 
@@ -273,32 +273,32 @@ do_replace_expr_with_var(Node, {Expr, NewVarName}) ->
     case Node of
 	Expr ->
 	    NewVarExpr = refac_misc:rewrite(
-			   Expr,refac_syntax:variable(NewVarName)),
+			   Expr,wrangler_syntax:variable(NewVarName)),
 	    {NewVarExpr, true};
 	_ -> {Node, false}
     end.
 
 make_match_expr(Expr, NewVarName) ->
-    Pat = refac_syntax:variable(NewVarName),
-    PreComs = refac_syntax:get_precomments(Expr),
-    PostComs=refac_syntax:get_postcomments(Expr),
-    Expr1=refac_syntax:set_precomments(refac_syntax:set_postcomments(Expr, []),[]),
-    MatchExpr=refac_syntax:match_expr(Pat, Expr1),
-    refac_syntax:set_precomments(refac_syntax:set_postcomments(MatchExpr, PostComs), PreComs).
+    Pat = wrangler_syntax:variable(NewVarName),
+    PreComs = wrangler_syntax:get_precomments(Expr),
+    PostComs=wrangler_syntax:get_postcomments(Expr),
+    Expr1=wrangler_syntax:set_precomments(wrangler_syntax:set_postcomments(Expr, []),[]),
+    MatchExpr=wrangler_syntax:match_expr(Pat, Expr1),
+    wrangler_syntax:set_precomments(wrangler_syntax:set_postcomments(MatchExpr, PostComs), PreComs).
 
 get_inmost_enclosing_clause(Form, Expr) -> 
-    ExprPos = refac_syntax:get_pos(Expr),
+    ExprPos = wrangler_syntax:get_pos(Expr),
     Fun = fun (Node, S) ->
-		  Type = refac_syntax:type(Node),
+		  Type = wrangler_syntax:type(Node),
 		  case lists:member(Type, [clause, block_expr, try_expr]) of
 		      true ->
 			  Body = case Type of
 				     clause ->
-					 refac_syntax:clause_body(Node);
+					 wrangler_syntax:clause_body(Node);
 				     block_expr ->
-					 refac_syntax:block_expr_body(Node);
+					 wrangler_syntax:block_expr_body(Node);
 				     try_expr ->
-					 refac_syntax:try_expr_body(Node)
+					 wrangler_syntax:try_expr_body(Node)
 				 end,
 			  {Start, _End} = api_refac:start_end_loc(hd(Body)),
 			  {_, End} = api_refac:start_end_loc(lists:last(Body)),
@@ -319,18 +319,18 @@ get_inmost_enclosing_clause(Form, Expr) ->
     end.
 
 get_inmost_enclosing_body_expr(Form, Expr) ->
-    ExprPos = refac_syntax:get_pos(Expr),
+    ExprPos = wrangler_syntax:get_pos(Expr),
     Fun = fun (Node, S) ->
-		  Type = refac_syntax:type(Node),
+		  Type = wrangler_syntax:type(Node),
 		  case lists:member(Type, [clause, block_expr, try_expr]) of
 		      true ->
 			  Body = case Type of
 				     clause ->
-					 refac_syntax:clause_body(Node);
+					 wrangler_syntax:clause_body(Node);
 				     block_expr ->
-					 refac_syntax:block_expr_body(Node);
+					 wrangler_syntax:block_expr_body(Node);
 				     try_expr ->
-					 refac_syntax:try_expr_body(Node)
+					 wrangler_syntax:try_expr_body(Node)
 				 end,
 			  {Start, _End} = api_refac:start_end_loc(hd(Body)),
 			  {_, End} = api_refac:start_end_loc(lists:last(Body)),
@@ -353,7 +353,7 @@ get_inmost_enclosing_body_expr(Form, Expr) ->
     end.
 
 get_enclosing_expr(Body, Expr) ->
-    ExprPos = refac_syntax:get_pos(Expr),
+    ExprPos = wrangler_syntax:get_pos(Expr),
     Fun = fun (ExprStatement) ->
 		  {Start, End} = api_refac:start_end_loc(ExprStatement),
 		  case Start =< ExprPos andalso  ExprPos =< End of

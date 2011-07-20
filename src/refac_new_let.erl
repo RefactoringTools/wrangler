@@ -161,9 +161,9 @@ get_parent_expr(Node, Exp) ->
     end.
 
 get_parent_expr_1(Node, Exp) ->
-    case refac_syntax:type(Node) of 
+    case wrangler_syntax:type(Node) of
 	tuple ->
-	    Es = refac_syntax:tuple_elements(Node),
+	    Es = wrangler_syntax:tuple_elements(Node),
 	    case lists:member(Exp, Es) of
 		true ->
 		    {Node, true};
@@ -171,7 +171,7 @@ get_parent_expr_1(Node, Exp) ->
 		    {[], false}
 	    end;
 	list ->
-	    Es = refac_syntax:list_elements(Node),
+	    Es = wrangler_syntax:list_elements(Node),
 	    case lists:member(Exp, Es) of
 		true ->
 		    {Node, true};
@@ -179,8 +179,8 @@ get_parent_expr_1(Node, Exp) ->
 		    {[], false}
 	    end;
 	record_expr ->
-	    Fs = refac_syntax:record_expr_fields(Node),
-	    F1 =[F||F<-Fs, refac_syntax:record_field_value(F)==Exp],
+	    Fs = wrangler_syntax:record_expr_fields(Node),
+	    F1 =[F||F <- Fs, wrangler_syntax:record_field_value(F) == Exp],
 	    case F1 of
 		[_F] ->
 		    {Node,true};
@@ -203,13 +203,13 @@ enclosing_macro(Node, Expr, MacroName, Nth) ->
 
 
 get_enclosing_macro(Node, {Expr, Macro, Nth}) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
 	macro ->
-	    Name = refac_syntax:macro_name(Node),
-	    Args = refac_syntax:macro_arguments(Node),
-	    case refac_syntax:type(Name) of
+	    Name = wrangler_syntax:macro_name(Node),
+	    Args = wrangler_syntax:macro_arguments(Node),
+	    case wrangler_syntax:type(Name) of
 		variable when is_list(Args)->
-		    M = refac_syntax:variable_name(Name),
+		    M = wrangler_syntax:variable_name(Name),
 		    Arity = length(Args),
 		    case {M, Arity} of
 			{Macro, 3} ->
@@ -234,7 +234,7 @@ do_intro_new_let(Node, Exp, NewPatName, ParentExpr, LetMacro) ->
 do_intro_new_let(Node, {Expr, NewPatName, ParentExpr, LetMacro}) ->
     case Node of
 	LetMacro when LetMacro =/= none ->
-	    Args = list_to_tuple(refac_syntax:macro_arguments(LetMacro)),
+	    Args = list_to_tuple(wrangler_syntax:macro_arguments(LetMacro)),
 	    Pats = element(1, Args),
 	    G1 = element(2, Args),
 	    BdVars = api_refac:bound_vars(Pats),
@@ -242,27 +242,27 @@ do_intro_new_let(Node, {Expr, NewPatName, ParentExpr, LetMacro}) ->
 	    case FrVars -- BdVars of
 		FrVars ->
 		    ParentExpr1 = replace_expr_with_var(ParentExpr, {Expr, NewPatName}),
-		    NewPat = refac_syntax:variable(NewPatName),
+		    NewPat = wrangler_syntax:variable(NewPatName),
 		    {NewPats, NewG1} =
-			case {refac_syntax:type(Pats), refac_syntax:type(G1)} of
+			case {wrangler_syntax:type(Pats), wrangler_syntax:type(G1)} of
 			    {tuple, tuple} ->
-				Ps = refac_syntax:tuple_elements(Pats),
-				Gs = refac_syntax:tuple_elements(G1),
-				{refac_misc:rewrite_with_wrapper(Pats, refac_syntax:tuple(Ps ++ [NewPat])),
-				 refac_misc:rewrite_with_wrapper(G1, refac_syntax:tuple(Gs ++ [Expr]))};
+				Ps = wrangler_syntax:tuple_elements(Pats),
+				Gs = wrangler_syntax:tuple_elements(G1),
+				{refac_misc:rewrite_with_wrapper(Pats, wrangler_syntax:tuple(Ps ++ [NewPat])),
+				 refac_misc:rewrite_with_wrapper(G1, wrangler_syntax:tuple(Gs ++ [Expr]))};
 			    _ ->
-				{refac_syntax:tuple([Pats, NewPat]),
-				 refac_syntax:tuple([G1, Expr])}
+				{wrangler_syntax:tuple([Pats, NewPat]),
+				 wrangler_syntax:tuple([G1, Expr])}
 			end,
 		    NewArgs = [NewPats, NewG1, ParentExpr1],
-		    {refac_syntax:macro(refac_syntax:variable('LET'), NewArgs), true};
+		    {wrangler_syntax:macro(wrangler_syntax:variable('LET'), NewArgs), true};
 		_ -> {Node, false}
 	    end;
 	ParentExpr ->
 	    ParentExpr1 = replace_expr_with_var(ParentExpr, {Expr, NewPatName}),
-	    Args = [refac_syntax:variable(NewPatName),
+	    Args = [wrangler_syntax:variable(NewPatName),
 		    Expr, ParentExpr1],
-	    {refac_syntax:macro(refac_syntax:variable('LET'), Args), true};
+	    {wrangler_syntax:macro(wrangler_syntax:variable('LET'), Args), true};
 	_ -> {Node, false}
     end.
 
@@ -272,35 +272,35 @@ replace_expr_with_var(Node, {Expr, Var}) ->
 do_replace_expr_with_var(Node, {Expr, Var}) ->
     case Node of
 	Expr ->
-	    {refac_misc:rewrite_with_wrapper(Expr, refac_syntax:variable(Var)), true};
+	    {refac_misc:rewrite_with_wrapper(Expr, wrangler_syntax:variable(Var)), true};
 	_ -> {Node, false}
     end.
 
 is_generator(Expr) ->
-    case refac_syntax:is_literal(Expr) of
+    case wrangler_syntax:is_literal(Expr) of
       true -> false;
       false ->
-	  case refac_syntax:type(Expr) of
+	  case wrangler_syntax:type(Expr) of
 	    tuple ->
-		  Es = refac_syntax:tuple_elements(Expr), 
+		  Es = wrangler_syntax:tuple_elements(Expr),
 		  all_are_generators(Es);
 	    list ->
-		  Es = refac_syntax:list_elements(Expr),
+		  Es = wrangler_syntax:list_elements(Expr),
 		  all_are_generators(Es);
 	      record_expr ->
-		  Fs = refac_syntax:record_expr_fields(Expr),
-		  Vs =[refac_syntax:record_field_value(F) || F <-Fs],
-		  all_are_generators(Vs);
-	      application ->
-		  As = refac_syntax:get_ann(refac_syntax:application_operator(Expr)),
-		  case lists:keysearch(fun_def, 1, As) of
-		      {value, {fun_def, {Mod, Fun, Arity, _, _}}} ->
-			  case returns_gen({Mod, Fun, Arity}) of
-			      true -> true;
-			      _ -> unknown
-			  end;
-		      _ -> unknown
-		  end;
+		Fs = wrangler_syntax:record_expr_fields(Expr),
+		Vs =[wrangler_syntax:record_field_value(F) || F <- Fs],
+		all_are_generators(Vs);
+	    application ->
+		As = wrangler_syntax:get_ann(wrangler_syntax:application_operator(Expr)),
+		case lists:keysearch(fun_def, 1, As) of
+		    {value, {fun_def, {Mod, Fun, Arity, _, _}}} ->
+			case returns_gen({Mod, Fun, Arity}) of
+			    true -> true;
+			    _ -> unknown
+			end;
+		    _ -> unknown
+		end;
 	    _ -> unknown
 	  end
     end.
@@ -527,13 +527,13 @@ search_merge_candiates(AnnAST, MacroName) ->
     api_ast_traverse:fold(F, [], AnnAST).
 
 is_macro_app(Node, MacroName) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
       macro ->
-	  Name = refac_syntax:macro_name(Node),
-	  case refac_syntax:type(Name) of
+	  Name = wrangler_syntax:macro_name(Node),
+	  case wrangler_syntax:type(Name) of
 	    variable ->
-		M = refac_syntax:variable_name(Name),
-		Args = refac_syntax:macro_arguments(Node),
+		M = wrangler_syntax:variable_name(Name),
+		Args = wrangler_syntax:macro_arguments(Node),
 		case is_list(Args) of 
 		    true ->
 			Arity = length(Args),
@@ -551,20 +551,20 @@ is_macro_app(Node, MacroName) ->
     end.
 
 collect_mergeable_lets_or_foralls(Node, MacroName) ->
-    Args = refac_syntax:macro_arguments(Node),
+    Args = wrangler_syntax:macro_arguments(Node),
     [P, G1, G2] = Args,
     Res = collect_mergeable_lets_or_foralls_1([P, G1, G2], MacroName),
     case Res == [P, G1, G2] of
 	true ->
 	    [];
 	_ -> [{api_refac:start_end_loc(Node),
-	       refac_misc:reset_attrs(refac_syntax:macro(refac_syntax:variable(MacroName), Res))}]
+	       refac_misc:reset_attrs(wrangler_syntax:macro(wrangler_syntax:variable(MacroName), Res))}]
     end.
 
 collect_mergeable_lets_or_foralls_1(Res = [P, G1, G2], MacroName) ->
     case is_macro_app(G2, MacroName) of
 	true ->
-	    Args1 = refac_syntax:macro_arguments(G2),
+	    Args1 = wrangler_syntax:macro_arguments(G2),
 	    [P1, G11, G12] = Args1,
 	    BdVars = api_refac:bound_vars(P),
 	    FrVars = api_refac:free_vars(G11),
@@ -572,8 +572,8 @@ collect_mergeable_lets_or_foralls_1(Res = [P, G1, G2], MacroName) ->
 		FrVars ->
 		    {Ps, Gs} = get_pats_gens(P, G1),
 		    {Ps1, Gs1} = get_pats_gens(P1, G11),
-		    NewP = refac_syntax:tuple(Ps ++ Ps1),
-		    NewG1 = refac_syntax:tuple(Gs ++ Gs1),
+		    NewP = wrangler_syntax:tuple(Ps ++ Ps1),
+		    NewG1 = wrangler_syntax:tuple(Gs ++ Gs1),
 		    collect_mergeable_lets_or_foralls_1([NewP, NewG1, G12], MacroName);
 		_ -> Res
 	    end;
@@ -582,10 +582,10 @@ collect_mergeable_lets_or_foralls_1(Res = [P, G1, G2], MacroName) ->
     end.
 
 get_pats_gens(Pat, Gen) ->
-     case {refac_syntax:type(Pat), refac_syntax:type(Gen)} of
+     case {wrangler_syntax:type(Pat), wrangler_syntax:type(Gen)} of
 	 {tuple, tuple} ->
-	     {refac_syntax:tuple_elements(Pat),
-	      refac_syntax:tuple_elements(Gen)};
+	     {wrangler_syntax:tuple_elements(Pat),
+	      wrangler_syntax:tuple_elements(Gen)};
 	 _ -> {[Pat], [Gen]}
      end.
     

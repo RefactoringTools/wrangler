@@ -28,7 +28,7 @@
 %%
 %% <p>This module is a front end to the pretty-printing library module
 %% <code>prettypr</code>, for text formatting of abstract syntax trees
-%% defined by the module <code>refac_syntax</code>.</p>
+%% defined by the module <code>wrangler_syntax</code>.</p>
 
 %% @hidden
 %% @private
@@ -95,7 +95,7 @@ print_ast_and_get_changes(FileFmt, AST, TabWidth) ->
     print_ast_and_get_changes(FileFmt, AST, [], TabWidth).
 
 print_ast_and_get_changes(FileFmt, AST, Options, TabWidth) ->
-    Fs = refac_syntax:form_list_elements(AST),
+    Fs = wrangler_syntax:form_list_elements(AST),
     %% {FmStrs, C} = lists:unzip([print_a_form(reset_attrs(F), FileFmt, Options, TabWidth)|| F<-Fs]),
     {FmStrs, C} = lists:unzip([print_a_form(F, FileFmt, Options, TabWidth)|| F<-Fs]),
     Content = lists:append(FmStrs),
@@ -166,22 +166,22 @@ get_delimitor(FileFormat) ->
     end.
   
 is_special_form(Form) ->
-    case refac_syntax:type(Form) of
+    case wrangler_syntax:type(Form) of
 	error_marker -> 
             true;
 	comment -> 
             true; 
 	attribute ->
-	    AtrName = refac_syntax:attribute_name(Form),
-            case refac_syntax:atom_value(AtrName) of
+	    AtrName = wrangler_syntax:attribute_name(Form),
+            case wrangler_syntax:atom_value(AtrName) of
 		type -> true;
 		spec -> true;
                 opaque -> true;
 		record -> 
-                    [_R, FieldTuple] = refac_syntax:attribute_arguments(Form),
-                    Fields = refac_syntax:tuple_elements(FieldTuple),
+                    [_R, FieldTuple] = wrangler_syntax:attribute_arguments(Form),
+                    Fields = wrangler_syntax:tuple_elements(FieldTuple),
                     lists:any(fun(F) ->  
-                                      refac_syntax:type(F)==typed_record_field
+                                      wrangler_syntax:type(F)==typed_record_field
                               end, Fields);
 		_ -> false
 	    end;
@@ -243,7 +243,7 @@ format(Node) ->
 
 %% =====================================================================
 %% @spec format(Tree::syntaxTree(), Options::[term()]) -> string()
-%%           syntaxTree() = refac_syntax:syntaxTree()
+%%           syntaxTree() = wrangler_syntax:syntaxTree()
 %%
 %% @type hook() = (syntaxTree(), context(), Continuation) -> document()
 %%	    Continuation = (syntaxTree(), context()) -> document().
@@ -303,7 +303,7 @@ format(Node) ->
 %% annotation data) between HTML "boldface begin" and "boldface end"
 %% tags.</p>
 %%
-%% @see refac_syntax
+%% @see wrangler_syntax
 %% @see format/1
 %% @see layout/2
 %% @see best/2
@@ -377,7 +377,7 @@ layout(Node,Options) ->
 	      user = proplists:get_value(user,Options)}).
 	    
 lay(Node,Ctxt) ->
-    case refac_syntax:get_ann(Node) of
+    case wrangler_syntax:get_ann(Node) of
         [] ->
             %% Hooks are not called if there are no annotations.
             lay_1(Node,Ctxt);
@@ -390,11 +390,11 @@ lay(Node,Ctxt) ->
 
 %% This handles attached comments:
 lay_1(Node, Ctxt) ->
-    case refac_syntax:has_comments(Node) of
+    case wrangler_syntax:has_comments(Node) of
 	true ->
             D1 = lay_2(Node, Ctxt),
-	    PreCs = refac_syntax:get_precomments(Node),
-	    PostCs = refac_syntax:get_postcomments(Node),
+	    PreCs = wrangler_syntax:get_precomments(Node),
+	    PostCs = wrangler_syntax:get_postcomments(Node),
             {{NodeStartLine, NodeStartCol},{NodeEndLn, _}} = get_start_end_loc(Node),
 	    D2 = lay_postcomments_1(PostCs, D1, NodeEndLn),
             lay_precomments(PreCs, D2, {NodeStartLine, NodeStartCol});
@@ -408,9 +408,9 @@ lay_precomments([],D, _) -> D;
 lay_precomments(Cs,D, {DStartLine, DStartCol}) ->
     D0 =stack_comments(Cs,false),
     LastCom = lists:last(Cs),
-    {_, Col} = refac_syntax:get_pos(hd(Cs)),
-    {Line, _Col} = refac_syntax:get_pos(LastCom),
-    LastComTest = refac_syntax:comment_text(LastCom),
+    {_, Col} = wrangler_syntax:get_pos(hd(Cs)),
+    {Line, _Col} = wrangler_syntax:get_pos(LastCom),
+    LastComTest = wrangler_syntax:comment_text(LastCom),
     Offset = lists:min([abs(DStartCol-Col),0]),
     N = DStartLine-(Line+length(LastComTest)),
     case N=<0 orelse Line ==0 orelse DStartLine==0 of
@@ -423,7 +423,7 @@ lay_precomments(Cs,D, {DStartLine, DStartCol}) ->
 
 lay_postcomments_1([], D, _) -> D;
 lay_postcomments_1(Cs, D, DEndLn) ->
-    {PostCsLn, _} = refac_syntax:get_pos(hd(Cs)),
+    {PostCsLn, _} = wrangler_syntax:get_pos(hd(Cs)),
     case PostCsLn >= DEndLn + 1 of
         true ->
             lay_postcomments(Cs, above(D, text("")));
@@ -440,11 +440,11 @@ lay_postcomments(Cs,D) ->
 %% Format (including padding, if `Pad' is `true', otherwise not)
 %% and stack the listed comments above each other,
 stack_comments([C| Cs],Pad) ->
-    ComText=refac_syntax:comment_text(C),
+    ComText=wrangler_syntax:comment_text(C),
     D = stack_comment_lines(ComText),
     D1 = case Pad of
              true ->
-                 P = case refac_syntax:comment_padding(C) of
+                 P = case wrangler_syntax:comment_padding(C) of
                          none -> ?PADDING;
                          P1 -> P1
                      end,
@@ -455,8 +455,8 @@ stack_comments([C| Cs],Pad) ->
         [] ->
             D1;    % done
         _ -> 
-            {L,_} = refac_syntax:get_pos(C),
-            {L1, _} = refac_syntax:get_pos(hd(Cs)),
+            {L,_} = wrangler_syntax:get_pos(C),
+            {L1, _} = wrangler_syntax:get_pos(hd(Cs)),
             N = L1 - (L+length(ComText)-1),
             if N>1 ->
                     vertical([D1, white_lines(N-1),stack_comments(Cs, Pad)]);
@@ -482,30 +482,30 @@ add_comment_prefix(S) -> [$%| S].
 
 %% This part ignores annotations and comments:
 lay_2(Node, Ctxt) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
 	%% We list literals and other common cases first.
 	variable -> 
-            text(refac_syntax:variable_literal(Node));
+            text(wrangler_syntax:variable_literal(Node));
 	atom ->
-            As= refac_syntax:get_ann(Node),
+            As= wrangler_syntax:get_ann(Node),
             case lists:keysearch(qatom, 1, As) of
                 {value, _} ->
-                    Lit = atom_to_list(refac_syntax:atom_value(Node)),
+                    Lit = atom_to_list(wrangler_syntax:atom_value(Node)),
                     text("'"++Lit++"'");
                 false ->
-                    Lit = refac_syntax:atom_literal(Node),
+                    Lit = wrangler_syntax:atom_literal(Node),
                     text(Lit)
             end;
         integer -> 
-	    text(refac_syntax:integer_literal(Node));
+	    text(wrangler_syntax:integer_literal(Node));
 	float ->
-	    text(tidy_float(refac_syntax:float_literal(Node)));
+	    text(tidy_float(wrangler_syntax:float_literal(Node)));
 	text -> 
-	    text(refac_syntax:text_string(Node));
+	    text(wrangler_syntax:text_string(Node));
 	string ->  
-	    Str = refac_syntax:string_literal(Node),
-	    StrVal = "\"" ++ refac_syntax:string_value(Node) ++ "\"",
-	    case lists:keysearch(toks, 1, refac_syntax:get_ann(Node)) of
+	    Str = wrangler_syntax:string_literal(Node),
+	    StrVal = "\"" ++ wrangler_syntax:string_value(Node) ++ "\"",
+	    case lists:keysearch(toks, 1, wrangler_syntax:get_ann(Node)) of
 		{value, {toks, StrToks}} ->
 		    Str1 = io_lib:write_string(
 			     lists:concat(lists:map
@@ -521,7 +521,7 @@ lay_2(Node, Ctxt) ->
 	nil -> 
             text("[]");
 	tuple ->
-            Es0 = refac_syntax:tuple_elements(Node),
+            Es0 = wrangler_syntax:tuple_elements(Node),
 	    Sep = get_separator(Es0, Ctxt, ","),
 	    Es = seq(Es0, floating(text(Sep)), reset_check_bracket(reset_prec(Ctxt)), fun lay/2),
 	    Es1=lay_elems(fun refac_prettypr_0:par/1, Es,Es0, Ctxt),
@@ -559,15 +559,15 @@ lay_2(Node, Ctxt) ->
 	list -> 
             lay_list(Node, Ctxt);
 	operator ->
-	    Op = refac_syntax:operator_literal(Node),
+	    Op = wrangler_syntax:operator_literal(Node),
             floating(text(Op));
         infix_expr ->
-            Left = refac_syntax:infix_expr_left(Node),
-	    Operator = refac_syntax:infix_expr_operator(Node),
-	    Right = refac_syntax:infix_expr_right(Node),
-	    {PrecL, Prec, PrecR} = case refac_syntax:type(Operator) of
+            Left = wrangler_syntax:infix_expr_left(Node),
+	    Operator = wrangler_syntax:infix_expr_operator(Node),
+	    Right = wrangler_syntax:infix_expr_right(Node),
+	    {PrecL, Prec, PrecR} = case wrangler_syntax:type(Operator) of
 				       operator ->
-					   inop_prec(refac_syntax:operator_name(Operator));
+					   inop_prec(wrangler_syntax:operator_name(Operator));
 				       _ -> {0, 0, 0}
 				   end,
             Ctxt2 = reset_check_bracket(set_prec(Ctxt, PrecL)),
@@ -595,11 +595,11 @@ lay_2(Node, Ctxt) ->
             maybe_parentheses_2(D4, Node, Prec, Ctxt);
 	prefix_expr ->  
 	    %% done;
-	    Operator = refac_syntax:prefix_expr_operator(Node),
-	    PrefixArg = refac_syntax:prefix_expr_argument(Node),
-	    {{Prec, PrecR}, Name} = case refac_syntax:type(Operator) of
+	    Operator = wrangler_syntax:prefix_expr_operator(Node),
+	    PrefixArg = wrangler_syntax:prefix_expr_argument(Node),
+	    {{Prec, PrecR}, Name} = case wrangler_syntax:type(Operator) of
 					operator ->
-					    N = refac_syntax:operator_name(Operator),
+					    N = wrangler_syntax:operator_name(Operator),
 					    {preop_prec(N), N};
 					_ -> {{0, 0}, any}
 				    end,
@@ -625,12 +625,12 @@ lay_2(Node, Ctxt) ->
     	    maybe_parentheses(D3, Prec, Ctxt);
 	application ->  
             {PrecL, Prec} = func_prec(),
-            Op =refac_syntax:application_operator(Node),     
-            Args = refac_syntax:application_arguments(Node),
+            Op =wrangler_syntax:application_operator(Node),
+            Args = wrangler_syntax:application_arguments(Node),
             D = lay(Op,reset_check_bracket(set_prec(Ctxt, PrecL))),
             Sep = get_separator(Args, Ctxt, ","),
 	    Ctxt1 =case length(Args)==1 andalso 
-                       lists:member(refac_syntax:type(hd(Args)),
+                       lists:member(wrangler_syntax:type(hd(Args)),
                                     [macro, infix_expr]) of
                        true ->
                            Ctxt#ctxt{check_bracket=true};
@@ -653,8 +653,8 @@ lay_2(Node, Ctxt) ->
             maybe_parentheses(D1, Prec, Ctxt);
 	match_expr ->    
             {PrecL, Prec, PrecR} = inop_prec('='),
-	    Left = refac_syntax:match_expr_pattern(Node),
-	    Right = refac_syntax:match_expr_body(Node),
+	    Left = wrangler_syntax:match_expr_pattern(Node),
+	    Right = wrangler_syntax:match_expr_body(Node),
 	    D1 = lay(Left, reset_check_bracket(set_prec(Ctxt, PrecL))),
 	    D2 = lay(Right, reset_check_bracket(set_prec(Ctxt, PrecR))),
 	    {LStart, LEnd} = get_start_end_loc(Left),
@@ -672,19 +672,19 @@ lay_2(Node, Ctxt) ->
 	    %% Done;
 	    %% The style used for a clause depends on its context
 	    Ctxt1 = reset_check_bracket((reset_prec(Ctxt))#ctxt{clause = undefined}),
-	    Pats = refac_syntax:clause_patterns(Node),
-	    Body = refac_syntax:clause_body(Node),
+	    Pats = wrangler_syntax:clause_patterns(Node),
+	    Body = wrangler_syntax:clause_body(Node),
 	    Sep = get_separator(Pats, Ctxt, ","),
 	    PatDocs = seq(Pats, floating(text(Sep)), Ctxt1, fun lay/2),
 	    D1 = lay_elems(fun refac_prettypr_0:par/1, PatDocs, Pats, Ctxt),
-	    Guard=refac_syntax:clause_guard(Node),
+	    Guard=wrangler_syntax:clause_guard(Node),
 	    D2 = case Guard of
 		     none -> none;
 		     G -> lay(G,Ctxt1)
 		 end,
 	    BodyDocs = seq(Body, floating(text(",")), Ctxt1, fun lay/2),
 	    D3 = lay_body_elems(BodyDocs, Body, Ctxt1),
-	    HeadLastLn = case refac_syntax:clause_guard(Node) of
+	    HeadLastLn = case wrangler_syntax:clause_guard(Node) of
 			     none -> case Pats of
 					 [] -> get_start_line_with_comment(Node);
 					 _ -> case get_end_line_with_comment(Pats) of
@@ -692,7 +692,7 @@ lay_2(Node, Ctxt) ->
 						  L -> L
 					      end
 				     end;
-			     _ -> get_end_line_with_comment(refac_syntax:clause_guard(Node))
+			     _ -> get_end_line_with_comment(wrangler_syntax:clause_guard(Node))
 			 end,
 	    HeadStartLoc={_,HeadStartCol} = get_start_loc(Node),
             HdB=hd(Body),
@@ -726,17 +726,17 @@ lay_2(Node, Ctxt) ->
 	    %% Comments on the name itself will be repeated for each
 	    %% clause, but that seems to be the best way to handle it.
 	    Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
-	    D1 = lay(refac_syntax:function_name(Node), Ctxt1),
-	    D2 = lay_clauses(refac_syntax:function_clauses(Node), {function, D1}, Ctxt1),
+	    D1 = lay(wrangler_syntax:function_name(Node), Ctxt1),
+	    D2 = lay_clauses(wrangler_syntax:function_clauses(Node), {function, D1}, Ctxt1),
 	    beside(D2, floating(text(".")));
 	case_expr -> 
             Ctxt1 = reset_prec(Ctxt),
-	    Arg = refac_syntax:case_expr_argument(Node),
-            Cs = refac_syntax:case_expr_clauses(Node),
+	    Arg = wrangler_syntax:case_expr_argument(Node),
+            Cs = wrangler_syntax:case_expr_clauses(Node),
 	    D1 = lay(Arg, reset_check_bracket(Ctxt1)),
             D2 = lay_clauses(Cs, case_expr, reset_check_bracket(Ctxt1)),
             {CsStartLn, CsStartCol} = get_start_loc_with_comment(hd(Cs)),
-            {CaseStartLine, CaseStartCol} = refac_syntax:get_pos(Node),
+            {CaseStartLine, CaseStartCol} = wrangler_syntax:get_pos(Node),
             {{ArgStartLine, ArgStartCol}, ArgEndLoc={ArgEndLine, _ArgEndCol}} = get_start_end_loc(Arg),
             CaseArgD=case CaseStartLine==ArgStartLine orelse ArgStartLine==0 
 	         	 orelse CaseStartLine==0 of 
@@ -779,44 +779,44 @@ lay_2(Node, Ctxt) ->
        	if_expr ->  
 	    %% Done
 	    Ctxt1 = reset_prec(Ctxt),
-	    Cs=refac_syntax:if_expr_clauses(Node),
-	    D = lay_clauses(Cs, if_expr, reset_check_bracket(Ctxt1)),
-            append_keywords("if", "end", D, Cs, Ctxt1);
+     Cs=wrangler_syntax:if_expr_clauses(Node),
+     D = lay_clauses(Cs, if_expr, reset_check_bracket(Ctxt1)),
+     append_keywords("if", "end", D, Cs, Ctxt1);
 	cond_expr ->  
 	    %% Done;
 	    Ctxt1 = reset_prec(Ctxt),
-	    Cs=refac_syntax:cond_expr_clauses(Node),
+	    Cs=wrangler_syntax:cond_expr_clauses(Node),
 	    D = lay_clauses(Cs, cond_expr, reset_check_bracket(Ctxt1)),
 	    append_keywords("cond", "end", D, Cs, Ctxt1);
 	fun_expr ->  
 	    %% Done;
 	    Ctxt1 = reset_prec(Ctxt),
-	    Cs=refac_syntax:fun_expr_clauses(Node),
+	    Cs=wrangler_syntax:fun_expr_clauses(Node),
 	    D = lay_clauses(Cs, fun_expr, reset_check_bracket(Ctxt1)),
 	    append_keywords("fun", "end", D, Cs, Ctxt1);
 	module_qualifier -> 
 	    %% Done;
 	    {PrecL, _Prec, PrecR} = inop_prec(':'),
-            Arg =refac_syntax:module_qualifier_argument(Node),
-            Body =refac_syntax:module_qualifier_body(Node),
+            Arg =wrangler_syntax:module_qualifier_argument(Node),
+            Body =wrangler_syntax:module_qualifier_body(Node),
 	    D1 = lay(Arg, reset_check_bracket(set_prec(Ctxt, PrecL))),
 	    D2 = lay(Body, reset_check_bracket(set_prec(Ctxt, PrecR))),
 	    beside(D1, beside(text(":"), D2));
 	qualified_name ->  
-	    Ss = refac_syntax:qualified_name_segments(Node),
+	    Ss = wrangler_syntax:qualified_name_segments(Node),
 	    lay_qualified_name(Ss, Ctxt);
 	arity_qualifier ->  
 	    %% Done;
 	    Ctxt1 = reset_prec(Ctxt),
-            B = refac_syntax:arity_qualifier_body(Node), 
-            Arg = refac_syntax:arity_qualifier_argument(Node),
+            B = wrangler_syntax:arity_qualifier_body(Node),
+            Arg = wrangler_syntax:arity_qualifier_argument(Node),
 	    D1 = lay(B, reset_check_bracket(Ctxt1)),
 	    D2 = lay(Arg, reset_check_bracket(Ctxt1)),
 	    beside(D1, beside(text("/"), D2));
 	attribute -> 
             Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
-	    N = refac_syntax:attribute_name(Node),
-	    case refac_syntax:attribute_arguments(Node) of
+	    N = wrangler_syntax:attribute_name(Node),
+	    case wrangler_syntax:attribute_arguments(Node) of
 		none -> 
 		    D =lay(N, Ctxt1),
 		    beside(floating(text("-")), beside(D, floating(text("."))));
@@ -829,15 +829,15 @@ lay_2(Node, Ctxt) ->
 	    end;
 	binary ->   
 	    Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
-	    Fields = refac_syntax:binary_fields(Node),
+	    Fields = wrangler_syntax:binary_fields(Node),
 	    Sep = get_separator(Fields, Ctxt, ","),
 	    Es = seq(Fields, floating(text(Sep)), Ctxt1, fun lay/2),
 	    D = lay_elems(fun refac_prettypr_0:par/1, Es, Fields, Ctxt1),
 	    beside(floating(text("<<")), beside(D, floating(text(">>"))));
 	binary_field ->
 	    Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
-	    D1 = lay(refac_syntax:binary_field_body(Node), Ctxt1),
-	    D2 = case refac_syntax:binary_field_types(Node) of
+	    D1 = lay(wrangler_syntax:binary_field_body(Node), Ctxt1),
+	    D2 = case wrangler_syntax:binary_field_types(Node) of
 		     [] -> 
 			 empty();
 		     Ts ->
@@ -847,61 +847,61 @@ lay_2(Node, Ctxt) ->
 	    beside(D1, D2);
 	block_expr -> 
 	    Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
-	    Body = refac_syntax:block_expr_body(Node),
+	    Body = wrangler_syntax:block_expr_body(Node),
 	    Es = seq(Body, floating(text(", ")), Ctxt1, fun lay/2),
 	    D=lay_body_elems(Es, Body, Ctxt1),
 	    append_keywords("begin", "end", D, Body, Ctxt);
 	catch_expr ->  
                 {Prec, PrecR} = preop_prec('catch'),
-		Body =refac_syntax:catch_expr_body(Node),
+		Body =wrangler_syntax:catch_expr_body(Node),
                 Ctxt1 =reset_check_bracket(set_prec(Ctxt, PrecR)),
 		D = maybe_parentheses_1(lay(Body, Ctxt), Body, Ctxt1),
 		D1 = append_leading_keyword("catch", D, Body, Ctxt),
 		maybe_parentheses_2(D1, Node, Prec, Ctxt);
         class_qualifier -> 
                 Ctxt1 = reset_check_bracket(set_prec(Ctxt, max_prec())),
-		D1 = lay(refac_syntax:class_qualifier_argument(Node), Ctxt1),
-		D2 = lay(refac_syntax:class_qualifier_body(Node), Ctxt1),
+		D1 = lay(wrangler_syntax:class_qualifier_argument(Node), Ctxt1),
+		D2 = lay(wrangler_syntax:class_qualifier_body(Node), Ctxt1),
 		beside(D1, beside(text(":"), D2));
 	comment ->
-		D = stack_comment_lines(refac_syntax:comment_text(Node)),
-                case refac_syntax:comment_padding(Node) of
+		D = stack_comment_lines(wrangler_syntax:comment_text(Node)),
+                case wrangler_syntax:comment_padding(Node) of
 		    none -> floating(break(D));
 		    P -> floating(break(beside(text(spaces(P)), D)))
 		end;
 	conjunction -> 
-                Body = refac_syntax:conjunction_body(Node),
+                Body = wrangler_syntax:conjunction_body(Node),
 		Sep = get_separator(Body, Ctxt, ","),
 		Es = seq(Body, floating(text(Sep)), reset_check_bracket(reset_prec(Ctxt)),
                          fun lay/2),
 		lay_elems(fun refac_prettypr_0:par/1, Es, Body, Ctxt);
 	disjunction -> 
-                Body = refac_syntax:disjunction_body(Node),
+                Body = wrangler_syntax:disjunction_body(Node),
 		Es = seq(Body, floating(text(";")), reset_check_bracket(reset_prec(Ctxt)),
                          fun lay/2),
 		lay_elems(fun refac_prettypr_0:sep/1, Es, Body, Ctxt);
 	error_marker -> 
                 Ctxt1=reset_check_bracket(reset_prec(Ctxt)),
-                E = refac_syntax:error_marker_info(Node),
+                E = wrangler_syntax:error_marker_info(Node),
 		beside(text("** "), beside(lay_error_info(E, Ctxt1), text(" **")));
 	eof_marker ->
 		empty();
 	form_list ->
-                Forms = refac_syntax:form_list_elements(Node),
+                Forms = wrangler_syntax:form_list_elements(Node),
 		Es = seq(Forms, none, reset_check_bracket(reset_prec(Ctxt)), 
                          fun lay/2),
 		vertical_sep(text(""), Es);
 	generator -> 
-		Pat = refac_syntax:generator_pattern(Node),
-		Body = refac_syntax:generator_body(Node),
+		Pat = wrangler_syntax:generator_pattern(Node),
+		Body = wrangler_syntax:generator_body(Node),
 		lay_generator(Ctxt, Pat, Body);
 	binary_generator ->
-                Pat = refac_syntax:binary_generator_pattern(Node),
+                Pat = wrangler_syntax:binary_generator_pattern(Node),
 		Body = efac_syntax:binary_generator_body(Node),
 		lay_generator(Ctxt, Pat, Body);
 	implicit_fun ->
                 Ctxt1=reset_check_bracket(reset_prec(Ctxt)),
-                D = lay(refac_syntax:implicit_fun_name(Node), Ctxt1),
+                D = lay(wrangler_syntax:implicit_fun_name(Node), Ctxt1),
 		beside(floating(text("fun ")), D);
 	list_comp ->  
                 lay_comp(Node, Ctxt, list_comp_template, list_comp_body,
@@ -911,8 +911,8 @@ lay_2(Node, Ctxt) ->
                          binary_comp_body, "<< ", " >>");
 	macro ->
                 Ctxt1 = reset_prec(Ctxt),
-                N = refac_syntax:macro_name(Node),
-                Args = refac_syntax:macro_arguments(Node),
+                N = wrangler_syntax:macro_name(Node),
+                Args = wrangler_syntax:macro_arguments(Node),
                 Sep = get_separator(Args, Ctxt1, ","),
                 D = case Args of
 		      none ->
@@ -933,27 +933,27 @@ lay_2(Node, Ctxt) ->
                 D1 = beside(floating(text("?")), D),
                 maybe_parentheses_1(D1, Node, Ctxt);
         parentheses ->
-                Body =refac_syntax:parentheses_body(Node),
+                Body =wrangler_syntax:parentheses_body(Node),
                 D = lay(Body, reset_check_bracket(reset_prec(Ctxt))),
                 lay_parentheses(D);
         fake_parentheses ->
-                Body =refac_syntax:fake_parentheses_body(Node),
+                Body =wrangler_syntax:fake_parentheses_body(Node),
                 lay(Body, reset_prec(Ctxt));
 	query_expr ->
                 Ctxt1 = reset_prec(Ctxt),
-                Body = refac_syntax:query_expr_body(Node),
+                Body = wrangler_syntax:query_expr_body(Node),
                 D = lay(Body, reset_check_bracket(Ctxt1)),
                 append_keywords("query", "end", D, Body, Ctxt1);
         receive_expr ->
                 Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
-                Cs=refac_syntax:receive_expr_clauses(Node),
+                Cs=wrangler_syntax:receive_expr_clauses(Node),
                 D1 = lay_clauses(Cs, receive_expr, Ctxt1),
-                case refac_syntax:receive_expr_timeout(Node) of
+                case wrangler_syntax:receive_expr_timeout(Node) of
                     none ->
                         append_keywords("receive", "end", D1, Cs, Ctxt);
                     T ->
                         D3 = lay(T, Ctxt1),
-                        A = refac_syntax:receive_expr_action(Node),
+                        A = wrangler_syntax:receive_expr_action(Node),
                         As=seq(A, floating(text(", ")), Ctxt1, fun lay/2),
                         D4 = lay_elems(fun refac_prettypr_0:sep/1, As, A, Ctxt),
                         AStartLoc=get_start_loc_with_comment(hd(A)),
@@ -962,7 +962,7 @@ lay_2(Node, Ctxt) ->
                         D2= append_leading_keyword("receive", D1, Cs, Ctxt),
                         D6 = append_keywords("after", "end", D5, [T|A], Ctxt),
                         {EndLn, _} = case Cs of 
-                                         [] -> refac_syntax:get_pos(Node);
+                                         [] -> wrangler_syntax:get_pos(Node);
                                          _ ->get_end_loc(Cs)
                                      end,
                         case HeadStartLn == EndLn andalso EndLn/=0 of
@@ -974,12 +974,12 @@ lay_2(Node, Ctxt) ->
                 end;
 	record_access ->
                 {PrecL, Prec, PrecR} = inop_prec('#'),
-                Arg =refac_syntax:record_access_argument(Node),
-                Field =refac_syntax:record_access_field(Node),
+                Arg =wrangler_syntax:record_access_argument(Node),
+                Field =wrangler_syntax:record_access_field(Node),
                 D1 = lay(Arg, reset_check_bracket(set_prec(Ctxt, PrecL))),
                 D2 = beside(floating(text(".")), 
                             lay(Field, reset_check_bracket(set_prec(Ctxt, PrecR)))),
-                D3 = case refac_syntax:record_access_type(Node) of
+                D3 = case wrangler_syntax:record_access_type(Node) of
                          none -> D2;
                          T ->
                              beside(beside(floating(text("#")), 
@@ -989,56 +989,56 @@ lay_2(Node, Ctxt) ->
              record_expr ->
                 {PrecL, Prec, _} = inop_prec('#'),
                 Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
-                Arg = refac_syntax:record_expr_argument(Node),
-                Type = refac_syntax:record_expr_type(Node), 
-                Fields = refac_syntax:record_expr_fields(Node),
-                D1 = lay(Type, Ctxt1),
-                Sep = get_separator(Fields, Ctxt, ","),
-                Fs =seq(Fields, floating(text(Sep)), Ctxt1, fun lay/2),
-                D2 = beside(floating(text("#")), D1),
-                D3 = case Arg of
-                         none -> D2;
-                         A ->
-                             Ctxt2 = reset_check_bracket(set_prec(Ctxt, PrecL)),
-                             AD = maybe_parentheses_1(lay(A, Ctxt2), A, Ctxt2),
-                             beside(AD, D2)
-                     end,
-                D4 = case Fields of 
-                         [] ->
-                             beside(D3, beside(text("{"), text("}")));
-                         _ ->
-                             FieldsD = lay_elems(fun refac_prettypr_0:par/1, Fs, Fields, Ctxt1),
-                             ExprStartLoc = get_start_loc(Node),
-                             TypeEndLoc = get_end_loc(Type),
-                             FieldsD1 = make_args(Fields,FieldsD,Ctxt,TypeEndLoc,'{','}'),
-                             LeftBracketLoc = get_keyword_loc_after('{', Ctxt1, TypeEndLoc),
-                             append_elems(fun horizontal_1/1, {D3, {ExprStartLoc, TypeEndLoc}},
-                                          {FieldsD1, {LeftBracketLoc, LeftBracketLoc}})
-                     end,
-              maybe_parentheses(D4, Prec, Ctxt);
-       	record_field ->
-                Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
-                D1 = lay(refac_syntax:record_field_name(Node), Ctxt1),
-                case refac_syntax:record_field_value(Node) of
-                    none -> D1;
-                    V -> D2 = lay(V, Ctxt1),
-                         {LStart, LEnd} = get_start_end_loc(refac_syntax:record_field_name(Node)),
-                         {RStart, REnd} = get_start_end_loc(V),
-                         EqLoc = get_keyword_loc_after('=', Ctxt, LEnd),
-                         LeftEq=append_elems(fun refac_prettypr_0:horizontal/1,
-                                             {D1, {LStart, LEnd}}, {text("="), {EqLoc, EqLoc}}),
-                         %%append_elems(fun ([Doc1,Doc2]) ->
-                         %%                     follow(Doc1, Doc2, Ctxt#ctxt.break_indent)
-                         %%             end, {LeftEq, {LStart, EqLoc}},
-                         %%             {D2,{RStart, REnd}})
-                         append_elems(fun refac_prettypr_0:horizontal/1,
-                                      {LeftEq, {LStart, EqLoc}},
-                                      {D2,{RStart, REnd}})
-                end;
+           Arg = wrangler_syntax:record_expr_argument(Node),
+           Type = wrangler_syntax:record_expr_type(Node),
+           Fields = wrangler_syntax:record_expr_fields(Node),
+           D1 = lay(Type, Ctxt1),
+           Sep = get_separator(Fields, Ctxt, ","),
+           Fs =seq(Fields, floating(text(Sep)), Ctxt1, fun lay/2),
+           D2 = beside(floating(text("#")), D1),
+           D3 = case Arg of
+                    none -> D2;
+                    A ->
+                        Ctxt2 = reset_check_bracket(set_prec(Ctxt, PrecL)),
+                        AD = maybe_parentheses_1(lay(A, Ctxt2), A, Ctxt2),
+                        beside(AD, D2)
+                end,
+           D4 = case Fields of
+                    [] ->
+                        beside(D3, beside(text("{"), text("}")));
+                    _ ->
+                        FieldsD = lay_elems(fun refac_prettypr_0:par/1, Fs, Fields, Ctxt1),
+                        ExprStartLoc = get_start_loc(Node),
+                        TypeEndLoc = get_end_loc(Type),
+                        FieldsD1 = make_args(Fields,FieldsD,Ctxt,TypeEndLoc,'{','}'),
+                        LeftBracketLoc = get_keyword_loc_after('{', Ctxt1, TypeEndLoc),
+                        append_elems(fun horizontal_1/1, {D3, {ExprStartLoc, TypeEndLoc}},
+                                     {FieldsD1, {LeftBracketLoc, LeftBracketLoc}})
+                end,
+           maybe_parentheses(D4, Prec, Ctxt);
+        record_field ->
+         Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
+         D1 = lay(wrangler_syntax:record_field_name(Node), Ctxt1),
+         case wrangler_syntax:record_field_value(Node) of
+             none -> D1;
+             V -> D2 = lay(V, Ctxt1),
+                  {LStart, LEnd} = get_start_end_loc(wrangler_syntax:record_field_name(Node)),
+                  {RStart, REnd} = get_start_end_loc(V),
+                  EqLoc = get_keyword_loc_after('=', Ctxt, LEnd),
+                  LeftEq=append_elems(fun refac_prettypr_0:horizontal/1,
+                                      {D1, {LStart, LEnd}}, {text("="), {EqLoc, EqLoc}}),
+                  %%append_elems(fun ([Doc1,Doc2]) ->
+                  %%                     follow(Doc1, Doc2, Ctxt#ctxt.break_indent)
+                  %%             end, {LeftEq, {LStart, EqLoc}},
+                  %%             {D2,{RStart, REnd}})
+                  append_elems(fun refac_prettypr_0:horizontal/1,
+                               {LeftEq, {LStart, EqLoc}},
+                               {D2,{RStart, REnd}})
+         end;
 	record_index_expr ->
                 {Prec, PrecR} = preop_prec('#'),
-                Type =refac_syntax:record_index_expr_type(Node),
-                Field = refac_syntax:record_index_expr_field(Node),
+                Type =wrangler_syntax:record_index_expr_type(Node),
+                Field = wrangler_syntax:record_index_expr_field(Node),
                 D1 = lay(Type, reset_check_bracket(reset_prec(Ctxt))),
                 D2 = lay(Field, reset_check_bracket(set_prec(Ctxt, PrecR))),
                 D3 = beside(beside(floating(text("#")), D1),
@@ -1046,80 +1046,80 @@ lay_2(Node, Ctxt) ->
                 maybe_parentheses(D3, Prec, Ctxt);
 	rule ->
                 Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
-                D1 = lay(refac_syntax:rule_name(Node), Ctxt1),
-                D2 = lay_clauses(refac_syntax:rule_clauses(Node), {rule, D1}, Ctxt1),
+                D1 = lay(wrangler_syntax:rule_name(Node), Ctxt1),
+                D2 = lay_clauses(wrangler_syntax:rule_clauses(Node), {rule, D1}, Ctxt1),
                 beside(D2, floating(text(".")));
 	size_qualifier ->
                 Ctxt1 = reset_check_bracket(set_prec(Ctxt, max_prec())),
-                Body = refac_syntax:size_qualifier_body(Node),
-                Arg = refac_syntax:size_qualifier_argument(Node),
+                Body = wrangler_syntax:size_qualifier_body(Node),
+                Arg = wrangler_syntax:size_qualifier_argument(Node),
                 D1 = lay(Body, Ctxt1),
                 D2 = lay(Arg, Ctxt1),
                 beside(D1, beside(text(":"), D2));
       	try_expr ->
 	   Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
-	   Body = refac_syntax:try_expr_body(Node),
-	   {BodyStart, BodyEnd} = get_start_end_loc(Body),
-	   TryLoc = get_keyword_loc_before('try', Ctxt1, BodyStart),
-	   Bs =seq(Body,floating(text(",")),Ctxt1,fun lay/2),
-	   D1 = lay_body_elems(Bs, Body, Ctxt1),
-	   {_NodeStart, NodeEnd} = get_start_end_loc(Node),
-	   EndLoc = get_keyword_loc_before('end', Ctxt1, NodeEnd),
-	   Es0 = [{text("end"), {EndLoc, NodeEnd}}],
-	   Es1 = {append_leading_keyword("try", D1, Body, Ctxt1), {TryLoc, BodyEnd}},
-	   Es2 = case refac_syntax:try_expr_after(Node) of
-		     [] -> Es0;
-		     As ->
-			 AsDocs= seq(As,floating(text(",")),Ctxt1,fun lay/2),
-			 D2 = lay_elems(fun refac_prettypr_0:sep/1, AsDocs, As, Ctxt),
-			 {AsStart, AsEnd} = get_start_end_loc(As),
-			 AfterLoc=get_keyword_loc_before('after', Ctxt1, AsStart),
-			 [{append_leading_keyword("after", D2, As, Ctxt1), {AfterLoc, AsEnd}}
-			  |Es0]
-		 end,
-	   Es3 = case refac_syntax:try_expr_handlers(Node) of
-		     [] -> Es2;
-		     Hs ->
-			 D3 = lay_clauses(Hs,try_expr,Ctxt1),
-			 {HsStart, HsEnd} = get_start_end_loc(Hs),
-			 CatchLoc = get_keyword_loc_before('catch', Ctxt1, HsStart),
-			 [{append_leading_keyword("catch", D3, Hs, Ctxt1), {CatchLoc, HsEnd}}|Es2]
-		 end,
-	   case refac_syntax:try_expr_clauses(Node) of
-	       [] ->
-		   lay_body_elems_2([Es1|Es3],Ctxt1,[],{{1,1},{1,1}});
-	       Cs ->
-                   D4 = lay_clauses(Cs, try_expr, Ctxt1),
-		   {CsStart, CsEnd} = get_start_end_loc(Cs),
-                   OfLoc=get_keyword_loc_before('of', Ctxt1, CsStart),
-                   Es4 = {append_leading_keyword("of", D4, Cs, Ctxt1),{OfLoc, CsEnd}},
-                   lay_body_elems_2([Es1,Es4|Es3], Ctxt1, [], {{1,1},{1,1}})
-	   end;
+     Body = wrangler_syntax:try_expr_body(Node),
+     {BodyStart, BodyEnd} = get_start_end_loc(Body),
+     TryLoc = get_keyword_loc_before('try', Ctxt1, BodyStart),
+     Bs =seq(Body,floating(text(",")),Ctxt1,fun lay/2),
+     D1 = lay_body_elems(Bs, Body, Ctxt1),
+     {_NodeStart, NodeEnd} = get_start_end_loc(Node),
+     EndLoc = get_keyword_loc_before('end', Ctxt1, NodeEnd),
+     Es0 = [{text("end"), {EndLoc, NodeEnd}}],
+     Es1 = {append_leading_keyword("try", D1, Body, Ctxt1), {TryLoc, BodyEnd}},
+     Es2 = case wrangler_syntax:try_expr_after(Node) of
+	       [] -> Es0;
+	       As ->
+		   AsDocs= seq(As,floating(text(",")),Ctxt1,fun lay/2),
+		   D2 = lay_elems(fun refac_prettypr_0:sep/1, AsDocs, As, Ctxt),
+		   {AsStart, AsEnd} = get_start_end_loc(As),
+		   AfterLoc=get_keyword_loc_before('after', Ctxt1, AsStart),
+		   [{append_leading_keyword("after", D2, As, Ctxt1), {AfterLoc, AsEnd}}
+		    |Es0]
+	   end,
+     Es3 = case wrangler_syntax:try_expr_handlers(Node) of
+	       [] -> Es2;
+	       Hs ->
+		   D3 = lay_clauses(Hs,try_expr,Ctxt1),
+		   {HsStart, HsEnd} = get_start_end_loc(Hs),
+		   CatchLoc = get_keyword_loc_before('catch', Ctxt1, HsStart),
+		   [{append_leading_keyword("catch", D3, Hs, Ctxt1), {CatchLoc, HsEnd}}|Es2]
+	   end,
+     case wrangler_syntax:try_expr_clauses(Node) of
+	 [] ->
+	     lay_body_elems_2([Es1|Es3],Ctxt1,[],{{1,1},{1,1}});
+	 Cs ->
+             D4 = lay_clauses(Cs, try_expr, Ctxt1),
+	     {CsStart, CsEnd} = get_start_end_loc(Cs),
+             OfLoc=get_keyword_loc_before('of', Ctxt1, CsStart),
+             Es4 = {append_leading_keyword("of", D4, Cs, Ctxt1),{OfLoc, CsEnd}},
+             lay_body_elems_2([Es1,Es4|Es3], Ctxt1, [], {{1,1},{1,1}})
+     end;
 	char ->
-	   V = refac_syntax:char_value(Node),
+	   V = wrangler_syntax:char_value(Node),
 	   case is_integer(V) and (V > 127) of
 	       true -> {ok, [Num], _} = io_lib:fread("~u", integer_to_list(V)),
 		       [CharStr] = io_lib:fwrite("~.8B", [Num]),
 		       text("$\\" ++ CharStr);
 	       _ when is_atom(V) ->
 		      text(atom_to_list(V));
-	       _ -> text(refac_syntax:char_literal(Node))
+	       _ -> text(wrangler_syntax:char_literal(Node))
 	   end; %% "
        warning_marker ->
-           E = refac_syntax:warning_marker_info(Node),
-          beside(text("%% WARNING: "), lay_error_info(E, reset_prec(Ctxt)));
+            E = wrangler_syntax:warning_marker_info(Node),
+            beside(text("%% WARNING: "), lay_error_info(E, reset_prec(Ctxt)));
 	type -> empty();  %% tempory fix!!
       	typed_record_field -> empty(); %% tempory fix!!!
         function_clause ->
-              lay_2(refac_syntax:function_clause(Node), Ctxt);
+              lay_2(wrangler_syntax:function_clause(Node), Ctxt);
         empty_node->
             empty()
     end.
 
 lay_list(Node, Ctxt) ->
     Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
-    Node1 = refac_syntax:compact_list(Node),
-    PrefixElems = refac_syntax:list_prefix(Node1),
+    Node1 = wrangler_syntax:compact_list(Node),
+    PrefixElems = wrangler_syntax:list_prefix(Node1),
     Sep = get_separator(PrefixElems, Ctxt, ","),
     D0 = seq(PrefixElems, floating(text(Sep)), Ctxt1, fun lay/2),
     D1 = lay_elems(fun refac_prettypr_0:par/1, D0, PrefixElems, Ctxt),
@@ -1142,7 +1142,7 @@ lay_list(Node, Ctxt) ->
                  _ ->
                      PrefixStartCol - StartCol
              end,
-    case refac_syntax:list_suffix(Node1) of
+    case wrangler_syntax:list_suffix(Node1) of
         none ->
             D2 =case N =< 0 of
                     true ->
@@ -1226,9 +1226,9 @@ lay_generator(Ctxt, Pat, Body) ->
 
 lay_comp(Node, Ctxt, Fun1, Fun2, Tok1, Tok2) ->
     Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
-    Temp = refac_syntax:Fun1(Node),
+    Temp = wrangler_syntax:Fun1(Node),
     D1 = lay(Temp,Ctxt1),
-    Body = refac_syntax:Fun2(Node),
+    Body = wrangler_syntax:Fun2(Node),
     Sep = get_separator(Body,Ctxt,","),
     Es = seq(Body,floating(text(Sep)),Ctxt1,fun lay/2),
     D2 = lay_elems(fun refac_prettypr_0:par/1,Es,Body,Ctxt),
@@ -1310,9 +1310,9 @@ well_formed_parentheses([C|Cs], {L, R}) ->
                 
 lay_qualified_name([S| Ss1] = Ss,Ctxt) ->
     Ctxt1 = reset_check_bracket(Ctxt),
-    case refac_syntax:type(S) of
+    case wrangler_syntax:type(S) of
       atom ->
-	  case refac_syntax:atom_value(S) of
+	  case wrangler_syntax:atom_value(S) of
 	    '' -> beside(text("."),lay_qualified_name_1(Ss1,Ctxt1));
 	    _ -> lay_qualified_name_1(Ss,Ctxt1)
 	  end;
@@ -1402,7 +1402,7 @@ make_fun_clause(P,G,B, CsNode, Ctxt,SameLine, HeadStartLoc) ->
     make_fun_clause(none,P,G,B,CsNode, Ctxt,SameLine, HeadStartLoc).
 
 make_fun_clause(N,P,G,B, CsNode, Ctxt, SameLine, HeadStartLoc={_Ln, _Col}) ->
-    Pats =refac_syntax:clause_patterns(CsNode),
+    Pats =wrangler_syntax:clause_patterns(CsNode),
     D = make_fun_clause_head(N,P,Pats,Ctxt,HeadStartLoc),
     make_case_clause(D,G,B,CsNode,Ctxt,SameLine).
     
@@ -1447,7 +1447,7 @@ make_args(Pats, P,Ctxt,FunNameLoc,LeftBracket,RightBracket) ->
     end.
 
 make_rule_clause(N,P,G,B, CsNode, Ctxt, SameLine) ->
-    Pats =refac_syntax:clause_patterns(CsNode),
+    Pats =wrangler_syntax:clause_patterns(CsNode),
     D = make_fun_clause_head(N,P,Pats, Ctxt,{0,0}),
     append_rule_body(B,append_guard(G,D,Ctxt),Ctxt, SameLine).
 
@@ -1515,19 +1515,19 @@ append_guard(G,D,Ctxt) ->
 append_guard(none,D,_CsNode,_) -> 
       D;
 append_guard(G,D,CsNode,Ctxt) ->
-    Guard= refac_syntax:clause_guard(CsNode),
+    Guard= wrangler_syntax:clause_guard(CsNode),
     case revert_clause_guard(Guard) of 
-        [[E]] -> case refac_syntax:type(E)==nil of 
+        [[E]] -> case wrangler_syntax:type(E) == nil of
                      true -> D;
                      _ -> append_guard_1(G, D, CsNode, Ctxt)
                  end;
         _ -> append_guard_1(G, D, CsNode, Ctxt)
     end.
 append_guard_1(G, D, CsNode, Ctxt) ->
-    Guard= refac_syntax:clause_guard(CsNode),
+    Guard= wrangler_syntax:clause_guard(CsNode),
     {{StartLn, StartCol},{_EndLn, _EndCol}}=get_start_end_loc(Guard),
     {WhenLn, WhenCol}=get_prev_keyword_loc(Ctxt#ctxt.tokens, {StartLn, StartCol}, 'when'),
-    Pats = refac_syntax:clause_patterns(CsNode),
+    Pats = wrangler_syntax:clause_patterns(CsNode),
     {{_PStartLn, _PStartCol}, {PEndLn, _PEndCol}}=get_start_end_loc(Pats),
     {_,CsStartCol} = get_start_loc_with_comment(CsNode),
     D1= case WhenLn-PEndLn==1 of 
@@ -1638,7 +1638,7 @@ lay_error_info({L,M,T} = T0,Ctxt)
 lay_error_info(T,Ctxt) -> lay_concrete(T,Ctxt).
 
 lay_concrete(T,Ctxt) ->
-    lay(refac_syntax:abstract(T),Ctxt).
+    lay(wrangler_syntax:abstract(T),Ctxt).
 
 seq_1([H|T],Separator,Ctxt,Fun) ->
     case T of
@@ -1759,7 +1759,7 @@ lay_body_elems_1([{D, Elem}| Ts],  Ctxt,[], _LastLoc) ->
 lay_body_elems_1([{D, Elem}| Ts], Ctxt, [H| T], 
 		 _LastLoc={{_LastSLn, _LastSCol}, {LastELn, LastECol}}) ->
     Range={{SLn, SCol},{_ELn, _ECol}} = refac_misc:get_start_end_loc_with_comment(Elem),
-    As = refac_syntax:get_ann(Elem),
+    As = wrangler_syntax:get_ann(Elem),
     case lists:keysearch(layout, 1, As) of 
         {value, {layout, horizontal}} ->
             lay_body_elems_1(Ts,  Ctxt,[H ++ [D]| T], Range);
@@ -2037,7 +2037,7 @@ need_parentheses(Node, Ctxt) ->
         true ->
             has_parentheses(Node, Ctxt#ctxt.tokens, "((", "))");
         false ->
-            As = refac_syntax:get_ann(Node),
+            As = wrangler_syntax:get_ann(Node),
             case lists:keysearch(with_bracket, 1, As) of
                 {value, {with_bracket, true}} ->
                     true;
@@ -2467,12 +2467,12 @@ remove_locs_whites_and_comments(Toks) ->
          not is_whitespace_or_comment(T)].
 
 revert_clause_guard(E)->
-    case  refac_syntax:type(E) of
-        disjunction -> refac_syntax:revert_clause_disjunction(E);
+    case  wrangler_syntax:type(E) of
+        disjunction -> wrangler_syntax:revert_clause_disjunction(E);
         conjunction ->
             %% Only the top level expression is
             %% unfolded here; no recursion.
-            [refac_syntax:revert(refac_syntax:conjunction_body(E))];
+            [wrangler_syntax:revert(wrangler_syntax:conjunction_body(E))];
         _ ->
             [[E]]       % a single expression
     end.

@@ -306,14 +306,14 @@ do_rename_fun(Tree, {ModName, OldName, Arity}, {DefinePos, NewName}) ->
 			       {{ModName, OldName, Arity}, {DefinePos, NewName}}).
 
 do_rename_fun_1(Tree, {{M, OldName, Arity}, {DefinePos, NewName}}) ->
-    case refac_syntax:type(Tree) of
+    case wrangler_syntax:type(Tree) of
       function ->
 	    case get_fun_def_loc(Tree) of
 		DefinePos ->
-		    N = refac_syntax:function_name(Tree),
-		    Cs = refac_syntax:function_clauses(Tree),
-		    N1 = refac_syntax:copy_attrs(N, refac_syntax:atom(NewName)),
-		    {rewrite(Tree, refac_syntax:function(N1, Cs)), true};
+		    N = wrangler_syntax:function_name(Tree),
+		    Cs = wrangler_syntax:function_clauses(Tree),
+		    N1 = wrangler_syntax:copy_attrs(N, wrangler_syntax:atom(NewName)),
+		    {rewrite(Tree, wrangler_syntax:function(N1, Cs)), true};
 		_ -> {Tree, false}
 	    end;
 	application ->
@@ -321,48 +321,48 @@ do_rename_fun_1(Tree, {{M, OldName, Arity}, {DefinePos, NewName}}) ->
 	arity_qualifier ->
 	    do_rename_fun_in_arity_qualifier(Tree, M, OldName, Arity, NewName);
 	atom ->
-	    As = refac_syntax:get_ann(Tree),
-	    case lists:keysearch(type, 1, As) of
-		{value, {type, {f_atom, [M, OldName, Arity]}}} ->
-		    {refac_syntax:copy_attrs(Tree, refac_syntax:atom(NewName)), true};
-		_ -> {Tree, false}
-	    end;
-	_ -> {Tree, false}
+	  As = wrangler_syntax:get_ann(Tree),
+	  case lists:keysearch(type, 1, As) of
+	      {value, {type, {f_atom, [M, OldName, Arity]}}} ->
+		  {wrangler_syntax:copy_attrs(Tree, wrangler_syntax:atom(NewName)), true};
+	      _ -> {Tree, false}
+	  end;
+      _ -> {Tree, false}
     end.
 
 do_rename_in_fun_app(Tree, M, OldName, Arity, NewName) ->
-    Operator = refac_syntax:application_operator(Tree),
-    Arguments = refac_syntax:application_arguments(Tree),
-    case refac_syntax:type(Operator) of
+    Operator = wrangler_syntax:application_operator(Tree),
+    Arguments = wrangler_syntax:application_arguments(Tree),
+    case wrangler_syntax:type(Operator) of
       atom ->
 	  case get_fun_def_info(Operator) of
 	    {M, OldName, Arity, _} ->
-		Operator1 = rewrite(Operator, refac_syntax:atom(NewName)),
-		Tree1 = rewrite(Tree, refac_syntax:application(Operator1, Arguments)),
+		Operator1 = rewrite(Operator, wrangler_syntax:atom(NewName)),
+		Tree1 = rewrite(Tree, wrangler_syntax:application(Operator1, Arguments)),
 		{Tree1, true};
 	    _ -> {Tree, false}
 	  end;
       module_qualifier ->
-	  Mod = refac_syntax:module_qualifier_argument(Operator),
-	  Fun = refac_syntax:module_qualifier_body(Operator),
+	  Mod = wrangler_syntax:module_qualifier_argument(Operator),
+	  Fun = wrangler_syntax:module_qualifier_body(Operator),
 	  case get_fun_def_info(Operator) of
 	    {M, OldName, Arity, _} ->
-		Fun2 = rewrite(Fun, refac_syntax:atom(NewName)),
+		Fun2 = rewrite(Fun, wrangler_syntax:atom(NewName)),
 		%% Need to change the fun_def annotation as well?
-		Operator1 = rewrite(Operator, refac_syntax:module_qualifier(Mod, Fun2)),
-		Tree1 = rewrite(Tree, refac_syntax:application(Operator1, Arguments)),
+		Operator1 = rewrite(Operator, wrangler_syntax:module_qualifier(Mod, Fun2)),
+		Tree1 = rewrite(Tree, wrangler_syntax:application(Operator1, Arguments)),
 		{Tree1, true};
 	    _ -> {Tree, false}
 	  end;
       tuple ->
-	  case refac_syntax:tuple_elements(Operator) of
+	  case wrangler_syntax:tuple_elements(Operator) of
 	    [Mod, Fun] ->
 		case get_fun_def_info(Operator) of
 		  {M, OldName, Arity, _} ->
-		      Fun2 = rewrite(Fun, refac_syntax:atom(NewName)),
+		      Fun2 = rewrite(Fun, wrangler_syntax:atom(NewName)),
 		      %% Need to change the fun_def annotation as well?
-		      Operator1 = rewrite(Operator, refac_syntax:tuple([Mod, Fun2])),
-		      Tree1 = rewrite(Tree, refac_syntax:application(Operator1, Arguments)),
+		      Operator1 = rewrite(Operator, wrangler_syntax:tuple([Mod, Fun2])),
+		      Tree1 = rewrite(Tree, wrangler_syntax:application(Operator1, Arguments)),
 		      {Tree1, true};
 		  _ -> {Tree, false}
 		end;
@@ -372,7 +372,7 @@ do_rename_in_fun_app(Tree, M, OldName, Arity, NewName) ->
     end.
 
 get_fun_def_loc(Node) ->
-    As = refac_syntax:get_ann(Node),
+    As = wrangler_syntax:get_ann(Node),
     case lists:keysearch(fun_def, 1, As) of
       {value, {fun_def, {_M, _N, _A, _P, DefinePos}}} ->
 	  DefinePos;
@@ -380,7 +380,7 @@ get_fun_def_loc(Node) ->
     end.
 
 get_fun_def_mod(Node) ->
-    As = refac_syntax:get_ann(Node),
+    As = wrangler_syntax:get_ann(Node),
     case lists:keysearch(fun_def, 1, As) of
       {value, {fun_def, {M, _N, _A, _P, _DefinePos}}} -> M;
       _ -> '_'
@@ -404,7 +404,7 @@ rename_fun_in_client_modules(Files, {Mod, Fun, Arity}, NewNameStr, SearchPaths, 
     end.
 
 get_fun_def_info(Node) ->
-    As = refac_syntax:get_ann(Node),
+    As = wrangler_syntax:get_ann(Node),
     case lists:keysearch(fun_def, 1, As) of
       {value, {fun_def, {Mod, FunName, Arity, _UsePos, DefinePos}}} ->
 	  {Mod, FunName, Arity, DefinePos};
@@ -430,29 +430,29 @@ rename_fun_in_client_module_1({Tree, Info}, {M, OldName, Arity}, NewNameStr) ->
 			       {{M, OldName, Arity}, NewNameAtom}).
 
 do_rename_fun_in_client_module_1(Tree, {{M, OldName, Arity}, NewName}) ->
-    case refac_syntax:type(Tree) of
+    case wrangler_syntax:type(Tree) of
       application -> do_rename_in_fun_app(Tree, M, OldName, Arity, NewName);
       arity_qualifier ->   %% is there a module name?
 	  do_rename_fun_in_arity_qualifier(Tree, M, OldName, Arity, NewName);
       atom ->
-	  As = refac_syntax:get_ann(Tree),
+	  As = wrangler_syntax:get_ann(Tree),
 	  case lists:keysearch(type, 1, As) of
 	    {value, {type, {f_atom, [M, OldName, Arity]}}} ->
-		{refac_syntax:copy_attrs(Tree, refac_syntax:atom(NewName)), true};
+		{wrangler_syntax:copy_attrs(Tree, wrangler_syntax:atom(NewName)), true};
 	    _ -> {Tree, false}
 	  end;
       _ -> {Tree, false}
     end.
 
 do_rename_fun_in_arity_qualifier(Tree, M, OldName, Arity, NewName) ->
-    Fun = refac_syntax:arity_qualifier_body(Tree),
-    Fun_Name = refac_syntax:atom_value(Fun),
-    Arg = refac_syntax:arity_qualifier_argument(Tree),
-    Arg1 = refac_syntax:integer_value(Arg),
+    Fun = wrangler_syntax:arity_qualifier_body(Tree),
+    Fun_Name = wrangler_syntax:atom_value(Fun),
+    Arg = wrangler_syntax:arity_qualifier_argument(Tree),
+    Arg1 = wrangler_syntax:integer_value(Arg),
     DefMod = get_fun_def_mod(Fun),
     if
       (Fun_Name == OldName) and (Arg1 == Arity) and (DefMod == M) ->
-	  {rewrite(Tree, refac_syntax:arity_qualifier(refac_syntax:atom(NewName), Arg)),
+	  {rewrite(Tree, wrangler_syntax:arity_qualifier(wrangler_syntax:atom(NewName), Arg)),
 	   true};
       true -> {Tree, false}
     end.
@@ -617,4 +617,4 @@ not_renamed_warn_msg(FunName) ->
       " Please check manually!\n".
 
 rewrite(E1, E2) ->
-    refac_syntax:copy_pos(E1, refac_syntax:copy_attrs(E1, E2)).
+    wrangler_syntax:copy_pos(E1, wrangler_syntax:copy_attrs(E1, E2)).

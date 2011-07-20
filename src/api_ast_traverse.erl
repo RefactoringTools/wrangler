@@ -61,7 +61,7 @@ once_tdTU(Function, Node, Others) ->
     case Function(Node, Others) of
       {R, true} -> {R, true};
       {_R, false} ->
-	  case refac_syntax:subtrees(Node) of
+	  case wrangler_syntax:subtrees(Node) of
 	    [] -> {[], false};
 	    Gs ->
 		Flattened_Gs = [T || G <- Gs, T <- G],
@@ -103,14 +103,14 @@ stop_tdTP(Function, Node, Others) ->
      case Function(Node, Others) of
        {Node1, true} -> {Node1, true};
        {Node1, false} ->
-           case refac_syntax:subtrees(Node1) of
+           case wrangler_syntax:subtrees(Node1) of
              [] -> {Node1, false};
              Gs ->
                  Gs1 = [[stop_tdTP(Function, T, Others) || T <- G] || G <- Gs],
                  Gs2 = [[N || {N, _B} <- G] || G <- Gs1],
                  G = [[B || {_N, B} <- G] || G <- Gs1],
-                 Node2 = refac_syntax:make_tree(refac_syntax:type(Node1), Gs2),
-                   {rewrite(Node1, Node2), lists:member(true, lists:flatten(G))}
+                 Node2 = wrangler_syntax:make_tree(wrangler_syntax:type(Node1), Gs2),
+                 {rewrite(Node1, Node2), lists:member(true, lists:flatten(G))}
            end
      end.
 
@@ -121,13 +121,13 @@ stop_tdTP(Function, Node, Others) ->
 full_tdTP(Function, Node, Others) ->
     case Function(Node, Others) of
       {Node1, Changed} ->
-	  case refac_syntax:subtrees(Node1) of
+	  case wrangler_syntax:subtrees(Node1) of
 	    [] -> {Node1, Changed};
 	    Gs ->
 		Gs1 = [[full_tdTP(Function, T, Others) || T <- G] || G <- Gs],
 		Gs2 = [[N || {N, _B} <- G] || G <- Gs1],
 		G = [[B || {_N, B} <- G] || G <- Gs1],
-		Node2 = refac_syntax:make_tree(refac_syntax:type(Node1), Gs2),
+		Node2 = wrangler_syntax:make_tree(wrangler_syntax:type(Node1), Gs2),
 		{rewrite(Node1, Node2), Changed or lists:member(true, lists:flatten(G))}
 	  end
     end.
@@ -147,16 +147,16 @@ full_tdTP(Function, Node, Others) ->
 %%-spec(full_buTP/3::(fun((syntaxTree(), any()) -> syntaxTree()), syntaxTree(), anyterm())->
 %%	     syntaxTree()).       
 full_buTP(Fun, Tree, Others) ->
-    case refac_syntax:subtrees(Tree) of
+    case wrangler_syntax:subtrees(Tree) of
       [] -> Fun(Tree, Others); 
       Gs ->
 	  Gs1 = [[full_buTP(Fun, T, Others) || T <- G] || G <- Gs],
-	  Tree1 = refac_syntax:make_tree(refac_syntax:type(Tree), Gs1),
+	  Tree1 = wrangler_syntax:make_tree(wrangler_syntax:type(Tree), Gs1),
 	  Fun(rewrite(Tree, Tree1), Others)
     end.
 
 rewrite(Tree, Tree1) ->
-    refac_syntax:copy_attrs(Tree, Tree1).
+    wrangler_syntax:copy_attrs(Tree, Tree1).
 
 
 
@@ -164,7 +164,7 @@ stop_tdTU(F, S, Node) ->
     case F(Node, S) of
         {R, true} -> R;
         {R, false} ->
-            Gs = refac_syntax:subtrees(Node),
+            Gs = wrangler_syntax:subtrees(Node),
             stop_tdTU_1(F, R, Gs)
     end.
 
@@ -178,7 +178,7 @@ stop_tdTU_2(_, S, []) -> S.
        
 full_tdTU(F, S, Tree) ->
     R = F(Tree, S),
-    case refac_syntax:subtrees(Tree) of
+    case wrangler_syntax:subtrees(Tree) of
         [] -> 
             R;
         Gs -> 
@@ -204,12 +204,12 @@ full_tdTU_2(_, S, []) -> S.
 %% @see map_subtrees/2
 
 map(F, Tree) ->
-    case refac_syntax:subtrees(Tree) of
+    case wrangler_syntax:subtrees(Tree) of
       [] -> F(Tree);
       Gs ->
-	  Tree1 = refac_syntax:make_tree(refac_syntax:type(Tree),
-				       [[map(F, T) || T <- G] || G <- Gs]),
-	  F(refac_syntax:copy_attrs(Tree, Tree1))
+	  Tree1 = wrangler_syntax:make_tree(wrangler_syntax:type(Tree),
+				          [[map(F, T) || T <- G] || G <- Gs]),
+	  F(wrangler_syntax:copy_attrs(Tree, Tree1))
     end.
 
 %% =====================================================================
@@ -224,12 +224,12 @@ map(F, Tree) ->
 %% @see map/2
 
 map_subtrees(F, Tree) ->
-    case refac_syntax:subtrees(Tree) of
+    case wrangler_syntax:subtrees(Tree) of
       [] -> Tree;
       Gs ->
-	  Tree1 = refac_syntax:make_tree(refac_syntax:type(Tree),
-				       [[F(T) || T <- G] || G <- Gs]),
-	  refac_syntax:copy_attrs(Tree, Tree1)
+	  Tree1 = wrangler_syntax:make_tree(wrangler_syntax:type(Tree),
+				          [[F(T) || T <- G] || G <- Gs]),
+	  wrangler_syntax:copy_attrs(Tree, Tree1)
     end.
 
 %% =====================================================================
@@ -246,7 +246,7 @@ map_subtrees(F, Tree) ->
 %% @see foldl_listlist/3
 
 fold(F, S, Tree) ->
-    case refac_syntax:subtrees(Tree) of
+    case wrangler_syntax:subtrees(Tree) of
       [] -> F(Tree, S);
       Gs -> F(Tree, fold_1(F, S, Gs))
     end.
@@ -273,7 +273,7 @@ fold_2(_, S, []) -> S.
 
 
 fold_subtrees(F, S, Tree) ->
-    foldl_listlist(F, S, refac_syntax:subtrees(Tree)).
+    foldl_listlist(F, S, wrangler_syntax:subtrees(Tree)).
 
 %% =====================================================================
 %% @spec mapfold(Function, Start::term(), Tree::syntaxTree()) ->
@@ -292,13 +292,13 @@ fold_subtrees(F, S, Tree) ->
 %% @see fold/3
 
 mapfold(F, S, Tree) ->
-    case refac_syntax:subtrees(Tree) of
+    case wrangler_syntax:subtrees(Tree) of
       [] -> F(Tree, S);
       Gs ->
 	  {Gs1, S1} = mapfold_1(F, S, Gs),
-	  Tree1 = refac_syntax:make_tree(refac_syntax:type(Tree),
-				       Gs1),
-	  F(refac_syntax:copy_attrs(Tree, Tree1), S1)
+	  Tree1 = wrangler_syntax:make_tree(wrangler_syntax:type(Tree),
+				          Gs1),
+	  F(wrangler_syntax:copy_attrs(Tree, Tree1), S1)
     end.
 
 mapfold_1(F, S, [L | Ls]) ->
@@ -328,13 +328,13 @@ mapfold_2(_, S, []) -> {[], S}.
 
 
 mapfold_subtrees(F, S, Tree) ->
-    case refac_syntax:subtrees(Tree) of
+    case wrangler_syntax:subtrees(Tree) of
 	[] -> {Tree, S};
 	Gs ->
 	    {Gs1, S1} = mapfoldl_listlist(F, S, Gs),
-	    Tree1 = refac_syntax:make_tree(refac_syntax:type(Tree),
-					   Gs1),
-	    {refac_syntax:copy_attrs(Tree, Tree1), S1}
+	    Tree1 = wrangler_syntax:make_tree(wrangler_syntax:type(Tree),
+					      Gs1),
+	    {wrangler_syntax:copy_attrs(Tree, Tree1), S1}
     end.
 
 %% =====================================================================

@@ -65,9 +65,9 @@ expr_match(Exp1, Exp2, Cond) ->
 
 
 static_semantics_check(Subst) ->
-    Subst1 = [{case refac_syntax:type(V) of
-                   variable -> refac_syntax:variable_name(V);
-                   atom -> refac_syntax:atom_value(V)
+    Subst1 = [{case wrangler_syntax:type(V) of
+                   variable -> wrangler_syntax:variable_name(V);
+                   atom -> wrangler_syntax:atom_value(V)
                end, Exp} 
               ||{V, Exp}<-Subst],
     GroupedSubst = group_by_index(1, Subst1),
@@ -107,8 +107,8 @@ unification(Exp1, Exp2) ->
             list_unification_1(Exp1, Exp2);
         {false, false} -> 
             %% both are single expressions.
-	    T1 = refac_syntax:type(Exp1),
-	    T2 = refac_syntax:type(Exp2),
+	    T1 = wrangler_syntax:type(Exp1),
+	    T2 = wrangler_syntax:type(Exp2),
 	    case T1 == T2 of
 		true ->
                     same_type_unification(Exp1, Exp2);
@@ -233,7 +233,7 @@ create_sub(T1, T2List)->
             case is_meta_function_arity_list(T1) of
                 true ->
                     case lists:all(fun(L) -> 
-                                           refac_syntax:type(L)==arity_qualifier
+                                           wrangler_syntax:type(L) == arity_qualifier
                                    end, T2List) of 
                         true ->
                             create_sub_for_arity_qualifier(T1, T2List);
@@ -248,29 +248,29 @@ create_sub(T1, T2List)->
 
          
 create_sub_for_arity_qualifier(MetaAQList, AQList) ->
-    MetaFunName=refac_syntax:arity_qualifier_body(MetaAQList),
-    MetaArity = refac_syntax:arity_qualifier_argument(MetaAQList),
-    {FunNames, Arities} = lists:unzip([{refac_syntax:arity_qualifier_body(T),
-                                        refac_syntax:arity_qualifier_argument(T)}
+    MetaFunName=wrangler_syntax:arity_qualifier_body(MetaAQList),
+    MetaArity = wrangler_syntax:arity_qualifier_argument(MetaAQList),
+    {FunNames, Arities} = lists:unzip([{wrangler_syntax:arity_qualifier_body(T),
+                                        wrangler_syntax:arity_qualifier_argument(T)}
                                        ||T <- AQList]),
     [{true, [{MetaFunName, FunNames}, {MetaArity, Arities}]}].
                                         
     
 create_sub_for_clause(MetaClause, ClauseList) ->
-    T= refac_syntax:type(MetaClause),
+    T= wrangler_syntax:type(MetaClause),
     case lists:member(T, [clause, function_clause]) of
         false ->
             [false];
         true ->
-            T11=case refac_syntax:type(MetaClause) of
+            T11=case wrangler_syntax:type(MetaClause) of
             function_clause ->
-                        refac_syntax:function_clause(MetaClause);
+                        wrangler_syntax:function_clause(MetaClause);
             _ -> MetaClause
                 end,
-            [Pat]= refac_syntax:clause_patterns(T11),
-            T2List1=[case refac_syntax:type(T2) of
+            [Pat]= wrangler_syntax:clause_patterns(T11),
+            T2List1=[case wrangler_syntax:type(T2) of
                          function_clause ->
-                             refac_syntax:function_clause(T2);
+                             wrangler_syntax:function_clause(T2);
                          _ -> T2
                      end || T2 <- ClauseList],
             case clause_guard(T11) of
@@ -278,17 +278,17 @@ create_sub_for_clause(MetaClause, ClauseList) ->
                     T2Gs=[G2||T2 <- T2List1, G2 <- clause_guard(T2), G2 /= []],
                     case T2Gs of
                         [] ->
-                            [Body]= refac_syntax:clause_body(T11),
-                            T2Pats=[refac_syntax:clause_patterns(T2)||T2 <- T2List1],
-                            T2Body=[refac_syntax:clause_body(T2)||T2 <- T2List1],
+                            [Body]= wrangler_syntax:clause_body(T11),
+                            T2Pats=[wrangler_syntax:clause_patterns(T2)||T2 <- T2List1],
+                            T2Body=[wrangler_syntax:clause_body(T2)||T2 <- T2List1],
                             [{true, [{Pat, T2Pats},{Body, T2Body}]}];
                         _ -> [false]
                     end;
                 [[Guard]] ->
-                    [Body]= refac_syntax:clause_body(T11),
-                    T2Pats=[refac_syntax:clause_patterns(T2)||T2 <- T2List1],
+                    [Body]= wrangler_syntax:clause_body(T11),
+                    T2Pats=[wrangler_syntax:clause_patterns(T2)||T2 <- T2List1],
                     T2Gs=[G2||T2 <- T2List1, G2 <- clause_guard(T2)],
-                    T2Body=[refac_syntax:clause_body(T2)||T2 <- T2List1],
+                    T2Body=[wrangler_syntax:clause_body(T2)||T2 <- T2List1],
                     [{true, [{Pat, T2Pats}, {Guard, T2Gs}, {Body, T2Body}]}]
             end
     end.
@@ -296,11 +296,11 @@ create_sub_for_clause(MetaClause, ClauseList) ->
 -spec(same_type_unification/2::(syntaxTree(), syntaxTree()) ->
                                      [{true, [tuple()]}]|[false]).
 same_type_unification(Exp1, Exp2) ->
-    T1 = refac_syntax:type(Exp1),
+    T1 = wrangler_syntax:type(Exp1),
     case T1 of
 	variable ->
-            Exp1Name = refac_syntax:variable_name(Exp1),
-	    Exp2Name = refac_syntax:variable_name(Exp2),
+            Exp1Name = wrangler_syntax:variable_name(Exp1),
+	    Exp2Name = wrangler_syntax:variable_name(Exp2),
             case is_macro_name(Exp1) andalso is_macro_name(Exp2) of
                 true ->
                     if Exp1Name==Exp2Name ->
@@ -310,12 +310,12 @@ same_type_unification(Exp1, Exp2) ->
                 _ -> [{true, [{Exp1, Exp2}]}]
 	    end;
 	atom ->
-            Exp1Val = refac_syntax:atom_value(Exp1),
-            Exp2Val = refac_syntax:atom_value(Exp2),
+            Exp1Val = wrangler_syntax:atom_value(Exp1),
+            Exp2Val = wrangler_syntax:atom_value(Exp2),
 	    case Exp1Val == Exp2Val of
 		true ->
-                    Ann1 = refac_syntax:get_ann(Exp1),
-                    Ann2 = refac_syntax:get_ann(Exp2),
+                    Ann1 = wrangler_syntax:get_ann(Exp1),
+                    Ann2 = wrangler_syntax:get_ann(Exp2),
                     case lists:keysearch(fun_def,1,Ann1) of
                         {value, {fun_def, {M, F, A, _, _}}} ->
                             case lists:keysearch(fun_def,1,Ann2) of
@@ -340,42 +340,42 @@ same_type_unification(Exp1, Exp2) ->
                     end
 	    end;
 	operator ->
-	    case refac_syntax:operator_name(Exp1) 
-                == refac_syntax:operator_name(Exp2) of
+	    case wrangler_syntax:operator_name(Exp1)
+               == wrangler_syntax:operator_name(Exp2) of
 		true -> [{true, []}];
 		_ -> [false]
 	    end;
         char ->
-	    case refac_syntax:char_value(Exp1) 
-                == refac_syntax:char_value(Exp2) of
+	    case wrangler_syntax:char_value(Exp1)
+               == wrangler_syntax:char_value(Exp2) of
 		true -> [{true, []}];
 		_ -> [false]
 	    end;
 	integer ->
-	    case refac_syntax:integer_value(Exp1)
-                == refac_syntax:integer_value(Exp2) of
+	    case wrangler_syntax:integer_value(Exp1)
+               == wrangler_syntax:integer_value(Exp2) of
 		true -> [{true, []}];
 		_ -> [false]
 	    end;
 	string ->
-	    case refac_syntax:string_value(Exp1)
-                == refac_syntax:string_value(Exp2) of
+	    case wrangler_syntax:string_value(Exp1)
+               == wrangler_syntax:string_value(Exp2) of
 		true -> [{true, []}];
 		_ -> [false]
 	    end;
 	float ->
-	    case refac_syntax:float_value(Exp1) 
-                == refac_syntax:float_value(Exp2) of
+	    case wrangler_syntax:float_value(Exp1)
+               == wrangler_syntax:float_value(Exp2) of
 		true -> [{true, []}]
 	    end;
 	underscore -> [{true, []}];
 	nil -> [{true, []}];
         list ->
-            case refac_syntax:is_proper_list(Exp1) andalso
-                refac_syntax:is_proper_list(Exp2) of 
+            case wrangler_syntax:is_proper_list(Exp1) andalso
+                wrangler_syntax:is_proper_list(Exp2) of
                 true ->
-                    Es1 = refac_syntax:list_elements(Exp1),
-                    Es2 = refac_syntax:list_elements(Exp2),
+                    Es1 = wrangler_syntax:list_elements(Exp1),
+                    Es2 = wrangler_syntax:list_elements(Exp2),
                     list_unification_1(Es1, Es2);
                 false ->
                     SubTrees1 = subtrees(Exp1),
@@ -398,7 +398,7 @@ same_type_unification(Exp1, Exp2) ->
 
 
 non_same_type_unification(Exp1, Exp2) ->
-    T1 = refac_syntax:type(Exp1),
+    T1 = wrangler_syntax:type(Exp1),
     case T1 of
         variable ->
             case is_object_variable(Exp1) of
@@ -426,16 +426,16 @@ is_meta_list(Node) ->
         is_meta_function_arity_list(Node).
 
 is_meta_clause_list(C) ->
-    T = refac_syntax:type(C),
+    T = wrangler_syntax:type(C),
     case lists:member(T, [clause, function_clause]) of 
         true ->
             C1 =case T of 
                     function_clause ->
-                        refac_syntax:function_clause(C);
+                        wrangler_syntax:function_clause(C);
                     _ -> C
                 end,
-            Pat = refac_syntax:clause_patterns(C1),
-            Body = refac_syntax:clause_body(C1),
+            Pat = wrangler_syntax:clause_patterns(C1),
+            Body = wrangler_syntax:clause_body(C1),
             Guard = clause_guard(C1),
             case Pat of 
                 [P] ->
@@ -464,10 +464,10 @@ is_meta_clause_list(C) ->
     end.
 
 is_meta_function_arity_list(Node) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
         arity_qualifier ->
-            Body = refac_syntax:arity_qualifier_body(Node),
-            Arity = refac_syntax:arity_qualifier_argument(Node),
+            Body = wrangler_syntax:arity_qualifier_body(Node),
+            Arity = wrangler_syntax:arity_qualifier_argument(Node),
             is_meta_list_variable(Body) andalso
                 is_meta_list_variable(Arity);
         _  ->
@@ -475,9 +475,9 @@ is_meta_function_arity_list(Node) ->
     end. 
     
 is_object_variable(Var) ->
-    case refac_syntax:type(Var) of
+    case wrangler_syntax:type(Var) of
         variable ->
-            VarName = atom_to_list(refac_syntax:variable_name(Var)),
+            VarName = atom_to_list(wrangler_syntax:variable_name(Var)),
             not (lists:prefix("@", lists:reverse(VarName)));
         _ ->
           false
@@ -493,27 +493,27 @@ is_object_variable(Var) ->
 %%     end.
 
 is_meta_atom(Node) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
         atom ->
-            AtomName = atom_to_list(refac_syntax:atom_value(Node)),
+            AtomName = atom_to_list(wrangler_syntax:atom_value(Node)),
             lists:prefix("@", lists:reverse(AtomName));
         _ ->
             false
     end.
         
 is_meta_list_variable(Var) ->
-    case refac_syntax:type(Var) of
+    case wrangler_syntax:type(Var) of
         variable ->
-            VarName = refac_syntax:variable_name(Var),
+            VarName = wrangler_syntax:variable_name(Var),
             lists:prefix("@@", lists:reverse(atom_to_list(VarName)));
         _ ->
             false
     end.
 
 is_meta_meta_list_variable(Var) ->
-    case refac_syntax:type(Var) of
+    case wrangler_syntax:type(Var) of
         variable ->
-            VarName = refac_syntax:variable_name(Var),
+            VarName = wrangler_syntax:variable_name(Var),
             lists:prefix("@@@", lists:reverse(atom_to_list(VarName)));
         _ ->
             false
@@ -536,40 +536,40 @@ format(E) ->
         rm_comments(E))).
 
 rm_comments(Node) ->
-    refac_syntax:remove_comments(Node).
+    wrangler_syntax:remove_comments(Node).
 
 is_macro_name(Exp) ->
-    Ann = refac_syntax:get_ann(Exp),
+    Ann = wrangler_syntax:get_ann(Exp),
     {value, {syntax_path, macro_name}} == 
         lists:keysearch(syntax_path, 1, Ann).
 
 clause_guard(C) ->
-    revert_clause_guard(refac_syntax:clause_guard(C)).
+    revert_clause_guard(wrangler_syntax:clause_guard(C)).
 
 revert_clause_guard(none) -> [[]];
 revert_clause_guard(E)->
-    case  refac_syntax:type(E) of
-        disjunction -> refac_syntax:revert_clause_disjunction(E);
+    case  wrangler_syntax:type(E) of
+        disjunction -> wrangler_syntax:revert_clause_disjunction(E);
         conjunction ->
             %% Only the top level expression is
             %% unfolded here; no recursion.
-            [refac_syntax:conjunction_body(E)];
+            [wrangler_syntax:conjunction_body(E)];
         _ ->
             [[E]]       % a single expression
     end.
 
 subtrees(T) ->
-    case refac_syntax:type(T) of
+    case wrangler_syntax:type(T) of
         clause ->
-            case refac_syntax:clause_guard(T) of
-                none -> [refac_syntax:clause_patterns(T), [[]],
-                         refac_syntax:clause_body(T)];
-                G -> [refac_syntax:clause_patterns(T), 
+            case wrangler_syntax:clause_guard(T) of
+                none -> [wrangler_syntax:clause_patterns(T), [[]],
+                         wrangler_syntax:clause_body(T)];
+                G -> [wrangler_syntax:clause_patterns(T),
                       revert_clause_guard(G), 
-                      refac_syntax:clause_body(T)]
+                      wrangler_syntax:clause_body(T)]
             end;
         _ ->
-            refac_syntax:subtrees(T)
+            wrangler_syntax:subtrees(T)
     end.
 
 

@@ -181,10 +181,10 @@ do_build_callgraph(FName, DirList) ->
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, DirList),
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     F1 = fun (T, S) ->
-		 case refac_syntax:type(T) of
+		 case wrangler_syntax:type(T) of
 		     function ->
-			 FunName = refac_syntax:data(refac_syntax:function_name(T)),
-			 Arity = refac_syntax:function_arity(T),
+			 FunName = wrangler_syntax:data(wrangler_syntax:function_name(T)),
+			 Arity = wrangler_syntax:function_arity(T),
 			 Caller = {{ModName, FunName, Arity}, T},   %% should remove the actual function AST.!!!
 			 CalledFuns = called_funs(T),
 			 ordsets:add_element({Caller, CalledFuns}, S);
@@ -197,9 +197,9 @@ do_build_callgraph(FName, DirList) ->
 %%	     [{modulename(), functionname(), functionarity()}]).
 called_funs(Node) ->
     Fun = fun (T, S) ->
-		  case refac_syntax:type(T) of
+		  case wrangler_syntax:type(T) of
 		      atom ->
-			  case lists:keysearch(type, 1, refac_syntax:get_ann(T)) of
+			  case lists:keysearch(type, 1, wrangler_syntax:get_ann(T)) of
 			      {value, {type, {f_atom, [M, F, A]}}} ->
 				  case is_atom(M) andalso M =/= '_' andalso 
 					 is_atom(F) andalso F =/= '_'
@@ -218,8 +218,8 @@ called_funs(Node) ->
 		   api_ast_traverse:fold(Fun, S, C)
 	   end,
     Fun2 = fun (F, S) ->
-		   case refac_syntax:type(F) of
-		       function -> refac_syntax:function_clauses(F)++S;
+		   case wrangler_syntax:type(F) of
+		       function -> wrangler_syntax:function_clauses(F) ++ S;
 		       _ -> S
 		   end
 	   end,
@@ -231,17 +231,17 @@ called_funs(Node) ->
 
 called_funs_1(Tree) ->
     Fun = fun (T, S) ->
-		  case refac_syntax:type(T) of
+		  case wrangler_syntax:type(T) of
 		      application ->
-			  Op = refac_syntax:application_operator(T),
-			  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
+			  Op = wrangler_syntax:application_operator(T),
+			  case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Op)) of
 			      {value, {fun_def, {M, F, A, _, _}}}
 				  when M =/= '_' andalso F =/= '_' ->
 				  ordsets:add_element({M, F, A}, S);
 			      _ -> S
 			  end;
 		      implicit_fun ->
-			  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(T)) of
+			  case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(T)) of
 			      {value, {fun_def, {M, F, A, _, _}}}
 				  when M =/= '_' andalso F =/= '_' ->
 				  ordsets:add_element({M, F, A}, S);
@@ -254,10 +254,10 @@ called_funs_1(Tree) ->
 
 get_sorted_funs(ModName, AnnAST) ->
     F1 = fun (T, S) ->
-		 case refac_syntax:type(T) of
+		 case wrangler_syntax:type(T) of
 		     function ->
-			 FunName = refac_syntax:data(refac_syntax:function_name(T)),
-			 Arity = refac_syntax:function_arity(T),
+			 FunName = wrangler_syntax:data(wrangler_syntax:function_name(T)),
+			 Arity = wrangler_syntax:function_arity(T),
 			 Caller = {{ModName, FunName, Arity}, T},
 			 CalledFuns = called_funs(T),
 			 ordsets:add_element({Caller, CalledFuns}, S);

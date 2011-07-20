@@ -182,10 +182,10 @@ generalise_and_hash_ast(Files, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
 
 generalise_and_hash_ast_1(FName, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
     Fun = fun (Form) ->
-		  case refac_syntax:type(Form) of
+		  case wrangler_syntax:type(Form) of
 		      function ->
-			  FunName = refac_syntax:atom_value(refac_syntax:function_name(Form)),
-			  Arity = refac_syntax:function_arity(Form),
+			  FunName = wrangler_syntax:atom_value(wrangler_syntax:function_name(Form)),
+			  Arity = wrangler_syntax:function_arity(Form),
 			  AllVars = refac_misc:collect_var_source_def_pos_info(Form),
 			  ets:insert(VarTab, {{FName, FunName, Arity}, AllVars}),
 			  api_ast_traverse:full_tdTP(fun generalise_and_hash_ast_2/2,
@@ -194,15 +194,15 @@ generalise_and_hash_ast_1(FName, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
 		  end
 	  end,
     {ok, {AnnAST, _Info}} = wrangler_ast_server:quick_parse_annotate_file(FName, SearchPaths, TabWidth),
-    refac_syntax:form_list_elements(AnnAST),
-    lists:foreach(fun (F) -> Fun(F) end, refac_syntax:form_list_elements(AnnAST)),
+    wrangler_syntax:form_list_elements(AnnAST),
+    lists:foreach(fun (F) -> Fun(F) end, wrangler_syntax:form_list_elements(AnnAST)),
     insert_dummy_entry(Pid).
 
 generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
     F0 = fun (T, _Others) ->
 		 case refac_code_search_utils:generalisable(T) of
 		     true ->
-			 {refac_syntax:variable('Var'), true};
+			 {wrangler_syntax:variable('Var'), true};
 		     false -> {T, false}
 		 end
 	 end,
@@ -213,9 +213,9 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
 		 insert_hash(Pid, HashVal, {{FName, FunName, Arity}, S, E}),
 		 T1
 	 end,
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
 	clause ->
-	    Body = refac_syntax:clause_body(Node),
+	    Body = wrangler_syntax:clause_body(Node),
 	    [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
 	     || E <- Body,
 		{StartLoc, EndLoc} <- [api_refac:start_end_loc(E)]],
@@ -224,7 +224,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
 	    {Node, true};
 	block_expr ->
 	    insert_dummy_entry(Pid),
-	    Body = refac_syntax:block_expr_body(Node),
+	    Body = wrangler_syntax:block_expr_body(Node),
 	    [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
 	     || E <- Body,
 		{StartLoc, EndLoc} <- [api_refac:start_end_loc(E)]],
@@ -232,7 +232,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
 	    {Node, true};
 	try_expr ->
 	    insert_dummy_entry(Pid),
-	    Body = refac_syntax:try_expr_body(Node),
+	    Body = wrangler_syntax:try_expr_body(Node),
 	    [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
 	     || E <- Body,
 		{StartLoc, EndLoc} <- [api_refac:start_end_loc(E)]],
@@ -393,14 +393,14 @@ find_anti_unifier(_FileName, Exprs1, Range, SimiScore, ASTTab, VarTab, RangeTab)
 	none ->
 	    []; 
 	SubSt->
-	    EVs = [E1 || {E1, E2} <- SubSt, refac_syntax:type(E2) == variable,
-			 lists:member({refac_syntax:variable_name(E2), get_var_define_pos(E2)}, VarsToExport)],
+	    EVs = [E1 || {E1, E2} <- SubSt, wrangler_syntax:type(E2) == variable,
+			 lists:member({wrangler_syntax:variable_name(E2), get_var_define_pos(E2)}, VarsToExport)],
 	    [{Range, EVs, SubSt}]
     end.
 
 
 get_var_define_pos(V) ->
-    {value, {def, DefinePos}} = lists:keysearch(def,1, refac_syntax:get_ann(V)),
+    {value, {def, DefinePos}} = lists:keysearch(def, 1, wrangler_syntax:get_ann(V)),
     DefinePos.
 
 
@@ -701,21 +701,21 @@ post_process_anti_unifier(FunAST) ->
     FunAST1.
 
 do_post_process_anti_unifier(Node, _Others) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
 	application ->
-	    Operator = refac_syntax:application_operator(Node),
-	    Arguments = refac_syntax:application_arguments(Node),
-	    case refac_syntax:type(Operator) of
+	    Operator = wrangler_syntax:application_operator(Node),
+	    Arguments = wrangler_syntax:application_arguments(Node),
+	    case wrangler_syntax:type(Operator) of
 		atom ->
-		    As = refac_syntax:get_ann(Operator),
+		    As = wrangler_syntax:get_ann(Operator),
 		    {value, {fun_def, {M, _F, _A, _, _}}} = lists:keysearch(fun_def,1,As),
 		    case M== erlang orelse M=='_' of
 			true ->
 			    {Node, false};
 			false ->
-			    Mod = refac_syntax:atom(M),
-			    Operator1 = refac_misc:rewrite(Operator, refac_syntax:module_qualifier(Mod, Operator)),
-			    Node1 = refac_misc:rewrite(Node, refac_syntax:application(Operator1, Arguments)),
+			    Mod = wrangler_syntax:atom(M),
+			    Operator1 = refac_misc:rewrite(Operator, wrangler_syntax:module_qualifier(Mod, Operator)),
+			    Node1 = refac_misc:rewrite(Node, wrangler_syntax:application(Operator1, Arguments)),
 			    {Node1, false}
 		    end;
 		_ ->

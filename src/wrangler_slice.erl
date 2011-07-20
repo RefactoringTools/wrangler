@@ -60,22 +60,22 @@ forward_slice(Files, AnnAST, ModName, FunDef, Expr)  ->
     Res.
 
 forward_slice_1(Files, AnnAST, ModName, {FunDef, Expr}) ->
-    FunName = refac_syntax:function_name(FunDef),
-    FunName1 = refac_syntax:data(FunName),
-    Arity = refac_syntax:function_arity(FunDef),
-    FunClauses = refac_syntax:function_clauses(FunDef),
+    FunName = wrangler_syntax:function_name(FunDef),
+    FunName1 = wrangler_syntax:data(FunName),
+    Arity = wrangler_syntax:function_arity(FunDef),
+    FunClauses = wrangler_syntax:function_clauses(FunDef),
     NewFunClauses = [process_a_clause(Files, AnnAST, ModName, FunName1, Arity, C, Expr)||C<-FunClauses],
-    NewFunDef = refac_syntax:copy_attrs(FunDef, refac_syntax:function(FunName, NewFunClauses)),
+    NewFunDef = wrangler_syntax:copy_attrs(FunDef, wrangler_syntax:function(FunName, NewFunClauses)),
     sliced_funs ! {add, {{ModName, FunName1, Arity, api_refac:start_end_loc(Expr)}, NewFunDef}},
     case returns_undefined(NewFunDef) of
 	true ->    %% None of the variables depending on the selected expression is exported.
 	    get_all_sliced_funs();
 	false ->
 	    CallerFuns = get_caller_funs(Files, {ModName, FunName1, Arity}),
-	    F = fun (T, Acc) -> case refac_syntax:type(T) of
+	    F = fun (T, Acc) -> case wrangler_syntax:type(T) of
 				    application ->
-					Op = refac_syntax:application_operator(T),
-					Ann = refac_syntax:get_ann(Op),
+					Op = wrangler_syntax:application_operator(T),
+					Ann = wrangler_syntax:get_ann(Op),
 					case lists:keysearch(fun_def, 1, Ann) of
 					    {value, {fun_def, {ModName, FunName1, Arity, _, _}}} ->
 						[T| Acc];
@@ -95,15 +95,15 @@ forward_slice_1(Files, AnnAST, ModName, {FunDef, Expr}) ->
 
 returns_undefined(FunDef) ->
    F= fun(C) ->
-	       Body = refac_syntax:clause_body(C),
+	       Body = wrangler_syntax:clause_body(C),
 	       Expr = lists:last(Body),
-	       case refac_syntax:type(Expr) of 
-		   atom -> refac_syntax:atom_value(Expr) == undefined;
+	       case wrangler_syntax:type(Expr) of
+		   atom -> wrangler_syntax:atom_value(Expr) == undefined;
 		   _ -> false
 	       end
        end,
-    FunClauses = refac_syntax:function_clauses(FunDef),
-    lists:all(fun(C) -> F(C) end, FunClauses).
+   FunClauses = wrangler_syntax:function_clauses(FunDef),
+   lists:all(fun(C) -> F(C) end, FunClauses).
     
 
 
@@ -160,11 +160,11 @@ sliced_funs(State) ->
 
 process_a_clause(Files, AnnAST, ModName, FunName, Arity, C, Expr) ->
     ExportedVars = api_refac:exported_vars(Expr),
-    Patterns = refac_syntax:clause_patterns(C),
-    Guard = refac_syntax:clause_guard(C),
-    Body = refac_syntax:clause_body(C),
+    Patterns = wrangler_syntax:clause_patterns(C),
+    Guard = wrangler_syntax:clause_guard(C),
+    Body = wrangler_syntax:clause_body(C),
     Body1 = rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Body, Expr, ExportedVars),
-    refac_syntax:clause(Patterns, Guard, Body1).
+    wrangler_syntax:clause(Patterns, Guard, Body1).
 
 rm_unrelated_exprs(_Files, _AnnAST, _ModName, _FunName, _Arity, [], _Expr, _Vars) ->
     [];
@@ -189,7 +189,7 @@ rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, [E| Exprs], Expr, Var
 				 case Start2 =< Start1 andalso End1 =< End2 of
 				     true -> [E2| rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, lists:sort(Vars ++ api_refac:exported_vars(E2)))];
 				     _ -> case Exprs of
-					      [] -> [refac_syntax:atom(undefined)];
+					      [] -> [wrangler_syntax:atom(undefined)];
 					      _ -> rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, Vars)
 					  end
 				 end
@@ -207,30 +207,30 @@ rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, [E| Exprs], Expr, Var
     
 reset_attrs(Node) ->
     api_ast_traverse:full_buTP(fun (T, _Others) ->
-				       As = refac_syntax:get_ann(T),
+				       As = wrangler_syntax:get_ann(T),
 				       As0 = lists:keydelete(free, 1, As),
 				       As1 = lists:keydelete(bound, 1, As0),
 				       As2 = lists:keydelete(env, 1, As1),
-				       refac_syntax:set_ann(T, As2)
+				       wrangler_syntax:set_ann(T, As2)
 			       end, Node, {}).
 
 	    
 	    
   
 intra_fun_forward_slice(Files, AnnAST, ModName, FunDef, PatIndex) ->
-    FunName = refac_syntax:function_name(FunDef),
-    Arity = refac_syntax:function_arity(FunDef),
-    Cs = refac_syntax:function_clauses(FunDef),
-    FunName1 = refac_syntax:data(FunName),
+    FunName = wrangler_syntax:function_name(FunDef),
+    Arity = wrangler_syntax:function_arity(FunDef),
+    Cs = wrangler_syntax:function_clauses(FunDef),
+    FunName1 = wrangler_syntax:data(FunName),
     Cs1 = [process_a_clause_1(Files, AnnAST, ModName, FunName1, Arity,C, PatIndex)||C<-Cs],
-    refac_syntax:copy_attrs(FunDef, refac_syntax:function(FunName, Cs1)).
+    wrangler_syntax:copy_attrs(FunDef, wrangler_syntax:function(FunName, Cs1)).
 
 process_a_clause_1(Files, AnnAST, ModName, FunName, Arity, C, PatIndex) ->
-    Patterns = refac_syntax:clause_patterns(C),
-    Body = refac_syntax:clause_body(C),
+    Patterns = wrangler_syntax:clause_patterns(C),
+    Body = wrangler_syntax:clause_body(C),
     Vars = lists:flatmap(fun (I) -> api_refac:exported_vars(lists:nth(I, Patterns)) end, PatIndex),
     Body1 = process_fun_body(Files, AnnAST, ModName, FunName, Arity, Body, Vars),
-    refac_syntax:clause(Patterns, none, Body1).
+    wrangler_syntax:clause(Patterns, none, Body1).
 
 process_fun_body(_Files, _AnnAST, _ModName, _FunName, _Arity, [], _Vars) ->
     [];
@@ -245,7 +245,7 @@ process_fun_body(Files, AnnAST, ModName, FunName, Arity, [E], Vars) ->
 			 %% check free/exported vars again?
 			 [E1];
 		     _ ->
-			 [refac_syntax:atom(undefined)]
+			 [wrangler_syntax:atom(undefined)]
 		 end
     end;
 process_fun_body(Files, AnnAST, ModName, FunName, Arity, [E| Exprs], Vars) ->
@@ -267,15 +267,15 @@ process_fun_applications(Files, AnnAST, ModName, FunName, Arity, E, Vars) ->
     api_ast_traverse:full_buTP(fun do_process_fun_applications/2, E, {Files, AnnAST, ModName, FunName, Arity, Vars}).
 
 do_process_fun_applications(Node, {Files, AnnAST, ModName, FunName, Arity, Vars}) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
 	application ->
 	    FreeVars = api_refac:free_vars(Node),
 	    case
 		FreeVars -- Vars =/= FreeVars   %% the function application makes use of some of the variables in Vars;
 		of
-		true -> Operator = refac_syntax:application_operator(Node),
-			Ann = refac_syntax:get_ann(Operator),
-			Args = refac_syntax:application_arguments(Node),
+		true -> Operator = wrangler_syntax:application_operator(Node),
+			Ann = wrangler_syntax:get_ann(Operator),
+			Args = wrangler_syntax:application_arguments(Node),
 			IndexedArgs = lists:zip(lists:seq(1, length(Args)), Args),
 			FilteredIndexedArgs = lists:filter(fun ({_, Arg}) ->
 								   FVars = api_refac:free_vars(Arg),
@@ -291,7 +291,7 @@ do_process_fun_applications(Node, {Files, AnnAST, ModName, FunName, Arity, Vars}
 					receive
 					    {sliced_funs, value, {{M, F, A, FilteredIndex}, FunDef1}} ->
 						case returns_undefined(FunDef1) of
-						    true -> refac_syntax:atom(undefined);
+						    true -> wrangler_syntax:atom(undefined);
 						    _ -> Node
 						end;
 					    _ ->
@@ -309,7 +309,7 @@ do_process_fun_applications(Node, {Files, AnnAST, ModName, FunName, Arity, Vars}
 								 FunDef1 = intra_fun_forward_slice(Files, AnnAST, ModName, FunDef, FilteredIndex),
 								 sliced_funs ! {add, {{M, F, A, FilteredIndex}, FunDef1}},
 								 case returns_undefined(FunDef1) of
-								     true -> refac_syntax:atom(undefined);
+								     true -> wrangler_syntax:atom(undefined);
 								     _ -> Node
 								 end;
 							     _ -> Node
@@ -319,7 +319,7 @@ do_process_fun_applications(Node, {Files, AnnAST, ModName, FunName, Arity, Vars}
 				end;
 			    _ -> Node   %% no fun_def annotation. This should not happen.
 			end;
-		_ -> refac_syntax:atom(undefined)
+		_ -> wrangler_syntax:atom(undefined)
 	    end;
 	_ -> Node
     end.
@@ -332,40 +332,40 @@ do_process_fun_applications(Node, {Files, AnnAST, ModName, FunName, Arity, Vars}
 
 %%-spec(backward_slice/5::([filename()], syntaxTree(), atom(), syntaxTree(), syntaxTree())->[any()]).  %% any needs to be refined here.
 backward_slice(Files, AnnAST, ModName, FunDef, Expr) ->
-    FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
-    Arity = refac_syntax:function_arity(FunDef),
+    FunName = wrangler_syntax:data(wrangler_syntax:function_name(FunDef)),
+    Arity = wrangler_syntax:function_arity(FunDef),
     NewFunDef1 = backward_slice(Expr, FunDef),
     NewFunDef2 = unfold_fun_defs(Files, AnnAST, ModName, NewFunDef1),
-    C = hd(refac_syntax:function_clauses(NewFunDef2)),
-    Body = refac_syntax:clause_body(C),
+    C = hd(wrangler_syntax:function_clauses(NewFunDef2)),
+    Body = wrangler_syntax:clause_body(C),
     {_, FreeVarsInBody} = get_bound_free_vars(Body),
     case FreeVarsInBody of
 	[] ->
-	    [refac_syntax:block_expr(Body)];
+	    [wrangler_syntax:block_expr(Body)];
 	_ ->
-	    Patterns = refac_syntax:clause_patterns(C),
+	    Patterns = wrangler_syntax:clause_patterns(C),
 	    NewPatterns = lists:map(fun (P) ->
 					    BdVars = api_refac:bound_vars(P),
 					    case FreeVarsInBody -- BdVars =/= FreeVarsInBody of
 						true -> P;
-						_ -> refac_syntax:underscore()
+						_ -> wrangler_syntax:underscore()
 					    end
 				    end, Patterns),
-	    C1 = refac_syntax:clause(NewPatterns, refac_syntax:clause_guard(C), refac_syntax:clause_body(C)),
+	    C1 = wrangler_syntax:clause(NewPatterns, wrangler_syntax:clause_guard(C), wrangler_syntax:clause_body(C)),
 	    SlicePoints = collect_app_sites(AnnAST, ModName, FunName, Arity),
 	    case SlicePoints of
-		[] -> [refac_syntax:block_expr(Body)]; %% could not find any use sites of this function.
+		[] -> [wrangler_syntax:block_expr(Body)]; %% could not find any use sites of this function.
 		_ -> Slices = lists:map(fun ({Fun, S}) ->
 						PsCs = lists:zip(NewPatterns, S),
 						lists:flatmap(fun ({P, E}) ->
-								      case refac_syntax:type(P) of
-									  underscore -> [refac_syntax:atom('_')];
+								      case wrangler_syntax:type(P) of
+									  underscore -> [wrangler_syntax:atom('_')];
 									  _ -> backward_slice(Files, AnnAST, ModName, Fun, E)
 								      end
 							      end, PsCs)
 					end, SlicePoints),
-		     FunExpr = refac_syntax:fun_expr([C1]),
-		     Result = lists:map(fun (S) -> refac_syntax:application(FunExpr, S) end, Slices),
+		     FunExpr = wrangler_syntax:fun_expr([C1]),
+		     Result = lists:map(fun (S) -> wrangler_syntax:application(FunExpr, S) end, Slices),
 		     Result
 	    end
     end.
@@ -376,21 +376,21 @@ collect_app_sites(AnnAST, ModName, FunName, Arity) ->
 				A = element(1, Args1),
 				F = element(2, Args1),
 				M = element(3, Args1),
-				case {refac_syntax:type(M), refac_syntax:type(F), refac_syntax:type(A)} of
+				case {wrangler_syntax:type(M), wrangler_syntax:type(F), wrangler_syntax:type(A)} of
 				    {atom, atom, list} ->
-					case {refac_syntax:atom_value(M), refac_syntax:atom_value(F), refac_syntax:list_length(A)} of
-					    {ModName, FunName, Arity} -> [refac_syntax:list_elements(A)];
+					case {wrangler_syntax:atom_value(M), wrangler_syntax:atom_value(F), wrangler_syntax:list_length(A)} of
+					    {ModName, FunName, Arity} -> [wrangler_syntax:list_elements(A)];
 					    _ -> []
 					end;
 				    _ -> []
 				end
 			end,
     F1 = fun (T,Acc) ->
-		 case refac_syntax:type(T) of
+		 case wrangler_syntax:type(T) of
 		     application ->
-			 Op = refac_syntax:application_operator(T),
-			 Args = refac_syntax:application_arguments(T),
-			 Ann = refac_syntax:get_ann(Op),
+			 Op = wrangler_syntax:application_operator(T),
+			 Args = wrangler_syntax:application_arguments(T),
+			 Ann = wrangler_syntax:get_ann(Op),
 			 case lists:keysearch(fun_def, 1, Ann) of
 			     {value, {fun_def, {M, F, A, _, _}}} ->
 				 case {M, F, A} of
@@ -412,7 +412,7 @@ collect_app_sites(AnnAST, ModName, FunName, Arity) ->
 		 end
 	 end,
     F = fun (T, Acc) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    function ->
 			Acc1 = api_ast_traverse:fold(F1, [], T),
 			case Acc1 of
@@ -426,19 +426,19 @@ collect_app_sites(AnnAST, ModName, FunName, Arity) ->
 unfold_fun_defs(_Files, AnnAST, ModName, FunDef %% How about recursive functions?
                                                ) ->
     F = fun (Node, _Others) ->
-		case refac_syntax:type(Node) of
+		case wrangler_syntax:type(Node) of
 		  application ->
-		      Operator = refac_syntax:application_operator(Node),
-		      Ann = refac_syntax:get_ann(Operator),
+		      Operator = wrangler_syntax:application_operator(Node),
+		      Ann = wrangler_syntax:get_ann(Operator),
 		      case lists:keysearch(fun_def, 1, Ann) of
 			{value, {fun_def, {ModName, _F, _A, _, DefPos}}}  %% TOCHANGE: temporaly assume the function is local.
 			                                                 ->
                             case api_interface:pos_to_fun_def(AnnAST, DefPos) of
 			      {ok, Def} ->
-				  Cs = refac_syntax:function_clauses(Def),
-				  FunExpr = refac_syntax:fun_expr(Cs),
-				  Args = refac_syntax:application_arguments(Node),
-				  {refac_syntax:application(FunExpr, Args), true};
+				  Cs = wrangler_syntax:function_clauses(Def),
+				  FunExpr = wrangler_syntax:fun_expr(Cs),
+				  Args = wrangler_syntax:application_arguments(Node),
+				  {wrangler_syntax:application(FunExpr, Args), true};
 			      _ -> {Node, false}
 			    end;
 			_ -> {Node, false}
@@ -452,38 +452,39 @@ unfold_fun_defs(_Files, AnnAST, ModName, FunDef %% How about recursive functions
 
 %% backward slice within a single function.
 backward_slice(Expr, FunDef) ->
-    FunName = refac_syntax:function_name(FunDef),
+    FunName = wrangler_syntax:function_name(FunDef),
     {S, E} = api_refac:start_end_loc(Expr),
-    FunClauses = refac_syntax:function_clauses(FunDef),
+    FunClauses = wrangler_syntax:function_clauses(FunDef),
     Pred = fun (Node) ->
 		   {StartPos, EndPos} = api_refac:start_end_loc(Node),
 		   S >= StartPos andalso E =< EndPos
 	   end,
     %% Get the function clause to which the expression belongs.
     C = hd(lists:filter(fun (Clause) -> Pred(Clause) end, FunClauses)),
-    Patterns = refac_syntax:clause_patterns(C),
+    Patterns = wrangler_syntax:clause_patterns(C),
     C1 = process_a_clause(C, Expr),
-    NewFun = refac_syntax:function(FunName, C1),
+    NewFun = wrangler_syntax:function(FunName, C1),
     %% to keep the annotation info correct.
     NewFun1 = refac_syntax_lib:annotate_bindings(reset_attrs(NewFun), []),
-    Body = refac_syntax:clause_body(hd(refac_syntax:function_clauses(NewFun1))),
+    Body = wrangler_syntax:clause_body(hd(wrangler_syntax:function_clauses(NewFun1))),
     Body1 = rm_unused_exprs(Body),  %%Qn: how about the guard expression?
-    NewFun2 = refac_syntax:function(FunName, [refac_syntax:clause(Patterns, none, Body1)]),
+    NewFun2 = wrangler_syntax:function(FunName, [wrangler_syntax:clause(Patterns, none, Body1)]),
     %%?wrangler_io(refac_prettypr:format(NewFun),[]),
     NewFun2.
 
 process_a_clause(C, Expr) ->
-    Patterns = refac_syntax:clause_patterns(C),
-    Body = refac_syntax:clause_body(C),
+    Patterns = wrangler_syntax:clause_patterns(C),
+    Body = wrangler_syntax:clause_body(C),
     NewBody = process_body(Body, Expr),
     FreeVars = api_refac:free_vars(Expr),
-    case NewBody == [refac_syntax:tuple([refac_syntax:atom(error), refac_syntax:atom("Error with evaluation")])] of
+    case NewBody == [wrangler_syntax:tuple([wrangler_syntax:atom(error), wrangler_syntax:atom("Error with evaluation")])] of
 	true -> [];
 	_ ->
 	    BoundVars = lists:flatmap(fun (P) -> api_refac:bound_vars(P) end, Patterns),
 	    case FreeVars -- BoundVars =/= FreeVars of
-		true ->  %% Expr uses some of the vars declared in Patterns.
-		    C1 = refac_syntax:clause(Patterns, none, NewBody),
+		true  %% Expr uses some of the vars declared in Patterns.
+		     ->
+                    C1 = wrangler_syntax:clause(Patterns, none, NewBody),
 		    {Bound1, Free1} = lists:foldl(fun (P, {Bd, Fr}) ->
 							  {Bd1, Fr1} = {api_refac:bound_vars(P), api_refac:free_vars(P)},
 							  {ordsets:union(Bd, Bd1), ordsets:union(Fr, Fr1)}
@@ -496,7 +497,7 @@ process_a_clause(C, Expr) ->
 		    [C2];
 		_ -> %% Expr does not use any of the vars declared in Patterns.
 		    {Bound, Free} = get_bound_free_vars(NewBody),
-		    C1 = refac_syntax:clause([refac_syntax:underscore()], none, NewBody),  %% replace patterns with undersocre.
+		    C1 = wrangler_syntax:clause([wrangler_syntax:underscore()], none, NewBody),  %% replace patterns with undersocre.
 		    C2 = refac_misc:update_ann(refac_misc:update_ann(C1, {bound, Bound}), {free, Free}),
 		    [C2]
 	    end
@@ -537,7 +538,7 @@ process_body(Body, Expr) ->
 		    rm_unused_exprs(NewExprs)
 	    end;
 	%% Expr is not part of Body.
-	false -> [refac_syntax:tuple([refac_syntax:atom(error), refac_syntax:atom("Error with evaluation")])]
+	false -> [wrangler_syntax:tuple([wrangler_syntax:atom(error), wrangler_syntax:atom("Error with evaluation")])]
     end.
 
 %% Expr is part of LastExpr. This function tries to simplify LastExpr to remove those parts that do not 
@@ -547,17 +548,17 @@ process_body(Body, Expr) ->
 %% 2) The slicing process should not change the binding structure of variables.
 process_expr(LastExpr, Expr) ->
     GetExprBody = fun (E) ->
-			  case refac_syntax:type(E) of
+			  case wrangler_syntax:type(E) of
 			      match_expr -> get_match_expr_body(E);
 			      _ -> E
 			  end
 		  end,
     E = GetExprBody(LastExpr),
-    case refac_syntax:type(E) of
+    case wrangler_syntax:type(E) of
 	case_expr ->
-	    Args = refac_syntax:case_expr_argument(E),
+	    Args = wrangler_syntax:case_expr_argument(E),
 	    {Bound1, Free1} = {api_refac:bound_vars(Args), api_refac:free_vars(Args)},
-	    Clauses = refac_syntax:case_expr_clauses(E),
+	    Clauses = wrangler_syntax:case_expr_clauses(E),
 	    NewClauses = lists:flatmap(fun (C) -> process_a_clause(C, Expr)
 				       end, Clauses), %% process each case clause.
 	    {Bound2, Free2} = lists:foldl(fun (C, {Bd, Fr}) ->
@@ -567,32 +568,32 @@ process_expr(LastExpr, Expr) ->
 					  {[], []}, NewClauses),
 	    Bound = ordsets:union(Bound1, Bound2),
 	    Free = ordsets:union(Free1, Free2),
-	    E1 = refac_syntax:case_expr(Args, NewClauses),
+	    E1 = wrangler_syntax:case_expr(Args, NewClauses),
 	    %% updated the annotation.
 	    E2 = refac_misc:update_ann(refac_misc:update_ann(E1, {bound, Bound}), {free, Free}),
 	    E2;
 	block_expr ->
-	    Body = refac_syntax:block_expr_body(E),
+	    Body = wrangler_syntax:block_expr_body(E),
 	    NewBody = process_body(Body, Expr),
 	    {Bound, Free} = get_bound_free_vars(NewBody),
-	    BE = refac_syntax:block_expr(NewBody),
+	    BE = wrangler_syntax:block_expr(NewBody),
 	    refac_misc:update_ann(refac_misc:update_ann(BE, {bound, Bound}), {free, Free});
 	if_expr ->
-	    Clauses = refac_syntax:if_expr_clauses(E),
+	    Clauses = wrangler_syntax:if_expr_clauses(E),
 	    NewClauses = lists:flatmap(fun (C) -> process_a_clause(C, Expr) end, Clauses),
 	    {Bound, Free} = lists:foldl(fun (C, {Bd, Fr}) ->
 						{Bd1, Fr1} = {api_refac:bound_vars(C), api_refac:free_vars(C)},
 						{ordsets:intersection(Bd, Bd1), ordsets:union(Fr, Fr1)}
 					end,
 					{[], []}, NewClauses),
-	    IE = refac_syntax:if_expr(NewClauses),
+	    IE = wrangler_syntax:if_expr(NewClauses),
 	    refac_misc:update_ann(refac_misc:update_ann(IE, {bound, Bound}), {free, Free});
 	%%	receive_expr -> LastExpr;
 	%%fun_expr ->  %% IMPORTANT: fun exprs need more attection, as it is a function closure. 
 	%% lists comprehension is another problem. (find the example !!)
 	%% catch_expr ->
 	%% Any other possibilities?
-	_ -> refac_syntax:tuple([refac_syntax:atom(error), refac_syntax:atom("Error with evaluation")])
+	_ -> wrangler_syntax:tuple([wrangler_syntax:atom(error), wrangler_syntax:atom("Error with evaluation")])
     end.
 
 %% this is the function that does the backward slicing.
@@ -616,7 +617,7 @@ rm_unused_exprs_1([E| Exprs], FreeVars, Acc) ->
     end.
 
 get_match_expr_body(E) ->
-    Body = refac_syntax:match_expr_body(E),
+    Body = wrangler_syntax:match_expr_body(E),
     case Body of
       match_expr -> get_match_expr_body(Body);
       _ -> Body

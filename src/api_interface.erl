@@ -46,7 +46,7 @@ pos_to_node(FileOrTree, Pos, Pred) ->
             {ok,{AnnAST, _}}= wrangler_ast_server:parse_annotate_file(FileOrTree, true),
             pos_to_node_1(AnnAST, Pos, Pred);
         false ->
-            case refac_syntax:is_tree(FileOrTree) of 
+            case wrangler_syntax:is_tree(FileOrTree) of
                 true ->
                     pos_to_node_1(FileOrTree, Pos, Pred);
                 false ->
@@ -87,7 +87,7 @@ range_to_node(FileOrTree, Pos, Pred) ->
             {ok, {AnnAST, _}}= wrangler_ast_server:parse_annotate_file(FileOrTree, true), 
             range_to_node_1(AnnAST, Pos, Pred);
         false ->
-            case refac_syntax:is_tree(FileOrTree) of 
+            case wrangler_syntax:is_tree(FileOrTree) of
                 true ->
                     range_to_node_1(FileOrTree, Pos, Pred);
                 false ->
@@ -109,16 +109,16 @@ range_to_node_2(Tree, {Start, End}, Pred) ->
                 true ->
 		   [Tree];
                 _ ->
-                    Ts = refac_syntax:subtrees(Tree),
+                    Ts = wrangler_syntax:subtrees(Tree),
                     R0 = [[range_to_node_2(T, {Start, End}, Pred) || T <- G] || G <- Ts],
                     lists:append(R0)
 	   end;
        (S > End) or (E < Start) -> [];
        (S < Start) or (E > End) ->
-	   Ts = refac_syntax:subtrees(Tree),
-            R0 = [[range_to_node_2(T, {Start, End}, Pred) || T <- G] || G <- Ts],
-            lists:append(R0);
-       true -> []
+	   Ts = wrangler_syntax:subtrees(Tree),
+           R0 = [[range_to_node_2(T, {Start, End}, Pred) || T <- G] || G <- Ts],
+           lists:append(R0);
+        true -> []
     end.
 
 
@@ -154,7 +154,7 @@ pos_to_fun_name(Node, Pos) ->
     end.
 
 pos_to_fun_name_1(Node, Pos = {Ln, Col}) ->
-    As = refac_syntax:get_ann(Node),
+    As = wrangler_syntax:get_ann(Node),
     case lists:keysearch(fun_def, 1, As) of
 	{value, {fun_def, {Mod, Fun, Arity, {Ln, Col1}, DefPos}}} when is_atom(Fun)->
 	    case (Col1 =< Col) and (Col =< Col1 + length(atom_to_list(Fun)) - 1) of
@@ -197,7 +197,7 @@ pos_to_fun_def_1(Node, Pos) ->
     end.
              
 pos_to_fun_def_2(Node, Pos) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
 	function ->
 	    {S, E} = api_refac:start_end_loc(Node),
 	    if (S =< Pos) and (Pos =< E) ->
@@ -241,15 +241,15 @@ pos_to_var_name(Node, UsePos) ->
     end.
 
 pos_to_var_name_1(Node, _Pos = {Ln, Col}) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
       variable ->
-            {Ln1, Col1} = refac_syntax:get_pos(Node),
+            {Ln1, Col1} = wrangler_syntax:get_pos(Node),
             case (Ln == Ln1) and (Col1 =< Col) and
-                (Col =< Col1 + length(atom_to_list(refac_syntax:variable_name(Node))) - 1)
+                 (Col =< Col1 + length(atom_to_list(wrangler_syntax:variable_name(Node))) - 1)
             of
                 true ->
-                    Ann =refac_syntax:get_ann(Node),
-                    DefLoc =case lists:keysearch(def, 1, refac_syntax:get_ann(Node)) of
+                    Ann =wrangler_syntax:get_ann(Node),
+                    DefLoc =case lists:keysearch(def, 1, wrangler_syntax:get_ann(Node)) of
                                 {value, {def, DefinePos}} ->
                                     DefinePos;
                                 false ->
@@ -259,7 +259,7 @@ pos_to_var_name_1(Node, _Pos = {Ln, Col}) ->
                         {value, {syntax_path, macro_name}} ->
                             {[], false};
                         _ ->
-                            {{refac_syntax:variable_name(Node), DefLoc}, true}
+                            {{wrangler_syntax:variable_name(Node), DefLoc}, true}
                     end;
                 false -> {[], false}
 	  end;
@@ -279,14 +279,14 @@ pos_to_var(Node, Pos) ->
     end.
 
 pos_to_var_1(Node, _Pos = {Ln, Col}) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
 	variable ->
-	    {Ln1, Col1} = refac_syntax:get_pos(Node),
+	    {Ln1, Col1} = wrangler_syntax:get_pos(Node),
 	    case (Ln == Ln1) and (Col1 =< Col) and
-		(Col =< Col1 + length(atom_to_list(refac_syntax:variable_name(Node))) - 1)
+		 (Col =< Col1 + length(atom_to_list(wrangler_syntax:variable_name(Node))) - 1)
 	    of
 		true ->
-                    Ann = refac_syntax:get_ann(Node),
+                    Ann = wrangler_syntax:get_ann(Node),
                     case lists:keysearch(syntax_path, 1, Ann) of
                         {value, {syntax_path, macro_name}} ->
                             {[], false};
@@ -322,13 +322,13 @@ pos_to_expr_1(Tree, Start, End) ->
 	       true ->
 		   [Tree];
 	       _ ->
-		   Ts = refac_syntax:subtrees(Tree),
+		   Ts = wrangler_syntax:subtrees(Tree),
 		   R0 = [[pos_to_expr_1(T, Start, End) || T <- G] || G <- Ts],
 		   lists:append(R0)
 	   end;
        (S > End) or (E < Start) -> [];
        (S < Start) or (E > End) ->
-	   Ts = refac_syntax:subtrees(Tree),
+	   Ts = wrangler_syntax:subtrees(Tree),
 	   R0 = [[pos_to_expr_1(T, Start, End) || T <- G] || G <- Ts],
 	   lists:append(R0);
        true -> []
@@ -369,13 +369,13 @@ pos_to_expr_list_1(Tree, Start, End, F) ->
                         true ->
                             [Tree];
                         _ ->
-                            Ts = refac_syntax:subtrees(Tree),
+                            Ts = wrangler_syntax:subtrees(Tree),
                             [[lists:append(pos_to_expr_list_1(T, Start, End, F)) || T <- G]
                              || G <- Ts]
                     end;
                (S > End) or (E < Start) -> [];
                (S < Start) or (E > End) ->
-                    Ts = refac_syntax:subtrees(Tree),
+                    Ts = wrangler_syntax:subtrees(Tree),
                     [[lists:append(pos_to_expr_list_1(T, Start, End, F)) || T <- G]
                      || G <- Ts]
             end;
@@ -434,10 +434,10 @@ expr_to_fun_1(Tree, Exp) ->
     {Start, End} = api_refac:start_end_loc(Exp),
     {S, E} = api_refac:start_end_loc(Tree),
     if (S < Start) and (E >= End) ->
-	   case refac_syntax:type(Tree) of
+	   case wrangler_syntax:type(Tree) of
 	       function -> [Tree];
 	       _ ->
-		   Ts = refac_syntax:subtrees(Tree),
+		   Ts = wrangler_syntax:subtrees(Tree),
 		   R0 = [[expr_to_fun_1(T, Exp) || T <- G] || G <- Ts],
 		   lists:flatten(R0)
 	   end;

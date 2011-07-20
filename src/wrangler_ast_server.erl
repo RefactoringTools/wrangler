@@ -418,9 +418,9 @@ annotate_bindings(FName, AST, Info, Ms, TabWidth) ->
 %% range information to each node in the AST.
 %%-spec add_tokens(syntaxTree(), [token()]) -> syntaxTree(). 		 
 add_token_and_ranges(SyntaxTree, Toks) ->
-    Fs = refac_syntax:form_list_elements(SyntaxTree),
+    Fs = wrangler_syntax:form_list_elements(SyntaxTree),
     NewFs = do_add_token_and_ranges(Toks, Fs),
-    SyntaxTree1= rewrite(SyntaxTree, refac_syntax:form_list(NewFs)),
+    SyntaxTree1= rewrite(SyntaxTree, wrangler_syntax:form_list(NewFs)),
     add_range_to_body(SyntaxTree1, NewFs, "", "").
 
 %% do it backwards starting from the last form. 
@@ -428,9 +428,9 @@ add_token_and_ranges(SyntaxTree, Toks) ->
 %% there is one. 
 
 update_toks(Toks, AnnAST) ->
-    Fs = refac_syntax:form_list_elements(AnnAST),
+    Fs = wrangler_syntax:form_list_elements(AnnAST),
     NewFs=do_update_toks(lists:reverse(Toks), lists:reverse(Fs), []),
-    rewrite(AnnAST, refac_syntax:form_list(NewFs)).
+    rewrite(AnnAST, wrangler_syntax:form_list(NewFs)).
 
 do_update_toks(_, [], NewFs) ->
     NewFs;
@@ -453,7 +453,7 @@ do_add_token_and_ranges(Toks, _Forms=[F| Fs], NewFs) ->
     do_add_token_and_ranges(RemToks, Fs, [F2| NewFs]).
 
 get_form_tokens(Toks, F, Fs) ->
-    case refac_syntax:type(F) of
+    case wrangler_syntax:type(F) of
 	comment ->
 	    get_comment_form_toks(Toks, F, Fs);
 	_ ->
@@ -491,20 +491,20 @@ get_non_comment_form_toks(Toks, F, _Fs) ->
     {Ts1++Ts21, Ts22}.
 
 start_pos(F) ->
-    case refac_syntax:type(F) of 
+    case wrangler_syntax:type(F) of
 	error_marker ->
-	    case refac_syntax:revert(F) of
+	    case wrangler_syntax:revert(F) of
 		{error, {_, {{Line, Col}, {_Line1, _Col1}}}} ->
 		    {Line, Col};
 		_ ->
-		    refac_syntax:get_pos(F)
+		    wrangler_syntax:get_pos(F)
 	    end;
 	_ ->
-	    case refac_syntax:get_precomments(F) of
+	    case wrangler_syntax:get_precomments(F) of
 		[] ->
-		    refac_syntax:get_pos(F);
+		    wrangler_syntax:get_pos(F);
 		[Com| _Tl] ->
-		    refac_syntax:get_pos(Com)
+		    wrangler_syntax:get_pos(Com)
 	    end
     end.
 
@@ -515,31 +515,31 @@ add_range(AST, Toks) ->
     api_ast_traverse:full_buTP(fun do_add_range/2, AST, {Toks1, QAtomPs}).
 
 do_add_range(Node, {Toks, QAtomPs}) ->
-    {L, C} = case refac_syntax:get_pos(Node) of
+    {L, C} = case wrangler_syntax:get_pos(Node) of
 		 {Line, Col} -> {Line, Col};
 		 Line -> {Line, 0}
 	     end,
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
 	variable ->
-	    Len = length(refac_syntax:variable_literal(Node)),
+	    Len = length(wrangler_syntax:variable_literal(Node)),
 	    update_ann(Node, {range, {{L, C}, {L, C + Len - 1}}});
 	atom ->
             case lists:member({L,C}, QAtomPs) orelse 
                 lists:member({L,C+1}, QAtomPs) of  
                 true ->
-                    Len = length(atom_to_list(refac_syntax:atom_value(Node))), 
+                    Len = length(atom_to_list(wrangler_syntax:atom_value(Node))),
                     Node1 = update_ann(Node, {qatom, true}),
                     update_ann(Node1, {range, {{L, C}, {L, C + Len + 1}}});
                 false ->
-                    Len = length(atom_to_list(refac_syntax:atom_value(Node))), 
+                    Len = length(atom_to_list(wrangler_syntax:atom_value(Node))),
                     update_ann(Node, {range, {{L, C}, {L, C + Len - 1}}})
 	    end;
         operator ->
-	    Len = length(atom_to_list(refac_syntax:atom_value(Node))),
+	    Len = length(atom_to_list(wrangler_syntax:atom_value(Node))),
 	    update_ann(Node, {range, {{L, C}, {L, C + Len - 1}}});
 	char -> update_ann(Node, {range, {{L, C}, {L, C}}});
 	integer ->
-            Len = length(refac_syntax:integer_literal(Node)),
+            Len = length(wrangler_syntax:integer_literal(Node)),
 	    update_ann(Node, {range, {{L, C}, {L, C + Len - 1}}});
 	string ->
             Toks1 = lists:dropwhile(fun (T) -> 
@@ -551,7 +551,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                                                end, Toks1),
 	    Toks3 = lists:filter(fun (T) -> is_string(T) end, Toks21),
             Str = case Toks3 of 
-                      [] -> refac_syntax:string_value(Node);
+                      [] -> wrangler_syntax:string_value(Node);
                       _ -> element(3, lists:last(Toks3))
                   end,
             Lines = refac_syntax_lib:split_lines(Str),
@@ -586,11 +586,11 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                                  {range, {{L, C}, {L, C}}});
         nil -> update_ann(Node, {range, {{L, C}, {L, C + 1}}});
 	module_qualifier ->
-            Arg = refac_syntax:module_qualifier_argument(Node),
-            Field = refac_syntax:module_qualifier_body(Node),
+            Arg = wrangler_syntax:module_qualifier_argument(Node),
+            Field = wrangler_syntax:module_qualifier_body(Node),
             {S1,_E1} = get_range(Arg),
             {_S2,E2} = get_range(Field),
-            Node1 = refac_syntax:set_pos(Node, S1),
+            Node1 = wrangler_syntax:set_pos(Node, S1),
             update_ann(Node1, {range, {S1, E2}});
 	list ->  
             Es = list_elements(Node),
@@ -604,8 +604,8 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                     Node
             end;
         application ->
-	    O = refac_syntax:application_operator(Node),
-	    Args = refac_syntax:application_arguments(Node),
+	    O = wrangler_syntax:application_operator(Node),
+	    Args = wrangler_syntax:application_arguments(Node),
 	    {S1, E1} = get_range(O),
 	    {S3, E3} = case Args of
 			   [] -> {S1, E1};
@@ -616,31 +616,31 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	    E31 = extend_backwards(Toks, E3, ')'),
 	    update_ann(Node, {range, {S3, E31}});
 	case_expr ->
-            A = refac_syntax:case_expr_argument(Node),
-	    Lc = refac_misc:glast("refac_util:do_add_range,case_expr", refac_syntax:case_expr_clauses(Node)),
+            A = wrangler_syntax:case_expr_argument(Node),
+	    Lc = refac_misc:glast("refac_util:do_add_range,case_expr", wrangler_syntax:case_expr_clauses(Node)),
 	    calc_and_add_range_to_node_1(Node, Toks, A, Lc, 'case', 'end');
 	clause ->
-            {S1,_} = case refac_syntax:clause_patterns(Node) of 
-                          [] -> case refac_syntax:clause_guard(Node) of 
+            {S1,_} = case wrangler_syntax:clause_patterns(Node) of
+                          [] -> case wrangler_syntax:clause_guard(Node) of
                                     none ->{{L,C}, {0,0}};
-                                    _ ->get_range(refac_syntax:clause_guard(Node))
+                                    _ -> get_range(wrangler_syntax:clause_guard(Node))
                                 end;
                           Ps -> get_range(hd(Ps))
                       end,         
-            Body = refac_misc:glast("refac_util:do_add_range, clause", refac_syntax:clause_body(Node)),
+            Body = refac_misc:glast("refac_util:do_add_range, clause", wrangler_syntax:clause_body(Node)),
 	    {_S2, E2} = get_range(Body),
 	    update_ann(Node, {range, {lists:min([S1, {L, C}]), E2}});
 	catch_expr ->
-	    B = refac_syntax:catch_expr_body(Node),
+	    B = wrangler_syntax:catch_expr_body(Node),
 	    {S, E} = get_range(B),
 	    S1 = extend_forwards(Toks, S, 'catch'),
 	    update_ann(Node, {range, {S1, E}});
 	if_expr ->
-	    Cs = refac_syntax:if_expr_clauses(Node),
+	    Cs = wrangler_syntax:if_expr_clauses(Node),
 	    add_range_to_list_node(Node, Toks, Cs, "refac_util:do_add_range, if_expr",
 				   "refac_util:do_add_range, if_expr", 'if', 'end');
 	cond_expr ->
-	    Cs = refac_syntax:cond_expr_clauses(Node),
+	    Cs = wrangler_syntax:cond_expr_clauses(Node),
 	    add_range_to_list_node(Node, Toks, Cs, "refac_util:do_add_range, cond_expr",
 				   "refac_util:do_add_range, cond_expr", 'cond', 'end');
 	infix_expr ->
@@ -648,23 +648,23 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	prefix_expr ->
 	    calc_and_add_range_to_node(Node, prefix_expr_operator, prefix_expr_argument);
 	conjunction ->
-	    B = refac_syntax:conjunction_body(Node),
+	    B = wrangler_syntax:conjunction_body(Node),
 	    add_range_to_body(Node, B, "refac_util:do_add_range,conjunction",
 			      "refac_util:do_add_range,conjunction");
 	disjunction ->
-	    B = refac_syntax:disjunction_body(Node),
+	    B = wrangler_syntax:disjunction_body(Node),
 	    add_range_to_body(Node, B, "refac_util:do_add_range, disjunction",
 			      "refac_util:do_add_range,disjunction");
 	function ->
-	    F = refac_syntax:function_name(Node),
-	    Cs = refac_syntax:function_clauses(Node),
+	    F = wrangler_syntax:function_name(Node),
+	    Cs = wrangler_syntax:function_clauses(Node),
 	    Lc = refac_misc:glast("refac_util:do_add_range,function", Cs),
 	    {S1, _E1} = get_range(F),
 	    {_S2, E2} = get_range(Lc),
 	    update_ann(Node, {range, {S1, E2}});
 	fun_expr ->
-	    Cs = refac_syntax:fun_expr_clauses(Node),
-	    S = refac_syntax:get_pos(Node),
+	    Cs = wrangler_syntax:fun_expr_clauses(Node),
+	    S = wrangler_syntax:get_pos(Node),
 	    Lc = refac_misc:glast("refac_util:do_add_range, fun_expr", Cs),
 	    {_S1, E1} = get_range(Lc),
 	    E11 = extend_backwards(Toks, E1,
@@ -675,8 +675,8 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	implicit_fun ->
                 adjust_implicit_fun_loc(Node, Toks);
         attribute ->
-	    Name = refac_syntax:attribute_name(Node),
-	    Args = refac_syntax:attribute_arguments(Node),
+	    Name = wrangler_syntax:attribute_name(Node),
+	    Args = wrangler_syntax:attribute_arguments(Node),
 	    case Args of
 		none -> {S1, E1} = get_range(Name),
 			S11 = extend_forwards(Toks, S1, '-'),
@@ -698,7 +698,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	binary_generator ->
 	    calc_and_add_range_to_node(Node, binary_generator_pattern, binary_generator_body);
 	tuple ->
-	    Es = refac_syntax:tuple_elements(Node),
+	    Es = wrangler_syntax:tuple_elements(Node),
 	    case length(Es) of
 		0 -> update_ann(Node, {range, {{L, C}, {L, C + 1}}});
 		_ ->
@@ -708,41 +708,41 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	    end;
 	list_comp ->
 	    %%T = refac_syntax:list_comp_template(Node),
-	    B = refac_misc:glast("refac_util:do_add_range,list_comp", refac_syntax:list_comp_body(Node)),
+	    B = refac_misc:glast("refac_util:do_add_range,list_comp", wrangler_syntax:list_comp_body(Node)),
 	    {_S2, E2} = get_range(B),
 	    E21 = extend_backwards(Toks, E2, ']'),
 	    update_ann(Node, {range, {{L, C}, E21}});
 	binary_comp ->
 	    %%T = refac_syntax:binary_comp_template(Node),
 	    B = refac_misc:glast("refac_util:do_add_range,binary_comp",
-				 refac_syntax:binary_comp_body(Node)),
+				 wrangler_syntax:binary_comp_body(Node)),
 	    {_S2, E2} = get_range(B),
 	    E21 = extend_backwards(Toks, E2, '>>'),
 	    update_ann(Node, {range, {{L, C}, E21}});
 	block_expr ->
-	    Es = refac_syntax:block_expr_body(Node),
+	    Es = wrangler_syntax:block_expr_body(Node),
 	    add_range_to_list_node(Node, Toks, Es, "refac_util:do_add_range, block_expr",
 				   "refac_util:do_add_range, block_expr", 'begin', 'end');
 	receive_expr ->
-	    case refac_syntax:receive_expr_timeout(Node) of
+	    case wrangler_syntax:receive_expr_timeout(Node) of
 		none ->
                     %% Cs cannot be empty here.
-		    Cs = refac_syntax:receive_expr_clauses(Node),
+		    Cs = wrangler_syntax:receive_expr_clauses(Node),
                     add_range_to_list_node(Node, Toks, Cs, "refac_util:do_add_range, receive_expr1",
                                            "refac_util:do_add_range, receive_expr1", 'receive', 'end');
                 _E ->
-                    A = refac_syntax:receive_expr_action(Node),
+                    A = wrangler_syntax:receive_expr_action(Node),
                     {_S2, E2} = get_range(refac_misc:glast("refac_util:do_add_range, receive_expr2", A)),
                     E21 = extend_backwards(Toks, E2, 'end'),
                     update_ann(Node, {range, {{L, C}, E21}})
             end;
 	try_expr ->
-	    B = refac_syntax:try_expr_body(Node),
-	    After = refac_syntax:try_expr_after(Node),
+	    B = wrangler_syntax:try_expr_body(Node),
+	    After = wrangler_syntax:try_expr_after(Node),
 	    {S1, _E1} = get_range(refac_misc:ghead("refac_util:do_add_range, try_expr", B)),
 	    {_S2, E2} = case After of
 			    [] ->
-				Handlers = refac_syntax:try_expr_handlers(Node),
+				Handlers = wrangler_syntax:try_expr_handlers(Node),
 				get_range(refac_misc:glast("refac_util:do_add_range, try_expr", Handlers));
 			    _ ->
 				get_range(refac_misc:glast("refac_util:do_add_range, try_expr", After))
@@ -751,7 +751,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	    E21 = extend_backwards(Toks, E2, 'end'),
 	    update_ann(Node, {range, {S11, E21}});
 	binary ->
-	    Fs = refac_syntax:binary_fields(Node),
+	    Fs = wrangler_syntax:binary_fields(Node),
 	    case Fs == [] of
 		true -> update_ann(Node, {range, {{L, C}, {L, C + 3}}});
 		_ ->
@@ -760,8 +760,8 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 		    calc_and_add_range_to_node_1(Node, Toks, Hd, Last, '<<', '>>')
 	    end;
 	binary_field ->
-	    Body = refac_syntax:binary_field_body(Node),
-	    Types = refac_syntax:binary_field_types(Node),
+	    Body = wrangler_syntax:binary_field_body(Node),
+	    Types = wrangler_syntax:binary_field_types(Node),
 	    {S1, E1} = get_range(Body),
 	    {_S2, E2} = if Types == [] -> {S1, E1};
 			   true -> get_range(refac_misc:glast("refac_util:do_add_range,binary_field", Types))
@@ -776,12 +776,12 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	match_expr ->
 	    calc_and_add_range_to_node(Node, match_expr_pattern, match_expr_body);
 	form_list ->
-	    Es = refac_syntax:form_list_elements(Node),
+	    Es = wrangler_syntax:form_list_elements(Node),
 	    
 	    add_range_to_body(Node, Es, "refac_util:do_add_range, form_list",
 			      "refac_util:do_add_range, form_list");
 	parentheses ->
-	    B = refac_syntax:parentheses_body(Node),
+	    B = wrangler_syntax:parentheses_body(Node),
 	    {S, E} = get_range(B),
 	    S1 = extend_forwards(Toks, S, '('),
 	    E1 = extend_backwards(Toks, E, ')'),
@@ -789,51 +789,52 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	class_qualifier ->
 	    calc_and_add_range_to_node(Node, class_qualifier_argument, class_qualifier_body);
 	qualified_name ->
-	    Es = refac_syntax:qualified_name_segments(Node),
+	    Es = wrangler_syntax:qualified_name_segments(Node),
 	    
 	    add_range_to_body(Node, Es, "refac_util:do_add_range, qualified_name",
 			      "refac_util:do_add_range, qualified_name");
 	query_expr ->
-	    B = refac_syntax:query_expr_body(Node),
+	    B = wrangler_syntax:query_expr_body(Node),
 	    {S, E} = get_range(B),
 	    update_ann(Node, {range, {S, E}});
 	record_field ->
-	    Name = refac_syntax:record_field_name(Node),
+	    Name = wrangler_syntax:record_field_name(Node),
 	    {S1, E1} = get_range(Name),
-	    Value = refac_syntax:record_field_value(Node),
+	    Value = wrangler_syntax:record_field_value(Node),
 	    case Value of
 		none -> update_ann(Node, {range, {S1, E1}});
 		_ -> {_S2, E2} = get_range(Value), update_ann(Node,
                                                               {range, {S1, E2}})
 	    end;
-	typed_record_field ->   %% This is not correct; need to be fixed later!
-                Field = refac_syntax:typed_record_field(Node),
+	typed_record_field   %% This is not correct; need to be fixed later!
+                           ->
+                Field = wrangler_syntax:typed_record_field(Node),
                 {S1, _E1} = get_range(Field),
-                Type = refac_syntax:typed_record_type(Node),
+                Type = wrangler_syntax:typed_record_type(Node),
                 {_S2, E2} = get_range(Type),
                 update_ann(Node, {range, {S1, E2}});
 	record_expr ->
-                Arg = refac_syntax:record_expr_argument(Node),
-                Type = refac_syntax:record_expr_type(Node),
+                Arg = wrangler_syntax:record_expr_argument(Node),
+                Type = wrangler_syntax:record_expr_type(Node),
                 Toks2 = lists:dropwhile(fun(B)->
                                                element(2, B)/= {L,C}
                                        end, Toks),
                 [{'#', _}, T|_] = Toks2,
                 Pos1 = token_loc(T),
-                Type1 = add_range(refac_syntax:set_pos(Type, Pos1), Toks),
-                Fields = refac_syntax:record_expr_fields(Node),
+                Type1 = add_range(wrangler_syntax:set_pos(Type, Pos1), Toks),
+                Fields = wrangler_syntax:record_expr_fields(Node),
                 {S1, E1} = case Arg of
                                none -> get_range(Type);
                                _ -> get_range(Arg)
                            end,
                 case Fields of
                     [] -> E11 = extend_backwards(Toks, E1, '}'),
-                          Node1 =rewrite(Node, refac_syntax:record_expr(Arg, Type1, Fields)),
+                          Node1 =rewrite(Node, wrangler_syntax:record_expr(Arg, Type1, Fields)),
                           update_ann(Node1, {range, {S1, E11}});
                     _ ->
                         {_S2, E2} = get_range(refac_misc:glast("refac_util:do_add_range,record_expr", Fields)),
                         E21 = extend_backwards(Toks, E2, '}'),
-                        Node1 =rewrite(Node, refac_syntax:record_expr(Arg, Type1, Fields)),
+                        Node1 =rewrite(Node, wrangler_syntax:record_expr(Arg, Type1, Fields)),
                         update_ann(Node1, {range, {S1, E21}})
                 end;
 	record_access ->
@@ -841,7 +842,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	record_index_expr ->
 	    calc_and_add_range_to_node(Node, record_index_expr_type, record_index_expr_field);
 	comment ->
-	    T = refac_syntax:comment_text(Node),
+	    T = wrangler_syntax:comment_text(Node),
 	    Lines = length(T),
 	    update_ann(Node,
 		       {range,
@@ -850,8 +851,8 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                           length(refac_misc:glast("refac_util:do_add_range,comment",
                                                   T))}}});
 	macro ->
-                Name = refac_syntax:macro_name(Node),
-                Args = refac_syntax:macro_arguments(Node),
+                Name = wrangler_syntax:macro_name(Node),
+                Args = wrangler_syntax:macro_arguments(Node),
                 {_S1, {L1, C1}} = get_range(Name),
                 E1={L1, C1+1},
                 M=case Args of
@@ -872,7 +873,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	size_qualifier ->
 	    calc_and_add_range_to_node(Node, size_qualifier_body, size_qualifier_argument);
 	error_marker ->
-                case refac_syntax:revert(Node) of
+                case wrangler_syntax:revert(Node) of
                     {error, {_, {Start, End}}} ->
                         update_ann(Node, {range, {Start, End}});
                     _ ->
@@ -888,8 +889,8 @@ do_add_range(Node, {Toks, QAtomPs}) ->
     end.
 
 calc_and_add_range_to_node(Node, Fun1, Fun2) ->
-    Arg = refac_syntax:Fun1(Node),
-    Field = refac_syntax:Fun2(Node),
+    Arg = wrangler_syntax:Fun1(Node),
+    Field = wrangler_syntax:Fun2(Node),
     {S1,_E1} = get_range(Arg),
     {_S2,E2} = get_range(Field),
     update_ann(Node, {range, {S1, E2}}).
@@ -903,7 +904,7 @@ calc_and_add_range_to_node_1(Node, Toks, StartNode, EndNode, StartWord, EndWord)
 
 
 get_range(Node) ->
-     As = refac_syntax:get_ann(Node),
+     As = wrangler_syntax:get_ann(Node),
      case lists:keysearch(range, 1, As) of
        {value, {range, {S, E}}} -> {S, E};
        _ -> {?DEFAULT_LOC,
@@ -987,43 +988,43 @@ add_category(Node, C) ->
 do_add_category(Node, C) when is_list(Node) ->
     {[add_category(E, C)||E<-Node], true};
 do_add_category(Node, C) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
 	clause ->
-	    Body = refac_syntax:clause_body(Node),
-	    P = refac_syntax:clause_patterns(Node),
-	    G = refac_syntax:clause_guard(Node),
+	    Body = wrangler_syntax:clause_body(Node),
+	    P = wrangler_syntax:clause_patterns(Node),
+	    G = wrangler_syntax:clause_guard(Node),
 	    Body1 = [add_category(B, expression)||B<-Body],
 	    P1 = add_category(P, pattern),
 	    G1 = case G of
 		     none -> none;
 		     _ -> add_category(G, guard_expression)
 		 end,
-	    Node1 =rewrite(Node, refac_syntax:clause(P1, G1, Body1)),
+	    Node1 =rewrite(Node, wrangler_syntax:clause(P1, G1, Body1)),
 	    {Node1, true};
 	match_expr ->
-	    P = refac_syntax:match_expr_pattern(Node),
-	    B = refac_syntax:match_expr_body(Node),
+	    P = wrangler_syntax:match_expr_pattern(Node),
+	    B = wrangler_syntax:match_expr_body(Node),
 	    P1 = add_category(P, pattern),
 	    B1 = add_category(B, C),
-	    Node1=rewrite(Node, refac_syntax:match_expr(P1, B1)),
+	    Node1=rewrite(Node, wrangler_syntax:match_expr(P1, B1)),
             {update_ann(Node1, {category, C}), true};
         generator ->
-	    P = refac_syntax:generator_pattern(Node),
-	    B = refac_syntax:generator_body(Node),
+	    P = wrangler_syntax:generator_pattern(Node),
+	    B = wrangler_syntax:generator_body(Node),
 	    P1 = add_category(P, pattern),
 	    B1 = add_category(B, expression),
-	    Node1=rewrite(Node, refac_syntax:generator(P1, B1)),
+	    Node1=rewrite(Node, wrangler_syntax:generator(P1, B1)),
 	    {update_ann(Node1, {category, generator}), true};
 	binary_generator ->
-	    P = refac_syntax:binary_generator_pattern(Node),
-	    B = refac_syntax:binary_generator_body(Node),
+	    P = wrangler_syntax:binary_generator_pattern(Node),
+	    B = wrangler_syntax:binary_generator_body(Node),
 	    P1 = add_category(P, pattern),
 	    B1 = add_category(B, expression),
-	    Node1=rewrite(Node, refac_syntax:binary_generator(P1, B1)),
+	    Node1=rewrite(Node, wrangler_syntax:binary_generator(P1, B1)),
 	    {update_ann(Node1, {category, generator}), true};
 	macro ->
-	    Name = refac_syntax:macro_name(Node),
-	    Args = refac_syntax:macro_arguments(Node),
+	    Name = wrangler_syntax:macro_name(Node),
+	    Args = wrangler_syntax:macro_arguments(Node),
             Name1 = case Args of 
                         none -> add_category(Name, C);  %% macro with no args are not annoated as macro_name.
                         _ ->add_category(Name, macro_name)
@@ -1032,46 +1033,46 @@ do_add_category(Node, C) ->
 			none -> none;
 			_ -> add_category(Args, C) 
 		    end,
-	    Node1 = rewrite(Node, refac_syntax:macro(Name1, Args1)),
+	    Node1 = rewrite(Node, wrangler_syntax:macro(Name1, Args1)),
 	    {update_ann(Node1, {category, C}), true};
 	record_access ->
-            Argument = refac_syntax:record_access_argument(Node),
-            Type = refac_syntax:record_access_type(Node),
-            Field = refac_syntax:record_access_field(Node),
+            Argument = wrangler_syntax:record_access_argument(Node),
+            Type = wrangler_syntax:record_access_type(Node),
+            Field = wrangler_syntax:record_access_field(Node),
             Argument1 = add_category(Argument, C),
             Type1 = case Type of
                         none -> none;
                         _ -> add_category(Type, record_type)
 		   end,
             Field1 = add_category(Field, record_field),
-            Node1 = rewrite(Node, refac_syntax:record_access(Argument1, Type1, Field1)),
+            Node1 = rewrite(Node, wrangler_syntax:record_access(Argument1, Type1, Field1)),
             {update_ann(Node1, {category, C}), true};
 	record_expr ->
-	    Argument = refac_syntax:record_expr_argument(Node),
-	    Type = refac_syntax:record_expr_type(Node),
-	    Fields = refac_syntax:record_expr_fields(Node),
+	    Argument = wrangler_syntax:record_expr_argument(Node),
+	    Type = wrangler_syntax:record_expr_type(Node),
+	    Fields = wrangler_syntax:record_expr_fields(Node),
 	    Argument1 = case Argument of
 			    none -> none;
 			    _ -> add_category(Argument, C)
 			end,
 	    Type1 = add_category(Type, record_type),
-	    Fields1 =[refac_syntax:add_ann({category, record_field},
-                                           rewrite(F, refac_syntax:record_field(
-                                                        add_category(refac_syntax:record_field_name(F), record_field),
-                                                        case refac_syntax:record_field_value(F) of 
-                                                            none -> 
-                                                                none;
-                                                            V -> 
-                                                                add_category(V, C)
-                                                        end))) || F<-Fields],
-	    Node1 = rewrite(Node, refac_syntax:record_expr(Argument1, Type1, Fields1)),
+	    Fields1 =[wrangler_syntax:add_ann({category, record_field},
+                                              rewrite(F, wrangler_syntax:record_field(
+                                                              add_category(wrangler_syntax:record_field_name(F), record_field),
+                                                              case wrangler_syntax:record_field_value(F) of
+                                                                  none ->
+                                                                      none;
+                                                                  V ->
+                                                                      add_category(V, C)
+                                                              end))) || F <- Fields],
+	    Node1 = rewrite(Node, wrangler_syntax:record_expr(Argument1, Type1, Fields1)),
 	    {update_ann(Node1, {category, C}), true};
 	record_index_expr ->
-	    Type = refac_syntax:record_index_expr_type(Node),
-	    Field = refac_syntax:record_index_expr_field(Node),
+	    Type = wrangler_syntax:record_index_expr_type(Node),
+	    Field = wrangler_syntax:record_index_expr_field(Node),
 	    Type1 = add_category(Type, record_type),
 	    Field1 = add_category(Field, record_field),
-	    Node1 = rewrite(Node, refac_syntax:record_index_expr(Type1, Field1)),
+	    Node1 = rewrite(Node, wrangler_syntax:record_index_expr(Type1, Field1)),
 	    {update_ann(Node1, {category, C}), true};
 	operator ->
 	    {update_ann(Node, {category, operator}), true};
@@ -1084,17 +1085,17 @@ do_add_category(Node, C) ->
     end.
 
 rewrite(Tree, Tree1) ->
-    refac_syntax:copy_attrs(Tree, Tree1).
+    wrangler_syntax:copy_attrs(Tree, Tree1).
 
 
 list_elements(Node) ->
     lists:reverse(list_elements(Node, [])).
 
 list_elements(Node, As) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
       list ->
-	    As1 = lists:reverse(refac_syntax:list_prefix(Node)) ++ As,
-	    case refac_syntax:list_suffix(Node) of
+	    As1 = lists:reverse(wrangler_syntax:list_prefix(Node)) ++ As,
+	    case wrangler_syntax:list_suffix(Node) of
                 none -> As1;
                 Tail ->
                     list_elements(Tail, As1)
@@ -1105,45 +1106,45 @@ list_elements(Node, As) ->
            
 
 adjust_implicit_fun_loc(T, Toks)->
-    Pos = refac_syntax:get_pos(T),
-    Name = refac_syntax:implicit_fun_name(T),
+    Pos = wrangler_syntax:get_pos(T),
+    Name = wrangler_syntax:implicit_fun_name(T),
     Toks1 = lists:dropwhile(fun (B) -> element(2, B) =/= Pos end, Toks),
     Toks2 = [Tok||Tok<-Toks1,element(1, Tok)/='?' ],
-    case refac_syntax:type(Name) of
+    case wrangler_syntax:type(Name) of
         module_qualifier ->
-            Arg = refac_syntax:module_qualifier_argument(Name),
-            Body = refac_syntax:module_qualifier_body(Name),
-            Fun = refac_syntax:arity_qualifier_body(Body),
-            A = refac_syntax:arity_qualifier_argument(Body),
+            Arg = wrangler_syntax:module_qualifier_argument(Name),
+            Body = wrangler_syntax:module_qualifier_body(Name),
+            Fun = wrangler_syntax:arity_qualifier_body(Body),
+            A = wrangler_syntax:arity_qualifier_argument(Body),
             [{'fun', Pos1},{_, Pos2, _ModName}, {':', _},
              {_, Pos4, _FunName}, {'/', _},
              {_, Pos5, _Arity}|_Ts] = Toks2,
-            Arg1 =add_range(refac_syntax:set_pos(Arg, Pos2),Toks),
-            Fun1= add_range(refac_syntax:set_pos(Fun, Pos4),Toks),
-            A1 = add_range(refac_syntax:set_pos(A, Pos5),Toks),
+            Arg1 =add_range(wrangler_syntax:set_pos(Arg, Pos2),Toks),
+            Fun1= add_range(wrangler_syntax:set_pos(Fun, Pos4),Toks),
+            A1 = add_range(wrangler_syntax:set_pos(A, Pos5),Toks),
             Body1 = add_range(
-                      refac_syntax:set_pos(
-                        rewrite(Body,refac_syntax:arity_qualifier(Fun1, A1)),
-                        Pos4),Toks),
-            Name1= add_range(refac_syntax:set_pos(
-                               refac_syntax:module_qualifier(
-                                 Arg1, Body1), Pos2), Toks),
+                      wrangler_syntax:set_pos(
+                           rewrite(Body,wrangler_syntax:arity_qualifier(Fun1, A1)),
+                           Pos4),Toks),
+            Name1= add_range(wrangler_syntax:set_pos(
+                                  wrangler_syntax:module_qualifier(
+                                       Arg1, Body1), Pos2), Toks),
             {_S,E} = get_range(A1),
-            T1=rewrite(T, refac_syntax:implicit_fun(Name1)),
+            T1=rewrite(T, wrangler_syntax:implicit_fun(Name1)),
             update_ann(T1, {range, {Pos1, E}});
         arity_qualifier->
-            Fun = refac_syntax:arity_qualifier_body(Name),
-            A = refac_syntax:arity_qualifier_argument(Name),
+            Fun = wrangler_syntax:arity_qualifier_body(Name),
+            A = wrangler_syntax:arity_qualifier_argument(Name),
             [{'fun', Pos1}, {_, Pos4, _FunName}, {'/', _},
              {_, Pos5, _Arity}|_Ts] = Toks2,
-            Fun1= add_range(refac_syntax:set_pos(Fun, Pos4),Toks),
-            A1 = add_range(refac_syntax:set_pos(A, Pos5),Toks),
+            Fun1= add_range(wrangler_syntax:set_pos(Fun, Pos4),Toks),
+            A1 = add_range(wrangler_syntax:set_pos(A, Pos5),Toks),
             Name1 = add_range(
-                      refac_syntax:set_pos(
-                        rewrite(Name,refac_syntax:arity_qualifier(Fun1, A1)),
-                        Pos4),Toks),
+                      wrangler_syntax:set_pos(
+                           rewrite(Name,wrangler_syntax:arity_qualifier(Fun1, A1)),
+                           Pos4),Toks),
             {_S,E} = get_range(A1),
-            T1=rewrite(T, refac_syntax:implicit_fun(Name1)),
+            T1=rewrite(T, wrangler_syntax:implicit_fun(Name1)),
             update_ann(T1, {range, {Pos1, E}});
         _ -> T
     end.

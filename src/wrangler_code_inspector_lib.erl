@@ -50,9 +50,9 @@ find_var_instances(FName, Line, Col, SearchPaths, TabWidth) ->
 		   throw({error, "The identifier selected is not defined!"});
 	       true ->
 		   F = fun (T, S) ->
-			       case refac_syntax:type(T) of
+			       case wrangler_syntax:type(T) of
 				   variable ->
-				       case lists:keysearch(def, 1, refac_syntax:get_ann(T)) of
+				       case lists:keysearch(def, 1, wrangler_syntax:get_ann(T)) of
 					   {value, {def, DefinePos}} ->
 					       Range = api_refac:start_end_loc(T),
 					       [Range| S];
@@ -82,12 +82,12 @@ nested_exprs_1(FName, NestLevel, ExprType, SearchPaths, TabWidth) ->
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     ModName = get_module_name(FName, Info),
     Fun = fun (T, S) ->
-		  case refac_syntax:type(T) of
+		  case wrangler_syntax:type(T) of
 		      function ->
-			  FunName = refac_syntax:atom_value(refac_syntax:function_name(T)),
-			  Arity = refac_syntax:function_arity(T),
+			  FunName = wrangler_syntax:atom_value(wrangler_syntax:function_name(T)),
+			  Arity = wrangler_syntax:function_arity(T),
 			  Fun1 = fun (Node, S1) ->
-					 case refac_syntax:type(Node) of
+					 case wrangler_syntax:type(Node) of
 					     ExprType1 ->
 						 Range = api_refac:start_end_loc(Node),
 						 [{ModName, FunName, Arity, Range}| S1];
@@ -137,7 +137,7 @@ calls_to_fun(FName, Line, Col, SearchPaths, TabWidth) ->
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     case api_interface:pos_to_fun_def(AnnAST, {Line, Col}) of
 	{ok, Def} ->
-	    case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Def)) of
+	    case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Def)) of
 		{value, {fun_def, {M, F, A, _, _}}} ->
 		    caller_funs_2(FName, M, F, A, Info, SearchPaths, TabWidth);
 		false ->
@@ -182,16 +182,16 @@ get_caller_funs(FileName, {M, F, A}, SearchPaths, TabWidth) ->
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     ModName = get_module_name(FileName, Info),
     Fun = fun (Node, {S1, S2}) ->
-		  case refac_syntax:type(Node) of
+		  case wrangler_syntax:type(Node) of
 		      function ->
-			  FunName = refac_syntax:data(refac_syntax:function_name(Node)),
-			  FunArity = refac_syntax:function_arity(Node),
+			  FunName = wrangler_syntax:data(wrangler_syntax:function_name(Node)),
+			  FunArity = wrangler_syntax:function_arity(Node),
 			  case {ModName, FunName, FunArity} == {M, F, A} of
 			      false ->
 				  {Sure, UnSure} = collect_apps(FileName, Node, {M, F, A});
 			      true ->
 				  {Sure1, UnSure1} = lists:unzip([collect_apps(FileName, C, {M, F, A})
-								  || C <- refac_syntax:function_clauses(Node)]),
+								  || C <- wrangler_syntax:function_clauses(Node)]),
 				  {Sure, UnSure} = {lists:append(Sure1), lists:append(UnSure1)}
 			  end,
 			  case {Sure, UnSure} of
@@ -207,11 +207,11 @@ get_caller_funs(FileName, {M, F, A}, SearchPaths, TabWidth) ->
 
 collect_apps(FileName, Node, {M, F, A}) ->
     Fun = fun (T, {S1,S2}) ->
-		  case refac_syntax:type(T) of
+		  case wrangler_syntax:type(T) of
 		      atom ->
-			  case refac_syntax:atom_value(T) of
+			  case wrangler_syntax:atom_value(T) of
 			      F ->
-				  Ann = refac_syntax:get_ann(T),
+				  Ann = wrangler_syntax:get_ann(T),
 				  case lists:keysearch(type, 1, Ann) of
 				      {value, {type, {f_atom, [M, F, A]}}} ->
 					  {[true| S1], S2};
@@ -223,13 +223,13 @@ collect_apps(FileName, Node, {M, F, A}) ->
 					      true ->
 						  {S1, S2};
 					      false ->
-						  {Line, _Col} = refac_syntax:get_pos(T),
+						  {Line, _Col} = wrangler_syntax:get_pos(T),
 						  {S1, [{FileName, Line, refac_prettypr:format(T)}| S2]}
 					  end;
 				      {value, {type, _}} ->
 					  {S1, S2};
 				      false ->
-					  {Line, _Col} = refac_syntax:get_pos(T),
+					  {Line, _Col} = wrangler_syntax:get_pos(T),
 					  {S1, [{FileName, Line, refac_prettypr:format(T)}| S2]}
 				  end;
 			      _ -> {S1, S2}
@@ -279,16 +279,16 @@ long_functions_2(FName, Lines, SearchPaths, TabWidth) ->
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     ModName = get_module_name(FName, Info),
     Fun = fun (Node, S) ->
-		  case refac_syntax:type(Node) of
+		  case wrangler_syntax:type(Node) of
 		      function ->
 			  Toks = refac_misc:get_toks(Node),
 			  CodeLines = [element(1, element(2, T)) || T <- Toks, element(1, T) /= whitespace, element(1, T) /= comment],
 			  CodeLines1 = refac_misc:remove_duplicates(CodeLines),
 			  case length(CodeLines1) > Lines of
 			      true ->
-				  FunName = refac_syntax:atom_value(refac_syntax:function_name(Node)),
-				  Arity = refac_syntax:function_arity(Node),
-                                  {Line, _Col} = refac_syntax:get_pos(Node),
+				  FunName = wrangler_syntax:atom_value(wrangler_syntax:function_name(Node)),
+				  Arity = wrangler_syntax:function_arity(Node),
+                                  {Line, _Col} = wrangler_syntax:get_pos(Node),
 				  [{{ModName, FunName, Arity}, {FName,Line}}| S];
 			      _ -> S
 			  end;
@@ -330,10 +330,10 @@ non_tail_recursive_servers_1(FName, SearchPaths, TabWidth) ->
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     ModName = get_module_name(FName, Info),
     Fun = fun (T, S) ->
-		  case refac_syntax:type(T) of
+		  case wrangler_syntax:type(T) of
 		      function ->
-			  FunName = refac_syntax:atom_value(refac_syntax:function_name(T)),
-			  Arity = refac_syntax:function_arity(T),
+			  FunName = wrangler_syntax:atom_value(wrangler_syntax:function_name(T)),
+			  Arity = wrangler_syntax:function_arity(T),
 			  case has_receive_expr(T) of
 			      {true, Line} ->
 				  case is_non_tail_recursive_server(FName, T, {ModName, FunName, Arity}, Line, SearchPaths) of
@@ -349,7 +349,7 @@ non_tail_recursive_servers_1(FName, SearchPaths, TabWidth) ->
 
 is_non_tail_recursive_server(FileName, FunDef, {ModName, FunName, Arity}, Line, _SearchPaths) ->
     Fun = fun (T, S) ->
-		  case refac_syntax:type(T) of
+		  case wrangler_syntax:type(T) of
 		      receive_expr ->
 			  %% it is too slow to search the whole directory for those very rare cases
 			  %% when a server function is defined across multiple modules; so SearchPaths
@@ -370,24 +370,24 @@ is_non_tail_recursive_server(FileName, FunDef, {ModName, FunName, Arity}, Line, 
 
 check_candidate_scc(FunDef, Scc, Line) ->
     MFAs = [MFA || {MFA, _} <- Scc],
-    DummyExp = refac_syntax:atom(undefined),
+    DummyExp = wrangler_syntax:atom(undefined),
     F = fun (T, Acc) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    clause ->
-			Exprs = refac_syntax:clause_body(T),
+			Exprs = wrangler_syntax:clause_body(T),
 			Acc ++ [Exprs];
-		    try_expr -> Exprs = refac_syntax:try_expr_body(T),
+		    try_expr -> Exprs = wrangler_syntax:try_expr_body(T),
 				Acc ++ [Exprs ++ [DummyExp]];
-		    application -> Exprs = refac_syntax:application_arguments(T),
+		    application -> Exprs = wrangler_syntax:application_arguments(T),
 				   Acc ++ [Exprs ++ [DummyExp]];
-		    tuple -> Exprs = refac_syntax:tuple_elements(T),
+		    tuple -> Exprs = wrangler_syntax:tuple_elements(T),
 			     Acc ++ [Exprs ++ [DummyExp]];
-		    list -> Exprs = refac_syntax:list_prefix(T),
+		    list -> Exprs = wrangler_syntax:list_prefix(T),
 			    Acc ++ [Exprs ++ [DummyExp]];
 		    list_comp ->
 			Acc ++ [[T, DummyExp]];
 		    block_expr ->
-			Exprs = refac_syntax:block_expr_body(T),
+			Exprs = wrangler_syntax:block_expr_body(T),
 			Acc ++ [Exprs];
 		    infix_expr ->
 			Acc ++ [[T, DummyExp]];
@@ -432,10 +432,10 @@ not_flush_unknown_messages_1(FName, SearchPaths, TabWidth) ->
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     ModName = get_module_name(FName, Info),
     Fun = fun (T, S) ->
-		  case refac_syntax:type(T) of
+		  case wrangler_syntax:type(T) of
 		      function ->
-			  FunName = refac_syntax:atom_value(refac_syntax:function_name(T)),
-			  Arity = refac_syntax:function_arity(T),
+			  FunName = wrangler_syntax:atom_value(wrangler_syntax:function_name(T)),
+			  Arity = wrangler_syntax:function_arity(T),
 			  case has_receive_expr(T) of
 			      {true, Line} ->
 				  case has_receive_expr_without_flush(FName, Info, ModName, T, Line, SearchPaths) of
@@ -450,10 +450,10 @@ not_flush_unknown_messages_1(FName, SearchPaths, TabWidth) ->
     api_ast_traverse:fold(Fun, [], AnnAST).
 
 has_receive_expr_without_flush(FileName, Info, ModName, FunDef, Line, _SearchPaths) ->
-    FunName = refac_syntax:atom_value(refac_syntax:function_name(FunDef)),
-    Arity = refac_syntax:function_arity(FunDef),
+    FunName = wrangler_syntax:atom_value(wrangler_syntax:function_name(FunDef)),
+    Arity = wrangler_syntax:function_arity(FunDef),
     F = fun (T,S) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    receive_expr ->
 			ResSccs = wrangler_callgraph_server:get_sccs_including_fun(
 				    {ModName, FunName, Arity}, [FileName]),
@@ -478,7 +478,7 @@ not_has_flush_scc(FileName, Info, FunDef, Scc, Line) ->
 is_server(_FileName, _Info, FunDef, Scc, Line) ->
     MFAs = [MFA || {MFA, _} <- Scc],
     F = fun (T, Acc) ->
-		case refac_syntax:type(T)      %% Any other cases here?
+		case wrangler_syntax:type(T)      %% Any other cases here?
 		    of
 		    application -> Acc ++ [T];
 		    _ -> Acc
@@ -501,14 +501,14 @@ is_server(_FileName, _Info, FunDef, Scc, Line) ->
 
 not_has_flush_fun(FunDef) ->
     F = fun (T, S) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    receive_expr ->
-			Cs = refac_syntax:receive_expr_clauses(T),
+			Cs = wrangler_syntax:receive_expr_clauses(T),
 			R = lists:any(fun (C) ->
-					      Pat = refac_syntax:clause_patterns(C),
+					      Pat = wrangler_syntax:clause_patterns(C),
 					      case length(Pat) of
 						  1 -> P = hd(Pat),
-						       case refac_syntax:type(P) of
+						       case wrangler_syntax:type(P) of
 							   variable ->
 							       case api_refac:free_vars(P) of
 								   [] -> true;
@@ -551,7 +551,7 @@ get_module_name(FName, Info) ->
 
 has_receive_expr(FunDef) ->
     F = fun (T, S) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    receive_expr ->
 			{{StartLine, _}, _} = api_refac:start_end_loc(T),
 			[StartLine| S];

@@ -118,15 +118,15 @@ recomment_forms(Tree, Cs) ->
     recomment_forms(Tree, Cs, true).
 
 recomment_forms(Tree, Cs, Insert) when is_list(Tree) ->
-    recomment_forms(refac_syntax:form_list(Tree), Cs, Insert);
+    recomment_forms(wrangler_syntax:form_list(Tree), Cs, Insert);
 recomment_forms(Tree, Cs, Insert) ->
-    case refac_syntax:type(Tree) of
+    case wrangler_syntax:type(Tree) of
 	form_list ->
 	    BadFormLocs = lists:flatten([lists:seq(L1,L2) ||
                                             {error, {_ErrInfo, {{L1,_},{L2,_}}}} 
-                                                <-refac_syntax:form_list_elements(revert(Tree))]),
+                                                <- wrangler_syntax:form_list_elements(revert(Tree))]),
 	    Cs1 = [ {L, Col, Ind, PreTok, Text} ||{L,Col, Ind, PreTok, Text} <-Cs, not(lists:member(L, BadFormLocs))],
-	    Tree1 = refac_syntax:flatten_form_list(Tree),
+	    Tree1 = wrangler_syntax:flatten_form_list(Tree),
 	    Node = build_tree(Tree1),
 	    %% Here we make a small assumption about the substructure of
 	    %% a `form_list' tree: it has exactly one group of subtrees.
@@ -196,7 +196,7 @@ recomment_forms_2(C, [], _Top) ->
 
 standalone_comment({L, Col, Ind, _PreTok, Text}) ->
     leaf_node(L, L + comment_delta(Text),
-	      refac_syntax:set_pos(refac_syntax:comment(Ind, Text), {L,Col})).  %% Modified by Huiqing
+	      wrangler_syntax:set_pos(wrangler_syntax:comment(Ind, Text), {L,Col})).  %% Modified by Huiqing
 
 %% Compute delta between first and last line of a comment, given
 %% the lines of text.
@@ -472,14 +472,14 @@ next_min_in_node(Node, Ack) ->
 
 build_tree(Node) ->
     L = get_line(Node),
-    case refac_syntax:subtrees(Node) of
+    case wrangler_syntax:subtrees(Node) of
 	[] ->
 	    %% This guarantees that Min =< Max for the base case.
 	    leaf_node(L, L, Node);
 	Ts ->
 	    %% `Ts' is a list of lists of abstract terms.
 	    {Subtrees, Min, Max} = build_list_list(Ts),
-	    As = refac_syntax:get_ann(Node),
+	    As = wrangler_syntax:get_ann(Node),
             {Min1, Max1} =
                 case lists:keysearch(range, 1, As) of 
                     {value, {range, {{L1, _}, {L2,_}}}} ->
@@ -490,8 +490,8 @@ build_tree(Node) ->
             %% Include L, while preserving Min =< Max.
 	    tree_node(Min1,
 		      Max1,
-		      refac_syntax:type(Node),
-		      refac_syntax:get_attrs(Node),
+		      wrangler_syntax:type(Node),
+		      wrangler_syntax:get_attrs(Node),
 		      Subtrees)
     end.
 
@@ -536,11 +536,11 @@ revert_tree(Node) ->
 	    add_comments(Node, leaf_node_value(Node));
 	tree_node ->
 	    add_comments(Node,
-			 refac_syntax:set_attrs(
-			   refac_syntax:make_tree(
-			     tree_node_type(Node),
-			     revert_list(node_subtrees(Node))),
-			   tree_node_attrs(Node)));
+			 wrangler_syntax:set_attrs(
+			      wrangler_syntax:make_tree(
+			           tree_node_type(Node),
+			           revert_list(node_subtrees(Node))),
+			      tree_node_attrs(Node)));
 	list_node ->
 	    revert_list(node_subtrees(Node))
     end.
@@ -557,7 +557,7 @@ add_comments(Node, Tree) ->
 	Cs ->
 	    Cs1 = lists:reverse(expand_comments(Cs)),
 	    add_comments_1(Node,
-			   refac_syntax:add_precomments(Cs1, Tree))
+			   wrangler_syntax:add_precomments(Cs1, Tree))
     end.
 
 add_comments_1(Node, Tree) ->
@@ -566,7 +566,7 @@ add_comments_1(Node, Tree) ->
 	    Tree;
 	Cs ->
 	    Cs1 = lists:reverse(expand_comments(Cs)),
-	    refac_syntax:add_postcomments(Cs1, Tree)
+	    wrangler_syntax:add_postcomments(Cs1, Tree)
     end.
 
 expand_comments([C | Cs]) ->
@@ -576,7 +576,7 @@ expand_comments([]) ->
 
 expand_comment(C) ->
     {L, Col, Ind, _PreTok, Text} = C,
-    refac_syntax:set_pos(refac_syntax:comment(Ind, Text), {L,Col}).  %% Modified by Huiqing
+    wrangler_syntax:set_pos(wrangler_syntax:comment(Ind, Text), {L,Col}).  %% Modified by Huiqing
 
 %% =====================================================================
 %% Abstract data type for extended syntax trees.
@@ -745,7 +745,7 @@ minpos2(X) ->
     X.
 
 get_line(Node) ->
-    case refac_syntax:get_pos(Node) of
+    case wrangler_syntax:get_pos(Node) of
 	L when is_integer(L) ->
 	    L;
 	{L, _} when is_integer(L) ->
@@ -761,8 +761,8 @@ get_line(Node) ->
     end.
 
 revert(Tree)->
-    try refac_syntax:revert(Tree) of
-        Res -> Res
+    try wrangler_syntax:revert(Tree) of
+           Res -> Res
     catch
         _E1:_E2 ->
             Tree

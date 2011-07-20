@@ -98,16 +98,16 @@ pre_cond_check(FileName, AnnAST, NewMacroName, Start, End, SearchPaths, TabWidth
 
 do_intro_new_macro(AnnAST, MacroName, SelExpList, NeedBracket) ->
     SelExpList1 = case NeedBracket of
-		      true -> [refac_syntax:parentheses(hd(SelExpList))];
+		      true -> [wrangler_syntax:parentheses(hd(SelExpList))];
 		      _ -> SelExpList
 		  end,
     Vars = refac_misc:collect_var_names(SelExpList),
-    Args = [refac_syntax:variable(P) || P <- Vars],
+    Args = [wrangler_syntax:variable(P) || P <- Vars],
     MName = mk_macro_name(MacroName),
     MDef = mk_macro_def(MName, Args, SelExpList1),
-    Forms = refac_syntax:form_list_elements(AnnAST),
-    {Forms1, Forms2} = lists:splitwith(fun (F) -> refac_syntax:type(F) == attribute orelse 
-						    refac_syntax:type(F) == comment
+    Forms = wrangler_syntax:form_list_elements(AnnAST),
+    {Forms1, Forms2} = lists:splitwith(fun (F) -> wrangler_syntax:type(F) == attribute orelse
+						    wrangler_syntax:type(F) == comment
 				       end, Forms),
     {S1, E1} = api_refac:start_end_loc(SelExpList),
     MApp = mk_macro_app(MName, Args),
@@ -120,29 +120,29 @@ do_intro_new_macro(AnnAST, MacroName, SelExpList, NeedBracket) ->
 	  end,
     Forms11 = [Fun(F) || F <- Forms1],
     Forms21 = [Fun(F) || F <- Forms2],
-    refac_syntax:form_list(Forms11 ++ [MDef] ++ Forms21).
+    wrangler_syntax:form_list(Forms11 ++ [MDef] ++ Forms21).
 
 mk_macro_name(MacroName) ->
     case api_refac:is_var_name(MacroName) of
-	true -> refac_syntax:variable(list_to_atom(MacroName));
-	_ -> refac_syntax:atom(list_to_atom(MacroName))
+	true -> wrangler_syntax:variable(list_to_atom(MacroName));
+	_ -> wrangler_syntax:atom(list_to_atom(MacroName))
     end.
 
 mk_macro_def(MName, Args, Exps) ->
     Exps1 =refac_misc:reset_ann_and_pos(Exps),
     case Args of
-      [] -> refac_syntax:attribute(refac_syntax:atom(define), [MName| Exps1]);
+      [] -> wrangler_syntax:attribute(wrangler_syntax:atom(define), [MName| Exps1]);
       _ ->
-	  MApp = refac_syntax:application(MName, Args),
-	  refac_syntax:attribute(refac_syntax:atom(define), [MApp| Exps1])
+	  MApp = wrangler_syntax:application(MName, Args),
+	  wrangler_syntax:attribute(wrangler_syntax:atom(define), [MApp| Exps1])
     end.
 
 mk_macro_app(MName, Args) ->
     case Args of
       [] ->
-	  refac_misc:reset_ann_and_pos(refac_syntax:macro(MName));
+	  refac_misc:reset_ann_and_pos(wrangler_syntax:macro(MName));
       _ ->
-	  refac_misc:reset_ann_and_pos(refac_syntax:macro(MName, Args))
+	  refac_misc:reset_ann_and_pos(wrangler_syntax:macro(MName, Args))
     end.
 
  
@@ -166,40 +166,40 @@ replace_single_expr_with_macro_app(Tree, {MApp, SLoc, ELoc}) ->
 
     
 replace_expr_list_with_macro_app(Tree, {MApp, SLoc, ELoc}) ->
-    case refac_syntax:type(Tree) of
+    case wrangler_syntax:type(Tree) of
       clause ->
-	  Body = refac_syntax:clause_body(Tree),
-	  Pats = refac_syntax:clause_patterns(Tree),
+	  Body = wrangler_syntax:clause_body(Tree),
+	  Pats = wrangler_syntax:clause_patterns(Tree),
 	  {NewBody, Modified} = process_exprs(Body, {MApp, SLoc, ELoc}),
 	  {NewPats, Modified1} = process_exprs(Pats, {MApp, SLoc, ELoc}),
 	  case Modified or Modified1 of
 	    true ->
-		G = refac_syntax:clause_guard(Tree),
-		{rewrite(Tree,refac_syntax:clause(NewPats, G, NewBody)), true};
+		G = wrangler_syntax:clause_guard(Tree),
+		{rewrite(Tree,wrangler_syntax:clause(NewPats, G, NewBody)), true};
 	    _ ->
 		{Tree, false}
 	  end;
       application ->
-	  Args = refac_syntax:application_arguments(Tree),
+	  Args = wrangler_syntax:application_arguments(Tree),
 	  {NewArgs, Modified} = process_exprs(Args, {MApp, SLoc, ELoc}),
 	  case Modified of
-	    true -> Op = refac_syntax:application_operator(Tree),
-		    {rewrite(Tree,refac_syntax:application(Op, NewArgs)), true};
+	    true -> Op = wrangler_syntax:application_operator(Tree),
+		    {rewrite(Tree,wrangler_syntax:application(Op, NewArgs)), true};
 	    false -> {Tree, false}
 	  end;
       tuple ->
-	  Elems = refac_syntax:tuple_elements(Tree),
+	  Elems = wrangler_syntax:tuple_elements(Tree),
 	  {NewElems, Modified} = process_exprs(Elems, {MApp, SLoc, ELoc}),
 	  case Modified of
 	    true ->
-		{rewrite(Tree, refac_syntax:tuple(NewElems)), true};
+		{rewrite(Tree, wrangler_syntax:tuple(NewElems)), true};
 	    false -> {Tree, false}
 	  end;
       block_expr ->
-	  Exprs = refac_syntax:block_expr_body(Tree),
+	  Exprs = wrangler_syntax:block_expr_body(Tree),
 	  {NewExprs, Modified} = process_exprs(Exprs, {MApp, SLoc, ELoc}),
 	  case Modified of
-	    true -> {rewrite(Tree,refac_syntax:block_expr(NewExprs)), true};
+	    true -> {rewrite(Tree,wrangler_syntax:block_expr(NewExprs)), true};
 	    _ -> {Tree, false}
 	  end;
       _ ->
@@ -268,14 +268,14 @@ need_bracket(Toks, Exprs) ->
     end.
 
 collect_names_to_avoid(AnnAST) ->
-    lists:append([collect_names_to_avoid_1(F)||F<-refac_syntax:form_list_elements(AnnAST),
-					       refac_syntax:type(F)==attribute]).
+    lists:append([collect_names_to_avoid_1(F)||F <- wrangler_syntax:form_list_elements(AnnAST),
+					       wrangler_syntax:type(F) == attribute]).
 
 collect_names_to_avoid_1(F) ->
-    ArrName =refac_syntax:atom_value(refac_syntax:attribute_name(F)),
+    ArrName =wrangler_syntax:atom_value(wrangler_syntax:attribute_name(F)),
     case lists:member(ArrName, [ifdef, ifndef]) of
 	true ->
-	    Args =refac_syntax:attribute_arguments(F),
+	    Args =wrangler_syntax:attribute_arguments(F),
 	    [list_to_atom(refac_prettypr:format(A))||A<-Args];
 	_ -> []
     end.
@@ -292,4 +292,4 @@ return_refac_result(FileName, AnnAST, Editor, Cmd, TabWidth) ->
     end.
 
 rewrite(Source, Target) ->
-    refac_syntax:copy_pos(Source, refac_syntax:copy_attrs(Source, Target)).
+    wrangler_syntax:copy_pos(Source, wrangler_syntax:copy_attrs(Source, Target)).

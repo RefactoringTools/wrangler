@@ -82,7 +82,7 @@ expand_template(TempApp) ->
              {L, _} -> L;
              _ -> Pos
          end,
-    case refac_syntax:type(Str) of 
+    case wrangler_syntax:type(Str) of
         string -> ok;
         _ ->
             erlang:error(lists:flatten(io_lib:format("The argument of the ?T macro, at line ~p, must be a string literal.", [Ln]))) 
@@ -144,7 +144,7 @@ expand_quote(QuoteApp) ->
    
 
 expand_generate_bindings(Temp, BindVar) ->
-    [TempStr]=refac_syntax:application_arguments(Temp),
+    [TempStr]=wrangler_syntax:application_arguments(Temp),
     BindVarName = erl_syntax:atom_value(BindVar),
     Pos = erl_syntax:get_pos(TempStr),
     TempAST = api_refac:parse_annotate_expr(erl_syntax:string_value(TempStr), Pos),
@@ -170,7 +170,7 @@ expand_match(Temp, Node, Cond) ->
             erlang:error(lists:flatten(io_lib:format(
                                          "The first argument of the ?MATCH macro, at line ~p, must be template.", [Ln])))
     end,
-    [TempStr]=refac_syntax:application_arguments(Temp),
+    [TempStr]=wrangler_syntax:application_arguments(Temp),
     Pos1 = erl_syntax:get_pos(TempStr),
     Op= erl_syntax:module_qualifier(erl_syntax:atom(api_refac), 
                                     erl_syntax:atom(match)),
@@ -323,7 +323,7 @@ make_match_expr_for_meta_atom_1(AtomName, Pos, BindVarName) ->
 
 expand_cond(Form) ->
     [Cond0, BindVar]=erl_syntax:application_arguments(Form),
-    BindVarName = refac_syntax:variable_name(BindVar),
+    BindVarName = wrangler_syntax:variable_name(BindVar),
     Cond = convert_meta_atom_to_meta_var(Cond0),
     {MetaVars, MetaAtoms} =  collect_meta_vars_and_atoms(Cond0),
     MatchExprs = lists:append([make_match_expr(V, P, BindVarName)||

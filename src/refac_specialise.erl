@@ -71,7 +71,7 @@ check_pre_cond_2(#args{current_file_name=File,
                                     true)],
                           FunDef),
     case lists:all(fun(P)-> 
-                           refac_syntax:type(P)==variable
+                           wrangler_syntax:type(P) == variable
                    end, NthPars) of 
         true -> 
             ok;
@@ -165,7 +165,7 @@ rule2(Args=#args{focus_sel={{M,F,A},_Expr,_Nth}}, NewFunName) ->
                                        rule1(Args, NewFunName)], F@), 
               [NewF@, NewFun]
           end,
-          refac_syntax:type(F@)==function andalso 
+          wrangler_syntax:type(F@) == function andalso
           api_refac:fun_define_info(F@) == {M,F,A}).
 
 %% transformation rule:
@@ -186,7 +186,7 @@ rule4(Args=#args{focus_sel={{_M,F,A}, _Expr, Nth}}, NewFunName) ->
                 NewBs@@=transform_in_body(Args,Bs@@,NthPar, NewFunName),
                 ?QUOTE(NewFunName++"(NewArgs@@)->NewBs@@;")
           end,
-          length(Args@@) == A andalso refac_syntax:is_atom(F@, F)).
+          length(Args@@) == A andalso wrangler_syntax:is_atom(F@, F)).
 
 transform_in_body(Args, Body, NthPar, NewFunName) ->
     {ok, Body1}=?FULL_TD_TP([rule5(Args,NthPar,NewFunName),
@@ -206,7 +206,7 @@ rule5(#args{focus_sel={{M,F,A}, Expr, Nth}},NthPar, NewFunName) ->
 rule6(#args{focus_sel={_MFA,Expr,_Nth}}, NthPar, _NewFunName) ->
     ?RULE(?T("V@"),
           Expr,
-          refac_syntax:type(V@)==variable andalso 
+          wrangler_syntax:type(V@) == variable andalso
           api_refac:variable_define_pos(V@) ==
               api_refac:variable_define_pos(NthPar)).
 
@@ -216,16 +216,16 @@ check_nth_arg(ArgList, Expr, Nth, NthPar) ->
     NthArg=lists:nth(Nth, ArgList),
     ?EQUAL(NthArg, Expr) 
         orelse
-          (refac_syntax:type(NthArg) == variable andalso
-            api_refac:variable_define_pos(NthPar) ==
-                api_refac:variable_define_pos(NthArg)).
+           (wrangler_syntax:type(NthArg) == variable andalso
+             api_refac:variable_define_pos(NthPar) ==
+                 api_refac:variable_define_pos(NthArg)).
 
 is_expr(Node) ->
     api_refac:syntax_category(Node) == expression.
 
 is_the_enclosing_app(Node, Expr) ->
-    refac_syntax:type(Node) == application andalso
-        lists:member(Expr, refac_syntax:application_arguments(Node)).
+    wrangler_syntax:type(Node) == application andalso
+        lists:member(Expr, wrangler_syntax:application_arguments(Node)).
 
 delete(N, List)->
     {L1,L2}=lists:split(N-1, List),

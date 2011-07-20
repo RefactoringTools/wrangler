@@ -239,8 +239,8 @@ reachable_mods(V={M,_F,_A}, CG) ->
 
 get_funs(File, OnlyAPIs) ->
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(File, true, []),
-    Forms = refac_syntax:form_list_elements(AnnAST),
-    MFAs = [case lists:keysearch(fun_def,1,refac_syntax:get_ann(Form)) of
+    Forms = wrangler_syntax:form_list_elements(AnnAST),
+    MFAs = [case lists:keysearch(fun_def,1,wrangler_syntax:get_ann(Form)) of
 		{value, {fun_def, {M, F, A, _, _}}} ->
 		    case refac_misc:is_callback_fun(Info,F,A) or is_gen_server_fun(Form) of
 			true -> [];
@@ -548,10 +548,10 @@ get_caller_funs(File, CalledFuns, Funs) ->
 
 called_mods(Tree) ->
     Fun = fun (T,S) ->
-		  case refac_syntax:type(T) of
+		  case wrangler_syntax:type(T) of
 		      application ->
-			  Op = refac_syntax:application_operator(T),
-			  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
+			  Op = wrangler_syntax:application_operator(T),
+			  case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Op)) of
 			      {value, {fun_def, {M, F, _A, _, _}}}
 				  when M =/= '_' andalso F =/= '_' ->
 				  ordsets:add_element(M,S);
@@ -804,25 +804,25 @@ get_dist_threshold(DistThreshold) ->
 
 used_macros_records_words(File) ->
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(File, true, []),
-    Forms = refac_syntax:form_list_elements(AnnAST),
-    [used_macros_records_words_1(F) || F <- Forms, refac_syntax:type(F)==function].
+    Forms = wrangler_syntax:form_list_elements(AnnAST),
+    [used_macros_records_words_1(F) || F <- Forms, wrangler_syntax:type(F) == function].
 
 used_macros_records_words_1(FunDef) ->
     UsedMacros = refac_misc:collect_used_macros(FunDef),
     UsedRecords = refac_misc:collect_used_records(FunDef),
-    Ann = refac_syntax:get_ann(FunDef),
+    Ann = wrangler_syntax:get_ann(FunDef),
     {value, {fun_def, {M, F, A, _, _}}} = lists:keysearch(fun_def, 1, Ann),
     Words = collect_words({M, F, A},FunDef),
     {{M,F,A}, {UsedMacros, UsedRecords, Words}}.
 
 collect_words({_M,F,_A}, FunDef) ->
     Fun = fun (Node, Acc) ->
-		  case refac_syntax:type(Node) of
+		  case wrangler_syntax:type(Node) of
 		      atom ->
-			  Name = refac_syntax:atom_value(Node),
+			  Name = wrangler_syntax:atom_value(Node),
 			  Acc++string:tokens(atom_to_list(Name), "_");
 		      variable ->
-			  Name = refac_syntax:variable_literal(Node),
+			  Name = wrangler_syntax:variable_literal(Node),
 			  Acc++string:tokens(Name, "_");
 		      _ -> Acc
 		  end
@@ -900,19 +900,19 @@ format_a_cluster({_Index, {_InMods, _OutMods, _C}}) ->
 
 
 is_attribute(F, Name) ->
-    refac_syntax:type(F) == attribute andalso
-      refac_syntax:type(refac_syntax:attribute_name(F)) == atom andalso
-	refac_syntax:atom_value(refac_syntax:attribute_name(F)) == Name.
+    wrangler_syntax:type(F) == attribute andalso
+      wrangler_syntax:type(wrangler_syntax:attribute_name(F)) == atom andalso
+	wrangler_syntax:atom_value(wrangler_syntax:attribute_name(F)) == Name.
 
 
 make_export(Names) ->
-    Es = [refac_syntax:arity_qualifier(refac_syntax:atom(F),refac_syntax:integer(A))
+    Es = [wrangler_syntax:arity_qualifier(wrangler_syntax:atom(F),wrangler_syntax:integer(A))
 	  || {F, A} <- Names],
-    refac_syntax:attribute(refac_syntax:atom('export'), [refac_syntax:list(Es)]).
+    wrangler_syntax:attribute(wrangler_syntax:atom('export'), [wrangler_syntax:list(Es)]).
 
 rewrite_export_list(FName, Cs) ->
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, []),
-    Forms = refac_syntax:form_list_elements(AnnAST),
+    Forms = wrangler_syntax:form_list_elements(AnnAST),
     {Forms1, Forms2} = case lists:splitwith(fun (F) ->
 						     not  is_attribute(F, export)
 					    end, Forms)
@@ -937,7 +937,7 @@ rewrite_export_list(FName, Cs) ->
 		      make_export(FAs)
 		  end || C <- Cs],
     NewForms = Forms1 ++ NewExports ++ Forms21,
-    refac_syntax:form_list(NewForms).
+    wrangler_syntax:form_list(NewForms).
 
 find_min_dist(Matrix) ->
     {{RowKey, ColKey}, Dist}=
@@ -1089,9 +1089,9 @@ moveability(V = {M, _F, _A}, CG, FunSizePairs) ->
 
 get_fun_size_pairs(File, SearchPaths) ->
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(File, true, SearchPaths),
-    Forms = refac_syntax:form_list_elements(AnnAST),
+    Forms = wrangler_syntax:form_list_elements(AnnAST),
     Fun = fun (Form) ->
-		  case lists:keysearch(fun_def,1,refac_syntax:get_ann(Form)) of
+		  case lists:keysearch(fun_def,1,wrangler_syntax:get_ann(Form)) of
 		      {value, {fun_def, {M, F, A, _, _}}} ->
 			  Toks = refac_misc:get_toks(Form),
 			  CodeLines = [element(1, element(2, T))
@@ -1110,13 +1110,13 @@ get_size(Vs, FunSizePairs) ->
 
 is_behaviour_file(File) ->
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(File, true, []),
-    Forms = refac_syntax:form_list_elements(AnnAST),
+    Forms = wrangler_syntax:form_list_elements(AnnAST),
     lists:any(fun (F) ->
-		      case refac_syntax:type(F) of
+		      case wrangler_syntax:type(F) of
 			  attribute ->
-			      case refac_syntax:type(refac_syntax:attribute_name(F)) of
+			      case wrangler_syntax:type(wrangler_syntax:attribute_name(F)) of
 				  atom ->
-				      refac_syntax:atom_value(refac_syntax:attribute_name(F))==behaviour;
+				      wrangler_syntax:atom_value(wrangler_syntax:attribute_name(F)) == behaviour;
 				  _ -> false
 			      end;
 			  _ -> false

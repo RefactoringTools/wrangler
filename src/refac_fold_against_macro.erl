@@ -136,7 +136,7 @@ fold_against_macro_1_1(AnnAST, [_Inst={StartLine, StartCol, EndLine, EndCol, Mac
     fold_against_macro_1_1(AnnAST1, Tail).
 
 fold_againt_macro_1_2(AnnAST, _Inst={StartLine, StartCol, EndLine, EndCol, MacroApp, MacroDef}) ->
-    Args = refac_syntax:attribute_arguments(MacroDef),
+    Args = wrangler_syntax:attribute_arguments(MacroDef),
     MacroBody = tl(Args),
     TMacroApp = transform(MacroApp),
     refac_new_macro:replace_expr_with_macro(AnnAST,{MacroBody,{StartLine,StartCol},
@@ -144,12 +144,12 @@ fold_againt_macro_1_2(AnnAST, _Inst={StartLine, StartCol, EndLine, EndCol, Macro
  
 
 search_candidate_exprs(AnnAST, MacroDef) ->
-    Args = refac_syntax:attribute_arguments(MacroDef),
+    Args = wrangler_syntax:attribute_arguments(MacroDef),
     MacroHead = refac_misc:ghead("refac_fold_against_macro:search_candiate_exprs", Args),
-    MacroParNames = case refac_syntax:type(MacroHead) of
+    MacroParNames = case wrangler_syntax:type(MacroHead) of
 			application ->
-			    Pars = refac_syntax:application_arguments(MacroHead),
-			    [refac_syntax:variable_name(A) || A <- Pars];
+			    Pars = wrangler_syntax:application_arguments(MacroHead),
+			    [wrangler_syntax:variable_name(A) || A <- Pars];
 			_ -> []
 		    end,
     MacroBody = tl(Args),
@@ -193,21 +193,21 @@ do_search_candidate_exprs_1(AnnAST, MacroBody, MacroParNames) ->
 do_search_candidate_exprs_2(AnnAST, MacroBody, MacroParNames) ->
     Len = length(MacroBody),
     Fun = fun (T, S) ->
-		  case refac_syntax:type(T) of
+		  case wrangler_syntax:type(T) of
 		      clause ->
-			  Exprs = refac_syntax:clause_body(T),
+			  Exprs = wrangler_syntax:clause_body(T),
 			  CandidateExprs = get_candidate_exprs(Exprs, Len, MacroBody, MacroParNames),
 			  S ++ lists:filter(fun (C) -> C =/= false end, CandidateExprs);
 		      block_expr ->
-			  Exprs = refac_syntax:block_expr_body(T),
+			  Exprs = wrangler_syntax:block_expr_body(T),
 			  CandidateExprs = get_candidate_exprs(Exprs, Len, MacroBody, MacroParNames),
 			  S ++ lists:filter(fun (C) -> C =/= false end, CandidateExprs);
 		      application ->
-			  Args = refac_syntax:application_arguments(T),
+			  Args = wrangler_syntax:application_arguments(T),
 			  CandidateExprs = get_candidate_exprs(Args, Len, MacroBody, MacroParNames),
 			  S ++ lists:filter(fun (C) -> C =/= false end, CandidateExprs);
 		      tuple ->
-			  Elems = refac_syntax:tuple_elements(T),
+			  Elems = wrangler_syntax:tuple_elements(T),
 			  CandidateExprs = get_candidate_exprs(Elems, Len, MacroBody, MacroParNames),
 			  S ++ lists:filter(fun (C) -> C =/= false end, CandidateExprs);
 		      _ -> S
@@ -233,21 +233,21 @@ get_candidate_exprs(Exprs, Len, MacroBody, MacroParNames) ->
 	      SubExprs).
 
 make_macro_app(MacroHead, Subst) ->
-    case refac_syntax:type(MacroHead) of
+    case wrangler_syntax:type(MacroHead) of
 	application ->
-	    Op = refac_syntax:application_operator(MacroHead),
-	    Args1 = refac_syntax:application_arguments(MacroHead),
-	    Args = [refac_syntax:variable_name(A) || A <- Args1],
+	    Op = wrangler_syntax:application_operator(MacroHead),
+	    Args1 = wrangler_syntax:application_arguments(MacroHead),
+	    Args = [wrangler_syntax:variable_name(A) || A <- Args1],
 	    Pars = lists:map(fun (P) -> case lists:keysearch(P, 1, Subst) of
 					    {value, {P, Par}} ->
 						refac_misc:reset_attrs(Par);
-					    _ -> refac_syntax:atom(undefined)
+					    _ -> wrangler_syntax:atom(undefined)
 					end
 			     end, Args),
 	    
-	    refac_syntax:macro(Op, Pars);
+	    wrangler_syntax:macro(Op, Pars);
 	_ ->
-	    refac_syntax:macro(MacroHead)
+	    wrangler_syntax:macro(MacroHead)
     end.
 
 %%=====================================================================================
@@ -298,8 +298,8 @@ pos_to_macro_define(AnnAST, Pos) ->
     end.
 
 pos_to_macro_define_1(Node, Pos) ->
-    case refac_syntax:type(Node) of
-	attribute -> case refac_syntax:atom_value(refac_syntax:attribute_name(Node)) of
+    case wrangler_syntax:type(Node) of
+	attribute -> case wrangler_syntax:atom_value(wrangler_syntax:attribute_name(Node)) of
 			 define ->
 			     {S, E} = api_refac:start_end_loc(Node),
 			     case (S =< Pos) and (Pos =< E) of

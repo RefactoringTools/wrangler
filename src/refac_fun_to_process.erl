@@ -73,7 +73,7 @@ fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor) ->
     case api_interface:pos_to_fun_def(AnnAST, {Line, Col}) of
 	{ok, FunDef} ->
 	    {value, {fun_def, {ModName, FunName, Arity, _Pos1, DefinePos}}} =
-		lists:keysearch(fun_def, 1, refac_syntax:get_ann(FunDef)),
+		lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(FunDef)),
 	    pre_cond_check(AnnAST, {Line, Col}, ModName, FunName, Arity, ProcessName1, SearchPaths, TabWidth, Cmd),
 	    AnnAST2 = do_fun_to_process(AnnAST, Info, DefinePos, FunName, Arity, ProcessName1),
 	    case Editor of
@@ -102,7 +102,7 @@ fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor, L
     ProcessName1 = list_to_atom(ProcessName),
     {ok, FunDef} = api_interface:pos_to_fun_def(AnnAST, {Line, Col}),
     {value, {fun_def, {ModName, FunName, Arity, _Pos1, DefinePos}}} =
-	lists:keysearch(fun_def, 1, refac_syntax:get_ann(FunDef)),
+	lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(FunDef)),
     AnnAST1 = do_fun_to_process(AnnAST, Info, DefinePos, FunName, Arity, ProcessName1),
     case Editor of
 	emacs ->
@@ -198,7 +198,7 @@ check_self_exprs(SelfApps, InitialFun = {_ModName, _FunName, _Arity}, SearchPath
 				     lists:member({M, F, A}, ReachedFuns)
 			     end, SelfApps),
     F1 = fun (Node, {Regs, Recs, Sends}) ->
-		 case refac_syntax:type(Node) of
+		 case wrangler_syntax:type(Node) of
 		     application ->
 			 case is_register_app(Node) of
 			     true ->
@@ -287,14 +287,14 @@ rpc_fun(NewFunName, RpcFunName) ->
 		 end.",
     {ok, Toks, _} = wrangler_scan:string(RpcFun),
     {ok, Form} =erl_parse:parse_form(Toks),
-    hd(refac_syntax:form_list_elements(
-	 refac_recomment:recomment_forms([Form], []))).
+    hd(wrangler_syntax:form_list_elements(
+	    refac_recomment:recomment_forms([Form], []))).
   
 
 do_fun_to_process_1(AnnAST, DefPos, ProcessName, FunName, NewFunName, RpcFunName) -> 				
-    Forms = refac_syntax:form_list_elements(AnnAST),
+    Forms = wrangler_syntax:form_list_elements(AnnAST),
     F = fun(Form) ->
- 		case refac_syntax:type(Form) of 
+                 case wrangler_syntax:type(Form) of
  		    function -> 
 			case get_fun_def_loc(Form) of 
 			    DefPos -> 
@@ -305,38 +305,38 @@ do_fun_to_process_1(AnnAST, DefPos, ProcessName, FunName, NewFunName, RpcFunName
  		    _ -> [Form] 
  		end
  	end,		
-    refac_syntax:form_list([T|| Form<-Forms, T <- F(Form)]).
+    wrangler_syntax:form_list([T|| Form <- Forms, T <- F(Form)]).
 
 do_fun_to_process_2(FunDef, FunName, NewFunName, RpcFunName, ProcessName)->
-    NewFunName1= refac_syntax:atom(NewFunName),
-    Cs = refac_syntax:function_clauses(FunDef),
+    NewFunName1= wrangler_syntax:atom(NewFunName),
+    Cs = wrangler_syntax:function_clauses(FunDef),
     Cs1 = lists:map(
 	    fun(C) -> 
-		    Ps = refac_syntax:clause_patterns(C), 
-		    Guard = refac_syntax:clause_guard(C),
-		    Body = refac_syntax:clause_body(C),
+		    Ps = wrangler_syntax:clause_patterns(C),
+		    Guard = wrangler_syntax:clause_guard(C),
+		    Body = wrangler_syntax:clause_body(C),
 		    LastE = lists:last(Body),
-		    Msg = refac_syntax:tuple([refac_syntax:atom(ProcessName), LastE]),
-		    Dest = refac_syntax:variable('From'),
-		    SendExp = refac_syntax:infix_expr(Dest, refac_syntax:operator('!'), Msg),
-		    RecExp = refac_syntax:application(NewFunName1, []),
+		    Msg = wrangler_syntax:tuple([wrangler_syntax:atom(ProcessName), LastE]),
+		    Dest = wrangler_syntax:variable('From'),
+		    SendExp = wrangler_syntax:infix_expr(Dest, wrangler_syntax:operator('!'), Msg),
+		    RecExp = wrangler_syntax:application(NewFunName1, []),
 		    Body1 = lists:reverse([RecExp,SendExp | tl(lists:reverse(Body))]),
-		    P = refac_syntax:tuple([refac_syntax:variable('From'), refac_syntax:tuple(Ps)]),
-		    refac_syntax:clause([P], Guard, Body1)
+		    P = wrangler_syntax:tuple([wrangler_syntax:variable('From'), wrangler_syntax:tuple(Ps)]),
+		    wrangler_syntax:clause([P], Guard, Body1)
 	    end, Cs),	
     Cs2 = lists:map(
 	    fun(C) -> 
-		    Ps = refac_syntax:clause_patterns(C), 
-		    Guard = refac_syntax:clause_guard(C),
-		    NewBody = refac_syntax:application(
-				refac_syntax:atom(RpcFunName),
-				[refac_syntax:atom(ProcessName),refac_syntax:tuple(Ps)]),
-		    refac_syntax:clause(Ps, Guard, [NewBody])
+		    Ps = wrangler_syntax:clause_patterns(C),
+		    Guard = wrangler_syntax:clause_guard(C),
+		    NewBody = wrangler_syntax:application(
+				   wrangler_syntax:atom(RpcFunName),
+				   [wrangler_syntax:atom(ProcessName),wrangler_syntax:tuple(Ps)]),
+		    wrangler_syntax:clause(Ps, Guard, [NewBody])
 	    end, Cs),
-    ReceiveExp = refac_syntax:receive_expr(Cs1),
-    C = refac_syntax:clause(none, [ReceiveExp]),		    
-    [refac_syntax:function(refac_syntax:atom(FunName), Cs2),
-     refac_syntax:function(NewFunName1, [C])].
+    ReceiveExp = wrangler_syntax:receive_expr(Cs1),
+    C = wrangler_syntax:clause(none, [ReceiveExp]),
+    [wrangler_syntax:function(wrangler_syntax:atom(FunName), Cs2),
+     wrangler_syntax:function(NewFunName1, [C])].
 
 collect_registration_and_self_apps(DirList, TabWidth) ->
     Files = refac_misc:expand_files(DirList, ".erl"),
@@ -344,16 +344,16 @@ collect_registration_and_self_apps(DirList, TabWidth) ->
 		{ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(File, true, DirList),
 		{value, {module, ModName}} = lists:keysearch(module, 1, Info),
 		F1 = fun (Node, ModAcc) ->
-			     case refac_syntax:type(Node) of
+			     case wrangler_syntax:type(Node) of
 				 function ->
-				     FunName = refac_syntax:data(refac_syntax:function_name(Node)),
-				     Arity = refac_syntax:function_arity(Node),
+				     FunName = wrangler_syntax:data(wrangler_syntax:function_name(Node)),
+				     Arity = wrangler_syntax:function_arity(Node),
 				     F2 = fun (Node1, FunAcc) ->
-						  case refac_syntax:type(Node1) of
+						  case wrangler_syntax:type(Node1) of
 						      application ->
 							  case is_register_app(Node1) of
 							      true ->
-								  [RegName, Pid] = refac_syntax:application_arguments(Node1),
+								  [RegName, Pid] = wrangler_syntax:application_arguments(Node1),
 								  RegNameValues = evaluate_expr(File, RegName, DirList, TabWidth),
 								  RegNameValues1 = [{pname, R} || R <- RegNameValues],
 								  [{pid, {{ModName, FunName, Arity}, Pid}}| RegNameValues1++FunAcc];
@@ -406,10 +406,10 @@ is_recursive_fun({ModName, FunName, Arity, FunDef}, SearchPaths) ->
     end.
 is_direct_recursive_fun(ModName, FunName, Arity, FunDef) ->
     F = fun (Node, {Mod, Fun, Ari}) ->
-		case refac_syntax:type(Node) of
+		case wrangler_syntax:type(Node) of
 		  application ->
-		      Op = refac_syntax:application_operator(Node),
-		      case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
+		      Op = wrangler_syntax:application_operator(Node),
+		      case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Op)) of
 			{value, {fun_def, {Mod, Fun, Ari, _, _}}} ->
 			    {true, true};
 			_ -> {[], false}
@@ -422,17 +422,17 @@ is_direct_recursive_fun(ModName, FunName, Arity, FunDef) ->
    
 
 get_fun_def_loc(Node) ->
-     As = refac_syntax:get_ann(Node),
+     As = wrangler_syntax:get_ann(Node),
      case lists:keysearch(fun_def, 1, As) of 
 	  {value, {fun_def, {_M, _N, _A, _P, DefinePos}}} -> DefinePos;
 	 _ -> false
      end.
 
 is_register_app(T) ->
-     case refac_syntax:type(T) of
+     case wrangler_syntax:type(T) of
        application ->
- 	  Operator = refac_syntax:application_operator(T),
- 	  Ann = refac_syntax:get_ann(Operator),
+           Operator = wrangler_syntax:application_operator(T),
+           Ann = wrangler_syntax:get_ann(Operator),
  	  case lists:keysearch(fun_def, 1, Ann) of
  	    {value, {fun_def, {erlang, register, 2, _, _}}} ->
 		  true;
@@ -443,10 +443,10 @@ is_register_app(T) ->
      end.
 
 is_self_app(T) ->
-    case refac_syntax:type(T) of
+    case wrangler_syntax:type(T) of
 	 application ->
-	     Operator = refac_syntax:application_operator(T),
-	     Ann = refac_syntax:get_ann(Operator),
+	     Operator = wrangler_syntax:application_operator(T),
+	     Ann = wrangler_syntax:get_ann(Operator),
 	     case lists:keysearch(fun_def, 1, Ann) of
 		 {value, {fun_def, {erlang, self, 0, _, _}}} -> 
 		     true;

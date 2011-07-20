@@ -95,7 +95,7 @@ register_pid(FName, Start = {Line1, Col1}, End = {Line2, Col2}, RegName, SearchP
 			    {ok, MatchExpr} ->
 				case pre_cond_check(ModName, AnnAST1, Start, MatchExpr, RegName1, Info, SearchPaths, TabWidth) of
 				    ok ->
-					Pid = refac_syntax:match_expr_pattern(MatchExpr),
+					Pid = wrangler_syntax:match_expr_pattern(MatchExpr),
 					case do_register(FName, AnnAST1, MatchExpr, Pid, RegName1, SearchPaths, TabWidth) of
 					    {ok, Results} ->
 						case Editor of
@@ -135,7 +135,7 @@ register_pid_1(FName, StartLine, StartCol, EndLine, EndCol, RegName, RegPids, Se
     {Start, End} = {{StartLine, StartCol}, {EndLine, EndCol}},
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     {ok, MatchExpr} = pos_to_spawn_match_expr(AnnAST, Start, End),
-    Pid = refac_syntax:match_expr_pattern(MatchExpr),
+    Pid = wrangler_syntax:match_expr_pattern(MatchExpr),
     RegName1 = list_to_atom(RegName),
     Res = check_registration(MatchExpr, SearchPaths, RegPids),
     case Res of
@@ -165,7 +165,7 @@ register_pid_2(FName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPaths
     {Start, End} = {{StartLine, StartCol}, {EndLine, EndCol}},
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     {ok, MatchExpr} = pos_to_spawn_match_expr(AnnAST, Start, End),
-    Pid = refac_syntax:match_expr_pattern(MatchExpr),
+    Pid = wrangler_syntax:match_expr_pattern(MatchExpr),
     RegName1 = list_to_atom(RegName),
     case do_register(FName, AnnAST, MatchExpr, Pid, RegName1, SearchPaths, TabWidth) of
 	{ok, Results} ->
@@ -194,8 +194,8 @@ register_pid_2(FName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPaths
 %% expression seleted exist during anytime of the running of the system.
 pre_cond_check(ModName, AnnAST, Start, MatchExpr, RegName, _Info, SearchPaths, TabWidth) ->
     {ok, FunDef} = api_interface:pos_to_fun_def(AnnAST, Start),
-    FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
-    Arity = refac_syntax:function_arity(FunDef),
+    FunName = wrangler_syntax:data(wrangler_syntax:function_name(FunDef)),
+    Arity = wrangler_syntax:function_arity(FunDef),
     case is_recursive_fun(SearchPaths, {ModName, FunName, Arity, FunDef}) of
 	true -> {error, "The function containing the spawn  expression is a recursive function"};
 	_ -> case pos_to_receive_expr(FunDef, Start) of
@@ -240,13 +240,13 @@ pre_cond_check(ModName, AnnAST, Start, MatchExpr, RegName, _Info, SearchPaths, T
    
 
 check_registration(MatchExpr, SearchPaths, RegPids) ->
-    Pid = refac_syntax:match_expr_pattern(MatchExpr),
-    {value, {pid, PidInfo}} = lists:keysearch(pid,1, refac_syntax:get_ann(Pid)),
-    SpawnExpr = refac_syntax:match_expr_body(MatchExpr),
+    Pid = wrangler_syntax:match_expr_pattern(MatchExpr),
+    {value, {pid, PidInfo}} = lists:keysearch(pid, 1, wrangler_syntax:get_ann(Pid)),
+    SpawnExpr = wrangler_syntax:match_expr_body(MatchExpr),
     %% functions reached from the intial function of the spawn expression.
     ReachedFuns = reached_funs(SpawnExpr, SearchPaths),
     F = fun({{M, F, A}, PidExpr}, {RegAcc, UnKnownAcc}) ->
-		Ann = refac_syntax:get_ann(PidExpr),
+		Ann = wrangler_syntax:get_ann(PidExpr),
 		case lists:keysearch(pid,1, Ann) of 
 		    {value, {pid, PidInfo1}} ->
 			case PidInfo--PidInfo1=/= PidInfo of 
@@ -275,7 +275,7 @@ check_registration(MatchExpr, SearchPaths, RegPids) ->
 
  
 reached_funs(SpawnExpr, SearchPaths) ->
-     Args = refac_syntax:application_arguments(SpawnExpr),
+     Args = wrangler_syntax:application_arguments(SpawnExpr),
      Arity = length(Args),
      InitialFuns = case (Arity==1) or (Arity==2) of 
 		       true -> Expr = lists:last(Args), 
@@ -301,10 +301,10 @@ reached_funs_1(CallerCallee, Acc) ->
     end.       
 is_direct_recursive_fun(ModName, FunName, Arity, FunDef) ->
     F = fun (Node, {ModName1, FunName1, Arity1}) ->
-		case refac_syntax:type(Node) of
+		case wrangler_syntax:type(Node) of
 		  application ->
-		      Op = refac_syntax:application_operator(Node),
-		      case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
+		      Op = wrangler_syntax:application_operator(Node),
+		      case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Op)) of
 			{value, {fun_def, {ModName1, FunName1, Arity1, _, _}}} ->
 			    {true, true};
 			_ -> {[], false}
@@ -343,16 +343,16 @@ collect_registered_names_and_pids(DirList, TabWidth) ->
 		{ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(File, true, DirList, TabWidth),
 		{value, {module, ModName}} = lists:keysearch(module, 1, Info),
 		F1 = fun (Node, ModAcc) ->
-			     case refac_syntax:type(Node) of
+			     case wrangler_syntax:type(Node) of
 				 function ->
-				     FunName = refac_syntax:data(refac_syntax:function_name(Node)),
-				     Arity = refac_syntax:function_arity(Node),
+				     FunName = wrangler_syntax:data(wrangler_syntax:function_name(Node)),
+				     Arity = wrangler_syntax:function_arity(Node),
 				     F2 = fun (Node1, FunAcc) ->
-						  case refac_syntax:type(Node1) of
+						  case wrangler_syntax:type(Node1) of
 						      application ->
 							  case is_register_app(Node1) of
 							      true ->
-								  [RegName, Pid] = refac_syntax:application_arguments(Node1),
+								  [RegName, Pid] = wrangler_syntax:application_arguments(Node1),
 								  RegNameValues = evaluate_expr(Files, ModName, AnnAST, Node, RegName),
 								  RegNameValues1 = lists:map(fun (R) -> {pname, R} end, RegNameValues),
 								  [{pid, {{ModName, FunName, Arity}, Pid}}| RegNameValues1++FunAcc];
@@ -381,10 +381,10 @@ collect_registered_names_and_pids(DirList, TabWidth) ->
     
 
 is_register_app(T) ->
-     case refac_syntax:type(T) of
+     case wrangler_syntax:type(T) of
        application ->
- 	  Operator = refac_syntax:application_operator(T),
- 	  Ann = refac_syntax:get_ann(Operator),
+           Operator = wrangler_syntax:application_operator(T),
+           Ann = wrangler_syntax:get_ann(Operator),
  	  case lists:keysearch(fun_def, 1, Ann) of
  	    {value, {fun_def, {erlang, register, 2, _, _}}} -> true;
  	    _ -> false
@@ -395,14 +395,14 @@ is_register_app(T) ->
 
 
 do_register(FName, AnnAST, MatchExpr, Pid, RegName, SearchPaths, TabWidth) ->
-    Ann = refac_syntax:get_ann(Pid),
-   {value, PidInfo} = lists:keysearch(pid, 1, Ann),
-   {AnnAST1, Modified} = add_register_expr(AnnAST, MatchExpr, RegName),
-   case Modified of 
-       true ->  Res = refactor_send_exprs(FName, AnnAST1, PidInfo, RegName, SearchPaths, TabWidth),
-	       {ok, Res};	    
-       _ -> {error, "Wrangler failed to add the registration expression."}
-   end.
+    Ann = wrangler_syntax:get_ann(Pid),
+    {value, PidInfo} = lists:keysearch(pid, 1, Ann),
+    {AnnAST1, Modified} = add_register_expr(AnnAST, MatchExpr, RegName),
+    case Modified of
+        true -> Res = refactor_send_exprs(FName, AnnAST1, PidInfo, RegName, SearchPaths, TabWidth),
+	        {ok, Res};
+        _ -> {error, "Wrangler failed to add the registration expression."}
+    end.
 
 refactor_send_exprs(FName, AnnAST, PidInfo, RegName, SearchPaths, TabWidth) ->
     {AnnAST1, _} = api_ast_traverse:stop_tdTP(fun do_refactor_send_exprs/2, AnnAST, {PidInfo, RegName}),
@@ -420,27 +420,27 @@ refactor_send_exprs(FName, AnnAST, PidInfo, RegName, SearchPaths, TabWidth) ->
     [{{FName, FName}, AnnAST1}| Results].
 
 do_refactor_send_exprs(Node, {PidInfo, RegName}) ->
-     case refac_syntax:type(Node) of 
-	infix_expr -> Dest = refac_syntax:infix_expr_left(Node),
-		      Op = refac_syntax:infix_expr_operator(Node),
-		      Msg = refac_syntax:infix_expr_right(Node),
-		      Ann = refac_syntax:get_ann(Dest),
+     case wrangler_syntax:type(Node) of
+	infix_expr -> Dest = wrangler_syntax:infix_expr_left(Node),
+		      Op = wrangler_syntax:infix_expr_operator(Node),
+		      Msg = wrangler_syntax:infix_expr_right(Node),
+		      Ann = wrangler_syntax:get_ann(Dest),
 		      case lists:keysearch(pid, 1, Ann) of 
 			  {value, PidInfo} ->
-			      Node1 = refac_syntax:infix_expr(refac_syntax:atom(RegName), Op, Msg),
-			      {refac_syntax:copy_attrs(Node, Node1), true};
+			      Node1 = wrangler_syntax:infix_expr(wrangler_syntax:atom(RegName), Op, Msg),
+			      {wrangler_syntax:copy_attrs(Node, Node1), true};
 			  _ -> {Node, false}
 		      end;
-	application -> Operator = refac_syntax:application_operator(Node),
-		       Ann = refac_syntax:get_ann(Operator),
+	application -> Operator = wrangler_syntax:application_operator(Node),
+		       Ann = wrangler_syntax:get_ann(Operator),
 		       case lists:keysearch(fun_def,1,Ann) of 
 			   {value, {fun_def, {erlang, send, 2, _, _}}} ->
-			       [ReceiverPid, Msg]=refac_syntax:application_arguments(Node),
-			       Ann = refac_syntax:get_ann(ReceiverPid),
+			       [ReceiverPid, Msg]=wrangler_syntax:application_arguments(Node),
+			       Ann = wrangler_syntax:get_ann(ReceiverPid),
 			       case lists:keysearch(pid,1,Ann) of 
 				   {value, PidInfo} ->
-				       Node1 = refac_syntax:application(Operator, [refac_syntax:atom(RegName), Msg]),
-				       {refac_syntax:copy_attrs(Node, Node1), true};
+				       Node1 = wrangler_syntax:application(Operator, [wrangler_syntax:atom(RegName), Msg]),
+				       {wrangler_syntax:copy_attrs(Node, Node1), true};
 				   _ -> {Node,false}
 			       end;
 			   _ -> {Node,false}
@@ -448,9 +448,9 @@ do_refactor_send_exprs(Node, {PidInfo, RegName}) ->
 	_  -> {Node, false}
     end.
 add_register_expr(AnnAST, MatchExpr, RegName) ->
-    Pid = refac_syntax:match_expr_pattern(MatchExpr),
-    RegExpr = refac_syntax:application(refac_syntax:atom(register),
-				       [refac_syntax:atom(RegName), Pid]),
+    Pid = wrangler_syntax:match_expr_pattern(MatchExpr),
+    RegExpr = wrangler_syntax:application(wrangler_syntax:atom(register),
+				          [wrangler_syntax:atom(RegName), Pid]),
     api_ast_traverse:stop_tdTP(fun do_add_register_expr/2, AnnAST, {MatchExpr, RegExpr}).
     
     
@@ -464,15 +464,15 @@ do_add_register_expr(Node, {MatchExpr, RegExpr}) ->
 					end
 			      end, Body)
 	end,
-    case refac_syntax:type(Node) of 
+    case wrangler_syntax:type(Node) of
 	clause -> 
-	    P = refac_syntax:clause_patterns(Node),
-	    B = refac_syntax:clause_body(Node),
-	    G = refac_syntax:clause_guard(Node),
+	    P = wrangler_syntax:clause_patterns(Node),
+	    B = wrangler_syntax:clause_body(Node),
+	    G = wrangler_syntax:clause_guard(Node),
 	    B1 = F(B),
 	    case length(B1) == length(B) of
 		true -> {Node, false};
-		_ -> Node1 = refac_syntax:clause(P,G, B1),
+		_ -> Node1 = wrangler_syntax:clause(P, G, B1),
 		     {Node1, true}
 	    end;
 	_  -> {Node, false}
@@ -480,12 +480,12 @@ do_add_register_expr(Node, {MatchExpr, RegExpr}) ->
 
 evaluate_expr(Files, ModName, AnnAST, FunDef, Expr) ->
     F = fun (E) ->
-		Es = [refac_syntax:revert(E)],
+		Es = [wrangler_syntax:revert(E)],
 		case catch erl_eval:exprs(Es, []) of
 		    {value, V, _} -> {value, V};
 		    _ ->
-			FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
-			Arity = refac_syntax:function_arity(FunDef),
+			FunName = wrangler_syntax:data(wrangler_syntax:function_name(FunDef)),
+			Arity = wrangler_syntax:function_arity(FunDef),
 			{StartPos, _} = api_refac:start_end_loc(Expr),
 			{unknown, {ModName, FunName, Arity, StartPos}}
 		end
@@ -500,31 +500,31 @@ funs_called(Node) ->
     HandleSpecialFuns = fun (Arguments, S) ->
 				case Arguments of
 				    [M, F, A] ->
-					case {refac_syntax:type(M), refac_syntax:type(F), refac_syntax:type(A)} of
+					case {wrangler_syntax:type(M), wrangler_syntax:type(F), wrangler_syntax:type(A)} of
 					    {atom, atom, list} ->
-						ModName = refac_syntax:atom_value(M),
-						FunName = refac_syntax:atom_value(F),
-						Arity = refac_syntax:list_length(A),
+						ModName = wrangler_syntax:atom_value(M),
+						FunName = wrangler_syntax:atom_value(F),
+						Arity = wrangler_syntax:list_length(A),
 						ordsets:add_element({ModName, FunName, Arity}, S);
 					    _ -> S
 					end;
 				    [M, F, A, _O] ->
-					case {refac_syntax:type(M), refac_syntax:type(F), refac_syntax:type(A)} of
+					case {wrangler_syntax:type(M), wrangler_syntax:type(F), wrangler_syntax:type(A)} of
 					    {atom, atom, list} ->
-						ModName = refac_syntax:atom_value(M),
-						FunName = refac_syntax:atom_value(F),
-						Arity = refac_syntax:list_length(A),
+						ModName = wrangler_syntax:atom_value(M),
+						FunName = wrangler_syntax:atom_value(F),
+						Arity = wrangler_syntax:list_length(A),
 						ordsets:add_element({ModName, FunName, Arity}, S);
 					    _ -> S
 					end
 				end
 			end,
     F2 = fun (T, S) ->
-		 case refac_syntax:type(T) of
+		 case wrangler_syntax:type(T) of
 		     application ->
-			 Op = refac_syntax:application_operator(T),
-			 Args = refac_syntax:application_arguments(T),
-			 case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
+			 Op = wrangler_syntax:application_operator(T),
+			 Args = wrangler_syntax:application_arguments(T),
+			 case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Op)) of
 			     {value, {fun_def, {M, F, A, _, _}}} ->
 				 S1 = ordsets:add_element({M, F, A}, S),
 				 case {M, F, A} of
@@ -546,11 +546,11 @@ pos_to_spawn_match_expr(AnnAST, Start, End) ->
     Message = "You have not selected a match expression whose left-hand side is a PID, and right-hand side is a spawn expression!",
     case api_interface:pos_to_expr(AnnAST, Start, End) of
 	{ok, Expr} ->
-	    case refac_syntax:type(Expr) of
+	    case wrangler_syntax:type(Expr) of
 		match_expr ->
-		    P = refac_syntax:match_expr_pattern(Expr),
-		    B = refac_syntax:match_expr_body(Expr),
-		    case {refac_misc:is_spawn_app(B), refac_syntax:type(P) == variable} of
+		    P = wrangler_syntax:match_expr_pattern(Expr),
+		    B = wrangler_syntax:match_expr_body(Expr),
+		    case {refac_misc:is_spawn_app(B), wrangler_syntax:type(P) == variable} of
 			{true, true} ->
 			    {ok, Expr};
 			_ -> {error, Message}
@@ -563,7 +563,7 @@ pos_to_spawn_match_expr(AnnAST, Start, End) ->
 %% TODO: REFACTOR THE FOLLOWING TWO FUNCTIONS.
 pos_to_receive_expr(FunDef, Start) ->
     F = fun (T, Acc) ->
-		case refac_syntax:type(T) == receive_expr of
+		case wrangler_syntax:type(T) == receive_expr of
 		    true -> [T| Acc];
 		    _ -> Acc
 		end
@@ -576,7 +576,7 @@ pos_to_receive_expr(FunDef, Start) ->
 
 pos_to_list_comp_expr(FunDef, Start) ->
     F = fun (T, Acc) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    list_comp -> [T| Acc];
 		    _ -> Acc
 		end

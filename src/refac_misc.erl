@@ -224,7 +224,7 @@ default_incls() ->
 
 %%-spec(get_toks(Node::syntaxTree())-> [token()]).
 get_toks(Node) ->
-    As = refac_syntax:get_ann(Node),
+    As = wrangler_syntax:get_ann(Node),
     case lists:keysearch(toks, 1, As) of
       {value, {toks, Toks}} -> Toks;
       _ -> []
@@ -239,9 +239,9 @@ reset_attrs(Node) when is_list(Node) ->
 reset_attrs(Node) ->
     api_ast_traverse:full_buTP(
       fun (T, _Others) ->
-              T1=refac_syntax:set_ann(
-                   refac_syntax:set_pos(T, {0,0}), []),
-              refac_syntax:remove_comments(T1)
+              T1=wrangler_syntax:set_ann(
+                      wrangler_syntax:set_pos(T, {0,0}), []),
+              wrangler_syntax:remove_comments(T1)
       end, Node, {}).
 		
 
@@ -254,19 +254,19 @@ reset_attrs(Node) ->
 
 %%-spec(update_ann(Node::syntaxTree(), {Key::atom(), Val::anyterm()}) -> syntaxTree()).
 update_ann(Tree, {Key, Val}) ->
-    As0 = refac_syntax:get_ann(Tree),
+    As0 = wrangler_syntax:get_ann(Tree),
     As1 = case lists:keysearch(Key, 1, As0) of
 	    {value, _} -> lists:keyreplace(Key, 1, As0, {Key, Val});
 	    _ -> As0 ++ [{Key, Val}]
 	  end,
-    refac_syntax:set_ann(Tree, As1).
+    wrangler_syntax:set_ann(Tree, As1).
 
 
 %%-spec(delete_from_ann(Node::syntaxTree(), Key::atom()) -> syntaxTree()).
 delete_from_ann(Tree, Key) ->
-    As0=refac_syntax:get_ann(Tree),
+    As0=wrangler_syntax:get_ann(Tree),
     As1 = lists:keydelete(Key, 1,As0),
-    refac_syntax:set_ann(Tree, As1).
+    wrangler_syntax:set_ann(Tree, As1).
 
 
 %% =====================================================================
@@ -308,15 +308,15 @@ is_callback_fun(ModInfo, Funname, Arity) ->
  
 %%-spec rewrite(syntaxTree(), syntaxTree())->syntaxTree().
 rewrite(Tree, Tree1) ->
-    refac_syntax:copy_attrs(Tree, Tree1).
+    wrangler_syntax:copy_attrs(Tree, Tree1).
 
 rewrite_with_wrapper(Tree, Tree1)->
     {Start, End} = get_start_end_loc_with_comment(Tree),
-    refac_syntax:set_pos(
-      update_ann(
-        refac_syntax:tree(fake_parentheses, Tree1),
-        {range, {Start, End}}),
-      Start).
+    wrangler_syntax:set_pos(
+         update_ann(
+           wrangler_syntax:tree(fake_parentheses, Tree1),
+           {range, {Start, End}}),
+         Start).
 
 max(X,Y) when X>Y ->
      X;
@@ -352,12 +352,12 @@ format_file_names_1([F|T]) ->
     end.	 
 
 funname_to_defpos(AnnAST, {M, F, A}) ->
-    Forms=refac_syntax:form_list_elements(AnnAST),
-    DefPs=lists:usort(lists:append([case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Form)) of
+    Forms=wrangler_syntax:form_list_elements(AnnAST),
+    DefPs=lists:usort(lists:append([case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Form)) of
 			   {value, {fun_def, {M, F, A, _, DefPos}}} ->
 			       [DefPos];
 			   _ -> []
-		       end||Form<-Forms, refac_syntax:type(Form)==function])),
+		                    end||Form <- Forms, wrangler_syntax:type(Form) == function])),
     case length(DefPs) of 
 	1 ->
 	    {ok, hd(DefPs)};
@@ -370,10 +370,10 @@ funname_to_defpos(AnnAST, {M, F, A}) ->
    
 is_spawn_app(Tree) ->
     SpawnFuns1 =  spawn_funs(),
-    case refac_syntax:type(Tree) of
+    case wrangler_syntax:type(Tree) of
 	application ->
-	    Operator = refac_syntax:application_operator(Tree),
-	    Ann = refac_syntax:get_ann(Operator),
+	    Operator = wrangler_syntax:application_operator(Tree),
+	    Ann = wrangler_syntax:get_ann(Operator),
 	    case lists:keysearch(fun_def, 1, Ann) of
 		{value, {fun_def, {Mod, Fun, Arity, _, _}}} -> 
                     lists:member({Mod, Fun, Arity}, SpawnFuns1);
@@ -511,13 +511,13 @@ get_start_end_loc_with_comment(Node) when is_list(Node) ->
     {Start, End};
 get_start_end_loc_with_comment(Node) ->
     {Start={_StartLn, StartCol}, End} = api_refac:start_end_loc(Node),
-    PreCs = refac_syntax:get_precomments(Node),
-    PostCs = refac_syntax:get_postcomments(Node),
+    PreCs = wrangler_syntax:get_precomments(Node),
+    PostCs = wrangler_syntax:get_postcomments(Node),
     Start1 = case PreCs of
                  [] -> 
                      Start;
                  _ ->
-                     {StartLn1, StartCol1}=refac_syntax:get_pos(hd(PreCs)),
+                     {StartLn1, StartCol1}=wrangler_syntax:get_pos(hd(PreCs)),
                      {StartLn1, lists:max([StartCol, StartCol1])}
              end,
     End1 = case PostCs of
@@ -525,8 +525,8 @@ get_start_end_loc_with_comment(Node) ->
                    End;
                _ ->
                    LastC = lists:last(PostCs),
-                   LastCText = refac_syntax:comment_text(LastC),
-                   {L, C}=refac_syntax:get_pos(LastC),
+                   LastCText = wrangler_syntax:comment_text(LastC),
+                   {L, C}=wrangler_syntax:get_pos(LastC),
                    {L+length(LastCText)-1, C+length(lists:last(LastCText))-1}
            end,
     {Start1, End1}.
@@ -537,7 +537,7 @@ reset_pos(Node) when is_list(Node) ->
 reset_pos(Node) ->
     api_ast_traverse:full_buTP(
       fun (T, _Others) ->
-              refac_syntax:set_pos(T, {0,0})
+              wrangler_syntax:set_pos(T, {0,0})
       end, Node, {}).
 
 reset_ann_and_pos(Node) when is_list(Node) ->
@@ -545,8 +545,8 @@ reset_ann_and_pos(Node) when is_list(Node) ->
 reset_ann_and_pos(Node) ->
     api_ast_traverse:full_buTP(
       fun (T, _Others) ->
-              refac_syntax:set_ann(
-                refac_syntax:set_pos(T, {0,0}), [])
+              wrangler_syntax:set_ann(
+                   wrangler_syntax:set_pos(T, {0,0}), [])
       end, Node, {}).
 
 reset_ann(Node) when is_list(Node) ->
@@ -554,18 +554,18 @@ reset_ann(Node) when is_list(Node) ->
 reset_ann(Node) ->
     api_ast_traverse:full_buTP(
       fun (T, _Others) ->
-              refac_syntax:set_ann(T, [])
+              wrangler_syntax:set_ann(T, [])
       end, Node, {}).
 
 
 reset_pos_and_range(Node) when is_list(Node) ->
     [reset_pos_and_range(N)||N<-Node];
 reset_pos_and_range(Node) ->
-    case refac_syntax:is_tree(Node) orelse refac_syntax:is_wrapper(Node) of
+    case wrangler_syntax:is_tree(Node) orelse wrangler_syntax:is_wrapper(Node) of
         true ->
-            refac_syntax:set_pos(
-              refac_misc:update_ann(Node, {range, {{0,0},{0,0}}}),
-              {0,0});
+            wrangler_syntax:set_pos(
+                 refac_misc:update_ann(Node, {range, {{0,0},{0,0}}}),
+                 {0,0});
         false ->
             Node
     end.
@@ -574,7 +574,7 @@ reset_pos_and_range(Node) ->
 %%		      term().
 try_eval(none, Node, _, _) ->
     try
-      erl_eval:exprs([refac_syntax:revert(Node)], [])
+      erl_eval:exprs([wrangler_syntax:revert(Node)], [])
     of
       {value, Val, _} -> {value, Val}
     catch
@@ -583,7 +583,7 @@ try_eval(none, Node, _, _) ->
     end;
 try_eval(FileName, Node, SearchPaths, TabWidth) ->
     try
-        erl_eval:exprs([refac_syntax:revert(Node)], [])
+        erl_eval:exprs([wrangler_syntax:revert(Node)], [])
     of
         {value, Val, _} -> {value, Val}
     catch
@@ -642,7 +642,7 @@ token_loc(T) ->
 
 has_macros(Node) ->
     F = fun (N, _Others) ->
-		case refac_syntax:type(N) of
+		case wrangler_syntax:type(N) of
 		  macro -> {N, true};
 		  _ -> {[], false}
 		end
@@ -659,12 +659,12 @@ collect_var_source_def_pos_info(Nodes) when is_list(Nodes) ->
     lists:flatmap(fun (N) -> collect_var_source_def_pos_info(N) end, Nodes);
 collect_var_source_def_pos_info(Node) ->
     F = fun (T, S) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    variable ->
-			SourcePos = refac_syntax:get_pos(T),
-			case lists:keysearch(def, 1, refac_syntax:get_ann(T)) of
+			SourcePos = wrangler_syntax:get_pos(T),
+			case lists:keysearch(def, 1, wrangler_syntax:get_ann(T)) of
 			    {value, {def, DefinePos}} ->
-				VarName = refac_syntax:variable_name(T),
+				VarName = wrangler_syntax:variable_name(T),
 				S ++ [{VarName, SourcePos, DefinePos}];
 			    _ ->
 				S
@@ -677,19 +677,19 @@ collect_var_source_def_pos_info(Node) ->
 %%-spec collect_var_names(syntaxTree()|[syntaxTree()]) ->
 %%			       [atom()].
 collect_var_names(Node) when is_list(Node) ->
-    collect_var_names_1(refac_syntax:block_expr(Node));
+    collect_var_names_1(wrangler_syntax:block_expr(Node));
 collect_var_names(Node) ->
     collect_var_names_1(Node).
 
 collect_var_names_1(Node) ->
     F = fun (N, S) ->
-		case refac_syntax:type(N) of
+		case wrangler_syntax:type(N) of
 		    variable ->
-			Ann = refac_syntax:get_ann(N),
+			Ann = wrangler_syntax:get_ann(N),
                         case lists:keysearch(syntax_path, 1, Ann) of
 			    {value, {syntax_path, macro_name}} -> S;
 			    _ ->
-				VarName = refac_syntax:variable_name(N),
+				VarName = wrangler_syntax:variable_name(N),
 				ordsets:add_element(VarName, S)
 			end;
 		    _ -> S
@@ -701,12 +701,12 @@ collect_var_names_1(Node) ->
 %%				 [atom()].
 collect_used_macros(Node) ->
     F = fun (T, S) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    macro ->
-			Name = refac_syntax:macro_name(T),
-			case refac_syntax:type(Name) of
-			    variable -> [refac_syntax:variable_name(Name)| S];
-			    atom -> [refac_syntax:atom_value(Name)| S]
+			Name = wrangler_syntax:macro_name(T),
+			case wrangler_syntax:type(Name) of
+			    variable -> [wrangler_syntax:variable_name(Name)| S];
+			    atom -> [wrangler_syntax:atom_value(Name)| S]
 			end;
 		    _ -> S
 		end
@@ -716,26 +716,26 @@ collect_used_macros(Node) ->
 %%-spec collect_used_records(syntaxTree())-> [atom()].
 collect_used_records(Node) ->
     Fun = fun (T, S) ->
-		  case refac_syntax:type(T) of
+		  case wrangler_syntax:type(T) of
 		      record_access ->
-			  Type = refac_syntax:record_access_type(T),
-			  case refac_syntax:type(Type) of
+			  Type = wrangler_syntax:record_access_type(T),
+			  case wrangler_syntax:type(Type) of
 			      atom ->
-				  ordsets:add_element(refac_syntax:atom_value(Type), S);
+				  ordsets:add_element(wrangler_syntax:atom_value(Type), S);
 			      _ -> S
 			  end;
 		      record_expr ->
-			  Type = refac_syntax:record_expr_type(T),
-			  case refac_syntax:type(Type) of
+			  Type = wrangler_syntax:record_expr_type(T),
+			  case wrangler_syntax:type(Type) of
 			      atom ->
-				  ordsets:add_element(refac_syntax:atom_value(Type), S);
+				  ordsets:add_element(wrangler_syntax:atom_value(Type), S);
 			      _ -> S
 			  end;
 		      record_index_expr ->
-			  Type = refac_syntax:record_index_expr_type(T),
-			  case refac_syntax:type(Type) of
+			  Type = wrangler_syntax:record_index_expr_type(T),
+			  case wrangler_syntax:type(Type) of
 			      atom ->
-				  ordsets:add_element(refac_syntax:atom_value(Type), S);
+				  ordsets:add_element(wrangler_syntax:atom_value(Type), S);
 			      _ -> S
 			  end;
 		      _ -> S
@@ -777,23 +777,23 @@ test_framework_used(FileName) ->
     case refac_epp_dodger:parse_file(FileName, []) of
       {ok, Forms} ->
 	  Strs = lists:flatmap(fun (F) ->
-				       case refac_syntax:type(F) of
+				       case wrangler_syntax:type(F) of
 					   attribute ->
-					       Name = refac_syntax:attribute_name(F),
-					       Args = refac_syntax:attribute_arguments(F),
-					       case refac_syntax:type(Name) of
+					       Name = wrangler_syntax:attribute_name(F),
+					       Args = wrangler_syntax:attribute_arguments(F),
+					       case wrangler_syntax:type(Name) of
 					       atom ->
-						       AName = refac_syntax:atom_value(Name),
-						   case AName == include orelse AName == include_lib of
-						       true ->
-							   lists:flatmap(fun (A) -> case A of
-											{string, _, Str} -> [Str];
-											_ -> []
-										    end
-									 end, Args);
-						       _ -> []
-						   end;
-						   _ -> []
+						       AName = wrangler_syntax:atom_value(Name),
+						       case AName == include orelse AName == include_lib of
+						           true ->
+							       lists:flatmap(fun (A) -> case A of
+											    {string, _, Str} -> [Str];
+											    _ -> []
+										        end
+									     end, Args);
+						           _ -> []
+						       end;
+					       _ -> []
 					       end;
 					   _ -> []
 				       end
@@ -818,14 +818,14 @@ test_framework_used(FileName) ->
 
 
 is_macro_name(Node) ->
-    Ann = refac_syntax:get_ann(Node),
+    Ann = wrangler_syntax:get_ann(Node),
     {value, {syntax_path, macro_name}} == 
         lists:keysearch(syntax_path, 1, Ann).
 
 
 
 is_literal(Node) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
         atom -> true;
         integer -> true;
         float -> true;

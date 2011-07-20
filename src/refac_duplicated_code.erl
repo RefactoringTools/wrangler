@@ -309,12 +309,12 @@ process_a_file(File, Cs, MinLength, TabWidth) ->
     {ok, {AnnAST, _}} = wrangler_ast_server:parse_annotate_file(File, true, [], TabWidth),
     Vars = refac_misc:collect_var_source_def_pos_info(AnnAST),
     Fun0 = fun (Node) ->
-		   case refac_syntax:type(Node) of
+		   case wrangler_syntax:type(Node) of
 		       function ->
 			   true;
 		       _ ->
-			     (api_refac:is_expr(Node) orelse refac_syntax:type(Node) == match_expr)
-			    andalso refac_syntax:type(Node) /= guard_expression
+			      (api_refac:is_expr(Node) orelse wrangler_syntax:type(Node) == match_expr)
+			   andalso wrangler_syntax:type(Node) /= guard_expression
 		   end
 	   end,
     Fun1 = fun (Range) ->
@@ -349,14 +349,14 @@ process_a_unit(VarsUsed, FileName, Unit) ->
 
 %%-spec(pos_to_syntax_units(syntaxTree(),pos(),pos(),function(), integer()) ->[syntaxTree()]).
 pos_to_syntax_units(Tree, Start, End, F, MinLength) ->
-    Type = refac_syntax:type(Tree),
+    Type = wrangler_syntax:type(Tree),
     Res = pos_to_syntax_units_1(Tree, Start, End, F, Type),
     filter_syntax_units(Res, MinLength).
 
 pos_to_syntax_units_1(Tree, Start, End, F, Type) ->
     Fun = fun (Node) ->
-		  Ts = refac_syntax:subtrees(Node),
-		  Type1 = refac_syntax:type(Node),
+		  Ts = wrangler_syntax:subtrees(Node),
+		  Type1 = wrangler_syntax:type(Node),
 		  [[lists:append(pos_to_syntax_units_1(T, Start, End, F, Type1)) || T <- G]
 		   || G <- Ts]
 	  end,
@@ -394,7 +394,7 @@ filter_syntax_units(Es, MinLength) ->
 		  end
 	  end,
     Fun2 = fun (Exprs) ->
-		   BlockExpr = refac_syntax:block_expr(Exprs),
+		   BlockExpr = wrangler_syntax:block_expr(Exprs),
 		   Str = refac_prettypr:format(BlockExpr),
 		   num_of_tokens_in_string(Str)
 	   end,
@@ -418,7 +418,7 @@ filter_syntax_units_1(Es) ->
 
 %% number of tokens in AST(s).
 num_of_tokens(Exprs) ->
-    BlockExpr = refac_syntax:block_expr(Exprs),
+    BlockExpr = wrangler_syntax:block_expr(Exprs),
     Str = refac_prettypr:format(BlockExpr),
     num_of_tokens_in_string(Str).
 
@@ -602,11 +602,11 @@ expr_anti_unification(Exp1, Exp2, Expr2ExportedVars) ->
       do_expr_anti_unification(Exp1, Exp2)
     of
       SubSt ->
-	    EVs1 = [{refac_syntax:variable_name(E1), get_var_define_pos(E1)}
-		    || {E1, E2} <- SubSt, refac_syntax:type(E2) == variable,
-		       lists:member({refac_syntax:variable_name(E2), get_var_define_pos(E2)}, Expr2ExportedVars)],
-	    SubSt1 = [{E1, E2} || {E1, E2} <- SubSt, refac_syntax:type(E1) /= variable 
-                                      orelse refac_misc:is_macro_name(E1)],
+	    EVs1 = [{wrangler_syntax:variable_name(E1), get_var_define_pos(E1)}
+		    || {E1, E2} <- SubSt, wrangler_syntax:type(E2) == variable,
+		       lists:member({wrangler_syntax:variable_name(E2), get_var_define_pos(E2)}, Expr2ExportedVars)],
+	    SubSt1 = [{E1, E2} || {E1, E2} <- SubSt, wrangler_syntax:type(E1) /= variable
+                                     orelse refac_misc:is_macro_name(E1)],
 	    Nodes = group_substs(SubSt1),
 	    {Nodes, EVs1}
     catch
@@ -624,7 +624,7 @@ group_subst_nodes(GroupedNodeLists) ->
     H = hd(GroupedNodeLists),
     group_subst_nodes(tl(GroupedNodeLists),[ordsets:from_list(L)|| L<-H]).
 group_subst_nodes([], Acc) ->
-    Res = [{L1, lists:min([refac_syntax:get_pos(E) || E <- L1])}
+    Res = [{L1, lists:min([wrangler_syntax:get_pos(E) || E <- L1])}
 	   || L <- Acc, L1 <- [ordsets:to_list(L)], L1 /= []],
     element(1, lists:unzip(lists:keysort(2, Res)));
 group_subst_nodes([L| T], Acc) ->
@@ -659,8 +659,8 @@ do_expr_anti_unification(Exp1, Exp2) ->
     end.
 
 do_expr_anti_unification_1(Exp1, Exp2) ->
-    T1 = refac_syntax:type(Exp1),
-    T2 = refac_syntax:type(Exp2),
+    T1 = wrangler_syntax:type(Exp1),
+    T2 = wrangler_syntax:type(Exp2),
     case refac_misc:is_literal(Exp1) andalso refac_misc:is_literal(Exp2) of
 	true ->
 	  do_anti_unify_literals(Exp1, Exp2);
@@ -697,18 +697,18 @@ do_expr_anti_unification_1(Exp1, Exp2) ->
     end.
 
 do_anti_unify_macros(Exp1, Exp2) ->
-    MacroName1 =refac_code_search_utils:identifier_name(refac_syntax:macro_name(Exp1)),
-    MacroName2 =refac_code_search_utils:identifier_name(refac_syntax:macro_name(Exp2)),
+    MacroName1 =refac_code_search_utils:identifier_name(wrangler_syntax:macro_name(Exp1)),
+    MacroName2 =refac_code_search_utils:identifier_name(wrangler_syntax:macro_name(Exp2)),
     case MacroName1 == MacroName2 of 
 	true ->
-	    case refac_syntax:macro_arguments(Exp1) of
+	    case wrangler_syntax:macro_arguments(Exp1) of
 		none -> [];
 		_ -> SubTrees1 = erl_syntax:macro_arguments(Exp1),
 		     SubTrees2 = erl_syntax:macro_arguments(Exp2),
 		     do_expr_anti_unification(SubTrees1, SubTrees2)
 	    end;
 	false ->
-	    case refac_syntax:macro_arguments(Exp1) of
+	    case wrangler_syntax:macro_arguments(Exp1) of
 		none ->
 		    [{Exp1, Exp2}];
 		_ ->
@@ -717,8 +717,8 @@ do_anti_unify_macros(Exp1, Exp2) ->
     end.
        
 do_anti_unify_literals(Exp1, Exp2) ->
-    T1 = refac_syntax:type(Exp1),
-    T2 = refac_syntax:type(Exp2),
+    T1 = wrangler_syntax:type(Exp1),
+    T2 = wrangler_syntax:type(Exp2),
     case {T1, T2} of
 	{atom, atom} -> do_anti_unify_atoms(Exp1, Exp2);
 	{_, _} -> 
@@ -732,15 +732,15 @@ do_anti_unify_literals(Exp1, Exp2) ->
 do_anti_unify_atoms(Exp1, Exp2) ->
     case has_the_same_value(Exp1, Exp2) of
       true ->
-	  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Exp1)) of
+	  case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Exp1)) of
 	    {value, {fun_def, {M, _, A, _, _}}} ->
-		case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Exp2)) of
+		case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Exp2)) of
 		  {value, {fun_def, {M, _, A, _, _}}} ->
 		      [];
 		  _ -> [{Exp1, Exp2}]
 		end;
 	    false ->
-		case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Exp2)) of
+		case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Exp2)) of
 		  {value, {fun_def, _}} ->
 		      [{Exp1, Exp2}];
 		  false ->
@@ -757,38 +757,38 @@ do_anti_unify_atoms(Exp1, Exp2) ->
     end.
 
 has_the_same_value(Node1, Node2) ->
-    refac_syntax:concrete(Node1)==refac_syntax:concrete(Node2).
+    wrangler_syntax:concrete(Node1) == wrangler_syntax:concrete(Node2).
 
 %%===============================================
 generalise_expr({[], _}, _) ->
     {"", 0};
 generalise_expr({Exprs = [H| _T], EVs}, {NodeVarPairs, VarsToExport}) ->
-    case refac_syntax:type(H) of
+    case wrangler_syntax:type(H) of
 	function ->
 	    generalise_fun(H, NodeVarPairs);
 	_ ->
-	    FunName = refac_syntax:atom(new_fun),
+	    FunName = wrangler_syntax:atom(new_fun),
 	    FVs = lists:ukeysort(2, api_refac:free_vars(Exprs)),
 	    EVs1 = lists:ukeysort(2, EVs ++ VarsToExport),
 	    NewExprs = generalise_expr_1(Exprs, NodeVarPairs),
 	    NewExprs1 = case EVs1 of
 			    [] -> NewExprs;
-			    [{V, _}] -> E = refac_syntax:variable(V),
+			    [{V, _}] -> E = wrangler_syntax:variable(V),
 					NewExprs ++ [E];
-			    [_V| _Vs] -> E = refac_syntax:tuple([refac_syntax:variable(V) || {V, _} <- EVs1]),
+			    [_V| _Vs] -> E = wrangler_syntax:tuple([wrangler_syntax:variable(V) || {V, _} <- EVs1]),
 					 NewExprs ++ [E]
 			end,
 	    NewVars = refac_misc:collect_var_names(NewExprs) -- refac_misc:collect_var_names(Exprs),
-	    Pars = [refac_syntax:variable(V) || {V, _} <- FVs] ++ 
-		     [refac_syntax:variable(V) || V <- NewVars],
+	    Pars = [wrangler_syntax:variable(V) || {V, _} <- FVs] ++
+		     [wrangler_syntax:variable(V) || V <- NewVars],
 	    Pars1 = refac_misc:remove_duplicates(Pars),
-	    C = refac_syntax:clause(Pars1, none, NewExprs1),
-	    {refac_prettypr:format(refac_syntax:function(FunName, [C])), length(Pars1)}
+	    C = wrangler_syntax:clause(Pars1, none, NewExprs1),
+	    {refac_prettypr:format(wrangler_syntax:function(FunName, [C])), length(Pars1)}
     end.
 
 generalise_fun(F, NodesToGen) ->
-    FunName = refac_syntax:function_name(F),
-    Cs = refac_syntax:function_clauses(F),
+    FunName = wrangler_syntax:function_name(F),
+    Cs = wrangler_syntax:function_clauses(F),
     {Cs1, NewVars} = lists:unzip(
 		       lists:map(
 			 fun (C) ->
@@ -800,17 +800,17 @@ generalise_fun(F, NodesToGen) ->
     NewVars1 = refac_misc:remove_duplicates(lists:append(NewVars)),
     NewCs = [generalise_clause(C, NewVars1) || C <- Cs1],
     %% Here only count the new vars.
-    {refac_prettypr:format(refac_syntax:function(FunName, NewCs)), length(NewVars)}.
+    {refac_prettypr:format(wrangler_syntax:function(FunName, NewCs)), length(NewVars)}.
 
 generalise_clause(C, NewVars) ->
-    Pats = refac_syntax:clause_patterns(C),
-    NewPats = Pats ++ [refac_syntax:variable(V) || V <- NewVars],
-    Guards = refac_syntax:clause_guard(C),
-    Body = refac_syntax:clause_body(C),
-    refac_syntax:clause(NewPats, Guards, Body).
+    Pats = wrangler_syntax:clause_patterns(C),
+    NewPats = Pats ++ [wrangler_syntax:variable(V) || V <- NewVars],
+    Guards = wrangler_syntax:clause_guard(C),
+    Body = wrangler_syntax:clause_body(C),
+    wrangler_syntax:clause(NewPats, Guards, Body).
 
 generalise_expr_1(Expr, NodesToGen) when is_list(Expr)->
-    refac_syntax:block_expr_body(generalise_expr_1(refac_syntax:block_expr(Expr), NodesToGen));
+    wrangler_syntax:block_expr_body(generalise_expr_1(wrangler_syntax:block_expr(Expr), NodesToGen));
 generalise_expr_1(Expr, NodesToGen) ->
     generalise_expr_2(Expr, NodesToGen).
    
@@ -820,12 +820,12 @@ generalise_expr_2(Expr, NodesToGen) ->
 do_replace_expr_with_var_1(Node, NodeVarPairs) ->
     case lists:keysearch(Node,1, NodeVarPairs) of
 	{value, {Node, Var}}-> 
-	    {refac_syntax:variable(Var), true};
+	    {wrangler_syntax:variable(Var), true};
 	_ -> {Node, false}
     end.
     
 get_var_define_pos(V) ->
-    case  lists:keysearch(def,1, refac_syntax:get_ann(V)) of
+    case  lists:keysearch(def, 1, wrangler_syntax:get_ann(V)) of
 	{value, {def, DefinePos}} -> DefinePos;
 	false -> []
     end.

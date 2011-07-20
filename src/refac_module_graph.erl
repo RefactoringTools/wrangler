@@ -105,12 +105,12 @@ get_called_mods(File, SearchPaths) ->
 %%      ->{[modulename()], [modulename()]}).
 do_collect_called_mods(AnnAST, ModNames) ->
     Fun1 = fun (T, Acc) ->
-		   case refac_syntax:type(T) of
+		   case wrangler_syntax:type(T) of
 		       atom ->
-			   As = refac_syntax:get_ann(T),
+			   As = wrangler_syntax:get_ann(T),
 			   case lists:keysearch(type, 1, As) of
 			       {value, {type, m_atom}} ->
-				   ModName = refac_syntax:atom_value(T),
+				   ModName = wrangler_syntax:atom_value(T),
 				   ordsets:add_element(ModName, Acc);
 			       _ -> Acc
 			   end;
@@ -191,7 +191,7 @@ analyze_mod_with_called_funs({Mod, Dir}, ModNames, SearchPaths) ->
 
 collect_called_modules_with_called_funs(ModName, AnnAST, ModNames) ->
     CalledFuns= lists:append([wrangler_callgraph_server:called_funs(F)
-			      ||F<-refac_syntax:form_list_elements(AnnAST)]),
+			      ||F <- wrangler_syntax:form_list_elements(AnnAST)]),
     [{M, [{F,A}]}||{M, F, A}<-CalledFuns, M/=ModName, lists:member(M, ModNames)].
 
 group_by_mod_names(ModFuns) ->

@@ -71,27 +71,27 @@ check_unsure_atoms(FileName, FileAST, AtomNames, AtomType, Pid) ->
 
 collect_unsure_atoms_in_file(FileAST, AtomNames, AtomType) ->
     F = fun (T) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    function ->
                         collect_unsure_atoms(T, AtomNames, AtomType);
 		    _ -> []
 		end
 	end,
-    R = lists:usort(lists:flatmap(F, refac_syntax:form_list_elements(FileAST))),
+    R = lists:usort(lists:flatmap(F, wrangler_syntax:form_list_elements(FileAST))),
     [Pos || {atom, Pos, _} <- R].
 
 collect_unsure_atoms(Tree, AtomNames, AtomType) ->
     F = fun (Node,S) ->
-		case refac_syntax:type(Node) of
+		case wrangler_syntax:type(Node) of
 		    atom ->
-			AtomVal = refac_syntax:atom_value(Node),
+			AtomVal = wrangler_syntax:atom_value(Node),
 			case lists:member(AtomVal, AtomNames) of
 			    true ->
-				Pos = refac_syntax:get_pos(Node),
+				Pos = wrangler_syntax:get_pos(Node),
 				case Pos ==0 orelse Pos=={0,0} of
 				    true -> S;
 				    false ->
-                                        As = refac_syntax:get_ann(Node),
+                                        As = wrangler_syntax:get_ann(Node),
                                         case lists:keysearch(type, 1, As) of
 					    {value, {type,{f_atom, [M, _F, A]}}} ->
                                                 case AtomType of 
@@ -180,7 +180,7 @@ output_not_renamed_atom_info(FileAndPositions) ->
 output_renamed_atom_info(FileAndExprs) ->
     Fun = fun ({FileName, Exprs}) ->
 		  Fun0 = fun (Expr) ->
-				 Pos = refac_syntax:get_pos(Expr),
+				 Pos = wrangler_syntax:get_pos(Expr),
 				 FileName ++ io_lib:format(":~p: ", [Pos])
 				   ++ refac_prettypr:format(Expr) ++ "\n"
 			 end,

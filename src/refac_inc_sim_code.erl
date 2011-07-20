@@ -317,12 +317,12 @@ generalise_and_hash_file_ast(File, Threshold, Tabs, ASTPid, HashPid, SearchPaths
 generalise_and_hash_file_ast_1(FName, Threshold, Tabs, ASTPid, HashPid, IsNewFile, SearchPaths, TabWidth) ->
     Forms = try wrangler_ast_server:quick_parse_annotate_file(FName, SearchPaths, TabWidth) of
 		{ok, {AnnAST, _Info}} ->
-		    refac_syntax:form_list_elements(AnnAST)
+		    wrangler_syntax:form_list_elements(AnnAST)
 	    catch
 		_E1:_E2 -> []
 	    end,
     F = fun (Form) ->
-		case refac_syntax:type(Form) of
+		case wrangler_syntax:type(Form) of
 		    function ->
 			%% only process function definitions.
 			generalise_and_hash_function_ast(Form, FName, IsNewFile, Threshold, Tabs, ASTPid, HashPid);
@@ -334,8 +334,8 @@ generalise_and_hash_file_ast_1(FName, Threshold, Tabs, ASTPid, HashPid, IsNewFil
 
 %% generalise and hash the AST of a single function.
 generalise_and_hash_function_ast(Form, FName, IsNewFile, Threshold, Tabs, ASTPid, HashPid) ->
-    FunName = refac_syntax:atom_value(refac_syntax:function_name(Form)),
-    Arity = refac_syntax:function_arity(Form),
+    FunName = wrangler_syntax:atom_value(wrangler_syntax:function_name(Form)),
+    Arity = wrangler_syntax:function_arity(Form),
     HashVal = erlang:md5(format(Form)),
     case IsNewFile of
 	true ->
@@ -348,7 +348,7 @@ generalise_and_hash_function_ast(Form, FName, IsNewFile, Threshold, Tabs, ASTPid
 		    %% Same Hash value means that this function has not be
 		    %% syntactically changed, but location might be changed.
 		    %% StartLine is used to get the absolute location of the function.
-		    {StartLine, _} = refac_syntax:get_pos(Form),
+		    {StartLine, _} = wrangler_syntax:get_pos(Form),
 		    quick_hash_function(ASTPid, {{FName, FunName, Arity}, StartLine});
 		%% function has been changed since last run of clone detection.
 		[{{FName, FunName, Arity}, _HashVal, _VarInfo}] ->
@@ -362,7 +362,7 @@ generalise_and_hash_function_ast(Form, FName, IsNewFile, Threshold, Tabs, ASTPid
 
 %% generalise and hash a function that is either new or has been changed since last run of clone detection.
 generalise_and_hash_function_ast_1(FName, Form, FunName, Arity, HashVal, Threshold, Tabs, ASTPid, HashPid) ->
-    {StartLine, _} = refac_syntax:get_pos(Form),
+    {StartLine, _} = wrangler_syntax:get_pos(Form),
     %% Turn absolute locations to relative locations, so 
     %% so that the result can be reused.
     Form1 = absolute_to_relative_loc(Form, StartLine),
@@ -386,17 +386,17 @@ generalise_and_hash_function_ast_2(Node, {FName, FunName, Arity, ASTPid, _HashPi
 			ok
 		end
 	end,
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
       clause ->
-	  Body = refac_syntax:clause_body(Node),
+	  Body = wrangler_syntax:clause_body(Node),
 	  F(Body),
 	  {Node, false};
       block_expr ->
-	  Body = refac_syntax:block_expr_body(Node),
+	  Body = wrangler_syntax:block_expr_body(Node),
 	  F(Body),
 	  {Node, false};
       try_expr ->
-	  Body = refac_syntax:try_expr_body(Node),
+	  Body = wrangler_syntax:try_expr_body(Node),
 	  F(Body),
 	  {Node, false};
       _ -> {Node, false}
@@ -504,7 +504,7 @@ do_generalise(Node) ->
     F0 = fun (T, _Others) ->
 		 case refac_code_search_utils:generalisable(T) of
 		   true ->
-		       {refac_syntax:variable('Var'), true};
+		       {wrangler_syntax:variable('Var'), true};
 		   false -> {T, false}
 		 end
 	 end,
@@ -842,7 +842,7 @@ do_anti_unification_1(E1, E2) ->
 subst_sanity_check(Expr1, SubSt) ->
     BVs = api_refac:bound_vars(Expr1),
     F = fun ({E1, E2}) ->
-		case refac_syntax:type(E1) of
+		case wrangler_syntax:type(E1) of
 		    variable ->
                         case is_macro_name(E1) of 
                             true -> 
@@ -857,17 +857,17 @@ subst_sanity_check(Expr1, SubSt) ->
     lists:all(F, SubSt).
 
 has_same_subst(E1, E2, SubSt) ->
-    E1Ann = refac_syntax:get_ann(E1),
+    E1Ann = wrangler_syntax:get_ann(E1),
     {value, {def, DefPos}} = lists:keysearch(def, 1, E1Ann),
     %% local vars should have the same substitute.
      not  lists:any(
 	    fun ({E11, E21}) ->
-		    refac_syntax:type(E11) == variable andalso 
-		      {value, {def, DefPos}} == lists:keysearch(
-						  def, 1, refac_syntax:get_ann(E11))
-			 andalso 
-		      format(E2)
-			=/= format(E21)
+		  wrangler_syntax:type(E11) == variable andalso
+		    {value, {def, DefPos}} == lists:keysearch(
+						def, 1, wrangler_syntax:get_ann(E11))
+		      andalso
+		    format(E2)
+		     =/= format(E21)
 	  end, SubSt).
 
 %% process anti-unification result.
@@ -943,16 +943,16 @@ get_clone_pairs([CurPair = {_E1,_E2,SubSt}| AURes],Thresholds,
 get_var_subst(SubSt) ->
     F = fun ({E1, E2}) ->
 		{value, {def, DefPos}} =
-		    lists:keysearch(def, 1, refac_syntax:get_ann(E1)),
+		    lists:keysearch(def, 1, wrangler_syntax:get_ann(E1)),
 		{DefPos, format(E2)}
 	end,
     [F({E1,E2})
      || {E1,E2} <- SubSt,
-	refac_syntax:type(E1)==variable,
+	wrangler_syntax:type(E1) == variable,
 	 not  is_macro_name(E1)].
 
 is_macro_name(Exp) ->
-    Ann = refac_syntax:get_ann(Exp),
+    Ann = wrangler_syntax:get_ann(Exp),
     {value, {syntax_path, macro_name}} == 
         lists:keysearch(syntax_path, 1, Ann).
 
@@ -1161,8 +1161,8 @@ get_one_clone_class_1(RangeWithExprAST, _ClonePair = {Range1, Range2, Subst}, Ta
 	    VarsToExport2 = get_vars_to_export(Exprs2, {FName, FunName, Arity}, VarTab),
 	    %% Exprs from the first member of the clone pair which are going to 
             %% be replaced by new variables, and the new variables will be exported.
-	    EVs = [E1 || {E1, E2} <- SubSubst, refac_syntax:type(E2) == variable,
-			 lists:member({refac_syntax:variable_name(E2), get_var_define_pos(E2)},
+	    EVs = [E1 || {E1, E2} <- SubSubst, wrangler_syntax:type(E2) == variable,
+			 lists:member({wrangler_syntax:variable_name(E2), get_var_define_pos(E2)},
 				      VarsToExport2)],
 	    %% EVs are variables from Exprs1 that need to be exported.
 	    NumOfNewVars = num_of_new_vars(SubSubst),
@@ -1213,11 +1213,11 @@ group_clone_pairs([CP={C={_R, _EVs, Subst}, NumOfNewVars}|T], Thresholds, ExprsT
 %% This is not accurate, and will be improved!
 exprs_to_be_generalised(SubSt) ->
     sets:from_list([format(E1)
-		    || {E1,_E2} <- SubSt, refac_syntax:type(E1)/=variable]).
+		    || {E1,_E2} <- SubSt, wrangler_syntax:type(E1) /= variable]).
 
 num_of_new_vars(SubSt) ->
     length(lists:usort([{format(E1), format(E2)}
-			|| {E1,E2} <- SubSt, refac_syntax:type(E1)/=variable])).
+			|| {E1,E2} <- SubSt, wrangler_syntax:type(E1) /= variable])).
 
 
 format(Node) ->
@@ -1237,9 +1237,9 @@ attach_fun_call_to_range(RangesWithAST,{AU, Pars}, FromSameFile) ->
 
 generate_fun_call_1(RangeWithAST, AUForm, FromSameFile) ->
     {Range, Exprs} = lists:unzip(RangeWithAST),
-    AUFunClause=hd(refac_syntax:function_clauses(AUForm)),
-    Pats = refac_syntax:clause_patterns(AUFunClause),
-    AUBody = refac_syntax:clause_body(AUFunClause),
+    AUFunClause=hd(wrangler_syntax:function_clauses(AUForm)),
+    Pats = wrangler_syntax:clause_patterns(AUFunClause),
+    AUBody = wrangler_syntax:clause_body(AUFunClause),
     try 
 	%% it would be a bug if this does not match. 
 	{true, Subst} = 
@@ -1260,52 +1260,52 @@ generate_fun_call_1(RangeWithAST, AUForm, FromSameFile) ->
 
 make_fun_call(FunName, Pats, Subst, FromSameFile) ->
     Fun = fun (P) ->
-		  case refac_syntax:type(P) of
+		  case wrangler_syntax:type(P) of
 		      variable ->
-			  PName = refac_syntax:variable_name(P),
+			  PName = wrangler_syntax:variable_name(P),
 			  case lists:keysearch(PName, 1, Subst) of
 			      {value, {PName, Par}} ->
-				  case refac_syntax:type(Par) of
+				  case wrangler_syntax:type(Par) of
 				      atom ->
 					  case FromSameFile of
 					      true -> Par;
 					      false ->
-						  As = refac_syntax:get_ann(Par),
+						  As = wrangler_syntax:get_ann(Par),
 						  case lists:keysearch(fun_def, 1, As) of
 						      {value, {fun_def, {M, _F, A, _, _}}} ->
 							  case M== erlang orelse M=='_' of
 							      true ->
 								  Par;
 							      false ->
-								  Mod = refac_syntax:atom(M),
-								  ModQualifier = refac_syntax:module_qualifier(Mod, Par),
-								  refac_syntax:implicit_fun(ModQualifier, refac_syntax:integer(A))
+								  Mod = wrangler_syntax:atom(M),
+								  ModQualifier = wrangler_syntax:module_qualifier(Mod, Par),
+								  wrangler_syntax:implicit_fun(ModQualifier, wrangler_syntax:integer(A))
 							  end;
 						      _ -> Par
 						  end
 					  end;
 				      module_qualifier ->
-					  As = refac_syntax:get_ann(Par),
+					  As = wrangler_syntax:get_ann(Par),
 					  case lists:keysearch(fun_def, 1, As) of
 					      {value, {fun_def, {_M, _F, A, _, _}}} ->
-						  refac_syntax:implicit_fun(Par, refac_syntax:integer(A));
+						  wrangler_syntax:implicit_fun(Par, wrangler_syntax:integer(A));
 					      _ -> Par   %% This should not happen!
 					  end;
 				      application ->
-					  refac_syntax:fun_expr([refac_syntax:clause([], none, [Par])]);
+					  wrangler_syntax:fun_expr([wrangler_syntax:clause([], none, [Par])]);
 				      _ -> Par
 				  end;
 			      _ ->
-				  refac_syntax:atom(undefined)
+				  wrangler_syntax:atom(undefined)
 			  end;
 		      underscore ->
-			  refac_syntax:atom(undefined);
+			  wrangler_syntax:atom(undefined);
 		      _ -> P
 		  end
 	  end,
     Pars = lists:map(Fun, Pats),
-    Op = refac_syntax:atom(FunName),
-    refac_misc:reset_attrs(refac_syntax:application(Op, [P || P <- Pars])).
+    Op = wrangler_syntax:atom(FunName),
+    refac_misc:reset_attrs(wrangler_syntax:application(Op, [P || P <- Pars])).
 
 	 
 
@@ -1366,7 +1366,7 @@ is_sub_ranges(Ranges1, Ranges2) ->
 
 
 get_var_define_pos(V) ->
-    {value, {def, DefinePos}} = lists:keysearch(def,1, refac_syntax:get_ann(V)),
+    {value, {def, DefinePos}} = lists:keysearch(def, 1, wrangler_syntax:get_ann(V)),
     DefinePos.
 
 get_anti_unifier({Exprs, SubSt, ExportVars}, FromSameFile) ->
@@ -1388,21 +1388,21 @@ post_process_anti_unifier(FunAST) ->
     FunAST1.
 
 do_post_process_anti_unifier(Node, _Others) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
 	application ->
-	    Operator = refac_syntax:application_operator(Node),
-	    Arguments = refac_syntax:application_arguments(Node),
-	    case refac_syntax:type(Operator) of
+	    Operator = wrangler_syntax:application_operator(Node),
+	    Arguments = wrangler_syntax:application_arguments(Node),
+	    case wrangler_syntax:type(Operator) of
 		atom ->
-		    As = refac_syntax:get_ann(Operator),
+		    As = wrangler_syntax:get_ann(Operator),
 		    {value, {fun_def, {M, _F, _A, _, _}}} = lists:keysearch(fun_def,1,As),
 		    case M== erlang orelse M=='_' of
 			true ->
 			    {Node, false};
 			false ->
-			    Mod = refac_syntax:atom(M),
-			    Operator1 = refac_misc:rewrite(Operator, refac_syntax:module_qualifier(Mod, Operator)),
-			    Node1 = refac_misc:rewrite(Node, refac_syntax:application(Operator1, Arguments)),
+			    Mod = wrangler_syntax:atom(M),
+			    Operator1 = refac_misc:rewrite(Operator, wrangler_syntax:module_qualifier(Mod, Operator)),
+			    Node1 = refac_misc:rewrite(Node, wrangler_syntax:application(Operator1, Arguments)),
 			    {Node1, false}
 		    end;
 		_ ->
@@ -1493,7 +1493,7 @@ remove_short_clones(_C={Rs, {Len, _Freq}}, MinToks, MinFreq) ->
 
    
 no_of_tokens(Node) when is_list(Node)->
-    Str = format(refac_syntax:block_expr(Node)),
+    Str = format(wrangler_syntax:block_expr(Node)),
     {ok, Toks, _}=wrangler_scan:string(Str, {1,1}, 8, unix),
     length(Toks)-2;
 no_of_tokens(Node) ->
@@ -1523,11 +1523,11 @@ absolute_to_relative_loc(AST, OffLine) ->
 					   AST, OffLine),
     AST1.
 do_abs_to_relative_loc(Node, OffLine) ->
-    As = refac_syntax:get_ann(Node),
+    As = wrangler_syntax:get_ann(Node),
     As1 = [abs_to_relative_loc_in_ann(A, OffLine) || A <- As],
-    {L, C} = refac_syntax:get_pos(Node),
-    Node1 = refac_syntax:set_pos(Node, {to_relative(L, OffLine), C}),
-    {refac_syntax:set_ann(Node1, As1), true}.
+    {L, C} = wrangler_syntax:get_pos(Node),
+    Node1 = wrangler_syntax:set_pos(Node, {to_relative(L, OffLine), C}),
+    {wrangler_syntax:set_ann(Node1, As1), true}.
 
 abs_to_relative_loc_in_ann(Ann, StartLine) ->
     case Ann of
@@ -1564,23 +1564,23 @@ to_relative(Line, _StartLine) ->
 %% currently, only check the last two expressions, and simplify:
 %% Pats = Expr, Pats  to  Expr.
 simplify_anti_unifier(AUForm) ->
-    AUFunClause=hd(refac_syntax:function_clauses(AUForm)),
-    FunName = refac_syntax:function_name(AUForm),
-    Pats = refac_syntax:clause_patterns(AUFunClause),
-    AUBody = refac_syntax:clause_body(AUFunClause),
+    AUFunClause=hd(wrangler_syntax:function_clauses(AUForm)),
+    FunName = wrangler_syntax:function_name(AUForm),
+    Pats = wrangler_syntax:clause_patterns(AUFunClause),
+    AUBody = wrangler_syntax:clause_body(AUFunClause),
     AUBody1 = simplify_anti_unifier_body(AUBody),
-    C = refac_syntax:clause(Pats, none, AUBody1),
-    NewAU=refac_syntax:function(FunName, [C]),
+    C = wrangler_syntax:clause(Pats, none, AUBody1),
+    NewAU=wrangler_syntax:function(FunName, [C]),
     format(NewAU).
     
 simplify_anti_unifier_body(AUBody) when length(AUBody)<2 ->
     AUBody;
 simplify_anti_unifier_body(AUBody) ->
     [E1,E2|Exprs] = lists:reverse(AUBody),
-    case refac_syntax:type(E2) of
+    case wrangler_syntax:type(E2) of
 	match_expr ->
-	    {E2Pat, E2Body} = {refac_syntax:match_expr_pattern(E2),
-			       refac_syntax:match_expr_body(E2)},
+	    {E2Pat, E2Body} = {wrangler_syntax:match_expr_pattern(E2),
+			       wrangler_syntax:match_expr_body(E2)},
 	    case same_expr(E2Pat, E1) of
 		true ->
 		    lists:reverse([E2Body|Exprs]);

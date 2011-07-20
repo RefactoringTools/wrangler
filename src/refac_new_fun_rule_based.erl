@@ -104,7 +104,7 @@ rule1(Args=#args{focus_sel=Exprs, user_inputs=[NewFunName]}) ->
                                   ++format_tuple(ExVars)++".")]
               end 
           end,
-          refac_syntax:type(F@)==function andalso contains(F@, Exprs)).
+          wrangler_syntax:type(F@) == function andalso contains(F@, Exprs)).
 
 rule2(_Args=#args{focus_sel=Exprs, user_inputs=[NewFunName]}) ->
     ?RULE(?T("E@"), 

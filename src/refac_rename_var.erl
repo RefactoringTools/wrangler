@@ -166,8 +166,8 @@ pos_to_form(Node, Pos) ->
     end.
 
 pos_to_form_1(Node, Pos) ->
-    case refac_syntax:type(Node) == function
-	    orelse refac_syntax:type(Node) == attribute
+    case wrangler_syntax:type(Node) == function
+	   orelse wrangler_syntax:type(Node) == attribute
 	of
 	true ->
 	    {S, E} = api_refac:start_end_loc(Node),
@@ -186,12 +186,12 @@ rename(Tree, DefinePos, NewName) ->
 
 %% =====================================================================
 do_rename(Node, {DefinePos, NewName}) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
       variable ->
-	  As = refac_syntax:get_ann(Node),
+	  As = wrangler_syntax:get_ann(Node),
 	  case lists:keysearch(def, 1, As) of
 	    {value, {def, DefinePos}} ->
-		{refac_syntax:set_name(Node, NewName), true};
+		{wrangler_syntax:set_name(Node, NewName), true};
 	    _ -> {Node, false}
 	  end;
       _ -> {Node, false}
@@ -202,7 +202,7 @@ do_rename(Node, {DefinePos, NewName}) ->
 %% bound as well as the variables that are free in the subtree.
 envs_bounds_frees(Node) ->
     F = fun (T, B) ->
-		As = refac_syntax:get_ann(T),
+		As = wrangler_syntax:get_ann(T),
 		EnVars = case lists:keysearch(env, 1, As) of
 			     {value, {env, EnVars1}} -> EnVars1;
 			     _ -> []

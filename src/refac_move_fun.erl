@@ -167,7 +167,7 @@ move_fun_1(FName, Line, Col, TargetModorFileName, CondCheck, SearchPaths, TabWid
     case api_interface:pos_to_fun_def(AnnAST, {Line, Col}) of
 	{ok, Def} ->
 	    {value, {fun_def, {ModName, FunName, Arity, _Pos1, _Pos2}}} =
-		lists:keysearch(fun_def, 1, refac_syntax:get_ann(Def)),
+		lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Def)),
 	    move_fun_2(CurModInfo, [{ModName, FunName, Arity}], TargetModorFileName,
 		       CondCheck, SearchPaths, TabWidth, Editor, Cmd);
 	{error, _Reason} ->
@@ -186,7 +186,7 @@ move_fun_2(CurModInfo, MFAs, TargetModorFileName, CheckCond, SearchPaths, TabWid
 				true;
 			_ -> false
 		    end,
-    Forms = refac_syntax:form_list_elements(CurModInfo#module_info.ast),
+    Forms = wrangler_syntax:form_list_elements(CurModInfo#module_info.ast),
     FunDefs = [{get_fun_mfa(F), F} || F <- Forms, defines(F, MFAs)],
     case FunDefs of
 	[] ->  throw({error, "You have not selected a well-formed function definition or an export attribute."});
@@ -249,7 +249,7 @@ do_transformation(CurModInfo, TargetModInfo, MFAs, {UnDefinedMs, UnDefinedRs},
 		  FunsToExportInCurMod, FunsToExportInTargetMod, Pid,
 		  SearchPaths, TabWidth)->
     FileName=CurModInfo#module_info.filename,
-    Forms = refac_syntax:form_list_elements(CurModInfo#module_info.ast),
+    Forms = wrangler_syntax:form_list_elements(CurModInfo#module_info.ast),
     AttrsToAdd = get_attrs(Forms, UnDefinedMs, UnDefinedRs, TargetModInfo#module_info.includes),
     GroupedForms = group_forms(Forms),
     %% FormsToBeMoved = [F || F <- Forms, defines(F, MFAs) orelse type_specifies(F, MFAs)],
@@ -296,7 +296,7 @@ transform_a_form_to_be_moved(Form, Args) ->
 
 do_transform_fun(Node, {FileName, MFAs = [{ModName, _, _}| _T], TargetModName,
 			InScopeFunsInTargetMod, SearchPaths, TabWidth, Pid}) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
 	application -> transform_application_node(FileName, Node, MFAs, TargetModName, 
 						  InScopeFunsInTargetMod, SearchPaths, TabWidth);
 	implicit_fun -> transform_implicit_fun_node(Node, MFAs, ModName, TargetModName);
@@ -305,30 +305,30 @@ do_transform_fun(Node, {FileName, MFAs = [{ModName, _, _}| _T], TargetModName,
     end.
 
 transform_implicit_fun_node(Node, MFAs, ModName, TargetModName) ->
-    Name = refac_syntax:implicit_fun_name(Node),
-    case refac_syntax:type(Name) of
+    Name = wrangler_syntax:implicit_fun_name(Node),
+    case wrangler_syntax:type(Name) of
       arity_qualifier -> 
 	    transform_arity_qualifier_node(Node, MFAs, ModName, Name);
       module_qualifier ->
-	  Name = refac_syntax:implicit_fun_name(Node),
-	  Mod = refac_syntax:module_qualifier_argument(Name),
-	  Body = refac_syntax:module_qualifier_body(Name),
-	  case refac_syntax:type(Mod) of
+	  Name = wrangler_syntax:implicit_fun_name(Node),
+	  Mod = wrangler_syntax:module_qualifier_argument(Name),
+	  Body = wrangler_syntax:module_qualifier_body(Name),
+	  case wrangler_syntax:type(Mod) of
 	    atom ->
-		case refac_syntax:atom_value(Mod) of
+		case wrangler_syntax:atom_value(Mod) of
 		  ModName ->
-		      B = refac_syntax:arity_qualifier_body(Body),
-		      A = refac_syntax:arity_qualifier_argument(Body),
-		      case {refac_syntax:type(B), refac_syntax:type(A)} of
+		      B = wrangler_syntax:arity_qualifier_body(Body),
+		      A = wrangler_syntax:arity_qualifier_argument(Body),
+		      case {wrangler_syntax:type(B), wrangler_syntax:type(A)} of
 			{atom, integer} ->
-			    {F1, A1} = {refac_syntax:atom_value(Body), refac_syntax:integer_value(A)},
+			    {F1, A1} = {wrangler_syntax:atom_value(Body), wrangler_syntax:integer_value(A)},
 			    case lists:member({ModName, F1, A1}, MFAs) of
 			      true ->
 				  {copy_pos_attrs(Node,
-						  refac_syntax:implicit_fun(
-						    copy_pos_attrs(
-						      Name, refac_syntax:module_qualifier(
-							      copy_pos_attrs(Mod, refac_syntax:atom(TargetModName)), Body)))),
+						  wrangler_syntax:implicit_fun(
+						       copy_pos_attrs(
+						         Name, wrangler_syntax:module_qualifier(
+							            copy_pos_attrs(Mod, wrangler_syntax:atom(TargetModName)), Body)))),
 				   true};
 			      false -> {Node, false}
 			    end;
@@ -342,30 +342,30 @@ transform_implicit_fun_node(Node, MFAs, ModName, TargetModName) ->
     end.
 
 transform_arity_qualifier_node(Node, MFAs, ModName, Name) ->
-    Body = refac_syntax:arity_qualifier_body(Name),
-    A = refac_syntax:arity_qualifier_argument(Name),
-    case {refac_syntax:type(Body), refac_syntax:type(A)} of
+    Body = wrangler_syntax:arity_qualifier_body(Name),
+    A = wrangler_syntax:arity_qualifier_argument(Name),
+    case {wrangler_syntax:type(Body), wrangler_syntax:type(A)} of
       {atom, integer} ->
-	  {F1, A1} = {refac_syntax:atom_value(Body), refac_syntax:integer_value(A)},
+	  {F1, A1} = {wrangler_syntax:atom_value(Body), wrangler_syntax:integer_value(A)},
 	  case lists:member({ModName, F1, A1}, MFAs) of
 	    true ->
 		{Node, false};
 	    false ->
 		{copy_pos_attrs(Node,
-				refac_syntax:implicit_fun(
-				  copy_pos_attrs(Name, refac_syntax:module_qualifier(
-							 refac_syntax:atom(ModName), Name)))), true}
+				wrangler_syntax:implicit_fun(
+				     copy_pos_attrs(Name, wrangler_syntax:module_qualifier(
+							       wrangler_syntax:atom(ModName), Name)))), true}
 	  end;
       _ -> {Node, false}
     end.
 
 transform_application_node(FileName, Node, MFAs, TargetModName,
 			   InScopeFunsInTargetMod, SearchPaths, TabWidth) ->
-    Op = refac_syntax:application_operator(Node),
-    Args = refac_syntax:application_arguments(Node),
-    case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
+    Op = wrangler_syntax:application_operator(Node),
+    Args = wrangler_syntax:application_arguments(Node),
+    case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Op)) of
 	{value, {fun_def, {M, F, A, _, _}}} ->
-	    case refac_syntax:type(Op) of
+	    case wrangler_syntax:type(Op) of
 		atom ->
 		    case lists:keysearch({M, F, A}, 1, refac_misc:apply_style_funs()) of
 			{value, _} ->
@@ -376,10 +376,10 @@ transform_application_node(FileName, Node, MFAs, TargetModName,
 				true ->
 				    {Node, false};
 				_ when M =/= '_' ->
-				    Op1 = copy_pos_attrs(Op, refac_syntax:module_qualifier(refac_syntax:atom(M), Op)),
-				    {copy_pos_attrs(Node, refac_syntax:application(Op1, Args)), true};
+				    Op1 = copy_pos_attrs(Op, wrangler_syntax:module_qualifier(wrangler_syntax:atom(M), Op)),
+				    {copy_pos_attrs(Node, wrangler_syntax:application(Op1, Args)), true};
 				_ ->
-				    {Line, Col} = refac_syntax:get_pos(Op),
+				    {Line, Col} = wrangler_syntax:get_pos(Op),
 				    Str = "Wrangler could not infer where the function " ++ atom_to_list(F) ++ "/" ++ integer_to_list(A) ++ 
 					    ", used at location {" ++ integer_to_list(Line) ++ "," ++ integer_to_list(Col) ++ "} in the current module, is defined.",
 				    throw({error, Str})
@@ -388,9 +388,9 @@ transform_application_node(FileName, Node, MFAs, TargetModName,
 		_ ->
 		    case M == TargetModName of
 			true ->
-			    Node1 = refac_syntax:application(
-				      copy_pos_attrs(Op, refac_syntax:atom(F)),
-				      Args),
+			    Node1 = wrangler_syntax:application(
+				         copy_pos_attrs(Op, wrangler_syntax:atom(F)),
+				         Args),
 			    {copy_pos_attrs(Node, Node1), true};
 			_ ->
 			    {Node, false}
@@ -412,7 +412,7 @@ do_remove_fun(Forms, FormsToBemoved, Args={_,_,FunsToBeExported,_,_,_,_}) ->
 		   [_H|_T] ->  Export = make_export(FunsToBeExported),
 			       insert_export_form([Export], Forms2)
 	       end,
-    refac_syntax:form_list(NewForms).
+    wrangler_syntax:form_list(NewForms).
 
 %%=======================================================================
 %% Add the function to the target module.
@@ -421,9 +421,9 @@ do_add_fun(TargetModInfo, FormsToAdd, AttrsToAdd, MFAs = [{ModName, _, _}| _T],
 	   FunsToExport, SearchPaths, TabWidth, Pid) ->
     FileName = TargetModInfo#module_info.filename,
     TargetModName = TargetModInfo#module_info.modname,
-    Forms = refac_syntax:form_list_elements(TargetModInfo#module_info.ast),
+    Forms = wrangler_syntax:form_list_elements(TargetModInfo#module_info.ast),
     Info = TargetModInfo#module_info.info,
-    TargetMFAs = [get_fun_mfa(F) || F <- Forms, refac_syntax:type(F)==function],
+    TargetMFAs = [get_fun_mfa(F) || F <- Forms, wrangler_syntax:type(F) == function],
     NewFormsToAdd = [F || F <- FormsToAdd,  not  defines(F, [{ModName, F1, A1} || {_M,F1,A1} <- TargetMFAs])],
     Args = {FileName, MFAs, TargetModName, SearchPaths, TabWidth, Pid},
     ProcessedForms = lists:append([process_a_form_in_target_module(Form, Args) || Form <- Forms]),
@@ -437,7 +437,7 @@ do_add_fun(TargetModInfo, FormsToAdd, AttrsToAdd, MFAs = [{ModName, _, _}| _T],
 		       Export = make_export(FunsToExport1),
                        insert_export_form([Export| AttrsToAdd], ProcessedForms) ++ NewFormsToAdd
 	       end,
-    refac_syntax:form_list(NewForms).
+    wrangler_syntax:form_list(NewForms).
 
 
 %%============================================================================
@@ -446,24 +446,24 @@ do_add_fun(TargetModInfo, FormsToAdd, AttrsToAdd, MFAs = [{ModName, _, _}| _T],
 
 process_a_form_in_target_module(Form, Args)->
     {FileName, MFAs=[{ModName, _,_}|_T],TargetModName, SearchPaths, TabWidth, Pid}=Args,
-    case refac_syntax:type(Form) of
+    case wrangler_syntax:type(Form) of
 	function -> [remove_module_qualifier(FileName, Form, MFAs, TargetModName, SearchPaths, TabWidth, Pid)];
 	attribute -> 
-	    Name = refac_syntax:attribute_name(Form),
-	    case refac_syntax:type(Name) of
-		atom -> case refac_syntax:atom_value(Name) of
+	    Name = wrangler_syntax:attribute_name(Form),
+	    case wrangler_syntax:type(Name) of
+		atom -> case wrangler_syntax:atom_value(Name) of
 			    import ->
-				[H, L] = refac_syntax:attribute_arguments(Form),
-				case refac_syntax:atom_value(H) of 
+				[H, L] = wrangler_syntax:attribute_arguments(Form),
+				case wrangler_syntax:atom_value(H) of
 				    ModName ->
-					Es = refac_syntax:list_elements(L),
+					Es = wrangler_syntax:list_elements(L),
 					Es1 = [E || E <- Es,
-						    F1<-[refac_syntax:atom_value(refac_syntax:arity_qualifier_body(E))],
-						    A1<-[refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(E))],
+						    F1 <- [wrangler_syntax:atom_value(wrangler_syntax:arity_qualifier_body(E))],
+						    A1 <- [wrangler_syntax:integer_value(wrangler_syntax:arity_qualifier_argument(E))],
 						    not lists:member({ModName, F1,A1}, MFAs)],
 					case length(Es1) == 0 of
 					    true -> [];
-					    _ -> [copy_pos_attrs(Form,refac_syntax:attribute(Name, [H, refac_syntax:list(Es1)]))]
+					    _ -> [copy_pos_attrs(Form,wrangler_syntax:attribute(Name, [H, wrangler_syntax:list(Es1)]))]
 					end;
 				    _ -> [Form]
 				end;
@@ -484,19 +484,19 @@ remove_module_qualifier(FileName, Form, MFAs, TargetModName, SearchPaths, TabWid
 					  {FileName, MFAs, TargetModName, SearchPaths, TabWidth, Pid})).
 
 do_remove_module_qualifier(Node, {FileName, MFAs, TargetModName, SearchPaths, TabWidth, Pid}) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
 	application ->
-	    Op = refac_syntax:application_operator(Node),
-	    Args = refac_syntax:application_arguments(Node),
+	    Op = wrangler_syntax:application_operator(Node),
+	    Args = wrangler_syntax:application_arguments(Node),
 	    case application_info(Node) of
 		{{none, _FunName}, _Arity} -> {Node, true};
 		{{ModName, FunName}, Arity} ->
 		    case lists:member({ModName, FunName, Arity}, MFAs) of
 			true ->
-                            case refac_syntax:type(Op) of 
+                            case wrangler_syntax:type(Op) of
                                 module_qualifier ->
-                                    Op1 = refac_syntax:module_qualifier_body(Op),
-                                    Node1 = copy_pos_attrs(Node, refac_syntax:application(Op1, Args)),
+                                    Op1 = wrangler_syntax:module_qualifier_body(Op),
+                                    Node1 = copy_pos_attrs(Node, wrangler_syntax:application(Op1, Args)),
                                     {Node1, true};
                                 _ ->
                                     {Node, false}
@@ -515,28 +515,28 @@ do_remove_module_qualifier(Node, {FileName, MFAs, TargetModName, SearchPaths, Ta
     end.
 
 process_implicit_fun(Node, MFAs, TargetModName) ->
-    Name = refac_syntax:implicit_fun_name(Node),
-    case refac_syntax:type(Name) of
+    Name = wrangler_syntax:implicit_fun_name(Node),
+    case wrangler_syntax:type(Name) of
       arity_qualifier ->
 	  {Node, false};
       module_qualifier ->
-	    Mod = refac_syntax:module_qualifier_argument(Name),
-	    Body = refac_syntax:module_qualifier_body(Name),
-	    F= refac_syntax:arity_qualifier_body(Body),
-	    A = refac_syntax:arity_qualifier_argument(Body),
-	    case {refac_syntax:type(Mod), refac_syntax:type(F), 
-		  refac_syntax:type(A)} of
+	    Mod = wrangler_syntax:module_qualifier_argument(Name),
+	    Body = wrangler_syntax:module_qualifier_body(Name),
+	    F= wrangler_syntax:arity_qualifier_body(Body),
+	    A = wrangler_syntax:arity_qualifier_argument(Body),
+	    case {wrangler_syntax:type(Mod), wrangler_syntax:type(F),
+		  wrangler_syntax:type(A)} of
 		{atom, atom, integer} ->
-		    M1 =refac_syntax:atom_value(Mod),
-		    F1 =refac_syntax:atom_value(F),
-		    A1 =refac_syntax:integer_value(A),
+		    M1 =wrangler_syntax:atom_value(Mod),
+		    F1 =wrangler_syntax:atom_value(F),
+		    A1 =wrangler_syntax:integer_value(A),
 		    case lists:member({M1,F1,A1}, MFAs) of
 			true ->
 			    {copy_pos_attrs(Node,
-					    refac_syntax:implicit_fun(
-					      copy_pos_attrs(
-						Name,refac_syntax:module_qualifier(
-						       copy_pos_attrs(Mod,refac_syntax:atom(TargetModName)), Body)))), true};
+					    wrangler_syntax:implicit_fun(
+					         copy_pos_attrs(
+						   Name,wrangler_syntax:module_qualifier(
+						             copy_pos_attrs(Mod,wrangler_syntax:atom(TargetModName)), Body)))), true};
 			_ -> {Node, false}
 		    end;
 		_ -> {Node, false}
@@ -547,15 +547,15 @@ process_implicit_fun(Node, MFAs, TargetModName) ->
 
 insert_export_form(Attrs, Forms) ->
     {Forms11, Forms12} = lists:splitwith(fun (F) -> 
-                                                 refac_syntax:type(F) == attribute orelse
-                                                     refac_syntax:type(F) == comment
+                                                 wrangler_syntax:type(F) == attribute orelse
+                                                     wrangler_syntax:type(F) == comment
 					 end, Forms),
     {Forms111, Forms112} =case lists:splitwith(fun(F) -> 
                                                        not is_attribute(F, export) 
                                                end, lists:reverse(Forms11)) of
                               {_, []} ->
                                   lists:splitwith(fun(F) -> 
-                                                          refac_syntax:type(F)==comment 
+                                                          wrangler_syntax:type(F) == comment
                                                   end, lists:reverse(Forms11));
                               {Fs1, Fs2} ->
                                   {Fs1, Fs2}
@@ -569,9 +569,9 @@ insert_export_form(Attrs, Forms) ->
 process_a_form_in_original_mod(Form, Args) ->
     {FileName,MFAs,_, TargetModName, SearchPaths, TabWidth, Pid}=Args,
     FAs =[{F,A}||{_M,F,A}<-MFAs],
-    case refac_syntax:type(Form) of 
+    case wrangler_syntax:type(Form) of
 	function -> 
-	    As = refac_syntax:get_ann(Form),
+	    As = wrangler_syntax:get_ann(Form),
 	    {value, {fun_def, {M, F, A, _, _}}} =
 		lists:keysearch(fun_def,1, As),
 	    case lists:member({M,F,A}, MFAs) of 
@@ -583,16 +583,16 @@ process_a_form_in_original_mod(Form, Args) ->
 		    {[Form1],C}
 	    end;		 
 	attribute -> 
-	    Name = refac_syntax:attribute_name(Form),
-	    case refac_syntax:type(Name) of 
+	    Name = wrangler_syntax:attribute_name(Form),
+	    case wrangler_syntax:type(Name) of
 		atom ->
-		    case refac_syntax:atom_value(Name) of
+		    case wrangler_syntax:atom_value(Name) of
 			export ->
-			    [L] = refac_syntax:attribute_arguments(Form),
-			    Es = refac_syntax:list_elements(L),
+			    [L] = wrangler_syntax:attribute_arguments(Form),
+			    Es = wrangler_syntax:list_elements(L),
 			    Es1 =[E|| E<-Es, 
-				      F1<-[refac_syntax:atom_value(refac_syntax:arity_qualifier_body(E))],
-				      A1<-[refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(E))],
+				      F1 <- [wrangler_syntax:atom_value(wrangler_syntax:arity_qualifier_body(E))],
+				      A1 <- [wrangler_syntax:integer_value(wrangler_syntax:arity_qualifier_argument(E))],
 				      not lists:member({F1, A1},FAs)],
 			    case length(Es1) == 0 of
 				true -> 
@@ -600,7 +600,7 @@ process_a_form_in_original_mod(Form, Args) ->
 				false -> 
 				    case length(Es1) == length(Es) of 
 					true -> {[Form], false};
-					_ -> {[copy_pos_attrs(Form,refac_syntax:attribute(Name,[copy_pos_attrs(L, refac_syntax:list(Es1))]))], true}
+					_ -> {[copy_pos_attrs(Form,wrangler_syntax:attribute(Name,[copy_pos_attrs(L, wrangler_syntax:list(Es1))]))], true}
 				    end
 			    end;
 			'spec' -> case type_specifies(Form, MFAs) of 
@@ -625,11 +625,11 @@ add_change_module_qualifier(Form,FileName,MFAs, TargetModName, SearchPaths, TabW
 			       Form, {FileName, MFAs, TargetModName, SearchPaths, TabWidth, Pid}).
 
 do_add_change_module_qualifier(Node, {FileName, MFAs = [{ModName,_,_}| _], TargetModName, SearchPaths, TabWidth, Pid}) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
 	application ->
-	    Operator = refac_syntax:application_operator(Node),
-	    Args = refac_syntax:application_arguments(Node),
-	    case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Operator)) of
+	    Operator = wrangler_syntax:application_operator(Node),
+	    Args = wrangler_syntax:application_arguments(Node),
+	    case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Operator)) of
 		{value, {fun_def, {Mod1, Fun1, Ari1, _, _}}} ->
 		    case lists:keysearch({Mod1, Fun1, Ari1}, 1, refac_misc:apply_style_funs()) of
 			{value, _} ->
@@ -637,7 +637,7 @@ do_add_change_module_qualifier(Node, {FileName, MFAs = [{ModName,_,_}| _], Targe
 			false ->
 			    case lists:member({Mod1, Fun1, Ari1}, MFAs) of
 				true ->
-				    case refac_syntax:type(Operator) of
+				    case wrangler_syntax:type(Operator) of
 					tuple ->
 					    {rename_fun_in_tuple_op(Node, Operator, Args, TargetModName), true};
 					_ ->
@@ -650,44 +650,44 @@ do_add_change_module_qualifier(Node, {FileName, MFAs = [{ModName,_,_}| _], Targe
 		_ -> {Node, false}
 	    end;
 	implicit_fun ->
-	    Name = refac_syntax:implicit_fun_name(Node),
-	    case refac_syntax:type(Name) of
+	    Name = wrangler_syntax:implicit_fun_name(Node),
+	    case wrangler_syntax:type(Name) of
 		arity_qualifier ->
-		    Body = refac_syntax:arity_qualifier_body(Name),
-		    A = refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(Name)),
-		    case refac_syntax:type(Body) of
-			atom -> B = refac_syntax:atom_value(Body),
+		    Body = wrangler_syntax:arity_qualifier_body(Name),
+		    A = wrangler_syntax:integer_value(wrangler_syntax:arity_qualifier_argument(Name)),
+		    case wrangler_syntax:type(Body) of
+			atom -> B = wrangler_syntax:atom_value(Body),
 				case lists:member({ModName, B, A}, MFAs) of
 				    true ->
 					FunName1 = copy_pos_attrs(Name,
-								  refac_syntax:module_qualifier(
-								    copy_pos_attrs(
-								      Name, refac_syntax:atom(TargetModName)), Name)),
-					{copy_pos_attrs(Node, refac_syntax:implicit_fun(FunName1)), true};
+								  wrangler_syntax:module_qualifier(
+								       copy_pos_attrs(
+								         Name, wrangler_syntax:atom(TargetModName)), Name)),
+					{copy_pos_attrs(Node, wrangler_syntax:implicit_fun(FunName1)), true};
 				    _ -> {Node, false}
 				end;
 			_ -> {Node, false}
 		    end;
 		module_qualifier ->
-		    Mod = refac_syntax:module_qualifier_argument(Name),
-		    Body = refac_syntax:module_qualifier_body(Name),
-		    case refac_syntax:type(Mod) of
+		    Mod = wrangler_syntax:module_qualifier_argument(Name),
+		    Body = wrangler_syntax:module_qualifier_body(Name),
+		    case wrangler_syntax:type(Mod) of
 			atom ->
-			    case refac_syntax:atom_value(Mod) of
+			    case wrangler_syntax:atom_value(Mod) of
 				ModName ->
-				    B = refac_syntax:arity_qualifier_body(Body),
-				    A = refac_syntax:arity_qualifier_argument(Body),
-				    case {refac_syntax:type(B), refac_syntax:type(A)} of
+				    B = wrangler_syntax:arity_qualifier_body(Body),
+				    A = wrangler_syntax:arity_qualifier_argument(Body),
+				    case {wrangler_syntax:type(B), wrangler_syntax:type(A)} of
 					{atom, integer} ->
-					    B1 = refac_syntax:atom_value(B),
-					    A1 = refac_syntax:integer_value(A),
+					    B1 = wrangler_syntax:atom_value(B),
+					    A1 = wrangler_syntax:integer_value(A),
 					    case lists:member({ModName, B1, A1}, MFAs) of
 						true ->
 						    {copy_pos_attrs(
-						       Node,refac_syntax:implicit_fun(
-							      copy_pos_attrs(
-								Name,refac_syntax:module_qualifier(
-								       copy_pos_attrs(Mod,refac_syntax:atom(TargetModName)), Body)))), true};
+						       Node,wrangler_syntax:implicit_fun(
+							         copy_pos_attrs(
+								   Name,wrangler_syntax:module_qualifier(
+								             copy_pos_attrs(Mod,wrangler_syntax:atom(TargetModName)), Body)))), true};
 						_ -> {Node, false}
 					    end;
 					_ -> {Node, false}
@@ -703,9 +703,9 @@ do_add_change_module_qualifier(Node, {FileName, MFAs = [{ModName,_,_}| _], Targe
 
 rename_in_qualified_app(Operator1, FunName1, Arguments1, TargetModName1) ->
     Operator2 = copy_pos_attrs(Operator1, 
-			       refac_syntax:module_qualifier(refac_syntax:atom(TargetModName1),
-							     refac_syntax:atom(FunName1))),
-    refac_syntax:application(Operator2, Arguments1).
+			       wrangler_syntax:module_qualifier(wrangler_syntax:atom(TargetModName1),
+							        wrangler_syntax:atom(FunName1))),
+    wrangler_syntax:application(Operator2, Arguments1).
 
 
 %% ====================================================================================
@@ -728,40 +728,40 @@ refactor_in_client_modules(ClientFiles, MFAs, TargetModName, SearchPaths, TabWid
 	    end
     end.
 refactor_in_client_module_1(FileName,{AnnAST, _Info}, MFAs, TargetModName, SearchPaths, TabWidth,Pid) ->
-    Forms  = refac_syntax:form_list_elements(AnnAST),
+    Forms  = wrangler_syntax:form_list_elements(AnnAST),
     {Forms1, C} = lists:unzip([process_in_client_module(FileName, Form, MFAs, TargetModName, SearchPaths, TabWidth, Pid)||Form <-Forms]),
     Forms2 = lists:append(Forms1),
-    {copy_pos_attrs(AnnAST, refac_syntax:form_list(Forms2)), lists:member(true, C)}.
+    {copy_pos_attrs(AnnAST, wrangler_syntax:form_list(Forms2)), lists:member(true, C)}.
 
 process_in_client_module(FileName, Form, MFAs = [{ModName, _, _}| _T], TargetModName, SearchPaths, TabWidth, Pid) ->
-    case refac_syntax:type(Form) of
+    case wrangler_syntax:type(Form) of
       function ->
 	  {Form1, C} = change_module_qualifier(Form, FileName,MFAs, TargetModName, SearchPaths, TabWidth, Pid),
 	  {[Form1], C};
       attribute ->
-	  Name = refac_syntax:attribute_name(Form),
-	  case refac_syntax:type(Name) of
-	    atom -> case refac_syntax:atom_value(Name) of
+	  Name = wrangler_syntax:attribute_name(Form),
+	  case wrangler_syntax:type(Name) of
+	    atom -> case wrangler_syntax:atom_value(Name) of
 		      import ->
-			  case refac_syntax:attribute_arguments(Form) of
+			  case wrangler_syntax:attribute_arguments(Form) of
 			    [H, L] ->
-				case refac_syntax:atom_value(H) of
+				case wrangler_syntax:atom_value(H) of
 				  ModName ->
-				      Es = refac_syntax:list_elements(L),
+				      Es = wrangler_syntax:list_elements(L),
 				      Es1 = [E || E <- Es,
-						  F1 <- [refac_syntax:atom_value(refac_syntax:arity_qualifier_body(E))],
-						  A1 <- [refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(E))],
+						  F1 <- [wrangler_syntax:atom_value(wrangler_syntax:arity_qualifier_body(E))],
+						  A1 <- [wrangler_syntax:integer_value(wrangler_syntax:arity_qualifier_argument(E))],
 						  not lists:member({ModName, F1, A1}, MFAs)],
 				      Es2 = Es -- Es1,
 				      case length(Es1) == length(Es) of
 					true ->
 					    {[Form], false};
 					false ->
-					    Imp1 = copy_pos_attrs(Form, refac_syntax:attribute(
-									  Name, [H, copy_pos_attrs(L,refac_syntax:list(Es1))])),
-					    Imp2 = refac_syntax:attribute(refac_syntax:atom(import),
-									  [refac_syntax:atom(TargetModName),
-									   refac_syntax:list(Es2)]),
+					    Imp1 = copy_pos_attrs(Form, wrangler_syntax:attribute(
+									     Name, [H, copy_pos_attrs(L,wrangler_syntax:list(Es1))])),
+					    Imp2 = wrangler_syntax:attribute(wrangler_syntax:atom(import),
+									     [wrangler_syntax:atom(TargetModName),
+									      wrangler_syntax:list(Es2)]),
 					    {[Imp1, Imp2], true}
 				      end;
 				  _ -> {[Form], false}
@@ -781,11 +781,11 @@ change_module_qualifier(Form, FileName, MFAs, TargetModName, SearchPaths, TabWid
 			       Form, {FileName, MFAs, TargetModName, SearchPaths, TabWidth, Pid}).
 
 do_change_module_qualifier(Node, {FileName, MFAs, TargetModName, SearchPaths, TabWidth, Pid}) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
 	application ->
-	    Op = refac_syntax:application_operator(Node),
-	    Args = refac_syntax:application_arguments(Node),
-	    case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
+	    Op = wrangler_syntax:application_operator(Node),
+	    Args = wrangler_syntax:application_arguments(Node),
+	    case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Op)) of
 		{value, {fun_def, {Mod1, Fun1, Ari1, _, _}}} ->
 		    case lists:keysearch({Mod1, Fun1, Ari1}, 1, refac_misc:apply_style_funs()) of
 			{value, _} ->
@@ -793,7 +793,7 @@ do_change_module_qualifier(Node, {FileName, MFAs, TargetModName, SearchPaths, Ta
 			false ->
 			    case lists:member({Mod1, Fun1, Ari1}, MFAs) of
 				true ->
-				    case refac_syntax:type(Op) of
+				    case wrangler_syntax:type(Op) of
 					module_qualifier ->
 					    Node2 = copy_pos_attrs(Node, rename_in_qualified_app(Op, Fun1, Args, TargetModName)),
 					    {Node2, true};
@@ -813,9 +813,9 @@ do_change_module_qualifier(Node, {FileName, MFAs, TargetModName, SearchPaths, Ta
     end.
 
 rename_fun_in_tuple_op(App,Op, Args, TargetModName) ->
-    [M, F] = refac_syntax:tuple_elements(Op),
-    Op1 = copy_pos_attrs(Op, refac_syntax:tuple([copy_pos_attrs(M, refac_syntax:atom(TargetModName)), F])),
-    copy_pos_attrs(App, refac_syntax:application(Op1, Args)).
+    [M, F] = wrangler_syntax:tuple_elements(Op),
+    Op1 = copy_pos_attrs(Op, wrangler_syntax:tuple([copy_pos_attrs(M, wrangler_syntax:atom(TargetModName)), F])),
+    copy_pos_attrs(App, wrangler_syntax:application(Op1, Args)).
 
 exported_funs(MFAs, Info) ->
     lists:filter(fun ({_M,F,A}) ->
@@ -826,41 +826,41 @@ exported_funs(MFAs, Info) ->
 %% @spec application_info(Tree::syntaxTree())->term()
 %%
 application_info(Node) ->
-    case refac_syntax:type(Node) of 
+    case wrangler_syntax:type(Node) of
 	application ->
-	    Operator = refac_syntax:application_operator(Node),
-	    Arguments = refac_syntax:application_arguments(Node),
+	    Operator = wrangler_syntax:application_operator(Node),
+	    Arguments = wrangler_syntax:application_arguments(Node),
 	    Arity = length(Arguments),
-	    case refac_syntax:type(Operator) of 
-		atom -> Op = refac_syntax:atom_value(Operator),
+	    case wrangler_syntax:type(Operator) of
+		atom -> Op = wrangler_syntax:atom_value(Operator),
 			{{none,Op}, Arity}; 
 		module_qualifier ->
-		        Mod = refac_syntax:module_qualifier_argument(Operator),
-		        Fun = refac_syntax:module_qualifier_body(Operator),
-		        T1 = refac_syntax:type(Mod), 
-		        T2 = refac_syntax:type(Fun),
+		        Mod = wrangler_syntax:module_qualifier_argument(Operator),
+		        Fun = wrangler_syntax:module_qualifier_body(Operator),
+		        T1 = wrangler_syntax:type(Mod),
+		        T2 = wrangler_syntax:type(Fun),
 		        case T1 of 
 		  	    atom -> 
-				Mod1 = refac_syntax:atom_value(Mod),
+				Mod1 = wrangler_syntax:atom_value(Mod),
 				case T2 of 
-					atom -> Fun1 = refac_syntax:atom_value(Fun),
+					atom -> Fun1 = wrangler_syntax:atom_value(Fun),
 						{{Mod1, Fun1}, Arity};
 				        _ ->{{Mod1, expressionfunname}, Arity}
 					end;
 			    _ -> case T2 of 
-				     atom -> Fun1 = refac_syntax:atom_value(Fun),
-					     {{expressionmodname, Fun1}, Arity};
-				     _ -> {{expressionmodname,expressionfunname}, Arity}
-				 end
-			    end;
+				       atom -> Fun1 = wrangler_syntax:atom_value(Fun),
+					       {{expressionmodname, Fun1}, Arity};
+				       _ -> {{expressionmodname,expressionfunname}, Arity}
+				   end
+			end;
 		_  -> {{none,expressionoperator}, Arity}
 	    end;
 	_ -> erlang:error(badarg)
     end.
 
 transform_apply_style_calls(FileName, Node, MFAs, NewModName, SearchPaths, TabWidth) ->
-    Op = refac_syntax:application_operator(Node),
-    Arguments = refac_syntax:application_arguments(Node),
+    Op = wrangler_syntax:application_operator(Node),
+    Arguments = wrangler_syntax:application_arguments(Node),
     [N1, N2, Mod, Fun, Args] = case length(Arguments) of
 				   5 -> Arguments;
 				   4 -> [none| Arguments];
@@ -872,19 +872,19 @@ transform_apply_style_calls(FileName, Node, MFAs, NewModName, SearchPaths, TabWi
 	{value, FunName} ->
 	    case M1 of
 		{value, ModName} ->
-		    A1 = case refac_syntax:type(Args) of
+		    A1 = case wrangler_syntax:type(Args) of
 			     list ->
-				 refac_syntax:list_length(Args);
+				 wrangler_syntax:list_length(Args);
 			     nil -> 0;
 			     _ -> '_'
 			 end,
 		    case lists:member({ModName, FunName, A1}, MFAs) of
 			true ->
-			    Mod2 = copy_pos_attrs(Mod, refac_syntax:atom(NewModName)),
+			    Mod2 = copy_pos_attrs(Mod, wrangler_syntax:atom(NewModName)),
 			    App = case length(Arguments) of
-				      5 -> refac_syntax:application(Op, [N1, N2, Mod2, Fun, Args]);
-				      4 -> refac_syntax:application(Op, [N2, Mod2, Fun, Args]);
-				      3 -> refac_syntax:application(Op, [Mod2, Fun, Args])
+				      5 -> wrangler_syntax:application(Op, [N1, N2, Mod2, Fun, Args]);
+				      4 -> wrangler_syntax:application(Op, [N2, Mod2, Fun, Args]);
+				      3 -> wrangler_syntax:application(Op, [Mod2, Fun, Args])
 				  end,
 			    {copy_pos_attrs(Node, App), true};
 			false -> {Node, false}
@@ -896,25 +896,25 @@ transform_apply_style_calls(FileName, Node, MFAs, NewModName, SearchPaths, TabWi
     end.
 
 do_rename_fun_in_tuples(Node, {FileName, SearchPaths, MFAs, TargetModName, Pid, TabWidth}) ->
-    Es = refac_syntax:tuple_elements(Node),
+    Es = wrangler_syntax:tuple_elements(Node),
     case length(Es) >= 3 of
 	true ->
 	    [E3, E2, E1| _T] = lists:reverse(Es),
 	    case refac_misc:try_eval(FileName, E1, SearchPaths, TabWidth) of
 		{value, ModName} ->
-		    case refac_syntax:type(E2) of
+		    case wrangler_syntax:type(E2) of
 			atom ->
-			    F = refac_syntax:type(E2),
-			    case refac_syntax:type(E3) of
+			    F = wrangler_syntax:type(E2),
+			    case wrangler_syntax:type(E3) of
 				list ->
-				    A = refac_syntax:list_length(E3),
+				    A = wrangler_syntax:list_length(E3),
 				    do_rename_fun_in_tuples_1(Node, FileName, MFAs, TargetModName,
 							      Pid, Es, {ModName, F, A});
 				nil ->
 				    do_rename_fun_in_tuples_1(Node, FileName, MFAs, TargetModName,
 							      Pid, Es, {ModName, F, 0});
 				integer ->
-				    A = refac_syntax:integer_value(E3),
+				    A = wrangler_syntax:integer_value(E3),
 				    do_rename_fun_in_tuples_1(Node, FileName, MFAs, TargetModName,
 							      Pid, Es, {ModName, F, A});
 				_ -> {Node, false}
@@ -932,11 +932,11 @@ do_rename_fun_in_tuples(Node, {FileName, SearchPaths, MFAs, TargetModName, Pid, 
 do_rename_fun_in_tuples_1(Node, FileName, MFAs, TargetModName,
 			  Pid, Es, {M, F, A}) ->
     [E3, E2, E1| T] = lists:reverse(Es),
-    NewE1 = copy_pos_attrs(E1, refac_syntax:atom(TargetModName)),
+    NewE1 = copy_pos_attrs(E1, wrangler_syntax:atom(TargetModName)),
     case lists:member({M, F, A}, MFAs) of
 	true ->
 	    Pid ! {add_renamed, {FileName, Node}},
-	    Node1 = refac_syntax:tuple(lists:reverse([E3, E2, NewE1| T])),
+	    Node1 = wrangler_syntax:tuple(lists:reverse([E3, E2, NewE1| T])),
 	    {copy_pos_attrs(Node, Node1), true};
 	false ->
 	    {Node, false}
@@ -944,9 +944,9 @@ do_rename_fun_in_tuples_1(Node, FileName, MFAs, TargetModName,
 
 
 is_the_same_fun(FunDef1, FunDef2) ->
-    Ann1 = refac_syntax:get_ann(FunDef1),
+    Ann1 = wrangler_syntax:get_ann(FunDef1),
     {value, {fun_def, {M1, F1, A1, _, _}}}=lists:keysearch(fun_def,1,Ann1),
-    Ann2 = refac_syntax:get_ann(FunDef2),
+    Ann2 = wrangler_syntax:get_ann(FunDef2),
     {value, {fun_def, {M2, F2, A2, _, _}}} =lists:keysearch(fun_def,1,Ann2),
     FunDef11= reset_attrs(FunDef1, {M1, F1, A1}),
     FunDef21=reset_attrs(FunDef2, {M2, F2, A2}),
@@ -954,35 +954,35 @@ is_the_same_fun(FunDef1, FunDef2) ->
 
 reset_attrs(Node, {M, F, A}) ->
     Fun = fun (T) ->
-		  T1 = case refac_syntax:type(T) of
+		  T1 = case wrangler_syntax:type(T) of
 			   module_qualifier ->
-			       {value, {fun_def, DefInfo}} = lists:keysearch(fun_def,1,refac_syntax:get_ann(T)),
-			       refac_syntax:add_ann({fun_def, DefInfo}, refac_syntax:module_qualifier_body(T));
+			       {value, {fun_def, DefInfo}} = lists:keysearch(fun_def,1,wrangler_syntax:get_ann(T)),
+			       wrangler_syntax:add_ann({fun_def, DefInfo}, wrangler_syntax:module_qualifier_body(T));
 			   variable ->
-			       refac_syntax:default_literals_vars(T, refac_syntax:variable_name(T));
+			       wrangler_syntax:default_literals_vars(T, wrangler_syntax:variable_name(T));
 			   integer ->
-			       refac_syntax:default_literals_vars(T, refac_syntax:integer_value(T));
+			       wrangler_syntax:default_literals_vars(T, wrangler_syntax:integer_value(T));
 			   float ->
-			       refac_syntax:default_literals_vars(T, refac_syntax:float_value(T));
+			       wrangler_syntax:default_literals_vars(T, wrangler_syntax:float_value(T));
 			   char ->
-			       refac_syntax:default_literals_vars(T, refac_syntax:char_value(T));
+			       wrangler_syntax:default_literals_vars(T, wrangler_syntax:char_value(T));
 			   string ->
-			       refac_syntax:default_literals_vars(T, refac_syntax:string_value(T));
+			       wrangler_syntax:default_literals_vars(T, wrangler_syntax:string_value(T));
 			   atom ->
-			       refac_syntax:default_literals_vars(T, refac_syntax:atom_value(T));
-			   nil -> refac_syntax:default_literals_vars(T, nil);
-			   underscore -> refac_syntax:default_literals_vars(T, '_');
+			       wrangler_syntax:default_literals_vars(T, wrangler_syntax:atom_value(T));
+			   nil -> wrangler_syntax:default_literals_vars(T, nil);
+			   underscore -> wrangler_syntax:default_literals_vars(T, '_');
 			   _ -> T
 		       end,
-		  case lists:keysearch(fun_def,1,refac_syntax:get_ann(T1)) of
+		  case lists:keysearch(fun_def,1,wrangler_syntax:get_ann(T1)) of
 		      {value, {fun_def, {ModName, FunName, Arity, _, _}}} ->
 			  case {ModName, FunName, Arity} of
-			      {M, F, A} -> refac_syntax:set_pos(refac_syntax:remove_comments(refac_syntax:set_ann(T1, [])), {0,0});
-			      _ -> refac_syntax:set_pos(
-				     refac_syntax:remove_comments(
-				       refac_syntax:set_ann(T1,[{fun_def, {ModName, FunName, Arity, {0,0}, {0,0}}}])),{0,0})
+			      {M, F, A} -> wrangler_syntax:set_pos(wrangler_syntax:remove_comments(wrangler_syntax:set_ann(T1, [])), {0,0});
+			      _ -> wrangler_syntax:set_pos(
+				        wrangler_syntax:remove_comments(
+				             wrangler_syntax:set_ann(T1,[{fun_def, {ModName, FunName, Arity, {0,0}, {0,0}}}])),{0,0})
 			  end;
-		      _ -> refac_syntax:set_pos(refac_syntax:remove_comments(refac_syntax:set_ann(T1, [])), {0,0})
+		      _ -> wrangler_syntax:set_pos(wrangler_syntax:remove_comments(wrangler_syntax:set_ann(T1, [])), {0,0})
 		  end
 	  end,
     api_ast_traverse:map(Fun, Node).
@@ -1012,15 +1012,15 @@ analyze_file(FName, SearchPaths, TabWidth) ->
 			     _ -> []
 			 end,
 	    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-            Forms = refac_syntax:form_list_elements(AnnAST),
+            Forms = wrangler_syntax:form_list_elements(AnnAST),
 	    Includes = lists:append([lists:flatmap(fun (A) ->
-							   case refac_syntax:type(A) of
-							       string -> [refac_syntax:string_value(A)];
+							   case wrangler_syntax:type(A) of
+							       string -> [wrangler_syntax:string_value(A)];
 							       _ -> []
 							   end
 						   end, Args)
 				     || F <- Forms, is_attribute(F, include) orelse is_attribute(F, include_lib),
-					Args <- [refac_syntax:attribute_arguments(F)]]),
+					Args <- [wrangler_syntax:attribute_arguments(F)]]),
 	    InscopeFuns = api_refac:inscope_funs(TargetModInfo),
 	    #module_info{filename = FName,
 			 modname = get_module_name(Info),
@@ -1079,7 +1079,7 @@ check_macros_records(FunDefs, CurModInfo, TargetModInfo, CheckCond) ->
 
 check_fun_name_clash(FunDefs=[{{ModName, _, _},_}|_T],TargetModInfo)->
     TargetInscopeFuns=TargetModInfo#module_info.inscope_funs,
-    TargetForms=refac_syntax:form_list_elements(TargetModInfo#module_info.ast),
+    TargetForms=wrangler_syntax:form_list_elements(TargetModInfo#module_info.ast),
     FAs = [{F, A}||{{_M, F, A},_}<-FunDefs],
     Clash = lists:filter(fun ({M, F, A}) ->
 				 lists:member({F,A}, FAs) andalso ModName =/= M
@@ -1225,31 +1225,31 @@ get_attrs(Forms, Ms,Rs, TargetIncludes) ->
     end.
 
 defines(Form, Ms, Rs) ->
-    case refac_syntax:type(Form) of
+    case wrangler_syntax:type(Form) of
 	attribute ->
-	    Name = refac_syntax:attribute_name(Form),
-	    case refac_syntax:type(Name) of
+	    Name = wrangler_syntax:attribute_name(Form),
+	    case wrangler_syntax:type(Name) of
 		atom ->
-		    AttrName = refac_syntax:atom_value(Name),
+		    AttrName = wrangler_syntax:atom_value(Name),
 		    case AttrName == record orelse AttrName == define of
 			true ->
-			    Type = hd(refac_syntax:attribute_arguments(Form)),
-			    case refac_syntax:type(Type) of
+			    Type = hd(wrangler_syntax:attribute_arguments(Form)),
+			    case wrangler_syntax:type(Type) of
 				atom ->
-				    TypeName = refac_syntax:atom_value(Type),
+				    TypeName = wrangler_syntax:atom_value(Type),
 				    AttrName == record andalso lists:member(TypeName, Rs) orelse
 					AttrName == define andalso lists:member(TypeName, Ms);
 				variable ->
-				    TypeName= refac_syntax:variable_name(Type),
+				    TypeName= wrangler_syntax:variable_name(Type),
 				    AttrName == define andalso lists:member(TypeName, Ms);
 				application ->
-				    Op = refac_syntax:application_operator(Type),
-				    case refac_syntax:type(Op) of
+				    Op = wrangler_syntax:application_operator(Type),
+				    case wrangler_syntax:type(Op) of
 					atom ->
-					    TypeName= refac_syntax:atom_value(Op),
+					    TypeName= wrangler_syntax:atom_value(Op),
 					    AttrName == define andalso lists:member(TypeName, Ms); 
 					variable ->
-					    TypeName= refac_syntax:variable_name(Op),
+					    TypeName= wrangler_syntax:variable_name(Op),
 					    AttrName == define andalso lists:member(TypeName, Ms);
 					_ -> false
 				    end;
@@ -1266,28 +1266,27 @@ defines(Form, Ms, Rs) ->
 get_includes(Forms, Incs) ->
     [F||F<-Forms,
 	is_attribute(F, include) orelse is_attribute(F, include_lib),
-	Arg<-refac_syntax:attribute_arguments(F),
-	case refac_syntax:type(Arg) of
-	    string -> not(lists:member(refac_syntax:string_value(Arg), Incs));
+	Arg <- wrangler_syntax:attribute_arguments(F),
+	case wrangler_syntax:type(Arg) of
+	    string -> not (lists:member(wrangler_syntax:string_value(Arg), Incs));
 	    _ -> false
-	end
-    ].
+	end].
 
 
 type_specifies(Form, MFAs) ->
     FAs =[{F,A}||{_M,F,A}<-MFAs],
-    case refac_syntax:type(Form) of
+    case wrangler_syntax:type(Form) of
 	attribute ->
-	    Name = refac_syntax:attribute_name(Form),
-	    case refac_syntax:type(Name) of
-		atom -> case refac_syntax:atom_value(Name) of
+	    Name = wrangler_syntax:attribute_name(Form),
+	    case wrangler_syntax:type(Name) of
+		atom -> case wrangler_syntax:atom_value(Name) of
 			    'spec' ->
-				FA = hd(refac_syntax:attribute_arguments(Form)),
-				case refac_syntax:type(FA) of
+				FA = hd(wrangler_syntax:attribute_arguments(Form)),
+				case wrangler_syntax:type(FA) of
 				    tuple ->
-					[A1, F1|_T] = lists:reverse(refac_syntax:tuple_elements(FA)),
-					lists:member({refac_syntax:atom_value(F1),
-						      refac_syntax:integer_value(A1)},FAs);
+					[A1, F1|_T] = lists:reverse(wrangler_syntax:tuple_elements(FA)),
+					lists:member({wrangler_syntax:atom_value(F1),
+						      wrangler_syntax:integer_value(A1)},FAs);
 				    _ -> false
 				end;
 			    _ -> false
@@ -1306,10 +1305,9 @@ get_moveable_dependent_funs(MFAs, CurModInfo, TargetModInfo, CG) ->
     case DepMFAs of 
 	[] -> {[],[],[]};
 	_ ->
-	    Forms = refac_syntax:form_list_elements(CurModInfo#module_info.ast),
+	    Forms = wrangler_syntax:form_list_elements(CurModInfo#module_info.ast),
 	    DepDefs = [{get_fun_mfa(F), F} || F <- Forms, defines(F, DepMFAs)],
 	    check_dependent_funs(DepMFAs, DepDefs, CurModInfo, TargetModInfo,CG)
-
     end.
 
 get_dependent_funs(Info, MFAs = [{ModName, _, _}| _], CG) ->
@@ -1389,9 +1387,9 @@ create_new_file(TargetFName, TargetModName) ->
     end.
 
 defines(Form, MFAs) ->
-    case refac_syntax:type(Form) of
+    case wrangler_syntax:type(Form) of
 	function ->
-	  case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Form)) of
+	  case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Form)) of
 	      {value, {fun_def, {M, F, A, _, _}}} ->
 		  lists:member({M,F,A}, MFAs);
 	      _ -> false
@@ -1415,11 +1413,11 @@ group_forms(Forms) ->
 group_forms([], Acc)->
     Acc;
 group_forms([F|Fs], Acc) ->
-    case refac_syntax:type(F)==function orelse
+    case wrangler_syntax:type(F) == function orelse
 	is_attribute(F, 'spec') of
 	true ->
 	    {Fs1, Fs2} = lists:splitwith(fun(Form)->
-						 refac_syntax:type(Form)==comment
+						 wrangler_syntax:type(Form) == comment
 					 end, Fs),
 	    group_forms(Fs2, [lists:reverse([F|Fs1])|Acc]);
 	_ -> 
@@ -1428,16 +1426,16 @@ group_forms([F|Fs], Acc) ->
 
   
 get_fun_mfa(Form) ->
-    case refac_syntax:type(Form) of
+    case wrangler_syntax:type(Form) of
 	function ->
 	    {value, {fun_def, {M, F, A, _, _}}} =
-		lists:keysearch(fun_def,1, refac_syntax:get_ann(Form)),
+		lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Form)),
 	    {M,F,A};
 	_ -> throw({error, "error in function refac_move_fun:get_fun_mfa/1"})
     end.
 
 pos_to_export(AnnAST, Pos) ->
-    Forms = refac_syntax:form_list_elements(AnnAST),
+    Forms = wrangler_syntax:form_list_elements(AnnAST),
     Fs = [F || F <- Forms,
 	       is_export_attribute(F),
 	       {Start, End} <- [api_refac:start_end_loc(F)],
@@ -1450,36 +1448,36 @@ pos_to_export(AnnAST, Pos) ->
     end.
     
 is_export_attribute(Form) ->
-    case refac_syntax:type(Form) of
+    case wrangler_syntax:type(Form) of
 	attribute ->
-	    Name = refac_syntax:attribute_name(Form),
-	    refac_syntax:type(Name)==atom andalso
-		refac_syntax:atom_value(Name)=='export';
+	    Name = wrangler_syntax:attribute_name(Form),
+	    wrangler_syntax:type(Name) == atom andalso
+		wrangler_syntax:atom_value(Name) == 'export';
 	_ -> false
     end.
 
 
 get_exported_funs(ModName,ExportAttr) ->
-    [L]=refac_syntax:attribute_arguments(ExportAttr),
-    Es = refac_syntax:list_elements(L),
+    [L]=wrangler_syntax:attribute_arguments(ExportAttr),
+    Es = wrangler_syntax:list_elements(L),
     [{ModName,F,A}|| E<-Es, 
-	       F<-[refac_syntax:atom_value(refac_syntax:arity_qualifier_body(E))],
-	       A<-[refac_syntax:integer_value(refac_syntax:arity_qualifier_argument(E))]].
+	       F <- [wrangler_syntax:atom_value(wrangler_syntax:arity_qualifier_body(E))],
+	       A <- [wrangler_syntax:integer_value(wrangler_syntax:arity_qualifier_argument(E))]].
 
 
 make_export(Names) ->
-    Es = [refac_syntax:arity_qualifier(refac_syntax:atom(F),refac_syntax:integer(A))
+    Es = [wrangler_syntax:arity_qualifier(wrangler_syntax:atom(F),wrangler_syntax:integer(A))
 	  || {F, A} <- Names],
-    refac_syntax:attribute(refac_syntax:atom('export'), [refac_syntax:list(Es)]).
+    wrangler_syntax:attribute(wrangler_syntax:atom('export'), [wrangler_syntax:list(Es)]).
 
 copy_pos_attrs(E1, E2) ->
-    refac_syntax:copy_pos(E1, refac_syntax:copy_attrs(E1, E2)).    
+    wrangler_syntax:copy_pos(E1, wrangler_syntax:copy_attrs(E1, E2)).    
 
     
 is_attribute(F, Name) ->
-    refac_syntax:type(F) == attribute andalso
-      refac_syntax:type(refac_syntax:attribute_name(F)) == atom andalso
-	refac_syntax:atom_value(refac_syntax:attribute_name(F)) == Name.
+    wrangler_syntax:type(F) == attribute andalso
+      wrangler_syntax:type(wrangler_syntax:attribute_name(F)) == atom andalso
+	wrangler_syntax:atom_value(wrangler_syntax:attribute_name(F)) == Name.
 
 prettyprint(none) ->
     none;

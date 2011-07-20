@@ -129,11 +129,11 @@ sub_clone(C1, C2) ->
 
 %%-spec identifier_name(syntaxTree()) -> atom().
 identifier_name(Exp) ->
-    case refac_syntax:type(Exp) of
+    case wrangler_syntax:type(Exp) of
 	atom ->
-	    refac_syntax:atom_value(Exp);
+	    wrangler_syntax:atom_value(Exp);
 	variable ->
-	    refac_syntax:variable_name(Exp);
+	    wrangler_syntax:variable_name(Exp);
 	_ ->throw({error, "Not an identifier"})
     end.
 
@@ -310,7 +310,7 @@ compose_search_result_info([{FileName, {{StartLine, StartCol}, {EndLine, EndCol}
 %% This is more restrict that what is necessary.
 %% TODO:how about side effect?
 generalisable(Node) ->
-    case lists:keysearch(category, 1, refac_syntax:get_ann(Node)) of
+    case lists:keysearch(category, 1, wrangler_syntax:get_ann(Node)) of
 	{value, {category, record_field}} -> false;
 	{value, {category, record_type}} -> false;
 	{value, {category, guard_expression}} -> false;
@@ -319,12 +319,12 @@ generalisable(Node) ->
       	{value, {category, macro_name}} -> false;
         {value, {category, pattern}} ->
             %% refac_syntax:is_literal(Node) orelse ;; in theory it is ok.
-            refac_syntax:type(Node) == variable;
+            wrangler_syntax:type(Node) == variable;
 	_ ->
 	    %% While syntactically, expressions of some of the listed types
 	    %% can be replaced by a variable, in practice, generalise a function 
 	    %% over this kind of expression could make the code harder to understand.
-	    T = refac_syntax:type(Node),
+	    T = wrangler_syntax:type(Node),
             not  lists:member(T, [match_expr, operator, case_expr,
                                   if_expr, fun_expr, receive_expr, clause,
                                   query_expr, try_expr, catch_expr, cond_expr,

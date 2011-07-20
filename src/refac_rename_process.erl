@@ -108,15 +108,15 @@ pos_to_process_name(Node, Pos) ->
     end.
 
 pos_to_process_name_1(Node, Pos) ->
-    As = refac_syntax:get_ann(Node),
-    case refac_syntax:type(Node) of
+    As = wrangler_syntax:get_ann(Node),
+    case wrangler_syntax:type(Node) of
 	atom ->
 	    {Start, End} = api_refac:start_end_loc(Node),
 	    case Start =< Pos andalso Pos =< End of
 		true ->
 		    case lists:keysearch(pname, 1, As) of
 			{value, {pname, _V}} ->
-			    {refac_syntax:atom_value(Node), true};
+			    {wrangler_syntax:atom_value(Node), true};
 			_ -> {[], false}
 		    end;
 		_ -> {[], false}
@@ -146,22 +146,22 @@ collect_process_names(DirList) ->
 		{ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(File, true, DirList),
 		{value, {module, ModName}} = lists:keysearch(module, 1, Info),
 		F1 = fun (Node, ModAcc) ->
-			     case refac_syntax:type(Node) of
+			     case wrangler_syntax:type(Node) of
 				 function ->
 				     F2 = fun (Node1, FunAcc) ->
-						  case refac_syntax:type(Node1) of
+						  case wrangler_syntax:type(Node1) of
 						      application ->
 							  case is_register_app(Node1) of
 							      true ->
-								  [RegName, _Pid] = refac_syntax:application_arguments(Node1),
+								  [RegName, _Pid] = wrangler_syntax:application_arguments(Node1),
 								  RegNameValues = evaluate_expr(Files, ModName, AnnAST, Node, RegName),
 								  RegNameValues++FunAcc;
 							      _ -> FunAcc
 							  end;
 						      atom ->
-							  case lists:keysearch(pname, 1, refac_syntax:get_ann(Node1)) of
+							  case lists:keysearch(pname, 1, wrangler_syntax:get_ann(Node1)) of
 							      {value, {pname, _V}} ->
-								  [{value, refac_syntax:atom_value(Node1)}| FunAcc];
+								  [{value, wrangler_syntax:atom_value(Node1)}| FunAcc];
 							      _ -> FunAcc
 							  end;
 						      _ -> FunAcc
@@ -178,10 +178,10 @@ collect_process_names(DirList) ->
     {lists:usort(lists:map(fun ({value, P}) -> P end, Names)), lists:usort(UnKnowns)}.
     
 is_register_app(T) ->
-     case refac_syntax:type(T) of
+     case wrangler_syntax:type(T) of
        application ->
- 	  Operator = refac_syntax:application_operator(T),
- 	  Ann = refac_syntax:get_ann(Operator),
+           Operator = wrangler_syntax:application_operator(T),
+           Ann = wrangler_syntax:get_ann(Operator),
  	  case lists:keysearch(fun_def, 1, Ann) of
  	    {value, {fun_def, {erlang, register, 2, _, _}}} -> true;
  	    _ -> false
@@ -211,13 +211,13 @@ do_rename_process_in_other_modules(Files, OldProcessName, NewProcessName, Search
     
  
 do_rename_process(Node, {OldProcessName, NewProcessName}) ->
-    case refac_syntax:type(Node) of 
+    case wrangler_syntax:type(Node) of
 	atom ->
-	    As = refac_syntax:get_ann(Node),
+	    As = wrangler_syntax:get_ann(Node),
 	    case lists:keysearch(pname, 1, As) of 
 		{value, {pname, _}} ->
-		    case refac_syntax:atom_value(Node) of 
-			OldProcessName -> {refac_syntax:copy_attrs(Node, refac_syntax:atom(NewProcessName)), true};
+		    case wrangler_syntax:atom_value(Node) of
+			OldProcessName -> {wrangler_syntax:copy_attrs(Node, wrangler_syntax:atom(NewProcessName)), true};
 			_ -> {Node, false}
 		    end;
 		_ -> {Node, false}
@@ -252,12 +252,12 @@ is_process_name(Name) ->
 %% Need to be refactored.
 evaluate_expr(Files, ModName, AnnAST, FunDef, Expr) ->
     F = fun (E) ->
-		Es = [refac_syntax:revert(E)],
+		Es = [wrangler_syntax:revert(E)],
 		case catch erl_eval:exprs(Es, []) of
 		    {value, V, _} -> {value, V};
 		    _ ->
-			FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
-			Arity = refac_syntax:function_arity(FunDef),
+			FunName = wrangler_syntax:data(wrangler_syntax:function_name(FunDef)),
+			Arity = wrangler_syntax:function_arity(FunDef),
 			{StartPos, _} = api_refac:start_end_loc(Expr),
 			{unknown, {ModName, FunName, Arity, StartPos}}
 		end

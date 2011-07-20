@@ -50,18 +50,18 @@ type_ann_ast(FileName, Info, AnnAST, SearchPaths, TabWidth) ->
 	{value, {module, ModName}} ->
 	    TestFrameWorkUsed = refac_misc:test_framework_used(FileName),
 	    Pid = start_type_env_process(),
-	    Fs = refac_syntax:form_list_elements(AnnAST),
+	    Fs = wrangler_syntax:form_list_elements(AnnAST),
 	    Funs = wrangler_callgraph_server:get_sorted_funs(ModName, AnnAST),
 	    Funs1 = lists:map(fun ({{M, F, A}, FunDef}) ->
 				      {{M, F, A}, do_type_ann(FileName, FunDef, TestFrameWorkUsed, SearchPaths, TabWidth, Pid)}
 			      end, Funs),
 	    Fs1 = lists:map(fun (Form) ->
-				    case refac_syntax:type(Form) of
+				    case wrangler_syntax:type(Form) of
 					function -> find_fun(Funs1, Form);
 					_ -> Form
 				    end
 			    end, Fs),
-	    AnnAST1 = refac_misc:rewrite(AnnAST, refac_syntax:form_list(Fs1)),
+	    AnnAST1 = refac_misc:rewrite(AnnAST, wrangler_syntax:form_list(Fs1)),
 	    case get_all_type_info(Pid) of
 		[] ->
 		    stop_type_env_process(Pid),
@@ -74,11 +74,11 @@ type_ann_ast(FileName, Info, AnnAST, SearchPaths, TabWidth) ->
     end.
 
 find_fun(Funs, Form) ->
-    Ann = refac_syntax:get_ann(Form),
-    Pos = refac_syntax:get_pos(Form),
+    Ann = wrangler_syntax:get_ann(Form),
+    Pos = wrangler_syntax:get_pos(Form),
     {value, {fun_def, {M, F, A, _, _}}} = lists:keysearch(fun_def, 1, Ann),
     {value, {{M, F, A}, FunDef}} = lists:keysearch({M, F, A}, 1, Funs),
-    Pos1 = refac_syntax:get_pos(FunDef),   
+    Pos1 = wrangler_syntax:get_pos(FunDef),
     case Pos==Pos1 of  
 	true ->
 	    FunDef;
@@ -87,17 +87,17 @@ find_fun(Funs, Form) ->
     end.
 
 do_type_ann(FileName, Form, TestFrameWorkUsed, SearchPaths, TabWidth, Pid) ->
-    case refac_syntax:type(Form) of
+    case wrangler_syntax:type(Form) of
 	function ->
-	    Ann = refac_syntax:get_ann(Form),
+	    Ann = wrangler_syntax:get_ann(Form),
 	    {value, {fun_def, {M, F, A, _, _}}} = lists:keysearch(fun_def, 1, Ann),
-	    Name = refac_syntax:function_name(Form),
-	    Name1 = refac_syntax:add_ann({type, {f_atom, [M, F, A]}}, Name),
+	    Name = wrangler_syntax:function_name(Form),
+	    Name1 = wrangler_syntax:add_ann({type, {f_atom, [M, F, A]}}, Name),
 	    Cs = [api_ast_traverse:full_buTP(fun do_type_ann_clause/2, C,
-					     {FileName, refac_syntax:clause_patterns(C),
+					     {FileName, wrangler_syntax:clause_patterns(C),
 					      TestFrameWorkUsed, SearchPaths, TabWidth, Pid})
-		  || C <- refac_syntax:function_clauses(Form)],
-	    CsPats = [refac_syntax:clause_patterns(C) || C <- refac_syntax:function_clauses(Form)],
+		  || C <- wrangler_syntax:function_clauses(Form)],
+	    CsPats = [wrangler_syntax:clause_patterns(C) || C <- wrangler_syntax:function_clauses(Form)],
 	    TypeInfo = get_all_type_info(Pid),
 	    CsPatsTypes = [[get_pat_type(P, TypeInfo) || P <- CPats] || CPats <- CsPats],
 	    ZippedCsPatsTypes = zip_list(CsPatsTypes),
@@ -110,36 +110,36 @@ do_type_ann(FileName, Form, TestFrameWorkUsed, SearchPaths, TabWidth, Pid) ->
 		    add_to_type_env(Pid, [Ts]);
 		_ -> ok
 	    end,
-	    refac_misc:rewrite(Form, refac_syntax:function(Name1, Cs));
+	    refac_misc:rewrite(Form, wrangler_syntax:function(Name1, Cs));
 	_ ->
 	    Form
     end.
 
 do_type_ann_clause(Node, {FileName, Pats, TestFrameWorkUsed, SearchPaths, TabWidth, Pid}) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
 	application ->
-	    Op = refac_syntax:application_operator(Node),
-	    Args = refac_syntax:application_arguments(Node),
-	    case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
+	    Op = wrangler_syntax:application_operator(Node),
+	    Args = wrangler_syntax:application_arguments(Node),
+	    case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Op)) of
 		{value, {fun_def, {M, F, A, _, _}}} when M =/= '_' andalso F =/= '_' ->
 		    Args1 = do_type_ann_args({M, F, A}, map_args(Pats, Args), Args, Pid),
-		    Node1 = refac_misc:rewrite(Node, refac_syntax:application(Op, Args1)),
+		    Node1 = refac_misc:rewrite(Node, wrangler_syntax:application(Op, Args1)),
 		    do_type_ann_op(FileName, Node1, SearchPaths, TabWidth, Pid);
 		_ -> %% Either module name or function name is not an atom;
 		    do_type_ann_op(FileName, Node, SearchPaths, TabWidth, Pid)
 	    end;
 	tuple ->
-	    case refac_syntax:tuple_elements(Node) of
+	    case wrangler_syntax:tuple_elements(Node) of
 		[E1, E2, E3, E4] ->
-		    case refac_syntax:type(E1) == atom andalso refac_syntax:atom_value(E1) == call
-								  andalso lists:member(eqc, TestFrameWorkUsed)
+		    case wrangler_syntax:type(E1) == atom andalso wrangler_syntax:atom_value(E1) == call
+								    andalso lists:member(eqc, TestFrameWorkUsed)
 			of
 			true ->
 			    NewE2 = add_type_info({type, m_atom}, E2, Pid),
 			    NewE3 = add_type_info({type, {f_atom, [try_eval(FileName, E2, SearchPaths, TabWidth, fun is_atom/1),
 								   try_eval(FileName, E3, SearchPaths, TabWidth, fun is_atom/1),
 								   try_eval_length(E4)]}}, E3, Pid),
-			    refac_misc:rewrite(Node, refac_syntax:tuple([E1, NewE2, NewE3, E4]));
+			    refac_misc:rewrite(Node, wrangler_syntax:tuple([E1, NewE2, NewE3, E4]));
 			false ->
 			    Node
 		    end;
@@ -149,35 +149,35 @@ do_type_ann_clause(Node, {FileName, Pats, TestFrameWorkUsed, SearchPaths, TabWid
     end.
 
 do_type_ann_op(FileName, Node, SearchPaths, TabWidth, Pid) ->
-    Op = refac_syntax:application_operator(Node),
-    Args = refac_syntax:application_arguments(Node),
+    Op = wrangler_syntax:application_operator(Node),
+    Args = wrangler_syntax:application_arguments(Node),
     Arity = length(Args),
-    case refac_syntax:type(Op) of
+    case wrangler_syntax:type(Op) of
 	atom ->
-	    As = refac_syntax:get_ann(Op),
+	    As = wrangler_syntax:get_ann(Op),
 	    {value, {fun_def, {Mod, FunName, Ari, _, _}}} = lists:keysearch(fun_def, 1, As),
-	    Op1 = refac_syntax:add_ann({type, {f_atom, [Mod, FunName, Ari]}}, Op),
-	    refac_misc:rewrite(Node, refac_syntax:application(Op1, Args));
+	    Op1 = wrangler_syntax:add_ann({type, {f_atom, [Mod, FunName, Ari]}}, Op),
+	    refac_misc:rewrite(Node, wrangler_syntax:application(Op1, Args));
 	variable ->
 	    Op1 = add_type_info({type, {f_atom, ['_', try_eval(FileName, Op, SearchPaths, TabWidth,
 							       fun is_atom/1), Arity]}}, Op, Pid),
-	    refac_misc:rewrite(Node, refac_syntax:application(Op1, Args));
+	    refac_misc:rewrite(Node, wrangler_syntax:application(Op1, Args));
 	module_qualifier ->
-	    M = refac_syntax:module_qualifier_argument(Op),
-	    F = refac_syntax:module_qualifier_body(Op),
+	    M = wrangler_syntax:module_qualifier_argument(Op),
+	    F = wrangler_syntax:module_qualifier_body(Op),
 	    M1 = add_type_info({type, m_atom}, M, Pid),
 	    F1 = add_type_info({type, {f_atom, [try_eval(FileName, M, SearchPaths, TabWidth, fun is_atom/1),
 						try_eval(FileName, F, SearchPaths, TabWidth, fun is_atom/1), Arity]}}, F, Pid),
-	    Op1 = refac_misc:rewrite(Op, refac_syntax:module_qualifier(M1, F1)),
-	    refac_misc:rewrite(Node, refac_syntax:application(Op1, Args));
+	    Op1 = refac_misc:rewrite(Op, wrangler_syntax:module_qualifier(M1, F1)),
+	    refac_misc:rewrite(Node, wrangler_syntax:application(Op1, Args));
 	tuple ->
-	    case refac_syntax:tuple_elements(Op) of
+	    case wrangler_syntax:tuple_elements(Op) of
 		[M, F] ->
 		    M1 = add_type_info({type, m_atom}, M, Pid),
 		    F1 = add_type_info({type, {f_atom, [try_eval(FileName, M, SearchPaths, TabWidth, fun is_atom/1),
 							try_eval(FileName, M, SearchPaths, TabWidth, fun is_atom/1), Arity]}}, F, Pid),
-		    Op1 = refac_misc:rewrite(Op, refac_syntax:tuple([M1, F1])),
-		    refac_misc:rewrite(Node, refac_syntax:application(Op1, Args));
+		    Op1 = refac_misc:rewrite(Op, wrangler_syntax:tuple([M1, F1])),
+		    refac_misc:rewrite(Node, wrangler_syntax:application(Op1, Args));
 		_ ->
 		    Node
 	    end;
@@ -229,26 +229,26 @@ do_type_ann_args_1(ParTypes, MappedArgs, Args, Pid) ->
 
 
 add_type_info({type, Type}, Node, Pid) ->
-    As =refac_syntax:get_ann(Node),
+    As =wrangler_syntax:get_ann(Node),
     Ps = [{Pos, {type, Type}}|| {value, {_,  Pos}} <- As],
     Ps1 =lists:append([[{Pos, {type, Type}}|| Pos<-Poss] ||{def, Poss} <-As]),
     add_to_type_env(Pid, Ps++Ps1),
-    refac_syntax:add_ann({type, Type}, Node).
+    wrangler_syntax:add_ann({type, Type}, Node).
    
 
 map_args(Pats, ActualArgs) ->
     Fun = fun (ActualArg) ->
-		  case refac_syntax:type(ActualArg) of
+		  case wrangler_syntax:type(ActualArg) of
 		      literal ->
 			  ActualArg;
 		      variable ->
-			  As = refac_syntax:get_ann(ActualArg),
+			  As = wrangler_syntax:get_ann(ActualArg),
 			  case lists:keysearch(def, 1, As) of
 			      {value, {def, DefinePos}} ->
 				  {Ps1, _Ps2} = lists:splitwith(
-					      fun (P) -> case refac_syntax:type(P) of
+					      fun (P) -> case wrangler_syntax:type(P) of
 							     variable ->
-								 As1 = refac_syntax:get_ann(P),
+								 As1 = wrangler_syntax:get_ann(P),
 								 case lists:keysearch(def, 1, As1) of
 								     {value, {def, DefinePos}} ->
 									 false;
@@ -277,9 +277,9 @@ map_args(Pats, ActualArgs) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
 
 get_pat_type(P, TypeInfo) ->
-    case refac_syntax:type(P) of
+    case wrangler_syntax:type(P) of
 	variable ->
-	    As = refac_syntax:get_ann(P),
+	    As = wrangler_syntax:get_ann(P),
 	    case lists:keysearch(def, 1, As) of
 		{value, {def, [DefinePos]}} ->
 		    case lists:keysearch(DefinePos, 1, TypeInfo) of
@@ -302,16 +302,16 @@ prop_type_info(AnnAST, TypeEnv) ->
     element(1, api_ast_traverse:stop_tdTP(fun do_prop_type_info/2, AnnAST, TypeEnv)).
   
 do_prop_type_info(Node, TypeEnv) ->
-    case refac_syntax:type(Node) of 
+    case wrangler_syntax:type(Node) of
 	atom ->
-	    Pos = refac_syntax:get_pos(Node),
+	    Pos = wrangler_syntax:get_pos(Node),
 	    Ts =lists:usort([Type||{P, Type} <-TypeEnv, P==Pos]),
 	    case Ts of
 		[] ->
 		    {Node, true};
 		_ ->
 		    Type = element(2, lists:unzip(Ts)),
-		    Node1 = refac_syntax:add_ann({type, Type}, Node),
+		    Node1 = wrangler_syntax:add_ann({type, Type}, Node),
 		    {Node1, true}
 	    end;	    
 	_ -> {Node, false}
@@ -381,7 +381,7 @@ try_eval(Expr, Cond) ->
     try_eval(none, Expr, [], 8, Cond).
 
 try_eval(FileName, E, SearchPaths, TabWidth, Cond) ->
-    As = refac_syntax:get_ann(E),
+    As = wrangler_syntax:get_ann(E),
     case lists:keysearch(value, 1, As) of
 	{value, {value, {{_, V}, _DefPos}}} ->
 	    case Cond(V) of
@@ -405,7 +405,7 @@ try_eval(FileName, E, SearchPaths, TabWidth, Cond) ->
 try_eval_length(Expr) when is_function(Expr) ->
     fun (X) -> try_eval_length(Expr(X)) end;
 try_eval_length(Expr) ->
-    E = refac_syntax:revert(mk_length_app(Expr)),
+    E = wrangler_syntax:revert(mk_length_app(Expr)),
     try
       erl_eval:expr(E, [])
     of
@@ -413,24 +413,24 @@ try_eval_length(Expr) ->
 	  V
     catch
       _E1:_E2 ->
-	  As = refac_syntax:get_ann(Expr),
+	  As = wrangler_syntax:get_ann(Expr),
 	  ?debug("As:\n~p\n", [As]),
 	  case lists:keysearch(value, 1, As) of
 	    {value, {value, {{list, V}, _DefPos}}} ->
 		V;
 	    _ ->
 		?debug("Expr:\n~p\n", [Expr]),
-		case refac_syntax:type(Expr) of
-		  list -> refac_syntax:list_length(Expr);
+		case wrangler_syntax:type(Expr) of
+		  list -> wrangler_syntax:list_length(Expr);
 		  _ -> '_'
 		end
 	  end
     end.
 
 mk_length_app(Expr) ->
-    refac_syntax:set_pos(refac_syntax:application(
-			   refac_syntax:set_pos(
-			     refac_syntax:atom(length), {1, 1}), [Expr]), {1, 1}).
+    wrangler_syntax:set_pos(wrangler_syntax:application(
+			         wrangler_syntax:set_pos(
+			              wrangler_syntax:atom(length), {1, 1}), [Expr]), {1, 1}).
 
 
 zip_list(ListOfLists) ->    
