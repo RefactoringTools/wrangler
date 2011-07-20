@@ -1,6 +1,6 @@
 {application, wrangler,
   [ {description, "Wrangler: the Erlang refactorer"},
-    {vsn, "0.9.3"},
+    {vsn, "0.9.4"},
     {modules, [refac_syntax,
                refac_syntax_lib,
                refac_api,
@@ -73,9 +73,9 @@
                side_effect_api,
                suffix_tree,
                unification,
-               wrangler,
+               wrangler_refacs,
                wrangler_api,
-               wrangler_app,
+               wrangler,
                wrangler_ast_server,
                wrangler_callgraph_server,
                wrangler_code_inspection_api,
@@ -95,4 +95,4 @@
                   wrangler_preview_server,
                   wrangler_undo_serve]},
     {applications, [kernel, stdlib]},          
-    {mod, {wrangler_app, []}}]}.
+    {mod, {wrangler, []}}]}.
