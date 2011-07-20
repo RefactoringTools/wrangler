@@ -834,9 +834,9 @@ tokenize(File, WithLayout, TabWidth) ->
                                     S, {1,1}, TabWidth, 
                                     refac_misc:file_format(File)),
 		    Ts;
-		_ -> {ok, Ts, _} = refac_scan:string(
-                                     S, {1,1}, TabWidth,
-                                     refac_misc:file_format(File)),
+		_ -> {ok, Ts, _} = wrangler_scan:string(
+                                        S, {1,1}, TabWidth,
+                                        refac_misc:file_format(File)),
 		     Ts
 	    end;
 	{error, Reason} ->
@@ -1084,7 +1084,7 @@ parse_annotate_expr("", _) ->
 parse_annotate_expr(ExprStr, StartLoc) when is_integer(StartLoc) ->
     parse_annotate_expr(ExprStr, {StartLoc, 1});
 parse_annotate_expr(ExprStr, StartLoc) when is_tuple(StartLoc) ->
-    case refac_scan:string(ExprStr, StartLoc) of
+    case wrangler_scan:string(ExprStr, StartLoc) of
         {ok, Toks, _} ->
             [T|Ts] = lists:reverse(Toks),
             Toks1 = case T of 

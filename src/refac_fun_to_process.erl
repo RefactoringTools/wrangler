@@ -285,7 +285,7 @@ rpc_fun(NewFunName, RpcFunName) ->
 		    receive
 		      {RegName, Response} -> Response
 		 end.",
-    {ok, Toks, _} = refac_scan:string(RpcFun),
+    {ok, Toks, _} = wrangler_scan:string(RpcFun),
     {ok, Form} =erl_parse:parse_form(Toks),
     hd(refac_syntax:form_list_elements(
 	 refac_recomment:recomment_forms([Form], []))).

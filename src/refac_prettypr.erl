@@ -127,8 +127,8 @@ print_a_form_and_get_changes(Form, FileFormat, Options, TabWidth) ->
     NewFormStr0= print_form(Form,reset_prec(Ctxt),fun lay/2),
     %% NewFormStr0=erl_prettypr:format(Form),
     NewFormStr=repair_new_form_str(OrigFormStr, NewFormStr0, TabWidth,FileFormat),
-    {ok, OrigToks, _} = refac_scan:string(OrigFormStr),
-    {ok, NewToks, _} = refac_scan:string(NewFormStr),
+    {ok, OrigToks, _} = wrangler_scan:string(OrigFormStr),
+    {ok, NewToks, _} = wrangler_scan:string(NewFormStr),
     Change =get_changes(OrigToks, NewToks),
     {NewFormStr, Change}.
    
@@ -207,11 +207,11 @@ form_not_change_1(Form) ->
     try
         Toks = refac_misc:get_toks(Form),
         Str = refac_misc:concat_toks(Toks),
-        {ok,Toks1,_} = refac_scan:string(Str,{1,1},?TabWidth,unix),
+        {ok,Toks1,_} = wrangler_scan:string(Str,{1,1},?TabWidth,unix),
         OriginalForm = refac_epp_dodger:normal_parser(Toks1,[]),
         NewStr = format(Form,[]),
         {ok,Toks2,_} =
-            refac_scan:string(NewStr,{1,1},?TabWidth,unix),
+            wrangler_scan:string(NewStr,{1,1},?TabWidth,unix),
         NewForm = refac_epp_dodger:normal_parser(Toks2,[]),
         best(OriginalForm) == best(NewForm)
     of 

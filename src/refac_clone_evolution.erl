@@ -1119,7 +1119,7 @@ num_of_tokens(Exprs) ->
 
 
 num_of_tokens_in_string(Str) ->
-    case refac_scan:string(Str, {1,1}, 8, 'unix') of
+    case wrangler_scan:string(Str, {1,1}, 8, 'unix') of
 	{ok, Ts, _} -> 
 	    length(Ts);
 	_ ->
@@ -1516,11 +1516,11 @@ remove_short_clones(_C={Rs, Len, _Freq}, MinToks, MinFreq) ->
    
 no_of_tokens(Node) when is_list(Node)->
     Str = refac_prettypr:format(refac_syntax:block_expr(Node)),
-    {ok, Toks,_}=refac_scan:string(Str, {1,1}, 8, unix),
+    {ok, Toks, _}=wrangler_scan:string(Str, {1,1}, 8, unix),
     length(Toks)-2;
 no_of_tokens(Node) ->
     Str = refac_prettypr:format(Node),
-    {ok, Toks,_} =refac_scan:string(Str, {1,1}, 8, unix),
+    {ok, Toks, _} =wrangler_scan:string(Str, {1,1}, 8, unix),
     length(Toks).
 
 combine_clones_by_au([]) -> [];

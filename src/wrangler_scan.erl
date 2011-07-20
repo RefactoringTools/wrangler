@@ -16,10 +16,8 @@
 %%     $Id: refac_scan.erl,v 1.5 2008-04-30 09:28:12 hl Exp $
 %%
 %% Modified: 17 Jan 2007 by  Huiqing Li <hl@kent.ac.uk>
-%% 
-%% 
-%% Erlang token scanning functions of io library. This Lexer has been changed by
-%% Huiqing Li to keep the comments and whitespaces in the token stream.
+%%
+%% Erlang token scanning functions of io library.
 
 %% For handling ISO 8859-1 (Latin-1) we use the following type
 %% information:
@@ -45,18 +43,37 @@
 %% Many punctuation characters region have special meaning.  Must
 %% watch using × \327, bvery close to x \170
 
-%% @hidden
 %% @private
--module(refac_scan_with_layout).
+%% @hidden
+-module(wrangler_scan).
 
--export([string/1,string/2,string/3, string/4]).
+-export([format_error/1, reserved_word/1, string/1, string/2,
+	 string/4, tokens/3]).
 
--import(wrangler_scan, [reserved_word/1, escape_char/1]).
+-compile(export_all).
 
 -import(lists, [member/2, reverse/1]).
 
 -define(DEFAULT_TABWIDTH, 8).
 -define(DEFAULT_FILEFORMAT, unix).
+
+format_error({string, Quote, Head}) ->
+    ["unterminated " ++
+       (string_thing(Quote) ++
+	  (" starting with " ++
+	     io_lib:write_string(Head, Quote)))];
+format_error({illegal, Type}) ->
+    io_lib:fwrite("illegal ~w", [Type]);
+format_error(char) -> "unterminated character";
+format_error(scan) -> "premature end";
+format_error({base, Base}) ->
+    io_lib:fwrite("illegal base '~w'", [Base]);
+format_error(float) -> "bad float";
+%%
+format_error(Other) -> io_lib:write(Other).
+
+string_thing($') -> "atom";
+string_thing(_) -> "string".
 
 %% string(CharList, StartPos)
 %%  Takes a list of characters and tries to tokenise them.
@@ -65,34 +82,38 @@
 %%	{ok,[Tok]}
 %%	{error,{ErrorPos,?MODULE,What},EndPos}
 
-
 string(Cs) ->
     string(Cs, {1, 1}, ?DEFAULT_TABWIDTH, ?DEFAULT_FILEFORMAT).
 
-string(Cs, {Line, Col}) ->
-    string(Cs, {Line, Col}, ?DEFAULT_TABWIDTH, ?DEFAULT_FILEFORMAT).
 
-string(Cs, {Line, Col}, TabWidth) -> 
-    string(Cs, {Line, Col}, TabWidth, ?DEFAULT_FILEFORMAT).
+string(Cs, {Line, Col}) -> string(Cs, {Line, Col}, ?DEFAULT_TABWIDTH, ?DEFAULT_FILEFORMAT).
 
 string(Cs, {Line, Col}, TabWidth, FileFormat)
-  when is_list(Cs), is_integer(Line), is_integer(Col), is_integer(TabWidth) ->
+    when is_list(Cs), is_integer(Line), is_integer(Col), is_integer(TabWidth) ->
+    %     %% Debug replacement line for chopping string into 1-char segments
+    %     scan([], [], [], Pos, Cs, []).
     scan(Cs, [], [], {Line, Col}, [], [],TabWidth,FileFormat).
 
-%% String
-more(Cs, Stack, Toks, {Line, Col}, eos, Errors, _TabWidth, _FileFormat, Fun) ->
-    erlang:error(badstate, [Cs, Stack, Toks, {Line, Col}, eos, Errors, Fun]);
-% %% Debug clause for chopping string into 1-char segments
-% more(Cs, Stack, Toks, Pos, [H|T], Errors, Fun) ->
-%     Fun(Cs++[H], Stack, Toks, Pos, T, Errors);
-more(Cs, Stack, Toks, {Line, Col}, [], Errors, TabWidth, FileFormat, Fun) ->
-    Fun(Cs ++ eof, Stack, Toks, {Line, Col}, eos, Errors, TabWidth,FileFormat);
-%% Stream
-more(Cs, Stack, Toks, {Line, Col}, eof, Errors, TabWidth, FileFormat, Fun) ->
-    erlang:error(badstate, [Cs, Stack, Toks, {Line, Col}, eof, Errors, TabWidth, FileFormat, Fun]);
-more(Cs, Stack, Toks, {Line, Col}, io, Errors, TabWidth, FileFormat, Fun) ->
-    {more, {Cs, Stack, Toks, {Line, Col}, io, Errors,TabWidth, FileFormat, Fun}}.
 
+%% tokens(Continuation, CharList, StartPos) ->
+%%	{done, {ok, [Tok], EndPos}, Rest} |
+%%	{done, {error,{ErrorPos,?MODULE,What}, EndPos}, Rest} |
+%%	{more, Continuation'}
+%%  This is the main function into the re-entrant scanner.
+%%
+%%  The continuation has the form:
+%%      {RestChars,ScanStateStack,ScannedTokens,
+%%       CurrentPos,ContState,ErrorStack,ContFunArity5}
+
+%% definitely should sperate {Line, Col} and TabWidth;; HL.
+tokens([], Chars, {{Line, Col}, TabWidth, FileFormat}) ->
+    tokens({[], [], [], {Line, Col}, io, [], TabWidth, FileFormat, fun scan/8}, Chars, {{Line, Col}, TabWidth, FileFormat});
+tokens({Cs, _Stack, _Toks, {Line, Col}, eof, TabWidth, FileFormat, _Fun}, eof, {_, TabWidth, FileFormat}) ->
+    {done, {eof, {Line, Col}}, Cs};
+tokens({Cs, Stack, Toks, {Line, Col}, _State, Errors,TabWidth,FileFormat,Fun}, eof, {_, TabWidth, FileFormat}) ->
+    Fun(Cs ++ eof, Stack, Toks, {Line, Col}, eof, Errors, TabWidth,FileFormat);
+tokens({Cs, Stack, Toks, {Line, Col}, State, Errors,TabWidth,FileFormat,Fun},Chars, {_, TabWidth,FileFormat}) ->
+    Fun(Cs ++ Chars, Stack, Toks, {Line, Col}, State,Errors, TabWidth,FileFormat).
 
 %% Scan loop.
 %%
@@ -118,53 +139,106 @@ more(Cs, Stack, Toks, {Line, Col}, io, Errors, TabWidth, FileFormat, Fun) ->
 %% more/8 and done/6 handles scanning from I/O-server (Stream) or from String.
 %%
 
-scan([$\r | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat) ->    
-    case FileFormat of 
-	mac -> 
-	    scan(Cs, Stack, [{whitespace, {Line, Col}, '\r'}|Toks], {Line + 1, 1}, State, Errors, TabWidth, FileFormat);  
-	_ ->
-	    scan(Cs, Stack, [{whitespace, {Line, Col}, '\r'}|Toks], {Line , Col+1}, State, Errors, TabWidth, FileFormat)
-    end;
-scan([$\n | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat) ->    
-    scan(Cs, Stack, [{whitespace, {Line, Col}, '\n'}|Toks], {Line + 1, 1}, State, Errors, TabWidth,FileFormat);  
+%% String
+more(Cs, Stack, Toks, {Line, Col}, eos, Errors, _TabWidth, _FileFormat, Fun) ->
+    erlang:error(badstate, [Cs, Stack, Toks, {Line, Col}, eos, Errors, Fun]);
+% %% Debug clause for chopping string into 1-char segments
+% more(Cs, Stack, Toks, Pos, [H|T], Errors, Fun) ->
+%     Fun(Cs++[H], Stack, Toks, Pos, T, Errors);
+more(Cs, Stack, Toks, {Line, Col}, [], Errors, TabWidth, FileFormat, Fun) ->
+    Fun(Cs ++ eof, Stack, Toks, {Line, Col}, eos, Errors, TabWidth,FileFormat);
+%% Stream
+more(Cs, Stack, Toks, {Line, Col}, eof, Errors, TabWidth, FileFormat, Fun) ->
+    erlang:error(badstate, [Cs, Stack, Toks, {Line, Col}, eof, Errors, TabWidth, FileFormat, Fun]);
+more(Cs, Stack, Toks, {Line, Col}, io, Errors, TabWidth, FileFormat, Fun) ->
+    {more, {Cs, Stack, Toks, {Line, Col}, io, Errors,TabWidth, FileFormat, Fun}}.
 
+%% String
+done(eof, [], Toks, {Line, Col}, eos, _TabWidth,_FileFormat) ->
+    {ok, reverse(Toks), {Line, Col}};
+done(eof, Errors, _Toks, {Line, Col}, eos, _TabWidth,_FileFormat) ->
+    {Error, ErrorPos} = lists:last(Errors),
+    {error, {ErrorPos, ?MODULE, Error}, {Line, Col}};
+done(Cs, Errors, Toks, {Line, Col}, eos, TabWidth,FileFormat) ->
+    scan(Cs, [], Toks, {Line, Col}, eos, Errors, TabWidth,FileFormat);
+%% Debug clause for chopping string into 1-char segments
+%% done(Cs, Errors, Toks, Pos, [H|T]) ->
+%%    scan(Cs++[H], [], Toks, Pos, T, Errors);
+done(Cs, Errors, Toks, {Line, Col}, [], TabWidth,FileFormat) ->
+    scan(Cs ++ eof, [], Toks, {Line, Col}, eos, Errors, TabWidth,FileFormat);
+%% Stream
+done(Cs, [], [{dot, _} | _] = Toks, {Line, Col}, io, _TabWidth,_FileFormat) ->
+    {done, {ok, reverse(Toks), {Line, Col}}, Cs};
+done(Cs, [], [_ | _], {Line, Col}, io, _TabWidth,_FileFormat) ->
+    {done,
+     {error, {{Line, Col}, ?MODULE, scan}, {Line, Col}}, Cs};
+done(Cs, [], [], {Line, Col}, eof, _TabWidth,_FileFormat) ->
+    {done, {eof, {Line, Col}}, Cs};
+done(Cs, [], [{dot, _} | _] = Toks, {Line, Col}, eof, _TabWidth,_FileFormat) ->
+    {done, {ok, reverse(Toks), {Line, Col}}, Cs};
+done(Cs, [], _Toks, {Line, Col}, eof, _TabWidth,_FileFormat) ->
+    {done,
+     {error, {{Line, Col}, ?MODULE, scan}, {Line, Col}}, Cs};
+done(Cs, Errors, _Toks, {Line, Col}, io, _TabWidth,_FileFormat) ->
+    {Error, ErrorPos} = lists:last(Errors),
+    {done, {error, {ErrorPos, ?MODULE, Error}, {Line, Col}},
+     Cs};
+done(Cs, Errors, _Toks, {Line, Col}, eof, _TabWidth,_FileFormat) ->
+    {Error, ErrorPos} = lists:last(Errors),
+    {done, {error, {ErrorPos, ?MODULE, Error}, {Line, Col}},
+     Cs}.
+
+%% The actual scan loop
+%% Stack is assumed to be [].
+
+scan([$\r|Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->   %CR
+    case FileFormat of 
+	mac ->scan(Cs, Stack, Toks, {Line+1, 1}, State, Errors, TabWidth,FileFormat);
+	_ ->
+	    scan(Cs, Stack, Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat)
+    end;
+scan([$\n | Cs], Stack, Toks, {Line, _Col}, State, Errors, TabWidth,FileFormat) ->      % Newline - skip
+    scan(Cs, Stack, Toks, {Line + 1, 1}, State, Errors, TabWidth,FileFormat);
+
+%%Begin of Adding by Huiqing
 scan([C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat)
     when C == $\t  ->                          
-    scan(Cs, Stack, [{whitespace, {Line, Col}, '\t'}|Toks], {Line, Col + TabWidth}, State, Errors, TabWidth,FileFormat);
+    scan(Cs, Stack, Toks, {Line, Col + TabWidth}, State, Errors, TabWidth,FileFormat);
+%% End of adding by Huiqing
 
 scan([C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat)
-    when C >= $\000, C =< $\s ->                          % Control chars - skip
-    scan(Cs, Stack, [{whitespace, {Line,Col}, '\s'}|Toks], {Line, Col + 1}, State, Errors, TabWidth,FileFormat);
+    when C >= $\000, C =<$\s ->                          % Control chars - skip
+    scan(Cs, Stack, Toks, {Line, Col + 1}, State, Errors, TabWidth,FileFormat);  %% This is problematic; not all chars occupy one space.
 
 scan([C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat)
     when C >= $\200, C =< $\240 ->                        % Control chars -skip
-    scan(Cs, Stack, [{whitespace, {Line,Col}, '\s'}|Toks], {Line, Col + 1}, State, Errors, TabWidth,FileFormat);
+    scan(Cs, Stack, Toks, {Line, Col + 1}, State, Errors, TabWidth,FileFormat);
 scan([C | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat)
     when C >= $a, C =< $z ->                              % Atoms
     sub_scan_name(Cs, [C, fun scan_atom/8], Toks, {Line, Col}, State, Errors, TabWidth,FileFormat);
 scan([C | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat)
-    when C >= $\337, C =< $\377,
-	 C /= $\367 ->                     % Atoms
+    when C >= $\337, C =< $\377, C /= $\367 ->                     % Atoms
     sub_scan_name(Cs, [C, fun scan_atom/8], Toks, {Line, Col}, State, Errors, TabWidth,FileFormat);
 scan([C | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat)
-    when C >= $A, C =< $Z ->                              % Variables
+    when C >= $A,C =< $Z ->                              % Variables
     sub_scan_name(Cs, [C, fun scan_variable/8], Toks, {Line, Col}, State, Errors, TabWidth,FileFormat);
 scan([C | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat)
     when C >= $\300, C =< $\336, C /= $\327 ->                     % Variables
     sub_scan_name(Cs, [C, fun scan_variable/8], Toks, {Line, Col}, State, Errors, TabWidth,FileFormat);
-scan([$_ | Cs], _Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->      % _Variables
-    sub_scan_name(Cs, [$_, fun scan_variable/8], Toks,  {Line, Col}, State, Errors, TabWidth,FileFormat);
+scan([$_ | Cs], _Stack, Toks, {Line, Col}, State,   Errors, TabWidth,FileFormat) ->      % _Variables
+    sub_scan_name(Cs, [$_, fun scan_variable/8], Toks, {Line, Col}, State, Errors, TabWidth,FileFormat);
 scan([C | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat)
     when C >= $0, C =< $9 ->                            % Numbers
     scan_number(Cs, [C], Toks, {Line, Col}, State, Errors, TabWidth,FileFormat);
-scan([$$ | Cs], Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->        % Character constant
+scan([$$ | Cs], Stack, Toks, {Line, Col}, State,
+     Errors, TabWidth,FileFormat) ->        % Character constant
     scan_char(Cs, Stack, Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
 scan([$' | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->      % Quoted atom
     scan_qatom(Cs, [$', {Line, Col}], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
 scan([$" | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->      % String
-    scan_string(Cs, [$", {Line, Col}], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
-scan([$% | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->       % Comment
-    scan_comment(Cs, [$%, {Line, Col}], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
+    scan_string(Cs, [$", {Line, Col}], Toks, {Line, Col+1},State, Errors, TabWidth,FileFormat);
+scan([$% | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->       % Comment
+     scan_comment(Cs, Stack, Toks, {Line, Col+2}, State,Errors, TabWidth,FileFormat);
 %% Punctuation characters and operators, first recognise multiples.
 %% Clauses are rouped by first character (a short with the same head has
 %% to come after a longer).
@@ -172,51 +246,51 @@ scan([$% | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) -
 %% << <- <=
 scan("<<" ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     scan(Cs, Stack, [{'<<', {Line, Col}} | Toks], {Line, Col + 2}, State, Errors, TabWidth,FileFormat);
-scan("<-" ++ Cs, Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
+scan("<-" ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     scan(Cs, Stack, [{'<-', {Line, Col}} | Toks], {Line, Col + 2}, State, Errors, TabWidth,FileFormat);
-scan("<=" ++ Cs, Stack, Toks, {Line, Col}, State,Errors, TabWidth, FileFormat) ->
-    scan(Cs, Stack, [{'<=', {Line, Col}} | Toks], {Line, Col + 2}, State, Errors, TabWidth, FileFormat);
+scan("<=" ++ Cs, Stack, Toks, {Line, Col}, State,Errors, TabWidth,FileFormat) ->
+    scan(Cs, Stack, [{'<=', {Line, Col}} | Toks],{Line, Col + 2}, State, Errors, TabWidth,FileFormat);
 scan("<" = Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    more(Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat, fun scan/8);
+    more(Cs, Stack, Toks, {Line, Col}, State, Errors,TabWidth, FileFormat, fun scan/8 );
 %% >> >=
-scan(">>" ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat) ->
-    scan(Cs, Stack, [{'>>', {Line, Col}} | Toks], {Line, Col + 2}, State, Errors, TabWidth, FileFormat);
+scan(">>" ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
+    scan(Cs, Stack, [{'>>', {Line, Col}} | Toks], {Line, Col + 2}, State, Errors, TabWidth,FileFormat);
 scan(">=" ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    scan(Cs, Stack, [{'>=', {Line, Col}} | Toks], {Line, Col + 2}, State, Errors, TabWidth,FileFormat);
-scan(">" = Cs, Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
+    scan(Cs, Stack, [{'>=', {Line, Col}} | Toks],{Line, Col + 2}, State, Errors, TabWidth,FileFormat);
+scan(">" = Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     more(Cs, Stack, Toks, {Line, Col}, State, Errors,TabWidth, FileFormat, fun scan/8);
 %% -> --
 scan("->" ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    scan(Cs, Stack, [{'->', {Line, Col}} | Toks], {Line, Col + 2}, State, Errors, TabWidth, FileFormat);
-scan("--" ++ Cs, Stack, Toks, {Line, Col}, State,  Errors, TabWidth, FileFormat) ->
+    scan(Cs, Stack, [{'->', {Line, Col}} | Toks], {Line, Col + 2}, State, Errors, TabWidth,FileFormat);
+scan("--" ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     scan(Cs, Stack, [{'--', {Line, Col}} | Toks], {Line, Col + 2}, State, Errors, TabWidth,FileFormat);
 scan("-" = Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    more(Cs, Stack, Toks, {Line, Col}, State, Errors,TabWidth, FileFormat, fun scan/8);
+    more(Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat, fun scan/8);
 %% ++
 scan("++" ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     scan(Cs, Stack, [{'++', {Line, Col}} | Toks], {Line, Col + 2}, State, Errors, TabWidth,FileFormat);
 scan("+" = Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     more(Cs, Stack, Toks, {Line, Col}, State, Errors,TabWidth, FileFormat, fun scan/8);
 %% =:= =/= =< ==
-scan("=:=" ++ Cs, Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
-    scan(Cs, Stack, [{'=:=', {Line, Col}} | Toks], {Line, Col + 3}, State, Errors, TabWidth,FileFormat);
+scan("=:=" ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
+    scan(Cs, Stack, [{'=:=', {Line, Col}} | Toks],{Line, Col + 3}, State, Errors, TabWidth,FileFormat);
 scan("=:" = Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    more(Cs, Stack, Toks, {Line, Col}, State, Errors,TabWidth, FileFormat, fun scan/8);
-scan("=/=" ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
+    more(Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat, fun scan/8);
+scan("=/=" ++ Cs, Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
     scan(Cs, Stack, [{'=/=', {Line, Col}} | Toks], {Line, Col + 3}, State, Errors, TabWidth,FileFormat);
-scan("=/" = Cs, Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
-    more(Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat,fun scan/8);
-scan("=<" ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
+scan("=/" = Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
+    more(Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat, fun scan/8);
+scan("=<" ++ Cs, Stack, Toks, {Line, Col}, State,Errors, TabWidth,FileFormat) ->
     scan(Cs, Stack, [{'=<', {Line, Col}} | Toks], {Line, Col + 2}, State, Errors, TabWidth,FileFormat);
 scan("==" ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    scan(Cs, Stack, [{'==', {Line, Col}} | Toks], {Line, Col + 2}, State, Errors, TabWidth,FileFormat);
-scan("=" = Cs, Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
-    more(Cs, Stack, Toks, {Line, Col}, State, Errors,TabWidth, FileFormat, fun scan/8);
+    scan(Cs, Stack, [{'==', {Line, Col}} | Toks],{Line, Col + 2}, State, Errors, TabWidth,FileFormat);
+scan("=" = Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
+    more(Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat, fun scan/8);
 %% /=
 scan("/=" ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     scan(Cs, Stack, [{'/=', {Line, Col}} | Toks], {Line, Col + 2}, State, Errors, TabWidth,FileFormat);
 scan("/" = Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    more(Cs, Stack, Toks, {Line, Col}, State, Errors,TabWidth,FileFormat, fun scan/8);
+    more(Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat, fun scan/8);
 %% ||
 scan("||" ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     scan(Cs, Stack, [{'||', {Line, Col}} | Toks], {Line, Col + 2}, State, Errors, TabWidth,FileFormat);
@@ -224,23 +298,22 @@ scan("|" = Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     more(Cs, Stack, Toks, {Line, Col}, State, Errors,TabWidth, FileFormat, fun scan/8);
 %% :-
 scan(":-" ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    scan(Cs, Stack, [{':-', {Line, Col}} | Toks], {Line, Col + 2}, State, Errors, TabWidth,FileFormat);
+    scan(Cs, Stack, [{':-', {Line, Col}} | Toks],{Line, Col + 2}, State, Errors, TabWidth,FileFormat);
 %% :: for typed records
 scan("::"++Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     scan(Cs, Stack, [{'::',{Line, Col}}|Toks], {Line, Col+2}, State, Errors, TabWidth,FileFormat);
 
-scan(":" = Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    more(Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat, fun scan/8);
+scan(":" = Cs, Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
+    more(Cs, Stack, Toks, {Line, Col}, State, Errors,TabWidth, FileFormat, fun scan/8);
 %% Full stop and plain '.'
 scan("." ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     scan_dot(Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat);
 %% All single-char punctuation characters and operators (except '.')
-scan([C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    scan(Cs, Stack, [{list_to_atom([C]), {Line, Col}} | Toks],
-	 {Line, Col + 1}, State, Errors, TabWidth,FileFormat);
+scan([C | Cs], Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
+    scan(Cs, Stack, [{list_to_atom([C]), {Line, Col}} | Toks], {Line, Col + 1}, State, Errors, TabWidth,FileFormat);
 %%
 scan([], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    more([], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat, fun scan/8);
+    more([], Stack, Toks, {Line, Col}, State, Errors,TabWidth, FileFormat,fun scan/8);
 scan(Eof, _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     done(Eof, Errors, Toks, {Line, Col}, State, TabWidth,FileFormat).
 
@@ -300,22 +373,23 @@ name_char($@) -> true;
 name_char(_) -> false.
 
 scan_char([$\\ | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    sub_scan_escape(Cs, [fun scan_char_escape/8, $\\ | Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
+    sub_scan_escape(Cs, [fun scan_char_escape/8, $\\|Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
 scan_char([$\n | Cs], _Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
     scan(Cs, [], [{char, {Line, Col}, $\n} | Toks], {Line + 1, Col}, State, Errors, TabWidth,FileFormat);
 scan_char([$  | Cs], _Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
-    scan(Cs, [], [{char, {Line, Col}, '$ ' } | Toks], {Line, Col+1}, State, Errors, TabWidth,FileFormat);
+    scan(Cs, [], [{char, {Line, Col}, '$ '} | Toks], {Line, Col+1}, State, Errors, TabWidth,FileFormat);
 scan_char([], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     more([], Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat, fun scan_char/8);
 scan_char(Cs, Stack, Toks, {Line, Col}, State,Errors, TabWidth,FileFormat) ->
     scan_char_escape(Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat).
+ 
 scan_char_escape([nl | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     scan(Cs, [], [{char, {Line, Col}, $\n} | Toks], {Line + 1, 1}, State, Errors, TabWidth,FileFormat);
 scan_char_escape([C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    C1 = case Stack of  [$\\|_] ->
-		 list_to_atom("$\\"++[C]);
+     C1 = case Stack of  [$\\|_] ->
+		  list_to_atom("$\\"++[C]);
 	     _ ->
-		 io_lib:write_char(C) 
+		 C 
 	 end,
     scan(Cs, [], [{char, {Line, Col-1}, C1} | Toks],{Line, Col + 1}, State, Errors, TabWidth,FileFormat);
 scan_char_escape(Eof, _Stack, _Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
@@ -335,7 +409,7 @@ scan_string([$\r | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFo
 scan_string([$\n | Cs], Stack, Toks, {Line, _Col}, State,  Errors, TabWidth,FileFormat) ->
     scan_string(Cs, [$\n | Stack], Toks, {Line + 1, 1}, State, Errors, TabWidth,FileFormat);
 scan_string([$\\ | Cs], Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
-    sub_scan_escape(Cs, [fun scan_string_escape/8, $\\| Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
+     sub_scan_escape( Cs, [fun scan_string_escape/8, $\\ | Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
 scan_string([C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) 
    when C==$\t ->
     scan_string(Cs, [C | Stack], Toks, {Line, Col+TabWidth}, State,Errors, TabWidth,FileFormat);
@@ -344,28 +418,28 @@ scan_string([C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileForm
 scan_string([], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     more([], Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat, fun scan_string/8);
 scan_string(Eof, Stack, _Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    [StartPos, $" | S] = reverse(Stack),
+     [StartPos, $" | S] = reverse(Stack),
     SS = string:substr(S, 1, 16),
     done(Eof, [{{string, $", SS}, StartPos} | Errors], [],
 	 {Line, Col}, State, TabWidth,FileFormat).
 
 scan_string_escape([nl | Cs], Stack, Toks, {Line, _Col}, State, Errors, TabWidth,FileFormat) ->
-      scan_string(Cs, [$\n | Stack], Toks, {Line + 1, 1}, State, Errors, TabWidth,FileFormat);
+    scan_string(Cs, [$\n | Stack], Toks, {Line + 1, 1}, State, Errors, TabWidth,FileFormat);
 scan_string_escape([C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-      scan_string(Cs, [C| Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
+    scan_string(Cs, [C| Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
 scan_string_escape(Eof, Stack, _Toks, {Line, Col},State, Errors, TabWidth,FileFormat) ->
-     [StartPos, $" | S] = reverse(Stack),
+    [StartPos, $" | S] = reverse(Stack),
     SS = string:substr(S, 1, 16),
     done(Eof, [{{string, $", SS}, StartPos} | Errors], [],
- 	 {Line, Col + length(S) + 2}, State, TabWidth,FileFormat).
+	 {Line, Col + length(S) + 2}, State, TabWidth,FileFormat).
 
 scan_qatom([$' | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    [StartPos, $' | S] = reverse([$'|Stack]),
+    [StartPos, $' | S] = reverse(Stack),
     case catch list_to_atom(S) of
       A when is_atom(A) ->
-	  scan(Cs, [], [{qatom, StartPos, list_to_atom([$' | S]) } | Toks],{Line, Col + 1}, State, Errors, TabWidth,FileFormat);
+	  scan(Cs, [], [{atom, StartPos, A} | Toks],{Line, Col + 1}, State, Errors, TabWidth,FileFormat);
       _ ->
-	  scan(Cs, [], Toks, {Line, Col}, State,[{{illegal, qatom}, StartPos} | Errors], TabWidth,FileFormat)
+	  scan(Cs, [], Toks, {Line, Col}, State,[{{illegal, atom}, StartPos} | Errors], TabWidth,FileFormat)
     end;
 scan_qatom([$\r|Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     case FileFormat of 
@@ -388,15 +462,15 @@ scan_qatom(Eof, Stack, _Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) -
     SS = string:substr(S, 1, 16),
     done(Eof, [{{string, $', SS}, StartPos} | Errors], [],{Line, Col}, State, TabWidth,FileFormat).
 
-%% scan_qatom_escape([nl | Cs], Stack, Toks, {Line, _Col}, State, Errors, TabWidth,FileFormat) ->
-%%     scan_qatom(Cs, [$\n | Stack], Toks, {Line + 1, 1}, State, Errors, TabWidth,FileFormat);
-%% scan_qatom_escape([C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-%%     scan_qatom(Cs, [C | Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
-%% scan_qatom_escape(Eof, Stack, _Toks, {Line, Col}, State,Errors, TabWidth,FileFormat) ->
-%%     [StartPos, $' | S] = reverse(Stack),
-%%     SS = string:substr(S, 1, 16),
-%%     done(Eof, [{{string, $', SS}, StartPos} | Errors], [],
-%% 	 {Line, Col}, State, TabWidth,FileFormat).
+scan_qatom_escape([nl | Cs], Stack, Toks, {Line, _Col}, State, Errors, TabWidth,FileFormat) ->
+    scan_qatom(Cs, [$\n | Stack], Toks, {Line + 1, 1}, State, Errors, TabWidth,FileFormat);
+scan_qatom_escape([C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
+    scan_qatom(Cs, [C | Stack], Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat);
+scan_qatom_escape(Eof, Stack, _Toks, {Line, Col}, State,Errors, TabWidth,FileFormat) ->
+    [StartPos, $' | S] = reverse(Stack),
+    SS = string:substr(S, 1, 16),
+    done(Eof, [{{string, $', SS}, StartPos} | Errors], [],
+	 {Line, Col}, State, TabWidth,FileFormat).
 
 %% Scan for a character escape sequence, in character literal or string.
 %% A string is a syntactical sugar list (e.g "abc")
@@ -412,8 +486,8 @@ sub_scan_escape([O1, O2, O3 | Cs], [Fun | Stack], Toks,
 		{Line, Col}, State, Errors, TabWidth,FileFormat)
     when O1 >= $0, O1 =< $7, O2 >= $0, O2 =< $7, O3 >= $0,
 	 O3 =< $7 ->
-    %% Val = (O1 * 8 + O2) * 8 + O3 - 73 * $0,
-    Fun([O1, O2, O3 | Cs], Stack, Toks, {Line, Col+2}, State,
+    %%Val = (O1 * 8 + O2) * 8 + O3 - 73 * $0,
+    Fun([O1, O2,O3 | Cs], Stack, Toks, {Line, Col+2}, State,
 	Errors, TabWidth,FileFormat);
 sub_scan_escape([O1, O2] = Cs, Stack, Toks, {Line, Col},
 		State, Errors, TabWidth,FileFormat)
@@ -423,8 +497,8 @@ sub_scan_escape([O1, O2] = Cs, Stack, Toks, {Line, Col},
 sub_scan_escape([O1, O2 | Cs], [Fun | Stack], Toks,
 		{Line, Col}, State, Errors, TabWidth,FileFormat)
     when O1 >= $0, O1 =< $7, O2 >= $0, O2 =< $7 ->
-    %% Val = O1 * 8 + O2 - 9 * $0,
-    Fun([O1, O2 | Cs], Stack, Toks, {Line, Col+1}, State,
+    %%Val = O1 * 8 + O2 - 9 * $0,
+    Fun([O1,O2 | Cs], Stack, Toks, {Line, Col+1}, State,
 	Errors, TabWidth,FileFormat);
 sub_scan_escape([O1] = Cs, Stack, Toks, {Line, Col},
 		State, Errors, TabWidth,FileFormat)
@@ -434,13 +508,13 @@ sub_scan_escape([O1] = Cs, Stack, Toks, {Line, Col},
 sub_scan_escape([O1 | Cs], [Fun | Stack], Toks,
 		{Line, Col}, State, Errors, TabWidth,FileFormat)
     when O1 >= $0, O1 =< $7 ->
-    %%Val = O1 - $0,
+   %% Val = O1 - $0,
     Fun([O1 | Cs], Stack, Toks, {Line, Col}, State,
 	Errors, TabWidth,FileFormat);
 %% \^X -> CTL-X
 sub_scan_escape([$^, C | Cs], [Fun | Stack], Toks,
 		{Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    %%Val = C band 31,
+   %% Val = C band 31,
     Fun([C | Cs], Stack, Toks, {Line, Col}, State,
 	Errors, TabWidth,FileFormat);
 sub_scan_escape([$^] = Cs, Stack, Toks, {Line, Col},
@@ -457,7 +531,7 @@ sub_scan_escape([$\n | Cs], [Fun | Stack], Toks,
 %% \X - familiar escape sequences
 sub_scan_escape([C | Cs], [Fun | Stack], Toks,
 		{Line, Col}, State, Errors, TabWidth,FileFormat) ->
-   %% Val = escape_char(C),
+    %%Val = escape_char(C),
     Fun([C | Cs], Stack, Toks, {Line, Col}, State,
 	Errors, TabWidth,FileFormat);
 %%
@@ -469,6 +543,20 @@ sub_scan_escape(Eof, [Fun | Stack], Toks, {Line, Col},
 		State, Errors, TabWidth,FileFormat) ->
     Fun(Eof, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat).
 
+escape_char($n) -> $\n;                         %\n = LF
+escape_char($r) -> $\r;                         %\r = CR
+escape_char($t) ->
+    $\t;                         %\t = TAB
+escape_char($v) -> $\v;                         %\v = VT
+escape_char($b) -> $\b;                         %\b = BS
+escape_char($f) -> $\f;                         %\f = FF
+escape_char($e) ->
+    $\e;                         %\e = ESC
+escape_char($s) ->
+    $\s;                         %\s = SPC
+escape_char($d) ->
+    $\d;                         %\d = DEL
+escape_char(C) -> C.
 
 scan_number([$., C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat)
     when C >= $0, C =< $9 ->
@@ -490,7 +578,7 @@ scan_number([], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
 scan_number(Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     case catch list_to_integer(reverse(Stack)) of
       N when is_integer(N) ->
-	  scan(Cs, [], [{integer, {Line, Col}, reverse(Stack)} | Toks],
+	    scan(Cs, [], [{integer, {Line, Col}, reverse(Stack)} | Toks],
 	       {Line, Col + length(Stack)}, State, Errors, TabWidth,FileFormat);
       _ ->
 	  scan(Cs, [], Toks, {Line, Col}, State,
@@ -546,7 +634,6 @@ scan_exponent_sign([], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFor
 scan_exponent_sign(Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     scan_exponent(Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat).
 
-
 scan_exponent([C | Cs], Stack, Toks, {Line, Col}, State,Errors, TabWidth,FileFormat)
     when C >= $0, C =< $9 ->
     scan_exponent(Cs, [C | Stack], Toks, {Line, Col}, State, Errors, TabWidth,FileFormat);
@@ -562,85 +649,95 @@ scan_exponent(Cs, Stack, Toks, {Line, Col}, State,Errors, TabWidth,FileFormat) -
 	       [{{illegal, float}, {Line, Col}} | Errors], TabWidth,FileFormat)
     end.
 
-scan_comment([$\r | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    [StartPos|S] = reverse(Stack),
-    scan([$\r | Cs], [], [{comment, StartPos, S}|Toks], {Line, Col}, State, Errors, TabWidth,FileFormat);
-    %% case FileFormat of 
-    %%     mac -> [StartPos|S] = reverse([$\r|Stack]),
-    %%            scan(Cs, [], [{comment, StartPos, S}|Toks], {Line + 1, 1}, State, Errors, TabWidth,FileFormat);
-    %%     _ ->  scan_comment(Cs, [$\r|Stack], Toks, {Line, Col + 1}, State, Errors, TabWidth,FileFormat)
-    %% end;
-scan_comment([$\n | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    [StartPos|S] = reverse(Stack),
-    scan([$\n | Cs], [], [{comment, StartPos, S}|Toks], {Line, Col}, State, Errors, TabWidth,FileFormat);
-scan_comment([C | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    scan_comment(Cs, [C|Stack], Toks, {Line, Col + 1}, State, Errors, TabWidth,FileFormat);
+scan_comment([$\r| Cs], Stack, Toks, {Line, Col},State, Errors, TabWidth,FileFormat) ->
+    case FileFormat of 
+	mac ->
+	    scan(Cs, Stack, Toks, {Line + 1, 1}, State, Errors, TabWidth,FileFormat);
+	_ ->
+	   scan(Cs, Stack, Toks, {Line, Col+1}, State, Errors, TabWidth,FileFormat)
+	end;
+scan_comment([$\n| Cs], Stack, Toks, {Line, _Col},State, Errors, TabWidth,FileFormat) ->
+    scan(Cs, Stack, Toks, {Line + 1, 1}, State, Errors, TabWidth,FileFormat);	
+scan_comment([_ | Cs], Stack, Toks, {Line, Col}, State,Errors, TabWidth,FileFormat) ->
+    scan_comment(Cs, Stack, Toks, {Line, Col + 1}, State,Errors, TabWidth,FileFormat);
 scan_comment([], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    more([], Stack, Toks, {Line, Col}, State, Errors,TabWidth,FileFormat,fun scan_comment/8);
-scan_comment(Eof, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    [StartPos|S] = reverse(Stack),
-    done(Eof, Errors, [{comment, StartPos, S}|Toks], {Line, Col}, State, TabWidth,FileFormat).
+    more([], Stack, Toks, {Line, Col}, State, Errors,TabWidth, FileFormat,fun scan_comment/8);
+scan_comment(Eof, _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
+    done(Eof, Errors, Toks, {Line, Col}, State, TabWidth,FileFormat).
 
-
-scan_dot([$% | _] = Cs, _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
+scan_dot([$% | _] = Cs, _Stack, Toks, {Line, Col},State, Errors, TabWidth,FileFormat) ->
     done(Cs, Errors, [{dot, {Line, Col}} | Toks], {Line, Col + 1}, State, TabWidth,FileFormat);
-
 scan_dot([$\r | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     case FileFormat of 
 	mac ->
-	    done(Cs, Errors, [{whitespace, {Line+1, 1}, '\r'}, {dot, {Line, Col}} | Toks], {Line + 1, 1}, State, TabWidth,FileFormat);
-	_ ->
-	    done(Cs, Errors, [{whitespace, {Line, Col+1}, '\r'}, {dot, {Line, Col}} | Toks], {Line, Col+1}, State, TabWidth,FileFormat)
-    end;
+	    done(Cs, Errors, [{dot, {Line, Col}} | Toks],{Line + 1, 1}, State, TabWidth,FileFormat);
+	_ -> 
+	    done(Cs, Errors, [{dot, {Line, Col}} | Toks],{Line, Col+1}, State, TabWidth,FileFormat)
+    end;	
 scan_dot([$\n | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    done(Cs, Errors, [{whitespace, {Line, Col+1}, '\n'}, {dot, {Line, Col}} | Toks], {Line + 1, 1}, State, TabWidth,FileFormat);
-scan_dot([$\t | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    done(Cs, Errors, [{whitespace, {Line, Col+1}, '\t'}, {dot, {Line, Col}} | Toks], {Line, Col+TabWidth}, State, TabWidth,FileFormat);
-scan_dot([C | Cs], _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat)
-  when C >= $\000, C =< $\s ->
-    done(Cs, Errors, [{whitespace, {Line,Col+1}, '\s'}, {dot, {Line, Col}} | Toks],{Line, Col + 2}, State, TabWidth,FileFormat);
+    done(Cs, Errors, [{dot, {Line, Col}} | Toks],{Line + 1, 1}, State, TabWidth,FileFormat);
 scan_dot([C | Cs], _Stack, Toks, {Line, Col}, State,Errors, TabWidth,FileFormat)
-    when C >= $\200, C =< $\240 ->
-    done(Cs, Errors, [{whitespace, {Line,Col+1}, C}, {dot, {Line, Col}} | Toks],{Line, Col + 2}, State, TabWidth,FileFormat);
+  when C >= $\000, C =< $\s ->   %% This is problematic; some characters occupy 2 spaces.
+      done(Cs, Errors, [{dot, {Line, Col}} | Toks], {Line, Col + 2}, State, TabWidth,FileFormat);
+scan_dot([C | Cs], _Stack, Toks, {Line, Col}, State,Errors,TabWidth,FileFormat)
+    when C >= $\200, C =< $\240 -> 
+    done(Cs, Errors, [{dot, {Line, Col}} | Toks],{Line, Col + 2}, State, TabWidth,FileFormat);
 scan_dot([], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    more([], Stack, Toks, {Line, Col}, State, Errors,TabWidth,FileFormat, fun scan_dot/8);
-scan_dot(eof, _Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    done(eof, Errors, [{dot, {Line, Col}} | Toks], {Line, Col}, State, TabWidth,FileFormat);
+    more([], Stack, Toks, {Line, Col}, State, Errors,TabWidth, FileFormat, fun scan_dot/8);
+scan_dot(eof, _Stack, Toks, {Line, Col}, State,	 Errors, TabWidth,FileFormat) ->
+    done(eof, Errors, [{dot, {Line, Col}} | Toks],{Line, Col}, State, TabWidth,FileFormat);
 scan_dot(Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
-    scan(Cs, Stack, [{'.', {Line, Col}} | Toks],{Line, Col + 1}, State, Errors, TabWidth,FileFormat).
+    scan(Cs, Stack, [{'.', {Line, Col}} | Toks], {Line, Col + 1}, State, Errors, TabWidth,FileFormat).
 
+%% reserved_word(Atom) -> Bool
+%%   return 'true' if Atom is an Erlang reserved word, else 'false'.
 
-%% String
-done(eof, [], Toks, {Line, Col}, eos, _TabWidth,_FileFormat) ->
-    {ok, reverse(Toks), {Line, Col}};
-done(eof, Errors, _Toks, {Line, Col}, eos, _TabWidth,_FileFormat) ->
-    {Error, ErrorPos} = lists:last(Errors),
-    {error, {ErrorPos, ?MODULE, Error}, {Line, Col}};
-done(Cs, Errors, Toks, {Line, Col}, eos, TabWidth,FileFormat) ->
-    scan(Cs, [], Toks, {Line, Col}, eos, Errors, TabWidth,FileFormat);
-%% Debug clause for chopping string into 1-char segments
-%% done(Cs, Errors, Toks, Pos, [H|T]) ->
-%%    scan(Cs++[H], [], Toks, Pos, T, Errors);
-done(Cs, Errors, Toks, {Line, Col}, [], TabWidth,FileFormat) ->
-    scan(Cs ++ eof, [], Toks, {Line, Col}, eos, Errors, TabWidth,FileFormat);
-%% Stream
-done(Cs, [], [{dot, _} | _] = Toks, {Line, Col}, io, _TabWidth,_FileFormat) ->
-    {done, {ok, reverse(Toks), {Line, Col}}, Cs};
-done(Cs, [], [_ | _], {Line, Col}, io, _TabWidth,_FileFormat) ->
-    {done,
-     {error, {{Line, Col}, ?MODULE, scan}, {Line, Col}}, Cs};
-done(Cs, [], [], {Line, Col}, eof, _TabWidth,_FileFormat) ->
-    {done, {eof, {Line, Col}}, Cs};
-done(Cs, [], [{dot, _} | _] = Toks, {Line, Col}, eof, _TabWidth,_FileFormat) ->
-    {done, {ok, reverse(Toks), {Line, Col}}, Cs};
-done(Cs, [], _Toks, {Line, Col}, eof, _TabWidth,_FileFormat) ->
-    {done,
-     {error, {{Line, Col}, ?MODULE, scan}, {Line, Col}}, Cs};
-done(Cs, Errors, _Toks, {Line, Col}, io, _TabWidth,_FileFormat) ->
-    {Error, ErrorPos} = lists:last(Errors),
-    {done, {error, {ErrorPos, ?MODULE, Error}, {Line, Col}},
-     Cs};
-done(Cs, Errors, _Toks, {Line, Col}, eof, _TabWidth,_FileFormat) ->
-    {Error, ErrorPos} = lists:last(Errors),
-    {done, {error, {ErrorPos, ?MODULE, Error}, {Line, Col}},
-     Cs}.
+reserved_word('after') -> true;
+reserved_word('begin') -> true;
+reserved_word('case') -> true;
+reserved_word('try') ->
+    Opts = get_compiler_options(),
+    not member(disable_try, Opts);
+reserved_word('cond') ->
+    Opts = get_compiler_options(),
+    not member(disable_cond, Opts);
+reserved_word('catch') -> true;
+reserved_word('andalso') -> true;
+reserved_word('orelse') -> true;
+reserved_word('end') -> true;
+reserved_word('fun') -> true;
+reserved_word('if') -> true;
+reserved_word('let') -> true;
+reserved_word('of') -> true;
+reserved_word('query') -> true;
+reserved_word('receive') -> true;
+reserved_word('when') -> true;
+reserved_word('bnot') -> true;
+reserved_word('not') -> true;
+reserved_word('div') -> true;
+reserved_word('rem') -> true;
+reserved_word('band') -> true;
+reserved_word('and') -> true;
+reserved_word('bor') -> true;
+reserved_word('bxor') -> true;
+reserved_word('bsl') -> true;
+reserved_word('bsr') -> true;
+reserved_word('or') -> true;
+reserved_word('xor') -> true;
+reserved_word('spec') -> true;
+reserved_word(_) -> false.
+
+get_compiler_options() ->
+    %% Who said that Erlang has no global variables?
+    case get(compiler_options) of
+      undefined ->
+	  Opts = case catch ets:lookup(compiler__tab,
+				       compiler_options)
+		     of
+		   [{compiler_options, O}] -> O;
+		   _ -> []
+		 end,
+	  put(compiler_options, Opts),
+	  Opts;
+      Opts -> Opts
+    end.
