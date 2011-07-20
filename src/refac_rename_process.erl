@@ -56,7 +56,7 @@ rename_process(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
        ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case is_process_name(NewName) of
 	true ->
-	    _Res = refac_annotate_pid:ann_pid_info(SearchPaths, TabWidth),  %%TODO: check whether asts are already annotated.
+	    _Res = wrangler_annotate_pid:ann_pid_info(SearchPaths, TabWidth),  %%TODO: check whether asts are already annotated.
 	    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth), %% TODO: rename to get_ast.
 	    NewProcessName = list_to_atom(NewName),
 	    case pos_to_process_name(AnnAST, {Line, Col}) of

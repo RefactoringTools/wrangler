@@ -74,7 +74,7 @@ add_fun_def_info(F, ModName, DefinedFuns, ImportedFuns) ->
 			    add_fun_def_info_in_import(F);
 			export ->
 		 	    add_fun_def_info_in_export(F, ModName, DefinedFuns);
-			spec ->
+			'spec' ->
 			     add_fun_def_info_in_spec(F, ModName, DefinedFuns);
 			_ ->
 			    add_fun_def_info_in_form(F,ModName, DefinedFuns, ImportedFuns ) 

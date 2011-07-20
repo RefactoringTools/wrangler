@@ -66,7 +66,7 @@ fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor) ->
 	true -> ok;
 	false -> throw({error, "Invalid process name."})
     end,
-    _Res = refac_annotate_pid:ann_pid_info(SearchPaths, TabWidth),
+    _Res = wrangler_annotate_pid:ann_pid_info(SearchPaths, TabWidth),
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     ProcessName1 = list_to_atom(ProcessName),

@@ -88,7 +88,7 @@ register_pid(FName, Start = {Line1, Col1}, End = {Line2, Col2}, RegName, SearchP
 		    {ok, _MatchExpr1} ->
 			{value, {module, ModName}} = lists:keysearch(module, 1, Info),
 			RegName1 = list_to_atom(RegName),
-			_Res = refac_annotate_pid:ann_pid_info(SearchPaths, TabWidth),
+			_Res = wrangler_annotate_pid:ann_pid_info(SearchPaths, TabWidth),
 			%% get the AST with pid information.
 			{ok, {AnnAST1, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
 			case pos_to_spawn_match_expr(AnnAST1, Start, End) of

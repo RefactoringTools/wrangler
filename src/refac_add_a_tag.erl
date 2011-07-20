@@ -61,7 +61,7 @@ add_a_tag(FileName, Line, Col, Tag, SearchPaths, TabWidth) ->
     {ok, {AnnAST1, _Info1}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case pos_to_receive_fun(AnnAST1, {Line, Col}) of
 	{ok, _FunDef} ->
-	    _Res = refac_annotate_pid:ann_pid_info(SearchPaths, TabWidth),
+	    _Res = wrangler_annotate_pid:ann_pid_info(SearchPaths, TabWidth),
 	    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
 	    {ok, FunDef} = pos_to_receive_fun(AnnAST, {Line, Col}),
 	    ModName = get_module_name(FileName, Info),
