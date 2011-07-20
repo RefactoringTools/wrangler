@@ -123,7 +123,7 @@ collect_unsure_atoms(Tree, AtomNames, AtomType) ->
 		    _ -> S
 		end
 	end,
-    ast_traverse_api:fold(F, [], Tree).
+    wrangler_ast_traverse_api:fold(F, [], Tree).
 
 unsure_match({M, A}, {_M1, A1}) when is_integer(A1)->
     A1==A andalso (not is_atom(M) orelse M=='_');

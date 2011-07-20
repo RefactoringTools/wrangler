@@ -237,12 +237,12 @@ get_toks(Node) ->
 reset_attrs(Node) when is_list(Node) ->
     [reset_attrs(N)||N<-Node];
 reset_attrs(Node) ->
-    ast_traverse_api:full_buTP(
-      fun (T, _Others) -> 
-              T1=refac_syntax:set_ann(
-                   refac_syntax:set_pos(T, {0,0}), []),
-              refac_syntax:remove_comments(T1)
-      end, Node, {}).
+    wrangler_ast_traverse_api:full_buTP(
+               fun (T, _Others) ->
+                       T1=refac_syntax:set_ann(
+                            refac_syntax:set_pos(T, {0,0}), []),
+                       refac_syntax:remove_comments(T1)
+               end, Node, {}).
 		
 
 %% =====================================================================
@@ -535,27 +535,27 @@ get_start_end_loc_with_comment(Node) ->
 reset_pos(Node) when is_list(Node) ->
     [reset_pos(N)||N<-Node];
 reset_pos(Node) ->
-    ast_traverse_api:full_buTP(
-      fun (T, _Others) -> 
-              refac_syntax:set_pos(T, {0,0})
-      end, Node, {}).
+    wrangler_ast_traverse_api:full_buTP(
+               fun (T, _Others) ->
+                       refac_syntax:set_pos(T, {0,0})
+               end, Node, {}).
 
 reset_ann_and_pos(Node) when is_list(Node) ->
     [reset_ann_and_pos(N)||N<-Node];
 reset_ann_and_pos(Node) ->
-    ast_traverse_api:full_buTP(
-      fun (T, _Others) -> 
-              refac_syntax:set_ann(
-                refac_syntax:set_pos(T, {0,0}), [])
-      end, Node, {}).
+    wrangler_ast_traverse_api:full_buTP(
+               fun (T, _Others) ->
+                       refac_syntax:set_ann(
+                         refac_syntax:set_pos(T, {0,0}), [])
+               end, Node, {}).
 
 reset_ann(Node) when is_list(Node) ->
     [reset_ann(N)||N<-Node];
 reset_ann(Node) ->
-    ast_traverse_api:full_buTP(
-      fun (T, _Others) -> 
-              refac_syntax:set_ann(T, [])
-      end, Node, {}).
+    wrangler_ast_traverse_api:full_buTP(
+               fun (T, _Others) ->
+                       refac_syntax:set_ann(T, [])
+               end, Node, {}).
 
 
 reset_pos_and_range(Node) when is_list(Node) ->
@@ -647,7 +647,7 @@ has_macros(Node) ->
 		  _ -> {[], false}
 		end
 	end,
-    {_, Res} = ast_traverse_api:once_tdTU(F, Node, []),
+    {_, Res} = wrangler_ast_traverse_api:once_tdTU(F, Node, []),
     Res.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -672,7 +672,7 @@ collect_var_source_def_pos_info(Node) ->
 		    _ -> S
 		end
 	end,
-    ast_traverse_api:fold(F, [], Node).
+    wrangler_ast_traverse_api:fold(F, [], Node).
 
 %%-spec collect_var_names(syntaxTree()|[syntaxTree()]) ->
 %%			       [atom()].
@@ -695,7 +695,7 @@ collect_var_names_1(Node) ->
 		    _ -> S
 		end
 	end,
-    ordsets:to_list(ast_traverse_api:fold(F, ordsets:new(), Node)).
+    ordsets:to_list(wrangler_ast_traverse_api:fold(F, ordsets:new(), Node)).
 
 %%-spec collect_used_macros(syntaxTree()) ->
 %%				 [atom()].
@@ -711,7 +711,7 @@ collect_used_macros(Node) ->
 		    _ -> S
 		end
 	end,
-    lists:usort(ast_traverse_api:fold(F, [], Node)).
+    lists:usort(wrangler_ast_traverse_api:fold(F, [], Node)).
 
 %%-spec collect_used_records(syntaxTree())-> [atom()].
 collect_used_records(Node) ->
@@ -741,7 +741,7 @@ collect_used_records(Node) ->
 		      _ -> S
 		  end
 	  end,
-    ordsets:to_list(ast_traverse_api:fold(Fun, ordsets:new(), Node)).
+    ordsets:to_list(wrangler_ast_traverse_api:fold(Fun, ordsets:new(), Node)).
 
 %%-spec(concat_toks(Toks::[token()]) ->string()).
 concat_toks(Toks) ->

@@ -55,8 +55,8 @@ pos_to_node(FileOrTree, Pos, Pred) ->
     end.
 
 pos_to_node_1(Node, Pos, Pred) ->
-    case ast_traverse_api:once_tdTU(
-           fun pos_to_node_2/2, Node, {Pos, Pred}) of
+    case wrangler_ast_traverse_api:once_tdTU(
+                    fun pos_to_node_2/2, Node, {Pos, Pred}) of
         {_, false} ->
             {error, "No node satisfying the condition has been selected."};
         {R, true} -> 
@@ -145,7 +145,7 @@ range_to_node_2(Tree, {Start, End}, Pred) ->
 %%	      {ok, {atom(), atom(), integer(), pos(), pos()}} | {error, string()}).
 pos_to_fun_name(Node, Pos) ->
     case
-      ast_traverse_api:once_tdTU(fun pos_to_fun_name_1/2, Node, Pos)
+      wrangler_ast_traverse_api:once_tdTU(fun pos_to_fun_name_1/2, Node, Pos)
 	of
       {_, false} -> {error, "You have not selected a function name,"
 			    "or the function/attribute containing the "
@@ -187,7 +187,7 @@ pos_to_fun_def(FileOrTree, Pos) ->
 pos_to_fun_def_1(Node, Pos) ->
     case is_tree(Node) of
         true ->
-            case ast_traverse_api:once_tdTU(fun pos_to_fun_def_2/2, Node, Pos) of
+            case wrangler_ast_traverse_api:once_tdTU(fun pos_to_fun_def_2/2, Node, Pos) of
                 {_, false} -> {error, "You have not selected a function definition, "
                                "or the function definition selected does not parse."};
                 {R, true} -> {ok, R}
@@ -233,7 +233,7 @@ is_tree(Node) ->
 %%	     {ok, {atom(), [pos()]} | {error, string()}).
 pos_to_var_name(Node, UsePos) ->
     case
-      ast_traverse_api:once_tdTU(fun pos_to_var_name_1/2, Node, UsePos)
+      wrangler_ast_traverse_api:once_tdTU(fun pos_to_var_name_1/2, Node, UsePos)
 	of
       {_, false} -> {error, "You have not selected a variable name, "
 			    "or the function containing the variable does not parse."};
@@ -271,7 +271,7 @@ pos_to_var_name_1(Node, _Pos = {Ln, Col}) ->
 %%@spec pos_to_var(Node::syntaxTree(), Pos::pos())->{ok, syntaxTree()} | {error, string()}
 pos_to_var(Node, Pos) ->
     case
-	ast_traverse_api:once_tdTU(fun pos_to_var_1/2, Node, Pos)
+	wrangler_ast_traverse_api:once_tdTU(fun pos_to_var_1/2, Node, Pos)
     of
 	{_, false} -> {error, "You have not selected a variable, "
 		       "or the function containing the variable does not parse."};

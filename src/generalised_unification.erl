@@ -597,7 +597,7 @@ collect_meta_vars_and_atoms(Tree) ->
                   _ -> Acc
               end
       end,
-    lists:usort(ast_traverse_api:fold(F, [], Tree)).
+    lists:usort(wrangler_ast_traverse_api:fold(F, [], Tree)).
 
 is_meta_name(VarName) ->
     lists:prefix("@", lists:reverse(atom_to_list(VarName))).

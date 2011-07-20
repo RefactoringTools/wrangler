@@ -118,7 +118,7 @@ do_collect_parameters(AnnAST, {M, F, A}) ->
 		      _ -> Acc
 		  end
 	  end,
-    lists:reverse(ast_traverse_api:fold(Fun, [], AnnAST)).
+    lists:reverse(wrangler_ast_traverse_api:fold(Fun, [], AnnAST)).
 
 
 do_intro_oneof(AnnAST, {Mod, Fun, Arity, DefPos}) ->
@@ -319,10 +319,10 @@ make_new_gen_fun_name(FunName, Index, ParNames) ->
 simplify_expr(Exp) when is_list(Exp) ->
     [simplify_expr(E) || E <- Exp];
 simplify_expr(Exp) ->
-    ast_traverse_api:full_buTP(
-      fun (Node, _Others) ->
-	      do_simplify_expr(Node)
-      end, Exp, {}).
+    wrangler_ast_traverse_api:full_buTP(
+               fun (Node, _Others) ->
+	               do_simplify_expr(Node)
+               end, Exp, {}).
 
 
 do_simplify_expr(Node) ->

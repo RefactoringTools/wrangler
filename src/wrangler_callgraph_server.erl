@@ -191,7 +191,7 @@ do_build_callgraph(FName, DirList) ->
 		     _ -> S
 		 end
 	 end,
-    lists:usort(ast_traverse_api:fold(F1, ordsets:new(), AnnAST)).
+    lists:usort(wrangler_ast_traverse_api:fold(F1, ordsets:new(), AnnAST)).
 
 %%-spec(called_funs/1::(syntaxTree()) ->
 %%	     [{modulename(), functionname(), functionarity()}]).
@@ -215,7 +215,7 @@ called_funs(Node) ->
 		  end
 	  end,
     Fun1 = fun (C,S) ->
-		   ast_traverse_api:fold(Fun, S, C)
+		   wrangler_ast_traverse_api:fold(Fun, S, C)
 	   end,
     Fun2 = fun (F, S) ->
 		   case refac_syntax:type(F) of
@@ -223,7 +223,7 @@ called_funs(Node) ->
 		       _ -> S
 		   end
 	   end,
-    Cs = ast_traverse_api:fold(Fun2, [], Node),
+    Cs = wrangler_ast_traverse_api:fold(Fun2, [], Node),
     case Cs of
 	[] -> called_funs_1(Node);
 	_ -> ordsets:from_list(lists:foldl(Fun1, ordsets:new(), Cs))
@@ -250,7 +250,7 @@ called_funs_1(Tree) ->
 		      _ -> S
 		  end
 	  end,
-    ordsets:from_list(ast_traverse_api:fold(Fun, ordsets:new(), Tree)).
+    ordsets:from_list(wrangler_ast_traverse_api:fold(Fun, ordsets:new(), Tree)).
 
 get_sorted_funs(ModName, AnnAST) ->
     F1 = fun (T, S) ->
@@ -264,7 +264,7 @@ get_sorted_funs(ModName, AnnAST) ->
 		     _ -> S
 		 end
 	 end,
-    CallerCallees = lists:usort(ast_traverse_api:fold(F1, ordsets:new(), AnnAST)),
+    CallerCallees = lists:usort(wrangler_ast_traverse_api:fold(F1, ordsets:new(), AnnAST)),
     {Sccs, _E} = refac_callgraph:construct(CallerCallees),
     lists:append(Sccs).
 

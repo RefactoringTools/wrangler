@@ -160,12 +160,12 @@ collect_process_initial_funs_1({FileName, AnnAST, Info}, _SearchPaths) ->
 					  _ -> S
 				      end
 			      end,
-			  Res = ast_traverse_api:fold(F, [], Node),
+			  Res = wrangler_ast_traverse_api:fold(F, [], Node),
 			  lists:usort(Res ++ Acc);
 		      _ -> Acc
 		  end
 	  end,
-    ast_traverse_api:fold(Fun, [], AnnAST).
+    wrangler_ast_traverse_api:fold(Fun, [], AnnAST).
 
 do_add_a_tag(FileName, {AnnAST, Info}, Tag, AffectedInitialFuns, SearchPaths, TabWidth) ->
     ModName = get_module_name(FileName, Info),
@@ -175,7 +175,7 @@ do_add_a_tag(FileName, {AnnAST, Info}, Tag, AffectedInitialFuns, SearchPaths, Ta
     AffectedModsFuns = get_affected_mods_and_funs(InitialSpawnExprs, SearchPaths, TabWidth),
     ReceiveFuns = lists:usort(lists:append(ReceiveFuns1)),
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
-    {AnnAST1, _Changed} = ast_traverse_api:stop_tdTP(fun do_add_a_tag_1/2, AnnAST, {ModName, Tag, InitialFuns, ReceiveFuns, AffectedModsFuns}),
+    {AnnAST1, _Changed} = wrangler_ast_traverse_api:stop_tdTP(fun do_add_a_tag_1/2, AnnAST, {ModName, Tag, InitialFuns, ReceiveFuns, AffectedModsFuns}),
     OtherFiles = refac_misc:expand_files(SearchPaths, ".erl") -- [FileName],
     Results = do_add_a_tag_in_other_modules(OtherFiles, Tag, InitialFuns, ReceiveFuns, AffectedModsFuns, SearchPaths, TabWidth),
     [{{FileName, FileName}, AnnAST1}| Results].
@@ -191,7 +191,7 @@ do_add_a_tag_in_other_modules(Files, Tag, InitialFuns, ReceiveFuns, AffectedMods
 		    ?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
 		    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(F, true, SearchPaths, TabWidth),
 		    ModName = get_module_name(F, Info),
-		    {AnnAST1, Changed} = ast_traverse_api:stop_tdTP(fun do_add_a_tag_1/2, AnnAST, {ModName, Tag, InitialFuns, ReceiveFuns, AffectedModsFuns}),
+		    {AnnAST1, Changed} = wrangler_ast_traverse_api:stop_tdTP(fun do_add_a_tag_1/2, AnnAST, {ModName, Tag, InitialFuns, ReceiveFuns, AffectedModsFuns}),
 		    if Changed ->
 			   [{{F, F}, AnnAST1}| do_add_a_tag_in_other_modules(Fs, Tag, InitialFuns, ReceiveFuns, AffectedModsFuns, SearchPaths, TabWidth)];
 		       true -> do_add_a_tag_in_other_modules(Fs, Tag, InitialFuns, ReceiveFuns, AffectedModsFuns, SearchPaths, TabWidth)
@@ -205,14 +205,14 @@ do_add_a_tag_1(Node, {ModName, Tag, InitialFuns, ReceiveFuns, {_Mods, Funs}}) ->
 	  {value, {fun_def, {M, F, A, _, _}}} = lists:keysearch(fun_def, 1, refac_syntax:get_ann(Node)),
 	  case lists:member({M, F, A}, ReceiveFuns) of
 	    true ->
-		Node1 = ast_traverse_api:full_buTP(fun do_add_tag_to_receive_exprs/2, Node, Tag),
+		Node1 = wrangler_ast_traverse_api:full_buTP(fun do_add_tag_to_receive_exprs/2, Node, Tag),
 		%% Can a process send an expression to itself?
 		%% {Node2, _} = refac_util:stop_tdTP(fun do_add_tag_to_send_exprs/2, Node1, {ModName,Tag, InitialFuns}), 
 		{Node1, true};
 	    false ->
 		case lists:member({M, F, A}, Funs) of
 		  true ->
-		      ast_traverse_api:stop_tdTP(fun do_add_tag_to_send_exprs/2, Node, {ModName, Tag, InitialFuns});
+		      wrangler_ast_traverse_api:stop_tdTP(fun do_add_tag_to_send_exprs/2, Node, {ModName, Tag, InitialFuns});
 		  _ ->
 		      {Node, false}
 		end
@@ -323,7 +323,7 @@ pos_to_receive_fun(AnnAST, Pos) ->
 
 has_receive_expr(Node) ->
     case
-      ast_traverse_api:once_tdTU(fun has_receive_expr/2, Node, [])
+      wrangler_ast_traverse_api:once_tdTU(fun has_receive_expr/2, Node, [])
 	of
       {_, false} ->
 	  false;
@@ -354,7 +354,7 @@ collect_fun_apps(Expr, {_ModName, _Ln}) ->
 		      _ -> S
 		  end
 	  end,
-    lists:usort(ast_traverse_api:fold(Fun, [], Expr)).
+    lists:usort(wrangler_ast_traverse_api:fold(Fun, [], Expr)).
 
 get_fun_def({M, F, A}, SearchPaths, TabWidth) ->
     Fun = fun (Node, {M1, F1, A1}) ->
@@ -377,7 +377,7 @@ get_fun_def({M, F, A}, SearchPaths, TabWidth) ->
 	_ ->
 	    FileName = hd(FileNames),
 	    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-	    case ast_traverse_api:once_tdTU(Fun, AnnAST, {M, F, A}) of
+	    case wrangler_ast_traverse_api:once_tdTU(Fun, AnnAST, {M, F, A}) of
 		{_, false} ->
 		    {error, "Wrangler could not find the definition of " ++ atom_to_list(M) ++ ":" ++ atom_to_list(F) ++ "/" ++ integer_to_list(A)};
 		{R, true} -> {ok, R}

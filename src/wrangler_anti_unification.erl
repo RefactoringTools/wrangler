@@ -321,8 +321,8 @@ generalise_expr_2(Expr, Subst, ExprFreeVars, {ExportVars1, ExportVars2}) ->
 	    Pid = refac_code_search_utils:start_counter_process(UsedVarNames),
 	    ExportVars3 = [E || E <- ExportVars2, refac_syntax:type(E) =/= variable],
 	    ExprNewVarPairs = generate_new_var_names(Subst,Pid),
-	    {Expr1, _} = ast_traverse_api:stop_tdTP(fun do_replace_expr_with_var_1/2, Expr,
-						    {ExprNewVarPairs, Subst, ExprFreeVars, Pid, ExportVars3}),
+	    {Expr1, _} = wrangler_ast_traverse_api:stop_tdTP(fun do_replace_expr_with_var_1/2, Expr,
+						             {ExprNewVarPairs, Subst, ExprFreeVars, Pid, ExportVars3}),
 	    NewVarsToExport = refac_code_search_utils:get_new_export_vars(Pid),
 	    refac_code_search_utils:stop_counter_process(Pid),
 	    VarsToExport1 = ExportVars1 ++ 
@@ -447,8 +447,8 @@ generalisable(E1, E2) ->
 	refac_code_search_utils:generalisable(E2).
 
 reset_attrs(Node) ->
-    ast_traverse_api:full_buTP(fun (T, _Others) -> 
-				       T1 = refac_syntax:set_ann(T, []),
-				       refac_syntax:remove_comments(T1)
-			       end,
-			       Node, {}).
+    wrangler_ast_traverse_api:full_buTP(fun (T, _Others) ->
+				                T1 = refac_syntax:set_ann(T, []),
+				                refac_syntax:remove_comments(T1)
+			                end,
+			                Node, {}).

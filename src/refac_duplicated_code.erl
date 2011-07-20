@@ -815,7 +815,7 @@ generalise_expr_1(Expr, NodesToGen) ->
     generalise_expr_2(Expr, NodesToGen).
    
 generalise_expr_2(Expr, NodesToGen) ->
-    element(1, ast_traverse_api:stop_tdTP(fun do_replace_expr_with_var_1/2, Expr, NodesToGen)).
+    element(1, wrangler_ast_traverse_api:stop_tdTP(fun do_replace_expr_with_var_1/2, Expr, NodesToGen)).
  
 do_replace_expr_with_var_1(Node, NodeVarPairs) ->
     case lists:keysearch(Node,1, NodeVarPairs) of

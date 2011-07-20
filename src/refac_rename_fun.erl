@@ -302,8 +302,8 @@ pre_cond_check(FileName, Info, NewFunName, OldFunDefMod, OldFunName, Arity) ->
     end.
 
 do_rename_fun(Tree, {ModName, OldName, Arity}, {DefinePos, NewName}) ->
-    ast_traverse_api:full_tdTP(fun do_rename_fun_1/2, Tree,
-			       {{ModName, OldName, Arity}, {DefinePos, NewName}}).
+    wrangler_ast_traverse_api:full_tdTP(fun do_rename_fun_1/2, Tree,
+			                {{ModName, OldName, Arity}, {DefinePos, NewName}}).
 
 do_rename_fun_1(Tree, {{M, OldName, Arity}, {DefinePos, NewName}}) ->
     case refac_syntax:type(Tree) of
@@ -426,8 +426,8 @@ rename_fun_in_client_module_1({Tree, Info}, {M, OldName, Arity}, NewNameStr) ->
 	    end;
 	_ -> ok
     end,
-    ast_traverse_api:full_tdTP(fun do_rename_fun_in_client_module_1/2, Tree,
-			       {{M, OldName, Arity}, NewNameAtom}).
+    wrangler_ast_traverse_api:full_tdTP(fun do_rename_fun_in_client_module_1/2, Tree,
+			                {{M, OldName, Arity}, NewNameAtom}).
 
 do_rename_fun_in_client_module_1(Tree, {{M, OldName, Arity}, NewName}) ->
     case refac_syntax:type(Tree) of

@@ -79,7 +79,7 @@ variables(Tree) ->
 		    _ -> S
 		end
 	end,
-    ast_traverse_api:fold(F, sets:new(), Tree).
+    wrangler_ast_traverse_api:fold(F, sets:new(), Tree).
 
 -define(MINIMUM_RANGE, 100).
 
@@ -336,13 +336,13 @@ vann(Tree, Env, Ms, VI, Pid) ->
 		inndef -> {Tree1, [], []};
 		undef -> {Tree1, [], []};
 		_ -> F = vann_list_join(Env, Ms, VI, Pid),
-		     {Tree2, {Bound, Free}} = ast_traverse_api:mapfold_subtrees(F, {[], []}, Tree1),
+		     {Tree2, {Bound, Free}} = wrangler_ast_traverse_api:mapfold_subtrees(F, {[], []}, Tree1),
 		     {ann_bindings(Tree2, Env, Bound, Free), Bound, Free}
 	    end;
 	%% Added by HL, end.
 	_Type ->
 	    F = vann_list_join(Env, Ms, VI, Pid),
-	    {Tree1, {Bound, Free}} = ast_traverse_api:mapfold_subtrees(F, {[], []}, Tree),
+	    {Tree1, {Bound, Free}} = wrangler_ast_traverse_api:mapfold_subtrees(F, {[], []}, Tree),
 	    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}
     end.
 
@@ -684,8 +684,8 @@ vann_pattern(Tree, Env, Ms, VI, Pid) ->
 	    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free};
 	_Type ->
 	    F = vann_patterns_join(Env, Ms, VI, Pid),
-	    {Tree1, {Bound, Free}} = ast_traverse_api:mapfold_subtrees(F, {[], []},
-								       Tree),
+	    {Tree1, {Bound, Free}} = wrangler_ast_traverse_api:mapfold_subtrees(F, {[], []},
+								                Tree),
 	    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}
     end.
 
@@ -721,7 +721,7 @@ vann_fun_expr_pattern(Tree, Env, Ms, VI, Pid) ->
 	    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free};
 	_Type ->
 	    F = vann_patterns_join(Env, Ms, VI, Pid),
-	    {Tree1, {Bound, Free}} = ast_traverse_api:mapfold_subtrees(F, {[], []}, Tree),
+	    {Tree1, {Bound, Free}} = wrangler_ast_traverse_api:mapfold_subtrees(F, {[], []}, Tree),
 	    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}
     end.
 
@@ -805,7 +805,7 @@ adjust_define_body(Body, Env) ->
 		    _ -> Tree1
 		end
 	end,
-    lists:map(fun (T) -> ast_traverse_api:map(F, T) end, Body).
+    lists:map(fun (T) -> wrangler_ast_traverse_api:map(F, T) end, Body).
 
 vann_clause(C, Env, Ms, VI, Pid) ->
     init_env_process(Pid),
@@ -2024,9 +2024,9 @@ function_name_expansions(A, Name, Ack) ->
 
 
 strip_comments(Tree) ->
-    ast_traverse_api:map(fun
-			     (T) -> refac_syntax:remove_comments(T)
-			 end, Tree).
+    wrangler_ast_traverse_api:map(fun
+			              (T) -> refac_syntax:remove_comments(T)
+			          end, Tree).
 
 %% =====================================================================
 %% @spec to_comment(Tree) -> syntaxTree()
@@ -2256,7 +2256,7 @@ get_var_info(Tree) ->
 		    _ -> S
 		end
 	end,
-    ast_traverse_api:fold(F, [], Tree).
+    wrangler_ast_traverse_api:fold(F, [], Tree).
 
 %% Adjust the locations of F and A in an implicit function application (fun F/A)
 %% to their actual occurrence locations. Originally, both of their locations refer
@@ -2316,7 +2316,7 @@ adjust_locations(Form, Toks) ->
                     _ -> T
 		end
 	end,
-    ast_traverse_api:map(F, Form).
+    wrangler_ast_traverse_api:map(F, Form).
 
 %% =====================================================================
 %% @spec update_var_define_locations(Node::syntaxTree()) -> syntaxTree()
@@ -2340,7 +2340,7 @@ update_var_define_locations(Node) ->
 		     _ -> {S1, S2}
 		 end
 	 end,
-    {SrcDefLocs, DefLocs} =ast_traverse_api:fold(F1, {[],[]}, Node),
+    {SrcDefLocs, DefLocs} =wrangler_ast_traverse_api:fold(F1, {[],[]}, Node),
     F = fun (T) ->
 		case refac_syntax:type(T) of
 		    variable ->
@@ -2358,7 +2358,7 @@ update_var_define_locations(Node) ->
 		    _ -> T
 		end
 	end,
-    ast_traverse_api:map(F, Node).
+    wrangler_ast_traverse_api:map(F, Node).
 
 list_intersection(L1, L2) ->
     ordsets:to_list(ordsets:intersection(

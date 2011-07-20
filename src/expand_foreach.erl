@@ -113,7 +113,7 @@ expand_cond(TempBefore, Cond) ->
 
 
 convert_meta_atom_to_meta_var(Node) ->
-    {Node1, _} = ast_traverse_api:stop_tdTP(fun do_convert/2, Node, {}),
+    {Node1, _} = wrangler_ast_traverse_api:stop_tdTP(fun do_convert/2, Node, {}),
     Node1.
 
 do_convert(Node, _Others) ->

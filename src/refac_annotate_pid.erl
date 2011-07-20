@@ -65,7 +65,7 @@ bottom_up_ann(Funs, TypeSigPid) ->
 bottom_up_ann_1({{ModName, FunName, Arity}, FunDef}, TypeSigPid) ->
     EnvPid = start_env_process(),
     FunDef1 = annotate_special_fun_apps({{ModName, FunName, Arity}, FunDef}, EnvPid),
-    FunDef2 = ast_traverse_api:full_buTP(fun annotate_within_fun/2, FunDef1, {ModName, FunName, Arity, EnvPid, TypeSigPid}),
+    FunDef2 = wrangler_ast_traverse_api:full_buTP(fun annotate_within_fun/2, FunDef1, {ModName, FunName, Arity, EnvPid, TypeSigPid}),
     EnvPid ! stop,
     {{ModName, FunName, Arity}, FunDef2}.
 
@@ -120,7 +120,7 @@ update_function(File, FunList, DirList, TabWidth) ->
 		    _ -> {Node, false}
 		end
 	end,
-    {AnnAST1, _} = ast_traverse_api:stop_tdTP(F, AnnAST, []),
+    {AnnAST1, _} = wrangler_ast_traverse_api:stop_tdTP(F, AnnAST, []),
     wrangler_ast_server:update_ast({File, true, DirList, TabWidth, refac_misc:file_format(File)}, {AnnAST1, Info, filelib:last_modified(File)}),
     ok.
 
@@ -300,7 +300,7 @@ prop_from_calls(FunDef, TypeSigPid) ->
 		   _ -> Node
 		 end
 	 end,
-    ast_traverse_api:full_buTP(F2, FunDef, []).
+    wrangler_ast_traverse_api:full_buTP(F2, FunDef, []).
 
 annotate_within_fun_1({{ModName, FunName, Arity}, FunDef}, TypeSigPid) ->
     EnvPid = start_env_process(),
@@ -332,7 +332,7 @@ annotate_within_fun_1({{ModName, FunName, Arity}, FunDef}, TypeSigPid) ->
 					      refac_syntax:copy_attrs(C, refac_syntax:clause(Ps1, G, B))
 				      end, Cs),
 		      FunDef0 = refac_syntax:copy_attrs(FunDef, refac_syntax:function(FunName1, Cs1)),
-		      ast_traverse_api:full_buTP(fun annotate_within_fun/2, FunDef0, {ModName, FunName, Arity, EnvPid, TypeSigPid});
+		      wrangler_ast_traverse_api:full_buTP(fun annotate_within_fun/2, FunDef0, {ModName, FunName, Arity, EnvPid, TypeSigPid});
 		  
 		  _ -> %% refac_util:full_buTP(fun annotate_within_fun/2, FunDef, {ModName, FunName, Arity, EnvPid, TypeSigPid})
 		      FunDef
@@ -367,8 +367,8 @@ counter_loop({Spawn, Self}) ->
 %%% TO think: any other problems/restrictions with thus fun?
 annotate_special_fun_apps({CurrentFun, FunDef}, EnvPid) ->
     init_counter(),
-    {FunDef1, _} = ast_traverse_api:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, FunDef, {CurrentFun, EnvPid}),
-    ast_traverse_api:full_buTP(fun do_annotate_special_fun_apps_pname/2, FunDef1, EnvPid).
+    {FunDef1, _} = wrangler_ast_traverse_api:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, FunDef, {CurrentFun, EnvPid}),
+    wrangler_ast_traverse_api:full_buTP(fun do_annotate_special_fun_apps_pname/2, FunDef1, EnvPid).
 
 do_annotate_special_fun_apps_pid(Node, {CurrentFun, EnvPid}) ->
     case refac_syntax:type(Node) of
@@ -379,10 +379,10 @@ do_annotate_special_fun_apps_pid(Node, {CurrentFun, EnvPid}) ->
 		    Op = refac_syntax:application_operator(Node),
 		    Args = refac_syntax:application_arguments(Node),
 		    Args1 = case Args of
-				[A] -> {A1, _} = ast_traverse_api:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, A, {refac_prettypr:format(A), EnvPid}),
+				[A] -> {A1, _} = wrangler_ast_traverse_api:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, A, {refac_prettypr:format(A), EnvPid}),
 				       [A1];
 				[Node, A] ->
-				    {A1, _} = ast_traverse_api:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, A, {refac_prettypr:format(A), EnvPid}),
+				    {A1, _} = wrangler_ast_traverse_api:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, A, {refac_prettypr:format(A), EnvPid}),
 				    [Node, A1];
 				_ -> Args
 			    end,
@@ -579,7 +579,7 @@ is_process_related_fun(FunDef) ->
 		  _ -> {[], false}
 		end
 	end,
-    case ast_traverse_api:once_tdTU(F, FunDef, []) of
+    case wrangler_ast_traverse_api:once_tdTU(F, FunDef, []) of
       {_, false} -> false;
       {_R, true} -> true
     end.

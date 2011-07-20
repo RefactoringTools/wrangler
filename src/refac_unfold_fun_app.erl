@@ -339,7 +339,7 @@ is_non_reducible_term(T) ->
 fun_inline_1(FName, AnnAST, Pos, {FunClauseToInline, Subst, MatchExprsToAdd}, {Clause, App},
 	     UsedRecords, Editor, TabWidth, Cmd) ->
     B = refac_syntax:clause_body(FunClauseToInline),
-    {SubstedBody1, _} = lists:unzip([ast_traverse_api:stop_tdTP(fun do_subst/2, E, Subst) || E <- B]),
+    {SubstedBody1, _} = lists:unzip([wrangler_ast_traverse_api:stop_tdTP(fun do_subst/2, E, Subst) || E <- B]),
     SubstedBody = MatchExprsToAdd ++ SubstedBody1,
     Fs = refac_syntax:form_list_elements(AnnAST),
     RecordDefs = collect_record_defs(Fs, UsedRecords, Pos),
@@ -352,13 +352,13 @@ do_inline(Form, Pos, _Clause, App, SubstedBody, RecordDefs) ->
     SubstedBody1 = refac_misc:reset_ann_and_pos(SubstedBody),
     {S, E} = refac_api:start_end_loc(Form),
     if (S =< Pos) and (Pos =< E) ->
-            {NewForm, _} = ast_traverse_api:stop_tdTP(
-                            fun do_inline_1/2, Form, {App, SubstedBody1}),
+            {NewForm, _} = wrangler_ast_traverse_api:stop_tdTP(
+                                     fun do_inline_1/2, Form, {App, SubstedBody1}),
             case length(SubstedBody) > 1 of
                 true ->
-		   {NewForm1, _} = ast_traverse_api:stop_tdTP(
-                                     fun remove_begin_end/2, NewForm, SubstedBody1),
-                    RecordDefs ++ [NewForm1];
+		   {NewForm1, _} = wrangler_ast_traverse_api:stop_tdTP(
+                                              fun remove_begin_end/2, NewForm, SubstedBody1),
+                   RecordDefs ++ [NewForm1];
                 _ -> RecordDefs ++ [NewForm]
             end;
        true ->
@@ -462,7 +462,7 @@ do_subst(Node, Subst) ->
 %% From source postion to the function name part in a function application.
 pos_to_fun_clause_app(Node, Pos) ->
     case
-      ast_traverse_api:once_tdTU(fun pos_to_fun_clause_app_1/2, Node, Pos)
+      wrangler_ast_traverse_api:once_tdTU(fun pos_to_fun_clause_app_1/2, Node, Pos)
 	of
       {_, false} -> {error, none};
       {{C, App}, true} -> {ok, {C, App}}
@@ -492,7 +492,7 @@ pos_to_fun_clause_app_1(Node, Pos) ->
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 pos_to_fun_app(Node, Pos) ->
-    ast_traverse_api:once_tdTU(fun pos_to_fun_app_1/2, Node, Pos).
+    wrangler_ast_traverse_api:once_tdTU(fun pos_to_fun_app_1/2, Node, Pos).
 
 pos_to_fun_app_1(Node, Pos) ->
     case refac_syntax:type(Node) of
@@ -511,7 +511,7 @@ auto_rename_vars({ClauseToInline, MatchExprs}, {Clause, App}, SubStLocs) ->
     VarName = 'WRANGLER_TEMP_VAR',
     NewVarPat = refac_syntax:copy_pos(App, refac_syntax:copy_pos(App, refac_syntax:variable(VarName))),
     MatchExpr = refac_syntax:copy_pos(App, refac_syntax:match_expr(NewVarPat, refac_syntax:atom(ok))),
-    {Clause1, _} = ast_traverse_api:stop_tdTP(fun do_replace_app_with_match/2, Clause, {App, MatchExpr}),
+    {Clause1, _} = wrangler_ast_traverse_api:stop_tdTP(fun do_replace_app_with_match/2, Clause, {App, MatchExpr}),
     Clause2 = refac_syntax_lib:var_annotate_clause(refac_misc:reset_ann(Clause1), [], {[],[]}, []),
     BdsInFunToInline = get_bound_vars(ClauseToInline),
     NewNames = [{Name, DefinePos} || {Name, DefinePos} <- BdsInFunToInline,

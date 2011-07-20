@@ -370,8 +370,8 @@ generalise_and_hash_function_ast_1(FName, Form, FunName, Arity, HashVal, Thresho
     AllVars = refac_misc:collect_var_source_def_pos_info(Form1),
     %% I also put the Hashvalue of a function in var_tab.
     ets:insert(Tabs#tabs.var_tab, {{FName, FunName, Arity}, HashVal, AllVars}),
-    ast_traverse_api:full_tdTP(fun generalise_and_hash_function_ast_2/2,
-			       Form1, {FName, FunName, Arity, ASTPid, HashPid, Threshold, StartLine}).
+    wrangler_ast_traverse_api:full_tdTP(fun generalise_and_hash_function_ast_2/2,
+			                Form1, {FName, FunName, Arity, ASTPid, HashPid, Threshold, StartLine}).
 
 %% generalise and has the function AST.
 generalise_and_hash_function_ast_2(Node, {FName, FunName, Arity, ASTPid, _HashPid,  Threshold, StartLine}) ->
@@ -507,7 +507,7 @@ do_generalise(Node) ->
 		   false -> {T, false}
 		 end
 	 end,
-    element(1, ast_traverse_api:stop_tdTP(F0, Node, [])).
+    element(1, wrangler_ast_traverse_api:stop_tdTP(F0, Node, [])).
    
 	
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1408,7 +1408,7 @@ from_same_file(RangesWithAST) ->
     length(lists:usort(Files)) ==1.
 
 post_process_anti_unifier(FunAST) ->
-    {FunAST1, _} = ast_traverse_api:stop_tdTP(fun do_post_process_anti_unifier/2, FunAST, none),
+    {FunAST1, _} = wrangler_ast_traverse_api:stop_tdTP(fun do_post_process_anti_unifier/2, FunAST, none),
     FunAST1.
 
 do_post_process_anti_unifier(Node, _Others) ->
@@ -1542,8 +1542,8 @@ combine_clones_by_au_1([Cs = [{_RelRanges, Len, _Freq, Code, _AbsRanges}| _]| T]
 %%     relative locations                                     %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 absolute_to_relative_loc(AST, OffLine) ->
-    {AST1, _} = ast_traverse_api:full_tdTP(fun do_abs_to_relative_loc/2, 
-					   AST, OffLine),
+    {AST1, _} = wrangler_ast_traverse_api:full_tdTP(fun do_abs_to_relative_loc/2,
+					            AST, OffLine),
     AST1.
 do_abs_to_relative_loc(Node, OffLine) ->
     As = refac_syntax:get_ann(Node),

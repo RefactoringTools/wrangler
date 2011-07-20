@@ -134,7 +134,7 @@ get_bound_vars(Tree) ->
 		    _ -> B
 		end
 	end,
-    lists:usort(ast_traverse_api:fold(F, [], Tree)).
+    lists:usort(wrangler_ast_traverse_api:fold(F, [], Tree)).
 
 do_intro_new_var(AnnAST, FunForm, Expr, NewVarName) ->
     NewFun = do_intro_new_var_in_fun(FunForm, Expr, NewVarName),
@@ -158,9 +158,9 @@ do_intro_new_var(AnnAST, FunForm, Expr, NewVarName) ->
 
 do_intro_new_var_in_fun(Fun, Expr, NewVarName) ->
     Body = get_inmost_enclosing_clause(Fun, Expr),
-    {NewFun1, _} = ast_traverse_api:stop_tdTP(
-		     fun insert_and_replace/2, Fun,
-		     {Body, Expr, NewVarName}),
+    {NewFun1, _} = wrangler_ast_traverse_api:stop_tdTP(
+		              fun insert_and_replace/2, Fun,
+		              {Body, Expr, NewVarName}),
     NewFun1.
 
 insert_and_replace(Node, {InMostClauseExpr, Expr, NewVarName}) ->
@@ -266,8 +266,8 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
 
 
 replace_expr_with_var(Expr, NewVarName, ExprStatement) ->
-    ast_traverse_api:stop_tdTP(fun do_replace_expr_with_var/2,
-			       ExprStatement, {Expr, NewVarName}).
+    wrangler_ast_traverse_api:stop_tdTP(fun do_replace_expr_with_var/2,
+			                ExprStatement, {Expr, NewVarName}).
 
 do_replace_expr_with_var(Node, {Expr, NewVarName}) ->
     case Node of
@@ -311,7 +311,7 @@ get_inmost_enclosing_clause(Form, Expr) ->
 			  S
 		  end
 	  end,
-    Res = lists:keysort(2, ast_traverse_api:fold(Fun, [], Form)),
+    Res = lists:keysort(2, wrangler_ast_traverse_api:fold(Fun, [], Form)),
     case Res of
 	[{Node, _}| _] ->
 	    Node;
@@ -344,7 +344,7 @@ get_inmost_enclosing_body_expr(Form, Expr) ->
 			  S
 		  end
 	  end,
-    Res = lists:keysort(2, ast_traverse_api:fold(Fun, [], Form)),
+    Res = lists:keysort(2, wrangler_ast_traverse_api:fold(Fun, [], Form)),
     case Res of
 	[{Body, _, E}| _] ->
 	    {Body, E};

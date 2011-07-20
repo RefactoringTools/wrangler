@@ -291,7 +291,7 @@ transform_forms_to_be_moved(Forms, Args) ->
     [transform_a_form_to_be_moved(Form, Args)||Form<-Forms].
 
 transform_a_form_to_be_moved(Form, Args) ->
-    element(1, ast_traverse_api:full_tdTP(fun do_transform_fun/2, Form, Args)).
+    element(1, wrangler_ast_traverse_api:full_tdTP(fun do_transform_fun/2, Form, Args)).
 
 
 do_transform_fun(Node, {FileName, MFAs = [{ModName, _, _}| _T], TargetModName,
@@ -480,8 +480,8 @@ process_a_form_in_target_module(Form, Args)->
 %%============================================================================
 
 remove_module_qualifier(FileName, Form, MFAs, TargetModName, SearchPaths, TabWidth, Pid) ->
-    element(1, ast_traverse_api:full_tdTP(fun do_remove_module_qualifier/2, Form,
-					  {FileName, MFAs, TargetModName, SearchPaths, TabWidth, Pid})).
+    element(1, wrangler_ast_traverse_api:full_tdTP(fun do_remove_module_qualifier/2, Form,
+					           {FileName, MFAs, TargetModName, SearchPaths, TabWidth, Pid})).
 
 do_remove_module_qualifier(Node, {FileName, MFAs, TargetModName, SearchPaths, TabWidth, Pid}) ->
     case refac_syntax:type(Node) of
@@ -621,8 +621,8 @@ process_a_form_in_original_mod(Form, Args) ->
 %% Add module qualifier.
 %%============================================================================
 add_change_module_qualifier(Form,FileName,MFAs, TargetModName, SearchPaths, TabWidth, Pid) ->
-    ast_traverse_api:full_tdTP(fun do_add_change_module_qualifier/2,
-			       Form, {FileName,MFAs, TargetModName, SearchPaths, TabWidth, Pid}).
+    wrangler_ast_traverse_api:full_tdTP(fun do_add_change_module_qualifier/2,
+			                Form, {FileName, MFAs, TargetModName, SearchPaths, TabWidth, Pid}).
 
 do_add_change_module_qualifier(Node, {FileName, MFAs = [{ModName,_,_}| _], TargetModName, SearchPaths, TabWidth, Pid}) ->
     case refac_syntax:type(Node) of
@@ -777,8 +777,8 @@ process_in_client_module(FileName, Form, MFAs = [{ModName, _, _}| _T], TargetMod
 
 
 change_module_qualifier(Form, FileName, MFAs, TargetModName, SearchPaths, TabWidth, Pid) ->
-    ast_traverse_api:full_tdTP(fun do_change_module_qualifier/2,
-			       Form, {FileName, MFAs, TargetModName, SearchPaths, TabWidth, Pid}).
+    wrangler_ast_traverse_api:full_tdTP(fun do_change_module_qualifier/2,
+			                Form, {FileName, MFAs, TargetModName, SearchPaths, TabWidth, Pid}).
 
 do_change_module_qualifier(Node, {FileName, MFAs, TargetModName, SearchPaths, TabWidth, Pid}) ->
     case refac_syntax:type(Node) of
@@ -985,7 +985,7 @@ reset_attrs(Node, {M, F, A}) ->
 		      _ -> refac_syntax:set_pos(refac_syntax:remove_comments(refac_syntax:set_ann(T1, [])), {0,0})
 		  end
 	  end,
-    ast_traverse_api:map(Fun, Node).
+    wrangler_ast_traverse_api:map(Fun, Node).
 
 
 

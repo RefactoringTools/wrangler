@@ -397,7 +397,7 @@ do_state_to_record_in_callback_fun_clause_body(Body, RecordName, RecordFields,
 		    _ -> Node
 		  end
 	  end,
-    Body1 = ast_traverse_api:full_buTP(Fun, refac_syntax:block_expr(Body), {}),
+    Body1 = wrangler_ast_traverse_api:full_buTP(Fun, refac_syntax:block_expr(Body), {}),
     Body2 = is_tuple_to_is_record(Body1, RecordName, RecordToTupleFunName),
     Body3 = refac_syntax:block_expr_body(Body2),
     case ReturnState of
@@ -558,7 +558,7 @@ do_state_to_record_in_match_expr(Body, _LastExpr, DefinePos, RecordName, RecordF
 		      _ -> {Node, false}
 		  end
 	  end,
-    ast_traverse_api:stop_tdTP(Fun, Body, {});
+    wrangler_ast_traverse_api:stop_tdTP(Fun, Body, {});
 
 do_state_to_record_in_match_expr(Body, LastExpr, DefinePos, RecordName, RecordFields, IsTuple, SM,
 				 TupleToRecordFunName, RecordToTupleFunName)
@@ -602,7 +602,7 @@ do_state_to_record_in_match_expr(Body, LastExpr, DefinePos, RecordName, RecordFi
 		      _ -> {Node, false}
 		  end
 	  end,
-    ast_traverse_api:stop_tdTP(Fun, Body, {}).
+    wrangler_ast_traverse_api:stop_tdTP(Fun, Body, {}).
 
 tuple_to_record_in_gen_fsm(Tuple, RecordName, RecordFields, IsTuple, Msg, Pos,
 			   TupleToRecordFunName, RecordToTupleFunName) ->
@@ -675,7 +675,7 @@ wrap_fun_interface_in_return(Form, ModName, RecordName, RecordFields, IsTuple, S
 			  Node
 		  end
 	  end,
-    Form1 = ast_traverse_api:full_buTP(Fun, Form, {}),
+    Form1 = wrangler_ast_traverse_api:full_buTP(Fun, Form, {}),
     case SM of
 	gen_fsm ->
 	    Form1;
@@ -684,9 +684,9 @@ wrap_fun_interface_in_return(Form, ModName, RecordName, RecordFields, IsTuple, S
 	    case Res of
 		[] -> Form1;
 		_ ->
-		    {Form2, _} = ast_traverse_api:stop_tdTP(fun wrap_run_commands_result/2, Form1,
-							    {RecordName, RecordFields, Res, IsTuple,
-							     refac_misc:collect_var_names(Form1), SM}),
+		    {Form2, _} = wrangler_ast_traverse_api:stop_tdTP(fun wrap_run_commands_result/2, Form1,
+							             {RecordName, RecordFields, Res, IsTuple,
+							              refac_misc:collect_var_names(Form1), SM}),
 		    Form2
 	    end
     end.
@@ -739,7 +739,7 @@ check_use_of_run_commands(Form, SM) ->
 		      _ -> {Acc1, Acc2}
 		  end
 	  end,
-    {Acc1, Acc2} = ast_traverse_api:fold(Fun, {[], []}, Form),
+    {Acc1, Acc2} = wrangler_ast_traverse_api:fold(Fun, {[], []}, Form),
     lists:usort(Acc1) -- lists:usort(Acc2).
 
 wrap_run_commands_result(Node, {RecordName, RecordFields, DefPs, IsTuple, UsedVars, SM}) ->
@@ -822,7 +822,7 @@ wrap_fun_interface_in_arg(Form, ModName, RecordName, RecordFields, IsTuple, Stat
 			Node
 		  end
 	  end,
-    ast_traverse_api:full_buTP(Fun, Form, {}).
+    wrangler_ast_traverse_api:full_buTP(Fun, Form, {}).
 
 do_transform_actual_pars(Node, PatIndexes, RecordName, RecordFields, IsTuple,
 			 TupleToRecordFunName, RecordToTupleFunName) ->
@@ -968,7 +968,7 @@ unfold_conversion_apps(Forms, RecordToTupleFunName, TupleToRecordFunName, Record
 		    _ -> Node
 		  end
 	  end,
-    [ast_traverse_api:full_buTP(Fun, F, {}) || F <- Forms].
+    [wrangler_ast_traverse_api:full_buTP(Fun, F, {}) || F <- Forms].
 
 add_util_funs(Forms, ModInfo, RecordName, RecordFields, TupleToRecordFunName, RecordToTupleFunName) ->
     Fun = fun (Node, Acc) ->
@@ -988,7 +988,7 @@ add_util_funs(Forms, ModInfo, RecordName, RecordFields, TupleToRecordFunName, Re
 		      _ -> Acc
 		  end
 	  end,
-    Acc = lists:append([ast_traverse_api:fold(Fun, [], F) || F <- Forms]),
+    Acc = lists:append([wrangler_ast_traverse_api:fold(Fun, [], F) || F <- Forms]),
     ExistingFuns = case lists:keysearch(functions, 1, ModInfo) of
 		       {value, {functions, Funs}} ->
 			   Funs;
@@ -1334,7 +1334,7 @@ is_tuple_to_is_record(Tree, RecordName, RecordToTupleFunName) ->
 		    _ -> Node
 		  end
 	  end,
-    ast_traverse_api:full_buTP(Fun, Tree, {}).
+    wrangler_ast_traverse_api:full_buTP(Fun, Tree, {}).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
@@ -1485,8 +1485,8 @@ remove_record_tuple_conversions(Tree, TupleToRecordFunName, RecordToTupleFunName
 		       _ -> Node
 		   end
 	   end,
-    Vs = ast_traverse_api:fold(Fun, [], Tree),
-    Fun2 = fun (V, Node) -> ast_traverse_api:full_buTP(Fun1, Node, V) end,
+    Vs = wrangler_ast_traverse_api:fold(Fun, [], Tree),
+    Fun2 = fun (V, Node) -> wrangler_ast_traverse_api:full_buTP(Fun1, Node, V) end,
     lists:foldl(Fun2, Tree, Vs).
 
 check_sole_use_of_var(Tree, Pos, FunName) ->
@@ -1527,7 +1527,7 @@ check_sole_use_of_var(Tree, Pos, FunName) ->
 			  {Acc1, Acc2}
 		  end
 	  end,
-    {Acc1, Acc2} = ast_traverse_api:fold(Fun, {[],[]}, Tree),
+    {Acc1, Acc2} = wrangler_ast_traverse_api:fold(Fun, {[],[]}, Tree),
     ?debug("Acc1Acc2:\n~p\n", [{Acc1, Acc2}]),
     Acc1 == Acc2.
 
@@ -1759,7 +1759,7 @@ is_used_only_once(Body, DefinePos) ->
 		      _ -> Acc
 		  end
 	  end,
-    length(ast_traverse_api:fold(Fun, [], Body))==1.
+    length(wrangler_ast_traverse_api:fold(Fun, [], Body)) == 1.
 
 format_state_funs([]) -> "[]";
 format_state_funs(MFAs) ->
@@ -1803,5 +1803,5 @@ lookup_record(Tag, Arity, RecDict) when is_atom(Tag) ->
 
 
 set_pos(Pos, Node) ->
-    ast_traverse_api:full_buTP(fun (T, _Others) -> refac_syntax:set_pos(T, Pos)
-			       end, Node, {}).
+    wrangler_ast_traverse_api:full_buTP(fun (T, _Others) -> refac_syntax:set_pos(T, Pos)
+			                end, Node, {}).

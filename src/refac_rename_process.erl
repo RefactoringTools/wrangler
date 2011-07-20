@@ -102,7 +102,7 @@ rename_process_1(FileName, OldProcessName1, NewProcessName1, SearchPaths, TabWid
 
 
 pos_to_process_name(Node, Pos) ->
-    case ast_traverse_api:once_tdTU(fun pos_to_process_name_1/2, Node, Pos) of
+    case wrangler_ast_traverse_api:once_tdTU(fun pos_to_process_name_1/2, Node, Pos) of
       {_, false} -> {error, "Wrangler could not infer that the atom selected represents a process name!"};
       {R, true} -> {ok, R}
     end.
@@ -167,11 +167,11 @@ collect_process_names(DirList) ->
 						      _ -> FunAcc
 						  end
 					  end,
-				     ast_traverse_api:fold(F2, [], Node)++ModAcc;
+				     wrangler_ast_traverse_api:fold(F2, [], Node) ++ ModAcc;
 				 _ -> ModAcc
 			     end
 		     end,
-		ast_traverse_api:fold(F1, [], AnnAST) ++ FileAcc
+		wrangler_ast_traverse_api:fold(F1, [], AnnAST) ++ FileAcc
 	end,
     Acc = lists:foldl(F, [], Files),
     {Names, UnKnowns} = lists:partition(fun ({Tag,_V}) -> Tag==value end, Acc),
@@ -190,7 +190,7 @@ is_register_app(T) ->
      end.
 
 do_rename_process(CurrentFileName, AnnAST, OldProcessName, NewProcessName, SearchPaths, TabWidth) ->
-    {AnnAST1, _Changed} = ast_traverse_api:stop_tdTP(fun do_rename_process/2, AnnAST, {OldProcessName, NewProcessName}),
+    {AnnAST1, _Changed} = wrangler_ast_traverse_api:stop_tdTP(fun do_rename_process/2, AnnAST, {OldProcessName, NewProcessName}),
     OtherFiles = refac_misc:expand_files(SearchPaths, ".erl") -- [CurrentFileName],
     Results = do_rename_process_in_other_modules(OtherFiles, OldProcessName, NewProcessName, SearchPaths, TabWidth),
     [{{CurrentFileName, CurrentFileName}, AnnAST1}| Results].

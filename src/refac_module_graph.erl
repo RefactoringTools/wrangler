@@ -117,7 +117,7 @@ do_collect_called_mods(AnnAST, ModNames) ->
 		       _ -> Acc
 		   end
 	   end,
-    CalledMods = ast_traverse_api:fold(Fun1, ordsets:new(), AnnAST),
+    CalledMods = wrangler_ast_traverse_api:fold(Fun1, ordsets:new(), AnnAST),
     UnSures = refac_atom_utils:collect_unsure_atoms_in_file(AnnAST, ModNames, m_atom),
     UnSures1 = [Name || {atom, _Pos, Name} <- UnSures,
 			 not  lists:member(Name, CalledMods)],

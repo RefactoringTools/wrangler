@@ -512,7 +512,7 @@ start_pos(F) ->
 add_range(AST, Toks) ->
     QAtomPs= [Pos||{qatom, Pos, _Atom}<-Toks],
     Toks1 =[Tok||Tok<-Toks, not (is_whitespace_or_comment(Tok))],
-    ast_traverse_api:full_buTP(fun do_add_range/2, AST, {Toks1, QAtomPs}).
+    wrangler_ast_traverse_api:full_buTP(fun do_add_range/2, AST, {Toks1, QAtomPs}).
 
 do_add_range(Node, {Toks, QAtomPs}) ->
     {L, C} = case refac_syntax:get_pos(Node) of
@@ -981,7 +981,7 @@ add_category(Node) ->
     add_category(Node, none).
 
 add_category(Node, C) ->
-    {Node1, _} =ast_traverse_api:stop_tdTP(fun do_add_category/2, Node, C),
+    {Node1, _} =wrangler_ast_traverse_api:stop_tdTP(fun do_add_category/2, Node, C),
     Node1.
 
 do_add_category(Node, C) when is_list(Node) ->

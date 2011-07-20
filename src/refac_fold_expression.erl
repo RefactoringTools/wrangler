@@ -176,8 +176,8 @@ fold_expr_1_eclipse(FileName, FunClauseDef, RangeNewExpList, SearchPaths, TabWid
 fold_expression_1_eclipse_1(AnnAST, _Body, []) ->
     AnnAST;
 fold_expression_1_eclipse_1(AnnAST, Body, [Cand| Tail]) ->
-    {AnnAST1, _} = ast_traverse_api:stop_tdTP(fun do_replace_expr_with_fun_call/2,
-					      AnnAST, {Body, Cand}),
+    {AnnAST1, _} = wrangler_ast_traverse_api:stop_tdTP(fun do_replace_expr_with_fun_call/2,
+					               AnnAST, {Body, Cand}),
     fold_expression_1_eclipse_1(AnnAST1, Body, Tail).
 
 do_fold_expression(FileName, CandidatesToFold, SearchPaths, TabWidth, LogMsg) ->
@@ -193,9 +193,9 @@ fold_expression_1_1(AnnAST, [{StartLine, StartCol, EndLine, EndCol, Expr0, FunAp
     FunClauseDef = list_to_term(FunClauseDef0),
     FunApp = list_to_term(FunApp0),
     Body = refac_syntax:clause_body(FunClauseDef),
-    {AnnAST1, _} = ast_traverse_api:stop_tdTP(
-		     fun do_replace_expr_with_fun_call/2,
-		     AnnAST, {Body, {{{StartLine, StartCol}, {EndLine, EndCol}}, Expr, FunApp}}),
+    {AnnAST1, _} = wrangler_ast_traverse_api:stop_tdTP(
+		              fun do_replace_expr_with_fun_call/2,
+		              AnnAST, {Body, {{{StartLine, StartCol}, {EndLine, EndCol}}, Expr, FunApp}}),
     fold_expression_1_1(AnnAST1, Tail).
 
 %% =============================================================================================
@@ -350,7 +350,7 @@ search_for_single_not_match_expr(AnnAST, Exp) ->
 		      false -> S
 		  end
 	  end,
-    ast_traverse_api:fold(Fun, [], AnnAST).
+    wrangler_ast_traverse_api:fold(Fun, [], AnnAST).
 
 collect_op_ranges(Tree) ->
     F = fun (T, S) ->
@@ -362,7 +362,7 @@ collect_op_ranges(Tree) ->
 		    _ -> S
 		end
 	end,
-    ast_traverse_api:fold(F, [], Tree).
+    wrangler_ast_traverse_api:fold(F, [], Tree).
 
 search_for_expr_list(AnnAST, ExpList) ->
     Fun = fun (T, S) ->
@@ -382,7 +382,7 @@ search_for_expr_list(AnnAST, ExpList) ->
 		      _ -> S
 		  end
 	  end,
-    ast_traverse_api:fold(Fun, [], AnnAST).
+    wrangler_ast_traverse_api:fold(Fun, [], AnnAST).
 
 get_candidate_exprs(FoldFunBodyExprList, CurExprList)->
     Len = length(FoldFunBodyExprList),
@@ -595,7 +595,7 @@ make_match_expr({FunDefMod, CurrentMod}, FunName, Pats, Subst,Pattern) ->
 %% ==================================================
 get_fun_clause_def(Node, FunName, Arity, ClauseIndex) ->
     case
-      ast_traverse_api:once_tdTU(fun get_fun_def_1/2, Node, {FunName, Arity, ClauseIndex})
+      wrangler_ast_traverse_api:once_tdTU(fun get_fun_def_1/2, Node, {FunName, Arity, ClauseIndex})
 	of
       {_, false} -> {error, none};
       {R, true} -> {ok, R}
@@ -620,7 +620,7 @@ get_fun_def_1(Node, {FunName, Arity, ClauseIndex}) ->
 %% ==================================================
 pos_to_fun_clause(Node, Pos) ->
     case
-      ast_traverse_api:once_tdTU(fun pos_to_fun_clause_1/2, Node, Pos)
+      wrangler_ast_traverse_api:once_tdTU(fun pos_to_fun_clause_1/2, Node, Pos)
 	of
       {_, false} -> {error, none};
       {R, true} -> {ok, R}

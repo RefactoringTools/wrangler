@@ -192,7 +192,7 @@ collect_prime_expr_ranges(Tree) ->
 		    _ -> S
 		end
 	end,
-    ast_traverse_api:fold(F, [], Tree).
+    wrangler_ast_traverse_api:fold(F, [], Tree).
 
 collect_macro_arg_ranges(Node) ->
     Fun = fun (T, Acc) ->
@@ -207,7 +207,7 @@ collect_macro_arg_ranges(Node) ->
 		      _ -> Acc
 		  end
 	  end,
-    ast_traverse_api:fold(Fun, [], Node).
+    wrangler_ast_traverse_api:fold(Fun, [], Node).
 
 test_framework_aware_name_checking(UsedFrameWorks, NewFunName, Arity) ->
     eunit_name_checking(UsedFrameWorks, NewFunName, Arity),
@@ -370,11 +370,11 @@ replace_expr_with_fun_call(Form, ExpList, NewFunName, ParNames, VarsToExport) ->
 	      end,
     case length(ExpList) == 1 andalso refac_syntax:type(hd(ExpList)) =/= match_expr of
       true ->
-	  element(1, ast_traverse_api:stop_tdTP(
-		       fun do_replace_expr_with_fun_call_1/2, Form, {NewExpr, hd(ExpList)}));
+	  element(1, wrangler_ast_traverse_api:stop_tdTP(
+		                fun do_replace_expr_with_fun_call_1/2, Form, {NewExpr, hd(ExpList)}));
       _ ->
-	  element(1, ast_traverse_api:stop_tdTP(
-		       fun do_replace_expr_with_fun_call_2/2, Form, {NewExpr, ExpList}))
+	  element(1, wrangler_ast_traverse_api:stop_tdTP(
+		                fun do_replace_expr_with_fun_call_2/2, Form, {NewExpr, ExpList}))
     end.
 
 do_replace_expr_with_fun_call_1(Tree, {NewExpr, Expr}) ->
@@ -482,7 +482,7 @@ filter_exprs_via_ast(Tree, ExpList) ->
 		    _ -> Acc
 		end
 	end,
-    AllExprSeqs = lists:flatten(ast_traverse_api:fold(F, [], Tree)),
+    AllExprSeqs = lists:flatten(wrangler_ast_traverse_api:fold(F, [], Tree)),
     case ExpList--AllExprSeqs of
 	[] -> [];
 	_ -> ExpList

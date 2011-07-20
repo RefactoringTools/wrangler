@@ -152,9 +152,9 @@ mk_macro_app(MName, Args) ->
 replace_expr_with_macro(Form, {ExpList, SLoc, ELoc}, MApp) ->
     case length(ExpList) == 1 of
       true ->
-	  element(1, ast_traverse_api:stop_tdTP(fun replace_single_expr_with_macro_app/2, Form, {MApp, SLoc, ELoc}));
+	  element(1, wrangler_ast_traverse_api:stop_tdTP(fun replace_single_expr_with_macro_app/2, Form, {MApp, SLoc, ELoc}));
       _ ->
-	  element(1, ast_traverse_api:stop_tdTP(fun replace_expr_list_with_macro_app/2, Form, {MApp, SLoc, ELoc}))
+	  element(1, wrangler_ast_traverse_api:stop_tdTP(fun replace_expr_list_with_macro_app/2, Form, {MApp, SLoc, ELoc}))
     end.
 
 replace_single_expr_with_macro_app(Tree, {MApp, SLoc, ELoc}) ->
