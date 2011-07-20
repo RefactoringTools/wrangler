@@ -732,7 +732,7 @@ has_multiple_definitions(AnnAST, ModName, FunName, Arity) ->
     length(Fs)>1.
 
 check_side_effect(FileName, Exp, SearchPaths) ->
-    case side_effect_api:has_side_effect(FileName, Exp, SearchPaths) of
+    case api_side_effect:has_side_effect(FileName, Exp, SearchPaths) of
 	unknown -> case refac_api:free_vars(Exp) of
 		       [] -> unknown;
 		       _ -> true

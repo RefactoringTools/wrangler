@@ -208,7 +208,7 @@ non_same_type_expr_unification(Exp1, Exp2,_Type, CheckGen) ->
                                     {true, [{Exp1Name, rm_comments(Exp2)}]}
                             end;
                         _ ->
-                            case side_effect_api:has_side_effect(Exp2) of
+                            case api_side_effect:has_side_effect(Exp2) of
                                 false ->
                                     {true, [{Exp1Name, rm_comments(Exp2)}]};
                                 _ ->
