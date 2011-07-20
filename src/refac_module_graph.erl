@@ -118,7 +118,7 @@ do_collect_called_mods(AnnAST, ModNames) ->
 		   end
 	   end,
     CalledMods = api_ast_traverse:fold(Fun1, ordsets:new(), AnnAST),
-    UnSures = refac_atom_utils:collect_unsure_atoms_in_file(AnnAST, ModNames, m_atom),
+    UnSures = wrangler_atom_utils:collect_unsure_atoms_in_file(AnnAST, ModNames, m_atom),
     UnSures1 = [Name || {atom, _Pos, Name} <- UnSures,
 			 not  lists:member(Name, CalledMods)],
     {CalledMods, ordsets:from_list(UnSures1)}.

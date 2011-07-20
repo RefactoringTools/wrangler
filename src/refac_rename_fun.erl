@@ -195,10 +195,10 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 rename_fun_0(FileName, {AnnAST, Info}, {Mod, OldFunNameAtom, Arity}, {DefinePos, NewNameAtom},
 	     SearchPaths, TabWidth, Editor, Cmd) ->
     NewNameStr = atom_to_list(NewNameAtom),
-    Pid = refac_atom_utils:start_atom_process(),
+    Pid = wrangler_atom_utils:start_atom_process(),
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     {AnnAST1, _C} = do_rename_fun(AnnAST, {Mod, OldFunNameAtom, Arity}, {DefinePos, NewNameAtom}),
-    refac_atom_utils:check_unsure_atoms(FileName, AnnAST1, [OldFunNameAtom], {f_atom, {Mod, OldFunNameAtom, Arity}}, Pid),
+    wrangler_atom_utils:check_unsure_atoms(FileName, AnnAST1, [OldFunNameAtom], {f_atom, {Mod, OldFunNameAtom, Arity}}, Pid),
     case api_refac:is_exported({OldFunNameAtom, Arity}, Info) of
 	true ->
 	    ?wrangler_io("\nChecking possible client modules in the following search paths: \n~p\n", [SearchPaths]),
@@ -208,20 +208,20 @@ rename_fun_0(FileName, {AnnAST, Info}, {Mod, OldFunNameAtom, Arity}, {DefinePos,
 					     NewNameStr, SearchPaths, TabWidth, Pid)
 	    of
 		Results ->
-		    HasWarningMsg = refac_atom_utils:has_warning_msg(Pid),
-		    refac_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(OldFunNameAtom), renamed_warn_msg(OldFunNameAtom)),
-		    refac_atom_utils:stop_atom_process(Pid),
+		    HasWarningMsg = wrangler_atom_utils:has_warning_msg(Pid),
+		    wrangler_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(OldFunNameAtom), renamed_warn_msg(OldFunNameAtom)),
+		    wrangler_atom_utils:stop_atom_process(Pid),
 		    refac_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}| Results],
 							    HasWarningMsg, Editor, TabWidth, Cmd)
 	    catch
 		throw:Err ->
-		    refac_atom_utils:stop_atom_process(Pid),
+		    wrangler_atom_utils:stop_atom_process(Pid),
 		    Err
 	    end;
 	false ->
-	    HasWarningMsg = refac_atom_utils:has_warning_msg(Pid),
-            refac_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(OldFunNameAtom), renamed_warn_msg(OldFunNameAtom)),
-	    refac_atom_utils:stop_atom_process(Pid),
+	    HasWarningMsg = wrangler_atom_utils:has_warning_msg(Pid),
+            wrangler_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(OldFunNameAtom), renamed_warn_msg(OldFunNameAtom)),
+	    wrangler_atom_utils:stop_atom_process(Pid),
 	    refac_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}],
 						    HasWarningMsg, Editor, TabWidth, Cmd)
     end.
@@ -246,7 +246,7 @@ rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     NewName1 = list_to_atom(NewName),
     {ok, {Mod, Fun, Arity, _, DefinePos}} = api_interface:pos_to_fun_name(AnnAST, {Line, Col}),
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
-    Pid = refac_atom_utils:start_atom_process(),
+    Pid = wrangler_atom_utils:start_atom_process(),
     {AnnAST1, _C} = do_rename_fun(AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}),
     case api_refac:is_exported({Fun, Arity}, Info) of
 	true ->
@@ -256,18 +256,18 @@ rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 		rename_fun_in_client_modules(ClientFiles, {Mod, Fun, Arity}, NewName, SearchPaths, TabWidth, Pid)
 	    of
 		Results ->
-		    HasWarningMsg = refac_atom_utils:has_warning_msg(Pid),
-		    refac_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
-		    refac_atom_utils:stop_atom_process(Pid),
+		    HasWarningMsg = wrangler_atom_utils:has_warning_msg(Pid),
+		    wrangler_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
+		    wrangler_atom_utils:stop_atom_process(Pid),
 		    refac_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}| Results],
 							    HasWarningMsg, Editor, TabWidth, Cmd)
 	    catch
 		throw:Err -> Err
 	    end;
 	false ->
-	    HasWarningMsg = refac_atom_utils:has_warning_msg(Pid),
-	    refac_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
-	    refac_atom_utils:stop_atom_process(Pid),
+	    HasWarningMsg = wrangler_atom_utils:has_warning_msg(Pid),
+	    wrangler_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
+	    wrangler_atom_utils:stop_atom_process(Pid),
 	    refac_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}],
 						    HasWarningMsg, Editor, TabWidth, Cmd)
     end.
@@ -393,7 +393,7 @@ rename_fun_in_client_modules(Files, {Mod, Fun, Arity}, NewNameStr, SearchPaths, 
 	    ?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
 	    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(F, true, SearchPaths, TabWidth),
 	    {AnnAST1, Changed} = rename_fun_in_client_module_1({AnnAST, Info}, {Mod, Fun, Arity}, NewNameStr),
-            refac_atom_utils:check_unsure_atoms(F, AnnAST1, [Fun], {f_atom, {Mod, Fun, Arity}}, Pid),
+            wrangler_atom_utils:check_unsure_atoms(F, AnnAST1, [Fun], {f_atom, {Mod, Fun, Arity}}, Pid),
 	    if Changed ->
 		   [{{F, F}, AnnAST1}| rename_fun_in_client_modules(
 					 Fs, {Mod, Fun, Arity}, NewNameStr, SearchPaths, TabWidth, Pid)];

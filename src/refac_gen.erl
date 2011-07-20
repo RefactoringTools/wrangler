@@ -661,8 +661,8 @@ is_eunit_special_function(FileName, FunName, Arity) ->
     end.
 
 has_unsure_atoms(AnnAST, AtomNames, AtomType) ->
-    refac_atom_utils:collect_unsure_atoms_in_file(
-      AnnAST, AtomNames, AtomType)/=[].
+    wrangler_atom_utils:collect_unsure_atoms_in_file(
+         AnnAST, AtomNames, AtomType) /= [].
 
 check_implicit_and_apply_style_calls(AnnAST, ModName, FunName, Arity) ->
     F = fun (Node, _Others) ->

@@ -64,7 +64,7 @@
 	 rename_mod_eclipse/4, rename_mod_1_eclipse/5,
 	 rename_mod_command/3]).
 
--import(refac_atom_utils, [output_atom_warning_msg/3,check_unsure_atoms/5,start_atom_process/0,stop_atom_process/1]).
+-import(wrangler_atom_utils, [output_atom_warning_msg/3,check_unsure_atoms/5,start_atom_process/0,stop_atom_process/1]).
 
 -include("../include/wrangler_internal.hrl").
 
@@ -284,7 +284,7 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, C
     Results = rename_mod_in_client_modules(ClientFiles, OldModName, OldNewModPairs, SearchPaths, TabWidth, Pid),
     case Editor of
 	emacs ->
-	    HasWarningMsg = refac_atom_utils:has_warning_msg(Pid),
+	    HasWarningMsg = wrangler_atom_utils:has_warning_msg(Pid),
 	    case HasWarningMsg of
 		true ->
 		    output_atom_warning_msg(Pid, not_renamed_warn_msg(OldModNames), renamed_warn_msg(OldModNames));

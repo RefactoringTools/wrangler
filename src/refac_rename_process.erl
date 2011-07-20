@@ -242,7 +242,7 @@ collect_atoms(CurrentFile, AtomName, SearchPaths, TabWidth) ->
     Files = [CurrentFile| refac_misc:expand_files(SearchPaths, ".erl") -- [CurrentFile]],
     lists:flatmap(fun (F) ->
 			  {ok, {AnnAST,_Info}} = wrangler_ast_server:parse_annotate_file(F, true, SearchPaths, TabWidth),
-			  refac_atom_utils:collect_unsure_atoms_in_file(AnnAST, AtomName, p_atom)
+			  wrangler_atom_utils:collect_unsure_atoms_in_file(AnnAST, AtomName, p_atom)
 		  end, Files).
 
 is_process_name(Name) ->
