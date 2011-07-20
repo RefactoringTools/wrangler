@@ -1208,7 +1208,7 @@ get_mod_info_from_parse_tree(AST) ->
 				end
 			end, AST),
     SyntaxTree = refac_recomment:recomment_forms(AST1, []),
-    refac_syntax_lib:analyze_forms(SyntaxTree).
+    wrangler_syntax_lib:analyze_forms(SyntaxTree).
 
 %%================================================================================
 %%              Some Utility Functions 

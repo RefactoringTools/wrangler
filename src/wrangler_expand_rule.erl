@@ -70,7 +70,7 @@ annotate_forms(Forms) ->
          case element(1, F1) of 
              attribute -> F1;
              _ -> 
-                 refac_syntax_lib:annotate_bindings(F1)
+                 wrangler_syntax_lib:annotate_bindings(F1)
          end
      end||F<-Forms].
    
@@ -254,7 +254,7 @@ parse_str(Str, StartLoc) ->
         {ok, Exprs} ->
             Exprs0 = erl_recomment:recomment_forms(Exprs,[]),
             Exprs1=erl_syntax:form_list_elements(
-                     refac_syntax_lib:annotate_bindings(Exprs0)),
+                     wrangler_syntax_lib:annotate_bindings(Exprs0)),
             hd(Exprs1);
         _ ->
             erlang:error("Wrangler internal error in function: expand_rule:parse_str/2.")

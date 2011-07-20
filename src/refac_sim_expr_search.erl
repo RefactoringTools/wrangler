@@ -401,7 +401,7 @@ get_module_record_info(FName, SearchPaths, TabWidth) ->
 							 _ -> true
 						     end],
 			  SyntaxTree = refac_recomment:recomment_forms(Forms1, []),
-			  Info = refac_syntax_lib:analyze_forms(SyntaxTree),
+			  Info = wrangler_syntax_lib:analyze_forms(SyntaxTree),
 			  case lists:keysearch(records, 1, Info) of
 			      {value, {records, Records}} -> Records;
 			      _ -> []

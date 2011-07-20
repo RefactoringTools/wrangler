@@ -1098,7 +1098,7 @@ parse_annotate_expr(ExprStr, StartLoc) when is_tuple(StartLoc) ->
                     case wrangler_syntax:type(AbsForm) of
                         function ->
                             Form1 =refac_epp_dodger:fix_pos_in_form(Toks, AbsForm),
-                            Form2 =  refac_syntax_lib:annotate_bindings(Form1),
+                            Form2 =  wrangler_syntax_lib:annotate_bindings(Form1),
                             Cs = wrangler_syntax:function_clauses(Form2),
                             case {Cs, T} of 
                                 {[C], {';',_L}} ->
@@ -1121,7 +1121,7 @@ parse_annotate_expr(ExprStr, StartLoc) when is_tuple(StartLoc) ->
                                {ok, Exprs} ->
                                    Exprs1 =refac_epp_dodger:rewrite_list(Exprs),
                                    Exprs2 = make_tree({block, StartLoc, Exprs1}),
-                                   Exprs3=refac_syntax_lib:annotate_bindings(Exprs2),
+                                   Exprs3=wrangler_syntax_lib:annotate_bindings(Exprs2),
                                    Exprs4 =wrangler_syntax:block_expr_body(Exprs3),
                                    case Exprs4 of 
                                        [E] -> E;

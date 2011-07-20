@@ -514,7 +514,7 @@ auto_rename_vars({ClauseToInline, MatchExprs}, {Clause, App}, SubStLocs) ->
     NewVarPat = wrangler_syntax:copy_pos(App, wrangler_syntax:copy_pos(App, wrangler_syntax:variable(VarName))),
     MatchExpr = wrangler_syntax:copy_pos(App, wrangler_syntax:match_expr(NewVarPat, wrangler_syntax:atom(ok))),
     {Clause1, _} = api_ast_traverse:stop_tdTP(fun do_replace_app_with_match/2, Clause, {App, MatchExpr}),
-    Clause2 = refac_syntax_lib:var_annotate_clause(refac_misc:reset_ann(Clause1), [], {[],[]}, []),
+    Clause2 = wrangler_syntax_lib:var_annotate_clause(refac_misc:reset_ann(Clause1), [], {[],[]}, []),
     BdsInFunToInline = get_bound_vars(ClauseToInline),
     NewNames = [{Name, DefinePos} || {Name, DefinePos} <- BdsInFunToInline,
 				      not  lists:member(DefinePos, SubStLocs)],

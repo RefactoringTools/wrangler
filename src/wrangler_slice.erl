@@ -178,7 +178,7 @@ rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, [E| Exprs], Expr, Var
 		     true ->
 			 Env = api_refac:env_vars(E),
 			 E1 = process_fun_applications(Files, AnnAST, ModName, FunName, Arity, E, Vars),
-			 E2 = refac_syntax_lib:annotate_bindings(reset_attrs(E1), Env),
+			 E2 = wrangler_syntax_lib:annotate_bindings(reset_attrs(E1), Env),
 			 FreeVars1 = api_refac:free_vars(E2),
 			 case FreeVars1 -- Vars =/= FreeVars1 of
 			     true ->
@@ -447,7 +447,7 @@ unfold_fun_defs(_Files, AnnAST, ModName, FunDef %% How about recursive functions
 		end
 	end,
     {FunDef1, _} = api_ast_traverse:stop_tdTP(F, FunDef, []),
-    FunDef2 = refac_syntax_lib:annotate_bindings(reset_attrs(FunDef1), []),
+    FunDef2 = wrangler_syntax_lib:annotate_bindings(reset_attrs(FunDef1), []),
     FunDef2.
 
 %% backward slice within a single function.
@@ -465,7 +465,7 @@ backward_slice(Expr, FunDef) ->
     C1 = process_a_clause(C, Expr),
     NewFun = wrangler_syntax:function(FunName, C1),
     %% to keep the annotation info correct.
-    NewFun1 = refac_syntax_lib:annotate_bindings(reset_attrs(NewFun), []),
+    NewFun1 = wrangler_syntax_lib:annotate_bindings(reset_attrs(NewFun), []),
     Body = wrangler_syntax:clause_body(hd(wrangler_syntax:function_clauses(NewFun1))),
     Body1 = rm_unused_exprs(Body),  %%Qn: how about the guard expression?
     NewFun2 = wrangler_syntax:function(FunName, [wrangler_syntax:clause(Patterns, none, Body1)]),
