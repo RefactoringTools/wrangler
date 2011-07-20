@@ -81,7 +81,7 @@ rename_fun_1(File, OldFunName, Arity, NewFunName, SearchPaths) ->
      ||{F, A}<-FAs].
 
 get_old_fa(File, OldFunName, Arity) ->
-    {ok, ModuleInfo} = refac_api:get_module_info(File),
+    {ok, ModuleInfo} = api_refac:get_module_info(File),
     case lists:keyfind(functions, 1, ModuleInfo) of
         {functions, Funs} ->
             case OldFunName of

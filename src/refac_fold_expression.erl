@@ -330,7 +330,7 @@ do_search_candidate_exprs(AnnAST, ExpList) ->
 search_for_single_not_match_expr(AnnAST, Exp) ->
     OpRanges = collect_op_ranges(AnnAST),
     Fun = fun (T, S) ->
-		  case refac_api:is_expr(T) of
+		  case api_refac:is_expr(T) of
 		      true->
 			  case T =/= Exp of
 			      true ->
@@ -448,7 +448,7 @@ check_expr_list_not_ends_with_match(FoldFunBodyExprList, CurExprList, SubExprs) 
 		{true, Subst} when VarsToExport == [] ->
 		    [{get_start_end_locations(SubExprs), SubExprs, Subst, none}];
 		{true, Subst} ->
-		    FreeVars = element(1, lists:unzip(refac_api:free_vars(Last))),
+		    FreeVars = element(1, lists:unzip(api_refac:free_vars(Last))),
 		    case is_simple_expr(Last) andalso VarsToExport--FreeVars==[] of
 			true ->
 			    [{get_start_end_locations(SubExprs), SubExprs, Subst, Last}];
@@ -711,7 +711,7 @@ get_start_end_locations(E) when is_list(E) ->
     {_SLoc2, ELoc2} = get_start_end_locations(lists:last(E)),
     {SLoc1, ELoc2};
 get_start_end_locations(E) ->
-    refac_api:start_end_loc(E).
+    api_refac:start_end_loc(E).
 
 term_to_list(Term) ->
     binary_to_list(term_to_binary(Term)).

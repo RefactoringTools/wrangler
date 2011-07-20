@@ -73,7 +73,7 @@ new_macro(FileName, Start = {SLine, SCol}, End = {ELine, ECol}, NewMacroName, Se
     end.
 
 pre_cond_check(FileName, AnnAST, NewMacroName, Start, End, SearchPaths, TabWidth) ->
-    case refac_api:is_fun_name(NewMacroName) orelse refac_api:is_var_name(NewMacroName) of
+    case api_refac:is_fun_name(NewMacroName) orelse api_refac:is_var_name(NewMacroName) of
 	true ->
 	    Ms = existing_macros(FileName, SearchPaths, TabWidth),
 	    MsToAvoid = collect_names_to_avoid(AnnAST),
@@ -109,10 +109,10 @@ do_intro_new_macro(AnnAST, MacroName, SelExpList, NeedBracket) ->
     {Forms1, Forms2} = lists:splitwith(fun (F) -> refac_syntax:type(F) == attribute orelse 
 						    refac_syntax:type(F) == comment
 				       end, Forms),
-    {S1, E1} = refac_api:start_end_loc(SelExpList),
+    {S1, E1} = api_refac:start_end_loc(SelExpList),
     MApp = mk_macro_app(MName, Args),
     Fun = fun (F) ->
-		  {S, E} = refac_api:start_end_loc(F),
+		  {S, E} = api_refac:start_end_loc(F),
 		  case (S =< S1) and (E1 =< E) of
 		      true -> replace_expr_with_macro(F, {SelExpList, S1, E1}, MApp);
 		      _ -> F
@@ -123,7 +123,7 @@ do_intro_new_macro(AnnAST, MacroName, SelExpList, NeedBracket) ->
     refac_syntax:form_list(Forms11 ++ [MDef] ++ Forms21).
 
 mk_macro_name(MacroName) ->
-    case refac_api:is_var_name(MacroName) of
+    case api_refac:is_var_name(MacroName) of
 	true -> refac_syntax:variable(list_to_atom(MacroName));
 	_ -> refac_syntax:atom(list_to_atom(MacroName))
     end.
@@ -158,7 +158,7 @@ replace_expr_with_macro(Form, {ExpList, SLoc, ELoc}, MApp) ->
     end.
 
 replace_single_expr_with_macro_app(Tree, {MApp, SLoc, ELoc}) ->
-    case refac_api:start_end_loc(Tree) of
+    case api_refac:start_end_loc(Tree) of
 	{SLoc, ELoc} ->
 	    {refac_misc:rewrite_with_wrapper(Tree, MApp), true};
 	_ -> {Tree, false}
@@ -209,7 +209,7 @@ replace_expr_list_with_macro_app(Tree, {MApp, SLoc, ELoc}) ->
 process_exprs(Exprs, {MApp, SLoc, ELoc}) ->
     {Exprs1, Exprs2} = lists:splitwith(
                          fun (E) ->
-                                 {SLoc1, _} = refac_api:start_end_loc(E),
+                                 {SLoc1, _} = api_refac:start_end_loc(E),
                                  SLoc1 =/= SLoc
                          end, Exprs),
     case Exprs2 of
@@ -217,7 +217,7 @@ process_exprs(Exprs, {MApp, SLoc, ELoc}) ->
 	_ -> {Exprs21, Exprs22} = 
                  lists:splitwith(
                    fun (E) ->
-                           {_, ELoc1} = refac_api:start_end_loc(E),
+                           {_, ELoc1} = api_refac:start_end_loc(E),
                            ELoc1 =/= ELoc
                    end, Exprs2),
 	     case Exprs22 of
@@ -240,7 +240,7 @@ existing_macros(FileName, SearchPaths, TabWidth) ->
 need_bracket(Toks, Exprs) ->
     case Exprs of
 	[E] ->
-	    {Start, End} = refac_api:start_end_loc(E),
+	    {Start, End} = api_refac:start_end_loc(E),
 	    Toks1 = lists:reverse(lists:takewhile(
 				    fun (B) ->
 					    element(2, B) =/= Start

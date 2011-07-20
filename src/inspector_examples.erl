@@ -95,7 +95,7 @@
          
 -export([test/1,test1/1,test2/1,test3/1,test4/1, test5/1]).
 
--import(refac_api, [fun_define_info/1]).
+-import(api_refac, [fun_define_info/1]).
 
 %%===================================================================
 %% In the current Erlang file, collects those function definitions 
@@ -111,8 +111,8 @@ top_level_if(input_par_prompts) ->
     [];
 top_level_if(_Args=#args{search_paths=SearchPaths})->
     ?FULL_TD_TU([?COLLECT(?T("f@(Args@@) when Guard@@ ->Body@."), 
-                          refac_api:fun_define_info(f@),
-                          refac_api:type(Body@)==if_expr)],
+                          api_refac:fun_define_info(f@),
+                          api_refac:type(Body@) == if_expr)],
                 [SearchPaths]).
 
 %%=====================================================================
@@ -124,8 +124,8 @@ top_level_if(_Args=#args{search_paths=SearchPaths})->
 append_two_lists(input_par_prompts) -> [];
 append_two_lists(_Args=#args{search_paths=SearchPaths}) ->
     ?STOP_TD_TU([?COLLECT(?T("F@(L1@, L2@)"), 
-                          {_File@, refac_api:start_end_loc(_This@)},
-                          {lists, append, 2} == refac_api:fun_define_info(F@))],
+                          {_File@, api_refac:start_end_loc(_This@)},
+                          {lists, append, 2} == api_refac:fun_define_info(F@))],
                 SearchPaths). 
 
 %%=====================================================================
@@ -142,7 +142,7 @@ calls_to_specific_function(_Args=#args{user_inputs=[M,F,A],
                                        search_paths=SearchPaths}) ->
     MFA={list_to_atom(M), list_to_atom(F), list_to_integer(A)},                              
     ?FULL_TD_TU([?COLLECT_LOC(?T("F@(Args@@)"), 
-                              MFA==refac_api:fun_define_info(F@))],
+                              MFA == api_refac:fun_define_info(F@))],
                 [SearchPaths]).
 
  
@@ -166,8 +166,8 @@ unnecessary_match(input_par_prompts) ->[];
 %% that the location information is mouse clickable. 
 unnecessary_match(_Args=#args{search_paths=SearchPaths}) ->
     ?FULL_TD_TU([?COLLECT(?T("Body@@, V@=Expr@, V@"), 
-                          {_File@, refac_api:start_end_loc(lists:nthtail(length(Body@@), _This@))},
-                          refac_api:type(V@)==variable)],
+                          {_File@, api_refac:start_end_loc(lists:nthtail(length(Body@@), _This@))},
+                          api_refac:type(V@) == variable)],
                 SearchPaths).
 
 
@@ -191,7 +191,7 @@ is_non_tail_recursive(FunDef) ->
                   LastApps=collect_last_apps(Last, MFA),
                   SimpleExprs=collect_simple_exprs(Last),
                   EnclosedApps=apps_enclosed_in_simple_exprs(LastApps,SimpleExprs),
-                  LastExprLoc=refac_api:start_end_loc(Last),
+                  LastExprLoc=api_refac:start_end_loc(Last),
                   AllApps /= [] andalso (AllApps--[LastExprLoc]/= LastApps 
                                          orelse EnclosedApps /= [])
          end,
@@ -208,7 +208,7 @@ is_non_tail_recursive(FunDef) ->
 %% a specific function.
 collect_apps(FunDef, MFA) ->
     ?FULL_TD_TU([?COLLECT(?T("F@(Args@@)"),
-                          refac_api:start_end_loc(_This@),
+                          api_refac:start_end_loc(_This@),
                           fun_define_info(F@) == MFA)],
                  FunDef).
 
@@ -216,7 +216,7 @@ collect_apps(FunDef, MFA) ->
 %% are function applications.
 collect_last_apps(Last, MFA) ->
     ?FULL_TD_TU([?COLLECT(?T("Body@@, F@(Args@@)"),
-                          refac_api:start_end_loc(lists:last(_This@)),
+                          api_refac:start_end_loc(lists:last(_This@)),
                           fun_define_info(F@)==MFA
                          )],
                 Last).
@@ -224,13 +224,14 @@ collect_last_apps(Last, MFA) ->
 %% is not a `case'/`if'/`receive'/`block'/'parentheses' expression.
 collect_simple_exprs(LastExpr) ->
     ?FULL_TD_TU([?COLLECT(?T("E@"),
-                          refac_api:start_end_loc(E@),
-                          refac_api:is_expr(E@) andalso
-                          not (lists:member(refac_api:type(E@), 
+                          api_refac:start_end_loc(E@),
+                          api_refac:is_expr(E@) andalso
+                          not (lists:member(api_refac:type(E@),
                                             [case_expr, receive_expr, 
                                              if_expr,parentheses,
                                              block_expr]))
-                         )],
+                         )
+                          ],
                 LastExpr).
 
 %% returns the subset of `Apps' that each of which is  
@@ -257,7 +258,7 @@ test(input_par_prompts)->
     [];
 test(_Args=#args{search_paths=SearchPaths}) ->
     ?FULL_TD_TU([?COLLECT(?T("f@(Args@@) when Guard@@-> First@, Second@,Body@@;"),
-                          refac_api:fun_define_info(f@),
+                          api_refac:fun_define_info(f@),
                           true)],
                 [SearchPaths]).
 
@@ -269,7 +270,7 @@ test1(input_par_prompts)->
     [];
 test1(_Args=#args{search_paths=SearchPaths}) ->
      ?FULL_TD_TU([?COLLECT(?T("f@(Args@@@) when Guard@@@-> Body@@@."),
-                           refac_api:fun_define_info(f@),
+                           api_refac:fun_define_info(f@),
                           true)],
                  [SearchPaths]).
 
@@ -281,7 +282,7 @@ test2(input_par_prompts)->
     [];
 test2(_Args=#args{search_paths=SearchPaths}) ->
     ?FULL_TD_TU([?COLLECT(?T("f@(Args@@)when Guard@@-> Body@@;"),
-                         refac_api:fun_define_info(f@),
+                         api_refac:fun_define_info(f@),
                          true)],
                 [SearchPaths]).
 
@@ -293,7 +294,7 @@ test3(input_par_prompts)->
     [];
 test3(_Args=#args{search_paths=SearchPaths}) ->
     ?FULL_TD_TU([?COLLECT(?T("f@(Args@@)-> Body@@;"),
-                          refac_api:fun_define_info(f@),
+                          api_refac:fun_define_info(f@),
                           true)],
                 [SearchPaths]).
 
@@ -306,11 +307,11 @@ test4(_Args=#args{search_paths=SearchPaths}) ->
                          Pats@@@ when Guards@@@ ->
                              Body@@@
                     end"),
-                          {_File@, refac_api:start_end_loc(_This@)},
+                          {_File@, api_refac:start_end_loc(_This@)},
                           true),
                  ?COLLECT(?T("f@(Args@@) when Guard@@ ->Body@."), 
-                          refac_api:fun_define_info(f@),
-                          refac_api:type(Body@)==if_expr)],
+                          api_refac:fun_define_info(f@),
+                          api_refac:type(Body@) == if_expr)],
                 [SearchPaths]).
 
 

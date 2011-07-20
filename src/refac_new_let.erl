@@ -113,15 +113,15 @@ new_let_2(FileName, AnnAST, NewPatName, Expr, ParentExpr, LetMacro, Editor, Cmd,
     end.
 
 side_cond_analysis(FunDef, Expr, NewPatName) ->
-    case refac_api:is_var_name(NewPatName) of
+    case api_refac:is_var_name(NewPatName) of
 	true -> ok;
 	_ -> throw({error, "Invalid pattern variable name."})
     end,
     case get_parent_expr(FunDef, Expr) of
 	{ok, ParentExpr} ->
-	    FrVars = refac_api:free_vars(ParentExpr),
-	    BdVars = refac_api:bound_vars(ParentExpr),
-	    EnvVars = refac_api:env_vars(ParentExpr),
+	    FrVars = api_refac:free_vars(ParentExpr),
+	    BdVars = api_refac:bound_vars(ParentExpr),
+	    EnvVars = api_refac:env_vars(ParentExpr),
 	    Vars = element(1, lists:unzip(FrVars ++ BdVars ++ EnvVars)),
 	    case lists:member(list_to_atom(NewPatName), Vars) of
 		true ->
@@ -237,8 +237,8 @@ do_intro_new_let(Node, {Expr, NewPatName, ParentExpr, LetMacro}) ->
 	    Args = list_to_tuple(refac_syntax:macro_arguments(LetMacro)),
 	    Pats = element(1, Args),
 	    G1 = element(2, Args),
-	    BdVars = refac_api:bound_vars(Pats),
-	    FrVars = refac_api:free_vars(Expr),
+	    BdVars = api_refac:bound_vars(Pats),
+	    FrVars = api_refac:free_vars(Expr),
 	    case FrVars -- BdVars of
 		FrVars ->
 		    ParentExpr1 = replace_expr_with_var(ParentExpr, {Expr, NewPatName}),
@@ -509,7 +509,7 @@ do_merge(AnnAST, Candidates) ->
     element(1, api_ast_traverse:stop_tdTP(fun do_merge_1/2, AnnAST, Candidates)).
 
 do_merge_1(Tree, Candidates) ->
-    {{StartLine, StartCol}, {EndLine, EndCol}} = refac_api:start_end_loc(Tree),
+    {{StartLine, StartCol}, {EndLine, EndCol}} = api_refac:start_end_loc(Tree),
     case lists:keysearch({StartLine, StartCol, EndLine, EndCol}, 1, Candidates) of
 	{value, {_, NewLetApp}} ->
 	    {refac_misc:rewrite_with_wrapper(Tree, NewLetApp), true};
@@ -557,7 +557,7 @@ collect_mergeable_lets_or_foralls(Node, MacroName) ->
     case Res == [P, G1, G2] of
 	true ->
 	    [];
-	_ -> [{refac_api:start_end_loc(Node),
+	_ -> [{api_refac:start_end_loc(Node),
 	       refac_misc:reset_attrs(refac_syntax:macro(refac_syntax:variable(MacroName), Res))}]
     end.
 
@@ -566,8 +566,8 @@ collect_mergeable_lets_or_foralls_1(Res = [P, G1, G2], MacroName) ->
 	true ->
 	    Args1 = refac_syntax:macro_arguments(G2),
 	    [P1, G11, G12] = Args1,
-	    BdVars = refac_api:bound_vars(P),
-	    FrVars = refac_api:free_vars(G11),
+	    BdVars = api_refac:bound_vars(P),
+	    FrVars = api_refac:free_vars(G11),
 	    case FrVars -- BdVars of
 		FrVars ->
 		    {Ps, Gs} = get_pats_gens(P, G1),

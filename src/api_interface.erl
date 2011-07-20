@@ -66,7 +66,7 @@ pos_to_node_1(Node, Pos, Pred) ->
 pos_to_node_2(Node, {Pos, Pred}) ->
     case Pred(Node) of
 	true ->
-	    {S, E} = refac_api:start_end_loc(Node),
+	    {S, E} = api_refac:start_end_loc(Node),
 	    if (S =< Pos) and (Pos =< E) ->
                     {Node, true};
 	       true -> {[], false}
@@ -103,7 +103,7 @@ range_to_node_1(Tree, {Start, End}, Pred) ->
     end.
 
 range_to_node_2(Tree, {Start, End}, Pred) ->
-    {S, E} = refac_api:start_end_loc(Tree),
+    {S, E} = api_refac:start_end_loc(Tree),
     if (S >= Start) and (E =< End) ->
             case Pred(Tree) of
                 true ->
@@ -199,7 +199,7 @@ pos_to_fun_def_1(Node, Pos) ->
 pos_to_fun_def_2(Node, Pos) ->
     case refac_syntax:type(Node) of
 	function ->
-	    {S, E} = refac_api:start_end_loc(Node),
+	    {S, E} = api_refac:start_end_loc(Node),
 	    if (S =< Pos) and (Pos =< E) ->
 		   {Node, true};
 	       true -> {[], false}
@@ -316,9 +316,9 @@ pos_to_expr(Tree, Start, End) ->
     end.
 
 pos_to_expr_1(Tree, Start, End) ->
-    {S, E} = refac_api:start_end_loc(Tree),
+    {S, E} = api_refac:start_end_loc(Tree),
     if (S >= Start) and (E =< End) ->
-	   case refac_api:is_expr(Tree) of
+	   case api_refac:is_expr(Tree) of
 	       true ->
 		   [Tree];
 	       _ ->
@@ -352,18 +352,18 @@ pos_to_expr_list(FileOrTree, Start, End) when is_list(FileOrTree) ->
     case filelib:is_regular(FileOrTree) of 
         true ->
             {ok, {AnnAST, _}} = wrangler_ast_server:parse_annotate_file(FileOrTree, true),
-            Es=pos_to_expr_list_1(AnnAST, Start, End, fun refac_api:is_expr/1),
+            Es=pos_to_expr_list_1(AnnAST, Start, End, fun api_refac:is_expr/1),
             get_expr_list(Es);
         false ->
-            pos_to_expr_list_1(FileOrTree, Start, End,fun refac_api:is_expr/1)
+            pos_to_expr_list_1(FileOrTree, Start, End, fun api_refac:is_expr/1)
     end;
 pos_to_expr_list(FileOrTree, Start, End) ->
-    pos_to_expr_list_1(FileOrTree, Start, End,fun refac_api:is_expr/1).
+    pos_to_expr_list_1(FileOrTree, Start, End, fun api_refac:is_expr/1).
 
 pos_to_expr_list_1(Tree, Start, End, F) ->
     case is_tree(Tree) of 
         true ->
-            {S, E} = refac_api:start_end_loc(Tree),
+            {S, E} = api_refac:start_end_loc(Tree),
             if (S >= Start) and (E =< End) ->
                     case F(Tree) of
                         true ->
@@ -412,7 +412,7 @@ get_expr_list_1(L) ->
 %%@private
 pos_to_expr_or_pat_list(AnnAST, Start, End) ->
     F = fun
-	    (E) -> refac_api:is_expr(E) orelse refac_api:is_pattern(E)
+	    (E) -> api_refac:is_expr(E) orelse api_refac:is_pattern(E)
 	end,
     Es = pos_to_expr_list_1(AnnAST, Start, End, F),
     get_expr_list(Es).
@@ -431,8 +431,8 @@ expr_to_fun(Tree, Exp) ->
     end.
 
 expr_to_fun_1(Tree, Exp) ->
-    {Start, End} = refac_api:start_end_loc(Exp),
-    {S, E} = refac_api:start_end_loc(Tree),
+    {Start, End} = api_refac:start_end_loc(Exp),
+    {S, E} = api_refac:start_end_loc(Tree),
     if (S < Start) and (E >= End) ->
 	   case refac_syntax:type(Tree) of
 	       function -> [Tree];

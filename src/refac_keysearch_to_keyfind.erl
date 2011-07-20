@@ -53,7 +53,7 @@ make_new_pats(ListOfPats) ->
 make_new_pat(Pat) ->
     case ?MATCH(?T("{value, T@}"), Pat) of
         true ->
-            case refac_api:type(T@) of
+            case api_refac:type(T@) of
                 variable ->
                     ?QUOTE("T@={_,_}");
                 underscore->

@@ -72,7 +72,7 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 	     FName ++ "\", " ++ integer_to_list(Line) ++ 
 	       ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
        ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    case refac_api:is_var_name(NewName) of
+    case api_refac:is_var_name(NewName) of
 	true -> ok;
 	false -> throw({error, "Invalid new variable name."})
     end,
@@ -170,7 +170,7 @@ pos_to_form_1(Node, Pos) ->
 	    orelse refac_syntax:type(Node) == attribute
 	of
 	true ->
-	    {S, E} = refac_api:start_end_loc(Node),
+	    {S, E} = api_refac:start_end_loc(Node),
 	    if (S =< Pos) and (Pos =< E) ->
 		   {Node, true};
 	       true -> {[], false}

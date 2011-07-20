@@ -29,34 +29,34 @@
 
 
 parse_transform(Forms, Options) ->
-    Forms0=parse_transform_1({refac_api, check_collect_template, 2},
+    Forms0=parse_transform_1({api_refac, check_collect_template, 2},
                              fun(Form, _Context) ->
                                      [Temp, MacroName] = erl_syntax:application_arguments(Form),
                                      check_collect_template(Temp, MacroName)
                              end, Forms, Options),
-    Forms1=parse_transform_1({refac_api, expand_match, 3},
+    Forms1=parse_transform_1({api_refac, expand_match, 3},
                              fun(Form, _Context) ->
                                      [TempStr, Tree, Cond]=erl_syntax:application_arguments(Form), 
                                      expand_match(TempStr, Tree, Cond)
                              end, Forms0, Options),
-    Forms2=parse_transform_1({refac_api, generate_bindings, 2},
+    Forms2=parse_transform_1({api_refac, generate_bindings, 2},
                               fun(Form, _Context) ->
                                       [Temp, BindVar]=erl_syntax:application_arguments(Form), 
                                       expand_generate_bindings(Temp, BindVar)
                               end, Forms1, Options),
-    Forms3=parse_transform_1({refac_api, template, 1},
+    Forms3=parse_transform_1({api_refac, template, 1},
                              fun(Form, _Context) ->
                                      expand_template(Form)
                              end, Forms2, Options),
-    Forms4=parse_transform_1({refac_api, make_cond, 2},
+    Forms4=parse_transform_1({api_refac, make_cond, 2},
                              fun(Form, _Context) ->
                                      expand_cond(Form)
                              end, Forms3, Options),
-    Forms5=parse_transform_1({refac_api, expand_collector, 1},
+    Forms5=parse_transform_1({api_refac, expand_collector, 1},
                              fun(Form, _Context) ->
                                      expand_collector(Form)
                              end, Forms4, Options),
-    Forms6=parse_transform_1({refac_api, quote, 1},
+    Forms6=parse_transform_1({api_refac, quote, 1},
                              fun(Form, _Context) ->
                                      expand_quote(Form)
                              end, annotate_forms(Forms5), Options),
@@ -88,7 +88,7 @@ expand_template(TempApp) ->
             erlang:error(lists:flatten(io_lib:format("The argument of the ?T macro, at line ~p, must be a string literal.", [Ln]))) 
     end,
     check_template_syntax(Str),
-    Op= erl_syntax:module_qualifier(erl_syntax:atom(refac_api), erl_syntax:atom(extended_parse_annotate_expr)),
+    Op= erl_syntax:module_qualifier(erl_syntax:atom(api_refac), erl_syntax:atom(extended_parse_annotate_expr)),
     erl_syntax:application(Op, [Str, erl_syntax:integer(Ln)]).
    
 
@@ -111,14 +111,14 @@ check_collect_template(Temp, Macro) ->
 is_template_app(Temp) ->
     case erl_syntax:type(Temp) of
         application ->
-            {refac_api, {template, 1}} == erl_syntax_lib:analyze_application(Temp);
+            {api_refac, {template, 1}} == erl_syntax_lib:analyze_application(Temp);
         _ -> false
     end.
 
 check_template_syntax(Template) ->
     Pos = erl_syntax:get_pos(Template),
     Str = erl_syntax:string_value(Template),
-    try refac_api:parse_annotate_expr(Str, Pos) 
+    try api_refac:parse_annotate_expr(Str, Pos)
     catch
         throw:Error ->
             Ln = case Pos of 
@@ -131,15 +131,15 @@ check_template_syntax(Template) ->
 expand_quote(QuoteApp) ->
     [Temp] = erl_syntax:application_arguments(QuoteApp),
     Pos = erl_syntax:get_pos(Temp),
-    Op= erl_syntax:module_qualifier(erl_syntax:atom(refac_api), erl_syntax:atom(parse_annotate_expr)),
+    Op= erl_syntax:module_qualifier(erl_syntax:atom(api_refac), erl_syntax:atom(parse_annotate_expr)),
     App =erl_syntax:application(Op, [Temp, erl_syntax:integer(Pos)]),
-    EnvVars = element(1, lists:unzip(refac_api:env_vars(Temp))),
+    EnvVars = element(1, lists:unzip(api_refac:env_vars(Temp))),
     Binds=erl_syntax:list([erl_syntax:tuple([erl_syntax:atom(VarName),
                                              erl_syntax:variable(VarName)])
                            ||VarName<-EnvVars, 
                              is_meta_variable_name(VarName),
                              not is_meta_variable_value_name(VarName)]),
-    Op1 = erl_syntax:module_qualifier(erl_syntax:atom(refac_api), erl_syntax:atom(subst)),
+    Op1 = erl_syntax:module_qualifier(erl_syntax:atom(api_refac), erl_syntax:atom(subst)),
     erl_syntax:application(Op1,[App, Binds]).
    
 
@@ -147,7 +147,7 @@ expand_generate_bindings(Temp, BindVar) ->
     [TempStr]=refac_syntax:application_arguments(Temp),
     BindVarName = erl_syntax:atom_value(BindVar),
     Pos = erl_syntax:get_pos(TempStr),
-    TempAST = refac_api:parse_annotate_expr(erl_syntax:string_value(TempStr), Pos),
+    TempAST = api_refac:parse_annotate_expr(erl_syntax:string_value(TempStr), Pos),
     {MetaVars, MetaAtoms} =  collect_meta_vars_and_atoms(TempAST),
     MatchExprs = lists:append([make_match_expr(V, P, BindVarName)||
                                   {V,P} <- MetaVars, V=/='_This@', V=/='_File@']),
@@ -172,11 +172,11 @@ expand_match(Temp, Node, Cond) ->
     end,
     [TempStr]=refac_syntax:application_arguments(Temp),
     Pos1 = erl_syntax:get_pos(TempStr),
-    Op= erl_syntax:module_qualifier(erl_syntax:atom(refac_api), 
+    Op= erl_syntax:module_qualifier(erl_syntax:atom(api_refac), 
                                     erl_syntax:atom(match)),
     NewTemp = expand_template(Temp),
     Args=[NewTemp,Node, Cond],
-    TempAST = refac_api:parse_annotate_expr(erl_syntax:string_value(TempStr), Pos1),
+    TempAST = api_refac:parse_annotate_expr(erl_syntax:string_value(TempStr), Pos1),
     App =erl_syntax:application(Op, Args),
     NewVar0=list_to_atom("_Res"++integer_to_list(random:uniform(1000))),
     NewVar1=list_to_atom("_Bind"++integer_to_list(random:uniform(1000))++"_@_V"),
@@ -242,7 +242,7 @@ is_meta_atom(Node) ->
         atom ->
             AtomValue = erl_syntax:atom_value(Node),
             AtomValueList=atom_to_list(AtomValue),
-            refac_api:is_fun_name(AtomValueList) andalso
+            api_refac:is_fun_name(AtomValueList) andalso
                 lists:prefix("@", lists:reverse(AtomValueList));
         _ ->
             false

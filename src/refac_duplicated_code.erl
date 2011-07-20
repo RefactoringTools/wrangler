@@ -166,7 +166,7 @@ get_parameters_1(MinClonesStr, DefaultVal) ->
 %% 		{[token()], string()}).
 tokenize(FileList, TabWidth) ->
     Toks = lists:flatmap(fun (F) ->
-				 Toks = refac_api:tokenize(F, false, TabWidth),
+				 Toks = api_refac:tokenize(F, false, TabWidth),
 				 [add_filename_to_token(F,T) || T <- Toks]
 			 end, FileList),
     R = [T1 || T <- Toks, T1 <- [process_a_tok(T)]],
@@ -313,8 +313,8 @@ process_a_file(File, Cs, MinLength, TabWidth) ->
 		       function ->
 			   true;
 		       _ ->
-			    (refac_api:is_expr(Node) orelse refac_syntax:type(Node) == match_expr)
-			     andalso refac_syntax:type(Node) /= guard_expression
+			     (api_refac:is_expr(Node) orelse refac_syntax:type(Node) == match_expr)
+			    andalso refac_syntax:type(Node) /= guard_expression
 		   end
 	   end,
     Fun1 = fun (Range) ->
@@ -336,11 +336,11 @@ process_a_file(File, Cs, MinLength, TabWidth) ->
 	NewRanges <- [lists:map(Fun1, Range)], NewRanges /= []].
 
 process_a_unit(VarsUsed, FileName, Unit) ->
-    {{StartLn, StartCol}, _} = refac_api:start_end_loc(hd(Unit)),
-    {_, {EndLn, EndCol}} = refac_api:start_end_loc(lists:last(Unit)),
+    {{StartLn, StartCol}, _} = api_refac:start_end_loc(hd(Unit)),
+    {_, {EndLn, EndCol}} = api_refac:start_end_loc(lists:last(Unit)),
     BdStruct = refac_code_search_utils:var_binding_structure(Unit),
     Range = {{FileName, StartLn, StartCol}, {FileName, EndLn, EndCol}},
-    ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_api:bound_vars(Unit)],
+    ExprBdVarsPos = [Pos || {_Var, Pos} <- api_refac:bound_vars(Unit)],
     VarsToExport = [{V, DefPos} || {V, SourcePos, DefPos} <- VarsUsed,
 				   SourcePos > {EndLn, EndCol},
 				   lists:subtract(DefPos, ExprBdVarsPos) == []],
@@ -360,7 +360,7 @@ pos_to_syntax_units_1(Tree, Start, End, F, Type) ->
 		  [[lists:append(pos_to_syntax_units_1(T, Start, End, F, Type1)) || T <- G]
 		   || G <- Ts]
 	  end,
-    {S, E} = refac_api:start_end_loc(Tree),
+    {S, E} = api_refac:start_end_loc(Tree),
     if (S >= Start) and (E =< End) ->
 	   case F(Tree) of
 	       true ->
@@ -768,7 +768,7 @@ generalise_expr({Exprs = [H| _T], EVs}, {NodeVarPairs, VarsToExport}) ->
 	    generalise_fun(H, NodeVarPairs);
 	_ ->
 	    FunName = refac_syntax:atom(new_fun),
-	    FVs = lists:ukeysort(2, refac_api:free_vars(Exprs)),
+	    FVs = lists:ukeysort(2, api_refac:free_vars(Exprs)),
 	    EVs1 = lists:ukeysort(2, EVs ++ VarsToExport),
 	    NewExprs = generalise_expr_1(Exprs, NodeVarPairs),
 	    NewExprs1 = case EVs1 of

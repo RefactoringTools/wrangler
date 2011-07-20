@@ -66,7 +66,7 @@ forward_slice_1(Files, AnnAST, ModName, {FunDef, Expr}) ->
     FunClauses = refac_syntax:function_clauses(FunDef),
     NewFunClauses = [process_a_clause(Files, AnnAST, ModName, FunName1, Arity, C, Expr)||C<-FunClauses],
     NewFunDef = refac_syntax:copy_attrs(FunDef, refac_syntax:function(FunName, NewFunClauses)),
-    sliced_funs ! {add, {{ModName, FunName1, Arity, refac_api:start_end_loc(Expr)}, NewFunDef}},
+    sliced_funs ! {add, {{ModName, FunName1, Arity, api_refac:start_end_loc(Expr)}, NewFunDef}},
     case returns_undefined(NewFunDef) of
 	true ->    %% None of the variables depending on the selected expression is exported.
 	    get_all_sliced_funs();
@@ -159,7 +159,7 @@ sliced_funs(State) ->
 	end.
 
 process_a_clause(Files, AnnAST, ModName, FunName, Arity, C, Expr) ->
-    ExportedVars = refac_api:exported_vars(Expr),
+    ExportedVars = api_refac:exported_vars(Expr),
     Patterns = refac_syntax:clause_patterns(C),
     Guard = refac_syntax:clause_guard(C),
     Body = refac_syntax:clause_body(C),
@@ -169,25 +169,25 @@ process_a_clause(Files, AnnAST, ModName, FunName, Arity, C, Expr) ->
 rm_unrelated_exprs(_Files, _AnnAST, _ModName, _FunName, _Arity, [], _Expr, _Vars) ->
     [];
 rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, [E| Exprs], Expr, Vars) ->
-    FreeVars = refac_api:free_vars(E),
-    ExportedVars = refac_api:exported_vars(E),
+    FreeVars = api_refac:free_vars(E),
+    ExportedVars = api_refac:exported_vars(E),
     case ExportedVars -- Vars =/= ExportedVars of
 	true ->
 	    [E| rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, lists:usort(Vars ++ ExportedVars))];
 	false -> case FreeVars -- Vars =/= FreeVars of
 		     true ->
-			 Env = refac_api:env_vars(E),
+			 Env = api_refac:env_vars(E),
 			 E1 = process_fun_applications(Files, AnnAST, ModName, FunName, Arity, E, Vars),
 			 E2 = refac_syntax_lib:annotate_bindings(reset_attrs(E1), Env),
-			 FreeVars1 = refac_api:free_vars(E2),
+			 FreeVars1 = api_refac:free_vars(E2),
 			 case FreeVars1 -- Vars =/= FreeVars1 of
 			     true ->
-				 [E2| rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, lists:sort(Vars ++ refac_api:exported_vars(E2)))];
+				 [E2| rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, lists:sort(Vars ++ api_refac:exported_vars(E2)))];
 			     _ ->
-				 {Start1, End1} = refac_api:start_end_loc(Expr),
-				 {Start2, End2} = refac_api:start_end_loc(E2),
+				 {Start1, End1} = api_refac:start_end_loc(Expr),
+				 {Start2, End2} = api_refac:start_end_loc(E2),
 				 case Start2 =< Start1 andalso End1 =< End2 of
-				     true -> [E2| rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, lists:sort(Vars ++ refac_api:exported_vars(E2)))];
+				     true -> [E2| rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, lists:sort(Vars ++ api_refac:exported_vars(E2)))];
 				     _ -> case Exprs of
 					      [] -> [refac_syntax:atom(undefined)];
 					      _ -> rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, Vars)
@@ -195,10 +195,10 @@ rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, [E| Exprs], Expr, Var
 				 end
 			 end;
 		     _ ->
-			 {Start1, End1} = refac_api:start_end_loc(Expr),
-			 {Start2, End2} = refac_api:start_end_loc(E),
+			 {Start1, End1} = api_refac:start_end_loc(Expr),
+			 {Start2, End2} = api_refac:start_end_loc(E),
 			 case Start2 =< Start1 andalso End1 =< End2 of
-			     true -> [E| rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, lists:sort(Vars ++ refac_api:exported_vars(E)))];
+			     true -> [E| rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, lists:sort(Vars ++ api_refac:exported_vars(E)))];
 			     _ -> rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, Vars)
 			 end
 		 end
@@ -228,7 +228,7 @@ intra_fun_forward_slice(Files, AnnAST, ModName, FunDef, PatIndex) ->
 process_a_clause_1(Files, AnnAST, ModName, FunName, Arity, C, PatIndex) ->
     Patterns = refac_syntax:clause_patterns(C),
     Body = refac_syntax:clause_body(C),
-    Vars = lists:flatmap(fun (I) -> refac_api:exported_vars(lists:nth(I, Patterns)) end, PatIndex),
+    Vars = lists:flatmap(fun (I) -> api_refac:exported_vars(lists:nth(I, Patterns)) end, PatIndex),
     Body1 = process_fun_body(Files, AnnAST, ModName, FunName, Arity, Body, Vars),
     refac_syntax:clause(Patterns, none, Body1).
 
@@ -236,8 +236,8 @@ process_fun_body(_Files, _AnnAST, _ModName, _FunName, _Arity, [], _Vars) ->
     [];
 process_fun_body(Files, AnnAST, ModName, FunName, Arity, [E], Vars) ->
     E1 = process_fun_applications(Files, AnnAST, ModName, FunName, Arity, E, Vars),
-    FreeVars = refac_api:free_vars(E1),
-    ExportedVars = refac_api:exported_vars(E1),
+    FreeVars = api_refac:free_vars(E1),
+    ExportedVars = api_refac:exported_vars(E1),
     case ExportedVars -- Vars =/= ExportedVars of
 	true -> [E];
 	false -> case FreeVars -- Vars =/= FreeVars of
@@ -250,13 +250,13 @@ process_fun_body(Files, AnnAST, ModName, FunName, Arity, [E], Vars) ->
     end;
 process_fun_body(Files, AnnAST, ModName, FunName, Arity, [E| Exprs], Vars) ->
     E1 = process_fun_applications(Files, AnnAST, ModName, FunName, Arity, E, Vars),
-    FreeVars = refac_api:free_vars(E1),
-    ExportedVars = refac_api:exported_vars(E1),
+    FreeVars = api_refac:free_vars(E1),
+    ExportedVars = api_refac:exported_vars(E1),
     case ExportedVars -- Vars =/= ExportedVars of
 	true -> [E| process_fun_body(Files, AnnAST, ModName, FunName, Arity, Exprs, lists:usort(Vars ++ ExportedVars))];
 	false -> case FreeVars -- Vars =/= FreeVars of
 		     true ->
-			 [E1| process_fun_body(Files, AnnAST, ModName, FunName, Arity, Exprs, lists:sort(Vars ++ refac_api:exported_vars(E1)))];
+			 [E1| process_fun_body(Files, AnnAST, ModName, FunName, Arity, Exprs, lists:sort(Vars ++ api_refac:exported_vars(E1)))];
 		     _ ->
 			 process_fun_body(Files, AnnAST, ModName, FunName, Arity, Exprs, Vars)
 		 end
@@ -269,7 +269,7 @@ process_fun_applications(Files, AnnAST, ModName, FunName, Arity, E, Vars) ->
 do_process_fun_applications(Node, {Files, AnnAST, ModName, FunName, Arity, Vars}) ->
     case refac_syntax:type(Node) of
 	application ->
-	    FreeVars = refac_api:free_vars(Node),
+	    FreeVars = api_refac:free_vars(Node),
 	    case
 		FreeVars -- Vars =/= FreeVars   %% the function application makes use of some of the variables in Vars;
 		of
@@ -278,7 +278,7 @@ do_process_fun_applications(Node, {Files, AnnAST, ModName, FunName, Arity, Vars}
 			Args = refac_syntax:application_arguments(Node),
 			IndexedArgs = lists:zip(lists:seq(1, length(Args)), Args),
 			FilteredIndexedArgs = lists:filter(fun ({_, Arg}) ->
-								   FVars = refac_api:free_vars(Arg),
+								   FVars = api_refac:free_vars(Arg),
 								   FVars -- Vars =/= FVars
 							   end, IndexedArgs),
 			FilteredIndex = element(1, lists:unzip(FilteredIndexedArgs)),
@@ -345,7 +345,7 @@ backward_slice(Files, AnnAST, ModName, FunDef, Expr) ->
 	_ ->
 	    Patterns = refac_syntax:clause_patterns(C),
 	    NewPatterns = lists:map(fun (P) ->
-					    BdVars = refac_api:bound_vars(P),
+					    BdVars = api_refac:bound_vars(P),
 					    case FreeVarsInBody -- BdVars =/= FreeVarsInBody of
 						true -> P;
 						_ -> refac_syntax:underscore()
@@ -453,10 +453,10 @@ unfold_fun_defs(_Files, AnnAST, ModName, FunDef %% How about recursive functions
 %% backward slice within a single function.
 backward_slice(Expr, FunDef) ->
     FunName = refac_syntax:function_name(FunDef),
-    {S, E} = refac_api:start_end_loc(Expr),
+    {S, E} = api_refac:start_end_loc(Expr),
     FunClauses = refac_syntax:function_clauses(FunDef),
     Pred = fun (Node) ->
-		   {StartPos, EndPos} = refac_api:start_end_loc(Node),
+		   {StartPos, EndPos} = api_refac:start_end_loc(Node),
 		   S >= StartPos andalso E =< EndPos
 	   end,
     %% Get the function clause to which the expression belongs.
@@ -476,16 +476,16 @@ process_a_clause(C, Expr) ->
     Patterns = refac_syntax:clause_patterns(C),
     Body = refac_syntax:clause_body(C),
     NewBody = process_body(Body, Expr),
-    FreeVars = refac_api:free_vars(Expr),
+    FreeVars = api_refac:free_vars(Expr),
     case NewBody == [refac_syntax:tuple([refac_syntax:atom(error), refac_syntax:atom("Error with evaluation")])] of
 	true -> [];
 	_ ->
-	    BoundVars = lists:flatmap(fun (P) -> refac_api:bound_vars(P) end, Patterns),
+	    BoundVars = lists:flatmap(fun (P) -> api_refac:bound_vars(P) end, Patterns),
 	    case FreeVars -- BoundVars =/= FreeVars of
 		true ->  %% Expr uses some of the vars declared in Patterns.
 		    C1 = refac_syntax:clause(Patterns, none, NewBody),
 		    {Bound1, Free1} = lists:foldl(fun (P, {Bd, Fr}) ->
-							  {Bd1, Fr1} = {refac_api:bound_vars(P), refac_api:free_vars(P)},
+							  {Bd1, Fr1} = {api_refac:bound_vars(P), api_refac:free_vars(P)},
 							  {ordsets:union(Bd, Bd1), ordsets:union(Fr, Fr1)}
 						  end,
 						  {[], []}, Patterns),
@@ -505,12 +505,12 @@ process_a_clause(C, Expr) ->
 %% If Expr belongs to Body, then remove those expressions that will be evaluated after Expr, since 
 %% those expressions do not contribute to the value of Expr.
 process_body(Body, Expr) ->
-    {S, E} = refac_api:start_end_loc(Expr),
-    FreeVars = refac_api:free_vars(Expr),
+    {S, E} = api_refac:start_end_loc(Expr),
+    FreeVars = api_refac:free_vars(Expr),
     FstExp = hd(Body),
     LstExp = lists:last(Body),
-    {S1, _} = refac_api:start_end_loc(FstExp),
-    {_, E1} = refac_api:start_end_loc(LstExp),
+    {S1, _} = api_refac:start_end_loc(FstExp),
+    {_, E1} = api_refac:start_end_loc(LstExp),
     case S1 =< S andalso E =< E1 of
 	true ->
 	    %% Expr is part of body.
@@ -520,12 +520,12 @@ process_body(Body, Expr) ->
 		    FreeVarDefLocs = lists:map(fun ({_V, DefLoc}) -> DefLoc end, FreeVars),
 		    LastLoc = lists:last(lists:sort(FreeVarDefLocs)),
 		    Exprs1 = lists:takewhile(fun (BodyExpr) ->
-						     {StartPos, EndPos} = refac_api:start_end_loc(BodyExpr),
+						     {StartPos, EndPos} = api_refac:start_end_loc(BodyExpr),
 						     (EndPos =< S) or (S >= StartPos andalso E =< EndPos)
 					     end,
 					     Body),
 		    LastExpr1 = lists:last(Exprs1), %% The expression that contains Expr.
-		    {LastExprStartPos, _} = refac_api:start_end_loc(LastExpr1),
+		    {LastExprStartPos, _} = api_refac:start_end_loc(LastExpr1),
 		    LastExpr = case LastLoc >= LastExprStartPos of
 				   false -> Expr;  %% The last expr does not declare any free vars of Expr
 				   true -> %% some of the free vars in Expr are introduced in the LastExpr1.
@@ -556,12 +556,12 @@ process_expr(LastExpr, Expr) ->
     case refac_syntax:type(E) of
 	case_expr ->
 	    Args = refac_syntax:case_expr_argument(E),
-	    {Bound1, Free1} = {refac_api:bound_vars(Args), refac_api:free_vars(Args)},
+	    {Bound1, Free1} = {api_refac:bound_vars(Args), api_refac:free_vars(Args)},
 	    Clauses = refac_syntax:case_expr_clauses(E),
 	    NewClauses = lists:flatmap(fun (C) -> process_a_clause(C, Expr)
 				       end, Clauses), %% process each case clause.
 	    {Bound2, Free2} = lists:foldl(fun (C, {Bd, Fr}) ->
-						  {Bd1, Fr1} = {refac_api:bound_vars(C), refac_api:free_vars(C)},
+						  {Bd1, Fr1} = {api_refac:bound_vars(C), api_refac:free_vars(C)},
 						  {ordsets:intersection(Bd, Bd1), ordsets:union(Fr, Fr1)}
 					  end,
 					  {[], []}, NewClauses),
@@ -581,7 +581,7 @@ process_expr(LastExpr, Expr) ->
 	    Clauses = refac_syntax:if_expr_clauses(E),
 	    NewClauses = lists:flatmap(fun (C) -> process_a_clause(C, Expr) end, Clauses),
 	    {Bound, Free} = lists:foldl(fun (C, {Bd, Fr}) ->
-						{Bd1, Fr1} = {refac_api:bound_vars(C), refac_api:free_vars(C)},
+						{Bd1, Fr1} = {api_refac:bound_vars(C), api_refac:free_vars(C)},
 						{ordsets:intersection(Bd, Bd1), ordsets:union(Fr, Fr1)}
 					end,
 					{[], []}, NewClauses),
@@ -599,17 +599,17 @@ process_expr(LastExpr, Expr) ->
 rm_unused_exprs([]) -> [];
 rm_unused_exprs(Exprs) ->
     LastExpr = lists:last(Exprs),
-    FreeVars = refac_api:free_vars(LastExpr),
+    FreeVars = api_refac:free_vars(LastExpr),
     ReversedPrevExprs = tl(lists:reverse(Exprs)),
     Res = rm_unused_exprs_1(ReversedPrevExprs, FreeVars, [LastExpr]),
     Res.
 
 rm_unused_exprs_1([], _FreeVars, Acc) -> Acc;
 rm_unused_exprs_1([E| Exprs], FreeVars, Acc) ->
-    ExportedVars = refac_api:exported_vars(E),
+    ExportedVars = api_refac:exported_vars(E),
     case FreeVars -- ExportedVars =/= FreeVars of
 	true ->
-	    FreeVarsInE = refac_api:free_vars(E),
+	    FreeVarsInE = api_refac:free_vars(E),
 	    NewFreeVars = lists:usort((FreeVars -- ExportedVars) ++ FreeVarsInE),
 	    rm_unused_exprs_1(Exprs, NewFreeVars, [E| Acc]);
 	false -> rm_unused_exprs_1(Exprs, FreeVars, Acc)
@@ -624,7 +624,7 @@ get_match_expr_body(E) ->
 
 get_bound_free_vars(Body) ->
     lists:foldl(fun (E, {Bd, Fr}) ->
-			{Bd1, Fr1} = {refac_api:bound_vars(E), refac_api:free_vars(E)},
+			{Bd1, Fr1} = {api_refac:bound_vars(E), api_refac:free_vars(E)},
 			{ordsets:union(Bd, Bd1), ordsets:union(Fr, ordsets:subtract(Fr1, Bd))}
 		end,
 		{[], []}, Body).

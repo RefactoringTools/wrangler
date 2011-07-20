@@ -74,7 +74,7 @@ inline_var(FName, Line, Col, SearchPaths, TabWidth, Editor) ->
 	    cond_check(MatchExpr, VarNode),
 	    case is_use_instance(VarNode) of
 		true ->
-		    AnnAST1 = inline(AnnAST, Form, MatchExpr, VarNode, [refac_api:start_end_loc(VarNode)]),
+		    AnnAST1 = inline(AnnAST, Form, MatchExpr, VarNode, [api_refac:start_end_loc(VarNode)]),
 		    refac_write_file:write_refactored_files([{{FName,FName},AnnAST1}], Editor, TabWidth, Cmd1);
 		false ->
 		    Cands = search_for_unfold_candidates(Form, MatchExpr, VarNode),
@@ -135,7 +135,7 @@ pos_to_form(Node, Pos) ->
 pos_to_form_1(Node, Pos) ->
     case refac_syntax:type(Node) of
 	function ->
-	    {S, E} = refac_api:start_end_loc(Node),
+	    {S, E} = api_refac:start_end_loc(Node),
 	    if (S =< Pos) and (Pos =< E) ->
 		   {Node, true};
 	       true -> {[], false}
@@ -169,7 +169,7 @@ search_for_unfold_candidates(Form, MatchExprBody, VarNode) ->
 			    {value, {def, DefinePos}} ->
 				case cond_check_1(MatchExprBody, Node) of
 				    ok ->
-					[refac_api:start_end_loc(Node)| Acc];
+					[api_refac:start_end_loc(Node)| Acc];
 				    _ -> Acc
 				end;
 			    _ -> Acc
@@ -190,7 +190,7 @@ collect_all_uses(Form, VarNode) ->
 				Pos = refac_syntax:get_pos(Node),
 				case  not  lists:member(Pos, DefinePos) of
 				    true ->
-					[refac_api:start_end_loc(Node)| Acc];
+					[api_refac:start_end_loc(Node)| Acc];
 				    false ->
 					[]
 				end;
@@ -203,9 +203,9 @@ collect_all_uses(Form, VarNode) ->
     lists:sort(api_ast_traverse:fold(F, [], Form)).
 
 cond_check_1(MatchExprBody, VarNode) ->
-    MatchExprFreeVars = refac_api:free_vars(MatchExprBody),
+    MatchExprFreeVars = api_refac:free_vars(MatchExprBody),
     MatchExprBoundVars = get_bound_vars(MatchExprBody),
-    VarEnvs = refac_api:env_vars(VarNode),
+    VarEnvs = api_refac:env_vars(VarNode),
     case MatchExprFreeVars--VarEnvs of
 	[] ->
 	    VarEnvs1 = VarEnvs -- MatchExprBoundVars,
@@ -353,7 +353,7 @@ do_remove_match_expr(Node,MatchExpr) ->
     end.
 
 remove_match_expr_from_body(MatchExpr,Body) ->
-    {Start,_End} = refac_api:start_end_loc(MatchExpr),
+    {Start,_End} = api_refac:start_end_loc(MatchExpr),
     {B1,B2} = lists:splitwith(fun (B) ->
 				      B/=MatchExpr
 			      end,Body),
@@ -363,7 +363,7 @@ remove_match_expr_from_body(MatchExpr,Body) ->
 	[_| B3] ->
 	    B3Hd = hd(B3),
 	    B3Tl = tl(B3),
-	    {_,End} = refac_api:start_end_loc(B3Hd),
+	    {_,End} = api_refac:start_end_loc(B3Hd),
 	    B3Hd1 = refac_misc:update_ann(B3Hd,{range,{Start,End}}),
 	    B1++[B3Hd1| B3Tl]
     end.
@@ -371,7 +371,7 @@ remove_match_expr_from_body(MatchExpr,Body) ->
 do_inline(Node, {MatchExprBody, Ranges}) ->
     case refac_syntax:type(Node) of
 	variable ->
-	    case lists:member(refac_api:start_end_loc(Node), Ranges) of
+	    case lists:member(api_refac:start_end_loc(Node), Ranges) of
 		true ->
                     {refac_misc:rewrite_with_wrapper(Node, MatchExprBody), true};
                 false ->

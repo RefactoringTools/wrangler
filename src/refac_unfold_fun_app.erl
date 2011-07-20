@@ -350,7 +350,7 @@ fun_inline_1(FName, AnnAST, Pos, {FunClauseToInline, Subst, MatchExprsToAdd}, {C
 
 do_inline(Form, Pos, _Clause, App, SubstedBody, RecordDefs) ->
     SubstedBody1 = refac_misc:reset_ann_and_pos(SubstedBody),
-    {S, E} = refac_api:start_end_loc(Form),
+    {S, E} = api_refac:start_end_loc(Form),
     if (S =< Pos) and (Pos =< E) ->
             {NewForm, _} = api_ast_traverse:stop_tdTP(
                             fun do_inline_1/2, Form, {App, SubstedBody1}),
@@ -471,11 +471,11 @@ pos_to_fun_clause_app(Node, Pos) ->
 pos_to_fun_clause_app_1(Node, Pos) ->
     case refac_syntax:type(Node) of
 	function ->
-	    {S, E} = refac_api:start_end_loc(Node),
+	    {S, E} = api_refac:start_end_loc(Node),
 	    if (S =< Pos) and (Pos =< E) ->
 		   Cs = refac_syntax:function_clauses(Node),
 		   [C] = [C1 || C1 <- Cs,
-				{S1, E1} <- [refac_api:start_end_loc(C1)],
+				{S1, E1} <- [api_refac:start_end_loc(C1)],
 				S1 =< Pos, Pos =< E1],
 		   case pos_to_fun_app(C, Pos) of
 		       {_, false} -> throw({error, "You have not selected a function application, "
@@ -498,7 +498,7 @@ pos_to_fun_app_1(Node, Pos) ->
     case refac_syntax:type(Node) of
 	application ->
 	    Op = refac_syntax:application_operator(Node),
-	    {S, E} = refac_api:start_end_loc(Op),
+	    {S, E} = api_refac:start_end_loc(Op),
 	    if (S =< Pos) and (Pos =< E) ->
 		   {Node, true};
 	       true -> {[], false}
@@ -541,7 +541,7 @@ do_rename_var({Node, MatchExprs}, [V| Vs], UsedVarNames) ->
 
 do_rename_var_1({Node, MatchExprs}, {VarName, DefLoc}, UsedVarNames) ->
     UsedVarNames1 = ordsets:union(ordsets:from_list(refac_misc:collect_var_names(Node)), UsedVarNames),
-    NewVarName = refac_api:make_new_name(VarName, UsedVarNames1),
+    NewVarName = api_refac:make_new_name(VarName, UsedVarNames1),
     {Node1, _} = refac_rename_var:rename(Node, DefLoc, NewVarName),
     MatchExprs1 = do_rename_in_match_exprs(MatchExprs, DefLoc, NewVarName),
     {Node1, MatchExprs1}.

@@ -38,7 +38,7 @@ select_focus(#args{current_file_name=File,
                                       is_the_enclosing_app(Node, Expr)
                               end),
     ?MATCH(?T("Op@(As@@)"), App),
-    {M, F, A}=refac_api:fun_define_info(Op@),
+    {M, F, A}=api_refac:fun_define_info(Op@),
     {As1,_As2}=lists:splitwith(fun(E)->E/=Expr end, As@@),
     Nth = length(As1)+1,
     {ok, {{M,F,A},Expr,Nth}}.
@@ -47,7 +47,7 @@ select_focus(#args{current_file_name=File,
 -spec (check_pre_cond/1::(#args{}) -> ok).  
 check_pre_cond(Args=#args{current_file_name=File, 
                           focus_sel={{M,_F,_A},_Expr,_Nth}}) ->
-    case {ok, M}==refac_api:module_name(File) of 
+    case {ok, M} == api_refac:module_name(File) of
         true ->   
             check_pre_cond_1(Args);
         false ->
@@ -56,7 +56,7 @@ check_pre_cond(Args=#args{current_file_name=File,
     end.        
 
 check_pre_cond_1(Args=#args{focus_sel={_MFA, Expr, _Nth}}) ->
-    case refac_api:free_vars(Expr) of 
+    case api_refac:free_vars(Expr) of
         [] ->
             check_pre_cond_2(Args);
         _ ->
@@ -65,7 +65,7 @@ check_pre_cond_1(Args=#args{focus_sel={_MFA, Expr, _Nth}}) ->
 
 check_pre_cond_2(#args{current_file_name=File,
                        focus_sel={MFA,_Expr, Nth}}) ->
-    FunDef= refac_api:mfa_to_fun_def(MFA, File),
+    FunDef= api_refac:mfa_to_fun_def(MFA, File),
     NthPars = ?FULL_TD_TU([?COLLECT(?T("f@(Args@@)-> Bs@@;"), 
                                     lists:nth(Nth, Args@@),
                                     true)],
@@ -87,14 +87,14 @@ selective()->
 -spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}).                                    
 transform(Args=#args{current_file_name=File,
                      focus_sel={{_M,F,A},_Expr, _Nth}})->
-    InscopeFuns = refac_api:inscope_funs(File),
+    InscopeFuns = api_refac:inscope_funs(File),
     NewFunName=case lists:member({F, A - 1}, InscopeFuns) of
                    true ->
                        make_new_fun_name({F,A - 1}, InscopeFuns);
                    false ->
                        atom_to_list(F)
                end,
-    case refac_api:is_exported({F,A}, File) of 
+    case api_refac:is_exported({F,A}, File) of
         true ->
             {ok, Res}=transform_in_client_files(Args, NewFunName),
             case Res of 
@@ -127,7 +127,7 @@ transform_in_client_files(Args=#args{current_file_name=File,
                           NewFunName) ->
     ?FULL_TD_TP([rule0(Args, NewFunName),
                  rule1(Args, NewFunName)], 
-                refac_api:client_files(File, SearchPaths)).
+                api_refac:client_files(File, SearchPaths)).
 
 %% transformation rule:
 %% remove the nth argument from a qualified application.
@@ -139,7 +139,7 @@ rule0(Args=#args{focus_sel={{M,F,A}, Expr, Nth}}, NewFunName) ->
                                            rule1(Args, NewFunName)], NewArgs@@), 
               ?QUOTE("M@:"++NewFunName++"(NewArgs1@@)")
           end,
-          refac_api:fun_define_info(F@)=={M,F,A} andalso
+          api_refac:fun_define_info(F@) == {M,F,A} andalso
           ?EQUAL(lists:nth(Nth, Args@@), Expr)).
 
 %% transformation rule:
@@ -152,7 +152,7 @@ rule1(Args=#args{focus_sel={{M,F,A}, Expr, Nth}}, NewFunName) ->
                                            rule1(Args, NewFunName)], NewArgs@@), 
               ?QUOTE(NewFunName++"(NewArgs1@@)")
           end,
-          refac_api:fun_define_info(F@)=={M,F,A} andalso
+          api_refac:fun_define_info(F@) == {M,F,A} andalso
           ?EQUAL(lists:nth(Nth, Args@@), Expr)).
 
 %% transformation rule:
@@ -166,14 +166,14 @@ rule2(Args=#args{focus_sel={{M,F,A},_Expr,_Nth}}, NewFunName) ->
               [NewF@, NewFun]
           end,
           refac_syntax:type(F@)==function andalso 
-          refac_api:fun_define_info(F@)=={M,F,A}).
+          api_refac:fun_define_info(F@) == {M,F,A}).
 
 %% transformation rule:
 %% add the new function to export list.
 rule3(_Args=#args{focus_sel={{_M,F,A},_Expr,_Nth}}, NewFunName) ->
     ?RULE(?T("F@"),
-          refac_api:add_to_export_after(F@, {NewFunName, A-1}, {F,A}),
-          refac_api:is_attribute(F@, export)).
+          api_refac:add_to_export_after(F@, {NewFunName, A - 1}, {F,A}),
+          api_refac:is_attribute(F@, export)).
 
 generate_specialised_fun(Args, FunDef, NewFunName) ->
     {ok,NewFunDef}=?FULL_TD_TP([rule4(Args, NewFunName)], FunDef),
@@ -199,7 +199,7 @@ rule5(#args{focus_sel={{M,F,A}, Expr, Nth}},NthPar, NewFunName) ->
               NewArgs@@=delete(Nth, Args@@),
               ?QUOTE(NewFunName++"(NewArgs@@)")
           end,
-          refac_api:fun_define_info(F@)=={M,F,A} andalso
+          api_refac:fun_define_info(F@) == {M,F,A} andalso
           check_nth_arg(Args@@, Expr, Nth, NthPar)).
 
 %% replace the use of the formal parameter with the expression selected.
@@ -207,8 +207,8 @@ rule6(#args{focus_sel={_MFA,Expr,_Nth}}, NthPar, _NewFunName) ->
     ?RULE(?T("V@"),
           Expr,
           refac_syntax:type(V@)==variable andalso 
-          refac_api:variable_define_pos(V@) == 
-              refac_api:variable_define_pos(NthPar)).
+          api_refac:variable_define_pos(V@) ==
+              api_refac:variable_define_pos(NthPar)).
 
 %% some utility functions.
 
@@ -217,11 +217,11 @@ check_nth_arg(ArgList, Expr, Nth, NthPar) ->
     ?EQUAL(NthArg, Expr) 
         orelse
           (refac_syntax:type(NthArg) == variable andalso
-           refac_api:variable_define_pos(NthPar) ==
-               refac_api:variable_define_pos(NthArg)).
+            api_refac:variable_define_pos(NthPar) ==
+                api_refac:variable_define_pos(NthArg)).
 
 is_expr(Node) ->
-    refac_api:syntax_category(Node)==expression.
+    api_refac:syntax_category(Node) == expression.
 
 is_the_enclosing_app(Node, Expr) ->
     refac_syntax:type(Node) == application andalso

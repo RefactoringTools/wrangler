@@ -40,7 +40,7 @@ check_selection(_Exprs) ->
     ok.
 
 check_function_name(NewFunName) ->
-    case refac_api:is_fun_name(NewFunName) of 
+    case api_refac:is_fun_name(NewFunName) of
         true ->
             ok;
         false ->
@@ -49,9 +49,9 @@ check_function_name(NewFunName) ->
 
 check_name_conflict(File, Exprs, NewFunName) ->
     ModName = list_to_atom(filename:basename(File, ".erl")),
-    FvVars = refac_api:free_var_names(Exprs),
+    FvVars = api_refac:free_var_names(Exprs),
     Arity = length(FvVars),
-    InscopeFuns = refac_api:inscope_funs(File),
+    InscopeFuns = api_refac:inscope_funs(File),
     case lists:member({ModName, NewFunName,Arity}, InscopeFuns) of 
         true ->
             throw({error, "The function is also inscope in this module."});
@@ -60,7 +60,7 @@ check_name_conflict(File, Exprs, NewFunName) ->
     end.
 
 check_funcall_replaceable([E]) ->
-    Type= refac_api:syntax_context(E),
+    Type= api_refac:syntax_context(E),
     case lists:member(Type, [application_op,
                              module_quailifier_argument,
                              module_qualifier_body]) of
@@ -71,7 +71,7 @@ check_funcall_replaceable([E]) ->
             ok
     end;
 check_funcall_replaceable([E|_Es]) ->
-    P= refac_api:syntax_context(E),
+    P= api_refac:syntax_context(E),
     if P == body_expr -> 
             ok;
        true ->
@@ -92,8 +92,8 @@ transform(Args=#args{current_file_name=File}) ->
 rule1(Args=#args{focus_sel=Exprs, user_inputs=[NewFunName]}) ->
     ?RULE(?T("F@"),
           begin
-              ExVars = refac_api:exported_var_names(Exprs),
-              Pars=format_pars(refac_api:free_var_names(Exprs)),
+              ExVars = api_refac:exported_var_names(Exprs),
+              Pars=format_pars(api_refac:free_var_names(Exprs)),
               {ok, F1}=?FULL_TD_TP([rule2(Args)],_This@),
               if ExVars == []-> 
                       [F1,
@@ -109,8 +109,8 @@ rule1(Args=#args{focus_sel=Exprs, user_inputs=[NewFunName]}) ->
 rule2(_Args=#args{focus_sel=Exprs, user_inputs=[NewFunName]}) ->
     ?RULE(?T("E@"), 
            begin
-               ExVars=refac_api:exported_var_names(Exprs),
-               FreeVars=refac_api:free_var_names(Exprs),
+               ExVars=api_refac:exported_var_names(Exprs),
+               FreeVars=api_refac:free_var_names(Exprs),
                if  ExVars==[] ->
                        ?QUOTE(NewFunName++"("++format_pars(FreeVars)++")");
                    true ->
@@ -118,7 +118,7 @@ rule2(_Args=#args{focus_sel=Exprs, user_inputs=[NewFunName]}) ->
                                   "="++NewFunName++"("++format_pars(FreeVars)++")")
                end
            end,
-           refac_api:start_end_loc(E@)==refac_api:start_end_loc(Exprs)
+           api_refac:start_end_loc(E@) == api_refac:start_end_loc(Exprs)
           ).
         
 %% Some utility functions.
@@ -139,8 +139,8 @@ format_pars_1([V|Vs]) ->
      io_lib:format("~s,", [V]) ++ format_pars_1(Vs).
 
 contains(Expr1, Expr2) ->
-     {Start1, End1} = refac_api:start_end_loc(Expr1),
-     {Start2, End2} = refac_api:start_end_loc(Expr2),
+     {Start1, End1} = api_refac:start_end_loc(Expr1),
+     {Start2, End2} = api_refac:start_end_loc(Expr2),
      (Start1 =< Start2) andalso (End2 =< End1).
 
              

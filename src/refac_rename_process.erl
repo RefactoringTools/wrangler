@@ -111,7 +111,7 @@ pos_to_process_name_1(Node, Pos) ->
     As = refac_syntax:get_ann(Node),
     case refac_syntax:type(Node) of
 	atom ->
-	    {Start, End} = refac_api:start_end_loc(Node),
+	    {Start, End} = api_refac:start_end_loc(Node),
 	    case Start =< Pos andalso Pos =< End of
 		true ->
 		    case lists:keysearch(pname, 1, As) of
@@ -246,7 +246,7 @@ collect_atoms(CurrentFile, AtomName, SearchPaths, TabWidth) ->
 		  end, Files).
 
 is_process_name(Name) ->
-    refac_api:is_fun_name(Name) and (list_to_atom(Name) =/= undefined).
+    api_refac:is_fun_name(Name) and (list_to_atom(Name) =/= undefined).
 
 %% An duplication of function defined in refac_register_pid. 
 %% Need to be refactored.
@@ -258,11 +258,11 @@ evaluate_expr(Files, ModName, AnnAST, FunDef, Expr) ->
 		    _ ->
 			FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
 			Arity = refac_syntax:function_arity(FunDef),
-			{StartPos, _} = refac_api:start_end_loc(Expr),
+			{StartPos, _} = api_refac:start_end_loc(Expr),
 			{unknown, {ModName, FunName, Arity, StartPos}}
 		end
 	end,
-    Exprs = case refac_api:free_vars(Expr) of
+    Exprs = case api_refac:free_vars(Expr) of
 		[] -> [Expr];
 		_ -> refac_slice:backward_slice(Files, AnnAST, ModName, FunDef, Expr)
 	    end,

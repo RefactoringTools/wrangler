@@ -54,7 +54,7 @@ find_var_instances(FName, Line, Col, SearchPaths, TabWidth) ->
 				   variable ->
 				       case lists:keysearch(def, 1, refac_syntax:get_ann(T)) of
 					   {value, {def, DefinePos}} ->
-					       Range = refac_api:start_end_loc(T),
+					       Range = api_refac:start_end_loc(T),
 					       [Range| S];
 					   _ -> S
 				       end;
@@ -89,7 +89,7 @@ nested_exprs_1(FName, NestLevel, ExprType, SearchPaths, TabWidth) ->
 			  Fun1 = fun (Node, S1) ->
 					 case refac_syntax:type(Node) of
 					     ExprType1 ->
-						 Range = refac_api:start_end_loc(Node),
+						 Range = api_refac:start_end_loc(Node),
 						 [{ModName, FunName, Arity, Range}| S1];
 					     _ -> S1
 					 end
@@ -158,7 +158,7 @@ calls_to_fun_1(FName, FunctionName, Arity, SearchPaths, TabWidth) ->
 caller_funs_2(FName, M, F, A, Info, SearchPaths, TabWidth) ->
     ?wrangler_io("\nSearching for caller function of ~p:~p/~p ...\n", [M, F, A]),
     {Res1, Res2} = get_caller_funs(FName, {M, F, A}, SearchPaths, TabWidth),
-    case refac_api:is_exported({F, A}, Info) of
+    case api_refac:is_exported({F, A}, Info) of
 	true ->
 	    ?wrangler_io("\nChecking client modules in the following paths: \n~p\n",
 			 [SearchPaths]),
@@ -310,7 +310,7 @@ large_modules(Lines, SearchPaths, TabWidth) ->
     {ok, LargeMods}.
 
 is_large_module(FName, Lines, TabWidth) ->
-    Toks = refac_api:tokenize(FName, false, TabWidth),
+    Toks = api_refac:tokenize(FName, false, TabWidth),
     CodeLines = refac_misc:remove_duplicates([element(1, element(2, T)) || T <- Toks]),
     length(CodeLines) >= Lines.
 
@@ -398,7 +398,7 @@ check_candidate_scc(FunDef, Scc, Line) ->
 	end,
     F1 = fun (Es) ->
 		 F11 = fun (E) ->
-			       {_, {EndLine, _}} = refac_api:start_end_loc(E),
+			       {_, {EndLine, _}} = api_refac:start_end_loc(E),
 			       case EndLine >= Line of
 				   true ->
 				       CalledFuns = wrangler_callgraph_server:called_funs(E),
@@ -485,7 +485,7 @@ is_server(_FileName, _Info, FunDef, Scc, Line) ->
 		end
 	end,
     F1 = fun (E) ->
-		 {_, {EndLine, _}} = refac_api:start_end_loc(E),
+		 {_, {EndLine, _}} = api_refac:start_end_loc(E),
 		 case EndLine >= Line of
 		     true ->
 			 CalledFuns = wrangler_callgraph_server:called_funs(E),
@@ -510,7 +510,7 @@ not_has_flush_fun(FunDef) ->
 						  1 -> P = hd(Pat),
 						       case refac_syntax:type(P) of
 							   variable ->
-							       case refac_api:free_vars(P) of
+							       case api_refac:free_vars(P) of
 								   [] -> true;
 								   _ -> false
 							       end;
@@ -553,7 +553,7 @@ has_receive_expr(FunDef) ->
     F = fun (T, S) ->
 		case refac_syntax:type(T) of
 		    receive_expr ->
-			{{StartLine, _}, _} = refac_api:start_end_loc(T),
+			{{StartLine, _}, _} = api_refac:start_end_loc(T),
 			[StartLine| S];
 		    _ -> S
 		end
@@ -568,6 +568,6 @@ calls_to_specific_function(MFA={_M, _F, _A}, SearchPaths) ->
     ?wrangler_io("\nCMD: ~p:calls_to_specific_function(~p, ~p).\n",
 		 [?MODULE, MFA, SearchPaths]),
     {ok, ?FULL_TD_TU([?COLLECT_LOC(?T("F@(Args@@)"), 
-                                  MFA==refac_api:fun_define_info(F@))],
+                                  MFA == api_refac:fun_define_info(F@))],
                      [SearchPaths])}.
     

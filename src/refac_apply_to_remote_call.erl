@@ -39,20 +39,20 @@ transform(_Args=#args{search_paths=SearchPaths})->
 rule() ->
     ?RULE(?T("Op@(N@@, M@, F@, [Args@@])"),
           ?QUOTE("M@:F@(Args@@)"),
-          {erlang,apply,3}==refac_api:fun_define_info(Op@)).
+          {erlang,apply,3} == api_refac:fun_define_info(Op@)).
           
 rule1() ->
     ?RULE(?T("Op@(N@@, M@, F@, [])"),
           ?QUOTE("M@:F@()"),
-          {erlang,apply,3}==refac_api:fun_define_info(Op@)). 
+          {erlang,apply,3} == api_refac:fun_define_info(Op@)). 
          
 rule2() ->
     ?RULE(?T("Op@(Fun@, [Args@@])"),
           begin
-              {M,F,_A} = refac_api:fun_define_info(Fun@),
+              {M,F,_A} = api_refac:fun_define_info(Fun@),
               ?QUOTE(atom_to_list(M)++":"++atom_to_list(F)++"(Args@@)")
           end,
-          case refac_api:fun_define_info(Fun@) of
+          case api_refac:fun_define_info(Fun@) of
               {_,_,_}->
                   true;
               _ -> 

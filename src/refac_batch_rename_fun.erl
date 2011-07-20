@@ -30,7 +30,7 @@ rename_fun_to_camel_case(SearchPaths)->
 
 rename_in_file(File, SearchPaths) ->
     %% get all the functions defined in this file.
-    FAs = refac_api:defined_funs(File),
+    FAs = api_refac:defined_funs(File),
     [rename_one_function(File, SearchPaths, F, A) 
      ||{F,A} <- FAs, camelCase_to_camel_case(F) /= F].
     

@@ -494,7 +494,7 @@ generalise_and_hash_expr(ASTTab, {M, F, A}, StartLine,
     %% get the hash values of the generalised expression.
     HashVal = erlang:md5(refac_prettypr:format(E1)),
     %% the location here is relative location.
-    StartEndLoc = refac_api:start_end_loc(Expr),
+    StartEndLoc = api_refac:start_end_loc(Expr),
     {HashVal, {StartIndex + RelativeIndex,
 	       NoOfToks, StartEndLoc, StartLine}}.
 
@@ -864,7 +864,7 @@ do_anti_unification_1(E1, E2) ->
     end.
 
 subst_sanity_check(Expr1, SubSt) ->
-    BVs = refac_api:bound_vars(Expr1),
+    BVs = api_refac:bound_vars(Expr1),
     F = fun ({E1, E2}) ->
 		case refac_syntax:type(E1) of
 		    variable ->
@@ -875,7 +875,7 @@ subst_sanity_check(Expr1, SubSt) ->
 			end;
 		    _ ->
 			%% the expression to be replaced should not contain local variables.
-			BVs -- refac_api:free_vars(E1) == BVs
+			BVs -- api_refac:free_vars(E1) == BVs
 		end
 	end,
     lists:all(F, SubSt).
@@ -1449,11 +1449,11 @@ get_clone_class_in_absolute_locs(_Clone={Ranges, Len, Freq, AntiUnifier}) ->
 
 get_vars_to_export(Es, {FName, FunName, Arity}, VarTab) ->
     AllVars = ets:lookup(VarTab, {FName, FunName, Arity}),
-    {_, EndLoc} = refac_api:start_end_loc(lists:last(Es)),
+    {_, EndLoc} = api_refac:start_end_loc(lists:last(Es)),
     case AllVars of
 	[] -> [];
 	[{_, _, Vars}] ->
-	    ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_api:bound_vars(Es)],
+	    ExprBdVarsPos = [Pos || {_Var, Pos} <- api_refac:bound_vars(Es)],
 	    [{V, DefPos} || {V, SourcePos, DefPos} <- Vars,
 			    SourcePos > EndLoc,
 			    lists:subtract(DefPos, ExprBdVarsPos) == []]

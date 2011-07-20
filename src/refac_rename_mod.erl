@@ -111,7 +111,7 @@ rename_mod_command(OldFileName, NewModName, SearchPaths, TabWidth) ->
 		  SearchPaths, command, TabWidth, "").
 
 rename_mod_command_precond_check(OldFileName, NewModName, Info, SearchPaths) ->
-    case refac_api:is_fun_name(NewModName) of
+    case api_refac:is_fun_name(NewModName) of
 	true ->
 	    case lists:keysearch(module, 1, Info) of
 		{value, {module, OldModName}} ->
@@ -158,7 +158,7 @@ rename_mod(FileName, NewName, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_mod(" ++ "\"" ++ 
 	    FileName ++ "\", " ++ NewName ++ "\"," ++ "[" ++ 
 	      refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    case refac_api:is_fun_name(NewName) of
+    case api_refac:is_fun_name(NewName) of
 	true ->
 	    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
 	    case lists:keysearch(module, 1, Info) of

@@ -54,7 +54,7 @@ select_focus(_Args=#args{current_file_name=File,
 check_pre_cond(Args=#args{focus_sel=FunDef,
                           user_inputs=[I]}) ->
     Ith=list_to_integer(I),
-    {_M,_F,A} = refac_api:fun_define_info(FunDef),                 
+    {_M,_F,A} = api_refac:fun_define_info(FunDef),
     case Ith>=1 andalso Ith=<A of 
         true ->
             check_pre_cond_1(Args);
@@ -70,9 +70,9 @@ check_pre_cond_1(_Args=#args{focus_sel=FunDef,
                                   lists:nth(Ith, Args@@),
                                   true)],
                         FunDef),
-    case lists:all(fun(A)->refac_api:type(A)==variable end, IthArgs) of 
+    case lists:all(fun(A) -> api_refac:type(A) == variable end, IthArgs) of
         true ->  
-            case lists:all(fun(A)->length(refac_api:var_refs(A))==0 end, IthArgs) of
+            case lists:all(fun(A) -> length(api_refac:var_refs(A)) == 0 end, IthArgs) of
                 true ->
                     ok;
                 _ ->
@@ -106,10 +106,10 @@ selective() ->
 %%--------------------------------------------------------------------
 transform(Args=#args{current_file_name=File,focus_sel=FunDef, 
                      user_inputs=[I]}) ->
-    {M,F,A} = refac_api:fun_define_info(FunDef),
+    {M,F,A} = api_refac:fun_define_info(FunDef),
     Ith = list_to_integer(I),
     {ok, Res}=transform_in_cur_file(Args, {M,F,A}, Ith),
-    case refac_api:is_exported({F,A}, File) of
+    case api_refac:is_exported({F,A}, File) of
         true ->
             {ok, Res1}=transform_in_client_files(Args, {M,F,A}, Ith),
             {ok, Res++Res1};
@@ -133,7 +133,7 @@ transform_in_client_files(_Args=#args{current_file_name=File,
                  rule3(MFA),
                  rule4(MFA,I),
                  rule5(MFA,I)],
-                refac_api:client_files(File, SearchPaths)).
+                api_refac:client_files(File, SearchPaths)).
 
 
 rule1({M,F,A}, Ith) ->
@@ -141,7 +141,7 @@ rule1({M,F,A}, Ith) ->
           begin NewArgs@@=delete(Ith, Args@@),
                 ?QUOTE("f@(NewArgs@@) when Guard@@->Bs@@;")
           end,
-          refac_api:fun_define_info(f@)=={M,F, A}
+          api_refac:fun_define_info(f@) == {M, F, A}
          ).
 
 rule2({M,F,A}, Ith) ->
@@ -149,13 +149,13 @@ rule2({M,F,A}, Ith) ->
           begin NewArgs@@=delete(Ith, Args@@),
                 ?QUOTE("F@(NewArgs@@)")
           end,
-          refac_api:fun_define_info(F@) == {M, F, A}).
+          api_refac:fun_define_info(F@) == {M, F, A}).
 
 rule3({M,F,A}) ->
     ?RULE(?T("F@"),
-          refac_api:make_arity_qualifier(F, A-1), 
-          refac_api:type(F@)==arity_qualifier andalso
-          refac_api:fun_define_info(F@) == {M, F, A}).
+          api_refac:make_arity_qualifier(F, A - 1),
+          api_refac:type(F@) == arity_qualifier andalso
+          api_refac:fun_define_info(F@) == {M, F, A}).
 
 
 rule4({M,F,A}, Ith)->
@@ -165,9 +165,9 @@ rule4({M,F,A}, Ith)->
               ?QUOTE("Fun@(N@@, M@, F@, [NewArgs@@])")
           end,
           begin
-              case refac_api:fun_define_info(Fun@) of
+              case api_refac:fun_define_info(Fun@) of
                   {erlang, apply, _} -> 
-                      refac_api:fun_define_info(F@)=={M,F,A};
+                      api_refac:fun_define_info(F@) == {M,F,A};
                   _ -> false
               end
           end).
@@ -179,9 +179,9 @@ rule5({M,F,A}, Ith)->
               ?QUOTE("F@(Fun@, [NewArgs@@])")
           end,
           begin
-              case refac_api:fun_define_info(F@) of
+              case api_refac:fun_define_info(F@) of
                   {erlang, apply, _} -> 
-                      refac_api:fun_define_info(Fun@)=={M,F,A};
+                      api_refac:fun_define_info(Fun@) == {M,F,A};
                   _ -> false
               end
           end).

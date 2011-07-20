@@ -66,7 +66,7 @@ expr_search_in_buffer(FileName, Start = {_Line, _Col}, End = {_Line1, _Col1}, Se
 		 [?MODULE, FileName, _Line, _Col, _Line1, _Col1, SearchPaths, TabWidth]),
     Es = get_expr_selected(FileName, Start, End, SearchPaths, TabWidth),
     Res = do_expr_search(FileName, Es, SearchPaths, TabWidth),
-    SE = refac_api:start_end_loc(Es),
+    SE = api_refac:start_end_loc(Es),
     Res1 = [{FileName, SE}| Res -- [{FileName, SE}]],
     refac_code_search_utils:display_search_results(Res1, none, "indentical").
 
@@ -99,7 +99,7 @@ expr_search_in_dirs(FileName, Start = {_Line, _Col}, End = {_Line1, _Col1}, Sear
     Files = [FileName| refac_misc:expand_files(SearchPaths, ".erl") -- [FileName]],
     Es = get_expr_selected(FileName, Start, End, SearchPaths, TabWidth),
     Res = lists:append([do_expr_search(F, Es, SearchPaths, TabWidth) || F <- Files]),
-    SE = refac_api:start_end_loc(Es),
+    SE = api_refac:start_end_loc(Es),
     Res1 = [{FileName, SE}| Res -- [{FileName, SE}]],
     refac_code_search_utils:display_search_results(Res1, none, "indentical").
 
@@ -144,13 +144,13 @@ search_one_expr(FileName, Tree, Exp) ->
     SimplifiedExp = simplify_expr(Exp),
     BdStructExp = refac_code_search_utils:var_binding_structure([Exp]),
     F = fun (T, Acc) ->
-		case refac_api:is_expr(T) orelse refac_syntax:type(T) == match_expr of
+		case api_refac:is_expr(T) orelse refac_syntax:type(T) == match_expr of
 		    true -> T1 = simplify_expr(T),
 			    case SimplifiedExp == T1 of
 				true ->
 				    case refac_code_search_utils:var_binding_structure([T]) of
 					BdStructExp ->
-					    StartEndLoc = refac_api:start_end_loc(T),
+					    StartEndLoc = api_refac:start_end_loc(T),
 					    [{FileName, StartEndLoc}| Acc];
 					_ -> Acc
 				    end;
@@ -182,8 +182,8 @@ get_clone(FileName, ExpList1, ExpList2) ->
 			true ->
 			    E1 = hd(List22),
 			    En = lists:last(List22),
-			    {StartLoc, _EndLoc} = refac_api:start_end_loc(E1),
-			    {_StartLoc1, EndLoc1} = refac_api:start_end_loc(En),
+			    {StartLoc, _EndLoc} = api_refac:start_end_loc(E1),
+			    {_StartLoc1, EndLoc1} = api_refac:start_end_loc(En),
 			    [{FileName, {StartLoc, EndLoc1}}] ++ get_clone(FileName, ExpList1, tl(ExpList2));
 			_ -> get_clone(FileName, ExpList1, tl(ExpList2))
 		    end;

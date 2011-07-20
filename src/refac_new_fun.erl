@@ -73,7 +73,7 @@ fun_extraction(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewFunName, T
 	    FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++ 
 	      "{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ NewFunName ++ "\","
         ++ integer_to_list(TabWidth) ++ ").",
-    case refac_api:is_fun_name(NewFunName) of
+    case api_refac:is_fun_name(NewFunName) of
 	true -> ok;
 	false -> throw({error, "Invalid function name!"})
     end,
@@ -117,7 +117,7 @@ get_free_bd_vars(ExpList) ->
 side_cond_analysis(FileName, Info, Fun, ExpList, NewFunName) ->
     funcall_replaceable(Fun, ExpList),
     {FrVars, _} = get_free_bd_vars(ExpList),
-    InScopeFuns = [{F, A} || {_M, F, A} <- refac_api:inscope_funs(Info)],
+    InScopeFuns = [{F, A} || {_M, F, A} <- api_refac:inscope_funs(Info)],
     case lists:member({NewFunName, length(FrVars)}, InScopeFuns) orelse 
 	   erl_internal:bif(erlang, NewFunName, length(FrVars))
 	of
@@ -131,7 +131,7 @@ side_cond_analysis(FileName, Info, Fun, ExpList, NewFunName) ->
 
 funcall_replaceable(Fun,[Exp]) ->
     check_expr_category(Fun, Exp),
-    {StartPos, EndPos} = refac_api:start_end_loc(Exp),
+    {StartPos, EndPos} = api_refac:start_end_loc(Exp),
     Ranges = collect_prime_expr_ranges(Fun),
     Res = lists:any(
 	    fun ({StartPos1, EndPos1}) ->
@@ -177,7 +177,7 @@ check_expr_category_1(Exp) ->
 
 is_macro_arg(Fun, Exp) ->
     MacroArgRanges = collect_macro_arg_ranges(Fun),
-    {Start, End} = refac_api:start_end_loc(Exp),
+    {Start, End} = api_refac:start_end_loc(Exp),
     lists:any(fun ({S1, E1}) ->
 		      S1 =< Start andalso End =< E1
 	      end, MacroArgRanges).
@@ -187,7 +187,7 @@ collect_prime_expr_ranges(Tree) ->
 		case refac_syntax:type(T) of
 		    application ->
 			Operator = refac_syntax:application_operator(T),
-			Range = refac_api:start_end_loc(Operator),
+			Range = api_refac:start_end_loc(Operator),
 			S ++ [Range];
 		    _ -> S
 		end
@@ -202,7 +202,7 @@ collect_macro_arg_ranges(Node) ->
 			  case Args of
 			      none -> Acc;
 			      _ ->
-				  [refac_api:start_end_loc(A) || A <- Args] ++ Acc
+				  [api_refac:start_end_loc(A) || A <- Args] ++ Acc
 			  end;
 		      _ -> Acc
 		  end
@@ -299,7 +299,7 @@ do_fun_extraction(FileName, AnnAST, ExpList, NewFunName, ParNames, VarsToExport,
                            match_expr ->
                                Pat = refac_syntax:match_expr_pattern(E),
                                case refac_syntax:type(Pat)==variable andalso 
-                                   refac_api:free_vars(Pat) == [] of
+                                   api_refac:free_vars(Pat) == [] of
                                    true ->
                                        lists:reverse([refac_syntax:match_expr_body(E)|Es]);
                                    false ->
@@ -378,8 +378,8 @@ replace_expr_with_fun_call(Form, ExpList, NewFunName, ParNames, VarsToExport) ->
     end.
 
 do_replace_expr_with_fun_call_1(Tree, {NewExpr, Expr}) ->
-    Range = refac_api:start_end_loc(Expr),
-    case refac_api:start_end_loc(Tree) of
+    Range = api_refac:start_end_loc(Expr),
+    case api_refac:start_end_loc(Tree) of
 	Range ->
 	    case refac_syntax:type(Tree) of
 		binary_field ->
@@ -390,18 +390,18 @@ do_replace_expr_with_fun_call_1(Tree, {NewExpr, Expr}) ->
     end.
 
 do_replace_expr_with_fun_call_2(Tree, {MApp, ExpList}) ->
-    Range1 = refac_api:start_end_loc(hd(ExpList)),
-    Range2 = refac_api:start_end_loc(lists:last(ExpList)),
+    Range1 = api_refac:start_end_loc(hd(ExpList)),
+    Range2 = api_refac:start_end_loc(lists:last(ExpList)),
     Fun = fun (Exprs) ->
 		  {Exprs1, Exprs2} = lists:splitwith(
 				       fun (E) ->
-                                               refac_api:start_end_loc(E) =/= Range1
+                                               api_refac:start_end_loc(E) =/= Range1
 				       end, Exprs),
 		  case Exprs2 of
 		      [] -> {Exprs, false};
 		      _ -> {Exprs21, Exprs22} =
 			       lists:splitwith(fun (E) ->
-                                                       refac_api:start_end_loc(E) =/= Range2
+                                                       api_refac:start_end_loc(E) =/= Range2
 					       end, Exprs2),
 			   case Exprs22 of
 			       [] -> {Exprs, false}; %% THIS SHOULD NOT HAPPEN.
@@ -489,7 +489,7 @@ filter_exprs_via_ast(Tree, ExpList) ->
     end.
 
 get_node_toks(FileName,Toks, Node) ->
-    {Start, End} = refac_api:start_end_loc(Node),
+    {Start, End} = api_refac:start_end_loc(Node),
     case Start =={0,0} orelse End=={0,0} of
 	true -> [];
 	false ->
@@ -512,7 +512,7 @@ get_start_end_loc_with_comment(Node) when is_list(Node) ->
     {S, E};
 
 get_start_end_loc_with_comment(Node) ->
-    {Start, End} = refac_api:start_end_loc(Node),
+    {Start, End} = api_refac:start_end_loc(Node),
     PreCs = refac_syntax:get_precomments(Node),
     PostCs = refac_syntax:get_postcomments(Node),
     Start1 = case PreCs of

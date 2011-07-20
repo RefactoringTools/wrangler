@@ -112,7 +112,7 @@ collect_process_initial_funs(SearchPaths, TabWidth) ->
 collect_process_initial_funs_1({FileName, AnnAST, Info}, _SearchPaths) ->
     ModName = get_module_name(FileName, Info),
     HandleSpecialFuns = fun (Node) ->
-				{{Ln, _}, _} = refac_api:start_end_loc(Node),
+				{{Ln, _}, _} = api_refac:start_end_loc(Node),
 				Op = refac_syntax:application_operator(Node),
 				Arguments = refac_syntax:application_arguments(Node),
 				Ann = refac_syntax:get_ann(Op),
@@ -246,7 +246,7 @@ do_add_tag_to_send_exprs(Node, {_ModName, Tag, AffectedInitialFuns}) ->
     case refac_syntax:type(Node) of
 	infix_expr ->
 	    case is_send_expr(Node) of
-		true -> {{_Ln, _}, _} = refac_api:start_end_loc(Node),
+		true -> {{_Ln, _}, _} = api_refac:start_end_loc(Node),
 			Dest = refac_syntax:infix_expr_left(Node),
 			Msg = refac_syntax:infix_expr_right(Node),
 			Ann = refac_syntax:get_ann(Dest),
@@ -480,7 +480,7 @@ forward_slice([{FileName, Expr}|T], SearchPaths, Acc, TabWidth) ->
 
 forward_slice_1(FileName, Expr, SearchPaths, TabWidth) ->
     Files = refac_misc:expand_files(SearchPaths, ".erl"),
-    {StartPos, EndPos} = refac_api:start_end_loc(Expr),
+    {StartPos, EndPos} = api_refac:start_end_loc(Expr),
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     ModName = get_module_name(FileName, Info),
     case api_interface:pos_to_expr(AnnAST, StartPos, EndPos) of

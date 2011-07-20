@@ -510,7 +510,7 @@ get_start_end_loc_with_comment(Node) when is_list(Node) ->
     {_, End} = get_start_end_loc_with_comment(lists:last(Node)),
     {Start, End};
 get_start_end_loc_with_comment(Node) ->
-    {Start={_StartLn, StartCol}, End} = refac_api:start_end_loc(Node),
+    {Start={_StartLn, StartCol}, End} = api_refac:start_end_loc(Node),
     PreCs = refac_syntax:get_precomments(Node),
     PostCs = refac_syntax:get_postcomments(Node),
     Start1 = case PreCs of
@@ -588,7 +588,7 @@ try_eval(FileName, Node, SearchPaths, TabWidth) ->
         {value, Val, _} -> {value, Val}
     catch
       _:_ ->
-	  case has_macros(Node) andalso refac_api:free_vars(Node) == [] of
+	  case has_macros(Node) andalso api_refac:free_vars(Node) == [] of
 	    true ->
 		Dir = filename:dirname(FileName),
 		DefaultIncl2 = [filename:join(Dir, X) || X <- default_incls()],
@@ -625,8 +625,8 @@ try_eval(FileName, Node, SearchPaths, TabWidth) ->
 %%-spec get_toks(filename(), syntaxTree(), integer()) ->
 %%		      [token()].
 get_toks(FileName, Node, TabWidth) ->
-    Toks = refac_api:tokenize(FileName, false, TabWidth),
-    {StartPos, EndPos} = refac_api:start_end_loc(Node),
+    Toks = api_refac:tokenize(FileName, false, TabWidth),
+    {StartPos, EndPos} = api_refac:start_end_loc(Node),
     Toks1 = lists:dropwhile(fun (T) ->
 				    token_loc(T) < StartPos
 			    end, Toks),

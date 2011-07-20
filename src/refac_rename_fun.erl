@@ -95,7 +95,7 @@ rename_fun_by_name(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths, Ed
 	    throw({error, "New function name is the same as old function name!"});
 	false -> ok
     end,
-    case refac_api:is_fun_name(NewFunNameStr) of
+    case api_refac:is_fun_name(NewFunNameStr) of
 	true -> ok;
 	false -> throw({error, "Invalid new function name!"})
     end,
@@ -136,8 +136,8 @@ rename_fun_command_1(FileName, OldFunName, Arity, NewFunName, SearchPaths, TabWi
     end.
 
 pre_cond_check_command(Info, NewFunNameAtom, ModName, OldFunNameAtom, Arity) ->
-    DefinedFuns = [{F, A} || {M, F, A} <- refac_api:inscope_funs(Info), M == ModName],
-    InscopeFuns = [{F, A} || {_M, F, A} <- refac_api:inscope_funs(Info)],
+    DefinedFuns = [{F, A} || {M, F, A} <- api_refac:inscope_funs(Info), M == ModName],
+    InscopeFuns = [{F, A} || {_M, F, A} <- api_refac:inscope_funs(Info)],
     case  not  lists:member({OldFunNameAtom, Arity}, DefinedFuns) of
 	true ->
             Msg=io_lib:format("The function specified does not exist: ~p!", 
@@ -163,7 +163,7 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 	     FileName ++ "\", " ++ integer_to_list(Line) ++ 
 	       ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
        ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    case refac_api:is_fun_name(NewName) of
+    case api_refac:is_fun_name(NewName) of
 	true -> ok;
 	false -> throw({error, "Invalid new function name!"})
     end,
@@ -199,7 +199,7 @@ rename_fun_0(FileName, {AnnAST, Info}, {Mod, OldFunNameAtom, Arity}, {DefinePos,
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     {AnnAST1, _C} = do_rename_fun(AnnAST, {Mod, OldFunNameAtom, Arity}, {DefinePos, NewNameAtom}),
     refac_atom_utils:check_unsure_atoms(FileName, AnnAST1, [OldFunNameAtom], {f_atom, {Mod, OldFunNameAtom, Arity}}, Pid),
-    case refac_api:is_exported({OldFunNameAtom, Arity}, Info) of
+    case api_refac:is_exported({OldFunNameAtom, Arity}, Info) of
 	true ->
 	    ?wrangler_io("\nChecking possible client modules in the following search paths: \n~p\n", [SearchPaths]),
 	    ClientFiles = wrangler_modulegraph_server:get_client_files(FileName, SearchPaths),
@@ -248,7 +248,7 @@ rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     Pid = refac_atom_utils:start_atom_process(),
     {AnnAST1, _C} = do_rename_fun(AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}),
-    case refac_api:is_exported({Fun, Arity}, Info) of
+    case api_refac:is_exported({Fun, Arity}, Info) of
 	true ->
 	    ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
 	    ClientFiles = wrangler_modulegraph_server:get_client_files(FileName, SearchPaths),
@@ -274,7 +274,7 @@ rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 
 pre_cond_check(FileName, Info, NewFunName, OldFunDefMod, OldFunName, Arity) ->
     {ok, ModName} = get_module_name(Info),
-    Inscope_Funs = [{F, A} || {_M, F, A} <- refac_api:inscope_funs(Info)],
+    Inscope_Funs = [{F, A} || {_M, F, A} <- api_refac:inscope_funs(Info)],
     if OldFunDefMod == ModName ->
 	   case lists:member({NewFunName, Arity}, Inscope_Funs) orelse 
 		  erl_internal:bif(erlang, NewFunName, Arity)
@@ -415,7 +415,7 @@ rename_fun_in_client_module_1({Tree, Info}, {M, OldName, Arity}, NewNameStr) ->
     NewNameAtom = list_to_atom(NewNameStr),
     case lists:keysearch(module, 1, Info) of
 	{value, {module, ClientModName}} ->
-	    Inscope_Funs = [{F, A} || {_M, F, A} <- refac_api:inscope_funs(Info)],
+	    Inscope_Funs = [{F, A} || {_M, F, A} <- api_refac:inscope_funs(Info)],
 	    case lists:member({NewNameAtom, Arity}, Inscope_Funs)
 		    and lists:member({OldName, Arity}, Inscope_Funs)
 		of

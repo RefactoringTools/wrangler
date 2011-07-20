@@ -58,7 +58,7 @@ intro_new_var(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewVarName0, S
 	    FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ 
 	      integer_to_list(Col) ++ "}," ++ "{" ++ integer_to_list(Line1) ++ ", "
         ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ NewVarName0 ++ "\"," ++ integer_to_list(TabWidth) ++ ").",
-    case refac_api:is_var_name(NewVarName0) of
+    case api_refac:is_var_name(NewVarName0) of
 	true -> ok;
 	false -> throw({error, "Invalid new variable name."})
     end,
@@ -98,8 +98,8 @@ intro_new_var_1(FileName, AnnAST, Fun, Expr, NewVarName, Editor, TabWidth, Cmd) 
 cond_check(Form, Expr, NewVarName) ->
     ok=variable_replaceable(Expr),
     {Body, Statement} = get_inmost_enclosing_body_expr(Form, Expr),
-    ExprFVs = refac_api:free_vars(Expr),
-    SEnvs = refac_api:env_vars(Statement),
+    ExprFVs = api_refac:free_vars(Expr),
+    SEnvs = api_refac:env_vars(Statement),
     Vs = [V||{V, Loc}<-ExprFVs--SEnvs, Loc/={0,0}],
     case Vs of
         [] ->
@@ -189,7 +189,7 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
           end,
     {Body1, Body2} = lists:splitwith(
                        fun(E) ->
-                               {Start, End} = refac_api:start_end_loc(E),
+                               {Start, End} = api_refac:start_end_loc(E),
                                not (Start=<ExprPos andalso ExprPos=<End)
                        end, Body),
     NewBody =case Body2 of 
@@ -205,8 +205,8 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
                                  {[], []} ->
                                      [B1,refac_syntax:add_ann({layout, vertical}, B2)];
                                  {[], [B3|Bs1]} ->
-                                     {{BL, _}, _} = refac_api:start_end_loc(B),
-                                     {{B3L, _},_} = refac_api:start_end_loc(B3),
+                                     {{BL, _}, _} = api_refac:start_end_loc(B),
+                                     {{B3L, _},_} = api_refac:start_end_loc(B3),
                                      case BL==B3L of 
                                          true ->
                                              B21=refac_syntax:add_ann({layout, horizontal}, B2),
@@ -218,8 +218,8 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
                                              [B1, B21, B31|Bs1]
                                      end;
                                  {[B0|_], []} ->
-                                     {{B0L, _},_} =refac_api:start_end_loc(B0),
-                                     {{BL, _}, _} = refac_api:start_end_loc(B),
+                                     {{B0L, _},_} =api_refac:start_end_loc(B0),
+                                     {{BL, _}, _} = api_refac:start_end_loc(B),
                                      case B0L==BL of 
                                          true ->
                                      B21=refac_syntax:add_ann({layout, horizontal}, B2),
@@ -229,15 +229,15 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
                                              Body1++[B1, B21]
                                      end;
                                  {[B0|_], [B3|Bs1]} ->
-                                     {{B0L, _},_} =refac_api:start_end_loc(B0),
-                                     {{BL, _}, _} = refac_api:start_end_loc(B),
+                                     {{B0L, _},_} =api_refac:start_end_loc(B0),
+                                     {{BL, _}, _} = api_refac:start_end_loc(B),
                                      B21= case B0L==BL of 
                                               true ->
                                           refac_syntax:add_ann({layout, horizontal}, B2);
                                               false->
                                                   refac_syntax:add_ann({layout, vertical}, B2)
                                           end,
-                                     {{B3L, _},_} = refac_api:start_end_loc(B3),
+                                     {{B3L, _},_} = api_refac:start_end_loc(B3),
                                      case BL==B3L of 
                                          true ->
                                              B31=refac_syntax:add_ann({layout, horizontal}, B3),
@@ -300,8 +300,8 @@ get_inmost_enclosing_clause(Form, Expr) ->
 				     try_expr ->
 					 refac_syntax:try_expr_body(Node)
 				 end,
-			  {Start, _End} = refac_api:start_end_loc(hd(Body)),
-			  {_, End} = refac_api:start_end_loc(lists:last(Body)),
+			  {Start, _End} = api_refac:start_end_loc(hd(Body)),
+			  {_, End} = api_refac:start_end_loc(lists:last(Body)),
 			  case Start =< ExprPos andalso ExprPos =< End of
 			      true ->
 				  [{Node, End}| S];
@@ -332,8 +332,8 @@ get_inmost_enclosing_body_expr(Form, Expr) ->
 				     try_expr ->
 					 refac_syntax:try_expr_body(Node)
 				 end,
-			  {Start, _End} = refac_api:start_end_loc(hd(Body)),
-			  {_, End} = refac_api:start_end_loc(lists:last(Body)),
+			  {Start, _End} = api_refac:start_end_loc(hd(Body)),
+			  {_, End} = api_refac:start_end_loc(lists:last(Body)),
 			  case Start =< ExprPos andalso ExprPos =< End of
 			      true ->
 				  EnclosingExpr = get_enclosing_expr(Body, Expr),
@@ -355,7 +355,7 @@ get_inmost_enclosing_body_expr(Form, Expr) ->
 get_enclosing_expr(Body, Expr) ->
     ExprPos = refac_syntax:get_pos(Expr),
     Fun = fun (ExprStatement) ->
-		  {Start, End} = refac_api:start_end_loc(ExprStatement),
+		  {Start, End} = api_refac:start_end_loc(ExprStatement),
 		  case Start =< ExprPos andalso  ExprPos =< End of
 		      true ->
 			  [ExprStatement];

@@ -179,7 +179,7 @@ do_search_candidate_exprs_1(AnnAST, MacroBody, MacroParNames) ->
 			      true ->
 				  case expr_unification(MacroBody, T, MacroParNames) of
 				      {true, Subst} ->
-					  S ++ [{refac_api:start_end_loc(T), Subst}];
+					  S ++ [{api_refac:start_end_loc(T), Subst}];
 				      _ -> S
 				  end;
 			      _ -> S
@@ -222,8 +222,8 @@ get_candidate_exprs(Exprs, Len, MacroBody, MacroParNames) ->
 			  true ->
 			      case expr_unification(MacroBody, E, MacroParNames) of
 				  {true, Subst} ->
-				      {StartLoc1, _EndLoc1} = refac_api:start_end_loc(hd(E)),
-				      {_StartLoc2, EndLoc2} = refac_api:start_end_loc(lists:last(E)),
+				      {StartLoc1, _EndLoc1} = api_refac:start_end_loc(hd(E)),
+				      {_StartLoc2, EndLoc2} = api_refac:start_end_loc(lists:last(E)),
 				      {{StartLoc1, EndLoc2}, Subst};
 				  _ -> false
 			      end;
@@ -301,7 +301,7 @@ pos_to_macro_define_1(Node, Pos) ->
     case refac_syntax:type(Node) of
 	attribute -> case refac_syntax:atom_value(refac_syntax:attribute_name(Node)) of
 			 define ->
-			     {S, E} = refac_api:start_end_loc(Node),
+			     {S, E} = api_refac:start_end_loc(Node),
 			     case (S =< Pos) and (Pos =< E) of
 				 true ->
 				     {Node, true};
@@ -314,7 +314,7 @@ pos_to_macro_define_1(Node, Pos) ->
     end.
 
 is_expr_or_pat(Node) ->
-    refac_api:is_expr(Node) orelse refac_api:is_pattern(Node).
+    api_refac:is_expr(Node) orelse api_refac:is_pattern(Node).
 
 %%==========================================================================
 

@@ -140,7 +140,7 @@ generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPa
 	    FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++ 
 	      "{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ ParName ++ "\","
        ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    case refac_api:is_var_name(ParName) of
+    case api_refac:is_var_name(ParName) of
 	false -> throw({error, "Invalid parameter name!"});
 	true -> ok
     end,
@@ -162,7 +162,7 @@ generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPa
     NoOfClauses = length(refac_syntax:function_clauses(Fun)),
     FunName = refac_syntax:data(refac_syntax:function_name(Fun)),
     FunArity = refac_syntax:function_arity(Fun),
-    Inscope_Funs = [{F, A} || {_M, F, A} <- refac_api:inscope_funs(Info)],
+    Inscope_Funs = [{F, A} || {_M, F, A} <- api_refac:inscope_funs(Info)],
     NewArity = FunArity + 1,
     case lists:member({FunName, NewArity}, Inscope_Funs) orelse erl_internal:bif(erlang, FunName, NewArity) of
 	true -> throw({error, "Function " ++ 
@@ -270,8 +270,8 @@ gen_fun_clause_1(FileName, ParName, FunName, _Arity, DefPos, Exp0, SearchPaths, 
 				Cs = refac_syntax:function_clauses(Form),
 				Cs1 = [replace_clause_body(C, FunName, Exp, Exp1) || C <- Cs],
 				Form1 = refac_misc:rewrite(Form, refac_syntax:function(refac_syntax:atom(FunName), Cs1)),
-				ClauseToGen = hd(lists:filter(fun (C) -> {EStart, EEnd} = refac_api:start_end_loc(Exp),
-									 {CStart, CEnd} = refac_api:start_end_loc(C),
+				ClauseToGen = hd(lists:filter(fun (C) -> {EStart, EEnd} = api_refac:start_end_loc(Exp),
+									 {CStart, CEnd} = api_refac:start_end_loc(C),
 									 CStart =< EStart andalso EEnd =< CEnd
 							      end, Cs)),
 				ClauseToGen1 = replace_exp_with_var(ClauseToGen, {ParName, Exp, SideEffect, Dups}),
@@ -288,7 +288,7 @@ gen_fun_clause_1(FileName, ParName, FunName, _Arity, DefPos, Exp0, SearchPaths, 
     refac_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}], Editor, TabWidth, LogCmd).
 
 make_actual_parameter(ModName, Exp, SideEffect) ->
-    FreeVars = [V || {V, _} <- refac_api:free_vars(Exp)],
+    FreeVars = [V || {V, _} <- api_refac:free_vars(Exp)],
     case FreeVars of
 	[] ->
 	    case refac_syntax:type(Exp) of
@@ -338,7 +338,7 @@ gen_cond_analysis(Fun, Exp, ParName) ->
 		    throw({error, "Generalisation over a function application "
                            "in a guard expression is not supported."});
 		_ ->
-		    case refac_api:free_vars(Exp) of
+		    case api_refac:free_vars(Exp) of
 			[] -> ok;
 			_ ->
 			    throw({error,"Generalisation over an expression with free variables in "
@@ -347,8 +347,8 @@ gen_cond_analysis(Fun, Exp, ParName) ->
 	    end;
 	_ -> ok
     end,
-    Exp_Free_Vars = refac_api:free_vars(Exp),
-    Exp_Export_Vars = refac_api:exported_vars(Exp),
+    Exp_Free_Vars = api_refac:free_vars(Exp),
+    Exp_Export_Vars = api_refac:exported_vars(Exp),
     case Exp_Export_Vars of
 	[_| _] ->
 	    throw({error, "Wrangler does not support generalisation "
@@ -356,7 +356,7 @@ gen_cond_analysis(Fun, Exp, ParName) ->
 	_ -> ok
     end,
     F = fun (Node, Acc) ->
-		refac_api:bound_vars(Node) ++ Acc
+		api_refac:bound_vars(Node) ++ Acc
 	end,
     Vars0 = lists:foldl(fun (C, Acc) ->
 				api_ast_traverse:fold(F, [], C) ++ Acc
@@ -445,8 +445,8 @@ do_gen_fun(Tree, {FileName, ParName, FunName, Arity, DefPos, Info, Exp,
     end.
 
 replace_clause_body(C, FunName, Exp, ActualPar) ->
-    {EStart, EEnd} = refac_api:start_end_loc(Exp),
-    {CStart, CEnd} = refac_api:start_end_loc(C),
+    {EStart, EEnd} = api_refac:start_end_loc(Exp),
+    {CStart, CEnd} = api_refac:start_end_loc(C),
     case CStart =< EStart andalso EEnd =< CEnd of
 	true ->
 	    Pats = refac_syntax:clause_patterns(C),
@@ -465,10 +465,10 @@ replace_exp_with_var(Tree, {ParName, Exp, SideEffect, Dups}) ->
     Tree1.
 
 do_replace_exp_with_var(Tree, {ParName, Exp, SideEffect, Dups}) ->
-    Range = refac_api:start_end_loc(Exp),
-    case lists:member(refac_api:start_end_loc(Tree), [Range| Dups]) of
+    Range = api_refac:start_end_loc(Exp),
+    case lists:member(api_refac:start_end_loc(Tree), [Range| Dups]) of
 	true ->
-	    FreeVars = [V || {V, _} <- refac_api:free_vars(Exp)],
+	    FreeVars = [V || {V, _} <- api_refac:free_vars(Exp)],
 	    Pars = [refac_syntax:variable(P) || P <- FreeVars],
 	    case SideEffect of
 		false ->
@@ -642,7 +642,7 @@ add_parameter(C, NewPar) ->
     refac_misc:rewrite(C, refac_syntax:clause(Pats1, G, Body)).
 
 to_keep_original_fun(FileName, AnnAST, ModName, FunName, Arity, Exp, Info) ->
-    refac_api:is_exported({FunName, Arity}, Info) orelse
+    api_refac:is_exported({FunName, Arity}, Info) orelse
       is_eunit_special_function(FileName, atom_to_list(FunName), Arity) orelse 
 	has_unsure_atoms(AnnAST, [FunName], f_atom) orelse 
 	  check_implicit_and_apply_style_calls(AnnAST, ModName, FunName, Arity) orelse 
@@ -733,7 +733,7 @@ has_multiple_definitions(AnnAST, ModName, FunName, Arity) ->
 
 check_side_effect(FileName, Exp, SearchPaths) ->
     case api_side_effect:has_side_effect(FileName, Exp, SearchPaths) of
-	unknown -> case refac_api:free_vars(Exp) of
+	unknown -> case api_refac:free_vars(Exp) of
 		       [] -> unknown;
 		       _ -> true
 		   end;
@@ -766,8 +766,8 @@ get_module_name(ModInfo) ->
 
 expr_to_fun_clause(FunDef, Expr) ->
     Cs = refac_syntax:function_clauses(FunDef),
-    {EStart, EEnd} = refac_api:start_end_loc(Expr),
-    Res = [C || C <- Cs, {CStart, CEnd} <- [refac_api:start_end_loc(C)],
+    {EStart, EEnd} = api_refac:start_end_loc(Expr),
+    Res = [C || C <- Cs, {CStart, CEnd} <- [api_refac:start_end_loc(C)],
 		CStart =< EStart, EEnd =< CEnd],
     case Res of
 	[] ->
@@ -796,7 +796,7 @@ search_duplications(Tree, Exp) ->
     case refac_syntax:is_literal(Exp) of
 	true ->
 	    Es = lists:reverse(api_ast_traverse:fold(F, [], Tree)),
-	    [refac_api:start_end_loc(E) || E <- Es];
+	    [api_refac:start_end_loc(E) || E <- Es];
 	_ -> []
     end.
 	

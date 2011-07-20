@@ -247,7 +247,7 @@ get_funs(File, OnlyAPIs) ->
 			false ->
 			    case OnlyAPIs of
 				true ->
-				    case refac_api:is_exported({F,A}, Info) of
+				    case api_refac:is_exported({F,A}, Info) of
 					true ->
 					    [{M, F, A}];
 					false ->

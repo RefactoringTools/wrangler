@@ -175,14 +175,14 @@ pre_cond_check(RecordName, FieldNames, ModInfo) ->
     check_existing_records(list_to_atom(RecordName),  FieldNames1, ModInfo).
 
 check_record_and_field_names(RecordName, FieldNames) ->
-    case refac_api:is_fun_name(RecordName) of
+    case api_refac:is_fun_name(RecordName) of
 	true ->
 	    ok;
 	_ -> throw({error, "Invalid record name."})
     end,
     lists:foreach(
       fun (F) ->
-	      case refac_api:is_fun_name(F) of
+	      case api_refac:is_fun_name(F) of
 		  true ->
 		      ok;
 		  _ -> throw({error, "Invalid field name: " ++ F ++ "."})
@@ -708,7 +708,7 @@ check_use_of_run_commands(Form, SM) ->
 					      [_H, S, _Res] ->
 						  case refac_syntax:type(S) of
 						      variable ->
-							  case refac_api:free_vars(S) of
+							  case api_refac:free_vars(S) of
 							      [] ->
 								  {[refac_syntax:get_pos(S)| Acc1],
 								   [refac_syntax:get_pos(B)| Acc2]};
@@ -781,9 +781,9 @@ wrap_run_commands_result(Node, {RecordName, RecordFields, DefPs, IsTuple, UsedVa
 
 transform_run_command(Node, UsedVars, RecordName, RecordFields, IsTuple, SM) ->
     Node1 = refac_misc:reset_attrs(Node),
-    H = refac_syntax:variable(refac_api:make_new_name('H', UsedVars)),
-    S = refac_syntax:variable(refac_api:make_new_name('S', UsedVars)),
-    Res = refac_syntax:variable(refac_api:make_new_name('Res', UsedVars)),
+    H = refac_syntax:variable(api_refac:make_new_name('H', UsedVars)),
+    S = refac_syntax:variable(api_refac:make_new_name('S', UsedVars)),
+    Res = refac_syntax:variable(api_refac:make_new_name('Res', UsedVars)),
     Es = [H, S, Res],
     Tuple = refac_syntax:tuple(Es),
     Expr1 = refac_syntax:match_expr(Tuple, Node1),
@@ -875,14 +875,14 @@ is_callback_fun_app(Node, ModName, StateFuns, SM) ->
 record_to_tuple_fun_name(ModInfo, Funs, RecordName, RecordFields) ->
     FunName = list_to_atom(atom_to_list(RecordName) ++ "_to_tuple"),
     {value, {module, ModName}} = lists:keysearch(module, 1, ModInfo),
-    InscopeFuns = refac_api:inscope_funs(ModInfo),
+    InscopeFuns = api_refac:inscope_funs(ModInfo),
     gen_fun_name(ModName, Funs, RecordName, RecordFields,
 		 FunName, InscopeFuns, 0, record_to_tuple).
 
 tuple_to_record_fun_name(ModInfo, Funs, RecordName, RecordFields) ->
     FunName = list_to_atom("tuple_to_" ++ atom_to_list(RecordName)),
     {value, {module, ModName}} = lists:keysearch(module, 1, ModInfo),
-    InscopeFuns = refac_api:inscope_funs(ModInfo),
+    InscopeFuns = api_refac:inscope_funs(ModInfo),
     gen_fun_name(ModName, Funs, RecordName, RecordFields,
 		 FunName, InscopeFuns, 0, tuple_to_record).
 

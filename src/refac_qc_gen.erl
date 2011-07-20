@@ -108,7 +108,7 @@ do_collect_parameters(AnnAST, {M, F, A}) ->
 			  case lists:keysearch(fun_def, 1, As) of
 			      {value, {fun_def, {M, F, A, _, _}}} ->
 				  Args = refac_syntax:application_arguments(Node),
-				  case refac_api:free_vars(Args) of
+				  case api_refac:free_vars(Args) of
 				      [] ->
 					  [Args| Acc];
 				      _ -> Acc

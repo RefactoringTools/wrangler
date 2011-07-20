@@ -124,7 +124,7 @@ tuple_par_0(FileName, AnnAST, Info, FunName, Arity, Index, Num, SearchPaths, Tab
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     {ok, FunDefMod} = get_module_name(FileName, Info),
     AnnAST1 = tuple_pars(FileName, AnnAST, FunDefMod, FunName, Arity, Index, Num, Info, SearchPaths, TabWidth),
-    case refac_api:is_exported({FunName, Arity}, Info) of
+    case api_refac:is_exported({FunName, Arity}, Info) of
 	true ->
 	    ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
 	    ClientFiles = wrangler_modulegraph_server:get_client_files(FileName, SearchPaths),
@@ -142,7 +142,7 @@ tuple_par_0(FileName, AnnAST, Info, FunName, Arity, Index, Num, SearchPaths, Tab
     end.
 
 pre_cond_check(FileName, FunName, OldArity, NewArity, Info) ->
-    Inscope_Funs = [{F, A} || {_M, F, A} <- refac_api:inscope_funs(Info)],
+    Inscope_Funs = [{F, A} || {_M, F, A} <- api_refac:inscope_funs(Info)],
     case lists:member({FunName, NewArity}, Inscope_Funs) orelse 
 	   erl_internal:bif(erlang, FunName, NewArity)
 	of
@@ -238,7 +238,7 @@ pos_to_pars(AnnAST, StartLoc, EndLoc) ->
 	    FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
 	    FunArity = refac_syntax:function_arity(FunDef),
 	    Cs = refac_syntax:function_clauses(FunDef),
-	    C = [C || C <- Cs, {StartLoc1, EndLoc1} <- [refac_api:start_end_loc(C)],
+	    C = [C || C <- Cs, {StartLoc1, EndLoc1} <- [api_refac:start_end_loc(C)],
 		      StartLoc1 =< StartLoc, EndLoc =< EndLoc1],
 	    case C of
 		[] -> throw({error, "You have not selected a sequence parameters,"
@@ -247,12 +247,12 @@ pos_to_pars(AnnAST, StartLoc, EndLoc) ->
 		    Pars = refac_syntax:clause_patterns(C1),
 		    {Pars1, Pars2} = lists:splitwith(
 				       fun (P) ->
-					       {S, _E} = refac_api:start_end_loc(P),
+					       {S, _E} = api_refac:start_end_loc(P),
 					       S < StartLoc
 				       end, Pars),
 		    {Pars21, _Pars22} = lists:splitwith(
 					  fun (P) ->
-						  {_S, E} = refac_api:start_end_loc(P),
+						  {_S, E} = api_refac:start_end_loc(P),
 						  E =< EndLoc
 					  end, Pars2),
 		    case Pars21 of
@@ -297,7 +297,7 @@ tuple_pars(FileName, AnnAST, ModName, FunName, Arity, Index, Num, Info, SearchPa
     Args = {FileName, ModName, ModName, FunName, Arity, Index, Num, SearchPaths, TabWidth},
     Forms1 = [F1 || F <- Forms, F1 <- do_tuple_fun_pars(F, Args)],
     AnnAST1 = refac_syntax:form_list(Forms1),
-    case refac_api:is_exported({FunName, Arity}, Info) of
+    case api_refac:is_exported({FunName, Arity}, Info) of
 	true ->
 	    AnnAST1;
 	false ->

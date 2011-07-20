@@ -161,7 +161,7 @@ same_type_expr_unification(Exp1, Exp2, Type,CheckGen) ->
 	    Args1 = refac_syntax:application_arguments(Exp1),
 	    Args2 = refac_syntax:application_arguments(Exp2),
 	    case refac_syntax:type(Op)==variable andalso Args1==[] andalso
-		    Args2 /= [] andalso refac_api:free_vars(Exp2) == []
+		      Args2 /= [] andalso api_refac:free_vars(Exp2) == []
 	    of
 		true ->
 		    OpName = refac_syntax:variable_name(Op),

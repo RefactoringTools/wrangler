@@ -2146,7 +2146,7 @@ get_end_loc(Node) ->
     {_, L} = get_start_end_loc(Node),
     L.
 get_start_end_loc(Node)->
-    refac_api:start_end_loc(Node).
+    api_refac:start_end_loc(Node).
 
 get_start_line_with_comment(Node) ->
     {{L, _}, _} = refac_misc:get_start_end_loc_with_comment(Node),

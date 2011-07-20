@@ -209,7 +209,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
     F1 = fun (T) ->
 		 {T1, _} = api_ast_traverse:stop_tdTP(F0, T, []),
 		 HashVal = erlang:md5(format(T1)),
-		 {S, E} = refac_api:start_end_loc(T),
+		 {S, E} = api_refac:start_end_loc(T),
 		 insert_hash(Pid, HashVal, {{FName, FunName, Arity}, S, E}),
 		 T1
 	 end,
@@ -218,7 +218,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
 	    Body = refac_syntax:clause_body(Node),
 	    [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
 	     || E <- Body,
-		{StartLoc, EndLoc} <- [refac_api:start_end_loc(E)]],
+		{StartLoc, EndLoc} <- [api_refac:start_end_loc(E)]],
 	    insert_dummy_entry(Pid),
 	    _NewBody = [F1(E) || E <- Body],
 	    {Node, true};
@@ -227,7 +227,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
 	    Body = refac_syntax:block_expr_body(Node),
 	    [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
 	     || E <- Body,
-		{StartLoc, EndLoc} <- [refac_api:start_end_loc(E)]],
+		{StartLoc, EndLoc} <- [api_refac:start_end_loc(E)]],
 	    _NewBody = [F1(E) || E <- Body],
 	    {Node, true};
 	try_expr ->
@@ -235,7 +235,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
 	    Body = refac_syntax:try_expr_body(Node),
 	    [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
 	     || E <- Body,
-		{StartLoc, EndLoc} <- [refac_api:start_end_loc(E)]],
+		{StartLoc, EndLoc} <- [api_refac:start_end_loc(E)]],
 	    _NewBody = [F1(E) || E <- Body],
 	    {Node, true};
 	_ -> {Node, false}
@@ -437,7 +437,7 @@ get_expr_list_and_vars_to_export({{FName, FunName, Arity}, StartLoc, EndLoc}, AS
     case AllVars of
 	[] -> {Es, []};
 	[{_, Vars}] ->
-	    ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_api:bound_vars(Es)],
+	    ExprBdVarsPos = [Pos || {_Var, Pos} <- api_refac:bound_vars(Es)],
 	    VarsToExport = [{V, DefPos} || {V, SourcePos, DefPos} <- Vars,
 					   SourcePos > EndLoc,
 					   lists:subtract(DefPos, ExprBdVarsPos) == []],

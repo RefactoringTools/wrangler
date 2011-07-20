@@ -329,7 +329,7 @@ generalisable(Node) ->
                                   if_expr, fun_expr, receive_expr, clause,
                                   query_expr, try_expr, catch_expr, cond_expr,
                                   block_expr]) andalso 
-                refac_api:exported_vars(Node) == []
+                api_refac:exported_vars(Node) == []
                 %% andalso 
 		%% %% %% generalise expressions with free variables need to 
 		%% %% %% wrap the expression with a fun expression; we try to 

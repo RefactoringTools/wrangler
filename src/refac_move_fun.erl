@@ -275,11 +275,11 @@ local_funs_to_be_exported_in_cur_module(MFAs = [{ModName,_,_}| _T], CG, Info) ->
     Ns = [digraph:out_neighbours(CG, {M,F,A}) || {M,F,A} <- MFAs],
     Ns1 = lists:usort(lists:append(Ns)) --MFAs,
     [{F,A} || {M, F, A} <- Ns1, M==ModName,
-	       not refac_api:is_exported({F,A}, Info)].
+	       not api_refac:is_exported({F,A}, Info)].
 
 get_funs_to_export_in_target_mod(MFAs, CG, Info) ->
     [{F, A} || {M, F, A} <- MFAs,
-	       refac_api:is_exported({F, A}, Info) orelse
+	       api_refac:is_exported({F, A}, Info) orelse
 		 digraph:in_neighbours(CG, {M, F, A}) -- MFAs /= []].
 
 
@@ -428,7 +428,7 @@ do_add_fun(TargetModInfo, FormsToAdd, AttrsToAdd, MFAs = [{ModName, _, _}| _T],
     Args = {FileName, MFAs, TargetModName, SearchPaths, TabWidth, Pid},
     ProcessedForms = lists:append([process_a_form_in_target_module(Form, Args) || Form <- Forms]),
     IsExported = [{F, A} || {_M, F, A} <- MFAs,
-			    refac_api:is_exported({F, A}, Info)],
+			    api_refac:is_exported({F, A}, Info)],
     FunsToExport1 = FunsToExport--IsExported,
     NewForms = case FunsToExport1 of
 		   [] ->
@@ -819,7 +819,7 @@ rename_fun_in_tuple_op(App,Op, Args, TargetModName) ->
 
 exported_funs(MFAs, Info) ->
     lists:filter(fun ({_M,F,A}) ->
-			 refac_api:is_exported({F, A}, Info)
+			 api_refac:is_exported({F, A}, Info)
 		 end, MFAs).
       
 %% =====================================================================
@@ -1021,7 +1021,7 @@ analyze_file(FName, SearchPaths, TabWidth) ->
 						   end, Args)
 				     || F <- Forms, is_attribute(F, include) orelse is_attribute(F, include_lib),
 					Args <- [refac_syntax:attribute_arguments(F)]]),
-	    InscopeFuns = refac_api:inscope_funs(TargetModInfo),
+	    InscopeFuns = api_refac:inscope_funs(TargetModInfo),
 	    #module_info{filename = FName,
 			 modname = get_module_name(Info),
 			 inscope_funs = InscopeFuns,
@@ -1315,7 +1315,7 @@ get_moveable_dependent_funs(MFAs, CurModInfo, TargetModInfo, CG) ->
 get_dependent_funs(Info, MFAs = [{ModName, _, _}| _], CG) ->
     Reachable = digraph_utils:reachable(MFAs, CG),
     Reachable1 = [{M, F, A} || {M, F, A} <- Reachable, M == ModName,
-			        not refac_api:is_exported({F, A}, Info)],
+			        not api_refac:is_exported({F, A}, Info)],
     Funs = get_closed_dependent_funs(Reachable1, MFAs, CG),
     Funs -- MFAs.
 
@@ -1371,7 +1371,7 @@ get_target_file_name(CurrentFName, TargetModorFileName) ->
 		    end,
     TargetFileName = filename:join([filename:dirname(CurrentFName), filename:dirname(TargetModorFileName),
 				    TargetModName ++ ".erl"]),
-    case refac_api:is_fun_name(TargetModName) of
+    case api_refac:is_fun_name(TargetModName) of
 	true ->
 	    TargetFileName;
 	_ -> throw(ErrMsg)
@@ -1440,7 +1440,7 @@ pos_to_export(AnnAST, Pos) ->
     Forms = refac_syntax:form_list_elements(AnnAST),
     Fs = [F || F <- Forms,
 	       is_export_attribute(F),
-	       {Start, End} <- [refac_api:start_end_loc(F)],
+	       {Start, End} <- [api_refac:start_end_loc(F)],
 	       Start=<Pos,
 	       End>=Pos],
     case Fs of

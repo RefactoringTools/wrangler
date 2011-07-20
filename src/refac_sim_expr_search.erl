@@ -137,7 +137,7 @@ do_search_similar_expr(FileName, AnnAST, RecordInfo, Exprs, SimiScore) when is_l
 	    Expr = hd(Exprs),
             F0 = fun (FunNode, Acc) ->
 			 F = fun (T, Acc1) ->
-				     case refac_api:is_expr(T) of
+				     case api_refac:is_expr(T) of
 					 true ->
 					     do_search_similar_expr_1(FileName, Expr, T, RecordInfo, SimiScore, FunNode) ++ Acc1;
 					 _ -> Acc1
@@ -179,8 +179,8 @@ do_search_similar_expr_1(FileName, Exprs1, Exprs2, RecordInfo, SimiScore, FunNod
     case Len1 =< Len2 of
 	true ->
 	    Exprs21 = lists:sublist(Exprs2, Len1),
-	    {S1, E1} = refac_api:start_end_loc(Exprs1),
-	    {S2, E2} = refac_api:start_end_loc(Exprs21),
+	    {S1, E1} = api_refac:start_end_loc(Exprs1),
+	    {S2, E2} = api_refac:start_end_loc(Exprs21),
 	    case overlapped_locs({S1, E1}, {S2, E2}) of
 		true -> [];
 		_ ->
@@ -199,8 +199,8 @@ do_search_similar_expr_1(FileName, Exprs1, Exprs2, RecordInfo, SimiScore, FunNod
 	_ -> []
     end;
 do_search_similar_expr_1(FileName, Expr1, Expr2, RecordInfo, SimiScore, FunNode) ->
-    {S1, E1} = refac_api:start_end_loc(Expr1),
-    {S2, E2} = refac_api:start_end_loc(Expr2),
+    {S1, E1} = api_refac:start_end_loc(Expr1),
+    {S2, E2} = api_refac:start_end_loc(Expr2),
     case overlapped_locs({S1, E1}, {S2, E2}) of
 	true -> 
             [];
@@ -261,7 +261,7 @@ get_fundef_and_expr(FName, Start, End, SearchPaths, TabWidth) ->
 	    case Exprs of
 		[] -> throw({error, "You have not selected an expression!"});
 		_ ->
-		    SE = refac_api:start_end_loc(Exprs),
+		    SE = api_refac:start_end_loc(Exprs),
 		    RecordInfo = get_module_record_info(FName, SearchPaths, TabWidth),
 		    Exprs1 = normalise_expr(Exprs, RecordInfo),
 		    {FunDef, Exprs1, SE}
@@ -308,7 +308,7 @@ normalise_record_expr_1(FName, AnnAST, Pos, ShowDefault, SearchPaths, TabWidth) 
 do_normalise_record_expr(Node, {Pos, RecordInfo, ShowDefault}) ->
     case refac_syntax:type(Node) of
 	record_expr ->
-	    {S, E} = refac_api:start_end_loc(Node),
+	    {S, E} = api_refac:start_end_loc(Node),
 	    case S =< Pos andalso Pos =< E of
 		true ->
 		    {api_ast_traverse:full_buTP(fun do_normalise_record_expr_1/2,
@@ -382,7 +382,7 @@ pos_to_record_expr(Tree, Pos) ->
 pos_to_record_expr_1(Node, Pos) ->
     case refac_syntax:type(Node) of
 	record_expr ->
-	    {S, E} = refac_api:start_end_loc(Node),
+	    {S, E} = api_refac:start_end_loc(Node),
 	    case S =< Pos andalso Pos =< E of
 		true -> {Node, true};
 		_ -> {[], false}
@@ -411,7 +411,7 @@ get_module_record_info(FName, SearchPaths, TabWidth) ->
 
 vars_to_export(Fun, ExprEndPos, Expr) ->
     AllVars = refac_misc:collect_var_source_def_pos_info(Fun),
-    ExprBdVarsPos = [Pos || {_Var, Pos} <- refac_api:bound_vars(Expr)],
+    ExprBdVarsPos = [Pos || {_Var, Pos} <- api_refac:bound_vars(Expr)],
     [{V, DefPos} || {V, SourcePos, DefPos} <- AllVars,
 		    SourcePos > ExprEndPos,
 		    lists:subtract(DefPos, ExprBdVarsPos) == []].

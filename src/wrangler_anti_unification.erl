@@ -224,7 +224,7 @@ simi_score(Expr, SubExprs) ->
     end.
 
 subst_sanity_check(Expr1, SubSt) ->
-    BVs = refac_api:bound_vars(Expr1),
+    BVs = api_refac:bound_vars(Expr1),
     F = fun ({E1, E2}) ->
 		case refac_syntax:type(E1) of
 		    variable ->
@@ -244,7 +244,7 @@ subst_sanity_check(Expr1, SubSt) ->
 			end;
 		    _ ->
 			%% the expression to be replaced should not contain local variables.
-			BVs -- refac_api:free_vars(E1) == BVs
+			BVs -- api_refac:free_vars(E1) == BVs
 		end
 	end,
     lists:all(F, SubSt).
@@ -279,8 +279,8 @@ generate_anti_unifier(Exprs, Subst, ExportVars) ->
 
 generate_anti_unifier_and_num_of_new_vars(Exprs, Subst, ExportVars) ->
     FunName = refac_syntax:atom(new_fun),
-    BVs = refac_api:bound_vars(Exprs),
-    FVs = lists:ukeysort(2, refac_api:free_vars(Exprs)),
+    BVs = api_refac:bound_vars(Exprs),
+    FVs = lists:ukeysort(2, api_refac:free_vars(Exprs)),
     {NewExprs, NewExportVars} = generalise_expr_1(Exprs, Subst, ExportVars),
     NewExprs1 = case NewExportVars of
 		    [] -> NewExprs;
@@ -301,11 +301,11 @@ generate_anti_unifier_and_num_of_new_vars(Exprs, Subst, ExportVars) ->
 
 generalise_expr_1(Exprs, Subst, ExportVars) when is_list(Exprs) ->
     BlockExpr = refac_syntax:block_expr(Exprs),
-    FVs = refac_api:free_vars(Exprs),
+    FVs = api_refac:free_vars(Exprs),
     {E, NewExportVars} = generalise_expr_2(BlockExpr, Subst, FVs, ExportVars),
     {refac_syntax:block_expr_body(E), NewExportVars};
 generalise_expr_1(Expr, Subst, ExportVars) ->
-    FVs = refac_api:free_vars(Expr),
+    FVs = api_refac:free_vars(Expr),
     {E, NewExportVars} = generalise_expr_2(Expr, Subst, FVs, ExportVars),
     {[E], NewExportVars}.
 
@@ -343,7 +343,7 @@ do_replace_expr_with_var_1(Node, {ExprNewVarPairs, SubSt, ExprFreeVars, Pid, Exp
     ExprsToReplace = [E || {E,_} <- ExprNewVarPairs],
     case lists:member(Node, ExprsToReplace) of
 	true ->
-	    FVs = refac_api:free_vars(Node),
+	    FVs = api_refac:free_vars(Node),
 	    case refac_syntax:type(Node) of
 		variable ->
 		    case FVs of
