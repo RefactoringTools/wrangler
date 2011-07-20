@@ -93,7 +93,7 @@ distclean: clean
 	@-rm -f c_src/suffixtree/Makefile c_src/gsuffixtree/Makefile
 	@-rm -f config.* configure.scan Makefile
 
-install: base
+install: default
 	@echo "* Installing Emacs Lisp Library"
 	install -m 775 -d $(ELISP_DIR)
 	install -m 775 elisp/*.el $(ELISP_DIR)
