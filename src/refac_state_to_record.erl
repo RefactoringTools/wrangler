@@ -243,7 +243,7 @@ state_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SM, Se
     RecordFields1 = [list_to_atom(F) || F <- RecordFields],
     AnnAST1 = do_state_to_record(ModName, Info, AnnAST, list_to_atom(RecordName), RecordFields1,
 				 StateFuns, RecordExists, IsTuple, SM),
-    refac_write_file:write_refactored_files([{{FileName,FileName}, AnnAST1}], Editor, TabWidth, Cmd).
+    wrangler_write_file:write_refactored_files([{{FileName,FileName}, AnnAST1}], Editor, TabWidth, Cmd).
   
 
 

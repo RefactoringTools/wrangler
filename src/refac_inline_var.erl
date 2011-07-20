@@ -75,7 +75,7 @@ inline_var(FName, Line, Col, SearchPaths, TabWidth, Editor) ->
 	    case is_use_instance(VarNode) of
 		true ->
 		    AnnAST1 = inline(AnnAST, Form, MatchExpr, VarNode, [api_refac:start_end_loc(VarNode)]),
-		    refac_write_file:write_refactored_files([{{FName,FName},AnnAST1}], Editor, TabWidth, Cmd1);
+		    wrangler_write_file:write_refactored_files([{{FName,FName},AnnAST1}], Editor, TabWidth, Cmd1);
 		false ->
 		    Cands = search_for_unfold_candidates(Form, MatchExpr, VarNode),
 		    case Cands of
@@ -83,7 +83,7 @@ inline_var(FName, Line, Col, SearchPaths, TabWidth, Editor) ->
 			    throw({error, "No unfoldable use instances of this variable were found."});
 			[C] ->
 			    AnnAST1 = inline(AnnAST, Form, MatchExpr, VarNode, [C]),
-			    refac_write_file:write_refactored_files([{{FName,FName},AnnAST1}], Editor, TabWidth, Cmd1);
+			    wrangler_write_file:write_refactored_files([{{FName,FName},AnnAST1}], Editor, TabWidth, Cmd1);
 			_ ->
 			    case Editor of
 				emacs ->
@@ -118,7 +118,7 @@ inline_var_1(FileName, Line, Col, Candidates, SearchPaths, TabWidth, Cmd, Editor
     {ok, VarNode} = api_interface:pos_to_var(Form, {Line, Col}),
     {ok, MatchExpr} = get_var_define_match_expr(Form, VarNode),
     AnnAST1 = inline(AnnAST, Form, MatchExpr, VarNode, Candidates),
-    refac_write_file:write_refactored_files([{{FileName,FileName}, AnnAST1}], Editor, TabWidth, Cmd).
+    wrangler_write_file:write_refactored_files([{{FileName,FileName}, AnnAST1}], Editor, TabWidth, Cmd).
 
 %% inline_var_1(FileName, Line, Cols, Cands, SearchPaths, TabWidth, Cmd)
 is_use_instance(VarNode) ->

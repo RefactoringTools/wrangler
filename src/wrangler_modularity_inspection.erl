@@ -781,7 +781,7 @@ partition_exports(File, DistThreshold, WithInOutDegree, SearchPaths, TabWidth, E
     digraph:delete(MG),
     digraph:delete(CG),
     AnnAST1 = rewrite_export_list(File, NewCs),
-    refac_write_file:write_refactored_files([{{File,File}, AnnAST1}], Editor, TabWidth, Cmd1).
+    wrangler_write_file:write_refactored_files([{{File,File}, AnnAST1}], Editor, TabWidth, Cmd1).
     
     
    

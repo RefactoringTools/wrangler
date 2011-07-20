@@ -292,7 +292,7 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, C
 		    ok
 	    end,
 	    stop_atom_process(Pid),
-	    refac_write_file:write_refactored_files_for_preview([{{FileName, NewFileName}, AnnAST1}| TestModRes ++ Results], TabWidth, Cmd),
+	    wrangler_write_file:write_refactored_files_for_preview([{{FileName, NewFileName}, AnnAST1}| TestModRes ++ Results], TabWidth, Cmd),
 	    ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
 	    ChangedFiles = case length(OldNewModPairs) of
 			       2 -> [FileName, TestFileName| ChangedClientFiles];
@@ -303,7 +303,7 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, C
 	    {ok, ChangedFiles, RenamedFiles, HasWarningMsg};
 	_ ->
 	    Results1 = [{{FileName, NewFileName}, AnnAST1}| TestModRes ++ Results],
-	    refac_write_file:write_refactored_files(Results1, Editor, TabWidth, "")
+	    wrangler_write_file:write_refactored_files(Results1, Editor, TabWidth, "")
     end.
 
 do_rename_mod_1(Tree, {FileName, OldNewModPairs, Pid}) ->

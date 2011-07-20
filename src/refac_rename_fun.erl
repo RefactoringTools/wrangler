@@ -211,8 +211,8 @@ rename_fun_0(FileName, {AnnAST, Info}, {Mod, OldFunNameAtom, Arity}, {DefinePos,
 		    HasWarningMsg = wrangler_atom_utils:has_warning_msg(Pid),
 		    wrangler_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(OldFunNameAtom), renamed_warn_msg(OldFunNameAtom)),
 		    wrangler_atom_utils:stop_atom_process(Pid),
-		    refac_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}| Results],
-							    HasWarningMsg, Editor, TabWidth, Cmd)
+		    wrangler_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}| Results],
+							       HasWarningMsg, Editor, TabWidth, Cmd)
 	    catch
 		throw:Err ->
 		    wrangler_atom_utils:stop_atom_process(Pid),
@@ -222,8 +222,8 @@ rename_fun_0(FileName, {AnnAST, Info}, {Mod, OldFunNameAtom, Arity}, {DefinePos,
 	    HasWarningMsg = wrangler_atom_utils:has_warning_msg(Pid),
             wrangler_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(OldFunNameAtom), renamed_warn_msg(OldFunNameAtom)),
 	    wrangler_atom_utils:stop_atom_process(Pid),
-	    refac_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}],
-						    HasWarningMsg, Editor, TabWidth, Cmd)
+	    wrangler_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}],
+						       HasWarningMsg, Editor, TabWidth, Cmd)
     end.
 
 %%-spec(rename_fun_1/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
@@ -259,8 +259,8 @@ rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 		    HasWarningMsg = wrangler_atom_utils:has_warning_msg(Pid),
 		    wrangler_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
 		    wrangler_atom_utils:stop_atom_process(Pid),
-		    refac_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}| Results],
-							    HasWarningMsg, Editor, TabWidth, Cmd)
+		    wrangler_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}| Results],
+							       HasWarningMsg, Editor, TabWidth, Cmd)
 	    catch
 		throw:Err -> Err
 	    end;
@@ -268,8 +268,8 @@ rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 	    HasWarningMsg = wrangler_atom_utils:has_warning_msg(Pid),
 	    wrangler_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(Fun), renamed_warn_msg(Fun)),
 	    wrangler_atom_utils:stop_atom_process(Pid),
-	    refac_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}],
-						    HasWarningMsg, Editor, TabWidth, Cmd)
+	    wrangler_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}],
+						       HasWarningMsg, Editor, TabWidth, Cmd)
     end.
 
 pre_cond_check(FileName, Info, NewFunName, OldFunDefMod, OldFunName, Arity) ->

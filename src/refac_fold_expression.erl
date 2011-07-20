@@ -183,7 +183,7 @@ fold_expression_1_eclipse_1(AnnAST, Body, [Cand| Tail]) ->
 do_fold_expression(FileName, CandidatesToFold, SearchPaths, TabWidth, LogMsg) ->
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     AnnAST1 = fold_expression_1_1(AnnAST, CandidatesToFold),
-    refac_write_file:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], TabWidth, LogMsg),
+    wrangler_write_file:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], TabWidth, LogMsg),
     {ok, [FileName]}.
 
 fold_expression_1_1(AnnAST, []) ->

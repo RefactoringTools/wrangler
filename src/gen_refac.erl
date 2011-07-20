@@ -187,8 +187,8 @@ apply_changes(Module, Args, CandsNotToChange) ->
     case apply(Module, transform, [Args]) of
         {ok, Res} ->
             wrangler_gen_refac_server:delete_flag(self()),
-            refac_write_file:write_refactored_files(
-              Res, 'emacs', Args#args.tabwidth, "");
+            wrangler_write_file:write_refactored_files(
+                 Res, 'emacs', Args#args.tabwidth, "");
         {error, Reason} ->
             wrangler_gen_refac_server:delete_flag(self()),
             {error, Reason}
@@ -240,7 +240,7 @@ run_refac(ModName, Args=[CurFileName, [Line,Col],
                                     case apply(Module, transform, [Args2]) of
                                         {ok, Res} ->
                                             wrangler_gen_refac_server:delete_flag(self()),
-                                            refac_write_file:write_refactored_files(Res,emacs,TabWidth,"");
+                                            wrangler_write_file:write_refactored_files(Res,emacs,TabWidth,"");
                                         {error, Reason} ->
                                             wrangler_gen_refac_server:delete_flag(self()),
                                             {error, Reason}

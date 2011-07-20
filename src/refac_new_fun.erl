@@ -99,7 +99,7 @@ fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor, TabWid
     case Editor of
 	emacs ->
 	    Res = [{{FileName, FileName}, AnnAST1}],
-	    refac_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd),
+	    wrangler_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd),
 	    {ok, [FileName]};
 	eclipse ->
 	    FileContent = refac_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST1, TabWidth),

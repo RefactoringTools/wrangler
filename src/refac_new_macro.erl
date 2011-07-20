@@ -283,7 +283,7 @@ collect_names_to_avoid_1(F) ->
 return_refac_result(FileName, AnnAST, Editor, Cmd, TabWidth) ->
     case Editor of
 	emacs ->
-	    refac_write_file:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST}], TabWidth, Cmd),
+	    wrangler_write_file:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST}], TabWidth, Cmd),
 	    {ok, [FileName]};
 	eclipse ->
 	    Src = refac_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST, TabWidth),

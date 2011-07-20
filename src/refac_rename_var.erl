@@ -105,7 +105,7 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 	       _ -> ok
 	   end,
 	   {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
-	   refac_write_file:write_refactored_files([{{FName,FName}, AnnAST2}], Editor, TabWidth, Cmd1);
+	    wrangler_write_file:write_refactored_files([{{FName,FName}, AnnAST2}], Editor, TabWidth, Cmd1);
        true ->
 	   case Editor of
 	       emacs ->

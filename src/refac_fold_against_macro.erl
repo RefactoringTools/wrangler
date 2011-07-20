@@ -124,7 +124,7 @@ fold_against_macro_1_1_eclipse(AnnAST, [Inst={_StartLine, _StartCol, _EndLine, _
 fold_against_macro_1(FileName, CandidatesToFold, SearchPaths, TabWidth, Cmd) ->
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     AnnAST1 = fold_against_macro_1_1(AnnAST, CandidatesToFold),
-    refac_write_file:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], TabWidth, Cmd),
+    wrangler_write_file:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], TabWidth, Cmd),
     {ok, [FileName]}.
 
 fold_against_macro_1_1(AnnAST, []) ->

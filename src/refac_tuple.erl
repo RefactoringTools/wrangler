@@ -132,13 +132,13 @@ tuple_par_0(FileName, AnnAST, Info, FunName, Arity, Index, Num, SearchPaths, Tab
 		tuple_pars_in_client_modules(ClientFiles, FunDefMod, FunName, Arity, Index, Num, SearchPaths, TabWidth)
 	    of
 		Results ->
-		    refac_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}| Results], Editor, TabWidth, Cmd)
+		    wrangler_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}| Results], Editor, TabWidth, Cmd)
 	    catch
 		throw:Err ->
 		    Err
 	    end;
 	false ->
-	    refac_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}], Editor, TabWidth, Cmd)
+	    wrangler_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}], Editor, TabWidth, Cmd)
     end.
 
 pre_cond_check(FileName, FunName, OldArity, NewArity, Info) ->

@@ -242,7 +242,7 @@ move_fun_3(CurModInfo, TargetModInfo, MFAs, {UnDefinedMs, UnDefinedRs},
 		       _ ->
 			   [{{FName, FName}, AnnAST1}, {{TargetFName, TargetFName}, TargetAnnAST1}| Results]
 		   end,
-    refac_write_file:write_refactored_files(FinalResults, Editor, TabWidth, Cmd).
+    wrangler_write_file:write_refactored_files(FinalResults, Editor, TabWidth, Cmd).
  
 
 do_transformation(CurModInfo, TargetModInfo, MFAs, {UnDefinedMs, UnDefinedRs},

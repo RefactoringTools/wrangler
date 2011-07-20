@@ -68,7 +68,7 @@ add_a_tag(FileName, Line, Col, Tag, SearchPaths, TabWidth) ->
 	    case pre_cond_check(AnnAST, ModName, FunDef, SearchPaths, TabWidth) of
 		{ok, AffectedInitialFuns} ->
 		    Results = do_add_a_tag(FileName, {AnnAST, Info}, list_to_atom(Tag), AffectedInitialFuns, SearchPaths, TabWidth),
-		    refac_write_file:write_refactored_files_for_preview(Results, TabWidth, Cmd),
+		    wrangler_write_file:write_refactored_files_for_preview(Results, TabWidth, Cmd),
 		    ChangedFiles = [F || {{F, _F}, _AST} <- Results],
 		    ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
 				 [ChangedFiles]),

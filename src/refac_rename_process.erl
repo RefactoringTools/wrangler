@@ -67,7 +67,7 @@ rename_process(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 				ok ->
 				    Results = do_rename_process(FileName, AnnAST, ProcessName, NewProcessName, SearchPaths, TabWidth),
 				    check_atoms(FileName, ProcessName, SearchPaths, TabWidth),
-				    refac_write_file:write_refactored_files(Results, Editor, TabWidth, Cmd);
+				    wrangler_write_file:write_refactored_files(Results, Editor, TabWidth, Cmd);
 				undecidables ->
 				    case Editor of
 					emacs -> {undecidables, atom_to_list(ProcessName), Cmd};
@@ -98,7 +98,7 @@ rename_process_1(FileName, OldProcessName1, NewProcessName1, SearchPaths, TabWid
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     Results = do_rename_process(FileName, AnnAST, OldProcessName, NewProcessName, SearchPaths, TabWidth),
     check_atoms(FileName, OldProcessName, SearchPaths, TabWidth),
-    refac_write_file:write_refactored_files(Results, Editor, TabWidth, Cmd).
+    wrangler_write_file:write_refactored_files(Results, Editor, TabWidth, Cmd).
 
 
 pos_to_process_name(Node, Pos) ->

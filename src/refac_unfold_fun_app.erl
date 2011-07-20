@@ -346,7 +346,7 @@ fun_inline_1(FName, AnnAST, Pos, {FunClauseToInline, Subst, MatchExprsToAdd}, {C
     Fs0 = Fs -- RecordDefs,
     Fs1 = lists:append([do_inline(F, Pos, Clause, App, SubstedBody, RecordDefs) || F <- Fs0]),
     AnnAST1 = refac_misc:rewrite(AnnAST, refac_syntax:form_list(Fs1)),
-    refac_write_file:write_refactored_files([{{FName,FName}, AnnAST1}], Editor, TabWidth, Cmd).
+    wrangler_write_file:write_refactored_files([{{FName,FName}, AnnAST1}], Editor, TabWidth, Cmd).
 
 do_inline(Form, Pos, _Clause, App, SubstedBody, RecordDefs) ->
     SubstedBody1 = refac_misc:reset_ann_and_pos(SubstedBody),
