@@ -40,7 +40,7 @@ rename_one_function(File, SearchPaths, F, A) ->
     NewName = camelCase_to_camel_case(F),
     refac_io:format("\nRenaming function ~p/~p to ~p/~p in ~p ...\n",
                     [F, A, NewName, A, File]),
-    Res=wrangler_api:rename_fun(File, F, A, NewName, SearchPaths),
+    Res=api_wrangler:rename_fun(File, F, A, NewName, SearchPaths),
     case Res of
         {ok, FilesChanged} ->
             FilesChanged;

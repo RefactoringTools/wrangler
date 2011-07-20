@@ -32,9 +32,9 @@
 -spec do(SearchPaths::[string()], Options::[tuple()])->
                 {ok, #fTFeedback{}}. 
 do(SearchPaths, Options) ->
-    wrangler_api:start(),
+    api_wrangler:start(),
     Messages = do_code_inspection(SearchPaths, Options),
-    wrangler_api:stop(),
+    api_wrangler:stop(),
     {ok, #fTFeedback{status =true, messages=Messages}}.
 
 
