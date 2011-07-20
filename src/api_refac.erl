@@ -830,9 +830,9 @@ tokenize(File, WithLayout, TabWidth) ->
 	    S = erlang:binary_to_list(Bin),
 	    case WithLayout of 
 		true -> 
-		    {ok, Ts, _} = refac_scan_with_layout:string(
-                                    S, {1,1}, TabWidth, 
-                                    refac_misc:file_format(File)),
+		    {ok, Ts, _} = wrangler_scan_with_layout:string(
+                                       S, {1,1}, TabWidth,
+                                       refac_misc:file_format(File)),
 		    Ts;
 		_ -> {ok, Ts, _} = wrangler_scan:string(
                                         S, {1,1}, TabWidth,

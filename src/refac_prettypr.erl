@@ -2106,7 +2106,7 @@ token_val(T) ->
     end.
 
 remove_trailing_whitespace(Str, TabWidth, FileFormat) ->
-    {ok, Toks, _} = refac_scan_with_layout:string(Str,{1,1}, TabWidth, FileFormat),
+    {ok, Toks, _} = wrangler_scan_with_layout:string(Str, {1,1}, TabWidth, FileFormat),
     remove_trailing_whitespace(Toks, []).
 remove_trailing_whitespace([], Acc) ->
     refac_misc:concat_toks(lists:reverse(Acc));
@@ -2169,12 +2169,12 @@ get_end_loc_with_comment(Node) ->
 
 repair_new_form_str("", NewFormStr, _TabWidth, _FileFormat) -> NewFormStr;
 repair_new_form_str(OldFormStr, NewFormStr, TabWidth, FileFormat)->
-    {ok, OldToks0, _} = refac_scan_with_layout:string(OldFormStr,{1,1}, TabWidth, FileFormat),
+    {ok, OldToks0, _} = wrangler_scan_with_layout:string(OldFormStr, {1,1}, TabWidth, FileFormat),
     OldToksByLine =group_toks_by_line(OldToks0),
     Str1 = get_leading_whites(OldToksByLine),
     Str2 = get_trailing_whites(OldFormStr),
     NewFormStr1=Str1++remove_trailing_whites(NewFormStr)++Str2,
-    {ok, NewToks0, _} = refac_scan_with_layout:string(NewFormStr1, {1,1}, TabWidth, FileFormat),
+    {ok, NewToks0, _} = wrangler_scan_with_layout:string(NewFormStr1, {1,1}, TabWidth, FileFormat),
     NewToksByLine = group_toks_by_line(NewToks0),
     DiffByLine = levenshtein_dist(OldToksByLine, NewToksByLine, TabWidth),
     repair_form_layout(DiffByLine, TabWidth).
