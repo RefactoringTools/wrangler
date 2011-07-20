@@ -113,7 +113,7 @@ duplicated_code_detection(DirFileList, MinClones, MinLength, MaxPars, SuffixTree
     ?debug("Constructing suffix tree and collecting clones from the suffix tree.\n", []),
     {Toks, ProcessedToks} = tokenize(FileNames, TabWidth),
     Dir = filename:dirname(hd(FileNames)),
-    Cs = suffix_tree:get_clones_by_suffix_tree(Dir, ProcessedToks, MinLength, MinClones, alphabet(), 0, SuffixTreeExec),
+    Cs = wrangler_suffix_tree:get_clones_by_suffix_tree(Dir, ProcessedToks, MinLength, MinClones, alphabet(), 0, SuffixTreeExec),
     ?debug("Initial numberclones from suffix tree:~p\n", [length(Cs)]),
     %% This step is necessary to reduce large number of sub-clones.
     ?debug("Type 4 clones:\n~p\n", [length(Cs)]),

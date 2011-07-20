@@ -1474,8 +1474,8 @@ search_for_clones(Dir, Data, Thresholds) ->
 					     ||{_SeqNo, _FFA, ExpHashIndexPairs} <- Data,
 						{_, Is}<-[lists:unzip(ExpHashIndexPairs)]]),
     SuffixTreeExec = filename:join(?WRANGLER_DIR, "bin/gsuffixtree"),
-    suffix_tree:get_clones_by_suffix_tree_inc(Dir, IndexStr, MinLen, 
-     					  MinFreq, 1, SuffixTreeExec).
+    wrangler_suffix_tree:get_clones_by_suffix_tree_inc(Dir, IndexStr, MinLen,
+                                                        MinFreq, 1, SuffixTreeExec).
    
     
 
