@@ -329,7 +329,7 @@ parse_annotate_file(FName, true, SearchPaths, TabWidth, FileFormat) ->
             Dir = filename:dirname(FName),
             DefaultIncl2 = [filename:join(Dir, X) || X <- refac_misc:default_incls()],
             Includes = SearchPaths ++ DefaultIncl2,
-            {Info0, Ms} = case refac_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
+            {Info0, Ms} = case wrangler_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
 			      {ok, Fs, {MDefs, MUses}} ->
                                   ST = refac_recomment:recomment_forms(Fs, []),
 				  Info1 = refac_syntax_lib:analyze_forms(ST),
@@ -349,7 +349,7 @@ parse_annotate_file(FName, false, SearchPaths, TabWidth, FileFormat) ->
     Dir = filename:dirname(FName),
     DefaultIncl2 = [filename:join(Dir, X) || X <- refac_misc:default_incls()],
     Includes = SearchPaths ++ DefaultIncl2,
-    case refac_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
+    case wrangler_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
 	{ok, Forms, Ms} -> Forms1 = lists:filter(fun (F) ->
 							 case F of
 							     {attribute, _, file, _} -> false;
@@ -373,7 +373,7 @@ quick_parse_annotate_file(FName, SearchPaths, TabWidth) ->
 	    Dir = filename:dirname(FName),
 	    DefaultIncl2 = [filename:join(Dir, X) || X <- refac_misc:default_incls()],
 	    Includes = SearchPaths ++ DefaultIncl2,
-	    Ms = case refac_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
+	    Ms = case wrangler_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
 		     {ok, _, {MDefs, MUses}} ->
 			 {dict:from_list(MDefs), dict:from_list(MUses)};
 		     _ -> []

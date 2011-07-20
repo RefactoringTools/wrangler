@@ -593,14 +593,14 @@ try_eval(FileName, Node, SearchPaths, TabWidth) ->
 		Dir = filename:dirname(FileName),
 		DefaultIncl2 = [filename:join(Dir, X) || X <- default_incls()],
 		NewSearchPaths = SearchPaths ++ DefaultIncl2,
-		{Ms, UMs} = case refac_epp:parse_file(FileName, NewSearchPaths, []) of
+		{Ms, UMs} = case wrangler_epp:parse_file(FileName, NewSearchPaths, []) of
 			      {ok, _, {Defs, Uses}} ->
 				  {dict:from_list(Defs), dict:from_list(Uses)};
 			      _ -> {[], []}
 			    end,
 		NodeToks = get_toks(FileName, Node, TabWidth),
 		try
-		  refac_epp:expand_macros(NodeToks, {Ms, UMs})
+		  wrangler_epp:expand_macros(NodeToks, {Ms, UMs})
 		of
 		  NewToks when is_list(NewToks) ->
 		      case refac_parse:parse_exprs(NewToks ++ [{dot, {999, 0}}]) of

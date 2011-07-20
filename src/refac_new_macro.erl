@@ -231,7 +231,7 @@ existing_macros(FileName, SearchPaths, TabWidth) ->
     Dir = filename:dirname(FileName),
     DefaultIncl = [filename:join(Dir, X) || X <- refac_misc:default_incls()],
     NewSearchPaths = SearchPaths ++ DefaultIncl,
-    case refac_epp:parse_file(FileName, NewSearchPaths, [], TabWidth, refac_misc:file_format(FileName)) of
+    case wrangler_epp:parse_file(FileName, NewSearchPaths, [], TabWidth, refac_misc:file_format(FileName)) of
 	{ok, _, {MDefs, MUses}} ->
 	    lists:usort([Name || {{_, Name}, _Def} <- MDefs ++ MUses]);
 	_ -> {error, "The current file does not compile!"}

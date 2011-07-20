@@ -999,8 +999,8 @@ analyze_file(FName, SearchPaths, TabWidth) ->
     Dir = filename:dirname(FName),
     DefaultIncls = [filename:join(Dir, X) || X <- refac_misc:default_incls()],
     NewSearchPaths = SearchPaths ++ DefaultIncls,
-    case refac_epp:parse_file(FName, NewSearchPaths, [], TabWidth,
-			      refac_misc:file_format(FName))
+    case wrangler_epp:parse_file(FName, NewSearchPaths, [], TabWidth,
+			         refac_misc:file_format(FName))
 	of
 	{ok, TargetAST, {MDefs, _MUses1}} ->
 	    MacroDefs = get_macro_defs(MDefs),

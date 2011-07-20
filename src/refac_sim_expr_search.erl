@@ -394,7 +394,7 @@ get_module_record_info(FName, SearchPaths, TabWidth) ->
     Dir = filename:dirname(FName),
     DefaultIncl = [filename:join(Dir, X) || X <- refac_misc:default_incls()],
     Includes = SearchPaths ++ DefaultIncl,
-    case refac_epp:parse_file(FName, Includes, [], TabWidth, refac_misc:file_format(FName)) of
+    case wrangler_epp:parse_file(FName, Includes, [], TabWidth, refac_misc:file_format(FName)) of
 	{ok, Forms, _} -> Forms1 = [F || F <- Forms, case F of
 							 {attribute, _, file, _} -> false;
 							 {attribute, _, type, {{record, _}, _, _}} -> false;

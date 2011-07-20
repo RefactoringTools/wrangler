@@ -365,7 +365,7 @@ vann_function(Tree, Env, Ms, _VI, Pid) ->
     Toks0 = refac_misc:get_toks(Tree),
     F = fun () ->
 		Toks1 = remove_whites(Toks0),
-		Toks2 = refac_epp:expand_macros(Toks1, Ms),
+		Toks2 = wrangler_epp:expand_macros(Toks1, Ms),
                 case Toks1 of
 		    Toks2 -> [];
 		    _ ->
