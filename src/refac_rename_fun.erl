@@ -170,7 +170,7 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     NewNameAtom = list_to_atom(NewName),
     {ok, ModName} = get_module_name(Info),
-    case interface_api:pos_to_fun_name(AnnAST, {Line, Col}) of
+    case api_interface:pos_to_fun_name(AnnAST, {Line, Col}) of
 	{ok, {Mod, Fun, Arity, _, DefinePos}} ->
 	    case {ModName, NewNameAtom} =/= {Mod, Fun} of
 		true ->
@@ -244,7 +244,7 @@ rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
        ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     NewName1 = list_to_atom(NewName),
-    {ok, {Mod, Fun, Arity, _, DefinePos}} = interface_api:pos_to_fun_name(AnnAST, {Line, Col}),
+    {ok, {Mod, Fun, Arity, _, DefinePos}} = api_interface:pos_to_fun_name(AnnAST, {Line, Col}),
     ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
     Pid = refac_atom_utils:start_atom_process(),
     {AnnAST1, _C} = do_rename_fun(AnnAST, {Mod, Fun, Arity}, {DefinePos, NewName1}),

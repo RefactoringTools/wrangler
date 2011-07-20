@@ -62,8 +62,8 @@ fun_extraction_1(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewFunName,
 	      "{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ NewFunName ++ "\","
         ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, [], TabWidth),
-    ExpList = interface_api:pos_to_expr_list(AnnAST, Start, End),
-    {ok, Fun} = interface_api:expr_to_fun(AnnAST, hd(ExpList)),
+    ExpList = api_interface:pos_to_expr_list(AnnAST, Start, End),
+    {ok, Fun} = api_interface:expr_to_fun(AnnAST, hd(ExpList)),
     fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor, TabWidth, Cmd).
 
 fun_extraction(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewFunName, TabWidth, Editor) ->
@@ -78,14 +78,14 @@ fun_extraction(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewFunName, T
 	false -> throw({error, "Invalid function name!"})
     end,
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, [], TabWidth),
-    case interface_api:pos_to_expr_list(AnnAST, Start, End) of
+    case api_interface:pos_to_expr_list(AnnAST, Start, End) of
 	[] -> ExpList = [],
 	      throw({error, "You have not selected an expression or a sequence of expressions, "
 			    "or the function containing the expression(s) selected is malformed."});
 	ExpList ->
 	    ExpList
     end,
-    {ok, Fun} = interface_api:expr_to_fun(AnnAST, hd(ExpList)),
+    {ok, Fun} = api_interface:expr_to_fun(AnnAST, hd(ExpList)),
     ok = side_cond_analysis(FileName, Info, Fun, ExpList, list_to_atom(NewFunName)),
     fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor, TabWidth, Cmd).
 

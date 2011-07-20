@@ -70,7 +70,7 @@ fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor) ->
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     ProcessName1 = list_to_atom(ProcessName),
-    case interface_api:pos_to_fun_def(AnnAST, {Line, Col}) of
+    case api_interface:pos_to_fun_def(AnnAST, {Line, Col}) of
 	{ok, FunDef} ->
 	    {value, {fun_def, {ModName, FunName, Arity, _Pos1, DefinePos}}} =
 		lists:keysearch(fun_def, 1, refac_syntax:get_ann(FunDef)),
@@ -100,7 +100,7 @@ fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor, L
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     ProcessName1 = list_to_atom(ProcessName),
-    {ok, FunDef} = interface_api:pos_to_fun_def(AnnAST, {Line, Col}),
+    {ok, FunDef} = api_interface:pos_to_fun_def(AnnAST, {Line, Col}),
     {value, {fun_def, {ModName, FunName, Arity, _Pos1, DefinePos}}} =
 	lists:keysearch(fun_def, 1, refac_syntax:get_ann(FunDef)),
     AnnAST1 = do_fun_to_process(AnnAST, Info, DefinePos, FunName, Arity, ProcessName1),
@@ -128,7 +128,7 @@ fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor, L
 %% any conflicts occur, '_i' will be attached to the end of the function name where i is a smallest number that make the name fresh.
 %% 
 pre_cond_check(AnnAST, Pos, ModName, FunName, Arity, ProcessName, SearchPaths, TabWidth, Cmd) ->
-    {ok, FunDef} = interface_api:pos_to_fun_def(AnnAST, Pos),
+    {ok, FunDef} = api_interface:pos_to_fun_def(AnnAST, Pos),
     case is_recursive_fun({ModName, FunName, Arity, FunDef}, SearchPaths) of
 	true ->
 	    throw({error, "The function is a recursive (direct or indirect) function.\n"});

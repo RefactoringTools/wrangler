@@ -20,7 +20,7 @@ input_par_prompts() ->
 -spec (select_focus/1::(#args{}) -> {ok, syntaxTree()}|{ok, none}).  
                            
 select_focus(Args=#args{current_file_name=File}) ->
-    Sel =interface_api:pos_to_expr_list(File, Args#args.highlight_range),
+    Sel =api_interface:pos_to_expr_list(File, Args#args.highlight_range),
     {ok, Sel}.
 
 %% Pre-condition checking to ensure that the refactoring preserves the 

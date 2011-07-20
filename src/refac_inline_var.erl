@@ -68,7 +68,7 @@ inline_var(FName, Line, Col, SearchPaths, TabWidth, Editor) ->
 								++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     Form = pos_to_form(AnnAST, {Line, Col}),
-    case interface_api:pos_to_var(Form, {Line, Col}) of
+    case api_interface:pos_to_var(Form, {Line, Col}) of
 	{ok, VarNode} ->
 	    {ok, MatchExpr} = get_var_define_match_expr(Form, VarNode),
 	    cond_check(MatchExpr, VarNode),
@@ -115,7 +115,7 @@ inline_var_eclipse_1(FileName, Line, Col, Candidates, SearchPaths, TabWidth) ->
 inline_var_1(FileName, Line, Col, Candidates, SearchPaths, TabWidth, Cmd, Editor) ->
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     Form = pos_to_form(AnnAST, {Line, Col}),
-    {ok, VarNode} = interface_api:pos_to_var(Form, {Line, Col}),
+    {ok, VarNode} = api_interface:pos_to_var(Form, {Line, Col}),
     {ok, MatchExpr} = get_var_define_match_expr(Form, VarNode),
     AnnAST1 = inline(AnnAST, Form, MatchExpr, VarNode, Candidates),
     refac_write_file:write_refactored_files([{{FileName,FileName}, AnnAST1}], Editor, TabWidth, Cmd).

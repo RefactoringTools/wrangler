@@ -41,7 +41,7 @@ input_par_prompts() ->
 %%--------------------------------------------------------------------
 select_focus(_Args=#args{current_file_name=File, 
                          cursor_pos=Pos}) ->
-    interface_api:pos_to_fun_def(File, Pos).
+    api_interface:pos_to_fun_def(File, Pos).
 
 %%--------------------------------------------------------------------
 %% @private

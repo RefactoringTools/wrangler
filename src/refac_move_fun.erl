@@ -140,7 +140,7 @@ move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, Editor) -
 	_ -> ok
     end,
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-    case interface_api:pos_to_fun_def(AnnAST, {Line, Col}) of
+    case api_interface:pos_to_fun_def(AnnAST, {Line, Col}) of
 	{ok, _Def} ->
 	    ok;
 	{error, _Reason} ->
@@ -164,7 +164,7 @@ move_fun_1(FName, Line, Col, TargetModorFileName, CondCheck, SearchPaths, TabWid
          ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     CurModInfo = analyze_file(FName, SearchPaths, TabWidth),
     AnnAST = CurModInfo#module_info.ast,
-    case interface_api:pos_to_fun_def(AnnAST, {Line, Col}) of
+    case api_interface:pos_to_fun_def(AnnAST, {Line, Col}) of
 	{ok, Def} ->
 	    {value, {fun_def, {ModName, FunName, Arity, _Pos1, _Pos2}}} =
 		lists:keysearch(fun_def, 1, refac_syntax:get_ann(Def)),

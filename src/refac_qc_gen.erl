@@ -65,7 +65,7 @@ test_cases_to_property(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
 	       ", " ++ integer_to_list(Col) ++ ", "
 						 ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-    case interface_api:pos_to_fun_name(AnnAST, {Line, Col}) of
+    case api_interface:pos_to_fun_name(AnnAST, {Line, Col}) of
 	{ok, {Mod, Fun, Arity, _, DefPos}} ->
 	    AnnAST1 = do_intro_oneof(AnnAST, {Mod, Fun, Arity, DefPos}),
 	    HasWarningMsg =  not  is_quickcheck_used(Info),
@@ -132,7 +132,7 @@ do_intro_oneof(AnnAST, {Mod, Fun, Arity, DefPos}) ->
 	[] -> throw({error, "No test data has been collected for the function selected."});
 	_ -> ok
     end,
-    ParNames =case interface_api:pos_to_fun_def(AnnAST, DefPos) of
+    ParNames =case api_interface:pos_to_fun_def(AnnAST, DefPos) of
 		  {ok, FunDef} ->
 		      get_parameter_names(FunDef);
 		  {error, _} -> [make_new_var(I) ||I<-lists:seq(1, Arity)]

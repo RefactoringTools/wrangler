@@ -107,7 +107,7 @@ expr_search_in_dirs(FileName, Start = {_Line, _Col}, End = {_Line1, _Col1}, Sear
 %%   {ok, [{{integer(), integer()}, {integer(), integer()}}]} | {error, string()}).
 expr_search_eclipse(FileName, Start, End, TabWidth) ->
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, [], TabWidth),
-    case interface_api:pos_to_expr_list(AnnAST, Start, End) of
+    case api_interface:pos_to_expr_list(AnnAST, Start, End) of
 	[E| Es] ->
 	    Res = case Es == [] of
 		      true ->
@@ -121,7 +121,7 @@ expr_search_eclipse(FileName, Start, End, TabWidth) ->
 
 get_expr_selected(FileName, Start, End, SearchPaths, TabWidth) ->
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-    Es = interface_api:pos_to_expr_list(AnnAST, Start, End),
+    Es = api_interface:pos_to_expr_list(AnnAST, Start, End),
     case Es of
 	[] -> throw({error, "You have not selected an expression!"});
 	_ -> Es

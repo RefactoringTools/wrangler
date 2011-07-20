@@ -87,7 +87,7 @@ tuple_funpar(FileName, Line, Col, Index, Num, SearchPaths, TabWidth) ->
 		 [?MODULE, FileName, Line, Col, Index, Num, SearchPaths, TabWidth]),
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(
                              FileName, true, SearchPaths, TabWidth),
-    {ok, FunDef} = interface_api:pos_to_fun_def(AnnAST, {Line, Col}),
+    {ok, FunDef} = api_interface:pos_to_fun_def(AnnAST, {Line, Col}),
     FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
     FunArity = refac_syntax:function_arity(FunDef),
     NewArity = FunArity - Num + 1,
@@ -233,7 +233,7 @@ commontest_name_checking(FunName, OldArity,NewArity) ->
     end.
 
 pos_to_pars(AnnAST, StartLoc, EndLoc) ->
-    case interface_api:pos_to_fun_def(AnnAST, EndLoc) of
+    case api_interface:pos_to_fun_def(AnnAST, EndLoc) of
 	{ok, FunDef} ->
 	    FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
 	    FunArity = refac_syntax:function_arity(FunDef),

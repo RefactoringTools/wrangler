@@ -39,7 +39,7 @@ input_par_prompts() ->
 %% moved to module refac_api.
 select_focus(_Args=#args{current_file_name=File, 
                          cursor_pos=Pos}) ->
-    interface_api:pos_to_fun_def(File, Pos).
+    api_interface:pos_to_fun_def(File, Pos).
 
 %% Check that the values of Ith and Jth inputted 
 %% by the user are valid. 

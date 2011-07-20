@@ -64,7 +64,7 @@ intro_new_var(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewVarName0, S
     end,
     NewVarName = list_to_atom(NewVarName0),
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-    case interface_api:pos_to_expr(AnnAST, Start, End) of
+    case api_interface:pos_to_expr(AnnAST, Start, End) of
 	{ok, Exp} ->
 	    Exp;
 	{error, _} ->
@@ -72,7 +72,7 @@ intro_new_var(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewVarName0, S
 			  "or the function containing the expression does not parse."}),
 	    Exp = none
     end,
-    case interface_api:expr_to_fun(AnnAST, Exp) of
+    case api_interface:expr_to_fun(AnnAST, Exp) of
 	{ok, Fun} ->
 	    Fun;
 	{error, _} ->

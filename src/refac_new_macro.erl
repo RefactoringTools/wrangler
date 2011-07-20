@@ -81,9 +81,9 @@ pre_cond_check(FileName, AnnAST, NewMacroName, Start, End, SearchPaths, TabWidth
 		true ->
 		    {error, "Macro name provided is already in use!"};
 		_ ->
-		    case interface_api:pos_to_fun_def(AnnAST, Start) of
+		    case api_interface:pos_to_fun_def(AnnAST, Start) of
 			{ok, FunDef} ->
-			    Sel = interface_api:pos_to_expr_or_pat_list(AnnAST, Start, End),
+			    Sel = api_interface:pos_to_expr_or_pat_list(AnnAST, Start, End),
 			    case Sel of
 				[] -> {error, "You have not selected a sequence of expressions/patterns!"};
 				_ ->

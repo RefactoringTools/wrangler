@@ -312,7 +312,7 @@ do_add_tag_to_send_exprs(Node, {_ModName, Tag, AffectedInitialFuns}) ->
 	_ -> {Node, false}
     end.
 pos_to_receive_fun(AnnAST, Pos) ->
-    case interface_api:pos_to_fun_def(AnnAST, Pos) of
+    case api_interface:pos_to_fun_def(AnnAST, Pos) of
       {ok, FunDef} ->
 	  case has_receive_expr(FunDef) of
 	    true -> {ok, FunDef};
@@ -483,9 +483,9 @@ forward_slice_1(FileName, Expr, SearchPaths, TabWidth) ->
     {StartPos, EndPos} = refac_api:start_end_loc(Expr),
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     ModName = get_module_name(FileName, Info),
-    case interface_api:pos_to_expr(AnnAST, StartPos, EndPos) of
+    case api_interface:pos_to_expr(AnnAST, StartPos, EndPos) of
 	{ok, Expr} ->
-	    case interface_api:pos_to_fun_def(AnnAST, StartPos) of
+	    case api_interface:pos_to_fun_def(AnnAST, StartPos) of
 		{ok, FunDef} ->
 		    {ok, refac_slice:forward_slice(Files, AnnAST, ModName, FunDef, Expr)};
 		_ ->

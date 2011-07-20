@@ -255,9 +255,9 @@ get_simi_score_eclipse(SimiScore) ->
 
 get_fundef_and_expr(FName, Start, End, SearchPaths, TabWidth) ->
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-    case interface_api:pos_to_fun_def(AnnAST, Start) of
+    case api_interface:pos_to_fun_def(AnnAST, Start) of
 	{ok, FunDef} ->
-	    Exprs = interface_api:pos_to_expr_list(FunDef, Start, End),
+	    Exprs = api_interface:pos_to_expr_list(FunDef, Start, End),
 	    case Exprs of
 		[] -> throw({error, "You have not selected an expression!"});
 		_ ->

@@ -146,14 +146,14 @@ generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPa
     end,
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {ok, ModName} = get_module_name(Info),
-    case interface_api:pos_to_expr(AnnAST, Start, End) of
+    case api_interface:pos_to_expr(AnnAST, Start, End) of
 	{ok, Exp} ->
 	    Exp;
 	{error, _} -> throw({error, "You have not selected an expression, "
 				    "or the function containing the expression does not parse."}),
 		      Exp = none
     end,
-    case interface_api:expr_to_fun(AnnAST, Exp) of
+    case api_interface:expr_to_fun(AnnAST, Exp) of
 	{ok, Fun} ->
 	    Fun;
 	{error, _} -> throw({error, "You have not selected an expression within a function."}),

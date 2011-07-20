@@ -193,7 +193,7 @@ register_pid_2(FName, StartLine, StartCol, EndLine, EndCol, RegName, SearchPaths
 %% So far, this cond-checking still cannot guarantee that only one process spawned by the 
 %% expression seleted exist during anytime of the running of the system.
 pre_cond_check(ModName, AnnAST, Start, MatchExpr, RegName, _Info, SearchPaths, TabWidth) ->
-    {ok, FunDef} = interface_api:pos_to_fun_def(AnnAST, Start),
+    {ok, FunDef} = api_interface:pos_to_fun_def(AnnAST, Start),
     FunName = refac_syntax:data(refac_syntax:function_name(FunDef)),
     Arity = refac_syntax:function_arity(FunDef),
     case is_recursive_fun(SearchPaths, {ModName, FunName, Arity, FunDef}) of
@@ -544,7 +544,7 @@ funs_called(Node) ->
 
 pos_to_spawn_match_expr(AnnAST, Start, End) ->
     Message = "You have not selected a match expression whose left-hand side is a PID, and right-hand side is a spawn expression!",
-    case interface_api:pos_to_expr(AnnAST, Start, End) of
+    case api_interface:pos_to_expr(AnnAST, Start, End) of
 	{ok, Expr} ->
 	    case refac_syntax:type(Expr) of
 		match_expr ->

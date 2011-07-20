@@ -531,7 +531,7 @@ do_replace_app_with_match(Node, {App, MatchExpr}) ->
 get_vars_to_rename(Clause, Pos, VarName, NewNames, ClauseToInline) ->
     [{Name, DefinePos} || {Name, P} <- NewNames,
 			  refac_rename_var:cond_check(Clause, Pos, VarName, Name) =/= {false, false, false},
-			  {ok, {_, DefinePos}} <- [interface_api:pos_to_var_name(ClauseToInline, P)]].
+			  {ok, {_, DefinePos}} <- [api_interface:pos_to_var_name(ClauseToInline, P)]].
 
 do_rename_var({Node, MatchExprs}, [], _UsedVarNames) ->
     {Node, [refac_misc:reset_ann(M) || M <- MatchExprs]};

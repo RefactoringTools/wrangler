@@ -303,7 +303,7 @@ do_process_fun_applications(Node, {Files, AnnAST, ModName, FunName, Arity, Vars}
 						    _ -> FileName = hd(FileName1),
 							 {ok, {AnnAST1, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, Files),
 							 case
-							     interface_api:pos_to_fun_def(AnnAST1, DefPos)    %% TO check: how to you have this DefPos.
+							     api_interface:pos_to_fun_def(AnnAST1, DefPos)    %% TO check: how to you have this DefPos.
 							     of
 							     {ok, FunDef} ->
 								 FunDef1 = intra_fun_forward_slice(Files, AnnAST, ModName, FunDef, FilteredIndex),
@@ -431,8 +431,9 @@ unfold_fun_defs(_Files, AnnAST, ModName, FunDef %% How about recursive functions
 		      Operator = refac_syntax:application_operator(Node),
 		      Ann = refac_syntax:get_ann(Operator),
 		      case lists:keysearch(fun_def, 1, Ann) of
-			{value, {fun_def, {ModName, _F, _A, _, DefPos}}} ->  %% TOCHANGE: temporaly assume the function is local.
-			    case interface_api:pos_to_fun_def(AnnAST, DefPos) of
+			{value, {fun_def, {ModName, _F, _A, _, DefPos}}}  %% TOCHANGE: temporaly assume the function is local.
+			                                                 ->
+                            case api_interface:pos_to_fun_def(AnnAST, DefPos) of
 			      {ok, Def} ->
 				  Cs = refac_syntax:function_clauses(Def),
 				  FunExpr = refac_syntax:fun_expr(Cs),

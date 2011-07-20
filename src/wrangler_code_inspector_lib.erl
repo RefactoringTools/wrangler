@@ -44,7 +44,7 @@
 %%	     {ok, [StartEnd::{pos(), pos()}], [VarDefPos::pos()]}).
 find_var_instances(FName, Line, Col, SearchPaths, TabWidth) ->
     {ok, {AnnAST, _Info0}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-    case interface_api:pos_to_var_name(AnnAST, {Line, Col}) of
+    case api_interface:pos_to_var_name(AnnAST, {Line, Col}) of
 	{ok, {_VarName, DefinePos}} ->
 	    if DefinePos == [{0, 0}] ->
 		   throw({error, "The identifier selected is not defined!"});
@@ -135,7 +135,7 @@ calls_to_fun(FName, Line, Col, SearchPaths, TabWidth) ->
 		 [?MODULE, FName, Line, Col, SearchPaths, TabWidth]),
     check_search_paths(FName, SearchPaths),
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-    case interface_api:pos_to_fun_def(AnnAST, {Line, Col}) of
+    case api_interface:pos_to_fun_def(AnnAST, {Line, Col}) of
 	{ok, Def} ->
 	    case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Def)) of
 		{value, {fun_def, {M, F, A, _, _}}} ->

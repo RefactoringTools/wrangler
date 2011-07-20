@@ -65,9 +65,9 @@ new_let(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewPatName, SearchPa
 	true -> ok;
 	false -> throw({error, "QuickCheck is not used by this module."})
     end,
-    case interface_api:pos_to_fun_def(AnnAST, Start) of
+    case api_interface:pos_to_fun_def(AnnAST, Start) of
 	{ok, FunDef} ->
-	    case interface_api:pos_to_expr(FunDef, Start, End) of
+	    case api_interface:pos_to_expr(FunDef, Start, End) of
 		{ok, Expr} ->
 		    ?debug("Expr:\n~p\n", [Expr]),
 		    case side_cond_analysis(FunDef, Expr, NewPatName) of

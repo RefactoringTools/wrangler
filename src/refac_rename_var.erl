@@ -78,7 +78,7 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     end,
     NewName1 = list_to_atom(NewName),
     {ok, {AnnAST1, _Info1}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-    case interface_api:pos_to_var_name(AnnAST1, {Line, Col}) of
+    case api_interface:pos_to_var_name(AnnAST1, {Line, Col}) of
 	{ok, {VarName, DefinePos}} ->
 	    {VarName, DefinePos};
 	{error, _} ->
