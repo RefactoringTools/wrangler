@@ -1,6 +1,6 @@
 {application, wrangler,
   [ {description, "Wrangler: the Erlang refactorer"},
-    {vsn, "0.9.3"},
+    {vsn, "0.9.4"},
     {modules, [refac_syntax,
                refac_syntax_lib,
                refac_api,
