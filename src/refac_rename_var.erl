@@ -160,7 +160,7 @@ cond_check(Form, Pos, _VarName,  NewName) ->
     {Clash, Shadow1 or Shadow2, BindingChange1 or BindingChange2}.
 
 pos_to_form(Node, Pos) ->
-    case wrangler_ast_traverse_api:once_tdTU(fun pos_to_form_1/2, Node, Pos) of
+    case api_ast_traverse:once_tdTU(fun pos_to_form_1/2, Node, Pos) of
       {_, false} -> throw({error, "Refactoring failed because of a Wrangler error."});
       {R, true} -> R
     end.
@@ -182,7 +182,7 @@ pos_to_form_1(Node, Pos) ->
 %%-spec rename(syntaxTree(), [{integer(), integer()}], atom()) ->
 %%	     {syntaxTree(), boolean()}.
 rename(Tree, DefinePos, NewName) ->
-    wrangler_ast_traverse_api:stop_tdTP(fun do_rename/2, Tree, {DefinePos, NewName}).
+    api_ast_traverse:stop_tdTP(fun do_rename/2, Tree, {DefinePos, NewName}).
 
 %% =====================================================================
 do_rename(Node, {DefinePos, NewName}) ->
@@ -220,4 +220,4 @@ envs_bounds_frees(Node) ->
 		    _ -> [{{env, EnVars}, {bound, BdVars}, {free, FrVars}}| B]
 		end
 	end,
-    lists:usort(wrangler_ast_traverse_api:fold(F, [], Node)).
+    lists:usort(api_ast_traverse:fold(F, [], Node)).

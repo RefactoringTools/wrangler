@@ -61,7 +61,7 @@ find_var_instances(FName, Line, Col, SearchPaths, TabWidth) ->
 				   _ -> S
 			       end
 		       end,
-		   Locs = lists:usort(wrangler_ast_traverse_api:fold(F, [], AnnAST)),
+		   Locs = lists:usort(api_ast_traverse:fold(F, [], AnnAST)),
 		   {ok, Locs, DefinePos}
 	    end;
 	{error, Reason} -> throw({error, Reason})
@@ -94,11 +94,11 @@ nested_exprs_1(FName, NestLevel, ExprType, SearchPaths, TabWidth) ->
 					     _ -> S1
 					 end
 				 end,
-			  wrangler_ast_traverse_api:fold(Fun1, S, T);
+			  api_ast_traverse:fold(Fun1, S, T);
 		      _ -> S
 		  end
 	  end,
-    Ranges = lists:usort(wrangler_ast_traverse_api:fold(Fun, [], AnnAST)),
+    Ranges = lists:usort(api_ast_traverse:fold(Fun, [], AnnAST)),
     SortedRanges = sort_ranges(Ranges),
     ResRanges = lists:filter(fun (R) -> length(R) >= NestLevel end, SortedRanges),
     lists:usort(lists:map(fun (R) -> {M, F, A, _R} = hd(R),{M, F, A} end,
@@ -203,7 +203,7 @@ get_caller_funs(FileName, {M, F, A}, SearchPaths, TabWidth) ->
 		      _ -> {S1, S2}
 		  end
 	  end,
-    wrangler_ast_traverse_api:fold(Fun, {[], []}, AnnAST).
+    api_ast_traverse:fold(Fun, {[], []}, AnnAST).
 
 collect_apps(FileName, Node, {M, F, A}) ->
     Fun = fun (T, {S1,S2}) ->
@@ -237,7 +237,7 @@ collect_apps(FileName, Node, {M, F, A}) ->
 		      _ -> {S1, S2}
 		  end
 	  end,
-    wrangler_ast_traverse_api:fold(Fun, {[], []}, Node).
+    api_ast_traverse:fold(Fun, {[], []}, Node).
 
 %%==========================================================================================
 %%-spec(dependencies_of_a_module(FileName::filename(), SearchPaths::[dir()]) -> 
@@ -295,7 +295,7 @@ long_functions_2(FName, Lines, SearchPaths, TabWidth) ->
 		      _ -> S
 		  end
 	  end,
-    lists:usort(wrangler_ast_traverse_api:fold(Fun, [], AnnAST)).
+    lists:usort(api_ast_traverse:fold(Fun, [], AnnAST)).
 
 %%==========================================================================================
 %%-spec(large_modules(Lines::integer(), SearchPaths::[dir()], TabWidth::integer()) ->				  
@@ -345,7 +345,7 @@ non_tail_recursive_servers_1(FName, SearchPaths, TabWidth) ->
 		      _ -> S
 		  end
 	  end,
-    wrangler_ast_traverse_api:fold(Fun, [], AnnAST).
+    api_ast_traverse:fold(Fun, [], AnnAST).
 
 is_non_tail_recursive_server(FileName, FunDef, {ModName, FunName, Arity}, Line, _SearchPaths) ->
     Fun = fun (T, S) ->
@@ -360,7 +360,7 @@ is_non_tail_recursive_server(FileName, FunDef, {ModName, FunName, Arity}, Line, 
 		      _ -> S
 		  end
 	  end,
-    CandidateSccs = wrangler_ast_traverse_api:fold(Fun, [], FunDef),
+    CandidateSccs = api_ast_traverse:fold(Fun, [], FunDef),
     case CandidateSccs of
 	[] -> false;
 	_ -> lists:any(fun (Scc) ->
@@ -412,7 +412,7 @@ check_candidate_scc(FunDef, Scc, Line) ->
 		 R = [F11(E) || E <- Es],
 		 lists:any(fun (E) -> E == true end, tl(lists:reverse(R)))
 	 end,
-    ListOfExpLists = wrangler_ast_traverse_api:fold(F, [], FunDef),
+    ListOfExpLists = api_ast_traverse:fold(F, [], FunDef),
     ExpLists1 = lists:map(F1, ListOfExpLists),
     lists:any(fun (E) -> E == true end, ExpLists1).
 
@@ -447,7 +447,7 @@ not_flush_unknown_messages_1(FName, SearchPaths, TabWidth) ->
 		      _ -> S
 		  end
 	  end,
-    wrangler_ast_traverse_api:fold(Fun, [], AnnAST).
+    api_ast_traverse:fold(Fun, [], AnnAST).
 
 has_receive_expr_without_flush(FileName, Info, ModName, FunDef, Line, _SearchPaths) ->
     FunName = refac_syntax:atom_value(refac_syntax:function_name(FunDef)),
@@ -466,7 +466,7 @@ has_receive_expr_without_flush(FileName, Info, ModName, FunDef, Line, _SearchPat
 		    _ -> S
 		end
 	end,
-    lists:member(true, wrangler_ast_traverse_api:fold(F, [], FunDef)).
+    lists:member(true, api_ast_traverse:fold(F, [], FunDef)).
 
 not_has_flush_scc(FileName, Info, FunDef, Scc, Line) ->
     case is_server(FileName, Info, FunDef, Scc, Line) of 
@@ -496,7 +496,7 @@ is_server(_FileName, _Info, FunDef, Scc, Line) ->
 		     _ -> false
 		 end
 	 end,
-    ListOfApps = wrangler_ast_traverse_api:fold(F, [], FunDef),
+    ListOfApps = api_ast_traverse:fold(F, [], FunDef),
     lists:member(true, lists:map(F1, ListOfApps)).
 
 not_has_flush_fun(FunDef) ->
@@ -524,7 +524,7 @@ not_has_flush_fun(FunDef) ->
 		    _ -> S
 		end
 	end,
-    lists:member(true, wrangler_ast_traverse_api:fold(F, [], FunDef)).
+    lists:member(true, api_ast_traverse:fold(F, [], FunDef)).
 
 check_search_paths(FileName, SearchPaths) ->
     InValidSearchPaths = lists:filter(fun (X) ->  not  filelib:is_dir(X) end, SearchPaths),
@@ -558,7 +558,7 @@ has_receive_expr(FunDef) ->
 		    _ -> S
 		end
 	end,
-    LineNums = wrangler_ast_traverse_api:fold(F, [], FunDef),
+    LineNums = api_ast_traverse:fold(F, [], FunDef),
     case LineNums of
 	[] -> false;
 	_ -> {true, lists:min(LineNums)}

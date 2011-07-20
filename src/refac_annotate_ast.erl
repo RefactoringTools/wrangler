@@ -51,7 +51,7 @@ add_fun_define_locations(AST, ModInfo) ->
 		       _ -> S
 		   end
 	   end,
-    DefinedFuns = wrangler_ast_traverse_api:fold(Funs, ordsets:new(), AST),
+    DefinedFuns = api_ast_traverse:fold(Funs, ordsets:new(), AST),
     ImportedFuns = case lists:keysearch(imports, 1, ModInfo) of
 		       {value, {imports, I}} ->
 			   lists:append([[{{M, F, A}, ?DEFAULT_LOC}
@@ -169,7 +169,7 @@ add_fun_def_info_to_export_import_elems(Node, DefMod, DefinedFuns) ->
 
 
 add_fun_def_info_in_form(F, ModName, DefinedFuns, ImportedFuns) ->
-    {F1, _} = wrangler_ast_traverse_api:full_tdTP(fun add_fun_def_info_1/2, F, {ModName, DefinedFuns, ImportedFuns}),
+    {F1, _} = api_ast_traverse:full_tdTP(fun add_fun_def_info_1/2, F, {ModName, DefinedFuns, ImportedFuns}),
     F1.
 
 								  

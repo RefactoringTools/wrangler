@@ -561,7 +561,7 @@ called_mods(Tree) ->
 		      _ -> S
 		  end
 	  end,
-    ordsets:from_list(wrangler_ast_traverse_api:fold(Fun, ordsets:new(), Tree)).
+    ordsets:from_list(api_ast_traverse:fold(Fun, ordsets:new(), Tree)).
     
 		       
 
@@ -827,7 +827,7 @@ collect_words({_M,F,_A}, FunDef) ->
 		      _ -> Acc
 		  end
 	  end,
-    lists:usort(wrangler_ast_traverse_api:fold(Fun, string:tokens(atom_to_list(F), "_"), FunDef)).
+    lists:usort(api_ast_traverse:fold(Fun, string:tokens(atom_to_list(F), "_"), FunDef)).
 
 gen_components(FileName) ->
     CallerCalleesWithDef = wrangler_callgraph_server:build_callercallee_callgraph([FileName]),

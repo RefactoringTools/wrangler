@@ -290,7 +290,7 @@ collect_implicit_funs(AnnAST, {FunName, Arity}) ->
 		  _ -> {[], false}
 		end
 	end,
-    element(1, wrangler_ast_traverse_api:once_tdTU(F, AnnAST, {})).
+    element(1, api_ast_traverse:once_tdTU(F, AnnAST, {})).
 
 tuple_pars(FileName, AnnAST, ModName, FunName, Arity, Index, Num, Info, SearchPaths, TabWidth) ->
     Forms = refac_syntax:form_list_elements(AnnAST),
@@ -355,8 +355,8 @@ tuple_pars_in_function(Form, Args = {_FileName, _CurModName, _FunDefMod, FunName
 		       fun (C) ->
 			       Pats = refac_syntax:clause_patterns(C),
 			       Pats1 = [P1 || P <- Pats, {P1, _}
-							     <- [wrangler_ast_traverse_api:full_tdTP(
-								            fun do_replace_underscore/2, P, [])]],
+							     <- [api_ast_traverse:full_tdTP(
+								   fun do_replace_underscore/2, P, [])]],
 			       G = refac_syntax:clause_guard(C),
 			       Op = refac_syntax:atom(FunName),
 			       Pats2 = process_pars(Pats1, Index, Num),
@@ -413,7 +413,7 @@ process_pars(Pars, Index, Num) ->
 
 
 tuple_actual_pars(Node, Args) ->
-    element(1, wrangler_ast_traverse_api:full_tdTP(fun do_tuple_actual_pars/2, Node, Args)).
+    element(1, api_ast_traverse:full_tdTP(fun do_tuple_actual_pars/2, Node, Args)).
 
 do_tuple_actual_pars(Node, Others = {_FileName, CurModName, FunDefMod, FunName,
 				     Arity, Index, Num, _SearchPaths, _TabWith}) ->
@@ -583,7 +583,7 @@ tuple_pars_in_client_modules(ClientFiles, FunDefMod, FunName, Arity, Index, Num,
 
 tuple_pars_in_client_modules_1(F, AnnAST, CurModName, FunDefMod, FunName, Arity, Index, Num, SearchPaths, TabWidth) ->
     Args = {F, CurModName, FunDefMod, FunName, Arity, Index, Num, SearchPaths, TabWidth},
-    wrangler_ast_traverse_api:full_tdTP(fun do_tuple_actual_pars/2, AnnAST, Args).
+    api_ast_traverse:full_tdTP(fun do_tuple_actual_pars/2, AnnAST, Args).
     
 
     

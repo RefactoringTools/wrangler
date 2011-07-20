@@ -127,7 +127,7 @@ is_use_instance(VarNode) ->
     not lists:member(Pos, DefinePos).
 	     
 pos_to_form(Node, Pos) ->
-    case wrangler_ast_traverse_api:once_tdTU(fun pos_to_form_1/2, Node, Pos) of
+    case api_ast_traverse:once_tdTU(fun pos_to_form_1/2, Node, Pos) of
 	{_, false} -> throw({error, "You have not selected a variable in a syntactically well-formed function."});
 	{R, true} -> R
     end.
@@ -178,7 +178,7 @@ search_for_unfold_candidates(Form, MatchExprBody, VarNode) ->
 			Acc
 		end
 	end,
-    lists:sort(wrangler_ast_traverse_api:fold(F, [], Form)).
+    lists:sort(api_ast_traverse:fold(F, [], Form)).
 
 collect_all_uses(Form, VarNode) ->
     {value, {def, DefinePos}} = lists:keysearch(def, 1, refac_syntax:get_ann(VarNode)),
@@ -200,7 +200,7 @@ collect_all_uses(Form, VarNode) ->
 			Acc
 		end
 	end,
-    lists:sort(wrangler_ast_traverse_api:fold(F, [], Form)).
+    lists:sort(api_ast_traverse:fold(F, [], Form)).
 
 cond_check_1(MatchExprBody, VarNode) ->
     MatchExprFreeVars = refac_api:free_vars(MatchExprBody),
@@ -239,12 +239,12 @@ get_bound_vars(Tree) ->
 		    _ -> B
 		end
 	end,
-    lists:usort(wrangler_ast_traverse_api:fold(F, [], Tree)).
+    lists:usort(api_ast_traverse:fold(F, [], Tree)).
     
 
 get_var_define_match_expr(Form, VarNode)->
     {value, {def, DefinePos}} = lists:keysearch(def, 1, refac_syntax:get_ann(VarNode)),
-    case wrangler_ast_traverse_api:once_tdTU(fun pos_to_match_expr_1/2, Form, DefinePos) of
+    case api_ast_traverse:once_tdTU(fun pos_to_match_expr_1/2, Form, DefinePos) of
 	{MatchExpr, true} ->
 	    {ok, MatchExpr};
 	{_, false} ->
@@ -299,7 +299,7 @@ inline(AnnAST, Form, MatchExpr, VarNode, Ps) ->
 do_inline_in_form(Form, MatchExpr, VarNode, Ps) ->
     MatchExprBody = refac_syntax:match_expr_body(MatchExpr),
     AllUseInstances = collect_all_uses(Form, VarNode),
-    {Form2, _} = wrangler_ast_traverse_api:stop_tdTP(fun do_inline/2, Form, {MatchExprBody, Ps}),
+    {Form2, _} = api_ast_traverse:stop_tdTP(fun do_inline/2, Form, {MatchExprBody, Ps}),
     case lists:usort(AllUseInstances) == lists:usort(Ps) of 
         true ->
             remove_match_expr(Form2, MatchExpr);
@@ -308,8 +308,8 @@ do_inline_in_form(Form, MatchExpr, VarNode, Ps) ->
     end.
  
 remove_match_expr(Form, MatchExpr) ->
-    {NewForm, _} = wrangler_ast_traverse_api:stop_tdTP(
-		              fun do_remove_match_expr/2, Form, MatchExpr),
+    {NewForm, _} = api_ast_traverse:stop_tdTP(
+		     fun do_remove_match_expr/2, Form, MatchExpr),
     NewForm.
 
 do_remove_match_expr(Node,MatchExpr) ->

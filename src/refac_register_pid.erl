@@ -312,7 +312,7 @@ is_direct_recursive_fun(ModName, FunName, Arity, FunDef) ->
 		  _ -> {[], false}
 		end
 	end,
-    R = wrangler_ast_traverse_api:once_tdTU(F, FunDef, {ModName, FunName, Arity}),
+    R = api_ast_traverse:once_tdTU(F, FunDef, {ModName, FunName, Arity}),
     case R of
       {_, true} ->
 	  true;
@@ -361,11 +361,11 @@ collect_registered_names_and_pids(DirList, TabWidth) ->
 						      _ -> FunAcc
 						  end
 					  end,
-				     wrangler_ast_traverse_api:fold(F2, [], Node) ++ ModAcc;
+				     api_ast_traverse:fold(F2, [], Node) ++ ModAcc;
 				 _ -> ModAcc
 			     end
 		     end,
-		wrangler_ast_traverse_api:fold(F1, [], AnnAST) ++ FileAcc
+		api_ast_traverse:fold(F1, [], AnnAST) ++ FileAcc
 	end,
     Acc = lists:foldl(F, [], Files),
     PNameAcc = lists:flatmap(fun ({P,A}) -> if P ==pname -> [A];
@@ -405,13 +405,13 @@ do_register(FName, AnnAST, MatchExpr, Pid, RegName, SearchPaths, TabWidth) ->
    end.
 
 refactor_send_exprs(FName, AnnAST, PidInfo, RegName, SearchPaths, TabWidth) ->
-    {AnnAST1, _} = wrangler_ast_traverse_api:stop_tdTP(fun do_refactor_send_exprs/2, AnnAST, {PidInfo, RegName}),
+    {AnnAST1, _} = api_ast_traverse:stop_tdTP(fun do_refactor_send_exprs/2, AnnAST, {PidInfo, RegName}),
     %%This can be refined to check the client and parent modules of the current module.
     Files = refac_misc:expand_files(SearchPaths, ".erl") -- [FName],
     Results = lists:flatmap(fun (File) ->
 				    ?wrangler_io("The current file under refactoring is:\n~p\n", [File]),
 				    {ok, {AnnAST2, _Info}} = wrangler_ast_server:parse_annotate_file(File, true, SearchPaths, TabWidth),
-				    {AnnAST3, Changed} = wrangler_ast_traverse_api:stop_tdTP(fun do_refactor_send_exprs/2, AnnAST2, {PidInfo, RegName}),
+				    {AnnAST3, Changed} = api_ast_traverse:stop_tdTP(fun do_refactor_send_exprs/2, AnnAST2, {PidInfo, RegName}),
 				    if Changed ->
 					   [{{File, File}, AnnAST3}];
 				       true -> []
@@ -451,7 +451,7 @@ add_register_expr(AnnAST, MatchExpr, RegName) ->
     Pid = refac_syntax:match_expr_pattern(MatchExpr),
     RegExpr = refac_syntax:application(refac_syntax:atom(register),
 				       [refac_syntax:atom(RegName), Pid]),
-    wrangler_ast_traverse_api:stop_tdTP(fun do_add_register_expr/2, AnnAST, {MatchExpr, RegExpr}).
+    api_ast_traverse:stop_tdTP(fun do_add_register_expr/2, AnnAST, {MatchExpr, RegExpr}).
     
     
 
@@ -540,7 +540,7 @@ funs_called(Node) ->
 		     _ -> S
 		 end
 	 end,
-    lists:usort(wrangler_ast_traverse_api:fold(F2, [], Node)).
+    lists:usort(api_ast_traverse:fold(F2, [], Node)).
 
 pos_to_spawn_match_expr(AnnAST, Start, End) ->
     Message = "You have not selected a match expression whose left-hand side is a PID, and right-hand side is a spawn expression!",
@@ -568,7 +568,7 @@ pos_to_receive_expr(FunDef, Start) ->
 		    _ -> Acc
 		end
 	end,
-    ReceiveExprs = wrangler_ast_traverse_api:fold(F, [], FunDef),
+    ReceiveExprs = api_ast_traverse:fold(F, [], FunDef),
     lists:any(fun (E) ->
 		      {Start1, End1} = refac_api:start_end_loc(E),
 		      Start1 =< Start andalso Start =< End1
@@ -581,7 +581,7 @@ pos_to_list_comp_expr(FunDef, Start) ->
 		    _ -> Acc
 		end
 	end,
-    ReceiveExprs = wrangler_ast_traverse_api:fold(F, [], FunDef),
+    ReceiveExprs = api_ast_traverse:fold(F, [], FunDef),
     lists:any(fun (E) ->
 		      {Start1, End1} = refac_api:start_end_loc(E),
 		      Start1 =< Start andalso Start =< End1

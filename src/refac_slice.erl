@@ -86,7 +86,7 @@ forward_slice_1(Files, AnnAST, ModName, {FunDef, Expr}) ->
 		end,
 	    case CallerFuns of
 		[] -> get_all_sliced_funs();
-		_ -> SliceCriterion = lists:flatmap(fun (FunDef1) -> AppExprs = wrangler_ast_traverse_api:fold(F, [], FunDef1),
+		_ -> SliceCriterion = lists:flatmap(fun (FunDef1) -> AppExprs = api_ast_traverse:fold(F, [], FunDef1),
 								     lists:map(fun (E) -> {FunDef1, E} end, AppExprs)
 						    end, CallerFuns),
 		     lists:flatmap(fun (SC) -> forward_slice_1(Files, AnnAST, ModName, SC) end, SliceCriterion)
@@ -206,13 +206,13 @@ rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, [E| Exprs], Expr, Var
 
     
 reset_attrs(Node) ->
-    wrangler_ast_traverse_api:full_buTP(fun (T, _Others) ->
-				                As = refac_syntax:get_ann(T),
-				                As0 = lists:keydelete(free, 1, As),
-				                As1 = lists:keydelete(bound, 1, As0),
-				                As2 = lists:keydelete(env, 1, As1),
-				                refac_syntax:set_ann(T, As2)
-			                end, Node, {}).
+    api_ast_traverse:full_buTP(fun (T, _Others) ->
+				       As = refac_syntax:get_ann(T),
+				       As0 = lists:keydelete(free, 1, As),
+				       As1 = lists:keydelete(bound, 1, As0),
+				       As2 = lists:keydelete(env, 1, As1),
+				       refac_syntax:set_ann(T, As2)
+			       end, Node, {}).
 
 	    
 	    
@@ -264,7 +264,7 @@ process_fun_body(Files, AnnAST, ModName, FunName, Arity, [E| Exprs], Vars) ->
 
 
 process_fun_applications(Files, AnnAST, ModName, FunName, Arity, E, Vars) ->
-    wrangler_ast_traverse_api:full_buTP(fun do_process_fun_applications/2, E, {Files, AnnAST, ModName, FunName, Arity, Vars}).
+    api_ast_traverse:full_buTP(fun do_process_fun_applications/2, E, {Files, AnnAST, ModName, FunName, Arity, Vars}).
 
 do_process_fun_applications(Node, {Files, AnnAST, ModName, FunName, Arity, Vars}) ->
     case refac_syntax:type(Node) of
@@ -414,7 +414,7 @@ collect_app_sites(AnnAST, ModName, FunName, Arity) ->
     F = fun (T, Acc) ->
 		case refac_syntax:type(T) of
 		    function ->
-			Acc1 = wrangler_ast_traverse_api:fold(F1, [], T),
+			Acc1 = api_ast_traverse:fold(F1, [], T),
 			case Acc1 of
 			    [] -> Acc;
 			    _ -> Acc ++ lists:map(fun (E) -> {T, E} end, Acc1)
@@ -422,7 +422,7 @@ collect_app_sites(AnnAST, ModName, FunName, Arity) ->
 		    _ -> Acc
 		end
 	end,
-    wrangler_ast_traverse_api:fold(F, [], AnnAST).
+    api_ast_traverse:fold(F, [], AnnAST).
 unfold_fun_defs(_Files, AnnAST, ModName, FunDef %% How about recursive functions?
                                                ) ->
     F = fun (Node, _Others) ->
@@ -446,7 +446,7 @@ unfold_fun_defs(_Files, AnnAST, ModName, FunDef %% How about recursive functions
 		  _ -> {Node, false}
 		end
 	end,
-    {FunDef1, _} = wrangler_ast_traverse_api:stop_tdTP(F, FunDef, []),
+    {FunDef1, _} = api_ast_traverse:stop_tdTP(F, FunDef, []),
     FunDef2 = refac_syntax_lib:annotate_bindings(reset_attrs(FunDef1), []),
     FunDef2.
 

@@ -233,9 +233,9 @@ gen_fun_1(SideEffect, FileName, ParName, FunName, Arity, DefPos, Exp0, SearchPat
 		  false -> AnnAST
 	      end,
     ActualPar = make_actual_parameter(ModName, Exp, SideEffect),
-    {AnnAST2, _} = wrangler_ast_traverse_api:stop_tdTP(fun do_gen_fun/2, AnnAST1,
-					               {FileName, ParName, FunName, Arity, DefPos, Info,
-					                Exp, ActualPar, SideEffect, Dups, SearchPaths, TabWidth}),
+    {AnnAST2, _} = api_ast_traverse:stop_tdTP(fun do_gen_fun/2, AnnAST1,
+					      {FileName, ParName, FunName, Arity, DefPos, Info,
+					       Exp, ActualPar, SideEffect, Dups, SearchPaths, TabWidth}),
     refac_write_file:write_refactored_files([{{FileName,FileName}, AnnAST2}], Editor, TabWidth, LogCmd).
 
 
@@ -359,7 +359,7 @@ gen_cond_analysis(Fun, Exp, ParName) ->
 		refac_api:bound_vars(Node) ++ Acc
 	end,
     Vars0 = lists:foldl(fun (C, Acc) ->
-				wrangler_ast_traverse_api:fold(F, [], C) ++ Acc
+				api_ast_traverse:fold(F, [], C) ++ Acc
 			end, [], Cs),
     Vars = Vars0 ++ Exp_Free_Vars,
     case [X || {X, _Y} <- Vars, X == ParName] of
@@ -378,8 +378,8 @@ gen_fun(FileName, ModName, Tree, ParName, FunName, Arity, DefPos, Info, Exp, Sid
 	      false -> Tree
 	    end,
     ActualPar = make_actual_parameter(ModName, Exp, SideEffect),
-    wrangler_ast_traverse_api:stop_tdTP(fun do_gen_fun/2, Tree1,
-			                {FileName, ParName, FunName, Arity, DefPos, Info, Exp, ActualPar, SideEffect, Dups, SearchPaths, TabWidth}).
+    api_ast_traverse:stop_tdTP(fun do_gen_fun/2, Tree1,
+			       {FileName, ParName, FunName, Arity, DefPos, Info, Exp, ActualPar, SideEffect, Dups, SearchPaths, TabWidth}).
 
 %% =====================================================================
 %% @spec add_function(ModName::atom(),Tree::syntaxTree(),FunName::atom(),DefPos::Pos,Exp::expression(),SideEffect::boolean()) ->syntaxTree()
@@ -390,7 +390,7 @@ add_function(ModName, Tree, FunName, DefPos, Exp, SideEffect) ->
 	fun (C, Expr, Name) ->
 		Pats = refac_syntax:clause_patterns(C),
 		Fun = fun (P) ->
-			      {P1, _} = wrangler_ast_traverse_api:stop_tdTP(fun do_replace_underscore/2, P, []),
+			      {P1, _} = api_ast_traverse:stop_tdTP(fun do_replace_underscore/2, P, []),
 			      P1
 		      end,
 		Pats1 = lists:map(Fun, Pats),
@@ -453,15 +453,15 @@ replace_clause_body(C, FunName, Exp, ActualPar) ->
 	    G = refac_syntax:clause_guard(C),
 	    Body = [refac_syntax:application(refac_syntax:atom(FunName), Pats ++ [ActualPar])],
 	    Body1 = [B1 || B <- Body,
-			   {B1, _} <- [wrangler_ast_traverse_api:stop_tdTP(fun do_replace_underscore/2, B, [])]],
+			   {B1, _} <- [api_ast_traverse:stop_tdTP(fun do_replace_underscore/2, B, [])]],
 	    refac_misc:rewrite(C, refac_syntax:clause(Pats, G, Body1));
 	_ -> C %% add_actual_parameter(C, {FileName, FunName, Arity, Exp1, Info, SearchPaths, TabWidth})
     end.
 
 
 replace_exp_with_var(Tree, {ParName, Exp, SideEffect, Dups}) ->
-    {Tree1, _} = wrangler_ast_traverse_api:stop_tdTP(fun do_replace_exp_with_var/2,
-					             Tree, {ParName, Exp, SideEffect, Dups}),
+    {Tree1, _} = api_ast_traverse:stop_tdTP(fun do_replace_exp_with_var/2,
+					    Tree, {ParName, Exp, SideEffect, Dups}),
     Tree1.
 
 do_replace_exp_with_var(Tree, {ParName, Exp, SideEffect, Dups}) ->
@@ -487,7 +487,7 @@ do_replace_exp_with_var(Tree, {ParName, Exp, SideEffect, Dups}) ->
     end.
    
 add_actual_parameter(Tree, Args = {_FileName, _FunName, _Arity, _Exp, _Info, _SearchPaths, _TabWidth}) ->
-    {Tree1, _} = wrangler_ast_traverse_api:stop_tdTP(fun do_add_actual_parameter/2, Tree, Args),
+    {Tree1, _} = api_ast_traverse:stop_tdTP(fun do_add_actual_parameter/2, Tree, Args),
     Tree1.
 
 do_add_actual_parameter(Tree, Others = {_FileName, FunName, Arity, Exp, Info, _SearchPaths, _TabWidth}) ->
@@ -706,7 +706,7 @@ check_implicit_and_apply_style_calls(AnnAST, ModName, FunName, Arity) ->
 		    _ -> {[], false}
 		end
 	end,
-    element(2, wrangler_ast_traverse_api:once_tdTU(F, AnnAST, [])).
+    element(2, api_ast_traverse:once_tdTU(F, AnnAST, [])).
 
 generalise_recursive_function_call(Exp, ModName, FunName, Arity) ->
     Fun = fun (T, S) ->
@@ -717,7 +717,7 @@ generalise_recursive_function_call(Exp, ModName, FunName, Arity) ->
 			  S
 		  end
 	  end,
-    lists:member(true, wrangler_ast_traverse_api:fold(Fun, [], Exp)).
+    lists:member(true, api_ast_traverse:fold(Fun, [], Exp)).
 
 has_multiple_definitions(AnnAST, ModName, FunName, Arity) ->
     Fun=fun(F) ->
@@ -795,7 +795,7 @@ search_duplications(Tree, Exp) ->
 	end,
     case refac_syntax:is_literal(Exp) of
 	true ->
-	    Es = lists:reverse(wrangler_ast_traverse_api:fold(F, [], Tree)),
+	    Es = lists:reverse(api_ast_traverse:fold(F, [], Tree)),
 	    [refac_api:start_end_loc(E) || E <- Es];
 	_ -> []
     end.
@@ -809,11 +809,11 @@ do_replace_underscore(Tree, _Others) ->
     
 
 reset_attr(Node, Key) ->
-    wrangler_ast_traverse_api:full_buTP(fun (T, _Others) ->
-				                Ann = refac_syntax:get_ann(T),
-				                NewAnn = lists:keydelete(Key, 1, Ann),
-				                refac_syntax:set_ann(T, NewAnn)
-			                end, Node, {}).
+    api_ast_traverse:full_buTP(fun (T, _Others) ->
+				       Ann = refac_syntax:get_ann(T),
+				       NewAnn = lists:keydelete(Key, 1, Ann),
+				       refac_syntax:set_ann(T, NewAnn)
+			       end, Node, {}).
 
 list_elements(Node) ->
     lists:reverse(list_elements(Node, [])).

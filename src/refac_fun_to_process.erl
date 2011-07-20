@@ -219,7 +219,7 @@ check_self_exprs(SelfApps, InitialFun = {_ModName, _FunName, _Arity}, SearchPath
 		Res1 = [FunDef1 || {_,FunDef1} <- Res],
 		{RegAcc, RecAcc, SendAcc} = lists:unzip3(
 					      lists:map(fun (FunDef1) ->
-								wrangler_ast_traverse_api:fold(F1, {[],[],[]}, FunDef1)
+								api_ast_traverse:fold(F1, {[],[],[]}, FunDef1)
 							end,Res1)),
 		{{Mod,Fun,Arity}, SelfExpr, {RegAcc, RecAcc, SendAcc}}
 	end,
@@ -369,11 +369,11 @@ collect_registration_and_self_apps(DirList, TabWidth) ->
 						      _ -> FunAcc
 						  end
 					  end,
-				     wrangler_ast_traverse_api:fold(F2, [], Node) ++ ModAcc;
+				     api_ast_traverse:fold(F2, [], Node) ++ ModAcc;
 				 _ -> ModAcc
 			     end
 		     end,
-		wrangler_ast_traverse_api:fold(F1, [], AnnAST) ++ FileAcc
+		api_ast_traverse:fold(F1, [], AnnAST) ++ FileAcc
 	end,
     Acc = lists:foldl(F, [], Files),
     PNameAcc = [A || {pname, A} <- Acc],
@@ -417,7 +417,7 @@ is_direct_recursive_fun(ModName, FunName, Arity, FunDef) ->
 		  _ -> {[], false}
 		end
 	end,
-    R = wrangler_ast_traverse_api:once_tdTU(F, FunDef, {ModName, FunName, Arity}),
+    R = api_ast_traverse:once_tdTU(F, FunDef, {ModName, FunName, Arity}),
     element(2, R).
    
 

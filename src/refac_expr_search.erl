@@ -159,7 +159,7 @@ search_one_expr(FileName, Tree, Exp) ->
 		    _ -> Acc
 		end
 	end,
-    lists:reverse(wrangler_ast_traverse_api:fold(F, [], Tree)).
+    lists:reverse(api_ast_traverse:fold(F, [], Tree)).
     
 %% Search for the clones of an expresion sequence.
 search_expr_seq(FileName, Tree, ExpList) ->
@@ -196,10 +196,10 @@ get_clone(FileName, ExpList1, ExpList2) ->
 simplify_expr(Exp) when is_list(Exp) ->
     [simplify_expr(E) || E <- Exp];
 simplify_expr(Exp) ->
-    wrangler_ast_traverse_api:full_buTP(
-               fun (Node, _Others) ->
-	               do_simplify_expr(Node)
-               end, Exp, {}).
+    api_ast_traverse:full_buTP(
+      fun (Node, _Others) ->
+	      do_simplify_expr(Node)
+      end, Exp, {}).
 
 
 do_simplify_expr(Node) ->
@@ -269,5 +269,5 @@ contained_exprs(Tree, MinLen) ->
 		    _ -> Acc
 		end
 	end,
-    Es = wrangler_ast_traverse_api:fold(F, [], Tree),
+    Es = api_ast_traverse:fold(F, [], Tree),
     [E || E <- Es, length(E) >= MinLen].

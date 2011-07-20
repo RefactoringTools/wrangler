@@ -188,8 +188,8 @@ generalise_and_hash_ast_1(FName, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
 			  Arity = refac_syntax:function_arity(Form),
 			  AllVars = refac_misc:collect_var_source_def_pos_info(Form),
 			  ets:insert(VarTab, {{FName, FunName, Arity}, AllVars}),
-			  wrangler_ast_traverse_api:full_tdTP(fun generalise_and_hash_ast_2/2,
-						              Form, {FName, FunName, Arity, ASTTab, Pid});
+			  api_ast_traverse:full_tdTP(fun generalise_and_hash_ast_2/2,
+						     Form, {FName, FunName, Arity, ASTTab, Pid});
 		      _ -> ok
 		  end
 	  end,
@@ -207,7 +207,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
 		 end
 	 end,
     F1 = fun (T) ->
-		 {T1, _} = wrangler_ast_traverse_api:stop_tdTP(F0, T, []),
+		 {T1, _} = api_ast_traverse:stop_tdTP(F0, T, []),
 		 HashVal = erlang:md5(format(T1)),
 		 {S, E} = refac_api:start_end_loc(T),
 		 insert_hash(Pid, HashVal, {{FName, FunName, Arity}, S, E}),
@@ -697,7 +697,7 @@ gen_clone_report([_C={_Ranges, {Len, F}, {Code, {Pars,NewVars}}}|Cs], Num, Str) 
 
 
 post_process_anti_unifier(FunAST) ->
-    {FunAST1, _} = wrangler_ast_traverse_api:stop_tdTP(fun do_post_process_anti_unifier/2, FunAST, none),
+    {FunAST1, _} = api_ast_traverse:stop_tdTP(fun do_post_process_anti_unifier/2, FunAST, none),
     FunAST1.
 
 do_post_process_anti_unifier(Node, _Others) ->

@@ -235,7 +235,7 @@ collect_meta_vars_and_atoms(Tree) ->
                   _ -> {Vars, Atoms}
               end
       end,
-    wrangler_ast_traverse_api:fold(F, {[],[]}, Tree).
+    api_ast_traverse:fold(F, {[],[]}, Tree).
 
 is_meta_atom(Node) ->
     case erl_syntax:type(Node) of 
@@ -342,7 +342,7 @@ expand_collector(Form) ->
    
 
 convert_meta_atom_to_meta_var(Node) ->
-    {Node1, _} = wrangler_ast_traverse_api:stop_tdTP(fun do_convert/2, Node, {}),
+    {Node1, _} = api_ast_traverse:stop_tdTP(fun do_convert/2, Node, {}),
     Node1.
 
 do_convert(Node, _Others) ->

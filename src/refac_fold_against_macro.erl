@@ -188,7 +188,7 @@ do_search_candidate_exprs_1(AnnAST, MacroBody, MacroParNames) ->
 			  S
 		  end
 	  end,
-    wrangler_ast_traverse_api:fold(Fun, [], AnnAST).
+    api_ast_traverse:fold(Fun, [], AnnAST).
 
 do_search_candidate_exprs_2(AnnAST, MacroBody, MacroParNames) ->
     Len = length(MacroBody),
@@ -213,7 +213,7 @@ do_search_candidate_exprs_2(AnnAST, MacroBody, MacroParNames) ->
 		      _ -> S
 		  end
 	  end,
-    wrangler_ast_traverse_api:fold(Fun, [], AnnAST).
+    api_ast_traverse:fold(Fun, [], AnnAST).
 
 get_candidate_exprs(Exprs, Len, MacroBody, MacroParNames) ->
     SubExprs = sublists(Exprs, Len),
@@ -289,7 +289,7 @@ sublists(List, Len) ->
 %%==========================================================================
 pos_to_macro_define(AnnAST, Pos) ->
     case
-      wrangler_ast_traverse_api:once_tdTU(fun pos_to_macro_define_1/2, AnnAST, Pos)
+      api_ast_traverse:once_tdTU(fun pos_to_macro_define_1/2, AnnAST, Pos)
 	of
       {_, false} ->
 	  {error, none};
@@ -321,10 +321,10 @@ is_expr_or_pat(Node) ->
 %% Distel seems turn {wrapper, nil, ...} into {wrapper, [], ...}
 %% We have to turn it back.
 transform(Node) ->
-    wrangler_ast_traverse_api:full_buTP(fun (T, _Others) ->
-				                case T of
-					          {wrapper, [], A, {[], B}} ->
-					              {wrapper, nil, A, {nil, B}};
-					          _ -> T
-				                end
-			                end, Node, {}).
+    api_ast_traverse:full_buTP(fun (T, _Others) ->
+				       case T of
+					 {wrapper, [], A, {[], B}} ->
+					     {wrapper, nil, A, {nil, B}};
+					 _ -> T
+				       end
+			       end, Node, {}).

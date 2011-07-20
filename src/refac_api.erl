@@ -497,7 +497,7 @@ exported_vars_1(Node, {StartLoc, EndLoc}) ->
                       _ -> Acc        
                   end
           end,
-    ordsets:to_list(wrangler_ast_traverse_api:full_tdTU(Fun,ordsets:new(),Node)).
+    ordsets:to_list(api_ast_traverse:full_tdTU(Fun,ordsets:new(),Node)).
  
 %%@doc Returns all the variable names that are declared within `Node', and 
 %%    also used by the code outside `Node'.
@@ -528,7 +528,7 @@ bound_vars(Node) ->
                           Acc
                   end
           end,
-    Vars=wrangler_ast_traverse_api:fold(Fun, [], Node),
+    Vars=api_ast_traverse:fold(Fun, [], Node),
     lists:usort(Vars).
 
 %%@doc Returns all the variable names that are declared within `Node'.
@@ -1036,10 +1036,10 @@ equal(Tree1, Tree2) ->
 mask_variables(Exp) when is_list(Exp) ->
     [mask_variables(E) || E <- Exp];
 mask_variables(Exp) ->
-    wrangler_ast_traverse_api:full_buTP(
-               fun (Node, _Others) ->
-	               do_mask_variables(Node)
-               end, Exp, {}).
+    api_ast_traverse:full_buTP(
+      fun (Node, _Others) ->
+	      do_mask_variables(Node)
+      end, Exp, {}).
 
 do_mask_variables(Node) ->
     case refac_syntax:type(Node) of
@@ -1152,7 +1152,7 @@ subst(Expr, Subst) when is_list(Expr) ->
     [subst(E, Subst)||E<-Expr];
 
 subst(Expr, Subst) ->
-    {Expr1, _} =wrangler_ast_traverse_api:stop_tdTP(fun do_subst/2, Expr, Subst),
+    {Expr1, _} =api_ast_traverse:stop_tdTP(fun do_subst/2, Expr, Subst),
     Expr2=expand_meta_list(Expr1),
     remove_fake_begin_end(Expr2).
  
@@ -1237,8 +1237,8 @@ copy_pos_and_range(Node1, Node2) ->
 %%-spec(reverse_function_clause(Tree::syntaxTree()) -> syntaxTree()).   
 %%@private            
 reverse_function_clause(Tree) ->
-    {Tree1, _} = wrangler_ast_traverse_api:stop_tdTP(
-                            fun reverse_function_clause_1/2, Tree, {}),
+    {Tree1, _} = api_ast_traverse:stop_tdTP(
+                   fun reverse_function_clause_1/2, Tree, {}),
     Tree1.
 
 reverse_function_clause_1(Node, _OtherInfo) ->
@@ -1637,7 +1637,7 @@ do_search_matching_code_list(FileName, AST, Fun, _TempAST) ->
                     false -> Acc
                 end
         end,
-    lists:reverse(wrangler_ast_traverse_api:full_tdTU(F, [], AST)).
+    lists:reverse(api_ast_traverse:full_tdTU(F, [], AST)).
 
 
 get_expr_seqs(T) ->
@@ -1676,7 +1676,7 @@ stop_td_collect(FileName, AST, Fun, Type) ->
                  end
          end,
     AST1=extend_function_clause(AST),
-    lists:reverse(wrangler_ast_traverse_api:stop_tdTU(F, [], AST1)).
+    lists:reverse(api_ast_traverse:stop_tdTU(F, [], AST1)).
 
 
 full_td_collect(FileName, AST, Fun) ->
@@ -1688,7 +1688,7 @@ full_td_collect(FileName, AST, Fun) ->
                          Acc
                  end
        end,
-    lists:reverse(wrangler_ast_traverse_api:full_tdTU(F, [], AST)).
+    lists:reverse(api_ast_traverse:full_tdTU(F, [], AST)).
   
 %%@private
 search_and_collect(Collectors, Input, TraverseStrategy) 
@@ -1855,8 +1855,8 @@ stop_tdTU_2(_, S, []) -> S.
 extend_function_clause(Tree) when is_list(Tree) ->
     [extend_function_clause(T)||T<-Tree];
 extend_function_clause(Tree) ->
-    {Tree1, _} = wrangler_ast_traverse_api:stop_tdTP(
-                            fun extend_function_clause_1/2, Tree, {}),
+    {Tree1, _} = api_ast_traverse:stop_tdTP(
+                   fun extend_function_clause_1/2, Tree, {}),
     Tree1.
 
 extend_function_clause_1(Node, _OtherInfo) ->
@@ -1884,7 +1884,7 @@ is_tree(Node) ->
     refac_syntax:is_tree(Node) orelse refac_syntax:is_wrapper(Node).
 
 expand_meta_list(Tree) ->
-    {Tree1, _}  = wrangler_ast_traverse_api:full_tdTP(fun expand_meta_list_1/2, Tree, {}),
+    {Tree1, _}  = api_ast_traverse:full_tdTP(fun expand_meta_list_1/2, Tree, {}),
     Tree1.
 
 expand_meta_list_1(Node, _OtherInfo) ->

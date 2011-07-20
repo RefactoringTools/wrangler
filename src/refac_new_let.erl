@@ -152,7 +152,7 @@ side_cond_analysis(FunDef, Expr, NewPatName) ->
     
 get_parent_expr(Node, Exp) ->
     case
-      wrangler_ast_traverse_api:once_tdTU(fun get_parent_expr_1/2, Node, Exp)
+      api_ast_traverse:once_tdTU(fun get_parent_expr_1/2, Node, Exp)
 	of
       {_, false} ->
 	  {error, none};
@@ -193,7 +193,7 @@ get_parent_expr_1(Node, Exp) ->
 
 enclosing_macro(Node, Expr, MacroName, Nth) ->
     case
-      wrangler_ast_traverse_api:once_tdTU(fun get_enclosing_macro/2, Node, {Expr, MacroName, Nth})
+      api_ast_traverse:once_tdTU(fun get_enclosing_macro/2, Node, {Expr, MacroName, Nth})
 	of
       {_, false} ->
 	  none;
@@ -229,7 +229,7 @@ get_enclosing_macro(Node, {Expr, Macro, Nth}) ->
     end.
 
 do_intro_new_let(Node, Exp, NewPatName, ParentExpr, LetMacro) ->
-    element(1, wrangler_ast_traverse_api:stop_tdTP(fun do_intro_new_let/2, Node, {Exp, NewPatName, ParentExpr, LetMacro})).
+    element(1, api_ast_traverse:stop_tdTP(fun do_intro_new_let/2, Node, {Exp, NewPatName, ParentExpr, LetMacro})).
 
 do_intro_new_let(Node, {Expr, NewPatName, ParentExpr, LetMacro}) ->
     case Node of
@@ -267,7 +267,7 @@ do_intro_new_let(Node, {Expr, NewPatName, ParentExpr, LetMacro}) ->
     end.
 
 replace_expr_with_var(Node, {Expr, Var}) ->
-    element(1, wrangler_ast_traverse_api:stop_tdTP(fun do_replace_expr_with_var/2, Node, {Expr, Var})).
+    element(1, api_ast_traverse:stop_tdTP(fun do_replace_expr_with_var/2, Node, {Expr, Var})).
 
 do_replace_expr_with_var(Node, {Expr, Var}) ->
     case Node of
@@ -506,7 +506,7 @@ merge_1(FileName, Candidates, SearchPaths, TabWidth, Cmd, Editor, TabWidth) ->
 do_merge(AnnAST, []) ->
     AnnAST;
 do_merge(AnnAST, Candidates) ->
-    element(1, wrangler_ast_traverse_api:stop_tdTP(fun do_merge_1/2, AnnAST, Candidates)).
+    element(1, api_ast_traverse:stop_tdTP(fun do_merge_1/2, AnnAST, Candidates)).
 
 do_merge_1(Tree, Candidates) ->
     {{StartLine, StartCol}, {EndLine, EndCol}} = refac_api:start_end_loc(Tree),
@@ -524,7 +524,7 @@ search_merge_candiates(AnnAST, MacroName) ->
 		    _ -> Acc
 		end
 	end,
-    wrangler_ast_traverse_api:fold(F, [], AnnAST).
+    api_ast_traverse:fold(F, [], AnnAST).
 
 is_macro_app(Node, MacroName) ->
     case refac_syntax:type(Node) of

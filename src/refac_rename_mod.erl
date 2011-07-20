@@ -308,7 +308,7 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, C
 
 do_rename_mod_1(Tree, {FileName, OldNewModPairs, Pid}) ->
     TestFrameWorkUsed = refac_misc:test_framework_used(FileName),
-    {AnnAST1, C1} = wrangler_ast_traverse_api:full_tdTP(fun do_rename_mod_2/2, Tree, {FileName, OldNewModPairs, Pid}),
+    {AnnAST1, C1} = api_ast_traverse:full_tdTP(fun do_rename_mod_2/2, Tree, {FileName, OldNewModPairs, Pid}),
     {AnnAST2, C2} = case lists:member(eunit, TestFrameWorkUsed) of
 			true -> do_rename_mod_in_eunit_funs(FileName, AnnAST1, OldNewModPairs, Pid);
 			_ -> {AnnAST1, C1}
@@ -418,7 +418,7 @@ copy_pos_attrs(E1, E2) ->
     refac_syntax:copy_pos(E1, refac_syntax:copy_attrs(E1, E2)).
 
 do_rename_mod_in_eunit_funs(FileName, AnnAST, OldNewModPairs, Pid) ->
-    wrangler_ast_traverse_api:full_tdTP(fun do_rename_mod_in_eunit_funs_1/2, AnnAST, {FileName, OldNewModPairs, Pid}).
+    api_ast_traverse:full_tdTP(fun do_rename_mod_in_eunit_funs_1/2, AnnAST, {FileName, OldNewModPairs, Pid}).
 do_rename_mod_in_eunit_funs_1(Node, Others) ->
     case refac_syntax:type(Node) of
       function ->
@@ -426,7 +426,7 @@ do_rename_mod_in_eunit_funs_1(Node, Others) ->
 	  Arity = refac_syntax:function_arity(Node),
 	  case (Arity == 0) and lists:suffix(?DEFAULT_EUNIT_GENERATOR_SUFFIX, atom_to_list(FunName)) of
 	    true ->
-		wrangler_ast_traverse_api:full_tdTP(fun do_rename_mod_in_eunit_funs_3/2, Node, Others);
+		api_ast_traverse:full_tdTP(fun do_rename_mod_in_eunit_funs_3/2, Node, Others);
 	    _ -> {Node, false}
 	  end;
       _ -> {Node, false}

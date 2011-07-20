@@ -130,7 +130,7 @@ do_search_similar_expr(FileName, AnnAST, RecordInfo, Exprs, SimiScore) when is_l
 				     Exprs1 = get_expr_seqs(T),
 				     do_search_similar_expr_1(FileName, Exprs, Exprs1, RecordInfo, SimiScore, FunNode) ++ Acc1
 			     end,
-			 wrangler_ast_traverse_api:fold(F, Acc, FunNode)
+			 api_ast_traverse:fold(F, Acc, FunNode)
 		 end,
 	    do_search_similar_expr_1(AnnAST, F0);
 	false ->
@@ -143,7 +143,7 @@ do_search_similar_expr(FileName, AnnAST, RecordInfo, Exprs, SimiScore) when is_l
 					 _ -> Acc1
 				     end
 			     end,
-			 wrangler_ast_traverse_api:fold(F, Acc, FunNode)
+			 api_ast_traverse:fold(F, Acc, FunNode)
 		 end,
 	    do_search_similar_expr_1(AnnAST, F0)
     end.
@@ -155,7 +155,7 @@ do_search_similar_expr_1(AnnAST, Fun) ->
 		     _ -> Acc
 		 end
 	 end,
-    lists:reverse(wrangler_ast_traverse_api:fold(F1, [], AnnAST)).
+    lists:reverse(api_ast_traverse:fold(F1, [], AnnAST)).
 
 
 get_expr_seqs(T) ->
@@ -232,7 +232,7 @@ normalise_expr(Exprs, RecordInfo) ->
 	    Exprs
     end.
 normalise_record_expr(Exprs, RecordInfo) ->
-    [wrangler_ast_traverse_api:full_buTP(fun do_normalise_record_expr_1/2, E, {RecordInfo, true}) || E <- Exprs].
+    [api_ast_traverse:full_buTP(fun do_normalise_record_expr_1/2, E, {RecordInfo, true}) || E <- Exprs].
     
 get_simi_score(SimiScore0) ->
     try  case SimiScore0 of
@@ -303,7 +303,7 @@ normalise_record_expr_0(FName, Pos, ShowDefault, SearchPaths, TabWidth, Editor, 
 
 normalise_record_expr_1(FName, AnnAST, Pos, ShowDefault, SearchPaths, TabWidth) ->
     RecordInfo = get_module_record_info(FName, SearchPaths, TabWidth),
-    wrangler_ast_traverse_api:stop_tdTP(fun do_normalise_record_expr/2, AnnAST, {Pos, RecordInfo, ShowDefault}).
+    api_ast_traverse:stop_tdTP(fun do_normalise_record_expr/2, AnnAST, {Pos, RecordInfo, ShowDefault}).
 
 do_normalise_record_expr(Node, {Pos, RecordInfo, ShowDefault}) ->
     case refac_syntax:type(Node) of
@@ -311,8 +311,8 @@ do_normalise_record_expr(Node, {Pos, RecordInfo, ShowDefault}) ->
 	    {S, E} = refac_api:start_end_loc(Node),
 	    case S =< Pos andalso Pos =< E of
 		true ->
-		    {wrangler_ast_traverse_api:full_buTP(fun do_normalise_record_expr_1/2,
-						         Node, {RecordInfo, ShowDefault}), true};
+		    {api_ast_traverse:full_buTP(fun do_normalise_record_expr_1/2,
+						Node, {RecordInfo, ShowDefault}), true};
 		_ -> {Node, false}
 	    end;
 	_ -> {Node, false}
@@ -370,7 +370,7 @@ set_random_pos(Node) ->
  
 pos_to_record_expr(Tree, Pos) ->
     case
-      wrangler_ast_traverse_api:once_tdTU(fun pos_to_record_expr_1/2, Tree, Pos)
+      api_ast_traverse:once_tdTU(fun pos_to_record_expr_1/2, Tree, Pos)
 	of
       {_, false} ->
 	  throw({error, "You have not selected a record expression, "

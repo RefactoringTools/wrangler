@@ -84,7 +84,7 @@ update_a_form(Form, SortedFuns) ->
     end.
 
 do_atom_annotation_in_attr(Form) ->
-    element(1, wrangler_ast_traverse_api:full_tdTP(fun do_atom_annotation_in_attr/2, Form, {})).
+    element(1, api_ast_traverse:full_tdTP(fun do_atom_annotation_in_attr/2, Form, {})).
 
 do_atom_annotation_in_attr(Node, _Others) ->
     case refac_syntax:type(Node) of
@@ -211,7 +211,7 @@ get_sorted_funs(ModName, AnnAST) ->
 		     _ -> S
 		 end
 	 end,
-    CallerCallees = lists:usort(wrangler_ast_traverse_api:fold(F1, ordsets:new(), AnnAST)),
+    CallerCallees = lists:usort(api_ast_traverse:fold(F1, ordsets:new(), AnnAST)),
     {Sccs, _E} = refac_callgraph:construct(CallerCallees),
     lists:append(Sccs).
 
@@ -239,14 +239,14 @@ called_funs(Tree) ->
 		      _ -> S
 		  end
 	  end,
-    wrangler_ast_traverse_api:fold(Fun, ordsets:new(), Tree).
+    api_ast_traverse:fold(Fun, ordsets:new(), Tree).
 
 
 
 do_atom_annotation(FileName, C, TestFrameWorkUsed, SearchPaths, TabWidth, Pid) ->
-    {C1, _} = wrangler_ast_traverse_api:full_tdTP(fun do_atom_annotation/2, C,
-					          {FileName, refac_syntax:clause_patterns(C),
-					           TestFrameWorkUsed, SearchPaths, TabWidth, Pid}),
+    {C1, _} = api_ast_traverse:full_tdTP(fun do_atom_annotation/2, C,
+					 {FileName, refac_syntax:clause_patterns(C),
+					  TestFrameWorkUsed, SearchPaths, TabWidth, Pid}),
     C1.
 
 do_atom_annotation(Node, {FileName, Pats, TestFrameWorkUsed, SearchPaths, TabWidth, Pid}) ->
@@ -501,7 +501,7 @@ get_pat_type(P, TypeInfo) ->
 %%                                                                       %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 prop_type_info(AnnAST, TypeEnv) ->
-    element(1, wrangler_ast_traverse_api:stop_tdTP(fun do_prop_type_info/2, AnnAST, TypeEnv)).
+    element(1, api_ast_traverse:stop_tdTP(fun do_prop_type_info/2, AnnAST, TypeEnv)).
 
 do_prop_type_info(Node, TypeEnv) ->
     case refac_syntax:type(Node) of
