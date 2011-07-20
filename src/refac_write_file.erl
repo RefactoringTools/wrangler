@@ -36,7 +36,6 @@ write_refactored_files(Results, Editor, TabWidth, Cmd) ->
     end.
 
 write_refactored_files_emacs(Results, TabWidth, Cmd) ->
-    refac_io:format("DDDDD\n"),
     write_refactored_files_for_preview(Results,TabWidth,Cmd),
     ChangedFiles = lists:map(fun ({FileInfo,_AST}) -> 
 				     element(1, FileInfo)
@@ -45,7 +44,6 @@ write_refactored_files_emacs(Results, TabWidth, Cmd) ->
     {ok,ChangedFiles}.
 
 write_refactored_files_emacs(Results, HasWarningMsg, TabWidth, Cmd) ->
-    refac_io:format("DDDDDdddd\n"),
     write_refactored_files_for_preview(Results,TabWidth,Cmd),
     ChangedFiles = lists:map(fun ({FileInfo,_AST}) -> 
 				     element(1, FileInfo)
