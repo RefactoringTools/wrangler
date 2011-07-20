@@ -3,7 +3,7 @@
 %%% File    : wrangler.hrl
 %%%-------------------------------------------------------------------
 
--compile({parse_transform, expand_rule}).
+-compile({parse_transform, wrangler_expand_rule}).
 
 -record(rule, {template_before,
                template_after,
@@ -25,7 +25,8 @@
 -type(functionname()::atom()).
 -type(functionarity()::integer()).
 -type(dir()::string()).
--type(syntaxTree()::any()).    %% any() should be refined.
+-type (syntaxTree() :: {tree, any(), any(), any()}| {wrapper, any(), any(), any()}).
+%% -type(syntaxTree()::any()).    %% any() should be refined.
 -type(pos()::{integer(), integer()}).
 -type(line()::integer()).
 -type(col()::integer()).
