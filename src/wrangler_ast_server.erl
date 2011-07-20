@@ -411,7 +411,7 @@ annotate_bindings(FName, AST, Info, Ms, TabWidth) ->
     Comments = refac_comment_scan:file(FName, TabWidth),
     AnnAST1= refac_recomment:recomment_forms(AnnAST0, Comments),
     AnnAST2 =update_toks(Toks,AnnAST1),
-    refac_annotate_ast:add_fun_define_locations(AnnAST2, Info).
+    wrangler_annotate_ast:add_fun_define_locations(AnnAST2, Info).
 
   
 %% Attach tokens to each form in the AST, and also add 
