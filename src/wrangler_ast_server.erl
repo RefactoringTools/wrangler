@@ -341,7 +341,7 @@ parse_annotate_file(FName, true, SearchPaths, TabWidth, FileFormat) ->
             Info = refac_syntax_lib:analyze_forms(SyntaxTree),
 	    Info2 = merge_module_info(Info0, Info),
 	    AnnAST0 = annotate_bindings(FName, SyntaxTree, Info2, Ms, TabWidth),
-            AnnAST = refac_atom_annotation:type_ann_ast(FName, Info2, AnnAST0, SearchPaths, TabWidth),
+            AnnAST = wrangler_atom_annotation:type_ann_ast(FName, Info2, AnnAST0, SearchPaths, TabWidth),
 	    {ok, {AnnAST, Info2}};
 	{error, Reason} -> erlang:error(Reason)
     end;
