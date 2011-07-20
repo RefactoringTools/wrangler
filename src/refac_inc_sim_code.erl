@@ -1246,9 +1246,9 @@ generate_fun_call_1(RangeWithAST, AUForm, FromSameFile) ->
 	    case length(AUBody) - length(Exprs) of 
 		1 ->
 		    SubAUBody = lists:reverse(tl(lists:reverse(AUBody))),
-		    unification:expr_unification_extended(SubAUBody, Exprs);
+		    wrangler_unification:expr_unification_extended(SubAUBody, Exprs);
 		0 ->
-		    unification:expr_unification_extended(AUBody, Exprs)
+		    wrangler_unification:expr_unification_extended(AUBody, Exprs)
 	    end,
 	%% Need to check side-effect here. but it is a bit slow!!!
 	FunCall=make_fun_call(new_fun, Pats, Subst, FromSameFile),

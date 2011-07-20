@@ -252,7 +252,7 @@ make_macro_app(MacroHead, Subst) ->
 
 %%=====================================================================================
 expr_unification(Exp1, Exp2, MacroParNames) ->
-    case unification:expr_unification(Exp1, Exp2) of
+    case wrangler_unification:expr_unification(Exp1, Exp2) of
       false -> false;
       {true, Subst} ->
 	  Subst1 = lists:usort([{E1, refac_prettypr:format(E2)}||{E1,E2}<-Subst]),
