@@ -212,7 +212,7 @@ get_sorted_funs(ModName, AnnAST) ->
 		 end
 	 end,
     CallerCallees = lists:usort(api_ast_traverse:fold(F1, ordsets:new(), AnnAST)),
-    {Sccs, _E} = refac_callgraph:construct(CallerCallees),
+    {Sccs, _E} = wrangler_callgraph:construct(CallerCallees),
     lists:append(Sccs).
 
 %% This function is actually defined in wrangler_callgraph_server.erl,

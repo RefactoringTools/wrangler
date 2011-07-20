@@ -165,7 +165,7 @@ build_scc_callgraph(DirList) ->
     CallerCallees = lists:map(fun ({{Caller, _CallerDef}, Callee}) ->
 				      {Caller, Callee} 
 			      end, CallerCalleesWithDef),
-    {Sccs, E} = refac_callgraph:construct(CallerCalleesWithDef),
+    {Sccs, E} = wrangler_callgraph:construct(CallerCalleesWithDef),
     #callgraph{callercallee = CallerCallees, scc_order = Sccs, external_calls = E}.
 
 %%-spec(build_callercallee_callgraph/1::([dir()]) -> 
@@ -265,7 +265,7 @@ get_sorted_funs(ModName, AnnAST) ->
 		 end
 	 end,
     CallerCallees = lists:usort(api_ast_traverse:fold(F1, ordsets:new(), AnnAST)),
-    {Sccs, _E} = refac_callgraph:construct(CallerCallees),
+    {Sccs, _E} = wrangler_callgraph:construct(CallerCallees),
     lists:append(Sccs).
 
 %%-spec(fun_callgraph_to_png/1::([filename()|dir()]) -> ok).

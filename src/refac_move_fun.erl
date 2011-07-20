@@ -603,7 +603,7 @@ process_a_form_in_original_mod(Form, Args) ->
 					_ -> {[copy_pos_attrs(Form,refac_syntax:attribute(Name,[copy_pos_attrs(L, refac_syntax:list(Es1))]))], true}
 				    end
 			    end;
-			spec -> case type_specifies(Form, MFAs) of 
+			'spec' -> case type_specifies(Form, MFAs) of 
 				    true ->
 					{[],true};
 				    false ->
