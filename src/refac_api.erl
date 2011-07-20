@@ -1506,11 +1506,11 @@ make_fake_block_expr(Es) ->
 %%=================================================================
 %%@private
 match(Temp, Node) -> 
-    generalised_unification:expr_match(Temp, Node).
+    wrangler_generalised_unification:expr_match(Temp, Node).
 
 %%@private
 match(Temp, Node, Cond) -> 
-    generalised_unification:expr_match(Temp, Node, Cond).
+    wrangler_generalised_unification:expr_match(Temp, Node, Cond).
     
 
 try_expr_match([], _Node) ->false;
