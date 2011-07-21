@@ -142,9 +142,7 @@ identifier_name(Exp) ->
 %%  Generate variable binding structure                                 %%
 %%                                                                      %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-%%-spec(var_binding_structure/1::([syntaxTree()]) -> [{integer(), integer()}]).  
+-spec(var_binding_structure/1::([syntaxTree()]) -> [{integer(), integer()}]).  
 var_binding_structure(AST) when not is_list(AST) ->
     var_binding_structure([AST]);
 var_binding_structure(ASTList) ->
@@ -154,7 +152,6 @@ var_binding_structure(ASTList) ->
 	    [];
 	_ -> var_binding_structure_1(VarLocs)
     end.
-
 var_binding_structure_1(VarLocs) ->
     SrcLocs = [SrcLoc || {_Name, SrcLoc, _DefLoc} <- VarLocs],
     IndexedLocs = lists:zip(SrcLocs, lists:seq(1, length(SrcLocs))),
@@ -329,7 +326,7 @@ generalisable(Node) ->
                                   if_expr, fun_expr, receive_expr, clause,
                                   query_expr, try_expr, catch_expr, cond_expr,
                                   block_expr]) andalso 
-                api_refac:exported_vars(Node) == []
+                wrangler_misc:exported_vars(Node) == []
                 %% andalso 
 		%% %% %% generalise expressions with free variables need to 
 		%% %% %% wrap the expression with a fun expression; we try to 

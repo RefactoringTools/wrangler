@@ -309,7 +309,7 @@
          make_new_name/2,
          make_arity_qualifier/2,
          env_vars/1,
-         env_var_names/1,
+         env_var_names/1, 
          exported_vars/1,
          exported_var_names/1,
          bound_vars/1,
@@ -432,56 +432,25 @@ env_vars(Node) ->
 -spec(env_var_names(Node::syntaxTree())-> [atom()]).
 env_var_names(Node) ->
     element(1, lists:unzip(env_vars(Node))).
+ 
 
 %%=====================================================================
 %%@doc Returns all the variables, including both variable name and define
 %%      location, that are declared within `Node', and also used by the 
 %%      code outside `Node'.
 %%@spec exported_vars([syntaxTree()]|syntaxTree())-> [{atom(),pos()}]
+-spec(exported_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}])
+exported_vars(Nodes) ->
+    wrangler_misc:exported_vars(Nodes).
 
--spec(exported_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
-exported_vars(Nodes) when is_list(Nodes) ->
-    Range = wrangler_misc:start_end_loc(Nodes),
-    lists:flatmap(fun (Node) -> 
-                          exported_vars_1(Node, Range)
-                  end, Nodes);
-exported_vars(Node) ->
-    Range = wrangler_misc:start_end_loc(Node),
-    exported_vars_1(Node, Range).
 
-exported_vars_1(Node, {StartLoc, EndLoc}) ->
-    Fun = fun (N, Acc) ->
-                  case wrangler_syntax:type(Node) of
-                      variable ->
-                          Ann = wrangler_syntax:get_ann(N),
-                          case lists:keyfind(bound, 1, Ann) of 
-                              {use, Bound} when Bound/=[] ->
-                                  case lists:keyfind(use,1,Ann) of 
-                                      {use, Locs} ->
-                                          case [L||L<-Locs, L>EndLoc orelse L < StartLoc] of
-                                              [] -> Acc;
-                                              _ ->
-                                                  Name = wrangler_syntax:variable_name(N),
-                                                  Pos = wrangler_syntax:get_pos(N),
-                                                  ordsets:add_element({Name,Pos}, Acc)
-                                          end;
-                                      false ->
-                                          Acc
-                                  end;
-                              _ -> Acc
-                          end;
-                      _ -> Acc        
-                  end
-          end,
-    ordsets:to_list(api_ast_traverse:full_tdTU(Fun,ordsets:new(),Node)).
- 
 %%@doc Returns all the variable names that are declared within `Node', and 
 %%    also used by the code outside `Node'.
 %%@spec exported_var_names([syntaxTree()]|syntaxTree())-> [atom()]
 
 -spec(exported_var_names(Node::[syntaxTree()]|syntaxTree())-> [atom()]).
 exported_var_names(Node) ->            
-    element(1, lists:unzip(exported_vars(Node))).
+    element(1, lists:unzip(wrangler_misc:exported_vars(Node))).
 
 
 %%=====================================================================

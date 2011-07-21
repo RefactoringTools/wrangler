@@ -159,7 +159,7 @@ sliced_funs(State) ->
 	end.
 
 process_a_clause(Files, AnnAST, ModName, FunName, Arity, C, Expr) ->
-    ExportedVars = api_refac:exported_vars(Expr),
+    ExportedVars = wrangler_misc:exported_vars(Expr),
     Patterns = wrangler_syntax:clause_patterns(C),
     Guard = wrangler_syntax:clause_guard(C),
     Body = wrangler_syntax:clause_body(C),
@@ -170,7 +170,7 @@ rm_unrelated_exprs(_Files, _AnnAST, _ModName, _FunName, _Arity, [], _Expr, _Vars
     [];
 rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, [E| Exprs], Expr, Vars) ->
     FreeVars = api_refac:free_vars(E),
-    ExportedVars = api_refac:exported_vars(E),
+    ExportedVars = wrangler_misc:exported_vars(E),
     case ExportedVars -- Vars =/= ExportedVars of
 	true ->
 	    [E| rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, lists:usort(Vars ++ ExportedVars))];
@@ -182,12 +182,12 @@ rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, [E| Exprs], Expr, Var
 			 FreeVars1 = api_refac:free_vars(E2),
 			 case FreeVars1 -- Vars =/= FreeVars1 of
 			     true ->
-				 [E2| rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, lists:sort(Vars ++ api_refac:exported_vars(E2)))];
+				 [E2| rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, lists:sort(Vars ++ wrangler_misc:exported_vars(E2)))];
 			     _ ->
 				 {Start1, End1} = wrangler_misc:start_end_loc(Expr),
 				 {Start2, End2} = wrangler_misc:start_end_loc(E2),
 				 case Start2 =< Start1 andalso End1 =< End2 of
-				     true -> [E2| rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, lists:sort(Vars ++ api_refac:exported_vars(E2)))];
+				     true -> [E2| rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, lists:sort(Vars ++ wrangler_misc:exported_vars(E2)))];
 				     _ -> case Exprs of
 					      [] -> [wrangler_syntax:atom(undefined)];
 					      _ -> rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, Vars)
@@ -198,7 +198,7 @@ rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, [E| Exprs], Expr, Var
 			 {Start1, End1} = wrangler_misc:start_end_loc(Expr),
 			 {Start2, End2} = wrangler_misc:start_end_loc(E),
 			 case Start2 =< Start1 andalso End1 =< End2 of
-			     true -> [E| rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, lists:sort(Vars ++ api_refac:exported_vars(E)))];
+			     true -> [E| rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, lists:sort(Vars ++ wrangler_misc:exported_vars(E)))];
 			     _ -> rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, Vars)
 			 end
 		 end
@@ -228,7 +228,7 @@ intra_fun_forward_slice(Files, AnnAST, ModName, FunDef, PatIndex) ->
 process_a_clause_1(Files, AnnAST, ModName, FunName, Arity, C, PatIndex) ->
     Patterns = wrangler_syntax:clause_patterns(C),
     Body = wrangler_syntax:clause_body(C),
-    Vars = lists:flatmap(fun (I) -> api_refac:exported_vars(lists:nth(I, Patterns)) end, PatIndex),
+    Vars = lists:flatmap(fun (I) -> wrangler_misc:exported_vars(lists:nth(I, Patterns)) end, PatIndex),
     Body1 = process_fun_body(Files, AnnAST, ModName, FunName, Arity, Body, Vars),
     wrangler_syntax:clause(Patterns, none, Body1).
 
@@ -237,7 +237,7 @@ process_fun_body(_Files, _AnnAST, _ModName, _FunName, _Arity, [], _Vars) ->
 process_fun_body(Files, AnnAST, ModName, FunName, Arity, [E], Vars) ->
     E1 = process_fun_applications(Files, AnnAST, ModName, FunName, Arity, E, Vars),
     FreeVars = api_refac:free_vars(E1),
-    ExportedVars = api_refac:exported_vars(E1),
+    ExportedVars = wrangler_misc:exported_vars(E1),
     case ExportedVars -- Vars =/= ExportedVars of
 	true -> [E];
 	false -> case FreeVars -- Vars =/= FreeVars of
@@ -251,12 +251,12 @@ process_fun_body(Files, AnnAST, ModName, FunName, Arity, [E], Vars) ->
 process_fun_body(Files, AnnAST, ModName, FunName, Arity, [E| Exprs], Vars) ->
     E1 = process_fun_applications(Files, AnnAST, ModName, FunName, Arity, E, Vars),
     FreeVars = api_refac:free_vars(E1),
-    ExportedVars = api_refac:exported_vars(E1),
+    ExportedVars = wrangler_misc:exported_vars(E1),
     case ExportedVars -- Vars =/= ExportedVars of
 	true -> [E| process_fun_body(Files, AnnAST, ModName, FunName, Arity, Exprs, lists:usort(Vars ++ ExportedVars))];
 	false -> case FreeVars -- Vars =/= FreeVars of
 		     true ->
-			 [E1| process_fun_body(Files, AnnAST, ModName, FunName, Arity, Exprs, lists:sort(Vars ++ api_refac:exported_vars(E1)))];
+			 [E1| process_fun_body(Files, AnnAST, ModName, FunName, Arity, Exprs, lists:sort(Vars ++ wrangler_misc:exported_vars(E1)))];
 		     _ ->
 			 process_fun_body(Files, AnnAST, ModName, FunName, Arity, Exprs, Vars)
 		 end
@@ -607,7 +607,7 @@ rm_unused_exprs(Exprs) ->
 
 rm_unused_exprs_1([], _FreeVars, Acc) -> Acc;
 rm_unused_exprs_1([E| Exprs], FreeVars, Acc) ->
-    ExportedVars = api_refac:exported_vars(E),
+    ExportedVars = wrangler_misc:exported_vars(E),
     case FreeVars -- ExportedVars =/= FreeVars of
 	true ->
 	    FreeVarsInE = api_refac:free_vars(E),

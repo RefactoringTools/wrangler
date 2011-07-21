@@ -348,7 +348,7 @@ gen_cond_analysis(Fun, Exp, ParName) ->
 	_ -> ok
     end,
     Exp_Free_Vars = api_refac:free_vars(Exp),
-    Exp_Export_Vars = api_refac:exported_vars(Exp),
+    Exp_Export_Vars = wrangler_misc:exported_vars(Exp),
     case Exp_Export_Vars of
 	[_| _] ->
 	    throw({error, "Wrangler does not support generalisation "

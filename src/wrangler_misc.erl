@@ -50,7 +50,7 @@
          get_modules_by_file/1,
          concat_toks/1, get_toks/1, tokenize/3,
          format_search_paths/1,
-         free_vars/1,
+         free_vars/1, exported_vars/1,
          modname_to_filename/2, funname_to_defpos/2,
          group_by/2,filehash/1,apply_style_funs/0,
          try_eval/4, is_macro_name/1, is_literal/1]).
@@ -902,3 +902,44 @@ free_vars(Node) ->
         false ->
             []
     end.
+
+%%=====================================================================
+%%@doc Returns all the variables, including both variable name and define
+%%      location, that are declared within `Node', and also used by the 
+%%      code outside `Node'.
+%%@spec exported_vars([syntaxTree()]|syntaxTree())-> [{atom(),pos()}]
+-spec(exported_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
+exported_vars(Nodes) when is_list(Nodes) ->
+    Range = start_end_loc(Nodes),
+    lists:flatmap(fun (Node) -> 
+                          exported_vars_1(Node, Range)
+                  end, Nodes);
+exported_vars(Node) ->
+    Range = start_end_loc(Node),
+    exported_vars_1(Node, Range).
+
+exported_vars_1(Node, {StartLoc, EndLoc}) ->
+    Fun = fun (N, Acc) ->
+                  case wrangler_syntax:type(Node) of
+                      variable ->
+                          Ann = wrangler_syntax:get_ann(N),
+                          case lists:keyfind(bound, 1, Ann) of 
+                              {use, Bound} when Bound/=[] ->
+                                  case lists:keyfind(use,1,Ann) of 
+                                      {use, Locs} ->
+                                          case [L||L<-Locs, L>EndLoc orelse L < StartLoc] of
+                                              [] -> Acc;
+                                              _ ->
+                                                  Name = wrangler_syntax:variable_name(N),
+                                                  Pos = wrangler_syntax:get_pos(N),
+                                                  ordsets:add_element({Name,Pos}, Acc)
+                                          end;
+                                      false ->
+                                          Acc
+                                  end;
+                              _ -> Acc
+                          end;
+                      _ -> Acc        
+                  end
+          end,
+    ordsets:to_list(api_ast_traverse:full_tdTU(Fun,ordsets:new(),Node)).
