@@ -74,7 +74,6 @@
                wrangler_modularity_inspection,
                wrangler_module_graph,
                wrangler_modulegraph_server,
-               wrangler_parse.yrl
                wrangler_prettypr,
                wrangler_prettypr_0,
                wrangler_preview_server,
