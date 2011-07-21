@@ -1093,7 +1093,7 @@ parse_annotate_expr(ExprStr, StartLoc) when is_tuple(StartLoc) ->
                         _ -> Toks++[{dot, 999}]
                     end,
             Toks2 = wrangler_epp_dodger:scan_macros(Toks1,[]),
-            case refac_parse:parse_form(Toks2) of 
+            case wrangler_parse:parse_form(Toks2) of 
                 {ok, AbsForm} ->
                     case wrangler_syntax:type(AbsForm) of
                         function ->
@@ -1117,7 +1117,7 @@ parse_annotate_expr(ExprStr, StartLoc) when is_tuple(StartLoc) ->
                        {';',_} -> 
                            throw({error, Reason});
                        _ ->
-                           case refac_parse:parse_exprs(Toks2) of
+                           case wrangler_parse:parse_exprs(Toks2) of
                                {ok, Exprs} ->
                                    Exprs1 =wrangler_epp_dodger:rewrite_list(Exprs),
                                    Exprs2 = make_tree({block, StartLoc, Exprs1}),

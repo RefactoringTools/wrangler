@@ -63,7 +63,7 @@ parse_erl_form(Epp) ->
     Res = epp_request(Epp, scan_erl_form), 
     case Res of
 	{ok,Toks} ->
-            case refac_parse:parse_form(Toks) of
+            case wrangler_parse:parse_form(Toks) of
                 {ok, Form} ->
                     {ok, wrangler_epp_dodger:fix_pos_in_form(Toks, Form)};
                 Other ->
@@ -167,7 +167,7 @@ predef_macros(File) ->
 %%  value gets the value 'true'.
 
 user_predef([{M,Val,redefine}|Pdm], Ms) when is_atom(M) ->
-    Exp = refac_parse:tokens(refac_parse:abstract(Val)),
+    Exp = wrangler_parse:tokens(wrangler_parse:abstract(Val)),
     user_predef(Pdm, dict:store({atom,M}, {none,Exp}, Ms));
 user_predef([{M,Val}|Pdm], Ms) when is_atom(M) ->
     case dict:find({atom,M}, Ms) of
@@ -176,7 +176,7 @@ user_predef([{M,Val}|Pdm], Ms) when is_atom(M) ->
 	{ok,_Def} -> %% Predefined macros
 	    {error,{redefine_predef,M}};
 	error ->
-	    Exp = refac_parse:tokens(refac_parse:abstract(Val)),
+	    Exp = wrangler_parse:tokens(wrangler_parse:abstract(Val)),
 	    user_predef(Pdm, dict:store({atom,M}, [{none, {none,Exp}}], Ms))
     end;
 user_predef([M|Pdm], Ms) when is_atom(M) ->

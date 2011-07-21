@@ -603,7 +603,7 @@ try_eval(FileName, Node, SearchPaths, TabWidth) ->
 		  wrangler_epp:expand_macros(NodeToks, {Ms, UMs})
 		of
 		  NewToks when is_list(NewToks) ->
-		      case refac_parse:parse_exprs(NewToks ++ [{dot, {999, 0}}]) of
+		      case wrangler_parse:parse_exprs(NewToks ++ [{dot, {999, 0}}]) of
 			{ok, Exprs} ->
 			    try
 			      erl_eval:exprs(Exprs, [])

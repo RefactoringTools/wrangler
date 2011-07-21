@@ -48,7 +48,7 @@
 	 floating/3,floating/1,break/1,follow/2,follow/3,
 	 empty/0, format/3, best/3]).
 
--import(refac_parse,
+-import(wrangler_parse,
 	[preop_prec/1,inop_prec/1,func_prec/0,max_prec/0]).
 
 -define(PADDING, 2).

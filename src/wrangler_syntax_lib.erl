@@ -369,7 +369,7 @@ vann_function(Tree, Env, Ms, _VI, Pid) ->
                 case Toks1 of
 		    Toks2 -> [];
 		    _ ->
-			{ok, Form} = refac_parse:parse_form(Toks2),
+			{ok, Form} = wrangler_parse:parse_form(Toks2),
 			[Form1] = wrangler_syntax:form_list_elements(
 				       wrangler_recomment:recomment_forms([Form], [])),
 			{Form2, _, _} = vann_function_1(Form1, Env, Ms, [], Pid),
@@ -614,7 +614,7 @@ get_macro_def_toks(_) ->
     none.
 
 try_to_get_value(Toks) ->
-    case refac_parse:parse_exprs(Toks++[{dot, {999,0}}]) of
+    case wrangler_parse:parse_exprs(Toks++[{dot, {999,0}}]) of
         {ok, [E]} ->
             case wrangler_syntax:type(E) of
                 list ->
