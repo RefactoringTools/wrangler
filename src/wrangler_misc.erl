@@ -50,6 +50,7 @@
          get_modules_by_file/1,
          concat_toks/1, get_toks/1, tokenize/3,
          format_search_paths/1,
+         free_vars/1,
          modname_to_filename/2, funname_to_defpos/2,
          group_by/2,filehash/1,apply_style_funs/0,
          try_eval/4, is_macro_name/1, is_literal/1]).
@@ -590,7 +591,7 @@ try_eval(FileName, Node, SearchPaths, TabWidth) ->
         {value, Val, _} -> {value, Val}
     catch
       _:_ ->
-	  case has_macros(Node) andalso api_refac:free_vars(Node) == [] of
+	  case has_macros(Node) andalso free_vars(Node) == [] of
 	    true ->
 		Dir = filename:dirname(FileName),
 		DefaultIncl2 = [filename:join(Dir, X) || X <- default_incls()],
@@ -880,4 +881,24 @@ get_range(Node) ->
             {S, E};
 	_ -> 
             {?DEFAULT_LOC,?DEFAULT_LOC} 
+    end.
+
+
+%%=====================================================================
+%%@doc Returns all the variables, including both variable name and define
+%%      location, that are free within `Node'.
+%%@spec free_vars([syntaxTree()]|syntaxTree())-> [{atom(),pos()}]
+-spec(free_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
+free_vars(Nodes) when is_list(Nodes) ->
+    {FVs, BVs} = lists:unzip([{free_vars(Node), bound_vars(Node)}
+                              ||Node<-Nodes]),
+    lists:usort(lists:append(FVs)) -- lists:usort(lists:append(BVs));
+
+free_vars(Node) ->
+    Ann = wrangler_syntax:get_ann(Node),
+    case lists:keyfind(free,1,Ann) of 
+        {free, Vs} ->
+            Vs;
+        false ->
+            []
     end.

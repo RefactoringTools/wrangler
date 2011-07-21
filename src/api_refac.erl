@@ -519,8 +519,10 @@ bound_var_names(Node)->
 %%@doc Returns all the variables, including both variable name and define
 %%      location, that are free within `Node'.
 %%@spec free_vars([syntaxTree()]|syntaxTree())-> [{atom(),pos()}]
-
 -spec(free_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
+free_vars(Node) ->
+    wrangler_misc:free_vars(Node).
+
 free_vars(Nodes) when is_list(Nodes) ->
     {FVs, BVs} = lists:unzip([{free_vars(Node), bound_vars(Node)}
                               ||Node<-Nodes]),
