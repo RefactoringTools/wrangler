@@ -439,7 +439,7 @@ env_var_names(Node) ->
 %%      location, that are declared within `Node', and also used by the 
 %%      code outside `Node'.
 %%@spec exported_vars([syntaxTree()]|syntaxTree())-> [{atom(),pos()}]
--spec(exported_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}])
+-spec(exported_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
 exported_vars(Nodes) ->
     wrangler_misc:exported_vars(Nodes).
 
@@ -459,22 +459,8 @@ exported_var_names(Node) ->
 %%@spec bound_vars([syntaxTree()]|syntaxTree())-> [{atom(),pos()}]
 
 -spec(bound_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
-bound_vars(Nodes) when is_list(Nodes) ->
-    lists:usort(lists:flatmap(fun (Node) -> 
-                                      bound_vars(Node) 
-                              end, Nodes));
-bound_vars(Node) ->
-    Fun = fun (N, Acc) ->
-                  Ann = wrangler_syntax:get_ann(N),
-                  case lists:keyfind(bound,1,Ann) of
-                      {bound, Vs} ->
-                          Vs ++ Acc;
-                      false ->
-                          Acc
-                  end
-          end,
-    Vars=api_ast_traverse:fold(Fun, [], Node),
-    lists:usort(Vars).
+bound_vars(Node) -> 
+    wranger_misc:bound_vars(Node).
 
 %%@doc Returns all the variable names that are declared within `Node'.
 %%@spec bound_var_names([syntaxTree()]|syntaxTree())-> [atom()]
@@ -491,20 +477,6 @@ bound_var_names(Node)->
 -spec(free_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
 free_vars(Node) ->
     wrangler_misc:free_vars(Node).
-
-free_vars(Nodes) when is_list(Nodes) ->
-    {FVs, BVs} = lists:unzip([{free_vars(Node), bound_vars(Node)}
-                              ||Node<-Nodes]),
-    lists:usort(lists:append(FVs)) -- lists:usort(lists:append(BVs));
-
-free_vars(Node) ->
-    Ann = wrangler_syntax:get_ann(Node),
-    case lists:keyfind(free,1,Ann) of 
-        {free, Vs} ->
-            Vs;
-        false ->
-            []
-    end.
 
 %%@doc Returns all the variable names that are free within `Node'.
 %%@spec free_var_names([syntaxTree()]|syntaxTree())-> [atom()]
