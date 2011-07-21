@@ -408,7 +408,7 @@ merge_module_info(Info1, _Info2) ->
 annotate_bindings(FName, AST, Info, Ms, TabWidth) ->
     Toks = api_refac:tokenize(FName, true, TabWidth),
     AnnAST0 = wrangler_syntax_lib:annotate_bindings(add_token_and_ranges(AST, Toks), ordsets:new(), Ms),
-    Comments = refac_comment_scan:file(FName, TabWidth),
+    Comments = wrangler_comment_scan:file(FName, TabWidth),
     AnnAST1= wrangler_recomment:recomment_forms(AnnAST0, Comments),
     AnnAST2 =update_toks(Toks,AnnAST1),
     wrangler_annotate_ast:add_fun_define_locations(AnnAST2, Info).
