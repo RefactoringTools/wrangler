@@ -300,7 +300,7 @@ do_state_to_record_in_callback_fun(PatIndex, Fun, RecordName, RecordFields, IsTu
 						 IsTuple, ReturnState, SM, TupleToRecordFunName,
 						 RecordToTupleFunName)
 	   || C <- Cs],
-    refac_misc:rewrite(Fun, wrangler_syntax:function(FunName, Cs1)).
+    wrangler_misc:rewrite(Fun, wrangler_syntax:function(FunName, Cs1)).
 
 do_state_to_record_in_callback_clause(PatIndex, C, RecordName, RecordFields, IsTuple, ReturnState, SM,
 				      TupleToRecordFunName, RecordToTupleFunName) ->
@@ -312,7 +312,7 @@ do_state_to_record_in_callback_clause(PatIndex, C, RecordName, RecordFields, IsT
 	   B, RecordName, RecordFields, DefPs, IsTuple, ReturnState, SM, TupleToRecordFunName, RecordToTupleFunName),
     B2 = remove_record_tuple_conversions(wrangler_syntax:block_expr(B1), TupleToRecordFunName, RecordToTupleFunName),
     B3 = wrangler_syntax:block_expr_body(B2),
-    refac_misc:rewrite(C, wrangler_syntax:clause(Ps1, G, B3)).
+    wrangler_misc:rewrite(C, wrangler_syntax:clause(Ps1, G, B3)).
 
 
 do_state_to_record_in_pats(Ps, PatIndex, RecordName, RecordFields, IsTuple) ->
@@ -335,7 +335,7 @@ do_state_to_record_in_pats_2(P, RecordName, RecordFields, IsTuple) ->
 	    {P, [wrangler_syntax:get_pos(P)]};
 	tuple when IsTuple ->
 	    RecordExpr = tuple_to_record_expr(P, RecordName, RecordFields),
-	    {refac_misc:rewrite(P, RecordExpr), []};
+	    {wrangler_misc:rewrite(P, RecordExpr), []};
 	match_expr ->
 	    tuple_to_record_in_match_expr_pattern(
 	      P, RecordName, RecordFields, IsTuple);
@@ -347,7 +347,7 @@ do_state_to_record_in_pats_2(P, RecordName, RecordFields, IsTuple) ->
 			     ++ io_lib:format("~p", [Pos])});
 	_ when length(RecordFields) == 1 ->
 	    Fields = [mk_record_field(hd(RecordFields), P)],
-	    P1 = refac_misc:rewrite(P, mk_record_expr(RecordName, Fields)),
+	    P1 = wrangler_misc:rewrite(P, mk_record_expr(RecordName, Fields)),
 	    {P1, []};
 	_ ->
 	    Pos = wrangler_syntax:get_pos(P),
@@ -362,7 +362,7 @@ tuple_to_record_in_match_expr_pattern(State, RecordName, RecordFields, IsTuple) 
 	do_state_to_record_in_pats_2(P, RecordName, RecordFields, IsTuple),
     {B1, Pos2} =
 	do_state_to_record_in_pats_2(B, RecordName, RecordFields, IsTuple),
-    {refac_misc:rewrite(State, wrangler_syntax:match_expr(P1, B1)), Pos1 ++ Pos2}.
+    {wrangler_misc:rewrite(State, wrangler_syntax:match_expr(P1, B1)), Pos1 ++ Pos2}.
 
 
 do_state_to_record_in_callback_fun_clause_body(Body, RecordName, RecordFields,
@@ -420,7 +420,7 @@ do_state_to_record_in_init_fun_clause(C, RecordName, RecordFields, IsTuple, SM,
     B = wrangler_syntax:clause_body(C),
     B1 = do_state_to_record_in_init_fun_clause_body(B, RecordName, RecordFields, [], IsTuple, SM,
 						    TupleToRecordFunName, RecordToTupleFunName),
-    refac_misc:rewrite(C, wrangler_syntax:clause(P, G, B1)).
+    wrangler_misc:rewrite(C, wrangler_syntax:clause(P, G, B1)).
 
 do_state_to_record_in_init_fun_clause_body(Body, RecordName, RecordFields, DefPs, IsTuple, SM,
 					   TupleToRecordFunName, RecordToTupleFunName) ->
@@ -466,25 +466,25 @@ do_state_to_record_in_init_fun_clause_body(Body, RecordName, RecordFields, DefPs
 	    Cs = wrangler_syntax:case_expr_clauses(LastExpr),
 	    Cs1 = [do_state_to_record_in_init_fun_clause(C, RecordName, RecordFields, IsTuple, SM,
 							 TupleToRecordFunName, RecordToTupleFunName) || C <- Cs],
-	    LastExpr1 = refac_misc:rewrite(LastExpr, wrangler_syntax:case_expr(Args, Cs1)),
+	    LastExpr1 = wrangler_misc:rewrite(LastExpr, wrangler_syntax:case_expr(Args, Cs1)),
 	    lists:reverse([LastExpr1| Exprs]);
 	if_expr ->
 	    Cs = wrangler_syntax:if_expr_clauses(LastExpr),
 	    Cs1 = [do_state_to_record_in_init_fun_clause(C, RecordName, RecordFields, IsTuple, SM,
 							 TupleToRecordFunName, RecordToTupleFunName) || C <- Cs],
-	    LastExpr1 = refac_misc:rewrite(LastExpr, wrangler_syntax:if_expr(Cs1)),
+	    LastExpr1 = wrangler_misc:rewrite(LastExpr, wrangler_syntax:if_expr(Cs1)),
 	    lists:reverse([LastExpr1| Exprs]);
 	cond_expr ->
 	    Cs = wrangler_syntax:cond_expr_clauses(LastExpr),
 	    Cs1 = [do_state_to_record_in_init_fun_clause(C, RecordName, RecordFields, IsTuple, SM,
 							 TupleToRecordFunName, RecordToTupleFunName) || C <- Cs],
-	    LastExpr1 = refac_misc:rewrite(LastExpr, wrangler_syntax:cond_expr(Cs1)),
+	    LastExpr1 = wrangler_misc:rewrite(LastExpr, wrangler_syntax:cond_expr(Cs1)),
 	    lists:reverse([LastExpr1| Exprs]);
 	block_expr ->
 	    B = wrangler_syntax:block_expr_body(LastExpr),
 	    B1 = do_state_to_record_in_init_fun_clause_body(B, RecordName, RecordFields, DefPs, IsTuple, SM,
 							    TupleToRecordFunName, RecordToTupleFunName),
-	    LastExpr1 = refac_misc:rewrite(LastExpr, wrangler_syntax:block_expr(B1)),
+	    LastExpr1 = wrangler_misc:rewrite(LastExpr, wrangler_syntax:block_expr(B1)),
 	    lists:reverse([LastExpr1| Exprs]);
 	receive_expr ->
 	    Cs = wrangler_syntax:receive_expr_clauses(LastExpr),
@@ -492,7 +492,7 @@ do_state_to_record_in_init_fun_clause_body(Body, RecordName, RecordFields, DefPs
 	    A = wrangler_syntax:receive_expr_action(LastExpr),
 	    Cs1 = [do_state_to_record_in_init_fun_clause(C, RecordName, RecordFields, IsTuple, SM,
 							 TupleToRecordFunName, RecordToTupleFunName) || C <- Cs],
-	    LastExpr1 = refac_misc:rewrite(LastExpr, wrangler_syntax:receive_expr(Cs1, T, A)),
+	    LastExpr1 = wrangler_misc:rewrite(LastExpr, wrangler_syntax:receive_expr(Cs1, T, A)),
 	    lists:reverse([LastExpr1| Exprs]);
 	atom when SM == gen_fsm ->
 	    Body;
@@ -503,7 +503,7 @@ do_state_to_record_in_init_fun_clause_body(Body, RecordName, RecordFields, DefPs
 	    throw({error, Msg});  %%  ++ io_lib:format("~p", [Pos])});
 	_ ->
 	    Fields = [mk_record_field(hd(RecordFields), LastExpr)],
-	    LastExpr1 = refac_misc:rewrite(LastExpr, mk_record_expr(RecordName, Fields)),
+	    LastExpr1 = wrangler_misc:rewrite(LastExpr, mk_record_expr(RecordName, Fields)),
 	    lists:reverse([LastExpr1| Exprs])
     end.
 
@@ -537,8 +537,8 @@ do_state_to_record_in_match_expr(Body, _LastExpr, DefinePos, RecordName, RecordF
 					  case wrangler_syntax:type(B) of
 					      tuple ->
 						  B1 = tuple_to_record_expr(B, RecordName, RecordFields),
-						  Node1 = wrangler_syntax:match_expr(P, refac_misc:rewrite(B, B1)),
-						  {refac_misc:rewrite(Node, Node1), true};
+						  Node1 = wrangler_syntax:match_expr(P, wrangler_misc:rewrite(B, B1)),
+						  {wrangler_misc:rewrite(Node, Node1), true};
 					      application ->
 						  case is_app(B, {RecordToTupleFunName, 1}) of
 						      true ->
@@ -590,7 +590,7 @@ do_state_to_record_in_match_expr(Body, LastExpr, DefinePos, RecordName, RecordFi
 					  case Modified of
 					      true ->
 						  Node1 = wrangler_syntax:match_expr(P, B1),
-						  {refac_misc:rewrite(Node, Node1), true};
+						  {wrangler_misc:rewrite(Node, Node1), true};
 					      false ->
 						  {Node, false}
 					  end;
@@ -642,12 +642,12 @@ gen_fsm_state_to_record(RecordName, RecordFields, B, Nth, IsTuple,
 	tuple when IsTuple ->
 	    State1 = tuple_to_record_expr(State, RecordName, RecordFields),
 	    Es1 = tuple_to_list(setelement(Nth, Es, State1)),
-	    refac_misc:rewrite(B, wrangler_syntax:tuple(Es1));
+	    wrangler_misc:rewrite(B, wrangler_syntax:tuple(Es1));
 	_ ->
 	    State1 = make_tuple_to_record_app(State, RecordName, RecordFields, IsTuple,
 					      TupleToRecordFunName, RecordToTupleFunName),
 	    Es1 = tuple_to_list(setelement(Nth, Es, State1)),
-	    refac_misc:rewrite(B, wrangler_syntax:tuple(Es1))
+	    wrangler_misc:rewrite(B, wrangler_syntax:tuple(Es1))
     end.
 
 
@@ -686,7 +686,7 @@ wrap_fun_interface_in_return(Form, ModName, RecordName, RecordFields, IsTuple, S
 		_ ->
 		    {Form2, _} = api_ast_traverse:stop_tdTP(fun wrap_run_commands_result/2, Form1,
 							    {RecordName, RecordFields, Res, IsTuple,
-							     refac_misc:collect_var_names(Form1), SM}),
+							     wrangler_misc:collect_var_names(Form1), SM}),
 		    Form2
 	    end
     end.
@@ -762,11 +762,11 @@ wrap_run_commands_result(Node, {RecordName, RecordFields, DefPs, IsTuple, UsedVa
 			true ->
 			    case SM of
 				eqc_statem ->
-				    Node1 = wrangler_syntax:remove_comments(refac_misc:reset_attrs(Node)),
+				    Node1 = wrangler_syntax:remove_comments(wrangler_misc:reset_attrs(Node)),
 				    Es2 = transform_run_command_statem(Node1, RecordName, RecordFields, IsTuple),
 				    {wrangler_syntax:copy_comments(Node, set_pos(wrangler_syntax:get_pos(Node), Es2)), true};
 				eqc_fsm ->
-				    Node1 = wrangler_syntax:remove_comments(refac_misc:reset_attrs(Node)),
+				    Node1 = wrangler_syntax:remove_comments(wrangler_misc:reset_attrs(Node)),
 				    Node2 = transform_run_command_fsm(Node1, RecordName, RecordFields, IsTuple),
 				    {wrangler_syntax:copy_comments(Node, set_pos(wrangler_syntax:get_pos(Node), Node2)), true}
 			    end;
@@ -780,7 +780,7 @@ wrap_run_commands_result(Node, {RecordName, RecordFields, DefPs, IsTuple, UsedVa
     end.
 
 transform_run_command(Node, UsedVars, RecordName, RecordFields, IsTuple, SM) ->
-    Node1 = refac_misc:reset_attrs(Node),
+    Node1 = wrangler_misc:reset_attrs(Node),
     H = wrangler_syntax:variable(api_refac:make_new_name('H', UsedVars)),
     S = wrangler_syntax:variable(api_refac:make_new_name('S', UsedVars)),
     Res = wrangler_syntax:variable(api_refac:make_new_name('Res', UsedVars)),
@@ -802,13 +802,13 @@ transform_run_command_statem(State, RecordName, RecordFields, IsTuple) ->
 	      true -> wrangler_syntax:tuple(Es1);
 	      false -> hd(Es1)
 	  end,
-    refac_misc:rewrite(State, Res).
+    wrangler_misc:rewrite(State, Res).
 
 transform_run_command_fsm(State, RecordName, RecordFields, IsTuple) ->
     StateName = wrangler_syntax:application(wrangler_syntax:atom(element), [wrangler_syntax:integer(1), State]),
     StateVal = wrangler_syntax:application(wrangler_syntax:atom(element), [wrangler_syntax:integer(2), State]),
     Es2 = transform_run_command_statem(StateVal, RecordName, RecordFields, IsTuple),
-    refac_misc:rewrite(State, wrangler_syntax:tuple([StateName, Es2])).
+    wrangler_misc:rewrite(State, wrangler_syntax:tuple([StateName, Es2])).
   
 
 wrap_fun_interface_in_arg(Form, ModName, RecordName, RecordFields, IsTuple, StateFuns, SM,
@@ -832,7 +832,7 @@ do_transform_actual_pars(Node, PatIndexes, RecordName, RecordFields, IsTuple,
 					  TupleToRecordFunName, RecordToTupleFunName)
 	       || {A, Index} <- lists:zip(Args, lists:seq(1, length(Args)))],
     Node1 = wrangler_syntax:application(Op, NewArgs),
-    refac_misc:rewrite(Node, Node1).
+    wrangler_misc:rewrite(Node, Node1).
 
 do_transform_actual_pars_1({Arg, Index}, PatIndexes, RecordName, RecordFields, IsTuple,
 			  TupleToRecordFunName, RecordToTupleFunName) ->
@@ -1372,7 +1372,7 @@ element_to_record_access_1(Tuple, Nth, RecordName, RecordFields) ->
     FieldName = lists:nth(wrangler_syntax:integer_value(Nth), RecordFields),
     RecordName1 = wrangler_syntax:atom(RecordName),
     FieldName1 = wrangler_syntax:atom(FieldName),
-    refac_misc:rewrite(Tuple, wrangler_syntax:record_access(Tuple, RecordName1, FieldName1)).
+    wrangler_misc:rewrite(Tuple, wrangler_syntax:record_access(Tuple, RecordName1, FieldName1)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
 %%                 Transformation: setelement to record expression             %%
@@ -1477,7 +1477,7 @@ remove_record_tuple_conversions(Tree, TupleToRecordFunName, RecordToTupleFunName
 				   case wrangler_syntax:get_pos(P) of
 				       Pos ->
 					   [T] = wrangler_syntax:application_arguments(B),
-					   refac_misc:rewrite(Node, wrangler_syntax:match_expr(P, T));
+					   wrangler_misc:rewrite(Node, wrangler_syntax:match_expr(P, T));
 				       _ -> Node
 				   end;
 			       _ -> Node
@@ -1593,9 +1593,9 @@ make_tuple_to_record_app(Expr, RecordName, RecordFields, IsTuple, TupleToRecordF
 	    Field = mk_record_field(hd(RecordFields), Expr),
 	    mk_record_expr(RecordName, [Field]);
 	true ->
-	    NewExpr = refac_misc:rewrite(
-			Expr, wrangler_syntax:application(
-				   wrangler_syntax:atom(TupleToRecordFunName), [Expr])),
+	    NewExpr = wrangler_misc:rewrite(
+			   Expr, wrangler_syntax:application(
+				      wrangler_syntax:atom(TupleToRecordFunName), [Expr])),
 	    case is_app(Expr, {RecordToTupleFunName, 1}) of
 		true ->
 		    hd(wrangler_syntax:application_arguments(Expr));
@@ -1607,11 +1607,11 @@ make_tuple_to_record_app(Expr, RecordName, RecordFields, IsTuple, TupleToRecordF
 make_record_to_tuple_app(Expr, RecordName, RecordFields, IsTuple, TupleToRecordFunName, RecordToTupleFunName) ->
     case IsTuple of
 	false ->
-	    refac_misc:rewrite(Expr, wrangler_syntax:record_access(Expr, wrangler_syntax:atom(RecordName),
-								   wrangler_syntax:atom(hd(RecordFields))));
+	    wrangler_misc:rewrite(Expr, wrangler_syntax:record_access(Expr, wrangler_syntax:atom(RecordName),
+								      wrangler_syntax:atom(hd(RecordFields))));
 	true ->
-	    NewExpr = refac_misc:rewrite(Expr, wrangler_syntax:application(
-						    wrangler_syntax:atom(RecordToTupleFunName), [Expr])),
+	    NewExpr = wrangler_misc:rewrite(Expr, wrangler_syntax:application(
+						       wrangler_syntax:atom(RecordToTupleFunName), [Expr])),
 	    case is_app(Expr, {TupleToRecordFunName, 1}) of
 		true ->
 		    hd(wrangler_syntax:application_arguments(Expr));
@@ -1621,10 +1621,10 @@ make_record_to_tuple_app(Expr, RecordName, RecordFields, IsTuple, TupleToRecordF
     end.
 
 mk_record_field(Name, Val) ->
-    refac_misc:rewrite_with_wrapper(Val, refac_misc:reset_ann_and_pos(
-                                          wrangler_syntax:record_field(
-                                               wrangler_syntax:atom(Name),
-                                               wrangler_syntax:remove_comments(Val)))).
+    wrangler_misc:rewrite_with_wrapper(Val, wrangler_misc:reset_ann_and_pos(
+                                                wrangler_syntax:record_field(
+                                                     wrangler_syntax:atom(Name),
+                                                     wrangler_syntax:remove_comments(Val)))).
 
 mk_record_fields(RecordFields, Es) ->
     [mk_record_field(Name, Val)|| {Name, Val} <- lists:zip(RecordFields, Es),
@@ -1698,7 +1698,7 @@ insert_record_attribute(Forms, RecordDef) ->
 tuple_to_record_expr(Tuple, RecordName, RecordFields) ->
     Es = wrangler_syntax:tuple_elements(Tuple),
     Fields = mk_record_fields(RecordFields, Es),
-    refac_misc:rewrite(Tuple, mk_record_expr(RecordName, Fields)).
+    wrangler_misc:rewrite(Tuple, mk_record_expr(RecordName, Fields)).
     
 is_app(Expr, {F, A}) ->
     case wrangler_syntax:type(Expr) of

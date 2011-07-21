@@ -64,8 +64,8 @@ inline_var_eclipse(FName, Line, Col, SearchPaths, TabWidth) ->
 inline_var(FName, Line, Col, SearchPaths, TabWidth, Editor) ->
     Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":inline_var(" ++ "\"" ++ 
 	     FName ++ "\", " ++ integer_to_list(Line) ++ 
-	       ", " ++ integer_to_list(Col) ++ ", " ++ "[" ++ refac_misc:format_search_paths(SearchPaths)
-								++ "]," ++ integer_to_list(TabWidth) ++ ").",
+	       ", " ++ integer_to_list(Col) ++ ", " ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths)
+							       ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     Form = pos_to_form(AnnAST, {Line, Col}),
     case api_interface:pos_to_var(Form, {Line, Col}) of
@@ -293,7 +293,7 @@ inline(AnnAST, Form, MatchExpr, VarNode, Ps) ->
                         do_inline_in_form(F, MatchExpr, VarNode, Ps);
 		    _ -> F
 		end || F <- Forms],
-    refac_misc:rewrite(AnnAST, wrangler_syntax:form_list(NewForms)).
+    wrangler_misc:rewrite(AnnAST, wrangler_syntax:form_list(NewForms)).
 
    
 do_inline_in_form(Form, MatchExpr, VarNode, Ps) ->
@@ -324,7 +324,7 @@ do_remove_match_expr(Node,MatchExpr) ->
 		    {Node, false};
 		false ->
 		    Node1 = wrangler_syntax:clause(Pat,Guard,NewBody),
-		    {refac_misc:rewrite(Node,Node1),true}
+		    {wrangler_misc:rewrite(Node,Node1),true}
 	    end;
 	block_expr ->
 	    Body = wrangler_syntax:block_expr_body(Node),
@@ -334,7 +334,7 @@ do_remove_match_expr(Node,MatchExpr) ->
 		    {Node,false};
 		false ->
 		    Node1 = wrangler_syntax:block_expr(NewBody),
-		    {refac_misc:rewrite(Node,Node1),true}
+		    {wrangler_misc:rewrite(Node,Node1),true}
 	    end;
 	try_expr ->
 	    C = wrangler_syntax:try_expr_clauses(Node),
@@ -347,7 +347,7 @@ do_remove_match_expr(Node,MatchExpr) ->
 		    {Node,false};
 		false ->
 		    Node1 = wrangler_syntax:try_expr(NewBody,C,H,A),
-		    {refac_misc:rewrite(Node,Node1),true}
+		    {wrangler_misc:rewrite(Node,Node1),true}
 	    end;
 	_ -> {Node,false}
     end.
@@ -364,7 +364,7 @@ remove_match_expr_from_body(MatchExpr,Body) ->
 	    B3Hd = hd(B3),
 	    B3Tl = tl(B3),
 	    {_,End} = api_refac:start_end_loc(B3Hd),
-	    B3Hd1 = refac_misc:update_ann(B3Hd,{range,{Start,End}}),
+	    B3Hd1 = wrangler_misc:update_ann(B3Hd,{range,{Start,End}}),
 	    B1++[B3Hd1| B3Tl]
     end.
 
@@ -373,7 +373,7 @@ do_inline(Node, {MatchExprBody, Ranges}) ->
 	variable ->
 	    case lists:member(api_refac:start_end_loc(Node), Ranges) of
 		true ->
-                    {refac_misc:rewrite_with_wrapper(Node, MatchExprBody), true};
+                    {wrangler_misc:rewrite_with_wrapper(Node, MatchExprBody), true};
                 false ->
 		    {Node, false}
 	    end;

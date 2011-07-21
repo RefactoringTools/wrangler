@@ -69,7 +69,7 @@ fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fold_against_macro(" ++ "\"" ++ 
 	    FileName ++ "\", " ++ integer_to_list(Line) ++ 
 	      ", " ++ integer_to_list(Col) ++ ", "
-						++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+					       ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, emacs, Cmd).
 
 
@@ -108,7 +108,7 @@ fold_against_macro_1_eclipse(FileName, CandidatesToFold, MacroDef, SearchPaths, 
     CandidatesToFold1 = [{StartLine, StartCol, EndLine, EndCol, MacroApp, MacroDef}
 			 || {{{StartLine, StartCol}, {EndLine, EndCol}}, MacroApp} <- CandidatesToFold],
     AnnAST1 = fold_against_macro_1_1_eclipse(AnnAST, CandidatesToFold1),
-    Src = wrangler_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST1, TabWidth),
+    Src = wrangler_prettypr:print_ast(wrangler_misc:file_format(FileName), AnnAST1, TabWidth),
     Res = [{FileName, FileName, Src}],
     {ok, Res}.
 
@@ -145,7 +145,7 @@ fold_againt_macro_1_2(AnnAST, _Inst={StartLine, StartCol, EndLine, EndCol, Macro
 
 search_candidate_exprs(AnnAST, MacroDef) ->
     Args = wrangler_syntax:attribute_arguments(MacroDef),
-    MacroHead = refac_misc:ghead("refac_fold_against_macro:search_candiate_exprs", Args),
+    MacroHead = wrangler_misc:ghead("refac_fold_against_macro:search_candiate_exprs", Args),
     MacroParNames = case wrangler_syntax:type(MacroHead) of
 			application ->
 			    Pars = wrangler_syntax:application_arguments(MacroHead),
@@ -240,7 +240,7 @@ make_macro_app(MacroHead, Subst) ->
 	    Args = [wrangler_syntax:variable_name(A) || A <- Args1],
 	    Pars = lists:map(fun (P) -> case lists:keysearch(P, 1, Subst) of
 					    {value, {P, Par}} ->
-						refac_misc:reset_attrs(Par);
+						wrangler_misc:reset_attrs(Par);
 					    _ -> wrangler_syntax:atom(undefined)
 					end
 			     end, Args),

@@ -68,8 +68,8 @@ sim_expr_search_in_buffer(FName, Start = {_Line, _Col}, End = {_Line1, _Col1}, S
 sim_expr_search_in_dirs(FileName, Start = {_Line, _Col}, End = {_Line1, _Col1}, SimiScore0, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:sim_expr_search_in_dirs(~p, {~p,~p},{~p,~p}, ~p, ~p, ~p).\n",
 		 [?MODULE, FileName, _Line, _Col, _Line1, _Col1, SimiScore0, SearchPaths, TabWidth]),
-    FileName1 = refac_misc:expand_files([FileName], ".erl"),
-    Files = FileName1 ++ (refac_misc:expand_files(SearchPaths, ".erl") -- FileName1),
+    FileName1 = wrangler_misc:expand_files([FileName], ".erl"),
+    Files = FileName1 ++ (wrangler_misc:expand_files(SearchPaths, ".erl") -- FileName1),
     SimiScore = get_simi_score(SimiScore0),
     {FunDef, Exprs, SE} = get_fundef_and_expr(FileName, Start, End, SearchPaths, TabWidth),
     {Ranges, AntiUnifier} = search_and_gen_anti_unifier(Files, {FileName, FunDef, Exprs, SE}, SimiScore, SearchPaths, TabWidth),
@@ -84,7 +84,7 @@ sim_expr_search_in_buffer_eclipse(FName, Start, End, SimiScore0, SearchPaths, Ta
 %%-spec(sim_expr_search_in_dirs_eclipse/6::(filename(), pos(), pos(), float(),[dir()],integer())
 %%    ->{ok,  {[{{filename(), integer(), integer()}, {filename(), integer(), integer()}}], string()}}).
 sim_expr_search_in_dirs_eclipse(FileName, Start, End, SimiScore0, SearchPaths, TabWidth) ->
-    Files = [FileName| refac_misc:expand_files(SearchPaths, ".erl") -- [FileName]],
+    Files = [FileName| wrangler_misc:expand_files(SearchPaths, ".erl") -- [FileName]],
     sim_expr_search_eclipse(FileName, Start, End, Files, SimiScore0, SearchPaths, TabWidth).
     
 
@@ -280,8 +280,8 @@ normalise_record_expr(FName, Pos = {Line, Col}, ShowDefault, SearchPaths, TabWid
 		 [?MODULE, FName, Line, Col, ShowDefault, SearchPaths, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":normalise_record_expr(" ++ "\"" ++ 
 	    FName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "},"
-       ++ atom_to_list(ShowDefault) ++ " [" ++ refac_misc:format_search_paths(SearchPaths)
-      ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+      ++ atom_to_list(ShowDefault) ++ " [" ++ wrangler_misc:format_search_paths(SearchPaths)
+    ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     normalise_record_expr_0(FName, Pos, ShowDefault, SearchPaths, TabWidth, emacs, Cmd).
    
 
@@ -356,7 +356,7 @@ do_normalise_record_expr_1(Node, {RecordInfo, ShowDefault}) ->
 		    case lists:keysearch(wrangler_syntax:concrete(Type), 1, RecordInfo) of
 			{value, {_, Fields1}} ->
 			    Fields2 = lists:append([Fun(F, Fields) || F <- Fields1]),
-			    refac_misc:rewrite(Node, wrangler_syntax:record_expr(Arg, Type, Fields2));
+			    wrangler_misc:rewrite(Node, wrangler_syntax:record_expr(Arg, Type, Fields2));
 			_ ->
 			    Node
 		    end;
@@ -392,9 +392,9 @@ pos_to_record_expr_1(Node, Pos) ->
 
 get_module_record_info(FName, SearchPaths, TabWidth) ->
     Dir = filename:dirname(FName),
-    DefaultIncl = [filename:join(Dir, X) || X <- refac_misc:default_incls()],
+    DefaultIncl = [filename:join(Dir, X) || X <- wrangler_misc:default_incls()],
     Includes = SearchPaths ++ DefaultIncl,
-    case wrangler_epp:parse_file(FName, Includes, [], TabWidth, refac_misc:file_format(FName)) of
+    case wrangler_epp:parse_file(FName, Includes, [], TabWidth, wrangler_misc:file_format(FName)) of
 	{ok, Forms, _} -> Forms1 = [F || F <- Forms, case F of
 							 {attribute, _, file, _} -> false;
 							 {attribute, _, type, {{record, _}, _, _}} -> false;
@@ -410,7 +410,7 @@ get_module_record_info(FName, SearchPaths, TabWidth) ->
     end.
 
 vars_to_export(Fun, ExprEndPos, Expr) ->
-    AllVars = refac_misc:collect_var_source_def_pos_info(Fun),
+    AllVars = wrangler_misc:collect_var_source_def_pos_info(Fun),
     ExprBdVarsPos = [Pos || {_Var, Pos} <- api_refac:bound_vars(Expr)],
     [{V, DefPos} || {V, SourcePos, DefPos} <- AllVars,
 		    SourcePos > ExprEndPos,
@@ -418,4 +418,4 @@ vars_to_export(Fun, ExprEndPos, Expr) ->
 
 
 format(Node) ->
-    wrangler_prettypr:format(refac_misc:reset_ann_and_pos(Node)).
+    wrangler_prettypr:format(wrangler_misc:reset_ann_and_pos(Node)).

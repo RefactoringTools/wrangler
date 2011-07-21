@@ -90,7 +90,7 @@ intro_new_var_1(FileName, AnnAST, Fun, Expr, NewVarName, Editor, TabWidth, Cmd) 
 	    wrangler_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd),
 	    {ok, [FileName]};
 	eclipse ->
-	    FileFormat = refac_misc:file_format(FileName),
+	    FileFormat = wrangler_misc:file_format(FileName),
 	    FileContent = wrangler_prettypr:print_ast(FileFormat, AnnAST1, TabWidth),
 	    {ok, [{FileName, FileName, FileContent}]}
     end.
@@ -182,8 +182,8 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
 		   wrangler_syntax:try_expr_body(Node)
 	   end,
     Fun = fun (ExprStatement) ->
-                  Range = refac_misc:get_start_end_loc_with_comment(ExprStatement),
-                  NewExpr=wrangler_syntax:copy_pos(ExprStatement, refac_misc:update_ann(MatchExpr, {range, Range})),
+                  Range = wrangler_misc:get_start_end_loc_with_comment(ExprStatement),
+                  NewExpr=wrangler_syntax:copy_pos(ExprStatement, wrangler_misc:update_ann(MatchExpr, {range, Range})),
                   {ExprStatement1, _} = replace_expr_with_var(Expr, NewVarName, ExprStatement),
                   [NewExpr, ExprStatement1]
           end,
@@ -253,15 +253,15 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
 	clause ->
 	    Pat = wrangler_syntax:clause_patterns(Node),
 	    Guard = wrangler_syntax:clause_guard(Node),
-	    refac_misc:rewrite(Node, wrangler_syntax:clause
-                                       (Pat, Guard, NewBody));
+	    wrangler_misc:rewrite(Node, wrangler_syntax:clause
+                                          (Pat, Guard, NewBody));
 	block_expr ->
-	    refac_misc:rewrite(Node,wrangler_syntax:block_expr(NewBody));
+	    wrangler_misc:rewrite(Node,wrangler_syntax:block_expr(NewBody));
 	try_expr ->
 	    C = wrangler_syntax:try_expr_clauses(Node),
 	    H = wrangler_syntax:try_expr_handlers(Node),
 	    A = wrangler_syntax:try_expr_after(Node),
-	    refac_misc:rewrite(Node,wrangler_syntax:try_expr(NewBody, C, H, A))
+	    wrangler_misc:rewrite(Node,wrangler_syntax:try_expr(NewBody, C, H, A))
     end.
 
 
@@ -272,8 +272,8 @@ replace_expr_with_var(Expr, NewVarName, ExprStatement) ->
 do_replace_expr_with_var(Node, {Expr, NewVarName}) ->
     case Node of
 	Expr ->
-	    NewVarExpr = refac_misc:rewrite(
-			   Expr,wrangler_syntax:variable(NewVarName)),
+	    NewVarExpr = wrangler_misc:rewrite(
+			      Expr,wrangler_syntax:variable(NewVarName)),
 	    {NewVarExpr, true};
 	_ -> {Node, false}
     end.

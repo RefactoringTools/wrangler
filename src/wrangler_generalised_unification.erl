@@ -413,7 +413,7 @@ non_same_type_unification(Exp1, Exp2) ->
 var_binding_structure(AST) when not is_list(AST) ->
     var_binding_structure([AST]);
 var_binding_structure(ASTList) ->
-    VarLocs = lists:keysort(2, refac_misc:collect_var_source_def_pos_info(ASTList)),
+    VarLocs = lists:keysort(2, wrangler_misc:collect_var_source_def_pos_info(ASTList)),
     case VarLocs of
 	[] ->
 	    [];
@@ -532,8 +532,8 @@ format(Es)when is_list(Es) ->
     [format(E)||E<-Es];
 format(E) ->
     wrangler_prettypr:format(
-         refac_misc:reset_ann_and_pos(
-           rm_comments(E))).
+         wrangler_misc:reset_ann_and_pos(
+              rm_comments(E))).
 
 rm_comments(Node) ->
     wrangler_syntax:remove_comments(Node).

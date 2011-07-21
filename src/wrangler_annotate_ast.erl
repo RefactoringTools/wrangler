@@ -31,7 +31,7 @@
 
 -export([add_fun_define_locations/2]).
 
--import(refac_misc,[rewrite/2, update_ann/2]).
+-import(wrangler_misc,[rewrite/2, update_ann/2]).
 
 -include("../include/wrangler_internal.hrl").
 

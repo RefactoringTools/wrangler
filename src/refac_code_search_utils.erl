@@ -148,7 +148,7 @@ identifier_name(Exp) ->
 var_binding_structure(AST) when not is_list(AST) ->
     var_binding_structure([AST]);
 var_binding_structure(ASTList) ->
-    VarLocs = lists:keysort(2, refac_misc:collect_var_source_def_pos_info(ASTList)),
+    VarLocs = lists:keysort(2, wrangler_misc:collect_var_source_def_pos_info(ASTList)),
     case VarLocs of
 	[] ->
 	    [];

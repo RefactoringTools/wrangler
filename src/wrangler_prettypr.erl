@@ -108,7 +108,7 @@ print_ast_and_get_changes(FileFmt, AST, Options, TabWidth) ->
 print_a_form(Form, FileFmt, Options, TabWidth) ->
     case form_not_changed(Form) of
         true ->
-            FormStr=refac_misc:concat_toks(refac_misc:get_toks(Form)),
+            FormStr=wrangler_misc:concat_toks(wrangler_misc:get_toks(Form)),
             {FormStr, {0, 0, 0}};
         false ->
             print_a_form_and_get_changes(Form, FileFmt, Options, TabWidth)
@@ -122,8 +122,8 @@ print_a_form_and_get_changes(Form, FileFormat, Options, TabWidth) ->
 		 user = proplists:get_value(user,Options),
 		 format = FileFormat,
 		 tabwidth = TabWidth,
-		 tokens = refac_misc:get_toks(Form)},
-    OrigFormStr=refac_misc:concat_toks(refac_misc:get_toks(Form)),
+		 tokens = wrangler_misc:get_toks(Form)},
+    OrigFormStr=wrangler_misc:concat_toks(wrangler_misc:get_toks(Form)),
     NewFormStr0= print_form(Form,reset_prec(Ctxt),fun lay/2),
     %% NewFormStr0=erl_prettypr:format(Form),
     NewFormStr=repair_new_form_str(OrigFormStr, NewFormStr0, TabWidth,FileFormat),
@@ -149,7 +149,7 @@ print_form(Form,Ctxt,Fun) ->
     TabWidth = Ctxt#ctxt.tabwidth,
     FStr0=wrangler_prettypr_0:layout(D,FileFormat,TabWidth),
     FStr=remove_trailing_whitespace(FStr0, TabWidth, FileFormat), 
-    Toks = refac_misc:get_toks(Form),
+    Toks = wrangler_misc:get_toks(Form),
     if Toks ==[] ->
             Delimitor = get_delimitor(FileFormat),
             Delimitor++Delimitor++FStr; 
@@ -194,7 +194,7 @@ form_not_changed(Form) ->
             %% This might change!
             true;  
 	false ->
-            Toks = refac_misc:get_toks(Form),
+            Toks = wrangler_misc:get_toks(Form),
             case Toks of
                 [] -> false;
                 _ ->
@@ -205,8 +205,8 @@ form_not_changed(Form) ->
 
 form_not_change_1(Form) ->
     try
-        Toks = refac_misc:get_toks(Form),
-        Str = refac_misc:concat_toks(Toks),
+        Toks = wrangler_misc:get_toks(Form),
+        Str = wrangler_misc:concat_toks(Toks),
         {ok,Toks1,_} = wrangler_scan:string(Str,{1,1},?TabWidth,unix),
         OriginalForm = refac_epp_dodger:normal_parser(Toks1,[]),
         NewStr = format(Form,[]),
@@ -957,7 +957,7 @@ lay_2(Node, Ctxt) ->
                         As=seq(A, floating(text(", ")), Ctxt1, fun lay/2),
                         D4 = lay_elems(fun wrangler_prettypr_0:sep/1, As, A, Ctxt),
                         AStartLoc=get_start_loc_with_comment(hd(A)),
-                        {{HeadStartLn, HeadStartCol}, {HeadLastLn, _}} = refac_misc:get_start_end_loc_with_comment(T),
+                        {{HeadStartLn, HeadStartCol}, {HeadLastLn, _}} = wrangler_misc:get_start_end_loc_with_comment(T),
                         D5 =append_clause_body(D4, D3, Ctxt1, {AStartLoc, {HeadStartCol, HeadLastLn}}),
                         D2= append_leading_keyword("receive", D1, Cs, Ctxt),
                         D6 = append_keywords("after", "end", D5, [T|A], Ctxt),
@@ -1166,7 +1166,7 @@ lay_list(Node, Ctxt) ->
             end;
 	S ->
             D2 = lay(S, Ctxt1),
-            {SuffixStart, SuffixEnd={SuffixEndLn,_}} = refac_misc:get_start_end_loc_with_comment(S),
+            {SuffixStart, SuffixEnd={SuffixEndLn,_}} = wrangler_misc:get_start_end_loc_with_comment(S),
             {BarLn, BarCol} = get_keyword_loc_before('|', Ctxt1, SuffixStart),
             BarD2=append_elems(fun wrangler_prettypr_0:horizontal/1,
                                {text("|"), {{BarLn, BarCol}, {BarLn, BarCol}}},
@@ -1426,7 +1426,7 @@ make_args(Pats, P,Ctxt,FunNameLoc,LeftBracket,RightBracket) ->
     {LeftBracketLine,LeftBracketCol} = 
 	get_keyword_loc_after(LeftBracket,Ctxt,FunNameLoc),
     {{PatStartLine, PatStartCol}, {PatEndLine, _PatEndCol}} =
-        refac_misc:get_start_end_loc_with_comment(Pats),
+        wrangler_misc:get_start_end_loc_with_comment(Pats),
     {RightBracketLine,RightBracketCol} =
 	get_right_bracket_loc(Ctxt#ctxt.tokens,{LeftBracketLine,LeftBracketCol},
                               LeftBracket, RightBracket),
@@ -1712,7 +1712,7 @@ horizontal_1([]) -> [].
 
 lay_elems(_Fun, _ElemDocs,[], _Ctxt) -> null;
 lay_elems(Fun, ElemDocs,Elems,Ctxt) ->
-    ARanges = [refac_misc:get_start_end_loc_with_comment(E) || E <- Elems],
+    ARanges = [wrangler_misc:get_start_end_loc_with_comment(E) || E <- Elems],
     case lists:all(fun(R) -> R=={{0,0},{0,0}} end, ARanges) of 
 	true ->
 	    Fun(ElemDocs);
@@ -1754,11 +1754,11 @@ lay_body_elems_1([], _Ctxt, Acc, _LastRange) ->
     Docs = lists:map(fun (Ds) -> wrangler_prettypr_0:horizontal(Ds) end, Acc),
     vertical(lists:reverse(Docs));
 lay_body_elems_1([{D, Elem}| Ts],  Ctxt,[], _LastLoc) ->
-    {SLoc, ELoc} = refac_misc:get_start_end_loc_with_comment(Elem),
+    {SLoc, ELoc} = wrangler_misc:get_start_end_loc_with_comment(Elem),
     lay_body_elems_1(Ts,  Ctxt,[[D]], {SLoc, ELoc});
 lay_body_elems_1([{D, Elem}| Ts], Ctxt, [H| T], 
 		 _LastLoc={{_LastSLn, _LastSCol}, {LastELn, LastECol}}) ->
-    Range={{SLn, SCol},{_ELn, _ECol}} = refac_misc:get_start_end_loc_with_comment(Elem),
+    Range={{SLn, SCol},{_ELn, _ECol}} = wrangler_misc:get_start_end_loc_with_comment(Elem),
     As = wrangler_syntax:get_ann(Elem),
     case lists:keysearch(layout, 1, As) of 
         {value, {layout, horizontal}} ->
@@ -2065,9 +2065,9 @@ has_parentheses(Node, Toks, Left, Right)->
               fun(T) -> 
                       token_loc(T) =< EndLoc 
               end, Toks2),
-    Ts1Str=refac_misc:concat_toks(lists:reverse(Toks1)),
-    Ts2Str=refac_misc:concat_toks(Ts2),
-    Str21 =refac_misc:concat_toks(Toks21),
+    Ts1Str=wrangler_misc:concat_toks(lists:reverse(Toks1)),
+    Ts2Str=wrangler_misc:concat_toks(Ts2),
+    Str21 =wrangler_misc:concat_toks(Toks21),
     case well_formed_parentheses(Str21) of
         true ->
             lists:prefix(Left, Ts1Str) andalso
@@ -2109,7 +2109,7 @@ remove_trailing_whitespace(Str, TabWidth, FileFormat) ->
     {ok, Toks, _} = wrangler_scan_with_layout:string(Str, {1,1}, TabWidth, FileFormat),
     remove_trailing_whitespace(Toks, []).
 remove_trailing_whitespace([], Acc) ->
-    refac_misc:concat_toks(lists:reverse(Acc));
+    wrangler_misc:concat_toks(lists:reverse(Acc));
 remove_trailing_whitespace([{',',L},{whitespace, _, ' '}, {whitespace, L1, '\r'}| S], Acc) ->
     remove_trailing_whitespace(S, [{whitespace, L1, '\r'},{',',L}| Acc]);
 remove_trailing_whitespace([{',',L},{whitespace, _, ' '}, {whitespace, L1, '\n'}| S], Acc) ->
@@ -2128,7 +2128,7 @@ get_leading_whites(OriginalToks) ->
     Ts1=lists:takewhile(fun(Ts) ->
                                 all_whites(Ts)
                         end, OriginalToks),
-    refac_misc:concat_toks(lists:append(Ts1)).
+    wrangler_misc:concat_toks(lists:append(Ts1)).
 
 get_trailing_whites(Str) ->   
     lists:reverse(lists:takewhile(fun(S) ->
@@ -2149,19 +2149,19 @@ get_start_end_loc(Node)->
     api_refac:start_end_loc(Node).
 
 get_start_line_with_comment(Node) ->
-    {{L, _}, _} = refac_misc:get_start_end_loc_with_comment(Node),
+    {{L, _}, _} = wrangler_misc:get_start_end_loc_with_comment(Node),
     L.
    
 get_end_line_with_comment(Node) ->
-    {_, {L, _}} = refac_misc:get_start_end_loc_with_comment(Node),
+    {_, {L, _}} = wrangler_misc:get_start_end_loc_with_comment(Node),
     L.
 
 get_start_loc_with_comment(Node) ->
-    {Start, _}= refac_misc:get_start_end_loc_with_comment(Node),
+    {Start, _}= wrangler_misc:get_start_end_loc_with_comment(Node),
     Start.
 
 get_end_loc_with_comment(Node) ->
-    {_, End}=refac_misc:get_start_end_loc_with_comment(Node),
+    {_, End}=wrangler_misc:get_start_end_loc_with_comment(Node),
     End.
 
  
@@ -2183,7 +2183,7 @@ repair_new_form_str(OldFormStr, NewFormStr, TabWidth, FileFormat)->
 repair_form_layout(DiffByLine, TabWidth) ->
     repair_form_layout(DiffByLine, none, TabWidth, []).
 repair_form_layout([], _, _TabWidth, Acc) ->
-    refac_misc:concat_toks(lists:append(lists:reverse(Acc)));
+    wrangler_misc:concat_toks(lists:append(lists:reverse(Acc)));
 repair_form_layout([{'*', LineToks}|Lines], PrevDiff, TabWidth, Acc) ->
     case all_whites(LineToks) of
         true ->
@@ -2200,7 +2200,7 @@ repair_form_layout([{'s', OldLineToks, NewLineToks}|Lines], PrevDiff, TabWidth, 
         true ->
             case Lines of 
                 [{i, Toks}|Lines1] ->
-                    case refac_misc:concat_toks(remove_whites(Toks)) of
+                    case wrangler_misc:concat_toks(remove_whites(Toks)) of
                         S when S=="->" orelse S=="of" ->
                             case remove_loc_and_whites(OldLineToks)--
                                 remove_loc_and_whites(NewLineToks) of

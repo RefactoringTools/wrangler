@@ -48,8 +48,8 @@ module_graph(SearchPaths) ->
     reverse_module_graph(ModCallerCallee).
 
 create_caller_callee_graph(SearchPaths) ->
-    Files = refac_misc:expand_files(SearchPaths, ".erl"),
-    ModMap = refac_misc:get_modules_by_file(Files),
+    Files = wrangler_misc:expand_files(SearchPaths, ".erl"),
+    ModMap = wrangler_misc:get_modules_by_file(Files),
     analyze_all_files(ModMap, SearchPaths).
 
 analyze_all_files([], _SearchPaths) ->
@@ -64,7 +64,7 @@ analyze_all_files([], _SearchPaths) ->
 
 analyze_all_files([{Mod, Dir}| Left], SearchPaths) ->
     FileName = filename:join(Dir, atom_to_list(Mod) ++ ".erl"),
-    NewCheckSum = refac_misc:filehash(FileName),
+    NewCheckSum = wrangler_misc:filehash(FileName),
     case ets:lookup(?ModuleGraphTab, {Mod, Dir}) of
 	[] ->
 	    Called = get_called_mods(FileName, SearchPaths),
@@ -83,8 +83,8 @@ analyze_all_files([{Mod, Dir}| Left], SearchPaths) ->
     end.
 
 get_called_mods(File, SearchPaths) ->
-    Files = refac_misc:expand_files(SearchPaths, ".erl"),
-    ModNames = [M || {M, _} <- refac_misc:get_modules_by_file(Files)],
+    Files = wrangler_misc:expand_files(SearchPaths, ".erl"),
+    ModNames = [M || {M, _} <- wrangler_misc:get_modules_by_file(Files)],
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(File, true, SearchPaths),
     ImportedMods0 = case lists:keysearch(imports, 1, Info) of
 			{value, {imports, Imps}} ->
@@ -158,13 +158,13 @@ module_graph_with_funs(SearchPaths) ->
     create_caller_callee_graph_with_called_funs(SearchPaths).
 
 create_caller_callee_graph_with_called_funs(SearchPaths) ->
-    Files = refac_misc:expand_files(SearchPaths, ".erl"),
-    ModMap = refac_misc:get_modules_by_file(Files),
+    Files = wrangler_misc:expand_files(SearchPaths, ".erl"),
+    ModMap = wrangler_misc:get_modules_by_file(Files),
     analyze_all_files_with_called_funs(ModMap, SearchPaths).
 
 analyze_all_files_with_called_funs(ModDirs, SearchPaths) ->
-    Files = refac_misc:expand_files(SearchPaths, ".erl"),
-    ModNames = [M || {M, _} <- refac_misc:get_modules_by_file(Files)],
+    Files = wrangler_misc:expand_files(SearchPaths, ".erl"),
+    ModNames = [M || {M, _} <- wrangler_misc:get_modules_by_file(Files)],
     [{{Mod, Dir},analyze_mod_with_called_funs({Mod, Dir}, ModNames, SearchPaths)}
      || {Mod, Dir} <- ModDirs].
 
@@ -195,7 +195,7 @@ collect_called_modules_with_called_funs(ModName, AnnAST, ModNames) ->
     [{M, [{F,A}]}||{M, F, A}<-CalledFuns, M/=ModName, lists:member(M, ModNames)].
 
 group_by_mod_names(ModFuns) ->
-    ModFuns1 = refac_misc:group_by(1, ModFuns),
+    ModFuns1 = wrangler_misc:group_by(1, ModFuns),
     [{hd(Ms), lists:append(Fs)} || MFs <- ModFuns1, {Ms, Fs} <- [lists:unzip(MFs)]].
    
   
@@ -343,11 +343,11 @@ calc_dim(String) ->
   calc_dim(String, 1, 0, 0).
 
 calc_dim("\\n" ++ T, H, TmpW, MaxW) ->
-    calc_dim(T, H + 1, 0, refac_misc:max(TmpW, MaxW));
+    calc_dim(T, H + 1, 0, wrangler_misc:max(TmpW, MaxW));
 calc_dim([_| T], H, TmpW, MaxW) ->
     calc_dim(T, H, TmpW+1, MaxW);
 calc_dim([], H, TmpW, MaxW) ->
-    {refac_misc:max(TmpW, MaxW), H}.
+    {wrangler_misc:max(TmpW, MaxW), H}.
 
 edge_format([],_,_,_) ->
     "";

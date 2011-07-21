@@ -81,7 +81,7 @@ register_pid(FName, Start = {Line1, Col1}, End = {Line2, Col2}, RegName, SearchP
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":register_pid(" ++ "\"" ++ 
 	    FName ++ "\", {" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ 
 	      "{" ++ integer_to_list(Line2) ++ ", " ++ integer_to_list(Col2) ++ "}," ++ "\"" ++ RegName ++ "\","
-													     ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+													    ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case is_process_name(RegName) of
 	true -> {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
 		case pos_to_spawn_match_expr(AnnAST, Start, End) of
@@ -108,7 +108,7 @@ register_pid(FName, Start = {Line1, Col1}, End = {Line2, Col2}, RegName, SearchP
 						    eclipse ->
 							Res = lists:map(fun ({{OldFName, NewFName}, AST}) ->
 										{OldFName, NewFName,
-										 wrangler_prettypr:print_ast(refac_misc:file_format(OldFName), AST, TabWidth)}
+										 wrangler_prettypr:print_ast(wrangler_misc:file_format(OldFName), AST, TabWidth)}
 									end, Results),
 							{ok, Res}
 						end;
@@ -338,7 +338,7 @@ is_recursive_fun(Files, {ModName, FunName, Arity, FunDef}) ->
 
 
 collect_registered_names_and_pids(DirList, TabWidth) ->
-    Files = refac_misc:expand_files(DirList, ".erl"),
+    Files = wrangler_misc:expand_files(DirList, ".erl"),
     F = fun (File, FileAcc) ->
 		{ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(File, true, DirList, TabWidth),
 		{value, {module, ModName}} = lists:keysearch(module, 1, Info),
@@ -407,7 +407,7 @@ do_register(FName, AnnAST, MatchExpr, Pid, RegName, SearchPaths, TabWidth) ->
 refactor_send_exprs(FName, AnnAST, PidInfo, RegName, SearchPaths, TabWidth) ->
     {AnnAST1, _} = api_ast_traverse:stop_tdTP(fun do_refactor_send_exprs/2, AnnAST, {PidInfo, RegName}),
     %%This can be refined to check the client and parent modules of the current module.
-    Files = refac_misc:expand_files(SearchPaths, ".erl") -- [FName],
+    Files = wrangler_misc:expand_files(SearchPaths, ".erl") -- [FName],
     Results = lists:flatmap(fun (File) ->
 				    ?wrangler_io("The current file under refactoring is:\n~p\n", [File]),
 				    {ok, {AnnAST2, _Info}} = wrangler_ast_server:parse_annotate_file(File, true, SearchPaths, TabWidth),
@@ -550,7 +550,7 @@ pos_to_spawn_match_expr(AnnAST, Start, End) ->
 		match_expr ->
 		    P = wrangler_syntax:match_expr_pattern(Expr),
 		    B = wrangler_syntax:match_expr_body(Expr),
-		    case {refac_misc:is_spawn_app(B), wrangler_syntax:type(P) == variable} of
+		    case {wrangler_misc:is_spawn_app(B), wrangler_syntax:type(P) == variable} of
 			{true, true} ->
 			    {ok, Expr};
 			_ -> {error, Message}

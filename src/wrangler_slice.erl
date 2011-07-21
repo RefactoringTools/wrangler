@@ -493,12 +493,12 @@ process_a_clause(C, Expr) ->
 		    {Bound2, Free2} = get_bound_free_vars(NewBody),
 		    Bound = ordsets:union(Bound1, Bound2),
 		    Free = ordsets:union(Free1, ordsets:subtract(Free2, Bound1)),
-		    C2 = refac_misc:update_ann(refac_misc:update_ann(C1, {bound, Bound}), {free, Free}),
+		    C2 = wrangler_misc:update_ann(wrangler_misc:update_ann(C1, {bound, Bound}), {free, Free}),
 		    [C2];
 		_ -> %% Expr does not use any of the vars declared in Patterns.
 		    {Bound, Free} = get_bound_free_vars(NewBody),
 		    C1 = wrangler_syntax:clause([wrangler_syntax:underscore()], none, NewBody),  %% replace patterns with undersocre.
-		    C2 = refac_misc:update_ann(refac_misc:update_ann(C1, {bound, Bound}), {free, Free}),
+		    C2 = wrangler_misc:update_ann(wrangler_misc:update_ann(C1, {bound, Bound}), {free, Free}),
 		    [C2]
 	    end
     end.
@@ -570,14 +570,14 @@ process_expr(LastExpr, Expr) ->
 	    Free = ordsets:union(Free1, Free2),
 	    E1 = wrangler_syntax:case_expr(Args, NewClauses),
 	    %% updated the annotation.
-	    E2 = refac_misc:update_ann(refac_misc:update_ann(E1, {bound, Bound}), {free, Free}),
+	    E2 = wrangler_misc:update_ann(wrangler_misc:update_ann(E1, {bound, Bound}), {free, Free}),
 	    E2;
 	block_expr ->
 	    Body = wrangler_syntax:block_expr_body(E),
 	    NewBody = process_body(Body, Expr),
 	    {Bound, Free} = get_bound_free_vars(NewBody),
 	    BE = wrangler_syntax:block_expr(NewBody),
-	    refac_misc:update_ann(refac_misc:update_ann(BE, {bound, Bound}), {free, Free});
+	    wrangler_misc:update_ann(wrangler_misc:update_ann(BE, {bound, Bound}), {free, Free});
 	if_expr ->
 	    Clauses = wrangler_syntax:if_expr_clauses(E),
 	    NewClauses = lists:flatmap(fun (C) -> process_a_clause(C, Expr) end, Clauses),
@@ -587,7 +587,7 @@ process_expr(LastExpr, Expr) ->
 					end,
 					{[], []}, NewClauses),
 	    IE = wrangler_syntax:if_expr(NewClauses),
-	    refac_misc:update_ann(refac_misc:update_ann(IE, {bound, Bound}), {free, Free});
+	    wrangler_misc:update_ann(wrangler_misc:update_ann(IE, {bound, Bound}), {free, Free});
 	%%	receive_expr -> LastExpr;
 	%%fun_expr ->  %% IMPORTANT: fun exprs need more attection, as it is a function closure. 
 	%% lists comprehension is another problem. (find the example !!)

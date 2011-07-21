@@ -71,7 +71,7 @@ find_var_instances(FName, Line, Col, SearchPaths, TabWidth) ->
 nested_exprs(DirFileNames, NestLevel, ExprType, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:nested_exprs(~p, ~p, ~p,~p,~p).\n",
 		 [?MODULE, DirFileNames, NestLevel, ExprType, SearchPaths, TabWidth]),
-    Files = refac_misc:expand_files(DirFileNames, ".erl"),
+    Files = wrangler_misc:expand_files(DirFileNames, ".erl"),
     Funs = lists:flatmap(fun (F) ->
 				 nested_exprs_1(F, NestLevel, ExprType, SearchPaths, TabWidth)
 			 end, Files),
@@ -251,7 +251,7 @@ dependencies_of_a_module(FName, SearchPaths) ->
 	    %% I use 'false' in the following function call, so that macro can get expanded;
 	    AbsFileName = filename:absname(filename:join(filename:split(FName))),
 	    ClientFiles = wrangler_modulegraph_server:get_client_files_basic(AbsFileName, SearchPaths),
-	    ClientMods = [M || {M, _Dir} <- refac_misc:get_modules_by_file(ClientFiles)],
+	    ClientMods = [M || {M, _Dir} <- wrangler_misc:get_modules_by_file(ClientFiles)],
 	    CalledMods = wrangler_modulegraph_server:get_called_modules(FName, SearchPaths),
 	    {ok, {ClientMods, CalledMods}};
 	false ->
@@ -268,7 +268,7 @@ dependencies_of_a_module(FName, SearchPaths) ->
 long_functions(DirFileNames, Lines, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:long_functions(~p, ~p,~p,~p).\n",
 		 [?MODULE, DirFileNames, Lines, SearchPaths, TabWidth]),
-    Files = refac_misc:expand_files(DirFileNames, ".erl"),
+    Files = wrangler_misc:expand_files(DirFileNames, ".erl"),
     MFAs = lists:flatmap(fun (F) ->
 				 long_functions_2(F, Lines, SearchPaths, TabWidth)
 			 end, Files),
@@ -281,9 +281,9 @@ long_functions_2(FName, Lines, SearchPaths, TabWidth) ->
     Fun = fun (Node, S) ->
 		  case wrangler_syntax:type(Node) of
 		      function ->
-			  Toks = refac_misc:get_toks(Node),
+			  Toks = wrangler_misc:get_toks(Node),
 			  CodeLines = [element(1, element(2, T)) || T <- Toks, element(1, T) /= whitespace, element(1, T) /= comment],
-			  CodeLines1 = refac_misc:remove_duplicates(CodeLines),
+			  CodeLines1 = wrangler_misc:remove_duplicates(CodeLines),
 			  case length(CodeLines1) > Lines of
 			      true ->
 				  FunName = wrangler_syntax:atom_value(wrangler_syntax:function_name(Node)),
@@ -303,7 +303,7 @@ long_functions_2(FName, Lines, SearchPaths, TabWidth) ->
 large_modules(Lines, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:large_modules(~p,~p,~p).\n",
 		 [?MODULE, Lines, SearchPaths, TabWidth]),
-    Files = refac_misc:expand_files(SearchPaths, ".erl"),
+    Files = wrangler_misc:expand_files(SearchPaths, ".erl"),
     LargeMods = lists:filter(fun (File) ->
 				     is_large_module(File, Lines, TabWidth)
 			     end, Files),
@@ -311,7 +311,7 @@ large_modules(Lines, SearchPaths, TabWidth) ->
 
 is_large_module(FName, Lines, TabWidth) ->
     Toks = api_refac:tokenize(FName, false, TabWidth),
-    CodeLines = refac_misc:remove_duplicates([element(1, element(2, T)) || T <- Toks]),
+    CodeLines = wrangler_misc:remove_duplicates([element(1, element(2, T)) || T <- Toks]),
     length(CodeLines) >= Lines.
 
 %%==========================================================================================
@@ -320,7 +320,7 @@ is_large_module(FName, Lines, TabWidth) ->
 non_tail_recursive_servers(FileOrDirs, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:non_tail_recursive_servers(~p, ~p, ~p).\n",
 		 [?MODULE, FileOrDirs, SearchPaths, TabWidth]),
-    Files = refac_misc:expand_files(FileOrDirs, ".erl"),
+    Files = wrangler_misc:expand_files(FileOrDirs, ".erl"),
     MFAs = lists:flatmap(fun (F) ->
 				 non_tail_recursive_servers_1(F, SearchPaths, TabWidth)
 			 end, Files),
@@ -422,7 +422,7 @@ check_candidate_scc(FunDef, Scc, Line) ->
 not_flush_unknown_messages(FileOrDirs, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:not_flush_unknown_messages(~p, ~p, ~p).\n",
 		 [?MODULE, FileOrDirs, SearchPaths, TabWidth]),
-    Files = refac_misc:expand_files(FileOrDirs, ".erl"),
+    Files = wrangler_misc:expand_files(FileOrDirs, ".erl"),
     Funs = lists:flatmap(fun (F) ->
 				 not_flush_unknown_messages_1(F, SearchPaths, TabWidth)
 			 end, Files),
@@ -534,7 +534,7 @@ check_search_paths(FileName, SearchPaths) ->
 	     ?wrangler_io("The following directories specified in the search paths do not exist:\n~s", [InValidSearchPaths]),
 	     throw({error, "Some directories specified in the search paths do not exist!"})
     end,
-    Files = refac_misc:expand_files(SearchPaths, ".erl") ++ refac_misc:expand_files(SearchPaths, ".hrl"),
+    Files = wrangler_misc:expand_files(SearchPaths, ".erl") ++ wrangler_misc:expand_files(SearchPaths, ".hrl"),
     case lists:member(FileName, Files) of
 	true ->
 	    ok;

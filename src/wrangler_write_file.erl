@@ -66,7 +66,7 @@ write_refactored_files_for_preview(Files, TabWidth, LogMsg, SearchPaths) ->
     F = fun (FileAST) ->
 		case FileAST of
 		    {{FileName,NewFileName}, AST} ->
-			FileFormat = refac_misc:file_format(FileName),
+			FileFormat = wrangler_misc:file_format(FileName),
 			SwpFileName = filename:rootname(FileName, ".erl") ++ ".erl.swp",  %% .erl.swp or .swp.erl?
                         {Content, Changes} = wrangler_prettypr:print_ast_and_get_changes(FileFormat, AST, TabWidth),
 			case file:write_file(SwpFileName, list_to_binary(Content)) of
@@ -81,7 +81,7 @@ write_refactored_files_for_preview(Files, TabWidth, LogMsg, SearchPaths) ->
 				throw({error, lists:flatten(Msg)})
 			end;
 		    {{FileName, NewFileName, IsNew}, AST} ->
-			FileFormat = refac_misc:file_format(FileName),
+			FileFormat = wrangler_misc:file_format(FileName),
 			SwpFileName = filename:rootname(FileName, ".erl") ++ ".erl.swp",
                         {Content, Changes} = wrangler_prettypr:print_ast_and_get_changes(FileFormat, AST, TabWidth),
 			case file:write_file(SwpFileName, list_to_binary(Content)) of
@@ -118,7 +118,7 @@ write_refactored_files_for_preview(Files, TabWidth, LogMsg, SearchPaths) ->
 
 write_refactored_files_eclipse(Results, TabWidth) ->
     Res = lists:map(fun ({{OldFName,NewFName},AST}) ->
-			    FileFormat = refac_misc:file_format(OldFName),
+			    FileFormat = wrangler_misc:file_format(OldFName),
 			    {OldFName, NewFName,
 			     wrangler_prettypr:print_ast(FileFormat,AST,TabWidth)}
 		    end,Results),
@@ -134,7 +134,7 @@ write_refactored_files_command_line(Results, TabWidth) ->
 		%% for most refactorings,OldFileName==NewFileName.
 		OldFileName = element(1, FileInfo),
 		NewFileName = element(2, FileInfo),
-		FileFormat = refac_misc:file_format(OldFileName),
+		FileFormat = wrangler_misc:file_format(OldFileName),
 		Bin = list_to_binary(wrangler_prettypr:print_ast(FileFormat, AST, TabWidth)),
 		case file:write_file(OldFileName, Bin) of
 		    ok when OldFileName==NewFileName ->

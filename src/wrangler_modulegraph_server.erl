@@ -163,5 +163,5 @@ get_client_files(File, SearchPaths) ->
 			 "correct!\n", []);
 	_ -> ok
     end,
-    HeaderFiles = refac_misc:expand_files(SearchPaths, ".hrl"),
+    HeaderFiles = wrangler_misc:expand_files(SearchPaths, ".hrl"),
     ClientFiles ++ HeaderFiles.

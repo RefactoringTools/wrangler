@@ -108,7 +108,7 @@ new_let_2(FileName, AnnAST, NewPatName, Expr, ParentExpr, LetMacro, Editor, Cmd,
 	    wrangler_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd),
 	    {ok, [FileName]};
 	eclipse ->
-	    FileContent = wrangler_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST1, TabWidth),
+	    FileContent = wrangler_prettypr:print_ast(wrangler_misc:file_format(FileName), AnnAST1, TabWidth),
 	    {ok, [{FileName, FileName, FileContent}]}
     end.
 
@@ -248,8 +248,8 @@ do_intro_new_let(Node, {Expr, NewPatName, ParentExpr, LetMacro}) ->
 			    {tuple, tuple} ->
 				Ps = wrangler_syntax:tuple_elements(Pats),
 				Gs = wrangler_syntax:tuple_elements(G1),
-				{refac_misc:rewrite_with_wrapper(Pats, wrangler_syntax:tuple(Ps ++ [NewPat])),
-				 refac_misc:rewrite_with_wrapper(G1, wrangler_syntax:tuple(Gs ++ [Expr]))};
+				{wrangler_misc:rewrite_with_wrapper(Pats, wrangler_syntax:tuple(Ps ++ [NewPat])),
+				 wrangler_misc:rewrite_with_wrapper(G1, wrangler_syntax:tuple(Gs ++ [Expr]))};
 			    _ ->
 				{wrangler_syntax:tuple([Pats, NewPat]),
 				 wrangler_syntax:tuple([G1, Expr])}
@@ -272,7 +272,7 @@ replace_expr_with_var(Node, {Expr, Var}) ->
 do_replace_expr_with_var(Node, {Expr, Var}) ->
     case Node of
 	Expr ->
-	    {refac_misc:rewrite_with_wrapper(Expr, wrangler_syntax:variable(Var)), true};
+	    {wrangler_misc:rewrite_with_wrapper(Expr, wrangler_syntax:variable(Var)), true};
 	_ -> {Node, false}
     end.
 
@@ -431,7 +431,7 @@ merge_forall_eclipse(FileName, SearchPaths, TabWidth) ->
 merge(FileName, MacroName, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":merge_let(" ++ "\"" ++ 
 	    FileName ++ "\"," ++ atom_to_list(MacroName) ++ ", " ++ "["
-								      ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+								     ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case is_quickcheck_used(Info) of
 	true -> ok;
@@ -498,7 +498,7 @@ merge_1(FileName, Candidates, SearchPaths, TabWidth, Cmd, Editor, TabWidth) ->
 	    wrangler_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd),
 	    {ok, [FileName]};
 	eclipse ->
-	    FileContent = wrangler_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST1, TabWidth),
+	    FileContent = wrangler_prettypr:print_ast(wrangler_misc:file_format(FileName), AnnAST1, TabWidth),
 	    {ok, [{FileName, FileName, FileContent}]}
     end.
 
@@ -512,7 +512,7 @@ do_merge_1(Tree, Candidates) ->
     {{StartLine, StartCol}, {EndLine, EndCol}} = api_refac:start_end_loc(Tree),
     case lists:keysearch({StartLine, StartCol, EndLine, EndCol}, 1, Candidates) of
 	{value, {_, NewLetApp}} ->
-	    {refac_misc:rewrite_with_wrapper(Tree, NewLetApp), true};
+	    {wrangler_misc:rewrite_with_wrapper(Tree, NewLetApp), true};
 	_ -> {Tree, false}
     end.
 
@@ -558,7 +558,7 @@ collect_mergeable_lets_or_foralls(Node, MacroName) ->
 	true ->
 	    [];
 	_ -> [{api_refac:start_end_loc(Node),
-	       refac_misc:reset_attrs(wrangler_syntax:macro(wrangler_syntax:variable(MacroName), Res))}]
+	       wrangler_misc:reset_attrs(wrangler_syntax:macro(wrangler_syntax:variable(MacroName), Res))}]
     end.
 
 collect_mergeable_lets_or_foralls_1(Res = [P, G1, G2], MacroName) ->

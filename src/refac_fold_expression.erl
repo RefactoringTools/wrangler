@@ -82,8 +82,8 @@ fold_expr_by_loc_eclipse(FileName, Line, Col, SearchPaths, TabWidth) ->
 fold_expression(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fold_expression(" ++ "\"" ++ 
 	    FileName ++ "\", " ++ integer_to_list(Line) ++ 
-	      ", " ++ integer_to_list(Col) ++ ", " ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "],"
-       ++ integer_to_list(TabWidth) ++ ").",
+	      ", " ++ integer_to_list(Col) ++ ", " ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "],"
+         ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case pos_to_fun_clause(AnnAST, {Line, Col}) of
 	{ok, {Mod, FunName, _Arity, FunClauseDef, _ClauseIndex}} ->
@@ -135,22 +135,22 @@ fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, E
      Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fold_expression(" ++ "\"" ++
 	     FileName ++ "\", " ++ atom_to_list(ModName) ++ ", " ++ atom_to_list(FunName) ++
 	       ", " ++ integer_to_list(Arity) ++ ", " ++ integer_to_list(ClauseIndex) ++ ", ["
-											  ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-    {value, {module, CurrentModName}} = lists:keysearch(module, 1, Info),
-    FileName1 = get_file_name(ModName, SearchPaths),
-    {ok, {AnnAST1, _Info1}} = wrangler_ast_server:parse_annotate_file(FileName1, true, SearchPaths, TabWidth),
-    case get_fun_clause_def(AnnAST1, FunName, Arity, ClauseIndex) of
-	{ok, {Mod, _FunName, _Arity, FunClauseDef}} ->
-	    side_condition_analysis(FunClauseDef),
-	    Candidates = search_candidate_exprs(AnnAST, {Mod, CurrentModName}, FunName, FunClauseDef),
-            fold_expression_0(FileName, Candidates, FunClauseDef, Cmd, Editor, SearchPaths, TabWidth);
-        {error, _Reason} ->
-	    throw({error, "The specified funcion clause does not exist!"})
-    end.
+											 ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+     {value, {module, CurrentModName}} = lists:keysearch(module, 1, Info),
+     FileName1 = get_file_name(ModName, SearchPaths),
+     {ok, {AnnAST1, _Info1}} = wrangler_ast_server:parse_annotate_file(FileName1, true, SearchPaths, TabWidth),
+     case get_fun_clause_def(AnnAST1, FunName, Arity, ClauseIndex) of
+	 {ok, {Mod, _FunName, _Arity, FunClauseDef}} ->
+	     side_condition_analysis(FunClauseDef),
+	     Candidates = search_candidate_exprs(AnnAST, {Mod, CurrentModName}, FunName, FunClauseDef),
+             fold_expression_0(FileName, Candidates, FunClauseDef, Cmd, Editor, SearchPaths, TabWidth);
+         {error, _Reason} ->
+	     throw({error, "The specified funcion clause does not exist!"})
+     end.
 
 get_file_name(ModName, SearchPaths) ->
-    Files = refac_misc:expand_files(SearchPaths, ".erl"),
+    Files = wrangler_misc:expand_files(SearchPaths, ".erl"),
     FileNames = lists:filter(fun (F) ->
 				     list_to_atom(filename:basename(F, ".erl")) == ModName
 			     end, Files),
@@ -170,7 +170,7 @@ fold_expr_1_eclipse(FileName, FunClauseDef, RangeNewExpList, SearchPaths, TabWid
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     Body = wrangler_syntax:clause_body(FunClauseDef),
     AnnAST1 = fold_expression_1_eclipse_1(AnnAST, Body, RangeNewExpList),
-    FileContent = wrangler_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST1, TabWidth),
+    FileContent = wrangler_prettypr:print_ast(wrangler_misc:file_format(FileName), AnnAST1, TabWidth),
     {ok, [{FileName, FileName, FileContent}]}.
 
 fold_expression_1_eclipse_1(AnnAST, _Body, []) ->
@@ -248,7 +248,7 @@ do_replace_expr_with_fun_call_1(Tree, {Range, Expr, NewExp}) ->
 		Tree== Expr  %% This is necessary due to the inaccuracy of Range.
 		of
 		true ->
-		    {refac_misc:rewrite_with_wrapper(Tree, NewExp), true};
+		    {wrangler_misc:rewrite_with_wrapper(Tree, NewExp), true};
 		false ->
 		    {Tree, false}
 	    end;
@@ -262,18 +262,18 @@ do_replace_expr_with_fun_call_2(Tree, {{StartLoc, EndLoc}, _Expr, NewExp}) ->
 	    {NewBody, Modified} = do_replace_expr(Exprs, {StartLoc, EndLoc}, NewExp),
 	    Pats = wrangler_syntax:clause_patterns(Tree),
 	    G = wrangler_syntax:clause_guard(Tree),
-	    {refac_misc:rewrite(Tree, wrangler_syntax:clause(Pats, G, NewBody)), Modified};
+	    {wrangler_misc:rewrite(Tree, wrangler_syntax:clause(Pats, G, NewBody)), Modified};
 	block_expr ->
 	    Exprs = wrangler_syntax:block_expr_body(Tree),
 	    {NewBody, Modified} = do_replace_expr(Exprs, {StartLoc, EndLoc}, NewExp),
-	    {refac_misc:rewrite(Tree, wrangler_syntax:block_expr(NewBody)), Modified};
+	    {wrangler_misc:rewrite(Tree, wrangler_syntax:block_expr(NewBody)), Modified};
 	try_expr ->
 	    Exprs = wrangler_syntax:try_expr_body(Tree),
 	    {NewBody, Modified} = do_replace_expr(Exprs, {StartLoc, EndLoc}, NewExp),
 	    Cs = wrangler_syntax:try_expr_clauses(Tree),
 	    Handlers = wrangler_syntax:try_expr_handlers(Tree),
 	    After = wrangler_syntax:try_expr_after(Tree),
-	    Tree1 = refac_misc:rewrite(Tree, wrangler_syntax:try_expr(NewBody, Cs, Handlers, After)),
+	    Tree1 = wrangler_misc:rewrite(Tree, wrangler_syntax:try_expr(NewBody, Cs, Handlers, After)),
 	    {Tree1, Modified};
 	_ -> {Tree, false}
     end.
@@ -295,7 +295,7 @@ do_replace_expr(Exprs, {StartLoc, EndLoc}, NewExp) ->
 	    case Exprs22 of
 		[] -> {Exprs, false};  %% THIS SHOULD NOT HAPPEN.
 		_ ->
-                    NewExp1 = refac_misc:rewrite_with_wrapper(Exprs21 ++ [hd(Exprs22)], NewExp),
+                    NewExp1 = wrangler_misc:rewrite_with_wrapper(Exprs21 ++ [hd(Exprs22)], NewExp),
                     {Exprs1 ++ [NewExp1| tl(Exprs22)], true}
 	    end
     end.
@@ -494,7 +494,7 @@ check_expr_list_minus_last_expr(FoldFunBodyExprList, CurExprList, SubExprs) ->
 vars_to_export(WholeExpList, SubExpList) ->
     AllVars = lists:usort(
 		lists:flatmap(
-		  fun (E) -> refac_misc:collect_var_source_def_pos_info(E) end,
+		  fun (E) -> wrangler_misc:collect_var_source_def_pos_info(E) end,
 		  WholeExpList)),
     SubExpListBdVars = lists:flatmap(
 			 fun (E) ->
@@ -576,7 +576,7 @@ make_fun_call({FunDefMod, CurrentMod}, FunName, Pats, Subst) ->
 	     _ -> wrangler_syntax:module_qualifier(
 		       wrangler_syntax:atom(FunDefMod), wrangler_syntax:atom(FunName))
 	 end,
-    wrangler_syntax:application(Op, [refac_misc:reset_attrs(P) || P <- Pars]).
+    wrangler_syntax:application(Op, [wrangler_misc:reset_attrs(P) || P <- Pars]).
   
 %% =============================================================================
 %% Compose a match expression of a function application when the pattern is none.                      

@@ -118,7 +118,7 @@ inc_sim_code_detection(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1
     {MinLen,MinToks,MinFreq,MaxVars,SimiScore} = get_parameters(MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1),
     Cmd = io_lib:format("\nCMD: ~p:inc_sim_code_detection(~p,~p,~p,~p,~p, ~p,~p,~p).",
 			[?MODULE,DirFileList,MinLen,MinToks,MinFreq,MaxVars,SimiScore,SearchPaths,TabWidth]),
-    Files = refac_misc:expand_files(DirFileList,".erl"),
+    Files = wrangler_misc:expand_files(DirFileList,".erl"),
     Cs = case Files of
 	     [] ->
 		 ?wrangler_io("Warning: No files found in the searchpaths specified.",[]),
@@ -137,7 +137,7 @@ inc_sim_code_detection(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1
 
 inc_sim_code_detection_command(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1,SearchPaths,TabWidth) ->
     {MinLen,MinToks,MinFreq,MaxVars,SimiScore} = get_parameters_eclipse(MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1),
-    Files = refac_misc:expand_files(DirFileList,".erl"),
+    Files = wrangler_misc:expand_files(DirFileList,".erl"),
     case Files of
 	[] ->
 	    ?wrangler_io("Warning: No files found in the searchpaths specified.",[]);
@@ -159,7 +159,7 @@ inc_sim_code_detection_eclipse(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,Si
     ?wrangler_io("\nCMD: ~p:inc_sim_code_detection(~p,~p,~p,~p,~p, ~p,~p,~p).\n",
 		 [?MODULE,DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1,SearchPaths,TabWidth]),
     {MinLen,MinToks,MinFreq,MaxVars,SimiScore} = get_parameters_eclipse(MinLen1,MinToks1,MinFreq1,MaxVars1,SimiScore1),
-    Files = refac_misc:expand_files(DirFileList,".erl"),
+    Files = wrangler_misc:expand_files(DirFileList,".erl"),
     case Files of
 	[] ->
 	    [];
@@ -281,7 +281,7 @@ generalise_and_hash_ast(Files, Threshold, Tabs, ASTPid, HashPid ,SearchPaths, Ta
 		  end, Files).
 
 generalise_and_hash_file_ast(File, Threshold, Tabs, ASTPid, HashPid, SearchPaths, TabWidth) ->
-    NewCheckSum = refac_misc:filehash(File),
+    NewCheckSum = wrangler_misc:filehash(File),
     case ets:lookup(Tabs#tabs.file_hash_tab, File) of
 	[{File, NewCheckSum}] ->
 	    ?debug("\nFile not changed:~p\n", [File]),
@@ -368,7 +368,7 @@ generalise_and_hash_function_ast_1(FName, Form, FunName, Arity, HashVal, Thresho
     Form1 = absolute_to_relative_loc(Form, StartLine),
     %% all locations are relative locations.
     %% variable binding information is needed by the anti-unification process.
-    AllVars = refac_misc:collect_var_source_def_pos_info(Form1),
+    AllVars = wrangler_misc:collect_var_source_def_pos_info(Form1),
     %% I also put the Hashvalue of a function in var_tab.
     ets:insert(Tabs#tabs.var_tab, {{FName, FunName, Arity}, HashVal, AllVars}),
     api_ast_traverse:full_tdTP(fun generalise_and_hash_function_ast_2/2,
@@ -1221,7 +1221,7 @@ num_of_new_vars(SubSt) ->
 
 
 format(Node) ->
-    wrangler_prettypr:format(refac_misc:reset_ann_and_pos(Node)).
+    wrangler_prettypr:format(wrangler_misc:reset_ann_and_pos(Node)).
     
     
 
@@ -1305,7 +1305,7 @@ make_fun_call(FunName, Pats, Subst, FromSameFile) ->
 	  end,
     Pars = lists:map(Fun, Pats),
     Op = wrangler_syntax:atom(FunName),
-    refac_misc:reset_attrs(wrangler_syntax:application(Op, [P || P <- Pars])).
+    wrangler_misc:reset_attrs(wrangler_syntax:application(Op, [P || P <- Pars])).
 
 	 
 
@@ -1401,8 +1401,8 @@ do_post_process_anti_unifier(Node, _Others) ->
 			    {Node, false};
 			false ->
 			    Mod = wrangler_syntax:atom(M),
-			    Operator1 = refac_misc:rewrite(Operator, wrangler_syntax:module_qualifier(Mod, Operator)),
-			    Node1 = refac_misc:rewrite(Node, wrangler_syntax:application(Operator1, Arguments)),
+			    Operator1 = wrangler_misc:rewrite(Operator, wrangler_syntax:module_qualifier(Mod, Operator)),
+			    Node1 = wrangler_misc:rewrite(Node, wrangler_syntax:application(Operator1, Arguments)),
 			    {Node1, false}
 		    end;
 		_ ->
@@ -1503,7 +1503,7 @@ no_of_tokens(Node) ->
 
 combine_clones_by_au([]) -> [];
 combine_clones_by_au(Cs = [{_Ranges, _Len, _F, _Code}| _T]) ->
-    Cs1 = refac_misc:group_by(4, Cs),
+    Cs1 = wrangler_misc:group_by(4, Cs),
     combine_clones_by_au_1(Cs1,[]).
 
 combine_clones_by_au_1([], Acc) ->
@@ -1593,7 +1593,7 @@ simplify_anti_unifier_body(AUBody) ->
 same_expr(Expr1, Expr2) ->
     {ok, Ts1, _} = erl_scan:string(format(Expr1)),
     {ok, Ts2, _} = erl_scan:string(format(Expr2)),
-    refac_misc:concat_toks(Ts1) == refac_misc:concat_toks(Ts2).
+    wrangler_misc:concat_toks(Ts1) == wrangler_misc:concat_toks(Ts2).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1710,7 +1710,7 @@ get_file_status_info(Files, Tabs, Threshold) ->
 	    case LastThreshold == Threshold of
 		true ->
 		    Fun = fun (F) ->
-				  CheckSum = refac_misc:filehash(F),
+				  CheckSum = wrangler_misc:filehash(F),
 				  case ets:lookup(Tabs#tabs.file_hash_tab, F) of
 				      [{F, CheckSum1}] when CheckSum/=CheckSum1 ->
 					  true;

@@ -832,11 +832,11 @@ tokenize(File, WithLayout, TabWidth) ->
 		true -> 
 		    {ok, Ts, _} = wrangler_scan_with_layout:string(
                                        S, {1,1}, TabWidth,
-                                       refac_misc:file_format(File)),
+                                       wrangler_misc:file_format(File)),
 		    Ts;
 		_ -> {ok, Ts, _} = wrangler_scan:string(
                                         S, {1,1}, TabWidth,
-                                        refac_misc:file_format(File)),
+                                        wrangler_misc:file_format(File)),
 		     Ts
 	    end;
 	{error, Reason} ->
@@ -967,10 +967,10 @@ remove_from_import(Node, _FA={F,A}) ->
                                                      wrangler_syntax:arity_qualifier_body(E)),
                                                 wrangler_syntax:integer_value(
                                                      wrangler_syntax:arity_qualifier_argument(E))} /= {F,A}],
-                            [M, refac_misc:rewrite(L, wrangler_syntax:list(L1))];
+                            [M, wrangler_misc:rewrite(L, wrangler_syntax:list(L1))];
                         _ -> Args
                     end,
-            refac_misc:rewrite(Node, wrangler_syntax:attribute(Name, NewArgs));
+            wrangler_misc:rewrite(Node, wrangler_syntax:attribute(Name, NewArgs));
         false ->
             {error, bagarg}
     end.
@@ -1005,9 +1005,9 @@ add_to_export_after(Node, FAtoAdd, FA) ->
                                                     _ -> [E]
                                                 end
                                             end || E <- L0]),
-                         refac_misc:rewrite(L, wrangler_syntax:list(L1))
+                         wrangler_misc:rewrite(L, wrangler_syntax:list(L1))
                  end,
-            refac_misc:rewrite(Node, wrangler_syntax:attribute(Name, [NewL]));
+            wrangler_misc:rewrite(Node, wrangler_syntax:attribute(Name, [NewL]));
         false ->
             erlang:error(badarg)
     end.
@@ -1025,7 +1025,7 @@ equal(Tree1, Tree2) ->
     NewTree2=mask_variables(Tree2),
     {ok, Ts1, _} = erl_scan:string(wrangler_prettypr:format(NewTree1)),
     {ok, Ts2, _} = erl_scan:string(wrangler_prettypr:format(NewTree2)),
-    case refac_misc:concat_toks(Ts1) == refac_misc:concat_toks(Ts2) of
+    case wrangler_misc:concat_toks(Ts1) == wrangler_misc:concat_toks(Ts2) of
         true ->
             refac_code_search_utils:var_binding_structure(Tree1) ==
                 refac_code_search_utils:var_binding_structure(Tree2);
@@ -1103,7 +1103,7 @@ parse_annotate_expr(ExprStr, StartLoc) when is_tuple(StartLoc) ->
                             case {Cs, T} of 
                                 {[C], {';',_L}} ->
                                     Name = wrangler_syntax:function_name(Form2),
-                                    refac_misc:rewrite(C, wrangler_syntax:function_clause(Name, C));
+                                    wrangler_misc:rewrite(C, wrangler_syntax:function_clause(Name, C));
                                 _ ->
                                     Form2
                             end;
@@ -1216,7 +1216,7 @@ reset_pos_and_range(Node) ->
     case is_tree(Node) of 
         true ->
             wrangler_syntax:set_pos(
-                 refac_misc:update_ann(Node, {range, {{0,0},{0,0}}}),
+                 wrangler_misc:update_ann(Node, {range, {{0,0},{0,0}}}),
                  {0,0});
         false ->
             Node
@@ -1231,7 +1231,7 @@ copy_pos_and_range(Node1, Node2) ->
                     {0,0}
             end,
     wrangler_syntax:copy_pos(
-         Node1,refac_misc:update_ann(Node2, {range, Range})).
+         Node1,wrangler_misc:update_ann(Node2, {range, Range})).
 
 %%=================================================================
 %%-spec(reverse_function_clause(Tree::syntaxTree()) -> syntaxTree()).   
@@ -1264,9 +1264,9 @@ reverse_function_clause_2(FunDef) ->
                     NameVals =[wrangler_syntax:atom_value(Name)||Name <- Names],
                     case lists:usort(NameVals) of 
                         [_] ->
-                            NewFunName = refac_misc:rewrite(FunName, hd(Names)),
+                            NewFunName = wrangler_misc:rewrite(FunName, hd(Names)),
                             NewFunDef = wrangler_syntax:function(NewFunName, Cs2),
-                            refac_misc:rewrite(FunDef,NewFunDef);
+                            wrangler_misc:rewrite(FunDef,NewFunDef);
                         _ ->
                             erlang:error(Msg)
                     end;
@@ -1340,7 +1340,7 @@ search_and_transform_2(Rules, FileOrDirs, Fun) ->
                    _E1:_E2 ->
                        {false,[]}
                end,
-    Files = refac_misc:expand_files(FileOrDirs, ".erl"),
+    Files = wrangler_misc:expand_files(FileOrDirs, ".erl"),
     Res=lists:append([begin
                           search_and_transform_3(Rules, File, Fun, Selective)
                       end||File<-Files]),
@@ -1429,7 +1429,7 @@ extended_full_tdTP_1(Fun, Node, Others) ->
             Gs2 = [[N || {{N, _B}, _C} <- G] || G <- Gs1],
             G = [[B or C|| {{_N, B}, C} <- G] || G <- Gs1],
             Node3 = wrangler_syntax:make_tree(wrangler_syntax:type(Node2), Gs2),
-            {refac_misc:rewrite(Node2, Node3), 
+            {wrangler_misc:rewrite(Node2, Node3),
              Changed1 orelse 
              lists:member(true, lists:flatten(G))}
     end.
@@ -1460,7 +1460,7 @@ extend_stop_tdTP(Fun, Node, Others) ->
                     Gs2 = [[N || {{N, _B}, _C} <- G] || G <- Gs1],
                     G = [[B or C ||{{_N, B}, C} <- G] || G <- Gs1],
                     Node2 = wrangler_syntax:make_tree(wrangler_syntax:type(Node), Gs2),
-                    {refac_misc:rewrite(Node, Node2), lists:member(true, lists:flatten(G))}
+                    {wrangler_misc:rewrite(Node, Node2), lists:member(true, lists:flatten(G))}
             end
     end. 
  
@@ -1606,7 +1606,7 @@ is_meta_atom_name(AtomName) ->
 %%          [any()]|{error, Reason}
 %%@private
 collect(Fun,TempAST, Scope) when is_list(Scope) ->
-    Files = refac_misc:expand_files(Scope, ".erl"),
+    Files = wrangler_misc:expand_files(Scope, ".erl"),
     Res=[collect_in_one_file(F, Fun, TempAST)||F <- Files],
     lists:append(Res);
 collect(Fun, TempAST, Scope) ->
@@ -1732,7 +1732,7 @@ search_and_collect_1(Collectors, Tree,TraverseStrategy) ->
    
 
 search_and_collect_2(Collectors, FileOrDirs, TraverseStrategy) ->
-    Files = refac_misc:expand_files(FileOrDirs, ".erl"),
+    Files = wrangler_misc:expand_files(FileOrDirs, ".erl"),
     lists:append([begin
                           search_and_collect_3(Collectors, File, TraverseStrategy)
                       end||File<-Files]).
@@ -1873,12 +1873,12 @@ extend_function_clause_2(Node) ->
     Cs = wrangler_syntax:function_clauses(Node),
     Cs1= [case wrangler_syntax:type(C) of
               clause ->
-                  refac_misc:rewrite(C,wrangler_syntax:function_clause(Name, C));
+                  wrangler_misc:rewrite(C,wrangler_syntax:function_clause(Name, C));
               _ ->
                   C
           end
           ||C<-Cs],
-    refac_misc:rewrite(Node, wrangler_syntax:function(Name, Cs1)).
+    wrangler_misc:rewrite(Node, wrangler_syntax:function(Name, Cs1)).
 
 is_tree(Node) ->
     wrangler_syntax:is_tree(Node) orelse wrangler_syntax:is_wrapper(Node).
@@ -1897,9 +1897,9 @@ expand_meta_list_1(Node, _OtherInfo) ->
             Cs1 = lists:append([expand_meta_clause(C)||C <- Cs]),
             case Cs=/=Cs1 of
                  true ->
-                     Node1=refac_misc:rewrite(
-                             Node,
-                             wrangler_syntax:case_expr(Arg, Cs1)),
+                     Node1=wrangler_misc:rewrite(
+                                Node,
+                                wrangler_syntax:case_expr(Arg, Cs1)),
                      {Node1, false};
                  false ->
                      {Node, false}
@@ -1911,9 +1911,9 @@ expand_meta_list_1(Node, _OtherInfo) ->
             Cs1 = lists:append([expand_meta_clause(C)||C <- Cs]),
             case Cs=/=Cs1 of
                 true ->
-                    Node1=refac_misc:rewrite(
-                            Node,
-                            wrangler_syntax:receive_expr(Cs1, T, A)),
+                    Node1=wrangler_misc:rewrite(
+                               Node,
+                               wrangler_syntax:receive_expr(Cs1, T, A)),
                     {Node1, false};
                 false ->
                     {Node, false}
@@ -1923,8 +1923,8 @@ expand_meta_list_1(Node, _OtherInfo) ->
             Cs1 = lists:append([expand_meta_clause(C)||C <- Cs]),
             case Cs=/=Cs1 of
                 true ->
-                    Node1=refac_misc:rewrite(
-                            Node,wrangler_syntax:if_expr(Cs1)),
+                    Node1=wrangler_misc:rewrite(
+                               Node,wrangler_syntax:if_expr(Cs1)),
                     {Node1, false};
                 false ->
                     {Node, false}
@@ -1937,8 +1937,8 @@ expand_meta_list_1(Node, _OtherInfo) ->
             Cs1 = lists:append([expand_meta_clause(C)||C <- Cs]),
             case Cs=/=Cs1 of
                 true ->
-                    Node1=refac_misc:rewrite(
-                            Node,wrangler_syntax:try_expr(B, Cs1, H, A)),
+                    Node1=wrangler_misc:rewrite(
+                               Node,wrangler_syntax:try_expr(B, Cs1, H, A)),
                     {Node1, false};
                 false ->
                     {Node, false}
@@ -1948,8 +1948,8 @@ expand_meta_list_1(Node, _OtherInfo) ->
             Cs1 = lists:append([expand_meta_clause(C)||C <- Cs]),
             case Cs=/=Cs1 of
                 true ->
-                    Node1=refac_misc:rewrite(
-                            Node,wrangler_syntax:fun_expr(Cs1)),
+                    Node1=wrangler_misc:rewrite(
+                               Node,wrangler_syntax:fun_expr(Cs1)),
                     {Node1, false};
                 false ->
                     {Node, false}

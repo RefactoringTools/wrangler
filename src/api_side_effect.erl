@@ -98,7 +98,7 @@ build_local_side_effect_tab(File, SearchPaths) ->
     LibSideEffectFile = filename:join(?WRANGLER_DIR, "plt/side_effect_plt"),
     LibPlt = from_dets(lib_side_effect_plt, LibSideEffectFile),
     Dirs = lists:usort([CurrentDir| SearchPaths]),
-    Files = refac_misc:expand_files(Dirs, ".erl"),
+    Files = wrangler_misc:expand_files(Dirs, ".erl"),
     SideEffectFileModifiedTime = filelib:last_modified(SideEffectFile),
     FilesToAnalyse = [F || F <- Files, SideEffectFileModifiedTime < filelib:last_modified(F)],
     LocalPlt = case filelib:is_file(SideEffectFile) of

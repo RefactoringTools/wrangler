@@ -96,7 +96,7 @@ expr_search_in_buffer(FileName, Start = {_Line, _Col}, End = {_Line1, _Col1}, Se
 expr_search_in_dirs(FileName, Start = {_Line, _Col}, End = {_Line1, _Col1}, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:expr_search_in_dirs(~p, {~p,~p},{~p,~p},~p, ~p, ~p).\n",
 		 [?MODULE, FileName, _Line, _Col, _Line1, _Col1, SearchPaths, SearchPaths, TabWidth]),
-    Files = [FileName| refac_misc:expand_files(SearchPaths, ".erl") -- [FileName]],
+    Files = [FileName| wrangler_misc:expand_files(SearchPaths, ".erl") -- [FileName]],
     Es = get_expr_selected(FileName, Start, End, SearchPaths, TabWidth),
     Res = lists:append([do_expr_search(F, Es, SearchPaths, TabWidth) || F <- Files]),
     SE = api_refac:start_end_loc(Es),

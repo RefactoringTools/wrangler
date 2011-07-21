@@ -104,7 +104,7 @@ duplicated_code_command_line(DirFileList, MinLength1, MinClones1, MaxPars, TabWi
 %%					 [{[{{filename(), integer(), integer()},{filename(), integer(), integer()}}],
 %%					   integer(), integer(), string()}]).
 duplicated_code_detection(DirFileList, MinClones, MinLength, MaxPars, SuffixTreeExec, TabWidth) ->
-    FileNames = refac_misc:expand_files(DirFileList, ".erl"),
+    FileNames = wrangler_misc:expand_files(DirFileList, ".erl"),
     case FileNames of
 	[] -> throw({error, "No .erl files were found"});
 	_ -> ok
@@ -291,7 +291,7 @@ connect_clones(C1={Range1, Len1, F1}, {Range2, Len2, F2}) ->
 trim_clones(Cs, MinLength, MinClones, MaxPars, TabWidth) ->
     Files0 = [File || C <- Cs, {Range, _Len, _Freq} <- [C],
 		      {File, _, _} <- element(1, lists:unzip(Range))],
-    Files = refac_misc:remove_duplicates(Files0),
+    Files = wrangler_misc:remove_duplicates(Files0),
     Fun = fun (File, Cs0) -> process_a_file(File, Cs0, MinLength, TabWidth) end,
     Fun2 = fun (ListsOfUnitsList) ->
 		   case lists:usort(lists:map(fun length/1, ListsOfUnitsList)) of
@@ -307,7 +307,7 @@ trim_clones(Cs, MinLength, MinClones, MaxPars, TabWidth) ->
 
 process_a_file(File, Cs, MinLength, TabWidth) ->
     {ok, {AnnAST, _}} = wrangler_ast_server:parse_annotate_file(File, true, [], TabWidth),
-    Vars = refac_misc:collect_var_source_def_pos_info(AnnAST),
+    Vars = wrangler_misc:collect_var_source_def_pos_info(AnnAST),
     Fun0 = fun (Node) ->
 		   case wrangler_syntax:type(Node) of
 		       function ->
@@ -606,7 +606,7 @@ expr_anti_unification(Exp1, Exp2, Expr2ExportedVars) ->
 		    || {E1, E2} <- SubSt, wrangler_syntax:type(E2) == variable,
 		       lists:member({wrangler_syntax:variable_name(E2), get_var_define_pos(E2)}, Expr2ExportedVars)],
 	    SubSt1 = [{E1, E2} || {E1, E2} <- SubSt, wrangler_syntax:type(E1) /= variable
-                                     orelse refac_misc:is_macro_name(E1)],
+                                    orelse wrangler_misc:is_macro_name(E1)],
 	    Nodes = group_substs(SubSt1),
 	    {Nodes, EVs1}
     catch
@@ -661,7 +661,7 @@ do_expr_anti_unification(Exp1, Exp2) ->
 do_expr_anti_unification_1(Exp1, Exp2) ->
     T1 = wrangler_syntax:type(Exp1),
     T2 = wrangler_syntax:type(Exp2),
-    case refac_misc:is_literal(Exp1) andalso refac_misc:is_literal(Exp2) of
+    case wrangler_misc:is_literal(Exp1) andalso wrangler_misc:is_literal(Exp2) of
 	true ->
 	  do_anti_unify_literals(Exp1, Exp2);
 	false ->
@@ -669,7 +669,7 @@ do_expr_anti_unification_1(Exp1, Exp2) ->
 		{macro, macro} -> do_anti_unify_macros(Exp1, Exp2);
 		{macro, _} -> throw({error, anti_unification_failed});
 		{variable, variable} ->
-		    case refac_misc:is_macro_name(Exp1) or refac_misc:is_macro_name(Exp2) of
+		    case wrangler_misc:is_macro_name(Exp1) or wrangler_misc:is_macro_name(Exp2) of
 			true ->
 			    throw({error, anti_unification_failed});
 			false ->
@@ -778,10 +778,10 @@ generalise_expr({Exprs = [H| _T], EVs}, {NodeVarPairs, VarsToExport}) ->
 			    [_V| _Vs] -> E = wrangler_syntax:tuple([wrangler_syntax:variable(V) || {V, _} <- EVs1]),
 					 NewExprs ++ [E]
 			end,
-	    NewVars = refac_misc:collect_var_names(NewExprs) -- refac_misc:collect_var_names(Exprs),
+	    NewVars = wrangler_misc:collect_var_names(NewExprs) -- wrangler_misc:collect_var_names(Exprs),
 	    Pars = [wrangler_syntax:variable(V) || {V, _} <- FVs] ++
 		     [wrangler_syntax:variable(V) || V <- NewVars],
-	    Pars1 = refac_misc:remove_duplicates(Pars),
+	    Pars1 = wrangler_misc:remove_duplicates(Pars),
 	    C = wrangler_syntax:clause(Pars1, none, NewExprs1),
 	    {wrangler_prettypr:format(wrangler_syntax:function(FunName, [C])), length(Pars1)}
     end.
@@ -793,11 +793,11 @@ generalise_fun(F, NodesToGen) ->
 		       lists:map(
 			 fun (C) ->
 				 C1 = generalise_expr_2(C, NodesToGen),
-				 NewVars = refac_misc:collect_var_names(C1) --
-					     refac_misc:collect_var_names(C),
+				 NewVars = wrangler_misc:collect_var_names(C1) --
+					     wrangler_misc:collect_var_names(C),
 				 {C1, NewVars}
 			 end, Cs)),
-    NewVars1 = refac_misc:remove_duplicates(lists:append(NewVars)),
+    NewVars1 = wrangler_misc:remove_duplicates(lists:append(NewVars)),
     NewCs = [generalise_clause(C, NewVars1) || C <- Cs1],
     %% Here only count the new vars.
     {wrangler_prettypr:format(wrangler_syntax:function(FunName, NewCs)), length(NewVars)}.

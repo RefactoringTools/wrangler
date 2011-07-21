@@ -114,7 +114,7 @@ move_fun_command(ModorFileName, FunName, Arity, TargetModorFileName, SearchPaths
 		{ok, TargetFileName} ->
 		    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(OriginalFileName, true, SearchPaths, 8),
                     ModName = get_module_name(Info),
-		    case refac_misc:funname_to_defpos(AnnAST, {ModName, FunName, Arity}) of
+		    case wrangler_misc:funname_to_defpos(AnnAST, {ModName, FunName, Arity}) of
 			{ok, Pos} ->
 			    case Pos of
 				{Line, Col} ->
@@ -161,7 +161,7 @@ move_fun_1(FName, Line, Col, TargetModorFileName, CondCheck, SearchPaths, TabWid
 	    FName ++ "\", " ++ integer_to_list(Line) ++ 
 	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ TargetModorFileName ++ "\", " ++ "\""
         ++atom_to_list(CondCheck)++"\", "
-         ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+          ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     CurModInfo = analyze_file(FName, SearchPaths, TabWidth),
     AnnAST = CurModInfo#module_info.ast,
     case api_interface:pos_to_fun_def(AnnAST, {Line, Col}) of
@@ -367,7 +367,7 @@ transform_application_node(FileName, Node, MFAs, TargetModName,
 	{value, {fun_def, {M, F, A, _, _}}} ->
 	    case wrangler_syntax:type(Op) of
 		atom ->
-		    case lists:keysearch({M, F, A}, 1, refac_misc:apply_style_funs()) of
+		    case lists:keysearch({M, F, A}, 1, wrangler_misc:apply_style_funs()) of
 			{value, _} ->
 			    transform_apply_style_calls(FileName, Node, MFAs, TargetModName, SearchPaths, TabWidth);
 			false ->
@@ -502,7 +502,7 @@ do_remove_module_qualifier(Node, {FileName, MFAs, TargetModName, SearchPaths, Ta
                                     {Node, false}
                             end;
 			_ ->
-			    case lists:keysearch({ModName, FunName, Arity}, 1, refac_misc:apply_style_funs()) of
+			    case lists:keysearch({ModName, FunName, Arity}, 1, wrangler_misc:apply_style_funs()) of
 				{value, _} ->
 				    transform_apply_style_calls(FileName, Node, MFAs, TargetModName, SearchPaths, TabWidth);
 				false -> {Node, false}
@@ -631,7 +631,7 @@ do_add_change_module_qualifier(Node, {FileName, MFAs = [{ModName,_,_}| _], Targe
 	    Args = wrangler_syntax:application_arguments(Node),
 	    case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Operator)) of
 		{value, {fun_def, {Mod1, Fun1, Ari1, _, _}}} ->
-		    case lists:keysearch({Mod1, Fun1, Ari1}, 1, refac_misc:apply_style_funs()) of
+		    case lists:keysearch({Mod1, Fun1, Ari1}, 1, wrangler_misc:apply_style_funs()) of
 			{value, _} ->
 			    transform_apply_style_calls(FileName, Node, MFAs, TargetModName, SearchPaths, 8);
 			false ->
@@ -787,7 +787,7 @@ do_change_module_qualifier(Node, {FileName, MFAs, TargetModName, SearchPaths, Ta
 	    Args = wrangler_syntax:application_arguments(Node),
 	    case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Op)) of
 		{value, {fun_def, {Mod1, Fun1, Ari1, _, _}}} ->
-		    case lists:keysearch({Mod1, Fun1, Ari1}, 1, refac_misc:apply_style_funs()) of
+		    case lists:keysearch({Mod1, Fun1, Ari1}, 1, wrangler_misc:apply_style_funs()) of
 			{value, _} ->
 			    transform_apply_style_calls(FileName, Node, MFAs, TargetModName, SearchPaths, TabWidth);
 			false ->
@@ -866,8 +866,8 @@ transform_apply_style_calls(FileName, Node, MFAs, NewModName, SearchPaths, TabWi
 				   4 -> [none| Arguments];
 				   3 -> [none, none| Arguments]
 			       end,
-    M1 = refac_misc:try_eval(FileName, Mod, SearchPaths, TabWidth),
-    F1 = refac_misc:try_eval(FileName, Fun, SearchPaths, TabWidth),
+    M1 = wrangler_misc:try_eval(FileName, Mod, SearchPaths, TabWidth),
+    F1 = wrangler_misc:try_eval(FileName, Fun, SearchPaths, TabWidth),
     case F1 of
 	{value, FunName} ->
 	    case M1 of
@@ -900,7 +900,7 @@ do_rename_fun_in_tuples(Node, {FileName, SearchPaths, MFAs, TargetModName, Pid, 
     case length(Es) >= 3 of
 	true ->
 	    [E3, E2, E1| _T] = lists:reverse(Es),
-	    case refac_misc:try_eval(FileName, E1, SearchPaths, TabWidth) of
+	    case wrangler_misc:try_eval(FileName, E1, SearchPaths, TabWidth) of
 		{value, ModName} ->
 		    case wrangler_syntax:type(E2) of
 			atom ->
@@ -997,10 +997,10 @@ reset_attrs(Node, {M, F, A}) ->
 
 analyze_file(FName, SearchPaths, TabWidth) ->
     Dir = filename:dirname(FName),
-    DefaultIncls = [filename:join(Dir, X) || X <- refac_misc:default_incls()],
+    DefaultIncls = [filename:join(Dir, X) || X <- wrangler_misc:default_incls()],
     NewSearchPaths = SearchPaths ++ DefaultIncls,
     case wrangler_epp:parse_file(FName, NewSearchPaths, [], TabWidth,
-			         refac_misc:file_format(FName))
+			         wrangler_misc:file_format(FName))
 	of
 	{ok, TargetAST, {MDefs, _MUses1}} ->
 	    MacroDefs = get_macro_defs(MDefs),
@@ -1037,9 +1037,9 @@ analyze_file(FName, SearchPaths, TabWidth) ->
 get_macro_defs(MDefs) ->
     lists:flatmap(fun get_macro_def_1/1, MDefs).
 get_macro_def_1({{_,Name}, {Args, Toks}})->
-     [{Name, {Args, refac_misc:concat_toks(Toks)}}];
+     [{Name, {Args, wrangler_misc:concat_toks(Toks)}}];
 get_macro_def_1({{_, Name}, ArgToks}) when is_list(ArgToks) ->
-    [{Name, {Args, refac_misc:concat_toks(Toks)}} || {_Arity, {Args, Toks}} <- ArgToks];
+    [{Name, {Args, wrangler_misc:concat_toks(Toks)}} || {_Arity, {Args, Toks}} <- ArgToks];
 get_macro_def_1({{_, _Name}, _ArgToks}) ->
     [].
  
@@ -1104,7 +1104,7 @@ check_fun_name_clash(FunDefs=[{{ModName, _, _},_}|_T],TargetModInfo)->
     end.
 
 check_records(FunDefs,CurRecordDefs,TargetRecordDefs, CheckCond) ->
-    UsedRecords = lists:usort(lists:append([refac_misc:collect_used_records(FunDef) || {_, FunDef} <- FunDefs])),
+    UsedRecords = lists:usort(lists:append([wrangler_misc:collect_used_records(FunDef) || {_, FunDef} <- FunDefs])),
     UsedRecordDefs = [{Name, lists:keysort(1, Fields)} || {Name, Fields} <- CurRecordDefs, lists:member(Name, UsedRecords)],
     CurUnDefinedUsedRecords = UsedRecords -- [Name || {Name, _Fields} <- UsedRecordDefs],
     UsedRecordDefsInTargetFile = [{Name, lists:keysort(1, Fields)}
@@ -1155,7 +1155,7 @@ check_records(FunDefs,CurRecordDefs,TargetRecordDefs, CheckCond) ->
     UnDefinedRecords.
 
 check_macros(FunDefs, CurMacroDefs, TargetMacroDefs, CheckCond) ->
-    UsedMacros = lists:usort(lists:append([refac_misc:collect_used_macros(FunDef) || {_, FunDef} <- FunDefs])),
+    UsedMacros = lists:usort(lists:append([wrangler_misc:collect_used_macros(FunDef) || {_, FunDef} <- FunDefs])),
     UsedMacroDefs = [{Name, {Args, Def}}
 		     || {Name, {Args, Def}} <- CurMacroDefs,
 			lists:member(Name, UsedMacros)],
@@ -1509,5 +1509,5 @@ get_file_name(ModorFileName, SearchPaths) ->
 	true ->
 	    {ok, ModorFileName};
 	false ->
-	    refac_misc:modname_to_filename(ModorFileName, SearchPaths)
+	    wrangler_misc:modname_to_filename(ModorFileName, SearchPaths)
     end.

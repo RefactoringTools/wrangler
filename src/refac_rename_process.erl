@@ -53,7 +53,7 @@ rename_process(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_process(" ++ "\"" ++ 
 	    FileName ++ "\", " ++ integer_to_list(Line) ++ 
 	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
-       ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+      ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case is_process_name(NewName) of
 	true ->
 	    _Res = wrangler_annotate_pid:ann_pid_info(SearchPaths, TabWidth),  %%TODO: check whether asts are already annotated.
@@ -141,7 +141,7 @@ pre_cond_check(NewProcessName, SearchPaths) ->
     end.
 
 collect_process_names(DirList) ->
-    Files = refac_misc:expand_files(DirList, ".erl"),
+    Files = wrangler_misc:expand_files(DirList, ".erl"),
     F = fun (File, FileAcc) ->
 		{ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(File, true, DirList),
 		{value, {module, ModName}} = lists:keysearch(module, 1, Info),
@@ -191,7 +191,7 @@ is_register_app(T) ->
 
 do_rename_process(CurrentFileName, AnnAST, OldProcessName, NewProcessName, SearchPaths, TabWidth) ->
     {AnnAST1, _Changed} = api_ast_traverse:stop_tdTP(fun do_rename_process/2, AnnAST, {OldProcessName, NewProcessName}),
-    OtherFiles = refac_misc:expand_files(SearchPaths, ".erl") -- [CurrentFileName],
+    OtherFiles = wrangler_misc:expand_files(SearchPaths, ".erl") -- [CurrentFileName],
     Results = do_rename_process_in_other_modules(OtherFiles, OldProcessName, NewProcessName, SearchPaths, TabWidth),
     [{{CurrentFileName, CurrentFileName}, AnnAST1}| Results].
 
@@ -239,7 +239,7 @@ check_atoms(CurrentFile, AtomName, SearchPaths, TabWidth) ->
     end.
 
 collect_atoms(CurrentFile, AtomName, SearchPaths, TabWidth) ->
-    Files = [CurrentFile| refac_misc:expand_files(SearchPaths, ".erl") -- [CurrentFile]],
+    Files = [CurrentFile| wrangler_misc:expand_files(SearchPaths, ".erl") -- [CurrentFile]],
     lists:flatmap(fun (F) ->
 			  {ok, {AnnAST,_Info}} = wrangler_ast_server:parse_annotate_file(F, true, SearchPaths, TabWidth),
 			  wrangler_atom_utils:collect_unsure_atoms_in_file(AnnAST, AtomName, p_atom)

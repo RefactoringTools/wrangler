@@ -63,7 +63,7 @@ new_macro(FileName, Start = {SLine, SCol}, End = {ELine, ECol}, NewMacroName, Se
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":new_macro(" ++ "\"" ++ 
 	    FileName ++ "\", {" ++ integer_to_list(SLine) ++ ", " ++ integer_to_list(SCol) ++ "}," ++ 
 	      "{" ++ integer_to_list(ELine) ++ ", " ++ integer_to_list(ECol) ++ "}," ++ "\"" ++ NewMacroName 
-       ++ "\"," ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+      ++ "\"," ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case pre_cond_check(FileName, AnnAST, NewMacroName, Start, End, SearchPaths, TabWidth) of
 	{ok, AnnAST, Sel, NeedBracket} ->
@@ -87,7 +87,7 @@ pre_cond_check(FileName, AnnAST, NewMacroName, Start, End, SearchPaths, TabWidth
 			    case Sel of
 				[] -> {error, "You have not selected a sequence of expressions/patterns!"};
 				_ ->
-                                    NeedBracket = need_bracket(refac_misc:get_toks(FunDef),Sel),
+                                    NeedBracket = need_bracket(wrangler_misc:get_toks(FunDef),Sel),
 				    {ok, AnnAST,Sel, NeedBracket}
 			    end;
 			_ -> {error, "You have not selected a sequence of expressions/patterns!"}
@@ -101,7 +101,7 @@ do_intro_new_macro(AnnAST, MacroName, SelExpList, NeedBracket) ->
 		      true -> [wrangler_syntax:parentheses(hd(SelExpList))];
 		      _ -> SelExpList
 		  end,
-    Vars = refac_misc:collect_var_names(SelExpList),
+    Vars = wrangler_misc:collect_var_names(SelExpList),
     Args = [wrangler_syntax:variable(P) || P <- Vars],
     MName = mk_macro_name(MacroName),
     MDef = mk_macro_def(MName, Args, SelExpList1),
@@ -129,7 +129,7 @@ mk_macro_name(MacroName) ->
     end.
 
 mk_macro_def(MName, Args, Exps) ->
-    Exps1 =refac_misc:reset_ann_and_pos(Exps),
+    Exps1 =wrangler_misc:reset_ann_and_pos(Exps),
     case Args of
       [] -> wrangler_syntax:attribute(wrangler_syntax:atom(define), [MName| Exps1]);
       _ ->
@@ -140,9 +140,9 @@ mk_macro_def(MName, Args, Exps) ->
 mk_macro_app(MName, Args) ->
     case Args of
       [] ->
-	  refac_misc:reset_ann_and_pos(wrangler_syntax:macro(MName));
+	  wrangler_misc:reset_ann_and_pos(wrangler_syntax:macro(MName));
       _ ->
-	  refac_misc:reset_ann_and_pos(wrangler_syntax:macro(MName, Args))
+	  wrangler_misc:reset_ann_and_pos(wrangler_syntax:macro(MName, Args))
     end.
 
  
@@ -160,7 +160,7 @@ replace_expr_with_macro(Form, {ExpList, SLoc, ELoc}, MApp) ->
 replace_single_expr_with_macro_app(Tree, {MApp, SLoc, ELoc}) ->
     case api_refac:start_end_loc(Tree) of
 	{SLoc, ELoc} ->
-	    {refac_misc:rewrite_with_wrapper(Tree, MApp), true};
+	    {wrangler_misc:rewrite_with_wrapper(Tree, MApp), true};
 	_ -> {Tree, false}
     end.
 
@@ -222,16 +222,16 @@ process_exprs(Exprs, {MApp, SLoc, ELoc}) ->
                    end, Exprs2),
 	     case Exprs22 of
 		 [] -> {Exprs, false}; %% THIS SHOULD NOT HAPPEN.
-		 _ -> {Exprs1 ++ [refac_misc:rewrite_with_wrapper(Exprs21, MApp)
+		 _ -> {Exprs1 ++ [wrangler_misc:rewrite_with_wrapper(Exprs21, MApp)
                                   | tl(Exprs22)], true}
 	     end
     end.
 
 existing_macros(FileName, SearchPaths, TabWidth) ->
     Dir = filename:dirname(FileName),
-    DefaultIncl = [filename:join(Dir, X) || X <- refac_misc:default_incls()],
+    DefaultIncl = [filename:join(Dir, X) || X <- wrangler_misc:default_incls()],
     NewSearchPaths = SearchPaths ++ DefaultIncl,
-    case wrangler_epp:parse_file(FileName, NewSearchPaths, [], TabWidth, refac_misc:file_format(FileName)) of
+    case wrangler_epp:parse_file(FileName, NewSearchPaths, [], TabWidth, wrangler_misc:file_format(FileName)) of
 	{ok, _, {MDefs, MUses}} ->
 	    lists:usort([Name || {{_, Name}, _Def} <- MDefs ++ MUses]);
 	_ -> {error, "The current file does not compile!"}
@@ -286,7 +286,7 @@ return_refac_result(FileName, AnnAST, Editor, Cmd, TabWidth) ->
 	    wrangler_write_file:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST}], TabWidth, Cmd),
 	    {ok, [FileName]};
 	eclipse ->
-	    Src = wrangler_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST, TabWidth),
+	    Src = wrangler_prettypr:print_ast(wrangler_misc:file_format(FileName), AnnAST, TabWidth),
 	    Res = [{FileName, FileName, Src}],
 	    {ok, Res}
     end.

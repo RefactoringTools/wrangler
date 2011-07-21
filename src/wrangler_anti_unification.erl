@@ -67,7 +67,7 @@ anti_unfication_different_type(Expr1, Expr2) ->
     end.
 
 anti_unification_same_type(Expr1, Expr2) ->
-    case refac_misc:is_literal(Expr1) andalso refac_misc:is_literal(Expr2) of
+    case wrangler_misc:is_literal(Expr1) andalso wrangler_misc:is_literal(Expr2) of
       true ->
             case wrangler_syntax:concrete(Expr1) == wrangler_syntax:concrete(Expr2) of
 	    true ->
@@ -118,49 +118,49 @@ anti_unification_same_type(Expr1, Expr2) ->
 	_ ->
           case wrangler_syntax:type(Expr1) of
 	      variable ->
-		case {refac_misc:is_macro_name(Expr1), refac_misc:is_macro_name(Expr2)} of
-		    {true, true} ->
-			case has_same_name(Expr1, Expr2) of
-			    true -> [];
-			    false -> throw(not_anti_unifiable)
+	      case {wrangler_misc:is_macro_name(Expr1), wrangler_misc:is_macro_name(Expr2)} of
+		  {true, true} ->
+		      case has_same_name(Expr1, Expr2) of
+			  true -> [];
+			  false -> throw(not_anti_unifiable)
+		      end;
+		  {false, false} -> [{Expr1, Expr2}];
+		  _ ->
+		      ?debug("Does not anti-unify 5:\n~p\n", [{Expr1, Expr2}]),
+		      throw(not_anti_unifiable)
+	      end;
+	    operator -> case wrangler_syntax:operator_name(Expr1) == wrangler_syntax:operator_name(Expr2) of
+			  true -> [];
+			  false ->
+			      ?debug("Does not anti-unify 6:\n~p\n", [{Expr1, Expr2}]),
+			      throw(not_anti_unifiable)
 			end;
-		    {false, false} -> [{Expr1, Expr2}];
-		    _ ->
-			?debug("Does not anti-unify 5:\n~p\n", [{Expr1, Expr2}]),
-			throw(not_anti_unifiable)
-		end;
-	      operator -> case wrangler_syntax:operator_name(Expr1) == wrangler_syntax:operator_name(Expr2) of
-			    true -> [];
+	    underscore -> [];
+	    macro ->
+		MacroName1 = wrangler_syntax:macro_name(Expr1),
+		MacroName2 = wrangler_syntax:macro_name(Expr2),
+		case not has_same_name(MacroName1, MacroName2) of
+		    true ->
+			case  generalisable(Expr1, Expr2) of
+			    true ->
+				[{Expr1, Expr2}];
 			    false ->
-			        ?debug("Does not anti-unify 6:\n~p\n", [{Expr1, Expr2}]),
-			        throw(not_anti_unifiable)
-			  end;
-	      underscore -> [];
-	      macro -> 
-		  MacroName1 = wrangler_syntax:macro_name(Expr1),
-		  MacroName2 = wrangler_syntax:macro_name(Expr2),
-		  case not has_same_name(MacroName1, MacroName2) of
-		      true ->
-			  case  generalisable(Expr1, Expr2) of
-			      true ->
-				  [{Expr1, Expr2}];
-			      false ->
-				  anti_unification_same_type_1(Expr1, Expr2)
-			  end;
-		      _ -> anti_unification_same_type_1(Expr1, Expr2)
-		     end;
-	      _ -> 
-		  case wrangler_syntax:is_leaf(Expr1) of
-		      true -> case generalisable(Expr1, Expr2) of
-				  true ->
-				      [{Expr1, Expr2}];
-				  _ ->
-				      ?debug("Does not anti-unify 7:\n~p\n", [{Expr1, Expr2}]),
-				      throw(not_anti_unifiable)
-			      end;
-		      false -> anti_unification_same_type_1(Expr1, Expr2)
-		  end
-	  end
+				anti_unification_same_type_1(Expr1, Expr2)
+			end;
+		    _ -> anti_unification_same_type_1(Expr1, Expr2)
+		end;
+	    _ ->
+		case wrangler_syntax:is_leaf(Expr1) of
+		    true -> case generalisable(Expr1, Expr2) of
+				true ->
+				    [{Expr1, Expr2}];
+				_ ->
+				    ?debug("Does not anti-unify 7:\n~p\n", [{Expr1, Expr2}]),
+				    throw(not_anti_unifiable)
+			    end;
+		    false -> anti_unification_same_type_1(Expr1, Expr2)
+		end
+	end
     end.
 
 anti_unification_same_type_1(E1, E2) ->
@@ -228,7 +228,7 @@ subst_sanity_check(Expr1, SubSt) ->
     F = fun ({E1, E2}) ->
 		case wrangler_syntax:type(E1) of
 		    variable ->
-			case refac_misc:is_macro_name(E1) of
+			case wrangler_misc:is_macro_name(E1) of
 			    true ->
 				false;
 			    _ ->
@@ -290,12 +290,12 @@ generate_anti_unifier_and_num_of_new_vars(Exprs, Subst, ExportVars) ->
 			 NewExprs++[LastExpr]
 		end,
     %% BVs: [{name, pos}]. FVs: [{name, pos}]
-    Pars = refac_misc:collect_var_names(NewExprs) -- element(1, lists:unzip(BVs)),
+    Pars = wrangler_misc:collect_var_names(NewExprs) -- element(1, lists:unzip(BVs)),
     FVPars = [V || {V, _} <- FVs, lists:member(V, Pars)],
-    NewVarPars = refac_misc:remove_duplicates(Pars -- FVPars),
+    NewVarPars = wrangler_misc:remove_duplicates(Pars -- FVPars),
     Pars1 = [wrangler_syntax:variable(V) || V <- FVPars] ++
         [wrangler_syntax:variable(V) || V <- NewVarPars],
-    FinalPars = refac_misc:remove_duplicates(Pars1),
+    FinalPars = wrangler_misc:remove_duplicates(Pars1),
     C = wrangler_syntax:clause(FinalPars, none, NewExprs1),
     {wrangler_syntax:function(FunName, [C]), {length(FinalPars), length(NewVarPars)}}.
 
@@ -317,7 +317,7 @@ generalise_expr_2(Expr, Subst, ExprFreeVars, {ExportVars1, ExportVars2}) ->
 	    {Expr, ExportVars1};
 	_ ->
 	    %% New variables needed.
-	    UsedVarNames = sets:from_list(refac_misc:collect_var_names(Expr)),
+	    UsedVarNames = sets:from_list(wrangler_misc:collect_var_names(Expr)),
 	    Pid = refac_code_search_utils:start_counter_process(UsedVarNames),
 	    ExportVars3 = [E || E <- ExportVars2, wrangler_syntax:type(E) =/= variable],
 	    ExprNewVarPairs = generate_new_var_names(Subst,Pid),
@@ -329,7 +329,7 @@ generalise_expr_2(Expr, Subst, ExprFreeVars, {ExportVars1, ExportVars2}) ->
 			      [wrangler_syntax:variable_name(E)
 			       || E <- ExportVars2, wrangler_syntax:type(E) == variable] ++
 				NewVarsToExport,
-	    VarsToExport = refac_misc:remove_duplicates(VarsToExport1),
+	    VarsToExport = wrangler_misc:remove_duplicates(VarsToExport1),
 	    {Expr1, VarsToExport}
     end.
 
@@ -359,7 +359,7 @@ do_replace_expr_with_var_1(Node, {ExprNewVarPairs, SubSt, ExprFreeVars, Pid, Exp
 						      refac_code_search_utils:add_new_export_var(Pid, NewVar);
 						  _ -> ok
 					      end,
-					      {refac_misc:rewrite(Node, wrangler_syntax:variable(NewVar)), true}
+					      {wrangler_misc:rewrite(Node, wrangler_syntax:variable(NewVar)), true}
 				     end;
 				 _ -> {Node, false}
 			     end
@@ -367,7 +367,7 @@ do_replace_expr_with_var_1(Node, {ExprNewVarPairs, SubSt, ExprFreeVars, Pid, Exp
 		application ->
 		    NewVar = wrangler_syntax:variable(get_new_var_name(Node, ExprNewVarPairs, Pid)),
                     NewFVs = [wrangler_syntax:variable(FV)||{FV,_Pos} <- FVs],
-		    {refac_misc:rewrite(Node, wrangler_syntax:application(NewVar, NewFVs)), true};
+		    {wrangler_misc:rewrite(Node, wrangler_syntax:application(NewVar, NewFVs)), true};
 		_ ->
 		    NewVar = get_new_var_name(Node, ExprNewVarPairs, Pid),
 		    case lists:member(Node, ExportExprs) of
@@ -375,7 +375,7 @@ do_replace_expr_with_var_1(Node, {ExprNewVarPairs, SubSt, ExprFreeVars, Pid, Exp
 			    refac_code_search_utils:add_new_export_var(Pid, NewVar);
 			_ -> ok
 		    end,
-		    {refac_misc:rewrite(Node, wrangler_syntax:variable(NewVar)), true}
+		    {wrangler_misc:rewrite(Node, wrangler_syntax:variable(NewVar)), true}
 	    end;
 	_ -> {Node, false}
     end.
@@ -401,7 +401,7 @@ generate_new_var_names(Subst, NewVarGenPid) ->
 				  E
 			  end} || E <- SortedExprsToBeReplacedByLoc] || S <- Subst],
     ZippedSubst = zip_subst(CompleteSubst),
-    GroupedSubst = refac_misc:group_by(2, ZippedSubst),
+    GroupedSubst = wrangler_misc:group_by(2, ZippedSubst),
     GroupedExprsToBeReplaced = [element(1, lists:unzip(G)) || G <- GroupedSubst],
     SortedGroupedExprsToBeReplacedByLoc = lists:sort(fun (G1,G2) ->
 							     min_src_pos(G1)=<min_src_pos(G2)

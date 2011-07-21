@@ -418,7 +418,7 @@ dependencies_of_a_module_eclipse(FileName, SearchPaths) ->
 %%-spec(non_tail_recursive_servers(FileOrDirNames::[filename()|dir()])-> ok).
 non_tail_recursive_servers(FileOrDirNames) ->
     try_inspector(wrangler_code_inspector, non_tail_recursive_servers_1,
-		  [refac_misc:expand_files(FileOrDirNames, ".erl"),
+		  [wrangler_misc:expand_files(FileOrDirNames, ".erl"),
 		   FileOrDirNames, ?DEFAULT_TABWIDTH]).
  
 

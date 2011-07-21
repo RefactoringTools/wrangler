@@ -171,7 +171,7 @@ build_scc_callgraph(DirList) ->
 %%-spec(build_callercallee_callgraph/1::([dir()]) -> 
 %%	     [{{{atom(), atom(), integer()}, syntaxTree()}, [{atom(), atom(), integer()}]}]).
 build_callercallee_callgraph(DirList) ->
-    Files = refac_misc:expand_files(DirList, ".erl"),
+    Files = wrangler_misc:expand_files(DirList, ".erl"),
     lists:flatmap(fun (FName) -> do_build_callgraph(FName, DirList)
 		  end, Files).
 
@@ -270,7 +270,7 @@ get_sorted_funs(ModName, AnnAST) ->
 
 %%-spec(fun_callgraph_to_png/1::([filename()|dir()]) -> ok).
 fun_callgraph_to_png(FileNameDirs) ->
-    Files = refac_misc:expand_files(FileNameDirs, ".erl"),
+    Files = wrangler_misc:expand_files(FileNameDirs, ".erl"),
     lists:foreach(fun (FName) ->
 			  %% refac_io:format("currentfile:\n~p\n", [FName]),
 			  BaseName = filename:basename(FName, ".erl"),
@@ -282,7 +282,7 @@ fun_callgraph_to_png(FileNameDirs) ->
 
 %%-spec(fun_callgraph_to_dot/1::([filename()|dir()]) -> ok).
 fun_callgraph_to_dot(FileNameDirs) ->
-    Files = refac_misc:expand_files(FileNameDirs, ".erl"),
+    Files = wrangler_misc:expand_files(FileNameDirs, ".erl"),
     lists:foreach(fun (FName) ->
 			  %% refac_io:format("currentfile:\n~p\n", [FName]),
 			  BaseName = filename:basename(FName, ".erl"),
@@ -368,11 +368,11 @@ calc_dim(String) ->
   calc_dim(String, 1, 0, 0).
 
 calc_dim("\\n" ++ T, H, TmpW, MaxW) ->
-    calc_dim(T, H + 1, 0, refac_misc:max(TmpW, MaxW));
+    calc_dim(T, H + 1, 0, wrangler_misc:max(TmpW, MaxW));
 calc_dim([_| T], H, TmpW, MaxW) ->
     calc_dim(T, H, TmpW+1, MaxW);
 calc_dim([], H, TmpW, MaxW) ->
-    {refac_misc:max(TmpW, MaxW), H}.
+    {wrangler_misc:max(TmpW, MaxW), H}.
 
 
 edge_format(V1, V2) ->

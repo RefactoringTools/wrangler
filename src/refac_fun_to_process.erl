@@ -61,7 +61,7 @@ fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fun_to_process(" ++ "\"" ++ 
 	    FName ++ "\", " ++ integer_to_list(Line) ++ 
 	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ ProcessName ++ "\","
-									       ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+									      ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case is_process_name(ProcessName) of
 	true -> ok;
 	false -> throw({error, "Invalid process name."})
@@ -83,7 +83,7 @@ fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor) ->
 				 [FName]),
 		    {ok, [FName]};
 		eclipse ->
-		    Content = wrangler_prettypr:print_ast(refac_misc:file_format(FName), AnnAST2, TabWidth),
+		    Content = wrangler_prettypr:print_ast(wrangler_misc:file_format(FName), AnnAST2, TabWidth),
 		    Res = [{FName, FName, Content}],
 		    {ok, Res}
 	    end;
@@ -110,7 +110,7 @@ fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor, L
 	    wrangler_write_file:write_refactored_files_for_preview(Res, TabWidth, LogMsg),
 	    {ok, [FName]};
 	eclipse ->
-	    Content = wrangler_prettypr:print_ast(refac_misc:file_format(FName), AnnAST1, TabWidth),
+	    Content = wrangler_prettypr:print_ast(wrangler_misc:file_format(FName), AnnAST1, TabWidth),
 	    Res = [{FName, FName, Content}],
 	    {ok, Res}
     end.
@@ -190,7 +190,7 @@ pre_cond_check(AnnAST, Pos, ModName, FunName, Arity, ProcessName, SearchPaths, T
 check_self_exprs([], _, _SearchPaths) ->
     [];
 check_self_exprs(SelfApps, InitialFun = {_ModName, _FunName, _Arity}, SearchPaths) ->
-    Files = refac_misc:expand_files(SearchPaths, ".erl"),
+    Files = wrangler_misc:expand_files(SearchPaths, ".erl"),
     CallGraph = wrangler_callgraph_server:get_callgraph(SearchPaths),
     CallerCallee = CallGraph#callgraph.callercallee,
     ReachedFuns = [InitialFun| reached_funs_1(CallerCallee, [InitialFun])],
@@ -339,7 +339,7 @@ do_fun_to_process_2(FunDef, FunName, NewFunName, RpcFunName, ProcessName)->
      wrangler_syntax:function(NewFunName1, [C])].
 
 collect_registration_and_self_apps(DirList, TabWidth) ->
-    Files = refac_misc:expand_files(DirList, ".erl"),
+    Files = wrangler_misc:expand_files(DirList, ".erl"),
     F = fun (File, FileAcc) ->
 		{ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(File, true, DirList),
 		{value, {module, ModName}} = lists:keysearch(module, 1, Info),
@@ -384,7 +384,7 @@ collect_registration_and_self_apps(DirList, TabWidth) ->
     {SelfApps, PidAcc, Names, UnKnowns}.
 
 evaluate_expr(FileName, Expr, SearchPaths, TabWidth) ->
-    Val = refac_misc:try_eval(FileName, Expr, SearchPaths, TabWidth),
+    Val = wrangler_misc:try_eval(FileName, Expr, SearchPaths, TabWidth),
     case Val of
 	{value, V} -> [{value, V}];
 	_ -> {{StartLine, _StartCol}, _} = api_refac:start_end_loc(Expr),

@@ -112,7 +112,7 @@ update_ast(Key={_FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat}, {
     gen_server:cast(wrangler_ast_server, {update, {Key, {AnnAST, Info, CheckSum}}});
 update_ast(Key={FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, SwpFileName) ->
     {ok, {AnnAST, Info}} = parse_annotate_file(SwpFileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
-    CheckSum = refac_misc:filehash(FileName),
+    CheckSum = wrangler_misc:filehash(FileName),
     gen_server:cast(wrangler_ast_server, {update, {Key, {AnnAST, Info, CheckSum}}}).
  
 get_temp_dir() ->
@@ -203,7 +203,7 @@ get_ast(Key = {FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, State =
 	none ->
 	    case lists:keysearch(Key, 1, ASTs) of
 		{value, {Key, {AnnAST, Info, Checksum}}} ->
-		    NewChecksum = refac_misc:filehash(FileName),
+		    NewChecksum = wrangler_misc:filehash(FileName),
 		    case Checksum =:= NewChecksum andalso NewChecksum =/= 0 of
 			true ->
 			    log_errors(FileName, Info),
@@ -218,10 +218,10 @@ get_ast(Key = {FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, State =
 		    wrangler_error_logger:remove_from_logger(FileName),
 		    {ok, {AnnAST, Info}} = parse_annotate_file(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
 		    log_errors(FileName, Info),
-		    {{ok, {AnnAST, Info}}, #state{asts = [{Key, {AnnAST, Info, refac_misc:filehash(FileName)}}| ASTs]}}
+		    {{ok, {AnnAST, Info}}, #state{asts = [{Key, {AnnAST, Info, wrangler_misc:filehash(FileName)}}| ASTs]}}
 	    end;
 	_ ->
-	    NewChecksum = refac_misc:filehash(FileName),
+	    NewChecksum = wrangler_misc:filehash(FileName),
 	    case dets:lookup(TabFile, Key) of
 		[{Key, {AnnAST, Info, Checksum}}] when Checksum =:= NewChecksum ->
 		    {{ok, {AnnAST, Info}}, State};
@@ -236,7 +236,7 @@ get_ast(Key = {FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, State =
 
 update_ast_1({Key, {AnnAST, Info, _CheckSum}}, _State = #state{dets_tab = TabFile, asts = ASTs}) ->
     {FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat} = Key,
-    Checksum = refac_misc:filehash(FileName),
+    Checksum = wrangler_misc:filehash(FileName),
     case TabFile of
 	none -> case lists:keysearch(Key, 1, ASTs) of
 		    {value, {Key, {_AnnAST1, _Info1, _CheckSum}}} ->
@@ -312,7 +312,7 @@ parse_annotate_file(FName, ByPassPreP, SearchPaths) ->
 %% -spec(parse_annotate_file(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()], TabWidth::integer())
  %%      -> {ok, {syntaxTree(), moduleInfo()}}).
 parse_annotate_file(FName, ByPassPreP, SearchPaths, TabWidth) ->
-    FileFormat = refac_misc:file_format(FName),
+    FileFormat = wrangler_misc:file_format(FName),
     case whereis(wrangler_ast_server) of
 	undefined ->        %% this should not happen with Wrangler + Emacs.
 	    ?wrangler_io("wrangler_ast_server is not defined\n", []),
@@ -327,7 +327,7 @@ parse_annotate_file(FName, true, SearchPaths, TabWidth, FileFormat) ->
     case refac_epp_dodger:parse_file(FName, [{tab, TabWidth}, {format, FileFormat}]) of
 	{ok, Forms} ->
             Dir = filename:dirname(FName),
-            DefaultIncl2 = [filename:join(Dir, X) || X <- refac_misc:default_incls()],
+            DefaultIncl2 = [filename:join(Dir, X) || X <- wrangler_misc:default_incls()],
             Includes = SearchPaths ++ DefaultIncl2,
             {Info0, Ms} = case wrangler_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
 			      {ok, Fs, {MDefs, MUses}} ->
@@ -347,7 +347,7 @@ parse_annotate_file(FName, true, SearchPaths, TabWidth, FileFormat) ->
     end;
 parse_annotate_file(FName, false, SearchPaths, TabWidth, FileFormat) ->
     Dir = filename:dirname(FName),
-    DefaultIncl2 = [filename:join(Dir, X) || X <- refac_misc:default_incls()],
+    DefaultIncl2 = [filename:join(Dir, X) || X <- wrangler_misc:default_incls()],
     Includes = SearchPaths ++ DefaultIncl2,
     case wrangler_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
 	{ok, Forms, Ms} -> Forms1 = lists:filter(fun (F) ->
@@ -367,11 +367,11 @@ parse_annotate_file(FName, false, SearchPaths, TabWidth, FileFormat) ->
     end.
 
 quick_parse_annotate_file(FName, SearchPaths, TabWidth) ->
-    FileFormat = refac_misc:file_format(FName),
+    FileFormat = wrangler_misc:file_format(FName),
     case refac_epp_dodger:parse_file(FName, [{tab, TabWidth}, {format, FileFormat}]) of
 	{ok, Forms} ->
 	    Dir = filename:dirname(FName),
-	    DefaultIncl2 = [filename:join(Dir, X) || X <- refac_misc:default_incls()],
+	    DefaultIncl2 = [filename:join(Dir, X) || X <- wrangler_misc:default_incls()],
 	    Includes = SearchPaths ++ DefaultIncl2,
 	    Ms = case wrangler_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
 		     {ok, _, {MDefs, MUses}} ->
@@ -596,7 +596,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
             Es = list_elements(Node),
             case Es/=[] of
                 true ->
-                    Last = refac_misc:glast("refac_util:do_add_range,list", Es),
+                    Last = wrangler_misc:glast("refac_util:do_add_range,list", Es),
                     {_, E2} = get_range(Last),
                     E21 = extend_backwards(Toks, E2, ']'),
                     update_ann(Node, {range, {{L, C}, E21}});
@@ -609,7 +609,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	    {S1, E1} = get_range(O),
 	    {S3, E3} = case Args of
 			   [] -> {S1, E1};
-			   _ -> La = refac_misc:glast("refac_util:do_add_range, application", Args),
+			   _ -> La = wrangler_misc:glast("refac_util:do_add_range, application", Args),
 				{_S2, E2} = get_range(La),
 				{S1, E2}
 		       end,
@@ -617,7 +617,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	    update_ann(Node, {range, {S3, E31}});
 	case_expr ->
             A = wrangler_syntax:case_expr_argument(Node),
-	    Lc = refac_misc:glast("refac_util:do_add_range,case_expr", wrangler_syntax:case_expr_clauses(Node)),
+	    Lc = wrangler_misc:glast("refac_util:do_add_range,case_expr", wrangler_syntax:case_expr_clauses(Node)),
 	    calc_and_add_range_to_node_1(Node, Toks, A, Lc, 'case', 'end');
 	clause ->
             {S1,_} = case wrangler_syntax:clause_patterns(Node) of
@@ -627,7 +627,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                                 end;
                           Ps -> get_range(hd(Ps))
                       end,         
-            Body = refac_misc:glast("refac_util:do_add_range, clause", wrangler_syntax:clause_body(Node)),
+            Body = wrangler_misc:glast("refac_util:do_add_range, clause", wrangler_syntax:clause_body(Node)),
 	    {_S2, E2} = get_range(Body),
 	    update_ann(Node, {range, {lists:min([S1, {L, C}]), E2}});
 	catch_expr ->
@@ -658,14 +658,14 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	function ->
 	    F = wrangler_syntax:function_name(Node),
 	    Cs = wrangler_syntax:function_clauses(Node),
-	    Lc = refac_misc:glast("refac_util:do_add_range,function", Cs),
+	    Lc = wrangler_misc:glast("refac_util:do_add_range,function", Cs),
 	    {S1, _E1} = get_range(F),
 	    {_S2, E2} = get_range(Lc),
 	    update_ann(Node, {range, {S1, E2}});
 	fun_expr ->
 	    Cs = wrangler_syntax:fun_expr_clauses(Node),
 	    S = wrangler_syntax:get_pos(Node),
-	    Lc = refac_misc:glast("refac_util:do_add_range, fun_expr", Cs),
+	    Lc = wrangler_misc:glast("refac_util:do_add_range, fun_expr", Cs),
 	    {_S1, E1} = get_range(Lc),
 	    E11 = extend_backwards(Toks, E1,
 				   'end'),   %% S starts from 'fun', so there is no need to extend forwards/
@@ -683,7 +683,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 			update_ann(Node, {range, {S11, E1}});
 		_ -> case length(Args) > 0 of
 			 true -> 
-                             Arg = refac_misc:glast("refac_util:do_add_range,attribute", Args),
+                             Arg = wrangler_misc:glast("refac_util:do_add_range,attribute", Args),
                              {S1, _E1} = get_range(Name),
                              {_S2, E2} = get_range(Arg),
                              S11 = extend_forwards(Toks, S1, '-'),
@@ -708,14 +708,14 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	    end;
 	list_comp ->
 	    %%T = refac_syntax:list_comp_template(Node),
-	    B = refac_misc:glast("refac_util:do_add_range,list_comp", wrangler_syntax:list_comp_body(Node)),
+	    B = wrangler_misc:glast("refac_util:do_add_range,list_comp", wrangler_syntax:list_comp_body(Node)),
 	    {_S2, E2} = get_range(B),
 	    E21 = extend_backwards(Toks, E2, ']'),
 	    update_ann(Node, {range, {{L, C}, E21}});
 	binary_comp ->
 	    %%T = refac_syntax:binary_comp_template(Node),
-	    B = refac_misc:glast("refac_util:do_add_range,binary_comp",
-				 wrangler_syntax:binary_comp_body(Node)),
+	    B = wrangler_misc:glast("refac_util:do_add_range,binary_comp",
+				    wrangler_syntax:binary_comp_body(Node)),
 	    {_S2, E2} = get_range(B),
 	    E21 = extend_backwards(Toks, E2, '>>'),
 	    update_ann(Node, {range, {{L, C}, E21}});
@@ -732,20 +732,20 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                                            "refac_util:do_add_range, receive_expr1", 'receive', 'end');
                 _E ->
                     A = wrangler_syntax:receive_expr_action(Node),
-                    {_S2, E2} = get_range(refac_misc:glast("refac_util:do_add_range, receive_expr2", A)),
+                    {_S2, E2} = get_range(wrangler_misc:glast("refac_util:do_add_range, receive_expr2", A)),
                     E21 = extend_backwards(Toks, E2, 'end'),
                     update_ann(Node, {range, {{L, C}, E21}})
             end;
 	try_expr ->
 	    B = wrangler_syntax:try_expr_body(Node),
 	    After = wrangler_syntax:try_expr_after(Node),
-	    {S1, _E1} = get_range(refac_misc:ghead("refac_util:do_add_range, try_expr", B)),
+	    {S1, _E1} = get_range(wrangler_misc:ghead("refac_util:do_add_range, try_expr", B)),
 	    {_S2, E2} = case After of
 			    [] ->
 				Handlers = wrangler_syntax:try_expr_handlers(Node),
-				get_range(refac_misc:glast("refac_util:do_add_range, try_expr", Handlers));
+				get_range(wrangler_misc:glast("refac_util:do_add_range, try_expr", Handlers));
 			    _ ->
-				get_range(refac_misc:glast("refac_util:do_add_range, try_expr", After))
+				get_range(wrangler_misc:glast("refac_util:do_add_range, try_expr", After))
 			end,
 	    S11 = extend_forwards(Toks, S1, 'try'),
 	    E21 = extend_backwards(Toks, E2, 'end'),
@@ -755,8 +755,8 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	    case Fs == [] of
 		true -> update_ann(Node, {range, {{L, C}, {L, C + 3}}});
 		_ ->
-		    Hd = refac_misc:ghead("do_add_range:binary", Fs),
-		    Last = refac_misc:glast("do_add_range:binary", Fs),
+		    Hd = wrangler_misc:ghead("do_add_range:binary", Fs),
+		    Last = wrangler_misc:glast("do_add_range:binary", Fs),
 		    calc_and_add_range_to_node_1(Node, Toks, Hd, Last, '<<', '>>')
 	    end;
 	binary_field ->
@@ -764,7 +764,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	    Types = wrangler_syntax:binary_field_types(Node),
 	    {S1, E1} = get_range(Body),
 	    {_S2, E2} = if Types == [] -> {S1, E1};
-			   true -> get_range(refac_misc:glast("refac_util:do_add_range,binary_field", Types))
+			   true -> get_range(wrangler_misc:glast("refac_util:do_add_range,binary_field", Types))
 			end,
 	    case E2 > E1  %%Temporal fix; need to change refac_syntax to make the pos info correct.
 		of
@@ -832,7 +832,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                           Node1 =rewrite(Node, wrangler_syntax:record_expr(Arg, Type1, Fields)),
                           update_ann(Node1, {range, {S1, E11}});
                     _ ->
-                        {_S2, E2} = get_range(refac_misc:glast("refac_util:do_add_range,record_expr", Fields)),
+                        {_S2, E2} = get_range(wrangler_misc:glast("refac_util:do_add_range,record_expr", Fields)),
                         E21 = extend_backwards(Toks, E2, '}'),
                         Node1 =rewrite(Node, wrangler_syntax:record_expr(Arg, Type1, Fields)),
                         update_ann(Node1, {range, {S1, E21}})
@@ -848,8 +848,8 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 		       {range,
 			{{L, C},
                          {L + Lines - 1,
-                          length(refac_misc:glast("refac_util:do_add_range,comment",
-                                                  T))}}});
+                          length(wrangler_misc:glast("refac_util:do_add_range,comment",
+                                                     T))}}});
 	macro ->
                 Name = wrangler_syntax:macro_name(Node),
                 Args = wrangler_syntax:macro_arguments(Node),
@@ -862,7 +862,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                               [] -> E21 = extend_backwards(Toks, E1, ')'),
                                     update_ann(Node, {range, {{L, C}, E21}});
                               _ ->
-                                  La = refac_misc:glast("refac_util:do_add_range,macro", Ls),
+                                  La = wrangler_misc:glast("refac_util:do_add_range,macro", Ls),
                                   {_S2, E2} = get_range(La),
                                   E21 = extend_backwards(Toks, E2, ')'),
                                   update_ann(Node, {range, {{L, C}, E21}})
@@ -912,13 +912,13 @@ get_range(Node) ->
      end.
 
 add_range_to_list_node(Node, Toks, Es, Str1, Str2, KeyWord1, KeyWord2) ->
-    Hd = refac_misc:ghead(Str1, Es),
-    La = refac_misc:glast(Str2, Es),
+    Hd = wrangler_misc:ghead(Str1, Es),
+    La = wrangler_misc:glast(Str2, Es),
     calc_and_add_range_to_node_1(Node, Toks, Hd, La, KeyWord1, KeyWord2).
 
 add_range_to_body(Node, B, Str1, Str2) ->
-    H = refac_misc:ghead(Str1, B),
-    La = refac_misc:glast(Str2, B),
+    H = wrangler_misc:ghead(Str1, B),
+    La = wrangler_misc:glast(Str2, B),
     {S1, _E1} = get_range(H),
     {_S2, E2} = get_range(La),
     update_ann(Node, {range, {S1, E2}}).
@@ -1151,4 +1151,4 @@ adjust_implicit_fun_loc(T, Toks)->
   
    
 update_ann(Node, Ann) ->
-    refac_misc:update_ann(Node, Ann).
+    wrangler_misc:update_ann(Node, Ann).

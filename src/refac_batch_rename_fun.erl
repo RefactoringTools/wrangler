@@ -24,7 +24,7 @@
 
 rename_fun_to_camel_case(SearchPaths)->
     %% start the Wrangler application.
-    Files = refac_misc:expand_files(SearchPaths, ".erl"),
+    Files = wrangler_misc:expand_files(SearchPaths, ".erl"),
     Res=[rename_in_file(File, SearchPaths)||File<-Files],
     {ok, lists:usort(lists:append(Res))}.
 

@@ -74,7 +74,7 @@ unfold_fun_app(FName, Pos = {Line, Col}, SearchPaths, TabWidth, Editor) ->
 		 [?MODULE, FName, Line, Col, SearchPaths, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":unfold_fun_app(" ++ "\"" ++ 
 	    FName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++ 
-	      "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+	      "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
     case pos_to_fun_clause_app(AnnAST, Pos) of
@@ -83,7 +83,7 @@ unfold_fun_app(FName, Pos = {Line, Col}, SearchPaths, TabWidth, Editor) ->
 	    SubstLocs = [Loc || {_, Loc, _} <- Subst],
 	    Subst1 = [{Loc, P2} || {_P1, Loc, P2} <- Subst],
 	    {FunClause1, MatchExprs1} = auto_rename_vars({FunClause, MatchExprs}, {Clause, App}, SubstLocs),
-	    UsedRecords = refac_misc:collect_used_records(FunClause),
+	    UsedRecords = wrangler_misc:collect_used_records(FunClause),
 	    fun_inline_1(FName, AnnAST, Pos, {FunClause1, Subst1, MatchExprs1},
 			 {Clause, App}, UsedRecords, Editor, TabWidth, Cmd);
 	{error, _} -> throw({error, "You have not selected a function application, "
@@ -127,7 +127,7 @@ side_cond_analysis_1(FunDef, App, AnnAST) ->
 	none -> throw({error, "The function to be inlined has multiple clauses, "
 			      "and Wrangler could not figure out which function clause to inline."});
 	{C, {Subst, MatchExprs}} ->
-	    UsedMacros = refac_misc:collect_used_macros(C),
+	    UsedMacros = wrangler_misc:collect_used_macros(C),
 	    CPos = wrangler_syntax:get_pos(C),
 	    AppPos = wrangler_syntax:get_pos(App),
 	    case check_macro_defs(Fs, UsedMacros, lists:min([CPos, AppPos]), lists:max([CPos, AppPos])) of
@@ -347,11 +347,11 @@ fun_inline_1(FName, AnnAST, Pos, {FunClauseToInline, Subst, MatchExprsToAdd}, {C
     RecordDefs = collect_record_defs(Fs, UsedRecords, Pos),
     Fs0 = Fs -- RecordDefs,
     Fs1 = lists:append([do_inline(F, Pos, Clause, App, SubstedBody, RecordDefs) || F <- Fs0]),
-    AnnAST1 = refac_misc:rewrite(AnnAST, wrangler_syntax:form_list(Fs1)),
+    AnnAST1 = wrangler_misc:rewrite(AnnAST, wrangler_syntax:form_list(Fs1)),
     wrangler_write_file:write_refactored_files([{{FName,FName}, AnnAST1}], Editor, TabWidth, Cmd).
 
 do_inline(Form, Pos, _Clause, App, SubstedBody, RecordDefs) ->
-    SubstedBody1 = refac_misc:reset_ann_and_pos(SubstedBody),
+    SubstedBody1 = wrangler_misc:reset_ann_and_pos(SubstedBody),
     {S, E} = api_refac:start_end_loc(Form),
     if (S =< Pos) and (Pos =< E) ->
             {NewForm, _} = api_ast_traverse:stop_tdTP(
@@ -372,10 +372,10 @@ do_inline_1(Node, {App, SubstedBody}) ->
 	App ->
             case SubstedBody of 
                 [B] ->
-                    {refac_misc:rewrite_with_wrapper(App, B), true};
+                    {wrangler_misc:rewrite_with_wrapper(App, B), true};
                 [B|Bs] ->
-                        {refac_misc:rewrite_with_wrapper(
-                          App, wrangler_syntax:block_expr([B|Bs])),
+                        {wrangler_misc:rewrite_with_wrapper(
+                             App, wrangler_syntax:block_expr([B|Bs])),
                          true}
             end;
 	_ -> {Node, false}
@@ -389,7 +389,7 @@ remove_begin_end(Node, BlockBody) ->
                           case wrangler_syntax:type(B) of
                               block_expr ->
                                   [B1|Bs] = wrangler_syntax:block_expr_body(B),
-                                  [refac_misc:rewrite_with_wrapper(E, B1)
+                                  [wrangler_misc:rewrite_with_wrapper(E, B1)
                                    |Bs];
                               _ -> [E]
                           end;
@@ -403,8 +403,8 @@ remove_begin_end(Node, BlockBody) ->
                                     block_expr ->
                                         [FB1|FBs] = wrangler_syntax:block_expr_body(FB),
                                         Last = lists:last(FBs),
-                                        NewLast = make_match_expr([refac_misc:reset_ann(P) || P <- Ps], Last),
-                                        NewFB1 =refac_misc:rewrite_with_wrapper(Ps, FB1),
+                                        NewLast = make_match_expr([wrangler_misc:reset_ann(P) || P <- Ps], Last),
+                                        NewFB1 =wrangler_misc:rewrite_with_wrapper(Ps, FB1),
                                         FBs1 = lists:reverse(FBs),
                                         [NewFB1|lists:reverse([NewLast|tl(FBs1)])];
                                     _ -> [E]
@@ -420,7 +420,7 @@ remove_begin_end(Node, BlockBody) ->
 	    G = wrangler_syntax:clause_guard(Node),
 	    B = wrangler_syntax:clause_body(Node),
 	    B1 = lists:append([Fun(E) || E <- B]),
-	    {refac_misc:rewrite(Node, wrangler_syntax:clause(P, G, B1)),
+	    {wrangler_misc:rewrite(Node, wrangler_syntax:clause(P, G, B1)),
 	     length(B) =/= length(B1)};
 	block_expr ->
 	    Es = wrangler_syntax:block_expr_body(Node),
@@ -429,7 +429,7 @@ remove_begin_end(Node, BlockBody) ->
 		    {Node, false};
 		_ ->
 		    Es1 = lists:append([Fun(E) || E <- Es]),
-		    {refac_misc:rewrite(Node, wrangler_syntax:block_expr(Es1)),
+		    {wrangler_misc:rewrite(Node, wrangler_syntax:block_expr(Es1)),
 		     length(Es) =/= length(Es1)}
 	    end;
 	try_expr ->
@@ -438,7 +438,7 @@ remove_begin_end(Node, BlockBody) ->
 	    Cs = wrangler_syntax:try_expr_clauses(Node),
 	    Handlers = wrangler_syntax:try_expr_handlers(Node),
 	    After = wrangler_syntax:try_expr_after(Node),
-	    {refac_misc:rewrite(Node, wrangler_syntax:try_expr(B1, Cs, Handlers, After)),
+	    {wrangler_misc:rewrite(Node, wrangler_syntax:try_expr(B1, Cs, Handlers, After)),
 	     length(B) =/= length(B1)};
 	_ ->
 	    {Node, false}
@@ -452,7 +452,7 @@ do_subst(Node, Subst) ->
 		{value, {def, DefinePos}} ->
 		    case lists:keysearch(DefinePos, 1, Subst) of
 			{value, {DefinePos, Expr}} ->
-			    {refac_misc:rewrite_with_wrapper(Node, Expr), true};
+			    {wrangler_misc:rewrite_with_wrapper(Node, Expr), true};
 			_ -> {Node, false}
 		    end;
 		_ -> {Node, false}
@@ -514,19 +514,19 @@ auto_rename_vars({ClauseToInline, MatchExprs}, {Clause, App}, SubStLocs) ->
     NewVarPat = wrangler_syntax:copy_pos(App, wrangler_syntax:copy_pos(App, wrangler_syntax:variable(VarName))),
     MatchExpr = wrangler_syntax:copy_pos(App, wrangler_syntax:match_expr(NewVarPat, wrangler_syntax:atom(ok))),
     {Clause1, _} = api_ast_traverse:stop_tdTP(fun do_replace_app_with_match/2, Clause, {App, MatchExpr}),
-    Clause2 = wrangler_syntax_lib:var_annotate_clause(refac_misc:reset_ann(Clause1), [], {[],[]}, []),
+    Clause2 = wrangler_syntax_lib:var_annotate_clause(wrangler_misc:reset_ann(Clause1), [], {[],[]}, []),
     BdsInFunToInline = get_bound_vars(ClauseToInline),
     NewNames = [{Name, DefinePos} || {Name, DefinePos} <- BdsInFunToInline,
 				      not  lists:member(DefinePos, SubStLocs)],
     Pos = wrangler_syntax:get_pos(App),
     VarsToRename = get_vars_to_rename(Clause2, [Pos], VarName, NewNames, ClauseToInline),
-    UsedVarNames = ordsets:from_list(refac_misc:collect_var_names(Clause)),
+    UsedVarNames = ordsets:from_list(wrangler_misc:collect_var_names(Clause)),
     do_rename_var({ClauseToInline, MatchExprs}, lists:usort(VarsToRename), UsedVarNames).
 
 do_replace_app_with_match(Node, {App, MatchExpr}) ->
     case Node of
 	App ->
-	    {refac_misc:rewrite_with_wrapper(App, MatchExpr), true};
+	    {wrangler_misc:rewrite_with_wrapper(App, MatchExpr), true};
 	_ -> {Node, false}
     end.
 
@@ -536,13 +536,13 @@ get_vars_to_rename(Clause, Pos, VarName, NewNames, ClauseToInline) ->
 			  {ok, {_, DefinePos}} <- [api_interface:pos_to_var_name(ClauseToInline, P)]].
 
 do_rename_var({Node, MatchExprs}, [], _UsedVarNames) ->
-    {Node, [refac_misc:reset_ann(M) || M <- MatchExprs]};
+    {Node, [wrangler_misc:reset_ann(M) || M <- MatchExprs]};
 do_rename_var({Node, MatchExprs}, [V| Vs], UsedVarNames) ->
     {Node1, MatchExprs1} = do_rename_var_1({Node, MatchExprs}, V, UsedVarNames),
     do_rename_var({Node1, MatchExprs1}, Vs, UsedVarNames).
 
 do_rename_var_1({Node, MatchExprs}, {VarName, DefLoc}, UsedVarNames) ->
-    UsedVarNames1 = ordsets:union(ordsets:from_list(refac_misc:collect_var_names(Node)), UsedVarNames),
+    UsedVarNames1 = ordsets:union(ordsets:from_list(wrangler_misc:collect_var_names(Node)), UsedVarNames),
     NewVarName = api_refac:make_new_name(VarName, UsedVarNames1),
     {Node1, _} = refac_rename_var:rename(Node, DefLoc, NewVarName),
     MatchExprs1 = do_rename_in_match_exprs(MatchExprs, DefLoc, NewVarName),
@@ -633,7 +633,7 @@ check_macro_defs_1(F, UsedMacros, StartLoc, EndLoc) ->
 	    case is_attribute(F, define) orelse is_attribute(F, undef) of
 		true ->
 		    Args = wrangler_syntax:attribute_arguments(F),
-		    MacroHead = refac_misc:ghead("refac_unfold_fun_app:check_macro_defs_1", Args),
+		    MacroHead = wrangler_misc:ghead("refac_unfold_fun_app:check_macro_defs_1", Args),
 		    MacroHead1 = case wrangler_syntax:type(MacroHead) of
 				     application ->
 					 wrangler_syntax:application_operator(MacroHead);

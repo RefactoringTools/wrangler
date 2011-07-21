@@ -71,7 +71,7 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_var(" ++ "\"" ++ 
 	     FName ++ "\", " ++ integer_to_list(Line) ++ 
 	       ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
-       ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+      ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case api_refac:is_var_name(NewName) of
 	true -> ok;
 	false -> throw({error, "Invalid new variable name."})
@@ -111,7 +111,7 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 	       emacs ->
 		   {ok, []};
 	       _ ->
-		   Content = wrangler_prettypr:print_ast(refac_misc:file_format(FName), AnnAST1, TabWidth),
+		   Content = wrangler_prettypr:print_ast(wrangler_misc:file_format(FName), AnnAST1, TabWidth),
 		   {ok, [{FName, FName, Content}]}
 	   end
     end.

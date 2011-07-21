@@ -42,8 +42,8 @@
 
 %%-spec comment_out/1::([filename()|dir()]) ->ok.
 comment_out(Dirs) ->
-    FileNames = refac_misc:expand_files(Dirs, ".erl"),
-    HeaderFiles = refac_misc:expand_files(Dirs, ".hrl"),
+    FileNames = wrangler_misc:expand_files(Dirs, ".erl"),
+    HeaderFiles = wrangler_misc:expand_files(Dirs, ".hrl"),
     lists:foreach(fun (F) ->
 			  comment_out_spec_type_1(F, Dirs)
 		  end,

@@ -63,7 +63,7 @@ test_cases_to_property(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
     Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":create_oneof(" ++ "\"" ++ 
 	     FileName ++ "\", " ++ integer_to_list(Line) ++ 
 	       ", " ++ integer_to_list(Col) ++ ", "
-						 ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+						++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case api_interface:pos_to_fun_name(AnnAST, {Line, Col}) of
 	{ok, {Mod, Fun, Arity, _, DefPos}} ->
@@ -82,7 +82,7 @@ test_cases_to_property(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
 		    wrangler_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd1),
 		    {ok, [FileName], HasWarningMsg};
 		eclipse ->
-		    FileContent = wrangler_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST1, TabWidth),
+		    FileContent = wrangler_prettypr:print_ast(wrangler_misc:file_format(FileName), AnnAST1, TabWidth),
 		    {ok, [{FileName, FileName, FileContent}]}
 	    end;
 	{error, Reason} ->
@@ -190,7 +190,7 @@ make_oneof_gen(OneOfGenName, Data) ->
     Op = wrangler_syntax:atom(oneof),
     App = wrangler_syntax:application(Op, [NewData]),
     Clause = wrangler_syntax:clause([], [], [App]),
-    refac_misc:reset_attrs(wrangler_syntax:function(OneOfGenName, [Clause])).
+    wrangler_misc:reset_attrs(wrangler_syntax:function(OneOfGenName, [Clause])).
 
 make_oneof_prop(OneOfGenName, OneOfPropName, ParNames, {Mod, Fun, Arity, DefPos}) ->
     Pat = case Arity of
@@ -202,7 +202,7 @@ make_oneof_prop(OneOfGenName, OneOfPropName, ParNames, {Mod, Fun, Arity, DefPos}
     Prop = make_prop(ParNames, {Mod, Fun, Arity}, DefPos),
     Body = make_for_all(Pat, Gen, Prop),
     Clause = wrangler_syntax:clause([], [], [Body]),
-    refac_misc:reset_attrs(wrangler_syntax:function(OneOfPropName, [Clause])).
+    wrangler_misc:reset_attrs(wrangler_syntax:function(OneOfPropName, [Clause])).
     
 
 make_forall_gen_props(ListOfPars1, ParNames, {Mod, Fun, Arity, DefPos}) ->
@@ -220,13 +220,13 @@ make_forall_prop(ParNames, ParMaps, {Mod, Fun, Arity, DefPos}) ->
     ForAllExpr = generate_forall_expr(ParNames, Fun, lists:reverse(ParMaps), Prop),
     Clause = wrangler_syntax:clause([],[],[ForAllExpr]),
     ForAllPropName = wrangler_syntax:atom(list_to_atom(atom_to_list(Fun) ++ "_forall_prop")),
-    refac_misc:reset_attrs(wrangler_syntax:function(ForAllPropName, [Clause])).
+    wrangler_misc:reset_attrs(wrangler_syntax:function(ForAllPropName, [Clause])).
 
 make_generator_fun(FunName, {Pars, Rets}, ParNames) ->
-    ZippedParsRets = refac_misc:group_by(1, lists:zip(Pars, Rets)),
+    ZippedParsRets = wrangler_misc:group_by(1, lists:zip(Pars, Rets)),
     GenFunName = make_new_gen_fun_name(FunName, length(hd(Pars))+1, ParNames),
     Clause = [make_clause(lists:unzip(ZippedParRet)) || ZippedParRet <- ZippedParsRets],
-    refac_misc:reset_attrs(wrangler_syntax:function(GenFunName, Clause)).
+    wrangler_misc:reset_attrs(wrangler_syntax:function(GenFunName, Clause)).
     
 
 make_prop(ParNames, {Mod, Fun, _Arity}, DefPos) ->
@@ -250,7 +250,7 @@ make_clause({[Pars| _], Ret}) ->
     case length(Ret)>1 of
 	true ->
 	    Op = wrangler_syntax:atom(oneof),
-	    App = wrangler_syntax:application(Op, refac_misc:remove_duplicates(Ret)),
+	    App = wrangler_syntax:application(Op, wrangler_misc:remove_duplicates(Ret)),
 	    wrangler_syntax:clause(Pats, [], [App]);
 	_ ->
 	    wrangler_syntax:clause(Pats, [], Ret)
@@ -310,9 +310,9 @@ make_new_var(Index) ->
 	   "NewPat" ++ integer_to_list(Index))).
 
 make_new_gen_fun_name(FunName, Index, ParNames) ->
-    ParName = refac_misc:to_lower(atom_to_list(
-				    wrangler_syntax:variable_name(
-				         lists:nth(Index, ParNames)))),
+    ParName = wrangler_misc:to_lower(atom_to_list(
+				       wrangler_syntax:variable_name(
+				            lists:nth(Index, ParNames)))),
     wrangler_syntax:atom(list_to_atom(atom_to_list(FunName) ++ "_" ++ ParName ++ "_gen")).
  
 

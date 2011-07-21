@@ -48,7 +48,7 @@ type_ann_ast(FileName, Info, AnnAST, SearchPaths, TabWidth) ->
     case lists:keysearch(module, 1, Info) of
 	false -> AnnAST; %% this should only happen for .hrl files.
 	{value, {module, ModName}} ->
-	    TestFrameWorkUsed = refac_misc:test_framework_used(FileName),
+	    TestFrameWorkUsed = wrangler_misc:test_framework_used(FileName),
 	    Pid = start_type_env_process(),
 	    Fs = wrangler_syntax:form_list_elements(AnnAST),
 	    Funs = wrangler_callgraph_server:get_sorted_funs(ModName, AnnAST),
@@ -61,7 +61,7 @@ type_ann_ast(FileName, Info, AnnAST, SearchPaths, TabWidth) ->
 					_ -> Form
 				    end
 			    end, Fs),
-	    AnnAST1 = refac_misc:rewrite(AnnAST, wrangler_syntax:form_list(Fs1)),
+	    AnnAST1 = wrangler_misc:rewrite(AnnAST, wrangler_syntax:form_list(Fs1)),
 	    case get_all_type_info(Pid) of
 		[] ->
 		    stop_type_env_process(Pid),
@@ -110,7 +110,7 @@ do_type_ann(FileName, Form, TestFrameWorkUsed, SearchPaths, TabWidth, Pid) ->
 		    add_to_type_env(Pid, [Ts]);
 		_ -> ok
 	    end,
-	    refac_misc:rewrite(Form, wrangler_syntax:function(Name1, Cs));
+	    wrangler_misc:rewrite(Form, wrangler_syntax:function(Name1, Cs));
 	_ ->
 	    Form
     end.
@@ -123,7 +123,7 @@ do_type_ann_clause(Node, {FileName, Pats, TestFrameWorkUsed, SearchPaths, TabWid
 	    case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Op)) of
 		{value, {fun_def, {M, F, A, _, _}}} when M =/= '_' andalso F =/= '_' ->
 		    Args1 = do_type_ann_args({M, F, A}, map_args(Pats, Args), Args, Pid),
-		    Node1 = refac_misc:rewrite(Node, wrangler_syntax:application(Op, Args1)),
+		    Node1 = wrangler_misc:rewrite(Node, wrangler_syntax:application(Op, Args1)),
 		    do_type_ann_op(FileName, Node1, SearchPaths, TabWidth, Pid);
 		_ -> %% Either module name or function name is not an atom;
 		    do_type_ann_op(FileName, Node, SearchPaths, TabWidth, Pid)
@@ -139,7 +139,7 @@ do_type_ann_clause(Node, {FileName, Pats, TestFrameWorkUsed, SearchPaths, TabWid
 			    NewE3 = add_type_info({type, {f_atom, [try_eval(FileName, E2, SearchPaths, TabWidth, fun is_atom/1),
 								   try_eval(FileName, E3, SearchPaths, TabWidth, fun is_atom/1),
 								   try_eval_length(E4)]}}, E3, Pid),
-			    refac_misc:rewrite(Node, wrangler_syntax:tuple([E1, NewE2, NewE3, E4]));
+			    wrangler_misc:rewrite(Node, wrangler_syntax:tuple([E1, NewE2, NewE3, E4]));
 			false ->
 			    Node
 		    end;
@@ -157,27 +157,27 @@ do_type_ann_op(FileName, Node, SearchPaths, TabWidth, Pid) ->
 	    As = wrangler_syntax:get_ann(Op),
 	    {value, {fun_def, {Mod, FunName, Ari, _, _}}} = lists:keysearch(fun_def, 1, As),
 	    Op1 = wrangler_syntax:add_ann({type, {f_atom, [Mod, FunName, Ari]}}, Op),
-	    refac_misc:rewrite(Node, wrangler_syntax:application(Op1, Args));
+	    wrangler_misc:rewrite(Node, wrangler_syntax:application(Op1, Args));
 	variable ->
 	    Op1 = add_type_info({type, {f_atom, ['_', try_eval(FileName, Op, SearchPaths, TabWidth,
 							       fun is_atom/1), Arity]}}, Op, Pid),
-	    refac_misc:rewrite(Node, wrangler_syntax:application(Op1, Args));
+	    wrangler_misc:rewrite(Node, wrangler_syntax:application(Op1, Args));
 	module_qualifier ->
 	    M = wrangler_syntax:module_qualifier_argument(Op),
 	    F = wrangler_syntax:module_qualifier_body(Op),
 	    M1 = add_type_info({type, m_atom}, M, Pid),
 	    F1 = add_type_info({type, {f_atom, [try_eval(FileName, M, SearchPaths, TabWidth, fun is_atom/1),
 						try_eval(FileName, F, SearchPaths, TabWidth, fun is_atom/1), Arity]}}, F, Pid),
-	    Op1 = refac_misc:rewrite(Op, wrangler_syntax:module_qualifier(M1, F1)),
-	    refac_misc:rewrite(Node, wrangler_syntax:application(Op1, Args));
+	    Op1 = wrangler_misc:rewrite(Op, wrangler_syntax:module_qualifier(M1, F1)),
+	    wrangler_misc:rewrite(Node, wrangler_syntax:application(Op1, Args));
 	tuple ->
 	    case wrangler_syntax:tuple_elements(Op) of
 		[M, F] ->
 		    M1 = add_type_info({type, m_atom}, M, Pid),
 		    F1 = add_type_info({type, {f_atom, [try_eval(FileName, M, SearchPaths, TabWidth, fun is_atom/1),
 							try_eval(FileName, M, SearchPaths, TabWidth, fun is_atom/1), Arity]}}, F, Pid),
-		    Op1 = refac_misc:rewrite(Op, wrangler_syntax:tuple([M1, F1])),
-		    refac_misc:rewrite(Node, wrangler_syntax:application(Op1, Args));
+		    Op1 = wrangler_misc:rewrite(Op, wrangler_syntax:tuple([M1, F1])),
+		    wrangler_misc:rewrite(Node, wrangler_syntax:application(Op1, Args));
 		_ ->
 		    Node
 	    end;
@@ -391,7 +391,7 @@ try_eval(FileName, E, SearchPaths, TabWidth, Cond) ->
 		_ -> '_'
 	    end;
 	_ ->
-	    case refac_misc:try_eval(FileName, E, SearchPaths, TabWidth) of
+	    case wrangler_misc:try_eval(FileName, E, SearchPaths, TabWidth) of
 		{value, V} ->
 		    ?debug("V:\n~p\n", [V]),
 		    case Cond(V) of
