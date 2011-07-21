@@ -7,15 +7,15 @@
 collect_par_locs(FileName, Dirs) ->
     {ok, {AST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, Dirs, 8),
     F = fun (T, S) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    function ->
-			Cs = refac_syntax:function_clauses(T),
-			Patterns = refac_syntax:clause_patterns(hd(Cs)),
+			Cs = wrangler_syntax:function_clauses(T),
+			Patterns = wrangler_syntax:clause_patterns(hd(Cs)),
 			case Patterns of
 			    [] -> S;
 			    _ ->
 				IndexedPats = lists:zip(Patterns, lists:reverse(lists:seq(1, length(Patterns)))),
-				Pars = lists:map(fun ({P, Index}) -> {Start, End} = refac_api:start_end_loc(P),
+				Pars = lists:map(fun ({P, Index}) -> {Start, End} = api_refac:start_end_loc(P),
 								     {{Start, End}, length(Patterns)-Index+1, Index}
 						 end, IndexedPats),
 				[P || P = {{_S1, _E1}, _Index1, Index2} <- Pars, Index2>1]++S
@@ -23,7 +23,7 @@ collect_par_locs(FileName, Dirs) ->
 		    _ -> S
 		end
 	end,
-    Res = lists:usort(ast_traverse_api:fold(F, [], AST)),
+    Res = lists:usort(api_ast_traverse:fold(F, [], AST)),
     case Res of
 	[] ->
 	    [{{{0,0},{0,0}},0,0}];
@@ -32,7 +32,7 @@ collect_par_locs(FileName, Dirs) ->
 
 %% filename newerator
 gen_filename(Dirs) ->
-    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
+    AllErlFiles = wrangler_misc:expand_files(Dirs, ".erl"),
     oneof(AllErlFiles).
 
 

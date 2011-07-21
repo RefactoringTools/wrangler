@@ -41,7 +41,7 @@ get_module_name(FName, Info) ->
     end.
 
 prop_partition_exports({FName, Score, Dirs}) ->
-    refac_io:format("FName:\n~p\n", [FName]),
+    wrangler_io:format("FName:\n~p\n", [FName]),
     ExpFuns1 = exported_funs(FName),
     Res =try apply(wrangler_modularity_inspection, partition_exports_eclipse, [FName, Score, Dirs, 8])
          catch
@@ -62,7 +62,7 @@ prop_partition_exports({FName, Score, Dirs}) ->
             Res1 =lists:sort(ExpFuns1)==lists:sort(ExpFuns2),
             case Res1 of 
                 false ->
-                    refac_io:format("Check........\n");
+                    wrangler_io:format("Check........\n");
                 true -> 
                     ok
             end,
@@ -71,7 +71,7 @@ prop_partition_exports({FName, Score, Dirs}) ->
  
 			
 test_partition_exports(Dirs) ->
-    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
+    AllErlFiles = wrangler_misc:expand_files(Dirs, ".erl"),
     lists:foreach(fun(F) ->prop_partition_exports({F,0.8, Dirs}) end, AllErlFiles).
    
    

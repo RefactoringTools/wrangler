@@ -6,20 +6,20 @@
 
 collect_expr_locs(AST) ->
     F1 = fun (T,S) ->
-		 case refac_api:is_expr(T) of
-		     true -> Range = refac_api:start_end_loc(T),
+		 case api_refac:is_expr(T) of
+		     true -> Range = api_refac:start_end_loc(T),
 			     [Range| S];
 		     _ -> S
 		 end
 	 end,
     F = fun (T, S) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    function ->
-			ast_traverse_api:fold(F1, [], T) ++ S;
+			api_ast_traverse:fold(F1, [], T) ++ S;
 		    _ -> S
 		end
 	end,
-    Res = lists:usort(ast_traverse_api:fold(F, [], AST)),
+    Res = lists:usort(api_ast_traverse:fold(F, [], AST)),
     case Res of
 	[] ->
 	    [{{0,0}, {0,0}}];
@@ -34,7 +34,7 @@ existing_macros(FileName, SearchPaths, TabWidth) ->
     DefaultIncl1 = [".", "..", "../hrl", "../incl", "../inc", "../include"],
     DefaultIncl2 = [filename:join(Dir, X) || X <- DefaultIncl1],
     NewSearchPaths = SearchPaths++DefaultIncl2,
-    case refac_epp:parse_file(FileName, NewSearchPaths, [], TabWidth, refac_misc:file_format(FileName)) of
+    case wrangler_epp:parse_file(FileName, NewSearchPaths, [], TabWidth, wrangler_misc:file_format(FileName)) of
 	{ok, _, {MDefs, MUses}} ->
 	    lists:usort(lists:map(fun ({{_,Name}, _Def}) -> atom_to_list(Name) end, MDefs++MUses));
 	_ -> []
@@ -43,18 +43,18 @@ existing_macros(FileName, SearchPaths, TabWidth) ->
 %% Collect atoms in an AST.
 collect_vars(AST) ->
     F = fun (T, S) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    variable ->
-			Name = refac_syntax:variable_name(T),
+			Name = wrangler_syntax:variable_name(T),
 			[atom_to_list(Name)] ++ S;
 		    _ -> S
 		end
 	end,
-    lists:usort(ast_traverse_api:fold(F, madeup_macro_names(), AST)).
+    lists:usort(api_ast_traverse:fold(F, madeup_macro_names(), AST)).
 
 %% filename newerator
 gen_filename(Dirs) ->
-    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
+    AllErlFiles = wrangler_misc:expand_files(Dirs, ".erl"),
     oneof(AllErlFiles).
 
 

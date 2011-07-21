@@ -9,12 +9,12 @@ madeup_mod_names() -> ["aaa", "aaa_SUITE","aaa.erl","bbb", "ccc", "DDD", "111", 
 
 %% filename generator
 gen_filename(Dirs) ->
-    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
+    AllErlFiles = wrangler_misc:expand_files(Dirs, ".erl"),
     oneof(AllErlFiles).
 
 %% collect function define locations in an AST
 collect_mod_names(Dirs) ->
-    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
+    AllErlFiles = wrangler_misc:expand_files(Dirs, ".erl"),
     lists:map(fun (F) -> filename:basename(F, ".erl") end, AllErlFiles).
    
 %% Properties for 'rename a function name'
