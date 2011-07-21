@@ -208,11 +208,11 @@ form_not_change_1(Form) ->
         Toks = wrangler_misc:get_toks(Form),
         Str = wrangler_misc:concat_toks(Toks),
         {ok,Toks1,_} = wrangler_scan:string(Str,{1,1},?TabWidth,unix),
-        OriginalForm = refac_epp_dodger:normal_parser(Toks1,[]),
+        OriginalForm = wrangler_epp_dodger:normal_parser(Toks1,[]),
         NewStr = format(Form,[]),
         {ok,Toks2,_} =
             wrangler_scan:string(NewStr,{1,1},?TabWidth,unix),
-        NewForm = refac_epp_dodger:normal_parser(Toks2,[]),
+        NewForm = wrangler_epp_dodger:normal_parser(Toks2,[]),
         best(OriginalForm) == best(NewForm)
     of 
         Res -> Res

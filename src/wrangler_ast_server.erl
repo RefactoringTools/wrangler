@@ -324,7 +324,7 @@ parse_annotate_file(FName, ByPassPreP, SearchPaths, TabWidth) ->
 %% -spec(parse_annotate_file(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()], integer(), atom())
 %%       -> {ok, {syntaxTree(), moduleInfo()}}).
 parse_annotate_file(FName, true, SearchPaths, TabWidth, FileFormat) ->
-    case refac_epp_dodger:parse_file(FName, [{tab, TabWidth}, {format, FileFormat}]) of
+    case wrangler_epp_dodger:parse_file(FName, [{tab, TabWidth}, {format, FileFormat}]) of
 	{ok, Forms} ->
             Dir = filename:dirname(FName),
             DefaultIncl2 = [filename:join(Dir, X) || X <- wrangler_misc:default_incls()],
@@ -368,7 +368,7 @@ parse_annotate_file(FName, false, SearchPaths, TabWidth, FileFormat) ->
 
 quick_parse_annotate_file(FName, SearchPaths, TabWidth) ->
     FileFormat = wrangler_misc:file_format(FName),
-    case refac_epp_dodger:parse_file(FName, [{tab, TabWidth}, {format, FileFormat}]) of
+    case wrangler_epp_dodger:parse_file(FName, [{tab, TabWidth}, {format, FileFormat}]) of
 	{ok, Forms} ->
 	    Dir = filename:dirname(FName),
 	    DefaultIncl2 = [filename:join(Dir, X) || X <- wrangler_misc:default_incls()],

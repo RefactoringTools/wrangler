@@ -774,7 +774,7 @@ concat_toks([T|Ts], Acc) ->
 
 %%-spec test_framework_used(filename()) ->[atom()]. 			 
 test_framework_used(FileName) ->
-    case refac_epp_dodger:parse_file(FileName, []) of
+    case wrangler_epp_dodger:parse_file(FileName, []) of
       {ok, Forms} ->
 	  Strs = lists:flatmap(fun (F) ->
 				       case wrangler_syntax:type(F) of
