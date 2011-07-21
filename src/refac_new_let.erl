@@ -509,7 +509,7 @@ do_merge(AnnAST, Candidates) ->
     element(1, api_ast_traverse:stop_tdTP(fun do_merge_1/2, AnnAST, Candidates)).
 
 do_merge_1(Tree, Candidates) ->
-    {{StartLine, StartCol}, {EndLine, EndCol}} = api_refac:start_end_loc(Tree),
+    {{StartLine, StartCol}, {EndLine, EndCol}} = wrangler_misc:start_end_loc(Tree),
     case lists:keysearch({StartLine, StartCol, EndLine, EndCol}, 1, Candidates) of
 	{value, {_, NewLetApp}} ->
 	    {wrangler_misc:rewrite_with_wrapper(Tree, NewLetApp), true};
@@ -557,7 +557,7 @@ collect_mergeable_lets_or_foralls(Node, MacroName) ->
     case Res == [P, G1, G2] of
 	true ->
 	    [];
-	_ -> [{api_refac:start_end_loc(Node),
+	_ -> [{wrangler_misc:start_end_loc(Node),
 	       wrangler_misc:reset_attrs(wrangler_syntax:macro(wrangler_syntax:variable(MacroName), Res))}]
     end.
 

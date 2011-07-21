@@ -147,7 +147,7 @@ pre_cond_check(AnnAST, Pos, ModName, FunName, Arity, ProcessName, SearchPaths, T
 	    ?wrangler_io("The value returned by 'self()', which is used at the location(s) listed below, will be changed "
 			 " by this refactoring, and this could possibly change the behaviour of the program!\n", []),
 	    lists:foreach(fun ({{File, _Fun, _Ari}, SelfExpr, _}) ->
-				  {{Line, _}, _} = api_refac:start_end_loc(SelfExpr),
+				  {{Line, _}, _} = wrangler_misc:start_end_loc(SelfExpr),
 				  _Msg = File ++ io_lib:format(":~p: \n", [Line]),
                                   _ = length(_Msg),
 				  ?wrangler_io(_Msg, [])
@@ -176,7 +176,7 @@ pre_cond_check(AnnAST, Pos, ModName, FunName, Arity, ProcessName, SearchPaths, T
 	    ?wrangler_io("The value returned by 'self()', which is used at the location(s) listed below, will be changed "
 			 " by this refactoring, and this could possibly change the behaviour of the program!\n", []),
 	    lists:foreach(fun ({{File, _Fun, _Ari}, SelfExpr, _}) ->
-				  {{Line, _}, _} = api_refac:start_end_loc(SelfExpr),
+				  {{Line, _}, _} = wrangler_misc:start_end_loc(SelfExpr),
 				  _Msg = File ++ io_lib:format(":~p: \n", [Line]),
                                   _ = length(_Msg),
 				  ?wrangler_io(_Msg, [])
@@ -387,7 +387,7 @@ evaluate_expr(FileName, Expr, SearchPaths, TabWidth) ->
     Val = wrangler_misc:try_eval(FileName, Expr, SearchPaths, TabWidth),
     case Val of
 	{value, V} -> [{value, V}];
-	_ -> {{StartLine, _StartCol}, _} = api_refac:start_end_loc(Expr),
+	_ -> {{StartLine, _StartCol}, _} = wrangler_misc:start_end_loc(Expr),
 	     [{unknown, {FileName, StartLine}}]
     end.
    

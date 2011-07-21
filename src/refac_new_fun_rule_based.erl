@@ -117,7 +117,7 @@ rule2(_Args=#args{focus_sel=Exprs, user_inputs=[NewFunName]}) ->
                                   "="++NewFunName++"("++format_pars(FreeVars)++")")
                end
            end,
-           api_refac:start_end_loc(E@) == api_refac:start_end_loc(Exprs)
+           wrangler_misc:start_end_loc(E@) == wrangler_misc:start_end_loc(Exprs)
           ).
         
 %% Some utility functions.
@@ -138,8 +138,8 @@ format_pars_1([V|Vs]) ->
      io_lib:format("~s,", [V]) ++ format_pars_1(Vs).
 
 contains(Expr1, Expr2) ->
-     {Start1, End1} = api_refac:start_end_loc(Expr1),
-     {Start2, End2} = api_refac:start_end_loc(Expr2),
+     {Start1, End1} = wrangler_misc:start_end_loc(Expr1),
+     {Start2, End2} = wrangler_misc:start_end_loc(Expr2),
      (Start1 =< Start2) andalso (End2 =< End1).
 
              

@@ -495,7 +495,7 @@ generalise_and_hash_expr(ASTTab, {M, F, A}, StartLine,
     %% get the hash values of the generalised expression.
     HashVal = erlang:md5(format(E1)),
     %% the location here is relative location.
-    StartEndLoc = api_refac:start_end_loc(Expr),
+    StartEndLoc = wrangler_misc:start_end_loc(Expr),
     {HashVal, {StartIndex + RelativeIndex,
 	       NoOfToks, StartEndLoc, StartLine}}.
 
@@ -1424,7 +1424,7 @@ get_clone_class_in_absolute_locs({Ranges, {Len, Freq}, AntiUnifier}) ->
 
 get_vars_to_export(Es, {FName, FunName, Arity}, VarTab) ->
     AllVars = ets:lookup(VarTab, {FName, FunName, Arity}),
-    {_, EndLoc} = api_refac:start_end_loc(lists:last(Es)),
+    {_, EndLoc} = wrangler_misc:start_end_loc(lists:last(Es)),
     case AllVars of
 	[] -> [];
 	[{_, _, Vars}] ->

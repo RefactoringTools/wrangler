@@ -238,7 +238,7 @@ pos_to_pars(AnnAST, StartLoc, EndLoc) ->
 	    FunName = wrangler_syntax:data(wrangler_syntax:function_name(FunDef)),
 	    FunArity = wrangler_syntax:function_arity(FunDef),
 	    Cs = wrangler_syntax:function_clauses(FunDef),
-	    C = [C || C <- Cs, {StartLoc1, EndLoc1} <- [api_refac:start_end_loc(C)],
+	    C = [C || C <- Cs, {StartLoc1, EndLoc1} <- [wrangler_misc:start_end_loc(C)],
 		      StartLoc1 =< StartLoc, EndLoc =< EndLoc1],
 	    case C of
 		[] -> throw({error, "You have not selected a sequence parameters,"
@@ -247,12 +247,12 @@ pos_to_pars(AnnAST, StartLoc, EndLoc) ->
 		    Pars = wrangler_syntax:clause_patterns(C1),
 		    {Pars1, Pars2} = lists:splitwith(
 				       fun (P) ->
-					       {S, _E} = api_refac:start_end_loc(P),
+					       {S, _E} = wrangler_misc:start_end_loc(P),
 					       S < StartLoc
 				       end, Pars),
 		    {Pars21, _Pars22} = lists:splitwith(
 					  fun (P) ->
-						  {_S, E} = api_refac:start_end_loc(P),
+						  {_S, E} = wrangler_misc:start_end_loc(P),
 						  E =< EndLoc
 					  end, Pars2),
 		    case Pars21 of

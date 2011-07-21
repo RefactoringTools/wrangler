@@ -189,7 +189,7 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
           end,
     {Body1, Body2} = lists:splitwith(
                        fun(E) ->
-                               {Start, End} = api_refac:start_end_loc(E),
+                               {Start, End} = wrangler_misc:start_end_loc(E),
                                not (Start=<ExprPos andalso ExprPos=<End)
                        end, Body),
     NewBody =case Body2 of 
@@ -205,8 +205,8 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
                                  {[], []} ->
                                      [B1,wrangler_syntax:add_ann({layout, vertical}, B2)];
                                  {[], [B3|Bs1]} ->
-                                     {{BL, _}, _} = api_refac:start_end_loc(B),
-                                     {{B3L, _},_} = api_refac:start_end_loc(B3),
+                                     {{BL, _}, _} = wrangler_misc:start_end_loc(B),
+                                     {{B3L, _},_} = wrangler_misc:start_end_loc(B3),
                                      case BL==B3L of 
                                          true ->
                                              B21=wrangler_syntax:add_ann({layout, horizontal}, B2),
@@ -218,8 +218,8 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
                                              [B1, B21, B31|Bs1]
                                      end;
                                  {[B0|_], []} ->
-                                     {{B0L, _},_} =api_refac:start_end_loc(B0),
-                                     {{BL, _}, _} = api_refac:start_end_loc(B),
+                                     {{B0L, _},_} =wrangler_misc:start_end_loc(B0),
+                                     {{BL, _}, _} = wrangler_misc:start_end_loc(B),
                                      case B0L==BL of 
                                          true ->
                                      B21=wrangler_syntax:add_ann({layout, horizontal}, B2),
@@ -229,15 +229,15 @@ do_insert_and_replace(Node, Expr, NewVarName) ->
                                              Body1++[B1, B21]
                                      end;
                                  {[B0|_], [B3|Bs1]} ->
-                                     {{B0L, _},_} =api_refac:start_end_loc(B0),
-                                     {{BL, _}, _} = api_refac:start_end_loc(B),
+                                     {{B0L, _},_} =wrangler_misc:start_end_loc(B0),
+                                     {{BL, _}, _} = wrangler_misc:start_end_loc(B),
                                      B21= case B0L==BL of 
                                               true ->
                                           wrangler_syntax:add_ann({layout, horizontal}, B2);
                                               false->
                                                   wrangler_syntax:add_ann({layout, vertical}, B2)
                                           end,
-                                     {{B3L, _},_} = api_refac:start_end_loc(B3),
+                                     {{B3L, _},_} = wrangler_misc:start_end_loc(B3),
                                      case BL==B3L of 
                                          true ->
                                              B31=wrangler_syntax:add_ann({layout, horizontal}, B3),
@@ -300,8 +300,8 @@ get_inmost_enclosing_clause(Form, Expr) ->
 				     try_expr ->
 					 wrangler_syntax:try_expr_body(Node)
 				 end,
-			  {Start, _End} = api_refac:start_end_loc(hd(Body)),
-			  {_, End} = api_refac:start_end_loc(lists:last(Body)),
+			  {Start, _End} = wrangler_misc:start_end_loc(hd(Body)),
+			  {_, End} = wrangler_misc:start_end_loc(lists:last(Body)),
 			  case Start =< ExprPos andalso ExprPos =< End of
 			      true ->
 				  [{Node, End}| S];
@@ -332,8 +332,8 @@ get_inmost_enclosing_body_expr(Form, Expr) ->
 				     try_expr ->
 					 wrangler_syntax:try_expr_body(Node)
 				 end,
-			  {Start, _End} = api_refac:start_end_loc(hd(Body)),
-			  {_, End} = api_refac:start_end_loc(lists:last(Body)),
+			  {Start, _End} = wrangler_misc:start_end_loc(hd(Body)),
+			  {_, End} = wrangler_misc:start_end_loc(lists:last(Body)),
 			  case Start =< ExprPos andalso ExprPos =< End of
 			      true ->
 				  EnclosingExpr = get_enclosing_expr(Body, Expr),
@@ -355,7 +355,7 @@ get_inmost_enclosing_body_expr(Form, Expr) ->
 get_enclosing_expr(Body, Expr) ->
     ExprPos = wrangler_syntax:get_pos(Expr),
     Fun = fun (ExprStatement) ->
-		  {Start, End} = api_refac:start_end_loc(ExprStatement),
+		  {Start, End} = wrangler_misc:start_end_loc(ExprStatement),
 		  case Start =< ExprPos andalso  ExprPos =< End of
 		      true ->
 			  [ExprStatement];

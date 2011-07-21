@@ -209,7 +209,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
     F1 = fun (T) ->
 		 {T1, _} = api_ast_traverse:stop_tdTP(F0, T, []),
 		 HashVal = erlang:md5(format(T1)),
-		 {S, E} = api_refac:start_end_loc(T),
+		 {S, E} = wrangler_misc:start_end_loc(T),
 		 insert_hash(Pid, HashVal, {{FName, FunName, Arity}, S, E}),
 		 T1
 	 end,
@@ -218,7 +218,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
 	    Body = wrangler_syntax:clause_body(Node),
 	    [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
 	     || E <- Body,
-		{StartLoc, EndLoc} <- [api_refac:start_end_loc(E)]],
+		{StartLoc, EndLoc} <- [wrangler_misc:start_end_loc(E)]],
 	    insert_dummy_entry(Pid),
 	    _NewBody = [F1(E) || E <- Body],
 	    {Node, true};
@@ -227,7 +227,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
 	    Body = wrangler_syntax:block_expr_body(Node),
 	    [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
 	     || E <- Body,
-		{StartLoc, EndLoc} <- [api_refac:start_end_loc(E)]],
+		{StartLoc, EndLoc} <- [wrangler_misc:start_end_loc(E)]],
 	    _NewBody = [F1(E) || E <- Body],
 	    {Node, true};
 	try_expr ->
@@ -235,7 +235,7 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
 	    Body = wrangler_syntax:try_expr_body(Node),
 	    [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
 	     || E <- Body,
-		{StartLoc, EndLoc} <- [api_refac:start_end_loc(E)]],
+		{StartLoc, EndLoc} <- [wrangler_misc:start_end_loc(E)]],
 	    _NewBody = [F1(E) || E <- Body],
 	    {Node, true};
 	_ -> {Node, false}

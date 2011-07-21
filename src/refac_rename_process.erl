@@ -111,7 +111,7 @@ pos_to_process_name_1(Node, Pos) ->
     As = wrangler_syntax:get_ann(Node),
     case wrangler_syntax:type(Node) of
 	atom ->
-	    {Start, End} = api_refac:start_end_loc(Node),
+	    {Start, End} = wrangler_misc:start_end_loc(Node),
 	    case Start =< Pos andalso Pos =< End of
 		true ->
 		    case lists:keysearch(pname, 1, As) of
@@ -258,7 +258,7 @@ evaluate_expr(Files, ModName, AnnAST, FunDef, Expr) ->
 		    _ ->
 			FunName = wrangler_syntax:data(wrangler_syntax:function_name(FunDef)),
 			Arity = wrangler_syntax:function_arity(FunDef),
-			{StartPos, _} = api_refac:start_end_loc(Expr),
+			{StartPos, _} = wrangler_misc:start_end_loc(Expr),
 			{unknown, {ModName, FunName, Arity, StartPos}}
 		end
 	end,

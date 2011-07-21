@@ -2146,7 +2146,7 @@ get_end_loc(Node) ->
     {_, L} = get_start_end_loc(Node),
     L.
 get_start_end_loc(Node)->
-    api_refac:start_end_loc(Node).
+    wrangler_misc:start_end_loc(Node).
 
 get_start_line_with_comment(Node) ->
     {{L, _}, _} = wrangler_misc:get_start_end_loc_with_comment(Node),

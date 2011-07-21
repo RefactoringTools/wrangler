@@ -45,9 +45,10 @@
          delete_from_ann/2, max/2, min/2, 
          spawn_funs/0,is_spawn_app/1, 
          get_start_end_loc_with_comment/1,
+         start_end_loc/1,
          file_format/1, expand_files/2, 
          get_modules_by_file/1,
-         concat_toks/1, get_toks/1,
+         concat_toks/1, get_toks/1, tokenize/3,
          format_search_paths/1,
          modname_to_filename/2, funname_to_defpos/2,
          group_by/2,filehash/1,apply_style_funs/0,
@@ -67,6 +68,7 @@
 
 -export([test_framework_used/1]).
 
+-include("../include/wrangler_internal.hrl"). 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%-spec group_by(integer(), [tuple()]) -> [[tuple()]].
@@ -510,7 +512,7 @@ get_start_end_loc_with_comment(Node) when is_list(Node) ->
     {_, End} = get_start_end_loc_with_comment(lists:last(Node)),
     {Start, End};
 get_start_end_loc_with_comment(Node) ->
-    {Start={_StartLn, StartCol}, End} = api_refac:start_end_loc(Node),
+    {Start={_StartLn, StartCol}, End} = start_end_loc(Node),
     PreCs = wrangler_syntax:get_precomments(Node),
     PostCs = wrangler_syntax:get_postcomments(Node),
     Start1 = case PreCs of
@@ -625,8 +627,8 @@ try_eval(FileName, Node, SearchPaths, TabWidth) ->
 %%-spec get_toks(filename(), syntaxTree(), integer()) ->
 %%		      [token()].
 get_toks(FileName, Node, TabWidth) ->
-    Toks = api_refac:tokenize(FileName, false, TabWidth),
-    {StartPos, EndPos} = api_refac:start_end_loc(Node),
+    Toks = tokenize(FileName, false, TabWidth),
+    {StartPos, EndPos} = start_end_loc(Node),
     Toks1 = lists:dropwhile(fun (T) ->
 				    token_loc(T) < StartPos
 			    end, Toks),
@@ -634,6 +636,26 @@ get_toks(FileName, Node, TabWidth) ->
 			    token_loc(T) =< EndPos
 		    end, Toks1).
 
+-spec(tokenize(File::filename(), WithLayout::boolean(), TabWidth::integer()) 
+      -> [token()]|{error, term()}).
+tokenize(File, WithLayout, TabWidth) ->
+    case file:read_file(File) of
+	{ok, Bin} ->
+	    S = erlang:binary_to_list(Bin),
+	    case WithLayout of 
+		true -> 
+		    {ok, Ts, _} = wrangler_scan_with_layout:string(
+                                       S, {1,1}, TabWidth,
+                                       wrangler_misc:file_format(File)),
+		    Ts;
+		_ -> {ok, Ts, _} = wrangler_scan:string(
+                                        S, {1,1}, TabWidth,
+                                        wrangler_misc:file_format(File)),
+		     Ts
+	    end;
+	{error, Reason} ->
+            {error, Reason}
+    end.
 token_loc(T) ->
     case T of
       {_, L, _V} -> L;
@@ -833,4 +855,29 @@ is_literal(Node) ->
         string -> true;
         nil -> true;
         _ -> false
+    end.
+ 
+
+%% ====================================================================
+%%@doc Returns the start and end locations of an AST node or a sequence 
+%%     of AST node. {{0,0},{0,0}} is returned if the AST nodes are not 
+%%     annotated with location information.
+%%@spec start_end_loc([syntaxTree()]|syntaxTree()) ->{pos(), pos()}
+-spec start_end_loc([syntaxTree()]|syntaxTree()) ->{pos(), pos()}.
+start_end_loc(Exprs) when is_list(Exprs) ->
+    E1 = hd(Exprs),
+    En = lists:last(Exprs),
+    {S, _E} = get_range(E1),
+    {_S, E} = get_range(En),
+    {S, E};
+start_end_loc(Expr) ->
+    get_range(Expr).
+
+get_range(Node) ->
+    As = wrangler_syntax:get_ann(Node),
+    case lists:keysearch(range, 1, As) of
+	{value, {range, {S, E}}} -> 
+            {S, E};
+	_ -> 
+            {?DEFAULT_LOC,?DEFAULT_LOC} 
     end.

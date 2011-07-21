@@ -66,7 +66,7 @@ forward_slice_1(Files, AnnAST, ModName, {FunDef, Expr}) ->
     FunClauses = wrangler_syntax:function_clauses(FunDef),
     NewFunClauses = [process_a_clause(Files, AnnAST, ModName, FunName1, Arity, C, Expr)||C<-FunClauses],
     NewFunDef = wrangler_syntax:copy_attrs(FunDef, wrangler_syntax:function(FunName, NewFunClauses)),
-    sliced_funs ! {add, {{ModName, FunName1, Arity, api_refac:start_end_loc(Expr)}, NewFunDef}},
+    sliced_funs ! {add, {{ModName, FunName1, Arity, wrangler_misc:start_end_loc(Expr)}, NewFunDef}},
     case returns_undefined(NewFunDef) of
 	true ->    %% None of the variables depending on the selected expression is exported.
 	    get_all_sliced_funs();
@@ -184,8 +184,8 @@ rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, [E| Exprs], Expr, Var
 			     true ->
 				 [E2| rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, lists:sort(Vars ++ api_refac:exported_vars(E2)))];
 			     _ ->
-				 {Start1, End1} = api_refac:start_end_loc(Expr),
-				 {Start2, End2} = api_refac:start_end_loc(E2),
+				 {Start1, End1} = wrangler_misc:start_end_loc(Expr),
+				 {Start2, End2} = wrangler_misc:start_end_loc(E2),
 				 case Start2 =< Start1 andalso End1 =< End2 of
 				     true -> [E2| rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, lists:sort(Vars ++ api_refac:exported_vars(E2)))];
 				     _ -> case Exprs of
@@ -195,8 +195,8 @@ rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, [E| Exprs], Expr, Var
 				 end
 			 end;
 		     _ ->
-			 {Start1, End1} = api_refac:start_end_loc(Expr),
-			 {Start2, End2} = api_refac:start_end_loc(E),
+			 {Start1, End1} = wrangler_misc:start_end_loc(Expr),
+			 {Start2, End2} = wrangler_misc:start_end_loc(E),
 			 case Start2 =< Start1 andalso End1 =< End2 of
 			     true -> [E| rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, lists:sort(Vars ++ api_refac:exported_vars(E)))];
 			     _ -> rm_unrelated_exprs(Files, AnnAST, ModName, FunName, Arity, Exprs, Expr, Vars)
@@ -453,10 +453,10 @@ unfold_fun_defs(_Files, AnnAST, ModName, FunDef %% How about recursive functions
 %% backward slice within a single function.
 backward_slice(Expr, FunDef) ->
     FunName = wrangler_syntax:function_name(FunDef),
-    {S, E} = api_refac:start_end_loc(Expr),
+    {S, E} = wrangler_misc:start_end_loc(Expr),
     FunClauses = wrangler_syntax:function_clauses(FunDef),
     Pred = fun (Node) ->
-		   {StartPos, EndPos} = api_refac:start_end_loc(Node),
+		   {StartPos, EndPos} = wrangler_misc:start_end_loc(Node),
 		   S >= StartPos andalso E =< EndPos
 	   end,
     %% Get the function clause to which the expression belongs.
@@ -506,12 +506,12 @@ process_a_clause(C, Expr) ->
 %% If Expr belongs to Body, then remove those expressions that will be evaluated after Expr, since 
 %% those expressions do not contribute to the value of Expr.
 process_body(Body, Expr) ->
-    {S, E} = api_refac:start_end_loc(Expr),
+    {S, E} = wrangler_misc:start_end_loc(Expr),
     FreeVars = api_refac:free_vars(Expr),
     FstExp = hd(Body),
     LstExp = lists:last(Body),
-    {S1, _} = api_refac:start_end_loc(FstExp),
-    {_, E1} = api_refac:start_end_loc(LstExp),
+    {S1, _} = wrangler_misc:start_end_loc(FstExp),
+    {_, E1} = wrangler_misc:start_end_loc(LstExp),
     case S1 =< S andalso E =< E1 of
 	true ->
 	    %% Expr is part of body.
@@ -521,12 +521,12 @@ process_body(Body, Expr) ->
 		    FreeVarDefLocs = lists:map(fun ({_V, DefLoc}) -> DefLoc end, FreeVars),
 		    LastLoc = lists:last(lists:sort(FreeVarDefLocs)),
 		    Exprs1 = lists:takewhile(fun (BodyExpr) ->
-						     {StartPos, EndPos} = api_refac:start_end_loc(BodyExpr),
+						     {StartPos, EndPos} = wrangler_misc:start_end_loc(BodyExpr),
 						     (EndPos =< S) or (S >= StartPos andalso E =< EndPos)
 					     end,
 					     Body),
 		    LastExpr1 = lists:last(Exprs1), %% The expression that contains Expr.
-		    {LastExprStartPos, _} = api_refac:start_end_loc(LastExpr1),
+		    {LastExprStartPos, _} = wrangler_misc:start_end_loc(LastExpr1),
 		    LastExpr = case LastLoc >= LastExprStartPos of
 				   false -> Expr;  %% The last expr does not declare any free vars of Expr
 				   true -> %% some of the free vars in Expr are introduced in the LastExpr1.

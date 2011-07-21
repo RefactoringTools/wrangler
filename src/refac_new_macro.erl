@@ -109,10 +109,10 @@ do_intro_new_macro(AnnAST, MacroName, SelExpList, NeedBracket) ->
     {Forms1, Forms2} = lists:splitwith(fun (F) -> wrangler_syntax:type(F) == attribute orelse
 						    wrangler_syntax:type(F) == comment
 				       end, Forms),
-    {S1, E1} = api_refac:start_end_loc(SelExpList),
+    {S1, E1} = wrangler_misc:start_end_loc(SelExpList),
     MApp = mk_macro_app(MName, Args),
     Fun = fun (F) ->
-		  {S, E} = api_refac:start_end_loc(F),
+		  {S, E} = wrangler_misc:start_end_loc(F),
 		  case (S =< S1) and (E1 =< E) of
 		      true -> replace_expr_with_macro(F, {SelExpList, S1, E1}, MApp);
 		      _ -> F
@@ -158,7 +158,7 @@ replace_expr_with_macro(Form, {ExpList, SLoc, ELoc}, MApp) ->
     end.
 
 replace_single_expr_with_macro_app(Tree, {MApp, SLoc, ELoc}) ->
-    case api_refac:start_end_loc(Tree) of
+    case wrangler_misc:start_end_loc(Tree) of
 	{SLoc, ELoc} ->
 	    {wrangler_misc:rewrite_with_wrapper(Tree, MApp), true};
 	_ -> {Tree, false}
@@ -209,7 +209,7 @@ replace_expr_list_with_macro_app(Tree, {MApp, SLoc, ELoc}) ->
 process_exprs(Exprs, {MApp, SLoc, ELoc}) ->
     {Exprs1, Exprs2} = lists:splitwith(
                          fun (E) ->
-                                 {SLoc1, _} = api_refac:start_end_loc(E),
+                                 {SLoc1, _} = wrangler_misc:start_end_loc(E),
                                  SLoc1 =/= SLoc
                          end, Exprs),
     case Exprs2 of
@@ -217,7 +217,7 @@ process_exprs(Exprs, {MApp, SLoc, ELoc}) ->
 	_ -> {Exprs21, Exprs22} = 
                  lists:splitwith(
                    fun (E) ->
-                           {_, ELoc1} = api_refac:start_end_loc(E),
+                           {_, ELoc1} = wrangler_misc:start_end_loc(E),
                            ELoc1 =/= ELoc
                    end, Exprs2),
 	     case Exprs22 of
@@ -240,7 +240,7 @@ existing_macros(FileName, SearchPaths, TabWidth) ->
 need_bracket(Toks, Exprs) ->
     case Exprs of
 	[E] ->
-	    {Start, End} = api_refac:start_end_loc(E),
+	    {Start, End} = wrangler_misc:start_end_loc(E),
 	    Toks1 = lists:reverse(lists:takewhile(
 				    fun (B) ->
 					    element(2, B) =/= Start

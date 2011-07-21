@@ -170,7 +170,7 @@ pos_to_form_1(Node, Pos) ->
 	   orelse wrangler_syntax:type(Node) == attribute
 	of
 	true ->
-	    {S, E} = api_refac:start_end_loc(Node),
+	    {S, E} = wrangler_misc:start_end_loc(Node),
 	    if (S =< Pos) and (Pos =< E) ->
 		   {Node, true};
 	       true -> {[], false}

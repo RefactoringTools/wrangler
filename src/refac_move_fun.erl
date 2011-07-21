@@ -1439,7 +1439,7 @@ pos_to_export(AnnAST, Pos) ->
     Forms = wrangler_syntax:form_list_elements(AnnAST),
     Fs = [F || F <- Forms,
 	       is_export_attribute(F),
-	       {Start, End} <- [api_refac:start_end_loc(F)],
+	       {Start, End} <- [wrangler_misc:start_end_loc(F)],
 	       Start=<Pos,
 	       End>=Pos],
     case Fs of

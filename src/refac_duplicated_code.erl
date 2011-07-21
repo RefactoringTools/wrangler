@@ -336,8 +336,8 @@ process_a_file(File, Cs, MinLength, TabWidth) ->
 	NewRanges <- [lists:map(Fun1, Range)], NewRanges /= []].
 
 process_a_unit(VarsUsed, FileName, Unit) ->
-    {{StartLn, StartCol}, _} = api_refac:start_end_loc(hd(Unit)),
-    {_, {EndLn, EndCol}} = api_refac:start_end_loc(lists:last(Unit)),
+    {{StartLn, StartCol}, _} = wrangler_misc:start_end_loc(hd(Unit)),
+    {_, {EndLn, EndCol}} = wrangler_misc:start_end_loc(lists:last(Unit)),
     BdStruct = wrangler_code_search_utils:var_binding_structure(Unit),
     Range = {{FileName, StartLn, StartCol}, {FileName, EndLn, EndCol}},
     ExprBdVarsPos = [Pos || {_Var, Pos} <- api_refac:bound_vars(Unit)],
@@ -360,7 +360,7 @@ pos_to_syntax_units_1(Tree, Start, End, F, Type) ->
 		  [[lists:append(pos_to_syntax_units_1(T, Start, End, F, Type1)) || T <- G]
 		   || G <- Ts]
 	  end,
-    {S, E} = api_refac:start_end_loc(Tree),
+    {S, E} = wrangler_misc:start_end_loc(Tree),
     if (S >= Start) and (E =< End) ->
 	   case F(Tree) of
 	       true ->

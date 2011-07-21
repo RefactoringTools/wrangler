@@ -270,8 +270,8 @@ gen_fun_clause_1(FileName, ParName, FunName, _Arity, DefPos, Exp0, SearchPaths, 
 				Cs = wrangler_syntax:function_clauses(Form),
 				Cs1 = [replace_clause_body(C, FunName, Exp, Exp1) || C <- Cs],
 				Form1 = wrangler_misc:rewrite(Form, wrangler_syntax:function(wrangler_syntax:atom(FunName), Cs1)),
-				ClauseToGen = hd(lists:filter(fun (C) -> {EStart, EEnd} = api_refac:start_end_loc(Exp),
-									 {CStart, CEnd} = api_refac:start_end_loc(C),
+				ClauseToGen = hd(lists:filter(fun (C) -> {EStart, EEnd} = wrangler_misc:start_end_loc(Exp),
+									 {CStart, CEnd} = wrangler_misc:start_end_loc(C),
 									 CStart =< EStart andalso EEnd =< CEnd
 							      end, Cs)),
 				ClauseToGen1 = replace_exp_with_var(ClauseToGen, {ParName, Exp, SideEffect, Dups}),
@@ -445,8 +445,8 @@ do_gen_fun(Tree, {FileName, ParName, FunName, Arity, DefPos, Info, Exp,
     end.
 
 replace_clause_body(C, FunName, Exp, ActualPar) ->
-    {EStart, EEnd} = api_refac:start_end_loc(Exp),
-    {CStart, CEnd} = api_refac:start_end_loc(C),
+    {EStart, EEnd} = wrangler_misc:start_end_loc(Exp),
+    {CStart, CEnd} = wrangler_misc:start_end_loc(C),
     case CStart =< EStart andalso EEnd =< CEnd of
 	true ->
 	    Pats = wrangler_syntax:clause_patterns(C),
@@ -465,8 +465,8 @@ replace_exp_with_var(Tree, {ParName, Exp, SideEffect, Dups}) ->
     Tree1.
 
 do_replace_exp_with_var(Tree, {ParName, Exp, SideEffect, Dups}) ->
-    Range = api_refac:start_end_loc(Exp),
-    case lists:member(api_refac:start_end_loc(Tree), [Range| Dups]) of
+    Range = wrangler_misc:start_end_loc(Exp),
+    case lists:member(wrangler_misc:start_end_loc(Tree), [Range| Dups]) of
 	true ->
 	    FreeVars = [V || {V, _} <- api_refac:free_vars(Exp)],
 	    Pars = [wrangler_syntax:variable(P) || P <- FreeVars],
@@ -766,8 +766,8 @@ get_module_name(ModInfo) ->
 
 expr_to_fun_clause(FunDef, Expr) ->
     Cs = wrangler_syntax:function_clauses(FunDef),
-    {EStart, EEnd} = api_refac:start_end_loc(Expr),
-    Res = [C || C <- Cs, {CStart, CEnd} <- [api_refac:start_end_loc(C)],
+    {EStart, EEnd} = wrangler_misc:start_end_loc(Expr),
+    Res = [C || C <- Cs, {CStart, CEnd} <- [wrangler_misc:start_end_loc(C)],
 		CStart =< EStart, EEnd =< CEnd],
     case Res of
 	[] ->
@@ -796,7 +796,7 @@ search_duplications(Tree, Exp) ->
     case wrangler_syntax:is_literal(Exp) of
 	true ->
 	    Es = lists:reverse(api_ast_traverse:fold(F, [], Tree)),
-	    [api_refac:start_end_loc(E) || E <- Es];
+	    [wrangler_misc:start_end_loc(E) || E <- Es];
 	_ -> []
     end.
 	

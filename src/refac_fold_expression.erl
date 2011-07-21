@@ -711,7 +711,7 @@ get_start_end_locations(E) when is_list(E) ->
     {_SLoc2, ELoc2} = get_start_end_locations(lists:last(E)),
     {SLoc1, ELoc2};
 get_start_end_locations(E) ->
-    api_refac:start_end_loc(E).
+    wrangler_misc:start_end_loc(E).
 
 term_to_list(Term) ->
     binary_to_list(term_to_binary(Term)).

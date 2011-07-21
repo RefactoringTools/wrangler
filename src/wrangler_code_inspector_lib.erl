@@ -54,7 +54,7 @@ find_var_instances(FName, Line, Col, SearchPaths, TabWidth) ->
 				   variable ->
 				       case lists:keysearch(def, 1, wrangler_syntax:get_ann(T)) of
 					   {value, {def, DefinePos}} ->
-					       Range = api_refac:start_end_loc(T),
+					       Range = wrangler_misc:start_end_loc(T),
 					       [Range| S];
 					   _ -> S
 				       end;
@@ -89,7 +89,7 @@ nested_exprs_1(FName, NestLevel, ExprType, SearchPaths, TabWidth) ->
 			  Fun1 = fun (Node, S1) ->
 					 case wrangler_syntax:type(Node) of
 					     ExprType1 ->
-						 Range = api_refac:start_end_loc(Node),
+						 Range = wrangler_misc:start_end_loc(Node),
 						 [{ModName, FunName, Arity, Range}| S1];
 					     _ -> S1
 					 end
@@ -398,7 +398,7 @@ check_candidate_scc(FunDef, Scc, Line) ->
 	end,
     F1 = fun (Es) ->
 		 F11 = fun (E) ->
-			       {_, {EndLine, _}} = api_refac:start_end_loc(E),
+			       {_, {EndLine, _}} = wrangler_misc:start_end_loc(E),
 			       case EndLine >= Line of
 				   true ->
 				       CalledFuns = wrangler_callgraph_server:called_funs(E),
@@ -485,7 +485,7 @@ is_server(_FileName, _Info, FunDef, Scc, Line) ->
 		end
 	end,
     F1 = fun (E) ->
-		 {_, {EndLine, _}} = api_refac:start_end_loc(E),
+		 {_, {EndLine, _}} = wrangler_misc:start_end_loc(E),
 		 case EndLine >= Line of
 		     true ->
 			 CalledFuns = wrangler_callgraph_server:called_funs(E),
@@ -553,7 +553,7 @@ has_receive_expr(FunDef) ->
     F = fun (T, S) ->
 		case wrangler_syntax:type(T) of
 		    receive_expr ->
-			{{StartLine, _}, _} = api_refac:start_end_loc(T),
+			{{StartLine, _}, _} = wrangler_misc:start_end_loc(T),
 			[StartLine| S];
 		    _ -> S
 		end

@@ -316,7 +316,7 @@
          bound_var_names/1,
          free_vars/1,
          free_var_names/1,
-         var_refs/1,
+         var_refs/1, 
          start_end_loc/1,
          syntax_context/1,
          syntax_category/1,
@@ -358,31 +358,7 @@
          search_and_transform/3,
          search_and_collect/3]).
         
--include("../include/wrangler_internal.hrl"). 
-
-%% ====================================================================
-%%@doc Returns the start and end locations of an AST node or a sequence 
-%%     of AST node. {{0,0},{0,0}} is returned if the AST nodes are not 
-%%     annotated with location information.
-%%@spec start_end_loc([syntaxTree()]|syntaxTree()) ->{pos(), pos()}
--spec start_end_loc([syntaxTree()]|syntaxTree()) ->{pos(), pos()}.
-start_end_loc(Exprs) when is_list(Exprs) ->
-    E1 = hd(Exprs),
-    En = lists:last(Exprs),
-    {S, _E} = get_range(E1),
-    {_S, E} = get_range(En),
-    {S, E};
-start_end_loc(Expr) ->
-    get_range(Expr).
-
-get_range(Node) ->
-    As = wrangler_syntax:get_ann(Node),
-    case lists:keysearch(range, 1, As) of
-	{value, {range, {S, E}}} -> 
-            {S, E};
-	_ -> 
-            {?DEFAULT_LOC,?DEFAULT_LOC} 
-    end.
+-include("../include/wrangler_internal.hrl").
 
 %% ======================================================================
 %% @doc Generates a new name by appending "_1" to the end of the 'BaseName'
@@ -465,12 +441,12 @@ env_var_names(Node) ->
 
 -spec(exported_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
 exported_vars(Nodes) when is_list(Nodes) ->
-    Range = start_end_loc(Nodes),
+    Range = wrangler_misc:start_end_loc(Nodes),
     lists:flatmap(fun (Node) -> 
                           exported_vars_1(Node, Range)
                   end, Nodes);
 exported_vars(Node) ->
-    Range = start_end_loc(Node),
+    Range = wrangler_misc:start_end_loc(Node),
     exported_vars_1(Node, Range).
 
 exported_vars_1(Node, {StartLoc, EndLoc}) ->
@@ -825,24 +801,7 @@ is_import(Node, ModName) ->
 -spec(tokenize(File::filename(), WithLayout::boolean(), TabWidth::integer()) 
       -> [token()]|{error, term()}).
 tokenize(File, WithLayout, TabWidth) ->
-    case file:read_file(File) of
-	{ok, Bin} ->
-	    S = erlang:binary_to_list(Bin),
-	    case WithLayout of 
-		true -> 
-		    {ok, Ts, _} = wrangler_scan_with_layout:string(
-                                       S, {1,1}, TabWidth,
-                                       wrangler_misc:file_format(File)),
-		    Ts;
-		_ -> {ok, Ts, _} = wrangler_scan:string(
-                                        S, {1,1}, TabWidth,
-                                        wrangler_misc:file_format(File)),
-		     Ts
-	    end;
-	{error, Reason} ->
-            {error, Reason}
-    end.
-
+    wrangler_misc:tokenize(File, WithLayout, TabWidth).
 
 %% =====================================================================
 %% @doc Returns the define location of the variable represented by `Node'; 
@@ -1369,7 +1328,7 @@ search_and_transform_4(File,Rules,Tree,Fun,Selective) ->
                     {true, NewExprAfter} ->
                         case Selective of
                             true ->
-                                {{SLn, SCol}, {ELn, ECol}}=api_refac:start_end_loc(Node),
+                                {{SLn, SCol}, {ELn, ECol}}=wrangler_misc:start_end_loc(Node),
                                 MD5 = erlang:md5(wrangler_prettypr:format(Node)),
                                 ChangeCand={{File, SLn, SCol, ELn, ECol, MD5},
                                             wrangler_prettypr:format(NewExprAfter)},
@@ -1380,7 +1339,7 @@ search_and_transform_4(File,Rules,Tree,Fun,Selective) ->
                             false ->
                                 {NewExprAfter, true};
                             {false, CandsNotToChange} ->
-                                {{SLn, SCol}, {ELn, ECol}}=api_refac:start_end_loc(Node),
+                                {{SLn, SCol}, {ELn, ECol}}=wrangler_misc:start_end_loc(Node),
                                 MD5 =erlang:md5(wrangler_prettypr:format(Node)),
                                 Key ={File, SLn, SCol, ELn, ECol, MD5},
                                 case lists:keysearch(Key,1,CandsNotToChange) of
@@ -2199,3 +2158,7 @@ check_collectors(_Collectors) ->
     throw({error, "The first argument of a TU traverse "
            "strategy can only be a list of collectors."}).
         
+
+-spec start_end_loc([syntaxTree()]|syntaxTree()) ->{pos(), pos()}.
+start_end_loc(Tree) ->
+    wrangler_misc:start_end_loc(Tree).

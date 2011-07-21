@@ -70,7 +70,7 @@ pos_to_node_1(Node, Pos, Pred) ->
 pos_to_node_2(Node, {Pos, Pred}) ->
     case Pred(Node) of
 	true ->
-	    {S, E} = api_refac:start_end_loc(Node),
+	    {S, E} = wrangler_misc:start_end_loc(Node),
 	    if (S =< Pos) and (Pos =< E) ->
                     {Node, true};
 	       true -> {[], false}
@@ -107,7 +107,7 @@ range_to_node_1(Tree, {Start, End}, Pred) ->
     end.
 
 range_to_node_2(Tree, {Start, End}, Pred) ->
-    {S, E} = api_refac:start_end_loc(Tree),
+    {S, E} = wrangler_misc:start_end_loc(Tree),
     if (S >= Start) and (E =< End) ->
             case Pred(Tree) of
                 true ->
@@ -203,7 +203,7 @@ pos_to_fun_def_1(Node, Pos) ->
 pos_to_fun_def_2(Node, Pos) ->
     case wrangler_syntax:type(Node) of
 	function ->
-	    {S, E} = api_refac:start_end_loc(Node),
+	    {S, E} = wrangler_misc:start_end_loc(Node),
 	    if (S =< Pos) and (Pos =< E) ->
 		   {Node, true};
 	       true -> {[], false}
@@ -320,7 +320,7 @@ pos_to_expr(Tree, Start, End) ->
     end.
 
 pos_to_expr_1(Tree, Start, End) ->
-    {S, E} = api_refac:start_end_loc(Tree),
+    {S, E} = wrangler_misc:start_end_loc(Tree),
     if (S >= Start) and (E =< End) ->
 	   case api_refac:is_expr(Tree) of
 	       true ->
@@ -367,7 +367,7 @@ pos_to_expr_list(FileOrTree, Start, End) ->
 pos_to_expr_list_1(Tree, Start, End, F) ->
     case is_tree(Tree) of 
         true ->
-            {S, E} = api_refac:start_end_loc(Tree),
+            {S, E} = wrangler_misc:start_end_loc(Tree),
             if (S >= Start) and (E =< End) ->
                     case F(Tree) of
                         true ->
@@ -435,8 +435,8 @@ expr_to_fun(Tree, Exp) ->
     end.
 
 expr_to_fun_1(Tree, Exp) ->
-    {Start, End} = api_refac:start_end_loc(Exp),
-    {S, E} = api_refac:start_end_loc(Tree),
+    {Start, End} = wrangler_misc:start_end_loc(Exp),
+    {S, E} = wrangler_misc:start_end_loc(Tree),
     if (S < Start) and (E >= End) ->
 	   case wrangler_syntax:type(Tree) of
 	       function -> [Tree];

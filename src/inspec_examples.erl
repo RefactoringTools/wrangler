@@ -124,7 +124,7 @@ top_level_if(_Args=#args{search_paths=SearchPaths})->
 append_two_lists(input_par_prompts) -> [];
 append_two_lists(_Args=#args{search_paths=SearchPaths}) ->
     ?STOP_TD_TU([?COLLECT(?T("F@(L1@, L2@)"), 
-                          {_File@, api_refac:start_end_loc(_This@)},
+                          {_File@, wrangler_misc:start_end_loc(_This@)},
                           {lists, append, 2} == api_refac:fun_define_info(F@))],
                 SearchPaths). 
 
@@ -166,7 +166,7 @@ unnecessary_match(input_par_prompts) ->[];
 %% that the location information is mouse clickable. 
 unnecessary_match(_Args=#args{search_paths=SearchPaths}) ->
     ?FULL_TD_TU([?COLLECT(?T("Body@@, V@=Expr@, V@"), 
-                          {_File@, api_refac:start_end_loc(lists:nthtail(length(Body@@), _This@))},
+                          {_File@, wrangler_misc:start_end_loc(lists:nthtail(length(Body@@), _This@))},
                           api_refac:type(V@) == variable)],
                 SearchPaths).
 
@@ -191,7 +191,7 @@ is_non_tail_recursive(FunDef) ->
                   LastApps=collect_last_apps(Last, MFA),
                   SimpleExprs=collect_simple_exprs(Last),
                   EnclosedApps=apps_enclosed_in_simple_exprs(LastApps,SimpleExprs),
-                  LastExprLoc=api_refac:start_end_loc(Last),
+                  LastExprLoc=wrangler_misc:start_end_loc(Last),
                   AllApps /= [] andalso (AllApps--[LastExprLoc]/= LastApps 
                                          orelse EnclosedApps /= [])
          end,
@@ -208,7 +208,7 @@ is_non_tail_recursive(FunDef) ->
 %% a specific function.
 collect_apps(FunDef, MFA) ->
     ?FULL_TD_TU([?COLLECT(?T("F@(Args@@)"),
-                          api_refac:start_end_loc(_This@),
+                          wrangler_misc:start_end_loc(_This@),
                           fun_define_info(F@) == MFA)],
                  FunDef).
 
@@ -216,7 +216,7 @@ collect_apps(FunDef, MFA) ->
 %% are function applications.
 collect_last_apps(Last, MFA) ->
     ?FULL_TD_TU([?COLLECT(?T("Body@@, F@(Args@@)"),
-                          api_refac:start_end_loc(lists:last(_This@)),
+                          wrangler_misc:start_end_loc(lists:last(_This@)),
                           fun_define_info(F@)==MFA
                          )],
                 Last).
@@ -224,7 +224,7 @@ collect_last_apps(Last, MFA) ->
 %% is not a `case'/`if'/`receive'/`block'/'parentheses' expression.
 collect_simple_exprs(LastExpr) ->
     ?FULL_TD_TU([?COLLECT(?T("E@"),
-                          api_refac:start_end_loc(E@),
+                          wrangler_misc:start_end_loc(E@),
                           api_refac:is_expr(E@) andalso
                           not (lists:member(api_refac:type(E@),
                                             [case_expr, receive_expr, 
@@ -307,7 +307,7 @@ test4(_Args=#args{search_paths=SearchPaths}) ->
                          Pats@@@ when Guards@@@ ->
                              Body@@@
                     end"),
-                          {_File@, api_refac:start_end_loc(_This@)},
+                          {_File@, wrangler_misc:start_end_loc(_This@)},
                           true),
                  ?COLLECT(?T("f@(Args@@) when Guard@@ ->Body@."), 
                           api_refac:fun_define_info(f@),
