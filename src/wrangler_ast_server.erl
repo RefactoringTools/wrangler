@@ -406,7 +406,7 @@ merge_module_info(Info1, _Info2) ->
     [{A,V}||{A, V}<-NewInfo, V=/=[]].
 
 annotate_bindings(FName, AST, Info, Ms, TabWidth) ->
-    Toks = api_refac:tokenize(FName, true, TabWidth),
+    Toks = wrangler_misc:tokenize(FName, true, TabWidth),
     AnnAST0 = wrangler_syntax_lib:annotate_bindings(add_token_and_ranges(AST, Toks), ordsets:new(), Ms),
     Comments = wrangler_comment_scan:file(FName, TabWidth),
     AnnAST1= wrangler_recomment:recomment_forms(AnnAST0, Comments),
