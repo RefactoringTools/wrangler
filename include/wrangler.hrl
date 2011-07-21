@@ -25,14 +25,12 @@
 -type(functionname()::atom()).
 -type(functionarity()::integer()).
 -type(dir()::string()).
--type (syntaxTree() :: {tree, any(), any(), any()}| {wrapper, any(), any(), any()}).
-%% -type(syntaxTree()::any()).    %% any() should be refined.
+-type(syntaxTree() :: {tree, any(), any(), any()}| {wrapper, any(), any(), any()}).
 -type(pos()::{integer(), integer()}).
 -type(line()::integer()).
 -type(col()::integer()).
 -type(key():: attributes | errors | exports | functions | imports | module_imports | module | records | rules | warnings).
--type(moduleInfo()::[{key(), any()}]). 
--type(module_info()::[{key(), any()}]).
+-type(module_info()::[{key(), any()}]). 
 -type(anyterm()::any()).
 -type(editor()::emacs|eclipse).
 -type(whitespace() :: '\t' | '\n' | ' ').
@@ -49,52 +47,52 @@
 -define(EMACS, true).
 
 -ifdef(EMACS).
--define(wrangler_io(__String, __Args),refac_io:format(__String, __Args)).
+-define(wrangler_io(__String, __Args),wrangler_io:format(__String, __Args)).
 -else.
 -define(wrangler_io(__String, __Args), ok).
 -endif.
 
 -define(RULE(Before, After, Cond),
         fun()->
-                refac_api:check_collect_template(Before, '?RULE'),
+                api_refac:check_collect_template(Before, '?RULE'),
                 {rule, fun(_W_Node_) ->
                                _W_NewCond=fun(_W_Bind_) -> 
-                                                  refac_api:make_cond(Cond, _W_Bind_)
+                                                  api_refac:make_cond(Cond, _W_Bind_)
                                           end,
-                               case refac_api:match(Before, _W_Node_, _W_NewCond) of
+                               case api_refac:match(Before, _W_Node_, _W_NewCond) of
                                    {true, _W_Bind1_} ->
                                        _This@=_W_Node_,
-                                       refac_api:generate_bindings(Before, '_W_Bind1_'),
+                                       api_refac:generate_bindings(Before, '_W_Bind1_'),
                                        _W_After=fun()-> After end(),
-                                       {refac_misc:reset_pos_and_range(_W_After), true};
+                                       {wrangler_misc:reset_pos_and_range(_W_After), true};
                                    false ->{_W_Node_, false}
                                end 
                        end,Before}
         end()).
 
 
--define(T(Template), refac_api:template(Template)).
+-define(T(Template), api_refac:template(Template)).
  
--define(QUOTE(Str), refac_api:quote(Str)).
+-define(QUOTE(Str), api_refac:quote(Str)).
 
--define(SPLICE(Node), refac_api:splice(Node)).
+-define(SPLICE(Node), api_refac:splice(Node)).
 
 -define(COLLECT(Temp,Collector, Cond),
         fun()->
-                refac_api:check_collect_template(Temp, 'COLLECT'),
+                api_refac:check_collect_template(Temp, 'COLLECT'),
                 {collector, fun(_W_File_,_W_Node_) -> 
                                     _W_NewCond_=fun(_W_Bind_) -> 
                                                         _This@=_W_Node_, 
                                                         _File@=_W_File_,
-                                                        refac_api:make_cond(Cond, _W_Bind_) 
+                                                        api_refac:make_cond(Cond, _W_Bind_)
                                                 end,
-                                    case refac_api:match(Temp, _W_Node_, _W_NewCond_) of
+                                    case api_refac:match(Temp, _W_Node_, _W_NewCond_) of
                                         {true, _W_Bind1_} ->
                                             _This@=_W_Node_, 
                                             _File@=_W_File_,
-                                            refac_api:generate_bindings(Temp, '_W_Bind1_'),
+                                            api_refac:generate_bindings(Temp, '_W_Bind1_'),
                                             _W_NewCollector_=fun() ->
-                                                                     refac_api:expand_collector(Collector)
+                                                                     api_refac:expand_collector(Collector)
                                                              end,
                                             {_W_NewCollector_(), true};
                                         false ->
@@ -107,39 +105,39 @@
 
 -define(COLLECT_LOC(Temp, Cond),
           fun()->
-                refac_api:check_collect_template(Temp, 'COLLECT'),
-                  {collector, fun(_W_File_,_W_Node_) -> 
-                                      _W_NewCond_=fun(_W_Bind_) -> 
-                                                          _This@=_W_Node_, 
-                                                          _File@=_W_File_,
-                                                          refac_api:make_cond(Cond, _W_Bind_) 
-                                                  end,
-                                      case  refac_api:match(Temp, _W_Node_, _W_NewCond_) of
-                                          {true, _W_Bind1_} ->
-                                              _This@=_W_Node_, 
-                                              _File@=_W_File_,
-                                              {{_File@, refac_api:start_end_loc(_This@)}, true};
-                                          false ->
-                                              {none, false}
-                                      end
-                              end, Temp}
+                api_refac:check_collect_template(Temp, 'COLLECT'),
+                {collector, fun(_W_File_,_W_Node_) ->
+                                    _W_NewCond_=fun(_W_Bind_) ->
+                                                        _This@=_W_Node_,
+                                                        _File@=_W_File_,
+                                                        api_refac:make_cond(Cond, _W_Bind_)
+                                                end,
+                                    case  api_refac:match(Temp, _W_Node_, _W_NewCond_) of
+                                        {true, _W_Bind1_} ->
+                                            _This@=_W_Node_,
+                                            _File@=_W_File_,
+                                            {{_File@, api_refac:start_end_loc(_This@)}, true};
+                                        false ->
+                                            {none, false}
+                                    end
+                            end, Temp}
           end()).
 
 -define(EQUAL(Node1, Node2), 
-        refac_api:equal(Node1, Node2)).
+        api_refac:equal(Node1, Node2)).
 
 -define(MATCH(Temp, Node), 
-        refac_api:expand_match(Temp, Node, fun(_)->true end)).
+        api_refac:expand_match(Temp, Node, fun(_) -> true end)).
 
 -define(STOP_TD_TP(Rules, FileOrDirs),
-        refac_api:search_and_transform(Rules, FileOrDirs, stop_td_tp)).
+        api_refac:search_and_transform(Rules, FileOrDirs, stop_td_tp)).
 
 -define(FULL_TD_TP(Rules, FileOrDirs),
-        refac_api:search_and_transform(Rules, FileOrDirs, full_td_tp)).
+        api_refac:search_and_transform(Rules, FileOrDirs, full_td_tp)).
 
 -define(FULL_TD_TU(Collectors, FileOrDirs),
-        refac_api:search_and_collect(Collectors, FileOrDirs, full_td_tu)).
+        api_refac:search_and_collect(Collectors, FileOrDirs, full_td_tu)).
 
 -define(STOP_TD_TU(Collectors, FileOrDirs),
-        refac_api:search_and_collect(Collectors, FileOrDirs, stop_td_tu)).
+        api_refac:search_and_collect(Collectors, FileOrDirs, stop_td_tu)).
 
