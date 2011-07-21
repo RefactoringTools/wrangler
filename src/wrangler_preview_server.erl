@@ -30,7 +30,7 @@
 -behaviour(gen_server).
 
 %% API
--export([commit/0, abort/0, add_files/1, start_preview_server/0]).
+-export([commit/0, abort/0, abort/1,add_files/1, start_preview_server/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -54,6 +54,9 @@ commit() ->
     gen_server:call(wrangler_preview_server, commit).
 
 %%-spec(abort/0::() ->{ok, [filename()]}).
+
+abort(_IsCompositeRefac) -> %% This function will be extended!
+    gen_server:call(wrangler_preview_server, abort).
 abort() ->
     gen_server:call(wrangler_preview_server, abort).
    
@@ -87,11 +90,11 @@ init([]) ->
 handle_call(abort, _From, #state{files=Files}) ->
     SwpFiles = lists:flatmap(fun ({{F1, F2, IsNew}, Swp}) ->
 				     case IsNew of
-				       false -> [Swp];
-				       _ -> case F1 == F2 of
-					      true -> [F1, Swp];
-					      _ -> [F1, F2, Swp]
-					    end
+                                         false -> [Swp];
+                                         _ -> case F1 == F2 of
+                                                  true -> [F1, Swp];
+                                                  _ -> [F1, F2, Swp]
+                                              end
 				     end
 			     end, Files),
     {reply, {ok, SwpFiles}, #state{files=[], logmsg=""}};
