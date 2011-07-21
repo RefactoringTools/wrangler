@@ -684,7 +684,7 @@ imported_funs(File, ModuleName) ->
 %%      An in-scope function could be an (auto-)imported function, or a 
 %%      function that is defined in the current module.
 
--spec(inscope_funs/1::(filename()|moduleInfo()) -> [{atom(),atom(),integer()}]).
+-spec(inscope_funs/1::(filename()|module_info()) -> [{atom(),atom(),integer()}]).
 inscope_funs(FileOrModInfo) ->
   case filelib:is_regular(FileOrModInfo) of
       true ->
