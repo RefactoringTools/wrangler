@@ -371,7 +371,7 @@ vann_function(Tree, Env, Ms, _VI, Pid) ->
 		    _ ->
 			{ok, Form} = refac_parse:parse_form(Toks2),
 			[Form1] = wrangler_syntax:form_list_elements(
-				       refac_recomment:recomment_forms([Form], [])),
+				       wrangler_recomment:recomment_forms([Form], [])),
 			{Form2, _, _} = vann_function_1(Form1, Env, Ms, [], Pid),
 			get_var_info(Form2)
 		end

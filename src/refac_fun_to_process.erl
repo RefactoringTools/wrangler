@@ -288,7 +288,7 @@ rpc_fun(NewFunName, RpcFunName) ->
     {ok, Toks, _} = wrangler_scan:string(RpcFun),
     {ok, Form} =erl_parse:parse_form(Toks),
     hd(wrangler_syntax:form_list_elements(
-	    refac_recomment:recomment_forms([Form], []))).
+	    wrangler_recomment:recomment_forms([Form], []))).
   
 
 do_fun_to_process_1(AnnAST, DefPos, ProcessName, FunName, NewFunName, RpcFunName) -> 				

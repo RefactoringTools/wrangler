@@ -331,13 +331,13 @@ parse_annotate_file(FName, true, SearchPaths, TabWidth, FileFormat) ->
             Includes = SearchPaths ++ DefaultIncl2,
             {Info0, Ms} = case wrangler_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
 			      {ok, Fs, {MDefs, MUses}} ->
-                                  ST = refac_recomment:recomment_forms(Fs, []),
+                                  ST = wrangler_recomment:recomment_forms(Fs, []),
 				  Info1 = wrangler_syntax_lib:analyze_forms(ST),
 				  Ms1 = {dict:from_list(MDefs), dict:from_list(MUses)},
 				  {Info1, Ms1};
 			      _ -> {[], {dict:from_list([]), dict:from_list([])}}
 			  end,
-            SyntaxTree = refac_recomment:recomment_forms(Forms, []),
+            SyntaxTree = wrangler_recomment:recomment_forms(Forms, []),
             Info = wrangler_syntax_lib:analyze_forms(SyntaxTree),
 	    Info2 = merge_module_info(Info0, Info),
 	    AnnAST0 = annotate_bindings(FName, SyntaxTree, Info2, Ms, TabWidth),
@@ -359,7 +359,7 @@ parse_annotate_file(FName, false, SearchPaths, TabWidth, FileFormat) ->
 						 end, Forms),
 			   %% I wonder whether the all the following is needed;
 			   %% we should never perform a transformation on an AnnAST from resulted from refac_epp;
-			   SyntaxTree = refac_recomment:recomment_forms(Forms1, []),
+			   SyntaxTree = wrangler_recomment:recomment_forms(Forms1, []),
 			   Info = wrangler_syntax_lib:analyze_forms(SyntaxTree),
 			   AnnAST0 = annotate_bindings(FName, SyntaxTree, Info, Ms, TabWidth),
 			   {ok, {AnnAST0, Info}};
@@ -378,7 +378,7 @@ quick_parse_annotate_file(FName, SearchPaths, TabWidth) ->
 			 {dict:from_list(MDefs), dict:from_list(MUses)};
 		     _ -> []
 		 end,
-	    SyntaxTree = refac_recomment:recomment_forms(Forms, []),
+	    SyntaxTree = wrangler_recomment:recomment_forms(Forms, []),
 	    Info = wrangler_syntax_lib:analyze_forms(SyntaxTree),
 	    AnnAST = annotate_bindings(FName, SyntaxTree, Info, Ms, TabWidth),
 	    {ok, {AnnAST, Info}};
@@ -409,7 +409,7 @@ annotate_bindings(FName, AST, Info, Ms, TabWidth) ->
     Toks = api_refac:tokenize(FName, true, TabWidth),
     AnnAST0 = wrangler_syntax_lib:annotate_bindings(add_token_and_ranges(AST, Toks), ordsets:new(), Ms),
     Comments = refac_comment_scan:file(FName, TabWidth),
-    AnnAST1= refac_recomment:recomment_forms(AnnAST0, Comments),
+    AnnAST1= wrangler_recomment:recomment_forms(AnnAST0, Comments),
     AnnAST2 =update_toks(Toks,AnnAST1),
     wrangler_annotate_ast:add_fun_define_locations(AnnAST2, Info).
 
