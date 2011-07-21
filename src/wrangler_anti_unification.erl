@@ -238,8 +238,8 @@ subst_sanity_check(Expr1, SubSt) ->
 						      wrangler_syntax:type(E11) == variable andalso
 							{value, {def, DefPos}} == lists:keysearch(def, 1, wrangler_syntax:get_ann(E11))
 							  andalso
-							  refac_prettypr:format(reset_attrs(E2))
-							    =/= refac_prettypr:format(reset_attrs(E21))
+							wrangler_prettypr:format(reset_attrs(E2))
+							 =/= wrangler_prettypr:format(reset_attrs(E21))
 					      end, SubSt)
 			end;
 		    _ ->
@@ -334,7 +334,7 @@ generalise_expr_2(Expr, Subst, ExprFreeVars, {ExportVars1, ExportVars2}) ->
     end.
 
 do_replace_expr_with_var_1(Node, {ExprNewVarPairs, SubSt, ExprFreeVars, Pid, ExportExprs}) ->
-    F = fun (S, Name) -> Es = [refac_prettypr:format(E2)
+    F = fun (S, Name) -> Es = [wrangler_prettypr:format(E2)
 			       || {E1, E2} <- S,
 				  wrangler_syntax:type(E1) == variable,
 				  wrangler_syntax:variable_name(E1) == Name],
@@ -429,7 +429,7 @@ zip_subst_1(ListOfLists, Acc)->
 
 %% TO BE COMPLETEd.
 gen_binding_info(E)->
-    refac_prettypr:format(E).
+    wrangler_prettypr:format(E).
 
    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  

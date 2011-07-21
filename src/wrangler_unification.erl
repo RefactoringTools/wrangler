@@ -250,9 +250,9 @@ rm_comments(Node) ->
     wrangler_syntax:remove_comments(Node).
 
 format(Es)when is_list(Es) ->
-    [refac_prettypr:format(refac_misc:reset_ann_and_pos(E))||E <- Es];
+    [wrangler_prettypr:format(refac_misc:reset_ann_and_pos(E))||E <- Es];
 format(E) ->
-    refac_prettypr:format(refac_misc:reset_ann_and_pos(E)).
+    wrangler_prettypr:format(refac_misc:reset_ann_and_pos(E)).
 
 is_macro_name(Exp) ->
     Ann = wrangler_syntax:get_ann(Exp),

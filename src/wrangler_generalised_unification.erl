@@ -53,7 +53,7 @@ expr_match(Exp1, Exp2, Cond) ->
                                      throw({error, lists:flatten(io_lib:format
                                                                    ("Condition checking of rule/collector "
                                                                     "returns non-boolean value. Template being matched: ~s.",
-                                                                    [refac_prettypr:format(Exp1)]))})
+                                                                    [wrangler_prettypr:format(Exp1)]))})
                              end
                      end||{true,Subst}<-Res],
     case lists:append(PossibleMatches) of
@@ -531,9 +531,9 @@ group_by_1(N, TupleList=[E|_Es]) ->
 format(Es)when is_list(Es) ->
     [format(E)||E<-Es];
 format(E) ->
-    refac_prettypr:format(
-      refac_misc:reset_ann_and_pos(
-        rm_comments(E))).
+    wrangler_prettypr:format(
+         refac_misc:reset_ann_and_pos(
+           rm_comments(E))).
 
 rm_comments(Node) ->
     wrangler_syntax:remove_comments(Node).

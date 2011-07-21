@@ -2312,7 +2312,7 @@ adjust_locations(Form, Toks) ->
 		    macro ->
                         wrangler_syntax:add_ann(
                              {with_bracket,
-                              refac_prettypr:has_parentheses(T, Toks)}, T);
+                              wrangler_prettypr:has_parentheses(T, Toks)}, T);
                     _ -> T
 		end
 	end,

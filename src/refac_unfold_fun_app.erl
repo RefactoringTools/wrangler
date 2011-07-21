@@ -193,7 +193,7 @@ scrutinse_subst(Res) ->
     MatchExprs1 = [{wrangler_syntax:match_expr_pattern(M),
 		    wrangler_syntax:match_expr_body(M)}
 		   || M <- MatchExprs],
-    StrRep = lists:usort([{refac_prettypr:format(E1), refac_prettypr:format(E2)}
+    StrRep = lists:usort([{wrangler_prettypr:format(E1), wrangler_prettypr:format(E2)}
 			  || {E1, E2} <- SubSt ++ MatchExprs1]),
     Fst = lists:usort(element(1, lists:unzip(StrRep))),
     case length(Fst) < length(StrRep) of

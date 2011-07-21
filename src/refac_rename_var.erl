@@ -111,7 +111,7 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 	       emacs ->
 		   {ok, []};
 	       _ ->
-		   Content = refac_prettypr:print_ast(refac_misc:file_format(FName), AnnAST1, TabWidth),
+		   Content = wrangler_prettypr:print_ast(refac_misc:file_format(FName), AnnAST1, TabWidth),
 		   {ok, [{FName, FName, Content}]}
 	   end
     end.

@@ -725,4 +725,4 @@ do_post_process_anti_unifier(Node, _Others) ->
     end.
 
 format(Node) ->
-    refac_prettypr:format(refac_misc:reset_ann_and_pos(Node)).
+    wrangler_prettypr:format(refac_misc:reset_ann_and_pos(Node)).

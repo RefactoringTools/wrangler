@@ -224,13 +224,13 @@ collect_apps(FileName, Node, {M, F, A}) ->
 						  {S1, S2};
 					      false ->
 						  {Line, _Col} = wrangler_syntax:get_pos(T),
-						  {S1, [{FileName, Line, refac_prettypr:format(T)}| S2]}
+						  {S1, [{FileName, Line, wrangler_prettypr:format(T)}| S2]}
 					  end;
 				      {value, {type, _}} ->
 					  {S1, S2};
 				      false ->
 					  {Line, _Col} = wrangler_syntax:get_pos(T),
-					  {S1, [{FileName, Line, refac_prettypr:format(T)}| S2]}
+					  {S1, [{FileName, Line, wrangler_prettypr:format(T)}| S2]}
 				  end;
 			      _ -> {S1, S2}
 			  end;

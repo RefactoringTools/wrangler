@@ -1482,7 +1482,7 @@ is_attribute(F, Name) ->
 prettyprint(none) ->
     none;
 prettyprint(Node) -> 
-    refac_prettypr:format(Node).
+    wrangler_prettypr:format(Node).
 
 
 renamed_warn_msg(ModName) ->

@@ -395,7 +395,7 @@ filter_syntax_units(Es, MinLength) ->
 	  end,
     Fun2 = fun (Exprs) ->
 		   BlockExpr = wrangler_syntax:block_expr(Exprs),
-		   Str = refac_prettypr:format(BlockExpr),
+		   Str = wrangler_prettypr:format(BlockExpr),
 		   num_of_tokens_in_string(Str)
 	   end,
     Es1 = filter_syntax_units_1(Es),
@@ -419,7 +419,7 @@ filter_syntax_units_1(Es) ->
 %% number of tokens in AST(s).
 num_of_tokens(Exprs) ->
     BlockExpr = wrangler_syntax:block_expr(Exprs),
-    Str = refac_prettypr:format(BlockExpr),
+    Str = wrangler_prettypr:format(BlockExpr),
     num_of_tokens_in_string(Str).
 
 
@@ -615,7 +615,7 @@ expr_anti_unification(Exp1, Exp2, Expr2ExportedVars) ->
     end.
 
 group_substs(Subst) ->
-    SubSt1 = [{E1, E2, {refac_prettypr:format(E1), refac_prettypr:format(E2)}} || {E1, E2} <- Subst],
+    SubSt1 = [{E1, E2, {wrangler_prettypr:format(E1), wrangler_prettypr:format(E2)}} || {E1, E2} <- Subst],
     SubSt2 = group_by_index(3, SubSt1),
     [[E1 || {E1, _E2, _} <- S] || S <- SubSt2].
 
@@ -783,7 +783,7 @@ generalise_expr({Exprs = [H| _T], EVs}, {NodeVarPairs, VarsToExport}) ->
 		     [wrangler_syntax:variable(V) || V <- NewVars],
 	    Pars1 = refac_misc:remove_duplicates(Pars),
 	    C = wrangler_syntax:clause(Pars1, none, NewExprs1),
-	    {refac_prettypr:format(wrangler_syntax:function(FunName, [C])), length(Pars1)}
+	    {wrangler_prettypr:format(wrangler_syntax:function(FunName, [C])), length(Pars1)}
     end.
 
 generalise_fun(F, NodesToGen) ->
@@ -800,7 +800,7 @@ generalise_fun(F, NodesToGen) ->
     NewVars1 = refac_misc:remove_duplicates(lists:append(NewVars)),
     NewCs = [generalise_clause(C, NewVars1) || C <- Cs1],
     %% Here only count the new vars.
-    {refac_prettypr:format(wrangler_syntax:function(FunName, NewCs)), length(NewVars)}.
+    {wrangler_prettypr:format(wrangler_syntax:function(FunName, NewCs)), length(NewVars)}.
 
 generalise_clause(C, NewVars) ->
     Pats = wrangler_syntax:clause_patterns(C),

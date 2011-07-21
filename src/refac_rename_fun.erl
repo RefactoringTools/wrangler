@@ -184,7 +184,7 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 		    case Editor of
 			emacs -> {ok, [], false};
 			eclipse ->
-			    FileContent = refac_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST, TabWidth),
+			    FileContent = wrangler_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST, TabWidth),
 			    {ok, [{FileName, FileName, FileContent}]}
 		    end
 	    end;

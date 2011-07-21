@@ -91,7 +91,7 @@ intro_new_var_1(FileName, AnnAST, Fun, Expr, NewVarName, Editor, TabWidth, Cmd) 
 	    {ok, [FileName]};
 	eclipse ->
 	    FileFormat = refac_misc:file_format(FileName),
-	    FileContent = refac_prettypr:print_ast(FileFormat, AnnAST1, TabWidth),
+	    FileContent = wrangler_prettypr:print_ast(FileFormat, AnnAST1, TabWidth),
 	    {ok, [{FileName, FileName, FileContent}]}
     end.
 

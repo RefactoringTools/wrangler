@@ -1023,8 +1023,8 @@ add_to_export_after(Node, FAtoAdd, FA) ->
 equal(Tree1, Tree2) ->
     NewTree1=mask_variables(Tree1),
     NewTree2=mask_variables(Tree2),
-    {ok, Ts1, _} = erl_scan:string(refac_prettypr:format(NewTree1)),
-    {ok, Ts2, _} = erl_scan:string(refac_prettypr:format(NewTree2)),
+    {ok, Ts1, _} = erl_scan:string(wrangler_prettypr:format(NewTree1)),
+    {ok, Ts2, _} = erl_scan:string(wrangler_prettypr:format(NewTree2)),
     case refac_misc:concat_toks(Ts1) == refac_misc:concat_toks(Ts2) of
         true ->
             refac_code_search_utils:var_binding_structure(Tree1) ==
@@ -1054,12 +1054,12 @@ do_mask_variables(Node) ->
 splice(Expr) when is_list(Expr) ->
     splice_1(Expr);
 splice(Expr) ->
-    refac_prettypr:format(Expr).
+    wrangler_prettypr:format(Expr).
 
 splice_1([E]) ->
-    refac_prettypr:format(E);
+    wrangler_prettypr:format(E);
 splice_1([E|Es]) ->  
-    refac_prettypr:format(E)++","++splice_1(Es).
+    wrangler_prettypr:format(E) ++ "," ++ splice_1(Es).
 
 %%@private
 quote(Str) ->    
@@ -1370,9 +1370,9 @@ search_and_transform_4(File,Rules,Tree,Fun,Selective) ->
                         case Selective of
                             true ->
                                 {{SLn, SCol}, {ELn, ECol}}=api_refac:start_end_loc(Node),
-                                MD5 = erlang:md5(refac_prettypr:format(Node)),
+                                MD5 = erlang:md5(wrangler_prettypr:format(Node)),
                                 ChangeCand={{File, SLn, SCol, ELn, ECol, MD5},
-                                            refac_prettypr:format(NewExprAfter)},
+                                            wrangler_prettypr:format(NewExprAfter)},
                                 wrangler_gen_refac_server:add_change_cand(self(), ChangeCand),
                                 {NewExprAfter, true};
                             {false, []} ->
@@ -1381,7 +1381,7 @@ search_and_transform_4(File,Rules,Tree,Fun,Selective) ->
                                 {NewExprAfter, true};
                             {false, CandsNotToChange} ->
                                 {{SLn, SCol}, {ELn, ECol}}=api_refac:start_end_loc(Node),
-                                MD5 =erlang:md5(refac_prettypr:format(Node)),
+                                MD5 =erlang:md5(wrangler_prettypr:format(Node)),
                                 Key ={File, SLn, SCol, ELn, ECol, MD5},
                                 case lists:keysearch(Key,1,CandsNotToChange) of
                                     false ->

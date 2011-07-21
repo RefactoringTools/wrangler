@@ -83,7 +83,7 @@ fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor) ->
 				 [FName]),
 		    {ok, [FName]};
 		eclipse ->
-		    Content = refac_prettypr:print_ast(refac_misc:file_format(FName), AnnAST2, TabWidth),
+		    Content = wrangler_prettypr:print_ast(refac_misc:file_format(FName), AnnAST2, TabWidth),
 		    Res = [{FName, FName, Content}],
 		    {ok, Res}
 	    end;
@@ -110,7 +110,7 @@ fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor, L
 	    wrangler_write_file:write_refactored_files_for_preview(Res, TabWidth, LogMsg),
 	    {ok, [FName]};
 	eclipse ->
-	    Content = refac_prettypr:print_ast(refac_misc:file_format(FName), AnnAST1, TabWidth),
+	    Content = wrangler_prettypr:print_ast(refac_misc:file_format(FName), AnnAST1, TabWidth),
 	    Res = [{FName, FName, Content}],
 	    {ok, Res}
     end.

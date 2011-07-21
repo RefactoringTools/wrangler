@@ -68,7 +68,7 @@ write_refactored_files_for_preview(Files, TabWidth, LogMsg, SearchPaths) ->
 		    {{FileName,NewFileName}, AST} ->
 			FileFormat = refac_misc:file_format(FileName),
 			SwpFileName = filename:rootname(FileName, ".erl") ++ ".erl.swp",  %% .erl.swp or .swp.erl?
-                        {Content, Changes} = refac_prettypr:print_ast_and_get_changes(FileFormat, AST, TabWidth),
+                        {Content, Changes} = wrangler_prettypr:print_ast_and_get_changes(FileFormat, AST, TabWidth),
 			case file:write_file(SwpFileName, list_to_binary(Content)) of
 			    ok ->
                                 wrangler_ast_server:update_ast({FileName, true, SearchPaths, TabWidth, FileFormat}, SwpFileName),
@@ -83,7 +83,7 @@ write_refactored_files_for_preview(Files, TabWidth, LogMsg, SearchPaths) ->
 		    {{FileName, NewFileName, IsNew}, AST} ->
 			FileFormat = refac_misc:file_format(FileName),
 			SwpFileName = filename:rootname(FileName, ".erl") ++ ".erl.swp",
-                        {Content, Changes} = refac_prettypr:print_ast_and_get_changes(FileFormat, AST, TabWidth),
+                        {Content, Changes} = wrangler_prettypr:print_ast_and_get_changes(FileFormat, AST, TabWidth),
 			case file:write_file(SwpFileName, list_to_binary(Content)) of
 			    ok ->
                                 {{{filename:join([FileName]), filename:join([NewFileName]), IsNew},
@@ -120,7 +120,7 @@ write_refactored_files_eclipse(Results, TabWidth) ->
     Res = lists:map(fun ({{OldFName,NewFName},AST}) ->
 			    FileFormat = refac_misc:file_format(OldFName),
 			    {OldFName, NewFName,
-			     refac_prettypr:print_ast(FileFormat,AST,TabWidth)}
+			     wrangler_prettypr:print_ast(FileFormat,AST,TabWidth)}
 		    end,Results),
     {ok,Res}.
 
@@ -135,7 +135,7 @@ write_refactored_files_command_line(Results, TabWidth) ->
 		OldFileName = element(1, FileInfo),
 		NewFileName = element(2, FileInfo),
 		FileFormat = refac_misc:file_format(OldFileName),
-		Bin = list_to_binary(refac_prettypr:print_ast(FileFormat, AST, TabWidth)),
+		Bin = list_to_binary(wrangler_prettypr:print_ast(FileFormat, AST, TabWidth)),
 		case file:write_file(OldFileName, Bin) of
 		    ok when OldFileName==NewFileName ->
 			OldFileName;

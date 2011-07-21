@@ -418,4 +418,4 @@ vars_to_export(Fun, ExprEndPos, Expr) ->
 
 
 format(Node) ->
-    refac_prettypr:format(refac_misc:reset_ann_and_pos(Node)).
+    wrangler_prettypr:format(refac_misc:reset_ann_and_pos(Node)).

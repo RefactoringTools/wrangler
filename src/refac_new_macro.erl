@@ -276,7 +276,7 @@ collect_names_to_avoid_1(F) ->
     case lists:member(ArrName, [ifdef, ifndef]) of
 	true ->
 	    Args =wrangler_syntax:attribute_arguments(F),
-	    [list_to_atom(refac_prettypr:format(A))||A<-Args];
+	    [list_to_atom(wrangler_prettypr:format(A))||A <- Args];
 	_ -> []
     end.
 
@@ -286,7 +286,7 @@ return_refac_result(FileName, AnnAST, Editor, Cmd, TabWidth) ->
 	    wrangler_write_file:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST}], TabWidth, Cmd),
 	    {ok, [FileName]};
 	eclipse ->
-	    Src = refac_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST, TabWidth),
+	    Src = wrangler_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST, TabWidth),
 	    Res = [{FileName, FileName, Src}],
 	    {ok, Res}
     end.

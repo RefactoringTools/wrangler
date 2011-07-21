@@ -332,7 +332,7 @@ generalise_and_hash_function_ast(Form, _FilePair={CurRevFileName, PreRevFileName
 				 IsNewFile, Threshold, Tabs, ASTPid, HashPid) ->
     FunName = wrangler_syntax:atom_value(wrangler_syntax:function_name(Form)),
     Arity = wrangler_syntax:function_arity(Form),
-    HashVal = erlang:md5(refac_prettypr:format(Form)),
+    HashVal = erlang:md5(wrangler_prettypr:format(Form)),
     case IsNewFile of
 	true ->
 	    %% a new file;
@@ -492,7 +492,7 @@ generalise_and_hash_expr(ASTTab, {M, F, A}, StartLine,
     ets:insert(ASTTab, {{M, F, A, StartIndex + RelativeIndex}, Expr}),
     E1 = do_generalise(Expr),
     %% get the hash values of the generalised expression.
-    HashVal = erlang:md5(refac_prettypr:format(E1)),
+    HashVal = erlang:md5(wrangler_prettypr:format(E1)),
     %% the location here is relative location.
     StartEndLoc = api_refac:start_end_loc(Expr),
     {HashVal, {StartIndex + RelativeIndex,
@@ -890,8 +890,8 @@ has_same_subst(E1, E2, SubSt) ->
 		    {value, {def, DefPos}} == lists:keysearch(
 						def, 1, wrangler_syntax:get_ann(E11))
 		      andalso
-		    refac_prettypr:format(refac_misc:reset_attrs(E2))
-		     =/= refac_prettypr:format(refac_misc:reset_attrs(E21))
+		  wrangler_prettypr:format(refac_misc:reset_attrs(E2))
+		  =/= wrangler_prettypr:format(refac_misc:reset_attrs(E21))
 	  end, SubSt).
 
 %% process anti-unification result.
@@ -968,7 +968,7 @@ get_var_subst(SubSt) ->
     F = fun ({E1, E2}) ->
 		{value, {def, DefPos}} =
 		    lists:keysearch(def, 1, wrangler_syntax:get_ann(E1)),
-		{DefPos, refac_prettypr:format(refac_misc:reset_attrs(E2))}
+		{DefPos, wrangler_prettypr:format(refac_misc:reset_attrs(E2))}
 	end,
     [F({E1,E2})
      || {E1,E2} <- SubSt,
@@ -1114,7 +1114,7 @@ simi_score(ExprRanges, SubExprs) ->
     end.
     
 num_of_tokens(Exprs) ->
-   lists:sum([num_of_tokens_in_string(refac_prettypr:format(E))
+   lists:sum([num_of_tokens_in_string(wrangler_prettypr:format(E))
 	      ||E<-Exprs]).
 
 
@@ -1238,12 +1238,12 @@ group_clone_pairs([CP={C={_R, _EVs, Subst}, NumOfNewVars}|T], Thresholds, ExprsT
 
 %% This is not accurate, and will be improved!
 exprs_to_be_generalised(SubSt) ->
-    sets:from_list([refac_prettypr:format(refac_misc:reset_attrs(E1))
+    sets:from_list([wrangler_prettypr:format(refac_misc:reset_attrs(E1))
 		    || {E1,_E2} <- SubSt, wrangler_syntax:type(E1) /= variable]).
 
 num_of_new_vars(SubSt) ->
-    length(lists:usort([{refac_prettypr:format(refac_misc:reset_attrs(E1)),
-			 refac_prettypr:format(refac_misc:reset_attrs(E2))}
+    length(lists:usort([{wrangler_prettypr:format(refac_misc:reset_attrs(E1)),
+			 wrangler_prettypr:format(refac_misc:reset_attrs(E2))}
 			|| {E1,E2} <- SubSt, wrangler_syntax:type(E1) /= variable])).
 
 
@@ -1277,7 +1277,7 @@ generate_fun_call_1(RangeWithAST, AUForm, FromSameFile) ->
 	    end,
 	%% Need to check side-effect here. but it is a bit slow!!!
 	FunCall=make_fun_call(new_fun, Pats, Subst, FromSameFile),
-	{Range, refac_prettypr:format(FunCall)}
+	{Range, wrangler_prettypr:format(FunCall)}
     catch 
 	_E1:_E2 ->
 	    "wrangler-failed-to-generate-the-function-application."
@@ -1515,11 +1515,11 @@ remove_short_clones(_C={Rs, Len, _Freq}, MinToks, MinFreq) ->
 
    
 no_of_tokens(Node) when is_list(Node)->
-    Str = refac_prettypr:format(wrangler_syntax:block_expr(Node)),
+    Str = wrangler_prettypr:format(wrangler_syntax:block_expr(Node)),
     {ok, Toks, _}=wrangler_scan:string(Str, {1,1}, 8, unix),
     length(Toks)-2;
 no_of_tokens(Node) ->
-    Str = refac_prettypr:format(Node),
+    Str = wrangler_prettypr:format(Node),
     {ok, Toks, _} =wrangler_scan:string(Str, {1,1}, 8, unix),
     length(Toks).
 
@@ -1594,7 +1594,7 @@ simplify_anti_unifier(AUForm) ->
     AUBody1 = simplify_anti_unifier_body(AUBody),
     C = wrangler_syntax:clause(Pats, none, AUBody1),
     NewAU=wrangler_syntax:function(FunName, [C]),
-    refac_prettypr:format(NewAU).
+    wrangler_prettypr:format(NewAU).
     
 simplify_anti_unifier_body(AUBody) when length(AUBody)<2 ->
     AUBody;
@@ -1614,8 +1614,8 @@ simplify_anti_unifier_body(AUBody) ->
     end.
 
 same_expr(Expr1, Expr2) ->
-    {ok, Ts1, _} = erl_scan:string(refac_prettypr:format(Expr1)),
-    {ok, Ts2, _} = erl_scan:string(refac_prettypr:format(Expr2)),
+    {ok, Ts1, _} = erl_scan:string(wrangler_prettypr:format(Expr1)),
+    {ok, Ts2, _} = erl_scan:string(wrangler_prettypr:format(Expr2)),
     refac_misc:concat_toks(Ts1) == refac_misc:concat_toks(Ts2).
 
 

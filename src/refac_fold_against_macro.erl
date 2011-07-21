@@ -108,7 +108,7 @@ fold_against_macro_1_eclipse(FileName, CandidatesToFold, MacroDef, SearchPaths, 
     CandidatesToFold1 = [{StartLine, StartCol, EndLine, EndCol, MacroApp, MacroDef}
 			 || {{{StartLine, StartCol}, {EndLine, EndCol}}, MacroApp} <- CandidatesToFold],
     AnnAST1 = fold_against_macro_1_1_eclipse(AnnAST, CandidatesToFold1),
-    Src = refac_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST1, TabWidth),
+    Src = wrangler_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST1, TabWidth),
     Res = [{FileName, FileName, Src}],
     {ok, Res}.
 
@@ -255,7 +255,7 @@ expr_unification(Exp1, Exp2, MacroParNames) ->
     case wrangler_unification:expr_unification(Exp1, Exp2) of
       false -> false;
       {true, Subst} ->
-	  Subst1 = lists:usort([{E1, refac_prettypr:format(E2)}||{E1,E2}<-Subst]),
+	  Subst1 = lists:usort([{E1, wrangler_prettypr:format(E2)}||{E1,E2} <- Subst]),
 	  Vars = [E1||{E1, _E2}<-Subst1],
 	  SVars = lists:usort(Vars),
 	  case length(Vars) == length(SVars) of
@@ -267,7 +267,7 @@ expr_unification(Exp1, Exp2, MacroParNames) ->
 						      lists:member(E1, Res)
 					      end, Subst),
 		      case lists:all(fun ({E1, E2}) ->
-					     list_to_atom(refac_prettypr:format(E2)) == E1
+					     list_to_atom(wrangler_prettypr:format(E2)) == E1
 				     end, ResSubst)
 			  of
 			true -> {true, Subst};

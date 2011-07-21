@@ -381,10 +381,10 @@ do_annotate_special_fun_apps_pid(Node, {CurrentFun, EnvPid}) ->
 		    Op = wrangler_syntax:application_operator(Node),
 		    Args = wrangler_syntax:application_arguments(Node),
 		    Args1 = case Args of
-				[A] -> {A1, _} = api_ast_traverse:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, A, {refac_prettypr:format(A), EnvPid}),
+				[A] -> {A1, _} = api_ast_traverse:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, A, {wrangler_prettypr:format(A), EnvPid}),
 				       [A1];
 				[Node, A] ->
-				    {A1, _} = api_ast_traverse:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, A, {refac_prettypr:format(A), EnvPid}),
+				    {A1, _} = api_ast_traverse:stop_tdTP(fun do_annotate_special_fun_apps_pid/2, A, {wrangler_prettypr:format(A), EnvPid}),
 				    [Node, A1];
 				_ -> Args
 			    end,

@@ -108,7 +108,7 @@ register_pid(FName, Start = {Line1, Col1}, End = {Line2, Col2}, RegName, SearchP
 						    eclipse ->
 							Res = lists:map(fun ({{OldFName, NewFName}, AST}) ->
 										{OldFName, NewFName,
-										 refac_prettypr:print_ast(refac_misc:file_format(OldFName), AST, TabWidth)}
+										 wrangler_prettypr:print_ast(refac_misc:file_format(OldFName), AST, TabWidth)}
 									end, Results),
 							{ok, Res}
 						end;
@@ -154,7 +154,7 @@ register_pid_1(FName, StartLine, StartCol, EndLine, EndCol, RegName, RegPids, Se
 	    ?wrangler_io("\nWrangler could not decide the process(s) registered by the following expression(s), please check!\n", []),
 	    lists:foreach(fun ({{_M, _F, _A}, PidExpr}) -> {{_Ln, _}, _} = api_refac:start_end_loc(PidExpr),
 							   ?wrangler_io("Location: module:~p, function: ~p/~p, line: ~p\n ", [_M, _F, _A, _Ln]),
-							   ?wrangler_io(refac_prettypr:format(PidExpr) ++ "\n", [])
+							   ?wrangler_io(wrangler_prettypr:format(PidExpr) ++ "\n", [])
 			  end, RegExprs),
 	    {unknown_pids, RegExprs, LogMsg}
     end.

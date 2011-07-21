@@ -182,7 +182,7 @@ output_renamed_atom_info(FileAndExprs) ->
 		  Fun0 = fun (Expr) ->
 				 Pos = wrangler_syntax:get_pos(Expr),
 				 FileName ++ io_lib:format(":~p: ", [Pos])
-				   ++ refac_prettypr:format(Expr) ++ "\n"
+				  ++ wrangler_prettypr:format(Expr) ++ "\n"
 			 end,
 		  lists:flatmap(Fun0, Exprs)
 	  end,

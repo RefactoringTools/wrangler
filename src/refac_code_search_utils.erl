@@ -290,7 +290,7 @@ display_search_results(Ranges, AntiUnifier, _Type) ->
 	    case AntiUnifier of 
 		none -> ok;
 		_ ->
-		    ?wrangler_io("\nThe generalised expression would be:\n\n~s\n\n", [refac_prettypr:format(AntiUnifier)])
+		    ?wrangler_io("\nThe generalised expression would be:\n\n~s\n\n", [wrangler_prettypr:format(AntiUnifier)])
 	    end,
 	    ?wrangler_io("\n\nNOTE: Use 'M-x compilation-minor-mode' to make the result "
 			 "mouse clickable if this mode is not already enabled.\n",[]),

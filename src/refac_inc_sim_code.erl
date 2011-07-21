@@ -1221,7 +1221,7 @@ num_of_new_vars(SubSt) ->
 
 
 format(Node) ->
-    refac_prettypr:format(refac_misc:reset_ann_and_pos(Node)).
+    wrangler_prettypr:format(refac_misc:reset_ann_and_pos(Node)).
     
     
 

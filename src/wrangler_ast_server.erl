@@ -869,7 +869,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                           end
                   end,
                 update_ann(M,{with_bracket,
-                            refac_prettypr:has_parentheses(M, Toks)});
+                            wrangler_prettypr:has_parentheses(M, Toks)});
 	size_qualifier ->
 	    calc_and_add_range_to_node(Node, size_qualifier_body, size_qualifier_argument);
 	error_marker ->

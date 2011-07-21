@@ -82,7 +82,7 @@ test_cases_to_property(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
 		    wrangler_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd1),
 		    {ok, [FileName], HasWarningMsg};
 		eclipse ->
-		    FileContent = refac_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST1, TabWidth),
+		    FileContent = wrangler_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST1, TabWidth),
 		    {ok, [{FileName, FileName, FileContent}]}
 	    end;
 	{error, Reason} ->
