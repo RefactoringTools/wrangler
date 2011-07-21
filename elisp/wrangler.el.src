@@ -1,4 +1,3 @@
-;;; distel.el --- Top-level of distel package, loads all subparts
 
 ;; Prerequisites
 
@@ -672,7 +671,7 @@
 	(buffer (current-buffer)))
     (if (current-buffer-saved buffer)
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'rename_var (list current-file-name line-no column-no name wrangler-search-paths tab-width))
+	  (erl-send-rpc wrangler-erl-node 'emacs_refac 'rename_var (list current-file-name line-no column-no name wrangler-search-paths tab-width))
 	  (erl-receive (line-no column-no current-file-name)
 	      ((['rex ['badrpc rsn]]
 		(message "Refactoring failed: %S" rsn))
@@ -699,7 +698,7 @@
 	(buffer (current-buffer)))
     (if (buffers-saved)
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'rename_fun (list current-file-name line-no column-no name wrangler-search-paths tab-width))
+	  (erl-send-rpc wrangler-erl-node 'emacs_refac 'rename_fun (list current-file-name line-no column-no name wrangler-search-paths tab-width))
 	  (erl-receive (line-no column-no current-file-name name)
 	      ((['rex ['badrpc rsn]]
 		(message "Refactoring failed: %S" rsn))
@@ -749,7 +748,7 @@
 	(buffer (current-buffer)))
   (if (buffers-saved)
       (erl-spawn
-	(erl-send-rpc wrangler-erl-node 'wrangler_distel 'rename_mod (list current-file-name name wrangler-search-paths tab-width))
+	(erl-send-rpc wrangler-erl-node 'emacs_refac 'rename_mod (list current-file-name name wrangler-search-paths tab-width))
 	(erl-receive (buffer name current-file-name)
 	    ((['rex ['badrpc rsn]]
 	      (message "Refactoring failed: %S" rsn))
@@ -822,7 +821,7 @@
 	(buffer (current-buffer)))
     (if (buffers-saved)
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'rename_process (list current-file-name line-no column-no name wrangler-search-paths tab-width))
+	  (erl-send-rpc wrangler-erl-node 'emacs_refac 'rename_process (list current-file-name line-no column-no name wrangler-search-paths tab-width))
       (erl-receive (name current-file-name line-no column-no)
 	  ((['rex ['badrpc rsn]]
 	    (message "Refactoring failed: %S" rsn))
@@ -866,7 +865,7 @@
 	(buffer (current-buffer)))
     (if (current-buffer-saved buffer)
     	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'unfold_fun_app(list current-file-name line-no column-no wrangler-search-paths tab-width))
+	  (erl-send-rpc wrangler-erl-node 'emacs_refac 'unfold_fun_app(list current-file-name line-no column-no wrangler-search-paths tab-width))
 	  (erl-receive (line-no column-no current-file-name)
 	      ((['rex ['badrpc rsn]]
 		(message "Refactoring failed: %S" rsn))
@@ -898,7 +897,7 @@
 	(end-col-no    (current-column-pos end)))
     (if (buffers-saved)
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'register_pid
+	  (erl-send-rpc wrangler-erl-node 'emacs_refac 'register_pid
 			(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width))
 	  (erl-receive (current-file-name start-line-no start-col-no end-line-no end-col-no name)
 	      ((['rex ['badrpc rsn]]
@@ -978,7 +977,7 @@
 	(buffer (current-buffer)))
     (if (buffers-saved)
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'move_fun
+	  (erl-send-rpc wrangler-erl-node 'emacs_refac 'move_fun
 			(list current-file-name line-no column-no name wrangler-search-paths tab-width))
 	  (erl-receive (line-no column-no  name current-file-name)
 	      ((['rex ['badrpc rsn]]
@@ -1104,7 +1103,7 @@
 	(end-col-no    (current-column-pos end)))
     (if (current-buffer-saved buffer)
    	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'generalise
+	  (erl-send-rpc wrangler-erl-node 'emacs_refac 'generalise
 			(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width))
 	  (erl-receive (current-file-name wrangler-search-paths start-line-no start-col-no buffer highlight-region-overlay)
 	  ((['rex ['badrpc rsn]]
@@ -1314,7 +1313,7 @@
 	(end-col-no    (current-column-pos end)))
     (if (current-buffer-saved buffer)
   	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'fun_extraction
+	  (erl-send-rpc wrangler-erl-node 'emacs_refac 'fun_extraction
 			(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name tab-width))
 	  (erl-receive (start-line-no start-col-no end-line-no end-col-no name current-file-name)
 	      ((['rex ['badrpc rsn]]
@@ -1358,7 +1357,7 @@
 	(end-col-no    (current-column-pos end)))
     (if (current-buffer-saved buffer)
   	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'intro_new_var
+	  (erl-send-rpc wrangler-erl-node 'emacs_refac 'intro_new_var
 			(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name tab-width))
 	  (erl-receive (start-line-no start-col-no end-line-no end-col-no name current-file-name)
 	      ((['rex ['badrpc rsn]]
@@ -1382,7 +1381,7 @@
 	(buffer (current-buffer)))
     (if (current-buffer-saved buffer)
     	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'inline_var(list current-file-name line-no column-no wrangler-search-paths tab-width))
+	  (erl-send-rpc wrangler-erl-node 'emacs_refac 'inline_var(list current-file-name line-no column-no wrangler-search-paths tab-width))
 	  (erl-receive (buffer line-no column-no current-file-name)			 
 	      ((['rex ['badrpc rsn]]	  
 		(message "Refactoring failed: %S" rsn))
@@ -1431,7 +1430,7 @@
 	(end-col-no    (current-column-pos end)))
     (if (current-buffer-saved buffer)
   	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'new_macro
+	  (erl-send-rpc wrangler-erl-node 'emacs_refac 'new_macro
 			(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width))
 	  (erl-receive (start-line-no start-col-no current-file-name)
 	      ((['rex ['badrpc rsn]]
@@ -1454,7 +1453,7 @@
         (column-no         (current-column-no))
 	(buffer (current-buffer)))       
     (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'fold_against_macro
+      (erl-send-rpc wrangler-erl-node 'emacs_refac 'fold_against_macro
 		    (list current-file-name line-no column-no wrangler-search-paths tab-width))
       (erl-receive (buffer current-file-name line-no column-no highlight-region-overlay )
 	  ((['rex ['badrpc rsn]]
@@ -1500,7 +1499,7 @@
 
 (defun fold_expr_by_name(buffer current-file-name module-name function-name arity clause-index)
   (erl-spawn
-    (erl-send-rpc wrangler-erl-node 'wrangler_distel 'fold_expr_by_name(list current-file-name module-name function-name arity clause-index wrangler-search-paths tab-width))
+    (erl-send-rpc wrangler-erl-node 'emacs_refac 'fold_expr_by_name(list current-file-name module-name function-name arity clause-index wrangler-search-paths tab-width))
     (erl-receive (buffer current-file-name  line-no column-no highlight-region-overlay)
 	((['rex ['badrpc rsn]]
 	  (message "Refactoring failed: %S" rsn))
@@ -1529,7 +1528,7 @@
 	    
  (defun fold_expr_by_loc(buffer current-file-name line-no column-no)
   (erl-spawn
-    (erl-send-rpc wrangler-erl-node 'wrangler_distel 'fold_expr_by_loc(list current-file-name line-no column-no wrangler-search-paths tab-width))
+    (erl-send-rpc wrangler-erl-node 'emacs_refac 'fold_expr_by_loc(list current-file-name line-no column-no wrangler-search-paths tab-width))
     (erl-receive (buffer current-file-name line-no column-no highlight-region-overlay)
 	((['rex ['badrpc rsn]]
 	  (message "Refactoring failed: %S" rsn))
@@ -1633,7 +1632,7 @@
 	(buffer (current-buffer)))
     (if (current-buffer-saved buffer)
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_refacs 'try_refactoring (list 'wrangler_distel 'duplicated_code_in_buffer
+	  (erl-send-rpc wrangler-erl-node 'wrangler_refacs 'try_refactoring (list 'emacs_refac 'duplicated_code_in_buffer
 									   (list current-file-name mintokens minclones maxpars tab-width)))
 	  (erl-receive (buffer current-file-name)
 	      ((['rex ['badrpc rsn]]
@@ -1658,7 +1657,7 @@
 	    (buffer (current-buffer)))
 	(if (buffers-saved)
 	    (erl-spawn
-	      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'duplicated_code_in_dirs
+	      (erl-send-rpc wrangler-erl-node 'emacs_refac 'duplicated_code_in_dirs
 			    (list wrangler-search-paths mintokens minclones maxpars tab-width))
 	      (erl-receive (buffer)
 		  ((['rex ['badrpc rsn]]
@@ -1798,7 +1797,7 @@
     (remove-highlights)
     (if (current-buffer-saved buffer)
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'expression_search_in_buffer
+	  (erl-send-rpc wrangler-erl-node 'emacs_refac 'expression_search_in_buffer
 			(list current-file-name start-line-no start-col-no end-line-no end-col-no wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
@@ -1826,7 +1825,7 @@
     (remove-highlights)
     (if (current-buffer-saved buffer)
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'expression_search_in_dirs
+	  (erl-send-rpc wrangler-erl-node 'emacs_refac 'expression_search_in_dirs
 			(list current-file-name start-line-no start-col-no end-line-no end-col-no wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
@@ -1854,7 +1853,7 @@
     (remove-highlights)
     (if (current-buffer-saved buffer)
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'similar_expression_search_in_buffer
+	  (erl-send-rpc wrangler-erl-node 'emacs_refac 'similar_expression_search_in_buffer
 			(list current-file-name start-line-no start-col-no end-line-no end-col-no similarity-score wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
@@ -1885,7 +1884,7 @@
     (remove-highlights)
     (if (current-buffer-saved buffer)
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'similar_expression_search_in_dirs
+	  (erl-send-rpc wrangler-erl-node 'emacs_refac 'similar_expression_search_in_dirs
 			(list current-file-name start-line-no start-col-no end-line-no end-col-no similarity-score wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
@@ -1908,7 +1907,7 @@
         (column-no         (current-column-no))
 	(buffer (current-buffer)))       
     (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'fun_to_process (list current-file-name line-no column-no name wrangler-search-paths tab-width))
+      (erl-send-rpc wrangler-erl-node 'emacs_refac 'fun_to_process (list current-file-name line-no column-no name wrangler-search-paths tab-width))
       (erl-receive (current-file-name line-no column-no name)
 	  ((['rex ['badrpc rsn]]
 	    (message "Refactoring failed: %S" rsn))
@@ -2013,7 +2012,7 @@
   (let ((current-file-name (buffer-file-name))
 	(buffer (current-buffer)))
     (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'instrument_prog(list current-file-name wrangler-search-paths tab-width))
+      (erl-send-rpc wrangler-erl-node 'emacs_refac 'instrument_prog(list current-file-name wrangler-search-paths tab-width))
       (erl-receive (buffer)
 	  ((['rex ['badrpc rsn]]
 	    (message "Refactoring failed: %S" rsn))
@@ -2033,7 +2032,7 @@
   (let ((current-file-name (buffer-file-name))
 	(buffer (current-buffer)))
     (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'uninstrument_prog(list current-file-name wrangler-search-paths tab-width))
+      (erl-send-rpc wrangler-erl-node 'emacs_refac 'uninstrument_prog(list current-file-name wrangler-search-paths tab-width))
       (erl-receive (buffer)
 	  ((['rex ['badrpc rsn]]
 	    (message "Refactoring failed: %S" rsn))
@@ -2057,7 +2056,7 @@
         (column-no         (current-column-no))
 	(buffer (current-buffer)))       
     (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'add_a_tag(list current-file-name line-no column-no name wrangler-search-paths tab-width))
+      (erl-send-rpc wrangler-erl-node 'emacs_refac 'add_a_tag(list current-file-name line-no column-no name wrangler-search-paths tab-width))
       (erl-receive (name current-file-name line-no column-no)
 	  ((['rex ['badrpc rsn]]
 	    (message "Refactoring failed: %S" rsn))
@@ -2080,7 +2079,7 @@
         (column-no         (current-column-no))
 	(buffer (current-buffer)))       
     (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'add_a_tag(list current-file-name line-no column-no name wrangler-search-paths tab-width))
+      (erl-send-rpc wrangler-erl-node 'emacs_refac 'add_a_tag(list current-file-name line-no column-no name wrangler-search-paths tab-width))
       (erl-receive (buffer name current-file-name)
 	  ((['rex ['badrpc rsn]]
 	    (message "Refactoring failed: %S" rsn))
@@ -2143,7 +2142,7 @@
 	(end-col-no    (current-column-pos end))) 
     (if (buffers-saved)
     (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'tuple_funpar (list current-file-name start-line-no start-col-no end-line-no end-col-no 
+      (erl-send-rpc wrangler-erl-node 'emacs_refac 'tuple_funpar (list current-file-name start-line-no start-col-no end-line-no end-col-no 
 									   wrangler-search-paths tab-width))
       (erl-receive (start-line-no start-col-no current-file-name)
 	  ((['rex ['badrpc rsn]]
@@ -2154,7 +2153,7 @@
 	    (progn
 	      (if (y-or-n-p msg)
 		  (erl-spawn
-		    (erl-send-rpc wrangler-erl-node 'refac_distel 'tuple_funpar_1(list current-file-name start-line-no start-col-no end-line-no end-col-no 
+		    (erl-send-rpc wrangler-erl-node 'emacs_refac 'tuple_funpar_1(list current-file-name start-line-no start-col-no end-line-no end-col-no 
 										       wrangler-search-paths tab-width))
 		    (erl-receive (line-no column-no current-file-name)
 			((['rex ['badrpc rsn]]
@@ -2190,7 +2189,7 @@
     (if (current-buffer-saved buffer)
 	(if (y-or-n-p "Show record fields with default values?")	    
 	    (erl-spawn
-	      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'normalise_record_expr(list current-file-name line-no column-no 'true wrangler-search-paths tab-width))
+	      (erl-send-rpc wrangler-erl-node 'emacs_refac 'normalise_record_expr(list current-file-name line-no column-no 'true wrangler-search-paths tab-width))
 	      (erl-receive (line-no column-no current-file-name)
 		  ((['rex ['badrpc rsn]]
 		    (message "Refactoring failed: %S" rsn))
@@ -2206,7 +2205,7 @@
 			(goto-column column-no))))
 		   )))
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler_distel 'normalise_record_expr(list current-file-name line-no column-no 'false wrangler-search-paths tab-width))
+	    (erl-send-rpc wrangler-erl-node 'emacs_refac 'normalise_record_expr(list current-file-name line-no column-no 'false wrangler-search-paths tab-width))
 	    (erl-receive (line-no column-no current-file-name)
 		((['rex ['badrpc rsn]]
 		  (message "Refactoring failed: %S" rsn))
@@ -2240,7 +2239,7 @@
 	(end-col-no    (current-column-pos end)))
     (if (current-buffer-saved buffer)
   	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'new_let
+	  (erl-send-rpc wrangler-erl-node 'emacs_refac 'new_let
 			(list current-file-name start-line-no start-col-no end-line-no (- end-col-no 1) name wrangler-search-paths tab-width))
 	  (erl-receive (start-line-no start-col-no current-file-name name)
 	      ((['rex ['badrpc rsn]]
@@ -2277,7 +2276,7 @@
   (let ((current-file-name (buffer-file-name))
 	(buffer (current-buffer)))       
     (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'merge_let
+      (erl-send-rpc wrangler-erl-node 'emacs_refac 'merge_let
 		    (list current-file-name wrangler-search-paths tab-width))
       (erl-receive (buffer current-file-name highlight-region-overlay )
 	  ((['rex ['badrpc rsn]]
@@ -2312,7 +2311,7 @@
   (let ((current-file-name (buffer-file-name))
 	(buffer (current-buffer)))       
     (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler_distel 'merge_forall
+      (erl-send-rpc wrangler-erl-node 'emacs_refac 'merge_forall
 		    (list current-file-name wrangler-search-paths tab-width))
       (erl-receive (buffer current-file-name highlight-region-overlay )
 	  ((['rex ['badrpc rsn]]
@@ -2380,7 +2379,7 @@
  	(buffer (current-buffer)))
      (if (current-buffer-saved buffer)
 	 (erl-spawn
-	   (erl-send-rpc wrangler-erl-node 'wrangler_distel 'eqc_statem_to_record (list current-file-name wrangler-search-paths tab-width))
+	   (erl-send-rpc wrangler-erl-node 'emacs_refac 'eqc_statem_to_record (list current-file-name wrangler-search-paths tab-width))
 	   (erl-receive (current-file-name)
  	      ((['rex ['badrpc rsn]]
  		(message "Refactoring failed: %S" rsn))
@@ -2403,7 +2402,7 @@
  	(buffer (current-buffer)))
      (if (current-buffer-saved buffer)
 	 (erl-spawn
-	   (erl-send-rpc wrangler-erl-node 'wrangler_distel 'eqc_fsm_to_record (list current-file-name wrangler-search-paths tab-width))
+	   (erl-send-rpc wrangler-erl-node 'emacs_refac 'eqc_fsm_to_record (list current-file-name wrangler-search-paths tab-width))
 	   (erl-receive (current-file-name)
  	      ((['rex ['badrpc rsn]]
  		(message "Refactoring failed: %S" rsn))
@@ -2426,7 +2425,7 @@
  	(buffer (current-buffer)))
      (if (current-buffer-saved buffer)
 	 (erl-spawn 
-	   (erl-send-rpc wrangler-erl-node 'wrangler_distel 'gen_fsm_to_record (list current-file-name wrangler-search-paths tab-width))
+	   (erl-send-rpc wrangler-erl-node 'emacs_refac 'gen_fsm_to_record (list current-file-name wrangler-search-paths tab-width))
 	   (erl-receive (current-file-name)
  	      ((['rex ['badrpc rsn]]
  		(message "Refactoring failed: %S" rsn))
@@ -2475,7 +2474,7 @@
 	(buffer (current-buffer)))
     (if (current-buffer-saved buffer)
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_distel 'eqc_statem_to_fsm (list current-file-name name wrangler-search-paths tab-width))
+	  (erl-send-rpc wrangler-erl-node 'emacs_refac 'eqc_statem_to_fsm (list current-file-name name wrangler-search-paths tab-width))
 	  (erl-receive (current-file-name)
 	      ((['rex ['badrpc rsn]]
 		(message "Refactoring failed: %S" rsn))
@@ -2534,7 +2533,7 @@
     (remove-highlights)
     (save-buffer)
     (erl-spawn
-      (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'find_var_instances 
+      (erl-send-rpc wrangler-erl-node 'inspec_lib 'find_var_instances 
 			  (list current-file-name line-no column-no wrangler-search-paths tab-width))
       (erl-receive (buffer)
 	  ((['rex ['badrpc rsn]]
@@ -2650,7 +2649,7 @@
 	(if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
 	    (erl-send-rpc wrangler-erl-node 
-			  'wrangler_code_inspector 'nested_exprs_in_file 
+			  'inspec_lib 'nested_exprs_in_file 
 			  (list current-file-name level 'case wrangler-search-paths tab-width))
 	    (erl-receive (buffer)
 		((['rex ['badrpc rsn]]
@@ -2662,7 +2661,7 @@
 		  ))))
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node 
-			'wrangler_code_inspector 'nested_exprs_in_dirs 
+			'inspec_lib 'nested_exprs_in_dirs 
 			(list level 'case wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
@@ -2686,7 +2685,7 @@
     (if (buffers-saved)
       	(if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'nested_exprs_in_file 
+	    (erl-send-rpc wrangler-erl-node 'inspec_lib 'nested_exprs_in_file 
 				(list current-file-name level 'if wrangler-search-paths tab-width))
 	    (erl-receive (buffer)
 		((['rex ['badrpc rsn]]
@@ -2697,7 +2696,7 @@
 		  (message "Searching finished.")
 		  ))))
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 
+	  (erl-send-rpc wrangler-erl-node 'inspec_lib 
 			      'nested_exprs_in_dirs (list level 'if wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
@@ -2720,7 +2719,7 @@
     (if (buffers-saved)
    	(if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'nested_exprs_in_file 
+	    (erl-send-rpc wrangler-erl-node 'inspec_lib 'nested_exprs_in_file 
 				(list current-file-name level 'receive wrangler-search-paths tab-width))
 	    (erl-receive (buffer)
 		((['rex ['badrpc rsn]]
@@ -2731,7 +2730,7 @@
 		  (message "Searching finished.")
 		  ))))
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'nested_exprs_in_dirs 
+	  (erl-send-rpc wrangler-erl-node 'inspec_lib 'nested_exprs_in_dirs 
 			      (list level 'receive wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
@@ -2755,7 +2754,7 @@
 	(buffer (current-buffer)))
     (if  (buffers-saved)
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'dependencies_of_a_module
+	  (erl-send-rpc wrangler-erl-node 'inspec_lib 'dependencies_of_a_module
 			      (list current-file-name wrangler-search-paths))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
@@ -2778,7 +2777,7 @@
     (if (buffers-saved)
       	(if (y-or-n-p "Only check the current buffer?")
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'long_functions_in_file 
+	    (erl-send-rpc wrangler-erl-node 'inspec_lib 'long_functions_in_file 
 				(list current-file-name lines wrangler-search-paths tab-width))
 	    (erl-receive (buffer)
 		((['rex ['badrpc rsn]]
@@ -2789,7 +2788,7 @@
 		  (message "Searching finished.")
 		  ))))
 	(erl-spawn
-	  (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'long_functions_in_dirs 
+	  (erl-send-rpc wrangler-erl-node 'inspec_lib 'long_functions_in_dirs 
 			      (list lines wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
 	      ((['rex ['badrpc rsn]]
@@ -2808,7 +2807,7 @@
   (let 	(buffer (current-buffer))
     (if (buffers-saved)
       (erl-spawn
-	(erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'large_modules 
+	(erl-send-rpc wrangler-erl-node 'inspec_lib 'large_modules 
 			    (list lines wrangler-search-paths tab-width))
 	(erl-receive (buffer)
 	    ((['rex ['badrpc rsn]]
@@ -2830,7 +2829,7 @@
     (if (buffers-saved)
 	(erl-spawn
 	  (erl-send-rpc wrangler-erl-node
-			'wrangler_code_inspector 'calls_to_fun
+			'inspec_lib 'calls_to_fun
 			(list current-file-name line-no column-no  wrangler-search-paths tab-width))
 	  (erl-receive (buffer)
 	    ((['rex ['badrpc rsn]]
@@ -2851,7 +2850,7 @@
     (if (buffers-saved)
 	(if (y-or-n-p "Only check the current buffer?")
 	    (erl-spawn
-	      (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'non_tail_recursive_servers_in_file 
+	      (erl-send-rpc wrangler-erl-node 'inspec_lib 'non_tail_recursive_servers_in_file 
 				  (list current-file-name wrangler-search-paths tab-width))
 	      (erl-receive (buffer)
 		  ((['rex ['badrpc rsn]]
@@ -2863,7 +2862,7 @@
 		    ))))
 	  (erl-spawn
 	    (erl-send-rpc wrangler-erl-node 
-			  'wrangler_code_inspector  'non_tail_recursive_servers_in_dirs 
+			  'inspec_lib  'non_tail_recursive_servers_in_dirs 
 			  (list wrangler-search-paths tab-width))
 	    (erl-receive (buffer)
 		((['rex ['badrpc rsn]]
@@ -2886,7 +2885,7 @@
     (if (buffers-saved)
   	(if (y-or-n-p "Only check the current buffer?")
 	    (erl-spawn
-	      (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'not_flush_unknown_messages_in_file 
+	      (erl-send-rpc wrangler-erl-node 'inspec_lib 'not_flush_unknown_messages_in_file 
 				  (list current-file-name wrangler-search-paths tab-width))
 	      (erl-receive (buffer)
 		  ((['rex ['badrpc rsn]]
@@ -2897,7 +2896,7 @@
 		    (message "Searching finished.")
 		    ))))
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'not_flush_unknown_messages_in_dirs 
+	    (erl-send-rpc wrangler-erl-node 'inspec_lib 'not_flush_unknown_messages_in_dirs 
 				(list wrangler-search-paths tab-width))
 	    (erl-receive (buffer)
 		((['rex ['badrpc rsn]]
@@ -2941,7 +2940,7 @@
         (outputfile1 (expand-file-name outputfile)))
     (if (buffers-saved)
 	(erl-spawn
-	      (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'gen_function_callgraph 
+	      (erl-send-rpc wrangler-erl-node 'inspec_lib 'gen_function_callgraph 
 				  (list outputfile1 current-file-name wrangler-search-paths))
 	      (erl-receive (outputfile1)
 		  ((['rex ['badrpc rsn]]
@@ -2967,7 +2966,7 @@
 	    (setq withlabel 'false)
 	    )
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'gen_module_scc_graph 
+	    (erl-send-rpc wrangler-erl-node 'inspec_lib 'gen_module_scc_graph 
 				(list outputfile1 wrangler-search-paths withlabel))
 	    (erl-receive (outputfile1)
 		((['rex ['badrpc rsn]] 
@@ -2995,7 +2994,7 @@
 		(setq withlabel 'false)
 		)
 	      (erl-spawn
-		(erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'gen_module_graph 
+		(erl-send-rpc wrangler-erl-node 'inspec_lib 'gen_module_graph 
 				    (list outputfile1 wrangler-search-paths withlabel))
 		(erl-receive (outputfile1)
 		    ((['rex ['badrpc rsn]]
@@ -3023,7 +3022,7 @@
 		(setq withlabel 'false)
 		)
 	      (erl-spawn
-		(erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'cyclic_dependent_modules 
+		(erl-send-rpc wrangler-erl-node 'inspec_lib 'cyclic_dependent_modules 
 				    (list outputfile1 wrangler-search-paths withlabel))
 		(erl-receive (outputfile1)
 		    ((['rex ['badrpc rsn]]
@@ -3047,7 +3046,7 @@
 	(if (buffers-saved)
 	    (progn
 	      (erl-spawn
-		(erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'improper_inter_module_calls
+		(erl-send-rpc wrangler-erl-node 'inspec_lib 'improper_inter_module_calls
 				    (list outputfile1 wrangler-search-paths))
 		(erl-receive (outputfile1)
 		    ((['rex ['badrpc rsn]]
@@ -3072,7 +3071,7 @@
     (if (buffers-saved)
 	(progn
 	  (erl-spawn
-	    (erl-send-rpc wrangler-erl-node 'wrangler_distel 'partition_exports (list current-file-name distthreshold wrangler-search-paths tab-width))
+	    (erl-send-rpc wrangler-erl-node 'emacs_refac 'partition_exports (list current-file-name distthreshold wrangler-search-paths tab-width))
 	    (erl-receive (buffer current-file-name)
 		((['rex ['badrpc rsn]]
 		  (message "Partition of exported functions failed: %S" rsn))
@@ -3092,7 +3091,7 @@
 ;;      (if (buffers-saved)
 ;;  	(progn
 ;;  	  (erl-spawn
-;;  	    (erl-send-rpc wrangler-erl-node 'wrangler_code_inspector 'try_inspector 
+;;  	    (erl-send-rpc wrangler-erl-node 'inspec_lib 'try_inspector 
 ;;  			  (list 'wrangler_modularity_inspection 'component_extraction_suggestion (list current-file-name)))
 ;;  	    (erl-receive (buffer current-file-name) 
 ;;  		((['rex ['badrpc rsn]]
@@ -3507,7 +3506,7 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
        (column-no (current-column-no)))
     (if (current-buffer-saved buffer) 
         (erl-spawn            
-          (erl-send-rpc wrangler-erl-node 'wrangler_code_inspection_api 'input_par_prompts (list module-name function-name))             
+          (erl-send-rpc wrangler-erl-node 'emacs_inspec 'input_par_prompts (list module-name function-name))             
           (erl-receive (buffer module-name function-name current-file-name) 
               ((['rex ['badrpc rsn]]
                 (message "Code inspection failed: %s" rsn))
@@ -3530,7 +3529,7 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
        (args (list module-name function-name current-file-name par_vals wrangler-search-paths tab-width)))
     (if (current-buffer-saved buffer)
         (erl-spawn
-          (erl-send-rpc wrangler-erl-node 'wrangler_code_inspection_api 'apply_code_inspection  (list args))
+          (erl-send-rpc wrangler-erl-node 'emacs_inspec 'apply_code_inspection  (list args))
           (erl-receive (buffer) 
               ((['rex ['badrpc rsn]]
                 (message "Code inspection failed: %s" rsn))
