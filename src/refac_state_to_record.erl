@@ -50,16 +50,16 @@
 -define(Msg, "Wrangler failed to infer the current data type of the state.").
 
 %% =============================================================================================
-%%-spec(eqc_statem_to_record/3::(filename(),[dir()], integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
-%%								 {'ok', {tuple, integer()}, [{atom(), atom(), integer()}]}).
+-spec(eqc_statem_to_record/3::(filename(),[dir()], integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
+								 {'ok', {tuple, integer()}, [{atom(), atom(), integer()}]}).
 
 eqc_statem_to_record(FileName, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:eqc_statem_to_record(~p,~p, ~p).\n",
 		 [?MODULE, FileName,SearchPaths, TabWidth]),
     eqc_statem_to_record(FileName, SearchPaths, TabWidth, emacs).
 
-%%-spec(eqc_statem_to_record_eclipse/3::(filename(),[dir()], integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
-%%								 {'ok', {tuple, integer()}, [{atom(), atom(), integer()}]}).
+-spec(eqc_statem_to_record_eclipse/3::(filename(),[dir()], integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
+								 {'ok', {tuple, integer()}, [{atom(), atom(), integer()}]}).
 eqc_statem_to_record_eclipse(FileName, SearchPaths, TabWidth) ->
     eqc_statem_to_record(FileName,SearchPaths, TabWidth, eclipse).
 
@@ -72,10 +72,10 @@ eqc_statem_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, S
     format_args(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth,	"eqc_statem_to_record_1"),
     eqc_statem_to_record(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth, emacs, "").
 
-%%-spec(eqc_statem_to_record_1_eclipse/7::(FileName::filename(), RecordName::string(), RecordFields::[string()],
-%%					StateFuns::[{atom(), atom(), integer()}], IsTuple::boolean(),
-%%					SearchPaths::[dir()], TabWidth::integer()) ->
-%%					      {ok, [{filename(), filename(), string()}]}).
+-spec(eqc_statem_to_record_1_eclipse/7::(FileName::filename(), RecordName::string(), RecordFields::[string()],
+					StateFuns::[{atom(), atom(), integer()}], IsTuple::boolean(),
+					SearchPaths::[dir()], TabWidth::integer()) ->
+					      {ok, [{filename(), filename(), string()}]}).
 eqc_statem_to_record_1_eclipse(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth) ->
     eqc_statem_to_record(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth, eclipse, "").
 
@@ -85,14 +85,14 @@ eqc_statem_to_record(FileName, RecordName, RecordFields, StateFuns, IsTuple, Sea
 
 
 %% =============================================================================================
-%%-spec(eqc_fsm_to_record/3::(filename(),[dir()], integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
-%%		                                              {'ok', {tuple, integer()}, [{atom(), atom(),integer()}]}).
+-spec(eqc_fsm_to_record/3::(filename(),[dir()], integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
+		                                              {'ok', {tuple, integer()}, [{atom(), atom(),integer()}]}).
 eqc_fsm_to_record(FileName, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:eqc_fsm_to_record(~p,~p, ~p).\n", [?MODULE, FileName,SearchPaths, TabWidth]),
     eqc_fsm_to_record(FileName, SearchPaths, TabWidth, emacs).
 
-%%-spec(eqc_fsm_to_record_eclipse/3::(filename(),[dir()], integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
-%%								 {'ok', {tuple, integer()}, [{atom(), atom(), integer()}]}).
+-spec(eqc_fsm_to_record_eclipse/3::(filename(),[dir()], integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
+								 {'ok', {tuple, integer()}, [{atom(), atom(), integer()}]}).
 eqc_fsm_to_record_eclipse(FileName, SearchPaths, TabWidth) ->
     eqc_fsm_to_record(FileName,SearchPaths, TabWidth, eclipse).
 
@@ -106,10 +106,10 @@ eqc_fsm_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, Sear
 		      IsTuple, SearchPaths, TabWidth, emacs, "").
 
 
-%%-spec(eqc_fsm_to_record_1_eclipse/7::(FileName::filename(), RecordName::string(), RecordFields::[string()],
-%%					StateFuns::[{atom(), atom(), integer()}], IsTuple::boolean(),
-%%					SearchPaths::[dir()], TabWidth::integer()) ->
-%%					      {ok, [{filename(), filename(), string()}]}).
+-spec(eqc_fsm_to_record_1_eclipse/7::(FileName::filename(), RecordName::string(), RecordFields::[string()],
+					StateFuns::[{atom(), atom(), integer()}], IsTuple::boolean(),
+					SearchPaths::[dir()], TabWidth::integer()) ->
+					      {ok, [{filename(), filename(), string()}]}).
 eqc_fsm_to_record_1_eclipse(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth) ->
     eqc_fsm_to_record(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth, eclipse, "").
 
@@ -128,8 +128,8 @@ gen_fsm_to_record(FileName, SearchPaths, TabWidth) ->
     gen_fsm_to_record(FileName, SearchPaths, TabWidth, emacs).
 
 
-%%-spec(gen_fsm_to_record_eclipse/3::(filename(),[dir()], integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
-%%								 {'ok', {tuple, integer()}, [{atom(), atom(), integer()}]}).
+-spec(gen_fsm_to_record_eclipse/3::(filename(),[dir()], integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
+								 {'ok', {tuple, integer()}, [{atom(), atom(), integer()}]}).
 gen_fsm_to_record_eclipse(FileName, SearchPaths, TabWidth) ->
     gen_fsm_to_record(FileName,SearchPaths, TabWidth, eclipse).
 
@@ -143,10 +143,10 @@ gen_fsm_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, Sear
     gen_fsm_to_record(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth, emacs, "").
 
 
-%%-spec(gen_fsm_to_record_1_eclipse/7::(FileName::filename(), RecordName::string(), RecordFields::[string()],
-%%					StateFuns::[{atom(), atom(), integer()}], IsTuple::boolean(),
-%%					SearchPaths::[dir()], TabWidth::integer()) ->
-%%					      {ok, [{filename(), filename(), string()}]}).
+-spec(gen_fsm_to_record_1_eclipse/7::(FileName::filename(), RecordName::string(), RecordFields::[string()],
+					StateFuns::[{atom(), atom(), integer()}], IsTuple::boolean(),
+					SearchPaths::[dir()], TabWidth::integer()) ->
+					      {ok, [{filename(), filename(), string()}]}).
 gen_fsm_to_record_1_eclipse(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth) ->
     gen_fsm_to_record(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth, eclipse, "").
 
@@ -371,42 +371,42 @@ do_state_to_record_in_callback_fun_clause_body(Body, RecordName, RecordFields,
     ?debug("RecordFields:\n~p\n", [RecordFields]),
     Fun = fun (Node, _Others) ->
 		  case wrangler_syntax:type(Node) of
-		    application when IsTuple ->
-			As = wrangler_syntax:get_ann(wrangler_syntax:application_operator(Node)),
-			case lists:keysearch(fun_def, 1, As) of
-			  {value, {fun_def, {erlang, element, 2, _, _}}} ->
-			      element_to_record_access(RecordName, RecordFields, DefPs, Node, RecordToTupleFunName);
-			  {value, {fun_def, {erlang, setelement, 3, _, _}}} ->
-			      setelement_to_record_expr(Node, RecordName, RecordFields, DefPs, IsTuple,
-							TupleToRecordFunName, RecordToTupleFunName);
-			  _ -> Node
-			end;
-		    variable ->
-			As = wrangler_syntax:get_ann(Node),
-			case lists:keysearch(def, 1, As) of
-			  {value, {def, DefinePos}} ->
-			      case DefinePos -- DefPs =/= DefinePos of
-				true ->
-				    make_record_to_tuple_app(Node, RecordName, RecordFields, IsTuple,
-							     TupleToRecordFunName, RecordToTupleFunName);
-				false ->
-				    Node
-			      end;
-			  false -> Node
-			end;
-		    _ -> Node
+                      application when IsTuple ->
+                          As = wrangler_syntax:get_ann(wrangler_syntax:application_operator(Node)),
+                          case lists:keysearch(fun_def, 1, As) of
+                              {value, {fun_def, {erlang, element, 2, _, _}}} ->
+                                  element_to_record_access(RecordName, RecordFields, DefPs, Node, RecordToTupleFunName);
+                              {value, {fun_def, {erlang, setelement, 3, _, _}}} ->
+                                  setelement_to_record_expr(Node, RecordName, RecordFields, DefPs, IsTuple,
+                                                            TupleToRecordFunName, RecordToTupleFunName);
+                              _ -> Node
+                          end;
+                      variable ->
+                          As = wrangler_syntax:get_ann(Node),
+                          case lists:keysearch(def, 1, As) of
+                              {value, {def, DefinePos}} ->
+                                  case DefinePos -- DefPs =/= DefinePos of
+                                      true ->
+                                          make_record_to_tuple_app(Node, RecordName, RecordFields, IsTuple,
+                                                                   TupleToRecordFunName, RecordToTupleFunName);
+                                      false ->
+                                          Node
+                                  end;
+                              false -> Node
+                          end;
+                      _ -> Node
 		  end
 	  end,
     Body1 = api_ast_traverse:full_buTP(Fun, wrangler_syntax:block_expr(Body), {}),
     Body2 = is_tuple_to_is_record(Body1, RecordName, RecordToTupleFunName),
     Body3 = wrangler_syntax:block_expr_body(Body2),
     case ReturnState of
-      true ->
-	  do_state_to_record_in_init_fun_clause_body(
-	    Body3, RecordName, RecordFields, DefPs, IsTuple, SM,
-	    TupleToRecordFunName, RecordToTupleFunName);
-      false ->
-	  Body3
+        true ->
+            do_state_to_record_in_init_fun_clause_body(
+              Body3, RecordName, RecordFields, DefPs, IsTuple, SM,
+              TupleToRecordFunName, RecordToTupleFunName);
+        false ->
+            Body3
     end.
 
 

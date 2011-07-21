@@ -88,9 +88,10 @@ selective()->
 transform(Args=#args{current_file_name=File,
                      focus_sel={{_M,F,A},_Expr, _Nth}})->
     InscopeFuns = api_refac:inscope_funs(File),
-    NewFunName=case lists:member({F, A - 1}, InscopeFuns) of
+    M = list_to_atom(filename:basename(File, ".erl")),
+    NewFunName=case lists:member({M, F, A-1}, InscopeFuns) of
                    true ->
-                       make_new_fun_name({F,A - 1}, InscopeFuns);
+                       make_new_fun_name({M,F,A-1}, InscopeFuns);
                    false ->
                        atom_to_list(F)
                end,
@@ -231,11 +232,11 @@ delete(N, List)->
     {L1,L2}=lists:split(N-1, List),
     L1++tl(L2).
 
-make_new_fun_name({OldName, Arity},InscopeFuns) ->
+make_new_fun_name({ModName,OldName, Arity},InscopeFuns) ->
     NewName=list_to_atom(atom_to_list(OldName)++"_1"),
-    case lists:member({NewName,Arity}, InscopeFuns) of
+    case lists:member({ModName, NewName,Arity}, InscopeFuns) of
 	true ->
-	    make_new_fun_name({NewName, Arity}, InscopeFuns);
+	    make_new_fun_name({ModName,NewName, Arity}, InscopeFuns);
 	_ -> 
 	    atom_to_list(NewName)
     end.

@@ -991,15 +991,15 @@ do_add_category(Node, C) ->
     case wrangler_syntax:type(Node) of
 	clause ->
 	    Body = wrangler_syntax:clause_body(Node),
-	    P = wrangler_syntax:clause_patterns(Node),
+	    Ps = wrangler_syntax:clause_patterns(Node),
 	    G = wrangler_syntax:clause_guard(Node),
 	    Body1 = [add_category(B, expression)||B<-Body],
-	    P1 = add_category(P, pattern),
-	    G1 = case G of
+	    Ps1 = [add_category(P, pattern)||P<-Ps]
+,	    G1 = case G of
 		     none -> none;
 		     _ -> add_category(G, guard_expression)
 		 end,
-	    Node1 =rewrite(Node, wrangler_syntax:clause(P1, G1, Body1)),
+	    Node1 =rewrite(Node, wrangler_syntax:clause(Ps1, G1, Body1)),
 	    {Node1, true};
 	match_expr ->
 	    P = wrangler_syntax:match_expr_pattern(Node),

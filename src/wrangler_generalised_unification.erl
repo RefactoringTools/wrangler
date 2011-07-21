@@ -37,8 +37,8 @@
 expr_match(Exp1, Exp2) ->
     expr_match(Exp1, Exp2, fun(_) ->true end).
 
--spec(expr_match/3::(syntaxTree(), syntaxTree(), function()) ->
-                          {true, [{atom(), syntaxTree()}]} | false).
+-spec(expr_match/3::(syntaxTree()|[syntaxTree()], syntaxTree()|[syntaxTree()], function()) ->
+                          {true, [{atom(), syntaxTree()|[syntaxTree()]}]} | false).
 expr_match(Exp1, Exp2, Cond) ->
     Res = unification(Exp1, Exp2),
     PossibleMatches=[case static_semantics_check(Subst) of 
@@ -98,7 +98,7 @@ static_semantics_check_1(Subst=[{V, S}|_]) ->
             false 
     end.
         
--spec(unification/2::(syntaxTree(), syntaxTree()) ->
+-spec(unification/2::(syntaxTree()|[syntaxTree()], syntaxTree()|[syntaxTree()]) ->
                            [{true, [tuple()]}]|[false]).
 unification(Exp1, Exp2) ->
     case {is_list(Exp1), is_list(Exp2)} of

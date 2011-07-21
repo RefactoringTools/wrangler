@@ -17,8 +17,7 @@ input_par_prompts() ->
 
 %% Select the focus of interest. If no selection is neeeded, 
 %% then return {ok, none}.
--spec (select_focus/1::(#args{}) -> {ok, syntaxTree()}|{ok, none}).  
-                           
+-spec (select_focus/1::(#args{}) -> {ok, [syntaxTree()]}|{ok, none}).  
 select_focus(Args=#args{current_file_name=File}) ->
     Sel =api_interface:pos_to_expr_list(File, Args#args.highlight_range),
     {ok, Sel}.

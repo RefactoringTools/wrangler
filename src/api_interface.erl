@@ -40,27 +40,31 @@
 %%@doc Returns the outmost Node which encloses the cursor and 
 %%     makes Pred(Node) return `true'.
 %% =================================================================================
-pos_to_node(FileOrTree, Pos, Pred) ->
+-spec (pos_to_node(FileOrTree::filename()|syntaxTree(), Pos::pos(), Cond::function()) ->
+	      {ok, syntaxTree()}|{error, string()}).      
+pos_to_node(FileOrTree, Pos, Pred) when is_list(FileOrTree) ->
     case filelib:is_regular(FileOrTree) of 
         true ->
             {ok,{AnnAST, _}}= wrangler_ast_server:parse_annotate_file(FileOrTree, true),
             pos_to_node_1(AnnAST, Pos, Pred);
         false ->
-            case wrangler_syntax:is_tree(FileOrTree) of
-                true ->
-                    pos_to_node_1(FileOrTree, Pos, Pred);
-                false ->
-                    throw({error, "Badarg to function pos_to_node/3"})
-            end
-    end.
+            throw({error, "Badarg to function pos_to_node/3"})
+    end;
+pos_to_node(FileOrTree, Pos, Pred) ->
+      pos_to_node_1(FileOrTree, Pos, Pred).
 
 pos_to_node_1(Node, Pos, Pred) ->
-    case api_ast_traverse:once_tdTU(
-           fun pos_to_node_2/2, Node, {Pos, Pred}) of
-        {_, false} ->
-            {error, "No node satisfying the condition has been selected."};
-        {R, true} -> 
-            {ok, R}
+    case is_tree(Node) of 
+        true ->
+            case api_ast_traverse:once_tdTU(
+                   fun pos_to_node_2/2, Node, {Pos, Pred}) of
+                {_, false} ->
+                    {error, "No node satisfying the condition has been selected."};
+                {R, true} -> 
+                    {ok, R}
+            end;
+        false ->
+            throw({error, "Badarg to function pos_to_node/3"})
     end.
 
 pos_to_node_2(Node, {Pos, Pred}) ->
@@ -87,7 +91,7 @@ range_to_node(FileOrTree, Pos, Pred) ->
             {ok, {AnnAST, _}}= wrangler_ast_server:parse_annotate_file(FileOrTree, true), 
             range_to_node_1(AnnAST, Pos, Pred);
         false ->
-            case wrangler_syntax:is_tree(FileOrTree) of
+            case is_tree(FileOrTree) of
                 true ->
                     range_to_node_1(FileOrTree, Pos, Pred);
                 false ->
@@ -178,7 +182,7 @@ pos_to_fun_def(FileOrTree, Pos) when is_list(FileOrTree)->
             {ok, {AnnAST, _}} = wrangler_ast_server:parse_annotate_file(FileOrTree, true),
             pos_to_fun_def_1(AnnAST, Pos);
         false ->
-            pos_to_fun_def_1(FileOrTree, Pos)
+            throw({error, "Badarg to function interface_api:pos_to_fun_def/2"})
     end;
 pos_to_fun_def(FileOrTree, Pos) ->
     pos_to_fun_def_1(FileOrTree, Pos).

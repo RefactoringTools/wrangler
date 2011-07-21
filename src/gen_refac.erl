@@ -71,7 +71,7 @@
 %%   This function should returns `true' if the user is allowed to browse 
 %%   through and select the changes to be made.
 %% ```transform(Args::#args()) 
-%%      ===> {ok, [{filename(), syntaxTree()}] | {error, Reason}}'''
+%%      ===> {ok, [{{filename(),filename()} syntaxTree()}] | {error, Reason}}'''
 %%   Function `transform' carries out the transformation part of the 
 %%   refactorings. If the refactoring succeeds, it returns the list of
 %%   file names together with their new AST (only files that have been 

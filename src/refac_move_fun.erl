@@ -1001,16 +1001,17 @@ analyze_file(FName, SearchPaths, TabWidth) ->
     NewSearchPaths = SearchPaths ++ DefaultIncls,
     case wrangler_epp:parse_file(FName, NewSearchPaths, [], TabWidth,
 			         wrangler_misc:file_format(FName))
-	of
-	{ok, TargetAST, {MDefs, _MUses1}} ->
+    of
+	{ok, AST, {MDefs, _MUses1}} ->
 	    MacroDefs = get_macro_defs(MDefs),
-	    TargetModInfo = get_mod_info_from_parse_tree(TargetAST),
-	    RecordDefs = case lists:keysearch(records, 1, TargetModInfo) of
-			     {value, {records, RecordDefsInTargetFile}} ->
+	    ModInfo = get_mod_info_from_parse_tree(AST),
+	    RecordDefs = case lists:keyfind(records, 1, ModInfo) of
+                             {records, RecordDefsInFile} ->
 				 [{Name, lists:keysort(1, [{F, prettyprint(FDef)} || {F, FDef} <- Fields])}
-				  || {Name, Fields} <- RecordDefsInTargetFile];
-			     _ -> []
+				  || {Name, Fields} <- RecordDefsInFile];
+			     false -> []
 			 end,
+            DD = [{Name, lists:keysort(1, Fields)} || {Name, Fields} <- RecordDefs],
 	    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
             Forms = wrangler_syntax:form_list_elements(AnnAST),
 	    Includes = lists:append([lists:flatmap(fun (A) ->
@@ -1021,8 +1022,8 @@ analyze_file(FName, SearchPaths, TabWidth) ->
 						   end, Args)
 				     || F <- Forms, is_attribute(F, include) orelse is_attribute(F, include_lib),
 					Args <- [wrangler_syntax:attribute_arguments(F)]]),
-	    InscopeFuns = api_refac:inscope_funs(TargetModInfo),
-	    #module_info{filename = FName,
+	    InscopeFuns = api_refac:inscope_funs(ModInfo),
+            #module_info{filename = FName,
 			 modname = get_module_name(Info),
 			 inscope_funs = InscopeFuns,
 			 macro_defs = MacroDefs,

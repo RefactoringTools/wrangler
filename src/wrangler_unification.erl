@@ -39,8 +39,8 @@
 expr_match(Exp1, Exp2) ->
     expr_unification(Exp1, Exp2, syntax, false).
 
--spec(expr_unification/2::(syntaxTree(), syntaxTree()) ->
-				{true, [{atom(), syntaxTree()}]} | false).
+-spec(expr_unification/2::(syntaxTree()|[syntaxTree()], syntaxTree()|[syntaxTree()]) ->
+				{true, [{atom(), syntaxTree()|[syntaxTree()]}]} | false).
 expr_unification(Exp1, Exp2) ->
     expr_unification(Exp1, Exp2, syntax, true).
 expr_unification_extended(Exp1, Exp2) ->
@@ -211,7 +211,7 @@ non_same_type_expr_unification(Exp1, Exp2,_Type, CheckGen) ->
                                     {true, [{Exp1Name, rm_comments(Exp2)}]}
                             end;
                         _ ->
-                            case api_side_effect:has_side_effect(Exp2) of
+                            case wrangler_side_effect:has_side_effect(Exp2) of
                                 false ->
                                     {true, [{Exp1Name, rm_comments(Exp2)}]};
                                 _ ->
