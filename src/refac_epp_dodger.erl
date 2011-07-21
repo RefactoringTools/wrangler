@@ -183,7 +183,7 @@ parse_form(Dev, L0, Parser, Options) ->
 		     undefined ->?DEFAULT_FILEFORMAT;
 		     V   -> V
 		 end,  
-    Res = refac_io:scan_erl_form(Dev, "", L0, TabWidth, FileFormat),
+    Res = wrangler_io:scan_erl_form(Dev, "", L0, TabWidth, FileFormat),
     case Res of    
         {ok, Ts, L1} ->
 	    case catch {ok, Parser(Ts, Opt)} of

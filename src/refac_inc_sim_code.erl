@@ -231,7 +231,7 @@ inc_sim_code_detection(Files, Thresholds, Tabs, SearchPaths, TabWidth, Editor, I
     Cs = process_initial_clones(Cs0),
     
     %%?wrangler_io("\nInitial candiates finished\n", []),
-    refac_io:format("Number of initial clone candidates: ~p\n", [length(Cs)]),
+    wrangler_io:format("Number of initial clone candidates: ~p\n", [length(Cs)]),
     CloneCheckerPid = start_clone_check_process(Tabs),
     %% examine each clone candiate and filter false positives.
     Cs2 = examine_clone_candidates(Cs, Thresholds, Tabs, CloneCheckerPid, ASTPid, 1),

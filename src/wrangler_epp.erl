@@ -299,7 +299,7 @@ leave_file(From, St) ->
 %% scan_toks(Tokens, From, EppState)
 
 scan_toks(From, St) ->
-    Res=  refac_io:scan_erl_form(St#epp.file, '', St#epp.line, St#epp.tabwidth, St#epp.fileformat),
+    Res=  wrangler_io:scan_erl_form(St#epp.file, '', St#epp.line, St#epp.tabwidth, St#epp.fileformat),
     case Res  of
 	{ok,Toks,Cl} ->
 	    scan_toks(Toks, From, St#epp{line=Cl});
@@ -663,7 +663,7 @@ scan_file_1(_Toks, Lf, From, St) ->
 %%  nested conditionals and repeated 'else's.
 
 skip_toks(From, St, [I|Sis]) ->
-    case refac_io:scan_erl_form(St#epp.file, '', St#epp.line, St#epp.tabwidth,St#epp.fileformat) of
+    case wrangler_io:scan_erl_form(St#epp.file, '', St#epp.line, St#epp.tabwidth, St#epp.fileformat) of
 	{ok,[{'-',_Lh},{atom,_Li,ifdef}|_Toks],Cl} ->
 	    skip_toks(From, St#epp{line=Cl}, [ifdef,I|Sis]);
 	{ok,[{'-',_Lh},{atom,_Li,ifndef}|_Toks],Cl} ->

@@ -116,9 +116,9 @@ gen_clone_report_1([], _Thresholds, _TabWidth, OutFile, ReportAcc) ->
 	    throw({error, lists:flatten(Msg)})
     end;
 gen_clone_report_1([Rev| Revs], Thresholds, TabWidth, OutFile, ReportAcc) ->
-    refac_io:format("\nCur Version:\n~p\n", [Rev]),
+    wrangler_io:format("\nCur Version:\n~p\n", [Rev]),
     Cs = inc_sim_code_detection([Rev], Thresholds, [Rev], TabWidth, OutFile),
-    refac_io:format("Num of clones: ~p\n", [length(Cs)]),
+    wrangler_io:format("Num of clones: ~p\n", [length(Cs)]),
     CloneReport = gen_clone_report_2(Rev, Cs),
     ReportAcc1 = ReportAcc++ CloneReport,
     gen_clone_report_1(Revs, Thresholds, TabWidth, OutFile, ReportAcc1).
@@ -133,7 +133,7 @@ gen_clone_report_2(Rev, Cs)->
     Report = io_lib:format("~p, ~p, ~p, ~p, ~p, ~p \n", 
 			   [filename:basename(Rev),NewClones, UnChanged, ChangedMinus, 
 			    ChangedPlus, ChangedPlusMinus]),
-    refac_io:format("Report:\n~p\n", [lists:flatten(Report)]),
+    wrangler_io:format("Report:\n~p\n", [lists:flatten(Report)]),
     lists:flatten(Report).
 
 
@@ -234,7 +234,7 @@ inc_sim_code_detection_1(Files, Thresholds, SearchPaths, TabWidth, OutFile) ->
     Cs = process_initial_clones(Cs0),
     
     %%?wrangler_io("\nInitial candiates finished\n", []),
-    refac_io:format("Number of initial clone candidates: ~p\n", [length(Cs)]),
+    wrangler_io:format("Number of initial clone candidates: ~p\n", [length(Cs)]),
     CloneCheckerPid = start_clone_check_process(Tabs),
     %%examine each clone candiate and filter false positives.
     %% refac_io:format("CurPreRevFileNameMap:\n~p\n", [CurPreRevFileNameMap]),
@@ -1219,9 +1219,9 @@ group_clone_pairs(ClonePairs, Thresholds, Acc) ->
 group_clone_pairs([], _, _, Acc, LeftPairs) ->
     {lists:reverse(Acc), lists:reverse(LeftPairs)};
 group_clone_pairs([CP={C={_R, _EVs, Subst}, NumOfNewVars}|T], Thresholds, ExprsToBeGenAcc, Acc, LeftPairs) ->
-    refac_io:format("NumOfNewVars:\n~p\n", [NumOfNewVars]),
+    wrangler_io:format("NumOfNewVars:\n~p\n", [NumOfNewVars]),
     MaxNewVars = Thresholds#threshold.max_new_vars,
-    refac_io:format("MaxNewVars:\n~p\n", [MaxNewVars]),
+    wrangler_io:format("MaxNewVars:\n~p\n", [MaxNewVars]),
     ExprsToBeGen=exprs_to_be_generalised(Subst),
     NewExprsToBeGenAcc =sets:union(ExprsToBeGen, ExprsToBeGenAcc),
     case sets:size(NewExprsToBeGenAcc)=<MaxNewVars of
@@ -1728,7 +1728,7 @@ to_dets(Ets, DetsFile) ->
     catch
 	E1:E2 ->
 	    ets:delete(Ets),
-	    refac_io:format("to_dets failed: ~p\n", [{E1,E2}])
+	    wrangler_io:format("to_dets failed: ~p\n", [{E1,E2}])
     end.
   
 	 

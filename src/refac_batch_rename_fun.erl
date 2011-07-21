@@ -38,16 +38,16 @@ rename_in_file(File, SearchPaths) ->
 %% rename one function whose name is in camelCase.
 rename_one_function(File, SearchPaths, F, A) ->
     NewName = camelCase_to_camel_case(F),
-    refac_io:format("\nRenaming function ~p/~p to ~p/~p in ~p ...\n",
-                    [F, A, NewName, A, File]),
+    wrangler_io:format("\nRenaming function ~p/~p to ~p/~p in ~p ...\n",
+                       [F, A, NewName, A, File]),
     Res=api_wrangler:rename_fun(File, F, A, NewName, SearchPaths),
     case Res of
         {ok, FilesChanged} ->
             FilesChanged;
         {error, Reason} ->
-            refac_io:format("\nRenaming ~p/~p in file, ~p, "
-                            "failed: ~p.\n", 
-                            [F,A,File,Reason]),
+            wrangler_io:format("\nRenaming ~p/~p in file, ~p, "
+                               "failed: ~p.\n",
+                               [F,A,File,Reason]),
             []
     end.
 

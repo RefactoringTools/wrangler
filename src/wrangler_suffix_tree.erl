@@ -44,7 +44,7 @@ get_clones_by_suffix_tree(Dir, ProcessedToks, MinLength, MinClones, Alphabet, Al
 	ok -> 
 	    case catch call_port({get, MinLength, MinClones, AllowOverLap, OutFileName}) of
 	    	{ok, _Res} ->
-		    refac_io:format("Initial clones are calculated using C suffixtree implementation.\n", []),
+		    wrangler_io:format("Initial clones are calculated using C suffixtree implementation.\n", []),
 		    {ok, Res} = file:consult(OutFileName),
 		    stop_suffix_tree_clone_detector(),
 		    file:delete(OutFileName),

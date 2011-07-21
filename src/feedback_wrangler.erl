@@ -52,8 +52,8 @@ do_code_inspection(SearchPaths, [{FunName, Args}|Options], Acc) ->
 try_inspector(Mod, Fun, Args) -> 
     case try_to_apply(Mod, Fun, Args) of
         {error, {Reason, StackTrace}} ->
-            refac_io:format("Wrangler failed to run '~p':\n{~p, \n~s}\n",
-                            [Fun,Reason, StackTrace]),
+            wrangler_io:format("Wrangler failed to run '~p':\n{~p, \n~s}\n",
+                               [Fun, Reason, StackTrace]),
             [];
         {ok, Res} ->
             [create_one_feedback_message(R)||R<-Res]
