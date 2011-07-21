@@ -1011,8 +1011,7 @@ analyze_file(FName, SearchPaths, TabWidth) ->
 				  || {Name, Fields} <- RecordDefsInFile];
 			     false -> []
 			 end,
-            DD = [{Name, lists:keysort(1, Fields)} || {Name, Fields} <- RecordDefs],
-	    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
+            {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
             Forms = wrangler_syntax:form_list_elements(AnnAST),
 	    Includes = lists:append([lists:flatmap(fun (A) ->
 							   case wrangler_syntax:type(A) of
