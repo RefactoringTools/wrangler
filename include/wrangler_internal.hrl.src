@@ -66,7 +66,7 @@
 
 
 -ifdef(EMACS).
--define(wrangler_io(__String, __Args),refac_io:format(__String, __Args)).
+-define(wrangler_io(__String, __Args),wrangler_io:format(__String, __Args)).
 -else.
 -define(wrangler_io(__String, __Args), ok).
 -endif.
@@ -87,13 +87,12 @@
 -type(functionname()::atom()).
 -type(functionarity()::integer()).
 -type(dir()::string()).
--type(syntaxTree()::any()).    %% any() should be refined.
+-type (syntaxTree() :: {tree, any(), any(), any()}| {wrapper, any(), any(), any()}).
 -type(pos()::{integer(), integer()}).
 -type(line()::integer()).
 -type(col()::integer()).
 -type(key():: attributes | errors | exports | functions | imports | module_imports | module | records | rules | warnings).
--type(moduleInfo()::[{key(), any()}]).  %% any() should be refined.
--type(module_info()::[{key(), any()}]).  %% any() should be refined.
+-type(module_info()::[{key(), any()}]).  
 -type(anyterm()::any()).
 -type(editor()::emacs|eclipse).
 -type(whitespace() :: '\t' | '\n' | ' ').
