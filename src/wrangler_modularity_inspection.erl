@@ -63,7 +63,7 @@ gen_module_graph(OutFile, NotCareMods, SearchPaths, WithLabel) ->
     ?wrangler_io("\nCMD: ~p:gen_module_graph(~p, ~p, ~p, ~p).\n",
 		 [?MODULE, OutFile, NotCareMods, SearchPaths, WithLabel]),
     NotCareMods1 = [list_to_atom(T)|| T<-string:tokens(NotCareMods, ", ")],
-    refac_module_graph:module_graph_to_dot(OutFile, NotCareMods1, SearchPaths, WithLabel).
+    wrangler_module_graph:module_graph_to_dot(OutFile, NotCareMods1, SearchPaths, WithLabel).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -84,9 +84,9 @@ gen_function_callgraph(OutFile, FileName, _SearchPaths) ->
 improper_inter_module_calls(OutFile, SearchPaths) ->
     ?wrangler_io("\nCMD: ~p:improper_inter_module_calls(~p, ~p).\n",
 		 [?MODULE, OutFile, SearchPaths]),
-    ModCallerCallees = refac_module_graph:module_graph_with_funs(SearchPaths),
+    ModCallerCallees = wrangler_module_graph:module_graph_with_funs(SearchPaths),
     FullMG = digraph:new(),
-    refac_module_graph:add_edges(ModCallerCallees, [], FullMG),
+    wrangler_module_graph:add_edges(ModCallerCallees, [], FullMG),
     ModNames = digraph:vertices(FullMG),
     Files = refac_misc:expand_files(SearchPaths, ".erl"),
     NonAPIFunsWithDepMods = lists:flatmap(fun (F) -> non_api_funs(F, ModNames) end, Files),
@@ -96,7 +96,7 @@ improper_inter_module_calls(OutFile, SearchPaths) ->
 				  || {CalleeMod, CalledFuns} <- CalleeMods,
 				     is_sub_list([{CalleeMod, F, A} || {F, A} <- CalledFuns], NonAPIFuns)]
 				 || {CallerMod, CalleeMods} <- ModCallerCallees]),
-    refac_module_graph:module_graph_to_dot(OutFile, ImroperDepMG, true),
+    wrangler_module_graph:module_graph_to_dot(OutFile, ImroperDepMG, true),
     ImproperModDeps = [{[CallerMod], {CalleeMod, CalleeFun, CalleeFunArity}}
 		       || {{CallerMod, _}, CalleeMods} <- ImroperDepMG,
 			  {CalleeMod, CalleeFuns} <- CalleeMods,
@@ -315,9 +315,9 @@ cyclic_dependent_modules(OutFile, SearchPaths, _WithLabel) ->
     ?wrangler_io("\nCMD: ~p:cyclic_dependent_modules(~p, ~p, ~p).\n",
 		 [?MODULE, OutFile, SearchPaths, _WithLabel]),
     Files = refac_misc:expand_files(SearchPaths, ".erl"),
-    ModCallerCallees = refac_module_graph:module_graph_with_funs(SearchPaths),
+    ModCallerCallees = wrangler_module_graph:module_graph_with_funs(SearchPaths),
     MG = digraph:new(),
-    refac_module_graph:add_edges(ModCallerCallees,[],MG),
+    wrangler_module_graph:add_edges(ModCallerCallees,[],MG),
     SCCs = digraph_utils:cyclic_strong_components(MG),
     Cycles = [digraph:get_short_cycle(MG, V) || SCC <- SCCs, V <- SCC],
     Cycles1 = remove_duplicated_cycles(Cycles),
@@ -572,13 +572,13 @@ called_mods(Tree) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 modules_with_big_fanin(DotFile, SearchPaths, MinInDegree, NotCareMods) ->
-    ModCallerCallees = refac_module_graph:module_graph_with_funs(SearchPaths),
+    ModCallerCallees = wrangler_module_graph:module_graph_with_funs(SearchPaths),
     CalleeMods1 = lists:append([element(1, lists:unzip(CalleeMods)) || {_CallerMod, CalleeMods} <- ModCallerCallees]),
     Res = [[{CallerMod, [{CalleeMod, CalledFuns}]} || {CalleeMod, CalledFuns} <- CalleeMods,
 						      not lists:member(CalleeMod, NotCareMods),
 						      length([M || M <- CalleeMods1, M == CalleeMod]) >= MinInDegree]
 	   || {CallerMod, CalleeMods} <- ModCallerCallees],
-    refac_module_graph:module_graph_to_dot(DotFile, lists:append(Res), true).
+    wrangler_module_graph:module_graph_to_dot(DotFile, lists:append(Res), true).
 
     
 
@@ -589,10 +589,10 @@ modules_with_big_fanin(DotFile, SearchPaths, MinInDegree, NotCareMods) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    
 modules_with_big_fanout(OutFile, SearchPaths, MinOutDegree, NotCareMods) ->
-    ModCallerCallees = refac_module_graph:module_graph_with_funs(SearchPaths),
+    ModCallerCallees = wrangler_module_graph:module_graph_with_funs(SearchPaths),
     Res = [{CallerMod, CalleeMods} || {CallerMod, CalleeMods} <- ModCallerCallees,
 				      length(CalleeMods) > MinOutDegree, not lists:member(CallerMod, NotCareMods)],
-    refac_module_graph:module_graph_to_dot(OutFile, Res, false).
+    wrangler_module_graph:module_graph_to_dot(OutFile, Res, false).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -766,8 +766,8 @@ partition_exports(File, DistThreshold, WithInOutDegree, SearchPaths, TabWidth, E
     MG = digraph:new(),
     case WithInOutDegree of
 	true ->
-	    ModCallerCallees = refac_module_graph:module_graph_with_funs(SearchPaths),
-	    refac_module_graph:add_edges(ModCallerCallees, [], MG);
+	    ModCallerCallees = wrangler_module_graph:module_graph_with_funs(SearchPaths),
+	    wrangler_module_graph:add_edges(ModCallerCallees, [], MG);
 	false ->
 	    ok
     end,

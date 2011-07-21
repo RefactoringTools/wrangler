@@ -94,7 +94,7 @@ init([]) ->
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
 handle_call({get_client_files, File, SearchPaths}, _From, State) ->
-    ModuleGraph = refac_module_graph:module_graph(SearchPaths),
+    ModuleGraph = wrangler_module_graph:module_graph(SearchPaths),
     ClientFiles = case lists:keysearch(File, 1, ModuleGraph) of
 		      {value, {_, Clients}} -> 
 			  lists:delete(File, Clients);
@@ -103,7 +103,7 @@ handle_call({get_client_files, File, SearchPaths}, _From, State) ->
     {reply, ClientFiles, State};
 
 handle_call({get_called_modules, File, SearchPaths}, _From, State) ->
-    CalledMods = refac_module_graph:get_called_mods(File, SearchPaths),
+    CalledMods = wrangler_module_graph:get_called_mods(File, SearchPaths),
     {reply, CalledMods, State}.
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
