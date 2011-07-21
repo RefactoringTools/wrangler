@@ -193,7 +193,7 @@ non_same_type_expr_unification(Exp1, Exp2,_Type, CheckGen) ->
     T1 = wrangler_syntax:type(Exp1),
     case T1 of
       variable ->
-            case CheckGen andalso not (refac_code_search_utils:generalisable(Exp2)) of
+            case CheckGen andalso not (wrangler_code_search_utils:generalisable(Exp2)) of
                 true ->
                     false;
                 false ->

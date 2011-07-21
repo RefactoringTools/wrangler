@@ -57,8 +57,8 @@ do_anti_unification(Expr1, Expr2) ->
     end.
 
 anti_unfication_different_type(Expr1, Expr2) ->
-    case refac_code_search_utils:generalisable(Expr1) 
-	andalso refac_code_search_utils:generalisable(Expr2) of
+    case wrangler_code_search_utils:generalisable(Expr1)
+       andalso wrangler_code_search_utils:generalisable(Expr2) of
 	true ->
 	  [{Expr1, Expr2}];
       false ->
@@ -318,13 +318,13 @@ generalise_expr_2(Expr, Subst, ExprFreeVars, {ExportVars1, ExportVars2}) ->
 	_ ->
 	    %% New variables needed.
 	    UsedVarNames = sets:from_list(wrangler_misc:collect_var_names(Expr)),
-	    Pid = refac_code_search_utils:start_counter_process(UsedVarNames),
+	    Pid = wrangler_code_search_utils:start_counter_process(UsedVarNames),
 	    ExportVars3 = [E || E <- ExportVars2, wrangler_syntax:type(E) =/= variable],
 	    ExprNewVarPairs = generate_new_var_names(Subst,Pid),
 	    {Expr1, _} = api_ast_traverse:stop_tdTP(fun do_replace_expr_with_var_1/2, Expr,
 						    {ExprNewVarPairs, Subst, ExprFreeVars, Pid, ExportVars3}),
-	    NewVarsToExport = refac_code_search_utils:get_new_export_vars(Pid),
-	    refac_code_search_utils:stop_counter_process(Pid),
+	    NewVarsToExport = wrangler_code_search_utils:get_new_export_vars(Pid),
+	    wrangler_code_search_utils:stop_counter_process(Pid),
 	    VarsToExport1 = ExportVars1 ++ 
 			      [wrangler_syntax:variable_name(E)
 			       || E <- ExportVars2, wrangler_syntax:type(E) == variable] ++
@@ -356,7 +356,7 @@ do_replace_expr_with_var_1(Node, {ExprNewVarPairs, SubSt, ExprFreeVars, Pid, Exp
 					 _ -> NewVar = get_new_var_name(Node, ExprNewVarPairs, Pid),
 					      case lists:member(Node, ExportExprs) of
 						  true ->
-						      refac_code_search_utils:add_new_export_var(Pid, NewVar);
+						      wrangler_code_search_utils:add_new_export_var(Pid, NewVar);
 						  _ -> ok
 					      end,
 					      {wrangler_misc:rewrite(Node, wrangler_syntax:variable(NewVar)), true}
@@ -372,7 +372,7 @@ do_replace_expr_with_var_1(Node, {ExprNewVarPairs, SubSt, ExprFreeVars, Pid, Exp
 		    NewVar = get_new_var_name(Node, ExprNewVarPairs, Pid),
 		    case lists:member(Node, ExportExprs) of
 			true ->
-			    refac_code_search_utils:add_new_export_var(Pid, NewVar);
+			    wrangler_code_search_utils:add_new_export_var(Pid, NewVar);
 			_ -> ok
 		    end,
 		    {wrangler_misc:rewrite(Node, wrangler_syntax:variable(NewVar)), true}
@@ -385,7 +385,7 @@ get_new_var_name(Node, ExprNewVarPairs, NewVarGenPid)->
 	{value, {Node, NewVar}} when NewVar/=none->
 	    NewVar;
 	_ ->
-	    refac_code_search_utils:gen_new_var_name(NewVarGenPid)
+	    wrangler_code_search_utils:gen_new_var_name(NewVarGenPid)
     end.
 
 generate_new_var_names(Subst, NewVarGenPid) ->
@@ -410,7 +410,7 @@ generate_new_var_names(Subst, NewVarGenPid) ->
 		  || Group <- SortedGroupedExprsToBeReplacedByLoc,
 		     NewVar <- [case wrangler_syntax:type(hd(Group)) of
 				    variable -> none;
-				    _ -> refac_code_search_utils:gen_new_var_name(NewVarGenPid)
+				    _ -> wrangler_code_search_utils:gen_new_var_name(NewVarGenPid)
 				end]]).
 
 min_src_pos(Es) ->
@@ -439,12 +439,12 @@ gen_binding_info(E)->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 has_same_name(Expr1, Expr2) ->
-    refac_code_search_utils:identifier_name(Expr1) ==
-      refac_code_search_utils:identifier_name(Expr2).
+    wrangler_code_search_utils:identifier_name(Expr1) ==
+      wrangler_code_search_utils:identifier_name(Expr2).
 
 generalisable(E1, E2) ->
-    refac_code_search_utils:generalisable(E1) andalso 
-	refac_code_search_utils:generalisable(E2).
+    wrangler_code_search_utils:generalisable(E1) andalso
+	wrangler_code_search_utils:generalisable(E2).
 
 reset_attrs(Node) ->
     api_ast_traverse:full_buTP(fun (T, _Others) ->

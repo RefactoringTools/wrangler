@@ -81,7 +81,7 @@ sim_code_detection(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabW
 		      ets:delete(ASTTab),
 		      ets:delete(VarTab),
 		      ets:delete(RangeTab),
-		      refac_code_search_utils:display_clone_result(remove_fun_info(Cs2), "Similar"),
+		      wrangler_code_search_utils:display_clone_result(remove_fun_info(Cs2), "Similar"),
 		      Cs2
 	      end,
     CloneReport = gen_clone_report(FinalCs),
@@ -200,7 +200,7 @@ generalise_and_hash_ast_1(FName, Pid, SearchPaths, TabWidth, ASTTab, VarTab) ->
 
 generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
     F0 = fun (T, _Others) ->
-		 case refac_code_search_utils:generalisable(T) of
+		 case wrangler_code_search_utils:generalisable(T) of
 		     true ->
 			 {wrangler_syntax:variable('Var'), true};
 		     false -> {T, false}
@@ -533,7 +533,7 @@ search_for_clones(Dir, Data, MinLen, MinFreq, RangeTab) ->
     Cs1 = lists:append([strip_a_clone({[{S,E} |Ranges], {Len, Freq}}, SubStr, MinLen, MinFreq)
 			|| {[{S,E} |Ranges], Len, Freq} <- Cs, 
 			      SubStr <-[lists:sublist(IndexStr, S, E-S+1)]]),
-    Cs2 =refac_code_search_utils:remove_sub_clones([{R,Len,Freq}||{R, {Len, Freq}}<-Cs1]),
+    Cs2 =wrangler_code_search_utils:remove_sub_clones([{R,Len,Freq}||{R, {Len, Freq}} <- Cs1]),
     get_clones_in_ranges([{R,{Len, Freq}}||{R, Len, Freq}<-Cs2], 
 			 NewData, MinLen, MinFreq, RangeTab).
    

@@ -68,7 +68,7 @@ expr_search_in_buffer(FileName, Start = {_Line, _Col}, End = {_Line1, _Col1}, Se
     Res = do_expr_search(FileName, Es, SearchPaths, TabWidth),
     SE = api_refac:start_end_loc(Es),
     Res1 = [{FileName, SE}| Res -- [{FileName, SE}]],
-    refac_code_search_utils:display_search_results(Res1, none, "indentical").
+    wrangler_code_search_utils:display_search_results(Res1, none, "indentical").
 
 %% ================================================================================================
 %% @doc Search for identical clones of an expression/ expression sequence across multiple modules.
@@ -101,7 +101,7 @@ expr_search_in_dirs(FileName, Start = {_Line, _Col}, End = {_Line1, _Col1}, Sear
     Res = lists:append([do_expr_search(F, Es, SearchPaths, TabWidth) || F <- Files]),
     SE = api_refac:start_end_loc(Es),
     Res1 = [{FileName, SE}| Res -- [{FileName, SE}]],
-    refac_code_search_utils:display_search_results(Res1, none, "indentical").
+    wrangler_code_search_utils:display_search_results(Res1, none, "indentical").
 
 %%-spec(expr_search_eclipse/4::(filename(), pos(), pos(), integer()) ->
 %%   {ok, [{{integer(), integer()}, {integer(), integer()}}]} | {error, string()}).
@@ -142,13 +142,13 @@ do_expr_search(FileName, Es, SearchPaths, TabWidth) ->
 %% Search the clones of an expression from Tree.
 search_one_expr(FileName, Tree, Exp) ->
     SimplifiedExp = simplify_expr(Exp),
-    BdStructExp = refac_code_search_utils:var_binding_structure([Exp]),
+    BdStructExp = wrangler_code_search_utils:var_binding_structure([Exp]),
     F = fun (T, Acc) ->
 		case api_refac:is_expr(T) orelse wrangler_syntax:type(T) == match_expr of
 		    true -> T1 = simplify_expr(T),
 			    case SimplifiedExp == T1 of
 				true ->
-				    case refac_code_search_utils:var_binding_structure([T]) of
+				    case wrangler_code_search_utils:var_binding_structure([T]) of
 					BdStructExp ->
 					    StartEndLoc = api_refac:start_end_loc(T),
 					    [{FileName, StartEndLoc}| Acc];
@@ -176,8 +176,8 @@ get_clone(FileName, ExpList1, ExpList2) ->
 	    case lists:prefix(SimplifiedExpList1, SimplifiedExpList2) of
 		true ->
 		    List22 = lists:sublist(ExpList2, Len1),
-		    BdList1 = refac_code_search_utils:var_binding_structure(ExpList1),
-		    BdList2 = refac_code_search_utils:var_binding_structure(List22),
+		    BdList1 = wrangler_code_search_utils:var_binding_structure(ExpList1),
+		    BdList2 = wrangler_code_search_utils:var_binding_structure(List22),
 		    case BdList1 == BdList2 of
 			true ->
 			    E1 = hd(List22),
@@ -220,7 +220,7 @@ do_simplify_expr(Node) ->
 		  wrangler_syntax:default_literals_vars(Node, '%');
 	      string ->
 		  wrangler_syntax:default_literals_vars(Node, '%');
-	      atom -> case refac_code_search_utils:generalisable(Node) of
+	      atom -> case wrangler_code_search_utils:generalisable(Node) of
 			true ->
 			    As = wrangler_syntax:get_ann(Node),
 			    case lists:keysearch(type, 1, As) of

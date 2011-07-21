@@ -49,7 +49,7 @@
 -export([unfold_fun_app/4, unfold_fun_app_eclipse/4]).
 
 
--import(refac_code_search_utils, [identifier_name/1]).
+-import(wrangler_code_search_utils, [identifier_name/1]).
 
 -include("../include/wrangler_internal.hrl").
 

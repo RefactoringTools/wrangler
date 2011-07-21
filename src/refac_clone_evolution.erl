@@ -254,7 +254,7 @@ inc_sim_code_detection_1(Files, Thresholds, SearchPaths, TabWidth, OutFile) ->
     to_dets(Tabs#tabs.exp_hash_tab,?ExpHashTab(OutDir)),
     to_dets(Tabs#tabs.clone_tab,?CloneTab(OutDir)),
     %% refac_io:format("Cs4:\n~p\n", [Cs4]),
-    refac_code_search_utils:display_clone_result(lists:reverse(Cs4), "Similar"),
+    wrangler_code_search_utils:display_clone_result(lists:reverse(Cs4), "Similar"),
     Cs4.
     
    
@@ -501,7 +501,7 @@ generalise_and_hash_expr(ASTTab, {M, F, A}, StartLine,
 %% replace an AST node if the node can be generalised.
 do_generalise(Node) ->
     F0 = fun (T, _Others) ->
-		 case refac_code_search_utils:generalisable(T) of
+		 case wrangler_code_search_utils:generalisable(T) of
 		   true ->
 		       {wrangler_syntax:variable('Var'), true};
 		   false -> {T, false}

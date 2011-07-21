@@ -1027,8 +1027,8 @@ equal(Tree1, Tree2) ->
     {ok, Ts2, _} = erl_scan:string(wrangler_prettypr:format(NewTree2)),
     case wrangler_misc:concat_toks(Ts1) == wrangler_misc:concat_toks(Ts2) of
         true ->
-            refac_code_search_utils:var_binding_structure(Tree1) ==
-                refac_code_search_utils:var_binding_structure(Tree2);
+            wrangler_code_search_utils:var_binding_structure(Tree1) ==
+                wrangler_code_search_utils:var_binding_structure(Tree2);
         false->
             false
     end.

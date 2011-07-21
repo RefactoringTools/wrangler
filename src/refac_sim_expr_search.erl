@@ -61,7 +61,7 @@ sim_expr_search_in_buffer(FName, Start = {_Line, _Col}, End = {_Line1, _Col1}, S
     SimiScore = get_simi_score(SimiScore0),
     {FunDef, Exprs, SE} = get_fundef_and_expr(FName, Start, End, SearchPaths, TabWidth),
     {Ranges, AntiUnifier} = search_and_gen_anti_unifier([FName], {FName, FunDef, Exprs, SE}, SimiScore, SearchPaths, TabWidth),
-    refac_code_search_utils:display_search_results(Ranges, AntiUnifier, "similar").
+    wrangler_code_search_utils:display_search_results(Ranges, AntiUnifier, "similar").
 
 %%-spec(sim_expr_search_in_dirs/6::(filename(), pos(), pos(), string(),[dir()],integer())
 %%      ->{ok, [{filename(), {{integer(), integer()}, {integer(), integer()}}}]}).     
@@ -73,7 +73,7 @@ sim_expr_search_in_dirs(FileName, Start = {_Line, _Col}, End = {_Line1, _Col1}, 
     SimiScore = get_simi_score(SimiScore0),
     {FunDef, Exprs, SE} = get_fundef_and_expr(FileName, Start, End, SearchPaths, TabWidth),
     {Ranges, AntiUnifier} = search_and_gen_anti_unifier(Files, {FileName, FunDef, Exprs, SE}, SimiScore, SearchPaths, TabWidth),
-    refac_code_search_utils:display_search_results(lists:usort(Ranges), AntiUnifier, "similar").
+    wrangler_code_search_utils:display_search_results(lists:usort(Ranges), AntiUnifier, "similar").
 
 
 %%-spec(sim_expr_search_in_buffer_eclipse/6::(filename(), pos(), pos(), float(),[dir()],integer())

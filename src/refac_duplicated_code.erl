@@ -60,7 +60,7 @@ duplicated_code_eclipse(DirFileList, MinLength1, MinClones1, TabWidth, SuffixTre
 		end,
     %%TODO: replace 10 with parameter, and let George know the change.
     Cs = duplicated_code_detection(DirFileList, MinClones, MinLength, 10, SuffixTreeExec, TabWidth),
-    refac_code_search_utils:remove_sub_clones(Cs).
+    wrangler_code_search_utils:remove_sub_clones(Cs).
 
 %%-spec(duplicated_code/5::([dir()|filename()],string(),string(), string(),integer()) ->{ok, string()}).
 duplicated_code(DirFileList, MinLength1, MinClones1, MaxPars1, TabWidth) ->
@@ -73,9 +73,9 @@ duplicated_code(DirFileList, MinLength1, MinClones1, MaxPars1, TabWidth) ->
     SuffixTreeExec = filename:join(?WRANGLER_DIR, "bin/suffixtree"),
     Cs = duplicated_code_detection(DirFileList, MinClones, MinLength, MaxPars, SuffixTreeExec, TabWidth),
     ?debug("Filtering out sub-clones.\n", []),
-    Cs1 = refac_code_search_utils:remove_sub_clones(Cs),
+    Cs1 = wrangler_code_search_utils:remove_sub_clones(Cs),
     ?debug("current time:~p\n", [time()]),
-    refac_code_search_utils:display_clone_result(Cs1, "Duplicated"),
+    wrangler_code_search_utils:display_clone_result(Cs1, "Duplicated"),
     NumOfClones = length(Cs1),
     LogMsg = Cmd ++ " Num of clones detected: "++ integer_to_list(NumOfClones) ++ "\n",
     {ok, lists:flatten(LogMsg)}.
@@ -96,8 +96,8 @@ duplicated_code_command_line(DirFileList, MinLength1, MinClones1, MaxPars, TabWi
 		end,
     SuffixTreeExec = filename:join(?WRANGLER_DIR, "bin/suffixtree"),
     Cs = duplicated_code_detection(DirFileList, MinClones, MinLength, MaxPars, SuffixTreeExec, TabWidth),
-    Cs1 = refac_code_search_utils:remove_sub_clones(Cs),
-    refac_code_search_utils:display_clone_result(Cs1, "Duplicated"),
+    Cs1 = wrangler_code_search_utils:remove_sub_clones(Cs),
+    wrangler_code_search_utils:display_clone_result(Cs1, "Duplicated"),
     {ok, "Duplicated code detection finished."}.
 
 %%-spec(duplicated_code_detection/6::([dir()|filename()], integer(),integer(), integer(), filename(),integer()) ->
@@ -120,7 +120,7 @@ duplicated_code_detection(DirFileList, MinClones, MinLength, MaxPars, SuffixTree
     ?debug("Putting atoms back.\n",[]),
     Cs1 = clones_with_atoms(Cs, Toks, MinLength, MinClones),
     ?debug("Filtering out sub-clones.\n", []),
-    Cs2 = refac_code_search_utils:remove_sub_clones(Cs1),
+    Cs2 = wrangler_code_search_utils:remove_sub_clones(Cs1),
     Cs3 = combine_neighbour_clones(Cs2, MinLength, MinClones),
     ?debug("Type3 without trimming:~p\n", [length(Cs3)]),
     ?debug("Trimming clones.\n", []),
@@ -251,7 +251,7 @@ simplify_filter_results([C | Cs], Acc, MinLength, MinClones) ->
 combine_neighbour_clones(Cs, MinLength, MinClones) ->
      Cs1 = combine_neighbour_clones(Cs, []),
     Cs2= [{R, L, F} || {R, L, F} <-Cs1, L >= MinLength, F >=MinClones],
-    refac_code_search_utils:remove_sub_clones(Cs2).
+     wrangler_code_search_utils:remove_sub_clones(Cs2).
 
 combine_neighbour_clones([], Acc) -> Acc;
 combine_neighbour_clones([C|Cs], Acc) ->
@@ -338,7 +338,7 @@ process_a_file(File, Cs, MinLength, TabWidth) ->
 process_a_unit(VarsUsed, FileName, Unit) ->
     {{StartLn, StartCol}, _} = api_refac:start_end_loc(hd(Unit)),
     {_, {EndLn, EndCol}} = api_refac:start_end_loc(lists:last(Unit)),
-    BdStruct = refac_code_search_utils:var_binding_structure(Unit),
+    BdStruct = wrangler_code_search_utils:var_binding_structure(Unit),
     Range = {{FileName, StartLn, StartCol}, {FileName, EndLn, EndCol}},
     ExprBdVarsPos = [Pos || {_Var, Pos} <- api_refac:bound_vars(Unit)],
     VarsToExport = [{V, DefPos} || {V, SourcePos, DefPos} <- VarsUsed,
@@ -583,11 +583,11 @@ get_anti_unifier_1([{Expr, EVs}| Exprs]) ->
 	       || {E, ExportedVars} <- Exprs],
 	{Nodes1, EVs1} = lists:unzip(Res),
 	GroupedNodes = group_subst_nodes(Nodes1),
-	Pid = refac_code_search_utils:start_counter_process(),
+	Pid = wrangler_code_search_utils:start_counter_process(),
 	NodeVarPairs = lists:append([lists:zip(Ns, lists:duplicate(length(Ns),
-								   refac_code_search_utils:gen_new_var_name(Pid)))
+								   wrangler_code_search_utils:gen_new_var_name(Pid)))
 				     || Ns <- GroupedNodes]),
-	refac_code_search_utils:stop_counter_process(Pid),
+	wrangler_code_search_utils:stop_counter_process(Pid),
 	generalise_expr({Expr, EVs}, {NodeVarPairs, lists:usort(lists:append(EVs1))})
     of
 	Result ->
@@ -697,8 +697,8 @@ do_expr_anti_unification_1(Exp1, Exp2) ->
     end.
 
 do_anti_unify_macros(Exp1, Exp2) ->
-    MacroName1 =refac_code_search_utils:identifier_name(wrangler_syntax:macro_name(Exp1)),
-    MacroName2 =refac_code_search_utils:identifier_name(wrangler_syntax:macro_name(Exp2)),
+    MacroName1 =wrangler_code_search_utils:identifier_name(wrangler_syntax:macro_name(Exp1)),
+    MacroName2 =wrangler_code_search_utils:identifier_name(wrangler_syntax:macro_name(Exp2)),
     case MacroName1 == MacroName2 of 
 	true ->
 	    case wrangler_syntax:macro_arguments(Exp1) of
@@ -748,7 +748,7 @@ do_anti_unify_atoms(Exp1, Exp2) ->
 		end
 	  end;
       _ ->
-	  case refac_code_search_utils:generalisable(Exp1) of
+	  case wrangler_code_search_utils:generalisable(Exp1) of
 	    true ->
 		[{Exp1, Exp2}];
 	    _ ->

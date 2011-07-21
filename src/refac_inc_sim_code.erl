@@ -143,7 +143,7 @@ inc_sim_code_detection_command(DirFileList,MinLen1,MinToks1,MinFreq1,MaxVars1,Si
 	    ?wrangler_io("Warning: No files found in the searchpaths specified.",[]);
 	_ -> Cs = inc_sim_code_detection(Files, {MinLen, MinToks, MinFreq, MaxVars, SimiScore},
 					 SearchPaths, TabWidth, command, ?INC),
-	     refac_code_search_utils:display_clone_result(lists:reverse(Cs), "Similar")
+	     wrangler_code_search_utils:display_clone_result(lists:reverse(Cs), "Similar")
     end,
     {ok, "Similar code detection finished."}.
 
@@ -240,7 +240,7 @@ inc_sim_code_detection(Files, Thresholds, Tabs, SearchPaths, TabWidth, Editor, I
     ?debug("\n Time Used: ~p\n", [{Time1, Time2}]),
     case Editor of
 	emacs ->
-	    refac_code_search_utils:display_clone_result(lists:reverse(Cs3), "Similar"),
+	    wrangler_code_search_utils:display_clone_result(lists:reverse(Cs3), "Similar"),
 	    stop_clone_check_process(CloneCheckerPid),
 	    stop_hash_process(HashPid),
 	    stop_ast_process(ASTPid),
@@ -502,7 +502,7 @@ generalise_and_hash_expr(ASTTab, {M, F, A}, StartLine,
 %% replace an AST node if the node can be generalised.
 do_generalise(Node) ->
     F0 = fun (T, _Others) ->
-		 case refac_code_search_utils:generalisable(T) of
+		 case wrangler_code_search_utils:generalisable(T) of
 		   true ->
 		       {wrangler_syntax:variable('Var'), true};
 		   false -> {T, false}

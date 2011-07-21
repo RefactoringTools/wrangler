@@ -74,7 +74,7 @@ get_clones_by_erlang_suffix_tree(ProcessedToks, MinLength, MinClones, Alphabet, 
                  " Initial clones are calculated using Erlang suffixtree implementation.\n",[]),
     Tree = suffix_tree(Alphabet, ProcessedToks ++ "&", AllowOverLap),
     Cs = lists:flatten([collect_clones(MinLength, MinClones, B)||B<-Tree]),
-    refac_code_search_utils:remove_sub_clones(Cs).
+    wrangler_code_search_utils:remove_sub_clones(Cs).
 
 call_port(Msg) ->
     (?MODULE) ! {call, self(), Msg},
