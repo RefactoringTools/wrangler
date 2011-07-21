@@ -21,9 +21,9 @@ DOC_OPTS={def,{version,\"$(VERSION)\"}}
 ########################################
 ## Main part
 
-BUILD_FIRST = ebin/refac_parse.beam ebin/expand_rule.beam ebin/refac_api.beam \
-   ebin/refac_scan.beam ebin/refac_epp_dodger.beam ebin/refac_syntax.beam \
-   ebin/refac_syntax_lib.beam ebin/refac_misc.beam ebin/ast_traverse_api.beam
+BUILD_FIRST = ebin/wrangler_parse.beam ebin/wrangler_expand_rule.beam ebin/api_refac.beam \
+   ebin/wrangler_scan.beam ebin/wrangler_epp_dodger.beam ebin/wrangler_syntax.beam \
+   ebin/wrangler_syntax_lib.beam ebin/wrangler_misc.beam ebin/api_ast_traverse.beam
 
 ERL_SRC = $(wildcard src/*.erl)
 ERL_OBJ = $(BUILD_FIRST) $(patsubst src/%.erl,ebin/%.beam,$(ERL_SRC))
