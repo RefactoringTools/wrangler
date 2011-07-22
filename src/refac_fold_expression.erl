@@ -337,7 +337,7 @@ search_for_single_not_match_expr(AnnAST, Exp) ->
 				  R = get_start_end_locations(T),
 				  case lists:member(R, OpRanges) of
 				      false ->
-                                          case wrangler_unification:expr_unification(Exp, T) of
+                                          case wrangler_unification:expr_unification_extended(Exp, T) of
 					      {true, Subst} ->
 						  S ++ [{get_start_end_locations(T), T, Subst, none}];
 					      _ ->
@@ -402,7 +402,7 @@ check_a_candidate_expr_list(FoldFunBodyExprList, CurExprList, SubExprs) ->
     end.
 
 check_expr_list_ends_with_match(FoldFunBodyExprList, CurExprList, SubExprs) ->
-    case wrangler_unification:expr_unification(FoldFunBodyExprList, SubExprs) of
+    case wrangler_unification:expr_unification_extended(FoldFunBodyExprList, SubExprs) of
 	{true, Subst} ->
 	    VarsToExport = vars_to_export(CurExprList, SubExprs),
 	    case VarsToExport of
@@ -434,7 +434,7 @@ check_expr_list_not_ends_with_match(FoldFunBodyExprList, CurExprList, SubExprs) 
 		    Body = wrangler_syntax:match_expr_body(Last),
 		    Pats = wrangler_syntax:match_expr_pattern(Last),
 		    SubExprs1 = lists:reverse([Body| Es]),
-		    case wrangler_unification:expr_unification(FoldFunBodyExprList, SubExprs1) of
+		    case wrangler_unification:expr_unification_extended(FoldFunBodyExprList, SubExprs1) of
 			{true, Subst} ->
 			    [{get_start_end_locations(SubExprs), SubExprs, Subst, Pats}];
 			_ ->
@@ -444,7 +444,7 @@ check_expr_list_not_ends_with_match(FoldFunBodyExprList, CurExprList, SubExprs) 
 		    check_expr_list_minus_last_expr(FoldFunBodyExprList, CurExprList,SubExprs)
 	    end;
 	_ ->
-	    case wrangler_unification:expr_unification(FoldFunBodyExprList, SubExprs) of
+	    case wrangler_unification:expr_unification_extended(FoldFunBodyExprList, SubExprs) of
 		{true, Subst} when VarsToExport == [] ->
 		    [{get_start_end_locations(SubExprs), SubExprs, Subst, none}];
 		{true, Subst} ->
@@ -463,7 +463,7 @@ check_expr_list_not_ends_with_match(FoldFunBodyExprList, CurExprList, SubExprs) 
 check_expr_list_not_ends_with_match_2(FoldFunBodyExprList, CurExprList, Es) ->
     VarsToExport = vars_to_export(CurExprList, Es),
     Len = length(FoldFunBodyExprList),
-    Res = wrangler_unification:expr_unification(lists:sublist(FoldFunBodyExprList, Len - 1), Es),
+    Res = wrangler_unification:expr_unification_extended(lists:sublist(FoldFunBodyExprList, Len - 1), Es),
     case Res of
       {true, Subst} ->
 	    LastExp = lists:last(FoldFunBodyExprList),
