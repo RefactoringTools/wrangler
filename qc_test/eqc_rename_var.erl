@@ -12,10 +12,10 @@ madeup_vars() -> ["AAA", "BBB", "CCC"].
 %% collect all the variables in a function definition in terms of position or name as specified by PosOrName.
 vars_within_a_fun(AST, Function, PosOrName) ->
     Fun1 = fun (T, S) ->
-		   case refac_syntax:type(T) of
+		   case wrangler_syntax:type(T) of
 		       variable ->
-			   Name = refac_syntax:variable_name(T),
-			   Pos = refac_syntax:get_pos(T),
+			   Name = wrangler_syntax:variable_name(T),
+			   Pos = wrangler_syntax:get_pos(T),
 			   case PosOrName of
 			       pos -> ordsets:add_element(Pos, S);
 			       _ -> ordsets:add_element(atom_to_list(Name), S)
@@ -24,19 +24,19 @@ vars_within_a_fun(AST, Function, PosOrName) ->
 		   end
 	   end,
     Fun2 = fun (Node, {FunName, Arity, Pos}) ->
-		   case refac_syntax:type(Node) of
+		   case wrangler_syntax:type(Node) of
 		       function ->
-			   case {refac_syntax:data(refac_syntax:function_name(Node)),
-				 refac_syntax:function_arity(Node), refac_syntax:get_pos(Node)}
+			   case {wrangler_syntax:data(wrangler_syntax:function_name(Node)),
+				 wrangler_syntax:function_arity(Node), wrangler_syntax:get_pos(Node)}
 			       of
 			       {FunName, Arity, Pos} ->
-				   {ast_traverse_api:fold(Fun1, ordsets:new(), Node), true};
+				   {api_ast_traverse:fold(Fun1, ordsets:new(), Node), true};
 			       _ -> {[], false}
 			   end;
 		       _ -> {[], false}
 		   end
 	   end,
-    {R, _} = ast_traverse_api:once_tdTU(Fun2, AST, Function),
+    {R, _} = api_ast_traverse:once_tdTU(Fun2, AST, Function),
     R.
 
 %% function  generator			
@@ -44,21 +44,21 @@ gen_funs(AST) -> oneof(all_funs(AST)).
 
 %% filename generator
 gen_filename(Dirs) ->
-    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
+    AllErlFiles = wrangler_misc:expand_files(Dirs, ".erl"),
     oneof(AllErlFiles).
 
 %% Collect all the function names (in terms of {functon_name, arity, define_position} in an AST.
 all_funs(AST) ->
     Fun = fun (T, S) ->
-		  case refac_syntax:type(T) of
+		  case wrangler_syntax:type(T) of
 		      function ->
-			  ordsets:add_element({refac_syntax:data(refac_syntax:function_name(T)),
-					       refac_syntax:function_arity(T), refac_syntax:get_pos(T)},
+			  ordsets:add_element({wrangler_syntax:data(wrangler_syntax:function_name(T)),
+					       wrangler_syntax:function_arity(T), wrangler_syntax:get_pos(T)},
 					      S);
 		      _ -> S
 		  end
 	  end,
-    ast_traverse_api:fold(Fun, ordsets:new(), AST) ++ [{none, 0, {0,0}}].
+    api_ast_traverse:fold(Fun, ordsets:new(), AST) ++ [{none, 0, {0,0}}].
 
 
 
@@ -67,7 +67,7 @@ valid_rename_var_command1(AST, {_FName, Loc, NewName, _SearchPaths}) ->
     case Loc of
       {0, 0} -> false;
       _ ->
-	  case interface_api:pos_to_var_name(AST, Loc) of
+	  case api_interface:pos_to_var_name(AST, Loc) of
 	    {ok, {OldName, DefinePos, _}} ->
 		DefinePos =/= {0, 0} andalso OldName =/= NewName;
 	    _ -> false

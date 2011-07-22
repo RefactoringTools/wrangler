@@ -77,19 +77,19 @@ stop_composite_refac_server(Pid) ->
     Pid!stop.
 
 get_next_command(Pid) ->
-    refac_io:format("Pid:\n~p\n", [Pid]),
+    wrangler_io:format("Pid:\n~p\n", [Pid]),
     Pid!{self(), get_next_command},
     receive 
         {Pid, NextCmd} ->
-            refac_io:format("NextCmd:\n~p\n", [NextCmd]),
+            wrangler_io:format("NextCmd:\n~p\n", [NextCmd]),
             case NextCmd of 
                 {ok, none} ->
                     ChangedFiles = get_changed_files(Pid),
                     stop_composite_refac_server(Pid),
-                    refac_io:format("Res:\n~p\n", [{ok, none, ChangedFiles}]),
+                    wrangler_io:format("Res:\n~p\n", [{ok, none, ChangedFiles}]),
                     {ok, none, ChangedFiles};
                 {ok, Cmd} ->
-                    refac_io:format("Res:\n~p\n", [{ok, Cmd}]),
+                    wrangler_io:format("Res:\n~p\n", [{ok, Cmd}]),
                     {ok, Cmd}
             end
     end.

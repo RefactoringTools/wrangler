@@ -13,13 +13,13 @@ gen_funs(AST) -> oneof(all_funs(AST)).
 
 %% filename generator
 gen_filename(Dirs) ->
-    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
+    AllErlFiles = wrangler_misc:expand_files(Dirs, ".erl"),
     oneof(AllErlFiles).
 
 %% collect function define locations in an AST
 collect_fun_locs(AST) ->
     F = fun (T, S) ->
-		As = refac_syntax:get_ann(T),
+		As = wrangler_syntax:get_ann(T),
 		case lists:keysearch(fun_def, 1, As) of
 		    {value, {fun_def, {_Mod, _Fun, _Arity, Pos, DefPos}}} ->
 			if DefPos == {0, 0} -> S;
@@ -28,32 +28,32 @@ collect_fun_locs(AST) ->
 		    _ -> S
 		end
 	end,
-    lists:usort(ast_traverse_api:fold(F, [], AST)) ++ [{0,0}].
+    lists:usort(api_ast_traverse:fold(F, [], AST)) ++ [{0,0}].
 
 %% Collect atoms in an AST.
 collect_atoms(AST) ->
     F = fun (T, S) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    atom ->
-			Name = refac_syntax:atom_value(T),
+			Name = wrangler_syntax:atom_value(T),
 			[atom_to_list(Name)] ++ S;
 		    _ -> S
 		end
 	end,
-    lists:usort(ast_traverse_api:fold(F, madeup_fun_names(), AST)).
+    lists:usort(api_ast_traverse:fold(F, madeup_fun_names(), AST)).
 
 %% Collect all the function names (in terms of {functon_name, arity, define_position} in an AST.
 all_funs(AST) ->
     Fun = fun (T, S) ->
-		  case refac_syntax:type(T) of
+		  case wrangler_syntax:type(T) of
 		      function ->
-			  ordsets:add_element({refac_syntax:data(refac_syntax:function_name(T)),
-					       refac_syntax:function_arity(T), refac_syntax:get_pos(T)},
+			  ordsets:add_element({wrangler_syntax:data(wrangler_syntax:function_name(T)),
+					       wrangler_syntax:function_arity(T), wrangler_syntax:get_pos(T)},
 					      S);
 		      _ -> S
 		  end
 	  end,
-    ast_traverse_api:fold(Fun, ordsets:new(), AST).
+    api_ast_traverse:fold(Fun, ordsets:new(), AST).
 
 
 
@@ -62,7 +62,7 @@ valid_rename_fun_command(AST, {_FName, Loc, NewName, _SearchPaths}) ->
     case Loc of
       {0, 0} -> false;
       _ ->
-	  case interface_api:pos_to_fun_name(AST, Loc) of
+	  case api_interface:pos_to_fun_name(AST, Loc) of
 	    {ok, {_Mod, Fun, _Arity, _, DefinePos}} ->
 		DefinePos =/= {0, 0} andalso Fun =/= NewName;
 	    _ -> false

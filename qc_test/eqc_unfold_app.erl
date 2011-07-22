@@ -6,23 +6,23 @@
 
 collect_app_locs(AST, ModName) ->
     F = fun (T, S) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    application ->
-			Op = refac_syntax:application_operator(T),
-			case lists:keysearch(fun_def, 1, refac_syntax:get_ann(Op)) of
+			Op = wrangler_syntax:application_operator(T),
+			case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Op)) of
 			    {value, {fun_def, {ModName, _, _, _, _}}} ->
-				{SLoc, _ELoc} = refac_api:start_end_loc(Op),
+				{SLoc, _ELoc} = api_refac:start_end_loc(Op),
 				[SLoc| S];
 			    _ -> S
 			end;
 		    _ -> S
 		end
 	end,
-    ast_traverse_api:fold(F, [{0,0}], AST).
+    api_ast_traverse:fold(F, [{0,0}], AST).
 
 %% filename newerator
 gen_filename(Dirs) ->
-    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
+    AllErlFiles = wrangler_misc:expand_files(Dirs, ".erl"),
     oneof(AllErlFiles).
 
 

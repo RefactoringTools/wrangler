@@ -24,13 +24,13 @@
 
 rename_fun_to_camel_case(SearchPaths)->
     %% start the Wrangler application.
-    Files = refac_misc:expand_files(SearchPaths, ".erl"),
+    Files = wrangler_misc:expand_files(SearchPaths, ".erl"),
     Res=[rename_in_file(File, SearchPaths)||File<-Files],
     {ok, lists:usort(lists:append(Res))}.
 
 rename_in_file(File, SearchPaths) ->
     %% get all the functions defined in this file.
-    FAs = refac_api:defined_funs(File),
+    FAs = api_refac:defined_funs(File),
     [rename_one_function(File, SearchPaths, F, A) 
      ||{F,A} <- FAs, camelCase_to_camel_case(F) /= F].
     
@@ -38,16 +38,16 @@ rename_in_file(File, SearchPaths) ->
 %% rename one function whose name is in camelCase.
 rename_one_function(File, SearchPaths, F, A) ->
     NewName = camelCase_to_camel_case(F),
-    refac_io:format("\nRenaming function ~p/~p to ~p/~p in ~p ...\n",
-                    [F, A, NewName, A, File]),
-    Res=wrangler_api:rename_fun(File, F, A, NewName, SearchPaths),
+    wrangler_io:format("\nRenaming function ~p/~p to ~p/~p in ~p ...\n",
+                       [F, A, NewName, A, File]),
+    Res=api_wrangler:rename_fun(File, F, A, NewName, SearchPaths),
     case Res of
         {ok, FilesChanged} ->
             FilesChanged;
         {error, Reason} ->
-            refac_io:format("\nRenaming ~p/~p in file, ~p, "
-                            "failed: ~p.\n", 
-                            [F,A,File,Reason]),
+            wrangler_io:format("\nRenaming ~p/~p in file, ~p, "
+                               "failed: ~p.\n",
+                               [F,A,File,Reason]),
             []
     end.
 

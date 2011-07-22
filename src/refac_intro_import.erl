@@ -47,26 +47,24 @@ selective() ->
     false.
 
 %%Do the actual program transformation here.
--spec (transform/1::(#args{}) -> 
-                          {ok, [{filename(), filename(), syntaxTree()}]}
-                              | {error, term()}).    
+-spec (transform/1::(args()) -> {ok, [{{filename(), filename()}, syntaxTree()}]}).
 transform(Args=#args{current_file_name=File,
                      user_inputs=[ModuleName]}) ->
     %% collect the functions that are defined 
     %% in ModuleNaem, and are remotely called
     %% in the current module.
     FAs=lists:usort(collect_uses(Args)),
-    FAs1 = refac_api: imported_funs(File, ModuleName),
+    FAs1 = api_refac:imported_funs(File, ModuleName),
     %% Functions that need to be imported.
     FunsToImport=FAs--FAs1,
-    {ok,AST} = refac_api:get_ast(File),
+    {ok,AST} = api_refac:get_ast(File),
     case FunsToImport of 
         [] ->
             {ok, [{_, NewAST}]}=?FULL_TD_TP([rule(Args)], [{File, AST}]),
             {ok, [{{File, File}, NewAST}]};
         _ ->
             Import=make_import_attr(ModuleName, FunsToImport),
-            AST1=refac_api:insert_an_attr(AST,Import),
+            AST1=api_refac:insert_an_attr(AST,Import),
             {ok, [{_,NewAST}]}=?FULL_TD_TP([rule(Args)], [{File, AST1}]),
             {ok, [{{File, File}, NewAST}]}
     end.

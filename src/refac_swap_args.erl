@@ -24,7 +24,7 @@
 
 -include("../include/wrangler.hrl").
 
--import(refac_api, [fun_define_info/1]).
+-import(api_refac, [fun_define_info/1]).
 
 %% The user needs to input the indexes of 
 %% the parameters to swap.
@@ -39,7 +39,7 @@ input_par_prompts() ->
 %% moved to module refac_api.
 select_focus(_Args=#args{current_file_name=File, 
                          cursor_pos=Pos}) ->
-    interface_api:pos_to_fun_def(File, Pos).
+    api_interface:pos_to_fun_def(File, Pos).
 
 %% Check that the values of Ith and Jth inputted 
 %% by the user are valid. 
@@ -74,7 +74,7 @@ transform(Args=#args{current_file_name=File,focus_sel=FunDef,
     I1 = list_to_integer(I),
     J1 = list_to_integer(J),
     {ok, Res}=transform_in_cur_file(Args, {M,F,A}, I1, J1),
-    case refac_api:is_exported({F,A}, File) of
+    case api_refac:is_exported({F,A}, File) of
         true ->
             {ok, Res1}=transform_in_client_files(Args, {M,F,A}, I1, J1),
             {ok, Res++Res1};
@@ -101,7 +101,7 @@ transform_in_client_files(_Args=#args{current_file_name=File,
               rule4(MFA, I, J),
               rule5(MFA, I, J),
               rule6(MFA, I, J)],
-             refac_api:client_files(File, SearchPaths)).
+             api_refac:client_files(File, SearchPaths)).
                   
 
 %% transform the function definition itself.
@@ -110,7 +110,7 @@ rule1({M,F,A}, I, J) ->
           begin NewArgs@@=swap(Args@@,I,J),
                 ?QUOTE("f@(NewArgs@@) when Guard@@->Bs@@;")
           end,
-          refac_api:fun_define_info(f@)=={M, F,A}).
+          api_refac:fun_define_info(f@) == {M, F, A}).
 
 %% the following rules transform the different kinds of 
 %% application senarioes of the function.
@@ -129,7 +129,7 @@ rule3({M,F,A}, I, J)->
           end,
           case fun_define_info(Fun@) of
               {erlang, apply, _} -> 
-                  refac_api:fun_define_info(F@)=={M,F,A};
+                  api_refac:fun_define_info(F@) == {M,F,A};
               _ -> false
           end).
 
@@ -150,7 +150,7 @@ rule4({M,F,A}, I, J) ->
           end,
           case fun_define_info(Fun@) of 
               {erlang,apply, _} -> 
-                  refac_api:fun_define_info(F@)=={M,F,A};
+                  api_refac:fun_define_info(F@) == {M,F,A};
               _ -> false
           end).
 

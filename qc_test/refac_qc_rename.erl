@@ -27,35 +27,35 @@ madeup_fun_names() -> ["aaa", "bbb", "ccc", "DDD"].
 %% Collect all the function names (in terms of {functon_name, arity, define_position} in an AST.
 all_funs(AST) ->
     Fun = fun (T, S) ->
-		  case refac_syntax:type(T) of
+		  case wrangler_syntax:type(T) of
 		      function ->
-			  ordsets:add_element({refac_syntax:data(refac_syntax:function_name(T)),
-					       refac_syntax:function_arity(T), refac_syntax:get_pos(T)},
+			  ordsets:add_element({wrangler_syntax:data(wrangler_syntax:function_name(T)),
+					       wrangler_syntax:function_arity(T), wrangler_syntax:get_pos(T)},
 					      S);
 		      _ -> S
 		  end
 	  end,
-    ast_traverse_api:fold(Fun, ordsets:new(), AST).
+    api_ast_traverse:fold(Fun, ordsets:new(), AST).
 
 %% Collect all the variable names in an AST.
 all_vars(AST) ->
     Fun1 = fun (T, S) ->
-		   case refac_syntax:type(T) of
+		   case wrangler_syntax:type(T) of
 		       variable ->
-			   Name = refac_syntax:variable_name(T),
+			   Name = wrangler_syntax:variable_name(T),
 			   ordsets:add_element(atom_to_list(Name), S);
 		       _ -> S
 		   end
 	   end,
-    ast_traverse_api:fold(Fun1, ordsets:new(), AST).
+    api_ast_traverse:fold(Fun1, ordsets:new(), AST).
 
 %% collect all the variables in a function definition in terms of position or name as specified by PosOrName.
 vars_within_a_fun(AST, Function, PosOrName) ->
     Fun1 = fun (T, S) ->
-		   case refac_syntax:type(T) of
+		   case wrangler_syntax:type(T) of
 		       variable ->
-			   Name = refac_syntax:variable_name(T),
-			   Pos = refac_syntax:get_pos(T),
+			   Name = wrangler_syntax:variable_name(T),
+			   Pos = wrangler_syntax:get_pos(T),
 			   case PosOrName of
 			       pos -> ordsets:add_element(Pos, S);
 			       _ -> ordsets:add_element(atom_to_list(Name), S)
@@ -64,26 +64,26 @@ vars_within_a_fun(AST, Function, PosOrName) ->
 		   end
 	   end,
     Fun2 = fun (Node, {FunName, Arity, Pos}) ->
-		   case refac_syntax:type(Node) of
+		   case wrangler_syntax:type(Node) of
 		       function ->
-			   case {refac_syntax:data(refac_syntax:function_name(Node)),
-				 refac_syntax:function_arity(Node), refac_syntax:get_pos(Node)}
+			   case {wrangler_syntax:data(wrangler_syntax:function_name(Node)),
+				 wrangler_syntax:function_arity(Node), wrangler_syntax:get_pos(Node)}
 			       of
 			       {FunName, Arity, Pos} ->
-				   {ast_traverse_api:fold(Fun1, ordsets:new(), Node), true};
+				   {api_ast_traverse:fold(Fun1, ordsets:new(), Node), true};
 			       _ -> {[], false}
 			   end;
 		       _ -> {[], false}
 		   end
 	   end,
-    {R, true} = refac_api:once_tdTU(Fun2, AST, Function),
+    {R, true} = api_refac:once_tdTU(Fun2, AST, Function),
     R.
 
 %% collect function define locations in a Erlang file.
 collect_fun_locs(FileName) ->
     {ok, {AST, _Info}} = parse_file(FileName),
     F = fun (T, S) ->
-		As = refac_syntax:get_ann(T),
+		As = wrangler_syntax:get_ann(T),
 		case lists:keysearch(fun_def, 1, As) of
 		    {value, {fun_def, {_Mod, _Fun, _Arity, Pos, DefPos}}} ->
 			if DefPos == {0, 0} -> S;
@@ -92,20 +92,20 @@ collect_fun_locs(FileName) ->
 		    _ -> S
 		end
 	end,
-    lists:usort(ast_traverse_api:fold(F, [], AST)).
+    lists:usort(api_ast_traverse:fold(F, [], AST)).
 
 %% Collect atoms in an Erlang file.
 collect_atoms(FileName) ->
     {ok, {AST, _Info}} = parse_file(FileName),
     F = fun (T, S) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    atom ->
-			Name = refac_syntax:atom_value(T),
+			Name = wrangler_syntax:atom_value(T),
 			[atom_to_list(Name)] ++ S;
 		    _ -> S
 		end
 	end,
-    lists:usort(ast_traverse_api:fold(F, madeup_fun_names(), AST)).
+    lists:usort(api_ast_traverse:fold(F, madeup_fun_names(), AST)).
 
 %% function  generator			
 gen_funs(AST) -> oneof(all_funs(AST)).
@@ -154,9 +154,9 @@ rename_fun_commands(Dir) ->
 %% get the function name binding structure of an Erlang file.
 fun_binding_structure(AST) ->
     Fun1 = fun (T, S) ->
-		   case refac_syntax:type(T) of
+		   case wrangler_syntax:type(T) of
 		       atom ->
-			   As = refac_syntax:get_ann(T),
+			   As = wrangler_syntax:get_ann(T),
 			   case lists:keysearch(fun_def, 1, As) of
 			       {value, {fun_def, {Mod, Fun, Arity, SrcLoc, DefPos}}} ->
 				   S ++ [{Mod, Fun, Arity, SrcLoc, DefPos}];
@@ -165,7 +165,7 @@ fun_binding_structure(AST) ->
 		       _ -> S
 		   end
 	   end,
-    lists:keysort(4, ast_traverse_api:fold(Fun1, [], AST)).
+    lists:keysort(4, api_ast_traverse:fold(Fun1, [], AST)).
 
 
 rename_in_binding_structure(B, {Mod, FunName, Arity}, {Mod, NewFunName, Arity}) ->
@@ -180,11 +180,11 @@ rename_in_binding_structure(B, {Mod, FunName, Arity}, {Mod, NewFunName, Arity}) 
 %% get the variable binding structure of an Erlang file
 var_binding_structure(AST) ->
     Fun1 = fun (T, S) ->
-		   case refac_syntax:type(T) of
+		   case wrangler_syntax:type(T) of
 		       variable ->
-			   Name = refac_syntax:variable_name(T),
-			   SrcLoc = refac_syntax:get_pos(T),
-			   As = refac_syntax:get_ann(T),
+			   Name = wrangler_syntax:variable_name(T),
+			   SrcLoc = wrangler_syntax:get_pos(T),
+			   As = wrangler_syntax:get_ann(T),
 			   case lists:keysearch(def, 1, As) of
 			       {value, {def, DefLoc}} -> ordsets:add_element({atom_to_list(Name), SrcLoc, DefLoc}, S);
 			       _ -> S
@@ -192,7 +192,7 @@ var_binding_structure(AST) ->
 		       _ -> S
 		   end
 	   end,
-    B = ast_traverse_api:fold(Fun1, ordsets:new(), AST),
+    B = api_ast_traverse:fold(Fun1, ordsets:new(), AST),
     DefLocs = lists:usort(lists:map(fun ({_Name, _SrcLoc, DefLoc}) -> DefLoc end, B)),
     SrcLocs = lists:map(fun ({_Name, SrcLoc, _DefLoc}) -> SrcLoc end, B),
     Locs = lists:usort(lists:concat(DefLocs) ++ SrcLocs),
@@ -211,7 +211,7 @@ valid_rename_var_command1(AST, {_FName, Loc, NewName, _SearchPaths}) ->
     case Loc of
       {0, 0} -> false;
       _ ->
-	  case refac_api:pos_to_var_name(AST, Loc) of
+	  case api_refac:pos_to_var_name(AST, Loc) of
 	    {ok, {OldName, DefinePos, _}} ->
 		DefinePos =/= {0, 0} andalso OldName =/= NewName;
 	    _ -> false
@@ -219,7 +219,7 @@ valid_rename_var_command1(AST, {_FName, Loc, NewName, _SearchPaths}) ->
     end.
 
 pos_to_fun_name(AnnAST, {Line, Col}) ->
-    {ok, {_Mod, Fun, Arity, _, _DefinePos}} = refac_api:pos_to_fun_name(AnnAST, {Line, Col}),
+    {ok, {_Mod, Fun, Arity, _, _DefinePos}} = api_refac:pos_to_fun_name(AnnAST, {Line, Col}),
     {Fun, Arity}.
 
 %% Properties for 'rename a variable name'
@@ -264,7 +264,7 @@ get_callback_funs(ModInfo) ->
       {value, {attributes, Attrs}} ->
 	  case lists:keysearch(behaviour, 1, Attrs) of
 	    {value, {behaviour, B}} ->
-		refac_misc:callback_funs(B);
+		wrangler_misc:callback_funs(B);
 	    _ -> []
 	  end;
       _ -> []
@@ -272,7 +272,7 @@ get_callback_funs(ModInfo) ->
 
 pretty_print(FileName) -> 
     {ok, {AST, _}} = parse_file(FileName),
-    refac_prettypr:print_ast(AST).
+    wrangler_prettypr:print_ast(AST).
 
 get_mod_name(FileName) ->  %% assume module name is the samw as the file base name.
     list_to_atom(filename:basename(FileName, ".erl")).

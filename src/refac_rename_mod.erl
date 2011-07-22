@@ -64,7 +64,7 @@
 	 rename_mod_eclipse/4, rename_mod_1_eclipse/5,
 	 rename_mod_command/3]).
 
--import(refac_atom_utils, [output_atom_warning_msg/3,check_unsure_atoms/5,start_atom_process/0,stop_atom_process/1]).
+-import(wrangler_atom_utils, [output_atom_warning_msg/3,check_unsure_atoms/5,start_atom_process/0,stop_atom_process/1]).
 
 -include("../include/wrangler_internal.hrl").
 
@@ -88,7 +88,7 @@ rename_mod_command(OldModOrFileName, NewModName, SearchPaths) ->
 		   false ->
 		       case is_atom(OldModOrFileName) of
 			   true ->
-			       case refac_misc:modname_to_filename(OldModOrFileName, SearchPaths) of
+			       case wrangler_misc:modname_to_filename(OldModOrFileName, SearchPaths) of
 				   {ok, OldFileName} ->
 				       OldFileName;
 				   {error, Msg} ->
@@ -111,7 +111,7 @@ rename_mod_command(OldFileName, NewModName, SearchPaths, TabWidth) ->
 		  SearchPaths, command, TabWidth, "").
 
 rename_mod_command_precond_check(OldFileName, NewModName, Info, SearchPaths) ->
-    case refac_api:is_fun_name(NewModName) of
+    case api_refac:is_fun_name(NewModName) of
 	true ->
 	    case lists:keysearch(module, 1, Info) of
 		{value, {module, OldModName}} ->
@@ -157,8 +157,8 @@ rename_mod(FileName, NewName, SearchPaths, TabWidth, Editor) ->
 		 [?MODULE, FileName, NewName, SearchPaths, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_mod(" ++ "\"" ++ 
 	    FileName ++ "\", " ++ NewName ++ "\"," ++ "[" ++ 
-	      refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    case refac_api:is_fun_name(NewName) of
+	      wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    case api_refac:is_fun_name(NewName) of
 	true ->
 	    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
 	    case lists:keysearch(module, 1, Info) of
@@ -168,7 +168,7 @@ rename_mod(FileName, NewName, SearchPaths, TabWidth, Editor) ->
 			false -> ok
 		    end,
 		    NewModName = list_to_atom(NewName),
-		    TestFrameWorkUsed = refac_misc:test_framework_used(FileName),
+		    TestFrameWorkUsed = wrangler_misc:test_framework_used(FileName),
 		    case pre_cond_check(FileName, OldModName, NewModName, TestFrameWorkUsed, SearchPaths) of
 			ok ->
 			    do_rename_mod(FileName, [{OldModName, NewModName}],
@@ -207,9 +207,9 @@ pre_cond_check(FileName, OldModName, NewModName, TestFrameWorkUsed, SearchPaths)
 
 find_eunit_test_file(ModName, SearchPaths) ->
     TestFileName = atom_to_list(ModName)++"_tests",
-    Files = refac_misc:expand_files(SearchPaths, ".erl"),
+    Files = wrangler_misc:expand_files(SearchPaths, ".erl"),
     [F || F <- Files, filename:basename(F, ".erl")==TestFileName,
-	  lists:member(eunit, refac_misc:test_framework_used(F))].
+	  lists:member(eunit, wrangler_misc:test_framework_used(F))].
     
 	
 pre_cond_test_file_checking(OldModName, NewModName,TestFrameWorkUsed, SearchPaths) ->
@@ -235,11 +235,11 @@ rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod, Editor) ->
 		 [?MODULE, FileName, NewName, SearchPaths, TabWidth, RenameTestMod, Editor]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_mod(" ++ "\"" ++ 
 	    FileName ++ "\", " ++ NewName ++ "\"," ++ "[" ++ 
-	      refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+	      wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {AnnAST, Info} = parse_file_with_type_ann(FileName, SearchPaths, TabWidth),
     {value, {module, OldModName}} = lists:keysearch(module, 1, Info),
     NewModName = list_to_atom(NewName),
-    TestFrameWorkUsed = refac_misc:test_framework_used(FileName),
+    TestFrameWorkUsed = wrangler_misc:test_framework_used(FileName),
     case lists:member(eunit, TestFrameWorkUsed) andalso RenameTestMod of
 	true ->
 	    TestModName = list_to_atom(atom_to_list(OldModName) ++ "_tests"),
@@ -284,7 +284,7 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, C
     Results = rename_mod_in_client_modules(ClientFiles, OldModName, OldNewModPairs, SearchPaths, TabWidth, Pid),
     case Editor of
 	emacs ->
-	    HasWarningMsg = refac_atom_utils:has_warning_msg(Pid),
+	    HasWarningMsg = wrangler_atom_utils:has_warning_msg(Pid),
 	    case HasWarningMsg of
 		true ->
 		    output_atom_warning_msg(Pid, not_renamed_warn_msg(OldModNames), renamed_warn_msg(OldModNames));
@@ -292,7 +292,7 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, C
 		    ok
 	    end,
 	    stop_atom_process(Pid),
-	    refac_write_file:write_refactored_files_for_preview([{{FileName, NewFileName}, AnnAST1}| TestModRes ++ Results], TabWidth, Cmd),
+	    wrangler_write_file:write_refactored_files_for_preview([{{FileName, NewFileName}, AnnAST1}| TestModRes ++ Results], TabWidth, Cmd),
 	    ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
 	    ChangedFiles = case length(OldNewModPairs) of
 			       2 -> [FileName, TestFileName| ChangedClientFiles];
@@ -303,12 +303,12 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, C
 	    {ok, ChangedFiles, RenamedFiles, HasWarningMsg};
 	_ ->
 	    Results1 = [{{FileName, NewFileName}, AnnAST1}| TestModRes ++ Results],
-	    refac_write_file:write_refactored_files(Results1, Editor, TabWidth, "")
+	    wrangler_write_file:write_refactored_files(Results1, Editor, TabWidth, "")
     end.
 
 do_rename_mod_1(Tree, {FileName, OldNewModPairs, Pid}) ->
-    TestFrameWorkUsed = refac_misc:test_framework_used(FileName),
-    {AnnAST1, C1} = ast_traverse_api:full_tdTP(fun do_rename_mod_2/2, Tree, {FileName, OldNewModPairs, Pid}),
+    TestFrameWorkUsed = wrangler_misc:test_framework_used(FileName),
+    {AnnAST1, C1} = api_ast_traverse:full_tdTP(fun do_rename_mod_2/2, Tree, {FileName, OldNewModPairs, Pid}),
     {AnnAST2, C2} = case lists:member(eunit, TestFrameWorkUsed) of
 			true -> do_rename_mod_in_eunit_funs(FileName, AnnAST1, OldNewModPairs, Pid);
 			_ -> {AnnAST1, C1}
@@ -316,42 +316,42 @@ do_rename_mod_1(Tree, {FileName, OldNewModPairs, Pid}) ->
     {AnnAST2, C1 or C2}.
 
 do_rename_mod_2(Tree, {_FileName, OldNewModPairs, _Pid}) ->
-    case refac_syntax:type(Tree) of
+    case wrangler_syntax:type(Tree) of
       attribute ->
-	  AttrName = refac_syntax:attribute_name(Tree),
-	  case refac_syntax:atom_value(AttrName) of
-	    module -> Args = refac_syntax:attribute_arguments(Tree),
-		      F = fun (Arg) -> case lists:keysearch(refac_syntax:atom_value(Arg), 1, OldNewModPairs) of
+	  AttrName = wrangler_syntax:attribute_name(Tree),
+	  case wrangler_syntax:atom_value(AttrName) of
+	    module -> Args = wrangler_syntax:attribute_arguments(Tree),
+		      F = fun (Arg) -> case lists:keysearch(wrangler_syntax:atom_value(Arg), 1, OldNewModPairs) of
 					 {value, {_OldModName, NewModName}} ->
-					     copy_pos_attrs(Arg, refac_syntax:atom(NewModName));
+					     copy_pos_attrs(Arg, wrangler_syntax:atom(NewModName));
 					 _ -> Arg
 				       end
 			  end,
 		      Args1 = lists:map(F, Args),
-		      Tree1 = copy_pos_attrs(Tree, refac_syntax:attribute(AttrName, Args1)),
+		      Tree1 = copy_pos_attrs(Tree, wrangler_syntax:attribute(AttrName, Args1)),
 		      {Tree1, Tree =/= Tree1};
-	    import -> Args = refac_syntax:attribute_arguments(Tree),
+	    import -> Args = wrangler_syntax:attribute_arguments(Tree),
 		      case Args of
 			[H| T] ->
-			    case refac_syntax:type(H) of
+			    case wrangler_syntax:type(H) of
 			      atom ->
-				  M = refac_syntax:atom_value(H),
+				  M = wrangler_syntax:atom_value(H),
 				  case lists:keysearch(M, 1, OldNewModPairs) of
 				    {value, {_OldModName, NewModName}} ->
-					H1 = copy_pos_attrs(H, refac_syntax:atom(NewModName)),
-					Tree1 = copy_pos_attrs(Tree, refac_syntax:attribute(AttrName, [H1| T])),
+					H1 = copy_pos_attrs(H, wrangler_syntax:atom(NewModName)),
+					Tree1 = copy_pos_attrs(Tree, wrangler_syntax:attribute(AttrName, [H1| T])),
 					{Tree1, true};
 				    _ -> {Tree, false}
 				  end;
 			      qualified_name ->
 				  M = list_to_atom(packages:concat(
-						     [refac_syntax:atom_value(A)
-						      || A <- refac_syntax:qualified_name_segments(H)])),
+						     [wrangler_syntax:atom_value(A)
+						      || A <- wrangler_syntax:qualified_name_segments(H)])),
 				  case lists:keysearch(M, 1, OldNewModPairs) of
 				    {value, {_OldModName, NewModName}} ->
-					H1 = copy_pos_attrs(H, refac_syntax:qualified_name(
-								 [refac_syntax:atom(NewModName)])),
-					Tree1 = copy_pos_attrs(Tree, refac_syntax:attribute(AttrName, [H1| T])),
+					H1 = copy_pos_attrs(H, wrangler_syntax:qualified_name(
+								    [wrangler_syntax:atom(NewModName)])),
+					Tree1 = copy_pos_attrs(Tree, wrangler_syntax:attribute(AttrName, [H1| T])),
 					{Tree1, true};
 				    _ -> {Tree, false}
 				  end;
@@ -362,26 +362,26 @@ do_rename_mod_2(Tree, {_FileName, OldNewModPairs, _Pid}) ->
 	    _ -> {Tree, false}
 	  end;
       module_qualifier ->
-	  Mod = refac_syntax:module_qualifier_argument(Tree),
-	  Fun = refac_syntax:module_qualifier_body(Tree),
-	  case refac_syntax:type(Mod) of
+	  Mod = wrangler_syntax:module_qualifier_argument(Tree),
+	  Fun = wrangler_syntax:module_qualifier_body(Tree),
+	  case wrangler_syntax:type(Mod) of
 	    atom ->
-		case lists:keysearch(refac_syntax:atom_value(Mod), 1, OldNewModPairs) of
+		case lists:keysearch(wrangler_syntax:atom_value(Mod), 1, OldNewModPairs) of
 		  {value, {_OldModName, NewModName}} ->
-		      Mod1 = copy_pos_attrs(Mod, refac_syntax:atom(NewModName)),
-		      Tree1 = copy_pos_attrs(Tree, refac_syntax:module_qualifier(Mod1, Fun)),
+		      Mod1 = copy_pos_attrs(Mod, wrangler_syntax:atom(NewModName)),
+		      Tree1 = copy_pos_attrs(Tree, wrangler_syntax:module_qualifier(Mod1, Fun)),
 		      {Tree1, true};
 		  _ -> {Tree, false}
 		end;
 	    _ -> {Tree, false}
 	  end;
       atom ->
-	  As = refac_syntax:get_ann(Tree),
+	  As = wrangler_syntax:get_ann(Tree),
 	  case lists:keysearch(type, 1, As) of
 	    {value, {type, m_atom}} ->
-		case lists:keysearch(refac_syntax:atom_value(Tree), 1, OldNewModPairs) of
+		case lists:keysearch(wrangler_syntax:atom_value(Tree), 1, OldNewModPairs) of
 		  {value, {_OldModName, NewModName}} ->
-		      Tree1 = copy_pos_attrs(Tree, refac_syntax:atom(NewModName)),
+		      Tree1 = copy_pos_attrs(Tree, wrangler_syntax:atom(NewModName)),
 		      {Tree1, true};
 		  _ -> {Tree, false}
 		end;
@@ -415,52 +415,52 @@ rename_mod_in_client_modules(Files, OldModName, OldNewModPairs, SearchPaths, Tab
     end.    
 
 copy_pos_attrs(E1, E2) ->
-    refac_syntax:copy_pos(E1, refac_syntax:copy_attrs(E1, E2)).
+    wrangler_syntax:copy_pos(E1, wrangler_syntax:copy_attrs(E1, E2)).
 
 do_rename_mod_in_eunit_funs(FileName, AnnAST, OldNewModPairs, Pid) ->
-    ast_traverse_api:full_tdTP(fun do_rename_mod_in_eunit_funs_1/2, AnnAST, {FileName, OldNewModPairs, Pid}).
+    api_ast_traverse:full_tdTP(fun do_rename_mod_in_eunit_funs_1/2, AnnAST, {FileName, OldNewModPairs, Pid}).
 do_rename_mod_in_eunit_funs_1(Node, Others) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
       function ->
-	  FunName = refac_syntax:data(refac_syntax:function_name(Node)),
-	  Arity = refac_syntax:function_arity(Node),
+	  FunName = wrangler_syntax:data(wrangler_syntax:function_name(Node)),
+	  Arity = wrangler_syntax:function_arity(Node),
 	  case (Arity == 0) and lists:suffix(?DEFAULT_EUNIT_GENERATOR_SUFFIX, atom_to_list(FunName)) of
 	    true ->
-		ast_traverse_api:full_tdTP(fun do_rename_mod_in_eunit_funs_3/2, Node, Others);
+		api_ast_traverse:full_tdTP(fun do_rename_mod_in_eunit_funs_3/2, Node, Others);
 	    _ -> {Node, false}
 	  end;
       _ -> {Node, false}
     end.
 do_rename_mod_in_eunit_funs_3(Node, {FileName,OldNewModPairs,Pid}) ->
-    case refac_syntax:type(Node) of 
+    case wrangler_syntax:type(Node) of
 	tuple ->
-	    case refac_syntax:tuple_elements(Node) of 
+	    case wrangler_syntax:tuple_elements(Node) of
 		[E1, E2, E3] ->
-		    case refac_syntax:type(E1)==atom andalso
-			refac_syntax:atom_value(E1)==generator andalso
-			refac_syntax:type(E2) == atom of 
+		    case wrangler_syntax:type(E1) == atom andalso
+			wrangler_syntax:atom_value(E1) == generator andalso
+			wrangler_syntax:type(E2) == atom of
 			true ->
-			    case lists:keysearch(refac_syntax:atom_value(E2), 1, OldNewModPairs) of 
+			    case lists:keysearch(wrangler_syntax:atom_value(E2), 1, OldNewModPairs) of
 				{value, {_OldModName, NewModName}} ->
 				    Pid ! {add_renamed, {FileName, Node}},
-				    {copy_pos_attrs(Node, refac_syntax:tuple(
-					     [E1, copy_pos_attrs(E2, refac_syntax:atom(NewModName)), E3])),
+				    {copy_pos_attrs(Node, wrangler_syntax:tuple(
+					        [E1, copy_pos_attrs(E2, wrangler_syntax:atom(NewModName)), E3])),
 				     true};
 				false-> {Node, false}
 			    end;
 			false ->
 			    {Node, false}
 		    end;
-		[E1,E2] -> case refac_syntax:type(E1) of 
+		[E1,E2] -> case wrangler_syntax:type(E1) of
 			       atom ->
-				   case refac_syntax:atom_value(E1) of 
+				   case wrangler_syntax:atom_value(E1) of
 				       module ->
-					   case refac_syntax:type(E2) of 
+					   case wrangler_syntax:type(E2) of
 					       atom ->
-						   case lists:keysearch(refac_syntax:atom_value(E2), 1, OldNewModPairs) of 
+						   case lists:keysearch(wrangler_syntax:atom_value(E2), 1, OldNewModPairs) of
 						       {value, {_OldModName, NewModName}} ->
 							   Pid ! {add_renamed, {FileName, Node}},
-							   {copy_pos_attrs(Node, refac_syntax:tuple([E1, copy_pos_attrs(E2, refac_syntax:atom(NewModName))])),
+							   {copy_pos_attrs(Node, wrangler_syntax:tuple([E1, copy_pos_attrs(E2, wrangler_syntax:atom(NewModName))])),
 							    false};
 						       _-> {Node, false}
 						   end;
@@ -471,20 +471,20 @@ do_rename_mod_in_eunit_funs_3(Node, {FileName,OldNewModPairs,Pid}) ->
 				       Val -> case lists:keysearch(Val, 1, OldNewModPairs) of
 						  {value, {_OldModName, NewModName}} ->
 						      Pid ! {add_renamed, {FileName, Node}},
-						      {copy_pos_attrs(Node,refac_syntax:tuple(
-									     [copy_pos_attrs(E1, refac_syntax:atom(NewModName)), E2])), false};
+						      {copy_pos_attrs(Node,wrangler_syntax:tuple(
+									        [copy_pos_attrs(E1, wrangler_syntax:atom(NewModName)), E2])), false};
 						  false ->
 						      {Node, false}
 					      end
 				   end;
 			       _ -> {Node, false}
 			   end;
-		atom ->  case lists:keysearch(refac_syntax:atom_value(Node),1, OldNewModPairs) of 
-			     {value, {_OldModName, NewModName}} ->
-				 Pid ! {add_renamed, {FileName, Node}},
-				 {copy_pos_attrs(Node, refac_syntax:atom(NewModName)),true};
-			     false-> {Node, false}
-			 end;
+		atom -> case lists:keysearch(wrangler_syntax:atom_value(Node), 1, OldNewModPairs) of
+			    {value, {_OldModName, NewModName}} ->
+				Pid ! {add_renamed, {FileName, Node}},
+				{copy_pos_attrs(Node, wrangler_syntax:atom(NewModName)),true};
+			    false -> {Node, false}
+			end;
 		_ -> {Node, false}
 	    end;
 	_ -> {Node, false}

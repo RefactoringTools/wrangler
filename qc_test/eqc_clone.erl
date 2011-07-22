@@ -4,8 +4,8 @@
 
 test_clone_detection(Dirs) ->
     application:start(wrangler_app),
-    Res= wrangler_api:similar_code(Dirs, 5, 40, 2,4, 0.8, Dirs),
-    refac_io:format("Res:\n~p\n",[Res]),
+    Res= api_wrangler:similar_code(Dirs, 5, 40, 2, 4, 0.8, Dirs),
+    wrangler_io:format("Res:\n~p\n",[Res]),
     application:stop(wrangler_app).
   
 test_clone_detection0()->
