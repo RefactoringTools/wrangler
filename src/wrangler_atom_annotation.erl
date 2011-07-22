@@ -59,7 +59,7 @@ type_ann_ast(FileName, Info, AnnAST, SearchPaths, TabWidth) ->
 	    TestFrameWorkUsed = wrangler_misc:test_framework_used(FileName),
 	    Pid = start_type_env_process(),
 	    Fs = wrangler_syntax:form_list_elements(AnnAST),
-	    Funs = get_sorted_funs(ModName, AnnAST),
+	    Funs = wrangler_callgraph_server:get_sorted_funs(ModName, AnnAST),
 	    NewFuns = [do_type_ann(FileName, F, TestFrameWorkUsed, SearchPaths, TabWidth, Pid)
 		       || F <- Funs],
 	    NewFs = [update_a_form(F, NewFuns) || F <- Fs],
@@ -198,50 +198,6 @@ do_type_ann(FileName, {{M, F, A}, Form}, TestFrameWorkUsed, SearchPaths, TabWidt
 	_ ->
 	    {{M, F, A}, Form}
     end.
-
-get_sorted_funs(ModName, AnnAST) ->
-    F1 = fun (T, S) ->
-		 case wrangler_syntax:type(T) of
-		     function ->
-			 FunName = wrangler_syntax:data(wrangler_syntax:function_name(T)),
-			 Arity = wrangler_syntax:function_arity(T),
-			 Caller = {{ModName, FunName, Arity}, T},
-			 CalledFuns = called_funs(T),
-			 ordsets:add_element({Caller, CalledFuns}, S);
-		     _ -> S
-		 end
-	 end,
-    CallerCallees = lists:usort(api_ast_traverse:fold(F1, ordsets:new(), AnnAST)),
-    {Sccs, _E} = wrangler_callgraph:construct(CallerCallees),
-    lists:append(Sccs).
-
-%% This function is actually defined in wrangler_callgraph_server.erl,
-%% but I would like to keep it here so that this module does not 
-%% depends on the wrangler_callgraph_server.
-called_funs(Tree) ->
-    Fun = fun (T, S) ->
-		  case wrangler_syntax:type(T) of
-		      application ->
-			  Op = wrangler_syntax:application_operator(T),
-			  case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Op)) of
-			      {value, {fun_def, {M, F, A, _, _}}}
-				  when M =/= '_' andalso F =/= '_' ->
-				  ordsets:add_element({M, F, A}, S);
-			      _ -> S
-			  end;
-		      implicit_fun ->
-			  case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(T)) of
-			      {value, {fun_def, {M, F, A, _, _}}}
-				  when M =/= '_' andalso F =/= '_' ->
-				  ordsets:add_element({M, F, A}, S);
-			      _ -> S
-			  end;
-		      _ -> S
-		  end
-	  end,
-    api_ast_traverse:fold(Fun, ordsets:new(), Tree).
-
-
 
 do_atom_annotation(FileName, C, TestFrameWorkUsed, SearchPaths, TabWidth, Pid) ->
     {C1, _} = api_ast_traverse:full_tdTP(fun do_atom_annotation/2, C,

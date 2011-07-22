@@ -359,10 +359,12 @@ pos_to_expr_list(FileOrTree, Start, End) when is_list(FileOrTree) ->
             Es=pos_to_expr_list_1(AnnAST, Start, End, fun api_refac:is_expr/1),
             get_expr_list(Es);
         false ->
-            pos_to_expr_list_1(FileOrTree, Start, End, fun api_refac:is_expr/1)
+            Es=pos_to_expr_list_1(FileOrTree, Start, End, fun api_refac:is_expr/1),
+            get_expr_list(Es)
     end;
 pos_to_expr_list(FileOrTree, Start, End) ->
-    pos_to_expr_list_1(FileOrTree, Start, End, fun api_refac:is_expr/1).
+    Es=pos_to_expr_list_1(FileOrTree, Start, End, fun api_refac:is_expr/1),
+    get_expr_list(Es).
 
 pos_to_expr_list_1(Tree, Start, End, F) ->
     case is_tree(Tree) of 

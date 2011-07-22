@@ -261,64 +261,61 @@ parse_str(Str, StartLoc) ->
     end.
 
 
-make_match_expr(VarName, Pos, BindVarName) ->
-    VarNameStr = io_lib:write_atom(VarName),
-    BindVarNameStr=atom_to_list(BindVarName),
-    ValueVar = atom_to_list(VarName)++"_V",
-    VarNotBound= "Meta variable "++atom_to_list(VarName)++" not bound.",
-    Str="case lists:keysearch(" ++ VarNameStr ++
-        ", 1, "++BindVarNameStr++") of {value, {"++
-        VarNameStr++","++ValueVar++"}} -> " ++ValueVar++
-        "; false -> throw({error, \""++VarNotBound++"\"}) end",
-    E = parse_str(Str, Pos),
-    [erl_syntax:match_expr(erl_syntax:variable(VarName), E),
-     erl_syntax:match_expr(erl_syntax:underscore(), erl_syntax:variable(VarName))].
-
-
 make_match_expr_for_meta_atom(AtomName, Pos, BindVarName) ->
-    AtomNameStr=atom_to_list(AtomName),
-    VarName="_W_"++AtomNameStr,
-    BindVarNameStr=atom_to_list(BindVarName),
-    ValueVar = VarName++"_V",
-    VarNotBound= "Meta atom "++AtomNameStr++" not bound.",
-    Str="case lists:keysearch(" ++ AtomNameStr ++
-        ", 1, "++BindVarNameStr++") of {value, {"++
-        AtomNameStr++","++ValueVar++"}} -> " ++ValueVar++
-        "; false -> throw({error, \""++VarNotBound++"\"}) end",
+    mk_match_expr_for_meta_atom(AtomName, Pos, BindVarName,
+                                "Meta atom ", " not bound.",
+                                "; false -> throw({error, \"", 
+                                "\"}) end").
+
+make_match_expr_for_meta_atom_1(AtomName, Pos, BindVarName) ->
+    mk_match_expr_for_meta_atom(AtomName, Pos, BindVarName,
+                                "meta_atom_", "_not_bound_",
+                                "; false -> erl_syntax:atom(", 
+                                ") end").
+
+mk_match_expr_for_meta_atom(AtomName, Pos, BindVarName, Str1,
+                            Str2, Str3, Str4) ->
+    AtomNameStr = atom_to_list(AtomName),
+    VarName = "_W_" ++ AtomNameStr,
+    BindVarNameStr = atom_to_list(BindVarName),
+    ValueVar = VarName ++ "_V",
+    VarNotBound = Str1 ++ AtomNameStr ++ Str2,
+    Str = "case lists:keysearch(" ++ AtomNameStr ++
+        ", 1, " ++ BindVarNameStr ++ ") of {value, {" ++
+        AtomNameStr ++ "," ++ ValueVar ++
+        "}} -> " ++ ValueVar ++ Str3 ++ VarNotBound ++ Str4,
     E = parse_str(Str, Pos),
     [erl_syntax:match_expr(erl_syntax:variable(VarName), E),
-     erl_syntax:match_expr(erl_syntax:underscore(), erl_syntax:variable(VarName))].
+     erl_syntax:match_expr(erl_syntax:underscore(),
+                           erl_syntax:variable(VarName))].
+
+make_match_expr(VarName, Pos, BindVarName) ->
+    mk_match_expr(VarName, Pos, BindVarName,
+                  "Meta variable ",
+                  " not bound.",
+                  "; false -> throw({error, \"", 
+                  "\"}) end").
 
 
 make_match_expr_1(VarName, Pos, BindVarName) ->
+    mk_match_expr(VarName, Pos, BindVarName,
+                  "meta_variable_", 
+                  "_not_bound_",
+                  "; false -> erl_syntax:atom(", 
+                  ") end").
+
+mk_match_expr(VarName, Pos, BindVarName, Str1, Str2, Str3, Str4) ->
     VarNameStr = io_lib:write_atom(VarName),
-    BindVarNameStr=atom_to_list(BindVarName),
-    ValueVar = atom_to_list(VarName)++"_V",
-    VarNotBound= "meta_variable_"++atom_to_list(VarName)++"_not_bound_",
-    Str="case lists:keysearch(" ++ VarNameStr ++
-        ", 1, "++BindVarNameStr++") of {value, {"++
-        VarNameStr++","++ValueVar++"}} -> " ++ValueVar++
-        "; false -> erl_syntax:atom("++VarNotBound++") end",
+    BindVarNameStr = atom_to_list(BindVarName),
+    ValueVar = atom_to_list(VarName) ++ "_V",
+    VarNotBound = Str1 ++ atom_to_list(VarName) ++ Str2,
+    Str = "case lists:keysearch(" ++ VarNameStr ++ ", 1, " ++
+        BindVarNameStr ++ ") of {value, {" ++
+        VarNameStr ++ "," ++ValueVar ++ "}} -> " ++
+          ValueVar ++ Str3 ++ VarNotBound ++ Str4,
     E = parse_str(Str, Pos),
     [erl_syntax:match_expr(erl_syntax:variable(VarName), E),
-     erl_syntax:match_expr(erl_syntax:underscore(), erl_syntax:variable(VarName))].
-
-
-make_match_expr_for_meta_atom_1(AtomName, Pos, BindVarName) ->
-    
-    AtomNameStr=atom_to_list(AtomName),
-    VarName="_W_"++AtomNameStr,
-    BindVarNameStr=atom_to_list(BindVarName),
-    ValueVar = VarName++"_V",
-    VarNotBound= "meta_atom_"++AtomNameStr++"_not_bound_",
-    Str="case lists:keysearch(" ++ AtomNameStr ++
-        ", 1, "++BindVarNameStr++") of {value, {"++
-        AtomNameStr++","++ValueVar++"}} -> " ++ValueVar++
-        "; false -> erl_syntax:atom("++VarNotBound++") end",
-    E = parse_str(Str, Pos),
-    [erl_syntax:match_expr(erl_syntax:variable(VarName), E),
-     erl_syntax:match_expr(erl_syntax:underscore(), erl_syntax:variable(VarName))].
-
+     erl_syntax:match_expr(erl_syntax:underscore(),erl_syntax:variable(VarName))].
 
 
 expand_cond(Form) ->

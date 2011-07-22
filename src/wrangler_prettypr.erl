@@ -2332,25 +2332,24 @@ is_tab_token(_) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 calc_levenshtein_dist(OldToks, NewToks, TabWidth) ->
-    OldLen = length(OldToks),
-    NewLen = length(NewToks),
-    Is =lists:seq(0, OldLen),
-    Js= lists:seq(0, NewLen),
-    InitAcc=[{{I,0},I}||I<-Is] ++ [{{0, J}, J}||J<-Js],
-    Matrix=levenshtein_dist(OldToks, NewToks, OldLen, NewLen, TabWidth, {1, 1}, InitAcc),
+    {Matrix, OldLen, NewLen} = calc_matrix(OldToks, NewToks,TabWidth),
     {value, {_, Val}} = lists:keysearch({OldLen, NewLen}, 1, Matrix),
     Val.
     
-
 levenshtein_dist(OldToks, NewToks, TabWidth) ->
-    OldLen = length(OldToks),
-    NewLen = length(NewToks),
-    Is =lists:seq(0, OldLen),
-    Js= lists:seq(0, NewLen),
-    InitAcc=[{{I,0},I}||I<-Is] ++ [{{0, J}, J}||J<-Js],
-    Matrix=levenshtein_dist(OldToks, NewToks, OldLen, NewLen, TabWidth, {1, 1}, InitAcc),
+    {Matrix, OldLen, NewLen} = calc_matrix(OldToks, NewToks,TabWidth),
     get_edit_ops(Matrix, OldToks, NewToks, OldLen, NewLen, TabWidth, []). 
     
+calc_matrix(OldToks, NewToks, TabWidth) ->
+    OldLen = length(OldToks),
+    NewLen = length(NewToks),
+    Is = lists:seq(0, OldLen),
+    Js = lists:seq(0, NewLen),
+    InitAcc = [{{I, 0}, I} || I <- Is] 
+        ++ [{{0, J}, J} || J <- Js],
+    Matrix = levenshtein_dist(OldToks, NewToks, OldLen,
+                              NewLen, TabWidth, {1, 1}, InitAcc),
+    {Matrix, OldLen, NewLen}.
 
 
 levenshtein_dist(_OldToks, _NewToks, _OldLen, NewLen, _TabWidth, {_I, J}, Acc)

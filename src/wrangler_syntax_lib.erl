@@ -385,26 +385,24 @@ vann_function(Tree, Env, Ms, _VI, Pid) ->
 			   end,
     {update_var_define_locations(Tree1), Bound, Free}.
     
-%% The following two functions are clones; but I leave them 
-%% there because refactoring makes the code harder to understand.
 vann_function_1(Tree, Env, Ms, VI, Pid) ->
-    Cs = wrangler_syntax:function_clauses(Tree),
-    N = wrangler_syntax:function_name(Tree),
-    {Cs1, {_, Free}} = vann_clauses(Cs, Env, Ms, VI, Pid),
-    {N1, _, _} = vann(N, Env, Ms, VI, Pid),
-    Tree1 = rewrite(Tree, wrangler_syntax:function(N1, Cs1)),
-    Bound=[],
-    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+    vann_rule_or_fun(Tree, Env, Ms, VI, Pid,
+                     function_clauses, function_name, function).
 
 vann_rule(Tree, Env, Ms, VI, Pid) ->
-    Cs = wrangler_syntax:rule_clauses(Tree),
-    N = wrangler_syntax:rule_name(Tree),
+    vann_rule_or_fun(Tree, Env, Ms, VI, Pid, 
+                     rule_clauses,rule_name, rule).
+
+
+vann_rule_or_fun(Tree, Env, Ms, VI, Pid, EntClaus, EntName, EntFun) ->
+    Cs = wrangler_syntax:EntClaus(Tree),
+    N = wrangler_syntax:EntName(Tree),
     {Cs1, {_, Free}} = vann_clauses(Cs, Env, Ms, VI, Pid),
     {N1, _, _} = vann(N, Env, Ms, VI, Pid),
-    Tree1 = rewrite(Tree, wrangler_syntax:rule(N1, Cs1)),
-    Bound=[],
+    Tree1 = rewrite(Tree,
+                    wrangler_syntax:EntFun(N1, Cs1)),
+    Bound = [],
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
-
 
 vann_fun_expr(Tree, Env, Ms, VI, Pid) ->
     Cs = wrangler_syntax:fun_expr_clauses(Tree),

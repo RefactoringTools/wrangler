@@ -1034,7 +1034,7 @@ analyze_file(FName, SearchPaths, TabWidth) ->
 	    throw({error, "Refactoring failed because Wrangler could not parse the target module."})
     end.
 
-get_macro_defs(MDefs) ->
+get_macro_defs(MDefs) -> 
     lists:flatmap(fun get_macro_def_1/1, MDefs).
 get_macro_def_1({{_,Name}, {Args, Toks}})->
      [{Name, {Args, wrangler_misc:concat_toks(Toks)}}];

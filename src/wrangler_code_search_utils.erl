@@ -201,12 +201,12 @@ display_clones_by_length(_Cs, _Str) ->
 
 
 %% display the found-out clones to the user.
-display_clones(_Cs, _Str) ->
-    Num = length(_Cs),
+display_clones(Cs, _Str) ->
+    Num = length(Cs),
     ?wrangler_io("\n" ++ _Str ++ " detection finished with *** ~p *** clone(s) found.\n", [Num]),
     case Num of 
 	0 -> ok;
-	_ -> display_clones_1(_Cs,1)
+	_ -> display_clones_1(Cs,1)
     end.
 
 display_clones_1([],_) ->
@@ -218,23 +218,23 @@ display_clones_1([C|Cs], Num) ->
   
 
 display_a_clone(_C={Ranges, _Len, F,{Code, _}},Num) ->
-    [R| _Rs] = lists:keysort(1, Ranges),
-    NewStr = compose_clone_info(R, F, Ranges, "", Num),
-    _NewStr1 = NewStr ++ "The cloned expression/function after generalisation:\n\n" ++ Code,
-    _ = length(_NewStr1),
+    NewStr1 = make_clone_info_str(Ranges, F, Code, Num),
     ?wrangler_io("~s", [_NewStr1]);
 display_a_clone(_C={Ranges, _Len, F,Code},Num) ->
-    [R| _Rs] = lists:keysort(1, Ranges),
-    NewStr = compose_clone_info(R, F, Ranges, "", Num),
-    _NewStr1 = NewStr ++ "The cloned expression/function after generalisation:\n\n" ++ Code,
-    _ = length(_NewStr1),
+    _NewStr1 = make_clone_info_str(Ranges, F, Code, Num),
     ?wrangler_io("~s", [_NewStr1]);
 display_a_clone(_C={Ranges, _Len, F,{Code, _}, ChangeStatus},Num) ->
     [R| _Rs] = lists:keysort(1, Ranges),
     NewStr = compose_clone_info(R, F, Ranges, "", Num, ChangeStatus),
     _NewStr1 = NewStr ++ "The cloned expression/function after generalisation:\n\n" ++ Code,
-    _ = length(_NewStr1),
     ?wrangler_io("~s", [lists:flatten(_NewStr1)]).
+
+make_clone_info_str(Ranges, F, Code, Num) ->
+    [R | _Rs] = lists:keysort(1, Ranges),
+    NewStr = compose_clone_info(R, F, Ranges, "", Num),
+    NewStr ++"The cloned expression/function after generalisation:\n\n" ++Code.
+
+
 
 compose_clone_info(_, F, Range, Str, Num) ->
     case F of

@@ -24,8 +24,7 @@
 %% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %% ===========================================================================================
-%% Incremental similar code detection for Erlang programs.
-%% 
+%% Incremental similar code detection for Erlang programs. 
 %% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
 %% 
 %%@private

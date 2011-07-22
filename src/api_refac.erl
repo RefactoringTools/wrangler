@@ -460,7 +460,7 @@ exported_var_names(Node) ->
 
 -spec(bound_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
 bound_vars(Node) -> 
-    wranger_misc:bound_vars(Node).
+    wrangler_misc:bound_vars(Node).
 
 %%@doc Returns all the variable names that are declared within `Node'.
 %%@spec bound_var_names([syntaxTree()]|syntaxTree())-> [atom()]

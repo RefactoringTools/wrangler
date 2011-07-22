@@ -216,30 +216,30 @@ generalise_and_hash_ast_2(Node, {FName, FunName, Arity, ASTTab, Pid}) ->
     case wrangler_syntax:type(Node) of
 	clause ->
 	    Body = wrangler_syntax:clause_body(Node),
-	    [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
-	     || E <- Body,
-		{StartLoc, EndLoc} <- [wrangler_misc:start_end_loc(E)]],
+	    insert_to_tab(FName, FunName, Arity, ASTTab, Body),
 	    insert_dummy_entry(Pid),
 	    _NewBody = [F1(E) || E <- Body],
 	    {Node, true};
 	block_expr ->
 	    insert_dummy_entry(Pid),
 	    Body = wrangler_syntax:block_expr_body(Node),
-	    [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
-	     || E <- Body,
-		{StartLoc, EndLoc} <- [wrangler_misc:start_end_loc(E)]],
-	    _NewBody = [F1(E) || E <- Body],
-	    {Node, true};
+	    insert_to_tab(FName, FunName, Arity, ASTTab, Body),
+	    _NewBody_1 = [F1(E) || E <- Body],
+            {Node, true};
 	try_expr ->
 	    insert_dummy_entry(Pid),
 	    Body = wrangler_syntax:try_expr_body(Node),
-	    [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
-	     || E <- Body,
-		{StartLoc, EndLoc} <- [wrangler_misc:start_end_loc(E)]],
+	    insert_to_tab(FName, FunName, Arity, ASTTab, Body),
 	    _NewBody = [F1(E) || E <- Body],
 	    {Node, true};
 	_ -> {Node, false}
     end.
+
+insert_to_tab(FName, FunName, Arity, ASTTab, Body) ->
+    [ets:insert(ASTTab, {{FName, FunName, Arity, StartLoc, EndLoc}, E})
+     || E <- Body,
+        {StartLoc, EndLoc} <- [wrangler_misc:start_end_loc(E)]].
+
 
 %%=============================================================================
 examine_clone_sets([], _MinFreq, _SimiScore, ASTTab, _VarTab, RangeTab,Pid, _Num)->

@@ -227,24 +227,21 @@ module_callergraph_to_dot(OutFile, ModNames, SearchPaths, WithLabel) ->
 
 %%-spec (module_graph_to_dot/4::(filename(), [modulename()], [filename()|dir()], boolean()) ->true). 			  
 module_graph_to_dot(OutFile, NotCareMods, SearchPaths, WithLabel) -> 
-    DotFile = filename:rootname(OutFile)++".dot",
-    ModCallerCallees = create_caller_callee_graph_with_called_funs(SearchPaths),
-    MG = digraph:new(),
-    add_edges(ModCallerCallees,NotCareMods,  MG),
-    Sccs = digraph_utils:strong_components(MG),
-    Sccs1 = [Scc||Scc<-Sccs, length(Scc)>1],
-    to_dot(MG,DotFile, WithLabel, Sccs1, false),
-    digraph:delete(MG).
+    graph_to_dot(OutFile, NotCareMods, SearchPaths, WithLabel, false).
 
 
 module_sccs_to_dot(OutFile, NotCareMods, SearchPaths, WithLabel) -> 
-    DotFile = filename:rootname(OutFile)++".dot",
+    graph_to_dot(OutFile, NotCareMods, SearchPaths,WithLabel, true).
+
+
+graph_to_dot(OutFile, NotCareMods, SearchPaths, WithLabel, OnlySccs) ->
+    DotFile = filename:rootname(OutFile) ++ ".dot",
     ModCallerCallees = create_caller_callee_graph_with_called_funs(SearchPaths),
     MG = digraph:new(),
-    add_edges(ModCallerCallees,NotCareMods,  MG),
+    add_edges(ModCallerCallees, NotCareMods, MG),
     Sccs = digraph_utils:strong_components(MG),
-    Sccs1 = [Scc||Scc<-Sccs, length(Scc)>1],
-    to_dot(MG,DotFile, WithLabel, Sccs1, true),
+    Sccs1 = [Scc || Scc <- Sccs, length(Scc) > 1],
+    to_dot(MG, DotFile, WithLabel, Sccs1, OnlySccs),
     digraph:delete(MG).
 
 

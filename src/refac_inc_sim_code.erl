@@ -237,10 +237,11 @@ inc_sim_code_detection(Files, Thresholds, Tabs, SearchPaths, TabWidth, Editor, I
     Cs2 = examine_clone_candidates(Cs, Thresholds, Tabs, CloneCheckerPid, ASTPid, 1),
     _Time2 = time(),
     Cs3 = combine_clones_by_au(Cs2),
+    Cs4 =[{R, L, F, C}||{R, L, F, C}<-Cs3, length(R)>=2],
     ?debug("\n Time Used: ~p\n", [{Time1, Time2}]),
     case Editor of
 	emacs ->
-	    wrangler_code_search_utils:display_clone_result(lists:reverse(Cs3), "Similar"),
+	    wrangler_code_search_utils:display_clone_result(lists:reverse(Cs4), "Similar"),
 	    stop_clone_check_process(CloneCheckerPid),
 	    stop_hash_process(HashPid),
 	    stop_ast_process(ASTPid),
@@ -249,7 +250,7 @@ inc_sim_code_detection(Files, Thresholds, Tabs, SearchPaths, TabWidth, Editor, I
 	    stop_clone_check_process(CloneCheckerPid),
 	    stop_hash_process(HashPid),
 	    stop_ast_process(ASTPid),
-	    Cs3
+	    Cs4
     end.
    
 process_initial_clones(Cs) ->
@@ -1742,7 +1743,8 @@ write_file(File, Data) ->
     end.
 
 gen_clone_report(Cs) ->
-     gen_clone_report(Cs, 1, "").
+    Cs1 =[{R, L, F, C}||{R, L, F, C}<-Cs, length(R)>=2],
+     gen_clone_report(Cs1, 1, "").
 gen_clone_report([], _Num, Str) ->
      lists:reverse(Str);
 gen_clone_report([_C={_Ranges, Len, F, {Code, {Pars,NewVars}}}|Cs], Num, Str) ->

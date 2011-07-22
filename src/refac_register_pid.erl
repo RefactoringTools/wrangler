@@ -136,18 +136,19 @@ register_pid_1(FName, StartLine, StartCol, EndLine, EndCol, RegName, RegPids, Se
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     {ok, MatchExpr} = pos_to_spawn_match_expr(AnnAST, Start, End),
     Pid = wrangler_syntax:match_expr_pattern(MatchExpr),
-    RegName1 = list_to_atom(RegName),
     Res = check_registration(MatchExpr, SearchPaths, RegPids),
     case Res of
-	ok -> case do_register(FName, AnnAST, MatchExpr, Pid, RegName1, SearchPaths, TabWidth) of
-		  {ok, Results} ->
-		      ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-		      wrangler_write_file:write_refactored_files_for_preview(Results, TabWidth, LogMsg),
-		      ?wrangler_io("The following files have been changed by this refactoring:\n~p\n",
-				   [ChangedFiles]),
-		      {ok, ChangedFiles};
-		  {error, Reason} -> {error, Reason}
-	      end;
+	ok -> 
+            RegName1 = list_to_atom(RegName),
+            case do_register(FName, AnnAST, MatchExpr, Pid, RegName1, SearchPaths, TabWidth) of
+                {ok, Results} ->
+                    ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+                    wrangler_write_file:write_refactored_files_for_preview(Results, TabWidth, LogMsg),
+                    ?wrangler_io("The following files have been changed by this refactoring:\n~p\n",
+                                 [ChangedFiles]),
+                    {ok, ChangedFiles};
+                {error, Reason} -> {error, Reason}
+            end;
 	{registered, RegExpr} -> {{Line, _Col}, _} = wrangler_misc:start_end_loc(RegExpr),
 				 {error, "The selected process is already registered at line " ++ integer_to_list(Line)};
 	{unknown_pids, RegExprs} ->
