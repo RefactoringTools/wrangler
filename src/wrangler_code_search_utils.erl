@@ -219,15 +219,15 @@ display_clones_1([C|Cs], Num) ->
 
 display_a_clone(_C={Ranges, _Len, F,{Code, _}},Num) ->
     NewStr1 = make_clone_info_str(Ranges, F, Code, Num),
-    ?wrangler_io("~s", [_NewStr1]);
+    ?wrangler_io("~s", [NewStr1]);
 display_a_clone(_C={Ranges, _Len, F,Code},Num) ->
-    _NewStr1 = make_clone_info_str(Ranges, F, Code, Num),
-    ?wrangler_io("~s", [_NewStr1]);
+    NewStr1 = make_clone_info_str(Ranges, F, Code, Num),
+    ?wrangler_io("~s", [NewStr1]);
 display_a_clone(_C={Ranges, _Len, F,{Code, _}, ChangeStatus},Num) ->
     [R| _Rs] = lists:keysort(1, Ranges),
     NewStr = compose_clone_info(R, F, Ranges, "", Num, ChangeStatus),
-    _NewStr1 = NewStr ++ "The cloned expression/function after generalisation:\n\n" ++ Code,
-    ?wrangler_io("~s", [lists:flatten(_NewStr1)]).
+    NewStr1 = NewStr ++ "The cloned expression/function after generalisation:\n\n" ++ Code,
+    ?wrangler_io("~s", [lists:flatten(NewStr1)]).
 
 make_clone_info_str(Ranges, F, Code, Num) ->
     [R | _Rs] = lists:keysort(1, Ranges),
