@@ -257,10 +257,10 @@ compose_clone_info(_, F, Range, Str, Num, ChangeStatus) ->
 
 display_clones_2([], Str) -> Str ++ "\n";
 display_clones_2([{{File, StartLine, StartCol}, {File, EndLine, EndCol}}|Rs], Str) ->
-    Str1 =Str ++ File++io_lib:format(":~p.~p-~p.~p:  \n", [StartLine, lists:max([1,StartCol-1]), EndLine, EndCol]),
+    Str1 =Str ++ File++io_lib:format(":~p.~p-~p.~p:\n", [StartLine, lists:max([1,StartCol-1]), EndLine, EndCol]),
     display_clones_2(Rs, Str1);
 display_clones_2([{{{File, StartLine, StartCol}, {File, EndLine, EndCol}}, FunCall}|Rs], Str) ->
-    Str1 = Str ++ File++io_lib:format(":~p.~p-~p.~p:  ", [StartLine,lists:max([1, StartCol-1]),EndLine, EndCol])++
+    Str1 = Str ++ File++io_lib:format(":~p.~p-~p.~p:", [StartLine,lists:max([1, StartCol-1]),EndLine, EndCol])++
 	" \n   "++ FunCall ++ "\n",
     display_clones_2(Rs, Str1).
 
