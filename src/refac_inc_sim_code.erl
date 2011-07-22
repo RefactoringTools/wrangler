@@ -44,6 +44,8 @@
 %% API.
 -export([inc_sim_code_detection/6]). 
 
+%% do not remove this!
+-compile(export_all).
 %%-define(debug, true).
 
 -define(INC, false).
@@ -694,7 +696,7 @@ examine_clone_candidates([C| Cs],Thresholds,Tabs,CloneCheckerPid,ASTPid,Num) ->
 output_progress_msg(Num) ->
     case Num rem 10 of
      	1 -> 
-     	    ?wrangler_io("\nChecking clone candidate no. ~p ... ", [Num]);
+     	    ?wrangler_io("\nChecking clone candidate no. ~p ...", [Num]);
      	_-> ok
      end.
 	
@@ -743,7 +745,7 @@ update_clone_class_locations_1(RangesWithNewStartLine, RangesWithOldStartLine) -
 	  {value, {MFAI, Toks, {StartEndLoc, NewStartLine}, _}} =
 	      lists:keysearch(MFAI, 1, RangesWithNewStartLine),
 	  {MFAI, Toks, {StartEndLoc, NewStartLine}, IsNew}
-      end
+       end
       || {MFAI, Toks, {StartEndLoc, _StartLine}, IsNew} <- Rs], FunCall}
      || {Rs, FunCall} <- RangesWithOldStartLine].
 
@@ -867,8 +869,8 @@ has_same_subst(E1, E2, SubSt) ->
 		    {value, {def, DefPos}} == lists:keysearch(
 						def, 1, wrangler_syntax:get_ann(E11))
 		      andalso
-		    format(E2)
-		     =/= format(E21)
+		  wrangler_prettypr:format(wrangler_misc:reset_ann_and_pos(E2))
+	       =/= wrangler_prettypr:format(wrangler_misc:reset_ann_and_pos(E21))
 	  end, SubSt).
 
 %% process anti-unification result.
@@ -945,7 +947,7 @@ get_var_subst(SubSt) ->
     F = fun ({E1, E2}) ->
 		{value, {def, DefPos}} =
 		    lists:keysearch(def, 1, wrangler_syntax:get_ann(E1)),
-		{DefPos, format(E2)}
+		{DefPos, wrangler_prettypr:format(wrangler_misc:reset_ann_and_pos(E2))}
 	end,
     [F({E1,E2})
      || {E1,E2} <- SubSt,
@@ -1097,7 +1099,7 @@ num_of_tokens(Exprs) ->
 num_of_tokens_in_string(Str) ->
     case wrangler_scan:string(Str, {1,1}, 8, 'unix') of
 	{ok, Ts, _} -> 
-            Ts1 = [T||T<-Ts, not is_whitespace_or_comment(T)],
+            Ts1 = [T||T<-Ts],
 	    length(Ts1);
 	_ ->
 	    0
@@ -1140,11 +1142,10 @@ get_one_clone_class(RangeWithExprAST, ClonePairs, Thresholds, Tabs) ->
 	 %% VarstoExport format : [{name, pos}].
 	 ExportVars1 = {element(1, lists:unzip(VarsToExport)), 
 			lists:usort(lists:append(ExportVars))},
-	 {[RangeWithExprAST| Ranges], {length(Range), length(Ranges) + 1}, 
+	 {[RangeWithExprAST| Ranges], {length(Exprs), length(Ranges) + 1}, 
 	  {Exprs, SubSt, ExportVars1}}
      end
      || C<-CloneClasses].
-
 
     
 get_one_clone_class_1(RangeWithExprAST, _ClonePair = {Range1, Range2, Subst}, Tabs) ->
@@ -1213,11 +1214,12 @@ group_clone_pairs([CP={C={_R, _EVs, Subst}, NumOfNewVars}|T], Thresholds, ExprsT
 
 %% This is not accurate, and will be improved!
 exprs_to_be_generalised(SubSt) ->
-    sets:from_list([format(E1)
+    sets:from_list([wrangler_prettypr:format(wrangler_misc:reset_ann_and_pos(E1))
 		    || {E1,_E2} <- SubSt, wrangler_syntax:type(E1) /= variable]).
 
 num_of_new_vars(SubSt) ->
-    length(lists:usort([{format(E1), format(E2)}
+    length(lists:usort([{wrangler_prettypr:format(wrangler_misc:reset_ann_and_pos(E1)), 
+                         wrangler_prettypr:format(wrangler_misc:reset_ann_and_pos(E2))}
 			|| {E1,E2} <- SubSt, wrangler_syntax:type(E1) /= variable])).
 
 
@@ -1743,8 +1745,7 @@ write_file(File, Data) ->
     end.
 
 gen_clone_report(Cs) ->
-    Cs1 =[{R, L, F, C}||{R, L, F, C}<-Cs, length(R)>=2],
-     gen_clone_report(Cs1, 1, "").
+    gen_clone_report(Cs, 1, "").
 gen_clone_report([], _Num, Str) ->
      lists:reverse(Str);
 gen_clone_report([_C={_Ranges, Len, F, {Code, {Pars,NewVars}}}|Cs], Num, Str) ->
@@ -1760,3 +1761,14 @@ is_whitespace_or_comment({comment, _, _}) ->
     true;
 is_whitespace_or_comment(_) -> false.
 
+
+
+hash_ranges(Ranges) ->
+    F = fun({MFAI, Toks, {Loc, _StartLine}, _IsNew}) ->
+		{MFAI, Toks, Loc}
+	end,
+    erlang:md5(lists:usort(
+		 [erlang:md5(lists:flatten(
+			       io_lib:format(
+				 "~p", [[F(E)||E<-R]])))
+		  ||R<-Ranges])).
