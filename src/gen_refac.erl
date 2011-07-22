@@ -71,7 +71,7 @@
 %%   This function should returns `true' if the user is allowed to browse 
 %%   through and select the changes to be made.
 %% ```transform(Args::#args()) 
-%%      ===> {ok, [{filename(), syntaxTree()}] | {error, Reason}}'''
+%%      ===> {ok, [{{filename(),filename()} syntaxTree()}] | {error, Reason}}'''
 %%   Function `transform' carries out the transformation part of the 
 %%   refactorings. If the refactoring succeeds, it returns the list of
 %%   file names together with their new AST (only files that have been 
@@ -142,30 +142,53 @@ behaviour_info(callbacks) ->
 -spec(select_focus(Module::module(), Args::args()) ->
              {ok, term()} | {error, term()}).
 select_focus(Module, Args) ->
-    apply(Module, select_focus, [Args]).
+    case apply(Module, select_focus, [Args]) of 
+        {ok, Term} ->
+            {ok, Term};
+        {error, Reason} ->
+            {error, Reason};
+        _ ->
+            {error, "The value returned by callback function select_focus/1 "
+             "is different from the return type expected."}
+    end.
 
-%% -spec(check_pre_cond(Module::module(), Args::[term()]) ->
-%%              ok | {error, term()}).
+-spec(check_pre_cond(Module::module()|tuple(), Args::#args{}) ->
+             ok | {error, term()}).
 check_pre_cond(Module, Args) ->
-    apply(Module,check_pre_cond, [Args]).
+    case apply(Module,check_pre_cond, [Args]) of 
+        ok ->
+            ok;
+        {error, Reason} ->
+            {error, Reason};
+        _->
+            {error, "The value returned by callback function check_pre_cond/1 "
+             "is different from the return type expected."} 
+    end.
 
--spec(selective(Module::module()) ->
-             boolean()).
+-spec(selective(Module::module()) ->boolean()|{error, term()}).
 selective(Module) ->
-    Module:selective().
+    case Module:selective() of 
+        true ->
+            true;
+        false ->
+            false;
+        _ ->
+            {error, "The value returned by callback function selective/1 "
+             "is different from the return type expected."}
+    end.
    
 
 %%@private
 -spec(apply_changes(Module::module(), Args::[term()], CandsNotToChange::[term()]) ->
-              {ok, [{filename(), filename(), syntaxTree()}]} |
-              {error, term()}).
+             {ok, [{filename(), filename(), syntaxTree()}]} |
+             {error, term()}).
 apply_changes(Module, Args, CandsNotToChange) ->
     wrangler_gen_refac_server:set_flag({self(), {false, CandsNotToChange}}),
     case apply(Module, transform, [Args]) of
         {ok, Res} ->
             wrangler_gen_refac_server:delete_flag(self()),
-            refac_write_file:write_refactored_files(
-              Res, 'emacs', Args#args.tabwidth, "");
+            wrangler_write_file:write_refactored_files(
+                 Res, 'emacs', Args#args.tabwidth, "");
         {error, Reason} ->
             wrangler_gen_refac_server:delete_flag(self()),
             {error, Reason}
@@ -173,12 +196,9 @@ apply_changes(Module, Args, CandsNotToChange) ->
 
 %%@doc The interface function for invoking a refactoring defined 
 %% in module `ModName'.
-%%@spec(run_refac(Module::module()|string(), Args::args()) ->
-%%    {ok, string()} | {change_set, [{string(), string()}], module(), args()}|
-%%              {error, term()}
--spec(run_refac(Module::module()|string(), Args::args()) ->
-    {ok, string()} | {change_set, [{string(), string()}], module(), args()}|
-              {error, term()}).
+-spec(run_refac(Module::module()|string()|tuple(), Args::[term()])->
+             {ok, string()} | {change_set, [{string(), string()}], module(), #args{}}|
+             {error, term()}).
 run_refac(ModName, Args=[CurFileName, [Line,Col],
                          [[StartLine, StartCol],
                           [EndLn, EndCol]], UserInputs,
@@ -205,44 +225,38 @@ run_refac(ModName, Args=[CurFileName, [Line,Col],
                     Selective=selective(Module),
                     wrangler_gen_refac_server:set_flag({self(), Selective}),
                     Args2 = Args1#args{selective=Selective},
-                    case Selective of 
-                        true ->
-                            case apply(Module, transform, [Args2]) of
-                                {error, Reason} ->
-                                    {error, Reason};
-                                _ ->
-                                    {ok, ChangeSets}=wrangler_gen_refac_server:get_change_set(self()),     
-                                    %% wrangler_gen_refac_server:delete_change_set(self()),
-                                    {change_set, ChangeSets, Module, Args2}
+                    if is_boolean(Selective) ->
+                            case Selective of 
+                                true ->
+                                    case apply(Module, transform, [Args2]) of
+                                        {error, Reason} ->
+                                            {error, Reason};
+                                        _ ->
+                                            {ok, ChangeSets}=wrangler_gen_refac_server:get_change_set(self()),     
+                                            %% wrangler_gen_refac_server:delete_change_set(self()),
+                                            {change_set, ChangeSets, Module, Args2}
+                                    end;
+                                false->
+                                    case apply(Module, transform, [Args2]) of
+                                        {ok, Res} ->
+                                            wrangler_gen_refac_server:delete_flag(self()),
+                                            wrangler_write_file:write_refactored_files(Res,emacs,TabWidth,"");
+                                        {error, Reason} ->
+                                            wrangler_gen_refac_server:delete_flag(self()),
+                                            {error, Reason}
+                                    end
                             end;
-                        false->
-                            case apply(Module, transform, [Args2]) of
-                                {ok, Res} ->
-                                    wrangler_gen_refac_server:delete_flag(self()),
-                                    refac_write_file:write_refactored_files(Res,emacs,TabWidth,"");
-                                {error, Reason} ->
-                                    wrangler_gen_refac_server:delete_flag(self()),
-                                    {error, Reason};
-                                _ ->
-                                    {error, "The value returned by callback function transform/1 "
-                                     "is different from the return type expected."}     
-                            end;
-                        _ -> 
-                            {error, "The value returned by callback function selective/1 "
-                             "is different from the return type expected."}
+                       true->
+                            {error, "The value returned by callback function transform/1 "
+                             "is different from the return type expected."}     
                     end;
                 {error, Reason} ->
-                    {error, Reason};
-                _  ->
-                    {error, "The value returned by callback function check_pre_cond/1 "
-                     "is different from the return type expected."}
+                    {error, Reason}
             end;
         {error, Reason} ->
-            {error, Reason};
-        _ ->
-            {error, "The value returned by callback function select_focus/1 "
-             "is different from the return type expected."}
+            {error, Reason}
     end.
+       
 %%@private
 input_par_prompts(CallBackMod) ->
     Res =input_pars_1(CallBackMod),

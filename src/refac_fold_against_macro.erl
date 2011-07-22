@@ -69,7 +69,7 @@ fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fold_against_macro(" ++ "\"" ++ 
 	    FileName ++ "\", " ++ integer_to_list(Line) ++ 
 	      ", " ++ integer_to_list(Col) ++ ", "
-						++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+					       ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, emacs, Cmd).
 
 
@@ -108,7 +108,7 @@ fold_against_macro_1_eclipse(FileName, CandidatesToFold, MacroDef, SearchPaths, 
     CandidatesToFold1 = [{StartLine, StartCol, EndLine, EndCol, MacroApp, MacroDef}
 			 || {{{StartLine, StartCol}, {EndLine, EndCol}}, MacroApp} <- CandidatesToFold],
     AnnAST1 = fold_against_macro_1_1_eclipse(AnnAST, CandidatesToFold1),
-    Src = refac_prettypr:print_ast(refac_misc:file_format(FileName), AnnAST1, TabWidth),
+    Src = wrangler_prettypr:print_ast(wrangler_misc:file_format(FileName), AnnAST1, TabWidth),
     Res = [{FileName, FileName, Src}],
     {ok, Res}.
 
@@ -124,7 +124,7 @@ fold_against_macro_1_1_eclipse(AnnAST, [Inst={_StartLine, _StartCol, _EndLine, _
 fold_against_macro_1(FileName, CandidatesToFold, SearchPaths, TabWidth, Cmd) ->
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     AnnAST1 = fold_against_macro_1_1(AnnAST, CandidatesToFold),
-    refac_write_file:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], TabWidth, Cmd),
+    wrangler_write_file:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], TabWidth, Cmd),
     {ok, [FileName]}.
 
 fold_against_macro_1_1(AnnAST, []) ->
@@ -136,7 +136,7 @@ fold_against_macro_1_1(AnnAST, [_Inst={StartLine, StartCol, EndLine, EndCol, Mac
     fold_against_macro_1_1(AnnAST1, Tail).
 
 fold_againt_macro_1_2(AnnAST, _Inst={StartLine, StartCol, EndLine, EndCol, MacroApp, MacroDef}) ->
-    Args = refac_syntax:attribute_arguments(MacroDef),
+    Args = wrangler_syntax:attribute_arguments(MacroDef),
     MacroBody = tl(Args),
     TMacroApp = transform(MacroApp),
     refac_new_macro:replace_expr_with_macro(AnnAST,{MacroBody,{StartLine,StartCol},
@@ -144,12 +144,12 @@ fold_againt_macro_1_2(AnnAST, _Inst={StartLine, StartCol, EndLine, EndCol, Macro
  
 
 search_candidate_exprs(AnnAST, MacroDef) ->
-    Args = refac_syntax:attribute_arguments(MacroDef),
-    MacroHead = refac_misc:ghead("refac_fold_against_macro:search_candiate_exprs", Args),
-    MacroParNames = case refac_syntax:type(MacroHead) of
+    Args = wrangler_syntax:attribute_arguments(MacroDef),
+    MacroHead = wrangler_misc:ghead("refac_fold_against_macro:search_candiate_exprs", Args),
+    MacroParNames = case wrangler_syntax:type(MacroHead) of
 			application ->
-			    Pars = refac_syntax:application_arguments(MacroHead),
-			    [refac_syntax:variable_name(A) || A <- Pars];
+			    Pars = wrangler_syntax:application_arguments(MacroHead),
+			    [wrangler_syntax:variable_name(A) || A <- Pars];
 			_ -> []
 		    end,
     MacroBody = tl(Args),
@@ -179,7 +179,7 @@ do_search_candidate_exprs_1(AnnAST, MacroBody, MacroParNames) ->
 			      true ->
 				  case expr_unification(MacroBody, T, MacroParNames) of
 				      {true, Subst} ->
-					  S ++ [{refac_api:start_end_loc(T), Subst}];
+					  S ++ [{wrangler_misc:start_end_loc(T), Subst}];
 				      _ -> S
 				  end;
 			      _ -> S
@@ -188,32 +188,32 @@ do_search_candidate_exprs_1(AnnAST, MacroBody, MacroParNames) ->
 			  S
 		  end
 	  end,
-    ast_traverse_api:fold(Fun, [], AnnAST).
+    api_ast_traverse:fold(Fun, [], AnnAST).
 
 do_search_candidate_exprs_2(AnnAST, MacroBody, MacroParNames) ->
     Len = length(MacroBody),
     Fun = fun (T, S) ->
-		  case refac_syntax:type(T) of
+		  case wrangler_syntax:type(T) of
 		      clause ->
-			  Exprs = refac_syntax:clause_body(T),
+			  Exprs = wrangler_syntax:clause_body(T),
 			  CandidateExprs = get_candidate_exprs(Exprs, Len, MacroBody, MacroParNames),
 			  S ++ lists:filter(fun (C) -> C =/= false end, CandidateExprs);
 		      block_expr ->
-			  Exprs = refac_syntax:block_expr_body(T),
+			  Exprs = wrangler_syntax:block_expr_body(T),
 			  CandidateExprs = get_candidate_exprs(Exprs, Len, MacroBody, MacroParNames),
 			  S ++ lists:filter(fun (C) -> C =/= false end, CandidateExprs);
 		      application ->
-			  Args = refac_syntax:application_arguments(T),
+			  Args = wrangler_syntax:application_arguments(T),
 			  CandidateExprs = get_candidate_exprs(Args, Len, MacroBody, MacroParNames),
 			  S ++ lists:filter(fun (C) -> C =/= false end, CandidateExprs);
 		      tuple ->
-			  Elems = refac_syntax:tuple_elements(T),
+			  Elems = wrangler_syntax:tuple_elements(T),
 			  CandidateExprs = get_candidate_exprs(Elems, Len, MacroBody, MacroParNames),
 			  S ++ lists:filter(fun (C) -> C =/= false end, CandidateExprs);
 		      _ -> S
 		  end
 	  end,
-    ast_traverse_api:fold(Fun, [], AnnAST).
+    api_ast_traverse:fold(Fun, [], AnnAST).
 
 get_candidate_exprs(Exprs, Len, MacroBody, MacroParNames) ->
     SubExprs = sublists(Exprs, Len),
@@ -222,8 +222,8 @@ get_candidate_exprs(Exprs, Len, MacroBody, MacroParNames) ->
 			  true ->
 			      case expr_unification(MacroBody, E, MacroParNames) of
 				  {true, Subst} ->
-				      {StartLoc1, _EndLoc1} = refac_api:start_end_loc(hd(E)),
-				      {_StartLoc2, EndLoc2} = refac_api:start_end_loc(lists:last(E)),
+				      {StartLoc1, _EndLoc1} = wrangler_misc:start_end_loc(hd(E)),
+				      {_StartLoc2, EndLoc2} = wrangler_misc:start_end_loc(lists:last(E)),
 				      {{StartLoc1, EndLoc2}, Subst};
 				  _ -> false
 			      end;
@@ -233,29 +233,29 @@ get_candidate_exprs(Exprs, Len, MacroBody, MacroParNames) ->
 	      SubExprs).
 
 make_macro_app(MacroHead, Subst) ->
-    case refac_syntax:type(MacroHead) of
+    case wrangler_syntax:type(MacroHead) of
 	application ->
-	    Op = refac_syntax:application_operator(MacroHead),
-	    Args1 = refac_syntax:application_arguments(MacroHead),
-	    Args = [refac_syntax:variable_name(A) || A <- Args1],
+	    Op = wrangler_syntax:application_operator(MacroHead),
+	    Args1 = wrangler_syntax:application_arguments(MacroHead),
+	    Args = [wrangler_syntax:variable_name(A) || A <- Args1],
 	    Pars = lists:map(fun (P) -> case lists:keysearch(P, 1, Subst) of
 					    {value, {P, Par}} ->
-						refac_misc:reset_attrs(Par);
-					    _ -> refac_syntax:atom(undefined)
+						wrangler_misc:reset_attrs(Par);
+					    _ -> wrangler_syntax:atom(undefined)
 					end
 			     end, Args),
 	    
-	    refac_syntax:macro(Op, Pars);
+	    wrangler_syntax:macro(Op, Pars);
 	_ ->
-	    refac_syntax:macro(MacroHead)
+	    wrangler_syntax:macro(MacroHead)
     end.
 
 %%=====================================================================================
 expr_unification(Exp1, Exp2, MacroParNames) ->
-    case unification:expr_unification(Exp1, Exp2) of
+    case wrangler_unification:expr_unification(Exp1, Exp2) of
       false -> false;
       {true, Subst} ->
-	  Subst1 = lists:usort([{E1, refac_prettypr:format(E2)}||{E1,E2}<-Subst]),
+	  Subst1 = lists:usort([{E1, wrangler_prettypr:format(E2)}||{E1,E2} <- Subst]),
 	  Vars = [E1||{E1, _E2}<-Subst1],
 	  SVars = lists:usort(Vars),
 	  case length(Vars) == length(SVars) of
@@ -267,7 +267,7 @@ expr_unification(Exp1, Exp2, MacroParNames) ->
 						      lists:member(E1, Res)
 					      end, Subst),
 		      case lists:all(fun ({E1, E2}) ->
-					     list_to_atom(refac_prettypr:format(E2)) == E1
+					     list_to_atom(wrangler_prettypr:format(E2)) == E1
 				     end, ResSubst)
 			  of
 			true -> {true, Subst};
@@ -289,7 +289,7 @@ sublists(List, Len) ->
 %%==========================================================================
 pos_to_macro_define(AnnAST, Pos) ->
     case
-      ast_traverse_api:once_tdTU(fun pos_to_macro_define_1/2, AnnAST, Pos)
+      api_ast_traverse:once_tdTU(fun pos_to_macro_define_1/2, AnnAST, Pos)
 	of
       {_, false} ->
 	  {error, none};
@@ -298,10 +298,10 @@ pos_to_macro_define(AnnAST, Pos) ->
     end.
 
 pos_to_macro_define_1(Node, Pos) ->
-    case refac_syntax:type(Node) of
-	attribute -> case refac_syntax:atom_value(refac_syntax:attribute_name(Node)) of
+    case wrangler_syntax:type(Node) of
+	attribute -> case wrangler_syntax:atom_value(wrangler_syntax:attribute_name(Node)) of
 			 define ->
-			     {S, E} = refac_api:start_end_loc(Node),
+			     {S, E} = wrangler_misc:start_end_loc(Node),
 			     case (S =< Pos) and (Pos =< E) of
 				 true ->
 				     {Node, true};
@@ -314,14 +314,14 @@ pos_to_macro_define_1(Node, Pos) ->
     end.
 
 is_expr_or_pat(Node) ->
-    refac_api:is_expr(Node) orelse refac_api:is_pattern(Node).
+    api_refac:is_expr(Node) orelse api_refac:is_pattern(Node).
 
 %%==========================================================================
 
 %% Distel seems turn {wrapper, nil, ...} into {wrapper, [], ...}
 %% We have to turn it back.
 transform(Node) ->
-    ast_traverse_api:full_buTP(fun (T, _Others) ->
+    api_ast_traverse:full_buTP(fun (T, _Others) ->
 				       case T of
 					 {wrapper, [], A, {[], B}} ->
 					     {wrapper, nil, A, {nil, B}};

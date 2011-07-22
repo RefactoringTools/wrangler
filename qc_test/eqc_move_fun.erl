@@ -6,11 +6,11 @@
 
 % filename generator
 gen_filename(Dirs) ->
-    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
+    AllErlFiles = wrangler_misc:expand_files(Dirs, ".erl"),
     oneof(AllErlFiles).
 
 gen_target_mod(Dirs) ->
-    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
+    AllErlFiles = wrangler_misc:expand_files(Dirs, ".erl"),
     AllMods = lists:map(fun (F) -> filename:basename(F, ".erl") end, AllErlFiles),
     oneof(AllErlFiles++madeup_mod_names()).
 
@@ -20,7 +20,7 @@ madeup_mod_names() -> ["aaa", "aaa.erl"].
 %% collect function define locations in an AST
 collect_fun_locs(AST) ->
     F = fun (T, S) ->
-		As = refac_syntax:get_ann(T),
+		As = wrangler_syntax:get_ann(T),
 		case lists:keysearch(fun_def, 1, As) of
 		    {value, {fun_def, {_Mod, _Fun, _Arity, Pos, DefPos}}} ->
 			if DefPos == {0, 0} -> S;
@@ -29,7 +29,7 @@ collect_fun_locs(AST) ->
 		    _ -> S
 		end
 	end,
-    Res = lists:usort(ast_traverse_api:fold(F, [], AST)),
+    Res = lists:usort(api_ast_traverse:fold(F, [], AST)),
     case Res of
 	[] ->
 	    [{0,0}];
@@ -37,7 +37,7 @@ collect_fun_locs(AST) ->
     end.
 
 is_mod_name(A) ->
-    refac_api:is_fun_name(A).
+    api_refac:is_fun_name(A).
 
 default_incls() ->
   [".", "..", "../hrl", "../incl", "../inc", "../include",

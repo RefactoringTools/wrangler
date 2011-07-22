@@ -71,14 +71,14 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
     Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_var(" ++ "\"" ++ 
 	     FName ++ "\", " ++ integer_to_list(Line) ++ 
 	       ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
-       ++ "[" ++ refac_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    case refac_api:is_var_name(NewName) of
+      ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    case api_refac:is_var_name(NewName) of
 	true -> ok;
 	false -> throw({error, "Invalid new variable name."})
     end,
     NewName1 = list_to_atom(NewName),
     {ok, {AnnAST1, _Info1}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-    case interface_api:pos_to_var_name(AnnAST1, {Line, Col}) of
+    case api_interface:pos_to_var_name(AnnAST1, {Line, Col}) of
 	{ok, {VarName, DefinePos}} ->
 	    {VarName, DefinePos};
 	{error, _} ->
@@ -105,13 +105,13 @@ rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 	       _ -> ok
 	   end,
 	   {AnnAST2, _Changed} = rename(AnnAST1, DefinePos, NewName1),
-	   refac_write_file:write_refactored_files([{{FName,FName}, AnnAST2}], Editor, TabWidth, Cmd1);
+	    wrangler_write_file:write_refactored_files([{{FName,FName}, AnnAST2}], Editor, TabWidth, Cmd1);
        true ->
 	   case Editor of
 	       emacs ->
 		   {ok, []};
 	       _ ->
-		   Content = refac_prettypr:print_ast(refac_misc:file_format(FName), AnnAST1, TabWidth),
+		   Content = wrangler_prettypr:print_ast(wrangler_misc:file_format(FName), AnnAST1, TabWidth),
 		   {ok, [{FName, FName, Content}]}
 	   end
     end.
@@ -160,17 +160,17 @@ cond_check(Form, Pos, _VarName,  NewName) ->
     {Clash, Shadow1 or Shadow2, BindingChange1 or BindingChange2}.
 
 pos_to_form(Node, Pos) ->
-    case ast_traverse_api:once_tdTU(fun pos_to_form_1/2, Node, Pos) of
+    case api_ast_traverse:once_tdTU(fun pos_to_form_1/2, Node, Pos) of
       {_, false} -> throw({error, "Refactoring failed because of a Wrangler error."});
       {R, true} -> R
     end.
 
 pos_to_form_1(Node, Pos) ->
-    case refac_syntax:type(Node) == function
-	    orelse refac_syntax:type(Node) == attribute
+    case wrangler_syntax:type(Node) == function
+	   orelse wrangler_syntax:type(Node) == attribute
 	of
 	true ->
-	    {S, E} = refac_api:start_end_loc(Node),
+	    {S, E} = wrangler_misc:start_end_loc(Node),
 	    if (S =< Pos) and (Pos =< E) ->
 		   {Node, true};
 	       true -> {[], false}
@@ -182,16 +182,16 @@ pos_to_form_1(Node, Pos) ->
 %%-spec rename(syntaxTree(), [{integer(), integer()}], atom()) ->
 %%	     {syntaxTree(), boolean()}.
 rename(Tree, DefinePos, NewName) ->
-    ast_traverse_api:stop_tdTP(fun do_rename/2, Tree, {DefinePos, NewName}).
+    api_ast_traverse:stop_tdTP(fun do_rename/2, Tree, {DefinePos, NewName}).
 
 %% =====================================================================
 do_rename(Node, {DefinePos, NewName}) ->
-    case refac_syntax:type(Node) of
+    case wrangler_syntax:type(Node) of
       variable ->
-	  As = refac_syntax:get_ann(Node),
+	  As = wrangler_syntax:get_ann(Node),
 	  case lists:keysearch(def, 1, As) of
 	    {value, {def, DefinePos}} ->
-		{refac_syntax:set_name(Node, NewName), true};
+		{wrangler_syntax:set_name(Node, NewName), true};
 	    _ -> {Node, false}
 	  end;
       _ -> {Node, false}
@@ -202,7 +202,7 @@ do_rename(Node, {DefinePos, NewName}) ->
 %% bound as well as the variables that are free in the subtree.
 envs_bounds_frees(Node) ->
     F = fun (T, B) ->
-		As = refac_syntax:get_ann(T),
+		As = wrangler_syntax:get_ann(T),
 		EnVars = case lists:keysearch(env, 1, As) of
 			     {value, {env, EnVars1}} -> EnVars1;
 			     _ -> []
@@ -220,4 +220,4 @@ envs_bounds_frees(Node) ->
 		    _ -> [{{env, EnVars}, {bound, BdVars}, {free, FrVars}}| B]
 		end
 	end,
-    lists:usort(ast_traverse_api:fold(F, [], Node)).
+    lists:usort(api_ast_traverse:fold(F, [], Node)).

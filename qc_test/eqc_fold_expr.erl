@@ -6,19 +6,19 @@
 
 % filename generator
 gen_filename(Dirs) ->
-    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
+    AllErlFiles = wrangler_misc:expand_files(Dirs, ".erl"),
     oneof(AllErlFiles).
 
 %% collect function define locations in an AST
 collect_fold_candidates(FName, SearchPaths, TabWidth) ->
     {ok, {AST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     F = fun (T, S) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    function ->
-			FunName = refac_syntax:data(refac_syntax:function_name(T)),
-			Arity1 = refac_syntax:function_arity(T),
-			Cs = refac_syntax:function_clauses(T),
-			Rs = lists:map(fun (C) -> refac_api:start_end_loc(C) end, Cs),
+			FunName = wrangler_syntax:data(wrangler_syntax:function_name(T)),
+			Arity1 = wrangler_syntax:function_arity(T),
+			Cs = wrangler_syntax:function_clauses(T),
+			Rs = lists:map(fun (C) -> api_refac:start_end_loc(C) end, Cs),
 			Res = lists:flatmap(fun (R) ->
 						    {{StartLine, StartCol}, _} = R,
 						    Args = [FName, StartLine, StartCol, SearchPaths, TabWidth, emacs],
@@ -38,7 +38,7 @@ collect_fold_candidates(FName, SearchPaths, TabWidth) ->
 		    _ -> S
 		end
 	end,
-    Res = lists:usort(ast_traverse_api:fold(F, [], AST)),
+    Res = lists:usort(api_ast_traverse:fold(F, [], AST)),
     case Res of
 	[] ->
 	    [{0,0,0,0,0,0,0,{0,0,0,0}}];

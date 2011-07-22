@@ -6,20 +6,20 @@
 
 collect_expr_locs(AST) ->
     F1 = fun (T,S) ->
-		 case refac_api:is_expr_or_match(T) of
-		     true -> Range = refac_api:start_end_loc(T),
+		 case api_refac:is_expr_or_match(T) of
+		     true -> Range = api_refac:start_end_loc(T),
 			     [Range| S];
 		     _ -> S
 		 end
 	 end,
     F = fun (T, S) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    function ->
-			ast_traverse_api:fold(F1, [], T) ++ S;
+			api_ast_traverse:fold(F1, [], T) ++ S;
 		    _ -> S
 		end
 	end,
-    Res = lists:usort(ast_traverse_api:fold(F, [], AST)),
+    Res = lists:usort(api_ast_traverse:fold(F, [], AST)),
     case Res of
 	[] ->
 	    [{{0,0}, {0,0}}];
@@ -32,18 +32,18 @@ madeup_fun_names() -> ["aaa", "bbb", "ccc", "DDD"].
 %% Collect atoms in an AST.
 collect_atoms(AST) ->
     F = fun (T, S) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    atom ->
-			Name = refac_syntax:atom_value(T),
+			Name = wrangler_syntax:atom_value(T),
 			[atom_to_list(Name)] ++ S;
 		    _ -> S
 		end
 	end,
-    lists:usort(ast_traverse_api:fold(F, madeup_fun_names(), AST)).
+    lists:usort(api_ast_traverse:fold(F, madeup_fun_names(), AST)).
 
 %% filename newerator
 gen_filename(Dirs) ->
-    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
+    AllErlFiles = wrangler_misc:expand_files(Dirs, ".erl"),
     oneof(AllErlFiles).
 
 

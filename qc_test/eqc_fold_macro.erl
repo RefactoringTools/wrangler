@@ -6,18 +6,18 @@
 
 % filename generator
 gen_filename(Dirs) ->
-    AllErlFiles = refac_misc:expand_files(Dirs, ".erl"),
+    AllErlFiles = wrangler_misc:expand_files(Dirs, ".erl"),
     oneof(AllErlFiles).
 
 %% collect function define locations in an AST
 collect_fold_candidates(FName, SearchPaths, TabWidth) ->
     {ok, {AST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     F = fun (T, S) ->
-		case refac_syntax:type(T) of
+		case wrangler_syntax:type(T) of
 		    attribute ->
-			case refac_syntax:atom_value(refac_syntax:attribute_name(T)) of
+			case wrangler_syntax:atom_value(wrangler_syntax:attribute_name(T)) of
 			    define ->
-				{{Line, Col}, _EndLoc} = refac_api:start_end_loc(T),
+				{{Line, Col}, _EndLoc} = api_refac:start_end_loc(T),
 				Args = [FName, Line, Col, SearchPaths, TabWidth, emacs],
 				case apply(refac_fold_against_macro, fold_against_macro, Args) of
 				    {ok, Regions} ->
@@ -33,7 +33,7 @@ collect_fold_candidates(FName, SearchPaths, TabWidth) ->
 		    _ -> S
 		end
 	end,
-    Res = lists:usort(ast_traverse_api:fold(F, [], AST)),
+    Res = lists:usort(api_ast_traverse:fold(F, [], AST)),
     case Res of
 	[] ->
 	    [{0,0,0,0,0,0,0}];
