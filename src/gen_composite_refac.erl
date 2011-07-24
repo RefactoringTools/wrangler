@@ -27,21 +27,27 @@
 %%@author  Huiqing Li <H.Li@kent.ac.uk>
 %%
 %%
-%%@hidden
-%%@private
 -module(gen_composite_refac).
 
--export([init_composite_refac/2,get_next_command/1, input_par_prompts/1]).
+-export([init_composite_refac/2,get_next_command/2, input_par_prompts/1]).
 
 -export([behaviour_info/1]).
 
+-compile(export_all).
+
 -include("../include/wrangler.hrl").
 
--record(state, {cmds=[], changed_files=[]}).
+-define(DEBUG, true).
+ 
+-ifdef(DEBUG).
+-define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
+-else.
+-define(debug(__String, __Args), ok).
+-endif.
 
 -spec behaviour_info(atom()) ->[{atom(), arity()}].
 behaviour_info(callbacks) ->
-    [{is_atomic, 0}, {composite_refac,0}, {input_par_prompts, 0}].
+    [{composite_refac,1}, {input_par_prompts, 0}].
 
 
 input_par_prompts(CallBackMod) ->
@@ -55,7 +61,10 @@ input_pars_1(CallBackMod) when is_list(CallBackMod)->
 input_pars_1(_) ->
     throw:error(badarg).
 
-init_composite_refac(ModName, Args)->
+init_composite_refac(ModName, Args=[CurFileName, [Line,Col],
+                                    [[StartLine, StartCol],
+                                     [EndLn, EndCol]], UserInputs,
+                                    SearchPaths, TabWidth])->
     ?wrangler_io("\nCMD: ~p:init_composite_refac(~p,~p).\n",
 		 [?MODULE, ModName, Args]),
     Module = if is_list(ModName) ->
@@ -63,61 +72,34 @@ init_composite_refac(ModName, Args)->
                 true ->
                      ModName
              end,
-    case apply(Module, composite_refac, []) of
+    Args0=#args{current_file_name=CurFileName,
+                cursor_pos = {Line, Col},
+                highlight_range = {{StartLine, StartCol},
+                                   {EndLn, EndCol}},
+                user_inputs = UserInputs,
+                search_paths = SearchPaths,
+                tabwidth = TabWidth},
+    case apply(Module, composite_refac, [Args0]) of
         {error, Reason} ->
             {error, Reason};
         Cmds ->
-            start_composite_refac_server(lists:append(Cmds))
-    end.
-
-start_composite_refac_server(Cmds)->
-    spawn_link(fun()->composite_refac_server_loop(#state{cmds=Cmds}) end).
-
-stop_composite_refac_server(Pid) ->
-    Pid!stop.
-
-get_next_command(Pid) ->
-    wrangler_io:format("Pid:\n~p\n", [Pid]),
-    Pid!{self(), get_next_command},
-    receive 
-        {Pid, NextCmd} ->
-            wrangler_io:format("NextCmd:\n~p\n", [NextCmd]),
-            case NextCmd of 
-                {ok, none} ->
-                    ChangedFiles = get_changed_files(Pid),
-                    stop_composite_refac_server(Pid),
-                    wrangler_io:format("Res:\n~p\n", [{ok, none, ChangedFiles}]),
-                    {ok, none, ChangedFiles};
-                {ok, Cmd} ->
-                    wrangler_io:format("Res:\n~p\n", [{ok, Cmd}]),
-                    {ok, Cmd}
+            try start_server_processes(lists:flatten(Cmds))
+            catch
+                E1:E2 ->
+                    erlang:error({E1,E2})
             end
-    end.
-        
-get_changed_files(Pid) ->    
-    Pid ! {self(), get_changed_files},
-    receive 
-        {Pid, ChangedFiles} ->
-            ChangedFiles
+                
     end.
 
-composite_refac_server_loop(State=#state{cmds=Cmds, changed_files=Files}) ->
-    receive
-        {From, get_next_command} ->
-            case Cmds of 
-                 [] ->
-                     From ! {self(), {ok, none}},
-                     composite_refac_server_loop(State);
-                 [C|Cs] ->
-                     %% need to do more work here!!!
-                     From ! {self(), {ok, C}},
-                    composite_refac_server_loop(State#state{cmds=Cs})
-             end;
-        {From, get_changed_files} ->
-            From ! {self(), lists:reverse(Files)},
-            composite_refac_server_loop(State);
-        stop ->
-            ok;
-        _Msg ->
-            composite_refac_server_loop(State)
-    end.
+start_server_processes(Cmds) ->
+    NameTrackerPid = wrangler_cmd_server:start_name_tracker_server(),
+    CmdServerPid= wrangler_cmd_server:start_cmd_server(Cmds,NameTrackerPid),
+    {CmdServerPid, NameTrackerPid}.
+
+stop_server_processes(CmdServerPid, NameTrackerPid) ->
+    wrangler_cmd_server:stop_cmd_server(CmdServerPid),
+    wrangler_cmd_server:stoop_name_tracker_server(NameTrackerPid).
+
+get_next_command({CmdServerPid, NameTrackerPid}, PrevResult) ->
+    wrangler_cmd_server:get_next_command({CmdServerPid, NameTrackerPid}, PrevResult).
+
