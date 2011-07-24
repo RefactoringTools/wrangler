@@ -37,14 +37,6 @@
 
 -include("../include/wrangler.hrl").
 
--define(DEBUG, true).
- 
--ifdef(DEBUG).
--define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
--else.
--define(debug(__String, __Args), ok).
--endif.
-
 -spec behaviour_info(atom()) ->[{atom(), arity()}].
 behaviour_info(callbacks) ->
     [{composite_refac,1}, {input_par_prompts, 0}].
