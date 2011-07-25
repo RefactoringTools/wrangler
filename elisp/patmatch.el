@@ -208,25 +208,5 @@ EXPECTED is either 'fail or a list of bindings (in any order)."
       (error "Patmatch: %S %S => %S, expected %S"
 	     pattern object actual expected))))
 
-(defun pmatch-test ()
-  "Test the pattern matcher."
-  (interactive)
-  (pmatch-expect t t ())
-  (pmatch-expect '(t nil 1) '(t nil 1) ())
-  (let ((foo 'foo))
-    (pmatch-expect '(FOO ,foo 'foo [FOO]) '(foo foo foo [foo])
-		   '((FOO . foo))))
-  (pmatch-expect 1 2 'fail)
-  (pmatch-expect '(x x) '(1 2) 'fail)
-  (pmatch-expect '_ '(1 2) 'nil)
-  (assert (equal 'yes
-		 (mcase '(call 42 lists length ((1 2 3)))
-		   (t 'no)
-		   (1 'no)
-		   ((call Ref 'lists 'length (_))
-		    'yes)
-		   (_ 'no))))
-  (message "Smooth sailing"))
-
 (provide 'patmatch)
 

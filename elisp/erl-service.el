@@ -161,7 +161,7 @@ Should be called with point directly before the opening ( or /."
 (defun erl-check-backend (node _fsm)
   "Check if we have the 'distel' module available on `node'.
 If not then try to send the module over as a binary and load it in."
-  (unless distel-inhibit-backend-check
+  (unless t ; tdistel-inhibit-backend-check
     (erl-spawn
       (erl-send `[rex ,node]
 		`[,erl-self [call

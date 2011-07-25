@@ -5,11 +5,14 @@
 %%%
 %%% Created : 18 Mar 2002 by Luke Gorrie <luke@bluetail.com>
 %%%-------------------------------------------------------------------
+%%%@hidden
+%%%@private
 -module(distel).
 
 -author('luke@bluetail.com').
 
 -include_lib("kernel/include/file.hrl").
+
 
 -import(lists, [flatten/1, member/2, sort/1, map/2, foldl/3, foreach/2]).
 -import(filename, [dirname/1,join/1,basename/2]).
@@ -274,7 +277,7 @@ trace_flags() ->
 
 tracer_loop(Tracer, Tracee) ->
     receive
-        Trace when tuple(Trace),
+        Trace when is_tuple(Trace),
                    element(1, Trace) == trace,
                    element(2, Trace) == Tracee ->
             Msg = tracer_format(Trace),
@@ -356,11 +359,11 @@ fprof_process_info({initial_calls, Calls}) ->
 fprof_process_info(Info) ->
     fmt("  ???: ~p~n", [Info]).
 
-fprof_tag({M,F,A}) when integer(A) ->
+fprof_tag({M,F,A}) when is_integer(A) ->
     to_atom(flatten(io_lib:format("~p:~p/~p", [M,F,A])));
-fprof_tag({M,F,A}) when list(A) ->
+fprof_tag({M,F,A}) when is_list(A) ->
     fprof_tag({M,F,length(A)});
-fprof_tag(Name) when  atom(Name) ->
+fprof_tag(Name) when  is_atom(Name) ->
     Name.
 
 fprof_mfa({M,F,A}) -> [M,F,A];
@@ -376,7 +379,7 @@ fprof_tags(C) -> [fprof_tag(Name) || {Name,_,_,_} <- C].
 
 fprof_beamfile({M,_,_}) ->
     case code:which(M) of
-        Fname when list(Fname) ->
+        Fname when is_list(Fname) ->
             to_bin(Fname);
         _ ->
             undefined
@@ -385,10 +388,10 @@ fprof_beamfile(_)                  -> undefined.
 
 fmt(X, A) -> to_bin(io_lib:format(X, A)).
 
-pad(X, A) when atom(A) ->
+pad(X, A) when is_atom(A) ->
     pad(X, to_list(A));
 pad(X, S) when length(S) < X ->
-    S ++ lists:duplicate(X - length(S), $ );
+    S ++ lists:duplicate(X - length(S), $\s);
 pad(_X, S) ->
     S.
 
@@ -562,7 +565,7 @@ attach_loop(Att = #attach{emacs=Emacs, meta=Meta}) ->
 			      where={Mod, Line},
 			      stack={Pos, Pos}},
 	    ?MODULE:attach_loop(attach_goto(Att1,Att1#attach.where));
-	{Meta, Status} when atom(Status) ->
+	{Meta, Status} when is_atom(Status) ->
 	    Emacs ! {status, Status},
 	    ?MODULE:attach_loop(Att#attach{status=Status,where=undefined});
 	{NewMeta, {exit_at,null,_R,Pos}} when is_pid(NewMeta) ->
@@ -780,7 +783,7 @@ fdoc_binaryify(Other) -> Other.
 %% Get the argument lists for a function in a module.
 %% Return: [Arglist]
 %% Arglist = [string()]
-get_arglists(ModName, FunName) when list(ModName), list(FunName) ->
+get_arglists(ModName, FunName) when is_list(ModName), is_list(FunName) ->
     arglists(to_atom(ModName), FunName).
 
 arglists(Mod, Fun) ->
@@ -846,7 +849,7 @@ get_forms_from_src(Mod) ->
 %% Return the name of the beamfile for Mod.
 beamfile(Mod) ->
     case code:which(Mod) of
-	File when list(File) ->
+	File when is_list(File) ->
 	    {ok, File};
 	_ ->
 	    error
@@ -898,13 +901,13 @@ best_arg(Args) ->
 %% 'unknown' useless, type description is better, variable name is best.
 best_arg(unknown, A2)          -> A2;
 best_arg(A1, unknown)          -> A1;
-best_arg(A1, A2) when atom(A1),atom(A2) ->
+best_arg(A1, A2) when is_atom(A1),is_atom(A2) ->
     %% ... and the longer the variable name the better
     case length(to_list(A2)) > length(to_list(A1)) of
 	true -> A2;
 	false -> A1
     end;
-best_arg(A1, _A2) when atom(A1) -> A1;
+best_arg(A1, _A2) when is_atom(A1) -> A1;
 best_arg(_A1, A2)               -> A2.
 
 %% transpose([[1,2],[3,4],[5,6]]) -> [[1,3,5],[2,4,6]]
