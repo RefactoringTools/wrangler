@@ -161,7 +161,7 @@ Should be called with point directly before the opening ( or /."
 (defun erl-check-backend (node _fsm)
   "Check if we have the 'distel' module available on `node'.
 If not then try to send the module over as a binary and load it in."
-  (unless t ; tdistel-inhibit-backend-check
+  (unless distel-inhibit-backend-check
     (erl-spawn
       (erl-send `[rex ,node]
 		`[,erl-self [call
@@ -172,15 +172,18 @@ If not then try to send the module over as a binary and load it in."
 	    (&erl-load-backend node))
 	   (_ t))))))
 
+(defvar distel-ebin-directory
+  (file-truename
+   (concat (file-name-directory 
+            (or (locate-library "distel") load-file-name)) "../ebin"))
+   "Directory where beam files are located.")
+
 (defun &erl-load-backend (node)
-  (let* ((elisp-directory
-	  (file-name-directory (or (locate-library "distel") load-file-name)))
-	 (ebin-directory (concat elisp-directory "../ebin"))
-	 (modules '()))
-    (dolist (file (directory-files ebin-directory))
+  (let ((modules '()))
+    (dolist (file (directory-files distel-ebin-directory))
       (when (string-match "^\\(.*\\)\\.beam$" file)
 	(let ((module (intern (match-string 1 file)))
-	      (filename (concat ebin-directory "/" file)))
+	      (filename (concat distel-ebin-directory "/" file)))
 	  (push (list module filename) modules))))
     (if (null modules)
 	(erl-warn-backend-problem "don't have beam files")
@@ -846,6 +849,8 @@ prompts for an mfa."
 	(erl-receive ()
 	    ((['rex nil]
 	      (message "No doc found."))
+	     (['rex 'no_html]
+	      (message "no html docs installed"))
 	     (['rex ['mfas string]]
 	      (message "candidates: %s" string))
 	     (['rex ['sig string]]
@@ -1184,18 +1189,17 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 
 ;;;; Argument lists
 
-(defun erl-openparent ()
-  "Insert a '(' character and arglist."
+(defun erl-openparen ()
+  "Insert a '(' character and show arglist information."
+  (interactive)
+  (erl-show-arglist)
+  (insert "("))
+
+(defun erl-show-arglist ()
+  "Show arglist information."
   (interactive)
   (let ((call (erlang-get-function-under-point)))
-    (erl-print-arglist call erl-nodename-cache (current-buffer))))
-
-(defun erl-openparen (node)
-  "Insert a '(' character and show arglist information."
-  (interactive (list erl-nodename-cache))
-  (let ((call (erlang-get-function-under-point)))
-    (insert "(")
-    (erl-print-arglist call node)))
+    (erl-print-arglist call erl-nodename-cache)))
 
 (defun erl-print-arglist (call node &optional ins-buffer)
   (when (and node (member node erl-nodes))
@@ -1242,7 +1246,9 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
                   (list (intern mod) (intern fun) arity))
     (message "Request sent..")
     (erl-receive ()
-        ((['rex calls]
+        ((['rex ['error reason]]
+          (message "Error: %s" reason))
+         (['rex calls]
           (with-current-buffer (get-buffer-create "*Erlang Calls*")
 	    (erl-who-calls-mode)
             (setq buffer-read-only t)
@@ -1261,7 +1267,8 @@ The match positions are erl-mfa-regexp-{module,function,arity}-match.")
 	      (delete-char 1))
             (goto-char (point-min))
             (message "")
-            (pop-to-buffer (current-buffer))))))))
+            (pop-to-buffer (current-buffer))))
+         ))))
 
 (define-derived-mode erl-who-calls-mode fundamental-mode
   "who-calls"
