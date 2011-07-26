@@ -47,7 +47,8 @@ has_side_effect(Node) ->
 
 %%-spec(has_side_effect(File::filename(), Node::syntaxTree(), SearchPaths::[dir()])-> true|false|unknown).
 has_side_effect(_File, Node, _SearchPaths) ->
-    LibSideEffectFile = list_to_atom(filename:join(?WRANGLER_DIR, "plt/side_effect_plt")),
+    LibSideEffectFile = list_to_atom(filename:join(code:priv_dir(wrangler),
+                                                   "side_effect_plt")),
     LibPlt = from_dets(lib_side_effect_plt, LibSideEffectFile),
     try  check_side_effect(Node, LibPlt, none) of
 	 true -> 
@@ -95,7 +96,8 @@ build_local_side_effect_tab(File, SearchPaths) ->
     end,
     CurrentDir = filename:dirname(normalise_file_name(File)),
     SideEffectFile = filename:join(CurrentDir, "local_side_effect_tab"),
-    LibSideEffectFile = filename:join(?WRANGLER_DIR, "plt/side_effect_plt"),
+    LibSideEffectFile = filename:join(code:priv_dir(wrangler),
+                                      "side_effect_plt"),
     LibPlt = from_dets(lib_side_effect_plt, LibSideEffectFile),
     Dirs = lists:usort([CurrentDir| SearchPaths]),
     Files = wrangler_misc:expand_files(Dirs, ".erl"),
@@ -116,7 +118,7 @@ build_local_side_effect_tab(File, SearchPaths) ->
 %%=================================================================
 %% @spec build_lib_side_effect_tab(FileOrDirs::[fileName()|dir()]) -> true
 %% @doc Build the side effect table for Erlang libraries specified in FileOrDirs, and
-%% put the result to the dets file: plt/side_effect_plt. 
+%% put the result to the file priv/side_effect_plt
 %%
 %% @see build_local_side_effect_tab/2.
 %%-spec(build_lib_side_effect_tab([dir()]) -> true).
@@ -126,7 +128,7 @@ build_lib_side_effect_tab(SearchPaths) ->
 	wrangler_callgraph_server:build_scc_callgraph(SearchPaths),
     build_side_effect_tab(Sccs, Plt, ets:new(dummy_tab, [set, public])),
     ets:insert(Plt, bifs_side_effect_table()),
-    File = filename:join(?WRANGLER_DIR, "plt/side_effect_plt"),
+    File = filename:join(code:priv_dir(wrangler), "side_effect_plt"),
     to_dets(Plt, File),
     ets:delete(Plt).
 
