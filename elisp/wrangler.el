@@ -453,14 +453,11 @@
 	"variable need to make Wrangler start with Ubuntu"
 )
 
-(setq pa (concat %WRANGLER_DIR% "/ebin"))
-
 (defun wrangler-erlang()
   "Run an Wrangler Erlang shell"
   (interactive)
   (require 'comint)
   (setq opts (list "-name" wrangler-erl-node-string
-		   "-pa" pa
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))

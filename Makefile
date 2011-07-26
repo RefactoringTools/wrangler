@@ -1,20 +1,9 @@
 APPNAME = wrangler
 include vsn.mk
 
-ERL         = @ERL@
-ERLC        = @ERLC@
-prefix      = @prefix@
-exec_prefix = @exec_prefix@
-datarootdir = @datarootdir@
-datadir     = @datadir@
-
-ELISP_DIR = $(datadir)/wrangler/elisp
-EBIN_DIR = $(datadir)/wrangler/ebin
-BIN_DIR = $(datadir)/wrangler/bin
-ERL_SRC_DIR = $(datadir)/wrangler/src
-WRANGLER_DIR = $(datadir)/wrangler
-PRIV_DIR = $(datadir)/wrangler/priv
-INCLUDE_DIR = $(datadir)/wrangler/include
+ERL = erl
+ERLC = erlc
+LIB_DIR = @datadir@/wrangler
 
 DOC_OPTS={def,{version,\"$(VERSION)\"}}
 
@@ -28,14 +17,29 @@ BUILD_FIRST = ebin/wrangler_parse.beam ebin/wrangler_expand_rule.beam ebin/api_r
 ERL_SRC = $(wildcard src/*.erl)
 ERL_OBJ = $(BUILD_FIRST) $(patsubst src/%.erl,ebin/%.beam,$(ERL_SRC))
 
-default: prepare erl c
+.PHONY: default all conf erl c
+
+default: conf erl c
 
 all: default docs
 
+conf: configure c_src/suffixtree/Makefile c_src/gsuffixtree/Makefile
+
+c_src/suffixtree/Makefile c_src/gsuffixtree/Makefile: \
+		c_src/suffixtree/Makefile.in c_src/gsuffixtree/Makefile.in
+	./configure
+
 erl: $(ERL_OBJ)
+
+c:
+	@cd ./c_src; make; cd ../..
 
 ########################################
 ## Rules
+
+configure: configure.ac
+	$(MAKE) distclean
+	autoconf
 
 .SUFFIXES: .erl .yrl
 
@@ -48,54 +52,39 @@ ebin/%.beam: include/wrangler.hrl include/wrangler_internal.hrl
 src/%.erl: src/%.yrl
 	$(ERLC) -o src $<
 
-## this is ugly code.
-prepare:
-	@case `uname` in \
-          CYGWIN*) \
-              sed -e "s;%WRANGLER_DIR%;\"`cygpath -m $(WRANGLER_DIR)`\";" \
-                  elisp/wrangler.el.src>elisp/wrangler.el  \
-              ;; \
-              *) \
-              sed -e "s;%WRANGLER_DIR%;\"$(WRANGLER_DIR)\";" \
-                  elisp/wrangler.el.src>elisp/wrangler.el \
-             ;; \
-         esac
-
-c:
-	@cd ./c_src; make; cd ../..
-
 ########################################
 
 
 clean:
 	@cd ./c_src; make clean; cd ../..
-	@-rm -f $(ERL_OBJ) ebin/erl_parse.beam elisp/wrangler.el
-	@-rm -f $(BIN_DIR)/*
+	@-rm -f $(ERL_OBJ) ebin/erl_parse.beam
+	@-rm -f priv/suffixtree priv/gsuffixtree
 	@-rm -f doc/*.html doc/edoc-info doc/erlang.png doc/stylesheet.css
 	@-rm -f doc/*.erl
 
 distclean: clean
 	@-rm -f c_src/suffixtree/Makefile c_src/gsuffixtree/Makefile
-	@-rm -f config.* configure.scan Makefile
+	@-rm -f config.* configure.scan
+	@-rm -rf autom4te.cache
 
 install: default
 	@echo "* Installing Emacs Lisp Library"
-	install -m 775 -d $(ELISP_DIR)
-	install -m 775 elisp/*.el $(ELISP_DIR)
+	install -m 775 -d $(LIB_DIR)/elisp
+	install -m 775 elisp/*.el $(LIB_DIR)/elisp
 	@echo
 	@echo "* Installing Erlang Library"
-	install -m 775 -d $(EBIN_DIR) $(ERL_SRC_DIR)
-	install -m 775 -d $(BIN_DIR)
-	install -m 775 -d $(PRIV_DIR)
-	install -m 775 -d $(INCLUDE_DIR)
-	install -m 775 ebin/*.beam $(EBIN_DIR)
-	install -m 775 src/*.erl $(ERL_SRC_DIR)
-	install -m 775 ebin/*.app $(EBIN_DIR)
-	install -m 775 priv/suffixtree* $(BIN_DIR)
-	install -m 755 priv/gsuffixtree* $(BIN_DIR)
-	install -m 775 include/*.hrl $(INCLUDE_DIR)
-	install -m 775 priv/side_effect_plt $(PRIV_DIR)
-	install -m 775 priv/dialyzer_plt $(PRIV_DIR)
+	install -m 775 -d $(LIB_DIR)/ebin
+	install -m 775 ebin/*.beam $(LIB_DIR)/ebin
+	install -m 775 ebin/*.app $(LIB_DIR)/ebin
+	install -m 775 -d $(LIB_DIR)/src
+	install -m 775 src/*.erl $(LIB_DIR)/src
+	install -m 775 -d $(LIB_DIR)/include
+	install -m 775 include/*.hrl $(LIB_DIR)/include
+	install -m 775 -d $(LIB_DIR)/priv
+	install -m 775 priv/suffixtree* $(LIB_DIR)/priv
+	install -m 755 priv/gsuffixtree* $(LIB_DIR)/priv
+	install -m 775 priv/side_effect_plt $(LIB_DIR)/priv
+	install -m 775 priv/dialyzer_plt $(LIB_DIR)/priv
 	@echo
 	@echo "*** Successfully installed. See README for usage instructions."
 	@echo
