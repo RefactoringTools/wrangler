@@ -461,13 +461,14 @@ vars_to_export(Fun, ExprEndPos, ExprBdVars) ->
         lists:keysort(2, [{V, SourcePos}
                           || {V, SourcePos, DefPos} <- AllVars,
                              SourcePos > ExprEndPos,
-                             ExprBdVarsPos --DefPos==[] ]),
-    lists:reverse(lists:foldl(fun ({V,_Pos}, Acc) ->
-				      case lists:member(V, Acc) of
+                             DefPos--ExprBdVarsPos==[] ]),
+    Res=lists:reverse(lists:foldl(fun ({V,_Pos}, Acc) ->
+                                          case lists:member(V, Acc) of
 					  false -> [V| Acc];
-					  _ -> Acc
-				      end
-			      end, [], VarsToExport)).
+                                              _ -> Acc
+                                          end
+                                  end, [], VarsToExport)),
+    Res.
 
 %% The following functions should be combined with those in 'refac_expr_search.erl'
 filter_exprs_via_ast(Tree, ExpList) ->
