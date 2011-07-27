@@ -461,7 +461,7 @@ vars_to_export(Fun, ExprEndPos, ExprBdVars) ->
         lists:keysort(2, [{V, SourcePos}
                           || {V, SourcePos, DefPos} <- AllVars,
                              SourcePos > ExprEndPos,
-                             ExprBdVarsPos --DefPos==[] ]),
+                             DefPos -- ExprBdVarsPos==[] ]),
     lists:reverse(lists:foldl(fun ({V,_Pos}, Acc) ->
 				      case lists:member(V, Acc) of
 					  false -> [V| Acc];
