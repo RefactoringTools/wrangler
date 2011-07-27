@@ -71,7 +71,7 @@ write_refactored_files_for_preview(Files, TabWidth, LogMsg, SearchPaths) ->
                         {Content, Changes} = wrangler_prettypr:print_ast_and_get_changes(FileFormat, AST, TabWidth),
 			case file:write_file(SwpFileName, list_to_binary(Content)) of
 			    ok ->
-                                wrangler_ast_server:update_ast({FileName, true, SearchPaths, TabWidth, FileFormat}, SwpFileName),
+                                %% wrangler_ast_server:update_ast({FileName, true, SearchPaths, TabWidth, FileFormat}, SwpFileName),
                                 {{{filename:join([FileName]),
                                    filename:join([NewFileName]), false},
                                   filename:join([SwpFileName])}, Changes};
