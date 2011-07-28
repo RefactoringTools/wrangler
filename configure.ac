@@ -25,9 +25,8 @@ AM_WITH_ERLANG
 #AC_FUNC_MALLOC
 #AC_HEADER_STDC
 
-AC_CONFIG_FILES([Makefile
-	        c_src/suffixtree/Makefile
-	        c_src/gsuffixtree/Makefile])
+AC_CONFIG_FILES([c_src/suffixtree/Makefile
+                 c_src/gsuffixtree/Makefile])
 
 AC_LANG(Erlang)
 AC_RUN_IFELSE(

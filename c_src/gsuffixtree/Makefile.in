@@ -3,18 +3,19 @@ ERL_LIB     = @ERL_LIB@
 CFLAGS      = @CFLAGS@
 LDFLAGS     = @LDFLAGS@
 
-#CFLAGS=-Wall -I/usr/local/include ${ERL_CFLAGS}
-ERL_LDFLAGS= ${LDFLAGS} ${ERL_LIB}
+OUTDIR = ../../priv
+#CFLAGS=-Wall -I/usr/local/include $(ERL_CFLAGS)
+ERL_LDFLAGS= $(LDFLAGS) $(ERL_LIB)
 
 
-gsuffixtree:	main.o gsuffix_tree.o
-	gcc  ${ERL_LDFLAGS} main.o gsuffix_tree.o -lerl_interface -lei -lpthread -o gsuffixtree 
+$(OUTDIR)/gsuffixtree:	main.o gsuffix_tree.o
+	gcc  $(ERL_LDFLAGS) main.o gsuffix_tree.o -lerl_interface -lei -lpthread -o $(OUTDIR)/gsuffixtree
 
 gsuffix_tree.o:	gsuffix_tree.c gsuffix_tree.h
-	gcc ${CFLAGS} ${ERL_CFLAGS} -o gsuffix_tree.o -c gsuffix_tree.c
+	gcc $(CFLAGS) $(ERL_CFLAGS) -o gsuffix_tree.o -c gsuffix_tree.c
 
 main.o:	gsuffix_tree.h 
-	gcc ${CFLAGS} ${ERL_CFLAGS} -o main.o -c main.c 
+	gcc $(CFLAGS) $(ERL_CFLAGS) -o main.o -c main.c 
 
 clean:
 	@-rm -f *.o
