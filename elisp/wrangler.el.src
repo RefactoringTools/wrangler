@@ -359,6 +359,13 @@
 
 (setq wrangler-erl-node (intern  wrangler-erl-node-string))
 
+(defun erlang-cookie()
+  (if (file-exists-p  (concat (getenv "HOME") "/.erlang.cookie"))
+      t
+    (error "File %s does not exist; please create it first, then restart Wrangler." 
+           (expand-file-name (concat (getenv "HOME") "/.erlang.cookie")))))
+
+
 (defun wrangler-nodedown(node)
   ( if (equal node wrangler-erl-node)
      (progn (wrangler-menu-remove)
@@ -428,6 +435,7 @@
 
 (defun erlang-refactor-on()
   (interactive)
+  (erlang-cookie)
   (if   (get-buffer "*Wrangler-Erl-Shell*")
       (erlang-refactor-off-1)
     t)
@@ -437,7 +445,7 @@
   (save-window-excursion
     (wrangler-erlang-shell))
   (sleep-for 2.0)
-  (start-wrangler-app))
+  (start-wrangler-app)) 
   
 
 (defun wrangler-erlang-shell()
