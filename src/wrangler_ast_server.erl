@@ -77,28 +77,30 @@ start_ast_server() ->
 %%-spec(init/1::([dir()]) ->{ok, #state{}}).
 init(_Args) ->
     process_flag(trap_exit, true),
-    case file:get_cwd() of
-	{ok, Dir} ->
-	    TabDir = filename:join(Dir,"temp"),
-	    FileName=filename:join(TabDir, "wrangler_dets"),
-	    DetsTab = FileName,  %%  list_to_atom(FileName),
-	    file:delete(FileName),
-	    case file:make_dir(TabDir) of 
-		ok ->
-		    case dets:open_file(DetsTab,  [{type, set}, {access, read_write}, {repair, false}]) of 
-			{ok, _Name} ->  {ok, #state{dets_tab=DetsTab}};
-			_  ->  {ok, #state{dets_tab=none}}
-		    end;
-		{error, eexist} ->
-		    case dets:open_file(DetsTab,  [{type, set}, {access, read_write}, {repair, false}]) of 
-			{ok, _Name} ->  {ok, #state{dets_tab=DetsTab}};
-			_  ->  {ok, #state{dets_tab=none}}
-		    end;
-		_Others -> {ok, #state{dets_tab=none}}
-	    end;
-	{error, _} -> {ok, #state{dets_tab=none}}
+    case find_homedir() of
+	false -> {ok, #state{dets_tab=none}};
+	Dir ->
+	    DetsTab = filename:join(Dir, ".wrangler.dets"),
+	    file:delete(DetsTab),
+            case dets:open_file(DetsTab,  [{type, set}, {access, read_write}, {repair, false}]) of 
+                {ok, _Name} ->  {ok, #state{dets_tab=DetsTab}};
+                _  ->  {ok, #state{dets_tab=none}}
+            end
     end.
-  
+
+find_homedir() ->
+    case os:getenv("HOME") of
+        false ->
+            %% are we on Windows?
+            case {os:getenv("HOMEDRIVE"),os:getenv("HOMEPATH")} of
+                {false, _} -> false;
+                {Drive, false} -> Drive;
+                {Drive, Path} -> Drive ++ Path
+            end;
+        Path ->
+            Path
+    end.
+
 %%------------------------------------------------------------------
 %% -spec(get_ast/1::({filename(), boolean(), [dir()], integer(), atom()}) ->
 %% 	     {ok, {syntaxTree(), moduleInfo()}}).

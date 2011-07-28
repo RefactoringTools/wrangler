@@ -1,4 +1,4 @@
- %%%-------------------------------------------------------------------
+%%%-------------------------------------------------------------------
 %%% File    : distel.erl
 %%% Author  : Luke Gorrie <luke@bluetail.com>
 %%% Purpose : Helper functions to be called from Emacs.
@@ -31,7 +31,7 @@
 
 -export([gl_proxy/1, tracer_init/2, null_gl/0]).
 
--compile(export_all).   
+-compile(export_all).
 
 to_bin(X) -> list_to_binary(to_list(X)).
 to_atom(X) -> list_to_atom(to_list(X)).
@@ -40,7 +40,7 @@ to_list(X) when is_binary(X) -> binary_to_list(X);
 to_list(X) when is_integer(X)-> integer_to_list(X);
 to_list(X) when is_float(X)  -> float_to_list(X);
 to_list(X) when is_atom(X)   -> atom_to_list(X);
-to_list(X) when is_list(X)   -> X. 	%Assumed to be a string
+to_list(X) when is_list(X)   -> X.		%Assumed to be a string
 
 %% ----------------------------------------------------------------------
 %% RPC entry point, adapting the group_leader protocol.

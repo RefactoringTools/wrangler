@@ -2878,7 +2878,7 @@ _EOF
 #AC_FUNC_MALLOC
 #AC_HEADER_STDC
 
-ac_config_files="$ac_config_files Makefile c_src/suffixtree/Makefile c_src/gsuffixtree/Makefile"
+ac_config_files="$ac_config_files c_src/suffixtree/Makefile c_src/gsuffixtree/Makefile"
 
 
 ac_ext=erl
@@ -3730,7 +3730,6 @@ cat >>$CONFIG_STATUS <<\_ACEOF || ac_write_fail=1
 for ac_config_target in $ac_config_targets
 do
   case $ac_config_target in
-    "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "c_src/suffixtree/Makefile") CONFIG_FILES="$CONFIG_FILES c_src/suffixtree/Makefile" ;;
     "c_src/gsuffixtree/Makefile") CONFIG_FILES="$CONFIG_FILES c_src/gsuffixtree/Makefile" ;;
 
