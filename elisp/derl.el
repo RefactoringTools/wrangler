@@ -221,15 +221,11 @@ gen_digest() function:
 
 (defun erl-cookie ()
   (or derl-cookie
-      (if (file-exists-p  (concat (getenv "HOME") "/.erlang.cookie"))
-	  (with-temp-buffer
-	    (insert-file-contents (concat (getenv "HOME") "/.erlang.cookie"))
-	    (while (search-forward "\n" nil t)
-	      (replace-match ""))
-	    (buffer-string))
-	(error "File %s does not exist, please create it and restart." 
-		(concat (getenv "HOME") "/.erlang.cookie")))))
-
+      (with-temp-buffer
+	(insert-file-contents (concat (getenv "HOME") "/.erlang.cookie"))
+	(while (search-forward "\n" nil t)
+	  (replace-match ""))
+	(buffer-string))))
 
 ;; ------------------------------------------------------------
 ;; Alive/connected state
