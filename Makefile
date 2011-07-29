@@ -1,9 +1,11 @@
 APPNAME = wrangler
 include vsn.mk
 
-ERL = erl
-ERLC = erlc
-LIB_DIR = @datadir@/wrangler
+ERL     = erl
+ERLC    = erlc
+prefix  = /usr/local
+datadir = ${prefix}/share
+LIB_DIR = ${datadir}/wrangler
 
 DOC_OPTS={def,{version,\"$(VERSION)\"}}
 
@@ -98,7 +100,7 @@ wc:
 	@wc -l */*.c | sort -nr
 
 
-EXAMPLE_CODE = code_inspector_examples.erl refac_list.erl \
+EXAMPLE_CODE = inspec_examples.erl refac_list.erl \
     refac_apply_to_remote_call.erl refac_remove_arg.erl \
     refac_batch_rename_fun.erl refac_remove_import.erl refac_intro_import.erl \
     refac_specialise.erl refac_keysearch_to_keyfind.erl refac_swap_args.erl
