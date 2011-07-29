@@ -13,11 +13,11 @@ renaming variable/function/module names, generalisation of a
 function definition, function extraction, folding against a function 
 definition, duplicated code detection, etc.
 
-Wrangler is embedded in the Emacs editing environment, and built on
+Wrangler is embedded in the (X)Emacs editing environment, and built on
 top of Distel, an Emacs-based user interface toolkit for Erlang, to
 manage to communication between the refactoring tool and
 Emacs. We are now also in the process of integrating Wrangler with 
-the Eclipse environment. Integration with XEmacs is *not* supported yet. 
+the Eclipse environment.  
   
 
 --------------------- how to build  ----------------------------
