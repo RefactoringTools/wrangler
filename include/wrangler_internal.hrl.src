@@ -73,7 +73,7 @@
      
 -define(log_warning(String), wrangler_error_logger:add_to_logger({warning, String})).
      
-%%-define(DEBUG, true)
+%% -define(DEBUG, true).
  
 -ifdef(DEBUG).
 -define(debug(__String, __Args), ?wrangler_io(__String, __Args)).
