@@ -642,7 +642,7 @@ during the next `erl-schedule'."
                                          (display-buffer (current-buffer)))))
                   (goto-char (point-max))
                   (insert s))))
-	    (error (message "Error in group leader: %S" err))))))
+          (error (message "Error in group leader: %S" err))))))
     (&erl-group-leader-loop)))
 
 (when (null erl-group-leader)

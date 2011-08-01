@@ -1,3 +1,4 @@
+;;; wrangler.el --- Top level of wrangler package, loads all subparts
 
 ;; Prerequisites
 
@@ -5,11 +6,14 @@
 (require 'wrangler-clearcase-hooks)
 (require 'vc)
 (require 'erlang)
+(require 'distel)
 (require 'read-char-spec)
 
 (if (eq (substring emacs-version 0 4) "22.2")
     (require 'ediff-init1)
   (require 'ediff-init))
+
+(distel-setup)
 
 (provide 'wrangler)
 
