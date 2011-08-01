@@ -30,7 +30,7 @@
 -behaviour(gen_server).
 
 %% API
--export([commit/0, abort/0, abort/1,add_files/1, start_preview_server/0]).
+-export([commit/0, abort/0,add_files/1, start_preview_server/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -55,8 +55,6 @@ commit() ->
 
 %%-spec(abort/0::() ->{ok, [filename()]}).
 
-abort(_IsCompositeRefac) -> %% This function will be extended!
-    gen_server:call(wrangler_preview_server, abort).
 abort() ->
     gen_server:call(wrangler_preview_server, abort).
    
@@ -115,7 +113,7 @@ handle_call(commit, _From, #state{files=Files, logmsg=LogMsg}) ->
 				  throw(Err1)
      			  end,
      			  case F1==F2 of 
-     			      true -> ok;
+     			      true -> ok; 
      			      false ->
      				  case file:rename(F1, F2) of 
      				      ok -> ok;
