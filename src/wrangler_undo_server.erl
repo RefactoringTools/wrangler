@@ -27,9 +27,7 @@
 %%% File    : wrangler_undo_server.erl
 %%% Author  :  <Huiqing>
 %% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
-%%%-------------------------------------------------------------------
-%%%@private
-%%%@hidden
+%%%------------------------------------------------------------------- 
 -module(wrangler_undo_server).
 
 -behaviour(gen_server).
@@ -52,28 +50,29 @@
 %%--------------------------------------------------------------------
 start_undo_server() ->
     process_flag(trap_exit, true),
-    gen_server:start_link({local, refactor_undo}, ?MODULE, [], []).
+    gen_server:start_link({local, wrangler_undo_server}, ?MODULE, [], []).
 
 %%-spec(undo_emacs/0::() ->
 %%		 {ok, [filename()], string(), filename()}|{error, string()}).
 undo_emacs() ->
-    gen_server:call(refactor_undo, undo_emacs).
+    gen_server:call(wrangler_undo_server, undo_emacs).
    
 %%-spec(undo/0::() ->{ok, [filename()]}|{error, string()}).
 undo() ->
-    gen_server:call(refactor_undo, undo).
+    gen_server:call(wrangler_undo_server, undo).
    
 
 %%This is added to make Wrangler work with clearcase.
 %%-spec(files_to_change/0::() ->
 %%	     {ok, [filename()]}).
 files_to_change() ->
-    gen_server:call(refactor_undo, files_to_change).
+    gen_server:call(wrangler_undo_server, files_to_change).
    
 
 %%-spec(add_to_history/1::({filename(), filename(), binary()}) -> ok).
 add_to_history({Files, LogMsg, CurFile})->
-    gen_server:cast(refactor_undo, {add, {Files, LogMsg, CurFile}}).
+    gen_server:cast(wrangler_undo_server, {add, {Files, LogMsg, CurFile}}).
+
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -105,7 +104,7 @@ handle_call(undo_emacs, _From, State=#state{history=History}) ->
 	    ok = undo_files(Files),
 	    Modified = lists:map(fun({{OldFileName, NewFileName,_}, _Con})->
 					 [OldFileName, NewFileName] end,Files),
-	    {reply,{ok, Modified, LogMsg, CurFile}, #state{history=T}}
+	    {reply,{ok, Modified, LogMsg, CurFile}, State#state{history=T}}
     end;
 handle_call(undo, _From, State=#state{history=History}) ->
     case History of 
@@ -120,7 +119,7 @@ handle_call(undo, _From, State=#state{history=History}) ->
 						 [OldFileName, NewFileName]
 					 end
 				 end,Files),
-	    {reply,{ok, Modified}, #state{history=T}}
+	    {reply,{ok, Modified}, State#state{history=T}}
     end;
 handle_call(files_to_change, _From, State=#state{history=History}) ->
     case History of 
@@ -136,22 +135,21 @@ handle_call(files_to_change, _From, State=#state{history=History}) ->
 					  end,
 					  Files),
 	    FilesToRename = [{NewFileName, OldFileName}||
-				{{OldFileName, NewFileName, _}, _Con}<-Files, 
+				{{OldFileName, NewFileName, _}, _Con}<-Files,  
 				OldFileName/=NewFileName],
 	    {reply,{ok, FilesToChange, FilesToRename}, State}
     end.
-
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
 %%                                      {noreply, State, Timeout} |
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
-handle_cast({add, {Files, LogMsg, CurFile}},_State=#state{history=History}) ->
+handle_cast({add, {Files, LogMsg, CurFile}},State=#state{history=History}) ->
     History1=lists:sublist([{Files, LogMsg, CurFile}|History],20),
-    {noreply, #state{history=History1}}.
-	
-%%--------------------------------------------------------------------
+    {noreply, State#state{history=History1}}.
+
+%%-------------------------------------------------------------------
 %% Function: handle_info(Info, State) -> {noreply, State} |
 %%                                       {noreply, State, Timeout} |
 %%                                       {stop, Reason, State}
