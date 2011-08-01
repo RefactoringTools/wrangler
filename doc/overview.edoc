@@ -1,81 +1,302 @@
-@title Welcome to Wrangler -- an Erlang Refactorer 
 
+			-*- html -*-
+
+	Wrangler overview page
+
+@title Wrangler - an Erlang Refactoring Tool
 @copyright 2006-2011 Huiqing Li, Simon Thompson
-
-@author Huiqing Li , Simon Thompson
+@author Huiqing Li <H.Li@kent.ac.uk>
+@author Simon Thompson <s.j.thompson@kent.ac.uk>
         [http://www.cs.kent.ac.uk/projects/wrangler]
-@version 0.9.3
-@doc
 
-<p> Wrangler is an Erlang refactoring tool that supports interactive refactoring of Erlang programs.
-</p>
+@doc Wrangler is an Erlang refactoring tool that supports interactive
+refactoring of Erlang programs.
 
-<h3><a name="Contents">Contents</a></h3>
+== Contents ==
+
 <ol>
-  <li><a href="#Introduction">Introduction</a></li>
-  <li><a href="#The Interface of Wrangler">The Interface of Wrangler</a></li>
-  <li><a href="#Macros">Support for Macros</a></li>
-  <li><a href="#Refactoring Code with Syntax Errors">Refactoring Code with Syntax Errors</a> </li>
-  <li><a href="#Types">Typed Records and Type Specifications</a></li>
-  <li><a href="#References">References</a></li>
-  <li><a href="#Acknowledgements">Acknowledgements</a></li>
+  <li>{@section Introduction}</li>
+  <li>{@section The Interface of Wrangler}</li>
+  <li>{@section Support for Macros}</li>
+  <li>{@section Refactoring Code with Syntax Errors}</li>
+  <li>{@section Typed Records and Type Specifications}</li>
+  <li>{@section How to Use the Refactorer}</li>
+  <li>{@section References}</li>
+  <li>{@section Acknowledgements}</li>
 </ol>
 
-<h3><a name="Introduction"> Introduction</a></h3>
-<p> Refactoring is the process of improving the design of a program without changing its external behaviour. While refactoring by hand is possible, tool support for refactoring is invaluable as it is more reliable, and allows refactoring to be done (or undone) easily.  Wrangler is such a tool that supports interactive refactoring of Erlang programs. The current snapshot of Wrangler supports a number of basic Erlang refactorings, such as renaming of variable/function/module names, generalisation of a function definition, etc. </p>
-<p> Built on top of the functionalities provided by the Erlang <em> syntax-tools</em> package, Wrangler
-is embedded in the Emacs editing environment, and makes use of the functionalities provided by Distel, an Emacs-based user interface toolkit for Erlang, to manage the communication between the refactoring tool and Emacs.</p>
-<p>  In collaboration with the <a href="http://erlide.sourceforge.net">Erlide</a> team, we are now also in the process of integrating Wrangler with the Eclipse Environment.
-</p>
+== Introduction ==
 
-<h3><a name="The Interface of Wrangler"> The Interface of Wrangler</a></h3>
-<p> Below is a snapshot of Wrangler embedded in Emacs, which shows a particular refactoring scenario. The user has selected the expression <code> io:format("Hello") </code> in the definition of <code> repeat/1 </code>, has chosen the <em>Generalise Function Definition </em> command from the <em> Refactor </em> sub-menu, and has just entered a new parameter name A in the mini-buffer. </p>
-<img src="Wrangler1.JPG" alt=" "> </img>
+Refactoring is the process of improving the design of a program without
+changing its external behaviour. While refactoring by hand is possible, tool
+support for refactoring is invaluable as it is more reliable, and allows
+refactoring to be done (or undone) easily. Wrangler is such a tool that
+supports interactive refactoring of Erlang programs. Wrangler currently
+supports a number of basic Erlang refactorings, such as renaming of
+variable/function/module names, generalisation of a function definition,
+function extraction, folding against a function definition, duplicated code
+detection, etc.
 
-<p>The result of this refactoring is shown in the snapshot below.</p>
+Built on top of the functionalities provided by the Erlang `syntax-tools'
+package, Wrangler is embedded in the Emacs/Xemacs editing environment, and
+makes use of the functionalities provided by Distel, an Emacs-based user
+interface toolkit for Erlang, to manage the communication between the
+refactoring tool and Emacs.
 
-<img src="Wrangler2.JPG" alt=" "> </img>
+In collaboration with the <a href="http://erlide.sourceforge.net">Erlide</a>
+team, we are now also in the process of integrating Wrangler with the
+Eclipse Environment.
 
-<p> Preview of the changes to be made by a refactoring is supported, and the user could choose to commit or abort the refactoring result after preview.</p>
+== The Interface of Wrangler ==
 
-<p> All the implemented refactorings are module-aware. In the case that a refactoring affects more 
-than one module in the program, a message telling which files have been modified by the refactorer 
-will be given after the refactoring has been successfully done. The <em>Customize Wrangler </em> command 
-from the <em> Refactor </em> sub-menu allows the user to specify the boundary of the program, i.e. the directories that will be searched and analysed by the refactorer, as shown in the example snapshot below.</p>
+Below is a snapshot of Wrangler embedded in Emacs, which shows a particular
+refactoring scenario. The user has selected the expression <code>
+io:format("Hello") </code> in the definition of <code> repeat/1 </code>, has
+chosen the <em>Generalise Function Definition </em> command from the <em>
+Refactor </em> sub-menu, and has just entered a new parameter name A in the
+mini-buffer.
 
-<img src="customize.JPG" alt=" "> </img>
+<img src="Wrangler1.JPG"
+ alt="selecting a refactoring from the Emacs menu"> </img>
 
+The result of this refactoring is shown in the snapshot below.
 
-<p> <em>Undo </em> is supported by the refactorer. Applying undo once will revert the program back 
-to the status right before the last refactoring performed. However, PLEASE NOTE that the refactorer undo is currently separate from the Emacs undo, and undoing a refactoring will lose all the editing activities after the refactoring. </p>
+<img src="Wrangler2.JPG"
+ alt="Emacs buffers after running the refactoring"> </img>
 
-<p> Below is a snapshot of Wrangler embedded in Eclipse + Erlide.</p>
-<img src="Erlide.JPG" alt=" "> </img>
+Preview of the changes to be made by a refactoring is supported, and the
+user could choose to commit or abort the refactoring result after preview.
 
-<h3><a name="Macros">Support for Macros</a></h3>
+All the implemented refactorings are module-aware. In the case that a
+refactoring affects more than one module in the program, a message telling
+which files have been modified by the refactorer will be given after the
+refactoring has been successfully done. The <em>Customize Wrangler</em>
+command from the <em>Refactor</em> sub-menu allows the user to specify the
+boundary of the program, i.e., the directories that will be searched and
+analysed by the refactorer, as shown in the example snapshot below.
 
-<p>Wrangler makes use of functionalities provided by the <code>epp_dodger</code> module from Erlang <em>SyntaxTools</em> to parse Erlang source code, and should be able to 
-refactor Erlang modules containing preprocessor directives and macro applications, as long as the macro definitions are syntactically "well-behaved".</p> 
+<img src="customize.JPG" alt="customizing Wrangler behaviour in Emacs"> </img>
 
-<h3><a name="Refactoring Code with Syntax Errors">Refactoring Code with Syntax Errors</a></h3>
-<p> Wrangler accepts Erlang programs with syntax errors or macro definitions that cannot be 
-parsed by <em>SyntaxTools</em>. In the case that the program under consideration has syntax errors or unparsable 
-macros, functions/attributes to which these syntax errors belong are not affected by the refactoring process, 
-however warning messages asking for manual inspection of those parts of the program are given after the refactoring.
-</p>
-<h3><a name="Types">Typed Records and Type Specification</a></h3>
-<p> The current implementation of Wrangler does not support typed records and type specifications yet; functionalities to support these features are being added however.
-</p>
-<h3><a name="References"> References</a></h3>
-<p> Our <a href="http://www.cs.kent.ac.uk/projects/refactor-fp/">Refactoring
-Functional Programs</a> project website contains more information and references about refactoring functional, 
-especially Haskell, programs; and our progress and ideas about refactoring Erlang programs are available at our 
-<a href="http://www.cs.kent.ac.uk/projects/forse/"> FORSE </a> project webpage. </p>
+<em>Undo</em> is supported by the refactorer. Applying undo once will revert
+the program back to the status right before the last refactoring performed.
+However, <em>PLEASE NOTE</em> that the refactorer undo is currently separate
+from the Emacs undo, and undoing a refactoring will lose all the editing
+activities after the refactoring.
 
-<h3><a name="Acknowledgements"> Acknowledgements</a></h3>
+Below is a snapshot of Wrangler embedded in Eclipse + Erlide.
 
-The work was initially supported by EPSRC in the UK, and is now by the European Commission. We are very grateful that we were able to build the tool on top of 
-<a href="http://code.google.com/p/distel/">Distel</a>, 
-<a href="http://www.erlang.org/doc/apps/syntax_tools/index.html"> Erlang SyntaxTools</a>
-and make use some of the ideas from <a href="http://www.it.uu.se/research/group/hipe/dialyzer/"> DIALYZER</a>.
-@end
+<img src="Erlide.jpg"
+ alt="snapshot of Wrangler embedded in Eclipse with Erlide"> </img>
+
+== Support for Macros ==
+
+Wrangler makes use of functionalities provided by the `epp_dodger' module
+from the Erlang `syntax_tools' library to parse Erlang source code, and
+should be able to refactor Erlang modules containing preprocessor directives
+and macro applications, as long as the macro definitions are syntactically
+"well-behaved".
+
+== Refactoring Code with Syntax Errors ==
+
+Wrangler accepts Erlang programs with syntax errors or macro definitions
+that cannot be parsed by `epp_dodger'. In the case that the program under
+consideration has syntax errors or unparsable macros, functions/attributes
+to which these syntax errors belong are not affected by the refactoring
+process; however, warning messages asking for manual inspection of those
+parts of the program are given after the refactoring.
+
+== Typed Records and Type Specifications ==
+
+The current implementation of Wrangler does not support typed records and
+type specifications yet; functionalities to support these features are being
+added however.
+
+== How to Use the Refactorer ==
+
+<ol>
+ <li>Open an Erlang source file in the Emacs editor. You should now have a
+     menu called <em>Erlang</em>, if you have configured Emacs properly to
+     use the Erlang-mode (see the file INSTALL otherwise).
+ </li>
+ <li>To start the Erlang refactorer, type: `M-x erlang-refactor-on', or
+     alternatively `Ctrl-c Ctrl-r'. After that, two new
+     menus, <em>Refactor</em> and <em>Inspector</em>, should appear in the
+     menu bar (see INSTALL otherwise).
+ </li>
+ <li>To stop the Erlang refactorer, type `M-x erlang-refactor-off', or
+     alternatively use `Ctrl-c Ctrl-r' again. The Refactor and Inspector
+     menus will disappear from the menu bar.
+ </li>
+ <li>You can use `Ctrl-c Ctrl-r' to toggle the refactorer on or off.
+ </li>
+ <li>For most refactorings, the editor interface will pass the current
+     filename (should be the module name, as well), the refactoring command,
+     and the current cursor position. For some refactorings, you'll also
+     need to highlight an expression, or enter a new name.
+ </li>
+ <li>The <em>Customize Wrangler</em> menu in the Refactor submenu allows you
+     to specify the boundary of the system by giving the list of directories
+     to search for Erlang source files/header files that could be affected
+     by a refactoring.
+ </li>
+</ol>
+
+The following is the current list of refactorings:
+<dl>
+ <dt>Rename variable/function</dt>
+ <dd>Place cursor at the identifier to be renamed; you'll be prompted for a
+     new name.
+ </dd>
+ <dt>Rename module</dt>
+
+ <dd>Place cursor anywhere within the module; you'll be prompted for a new
+     name.
+ </dd>
+ <dt>Generalise definition</dt>
+ <dd>Highlight the expression on which the function is going to be
+     generalised, you'll be prompted for a new parameter name.
+ </dd>
+ <dt>Move a function definition to another module</dt>
+
+ <dd>Place cursor anywhere within the function definition; you'll be
+     prompted for the target module name.
+ </dd>
+ <dt>Function extraction</dt>
+ <dd>highlight the expression/expression sequence that you wish to extract, you'll be prompted for a new function name.
+ </dd>
+ <dt>Fold expression against function</dt>
+ <dd>Place cursor anywhere within the function clause. Wrangler will guide
+     you through the possible candidates one by one, and ask whether you
+     want to fold it or not.
+ </dd>
+ <dt>Introduce new macro</dt>
+ <dd>Highlight the expression/pattern that you wish to replace with macro
+     application, and you'll be prompted from a new macro name.
+ </dd>
+ <dt>Fold against macro definition</dt>
+ <dd>Place cursor anywhere within the function definition. Wrangler will
+     direct you through the possible candidates one by one, and for each
+     candidate ask whether you want to fold it or not.
+ </dd>
+ <dt>Tuple function arguments</dt>
+ <dd>Highlight the sequence of parameters to be grouped into a tuple from
+     the function definition, then select the refactoring command from the
+     menu.
+ </dd>
+ <dt>Identical expression search</dt>
+ <dd>Highlight the expression/expression sequence you are interested in;
+     Wrangler will show you the found expression/expression sequences.
+ </dd>
+ <dt>Detect identical code in current buffer</dt>
+ <dd>Select the refactoring command from the menu. You'll be prompted for
+     the minimum number of tokens a duplicated code fragment should have,
+     and the number of times that a code fragment is duplicated.
+ </dd>
+ <dt>Detect identical code in directories</dt>
+ <dd>Select the refactoring command from the menu, and you will be prompted
+     for the minimum number of tokens a duplicated code fragment should
+     have, and the minimum number of times that a code fragment is
+     duplicated. Wrangler searches duplicated code fragments from the
+     directories specified by the search-paths (see Customize Wrangler).
+ </dd>
+ <dt>Similar expression search</dt>
+ <dd>Highlight the expression/expression sequence you are interested, select
+     the command from the menu, and Wrangler will prompt you to input a
+     similarity score.
+ </dd>
+ <dt>Detect similar code in current buffer</dt>
+ <dd>Select the refactoring command from the menu, and you'll be prompted
+     for 5 parameters, i.e. the minimum number of expressions in a
+     expression sequence, the minimum number of tokens, the minimum and the
+     maximum number of New_Vars, duplication, and a similarity score.
+ </dd>
+ <dt>Detect similar code in dirs</dt>
+ <dd>Select the refactoring command from the menu, and you'll be prompted
+     for 5 parameters, i.e. i.e. the minimum number of expressions in a
+     expression sequence, the minimum number of tokens, the minimum and
+     maximum number of New_Vars, duplication, and a similarity score.
+     Wrangler searchs similar code in the directories specified by the
+     search-paths (see Customize Wrangler).
+ </dd>
+ <dt>Rename a process</dt>
+ <dd>Place the cursor at the process name to be renamed, and you will be
+     prompted for the new name.
+ </dd>
+ <dt>Register a process</dt>
+ <dd>Highlight the match expression whose right-hand side is the spawn
+     expression that creates the process, and left-hand side is the process
+     identifier, and you will be prompted for the new process name.
+ </dd>
+ <dt>From fun to process</dt>
+ <dd>Place the cursor at the function name of the function definition to be
+     refactored, and you will be prompted for the new process name.
+ </dd>
+ <dt>Add tag to messages</dt>
+ <dd>Place the cursor at the function whose body contains the receive
+     expression of the server process, and you will be prompted for the tag
+     name.
+ </dd>
+ <dt>Unfold a function application</dt>
+ <dd>Place the cursor at the function name part of the function application,
+     then select the <em>Unfold Function Application</em> command.
+ </dd>
+ <dt>Introduce a ?LET</dt>
+ <dd>Highlight the expression which should be a QC generator, then select
+     the refactoring command; you will be prompted for the pattern variable
+     name.
+ </dd>
+ <dt>Merge ?LETs</dt>
+ <dd>Select the refactoring command, and Wrangler will guide you through the
+     possible candidates one by one, and ask whether you want to merge it or
+     not.
+ </dd>
+ <dt>Merge ?FORALLs</dt>
+ <dd>Select the refactoring command, and Wrangler will guide you through the
+     possible candidates one by one, and ask whether you want to merge it or
+     not.
+ </dd>
+ <dt>eqc_statem State To Record</dt>
+ <dd>Select the refactoring command, and Wrangler will check the current
+     type of the state machine, and prompt you to input the record and field
+     names if Wrangler is able to proceed the refactoring.
+ </dd>
+ <dt>eqc_fsm State To Record</dt>
+ <dd>Select the refactoring command, and Wrangler will check the current
+     type of the state machine, and prompt you to input the record and field
+     names if Wrangler is able to process the refactoring.
+ </dd>
+ <dt>Introduce a new variable</dt>
+ <dd>Highlight the expression of interest, then select <em>Introduce New
+     Variable</em> from the Refactor menu; Wrangler will then prompt for the
+     new variable name.
+ </dd>
+ <dt>Inline a variable</dt>
+ <dd>To unfold a particular use instance of a variable, point the cursor to
+     that instance, and then select <em>Inline Variable</em> from
+     the <em>Refactor</em> menu. To unfold all (or some) uses of a variable,
+     point the cursor to the defining occurrence of the variable and select
+     the refactoring command. Wrangler will then search for uses of the
+     selected variable, and let you choose which instances to unfold. Only
+     variables defined via a match expression of the format `VarName = Expr'
+     can currently be inlined.
+ </dd>
+</dl>
+
+== References ==
+
+Our <a href="http://www.cs.kent.ac.uk/projects/refactor-fp/">Refactoring
+Functional Programs</a> project website contains more information and
+references about refactoring functional, especially Haskell, programs; and
+our progress and ideas about refactoring Erlang programs are available at
+our <a href="http://www.cs.kent.ac.uk/projects/forse/"> FORSE </a> project
+webpage.
+
+== Acknowledgements ==
+
+The work was initially supported by EPSRC in the UK, and is now by the
+European Commission. We are very grateful that we were able to build the
+tool on top of <a href="http://fresh.homeunix.net/~luke/distel/">Distel</a>
+and
+<a href="http://www.erlang.org/doc/apps/syntax_tools/index.html">Erlang
+SyntaxTools</a>, and make use some of the ideas from
+<a href="http://www.it.uu.se/research/group/hipe/dialyzer/">Dialyzer</a>.
