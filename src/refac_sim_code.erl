@@ -528,7 +528,7 @@ search_for_clones(Dir, Data, MinLen, MinFreq, RangeTab) ->
        end, 
     IndexStr = lists:append([F0(I)|| {I, _}<-Data]),
     NewData =lists:append([F(Elem) ||Elem <-Data]),
-    SuffixTreeExec = filename:join(?WRANGLER_DIR,"bin/suffixtree"),
+    SuffixTreeExec = filename:join(code:priv_dir(wrangler),"suffixtree"),
     Cs= wrangler_suffix_tree:get_clones_by_suffix_tree(Dir, IndexStr ++ "&", MinLen, MinFreq, "0123456789,#&", 1, SuffixTreeExec),
     Cs1 = lists:append([strip_a_clone({[{S,E} |Ranges], {Len, Freq}}, SubStr, MinLen, MinFreq)
 			|| {[{S,E} |Ranges], Len, Freq} <- Cs, 

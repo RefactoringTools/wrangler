@@ -45,9 +45,6 @@
 	 trust_plt   = dialyzer_plt:new()}).
 
 
-%% Will be edited by Makefile 
--define(WRANGLER_DIR,  %WRANGLER_DIR%).
-
 -define(DEFAULT_LOC, 
         {0, 0}).  %% default defining location.
 -define(DEFAULT_MODULE,

@@ -1,3 +1,4 @@
+;;; wrangler.el --- Top level of wrangler package, loads all subparts
 
 ;; Prerequisites
 
@@ -5,11 +6,14 @@
 (require 'wrangler-clearcase-hooks)
 (require 'vc)
 (require 'erlang)
+(require 'distel)
 (require 'read-char-spec)
 
 (if (eq (substring emacs-version 0 4) "22.2")
     (require 'ediff-init1)
   (require 'ediff-init))
+
+(distel-setup)
 
 (provide 'wrangler)
 
@@ -261,8 +265,7 @@
 (add-hook 'ediff-quit-hook 'my-ediff-qh)
 
 (defvar refactor-menu-items
-  '(nil
-    ("Rename Variable Name" erl-refactor-rename-var)
+  '(("Rename Variable Name" erl-refactor-rename-var)
     ("Rename Function Name" erl-refactor-rename-fun)
     ("Rename Module Name" erl-refactor-rename-mod)
     ("Generalise Function Definition" erl-refactor-generalisation)
@@ -276,22 +279,6 @@
     nil
     ("Introduce a Macro" erl-refactor-new-macro)
     ("Fold Against Macro Definition" erl-refactor-fold-against-macro)
-    nil 
-    ;;("Identical Code Detection"
-    ;; (("Detect Identical Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
-    ;;  ("Detect Identical Code in Dirs" erl-refactor-duplicated-code-in-dirs)
-    ;;  ("Identical Expression Search in Current Buffer" erl-refactor-expression-search)
-    ;;  ("Identical Expression Search in Dirs" erl-refactor-expression-search-in-dirs)
-    ;;  ))
-    ;;nil
-    ("Similar Code Detection"
-     (("Detect Similar Code in Current Buffer" erl-refactor-inc-sim-code-detection-in-buffer)
-      ("Detect Similar Code in Dirs" erl-refactor-inc-sim-code-detection-in-dirs)
-      ("Similar Expression Search in Current Buffer" erl-refactor-similar-expression-search)
-      ("Similar Expression Search in Dirs" erl-refactor-similar-expression-search-in-dirs)
-    ;;  ("Detect Similar Code in Current Buffer (Old)" erl-refactor-sim-code-detection-in-buffer)
-    ;;  ("Detect Similar Code in Dirs (Old)" erl-refactor-sim-code-detection-in-dirs)
-      ))
     nil
     ("Refactorings for QuickCheck"  
      (
@@ -301,7 +288,7 @@
       ("eqc_statem State Data to Record" erl-refactor-eqc-statem-to-record)
       ("eqc_fsm State Data to Record" erl-refactor-eqc-fsm-to-record)
       ("Test Cases to Property"  erl-refactor-test-cases-to-property)
-     ))
+      ))
     nil
     ("Process Refactorings (Beta)"
      (
@@ -314,39 +301,61 @@
     ("Partition Exported Functions"  erl-wrangler-code-inspector-partition-exports)
     ("gen_fsm State Data to Record" erl-refactor-gen-fsm-to-record)
     nil
-    ("Skeletons"
-      (("gen_refac Skeleton"  tempo-template-gen-refac)
-       ("Include wrangler.hrl"    tempo-template-include-wrangler)
-       ))
     ("Apply Adhoc Refactoring"  apply-adhoc-refac)
     ("Apply Composite Refactoring" apply-composite-refac)
+    ))
+
+(defvar inspector-menu-items
+  '(("Instances of a Variable" erl-wrangler-code-inspector-var-instances) 
+    ("Calls to a Function" erl-wrangler-code-inspector-caller-funs)
+    ("Dependencies of a Module" erl-wrangler-code-inspector-caller-called-mods)
+    ("Nested If Expressions" erl-wrangler-code-inspector-nested-ifs)
+    ("Nested Case Expressions" erl-wrangler-code-inspector-nested-cases)
+    ("Nested Receive Expression" erl-wrangler-code-inspector-nested-receives)
+    ("Long Functions" erl-wrangler-code-inspector-long-funs)
+    ("Large Modules" erl-wrangler-code-inspector-large-mods)
+    ("Generate Function Callgraph" erl-wrangler-code-inspector-callgraph)
+    ("Generate Module Graph" erl-wrangler-code-inspector-module-graph)
+    ("Cyclic Module Dependency" erl-wrangler-code-inspector-cyclic-graph)
+    ("Module Dependency via Only Internal Functions" erl-wrangler-code-inspector-improper-module-dependency)
+    ;;("Component Extraction Suggestion" erl-wrangler-code-component-extraction)
+    ("Show Non Tail Recursive Servers" erl-wrangler-code-inspector-non-tail-recursive-servers)
+    ("Incomplete Receive Patterns" erl-wrangler-code-inspector-no-flush)
+    nil
+    ("Apply Adhoc Code Inspection" apply-my-code-inspection)
+    ))
+
+(defvar wrangler-menu-items
+  `(("Refactor" ,refactor-menu-items)
+    ("Inspector" ,inspector-menu-items)
     nil
     ("Undo" erl-refactor-undo)
+    nil 
+    ("Similar Code Detection"
+     (("Detect Similar Code in Current Buffer" erl-refactor-inc-sim-code-detection-in-buffer)
+      ("Detect Similar Code in Dirs" erl-refactor-inc-sim-code-detection-in-dirs)
+      ("Similar Expression Search in Current Buffer" erl-refactor-similar-expression-search)
+      ("Similar Expression Search in Dirs" erl-refactor-similar-expression-search-in-dirs)
+      ;;  ("Detect Similar Code in Current Buffer (Old)" erl-refactor-sim-code-detection-in-buffer)
+      ;;  ("Detect Similar Code in Dirs (Old)" erl-refactor-sim-code-detection-in-dirs)
+      ))
+    ;;nil
+    ;;("Identical Code Detection"
+    ;; (("Detect Identical Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
+    ;;  ("Detect Identical Code in Dirs" erl-refactor-duplicated-code-in-dirs)
+    ;;  ("Identical Expression Search in Current Buffer" erl-refactor-expression-search)
+    ;;  ("Identical Expression Search in Dirs" erl-refactor-expression-search-in-dirs)
+    ;;  ))
+    nil
+    ("Skeletons"
+     (("gen_refac Skeleton"  tempo-template-gen-refac)
+      ("Include wrangler.hrl"    tempo-template-include-wrangler)
+      ))
     nil
     ("Customize Wrangler" wrangler-customize)
     nil 
-    ("Version" erl-refactor-version)))
-
-
-(defvar inspector-menu-items
-  '(nil
-    ("Instances of a Variable" erl-wrangler-code-inspector-var-instances) 
-      ("Calls to a Function" erl-wrangler-code-inspector-caller-funs)
-      ("Dependencies of a Module" erl-wrangler-code-inspector-caller-called-mods)
-      ("Nested If Expressions" erl-wrangler-code-inspector-nested-ifs)
-      ("Nested Case Expressions" erl-wrangler-code-inspector-nested-cases)
-      ("Nested Receive Expression" erl-wrangler-code-inspector-nested-receives)
-      ("Long Functions" erl-wrangler-code-inspector-long-funs)
-      ("Large Modules" erl-wrangler-code-inspector-large-mods)
-      ("Generate Function Callgraph" erl-wrangler-code-inspector-callgraph)
-      ("Generate Module Graph" erl-wrangler-code-inspector-module-graph)
-      ("Cyclic Module Dependency" erl-wrangler-code-inspector-cyclic-graph)
-      ("Module Dependency via Only Internal Functions" erl-wrangler-code-inspector-improper-module-dependency)
-      ;;("Component Extraction Suggestion" erl-wrangler-code-component-extraction)
-      ("Show Non Tail Recursive Servers" erl-wrangler-code-inspector-non-tail-recursive-servers)
-      ("Incomplete Receive Patterns" erl-wrangler-code-inspector-no-flush)
-      nil
-      ("Apply Adhoc Code Inspection" apply-my-code-inspection)))
+    ("Version" erl-refactor-version)
+    ))
 
 
 (global-set-key (kbd "C-c C-r") 'toggle-erlang-refactor)
@@ -426,6 +435,7 @@
 
 (defun erlang-refactor-on()
   (interactive)
+  (message "starting Wrangler...")
   (if   (get-buffer "*Wrangler-Erl-Shell*")
       (erlang-refactor-off-1)
     t)
@@ -451,14 +461,11 @@
 	"variable need to make Wrangler start with Ubuntu"
 )
 
-(setq pa (concat %WRANGLER_DIR% "/ebin"))
-
 (defun wrangler-erlang()
   "Run an Wrangler Erlang shell"
   (interactive)
   (require 'comint)
   (setq opts (list "-name" wrangler-erl-node-string
-		   "-pa" pa
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))
@@ -499,32 +506,20 @@
   (define-key erlang-mode-map "\C-c\C-wfm"  'erl-refactor-fold-against-macro)
   (define-key erlang-mode-map "\C-c\C-ws"  'erl-refactor-similar-expression-search)
   (define-key erlang-mode-map "\C-c\C-wcb"  'erl-refactor-inc-sim-code-detection-in-buffer)
-  (define-key erlang-mode-map "\C-c\C-wcd"  'erl-refactor-inc-sim-code-detection-in-dirs) 
-  (cond (erlang-xemacs-p
-	 (progn
-	   (erlang-menu-install "Refactor" refactor-menu-items erlang-mode-map t)
-	   (erlang-menu-install "Inspector" inspector-menu-items erlang-mode-map t)
-	   ))
-	(t
-	 (progn
-	   (erlang-menu-install "Inspector" inspector-menu-items erlang-mode-map t)
-	   (erlang-menu-install "Refactor" refactor-menu-items erlang-mode-map t)))
-	 ))
-  
+  (define-key erlang-mode-map "\C-c\C-wcd"  'erl-refactor-inc-sim-code-detection-in-dirs)
+  (erlang-menu-install "Wrangler" wrangler-menu-items erlang-mode-map t)
+  )
+
 (defun wrangler-menu-remove()
   "Remove Wrangler menus."
   (define-key erlang-mode-map "\C-c\C-w\C-_"  nil)
   (define-key erlang-mode-map  "\C-c\C-w\C-b" nil)
   (define-key erlang-mode-map "\C-c\C-w\C-e"  nil)
   (cond (erlang-xemacs-p
-	 (progn
-	   (erlang-menu-uninstall '("Inspector") inspector-menu-items erlang-mode-map t)
-	   (erlang-menu-uninstall '("Refactor") refactor-menu-items erlang-mode-map t)))
-	(t
-	 (progn 
-	   (erlang-menu-uninstall "Inspector" inspector-menu-items erlang-mode-map t)
-	   (erlang-menu-uninstall "Refactor" refactor-menu-items erlang-mode-map t)))
-	))
+         (erlang-menu-uninstall '("Wrangler") wrangler-menu-items erlang-mode-map t))
+        (t
+         (erlang-menu-uninstall "Wrangler" wrangler-menu-items erlang-mode-map t))
+        ))
 
 (defun erlang-menu-uninstall (name items keymap &optional popup)
   "UnInstall a menu in Emacs or XEmacs based on an abstract description."

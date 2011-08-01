@@ -464,7 +464,7 @@ vars_to_export(Fun, ExprEndPos, ExprBdVars) ->
                              DefPos--ExprBdVarsPos==[] ]),
     Res=lists:reverse(lists:foldl(fun ({V,_Pos}, Acc) ->
                                           case lists:member(V, Acc) of
-					  false -> [V| Acc];
+                                              false -> [V| Acc];
                                               _ -> Acc
                                           end
                                   end, [], VarsToExport)),

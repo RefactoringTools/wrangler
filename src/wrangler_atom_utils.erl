@@ -66,7 +66,8 @@ check_unsure_atoms(FileName, FileAST, AtomNames, AtomType, Pid) ->
 	[] -> 
 	    ok;
 	_ ->
-	    Pid ! {add_not_renamed, {FileName, UndecidableAtoms}}
+            UndecidableLocs= [Pos || {atom, Pos, _} <- UndecidableAtoms],
+            Pid ! {add_not_renamed, {FileName, UndecidableLocs}}
     end.
 
 collect_unsure_atoms_in_file(FileAST, AtomNames, AtomType) ->
@@ -77,9 +78,8 @@ collect_unsure_atoms_in_file(FileAST, AtomNames, AtomType) ->
 		    _ -> []
 		end
 	end,
-    R = lists:usort(lists:flatmap(F, wrangler_syntax:form_list_elements(FileAST))),
-    [Pos || {atom, Pos, _} <- R].
-
+    lists:usort(lists:flatmap(F, wrangler_syntax:form_list_elements(FileAST))).
+  
 collect_unsure_atoms(Tree, AtomNames, AtomType) ->
     F = fun (Node,S) ->
 		case wrangler_syntax:type(Node) of

@@ -1,0 +1,236 @@
+------------------------Major changes from Wrangler-0.9.2.4--------
+-- A framefork for users to compose their own refactoring or 
+   code inspection functions.
+
+------------------------Major changes from Wrangler-0.9.2.3-------
+      
+-- Fixed a bug in the refactor monitor. 
+-- Fixed a bug in similar code detection.
+ 
+------------------------Major changes from Wrangler-0.9.2.2--------
+
+-- (for casestudy purpose only). Added one more   
+   choice to the refactor monitor customisation,
+   so that the user is able to choose whether to 
+   log the source code. 
+-- bugfix with move function(s) between modules.
+-- bugfix with the side-effect table for bifs. 
+-- minor improvement to modularity inspection.
+-- improvment made to expression folding.
+ 
+------------------------Major changes from Wrangler-0.9.2.1--------
+-- fixed a layout problem.
+-- fixed a problem with the refactor monitor.
+ 
+------------------------Major changes from Wrangler-0.9.2 ---------
+-- Bugfix with function extraction.
+-- Removed unwanted warning messages from function renaming.
+
+------------------------Major changes from Wrangler-0.9.1 ----------
+-- Layout preservation improved. 
+-- A number of bug fixes.
+
+------------------------Major changes from Wrangler-0.9.0 -----------
+-- Similar code detection improved.
+-- A number of refactorings can now be run in an Erlang shell.
+-- For casestudy purpose: 
+      more information collected after each refactoring;
+      integration with ClearCase version control system.
+-- Bug fixes.
+
+-------------------------Major changes from Wrangler-0.8.9-----------
+-- New Refactoring: inline a variable.
+-- Incremental similar code detection improved. 
+-- Bug fixes.
+-------------------------Major changes from Wrangler-0.8.8-----------
+
+-- New refactoring: introduce a local variable.
+-- Similar code detection improved.
+-- Bug fixes.
+-------------------------Major changes from Wrangler-0.8.7-----------
+
+-- Added support for XEmacs.
+-- 'move function from one module to anther' has been extended.
+-- Some functionalities supporting modularity maintanence have been added. 
+
+-------------------------Major changes from Wrangler-0.8.6------------
+
+-- The performance of identical clone detection has been improved.
+-- Expression search has been extended to allow searching for an expression/
+   expression sequence across multiple modules.
+-- More options have been added to fold/merge related refactorings regarding
+   the selection of candidates to fold/merge.
+-- A number of bug fixes.
+
+-------------------------Major changes from Wrangler-0.8.5------------
+
+-- A number of bug fixes for QuickCheck related refactorings.
+
+-------------------------Major changes from Wrangler-0.8.4-------------
+-- New Refactorings for QuickCheck:
+   -- Introduce a ?LET
+   -- Merge ?LETs
+   -- Merge ?FORALLs
+   -- eqc_statem State to Record
+   -- eqc_fsm State to Record
+   -- gen_fsm State to Record
+
+-------------------------Major changes form Wrangler-0.8.3-------------	
+-- The 'temp' directory created by Wrangler is now removed when Wrangler 
+   is turned off.
+-- Multiple instances of Wrangler can now be run at the same time.
+-- A number of bug fixes.
+
+-------------------------Major changes from Wrangler-0.8.2---------
+
+-- Added a refactoring monitor which, if enabled, could collect information
+   as to how Wrangler is used.
+-- A number of bug fixes.      
+
+-------------------------Major Changes from Wrangler-0.8.1----------
+
+-- New refactoring: unfold a function application.
+-- A number of bug fixes.
+
+-------------------------Major Changes from Wrangler-0.8------------
+
+-- The algorithm for similar code detection has been improved to reduce
+   the memory usage.
+
+-------------------------Major Changes form Wrangler-0.7.5-----------
+-- New feature.
+   Wrangler now supports Similar Code Detection.
+-- All refactorings are now test-framework-aware.
+-- The interface to Tupling Function Arguments has been changed.
+-- 'From function to process' now keeps the original function interface
+   unchanged.   
+-- A number of bug fixes.   
+-------------------------Major Changes from Wrangler-0.7.4------------
+
+-- A number of refactorings are now test framework aware. 
+-- The display of clone detection results has been made clickable when 
+   the compilation-minor-mode is on; also a generalised form of the code 
+   duplicated is given.
+-- A number of bug fixes.
+
+-------------------------Major Changes from Wrangler-0.7.3-------------
+-- A number of refactorings have been extended to be test-framework-aware.
+-- A prototype of similar expression search.
+-- A number of bug fixes.
+
+-------------------------Major Changes form Wrangler-0.7.2--------------
+-- New feature: 
+    Wrangler now support previewing of refactoring results before making the 
+    actual changes to user's source code.
+-- The work-flow of folding expressions against a function/macro definition has
+   been changed slightly.
+-- The way in which the expression search result is shown has been changed. 
+-- Undoing 'move a function to another module' now also deletes the target 
+   module if it is created by Wrangler.
+-- Added support for generalising a single function clause of a function of 
+   multiple clauses.
+-- Bugfix with prettyprinting of integers.
+-- Bugfix with renaming a variable to a name that causes the 'unsafe' problem.
+
+-------------------------Changes from Wrangler-0.7.1--------------
+-- The snapshot is now R11 compatible.
+-- Bugfixes with the Emacs interface. The refactor menu is removed when the 
+   Wrangler node is down either normally or abnormally. 
+-- Bugfix with rendering chars.
+
+-------------------------Changes from Wrangler-0.6.2---------------
+
+-- Reorganized code structure; less dependent on Distel.
+-- Wrangler menus have been moved to the menu bar.
+-- No longer need to start an Erlang node before starting Wrangler.
+-- No longer need to input the node name.
+-- 'Generalise a function definition' now adds the new parameter to the end of 
+   parameter list instead of the beginning.
+-- 'Function extraction' now reorders the variables exported, if there is any,
+   according their usage order. 
+-- Wrangler should now be able to handle different file formats 
+   (dos/unix/mac) correctly.
+-- Some improvements regarding layout preservation.
+-- A number of bug fixes.
+-- Improved error messages.
+   
+--------------------------Changes from Wrangle-0.6.1--------------
+-- the keyboard binding for undoing a refactoring has been changed to "C_c C_".
+-- Bugfix with displaying based integers and quoted atoms.
+-- Improved error messages.
+-- Corrected the source locations of macro names.                   
+-- Typed record workaround.                 
+
+---------------------------Changes from Wrangler-0.6-------------
+-- 'Move a function to another module' now allows moving a function even 
+    if the same function (with same syntax and semantics) is already 
+    defined in the target module.
+-- Bugfix with pretty-printing prefix expressions.
+-- Bugfix with duplicated code detection.
+-- Automatic inference of include directories when parsing an Erlang file.
+
+---------------------------Changes from Wrangler-0.5--------------
+
+-- new refactorings:
+   ++ Introduce a macro
+   ++ Fold against macro definition 
+-- Faster duplicated code detection.
+-- Improved layout preservation.
+-- Added a number of code inspection functionalities.
+-- A number of bug fixes.
+     
+---------------------------Changes from Wrangler-0.4---------------
+
+-- new refactorings:
+    ++ Rename a process
+    ++ From function to process
+    ++ Register a process
+    ++ Add a tag to the messages received by a server process
+-- Infrastructure change to make use of OTP behaviours.
+-- Improved layout preservation.
+-- Support for refactoring incomplete code.
+-- A number of bug fixes
+
+----------------------------Changes from Wrangler-0.3---------------
+
+-- A number of bugs reported by Dialyzer have been fixed.
+
+---------------------------Changes from Wrangler-0.2------------------
+
+-- new refactorings:
+   ++ Tuple function arguments.
+
+-- A number of bugs have been fixed.
+
+
+---------------------------Changes from wrangler-0.1------------------
+-- new refactorings:
+   ++ Move a function definition to another module.
+
+-- bugfix   
+  -- operators are now distinguished from expressions. 
+  -- for renaming variable/function names, error messages are now
+     disabled when the new name is the same as the old name. 
+  -- More checking has been added when apply/spawn/spawn_link is used.
+  -- bug fix within side-effect calculation. 
+  -- further checking has been added to detect whether undecidability really    
+     occurs when 'apply' is used. 
+  -- generalise a function definition: the new parameter name captured later  
+     introduced variables with the same name.
+
+---------------------------Changes from wrangler-0.2-------------------
+-- new refactorings:
+  ++ Function extraction.
+  ++ Folding against a function definition.
+
+-- Duplicated code detection.
+  ++ Expression search.
+  ++ Duplicated code search across multiple modules. 
+
+-- bugfix
+   -- With 'generalisation', Wrangler now asks the user in the case that it 
+   cannot decide whether the selected expression has side effect or not.
+   -- fixed the path problem with finding the side effect table.
+   -- Wrangler now keeps two side effect tables, one for the libraries and one 
+      for the user's own code. 
+   -- rewrote the module graph calculation algorithm.
