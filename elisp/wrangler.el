@@ -360,7 +360,7 @@
     ))
 
 
-(global-set-key (kbd "C-c C-r") 'toggle-erlang-refactor)
+(global-set-key (kbd "C-c C-r") 'toggle-erlang-wrangler)
 
 (add-hook 'erl-nodedown-hook 'wrangler-nodedown)
 
@@ -375,11 +375,11 @@
      )
    nil))
 
-(defun toggle-erlang-refactor ()
+(defun toggle-erlang-wrangler ()
   (interactive)
   (if (get-buffer "*Wrangler-Erl-Shell*")
-      (call-interactively 'erlang-refactor-off)
-    (call-interactively 'erlang-refactor-on)))
+      (call-interactively 'erlang-wrangler-off)
+    (call-interactively 'erlang-wrangler-on)))
 
 
 (defun start-wrangler-app()
@@ -398,7 +398,7 @@
 	  (message "Wrangler failed to start:%s" rsn)
 	)))))
 
-(defun erlang-refactor-off()
+(defun erlang-wrangler-off()
   (interactive)
   (wrangler-menu-remove) 
   (if (not (get-buffer "*Wrangler-Erl-Shell*"))
@@ -417,7 +417,7 @@
     ))
 
 
-(defun erlang-refactor-off-1()
+(defun erlang-wrangler-off-1()
   (interactive)
   (wrangler-menu-remove) 
   (if (not (get-buffer "*Wrangler-Erl-Shell*"))
@@ -435,11 +435,11 @@
    
   
 
-(defun erlang-refactor-on()
+(defun erlang-wrangler-on()
   (interactive)
   (message "starting Wrangler...")
   (if   (get-buffer "*Wrangler-Erl-Shell*")
-      (erlang-refactor-off-1)
+      (erlang-wrangler-off-1)
     t)
   (setq wrangler-erl-node-string (concat "wrangler" (number-to-string (random 1000)) "@localhost"))
   (setq wrangler-erl-node (intern  wrangler-erl-node-string))
