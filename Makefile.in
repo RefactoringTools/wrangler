@@ -1,11 +1,12 @@
 APPNAME = wrangler
 include vsn.mk
 
-ERL     = erl
-ERLC    = erlc
-prefix  = /usr/local
-datadir = ${prefix}/share
-LIB_DIR = ${datadir}/wrangler
+prefix       = @prefix@
+exec_prefix  = @exec_prefix@
+libdir       = @libdir@
+LIB_DIR      = @ERLANG_INSTALL_LIB_DIR@/$(APPNAME)-$(VERSION)
+ERL          = @ERL@
+ERLC         = @ERLC@
 
 DOC_OPTS={def,{version,\"$(VERSION)\"}}
 
@@ -25,11 +26,11 @@ default: conf erl c
 
 all: default docs
 
-conf: configure c_src/suffixtree/Makefile c_src/gsuffixtree/Makefile
+CONF_SRC = Makefile.in c_src/suffixtree/Makefile.in \
+		c_src/gsuffixtree/Makefile.in
+CONF_OBJ = $(patsubst %.in,%,$(CONF_SRC))
 
-c_src/suffixtree/Makefile c_src/gsuffixtree/Makefile: \
-		c_src/suffixtree/Makefile.in c_src/gsuffixtree/Makefile.in
-	./configure
+conf: $(CONF_OBJ)
 
 erl: $(ERL_OBJ)
 
@@ -39,9 +40,8 @@ c:
 ########################################
 ## Rules
 
-configure: configure.ac
-	$(MAKE) distclean
-	autoconf
+$(CONF_OBJ): configure $(CONF_SRC)
+	./configure
 
 .SUFFIXES: .erl .yrl
 
@@ -59,13 +59,13 @@ src/%.erl: src/%.yrl
 
 clean:
 	@cd ./c_src; make clean; cd ../..
-	@-rm -f $(ERL_OBJ) ebin/erl_parse.beam
+	@-rm -f $(ERL_OBJ) ebin/wrangler_parse.beam src/wrangler_parse.erl
 	@-rm -f priv/suffixtree priv/gsuffixtree
 	@-rm -f doc/*.html doc/edoc-info doc/erlang.png doc/stylesheet.css
 	@-rm -f doc/*.erl
 
 distclean: clean
-	@-rm -f c_src/suffixtree/Makefile c_src/gsuffixtree/Makefile
+	@-rm -f $(CONF_OBJ)
 	@-rm -f config.* configure.scan
 	@-rm -rf autom4te.cache
 
