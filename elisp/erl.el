@@ -633,16 +633,16 @@ during the next `erl-schedule'."
       ((['put_chars s]
 	(if (eq s nil)
 	    nil
-	  (condition-case err
-	      (save-excursion
-		(with-current-buffer (get-buffer-create "*erl-output*")
-		  (save-selected-window
-		    (if erl-popup-on-output
-			(select-window (or (get-buffer-window (current-buffer))
-					   (display-buffer (current-buffer)))))
-		    (goto-char (point-max))
-		    (insert s))))
-	    (error (message "Error in group leader: %S" err))))))
+        (condition-case err
+            (save-excursion
+              (with-current-buffer (get-buffer-create "*erl-output*")
+                (save-selected-window
+                  (if erl-popup-on-output
+                      (select-window (or (get-buffer-window (current-buffer))
+                                         (display-buffer (current-buffer)))))
+                  (goto-char (point-max))
+                  (insert s))))
+          (error (message "Error in group leader: %S" err))))))
     (&erl-group-leader-loop)))
 
 (when (null erl-group-leader)

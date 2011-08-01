@@ -2,55 +2,51 @@
 Installation
 -------------
 
-Note: Installation of Erlang and Emacs (or XEmacs) is required in order to use 
-      Wrangler.  
+Requirements: In order to use Wrangler, you must first have working
+	      installations of Erlang and Emacs (or XEmacs).
 
-Step 1) Build and install the software in the usual way:
-       ./configure && make && [sudo] make install
+Step 1) Build and optionally install the software in the usual way:
 
-       (NOTE: by default Wrangler is installed in the directory 
-        'usr/local'; to install Wrangler in a different directory, 
-         you need to explicitly specify the directory using the 
-         'prefix' flag of 'configure')
+	./configure && make && sudo make install
 
-Step 2) If you have Erlang mode for Emacs installed, goto Step 3); 
-     	otherwise add the following lines to your ~/.emacs 
-	(or ~/.xemacs/init.el for XEmacs) file.
-	
+	By default Wrangler is installed in the directory 'usr/local'; to
+	install Wrangler in a different directory, you need to explicitly
+	specify the directory using the '--prefix=...' flag of 'configure'.)
 
-        (setq load-path (cons  "/usr/local/otp/lib/tools-<ToolsVer>/emacs"
-	    	      load-path))
-        (setq erlang-root-dir "/usr/local/otp")
-        (setq exec-path (cons "/usr/local/otp/bin" exec-path))
-        (require 'erlang-start)
-  
-        (NOTE: we assume Erlang/OTP is installed in the directory 
-	 '/usr/local/otp', please substitute with the correct path 
-         if your Erlang/OTP is installed in a different directory; 
-         you also have to replace <ToosVer> with the correct 
-         version number)   
-	
+Step 2) If you already have Erlang mode for Emacs installed, go to Step 3);
+	otherwise add the following lines to your ~/.emacs file (or
+	~/.xemacs/init.el for XEmacs):
+
+	(setq load-path (cons  "/usr/local/erlang/lib/tools-<ToolsVer>/emacs"
+		      load-path))
+	(setq erlang-root-dir "/usr/local/erlang")
+	(setq exec-path (cons "/usr/local/erlang/bin" exec-path))
+	(require 'erlang-start)
+
+	NOTE: you have to replace <ToolsVer> in the above with the correct
+	version number. Also, if Erlang/OTP is not installed in the
+	directory '/usr/local/erlang', please substitute the correct path.
 
 Step 3) Add these lines to your ~/.emacs (or ./.xemacs/init.el for XEmacs):
-	    
-        (add-to-list 'load-path "/usr/local/share/wrangler/elisp")
-        (require 'wrangler)
 
-       Some code inspection functionalities of Wrangler generate .dot files, 
-       which can be compiled and previewed in Emacs if the Graphviz mode for 
-       Emacs is enabled. If you would like to enable the Graphviz mode for 
-       Emacs, add the following line into your .emacs.
+	(add-to-list 'load-path "/usr/local/share/wrangler/elisp")
+	(require 'wrangler)
 
-       (load-file "/usr/local/share/wrangler/elisp/graphviz-dot-mode.el")
-   
-       (NOTE: If you used an install prefix other than '/usr/local', replace
-       '/usr/local/' with the correct directory)
+	If you installed Wrangler somewhere else than `/usr/local', please
+        replace `/usr/local' above with the correct path for your system.
 
-Step 4) Wrangler requires a .erlang.cookie file in your $HOME directory, 
-        please create one if it does not exist. The .erlang.cookie 
-	file should contain a single Erlang atom.
-     
-You should now be able to use Wrangler. For problems and bug reports, 
-please send a note to 'hl@kent.ac.uk' or 'erlang-refactor@kent.ac.uk'.
+	Some code inspection functionalities of Wrangler generate .dot
+	files, which can be compiled and previewed in Emacs if the
+	Graphviz-dot mode for Emacs is enabled. If you would like to enable
+	the Graphviz-dot mode, add the following line to your .emacs file:
 
+	(load-library "graphviz-dot-mode")
 
+Step 4) Wrangler requires an .erlang.cookie file in your $HOME directory,
+	please create one if it does not exist. An easy way of doing this is
+	to start Erlang once in distributed mode: e.g., `erl -sname foo',
+	which will generate a random string. Or you can choose your own
+	string for the cookie, e.g., `echo "foobar" > .erlang.cookie'.
+
+You should now be able to use Wrangler. For problems and bug reports, please
+send a note to 'hl@kent.ac.uk' or 'erlang-refactor@kent.ac.uk'.

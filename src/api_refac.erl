@@ -794,7 +794,7 @@ fun_define_info(Node) ->
 %% @doc Returns the function form that defines `MFA'; none is returns if no 
 %% such function definition found.
 %% @spec mfa_to_fun_def(mfa(), filename()|syntaxTree) ->syntaxTree()|none
-%%-spec (mfa_to_fun_def(mfa(), filename()|syntaxTree()) ->syntaxTree()|none).
+-spec (mfa_to_fun_def(mfa(), filename()|syntaxTree()) ->syntaxTree()|none).
 mfa_to_fun_def(MFA,FileOrTree) ->
     case filelib:is_regular(FileOrTree) of 
         true ->

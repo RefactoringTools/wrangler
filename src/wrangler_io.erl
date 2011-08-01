@@ -24,7 +24,7 @@
 -export([format/1,format/2,format/3]).
 
 scan_erl_form(Io, Prompt, Pos0, TabWidth, FileFormat) ->
-    request_1(Io, {get_until,Prompt,refac_scan,tokens,[{Pos0, TabWidth, FileFormat}]}).
+    request_1(Io, {get_until,Prompt,wrangler_scan,tokens,[{Pos0, TabWidth, FileFormat}]}).
 
 request_1(standard_io, Request) ->
     request_1(group_leader(), Request);

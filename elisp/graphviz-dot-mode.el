@@ -1,6 +1,6 @@
 ;;; graphviz-dot-mode.el --- Mode for the dot-language used by graphviz (att).
 
-;; Copyright (C) 2002 - 2005 Pieter Pareit <pieter.pareit@scarlet.be>
+;; Copyright (C) 2002 - 2011 Pieter Pareit <pieter.pareit@gmail.com>
 
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -17,13 +17,14 @@
 ;; Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
 ;; MA 02111-1307 USA
 
-;; Authors: Pieter Pareit <pieter.pareit@scarlet.be>
+;; Authors: Pieter Pareit <pieter.pareit@gmail.com>
 ;;          Rubens Ramos <rubensr AT users.sourceforge.net>
-;; Maintainer: Pieter Pareit <pieter.pareit@planetinternet.be>
+;;          Eric Anderson http://www.ece.cmu.edu/~andersoe/
+;; Maintainer: Pieter Pareit <pieter.pareit@gmail.com>
 ;; Homepage: http://users.skynet.be/ppareit/projects/graphviz-dot-mode/graphviz-dot-mode.html
 ;; Created: 28 Oct 2002
-;; Last modified: 24 Feb 2005
-;; Version: 0.3.4
+;; Last modified: 09 march 2011
+;; Version: 0.3.7
 ;; Keywords: mode dot dot-language dotlanguage graphviz graphs att
 
 ;;; Commentary:
@@ -45,15 +46,26 @@
 ;; There is support for viewing an generated image with C-c p.
 
 ;;; Todo:
-;; * cleanup the mess of graphviz-dot-compilation-parse-errors
+;; * cleanup the mess of graphviz-dot-compilation-parse-errors.
 ;; * electric indentation is fundamentally broken, because 
 ;;   {...} are also used for record nodes. You could argue, I suppose, that 
 ;;   many diagrams don't need those, but it would be worth having a note (and 
 ;;   it makes sense that the default is now for electric indentation to be 
 ;;   off).
+;; * lines that start with # are comments, lines that start with one or more
+;;   whitespaces and then a # should give an error.
 
 ;;; History:
 
+;; Version 0.3.7 Tim Allen
+;; 09/03/2011: * fix spaces in file names when compiling
+;; Version 0.3.6 maintenance
+;; 19/02/2011: * .gv is the new extension  (Pander)
+;;             * comments can start with # (Pander)
+;;             * highlight of new keywords (Pander)
+;; Version 0.3.5 bug (or at least feature I dislike) fix             
+;; 11/11/2010:  Eric Anderson http://www.ece.cmu.edu/~andersoe/
+;;             * Preserve indentation across blank (whitespace-only) lines
 ;; Version 0.3.4 bug fixes
 ;; 24/02/2005: * fixed a bug in graphviz-dot-preview
 ;; Version 0.3.3 bug fixes
@@ -123,7 +135,7 @@
 
 ;;; Code:
 
-(defconst graphviz-dot-mode-version "0.3.3"
+(defconst graphviz-dot-mode-version "0.3.6"
   "Version of `graphviz-dot-mode.el'.")
 
 (defgroup graphviz nil
@@ -220,10 +232,11 @@ key is pressed."
     "samplepoint" "searchsize" "sep" "shape" "shapefile" "showboxes"
     "sides" "skew" "splines" "start" "style" "stylesheet" "tailURL"
     "taillabel" "tailport" "toplabel" "vertices" "voro_margin" "weight"
-    "z")
+    "z" "width" "penwidth" "mindist" "scale" "patch" "root")
   "*Keywords for attribute names in a graph. This is used by the auto
 completion code. The actual completion tables are built when the mode
-is loaded, so changes to this are not immediately visible."
+is loaded, so changes to this are not immediately visible.
+Check http://www.graphviz.org/doc/schema/attributes.xml on new releases."
   :type '(repeat (string :tag "Keyword"))
   :group 'graphviz)
 
@@ -505,6 +518,8 @@ Turning on Graphviz Dot mode calls the value of the variable
   (set (make-local-variable 'indent-line-function) 'graphviz-dot-indent-line)
   (set (make-local-variable 'comment-start) "//")
   (set (make-local-variable 'comment-start-skip) "/\\*+ *\\|//+ *")
+  (modify-syntax-entry ?# "< b" graphviz-dot-mode-syntax-table)
+  (modify-syntax-entry ?\n "> b" graphviz-dot-mode-syntax-table)
   (set (make-local-variable 'font-lock-defaults) 
        '(graphviz-dot-font-lock-keywords))
   ;; RR - If user is running this in the scratch buffer, there is no
@@ -513,11 +528,11 @@ Turning on Graphviz Dot mode calls the value of the variable
       (set (make-local-variable 'compile-command) 
        (concat graphviz-dot-dot-program
                " -T" graphviz-dot-preview-extension " "
-               buffer-file-name
-               " > "
+               "\"" buffer-file-name "\""
+               " > \""
                (file-name-sans-extension
                 buffer-file-name)
-               "." graphviz-dot-preview-extension)))
+               "." graphviz-dot-preview-extension "\""))) 
   (set (make-local-variable 'compilation-parse-errors-function)
        'graphviz-dot-compilation-parse-errors)
   (if dot-menu
@@ -622,6 +637,13 @@ See variable `compilation-parse-errors-functions' for interface."
       (graphviz-dot-real-indent-line)
     (save-excursion
       (graphviz-dot-real-indent-line))))
+
+(defun graphviz-dot-get-indendation()
+  "Return current line's indentation"
+  (interactive)
+  (message "Current indentation is %d." 
+	   (current-indentation))
+  (current-indentation))
         
 (defun graphviz-dot-real-indent-line ()
   "Indent current line of dot code."
@@ -659,9 +681,13 @@ See variable `compilation-parse-errors-functions' for interface."
                                    (not (looking-at ".*\\[.*"))) ; TODO:PP : "
                           (forward-line -1))
                         (current-indentation))
-                       (t
+                       (t			
                         ;; default case, indent the
-                        ;; same as previous line
+                        ;; same as previous NON-BLANK line
+			;; (or the first line, if there are no previous non-blank lines)
+			(while (and (< (point-min) (point))
+				    (looking-at "^\[ \t\]*$"))
+			  (forward-line -1))
                         (current-indentation)) ))) )))
 
 (defun graphviz-dot-indent-graph ()
@@ -914,6 +940,7 @@ buffer is saved before the command is executed."
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.dot\\'" . graphviz-dot-mode))
+(add-to-list 'auto-mode-alist '("\\.gv\\'" . graphviz-dot-mode))
 
 ;;; graphviz-dot-mode.el ends here
 

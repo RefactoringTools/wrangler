@@ -17,7 +17,7 @@
 		 dialyzerObj=[]}).
 
 get_type_info_using_typer(File) ->
-    PLT = filename:join(?WRANGLER_DIR, "plt/dialyzer_plt"),
+    PLT = filename:join(code:priv_dir(wrangler), "dialyzer_plt"),
     Analysis = #typer_analysis{plt = PLT},
     Analysis1 = Analysis#typer_analysis{ana_files = [File]},
     Analysis2 = collect(Analysis1),

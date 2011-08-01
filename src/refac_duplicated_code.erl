@@ -70,7 +70,7 @@ duplicated_code(DirFileList, MinLength1, MinClones1, MaxPars1, TabWidth) ->
     Cmd =io_lib:format("\nCMD: ~p:duplicated_code(~p,~p,~p,~p,~p).\n",
 		 [?MODULE, DirFileList, MinLength, MinClones, MaxPars, TabWidth]),
     ?debug("current time:~p\n", [time()]),
-    SuffixTreeExec = filename:join(?WRANGLER_DIR, "bin/suffixtree"),
+    SuffixTreeExec = filename:join(code:priv_dir(wrangler), "suffixtree"),
     Cs = duplicated_code_detection(DirFileList, MinClones, MinLength, MaxPars, SuffixTreeExec, TabWidth),
     ?debug("Filtering out sub-clones.\n", []),
     Cs1 = wrangler_code_search_utils:remove_sub_clones(Cs),
@@ -94,7 +94,7 @@ duplicated_code_command_line(DirFileList, MinLength1, MinClones1, MaxPars, TabWi
 		    true -> ?DEFAULT_CLONE_MEMBER;
 		    _ -> MinClones1
 		end,
-    SuffixTreeExec = filename:join(?WRANGLER_DIR, "bin/suffixtree"),
+    SuffixTreeExec = filename:join(code:priv_dir(wrangler), "suffixtree"),
     Cs = duplicated_code_detection(DirFileList, MinClones, MinLength, MaxPars, SuffixTreeExec, TabWidth),
     Cs1 = wrangler_code_search_utils:remove_sub_clones(Cs),
     wrangler_code_search_utils:display_clone_result(Cs1, "Duplicated"),

@@ -555,6 +555,7 @@ PACKAGE_URL=
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+ERLANG_INSTALL_LIB_DIR
 ERLCFLAGS
 ERL_LIB
 ERL_CFLAGS
@@ -620,7 +621,8 @@ LDFLAGS
 LIBS
 CPPFLAGS
 ERLC
-ERLCFLAGS'
+ERLCFLAGS
+ERLANG_INSTALL_LIB_DIR'
 
 
 # Initialize some variables set by options.
@@ -1241,6 +1243,9 @@ Some influential environment variables:
               you have headers in a nonstandard directory <include dir>
   ERLC        Erlang/OTP compiler command [autodetected]
   ERLCFLAGS   Erlang/OTP compiler flags [none]
+  ERLANG_INSTALL_LIB_DIR
+              Erlang/OTP library installation base directory
+              [LIBDIR/erlang/lib]
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -2581,7 +2586,7 @@ if test "x$GCC" = "xyes"; then
     CFLAGS="$CFLAGS -Wall"
 fi
 
-#locating erlang
+# Locating Erlang
 
 # Check whether --with-erlang was given.
 if test "${with_erlang+set}" = set; then :
@@ -2868,19 +2873,7 @@ _EOF
 
 
 
-# Checks for typedefs, structures, and compiler characteristics.
-#AC_C_CONST
-
-# Check Erlang headers are installed
-#AC_CHECK_HEADER(erl_driver.h,,[AC_MSG_ERROR([cannot find Erlang header files])])
-
-#hecks for library functions.
-#AC_FUNC_MALLOC
-#AC_HEADER_STDC
-
-ac_config_files="$ac_config_files Makefile c_src/suffixtree/Makefile c_src/gsuffixtree/Makefile"
-
-
+# Check for 32-bit or 64-bit Erlang
 ac_ext=erl
 ac_compile='$ERLC $ERLCFLAGS -b beam conftest.$ac_ext >&5'
 ac_link='$ERLC $ERLCFLAGS -b beam conftest.$ac_ext >&5 && echo "#!/bin/sh" > conftest$ac_exeext && $as_echo "\"$ERL\" -run conftest start -run init stop -noshell" >> conftest$ac_exeext && chmod +x conftest$ac_exeext'
@@ -3022,8 +3015,36 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 fi
 
 
+# where to install Erlang applications
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for Erlang/OTP library installation base directory" >&5
+$as_echo_n "checking for Erlang/OTP library installation base directory... " >&6; }
+
+if test -n "$ERLANG_INSTALL_LIB_DIR"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ERLANG_INSTALL_LIB_DIR" >&5
+$as_echo "$ERLANG_INSTALL_LIB_DIR" >&6; }
+else
+    ERLANG_INSTALL_LIB_DIR='${libdir}/erlang/lib'
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: result: $libdir/erlang/lib" >&5
+$as_echo "$libdir/erlang/lib" >&6; }
+fi
+
+
+# Checks for typedefs, structures, and compiler characteristics.
+#AC_C_CONST
+
+# Checks for library functions.
+#AC_FUNC_MALLOC
+#AC_HEADER_STDC
+
+# Check Erlang headers are installed
+#AC_CHECK_HEADER(erl_driver.h,,[AC_MSG_ERROR([cannot find Erlang header files])])
+
 CFLAGS="$CFLAGS $CBIT"
 LD_SHARED="$LD_SHARED $CBIT"
+
+ac_config_files="$ac_config_files Makefile c_src/suffixtree/Makefile c_src/gsuffixtree/Makefile"
+
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
