@@ -438,6 +438,7 @@
 (defun erlang-wrangler-on()
   (interactive)
   (message "starting Wrangler...")
+  (check-erl-cookie)
   (if   (get-buffer "*Wrangler-Erl-Shell*")
       (erlang-wrangler-off-1)
     t)
@@ -459,6 +460,14 @@
   "Start a Erlang shell for Wrangler"
   (interactive)
   (call-interactively wrangler-erlang-shell-function))
+
+(defun check-erl-cookie() 
+  "check if file .erlang.cookie exists."
+  (let ((cookie-file  (expand-file-name (concat (getenv "HOME") "/.erlang.cookie"))))
+    (if (file-exists-p  cookie-file) 
+        t
+      (error "File %s does not exist; please create it first, then restart Wrangler." 
+             cookie-file))))
 
 (defvar wrangler-erlang-shell-function 'wrangler-erlang
   "Command to execute start a new Wrangler Erlang shell"
