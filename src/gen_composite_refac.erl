@@ -75,7 +75,11 @@ init_composite_refac(ModName, Args=[CurFileName, [Line,Col],
         {error, Reason} ->
             {error, Reason};
         Cmds ->
-            try start_server_processes(lists:flatten(Cmds))
+            Cmds1 = if is_list(Cmds) ->
+                            Cmds;
+                       true -> [Cmds]
+                    end,
+            try start_server_processes(lists:flatten(Cmds1))
             catch
                 E1:E2 ->
                     erlang:error({E1,E2})
@@ -86,6 +90,7 @@ init_composite_refac(ModName, Args=[CurFileName, [Line,Col],
 start_server_processes(Cmds) ->
     NameTrackerPid = wrangler_cmd_server:start_name_tracker_server(),
     CmdServerPid= wrangler_cmd_server:start_cmd_server(Cmds,NameTrackerPid),
+    wrangler_backup_server:reset_backups(),
     {CmdServerPid, NameTrackerPid}.
 
 stop_server_processes(CmdServerPid, NameTrackerPid) ->
@@ -93,5 +98,6 @@ stop_server_processes(CmdServerPid, NameTrackerPid) ->
     wrangler_cmd_server:stoop_name_tracker_server(NameTrackerPid).
 
 get_next_command({CmdServerPid, NameTrackerPid}, PrevResult) ->
+    refac_io:format("Get next command\n~p\n",[{{CmdServerPid, NameTrackerPid}, PrevResult}]),
     wrangler_cmd_server:get_next_command({CmdServerPid, NameTrackerPid}, PrevResult).
 

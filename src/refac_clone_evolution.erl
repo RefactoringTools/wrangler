@@ -227,7 +227,7 @@ inc_sim_code_detection_1(Files, Thresholds, SearchPaths, TabWidth, OutFile) ->
     _Time2 = time(),
     Cs4 = update_file_name_in_clones(Cs2, CurPreRevFileNameMap),
     %% refac_io:format("Cs4:\n~p\n", [Cs4]),
-    ?debug("\n Time Used: ~p\n", [{Time1, Time2}]),
+    %% ?debug("\n Time Used: ~p\n", [{_Time1, _Time2}]),
     stop_clone_check_process(CloneCheckerPid),
     stop_hash_process(HashPid),
     stop_ast_process(ASTPid),

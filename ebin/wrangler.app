@@ -96,6 +96,7 @@
                   wrangler_modulegraph_server,
                   wrangler_error_logger,
                   wrangler_preview_server,
-                  wrangler_undo_serve]},
+                  wrangler_undo_server,
+                  wrangler_backup_server]},
     {applications, [kernel, stdlib]},          
     {mod, {wrangler, []}}]}.

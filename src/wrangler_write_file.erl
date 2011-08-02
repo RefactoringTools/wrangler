@@ -22,17 +22,22 @@ write_refactored_files(Results, HasWarningMsg, Editor, TabWidth, Cmd) ->
 	eclipse ->
 	    write_refactored_files_eclipse(Results, TabWidth);
 	command ->
-	    write_refactored_files_command_line(Results, TabWidth)
+	    write_refactored_files_command_line(Results, TabWidth);
+        composite_emacs ->
+            write_refactored_files_composite_emacs(Results, TabWidth)
     end.
 
 write_refactored_files(Results, Editor, TabWidth, Cmd) ->
+    refac_io:format("Editor:\n~p\n", [Editor]),
     case Editor of
 	emacs ->
 	    write_refactored_files_emacs(Results, TabWidth, Cmd);
 	eclipse ->
 	    write_refactored_files_eclipse(Results, TabWidth);
 	command ->
-	    write_refactored_files_command_line(Results, TabWidth)
+	    write_refactored_files_command_line(Results, TabWidth);
+        composite_emacs ->
+            write_refactored_files_composite_emacs(Results, TabWidth)
     end.
 
 write_refactored_files_emacs(Results, TabWidth, Cmd) ->
@@ -62,7 +67,7 @@ output_msg(ChangedFiles) ->
 
 write_refactored_files_for_preview(Files, TabWidth, LogMsg) ->
     write_refactored_files_for_preview(Files, TabWidth, LogMsg, []).
-write_refactored_files_for_preview(Files, TabWidth, LogMsg, SearchPaths) ->
+write_refactored_files_for_preview(Files, TabWidth, LogMsg, _SearchPaths) ->
     F = fun (FileAST) ->
 		case FileAST of
 		    {{FileName,NewFileName}, AST} ->
@@ -82,7 +87,7 @@ write_refactored_files_for_preview(Files, TabWidth, LogMsg, SearchPaths) ->
 			end;
 		    {{FileName, NewFileName, IsNew}, AST} ->
 			FileFormat = wrangler_misc:file_format(FileName),
-			SwpFileName = filename:rootname(FileName, ".erl") ++ ".erl.swp",
+			SwpFileName = filename:rootname(NewFileName, ".erl") ++ ".erl.swp",
                         {Content, Changes} = wrangler_prettypr:print_ast_and_get_changes(FileFormat, AST, TabWidth),
 			case file:write_file(SwpFileName, list_to_binary(Content)) of
 			    ok ->
@@ -130,31 +135,39 @@ write_refactored_files_command_line(Results, TabWidth) ->
 			  check_access(FileTuple)
 		  end, FilesToWrite),
     backup_files(Results),
-    F = fun ({FileInfo, AST}) ->
-		%% for most refactorings,OldFileName==NewFileName.
-		OldFileName = element(1, FileInfo),
-		NewFileName = element(2, FileInfo),
-		FileFormat = wrangler_misc:file_format(OldFileName),
-		Bin = list_to_binary(wrangler_prettypr:print_ast(FileFormat, AST, TabWidth)),
-		case file:write_file(OldFileName, Bin) of
-		    ok when OldFileName==NewFileName ->
-			OldFileName;
-		    ok ->
-			case file:rename(OldFileName, NewFileName) of
-			    ok -> OldFileName;
-			    {error, Reason} ->
-				Msg = io_lib:format("Wrangler could not rename file ~s: ~w \n",
-						    [OldFileName, Reason]),
-				throw({error, lists:flatten(Msg)})
-			end;
-		    {error, Reason} ->
-			Msg = io_lib:format("Wrangler could not write to file ~s: ~w \n",
-					    [NewFileName, Reason]),
-			throw({error, lists:flatten(Msg)})
-		end
-	end,
-    {ok, lists:map(F, Results)}.
+    Res =[write_a_file({FileInfo, AST}, TabWidth) || {FileInfo, AST}<-Results],
+    {ok, Res}.
 
+write_refactored_files_composite_emacs(Results, TabWidth) ->
+    FilesToWrite = [FileTuple || {FileTuple, _} <- Results],
+    lists:foreach(fun (FileTuple) ->
+			  check_access(FileTuple)
+		  end, FilesToWrite),
+    wrangler_backup_server:add_to_backups(FilesToWrite),
+    Res =[write_a_file({FileInfo, AST}, TabWidth) || {FileInfo, AST}<-Results],
+    {ok, Res}.
+write_a_file({FileInfo, AST}, TabWidth) ->
+    OldFileName = element(1, FileInfo),
+    NewFileName = element(2, FileInfo),
+    FileFormat = wrangler_misc:file_format(OldFileName),
+    Bin = list_to_binary(wrangler_prettypr:print_ast(FileFormat, AST, TabWidth)),
+    case file:write_file(OldFileName, Bin) of
+        ok when OldFileName == NewFileName ->
+            OldFileName;
+        ok ->
+            case file:rename(OldFileName, NewFileName) of
+                ok -> OldFileName;
+                {error, Reason} ->
+                    Msg = io_lib:format("Wrangler could not rename file ~s: ~w \n",
+                                        [OldFileName, Reason]),
+                    throw({error, lists:flatten(Msg)})
+            end;
+        {error, Reason} ->
+            Msg = io_lib:format("Wrangler could not write to file ~s: ~w \n",
+                                [NewFileName, Reason]),
+            throw({error, lists:flatten(Msg)})
+    end.
+  
 backup_files(Results) ->
     F0 = fun ({FileInfo,_AST}) ->
 		 case FileInfo of

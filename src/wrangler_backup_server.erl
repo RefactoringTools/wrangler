@@ -23,14 +23,17 @@
 %% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
 %% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-%%%@hidden
-%%%@private
--module(wrangler_preview_server).
+%%%-------------------------------------------------------------------
+%%% File    : wrangler_undo_server.erl
+%%% Author  :  <Huiqing>
+%% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
+%%%------------------------------------------------------------------- 
+-module(wrangler_backup_server).
 
 -behaviour(gen_server).
 
 %% API
--export([commit/0, abort/0,add_files/1, start_preview_server/0]).
+-export([start_backup_server/0,add_to_backups/1, recover_backups/0, reset_backups/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -38,29 +41,25 @@
 
 -include("../include/wrangler_internal.hrl").
 
--record(state, {files=[], logmsg=""}).
+-record(state, {backups=[],
+                new_files=[],
+                preview_pairs=[]}).
 
 %%====================================================================
 %% API
 %%====================================================================
-%% Description: Starts the server
-%%--------------------------------------------------------------------
-start_preview_server() ->
+start_backup_server() ->
     process_flag(trap_exit, true),
-    gen_server:start_link({local, wrangler_preview_server}, ?MODULE, [], []).
- 
-%%-spec(commit/0::() -> {ok, [filename()]}).
-commit() ->
-    gen_server:call(wrangler_preview_server, commit).
+    gen_server:start_link({local, wrangler_backup_server}, ?MODULE, [], []).
 
-%%-spec(abort/0::() ->{ok, [filename()]}).
+add_to_backups(Files) ->
+    gen_server:cast(wrangler_backup_server, {add_backups, Files}).
 
-abort() ->
-    gen_server:call(wrangler_preview_server, abort).
-   
-%%-spec(add_files/1::({[filename()], string()}) -> ok).
-add_files({Files,LogMsg})->
-    gen_server:cast(wrangler_preview_server, {add, {Files, LogMsg}}).
+recover_backups() ->
+    gen_server:call(wrangler_backup_server, recover_backups).
+
+reset_backups()->
+    gen_server:cast(wrangler_backup_server, reset_backups).
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -84,60 +83,65 @@ init([]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
+handle_call(recover_backups, _From, _State=#state{backups=BackUps,   
+                                                 new_files=_NewFiles,
+                                                 preview_pairs=PreviewPairs})->
+    lists:foreach(fun({F, Content})->
+                          SwpFileName = filename:rootname(F, ".erl")++ ".erl.swp",
+                          file:copy(F, SwpFileName),
+                          file:write_file(F, Content)
+                  end, BackUps),
+    wrangler_preview_server:add_files({PreviewPairs, ""}),
+    {reply, {ok, PreviewPairs}, #state{}}.
 
-handle_call(abort, _From, #state{files=Files}) ->
-    SwpFiles = lists:flatmap(fun ({{F1, F2, IsNew}, Swp}) ->
-				     case IsNew of
-                                         false -> [Swp];
-                                         _ -> case F1 == F2 of
-                                                  true -> [F1, Swp];
-                                                  _ -> [F1, F2, Swp]
-                                              end
-				     end
-			     end, Files),
-    {reply, {ok, SwpFiles}, #state{files=[], logmsg=""}};
+handle_cast(reset_backups, _State) ->
+    {noreply, #state{}};
+handle_cast({add_backups,Files},State=#state{backups=BackUps, 
+                                             new_files=NewFiles,
+                                             preview_pairs=PreviewPairs}) ->
+    {NewBackUps, NewFiles1, NewPreviewPairs} = update_backups(Files, {BackUps, NewFiles, PreviewPairs}),
+    {noreply, State#state{backups=NewBackUps, new_files=NewFiles1, preview_pairs=NewPreviewPairs}}.
 
-handle_call(commit, _From, #state{files=[], logmsg=_LogMsg}) ->
-    {reply, {ok, [], ""}, #state{files=[], logmsg=""}};
-    
-handle_call(commit, _From, #state{files=Files, logmsg=LogMsg}) ->
-    OldFiles = lists:map(fun ({{F1, F2, IsNew}, _Swp}) -> {F1, F2, IsNew} end, Files),
-    FilesToBackup = lists:map(fun ({F1, F2, IsNew}) ->
-     				      {ok, Bin} = file:read_file(F1), {{F1, F2, IsNew}, Bin}
-     			      end, OldFiles),
-    wrangler_undo_server:add_to_history({FilesToBackup, LogMsg, element(1, hd(OldFiles))}),
-    lists:foreach(fun ({{F1, F2, _IsNew}, Swp}) ->
-     			  case file:copy(Swp, F1) of 
-     			      {ok,_} -> ok;
-     			      Err1 ->
-				  throw(Err1)
-     			  end,
-     			  case F1==F2 of 
-     			      true -> ok; 
-     			      false ->
-     				  case file:rename(F1, F2) of 
-     				      ok -> ok;
-     				      Err2 ->
-					  %% refac_io:format("Rename failed.\n"),
-    					  throw(Err2)
-     				  end
-     			  end
-     		  end,Files),
-    Files1 = lists:map(fun ({{F1, F2, IsNew}, Swp}) -> [F1, F2, Swp, IsNew] end, Files),
-    {reply, {ok, Files1, LogMsg}, #state{files=[], logmsg=""}}.
-    
+update_backups([], {BackUps, NewFiles, PreviewPairs}) ->
+    {BackUps, NewFiles, PreviewPairs};
+update_backups([{FileName, NewFileName}|Fs], {BackUps, NewFiles, PreviewPairs}) ->
+    update_backups([{FileName, NewFileName, false}|Fs], {BackUps, NewFiles, PreviewPairs});
+update_backups([{FileName, NewFileName, true}|Fs], {BackUps, NewFiles, PreviewPairs}) ->
+    SwpFileName = filename:join([filename:rootname(NewFileName)++".erl.swp"]),
+    NewFiles1 = [NewFileName|NewFiles],
+    update_backups(Fs, {BackUps, NewFiles1,
+                        [{{FileName, NewFileName, true}, SwpFileName}|PreviewPairs]});
+update_backups([{FileName, NewFileName, false}|Fs], {BackUps, NewFiles, PreviewPairs}) ->
+    NewPreviewPairs = update_preview_pairs(FileName, NewFileName, PreviewPairs),
+    NewBackUps = do_update_backups(FileName,BackUps),
+    update_backups(Fs, {NewBackUps, NewFiles,NewPreviewPairs}).
 
+do_update_backups(OldFileName, BackUps) ->
+    case lists:keyfind(OldFileName, 1, BackUps) of
+        {OldFileName, _Content} ->
+            BackUps;
+        false ->
+            {ok, Content} = file:read_file(OldFileName),
+            [{OldFileName, Content}|BackUps]
+    end.
 
-%%--------------------------------------------------------------------
-%% Function: handle_cast(Msg, State) -> {noreply, State} |
-%%                                      {noreply, State, Timeout} |
-%%                                      {stop, Reason, State}
-%% Description: Handling cast messages
-%%--------------------------------------------------------------------
-handle_cast({add, {Files, LogMsg}},_State=#state{files=_Files, logmsg=_LogMsg}) ->
-    {noreply, #state{files=Files, logmsg=LogMsg}}.
-	
-%%--------------------------------------------------------------------
+update_preview_pairs(FileName, NewFileName,PreviewPairs) ->
+    %% refac_io:format("UpdatePreviewPairs:\n~p\n", [PreviewPairs]),
+    SwpFileName = filename:join([filename:rootname(NewFileName) ++ ".erl.swp"]),
+    case [FName||{{_F, FName, _IsNew},_Swp}<-PreviewPairs, FName==FileName] of 
+        [] -> [{{FileName, NewFileName, false}, SwpFileName}|PreviewPairs];
+        _ ->
+            lists:map(fun(Pair) ->
+                              case Pair of
+                                  {{F1, FileName, IsNew}, _Swp} ->
+                                      {{F1, NewFileName, IsNew}, SwpFileName};
+                                  _ ->
+                                      Pair
+                              end
+                      end, PreviewPairs)
+    end.
+   
+%%-------------------------------------------------------------------
 %% Function: handle_info(Info, State) -> {noreply, State} |
 %%                                       {noreply, State, Timeout} |
 %%                                       {stop, Reason, State}
@@ -152,7 +156,7 @@ handle_info(_Info, State) ->
 %% terminate. It should be the opposite of Module:init/1 and do any necessary
 %% cleaning up. When it returns, the gen_server terminates with Reason.
 %% The return value is ignored.
-%%-----------------------------------------------------------------
+%%--------------------------------------------------------------------
 terminate(_Reason, _State) ->
     ok.
 
@@ -163,5 +167,3 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-  
- 
