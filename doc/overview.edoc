@@ -20,7 +20,7 @@ refactoring of Erlang programs.
   <li>{@section Support for Macros}</li>
   <li>{@section Refactoring Code with Syntax Errors}</li>
   <li>{@section Typed Records and Type Specifications}</li>
-  <li>{@section How to Use the Refactorer}</li>
+  <li>{@section How to Use Wrangler}</li>
   <li>{@section References}</li>
   <li>{@section Acknowledgements}</li>
 </ol>
@@ -111,23 +111,23 @@ The current implementation of Wrangler does not support typed records and
 type specifications yet; functionalities to support these features are being
 added however.
 
-== How to Use the Refactorer ==
+== How to Use Wrangler ==
 
 <ol>
  <li>Open an Erlang source file in the Emacs editor. You should now have a
      menu called <em>Erlang</em>, if you have configured Emacs properly to
      use the Erlang-mode (see the file INSTALL otherwise).
  </li>
- <li>To start the Erlang refactorer, type: `M-x erlang-refactor-on', or
+ <li>To start Wrangler, type: `M-x erlang-wrangler-on', or
      alternatively `Ctrl-c Ctrl-r'. After that, two new
      menus, <em>Refactor</em> and <em>Inspector</em>, should appear in the
      menu bar (see INSTALL otherwise).
  </li>
- <li>To stop the Erlang refactorer, type `M-x erlang-refactor-off', or
+ <li>To stop Wrangler, type `M-x erlang-wrangler-off', or
      alternatively use `Ctrl-c Ctrl-r' again. The Refactor and Inspector
      menus will disappear from the menu bar.
  </li>
- <li>You can use `Ctrl-c Ctrl-r' to toggle the refactorer on or off.
+ <li>You can use `Ctrl-c Ctrl-r' to toggle Wrangler on or off.
  </li>
  <li>For most refactorings, the editor interface will pass the current
      filename (should be the module name, as well), the refactoring command,

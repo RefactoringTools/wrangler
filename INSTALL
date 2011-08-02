@@ -9,40 +9,81 @@ Step 1) Build and optionally install the software in the usual way:
 
 	./configure && make && sudo make install
 
-	By default Wrangler is installed in the directory 'usr/local'; to
-	install Wrangler in a different directory, you need to explicitly
+	By default Wrangler is installed under the directory '/usr/local';
+	to install Wrangler in a different directory, you need to explicitly
 	specify the directory using the '--prefix=...' flag of 'configure'.)
 
-Step 2) If you already have Erlang mode for Emacs installed, go to Step 3);
+        If you do not install Wrangler as part of your existing Erlang
+        installation (the default location), then please make sure that
+        Erlang can find Wrangler in its code path. This can e.g. be done by
+        including a line like the following in your ~/.erlang file:
+
+        code:add_path("/path/to/wrangler/ebin").
+
+        (Don't forget to substitute the location of your Wrangler directory
+        for "/path/to/wrangler" above.)
+
+        Another way is to set the environment variable ERL_LIBS to the path
+        to a directory under which you keep one or more Erlang libraries.
+        E.g., if your Wrangler directory is ~/erlang/lib/wrangler, then
+        setting ERL_LIBS to ~/erlang/lib will make Erlang automatically add
+        ~/erlang/lib/wrangler/ebin to the code path on startup.
+
+Step 2) If you already have Erlang mode for Emacs installed, go to Step 3;
 	otherwise add the following lines to your ~/.emacs file (or
 	~/.xemacs/init.el for XEmacs):
 
-	(setq load-path (cons  "/usr/local/erlang/lib/tools-<ToolsVer>/emacs"
-		      load-path))
-	(setq erlang-root-dir "/usr/local/erlang")
-	(setq exec-path (cons "/usr/local/erlang/bin" exec-path))
+	(setq erlang-root-dir "/usr/local/lib/erlang")
+	(add-to-list 'exec-path "/usr/local/lib/erlang/bin")
+        (add-to-list 'load-path
+          "/usr/local/lib/erlang/lib/tools-<ToolsVer>/emacs")
 	(require 'erlang-start)
 
 	NOTE: you have to replace <ToolsVer> in the above with the correct
 	version number. Also, if Erlang/OTP is not installed in the
-	directory '/usr/local/erlang', please substitute the correct path.
+	directory '/usr/local/lib/erlang' on your system, please substitute
+	the correct path.
 
 Step 3) Add these lines to your ~/.emacs (or ./.xemacs/init.el for XEmacs):
 
-	(add-to-list 'load-path "/usr/local/share/wrangler/elisp")
+     	(add-to-list 'load-path
+          "/usr/local/lib/erlang/lib/wrangler-<WranglerVer>/elisp")
 	(require 'wrangler)
 
-	If you installed Wrangler somewhere else than `/usr/local', please
-        replace `/usr/local' above with the correct path for your system.
+	replacing <WranglerVer> with the correct version number. If you
+        installed Wrangler in a different location (or did not run "make
+        install"), then please substitute the correct path for your system.
 
-	Some code inspection functionalities of Wrangler generate .dot
+Step 4) Wrangler includes a version of Distel. If you have a more recent
+        version of Distel that you want to use instead, please make sure
+        that your version occurs before Wrangler *both* in the Emacs
+        load-path and in the Erlang code path. The latter can be done by
+        including a line like the following in your ~/.erlang file:
+
+        code:add_patha("/path/to/distel/ebin").
+
+        (note: 'add_patha', not 'add_path'!), replacing "/path/to/distel"
+        with the location of your preferred Distel installation.
+
+        There is no need to call "(require 'distel)" or "(distel-setup)" in
+        your .emacs if you call "(require 'wrangler)" - this is done
+        automatically, loading the Distel elisp files from the load-path
+        that you have set in your .emacs file. E.g.,:
+
+	(add-to-list 'load-path "/path/to/distel/elisp")
+
+        Make sure that this is called *after* the Wrangler directory is
+        added to the load-path (since add-to-list prepends new entries), but
+        *before* the call to "(require 'wrangler)".
+
+Step 5) Some code inspection functionalities of Wrangler generate .dot
 	files, which can be compiled and previewed in Emacs if the
 	Graphviz-dot mode for Emacs is enabled. If you would like to enable
-	the Graphviz-dot mode, add the following line to your .emacs file:
+	the Graphviz-dot mode, add the following line to your ~/.emacs file:
 
 	(load-library "graphviz-dot-mode")
 
-Step 4) Wrangler requires an .erlang.cookie file in your $HOME directory,
+Step 6) Wrangler requires an .erlang.cookie file in your $HOME directory,
 	please create one if it does not exist. An easy way of doing this is
 	to start Erlang once in distributed mode: e.g., `erl -sname foo',
 	which will generate a random string. Or you can choose your own
