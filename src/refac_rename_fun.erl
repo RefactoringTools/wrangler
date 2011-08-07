@@ -231,7 +231,7 @@ rename_fun_0(FileName, {AnnAST, Info}, {Mod, OldFunNameAtom, Arity}, {DefinePos,
                                                            HasWarningMsg, Editor, TabWidth, Cmd),
             case Editor of 
                 composite_emacs ->
-                    {Res, {name_change, {{Mod, OldFunNameAtom, Arity}, {Mod, NewNameAtom, Arity}}}};
+                    {Res, {name_change, [{{Mod, OldFunNameAtom, Arity}, {Mod, NewNameAtom, Arity}}]}};
                 _ ->
                     Res
             end
