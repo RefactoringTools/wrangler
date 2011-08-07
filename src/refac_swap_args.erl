@@ -22,6 +22,8 @@
          check_pre_cond/1, selective/0,
          transform/1]).
 
+-export([swap_args/6]).
+
 -include("../include/wrangler.hrl").
 
 -import(api_refac, [fun_define_info/1]).
@@ -191,3 +193,29 @@ swap(List, I, J) ->
     tuple_to_list(T1).
  
  
+
+swap_args({FileName, FunName, Arity}, Index1, Index2, SearchPaths, Editor, TabWidth) ->
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    ModName=list_to_atom(filename:basename(FileName, ".erl")),
+    case wrangler_misc:funname_to_defpos(AnnAST, {ModName, FunName, Arity}) of
+	{ok, DefPos} ->
+            {ok, FunDef} = api_interface:pos_to_fun_def(FileName, DefPos),
+            Args=#args{current_file_name=FileName,
+                       focus_sel=FunDef,
+                       user_inputs=[Index1, Index2],
+                       search_paths=SearchPaths,
+                       tabwidth=TabWidth},
+            case check_pre_cond(Args) of
+                ok -> 
+                    case transform(Args) of
+                        {ok, Res} ->
+                            wrangler_write_file:write_refactored_files(Res,Editor,TabWidth,"");
+                        {error, Reason}->
+                            {error, Reason}
+                    end;
+                {error, Reason} ->
+                    {error, Reason}
+            end;
+        {error, Reason} ->
+            {error, Reason}
+    end.
