@@ -28,7 +28,6 @@ write_refactored_files(Results, HasWarningMsg, Editor, TabWidth, Cmd) ->
     end.
 
 write_refactored_files(Results, Editor, TabWidth, Cmd) ->
-    refac_io:format("Editor:\n~p\n", [Editor]),
     case Editor of
 	emacs ->
 	    write_refactored_files_emacs(Results, TabWidth, Cmd);
