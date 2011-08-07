@@ -13,8 +13,6 @@
 %% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklingsrefa
 %% AB. All Rights Reserved.''
 %% 
-%%     $Id$
-%%
 %% @private
 %% @hidden
 -module(wrangler_io).
