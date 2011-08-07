@@ -155,19 +155,19 @@ fold_expr_by_loc(FName, Line, Col, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler_refacs, fold_expr_by_loc, [FName, Line, Col, SearchPaths, TabWidth], SearchPaths).
 
 
-%%-spec(fold_expr_by_name/7::(filename(), string(), string(), string(), string(), [dir()], integer()) ->
+%-spec(fold_expr_by_name/7::(filename(), string(), string(), string(), string(), [dir()], integer()) ->
 %%	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
 %%		 | {error, string()}).
 
 fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth) ->
-    apply_refactoring(wrangler_refacs, fold_expr_by_name, [FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth], SearchPaths).
+    apply_refactoring(wrangler_refacs, fold_expr_by_name, [FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, emacs, TabWidth], SearchPaths).
 
-
+ 
 %%-spec(tuple_funpar/7::(filename(), integer(), integer(), integer(), integer(), [dir()], integer()) ->
 %%	     {error, string()} | {ok, [filename()]}).
 tuple_funpar(Fname, StartLine, StartCol, EndLine, EndCol, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler_refacs, tuple_funpar, [Fname, {StartLine, StartCol}, {EndLine, EndCol}, SearchPaths, TabWidth], SearchPaths).
-
+ 
     
 %%-spec(add_a_tag/6::(filename(), integer(), integer(), string(), [dir()], filename()) ->
 %%	     {error, string()} | {ok, [filename()]}).
