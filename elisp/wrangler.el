@@ -3648,23 +3648,22 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
                   (message "Refactoring failed: %s" rsn))
                  (['rex ['error rsn]]
                   (message "Refactoring failed: %s" rsn))
-                 (['rex pid]
-                  (apply-refac-cmds current-file-name pid (list'ok nil))
+                 (['rex ['ok pid]]
+                  (apply-refac-cmds current-file-name (list 'ok nil))
                   )))))
       (message "Refactoring aborted."))))
 
-(defun apply-refac-cmds(current-file-name pid previous_result)
+(defun apply-refac-cmds(current-file-name previous_result)
   "apply a sequence of refactoring commands."
   (erl-spawn
-    (erl-send-rpc wrangler-erl-node 'gen_composite_refac 'get_next_command (list pid previous_result))
-    (erl-receive (current-file-name pid)
+    (erl-send-rpc wrangler-erl-node 'gen_composite_refac 'get_next_command (list previous_result))
+    (erl-receive (current-file-name)
         ((['rex ['badrpc rsn]]
           (message "Refactoring failed: %s" rsn))
          (['rex ['error rsn]]
           (message "Refactoring failed: %s" rsn)) 
          (['rex ['ok 'none modified ['error rsn]]]
           (progn
-            (message "modified: %s " modified)
             (update-buffers modified)
             (message "Composite refactoring failed: %s" rsn)))
           (['rex ['ok 'none modified msg]] 
@@ -3676,22 +3675,22 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
                (with-current-buffer (get-file-buffer-1 current-file-name)
                  nil)
                (message "Refactoring finished."))))
-         (['rex ['ok ['refactoring cmd] next_pid]]
-          (apply-a-refac-cmd current-file-name next_pid cmd)) 
-         (['rex ['ok ['question msg cmd] next_pid]]
+         (['rex ['ok ['refactoring cmd]]]
+          (apply-a-refac-cmd current-file-name cmd)) 
+         (['rex ['ok ['interactive msg cmd]]]
           (if (y-or-n-p msg)
-              (apply-a-refac-cmd current-file-name next_pid cmd)
-            (apply-refac-cmds current-file-name next_pid  (list 'ok nil))))
-         (['rex ['ok ['repeat_question msg cmd] next_pid]]
+              (apply-a-refac-cmd current-file-name cmd)
+            (apply-refac-cmds current-file-name (list 'ok nil))))
+         (['rex ['ok ['repeat_interactive msg cmd]]]
           (if (y-or-n-p msg)
-              (apply-a-refac-cmd current-file-name next_pid cmd)
-            (apply-refac-cmds current-file-name next_pid 'none)))
+              (apply-a-refac-cmd current-file-name cmd) 
+            (apply-refac-cmds current-file-name 'none)))
          (['rex result]
-          (message "Result: %s" result))
+          (message "Unexpected result: %s" result))
          ))))
  
  
-(defun apply-a-refac-cmd(current-file-name pid cmd)   
+(defun apply-a-refac-cmd(current-file-name cmd)   
   "apply a sub refayctoring of a composite refactorings."
   (interactive) 
   (setq mod_name (elt cmd 0)) 
@@ -3702,32 +3701,32 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
   (org-delete-overlay highlight-region-overlay)
   (erl-spawn 
     (erl-send-rpc wrangler-erl-node 'wrangler_refacs 'try_refactoring (list mod_name refac_name (append newargs (list tab-width))))
-    (erl-receive(current-file-name pid)
+    (erl-receive(current-file-name)
         ((['rex ['badrpc rsn]]
           (progn 
             (message "Refactoring failed: %S" rsn)
-            (apply-refac-cmds current-file-name pid (list 'error rsn))))
+            (apply-refac-cmds current-file-name (list 'error rsn))))
          (['rex ['error rsn]]
            (progn
              (message "Refactoring failed: %s" rsn)
-             (apply-refac-cmds current-file-name pid (list 'error rsn))))
+             (apply-refac-cmds current-file-name (list 'error rsn))))
          (['rex [['ok modified] name_change]]
           (progn
             (message "Refactoring succeeded %s" modified)
             (update-buffers modified)
-            (apply-refac-cmds current-file-name pid (list (list 'ok modified) name_change))))
+            (apply-refac-cmds current-file-name (list (list 'ok modified) name_change))))
          (['rex ['ok modified]]
           (progn
             (message "Refactoring succeeded %s" modified)
             (update-buffers modified)
-            (apply-refac-cmds current-file-name pid  (list 'ok modified))))
+            (apply-refac-cmds current-file-name (list 'ok modified))))
          (['rex ['ok modified warning-msg]]
           (progn
             (message "Refactoring succeeded %s" modified)
             (update-buffers modified)
-            (apply-refac-cmds current-file-name pid (list 'ok modified))))
+            (apply-refac-cmds current-file-name (list 'ok modified))))
          (['rex result]
-          (message "Result: %s" result))
+          (message "Unexpected result: %s" result))
          )))) 
           
 (defun update-buffers(files)
