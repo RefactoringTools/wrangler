@@ -13,8 +13,6 @@
 %% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
 %% AB. All Rights Reserved.''
 %%
-%%     $Id: refac_scan.erl,v 1.5 2008-04-30 09:28:12 hl Exp $
-%%
 %% Modified: 17 Jan 2007 by  Huiqing Li <hl@kent.ac.uk>
 %% 
 %% 

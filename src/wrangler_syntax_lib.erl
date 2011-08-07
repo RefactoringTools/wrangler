@@ -21,8 +21,6 @@
 %% Author contact: richardc@csd.uu.se
 %%
 %% Modified: 17 Jan 2007 by  Huiqing Li <hl@kent.ac.uk>
-%% $Id: wrangler_syntax_lib.erl,v 1.3 2008-04-30 09:28:12 hl Exp $
-%%
 %% =====================================================================
 %%
 %% @doc Support library for abstract Erlang syntax trees.

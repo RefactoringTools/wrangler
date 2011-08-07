@@ -1,7 +1,6 @@
 ;;; erlext.el --- Encoding and decoding of Erlang external term format
 
 ;; Copyleft (]) 2000-2002 Luke Gorrie <luke@bluetail.com>
-;; Version: $Id: erlext.el,v 1.1 2004/10/25 19:55:57 lukeg Exp $
 ;; Keywords: erlang
 
 ;;; Commentary:
