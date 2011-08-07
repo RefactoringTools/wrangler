@@ -91,7 +91,6 @@ handle_call(recover_backups, _From, _State=#state{backups=BackUps,
                           file:copy(F, SwpFileName),
                           file:write_file(F, Content)
                   end, BackUps),
-    wrangler_preview_server:add_files({PreviewPairs, ""}),
     {reply, {ok, PreviewPairs}, #state{}}.
 
 handle_cast(reset_backups, _State) ->
@@ -126,7 +125,6 @@ do_update_backups(OldFileName, BackUps) ->
     end.
 
 update_preview_pairs(FileName, NewFileName,PreviewPairs) ->
-    %% refac_io:format("UpdatePreviewPairs:\n~p\n", [PreviewPairs]),
     SwpFileName = filename:join([filename:rootname(NewFileName) ++ ".erl.swp"]),
     case [FName||{{_F, FName, _IsNew},_Swp}<-PreviewPairs, FName==FileName] of 
         [] -> [{{FileName, NewFileName, false}, SwpFileName}|PreviewPairs];
