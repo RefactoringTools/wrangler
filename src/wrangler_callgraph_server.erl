@@ -39,8 +39,9 @@
 %% API
 -export([start_callgraph_server/0, get_callgraph/1, get_sccs_including_fun/2,
 	 build_scc_callgraph/1,build_callercallee_callgraph/1, called_funs/1,
-	 get_sorted_funs/2, fun_callgraph_to_dot/1, fun_callgraph_to_dot/2,
-	 fun_callgraph_to_png/1, gen_digraph_callgraph/1]).
+	 get_sorted_funs/1, get_sorted_funs/2, fun_callgraph_to_dot/1, 
+         fun_callgraph_to_dot/2, fun_callgraph_to_png/1, 
+         gen_digraph_callgraph/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -251,6 +252,11 @@ called_funs_1(Tree) ->
 		  end
 	  end,
     ordsets:from_list(api_ast_traverse:fold(Fun, ordsets:new(), Tree)).
+
+get_sorted_funs(FName) ->
+    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, []),
+    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
+    get_sorted_funs(ModName, AnnAST).
 
 get_sorted_funs(ModName, AnnAST) ->
     F1 = fun (T, S) ->
