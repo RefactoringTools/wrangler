@@ -62,7 +62,7 @@
 -module(refac_move_fun).
 
 -export([move_fun/6, move_fun_1/7, move_fun_eclipse/6, move_fun_1_eclipse/6,
-	 move_fun_command/5]).
+         move_fun_by_name/5]).
 
 -export([analyze_file/3]).
 
@@ -105,21 +105,25 @@ move_fun_eclipse(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) -
 move_fun_1_eclipse(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) ->
     move_fun_1(FName, Line, Col, TargetModorFileName, true, SearchPaths, TabWidth, eclipse).
 
-%%-spec(move_fun_command/5::(modulename()|filename(), atom(), integer(), modulename()|filename(),[dir()])->
-%%				 {error, string()} | {ok, [filename()]}).
-move_fun_command(ModorFileName, FunName, Arity, TargetModorFileName, SearchPaths) ->
+%%-spec(move_fun_by_name/5::({modulename()|filename(), atom(), integer()}, modulename()|filename(),
+%%                           [dir()], atom())->
+%%			   {error, string()} | {ok, [filename()]}).
+move_fun_by_name({ModorFileName, FunName, Arity}, TargetModorFileName, SearchPaths, Editor, TabWidth) ->
     case get_file_name(ModorFileName, SearchPaths) of
 	{ok, OriginalFileName} ->
 	    case get_file_name(TargetModorFileName, SearchPaths) of
 		{ok, TargetFileName} ->
-		    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(OriginalFileName, true, SearchPaths, 8),
+		    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(
+                                             OriginalFileName, true, SearchPaths, TabWidth),
                     ModName = get_module_name(Info),
 		    case wrangler_misc:funname_to_defpos(AnnAST, {ModName, FunName, Arity}) of
 			{ok, Pos} ->
 			    case Pos of
 				{Line, Col} ->
-				    move_fun_1(OriginalFileName, Line, Col, TargetFileName, true, SearchPaths, 8, command);
-				_ -> {error, "Wrangler could not infer the location of the function in the program."}
+				    move_fun_1(OriginalFileName, Line, Col, TargetFileName, true, 
+                                               SearchPaths, TabWidth, Editor);
+				_ -> {error, "Wrangler could not infer the location of "
+                                      "the function in the program."}
 			    end;
 			{error, Reason} ->
 			    throw({error, Reason})
@@ -235,11 +239,11 @@ move_fun_3(CurModInfo, TargetModInfo, MFAs, {UnDefinedMs, UnDefinedRs},
 	      end,
     output_atom_warning_msg(Pid, not_renamed_warn_msg(AtomsToCheck), renamed_warn_msg(ModName)),
     stop_atom_process(Pid),
-    FinalResults = case Editor of
-		       emacs ->
+    FinalResults = case lists:member(Editor, [emacs, composite_emacs]) of
+		       true ->
 			   [{{FName, FName}, AnnAST1},
 			    {{TargetFName, TargetFName, NewTargetFile}, TargetAnnAST1}| Results];
-		       _ ->
+                       _ ->
 			   [{{FName, FName}, AnnAST1}, {{TargetFName, TargetFName}, TargetAnnAST1}| Results]
 		   end,
     wrangler_write_file:write_refactored_files(FinalResults, Editor, TabWidth, Cmd).
