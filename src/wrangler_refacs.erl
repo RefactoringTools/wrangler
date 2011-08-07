@@ -52,7 +52,7 @@
 	 identical_expression_search_in_buffer/5, identical_expression_search_in_dirs/5, 
 	 similar_expression_search_in_buffer/6, similar_expression_search_in_dirs/6,
 	 fun_extraction/5, fun_extraction_1/7,
-	 fold_expr/1, fold_expr_by_loc/5, fold_expr_by_name/7,
+	 fold_expr/1, fold_expr_by_loc/5, fold_expr_by_name/8,
 	 similar_code_detection_in_buffer/6,
 	 similar_code_detection/6, 
 	 add_a_tag/6, tuple_funpar/5, tuple_funpar_1/5,
@@ -635,7 +635,7 @@ unfold_fun_app_eclipse(FileName, Pos, SearchPaths, TabWidth) ->
 fold_expr({FileName, Line, Col, SearchPaths, TabWidth}) -> 
     fold_expr_by_loc(FileName, Line, Col, SearchPaths, TabWidth);
 fold_expr({FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth}) ->
-    fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth).
+    fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, emacs,TabWidth).
 
 %%@private
 %%-spec(fold_expr_by_loc/5::(filename(), integer(), integer(), [dir()], integer()) -> 
@@ -652,11 +652,11 @@ fold_expr_by_loc_eclipse(FileName, Line, Col, SearchPaths, TabWidth) ->
     try_refactoring(refac_fold_expression, fold_expr_by_loc_eclipse, [FileName, Line, Col, SearchPaths, TabWidth]).
 
 %%@private
-%%-spec(fold_expr_by_name/7::(filename(), string(), string(), string(), string(), [dir()], integer()) ->
+%%-spec(fold_expr_by_name/8::(filename(), string(), string(), string(), string(), [dir()], atom(), integer()) ->
 %%	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
 %%		 | {error, string()}).
-fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth) ->
-    try_refactoring(refac_fold_expression, fold_expr_by_name, [FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth]).
+fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, Editor, TabWidth) ->
+    try_refactoring(refac_fold_expression, fold_expr_by_name, [FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, Editor, TabWidth]).
 
 %%@private
 %%-spec(fold_expr_by_name_eclipse/7::(FileName::filename(), ModName::string(), FunName::string(), Arity::integer(), ClauseIndex::integer(), 
