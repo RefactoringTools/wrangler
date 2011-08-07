@@ -96,7 +96,7 @@
 
 -include("../include/wrangler_internal.hrl").
 
--export([generalise/6, gen_fun_1/11, gen_fun_clause/10]).
+-export([generalise/6, generalise/8, gen_fun_1/11, gen_fun_clause/10]).
 
 -export([generalise_eclipse/6, gen_fun_1_eclipse/11, gen_fun_clause_eclipse/10]).
 
@@ -132,6 +132,9 @@ generalise(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
 %%				Cmd::string()}}.
 generalise_eclipse(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
     generalise(FileName, Start, End, ParName, SearchPaths, TabWidth, eclipse).
+
+generalise(FileName, _Fun, _Arity, {range, {FileName, [{Start, End}|_]}}, ParName, SearchPaths, Editor, TabWidth) ->
+    generalise(FileName, Start, End, ParName, SearchPaths, TabWidth, Editor).
 
 generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:generalise(~p, {~p,~p}, {~p,~p}, ~p,~p,~p).\n",
@@ -180,6 +183,7 @@ generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPa
     DupsInClause = search_duplications(expr_to_fun_clause(Fun, Exp), Exp),
     Exp1 = case Editor of
 	       emacs -> term_to_list(Exp);
+               composite_emacs -> term_to_list(Exp);
 	       _ -> Exp
 	   end,
     case SideEffect of
