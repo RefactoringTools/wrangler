@@ -321,12 +321,14 @@ while_refac_loop(Parent, State=#state{cmds={while, Cond, CmdGen},
                             case Res of 
                                 [] ->
                                     From !{get_next_command, Parent, [ok, sets:to_list(ModifiedSoFar)]};
-                                [{refactoring, Refac, _Question}|Cs] ->
-                                    From ! {self(), {ok, {refactoring, Refac}}, self()},
-                                    wrangler_io:format("Cs:\n~p\n", [Cs]),
-                                    while_refac_loop(Parent, 
-                                                     State#state{cmds={while, Cond, Cs},
-                                                                 changed_files=ModifiedSoFar})
+                                _ ->
+                                    process_flag(trap_exit, true),
+                                    Pid = spawn_link(fun() ->
+                                                             cmd_server_loop(Parent, State#state{cmds=Res})
+                                                     end),
+                                    From ! {get_next_command, Pid, [ok, []]},
+                                    while_refac_loop(Parent, State#state{cmds={while, Cond, CmdGen},
+                                                                            changed_files=ModifiedSoFar})
                             end;
                         false ->
                             From !{get_next_command, Parent, [ok, sets:to_list(ModifiedSoFar)]}
@@ -561,7 +563,7 @@ normalise(Entry) ->
 
 %% The names of the elementary refactorings supported.
 elementary_refacs() ->
-    [rename_var, rename_fun, swap_args, fold_expr, gen_fun, move_fun].
+    [rename_var, rename_fun, swap_args, fold_expr, gen_fun, move_fun, unfold_fun_app].
                 
 format_msg(Format, Data) ->
     lists:flatten(io_lib:format(Format, [Data])).
