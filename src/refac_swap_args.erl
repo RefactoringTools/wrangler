@@ -22,8 +22,6 @@
          check_pre_cond/1, selective/0,
          transform/1]).
 
--export([swap_args/6]).
-
 -include("../include/wrangler.hrl").
 
 -import(api_refac, [fun_define_info/1]).
@@ -87,24 +85,16 @@ transform(Args=#args{current_file_name=File,focus_sel=FunDef,
 %% transform the current file.
 transform_in_cur_file(_Args=#args{current_file_name=File},MFA, I, J)->
     ?FULL_TD_TP([rule1(MFA, I, J),
-              rule2(MFA, I, J),
-              rule3(MFA, I, J),
-              rule4(MFA, I, J),
-              rule5(MFA, I, J),
-              rule6(MFA, I, J)],
-             [File]).
+                 rule2(MFA, I, J)],
+                [File]).
 
 %% transform the client files.
 transform_in_client_files(_Args=#args{current_file_name=File,
-                                     search_paths=SearchPaths}, 
+                                      search_paths=SearchPaths}, 
                           MFA, I, J) ->
-    ?FULL_TD_TP([rule2(MFA, I, J),
-              rule3(MFA, I, J),
-              rule4(MFA, I, J),
-              rule5(MFA, I, J),
-              rule6(MFA, I, J)],
-             api_refac:client_files(File, SearchPaths)).
-                  
+    ?FULL_TD_TP([rule2(MFA, I, J)],
+                api_refac:client_files(File, SearchPaths)).
+
 
 %% transform the function definition itself.
 rule1({M,F,A}, I, J) ->
@@ -114,108 +104,32 @@ rule1({M,F,A}, I, J) ->
           end,
           api_refac:fun_define_info(f@) == {M, F, A}).
 
-%% the following rules transform the different kinds of 
-%% application senarioes of the function.
+%% Transform the different kinds of function applications.
 rule2({M,F,A}, I, J) ->
-    ?RULE(?T("F@(Args@@)"), 
-          begin NewArgs@@=swap(Args@@, I, J),
-                ?QUOTE("F@(NewArgs@@)")
-          end,
-          fun_define_info(F@) == {M, F, A}).
-
-rule3({M,F,A}, I, J)->
-    ?RULE(?T("Fun@(N@@, M@, F@, [Args@@])"),
+    ?RULE(?FUN_APPLY(M,F,A),
           begin
-              NewArgs@@=swap(Args@@, I, J),
-              ?QUOTE("Fun@(N@@, M@, F@,[NewArgs@@])")
+              Args=api_refac:get_app_args(_This@), 
+              NewArgs=swap(Args, I, J),
+              api_refac:update_app_args(_This@,NewArgs)
           end,
-          case fun_define_info(Fun@) of
-              {erlang, apply, _} -> 
-                  api_refac:fun_define_info(F@) == {M,F,A};
-              _ -> false
-          end).
-
-rule4({M,F,A}, I, J) ->
-    ?RULE(?T("Fun@(N@@, M@, F@, Args@)"),
-          begin
-              AfterStr =lists:flatten(
-                          io_lib:format(
-                            "Fun@(N@@, M@, F@, 
-                                    fun(List) ->
-                                       Ith = lists:nth(~p, List),
-                                       Jth = lists:nth(~p, List),
-                                       T = list_to_tuple(List),
-                                       T1=setelement(~p, setelement(~p, T, Jth), Ith),
-                                       tuple_to_list(T1)
-                                    end(Args@))", [I, J,J,I])),
-              ?QUOTE(AfterStr)
-          end,
-          case fun_define_info(Fun@) of 
-              {erlang,apply, _} -> 
-                  api_refac:fun_define_info(F@) == {M,F,A};
-              _ -> false
-          end).
-
-rule5({M,F,A}, I, J) ->
-    ?RULE(?T("Fun@(F@, [Args@@])"), 
-          begin
-              NewArgs@@= swap(Args@@, I,J),
-              ?QUOTE("Fun@(F@, [NewArgs@@])")
-          end, 
-          fun_define_info(Fun@)=={erlang, apply, 2} andalso 
-          fun_define_info(F@)=={M,F,A}).
-
-rule6({M,F,A}, I, J)->
-    ?RULE(?T("Fun@(F@, Args@)"), 
-          begin
-              AfterStr =lists:flatten(
-                          io_lib:format(
-                            "Fun@(F@, 
-                                    fun(List) ->
-                                       Ith = lists:nth(~p, List),
-                                       Jth = lists:nth(~p, List),
-                                       T = list_to_tuple(List),
-                                       T1=setelement(~p, setelement(~p, T, Jth), Ith),
-                                       tuple_to_list(T1)
-                                    end(Args@))", [I, J,J ,I])),
-              ?QUOTE(AfterStr)
-          end,
-          fun_define_info(Fun@)=={erlang, apply, 2} andalso
-          fun_define_info(F@)=={M,F,A}).
-
+          true).
 
 %% utility functions.
-swap(List, I, J) ->
+swap(List, I, J) when is_list(List) ->
     Ith = lists:nth(I, List),
     Jth = lists:nth(J, List),
     T = list_to_tuple(List),
     T1=setelement(J, setelement(I, T, Jth), Ith),
-    tuple_to_list(T1).
- 
- 
-
-swap_args({FileName, FunName, Arity}, Index1, Index2, SearchPaths, Editor, TabWidth) ->
-    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-    ModName=list_to_atom(filename:basename(FileName, ".erl")),
-    case wrangler_misc:funname_to_defpos(AnnAST, {ModName, FunName, Arity}) of
-	{ok, DefPos} ->
-            {ok, FunDef} = api_interface:pos_to_fun_def(FileName, DefPos),
-            Args=#args{current_file_name=FileName,
-                       focus_sel=FunDef,
-                       user_inputs=[Index1, Index2],
-                       search_paths=SearchPaths,
-                       tabwidth=TabWidth},
-            case check_pre_cond(Args) of
-                ok -> 
-                    case transform(Args) of
-                        {ok, Res} ->
-                            wrangler_write_file:write_refactored_files(Res,Editor,TabWidth,"");
-                        {error, Reason}->
-                            {error, Reason}
-                    end;
-                {error, Reason} ->
-                    {error, Reason}
-            end;
-        {error, Reason} ->
-            {error, Reason}
-    end.
+    tuple_to_list(T1);
+swap(Node, I, J) ->
+    Str=lists:flatten(
+          io_lib:format(
+            "fun(List) ->
+                    Ith = lists:nth(~p, List),
+                    Jth = lists:nth(~p, List),
+                    T = list_to_tuple(List),
+                    T1=setelement(~p, setelement(~p, T, Jth), Ith),
+                    tuple_to_list(T1)
+            end(~s)", [I, J, J, I, ?SPLICE(Node)])),
+    ?QUOTE(Str).
+            
