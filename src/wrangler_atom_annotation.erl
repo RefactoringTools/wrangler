@@ -323,11 +323,11 @@ do_type_ann_args({M, F, A}, MappedArgs, Args, Pid) ->
 do_type_ann_args_1(ParTypes, MappedArgs, Args, Pid) ->
     ZippedParTypeArgs = lists:zip(ParTypes, Args),
     lists:map(fun ({ParType, Arg}) ->
-		      case ParType of
+                      case ParType of
 			any ->
 			    Arg;
 			_ when is_function(ParType) ->
-			      add_type_info(ParType(MappedArgs), Arg, Pid);
+                              add_type_info(ParType(MappedArgs), Arg, Pid);
 			{f_atom, [M, F, Arity]} ->
 			      M1 = case is_function(M) of
 				   true -> M(MappedArgs);
@@ -651,9 +651,9 @@ type(erlang, spawn_link, 4) ->
 type(erlang, spawn_monitor, 3) -> 
     mfa_type();
 type(erlang, spawn_opt, 4) ->
-    {[m_atom, f_atom_type(), any, any], any};
+    {[m_atom, f_atom_type_1(), any, any], any};
 type(erlang, spawn_opt, 5) ->
-    {[any, m_atom, f_atom_type(), any, any], any};
+    {[any, m_atom, f_atom_type_1(), any, any], any};
 type(erlang, whereis, 1) ->
     {[p_atom], any};
 type(erlang, register, 2) ->
@@ -814,21 +814,24 @@ mfa_type() ->
 
 f_atom_type() ->
     fun(Args)->
-	    case Args of
-		[A1, A2, A3]-> 
-		    {f_atom, [try_eval(A1, fun is_atom/1), 
-			      try_eval(A2, fun is_atom/1),
-			      try_eval_length(A3)]};
-		[_A0,A1,A2,A3] ->
-		     {f_atom, [try_eval(A1, fun is_atom/1), 
-			      try_eval(A2, fun is_atom/1),
-			       try_eval_length(A3)]};
-		[_A0,A1,A2,A3,_A4] ->
-		    {f_atom, [try_eval(A1, fun is_atom/1), 
-			      try_eval(A2, fun is_atom/1),
-			      try_eval_length(A3)]}
-	    end
+            A1 = lists:nth(length(Args)-2, Args),
+            A2 = lists:nth(length(Args)-1, Args),
+            A3 = lists:nth(length(Args), Args),
+            {f_atom, [try_eval(A1, fun is_atom/1), 
+                      try_eval(A2, fun is_atom/1),
+                      try_eval_length(A3)]}
     end.
+
+f_atom_type_1() ->
+    fun(Args)->
+            A1 = lists:nth(length(Args)-3, Args),
+            A2 = lists:nth(length(Args)-2, Args),
+            A3 = lists:nth(length(Args)-1, Args),
+            {f_atom, [try_eval(A1, fun is_atom/1), 
+                      try_eval(A2, fun is_atom/1),
+                      try_eval_length(A3)]}
+    end.
+
 
 server_ref_type() ->
     fun(Args) ->
