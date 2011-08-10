@@ -37,7 +37,8 @@
          swap_args/4,
          fold_expr/4,
          gen_fun/6,
-         move_fun/4]).
+         move_fun/4,
+         unfold_fun_app/3]).
 
 -include("../include/wrangler.hrl").
 
@@ -218,6 +219,19 @@ rename_var_1(File, FunName, Arity, VarFilter, NewVarName, SearchPaths) ->
                      SearchPaths, composite_emacs]}, gen_question(rename_var,{File,F,A,V})}
      ||{F, A}<-FAs, V<-get_vars(File, F, A, VarFilter)].
 
+
+unfold_fun_app(ModOrFile, Pos, SearchPaths) ->
+    Files= get_files(ModOrFile, SearchPaths),
+    Refacs=[unfold_fun_app_1(File, Pos, SearchPaths)
+            ||File<-Files],
+    lists:append(Refacs).
+
+
+unfold_fun_app_1(File, Pos, SearchPaths) ->
+    [{refactoring, {refac_unfold_fun_app, unfold_fun_app,
+                    [File, Pos, SearchPaths, composite_emacs], 
+                    gen_question(unfold_fun_app, {File, Pos})}}].
+
 get_files(ModOrFile, SearchPaths) ->
     Files = wrangler_misc:expand_files(SearchPaths, ".erl"),    
     case ModOrFile of 
@@ -371,7 +385,12 @@ gen_question(gen_fun, {File, F, A, _Expr}) ->
 gen_question(move_fun, {SrcFile, F, A, TgtFile}) ->
     M=list_to_atom(filename:basename(SrcFile, ".erl")),
     lists:flatten(io_lib:format("Do you want to move function ~p:~p/~p to file ~p?",
-                                 [M,F,A, TgtFile])).
+                                [M,F,A, TgtFile]));
+gen_question(unfold_fun_app, {File, Loc}) ->
+    M=list_to_atom(filename:basename(File, ".erl")),
+    lists:flatten(io_lib:format("Do you want to unfold the function application at "
+                                "location ~p in module ~p?",
+                                [Loc, M])).
 
 
 swap_args({ModOrFile, FunName, Arity}, Index1, Index2, SearchPaths) ->
