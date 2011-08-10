@@ -356,9 +356,13 @@
          match/2,
          match/3,
          search_and_transform/3,
-         search_and_collect/3]).
+         search_and_collect/3,
+         meta_apply_templates/3]).
         
--include("../include/wrangler_internal.hrl").
+-compile(export_all).
+
+-include("../include/wrangler.hrl").
+
 
 %% ======================================================================
 %% @doc Generates a new name by appending "_1" to the end of the 'BaseName'
@@ -1411,9 +1415,31 @@ match(Temp, Node) ->
     wrangler_generalised_unification:expr_match(Temp, Node).
 
 %%@private
-match(Temp, Node, Cond) -> 
-    wrangler_generalised_unification:expr_match(Temp, Node, Cond).
-    
+match({meta_apply, TCs}, Node, Cond) ->
+    %% wrangler_io:format("Temp:\n~p\n", [TCs]),
+    match_meta_apply_temp(TCs, Node, Cond);
+match(Temp, Node, Cond) ->
+    wrangler_generalised_unification:expr_match(
+      Temp, Node, Cond).
+
+
+match_meta_apply_temp(MetaApplyTemp, Node, Cond) ->
+    case MetaApplyTemp of
+        [] -> false;
+        [{T, C}|TCs] ->
+            case wrangler_generalised_unification:expr_match(T, Node, Cond) of
+                {true, Subst} ->
+                    case C(Node) of
+                        true ->
+                            {true, Subst}; 
+                        false ->
+                            match_meta_apply_temp(TCs, Node, Cond)
+                    end;
+                false ->
+                    match_meta_apply_temp(TCs, Node, Cond)
+            end
+    end.
+
 
 try_expr_match([], _Node) ->false;
 try_expr_match([{rule,Fun,BeforeExpr}|T], Node) 
@@ -2058,7 +2084,6 @@ make_arity_qualifier(FunName, Arity) when
 make_arity_qualifier(_FunName, _Arity) ->
     erlang:error("badarg to function refac_api:make_arity_qualifier/2.").
 
-
    
 check_rules(Rules) when is_list(Rules)->
     AllRules=lists:all(fun(R) ->
@@ -2105,3 +2130,318 @@ check_collectors(_Collectors) ->
 -spec start_end_loc([syntaxTree()]|syntaxTree()) ->{pos(), pos()}.
 start_end_loc(Tree) ->
     wrangler_misc:start_end_loc(Tree).
+
+-record(fun_app, {mod_name,
+                  fun_name,
+                  args}).
+
+get_app_mod(AppNode) ->
+    FunApp=match_app_node(AppNode),
+    FunApp#fun_app.mod_name.
+
+get_app_fun(AppNode) ->
+    FunApp=match_app_node(AppNode),
+    FunApp#fun_app.fun_name.
+
+get_app_args(AppNode) ->
+    FunApp=match_app_node(AppNode),
+    FunApp#fun_app.args.
+
+update_app_mod(AppNode, ModName) ->
+    AppNode1=update_app_node(AppNode, {mod_name, ModName}),
+    wrangler_misc:rewrite(AppNode, AppNode1).
+
+update_app_fun(AppNode, FunName) ->
+    AppNode1=update_app_node(AppNode, {fun_name, FunName}),
+    wrangler_misc:rewrite(AppNode, AppNode1).
+   
+update_app_args(AppNode, Args) ->
+    AppNode1=update_app_node(AppNode, {args, Args}),
+    wrangler_misc:rewrite(AppNode, AppNode1).
+  
+
+special_funs() ->
+    [{erlang, apply,3},
+     {erlang, hibernate,3}, 
+     {erlang, spawn,3},
+     {erlang, spawn,4},
+     {erlang, spawn_link, 3},
+     {erlang, spawn_link, 4},
+     {erlang, spawn_monitor,3}].
+
+match_app_node(AppNode) ->
+    case match(?T("Fun@(N@@, M@, F@, Args@)"), AppNode) of
+        {true, Bind} ->
+            {'Fun@', Fun} = lists:keyfind('Fun@', 1, Bind),
+            {'M@', M} = lists:keyfind('M@', 1, Bind),
+            {'F@', F} = lists:keyfind('F@', 1, Bind),
+            {'Args@', Args} = lists:keyfind('Args@', 1, Bind),
+            case lists:member(fun_define_info(Fun), special_funs()) of 
+                true ->
+                    Args1 = case wrangler_syntax:type(Args) of 
+                                list ->
+                                    wrangler_syntax:list_elements(Args);
+                                _ ->
+                                    Args
+                            end,
+                    #fun_app{mod_name=M, fun_name=F, args=Args1};
+                false ->
+                    match_app_node_1(AppNode)
+            end;
+        _ ->
+            match_app_node_1(AppNode)
+    end.
+match_app_node_1(AppNode) ->
+    case match(?T("Fun@(N@@, M@, F@, Args@, Opts@)"), AppNode) of
+        {true, Bind} ->
+            {'Fun@', Fun} = lists:keyfind('Fun@', 1, Bind),
+            {'M@', M} = lists:keyfind('M@', 1, Bind),
+            {'F@', F} = lists:keyfind('F@', 1, Bind),
+            {'Args@', Args} = lists:keyfind('Args@', 1, Bind),
+            case lists:member(fun_define_info(Fun), 
+                              [{erlang, spawn_opt, 4},
+                               {erlang, spawn_opt, 5}]) of 
+                true ->
+                    Args1 = case wrangler_syntax:type(Args) of 
+                                list ->
+                                    wrangler_syntax:list_elements(Args);
+                                _ ->
+                                    Args
+                            end,
+                    #fun_app{mod_name=M, fun_name=F, args=Args1};
+                false ->
+                    match_app_node_2(AppNode)
+            end;
+        _ ->
+            match_app_node_2(AppNode)
+    end.
+
+match_app_node_2(AppNode) ->
+    case match(?T("Fun@(F@, Args@)"), AppNode) of
+        {true, Bind} ->
+            {'Fun@', Fun} = lists:keyfind('Fun@', 1, Bind),
+            {'F@', F} = lists:keyfind('F@', 1, Bind),
+            {'Args@', Args} = lists:keyfind('Args@', 1, Bind),
+            case fun_define_info(Fun) =={erlang, apply,2} of 
+                true ->
+                    Args1 = case wrangler_syntax:type(Args) of 
+                                list ->
+                                    wrangler_syntax:list_elements(Args);
+                                _ ->
+                                    Args
+                            end,
+                    Name = wrangler_syntax:implicit_fun_name(F),
+                    case wrangler_syntax:type(Name) of
+                        arity_qualifier ->
+                            F1 =wrangler_syntax:arity_qualifier_body(Name),
+                            #fun_app{mod_name=none, fun_name=F1, args=Args1};
+                        module_qualifier ->
+                            M = wrangler_syntax:module_qualifier_argument(Name),
+                            Name1 = wrangler_syntax:module_qualifier_body(Name),
+                            F1 = wrangler_syntax:arity_qualifier_body(Name1),
+                            #fun_app{mod_name=M, fun_name=F1, args=Args1}
+                    end;
+                false ->
+                    match_app_node_3(AppNode)
+            end;
+        _ ->
+            match_app_node_3(AppNode)
+    end.
+match_app_node_3(AppNode) ->
+    case match(?T("F@(Args@@)"), AppNode) of 
+        {true, Bind} ->
+            {'F@', Fun} = lists:keyfind('F@', 1, Bind),
+            {'Args@@', Args} = lists:keyfind('Args@@', 1, Bind),
+            case wrangler_syntax:type(Fun) of 
+                module_qualifier ->
+                    M = wrangler_syntax:module_qualifier_argument(Fun),
+                    F= wrangler_syntax:module_qualifier_body(Fun),
+                    #fun_app{mod_name=M, fun_name=F, args=Args};
+                _ ->
+                    #fun_app{mod_name=none, fun_name=Fun, args=Args}
+            end;
+        _ ->
+            #fun_app{}
+    end.
+         
+update_app_node(AppNode, {Tag, Node}) ->
+    case match(?T("Fun@(N@@, M@, F@, Args@)"), AppNode) of
+        {true, Bind} ->
+            {'Fun@', Fun} = lists:keyfind('Fun@', 1, Bind),
+            {'N@@', N} = lists:keyfind('N@@', 1, Bind),
+            {'M@', M} = lists:keyfind('M@', 1, Bind),
+            {'F@', F} = lists:keyfind('F@', 1, Bind),
+            {'Args@', Args} = lists:keyfind('Args@', 1, Bind),
+            case lists:member(fun_define_info(Fun), special_funs()) of 
+                true ->
+                    NewArgs=case Tag of 
+                                mod_name ->
+                                    N++[Node,F,Args];
+                                fun_name ->
+                                    N++[M,Node,Args];
+                                args when is_list(Node)->
+                                    N++[M,F,wrangler_syntax:list(Node)];
+                                args ->
+                                    N++[M,F, Node]
+                            end,
+                    wrangler_syntax:application(Fun,NewArgs);
+                false->
+                    update_app_node_1(AppNode, {Tag,Node})
+            end;
+        false ->
+            update_app_node_1(AppNode, {Tag,Node})
+    end.
+update_app_node_1(AppNode, {Tag, Node}) ->
+    case match(?T("Fun@(N@@, M@, F@, Args@, Opts@)"), AppNode) of
+        {true, Bind} ->
+            {'Fun@', Fun} = lists:keyfind('Fun@', 1, Bind),
+            {'N@@', N} = lists:keyfind('N@@', 1, Bind),
+            {'M@', M} = lists:keyfind('M@', 1, Bind),
+            {'F@', F} = lists:keyfind('F@', 1, Bind),
+            {'Args@', Args} = lists:keyfind('Args@', 1, Bind),
+            {'Opts@', Opts} = lists:keyfind('Opts@', 1, Bind),
+            case lists:member(fun_define_info(Fun), 
+                              [{erlang, spawn_opt, 4},
+                               {erlang, spawn_opt, 5}]) of 
+                true ->
+                    NewArgs=case Tag of 
+                                mod_name ->
+                                    N++[Node,F,Args,Opts];
+                                fun_name ->
+                                    N++[M, Node,Args,Opts];
+                                args when is_list(Node)->
+                                    N++[M, F,wrangler_syntax:list(Node),Opts];
+                                args ->
+                                    N++[M, F,Node,Opts]
+                            end,
+                    wrangler_syntax:application(Fun,NewArgs);
+                false ->
+                    update_app_node_2(AppNode, {Tag, Node})
+            end;
+        _ ->
+            update_app_node_2(AppNode, {Tag, Node})
+    end.
+update_app_node_2(AppNode, {Tag, Node}) ->
+    case match(?T("Fun@(F@, Args@)"), AppNode) of
+        {true, Bind} ->
+            {'Fun@', Fun} = lists:keyfind('Fun@', 1, Bind),
+            {'F@', F} = lists:keyfind('F@', 1, Bind),
+            {'Args@', Args} = lists:keyfind('Args@', 1, Bind),
+            case fun_define_info(Fun)=={erlang, apply,2} of 
+                true ->
+                    Name = wrangler_syntax:implicit_fun_name(AppNode),
+                    NewArgs=case Tag of 
+                                mod_name ->
+                                    case wrangler_syntax:type(Name) of 
+                                        arity_qualifier ->
+                                            AppNode;
+                                        module_qualifier ->
+                                            B = wrangler_syntax:module_qualifier_body(Name),
+                                            Node1=wrangler_syntax:implicit_fun(
+                                                    wrangler_syntax:module_qualifier(Node, B)),
+                                            [Node1,Args]
+                                    end;
+                                fun_name ->
+                                    case wrangler_syntax:type(Name) of 
+                                        arity_qualifier ->
+                                            A = wrangler_syntax:arity_qualifier_argument(Name),
+                                            Node1 = wrangler_syntax:implicit_fun(Node, A),
+                                            [Node1, Args];
+                                        module_qualifier ->
+                                            B = wrangler_syntax:module_qualifier_body(Name),
+                                            A = wrangler_syntax:arity_qualifier_argument(
+                                                  wrangler_syntax:module_qualifier_argument(Name)),
+                                            Node1 =wrangler_syntax:implicit_fun(
+                                                     wrangler_syntax:module_qualifier(
+                                                       B,wrangler_syntax:arity_qualifier(Node, A))), 
+                                            [Node1,Args]
+                                        end;
+                                args when is_list(Node)->
+                                    [F,wrangler_syntax:list(Node)];
+                                args ->
+                                    [F,Node]
+                            end,
+                    wrangler_syntax:application(Fun,NewArgs);
+                false ->
+                    update_app_node_3(AppNode, {Tag, Node})
+            end;
+        _ ->
+            update_app_node_3(AppNode, {Tag, Node})
+    end.
+update_app_node_3(AppNode, {Tag, Node}) ->
+    case match(?T("F@(Args@@)"), AppNode) of 
+        {true, Bind} ->
+            {'F@', Fun} = lists:keyfind('F@', 1, Bind),
+            {'Args@@', Args} = lists:keyfind('Args@@', 1, Bind),
+            {M,F} = case wrangler_syntax:type(Fun) of 
+                        module_qualifier ->
+                            {wrangler_syntax:module_qualifier_argument(Fun),
+                            wrangler_syntax:module_qualifier_body(Fun)};
+                        _ -> 
+                            {none, Fun}
+                    end,
+            case Tag of 
+                mod_name ->
+                    wrangler_syntax:application(Node, F, Args);
+                fun_name ->
+                    wrangler_syntax:application(M, Node, Args);
+                args ->
+                    wrangler_syntax:application(M, F, Node)
+            end;
+        false ->
+            AppNode
+    end.
+     
+meta_apply_templates(M,F,A)->
+    [{api_refac:template("F@(Args@@)"),  
+      fun(Node) -> 
+              fun_define_info(wrangler_syntax:application_operator(Node))
+                  == {M, F, A}
+      end},
+     {api_refac:template("M@:F@(Args@@)"),  
+      fun(Node) -> 
+              fun_define_info(wrangler_syntax:application_operator(Node))
+                  == {M, F, A}
+      end},
+     {api_refac:template("Fun@(F@,Args@)"),  
+      fun(Node) -> 
+              Op = wrangler_syntax:application_operator(Node),
+              Args = wrangler_syntax:application_arguments(Node),
+              Fun = hd(Args),
+              api_refac:fun_define_info(Op)=={erlang, apply,2} andalso
+                  fun_define_info(Fun)=={M,F,A}
+      end},
+     {api_refac:template("Fun@(N@@, M@, F@, Args@)"),  
+      fun(Node) -> 
+              Op = wrangler_syntax:application_operator(Node),
+              Args = wrangler_syntax:application_arguments(Node),
+              Fun = lists:nth(length(Args)-1, Args),
+              case lists:member(api_refac:fun_define_info(Op), 
+                                [{erlang, apply,3},
+                                 {erlang, hibernate,3}, 
+                                 {erlang, spawn,3},
+                                 {erlang, spawn,4},
+                                 {erlang, spawn_link, 3},
+                                 {erlang, spawn_link, 4},
+                                 {erlang, spawn_monitor,3}]) of 
+                  true ->
+                      fun_define_info(Fun)=={M,F,A};
+                  false ->
+                      false
+              end
+      end},
+     {api_refac:template("Fun@(N@@, M@, F@, Args@, Opts@)"),  
+      fun(Node) -> 
+              Op = wrangler_syntax:application_operator(Node),
+              Args = wrangler_syntax:application_arguments(Node),
+              Fun = lists:nth(length(Args)-2, Args),
+              case lists:member(api_refac:fun_define_info(Op), 
+                                [{erlang, spawn_opt,4},
+                                 {erlang, spawn_opt, 5}]) of 
+                  true ->
+                      fun_define_info(Fun)=={M,F,A};
+                  false ->
+                      false
+              end
+      end}
+    ].
