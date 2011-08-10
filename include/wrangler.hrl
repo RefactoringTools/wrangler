@@ -54,7 +54,7 @@
 
 -define(RULE(Before, After, Cond),
         fun()->
-                api_refac:check_collect_template(Before, '?RULE'),
+                api_refac:check_collect_template(Before, 'RULE'),
                 {rule, fun(_W_Node_) ->
                                _W_NewCond=fun(_W_Bind_) -> 
                                                   api_refac:make_cond(Cond, _W_Bind_)
@@ -67,9 +67,8 @@
                                        {wrangler_misc:reset_pos_and_range(_W_After), true};
                                    false ->{_W_Node_, false}
                                end 
-                       end,Before}
+                       end, Before} 
         end()).
-
 
 -define(T(Template), api_refac:template(Template)).
  
@@ -141,3 +140,5 @@
 -define(STOP_TD_TU(Collectors, FileOrDirs),
         api_refac:search_and_collect(Collectors, FileOrDirs, stop_td_tu)).
 
+-define(FUN_APPLY(M,F,A),
+        {meta_apply, api_refac:meta_apply_templates(M,F,A)}).
