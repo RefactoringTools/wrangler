@@ -60,7 +60,7 @@ parse_transform(Forms, Options) ->
                              fun(Form, _Context) ->
                                      expand_quote(Form)
                              end, annotate_forms(Forms5), Options),
-    %% refac_io:format("Form6:\n~s\n", [[erl_prettypr:format(F)||F <- Forms6]]),
+   %% wrangler_io:format("Form6:\n~s\n", [[erl_prettypr:format(F)++"\n\n"||F <- Forms6]]),
     Forms6.
 
 
@@ -91,21 +91,41 @@ expand_template(TempApp) ->
     Op= erl_syntax:module_qualifier(erl_syntax:atom(api_refac), erl_syntax:atom(extended_parse_annotate_expr)),
     erl_syntax:application(Op, [Str, erl_syntax:integer(Ln)]).
    
+is_meta_apply_temp(Temp) ->
+    case erl_syntax:type(Temp) of 
+        tuple ->
+            Es = erl_syntax:tuple_elements(Temp),
+            case Es of 
+                [E|_] ->
+                    erl_syntax:type(E) == atom andalso
+                        erl_syntax:atom_value(E)=='meta_apply';
+                _ -> false
+            end;
+        _ -> false
+    end.
 
-check_collect_template(Temp, Macro) ->
-    MacroName = erl_syntax:atom_value(Macro),
-    case is_template_app(Temp) of 
+check_collect_template(Temp, Macro)->
+    case is_meta_apply_temp(Temp) of
         true ->
-            [Str] = erl_syntax:application_arguments(Temp),
-            check_template_syntax(Str),
-            Temp;
+            erl_syntax:atom(ok);
         false ->
-            Pos = erl_syntax:get_pos(Temp),
-            Ln = case Pos of 
-                     {L, _} -> L;
-                     _ -> Pos
-                   end,
-            erlang:error(lists:flatten(io_lib:format("The first argument of the ~p macro, at line ~p,  must be a template.", [MacroName,Ln])))
+            MacroName = erl_syntax:atom_value(Macro),
+            case is_template_app(Temp) of 
+                true ->
+                    [Str] = erl_syntax:application_arguments(Temp),
+                    check_template_syntax(Str),
+                    erl_syntax:atom(ok);
+                false ->
+                    Pos = erl_syntax:get_pos(Temp),
+                    Ln = case Pos of 
+                             {L, _} -> L;
+                             _ -> Pos
+                         end,
+                    erlang:error(
+                      lists:flatten(
+                        io_lib:format("The first argument of the ~p macro, at line ~p, " 
+                                      "must be a template.", [MacroName,Ln])))
+            end
     end.
 
 is_template_app(Temp) ->
@@ -142,19 +162,38 @@ expand_quote(QuoteApp) ->
     Op1 = erl_syntax:module_qualifier(erl_syntax:atom(api_refac), erl_syntax:atom(subst)),
     erl_syntax:application(Op1,[App, Binds]).
    
-
 expand_generate_bindings(Temp, BindVar) ->
-    [TempStr]=wrangler_syntax:application_arguments(Temp),
-    BindVarName = erl_syntax:atom_value(BindVar),
+    case is_meta_apply_temp(Temp) of 
+        true ->
+            %% [_, MetaAppTemp] = erl_syntax:tuple_elements(Temp),
+            %% Es = erl_syntax:list_elements(MetaAppTemp),
+            %%  Temps=[hd(erl_syntax:tuple_elements(E))||E<-Es],
+            %%  get_meta_var_and_atoms(Temps);
+            %% %% {[],[]};
+            erl_syntax:block_expr([erl_syntax:atom(ok)]);
+        false ->
+            {MetaVars, MetaAtoms}=get_meta_var_and_atoms([Temp]),
+            BindVarName = erl_syntax:atom_value(BindVar),
+            MatchExprs = lists:append([make_match_expr(V, P, BindVarName)||
+                                          {V,P} <- MetaVars, V=/='_This@', V=/='_File@']),
+            MetaAtomMatchExprs=lists:append([make_match_expr_for_meta_atom(V, P,BindVarName)||
+                                                {V,P}<-MetaAtoms]),
+            erl_syntax:block_expr(MatchExprs++MetaAtomMatchExprs)
+    end.
+            
+
+get_meta_var_and_atoms(Temps) ->
+    {MetaVars, MetaAtoms}=lists:unzip([get_meta_var_and_atoms_1(Temp)
+                                       ||Temp<-Temps]),
+    {lists:ukeysort(1, lists:append(MetaVars)), 
+     lists:ukeysort(1, lists:append(MetaAtoms))}.
+
+get_meta_var_and_atoms_1(Temp) ->
+    [TempStr]=erl_syntax:application_arguments(Temp),
     Pos = erl_syntax:get_pos(TempStr),
     TempAST = api_refac:parse_annotate_expr(erl_syntax:string_value(TempStr), Pos),
     {MetaVars, MetaAtoms} =  collect_meta_vars_and_atoms(TempAST),
-    MatchExprs = lists:append([make_match_expr(V, P, BindVarName)||
-                                  {V,P} <- MetaVars, V=/='_This@', V=/='_File@']),
-    MetaAtomMatchExprs=lists:append([make_match_expr_for_meta_atom(V, P,BindVarName)|| {V,P}<-MetaAtoms]),
-    NewCode=erl_syntax:block_expr(MatchExprs++MetaAtomMatchExprs),
-    %% refac_io:format("NewCond:\n~s\n", [erl_prettypr:format(NewCode)]),
-    NewCode.
+    {MetaVars, MetaAtoms}.
 
 
 expand_match(Temp, Node, Cond) ->
