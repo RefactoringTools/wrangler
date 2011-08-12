@@ -389,6 +389,7 @@ is_var_name(Name) ->
 %%@doc Returns `true' if a string is lexically a legal function name,
 %%      otherwise `false'.
 %%@spec is_fun_name(string())-> boolean()
+-spec(is_fun_name(string())-> boolean()).
 is_fun_name(Name) ->
     case Name of
       [H| T] -> is_lower(H) and is_var_name_tail(T);
@@ -605,13 +606,19 @@ imported_funs(File, ModuleName) ->
 
 -spec(inscope_funs/1::(filename()|module_info()) -> [{atom(),atom(),integer()}]).
 inscope_funs(FileOrModInfo) ->
-  case filelib:is_regular(FileOrModInfo) of
-      true ->
-          {ok, {_, Info}} = wrangler_ast_server:parse_annotate_file(FileOrModInfo, true),
-          inscope_funs_1(Info);
-      false ->
-          inscope_funs_1(FileOrModInfo)
-  end.      
+    case FileOrModInfo of 
+        [{_Key, _}|_] ->
+            inscope_funs_1(FileOrModInfo);
+        _ ->
+            case filelib:is_regular(FileOrModInfo) of 
+                true ->
+                    {ok, {_, Info}} = wrangler_ast_server:parse_annotate_file(FileOrModInfo, true),
+                    inscope_funs_1(Info);
+                false ->
+                    throw({error,badarg})
+            end
+    end.
+     
 inscope_funs_1(ModInfo) ->
     Imps = case lists:keysearch(imports, 1, ModInfo) of
                {value, {imports, I}} ->
