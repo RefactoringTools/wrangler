@@ -71,42 +71,40 @@
 
 -include("../include/wrangler_internal.hrl").
 
--record(module_info, {filename, 
-		      modname,
-		      inscope_funs, 
-		      macro_defs, 
-		      record_defs, 
-		      includes, 
-		      ast :: syntaxTree(),
-		      info}).
+-record(modinfo, {filename :: filename(),
+                  modname  :: atom(),
+                  inscope_funs ::[{atom(), atom(), integer()}],
+                  macro_defs :: [{atom(), any()}],
+                  record_defs ::[{atom(), any()}],
+                  includes ::[filename()],
+                  ast :: syntaxTree(),
+                  info:: [{key(), any()}]}).
 %==========================================================================================
-%%-spec(move_fun/6::(filename(),integer(),integer(), string(), [dir()], integer())->
-%%	     {ok, [filename()]} | {question, string()}).
+-spec(move_fun/6::(filename(),integer(),integer(), string(), [dir()], integer())->
+	     {ok, [filename()]} | {question, string()}).
 move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) ->
     move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, emacs).
 
-%%-spec(move_fun_1/7::(filename(),integer(),integer(), string(),boolean(), [dir()], integer())->
-%%	     {ok, [filename()]}).
+-spec(move_fun_1/7::(filename(),integer(),integer(), string(),boolean(), [dir()], integer())->
+	     {ok, [filename()]}).
 move_fun_1(FName, Line, Col, TargetModorFileName, CheckCond, SearchPaths, TabWidth) ->
     move_fun_1(FName, Line, Col, TargetModorFileName, CheckCond, SearchPaths, TabWidth, emacs).
 
 
-%%-spec(move_fun_eclipse/6::(filename(),integer(),integer(), string(),[dir()], integer())
-%%        ->  {ok, [{filename(), filename(), string()}]} | {question, string()}).
-
+-spec(move_fun_eclipse/6::(filename(),integer(),integer(), string(),[dir()], integer())
+        ->  {ok, [{filename(), filename(), string()}]} | {question, string()}).
 move_fun_eclipse(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) ->
     move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, eclipse).
 
 
 %% THIS interface need to be changed; and should inform George of the changes.
-%%-spec(move_fun_1_eclipse/6::(filename(),integer(),integer(), string(),[dir()], integer())
-%%        ->  {ok, [{filename(), filename(), string()}]}).
-
+-spec(move_fun_1_eclipse/6::(filename(),integer(),integer(), string(),[dir()], integer())
+        ->  {ok, [{filename(), filename(), string()}]}).
 move_fun_1_eclipse(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) ->
     move_fun_1(FName, Line, Col, TargetModorFileName, true, SearchPaths, TabWidth, eclipse).
 
-%%-spec(move_fun_command/5::(modulename()|filename(), atom(), integer(), modulename()|filename(),[dir()])->
-%%				 {error, string()} | {ok, [filename()]}).
+-spec(move_fun_command/5::(modulename()|filename(), atom(), integer(), modulename()|filename(),[dir()])->
+				 {error, string()} | {ok, [filename()]}).
 move_fun_command(ModorFileName, FunName, Arity, TargetModorFileName, SearchPaths) ->
     case get_file_name(ModorFileName, SearchPaths) of
 	{ok, OriginalFileName} ->
@@ -131,6 +129,8 @@ move_fun_command(ModorFileName, FunName, Arity, TargetModorFileName, SearchPaths
 	    throw({error, Reason})
     end.
 
+-spec(move_fun/7::(filename(),integer(),integer(), string(),[dir()], integer(), atom())
+                  ->  {ok, [{filename(), filename(), string()}]} | {question, string()}).
 move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:move_fun(~p, ~p, ~p, ~p, ~p, ~p).\n",
 		 [?MODULE, FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth]),
@@ -156,14 +156,17 @@ move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, Editor) -
 	false -> {question, "Target file "++ TargetFName ++ " does not exist, create it?"}
     end.
 
+-spec(move_fun_1/8::(filename(),integer(),integer(), string(), boolean(),[dir()], integer(), atom())
+                    ->  {ok, [{filename(), filename(), string()}]}).
 move_fun_1(FName, Line, Col, TargetModorFileName, CondCheck, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":move_fun_1(" ++ "\"" ++ 
 	    FName ++ "\", " ++ integer_to_list(Line) ++ 
-	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ TargetModorFileName ++ "\", " ++ "\""
+        ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ TargetModorFileName ++ "\", " ++ "\""
         ++atom_to_list(CondCheck)++"\", "
-          ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+        ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," 
+        ++ integer_to_list(TabWidth) ++ ").",
     CurModInfo = analyze_file(FName, SearchPaths, TabWidth),
-    AnnAST = CurModInfo#module_info.ast,
+    AnnAST = CurModInfo#modinfo.ast,
     case api_interface:pos_to_fun_def(AnnAST, {Line, Col}) of
 	{ok, Def} ->
 	    {value, {fun_def, {ModName, FunName, Arity, _Pos1, _Pos2}}} =
@@ -172,13 +175,13 @@ move_fun_1(FName, Line, Col, TargetModorFileName, CondCheck, SearchPaths, TabWid
 		       CondCheck, SearchPaths, TabWidth, Editor, Cmd);
 	{error, _Reason} ->
 	    {ok, ExpAttr} = pos_to_export(AnnAST, {Line, Col}),
-	    MFAs = get_exported_funs(CurModInfo#module_info.modname, ExpAttr),
+	    MFAs = get_exported_funs(CurModInfo#modinfo.modname, ExpAttr),
 	    move_fun_2(CurModInfo, MFAs, TargetModorFileName,
 		       CondCheck, SearchPaths, TabWidth, Editor, Cmd)
     end.
 
 move_fun_2(CurModInfo, MFAs, TargetModorFileName, CheckCond, SearchPaths, TabWidth, Editor, Cmd) ->
-    FName =CurModInfo#module_info.filename,
+    FName =CurModInfo#modinfo.filename,
     TargetFName = get_target_file_name(FName, TargetModorFileName),
     TargetModName = list_to_atom(filename:basename(TargetFName, ".erl")),
     NewTargetFile = case not filelib:is_file(TargetFName) of
@@ -186,7 +189,7 @@ move_fun_2(CurModInfo, MFAs, TargetModorFileName, CheckCond, SearchPaths, TabWid
 				true;
 			_ -> false
 		    end,
-    Forms = wrangler_syntax:form_list_elements(CurModInfo#module_info.ast),
+    Forms = wrangler_syntax:form_list_elements(CurModInfo#modinfo.ast),
     FunDefs = [{get_fun_mfa(F), F} || F <- Forms, defines(F, MFAs)],
     case FunDefs of
 	[] ->  throw({error, "You have not selected a well-formed function definition or an export attribute."});
@@ -198,7 +201,7 @@ move_fun_2(CurModInfo, MFAs, TargetModorFileName, CheckCond, SearchPaths, TabWid
     {MoveableDepFuns, UnDefinedMs1, UnDefinedRs1} =
 	get_moveable_dependent_funs(MFAs, CurModInfo, TargetModInfo, CG),
     NewMFAs = MFAs ++ MoveableDepFuns,
-    Info=CurModInfo#module_info.info,
+    Info=CurModInfo#modinfo.info,
     FunsToExportInTargetMod = get_funs_to_export_in_target_mod(NewMFAs, CG, Info),
     FunsToExportInCurMod = local_funs_to_be_exported_in_cur_module(NewMFAs, CG, Info),
     digraph:delete(CG),
@@ -217,13 +220,13 @@ move_fun_3(CurModInfo, TargetModInfo, MFAs, {UnDefinedMs, UnDefinedRs},
 	do_transformation(CurModInfo, TargetModInfo, MFAs, {UnDefinedMs, UnDefinedRs},
 			  FunsToExportInCurMod, FunsToExportInTargetMod, Pid,
 			  SearchPaths, TabWidth),
-    FName = CurModInfo#module_info.filename,
-    ModName = CurModInfo#module_info.modname,
-    TargetFName = TargetModInfo#module_info.filename,
-    TargetModName = TargetModInfo#module_info.modname,
+    FName = CurModInfo#modinfo.filename,
+    ModName = CurModInfo#modinfo.modname,
+    TargetFName = TargetModInfo#modinfo.filename,
+    TargetModName = TargetModInfo#modinfo.modname,
     check_unsure_atoms(FName, AnnAST1, AtomsToCheck, f_atom, Pid),
     check_unsure_atoms(TargetFName, TargetAnnAST1, AtomsToCheck, f_atom, Pid),
-    ExportedMFAs = exported_funs(MFAs, CurModInfo#module_info.info),
+    ExportedMFAs = exported_funs(MFAs, CurModInfo#modinfo.info),
     
     Results = case ExportedMFAs/=[] of
 		  true ->
@@ -248,15 +251,15 @@ move_fun_3(CurModInfo, TargetModInfo, MFAs, {UnDefinedMs, UnDefinedRs},
 do_transformation(CurModInfo, TargetModInfo, MFAs, {UnDefinedMs, UnDefinedRs},
 		  FunsToExportInCurMod, FunsToExportInTargetMod, Pid,
 		  SearchPaths, TabWidth)->
-    FileName=CurModInfo#module_info.filename,
-    Forms = wrangler_syntax:form_list_elements(CurModInfo#module_info.ast),
-    AttrsToAdd = get_attrs(Forms, UnDefinedMs, UnDefinedRs, TargetModInfo#module_info.includes),
+    FileName=CurModInfo#modinfo.filename,
+    Forms = wrangler_syntax:form_list_elements(CurModInfo#modinfo.ast),
+    AttrsToAdd = get_attrs(Forms, UnDefinedMs, UnDefinedRs, TargetModInfo#modinfo.includes),
     GroupedForms = group_forms(Forms),
     %% FormsToBeMoved = [F || F <- Forms, defines(F, MFAs) orelse type_specifies(F, MFAs)],
     FormsToBeMoved=lists:append([Fs||Fs<-GroupedForms, one_of_defines(Fs, MFAs) orelse
 					 one_of_type_specifies(Fs, MFAs)]),
-    TargetModName=TargetModInfo#module_info.modname,
-    InScopeFunsInTargetMod = TargetModInfo#module_info.inscope_funs,
+    TargetModName=TargetModInfo#modinfo.modname,
+    InScopeFunsInTargetMod = TargetModInfo#modinfo.inscope_funs,
     Args={FileName,MFAs, TargetModName,InScopeFunsInTargetMod, SearchPaths, TabWidth, Pid},
     FormsToBeMoved1 = transform_forms_to_be_moved(FormsToBeMoved, Args), 
     Args1={FileName, MFAs, FunsToExportInCurMod,TargetModName, SearchPaths, TabWidth, Pid},
@@ -419,10 +422,10 @@ do_remove_fun(Forms, FormsToBemoved, Args={_,_,FunsToBeExported,_,_,_,_}) ->
 %%=======================================================================
 do_add_fun(TargetModInfo, FormsToAdd, AttrsToAdd, MFAs = [{ModName, _, _}| _T],
 	   FunsToExport, SearchPaths, TabWidth, Pid) ->
-    FileName = TargetModInfo#module_info.filename,
-    TargetModName = TargetModInfo#module_info.modname,
-    Forms = wrangler_syntax:form_list_elements(TargetModInfo#module_info.ast),
-    Info = TargetModInfo#module_info.info,
+    FileName = TargetModInfo#modinfo.filename,
+    TargetModName = TargetModInfo#modinfo.modname,
+    Forms = wrangler_syntax:form_list_elements(TargetModInfo#modinfo.ast),
+    Info = TargetModInfo#modinfo.info,
     TargetMFAs = [get_fun_mfa(F) || F <- Forms, wrangler_syntax:type(F) == function],
     NewFormsToAdd = [F || F <- FormsToAdd,  not  defines(F, [{ModName, F1, A1} || {_M,F1,A1} <- TargetMFAs])],
     Args = {FileName, MFAs, TargetModName, SearchPaths, TabWidth, Pid},
@@ -994,7 +997,8 @@ reset_attrs(Node, {M, F, A}) ->
 %%              Side Condition Checking. 
 %%================================================================================
 
-
+-spec(analyze_file/3::(FName::filename(), SearchPaths::[dir()|filename()], integer()) ->
+                            #modinfo{}).
 analyze_file(FName, SearchPaths, TabWidth) ->
     Dir = filename:dirname(FName),
     DefaultIncls = [filename:join(Dir, X) || X <- wrangler_misc:default_incls()],
@@ -1005,12 +1009,12 @@ analyze_file(FName, SearchPaths, TabWidth) ->
 	{ok, AST, {MDefs, _MUses1}} ->
 	    MacroDefs = get_macro_defs(MDefs),
 	    ModInfo = get_mod_info_from_parse_tree(AST),
-	    RecordDefs = case lists:keyfind(records, 1, ModInfo) of
-                             {records, RecordDefsInFile} ->
-				 [{Name, lists:keysort(1, [{F, prettyprint(FDef)} || {F, FDef} <- Fields])}
-				  || {Name, Fields} <- RecordDefsInFile];
-			     false -> []
-			 end,
+            RecordDefs = case lists:keyfind(records, 1, ModInfo) of
+                              {records, RecordDefsInFile} ->
+	         		 [{Name, lists:keysort(1, [{F, prettyprint(FDef)} || {F, FDef} <- Fields])}
+	         		  || {Name, Fields} <- RecordDefsInFile];
+	         	     false -> []
+	         	 end,
             {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
             Forms = wrangler_syntax:form_list_elements(AnnAST),
 	    Includes = lists:append([lists:flatmap(fun (A) ->
@@ -1018,11 +1022,11 @@ analyze_file(FName, SearchPaths, TabWidth) ->
 							       string -> [wrangler_syntax:string_value(A)];
 							       _ -> []
 							   end
-						   end, Args)
+	 					   end, Args)
 				     || F <- Forms, is_attribute(F, include) orelse is_attribute(F, include_lib),
 					Args <- [wrangler_syntax:attribute_arguments(F)]]),
 	    InscopeFuns = api_refac:inscope_funs(ModInfo),
-            #module_info{filename = FName,
+            #modinfo{filename = FName,
 			 modname = get_module_name(Info),
 			 inscope_funs = InscopeFuns,
 			 macro_defs = MacroDefs,
@@ -1050,14 +1054,12 @@ side_cond_check(FunDefs, CurModInfo, TargetModInfo, NewTargetFile, CheckCond) ->
 	E1:E2 ->
 	    case NewTargetFile of 
 		true -> 
-		    TargetFName=TargetModInfo#module_info.filename,
+		    TargetFName=TargetModInfo#modinfo.filename,
 		    file:delete(TargetFName);
 		false-> ok
 	    end,
 	    throw({E1,E2})
     end.
-
-
 side_cond_check(FunDefs, CurModInfo, TargetModInfo, CheckCond) ->
     case CheckCond of
       true ->
@@ -1067,19 +1069,21 @@ side_cond_check(FunDefs, CurModInfo, TargetModInfo, CheckCond) ->
     end,
     check_macros_records(FunDefs, CurModInfo, TargetModInfo, CheckCond).
 
+-spec(check_macros_records/4::(FunDefs::[any()], #modinfo{}, #modinfo{}, boolean()) ->
+                                   {[atom()], [atom()]}).
 check_macros_records(FunDefs, CurModInfo, TargetModInfo, CheckCond) ->
-    CurRecordDefs=CurModInfo#module_info.record_defs,
-    TargetRecordDefs=TargetModInfo#module_info.record_defs,
+    CurRecordDefs=CurModInfo#modinfo.record_defs,
+    TargetRecordDefs=TargetModInfo#modinfo.record_defs,
     UnDefinedRecords = check_records(FunDefs, CurRecordDefs, TargetRecordDefs, CheckCond),
-    CurMacroDefs=CurModInfo#module_info.macro_defs,
-    TargetMacroDefs=TargetModInfo#module_info.macro_defs,
+    CurMacroDefs=CurModInfo#modinfo.macro_defs,
+    TargetMacroDefs=TargetModInfo#modinfo.macro_defs,
     UnDefinedMacros = check_macros(FunDefs,CurMacroDefs, TargetMacroDefs, CheckCond),
     {UnDefinedMacros, UnDefinedRecords}.
 
 
 check_fun_name_clash(FunDefs=[{{ModName, _, _},_}|_T],TargetModInfo)->
-    TargetInscopeFuns=TargetModInfo#module_info.inscope_funs,
-    TargetForms=wrangler_syntax:form_list_elements(TargetModInfo#module_info.ast),
+    TargetInscopeFuns=TargetModInfo#modinfo.inscope_funs,
+    TargetForms=wrangler_syntax:form_list_elements(TargetModInfo#modinfo.ast),
     FAs = [{F, A}||{{_M, F, A},_}<-FunDefs],
     Clash = lists:filter(fun ({M, F, A}) ->
 				 lists:member({F,A}, FAs) andalso ModName =/= M
@@ -1103,6 +1107,7 @@ check_fun_name_clash(FunDefs=[{{ModName, _, _},_}|_T],TargetModInfo)->
 	    end
     end.
 
+-spec(check_records/4::(FunDefs::[any()], [{atom(), any()}], [{atom(), any()}], boolean()) -> [atom()]).
 check_records(FunDefs,CurRecordDefs,TargetRecordDefs, CheckCond) ->
     UsedRecords = lists:usort(lists:append([wrangler_misc:collect_used_records(FunDef) || {_, FunDef} <- FunDefs])),
     UsedRecordDefs = [{Name, lists:keysort(1, Fields)} || {Name, Fields} <- CurRecordDefs, lists:member(Name, UsedRecords)],
@@ -1119,7 +1124,7 @@ check_records(FunDefs,CurRecordDefs,TargetRecordDefs, CheckCond) ->
 				end],
     UnDefinedRecords = UsedRecords-- element(1, lists:unzip(UsedRecordDefsInTargetFile)),
     case CheckCond of 
-        true ->
+        true -> 
             case RecordsWithDiffDefs of
                 [] ->
                     ok;
@@ -1154,6 +1159,7 @@ check_records(FunDefs,CurRecordDefs,TargetRecordDefs, CheckCond) ->
     end,
     UnDefinedRecords.
 
+-spec(check_macros/4::([any()], [{atom(), any()}], [{atom(), any()}], boolean()) -> [atom()]).
 check_macros(FunDefs, CurMacroDefs, TargetMacroDefs, CheckCond) ->
     UsedMacros = lists:usort(lists:append([wrangler_misc:collect_used_macros(FunDef) || {_, FunDef} <- FunDefs])),
     UsedMacroDefs = [{Name, {Args, Def}}
@@ -1198,7 +1204,7 @@ check_macros(FunDefs, CurMacroDefs, TargetMacroDefs, CheckCond) ->
     end,
     UnDefinedMacros.
 
-
+-spec(get_mod_info_from_parse_tree/1::([any()]) ->module_info()).    
 get_mod_info_from_parse_tree(AST) ->
     AST1 = lists:filter(fun (F) ->
 				case F of
@@ -1300,12 +1306,12 @@ type_specifies(Form, MFAs) ->
 
 
 get_moveable_dependent_funs(MFAs, CurModInfo, TargetModInfo, CG) ->
-    Info = CurModInfo#module_info.info,
+    Info = CurModInfo#modinfo.info,
     DepMFAs=get_dependent_funs(Info, MFAs, CG),
     case DepMFAs of 
 	[] -> {[],[],[]};
 	_ ->
-	    Forms = wrangler_syntax:form_list_elements(CurModInfo#module_info.ast),
+	    Forms = wrangler_syntax:form_list_elements(CurModInfo#modinfo.ast),
 	    DepDefs = [{get_fun_mfa(F), F} || F <- Forms, defines(F, DepMFAs)],
 	    check_dependent_funs(DepMFAs, DepDefs, CurModInfo, TargetModInfo,CG)
     end.
@@ -1330,7 +1336,7 @@ get_closed_dependent_funs(Vs, MFAs, CG) ->
     end.
      
 check_dependent_funs(MFAs=[{ModName,_,_}|_T], FunDefs, CurModInfo, TargetModInfo, CG) ->
-    TargetInScopeFuns = TargetModInfo#module_info.inscope_funs,
+    TargetInScopeFuns = TargetModInfo#modinfo.inscope_funs,
     FAs = [{F, A}||{_M, F, A}<-MFAs],
     Clash = [{ModName, F, A}||{_M,F,A}<-TargetInScopeFuns, 
                               lists:member({F,A}, FAs)],
