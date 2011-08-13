@@ -227,10 +227,11 @@ unfold_fun_app(ModOrFile, Pos, SearchPaths) ->
     lists:append(Refacs).
 
 
-unfold_fun_app_1(File, Pos, SearchPaths) ->
+unfold_fun_app_1(File, PosGen, SearchPaths) ->
+    Pos = pos_gen(PosGen),
     [{refactoring, {refac_unfold_fun_app, unfold_fun_app,
-                    [File, Pos, SearchPaths, composite_emacs], 
-                    gen_question(unfold_fun_app, {File, Pos})}}].
+                    [File, Pos, SearchPaths, composite_emacs]}, 
+                    gen_question(unfold_fun_app, {File, Pos})}].
 
 get_files(ModOrFile, SearchPaths) ->
     Files = wrangler_misc:expand_files(SearchPaths, ".erl"),    
@@ -419,3 +420,12 @@ index_gen(Index) ->
             throw({error, "Invalid new funname."})
     end.
         
+
+pos_gen(PosGen) ->
+    case PosGen of 
+        {Line, Col} when is_integer(Line) andalso
+                         is_integer(Col)->
+            {Line, Col};
+        _ when is_function(PosGen)->
+            PosGen()
+    end.
