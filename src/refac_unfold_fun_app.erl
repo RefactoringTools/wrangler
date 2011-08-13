@@ -46,7 +46,9 @@
 %% @private
 -module(refac_unfold_fun_app).
 
--export([unfold_fun_app/4, unfold_fun_app_eclipse/4]).
+-export([unfold_fun_app/4, 
+         unfold_fun_app/5, 
+         unfold_fun_app_eclipse/4]).
 
 
 -import(wrangler_code_search_utils, [identifier_name/1]).
@@ -62,14 +64,14 @@
 %%-spec(unfold_fun_app/4::(FileName::filename(), Pos::pos(), SearchPaths::[dir()], TabWidth::integer())
 %%      ->{'ok', [filename()]}).
 unfold_fun_app(FileName, Pos, SearchPaths, TabWidth) ->
-    unfold_fun_app(FileName, Pos, SearchPaths, TabWidth, emacs).
+    unfold_fun_app(FileName, Pos, SearchPaths, emacs, TabWidth).
 
 %%-spec(unfold_fun_app_eclipse/4::(FileName::filename(), Pos::pos(), SearchPaths::[dir()], TabWidth::integer())
 %%      ->{ok, [{filename(), filename(), string()}]}).
 unfold_fun_app_eclipse(FileName,Pos,SearchPaths, TabWidth) ->
-    unfold_fun_app(FileName, Pos, SearchPaths, TabWidth, eclipse).
+    unfold_fun_app(FileName, Pos, SearchPaths, eclipse, TabWidth).
 
-unfold_fun_app(FName, Pos = {Line, Col}, SearchPaths, TabWidth, Editor) ->
+unfold_fun_app(FName, Pos = {Line, Col}, SearchPaths, Editor, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:unfold_fun_app(~p, {~p,~p}, ~p, ~p).\n",
 		 [?MODULE, FName, Line, Col, SearchPaths, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":unfold_fun_app(" ++ "\"" ++ 
