@@ -5,7 +5,7 @@
 -behaviour(gen_composite_refac).
 
 -include("../include/wrangler.hrl").
-
+ 
 input_par_prompts() ->
     ["Source File/Module Name: ", "Target File/Module Name: "].
 

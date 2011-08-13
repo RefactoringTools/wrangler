@@ -5,7 +5,7 @@
 -behaviour(gen_composite_refac).
 
 -include("../include/wrangler.hrl").
-
+ 
 input_par_prompts() ->
     ["Module name: ", "Function name: ", "Arity: "].
 
