@@ -357,7 +357,8 @@
          match/3,
          search_and_transform/3,
          search_and_collect/3,
-         meta_apply_templates/3]).
+         meta_apply_templates/3,
+         meta_apply_templates/1]).
         
 -compile(export_all).
 
@@ -2398,8 +2399,8 @@ update_app_node_3(AppNode, {Tag, Node}) ->
         false ->
             AppNode
     end.
-     
-meta_apply_templates(M,F,A)->
+
+meta_apply_templates({M,F,A}) ->
     [{api_refac:template("F@(Args@@)"),  
       fun(Node) -> 
               fun_define_info(wrangler_syntax:application_operator(Node))

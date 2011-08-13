@@ -106,7 +106,7 @@ rule1({M,F,A}, I, J) ->
 
 %% Transform the different kinds of function applications.
 rule2({M,F,A}, I, J) ->
-    ?RULE(?FUN_APPLY(M,F,A),
+    ?RULE(?FUN_APPLY({M,F,A}),
           begin
               Args=api_refac:get_app_args(_This@), 
               NewArgs=swap(Args, I, J),
