@@ -166,7 +166,6 @@ cmd_server_loop(Parent, State=#state{cmds=Cmds0, changed_files=Changes}) ->
                             From ! {get_next_command, Parent, [error, Reason]};
                         _ ->
                             ModifiedSoFar = update_modified_files(PrevResult,Changes),
-                            CurrentPid = self(),
                             wrangler_io:format("ModifiedSoFar:\n~p\n", [ModifiedSoFar]),
                             process_flag(trap_exit, true),
                             case C of  
@@ -187,6 +186,7 @@ cmd_server_loop(Parent, State=#state{cmds=Cmds0, changed_files=Changes}) ->
                                 _ ->
                                     LoopName = make_loop_name(C),
                                     wrangler_io:format("LoopName:\n~p\n", [LoopName]),
+                                    wrangler_io:format("C:\~p\n", [C]),
                                     Pid = spawn_link(fun()->
                                                              ?MODULE:LoopName(CurrentPid,  
                                                                               State#state{cmds=C, 
@@ -323,20 +323,25 @@ while_refac_loop(Parent, State=#state{cmds={while, Cond, CmdGen},
                                     From !{get_next_command, Parent, [ok, sets:to_list(ModifiedSoFar)]};
                                 _ ->
                                     process_flag(trap_exit, true),
+                                    CurrentPid = self(),
                                     Pid = spawn_link(fun() ->
-                                                             cmd_server_loop(Parent, State#state{cmds=Res})
+                                                             cmd_server_loop(CurrentPid, State#state{cmds=Res})
                                                      end),
                                     From ! {get_next_command, Pid, [ok, []]},
                                     while_refac_loop(Parent, State#state{cmds={while, Cond, CmdGen},
-                                                                            changed_files=ModifiedSoFar})
+                                                                         changed_files=ModifiedSoFar})
                             end;
                         false ->
                             From !{get_next_command, Parent, [ok, sets:to_list(ModifiedSoFar)]}
                     end
             end;
         {'EXIT', ChildrenPid, Reason} ->
-            wrangler_io:format("~p died with:~p~n", [ChildrenPid, Reason]),
-            while_refac_loop(Parent, State);
+            case Reason of 
+                normal ->
+                    while_refac_loop(Parent, State);
+                _ ->
+                    error(format_msg("~p died with:~p~n", [ChildrenPid, Reason]))
+            end;
         Msg ->
             error(format_msg("Unexpected message in while_refac_loop:~p\n", Msg))    
     end.
@@ -357,8 +362,12 @@ if_then_else_refac_loop(Parent, State=#state{cmds={if_then_else, Cond, CRs1, CRs
             process_flag(trap_exit, true),
             From ! {get_next_command, Pid, [ok, []]};
         {'EXIT', ChildrenPid, Reason} ->
-            wrangler_io:format("~p died with:~p~n", [ChildrenPid, Reason]),
-            if_then_else_refac_loop(Parent, State);
+            case Reason of 
+                normal ->
+                    if_then_else_refac_loop(Parent, State);
+                _ ->
+                    error(format_msg("~p died with:~p~n", [ChildrenPid, Reason]))
+            end;
         Msg ->
             error(format_msg("Unexpected message in if_then_else_refac_loop:~p\n", Msg))  
     end.  
@@ -379,8 +388,12 @@ if_then_refac_loop(Parent, State=#state{cmds={if_then, Cond, CRs}}) ->
                     From !{get_next_command, Parent, [ok, []]}
             end;
         {'EXIT', ChildrenPid, Reason} ->
-            wrangler_io:format("~p died with:~p~n", [ChildrenPid, Reason]),
-            if_then_refac_loop(Parent, State);
+            case Reason of 
+                normal ->
+                    if_then_refac_loop(Parent, State);
+                _ ->
+                    error(format_msg("~p died with:~p~n", [ChildrenPid, Reason]))
+            end;
         Msg ->
             error(format_msg("Unexpected message in if_then_refac_loop:~p\n", Msg))  
     end.
@@ -395,11 +408,11 @@ if_then_refac_loop(Parent, State=#state{cmds={if_then, Cond, CRs}}) ->
 %% and appends the result to the front of the list of cmd generators.
 
 generate_cmds(Cmd, NameTrackerPid) when not is_list(Cmd) ->
-    generate_cmds([Cmd], NameTrackerPid);
+    generate_cmds([Cmd], NameTrackerPid); 
 generate_cmds([], _) -> [];
 generate_cmds([Cmd|Cmds], NameTrackerPid) ->
     wrangler_io:format("Generate_cmds:Cmd:\n~p\n",[Cmd]), 
-    Cmd1 = generate_a_cmd(Cmd, NameTrackerPid),
+    Cmd1 = generate_a_cmd(Cmd, NameTrackerPid), 
     wrangler_io:format("Cmd1:\n~p\n", [Cmd1]),
     case Cmd1 of 
         [] ->
@@ -435,9 +448,7 @@ generate_a_cmd(Cmd={RefacName, Args}, NameTrackerPid) ->
             receive
                 {NameTrackerPid, NewArgs} ->
                     try 
-                        wrangler_io:format("RefacName:\n~p\n", [RefacName]),
                         Cmds=apply(wrangler_extended, RefacName, NewArgs),
-                        wrangler_io:format("Cmdsdd:\n~p\n", [Cmds]),
                         generate_cmds(Cmds, NameTrackerPid)
                     catch
                         E1:E2 ->
