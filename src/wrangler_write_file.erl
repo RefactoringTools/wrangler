@@ -71,7 +71,8 @@ write_refactored_files_for_preview(Files, TabWidth, LogMsg, _SearchPaths) ->
 		case FileAST of
 		    {{FileName,NewFileName}, AST} ->
 			FileFormat = wrangler_misc:file_format(FileName),
-			SwpFileName = filename:rootname(FileName, ".erl") ++ ".erl.swp",  %% .erl.swp or .swp.erl?
+                        NewExt = filename:extension(FileName)++".swp",
+			SwpFileName = filename:rootname(FileName) ++ NewExt,
                         {Content, Changes} = wrangler_prettypr:print_ast_and_get_changes(FileFormat, AST, TabWidth),
 			case file:write_file(SwpFileName, list_to_binary(Content)) of
 			    ok ->
@@ -86,7 +87,8 @@ write_refactored_files_for_preview(Files, TabWidth, LogMsg, _SearchPaths) ->
 			end;
 		    {{FileName, NewFileName, IsNew}, AST} ->
 			FileFormat = wrangler_misc:file_format(FileName),
-			SwpFileName = filename:rootname(NewFileName, ".erl") ++ ".erl.swp",
+                        NewExt = filename:extension(FileName)++".swp",
+			SwpFileName = filename:rootname(FileName) ++ NewExt,
                         {Content, Changes} = wrangler_prettypr:print_ast_and_get_changes(FileFormat, AST, TabWidth),
 			case file:write_file(SwpFileName, list_to_binary(Content)) of
 			    ok ->

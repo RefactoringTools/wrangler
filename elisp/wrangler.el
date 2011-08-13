@@ -101,7 +101,8 @@
 		  nil
 		(setq unopened-files (cons file-to-diff unopened-files))
 		)
-	      (wrangler-ediff file-to-diff (concat (file-name-sans-extension file-to-diff) ".erl.swp")))
+	      (wrangler-ediff file-to-diff (concat (file-name-sans-extension file-to-diff) 
+                                                   (file-name-extension file-to-diff t) ".swp")))
 	  (progn
 	    (setq modified-files nil)
 	    (commit-or-abort))))
@@ -621,8 +622,10 @@
     (cond ((eq answer 'p) 
            (setq first-file (car modified))
 	   (setq modified-files (cdr modified))
-           (wrangler-ediff first-file (concat (file-name-sans-extension first-file) ".erl.swp")))
-	  ((eq answer 'c)
+           (wrangler-ediff first-file 
+                           (concat (file-name-sans-extension first-file) 
+                                   (file-name-extension first-file t) ".swp")))
+          ((eq answer 'c)
 	   (commit))
 	  ((eq answer 'n)
 	   (abort-changes)))))
