@@ -222,8 +222,14 @@ rename_fun_0(FileName, {AnnAST, Info}, {Mod, OldFunNameAtom, Arity}, {DefinePos,
 	    HasWarningMsg = wrangler_atom_utils:has_warning_msg(Pid),
             wrangler_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(OldFunNameAtom), renamed_warn_msg(OldFunNameAtom)),
 	    wrangler_atom_utils:stop_atom_process(Pid),
-	    wrangler_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}],
-						       HasWarningMsg, Editor, TabWidth, Cmd)
+            Res=wrangler_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}],
+                                                           HasWarningMsg, Editor, TabWidth, Cmd),
+            case Editor of 
+                composite_emacs ->
+                    {Res, {name_change, [{{Mod, OldFunNameAtom, Arity}, {Mod, NewNameAtom, Arity}}]}};
+                _ ->
+                    Res
+            end
     end.
 
 %%-spec(rename_fun_1/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
