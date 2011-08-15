@@ -102,5 +102,5 @@
                   wrangler_undo_server,
                   wrangler_backup_server,
                   wrangler_gen_refac_server]},
-     {applications, [kernel, stdlib, syntax_tools]},          
-     {mod, {wrangler, []}}]}
+     {applications, [kernel, stdlib]},          
+     {mod, {wrangler, []}}]}.
