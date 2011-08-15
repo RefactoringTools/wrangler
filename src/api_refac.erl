@@ -138,8 +138,21 @@
 %%           `?T("f@(Args@'`@'`)when Guard@'`@'`-> Body@'`@;")'
 %%
 %%where `f@' is a placeholder for the function name.
-%%</li>
 %%
+%%</li>
+%%<li>
+%%?FUN_APPLY(M, F, A).
+%% A special conditional meta-template which can be used to match with a function application 
+%% node, and check if this node represents the application of function `M:F/A' in one of the 
+%% following formats: `F(Args@'`@'`)',  `F(Args@'`@'`)', `fun M:F/A(Args@'`@'`)', 
+%% `fun F/A(Args@'`@'`)', `apply(M, F, [Args@'`@'`])' and `apply(M, F, Args@)', or the use of function `M:F/A' in 
+%% one of the following ways: `spawn(N@@, M, F, [Args@'`@'`])',
+%% `spawn(N@'`@'`, M, F, Args@)', `spawn_link(N@'`@'`, M, F, [Args@'`@'`])',
+%% `spawn_link(N@'`@'`, M, F, Args@)', `spawn:hibernate(N@'`@'`, M, F, [Args@'`@'`])', `erlang:hibernate(M, F, Args@)',
+%% `spawn_monitor(N@'`@'`, M, F, [Args@'`@'`])', `spawn_monitor(M, F, Args@)', and 
+%% `spawn_opts(N@'`@'`, M, F, [Args@'`@'`],Opts@)', and `spawn_opts(N@'`@'`, M, F, Args@, Opts@)'.
+%%
+%%</li>
 %%<li>
 %%?RULE(Template, NewCode, Cond).
 %% A conditional transformation rule is denoted by a macro `?RULE'. In 
@@ -298,7 +311,7 @@
 %%<a href="file:refac_batch_rename_fun.erl"> Batch renaming of function names from camelCaseto camel_case. </a>
 %%</li>
 %%<li>
-%%<a href="file:code_inspector_examples.erl"> A collection of code inspectors written using the Wrangler API. </a>
+%%<a href="file:inspec_examples.erl"> A collection of code inspectors written using the Wrangler API. </a>
 %%</li>
 %%</ul>
 
@@ -345,7 +358,13 @@
          add_to_export_after/3,
          splice/1,
          equal/2,
-         quote/1]).
+         quote/1,
+         get_app_mod/1,
+         get_app_fun/1,
+         get_app_args/1,
+         update_app_mod/2,
+         update_app_fun/2,
+         update_app_args/2]).
 
 -export([parse_annotate_expr/1, 
          parse_annotate_expr/2,
@@ -357,8 +376,8 @@
          match/3,
          search_and_transform/3,
          search_and_collect/3,
-         meta_apply_templates/3]).
-        
+         meta_apply_templates/1]).
+       
 -compile(export_all).
 
 -include("../include/wrangler.hrl").
@@ -775,7 +794,7 @@ variable_define_pos(Node) ->
                     [{0,0}]
             end;
         _->
-            erlang:error(bagarg)
+            erlang:error(bagarg, [Node])
     end.
 
 %% ================================================================================
@@ -865,7 +884,7 @@ insert_an_attr(AST, Attr) ->
     wrangler_syntax:form_list(NewForms).
 
 %% =====================================================================
-%%@doc Remove `F/A' from the entity list of the import attribute 
+%%@doc Removes `F/A' from the entity list of the import attribute 
 %%     represented by `Node'.
 %%@spec remove_from_import(attribute(), {functionname(), arity()}) -> attribute()
 remove_from_import(Node, _FA={F,A}) ->
@@ -1282,7 +1301,7 @@ search_and_transform_4(File,Rules,Tree,Fun,Selective) ->
                     {true, NewExprAfter} ->
                         case Selective of
                             true ->
-                                {{SLn, SCol}, {ELn, ECol}}=wrangler_misc:start_end_loc(Node),
+                                {{SLn, SCol}, {ELn, ECol}}=start_end_loc(Node),
                                 MD5 = erlang:md5(wrangler_prettypr:format(Node)),
                                 ChangeCand={{File, SLn, SCol, ELn, ECol, MD5},
                                             wrangler_prettypr:format(NewExprAfter)},
@@ -1293,7 +1312,7 @@ search_and_transform_4(File,Rules,Tree,Fun,Selective) ->
                             false ->
                                 {NewExprAfter, true};
                             {false, CandsNotToChange} ->
-                                {{SLn, SCol}, {ELn, ECol}}=wrangler_misc:start_end_loc(Node),
+                                {{SLn, SCol}, {ELn, ECol}}=start_end_loc(Node),
                                 MD5 =erlang:md5(wrangler_prettypr:format(Node)),
                                 Key ={File, SLn, SCol, ELn, ECol, MD5},
                                 case lists:keysearch(Key,1,CandsNotToChange) of
@@ -2134,48 +2153,68 @@ check_collectors(_Collectors) ->
            "strategy can only be a list of collectors."}).
         
 
+%%@doc Returns the start and end locations of the code represented  
+%%     by `Tree' in the source file.
 -spec start_end_loc([syntaxTree()]|syntaxTree()) ->{pos(), pos()}.
 start_end_loc(Tree) ->
     wrangler_misc:start_end_loc(Tree).
 
--record(fun_app, {mod_name,
-                  fun_name,
-                  args}).
 
+%%=====================================================================
+%% To provide a unified way to manipluate function applications.
+%%=====================================================================
+-record(fun_app, {mod_name ::syntaxTree()|none,
+                  fun_name ::syntaxTree(),
+                  args     ::[syntaxTree()]|syntaxTree()}).
+
+%% @doc For a function application node that matches `?FUN_APPY(M,F,A)', 
+%%     get the part that represents the module name if M appears in 
+%%     the application; otherwise returns `none'.
+-spec get_app_mod(syntaxTree()) ->syntaxTree()|none.
 get_app_mod(AppNode) ->
     FunApp=match_app_node(AppNode),
     FunApp#fun_app.mod_name.
 
+%% @doc For a function application node that matches `?FUN_APPY(M,F,A)', 
+%%     get the part that represents the function name.
+-spec get_app_fun(syntaxTree()) ->syntaxTree().
 get_app_fun(AppNode) ->
     FunApp=match_app_node(AppNode),
     FunApp#fun_app.fun_name.
 
+%% @doc For a function application node that matches `?FUN_APPY(M,F,A)', 
+%%     get the part that represents the arguments to which the function `F' 
+%%     is applied. This function returns the arguments as a list of AST 
+%%     nodes if the the function application matches one of those templates"
+%%     with `Args@'`@', as specified in the documentation of `?FUN_APPY(M,F,A)'; 
+%%     otherwise a single AST node.
+-spec get_app_args(syntaxTree()) ->[syntaxTree()]|syntaxTree().
 get_app_args(AppNode) ->
     FunApp=match_app_node(AppNode),
     FunApp#fun_app.args.
 
+%% @doc Replaces the module name part of a function application node with `Modname'.
+%%     The node `AppNode' should match one of the templates specified by`?FUN_APPY(M,F,A)'.
+-spec update_app_mod(syntaxTree(), syntaxTree()) ->syntaxTree().
 update_app_mod(AppNode, ModName) ->
     AppNode1=update_app_node(AppNode, {mod_name, ModName}),
     wrangler_misc:rewrite(AppNode, AppNode1).
 
+%% @doc Replaces the function name part of a function application node with `FunName'.
+%%     The node `AppNode' should match one of the templates specified `?FUN_APPY(M,F,A)'.
+-spec update_app_fun(syntaxTree(), syntaxTree()) ->syntaxTree().
 update_app_fun(AppNode, FunName) ->
     AppNode1=update_app_node(AppNode, {fun_name, FunName}),
     wrangler_misc:rewrite(AppNode, AppNode1).
    
+%% @doc Replaces the arguments of a function application node with `Args'.
+%%     The node `AppNode' should match one of the templates specified `?FUN_APPY(M,F,A)'.
+-spec update_app_args(syntaxTree(), [syntaxTree()]|syntaxTree())->syntaxTree().
 update_app_args(AppNode, Args) ->
     AppNode1=update_app_node(AppNode, {args, Args}),
     wrangler_misc:rewrite(AppNode, AppNode1).
-  
 
-special_funs() ->
-    [{erlang, apply,3},
-     {erlang, hibernate,3}, 
-     {erlang, spawn,3},
-     {erlang, spawn,4},
-     {erlang, spawn_link, 3},
-     {erlang, spawn_link, 4},
-     {erlang, spawn_monitor,3}].
-
+-spec match_app_node(syntaxTree()) -> #fun_app{}.                            
 match_app_node(AppNode) ->
     case match(?T("Fun@(N@@, M@, F@, Args@)"), AppNode) of
         {true, Bind} ->
@@ -2185,12 +2224,7 @@ match_app_node(AppNode) ->
             {'Args@', Args} = lists:keyfind('Args@', 1, Bind),
             case lists:member(fun_define_info(Fun), special_funs()) of 
                 true ->
-                    Args1 = case wrangler_syntax:type(Args) of 
-                                list ->
-                                    wrangler_syntax:list_elements(Args);
-                                _ ->
-                                    Args
-                            end,
+                    Args1 = convert_args(Args),
                     #fun_app{mod_name=M, fun_name=F, args=Args1};
                 false ->
                     match_app_node_1(AppNode)
@@ -2198,6 +2232,7 @@ match_app_node(AppNode) ->
         _ ->
             match_app_node_1(AppNode)
     end.
+
 match_app_node_1(AppNode) ->
     case match(?T("Fun@(N@@, M@, F@, Args@, Opts@)"), AppNode) of
         {true, Bind} ->
@@ -2209,12 +2244,7 @@ match_app_node_1(AppNode) ->
                               [{erlang, spawn_opt, 4},
                                {erlang, spawn_opt, 5}]) of 
                 true ->
-                    Args1 = case wrangler_syntax:type(Args) of 
-                                list ->
-                                    wrangler_syntax:list_elements(Args);
-                                _ ->
-                                    Args
-                            end,
+                    Args1 = convert_args(Args),
                     #fun_app{mod_name=M, fun_name=F, args=Args1};
                 false ->
                     match_app_node_2(AppNode)
@@ -2231,12 +2261,7 @@ match_app_node_2(AppNode) ->
             {'Args@', Args} = lists:keyfind('Args@', 1, Bind),
             case fun_define_info(Fun) =={erlang, apply,2} of 
                 true ->
-                    Args1 = case wrangler_syntax:type(Args) of 
-                                list ->
-                                    wrangler_syntax:list_elements(Args);
-                                _ ->
-                                    Args
-                            end,
+                    Args1 = convert_args(Args),
                     Name = wrangler_syntax:implicit_fun_name(F),
                     case wrangler_syntax:type(Name) of
                         arity_qualifier ->
@@ -2268,9 +2293,20 @@ match_app_node_3(AppNode) ->
                     #fun_app{mod_name=none, fun_name=Fun, args=Args}
             end;
         _ ->
-            #fun_app{}
+            erlang:error(badarg, [AppNode])
+    end.
+
+-spec convert_args(syntaxTree()) -> syntaxTree()|[syntaxTree()].
+convert_args(Args) ->
+    case wrangler_syntax:type(Args) of
+        list ->
+            wrangler_syntax:list_elements(Args);
+        _ ->
+            Args
     end.
          
+-spec update_app_node(syntaxTree(), {atom(), syntaxTree()|[syntaxTree()]}) ->
+                             syntaxTree().
 update_app_node(AppNode, {Tag, Node}) ->
     case match(?T("Fun@(N@@, M@, F@, Args@)"), AppNode) of
         {true, Bind} ->
@@ -2398,8 +2434,20 @@ update_app_node_3(AppNode, {Tag, Node}) ->
         false ->
             AppNode
     end.
-     
-meta_apply_templates(M,F,A)->
+
+-spec special_funs()->[mfa()].                          
+special_funs() ->
+    [{erlang, apply,3},
+     {erlang, hibernate,3}, 
+     {erlang, spawn,3},
+     {erlang, spawn,4},
+     {erlang, spawn_link, 3},
+     {erlang, spawn_link, 4},
+     {erlang, spawn_monitor,3}].
+
+%%@private
+-spec meta_apply_templates(mfa()) ->[{syntaxTree(), function()}].
+meta_apply_templates(_MFA={M,F,A}) ->
     [{api_refac:template("F@(Args@@)"),  
       fun(Node) -> 
               fun_define_info(wrangler_syntax:application_operator(Node))
@@ -2424,13 +2472,7 @@ meta_apply_templates(M,F,A)->
               Args = wrangler_syntax:application_arguments(Node),
               Fun = lists:nth(length(Args)-1, Args),
               case lists:member(api_refac:fun_define_info(Op), 
-                                [{erlang, apply,3},
-                                 {erlang, hibernate,3}, 
-                                 {erlang, spawn,3},
-                                 {erlang, spawn,4},
-                                 {erlang, spawn_link, 3},
-                                 {erlang, spawn_link, 4},
-                                 {erlang, spawn_monitor,3}]) of 
+                                special_funs()) of
                   true ->
                       fun_define_info(Fun)=={M,F,A};
                   false ->
