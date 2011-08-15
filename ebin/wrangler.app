@@ -76,7 +76,6 @@
                wrangler_modularity_inspection,
                wrangler_module_graph,
                wrangler_modulegraph_server,
-               wrangler_parse,
                wrangler_prettypr,
                wrangler_prettypr_0,
                wrangler_preview_server,
@@ -102,5 +101,5 @@
                   wrangler_preview_server,
                   wrangler_undo_server,
                   wrangler_gen_refac_server]},
-    {applications, [kernel, stdlib, syntax_tools]},          
+    {applications, [kernel, stdlib]},          
     {mod, {wrangler, []}}]}.
