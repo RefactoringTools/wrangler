@@ -56,7 +56,7 @@
 
 -export([rename_fun/6, rename_fun_1/6,  rename_fun_eclipse/6, rename_fun_1_eclipse/6]).
 
--export([rename_fun_by_name/6]).
+-export([rename_fun_by_name/7]).
 
 -include("../include/wrangler_internal.hrl").
 
@@ -72,9 +72,9 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
 rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
 
-%%-spec(rename_fun_command/6::(modulename()|filename(), atom(), integer(), atom(),[dir()], atom())->
+%%-spec(rename_fun_command/7::(modulename()|filename(), atom(), integer(), atom(),[dir()], atom(), integer())->
 %%				       {error, string()} | {ok, [filename()]}).
-rename_fun_by_name(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths, Editor) ->
+rename_fun_by_name(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths, Editor, TabWidth) ->
     OldFunNameStr = case is_atom(OldFunName) of
 			true -> atom_to_list(OldFunName);
 			false -> throw({error, "Original function name should be an atom."})
@@ -102,14 +102,14 @@ rename_fun_by_name(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths, Ed
     case filelib:is_file(ModOrFileName) of
 	true ->
 	    rename_fun_command_1(ModOrFileName, OldFunNameStr, Arity,
-				 NewFunNameStr, SearchPaths, 8, Editor);
+				 NewFunNameStr, SearchPaths, TabWidth, Editor);
 	false ->
 	    case is_atom(ModOrFileName) of
 		true ->
 		    case wrangler_misc:modname_to_filename(ModOrFileName, SearchPaths) of
 			{ok, FileName} ->
 			    rename_fun_command_1(FileName, OldFunNameStr, Arity,
-						 NewFunNameStr, SearchPaths, 8, Editor);
+						 NewFunNameStr, SearchPaths, TabWidth, Editor);
 			{error, Msg} ->
 			    {error, lists:flatten(Msg)}
 		    end;
@@ -227,11 +227,11 @@ rename_fun_0(FileName, {AnnAST, Info}, {Mod, OldFunNameAtom, Arity}, {DefinePos,
 	    HasWarningMsg = wrangler_atom_utils:has_warning_msg(Pid),
             wrangler_atom_utils:output_atom_warning_msg(Pid, not_renamed_warn_msg(OldFunNameAtom), renamed_warn_msg(OldFunNameAtom)),
 	    wrangler_atom_utils:stop_atom_process(Pid),
-            Res=wrangler_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}],
+	    Res=wrangler_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}],
                                                            HasWarningMsg, Editor, TabWidth, Cmd),
             case Editor of 
                 composite_emacs ->
-                    {Res, {name_change, {{Mod, OldFunNameAtom, Arity}, {Mod, NewNameAtom, Arity}}}};
+                    {Res, {name_change, [{{Mod, OldFunNameAtom, Arity}, {Mod, NewNameAtom, Arity}}]}};
                 _ ->
                     Res
             end
