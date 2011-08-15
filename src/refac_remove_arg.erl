@@ -120,19 +120,15 @@ transform(Args=#args{current_file_name=File,focus_sel=FunDef,
 transform_in_cur_file(_Args=#args{current_file_name=File}, MFA, I) ->
     ?FULL_TD_TP([rule1(MFA,I),
                  rule2(MFA,I),
-                 rule3(MFA),
-                 rule4(MFA,I),
-                 rule5(MFA,I)],
-             [File]).
+                 rule3(MFA)],
+                [File]).
 
 
 transform_in_client_files(_Args=#args{current_file_name=File,
                                       search_paths=SearchPaths}, 
                           MFA, I) ->
     ?FULL_TD_TP([rule2(MFA,I),
-                 rule3(MFA),
-                 rule4(MFA,I),
-                 rule5(MFA,I)],
+                 rule3(MFA)],
                 api_refac:client_files(File, SearchPaths)).
 
 
@@ -144,12 +140,15 @@ rule1({M,F,A}, Ith) ->
           api_refac:fun_define_info(f@) == {M, F, A}
          ).
 
+%% Transform the different kinds of function applications.
 rule2({M,F,A}, Ith) ->
-    ?RULE(?T("F@(Args@@)"), 
-          begin NewArgs@@=delete(Ith, Args@@),
-                ?QUOTE("F@(NewArgs@@)")
+    ?RULE(?FUN_APPLY(M,F,A),
+          begin
+              Args = api_refac:get_app_args(_This@),
+              NewArgs=delete(Ith, Args),
+              api_refac:update_app_args(_This@, NewArgs)
           end,
-          api_refac:fun_define_info(F@) == {M, F, A}).
+          true).
 
 rule3({M,F,A}) ->
     ?RULE(?T("F@"),
@@ -157,40 +156,18 @@ rule3({M,F,A}) ->
           api_refac:type(F@) == arity_qualifier andalso
           api_refac:fun_define_info(F@) == {M, F, A}).
 
-
-rule4({M,F,A}, Ith)->
-    ?RULE(?T("Fun@(N@@, M@, F@, [Args@@])"),
-          begin
-              NewArgs@@=delete(Ith, Args@@),
-              ?QUOTE("Fun@(N@@, M@, F@, [NewArgs@@])")
-          end,
-          begin
-              case api_refac:fun_define_info(Fun@) of
-                  {erlang, apply, _} -> 
-                      api_refac:fun_define_info(F@) == {M,F,A};
-                  _ -> false
-              end
-          end).
-
-rule5({M,F,A}, Ith)->
-    ?RULE(?T("F@(Fun@, [Args@@])"),
-          begin
-              NewArgs@@=delete(Ith, Args@@),
-              ?QUOTE("F@(Fun@, [NewArgs@@])")
-          end,
-          begin
-              case api_refac:fun_define_info(F@) of
-                  {erlang, apply, _} -> 
-                      api_refac:fun_define_info(Fun@) == {M,F,A};
-                  _ -> false
-              end
-          end).
-
-
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
 
-delete(Ith, List) ->
-    lists:sublist(List, Ith-1)++ lists:nthtail(Ith, List).
+delete(Ith, Args) when is_list(Args) ->
+    lists:sublist(Args, Ith-1)++ lists:nthtail(Ith, Args);
+delete(Ith, Arg) ->
+    Str=lists:flatten(
+          io_lib:format(
+            "fun(ArgList) ->
+                    lists:sublist(ArgList, ~p-1) ++
+                      lists:nthtail(~p, ArgList)
+            end(~s)", [Ith, Ith, ?SPLICE(Arg)])),
+    ?QUOTE(Str).
 
