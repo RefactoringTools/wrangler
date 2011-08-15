@@ -103,9 +103,10 @@ move_fun_eclipse(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) -
 move_fun_1_eclipse(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) ->
     move_fun_1(FName, Line, Col, TargetModorFileName, true, SearchPaths, TabWidth, eclipse).
 
--spec(move_fun_command/5::(modulename()|filename(), atom(), integer(), modulename()|filename(),[dir()])->
-				 {error, string()} | {ok, [filename()]}).
-move_fun_command(ModorFileName, FunName, Arity, TargetModorFileName, SearchPaths) ->
+-spec(move_fun_by_name/5::({modulename()|filename(), atom(), integer()}, modulename()|filename(),
+                           [dir()], atom(), integer())->
+			   {error, string()} | {ok, [filename()]}).
+move_fun_by_name({ModorFileName, FunName, Arity}, TargetModorFileName, SearchPaths, Editor, TabWidth) ->
     case get_file_name(ModorFileName, SearchPaths) of
 	{ok, OriginalFileName} ->
 	    case get_file_name(TargetModorFileName, SearchPaths) of
