@@ -564,10 +564,9 @@ has_receive_expr(FunDef) ->
 	_ -> {true, lists:min(LineNums)}
     end.
 
-calls_to_specific_function(MFA={_M, _F, _A}, SearchPaths) ->
+calls_to_specific_function(MFA={M, F, A}, SearchPaths) ->
     ?wrangler_io("\nCMD: ~p:calls_to_specific_function(~p, ~p).\n",
 		 [?MODULE, MFA, SearchPaths]),
-    {ok, ?FULL_TD_TU([?COLLECT_LOC(?T("F@(Args@@)"), 
-                                  MFA == api_refac:fun_define_info(F@))],
+    {ok, ?FULL_TD_TU([?COLLECT_LOC(?FUN_APPLY(M,F,A), true)],
                      [SearchPaths])}.
     
