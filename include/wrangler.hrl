@@ -141,4 +141,4 @@
         api_refac:search_and_collect(Collectors, FileOrDirs, stop_td_tu)).
 
 -define(FUN_APPLY(M,F,A),
-        {meta_apply, api_refac:meta_apply_templates(M,F,A)}).
+        {meta_apply, api_refac:meta_apply_templates({M,F,A})}).
