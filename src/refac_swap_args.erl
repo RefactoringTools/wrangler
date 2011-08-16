@@ -132,4 +132,4 @@ swap(Node, I, J) ->
                     tuple_to_list(T1)
             end(~s)", [I, J, J, I, ?SPLICE(Node)])),
     ?QUOTE(Str).
-            
+

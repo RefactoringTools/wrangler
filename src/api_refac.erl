@@ -377,7 +377,7 @@
          search_and_transform/3,
          search_and_collect/3,
          meta_apply_templates/1]).
-        
+
 -compile(export_all).
 
 -include("../include/wrangler.hrl").
