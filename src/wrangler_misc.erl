@@ -74,6 +74,8 @@
          extended_parse_annotate_expr/1,
          extended_parse_annotate_expr/2]).
 
+-export([extend_function_clause/1]).
+
 -include("../include/wrangler_internal.hrl"). 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1015,10 +1017,10 @@ is_digit(L) -> (L >= 48) and (57 >= L).
 %%===================================================================
 %%@private
 extended_parse_annotate_expr(Str) ->
-    api_refac:extend_function_clause(parse_annotate_expr(Str)).
+    extend_function_clause(parse_annotate_expr(Str)).
 %%@private
 extended_parse_annotate_expr(Str, Pos) ->
-    api_refac:extend_function_clause(parse_annotate_expr(Str, Pos)).
+    extend_function_clause(parse_annotate_expr(Str, Pos)).
 %%@private
 parse_annotate_expr("") ->
     wrangler_syntax:empty_node();
@@ -1090,3 +1092,36 @@ make_tree(Tree) ->
             Gs1 = [[make_tree(T) || T <- G] || G <- Gs],
             wrangler_syntax:update_tree(Tree, Gs1)
     end.
+
+
+
+%%================================================================
+%%@spec(extend_function_clause(Tree::syntaxTree()) -> syntaxTree()).
+%%@private             
+extend_function_clause(Tree) when is_list(Tree) ->
+    [extend_function_clause(T)||T<-Tree];
+extend_function_clause(Tree) ->
+    {Tree1, _} = api_ast_traverse:stop_tdTP(
+                   fun extend_function_clause_1/2, Tree, {}),
+    Tree1.
+
+extend_function_clause_1(Node, _OtherInfo) ->
+    case wrangler_syntax:type(Node) of
+        function ->
+            Node1=extend_function_clause_2(Node),
+            {Node1, true};
+        _ ->
+            {Node, false}
+    end.
+
+extend_function_clause_2(Node) ->
+    Name = wrangler_syntax:function_name(Node),
+    Cs = wrangler_syntax:function_clauses(Node),
+    Cs1= [case wrangler_syntax:type(C) of
+              clause ->
+                  rewrite(C,wrangler_syntax:function_clause(Name, C));
+              _ ->
+                  C
+          end
+          ||C<-Cs],
+    rewrite(Node, wrangler_syntax:function(Name, Cs1)).

@@ -1176,7 +1176,7 @@ search_and_transform_2(Rules, FileOrDirs, Fun) ->
 search_and_transform_3(Rules, File, Fun, Selective) ->
     ?wrangler_io("The current file under refactoring is:\n~p\n", [File]),
     {ok, {AST, _}} = wrangler_ast_server:parse_annotate_file(File, true, [], 8),
-    AST0 = extend_function_clause(AST),
+    AST0 = wrangler_misc:extend_function_clause(AST),
     {AST1, Changed}=search_and_transform_4(File, Rules, AST0, Fun, Selective),
     if Changed andalso Selective/=true ->
             AST2= reverse_function_clause(AST1),
@@ -1524,7 +1524,7 @@ stop_td_collect(FileName, AST, Fun, Type) ->
                          end
                  end
          end,
-    AST1=extend_function_clause(AST),
+    AST1=wrangler_misc:extend_function_clause(AST),
     lists:reverse(api_ast_traverse:stop_tdTU(F, [], AST1)).
 
 
@@ -1568,7 +1568,7 @@ search_and_collect(Collectors, Input, TraverseStrategy) ->
     check_collectors(Collectors),
     case is_tree(Input) of
         true ->
-            Input1 = extend_function_clause(Input),
+            Input1 = wrangler_misc:extend_function_clause(Input),
             search_and_collect_1(Collectors,Input1,TraverseStrategy);
         false ->
             erlang:error("Collectors are applied to an invalid scope.")
@@ -1590,7 +1590,7 @@ search_and_collect_2(Collectors, FileOrDirs, TraverseStrategy) ->
 search_and_collect_3(Collectors, File, TraverseStrategy) ->
     ?wrangler_io("The current file under checking is:\n~p\n", [File]),
     {ok, {AST, _}} = wrangler_ast_server:parse_annotate_file(File, true, [], 8),
-    AST0 = extend_function_clause(AST),
+    AST0 = wrangler_misc:extend_function_clause(AST),
     search_and_collect_4(File, Collectors, AST0,TraverseStrategy).
    
 
@@ -1696,38 +1696,6 @@ stop_tdTU_1(_, S, []) -> S.
 
 stop_tdTU_2(F, S, [T | Ts]) -> stop_tdTU_2(F, stop_td_tu(F, S, T), Ts);
 stop_tdTU_2(_, S, []) -> S.
-
-
-%%================================================================
-%%@spec(extend_function_clause(Tree::syntaxTree()) -> syntaxTree()).
-%%@private             
-extend_function_clause(Tree) when is_list(Tree) ->
-    [extend_function_clause(T)||T<-Tree];
-extend_function_clause(Tree) ->
-    {Tree1, _} = api_ast_traverse:stop_tdTP(
-                   fun extend_function_clause_1/2, Tree, {}),
-    Tree1.
-
-extend_function_clause_1(Node, _OtherInfo) ->
-    case wrangler_syntax:type(Node) of
-        function ->
-            Node1=extend_function_clause_2(Node),
-            {Node1, true};
-        _ ->
-            {Node, false}
-    end.
-
-extend_function_clause_2(Node) ->
-    Name = wrangler_syntax:function_name(Node),
-    Cs = wrangler_syntax:function_clauses(Node),
-    Cs1= [case wrangler_syntax:type(C) of
-              clause ->
-                  wrangler_misc:rewrite(C,wrangler_syntax:function_clause(Name, C));
-              _ ->
-                  C
-          end
-          ||C<-Cs],
-    wrangler_misc:rewrite(Node, wrangler_syntax:function(Name, Cs1)).
 
 is_tree(Node) ->
     wrangler_syntax:is_tree(Node) orelse wrangler_syntax:is_wrapper(Node).
