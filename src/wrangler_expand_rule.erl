@@ -60,7 +60,7 @@ parse_transform(Forms, Options) ->
                              fun(Form, _Context) ->
                                      expand_quote(Form)
                              end, annotate_forms(Forms5), Options),
-   %% wrangler_io:format("Form6:\n~s\n", [[erl_prettypr:format(F)++"\n\n"||F <- Forms6]]),
+    %% wrangler_io:format("Form6:\n~s\n", [[erl_prettypr:format(F)++"\n\n"||F <- Forms6]]),
     Forms6.
 
 
@@ -153,7 +153,7 @@ expand_quote(QuoteApp) ->
     Pos = erl_syntax:get_pos(Temp),
     Op= erl_syntax:module_qualifier(erl_syntax:atom(wrangler_misc), erl_syntax:atom(parse_annotate_expr)),
     App =erl_syntax:application(Op, [Temp, erl_syntax:integer(Pos)]),
-    EnvVars = element(1, lists:unzip(api_refac:env_vars(Temp))),
+    EnvVars = element(1, lists:unzip(env_vars(Temp))),
     Binds=erl_syntax:list([erl_syntax:tuple([erl_syntax:atom(VarName),
                                              erl_syntax:variable(VarName)])
                            ||VarName<-EnvVars, 
@@ -237,6 +237,16 @@ expand_match(Temp, Node, Cond) ->
    %% refac_io:format("Newcode:\n~s\n", [erl_prettypr:format(NewCode)]),
     NewCode.
 
+
+env_vars(Node) ->
+    Ann = wrangler_syntax:get_ann(Node),
+    case lists:keyfind(env, 1, Ann) of
+        {env, Vs} ->
+            Vs;
+        false ->
+            []
+    end.
+
 is_meta_variable_name(VarName) ->
     lists:prefix("@", lists:reverse(atom_to_list(VarName))).
 
@@ -281,7 +291,7 @@ is_meta_atom(Node) ->
         atom ->
             AtomValue = erl_syntax:atom_value(Node),
             AtomValueList=atom_to_list(AtomValue),
-            api_refac:is_fun_name(AtomValueList) andalso
+            wrangler_misc:is_fun_name(AtomValueList) andalso
                 lists:prefix("@", lists:reverse(AtomValueList));
         _ ->
             false
