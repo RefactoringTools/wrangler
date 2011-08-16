@@ -88,7 +88,7 @@ expand_template(TempApp) ->
             erlang:error(lists:flatten(io_lib:format("The argument of the ?T macro, at line ~p, must be a string literal.", [Ln]))) 
     end,
     check_template_syntax(Str),
-    Op= erl_syntax:module_qualifier(erl_syntax:atom(api_refac), erl_syntax:atom(extended_parse_annotate_expr)),
+    Op= erl_syntax:module_qualifier(erl_syntax:atom(wrangler_misc), erl_syntax:atom(extended_parse_annotate_expr)),
     erl_syntax:application(Op, [Str, erl_syntax:integer(Ln)]).
    
 is_meta_apply_temp(Temp) ->
@@ -138,7 +138,7 @@ is_template_app(Temp) ->
 check_template_syntax(Template) ->
     Pos = erl_syntax:get_pos(Template),
     Str = erl_syntax:string_value(Template),
-    try api_refac:parse_annotate_expr(Str, Pos)
+    try wrangler_misc:parse_annotate_expr(Str, Pos)
     catch
         throw:Error ->
             Ln = case Pos of 
@@ -151,7 +151,7 @@ check_template_syntax(Template) ->
 expand_quote(QuoteApp) ->
     [Temp] = erl_syntax:application_arguments(QuoteApp),
     Pos = erl_syntax:get_pos(Temp),
-    Op= erl_syntax:module_qualifier(erl_syntax:atom(api_refac), erl_syntax:atom(parse_annotate_expr)),
+    Op= erl_syntax:module_qualifier(erl_syntax:atom(wrangler_misc), erl_syntax:atom(parse_annotate_expr)),
     App =erl_syntax:application(Op, [Temp, erl_syntax:integer(Pos)]),
     EnvVars = element(1, lists:unzip(api_refac:env_vars(Temp))),
     Binds=erl_syntax:list([erl_syntax:tuple([erl_syntax:atom(VarName),
@@ -191,7 +191,7 @@ get_meta_var_and_atoms(Temps) ->
 get_meta_var_and_atoms_1(Temp) ->
     [TempStr]=erl_syntax:application_arguments(Temp),
     Pos = erl_syntax:get_pos(TempStr),
-    TempAST = api_refac:parse_annotate_expr(erl_syntax:string_value(TempStr), Pos),
+    TempAST = wrangler_misc:parse_annotate_expr(erl_syntax:string_value(TempStr), Pos),
     {MetaVars, MetaAtoms} =  collect_meta_vars_and_atoms(TempAST),
     {MetaVars, MetaAtoms}.
 
@@ -215,7 +215,7 @@ expand_match(Temp, Node, Cond) ->
                                     erl_syntax:atom(match)),
     NewTemp = expand_template(Temp),
     Args=[NewTemp,Node, Cond],
-    TempAST = api_refac:parse_annotate_expr(erl_syntax:string_value(TempStr), Pos1),
+    TempAST = wrangler_misc:parse_annotate_expr(erl_syntax:string_value(TempStr), Pos1),
     App =erl_syntax:application(Op, Args),
     NewVar0=list_to_atom("_Res"++integer_to_list(random:uniform(1000))),
     NewVar1=list_to_atom("_Bind"++integer_to_list(random:uniform(1000))++"_@_V"),
