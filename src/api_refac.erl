@@ -1705,9 +1705,9 @@ search_and_collect_4(File, Collectors, Tree,TraverseStrategy)->
       end,
     case TraverseStrategy of
         full_td_tu ->
-            full_td_tu(F,[], Tree);
+            lists:reverse(full_td_tu(F,[], Tree));
         stop_td_tu ->
-            stop_td_tu(F,[],Tree)  
+            lists:reverse(stop_td_tu(F,[],Tree))  
     end.
 
 
