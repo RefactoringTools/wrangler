@@ -153,7 +153,14 @@ expand_quote(QuoteApp) ->
     Pos = erl_syntax:get_pos(Temp),
     Op= erl_syntax:module_qualifier(erl_syntax:atom(api_refac), erl_syntax:atom(parse_annotate_expr)),
     App =erl_syntax:application(Op, [Temp, erl_syntax:integer(Pos)]),
-    EnvVars = element(1, lists:unzip(api_refac:env_vars(Temp))),
+    Ann = wrangler_syntax:get_ann(Temp),
+    EnvVars0=case lists:keyfind(env, 1, Ann) of
+                 {env, Vs} ->
+                     Vs;
+                 false ->
+                     []
+             end,
+    EnvVars = element(1, lists:unzip(EnvVars0)),
     Binds=erl_syntax:list([erl_syntax:tuple([erl_syntax:atom(VarName),
                                              erl_syntax:variable(VarName)])
                            ||VarName<-EnvVars, 
@@ -281,7 +288,7 @@ is_meta_atom(Node) ->
         atom ->
             AtomValue = erl_syntax:atom_value(Node),
             AtomValueList=atom_to_list(AtomValue),
-            api_refac:is_fun_name(AtomValueList) andalso
+            wrangler_miscis_fun_name(AtomValueList) andalso
                 lists:prefix("@", lists:reverse(AtomValueList));
         _ ->
             false
