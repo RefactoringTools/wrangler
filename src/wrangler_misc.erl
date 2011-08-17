@@ -53,7 +53,8 @@
          free_vars/1, exported_vars/1, bound_vars/1,
          modname_to_filename/2, funname_to_defpos/2,
          group_by/2,filehash/1,apply_style_funs/0,
-         try_eval/4, is_macro_name/1, is_literal/1]).
+         try_eval/4, is_macro_name/1, is_literal/1,
+         is_fun_name/1, is_var_name/1]).
 
 -export([callback_funs/1, 
          is_callback_fun/3,
@@ -68,6 +69,12 @@
          collect_var_source_def_pos_info/1]).
 
 -export([test_framework_used/1]).
+
+-export([parse_annotate_expr/1, parse_annotate_expr/2,
+         extended_parse_annotate_expr/1,
+         extended_parse_annotate_expr/2]).
+
+-export([extend_function_clause/1]).
 
 -include("../include/wrangler_internal.hrl"). 
 
@@ -965,3 +972,156 @@ bound_vars(Node) ->
           end,
     Vars=api_ast_traverse:fold(Fun, [], Node),
     lists:usort(Vars).
+
+
+%% =====================================================================
+%%@doc Returns `true' if a string is lexically a legal variable name,
+%%      otherwise `false'.
+%%@spec is_var_name(string())-> boolean()
+-spec(is_var_name(Name:: string())-> boolean()).
+is_var_name(Name) ->
+    case Name of
+      [] -> false;
+      [H] -> is_upper(H) and (H =/= 95);
+      [H| T] -> (is_upper(H) or (H == 95)) and is_var_name_tail(T)
+    end.
+
+%%@doc Returns `true' if a string is lexically a legal function name,
+%%      otherwise `false'.
+%%@spec is_fun_name(string())-> boolean()
+-spec(is_fun_name(string())-> boolean()).
+is_fun_name(Name) ->
+    case Name of
+      [H| T] -> is_lower(H) and is_var_name_tail(T);
+      [] -> false
+    end.
+
+is_var_name_tail(Name) ->
+    case Name of
+      [H| T] ->
+	  (is_upper(H) or is_lower(H) or 
+	   is_digit(H) or (H == 64) or (H == 95)) and
+	    is_var_name_tail(T);
+      [] -> true
+    end.
+
+is_upper(L) -> (L >= 65) and (90 >= L).
+
+is_lower(L) -> (L >= 97) and (122 >= L).
+
+is_digit(L) -> (L >= 48) and (57 >= L).
+
+
+
+
+%%===================================================================
+%%@private
+extended_parse_annotate_expr(Str) ->
+    extend_function_clause(parse_annotate_expr(Str)).
+%%@private
+extended_parse_annotate_expr(Str, Pos) ->
+    extend_function_clause(parse_annotate_expr(Str, Pos)).
+%%@private
+parse_annotate_expr("") ->
+    wrangler_syntax:empty_node();
+parse_annotate_expr(ExprStr) ->
+    parse_annotate_expr(ExprStr, {1,1}).
+%%@private
+parse_annotate_expr("", _) ->
+    wrangler_syntax:empty_node();
+parse_annotate_expr(ExprStr, StartLoc) when is_integer(StartLoc) ->
+    parse_annotate_expr(ExprStr, {StartLoc, 1});
+parse_annotate_expr(ExprStr, StartLoc) when is_tuple(StartLoc) ->
+    case wrangler_scan:string(ExprStr, StartLoc) of
+        {ok, Toks, _} ->
+            [T|Ts] = lists:reverse(Toks),
+            Toks1 = case T of 
+                        {dot, _} -> Toks;
+                        {';',_} -> lists:reverse([{dot, 999}|Ts]);
+                        _ -> Toks++[{dot, 999}]
+                    end,
+            Toks2 = wrangler_epp_dodger:scan_macros(Toks1,[]),
+            case wrangler_parse:parse_form(Toks2) of 
+                {ok, AbsForm} ->
+                    case wrangler_syntax:type(AbsForm) of
+                        function ->
+                            Form1 =wrangler_epp_dodger:fix_pos_in_form(Toks, AbsForm),
+                            Form2 =  wrangler_syntax_lib:annotate_bindings(Form1),
+                            Cs = wrangler_syntax:function_clauses(Form2),
+                            case {Cs, T} of 
+                                {[C], {';',_L}} ->
+                                    Name = wrangler_syntax:function_name(Form2),
+                                    rewrite(C, wrangler_syntax:function_clause(Name, C));
+                                _ ->
+                                    Form2
+                            end;
+                        _ ->
+                            wrangler_epp_dodger:fix_pos_in_form(Toks, AbsForm)
+                    end;
+                {error, Reason} ->
+                   case T of 
+                       {dot, _} ->
+                           throw({error, Reason});
+                       {';',_} -> 
+                           throw({error, Reason});
+                       _ ->
+                           case wrangler_parse:parse_exprs(Toks2) of
+                               {ok, Exprs} ->
+                                   Exprs1 =wrangler_epp_dodger:rewrite_list(Exprs),
+                                   Exprs2 = make_tree({block, StartLoc, Exprs1}),
+                                   Exprs3=wrangler_syntax_lib:annotate_bindings(Exprs2),
+                                   Exprs4 =wrangler_syntax:block_expr_body(Exprs3),
+                                   case Exprs4 of 
+                                       [E] -> E;
+                                       _ -> Exprs4
+                                   end;
+                               {error, Reason1} ->
+                                   throw({error, Reason1})
+                           end
+                   end
+            end;
+        {error, ErrInfo, ErrLoc} ->
+            throw({error, {ErrInfo, ErrLoc}})
+    end.
+
+make_tree(Tree) ->
+    case wrangler_syntax:subtrees(Tree) of
+        [] ->
+           Tree;
+        Gs ->
+            Gs1 = [[make_tree(T) || T <- G] || G <- Gs],
+            wrangler_syntax:update_tree(Tree, Gs1)
+    end.
+
+
+
+%%================================================================
+%%@spec(extend_function_clause(Tree::syntaxTree()) -> syntaxTree()).
+%%@private             
+extend_function_clause(Tree) when is_list(Tree) ->
+    [extend_function_clause(T)||T<-Tree];
+extend_function_clause(Tree) ->
+    {Tree1, _} = api_ast_traverse:stop_tdTP(
+                   fun extend_function_clause_1/2, Tree, {}),
+    Tree1.
+
+extend_function_clause_1(Node, _OtherInfo) ->
+    case wrangler_syntax:type(Node) of
+        function ->
+            Node1=extend_function_clause_2(Node),
+            {Node1, true};
+        _ ->
+            {Node, false}
+    end.
+
+extend_function_clause_2(Node) ->
+    Name = wrangler_syntax:function_name(Node),
+    Cs = wrangler_syntax:function_clauses(Node),
+    Cs1= [case wrangler_syntax:type(C) of
+              clause ->
+                  rewrite(C,wrangler_syntax:function_clause(Name, C));
+              _ ->
+                  C
+          end
+          ||C<-Cs],
+    rewrite(Node, wrangler_syntax:function(Name, Cs1)).
