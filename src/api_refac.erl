@@ -1333,15 +1333,19 @@ make_fake_block_expr(Es) ->
 %%=================================================================
 %%@private
 match(Temp, Node) -> 
-    wrangler_generalised_unification:expr_match(Temp, Node).
-
+    Node1=wrangler_misc:extend_function_clause(Node),
+    wrangler_generalised_unification:expr_match(
+      Temp, Node1).
+     
 %%@private
 match({meta_apply, TCs}, Node, Cond) ->
     %% wrangler_io:format("Temp:\n~p\n", [TCs]),
-    match_meta_apply_temp(TCs, Node, Cond);
+    Node1=wrangler_misc:extend_function_clause(Node),
+    match_meta_apply_temp(TCs, Node1, Cond);
 match(Temp, Node, Cond) ->
+    Node1=wrangler_misc:extend_function_clause(Node),
     wrangler_generalised_unification:expr_match(
-      Temp, Node, Cond).
+      Temp, Node1, Cond).
 
 
 match_meta_apply_temp(MetaApplyTemp, Node, Cond) ->
