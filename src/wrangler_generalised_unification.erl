@@ -50,10 +50,11 @@ expr_match(Exp1, Exp2, Cond) ->
                                  false ->
                                      [];
                                  _ ->
-                                     throw({error, lists:flatten(io_lib:format
-                                                                   ("Condition checking of rule/collector "
-                                                                    "returns non-boolean value. Template being matched: ~s.",
-                                                                    [wrangler_prettypr:format(Exp1)]))})
+                                     throw({error, lists:flatten(
+                                                     io_lib:format
+                                                       ("Condition checking of rule/collector "
+                                                        "returns non-boolean value. Template being matched: ~s.",
+                                                        [wrangler_prettypr:format(Exp1)]))})
                              end
                      end||{true,Subst}<-Res],
     case lists:append(PossibleMatches) of
@@ -164,6 +165,8 @@ zip_unification_results(Res=[R|Rs]) ->
             case Rs of 
                 [] ->
                     [{true, E}||{true, E}<-R];
+                _  when R==[]->
+                    zip_unification_results(Rs);
                 _ ->
                     [{true, E1++E2}||{true,E1}<-R, 
                                      {true,E2}<-zip_unification_results(Rs)]
@@ -307,7 +310,15 @@ same_type_unification(Exp1, Exp2) ->
                             [{true, []}];
                        true -> [false]
                     end;
-                _ -> [{true, [{Exp1, Exp2}]}]
+                false -> 
+                    case is_object_variable(Exp1) of 
+                        true when Exp1Name==Exp2Name->
+                            [{true, []}];
+                        true ->
+                            [false];
+                        false ->
+                            [{true, [{Exp1, Exp2}]}]
+                    end
 	    end;
 	atom ->
             Exp1Val = wrangler_syntax:atom_value(Exp1),
@@ -482,15 +493,6 @@ is_object_variable(Var) ->
         _ ->
           false
     end.
-
-%% is_meta_variable(Var) ->
-%%     case refac_syntax:type(Var) of
-%%         variable ->
-%%             VarName = atom_to_list(refac_syntax:variable_name(Var)),
-%%             lists:prefix("@", lists:reverse(VarName));
-%%         _ ->
-%%           false
-%%     end.
 
 is_meta_atom(Node) ->
     case wrangler_syntax:type(Node) of
