@@ -22,9 +22,9 @@ composite_refac(_Args=#args{user_inputs=[M, F, A],
                  SearchPaths])),
      ?refac_(rename_var,
              [M,
-              fun()->
-                      MFA = ?current(M,F,A),
-                      {element(2, MFA),element(3, MFA)}
+              begin
+                  MFA = ?current(M,F,A),
+                  {element(2, MFA),element(3, MFA)}
               end,
               fun(X) ->
                       re:run(atom_to_list(X), "NewVar*")/=nomatch
@@ -35,24 +35,22 @@ composite_refac(_Args=#args{user_inputs=[M, F, A],
                            end},
               SearchPaths]),
      ?repeat_interactive(
-            ?refac_(swap_args, 
-                    [M,
-                     fun()->
-                             MFA = ?current(M,F,A),
-                             {element(2, MFA),element(3, MFA)}
-                     end,
-                     {user_input, fun(_)->"Index 1: " end}, 
-                     {user_input, fun(_)->"Index 2: " end},
-                     SearchPaths])),
+        ?refac_(swap_args, 
+                [M,
+                 begin
+                     MFA = ?current(M,F,A),
+                     {element(2, MFA),element(3, MFA)}
+                 end,
+                 {user_input, fun(_)->"Index 1: " end}, 
+                 {user_input, fun(_)->"Index 2: " end},
+                 SearchPaths])),
      ?try_refac(
         ?refac_(fold_expr,
                 [{file, fun(_File) ->true end}, 
-                 fun()->element(1,?current(M,F,A)) end,
-                 fun() ->
-                         {element(2, ?current(M,F,A)),
-                          element(3, ?current(M,F,A))}
-                 end, 1, SearchPaths]))
-     ].
+                 element(1,?current(M,F,A)),
+                 {element(2, ?current(M,F,A)),element(3, ?current(M,F,A))},
+                 1, SearchPaths]))
+    ].
     
 
 
