@@ -128,6 +128,16 @@
 -define(MATCH(Temp, Node), 
         api_refac:expand_match(Temp, Node, fun(_) -> true end)).
 
+
+-define(MATCH(Temp, Node, Cond),
+        begin
+            _W_NewCond =fun(_W_Bind_) -> 
+                                api_refac:make_cond(Cond, _W_Bind_)
+                        end,
+            api_refac:expand_match(Temp, Node, _W_NewCond)
+        end).
+
+        
 -define(STOP_TD_TP(Rules, FileOrDirs),
         api_refac:search_and_transform(Rules, FileOrDirs, stop_td_tp)).
 
@@ -142,3 +152,27 @@
 
 -define(FUN_APPLY(M,F,A),
         {meta_apply, api_refac:meta_apply_templates({M,F,A})}).
+
+-define(interactive(ERs),
+        {interactive, ERs}).
+
+-define(repeat_interactive(ERs),
+        {repeat_interactive, ERs}).
+
+-define(if_then(Cond, Refac),
+         {if_then, 
+          fun()-> Cond end, 
+          Refac}).
+     
+-define(while(Cond, Refac),
+        {while,
+         fun() ->Cond  end,
+         Refac}).
+-define(try_refac(CR),
+        {try_refac, CR}).
+
+-define(refac_(RefacName, Args),
+        {refac_, RefacName, Args}).
+
+-define(current(M,F,A),
+        wrangler_cmd_server:update_entity({M,F,A})).
