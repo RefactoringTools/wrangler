@@ -486,8 +486,8 @@ file_format(File) ->
                     end
 	    end;
 	{error, Reason} ->
-	    Msg = io_lib:format("Wrangler could not read file ~s: ~w \n", 
-				[filename:dirname(File), Reason]),
+	    Msg = io_lib:format("Wrangler could not read file ~s; reason: ~w \n", 
+				[File, Reason]),
 	    throw({error, lists:flatten(Msg)})
     end.
 
