@@ -347,6 +347,7 @@
          defined_funs/1,
          get_ast/1, 
          get_module_info/1,
+         get_mfas/2,
          client_files/2,
          module_name/1,
          tokenize/3,
@@ -2361,3 +2362,27 @@ meta_apply_templates(_MFA={M,F,A}) ->
               end
       end}
     ].
+
+
+%% not tested yet.
+get_mfas(File, Order) ->
+    case Order == td orelse Order == bu of
+        true ->
+            SortedFuns=wrangler_callgraph_server:get_sorted_funs(File),
+            {MFAs, _} = lists:unzip(SortedFuns),
+            case Order of
+                td ->
+                    lists:reverse(MFAs);
+                bu ->
+                    MFAs
+            end;
+        false ->
+            {ok, ModuleInfo} = api_refac:get_module_info(File),
+            case lists:keyfind(functions, 1, ModuleInfo) of
+                {functions, Fs} ->
+                    M = module_name(File),
+                    [{M,F,A} || {F,A}<-Fs];
+                false ->
+                    []
+            end
+    end.
