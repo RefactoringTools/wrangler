@@ -27,18 +27,22 @@
 %%@author  Huiqing Li <H.Li@kent.ac.uk>
 %%
 %%
+%%@hidden
+%%@private
 -module(wrangler_cmd_server).
 
 -behaviour(gen_server).
 
 -export([start_link/1, stop/0]).
 
--export([get_next_command/1]).
-
 -export([init/1,handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--compile(export_all).
+-export([elementary_refac_loop/2, interactive_refac_loop/2, 
+         repeat_interactive_refac_loop/2, while_refac_loop/2,
+         if_then_refac_loop/2]).
+
+-export([get_next_command/1,update_entity/1]).
 
 -record(state, {cmds=[], 
                 changed_files=sets:new(), 
@@ -48,19 +52,29 @@
 
 -include("../include/wrangler_internal.hrl").
 
+-define(ENABLE_DEBUG, true).
+ 
+-ifdef(ENABLE_DEBUG).
+-define(wrangler_debug(__String, __Args), ?wrangler_io(__String, __Args)).
+-else.
+-define(wrangler_debug(__String, __Args), ok).
+-endif.
+
 start_link(Cmds)->
     gen_server:start({local, ?MODULE}, ?MODULE,[Cmds], []).
 
-
 init([Cmds]) ->
+    ?wrangler_debug("Cmds:\n~p\n", [Cmds]),
     process_flag(trap_exit, true),
     NameTrackerPid = spawn_link(fun()->name_tracker_loop([]) end),
+    register(wrangler_name_tracker, NameTrackerPid),
     CurrentPid = self(),
     Pid=spawn_link(fun()->cmd_server_loop(CurrentPid, 
                                           #state{cmds=make_list(Cmds),
                                                  name_tracker_pid=NameTrackerPid})
                    end),
     {ok, {Pid, NameTrackerPid}}.
+
 
 get_next_command(PrevResult) ->
     gen_server:call(?MODULE, {get_next_command, PrevResult}).
@@ -69,26 +83,26 @@ stop() ->
     gen_server:cast(?MODULE, stop).
 
 handle_call({get_next_command,PrevResult}, _From, State={CmdServerPid, NameTrackerPid}) ->
-    wrangler_io:format("PrevResult:\n~p\n", [PrevResult]),
+    ?wrangler_debug("PrevResult:\n~p\n", [PrevResult]),
     PrevResult1=case PrevResult of 
-                   [Result, {name_change, BeforeAfter}] ->
-                       NameTrackerPid! {name_change, BeforeAfter},
-                       Result;
-                   _  ->
-                       PrevResult
-               end,
-    wrangler_io:format("handlecall: get_next_command:~p\n",[PrevResult1]),
+                    [Result, {name_change, BeforeAfter}] ->
+                        NameTrackerPid! {name_change, BeforeAfter},
+                        Result;
+                    _  ->
+                        PrevResult
+                end,
+    ?wrangler_debug("handlecall: get_next_command:~p\n",[PrevResult1]),
     Cmd = get_next_command(PrevResult1, {CmdServerPid, NameTrackerPid}),
     case Cmd of 
         {ok, none, _ChangedFiles, _Msg} ->
             {reply, Cmd, State};
         {ok, RefacCmd, {NextPid, NameTrackerPid}} when is_pid(NextPid) ->
-            wrangler_io:format("RefacCmd:\n~p\n", [RefacCmd]),
+            ?wrangler_debug("RefacCmd:\n~p\n", [RefacCmd]),
             {reply, {ok, RefacCmd}, {NextPid, NameTrackerPid}}
     end.
 
 get_next_command(PrevResult, {CmdServerPid, NameTrackerPid}) ->
-    wrangler_io:format("CmdServerPid:\n~p\n", [CmdServerPid]),
+    ?wrangler_debug("CmdServerPid:\n~p\n", [CmdServerPid]),
     CmdServerPid ! {self(), get_next_command, PrevResult},
     Self = self(),
     receive 
@@ -107,10 +121,14 @@ get_next_command(PrevResult, {CmdServerPid, NameTrackerPid}) ->
                 {ok, Cmd} when is_pid(NextPid)->
                     {ok, Cmd, {NextPid, NameTrackerPid}};
                 _Cmd ->
-                    error(format_msg("Unexpected refactoring command: ~p.\n", NextCmd))   
+                    Msg =format_msg("Unexpected refactoring command: ~p.\n", 
+                                    NextCmd),
+                    {ok, none, [], {error, Msg}}
             end;
-        Msg ->
-            error(format_msg("Unexpected Message in get_next_command: ~p.\n",Msg))
+        Others ->
+            Msg=format_msg("Unexpected Message in get_next_command: ~p.\n",
+                           Others),
+            {ok, none, [], {error, Msg}}            
     end.
 
 handle_cast(stop, State={CmdServerPid, NameTrackerPid}) ->
@@ -118,9 +136,17 @@ handle_cast(stop, State={CmdServerPid, NameTrackerPid}) ->
     NameTrackerPid ! stop,
     {noreply, normal, State}.
 
-handle_info(Info,State) ->
+handle_info(Info,State=State={CmdServerPid, NameTrackerPid}) ->
+    CmdServerPid ! stop,
+    NameTrackerPid ! stop,
     {stop, Info, State}.
 
+update_entity(Entity) ->
+    wrangler_name_tracker ! {self(), update_entity, Entity},
+    receive 
+        {wrangler_name_tracker, NewEntity}->
+            NewEntity
+    end.
 %%--------------------------------------------------------------------
 %% Function: terminate(Reason, State) -> void()
 %% Description: This function is called by a gen_server when it is about to
@@ -140,9 +166,10 @@ code_change(_OldVsn, State, _Extra) ->
 cmd_server_loop(Parent, State=#state{cmds=Cmds0, changed_files=Changes}) ->
     receive 
         {From, get_next_command, PrevResult} ->
-            Cmds = generate_cmds(Cmds0, State#state.name_tracker_pid),
-            wrangler_io:format("Cmds in cmd_server_loop:\n~p\n",[Cmds]),
-            wrangler_io:format("Cmdserver: changed files:\n~p\n", [sets:to_list(Changes)]),
+            ?wrangler_debug("Cmds0:\n~p\n",[Cmds0]),
+            Cmds = generate_cmds(Cmds0),
+            ?wrangler_debug("Cmds in cmd_server_loop:\n~p\n",[Cmds]),
+            ?wrangler_debug("Cmdserver: changed files:\n~p\n", [sets:to_list(Changes)]),
             CurrentPid = self(),
             case Cmds of
                 [] ->
@@ -159,25 +186,18 @@ cmd_server_loop(Parent, State=#state{cmds=Cmds0, changed_files=Changes}) ->
                             From ! {get_next_command, Parent, [ok, sets:to_list(ModifiedSoFar)]}
                     end;
                 [C|Cs] ->
-                    wrangler_io:format("C in cmd server:\n~p\n",[C]),
-                    wrangler_io:format("PrevResult:\n~p\n", [PrevResult]), 
+                    ?wrangler_debug("C in cmd server:\n~p\n",[C]),
+                    ?wrangler_debug("PrevResult:\n~p\n", [PrevResult]), 
                     case PrevResult of 
                         [error, Reason] when State#state.atomic->
                             From ! {get_next_command, Parent, [error, Reason]};
                         _ ->
                             ModifiedSoFar = update_modified_files(PrevResult,Changes),
-                            wrangler_io:format("ModifiedSoFar:\n~p\n", [ModifiedSoFar]),
+                            ?wrangler_debug("ModifiedSoFar:\n~p\n", [ModifiedSoFar]),
                             process_flag(trap_exit, true),
                             case C of  
-                                {non_atomic, CRs} ->
+                                {try_refac, CRs} ->
                                     NewState=State#state{cmds=CRs, atomic=false,
-                                                         changed_files=sets:new()},
-                                    Pid = spawn_link(fun()->
-                                                             cmd_server_loop(CurrentPid, NewState)
-                                                     end),
-                                    From ! {get_next_command, Pid, [ok, []]};
-                                {atomic, CRs} ->
-                                    NewState=State#state{cmds=CRs, atomic=true,
                                                          changed_files=sets:new()},
                                     Pid = spawn_link(fun()->
                                                              cmd_server_loop(CurrentPid, NewState)
@@ -185,8 +205,8 @@ cmd_server_loop(Parent, State=#state{cmds=Cmds0, changed_files=Changes}) ->
                                     From ! {get_next_command, Pid, [ok, []]};
                                 _ ->
                                     LoopName = make_loop_name(C),
-                                    wrangler_io:format("LoopName:\n~p\n", [LoopName]),
-                                    wrangler_io:format("C:\~p\n", [C]),
+                                    ?wrangler_debug("LoopName:\n~p\n", [LoopName]),
+                                    ?wrangler_debug("C:\~p\n", [C]),
                                     Pid = spawn_link(fun()->
                                                              ?MODULE:LoopName(CurrentPid,  
                                                                               State#state{cmds=C, 
@@ -212,9 +232,9 @@ elementary_refac_loop(Parent, State=#state{cmds=ER}) ->
     receive 
         {From, get_next_command, PrevResult} ->
             case ER of
-                {refactoring, Refac, _Question}->
+                {refactoring, Refac, Args}->
                     NewState=update_state(State, PrevResult),
-                    From ! {self(), {ok, {refactoring, Refac}}, self()},
+                    From ! {self(), {ok, {refactoring, Refac, Args}}, self()},
                     elementary_refac_loop(Parent, NewState#state{cmds=none});
                 none ->
                     From ! {get_next_command, Parent, PrevResult}
@@ -230,10 +250,10 @@ interactive_refac_loop(Parent, State=#state{cmds={interactive, ER0s},
                                             changed_files=Changes}) ->
     receive 
         {From, get_next_command, PrevResult} ->
-            wrangler_io:format("ER0s:\n~p\n", [ER0s]),
-            ERs = generate_cmds(ER0s,State#state.name_tracker_pid),
-            wrangler_io:format("ERs:\n~p\n", [ERs]),
-            wrangler_io:format("PrevResult:\n~p\n", [PrevResult]),
+            ?wrangler_debug("ER0s:\n~p\n", [ER0s]),
+            ERs = generate_cmds(ER0s),
+            ?wrangler_debug("ERs:\n~p\n", [ERs]),
+            ?wrangler_debug("PrevResult:\n~p\n", [PrevResult]),
             case PrevResult of
                 [error, _Reason] ->
                     case State#state.atomic of 
@@ -241,8 +261,9 @@ interactive_refac_loop(Parent, State=#state{cmds={interactive, ER0s},
                             From ! {get_next_command, Parent, PrevResult};
                         false ->
                             case ERs of
-                                [{refactoring, Refac, Question}|Cs] ->
-                                    From ! {self(), {ok, {interactive, Question, Refac}}, self()},
+                                [{refactoring, Refac={_, RefacName}, Args}|Cs] ->
+                                    Question =apply(wrangler_extended, gen_question, [RefacName, Args]),
+                                    From ! {self(), {ok, {interactive, Question, Refac, Args}}, self()},
                                     interactive_refac_loop(Parent, State#state{cmds={interactive, Cs}});
                                 [] ->
                                     From ! {get_next_command, Parent, [ok,Changes]}
@@ -250,9 +271,10 @@ interactive_refac_loop(Parent, State=#state{cmds={interactive, ER0s},
                     end;
                 [ok, _Modified] ->
                     case ERs of
-                        [{refactoring, Refac, Question}|Cs] ->
+                        [{refactoring, Refac={_, RefacName}, Args}|Cs] ->
+                            Question=apply(wrangler_extended, gen_question, [RefacName,Args]),
                             NewState=update_state(State, PrevResult),
-                            From ! {self(), {ok, {interactive, Question, Refac}}, self()},
+                            From ! {self(), {ok, {interactive, Question, Refac, Args}}, self()},
                             interactive_refac_loop(Parent, NewState#state{cmds={interactive, Cs}});
                         [] ->
                             ModifiedSoFar =update_modified_files(PrevResult,Changes),
@@ -271,7 +293,7 @@ repeat_interactive_refac_loop(Parent, State=#state{cmds={repeat_interactive, ER0
                                                    changed_files=Changes}) ->
     receive 
         {From, get_next_command, PrevResult} ->
-            ERs = generate_cmds(ER0s,State#state.name_tracker_pid),
+            ERs = generate_cmds(ER0s),
             case ERs of
                 [] -> 
                     ModifiedSoFar =update_modified_files(PrevResult,Changes),
@@ -289,16 +311,18 @@ repeat_interactive_refac_loop(Parent, State=#state{cmds={repeat_interactive, ER0
                         [error, _Reason] ->
                             case State#state.atomic of 
                                 true ->
-                                    From ! {get_next_command, Parent, PrevResult};
+                                    From ! {get_next_command, Parent, [ok, sets:to_list(Changes)]}; %%TODO:test here again!
                                 false->
-                                    [{refactoring, Refac, Question}|_Cs]=ERs,
-                                    From ! {self(), {ok, {repeat_interactive, Question, Refac}}, self()},
+                                    [{refactoring, Refac={_, RefacName}, Args}|_Cs]=ERs,
+                                    Question=apply(wrangler_extended, gen_question, [RefacName, Args]),
+                                    From ! {self(), {ok, {repeat_interactive, Question, Refac, Args}}, self()},
                                     repeat_interactive_refac_loop(Parent,State)
                             end;
                         [ok, _Modified] ->
                             NewState=update_state(State, PrevResult),
-                            [{refactoring, Refac, Question}|_Cs]=ERs,
-                            From ! {self(), {ok, {repeat_interactive, Question, Refac}}, self()},
+                            [{refactoring, Refac={_, RefacName}, Args}|_Cs]=ERs,
+                            Question=apply(wrangler_extended, gen_question, [RefacName, Args]),
+                            From ! {self(), {ok, {repeat_interactive, Question, Refac, Args}}, self()},
                             repeat_interactive_refac_loop(Parent, NewState)
                     end
             end;
@@ -316,8 +340,20 @@ while_refac_loop(Parent, State=#state{cmds={while, Cond, CmdGen},
                 _ ->
                     ModifiedSoFar = update_modified_files(PrevResult,Changes),
                     case Cond() of
-                        true ->
-                            Res = generate_cmds(CmdGen,State#state.name_tracker_pid),
+                        false ->
+                            From !{get_next_command, Parent, [ok, sets:to_list(ModifiedSoFar)]};
+                        {false, _} ->
+                            From !{get_next_command, Parent, [ok, sets:to_list(ModifiedSoFar)]};
+                        Others ->
+                            CmdGen1=case Others of 
+                                        true ->
+                                            CmdGen;
+                                        {true, Data} when is_function(CmdGen, 1) ->
+                                            CmdGen(Data);
+                                        {true, _} ->
+                                            CmdGen
+                                    end,
+                            Res = generate_cmds(CmdGen1),
                             case Res of 
                                 [] ->
                                     From !{get_next_command, Parent, [ok, sets:to_list(ModifiedSoFar)]};
@@ -330,9 +366,7 @@ while_refac_loop(Parent, State=#state{cmds={while, Cond, CmdGen},
                                     From ! {get_next_command, Pid, [ok, []]},
                                     while_refac_loop(Parent, State#state{cmds={while, Cond, CmdGen},
                                                                          changed_files=ModifiedSoFar})
-                            end;
-                        false ->
-                            From !{get_next_command, Parent, [ok, sets:to_list(ModifiedSoFar)]}
+                            end
                     end
             end;
         {'EXIT', ChildrenPid, Reason} ->
@@ -347,45 +381,32 @@ while_refac_loop(Parent, State=#state{cmds={while, Cond, CmdGen},
     end.
 
 %% not really a loop.
-if_then_else_refac_loop(Parent, State=#state{cmds={if_then_else, Cond, CRs1, CRs2}}) ->
-    receive 
-        {From, get_next_command, _PrevResult} ->
-            CRs = case Cond() of 
-                      true ->
-                          make_list(CRs1);
-                      false ->
-                          make_list(CRs2)
-                  end,
-            Pid = spawn_link(fun()->
-                                     cmd_server_loop(Parent, State#state{cmds=CRs})
-                             end),
-            process_flag(trap_exit, true),
-            From ! {get_next_command, Pid, [ok, []]};
-        {'EXIT', ChildrenPid, Reason} ->
-            case Reason of 
-                normal ->
-                    if_then_else_refac_loop(Parent, State);
-                _ ->
-                    error(format_msg("~p died with:~p~n", [ChildrenPid, Reason]))
-            end;
-        Msg ->
-            error(format_msg("Unexpected message in if_then_else_refac_loop:~p\n", Msg))  
-    end.  
-
-%% not really a loop.
 if_then_refac_loop(Parent, State=#state{cmds={if_then, Cond, CRs}}) ->
     receive
         {From, get_next_command, _PrevResult} ->
-            case Cond() of 
-                true ->
-                    CR1s = make_list(CRs),
+            R = Cond(),
+            ?wrangler_debug("R:\n~p\n", [R]),
+            case R of 
+                false ->
+                    From !{get_next_command, Parent, [ok, []]};
+                {false, _} ->
+                    From !{get_next_command, Parent, [ok, []]};
+                Others ->
+                    CR1s =case Others of 
+                              true ->
+                                  CRs;
+                              {true, Data} when is_function(CRs,1)->
+                                  CRs(Data);
+                              {true, _} ->
+                                  CRs
+                          end,
                     Pid = spawn_link(fun()->
-                                             cmd_server_loop(Parent, State#state{cmds=[CR1s]})
+                                             cmd_server_loop(
+                                               Parent, 
+                                               State#state{cmds=make_list(CR1s)})
                                      end),
                     process_flag(trap_exit, true),
-                    From ! {get_next_command, Pid, [ok,[]]};
-                false ->
-                    From !{get_next_command, Parent, [ok, []]}
+                    From ! {get_next_command, Pid, [ok,[]]}
             end;
         {'EXIT', ChildrenPid, Reason} ->
             case Reason of 
@@ -407,16 +428,18 @@ if_then_refac_loop(Parent, State=#state{cmds={if_then, Cond, CRs}}) ->
 %% This function takes the first command generator in the list, expands it
 %% and appends the result to the front of the list of cmd generators.
 
-generate_cmds(Cmd, NameTrackerPid) when not is_list(Cmd) ->
-    generate_cmds([Cmd], NameTrackerPid); 
-generate_cmds([], _) -> [];
-generate_cmds([Cmd|Cmds], NameTrackerPid) ->
-    wrangler_io:format("Generate_cmds:Cmd:\n~p\n",[Cmd]), 
-    Cmd1 = generate_a_cmd(Cmd, NameTrackerPid), 
-    wrangler_io:format("Cmd1:\n~p\n", [Cmd1]),
+generate_cmds(Cmd) when not is_list(Cmd) ->
+    generate_cmds([Cmd]); 
+generate_cmds([]) -> [];
+generate_cmds([Cmd|Cmds]) when is_function(Cmd) ->
+    generate_cmds(make_list(Cmd())++Cmds);
+generate_cmds([Cmd|Cmds]) ->
+    ?wrangler_debug("Generate_cmds:Cmd:\n~p\n",[Cmd]), 
+    Cmd1 = generate_a_cmd(Cmd), 
+    ?wrangler_debug("Cmd1:\n~p\n", [Cmd1]),
     case Cmd1 of 
         [] ->
-            generate_cmds(Cmds, NameTrackerPid);
+            generate_cmds(Cmds);
         {C, {generator, Gen}} ->
             [C, {generator, Gen}|Cmds];
         C when is_list(C) ->
@@ -425,11 +448,11 @@ generate_cmds([Cmd|Cmds], NameTrackerPid) ->
             [C|Cmds]
     end. 
 
-generate_a_cmd(Cmd={refactoring, _, _},_NameTrackerPid)->
+generate_a_cmd(Cmd={refactoring, _, _})->
     Cmd;
-generate_a_cmd(Cmd={{refactoring,_, _}, {generator, _}}, _NameTrackerPid) ->
+generate_a_cmd(Cmd={{refactoring,_, _}, {generator, _}}) ->
     Cmd;
-generate_a_cmd({generator, Gen}, _NameTrackerPid) ->
+generate_a_cmd({generator, Gen}) ->
     case Gen() of 
         [] ->
             [];
@@ -438,49 +461,45 @@ generate_a_cmd({generator, Gen}, _NameTrackerPid) ->
         Cmd ->
             Cmd
     end;
-generate_a_cmd(Cmd={RefacName, Args}, NameTrackerPid) ->
-    wrangler_io:format("NameTrackerPid:\n~p\n", [NameTrackerPid]),
-    wrangler_io:format("Cmd_in_generate_a_cmd:\n~p\n", [Cmd]),
-    wrangler_io:format("RefacName:\n~p\n", [RefacName]),
+generate_a_cmd(Cmd={refac_,RefacName, Args}) ->
+    ?wrangler_debug("Cmd_in_generate_a_cmd:\n~p\n", [Cmd]),
+    ?wrangler_debug("RefacName:\n~p\n", [RefacName]),
     case lists:member(RefacName, elementary_refacs()) andalso is_list(Args) of
         true ->
-            NameTrackerPid ! {self(), update_args, Args},
-            receive
-                {NameTrackerPid, NewArgs} ->
-                    try 
-                        Cmds=apply(wrangler_extended, RefacName, NewArgs),
-                        generate_cmds(Cmds, NameTrackerPid)
-                    catch
-                        E1:E2 ->
-                            throw({error, {E1,{E2, erlang:get_stacktrace()}}})
-                    end                    
-            end;
+            NewArgs=lists:map(fun(A)->
+                                      case is_function(A,0) of
+                                          true ->
+                                              A();
+                                          false->
+                                              A
+                                      end
+                              end, Args),
+            ?wrangler_debug("NewArgs:\n~p\n", [NewArgs]),
+            Cmds=apply(wrangler_extended, RefacName,NewArgs),
+            ?wrangler_debug("Cmds:\n~p\n", [Cmds]),
+            generate_cmds(Cmds);
         false ->
             Cmd            
     end; 
-generate_a_cmd(Cmd, _NameTrackerPid) ->
+generate_a_cmd(Cmd) ->
     Cmd.
 
 
 update_state(State=#state{changed_files=Changes}, PrevResult) ->
-    State#state{changed_files= update_modified_files(PrevResult,Changes)};
-update_state(State, _) ->
-    State.
+    State#state{changed_files= update_modified_files(PrevResult,Changes)}.
 
 make_loop_name(CR) ->
     case CR of 
-        {refactoring, _, _} ->
+        {refactoring, {_Mod, _Name},_Args} ->
             elementary_refac_loop;
-        {{refactorng, _, _}, _Gen} ->
+        {{refactoring, {_Mod, _Name} ,_Args}, _Gen} ->
             elementary_refac_loop;
-        {interactive, _} ->
+        {interactive, _ERs} ->
             interactive_refac_loop;
-        {repeat_interactive, _} ->
+        {repeat_interactive, _ERs} ->
             repeat_interactive_refac_loop;
-        {while, _, _} ->
+        {while, _Cond, _CR} ->
             while_refac_loop;
-        {if_then_else, _Cond, _CR1, _CR2}  ->
-            if_then_else_refac_loop;
         {if_then, _Cond, _CR} ->
             if_then_refac_loop;
         _ ->
@@ -499,14 +518,21 @@ make_loop_name(CR) ->
 %% the script, it is possible to refer to the old entity name, but that must be 
 %% flagged!!!
 name_tracker_loop(State) ->
+    ?wrangler_debug("State:\n~p\n", [State]),
     receive
         {name_change, BeforeAfter} ->
             NewState=update_name_history(State, BeforeAfter),
             name_tracker_loop(NewState);
-        {From, update_args, Args} ->
-            NewArgs = rename_in_args(Args, State),
-            From ! {self(), NewArgs},
-            name_tracker_loop(State);
+        {From, update_entity, Entity} ->
+            NormalisedEntity=normalise(Entity),
+            case lists:keyfind(NormalisedEntity, 1,State) of
+                {NormalisedEntity, NewNames} ->
+                    From ! {wrangler_name_tracker, hd(NewNames)},
+                    name_tracker_loop(State);
+                false -> 
+                    From ! {wrangler_name_tracker, Entity}, 
+                    name_tracker_loop(State)
+            end;
         stop ->
             ok
     end.
@@ -526,20 +552,6 @@ update_name_history_1([{Key, [Before|Bs]}|Ls], {Before, After}, Acc) ->
 update_name_history_1([L|Ls], {Before, After}, Acc) ->
     update_name_history_1(Ls, {Before, After}, [L|Acc]).
 
-
-rename_in_args(Args, State) ->
-    [case Arg of
-         {old, A} ->
-             Arg1=normalise(A),
-             case lists:keyfind(Arg1, 1,State) of
-                 {Arg1, NewNames} ->
-                     hd(NewNames);
-                 false -> 
-                     A    %% should throw error here!!!
-             end;
-         _ -> 
-             Arg
-     end||Arg <- Args].
     
 normalise(Entry) ->
     case Entry of
@@ -574,7 +586,7 @@ normalise(Entry) ->
 
 %% The names of the elementary refactorings supported.
 elementary_refacs() ->
-    [rename_var, rename_fun, swap_args, fold_expr, gen_fun, move_fun, unfold_fun_app].
+    [rename_var, rename_fun, swap_args, fold_expr, gen_fun, move_fun, unfold_fun_app, tuple_args].
                 
 format_msg(Format, Data) ->
     lists:flatten(io_lib:format(Format, [Data])).

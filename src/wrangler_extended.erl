@@ -29,211 +29,304 @@
 %% Author contact: H.Li@kent.ac.uk, Simon.J.Thompson@kent.ac.uk
 %%
 %% =====================================================================
-
+%%@hidden
+%%@private
 -module(wrangler_extended).
 
--export([rename_fun/3, 
-         rename_var/4, 
-         swap_args/4,
-         fold_expr/4,
+-export([rename_fun/4, 
+         rename_var/5, 
+         swap_args/5,
+         tuple_args/5,
+         fold_expr/5,
+         gen_fun/5,
          gen_fun/6,
          move_fun/4,
          unfold_fun_app/3]).
 
--include("../include/wrangler.hrl").
+-export([gen_question/2]).
 
-move_fun({SrcModOrFile, FunName, Arity}, TgtModOrFile, SearchPaths, GenOrder) ->
-    case locate_one_file(SrcModOrFile, SearchPaths) of
-        {error, Reason} ->
-            wrangler_io:format("Warning: ~p\n", [Reason]),
-            [];
-        SrcFile ->
-            case locate_one_file(TgtModOrFile, SearchPaths) of
-                {error, Reason} ->
-                    wrangler_io:format("Warning: ~p\n", [Reason]),
-                    [];
-                TgtFile ->
-                   move_fun_1({SrcFile, FunName, Arity}, TgtFile, SearchPaths, GenOrder)
+-include("../include/wrangler.hrl").
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                              %%
+%% Generalised interface for moving a function btw modules.     %%
+%%                                                              %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-type (file_filter()::{file,fun((File::filename()) -> boolean())}).
+
+-type (module_filter():: {module, fun((Mod::atom()) -> boolean())}).
+
+-type (mod_or_file()::file_filter() | module_filter() | atom() |filename()).
+
+-type (fa()::fun(({FunName::atom(), Arity::integer()})->boolean())
+           |{atom(), integer()}).
+
+-type (search_paths()::[filename()|dir()]).
+
+-type (elementary_refac()::{refactoring, {atom(), atom()}, [term()]}).
+
+-type (lazy_refac()::{elementary_refac(), {generator, function()}}).
+
+-spec move_fun(mod_or_file(),fa(),
+               file_filter() |module_filter()|atom()|filename()
+               |{user_input, Prompt::fun(({M::atom(),FA::{atom(),integer()}})->
+                                                string())},
+               search_paths()) ->[elementary_refac()].
+move_fun(SrcModOrFile, FA, TgtModOrFile, SearchPaths) ->
+    CmdLists=[{refactoring, {refac_move_fun, move_fun_by_name},
+               [File, {F, A}, TargetFile, SearchPaths]}
+              ||File<-gen_file_names(SrcModOrFile, SearchPaths),
+                {F,A}<-get_fun_arity(File, FA),
+                TargetFile<-gen_target_file_name(
+                              {File, FA}, TgtModOrFile,SearchPaths)],
+    lists:append(CmdLists).
+
+gen_target_file_name(PreArgs, TgtModOrFile, SearchPaths) ->
+    case TgtModOrFile of
+        {user_input, GenPrompt} ->
+            {prompt, GenPrompt(PreArgs)};
+        _ -> 
+            case gen_file_names(TgtModOrFile, SearchPaths) of 
+                [File] ->
+                    [File];
+                [] ->
+                    throw({error, "Invlaid specification of target file."})
             end
     end.
 
-move_fun_1({SrcFile, FunName, Arity}, TgtFile, SearchPaths, GenOrder) ->
-    FAs= get_fun_arity(SrcFile, FunName, Arity, GenOrder),
-    [{refactoring, {refac_move_fun, move_fun_by_name, [{SrcFile, F, A}, TgtFile, 
-                                                       SearchPaths, composite_emacs]},
-      gen_question(move_fun, {SrcFile, F, A, TgtFile})} 
-     ||{F, A} <-FAs].
-        
-gen_fun(ModOrFile, FA, Expr, NewParName, SearchPaths, GenOrder) ->
-    Files= get_files(ModOrFile, SearchPaths),
-    CmdLists=[gen_fun_1(File, FA, Expr, NewParName, SearchPaths, GenOrder, [])
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                              %%
+%% Generalised interface for renaming a function name.          %%
+%%                                                              %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-spec rename_fun(ModOrFile::mod_or_file(),
+                 Fa:: fa(),
+                 NewFunName::{generator, fun(({M::atom(),FA::{atom(),integer()}})->atom())}
+                           | {user_input, Prompt::fun(({M::atom(),FA::{atom(),integer()}})->
+                                                             string())}
+                           |atom(),
+                 SearchPaths::search_paths()) ->[elementary_refac()].
+rename_fun(ModOrFile,FA, NewFunName, SearchPaths)->
+    Files= gen_file_names(ModOrFile, SearchPaths),
+    CmdLists=[rename_fun_1(File, FA, NewFunName, SearchPaths)
               ||File<-Files],
     lists:append(CmdLists).
 
-gen_fun_1(File, FA, Expr, NewParName, SearchPaths, GenOrder, Acc) ->
-    Refacs=gen_fun_2(File, FA,Expr, NewParName, SearchPaths, GenOrder, Acc),
-    case Refacs of 
-        [] -> [];
-        [R={refactoring, {refac_gen, generalise, [File, F, A |_]}, _Question}|_Rs] ->
-            {R,{generator, fun()->
-                                   gen_fun_1(File, FA, Expr, NewParName, SearchPaths, GenOrder, [{File, F, A}|Acc])
-                           end}}     
-    end.
-                                
-gen_fun_2(File, FA,ExprFilter, NewParName, SearchPaths, GenOrder, Acc)->
-    FAs= get_fa(File, FA, GenOrder),
-    [{refactoring, {refac_gen, generalise, 
-                    [File, F, A, Exprs, new_name_gen(File, F, A, Exprs, NewParName),
-                     SearchPaths, composite_emacs]}, gen_question(gen_fun,{File,F,A,Exprs})}
-     ||{F, A}<-FAs, not lists:member({File, F, A}, Acc),
-       Ranges<-[get_exprs(File, F, A, ExprFilter)], Ranges/=[],
-       Exprs<-[{range, {File, Ranges}}]].
-
-  
-get_exprs(File, FunName, Arity, ExprFilter) ->
-    ModName=list_to_atom(filename:basename(File, ".erl")),
-    FunDef=api_refac:mfa_to_fun_def({ModName, FunName, Arity}, File),
-    ?FULL_TD_TU([?COLLECT(?T("E@"),  
-                          api_refac:start_end_loc(E@),
-                          api_refac:is_expr(E@) andalso
-                          ExprFilter(E@))], FunDef).
- 
-fold_expr(CurModOrFile, {ModOrFile, FunName, Arity}, ClauseIndex, SearchPaths) ->
-    Files= get_files(CurModOrFile, SearchPaths),
-    case locate_one_file(ModOrFile, SearchPaths) of
-        {error, Reason} ->
-            wrangler_io:format("Warning: ~p\n", [Reason]); 
-        TgtFile ->
-            ModName=list_to_atom(filename:basename(TgtFile, ".erl")),
-            [{F,A}] = get_fun_arity(TgtFile, FunName, Arity),
-            CmdLists=[fold_expr_1(File,  ModName, F, A, ClauseIndex, SearchPaths)
-                      ||File<-Files],
-            lists:append(CmdLists)
-    end.
-        
-fold_expr_1(File, ModName, FunName, Arity, ClauseIndex, SearchPaths) ->
-    [{refactoring, {refac_fold_expression, fold_expr_by_name, 
-                    [File, atom_to_list(ModName), atom_to_list(FunName), 
-                     integer_to_list(Arity), integer_to_list(ClauseIndex), 
-                     SearchPaths, composite_emacs]},
-      lists:flatten(io_lib:format("Do you want to fold against function ~p:~p/~p?", 
-                                  [ModName,FunName,Arity]))}].
-
-rename_fun({ModOrFile, OldFunName, Arity}, NewFunName, SearchPaths)->
-    Files= get_files(ModOrFile, SearchPaths),
-    CmdLists=[rename_fun_1(File, OldFunName, Arity, NewFunName, SearchPaths)
-              ||File<-Files],
-    lists:append(CmdLists).
-    
-      
-rename_fun_1(File, OldFunName, Arity, NewFunName, SearchPaths) ->
-    FAs= get_fun_arity(File, OldFunName, Arity),
-    [{refactoring, {refac_rename_fun, rename_fun_by_name, 
-                    [File, F, A, new_name_gen(File, F, A, NewFunName), 
-                     SearchPaths, composite_emacs]}, gen_question(rename_fun,{File, F,A})}
+rename_fun_1(File, FA, NewFunName, SearchPaths) ->
+    FAs= get_fun_arity(File, FA),
+    [{refactoring, {refac_rename_fun, rename_fun_by_name}, 
+      [File, {F, A}, new_name_gen(File, {F, A}, NewFunName),
+       SearchPaths]}
      ||{F, A}<-FAs].
 
-new_name_gen(File, F, A, NewFunName) ->
-    ModName=list_to_atom(filename:basename(File, ".erl")),
-    case NewFunName of
-        {generator, GenFun} ->
-            GenFun({ModName, F, A});
-        {user_input, GenPrompt} ->
-            {prompt, GenPrompt({ModName, F, A})};
-        _ when is_atom(NewFunName) ->
-            NewFunName;
-        _ ->
-            throw({error, "Invalid new funname."})
-    end.
-        
-new_name_gen(File, F, A, {range, {_File, _Loc}, V}, NewVarName) ->
-    ModName=list_to_atom(filename:basename(File, ".erl")),
-    case NewVarName of
-        {generator, GenFun} ->
-            GenFun({ModName, F, A, V});
-        {user_input, GenPrompt} ->
-            {prompt, GenPrompt({ModName, F, A,V})};
-        _ when is_atom(NewVarName) ->
-            NewVarName;
-        _ ->
-            throw({error, "Invalid new variable name."})
-    end;
-new_name_gen(File, F, A, OldVarName, NewVarName) ->
-    ModName=list_to_atom(filename:basename(File, ".erl")),
-    case NewVarName of
-        {generator, GenFun} ->
-            GenFun({ModName, F, A, OldVarName});
-        {user_input, GenPrompt} ->
-            {prompt, GenPrompt({ModName, F, A,OldVarName})};
-        _ when is_atom(NewVarName) ->
-            NewVarName;
-        _ ->
-            throw({error, "Invalid new variable name."})
-    end.
 
-%% -spec rename_var(ModOrFile::{file,  fun((File::filename()) -> boolean())}|
-%%                             {module, fun((Mod::atom()) -> boolean())} |
-%%                             atom()|filename(),
-%%                  FunName::fun((FunName::atom())-> boolean())|atom(), 
-%%                  Arity::fun((Arity::integer())->boolean())|integer(),
-%%                  OldVarName::fun((VarName::atom())-> boolean())|atom(),
-%%                  NewVarName::{generator, fun(({M::atom(),F::atom(),A::integer(),V::atom()})->atom())}|
-%%                              {user_input, Prompt::fun(({M::atom(), F::atom(),A::integer(), V::atom()})->
-%%                                                              string())}|atom(),
-%%                  SearchPaths::[filename()|dir()]) ->
-%%                         [{refactoring, {refac_rename_var, rename_var, [any()]}, string()}]. 
-rename_var({ModOrFile, FunName, Arity}, OldVarName, NewVarName, SearchPaths) ->
-    rename_var({ModOrFile, FunName, Arity}, OldVarName, NewVarName, SearchPaths,0).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                              %%
+%% Generalised interface for renaming a variable name.          %%
+%%                                                              %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-spec rename_var(ModOrFile::mod_or_file(), FA::fa(),
+                 OldVarName::fun((VarName::atom())-> boolean())
+                           |atom(),
+                 NewVarName::{generator, fun(({M::atom(),FA::{atom(),integer()},V::atom()})->atom())}
+                           |{user_input, Prompt::fun(({M::atom(), FA::{atom(),integer()}, V::atom()})->
+                                                            string())}
+                           |atom(),
+                 SearchPaths::search_paths()) ->
+                        [elementary_refac()] | lazy_refac().
+                         
+rename_var(ModOrFile, FA, OldVarName, NewVarName, SearchPaths) ->
+    rename_var(ModOrFile, FA, OldVarName, NewVarName, SearchPaths, -1).
 
-rename_var({ModOrFile, FunName, Arity}, OldVarName, NewVarName, SearchPaths,N) ->
-    Files= get_files(ModOrFile, SearchPaths),
-    CmdLists=[rename_var_1(File, FunName, Arity, OldVarName, NewVarName, SearchPaths)
+rename_var(_ModOrFile, _FA, _OldVarName, _NewVarName, _SearchPaths, N) 
+  when N==0-> [];
+rename_var(ModOrFile, FA, OldVarName, NewVarName, SearchPaths,N) ->
+    Files= gen_file_names(ModOrFile, SearchPaths),
+    CmdLists=[rename_var_1(File, FA, OldVarName, NewVarName, SearchPaths)
               ||File<-Files],
     Refacs=lists:append(CmdLists),
     case Refacs of 
-        [] -> [];
-        [R] -> R;
-        [R|Rs] ->
-            case N of 
-                0 ->
-                    {R,{generator, fun()->
-                                           rename_var({ModOrFile, FunName, Arity}, OldVarName,
-                                                      NewVarName, SearchPaths, length(Rs))
-                                   end}};
-                _ ->
-                    Nth = length(Refacs)-N+1,
-                    {lists:nth(Nth, Refacs), 
-                     {generator, fun()->
-                                         rename_var({ModOrFile, FunName, Arity}, 
-                                                    OldVarName, NewVarName, SearchPaths, N-1)
-                                 end}}
-            end
+        [R|Rs] when N==-1 ->
+            {R,{generator, fun()->
+                                   rename_var(ModOrFile, FA, OldVarName,
+                                              NewVarName, SearchPaths, length(Rs))
+                           end}};
+        [_R|_Rs] ->
+            Nth = length(Refacs)-N+1,
+            {lists:nth(Nth, Refacs), 
+             {generator, fun()->
+                                 rename_var(ModOrFile, FA, 
+                                            OldVarName, NewVarName, SearchPaths, N-1)
+                         end}};
+        _ -> Refacs
     end.
-                                   
 
-
-rename_var_1(File, FunName, Arity, VarFilter, NewVarName, SearchPaths) ->
-    FAs= get_fun_arity(File, FunName, Arity),
-    [{refactoring, {refac_rename_var, rename_var, 
-                    [File, F, A, V, new_name_gen(File, F, A, V, NewVarName),
-                     SearchPaths, composite_emacs]}, gen_question(rename_var,{File,F,A,V})}
+rename_var_1(File, FA, VarFilter, NewVarName, SearchPaths) ->
+    FAs= get_fun_arity(File, FA),
+    [{refactoring, {refac_rename_var, rename_var}, 
+      [File, {F, A}, V, new_name_gen(File, {F, A}, V, NewVarName), SearchPaths]}
      ||{F, A}<-FAs, V<-get_vars(File, F, A, VarFilter)].
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                              %%
+%% Generalised interface for function generalisation.           %%
+%%                                                              %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-spec gen_fun(ModOrFile::mod_or_file(),FA::fa(),ExprStr::string(),
+              NewParName::{user_input, Prompt::fun(({M::atom(), FA::{atom(),integer()}, 
+                                                     ExprStr::string()})->
+                                                          string())}
+                        |atom()
+                        |string(),
+              SearchPaths::search_paths()) ->[elementary_refac()].
+
+gen_fun(ModOrFile, FAFilter, ExprStr, NewParName, SearchPaths) ->
+    gen_fun(ModOrFile, FAFilter, ExprStr, NewParName, SearchPaths, textual).
+gen_fun(ModOrFile, FAFilter, ExprStr, NewParName, SearchPaths, GenOrder) ->
+    Files= gen_file_names(ModOrFile, SearchPaths),
+    FFAs = [{File,FA}||File<-Files, FA<-get_fun_arity(File, FAFilter, GenOrder)],
+    gen_fun_1(FFAs,  ExprStr, NewParName, SearchPaths).
+    
+                                
+gen_fun_1([], _ExprStr, _NewParName, _SearchPaths) ->
+    [];
+gen_fun_1([{File,FA}|FFAs], ExprStr, NewParName, SearchPaths)->
+    case get_exprs(File, FA, ExprStr) of 
+        [] ->
+            gen_fun_1(FFAs, ExprStr, NewParName, SearchPaths);
+        Ranges ->
+            Exprs={range, {File, Ranges}},
+            {{refactoring, {refac_gen, generalise_composite},
+              [File, FA, Exprs, hd(Ranges), 
+               new_name_gen(File, FA, Exprs, NewParName),
+               SearchPaths]},
+             {generator, fun()->
+                                 gen_fun_1(FFAs, ExprStr, NewParName, SearchPaths)
+                         end}}
+    end.
+
+get_exprs(File, {FunName, Arity}, ExprStr) ->
+    ModName=list_to_atom(filename:basename(File, ".erl")),
+    FunDef=api_refac:mfa_to_fun_def({ModName, FunName, Arity}, File),
+    case FunDef of
+        none -> none;
+        _ ->
+            ?FULL_TD_TU(
+               [?COLLECT(?T("E@"),  
+                         api_refac:start_end_loc(E@),
+                         api_refac:is_expr(E@) andalso
+                         ?SPLICE(E@)==ExprStr)], FunDef)
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                              %%
+%% Generalised interface for folding against expressions.       %%
+%%                                                              %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-spec fold_expr(mod_or_file(), mod_or_file(), fa(), integer(), search_paths()) ->
+                       [elementary_refac()].
+fold_expr(CurModOrFile, ModOrFile, FA, ClauseIndex, SearchPaths) ->
+    Files= gen_file_names(CurModOrFile, SearchPaths),
+    case locate_one_file(ModOrFile, SearchPaths) of
+        {error, Reason} ->
+            wrangler_io:format("Warning: ~p\n", [Reason]),
+            [];
+        TgtFile ->
+            ModName=list_to_atom(filename:basename(TgtFile, ".erl")),
+            case get_fun_arity(TgtFile, FA) of
+                [{F,A}] ->
+                    CmdLists=[fold_expr_1(File,  ModName, F, A, ClauseIndex, SearchPaths)
+                              ||File<-Files],
+                    lists:append(CmdLists);
+                _ ->
+                    []
+            end
+    end.
+        
+fold_expr_1(File, ModName, FunName, Arity, ClauseIndex, SearchPaths) ->
+    [{refactoring, {refac_fold_expression, fold_expr_by_name}, 
+                    [File, atom_to_list(ModName), atom_to_list(FunName), 
+                     integer_to_list(Arity), integer_to_list(ClauseIndex), 
+                     SearchPaths]}].
+     
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                              %%
+%% Generalised interface for unfolding a function application.  %%
+%%                                                              %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-spec unfold_fun_app(mod_or_file(), pos(), search_paths())->
+                            [elementary_refac()].
 unfold_fun_app(ModOrFile, Pos, SearchPaths) ->
-    Files= get_files(ModOrFile, SearchPaths),
+    Files= gen_file_names(ModOrFile, SearchPaths),
     Refacs=[unfold_fun_app_1(File, Pos, SearchPaths)
             ||File<-Files],
     lists:append(Refacs).
 
-
 unfold_fun_app_1(File, PosGen, SearchPaths) ->
     Pos = pos_gen(PosGen),
-    [{refactoring, {refac_unfold_fun_app, unfold_fun_app,
-                    [File, Pos, SearchPaths, composite_emacs]}, 
-                    gen_question(unfold_fun_app, {File, Pos})}].
+    [{refactoring, {refac_unfold_fun_app, unfold_fun_app},
+      [File, Pos, SearchPaths]}].
+                   
 
-get_files(ModOrFile, SearchPaths) ->
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                              %%
+%% Generalised interface for swapping function arguments.       %%
+%%                                                              %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-spec swap_args(ModOrFile::mod_or_file(),FA::fa(),
+                Index1:: integer()| {user_input, Prompt::fun(({M::atom(), FA::{atom(),integer()}})->
+                                                               string())},
+                Index2:: integer()|{user_input,Prompt::fun(({M::atom(), FA::{atom(),integer()}})->
+                                                                  string())},
+                SearchPaths::search_paths())->[elementary_refac()].
+swap_args(ModOrFile, FA, Index1, Index2, SearchPaths) ->
+    Files= gen_file_names(ModOrFile, SearchPaths),
+    CmdLists=[swap_args_1(File, FA, index_gen(Index1, {File, FA}), 
+                          index_gen(Index2, {File, FA}), SearchPaths)
+              ||File<-Files],
+    lists:append(CmdLists).
+
+swap_args_1(File, FA, Index1, Index2, SearchPaths) ->
+    FAs= get_fun_arity(File, FA),
+    [{refactoring, {refac_swap_args, swap_args}, 
+      [File, {F, A}, Index1, Index2,SearchPaths]} 
+     ||{F, A}<-FAs].
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                              %%
+%% Generalised interface for tupling function arguments.        %%
+%%                                                              %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-spec tuple_args(ModOrFile::mod_or_file(),FA::fa(),
+                 Index1:: integer()| {user_input, Prompt::fun(({M::atom(), FA::{atom(),integer()}})->
+                                                                     string())},
+                 Index2:: integer()|{user_input,Prompt::fun(({M::atom(), FA::{atom(),integer()}})->
+                                                                   string())},
+                 SearchPaths::search_paths())->[elementary_refac()].
+tuple_args(ModOrFile, FA, Index1,Index2,SearchPaths)->
+    Files= gen_file_names(ModOrFile, SearchPaths),
+    CmdLists=[tuple_args_1(File, FA, Index1, Index2, SearchPaths)
+              ||File<-Files],
+    lists:append(CmdLists).
+
+tuple_args_1(File, FA, Index1, Index2, SearchPaths) ->
+    FAs= get_fun_arity(File, FA),
+    [{refactoring, {refac_tuple, tuple_args}, 
+      [File, {F, A},  index_gen(Index1, {File, FA}), 
+       index_gen(Index2, {File, FA}), SearchPaths]}
+     ||{F, A}<-FAs].
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                              %%
+%%                Utility functions.                            %%
+%%                                                              %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+gen_file_names(ModOrFile, SearchPaths) ->
     Files = wrangler_misc:expand_files(SearchPaths, ".erl"),    
     case ModOrFile of 
         {file, FileFilter} ->
@@ -256,7 +349,7 @@ get_files(ModOrFile, SearchPaths) ->
 
 
 locate_one_file(ModOrFile, SearchPaths) ->
-    Res= get_files(ModOrFile, SearchPaths),
+    Res= gen_file_names(ModOrFile, SearchPaths),
     case Res of 
         [] ->
             {error, lists:flatten(
@@ -272,154 +365,118 @@ locate_one_file(ModOrFile, SearchPaths) ->
                                     [File]))}
     end.
 
-%% get_fa(File, FA) ->
-%%     get_fa_1(File, FA, default).
 
-get_fa(File, FA, Order) ->
-    Funs = get_funs(File, Order),
-    if is_function(FA) ->
-            [{F,A} ||{F,A}<-Funs, FA({F,A})];
-       true ->
-            case FA of 
-                {FunName, Arity} ->
-                    FunName1 = if is_list(FunName)->
-                                       list_to_atom(FunName);
-                                  is_atom(FunName) ->
-                                       FunName;
-                                  true ->
-                                       throw({error, "Invalid function name/"})
-                               end,
-                    Arity1 = if is_list(Arity) ->
-                                     list_to_integer(Arity);
-                                is_integer(Arity) ->
-                                     Arity;
-                                true ->
-                                     throw({error, "Invalid arity."})
-                             end,
-                    [{F,A}||{F,A}<-Funs,
-                            F==FunName1,
-                            A==Arity1]
+get_funs(File, Order) ->
+    case Order == td orelse  Order == bu of
+        true ->
+            SortedFuns=wrangler_callgraph_server:get_sorted_funs(File),
+            {MFAs, _} = lists:unzip(SortedFuns),
+            case Order of
+                td ->
+                    lists:reverse([{F,A}||{_M,F,A} <- MFAs]);
+                bu ->
+                    [{F,A}||{_M,F,A} <- MFAs]
+            end;
+        false ->
+            {ok, ModuleInfo} = api_refac:get_module_info(File),
+            case lists:keyfind(functions, 1, ModuleInfo) of
+                {functions, Fs} ->
+                    Fs;
+                false ->
+                    []
             end
     end.
 
-get_funs(File, Order) ->
-    case Order == callgraph_topdown orelse
-       Order == callgraph_bottom_up of
-       true ->
-           SortedFuns=wrangler_callgraph_server:get_sorted_funs(File),
-           {MFAs, _} = lists:unzip(SortedFuns),
-           case Order of
-              callgraph_topdown ->
-                  lists:reverse([{F,A}||{_M,F,A} <- MFAs]);
-              callgraph_bottom_up ->
-                  [{F,A}||{_M,F,A} <- MFAs]
-           end;
-       false ->
-           {ok, ModuleInfo} = api_refac:get_module_info(File),
-           case lists:keyfind(functions, 1, ModuleInfo) of
-               {functions, Fs} ->
-                   Fs;
-               false ->
-                   []
-           end
-    end.
-
  
-get_fun_arity(File, FunName, Arity) ->
-    get_fun_arity(File, FunName, Arity, default).
+get_fun_arity(File, FA) ->
+    get_fun_arity(File, FA, default).
 
-get_fun_arity(File, FunName, Arity, Order) ->
+get_fun_arity(File, FA, Order) ->
     Funs = get_funs(File, Order),
-    if is_function(FunName) ->
-            FAs=[{F,A}||{F,A}<-Funs, FunName(F)],
-            filter_with_arity(FAs, Arity);
-       is_atom(FunName) ->
-            FAs=[{F,A}||{F,A} <- Funs, F == FunName],
-            filter_with_arity(FAs, Arity);
-       is_list(FunName) ->
-            FAs=[{F,A}||{F,A} <- Funs, F == list_to_atom(FunName)],
-            filter_with_arity(FAs, Arity);
+    if is_function(FA) ->
+            [{F,A}||{F,A}<-Funs, FA({F,A})];
+       is_tuple(FA) ->
+            {F, A} = FA,
+            F1= case is_list(F) of 
+                    true -> list_to_atom(F);
+                    _ -> F
+                end,
+            A1 =case is_list(A) of 
+                    true -> list_to_integer(A);
+                    _ -> A
+                end,
+            [{F1,A1}];       
        true ->
-            throw({error, "Invalid function name."})
+            throw({error, "Invalid function-arity."})
     end.
-
-filter_with_arity(FAs, ArityFilter) when is_function(ArityFilter)->
-    [{F,A}||{F,A}<-FAs, ArityFilter(A)];
-filter_with_arity(FAs, Arity) when is_integer(Arity) ->   
-    [{F,A}||{F,A}<-FAs, A==Arity];
-filter_with_arity(FAs, Arity) when is_list(Arity) ->
-    [{F,A}||{F,A}<-FAs, A==list_to_integer(Arity)];
-filter_with_arity(_FAs, _Arity)->
-    throw({error, "Invalid arity."}).
-
 
 get_vars(File, FunName, Arity, VarFilter) ->
     ModName=list_to_atom(filename:basename(File, ".erl")),
     FunDef=api_refac:mfa_to_fun_def({ModName, FunName, Arity}, File),
-    Vars=?FULL_TD_TU([?COLLECT(?T("V@"), 
-                               {range, {File, [api_refac:start_end_loc(V@)]},?SPLICE(V@)},
-                               api_refac:type(V@)==variable andalso
-                               api_refac:bound_vars(V@)/=[] andalso 
-                               case VarFilter of 
-                                   atom ->
-                                       atom_to_list(VarFilter)==?SPLICE(V@);
-                                   _ when is_function(VarFilter) ->
-                                       VarFilter(list_to_atom(?SPLICE(V@)));
-                                   _ -> false
-                               end)], FunDef),
-    Vars.
-
-gen_question(rename_fun,{File,F,A}) ->
+    case FunDef of 
+        none -> 
+            [];
+        _ ->   
+            ?FULL_TD_TU(
+               [?COLLECT(?T("V@"), 
+                         {range, {File, [api_refac:start_end_loc(V@)]},?SPLICE(V@)},
+                         api_refac:type(V@)==variable andalso
+                         api_refac:bound_vars(V@)/=[] andalso 
+                         case VarFilter of 
+                             atom ->
+                                 atom_to_list(VarFilter)==?SPLICE(V@);
+                             _ when is_function(VarFilter) ->
+                                 VarFilter(list_to_atom(?SPLICE(V@)));
+                             _ -> false
+                         end)], FunDef)
+    end.
+ 
+gen_question(rename_fun_by_name,[File,{F,A}, _NewName, _SearchPaths]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to rename function ~p:~p/~p?", [M,F,A]));
-gen_question(rename_var,{File,F,A,{range, {_File, _Loc}, V}}) ->
+gen_question(rename_var,[File,{F,A},{range, {_File, _Loc}, V}, _, _]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to rename variable ~s in function ~p:~p/~p?", [V,M,F,A]));
-gen_question(swap_args, {File,F,A}) ->
+gen_question(swap_args, [File,{F,A}, _, _, _]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to swap the parameters of function ~p:~p/~p?", 
                                 [M,F,A]));
-gen_question(gen_fun, {File, F, A, _Expr}) ->
+gen_question(gen_fun, [File, {F, A}, _Expr, _, _]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to generalise function ~p:~p/~p over the expression(s) highlighted?",
                                 [M,F,A]));
-gen_question(move_fun, {SrcFile, F, A, TgtFile}) ->
+gen_question(move_fun_by_name, [SrcFile, {F, A}, TgtFile, _SearchPaths]) ->
     M=list_to_atom(filename:basename(SrcFile, ".erl")),
     lists:flatten(io_lib:format("Do you want to move function ~p:~p/~p to file ~p?",
                                 [M,F,A, TgtFile]));
-gen_question(unfold_fun_app, {File, Loc}) ->
+gen_question(unfold_fun_app, [File, Loc, _]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to unfold the function application at "
                                 "location ~p in module ~p?",
-                                [Loc, M])).
+                                [Loc, M]));
+gen_question(fold_expr_by_name, [File, M, {F, A}, _, _]) ->
+    CurMod=list_to_atom(filename:basename(File, ".erl")),
+    lists:flatten(io_lib:format("Do you want to fold expressions in module ~p,against function ~p:~p/~p?",
+                                [CurMod, M, F, A]));
+gen_question(tuple_args, [File, {F,A}, Index1, Index2, _SearchPaths]) ->
+    M=list_to_atom(filename:basename(File, ".erl")),
+    lists:flatten(io_lib:format("Do you want to turn the ~p arguments, starting from index ~p, "
+                                "of function ~p:~p/~p into a tuple?",
+                                [Index2-Index1+1, Index1, M, F, A])).
 
 
-swap_args({ModOrFile, FunName, Arity}, Index1, Index2, SearchPaths) ->
-    Files= get_files(ModOrFile, SearchPaths),
-    CmdLists=[swap_args_1(File, FunName, Arity, Index1, Index2, SearchPaths)
-              ||File<-Files],
-    lists:append(CmdLists).
-    
-swap_args_1(File, FunName, Arity, Index1, Index2, SearchPaths) ->
-    FAs= get_fun_arity(File, FunName, Arity),
-    [{refactoring, {refac_swap_args, swap_args, [{File, F, A}, index_gen(Index1), index_gen(Index2),   %% paremeters to index_gen?
-                                                 SearchPaths, composite_emacs]}, gen_question(swap_args,{File, F,A})}
-     ||{F, A}<-FAs].
-
-
-%% This will be changed!
-index_gen(Index) ->
+index_gen(Index, PreArgs) ->
     case Index of
         {generator, GenFun} ->
-            GenFun();
+            GenFun(PreArgs);
         {user_input, GenPrompt} ->
-            {prompt, GenPrompt()};
-        _ when is_atom(Index) ->
+            {prompt, GenPrompt(PreArgs)};
+        _ when is_integer(Index) ->
             Index;
         _ ->
-            throw({error, "Invalid new funname."})
+            throw({error, "Invalid Index."})
     end.
-        
+
 
 pos_gen(PosGen) ->
     case PosGen of 
@@ -428,4 +485,43 @@ pos_gen(PosGen) ->
             {Line, Col};
         _ when is_function(PosGen)->
             PosGen()
+    end.
+
+
+new_name_gen(File, {F, A}, NewName) ->
+    ModName=list_to_atom(filename:basename(File, ".erl")),
+    case NewName of
+        {generator, GenFun} ->
+            GenFun({ModName, {F, A}});
+        {user_input, GenPrompt} ->
+            {prompt, GenPrompt({ModName, {F, A}})};
+        _ when is_atom(NewName) ->
+            NewName;
+        _ ->
+            throw({error, "Invalid new funname."})
+    end.
+        
+new_name_gen(File, {F, A}, {range, {_File, _Loc}, V}, NewName) ->
+    ModName=list_to_atom(filename:basename(File, ".erl")),
+    case NewName of
+        {generator, GenFun} ->
+            GenFun({ModName, F, A, V});
+        {user_input, GenPrompt} ->
+            {prompt, GenPrompt({ModName, F, A,V})};
+        _ when is_atom(NewName) ->
+            NewName;
+        _ ->
+            throw({error, "Invalid new variable name."})
+    end;
+new_name_gen(File, {F, A}, OldName, NewName) ->
+    ModName=list_to_atom(filename:basename(File, ".erl")),
+    case NewName of
+        {generator, GenFun} ->
+            GenFun({ModName, F, A, OldName});
+        {user_input, GenPrompt} ->
+            {prompt, GenPrompt({ModName, F, A, OldName})};
+        _ when is_atom(NewName) ->
+            NewName;
+        _ ->
+            throw({error, "Invalid new variable name."})
     end.
