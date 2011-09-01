@@ -488,38 +488,38 @@ pos_gen(PosGen) ->
     end.
 
 
-new_name_gen(File, {F, A}, NewName) ->
+new_name_gen(File, FA, NewName) ->
     ModName=list_to_atom(filename:basename(File, ".erl")),
     case NewName of
         {generator, GenFun} ->
-            GenFun({ModName, {F, A}});
+            GenFun({ModName, FA});
         {user_input, GenPrompt} ->
-            {prompt, GenPrompt({ModName, {F, A}})};
+            {prompt, GenPrompt({ModName, FA})};
         _ when is_atom(NewName) ->
             NewName;
         _ ->
             throw({error, "Invalid new funname."})
     end.
         
-new_name_gen(File, {F, A}, {range, {_File, _Loc}, V}, NewName) ->
+new_name_gen(File, FA, {range, {_File, _Loc}, V}, NewName) ->
     ModName=list_to_atom(filename:basename(File, ".erl")),
     case NewName of
         {generator, GenFun} ->
-            GenFun({ModName, F, A, V});
+            GenFun({ModName, FA, V});
         {user_input, GenPrompt} ->
-            {prompt, GenPrompt({ModName, F, A,V})};
+            {prompt, GenPrompt({ModName, FA,V})};
         _ when is_atom(NewName) ->
             NewName;
         _ ->
             throw({error, "Invalid new variable name."})
     end;
-new_name_gen(File, {F, A}, OldName, NewName) ->
+new_name_gen(File, FA, OldName, NewName) ->
     ModName=list_to_atom(filename:basename(File, ".erl")),
     case NewName of
         {generator, GenFun} ->
-            GenFun({ModName, F, A, OldName});
+            GenFun({ModName, FA,  OldName});
         {user_input, GenPrompt} ->
-            {prompt, GenPrompt({ModName, F, A, OldName})};
+            {prompt, GenPrompt({ModName, FA, OldName})};
         _ when is_atom(NewName) ->
             NewName;
         _ ->
