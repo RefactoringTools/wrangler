@@ -18,7 +18,7 @@
 
 %%@hidden
 %%@private
--module(refac_batch_rename_fun).
+-module(refac_batch_rename_fun_v1).
 
 -export([rename_fun_to_camel_case/1]).
 
