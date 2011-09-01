@@ -86,10 +86,16 @@ init_composite_refac(ModName, Args=[CurFileName, [Line,Col],
                     erlang:error({E1,E2})
             end
     end.
+    
 
 start_cmd_server(Cmds) ->
     wrangler_backup_server:reset_backups(),
-    wrangler_cmd_server:start_link([Cmds]).
+    case whereis(wrangler_cmd_server) of 
+        undefined ->
+            ok;
+        _ -> wrangler_cmd_server!stop
+    end,
+    wrangler_cmd_server:start_link(Cmds).
 
 stop_cmd_server() ->
     wrangler_cmd_server:stop().
