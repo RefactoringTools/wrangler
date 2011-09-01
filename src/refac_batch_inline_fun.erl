@@ -17,8 +17,9 @@ composite_refac(_Args=#args{current_file_name=File, user_inputs=[F,A],
     MFA ={list_to_atom(filename:basename(File, ".erl")),
           list_to_atom(F), list_to_integer(A)},
     ?if_then(is_not_recursive(File,MFA),
-             ?while(begin Apps=collect_apps(File, MFA),
-                          {Apps/=[], Apps}
+             ?while(begin 
+                        Apps=collect_apps(File, MFA),
+                        {Apps/=[], Apps}
                     end,
                     fun(Apps)->
                             ?refac_(unfold_fun_app, [File,hd(Apps), SearchPaths])
