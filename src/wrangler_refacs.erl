@@ -44,9 +44,9 @@
 %%     documented in module <a href="wrangler_api.html">wrangler_api</a>. 
 -module(wrangler_refacs).
 
--export([rename_var/6, rename_fun/6, rename_mod/4,
-	 rename_process/6, generalise/6, gen_fun_1/11, gen_fun_clause/10,
-	 move_fun/6, move_fun_1/7,
+-export([rename_var/7, rename_fun/6, rename_mod/4,
+	 rename_process/6, generalise/7, gen_fun_1/12, gen_fun_clause/11,
+	 move_fun/7, move_fun_1/8,
 	 duplicated_code_in_buffer/5,
 	 duplicated_code_in_dirs/5,
 	 identical_expression_search_in_buffer/5, identical_expression_search_in_dirs/5, 
@@ -118,10 +118,10 @@
 %% <em> Rename Variable Name </em> from <em> Refactor </em>, after that, Wrangler will prompt
 %% to enter the new variable name in the mini-buffer. 
 %% </p>
-%%-spec (rename_var/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
+%%-spec (rename_var/6::(filename(), integer(), integer(), string(), [dir()], integer(), atom()) ->
 %%			   {error, string()}|{ok, filename()}).
-rename_var(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
-    try_refactoring(refac_rename_var, rename_var, [FileName, Line, Col, NewName, SearchPaths, TabWidth]).
+rename_var(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
+    try_refactoring(refac_rename_var, rename_var, [FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor]).
    
 
 %% @private
@@ -263,26 +263,27 @@ rename_mod_1_eclipse(FileName, NewName, SearchPaths, TabWidth, RenameTestMod) ->
 %%					 [{pos(), pos()}], [{pos(),pos()}], string()}}
 %%		 |{more_than_one_clause, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),
 %%					  [{pos(), pos()}], [{pos(),pos()}], string()}}). 
-generalise(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
-    try_refactoring(refac_gen, generalise, [FileName, Start, End, ParName,  SearchPaths, TabWidth]).
+generalise(FileName, Start, End, ParName, SearchPaths, TabWidth, Editor) ->
+    try_refactoring(refac_gen, generalise, [FileName, Start, End, ParName,  SearchPaths, TabWidth, Editor]).
 
 
 %%@private
-%%-spec(gen_fun_1/11::(SideEffect::boolean(), FileName::filename(),ParName::atom(), FunName::atom(),
+%%-spec(gen_fun_1/12::(SideEffect::boolean(), FileName::filename(),ParName::atom(), FunName::atom(),
 %%		     Arity::integer(), FunDefPos::pos(), Exp::syntaxTree(), DupsInFun::[{pos(), pos()}],SearchPaths::[dir()],
-%%		     TabWidth::integer(), LogCmd::string())
+%%		     TabWidth::integer(), Editor::atom(),LogCmd::string())
 %%     -> {ok, [filename()]} | {error, string()}).
-gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, DupsInFun,SearchPaths,TabWidth, LogCmd) ->
-    try_refactoring(refac_gen, gen_fun_1, [SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth,DupsInFun,LogCmd]).
+gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, DupsInFun,SearchPaths,TabWidth, Editor, LogCmd) ->
+    try_refactoring(refac_gen, gen_fun_1, [SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, 
+                                           SearchPaths,TabWidth,DupsInFun, Editor, LogCmd]).
 
 %%@private
-%%-spec(gen_fun_clause/10::(FileName::filename(), ParName::atom(), FunName::atom(), Arity::integer(), DefPos::pos(), 
+%%-spec(gen_fun_clause/11::(FileName::filename(), ParName::atom(), FunName::atom(), Arity::integer(), DefPos::pos(), 
 %%			  Exp::syntaxTree(), TabWidth::integer(), SideEffect::boolean(), 
-%%			  Dups::[{{integer(), integer()},{integer(), integer()}}], LogCmd::string()) 
+%%			  Dups::[{{integer(), integer()},{integer(), integer()}}], Editor::atom(), LogCmd::string()) 
 %%     ->{ok, [filename()]} | {error, string()}).
 
-gen_fun_clause(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEffect, Dups, LogCmd) ->
-    try_refactoring(refac_gen, gen_fun_clause, [FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEffect, Dups, LogCmd]).
+gen_fun_clause(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEffect, Dups, Editor, LogCmd) ->
+    try_refactoring(refac_gen, gen_fun_clause, [FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEffect, Dups, Editor, LogCmd]).
  
 
 %%@private
@@ -339,17 +340,17 @@ gen_fun_clause_eclipse(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth,
 %% select <em> Move Definition to Another Module</em> from the <em> Refactor </em> menu, 
 %% Wrangler will then  prompt to enter the target module name in the mini-buffer. 
 %% </p>
-%%-spec(move_fun/6::(filename(),integer(),integer(), string(), [dir()], integer())
+%%-spec(move_fun/7::(filename(),integer(),integer(), string(), [dir()], integer(), atom())
 %%        -> {ok, [filename()]} | {question, string()} |{error, string()}).
-move_fun(FileName, Line, Col, TargetModName,SearchPaths, TabWidth) ->
-    try_refactoring(refac_move_fun, move_fun, [FileName, Line, Col, TargetModName, SearchPaths, TabWidth]).
+move_fun(FileName, Line, Col, TargetModName,SearchPaths, TabWidth, Editor) ->
+    try_refactoring(refac_move_fun, move_fun, [FileName, Line, Col, TargetModName, SearchPaths, TabWidth, Editor]).
 
 
 %%@private
-%%-spec(move_fun_1/7::(filename(),integer(),integer(), string(),  boolean(),[dir()], integer())
+%%-spec(move_fun_1/8::(filename(),integer(),integer(), string(),  boolean(),[dir()], integer(), atom())
 %%      -> {ok, [filename()]} |{error, string()}).
-move_fun_1(FileName, Line, Col, TargetModName, CheckCond, SearchPaths, TabWidth) ->
-    try_refactoring(refac_move_fun, move_fun_1, [FileName, Line, Col, TargetModName, CheckCond, SearchPaths, TabWidth]).
+move_fun_1(FileName, Line, Col, TargetModName, CheckCond, SearchPaths, TabWidth, Editor) ->
+    try_refactoring(refac_move_fun, move_fun_1, [FileName, Line, Col, TargetModName, CheckCond, SearchPaths, TabWidth, Editor]).
 
 %%@private
 %%-spec(move_fun_eclipse/6::(filename(),integer(),integer(), string(), [dir()], integer())
