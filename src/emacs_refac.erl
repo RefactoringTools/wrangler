@@ -39,8 +39,8 @@
 
 %%-spec(rename_var/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
 %%	     {error, string()} | {ok, string()}).
-rename_var(Fname, Line, Col, NewName, SearchPaths, TabWidth) ->
-    apply_refactoring(wrangler_refacs, rename_var, [Fname, Line, Col, NewName, SearchPaths, TabWidth], SearchPaths).
+rename_var(Fname, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
+    apply_refactoring(wrangler_refacs, rename_var, [Fname, Line, Col, NewName, SearchPaths, TabWidth, Editor], SearchPaths).
  
 %%-spec(rename_fun/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
 %%	     {error, string()} |{warning, string()}| {ok, [filename()]}).
@@ -61,7 +61,7 @@ rename_process(Fname, Line, Col, NewName, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler_refacs, rename_process, [Fname, Line, Col, NewName, SearchPaths, TabWidth], SearchPaths).
 
 
-%%-spec(generalise/8::(filename(),integer(), integer(),integer(), integer(),string(), dir(), integer()) ->
+%%-spec(generalise/8::(filename(),integer(), integer(),integer(), integer(),string(), dir(), integer(), atom()) ->
 %%	     {ok, [filename()]}
 %%		 |{error, string()}
 %%                 |{multiple_instances, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),[{pos(), pos()}], string()}}
@@ -69,15 +69,15 @@ rename_process(Fname, Line, Col, NewName, SearchPaths, TabWidth) ->
 %%					 [{pos(), pos()}], [{pos(),pos()}], string()}}
 %%		 |{more_than_one_clause, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),
 %%					  [{pos(), pos()}], [{pos(),pos()}], string()}}). 
-generalise(Fname, StartLine, StartCol, EndLine, EndCol, ParName, SearchPaths, TabWidth) ->
-    apply_refactoring(wrangler_refacs, generalise, [Fname, {StartLine, StartCol}, {EndLine, EndCol}, ParName, SearchPaths, TabWidth], SearchPaths).
+generalise(Fname, StartLine, StartCol, EndLine, EndCol, ParName, SearchPaths, TabWidth, Editor) ->
+    apply_refactoring(wrangler_refacs, generalise, [Fname, {StartLine, StartCol}, {EndLine, EndCol}, ParName, SearchPaths, TabWidth, Editor], SearchPaths).
 	
 
-%%-spec(move_fun/6::(filename(),integer(),integer(), string(),[dir()], integer())
+%%-spec(move_fun/7::(filename(),integer(),integer(), string(),[dir()], integer(), atom())
 %%        -> {ok, [{filename(), filename()}]} | {question, string()} | {error, string()}).
 
-move_fun(FName, Line, Col, ModName,SearchPaths, TabWidth) ->
-    apply_refactoring(wrangler_refacs, move_fun, [FName, Line, Col, ModName, SearchPaths, TabWidth], SearchPaths).
+move_fun(FName, Line, Col, ModName,SearchPaths, TabWidth, Editor) ->
+    apply_refactoring(wrangler_refacs, move_fun, [FName, Line, Col, ModName, SearchPaths, TabWidth, Editor], SearchPaths).
 
 
 %%-spec(duplicated_code_in_buffer/5::(filename(), string(), string(), string(), integer()) ->{ok, string()}).      
@@ -155,12 +155,12 @@ fold_expr_by_loc(FName, Line, Col, SearchPaths, TabWidth) ->
     apply_refactoring(wrangler_refacs, fold_expr_by_loc, [FName, Line, Col, SearchPaths, TabWidth], SearchPaths).
 
 
-%-spec(fold_expr_by_name/7::(filename(), string(), string(), string(), string(), [dir()], integer()) ->
+%-spec(fold_expr_by_name/8::(filename(), string(), string(), string(), string(), [dir()], integer()) ->
 %%	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), {syntaxTree(), integer()}}]}
 %%		 | {error, string()}).
 
-fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, TabWidth) ->
-    apply_refactoring(wrangler_refacs, fold_expr_by_name, [FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, emacs, TabWidth], SearchPaths).
+fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, Editor, TabWidth) ->
+    apply_refactoring(wrangler_refacs, fold_expr_by_name, [FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, Editor, TabWidth], SearchPaths).
 
  
 %%-spec(tuple_funpar/7::(filename(), integer(), integer(), integer(), integer(), [dir()], integer()) ->

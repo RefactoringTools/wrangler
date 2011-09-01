@@ -96,25 +96,10 @@
 
 -include("../include/wrangler_internal.hrl").
 
--export([generalise/6, generalise/8, gen_fun_1/11, gen_fun_clause/10]).
+-export([generalise/7, gen_fun_1/12, gen_fun_clause/11]).
 
 -export([generalise_eclipse/6, gen_fun_1_eclipse/11, gen_fun_clause_eclipse/10]).
 
-%% =====================================================================
-%%-spec generalise(FileName::filename(),Start::pos(), End::pos(),ParName::string(),
-%%		 SearchPaths::[dir()], TabWidth::integer()) ->
-%%	     {ok, [filename()]}
-%%		 |{multiple_instances, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),[{pos(), pos()}], string()}}
-%%		 |{unknown_side_effect, {atom(), atom(),integer(), pos(), syntaxTree(), integer(),
-%%					 [{pos(), pos()}], [{pos(),pos()}], string()}}
-%%		 |{more_than_one_clause, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),
-%%					  [{pos(), pos()}], [{pos(),pos()}], string()}}. 
-
-generalise(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
-    generalise(FileName, Start, End, ParName, SearchPaths, TabWidth, emacs).
-
-%% TO CHECK: Dialyzer says this function also returns {ok, [filename()]}, but it really shouldn't.
-%% I don't know where things go wrong.
 %%-spec generalise_eclipse(FileName::filename(), Start::pos(), End::pos(), ParName::string(),
 %%	                         SearchPaths::[dir()], TabWidth::integer()) ->
 %%        {ok, [filename()]} |
@@ -133,9 +118,15 @@ generalise(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
 generalise_eclipse(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
     generalise(FileName, Start, End, ParName, SearchPaths, TabWidth, eclipse).
 
-generalise(FileName, _Fun, _Arity, {range, {FileName, [{Start, End}|_]}}, ParName, SearchPaths, Editor, TabWidth) ->
-    generalise(FileName, Start, End, ParName, SearchPaths, TabWidth, Editor).
-
+%% =====================================================================
+%%-spec generalise(FileName::filename(),Start::pos(), End::pos(),ParName::string(),
+%%		 SearchPaths::[dir()], TabWidth::integer(), atom()) ->
+%%	     {ok, [filename()]}
+%%		 |{multiple_instances, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),[{pos(), pos()}], string()}}
+%%		 |{unknown_side_effect, {atom(), atom(),integer(), pos(), syntaxTree(), integer(),
+%%					 [{pos(), pos()}], [{pos(),pos()}], string()}}
+%%		 |{more_than_one_clause, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),
+%%					  [{pos(), pos()}], [{pos(),pos()}], string()}}. 
 generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPaths, TabWidth, Editor) ->
     ?wrangler_io("\nCMD: ~p:generalise(~p, {~p,~p}, {~p,~p}, ~p,~p,~p).\n",
 		 [?MODULE, FileName, Line, Col, Line1, Col1, ParName, SearchPaths, TabWidth]),
@@ -208,16 +199,6 @@ generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPa
 	    end
     end.
 
-
-%%-spec(gen_fun_1/11::(SideEffect::boolean(), FileName::filename(),ParName::atom(), FunName::atom(),
-%%		     Arity::integer(), FunDefPos::pos(), Exp::syntaxTree(), SearchPaths::[dir()],
-%%		     TabWidth::integer(), Dups::[{pos(), pos()}], LogCmd::string())
-%%      -> {ok, [filename()]}).
-gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth, Dups, LogCmd) ->
-    %% ?wrangler_io(lists:flatten(io_lib:format("\nCMD: ~p:gen_fun_1(~p, ~p, ~p, ~p,~p,~p,~p,~p,~p,~p,~p).\n",
-    %%   		  [?MODULE,SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth, Dups, LogCmd])), []),
-    gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth,Dups, emacs, LogCmd).
-
 %%-spec(gen_fun_1_eclipse/11::(SideEffect::boolean(), FileName::filename(),ParName::atom(), FunName::atom(), 
 %%			    Arity::integer(), FunDefPos::pos(), Expr::syntaxTree(), SearchPaths::[dir()],
 %%			    TabWidth::integer(), Dups::[{pos(), pos()}], LogCmd::string()) 
@@ -230,6 +211,8 @@ gen_fun_1(SideEffect, FileName, ParName, FunName, Arity, DefPos, Exp0, SearchPat
     {ok, ModName} = get_module_name(Info),
     Exp = case Editor of
 	      emacs -> list_to_term(Exp0);
+              composite_emacs ->
+                  list_to_term(Exp0);
 	      _ -> Exp0
 	  end,
     AnnAST1 = case to_keep_original_fun(FileName, AnnAST, ModName, FunName, Arity, Exp, Info) of
@@ -253,14 +236,15 @@ gen_fun_clause_eclipse(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth,
 %%			 Exp::syntaxTree(), TabWidth::integer(), SideEffect::boolean(), 
 %%			 Dups::[{{integer(), integer()},{integer(), integer()}}], LogCmd::string()) ->{ok, [filename()]}).
 
-gen_fun_clause(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEffect, Dups, LogCmd) ->
-    gen_fun_clause_1(FileName, ParName, FunName, Arity, DefPos, Exp, [], TabWidth, SideEffect, Dups,emacs, LogCmd).
+gen_fun_clause(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEffect, Dups, Editor, LogCmd) ->
+    gen_fun_clause_1(FileName, ParName, FunName, Arity, DefPos, Exp, [], TabWidth, SideEffect, Dups, Editor, LogCmd).
 
 gen_fun_clause_1(FileName, ParName, FunName, _Arity, DefPos, Exp0, SearchPaths, TabWidth, SideEffect, Dups, Editor, LogCmd) ->
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {ok, ModName} = get_module_name(Info),
     Exp = case Editor of
 	      emacs -> list_to_term(Exp0);
+              composite_emacs -> term_to_list(Exp0);
 	      _ -> Exp0
 	  end,
     Forms = wrangler_syntax:form_list_elements(AnnAST),

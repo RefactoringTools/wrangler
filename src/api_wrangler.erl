@@ -110,7 +110,7 @@ rename_fun(ModOrFileName, FunName, Arity, NewFunName, SearchPaths) ->
 %%				  {ok, FilesChanged::[filename()]}|{error, Reason}
 move_fun(FromModOrFileName, FunName, Arity, ToModOrFileName, SearchPaths) ->
     try_apply(refac_move_fun, move_fun_by_name, 
-	      [{FromModOrFileName, FunName, Arity}, ToModOrFileName, SearchPaths, command, 8]).
+	      [FromModOrFileName, {FunName, Arity}, ToModOrFileName, SearchPaths, command, 8]).
 
 
 %%===================================================================================

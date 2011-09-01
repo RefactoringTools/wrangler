@@ -54,9 +54,10 @@
 %% @private
 -module(refac_rename_fun).
 
--export([rename_fun/6, rename_fun_1/6,  rename_fun_eclipse/6, rename_fun_1_eclipse/6]).
+-export([rename_fun/6, rename_fun_1/6, rename_fun_1/7,
+         rename_fun_eclipse/6, rename_fun_1_eclipse/6]).
 
--export([rename_fun_by_name/7]).
+-export([rename_fun_by_name/6, rename_fun_by_name/7]).
 
 -include("../include/wrangler_internal.hrl").
 
@@ -72,11 +73,15 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
 rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
 
+rename_fun_by_name(ModOrFileName, {OldFunName, Arity}, NewFunName, SearchPaths, Editor, TabWidth) ->
+    rename_fun_by_name(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths, Editor, TabWidth).
 %%-spec(rename_fun_command/7::(modulename()|filename(), atom(), integer(), atom(),[dir()], atom(), integer())->
 %%				       {error, string()} | {ok, [filename()]}).
 rename_fun_by_name(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths, Editor, TabWidth) ->
     OldFunNameStr = case is_atom(OldFunName) of
 			true -> atom_to_list(OldFunName);
+                        false when is_list(OldFunName) ->
+                            OldFunName;
 			false -> throw({error, "Original function name should be an atom."})
 		    end,
     NewFunNameStr = case is_atom(NewFunName) of
@@ -90,12 +95,7 @@ rename_fun_by_name(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths, Ed
 	true -> ok;
 	false -> throw({error, "Arity should be an integer."})
     end,
-    case OldFunNameStr==NewFunNameStr of
-	true ->
-	    throw({error, "New function name is the same as old function name!"});
-	false -> ok
-    end,
-    case api_refac:is_fun_name(NewFunNameStr) of
+     case api_refac:is_fun_name(NewFunNameStr) of
 	true -> ok;
 	false -> throw({error, "Invalid new function name!"})
     end,

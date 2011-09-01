@@ -48,16 +48,16 @@
 %% @private
 -module(refac_rename_var).
 
--export([rename_var/6, rename_var/8, rename_var_eclipse/6]).
+-export([rename_var/6, rename_var/7, rename_var_composite/7, rename_var_eclipse/6]).
 
 -export([rename/3, cond_check/4]).
 
 -include("../include/wrangler_internal.hrl").
 
-rename_var(FileName, _FunName, _Arity, {range, {_File, [{{Line, Col}, {_Line1, _Col1}}]}, _VarName}, 
+rename_var_composite(FileName, {_FunName, _Arity}, {range, {_File, [{{Line, Col}, {_Line1, _Col1}}]}, _VarName}, 
            NewName, SearchPaths, Editor, TabWidth) ->
-    rename_var(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor).
-
+    {ok, FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor}.
+   
 %%-spec rename_var(filename(), integer(), integer(), string(), [dir()], integer()) ->
 %%	     {ok, string()}.
 rename_var(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->

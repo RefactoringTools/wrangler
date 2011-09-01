@@ -46,7 +46,7 @@
 %% @private
 -module(refac_tuple).
 
--export([tuple_funpar/5, tuple_funpar_1/5]).
+-export([tuple_funpar/5, tuple_args/7, tuple_funpar_1/5]).
 -export([tuple_funpar_eclipse/5, tuple_funpar_1_eclipse/5]).
 
 -export([tuple_funpar/7]).  %% For testing purpose.
@@ -60,25 +60,25 @@
 -include("../include/wrangler_internal.hrl").
 
 -spec(tuple_funpar/5::(filename(), pos(), pos(), [dir()], integer()) ->
-	     {error, string()} | {ok, [filename()]}).
+                            {error, string()} | {ok, [filename()]}).
 tuple_funpar(FileName, StartLoc, EndLoc, SearchPaths, TabWidth)->
     tuple_funpar(FileName, StartLoc, EndLoc, SearchPaths, TabWidth, emacs).
 
 
 -spec(tuple_funpar_eclipse/5::(filename(), pos(), pos(), [dir()], integer()) ->
-	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
+                                    {error, string()} | {ok, [{filename(), filename(), string()}]}).
 tuple_funpar_eclipse(FileName, StartLoc, EndLoc,  SearchPaths, TabWidth)->
     tuple_funpar(FileName, StartLoc, EndLoc, SearchPaths, TabWidth, eclipse).
 
 
 -spec(tuple_funpar_1/5::(filename(), pos(), pos(), [dir()], integer()) ->
-	     {error, string()} | {ok, [filename()]}).
+                              {error, string()} | {ok, [filename()]}).
 tuple_funpar_1(FileName, StartLoc, EndLoc, SearchPaths, TabWidth)->
     tuple_funpar_1(FileName, StartLoc, EndLoc, SearchPaths, TabWidth, emacs).
 
 
 -spec(tuple_funpar_1_eclipse/5::(filename(), pos(), pos(), [dir()], integer()) ->
-	     {error, string()} | {ok, [filename()]}).
+                                      {error, string()} | {ok, [filename()]}).
 tuple_funpar_1_eclipse(FileName, StartLoc, EndLoc, SearchPaths, TabWidth)->
     tuple_funpar_1(FileName, StartLoc, EndLoc, SearchPaths, TabWidth, emacs).
 
@@ -95,6 +95,14 @@ tuple_funpar(FileName, Line, Col, Index, Num, SearchPaths, TabWidth) ->
     tuple_par_0(FileName, AnnAST, Info, FunName, FunArity,
 		Index, Num, SearchPaths, TabWidth, emacs, "").
 
+tuple_args(FileName, {FunName, Arity},Index1, Index2, SearchPaths, Editor, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:tuple_funpar(~p, {~p,~p},~p,~p, ~p, ~p,~p).\n",
+		 [?MODULE, FileName, FunName, Arity,Index1, Index2, SearchPaths, Editor,TabWidth]),
+    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    Num = Index2 - Index1 + 1,
+    tuple_par_0(FileName, AnnAST, Info, FunName, Arity, Index1, Num, SearchPaths, TabWidth, Editor, "").
+
+    
 tuple_funpar_1(FileName, StartLoc = {StartLine, StartCol}, EndLoc = {EndLine, EndCol}, SearchPaths, TabWidth, Editor) ->
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":tuple_funpar(" ++ "\"" ++ 
 	    FileName ++ "\", {" ++ integer_to_list(StartLine) ++ ", " ++ integer_to_list(StartCol) ++ "}," ++ 

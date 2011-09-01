@@ -94,7 +94,7 @@ fold_expression(FileName, Line, Col, SearchPaths, TabWidth, Editor) ->
 
 fold_expression_0(FileName, Candidates, FunClauseDef, Cmd, Editor, SearchPaths, TabWidth)->
     case Candidates of
-	[] ->
+	[] when Editor /=composite_emacs->
 	    throw({error, "No expressions that are suitable for folding "
 		   "against the selected function have been found!"});
 	_ -> ok
@@ -110,7 +110,8 @@ fold_expression_0(FileName, Candidates, FunClauseDef, Cmd, Editor, SearchPaths, 
         command ->
             do_fold_expression(FileName, Regions, SearchPaths, command, TabWidth, "");
         composite_emacs ->
-            do_fold_expression(FileName, Regions, SearchPaths, composite_emacs, TabWidth, "")
+            {ok, Regions, Cmd}
+            %% do_fold_expression(FileName, Regions, SearchPaths, composite_emacs, TabWidth, "")
     end.
 
 fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex,SearchPaths, Editor, TabWidth) ->
