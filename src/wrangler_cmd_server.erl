@@ -461,28 +461,21 @@ generate_a_cmd({generator, Gen}) ->
         Cmd ->
             Cmd
     end;
-generate_a_cmd(Cmd={refac_,RefacName, Args}) ->
+generate_a_cmd(Cmd={refac_,RefacName, Args0}) ->
     ?wrangler_debug("Cmd_in_generate_a_cmd:\n~p\n", [Cmd]),
     ?wrangler_debug("RefacName:\n~p\n", [RefacName]),
+    Args = Args0(),
     case lists:member(RefacName, elementary_refacs()) andalso is_list(Args) of
         true ->
-            NewArgs=lists:map(fun(A)->
-                                      case is_function(A,0) of
-                                          true ->
-                                              A();
-                                          false->
-                                              A
-                                      end
-                              end, Args),
-            ?wrangler_debug("NewArgs:\n~p\n", [NewArgs]),
-            Cmds=apply(wrangler_extended, RefacName,NewArgs),
+            ?wrangler_debug("Args:\n~p\n", [Args]),
+            Cmds=apply(wrangler_extended, RefacName,Args),
             ?wrangler_debug("Cmds:\n~p\n", [Cmds]),
             generate_cmds(Cmds);
         false ->
-            Cmd            
+            throw({error, format_msg("Illegal command generator:\n~p\n", Cmd)})   
     end; 
 generate_a_cmd(Cmd) ->
-    Cmd.
+    throw({error, format_msg("Illegal command generator:\n~p\n", Cmd)}).
 
 
 update_state(State=#state{changed_files=Changes}, PrevResult) ->
