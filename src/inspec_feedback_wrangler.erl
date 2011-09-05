@@ -104,8 +104,9 @@ classify_pattern_match(File) ->
              Msg=lists:flatten(
                    io_lib:format("This function could be defined differently: try it with~s~n", [MsgFun(Kind)])),
              {Msg, [{file, File}, 
-                    {line, integer_to_list(Line)}]}
-         end ||{_, {{Line,_},{_,_}}, Kind}<-Classify, Kind /= none],
+                    {line_from, integer_to_list(LineFrom)},
+		    {line_to, integer_to_list(LineTo)}]}
+         end ||{_, {{LineFrom,LineTo},{_,_}}, Kind}<-Classify, Kind /= none],
     {ok, Res}.
 
 -spec pattern_type(syntaxTree()) -> variable | literal | mixed.
