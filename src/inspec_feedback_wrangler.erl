@@ -106,7 +106,7 @@ classify_pattern_match(File) ->
              {Msg, [{file, File}, 
                     {line_from, integer_to_list(LineFrom)},
 		    {line_to, integer_to_list(LineTo)}]}
-         end ||{_, {{LineFrom,LineTo},{_,_}}, Kind}<-Classify, Kind /= none],
+         end ||{_, {{LineFrom,_},{LineTo,_}}, Kind}<-Classify, Kind /= none],
     {ok, Res}.
 
 -spec pattern_type(syntaxTree()) -> variable | literal | mixed.
