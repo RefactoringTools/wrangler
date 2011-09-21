@@ -15,7 +15,10 @@
 
 -export([long_functions/2, 
          calls_to_specific_function/2,
-         test/1]).
+         test/1,
+	 classify_pattern_match/1,
+	 collect_function_apps/2,
+	 collect_function_apps2/2]).
 
 -include("../include/wrangler.hrl").
 
@@ -81,6 +84,95 @@ calls_to_specific_function({M, F, A}, SearchPaths) ->
                     {line, integer_to_list(Line)}]}
          end ||{File,{{Line, _}, _}}<-Calls],
     {ok, Res}.
+
+%% Give the type (according to syntax_tools) of the patterns
+%% in a function definition.
+
+classify_pattern_match(File) ->
+    Classify = ?FULL_TD_TU([?COLLECT(?T("f@(Args@@@) when _Guard@@@ -> _Body@@@."), 
+				     {api_refac:fun_define_info(f@),
+				      api_refac:start_end_loc(_This@),
+				      overall_classify([pattern_type(Pat) || Pat <- lists:flatten(Args@@@)])},
+				     true
+				    )],
+			   [File]),
+    MsgFun = fun (mixed)    -> " patterns made up entirely of variables or of literals.";
+		 (variable) -> " mixed patterns or patterns of literals only.";
+		 (literal)  -> " mixed patterns or patterns of variables only."
+	  end,
+    Res=[begin
+             Msg=lists:flatten(
+                   io_lib:format("This function could be defined differently: try it with~s~n", [MsgFun(Kind)])),
+             {Msg, [{file, File}, 
+                    {line_from, integer_to_list(LineFrom)},
+		    {line_to, integer_to_list(LineTo)}]}
+         end ||{_, {{LineFrom,_},{LineTo,_}}, Kind}<-Classify, Kind /= none],
+    {ok, Res}.
+
+-spec pattern_type(syntaxTree()) -> variable | literal | mixed.
+
+pattern_type(Pat) ->
+    case wrangler_syntax:is_literal(Pat) of
+	true -> literal;
+	false -> case api_refac:type(Pat) of
+		     variable -> variable;
+		     _ -> mixed
+		 end
+    end.
+    
+-spec overall_classify([atom()]) -> atom().
+
+overall_classify([]) ->
+     none;
+overall_classify([X|Xs]) ->
+    overall_classify(X,Xs).
+
+-spec overall_classify(atom(),[atom()]) -> atom().
+
+overall_classify(X,[]) ->
+     X;
+overall_classify(X,[Y|Ys]) ->
+    case X==Y of
+	true ->
+	    overall_classify(X,Ys);
+	false ->
+	     mixed
+    end.
+    
+
+
+%% Collect all the function applications within a function definition.
+%% Returns {erlang,apply,3} for uses of apply.
+
+collect_function_apps({M, F, A}, SearchPaths) ->
+    ?FULL_TD_TU([?COLLECT(?T("f@(Args@@) when _Guard@@ -> Body@@;"), 
+                          collect_apps_within(_This@),
+			  {M, F, A} == api_refac:fun_define_info(f@))
+			 ],
+                [SearchPaths]).
+
+collect_apps_within(Node) ->
+    ?FULL_TD_TU([?COLLECT(?T("F@(Argss@@)"),
+			  api_refac:fun_define_info(F@),
+			  true)
+		],
+		Node).
+
+collect_function_apps2({M, F, A}, SearchPaths) ->
+    ?FULL_TD_TU([?COLLECT(?T("f@(Args@@) when _Guard@@ -> Body@@;"), 
+                          collect_apps_within2(_This@),
+			  {M, F, A} == api_refac:fun_define_info(f@))
+			 ],
+                [SearchPaths]).
+
+collect_apps_within2(Node) ->
+    ?FULL_TD_TU([?COLLECT(?T("F@(Argss@@)"),
+			  ?SPLICE(api_refac:get_app_mod(_This@)),
+			  true)
+		],
+		Node).
+
+
 
 
 %% In this test, I try to detect two code code smells. One is 

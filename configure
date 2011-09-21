@@ -2845,11 +2845,11 @@ libpath(App) ->
 
 _EOF
 
-   if ! $ERLC conftest.erl; then
+   if ! "$ERLC" conftest.erl; then
    	   as_fn_error $? "could not compile sample program" "$LINENO" 5
    fi
 
-   if ! $ERL -s conftest -noshell; then
+   if ! "$ERL" -s conftest -noshell; then
        as_fn_error $? "could not run sample program" "$LINENO" 5
    fi
 

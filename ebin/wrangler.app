@@ -92,7 +92,7 @@
                wrangler_type_info,
                wrangler_undo_server,
                wrangler_unification,
-               wrangler_write_file]},
+               wrangler_write_file]},           
     {registered, [wrangler_ast_server,
                   wrangler_callgraph_server,
                   wrangler_modulegraph_server,
