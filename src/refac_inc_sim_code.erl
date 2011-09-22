@@ -654,7 +654,12 @@ clone_check_loop(Cs, CandidateClassPairs, Tabs) ->
 	{add_clone,  {Candidate, Clones}} ->
 	    Clones1=[get_clone_class_in_absolute_locs(Clone) 
 		     || Clone <- Clones],
-	    clone_check_loop(Clones1++Cs, [{hash_a_clone_candidate(Candidate), Clones}|CandidateClassPairs], Tabs);
+            lists:foreach(fun(C) ->
+                                  {_, {Len, Freq}, AntiUnifier,AbsRanges}=C,
+                                  wrangler_code_search_utils:display_a_clone(
+                                    {AbsRanges, Len, Freq, AntiUnifier}, 0)
+                          end, Clones1),
+            clone_check_loop(Clones1++Cs, [{hash_a_clone_candidate(Candidate), Clones}|CandidateClassPairs], Tabs);
 	{get_clones, From, _ASTTab} ->
 	    ?debug("TIME3:\n~p\n", [time()]),
 	    Cs0=remove_sub_clones(Cs),
@@ -760,7 +765,7 @@ examine_a_clone_candidate_1(_C={Ranges, {_Len, _Freq}}, Thresholds, Tabs) ->
 			FromSameFile=from_same_file(Rs),
                         AU= get_anti_unifier(Info, FromSameFile),
                         {Rs1, AU1} = attach_fun_call_to_range(Rs, AU, FromSameFile),
-			{Rs1, {Len, Freq}, AU1}
+                        {Rs1, {Len, Freq}, AU1}
 		    end
 		    || {Rs, {Len, Freq}, Info} <- Clones],
     ClonesWithAU.
