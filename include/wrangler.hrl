@@ -154,10 +154,17 @@
         {meta_apply, api_refac:meta_apply_templates({M,F,A})}).
 
 -define(interactive(ERs),
-        {interactive, ERs}).
+        {interative, atomic, ERs}).
+
+-define(interactive(ERs, Qualifier),
+        {interactive, Qualifier, ERs}).
 
 -define(repeat_interactive(ERs),
-        {repeat_interactive, ERs}).
+        {repeat_interactive, atomic, ERs}).
+
+-define(repeat_interactive(ERs, Qualifier),
+        {repeat_interactive, Qualifier, ERs}).
+
 
 -define(if_then(Cond, Refac),
          {if_then, 
@@ -165,14 +172,19 @@
           Refac}).
      
 -define(while(Cond, Refac),
-        {while,
-         fun() ->Cond  end,
-         Refac}).
--define(try_refac(CR),
-        {try_refac, CR}).
+        {while,fun()->Cond end, atomic, Refac}).
 
--define(refac_(RefacName, Args),
-        {refac_, RefacName, fun()->Args end}).
+-define(while(Cond, Qualifier, Refac),
+        {while, fun()->Cond end, Qualifier,Refac}).
+
+-define(try_refac(CRs),{non_atomic, CRs}).
+
+-define(refac(CR), {atomic, CRs}).
+
+%% -define(refac_(RefacName, Args),
+%%         {refac_, RefacName, fun()->Args end}).
+
+-define(refac_(RefacName, Args), {refac_, RefacName, Args}).
 
 -define(current(M,F,A),
         wrangler_cmd_server:update_entity({M,F,A})).
