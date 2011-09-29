@@ -96,10 +96,11 @@ tuple_funpar(FileName, Line, Col, Index, Num, SearchPaths, TabWidth) ->
 		Index, Num, SearchPaths, TabWidth, emacs, "").
 
 tuple_args(FileName, {FunName, Arity},Index1, Index2, SearchPaths, Editor, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:tuple_funpar(~p, {~p,~p},~p,~p, ~p, ~p,~p).\n",
+    ?wrangler_io("\nCMD: ~p:tuple_args(~p, {~p,~p},~p,~p, ~p, ~p,~p).\n",
 		 [?MODULE, FileName, FunName, Arity,Index1, Index2, SearchPaths, Editor,TabWidth]),
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     Num = Index2 - Index1 + 1,
+    ok = pre_cond_check(FileName, FunName, Arity, (Arity-Num+1), Info),
     tuple_par_0(FileName, AnnAST, Info, FunName, Arity, Index1, Num, SearchPaths, TabWidth, Editor, "").
 
     
