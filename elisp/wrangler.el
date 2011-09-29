@@ -446,12 +446,13 @@
   (sleep-for 1.0)
   (save-window-excursion
     (wrangler-erlang-shell))
-  (sleep-for 2.0)
+  (sleep-for 1.0)
   (erl-spawn
     (erl-send-rpc wrangler-erl-node 'code 'ensure_loaded (list 'distel))
     (erl-receive()
         ((['rex res]
           t))))
+  (sleep-for 1.0)
   (start-wrangler-app))
   
 
