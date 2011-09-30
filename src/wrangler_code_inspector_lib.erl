@@ -29,11 +29,12 @@
 %% @hidden
 -module(wrangler_code_inspector_lib).
 
--export([find_var_instances/5, nested_exprs/5,
+-export([find_var_instances/5, nested_exprs/5, nested_exprs_1/5,
 	 calls_to_fun/5, calls_to_fun_1/5,
 	 dependencies_of_a_module/2, long_functions/4,
 	 large_modules/3, non_tail_recursive_servers/3,
 	 not_flush_unknown_messages/3,
+         not_flush_unknown_messages_1/3,
          calls_to_specific_function/2]).
 
 -include("../include/wrangler.hrl").
@@ -72,8 +73,9 @@ nested_exprs(DirFileNames, NestLevel, ExprType, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:nested_exprs(~p, ~p, ~p,~p,~p).\n",
 		 [?MODULE, DirFileNames, NestLevel, ExprType, SearchPaths, TabWidth]),
     Files = wrangler_misc:expand_files(DirFileNames, ".erl"),
-    Funs = lists:flatmap(fun (F) ->
-				 nested_exprs_1(F, NestLevel, ExprType, SearchPaths, TabWidth)
+    Funs = lists:flatmap(fun (File) ->
+				 ResRanges=nested_exprs_1(File, NestLevel, ExprType, SearchPaths, TabWidth),
+                                 [{M, F, A}||{M,F, A, _R} <-ResRanges]                                     
 			 end, Files),
     {ok, Funs}.
 
@@ -100,8 +102,8 @@ nested_exprs_1(FName, NestLevel, ExprType, SearchPaths, TabWidth) ->
 	  end,
     Ranges = lists:usort(api_ast_traverse:fold(Fun, [], AnnAST)),
     SortedRanges = sort_ranges(Ranges),
-    ResRanges = lists:filter(fun (R) -> length(R) >= NestLevel end, SortedRanges),
-    lists:usort(lists:map(fun (R) -> {M, F, A, _R} = hd(R),{M, F, A} end,
+    ResRanges=lists:filter(fun (R) -> length(R) >= NestLevel end, SortedRanges),
+    lists:usort(lists:map(fun (R) -> {M, F, A, Range} = hd(R),{M, F, A, Range} end,
 			  ResRanges)).
 
 	    
@@ -419,14 +421,15 @@ check_candidate_scc(FunDef, Scc, Line) ->
 %%==========================================================================================
 %%-spec(not_flush_unknown_messages(FileOrDirss::[filename()|dir()], SearchPaths::[dir()], TabWidth::integer()) -> 
 %%	     {ok, [{modulename(), functionname(), functionarity()}]}).
-not_flush_unknown_messages(FileOrDirs, SearchPaths, TabWidth) ->
+not_flush_unknown_messages(FileOrDirs,SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:not_flush_unknown_messages(~p, ~p, ~p).\n",
 		 [?MODULE, FileOrDirs, SearchPaths, TabWidth]),
     Files = wrangler_misc:expand_files(FileOrDirs, ".erl"),
     Funs = lists:flatmap(fun (F) ->
 				 not_flush_unknown_messages_1(F, SearchPaths, TabWidth)
 			 end, Files),
-    {ok, lists:usort(Funs)}.
+    Res=[{ModName, FunName, Arity}||{_FName, ModName, FunName, Arity, _Ln}<-Funs],
+    {ok, lists:usort(Res)}.
 
 not_flush_unknown_messages_1(FName, SearchPaths, TabWidth) ->
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
@@ -439,7 +442,7 @@ not_flush_unknown_messages_1(FName, SearchPaths, TabWidth) ->
 			  case has_receive_expr(T) of
 			      {true, Line} ->
 				  case has_receive_expr_without_flush(FName, Info, ModName, T, Line, SearchPaths) of
-				      true -> [{ModName, FunName, Arity}| S];
+				      true -> [{FName, ModName, FunName, Arity, Line}| S];
 				      false -> S
 				  end;
 			      false -> S
