@@ -91,6 +91,7 @@
          append_two_lists/1,
          unnecessary_match/1,
          non_tail_recursive_function/1,
+         is_non_tail_recursive/1,
          calls_to_specific_function/1]).
          
 -export([test/1,test1/1,test2/1,test3/1,test4/1, test5/1]).
@@ -140,9 +141,8 @@ calls_to_specific_function(input_par_prompts) ->
 
 calls_to_specific_function(_Args=#args{user_inputs=[M,F,A], 
                                        search_paths=SearchPaths}) ->
-    MFA={list_to_atom(M), list_to_atom(F), list_to_integer(A)},                              
-    ?FULL_TD_TU([?COLLECT_LOC(?T("F@(Args@@)"), 
-                              MFA == api_refac:fun_define_info(F@))],
+    {M1, F1, A1}={list_to_atom(M), list_to_atom(F), list_to_integer(A)},                              
+    ?FULL_TD_TU([?COLLECT_LOC(?FUN_APPLY(M1, F1, A1), true)],
                 [SearchPaths]).
 
  
@@ -181,7 +181,7 @@ non_tail_recursive_function(_Args=#args{search_paths=SearchPaths}) ->
     ?FULL_TD_TU([?COLLECT(?T("f@(Args@@@) when Guard@@@-> Body@@@."), 
                           fun_define_info(f@),
                           is_non_tail_recursive(_This@))],
-                 [SearchPaths]).
+                [SearchPaths]).
 
 %% Returns `true' if a recursive function definition is not tail recursive. 
 is_non_tail_recursive(FunDef) ->
