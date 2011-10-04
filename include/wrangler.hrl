@@ -154,7 +154,7 @@
         {meta_apply, api_refac:meta_apply_templates({M,F,A})}).
 
 -define(interactive(ERs),
-        {interative, atomic, ERs}).
+        {interactive, atomic, ERs}).
 
 -define(interactive(Qualifier, ERs),
         {interactive, Qualifier, ERs}).
