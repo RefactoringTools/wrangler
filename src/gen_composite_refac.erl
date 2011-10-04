@@ -298,12 +298,8 @@ init_composite_refac(ModName, Args=[CurFileName, [Line,Col],
     case apply(Module, composite_refac, [Args0]) of
         {error, Reason} ->
             {error, Reason};
-        Cmds ->
-            Cmds1 = if is_list(Cmds) ->
-                            Cmds;
-                       true -> [Cmds]
-                    end,
-            try start_cmd_server(lists:flatten(Cmds1))
+        CR ->
+            try start_cmd_server(CR)
             catch
                 E1:E2 ->
                     erlang:error({E1,E2})
@@ -325,6 +321,11 @@ stop_cmd_server() ->
    
 %%@private
 get_next_command(PrevResult) ->
+    case PrevResult of 
+        none -> ok;
+        _ -> wrangler_io:format("The result returned by the previous refactoring:\n ~p\n", 
+                                [PrevResult])
+    end,
     Cmd=wrangler_cmd_server:get_next_command(PrevResult),
     case Cmd of 
         {ok, none, _ChangedFiles, [error, _Reason]} ->
@@ -335,6 +336,9 @@ get_next_command(PrevResult) ->
             stop_cmd_server(),
             {ok, PreviewPairs}=wrangler_backup_server:recover_backups(),
             wrangler_preview_server:add_files({PreviewPairs, ""}),
+            Cmd;
+        {ok, C} ->
+            wrangler_io:format("Next refactoring command:\n~p\n", [C]),
             Cmd;
         _ ->
             Cmd
