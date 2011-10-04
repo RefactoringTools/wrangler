@@ -34,11 +34,11 @@
 %% @private
 -module(refac_state_to_record).
 
--export([eqc_statem_to_record/3, eqc_statem_to_record_1/7,
+-export([eqc_statem_to_record/4, eqc_statem_to_record_1/8,
 	 eqc_statem_to_record_eclipse/3, eqc_statem_to_record_1_eclipse/7,
-	 eqc_fsm_to_record/3,  eqc_fsm_to_record_1/7,
+	 eqc_fsm_to_record/4,  eqc_fsm_to_record_1/8,
 	 eqc_fsm_to_record_eclipse/3, eqc_fsm_to_record_1_eclipse/7,
-	 gen_fsm_to_record/3,  gen_fsm_to_record_1/7,
+	 gen_fsm_to_record/4,  gen_fsm_to_record_1/8,
 	 gen_fsm_to_record_eclipse/3, gen_fsm_to_record_1_eclipse/7]).
 
 -export([is_statemachine_used/2]).
@@ -50,27 +50,27 @@
 -define(Msg, "Wrangler failed to infer the current data type of the state.").
 
 %% =============================================================================================
--spec(eqc_statem_to_record/3::(filename(),[dir()], integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
+-spec(eqc_statem_to_record/4::(filename(),[dir()], atom(), integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
 								 {'ok', {tuple, integer()}, [{atom(), atom(), integer()}]}).
 
-eqc_statem_to_record(FileName, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:eqc_statem_to_record(~p,~p, ~p).\n",
-		 [?MODULE, FileName,SearchPaths, TabWidth]),
-    eqc_statem_to_record(FileName, SearchPaths, TabWidth, emacs).
+eqc_statem_to_record(FileName, SearchPaths, Context, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:eqc_statem_to_record(~p,~p, ~p, ~p).\n",
+		 [?MODULE, FileName,SearchPaths, Context, TabWidth]),
+    eqc_statem_to_record_1(FileName, SearchPaths, Context, TabWidth).
 
 -spec(eqc_statem_to_record_eclipse/3::(filename(),[dir()], integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
 								 {'ok', {tuple, integer()}, [{atom(), atom(), integer()}]}).
 eqc_statem_to_record_eclipse(FileName, SearchPaths, TabWidth) ->
-    eqc_statem_to_record(FileName,SearchPaths, TabWidth, eclipse).
+    eqc_statem_to_record_1(FileName, SearchPaths, eclipse, TabWidth).
 
 
-eqc_statem_to_record(FileName, SearchPaths, TabWidth, _Editor) ->
+eqc_statem_to_record_1(FileName, SearchPaths, _Editor, TabWidth) ->
     state_to_record(FileName, SearchPaths, TabWidth, eqc_statem).
 
 
-eqc_statem_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth) ->
+eqc_statem_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, Editor, TabWidth) ->
     format_args(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth,	"eqc_statem_to_record_1"),
-    eqc_statem_to_record(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth, emacs, "").
+    eqc_statem_to_record(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth, Editor, "").
 
 -spec(eqc_statem_to_record_1_eclipse/7::(FileName::filename(), RecordName::string(), RecordFields::[string()],
 					StateFuns::[{atom(), atom(), integer()}], IsTuple::boolean(),
@@ -85,25 +85,26 @@ eqc_statem_to_record(FileName, RecordName, RecordFields, StateFuns, IsTuple, Sea
 
 
 %% =============================================================================================
--spec(eqc_fsm_to_record/3::(filename(),[dir()], integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
+-spec(eqc_fsm_to_record/4::(filename(),[dir()], atom(), integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
 		                                              {'ok', {tuple, integer()}, [{atom(), atom(),integer()}]}).
-eqc_fsm_to_record(FileName, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:eqc_fsm_to_record(~p,~p, ~p).\n", [?MODULE, FileName,SearchPaths, TabWidth]),
-    eqc_fsm_to_record(FileName, SearchPaths, TabWidth, emacs).
+eqc_fsm_to_record(FileName, SearchPaths, Context, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:eqc_fsm_to_record(~p,~p, ~p, ~p).\n", [?MODULE, FileName,SearchPaths, Context, TabWidth]),
+    eqc_fsm_to_record_1(FileName, SearchPaths, Context, TabWidth).
 
--spec(eqc_fsm_to_record_eclipse/3::(filename(),[dir()], integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
-								 {'ok', {tuple, integer()}, [{atom(), atom(), integer()}]}).
+-spec(eqc_fsm_to_record_eclipse/3::(filename(),[dir()], integer()) 
+                                   -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
+                                      {'ok', {tuple, integer()}, [{atom(), atom(), integer()}]}).
 eqc_fsm_to_record_eclipse(FileName, SearchPaths, TabWidth) ->
-    eqc_fsm_to_record(FileName,SearchPaths, TabWidth, eclipse).
+    eqc_fsm_to_record_1(FileName, SearchPaths, eclipse, TabWidth).
 
 
-eqc_fsm_to_record(FileName, SearchPaths, TabWidth, _Editor) ->
+eqc_fsm_to_record_1(FileName, SearchPaths, _Editor, TabWidth) ->
     state_to_record(FileName, SearchPaths, TabWidth, eqc_fsm).
 
-eqc_fsm_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth) ->
+eqc_fsm_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, Context, TabWidth) ->
     format_args(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth,	"eqc_fsm_to_record_1"),
     eqc_fsm_to_record(FileName, RecordName, RecordFields, StateFuns,
-		      IsTuple, SearchPaths, TabWidth, emacs, "").
+		      IsTuple, SearchPaths, TabWidth, Context, "").
 
 
 -spec(eqc_fsm_to_record_1_eclipse/7::(FileName::filename(), RecordName::string(), RecordFields::[string()],
@@ -120,27 +121,27 @@ eqc_fsm_to_record(FileName, RecordName, RecordFields, StateFuns, IsTuple, Search
 
 
 %% =============================================================================================
-%%-spec(gen_fsm_to_record/3::(filename(),[dir()], integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
+%%-spec(gen_fsm_to_record/3::(filename(),[dir()], atom(), integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
 %%							      {'ok', {tuple, integer()}, [{atom(), atom(), integer()}]}).
 
-gen_fsm_to_record(FileName, SearchPaths, TabWidth) ->
+gen_fsm_to_record(FileName, SearchPaths, Editor, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:gen_fsm_to_record(~p,~p, ~p).\n", [?MODULE, FileName,SearchPaths, TabWidth]),
-    gen_fsm_to_record(FileName, SearchPaths, TabWidth, emacs).
+    gen_fsm_to_record_1(FileName, SearchPaths, Editor, TabWidth).
 
 
 -spec(gen_fsm_to_record_eclipse/3::(filename(),[dir()], integer()) -> {'ok', non_tuple, [{atom(), atom(), integer()}]} | 
 								 {'ok', {tuple, integer()}, [{atom(), atom(), integer()}]}).
 gen_fsm_to_record_eclipse(FileName, SearchPaths, TabWidth) ->
-    gen_fsm_to_record(FileName,SearchPaths, TabWidth, eclipse).
+    gen_fsm_to_record_1(FileName, SearchPaths, eclipse, TabWidth).
 
 
-gen_fsm_to_record(FileName, SearchPaths, TabWidth, _Editor) ->
+gen_fsm_to_record_1(FileName, SearchPaths, _Editor, TabWidth) ->
     state_to_record(FileName, SearchPaths, TabWidth, gen_fsm).
 
 
-gen_fsm_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth) ->
+gen_fsm_to_record_1(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, Editor, TabWidth) ->
     format_args(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth, "gen_fsm_to_record_1"),
-    gen_fsm_to_record(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth, emacs, "").
+    gen_fsm_to_record(FileName, RecordName, RecordFields, StateFuns, IsTuple, SearchPaths, TabWidth, Editor, "").
 
 
 -spec(gen_fsm_to_record_1_eclipse/7::(FileName::filename(), RecordName::string(), RecordFields::[string()],
