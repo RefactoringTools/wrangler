@@ -76,14 +76,13 @@ undo() ->
 
 %%===================================================================================
 %% @doc Rename a module.
-%% <p> This refactoring affects all those modules in which the module name is used, and returns either ok with the list of files affected by this 
+%% <p> This refactoring affects all those modules in which the module name is used, 
+%%     and returns either ok with the list of files affected by this 
 %%     refactoring, or an error message. </p>
 %%@spec rename_mod(ModorFileName::modulename()|filename(), NewModName::modulename(), SearchPaths::[dir()]) -> 
 %%			   {ok, FilesChanged::[filename()]}|{error,Reason}
 rename_mod(ModOrFileName, NewModName, SearchPaths) ->
     try_apply(refac_rename_mod, rename_mod_command, [ModOrFileName, NewModName, SearchPaths]).
-
-
 
 %%===================================================================================
 %% @doc Rename a function.
@@ -94,7 +93,7 @@ rename_mod(ModOrFileName, NewModName, SearchPaths) ->
 %%@spec rename_fun(ModOrFileName::modulename()|filename(), atom(), integer(), atom(),[dir()])->
 %%				       {ok, FilesChanged::[filename()]}|{error,Reason}
 rename_fun(ModOrFileName, FunName, Arity, NewFunName, SearchPaths) ->
-    try_apply(refac_rename_fun, rename_fun_command, 
+    try_apply(refac_rename_fun, rename_fun_by_name, 
 	      [ModOrFileName, FunName, Arity, NewFunName, SearchPaths]).
 
 
