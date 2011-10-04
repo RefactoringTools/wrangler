@@ -156,35 +156,29 @@
 -define(interactive(ERs),
         {interative, atomic, ERs}).
 
--define(interactive(ERs, Qualifier),
+-define(interactive(Qualifier, ERs),
         {interactive, Qualifier, ERs}).
 
 -define(repeat_interactive(ERs),
         {repeat_interactive, atomic, ERs}).
 
--define(repeat_interactive(ERs, Qualifier),
+-define(repeat_interactive(Qualifier, ERs),
         {repeat_interactive, Qualifier, ERs}).
 
-
 -define(if_then(Cond, Refac),
-         {if_then, 
-          fun()-> Cond end, 
-          Refac}).
+         {if_then, fun()-> Cond end, Refac}).
      
 -define(while(Cond, Refac),
-        {while,fun()->Cond end, atomic, Refac}).
+        {while, fun()->Cond end, atomic, Refac}).
 
 -define(while(Cond, Qualifier, Refac),
         {while, fun()->Cond end, Qualifier,Refac}).
 
--define(try_refac(CRs),{non_atomic, CRs}).
+-define(non_atomic(CRs),{non_atomic, CRs}).
 
--define(refac(CR), {atomic, CRs}).
+-define(atomic(CRs), {atomic, CRs}).
 
-%% -define(refac_(RefacName, Args),
-%%         {refac_, RefacName, fun()->Args end}).
-
--define(refac_(RefacName, Args), {refac_, RefacName, Args}).
+-define(refac_(RefacName, Args), {refac_, RefacName, fun()->Args end}).
 
 -define(current(M,F,A),
         wrangler_cmd_server:update_entity({M,F,A})).
