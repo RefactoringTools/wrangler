@@ -46,8 +46,7 @@
 %% @private
 -module(refac_unfold_fun_app).
 
--export([unfold_fun_app/4, 
-         unfold_fun_app/5, 
+-export([unfold_fun_app/5, 
          unfold_fun_app_eclipse/4]).
 
 
@@ -60,11 +59,6 @@
 %% Usage: Point the cursor to the function name in the function application to unfold, then 
 %% select <em>Unfold Function Application</em> from <em>Refactor</em>.
 %% </p>
-
-%%-spec(unfold_fun_app/4::(FileName::filename(), Pos::pos(), SearchPaths::[dir()], TabWidth::integer())
-%%      ->{'ok', [filename()]}).
-unfold_fun_app(FileName, Pos, SearchPaths, TabWidth) ->
-    unfold_fun_app(FileName, Pos, SearchPaths, emacs, TabWidth).
 
 %%-spec(unfold_fun_app_eclipse/4::(FileName::filename(), Pos::pos(), SearchPaths::[dir()], TabWidth::integer())
 %%      ->{ok, [{filename(), filename(), string()}]}).
