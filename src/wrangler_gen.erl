@@ -29,25 +29,28 @@
 %% Author contact: H.Li@kent.ac.uk
 %%
 %% =====================================================================
-%% @doc This module specifies the generalised interfaces of some elementary refactorings.
--module(wrangler_extended).
+%% @doc This module specifies a suite of refactoring command generators.
+-module(wrangler_gen).
 
--export([rename_fun/5, 
-         rename_var/6, 
-         rename_mod/4,
-         swap_args/6,
-         tuple_args/6,
-         fold_expr/6,
-         gen_fun/6,
-         gen_fun/7,
-         move_fun/5,
-         unfold_fun_app/5]).
+-export([rename_fun/4, rename_fun/5,
+         rename_var/5, rename_var/6,
+         rename_mod/3, rename_mod/4,
+         swap_args/5,  swap_args/6,
+         tuple_args/5, tuple_args/6,
+         fold_expr/5,  fold_expr/6,
+         gen_fun/5,    gen_fun/6,gen_fun/7,    
+         move_fun/4,   move_fun/5,
+         unfold_fun_app/4,unfold_fun_app/5]).
 
 -compile(export_all).
 
 -include("../include/wrangler.hrl").
 
--type (elementary_refac()::{refactoring, {atom(), atom()}, [term()]}).
+-type (refac_name():: atom()).
+
+-type (pars():: [term()]).
+
+-type (elementary_refac()::{refactoring, refac_name(), pars()}).
 
 -type (file_filter()::{file,fun((File::filename()) -> boolean())}).
 
@@ -64,8 +67,13 @@
 
 -type (search_paths()::[filename()|dir()]).
 
+-define(context, composite_emacs).
 
-%% @doc Generalised interface for renaming a function.
+
+rename_fun(ModOrFile,FA, NewFunName, SearchPaths)->
+    rename_fun(ModOrFile,FA, NewFunName, true, SearchPaths).
+
+%% @doc Command generator for renaming function names.
 -spec rename_fun(ModOrFile::mod_or_file(),
                 Fa:: fa(),
                 NewFunName::{generator, fun(({M::atom(),FA::{atom(),integer()}})->atom())}
@@ -92,21 +100,21 @@ rename_fun(ModOrFile,FA, NewFunName, true, SearchPaths)->
 
 rename_fun_1(File, FA, NewFunName, SearchPaths) ->
     FAs= get_fun_arity(File, FA),
-    [{refactoring, {refac_rename_fun, rename_fun_by_name}, 
+    [{refactoring,  rename_fun, 
       [File, {F, A}, new_name_gen(File, {F, A}, NewFunName),
-       SearchPaths]}
+       SearchPaths, ?context]}
      ||{F, A}<-FAs].
    
 get_next_rename_fun_command({File, NextFileGen}, FA, NewFunName, SearchPaths) ->
     case get_fun_arity({File, NextFileGen}, FA, true) of
         []->[]; 
         [{F,A}] ->
-            [{refactoring, {refac_rename_fun, rename_fun_by_name}, 
-              [File, {F, A}, new_name_gen(File, {F, A}, NewFunName), SearchPaths]}];
+            [{refactoring, rename_fun, 
+              [File, {F, A}, new_name_gen(File, {F, A}, NewFunName), SearchPaths, ?context]}];
         {{File1, F,A},  {File2, NextFileGen2}, NextFAGen}->
-            Refac={refactoring, {refac_rename_fun, rename_fun_by_name}, 
+            Refac={refactoring, rename_fun, 
                    [File1, {F, A}, new_name_gen(File1, {F, A}, NewFunName),
-                    SearchPaths]},
+                    SearchPaths, ?context]},
             {Refac, {lazy_gen, fun()-> get_next_rename_fun_command(
                                          {File2, NextFileGen2}, NextFAGen, 
                                          NewFunName, SearchPaths)
@@ -185,7 +193,10 @@ remove_underscore([H|T], Acc) ->
     end.
   
 
-% @doc Generalised interface for renaming a function.
+
+% @doc Command generator for renaming module names.
+rename_mod(ModOrFile, NewModName, SearchPaths) ->
+    rename_mod(ModOrFile, NewModName, true, SearchPaths).
 -spec rename_mod(ModOrFile::mod_or_file(),
                  NewModName::{generator, fun((M::atom())->atom())}
                            | {user_input, Prompt::fun((M::atom())->
@@ -209,8 +220,8 @@ rename_mod(ModOrFile, NewModName, true, SearchPaths) ->
     end.
 
 rename_mod_1(File, NewModName, SearchPaths) ->
-    {refactoring, {refac_rename_mod, rename_mod_by_name}, 
-     [File, new_name_gen(File, NewModName), SearchPaths]}.
+    {refactoring, rename_mod_by_name, 
+     [File, new_name_gen(File, NewModName), SearchPaths, ?context]}.
  
    
 get_next_rename_mod_command({File, NextFileGen}, NewFunName, SearchPaths) ->
@@ -236,7 +247,9 @@ test_rename_mod(SearchPaths, Lazy) ->
                 SearchPaths).
  
 
-%% @doc Generalised interface for renaming a variable.
+%% @doc Command generator for renaming variable names.
+rename_var(ModOrFile, FA, OldVarName, NewVarName, SearchPaths) ->
+    rename_var(ModOrFile, FA, OldVarName, NewVarName, true, SearchPaths).
 -spec rename_var(ModOrFile::mod_or_file(), 
                  FA::fa(),
                  OldVarName::fun((VarName::atom())-> boolean())
@@ -297,8 +310,9 @@ get_next_rename_var_command({File, {lazy_file_gen, NextFileGen}}, FA,
  
 rename_var_1(File, FA, VarFilter, NewVarName, SearchPaths) ->
     FAs= get_fun_arity(File, FA),
-    [{refactoring, {refac_rename_var, rename_var}, 
-      [File, {F, A}, V, new_name_gen(File, {F, A}, V, NewVarName), SearchPaths]}
+    [{refactoring, rename_var, 
+      [File, {F, A}, V, new_name_gen(File, {F, A}, V, NewVarName), 
+       SearchPaths, ?context]}
      ||{F, A}<-FAs, V<-get_vars(File, F, A, VarFilter)].
 
 test_rename_var(SearchPaths, Lazy) ->
@@ -313,7 +327,9 @@ test_rename_var(SearchPaths, Lazy) ->
                SearchPaths).
 
 
-%% @doc Generalised interface for moving a function from one module to another.
+%% @doc Command generator for moving functions from one module to another.
+move_fun(SrcModOrFile, FA, TgtModOrFile, SearchPaths) ->
+    move_fun(SrcModOrFile, FA, TgtModOrFile, true, SearchPaths).
 -spec move_fun(SrcModOrFile::mod_or_file(),
                Fa::fa(),
                TagertModOrFile::mod_or_file()|
@@ -322,11 +338,12 @@ test_rename_var(SearchPaths, Lazy) ->
                Lazy:: boolean(),
                SearchPaths::search_paths()) ->
                       [elementary_refac()]|lazy_refac().
+
 move_fun(SrcModOrFile, FA, TgtModOrFile, false, SearchPaths) ->
-    [{refactoring, {refac_move_fun, move_fun_by_name},
+    [{refactoring, move_fun_by_name,
       [File, {F, A}, gen_target_file_name(
                        {File, {F, A}}, TgtModOrFile,SearchPaths),
-       SearchPaths]}
+       SearchPaths, ?context]}
      ||File<-gen_file_names(SrcModOrFile, SearchPaths),
        {F,A}<-get_fun_arity(File, FA)];
 move_fun(SrcModOrFile, FA, TgtModOrFile, true, SearchPaths) ->
@@ -343,12 +360,13 @@ get_next_move_fun_command({File, NextFileGen}, FA, TgtModOrFile, SearchPaths) ->
     case get_fun_arity({File, NextFileGen}, FA, true) of
         []->[]; 
         [{F,A}] ->
-            [{refactoring, {refac_move_fun, move_fun_by_name}, 
-              [File, {F, A}, gen_target_file_name({File, {F,A}}, TgtModOrFile,SearchPaths), SearchPaths]}];
+            [{refactoring, move_fun_by_name, 
+              [File, {F, A}, gen_target_file_name({File, {F,A}}, TgtModOrFile,SearchPaths), 
+               SearchPaths, ?context]}];
         {{File1, F,A},  {File2, NextFileGen2}, NextFAGen}->
-            Refac={refactoring, {refac_move_fun, move_fun_by_name}, 
+            Refac={refactoring, move_fun_by_name, 
                    [File1, {F, A}, gen_target_file_name({File, {F, A}}, TgtModOrFile,SearchPaths),
-                    SearchPaths]},
+                    SearchPaths, ?context]},
             {Refac, {lazy_gen, fun()-> get_next_move_fun_command(
                                          {File2, NextFileGen2}, NextFAGen, 
                                          TgtModOrFile, SearchPaths)
@@ -382,7 +400,10 @@ test_move_fun(SearchPaths, Lazy) ->
                Lazy,
                SearchPaths).
 
-%% @doc Generalised interface for function generalisation.
+%% @doc Command generator for function generalisation.
+gen_fun(ModOrFile, FAFilter, ExprStr, NewParName, SearchPaths) ->
+    gen_fun(ModOrFile, FAFilter, ExprStr, NewParName, true, SearchPaths, textual).
+
 -spec gen_fun(ModOrFile::mod_or_file(),
               FA::fa(),
               ExprStr::string(),
@@ -397,7 +418,7 @@ test_move_fun(SearchPaths, Lazy) ->
 gen_fun(ModOrFile, FAFilter, ExprStr, NewParName, Lazy, SearchPaths) ->
     gen_fun(ModOrFile, FAFilter, ExprStr, NewParName, Lazy, SearchPaths, textual).
 
-%% @doc Generalised interface for function generalisation.
+%% @doc Command generator for function generalisation.
 -spec gen_fun(ModOrFile::mod_or_file(),
               FA::fa(),
               ExprStr::string(),
@@ -428,10 +449,10 @@ gen_fun_1({File, FA}, ExprStr, NewParName, SearchPaths) ->
         [] ->[];
         Ranges ->
             Exprs={range, {File, Ranges}},
-            [{refactoring, {refac_gen, generalise_composite},
+            [{refactoring, generalise_composite,
               [File, FA, Exprs, hd(Ranges), 
                new_name_gen(File, FA, Exprs, NewParName),
-               SearchPaths]}]
+               SearchPaths, ?context]}]
     end.
 
 get_next_gen_fun_command({File, NextFileGen}, FA, ExprStr, NewParName, SearchPaths, GenOrder) ->
@@ -442,10 +463,10 @@ get_next_gen_fun_command({File, NextFileGen}, FA, ExprStr, NewParName, SearchPat
                 [] ->[];
                 Ranges ->
                     Exprs={range, {File, Ranges}},
-                    [{refactoring, {refac_gen, generalise_composite},
+                    [{refactoring, generalise_composite,
                       [File, FA, Exprs, hd(Ranges), 
                        new_name_gen(File, FA, Exprs, NewParName),
-                       SearchPaths]}]
+                       SearchPaths, ?context]}]
             end;
         {{File1, F,A},  {File2, NextFileGen2}, NextFAGen}->
             case get_exprs(File1, {F,A}, ExprStr) of 
@@ -454,10 +475,10 @@ get_next_gen_fun_command({File, NextFileGen}, FA, ExprStr, NewParName, SearchPat
                                              ExprStr, NewParName, SearchPaths, GenOrder);
                 Ranges ->
                     Exprs={range, {File, Ranges}},
-                    Refac ={refactoring, {refac_gen, generalise_composite},
+                    Refac ={refactoring, generalise_composite,
                             [File, {F, A}, Exprs, hd(Ranges), 
                              new_name_gen(File, {F, A}, Exprs, NewParName),
-                             SearchPaths]},
+                             SearchPaths, ?context]},
                     {Refac, {lazy_gen, fun()-> get_next_gen_fun_command(
                                                  {File2, NextFileGen2}, NextFAGen, 
                                                  ExprStr, NewParName, SearchPaths, GenOrder)
@@ -489,7 +510,9 @@ test_gen_fun(SearchPaths, Lazy) ->
             SearchPaths, bu).
 
 
-%% @doc Generalised interface for folding expressions against function definition.
+%% @doc Command generator for folding expressions against a function definition.
+fold_expr(CurModOrFile, TgtModOrFile, FA, ClauseIndex, SearchPaths) ->
+    fold_expr(CurModOrFile, TgtModOrFile, FA, ClauseIndex, true, SearchPaths).
 -spec fold_expr(CurModOrFile::mod_or_file(), 
                 ModOrFile::mod_or_file(), 
                 FA::fa(), 
@@ -569,10 +592,10 @@ get_next_fold_expr_command_1({File, NextFileGen}, {TgtFile, NextTgtFileGen},
            
 fold_expr_1(CurFile, TgtFile, FunName, Arity, ClauseIndex, SearchPaths) ->
     ModName=list_to_atom(filename:basename(TgtFile, ".erl")),
-    {refactoring, {refac_fold_expression, fold_expr_by_name}, 
+    {refactoring, fold_expr_by_name, 
      [CurFile, atom_to_list(ModName), atom_to_list(FunName), 
       integer_to_list(Arity), integer_to_list(ClauseIndex), 
-      SearchPaths]}.
+      SearchPaths, ?context]}.
         
 test_fold_expr(SearchPaths, Lazy) ->
     fold_expr({file, fun(_File)-> true end},
@@ -582,7 +605,10 @@ test_fold_expr(SearchPaths, Lazy) ->
               end, 
               1, Lazy, SearchPaths).
                       
-%% @doc Generalised interface for unfolding a function application.
+%% @doc Command generator for unfolding a function application.
+unfold_fun_app(ModOrFile, FA, MFAorPos, SearchPaths) ->
+    unfold_fun_app(ModOrFile, FA, MFAorPos, true, SearchPaths).
+
 -spec unfold_fun_app(ModOrFile::mod_or_file(), 
                      FA:: fa(),
                      MFAorPos:: fun((mfa())->boolean()) |mfa()|pos(),
@@ -669,12 +695,12 @@ get_next_unfold_app_command({File, {lazy_file_gen, NextFileGen}}, FA,
 unfold_fun_app_1(File, {F, A}, MFAorPos, SearchPaths) ->
     case MFAorPos of 
         {Line, Col} when is_integer(Line) andalso is_integer(Col) ->
-            {refactoring, {refac_unfold_fun_app, unfold_fun_app},
-             [File, {Line, Col}, SearchPaths]};
+            {refactoring, unfold_fun_app,
+             [File, {Line, Col}, SearchPaths, ?context]};
         MFA ->
             Ps = get_app_locs(File, {F, A}, MFA),
-            [{refactoring, {refac_unfold_fun_app, unfold_fun_app},
-              [File, Pos, SearchPaths]} || Pos<-Ps]
+            [{refactoring, unfold_fun_app,
+              [File, Pos, SearchPaths, ?context]} || Pos<-Ps]
     end.
         
 test_unfold_fun(SearchPaths, Lazy) ->
@@ -684,7 +710,11 @@ test_unfold_fun(SearchPaths, Lazy) ->
                    end,
                    {test, t, 0}, Lazy, SearchPaths).
 
-%% @doc Generalised interface for swapping function arguments.
+%% @doc Command generator for for swapping function arguments.
+
+swap_args(ModOrFile, FA, Index1,Index2, SearchPaths)->
+    swap_args(ModOrFile, FA, Index1,Index2, true, SearchPaths).
+
 -spec swap_args(ModOrFile::mod_or_file(),
                  FA::fa(),
                  Index1:: integer()| 
@@ -725,9 +755,9 @@ get_next_swap_args_command({File, NextFileGen}, FA, Index1, Index2, SearchPaths)
     end.
  
 swap_args_1(File, {F, A}, Index1, Index2, SearchPaths) ->
-    {refactoring, {refac_tuple, swap_args}, 
+    {refactoring, swap_args, 
      [File, {F, A},  index_gen(Index1, {File, {F, A}}), 
-      index_gen(Index2, {File, {F, A}}), SearchPaths]}.
+      index_gen(Index2, {File, {F, A}}), SearchPaths, ?context]}.
     
 test_swap_args(SearchPaths, Lazy) ->
     swap_args({file, fun(_File)-> true end}, 
@@ -736,7 +766,10 @@ test_swap_args(SearchPaths, Lazy) ->
                end,
                2, 3, Lazy, SearchPaths).
     
-%% @doc Generalised interface for tupling function arguments.
+%% @doc Command generator for tupling function arguments.
+tuple_args(ModOrFile, FA, Index1,Index2, SearchPaths)->
+    tuple_args(ModOrFile, FA, Index1,Index2, true, SearchPaths).
+
 -spec tuple_args(ModOrFile::mod_or_file(),
                  FA::fa(),
                  Index1:: integer()| 
@@ -776,9 +809,9 @@ get_next_tuple_args_command({File, NextFileGen}, FA, Index1, Index2, SearchPaths
     end.
  
 tuple_args_1(File, {F, A}, Index1, Index2, SearchPaths) ->
-    {refactoring, {refac_tuple, tuple_args}, 
+    {refactoring, tuple_args, 
      [File, {F, A},  index_gen(Index1, {File, {F, A}}), 
-      index_gen(Index2, {File, {F, A}}), SearchPaths]}.
+      index_gen(Index2, {File, {F, A}}), SearchPaths, ?context]}.
     
 test_tuple_args(SearchPaths, Lazy) ->
     tuple_args({file, fun(_File)-> true end}, 
@@ -1020,37 +1053,37 @@ get_app_locs(File, {FunName, Arity}, AppFilter) ->
                         )], FunDef)
     end.
 %%@private
-gen_question(rename_fun_by_name,[File,{F,A}, _NewName, _SearchPaths]) ->
+gen_question(rename_fun,[File,{F,A}|_]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to rename function ~p:~p/~p?", [M,F,A]));
-gen_question(rename_mod,[File, _NewName, _SearchPaths]) ->
+gen_question(rename_mod,[File|_]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to rename module '~p'?", [M]));
-gen_question(rename_var,[File,{F,A},{range, {_File, _Loc}, V}, _, _]) ->
+gen_question(rename_var,[File,{F,A},{range, {_File, _Loc}, V}|_]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to rename variable ~s in function ~p:~p/~p?", [V,M,F,A]));
-gen_question(swap_args, [File,{F,A}, _, _, _]) ->
+gen_question(swap_args, [File,{F,A}|_]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to swap the parameters of function ~p:~p/~p?", 
                                 [M,F,A]));
-gen_question(gen_fun, [File, {F, A}, _Expr, _, _]) ->
+gen_question(gen_fun, [File, {F, A}|_]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to generalise function ~p:~p/~p over the expression(s) highlighted?",
                                 [M,F,A]));
-gen_question(move_fun_by_name, [SrcFile, {F, A}, TgtFile, _SearchPaths]) ->
+gen_question(move_fun_by_name, [SrcFile, {F, A}, TgtFile|_]) ->
     M=list_to_atom(filename:basename(SrcFile, ".erl")),
     lists:flatten(io_lib:format("Do you want to move function ~p:~p/~p to file ~p?",
                                 [M,F,A, TgtFile]));
-gen_question(unfold_fun_app, [File, Loc, _]) ->
+gen_question(unfold_fun_app, [File, Loc|_]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to unfold the function application at "
                                 "location ~p in module ~p?",
                                 [Loc, M]));
-gen_question(fold_expr_by_name, [File, M, {F, A}, _, _]) ->
+gen_question(fold_expr_by_name, [File, M, {F, A}|_]) ->
     CurMod=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to fold expressions in module ~p,against function ~p:~p/~p?",
                                 [CurMod, M, F, A]));
-gen_question(tuple_args, [File, {F,A}, Index1, Index2, _SearchPaths]) ->
+gen_question(tuple_args, [File, {F,A}, Index1, Index2|_]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to turn the ~p arguments, starting from index ~p, "
                                 "of function ~p:~p/~p into a tuple?",
