@@ -10,7 +10,7 @@
 
 -include("../include/wrangler_internal.hrl").
 
--record(tmpAcc, {file,		
+-record(tmpAcc, {file,		 
 		 module,		
 		 funcAcc=[],	
 		 incFuncAcc=[],	
@@ -27,7 +27,7 @@ get_type_info_using_typer(File) ->
 		  RecMap = lookup(F, TypeInfo#typer_analysis.record),
 		  TypeInfoPlt = TypeInfo#typer_analysis.trust_plt,
 		  case dialyzer_plt:lookup_module(TypeInfoPlt, Module) of
-		    none -> [];
+	 	    none -> [];
 		    {value, List} -> {F, List, RecMap}
 		  end
 	  end,
@@ -101,16 +101,16 @@ analyze_core_tree(Core, Records, SpecInfo, Analysis, File) ->
   Fun = fun analyze_one_function/2,
    All_Defs = cerl:module_defs(Tree),
   Acc = lists:foldl(Fun, #tmpAcc{file=File, module=Module}, All_Defs),
-  Exported_FuncMap = typer_map:insert({File, Ex_Funcs},
+  Exported_FuncMap =insert({File, Ex_Funcs},
 				      Analysis#typer_analysis.ex_func),
 
   Sorted_Functions = lists:keysort(1, Acc#tmpAcc.funcAcc),
-  FuncMap = typer_map:insert({File, Sorted_Functions},
+  FuncMap = insert({File, Sorted_Functions},
 			     Analysis#typer_analysis.func),
-  IncFuncMap = typer_map:insert({File, Acc#tmpAcc.incFuncAcc}, 
+  IncFuncMap = insert({File, Acc#tmpAcc.incFuncAcc}, 
 				Analysis#typer_analysis.inc_func),
   Final_Files = Analysis#typer_analysis.final_files ++ [{File, Module}],
-    RecordMap = typer_map:insert({File, Records}, Analysis#typer_analysis.record),
+    RecordMap = insert({File, Records}, Analysis#typer_analysis.record),
   Analysis#typer_analysis{final_files=Final_Files,
 			  callgraph=CG,
 			  code_server=CS5,
@@ -192,8 +192,29 @@ store_temp_contracts(Module, SpecInfo, CS) ->
     try  dialyzer_codeserver:store_temp_contracts(Module, SpecInfo, CS) of
 	Res ->
 	    Res
-    catch
+    catch 
 	_E1:_E2 ->
 	    dialyzer_codeserver:store_contracts(Module, SpecInfo, CS)
     end.
 	
+
+%% -spec new() -> dict().
+%%  new() ->
+%%    dict:new().
+
+-spec insert({term(), term()}, dict()) -> dict().
+insert(Object, Dict) ->
+  {Key, Value} = Object,
+  dict:store(Key, Value, Dict).
+
+%% -spec from_list([{term(), term()}]) -> dict().
+%% from_list(List) ->
+%%   dict:from_list(List).
+
+%% -spec remove(term(), dict()) -> dict().
+%% remove(Key, Dict) ->
+%%   dict:erase(Key, Dict).
+
+%% -spec fold(fun((term(), term(), term()) -> term()), term(), dict()) -> term().
+%% fold(Fun, Acc0, Dict) -> 
+%%   dict:fold(Fun, Acc0, Dict).
