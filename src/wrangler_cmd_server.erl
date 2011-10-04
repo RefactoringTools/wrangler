@@ -38,16 +38,22 @@
 -export([init/1,handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--export([elementary_refac_loop/2, interactive_refac_loop/2, 
-         repeat_interactive_refac_loop/2, while_refac_loop/2,
-         if_then_refac_loop/2]).
+-export([elementary_refac_loop/2, 
+         interactive_refac_loop/2, 
+         repeat_interactive_refac_loop/2, 
+         while_refac_loop/2,
+         non_atomic_refac_loop/2, 
+         atomic_refac_loop/2,
+         if_then_refac_loop/2
+        ]).
 
 -export([get_next_command/1,update_entity/1]).
 
 -record(state, {cmds=[], 
-                changed_files=sets:new(), 
-                atomic=true      ::boolean(),
-                name_tracker_pid ::pid()
+                atomic,
+                mode,
+                changed_files=sets:new(),
+                backup_files
                }).
 
 -include("../include/wrangler_internal.hrl").
@@ -60,19 +66,16 @@
 -define(wrangler_debug(__String, __Args), ok).
 -endif.
 
-start_link(Cmds)->
-    gen_server:start({local, ?MODULE}, ?MODULE,[Cmds], []).
+start_link(CR) ->
+    gen_server:start({local, ?MODULE}, ?MODULE, CR, []).
 
-init([Cmds]) ->
-    ?wrangler_debug("Cmds:\n~p\n", [Cmds]),
+init(CR) ->
+    ?wrangler_debug("CR:\n~p\n", [CR]),
     process_flag(trap_exit, true),
     NameTrackerPid = spawn_link(fun()->name_tracker_loop([]) end),
     register(wrangler_name_tracker, NameTrackerPid),
     CurrentPid = self(),
-    Pid=spawn_link(fun()->cmd_server_loop(CurrentPid, 
-                                          #state{cmds=make_list(Cmds),
-                                                 name_tracker_pid=NameTrackerPid})
-                   end),
+    Pid = process_one_cr(CurrentPid, false, undefined, CR),
     {ok, {Pid, NameTrackerPid}}.
 
 
@@ -125,6 +128,8 @@ get_next_command(PrevResult, {CmdServerPid, NameTrackerPid}) ->
                                     NextCmd),
                     {ok, none, [], {error, Msg}}
             end;
+        {'EXIT', _ChildrenPid, Reason} ->            
+            error(Reason); 
         Others ->
             Msg=format_msg("Unexpected Message in get_next_command: ~p.\n",
                            Others),
@@ -163,180 +168,146 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-cmd_server_loop(Parent, State=#state{cmds=Cmds0, changed_files=Changes}) ->
+
+
+process_one_cr(Parent, Atomic, Mode, CR) ->
+    process_flag(trap_exit, true),
+    LoopName = make_loop_name(CR),
+    spawn_link(fun()->
+                       process_flag(trap_exit, true),
+                       wrangler_io:format("LoopName:\n~p\n", [LoopName]),
+                       case LoopName of 
+                           atomic_refac_loop ->
+                               wrangler_backup_server:add_atomic_cr_start_point(self());
+                           _ ->
+                               ok
+                       end,
+                       ?MODULE:LoopName(Parent,  
+                                        #state{cmds=CR, 
+                                               atomic = Atomic,
+                                               mode=Mode,
+                                               changed_files=sets:new()})
+               end).
+    
+
+non_atomic_refac_loop(Parent, State=#state{cmds={non_atomic, CRs},
+                                           mode=Mode,
+                                           changed_files=Changes}) ->
+    wrangler_io:format("not atomic loop: changed files:\n~p\n", [{self(),sets:to_list(Changes)}]),
     receive 
         {From, get_next_command, PrevResult} ->
-            ?wrangler_debug("Cmds0:\n~p\n",[Cmds0]),
-            Cmds = generate_cmds(Cmds0),
-            ?wrangler_debug("Cmds in cmd_server_loop:\n~p\n",[Cmds]),
-            ?wrangler_debug("Cmdserver: changed files:\n~p\n", [sets:to_list(Changes)]),
-            CurrentPid = self(),
-            case Cmds of
+            wrangler_io:format("PreResult:\n~p\n", [PrevResult]),
+            ModifiedSoFar =update_modified_files(PrevResult,Changes),
+            wrangler_io:format("Sofar:\n~p\n", [sets:to_list(ModifiedSoFar)]),
+            case generate_cmds(CRs) of 
                 [] ->
-                    case PrevResult of 
-                        [error, Reason] ->
-                            case State#state.atomic of 
-                                true ->
-                                    From ! {get_next_command, Parent, [error, Reason]};
-                                false ->
-                                    From ! {get_next_command, Parent, [ok, sets:to_list(Changes)]}
-                            end;
-                        [ok, _Modified] ->
-                            ModifiedSoFar =update_modified_files(PrevResult,Changes),
-                            From ! {get_next_command, Parent, [ok, sets:to_list(ModifiedSoFar)]}
-                    end;
-                [C|Cs] ->
-                    ?wrangler_debug("C in cmd server:\n~p\n",[C]),
-                    ?wrangler_debug("PrevResult:\n~p\n", [PrevResult]), 
-                    case PrevResult of 
-                        [error, Reason] when State#state.atomic->
-                            From ! {get_next_command, Parent, [error, Reason]};
-                        _ ->
-                            ModifiedSoFar = update_modified_files(PrevResult,Changes),
-                            ?wrangler_debug("ModifiedSoFar:\n~p\n", [ModifiedSoFar]),
-                            process_flag(trap_exit, true),
-                            case C of  
-                                {try_refac, CRs} ->
-                                    NewState=State#state{cmds=CRs, atomic=false,
-                                                         changed_files=sets:new()},
-                                    Pid = spawn_link(fun()->
-                                                             cmd_server_loop(CurrentPid, NewState)
-                                                     end),
-                                    From ! {get_next_command, Pid, [ok, []]};
-                                _ ->
-                                    LoopName = make_loop_name(C),
-                                    ?wrangler_debug("LoopName:\n~p\n", [LoopName]),
-                                    ?wrangler_debug("C:\~p\n", [C]),
-                                    Pid = spawn_link(fun()->
-                                                             ?MODULE:LoopName(CurrentPid,  
-                                                                              State#state{cmds=C, 
-                                                                                          atomic = true,
-                                                                                          changed_files=sets:new()})
-                                                     end),
-                                    From ! {get_next_command, Pid, [ok, []]}
-                            end,
-                            cmd_server_loop(Parent, State#state{cmds=Cs, changed_files=ModifiedSoFar})
+                    From !{get_next_command, Parent, [ok, sets:to_list(ModifiedSoFar)]};
+                [CR|Others] ->
+                    Pid = process_one_cr(self(), false, Mode, CR),
+                    From ! {get_next_command, Pid, [ok, []]},
+                    non_atomic_refac_loop(Parent, State#state{cmds={non_atomic, Others}, 
+                                                              changed_files=ModifiedSoFar})
+            end;
+        {'EXIT', _ChildrenPid, Reason} ->
+            case Reason of 
+                normal ->
+                    non_atomic_refac_loop(Parent, State);
+                _ ->
+                    error(Reason)
+            end;
+        Msg ->
+            error(format_msg("Unexpected message in non_atomic_refac_loop:~p\n", Msg))    
+    end.
+ 
+atomic_refac_loop(Parent, State=#state{cmds={atomic, CRs}, 
+                                       mode=Mode,
+                                       changed_files=Changes}) ->
+    receive 
+        {From, get_next_command, PrevResult} ->
+            case PrevResult of 
+                [error, Reason] ->
+                    wrangler_backup_server:rollback_atomic_cr(self()),
+                    From !{get_next_command, Parent, [error, Reason]};
+                _ ->
+                    wrangler_io:format("PreResult:\n~p\n", [PrevResult]),
+                    ModifiedSoFar =update_modified_files(PrevResult,Changes),
+                    wrangler_io:format("Sofar:\n~p\n", [sets:to_list(ModifiedSoFar)]),
+                    case generate_cmds(CRs) of 
+                        [] -> 
+                            From !{get_next_command, Parent, [ok, sets:to_list(ModifiedSoFar)]};
+                        [CR|Others] ->
+                            Pid = process_one_cr(self(), true, Mode, CR),
+                            From ! {get_next_command, Pid, [ok, []]},
+                            atomic_refac_loop(Parent, State#state{cmds={atomic, Others}, 
+                                                                  changed_files=ModifiedSoFar})
                     end
             end;
-        {'EXIT', _ChildrenPid, normal} ->
-            cmd_server_loop(Parent, State);
         {'EXIT', ChildrenPid, Reason} ->
-            Parent!{'EXIT', ChildrenPid, Reason};
-        stop -> 
-            ok;
-        Msg ->
-            error(format_msg("Unexpected message in cmd_server_loop:~p\n", Msg))  
+            case Reason of 
+                normal ->
+                    atomic_refac_loop(Parent, State);
+                _ ->
+                    error(lists:flatten(io_lib:format("~p died with:~p~n", 
+                                                      [ChildrenPid, Reason])))
+            end;
+        Msg->
+            error(format_msg("Unexpected message in atomic_refac_loop:~p\n", Msg))    
     end.
 
-elementary_refac_loop(Parent, State=#state{cmds=ER}) ->
+elementary_refac_loop(Parent, State=#state{cmds={refactoring, RefacName, Args},
+                                           mode= Mode,
+                                           atomic = Atomic
+                                          }) ->    
     receive 
         {From, get_next_command, PrevResult} ->
-            case ER of
-                {refactoring, Refac, Args}->
-                    NewState=update_state(State, PrevResult),
-                    From ! {self(), {ok, {refactoring, Refac, Args}}, self()},
-                    elementary_refac_loop(Parent, NewState#state{cmds=none});
-                none ->
-                    From ! {get_next_command, Parent, PrevResult}
+            NewState=update_state(State, PrevResult),
+            wrangler_io:format("ChangedFiles:\n~p\n", [sets:to_list(NewState#state.changed_files)]),
+            case Mode of  
+                interactive ->
+                    Question =apply(wrangler_gen, gen_question, [RefacName, Args]),
+                    From ! {self(), {ok, {interactive, Question, RefacName, Args}}, Parent};
+                repeat_interactive ->
+                    case PrevResult of 
+                        none ->
+                            From ! {get_next_command, Parent,
+                                    [ok, sets:to_list(NewState#state.changed_files)]};
+                        [error, _Reason] when Atomic ->
+                            From ! {get_next_command, Parent, PrevResult};
+                        _ ->                            
+                            Question =apply(wrangler_gen, gen_question, [RefacName, Args]),
+                            From ! {self(), {ok, {repeat_interactive, Question, RefacName, Args}}, self()},
+                            elementary_refac_loop(Parent, NewState)
+                    end;
+                undefined ->
+                    From ! {self(), {ok, {refactoring, RefacName, Args}}, Parent}
             end;
         Msg -> 
             error(format_msg("Unexpected message in elementary_refac_loop: ~p.\n", Msg))
     end.
 
-interactive_refac_loop(Parent, State=#state{cmds={interactive, ER}}) 
-  when not is_list(ER) ->
-    interactive_refac_loop(Parent, State#state{cmds={interactive, make_list(ER)}});
-interactive_refac_loop(Parent, State=#state{cmds={interactive, ER0s},
-                                            changed_files=Changes}) ->
-    receive 
-        {From, get_next_command, PrevResult} ->
-            ?wrangler_debug("ER0s:\n~p\n", [ER0s]),
-            ERs = generate_cmds(ER0s),
-            ?wrangler_debug("ERs:\n~p\n", [ERs]),
-            ?wrangler_debug("PrevResult:\n~p\n", [PrevResult]),
-            case PrevResult of
-                [error, _Reason] ->
-                    case State#state.atomic of 
-                        true ->
-                            From ! {get_next_command, Parent, PrevResult};
-                        false ->
-                            case ERs of
-                                [{refactoring, Refac={_, RefacName}, Args}|Cs] ->
-                                    Question =apply(wrangler_extended, gen_question, [RefacName, Args]),
-                                    From ! {self(), {ok, {interactive, Question, Refac, Args}}, self()},
-                                    interactive_refac_loop(Parent, State#state{cmds={interactive, Cs}});
-                                [] ->
-                                    From ! {get_next_command, Parent, [ok,Changes]}
-                            end
-                    end;
-                [ok, _Modified] ->
-                    case ERs of
-                        [{refactoring, Refac={_, RefacName}, Args}|Cs] ->
-                            Question=apply(wrangler_extended, gen_question, [RefacName,Args]),
-                            NewState=update_state(State, PrevResult),
-                            From ! {self(), {ok, {interactive, Question, Refac, Args}}, self()},
-                            interactive_refac_loop(Parent, NewState#state{cmds={interactive, Cs}});
-                        [] ->
-                            ModifiedSoFar =update_modified_files(PrevResult,Changes),
-                            From ! {get_next_command, Parent, [ok, sets:to_list(ModifiedSoFar)]}
-                    end
-            end;
-        Msg ->
-            error(format_msg("Unexpected message in interactive_refac_loop: ~p.\n", Msg))
-    end.
+interactive_refac_loop(Parent, State=#state{cmds={interactive, non_atomic, ERs}}) ->
+    non_atomic_refac_loop(Parent, State#state{cmds={non_atomic, ERs},
+                                              atomic = true,
+                                              mode = interactive});
+interactive_refac_loop(Parent, State=#state{cmds={interactive, atomic, ERs}})->
+    wrangler_backup_server:add_atomic_cr_start_point(self()),
+    atomic_refac_loop(Parent, State#state{cmds={atomic, ERs}, mode=interactive}).
 
-repeat_interactive_refac_loop(Parent, State=#state{cmds={repeat_interactive, ER}}) 
-  when not is_list(ER) ->
-    repeat_interactive_refac_loop(Parent, State#state{cmds={repeat_interactive, 
-                                                            make_list(ER)}});
-repeat_interactive_refac_loop(Parent, State=#state{cmds={repeat_interactive, ER0s},
-                                                   changed_files=Changes}) ->
-    receive 
-        {From, get_next_command, PrevResult} ->
-            ERs = generate_cmds(ER0s),
-            case ERs of
-                [] -> 
-                    ModifiedSoFar =update_modified_files(PrevResult,Changes),
-                    From !{get_next_command, Parent, [ok, sets:to_list(ModifiedSoFar)]};
-                _ ->
-                    case PrevResult of
-                        none ->
-                            case ERs of 
-                                [_C] ->
-                                    From ! {get_next_command, Parent, [ok, sets:to_list(Changes)]};
-                                [_C|Cs] ->
-                                    From !{get_next_command, self(), [ok, []]},
-                                    repeat_interactive_refac_loop(Parent, State#state{cmds={repeat_interactive, Cs}})
-                            end;
-                        [error, _Reason] ->
-                            case State#state.atomic of 
-                                true ->
-                                    From ! {get_next_command, Parent, [ok, sets:to_list(Changes)]}; %%TODO:test here again!
-                                false->
-                                    [{refactoring, Refac={_, RefacName}, Args}|_Cs]=ERs,
-                                    Question=apply(wrangler_extended, gen_question, [RefacName, Args]),
-                                    From ! {self(), {ok, {repeat_interactive, Question, Refac, Args}}, self()},
-                                    repeat_interactive_refac_loop(Parent,State)
-                            end;
-                        [ok, _Modified] ->
-                            NewState=update_state(State, PrevResult),
-                            [{refactoring, Refac={_, RefacName}, Args}|_Cs]=ERs,
-                            Question=apply(wrangler_extended, gen_question, [RefacName, Args]),
-                            From ! {self(), {ok, {repeat_interactive, Question, Refac, Args}}, self()},
-                            repeat_interactive_refac_loop(Parent, NewState)
-                    end
-            end;
-        Msg ->
-            error(format_msg("Unexpected message in repeat_interactive_refac_loop: ~p.\n", Msg))
-    end.
+repeat_interactive_refac_loop(Parent, State=#state{cmds={repeat_interactive, non_atomic, ERs}}) ->
+    non_atomic_refac_loop(Parent, State#state{cmds={non_atomic, ERs}, mode = repeat_interactive});
+repeat_interactive_refac_loop(Parent, State=#state{cmds={repeat_interactive, atomic, ERs}}) ->
+    wrangler_backup_server:add_atomic_cr_start_point(self()),
+    atomic_refac_loop(Parent, State#state{cmds={atomic, ERs}, 
+                                          atomic=true, 
+                                          mode = repeat_interactive}).
 
-while_refac_loop(Parent, State=#state{cmds={while, Cond, CmdGen},
+while_refac_loop(Parent, State=#state{cmds={while, Cond, Qual, CmdGen},
                                       changed_files=Changes}) ->
     receive
         {From, get_next_command, PrevResult} ->
             case PrevResult of 
-                [error, Reason] when State#state.atomic ->
-                    From ! {get_next_command, Parent, [error, Reason]};
+                [error, Reason] when Qual==atomic ->
+                    From ! {get_next_command, Parent, [error, Reason]}; %% Rollback!!!
                 _ ->
                     ModifiedSoFar = update_modified_files(PrevResult,Changes),
                     case Cond() of
@@ -353,16 +324,13 @@ while_refac_loop(Parent, State=#state{cmds={while, Cond, CmdGen},
                                         {true, _} ->
                                             CmdGen
                                     end,
-                            Res = generate_cmds(CmdGen1),
-                            case Res of 
+                            NewCR = generate_cmds(CmdGen1),
+                            case NewCR of
                                 [] ->
-                                    From !{get_next_command, Parent, [ok, sets:to_list(ModifiedSoFar)]};
+                                    From !{get_next_command, Parent, 
+                                           [ok, sets:to_list(ModifiedSoFar)]};
                                 _ ->
-                                    process_flag(trap_exit, true),
-                                    CurrentPid = self(),
-                                    Pid = spawn_link(fun() ->
-                                                             cmd_server_loop(CurrentPid, State#state{cmds=Res})
-                                                     end),
+                                    Pid = process_one_cr(self(), Qual==atomic, undefined, NewCR),
                                     From ! {get_next_command, Pid, [ok, []]},
                                     while_refac_loop(Parent, State#state{cmds={while, Cond, CmdGen},
                                                                          changed_files=ModifiedSoFar})
@@ -380,8 +348,8 @@ while_refac_loop(Parent, State=#state{cmds={while, Cond, CmdGen},
             error(format_msg("Unexpected message in while_refac_loop:~p\n", Msg))    
     end.
 
-%% not really a loop.
-if_then_refac_loop(Parent, State=#state{cmds={if_then, Cond, CRs}}) ->
+if_then_refac_loop(Parent, State=#state{cmds={if_then, Cond, CR},
+                                        mode=Mode}) ->
     receive
         {From, get_next_command, _PrevResult} ->
             R = Cond(),
@@ -392,20 +360,15 @@ if_then_refac_loop(Parent, State=#state{cmds={if_then, Cond, CRs}}) ->
                 {false, _} ->
                     From !{get_next_command, Parent, [ok, []]};
                 Others ->
-                    CR1s =case Others of 
-                              true ->
-                                  CRs;
-                              {true, Data} when is_function(CRs,1)->
-                                  CRs(Data);
-                              {true, _} ->
-                                  CRs
-                          end,
-                    Pid = spawn_link(fun()->
-                                             cmd_server_loop(
-                                               Parent, 
-                                               State#state{cmds=make_list(CR1s)})
-                                     end),
-                    process_flag(trap_exit, true),
+                    CR1 =case Others of
+                             true ->
+                                 CR;
+                             {true, Data} when is_function(CR,1) ->
+                                 CR(Data);
+                             {true, _} ->
+                                 CR
+                         end,
+                    Pid = process_one_cr(Parent, false, Mode, CR1),
                     From ! {get_next_command, Pid, [ok,[]]}
             end;
         {'EXIT', ChildrenPid, Reason} ->
@@ -462,41 +425,52 @@ generate_a_cmd({generator, Gen}) ->
             Cmd
     end;
 generate_a_cmd(Cmd={refac_,RefacName, Args0}) ->
-    ?wrangler_debug("Cmd_in_generate_a_cmd:\n~p\n", [Cmd]),
-    ?wrangler_debug("RefacName:\n~p\n", [RefacName]),
     Args = Args0(),
     case lists:member(RefacName, elementary_refacs()) andalso is_list(Args) of
         true ->
-            ?wrangler_debug("Args:\n~p\n", [Args]),
-            Cmds=apply(wrangler_extended, RefacName,Args),
-            ?wrangler_debug("Cmds:\n~p\n", [Cmds]),
+            Cmds=apply(wrangler_gen, RefacName, Args),
             generate_cmds(Cmds);
         false ->
-            throw({error, format_msg("Illegal command generator:\n~p\n", Cmd)})   
+            error(format_msg("Illegal command generator:\n~p\n", Cmd))  
     end; 
+generate_a_cmd(Cmd={interactive, _, _}) ->
+    Cmd;
+generate_a_cmd(Cmd={repeat_interactive, _, _}) ->
+    Cmd;
+generate_a_cmd(Cmd={while, _, _}) ->
+    Cmd;
+generate_a_cmd(Cmd={if_then, _, _}) ->
+    Cmd;
+generate_a_cmd(Cmd={non_atomic, _}) ->
+    Cmd;
+generate_a_cmd(Cmd={atomic, _}) ->
+    Cmd;
 generate_a_cmd(Cmd) ->
-    throw({error, format_msg("Illegal command generator:\n~p\n", Cmd)}).
-
+    error(format_msg("Illegal command generator:\n~p\n", Cmd)).
 
 update_state(State=#state{changed_files=Changes}, PrevResult) ->
     State#state{changed_files= update_modified_files(PrevResult,Changes)}.
-
+  
 make_loop_name(CR) ->
     case CR of 
-        {refactoring, {_Mod, _Name},_Args} ->
+        {refactoring,  _Name, _Args} ->
             elementary_refac_loop;
-        {{refactoring, {_Mod, _Name} ,_Args}, _Gen} ->
+        {{refactoring,  _Name ,_Args}, _Gen} ->
             elementary_refac_loop;
-        {interactive, _ERs} ->
+        {interactive, _Qual,  _ERs} ->
             interactive_refac_loop;
-        {repeat_interactive, _ERs} ->
+        {repeat_interactive, _Qual, _ERs} ->
             repeat_interactive_refac_loop;
-        {while, _Cond, _CR} ->
+        {while, _Cond, _Qual, _CR} ->
             while_refac_loop;
         {if_then, _Cond, _CR} ->
             if_then_refac_loop;
+        {atomic, _CR} ->
+            atomic_refac_loop;
+        {non_atomic, _CR} ->
+            non_atomic_refac_loop;
         _ ->
-            throw({error, format_msg("Illegal composite refactoring cmd:\n~p\n", CR)})      
+            error(format_msg("Illegal composite refactoring command:\n~p\n", CR))   
     end.
 
 
@@ -510,7 +484,7 @@ make_loop_name(CR) ->
 %% BY default, we refer to the new entity; but if the new name is unknown from 
 %% the script, it is possible to refer to the old entity name, but that must be 
 %% flagged!!!
-name_tracker_loop(State) ->
+name_tracker_loop(State) -> 
     ?wrangler_debug("State:\n~p\n", [State]),
     receive
         {name_change, BeforeAfter} ->
@@ -584,10 +558,13 @@ elementary_refacs() ->
 format_msg(Format, Data) ->
     lists:flatten(io_lib:format(Format, [Data])).
 
-update_modified_files([error, _], ExistingChanges) ->
-    ExistingChanges;
 update_modified_files([ok, NewChanges], ExistingChanges) -> 
-    sets:union(ExistingChanges, sets:from_list(NewChanges)).
+    sets:union(ExistingChanges, sets:from_list(NewChanges));
+update_modified_files([error, _], ExistingChanges) -> 
+    ExistingChanges;
+update_modified_files(none, ExistingChanges) -> 
+    ExistingChanges.
+
 
 make_list(CRs) when is_list(CRs)->
     CRs;
