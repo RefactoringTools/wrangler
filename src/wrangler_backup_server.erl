@@ -33,7 +33,12 @@
 -behaviour(gen_server).
 
 %% API
--export([start_backup_server/0,add_to_backups/1, recover_backups/0, reset_backups/0]).
+-export([start_backup_server/0,
+         add_to_backups/1, 
+         add_atomic_cr_start_point/1,
+         recover_backups/0,
+         rollback_atomic_cr/1,
+         reset_backups/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -42,7 +47,6 @@
 -include("../include/wrangler_internal.hrl").
 
 -record(state, {backups=[],
-                new_files=[],
                 preview_pairs=[]}).
 
 %%====================================================================
@@ -55,11 +59,19 @@ start_backup_server() ->
 add_to_backups(Files) ->
     gen_server:cast(wrangler_backup_server, {add_backups, Files}).
 
+%% recover backups for the whole composite refactoring.
 recover_backups() ->
     gen_server:call(wrangler_backup_server, recover_backups).
 
+%% recover backups for an atomic composite refactoring.
+rollback_atomic_cr(Pid) ->
+    gen_server:call(wrangler_backup_server, {rollback_atomic_cr, Pid}).
+
 reset_backups()->
     gen_server:cast(wrangler_backup_server, reset_backups).
+
+add_atomic_cr_start_point(Pid)->
+    gen_server:cast(wrangler_backup_server, {atomic_cr_starts, Pid}).
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -83,49 +95,77 @@ init([]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
-handle_call(recover_backups, _From, _State=#state{backups=BackUps,   
-                                                 new_files=_NewFiles,
-                                                 preview_pairs=PreviewPairs})->
-    lists:foreach(fun({F, Content})->
-                          SwpFileName = filename:rootname(F, ".erl")++ ".erl.swp",
-                          file:copy(F, SwpFileName),
-                          file:write_file(F, Content)
-                  end, BackUps),
-    {reply, {ok, PreviewPairs}, #state{}}.
+handle_call(recover_backups, _From, _State=#state{backups=BackUps})->
+    PreviewPairs = do_recover_backups(BackUps),
+    {reply, {ok, PreviewPairs}, #state{}};
+handle_call({rollback_atomic_cr, Pid}, _From, State=#state{backups=BackUps}) ->
+    case lists:member(Pid, BackUps) of
+        false ->
+            {reply, {ok, []}, State};
+        true->
+            {BackUps1, BackUps2} = lists:splitwith(fun(E)-> E/=Pid end, BackUps),
+            lists:foreach(fun({{FileName, NewFileName, IsNew}, Content})->
+                                  case IsNew of 
+                                      true -> file:delete_file(NewFileName);
+                                      false ->
+                                          file:write_file(FileName, Content)
+                                   end
+                           end, BackUps1),
+             {reply, {ok, []}, State#state{backups=tl(BackUps2)}}
+     end.
+
 
 handle_cast(reset_backups, _State) ->
-    {noreply, #state{}};
-handle_cast({add_backups,Files},State=#state{backups=BackUps, 
-                                             new_files=NewFiles,
-                                             preview_pairs=PreviewPairs}) ->
-    {NewBackUps, NewFiles1, NewPreviewPairs} = update_backups(Files, {BackUps, NewFiles, PreviewPairs}),
-    {noreply, State#state{backups=NewBackUps, new_files=NewFiles1, preview_pairs=NewPreviewPairs}}.
+     {noreply, #state{}};
+handle_cast({add_backups,Files},State=#state{backups=BackUps}) ->
+     NewBackUps = update_backups(Files, BackUps),
+     {noreply, State#state{backups=NewBackUps}};
+handle_cast({atomic_cr_starts, Pid}, State=#state{backups=BackUps})->
+     {noreply, State#state{backups=[Pid|BackUps]}}.
 
-update_backups([], {BackUps, NewFiles, PreviewPairs}) ->
-    {BackUps, NewFiles, PreviewPairs};
-update_backups([{FileName, NewFileName}|Fs], {BackUps, NewFiles, PreviewPairs}) ->
-    update_backups([{FileName, NewFileName, false}|Fs], {BackUps, NewFiles, PreviewPairs});
-update_backups([{FileName, NewFileName, true}|Fs], {BackUps, NewFiles, PreviewPairs}) ->
-    SwpFileName = filename:join([filename:rootname(NewFileName)++".erl.swp"]),
-    NewFiles1 = [NewFileName|NewFiles],
-    update_backups(Fs, {BackUps, NewFiles1,
-                        [{{FileName, NewFileName, true}, SwpFileName}|PreviewPairs]});
-update_backups([{FileName, NewFileName, false}|Fs], {BackUps, NewFiles, PreviewPairs}) ->
-    NewPreviewPairs = update_preview_pairs(FileName, NewFileName, PreviewPairs),
-    NewBackUps = do_update_backups(FileName,BackUps),
-    update_backups(Fs, {NewBackUps, NewFiles,NewPreviewPairs}).
 
-do_update_backups(OldFileName, BackUps) ->
-    case lists:keyfind(OldFileName, 1, BackUps) of
-        {OldFileName, _Content} ->
-            BackUps;
-        false ->
-            {ok, Content} = file:read_file(OldFileName),
-            [{OldFileName, Content}|BackUps]
-    end.
+update_backups([], BackUps) ->
+    BackUps;
+update_backups([{FileName, NewFileName}|Fs], BackUps) ->
+    update_backups([{FileName, NewFileName, false}|Fs], BackUps);
+update_backups([{FileName, NewFileName, true}|Fs], BackUps) ->
+    update_backups(Fs, [{{FileName, NewFileName, true}, none}|BackUps]);
+update_backups([{FileName, NewFileName, false}|Fs], BackUps) ->
+     {ok, Content} = file:read_file(FileName),
+     update_backups(Fs, [{{FileName, NewFileName, false}, Content}|BackUps]).
 
-update_preview_pairs(FileName, NewFileName,PreviewPairs) ->
+do_recover_backups(BackUps) ->
+    do_recover_backups(lists:reverse(BackUps), [], []).
+do_recover_backups([], PreviewPairs, _RecoverdFiles) ->
+     PreviewPairs;
+do_recover_backups([Pid|Fs], PreviewPairs, RecoveredFiles) when is_pid(Pid) ->
+    do_recover_backups(Fs, PreviewPairs, RecoveredFiles);
+do_recover_backups([{{FileName, NewFileName, false}, Content}|Fs], PreviewPairs, RecoveredFiles) ->
     SwpFileName = filename:join([filename:rootname(NewFileName) ++ ".erl.swp"]),
+    case filelib:is_regular(SwpFileName) of 
+        true -> 
+            %% make sure only the lastest version is copied to the .swp file.
+            ok;
+        _ ->
+            file:copy(FileName, SwpFileName) 
+    end,
+    %% make sure only the oldest version is copied to the file.
+    NewRecoveredFiles=case lists:member(FileName, RecoveredFiles) of 
+                          true ->
+                              RecoveredFiles;
+                          false ->
+                              file:write_file(FileName, Content),
+                              [FileName|RecoveredFiles]
+                      end,
+    NewPreviewPairs=update_preview_pairs({FileName, NewFileName, SwpFileName}, PreviewPairs),
+    do_recover_backups(Fs, NewPreviewPairs, NewRecoveredFiles);  
+do_recover_backups([{{FileName, NewFileName, true}, _Content}|Fs], PreviewPairs,RecoveredFiles) ->
+    SwpFileName = filename:join([filename:rootname(NewFileName) ++ ".erl.swp"]),
+    file:copy(FileName, SwpFileName),
+    NewPreviewPairs=[{{FileName, NewFileName, true}, SwpFileName}|PreviewPairs],
+    do_recover_backups(Fs, NewPreviewPairs,[FileName| RecoveredFiles]).
+
+update_preview_pairs({FileName, NewFileName, SwpFileName},PreviewPairs) ->
     case [FName||{{_F, FName, _IsNew},_Swp}<-PreviewPairs, FName==FileName] of 
         [] -> [{{FileName, NewFileName, false}, SwpFileName}|PreviewPairs];
         _ ->
