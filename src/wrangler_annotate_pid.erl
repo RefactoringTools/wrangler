@@ -121,7 +121,8 @@ update_function(File, FunList, DirList, TabWidth) ->
 		end
 	end,
     {AnnAST1, _} = api_ast_traverse:stop_tdTP(F, AnnAST, []),
-    wrangler_ast_server:update_ast({File, true, DirList, TabWidth, wrangler_misc:file_format(File)}, {AnnAST1, Info, filelib:last_modified(File)}),
+    wrangler_ast_server:update_ast({File, true, DirList, TabWidth, wrangler_misc:file_format(File)}, 
+                                   {AnnAST1, Info, wrangler_misc:filehash(File)}),
     ok.
 
 annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
@@ -149,7 +150,7 @@ annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
 			{TypeSigPid, value, {ParSig, RtnSig}} ->
 			    F = fun ({A, S}) ->
 					case S of
-					    {pname, _}    %% Can you do this to Pid?
+					    {p_name, _}    %% Can you do this to Pid?
 						       ->
                                                 wrangler_misc:update_ann(A, S);
 					    _ -> A
@@ -183,14 +184,14 @@ annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
 		    end,
 		    wrangler_syntax:copy_attrs(Node, wrangler_syntax:match_expr(P1, B));
 		_ ->
-		    case lists:keysearch(pname, 1, Ann) of
-			{value, {pname, Value}} ->
-			    P1 = wrangler_misc:update_ann(P, {pname, Value}),
+		    case lists:keysearch(p_name, 1, Ann) of
+			{value, {p_name, Value}} ->
+			    P1 = wrangler_misc:update_ann(P, {p_name, Value}),
 			    case wrangler_syntax:type(P) of
 				variable ->
 				    Ann1 = wrangler_syntax:get_ann(P),
 				    {value, {def, DefinePos}} = lists:keysearch(def, 1, Ann1),
-				    EnvPid ! {add, {{def, DefinePos}, {pname, Value}}};
+				    EnvPid ! {add, {{def, DefinePos}, {p_name, Value}}};
 				_ -> ok                %%% What about the complex pattern matches?
 			    end,
 			    wrangler_syntax:copy_attrs(Node, wrangler_syntax:match_expr(P1, B));
@@ -213,8 +214,8 @@ annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
 			  end,
 		    ResInfo = case lists:keysearch(pid, 1, wrangler_syntax:get_ann(Res)) of
 				  {value, {pid, Value}} -> {pid, Value};
-				  _ -> case lists:keysearch(pname, 1, wrangler_syntax:get_ann(Res)) of
-					   {value, {pname, Value}} -> {pname, Value};
+				  _ -> case lists:keysearch(p_name, 1, wrangler_syntax:get_ann(Res)) of
+					   {value, {p_name, Value}} -> {p_name, Value};
 					   _ -> any
 				       end
 			      end,
@@ -223,9 +224,9 @@ annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
 				case lists:keysearch(pid, 1, Ann1) of
 				    {value, {pid, Value1}} ->
 					{pid, Value1};
-				    _ -> case lists:keysearch(pname, 1, Ann1) of
-					     {value, {pname, V}} ->
-						 {pname, V};
+				    _ -> case lists:keysearch(p_name, 1, Ann1) of
+					     {value, {p_name, V}} ->
+						 {p_name, V};
 					     _ -> any
 					 end
 				end
@@ -266,7 +267,7 @@ prop_from_calls(FunDef, TypeSigPid) ->
 			any -> Typ;
 			%% Special case: some application sites are deciable pids, some are undeciable.
 			{pid, Vs} -> {pid, lists:usort([any| Vs])};
-			{pname, V} -> {pname, V}
+			{p_name, V} -> {p_name, V}
 		      end
 		end
 	end,
@@ -420,13 +421,13 @@ do_annotate_special_fun_apps_pname(Node, EnvPid) ->
 				  {value, {pid, PidInfo1}} -> PidInfo1;
 				  _ -> []
 			      end,
-		    Arg11 = wrangler_misc:update_ann(Arg1, {pname, PidInfo}),
+		    Arg11 = wrangler_misc:update_ann(Arg1, {p_name, PidInfo}),
 		    Node1 = wrangler_syntax:copy_attrs(Node, wrangler_syntax:application(Op, [Arg11, Arg2])),
 		    case lists:keysearch(def, 1, wrangler_syntax:get_ann(Arg1)) of
 			{value, {def, DefinePos}} ->  %% the process name is a variable.
-			    EnvPid ! {add, {{def, DefinePos}, {pname, PidInfo}}};
+			    EnvPid ! {add, {{def, DefinePos}, {p_name, PidInfo}}};
 			_ -> case wrangler_syntax:type(Arg1) of
-				 atom -> EnvPid ! {add, {{name, wrangler_syntax:atom_value(Arg1)}, {pname, PidInfo}}};
+				 atom -> EnvPid ! {add, {{name, wrangler_syntax:atom_value(Arg1)}, {p_name, PidInfo}}};
 				 _ -> ok
 			     end
 		    end,
@@ -441,11 +442,11 @@ do_annotate_special_fun_apps_pname(Node, EnvPid) ->
 				    Arg11 = wrangler_misc:update_ann(Arg1, Value),
 				    wrangler_syntax:copy_attrs(Node, wrangler_syntax:application(Op, [Arg11]));
 				{EnvPid, false} ->
-				    Arg11 = wrangler_misc:update_ann(Arg1, {pname, []}), %% keep an empty list for information extension.
-				    EnvPid ! {add, {{def, DefinePos}, {pname, []}}},
+				    Arg11 = wrangler_misc:update_ann(Arg1, {p_name, []}), %% keep an empty list for information extension.
+				    EnvPid ! {add, {{def, DefinePos}, {p_name, []}}},
 				    wrangler_syntax:copy_attrs(Node, wrangler_syntax:application(Op, [Arg11]))
 			    end;
-			_ -> Arg11 = wrangler_misc:update_ann(Arg1, {pname, []}),
+			_ -> Arg11 = wrangler_misc:update_ann(Arg1, {p_name, []}),
 			     wrangler_syntax:copy_attrs(Node, wrangler_syntax:application(Op, [Arg11]))
 		    end;
 		{value, {fun_def, {erlang, whereis, 1, _, _}}} ->
@@ -458,24 +459,24 @@ do_annotate_special_fun_apps_pname(Node, EnvPid) ->
 				    Arg11 = wrangler_misc:update_ann(Arg1, Value),
 				    wrangler_syntax:copy_attrs(Node, wrangler_syntax:application(Op, [Arg11]));
 				{EnvPid, false} ->
-				    Arg11 = wrangler_misc:update_ann(Arg1, {pname, []}),
-				    EnvPid ! {add, {{def, DefinePos}, {pname, []}}},
+				    Arg11 = wrangler_misc:update_ann(Arg1, {p_name, []}),
+				    EnvPid ! {add, {{def, DefinePos}, {p_name, []}}},
 				    wrangler_syntax:copy_attrs(Node, wrangler_syntax:application(Op, [Arg11]))
 			    end;
 			_ ->
-			    Arg11 = wrangler_misc:update_ann(Arg1, {pname, []}),
+			    Arg11 = wrangler_misc:update_ann(Arg1, {p_name, []}),
 			    wrangler_syntax:copy_attrs(Node, wrangler_syntax:application(Op, [Arg11]))
 		    end;
 		{value, {fun_def, {erlang, send, 2, _, _}}} ->
 		    [Arg1, Arg2] = wrangler_syntax:application_arguments(Node),
 		    Arg11 = case wrangler_syntax:type(Arg1) of
-				atom -> wrangler_misc:update_ann(Arg1, {pname, []});
+				atom -> wrangler_misc:update_ann(Arg1, {p_name, []});
 				_ -> Arg1
 			    end,
 		    Node1 = wrangler_syntax:copy_attrs(Node, wrangler_syntax:application(Op, [Arg11, Arg2])),
 		    case lists:keysearch(def, 1, wrangler_syntax:get_ann(Arg1)) of
 			{value, {def, DefinePos}} ->
-			    EnvPid ! {add, {{def, DefinePos}, {pname, []}}};
+			    EnvPid ! {add, {{def, DefinePos}, {p_name, []}}};
 			_ -> ok
 		    end,
 		    Node1;
@@ -489,7 +490,7 @@ do_annotate_special_fun_apps_pname(Node, EnvPid) ->
 			      Right = wrangler_syntax:infix_expr_right(Node),
 			      case wrangler_syntax:type(Left) of
 				  atom ->
-				      Left1 = wrangler_misc:update_ann(Left, {pname, []}),
+				      Left1 = wrangler_misc:update_ann(Left, {p_name, []}),
 				      wrangler_syntax:copy_attrs(Node, wrangler_syntax:infix_expr(Left1, Op, Right));
 				  _ -> Node
 			      end;
