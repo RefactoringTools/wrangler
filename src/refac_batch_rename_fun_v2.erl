@@ -14,15 +14,15 @@ input_par_prompts() ->
     [].
 
 composite_refac(_Args=#args{search_paths=SearchPaths}) ->
-    ?try_refac(?refac_(rename_fun, 
-                       [{file, fun(_File)-> true end},
-                        fun({F, _A}) ->
-                                camelCase_to_camel_case(F) /= F
-                        end,
-                        {generator, fun({_File, F,_A}) ->
-                                            camelCase_to_camel_case(F)
+    ?non_atomic(?refac_(rename_fun, 
+                        [{file, fun(_File)-> true end},
+                         fun({F, _A}) ->
+                                 camelCase_to_camel_case(F) /= F
+                         end,
+                         {generator, fun({_File, F,_A}) ->
+                                             camelCase_to_camel_case(F)
                                     end},
-                        SearchPaths])).
+                         SearchPaths])).
 
 
 %% transform camelCase atom to camel_case.

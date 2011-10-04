@@ -35,29 +35,30 @@
 %% @private
 -module(refac_intro_new_var).
 
--export([intro_new_var/6, intro_new_var_eclipse/6]).
+-export([intro_new_var/7, intro_new_var_eclipse/6]).
 
 
 -include("../include/wrangler_internal.hrl").
 
 %% =============================================================================================
-%%-spec(intro_new_var/6::(filename(), pos(), pos(), string(), [dir()],integer()) ->
+%%-spec(intro_new_var/6::(filename(), pos(), pos(), string(), [dir()],atom(), integer()) ->
 %% 	     {'ok', [filename()]}).
-intro_new_var(FileName, Start={_SLine,_SCol}, End={_ELine, _ECol}, NewVarName, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:intro_new_var(~p, {~p,~p}, {~p,~p}, ~p, ~p,~p).\n",
-		 [?MODULE, FileName, _SLine, _SCol, _ELine, _ECol, NewVarName, SearchPaths, TabWidth]),
-    intro_new_var(FileName, Start, End, NewVarName, SearchPaths, TabWidth, emacs).
+intro_new_var(FileName, Start={_SLine,_SCol}, End={_ELine, _ECol}, NewVarName, SearchPaths, Editor, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:intro_new_var(~p, {~p,~p}, {~p,~p}, ~p, ~p, ~p,~p).\n",
+		 [?MODULE, FileName, _SLine, _SCol, _ELine, _ECol, NewVarName, SearchPaths, Editor, TabWidth]),
+    intro_new_var_1(FileName, Start, End, NewVarName, SearchPaths, TabWidth, Editor).
 
 %%-spec(intro_new_var_eclipse/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
 %% 	      {ok, [{filename(), filename(), string()}]}).
 intro_new_var_eclipse(FileName, Start, End, NewVarName, SearchPaths, TabWidth) ->
-    intro_new_var(FileName, Start, End, NewVarName, SearchPaths, TabWidth, eclipse).
+    intro_new_var_1(FileName, Start, End, NewVarName, SearchPaths, TabWidth, eclipse).
 
-intro_new_var(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewVarName0, SearchPaths, TabWidth, Editor) ->
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":intro_new_var(" ++ "\"" ++ 
+intro_new_var_1(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewVarName0, SearchPaths, TabWidth, Editor) ->
+     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":intro_new_var(" ++ "\"" ++ 
 	    FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ 
 	      integer_to_list(Col) ++ "}," ++ "{" ++ integer_to_list(Line1) ++ ", "
-        ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ NewVarName0 ++ "\"," ++ integer_to_list(TabWidth) ++ ").",
+        ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ NewVarName0 ++ "\"," ++ integer_to_list(TabWidth) 
+        ++ " " ++ atom_to_list(Editor)++ ").",
     case api_refac:is_var_name(NewVarName0) of
 	true -> ok;
 	false -> throw({error, "Invalid new variable name."})

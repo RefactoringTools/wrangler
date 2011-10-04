@@ -116,23 +116,23 @@
 %%				DupsInFun::[{pos(), pos()}], DupsInClause::[{pos(), pos()}],
 %%				Cmd::string()}}.
 generalise_eclipse(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
-    generalise(FileName, Start, End, ParName, SearchPaths, TabWidth, eclipse).
+    generalise(FileName, Start, End, ParName, SearchPaths, eclipse, TabWidth).
 
 %% =====================================================================
 %%-spec generalise(FileName::filename(),Start::pos(), End::pos(),ParName::string(),
-%%		 SearchPaths::[dir()], TabWidth::integer(), atom()) ->
+%%		 SearchPaths::[dir()], atom(), TabWidth::integer()) ->
 %%	     {ok, [filename()]}
 %%		 |{multiple_instances, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),[{pos(), pos()}], string()}}
 %%		 |{unknown_side_effect, {atom(), atom(),integer(), pos(), syntaxTree(), integer(),
 %%					 [{pos(), pos()}], [{pos(),pos()}], string()}}
 %%		 |{more_than_one_clause, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),
 %%					  [{pos(), pos()}], [{pos(),pos()}], string()}}. 
-generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPaths, TabWidth, Editor) ->
-    ?wrangler_io("\nCMD: ~p:generalise(~p, {~p,~p}, {~p,~p}, ~p,~p,~p).\n",
-		 [?MODULE, FileName, Line, Col, Line1, Col1, ParName, SearchPaths, TabWidth]),
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":generalise(" ++ "\"" ++ 
-	    FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++ 
-	      "{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ ParName ++ "\","
+generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPaths, Editor, TabWidth) ->
+     ?wrangler_io("\nCMD: ~p:generalise(~p, {~p,~p}, {~p,~p}, ~p,~p,~p).\n",
+		  [?MODULE, FileName, Line, Col, Line1, Col1, ParName, SearchPaths, TabWidth]),
+     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":generalise(" ++ "\"" ++
+	     FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++
+	       "{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ ParName ++ "\","
       ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case api_refac:is_var_name(ParName) of
 	false -> throw({error, "Invalid parameter name!"});

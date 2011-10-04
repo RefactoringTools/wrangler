@@ -54,7 +54,7 @@
 %% @private
 -module(refac_rename_fun).
 
--export([rename_fun/6, rename_fun_1/6, rename_fun_1/7,
+-export([rename_fun/7, rename_fun_1/6, rename_fun_1/7,
          rename_fun_eclipse/6, rename_fun_1_eclipse/6]).
 
 -export([rename_fun_by_name/6, rename_fun_by_name/7]).
@@ -62,19 +62,14 @@
 -include("../include/wrangler_internal.hrl").
 
 
-%%-spec(rename_fun/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-%%	     {error, string()} | {warning, string()} |{ok, [filename()]}).
-
-rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
-    rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
-
 %%-spec(rename_fun_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
 %%				  {error, string()} | {warning, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
-    rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
+    rename_fun(FileName, Line, Col, NewName, SearchPaths, eclipse, TabWidth).
 
 rename_fun_by_name(ModOrFileName, {OldFunName, Arity}, NewFunName, SearchPaths, Editor, TabWidth) ->
     rename_fun_by_name(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths, Editor, TabWidth).
+
 %%-spec(rename_fun_command/7::(modulename()|filename(), atom(), integer(), atom(),[dir()], atom(), integer())->
 %%				       {error, string()} | {ok, [filename()]}).
 rename_fun_by_name(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths, Editor, TabWidth) ->
@@ -156,12 +151,12 @@ pre_cond_check_command(Info, NewFunNameAtom, ModName, OldFunNameAtom, Arity) ->
 	    end
     end.
 
-rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
-    ?wrangler_io("\nCMD: ~p:rename_fun( ~p, ~p, ~p, ~p,~p, ~p).\n",
-		 [?MODULE, FileName, Line, Col, NewName, SearchPaths, TabWidth]),
-    Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_fun(" ++ "\"" ++ 
-	     FileName ++ "\", " ++ integer_to_list(Line) ++ 
-	       ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
+rename_fun(FileName, Line, Col, NewName, SearchPaths, Editor, TabWidth) ->
+     ?wrangler_io("\nCMD: ~p:rename_fun( ~p, ~p, ~p, ~p,~p, emacs, ~p).\n",
+		  [?MODULE, FileName, Line, Col, NewName, SearchPaths, TabWidth]),
+     Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_fun(" ++ "\"" ++
+	      FileName ++ "\", " ++ integer_to_list(Line) ++
+	        ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
       ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case api_refac:is_fun_name(NewName) of
 	true -> ok;
@@ -240,18 +235,18 @@ rename_fun_0(FileName, {AnnAST, Info}, {Mod, OldFunNameAtom, Arity}, {DefinePos,
 %%-spec(rename_fun_1/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
 %%	     {error, string()} | {ok, [filename()]}).
 rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
-    rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
+    rename_fun_1(FileName, Line, Col, NewName, SearchPaths, emacs, TabWidth).
     
 %%-spec(rename_fun_1_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
 %%	     {error, string()} | {ok, [filename()]}).
 
 rename_fun_1_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
-    rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
+    rename_fun_1(FileName, Line, Col, NewName, SearchPaths, eclipse, TabWidth).
 
-rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_fun(" ++ "\"" ++ 
-	    FileName ++ "\", " ++ integer_to_list(Line) ++ 
-	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
+rename_fun_1(FileName, Line, Col, NewName, SearchPaths, Editor, TabWidth) ->
+     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_fun_1(" ++ "\"" ++
+	     FileName ++ "\", " ++ integer_to_list(Line) ++
+	       ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
       ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     NewName1 = list_to_atom(NewName),

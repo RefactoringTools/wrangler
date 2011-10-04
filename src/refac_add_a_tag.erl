@@ -42,17 +42,19 @@
 %%@private
 -module(refac_add_a_tag).
 
--export([add_a_tag/6]).
+-export([add_a_tag/7]).
 
 -include("../include/wrangler_internal.hrl").
 
-%%TODO: THIS MODULE IS IN NEED OF UPDATED.
+%%TODO: THIS MODULE IS IN NEED OF UPDATE.
 
 
 %% =============================================================================================
-%%-spec(add_a_tag/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->{ok, [filename()]} | {error, string()}).      
-add_a_tag(FileName, Line, Col, Tag, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:add_a_tag(~p, ~p, ~p, ~p,~p, ~p).\n", [?MODULE, FileName, Line, Col, Tag, SearchPaths, TabWidth]),
+%%-spec(add_a_tag/6::(filename(), integer(), integer(), string(), [dir()], atom(), integer()) 
+%%              ->{ok, [filename()]} | {error, string()}).      
+add_a_tag(FileName, Line, Col, Tag, SearchPaths, Editor, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:add_a_tag(~p, ~p, ~p, ~p,~p, ~p, ~p).\n", 
+                 [?MODULE, FileName, Line, Col, Tag, SearchPaths, Editor, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":add_a_tag(" ++ "\"" ++ 
         FileName ++ "\", " ++ integer_to_list(Line) ++ 
         ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ 
@@ -68,8 +70,8 @@ add_a_tag(FileName, Line, Col, Tag, SearchPaths, TabWidth) ->
 	    case pre_cond_check(AnnAST, ModName, FunDef, SearchPaths, TabWidth) of
 		{ok, AffectedInitialFuns} ->
 		    Results = do_add_a_tag(FileName, {AnnAST, Info}, list_to_atom(Tag), AffectedInitialFuns, SearchPaths, TabWidth),
-		    wrangler_write_file:write_refactored_files_for_preview(Results, TabWidth, Cmd),
-		    ChangedFiles = [F || {{F, _F}, _AST} <- Results],
+                    wrangler_write_file:write_refactored_files(Results, Editor, TabWidth, Cmd),
+                    ChangedFiles = [F || {{F, _F}, _AST} <- Results],
 		    ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
 				 [ChangedFiles]),
 		    {ok, ChangedFiles};
@@ -254,8 +256,8 @@ do_add_tag_to_send_exprs(Node, {_ModName, Tag, AffectedInitialFuns}) ->
 			InitialFuns = case lists:keysearch(pid, 1, Ann) of
 					  {value, {pid, InitialFuns1}} ->
 					      InitialFuns1;
-					  _ -> case lists:keysearch(pname, 1, Ann) of
-						   {value, {pname, InitialFuns2}} ->
+					  _ -> case lists:keysearch(p_name, 1, Ann) of
+						   {value, {p_name, InitialFuns2}} ->
 						       InitialFuns2;
 						   _ -> []
 					       end
