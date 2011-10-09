@@ -45,6 +45,7 @@
 -module(wrangler_refacs).
 
 -export([rename_var/7, 
+         rename_fun/6,
          rename_fun/7, 
          rename_fun_1/7,
          rename_mod/5,
@@ -69,6 +70,7 @@
          tuple_funpar/6,
          tuple_funpar_1/6,
          tuple_args/7,
+         swap_args/7,
 	 register_pid/7, 
          fun_to_process/7,
 	 new_macro/7,
@@ -173,6 +175,10 @@ rename_var_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
 %% function name, then select <em> Rename Function Name </em> from the <em> Refactor </em> menu, 
 %% after that, Wrangler will prompt to enter  the new function name in the mini-buffer.
 %% </p>
+
+rename_fun(ModOrFileName, {OldFunName, Arity}, NewFunName, SearchPaths, Editor, TabWidth) ->
+    try_refac(refac_rename_fun, rename_fun_by_name, 
+              [ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths, Editor, TabWidth]).
 
 -spec(rename_fun/7::(string(), integer(), integer(), string(), [dir()], context(), integer()) ->
 	     {error, string()} |{warning, string()}| {ok, [filename()]}).
@@ -748,7 +754,7 @@ tuple_funpar_1(FileName, _StartLoc=[SLn, SCol], _EndLoc=[ELn, ECol], SearchPaths
 
 
 tuple_args(ModOrFile, FA, Index1,Index2, SearchPaths, Context, TabWidth)->
-    try_refac(refac_tuple_par, tuple_args, [ModOrFile, FA, Index1, Index2, SearchPaths, Context, TabWidth]).
+    try_refac(refac_tuple, tuple_args, [ModOrFile, FA, Index1, Index2, SearchPaths, Context, TabWidth]).
 
 
 %%@private
@@ -762,6 +768,8 @@ tuple_funpar_eclipse_1(FileName, StartLoc, EndLoc, SearchPaths, TabWidth) ->
     try_refac(refac_tuple, tuple_funpar_eclipse_1, [FileName, StartLoc, EndLoc, SearchPaths, TabWidth]).
 
 
+swap_args(FileName, {FunName, Arity}, Index1, Index2, SearchPaths, Editor, TabWidth) ->
+    try_refac(refac_swap_args, swap_args, [FileName, {FunName, Arity}, Index1, Index2, SearchPaths, Editor, TabWidth]).
 %%=========================================================================================
 %% @doc Turn a function into a server process (Beta).
 %%<p>
