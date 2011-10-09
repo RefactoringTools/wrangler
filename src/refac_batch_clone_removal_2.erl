@@ -17,6 +17,6 @@ composite_refac(_Args=#args{user_inputs=[FromFile, ToFile],
     FAs1 = api_refac:defined_funs(filename:join([FromFile])),
     FAs2 = api_refac:defined_funs(filename:join([ToFile])),
     CommonFAs = FAs1 -- (FAs1 -- FAs2),
-    ?try_refac([?interactive(?refac_(move_fun, [FromFile, {F, A}, ToFile, SearchPaths]))||
+    ?non_atomic([?interactive(?refac_(move_fun, [FromFile, {F, A}, ToFile, SearchPaths]))||
                    {_M,F,A} <- api_refac:get_mfas(FromFile, bu),
                    lists:member({F,A}, CommonFAs)]).
