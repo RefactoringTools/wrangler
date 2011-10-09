@@ -321,6 +321,15 @@ stop_cmd_server() ->
    
 %%@private
 get_next_command(PrevResult) ->
+    try get_next_command_1(PrevResult) of 
+        Val -> Val
+    catch
+        throw:Error -> 
+            Error;   
+        _E1:E2 ->
+            {error, lists:flatten(io_lib:format("\n~p",[{E2, erlang:get_stacktrace()}]))}
+    end.
+get_next_command_1(PrevResult) ->
     case PrevResult of 
         none -> ok;
         _ -> wrangler_io:format("The result returned by the previous refactoring:\n ~p\n", 
