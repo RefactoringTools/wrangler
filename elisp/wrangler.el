@@ -1651,7 +1651,7 @@
                                                 function-name arity clause-index 
                                                 search-paths editor tab-width)
                         search-paths))
-    (erl-receive (current-file-name highlight-region-overlay search-paths composite-refac-p)
+    (erl-receive (current-file-name highlight-region-overlay search-paths editor composite-refac-p)
 	((['rex ['ok candidates logmsg]]
           (let ((buffer (find-file current-file-name)))
             (with-current-buffer buffer
@@ -1661,7 +1661,7 @@
                 (erl-spawn
                   (erl-send-rpc wrangler-erl-node 'wrangler_refacs 'try_refac 
                                 (list 'refac_fold_expression 'do_fold_expression
-                                      (list  current-file-name candidates-to-fold search-paths tab-width logmsg)))
+                                      (list  current-file-name candidates-to-fold search-paths editor tab-width logmsg)))
                   (erl-receive (current-file-name  composite-refac-p)
                       ((['rex result]
                         (process-result current-file-name result 0 0 composite-refac-p)))))))))
