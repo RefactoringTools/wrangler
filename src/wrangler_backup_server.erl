@@ -109,8 +109,9 @@ handle_call({rollback_atomic_cr, Pid}, _From, State=#state{backups=BackUps}) ->
                                       true -> file:delete_file(NewFileName);
                                       false ->
                                           file:write_file(FileName, Content)
-                                   end
-                           end, BackUps1),
+                                  end;
+                             (_)  -> ok
+                          end, BackUps1),
              {reply, {ok, []}, State#state{backups=tl(BackUps2)}}
      end.
 
