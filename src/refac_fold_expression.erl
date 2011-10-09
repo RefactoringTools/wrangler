@@ -58,6 +58,7 @@
          fold_expr_by_loc_eclipse/5, 
 	 fold_expr_1_eclipse/5,
 	 do_fold_expression/5,
+         do_fold_expression/6,
          fold_expr_by_name/8,
          fold_expr_by_name_eclipse/7]).
 
