@@ -276,6 +276,9 @@ rename_var(ModOrFile, FA, OldVarName, NewVarName, true, SearchPaths) ->
               {F, NextFileGen}, FA, OldVarName, NewVarName, SearchPaths, -1)
     end.
 
+get_next_rename_var_command({_File, none}, _FA, 
+                            _OldVarName, _NewVarName, _SearchPaths, 0) ->
+    [];
 get_next_rename_var_command({_File, {lazy_file_gen,NextFileGen}}, FA, 
                             OldVarName, NewVarName, SearchPaths, 0) ->
     case NextFileGen() of
@@ -284,17 +287,17 @@ get_next_rename_var_command({_File, {lazy_file_gen,NextFileGen}}, FA,
             get_next_rename_var_command({File1, NextFileGen1}, FA, 
                                         OldVarName, NewVarName, SearchPaths, -1)
     end;
-get_next_rename_var_command({File, {lazy_file_gen, NextFileGen}}, FA, 
+get_next_rename_var_command({File, NextFileGen}, FA, 
                             OldVarName, NewVarName, SearchPaths, N) ->
     Cmds=rename_var_1(File, FA, OldVarName, NewVarName, SearchPaths),
     case Cmds of 
         [] ->
-            get_next_rename_var_command({File, {lazy_file_gen, NextFileGen}}, FA, 
+            get_next_rename_var_command({File, NextFileGen}, FA, 
                                         OldVarName, NewVarName, SearchPaths, 0);
         [R|Rs] when N==-1 ->
             {R,{lazy_gen, fun()->
                                   get_next_rename_var_command(
-                                    {File, {lazy_file_gen, NextFileGen}}, FA,
+                                    {File, NextFileGen}, FA,
                                     OldVarName, NewVarName, SearchPaths, length(Rs))
                           end}};
         _ ->
@@ -302,7 +305,7 @@ get_next_rename_var_command({File, {lazy_file_gen, NextFileGen}}, FA,
             {lists:nth(Nth, Cmds), 
              {lazy_gen, fun()->
                                 get_next_rename_var_command(
-                                  {File, {lazy_file_gen, NextFileGen}}, FA, 
+                                  {File, NextFileGen}, FA, 
                                   OldVarName, NewVarName, SearchPaths, N-1)
                         end}}        
     end.
@@ -383,7 +386,7 @@ gen_target_file_name(PreArgs, TgtModOrFile, SearchPaths) ->
                     File;
                 _ ->
                     throw({error, "Invalid specification of the target file "
-                           "for `move function' refactoring."})
+                          "for `move function' refactoring."})
             end
     end.
 
@@ -525,7 +528,7 @@ fold_expr(CurModOrFile, TgtModOrFile, FA, ClauseIndex, false, SearchPaths) ->
     Files1= gen_file_names(CurModOrFile, SearchPaths),
     Files2= gen_file_names(TgtModOrFile, SearchPaths),
     [fold_expr_1(File1,  File2, F, A, ClauseIndex, SearchPaths)
-     ||File1<-Files1, File2<-Files2, {F, A}<-get_fun_arity(File2, FA)];
+         ||File1<-Files1, File2<-Files2, {F, A}<-get_fun_arity(File2, FA)]; 
 fold_expr(CurModOrFile, TgtModOrFile, FA, ClauseIndex, true, SearchPaths) ->
     case gen_file_names(CurModOrFile, true, SearchPaths) of
         [] -> [];
@@ -535,8 +538,8 @@ fold_expr(CurModOrFile, TgtModOrFile, FA, ClauseIndex, true, SearchPaths) ->
             get_next_fold_expr_command(
               {F, NextFileGen}, TgtModOrFile, FA, ClauseIndex, SearchPaths)
     end.
-
 get_next_fold_expr_command({File, NextFileGen}, TgtModOrFileFilter, FA, ClauseIndex, SearchPaths) ->
+    wrangler_io:format("File:\n~p\n", [{File, NextFileGen}]),
     case gen_file_names(TgtModOrFileFilter, true, SearchPaths) of 
         [] -> [];
         [TgtFile] ->
@@ -562,12 +565,12 @@ get_next_fold_expr_command_1({File, NextFileGen}, {TgtFile, NextTgtFileGen},
                             get_next_fold_expr_command({File1, NextFileGen1},OrigTgtModOrFile, 
                                                       OrigFA, ClauseIndex, SearchPaths)
                     end;
-                _ -> []
+                none -> []
             end;
         [{F,A}] ->
             Refac= fold_expr_1(File, TgtFile, F, A, ClauseIndex, SearchPaths),
             case NextFileGen of 
-                {layze_file_gen, Gen} ->
+                {lazy_file_gen, Gen} ->
                     case Gen() of 
                         [] ->
                             [Refac];
@@ -578,7 +581,7 @@ get_next_fold_expr_command_1({File, NextFileGen}, {TgtFile, NextTgtFileGen},
                                                          OrigFA, ClauseIndex, SearchPaths)
                                                end}}
                     end;
-                _ -> [Refac]
+                none -> [Refac]
             end;
         {{TgtFile1, F,A},  {TgtFile2, NextTgtFileGen2}, NextFAGen}->
             Refac= fold_expr_1(File, TgtFile1, F, A, ClauseIndex, SearchPaths),
@@ -846,7 +849,8 @@ gen_file_names(ModOrFile, Lazy, SearchPaths) ->
         _ when is_atom(ModOrFile) ->
             Fs=[F||F<-Files, filename:basename(F,".erl")==atom_to_list(ModOrFile)],
             case Fs of 
-                [] -> [];
+                [] -> error("None of the files specified in the "
+                            "searchpaths matches the module name given.");
                 [F|_] -> [F]
             end;
         _ when is_list(ModOrFile)->
@@ -854,12 +858,13 @@ gen_file_names(ModOrFile, Lazy, SearchPaths) ->
                 true ->
                     [ModOrFile];
                 false ->
-                    throw({error, lists:flatten(io_lib:format(
-                                    "invalid argument:~p.", [ModOrFile]))})
+                    throw({error, lists:flatten(
+                                    io_lib:format(
+                                      "Invalid argument:~p.", [ModOrFile]))})
             end;
         _ -> 
             throw({error, lists:flatten(io_lib:format(
-                           "invalid argument:~p.", [ModOrFile]))})
+                                          "Invalid argument:~p.", [ModOrFile]))})
     end.
 
 get_next_file([], _FileOrModFilter) -> [];
@@ -888,17 +893,17 @@ locate_one_file(ModOrFile, SearchPaths) ->
     Res= gen_file_names(ModOrFile, SearchPaths),
     case Res of 
         [] ->
-            {error, lists:flatten(
-                      io_lib:format("File/Module does not exist in the "
-                                    "searchpaths specified: ~p.\n", 
-                                    [ModOrFile]))};
+            throw({error, lists:flatten(
+                            io_lib:format("File/Module does not exist in the "
+                                          "searchpaths specified: ~p.\n", 
+                                          [ModOrFile]))});
         [File] ->
             File;
         [File|_] ->
-            {error, lists:flatten(
-                      io_lib:format("File/module specified is not unique "
-                                    "in the searchpaths specified.:~p\n", 
-                                    [File]))}
+            throw({error,lists:flatten(
+                           io_lib:format("File/module specified is not unique "
+                                         "in the searchpaths specified.:~p\n", 
+                                         [File]))})
     end.
 
 
