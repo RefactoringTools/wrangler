@@ -280,10 +280,6 @@
   `(("Batch Clone Elimination" refac_batch_clone_removal)))
 
 
-(defun refac_batch_clone_removal() 
-  (interactive)
-  (apply-composite-refac  'refac_batch_clone_removal))
-
 (defvar refactor-menu-items
   `(("Rename Variable Name" erl-refactor-rename-var)
     ("Rename Function Name" erl-refactor-rename-fun)
@@ -325,6 +321,8 @@
     ("gen_composite_refac Refacs" (gen_composite_refac_menu_items))
     ("My gen_refac Refacs" (my_gen_refac_menu_items))
     ("My gen_composite_refac Refacs" (my_gen_composite_refac_menu_items))
+    ("Apply Adhoc Refactoring"  apply-adhoc-refac)    
+    ("Apply Composite Refactoring" apply-composite-refac)
     ))
 
 (defvar inspector-menu-items
