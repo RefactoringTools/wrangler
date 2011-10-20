@@ -53,7 +53,7 @@
 
 -define(PAPER, 80).
 
--define(RIBBON, 56).
+-define(RIBBON, 75).
 
 -define(NOUSER, undefined).
 
@@ -142,7 +142,8 @@ get_changes(OrigToks, NewToks) ->
 print_form(Form,Ctxt,Fun) ->
     Paper = Ctxt#ctxt.paper,
     Ribbon = Ctxt#ctxt.ribbon,
-    D=best(Fun(Form,Ctxt),Paper,Ribbon),
+    D0 = Fun(Form, Ctxt),
+    D=best(D0,Paper,Ribbon),
     FileFormat = Ctxt#ctxt.format,
     TabWidth = Ctxt#ctxt.tabwidth,
     FStr0=wrangler_prettypr_0:layout(D,FileFormat,TabWidth),
@@ -164,6 +165,7 @@ get_delimitor(FileFormat) ->
     end.
   
 is_special_form(Form) ->
+    wrangler_io:format("Form:\n~p\n", [Form]),
     case wrangler_syntax:type(Form) of
 	error_marker -> 
             true;
@@ -173,7 +175,7 @@ is_special_form(Form) ->
 	    AtrName = wrangler_syntax:attribute_name(Form),
             case wrangler_syntax:atom_value(AtrName) of
 		type -> true;
-		spec -> true;
+	%%	spec -> true;
                 opaque -> true;
 		record -> 
                     [_R, FieldTuple] = wrangler_syntax:attribute_arguments(Form),
@@ -820,7 +822,12 @@ lay_2(Node, Ctxt) ->
 		    beside(floating(text("-")), beside(D, floating(text("."))));
 		Args ->
                     Sep = get_separator(Args, Ctxt1, ","),
-                    As = seq(Args, floating(text(Sep)), Ctxt1, fun lay/2),
+                    As = case wrangler_syntax:atom_value(N) of 
+                             spec ->
+                                 lay_spec_args(Args, Ctxt1);
+                             _ -> 
+                                 seq(Args, floating(text(Sep)), Ctxt1, fun lay/2)
+                         end,
                     D = lay_elems(fun wrangler_prettypr_0:par/1, As, Args, Ctxt),
                     D2=beside(lay(N, Ctxt1), beside(text("("), beside(D, floating(text(")"))))),
 		    beside(floating(text("-")), beside(D2, floating(text("."))))
@@ -838,7 +845,7 @@ lay_2(Node, Ctxt) ->
 	    D2 = case wrangler_syntax:binary_field_types(Node) of
 		     [] -> 
 			 empty();
-		     Ts ->
+		     Ts -> 
 			 beside(floating(text("/")), 
                                 lay_bit_types(Ts, Ctxt1))
 		 end,
@@ -2478,3 +2485,179 @@ revert_clause_guard(E)->
 %%     a:patchTheFroId(Line).
 
 %% negative indent is a problem.
+
+lay_spec_args([FunSpec, TypeSpecs], Ctxt)->
+    D1 = lay_fun_spec(FunSpec, Ctxt),
+    D2 = lay_type_specs(TypeSpecs,Ctxt),
+    [D1, D2].
+
+lay_fun_spec(FunSpec, Ctxt)->
+    case wrangler_syntax:type(FunSpec) of 
+        tuple ->
+            case wrangler_syntax:tuple_elements(FunSpec) of 
+                [F,A] ->
+                    D1 = lay(F, Ctxt),
+                    D2 = lay(A, Ctxt),
+                    beside(beside(D1, beside(text("/"), D2)), text("::"));
+                [M,F,A] ->
+                    D1 = lay(M, Ctxt),
+                    D2 = lay(F, Ctxt),
+                    D3 = lay(A, Ctxt),
+                    D23= beside(D2, beside(text("/"), D3)),
+                    beside(beside(D1, beside(text(":"), D23)), text("::"))
+            end;
+        _ -> %% this should not happen
+            lay(FunSpec, Ctxt)
+    end.
+
+lay_type_specs(TypeSpecs, Ctxt) ->
+    SpecCs =wrangler_syntax:list_elements(TypeSpecs),
+    lay_spec_clauses(SpecCs, Ctxt).
+
+lay_spec_clauses([C|Cs], Ctxt) ->
+    Ds=[lay_sig_type(C, Ctxt)|[beside(text("; "), lay_sig_type(C1, Ctxt))||C1<-Cs]],
+    wrangler_prettypr_0:par(Ds, -2).
+
+lay_sig_type(SigType,Ctxt) ->
+    %%wrangler_io:format("SigType:\n~p\n", [SigType]),
+    T1 = wrangler_syntax:revert(SigType), 
+    case T1 of 
+        {type, _Line, bounded_fun, [T, Gs]} ->
+            lay_guard_type(lay_fun_type(T, Ctxt), Gs, Ctxt);
+        {type, _Line, 'fun', _T} ->
+            lay_fun_type(T1,Ctxt)
+    end.
+
+lay_guard_type(Before, Gs, Ctxt) ->
+    Ds = seq(Gs, floating(text(",")), Ctxt, fun lay_constraint/2),
+    %%wrangler_io:format("Gs:\n~p\n", [Gs]),
+    D1 = lay_elems(fun wrangler_prettypr_0:par/1, Ds, Gs, Ctxt),
+    par([beside(Before, text(" when")), D1]).
+
+lay_constraint({type,_Line,constraint,[_Tag,[A |As]]}, Ctxt) ->
+    D1=lay(A, Ctxt),
+    D2=lay_type_args_1(As, Ctxt),                  
+    wrangler_prettypr_0:horizontal([D1, text("::"), D2]).
+
+
+lay_fun_type({type, _Line, 'fun', [FType, Ret]}, Ctxt) ->
+    D1 = beside(text("("),beside(lay_type_args(FType, Ctxt), text(")"))),
+   %% D1 =beside(lay_type_args(FType, Ctxt), text(")")),
+    D2 = lay_type(Ret, Ctxt),
+    par([beside(D1, text(" -> ")), D2], Ctxt#ctxt.break_indent).
+
+
+lay_type_args({type, _Line, any}, _Ctxt) ->
+    text("(...)");
+lay_type_args({type, _Line, product, Ts}, Ctxt) ->
+    lay_type_args_1(Ts, Ctxt).
+
+lay_type_args_1(Ts, Ctxt) ->
+    Ds=seq(Ts, floating(text(",")), Ctxt, fun lay_type_0/2),
+    lay_elems(fun wrangler_prettypr_0:par/1, Ds, Ts, Ctxt).
+
+
+lay_type_0(T, Ctxt) -> 
+   %% wrangler_io:format("T:\n~p\n", [T]),
+    lay_type(T, Ctxt).
+
+lay_type({ann_type,_Line,[V,T]}, Ctxt) ->
+     lay_field_type_1(lay(V, Ctxt), T, Ctxt);
+lay_type({paren_type,_Line,[T]}, Ctxt) ->
+    D = lay_type(T, Ctxt),
+    beside(text("("), beside(D, text(")")));
+lay_type({type,_Line,union,[T|Ts]}, Ctxt) ->
+    Ds = [lay_type(T, Ctxt) | [lay_union_elem(T1, Ctxt)||T1<-Ts]],
+    wrangler_prettypr_0:par(Ds);
+lay_type({type,_Line,list,[T]}, Ctxt) ->
+    D = lay_type(T, Ctxt),
+    beside(text("["), beside(D, text("]")));
+lay_type({type,_Line,nonempty_list,[T]}, Ctxt) ->
+    D = wrangler_prettypr_0:par([lay_type(T, Ctxt), text(","), text("...")]),
+    beside(text("["), beside(D, text("]")));
+lay_type({type,Line,nil,[]}, Ctxt) ->
+    beside(text("["), text("]"));
+lay_type({type,Line,tuple,any}, Ctxt) ->
+    beside(text("{"), text("}"));
+lay_type({type,_Line,tuple,Ts}, Ctxt) ->
+    Ds = seq(Ts, floating(text(",")), reset_prec(Ctxt), fun lay_type/2),
+    D1 =lay_elems(fun wrangler_prettypr_0:par/1, Ds, Ts, Ctxt),
+    beside(text("{"), beside(D1, text("}")));    
+lay_type({type,_Line,record,[{atom,_,N}|Fs]}, Ctxt) ->
+     lay_record_type(N, Fs,Ctxt);
+lay_type(T={type,_Line,range,[I1,I2]}, Ctxt) ->
+    D1 = lay(I1, Ctxt),
+    D2 = lay(I2, Ctxt),
+    beside(D1, beside(text(".."), D2));
+lay_type({type,_Line,binary,[I1,I2]}, Ctxt) ->
+    lay_binary_type(I1, I2, Ctxt);
+lay_type(_T={type,_Line,'fun',[]}, _Ctxt) ->
+    text("fun()");
+lay_type({type,_,'fun',[{type,_,any},_]}=FunType, Ctxt) ->
+    D1=lay_fun_type(FunType, Ctxt),
+    beside(text("fun"),beside(text("("),  beside(D1, text(")"))));
+lay_type(_T={type,_Line,'fun',[{type,_,product,_},_]}=FunType, Ctxt) ->
+    D1 = lay_fun_type(FunType, Ctxt),
+    beside(text("fun"),beside(text("("),  beside(D1, text(")"))));
+lay_type({type,_Line,T,Ts}, Ctxt) ->
+    D1 =text(atom_to_list(T)),
+    D2 = lay_type_args_1(Ts, Ctxt),
+    beside(beside(D1, text("(")), beside(D2, text(")")));
+lay_type(_T={remote_type,_Line,[M,F,Ts]}, Ctxt) ->
+    D1 = beside(lay(M, Ctxt), beside(text(":"), lay(F, Ctxt))),
+    D2 = lay_type_args_1(Ts, Ctxt),
+    beside(beside(D1, text("(")), beside(D2, text(")")));
+lay_type({atom, _, T}, _Ctxt) ->
+    text(atom_to_list(T));
+lay_type(E, Ctxt)->
+    lay(E, Ctxt).
+
+
+lay_binary_type(I1, I2, Ctxt) ->
+    B = [[] || {integer,_,0} <- [I1]] =:= [],
+    U = [[] || {integer,_,0} <- [I2]] =:= [],
+    Ctxt1 = reset_check_bracket(set_prec(Ctxt, max_prec())),
+    E1 = [beside(text("_:"),lay(I1, Ctxt1)) || B],
+    E2 = [beside(text("_:_*"),lay(I2, Ctxt1)) || U],
+    case E1++E2 of 
+        [D1, D2] -> wrangler_prettypr_0:horizontal(
+                      [text("<<"), D1, text(", "), D2, text(">>")]);
+        [D] ->
+            wrangler_prettypr_0:horizontal(
+              [text("<<"), D, text(">>")]);
+        [] ->
+            wrangler_prettypr_0:horizontal(
+              [text("<<"), text(">>")])
+    end.
+
+lay_record_type(N, Fs, Ctxt) ->
+    beside(beside(lay_record_name(N), text("{")),
+       beside(lay_record_field_types(Fs, Ctxt), text("}"))).
+
+lay_record_name(Name) ->
+    text("#"++atom_to_list(Name)).
+
+lay_record_field_types(Fs, Ctxt) ->
+    Ds = seq(Fs, floating(text(",")), reset_check_bracket(reset_prec(Ctxt)),
+             fun lay_field_type/2),
+    lay_elems(fun wrangler_prettypr_0:par/1,Ds, Fs, Ctxt).
+
+  
+lay_field_type({type,_Line,field_type,[Name,Type]}, Ctxt) ->
+    lay_field_type_1(lay(Name, Ctxt), Type, Ctxt).
+
+
+lay_field_type_1(B, {type,_,union,Ts}, Ctxt) ->
+    Ds = lay_union_type(Ts, Ctxt),
+    Ds1=par(Ds, Ctxt#ctxt.break_indent),
+    wrangler_prettypr_0:horizontal([B, text("::"), Ds1]);
+lay_field_type_1(B, Type, Ctxt) ->
+    D = lay_type(Type, Ctxt),
+    wrangler_prettypr_0:horizontal([B, text("::"), D]).
+
+
+lay_union_type([T|Ts], Ctxt) ->
+    [beside(text(":: "),lay_type(T, Ctxt)) | [lay_union_elem(T1, Ctxt)||T1<-Ts]].
+
+lay_union_elem(T, Ctxt) ->
+    beside(text(" | "),lay_type(T, Ctxt)).
