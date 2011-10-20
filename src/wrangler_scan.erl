@@ -300,9 +300,17 @@ scan(":-" ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) -
 %% :: for typed records
 scan("::"++Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     scan(Cs, Stack, [{'::',{Line, Col}}|Toks], {Line, Col+2}, State, Errors, TabWidth,FileFormat);
-
 scan(":" = Cs, Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
     more(Cs, Stack, Toks, {Line, Col}, State, Errors,TabWidth, FileFormat, fun scan/8);
+
+scan("..."++Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat) ->
+    scan(Cs, Stack, [{'...', {Line, Col}}|Toks], {Line, Col+3}, State, Errors, TabWidth, FileFormat);
+scan(".."=Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat) ->
+    more(Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat, fun scan/8);
+scan(".."++Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat) ->
+    scan(Cs, Stack, [{'..', {Line, Col}}|Toks], {Line, Col+2}, State, Errors, TabWidth, FileFormat);
+scan("."=Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat) ->
+    more(Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat, fun scan/8);
 %% Full stop and plain '.'
 scan("." ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     scan_dot(Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat);
@@ -722,8 +730,8 @@ reserved_word('bsl') -> true;
 reserved_word('bsr') -> true;
 reserved_word('or') -> true;
 reserved_word('xor') -> true;
-reserved_word('spec') -> true;
 reserved_word(_) -> false.
+
 
 get_compiler_options() ->
     %% Who said that Erlang has no global variables?
