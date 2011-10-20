@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -511,6 +511,15 @@ Erlang code.
 %% of the generated .erl file by the HiPE compiler.  Please do not remove.
 -compile([{hipe,[{regalloc,linear_scan}]}]).
 
+-export_type([abstract_clause/0, abstract_expr/0, abstract_form/0,
+              error_info/0]).
+
+-type abstract_clause() :: term().
+-type abstract_expr() :: term().
+-type abstract_form() :: term().
+-type error_description() :: term().
+-type error_info() :: {erl_scan:line(), module(), error_description()}.
+-type token() :: {Tag :: atom(), Line :: erl_scan:line()}.
 
 %% mkop(Op, Arg) -> {op,Line,Op,Arg}.
 %% mkop(Left, Op, Right) -> {op,Line,Op,Left,Right}.
@@ -534,11 +543,19 @@ Erlang code.
 %% These really suck and are only here until Calle gets multiple
 %% entry points working.
 
+-spec parse_form(Tokens) -> {ok, AbsForm} | {error, ErrorInfo} when
+      Tokens :: [token()],
+      AbsForm :: abstract_form(),
+      ErrorInfo :: error_info().
 parse_form([{'-',L1},{atom,L2,spec}|Tokens]) ->
     parse([{'-',L1},{'spec',L2}|Tokens]);
 parse_form(Tokens) ->
     parse(Tokens).
 
+-spec parse_exprs(Tokens) -> {ok, ExprList} | {error, ErrorInfo} when
+      Tokens :: [token()],
+      ExprList :: [abstract_expr()],
+      ErrorInfo :: error_info().
 parse_exprs(Tokens) ->
     case parse([{atom,0,f},{'(',0},{')',0},{'->',0}|Tokens]) of
 	{ok,{function,_Lf,f,0,[{clause,_Lc,[],[],Exprs}]}} ->
@@ -546,6 +563,10 @@ parse_exprs(Tokens) ->
 	{error,_} = Err -> Err
     end.
 
+-spec parse_term(Tokens) -> {ok, Term} | {error, ErrorInfo} when
+      Tokens :: [token()],
+      Term :: term(),
+      ErrorInfo :: error_info().
 parse_term(Tokens) ->
     case parse([{atom,0,f},{'(',0},{')',0},{'->',0}|Tokens]) of
 	{ok,{function,_Lf,f,0,[{clause,_Lc,[],[],[Expr]}]}} ->
@@ -717,12 +738,6 @@ var_list({nil,_Ln}) -> [];
 var_list(Other) ->
     return_error(?line(Other), "bad variable list").
 
-%% var_list({cons,_Lc,{var,_,V},Tail}) ->
-%%     [V|var_list(Tail)];
-%% var_list({nil,_Ln}) -> [];
-%% var_list(Other) ->
-%%     ret_err(?line(Other), "bad variable list").
-
 attribute_farity({cons,L,H,T}) ->
     {cons,L,attribute_farity(H),attribute_farity(T)};
 attribute_farity({tuple,L,Args0}) ->
@@ -740,7 +755,6 @@ attribute_farity_list(Args) ->
 error_bad_decl(L, S) ->
     ret_err(L, io_lib:format("bad ~w declaration", [S])).
 
-
 farity_list({cons,_Lc,{op,_Lo,'/',{atom,La,A},{integer,Li,I}},Tail}) ->
     [{{atom, La,A},{integer, Li, I}}|farity_list(Tail)];     %% Modified by Huiqing Li.
 farity_list({cons,Lc,{op,_Lo,'/',{var,La,A},{var,Li,I}},Tail}) ->
@@ -752,7 +766,7 @@ farity_list({cons,Lc,{op,_Lo,'/',{var,La,A},{var,Li,I}},Tail}) ->
     end;
 farity_list({nil,_Ln}) -> [];
 farity_list(Other) ->
-    return_error(?line(Other), "bad function arity").
+    ret_err(?line(Other), "bad function arity").
 
 is_meta_farity(F, A) ->
     FStr = lists:reverse(atom_to_list(F)),
@@ -766,14 +780,6 @@ is_meta_farity(F, A) ->
     L = length(FSubStr),
     L==length(ASubStr) andalso L>=1 andalso L=<2.
    
-
-    
-%% farity_list({cons,_Lc,{op,_Lo,'/',{atom,_La,A},{integer,_Li,I}},Tail}) ->
-%%     [{A,I}|farity_list(Tail)];
-%% farity_list({nil,_Ln}) -> [];
-%% farity_list(Other) ->
-%%     ret_err(?line(Other), "bad function arity").
-
 record_tuple({tuple,_Lt,Fields}) ->
     record_fields(Fields);
 record_tuple(Other) ->
@@ -791,7 +797,8 @@ record_fields([{typed,Expr,TypeInfo}|Fields]) ->
 	    {atom, La, _} ->
                 case has_undefined(TypeInfo) of
                     false ->
-                        lift_unions(abstract(undefined, La), TypeInfo);
+                        TypeInfo2 = maybe_add_paren(TypeInfo),
+                        lift_unions(abstract(undefined, La), TypeInfo2);
                     true ->
                         TypeInfo
                 end
@@ -811,6 +818,11 @@ has_undefined({type,_,union,Ts}) ->
     lists:any(fun has_undefined/1, Ts);
 has_undefined(_) ->
     false.
+
+maybe_add_paren({ann_type,L,T}) ->
+    {paren_type,L,[{ann_type,L,T}]};
+maybe_add_paren(T) ->
+    T.
 
 term(Expr) ->
     try normalise(Expr)
@@ -858,6 +870,7 @@ check_clauses(Cs, Name, Arity) ->
 build_try(L,Es,Scs,{Ccs,As}) ->
     {'try',L,Es,Scs,Ccs,As}.
 
+-spec ret_err(_, _) -> no_return().
 ret_err(L, S) ->
     {location,Location} = get_attribute(L, location),
     return_error(Location, S).
@@ -874,10 +887,11 @@ mapl(F, [H|T]) ->
 mapl(_, []) ->
 	[].
 
-%% normalise(AbsTerm)
-%% abstract(Term)
 %%  Convert between the abstract form of a term and a term.
 
+-spec normalise(AbsTerm) -> Data when
+      AbsTerm :: abstract_expr(),
+      Data :: term().
 normalise({char,_,C}) -> C;
 normalise({integer,_,I}) -> I;
 normalise({float,_,F}) -> F;
@@ -915,6 +929,9 @@ normalise_list([H|T]) ->
 normalise_list([]) ->
     [].
 
+-spec abstract(Data) -> AbsTerm when
+      Data :: term(),
+      AbsTerm :: abstract_expr().
 abstract(T) when is_integer(T) -> {integer,0,T};
 abstract(T) when is_float(T) -> {float,0,T};
 abstract(T) when is_atom(T) -> {atom,0,T};
@@ -983,13 +1000,18 @@ abstract_list([H|T], Line) ->
 abstract_list([], _Line) ->
     [].
 
-%% tokens(AbsTerm) -> [Token]
-%% tokens(AbsTerm, More) -> [Token]
 %%  Generate a list of tokens representing the abstract term.
 
+-spec tokens(AbsTerm) -> Tokens when
+      AbsTerm :: abstract_expr(),
+      Tokens :: [token()].
 tokens(Abs) ->
     tokens(Abs, []).
 
+-spec tokens(AbsTerm, MoreTokens) -> Tokens when
+      AbsTerm :: abstract_expr(),
+      MoreTokens :: [token()],
+      Tokens :: [token()].
 tokens({char,L,C}, More) -> [{char,L,C}|More];
 tokens({integer,L,N}, More) -> [{integer,L,N}|More];
 tokens({float,L,F}, More) -> [{float,L,F}|More];
