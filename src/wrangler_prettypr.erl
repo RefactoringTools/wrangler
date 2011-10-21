@@ -53,7 +53,7 @@
 
 -define(PAPER, 80).
 
--define(RIBBON, 75).
+-define(RIBBON, 72).
 
 -define(NOUSER, undefined).
 
@@ -165,7 +165,6 @@ get_delimitor(FileFormat) ->
     end.
   
 is_special_form(Form) ->
-    wrangler_io:format("Form:\n~p\n", [Form]),
     case wrangler_syntax:type(Form) of
 	error_marker -> 
             true;
@@ -175,9 +174,8 @@ is_special_form(Form) ->
 	    AtrName = wrangler_syntax:attribute_name(Form),
             case wrangler_syntax:atom_value(AtrName) of
 		type -> true;
-	%%	spec -> true;
                 opaque -> true;
-		record -> 
+                record -> 
                     [_R, FieldTuple] = wrangler_syntax:attribute_arguments(Form),
                     Fields = wrangler_syntax:tuple_elements(FieldTuple),
                     lists:any(fun(F) ->  
@@ -196,13 +194,21 @@ form_not_changed(Form) ->
 	false ->
             Toks = wrangler_misc:get_toks(Form),
             case Toks of
-                [] -> false;
+                [] -> 
+                    false;
                 _ ->
                     form_not_change_1(Form)
             end
     end.
 
-
+%% is_spec_form(Form) ->
+%%     case wrangler_syntax:type(Form) of 
+%%         attribute ->
+%%             spec == wrangler_syntax:atom_value(
+%%                       wrangler_syntax:attribute_name(Form));
+%%         _ -> false
+%%     end.
+        
 form_not_change_1(Form) ->
     try
         Toks = wrangler_misc:get_toks(Form),
@@ -213,11 +219,13 @@ form_not_change_1(Form) ->
         {ok,Toks2,_} =
             wrangler_scan:string(NewStr,{1,1},?TabWidth,unix),
         NewForm = wrangler_epp_dodger:normal_parser(Toks2,[]),
-        best(OriginalForm) == best(NewForm)
+        B1=best(OriginalForm), 
+        B2=best(NewForm), 
+        B1==B2
     of 
         Res -> Res
     catch 
-        _E1:_E2 -> 
+        _E1:_E2 ->
             false
     end.
 
@@ -822,15 +830,24 @@ lay_2(Node, Ctxt) ->
 		    beside(floating(text("-")), beside(D, floating(text("."))));
 		Args ->
                     Sep = get_separator(Args, Ctxt1, ","),
-                    As = case wrangler_syntax:atom_value(N) of 
-                             spec ->
-                                 lay_spec_args(Args, Ctxt1);
-                             _ -> 
-                                 seq(Args, floating(text(Sep)), Ctxt1, fun lay/2)
-                         end,
-                    D = lay_elems(fun wrangler_prettypr_0:par/1, As, Args, Ctxt),
-                    D2=beside(lay(N, Ctxt1), beside(text("("), beside(D, floating(text(")"))))),
-		    beside(floating(text("-")), beside(D2, floating(text("."))))
+                    D2= case wrangler_syntax:atom_value(N) of 
+                            spec ->
+                                case spec_need_paren(Ctxt1#ctxt.tokens) of 
+                                    true ->
+                                        As =lay_spec_args(Args, Ctxt1),
+                                        D = lay_elems(fun wrangler_prettypr_0:par/1, As, Args, Ctxt),
+                                        beside(lay(N, Ctxt1), beside(text("("), beside(D, floating(text(")")))));
+                                    false ->
+                                        As =lay_spec_args(Args, Ctxt1),
+                                        D = lay_elems(fun wrangler_prettypr_0:par/1, As, Args, Ctxt),
+                                        wrangler_prettypr_0:horizontal([lay(N, Ctxt1), D])
+                                end;
+                            _ -> 
+                                As=seq(Args, floating(text(Sep)), Ctxt1, fun lay/2),
+                                D = lay_elems(fun wrangler_prettypr_0:par/1, As, Args, Ctxt),
+                                beside(lay(N, Ctxt1), beside(text("("), beside(D, floating(text(")")))))
+                        end,
+                    beside(floating(text("-")), beside(D2, floating(text("."))))
 	    end;
 	binary ->   
 	    Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
@@ -2492,19 +2509,31 @@ lay_spec_args([FunSpec, TypeSpecs], Ctxt)->
     [D1, D2].
 
 lay_fun_spec(FunSpec, Ctxt)->
+    Toks = Ctxt#ctxt.tokens,
+    HasArity=lists:member('/', [element(1, T)||T<-Toks]),
     case wrangler_syntax:type(FunSpec) of 
         tuple ->
             case wrangler_syntax:tuple_elements(FunSpec) of 
                 [F,A] ->
                     D1 = lay(F, Ctxt),
-                    D2 = lay(A, Ctxt),
-                    beside(beside(D1, beside(text("/"), D2)), text("::"));
+                    case HasArity of 
+                        true ->
+                            D2 = lay(A, Ctxt),
+                            beside(beside(D1, beside(text("/"), D2)), text("::"));
+                        false ->
+                            D1
+                    end;
                 [M,F,A] ->
                     D1 = lay(M, Ctxt),
                     D2 = lay(F, Ctxt),
-                    D3 = lay(A, Ctxt),
-                    D23= beside(D2, beside(text("/"), D3)),
-                    beside(beside(D1, beside(text(":"), D23)), text("::"))
+                    case HasArity of 
+                        true ->
+                            D3 = lay(A, Ctxt),
+                            D23= beside(D2, beside(text("/"), D3)),
+                            beside(beside(D1, beside(text(":"), D23)), text("::"));
+                        false ->
+                            beside(D1, beside(text(":"), D2))
+                    end
             end;
         _ -> %% this should not happen
             lay(FunSpec, Ctxt)
@@ -2519,7 +2548,6 @@ lay_spec_clauses([C|Cs], Ctxt) ->
     wrangler_prettypr_0:par(Ds, -2).
 
 lay_sig_type(SigType,Ctxt) ->
-    %%wrangler_io:format("SigType:\n~p\n", [SigType]),
     T1 = wrangler_syntax:revert(SigType), 
     case T1 of 
         {type, _Line, bounded_fun, [T, Gs]} ->
@@ -2575,9 +2603,9 @@ lay_type({type,_Line,list,[T]}, Ctxt) ->
 lay_type({type,_Line,nonempty_list,[T]}, Ctxt) ->
     D = wrangler_prettypr_0:par([lay_type(T, Ctxt), text(","), text("...")]),
     beside(text("["), beside(D, text("]")));
-lay_type({type,Line,nil,[]}, Ctxt) ->
+lay_type({type,_Line,nil,[]}, _Ctxt) ->
     beside(text("["), text("]"));
-lay_type({type,Line,tuple,any}, Ctxt) ->
+lay_type({type,_Line,tuple,any}, _Ctxt) ->
     beside(text("{"), text("}"));
 lay_type({type,_Line,tuple,Ts}, Ctxt) ->
     Ds = seq(Ts, floating(text(",")), reset_prec(Ctxt), fun lay_type/2),
@@ -2585,7 +2613,7 @@ lay_type({type,_Line,tuple,Ts}, Ctxt) ->
     beside(text("{"), beside(D1, text("}")));    
 lay_type({type,_Line,record,[{atom,_,N}|Fs]}, Ctxt) ->
      lay_record_type(N, Fs,Ctxt);
-lay_type(T={type,_Line,range,[I1,I2]}, Ctxt) ->
+lay_type({type,_Line,range,[I1,I2]}, Ctxt) ->
     D1 = lay(I1, Ctxt),
     D2 = lay(I2, Ctxt),
     beside(D1, beside(text(".."), D2));
@@ -2661,3 +2689,13 @@ lay_union_type([T|Ts], Ctxt) ->
 
 lay_union_elem(T, Ctxt) ->
     beside(text(" | "),lay_type(T, Ctxt)).
+
+spec_need_paren([])->true;
+spec_need_paren(Toks) ->
+    [_T, T1| _Ts] = lists:dropwhile(fun({atom, _, 'spec'}) ->
+                                           false;
+                                       (_) ->
+                                            true
+                                   end, Toks),
+    element(1, T1) == '('.
+    
