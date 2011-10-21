@@ -311,7 +311,7 @@ scan_char([$\\ | Cs], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileForm
 scan_char([$\n | Cs], _Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
     scan(Cs, [], [{char, {Line, Col}, $\n} | Toks], {Line + 1, Col}, State, Errors, TabWidth,FileFormat);
 scan_char([$  | Cs], _Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
-    scan(Cs, [], [{char, {Line, Col}, '$ ' } | Toks], {Line, Col+1}, State, Errors, TabWidth,FileFormat);
+    scan(Cs, [], [{char, {Line, Col}, 32 } | Toks], {Line, Col+1}, State, Errors, TabWidth,FileFormat);
 scan_char([], Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     more([], Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat, fun scan_char/8);
 scan_char(Cs, Stack, Toks, {Line, Col}, State,Errors, TabWidth,FileFormat) ->
@@ -415,24 +415,28 @@ scan_qatom(Eof, Stack, _Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) -
 %% was found, i.e an actual Newline in the input.
 %%
 %% \<1-3> octal digits
-sub_scan_escape([O1, O2, O3 | Cs], [Fun | Stack], Toks,
+sub_scan_escape([O1, O2, O3 | Cs], [_Fun | _Stack], Toks,
 		{Line, Col}, State, Errors, TabWidth,FileFormat)
     when O1 >= $0, O1 =< $7, O2 >= $0, O2 =< $7, O3 >= $0,
 	 O3 =< $7 ->
+    C1=list_to_atom("$\\"++[O1, O2, O3]),
+    scan(Cs, [], [{char, {Line, Col-2}, C1} | Toks],{Line, Col + 3}, State, Errors, TabWidth,FileFormat);
     %% Val = (O1 * 8 + O2) * 8 + O3 - 73 * $0,
-    Fun([O1, O2, O3 | Cs], Stack, Toks, {Line, Col+2}, State,
-	Errors, TabWidth,FileFormat);
+    %% Fun([O1, O2, O3 | Cs], Stack, Toks, {Line, Col+2}, State,
+    %%     Errors, TabWidth,FileFormat);
 sub_scan_escape([O1, O2] = Cs, Stack, Toks, {Line, Col},
 		State, Errors, TabWidth,FileFormat)
     when O1 >= $0, O1 =< $7, O2 >= $0, O2 =< $7 ->
     more(Cs, Stack, Toks, {Line, Col}, State, Errors,TabWidth, FileFormat,
 	 fun sub_scan_escape/8);
-sub_scan_escape([O1, O2 | Cs], [Fun | Stack], Toks,
+sub_scan_escape([O1, O2 | Cs], [_Fun | _Stack], Toks,
 		{Line, Col}, State, Errors, TabWidth,FileFormat)
     when O1 >= $0, O1 =< $7, O2 >= $0, O2 =< $7 ->
+    C1=list_to_atom("$\\"++[O1, O2]),
+    scan(Cs, [], [{char, {Line, Col-2}, C1} | Toks],{Line, Col + 2}, State, Errors, TabWidth,FileFormat);
     %% Val = O1 * 8 + O2 - 9 * $0,
-    Fun([O1, O2 | Cs], Stack, Toks, {Line, Col+1}, State,
-	Errors, TabWidth,FileFormat);
+    %% Fun([O1, O2 | Cs], Stack, Toks, {Line, Col+1}, State,
+    %%     Errors, TabWidth,FileFormat);
 sub_scan_escape([O1] = Cs, Stack, Toks, {Line, Col},
 		State, Errors, TabWidth,FileFormat)
     when O1 >= $0, O1 =< $7 ->
