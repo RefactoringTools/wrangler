@@ -24,7 +24,7 @@
 
 -export([swap_args/7]).
 
--include("../include/wrangler.hrl").
+-include("../../include/wrangler.hrl").
 
 -import(api_refac, [fun_define_info/1]).
 
@@ -87,7 +87,8 @@ transform(Args=#args{current_file_name=File,focus_sel=FunDef,
 %% transform the current file.
 transform_in_cur_file(_Args=#args{current_file_name=File},MFA, I, J)->
     ?FULL_TD_TP([rule1(MFA, I, J),
-                 rule2(MFA, I, J)],
+                 rule2(MFA, I, J),
+                 rule3(MFA, I, J)],
                 [File]).
 
 %% transform the client files.
@@ -115,6 +116,11 @@ rule2({M,F,A}, I, J) ->
               api_refac:update_app_args(_This@,NewArgs)
           end,
           true).
+
+rule3({_M, F, A}, I, J) ->
+    ?RULE(?T("Spec@"), 
+          api_spec:swap_arg_types_in_spec(_This@, I, J),
+          api_spec:is_type_spec(Spec@, {F, A})).
 
 %% utility functions.
 swap(List, I, J) when is_list(List) ->

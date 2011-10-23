@@ -6,7 +6,7 @@
 -compile(export_all).
 
 %% Include files
--include("../include/wrangler.hrl").
+-include("../../include/wrangler.hrl").
 
 %%%===================================================================
 %% gen_refac callbacks
@@ -120,7 +120,8 @@ transform(Args=#args{current_file_name=File,focus_sel=FunDef,
 transform_in_cur_file(_Args=#args{current_file_name=File}, MFA, I) ->
     ?FULL_TD_TP([rule1(MFA,I),
                  rule2(MFA,I),
-                 rule3(MFA)],
+                 rule3(MFA),
+                 rule4(MFA, I)],
                 [File]).
 
 
@@ -155,6 +156,12 @@ rule3({M,F,A}) ->
           api_refac:make_arity_qualifier(F, A - 1),
           api_refac:type(F@) == arity_qualifier andalso
           api_refac:fun_define_info(F@) == {M, F, A}).
+
+rule4({_M, F, A}, Ith) ->
+    ?RULE(?T("Spec@"), 
+          api_spec:rm_arg_type_from_spec(_This@, Ith),
+          api_spec:is_type_spec(Spec@, {F, A})).
+
 
 %%%===================================================================
 %%% Internal functions

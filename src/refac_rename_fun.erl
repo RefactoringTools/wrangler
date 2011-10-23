@@ -322,17 +322,31 @@ do_rename_fun_1(Tree, {{M, OldName, Arity}, {DefinePos, NewName}}) ->
 		    {rewrite(Tree, wrangler_syntax:function(N1, Cs)), true};
 		_ -> {Tree, false}
 	    end;
-	application ->
-	  do_rename_in_fun_app(Tree, M, OldName, Arity, NewName);
-	arity_qualifier ->
-	    do_rename_fun_in_arity_qualifier(Tree, M, OldName, Arity, NewName);
-	atom ->
-	  As = wrangler_syntax:get_ann(Tree),
-	  case lists:keysearch(type, 1, As) of
-	      {value, {type, {f_atom, [M, OldName, Arity]}}} ->
-		  {wrangler_syntax:copy_attrs(Tree, wrangler_syntax:atom(NewName)), true};
-	      _ -> {Tree, false}
-	  end;
+        attribute ->
+          case api_spec:is_type_spec(Tree, {M, OldName, Arity}) of
+              true ->
+                  NewTree=api_spec:rename_in_spec(Tree, {M, NewName, Arity}),
+                  {NewTree, true};
+              false ->
+                  case api_spec:is_type_spec(Tree, {OldName, Arity}) of
+                      true ->
+                          NewTree=api_spec:rename_in_spec(Tree, {NewName, Arity}),
+                          {NewTree, true};
+                      _ ->
+                          {Tree, false}
+                  end
+          end;
+      application ->
+     do_rename_in_fun_app(Tree, M, OldName, Arity, NewName);
+      arity_qualifier ->
+	  do_rename_fun_in_arity_qualifier(Tree, M, OldName, Arity, NewName);
+      atom ->
+	As = wrangler_syntax:get_ann(Tree),
+	case lists:keysearch(type, 1, As) of
+	    {value, {type, {f_atom, [M, OldName, Arity]}}} ->
+		{wrangler_syntax:copy_attrs(Tree, wrangler_syntax:atom(NewName)), true};
+	    _ -> {Tree, false}
+	end;
       _ -> {Tree, false}
     end.
 
@@ -435,19 +449,27 @@ rename_fun_in_client_module_1({Tree, Info}, {M, OldName, Arity}, NewNameStr) ->
     api_ast_traverse:full_tdTP(fun do_rename_fun_in_client_module_1/2, Tree,
 			       {{M, OldName, Arity}, NewNameAtom}).
 
-do_rename_fun_in_client_module_1(Tree, {{M, OldName, Arity}, NewName}) ->
+do_rename_fun_in_client_module_1(Tree,  {{M, OldName, Arity}, NewName}) ->
     case wrangler_syntax:type(Tree) of
-      application -> do_rename_in_fun_app(Tree, M, OldName, Arity, NewName);
-      arity_qualifier ->   %% is there a module name?
-	  do_rename_fun_in_arity_qualifier(Tree, M, OldName, Arity, NewName);
-      atom ->
-	  As = wrangler_syntax:get_ann(Tree),
-	  case lists:keysearch(type, 1, As) of
-	    {value, {type, {f_atom, [M, OldName, Arity]}}} ->
-		{wrangler_syntax:copy_attrs(Tree, wrangler_syntax:atom(NewName)), true};
-	    _ -> {Tree, false}
-	  end;
-      _ -> {Tree, false}
+        attribute ->
+            case api_spec:is_type_spec(Tree, {M, OldName, Arity}) of
+                true ->
+                    NewTree=api_spec:rename_in_spec(Tree, {M, NewName, Arity}),
+                    {NewTree, true};
+                false ->
+                    {Tree, false}
+            end;
+        application -> do_rename_in_fun_app(Tree, M, OldName, Arity, NewName);
+        arity_qualifier ->   %% is there a module name?
+            do_rename_fun_in_arity_qualifier(Tree, M, OldName, Arity, NewName);
+        atom ->
+            As = wrangler_syntax:get_ann(Tree),
+            case lists:keysearch(type, 1, As) of
+                {value, {type, {f_atom, [M, OldName, Arity]}}} ->
+                    {wrangler_syntax:copy_attrs(Tree, wrangler_syntax:atom(NewName)), true};
+                _ -> {Tree, false}
+            end;
+        _ -> {Tree, false}
     end.
 
 do_rename_fun_in_arity_qualifier(Tree, M, OldName, Arity, NewName) ->

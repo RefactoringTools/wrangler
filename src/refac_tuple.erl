@@ -59,13 +59,17 @@
 
 -include("../include/wrangler_internal.hrl").
 
--spec(tuple_funpar_eclipse/5::(filename(), pos(), pos(), [dir()], integer()) ->
-                                    {error, string()} | {ok, [{filename(), filename(), string()}]}).
+-spec(tuple_funpar_eclipse/5::(filename(), pos(), pos(),
+                               [dir()], integer()) -> 
+                                  {error, string()}
+                                   | {ok,
+                                      [{filename(), filename(), string()}]}).
 tuple_funpar_eclipse(FileName, StartLoc, EndLoc,  SearchPaths, TabWidth)->
     tuple_funpar(FileName, StartLoc, EndLoc, SearchPaths, eclipse, TabWidth).
 
--spec(tuple_funpar_1_eclipse/5::(filename(), pos(), pos(), [dir()], integer()) ->
-                                      {error, string()} | {ok, [filename()]}).
+-spec(tuple_funpar_1_eclipse/5::(filename(), pos(),
+                                 pos(), [dir()], integer()) -> 
+                                    {error, string()}  | {ok, [filename()]}).
 tuple_funpar_1_eclipse(FileName, StartLoc, EndLoc, SearchPaths, TabWidth)->
     tuple_funpar_1(FileName, StartLoc, EndLoc, SearchPaths, emacs, TabWidth).
 
@@ -294,19 +298,33 @@ tuple_pars(FileName, AnnAST, ModName, FunName, Arity, Index, Num, Info, SearchPa
     Forms = wrangler_syntax:form_list_elements(AnnAST),
     Args = {FileName, ModName, ModName, FunName, Arity, Index, Num, SearchPaths, TabWidth},
     Forms1 = [F1 || F <- Forms, F1 <- do_tuple_fun_pars(F, Args)],
-    AnnAST1 = wrangler_syntax:form_list(Forms1),
     case api_refac:is_exported({FunName, Arity}, Info) of
-	true ->
-	    AnnAST1;
-	false ->
-	    case collect_implicit_funs(AnnAST1, {FunName, Arity}) of
-		[] ->
-		    Forms2 = [F || F <- Forms1,  not  defines(F, {FunName, Arity})],
-		    wrangler_syntax:form_list(Forms2);
-		_ ->
-		    AnnAST1
-	    end
+        true ->
+            {Fs1, Fs2}=lists:splitwith(fun(F)-> 
+                                               not is_type_spec(F,ModName,FunName,Arity-Num+1)
+                                       end, Forms1),
+            case Fs2 of 
+                [] ->wrangler_syntax:form_list(Forms1);
+                [Spec|Fs3] ->
+                    {Fs31, [F1|Fs32]} = lists:splitwith(fun(F) ->
+                                                                not defines(F, {FunName, Arity})
+                                                        end, Fs3),
+                    wrangler_syntax:form_list(Fs1 ++ [F1, Spec] ++ Fs31 ++ Fs32)
+            end;
+        _ ->
+            AnnAST1 = wrangler_syntax:form_list(Forms1),
+            case collect_implicit_funs(AnnAST1, {FunName, Arity}) of
+                [] ->
+                    Forms2 = [F || F <- Forms1,  not  defines(F, {FunName, Arity})],
+                    wrangler_syntax:form_list(Forms2);
+                _ ->
+                    AnnAST1
+            end
     end.
+
+is_type_spec(F,ModName,FunName,Arity) ->
+    api_spec:is_type_spec(F, {FunName, Arity}) orelse
+        api_spec:is_type_spec(F, {ModName, FunName, Arity}).
 
 defines(F, {FunName, Arity}) ->
     case wrangler_syntax:type(F) of
@@ -316,17 +334,13 @@ defines(F, {FunName, Arity}) ->
 	_ -> false
     end.
     
-		     
-
-		     
-   
 
 do_tuple_fun_pars(Form, Args) ->
     case wrangler_syntax:type(Form) of
 	function ->
 	    tuple_pars_in_function(Form, Args);
 	attribute ->
-	    tuple_pars_in_attribute(Form, Args);
+            tuple_pars_in_attribute(Form, Args);
 	_ -> [Form]    
     end.
 
@@ -367,8 +381,9 @@ tuple_pars_in_function(Form, Args = {_FileName, _CurModName, _FunDefMod, FunName
             [tuple_actual_pars(Form, Args)]
     end.
 
-tuple_pars_in_attribute(Form, Args = {_FileName, _CurModName, _FunDefMod, FunName, Arity,
-				      _Index, Num, _SearchPaths, _TabWidth}) ->
+
+tuple_pars_in_attribute(Form, Args = {_FileName, CurModName, _FunDefMod, FunName, Arity,
+				      Index, Num, _SearchPaths, _TabWidth}) ->
     AttrName = wrangler_syntax:attribute_name(Form),
     case wrangler_syntax:type(AttrName) of
 	atom ->
@@ -376,8 +391,7 @@ tuple_pars_in_attribute(Form, Args = {_FileName, _CurModName, _FunDefMod, FunNam
 	    AttrArgs0 = wrangler_syntax:attribute_arguments(Form),
 	    case Name of
 		export when AttrArgs0 /= none ->
-		    
-		    AttrArgs = hd(AttrArgs0),
+                    AttrArgs = hd(AttrArgs0),
 		    NewAttrArgs = lists:flatmap(
 				    fun (A) ->
 					    Fun = wrangler_syntax:arity_qualifier_body(A),
@@ -395,6 +409,13 @@ tuple_pars_in_attribute(Form, Args = {_FileName, _CurModName, _FunDefMod, FunNam
 		    NewAttrArgs1 = [wrangler_misc:rewrite(AttrArgs, wrangler_syntax:list(NewAttrArgs))],
 		    NewAttr = wrangler_misc:rewrite(Form, wrangler_syntax:attribute(AttrName, NewAttrArgs1)),
 		    [NewAttr];
+                'spec' ->
+                    case is_type_spec(Form, CurModName, FunName, Arity) of
+                        true ->
+                            [api_spec:tuple_arg_types_in_spec(Form, Index, Index + Num - 1)];
+                        false ->
+                            [Form]
+                        end;                    
 		_ ->
 		    [tuple_actual_pars(Form, Args)]
 	    end;
