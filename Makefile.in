@@ -136,13 +136,16 @@ wc:
 	@wc -l */*.c | sort -nr
 
 
-EXAMPLE_CODE = inspec_examples.erl refac_list.erl \
-    refac_apply_to_remote_call.erl refac_remove_arg.erl \
-    refac_batch_rename_fun.erl refac_remove_import.erl refac_intro_import.erl \
-    refac_specialise.erl refac_keysearch_to_keyfind.erl refac_swap_args.erl
+EXAMPLE_CODE = inspec_examples.erl gen_refacs/refac_list.erl \
+    gen_refacs/refac_apply_to_remote_call.erl gen_refacs/refac_remove_arg.erl \
+    gen_refacs/refac_remove_import.erl gen_refacs/refac_intro_import.erl \
+    gen_refacs/refac_specialise.erl gen_refacs/refac_keysearch_to_keyfind.erl gen_refacs/refac_swap_args.erl \
+    gen_composite_refacs/refac_batch_clone_removal.erl gen_composite_refacs/refac_batch_tuple_args.erl \
+    gen_composite_refacs/refac_batch_rename_fun.erl
+
 
 docs:
-	$(ERL) -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS)])" -s init stop
+	$(ERL) -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS), {packages, false}])" -s init stop
 	(cd src ; cp $(EXAMPLE_CODE) ../doc/)
 
 privdocs:
