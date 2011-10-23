@@ -35,7 +35,6 @@
 %% @author Huiqing Li, Simon Thompson
 %%   [http://www.cs.kent.ac.uk/projects/wrangler]
 
-%% @version 0.1
 %% @end
 %%
 %% @doc This module describes the refactoring commands that can be run in an Erlang shell.

@@ -23,7 +23,6 @@
 %% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
 %% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-%%@version 0.1 
 %%@author  Huiqing Li <H.Li@kent.ac.uk>
 %%
 %%
@@ -91,19 +90,19 @@
 %%
 %% Some example refactorings implemented using the Wrangler API:
 %%<li>
-%%<a href="file:refac_swap_args.erl" > Swap arguments of a function;</a>.
+%%<a href="file:refac_swap_args.erl" >Swap arguments of a function;</a>.
 %%</li>
 %%<li>
-%%<a href="file:refac_remove_arg.erl" > Remove an argument of a function;</a>.
+%%<a href="file:refac_remove_arg.erl" >Remove an argument of a function;</a>.
 %%</li>
 %%<li>
-%%<a href="file:refac_keysearch_to_keyfind.erl"> replace the uses of lists:keysearch/3 with lists:keyfind/3; </a>
+%%<a href="file:refac_keysearch_to_keyfind.erl">Replace the uses of lists:keysearch/3 with lists:keyfind/3; </a>
 %%</li>
 %%<li>
-%%<a href="file:refac_specialise.erl"> Specialise a function definition; </a>
+%%<a href="file:refac_specialise.erl">Specialise a function definition; </a>
 %%</li>
 %%<li>
-%%<a href="file:refac_apply_to_remote_call.erl"> Apply to remote function call; </a>
+%%<a href="file:refac_apply_to_remote_call.erl">Apply to remote function call; </a>
 %%</li>
 %%<li>
 %%<a href="file:refac_intro_import.erl">Introduce an import attribute; </a>
@@ -112,13 +111,13 @@
 %%<a href="file:refac_remove_import.erl">Remove an import attribute;</a>
 %%</li>
 %%<li>
-%%<a href="file:refac_list.erl"> Various list-related transformations;</a>
+%%<a href="file:refac_list.erl">Various list-related transformations;</a>
 %%</li>
 %%<li>
-%%<a href="file:refac_batch_rename_fun.erl"> Batch renaming of function names from camelCaseto camel_case. </a>
+%%<a href="file:refac_batch_rename_fun.erl">Batch renaming of function names from camelCaseto camel_case. </a>
 %%</li>
 %%<li>
-%%<a href="file:code_inspector_examples.erl"> A collection of code inspectors written using the Wrangler API. </a>
+%%<a href="file:inspec_examples.erl">A collection of code inspectors written using the Wrangler API. </a>
 %%</li>
 %%</doc>
 -module(gen_refac).

@@ -58,11 +58,6 @@
 
 -include("../include/wrangler_internal.hrl").
 
-%% ==============================================================================================================
-%% @spec register_pid(FileName::filename(), Start::Pos, End::Pos, RegName::string(), SearchPaths::[dir()], TabWidth::integer())-> term()
-%% @doc This function associates a name, which must be an atom, with a pid, and replaces the uses of this pid in 
-%% send expressions with the name.
-
 %% TODO: correct the spec.
 %%-spec(register_pid_eclipse(FileName::filename(), Start::pos(), End::pos(), RegName::string(),SearchPaths::[dir()], TabWidth::integer())
 %%      -> {error, string()} |{ok, [{filename(), filename(), string()}]}).

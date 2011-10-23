@@ -33,7 +33,6 @@
 %% @author Huiqing Li, Simon Thompson
 %%   [http://www.cs.kent.ac.uk/projects/wrangler]
 %%
-%% @version 0.1
 %% @end
 %%
 %% @doc This module describes the code inspection functions 

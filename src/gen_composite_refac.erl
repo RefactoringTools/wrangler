@@ -23,7 +23,6 @@
 %% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
 %% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-%%@version 0.1 
 %%@author  Huiqing Li <H.Li@kent.ac.uk>
 %%
 %%
@@ -239,13 +238,13 @@
 %%
 %%%% Some example composite refactorings:
 %%<li>
-%%<a href="file:refac_batch_clone_removal_1.erl" > Batch clone elimination;</a>.
+%%<a href="file:refac_batch_clone_removal.erl" >Batch clone elimination;</a>.
 %%</li>
 %%<li>
-%%<a href="file:refac_batch_tuple_args.erl" > Batch tupling of function arguments;</a>.
+%%<a href="file:refac_batch_tuple_args.erl" >Batch tupling of function arguments;</a>.
 %%</li>
 %%<li>
-%%<a href="file:refac_batch_rename_fun_v2.erl"> Batch renaming of functions. </a>
+%%<a href="file:refac_batch_rename_fun.erl">Batch renaming of functions. </a>
 %%</li>
 -module(gen_composite_refac).
 
