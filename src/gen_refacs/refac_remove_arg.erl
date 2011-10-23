@@ -1,3 +1,4 @@
+%% @hidden
 %% @private
 -module(refac_remove_arg).
 

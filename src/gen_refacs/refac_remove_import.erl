@@ -6,6 +6,7 @@
 %% module, and qualify the calls to those functions 
 %% imported from that module.
 
+%% @hidden
 %% @private
 -module(refac_remove_import).
 

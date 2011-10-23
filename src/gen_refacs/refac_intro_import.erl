@@ -7,7 +7,7 @@
 %% functions which are defined in a user specified 
 %% module, and used in the current module by remote 
 %% function calls.
-
+%% @hidden
 %% @private
 -module(refac_intro_import).
 

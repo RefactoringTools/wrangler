@@ -12,7 +12,7 @@
 %% the refactoring rename, which is supposed to be 
 %% the module name, and then you will prompted to 
 %% input the values of Ith and Jth.
-
+%% @hidden
 %% @private
 -module(refac_swap_args).
 

@@ -9,7 +9,7 @@
 %% may apply to many instances.
 
 %%@author  Huiqing Li <H.Li@kent.ac.uk>
-
+%% @hidden
 %% @private
 -module(refac_list).
 
