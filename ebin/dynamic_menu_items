@@ -59,7 +59,7 @@ gen_menu_items(MenuName, Dir)->
                     filename:extension(X) == ".erl"],
             Str1 = "(defvar "++atom_to_list(MenuName) ++ "\n" ++"`(", 
             Str = lists:flatten([io_lib:format(
-                                   "(\"~s\" ~p)\n", [M, list_to_atom(M)])
+                                   "(\"~s\" ~p)\n", [convert_cmd_name(M), list_to_atom(M)])
                                  ||M<-ModNames]),
             Str2 = "))\n\n",
             Str1++Str++Str2;
@@ -67,6 +67,33 @@ gen_menu_items(MenuName, Dir)->
             ""
     end.
 
+convert_cmd_name(Str) ->
+    NewStr=case Str of 
+               "refac_"++Str1 ->
+                   Str1;
+               _ -> Str 
+           end,
+    convert_cmd_name_1(NewStr, []).
+
+convert_cmd_name_1([], Acc) ->
+    lists:reverse(Acc);
+convert_cmd_name_1([C|Cs], []) ->
+    convert_cmd_name_1(Cs, [C-(97-65)]);
+convert_cmd_name_1([C|Cs], Acc) ->
+    case C of 
+        95 ->
+            case Cs of 
+                [C1|Cs1] when C1/=95 ->
+                    convert_cmd_name_1(Cs1, [C1-(97-65), 32|Acc]);
+                [C1|Cs1]-> 
+                    convert_cmd_name_1(Cs1, [32|Acc]);
+                _ -> 
+                    convert_cmd_name_1(Cs, [32|Acc])
+            end;
+        _ ->
+            convert_cmd_name_1(Cs, [C|Acc])
+    end.
+    
 gen_composite_menu_cmds(Dir)->
     case file:list_dir(Dir) of 
         {ok, List} ->
