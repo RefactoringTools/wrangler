@@ -1,3 +1,5 @@
+%%@hidden
+%%@private
 -module(refac_batch_clone_removal).
 
 -export([composite_refac/1, input_par_prompts/0]).

@@ -1,3 +1,5 @@
+%%@hidden
+%%@private
 -module(refac_batch_tuple_args).
 
 -export([composite_refac/1, input_par_prompts/0]).
