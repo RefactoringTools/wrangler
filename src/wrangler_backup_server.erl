@@ -107,7 +107,7 @@ handle_call({rollback_atomic_cr, Pid}, _From, State=#state{backups=BackUps}) ->
             {BackUps1, BackUps2} = lists:splitwith(fun(E)-> E/=Pid end, BackUps),
             lists:foreach(fun({{FileName, NewFileName, IsNew}, Content})->
                                   case IsNew of 
-                                      true -> file:delete_file(NewFileName);
+                                      true -> file:delete(NewFileName);
                                       false ->
                                           file:write_file(FileName, Content)
                                   end;
