@@ -440,7 +440,6 @@ lay_postcomments_1(Cs, D, DEndLn) ->
     end.
     
 %% For postcomments, individual padding is added.
-lay_postcomments([],D) -> D;
 lay_postcomments(Cs,D) ->
     D0 =floating(break(stack_comments(Cs,true)),1,0),
     beside(D,D0).
