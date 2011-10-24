@@ -68,8 +68,8 @@ valid_rename_var_command1(AST, {_FName, Loc, NewName, _SearchPaths}) ->
       {0, 0} -> false;
       _ ->
 	  case api_interface:pos_to_var_name(AST, Loc) of
-	    {ok, {OldName, DefinePos, _}} ->
-		DefinePos =/= {0, 0} andalso OldName =/= NewName;
+	    {ok, {OldName, [DefinePos]}} ->
+                  DefinePos =/= [{0, 0}] andalso OldName =/= NewName;
 	    _ -> false
 	  end
     end.
@@ -85,7 +85,7 @@ prop_rename_var({FName, Loc, NewName, SearchPaths, TabWidth}) ->
 	     begin
 		 {Line, Col} = Loc,
 		 Args = [FName, Line, Col, NewName, SearchPaths, TabWidth],
-		 Res = try apply(refac_rename_var, rename_var, Args)
+                 Res = try apply(refac_rename_var, rename_var, Args)
 		       catch
 			   throw:Error ->
 			       io:format("Error:\n~\pn", [Error]),
@@ -123,16 +123,16 @@ gen_rename_var_commands_1(FileName, Dirs) ->
 	 noshrink({FileName,
 		   oneof(begin
 			     L = vars_within_a_fun(AST, F, pos),
-			     if L == [] -> [{0, 0}];
+                             if L == [] -> [{0, 0}];
 				true -> L
 			     end
 			 end),
 		   oneof(vars_within_a_fun(AST, F, name)++ (madeup_vars())), Dirs, 8})).
 
 test_rename_var(Dirs) ->
-    application:start(wrangler_app),
+    application:start(wrangler),
     eqc:quickcheck(numtests(500, ?FORALL(C, (gen_rename_var_commands(Dirs)), prop_rename_var(C)))),
-    application:stop(wrangler_app).
+    application:stop(wrangler).
 
    
 test_rename_var1() ->
