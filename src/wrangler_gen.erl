@@ -633,9 +633,9 @@ unfold_fun_app(ModOrFile, FA, MFAorPos, true, SearchPaths) ->
             get_next_unfold_app_command(
               {F, NextFileGen}, FA, MFAorPos, SearchPaths, -1)
     end.
-get_next_unfold_app_command({File, {lazy_file_gen, NextFileGen}}, FA, 
+get_next_unfold_app_command({File, NextFileGen}, FA, 
                             MFAorPos, SearchPaths, N) ->
-    FAs= get_fun_arity({File, {lazy_file_gen, NextFileGen}}, FA, true),
+    FAs= get_fun_arity({File, NextFileGen}, FA, true),
     case FAs of
         []->[]; 
         [{F, A}] ->  
@@ -651,7 +651,7 @@ get_next_unfold_app_command({File, {lazy_file_gen, NextFileGen}}, FA,
                     Nth = length(Cmds)-N+1,
                     case N == 1 of 
                         true ->
-                            [lists:neth(Nth, Cmds)];
+                            [lists:nth(Nth, Cmds)];
                         _ ->
                             {lists:nth(Nth, Cmds), 
                              {lazy_gen, fun()->
@@ -673,7 +673,7 @@ get_next_unfold_app_command({File, {lazy_file_gen, NextFileGen}}, FA,
                 [R|Rs] when N==-1 ->
                     {R,{lazy_gen, fun()->
                                           get_next_unfold_app_command(
-                                            {File1, {lazy_file_gen, NextFileGen}}, FA, MFAorPos, SearchPaths, length(Rs))
+                                            {File1, NextFileGen}, FA, MFAorPos, SearchPaths, length(Rs))
                                   end}};
                 _ ->Nth = length(Cmds)-N+1,
                     case N==1 of 
@@ -687,7 +687,7 @@ get_next_unfold_app_command({File, {lazy_file_gen, NextFileGen}}, FA,
                             {lists:nth(Nth, Cmds), 
                              {lazy_gen, fun()->
                                                 get_next_unfold_app_command(
-                                                  {File1, {lazy_file_gen, NextFileGen}}, FA, MFAorPos, SearchPaths, N-1)
+                                                  {File1, NextFileGen}, FA, MFAorPos, SearchPaths, N-1)
                                         end}}        
                     end
             end
