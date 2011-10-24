@@ -369,7 +369,6 @@
     nil
     ("Skeletons"
      (("gen_refac Skeleton"  tempo-template-gen-refac)
-      ("Include wrangler.hrl"    tempo-template-include-wrangler)
       ))
     nil
     ("Customize Wrangler" wrangler-customize)
@@ -3876,16 +3875,12 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
 (require 'tempo)
 (setq tempo-interactive t)
 
-(tempo-define-template "include-wrangler"
-   '("-include(\"""C:/cygwin/home/hl/wrangler/share/wrangler""/include/wrangler.hrl\")." n n  
-   )
-)
 (tempo-define-template "gen-refac"
   '((erlang-skel-include erlang-skel-large-header)
     "-behaviour(gen_refac)." n n
    
     "%% Include files" n 
-    "-include(\"""C:/cygwin/home/hl/wrangler/share/wrangler""/include/wrangler.hrl\")." n n
+    "-include_lib(\"wrangler/include/wrangler.hrl\")." n n
     (erlang-skel-double-separator-start 3)
     "%% gen_refac callbacks" n
     "-export([input_par_prompts/0,select_focus/1, " n>
