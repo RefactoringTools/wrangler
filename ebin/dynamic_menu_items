@@ -85,7 +85,7 @@ convert_cmd_name_1([C|Cs], Acc) ->
             case Cs of 
                 [C1|Cs1] when C1/=95 ->
                     convert_cmd_name_1(Cs1, [C1-(97-65), 32|Acc]);
-                [C1|Cs1]-> 
+                [_C1|Cs1]-> 
                     convert_cmd_name_1(Cs1, [32|Acc]);
                 _ -> 
                     convert_cmd_name_1(Cs, [32|Acc])
