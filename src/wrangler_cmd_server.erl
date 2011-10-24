@@ -328,10 +328,10 @@ while_refac_loop(Parent, State=#state{cmds={while, Cond, Qual, CmdGen},
                                 [] ->
                                     From !{get_next_command, Parent, 
                                            [ok, sets:to_list(ModifiedSoFar)]};
-                                _ ->
-                                    Pid = process_one_cr(self(), Qual==atomic, undefined, NewCR),
+                                [CR|Others] ->
+                                    Pid = process_one_cr(self(), Qual==atomic, undefined, CR),  %%TODO: TEST THIS!!!
                                     From ! {get_next_command, Pid, [ok, []]},
-                                    while_refac_loop(Parent, State#state{cmds={while, Cond, CmdGen},
+                                    while_refac_loop(Parent, State#state{cmds={while, Cond, Qual, CmdGen},
                                                                          changed_files=ModifiedSoFar})
                             end
                     end
