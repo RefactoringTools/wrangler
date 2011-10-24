@@ -84,8 +84,8 @@ make_import_attr(ModuleName, FAs) ->
     ?QUOTE("-import("++ModuleName++","++
                format_fa_list(FAs)++").").
 
-format_fa_list([]) ->
-    "[]";
+%% format_fa_list([]) ->
+%%     "[]";
 format_fa_list(FAs) ->
     "["++lists:flatten(format_fas(FAs))++"]".
 
