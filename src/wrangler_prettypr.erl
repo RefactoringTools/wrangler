@@ -2605,7 +2605,7 @@ lay_type({type,_Line,nonempty_list,[T]}, Ctxt) ->
 lay_type({type,_Line,nil,[]}, _Ctxt) ->
     beside(text("["), text("]"));
 lay_type({type,_Line,tuple,any}, _Ctxt) ->
-    beside(text("{"), text("}"));
+    text("tuple()");
 lay_type({type,_Line,tuple,Ts}, Ctxt) ->
     Ds = seq(Ts, floating(text(",")), reset_prec(Ctxt), fun lay_type/2),
     D1 =lay_elems(fun wrangler_prettypr_0:par/1, Ds, Ts, Ctxt),
@@ -2684,7 +2684,7 @@ lay_field_type_1(B, Type, Ctxt) ->
 
 
 lay_union_type([T|Ts], Ctxt) ->
-    [beside(text(":: "),lay_type(T, Ctxt)) | [lay_union_elem(T1, Ctxt)||T1<-Ts]].
+    [lay_type(T, Ctxt) | [lay_union_elem(T1, Ctxt)||T1<-Ts]].
 
 lay_union_elem(T, Ctxt) ->
     beside(text(" | "),lay_type(T, Ctxt)).
