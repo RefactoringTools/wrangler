@@ -914,11 +914,11 @@ lay_2(Node, Ctxt) ->
 	generator -> 
 		Pat = wrangler_syntax:generator_pattern(Node),
 		Body = wrangler_syntax:generator_body(Node),
-		lay_generator(Ctxt, Pat, Body);
+		lay_generator(Ctxt, Pat, Body, "<-");
 	binary_generator ->
                 Pat = wrangler_syntax:binary_generator_pattern(Node),
 		Body = wrangler_syntax:binary_generator_body(Node),
-		lay_generator(Ctxt, Pat, Body);
+		lay_generator(Ctxt, Pat, Body, "<=");
 	implicit_fun ->
                 Ctxt1=reset_check_bracket(reset_prec(Ctxt)),
                 D = lay(wrangler_syntax:implicit_fun_name(Node), Ctxt1),
@@ -1216,7 +1216,7 @@ lay_list(Node, Ctxt) ->
             end
     end.
 
-lay_generator(Ctxt, Pat, Body) ->
+lay_generator(Ctxt, Pat, Body, Arrow) ->
     Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
     D1 = lay(Pat,Ctxt1),
     D2 = lay(Body,Ctxt1),
@@ -1226,20 +1226,20 @@ lay_generator(Ctxt, Pat, Body) ->
     {_, D2StartCol} = get_start_loc(Body),
     case (D1EndLn==0) or (D2StartLn==0) of
 	true ->
-	    par([D1,beside(text("<- "),D2)],Ctxt#ctxt.break_indent);
+	    par([D1,beside(text(Arrow),D2)],Ctxt#ctxt.break_indent);
 	_ ->
 	    case D2StartLn-D1EndLn of
-		0 -> beside(D1,beside(text(" <- "),D2));
+		0 -> beside(D1,beside(text(" "++Arrow++" "),D2));
 		1 -> 
                     {ArrowLn, ArrowCol} = 
-                        get_keyword_loc_before('<-', Ctxt, BodyStartLoc ),
+                        get_keyword_loc_before(list_to_atom(Arrow), Ctxt, BodyStartLoc ),
                     if ArrowLn ==D1EndLn ->
                             Offset = D2StartCol -D1StartCol,
-                            above(beside(D1, text("<-")),nest(Offset,D2));
+                            above(beside(D1, text(" "++Arrow)),nest(Offset,D2));
                        true ->
-                            above(D1,nest(ArrowCol-D1StartCol,beside(text("<- "),D2)))
+                            above(D1,nest(ArrowCol-D1StartCol,beside(text(Arrow++" "),D2)))
                     end;
-		_ -> par([D1,beside(text("<- "),D2)],Ctxt#ctxt.break_indent)
+		_ -> par([D1,beside(text(Arrow++" "),D2)],Ctxt#ctxt.break_indent)
 	    end
     end.
 
