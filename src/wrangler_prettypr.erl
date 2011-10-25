@@ -2225,10 +2225,11 @@ repair_form_layout([{'s', OldLineToks, NewLineToks}|Lines], PrevDiff, TabWidth, 
                             case remove_loc_and_whites(OldLineToks)--
                                 remove_loc_and_whites(NewLineToks) of
                                 [T={A, _}] when A=='->' orelse A=='of' ->
-                                    case has_layout_change(OldLineToks, NewLineToks, TabWidth) of 
-                                        false ->
-                                            repair_form_layout(Lines1, '*', TabWidth, [OldLineToks|Acc]);
+                                    case has_layout_change(OldLineToks, NewLineToks, TabWidth)==false andalso 
+                                        has_editing_change(OldLineToks, NewLineToks) == false of
                                         true ->
+                                            repair_form_layout(Lines1, '*', TabWidth, [OldLineToks|Acc]);
+                                        false ->
                                             NewLineToks1 = insert_token_at_end(NewLineToks, T),
                                             NewLineToks2 = recover_tab_keys(OldLineToks, NewLineToks1, TabWidth),
                                             repair_form_layout(Lines1, 's', TabWidth, [NewLineToks2|Acc])
