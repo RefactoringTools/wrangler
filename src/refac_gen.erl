@@ -384,7 +384,7 @@ add_function(ModName, Tree, FunName, Arity, Exp, SideEffect) ->
 		Pats1 = lists:map(Fun, Pats),
 		G = wrangler_syntax:clause_guard(C),
 		Op = wrangler_syntax:operator(Name),
-		Args = Pats1 ++ [wrangler_misc:reset_attrs(Expr)],
+		Args = Pats1 ++ [wrangler_misc:reset_ann_and_pos(Expr)],
 		Body = [wrangler_syntax:application(Op, Args)],
 		wrangler_syntax:clause(Pats, G, Body)
 	end,
@@ -454,7 +454,8 @@ replace_clause_body(C, FunName, Exp, ActualPar) ->
 	true ->
 	    Pats = wrangler_syntax:clause_patterns(C),
 	    G = wrangler_syntax:clause_guard(C),
-	    Body = [wrangler_syntax:application(wrangler_syntax:atom(FunName), Pats ++ [ActualPar])],
+	    Body = [wrangler_syntax:application(wrangler_syntax:atom(FunName), 
+                                                Pats ++ [wrangler_misc:reset_ann_and_pos(ActualPar)])],
 	    Body1 = [B1 || B <- Body,
 			   {B1, _} <- [api_ast_traverse:stop_tdTP(fun do_replace_underscore/2, B, [])]],
 	    wrangler_misc:rewrite(C, wrangler_syntax:clause(Pats, G, Body1));
