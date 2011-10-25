@@ -123,7 +123,6 @@ print_a_form_and_get_changes(Form, FileFormat, Options, TabWidth) ->
 		 tokens = wrangler_misc:get_toks(Form)},
     OrigFormStr=wrangler_misc:concat_toks(wrangler_misc:get_toks(Form)),
     NewFormStr0= print_form(Form,reset_prec(Ctxt),fun lay/2),
-    %% NewFormStr0=erl_prettypr:format(Form),
     NewFormStr=repair_new_form_str(OrigFormStr, NewFormStr0, TabWidth,FileFormat),
     {ok, OrigToks, _} = wrangler_scan:string(OrigFormStr),
     {ok, NewToks, _} = wrangler_scan:string(NewFormStr),
@@ -2232,7 +2231,7 @@ repair_form_layout([{'s', OldLineToks, NewLineToks}|Lines], PrevDiff, TabWidth, 
                                         true ->
                                             NewLineToks1 = insert_token_at_end(NewLineToks, T),
                                             NewLineToks2 = recover_tab_keys(OldLineToks, NewLineToks1, TabWidth),
-                                            repair_form_layout(Lines, 's', TabWidth, [NewLineToks2|Acc])
+                                            repair_form_layout(Lines1, 's', TabWidth, [NewLineToks2|Acc])
                                     end;
                                 _ ->
                                     NewLineToks1 = recover_tab_keys(OldLineToks, NewLineToks, TabWidth),
@@ -2337,7 +2336,7 @@ group_toks_by_line_1(Toks = [T| _Ts],Acc) ->
 
 
 insert_token_at_end(Toks, T) ->
-    {Toks1, Toks2} = list:splitwith(
+    {Toks1, Toks2} = lists:splitwith(
                        fun(Tok) ->
                                is_whitespace_or_comment(Tok)
                        end, lists:reverse(Toks)),
