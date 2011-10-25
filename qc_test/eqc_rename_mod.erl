@@ -19,7 +19,7 @@ collect_mod_names(Dirs) ->
    
 %% Properties for 'rename a function name'
 prop_rename_mod({FName, NewName, SearchPaths, TabWidth}) ->
-    Args = [FName, NewName, SearchPaths, TabWidth],
+    Args = [FName, NewName, SearchPaths, emacs,  TabWidth],
     try  apply(refac_rename_mod, rename_mod, Args) of
 	 {ok, ChangedFiles} -> 
 	    wrangler_preview_server:commit(),
@@ -154,9 +154,9 @@ gen_rename_mod_commands_1(FileName, Dirs) ->
     noshrink({FileName, oneof(collect_mod_names(Dirs)++madeup_mod_names()), Dirs, 8}).
 	
 test_rename_mod(Dirs) ->
-    application:start(wrangler_app),
-    eqc:quickcheck(numtests(500,?FORALL(C, (gen_rename_mod_commands(Dirs)), prop_rename_mod(C)))),
-    application:stop(wrangler_app).
+    application:start(wrangler),
+    eqc:quickcheck(numtests(50,?FORALL(C, (gen_rename_mod_commands(Dirs)), prop_rename_mod(C)))),
+    application:stop(wrangler).
 
 
 test_rename_mod1() ->
@@ -183,6 +183,10 @@ test_rename_mod7() ->
 test_rename_mod8() ->
     test_rename_mod(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
 
+test_rename_mod9() ->
+    test_rename_mod(["c:/cygwin/home/hl/test_codebase/syntax_tools"]).
+
+
 run_test() ->
     test_rename_mod1(),
     test_rename_mod2(),
@@ -191,5 +195,6 @@ run_test() ->
     test_rename_mod5(),
     test_rename_mod6(),
     test_rename_mod7(),
-    test_rename_mod8().
+    test_rename_mod8(),
+    test_rename_mod9().
     
