@@ -918,7 +918,7 @@ lay_2(Node, Ctxt) ->
 		lay_generator(Ctxt, Pat, Body);
 	binary_generator ->
                 Pat = wrangler_syntax:binary_generator_pattern(Node),
-		Body = efac_syntax:binary_generator_body(Node),
+		Body = wrangler_syntax:binary_generator_body(Node),
 		lay_generator(Ctxt, Pat, Body);
 	implicit_fun ->
                 Ctxt1=reset_check_bracket(reset_prec(Ctxt)),
