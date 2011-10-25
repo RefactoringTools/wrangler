@@ -6,7 +6,7 @@
 
 collect_expr_locs(AST) ->
     F1 = fun (T,S) ->
-		 case api_refac:is_expr_or_match(T) of
+		 case api_refac:is_expr(T) orelse (wrangler_syntax:type(T)==match_expr) of
 		     true -> Range = api_refac:start_end_loc(T),
 			     [Range| S];
 		     _ -> S
@@ -14,8 +14,15 @@ collect_expr_locs(AST) ->
 	 end,
     F = fun (T, S) ->
 		case wrangler_syntax:type(T) of
-		    function ->
-			api_ast_traverse:fold(F1, [], T) ++ S;
+		    clause ->
+                        Body=wrangler_syntax:clause_body(T),
+                        Len = length(Body),
+                        if Len>3 ->
+                                Range = api_refac:start_end_loc(lists:sublist(Body, 2, length(Body)-2)),
+                                [Range|S];
+                           true ->
+                                api_ast_traverse:fold(F1, [], T) ++ S
+                        end;
 		    _ -> S
 		end
 	end,
@@ -48,13 +55,13 @@ gen_filename(Dirs) ->
 
 
 %% Properties for 'generalise a function'
-prop_new_fun({FName, Range, NewName, SearchPaths, TabWidth}) ->
+prop_new_fun({FName, Range, NewName, _SearchPaths, TabWidth}) ->
     Res0= case (catch compile:file(FName, [{i, "c:/cygwin/home/hl/test_codebase"}])) of
 	      {ok, _} -> ok;
 	      _ -> fail
 	  end,
     {Start, End} = Range,
-    Args = [FName,Start, End, NewName, TabWidth],
+    Args = [FName,Start, End, NewName, emacs, TabWidth],
     try  apply(refac_new_fun, fun_extraction, Args)  of
 	 {ok, Res} -> 
 	    wrangler_preview_server:commit(),
@@ -63,10 +70,10 @@ prop_new_fun({FName, Range, NewName, SearchPaths, TabWidth}) ->
 		    wrangler_undo_server:undo(),
 		    io:format("\n~p\n", [{ok, Res}]),
 		    true;
-		_ -> 
+		Error -> 
 		    case Res0 of 
 			ok ->
-			    io:format("\nResulted file does not Compile!\n"),
+			    io:format("\nResulted file does not Compile:~p\n", [Error]),
 			    wrangler_undo_server:undo(),false;
 			fail ->
 			    wrangler_undo_server:undo(),true
@@ -98,9 +105,9 @@ show_new_fun_commands(Dirs)->
 		
 	  
 test_new_fun(Dirs) ->
-    application:start(wrangler_app),
+    application:start(wrangler),
     eqc:quickcheck(numtests(500, ?FORALL(C, (gen_new_fun_commands(Dirs)), prop_new_fun(C)))),
-    application:start(wrangler_app).
+    application:start(wrangler).
 	
     
    
@@ -114,7 +121,7 @@ test_new_fun3() ->
     test_new_fun(["c:/cygwin/home/hl/test_codebase/refactorerl"]).
 
 test_new_fun4() ->
-    test_new_fun(["c:/cygwin/home/hl/test_codebase/suites"]).
+    test_new_fun(["c:/cygwin/home/hl/test_codebase/ibrowse"]).
 
 test_new_fun5() ->
     test_new_fun(["c:/cygwin/home/hl/test_codebase/wrangler"]).
@@ -127,6 +134,9 @@ test_new_fun7() ->
 
 test_new_fun8() ->
     test_new_fun(["c:/cygwin/home/hl/test_codebase/dialyzer"]).
+
+test_new_fun9() ->
+    test_new_fun(["c:/cygwin/home/hl/test_codebase/syntax_tools"]).
 
 run_test_new_fun() ->
     test_new_fun1(),

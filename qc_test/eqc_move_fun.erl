@@ -62,7 +62,7 @@ prop_move_fun({FName, Loc, TargetMod,SearchPaths, TabWidth}) ->
     {Line, Col} = Loc,
     ?IMPLIES((Loc =/= {0, 0}),
 	     begin
-		 Args = [FName, Line, Col, TargetMod,SearchPaths, TabWidth],
+		 Args = [FName, Line, Col, TargetMod,SearchPaths, emacs, TabWidth],
 		 try  apply(refac_move_fun, move_fun, Args)  of 
 		      {ok, Res} ->
 			 wrangler_preview_server:commit(),
@@ -77,13 +77,13 @@ prop_move_fun({FName, Loc, TargetMod,SearchPaths, TabWidth}) ->
 					 wrangler_undo_server:undo(),
 					 io:format("\n~p\n", [{ok, Res}]),
 					 true;
-				     _ ->
+				     Error ->
 					 wrangler_undo_server:undo(), 
-					 io:format("\nResulted file:~p does not compile!\n", [TargetMod]),
+					 io:format("\nResulted file:~p does not compile:~p!\n", [TargetMod,Error]),
 					 false
 				 end;
-			     _ ->wrangler_undo_server:undo(), 
-				 io:format("\nResulted file: ~p  does not compile!\n", [FName]),
+			     Error ->wrangler_undo_server:undo(), 
+				 io:format("\nResulted file: ~p  does not compile:~p!\n", [FName, Error]),
 				 false
 			 end;
 		      {question, Msg} ->
@@ -113,9 +113,9 @@ gen_move_fun_commands_1(FileName, Dirs) ->
 
 
 test_move_fun(Dirs) ->
-    application:start(wrangler_app),
+    application:start(wrangler),
     eqc:quickcheck(numtests(500,?FORALL(C, (gen_move_fun_commands(Dirs)), prop_move_fun(C)))),
-    application:stop(wrangler_app).
+    application:stop(wrangler).
 
 test_move_fun1() ->
     test_move_fun(["c:/cygwin/home/hl/test_codebase/lampera"]).
@@ -128,10 +128,10 @@ test_move_fun3() ->
     test_move_fun(["c:/cygwin/home/hl/test_codebase/refactorerl"]).
 
 test_move_fun4() ->
-    test_move_fun(["c:/cygwin/home/hl/test_codebase/suite"]).
+    test_move_fun(["c:/cygwin/home/hl/test_codebase/ibrowse"]).
 
 test_move_fun5() ->
-    test_move_fun(["c:/cygwin/home/hl/test_codebase/wrangler"]).
+    test_move_fun(["c:/cygwin/home/hl/test_codebase/wrangler/src"]).
 
 test_move_fun6() ->
     test_move_fun(["c:/cygwin/home/hl/test_codebase/umbria"]).
@@ -144,6 +144,9 @@ test_move_fun8() ->
 
 test_move_fun() ->
     test_move_fun(["c:/cygwin/home/hl/test_codebase"]).
+
+test_move_fun9() ->
+    test_move_fun(["c:/cygwin/home/hl/test_codebase/syntax_tools"]).
 
 run_test() ->
     test_move_fun1(),
