@@ -287,7 +287,7 @@ make_actual_parameter(ModName, Exp, SideEffect) ->
 			{value, {fun_def, {M, _N, A, _P1, _P2}}} ->
 			    case wrangler_syntax:type(Exp) of
 				atom ->
-				    case M == ModName of
+				    case M == ModName orelse M=='_' of
 					true ->
 					    wrangler_syntax:implicit_fun(Exp, wrangler_syntax:integer(A));
 					_ ->
