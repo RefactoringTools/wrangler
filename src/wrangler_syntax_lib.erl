@@ -321,7 +321,9 @@ vann(Tree, Env, Ms, VI, Pid) ->
 	rule -> vann_rule(Tree, Env, Ms, VI, Pid);
 	fun_expr -> vann_fun_expr(Tree, Env, Ms, VI, Pid);
 	list_comp -> vann_list_comp(Tree, Env, Ms, VI, Pid);
+        binary_comp ->vann_binary_comp(Tree, Env, Ms, VI, Pid);
 	generator -> vann_generator(Tree, Env, Ms, VI, Pid);
+        binary_generator ->vann_binary_generator(Tree, Env, Ms, VI, Pid);
 	block_expr -> vann_block_expr(Tree, Env, Ms, VI, Pid);
 	macro -> vann_macro(Tree, Env, Ms, VI, Pid);
 	%% Added by HL, begin.
@@ -509,7 +511,10 @@ vann_list_comp(Tree, Env, Ms, VI, Pid) ->
 vann_list_comp_body_join(Ms, VI, Pid) ->
     fun (T, {Env, Bound, Free}) ->
 	    {T1, Bound1, Free1} = case wrangler_syntax:type(T) of
-				    generator -> vann_generator(T, Env, Ms, VI, Pid);
+                                    binary_generator ->
+                                         vann_binary_generator(T, Env, Ms, VI, Pid);
+				    generator -> 
+                                          vann_generator(T, Env, Ms, VI, Pid);
 				    _ ->
 					{T2, _, Free2} = vann(T, Env, Ms, VI, Pid),
 					{T2, [], Free2}
@@ -529,6 +534,45 @@ vann_list_comp_body(Ts, Env, Ms, VI, Pid) ->
 					     {Env, [], []}, Ts),
     {Ts1, {Bound, Free}}.
 
+
+vann_binary_comp(Tree, Env, Ms, VI, Pid) ->
+    Es = wrangler_syntax:binary_comp_body(Tree),
+    {Es1, {Bound1, Free1}} = vann_binary_comp_body(Es, Env, Ms, VI, Pid),
+    F=fun(V, Bs) -> lists:keysearch(V, 1,  Bs)==false end,
+    Env0 = [{V, P}||{V,P}<-Env, F(V, Bound1)],
+    Env1 = ordsets:union(Env0, Bound1),
+    T = wrangler_syntax:binary_comp_template(Tree),
+    {T1, _, Free2} = vann(T, Env1, Ms, VI, Pid),
+    Free = ordsets:union(Free1,ordsets:subtract(Free2, Bound1)),
+    Bound = [],
+    Tree1 = rewrite(Tree, wrangler_syntax:binary_comp(T1, Es1)),
+    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+
+vann_binary_comp_body_join(Ms, VI, Pid) ->
+    fun (T, {Env, Bound, Free}) ->
+	    {T1, Bound1, Free1} = case wrangler_syntax:type(T) of
+                                    binary_generator ->
+                                          vann_binary_generator(T, Env, Ms, VI, Pid);
+                                      generator -> 
+                                          vann_generator(T, Env, Ms, VI, Pid);
+                                      _ ->
+					{T2, _, Free2} = vann(T, Env, Ms, VI, Pid),
+                                          {T2, [], Free2}
+				  end,
+	    F = fun (V, Bs) -> lists:keysearch(V, 1, Bs) == false end,
+	    Env0 = [{V, P} || {V, P} <- Env, F(V, Bound1)],
+	    Env1 = ordsets:union(Env0, Bound1),
+	    Bound2 = ordsets:from_list([{V, P} || {V, P} <- Bound, F(V, ordsets:to_list(Bound1))]),
+	    {T1, {Env1, ordsets:union(Bound2, Bound1),
+		  ordsets:union(Free, ordsets:subtract(Free1, Bound))}}
+    end.
+
+  
+vann_binary_comp_body(Ts, Env, Ms, VI, Pid) ->
+    F = vann_binary_comp_body_join(Ms, VI, Pid),
+    {Ts1, {_, Bound, Free}} = lists:mapfoldl(F,{Env, [], []}, Ts),
+    {Ts1, {Bound, Free}}.
+
 %% In list comprehension generators, the pattern variables are always
 %% viewed as new occurrences, shadowing whatever is in the input
 %% environment (thus, the pattern contains no variable uses, only
@@ -541,6 +585,16 @@ vann_generator(Tree, Env, Ms, VI, Pid) ->
     {E1, _, Free} = vann(E, Env, Ms, VI, Pid),
     Tree1 = rewrite(Tree, wrangler_syntax:generator(P1, E1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+
+
+vann_binary_generator(Tree, Env, Ms, VI, Pid) ->
+    P = wrangler_syntax:binary_generator_pattern(Tree),
+    {P1, Bound, _} = vann_pattern(P, [], Ms, VI, Pid),
+    E = wrangler_syntax:binary_generator_body(Tree),
+    {E1, _, Free} = vann(E, Env, Ms, VI, Pid),
+    Tree1 = rewrite(Tree, wrangler_syntax:binary_generator(P1, E1)),
+    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+
 
 vann_block_expr(Tree, Env, Ms, VI, Pid) ->
     Es = wrangler_syntax:block_expr_body(Tree),
