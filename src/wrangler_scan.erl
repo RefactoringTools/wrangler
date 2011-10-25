@@ -488,15 +488,18 @@ scan_qatom_escape(Eof, Stack, _Toks, {Line, Col}, State,Errors, TabWidth,FileFor
 %% was found, i.e an actual Newline in the input.
 %%
 %% \<1-3> octal digits
-sub_scan_escape([O1, O2, O3 | Cs], _Stack, Toks,
+sub_scan_escape([O1, O2, O3 | Cs], [Fun|Stack], Toks,
 		{Line, Col}, State, Errors, TabWidth,FileFormat)
     when O1 >= $0, O1 =< $7, O2 >= $0, O2 =< $7, O3 >= $0,
 	 O3 =< $7 ->
-    C1=list_to_atom("$\\"++[O1, O2, O3]),
-    scan(Cs, [], [{char, {Line, Col-2}, C1} | Toks],{Line, Col + 3}, State, Errors, TabWidth,FileFormat);
-    %% Val = (O1 * 8 + O2) * 8 + O3 - 73 * $0,
-    %% Fun([O1, O2, O3 | Cs], Stack, Toks, {Line, Col+2}, State,
-    %%     Errors, TabWidth,FileFormat);
+    case reverse(Stack) of 
+        [_,$"|_]->
+           Fun([O1, O2, O3 | Cs], Stack, Toks, {Line, Col+2}, State,
+                Errors, TabWidth,FileFormat);
+        _  ->
+           C1=list_to_atom("$\\"++[O1, O2, O3]),
+           scan(Cs, [], [{char, {Line, Col-2}, C1} | Toks],{Line, Col + 3}, State, Errors, TabWidth,FileFormat)
+     end;    
 sub_scan_escape([O1, O2] = Cs, Stack, Toks, {Line, Col},
 		State, Errors, TabWidth,FileFormat)
     when O1 >= $0, O1 =< $7, O2 >= $0, O2 =< $7 ->
