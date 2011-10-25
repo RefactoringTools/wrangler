@@ -1170,7 +1170,6 @@ check_macros(FunDefs, CurMacroDefs, TargetMacroDefs, CheckCond) ->
     UsedMacroDefs = [{Name, {Args, Def}}
 		     || {Name, {Args, Def}} <- CurMacroDefs,
 			lists:member(Name, UsedMacros)],
-    UnDefinedUsedMacros = UsedMacros -- [Name || {Name, _Def} <- UsedMacroDefs],
     UsedMacroDefsInTargetFile =
 	[{Name, {Args, Def}} || {Name, {Args, Def}} <- TargetMacroDefs, lists:member(Name, UsedMacros)],
     UnDefinedMacros = UsedMacros-- element(1, lists:unzip(UsedMacroDefsInTargetFile)),
@@ -1182,13 +1181,13 @@ check_macros(FunDefs, CurMacroDefs, TargetMacroDefs, CheckCond) ->
 				   false
 			   end],
     case CheckCond of 
-        true -> case UnDefinedUsedMacros of
+        true -> case UnDefinedMacros of
                     [] -> ok;
                     [_] -> Msg = format("Macro: ~p, is used by the function(s) to be moved, but not defined in the current module.",
-                                        UnDefinedUsedMacros),
+                                        UnDefinedMacros),
                            throw({error, Msg});
                     _ -> Msg = format("The following macros: ~p are used by the function(s) to be moved, but not defined in the current module.",
-                                      [UnDefinedUsedMacros]),
+                                      [UnDefinedMacros]),
                          throw({error, Msg})
                 end;
         false ->
