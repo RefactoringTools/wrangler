@@ -1,15 +1,19 @@
+------------------------Major changes from Wrangler-0.9.3-------
+-- A DSL for composing composite refactorings froom elementary ones.
+-- Consistent refactoring of type specs when a function interface is changed.
+-- A number of bug fixes.
 ------------------------Major changes from Wrangler-0.9.2.4--------
 -- A framefork for users to compose their own refactoring or 
    code inspection functions.
 
 ------------------------Major changes from Wrangler-0.9.2.3-------
-      
+
 -- Fixed a bug in the refactor monitor. 
 -- Fixed a bug in similar code detection.
- 
+
 ------------------------Major changes from Wrangler-0.9.2.2--------
 
--- (for casestudy purpose only). Added one more   
+-- (for casestudy purpose only). Added one more
    choice to the refactor monitor customisation,
    so that the user is able to choose whether to 
    log the source code. 
