@@ -161,9 +161,28 @@ check_expr_category_1(Exp) ->
 		binary_field ->
 		    throw({error, "Function abstraction over a binary field is "
 			   "not supported."});
-		_ ->
-		    true
-	    end
+                arity_qualifier ->
+                    throw({error, "Function abstraction over an arity qualifier is "
+			   "not supported."});
+                _  ->
+                    Ann =wrangler_syntax:get_ann(Exp),
+                    case lists:keyfind(syntax_path, 1, Ann) of
+                        {syntax_path, implicit_fun_name} ->
+                            throw({error, "Function abstraction over the body of an implicit "                           "fun-expression is not supported."});
+                        {syntax_path, module_qualifier_argument} ->
+                            throw({error, "Function abstraction over a module qualifier is "
+			   "not supported."});
+                        {syntax_path, arity_qualifier_arity} ->
+                              throw({error, "Function abstraction over the arity of an arity qualifier is "
+                                     "not supported."});
+                        {syntax_path, arity_qualifier_body} ->
+                              throw({error, "Function abstraction over an arity qualifier body is "
+                                     "not supported."});
+                        
+                        _ ->
+                            true
+                    end
+            end
     end.
 
 is_macro_arg(Fun, Exp) ->
