@@ -241,10 +241,10 @@
 %%<a href="file:refac_batch_clone_removal.erl" >Batch clone elimination;</a>.
 %%</li>
 %%<li>
-%%<a href="file:refac_batch_tuple_args.erl" >Batch tupling of function arguments;</a>.
+%%<a href="file:examples/refac_batch_tuple_args.erl" >Batch tupling of function arguments;</a>.
 %%</li>
 %%<li>
-%%<a href="file:refac_batch_rename_fun.erl">Batch renaming of functions. </a>
+%%<a href="file:examples/refac_batch_rename_fun.erl">Batch renaming of functions. </a>
 %%</li>
 -module(gen_composite_refac).
 
