@@ -122,7 +122,7 @@ default_output() ->
 %% io_request(_Pid, {write,Term}) ->
 %%     {put_chars,io_lib,write,[Term]};
 io_request(_Pid, {format,Format,Args}) ->
-    {put_chars,io_lib,format,[Format,Args]}.
+    {put_chars,io_lib,format,[Format,Args]};
 %% io_request(_Pid, {fwrite,Format,Args}) ->
 %%     {put_chars,io_lib,fwrite,[Format,Args]};
 %% io_request(_Pid, nl) ->
@@ -140,7 +140,7 @@ io_request(_Pid, {format,Format,Args}) ->
 %%     Request;
 %% io_request(_Pid, {fread,Prompt,Format}) ->
 %%     {get_until,Prompt,io_lib,fread,[Format]};
-%% io_request(_Pid, R) ->				%Pass this straight through
-%%     R.
+io_request(_Pid, R) ->				%Pass this straight through
+     R.
 
 
