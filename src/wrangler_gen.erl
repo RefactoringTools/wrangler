@@ -69,7 +69,7 @@
 
 -define(context, composite_emacs).
 
-
+%%@hidden
 rename_fun(ModOrFile,FA, NewFunName, SearchPaths)->
     rename_fun(ModOrFile,FA, NewFunName, true, SearchPaths).
 
@@ -195,8 +195,11 @@ remove_underscore([H|T], Acc) ->
 
 
 % @doc Command generator for renaming module names.
+%%@hidden
 rename_mod(ModOrFile, NewModName, SearchPaths) ->
     rename_mod(ModOrFile, NewModName, true, SearchPaths).
+
+%%@doc Command generator for renaming module names.
 -spec rename_mod(ModOrFile::mod_or_file(),
                  NewModName::{generator, fun((M::atom())->atom())}
                            | {user_input, Prompt::fun((M::atom())->
@@ -248,8 +251,11 @@ test_rename_mod(SearchPaths, Lazy) ->
  
 
 %% @doc Command generator for renaming variable names.
+%%@hidden
 rename_var(ModOrFile, FA, OldVarName, NewVarName, SearchPaths) ->
     rename_var(ModOrFile, FA, OldVarName, NewVarName, true, SearchPaths).
+
+%% @doc Command generator for renaming variable names.
 -spec rename_var(ModOrFile::mod_or_file(), 
                  FA::fa(),
                  OldVarName::fun((VarName::atom())-> boolean())
@@ -330,9 +336,11 @@ test_rename_var(SearchPaths, Lazy) ->
                SearchPaths).
 
 
-%% @doc Command generator for moving functions from one module to another.
+%%@hidden
 move_fun(SrcModOrFile, FA, TgtModOrFile, SearchPaths) ->
     move_fun(SrcModOrFile, FA, TgtModOrFile, true, SearchPaths).
+
+%% @doc Command generator for moving functions from one module to another.
 -spec move_fun(SrcModOrFile::mod_or_file(),
                Fa::fa(),
                TagertModOrFile::mod_or_file()|
@@ -404,6 +412,7 @@ test_move_fun(SearchPaths, Lazy) ->
                SearchPaths).
 
 %% @doc Command generator for function generalisation.
+%%@hidden
 gen_fun(ModOrFile, FAFilter, ExprStr, NewParName, SearchPaths) ->
     gen_fun(ModOrFile, FAFilter, ExprStr, NewParName, true, SearchPaths, textual).
 
@@ -417,7 +426,7 @@ gen_fun(ModOrFile, FAFilter, ExprStr, NewParName, SearchPaths) ->
                         |string(),
               Lazy ::boolean(),
               SearchPaths::search_paths()) ->[elementary_refac()]|lazy_refac().
-
+%%@hidden
 gen_fun(ModOrFile, FAFilter, ExprStr, NewParName, Lazy, SearchPaths) ->
     gen_fun(ModOrFile, FAFilter, ExprStr, NewParName, Lazy, SearchPaths, textual).
 
@@ -513,9 +522,11 @@ test_gen_fun(SearchPaths, Lazy) ->
             SearchPaths, bu).
 
 
-%% @doc Command generator for folding expressions against a function definition.
+%%@hidden
 fold_expr(CurModOrFile, TgtModOrFile, FA, ClauseIndex, SearchPaths) ->
     fold_expr(CurModOrFile, TgtModOrFile, FA, ClauseIndex, true, SearchPaths).
+
+%% @doc Command generator for folding expressions against a function definition. 
 -spec fold_expr(CurModOrFile::mod_or_file(), 
                 ModOrFile::mod_or_file(), 
                 FA::fa(), 
@@ -608,10 +619,11 @@ test_fold_expr(SearchPaths, Lazy) ->
               end, 
               1, Lazy, SearchPaths).
                       
-%% @doc Command generator for unfolding a function application.
+%%@hidden
 unfold_fun_app(ModOrFile, FA, MFAorPos, SearchPaths) ->
     unfold_fun_app(ModOrFile, FA, MFAorPos, true, SearchPaths).
 
+%% @doc Command generator for unfolding a function application.
 -spec unfold_fun_app(ModOrFile::mod_or_file(), 
                      FA:: fa(),
                      MFAorPos:: fun((mfa())->boolean()) |mfa()|pos(),
@@ -713,11 +725,11 @@ test_unfold_fun(SearchPaths, Lazy) ->
                    end,
                    {test, t, 0}, Lazy, SearchPaths).
 
-%% @doc Command generator for for swapping function arguments.
-
+%%@hidden
 swap_args(ModOrFile, FA, Index1,Index2, SearchPaths)->
     swap_args(ModOrFile, FA, Index1,Index2, true, SearchPaths).
 
+%% @doc Command generator for for swapping function arguments.
 -spec swap_args(ModOrFile::mod_or_file(),
                  FA::fa(),
                  Index1:: integer()| 
@@ -769,10 +781,11 @@ test_swap_args(SearchPaths, Lazy) ->
                end,
                2, 3, Lazy, SearchPaths).
     
-%% @doc Command generator for tupling function arguments.
+%%@hidden
 tuple_args(ModOrFile, FA, Index1,Index2, SearchPaths)->
     tuple_args(ModOrFile, FA, Index1,Index2, true, SearchPaths).
 
+%% @doc Command generator for tupling function arguments.
 -spec tuple_args(ModOrFile::mod_or_file(),
                  FA::fa(),
                  Index1:: integer()| 
@@ -1057,7 +1070,7 @@ get_app_locs(File, {FunName, Arity}, AppFilter) ->
                           end
                         )], FunDef)
     end.
-%%@private
+%%@hidden
 gen_question(rename_fun,[File,{F,A}|_]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to rename function ~p:~p/~p?", [M,F,A]));
