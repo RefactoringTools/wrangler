@@ -111,7 +111,7 @@
 %%<a href="file:refac_remove_import.erl">Remove an import attribute;</a>
 %%</li>
 %%<li>
-%%<a href="file:refac_list.erl">Various list-related transformations;</a>
+%%<a href="file:examples/refac_list.erl">Various list-related transformations;</a>
 %%</li>
 %%<li>
 %%<a href="file:refac_batch_rename_fun.erl">Batch renaming of function names from camelCaseto camel_case. </a>
