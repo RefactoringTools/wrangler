@@ -180,7 +180,7 @@
 %% the transformation. While `NewCode' should evaluate to an AST node, or a sequence of 
 %% AST nodes, the user does not have to compose the AST manually, instead the general 
 %% way is to create the string representation of the new code fragment, and use the 
-%% macro `?QUOTE', which is also part of the Wrangler API, to turn the string 
+%% macro `?TO_AST', which is also part of the Wrangler API, to turn the string 
 %% representation  of a code fragment into its AST representation. All the
 %% meta-variables/atoms bound in `Template' are visible, and can be used by `NewCode', 
 %% and further more, it is also possible for `NewCode' to define its own meta variables 
@@ -189,7 +189,7 @@
 %%            ?RULE(?T("F@(Args@@@)"), 
 %%                  begin 
 %%                     NewArgs@@@=delete(N, Args@@@),
-%%                     ?QUOTE("F@(NewArgs@@@)")
+%%                     ?TO_AST("F@(NewArgs@@@)")
 %%                   end,
 %%                   refac_api:fun_define_info(F@) == {M, F, A}).
 %%
@@ -198,7 +198,7 @@
 %%
 %% </li>
 %% <li>
-%% ?QUOTE(Str).
+%% ?TO_AST(Str).
 %% This macro takes a string representation of a code fragment as input, which 
 %% may contain meta-variables, parses the string into the AST representation of the code,
 %% and then substitutes the meta-variables and/or meta-atoms with the AST nodes 
@@ -246,7 +246,7 @@
 %%
 %%</li>
 %%<li>
-%%?SPLICE(Tree).
+%%?PP(Tree).
 %%
 %%Pretty-prints the AST `Tree', and returns the string representation.
 %%
@@ -356,7 +356,7 @@
          insert_an_attr/2,
          remove_from_import/2,
          add_to_export_after/3,
-         splice/1,
+         pp/1,
          equal/2,
          quote/1,
          get_app_mod/1,
@@ -969,15 +969,15 @@ do_mask_variables(Node) ->
 
 %%=================================================================
 %%@private
-splice(Expr) when is_list(Expr) ->
-    splice_1(Expr);
-splice(Expr) ->
+pp(Expr) when is_list(Expr) ->
+    pp_1(Expr);
+pp(Expr) ->
     wrangler_prettypr:format(Expr).
 
-splice_1([E]) ->
+pp_1([E]) ->
     wrangler_prettypr:format(E);
-splice_1([E|Es]) ->  
-    wrangler_prettypr:format(E) ++ "," ++ splice_1(Es).
+pp_1([E|Es]) ->
+    wrangler_prettypr:format(E) ++ "," ++ pp_1(Es).
 
 %%@private
 quote(Str) ->    

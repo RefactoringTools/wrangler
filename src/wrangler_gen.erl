@@ -508,7 +508,7 @@ get_exprs(File, {FunName, Arity}, ExprStr) ->
                [?COLLECT(?T("E@"),  
                          api_refac:start_end_loc(E@),
                          api_refac:is_expr(E@) andalso
-                         ?SPLICE(E@)==ExprStr)], FunDef)
+                         ?PP(E@)==ExprStr)], FunDef)
     end.
 
 test_gen_fun(SearchPaths, Lazy) ->
@@ -1041,14 +1041,14 @@ get_vars(File, FunName, Arity, VarFilter) ->
         _ ->   
             ?FULL_TD_TU(
                [?COLLECT(?T("V@"), 
-                         {range, {File, [api_refac:start_end_loc(V@)]},list_to_atom(?SPLICE(V@))},
+                         {range, {File, [api_refac:start_end_loc(V@)]},list_to_atom(?PP(V@))},
                          api_refac:type(V@)==variable andalso
                          api_refac:bound_vars(V@)/=[] andalso 
                          case VarFilter of 
                              atom ->
-                                 atom_to_list(VarFilter)==?SPLICE(V@);
+                                 atom_to_list(VarFilter)==?PP(V@);
                              _ when is_function(VarFilter) ->
-                                 VarFilter(list_to_atom(?SPLICE(V@)));
+                                 VarFilter(list_to_atom(?PP(V@)));
                              _ -> false
                          end)], FunDef)
     end.
