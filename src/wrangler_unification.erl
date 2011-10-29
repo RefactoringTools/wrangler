@@ -200,7 +200,7 @@ non_same_type_expr_unification(Exp1, Exp2,_Type, CheckGen) ->
                     Exp2Ann = wrangler_syntax:get_ann(Exp2),
 		    Exp1Name = wrangler_syntax:variable_name(Exp1),
 		    case lists:keysearch(syntax_path, 1, Exp2Ann) of
-                        {value, {syntax_path, application_op}} ->
+                        {value, {syntax_path, application_operator}} ->
                             case lists:keysearch(fun_def, 1, Exp2Ann) of
                                 {value, {fun_def, {_M, _N, A, _P1, _P2}}} ->
                                     {true, [{Exp1Name, rm_comments(
