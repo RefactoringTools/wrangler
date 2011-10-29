@@ -72,9 +72,9 @@
 
 -define(T(Template), api_refac:template(Template)).
  
--define(QUOTE(Str), api_refac:quote(Str)).
+-define(TO_AST(Str), api_refac:quote(Str)).
 
--define(SPLICE(Node), api_refac:splice(Node)).
+-define(PP(Node), api_refac:pp(Node)).
 
 -define(COLLECT(Temp,Collector, Cond),
         fun()->
