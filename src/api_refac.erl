@@ -849,14 +849,25 @@ insert_an_attr(AST, Attr) ->
     Forms = wrangler_syntax:form_list_elements(AST),
     {Forms1, Forms2} = lists:splitwith(
                        fun(F) ->
-                               wrangler_syntax:type(F) == attribute orelse
-                               wrangler_syntax:type(F) == comment
+                               (wrangler_syntax:type(F) == attribute andalso 
+                                not is_spec(F)) orelse
+                                   wrangler_syntax:type(F) == comment
                        end, Forms),
     {Forms12, Forms11} = lists:splitwith(fun(F) ->
                                                 wrangler_syntax:type(F) == comment
                                          end, lists:reverse(Forms1)),
     NewForms=lists:reverse(Forms11)++[Attr]++lists:reverse(Forms12)++Forms2,
     wrangler_syntax:form_list(NewForms).
+
+is_spec(Form) ->
+    case wrangler_syntax:type(Form) of 
+        attribute -> 
+            AttrName =wrangler_syntax:attribute_name(Form),
+            wrangler_syntax:type(AttrName)==atom andalso 
+                wrangler_syntax:atom_value(AttrName)==spec;
+        _ ->
+            false
+    end.
 
 %% =====================================================================
 %%@doc Removes `F/A' from the entity list of the import attribute 
