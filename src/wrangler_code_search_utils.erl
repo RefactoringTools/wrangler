@@ -240,7 +240,7 @@ compose_clone_info(_, F, Range, Str, Num) ->
 	2 -> 
             case Num of 
                 0 ->
-                    Str1 = "\n Clone found. This code appears twice :\n",
+                    Str1 = "\nClone found. This code appears twice :\n",
                     display_clones_2(Range, Str1);
                 _ ->
                     Str1 =Str ++ "\n\n" ++"Clone "++io_lib:format("~p. ", [Num])++ "This code appears twice:\n",
@@ -249,7 +249,7 @@ compose_clone_info(_, F, Range, Str, Num) ->
 	_ -> 
             case Num of
                 0 ->
-                    Str1 = "\n Clone found. "++  io_lib:format("This code appears ~p times:\n",[F]),
+                    Str1 = "\nClone found. "++  io_lib:format("This code appears ~p times:\n",[F]),
                     display_clones_2(Range, Str1);
                 _ ->                     
                     Str1 =Str ++ "\n\n" ++"Clone "++io_lib:format("~p. ", [Num])++ 
