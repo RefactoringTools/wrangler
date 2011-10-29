@@ -119,6 +119,15 @@
 %%<li>
 %%<a href="file:inspec_examples.erl">A collection of code inspectors written using the Wrangler API. </a>
 %%</li>
+%%
+%% === How to apply an own-defined refactoring ===
+%% To invoke a user's own-defined `gen_refac' refactoring, select menu item Wrangler -> Refactor -> Apply Adhoc Refactoring, 
+%% Wrangler will then prompt you to input the name of the callback module, and the values for parameters needed by the 
+%% refactoring. 
+%%
+%% === How to add an own-defined refactoring to the menu ===
+%% To add a user-defined `gen_refac' refactoring to the `My gen_refac Refacs' menu, set the file buffer implementing the 
+%% refactoring as the current buffer, then select Wrangler -> Refactor -> Add to My gen_refac Refacs. 
 %%</doc>
 -module(gen_refac).
 
@@ -269,3 +278,4 @@ input_pars_1(_) ->
     throw:error(badarg).
  
 
+ 

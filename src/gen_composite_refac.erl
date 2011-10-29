@@ -246,6 +246,16 @@
 %%<li>
 %%<a href="file:examples/refac_batch_rename_fun.erl">Batch renaming of functions. </a>
 %%</li>
+%%
+%% === How to apply an own-defined composite refactoring ===
+%% To invoke a user's own-defined `gen_composite_refac' refactoring, select menu item Wrangler -> Refactor -> Apply Composite Refactoring, 
+%% Wrangler will then prompt you to input the name of the callback module, and the values for parameters needed by the 
+%% refactoring. 
+%%
+%% === How to add an own-defined composite refactoring to the menu ===
+%% To add a user-defined `gen_composite_refac' refactoring to the `My gen_composite_refac Refacs' menu, set the file buffer implementing the 
+%% refactoring as the current buffer, then select Wrangler -> Refactor -> Add to My gen_composite_refac Refacs. 
+
 -module(gen_composite_refac).
 
 -export([init_composite_refac/2,
