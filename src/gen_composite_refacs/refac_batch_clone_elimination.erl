@@ -4,7 +4,7 @@
 
 -export([composite_refac/1, input_par_prompts/0]).
 
--include("../include/wrangler.hrl").
+-include("../../include/wrangler.hrl").
 
 input_par_prompts() ->
     [].
