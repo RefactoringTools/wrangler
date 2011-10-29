@@ -72,16 +72,16 @@ transform(Args=#args{current_file_name=File,
 collect_uses(_Args=#args{current_file_name=File,
                          user_inputs=[ModuleName]}) ->
     ?FULL_TD_TU([?COLLECT(?T("M@:F@(Args@@)"),
-                          {list_to_atom(?SPLICE(F@)), length(Args@@)},
-                          ?SPLICE(M@)==ModuleName)],
+                          {list_to_atom(?PP(F@)), length(Args@@)},
+                          ?PP(M@)==ModuleName)],
                 [File]).
 
 rule(_Args=#args{user_inputs=[ModuleName]}) ->
-    ?RULE(?T("M@:F@(Args@@)"),?QUOTE("F@(Args@@)"),
-          ?SPLICE(M@)==ModuleName).
+    ?RULE(?T("M@:F@(Args@@)"),?TO_AST("F@(Args@@)"),
+          ?PP(M@)==ModuleName).
 
 make_import_attr(ModuleName, FAs) ->
-    ?QUOTE("-import("++ModuleName++","++
+    ?TO_AST("-import("++ModuleName++","++
                format_fa_list(FAs)++").").
 
 %% format_fa_list([]) ->

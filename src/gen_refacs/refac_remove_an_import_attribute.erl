@@ -50,14 +50,14 @@ transform(Args=#args{current_file_name=File})->
 %% qualify function calls.
 rule1(_Args=#args{user_inputs=[ModuleName]}) ->
     ?RULE(?T("F@(Args@@)"),
-          ?QUOTE(ModuleName++":F@(Args@@)"),
+          ?TO_AST(ModuleName++":F@(Args@@)"),
           api_refac:type(F@) /= module_qualifier andalso
           list_to_atom(ModuleName) == element(1,api_refac:fun_define_info(F@))).
 
 
 %% remove import attributes related.
 rule2(_Args=#args{user_inputs=[ModuleName]}) ->
-    ?RULE(?T("A@"), ?QUOTE(""),
+    ?RULE(?T("A@"), ?TO_AST(""),
           api_refac:is_import(A@, list_to_atom(ModuleName))).
 
 %%utility functions.

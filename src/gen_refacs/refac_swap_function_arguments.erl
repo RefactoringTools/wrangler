@@ -103,7 +103,7 @@ transform_in_client_files(_Args=#args{current_file_name=File,
 rule1({M,F,A}, I, J) ->
     ?RULE(?T("f@(Args@@) when Guard@@ -> Bs@@;"), 
           begin NewArgs@@=swap(Args@@,I,J),
-                ?QUOTE("f@(NewArgs@@) when Guard@@->Bs@@;")
+                ?TO_AST("f@(NewArgs@@) when Guard@@->Bs@@;")
           end,
           api_refac:fun_define_info(f@) == {M, F, A}).
 
@@ -138,8 +138,8 @@ swap(Node, I, J) ->
                     T = list_to_tuple(List),
                     T1=setelement(~p, setelement(~p, T, Jth), Ith),
                     tuple_to_list(T1)
-            end(~s)", [I, J, J, I, ?SPLICE(Node)])),
-    ?QUOTE(Str).
+            end(~s)", [I, J, J, I, ?PP(Node)])),
+    ?TO_AST(Str).
 
 
 swap_args(FileName, {FunName, Arity}, Index1, Index2, SearchPaths, Editor, TabWidth) ->

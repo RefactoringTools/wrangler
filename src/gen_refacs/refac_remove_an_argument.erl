@@ -137,7 +137,7 @@ transform_in_client_files(_Args=#args{current_file_name=File,
 rule1({M,F,A}, Ith) ->
     ?RULE(?T("f@(Args@@) when Guard@@ -> Bs@@;"), 
           begin NewArgs@@=delete(Ith, Args@@),
-                ?QUOTE("f@(NewArgs@@) when Guard@@->Bs@@;")
+                ?TO_AST("f@(NewArgs@@) when Guard@@->Bs@@;")
           end,
           api_refac:fun_define_info(f@) == {M, F, A}
          ).
@@ -176,6 +176,6 @@ delete(Ith, Arg) ->
             "fun(ArgList) ->
                     lists:sublist(ArgList, ~p-1) ++
                       lists:nthtail(~p, ArgList)
-            end(~s)", [Ith, Ith, ?SPLICE(Arg)])),
-    ?QUOTE(Str).
+            end(~s)", [Ith, Ith, ?PP(Arg)])),
+    ?TO_AST(Str).
 
