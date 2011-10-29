@@ -8,7 +8,7 @@
          check_pre_cond/1, selective/0,
          transform/1]).
 
--include("../include/wrangler.hrl").
+-include("../../include/wrangler.hrl").
 
 %% The Emacs mini-buffer prompts for the user input parameters. 
 -spec (input_par_prompts/0::() -> [string()]).                           
