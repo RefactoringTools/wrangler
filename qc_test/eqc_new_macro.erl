@@ -61,7 +61,7 @@ gen_filename(Dirs) ->
 %% Properties for 'generalise a function'
 prop_new_macro({FName, Range, NewName, SearchPaths, TabWidth}) ->
     {Start, End} = Range,
-    Args = [FName,Start, End, NewName, SearchPaths, TabWidth],
+    Args = [FName,Start, End, NewName, SearchPaths, emacs,TabWidth],
     try  apply(refac_new_macro, new_macro, Args)  of
 	 {ok, Res} -> 
 	    wrangler_preview_server:commit(),
@@ -97,9 +97,9 @@ gen_new_macro_commands_1(FileName, Dirs) ->
     noshrink({FileName, oneof(collect_expr_locs(AST)), oneof(collect_vars(AST)++Ms), Dirs, 8}).
 
 show_new_macro_commands(Dirs)->
-    application:start(wrangler_app),
+    application:start(wrangler),
     eqc:quickcheck(?FORALL (C, (gen_new_macro_commands(Dirs)), (eqc:collect(C, true)))),
-    application:stop(wrangler_app).
+    application:stop(wrangler).
 		
 	  
 test_new_macro(Dirs) ->
@@ -112,7 +112,7 @@ test_new_macro2() ->
     test_new_macro(["c:/cygwin/home/hl/test_codebase/eunit"]).
 
 test_new_macro3() ->
-    test_new_macro(["c:/cygwin/home/hl/test_codebase/refactorerl-0.5"]).
+    test_new_macro(["c:/cygwin/home/hl/test_codebase/refactorerl"]).
 
 test_new_macro4() ->
     test_new_macro(["c:/cygwin/home/hl/test_codebase/suite"]).
@@ -124,10 +124,13 @@ test_new_macro6() ->
     test_new_macro(["c:/cygwin/home/hl/test_codebase/umbria"]).
 
 test_new_macro7() ->
-    test_new_macro(["c:/cygwin/home/hl/test_codebase/yaws-1.77"]).
+    test_new_macro(["c:/cygwin/home/hl/test_codebase/yaws"]).
 
 test_new_macro8() ->
-    test_new_macro(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
+    test_new_macro(["c:/cygwin/home/hl/test_codebase/dialyzer"]).
+
+test_new_macro9() ->
+    test_new_macro(["c:/cygwin/home/hl/test_codebase/syntax_tools"]).
 
 run_test() ->
     test_new_macro1(),
