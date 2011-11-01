@@ -35,7 +35,8 @@
 	 large_modules/3, non_tail_recursive_servers/3,
 	 not_flush_unknown_messages/3,
          not_flush_unknown_messages_1/3,
-         calls_to_specific_function/2]).
+         calls_to_specific_function/2,
+         calls_to_specific_functions/2]).
 
 -include("../include/wrangler.hrl").
 
@@ -573,3 +574,11 @@ calls_to_specific_function(MFA={M, F, A}, SearchPaths) ->
     {ok, ?FULL_TD_TU([?COLLECT_LOC(?FUN_APPLY(M,F,A), true)],
                      [SearchPaths])}.
     
+calls_to_specific_functions(MFAs, SearchPaths) ->
+    {ok, ?FULL_TD_TU([?COLLECT(?FUN_APPLY(M,F,A),
+                               {_File@,{M,F,A},api_refac:start_end_loc(_This@)}, 
+                               true)||
+                         {M, F, A}<-MFAs],
+                     [SearchPaths])}.
+   
+ 
