@@ -768,7 +768,7 @@ tuple_funpar_eclipse_1(FileName, StartLoc, EndLoc, SearchPaths, TabWidth) ->
 
 
 swap_args(FileName, {FunName, Arity}, Index1, Index2, SearchPaths, Editor, TabWidth) ->
-    try_refac(refac_swap_args, swap_args, [FileName, {FunName, Arity}, Index1, Index2, SearchPaths, Editor, TabWidth]).
+    try_refac(refac_swap_function_arguments, swap_args, [FileName, {FunName, Arity}, Index1, Index2, SearchPaths, Editor, TabWidth]).
 %%=========================================================================================
 %% @doc Turn a function into a server process (Beta).
 %%<p>

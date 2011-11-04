@@ -62,7 +62,8 @@ initial_checking(SearchPaths1) ->
     end.
 
 check_searchpaths(SearchPaths) ->
-    InValidSearchPaths = lists:filter(fun (X) -> not filelib:is_dir(X) end, SearchPaths),
+    InValidSearchPaths = lists:filter(fun (X) -> not filelib:is_dir(X)  andalso 
+                                      not filelib:is_regular(X) end, SearchPaths),
     case InValidSearchPaths of
 	[] -> ok;
 	_ -> ?wrangler_io("\n===============================WARNING===============================\n",[]), 

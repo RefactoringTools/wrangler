@@ -180,5 +180,8 @@
 
 -define(refac_(RefacName, Args), {refac_, RefacName, fun()->Args end}).
 
+-define(refac_(RefacName, Args, SearchPaths),
+        {refac_, RefacName, fun()->Args++[SearchPaths] end}).
+
 -define(current(M,F,A),
         wrangler_cmd_server:update_entity({M,F,A})).

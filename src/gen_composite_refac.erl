@@ -271,7 +271,9 @@
 %%@private
 -spec behaviour_info(atom()) ->[{atom(), arity()}].
 behaviour_info(callbacks) ->
-    [{composite_refac,1}, {input_par_prompts, 0}].
+    [{composite_refac,1}, 
+     {input_par_prompts, 0},
+     {select_focus,1}].
 
 %%@private
 input_par_prompts(CallBackMod) ->
@@ -284,6 +286,19 @@ input_pars_1(CallBackMod) when is_list(CallBackMod)->
     erlang:apply(list_to_atom(CallBackMod), input_par_prompts, []);
 input_pars_1(_) ->
     throw:error(badarg).
+
+-spec(select_focus(Module::module(), Args::args()) ->
+             {ok, term()} | {error, term()}).
+select_focus(Module, Args) ->
+    case apply(Module, select_focus, [Args]) of 
+        {ok, Term} ->
+            {ok, Term};
+        {error, Reason} ->
+            {error, Reason};
+        _ ->
+            {error, "The value returned by callback function select_focus/1 "
+             "is different from the return type expected."}
+    end.
 
 %%@private
 init_composite_refac(ModName, Args=[CurFileName, [Line,Col],
@@ -304,17 +319,22 @@ init_composite_refac(ModName, Args=[CurFileName, [Line,Col],
                 user_inputs = UserInputs,
                 search_paths = SearchPaths,
                 tabwidth = TabWidth},
-    case apply(Module, composite_refac, [Args0]) of
+    case select_focus(Module, Args0) of
+        {ok, Sel}->
+            Args1 = Args0#args{focus_sel=Sel},
+            case apply(Module, composite_refac, [Args1]) of
+                {error, Reason} ->
+                    {error, Reason};
+                CR ->
+                    try start_cmd_server(CR)
+                    catch
+                        E1:E2 ->
+                            erlang:error({E1,E2})
+                    end
+            end;
         {error, Reason} ->
-            {error, Reason};
-        CR ->
-            try start_cmd_server(CR)
-            catch
-                E1:E2 ->
-                    erlang:error({E1,E2})
-            end
+            {error,Reason}
     end.
-    
 %%@private
 start_cmd_server(Cmds) ->
     wrangler_backup_server:reset_backups(),
@@ -355,8 +375,8 @@ get_next_command_1(PrevResult) ->
             {ok, PreviewPairs}=wrangler_backup_server:recover_backups(),
             wrangler_preview_server:add_files({PreviewPairs, ""}),
             Cmd;
-        {ok, C} ->
-            wrangler_io:format("Next refactoring command:\n~p\n", [C]),
+        {ok,_C} ->
+            %% wrangler_io:format("Next refactoring command:\n~p\n", [C]),
             Cmd;
         _ ->
             Cmd

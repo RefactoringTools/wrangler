@@ -3723,7 +3723,7 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
 
 (defun apply-composite-refac(callback-module-name) 
   "Apply a composite refactoring defined by behaviour gen_composite_refac"
-  (interactive)
+  (interactive (list (read-string "Refactoring Callback module name: ")))       
   (let* ((buffer (current-buffer))
         (current-file-name (buffer-file-name))
         (line-no (current-line-no))
@@ -3732,35 +3732,6 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
         (region-end   (my-region-end))
         (start-line-no (line-no-pos region-begin))
         (start-col-no  (current-column-pos region-begin)) 
-        (end-line-no   (line-no-pos region-end))
-        (end-col-no    (current-column-pos region-end)))
-    (if (buffers-saved)
-        (erl-spawn
-          (erl-send-rpc wrangler-erl-node 'gen_composite_refac 'input_par_prompts (list callback-module-name))
-          (erl-receive (buffer current-file-name callback-module-name line-no column-no 
-                               start-line-no start-col-no end-line-no end-col-no)
-              ((['rex ['badrpc rsn]]
-                (message "Refactoring failed: the refactoring does not exist!"))        
-               (['rex ['error rsn]]
-                (message "Refactoring failed: error, %s" rsn))
-               (['rex ['ok pars]]
-                (apply-composite-refac-1 callback-module-name current-file-name line-no column-no 
-                                         start-line-no start-col-no end-line-no end-col-no pars)
-                ))))
-      (message "Refactoring aborted."))))
-
-
-(defun apply-composite-refac_1(callback-module-name) 
-  "Apply a composite refactoring defined by behaviour gen_composite_refac"
-  (interactive (list (read-string "Refactoring Callback module name: ")))
-  (let* ((buffer (current-buffer))
-        (current-file-name (buffer-file-name))
-        (line-no (current-line-no))
-        (column-no (current-column-no))
-        (region-begin (my-region-beginning))
-        (region-end   (my-region-end))
-        (start-line-no (line-no-pos region-begin))
-        (start-col-no  (current-column-pos region-begin))
         (end-line-no   (line-no-pos region-end))
         (end-col-no    (current-column-pos region-end)))
     (if (buffers-saved)

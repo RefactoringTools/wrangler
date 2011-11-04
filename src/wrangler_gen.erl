@@ -89,7 +89,8 @@ rename_fun(ModOrFile,FA, NewFunName, false, SearchPaths)->
               ||File<-Files],
     lists:append(CmdLists);
 rename_fun(ModOrFile,FA, NewFunName, true, SearchPaths)->
-    case gen_file_names(ModOrFile, true, SearchPaths) of
+    Files=gen_file_names(ModOrFile, true, SearchPaths),
+    case Files of
         [] -> [];
         [F] ->get_next_rename_fun_command(
                 {F, none}, FA, NewFunName, SearchPaths);
@@ -106,7 +107,8 @@ rename_fun_1(File, FA, NewFunName, SearchPaths) ->
      ||{F, A}<-FAs].
    
 get_next_rename_fun_command({File, NextFileGen}, FA, NewFunName, SearchPaths) ->
-    case get_fun_arity({File, NextFileGen}, FA, true) of
+    Res=get_fun_arity({File, NextFileGen}, FA, true),
+    case Res of
         []->[]; 
         [{F,A}] ->
             [{refactoring, rename_fun, 
@@ -550,7 +552,6 @@ fold_expr(CurModOrFile, TgtModOrFile, FA, ClauseIndex, true, SearchPaths) ->
               {F, NextFileGen}, TgtModOrFile, FA, ClauseIndex, SearchPaths)
     end.
 get_next_fold_expr_command({File, NextFileGen}, TgtModOrFileFilter, FA, ClauseIndex, SearchPaths) ->
-    wrangler_io:format("File:\n~p\n", [{File, NextFileGen}]),
     case gen_file_names(TgtModOrFileFilter, true, SearchPaths) of 
         [] -> [];
         [TgtFile] ->

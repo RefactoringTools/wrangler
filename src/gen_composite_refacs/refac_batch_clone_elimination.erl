@@ -2,17 +2,20 @@
 %%@private
 -module(refac_batch_clone_elimination).
 
--export([composite_refac/1, input_par_prompts/0]).
+-export([composite_refac/1, input_par_prompts/0, select_focus/1]).
 
 -include("../../include/wrangler.hrl").
 
 input_par_prompts() ->
-    [].
+    []. 
 
-composite_refac(_Args=#args{current_file_name = File, 
-                            cursor_pos = Pos, 
+select_focus(_Args=#args{current_file_name=File, 
+                         cursor_pos=Pos}) ->
+    api_interface:pos_to_fun_def(File, Pos).
+
+composite_refac(_Args=#args{focus_sel=FunDef,
                             search_paths=SearchPaths}) ->
-    {ok, {M, F, A, _, _}} = api_interface:pos_to_fun_name(File,  Pos),
+    {M,F,A} = api_refac:fun_define_info(FunDef),
     ?atomic([?interactive(
                 ?refac_(rename_fun,
                         [M, {F, A}, 
