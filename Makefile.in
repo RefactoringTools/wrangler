@@ -94,7 +94,7 @@ $(ELISP_OBJ): $(ELISP_SRC)
 
 clean:
 	@cd ./c_src; make clean; cd ../..
-	@-rm -f $(ERL_OBJ) ebin/wrangler_parse.beam src/wrangler_parse.erl
+	@-rm -f ${ERL_OBJ} src/wrangler_parse.erl
 	@-rm -f $(ELISP_OBJ)	
 	@-rm -f priv/suffixtree priv/gsuffixtree
 	@-rm -f doc/*.html doc/edoc-info doc/erlang.png doc/stylesheet.css

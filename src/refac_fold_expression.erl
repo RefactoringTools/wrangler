@@ -139,14 +139,19 @@ fold_expr_by_name_1(FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths,
     {value, {module, CurrentModName}} = lists:keysearch(module, 1, Info),
     FileName1 = get_file_name(ModName, SearchPaths),
     {ok, {AnnAST1, _Info1}} = wrangler_ast_server:parse_annotate_file(FileName1, true, SearchPaths, TabWidth),
-    case get_fun_clause_def(AnnAST1, FunName, Arity, ClauseIndex) of
-        {ok, {Mod, _FunName, _Arity, FunClauseDef}} ->
-            side_condition_analysis(FunClauseDef),
-            Candidates = search_candidate_exprs(AnnAST, {Mod, CurrentModName}, FunName, FunClauseDef),
-            fold_expression_0(FileName, Candidates, FunClauseDef, Cmd, Editor, SearchPaths, TabWidth);
-        {error, _Reason} ->
-            throw({error, "The specified funcion clause does not exist!"})
-     end.
+    case api_refac:is_exported({FunName, Arity}, FileName1) of 
+        true ->
+            case get_fun_clause_def(AnnAST1, FunName, Arity, ClauseIndex) of
+                {ok, {Mod, _FunName, _Arity, FunClauseDef}} ->
+                    side_condition_analysis(FunClauseDef),
+                    Candidates = search_candidate_exprs(AnnAST, {Mod, CurrentModName}, FunName, FunClauseDef),
+                    fold_expression_0(FileName, Candidates, FunClauseDef, Cmd, Editor, SearchPaths, TabWidth);
+                {error, _Reason} ->
+                    throw({error, "The specified funcion clause does not exist!"})
+            end;
+        false ->
+            throw({error, "The function is not exported by its defining module!"})
+    end.
 
 get_file_name(ModName, SearchPaths) ->
     Files = wrangler_misc:expand_files(SearchPaths, ".erl"),
