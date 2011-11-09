@@ -18,11 +18,24 @@ BUILD_FIRST = ebin/wrangler_parse.beam ebin/wrangler_expand_rule.beam \
    ebin/wrangler_syntax_lib.beam ebin/wrangler_misc.beam ebin/api_ast_traverse.beam ebin/api_refac.beam
 
 ERL_SRC = $(wildcard src/*.erl)
-ERL_OBJ = $(BUILD_FIRST) $(patsubst src/%.erl,ebin/%.beam,$(ERL_SRC))
 
-.PHONY: default all conf erl c
+ERL_GEN_REFACS_SRC = $(wildcard src/gen_refacs/*.erl)
 
-default: conf erl c
+ERL_MY_GEN_REFACS_SRC= $(wildcard src/my_gen_refacs/*.erl)
+
+ERL_GEN_COMP_SRC = $(wildcard src/gen_composite_refacs/*.erl)
+
+ERL_MY_GEN_COMP_SRC = $(wildcard src/my_gen_composite_refacs/*.erl)
+
+ERL_OBJ = $(BUILD_FIRST) $(patsubst src/%.erl,ebin/%.beam,$(ERL_SRC)) \
+	$(patsubst src/gen_refacs/%.erl, ebin/%.beam, $(ERL_GEN_REFACS_SRC)) \
+	$(patsubst src/my_gen_refacs/%.erl, ebin/%.beam, $(ERL_MY_GEN_REFACS_SRC)) \
+	$(patsubst src/gen_composite_refacs/%.erl, ebin/%.beam, $(ERL_GEN_COMP_SRC)) \
+	$(patsubst src/my_gen_composite_refacs/%.erl, ebin/%.beam, $(ERL_MY_GEN_COMP_SRC))		
+
+.PHONY: default all conf erl c elisp
+
+default: conf erl c elisp
 
 all: default docs
 
@@ -30,12 +43,18 @@ CONF_SRC = Makefile.in c_src/suffixtree/Makefile.in \
 		c_src/gsuffixtree/Makefile.in
 CONF_OBJ = $(patsubst %.in,%,$(CONF_SRC))
 
+ELISP_SRC = elisp/wrangler.el.src
+
+ELISP_OBJ = $(patsubst elisp/%.src, elisp/%, $(ELISP_SRC))
+
 conf: $(CONF_OBJ)
 
 erl: $(ERL_OBJ)
 
 c:
 	@cd ./c_src; make; cd ../..
+
+elisp: $(ELISP_OBJ)
 
 ########################################
 ## Rules
@@ -49,10 +68,26 @@ $(CONF_OBJ): configure $(CONF_SRC)
 ebin/%.beam: src/%.erl
 	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
 
+ebin/%.beam: src/gen_refacs/%.erl
+	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
+
+ebin/%.beam: src/my_gen_refacs/%.erl
+	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
+
+ebin/%.beam: src/gen_composite_refacs/%.erl
+	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
+
+ebin/%.beam: src/my_gen_composite_refacs/%.erl
+	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
+
 ebin/%.beam: include/wrangler.hrl include/wrangler_internal.hrl
 
 src/%.erl: src/%.yrl
 	$(ERLC) -o src $<
+
+$(ELISP_OBJ): $(ELISP_SRC) 
+	cp $(ELISP_SRC) $(ELISP_OBJ);   
+	escript ebin/dynamic_menu_items >>$(ELISP_OBJ)
 
 ########################################
 
@@ -60,6 +95,7 @@ src/%.erl: src/%.yrl
 clean:
 	@cd ./c_src; make clean; cd ../..
 	@-rm -f $(ERL_OBJ) ebin/wrangler_parse.beam src/wrangler_parse.erl
+	@-rm -f $(ELISP_OBJ)	
 	@-rm -f priv/suffixtree priv/gsuffixtree
 	@-rm -f doc/*.html doc/edoc-info doc/erlang.png doc/stylesheet.css
 	@-rm -f doc/*.erl
@@ -99,14 +135,14 @@ wc:
 	@echo "* C"
 	@wc -l */*.c | sort -nr
 
-
-EXAMPLE_CODE = inspec_examples.erl refac_list.erl \
-    refac_apply_to_remote_call.erl refac_remove_arg.erl \
-    refac_batch_rename_fun.erl refac_remove_import.erl refac_intro_import.erl \
-    refac_specialise.erl refac_keysearch_to_keyfind.erl refac_swap_args.erl
+EXAMPLE_CODE = inspec_examples.erl \
+    gen_refacs/refac_apply_to_remote_call.erl gen_refacs/refac_remove_an_argument.erl \
+    gen_refacs/refac_remove_an_import_attribute.erl gen_refacs/refac_add_an_import_attribute.erl \
+    gen_refacs/refac_specialise_a_function.erl gen_refacs/refac_keysearch_to_keyfind.erl gen_refacs/refac_swap_function_arguments.erl \
+    gen_composite_refacs/refac_batch_clone_elimination.erl 
 
 docs:
-	$(ERL) -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS)])" -s init stop
+	$(ERL) -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS), {packages, false}])" -s init stop
 	(cd src ; cp $(EXAMPLE_CODE) ../doc/)
 
 privdocs:

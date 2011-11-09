@@ -42,7 +42,7 @@
 
 -export([cyclic_dependent_modules/3,
 	 improper_inter_module_calls/2, 
-	 partition_exports/4,
+	 partition_exports/5,
 	 partition_exports_eclipse/4,
 	 component_extraction_suggestion/1]).
 
@@ -730,13 +730,13 @@ format_label([{F,A}|T]) ->
 %%                                                                        %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%-spec(partition_exports/4::(File::filename(), DistTreshold::string(), 
-%%			    SearchPaths::[filename()|dir()], TabWidth::integer()) ->
+%%			    SearchPaths::[filename()|dir()], Editor:: atom(),TabWidth::integer()) ->
 %% 			{ok, [filename()]}).
-partition_exports(File, DistThreshold, SearchPaths, TabWidth) ->
+partition_exports(File, DistThreshold, SearchPaths, Editor, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:partition_exports(~p,~p,~p,~p).\n",
  		 [?MODULE, File, DistThreshold, SearchPaths, TabWidth]),
     DistThreshold1 = get_dist_threshold(DistThreshold),
-    partition_exports(File, DistThreshold1, false, SearchPaths, TabWidth, emacs).
+    partition_exports(File, DistThreshold1, false, SearchPaths, TabWidth, Editor).
 
 %%-spec(partition_exports_eclipse/4::(File::filename(), DistTreshold::float(),
 %%				    SearchPaths::[filename()|dir()], TabWidth::integer()) ->

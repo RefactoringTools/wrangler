@@ -61,17 +61,13 @@ wait_io_mon_reply(From, Mref) ->
 	    {error,terminated}
     end.
 
-
-to_tuple(T) when is_tuple(T) -> T;
-to_tuple(T) -> {T}.
-
 %% Problem: the variables Other, Name and Args may collide with surrounding
 %% ones.
 %% Give extra args to macro, being the variables to use.
 -define(O_REQUEST(Io, Request),
     case request(Io, Request) of
 	{error, Reason} ->
-	    [Name | Args] = tuple_to_list(to_tuple(Request)),
+	    [Name | Args] = tuple_to_list(Request),
 	    erlang:error(conv_reason(Name, Reason), [Name, Io | Args]);
 	Other ->
 	    Other
@@ -80,7 +76,7 @@ to_tuple(T) -> {T}.
 o_request(Io, Request) ->
     case request(Io, Request) of
 	{error, Reason} ->
-	    [Name | Args] = tuple_to_list(to_tuple(Request)),
+	    [Name | Args] = tuple_to_list(Request),
 	    {'EXIT',{undef,[_Current|Mfas]}} = (catch erlang:error(undef)),
 	    MFA = {io, Name, [Io | Args]},
 	    exit({conv_reason(Name, Reason),[MFA|Mfas]});
@@ -145,6 +141,6 @@ io_request(_Pid, {format,Format,Args}) ->
 %% io_request(_Pid, {fread,Prompt,Format}) ->
 %%     {get_until,Prompt,io_lib,fread,[Format]};
 io_request(_Pid, R) ->				%Pass this straight through
-    R.
+     R.
 
 

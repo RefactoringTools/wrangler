@@ -79,7 +79,7 @@ prop_rename_fun({FName, Loc, NewName, SearchPaths, TabWidth}) ->
     ?IMPLIES(valid_rename_fun_command(AST, {FName, Loc, NewName, SearchPaths}),
 	     begin
 		 {Line, Col} = Loc,
-		 Args = [FName, Line, Col, NewName, SearchPaths, TabWidth],
+		 Args = [FName, Line, Col, NewName, SearchPaths, emacs, TabWidth],
 		 Res = try apply(refac_rename_fun, rename_fun, Args)
 		       catch
 			   throw:Error ->
@@ -146,9 +146,9 @@ gen_rename_fun_commands_1(FileName, Dirs) ->
     noshrink({FileName, oneof(collect_fun_locs(AST)), oneof(collect_atoms(AST)), Dirs, 8}).
 	
 test_rename_fun(Dirs) ->
-    application:start(wrangler_app),
+    application:start(wrangler),
     eqc:quickcheck(numtests(500,?FORALL(C, (gen_rename_fun_commands(Dirs)), prop_rename_fun(C)))),
-    application:stop(wrangler_app).
+    application:stop(wrangler).
 
 
   
@@ -176,6 +176,9 @@ test_rename_fun7() ->
 test_rename_fun8() ->
     test_rename_fun(["c:/cygwin/home/hl/test_codebase/dialyzer"]).
 
+test_rename_fun9() ->
+    test_rename_fun(["c:/cygwin/home/hl/test_codebase/syntax_tools"]).
+
 run_test_rename_fun() ->
     test_rename_fun1(),
     test_rename_fun2(),
@@ -184,5 +187,6 @@ run_test_rename_fun() ->
     test_rename_fun5(),
     test_rename_fun6(),
     test_rename_fun7(),
-    test_rename_fun8().
+    test_rename_fun8(),
+    test_rename_fun9().
     

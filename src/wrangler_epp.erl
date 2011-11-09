@@ -466,8 +466,6 @@ scan_define_cont(F, St, M, {Arity, Def}) ->
             wait_req_scan(St)
     end.
 
-macro_uses(undefined) ->
-    undefined;
 macro_uses({_Args, Tokens}) ->
     Uses0 = macro_ref(Tokens),
     lists:usort(Uses0).

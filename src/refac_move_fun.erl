@@ -61,8 +61,8 @@
 %% @private
 -module(refac_move_fun).
 
--export([move_fun/6, move_fun_1/7, move_fun_eclipse/6, move_fun_1_eclipse/6,
-         move_fun_by_name/5]).
+-export([move_fun/7, move_fun_1/8, move_fun_eclipse/6, move_fun_1_eclipse/6,
+         move_fun_by_name/6]).
 
 -export([analyze_file/3]).
 
@@ -80,33 +80,26 @@
                   ast :: syntaxTree(),
                   info:: [{key(), any()}]}).
 %==========================================================================================
--spec(move_fun/6::(filename(),integer(),integer(), string(), [dir()], integer())->
-	     {ok, [filename()]} | {question, string()}).
-move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) ->
-    move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, emacs).
-
--spec(move_fun_1/7::(filename(),integer(),integer(), string(),boolean(), [dir()], integer())->
-	     {ok, [filename()]}).
-move_fun_1(FName, Line, Col, TargetModorFileName, CheckCond, SearchPaths, TabWidth) ->
-    move_fun_1(FName, Line, Col, TargetModorFileName, CheckCond, SearchPaths, TabWidth, emacs).
-
 
 -spec(move_fun_eclipse/6::(filename(),integer(),integer(), string(),[dir()], integer())
         ->  {ok, [{filename(), filename(), string()}]} | {question, string()}).
 move_fun_eclipse(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) ->
-    move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, eclipse).
+    move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, eclipse, TabWidth).
 
 
 %% THIS interface need to be changed; and should inform George of the changes.
 -spec(move_fun_1_eclipse/6::(filename(),integer(),integer(), string(),[dir()], integer())
         ->  {ok, [{filename(), filename(), string()}]}).
 move_fun_1_eclipse(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) ->
-    move_fun_1(FName, Line, Col, TargetModorFileName, true, SearchPaths, TabWidth, eclipse).
+    move_fun_1(FName, Line, Col, TargetModorFileName, true, SearchPaths, eclipse, TabWidth).
 
--spec(move_fun_by_name/5::({modulename()|filename(), atom(), integer()}, modulename()|filename(),
+-spec(move_fun_by_name/6::(modulename()|filename(), {atom(), integer()}, modulename()|filename(),
                            [dir()], atom(), integer())->
-			   {error, string()} | {ok, [filename()]}).
-move_fun_by_name({ModorFileName, FunName, Arity}, TargetModorFileName, SearchPaths, Editor, TabWidth) ->
+                                {error, string()} | {ok, [filename()]}).
+move_fun_by_name(ModorFileName, {FunName, Arity}, TargetModorFileName, SearchPaths, Editor, TabWidth) ->
+    move_fun_by_name_1(ModorFileName, FunName, Arity,TargetModorFileName, SearchPaths, Editor, TabWidth).
+
+move_fun_by_name_1(ModorFileName, FunName, Arity,TargetModorFileName, SearchPaths, Editor, TabWidth) ->
     case get_file_name(ModorFileName, SearchPaths) of
 	{ok, OriginalFileName} ->
 	    case get_file_name(TargetModorFileName, SearchPaths) of
@@ -114,17 +107,23 @@ move_fun_by_name({ModorFileName, FunName, Arity}, TargetModorFileName, SearchPat
 		    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(
                                              OriginalFileName, true, SearchPaths, TabWidth),
                     ModName = get_module_name(Info),
-		    case wrangler_misc:funname_to_defpos(AnnAST, {ModName, FunName, Arity}) of
+		    Res=wrangler_misc:funname_to_defpos(AnnAST, {ModName, FunName, Arity}),
+                    case Res of
 			{ok, Pos} ->
 			    case Pos of
 				{Line, Col} ->
-				    move_fun_1(OriginalFileName, Line, Col, TargetFileName, true, 
-                                               SearchPaths, TabWidth, Editor);
-				_ -> {error, "Wrangler could not infer the location of "
+                                    case Editor of 
+                                        composite_emacs ->
+                                            {ok, OriginalFileName, Line, Col, TargetFileName, SearchPaths};
+                                        _ ->
+                                            move_fun_1(OriginalFileName, Line, Col, TargetFileName, true, 
+                                                       SearchPaths, Editor, TabWidth)
+                                    end;
+                                _ -> {error, "Wrangler could not infer the location of "
                                       "the function in the program."}
-			    end;
+                            end;
 			{error, Reason} ->
-			    throw({error, Reason})
+                            throw({error, Reason})
 		    end;
 		{error, Reason} ->
 		    throw({error, Reason})
@@ -133,41 +132,43 @@ move_fun_by_name({ModorFileName, FunName, Arity}, TargetModorFileName, SearchPat
 	    throw({error, Reason})
     end.
 
--spec(move_fun/7::(filename(),integer(),integer(), string(),[dir()], integer(), atom())
+-spec(move_fun/7::(filename(),integer(),integer(), string(),[dir()], atom(), integer())
                   ->  {ok, [{filename(), filename(), string()}]} | {question, string()}).
-move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth, Editor) ->
-    ?wrangler_io("\nCMD: ~p:move_fun(~p, ~p, ~p, ~p, ~p, ~p).\n",
-		 [?MODULE, FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth]),
-    TargetFName = get_target_file_name(FName, TargetModorFileName),
-    case TargetFName of
-	FName -> throw({error, "The target module is the same as the current module."});
-	_ -> ok
-    end,
-    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-    case api_interface:pos_to_fun_def(AnnAST, {Line, Col}) of
-	{ok, _Def} ->
-	    ok;
-	{error, _Reason} ->
-	    case pos_to_export(AnnAST, {Line, Col}) of
-		{ok,_ExpAttr} ->
-		    ok;
-		{error, _} ->
-		    throw({error, "You have not selected a well-formed function definition or an export attribute."})
-	    end
-    end,
-    case filelib:is_file(TargetFName) of
-	true -> move_fun_1(FName, Line, Col, TargetFName, true, SearchPaths, TabWidth, Editor);
-	false -> {question, "Target file "++ TargetFName ++ " does not exist, create it?"}
-    end.
+move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, Editor, TabWidth) ->
+     ?wrangler_io("\nCMD: ~p:move_fun(~p, ~p, ~p, ~p, ~p,  ~p, ~p).\n",
+		  [?MODULE, FName, Line, Col, TargetModorFileName, SearchPaths, Editor, TabWidth]),
+     TargetFName = get_target_file_name(FName, TargetModorFileName),
+     case TargetFName of
+	 FName -> throw({error, "The target module is the same as the current module."});
+	 _ -> ok
+     end,
+     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
+     case api_interface:pos_to_fun_def(AnnAST, {Line, Col}) of
+	 {ok, _Def} ->
+	     ok;
+	 {error, _Reason} ->
+	     case pos_to_export(AnnAST, {Line, Col}) of
+		 {ok,_ExpAttr} ->
+		     ok;
+		 {error, _} ->
+		     throw({error, "You have not selected a well-formed function definition or an export attribute."})
+	     end
+     end,
+     case filelib:is_file(TargetFName) of
+	 true ->
+             move_fun_1(FName, Line, Col, TargetFName, true, SearchPaths, Editor, TabWidth);
+         false ->
+             {question, "Target file " ++ TargetFName ++ " does not exist, create it?"}
+     end.
 
--spec(move_fun_1/8::(filename(),integer(),integer(), string(), boolean(),[dir()], integer(), atom())
+-spec(move_fun_1/8::(filename(),integer(),integer(), string(), boolean(),[dir()], atom(), integer())
                     ->  {ok, [{filename(), filename(), string()}]}).
-move_fun_1(FName, Line, Col, TargetModorFileName, CondCheck, SearchPaths, TabWidth, Editor) ->
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":move_fun_1(" ++ "\"" ++ 
-	    FName ++ "\", " ++ integer_to_list(Line) ++ 
-        ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ TargetModorFileName ++ "\", " ++ "\""
+move_fun_1(FName, Line, Col, TargetModorFileName, CondCheck, SearchPaths, Editor, TabWidth) ->
+     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":move_fun_1(" ++ "\"" ++
+	     FName ++ "\", " ++ integer_to_list(Line) ++
+         ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ TargetModorFileName ++ "\", " ++ "\""
         ++atom_to_list(CondCheck)++"\", "
-        ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," 
+        ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ atom_to_list(Editor)
         ++ integer_to_list(TabWidth) ++ ").",
     CurModInfo = analyze_file(FName, SearchPaths, TabWidth),
     AnnAST = CurModInfo#modinfo.ast,
@@ -1169,7 +1170,6 @@ check_macros(FunDefs, CurMacroDefs, TargetMacroDefs, CheckCond) ->
     UsedMacroDefs = [{Name, {Args, Def}}
 		     || {Name, {Args, Def}} <- CurMacroDefs,
 			lists:member(Name, UsedMacros)],
-    UnDefinedUsedMacros = UsedMacros -- [Name || {Name, _Def} <- UsedMacroDefs],
     UsedMacroDefsInTargetFile =
 	[{Name, {Args, Def}} || {Name, {Args, Def}} <- TargetMacroDefs, lists:member(Name, UsedMacros)],
     UnDefinedMacros = UsedMacros-- element(1, lists:unzip(UsedMacroDefsInTargetFile)),
@@ -1181,13 +1181,13 @@ check_macros(FunDefs, CurMacroDefs, TargetMacroDefs, CheckCond) ->
 				   false
 			   end],
     case CheckCond of 
-        true -> case UnDefinedUsedMacros of
+        true -> case UnDefinedMacros of
                     [] -> ok;
                     [_] -> Msg = format("Macro: ~p, is used by the function(s) to be moved, but not defined in the current module.",
-                                        UnDefinedUsedMacros),
+                                        UnDefinedMacros),
                            throw({error, Msg});
                     _ -> Msg = format("The following macros: ~p are used by the function(s) to be moved, but not defined in the current module.",
-                                      [UnDefinedUsedMacros]),
+                                      [UnDefinedMacros]),
                          throw({error, Msg})
                 end;
         false ->

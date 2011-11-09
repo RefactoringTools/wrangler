@@ -8,8 +8,10 @@
 %% then select 'Apply adhoc refactoring' from the menu, 
 %% and Wrangler will prompt you to input the refactoring 
 %% name, which is supposed to be the module name.
+%%
+%% @hidden
 %% @private
--module(refac_specialise).
+-module(refac_specialise_a_function).
 
 -behaviour(gen_refac).
 
@@ -17,7 +19,7 @@
          check_pre_cond/1, selective/0,
          transform/1]).
 
--include("../include/wrangler.hrl").
+-include("../../include/wrangler.hrl").
 
 %% The Emacs mini-buffer prompts for the user input parameters. 
 -spec (input_par_prompts/0::() -> [string()]).                           
@@ -138,7 +140,7 @@ rule0(Args=#args{focus_sel={{M,F,A}, Expr, Nth}}, NewFunName) ->
               NewArgs@@=delete(Nth,Args@@),
               {ok,NewArgs1@@}=?FULL_TD_TP([rule0(Args, NewFunName),
                                            rule1(Args, NewFunName)], NewArgs@@), 
-              ?QUOTE("M@:"++NewFunName++"(NewArgs1@@)")
+              ?TO_AST("M@:"++NewFunName++"(NewArgs1@@)")
           end,
           api_refac:fun_define_info(F@) == {M,F,A} andalso
           ?EQUAL(lists:nth(Nth, Args@@), Expr)).
@@ -151,7 +153,7 @@ rule1(Args=#args{focus_sel={{M,F,A}, Expr, Nth}}, NewFunName) ->
               NewArgs@@=delete(Nth,Args@@),
               {ok,NewArgs1@@}=?FULL_TD_TP([rule0(Args, NewFunName),
                                            rule1(Args, NewFunName)], NewArgs@@), 
-              ?QUOTE(NewFunName++"(NewArgs1@@)")
+              ?TO_AST(NewFunName++"(NewArgs1@@)")
           end,
           api_refac:fun_define_info(F@) == {M,F,A} andalso
           ?EQUAL(lists:nth(Nth, Args@@), Expr)).
@@ -185,7 +187,7 @@ rule4(Args=#args{focus_sel={{_M,F,A}, _Expr, Nth}}, NewFunName) ->
           begin NewArgs@@=delete(Nth, Args@@),
                 NthPar = lists:nth(Nth, Args@@),
                 NewBs@@=transform_in_body(Args,Bs@@,NthPar, NewFunName),
-                ?QUOTE(NewFunName++"(NewArgs@@)->NewBs@@;")
+                ?TO_AST(NewFunName++"(NewArgs@@)->NewBs@@;")
           end,
           length(Args@@) == A andalso wrangler_syntax:is_atom(F@, F)).
 
@@ -198,7 +200,7 @@ rule5(#args{focus_sel={{M,F,A}, Expr, Nth}},NthPar, NewFunName) ->
     ?RULE(?T("F@(Args@@)"),
           begin
               NewArgs@@=delete(Nth, Args@@),
-              ?QUOTE(NewFunName++"(NewArgs@@)")
+              ?TO_AST(NewFunName++"(NewArgs@@)")
           end,
           api_refac:fun_define_info(F@) == {M,F,A} andalso
           check_nth_arg(Args@@, Expr, Nth, NthPar)).

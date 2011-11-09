@@ -19,7 +19,7 @@ collect_mod_names(Dirs) ->
    
 %% Properties for 'rename a function name'
 prop_rename_mod({FName, NewName, SearchPaths, TabWidth}) ->
-    Args = [FName, NewName, SearchPaths, TabWidth],
+    Args = [FName, NewName, SearchPaths, emacs,  TabWidth],
     try  apply(refac_rename_mod, rename_mod, Args) of
 	 {ok, ChangedFiles} -> 
 	    wrangler_preview_server:commit(),
@@ -42,8 +42,12 @@ prop_rename_mod({FName, NewName, SearchPaths, TabWidth}) ->
 	    Res =lists:all(fun(F) -> case compile:file(F, [{i, "c:/cygwin/home/hl/test_codebase"}]) of 
 					 {ok, _} ->
 					     true;
-				 	 _ -> io:format("\nResulted file does not compile:~p\n", [F]),
-					      false
+				 	 _ -> case filename:extension(F)==".erl" of 
+                                                  true ->io:format("\nResulted file does not compile:~p\n", [F]),
+                                                         false;
+                                                  false ->
+                                                      true
+                                              end
 				     end
 				  end, ChangedFiles1),
 	    wrangler_undo_server:undo(),
@@ -154,34 +158,38 @@ gen_rename_mod_commands_1(FileName, Dirs) ->
     noshrink({FileName, oneof(collect_mod_names(Dirs)++madeup_mod_names()), Dirs, 8}).
 	
 test_rename_mod(Dirs) ->
-    application:start(wrangler_app),
-    eqc:quickcheck(numtests(500,?FORALL(C, (gen_rename_mod_commands(Dirs)), prop_rename_mod(C)))),
-    application:stop(wrangler_app).
+    application:start(wrangler),
+    eqc:quickcheck(numtests(50,?FORALL(C, (gen_rename_mod_commands(Dirs)), prop_rename_mod(C)))),
+    application:stop(wrangler).
 
 
 test_rename_mod1() ->
-    test_rename_mod(["c:/cygwin/home/hl/test_codebase/tableau"]).
+    test_rename_mod(["c:/cygwin/home/hl/test_codebase/lampera"]).
 
 test_rename_mod2() ->
     test_rename_mod(["c:/cygwin/home/hl/test_codebase/eunit"]).
 
 test_rename_mod3() ->
-    test_rename_mod(["c:/cygwin/home/hl/test_codebase/refactorerl-0.5"]).
+    test_rename_mod(["c:/cygwin/home/hl/test_codebase/refactorerl"]).
 
 test_rename_mod4() ->
     test_rename_mod(["c:/cygwin/home/hl/test_codebase/suite"]).
-
+c
 test_rename_mod5() ->
-    test_rename_mod(["c:/cygwin/home/hl/test_codebase/wrangler-0.7"]).
+    test_rename_mod(["c:/cygwin/home/hl/test_codebase/wrangler"]).
 
-test_rename_mod6() ->
-    test_rename_mod(["c:/cygwin/home/hl/test_codebase/umbria"]).
+%% test_rename_mod6() ->
+%%     test_rename_mod(["c:/cygwin/home/hl/test_codebase/umbria"]).
 
-test_rename_mod7() ->
-    test_rename_mod(["c:/cygwin/home/hl/test_codebase/yaws-1.77"]).
+%% test_rename_mod7() ->
+ %%    test_rename_mod(["c:/cygwin/home/hl/test_codebase/yaws-1.77"]).
 
 test_rename_mod8() ->
-    test_rename_mod(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
+    test_rename_mod(["c:/cygwin/home/hl/test_codebase/dialyzer"]).
+
+test_rename_mod9() ->
+    test_rename_mod(["c:/cygwin/home/hl/test_codebase/syntax_tools"]).
+
 
 run_test() ->
     test_rename_mod1(),
@@ -189,7 +197,6 @@ run_test() ->
     test_rename_mod3(),
     test_rename_mod4(),
     test_rename_mod5(),
-    test_rename_mod6(),
-    test_rename_mod7(),
-    test_rename_mod8().
+    test_rename_mod8(),
+    test_rename_mod9().
     

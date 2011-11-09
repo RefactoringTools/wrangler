@@ -7,9 +7,9 @@
 %% functions which are defined in a user specified 
 %% module, and used in the current module by remote 
 %% function calls.
-
+%% @hidden
 %% @private
--module(refac_intro_import).
+-module(refac_add_an_import_attribute).
 
 -behaviour(gen_refac).
 
@@ -18,7 +18,7 @@
          check_pre_cond/1, selective/0,
          transform/1]).
 
--include("../include/wrangler.hrl").
+-include("../../include/wrangler.hrl").
 
 %% Ask the user which module to import. 
 -spec (input_par_prompts/0::() -> [string()]).                           
@@ -72,20 +72,20 @@ transform(Args=#args{current_file_name=File,
 collect_uses(_Args=#args{current_file_name=File,
                          user_inputs=[ModuleName]}) ->
     ?FULL_TD_TU([?COLLECT(?T("M@:F@(Args@@)"),
-                          {list_to_atom(?SPLICE(F@)), length(Args@@)},
-                          ?SPLICE(M@)==ModuleName)],
+                          {list_to_atom(?PP(F@)), length(Args@@)},
+                          ?PP(M@)==ModuleName)],
                 [File]).
 
 rule(_Args=#args{user_inputs=[ModuleName]}) ->
-    ?RULE(?T("M@:F@(Args@@)"),?QUOTE("F@(Args@@)"),
-          ?SPLICE(M@)==ModuleName).
+    ?RULE(?T("M@:F@(Args@@)"),?TO_AST("F@(Args@@)"),
+          ?PP(M@)==ModuleName).
 
 make_import_attr(ModuleName, FAs) ->
-    ?QUOTE("-import("++ModuleName++","++
+    ?TO_AST("-import("++ModuleName++","++
                format_fa_list(FAs)++").").
 
-format_fa_list([]) ->
-    "[]";
+%% format_fa_list([]) ->
+%%     "[]";
 format_fa_list(FAs) ->
     "["++lists:flatten(format_fas(FAs))++"]".
 

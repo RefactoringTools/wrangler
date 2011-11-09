@@ -139,7 +139,7 @@ parse_expr(String) ->
     case erl_scan:string(String) of
 	{ok, Tokens, _} ->
 	    catch erl_parse:parse_exprs(Tokens) ;
-	{error, {_Line, erl_parse, Rsn}} ->
+	{error, {_Line, erl_parse, Rsn}, _} ->
 	    {error, lists:flatten(Rsn)};
 	{error, Error, _} ->
 	    {error, Error}
@@ -152,7 +152,7 @@ parse_form(String) ->
     case erl_scan:string(String) of
 	{ok, Tokens, _} ->
 	    catch erl_parse:parse_form(Tokens) ;
-	{error, {_Line, erl_parse, Rsn}} ->
+	{error, {_Line, erl_parse, Rsn}, _} ->
 	    {error, lists:flatten(Rsn)};
 	{error, Error, _} ->
 	    {error, Error}

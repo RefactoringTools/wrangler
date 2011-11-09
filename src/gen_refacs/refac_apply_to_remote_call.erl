@@ -8,7 +8,7 @@
          check_pre_cond/1, selective/0,
          transform/1]).
 
--include("../include/wrangler.hrl").
+-include("../../include/wrangler.hrl").
 
 %% The Emacs mini-buffer prompts for the user input parameters. 
 -spec (input_par_prompts/0::() -> [string()]).                           
@@ -38,19 +38,19 @@ transform(_Args=#args{search_paths=SearchPaths})->
 
 rule() ->
     ?RULE(?T("Op@(N@@, M@, F@, [Args@@])"),
-          ?QUOTE("M@:F@(Args@@)"),
+          ?TO_AST("M@:F@(Args@@)"),
           {erlang,apply,3} == api_refac:fun_define_info(Op@)).
           
 rule1() ->
     ?RULE(?T("Op@(N@@, M@, F@, [])"),
-          ?QUOTE("M@:F@()"),
+          ?TO_AST("M@:F@()"),
           {erlang,apply,3} == api_refac:fun_define_info(Op@)). 
          
 rule2() ->
     ?RULE(?T("Op@(Fun@, [Args@@])"),
           begin
               {M,F,_A} = api_refac:fun_define_info(Fun@),
-              ?QUOTE(atom_to_list(M)++":"++atom_to_list(F)++"(Args@@)")
+              ?TO_AST(atom_to_list(M)++":"++atom_to_list(F)++"(Args@@)")
           end,
           case api_refac:fun_define_info(Fun@) of
               {_,_,_}->

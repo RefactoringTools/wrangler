@@ -60,13 +60,16 @@
 	 simi_score=?DEFAULT_SIMI_SCORE}).
 
 %% Ets tables uses to cache data to avoid re-evaluation.
--define(ASTTab(Dir), refac_inc_sim_code:get_temp_file_path(Dir, "ast_tab")).
--define(FileHashTab(Dir), refac_inc_sim_code:get_temp_file_path(Dir,"file_hash_tab")).
--define(VarTab(Dir), refac_inc_sim_code:get_temp_file_path(Dir, "var_tab")).
--define(ExpHashTab(Dir), refac_inc_sim_code:get_temp_file_path(Dir,"exp_hash_tab")).
--define(ExpSeqFile(Dir), refac_inc_sim_code:get_temp_file_path(Dir,"exp_seq_file")).
--define(CloneTab(Dir),  refac_inc_sim_code:get_temp_file_path(Dir,"clone_tab")).
+-define(ASTTab(Dir), get_temp_file_path(Dir, "ast_tab")).
+-define(FileHashTab(Dir), get_temp_file_path(Dir,"file_hash_tab")).
+-define(VarTab(Dir), get_temp_file_path(Dir, "var_tab")).
+-define(ExpHashTab(Dir), get_temp_file_path(Dir,"exp_hash_tab")).
+-define(ExpSeqFile(Dir), get_temp_file_path(Dir,"exp_seq_file")).
+-define(CloneTab(Dir),  get_temp_file_path(Dir,"clone_tab")).
 
+get_temp_file_path(Dir, Tab) ->
+    list_to_atom(filename:join(Dir, Tab)).
+		     
 gen_clone_report(Dir) ->
     RevDirs= case file:list_dir(Dir) of 
 		 {ok, FileOrDirs} ->
@@ -783,17 +786,17 @@ is_sub_clone({Ranges, Len, Freq,Str}, ExistingClones) ->
 		    true;
 		false -> is_sub_clone({Ranges, Len, Freq,Str}, T)
 	    end
-    end;
-is_sub_clone({Ranges, Len, Freq}, ExistingClones) ->
-    case ExistingClones of 
-	[] -> false;
-	[{Ranges1, _Len1, _Freq1}|T] ->
-	    case is_sub_ranges(Ranges, Ranges1) of 
-		true -> 
-		    true;
-		false -> is_sub_clone({Ranges, Len, Freq}, T)
-	    end
     end.
+%% is_sub_clone({Ranges, Len, Freq}, ExistingClones) ->
+%%     case ExistingClones of 
+%% 	[] -> false;
+%% 	[{Ranges1, _Len1, _Freq1}|T] ->
+%% 	    case is_sub_ranges(Ranges, Ranges1) of 
+%% 		true -> 
+%% 		    true;
+%% 		false -> is_sub_clone({Ranges, Len, Freq}, T)
+%% 	    end
+%%     end.
 
 is_sub_ranges(Ranges1, Ranges2) ->
     lists:all(fun (R1)  -> 

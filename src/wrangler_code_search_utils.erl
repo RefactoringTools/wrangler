@@ -5,7 +5,7 @@
 -export([var_binding_structure/1,
 	 display_search_results/3, display_clone_result/2,
 	 start_counter_process/0, start_counter_process/1,
-	 stop_counter_process/1,
+	 stop_counter_process/1, display_a_clone/2,
 	 add_new_export_var/2, get_new_export_vars/1,
 	 identifier_name/1, gen_new_var_name/1,
 	 remove_sub_clones/1, generalisable/1]).
@@ -235,23 +235,50 @@ make_clone_info_str(Ranges, F, Code, Num) ->
     NewStr ++"The cloned expression/function after generalisation:\n\n" ++Code.
 
 
-
 compose_clone_info(_, F, Range, Str, Num) ->
     case F of
-	2 -> Str1 =Str ++ "\n\n" ++"Clone "++io_lib:format("~p. ", [Num])++ "This code appears twice:\n",
-	     display_clones_2(Range, Str1);
-	_ -> Str1 =Str ++ "\n\n" ++"Clone "++io_lib:format("~p. ", [Num])++ 
-		 io_lib:format("This code appears ~p times:\n",[F]),
-	     display_clones_2(Range, Str1)
+	2 -> 
+            case Num of 
+                0 ->
+                    Str1 = "\n\nClone found. This code appears twice :\n",
+                    display_clones_2(Range, Str1);
+                _ ->
+                    Str1 =Str ++ "\n\n" ++"Clone "++io_lib:format("~p. ", [Num])++ "This code appears twice:\n",
+                    display_clones_2(Range, Str1)
+            end;
+	_ -> 
+            case Num of
+                0 ->
+                    Str1 = "\n\nClone found. "++  io_lib:format("This code appears ~p times:\n",[F]),
+                    display_clones_2(Range, Str1);
+                _ ->                     
+                    Str1 =Str ++ "\n\n" ++"Clone "++io_lib:format("~p. ", [Num])++ 
+                        io_lib:format("This code appears ~p times:\n",[F]),
+                    display_clones_2(Range, Str1)
+             end
     end.
 compose_clone_info(_, F, Range, Str, Num, ChangeStatus) ->
     case F of
-	2 -> Str1 =Str ++ "\n\n" ++"Clone "++io_lib:format("~p. ", [Num])++ io_lib:format("~p:", [ChangeStatus])
-		 ++ " This code appears twice:\n",
-	     display_clones_2(Range, Str1);
-	_ -> Str1 =Str ++ "\n\n" ++"Clone "++io_lib:format("~p. ", [Num])++io_lib:format("~p:", [ChangeStatus])++ 
-		 io_lib:format("This code appears ~p times:\n",[F]),
-	     display_clones_2(Range, Str1)
+	2 ->
+            case Num of 
+                0 ->
+                    Str1 = "\n\nClone found. This code appears twice :\n",
+                    display_clones_2(Range, Str1);
+                _ ->
+                    Str1 =Str ++ "\n\n" ++"Clone "++io_lib:format("~p. ", [Num])++ io_lib:format("~p:", [ChangeStatus])
+                        ++ " This code appears twice:\n",
+                    display_clones_2(Range, Str1)
+            end;
+	_ -> 
+            case Num of 
+                0 ->
+                    Str1 = "\n\nClone found. "++  io_lib:format("This code appears ~p times:\n",[F]),
+                    display_clones_2(Range, Str1);
+                _ ->
+                    Str1 =Str ++ "\n\n" ++"Clone "++io_lib:format("~p. ", [Num])++io_lib:format("~p:", [ChangeStatus])++ 
+                        io_lib:format("This code appears ~p times:\n",[F]),
+                    display_clones_2(Range, Str1)
+            end
     end.
 
 

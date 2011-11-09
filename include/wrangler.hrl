@@ -72,9 +72,9 @@
 
 -define(T(Template), api_refac:template(Template)).
  
--define(QUOTE(Str), api_refac:quote(Str)).
+-define(TO_AST(Str), api_refac:quote(Str)).
 
--define(SPLICE(Node), api_refac:splice(Node)).
+-define(PP(Node), api_refac:pp(Node)).
 
 -define(COLLECT(Temp,Collector, Cond),
         fun()->
@@ -128,6 +128,16 @@
 -define(MATCH(Temp, Node), 
         api_refac:expand_match(Temp, Node, fun(_) -> true end)).
 
+
+-define(MATCH(Temp, Node, Cond),
+        begin
+            _W_NewCond =fun(_W_Bind_) -> 
+                                api_refac:make_cond(Cond, _W_Bind_)
+                        end,
+            api_refac:expand_match(Temp, Node, _W_NewCond)
+        end).
+
+        
 -define(STOP_TD_TP(Rules, FileOrDirs),
         api_refac:search_and_transform(Rules, FileOrDirs, stop_td_tp)).
 
@@ -142,3 +152,36 @@
 
 -define(FUN_APPLY(M,F,A),
         {meta_apply, api_refac:meta_apply_templates({M,F,A})}).
+
+-define(interactive(ERs),
+        {interactive, atomic, ERs}).
+
+-define(interactive(Qualifier, ERs),
+        {interactive, Qualifier, ERs}).
+
+-define(repeat_interactive(ERs),
+        {repeat_interactive, atomic, ERs}).
+
+-define(repeat_interactive(Qualifier, ERs),
+        {repeat_interactive, Qualifier, ERs}).
+
+-define(if_then(Cond, Refac),
+         {if_then, fun()-> Cond end, Refac}).
+     
+-define(while(Cond, Refac),
+        {while, fun()->Cond end, atomic, Refac}).
+
+-define(while(Cond, Qualifier, Refac),
+        {while, fun()->Cond end, Qualifier,Refac}).
+
+-define(non_atomic(CRs),{non_atomic, CRs}).
+
+-define(atomic(CRs), {atomic, CRs}).
+
+-define(refac_(RefacName, Args), {refac_, RefacName, fun()->Args end}).
+
+-define(refac_(RefacName, Args, SearchPaths),
+        {refac_, RefacName, fun()->Args++[SearchPaths] end}).
+
+-define(current(M,F,A),
+        wrangler_cmd_server:update_entity({M,F,A})).

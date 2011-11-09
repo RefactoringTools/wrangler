@@ -321,12 +321,14 @@ vann(Tree, Env, Ms, VI, Pid) ->
 	rule -> vann_rule(Tree, Env, Ms, VI, Pid);
 	fun_expr -> vann_fun_expr(Tree, Env, Ms, VI, Pid);
 	list_comp -> vann_list_comp(Tree, Env, Ms, VI, Pid);
+        binary_comp ->vann_binary_comp(Tree, Env, Ms, VI, Pid);
 	generator -> vann_generator(Tree, Env, Ms, VI, Pid);
+        binary_generator ->vann_binary_generator(Tree, Env, Ms, VI, Pid);
 	block_expr -> vann_block_expr(Tree, Env, Ms, VI, Pid);
 	macro -> vann_macro(Tree, Env, Ms, VI, Pid);
 	%% Added by HL, begin.
 	attribute ->
-	    Toks0 = wrangler_misc:get_toks(Tree),
+	    Toks0 = get_toks(Tree),
 	    Tree1 = adjust_locations(Tree, Toks0),
 	    case wrangler_syntax:atom_value(wrangler_syntax:attribute_name(Tree1)) of
 		define -> vann_define(Tree1, Env, Ms, VI, Pid);
@@ -360,7 +362,7 @@ vann_list(Ts, Env, Ms, VI, Pid) ->
     lists:mapfoldl(vann_list_join(Env, Ms, VI, Pid), {[], []}, Ts).
 
 vann_function(Tree, Env, Ms, _VI, Pid) ->
-    Toks0 = wrangler_misc:get_toks(Tree),
+    Toks0 = get_toks(Tree),
     F = fun () ->
 		Toks1 = remove_whites(Toks0),
 		Toks2 = wrangler_epp:expand_macros(Toks1, Ms),
@@ -509,7 +511,10 @@ vann_list_comp(Tree, Env, Ms, VI, Pid) ->
 vann_list_comp_body_join(Ms, VI, Pid) ->
     fun (T, {Env, Bound, Free}) ->
 	    {T1, Bound1, Free1} = case wrangler_syntax:type(T) of
-				    generator -> vann_generator(T, Env, Ms, VI, Pid);
+                                    binary_generator ->
+                                         vann_binary_generator(T, Env, Ms, VI, Pid);
+				    generator -> 
+                                          vann_generator(T, Env, Ms, VI, Pid);
 				    _ ->
 					{T2, _, Free2} = vann(T, Env, Ms, VI, Pid),
 					{T2, [], Free2}
@@ -529,6 +534,45 @@ vann_list_comp_body(Ts, Env, Ms, VI, Pid) ->
 					     {Env, [], []}, Ts),
     {Ts1, {Bound, Free}}.
 
+
+vann_binary_comp(Tree, Env, Ms, VI, Pid) ->
+    Es = wrangler_syntax:binary_comp_body(Tree),
+    {Es1, {Bound1, Free1}} = vann_binary_comp_body(Es, Env, Ms, VI, Pid),
+    F=fun(V, Bs) -> lists:keysearch(V, 1,  Bs)==false end,
+    Env0 = [{V, P}||{V,P}<-Env, F(V, Bound1)],
+    Env1 = ordsets:union(Env0, Bound1),
+    T = wrangler_syntax:binary_comp_template(Tree),
+    {T1, _, Free2} = vann(T, Env1, Ms, VI, Pid),
+    Free = ordsets:union(Free1,ordsets:subtract(Free2, Bound1)),
+    Bound = [],
+    Tree1 = rewrite(Tree, wrangler_syntax:binary_comp(T1, Es1)),
+    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+
+vann_binary_comp_body_join(Ms, VI, Pid) ->
+    fun (T, {Env, Bound, Free}) ->
+	    {T1, Bound1, Free1} = case wrangler_syntax:type(T) of
+                                    binary_generator ->
+                                          vann_binary_generator(T, Env, Ms, VI, Pid);
+                                      generator -> 
+                                          vann_generator(T, Env, Ms, VI, Pid);
+                                      _ ->
+					{T2, _, Free2} = vann(T, Env, Ms, VI, Pid),
+                                          {T2, [], Free2}
+				  end,
+	    F = fun (V, Bs) -> lists:keysearch(V, 1, Bs) == false end,
+	    Env0 = [{V, P} || {V, P} <- Env, F(V, Bound1)],
+	    Env1 = ordsets:union(Env0, Bound1),
+	    Bound2 = ordsets:from_list([{V, P} || {V, P} <- Bound, F(V, ordsets:to_list(Bound1))]),
+	    {T1, {Env1, ordsets:union(Bound2, Bound1),
+		  ordsets:union(Free, ordsets:subtract(Free1, Bound))}}
+    end.
+
+  
+vann_binary_comp_body(Ts, Env, Ms, VI, Pid) ->
+    F = vann_binary_comp_body_join(Ms, VI, Pid),
+    {Ts1, {_, Bound, Free}} = lists:mapfoldl(F,{Env, [], []}, Ts),
+    {Ts1, {Bound, Free}}.
+
 %% In list comprehension generators, the pattern variables are always
 %% viewed as new occurrences, shadowing whatever is in the input
 %% environment (thus, the pattern contains no variable uses, only
@@ -541,6 +585,16 @@ vann_generator(Tree, Env, Ms, VI, Pid) ->
     {E1, _, Free} = vann(E, Env, Ms, VI, Pid),
     Tree1 = rewrite(Tree, wrangler_syntax:generator(P1, E1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+
+
+vann_binary_generator(Tree, Env, Ms, VI, Pid) ->
+    P = wrangler_syntax:binary_generator_pattern(Tree),
+    {P1, Bound, _} = vann_pattern(P, [], Ms, VI, Pid),
+    E = wrangler_syntax:binary_generator_body(Tree),
+    {E1, _, Free} = vann(E, Env, Ms, VI, Pid),
+    Tree1 = rewrite(Tree, wrangler_syntax:binary_generator(P1, E1)),
+    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+
 
 vann_block_expr(Tree, Env, Ms, VI, Pid) ->
     Es = wrangler_syntax:block_expr_body(Tree),
@@ -592,8 +646,7 @@ vann_macro(Tree, Env, Ms, VI, Pid) ->
                                 {error, no_value} ->
                                     Tree1;
                                 {ok, Val}->
-                                    wrangler_misc:update_ann(
-                                         Tree1,
+                                    update_ann(Tree1,
                                          {value, {Val,wrangler_syntax:get_pos(Tree1)}})
                             end
                     end;
@@ -640,7 +693,7 @@ vann_pattern(Tree, Env, Ms, VI, Pid) ->
 		    {value, {env, Env1}} = lists:keysearch(env, 1, As),
                     case lists:keysearch(value, 1, As) of 
                         {value, {value, Val}} ->
-                            Tree1 = wrangler_misc:update_ann(Tree, {value, Val}),
+                            Tree1 = update_ann(Tree, {value, Val}),
                             {ann_bindings(Tree1, Env1, Bound1, Free1, Def1), Bound1, Free1};
                         _ ->
                             {ann_bindings(Tree, Env1, Bound1, Free1, Def1), Bound1, Free1}
@@ -971,9 +1024,9 @@ cons_prop_match_expr(Tree,Pid) ->
 			    Val = literal_value_or_length(E),
 			    add_value(Pid, {DefPos, {Val, wrangler_syntax:get_pos(E)}}),
                             V ={Val, wrangler_syntax:get_pos(E)},
-			    P1 = wrangler_misc:update_ann(P,{value, V}),
+			    P1 = update_ann(P,{value, V}),
                             Tree1=rewrite(Tree,wrangler_syntax:match_expr(P1, E)),
-			    wrangler_misc:update_ann(Tree1,{value, V});
+			    update_ann(Tree1,{value, V});
                         false ->
                             Tree
                     end;
@@ -2280,10 +2333,10 @@ adjust_locations(Form, Toks) ->
 									end
 								end,
 								Toks1),
-					{L0,C0} = element(2, wrangler_misc:ghead("refac_util: adjust_locations,P", Toks2)),
+					{L0,C0} = element(2, ghead("refac_util: adjust_locations,P", Toks2)),
 					Fun2 = wrangler_syntax:set_pos(Fun, {L0,C0}),
                                         AtomLen= length(wrangler_syntax:atom_literal(Fun)),
-                                        Fun3 = wrangler_misc:update_ann(Fun2, {range, {{L0,C0}, {L0, C0 + AtomLen - 1}}}),
+                                        Fun3 = update_ann(Fun2, {range, {{L0,C0}, {L0, C0 + AtomLen - 1}}}),
 					Toks3 = lists:dropwhile(fun (B) ->
 									case B of
 									    {integer, _, _} -> false;
@@ -2291,16 +2344,16 @@ adjust_locations(Form, Toks) ->
 									end
 								end,
 								Toks2),
-                                        {L,C} = element(2, wrangler_misc:ghead("refac_util:adjust_locations:A2", Toks3)),
+                                        {L,C} = element(2, ghead("refac_util:adjust_locations:A2", Toks3)),
 					A2 = wrangler_syntax:set_pos(A, {L,C}),
                                         Len =length(wrangler_syntax:integer_literal(A)),
-                                        A3=wrangler_misc:update_ann(A2, {range, {{L, C}, {L, C + Len - 1}}}),
+                                        A3=update_ann(A2, {range, {{L, C}, {L, C + Len - 1}}}),
                                         AQ =wrangler_syntax:set_pos(
                                                  rewrite(Name,
                                                          wrangler_syntax:arity_qualifier(Fun3, A3)), {L0, C0}),
-                                        AQ1=wrangler_misc:update_ann(AQ,{range, {{L0,C0}, {L, C + Len - 1}}}),
+                                        AQ1=update_ann(AQ,{range, {{L0,C0}, {L, C + Len - 1}}}),
 					T1=rewrite(T, wrangler_syntax:implicit_fun(AQ1)),
-                                        wrangler_misc:update_ann(T1, {range, {Pos, {L, C + Len - 1}}});
+                                        update_ann(T1, {range, {Pos, {L, C + Len - 1}}});
 				    _ -> T
 				end;
 			    _ -> T
@@ -2347,8 +2400,8 @@ update_var_define_locations(Node) ->
                                          [V1|| V1 <- DefLocs,
                                                list_intersection(Define,V1) /= []]),
                                 Uses=[P||{P, D} <- SrcDefLocs, list_intersection(D, Defs) /= []],
-                                T1=wrangler_misc:update_ann(T, {def, lists:usort(Defs)}),
-                                wrangler_misc:update_ann(T1, {use, lists:usort(Uses)});
+                                T1=update_ann(T, {def, lists:usort(Defs)}),
+                                update_ann(T1, {use, lists:usort(Uses)});
 			    false -> T
 			end;
 		    _ -> T
@@ -2370,3 +2423,12 @@ update_ann(Tree, {Key, Val}) ->
 	  end,
     wrangler_syntax:set_ann(Tree, As1).
 
+ghead(Info, []) -> erlang:error(Info);
+ghead(_Info, List) -> hd(List).
+
+get_toks(Node) ->
+    As = wrangler_syntax:get_ann(Node),
+    case lists:keysearch(toks, 1, As) of
+      {value, {toks, Toks}} -> Toks;
+      _ -> []
+    end.

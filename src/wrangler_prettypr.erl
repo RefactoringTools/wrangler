@@ -53,7 +53,7 @@
 
 -define(PAPER, 80).
 
--define(RIBBON, 56).
+-define(RIBBON, 72).
 
 -define(NOUSER, undefined).
 
@@ -123,7 +123,6 @@ print_a_form_and_get_changes(Form, FileFormat, Options, TabWidth) ->
 		 tokens = wrangler_misc:get_toks(Form)},
     OrigFormStr=wrangler_misc:concat_toks(wrangler_misc:get_toks(Form)),
     NewFormStr0= print_form(Form,reset_prec(Ctxt),fun lay/2),
-    %% NewFormStr0=erl_prettypr:format(Form),
     NewFormStr=repair_new_form_str(OrigFormStr, NewFormStr0, TabWidth,FileFormat),
     {ok, OrigToks, _} = wrangler_scan:string(OrigFormStr),
     {ok, NewToks, _} = wrangler_scan:string(NewFormStr),
@@ -142,7 +141,8 @@ get_changes(OrigToks, NewToks) ->
 print_form(Form,Ctxt,Fun) ->
     Paper = Ctxt#ctxt.paper,
     Ribbon = Ctxt#ctxt.ribbon,
-    D=best(Fun(Form,Ctxt),Paper,Ribbon),
+    D0 = Fun(Form, Ctxt),
+    D=best(D0,Paper,Ribbon),
     FileFormat = Ctxt#ctxt.format,
     TabWidth = Ctxt#ctxt.tabwidth,
     FStr0=wrangler_prettypr_0:layout(D,FileFormat,TabWidth),
@@ -173,9 +173,8 @@ is_special_form(Form) ->
 	    AtrName = wrangler_syntax:attribute_name(Form),
             case wrangler_syntax:atom_value(AtrName) of
 		type -> true;
-		spec -> true;
                 opaque -> true;
-		record -> 
+                record -> 
                     [_R, FieldTuple] = wrangler_syntax:attribute_arguments(Form),
                     Fields = wrangler_syntax:tuple_elements(FieldTuple),
                     lists:any(fun(F) ->  
@@ -194,13 +193,21 @@ form_not_changed(Form) ->
 	false ->
             Toks = wrangler_misc:get_toks(Form),
             case Toks of
-                [] -> false;
+                [] -> 
+                    false;
                 _ ->
                     form_not_change_1(Form)
             end
     end.
 
-
+%% is_spec_form(Form) ->
+%%     case wrangler_syntax:type(Form) of 
+%%         attribute ->
+%%             spec == wrangler_syntax:atom_value(
+%%                       wrangler_syntax:attribute_name(Form));
+%%         _ -> false
+%%     end.
+        
 form_not_change_1(Form) ->
     try
         Toks = wrangler_misc:get_toks(Form),
@@ -211,11 +218,13 @@ form_not_change_1(Form) ->
         {ok,Toks2,_} =
             wrangler_scan:string(NewStr,{1,1},?TabWidth,unix),
         NewForm = wrangler_epp_dodger:normal_parser(Toks2,[]),
-        best(OriginalForm) == best(NewForm)
+        B1=best(OriginalForm), 
+        B2=best(NewForm), 
+        B1==B2
     of 
         Res -> Res
     catch 
-        _E1:_E2 -> 
+        _E1:_E2 ->
             false
     end.
 
@@ -430,7 +439,6 @@ lay_postcomments_1(Cs, D, DEndLn) ->
     end.
     
 %% For postcomments, individual padding is added.
-lay_postcomments([],D) -> D;
 lay_postcomments(Cs,D) ->
     D0 =floating(break(stack_comments(Cs,true)),1,0),
     beside(D,D0).
@@ -820,10 +828,24 @@ lay_2(Node, Ctxt) ->
 		    beside(floating(text("-")), beside(D, floating(text("."))));
 		Args ->
                     Sep = get_separator(Args, Ctxt1, ","),
-                    As = seq(Args, floating(text(Sep)), Ctxt1, fun lay/2),
-                    D = lay_elems(fun wrangler_prettypr_0:par/1, As, Args, Ctxt),
-                    D2=beside(lay(N, Ctxt1), beside(text("("), beside(D, floating(text(")"))))),
-		    beside(floating(text("-")), beside(D2, floating(text("."))))
+                    D2= case wrangler_syntax:atom_value(N) of 
+                            spec ->
+                                case spec_need_paren(Ctxt1#ctxt.tokens) of 
+                                    true ->
+                                        As =lay_spec_args(Args, Ctxt1),
+                                        D = lay_elems(fun wrangler_prettypr_0:par/1, As, Args, Ctxt),
+                                        beside(lay(N, Ctxt1), beside(text("("), beside(D, floating(text(")")))));
+                                    false ->
+                                        As =lay_spec_args(Args, Ctxt1),
+                                        D = lay_elems(fun wrangler_prettypr_0:par/1, As, Args, Ctxt),
+                                        wrangler_prettypr_0:horizontal([lay(N, Ctxt1), D])
+                                end;
+                            _ -> 
+                                As=seq(Args, floating(text(Sep)), Ctxt1, fun lay/2),
+                                D = lay_elems(fun wrangler_prettypr_0:par/1, As, Args, Ctxt),
+                                beside(lay(N, Ctxt1), beside(text("("), beside(D, floating(text(")")))))
+                        end,
+                    beside(floating(text("-")), beside(D2, floating(text("."))))
 	    end;
 	binary ->   
 	    Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
@@ -838,7 +860,7 @@ lay_2(Node, Ctxt) ->
 	    D2 = case wrangler_syntax:binary_field_types(Node) of
 		     [] -> 
 			 empty();
-		     Ts ->
+		     Ts -> 
 			 beside(floating(text("/")), 
                                 lay_bit_types(Ts, Ctxt1))
 		 end,
@@ -892,11 +914,11 @@ lay_2(Node, Ctxt) ->
 	generator -> 
 		Pat = wrangler_syntax:generator_pattern(Node),
 		Body = wrangler_syntax:generator_body(Node),
-		lay_generator(Ctxt, Pat, Body);
+		lay_generator(Ctxt, Pat, Body, "<-");
 	binary_generator ->
                 Pat = wrangler_syntax:binary_generator_pattern(Node),
-		Body = efac_syntax:binary_generator_body(Node),
-		lay_generator(Ctxt, Pat, Body);
+		Body = wrangler_syntax:binary_generator_body(Node),
+		lay_generator(Ctxt, Pat, Body, "<=");
 	implicit_fun ->
                 Ctxt1=reset_check_bracket(reset_prec(Ctxt)),
                 D = lay(wrangler_syntax:implicit_fun_name(Node), Ctxt1),
@@ -1194,7 +1216,7 @@ lay_list(Node, Ctxt) ->
             end
     end.
 
-lay_generator(Ctxt, Pat, Body) ->
+lay_generator(Ctxt, Pat, Body, Arrow) ->
     Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
     D1 = lay(Pat,Ctxt1),
     D2 = lay(Body,Ctxt1),
@@ -1204,20 +1226,20 @@ lay_generator(Ctxt, Pat, Body) ->
     {_, D2StartCol} = get_start_loc(Body),
     case (D1EndLn==0) or (D2StartLn==0) of
 	true ->
-	    par([D1,beside(text("<- "),D2)],Ctxt#ctxt.break_indent);
+	    par([D1,beside(text(Arrow),D2)],Ctxt#ctxt.break_indent);
 	_ ->
 	    case D2StartLn-D1EndLn of
-		0 -> beside(D1,beside(text(" <- "),D2));
+		0 -> beside(D1,beside(text(" "++Arrow++" "),D2));
 		1 -> 
                     {ArrowLn, ArrowCol} = 
-                        get_keyword_loc_before('<-', Ctxt, BodyStartLoc ),
+                        get_keyword_loc_before(list_to_atom(Arrow), Ctxt, BodyStartLoc ),
                     if ArrowLn ==D1EndLn ->
                             Offset = D2StartCol -D1StartCol,
-                            above(beside(D1, text("<-")),nest(Offset,D2));
+                            above(beside(D1, text(" "++Arrow)),nest(Offset,D2));
                        true ->
-                            above(D1,nest(ArrowCol-D1StartCol,beside(text("<- "),D2)))
+                            above(D1,nest(ArrowCol-D1StartCol,beside(text(Arrow++" "),D2)))
                     end;
-		_ -> par([D1,beside(text("<- "),D2)],Ctxt#ctxt.break_indent)
+		_ -> par([D1,beside(text(Arrow++" "),D2)],Ctxt#ctxt.break_indent)
 	    end
     end.
 
@@ -2203,13 +2225,14 @@ repair_form_layout([{'s', OldLineToks, NewLineToks}|Lines], PrevDiff, TabWidth, 
                             case remove_loc_and_whites(OldLineToks)--
                                 remove_loc_and_whites(NewLineToks) of
                                 [T={A, _}] when A=='->' orelse A=='of' ->
-                                    case has_layout_change(OldLineToks, NewLineToks, TabWidth) of 
-                                        false ->
-                                            repair_form_layout(Lines1, '*', TabWidth, [OldLineToks|Acc]);
+                                    case has_layout_change(OldLineToks, NewLineToks, TabWidth)==false andalso 
+                                        has_editing_change(OldLineToks, NewLineToks) == false of
                                         true ->
+                                            repair_form_layout(Lines1, '*', TabWidth, [OldLineToks|Acc]);
+                                        false ->
                                             NewLineToks1 = insert_token_at_end(NewLineToks, T),
                                             NewLineToks2 = recover_tab_keys(OldLineToks, NewLineToks1, TabWidth),
-                                            repair_form_layout(Lines, 's', TabWidth, [NewLineToks2|Acc])
+                                            repair_form_layout(Lines1, 's', TabWidth, [NewLineToks2|Acc])
                                     end;
                                 _ ->
                                     NewLineToks1 = recover_tab_keys(OldLineToks, NewLineToks, TabWidth),
@@ -2314,7 +2337,7 @@ group_toks_by_line_1(Toks = [T| _Ts],Acc) ->
 
 
 insert_token_at_end(Toks, T) ->
-    {Toks1, Toks2} = list:splitwith(
+    {Toks1, Toks2} = lists:splitwith(
                        fun(Tok) ->
                                is_whitespace_or_comment(Tok)
                        end, lists:reverse(Toks)),
@@ -2478,3 +2501,200 @@ revert_clause_guard(E)->
 %%     a:patchTheFroId(Line).
 
 %% negative indent is a problem.
+
+lay_spec_args([FunSpec, TypeSpecs], Ctxt)->
+    D1 = lay_fun_spec(FunSpec, Ctxt),
+    D2 = lay_type_specs(TypeSpecs,Ctxt),
+    [D1, D2].
+
+lay_fun_spec(FunSpec, Ctxt)->
+    Toks = Ctxt#ctxt.tokens,
+    HasArity=lists:member('/', [element(1, T)||T<-Toks]),
+    case wrangler_syntax:type(FunSpec) of 
+        tuple ->
+            case wrangler_syntax:tuple_elements(FunSpec) of 
+                [F,A] ->
+                    D1 = lay(F, Ctxt),
+                    case HasArity of 
+                        true ->
+                            D2 = lay(A, Ctxt),
+                            beside(beside(D1, beside(text("/"), D2)), text("::"));
+                        false ->
+                            D1
+                    end;
+                [M,F,A] ->
+                    D1 = lay(M, Ctxt),
+                    D2 = lay(F, Ctxt),
+                    case HasArity of 
+                        true ->
+                            D3 = lay(A, Ctxt),
+                            D23= beside(D2, beside(text("/"), D3)),
+                            beside(beside(D1, beside(text(":"), D23)), text("::"));
+                        false ->
+                            beside(D1, beside(text(":"), D2))
+                    end
+            end;
+        _ -> %% this should not happen
+            lay(FunSpec, Ctxt)
+    end.
+
+lay_type_specs(TypeSpecs, Ctxt) ->
+    SpecCs =wrangler_syntax:list_elements(TypeSpecs),
+    lay_spec_clauses(SpecCs, Ctxt).
+
+lay_spec_clauses([C|Cs], Ctxt) ->
+    Ds=[lay_sig_type(C, Ctxt)|[beside(text("; "), lay_sig_type(C1, Ctxt))||C1<-Cs]],
+    wrangler_prettypr_0:par(Ds, -2).
+
+lay_sig_type(SigType,Ctxt) ->
+    T1 = wrangler_syntax:revert(SigType), 
+    case T1 of 
+        {type, _Line, bounded_fun, [T, Gs]} ->
+            lay_guard_type(lay_fun_type(T, Ctxt), Gs, Ctxt);
+        {type, _Line, 'fun', _T} ->
+            lay_fun_type(T1,Ctxt)
+    end.
+
+lay_guard_type(Before, Gs, Ctxt) ->
+    Ds = seq(Gs, floating(text(",")), Ctxt, fun lay_constraint/2),
+    %%wrangler_io:format("Gs:\n~p\n", [Gs]),
+    D1 = lay_elems(fun wrangler_prettypr_0:par/1, Ds, Gs, Ctxt),
+    par([beside(Before, text(" when")), D1]).
+
+lay_constraint({type,_Line,constraint,[_Tag,[A |As]]}, Ctxt) ->
+    D1=lay(A, Ctxt),
+    D2=lay_type_args_1(As, Ctxt),                  
+    wrangler_prettypr_0:horizontal([D1, text("::"), D2]).
+
+
+lay_fun_type({type, _Line, 'fun', [FType, Ret]}, Ctxt) ->
+    D1 = beside(text("("),beside(lay_type_args(FType, Ctxt), text(")"))),
+   %% D1 =beside(lay_type_args(FType, Ctxt), text(")")),
+    D2 = lay_type(Ret, Ctxt),
+    par([beside(D1, text(" -> ")), D2], Ctxt#ctxt.break_indent).
+
+
+lay_type_args({type, _Line, any}, _Ctxt) ->
+    text("(...)");
+lay_type_args({type, _Line, product, Ts}, Ctxt) ->
+    lay_type_args_1(Ts, Ctxt).
+
+lay_type_args_1(Ts, Ctxt) ->
+    Ds=seq(Ts, floating(text(",")), Ctxt, fun lay_type_0/2),
+    lay_elems(fun wrangler_prettypr_0:par/1, Ds, Ts, Ctxt).
+
+
+lay_type_0(T, Ctxt) -> 
+   %% wrangler_io:format("T:\n~p\n", [T]),
+    lay_type(T, Ctxt).
+
+lay_type({ann_type,_Line,[V,T]}, Ctxt) ->
+     lay_field_type_1(lay(V, Ctxt), T, Ctxt);
+lay_type({paren_type,_Line,[T]}, Ctxt) ->
+    D = lay_type(T, Ctxt),
+    beside(text("("), beside(D, text(")")));
+lay_type({type,_Line,union,[T|Ts]}, Ctxt) ->
+    Ds = [lay_type(T, Ctxt) | [lay_union_elem(T1, Ctxt)||T1<-Ts]],
+    wrangler_prettypr_0:par(Ds);
+lay_type({type,_Line,list,[T]}, Ctxt) ->
+    D = lay_type(T, Ctxt),
+    beside(text("["), beside(D, text("]")));
+lay_type({type,_Line,nonempty_list,[T]}, Ctxt) ->
+    D = wrangler_prettypr_0:par([lay_type(T, Ctxt), text(","), text("...")]),
+    beside(text("["), beside(D, text("]")));
+lay_type({type,_Line,nil,[]}, _Ctxt) ->
+    beside(text("["), text("]"));
+lay_type({type,_Line,tuple,any}, _Ctxt) ->
+    text("tuple()");
+lay_type({type,_Line,tuple,Ts}, Ctxt) ->
+    Ds = seq(Ts, floating(text(",")), reset_prec(Ctxt), fun lay_type/2),
+    D1 =lay_elems(fun wrangler_prettypr_0:par/1, Ds, Ts, Ctxt),
+    beside(text("{"), beside(D1, text("}")));    
+lay_type({type,_Line,record,[{atom,_,N}|Fs]}, Ctxt) ->
+     lay_record_type(N, Fs,Ctxt);
+lay_type({type,_Line,range,[I1,I2]}, Ctxt) ->
+    D1 = lay(I1, Ctxt),
+    D2 = lay(I2, Ctxt),
+    beside(D1, beside(text(".."), D2));
+lay_type({type,_Line,binary,[I1,I2]}, Ctxt) ->
+    lay_binary_type(I1, I2, Ctxt);
+lay_type(_T={type,_Line,'fun',[]}, _Ctxt) ->
+    text("fun()");
+lay_type({type,_,'fun',[{type,_,any},_]}=FunType, Ctxt) ->
+    D1=lay_fun_type(FunType, Ctxt),
+    beside(text("fun"),beside(text("("),  beside(D1, text(")"))));
+lay_type(_T={type,_Line,'fun',[{type,_,product,_},_]}=FunType, Ctxt) ->
+    D1 = lay_fun_type(FunType, Ctxt),
+    beside(text("fun"),beside(text("("),  beside(D1, text(")"))));
+lay_type({type,_Line,T,Ts}, Ctxt) ->
+    D1 =text(atom_to_list(T)),
+    D2 = lay_type_args_1(Ts, Ctxt),
+    beside(beside(D1, text("(")), beside(D2, text(")")));
+lay_type(_T={remote_type,_Line,[M,F,Ts]}, Ctxt) ->
+    D1 = beside(lay(M, Ctxt), beside(text(":"), lay(F, Ctxt))),
+    D2 = lay_type_args_1(Ts, Ctxt),
+    beside(beside(D1, text("(")), beside(D2, text(")")));
+lay_type({atom, _, T}, _Ctxt) ->
+    text(atom_to_list(T));
+lay_type(E, Ctxt)->
+    lay(E, Ctxt).
+
+
+lay_binary_type(I1, I2, Ctxt) ->
+    B = [[] || {integer,_,0} <- [I1]] =:= [],
+    U = [[] || {integer,_,0} <- [I2]] =:= [],
+    Ctxt1 = reset_check_bracket(set_prec(Ctxt, max_prec())),
+    E1 = [beside(text("_:"),lay(I1, Ctxt1)) || B],
+    E2 = [beside(text("_:_*"),lay(I2, Ctxt1)) || U],
+    case E1++E2 of 
+        [D1, D2] -> wrangler_prettypr_0:horizontal(
+                      [text("<<"), D1, text(", "), D2, text(">>")]);
+        [D] ->
+            wrangler_prettypr_0:horizontal(
+              [text("<<"), D, text(">>")]);
+        [] ->
+            wrangler_prettypr_0:horizontal(
+              [text("<<"), text(">>")])
+    end.
+
+lay_record_type(N, Fs, Ctxt) ->
+    beside(beside(lay_record_name(N), text("{")),
+       beside(lay_record_field_types(Fs, Ctxt), text("}"))).
+
+lay_record_name(Name) ->
+    text("#"++atom_to_list(Name)).
+
+lay_record_field_types(Fs, Ctxt) ->
+    Ds = seq(Fs, floating(text(",")), reset_check_bracket(reset_prec(Ctxt)),
+             fun lay_field_type/2),
+    lay_elems(fun wrangler_prettypr_0:par/1,Ds, Fs, Ctxt).
+
+  
+lay_field_type({type,_Line,field_type,[Name,Type]}, Ctxt) ->
+    lay_field_type_1(lay(Name, Ctxt), Type, Ctxt).
+
+
+lay_field_type_1(B, {type,_,union,Ts}, Ctxt) ->
+    Ds = lay_union_type(Ts, Ctxt),
+    Ds1=par(Ds, Ctxt#ctxt.break_indent),
+    wrangler_prettypr_0:horizontal([B, text("::"), Ds1]);
+lay_field_type_1(B, Type, Ctxt) ->
+    D = lay_type(Type, Ctxt),
+    wrangler_prettypr_0:horizontal([B, text("::"), D]).
+
+
+lay_union_type([T|Ts], Ctxt) ->
+    [lay_type(T, Ctxt) | [lay_union_elem(T1, Ctxt)||T1<-Ts]].
+
+lay_union_elem(T, Ctxt) ->
+    beside(text(" | "),lay_type(T, Ctxt)).
+
+spec_need_paren([])->true;
+spec_need_paren(Toks) ->
+    [_T, T1| _Ts] = lists:dropwhile(fun({atom, _, 'spec'}) ->
+                                           false;
+                                       (_) ->
+                                            true
+                                   end, Toks),
+    element(1, T1) == '('.
+    

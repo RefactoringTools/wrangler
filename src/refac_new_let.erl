@@ -34,32 +34,26 @@
 %% @private
 -module(refac_new_let).
 
--export([new_let/6,  new_let_1/7, new_let_eclipse/6, new_let_1_eclipse/6,
-	 merge_let/3, merge_let_1/5, merge_let_eclipse/3, merge_let_1_eclipse/4,
-	 merge_forall/3, merge_forall_1/5,merge_forall_eclipse/3, merge_forall_1_eclipse/4]).
+-export([new_let/7,  new_let_1/8, new_let_eclipse/6, new_let_1_eclipse/6,
+	 merge_let/4, merge_let_1/6, merge_let_eclipse/3, merge_let_1_eclipse/4,
+	 merge_forall/4, merge_forall_1/6, merge_forall_eclipse/3, merge_forall_1_eclipse/4]).
 
 -include("../include/wrangler_internal.hrl").
-
-
-%% =============================================================================================
-%%-spec(new_let/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
-%%	     {'ok', [filename()]} | {question, string(), list(), list(), string()}).
-new_let(FileName, Start, End, NewPatName, SearchPaths, TabWidth) ->
-    new_let(FileName, Start, End, NewPatName, SearchPaths, TabWidth, emacs).
 
 
 %%-spec(new_let_eclipse/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
 %%	     {'ok', [{filename(), filename(),string()}]} | {question, string(), {list(), list()}}).
 new_let_eclipse(FileName, Start, End, NewPatName, SearchPaths, TabWidth) ->
-    new_let(FileName, Start, End, NewPatName, SearchPaths, TabWidth, eclipse).
+    new_let(FileName, Start, End, NewPatName, SearchPaths, eclipse, TabWidth).
 
-new_let(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewPatName, SearchPaths, TabWidth, Editor) ->
-    ?wrangler_io("\nCMD: ~p:new_let(~p, {~p,~p}, {~p,~p}, ~p, ~p,~p).\n",
-		 [?MODULE, FileName, Line, Col, Line1, Col1, NewPatName, SearchPaths, TabWidth]),
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":new_let(" ++ "\"" ++ 
-	    FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++ 
-	      "{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ NewPatName ++ "\","
-														 ++ integer_to_list(TabWidth) ++ ").",
+new_let(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewPatName, SearchPaths, Editor, TabWidth) ->
+     ?wrangler_io("\nCMD: ~p:new_let(~p, {~p,~p}, {~p,~p}, ~p, ~p,~p).\n",
+		  [?MODULE, FileName, Line, Col, Line1, Col1, NewPatName, SearchPaths, TabWidth]),
+     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":new_let(" ++ "\"" ++
+	     FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++
+	       "{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ "\"" ++
+         NewPatName ++ "\","
+        ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case is_quickcheck_used(Info) of
 	true -> ok;
@@ -86,13 +80,13 @@ new_let(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewPatName, SearchPa
 	{error, _Reason} -> throw({error, "You have not selected an expresison."})
     end.
 
-%%-spec(new_let_1/7::(filename(), string(), list(), list(), [dir()], integer(), string()) ->			 
-%%			 {ok,[filename()]}).
-new_let_1(FileName, NewPatName, Expr, ParentExpr, SearchPaths, TabWidth, Cmd) ->
+-spec(new_let_1/8::(filename(), string(), list(), list(), [dir()], atom(), integer(), string()) ->			 
+			 {ok,[filename()]}).
+new_let_1(FileName, NewPatName, Expr, ParentExpr, SearchPaths, Editor, TabWidth, Cmd) ->
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     Expr1 = list_to_term(Expr),
     ParentExpr1 = list_to_term(ParentExpr),
-    new_let_2(FileName, AnnAST, NewPatName, Expr1, ParentExpr1, none, emacs, Cmd, TabWidth).
+    new_let_2(FileName, AnnAST, NewPatName, Expr1, ParentExpr1, none, Editor, Cmd, TabWidth).
 
 %%-spec(new_let_1_eclipse/6::(filename(), string(), syntaxTree(), syntaxTree(), [dir()], integer()) ->	
 %%			 {'ok', [{filename(), filename(),string()}]}).		
@@ -402,36 +396,36 @@ returns_gen(_) ->
 %%
 %% Merge LET expressions. 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%-spec(merge_let/3::(FileName::filename(), SearchPaths::[dir()], TabWidth::integer()) ->
+%%-spec(merge_let/4::(FileName::filename(), SearchPaths::[dir()], Context::atom(), TabWidth::integer()) ->
 %%	     {not_found, string()} |{ok, [{{integer(), integer(), integer(), integer()}, string()}], string()}).
-merge_let(FileName, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:merge_let(~p,~p,~p).\n",
-		 [?MODULE, FileName, SearchPaths, TabWidth]),
-    merge(FileName, 'LET', SearchPaths, TabWidth, emacs).
+merge_let(FileName, SearchPaths, Context, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:merge_let(~p,~p,~p, ~p).\n",
+		 [?MODULE, FileName, SearchPaths, Context,TabWidth]),
+    merge(FileName, 'LET', SearchPaths, Context, TabWidth).
 
 
 %%-spec(merge_let_eclipse/3::(FileName::filename(), SearchPaths::[dir()], TabWidth::integer()) ->
 %%	     {not_found, string()} |{ok, [{{integer(), integer(), integer(), integer()}, syntaxTree()}]}).
 merge_let_eclipse(FileName, SearchPaths, TabWidth) ->
-    merge(FileName, 'LET', SearchPaths, TabWidth, eclipse).
+    merge(FileName, 'LET', SearchPaths, eclipse, TabWidth).
 
-%%-spec(merge_forall/3::(FileName::filename(), SearchPaths::[dir()], TabWidth::integer()) ->
+%%-spec(merge_forall/4::(FileName::filename(), SearchPaths::[dir()], Context:: atom(), TabWidth::integer()) ->
 %%			    {not_found, string()} |{ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}).
-merge_forall(FileName, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:merge_forall(~p,~p,~p).\n",
-		 [?MODULE, FileName, SearchPaths, TabWidth]),
-    merge(FileName, 'FORALL', SearchPaths, TabWidth, emacs).
+merge_forall(FileName, SearchPaths, Context, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:merge_forall(~p,~p,~p, ~p).\n",
+		 [?MODULE, FileName, SearchPaths, Context, TabWidth]),
+    merge(FileName, 'FORALL', SearchPaths, Context, TabWidth).
 
 
 %%-spec(merge_forall_eclipse/3::(FileName::filename(), SearchPaths::[dir()], TabWidth::integer()) ->
 %%	     {not_found, string()} |{ok, [{{{integer(), integer()}, {integer(), integer()}}, syntaxTree()}]}).
 merge_forall_eclipse(FileName, SearchPaths, TabWidth) ->
-    merge(FileName, 'FORALL', SearchPaths, TabWidth, eclipse).
+    merge(FileName, 'FORALL', SearchPaths, eclipse, TabWidth).
 
-merge(FileName, MacroName, SearchPaths, TabWidth, Editor) ->
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":merge_let(" ++ "\"" ++ 
-	    FileName ++ "\"," ++ atom_to_list(MacroName) ++ ", " ++ "["
-								     ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+merge(FileName, MacroName, SearchPaths, Editor, TabWidth) ->
+     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":merge_let(" ++ "\"" ++
+	     FileName ++ "\"," ++ atom_to_list(MacroName) ++ ", " ++ "["
+        ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case is_quickcheck_used(Info) of
 	true -> ok;
@@ -455,16 +449,16 @@ merge(FileName, MacroName, SearchPaths, TabWidth, Editor) ->
 	    end
     end.
 
-%%-spec(merge_let_1/5::(FileName::filename(), Candidates::[{{integer(), integer(), integer(), integer()}, string()}],
-%%		      SearchPaths::[dir()], TabWidth::integer(), Cmd::string()) -> {ok, [filename()]}).
-merge_let_1(FileName, Candidates, SearchPaths, TabWidth, Cmd) ->
-    merge_1(FileName, Candidates, SearchPaths, TabWidth, Cmd, emacs, TabWidth).
+%%-spec(merge_let_1/6::(FileName::filename(), Candidates::[{{integer(), integer(), integer(), integer()}, string()}],
+%%		      SearchPaths::[dir()], Context:: atom(), TabWidth::integer(), Cmd::string()) -> {ok, [filename()]}).
+merge_let_1(FileName, Candidates, SearchPaths, Context,TabWidth, Cmd) ->
+    merge_1(FileName, Candidates, SearchPaths, TabWidth, Cmd, Context, TabWidth).
 
 
-%%-spec(merge_forall_1/5::(FileName::filename(), Candidates::[{{integer(), integer(), integer(), integer()}, string()}],
-%%		      SearchPaths::[dir()], TabWidth::integer(), Cmd::string()) -> {ok, [filename()]}).
-merge_forall_1(FileName, Candidates, SearchPaths, TabWidth, Cmd) ->
-    merge_1(FileName, Candidates, SearchPaths, TabWidth, Cmd, emacs, TabWidth).
+%%-spec(merge_forall_1/6::(FileName::filename(), Candidates::[{{integer(), integer(), integer(), integer()}, string()}],
+%%		      SearchPaths::[dir()], TabWidth::integer(), Context::atom(), Cmd::string()) -> {ok, [filename()]}).
+merge_forall_1(FileName, Candidates, SearchPaths, Context, TabWidth, Cmd) ->
+    merge_1(FileName, Candidates, SearchPaths, TabWidth, Cmd, Context, TabWidth).
 
 
 

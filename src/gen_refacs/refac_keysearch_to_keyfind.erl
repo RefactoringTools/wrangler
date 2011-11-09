@@ -8,7 +8,7 @@
          check_pre_cond/1, selective/0,
          transform/1]).
 
--include("../include/wrangler.hrl").
+-include("../../include/wrangler.hrl").
 
 %% No parameter input is required.
 -spec (input_par_prompts/0::() -> [string()]).                           
@@ -41,7 +41,7 @@ rule_keysearch_to_keyfind() ->
                     end"),
           begin
               NewPats@@@=make_new_pats(Pats@@@),
-              ?QUOTE("case lists:keyfind(Key@, N@, TupleList@) of 
+              ?TO_AST("case lists:keyfind(Key@, N@, TupleList@) of 
                                 NewPats@@@ when Guards@@@ ->
                                    Body@@@
                     end")
@@ -55,9 +55,9 @@ make_new_pat(Pat) ->
         true ->
             case api_refac:type(T@) of
                 variable ->
-                    ?QUOTE("T@={_,_}");
+                    ?TO_AST("T@={_,_}");
                 underscore->
-                    ?QUOTE("{_,_}");
+                    ?TO_AST("{_,_}");
                 _ ->
                     T@
             end;

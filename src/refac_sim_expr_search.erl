@@ -31,7 +31,7 @@
 %% @private
 -module(refac_sim_expr_search).
 
--export([sim_expr_search_in_buffer/6,sim_expr_search_in_dirs/6, normalise_record_expr/5]).
+-export([sim_expr_search_in_buffer/6,sim_expr_search_in_dirs/6, normalise_record_expr/6]).
 
 -export([sim_expr_search_in_buffer_eclipse/6, sim_expr_search_in_dirs_eclipse/6, 
 	 normalise_record_expr_eclipse/5]).
@@ -274,15 +274,15 @@ get_fundef_and_expr(FName, Start, End, SearchPaths, TabWidth) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-%%-spec(normalise_record_expr/5::(filename(), pos(), boolean(), [dir()], integer()) -> {ok, [filename()]}).
-normalise_record_expr(FName, Pos = {Line, Col}, ShowDefault, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:normalise_record_expr(~p, {~p,~p},~p, ~p, ~p).\n",
-		 [?MODULE, FName, Line, Col, ShowDefault, SearchPaths, TabWidth]),
+%%-spec(normalise_record_expr/6::(filename(), pos(), boolean(), [dir()], atom(), integer()) -> {ok, [filename()]}).
+normalise_record_expr(FName, Pos = {Line, Col}, ShowDefault, SearchPaths, Editor, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:normalise_record_expr(~p, {~p,~p},~p, ~p, ~p, ~p).\n",
+		 [?MODULE, FName, Line, Col, ShowDefault, SearchPaths, Editor, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":normalise_record_expr(" ++ "\"" ++ 
 	    FName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "},"
       ++ atom_to_list(ShowDefault) ++ " [" ++ wrangler_misc:format_search_paths(SearchPaths)
-    ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    normalise_record_expr_0(FName, Pos, ShowDefault, SearchPaths, TabWidth, emacs, Cmd).
+    ++ "], " ++ atom_to_list(Editor) ++ ", "++ integer_to_list(TabWidth) ++ ").",
+    normalise_record_expr_0(FName, Pos, ShowDefault, SearchPaths, TabWidth, Editor, Cmd).
    
 
 %%-spec normalise_record_expr_eclipse/5::(filename(), pos(), boolean(), [dir()], integer()) ->

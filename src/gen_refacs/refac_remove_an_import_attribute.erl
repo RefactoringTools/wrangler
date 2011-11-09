@@ -6,8 +6,9 @@
 %% module, and qualify the calls to those functions 
 %% imported from that module.
 
+%% @hidden
 %% @private
--module(refac_remove_import).
+-module(refac_remove_an_import_attribute).
 
 -behaviour(gen_refac).
 
@@ -16,7 +17,7 @@
          check_pre_cond/1, selective/0,
          transform/1]).
 
--include("../include/wrangler.hrl").
+-include("../../include/wrangler.hrl").
 
 %% The user needs to input the module name. 
 -spec (input_par_prompts/0::() -> [string()]).                           
@@ -49,14 +50,14 @@ transform(Args=#args{current_file_name=File})->
 %% qualify function calls.
 rule1(_Args=#args{user_inputs=[ModuleName]}) ->
     ?RULE(?T("F@(Args@@)"),
-          ?QUOTE(ModuleName++":F@(Args@@)"),
+          ?TO_AST(ModuleName++":F@(Args@@)"),
           api_refac:type(F@) /= module_qualifier andalso
           list_to_atom(ModuleName) == element(1,api_refac:fun_define_info(F@))).
 
 
 %% remove import attributes related.
 rule2(_Args=#args{user_inputs=[ModuleName]}) ->
-    ?RULE(?T("A@"), ?QUOTE(""),
+    ?RULE(?T("A@"), ?TO_AST(""),
           api_refac:is_import(A@, list_to_atom(ModuleName))).
 
 %%utility functions.

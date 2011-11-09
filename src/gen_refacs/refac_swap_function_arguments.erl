@@ -12,9 +12,9 @@
 %% the refactoring rename, which is supposed to be 
 %% the module name, and then you will prompted to 
 %% input the values of Ith and Jth.
-
+%% @hidden
 %% @private
--module(refac_swap_args).
+-module(refac_swap_function_arguments).
 
 -behaviour(gen_refac).
 
@@ -22,7 +22,9 @@
          check_pre_cond/1, selective/0,
          transform/1]).
 
--include("../include/wrangler.hrl").
+-export([swap_args/7]).
+
+-include("../../include/wrangler.hrl").
 
 -import(api_refac, [fun_define_info/1]).
 
@@ -85,7 +87,8 @@ transform(Args=#args{current_file_name=File,focus_sel=FunDef,
 %% transform the current file.
 transform_in_cur_file(_Args=#args{current_file_name=File},MFA, I, J)->
     ?FULL_TD_TP([rule1(MFA, I, J),
-                 rule2(MFA, I, J)],
+                 rule2(MFA, I, J),
+                 rule3(MFA, I, J)],
                 [File]).
 
 %% transform the client files.
@@ -100,7 +103,7 @@ transform_in_client_files(_Args=#args{current_file_name=File,
 rule1({M,F,A}, I, J) ->
     ?RULE(?T("f@(Args@@) when Guard@@ -> Bs@@;"), 
           begin NewArgs@@=swap(Args@@,I,J),
-                ?QUOTE("f@(NewArgs@@) when Guard@@->Bs@@;")
+                ?TO_AST("f@(NewArgs@@) when Guard@@->Bs@@;")
           end,
           api_refac:fun_define_info(f@) == {M, F, A}).
 
@@ -113,6 +116,11 @@ rule2({M,F,A}, I, J) ->
               api_refac:update_app_args(_This@,NewArgs)
           end,
           true).
+
+rule3({_M, F, A}, I, J) ->
+    ?RULE(?T("Spec@"), 
+          api_spec:swap_arg_types_in_spec(_This@, I, J),
+          api_spec:is_type_spec(Spec@, {F, A})).
 
 %% utility functions.
 swap(List, I, J) when is_list(List) ->
@@ -130,6 +138,28 @@ swap(Node, I, J) ->
                     T = list_to_tuple(List),
                     T1=setelement(~p, setelement(~p, T, Jth), Ith),
                     tuple_to_list(T1)
-            end(~s)", [I, J, J, I, ?SPLICE(Node)])),
-    ?QUOTE(Str).
-  
+            end(~s)", [I, J, J, I, ?PP(Node)])),
+    ?TO_AST(Str).
+
+
+swap_args(FileName, {FunName, Arity}, Index1, Index2, SearchPaths, Editor, TabWidth) ->
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    ModName=list_to_atom(filename:basename(FileName, ".erl")),
+    case wrangler_misc:funname_to_defpos(AnnAST, {ModName, FunName, Arity}) of
+	{ok, DefPos} ->
+            {ok, FunDef} = api_interface:pos_to_fun_def(FileName, DefPos),
+            Args=#args{current_file_name=FileName,
+                       focus_sel=FunDef,
+                       user_inputs=[Index1, Index2],
+                       search_paths=SearchPaths,
+                       tabwidth=TabWidth},
+            case check_pre_cond(Args) of
+                ok -> 
+                    {ok, Res}=transform(Args),
+                    wrangler_write_file:write_refactored_files(Res,Editor,TabWidth,"");
+                {error, Reason} ->
+                    {error, Reason}
+            end;
+        {error, Reason} ->
+            {error, Reason}
+    end.
