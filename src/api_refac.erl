@@ -355,6 +355,7 @@
          mfa_to_fun_def/2,
          insert_an_attr/2,
          remove_from_import/2,
+         add_to_export/2,
          add_to_export_after/3,
          pp/1,
          equal/2,
@@ -899,6 +900,8 @@ remove_from_import(Node, _FA={F,A}) ->
 %%     the new entity to the end of the export list.
 %%@spec add_to_export_after(attribute(), {function(), arity()},
 %%                        {function(), arity()}|none) -> attribute()
+add_to_export(Node, FAtoAdd) ->
+    add_to_export_after(Node, FAtoAdd, none).
 add_to_export_after(Node, FAtoAdd, FA) ->
     {F, A} = FAtoAdd,
     case is_attribute(Node, export) of
@@ -909,14 +912,16 @@ add_to_export_after(Node, FAtoAdd, FA) ->
                                                  wrangler_syntax:integer(A)),
             NewL=case FA of
                      none ->
-                         lists:reverse([AQ|L]);
+                         L0 = wrangler_syntax:list_elements(L),
+                         L1 = L0++[AQ],
+                         wrangler_misc:rewrite(L, wrangler_syntax:list(L1));
                      {F1,A1} ->
                          L0 = wrangler_syntax:list_elements(L),
                          L1 = lists:append([begin
                                                 FunName = wrangler_syntax:atom_value(
-                                                               wrangler_syntax:arity_qualifier_body(E)),
+                                                            wrangler_syntax:arity_qualifier_body(E)),
                                                 Arity = wrangler_syntax:integer_value(
-                                                             wrangler_syntax:arity_qualifier_argument(E)),
+                                                          wrangler_syntax:arity_qualifier_argument(E)),
                                                 case {FunName, Arity} of
                                                     {F1,A1} ->
                                                         [E, AQ];
