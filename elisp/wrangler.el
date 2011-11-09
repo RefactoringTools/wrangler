@@ -3453,11 +3453,10 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
                (['rex ['error rsn]]
                 (message "Refactoring failed: error, %s" rsn))
                (['rex ['ok pars]]
-               ;; (message-box "callback %s" callback-module-name buffer-file-name)
                 (apply-adhoc-refac-1 callback-module-name current-file-name line-no column-no 
                                      start-line-no start-col-no end-line-no end-col-no pars)
                 ))))
-      (message "Refactoring aborted."))))
+       (message "Refactoring aborted."))))
 
 (defun apply-adhoc-refac-1(callback-module-name current-file-name line-no column-no 
                            start-line-no start-col-no end-line-no end-col-no pars)  
