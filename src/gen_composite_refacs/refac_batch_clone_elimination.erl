@@ -13,8 +13,10 @@ select_focus(_Args=#args{current_file_name=File,
                          cursor_pos=Pos}) ->
     api_interface:pos_to_fun_def(File, Pos).
 
-composite_refac(_Args=#args{focus_sel=FunDef,
-                            search_paths=SearchPaths}) ->
+composite_refac(_Args=#args{
+                  current_file_name = File, 
+                  focus_sel=FunDef,
+                  search_paths=SearchPaths}) ->
     {M,F,A} = api_refac:fun_define_info(FunDef),
     ?atomic([?interactive(
                 ?refac_(rename_fun,
@@ -47,13 +49,32 @@ composite_refac(_Args=#args{focus_sel=FunDef,
                          {user_input, fun(_)->"Index 1: " end}, 
                          {user_input, fun(_)->"Index 2: " end},
                          SearchPaths])),
-            %% {refactoring, add_to_export, [?current(M,F,A)]},
+             ?if_then(not api_refac:is_exported(begin
+                                                    {_, F1, A1} = ?current(M,F,A),
+                                                    {F1, A1}
+                                                end, File),
+                      ?interactive(
+                         ?refac_(add_to_export, [File,  begin
+                                                           {_, F1, A1} = ?current(M,F,A),
+                                                           {F1, A1}
+                                                       end, SearchPaths]))),         
              ?non_atomic(?refac_(fold_expr,
                                  [{file, fun(_File) ->true end}, 
                                   element(1,?current(M,F,A)),
                                   {element(2, ?current(M,F,A)),element(3, ?current(M,F,A))},
-                                  1, true, SearchPaths]))
+                                  1, true, 
+                                  begin
+                                      case api_refac:is_exported(
+                                             {element(2, ?current(M,F,A)),element(3, ?current(M,F,A))},
+                                             File) of 
+                                          true ->
+                                              SearchPaths;
+                                          _ -> [File]
+                                      end
+                                  end]))
             ]).
+                         
+             
     
 
 

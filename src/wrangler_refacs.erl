@@ -70,7 +70,7 @@
          tuple_funpar_1/6,
          tuple_args/7,
          swap_args/7,
-	 register_pid/7, 
+       	 register_pid/7, 
          fun_to_process/7,
 	 new_macro/7,
          fold_against_macro/6,
@@ -92,7 +92,8 @@
 	 partition_exports/5,
 	 intro_new_var/7,
 	 inline_var/6,
-         inline_var_1/8]).
+         inline_var_1/8, 
+         add_to_export/5]).
 
 -export([rename_var_eclipse/6, rename_fun_eclipse/6,
 	 rename_fun_1_eclipse/6, rename_mod_eclipse/4,
@@ -766,7 +767,11 @@ tuple_funpar_eclipse(FileName, StartLoc, EndLoc, SearchPaths, TabWidth) ->
 tuple_funpar_eclipse_1(FileName, StartLoc, EndLoc, SearchPaths, TabWidth) ->
     try_refac(refac_tuple, tuple_funpar_eclipse_1, [FileName, StartLoc, EndLoc, SearchPaths, TabWidth]).
 
+%%@private
+add_to_export(FileName, {FunName, Arity}, SearchPaths, Editor, TabWidth) ->
+    try_refac(refac_add_to_export, add_to_export, [FileName, {FunName, Arity}, SearchPaths, Editor, TabWidth]).
 
+%%@private
 swap_args(FileName, {FunName, Arity}, Index1, Index2, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_swap_function_arguments, swap_args, [FileName, {FunName, Arity}, Index1, Index2, SearchPaths, Editor, TabWidth]).
 %%=========================================================================================
