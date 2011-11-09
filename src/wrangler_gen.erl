@@ -40,7 +40,8 @@
          fold_expr/5,  fold_expr/6,
          gen_fun/5,    gen_fun/6,gen_fun/7,    
          move_fun/4,   move_fun/5,
-         unfold_fun_app/4,unfold_fun_app/5]).
+         unfold_fun_app/4,unfold_fun_app/5,
+         add_to_export/3, add_to_export/4]).
 
 -compile(export_all).
 
@@ -775,6 +776,7 @@ swap_args_1(File, {F, A}, Index1, Index2, SearchPaths) ->
      [File, {F, A},  index_gen(Index1, {File, {F, A}}), 
       index_gen(Index2, {File, {F, A}}), SearchPaths, ?context]}.
     
+
 test_swap_args(SearchPaths, Lazy) ->
     swap_args({file, fun(_File)-> true end}, 
                fun({_F, A}) ->
@@ -836,6 +838,54 @@ test_tuple_args(SearchPaths, Lazy) ->
                        A>= 3 
                end,
                2, 3, Lazy, SearchPaths).
+
+
+-spec add_to_export(ModOrFile::mod_or_file(),
+                    Fa:: fa(),
+                    Lazy :: boolean(),
+                    SearchPaths::search_paths()) ->
+                           [elementary_refac()]|lazy_refac().
+add_to_export(ModOrFile, FA, SearchPaths) ->
+    add_to_export(ModOrFile, FA, true, SearchPaths).
+
+add_to_export(ModOrFile,FA, false, SearchPaths)->
+    Files= gen_file_names(ModOrFile, SearchPaths),
+    CmdLists=[add_to_export_1(File, FA, SearchPaths)
+              ||File<-Files],
+    lists:append(CmdLists);
+add_to_export(ModOrFile,FA, true, SearchPaths)->
+    Files=gen_file_names(ModOrFile, true, SearchPaths),
+    case Files of
+        [] -> [];
+        [F] ->get_next_add_to_export_command(
+                {F, none}, FA,SearchPaths);
+        {F, NextFileGen} ->
+            get_next_add_to_export_command(
+              {F, NextFileGen}, FA, SearchPaths)
+    end.
+
+add_to_export_1(File, FA, SearchPaths) ->
+    FAs= get_fun_arity(File, FA),
+    [{refactoring,  add_to_export, 
+      [File, {F, A}, SearchPaths, ?context]}
+     ||{F, A}<-FAs].
+   
+
+get_next_add_to_export_command({File, NextFileGen}, FA, SearchPaths) ->
+    Res=get_fun_arity({File, NextFileGen}, FA, true),
+    case Res of
+        []->[]; 
+        [{F,A}] ->
+            [{refactoring, add_to_export, 
+              [File, {F, A},  SearchPaths, ?context]}];
+        {{File1, F,A},  {File2, NextFileGen2}, NextFAGen}->
+            Refac={refactoring, add_to_export, 
+                   [File1, {F, A}, SearchPaths, ?context]},
+            {Refac, {lazy_gen, fun()-> get_next_add_to_export_command(
+                                         {File2, NextFileGen2},NextFAGen,SearchPaths)
+                               end}}
+    end.
+
                
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                              %%
@@ -1106,8 +1156,11 @@ gen_question(tuple_args, [File, {F,A}, Index1, Index2|_]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to turn the ~p arguments, starting from index ~p, "
                                 "of function ~p:~p/~p into a tuple?",
-                                [Index2-Index1+1, Index1, M, F, A])).
-
+                                [Index2-Index1+1, Index1, M, F, A]));
+gen_question(add_to_export, [File, {F, A}|_]) ->
+    M=list_to_atom(filename:basename(File, ".erl")),
+    lists:flatten(io_lib:format("Do you want to function ~p:~p/~p to the export list?",
+                                [M, F, A])).
 
 index_gen(Index, PreArgs) ->
     case Index of
