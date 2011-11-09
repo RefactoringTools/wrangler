@@ -96,7 +96,8 @@
               refac_remove_an_argument,
               refac_remove_an_import_attribute,
               refac_specialise_a_function,
-              refac_swap_function_arguments
+              refac_swap_function_arguments,
+	      refac_add_to_export
               ]},            
     {registered, [wrangler_ast_server,
                   wrangler_callgraph_server,
