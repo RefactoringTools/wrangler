@@ -39,31 +39,25 @@
 %% @private
 -module(refac_new_macro).
 
--export([new_macro/6, new_macro_eclipse/6]).
+-export([new_macro/7, new_macro_eclipse/6]).
 
 -export([replace_expr_with_macro/3]).
 
 -include("../include/wrangler_internal.hrl").
 
-%% =============================================================================================
-
-%%-spec(new_macro/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
-%%	       {ok, [filename()]}).
-new_macro(FileName, Start, End, NewMacroName, SearchPaths, TabWidth) ->
-    new_macro(FileName, Start, End, NewMacroName, SearchPaths, TabWidth, emacs).
-
 %%-spec(new_macro_eclipse/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
 %%				 {ok, [{filename(), filename(), string()}]}).
 new_macro_eclipse(FileName, Start, End, NewMacroName, SearchPaths, TabWidth) ->
-    new_macro(FileName, Start, End, NewMacroName, SearchPaths, TabWidth, eclipse).
+    new_macro(FileName, Start, End, NewMacroName, SearchPaths, eclipse, TabWidth).
 
-new_macro(FileName, Start = {SLine, SCol}, End = {ELine, ECol}, NewMacroName, SearchPaths, TabWidth, Editor) ->
-    ?wrangler_io("\nCMD: ~p:new_macro(~p, {~p,~p}, {~p,~p}, ~p, ~p,~p).\n",
-		 [?MODULE, FileName, SLine, SCol, ELine, ECol, NewMacroName, SearchPaths, TabWidth]),
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":new_macro(" ++ "\"" ++ 
-	    FileName ++ "\", {" ++ integer_to_list(SLine) ++ ", " ++ integer_to_list(SCol) ++ "}," ++ 
-	      "{" ++ integer_to_list(ELine) ++ ", " ++ integer_to_list(ECol) ++ "}," ++ "\"" ++ NewMacroName 
-      ++ "\"," ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+new_macro(FileName, Start = {SLine, SCol}, End = {ELine, ECol}, NewMacroName, SearchPaths, Editor, TabWidth) ->
+     ?wrangler_io("\nCMD: ~p:new_macro(~p, {~p,~p}, {~p,~p}, ~p, ~p,~p, ~p).\n",
+		  [?MODULE, FileName, SLine, SCol, ELine, ECol, NewMacroName, SearchPaths, Editor, TabWidth]),
+     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":new_macro(" ++ "\"" ++
+	     FileName ++ "\", {" ++ integer_to_list(SLine) ++ ", " ++ integer_to_list(SCol) ++ "}," ++
+	       "{" ++ integer_to_list(ELine) ++ ", " ++ integer_to_list(ECol) ++ "}," ++ "\"" ++ NewMacroName
+      ++ "\"," ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "], " ++ atom_to_list(Editor) ++ 
+        ","++integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     case pre_cond_check(FileName, AnnAST, NewMacroName, Start, End, SearchPaths, TabWidth) of
 	{ok, AnnAST, Sel, NeedBracket} ->

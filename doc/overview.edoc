@@ -19,7 +19,6 @@ refactoring of Erlang programs.
   <li>{@section The Interface of Wrangler}</li>
   <li>{@section Support for Macros}</li>
   <li>{@section Refactoring Code with Syntax Errors}</li>
-  <li>{@section Typed Records and Type Specifications}</li>
   <li>{@section How to Use Wrangler}</li>
   <li>{@section References}</li>
   <li>{@section Acknowledgements}</li>
@@ -104,12 +103,6 @@ consideration has syntax errors or unparsable macros, functions/attributes
 to which these syntax errors belong are not affected by the refactoring
 process; however, warning messages asking for manual inspection of those
 parts of the program are given after the refactoring.
-
-== Typed Records and Type Specifications ==
-
-The current implementation of Wrangler does not support typed records and
-type specifications yet; functionalities to support these features are being
-added however.
 
 == How to Use Wrangler ==
 

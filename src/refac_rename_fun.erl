@@ -54,29 +54,29 @@
 %% @private
 -module(refac_rename_fun).
 
--export([rename_fun/6, rename_fun_1/6,  rename_fun_eclipse/6, rename_fun_1_eclipse/6]).
+-export([rename_fun/7, rename_fun_1/6, rename_fun_1/7,
+         rename_fun_eclipse/6, rename_fun_1_eclipse/6]).
 
--export([rename_fun_by_name/7]).
+-export([rename_fun_by_name/6, rename_fun_by_name/7]).
 
 -include("../include/wrangler_internal.hrl").
 
 
-%%-spec(rename_fun/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-%%	     {error, string()} | {warning, string()} |{ok, [filename()]}).
-
-rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
-    rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
-
 %%-spec(rename_fun_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
 %%				  {error, string()} | {warning, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_fun_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
-    rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
+    rename_fun(FileName, Line, Col, NewName, SearchPaths, eclipse, TabWidth).
+
+rename_fun_by_name(ModOrFileName, {OldFunName, Arity}, NewFunName, SearchPaths, Editor, TabWidth) ->
+    rename_fun_by_name(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths, Editor, TabWidth).
 
 %%-spec(rename_fun_command/7::(modulename()|filename(), atom(), integer(), atom(),[dir()], atom(), integer())->
 %%				       {error, string()} | {ok, [filename()]}).
 rename_fun_by_name(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths, Editor, TabWidth) ->
     OldFunNameStr = case is_atom(OldFunName) of
 			true -> atom_to_list(OldFunName);
+                        false when is_list(OldFunName) ->
+                            OldFunName;
 			false -> throw({error, "Original function name should be an atom."})
 		    end,
     NewFunNameStr = case is_atom(NewFunName) of
@@ -90,12 +90,7 @@ rename_fun_by_name(ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths, Ed
 	true -> ok;
 	false -> throw({error, "Arity should be an integer."})
     end,
-    case OldFunNameStr==NewFunNameStr of
-	true ->
-	    throw({error, "New function name is the same as old function name!"});
-	false -> ok
-    end,
-    case api_refac:is_fun_name(NewFunNameStr) of
+     case api_refac:is_fun_name(NewFunNameStr) of
 	true -> ok;
 	false -> throw({error, "Invalid new function name!"})
     end,
@@ -156,12 +151,12 @@ pre_cond_check_command(Info, NewFunNameAtom, ModName, OldFunNameAtom, Arity) ->
 	    end
     end.
 
-rename_fun(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
-    ?wrangler_io("\nCMD: ~p:rename_fun( ~p, ~p, ~p, ~p,~p, ~p).\n",
-		 [?MODULE, FileName, Line, Col, NewName, SearchPaths, TabWidth]),
-    Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_fun(" ++ "\"" ++ 
-	     FileName ++ "\", " ++ integer_to_list(Line) ++ 
-	       ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
+rename_fun(FileName, Line, Col, NewName, SearchPaths, Editor, TabWidth) ->
+     ?wrangler_io("\nCMD: ~p:rename_fun( ~p, ~p, ~p, ~p,~p, emacs, ~p).\n",
+		  [?MODULE, FileName, Line, Col, NewName, SearchPaths, TabWidth]),
+     Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_fun(" ++ "\"" ++
+	      FileName ++ "\", " ++ integer_to_list(Line) ++
+	        ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
       ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case api_refac:is_fun_name(NewName) of
 	true -> ok;
@@ -240,18 +235,18 @@ rename_fun_0(FileName, {AnnAST, Info}, {Mod, OldFunNameAtom, Arity}, {DefinePos,
 %%-spec(rename_fun_1/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
 %%	     {error, string()} | {ok, [filename()]}).
 rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
-    rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
+    rename_fun_1(FileName, Line, Col, NewName, SearchPaths, emacs, TabWidth).
     
 %%-spec(rename_fun_1_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
 %%	     {error, string()} | {ok, [filename()]}).
 
 rename_fun_1_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
-    rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
+    rename_fun_1(FileName, Line, Col, NewName, SearchPaths, eclipse, TabWidth).
 
-rename_fun_1(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_fun(" ++ "\"" ++ 
-	    FileName ++ "\", " ++ integer_to_list(Line) ++ 
-	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
+rename_fun_1(FileName, Line, Col, NewName, SearchPaths, Editor, TabWidth) ->
+     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_fun_1(" ++ "\"" ++
+	     FileName ++ "\", " ++ integer_to_list(Line) ++
+	       ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
       ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     NewName1 = list_to_atom(NewName),
@@ -327,17 +322,31 @@ do_rename_fun_1(Tree, {{M, OldName, Arity}, {DefinePos, NewName}}) ->
 		    {rewrite(Tree, wrangler_syntax:function(N1, Cs)), true};
 		_ -> {Tree, false}
 	    end;
-	application ->
-	  do_rename_in_fun_app(Tree, M, OldName, Arity, NewName);
-	arity_qualifier ->
-	    do_rename_fun_in_arity_qualifier(Tree, M, OldName, Arity, NewName);
-	atom ->
-	  As = wrangler_syntax:get_ann(Tree),
-	  case lists:keysearch(type, 1, As) of
-	      {value, {type, {f_atom, [M, OldName, Arity]}}} ->
-		  {wrangler_syntax:copy_attrs(Tree, wrangler_syntax:atom(NewName)), true};
-	      _ -> {Tree, false}
-	  end;
+        attribute ->
+          case api_spec:is_type_spec(Tree, {M, OldName, Arity}) of
+              true ->
+                  NewTree=api_spec:rename_in_spec(Tree, {M, NewName, Arity}),
+                  {NewTree, true};
+              false ->
+                  case api_spec:is_type_spec(Tree, {OldName, Arity}) of
+                      true ->
+                          NewTree=api_spec:rename_in_spec(Tree, {NewName, Arity}),
+                          {NewTree, true};
+                      _ ->
+                          {Tree, false}
+                  end
+          end;
+      application ->
+     do_rename_in_fun_app(Tree, M, OldName, Arity, NewName);
+      arity_qualifier ->
+	  do_rename_fun_in_arity_qualifier(Tree, M, OldName, Arity, NewName);
+      atom ->
+	As = wrangler_syntax:get_ann(Tree),
+	case lists:keysearch(type, 1, As) of
+	    {value, {type, {f_atom, [M, OldName, Arity]}}} ->
+		{wrangler_syntax:copy_attrs(Tree, wrangler_syntax:atom(NewName)), true};
+	    _ -> {Tree, false}
+	end;
       _ -> {Tree, false}
     end.
 
@@ -440,19 +449,27 @@ rename_fun_in_client_module_1({Tree, Info}, {M, OldName, Arity}, NewNameStr) ->
     api_ast_traverse:full_tdTP(fun do_rename_fun_in_client_module_1/2, Tree,
 			       {{M, OldName, Arity}, NewNameAtom}).
 
-do_rename_fun_in_client_module_1(Tree, {{M, OldName, Arity}, NewName}) ->
+do_rename_fun_in_client_module_1(Tree,  {{M, OldName, Arity}, NewName}) ->
     case wrangler_syntax:type(Tree) of
-      application -> do_rename_in_fun_app(Tree, M, OldName, Arity, NewName);
-      arity_qualifier ->   %% is there a module name?
-	  do_rename_fun_in_arity_qualifier(Tree, M, OldName, Arity, NewName);
-      atom ->
-	  As = wrangler_syntax:get_ann(Tree),
-	  case lists:keysearch(type, 1, As) of
-	    {value, {type, {f_atom, [M, OldName, Arity]}}} ->
-		{wrangler_syntax:copy_attrs(Tree, wrangler_syntax:atom(NewName)), true};
-	    _ -> {Tree, false}
-	  end;
-      _ -> {Tree, false}
+        attribute ->
+            case api_spec:is_type_spec(Tree, {M, OldName, Arity}) of
+                true ->
+                    NewTree=api_spec:rename_in_spec(Tree, {M, NewName, Arity}),
+                    {NewTree, true};
+                false ->
+                    {Tree, false}
+            end;
+        application -> do_rename_in_fun_app(Tree, M, OldName, Arity, NewName);
+        arity_qualifier ->   %% is there a module name?
+            do_rename_fun_in_arity_qualifier(Tree, M, OldName, Arity, NewName);
+        atom ->
+            As = wrangler_syntax:get_ann(Tree),
+            case lists:keysearch(type, 1, As) of
+                {value, {type, {f_atom, [M, OldName, Arity]}}} ->
+                    {wrangler_syntax:copy_attrs(Tree, wrangler_syntax:atom(NewName)), true};
+                _ -> {Tree, false}
+            end;
+        _ -> {Tree, false}
     end.
 
 do_rename_fun_in_arity_qualifier(Tree, M, OldName, Arity, NewName) ->

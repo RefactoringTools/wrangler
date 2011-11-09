@@ -54,34 +54,23 @@
 %% @private
 -module(refac_register_pid).
 
--export([register_pid/6, register_pid_eclipse/6, register_pid_1/10, register_pid_2/9]).
+-export([register_pid/7, register_pid_eclipse/6, register_pid_1/10, register_pid_2/9]).
 
 -include("../include/wrangler_internal.hrl").
-
-%% ==============================================================================================================
-%% @spec register_pid(FileName::filename(), Start::Pos, End::Pos, RegName::string(), SearchPaths::[dir()], TabWidth::integer())-> term()
-%% @doc This function associates a name, which must be an atom, with a pid, and replaces the uses of this pid in 
-%% send expressions with the name.
-
-%% TODO: correct the spec.
-%%-spec(register_pid(FileName::filename(), Start::pos(), End::pos(), RegName::string(),SearchPaths::[dir()], TabWidth::integer())-> 
-%%	     {error, string()} |{ok, [filename()]}).
-register_pid(FName, Start, End, RegName,  SearchPaths, TabWidth) ->
-    register_pid(FName, Start, End, RegName, SearchPaths, TabWidth, emacs).
 
 %% TODO: correct the spec.
 %%-spec(register_pid_eclipse(FileName::filename(), Start::pos(), End::pos(), RegName::string(),SearchPaths::[dir()], TabWidth::integer())
 %%      -> {error, string()} |{ok, [{filename(), filename(), string()}]}).
 register_pid_eclipse(FName, Start, End, RegName, SearchPaths, TabWidth) ->
-    register_pid(FName, Start, End, RegName, SearchPaths, TabWidth, eclipse).
+    register_pid(FName, Start, End, RegName, SearchPaths, eclipse, TabWidth).
 
-register_pid(FName, Start = {Line1, Col1}, End = {Line2, Col2}, RegName, SearchPaths, TabWidth, Editor) ->
-    ?wrangler_io("\nCMD: ~p:register_pid(~p, {~p,~p}, {~p,~p}, ~p,~p, ~p)\n",
-		 [?MODULE, FName, Line1, Col1, Line2, Col2, RegName, SearchPaths, TabWidth]),
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":register_pid(" ++ "\"" ++ 
-	    FName ++ "\", {" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ 
-	      "{" ++ integer_to_list(Line2) ++ ", " ++ integer_to_list(Col2) ++ "}," ++ "\"" ++ RegName ++ "\","
-													    ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+register_pid(FName, Start = {Line1, Col1}, End = {Line2, Col2}, RegName, SearchPaths, Editor, TabWidth) ->
+     ?wrangler_io("\nCMD: ~p:register_pid(~p, {~p,~p}, {~p,~p}, ~p,~p,~p, ~p).\n",
+		  [?MODULE, FName, Line1, Col1, Line2, Col2, RegName, SearchPaths, Editor, TabWidth]),
+     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":register_pid(" ++ "\"" ++
+	     FName ++ "\", {" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++
+	       "{" ++ integer_to_list(Line2) ++ ", " ++ integer_to_list(Col2) ++ "}," ++ "\"" ++ RegName ++ "\","
+        ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case is_process_name(RegName) of
 	true -> {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
 		case pos_to_spawn_match_expr(AnnAST, Start, End) of
@@ -90,11 +79,11 @@ register_pid(FName, Start = {Line1, Col1}, End = {Line2, Col2}, RegName, SearchP
 			RegName1 = list_to_atom(RegName),
 			_Res = wrangler_annotate_pid:ann_pid_info(SearchPaths, TabWidth),
 			%% get the AST with pid information.
-			{ok, {AnnAST1, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-			case pos_to_spawn_match_expr(AnnAST1, Start, End) of
+                        {ok, {AnnAST1, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
+                        case pos_to_spawn_match_expr(AnnAST1, Start, End) of
 			    {ok, MatchExpr} ->
 				case pre_cond_check(ModName, AnnAST1, Start, MatchExpr, RegName1, Info, SearchPaths, TabWidth) of
-				    ok ->
+				    ok -> 
 					Pid = wrangler_syntax:match_expr_pattern(MatchExpr),
 					case do_register(FName, AnnAST1, MatchExpr, Pid, RegName1, SearchPaths, TabWidth) of
 					    {ok, Results} ->
@@ -355,7 +344,7 @@ collect_registered_names_and_pids(DirList, TabWidth) ->
 							      true ->
 								  [RegName, Pid] = wrangler_syntax:application_arguments(Node1),
 								  RegNameValues = evaluate_expr(Files, ModName, AnnAST, Node, RegName),
-								  RegNameValues1 = lists:map(fun (R) -> {pname, R} end, RegNameValues),
+								  RegNameValues1 = lists:map(fun (R) -> {p_name, R} end, RegNameValues),
 								  [{pid, {{ModName, FunName, Arity}, Pid}}| RegNameValues1++FunAcc];
 							      _ -> FunAcc
 							  end;
@@ -369,7 +358,7 @@ collect_registered_names_and_pids(DirList, TabWidth) ->
 		api_ast_traverse:fold(F1, [], AnnAST) ++ FileAcc
 	end,
     Acc = lists:foldl(F, [], Files),
-    PNameAcc = lists:flatmap(fun ({P,A}) -> if P ==pname -> [A];
+    PNameAcc = lists:flatmap(fun ({P,A}) -> if P ==p_name -> [A];
 					       true -> []
 					    end
 			     end, Acc),

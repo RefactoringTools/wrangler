@@ -652,9 +652,14 @@ get_final_clone_classes(Pid, ASTTab) ->
 clone_check_loop(Cs, CandidateClassPairs, Tabs) ->
     receive
 	{add_clone,  {Candidate, Clones}} ->
-	    Clones1=[get_clone_class_in_absolute_locs(Clone) 
+            Clones1=[get_clone_class_in_absolute_locs(Clone) 
 		     || Clone <- Clones],
-	    clone_check_loop(Clones1++Cs, [{hash_a_clone_candidate(Candidate), Clones}|CandidateClassPairs], Tabs);
+            lists:foreach(fun(C) ->
+                                  {_, {Len, Freq}, AntiUnifier,AbsRanges}=C,
+                                  wrangler_code_search_utils:display_a_clone(
+                                    {AbsRanges, Len, Freq, AntiUnifier}, 0)
+                          end, Clones1),
+            clone_check_loop(Clones1++Cs, [{hash_a_clone_candidate(Candidate), Clones}|CandidateClassPairs], Tabs);
 	{get_clones, From, _ASTTab} ->
 	    ?debug("TIME3:\n~p\n", [time()]),
 	    Cs0=remove_sub_clones(Cs),
@@ -760,11 +765,12 @@ examine_a_clone_candidate_1(_C={Ranges, {_Len, _Freq}}, Thresholds, Tabs) ->
 			FromSameFile=from_same_file(Rs),
                         AU= get_anti_unifier(Info, FromSameFile),
                         {Rs1, AU1} = attach_fun_call_to_range(Rs, AU, FromSameFile),
-			{Rs1, {Len, Freq}, AU1}
+                        {Rs1, {Len, length(Rs1)}, AU1}
 		    end
-		    || {Rs, {Len, Freq}, Info} <- Clones],
-    ClonesWithAU.
-  
+		    || {Rs, {Len, _}, Info} <- Clones],
+    [{Rs1, {Len, F}, AU1}||{Rs1, {Len, F}, AU1}<-ClonesWithAU,
+                           F>=Thresholds#threshold.min_freq].
+ 
 
 attach_expr_ast_to_ranges(Rs, ASTTab) ->
     [{R, ExpAST}||R={ExprKey, _Toks, _Loc, _IsNew}<-Rs, 
@@ -1236,7 +1242,7 @@ format(Node) ->
 attach_fun_call_to_range(RangesWithAST,{AU, Pars}, FromSameFile) ->
     RangesWithFunCalls=[generate_fun_call_1(RangeWithAST, AU, FromSameFile) 
 			|| RangeWithAST <- RangesWithAST],
-    {RangesWithFunCalls,{simplify_anti_unifier(AU),Pars}}.
+    {lists:append(RangesWithFunCalls),{simplify_anti_unifier(AU),Pars}}.
 
 generate_fun_call_1(RangeWithAST, AUForm, FromSameFile) ->
     {Range, Exprs} = lists:unzip(RangeWithAST),
@@ -1255,10 +1261,10 @@ generate_fun_call_1(RangeWithAST, AUForm, FromSameFile) ->
 	    end,
 	%% Need to check side-effect here. but it is a bit slow!!!
 	FunCall=make_fun_call(new_fun, Pats, Subst, FromSameFile),
-	{Range, format(FunCall)}
+	[{Range, format(FunCall)}]
     catch 
 	_E1:_E2 ->
-	    "wrangler-failed-to-generate-the-function-application."
+	    [] %%"wrangler-failed-to-generate-the-function-application."
     end.
 
 make_fun_call(FunName, Pats, Subst, FromSameFile) ->
@@ -1772,3 +1778,5 @@ hash_ranges(Ranges) ->
 			       io_lib:format(
 				 "~p", [[F(E)||E<-R]])))
 		  ||R<-Ranges])).
+
+

@@ -1,25 +1,24 @@
--module(eqc_rename_var).
-
--export([test_rename_var/1, test_rename_var1/0]).
+-module(eqc_inline_var).
 
 -compile(export_all).
 
 -include_lib("eqc/include/eqc.hrl").
 
-%% Default variable names.
-madeup_vars() -> ["AAA", "BBB", "CCC"].
-
-%% collect all the variables in a function definition in terms of position or name as specified by PosOrName.
-vars_within_a_fun(AST, Function, PosOrName) ->
+vars_within_a_fun(AST, Function) ->
     Fun1 = fun (T, S) ->
 		   case wrangler_syntax:type(T) of
 		       variable ->
-			   Name = wrangler_syntax:variable_name(T),
-			   Pos = wrangler_syntax:get_pos(T),
-			   case PosOrName of
-			       pos -> ordsets:add_element(Pos, S);
-			       _ -> ordsets:add_element(atom_to_list(Name), S)
-			   end;
+                           Pos = wrangler_syntax:get_pos(T),
+                           case  lists:keysearch(def, 1, wrangler_syntax:get_ann(T)) of
+                               {value, {def, DefinePos}} -> 
+                                   case not lists:member(Pos, DefinePos) of
+                                       true -> ordsets:add_element(Pos, S);
+                                       _ -> S
+                                   end;
+                               false -> 
+                                   wrangler_io:format("T:\n~p\n", [T]),
+                                   S
+                           end;
 		       _ -> S
 		   end
 	   end,
@@ -58,34 +57,27 @@ all_funs(AST) ->
 		      _ -> S
 		  end
 	  end,
-    api_ast_traverse:fold(Fun, ordsets:new(), AST) ++ [{none, 0, {0,0}}].
+    api_ast_traverse:fold(Fun, ordsets:new(), AST).
 
 
 
-%% returns true if a 'rename a variable' command is valid.
-valid_rename_var_command1(AST, {_FName, Loc, NewName, _SearchPaths}) ->
-    case Loc of
-      {0, 0} -> false;
-      _ ->
-	  case api_interface:pos_to_var_name(AST, Loc) of
-	    {ok, {OldName, [DefinePos]}} ->
-                  DefinePos =/= [{0, 0}] andalso OldName =/= NewName;
-	    _ -> false
-	  end
-    end.
+%% returns true if a 'inline a variable' command is valid.
+valid_inline_var_command1(_AST, {_FName, _Loc, _SearchPaths}) ->
+    true.
+   
 
-%% Properties for 'rename a variable name'
-prop_rename_var({FName, Loc, NewName, SearchPaths, TabWidth}) ->
+%% Properties for 'inline a variable name'
+prop_inline_var({FName, Loc, SearchPaths, TabWidth}) ->
     Res0 = case catch compile:file(FName, [{i, "c:/cygwin/home/hl/test_codebase"}]) of
 	       {ok, _} -> ok;
 	       _ -> fail
 	   end,
     {ok, {AST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-    ?IMPLIES(valid_rename_var_command1(AST, {FName, Loc, NewName, SearchPaths}),
+    ?IMPLIES(valid_inline_var_command1(AST, {FName, Loc, SearchPaths}),
 	     begin
 		 {Line, Col} = Loc,
-		 Args = [FName, Line, Col, NewName, SearchPaths, TabWidth],
-                 Res = try apply(refac_rename_var, rename_var, Args)
+		 Args = [FName, Line, Col, SearchPaths, emacs, TabWidth],
+                 Res = try apply(refac_inline_var, inline_var, Args)
 		       catch
 			   throw:Error ->
 			       io:format("Error:\n~\pn", [Error]),
@@ -113,59 +105,64 @@ prop_rename_var({FName, Loc, NewName, SearchPaths, TabWidth}) ->
 		 end
 	     end).
 			
-gen_rename_var_commands(Dirs) ->
+gen_inline_var_commands(Dirs) ->
     ?LET(FileName, (gen_filename(Dirs)),
-	 gen_rename_var_commands_1(FileName, Dirs)).
+	 gen_inline_var_commands_1(FileName, Dirs)).
 
-gen_rename_var_commands_1(FileName, Dirs) ->
+gen_inline_var_commands_1(FileName, Dirs) ->
     {ok, {AST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, Dirs),
     ?LET(F, gen_funs(AST),
 	 noshrink({FileName,
 		   oneof(begin
-			     L = vars_within_a_fun(AST, F, pos),
+			     L = vars_within_a_fun(AST, F),
                              if L == [] -> [{0, 0}];
 				true -> L
 			     end
 			 end),
-		   oneof(vars_within_a_fun(AST, F, name)++ (madeup_vars())), Dirs, 8})).
+		   Dirs, 8})).
 
-test_rename_var(Dirs) ->
+test_inline_var(Dirs) ->
     application:start(wrangler),
-    eqc:quickcheck(numtests(500, ?FORALL(C, (gen_rename_var_commands(Dirs)), prop_rename_var(C)))),
+    eqc:quickcheck(numtests(500, ?FORALL(C, (gen_inline_var_commands(Dirs)), prop_inline_var(C)))),
     application:stop(wrangler).
 
    
-test_rename_var1() ->
-    test_rename_var(["c:/cygwin/home/hl/test_codebase/lampera"]).
+test_inline_var1() ->
+    test_inline_var(["c:/cygwin/home/hl/test_codebase/lampera"]).
 
-test_rename_var2() ->
-    test_rename_var(["c:/cygwin/home/hl/test_codebase/eunit"]).
+test_inline_var2() ->
+    test_inline_var(["c:/cygwin/home/hl/test_codebase/eunit"]).
 
-test_rename_var3() ->
-    test_rename_var(["c:/cygwin/home/hl/test_codebase/refactorerl"]).
+test_inline_var3() ->
+    test_inline_var(["c:/cygwin/home/hl/test_codebase/refactorerl"]).
 
-test_rename_var4() ->
-    test_rename_var(["c:/cygwin/home/hl/test_codebase/suites"]).
+test_inline_var4() ->
+    test_inline_var(["c:/cygwin/home/hl/test_codebase/suites"]).
 
-test_rename_var5() ->
-    test_rename_var(["c:/cygwin/home/hl/test_codebase/wrangler"]).
+test_inline_var5() ->
+    test_inline_var(["c:/cygwin/home/hl/test_codebase/wrangler"]).
 
-test_rename_var6() ->
-    test_rename_var(["c:/cygwin/home/hl/test_codebase/stdlib"]).
+test_inline_var6() ->
+    test_inline_var(["c:/cygwin/home/hl/test_codebase/stdlib"]).
 
-test_rename_var7() ->
-    test_rename_var(["c:/cygwin/home/hl/test_codebase/yxa"]).
+test_inline_var7() ->
+    test_inline_var(["c:/cygwin/home/hl/test_codebase/yxa"]).
 
-test_rename_var8() ->
-    test_rename_var(["c:/cygwin/home/hl/test_codebase/dialyzer"]).
+test_inline_var8() ->
+    test_inline_var(["c:/cygwin/home/hl/test_codebase/dialyzer"]).
 
-run_test_rename_var() ->
-    test_rename_var1(),
-    test_rename_var2(),
-    test_rename_var3(),
-    test_rename_var4(),
-    test_rename_var5(),
-    test_rename_var6(),
-    test_rename_var7(),
-    test_rename_var8().
+test_inline_var9() ->
+    test_inline_var(["c:/cygwin/home/hl/test_codebase/syntax_tools"]).
+
+
+
+run_test_inline_var() ->
+    test_inline_var1(),
+    test_inline_var2(),
+    test_inline_var3(),
+    test_inline_var4(),
+    test_inline_var5(),
+    test_inline_var6(),
+    test_inline_var7(),
+    test_inline_var8().
     

@@ -145,8 +145,16 @@ range_to_node_2(Tree, {Start, End}, Pred) ->
 %% @see pos_to_expr/3
 %% @see pos_to_fun_def/2.
 
-%%-spec (pos_to_fun_name(Node::syntaxTree(), Pos::pos()) ->
+%%-spec (pos_to_fun_name(FileOrTree::filename()|syntaxTree(), Pos::pos()) ->
 %%	      {ok, {atom(), atom(), integer(), pos(), pos()}} | {error, string()}).
+pos_to_fun_name(FileOrTree, Pos) when is_list(FileOrTree)->
+    case filelib:is_regular(FileOrTree) of 
+        true ->
+            {ok, {AnnAST, _}} = wrangler_ast_server:parse_annotate_file(FileOrTree, true),
+            pos_to_fun_name(AnnAST, Pos);
+        false ->
+            throw({error, "Badarg to function interface_api:pos_to_fun_name/2"})
+    end;
 pos_to_fun_name(Node, Pos) ->
     case
       api_ast_traverse:once_tdTU(fun pos_to_fun_name_1/2, Node, Pos)

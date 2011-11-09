@@ -33,35 +33,23 @@
 %% @private
 -module(refac_fun_to_process).
 
--export([fun_to_process/6, fun_to_process_eclipse/6, 
-	 fun_to_process_1/7, fun_to_process_1_eclipse/6]).
+-export([fun_to_process/7, fun_to_process_eclipse/6, 
+	 fun_to_process_1/8, fun_to_process_1_eclipse/6]).
 
 -include("../include/wrangler_internal.hrl").
-
-
-%%-spec(fun_to_process/6::(filename(), integer(), integer(), string(), [dir()], integer()) 
-%%      -> {ok, [filename()]}).      
-fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth) ->
-    fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, emacs).
-
-
-%%-spec(fun_to_process_1/7::(filename(), integer(), integer(), string(), [dir()], integer(), string()) 
-%%      -> {ok, [filename()]}).      
-fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, LogMsg) ->
-    fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, emacs, LogMsg).
 
 %%-spec(fun_to_process_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer()) -> 
 %%	     {ok, [{filename(), filename(), string()}]}).
 fun_to_process_eclipse(FName, Line, Col, ProcessName, SearchPaths, TabWidth) ->
-    fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, eclipse).
+    fun_to_process(FName, Line, Col, ProcessName, SearchPaths, eclipse, TabWidth).
 
-fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor) ->
-    ?wrangler_io("\nCMD: ~p:fun_to_process(~p, ~p, ~p, ~p,~p, ~p).\n",
-		 [?MODULE, FName, Line, Col, ProcessName, SearchPaths, TabWidth]),
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fun_to_process(" ++ "\"" ++ 
-	    FName ++ "\", " ++ integer_to_list(Line) ++ 
-	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ ProcessName ++ "\","
-									      ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+fun_to_process(FName, Line, Col, ProcessName, SearchPaths, Editor, TabWidth) ->
+     ?wrangler_io("\nCMD: ~p:fun_to_process(~p, ~p, ~p, ~p,~p, ~p).\n",
+		  [?MODULE, FName, Line, Col, ProcessName, SearchPaths, TabWidth]),
+     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fun_to_process(" ++ "\"" ++
+	     FName ++ "\", " ++ integer_to_list(Line) ++
+	       ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ ProcessName ++ "\","
+        ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case is_process_name(ProcessName) of
 	true -> ok;
 	false -> throw({error, "Invalid process name."})
@@ -94,26 +82,26 @@ fun_to_process(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor) ->
 %%-spec(fun_to_process_1_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer())
 %%      -> {ok, [{filename(), filename(), string()}]}).
 fun_to_process_1_eclipse(FName, Line, Col, ProcessName, SearchPaths, TabWidth) ->
-    fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, eclipse, "").
+    fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, eclipse, TabWidth, "").
 
-fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, TabWidth, Editor, LogMsg) ->
-    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
-    ProcessName1 = list_to_atom(ProcessName),
-    {ok, FunDef} = api_interface:pos_to_fun_def(AnnAST, {Line, Col}),
-    {value, {fun_def, {ModName, FunName, Arity, _Pos1, DefinePos}}} =
-	lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(FunDef)),
-    AnnAST1 = do_fun_to_process(AnnAST, Info, DefinePos, FunName, Arity, ProcessName1),
-    case Editor of
-	emacs ->
-	    Res = [{{FName, FName}, AnnAST1}],
-	    wrangler_write_file:write_refactored_files_for_preview(Res, TabWidth, LogMsg),
-	    {ok, [FName]};
-	eclipse ->
-	    Content = wrangler_prettypr:print_ast(wrangler_misc:file_format(FName), AnnAST1, TabWidth),
-	    Res = [{FName, FName, Content}],
-	    {ok, Res}
-    end.
+fun_to_process_1(FName, Line, Col, ProcessName, SearchPaths, Editor, TabWidth, LogMsg) ->
+     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
+     {value, {module, ModName}} = lists:keysearch(module, 1, Info),
+     ProcessName1 = list_to_atom(ProcessName),
+     {ok, FunDef} = api_interface:pos_to_fun_def(AnnAST, {Line, Col}),
+     {value, {fun_def, {ModName, FunName, Arity, _Pos1, DefinePos}}} =
+	 lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(FunDef)),
+     AnnAST1 = do_fun_to_process(AnnAST, Info, DefinePos, FunName, Arity, ProcessName1),
+     case Editor of
+	 emacs ->
+	     Res = [{{FName, FName}, AnnAST1}],
+	     wrangler_write_file:write_refactored_files_for_preview(Res, TabWidth, LogMsg),
+	     {ok, [FName]};
+	 eclipse ->
+	     Content = wrangler_prettypr:print_ast(wrangler_misc:file_format(FName), AnnAST1, TabWidth),
+	     Res = [{FName, FName, Content}],
+	     {ok, Res}
+     end.
 
 %% Side conditios:
 %% 1. This process name provided by the user should be lexically legal, and not conflict with existing process names.
@@ -355,7 +343,7 @@ collect_registration_and_self_apps(DirList, TabWidth) ->
 							      true ->
 								  [RegName, Pid] = wrangler_syntax:application_arguments(Node1),
 								  RegNameValues = evaluate_expr(File, RegName, DirList, TabWidth),
-								  RegNameValues1 = [{pname, R} || R <- RegNameValues],
+								  RegNameValues1 = [{p_name, R} || R <- RegNameValues],
 								  [{pid, {{ModName, FunName, Arity}, Pid}}| RegNameValues1++FunAcc];
 							      false ->
 								  case is_self_app(Node1) of
@@ -376,7 +364,7 @@ collect_registration_and_self_apps(DirList, TabWidth) ->
 		api_ast_traverse:fold(F1, [], AnnAST) ++ FileAcc
 	end,
     Acc = lists:foldl(F, [], Files),
-    PNameAcc = [A || {pname, A} <- Acc],
+    PNameAcc = [A || {p_name, A} <- Acc],
     PidAcc = [A || {pid, A} <- Acc],
     SelfApps = [A || {self, A} <- Acc],
     Names = lists:usort([V || {value, V} <- PNameAcc]),

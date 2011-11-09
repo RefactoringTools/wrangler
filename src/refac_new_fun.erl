@@ -34,45 +34,36 @@
 %% @private
 -module(refac_new_fun).
 
--export([fun_extraction/5, fun_extraction_1/5, fun_extraction_eclipse/5, fun_extraction_1_eclipse/5]).
+-export([fun_extraction/6, fun_extraction_1/6, fun_extraction_eclipse/5, fun_extraction_1_eclipse/5]).
 
 
 -include("../include/wrangler_internal.hrl").
 
-%% =============================================================================================
-%%-spec(fun_extraction/5::(filename(), pos(), pos(), string(), integer()) ->
-%% 	     {'ok', [filename()]}).
-fun_extraction(FName, Start, End, NewFunName, TabWidth) ->
-    fun_extraction(FName, Start, End, NewFunName, TabWidth, emacs).
-
-fun_extraction_1(FName, Start, End, NewFunName, TabWidth) ->
-    fun_extraction_1(FName, Start, End, NewFunName, TabWidth, emacs).
-
 %%-spec(fun_extraction_eclipse/5::(filename(), pos(), pos(), string(),integer()) ->
 %% 	      {ok, [{filename(), filename(), string()}]}).
 fun_extraction_eclipse(FileName, Start, End, NewFunName, TabWidth) ->
-    fun_extraction(FileName, Start, End, NewFunName, TabWidth, eclipse).
+    fun_extraction(FileName, Start, End, NewFunName, eclipse, TabWidth).
 
 fun_extraction_1_eclipse(FileName, Start, End, NewFunName, TabWidth) ->
-    fun_extraction_1(FileName, Start, End, NewFunName, TabWidth, eclipse).
+    fun_extraction_1(FileName, Start, End, NewFunName, eclipse, TabWidth).
 
-fun_extraction_1(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewFunName, TabWidth, Editor) ->
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fun_extraction(" ++ "\"" ++ 
-	    FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++ 
-	      "{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ NewFunName ++ "\","
-        ++ integer_to_list(TabWidth) ++ ").",
+fun_extraction_1(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewFunName, Editor, TabWidth) ->
+     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fun_extraction(" ++ "\"" ++
+	     FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++
+	       "{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ NewFunName ++ "\", "
+        ++ atom_to_list(Editor) ++ ", "++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, [], TabWidth),
     ExpList = api_interface:pos_to_expr_list(AnnAST, Start, End),
     {ok, Fun} = api_interface:expr_to_fun(AnnAST, hd(ExpList)),
     fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor, TabWidth, Cmd).
 
-fun_extraction(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewFunName, TabWidth, Editor) ->
-    ?wrangler_io("\nCMD: ~p:fun_extraction(~p, {~p,~p}, {~p,~p}, ~p, ~p).\n",
-		 [?MODULE, FileName, Line, Col, Line1, Col1, NewFunName, TabWidth]),
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fun_extraction(" ++ "\"" ++ 
-	    FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++ 
-	      "{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ NewFunName ++ "\","
-        ++ integer_to_list(TabWidth) ++ ").",
+fun_extraction(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewFunName, Editor, TabWidth) ->
+     ?wrangler_io("\nCMD: ~p:fun_extraction(~p, {~p,~p}, {~p,~p}, ~p, ~p, ~p).\n",
+		  [?MODULE, FileName, Line, Col, Line1, Col1, NewFunName, Editor, TabWidth]),
+     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fun_extraction(" ++ "\"" ++
+	     FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++
+	       "{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ NewFunName ++ "\", "
+        ++ atom_to_list(Editor) ++ ", "++integer_to_list(TabWidth) ++ ").",
     case api_refac:is_fun_name(NewFunName) of
 	true -> ok;
 	false -> throw({error, "Invalid function name!"})
@@ -170,9 +161,28 @@ check_expr_category_1(Exp) ->
 		binary_field ->
 		    throw({error, "Function abstraction over a binary field is "
 			   "not supported."});
-		_ ->
-		    true
-	    end
+                arity_qualifier ->
+                    throw({error, "Function abstraction over an arity qualifier is "
+			   "not supported."});
+                _  ->
+                    Ann =wrangler_syntax:get_ann(Exp),
+                    case lists:keyfind(syntax_path, 1, Ann) of
+                        {syntax_path, implicit_fun_name} ->
+                            throw({error, "Function abstraction over the body of an implicit "                           "fun-expression is not supported."});
+                        {syntax_path, module_qualifier_argument} ->
+                            throw({error, "Function abstraction over a module qualifier is "
+			   "not supported."});
+                        {syntax_path, arity_qualifier_arity} ->
+                              throw({error, "Function abstraction over the arity of an arity qualifier is "
+                                     "not supported."});
+                        {syntax_path, arity_qualifier_body} ->
+                              throw({error, "Function abstraction over an arity qualifier body is "
+                                     "not supported."});
+                        
+                        _ ->
+                            true
+                    end
+            end
     end.
 
 is_macro_arg(Fun, Exp) ->

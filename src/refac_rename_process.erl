@@ -34,31 +34,27 @@
 %% @private
 -module(refac_rename_process).
 
--export([rename_process/6, rename_process_eclipse/6, rename_process_1/6, rename_process_1_eclipse/5]).
+-export([rename_process/7, rename_process_eclipse/6, rename_process_1/7, rename_process_1_eclipse/5]).
 
 -include("../include/wrangler_internal.hrl").
-
-%%-spec(rename_process/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
-%%	     {error, string()} | {undecidables, string(), string()}| {ok, [filename()]}).
-rename_process(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
-    rename_process(FileName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
 
 %%-spec(rename_process_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
 %%	     {error, string()} | {undecidables, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_process_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
-    rename_process(FileName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
+    rename_process(FileName, Line, Col, NewName, SearchPaths, eclipse, TabWidth).
 
-rename_process(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
-    ?wrangler_io("\nCMD: ~p:rename_process( ~p, ~p, ~p, ~p,~p, ~p).\n", [?MODULE, FileName, Line, Col, NewName, SearchPaths, TabWidth]),
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_process(" ++ "\"" ++ 
-	    FileName ++ "\", " ++ integer_to_list(Line) ++ 
-	      ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
+rename_process(FileName, Line, Col, NewName, SearchPaths, Editor, TabWidth) ->
+     ?wrangler_io("\nCMD: ~p:rename_process( ~p, ~p, ~p, ~p,~p, ~p, ~p).\n", 
+                  [?MODULE, FileName, Line, Col, NewName, SearchPaths, Editor, TabWidth]),
+     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_process(" ++ "\"" ++
+	     FileName ++ "\", " ++ integer_to_list(Line) ++
+	       ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
       ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case is_process_name(NewName) of
 	true ->
 	    _Res = wrangler_annotate_pid:ann_pid_info(SearchPaths, TabWidth),  %%TODO: check whether asts are already annotated.
-	    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth), %% TODO: rename to get_ast.
-	    NewProcessName = list_to_atom(NewName),
+	    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+            NewProcessName = list_to_atom(NewName),
 	    case pos_to_process_name(AnnAST, {Line, Col}) of
 		{ok, ProcessName} ->
 		    case NewProcessName =/= ProcessName of
@@ -83,22 +79,20 @@ rename_process(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
 	false -> {error, "Invalid new process name."}
     end.
 
-%%-spec(rename_process_1/6::(string(), string(), string(), [dir()], integer(), string()) -> {ok, [filename()]}).
-rename_process_1(FileName, OldProcessName, NewProcessName, SearchPaths, TabWidth, Cmd) ->
-    rename_process_1(FileName, OldProcessName, NewProcessName, SearchPaths, TabWidth, emacs, Cmd).
-
-%%-spec(rename_process_1_eclipse/5::(string(), string(), string(), [dir()], integer()) -> {ok, [{filename(), filename(), string()}]}).
+%%-spec(rename_process_1_eclipse/5::(string(), string(), string(), [dir()], integer()) -> 
+%%                      {ok, [{filename(), filename(), string()}]}).
 rename_process_1_eclipse(FileName, OldProcessName, NewProcessName, SearchPaths, TabWidth) ->
-    rename_process_1(FileName, OldProcessName, NewProcessName, SearchPaths, TabWidth, eclipse, "").
+    rename_process_1(FileName, OldProcessName, NewProcessName, SearchPaths, eclipse, TabWidth, "").
 
-%%-spec(rename_process_1/7::(string(), string(), string(), [dir()], integer(), editor(), string()) -> {ok, [filename()]}|{ok, [{filename(), filename(), string()}]}).
-rename_process_1(FileName, OldProcessName1, NewProcessName1, SearchPaths, TabWidth, Editor, Cmd) ->
-    OldProcessName = list_to_atom(OldProcessName1),
-    NewProcessName = list_to_atom(NewProcessName1),
-    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
-    Results = do_rename_process(FileName, AnnAST, OldProcessName, NewProcessName, SearchPaths, TabWidth),
-    check_atoms(FileName, OldProcessName, SearchPaths, TabWidth),
-    wrangler_write_file:write_refactored_files(Results, Editor, TabWidth, Cmd).
+%%-spec(rename_process_1/7::(string(), string(), string(), [dir()], editor(), integer(), string()) ->
+%%                        {ok, [filename()]}|{ok, [{filename(), filename(), string()}]}).
+rename_process_1(FileName, OldProcessName1, NewProcessName1, SearchPaths, Editor, TabWidth, Cmd) ->
+     OldProcessName = list_to_atom(OldProcessName1),
+     NewProcessName = list_to_atom(NewProcessName1),
+     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+     Results = do_rename_process(FileName, AnnAST, OldProcessName, NewProcessName, SearchPaths, TabWidth),
+     check_atoms(FileName, OldProcessName, SearchPaths, TabWidth),
+     wrangler_write_file:write_refactored_files(Results, Editor, TabWidth, Cmd).
 
 
 pos_to_process_name(Node, Pos) ->
@@ -114,8 +108,8 @@ pos_to_process_name_1(Node, Pos) ->
 	    {Start, End} = wrangler_misc:start_end_loc(Node),
 	    case Start =< Pos andalso Pos =< End of
 		true ->
-		    case lists:keysearch(pname, 1, As) of
-			{value, {pname, _V}} ->
+		    case lists:keysearch(type, 1, As) of
+			{value, {type, p_atom}} ->
 			    {wrangler_syntax:atom_value(Node), true};
 			_ -> {[], false}
 		    end;
@@ -159,8 +153,8 @@ collect_process_names(DirList) ->
 							      _ -> FunAcc
 							  end;
 						      atom ->
-							  case lists:keysearch(pname, 1, wrangler_syntax:get_ann(Node1)) of
-							      {value, {pname, _V}} ->
+							  case lists:keysearch(p_name, 1, wrangler_syntax:get_ann(Node1)) of
+							      {value, {p_name, _V}} ->
 								  [{value, wrangler_syntax:atom_value(Node1)}| FunAcc];
 							      _ -> FunAcc
 							  end;
@@ -214,8 +208,8 @@ do_rename_process(Node, {OldProcessName, NewProcessName}) ->
     case wrangler_syntax:type(Node) of
 	atom ->
 	    As = wrangler_syntax:get_ann(Node),
-	    case lists:keysearch(pname, 1, As) of 
-		{value, {pname, _}} ->
+	    case lists:keysearch(type, 1, As) of 
+		{value, {type, p_atom}} ->
 		    case wrangler_syntax:atom_value(Node) of
 			OldProcessName -> {wrangler_syntax:copy_attrs(Node, wrangler_syntax:atom(NewProcessName)), true};
 			_ -> {Node, false}
@@ -242,7 +236,7 @@ collect_atoms(CurrentFile, AtomName, SearchPaths, TabWidth) ->
     Files = [CurrentFile| wrangler_misc:expand_files(SearchPaths, ".erl") -- [CurrentFile]],
     lists:flatmap(fun (F) ->
 			  {ok, {AnnAST,_Info}} = wrangler_ast_server:parse_annotate_file(F, true, SearchPaths, TabWidth),
-			  wrangler_atom_utils:collect_unsure_atoms_in_file(AnnAST, AtomName, p_atom)
+			  wrangler_atom_utils:collect_unsure_atoms_in_file(AnnAST, [AtomName], p_atom)
 		  end, Files).
 
 is_process_name(Name) ->

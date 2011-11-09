@@ -48,33 +48,34 @@
 %% @private
 -module(refac_rename_var).
 
--export([rename_var/6, rename_var/8, rename_var_eclipse/6]).
+-export([rename_var/6, rename_var/7, rename_var_composite/7, rename_var_eclipse/6]).
 
 -export([rename/3, cond_check/4]).
 
 -include("../include/wrangler_internal.hrl").
 
-rename_var(FileName, _FunName, _Arity, {range, {_File, [{{Line, Col}, {_Line1, _Col1}}]}, _VarName}, 
-           NewName, SearchPaths, Editor, TabWidth) ->
-    rename_var(FileName, Line, Col, NewName, SearchPaths, TabWidth, Editor).
+rename_var_composite(FileName, {_FunName, _Arity}, 
+                     {range, {_File, [{{Line, Col}, {_Line1, _Col1}}]}, _VarName}, 
+                     NewName, SearchPaths, Editor, TabWidth) ->
+    {ok, FileName, Line, Col, NewName, SearchPaths, Editor, TabWidth}.
 
-%%-spec rename_var(filename(), integer(), integer(), string(), [dir()], integer()) ->
-%%	     {ok, string()}.
+-spec rename_var(filename(), integer(), integer(), string(), [dir()], integer()) ->
+	     {ok, string()}.
 rename_var(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
-    rename_var(FileName, Line, Col, NewName, SearchPaths, TabWidth, emacs).
+    rename_var(FileName, Line, Col, NewName, SearchPaths, emacs, TabWidth).
 
-%%-spec rename_var_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
-%%	     {ok, [{filename(), filename(), string()}]}.
+-spec rename_var_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
+	     {ok, [{filename(), filename(), string()}]}.
 rename_var_eclipse(FName, Line, Col, NewName, SearchPaths, TabWidth) ->
-    rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, eclipse).
+    rename_var(FName, Line, Col, NewName, SearchPaths, eclipse, TabWidth).
  
-rename_var(FName, Line, Col, NewName, SearchPaths, TabWidth, Editor) ->
+rename_var(FName, Line, Col, NewName, SearchPaths, Editor, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:rename_var(~p, ~p, ~p, ~p, ~p, ~p).\n",
-		 [?MODULE, FName, Line, Col, NewName, SearchPaths, TabWidth]),
-    Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_var(" ++ "\"" ++ 
-	     FName ++ "\", " ++ integer_to_list(Line) ++ 
-	       ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
-      ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+                 [?MODULE, FName, Line, Col, NewName, SearchPaths, TabWidth]),
+    Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_var(" ++ "\"" ++
+        FName ++ "\", " ++ integer_to_list(Line) ++
+        ", " ++ integer_to_list(Col) ++ ", " ++ "\"" ++ NewName ++ "\","
+        ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case api_refac:is_var_name(NewName) of
 	true -> ok;
 	false -> throw({error, "Invalid new variable name."})

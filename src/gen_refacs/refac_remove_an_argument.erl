@@ -1,12 +1,13 @@
+%% @hidden
 %% @private
--module(refac_remove_arg).
+-module(refac_remove_an_argument).
 
 -behaviour(gen_refac).
 
 -compile(export_all).
 
 %% Include files
--include("../include/wrangler.hrl").
+-include("../../include/wrangler.hrl").
 
 %%%===================================================================
 %% gen_refac callbacks
@@ -120,7 +121,8 @@ transform(Args=#args{current_file_name=File,focus_sel=FunDef,
 transform_in_cur_file(_Args=#args{current_file_name=File}, MFA, I) ->
     ?FULL_TD_TP([rule1(MFA,I),
                  rule2(MFA,I),
-                 rule3(MFA)],
+                 rule3(MFA),
+                 rule4(MFA, I)],
                 [File]).
 
 
@@ -135,7 +137,7 @@ transform_in_client_files(_Args=#args{current_file_name=File,
 rule1({M,F,A}, Ith) ->
     ?RULE(?T("f@(Args@@) when Guard@@ -> Bs@@;"), 
           begin NewArgs@@=delete(Ith, Args@@),
-                ?QUOTE("f@(NewArgs@@) when Guard@@->Bs@@;")
+                ?TO_AST("f@(NewArgs@@) when Guard@@->Bs@@;")
           end,
           api_refac:fun_define_info(f@) == {M, F, A}
          ).
@@ -156,6 +158,12 @@ rule3({M,F,A}) ->
           api_refac:type(F@) == arity_qualifier andalso
           api_refac:fun_define_info(F@) == {M, F, A}).
 
+rule4({_M, F, A}, Ith) ->
+    ?RULE(?T("Spec@"), 
+          api_spec:rm_arg_type_from_spec(_This@, Ith),
+          api_spec:is_type_spec(Spec@, {F, A})).
+
+
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
@@ -168,6 +176,6 @@ delete(Ith, Arg) ->
             "fun(ArgList) ->
                     lists:sublist(ArgList, ~p-1) ++
                       lists:nthtail(~p, ArgList)
-            end(~s)", [Ith, Ith, ?SPLICE(Arg)])),
-    ?QUOTE(Str).
+            end(~s)", [Ith, Ith, ?PP(Arg)])),
+    ?TO_AST(Str).
 

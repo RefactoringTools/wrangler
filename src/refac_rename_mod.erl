@@ -60,7 +60,7 @@
 %% @private
 -module(refac_rename_mod).
 
--export([rename_mod/4, rename_mod_1/5, 
+-export([rename_mod/5, rename_mod_1/6, 
 	 rename_mod_eclipse/4, rename_mod_1_eclipse/5,
 	 rename_mod_command/3]).
 
@@ -127,32 +127,18 @@ rename_mod_command_precond_check(OldFileName, NewModName, Info, SearchPaths) ->
 	false -> {error, "Invalid new module name!"}
     end.
 
-
-%%-spec(rename_mod/4::(filename(), string(), [dir()], integer()) -> 
-%%	     {error, string()} | {question, string()} | {warning, string()} |
-%%			  {ok, [filename()],[{filename(), filename()}], boolean()}).
-rename_mod(FileName, NewName, SearchPaths, TabWidth) ->
-    rename_mod(FileName, NewName, SearchPaths, TabWidth, emacs).
-
 %%-spec(rename_mod_eclipse/4::(filename(), string(), [dir()], integer()) ->
 %%	     {error, string()} | {question, string()} | {warning, string()} |
 %%		 {ok, [{filename(), filename(), string()}]}).
 rename_mod_eclipse(FileName, NewName, SearchPaths, TabWidth) ->
-    rename_mod(FileName, NewName, SearchPaths, TabWidth, eclipse).
-
-
-%% -spec(rename_mod_1/5::(filename(), string(), [dir()], integer(),boolean()) ->
-%% 			    {ok, [filename()], [filename()], boolean()} | 
-%% 			    {ok, [{filename(), filename(), string()}], [filename()], boolean()}).
-rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod) ->
-    rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod, emacs).
+    rename_mod(FileName, NewName, SearchPaths, eclipse, TabWidth).
 
 %%-spec(rename_mod_1_eclipse/5::(filename(), string(), [dir()], integer(),boolean()) ->
 %%				    {ok, [{filename(), filename(), string()}]}).
 rename_mod_1_eclipse(FileName, NewName, SearchPaths, TabWidth, RenameTestMod) ->
     rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod, eclipse).
 
-rename_mod(FileName, NewName, SearchPaths, TabWidth, Editor) ->
+rename_mod(FileName, NewName, SearchPaths, Editor, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:rename_mod(~p, ~p,~p, ~p).\n",
 		 [?MODULE, FileName, NewName, SearchPaths, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_mod(" ++ "\"" ++ 

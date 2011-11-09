@@ -99,6 +99,9 @@ test_partition_exports7() ->
 test_partition_exports8() ->
     test_partition_exports(["c:/cygwin/home/hl/test_codebase/dialyzer"]).
 
+test_partition_exports9() ->
+    test_partition_exports(["c:/cygwin/home/hl/test_codebase/syntax_tools"]).
+
 run_test_partition_exports() ->
     test_partition_exports1(),
     test_partition_exports2(),

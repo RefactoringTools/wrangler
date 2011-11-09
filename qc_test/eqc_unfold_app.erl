@@ -28,7 +28,7 @@ gen_filename(Dirs) ->
 
 %% Properties for 'generalise a function'
 prop_new_fun({FName, Loc, SearchPaths, TabWidth}) ->
-    Args = [FName,Loc, SearchPaths,  TabWidth],
+    Args = [FName,Loc, SearchPaths, emacs,  TabWidth],
     try  apply(refac_unfold_fun_app, unfold_fun_app, Args)  of
 	 {ok, Res} -> 
 	    wrangler_preview_server:commit(),
@@ -49,7 +49,7 @@ prop_new_fun({FName, Loc, SearchPaths, TabWidth}) ->
 	    io:format("Error:\n~p\n", [Error]),
 	    true;
 	  E1:E2 ->
-	    io:format("E1:E2:\n~p\n", [{E1, E2}]),
+	    io:format("E1:E2:\n~p\n", [{E1, E2, erlang:get_stacktrace()}]),
 	    false
     end.
 	       
@@ -64,9 +64,9 @@ gen_unfold_fun_commands_1(FileName, Dirs) ->
     noshrink({FileName, oneof(collect_app_locs(AST, ModName)), Dirs, 8}).
 
 test_unfold_fun_app(Dirs) ->
-    application:start(wrangler_app),
+    application:start(wrangler),
     eqc:quickcheck(numtests(500, ?FORALL(C, gen_new_fun_commands(Dirs), prop_new_fun(C)))),
-    application:start(wrangler_app).
+    application:start(wrangler).
 
 test1() ->
     test_unfold_fun_app(["c:/cygwin/home/hl/test_codebase/tableau"]).
@@ -75,22 +75,25 @@ test2() ->
     test_unfold_fun_app(["c:/cygwin/home/hl/test_codebase/eunit"]).
 
 test3() ->
-    test_unfold_fun_app(["c:/cygwin/home/hl/test_codebase/refactorerl-0.5"]).
+    test_unfold_fun_app(["c:/cygwin/home/hl/test_codebase/refactorerl"]).
 
 test4() ->
     test_unfold_fun_app(["c:/cygwin/home/hl/test_codebase/suite"]).
 
 test5() ->
-    test_unfold_fun_app(["c:/cygwin/home/hl/test_codebase/wrangler-0.7"]).
+    test_unfold_fun_app(["c:/cygwin/home/hl/test_codebase/wrangler"]).
 
 test6() ->
     test_unfold_fun_app(["c:/cygwin/home/hl/test_codebase/umbria"]).
 
 test7() ->
-    test_unfold_fun_app(["c:/cygwin/home/hl/test_codebase/yaws-1.77"]).
+    test_unfold_fun_app(["c:/cygwin/home/hl/test_codebase/yaws"]).
 
 test8() ->
-    test_unfold_fun_app(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
+    test_unfold_fun_app(["c:/cygwin/home/hl/test_codebase/dialyzer"]).
+
+test9() ->
+    test_unfold_fun_app(["c:/cygwin/home/hl/test_codebase/syntax_tools"]).
 
 
 run_test() ->
@@ -98,7 +101,7 @@ run_test() ->
     test2(),
     test3(),
     test4(),
-    test5(),
+    test5(), 
     test6(),
     test7(),
     test8().

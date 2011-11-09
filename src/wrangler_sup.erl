@@ -78,8 +78,11 @@ init(_Args) ->
 		   permanent, 10000, worker, [wrangler_preview_server]},
     GenRefacServer={wrangler_gen_refac_server, {wrangler_gen_refac_server,start_gen_refac_server, []},
                     permanent, 1000, worker, [wrangler_gen_refac_server]},
+    BackupServer={wrangler_backup_server, {wrangler_backup_server, start_backup_server, []},
+                  permanent, 1000, worker, [wrangler_backup_server]},
     {ok,{{one_for_one,3,60}, [ASTServer, CallGraphServer,
                               ModuleGraphServer, ErrorLogger, 
                               UndoServer, PreviewServer,
-                              GenRefacServer]}}.
+                              GenRefacServer,
+                              BackupServer]}}.
 

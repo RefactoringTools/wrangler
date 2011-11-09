@@ -64,7 +64,7 @@ prop_gen_fun({FName, Range, NewName, SearchPaths, TabWidth}) ->
 	      _ -> fail
 	   end,
     {Line, Col} = Range,
-    Args = [FName, Line, Col, NewName, SearchPaths, TabWidth],
+    Args = [FName, Line, Col, NewName, SearchPaths, emacs, TabWidth],
     try  apply(refac_gen, generalise, Args)  of
 	 {ok, Res} -> 
 	    wrangler_preview_server:commit(),
@@ -73,10 +73,10 @@ prop_gen_fun({FName, Range, NewName, SearchPaths, TabWidth}) ->
 		    wrangler_undo_server:undo(),
 		    io:format("\n~p\n", [{ok, Res}]),
 		    true;
-		_ ->
+		Error ->
 		    case Res0 of 
 			ok ->
-			    io:format("\nResulted file does not Compile!\n"),
+			    io:format("\nResulted file does not Compile:\n~p\n", [Error]),
 			    wrangler_undo_server:undo(),false;
 			fail ->
 			    wrangler_undo_server:undo(),true
@@ -86,7 +86,7 @@ prop_gen_fun({FName, Range, NewName, SearchPaths, TabWidth}) ->
 	    io:format("\n~p\n", [{error,Msg}]),
 	    true;
 	 {more_than_one_clause, {ParName, FunName, FunArity, FunDefPos, Exp, SideEffect, _Fun_Dups, Clause_Dups, Cmd}}->
-	    try apply(refac_gen, gen_fun_clause, [FName, ParName, FunName, FunArity, FunDefPos, Exp, TabWidth, SideEffect, Clause_Dups, Cmd]) of 
+	    try apply(refac_gen, gen_fun_clause, [FName, ParName, FunName, FunArity, FunDefPos, Exp, TabWidth, SideEffect, Clause_Dups, emacs, Cmd]) of 
 	 	{ok, Res} ->
 		    wrangler_preview_server:commit(),
 		    case compile:file(FName, []) of 
@@ -115,7 +115,7 @@ prop_gen_fun({FName, Range, NewName, SearchPaths, TabWidth}) ->
 		    false
 	    end;	    
 	 {unknown_side_effect,{ParName, FunName, FunArity, FunDefPos,Exp, _NoOfCs, _Fun_Instances, _Clause_Intances, Cmd}} -> 
-	    try apply(refac_gen, gen_fun_1, [bool(), FName, ParName, FunName, FunArity, FunDefPos, Exp, SearchPaths, TabWidth,[],Cmd]) of 
+	    try apply(refac_gen, gen_fun_1, [bool(), FName, ParName, FunName, FunArity, FunDefPos, Exp, SearchPaths, emacs, TabWidth,[],Cmd]) of 
 	 	{ok, Res} ->
 		    wrangler_preview_server:commit(),
 		    case compile:file(FName, []) of 
@@ -144,7 +144,7 @@ prop_gen_fun({FName, Range, NewName, SearchPaths, TabWidth}) ->
 		    false
 	    end;
 	 {multiple_instances, {ParName, FunName, FunArity, FunDefPos, Exp, SideEffect, DupsInFun, Cmd}} ->
-	     try apply(refac_gen, gen_fun_1, [SideEffect, FName, ParName, FunName, FunArity, FunDefPos, Exp, SearchPaths, TabWidth, DupsInFun, Cmd]) of 
+	     try apply(refac_gen, gen_fun_1, [SideEffect, FName, ParName, FunName, FunArity, FunDefPos, Exp, SearchPaths, TabWidth, DupsInFun, emacs, Cmd]) of 
 	 	{ok, Res} ->
 		    wrangler_preview_server:commit(),
 		    case compile:file(FName, []) of 
@@ -193,15 +193,15 @@ gen_gen_fun_commands(Dirs) ->
 
 
 show_gen_fun_commands(Dirs)->
-    application:start(wrangler_app),
+    application:start(wrangler),
     eqc:quickcheck(numtests(500,?FORALL (C, (gen_gen_fun_commands(Dirs)), (eqc:collect(C, true))))),
     application:stop(wrangler_app).
 		
 	  
 test_gen_fun(Dirs) ->
-    application:start(wrangler_app),
+    application:start(wrangler),
     eqc:quickcheck(numtests(500,?FORALL(C, (gen_gen_fun_commands(Dirs)), prop_gen_fun(C)))),
-    application:stop(wrangler_app).
+    application:stop(wrangler).
 
 
 test_gen_fun1() ->
@@ -211,7 +211,7 @@ test_gen_fun2() ->
     test_gen_fun(["c:/cygwin/home/hl/test_codebase/eunit"]).
 
 test_gen_fun3() ->
-    test_gen_fun(["c:/cygwin/home/hl/test_codebase/refactorerl"]).
+    test_gen_fun(["c:/cygwin/home/hl/test_codebase/ibrowse"]).
 
 test_gen_fun4() ->
     test_gen_fun(["c:/cygwin/home/hl/test_codebase/suites"]).
@@ -228,6 +228,9 @@ test_gen_fun7() ->
 test_gen_fun8() ->
     test_gen_fun(["c:/cygwin/home/hl/test_codebase/dialyzer"]).
 
+test_gen_fun9() ->
+    test_gen_fun(["c:/cygwin/home/hl/test_codebase/syntax_tools"]).
+
 run_test_gen_fun() ->
     test_gen_fun1(),
     test_gen_fun2(),
@@ -236,4 +239,5 @@ run_test_gen_fun() ->
     test_gen_fun5(),
     test_gen_fun6(),
     test_gen_fun7(),
-    test_gen_fun8().
+    test_gen_fun8(),
+    test_gen_fun9().

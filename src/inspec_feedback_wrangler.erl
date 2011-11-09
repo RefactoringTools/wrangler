@@ -312,7 +312,7 @@ collect_function_apps2({M, F, A}, SearchPaths) ->
 
 collect_apps_within2(Node) ->
     ?FULL_TD_TU([?COLLECT(?T("F@(Argss@@)"),
-			  ?SPLICE(api_refac:get_app_mod(_This@)),
+			  ?PP(api_refac:get_app_mod(_This@)),
 			  true)
 		],
 		Node).
@@ -348,7 +348,6 @@ unnecessary_match(SearchPaths) ->
                       {line, integer_to_list(Ln)}]}
            end || {File, {{Ln, _}, _}}<-Funs],
     {ok, Res}.
-
 
 -spec append_two_lists([dir()|filename()]) ->
                               {ok, [{message(), [{tag(), list()}]}]}.

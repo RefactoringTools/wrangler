@@ -42,29 +42,29 @@
 %% @private
 -module(refac_inline_var).
 
--export([inline_var/5, inline_var_eclipse/5,
-	 inline_var_1/7, inline_var_eclipse_1/6]).
+-export([inline_var/6, inline_var_eclipse/5,
+	 inline_var_1/8, inline_var_eclipse_1/6]).
 
 -include("../include/wrangler_internal.hrl").
 
-%%-spec (inline_var/5::(filename(), integer(), integer(),[dir()], integer()) ->
+%%-spec (inline_var/5::(filename(), integer(), integer(),[dir()], atom(), integer()) ->
 %%			   {ok, string()}|
 %%			   {ok,[{pos(), pos()}], string()}).
-inline_var(FName, Line, Col, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:inline_var(~p, ~p, ~p, ~p, ~p).\n",
-		 [?MODULE, FName, Line, Col, SearchPaths, TabWidth]),
-    inline_var(FName, Line, Col, SearchPaths, TabWidth, emacs).
+inline_var(FName, Line, Col, SearchPaths, Editor, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:inline_var(~p, ~p, ~p, ~p, ~p, ~p).\n",
+		 [?MODULE, FName, Line, Col, SearchPaths, Editor, TabWidth]),
+    inline_var_1(FName, Line, Col, SearchPaths, Editor, TabWidth).
 
 %%-spec (inline_var_eclipse/5::(filename(), integer(), integer(), [dir()], integer()) ->
 %%				   {ok, [{filename(), filename(), string()}]} |
 %%				   {ok, [{pos(), pos()}]}).
 inline_var_eclipse(FName, Line, Col, SearchPaths, TabWidth) ->
-    inline_var(FName, Line, Col, SearchPaths, TabWidth, eclipse).
+    inline_var_1(FName, Line, Col, SearchPaths, eclipse, TabWidth).
 
-inline_var(FName, Line, Col, SearchPaths, TabWidth, Editor) ->
-    Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":inline_var(" ++ "\"" ++ 
-	     FName ++ "\", " ++ integer_to_list(Line) ++ 
-	       ", " ++ integer_to_list(Col) ++ ", " ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths)
+inline_var_1(FName, Line, Col, SearchPaths, Editor, TabWidth) ->
+     Cmd1 = "CMD: " ++ atom_to_list(?MODULE) ++ ":inline_var(" ++ "\"" ++
+	      FName ++ "\", " ++ integer_to_list(Line) ++
+	        ", " ++ integer_to_list(Col) ++ ", " ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths)
 							       ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
     Form = pos_to_form(AnnAST, {Line, Col}),
@@ -99,13 +99,6 @@ inline_var(FName, Line, Col, SearchPaths, TabWidth, Editor) ->
 			  "a syntactically well-formed function."})
     end.
 
-
-%%-spec (inline_var_1/7::(filename(), integer(), integer(), [{pos(), pos()}], [dir()], integer(), string()) ->
-%%				     {ok, [{filename(), filename(), string()}]}).
-inline_var_1(FileName, Line, Col, Candidates, SearchPaths, TabWidth, Cmd) ->
-    ?wrangler_io("\nCMD: ~p:inline_var_1(~p, ~p, ~p, ~p, ~p, ~p, ~p).\n",
-		 [?MODULE, FileName, Line, Col, Candidates, SearchPaths, TabWidth, ""]),
-    inline_var_1(FileName, Line, Col, Candidates, SearchPaths, TabWidth, Cmd, emacs).
 
 %%-spec (inline_var_eclipse_1/6::(filename(), integer(), integer(), [{pos(), pos()}], [dir()], integer()) ->
 %%				     {ok, [{filename(), filename(), string()}]}).				   

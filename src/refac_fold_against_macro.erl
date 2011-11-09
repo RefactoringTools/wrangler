@@ -31,7 +31,7 @@
 %%@private
 -module(refac_fold_against_macro).
 
--export([fold_against_macro/5, fold_against_macro_1/5, 
+-export([fold_against_macro/6, fold_against_macro_1/6, 
 	 fold_against_macro_eclipse/5, fold_against_macro_1_eclipse/5]).
 
 
@@ -60,24 +60,26 @@
 %%=============================================================================================
 
 
-%%-spec(fold_against_macro/5::(filename(), integer(), integer(), [dir()], integer()) ->
-%%	 {error, string()} | {ok, [{integer(), integer(), integer(), integer(),
-%%				    syntaxTree(), syntaxTree()}], string()}).
-fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth) ->
+-spec(fold_against_macro/6::(filename(), integer(), integer(), [dir()], atom(), integer()) ->
+	 {error, string()} | {ok, [{integer(), integer(), integer(), integer(),
+				    syntaxTree(), syntaxTree()}], string()}).
+fold_against_macro(FileName, Line, Col, SearchPaths, Context, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:fold_against_macro(~p, ~p,~p, ~p,~p).\n",
 		 [?MODULE, FileName, Line, Col, SearchPaths, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":fold_against_macro(" ++ "\"" ++ 
 	    FileName ++ "\", " ++ integer_to_list(Line) ++ 
 	      ", " ++ integer_to_list(Col) ++ ", "
-					       ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
-    fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, emacs, Cmd).
+        ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," 
+        ++ integer_to_list(TabWidth) ++ ").",
+    fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, Context, Cmd).
 
 
 fold_against_macro_eclipse(FileName, Line, Col,  SearchPaths, TabWidth) ->
     fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, eclipse, "").
 
 fold_against_macro(FileName, Line, Col, SearchPaths, TabWidth, Editor, Cmd) ->
-    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file
+                              (FileName, true, SearchPaths, TabWidth),
     case pos_to_macro_define(AnnAST, {Line, Col}) of
 	{ok, MacroDef} ->
 	    Candidates = search_candidate_exprs(AnnAST, MacroDef),
@@ -118,10 +120,10 @@ fold_against_macro_1_1_eclipse(AnnAST, [Inst={_StartLine, _StartCol, _EndLine, _
     AnnAST1 = fold_againt_macro_1_2(AnnAST, Inst),
     fold_against_macro_1_1_eclipse(AnnAST1, Tail).
 
-%%-spec(fold_against_macro_1/5::(filename(), [{integer(), integer(), integer(), integer(), syntaxTree(), syntaxTree()}],
-%%			       [dir()], integer(), string()) ->
-%%				    {ok, [filename()]}).
-fold_against_macro_1(FileName, CandidatesToFold, SearchPaths, TabWidth, Cmd) ->
+-spec(fold_against_macro_1/6::(filename(), [{integer(), integer(), integer(), integer(), syntaxTree(), syntaxTree()}],
+			       [dir()], atom(), integer(), string()) ->
+				    {ok, [filename()]}).
+fold_against_macro_1(FileName, CandidatesToFold, SearchPaths, _Editor, TabWidth, Cmd) ->
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     AnnAST1 = fold_against_macro_1_1(AnnAST, CandidatesToFold),
     wrangler_write_file:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST1}], TabWidth, Cmd),

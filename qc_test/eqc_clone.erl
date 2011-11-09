@@ -35,6 +35,9 @@ test_clone_detection7() ->
 test_clone_detection8() ->
     test_clone_detection(["c:/cygwin/home/hl/test_codebase/dialyzer"]).
 
+test_clone_detection9() ->
+    test_clone_detection(["c:/cygwin/home/hl/test_codebase/syntax_tools"]).
+
 run_test_clone_detection() ->
     test_clone_detection1(),
     test_clone_detection2(),
@@ -43,5 +46,6 @@ run_test_clone_detection() ->
     test_clone_detection5(),
     test_clone_detection6(),
     test_clone_detection7(),
-    test_clone_detection8().
+    test_clone_detection8(),
+    test_clone_detection9().
     

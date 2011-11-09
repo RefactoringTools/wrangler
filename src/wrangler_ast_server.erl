@@ -111,11 +111,11 @@ get_ast(Key={_FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat}) ->
 %%-type(modifyTime()::{{integer(), integer(), integer()},{integer(), integer(), integer()}}).
 %%-spec(update_ast/2::({filename(),boolean(), [dir()], integer(), atom()}, {syntaxTree(), moduleInfo(), modifyTime()}) -> ok).
 update_ast(Key={_FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat}, {AnnAST, Info, CheckSum}) ->
-    gen_server:cast(wrangler_ast_server, {update, {Key, {AnnAST, Info, CheckSum}}});
+    gen_server:call(wrangler_ast_server, {update, {Key, {AnnAST, Info, CheckSum}}});
 update_ast(Key={FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, SwpFileName) ->
     {ok, {AnnAST, Info}} = parse_annotate_file(SwpFileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
     CheckSum = wrangler_misc:filehash(FileName),
-    gen_server:cast(wrangler_ast_server, {update, {Key, {AnnAST, Info, CheckSum}}}).
+    gen_server:call(wrangler_ast_server, {update, {Key, {AnnAST, Info, CheckSum}}}).
  
 get_temp_dir() ->
     gen_server:call(wrangler_ast_server, get_temp_dir).
@@ -139,7 +139,12 @@ handle_call(get_temp_dir, _From, State=#state{dets_tab=TabFile}) ->
 		  none -> none;
 		  _ -> filename:dirname(TabFile)
 	      end,
-    {reply, TempDir, State}.
+    {reply, TempDir, State};
+handle_call({update, {Key, {AnnAST, Info, Time}}}, _From, State) ->
+    State1=update_ast_1({Key, {AnnAST, Info, Time}}, State),
+    {reply, ok, State1}.
+
+
 
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
@@ -148,8 +153,7 @@ handle_call(get_temp_dir, _From, State=#state{dets_tab=TabFile}) ->
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
 
-handle_cast({update, {Key, {AnnAST, Info, Time}}}, State) ->
-    update_ast_1({Key, {AnnAST, Info, Time}}, State),
+handle_cast(_, State)-> 
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -203,13 +207,13 @@ get_ast({FileName, false, SearchPaths, TabWidth, FileFormat}, State) ->
 get_ast(Key = {FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, State = #state{dets_tab = TabFile, asts = ASTs}) ->
     case TabFile of
 	none ->
-	    case lists:keysearch(Key, 1, ASTs) of
+            case lists:keysearch(Key, 1, ASTs) of
 		{value, {Key, {AnnAST, Info, Checksum}}} ->
-		    NewChecksum = wrangler_misc:filehash(FileName),
+                    NewChecksum = wrangler_misc:filehash(FileName),
 		    case Checksum =:= NewChecksum andalso NewChecksum =/= 0 of
 			true ->
-			    log_errors(FileName, Info),
-			    {{ok, {AnnAST, Info}}, State};
+                            log_errors(FileName, Info),
+                            {{ok, {AnnAST, Info}}, State};
 			false ->
 			    wrangler_error_logger:remove_from_logger(FileName),
 			    {ok, {AnnAST1, Info1}} = parse_annotate_file(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
@@ -217,7 +221,7 @@ get_ast(Key = {FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, State =
 			    {{ok, {AnnAST1, Info1}}, #state{asts = lists:keyreplace(Key, 1, ASTs, {Key, {AnnAST1, Info1, NewChecksum}})}}
 		    end;
 		false ->
-		    wrangler_error_logger:remove_from_logger(FileName),
+                    wrangler_error_logger:remove_from_logger(FileName),
 		    {ok, {AnnAST, Info}} = parse_annotate_file(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
 		    log_errors(FileName, Info),
 		    {{ok, {AnnAST, Info}}, #state{asts = [{Key, {AnnAST, Info, wrangler_misc:filehash(FileName)}}| ASTs]}}
@@ -236,19 +240,22 @@ get_ast(Key = {FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, State =
 	    end
     end.
 
-update_ast_1({Key, {AnnAST, Info, _CheckSum}}, _State = #state{dets_tab = TabFile, asts = ASTs}) ->
+update_ast_1({Key, {AnnAST, Info, _CheckSum}}, State = #state{dets_tab = TabFile, asts = ASTs}) ->
     {FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat} = Key,
     Checksum = wrangler_misc:filehash(FileName),
     case TabFile of
-	none -> case lists:keysearch(Key, 1, ASTs) of
-		    {value, {Key, {_AnnAST1, _Info1, _CheckSum}}} ->
-			#state{asts = lists:keyreplace(Key, 1, ASTs, {Key, {AnnAST, Info, Checksum}})};
-		    false ->
-			#state{asts = [{Key, {AnnAST, Info, Checksum}}| ASTs]}
-		end;
+	none -> 
+            Res = lists:keysearch(Key, 1, ASTs),
+            case Res of
+                {value, {Key, _}} ->
+                    State#state{asts = lists:keyreplace(Key, 1, ASTs, {Key, {AnnAST, Info, Checksum}})};
+                false ->
+                    State#state{asts = [{Key, {AnnAST, Info, Checksum}}| ASTs]}
+            end;                    
 	_ ->
 	    dets:delete(TabFile, Key),
-	    dets:insert(TabFile, [{Key, {AnnAST, Info, Checksum}}])
+	    dets:insert(TabFile, [{Key, {AnnAST, Info, Checksum}}]),
+            State
     end.
     
 log_errors(FileName, Info) ->
@@ -320,7 +327,7 @@ parse_annotate_file(FName, ByPassPreP, SearchPaths, TabWidth) ->
 	    ?wrangler_io("wrangler_ast_server is not defined\n", []),
 	    parse_annotate_file(FName, ByPassPreP, SearchPaths, TabWidth, FileFormat);
 	_ ->
-	    get_ast({FName, ByPassPreP, SearchPaths, TabWidth, FileFormat})
+            get_ast({FName, ByPassPreP, SearchPaths, TabWidth, FileFormat})
     end.
 
 -spec(parse_annotate_file(FName::filename(), ByPassPreP::boolean(), SearchPaths::[dir()], integer(), atom())

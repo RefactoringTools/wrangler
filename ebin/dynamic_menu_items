@@ -1,0 +1,129 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+main([]) ->
+    try
+        MenuItems1=gen_composite_refac_menu_items(),
+        MenuItems2=gen_refac_menu_items(),
+        MenuItems3=my_gen_refac_menu_items(),
+        MenuItems4=my_gen_composite_refac_menu_items(),
+        MenuCmds1=gen_composite_refac_menu_cmds(),
+        MenuCmds2=gen_refac_menu_cmds(),
+        MenuCmds3=my_gen_refac_menu_cmds(),
+        MenuCmds4=my_gen_composite_refac_menu_cmds(),
+        MenuItems=MenuItems1 ++ MenuItems2 ++ MenuItems3++MenuItems4
+            ++MenuCmds1++MenuCmds2++MenuCmds3++MenuCmds4,
+        io:format("\n~s", [MenuItems])
+    catch
+        E1:E2 ->
+            io:format("Error:\n~p\n", [{E1, E2}]),
+            usage()
+    end;
+main(_) ->
+    usage().
+
+usage() ->
+    io:format("usage: dynamic_menu_items\n"),
+    halt(1).
+
+gen_refac_menu_items() ->
+    gen_menu_items(gen_refac_menu_items, "./src/gen_refacs").
+
+gen_refac_menu_cmds()->
+    gen_refac_menu_cmds("./src/gen_refacs").
+
+my_gen_refac_menu_items() ->
+    gen_menu_items(my_gen_refac_menu_items, "./src/my_gen_refacs").
+
+my_gen_refac_menu_cmds()->
+    gen_refac_menu_cmds("./src/my_gen_refacs").
+
+gen_composite_refac_menu_items()->
+    gen_menu_items(gen_composite_refac_menu_items, "./src/gen_composite_refacs").
+
+gen_composite_refac_menu_cmds()->
+    gen_composite_menu_cmds("./src/gen_composite_refacs").
+
+my_gen_composite_refac_menu_items()->
+    gen_menu_items(my_gen_composite_refac_menu_items, "./src/my_gen_composite_refacs").
+
+my_gen_composite_refac_menu_cmds()->
+    gen_composite_menu_cmds("./src/my_gen_composite_refacs").
+
+gen_menu_items(MenuName, Dir)->
+    case file:list_dir(Dir) of 
+        {ok, List} ->
+            ModNames =
+                [filename:basename(X, ".erl")
+                 || X <- List,
+                    filelib:is_file(filename:join(Dir, X)),
+                    filename:extension(X) == ".erl"],
+            Str1 = "(defvar "++atom_to_list(MenuName) ++ "\n" ++"`(", 
+            Str = lists:flatten([io_lib:format(
+                                   "(\"~s\" ~p)\n", [convert_cmd_name(M), list_to_atom(M)])
+                                 ||M<-ModNames]),
+            Str2 = "))\n\n",
+            Str1++Str++Str2;
+        {error, _} ->
+            ""
+    end.
+
+convert_cmd_name(Str) ->
+    NewStr=case Str of 
+               "refac_"++Str1 ->
+                   Str1;
+               _ -> Str 
+           end,
+    convert_cmd_name_1(NewStr, []).
+
+convert_cmd_name_1([], Acc) ->
+    lists:reverse(Acc);
+convert_cmd_name_1([C|Cs], []) ->
+    convert_cmd_name_1(Cs, [C-(97-65)]);
+convert_cmd_name_1([C|Cs], Acc) ->
+    case C of 
+        95 ->
+            case Cs of 
+                [C1|Cs1] when C1/=95 ->
+                    convert_cmd_name_1(Cs1, [C1-(97-65), 32|Acc]);
+                [_C1|Cs1]-> 
+                    convert_cmd_name_1(Cs1, [32|Acc]);
+                _ -> 
+                    convert_cmd_name_1(Cs, [32|Acc])
+            end;
+        _ ->
+            convert_cmd_name_1(Cs, [C|Acc])
+    end.
+    
+gen_composite_menu_cmds(Dir)->
+    case file:list_dir(Dir) of 
+        {ok, List} ->
+            ModNames =
+                [filename:basename(X, ".erl")
+                 || X <- List,
+                    filelib:is_file(filename:join(Dir, X)),
+                    filename:extension(X) == ".erl"],
+            Cmds = [io_lib:format("\n(defun ~s()\n",[M])++
+                        io_lib:format("  (interactive)\n",[])++
+                        io_lib:format("  (apply-composite-refac '~s))\n\n",[M])
+                    ||M<-ModNames],
+            lists:flatten(Cmds);
+        {error, _} ->
+            ""
+    end.
+
+gen_refac_menu_cmds(Dir)->
+    case file:list_dir(Dir) of 
+        {ok, List} ->
+            ModNames =
+                [filename:basename(X, ".erl")
+                 || X <- List,
+                    filelib:is_file(filename:join(Dir, X)),
+                    filename:extension(X) == ".erl"],
+            Cmds = [io_lib:format("\n(defun ~s()\n",[M])++
+                        io_lib:format("  (interactive)\n",[])++
+                        io_lib:format("  (apply-adhoc-refac '~s))\n\n",[M])
+                    ||M<-ModNames],
+            lists:flatten(Cmds);
+        {error, _} ->
+            ""
+    end.

@@ -82,9 +82,9 @@ show_tuple_commands(Dirs)->
 		
 	  
 test_tuple(Dirs) ->
-    application:start(wrangler_app),
+    application:start(wrangler),
     eqc:quickcheck(?FORALL(C, (gen_tuple_commands(Dirs)), prop_tuple(C))),
-    application:stop(wrangler_app).
+    application:stop(wrangler).
 
 
 test_tuple1() ->
@@ -94,13 +94,13 @@ test_tuple2() ->
     test_tuple(["c:/cygwin/home/hl/test_codebase/eunit"]).
 
 test_tuple3() ->
-    test_tuple(["c:/cygwin/home/hl/test_codebase/refactorerl-0.5"]).
+    test_tuple(["c:/cygwin/home/hl/test_codebase/refactorerl"]).
 
 test_tuple4() ->
     test_tuple(["c:/cygwin/home/hl/test_codebase/suite"]).
 
 test_tuple5() ->
-    test_tuple(["c:/cygwin/home/hl/test_codebase/wrangler-0.7"]).
+    test_tuple(["c:/cygwin/home/hl/test_codebase/wrangler"]).
 
 test_tuple6() ->
     test_tuple(["c:/cygwin/home/hl/test_codebase/umbria"]).
@@ -109,7 +109,10 @@ test_tuple7() ->
     test_tuple(["c:/cygwin/home/hl/test_codebase/yaws-1.77"]).
 
 test_tuple8() ->
-    test_tuple(["c:/cygwin/home/hl/test_codebase/dialyzer-1.8.3"]).
+    test_tuple(["c:/cygwin/home/hl/test_codebase/dialyzer"]).
+
+test_tuple9() ->
+    test_tuple(["c:/cygwin/home/hl/test_codebase/syntax_tools"]).
 
 run_test() ->
     test_tuple1(),
@@ -117,6 +120,7 @@ run_test() ->
 %%     test_tuple3(),
 %%     test_tuple4(),
   %%  test_tuple5(),
-    test_tuple6().
-   %%  test_tuple7(),
-%%     test_tuple8().
+    test_tuple6(),
+    %%  test_tuple7(),
+    %%     test_tuple8(),
+    test_tuple9().

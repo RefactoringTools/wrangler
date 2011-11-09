@@ -96,25 +96,10 @@
 
 -include("../include/wrangler_internal.hrl").
 
--export([generalise/6, generalise/8, gen_fun_1/11, gen_fun_clause/10]).
+-export([generalise/7, gen_fun_1/12, gen_fun_clause/11]).
 
 -export([generalise_eclipse/6, gen_fun_1_eclipse/11, gen_fun_clause_eclipse/10]).
 
-%% =====================================================================
-%%-spec generalise(FileName::filename(),Start::pos(), End::pos(),ParName::string(),
-%%		 SearchPaths::[dir()], TabWidth::integer()) ->
-%%	     {ok, [filename()]}
-%%		 |{multiple_instances, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),[{pos(), pos()}], string()}}
-%%		 |{unknown_side_effect, {atom(), atom(),integer(), pos(), syntaxTree(), integer(),
-%%					 [{pos(), pos()}], [{pos(),pos()}], string()}}
-%%		 |{more_than_one_clause, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),
-%%					  [{pos(), pos()}], [{pos(),pos()}], string()}}. 
-
-generalise(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
-    generalise(FileName, Start, End, ParName, SearchPaths, TabWidth, emacs).
-
-%% TO CHECK: Dialyzer says this function also returns {ok, [filename()]}, but it really shouldn't.
-%% I don't know where things go wrong.
 %%-spec generalise_eclipse(FileName::filename(), Start::pos(), End::pos(), ParName::string(),
 %%	                         SearchPaths::[dir()], TabWidth::integer()) ->
 %%        {ok, [filename()]} |
@@ -131,17 +116,23 @@ generalise(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
 %%				DupsInFun::[{pos(), pos()}], DupsInClause::[{pos(), pos()}],
 %%				Cmd::string()}}.
 generalise_eclipse(FileName, Start, End, ParName, SearchPaths, TabWidth) ->
-    generalise(FileName, Start, End, ParName, SearchPaths, TabWidth, eclipse).
+    generalise(FileName, Start, End, ParName, SearchPaths, eclipse, TabWidth).
 
-generalise(FileName, _Fun, _Arity, {range, {FileName, [{Start, End}|_]}}, ParName, SearchPaths, Editor, TabWidth) ->
-    generalise(FileName, Start, End, ParName, SearchPaths, TabWidth, Editor).
-
-generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPaths, TabWidth, Editor) ->
-    ?wrangler_io("\nCMD: ~p:generalise(~p, {~p,~p}, {~p,~p}, ~p,~p,~p).\n",
-		 [?MODULE, FileName, Line, Col, Line1, Col1, ParName, SearchPaths, TabWidth]),
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":generalise(" ++ "\"" ++ 
-	    FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++ 
-	      "{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ ParName ++ "\","
+%% =====================================================================
+%%-spec generalise(FileName::filename(),Start::pos(), End::pos(),ParName::string(),
+%%		 SearchPaths::[dir()], atom(), TabWidth::integer()) ->
+%%	     {ok, [filename()]}
+%%		 |{multiple_instances, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),[{pos(), pos()}], string()}}
+%%		 |{unknown_side_effect, {atom(), atom(),integer(), pos(), syntaxTree(), integer(),
+%%					 [{pos(), pos()}], [{pos(),pos()}], string()}}
+%%		 |{more_than_one_clause, {atom(), atom(), integer(), pos(), syntaxTree(), boolean(),
+%%					  [{pos(), pos()}], [{pos(),pos()}], string()}}. 
+generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPaths, Editor, TabWidth) ->
+     ?wrangler_io("\nCMD: ~p:generalise(~p, {~p,~p}, {~p,~p}, ~p,~p,~p, ~p).\n",
+		  [?MODULE, FileName, Line, Col, Line1, Col1, ParName, SearchPaths, Editor, TabWidth]),
+     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":generalise(" ++ "\"" ++
+	     FileName ++ "\", {" ++ integer_to_list(Line) ++ ", " ++ integer_to_list(Col) ++ "}," ++
+	       "{" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++ "\"" ++ ParName ++ "\","
       ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case api_refac:is_var_name(ParName) of
 	false -> throw({error, "Invalid parameter name!"});
@@ -208,16 +199,6 @@ generalise(FileName, Start = {Line, Col}, End = {Line1, Col1}, ParName, SearchPa
 	    end
     end.
 
-
-%%-spec(gen_fun_1/11::(SideEffect::boolean(), FileName::filename(),ParName::atom(), FunName::atom(),
-%%		     Arity::integer(), FunDefPos::pos(), Exp::syntaxTree(), SearchPaths::[dir()],
-%%		     TabWidth::integer(), Dups::[{pos(), pos()}], LogCmd::string())
-%%      -> {ok, [filename()]}).
-gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth, Dups, LogCmd) ->
-    %% ?wrangler_io(lists:flatten(io_lib:format("\nCMD: ~p:gen_fun_1(~p, ~p, ~p, ~p,~p,~p,~p,~p,~p,~p,~p).\n",
-    %%   		  [?MODULE,SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth, Dups, LogCmd])), []),
-    gen_fun_1(SideEffect, FileName,ParName, FunName, Arity, DefPos, Exp, SearchPaths,TabWidth,Dups, emacs, LogCmd).
-
 %%-spec(gen_fun_1_eclipse/11::(SideEffect::boolean(), FileName::filename(),ParName::atom(), FunName::atom(), 
 %%			    Arity::integer(), FunDefPos::pos(), Expr::syntaxTree(), SearchPaths::[dir()],
 %%			    TabWidth::integer(), Dups::[{pos(), pos()}], LogCmd::string()) 
@@ -230,10 +211,12 @@ gen_fun_1(SideEffect, FileName, ParName, FunName, Arity, DefPos, Exp0, SearchPat
     {ok, ModName} = get_module_name(Info),
     Exp = case Editor of
 	      emacs -> list_to_term(Exp0);
+              composite_emacs ->
+                  list_to_term(Exp0);
 	      _ -> Exp0
 	  end,
     AnnAST1 = case to_keep_original_fun(FileName, AnnAST, ModName, FunName, Arity, Exp, Info) of
-		  true -> add_function(ModName, AnnAST, FunName, DefPos, Exp, SideEffect);
+		  true -> add_function(ModName, AnnAST, FunName, Arity, Exp, SideEffect);
 		  false -> AnnAST
 	      end,
     ActualPar = make_actual_parameter(ModName, Exp, SideEffect),
@@ -253,14 +236,15 @@ gen_fun_clause_eclipse(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth,
 %%			 Exp::syntaxTree(), TabWidth::integer(), SideEffect::boolean(), 
 %%			 Dups::[{{integer(), integer()},{integer(), integer()}}], LogCmd::string()) ->{ok, [filename()]}).
 
-gen_fun_clause(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEffect, Dups, LogCmd) ->
-    gen_fun_clause_1(FileName, ParName, FunName, Arity, DefPos, Exp, [], TabWidth, SideEffect, Dups,emacs, LogCmd).
+gen_fun_clause(FileName, ParName, FunName, Arity, DefPos, Exp, TabWidth, SideEffect, Dups, Editor, LogCmd) ->
+    gen_fun_clause_1(FileName, ParName, FunName, Arity, DefPos, Exp, [], TabWidth, SideEffect, Dups, Editor, LogCmd).
 
 gen_fun_clause_1(FileName, ParName, FunName, _Arity, DefPos, Exp0, SearchPaths, TabWidth, SideEffect, Dups, Editor, LogCmd) ->
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     {ok, ModName} = get_module_name(Info),
     Exp = case Editor of
 	      emacs -> list_to_term(Exp0);
+              composite_emacs -> term_to_list(Exp0);
 	      _ -> Exp0
 	  end,
     Forms = wrangler_syntax:form_list_elements(AnnAST),
@@ -303,7 +287,7 @@ make_actual_parameter(ModName, Exp, SideEffect) ->
 			{value, {fun_def, {M, _N, A, _P1, _P2}}} ->
 			    case wrangler_syntax:type(Exp) of
 				atom ->
-				    case M == ModName of
+				    case M == ModName orelse M=='_' of
 					true ->
 					    wrangler_syntax:implicit_fun(Exp, wrangler_syntax:integer(A));
 					_ ->
@@ -378,7 +362,7 @@ gen_cond_analysis(Fun, Exp, ParName) ->
 gen_fun(FileName, ModName, Tree, ParName, FunName, Arity, DefPos, Info, Exp, SideEffect, Dups, SearchPaths, TabWidth) ->
     Tree1 = case to_keep_original_fun(FileName, Tree, ModName, FunName, Arity, Exp, Info) of
 	      true ->
-		  add_function(ModName, Tree, FunName, DefPos, Exp, SideEffect);
+		  add_function(ModName, Tree, FunName, Arity, Exp, SideEffect);
 	      false -> Tree
 	    end,
     ActualPar = make_actual_parameter(ModName, Exp, SideEffect),
@@ -388,7 +372,7 @@ gen_fun(FileName, ModName, Tree, ParName, FunName, Arity, DefPos, Info, Exp, Sid
 %% =====================================================================
 %% @spec add_function(ModName::atom(),Tree::syntaxTree(),FunName::atom(),DefPos::Pos,Exp::expression(),SideEffect::boolean()) ->syntaxTree()
 %%
-add_function(ModName, Tree, FunName, DefPos, Exp, SideEffect) ->
+add_function(ModName, Tree, FunName, Arity, Exp, SideEffect) ->
     Forms = wrangler_syntax:form_list_elements(Tree),
     MakeClause =
 	fun (C, Expr, Name) ->
@@ -400,27 +384,30 @@ add_function(ModName, Tree, FunName, DefPos, Exp, SideEffect) ->
 		Pats1 = lists:map(Fun, Pats),
 		G = wrangler_syntax:clause_guard(C),
 		Op = wrangler_syntax:operator(Name),
-		Args = Pats1 ++ [wrangler_misc:reset_attrs(Expr)],
+		Args = Pats1 ++ [wrangler_misc:reset_ann_and_pos(Expr)],
 		Body = [wrangler_syntax:application(Op, Args)],
 		wrangler_syntax:clause(Pats, G, Body)
 	end,
-    F = fun (Form) ->
-		case wrangler_syntax:type(Form) of
-		    function ->
-			case get_fun_def_loc(Form) of
-			    DefPos ->
-				Exp1 = make_actual_parameter(ModName, Exp, SideEffect),
-				NewCs = [MakeClause(C, Exp1, FunName)
-					 || C <- wrangler_syntax:function_clauses(Form)],
-				NewForm = wrangler_syntax:function(wrangler_syntax:atom(FunName), NewCs),
-				[NewForm, Form];
-			    _ -> [Form]
-			end;
-		    _ -> [Form]
-		end
-	end,
-    wrangler_syntax:form_list([T || Form <- Forms, T <- F(Form)]).
-
+    {Forms1, [Form|Forms2]} = lists:splitwith(
+                                fun(F)->
+                                       not (api_refac:fun_define_info(F)=={ModName, FunName, Arity})
+                                end, Forms),
+    Exp1 = make_actual_parameter(ModName, Exp, SideEffect),
+    NewCs = [MakeClause(C, Exp1, FunName)
+             || C <- wrangler_syntax:function_clauses(Form)],
+    NewForm=wrangler_syntax:function(wrangler_syntax:atom(FunName), NewCs),
+    {Fs1, [F1|Fs2]} = lists:splitwith(fun(F) ->
+                                               not (lists:member(wrangler_syntax:type(F), [function, attribute]))
+                                       end,lists:reverse(Forms1)),
+    case api_spec:is_type_spec(F1, {FunName, Arity}) orelse
+        api_spec:is_type_spec(F1, {ModName, FunName, Arity}) of
+        true ->
+            wrangler_syntax:form_list(
+              lists:reverse(Fs2)++[NewForm]++[F1]++lists:reverse(Fs1)++[Form|Forms2]);
+        false ->
+            wrangler_syntax:form_list(Forms1 ++ [NewForm, Form |Forms2])
+    end.
+ 
 %% =====================================================================
 %%
 do_gen_fun(Tree, {FileName, ParName, FunName, Arity, DefPos, Info, Exp,
@@ -445,6 +432,18 @@ do_gen_fun(Tree, {FileName, ParName, FunName, Arity, DefPos, Info, Exp,
 		_ -> {add_actual_parameter(Tree, {FileName, FunName, Arity,
 						  ActualPar, Info, SearchPaths, TabWidth}), true}
 	    end;
+        attribute ->
+            M = list_to_atom(filename:basename(FileName, ".erl")),
+            case api_spec:is_type_spec(Tree, {M, FunName, Arity}) orelse
+                api_spec:is_type_spec(Tree, {FunName, Arity}) of
+                true ->
+                    NewArgType ={type, {0, 0}, any, []}, %% this will be generated automatically.
+                    NewTree=api_spec:add_arg_type_to_spec(
+                         Tree, NewArgType, Arity),
+                    {NewTree, true};
+                false ->
+                    {Tree, true}
+            end;
 	_ -> {Tree, false}
     end.
 
@@ -455,7 +454,8 @@ replace_clause_body(C, FunName, Exp, ActualPar) ->
 	true ->
 	    Pats = wrangler_syntax:clause_patterns(C),
 	    G = wrangler_syntax:clause_guard(C),
-	    Body = [wrangler_syntax:application(wrangler_syntax:atom(FunName), Pats ++ [ActualPar])],
+	    Body = [wrangler_syntax:application(wrangler_syntax:atom(FunName), 
+                                                Pats ++ [wrangler_misc:reset_ann_and_pos(ActualPar)])],
 	    Body1 = [B1 || B <- Body,
 			   {B1, _} <- [api_ast_traverse:stop_tdTP(fun do_replace_underscore/2, B, [])]],
 	    wrangler_misc:rewrite(C, wrangler_syntax:clause(Pats, G, Body1));
