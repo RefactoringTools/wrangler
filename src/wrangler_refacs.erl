@@ -1297,7 +1297,7 @@ try_refac(Mod, Fun, Args) ->
 
 %%@private
 init_eclipse() ->
-    application:start(wrangler_app).
+    application:start(wrangler).
     
 %%@private
 get_log_msg() ->
@@ -1310,7 +1310,7 @@ get_log_msg() ->
 	    Msg1=io_lib:format("There are syntax errors, or syntaxes not supported by Wrangler;"
 			       " functions/attribute containing these syntaxes may not be affected by the refactoring.\n", []),
 	    Msg2 = lists:flatmap(fun ({FileName, Errs}) ->
-					 Str = io_lib:format("File:\n ~p\n", [FileName]),
+			 		 Str = io_lib:format("File:\n ~p\n", [FileName]),
 					 Str1 = Str ++ io_lib:format("Error(s):\n", []),
 					 Str1 ++ lists:flatmap(fun (E) ->
 								       case E of
