@@ -38,6 +38,7 @@
 
 %% API
 -export([start_callgraph_server/0, get_callgraph/1, get_sccs_including_fun/2,
+         get_sccs_including_mod/2,
 	 build_scc_callgraph/1,build_callercallee_callgraph/1, called_funs/1,
 	 get_sorted_funs/1, get_sorted_funs/2, fun_callgraph_to_dot/1, 
          fun_callgraph_to_dot/2, fun_callgraph_to_png/1, 
@@ -88,6 +89,9 @@ handle_call({get, SearchPaths}, _From, State) ->
     {reply, Reply, State1};
 handle_call({get_fun_sccs, MFA, SearchPaths}, _From, State) ->
     {Reply, State1} = get_sccs_including_fun(MFA, SearchPaths, State),
+    {reply, Reply, State1};
+handle_call({get_sccs_including_mod, M, SearchPaths}, _From, State) ->
+    {Reply, State1} = get_sccs_including_mod(M, SearchPaths, State),
     {reply, Reply, State1}.
 
 %%--------------------------------------------------------------------
@@ -141,6 +145,10 @@ get_callgraph(SearchPaths) ->
 get_sccs_including_fun({M, F, A}, SearchPaths) ->    
     gen_server:call(wrangler_callgraph_server, {get_fun_sccs, {M,F, A}, SearchPaths}, infinity).
 
+%%-spec(get_sccs_including_mod/2::modulename(), [dir()]) -> scc_order()).
+get_sccs_including_mod(M, SearchPaths) ->    
+    gen_server:call(wrangler_callgraph_server, {get_sccs_including_mod, M, SearchPaths}, infinity).
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -158,6 +166,15 @@ get_sccs_including_fun({M, F, A}, SearchPaths, State) ->
     ResSccs = [Sc||Sc<-Sccs, lists:keymember({M, F, A}, 1, Sc)],
     {ResSccs, State1}.
    
+get_sccs_including_mod(M, SearchPaths, State) ->
+    {#callgraph{scc_order = Sccs}, State1} = get_callgraph(SearchPaths, State),
+    ResSccs = [[MFA||{MFA,_}<-Sc]||Sc<-Sccs, lists:any(fun(S) ->
+                                                               case element(1, S) of 
+                                                                   {M, _, _}-> true;
+                                                                   _ -> false 
+                                                               end
+                                                       end, Sc)],
+    {ResSccs, State1}.
 
     
 %%-spec(build_scc_callgraph(DirList::[dir()]) -> #callgraph{}).
