@@ -122,9 +122,10 @@
 	 eqc_fsm_to_record_eclipse/3,eqc_fsm_to_record_1_eclipse/7,
 	 gen_fsm_to_record_eclipse/3,gen_fsm_to_record_1_eclipse/7,
 	 partition_exports_eclipse/4, intro_new_var_eclipse/6,
-	 inline_var_eclipse/5, inline_var_eclipse_1/6
+	 inline_var_eclipse/5, inline_var_eclipse_1/6,
+         get_var_name_eclipse/5, get_fun_name_eclipse/5
 	]).
-
+ 
 -export([try_refac/3, get_log_msg/0]).
 
 -export([init_eclipse/0]).
@@ -158,6 +159,11 @@ rename_var(FileName, Line, Col, NewName, SearchPaths, Context, TabWidth) ->
 	     {error, string()} | {ok, [{filename(), filename(), string()}]}).
 rename_var_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     try_refac(refac_rename_var, rename_var_eclipse, [FileName, Line, Col, NewName, SearchPaths, TabWidth]).
+
+%%-spec get_var_name_eclipse/5::(filename(), integer(), integer(), [dir()], integer()) -> string().
+get_var_name_eclipse(FileName, Line, Col, SearchPaths, TabWidth) ->
+    try_refac(refac_rename_var, get_var_name, [FileName, Line, Col, SearchPaths, TabWidth]).
+
 
 %%=========================================================================================
 %% @doc Rename a function.
@@ -204,6 +210,11 @@ rename_fun_1(FileName, Line, Col, NewName, SearchPaths, Context, TabWidth) ->
 rename_fun_1_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     try_refac(refac_rename_fun, rename_fun_1_eclipse, [FileName, Line, Col, NewName, SearchPaths, TabWidth]).
     
+
+%%-spec(get_fun_name_eclipse/5::(string(), integer(), integer(), [dir()], integer()) ->
+%% string().
+get_fun_name_eclipse(FileName, Line, Col, SearchPaths, TabWidth) ->
+    try_refac(refac_rename_fun, get_fun_name, [FileName, Line, Col, SearchPaths, TabWidth]).
 
 
 %%======================================================================================
