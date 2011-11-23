@@ -83,6 +83,8 @@
 (setq refactor-mode nil)
 (setq has-warning 'false)
 (setq refac-result nil)
+(setq my_gen_refac_menu_items nil)
+(setq my_gen_composite_refac_menu_items nil)
 
 (defun wrangler-ediff(file1 file2)
   "run ediff on file1 ans file2"
@@ -3794,9 +3796,9 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
              (if (equal modified nil)
                  (message "Refactoring finished, and no file has been changed.")
                (revert-all-buffers)
-               (preview-commit-cancel current-file-name modified nil)
                (with-current-buffer (get-file-buffer-1 current-file-name)
-                 nil)
+                nil)
+               (preview-commit-cancel current-file-name modified nil)
                (message "Refactoring finished."))))
          (['rex ['ok ['refactoring cmd args]]]
           (apply-a-refac-cmd current-file-name cmd args)) 
