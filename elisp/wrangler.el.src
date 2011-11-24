@@ -85,7 +85,7 @@
 (setq refac-result nil)
 (setq my_gen_refac_menu_items nil)
 (setq my_gen_composite_refac_menu_items nil)
-(setq wrangler_ext(concat (getenv "HOME") "/.wrangler/elisp/wrangler_ext.el"))
+(setq wrangler_ext (expand-file-name (concat (getenv "HOME") "/.wrangler/elisp/wrangler_ext.el")))
 
 
 (defun wrangler-ediff(file1 file2)
@@ -509,6 +509,7 @@
   (interactive)
   (require 'comint)
   (setq opts (list "-name" wrangler-erl-node-string
+                   "-pa" (expand-file-name (concat (getenv "HOME") "/.wrangler/ebin"))
 		   "-setcookie" (erl-cookie)
                    "+R" "9"
 		   "-newshell" "-env" "TERM" "vt100"))
