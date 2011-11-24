@@ -1224,7 +1224,7 @@ search_and_transform_4(File,Rules,Tree,Fun,Selective) ->
                                 {NewExprAfter, true};
                             {false, CandsNotToChange} ->
                                 {{SLn, SCol}, {ELn, ECol}}=start_end_loc(Node),
-                                MD5 =erlang:md5(wrangler_prettypr:format(Node)),
+                                MD5 =binary_to_list(erlang:md5(wrangler_prettypr:format(Node))),
                                 Key ={File, SLn, SCol, ELn, ECol, MD5},
                                 case lists:keysearch(Key,1,CandsNotToChange) of
                                     false ->
