@@ -85,6 +85,8 @@
 (setq refac-result nil)
 (setq my_gen_refac_menu_items nil)
 (setq my_gen_composite_refac_menu_items nil)
+(setq wrangler_ext(concat (getenv "HOME") "/.wrangler/elisp/wrangler_ext.el"))
+
 
 (defun wrangler-ediff(file1 file2)
   "run ediff on file1 ans file2"
@@ -321,13 +323,21 @@
     nil
     ("gen_refac Refacs"  (gen_refac_menu_items))
     ("gen_composite_refac Refacs" (gen_composite_refac_menu_items))
+    nil
     ("My gen_refac Refacs" (my_gen_refac_menu_items))
     ("My gen_composite_refac Refacs" (my_gen_composite_refac_menu_items))
+    nil
     ("Apply Adhoc Refactoring"  apply-adhoc-refac)    
     ("Apply Composite Refactoring" apply-composite-refac)
-    ("Add To My gen_refac Refacs" add_to_my_gen_refac_menu_items)
-    ("Add To My gen_composite_refac Refacs" add_to_my_gen_composite_refac_menu_items)
-    ))
+    nil
+    ("Add/Remove Menu Items"
+     (           
+       ("Add To My gen_refac Refacs" add_to_my_gen_refac_menu_items)
+       ("Add To My gen_composite_refac Refacs" add_to_my_gen_composite_refac_menu_items)
+       nil
+        ("Remove from My gen_refac Refacs" remove_from_my_gen_refac_menu_items)
+        ("Remove from My gen_composite_refac Refacs" remove_from_my_gen_composite_refac_menu_items)
+    ))))
  
 (defvar inspector-menu-items
   '(("Instances of a Variable" erl-wrangler-code-inspector-var-instances) 
@@ -542,6 +552,10 @@
   (define-key erlang-mode-map "\C-c\C-wcd"  'erl-refactor-inc-sim-code-detection-in-dirs)
   (erlang-menu-install "Wrangler" wrangler-menu-items erlang-mode-map t)
   )
+
+(if (file-exists-p wrangler_ext)
+    (load  wrangler_ext)
+    nil)
 
 (defun wrangler-menu-remove()
   "Remove Wrangler menus."
@@ -3514,7 +3528,7 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
      (erl-spawn
        (erl-send-rpc wrangler-erl-node 'wrangler_add_new_refac 'add 
                      (list current-file-name 'gen_refac 
-                           my_gen_refac_menu_items 'emacs 'none))
+                           my_gen_refac_menu_items 'emacs 'none (getenv "HOME")))
        (erl-receive ()
            ((['rex ['badrpc rsn]]
              (message "Wrangler failed to add the new menu item: %s" rsn))
@@ -3528,6 +3542,27 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
        ))) 
 
 
+(defun  remove_from_my_gen_refac_menu_items(name)
+   "Remove a user-defined refactoring from menu."
+   (interactive (list (read-string "Menu item name: "))) 
+   (erl-spawn
+       (erl-send-rpc wrangler-erl-node 'wrangler_add_new_refac 'remove 
+                     (list name 'gen_refac 
+                           my_gen_refac_menu_items 'emacs 'none (getenv "HOME")))
+       (erl-receive ()
+           ((['rex ['badrpc rsn]]
+             (message "Wrangler failed to remove the menu item: %s" rsn))
+            (['rex ['error rsn]]
+             (message "Wrangler failed to remove the menu item: %s" rsn))
+            (['rex ['ok el_filename1 el_filename2]]
+             (load el_filename1)
+             (load el_filename2)
+             (wrangler-menu-remove)
+             (wrangler-menu-init)
+             (message "Menu item removed successfully."))))
+       ))
+
+
 (defun  add_to_my_gen_composite_refac_menu_items()
    "Add a user-defined refactoring to menu."
    (interactive) 
@@ -3536,7 +3571,7 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
        (erl-send-rpc wrangler-erl-node 'wrangler_add_new_refac 'add 
                      (list current-file-name 'gen_composite_refac 
                            my_gen_composite_refac_menu_items
-                           'emacs 'none))
+                           'emacs 'none (getenv "HOME")))
        (erl-receive ()
            ((['rex ['badrpc rsn]]
              (message "Wrangler failed to add the new menu item: %s" rsn))
@@ -3549,6 +3584,26 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
              (message "New menu item added successfully."))))
        ))) 
  
+
+(defun remove_from_my_gen_composite_refac_menu_items(name)
+   "Remove a user-defined refactoring from menu."
+   (interactive (list (read-string "Menu item name: "))) 
+   (erl-spawn
+       (erl-send-rpc wrangler-erl-node 'wrangler_add_new_refac 'remove 
+                     (list name 'gen_composite_refac 
+                           my_gen_composite_refac_menu_items 'emacs 'none (getenv "HOME")))
+       (erl-receive ()
+           ((['rex ['badrpc rsn]]
+             (message "Wrangler failed to remove the menu item: %s" rsn))
+            (['rex ['error rsn]]
+             (message "Wrangler failed to remove the menu item: %s" rsn))
+            (['rex ['ok el_filename1 el_filename2]]
+             (load el_filename1)
+             (load el_filename2)
+             (wrangler-menu-remove)
+             (wrangler-menu-init)
+             (message "Menu item removed successfully."))))
+       ))
 
 (defun apply-adhoc-refac(callback-module-name) 
   "Get the parameters that need inputs from the user"
@@ -3968,5 +4023,3 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
   "*The template of a gen_refac.
 Please see the function `tempo-define-template'.")
 
-
-    
