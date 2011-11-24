@@ -48,11 +48,13 @@
 %% @private
 -module(wrangler_add_new_refac).
 
--export([add/5]).
+-export([add/6, remove/6]).
+
+-compile(export_all).
 
 -include("../include/wrangler_internal.hrl").
 
-add(File, Type, ExistingMenuItems, IDE, WranglerInstDir) ->
+add(File, Type, ExistingMenuItems, IDE, WranglerInstDir, Home) ->
     case filename:extension(File) of 
         ".erl" ->
             case is_behaviour_file(File, Type) of 
@@ -61,30 +63,81 @@ add(File, Type, ExistingMenuItems, IDE, WranglerInstDir) ->
                     case lists:member(list_to_atom(ModName),[Name||[_, Name]<-ExistingMenuItems]) of 
                         false ->
                             Dir = get_wrangler_dir(IDE, WranglerInstDir),
-                            OutDir = Dir ++ "/ebin",
-                            case compile:file(File, [{i, Dir++"/include"}, {outdir, OutDir}]) of
-                                {ok, _} -> 
-                                    NewCode = gen_new_code(ModName, Type),
-                                    ElFile = Dir ++ "/elisp/wrangler.el",
-                                    case file:write_file(ElFile, list_to_binary(NewCode), [append]) of
-                                        ok ->
-                                            {ok, ElFile};
-                                        {error, Reason} ->
-                                            {error, Reason}
-                                    end;                
-                                _ -> throw({error, "the current file does not compile."})
+                            WranglerExtDir = filename:join([Home, ".wrangler"]),
+                            case mk_dirs(WranglerExtDir) of 
+                                ok ->
+                                    WranglerExtEBinDir = filename:join([WranglerExtDir,"ebin"]),
+                                    WranglerExtELispDir = filename:join([WranglerExtDir,"elisp"]),
+                                    case compile:file(File, [{i, Dir++"/include"}, {outdir,  WranglerExtEBinDir}]) of
+                                        {ok, _} -> 
+                                            NewCode = gen_new_code(ModName, Type),
+                                            ElFile = filename:join([WranglerExtELispDir, "wrangler_ext.el"]),
+                                            case file:write_file(ElFile, list_to_binary(NewCode), [append]) of
+                                                ok ->
+                                                    {ok, ElFile};
+                                                {error, Reason} ->
+                                                    {error, Reason}
+                                            end; 
+                                        Error -> 
+                                            {error, format_msg("the current file does not compile:~p\n.", 
+                                                               [Error])}
+                                    end;
+                                {error, Reason} ->
+                                    {error, Reason}
                             end;
-                        _ -> throw({error, "menu item already exists."})
+                        _ -> {error, "menu item already exists."}
                     end;
                 _ ->
                     Msg = format_msg("the current file does not implement a ~p behaviour.\n",
                                      [Type]),
-                    throw({error, Msg})
+                    {error, Msg}
             end;
         _ ->
-            throw({error, "the current file is not an Erlang source file."})
+            {error, "the current file is not an Erlang source file."}
     end. 
 
+
+
+remove(MenuName, Type, ExistingMenuItems, IDE, WranglerInstDir, Home) ->
+    WranglerExtDir = filename:join([Home, ".wrangler"]),
+    WranglerExtELispDir = filename:join([WranglerExtDir,"elisp"]),
+    NewCode = gen_new_code(MenuName, Type),
+    ElFile = filename:join([WranglerExtELispDir, "wrangler_ext.el"]),
+    Dir = get_wrangler_dir(IDE, WranglerInstDir),
+    case lists:member(list_to_atom(MenuName),[Name||[_, Name]<-ExistingMenuItems]) of 
+        true ->
+            case file:read_file(ElFile) of 
+                {ok, Bin} ->
+                    Str = binary_to_list(Bin),
+                    Str1= case remove_from_str(Str, NewCode) of 
+                              "" -> "\n";
+                              S -> S
+                          end,
+                    case file:write_file(ElFile, list_to_binary(Str1)) of 
+                        ok ->
+                            BeamFile=filename:join([WranglerExtDir,"ebin",MenuName++".beam"]),
+                            file:delete(BeamFile),
+                            {ok, filename:join([Dir, "elisp/wrangler.el"]),ElFile};
+                        {error, Reason} ->
+                            {error, Reason}
+                    end;                
+                {error, Reason} ->
+                    {error, Reason}
+            end;
+        false ->
+            {error, "the menu item does not exist."}
+    end.
+
+remove_from_str(Str, SubStr) ->
+    remove_from_str(Str, SubStr, []).
+remove_from_str(Str=[H|Str1], SubStr, Acc) ->
+    case lists:prefix(SubStr, Str) of 
+        true ->
+            lists:reverse(Acc, lists:nthtail(length(SubStr), Str));
+        false ->
+            remove_from_str(Str1, SubStr, [H|Acc])
+    end.
+    
 
 is_behaviour_file(File, Behaviour) ->
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(File, true, []),
@@ -130,3 +183,37 @@ get_wrangler_dir(windows, WranglerInstDir) ->
 
 format_msg(Temp, Args) ->
     lists:flatten(io_lib:format(Temp, Args)).
+
+mk_dirs(WranglerExtDir) ->
+    WranglerExtEBinDir = filename:join([WranglerExtDir,"ebin"]),
+    WranglerExtELispDir = filename:join([WranglerExtDir,"elisp"]),
+    case mk_dir(WranglerExtDir) of 
+        ok ->
+            case mk_dir(WranglerExtEBinDir) of 
+                ok ->
+                    case mk_dir(WranglerExtELispDir) of 
+                        ok -> ok;
+                        {error, Reason} ->
+                            {error, Reason}
+                    end;
+                {error, Reason} ->
+                    {error, Reason}
+            end;
+        {error,Reason} ->
+            {error, Reason}
+    end.
+
+mk_dir(Dir) ->
+    case filelib:is_dir(Dir) of 
+        true ->
+            ok;
+        false ->
+            case file:make_dir(Dir) of 
+                ok ->
+                    ok;                    
+                {error, _Reason} ->
+                    {error, 
+                     format_msg("Wrangler failed to create directory: ~p\n",
+                                [Dir])}
+            end
+    end.
