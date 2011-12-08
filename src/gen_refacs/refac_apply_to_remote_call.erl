@@ -34,7 +34,7 @@ transform(_Args=#args{search_paths=SearchPaths})->
     ?FULL_TD_TP([rule(),
                  rule1(),
                  rule2()
-                ], [SearchPaths]).
+                ], SearchPaths).
 
 rule() ->
     ?RULE(?T("Op@(N@@, M@, F@, [Args@@])"),
