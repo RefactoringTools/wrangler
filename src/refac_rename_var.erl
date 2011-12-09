@@ -115,9 +115,10 @@ rename_var(FName, Line, Col, NewName, SearchPaths, Editor, TabWidth) ->
 	       emacs ->
 		   {ok, []};
 	       _ ->
-		   Content = wrangler_prettypr:print_ast(wrangler_misc:file_format(FName), AnnAST1, TabWidth),
-		   {ok, [{FName, FName, Content}]}
-	   end
+		   Content = zlib:compress(list_to_binary(wrangler_prettypr:print_ast(
+                                              wrangler_misc:file_format(FName), AnnAST1, TabWidth))),
+                   {ok, [{FName, FName, Content}]}
+	   end  
     end.
 
 

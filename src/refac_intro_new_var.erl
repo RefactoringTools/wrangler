@@ -92,7 +92,8 @@ intro_new_var_1(FileName, AnnAST, Fun, Expr, NewVarName, Editor, TabWidth, Cmd) 
 	    {ok, [FileName]};
 	eclipse ->
 	    FileFormat = wrangler_misc:file_format(FileName),
-	    FileContent = wrangler_prettypr:print_ast(FileFormat, AnnAST1, TabWidth),
+	    FileContent =  zlib:compress(list_to_binary(
+                                           wrangler_prettypr:print_ast(FileFormat, AnnAST1, TabWidth))),
 	    {ok, [{FileName, FileName, FileContent}]}
     end.
 

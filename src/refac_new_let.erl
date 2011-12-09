@@ -102,7 +102,8 @@ new_let_2(FileName, AnnAST, NewPatName, Expr, ParentExpr, LetMacro, Editor, Cmd,
 	    wrangler_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd),
 	    {ok, [FileName]};
 	eclipse ->
-	    FileContent = wrangler_prettypr:print_ast(wrangler_misc:file_format(FileName), AnnAST1, TabWidth),
+	    FileContent =  zlib:compress(list_to_binary(wrangler_prettypr:print_ast(
+                                                          wrangler_misc:file_format(FileName), AnnAST1, TabWidth))),
 	    {ok, [{FileName, FileName, FileContent}]}
     end.
 
@@ -492,7 +493,8 @@ merge_1(FileName, Candidates, SearchPaths, TabWidth, Cmd, Editor, TabWidth) ->
 	    wrangler_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd),
 	    {ok, [FileName]};
 	eclipse ->
-	    FileContent = wrangler_prettypr:print_ast(wrangler_misc:file_format(FileName), AnnAST1, TabWidth),
+	    FileContent =  zlib:compress(list_to_binary(wrangler_prettypr:print_ast(
+                                                          wrangler_misc:file_format(FileName), AnnAST1, TabWidth))),
 	    {ok, [{FileName, FileName, FileContent}]}
     end.
 

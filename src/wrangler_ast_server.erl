@@ -115,7 +115,7 @@ update_ast(Key={_FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat}, {
 update_ast(Key={FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, SwpFileName) ->
     {ok, {AnnAST, Info}} = parse_annotate_file(SwpFileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
     CheckSum = wrangler_misc:filehash(FileName),
-    gen_server:call(wrangler_ast_server, {update, {Key, {AnnAST, Info, CheckSum}}}).
+    gen_server:call(wrangler_ast_server, {update, {Key, {zlib:compress(term_to_binary(AnnAST)), Info, CheckSum}}}).
  
 get_temp_dir() ->
     gen_server:call(wrangler_ast_server, get_temp_dir).
@@ -132,8 +132,8 @@ get_temp_dir() ->
 %%-spec(handle_call/3::({get,{filename(), boolean(), [dir()], integer(), atom()}}, any(), #state{}) -> 
 %%			   {reply, {ok, {syntaxTree(), moduleInfo()}}, #state{}}).
 handle_call({get, Key}, _From, State) ->
-    {Reply, State1} = get_ast(Key, State),
-    {reply, Reply, State1};
+    {_Reply={ok, {AnnAST, Info}}, State1} = get_ast(Key, State),
+    {reply, {ok, {binary_to_term(zlib:uncompress(AnnAST)), Info}}, State1};
 handle_call(get_temp_dir, _From, State=#state{dets_tab=TabFile}) ->
     TempDir = case TabFile of 
 		  none -> none;
@@ -141,7 +141,7 @@ handle_call(get_temp_dir, _From, State=#state{dets_tab=TabFile}) ->
 	      end,
     {reply, TempDir, State};
 handle_call({update, {Key, {AnnAST, Info, Time}}}, _From, State) ->
-    State1=update_ast_1({Key, {AnnAST, Info, Time}}, State),
+    State1=update_ast_1({Key, {zlib:compress(term_to_binary(AnnAST)), Info, Time}}, State),
     {reply, ok, State1}.
 
 
@@ -203,7 +203,7 @@ get_ast({FileName, false, SearchPaths, TabWidth, FileFormat}, State) ->
     wrangler_error_logger:remove_from_logger(FileName),
     {ok, {AnnAST, Info}} = parse_annotate_file(FileName, false, SearchPaths, TabWidth, FileFormat),
     log_errors(FileName, Info),
-    {{ok, {AnnAST, Info}}, State};
+    {{ok, {zlib:compress(term_to_binary(AnnAST)), Info}}, State};
 get_ast(Key = {FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, State = #state{dets_tab = TabFile, asts = ASTs}) ->
     case TabFile of
 	none ->
@@ -216,13 +216,15 @@ get_ast(Key = {FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, State =
                             {{ok, {AnnAST, Info}}, State};
 			false ->
 			    wrangler_error_logger:remove_from_logger(FileName),
-			    {ok, {AnnAST1, Info1}} = parse_annotate_file(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
+			    {ok, {AnnAST0, Info1}} = parse_annotate_file(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
 			    log_errors(FileName, Info1),
+                            AnnAST1 =zlib:compress(term_to_binary(AnnAST0)),
 			    {{ok, {AnnAST1, Info1}}, #state{asts = lists:keyreplace(Key, 1, ASTs, {Key, {AnnAST1, Info1, NewChecksum}})}}
 		    end;
 		false ->
                     wrangler_error_logger:remove_from_logger(FileName),
-		    {ok, {AnnAST, Info}} = parse_annotate_file(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
+		    {ok, {AnnAST0, Info}} = parse_annotate_file(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
+                    AnnAST =zlib:compress(term_to_binary(AnnAST0)),
 		    log_errors(FileName, Info),
 		    {{ok, {AnnAST, Info}}, #state{asts = [{Key, {AnnAST, Info, wrangler_misc:filehash(FileName)}}| ASTs]}}
 	    end;
@@ -233,7 +235,8 @@ get_ast(Key = {FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, State =
 		    {{ok, {AnnAST, Info}}, State};
 		_ ->
 		    wrangler_error_logger:remove_from_logger(FileName),
-		    {ok, {AnnAST1, Info1}} = parse_annotate_file(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
+		    {ok, {AnnAST0, Info1}} = parse_annotate_file(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
+                    AnnAST1=zlib:compress(term_to_binary(AnnAST0)),
 		    dets:insert(TabFile, {Key, {AnnAST1, Info1, NewChecksum}}),
 		    log_errors(FileName, Info1),
 		    {{ok, {AnnAST1, Info1}}, State}

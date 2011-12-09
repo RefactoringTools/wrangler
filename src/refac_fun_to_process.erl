@@ -71,7 +71,9 @@ fun_to_process(FName, Line, Col, ProcessName, SearchPaths, Editor, TabWidth) ->
 				 [FName]),
 		    {ok, [FName]};
 		eclipse ->
-		    Content = wrangler_prettypr:print_ast(wrangler_misc:file_format(FName), AnnAST2, TabWidth),
+		    Content =  zlib:compress(list_to_binary(
+                                               wrangler_prettypr:print_ast(
+                                                 wrangler_misc:file_format(FName), AnnAST2, TabWidth))),
 		    Res = [{FName, FName, Content}],
 		    {ok, Res}
 	    end;
