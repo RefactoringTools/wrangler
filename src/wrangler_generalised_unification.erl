@@ -28,7 +28,7 @@
 %%@private
 -module(wrangler_generalised_unification).
 
--export([expr_match/3, expr_match/2]).
+-export([expr_match/3, expr_match/2, extended_expr_match/3]).
 
 -compile(export_all).
 
@@ -36,12 +36,90 @@
 
 expr_match(Exp1, Exp2) ->
     expr_match(Exp1, Exp2, fun(_) ->true end).
+    
 
+extended_expr_match(Exp1, Exp2, Cond) ->
+    case {wrangler_syntax:type(Exp1), wrangler_syntax:type(Exp2)}  of 
+        {case_expr, case_expr} ->
+            Res=extended_case_expr_match(Exp1, Exp2, Cond),
+            %% wrangler_io:format("Res:\n~p\n", [Res]),
+            Res;
+        _ ->
+            Res=expr_match(Exp1, Exp2, Cond),
+            case Res of
+                false -> false;
+                {true, Subst} ->
+                    {true, Subst, []}
+            end
+    end.
+
+extended_case_expr_match(TempExp, Exp, Cond) ->
+    TempArg = wrangler_syntax:case_expr_argument(TempExp),
+    TempCs = wrangler_syntax:case_expr_clauses(TempExp),
+    ExprArg = wrangler_syntax:case_expr_argument(Exp),
+    ExprCs = wrangler_syntax:case_expr_clauses(Exp),
+    case unification(TempArg, ExprArg) of 
+        [false] ->
+            false;
+        [{true,Subst0}] ->
+            case extended_clause_match(TempCs, ExprCs) of 
+                false -> false;
+                {true, {Subst1, TempCsOrder}} ->
+                    %% TODO: what should be checked here?
+                    %% wrangler_io:format("Res:\n~p\n", [{Subst1, TempCsOrder}]),
+                    %% Res=post_unification_checking(
+                    %%       TempExp, Cond, [{true, [Subst0|Subst1}]),
+                    %% wrangler_io:format("Res:\n~p\n", [Res]),
+                    %% case Res of 
+                    %%     false -> false;
+                    %%     {true, Subst} ->
+                    %%         wrangler_io:format("DDDDD\n"),
+                    %%         {true, Subst, TempCsOrder}
+                    %% end     
+                    Subst = [[{case wrangler_syntax:type(V) of
+                                   variable -> wrangler_syntax:variable_name(V);
+                                   atom -> wrangler_syntax:atom_value(V)
+                               end, E} 
+                              ||{V, E}<-S]||S<-[Subst0|Subst1]],
+                    {true, Subst, [0|TempCsOrder]}
+            end
+    end.
+                     
+
+extended_clause_match(TempCs, ExprCs) ->
+    TempCs1 = lists:zip(lists:seq(1, length(TempCs)), TempCs),
+    extended_clause_match(TempCs1, ExprCs, {[],[]}).
+            
+extended_clause_match(_TempCs, [], {SubstAcc,TempCsIndexAcc}) ->
+    {true, {lists:reverse(SubstAcc), lists:reverse(TempCsIndexAcc)}};
+extended_clause_match(TempCs, [C|ExprCs], {SubstAcc,TempCsIndexAcc})->
+     case get_a_match_clause(TempCs, C) of 
+         false ->
+             false;
+         {{Index, _TempC}, Subst} ->
+             extended_clause_match(TempCs, ExprCs,  
+                                   {[Subst|SubstAcc], [Index|TempCsIndexAcc]})
+     end.
+
+get_a_match_clause([{Index, C}|TempCs], ExpC) ->
+    case unification(C, ExpC) of 
+        [{true, Subst}] ->
+            {{Index, C}, Subst};
+        [false] ->
+            get_a_match_clause(TempCs, ExpC)
+    end;
+get_a_match_clause([], _ExpC) ->
+    false.
+    
 -spec(expr_match/3::(syntaxTree()|[syntaxTree()], syntaxTree()|[syntaxTree()], function()) ->
                           {true, [{atom(), syntaxTree()|[syntaxTree()]}]} | false).
 expr_match(Exp1, Exp2, Cond) ->
     Res = unification(Exp1, Exp2),
-    PossibleMatches=[case static_semantics_check(Subst) of 
+    post_unification_checking(Exp1, Cond, Res).
+   
+
+post_unification_checking(TempExpr, Cond, UnificationRes) ->
+    PossibleMatches=[case static_semantics_check(Subst) of
                          false -> [];
                          {true, S} ->
                              case Cond(S) of
@@ -54,9 +132,9 @@ expr_match(Exp1, Exp2, Cond) ->
                                                      io_lib:format
                                                        ("Condition checking of rule/collector "
                                                         "returns non-boolean value. Template being matched: ~s.",
-                                                        [wrangler_prettypr:format(Exp1)]))})
+                                                        [wrangler_prettypr:format(TempExpr)]))})
                              end
-                     end||{true,Subst}<-Res],
+                     end||{true,Subst} <- UnificationRes],
     case lists:append(PossibleMatches) of
         [] ->
             false;
@@ -390,7 +468,7 @@ same_type_unification(Exp1, Exp2) ->
                     list_unification_1(Es1, Es2);
                 false ->
                     SubTrees1 = subtrees(Exp1),
-                    SubTrees2 = subtrees(Exp2),
+                     SubTrees2 = subtrees(Exp2),
                     case length(SubTrees1) == length(SubTrees2) of
                         true ->
                             unification(SubTrees1, SubTrees2);

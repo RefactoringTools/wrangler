@@ -360,6 +360,7 @@
          pp/1,
          equal/2,
          quote/1,
+         anti_quote/1,
          get_app_mod/1,
          get_app_fun/1,
          get_app_args/1,
@@ -371,9 +372,12 @@
          collect/3,
          match/2,
          match/3,
+         extended_expr_match/3,
          search_and_transform/3,
          search_and_collect/3,
-         meta_apply_templates/1]).
+         meta_apply_templates/1,
+         simplify_expr/2, 
+         re_order_cs/2]).
 
 -compile(export_all).
 
@@ -988,6 +992,8 @@ pp_1([E|Es]) ->
 quote(Str) ->    
     wrangler_misc:parse_annotate_expr(Str).
 
+anti_quote(Str) ->    
+    wrangler_misc:parse_annotate_expr(Str).
 
 %%=================================================================
 %%@private
@@ -998,7 +1004,7 @@ subst(Expr, Subst) ->
     {Expr1, _} =api_ast_traverse:stop_tdTP(fun do_subst/2, Expr, Subst),
     Expr2=expand_meta_list(Expr1),
     remove_fake_begin_end(Expr2).
- 
+
 do_subst(Node, Subst) ->
     case wrangler_syntax:type(Node) of
 	variable ->
@@ -1207,7 +1213,7 @@ search_and_transform_3(Rules, File, Fun, Selective) ->
  
 search_and_transform_4(File,Rules,Tree,Fun,Selective) ->
     F = fun(Node, CandsNotToChange) ->
-                Res = try_expr_match(Rules, Node),
+                Res = try_expr_match(Rules, {File, Node}),
                 case Res of
                     {true, NewExprAfter} ->
                         case Selective of
@@ -1224,7 +1230,7 @@ search_and_transform_4(File,Rules,Tree,Fun,Selective) ->
                                 {NewExprAfter, true};
                             {false, CandsNotToChange} ->
                                 {{SLn, SCol}, {ELn, ECol}}=start_end_loc(Node),
-                                MD5 =erlang:md5(wrangler_prettypr:format(Node)),
+                                MD5 =binary_to_list(erlang:md5(wrangler_prettypr:format(Node))),
                                 Key ={File, SLn, SCol, ELn, ECol, MD5},
                                 case lists:keysearch(Key,1,CandsNotToChange) of
                                     false ->
@@ -1354,13 +1360,17 @@ match(Temp, Node) ->
       Temp, Node1).
      
 %%@private
+extended_expr_match(Temp, Node, Cond) ->
+    wrangler_generalised_unification:extended_expr_match(Temp, Node, Cond).
+
+%%@private
 match({meta_apply, TCs}, Node, Cond) ->
     %% wrangler_io:format("Temp:\n~p\n", [TCs]),
     Node1=wrangler_misc:extend_function_clause(Node),
     match_meta_apply_temp(TCs, Node1, Cond);
 match(Temp, Node, Cond) ->
     Node1=wrangler_misc:extend_function_clause(Node),
-    wrangler_generalised_unification:expr_match(
+    wrangler_generalised_unification:extended_expr_match(
       Temp, Node1, Cond).
 
 
@@ -1382,19 +1392,20 @@ match_meta_apply_temp(MetaApplyTemp, Node, Cond) ->
     end.
 
 
-try_expr_match([], _Node) ->false;
-try_expr_match([{rule,Fun,BeforeExpr}|T], Node) 
+try_expr_match([], {_File, _Node}) ->false;
+try_expr_match([{rule,Fun,BeforeExpr}|T], {File, Node}) 
   when is_list(BeforeExpr) andalso is_list(Node) ->
-    try_expr_match_2([{rule,Fun, BeforeExpr}|T], Node,1);
+    try_expr_match_2([{rule,Fun, BeforeExpr}|T], {File, Node},1);
     
-try_expr_match([{rule,Fun, BeforeExpr}|T], Node) when 
+try_expr_match([{rule,Fun, BeforeExpr}|T], {File,Node}) when 
       not is_list(BeforeExpr) andalso not is_list(Node)->
-    try_expr_match_1([{rule,Fun, BeforeExpr}|T], Node);
-try_expr_match([_|T], Node) ->
-    try_expr_match(T, Node).
+    try_expr_match_1([{rule,Fun, BeforeExpr}|T], {File, Node});
+try_expr_match([_|T], {File, Node}) ->
+    try_expr_match(T, {File, Node}).
 
-try_expr_match_1([{rule,Fun, _BeforeExpr}|T], Node) ->
-    case Fun(Node) of 
+try_expr_match_1([{rule,Fun, _BeforeExpr}|T], {File,Node}) ->
+    Res = Fun(File, Node),
+    case Res of 
         {NewExpr, true} ->
             case is_list(NewExpr) of
                 true ->
@@ -1408,16 +1419,16 @@ try_expr_match_1([{rule,Fun, _BeforeExpr}|T], Node) ->
                     end
             end;
         {_, false} ->
-            try_expr_match(T, Node)
+            try_expr_match(T, {File, Node})
     end.
 
-try_expr_match_2([{rule, Fun, BeforeExpr}|T], NodeList, Index) ->
+try_expr_match_2([{rule, Fun, BeforeExpr}|T], {File, NodeList}, Index) ->
     Len1 = length(BeforeExpr),
     Len2 = length(NodeList),
     case Len1 =< Len2 of
         true ->
             Exprs = lists:sublist(NodeList, Index, Len1),
-            case Fun(Exprs) of 
+            case Fun(File, Exprs) of 
                 {NewExpr, true} ->
                     NewExpr1 = case NewExpr of
                                    [E|Es]->
@@ -1430,13 +1441,13 @@ try_expr_match_2([{rule, Fun, BeforeExpr}|T], NodeList, Index) ->
                     {true, NewNodeList};
                 {_, false} ->
                     if Index < Len2 ->
-                            try_expr_match_2([{rule,Fun, BeforeExpr}|T], NodeList, Index+1);
+                            try_expr_match_2([{rule,Fun, BeforeExpr}|T], {File, NodeList}, Index+1);
                        true ->
-                            try_expr_match(T, NodeList)
+                            try_expr_match(T, {File, NodeList})
                     end
             end;
         false->
-            try_expr_match(T, NodeList)
+            try_expr_match(T, {File, NodeList})
     end.
             
 
@@ -2401,3 +2412,82 @@ get_mfas(File, Order) ->
                     []
             end
     end.
+
+
+simplify_expr(NewExpr, OldExpr) ->
+    NewExpr1 = wrangler_syntax_lib:annotate_expr(wrangler_misc:reset_ann(NewExpr)),
+    {OldBoundVars,_} = lists:unzip(bound_vars(OldExpr)),
+    {NewBoundVars,_}= lists:unzip(bound_vars(NewExpr1)),
+    NewVars = NewBoundVars--OldBoundVars,
+    case NewVars of 
+        [] -> NewExpr;
+        _ ->
+            simplify_expr_1(NewExpr1, NewVars)
+    end.
+    
+simplify_expr_1(NewExpr, NewVars) ->
+    NewExpr1 = simplify_expr_2(NewExpr, NewVars),
+    case NewExpr1==NewExpr of 
+        true ->
+            NewExpr;
+        false ->
+            simplify_expr_1(NewExpr1, NewVars)
+    end.
+
+simplify_expr_2(Expr, Vars)->
+    Expr1=wrangler_syntax_lib:annotate_expr(wrangler_misc:reset_ann(Expr)),
+    F = fun(Node, _Others) ->
+                case wrangler_syntax:type(Node) of 
+                    variable ->
+                        VarName = wrangler_syntax:variable_name(Node),
+                        case var_refs(Node) ==[] andalso lists:member(VarName, Vars) of 
+                            true ->
+                                {wrangler_syntax:underscore(), true};
+                            false ->
+                                {Node, false}
+                        end;
+                    match_expr -> 
+                        Pattern = wrangler_syntax:match_expr_pattern(Node),
+                        case wrangler_syntax:type(Pattern) of 
+                            underscore ->
+                                {wrangler_syntax:empty_node(),true};
+                            tuple ->
+                                Es = wrangler_syntax:tuple_elements(Pattern),
+                                case lists:all(fun(E)-> 
+                                                       wrangler_syntax:type(E)== underscore 
+                                               end, Es) of 
+                                    true ->
+                                        {wrangler_syntax:empty_node(),true};
+                                    false ->
+                                        {Node, false}
+                                end;
+                            _ -> {Node, false}
+                        end;
+                    _ ->
+                        {Node, false}
+                end
+        end,
+    {Expr2,_}=api_ast_traverse:full_tdTP(F, Expr1, []),
+    Expr2.
+                
+                            
+                                 
+                         
+
+
+re_order_cs(Expr, NewOrder) ->
+    case wrangler_syntax:type(Expr) of 
+        case_expr ->
+            Arg = wrangler_syntax:case_expr_argument(Expr),
+            Cs = wrangler_syntax:case_expr_clauses(Expr),
+            NewCs = re_order_cs_1(Cs, NewOrder,[]),
+            wrangler_syntax:case_expr(Arg, NewCs);
+        _ ->
+            Expr
+    end.
+
+re_order_cs_1(Cs, [Index|Is], NewCs) ->
+    C=lists:nth(Index, Cs),
+    re_order_cs_1(Cs, Is, [C|NewCs]);
+re_order_cs_1(_Cs, [], NewCs) ->
+    lists:reverse(NewCs).
