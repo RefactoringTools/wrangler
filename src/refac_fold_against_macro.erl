@@ -110,11 +110,8 @@ fold_against_macro_1_eclipse(FileName, CandidatesToFold, MacroDef, SearchPaths, 
     CandidatesToFold1 = [{StartLine, StartCol, EndLine, EndCol, MacroApp, MacroDef}
 			 || {{{StartLine, StartCol}, {EndLine, EndCol}}, MacroApp} <- CandidatesToFold],
     AnnAST1 = fold_against_macro_1_1_eclipse(AnnAST, CandidatesToFold1),
-    Src =  zlib:compress(list_to_binary(wrangler_prettypr:print_ast(
-                             wrangler_misc:file_format(FileName),
-                             AnnAST1, TabWidth))),
-    Res = [{FileName, FileName, Src}],
-    {ok, Res}.
+    wrangler_write_file:write_refactored_files(
+      [{{FileName, FileName}, AnnAST1}], eclipse, TabWidth, "").
 
 fold_against_macro_1_1_eclipse(AnnAST, []) ->
     AnnAST;

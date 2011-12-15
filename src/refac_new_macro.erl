@@ -280,10 +280,8 @@ return_refac_result(FileName, AnnAST, Editor, Cmd, TabWidth) ->
 	    wrangler_write_file:write_refactored_files_for_preview([{{FileName, FileName}, AnnAST}], TabWidth, Cmd),
 	    {ok, [FileName]};
 	eclipse ->
-	    Src =  zlib:compress(list_to_binary(wrangler_prettypr:print_ast(
-                                                  wrangler_misc:file_format(FileName), AnnAST, TabWidth))),
-	    Res = [{FileName, FileName, Src}],
-	    {ok, Res}
+            wrangler_write_file:write_refactored_files(
+                [{{FileName, FileName}, AnnAST}], Editor, TabWidth, "")
     end.
 
 rewrite(Source, Target) ->

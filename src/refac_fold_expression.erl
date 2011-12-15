@@ -174,12 +174,9 @@ fold_expr_1_eclipse(FileName, FunClauseDef, RangeNewExpList, SearchPaths, TabWid
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     Body = wrangler_syntax:clause_body(FunClauseDef),
     AnnAST1 = fold_expression_1_eclipse_1(AnnAST, Body, RangeNewExpList),
-    FileContent =  zlib:compress(list_to_binary(
-                                   wrangler_prettypr:print_ast(
-                                     wrangler_misc:file_format(FileName), 
-                                     AnnAST1, TabWidth))),
-    {ok, [{FileName, FileName, FileContent}]}.
-
+    wrangler_write_file:write_refactored_files(
+      [{{FileName, FileName}, AnnAST1}], eclipse, TabWidth, "").
+   
 fold_expression_1_eclipse_1(AnnAST, _Body, []) ->
     AnnAST;
 fold_expression_1_eclipse_1(AnnAST, Body, [Cand| Tail]) ->

@@ -180,11 +180,9 @@ rename_fun(FileName, Line, Col, NewName, SearchPaths, Editor, TabWidth) ->
 		    case Editor of
 			emacs -> {ok, [], false};
 			eclipse ->
-			    FileContent = zlib:compress(wrangler_prettypr:print_ast(
-                                                          wrangler_misc:file_format(FileName),
-                                                          AnnAST, TabWidth)),
-			    {ok, [{FileName, FileName, FileContent}]}
-		    end
+                            wrangler_write_file:write_refactored_files(
+                              [{{FileName, FileName}, AnnAST}], Editor, TabWidth, "")
+                    end
 	    end;
 	{error, Reason} ->
 	    {error, Reason}

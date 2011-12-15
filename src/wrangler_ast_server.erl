@@ -41,7 +41,7 @@
 	 parse_annotate_file/4, parse_annotate_file/5,
 	 quick_parse_annotate_file/3]).
 %% API
--export([start_ast_server/0, update_ast/2, get_temp_dir/0]).
+-export([start_ast_server/0, update_ast/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -49,7 +49,7 @@
 
 -include("../include/wrangler_internal.hrl").
 
--record(state, {dets_tab=none, asts=[]}).
+-record(state, {ets_tab=none}).
 
 %%====================================================================
 %% API
@@ -77,29 +77,9 @@ start_ast_server() ->
 %%-spec(init/1::([dir()]) ->{ok, #state{}}).
 init(_Args) ->
     process_flag(trap_exit, true),
-    case find_homedir() of
-	false -> {ok, #state{dets_tab=none}};
-	Dir ->
-	    DetsTab = filename:join(Dir, ".wrangler.dets"),
-	    file:delete(DetsTab),
-            case dets:open_file(DetsTab,  [{type, set}, {access, read_write}, {repair, false}]) of 
-                {ok, _Name} ->  {ok, #state{dets_tab=DetsTab}};
-                _  ->  {ok, #state{dets_tab=none}}
-            end
-    end.
+    EtsTab = ets:new(ast_tab, [set, protected,{read_concurrency, true}]),
+    {ok, #state{ets_tab=EtsTab}}.
 
-find_homedir() ->
-    case os:getenv("HOME") of
-        false ->
-            %% are we on Windows?
-            case {os:getenv("HOMEDRIVE"),os:getenv("HOMEPATH")} of
-                {false, _} -> false;
-                {Drive, false} -> Drive;
-                {Drive, Path} -> Drive ++ Path
-            end;
-        Path ->
-            Path
-    end.
 
 %%------------------------------------------------------------------
 %% -spec(get_ast/1::({filename(), boolean(), [dir()], integer(), atom()}) ->
@@ -115,10 +95,8 @@ update_ast(Key={_FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat}, {
 update_ast(Key={FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, SwpFileName) ->
     {ok, {AnnAST, Info}} = parse_annotate_file(SwpFileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
     CheckSum = wrangler_misc:filehash(FileName),
-    gen_server:call(wrangler_ast_server, {update, {Key, {zlib:compress(term_to_binary(AnnAST)), Info, CheckSum}}}).
+    gen_server:call(wrangler_ast_server, {update, {Key, {zlib:zip(term_to_binary(AnnAST)), Info, CheckSum}}}).
  
-get_temp_dir() ->
-    gen_server:call(wrangler_ast_server, get_temp_dir).
 %%--------------------------------------------------------------------
 %% Function: %% handle_call(Request, From, State) -> {reply, Reply, State} |
 %%                                      {reply, Reply, State, Timeout} |
@@ -132,16 +110,13 @@ get_temp_dir() ->
 %%-spec(handle_call/3::({get,{filename(), boolean(), [dir()], integer(), atom()}}, any(), #state{}) -> 
 %%			   {reply, {ok, {syntaxTree(), moduleInfo()}}, #state{}}).
 handle_call({get, Key}, _From, State) ->
-    {_Reply={ok, {AnnAST, Info}}, State1} = get_ast(Key, State),
-    {reply, {ok, {binary_to_term(zlib:uncompress(AnnAST)), Info}}, State1};
-handle_call(get_temp_dir, _From, State=#state{dets_tab=TabFile}) ->
-    TempDir = case TabFile of 
-		  none -> none;
-		  _ -> filename:dirname(TabFile)
-	      end,
-    {reply, TempDir, State};
+    case get_ast(Key, State) of
+        {{ok, {ets, Tab, Key}}, State1} ->
+            [{Key, {AnnAST, Info, _Checksum}}]=ets:lookup(Tab, Key),
+            {reply, {ok, {binary_to_term(zlib:unzip(AnnAST)), Info}}, State1}
+    end;
 handle_call({update, {Key, {AnnAST, Info, Time}}}, _From, State) ->
-    State1=update_ast_1({Key, {zlib:compress(term_to_binary(AnnAST)), Info, Time}}, State),
+    State1=update_ast_1({Key, {zlib:zip(term_to_binary(AnnAST)), Info, Time}}, State),
     {reply, ok, State1}.
 
 
@@ -174,15 +149,10 @@ handle_info(_Info, State) ->
 %% The return value is ignored.
 %%--------------------------------------------------------------------
 %%-spec(terminate/2::(any(), #state{}) -> ok).
-terminate(_Reason, _State=#state{dets_tab=TabFile}) ->
-    dets:close(TabFile),
-    _Res=file:delete(TabFile),
-    TempDir = filename:dirname(TabFile),
-    case file:list_dir(TempDir) of 
-     	{ok, []} ->
-     	    file:del_dir(TempDir);
-     	_ -> ok
-     end.
+terminate(_Reason, _State=#state{ets_tab=EtsTab}) ->
+    ets:delete(EtsTab),
+    ok.
+   
 
 %%--------------------------------------------------------------------
 %% Func: code_change(OldVsn, State, Extra) -> {ok, NewState}
@@ -203,64 +173,29 @@ get_ast({FileName, false, SearchPaths, TabWidth, FileFormat}, State) ->
     wrangler_error_logger:remove_from_logger(FileName),
     {ok, {AnnAST, Info}} = parse_annotate_file(FileName, false, SearchPaths, TabWidth, FileFormat),
     log_errors(FileName, Info),
-    {{ok, {zlib:compress(term_to_binary(AnnAST)), Info}}, State};
-get_ast(Key = {FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, State = #state{dets_tab = TabFile, asts = ASTs}) ->
-    case TabFile of
-	none ->
-            case lists:keysearch(Key, 1, ASTs) of
-		{value, {Key, {AnnAST, Info, Checksum}}} ->
-                    NewChecksum = wrangler_misc:filehash(FileName),
-		    case Checksum =:= NewChecksum andalso NewChecksum =/= 0 of
-			true ->
-                            log_errors(FileName, Info),
-                            {{ok, {AnnAST, Info}}, State};
-			false ->
-			    wrangler_error_logger:remove_from_logger(FileName),
-			    {ok, {AnnAST0, Info1}} = parse_annotate_file(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
-			    log_errors(FileName, Info1),
-                            AnnAST1 =zlib:compress(term_to_binary(AnnAST0)),
-			    {{ok, {AnnAST1, Info1}}, #state{asts = lists:keyreplace(Key, 1, ASTs, {Key, {AnnAST1, Info1, NewChecksum}})}}
-		    end;
-		false ->
-                    wrangler_error_logger:remove_from_logger(FileName),
-		    {ok, {AnnAST0, Info}} = parse_annotate_file(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
-                    AnnAST =zlib:compress(term_to_binary(AnnAST0)),
-		    log_errors(FileName, Info),
-		    {{ok, {AnnAST, Info}}, #state{asts = [{Key, {AnnAST, Info, wrangler_misc:filehash(FileName)}}| ASTs]}}
-	    end;
-	_ ->
-	    NewChecksum = wrangler_misc:filehash(FileName),
-	    case dets:lookup(TabFile, Key) of
-		[{Key, {AnnAST, Info, Checksum}}] when Checksum =:= NewChecksum ->
-		    {{ok, {AnnAST, Info}}, State};
-		_ ->
-		    wrangler_error_logger:remove_from_logger(FileName),
-		    {ok, {AnnAST0, Info1}} = parse_annotate_file(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
-                    AnnAST1=zlib:compress(term_to_binary(AnnAST0)),
-		    dets:insert(TabFile, {Key, {AnnAST1, Info1, NewChecksum}}),
-		    log_errors(FileName, Info1),
-		    {{ok, {AnnAST1, Info1}}, State}
-	    end
+    {{ok, {zlib:zip(term_to_binary(AnnAST)), Info}}, State};
+get_ast(Key = {FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, State = #state{ets_tab=EtsTab}) ->
+    NewChecksum = wrangler_misc:filehash(FileName),
+    case ets:lookup(EtsTab, Key) of
+        [{Key, {_AnnAST, _Info, Checksum}}] when Checksum =:= NewChecksum andalso
+                                                 NewChecksum =/= 0 ->
+            {{ok, {ets, EtsTab, Key}}, State};
+        false ->
+            wrangler_error_logger:remove_from_logger(FileName),
+            {ok, {AnnAST0, Info1}} = parse_annotate_file(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
+            log_errors(FileName, Info1),
+            AnnAST1 =zlib:zip(term_to_binary(AnnAST0)),
+            true=ets:insert(EtsTab, {Key, {AnnAST1, Info1, NewChecksum}}),
+            {{ok, {ets, EtsTab, Key}}, State}
     end.
 
-update_ast_1({Key, {AnnAST, Info, _CheckSum}}, State = #state{dets_tab = TabFile, asts = ASTs}) ->
+update_ast_1({Key, {AnnAST, Info, _CheckSum}}, State = #state{ets_tab = EtsTab}) ->
     {FileName, _ByPassPreP, _SearchPaths, _TabWidth, _FileFormat} = Key,
     Checksum = wrangler_misc:filehash(FileName),
-    case TabFile of
-	none -> 
-            Res = lists:keysearch(Key, 1, ASTs),
-            case Res of
-                {value, {Key, _}} ->
-                    State#state{asts = lists:keyreplace(Key, 1, ASTs, {Key, {AnnAST, Info, Checksum}})};
-                false ->
-                    State#state{asts = [{Key, {AnnAST, Info, Checksum}}| ASTs]}
-            end;                    
-	_ ->
-	    dets:delete(TabFile, Key),
-	    dets:insert(TabFile, [{Key, {AnnAST, Info, Checksum}}]),
-            State
-    end.
-    
+    ets:delete(EtsTab, Key),
+    ets:insert(EtsTab, [{Key, {AnnAST, Info, Checksum}}]),
+    State.
+     
 log_errors(FileName, Info) ->
     case lists:keysearch(errors, 1, Info) of
       {value, {errors, Error}} ->
