@@ -180,7 +180,7 @@ get_ast(Key = {FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, State =
         [{Key, {_AnnAST, _Info, Checksum}}] when Checksum =:= NewChecksum andalso
                                                  NewChecksum =/= 0 ->
             {{ok, {ets, EtsTab, Key}}, State};
-        false ->
+        [] -> 
             wrangler_error_logger:remove_from_logger(FileName),
             {ok, {AnnAST0, Info1}} = parse_annotate_file(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
             log_errors(FileName, Info1),
