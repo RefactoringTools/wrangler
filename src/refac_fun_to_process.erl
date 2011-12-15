@@ -71,12 +71,11 @@ fun_to_process(FName, Line, Col, ProcessName, SearchPaths, Editor, TabWidth) ->
 				 [FName]),
 		    {ok, [FName]};
 		eclipse ->
-		    Content = wrangler_prettypr:print_ast(wrangler_misc:file_format(FName), AnnAST2, TabWidth),
-		    Res = [{FName, FName, Content}],
-		    {ok, Res}
-	    end;
+                    wrangler_write_file:write_refactored_files(
+                      [{{FName, FName}, AnnAST2}], Editor, TabWidth, "")
+            end;
 	_ -> throw({error, "You have not selected a function definition, "
-			   "or the function definition selected does not parse."})
+                    "or the function definition selected does not parse."})
     end.
 
 %%-spec(fun_to_process_1_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer())

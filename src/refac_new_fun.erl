@@ -93,8 +93,8 @@ fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor, TabWid
 	    wrangler_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd),
 	    {ok, [FileName]};
 	eclipse ->
-	    FileContent = wrangler_prettypr:print_ast(wrangler_misc:file_format(FileName), AnnAST1, TabWidth),
-	    {ok, [{FileName, FileName, FileContent}]}
+            wrangler_write_file:write_refactored_files(
+              [{{FileName, FileName}, AnnAST1}], Editor, TabWidth, "")
     end.
 
 get_free_bd_vars(ExpList) ->

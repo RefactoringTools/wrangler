@@ -126,9 +126,9 @@ write_refactored_files_eclipse(Results, TabWidth) ->
     Res = lists:map(fun ({{OldFName,NewFName},AST}) ->
 			    FileFormat = wrangler_misc:file_format(OldFName),
 			    {OldFName, NewFName,
-			     wrangler_prettypr:print_ast(FileFormat,AST,TabWidth)}
-		    end,Results),
-    {ok,Res}.
+                             list_to_binary(wrangler_prettypr:print_ast(FileFormat,AST,TabWidth))}
+                    end,Results),
+    {ok,Res}. 
 
 write_refactored_files_command_line(Results, TabWidth) ->
     FilesToWrite = [FileTuple || {FileTuple, _} <- Results],

@@ -91,9 +91,8 @@ intro_new_var_1(FileName, AnnAST, Fun, Expr, NewVarName, Editor, TabWidth, Cmd) 
 	    wrangler_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd),
 	    {ok, [FileName]};
 	eclipse ->
-	    FileFormat = wrangler_misc:file_format(FileName),
-	    FileContent = wrangler_prettypr:print_ast(FileFormat, AnnAST1, TabWidth),
-	    {ok, [{FileName, FileName, FileContent}]}
+            wrangler_write_file:write_refactored_files(
+                      [{{FileName, FileName}, AnnAST1}], Editor, TabWidth, "")
     end.
 
 cond_check(Form, Expr, NewVarName) ->
