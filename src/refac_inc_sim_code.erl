@@ -35,7 +35,7 @@
 -export([inc_sim_code_detection/8, 
 	 inc_sim_code_detection_in_buffer/8]).
 
-%% API for eclipse use.
+%% API for eclipse use. 
 -export([inc_sim_code_detection_eclipse/8]).
 
 %% API for command line use.
@@ -81,12 +81,26 @@
 -define(Threshold, get_temp_file_path("threshold")).
 %% record the store the ets/dets table names.
 
+find_homedir() ->
+    case os:getenv("HOME") of 
+        false ->
+            %% are we on Windows?
+            case {os:getenv("HOMEDRIVE"),os:getenv("HOMEPATH")} of
+                {false, _} -> false;
+                {Drive, false} -> Drive;
+                {Drive, Path} -> Drive ++ Path
+            end;
+        Path ->
+            Path
+    end.
+
 get_temp_file_path(Tab) ->
-    list_to_atom(case wrangler_ast_server:get_temp_dir() of
-			 none ->
-			     "none";
-			 Dir ->filename:join(Dir, Tab)
-		     end).
+    list_to_atom(case find_homedir() of
+                     false ->
+                         "none";
+                     Dir ->
+                         filename:join([Dir, ".wrangler","temp", Tab])
+                 end).
 -record(tabs, 
 	{ast_tab,
 	 var_tab, 
@@ -175,8 +189,8 @@ inc_sim_code_detection(Files, {MinLen, MinToks, MinFreq, MaxVars, SimiScore},
     Tabs = #tabs{ast_tab = from_dets(ast_tab,?ASTTab,Inc),
 		 var_tab = from_dets(var_tab,?VarTab,Inc),
 		 file_hash_tab = from_dets(file_hash_tab,?FileHashTab,Inc),
-		 exp_hash_tab = from_dets(expr_hash_tab,?ExpHashTab,Inc),
-		 clone_tab = from_dets(expr_clone_tab,?CloneTab,Inc)},
+		 exp_hash_tab = from_dets(exp_hash_tab,?ExpHashTab,Inc),
+		 clone_tab = from_dets(clone_tab,?CloneTab,Inc)},
     %% Threshold parameters.
     Threshold = #threshold{min_len = MinLen,
 			   min_freq = MinFreq,
@@ -187,15 +201,19 @@ inc_sim_code_detection(Files, {MinLen, MinToks, MinFreq, MaxVars, SimiScore},
     Cs = inc_sim_code_detection(Files,Threshold,Tabs,SearchPaths,TabWidth,Editor,Inc),
     case Inc of
 	true ->
-	    %% output cache information to dets tables.
-	    to_dets(Tabs#tabs.ast_tab,?ASTTab),
-	    to_dets(Tabs#tabs.var_tab,?VarTab),
-	    to_dets(Tabs#tabs.file_hash_tab,?FileHashTab),
-	    to_dets(Tabs#tabs.exp_hash_tab,?ExpHashTab),
-	    to_dets(Tabs#tabs.clone_tab,?CloneTab),
-	    write_file(?Threshold,term_to_binary(Threshold));
-	false ->
-	    ok
+            %% output cache information to dets tables.
+            case create_temp_dir() of 
+                ok ->
+                    to_dets(Tabs#tabs.ast_tab,?ASTTab),
+                    to_dets(Tabs#tabs.var_tab,?VarTab),
+                    to_dets(Tabs#tabs.file_hash_tab,?FileHashTab),
+                    to_dets(Tabs#tabs.exp_hash_tab,?ExpHashTab),
+                    to_dets(Tabs#tabs.clone_tab,?CloneTab),
+                    write_file(?Threshold,term_to_binary(Threshold));
+                _ -> delete_ets(Tabs)
+            end;
+        false ->
+            delete_ets(Tabs)
     end,
     Cs.
 
@@ -243,9 +261,9 @@ inc_sim_code_detection(Files, Thresholds, Tabs, SearchPaths, TabWidth, Editor, I
     %% ?debug("\n Time Used: ~p\n", [{Time1, Time2}]),
     case Editor of
 	emacs ->
-	    wrangler_code_search_utils:display_clone_result(lists:reverse(Cs4), "Similar"),
-	    stop_clone_check_process(CloneCheckerPid),
-	    stop_hash_process(HashPid),
+            wrangler_code_search_utils:display_clone_result(lists:reverse(Cs4), "Similar"),
+            ok=stop_clone_check_process(CloneCheckerPid),
+            stop_hash_process(HashPid),
 	    stop_ast_process(ASTPid),
 	    Cs3;
 	_ ->
@@ -419,6 +437,7 @@ start_ast_process(ASTTab, HashPid) ->
 %% stop the ast process.
 stop_ast_process(Pid)->
     Pid ! stop.
+            
 
 %% Insert a sequence of expressions into the AST table. 
 %% The sequence of expressions to be inserted are from 
@@ -526,7 +545,7 @@ do_generalise(Node) ->
 start_hash_process(FilesDeleted,Inc) ->
     %% I put NewFiles here too! 
     %ObsoleteFiles = FilesDeleted ++ FilesChanged ++ NewFiles,  
-    ExpHashTab = from_dets(expr_hash_tab, ?ExpHashTab, Inc),
+    ExpHashTab = from_dets(exp_hash_tab, ?ExpHashTab, Inc),
     case file:read_file(?ExpSeqFile) of
 	{ok, Binary} ->
 	    Data = binary_to_term(Binary),
@@ -637,7 +656,11 @@ start_clone_check_process(Tabs) ->
     spawn_link(fun()->clone_check_loop([],[], Tabs) end).
 
 stop_clone_check_process(Pid) ->
-    Pid ! stop.
+    Pid ! {self(), stop},
+    receive
+        {Pid, ok} ->
+            ok
+    end.
 
 add_new_clones(Pid, Clones) ->
     Pid ! {add_clone, Clones}.
@@ -667,9 +690,14 @@ clone_check_loop(Cs, CandidateClassPairs, Tabs) ->
 		    {_, {Len, Freq}, AntiUnifier,AbsRanges}<-Cs0],
 	    From ! {self(), Cs1},
 	    clone_check_loop(Cs, CandidateClassPairs, Tabs);       
-	stop ->
-	    ets:insert(Tabs#tabs.clone_tab, CandidateClassPairs),	
-	    ok;
+	{From, stop} ->
+            case ?INC of 
+                true ->
+                    ets:insert(Tabs#tabs.clone_tab, CandidateClassPairs);
+                false -> 
+                    ok
+            end,
+            From ! {self(), ok};
 	_Msg -> 
 	    ?wrangler_io("Unexpected message:\n~p\n",[_Msg]),
 	    clone_check_loop(Cs,  CandidateClassPairs, Tabs)
@@ -1610,8 +1638,6 @@ same_expr(Expr1, Expr2) ->
 %%       between Ets and Dets                                 %%
 %%                                                            %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
 from_dets(Ets, Dets, Inc) when is_atom(Ets) ->
     EtsRef = ets:new(Ets, [set, public]),
     case Inc of
@@ -1645,9 +1671,16 @@ to_dets(Ets, Dets) ->
 	 ets:delete(Ets)
     catch
 	_E1:_E2 ->
-	    ok
+            ok
     end.
-	
+
+delete_ets(Tabs) ->
+    ets:delete(Tabs#tabs.ast_tab),
+    ets:delete(Tabs#tabs.var_tab),
+    ets:delete(Tabs#tabs.file_hash_tab),
+    ets:delete(Tabs#tabs.exp_hash_tab),
+    ets:delete(Tabs#tabs.clone_tab).
+        	
 	 
 
 %%-spec(get_parameters_eclipse/5::(MinLen::integer(), MinToks::integer(), MinFreq::integer(), 
@@ -1780,3 +1813,31 @@ hash_ranges(Ranges) ->
 		  ||R<-Ranges])).
 
 
+create_temp_dir()->
+    case find_homedir() of 
+        none ->
+            {error, "Wrangler could not infer home directory"};
+        Path ->
+            DotWranglerDir=filename:join(Path, ".wrangler"),
+            TempDir=filename:join(DotWranglerDir, "temp"),
+            case filelib:is_dir(DotWranglerDir) of
+                true ->
+                    case filelib:is_dir(TempDir) of 
+                        true ->
+                            ok;
+                        _ ->
+                            file:make_dir(TempDir)
+                    end;
+                false ->
+                    case file:make_dir(DotWranglerDir) of 
+                        ok ->
+                            file:make_dir(TempDir);
+                        {error, Reason} ->
+                            {error, Reason}
+                    end
+            end
+    end.
+                                
+                                                        
+                
+                    
