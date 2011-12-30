@@ -863,6 +863,7 @@ add_range_to_list_node(Node, Toks, Es, Str1, Str2, KeyWord1, KeyWord2) ->
     La = wrangler_misc:glast(Str2, Es),
     calc_and_add_range_to_node_1(Node, Toks, Hd, La, KeyWord1, KeyWord2).
 
+add_range_to_body(Node, [], _, _) -> Node; %% why this should happend?
 add_range_to_body(Node, B, Str1, Str2) ->
     H = wrangler_misc:ghead(Str1, B),
     La = wrangler_misc:glast(Str2, B),
