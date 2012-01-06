@@ -33,7 +33,7 @@
 -module(wrangler_prettypr).
 
 -export([format/1,print_ast/2, print_ast/3, 
-         print_ast_and_get_changes/3, print_a_form/4]).
+         print_ast_and_get_changes/3, pp_a_form/4]).
 
 %% this should removed to refac_util.
 -export([has_parentheses/2]).
@@ -94,8 +94,7 @@ print_ast_and_get_changes(FileFmt, AST, TabWidth) ->
 
 print_ast_and_get_changes(FileFmt, AST, Options, TabWidth) ->
     Fs = wrangler_syntax:form_list_elements(AST),
-    %% {FmStrs, C} = lists:unzip([print_a_form(reset_attrs(F), FileFmt, Options, TabWidth)|| F<-Fs]),
-    {FmStrs, C} = lists:unzip([print_a_form(F, FileFmt, Options, TabWidth)|| F<-Fs]),
+    {FmStrs, C} = lists:unzip([print_a_form_and_get_changes(F, FileFmt, Options, TabWidth)|| F <- Fs]),
     Content = lists:append(FmStrs),
     {NoFunsChanged, NoToksRemoved, NoToksAdded} =lists:unzip3(C),
     Change={lists:sum(NoFunsChanged), 
@@ -103,17 +102,33 @@ print_ast_and_get_changes(FileFmt, AST, Options, TabWidth) ->
             lists:sum(NoToksAdded)},
     {Content, Change}.
 
-print_a_form(Form, FileFmt, Options, TabWidth) ->
+print_a_form_and_get_changes(Form, FileFmt, Options, TabWidth) ->
     case form_not_changed(Form) of
         true ->
             FormStr=wrangler_misc:concat_toks(wrangler_misc:get_toks(Form)),
             {FormStr, {0, 0, 0}};
         false ->
-            print_a_form_and_get_changes(Form, FileFmt, Options, TabWidth)
+            print_a_form_and_get_changes_1(Form, FileFmt, Options, TabWidth)
     end.
  
        
-print_a_form_and_get_changes(Form, FileFormat, Options, TabWidth) ->
+print_a_form_and_get_changes_1(Form, FileFormat, Options, TabWidth) ->
+    {OrigFormStr, NewFormStr} = pp_a_form_1(Form, FileFormat, Options, TabWidth),
+    {ok, OrigToks, _} = wrangler_scan:string(OrigFormStr),
+    {ok, NewToks, _} = wrangler_scan:string(NewFormStr),
+    Change =get_changes(OrigToks, NewToks),
+    {NewFormStr, Change}.
+
+ 
+pp_a_form(Form, FileFormat, Options, TabWidth) ->
+    case form_not_changed(Form) of
+        true ->
+            wrangler_misc:concat_toks(wrangler_misc:get_toks(Form));
+        false ->
+            element(2, pp_a_form_1(Form, FileFormat, Options, TabWidth))
+    end.
+
+pp_a_form_1(Form, FileFormat, Options, TabWidth) ->
     Ctxt = #ctxt{hook  = proplists:get_value(hook,Options,?NOHOOK),
 		 paper = proplists:get_value(paper,Options,?PAPER),
 		 ribbon = proplists:get_value(ribbon,Options,?RIBBON),
@@ -123,13 +138,9 @@ print_a_form_and_get_changes(Form, FileFormat, Options, TabWidth) ->
 		 tokens = wrangler_misc:get_toks(Form)},
     OrigFormStr=wrangler_misc:concat_toks(wrangler_misc:get_toks(Form)),
     NewFormStr0= print_form(Form,reset_prec(Ctxt),fun lay/2),
-    NewFormStr=repair_new_form_str(OrigFormStr, NewFormStr0, TabWidth,FileFormat),
-    {ok, OrigToks, _} = wrangler_scan:string(OrigFormStr),
-    {ok, NewToks, _} = wrangler_scan:string(NewFormStr),
-    Change =get_changes(OrigToks, NewToks),
-    {NewFormStr, Change}.
+    NewFormStr=repair_new_form_str(OrigFormStr, NewFormStr0, TabWidth, FileFormat),
+    {OrigFormStr, NewFormStr}.
    
-
 get_changes(OrigToks, NewToks) ->
     OrigToks1 = remove_locs_whites_and_comments(OrigToks),
     NewToks1 = remove_locs(NewToks),
@@ -719,8 +730,8 @@ lay_2(Node, Ctxt) ->
 		    make_case_clause(D1, D2, D3, Node,Ctxt, SameLine);
 		receive_expr -> 
 		    make_case_clause(D1, D2, D3, Node,Ctxt, SameLine);
-		try_expr -> 
-		    make_case_clause(D1, D2, D3, Node, Ctxt, SameLine);
+		try_expr ->
+                    make_case_clause(D1, D2, D3, Node, Ctxt, SameLine);
 		{rule, N} ->
 		    make_rule_clause(N, D1, D2, D3, Node, Ctxt, SameLine);
 		undefined ->
@@ -772,7 +783,7 @@ lay_2(Node, Ctxt) ->
                              false when OfStartLn/=0->
                                  above(CaseArgOfD, nest(CsStartCol-CaseStartCol, D2));
                              _->
-                                 above(CaseArgOfD, nest(Ctxt1#ctxt.sub_indent, D2))
+                                 above(CaseArgOfD, nest(Ctxt1#ctxt.break_indent, D2))
                          end,
             CsEndLoc={CsEndLn, _CsEndCol} = get_end_loc_with_comment(lists:last(Cs)),
             {EndStartLn, _EndStartCol} = get_keyword_loc_after("end", Ctxt, CsEndLoc),
@@ -1077,44 +1088,48 @@ lay_2(Node, Ctxt) ->
                 D2 = lay(Arg, Ctxt1),
                 beside(D1, beside(text(":"), D2));
       	try_expr ->
-	   Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
-     Body = wrangler_syntax:try_expr_body(Node),
-     {BodyStart, BodyEnd} = get_start_end_loc(Body),
-     TryLoc = get_keyword_loc_before('try', Ctxt1, BodyStart),
-     Bs =seq(Body,floating(text(",")),Ctxt1,fun lay/2),
-     D1 = lay_body_elems(Bs, Body, Ctxt1),
-     {_NodeStart, NodeEnd} = get_start_end_loc(Node),
-     EndLoc = get_keyword_loc_before('end', Ctxt1, NodeEnd),
-     Es0 = [{text("end"), {EndLoc, NodeEnd}}],
-     Es1 = {append_leading_keyword("try", D1, Body, Ctxt1), {TryLoc, BodyEnd}},
-     Es2 = case wrangler_syntax:try_expr_after(Node) of
-	       [] -> Es0;
-	       As ->
-		   AsDocs= seq(As,floating(text(",")),Ctxt1,fun lay/2),
-		   D2 = lay_elems(fun wrangler_prettypr_0:sep/1, AsDocs, As, Ctxt),
-		   {AsStart, AsEnd} = get_start_end_loc(As),
-		   AfterLoc=get_keyword_loc_before('after', Ctxt1, AsStart),
-		   [{append_leading_keyword("after", D2, As, Ctxt1), {AfterLoc, AsEnd}}
-		    |Es0]
-	   end,
-     Es3 = case wrangler_syntax:try_expr_handlers(Node) of
-	       [] -> Es2;
-	       Hs ->
-		   D3 = lay_clauses(Hs,try_expr,Ctxt1),
-		   {HsStart, HsEnd} = get_start_end_loc(Hs),
-		   CatchLoc = get_keyword_loc_before('catch', Ctxt1, HsStart),
-		   [{append_leading_keyword("catch", D3, Hs, Ctxt1), {CatchLoc, HsEnd}}|Es2]
-	   end,
-     case wrangler_syntax:try_expr_clauses(Node) of
-	 [] ->
-	     lay_body_elems_2([Es1|Es3],Ctxt1,[],{{1,1},{1,1}});
-	 Cs ->
-             D4 = lay_clauses(Cs, try_expr, Ctxt1),
-	     {CsStart, CsEnd} = get_start_end_loc(Cs),
-             OfLoc=get_keyword_loc_before('of', Ctxt1, CsStart),
-             Es4 = {append_leading_keyword("of", D4, Cs, Ctxt1),{OfLoc, CsEnd}},
-             lay_body_elems_2([Es1,Es4|Es3], Ctxt1, [], {{1,1},{1,1}})
-     end;
+                Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
+                Body = wrangler_syntax:try_expr_body(Node),
+                {BodyStart, BodyEnd} = get_start_end_loc(Body),
+                TryLoc = get_keyword_loc_before('try', Ctxt1, BodyStart),
+                Bs =seq(Body,floating(text(",")),Ctxt1,fun lay/2),
+                D1 = lay_body_elems(Bs, Body, Ctxt1),
+                {_NodeStart, NodeEnd} = get_start_end_loc(Node),
+                EndLoc = get_keyword_loc_before('end', Ctxt1, NodeEnd),
+                Es0 = [{text("end"), {EndLoc, NodeEnd}}],
+                Es1 = case wrangler_syntax:try_expr_clauses(Node) of 
+                          [] ->
+                              {append_leading_keyword("try", D1, Body, Ctxt1), {TryLoc, BodyEnd}};
+                          _ ->
+                              {append_keywords("try", "of", D1, Body, Ctxt1), {TryLoc, BodyEnd}}
+                      end,
+                Es2 = case wrangler_syntax:try_expr_after(Node) of
+                          [] -> Es0;
+                          As ->
+                              AsDocs= seq(As,floating(text(",")),Ctxt1,fun lay/2),
+                              D2 = lay_elems(fun wrangler_prettypr_0:sep/1, AsDocs, As, Ctxt),
+                              {AsStart, AsEnd} = get_start_end_loc(As),
+                              AfterLoc=get_keyword_loc_before('after', Ctxt1, AsStart),
+                              [{append_leading_keyword("after", D2, As, Ctxt1), {AfterLoc, AsEnd}}
+                               |Es0]
+                      end,
+                Es3 = case wrangler_syntax:try_expr_handlers(Node) of
+                          [] -> Es2;
+                          Hs ->
+                              D3 = lay_clauses(Hs,try_expr,Ctxt1),
+                              {HsStart, HsEnd} = get_start_end_loc(Hs),
+                             CatchLoc = get_keyword_loc_before('catch', Ctxt1, HsStart),
+                              [{append_leading_keyword("catch", D3, Hs, Ctxt1), {CatchLoc, HsEnd}}|Es2]
+                      end,
+                case wrangler_syntax:try_expr_clauses(Node) of
+                    [] ->
+                        lay_body_elems_2([Es1|Es3],Ctxt1,[],{{1,1},{1,1}});
+                    Cs ->
+                        D4 = nest(Ctxt#ctxt.break_indent,lay_clauses(Cs, try_expr, Ctxt1)),
+                        {CsStart, CsEnd} = get_start_end_loc(Cs),
+                        Es4={D4, {CsStart, CsEnd}},
+                        lay_body_elems_2([Es1,Es4|Es3], Ctxt1, [], {{1,1},{1,1}})
+                end;
 	char ->
 	   V = wrangler_syntax:char_value(Node),
 	   case is_integer(V) and (V > 127) of
@@ -1427,17 +1442,18 @@ make_fun_clause(N,P,G,B, CsNode, Ctxt, SameLine, HeadStartLoc={_Ln, _Col}) ->
     make_case_clause(D,G,B,CsNode,Ctxt,SameLine).
     
 
-make_fun_clause_head(N,P, Pats, Ctxt,FunNameLoc = {StartLine, StartCol}) ->
+make_fun_clause_head(N,P, Pats, Ctxt,FunNameLoc = {_StartLine, _StartCol}) ->
     D =make_args(Pats, P,Ctxt,FunNameLoc,'(',')'),
-    {LeftBracketLine,LeftBracketCol} = get_keyword_loc_after('(',Ctxt,FunNameLoc),
+  %%  {LeftBracketLine,LeftBracketCol} = get_keyword_loc_after('(',Ctxt,FunNameLoc),
     if N == none -> D;
        true ->
-            case LeftBracketLine==StartLine of
-                true ->
-                    beside(N,D);
-                false ->
-                    above(N,nest(LeftBracketCol-StartCol,D))
-            end
+            beside(N,D)
+       %% case LeftBracketLine==StartLine of
+            %%     true ->
+       %% beside(N,D);
+                %% false ->
+            %%         above(N,nest(LeftBracketCol-StartCol,D))
+            %% end
     end.
 
 make_args([], _, _, _, LeftBracket,RightBracket) ->
@@ -1473,7 +1489,7 @@ make_rule_clause(N,P,G,B, CsNode, Ctxt, SameLine) ->
 
 make_case_clause(P,G,B,CsNode,Ctxt,SameLine) ->
     append_clause_body(B,append_guard(G,P,CsNode,Ctxt),Ctxt, SameLine).
-
+   
 make_if_clause(_P,G,B,Ctxt, SameLine) ->
     %% We ignore the patterns; they should be empty anyway.
     G1 = if G == none -> text("true");
@@ -1601,7 +1617,7 @@ append_keywords(KeyWord1, KeyWord2, CsD, Node, Ctxt) ->
 			     true ->
 				 [follow(text(KeyWord1), CsD, Ctxt#ctxt.break_indent)];
 			     false ->
-				 [text(KeyWord1), nest(Ctxt#ctxt.sub_indent, CsD)]
+				 [text(KeyWord1), nest(Ctxt#ctxt.break_indent, CsD)]
 			 end
 		  end,
     case KeyWord2Line == 0 of
@@ -1636,7 +1652,7 @@ append_leading_keyword(KeyWord, CsD, Node, Ctxt) ->
 	false when CsStartLn-KeyWordLine>=1 ->
 	    above(text(KeyWord), nest(CsStartCol-KeyWordCol, CsD));
 	_ ->
-	    sep([text(KeyWord), nest(Ctxt#ctxt.sub_indent, CsD)])
+	    sep([text(KeyWord), nest(Ctxt#ctxt.break_indent, CsD)])
     end.
    
 
@@ -1822,7 +1838,7 @@ lay_body_elems_2([{D,Range={{SLn, SCol}, {_ELn, _ECol}}}| Ts], Ctxt, [H| T],
             case SLn - LastELn of
                 0 ->
                     lay_body_elems_2(Ts,  Ctxt,[H ++ [D]| T], Range);
-                        1 ->
+                1 ->
                     lay_body_elems_2(Ts,  Ctxt,[[D], H|T], Range);
                 N ->
                     case N>1 andalso 
