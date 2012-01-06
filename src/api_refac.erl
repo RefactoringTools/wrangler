@@ -1077,7 +1077,7 @@ copy_pos_and_range(Node1, Node2) ->
                 {range, R} ->
                     R;
                 false->
-                    {0,0}
+                    {{0,0},{0,0}}
             end,
     wrangler_syntax:copy_pos(
          Node1,wrangler_misc:update_ann(Node2, {range, Range})).
@@ -1144,8 +1144,9 @@ search_and_transform(Rules,Input,TraverseStrategy)
         false ->
             case lists:all(fun(I) ->
                                    case I of 
-                                       {File, Tree} ->
-                                           filelib:is_file(File) andalso is_tree(Tree);
+                                       {_File, Tree} ->
+                                           %% filelib:is_file(File) andalso is_tree(Tree);
+                                           is_tree(Tree);
                                        _ ->
                                            is_tree(I)
                                    end
@@ -1357,8 +1358,8 @@ make_fake_block_expr(Es) ->
 match(Temp, Node) -> 
     Node1=wrangler_misc:extend_function_clause(Node),
     wrangler_generalised_unification:expr_match(
-      Temp, Node1).
-     
+          Temp, Node1).
+        
 %%@private
 extended_expr_match(Temp, Node, Cond) ->
     wrangler_generalised_unification:extended_expr_match(Temp, Node, Cond).
@@ -1582,8 +1583,9 @@ search_and_collect(Collectors, Input, TraverseStrategy)
         false ->
             case lists:all(fun(I) ->
                                    case I of 
-                                       {File, Tree} ->
-                                           filelib:is_file(File) andalso is_tree(Tree);
+                                       {_File, Tree} ->
+                                           %%filelib:is_file(File) andalso is_tree(Tree);
+                                           is_tree(Tree); %% allow File to be data other than file?
                                        _ ->
                                            is_tree(I)
                                    end
@@ -2415,13 +2417,14 @@ get_mfas(File, Order) ->
 
 
 simplify_expr(NewExpr, OldExpr) ->
-    NewExpr1 = wrangler_syntax_lib:annotate_expr(wrangler_misc:reset_ann(NewExpr)),
-    {OldBoundVars,_} = lists:unzip(bound_vars(OldExpr)),
+    NewExprStr = api_refac:pp(NewExpr),
+    NewExpr1 = wrangler_misc:parse_annotate_expr(NewExprStr),
+    {OldBoundVars,_} = lists:unzip(bound_used_vars(OldExpr)),
     {NewBoundVars,_}= lists:unzip(bound_vars(NewExpr1)),
     NewVars = NewBoundVars--OldBoundVars,
     case NewVars of 
-        [] -> NewExpr;
-        _ ->
+         [] -> NewExpr;
+         _ ->
             simplify_expr_1(NewExpr1, NewVars)
     end.
     
@@ -2470,7 +2473,31 @@ simplify_expr_2(Expr, Vars)->
     {Expr2,_}=api_ast_traverse:full_tdTP(F, Expr1, []),
     Expr2.
                 
-                            
+bound_used_vars(Nodes) when is_list(Nodes) ->
+    lists:usort(lists:flatmap(fun (Node) -> 
+                                      bound_used_vars(Node) 
+                              end, Nodes));
+bound_used_vars(Node) ->
+    Fun = fun (N, Acc) ->
+                  Ann = wrangler_syntax:get_ann(N),
+                  case lists:keyfind(bound,1,Ann) of
+                      {bound, Vs} ->
+                          case lists:keyfind(use, 1, Ann) of 
+                              {use,Locs} ->
+                                 if length(Locs)>1 ->
+                                         Vs ++ Acc;
+                                    true -> Acc
+                                 end;
+                              false->
+                                  Acc
+                          end;
+                      false ->
+                          Acc
+                  end
+          end,
+    Vars=api_ast_traverse:fold(Fun, [], Node),
+    lists:usort(Vars).
+             
                                  
                          
 

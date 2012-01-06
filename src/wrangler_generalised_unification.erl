@@ -41,9 +41,17 @@ expr_match(Exp1, Exp2) ->
 extended_expr_match(Exp1, Exp2, Cond) ->
     case {wrangler_syntax:type(Exp1), wrangler_syntax:type(Exp2)}  of 
         {case_expr, case_expr} ->
-            Res=extended_case_expr_match(Exp1, Exp2, Cond),
-            %% wrangler_io:format("Res:\n~p\n", [Res]),
-            Res;
+            Arg = wrangler_syntax:case_expr_argument(Exp2),
+            Cs = wrangler_syntax:case_expr_clauses(Exp2),
+            extended_case_expr_match(Exp1, {Arg, Cs}, Cond);
+        {case_expr, try_expr} ->
+            Body0 = wrangler_syntax:try_expr_body(Exp2),
+            Body=case Body0 of 
+                     [B] -> B;
+                     _ -> Body0
+                 end,
+            Cs = wrangler_syntax:try_expr_clauses(Exp2),
+            extended_case_expr_match(Exp1, {Body, Cs}, Cond);
         _ ->
             Res=expr_match(Exp1, Exp2, Cond),
             case Res of
@@ -53,63 +61,86 @@ extended_expr_match(Exp1, Exp2, Cond) ->
             end
     end.
 
-extended_case_expr_match(TempExp, Exp, Cond) ->
+extended_case_expr_match(TempExp, {ExprArg, ExprCs}, Cond) ->
     TempArg = wrangler_syntax:case_expr_argument(TempExp),
     TempCs = wrangler_syntax:case_expr_clauses(TempExp),
-    ExprArg = wrangler_syntax:case_expr_argument(Exp),
-    ExprCs = wrangler_syntax:case_expr_clauses(Exp),
     case unification(TempArg, ExprArg) of 
         [false] ->
             false;
         [{true,Subst0}] ->
             case extended_clause_match(TempCs, ExprCs) of 
                 false -> false;
-                {true, {Subst1, TempCsOrder}} ->
-                    %% TODO: what should be checked here?
-                    %% wrangler_io:format("Res:\n~p\n", [{Subst1, TempCsOrder}]),
-                    %% Res=post_unification_checking(
-                    %%       TempExp, Cond, [{true, [Subst0|Subst1}]),
-                    %% wrangler_io:format("Res:\n~p\n", [Res]),
-                    %% case Res of 
-                    %%     false -> false;
-                    %%     {true, Subst} ->
-                    %%         wrangler_io:format("DDDDD\n"),
-                    %%         {true, Subst, TempCsOrder}
-                    %% end     
+                {true, {Subst1, TempCsAcc}} ->
                     Subst = [[{case wrangler_syntax:type(V) of
                                    variable -> wrangler_syntax:variable_name(V);
                                    atom -> wrangler_syntax:atom_value(V)
                                end, E} 
                               ||{V, E}<-S]||S<-[Subst0|Subst1]],
-                    {true, Subst, [0|TempCsOrder]}
+                    case extended_expr_match_cond_check(tl(Subst), Cond) of 
+                        true ->
+                            {true, Subst, [0|TempCsAcc]};
+                        false ->
+                            false
+                    end
             end
     end.
                      
+%% Any others things to check here?
+extended_expr_match_cond_check(SubstList, Cond) ->
+    Res=[try Cond(Subst) 
+         catch
+             throw:_ ->  %% unbound meta variable.This needs to be improved.
+                 true;
+             _E1:_E2 ->
+                 false                
+         end|| Subst<-SubstList],
+    not lists:member(false, Res).
+
 
 extended_clause_match(TempCs, ExprCs) ->
     TempCs1 = lists:zip(lists:seq(1, length(TempCs)), TempCs),
     extended_clause_match(TempCs1, ExprCs, {[],[]}).
             
-extended_clause_match(_TempCs, [], {SubstAcc,TempCsIndexAcc}) ->
-    {true, {lists:reverse(SubstAcc), lists:reverse(TempCsIndexAcc)}};
-extended_clause_match(TempCs, [C|ExprCs], {SubstAcc,TempCsIndexAcc})->
+extended_clause_match(_TempCs, [], {SubstAcc,TempCsAcc}) ->
+    {true, {lists:reverse(SubstAcc), lists:reverse(TempCsAcc)}};
+extended_clause_match(TempCs, [C|ExprCs], {SubstAcc,TempCsAcc}) ->
      case get_a_match_clause(TempCs, C) of 
          false ->
              false;
          {{Index, _TempC}, Subst} ->
              extended_clause_match(TempCs, ExprCs,  
-                                   {[Subst|SubstAcc], [Index|TempCsIndexAcc]})
+                                   {[Subst|SubstAcc], [Index|TempCsAcc]})
      end.
 
 get_a_match_clause([{Index, C}|TempCs], ExpC) ->
-    case unification(C, ExpC) of 
-        [{true, Subst}] ->
-            {{Index, C}, Subst};
-        [false] ->
-            get_a_match_clause(TempCs, ExpC)
-    end;
+    [Pat] = wrangler_syntax:clause_patterns(ExpC),
+    FreeVars = api_refac:free_vars(Pat),
+    if FreeVars /=[] -> 
+            false;
+       true ->
+            case wrangler_syntax:type(Pat) of
+                underscore -> 
+                    {{ExpC, ExpC}, []};
+                variable ->
+                    case api_refac:var_refs(Pat) of 
+                        [] ->
+                            {{ExpC, ExpC}, []};
+                        _ ->
+                            false
+                    end;
+                _ -> 
+                    case unification(C, ExpC) of 
+                        [{true, Subst}] ->
+                            {{Index, C}, Subst};
+                        [false] ->
+                            get_a_match_clause(TempCs, ExpC)
+                    end
+            end
+    end;       
 get_a_match_clause([], _ExpC) ->
     false.
+
+
     
 -spec(expr_match/3::(syntaxTree()|[syntaxTree()], syntaxTree()|[syntaxTree()], function()) ->
                           {true, [{atom(), syntaxTree()|[syntaxTree()]}]} | false).
