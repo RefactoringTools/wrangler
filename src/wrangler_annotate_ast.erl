@@ -29,7 +29,7 @@
 -module(wrangler_annotate_ast).
 
 
--export([add_fun_define_locations/2]).
+-export([add_fun_define_locations/2, add_fun_def_info/4]).
 
 -import(wrangler_misc,[rewrite/2, update_ann/2]).
 
