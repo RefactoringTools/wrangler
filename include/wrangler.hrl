@@ -59,7 +59,6 @@
                                _W_NewCond=fun(_W_Bind_) -> 
                                                   api_refac:make_cond(Cond, _W_Bind_)
                                           end,
-                               Res=api_refac:match(Before, _W_Node_, _W_NewCond),
                                case api_refac:match(Before, _W_Node_, _W_NewCond) of
                                    {true, _W_Bind1_, _} ->
                                        _This@=_W_Node_,
@@ -83,15 +82,28 @@
                                    {true, _W_Bind1_, CsOrder} ->
                                        _This@=_W_Node_,
                                        _File@=_W_File_,
-                                       _W_After_SubTrees_=lists:append(wrangler_syntax:subtrees(After)),
+                                       _W_After_ = fun()-> After end(),
+                                       _W_After_SubTrees_=lists:append(wrangler_syntax:subtrees(_W_After_)),
                                        [_W_Arg_|_W_Cs]=[begin
                                                             api_refac:generate_bindings_1(Before,'_W_SubBind_'),
                                                             Binds= api_refac:generate_subst(After),
-                                                            api_refac:subst(lists:nth(_W_CsOrder_+1, _W_After_SubTrees_), Binds)
-                                                        end 
+                                                            if is_integer(_W_CsOrder_) ->
+                                                                    api_refac:subst(lists:nth(_W_CsOrder_+1, _W_After_SubTrees_), Binds);
+                                                               true ->
+                                                                    _W_CsOrder_
+                                                            end
+                                                        end
                                                         ||{_W_SubBind_, _W_CsOrder_}<-lists:zip(_W_Bind1_, CsOrder)],
-                                       _W_After=api_refac:simplify_expr(wrangler_syntax:case_expr(_W_Arg_, _W_Cs),
-                                                                        _W_Node_),
+                                       _W_After=case wrangler_syntax:type(_W_Node_) of 
+                                                    case_expr ->
+                                                        api_refac:simplify_expr(wrangler_syntax:case_expr(_W_Arg_, _W_Cs),
+                                                                                _W_Node_);
+                                                    try_expr ->
+                                                        api_refac:simplify_expr(wrangler_syntax:try_expr(
+                                                                                  [_W_Arg_], _W_Cs, 
+                                                                                  wrangler_syntax:try_expr_handlers(_W_Node_),
+                                                                                  wrangler_syntax:try_expr_after(_W_Node_)),_W_Node_)
+                                                end,
                                        {wrangler_misc:reset_pos_and_range(_W_After), true};
                                    false ->{_W_Node_, false}
                                end 
@@ -113,8 +125,8 @@
                                                         _File@=_W_File_,
                                                         api_refac:make_cond(Cond, _W_Bind_)
                                                 end,
-                                    case api_refac:match(Temp, _W_Node_, _W_NewCond_) of
-                                        {true, _W_Bind1_} ->
+                                    case  api_refac:match(Temp, _W_Node_, _W_NewCond_) of
+                                        {true, _W_Bind1_, _} ->
                                             _This@=_W_Node_, 
                                             _File@=_W_File_,
                                             api_refac:generate_bindings(Temp, '_W_Bind1_'),
