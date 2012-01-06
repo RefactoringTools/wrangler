@@ -41,7 +41,7 @@
 	 parse_annotate_file/4, parse_annotate_file/5,
 	 quick_parse_annotate_file/3]).
 %% API
--export([start_ast_server/0, update_ast/2]).
+-export([start_ast_server/0, update_ast/2, add_range/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -180,7 +180,7 @@ get_ast(Key = {FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, State =
         [{Key, {_AnnAST, _Info, Checksum}}] when Checksum =:= NewChecksum andalso
                                                  NewChecksum =/= 0 ->
             {{ok, {ets, EtsTab, Key}}, State};
-        false ->
+        _ -> 
             wrangler_error_logger:remove_from_logger(FileName),
             {ok, {AnnAST0, Info1}} = parse_annotate_file(FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat),
             log_errors(FileName, Info1),
@@ -863,6 +863,7 @@ add_range_to_list_node(Node, Toks, Es, Str1, Str2, KeyWord1, KeyWord2) ->
     La = wrangler_misc:glast(Str2, Es),
     calc_and_add_range_to_node_1(Node, Toks, Hd, La, KeyWord1, KeyWord2).
 
+add_range_to_body(Node, [], _, _) -> Node; %% why this should happend?
 add_range_to_body(Node, B, Str1, Str2) ->
     H = wrangler_misc:ghead(Str1, B),
     La = wrangler_misc:glast(Str2, B),
