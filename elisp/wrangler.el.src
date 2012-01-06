@@ -373,13 +373,12 @@
       ;;  ("Detect Similar Code in Current Buffer (Old)" erl-refactor-sim-code-detection-in-buffer)
       ;;  ("Detect Similar Code in Dirs (Old)" erl-refactor-sim-code-detection-in-dirs)
       ))
-    ;;nil
-    ;;("Identical Code Detection"
-    ;; (("Detect Identical Code in Current Buffer"  erl-refactor-duplicated-code-in-buffer)
-    ;;  ("Detect Identical Code in Dirs" erl-refactor-duplicated-code-in-dirs)
-    ;;  ("Identical Expression Search in Current Buffer" erl-refactor-expression-search)
-    ;;  ("Identical Expression Search in Dirs" erl-refactor-expression-search-in-dirs)
-    ;;  ))
+    nil
+    ("API Migration"
+     (("Generate API Migration Rules"  erl-refactor-generate-migration-rules)
+      ("Apply API Migration to Current File" erl-refactor-apply-api-migration-file)
+      ("Apply API Migration to Dirs" erl-refactor-apply-api-migration-dirs)
+      ))
     nil
     ("Skeletons"
      (("gen_refac Skeleton"  tempo-template-gen-refac)
@@ -3943,6 +3942,74 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
   )
  
 
+
+(defun erl-refactor-generate-migration-rules(name)
+  "generated API migration rules from API interface module."
+  (interactive (list (read-string "Module name for the API migration rules to be generated: ")
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer)))
+  (if (buffers-saved)
+      (erl-spawn
+	(erl-send-rpc wrangler-erl-node 'emacs_wrangler 'apply_refac 
+                      (list 'generate_rule_based_api_migration_mod(list current-file-name name)
+                            wrangler-search-paths))
+        (erl-receive (buffer name current-file-name)
+	    ((['rex ['badrpc rsn]]
+	      (message "Refactoring failed: %S" rsn))
+	     (['rex ['error rsn]]
+	      (message "Refactoring failed: %s" rsn))
+	     (['rex ['ok newfile]]
+              (find-file newfile)
+              (message "Rule generation finished.")
+              ))))             
+    (message "Rule generation aborted."))))
+
+(defun erl-refactor-apply-api-migration-file(name)
+  "apply API migration rules."
+  (interactive (list (read-string "API migration rule module: ")
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer)))
+  (if (buffers-saved)
+      (erl-spawn
+	(erl-send-rpc wrangler-erl-node 'emacs_wrangler 'apply_refac 
+                      (list 'do_api_migration (list current-file-name name 
+                                                    wrangler-search-paths 'emacs tab-width)
+                            wrangler-search-paths))
+        (erl-receive (buffer current-file-name)
+	    ((['rex ['badrpc rsn]]
+	      (message "Refactoring failed: %S" rsn))
+	     (['rex ['error rsn]]
+	      (message "Refactoring failed: %s" rsn))
+	     (['rex ['ok modified]]
+              (if (equal modified nil)
+                  (message "API migration finished, and no file has been changed.")
+                (preview-commit-cancel current-file-name modified nil))))))                         
+    (message "API migration aborted."))))
+
+(defun erl-refactor-apply-api-migration-dirs(name)
+  "apply API migration rules."
+  (interactive (list (read-string "API migration rule module: ")
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer)))
+  (if (buffers-saved)
+      (erl-spawn
+	(erl-send-rpc wrangler-erl-node 'emacs_wrangler 'apply_refac 
+                      (list 'do_api_migration (list name wrangler-search-paths 'emacs tab-width)
+                            wrangler-search-paths))
+        (erl-receive (buffer current-file-name)
+	    ((['rex ['badrpc rsn]]
+	      (message "Refactoring failed: %S" rsn))
+	     (['rex ['error rsn]]
+	      (message "Refactoring failed: %s" rsn))
+	     (['rex ['ok modified]]
+              (if (equal modified nil)
+                  (message "API migration finished, and no file has been changed.")
+                (preview-commit-cancel current-file-name modified nil))))))                         
+    (message "API migration aborted."))))
+
  
 (require 'tempo)
 (setq tempo-interactive t)
@@ -4023,4 +4090,5 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
     )
   "*The template of a gen_refac.
 Please see the function `tempo-define-template'.")
+
 
