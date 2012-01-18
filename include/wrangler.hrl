@@ -60,11 +60,12 @@
                                                   api_refac:make_cond(Cond, _W_Bind_)
                                           end,
                                case api_refac:match(Before, _W_Node_, _W_NewCond) of
-                                   {true, _W_Bind1_, _} ->
+                                   {true, _W_Bind1_} ->
                                        _This@=_W_Node_,
                                        _File@=_W_File_,
                                        api_refac:generate_bindings(Before, '_W_Bind1_'),
-                                       _W_After=fun()-> After end(),
+                                      %% _W_After=fun()-> After end(),
+                                       _W_After = api_refac:subst(fun()->After end(), _W_Bind1_),
                                        {wrangler_misc:reset_pos_and_range(_W_After), true};
                                    false ->{_W_Node_, false}
                                end 
@@ -126,7 +127,7 @@
                                                         api_refac:make_cond(Cond, _W_Bind_)
                                                 end,
                                     case  api_refac:match(Temp, _W_Node_, _W_NewCond_) of
-                                        {true, _W_Bind1_, _} ->
+                                        {true, _W_Bind1_} ->
                                             _This@=_W_Node_, 
                                             _File@=_W_File_,
                                             api_refac:generate_bindings(Temp, '_W_Bind1_'),
