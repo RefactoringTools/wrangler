@@ -67,7 +67,7 @@
 -endif.
 
 start_link(CR) ->
-    gen_server:start({local, ?MODULE}, ?MODULE, CR, []).
+    gen_server:start({local, ?MODULE}, ?MODULE, CR, [{timeout, infinity}]).
 
 init(CR) ->
     ?wrangler_debug("CR:\n~p\n", [CR]),
@@ -80,7 +80,7 @@ init(CR) ->
 
 
 get_next_command(PrevResult) ->
-    gen_server:call(?MODULE, {get_next_command, PrevResult}).
+    gen_server:call(?MODULE, {get_next_command, PrevResult}, infinity).
 
 stop() ->
     gen_server:cast(?MODULE, stop).
