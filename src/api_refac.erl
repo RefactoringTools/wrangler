@@ -824,11 +824,11 @@ mfa_to_fundef_1(AnnAST, {M,F,A}) ->
                               {value, {fun_def, {M, F, A, _, _}}} ->
                                   false;
                               _ -> true
-                  end
+                          end
                   end,
             case lists:dropwhile(Fun, Forms) of
                 [Form|_] ->
-            Form;
+                    Form;
                 _ -> 
                     none
             end;
@@ -899,13 +899,14 @@ remove_from_import(Node, _FA={F,A}) ->
     end.
 
 %% =======================================================================
+add_to_export(Node, FAtoAdd) ->
+    add_to_export_after(Node, FAtoAdd, none).
+
 %%@doc Adds an entity `FAtoAdd' to the export list of an export attribute
 %%     right after another entity `FA'; if `FA' is `none' then append 
 %%     the new entity to the end of the export list.
 %%@spec add_to_export_after(attribute(), {function(), arity()},
 %%                        {function(), arity()}|none) -> attribute()
-add_to_export(Node, FAtoAdd) ->
-    add_to_export_after(Node, FAtoAdd, none).
 add_to_export_after(Node, FAtoAdd, FA) ->
     {F, A} = FAtoAdd,
     case is_attribute(Node, export) of
@@ -1004,7 +1005,7 @@ subst(Expr, Subst) ->
     {Expr1, _} =api_ast_traverse:stop_tdTP(fun do_subst/2, Expr, Subst),
     Expr2=expand_meta_list(Expr1),
     remove_fake_begin_end(Expr2).
-
+   
 do_subst(Node, Subst) ->
     case wrangler_syntax:type(Node) of
 	variable ->
@@ -1071,7 +1072,7 @@ reset_pos_and_range(Node) ->
             Node
     end.
 
-copy_pos_and_range(Node1, Node2) ->
+copy_pos_and_attrs(Node1, Node2) ->
     Ann=wrangler_syntax:get_ann(Node1),
     Range = case lists:keyfind(range,1,Ann) of
                 {range, R} ->
@@ -1079,8 +1080,9 @@ copy_pos_and_range(Node1, Node2) ->
                 false->
                     {{0,0},{0,0}}
             end,
-    wrangler_syntax:copy_pos(
-         Node1,wrangler_misc:update_ann(Node2, {range, Range})).
+    wrangler_syntax:copy_comments(Node1, 
+      wrangler_syntax:copy_pos(
+        Node1,wrangler_misc:update_ann(Node2, {range, Range}))).
 
 %%=================================================================
 %%-spec(reverse_function_clause(Tree::syntaxTree()) -> syntaxTree()).   
@@ -1371,7 +1373,7 @@ match({meta_apply, TCs}, Node, Cond) ->
     match_meta_apply_temp(TCs, Node1, Cond);
 match(Temp, Node, Cond) ->
     Node1=wrangler_misc:extend_function_clause(Node),
-    wrangler_generalised_unification:extended_expr_match(
+    wrangler_generalised_unification:expr_match(
       Temp, Node1, Cond).
 
 
@@ -1396,7 +1398,7 @@ match_meta_apply_temp(MetaApplyTemp, Node, Cond) ->
 try_expr_match([], {_File, _Node}) ->false;
 try_expr_match([{rule,Fun,BeforeExpr}|T], {File, Node}) 
   when is_list(BeforeExpr) andalso is_list(Node) ->
-    try_expr_match_2([{rule,Fun, BeforeExpr}|T], {File, Node},1);
+      try_expr_match_2([{rule,Fun, BeforeExpr}|T], {File, Node},1);
     
 try_expr_match([{rule,Fun, BeforeExpr}|T], {File,Node}) when 
       not is_list(BeforeExpr) andalso not is_list(Node)->
@@ -1414,7 +1416,13 @@ try_expr_match_1([{rule,Fun, _BeforeExpr}|T], {File,Node}) ->
                 false ->
                     case is_tree(NewExpr) of 
                         true ->
-                            {true, copy_pos_and_range(Node, NewExpr)};
+                            {Start1, _} = start_end_loc(Node),
+                            {Start2, _} = start_end_loc(NewExpr),
+                            if Start1/=Start2 ->
+                                    {true, copy_pos_and_attrs(Node, NewExpr)};                                    
+                               true ->
+                                    {true,wrangler_syntax:copy_comments(Node,NewExpr)}
+                            end;
                         false ->
                             {true, NewExpr}
                     end
@@ -1426,22 +1434,32 @@ try_expr_match_1([{rule,Fun, _BeforeExpr}|T], {File,Node}) ->
 try_expr_match_2([{rule, Fun, BeforeExpr}|T], {File, NodeList}, Index) ->
     Len1 = length(BeforeExpr),
     Len2 = length(NodeList),
-    case Len1 =< Len2 of
+    HasMetaList = has_meta_list(BeforeExpr),
+    case Len1 =< Len2 orelse HasMetaList of
         true ->
-            Exprs = lists:sublist(NodeList, Index, Len1),
+            Exprs =if HasMetaList ->
+                           NodeList;
+                      true ->
+                           lists:sublist(NodeList, Index, Len1)
+                   end,
             case Fun(File, Exprs) of 
                 {NewExpr, true} ->
                     NewExpr1 = case NewExpr of
                                    [E|Es]->
-                                       [copy_pos_and_range(hd(Exprs), E)|Es];
+                                       [copy_pos_and_attrs(hd(Exprs), E)|Es];
                                    _ ->
-                                       [copy_pos_and_range(hd(Exprs),NewExpr)]
+                                       [copy_pos_and_attrs(hd(Exprs),NewExpr)]
                                end,
-                    NewNodeList =  lists:sublist(NodeList, Index-1) ++
-                        NewExpr1 ++  lists:nthtail(Index+Len1-1, NodeList),
-                    {true, NewNodeList};
+                    if HasMetaList ->
+                            {true, NewExpr};
+                       true ->
+                            NewNodeList=lists:sublist(NodeList, Index-1) 
+                                ++ NewExpr1 ++  
+                                lists:nthtail(Index+Len1-1, NodeList),
+                            {true, NewNodeList}
+                    end;
                 {_, false} ->
-                    if Index < Len2 ->
+                    if Index < Len2 andalso not HasMetaList->
                             try_expr_match_2([{rule,Fun, BeforeExpr}|T], {File, NodeList}, Index+1);
                        true ->
                             try_expr_match(T, {File, NodeList})
@@ -1452,6 +1470,8 @@ try_expr_match_2([{rule, Fun, BeforeExpr}|T], {File, NodeList}, Index) ->
     end.
             
 
+has_meta_list(NodeList) ->
+    [E ||E<-NodeList, is_meta_list_var(E)]/=[].
 
 is_meta_list_var(Var) ->
     case wrangler_syntax:type(Var) of
