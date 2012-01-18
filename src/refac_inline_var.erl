@@ -38,7 +38,7 @@
 %% format: VarName=Expr can be inlined.
 %% </p>
 %% @end
-
+ 
 %% @private
 -module(refac_inline_var).
 
@@ -88,15 +88,19 @@ inline_var_1(FName, Line, Col, SearchPaths, Editor, TabWidth) ->
 			    case Editor of
 				emacs ->
 				    {ok, Cands, Cmd1};
-				_ ->
-				    {ok, Cands}
+				eclipse ->
+				    {ok, Cands};
+                                _ ->
+                                    AnnAST1 = inline(AnnAST, Form, MatchExpr, VarNode, Cands),
+                                    wrangler_write_file:write_refactored_files([{{FName,FName},AnnAST1}], 
+                                                                               Editor, TabWidth, Cmd1)
 			    end
 		    end
 	    end;
 	_ ->
 	    throw({error, "You have not selected a variable name, "
-			  "or the variable selected does not belong to "
-			  "a syntactically well-formed function."})
+                   "or the variable selected does not belong to "
+                   "a syntactically well-formed function."})
     end.
 
 
@@ -372,6 +376,4 @@ do_inline(Node, {MatchExprBody, Ranges}) ->
 	    end;
 	_ -> {Node, false}
     end.
-
-
 
