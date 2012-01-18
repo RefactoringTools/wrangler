@@ -1366,4 +1366,4 @@ pforeach_wait(S,N) ->
     end.
 
 
- %% refac_sim_code_par_v1:sim_code_detection(["c:/cygwin/home/hl/demo_backup"], 5, 40, 2, 4, 0.8, ["c:/cygwin/home/hl/demo/demo_backup"], 8).
+ %% refac_sim_code_par_v3:sim_code_detection(["c:/cygwin/home/hl/demo_backup"], 5, 40, 2, 4, 0.8, ["c:/cygwin/home/hl/demo/demo_backup"], 8).
