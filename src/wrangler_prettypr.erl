@@ -1271,13 +1271,20 @@ lay_comp(Node, Ctxt, Fun1, Fun2, Tok1, Tok2) ->
     {BodyStart,BodyEnd} = get_start_end_loc(Body),
     {BarLn,BarCol} =
         get_keyword_loc_before('||',Ctxt,BodyStart),
-    BarD2 = append_elems(fun wrangler_prettypr_0:horizontal/1,
-                         {text("||"),{{BarLn,BarCol},{BarLn,BarCol + 1}}},
-                         {D2,{BodyStart,BodyEnd}}),
-    D1BarD2 =
-        append_elems(fun wrangler_prettypr_0:par/1, {D1,{TempStart,TempEnd}},
-                     {BarD2,{{BarLn,BarCol},BodyEnd}}),
-    beside(floating(text(Tok1)),beside(D1BarD2,floating(text(Tok2)))).
+    case lists:member({0,0}, [TempStart, TempEnd, BodyStart,BodyEnd, {BarLn, BarCol}]) of 
+        true ->
+            beside(floating(text("[")),
+		   par([D1, beside(floating(text("|| ")),
+				   beside(D2, floating(text("]"))))]));
+        false ->
+            BarD2 = append_elems(fun wrangler_prettypr_0:horizontal/1,
+                                 {text("||"),{{BarLn,BarCol},{BarLn,BarCol + 1}}},
+                                 {D2,{BodyStart,BodyEnd}}),
+            D1BarD2 =
+                append_elems(fun wrangler_prettypr_0:par/1, {D1,{TempStart,TempEnd}},
+                             {BarD2,{{BarLn,BarCol},BodyEnd}}),
+            beside(floating(text(Tok1)),beside(D1BarD2,floating(text(Tok2))))
+    end.
 
 lay_parentheses(D) ->
     beside(floating(text("(")),beside(D,floating(text(")")))).
@@ -2080,7 +2087,12 @@ need_parentheses(Node, Ctxt) ->
                 {value, {with_bracket, false}} ->
                     false;
                 _ ->
-                    has_parentheses(Node, Ctxt#ctxt.tokens, "(", ")")
+                    case wrangler_syntax:is_literal(Node) of 
+                        true ->
+                            false;
+                        _ ->
+                            has_parentheses(Node, Ctxt#ctxt.tokens, "(", ")")
+                    end
             end
     end.
 
@@ -2357,9 +2369,8 @@ insert_token_at_end(Toks, T) ->
                        fun(Tok) ->
                                is_whitespace_or_comment(Tok)
                        end, lists:reverse(Toks)),
-    lists:reverse(Toks1++[T|Toks2]).
-    
-                        
+    lists:reverse(Toks1++[T, {whitespace,0,' '}|Toks2]).
+                    
 is_tab_token({whitespace, _, '\t'}) ->
     true;
 is_tab_token(_) ->
@@ -2573,7 +2584,6 @@ lay_sig_type(SigType,Ctxt) ->
 
 lay_guard_type(Before, Gs, Ctxt) ->
     Ds = seq(Gs, floating(text(",")), Ctxt, fun lay_constraint/2),
-    %%wrangler_io:format("Gs:\n~p\n", [Gs]),
     D1 = lay_elems(fun wrangler_prettypr_0:par/1, Ds, Gs, Ctxt),
     par([beside(Before, text(" when")), D1]).
 
