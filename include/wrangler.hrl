@@ -185,6 +185,9 @@
 -define(FULL_TD_TP(Rules, FileOrDirs),
         api_refac:search_and_transform(Rules, FileOrDirs, full_td_tp)).
 
+-define(FULL_BU_TP(Rules, FileOrDirs),
+        api_refac:search_and_transform(Rules, FileOrDirs, full_bu_tp)).
+
 -define(FULL_TD_TU(Collectors, FileOrDirs),
         api_refac:search_and_collect(Collectors, FileOrDirs, full_td_tu)).
 
