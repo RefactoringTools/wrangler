@@ -803,37 +803,9 @@ fun_define_info(Node) ->
 %% =====================================================================
 %% @doc Returns the function form that defines `MFA'; none is returns if no 
 %% such function definition found.
-%% @spec mfa_to_fun_def(mfa(), filename()|syntaxTree) ->syntaxTree()|none
--spec (mfa_to_fun_def(mfa(), filename()|syntaxTree()) ->syntaxTree()|none).
-mfa_to_fun_def(MFA,FileOrTree) ->
-    case filelib:is_regular(FileOrTree) of 
-        true ->
-            {ok, {AnnAST, _}}= wrangler_ast_server:parse_annotate_file(FileOrTree, true),  
-            mfa_to_fundef_1(AnnAST,MFA);
-        false ->
-            mfa_to_fundef_1(FileOrTree, MFA)
-    end.
-   
-mfa_to_fundef_1(AnnAST, {M,F,A}) ->
-    case is_tree(AnnAST) of 
-        true ->
-            Forms=wrangler_syntax:form_list_elements(AnnAST),
-            Fun = fun(Form) ->
-                          Ann= wrangler_syntax:get_ann(Form),
-                          case lists:keysearch(fun_def, 1, Ann) of
-                              {value, {fun_def, {M, F, A, _, _}}} ->
-                                  false;
-                              _ -> true
-                          end
-                  end,
-            case lists:dropwhile(Fun, Forms) of
-                [Form|_] ->
-                    Form;
-                _ -> 
-                    none
-            end;
-        _ -> none
-    end.
+-spec mfa_to_fun_def(filename(), mfa()) ->  syntaxTree()  | none.
+mfa_to_fun_def(File,MFA) ->
+    wrangler_ast_server:mfa_to_fun_def(File, MFA).
   
 %%=====================================================================
 %%@doc Returns the name of the module defined in `File', 
@@ -982,7 +954,7 @@ do_mask_variables(Node) ->
 pp(Expr) when is_list(Expr) ->
     pp_1(Expr);
 pp(Expr) ->
-    wrangler_prettypr:format(Expr).
+    wrangler_prettypr:format(wrangler_syntax:remove_comments(Expr)).
 
 pp_1([E]) ->
     wrangler_prettypr:format(E);
@@ -1087,20 +1059,14 @@ copy_pos_and_attrs(Node1, Node2) ->
 %%=================================================================
 %%-spec(reverse_function_clause(Tree::syntaxTree()) -> syntaxTree()).   
 %%@private            
-reverse_function_clause(Tree) ->
-    {Tree1, _} = api_ast_traverse:stop_tdTP(
-                   fun reverse_function_clause_1/2, Tree, {}),
-    Tree1.
-
-reverse_function_clause_1(Node, _OtherInfo) ->
+reverse_function_clause(Node) ->
     case wrangler_syntax:type(Node) of
         function ->
-            Node1=reverse_function_clause_2(Node),
-            {Node1, true};
+            reverse_function_clause_1(Node);
         _ ->
-            {Node, false}
+            Node
     end.
-reverse_function_clause_2(FunDef) ->
+reverse_function_clause_1(FunDef) ->
     FunName = wrangler_syntax:function_name(FunDef),
     Cs = wrangler_syntax:function_clauses(FunDef),
     case [C||C <- Cs, wrangler_syntax:type(C) == function_clause] of
@@ -1130,7 +1096,7 @@ reverse_function_clause_2(FunDef) ->
 -type (rule()::{rule, any(), any()}).
 -spec(search_and_transform([rule()], [filename()|dir()]|
                            [{filename(), syntaxTree()}|syntaxTree()],
-                           full_td_tp|stop_td_tp) ->
+                           full_td_tp|full_bu_tp|stop_td_tp) ->
              {ok, [{{filename(),filename()}, syntaxTree()}]}|
              {ok, [{filename(), syntaxTree()}|syntaxTree()]}|
              {ok, syntaxTree()}).
@@ -1191,7 +1157,7 @@ search_and_transform_2(Rules, FileOrDirs, Fun) ->
                catch
                    _E1:_E2 ->
                        {false,[]}
-               end,
+              end,
     Files = wrangler_misc:expand_files(FileOrDirs, ".erl"),
     Res=lists:append([begin
                           search_and_transform_3(Rules, File, Fun, Selective)
@@ -1201,14 +1167,17 @@ search_and_transform_2(Rules, FileOrDirs, Fun) ->
 search_and_transform_3(Rules, File, Fun, Selective) ->
     ?wrangler_io("The current file under refactoring is:\n~p\n", [File]),
     {ok, {AST, _}} = wrangler_ast_server:parse_annotate_file(File, true, [], 8),
-    AST0 = wrangler_misc:extend_function_clause(AST),
-    {AST1, Changed}=search_and_transform_4(File, Rules, AST0, Fun, Selective),
+    Res=[search_and_transform_4(File, Rules, wrangler_misc:extend_function_clause(Form),
+                                Fun, Selective)
+         || Form<-wrangler_syntax:form_list_elements(AST)],
+    {Forms, Changes} = lists:unzip(Res),
+    Changed = lists:member(true, Changes),
     if Changed andalso Selective/=true ->
-            AST2= reverse_function_clause(AST1),
-            [{{File, File}, AST2}];
+            AST1 = wrangler_syntax:form_list([reverse_function_clause(F)||F<-Forms]),
+            [{{File, File}, AST1}];
        true ->
             if Changed->
-                    [{{File, File}, AST1}];
+                    [{{File, File}, wrangler_syntax:form_list(Forms)}];
                true ->
                     []
             end
@@ -1216,8 +1185,7 @@ search_and_transform_3(Rules, File, Fun, Selective) ->
  
 search_and_transform_4(File,Rules,Tree,Fun,Selective) ->
     F = fun(Node, CandsNotToChange) ->
-                Res = try_expr_match(Rules, {File, Node}),
-                case Res of
+                case  try_expr_match(Rules, {File, Node}) of
                     {true, NewExprAfter} ->
                         case Selective of
                             true ->
@@ -1254,6 +1222,8 @@ search_and_transform_4(File,Rules,Tree,Fun,Selective) ->
     case Fun of
         full_td_tp ->
             extended_full_tdTP(F, Tree, CandsNotToChange);
+        full_bu_tp ->
+            extended_full_buTP(F, Tree, CandsNotToChange);
         stop_td_tp  ->
             extended_stop_tdTP(F, Tree, CandsNotToChange)
     end.
@@ -1262,7 +1232,9 @@ search_and_transform_4(File,Rules,Tree,Fun,Selective) ->
 %% pre_order
 extended_full_tdTP(Fun, Node, Others) ->
     {Node1, C} =extended_full_tdTP_1(Fun, Node, Others),
-    {remove_fake_begin_end(Node1),C}.
+    if C -> {remove_fake_begin_end(Node1),C};
+       true -> {Node1, C}
+    end.
         
 extended_full_tdTP_1(Fun, Node, Others) ->
     {Node1, Changed} =Fun(Node, Others),
@@ -1286,11 +1258,12 @@ extended_full_tdTP_1(Fun, Node, Others) ->
              lists:member(true, lists:flatten(G))}
     end.
    
-
 %% pre_order.
 extended_stop_tdTP(Fun, Node, Others) ->
     {Node1, C} =extend_stop_tdTP(Fun, Node, Others),
-    {remove_fake_begin_end(Node1),C}.
+    if C ->{remove_fake_begin_end(Node1),C};
+       true ->{Node1, C}
+    end.
 
 extend_stop_tdTP(Fun, Node, Others) ->
     Res= Fun(Node, Others), 
@@ -1315,7 +1288,44 @@ extend_stop_tdTP(Fun, Node, Others) ->
                     {wrangler_misc:rewrite(Node, Node2), lists:member(true, lists:flatten(G))}
             end
     end. 
- 
+
+-spec(extended_full_buTP/3::(fun((syntaxTree(), any()) -> syntaxTree()), syntaxTree(), anyterm())->
+	             {syntaxTree(), boolean()}).
+extended_full_buTP(Fun, Node, Others) ->
+    {Node1, C} =extended_full_buTP_1(Fun, Node, Others),
+    if C -> {api_refac:remove_fake_begin_end(Node1),C};
+       true -> {Node1, C}
+    end.
+
+extended_full_buTP_1(Fun, Tree, Others) ->
+    case wrangler_syntax:subtrees(Tree) of
+        [] -> {Tree1, Changed} =Fun(Tree, Others),
+              extended_rewrite(Tree, Tree1, Changed);
+        Gs ->
+            Gs1 = [[extended_full_buTP_1(Fun, T, Others) || T <- G] || G <- Gs],
+            Gs2 = [[N || {N, _B} <- G] || G <- Gs1],
+            G = [[B || {_N, B} <- G] || G <- Gs1],
+            Tree1 = wrangler_syntax:make_tree(wrangler_syntax:type(Tree), Gs2),
+            {Tree2, C} =Fun(wrangler_misc:rewrite(Tree, Tree1), Others),
+            Changed = C orelse lists:member(true, lists:flatten(G)),
+            extended_rewrite(Tree, Tree2, Changed)
+    end.
+
+extended_rewrite(OldTree, NewTree, Changed) ->
+    if is_list(NewTree) ->
+            case NewTree of
+                [T] -> {T, true};
+                _ ->
+                    {wrangler_misc:rewrite(
+                       OldTree, make_fake_block_expr(NewTree)), true}
+            end;
+       Changed ->
+            {wrangler_misc:rewrite(OldTree, NewTree), Changed};
+       true ->
+            {OldTree, false}
+    end.
+
+
 remove_fake_begin_end(Node) ->
     case wrangler_syntax:subtrees(Node) of
         [] -> Node;
