@@ -69,7 +69,7 @@ parse_transform(Forms, Options) ->
                               fun(Form, _Context) ->
                                       generate_subst(Form)
                               end, annotate_forms(Forms7), Options),
-  %%  wrangler_io:format("Form6:\n~s\n", [[erl_prettypr:format(F)++"\n\n"||F <- Forms8]]),
+   %% wrangler_io:format("Form6:\n~s\n", [[erl_prettypr:format(F)++"\n\n"||F <- Forms8]]),
     Forms8.
 
 
@@ -198,7 +198,13 @@ expand_generate_bindings(Temp, BindVar) ->
                                           {V,P} <- MetaVars, V=/='_This@', V=/='_File@']),
             MetaAtomMatchExprs=lists:append([make_match_expr_for_meta_atom(V, P,BindVarName)||
                                                 {V,P}<-MetaAtoms]),
-            erl_syntax:block_expr(MatchExprs++MetaAtomMatchExprs)
+            Body = MatchExprs++MetaAtomMatchExprs,
+            case Body of 
+                [] ->
+                    erl_syntax:block_expr([erl_syntax:atom(ok)]);
+                _ ->
+                    erl_syntax:block_expr(Body)
+            end
     end.
             
 
