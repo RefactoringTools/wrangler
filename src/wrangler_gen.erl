@@ -504,7 +504,7 @@ get_next_gen_fun_command({File, NextFileGen}, FA, ExprStr, NewParName, SearchPat
               
 get_exprs(File, {FunName, Arity}, ExprStr) ->
     ModName=list_to_atom(filename:basename(File, ".erl")),
-    FunDef=api_refac:mfa_to_fun_def({ModName, FunName, Arity}, File),
+    FunDef=api_refac:mfa_to_fun_def(File,{ModName, FunName, Arity}),
     case FunDef of
         none -> none;
         _ ->
@@ -1086,7 +1086,7 @@ get_next_fun_arity([{F,A}|Fs], FA)->
   
 get_vars(File, FunName, Arity, VarFilter) ->
     ModName=list_to_atom(filename:basename(File, ".erl")),
-    FunDef=api_refac:mfa_to_fun_def({ModName, FunName, Arity}, File),
+    FunDef=api_refac:mfa_to_fun_def(File, {ModName, FunName, Arity}),
     case FunDef of 
         none -> 
             [];
@@ -1107,7 +1107,7 @@ get_vars(File, FunName, Arity, VarFilter) ->
  
 get_app_locs(File, {FunName, Arity}, AppFilter) ->
     ModName=list_to_atom(filename:basename(File, ".erl")),
-    FunDef=api_refac:mfa_to_fun_def({ModName, FunName, Arity}, File),
+    FunDef=api_refac:mfa_to_fun_def(File, {ModName, FunName, Arity}),
     case FunDef of 
         none -> 
             [];
@@ -1335,7 +1335,7 @@ inline_var_1(File, FA, MatchExprFilter, SearchPaths) ->
 
 get_match_exprs(File, FunName, Arity, MatchExprFilter) ->
     ModName=list_to_atom(filename:basename(File, ".erl")),
-    FunDef=api_refac:mfa_to_fun_def({ModName, FunName, Arity}, File),
+    FunDef=api_refac:mfa_to_fun_def(File, {ModName, FunName, Arity}),
     case FunDef of 
         none ->
             [];
