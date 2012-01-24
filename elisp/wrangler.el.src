@@ -308,6 +308,7 @@
       ("eqc_statem State Data to Record" erl-refactor-eqc-statem-to-record)
       ("eqc_fsm State Data to Record" erl-refactor-eqc-fsm-to-record)
       ("Test Cases to Property"  erl-refactor-test-cases-to-property)
+      ("Refactor Bug PreCond"  erl-refactor-bug-precond)
       ))
     nil
     ("Process Refactorings (Beta)"
@@ -2635,6 +2636,11 @@
       (message "Refactoring aborted."))))
   	 
 	      
+
+(defun erl-refactor-bug-precond()
+  "Remove bug preconditions."           
+  (interactive)                 
+  (apply-adhoc-refac 'refac_bug_cond))
 
 
 ;;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
