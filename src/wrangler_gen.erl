@@ -41,7 +41,8 @@
          gen_fun/5,    gen_fun/6,gen_fun/7,    
          move_fun/4,   move_fun/5,
          unfold_fun_app/4,unfold_fun_app/5,
-         add_to_export/3, add_to_export/4]).
+         add_to_export/3, add_to_export/4,
+         inline_var/4]).
 
 -compile(export_all).
 
@@ -503,7 +504,7 @@ get_next_gen_fun_command({File, NextFileGen}, FA, ExprStr, NewParName, SearchPat
               
 get_exprs(File, {FunName, Arity}, ExprStr) ->
     ModName=list_to_atom(filename:basename(File, ".erl")),
-    FunDef=api_refac:mfa_to_fun_def({ModName, FunName, Arity}, File),
+    FunDef=api_refac:mfa_to_fun_def(File,{ModName, FunName, Arity}),
     case FunDef of
         none -> none;
         _ ->
@@ -840,14 +841,14 @@ test_tuple_args(SearchPaths, Lazy) ->
                2, 3, Lazy, SearchPaths).
 
 
+add_to_export(ModOrFile, FA, SearchPaths) ->
+    add_to_export(ModOrFile, FA, true, SearchPaths).
+
 -spec add_to_export(ModOrFile::mod_or_file(),
                     Fa:: fa(),
                     Lazy :: boolean(),
                     SearchPaths::search_paths()) ->
                            [elementary_refac()]|lazy_refac().
-add_to_export(ModOrFile, FA, SearchPaths) ->
-    add_to_export(ModOrFile, FA, true, SearchPaths).
-
 add_to_export(ModOrFile,FA, false, SearchPaths)->
     Files= gen_file_names(ModOrFile, SearchPaths),
     CmdLists=[add_to_export_1(File, FA, SearchPaths)
@@ -1085,7 +1086,7 @@ get_next_fun_arity([{F,A}|Fs], FA)->
   
 get_vars(File, FunName, Arity, VarFilter) ->
     ModName=list_to_atom(filename:basename(File, ".erl")),
-    FunDef=api_refac:mfa_to_fun_def({ModName, FunName, Arity}, File),
+    FunDef=api_refac:mfa_to_fun_def(File, {ModName, FunName, Arity}),
     case FunDef of 
         none -> 
             [];
@@ -1106,7 +1107,7 @@ get_vars(File, FunName, Arity, VarFilter) ->
  
 get_app_locs(File, {FunName, Arity}, AppFilter) ->
     ModName=list_to_atom(filename:basename(File, ".erl")),
-    FunDef=api_refac:mfa_to_fun_def({ModName, FunName, Arity}, File),
+    FunDef=api_refac:mfa_to_fun_def(File, {ModName, FunName, Arity}),
     case FunDef of 
         none -> 
             [];
@@ -1262,3 +1263,100 @@ test_refac_3({lazy_gen, Gen}) ->
             wrangler_io:format("Refac2:\n~p\n", [Refac]);
         [] -> []
     end.
+
+
+
+inline_var(ModOrFile, FA, Loc, SearchPaths) ->
+    inline_var(ModOrFile, FA, Loc, true, SearchPaths).
+
+%% @doc Command generator for inlining variable names.
+-spec inline_var(ModOrFile::mod_or_file(), 
+                 FA::fa(),
+                 MatchExprFilter::fun((MatchExpr::syntaxTree())-> boolean()),
+                 Lazy :: boolean(),
+                 SearchPaths::search_paths()) ->
+                        [elementary_refac()] | lazy_refac().                         
+inline_var(ModOrFile, FA, MatchExprFilter, false, SearchPaths) ->
+    Files= gen_file_names(ModOrFile, SearchPaths),
+    CmdLists=[inline_var_1(File, FA, MatchExprFilter, SearchPaths)
+              ||File<-Files],
+    lists:append(CmdLists);
+inline_var(ModOrFile, FA, MatchExprFilter, true, SearchPaths) ->
+    case gen_file_names(ModOrFile, true, SearchPaths) of
+        [] -> [];
+        [F] ->get_next_inline_var_command(
+                {F, none}, FA, MatchExprFilter, SearchPaths, -1);
+        {F, NextFileGen} ->
+            get_next_inline_var_command(
+              {F, NextFileGen}, FA, MatchExprFilter, SearchPaths, -1)
+    end.
+
+get_next_inline_var_command({_File, none}, _FA, 
+                            _MatchExprFilter, _SearchPaths, 0) ->
+    [];
+get_next_inline_var_command({_File, {lazy_file_gen,NextFileGen}}, FA, 
+                            MatchExprFilter, SearchPaths, 0) ->
+    case NextFileGen() of
+        [] -> [];
+        {File1, NextFileGen1} ->
+            get_next_inline_var_command({File1, NextFileGen1}, FA, 
+                                        MatchExprFilter, SearchPaths, -1)
+    end;
+get_next_inline_var_command({File, NextFileGen}, FA, 
+                            MatchExprFilter, SearchPaths, N) ->
+    Cmds=inline_var_1(File, FA, MatchExprFilter, SearchPaths),
+    case Cmds of 
+        [] ->
+            get_next_inline_var_command({File, NextFileGen}, FA, 
+                                        MatchExprFilter, SearchPaths, 0);
+        [R|Rs] when N==-1 ->
+            {R,{lazy_gen, fun()->
+                                  get_next_inline_var_command(
+                                    {File, NextFileGen}, FA,
+                                    MatchExprFilter, SearchPaths, length(Rs))
+                         end}};
+        _ ->
+            Nth = length(Cmds)-N+1,
+            {lists:nth(Nth, Cmds), 
+             {lazy_gen, fun()->
+                                get_next_inline_var_command(
+                                  {File, NextFileGen}, FA, 
+                                  MatchExprFilter, SearchPaths, N-1)
+                        end}}        
+    end.
+
+inline_var_1(File, FA, MatchExprFilter, SearchPaths) ->
+    FAs= get_fun_arity(File, FA),
+    [{refactoring, inline_var, 
+      [File, Line, Col, SearchPaths, ?context]}
+     ||{F, A}<-FAs, MatchExpr<-get_match_exprs(File, F, A, MatchExprFilter),
+       {{Line,Col},_} <-[api_refac:start_end_loc(MatchExpr)]].
+
+
+get_match_exprs(File, FunName, Arity, MatchExprFilter) ->
+    ModName=list_to_atom(filename:basename(File, ".erl")),
+    FunDef=api_refac:mfa_to_fun_def(File, {ModName, FunName, Arity}),
+    case FunDef of 
+        none ->
+            [];
+        _ ->   
+            ?STOP_TD_TU(
+               [?COLLECT(?T("Var@=Var1@"),
+                         _This@,
+                             api_refac:type(Var@)==variable andalso 
+                         [] == api_refac:free_vars(Var@) andalso
+                         MatchExprFilter(_This@))
+               ],
+               FunDef)
+    end.
+    
+test_inline_var(SearchPaths, Lazy) ->
+    inline_var({file, fun(_File)-> true end}, 
+               fun({_F,_A}) -> true end,
+               fun(MatchExpr) ->
+                       ?MATCH(?T("Var@=Expr@"),MatchExpr),
+                       api_refac:type(Expr@)==variable
+               end,
+               Lazy,
+               SearchPaths).
+

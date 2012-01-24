@@ -29,7 +29,7 @@
 -module(wrangler_annotate_ast).
 
 
--export([add_fun_define_locations/2]).
+-export([add_fun_define_locations/2, add_fun_def_info/4]).
 
 -import(wrangler_misc,[rewrite/2, update_ann/2]).
 
@@ -274,10 +274,10 @@ add_fun_def_info_in_apps(T, ModName, DefineModLoc) ->
 add_fun_def_info_in_implicit_funs(T, ModName, DefineModLoc) ->
     Name = wrangler_syntax:implicit_fun_name(T),
     case wrangler_syntax:type(Name) of
-	module_qualifier ->
+	module_qualifier -> 
 	    Mod = wrangler_syntax:module_qualifier_argument(Name),
 	    Body = wrangler_syntax:module_qualifier_body(Name),
-	    case wrangler_syntax:type(Body) of
+	    case wrangler_syntax:type(Body) of 
 		arity_qualifier ->
 		    Fun = wrangler_syntax:arity_qualifier_body(Body),
 		    Pos =wrangler_syntax:get_pos(Fun),
@@ -296,15 +296,19 @@ add_fun_def_info_in_implicit_funs(T, ModName, DefineModLoc) ->
 	    end;
 	arity_qualifier ->
 	    Fun = wrangler_syntax:arity_qualifier_body(Name),
-	    A = wrangler_syntax:arity_qualifier_argument(Name),
-	    FunName = wrangler_syntax:atom_value(Fun),
-	    Arity = wrangler_syntax:integer_value(A),
-	    Pos =wrangler_syntax:get_pos(Fun),
-	    {DefMod, DefLoc} = DefineModLoc(FunName, Arity),
-	    Ann ={fun_def, {DefMod, FunName, Arity, Pos, DefLoc}},
-	    Fun1 = update_ann(Fun, Ann),
-	    Name1 =update_ann(rewrite(Name, wrangler_syntax:arity_qualifier(Fun1, A)), Ann),
-	    update_ann(rewrite(T, wrangler_syntax:implicit_fun(Name1)), Ann);
+            A = wrangler_syntax:arity_qualifier_argument(Name),
+            case {wrangler_syntax:type(Fun), wrangler_syntax:type(A)} of
+                {atom, integer} ->
+                    FunName = wrangler_syntax:atom_value(Fun),
+                    Arity = wrangler_syntax:integer_value(A),
+                    Pos =wrangler_syntax:get_pos(Fun),
+                    {DefMod, DefLoc} = DefineModLoc(FunName, Arity),
+                    Ann ={fun_def, {DefMod, FunName, Arity, Pos, DefLoc}},
+                    Fun1 = update_ann(Fun, Ann),
+                    Name1 =update_ann(rewrite(Name, wrangler_syntax:arity_qualifier(Fun1, A)), Ann),
+                    update_ann(rewrite(T, wrangler_syntax:implicit_fun(Name1)), Ann);
+                _ -> T
+            end;
 	_ -> T
     end.
 

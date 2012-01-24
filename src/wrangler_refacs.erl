@@ -131,6 +131,10 @@
 	 get_user_refactorings/1, load_user_refactorings/1
 	]).
  
+-export([do_api_migration/4, 
+         do_api_migration/5,
+         generate_rule_based_api_migration_mod/2]).
+
 -export([try_refac/3, get_log_msg/0]).
 
 -export([init_eclipse/0]).
@@ -1413,6 +1417,28 @@ partition_exports(File, DistThreshold, SearchPaths, Context, TabWidth)->
 partition_exports_eclipse(File, DistThreshold, SearchPaths, TabWidth)->
     try_refac(wrangler_modularity_inspection, partition_exports_eclipse,
 	      [File, DistThreshold, SearchPaths, TabWidth]).
+
+
+-spec(do_api_migration(CallBackMod::module(), SearchPaths::[filename()|dir()], 
+                       Editor::context(), TabWidth::integer()) -> 
+             {ok, [filename()]} |{error, term()}).             
+do_api_migration(CallBackMod, SearchPaths, Editor, TabWidth)->
+    try_refac(refac_api_migration, do_api_migration_to_dirs, [SearchPaths,list_to_atom(CallBackMod), 
+                                                      SearchPaths, Editor, TabWidth]).
+
+-spec(do_api_migration(File::filename(),CallBackMod::module(), SearchPaths::[filename()|dir()], 
+                       Editor::context(), TabWidth::integer()) -> 
+             {ok, [filename()]} |{error, term()}).             
+do_api_migration(CurFile, CallBackMod, SearchPaths, Editor, TabWidth)->
+    try_refac(refac_api_migration, do_api_migration_to_file, [CurFile, list_to_atom(CallBackMod), 
+                                                      SearchPaths, Editor, TabWidth]).
+
+
+-spec(generate_rule_based_api_migration_mod(FileName::filename(), 
+                                            NewModName::string()|atom()) ->
+             {ok, filename()} | {error, term()}).
+generate_rule_based_api_migration_mod(FileName, NewModName) ->
+    try_refac(refac_api_migration, generate_rule_based_api_migration_mod, [FileName, NewModName]).
 
 
 %%@private

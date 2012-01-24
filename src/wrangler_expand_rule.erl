@@ -44,24 +44,33 @@ parse_transform(Forms, Options) ->
                                       [Temp, BindVar]=erl_syntax:application_arguments(Form), 
                                       expand_generate_bindings(Temp, BindVar)
                               end, Forms1, Options),
-    Forms3=parse_transform_1({api_refac, template, 1},
+    Forms3=parse_transform_1({api_refac, generate_bindings_1, 2},
+                              fun(Form, _Context) ->
+                                      [Temp, BindVar]=erl_syntax:application_arguments(Form), 
+                                      expand_generate_bindings_1(Temp, BindVar)
+                              end, Forms2, Options),
+    Forms4=parse_transform_1({api_refac, template, 1},
                              fun(Form, _Context) ->
                                      expand_template(Form)
-                             end, Forms2, Options),
-    Forms4=parse_transform_1({api_refac, make_cond, 2},
+                             end, Forms3, Options),
+    Forms5=parse_transform_1({api_refac, make_cond, 2},
                              fun(Form, _Context) ->
                                      expand_cond(Form)
-                             end, Forms3, Options),
-    Forms5=parse_transform_1({api_refac, expand_collector, 1},
+                             end, Forms4, Options),
+    Forms6=parse_transform_1({api_refac, expand_collector, 1},
                              fun(Form, _Context) ->
                                      expand_collector(Form)
-                             end, Forms4, Options),
-    Forms6=parse_transform_1({api_refac, quote, 1},
+                             end, Forms5, Options),
+    Forms7=parse_transform_1({api_refac, quote, 1},
                              fun(Form, _Context) ->
                                      expand_quote(Form)
-                             end, annotate_forms(Forms5), Options),
-    %% wrangler_io:format("Form6:\n~s\n", [[erl_prettypr:format(F)++"\n\n"||F <- Forms6]]),
-    Forms6.
+                             end, annotate_forms(Forms6), Options),
+    Forms8=parse_transform_1({api_refac, generate_subst, 1},
+                              fun(Form, _Context) ->
+                                      generate_subst(Form)
+                              end, annotate_forms(Forms7), Options),
+   %% wrangler_io:format("Form6:\n~s\n", [[erl_prettypr:format(F)++"\n\n"||F <- Forms8]]),
+    Forms8.
 
 
 annotate_forms(Forms) ->
@@ -162,6 +171,17 @@ expand_quote(QuoteApp) ->
     Op1 = erl_syntax:module_qualifier(erl_syntax:atom(api_refac), erl_syntax:atom(subst)),
     erl_syntax:application(Op1,[App, Binds]).
    
+
+generate_subst(QuoteApp) ->
+    [Temp] = erl_syntax:application_arguments(QuoteApp),
+    EnvVars = element(1, lists:unzip(env_vars(Temp))),
+    erl_syntax:list([erl_syntax:tuple([erl_syntax:atom(VarName),
+                                             erl_syntax:variable(VarName)])
+                           ||VarName<-EnvVars, 
+                             is_meta_variable_name(VarName),
+                             not is_meta_variable_value_name(VarName)]).
+   
+
 expand_generate_bindings(Temp, BindVar) ->
     case is_meta_apply_temp(Temp) of 
         true ->
@@ -178,9 +198,25 @@ expand_generate_bindings(Temp, BindVar) ->
                                           {V,P} <- MetaVars, V=/='_This@', V=/='_File@']),
             MetaAtomMatchExprs=lists:append([make_match_expr_for_meta_atom(V, P,BindVarName)||
                                                 {V,P}<-MetaAtoms]),
-            erl_syntax:block_expr(MatchExprs++MetaAtomMatchExprs)
+            Body = MatchExprs++MetaAtomMatchExprs,
+            case Body of 
+                [] ->
+                    erl_syntax:block_expr([erl_syntax:atom(ok)]);
+                _ ->
+                    erl_syntax:block_expr(Body)
+            end
     end.
             
+
+expand_generate_bindings_1(Temp, BindVar) ->
+    {MetaVars, MetaAtoms}=get_meta_var_and_atoms([Temp]),
+    BindVarName = erl_syntax:atom_value(BindVar),
+    MatchExprs = lists:append([make_match_expr_1(V, P, BindVarName)||
+                                  {V,P} <- MetaVars, V=/='_This@', V=/='_File@']),
+    MetaAtomMatchExprs=lists:append([make_match_expr_for_meta_atom_1(V, P,BindVarName)||
+                                        {V,P}<-MetaAtoms]),
+    erl_syntax:block_expr(MatchExprs++MetaAtomMatchExprs).
+    
 
 get_meta_var_and_atoms(Temps) ->
     {MetaVars, MetaAtoms}=lists:unzip([get_meta_var_and_atoms_1(Temp)

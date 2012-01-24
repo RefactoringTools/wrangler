@@ -37,6 +37,7 @@
 
 -export([intro_new_var/7, intro_new_var_eclipse/6]).
 
+-export([do_intro_new_var_in_fun/3]).
 
 -include("../include/wrangler_internal.hrl").
 
@@ -302,7 +303,7 @@ get_inmost_enclosing_clause(Form, Expr) ->
 				 end,
 			  {Start, _End} = wrangler_misc:start_end_loc(hd(Body)),
 			  {_, End} = wrangler_misc:start_end_loc(lists:last(Body)),
-			  case Start =< ExprPos andalso ExprPos =< End of
+                          case Start =< ExprPos andalso ExprPos =< End of
 			      true ->
 				  [{Node, End}| S];
 			      _ -> S

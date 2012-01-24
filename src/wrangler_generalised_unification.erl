@@ -28,7 +28,7 @@
 %%@private
 -module(wrangler_generalised_unification).
 
--export([expr_match/3, expr_match/2]).
+-export([expr_match/3, expr_match/2, extended_expr_match/3]).
 
 -compile(export_all).
 
@@ -36,12 +36,121 @@
 
 expr_match(Exp1, Exp2) ->
     expr_match(Exp1, Exp2, fun(_) ->true end).
+    
 
+extended_expr_match(Exp1, Exp2, Cond) ->
+    case {wrangler_syntax:type(Exp1), wrangler_syntax:type(Exp2)}  of 
+        {case_expr, case_expr} ->
+            Arg = wrangler_syntax:case_expr_argument(Exp2),
+            Cs = wrangler_syntax:case_expr_clauses(Exp2),
+            extended_case_expr_match(Exp1, {Arg, Cs}, Cond);
+        {case_expr, try_expr} ->
+            Body0 = wrangler_syntax:try_expr_body(Exp2),
+            Body=case Body0 of 
+                     [B] -> B;
+                     _ -> Body0
+                 end,
+            Cs = wrangler_syntax:try_expr_clauses(Exp2),
+            extended_case_expr_match(Exp1, {Body, Cs}, Cond);
+        _ ->
+            Res=expr_match(Exp1, Exp2, Cond),
+            case Res of
+                false -> false;
+                {true, Subst} ->
+                    {true, lists:flatten(Subst), []}
+            end
+    end.
+
+extended_case_expr_match(TempExp, {ExprArg, ExprCs}, Cond) ->
+    TempArg = wrangler_syntax:case_expr_argument(TempExp),
+    TempCs = wrangler_syntax:case_expr_clauses(TempExp),
+    case unification(TempArg, ExprArg) of 
+        [false] ->
+            false;
+        [{true,Subst0}] ->
+            case extended_clause_match(TempCs, ExprCs) of 
+                false -> false;
+                {true, {Subst1, TempCsAcc}} ->
+                    Subst = [[{case wrangler_syntax:type(V) of
+                                   variable -> wrangler_syntax:variable_name(V);
+                                   atom -> wrangler_syntax:atom_value(V)
+                               end, E} 
+                              ||{V, E}<-S]||S<-[Subst0|Subst1]],
+                    case extended_expr_match_cond_check(tl(Subst), Cond) of 
+                        true ->
+                            {true, lists:flatten(Subst), [0|TempCsAcc]};
+                        false ->
+                            false
+                    end
+            end
+    end.
+                     
+%% Any others things to check here?
+extended_expr_match_cond_check(SubstList, Cond) ->
+    Res=[try Cond(Subst) 
+         catch
+             throw:_ ->  %% unbound meta variable.This needs to be improved.
+                 true;
+             _E1:_E2 ->
+                 false                
+         end|| Subst<-SubstList],
+    not lists:member(false, Res).
+
+
+extended_clause_match(TempCs, ExprCs) ->
+    TempCs1 = lists:zip(lists:seq(1, length(TempCs)), TempCs),
+    extended_clause_match(TempCs1, ExprCs, {[],[]}).
+            
+extended_clause_match(_TempCs, [], {SubstAcc,TempCsAcc}) ->
+    {true, {lists:reverse(SubstAcc), lists:reverse(TempCsAcc)}};
+extended_clause_match(TempCs, [C|ExprCs], {SubstAcc,TempCsAcc}) ->
+     case get_a_match_clause(TempCs, C) of 
+         false ->
+             false;
+         {{Index, _TempC}, Subst} ->
+             extended_clause_match(TempCs, ExprCs,  
+                                   {[Subst|SubstAcc], [Index|TempCsAcc]})
+     end.
+
+get_a_match_clause([{Index, C}|TempCs], ExpC) ->
+    [Pat] = wrangler_syntax:clause_patterns(ExpC),
+    FreeVars = api_refac:free_vars(Pat),
+    if FreeVars /=[] -> 
+            false;
+       true ->
+            case wrangler_syntax:type(Pat) of
+                underscore -> 
+                    {{ExpC, ExpC}, []};
+                variable ->
+                    case api_refac:var_refs(Pat) of 
+                        [] ->
+                            {{ExpC, ExpC}, []};
+                        _ ->
+                            false
+                    end;
+                _ -> 
+                    case unification(C, ExpC) of 
+                        [{true, Subst}] ->
+                            {{Index, C}, Subst};
+                        [false] ->
+                            get_a_match_clause(TempCs, ExpC)
+                    end
+            end
+    end;       
+get_a_match_clause([], _ExpC) ->
+    false.
+
+
+    
 -spec(expr_match/3::(syntaxTree()|[syntaxTree()], syntaxTree()|[syntaxTree()], function()) ->
                           {true, [{atom(), syntaxTree()|[syntaxTree()]}]} | false).
 expr_match(Exp1, Exp2, Cond) ->
     Res = unification(Exp1, Exp2),
-    PossibleMatches=[case static_semantics_check(Subst) of 
+    post_unification_checking(Exp1, Cond, Res).
+   
+
+post_unification_checking(TempExpr, Cond, UnificationRes) ->
+    PossibleMatches=[case static_semantics_check(Subst) of
                          false -> [];
                          {true, S} ->
                              case Cond(S) of
@@ -54,9 +163,9 @@ expr_match(Exp1, Exp2, Cond) ->
                                                      io_lib:format
                                                        ("Condition checking of rule/collector "
                                                         "returns non-boolean value. Template being matched: ~s.",
-                                                        [wrangler_prettypr:format(Exp1)]))})
+                                                        [wrangler_prettypr:format(TempExpr)]))})
                              end
-                     end||{true,Subst}<-Res],
+                     end||{true,Subst} <- UnificationRes],
     case lists:append(PossibleMatches) of
         [] ->
             false;
@@ -390,7 +499,7 @@ same_type_unification(Exp1, Exp2) ->
                     list_unification_1(Es1, Es2);
                 false ->
                     SubTrees1 = subtrees(Exp1),
-                    SubTrees2 = subtrees(Exp2),
+                     SubTrees2 = subtrees(Exp2),
                     case length(SubTrees1) == length(SubTrees2) of
                         true ->
                             unification(SubTrees1, SubTrees2);

@@ -50,7 +50,8 @@
 	 variables/1]).
 
 -export([annotate_bindings/2, annotate_bindings/3,
-	 var_annotate_clause/4, annotate_bindings/1]).
+	 var_annotate_clause/4, annotate_bindings/1,
+         annotate_expr/1]).
  
 -export([to_comment/1, to_comment/2, to_comment/3,strip_comments/1]).
 
@@ -2432,3 +2433,8 @@ get_toks(Node) ->
       {value, {toks, Toks}} -> Toks;
       _ -> []
     end.
+
+
+annotate_expr(Node)->
+    update_var_define_locations(annotate_bindings(Node)).
+   
