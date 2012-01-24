@@ -27,96 +27,100 @@ selective() ->
     false.
 
 -spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}).
-transform(_Args=#args{search_paths=SearchPaths})->
-    ?FULL_TD_TP([bug_cond_rule_1(),
-                bug_cond_rule_2(),
-                bug_cond_rule_3(),
-                bug_cond_rule_4(),
-                bug_cond_rule_5(),
-                bug_cond_rule_6(),
-                bug_cond_rule_7(),
-                bug_cond_rule_8(),
-                bug_cond_rule_9(),
-                bug_cond_rule_10(),
-                bug_cond_rule_11(),
-                bug_cond_rule_12(),
-                bug_cond_rule_13()
+transform(_Args=#args{current_file_name=File})->
+    ?FULL_BU_TP([replace_bug_cond_macro_rule(),
+                 logic_rule_1(),
+                 logic_rule_2(),
+                 logic_rule_3(),
+                 list_rule_1(),
+                 list_rule_2(),
+                 list_rule_3(),
+                 list_rule_4(),
+                 imply_rule_1(),
+                 if_rule_1(),
+                 case_rule_1(),
+                 case_rule_2(),
+                 case_rule_3(),
+                 guard_rule_1()
                 ],
-                SearchPaths).
-                  
-bug_cond_rule_1() ->                
-    ?RULE(?T("case Expr@ of 
-                  true ->
-                    Body1@@;
-                  false ->
-                   Body2@@
-              end"),
-             Body2@@,
-             is_bug_cond_macro(Expr@)).
+                [File]).
 
-bug_cond_rule_2() ->                
-    ?RULE(?T("case Expr@ of 
-                  false ->
-                    Body1@@;
-                 true ->
-                    Body2@@
-              end"),
-             Body1@@,
-             is_bug_cond_macro(Expr@)).
+replace_bug_cond_macro_rule() ->
+    ?RULE(?T("Expr@"),
+          ?TO_AST("false"),
+          is_bug_cond_macro(Expr@)).
 
-bug_cond_rule_3() ->
-    ?RULE(?T("[Expr@||Es@@,not Cond@]"),
+logic_rule_1() ->
+    ?RULE(?T("not false"),?TO_AST("true"),true).
+
+logic_rule_2() ->
+    ?RULE(?T("Expr1@ orelse Expr2@"),
+          eval_expr('orelse', Expr1@, Expr2@),
+          is_bool_literal(Expr1@) orelse is_bool_literal(Expr2@)).
+
+logic_rule_3() ->
+    ?RULE(?T("Expr1@ andalso Expr2@"),
+          eval_expr('andalso', Expr1@, Expr2@),
+          is_bool_literal(Expr1@) orelse is_bool_literal(Expr2@)).
+         
+list_rule_1() ->
+    ?RULE(?T("[Expr@||Es@@,true]"),
           if Es@@==[] ->
                   ?TO_AST("[Expr@]");
              true ->?TO_AST("[Expr@||Es@@]")
           end,
-          is_bug_cond_macro(Cond@)).
+          true).
 
-bug_cond_rule_4() ->
-    ?RULE(?T("[Expr@||Cond@]"),
-          ?TO_AST("[]"),
-          is_bug_cond_macro(Cond@)).
+list_rule_2() ->
+    ?RULE(?T("[Expr@||Es@@,false]"),
+          ?TO_AST("[]"), true).
 
-bug_cond_rule_5() ->
-    ?RULE(?T("if Cond@,Conds@@ -> Body1@@;
+list_rule_3() ->
+    ?RULE(?T("Expr@++[]"), Expr@, true).
+
+list_rule_4() ->
+    ?RULE(?T("[]++Expr@"), Expr@, true).
+
+        
+if_rule_1() ->
+    ?RULE(?T("if false,Conds@@ -> Body1@@;
                  true -> Body2@@
-              end"), Body2@@, is_bug_cond_macro(Cond@)).
+              end"), Body2@@, true).
 
-bug_cond_rule_6()->
-    ?RULE(?T("Expr1@ orelse Expr2@"),
-          Expr2@, is_bug_cond_macro(Expr1@)).
+guard_rule_1()->
+    ?RULE(?T("f@(Args@@) when true, Guards@@ -> Body@@;"),
+          ?TO_AST("f@(Args@@) when Guards@@ -> Body@@;"), true).
 
-bug_cond_rule_7()->
-    ?RULE(?T("Expr1@ orelse Expr2@"),
-          Expr1@, is_bug_cond_macro(Expr2@)).
+imply_rule_1() ->
+    ?RULE(?T("?IMPL(false, Expr@)"), 
+          ?TO_AST("true"), true).
 
-bug_cond_rule_8()->
-    ?RULE(?T("not Expr1@ orelse Expr2@"),
-          ?TO_AST("true"), is_bug_cond_macro(Expr1@)).
+case_rule_1() ->
+    ?RULE(?T("case true of 
+                 Pats1@@@ when Guards1@@@ ->
+                   Body1@@@;
+                 true ->
+                    Body1@@;
+                 Pats2@@@ when Guards2@@@ ->
+                   Body2@@@
+              end"),
+          Body1@@, true).
 
-bug_cond_rule_9()->
-    ?RULE(?T("Expr1@ orelse not Expr2@"),
-          ?TO_AST("true"), is_bug_cond_macro(Expr2@)).
+case_rule_2() ->
+    ?RULE(?T("case false of 
+                 Pats1@@@ when Guards1@@@ ->
+                   Body1@@@;
+                 false ->
+                    Body1@@;
+                 Pats2@@@ when Guards2@@@ ->
+                   Body2@@@
+              end"),
+          Body1@@, true).
 
-bug_cond_rule_10()->
-    ?RULE(?T("Expr1@ andalso Expr2@"),
-          ?TO_AST("false"), 
-          is_bug_cond_macro(Expr1@) orelse 
-          is_bug_cond_macro(Expr2@)).
-
-bug_cond_rule_11()->
-    ?RULE(?T("f@(Args@@) when not Cond@ -> Body@@;"),
-          ?TO_AST("f@(Args@@) -> Body@@;"), is_bug_cond_macro(Cond@)).
-
-bug_cond_rule_12()->
-    ?RULE(?T("?IMPL(Cond@, Expr@)"), 
-          ?TO_AST("true"),
-          is_bug_cond_macro(Cond@)).
-
-bug_cond_rule_13() ->
+case_rule_3() ->
     ?RULE(?T("case Expr@ of 
                  Pats@@@ when Guard@@@ -> Body@@@;
-                 Pats@@ when Cond@ -> Body@@;
+                 Pats@@ when false -> Body@@;
                  Pats1@@@ when Guard1@@@ -> Body1@@@
              end"),
             ?TO_AST(
@@ -124,12 +128,36 @@ bug_cond_rule_13() ->
                  Pats@@@ when Guard@@@ -> Body@@@;
                  Pats1@@@ when Guard1@@@ -> Body1@@@
              end"),
-           is_bug_cond_macro(Cond@)).
+          true).
+                   
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 is_bug_cond_macro(Expr) ->
     api_refac:type(Expr) == macro andalso 
-        wrangler_syntax:macro_arguments(Expr) == none andalso
         is_bug_cond_name(?PP(Expr)).
 
 is_bug_cond_name(Str) ->
-   re:run(Str, "[a-z]+_bug_[0-9]+")/=nomatch.
+    Len = length(Str), 
+    {match, [{0, Len}]} ==re:run(Str, "\\?[a-z]+_bug_[0-9]+").
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+is_bool_literal(E) ->
+    %% only use ?PP when E is a small literal.
+    %% alternatively, you can write Str=wrangler_syntax:atom_value(E)
+    Str = ?PP(E), 
+    Str == "true" orelse Str=="false".
+ 
+eval_expr(Op, E1, E2) ->
+    eval_expr_1(Op, {E1, ?PP(E1)}, {E2, ?PP(E2)}).
+   
+eval_expr_1('orelse', {E1, "true"}, _) -> E1;
+eval_expr_1('orelse', {_, "false"}, {E2, _}) -> E2;
+eval_expr_1('orelse', _, {E2, "true"}) -> E2;
+eval_expr_1('orelse', {E1, _}, {_, "false"}) -> E1;
+eval_expr_1('andalso', {_, "true"}, {E2, _}) -> E2;
+eval_expr_1('andalso', {E1, "false"}, _) -> E1;
+eval_expr_1('andalso', {E1,_}, {_, "true"}) -> E1;
+eval_expr_1('andalso', _, {E2, "false"}) -> E2.
+
