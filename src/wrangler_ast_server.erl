@@ -122,8 +122,8 @@ handle_call({get, Key}, _From, State) ->
             [{File, {AnnAST, Info, _Checksum, Ann}}]=ets:lookup(Tab, File),
             {reply, {ok, {list_to_ast(AnnAST, Ann), Info}}, State1}
     end;
-handle_call({update, {Key, {AnnAST, Info, Time}}}, _From, State) ->
-    State1=update_ast_1({Key, {ast_to_list(AnnAST), Info, Time}}, State),
+handle_call({update, {Key, {AnnAST, Info, CheckSum, Ann}}}, _From, State) ->
+    State1=update_ast_1({Key, {ast_to_list(AnnAST), Info, CheckSum, Ann}}, State),
     {reply, ok, State1};
 handle_call({get_fun_def, {File, MFA}}, _From, State)->
     {{ok, {ets, Tab, Key}}, State1} = get_ast({File, true, [], ?DEFAULT_TABWIDTH, 'unix'}, State), 
