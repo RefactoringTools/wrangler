@@ -126,8 +126,7 @@
          get_var_name_eclipse/5, get_fun_name_eclipse/5
 	]).
  
--export([do_api_migration/4, 
-         do_api_migration/5,
+-export([do_api_migration/5,
          generate_rule_based_api_migration_mod/2]).
 
 -export([try_refac/3, get_log_msg/0]).
@@ -1293,18 +1292,11 @@ partition_exports_eclipse(File, DistThreshold, SearchPaths, TabWidth)->
 	      [File, DistThreshold, SearchPaths, TabWidth]).
 
 
--spec(do_api_migration(CallBackMod::module(), SearchPaths::[filename()|dir()], 
+-spec(do_api_migration(Scope::[filename()|dir()],CallBackMod::string(), SearchPaths::[filename()|dir()], 
                        Editor::context(), TabWidth::integer()) -> 
-             {ok, [filename()]} |{error, term()}).             
-do_api_migration(CallBackMod, SearchPaths, Editor, TabWidth)->
-    try_refac(refac_api_migration, do_api_migration_to_dirs, [SearchPaths,list_to_atom(CallBackMod), 
-                                                      SearchPaths, Editor, TabWidth]).
-
--spec(do_api_migration(File::filename(),CallBackMod::module(), SearchPaths::[filename()|dir()], 
-                       Editor::context(), TabWidth::integer()) -> 
-             {ok, [filename()]} |{error, term()}).             
-do_api_migration(CurFile, CallBackMod, SearchPaths, Editor, TabWidth)->
-    try_refac(refac_api_migration, do_api_migration_to_file, [CurFile, list_to_atom(CallBackMod), 
+             	 {error, string()}| {ok, [{filename(), filename(), string()}]}).   
+do_api_migration(Scope, CallBackMod, SearchPaths, Editor, TabWidth)->
+    try_refac(refac_api_migration, do_api_migration, [Scope, list_to_atom(CallBackMod), 
                                                       SearchPaths, Editor, TabWidth]).
 
 
