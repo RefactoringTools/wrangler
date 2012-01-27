@@ -1,6 +1,6 @@
 -module(refac_regexp_to_re). 
 
--include_lib("wrangler/include/wrangler.hrl"). 
+-include("../include/wrangler.hrl"). 
 
 -export([meta_rule_set/0, simple_rule_set/0, old_apis/0]).
 
