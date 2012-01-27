@@ -67,7 +67,7 @@ check_pre_cond_1(Args=#args{focus_sel={_MFA, Expr, _Nth}}) ->
 
 check_pre_cond_2(#args{current_file_name=File,
                        focus_sel={MFA,_Expr, Nth}}) ->
-    FunDef= api_refac:mfa_to_fun_def(MFA, File),
+    FunDef= api_refac:mfa_to_fun_def(File, MFA),
     NthPars = ?FULL_TD_TU([?COLLECT(?T("f@(Args@@)-> Bs@@;"), 
                                     lists:nth(Nth, Args@@),
                                     true)],

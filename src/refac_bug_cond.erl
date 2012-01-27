@@ -22,7 +22,7 @@ select_focus(_Args) ->
 check_pre_cond(_Args) ->
     ok.
 
--spec (selective/0::()-> true). 
+-spec (selective/0::()-> boolean()). 
 selective() ->
     false.
 
