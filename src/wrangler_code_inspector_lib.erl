@@ -403,7 +403,7 @@ check_candidate_scc(FunDef, Scc, Line) ->
 			       {_, {EndLine, _}} = wrangler_misc:start_end_loc(E),
 			       case EndLine >= Line of
 				   true ->
-				       CalledFuns = wrangler_callgraph_server:called_funs(E),
+				       CalledFuns = ordsets:to_list(wrangler_callgraph_server:called_funs(E)),
 				       case lists:subtract(CalledFuns, MFAs) of
 					   CalledFuns -> false;
 					   _ -> true
@@ -491,7 +491,7 @@ is_server(_FileName, _Info, FunDef, Scc, Line) ->
 		 {_, {EndLine, _}} = wrangler_misc:start_end_loc(E),
 		 case EndLine >= Line of
 		     true ->
-			 CalledFuns = wrangler_callgraph_server:called_funs(E),
+			 CalledFuns = ordsets:to_list(wrangler_callgraph_server:called_funs(E)),
 			 case lists:subtract(CalledFuns, MFAs) of
 			     CalledFuns -> false;
 			     _ -> true
