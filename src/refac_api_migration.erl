@@ -2,16 +2,34 @@
 %% @private
 -module(refac_api_migration).
 
--export([do_api_migration_to_file/5,
-         do_api_migration_to_dirs/5,
+-export([do_api_migration/5,
          generate_rule_based_api_migration_mod/2]).
 
--export([mk_new_var/2, mk_str/2]).
+-export([mk_new_var/2, mk_str/2,
+         simplify_expr/2, simplify_match_expr/2]).
 
 -include("../include/wrangler.hrl").
 
 -export([behaviour_info/1]).
 
+-define(INTERNAL_RULE(Before, After, Cond),
+        fun()->
+                api_refac:check_collect_template(Before, 'RULE'),
+                {rule, fun(_W_File_, _W_Node_) ->
+                               _W_NewCond=fun(_W_Bind_) -> 
+                                                  api_refac:make_cond(Cond, _W_Bind_)
+                                          end,
+                               case api_refac:match(Before, _W_Node_, _W_NewCond) of
+                                   {true, _W_Bind1_} ->
+                                       _This@=_W_Node_,
+                                       _File@=_W_File_,
+                                       api_refac:generate_bindings(Before, '_W_Bind1_'),
+                                       _W_After = fun()->After end(),
+                                       {wrangler_misc:reset_pos_and_range(_W_After), true};
+                                   false ->{_W_Node_, false}
+                               end 
+                       end, Before} 
+        end()).
 %%@private
 -spec behaviour_info(atom()) ->[{atom(), arity()}].
 behaviour_info(callbacks) ->
@@ -22,28 +40,14 @@ behaviour_info(callbacks) ->
 %%   Apply Rule-based API migration.                                 %%
 %%                                                                   %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
--spec(do_api_migration_to_file(CurFile::filename(),CallBackMod::module(), SearchPaths::[filename()|dir()], 
-                       Editor::atom(), TabWidth::integer()) -> 
-             {ok, [filename()]} |{error, term()}). 
-do_api_migration_to_file(CurFile, CallBackMod, SearchPaths, Editor, TabWidth)->
-    ?wrangler_io("\nCMD: ~p:do_api_migration_to_file(~p, ~p, ~p, ~p, ~p).\n",
-                   [?MODULE, CurFile, CallBackMod, SearchPaths, Editor, TabWidth]),
-    do_api_migration([CurFile], CallBackMod, SearchPaths, Editor, TabWidth).
-
--spec(do_api_migration_to_dirs(Dirs::[dir()], CallBackMod::module(), SearchPaths::[filename()|dir()], 
-                       Editor::atom(), TabWidth::integer()) -> 
-             {ok, [filename()]} |{error, term()}).             
-do_api_migration_to_dirs(Dirs, CallBackMod, SearchPaths, Editor, TabWidth)->
-    ?wrangler_io("\nCMD: ~p:do_api_migration_to_dirs(~p, ~p, ~p, ~p, ~p).\n",
-                   [?MODULE, Dirs, CallBackMod, SearchPaths, Editor, TabWidth]),
-    do_api_migration(Dirs, CallBackMod, SearchPaths, Editor, TabWidth).
-
 -spec(do_api_migration(FileOrDirs::[filename()|dir()],CallBackMod::module(), 
                        SearchPaths::[filename()|dir()], 
                        Editor::atom(), TabWidth::integer()) -> 
-             {ok, [filename()]} |{error, term()}).             
+             {error, string()}| {ok, [{filename(), filename(), string()}]}).
+   
 do_api_migration(FileOrDirs, CallBackMod, SearchPaths, Editor, TabWidth)->
+    ?wrangler_io("\nCMD: ~p:do_api_migration(~p, ~p, ~p, ~p, ~p).\n",
+                  [?MODULE, FileOrDirs, CallBackMod, SearchPaths, Editor, TabWidth]),
     case code:ensure_loaded(CallBackMod) of 
         {error, Reason} ->
             {error, mk_str("Wrangler failed to load module ~p; reason:~p.", [CallBackMod, Reason])};
@@ -66,6 +70,7 @@ do_api_migration(FileOrDirs, CallBackMod, SearchPaths, Editor, TabWidth)->
                          TabWidth::integer()) -> 
              [{{filename(),filename()}, syntaxTree()}]).
 do_api_migration_1(CallBackMod, OldMFAs, File, SearchPaths, TabWidth) ->
+    ?wrangler_io("The current file under refactoring is:\n~p\n", [File]),
     {ok, {AnnAST, Info}} =wrangler_ast_server:parse_annotate_file(
                              File, true, SearchPaths, TabWidth),
     case lists:keysearch(module, 1, Info) of
@@ -89,21 +94,27 @@ do_api_migration_1(CallBackMod, OldMFAs, File, SearchPaths, TabWidth) ->
              {syntaxTree(), boolean()}).
 do_api_migration_2(CallBackMod, OldMFAs, Form, ModName) ->
     UsedVars = all_vars(Form),
-    try MetaRules=apply(CallBackMod, meta_rule_set, []),
-         SimpleRules = apply(CallBackMod, simple_rule_set, []),
-         {ok, [{_, Form1}]}= ?FULL_TD_TP(MetaRules, [{UsedVars, Form}]),
-         Form2 =case Form==Form1 of 
-                    true -> 
-                        do_intro_new_var_refac(OldMFAs, Form, ModName);
-                    false ->
-                        reparse_form(Form1, ModName)
-                end,
-         Form3 = do_intro_new_var_refac(OldMFAs, Form2, ModName),
-         {ok, [{_,Form4}]}= ?FULL_TD_TP(SimpleRules, [{UsedVars, Form3}]),
-         {Form4, Form4/=Form}
-    catch
-        _E1:E2 ->
-            throw({error, {E2, erlang:get_stacktrace()}})
+    CalledFuns = ordsets:to_list(wrangler_callgraph_server:called_funs(Form)),
+    case CalledFuns -- OldMFAs of 
+        CalledFuns -> 
+            {Form, false};
+        _ ->
+            try MetaRules=apply(CallBackMod, meta_rule_set, []),
+                 SimpleRules = apply(CallBackMod, simple_rule_set, []),
+                 {ok, [{_, Form1}]}= ?FULL_TD_TP(MetaRules, [{UsedVars, Form}]),
+                 Form2 =case Form==Form1 of 
+                            true -> 
+                                do_intro_new_var_refac(OldMFAs, Form, ModName);
+                            false ->
+                                reparse_form(Form1, ModName)
+                        end,
+                 Form3 = do_intro_new_var_refac(OldMFAs, Form2, ModName),
+                 {ok, [{_,Form4}]}= ?FULL_TD_TP(SimpleRules, [{UsedVars, Form3}]),
+                 {Form4, Form4/=Form}
+            catch
+                _E1:E2 ->
+                    throw({error, {E2, erlang:get_stacktrace()}})
+            end
     end.
     
 -spec(do_intro_new_var_refac(OldMFAs::[mfa()],Form::syntaxTree(),
@@ -164,7 +175,7 @@ generate_rule_based_api_migration_mod(FileName, NewModName) ->
         {error, Reason} ->
             {error, Reason};
         NewFileName ->
-            case wrangler_ast_server:parse_annotate_file(FileName, true) of 
+            try wrangler_ast_server:parse_annotate_file(FileName, true) of 
                 {ok, {AnnAST, Info}} ->
                     case lists:keysearch(module, 1, Info) of
                         {value, {module, ModName}} ->
@@ -183,9 +194,10 @@ generate_rule_based_api_migration_mod(FileName, NewModName) ->
                                     {E2, erlang:get_stacktrace()}
                             end;
                         _ -> {error, "Wrangler could not infer the module name of the file supplied"}                
-                    end;
-                {error, Reason} ->
-                    {error, mk_str("File ~p does not compile: ~p!",[FileName, Reason])}
+                    end
+            catch
+                _E1:E2 ->
+                    {error, mk_str("File ~p does not compile: ~p!",[FileName, E2])}
             end
     end.
 
@@ -245,7 +257,7 @@ do_generate_callback_funs(OldAPIModName, AnnAST, NewFileName) ->
     case file:write_file(NewFileName, list_to_binary(Code)) of
         ok ->
             {ok, NewFileName};
-        _ -> Res
+        {error, Reason} -> {error, Reason}
     end.
     
 
@@ -298,7 +310,8 @@ do_process_api_interface_funs_1(OldAPIModName, Form) ->
                         none ->
                             Body = wrangler_syntax:clause_body(C),
                             case Body of 
-                                [_] ->do_process_api_interface_funs_2(OldAPIModName,Form);
+                                [_] ->
+                                    do_process_api_interface_funs_2(OldAPIModName,Form);
                                 _ ->
                                     %% This condition could be relaxed.
                                     throw({error, mk_str("API interface function  ~p:~p/~p contains more than one expression"
@@ -357,8 +370,8 @@ valid_clause_body({M, F, A},Cs) ->
         true ->
             true;
         false ->
-            throw({error, mk_str("The API interface function ~p:~p/~p "
-                         "contains an invalid return expression.", [M,F,A])})
+            {error, mk_str("The API interface function ~p:~p/~p "
+                           "contains an invalid return expression.", [M,F,A])}
     end.
 is_valid_clause_body(C) ->
     Bs = wrangler_syntax:clause_body(C),
@@ -411,13 +424,20 @@ do_generate_rule_for_application({M,F,A}, Pats, B) ->
 do_generate_rule_for_case_expr({M,F,A}, Pats, B) ->
     MetaRule=do_generate_meta_rule_for_case_expr({M,F,A},Pats,B,'META_RULE'),
     SimpleRule=do_generate_simple_rule_for_case_expr({M,F,A},Pats,B,'RULE'),
-    {[{M,F,A}],[MetaRule], [SimpleRule]}.
+    Cs = wrangler_syntax:case_expr_clauses(B),
+    case need_a_rule_for_match(Cs) of 
+        true ->
+            MatchRule = do_generate_meta_rule_for_match_expr({M,F,A},Pats,B,'META_MATCH_RULE'),
+            {[{M,F,A}],[MetaRule, MatchRule], [SimpleRule]};
+        _  -> 
+            {[{M,F,A}],[MetaRule], [SimpleRule]}
 
-
+    end.
+      
 -spec(do_generate_meta_rule_for_case_expr({modulename(), functionname(),arity()},
                                      Pats::[syntaxTree()],Body::syntaxTree(), 
                                           RuleNacroName::atom())
-      -> string()).            
+      -> {atom(),string()}).            
 do_generate_meta_rule_for_case_expr({M,F,_A},Pats,Body,RuleMacroName) ->
     RuleFunName=list_to_atom(atom_to_list(F)++"_meta_rule"),
     NewPats = to_meta_vars(Pats),
@@ -442,7 +462,7 @@ do_generate_meta_rule_for_case_expr({M,F,_A},Pats,Body,RuleMacroName) ->
 -spec(do_generate_simple_rule_for_case_expr({modulename(), functionname(),arity()},
                                             Pats::[syntaxTree()],Body::syntaxTree(),
                                            RuleMacroName::atom()) 
-      -> string()).  
+      -> {atom(), string()}).  
 do_generate_simple_rule_for_case_expr({M,F,_A},Pats,Body,RuleMacroName) ->
     RuleFunName=list_to_atom(atom_to_list(F)++"_rule"),
     NewPats = to_meta_vars(Pats),
@@ -467,13 +487,20 @@ do_generate_simple_rule_for_case_expr({M,F,_A},Pats,Body,RuleMacroName) ->
 do_generate_rule_for_try_expr({M,F,A}, Pats, B) ->
     MetaRule=do_generate_meta_rule_for_try_expr({M,F,A}, Pats, B, 'META_RULE'),
     SimpleRule=do_generate_simple_rule_for_try_expr({M,F,A}, Pats, B, 'RULE'),
-    {[{M,F,A}],[MetaRule], [SimpleRule]}.
-  
+    Cs = wrangler_syntax:try_expr_clauses(B),
+    case need_a_rule_for_match(Cs) of 
+        true ->
+            MatchRule = do_generate_meta_rule_for_match_expr({M,F,A},Pats,B,'META_MATCH_RULE'),
+            {[{M,F,A}],[MetaRule, MatchRule], [SimpleRule]};
+        _  -> 
+            {[{M,F,A}],[MetaRule], [SimpleRule]}
 
+    end.
+ 
 -spec(do_generate_meta_rule_for_try_expr({modulename(), functionname(),arity()},
                                      Pats::[syntaxTree()],Body::syntaxTree(), 
                                           RuleNacroName::atom())
-      -> string()).            
+      -> {atom(), string()}).            
 do_generate_meta_rule_for_try_expr({M,F,_A},Pats,Body,RuleMacroName) ->
     RuleFunName=list_to_atom(atom_to_list(F)++"_meta_rule"),
     NewPats = to_meta_vars(Pats),
@@ -498,7 +525,7 @@ do_generate_meta_rule_for_try_expr({M,F,_A},Pats,Body,RuleMacroName) ->
 -spec(do_generate_simple_rule_for_try_expr({modulename(), functionname(),arity()},
                                             Pats::[syntaxTree()],Body::syntaxTree(),
                                            RuleMacroName::atom()) 
-      -> string()).  
+      -> {atom(), string()}).  
 do_generate_simple_rule_for_try_expr({M,F,_A},Pats,Body,RuleMacroName) ->
     RuleFunName=list_to_atom(atom_to_list(F)++"_rule"),
     NewPats = to_meta_vars(Pats),
@@ -515,7 +542,43 @@ do_generate_simple_rule_for_try_expr({M,F,_A},Pats,Body,RuleMacroName) ->
     Rule=mk_rule(RuleFunName, RuleMacroName, TempBefore, Cond, NewCode),
     {RuleFunName, Rule}.
 
--spec(mk_old_code_temp(Expr::syntaxTree())-> syntaxTree()).
+
+-spec(do_generate_meta_rule_for_match_expr({modulename(), functionname(),arity()},
+                                            Pats::[syntaxTree()],Body::syntaxTree(),
+                                           RuleMacroName::atom()) 
+      -> {atom, string()}).  
+do_generate_meta_rule_for_match_expr({M,F,_A},Pats,Body,RuleMacroName) ->
+    RuleFunName=list_to_atom(atom_to_list(F)++"_match_rule"),
+    NewPats = to_meta_vars(Pats),
+    M1 = wrangler_syntax:atom(M),
+    F1 = wrangler_syntax:atom(F),
+    AppExpr=wrangler_syntax:application(M1, F1,NewPats),
+    MatchPat= wrangler_syntax:variable("MatchLeftExpr@"),
+    TempBefore = mk_old_code_temp(
+                   wrangler_syntax:match_expr(MatchPat,AppExpr)),
+    UsedVars = all_vars(AppExpr),
+    {NewBody0, Cond} = gen_new_body_and_cond(Body, UsedVars, application),
+    NewBody = wrangler_syntax:match_expr(MatchPat, NewBody0),
+    NewVars = collect_new_vars(Body, UsedVars),
+    NewVarDefExprs = mk_new_var_define_exprs(NewVars),
+    TempAfter = mk_new_code_temp(NewBody, NewVars, 'RULE'),
+    NewCode = wrangler_syntax:block_expr(NewVarDefExprs ++ [TempAfter]),
+    Rule=mk_rule(RuleFunName, RuleMacroName, TempBefore, Cond, NewCode),
+    {RuleFunName, Rule}.
+
+need_a_rule_for_match(Cs) ->
+    not lists:member(false, [need_a_rule_for_match_1(C)||C<-Cs]).
+
+need_a_rule_for_match_1(C) ->
+    B = wrangler_syntax:clause_body(C),
+    case lists:reverse(B) of 
+        [E] ->
+            api_refac:free_vars(E) == [];
+        [E|_]->
+            wrangler_syntax:type(E) == tuple
+    end.
+             
+%%-spec(mk_old_code_temp(Expr::syntaxTree())-> syntaxTree()).
 mk_old_code_temp(Expr) ->
     wrangler_syntax:macro(
       wrangler_syntax:variable('T'),
@@ -524,7 +587,7 @@ mk_old_code_temp(Expr) ->
        wrangler_syntax:atom(wrangler_quote_after)]).
    
 -spec(mk_new_code_temp(Expr::syntaxTree(),NewVars::[atom()],
-                      RULE::'META_RULE' |'RULE')-> syntaxTree()).
+                      RULE::'META_RULE' |'RULE')-> {tree, any(), any(), any()}). 
 mk_new_code_temp(NewBody, NewVars, RULE) ->
     App = wrangler_syntax:application(
             wrangler_syntax:atom(refac_api_migration),
@@ -555,7 +618,7 @@ mk_rule(RuleFunName, RuleMacroName, TempBefore, Cond, NewCode) ->
     FormStr = wrangler_prettypr:pp_a_form(Form, 'unix', [], 8),
     replace_quote_place_holder(FormStr).
 
--spec(make_case_clause(I::integer(), C::syntaxTree()) -> syntaxTree()).
+-spec(make_case_clause(I::integer(), C::syntaxTree()) -> {tree, any(), any(), any()}).
 make_case_clause(I, C) ->
     Bs = wrangler_syntax:clause_body(C),
     LastB = to_meta_vars(lists:last(Bs)),
@@ -567,9 +630,8 @@ to_meta_vars(Node) ->
     {ok, NewNode} = ?STOP_TD_TP([to_meta_var_rule()], Node),
     NewNode.
   
--spec(to_meta_var_rule()->function()).
 to_meta_var_rule() ->    
-    ?RULE(?T("V@"),
+    ?INTERNAL_RULE(?T("V@"),
           wrangler_syntax:variable(
             list_to_atom(atom_to_list(wrangler_syntax:variable_name(V@))++"@")),
           api_refac:type(V@)==variable).
@@ -753,3 +815,210 @@ all_vars(Node) ->
 %% {ok, Apps} = ?FULL_TD_TU([?COLLECT_LOC(?T("F@(Args@@)"), 
 %%                                                 lists:member(api_refac:fun_define_info(F@),
 %%                                                              OldMFAs))], Form),
+
+simplify_expr(NewExpr, OldExpr) ->
+    NewExprStr = api_refac:pp(NewExpr),
+    NewExpr1 = wrangler_misc:parse_annotate_expr(NewExprStr),
+    {OldBoundVars,_} = lists:unzip(bound_used_vars(OldExpr)),
+    {NewBoundVars,_}= lists:unzip(api_refac:bound_vars(NewExpr1)),
+    NewVars = NewBoundVars--OldBoundVars,
+    if NewVars==[] -> NewExpr;
+       true ->
+            case wrangler_syntax:type(NewExpr) of 
+                match_expr ->
+                    simplify_match_expr(NewExpr, NewVars);
+                _ ->
+                    simplify_expr_1(NewExpr, NewVars)
+            end
+    end.
+
+simplify_expr_1(Expr, NewVars) ->
+    NewExpr = simplify_expr_2(Expr, NewVars),
+    case NewExpr==Expr of 
+        true ->
+            Expr;
+        false ->
+            simplify_expr_1(NewExpr, NewVars)
+    end.
+
+simplify_match_expr(Expr, NewVars) ->
+    Left = wrangler_syntax:match_expr_pattern(Expr),
+    Right = wrangler_syntax:match_expr_body(Expr),
+    case wrangler_syntax:type(Left) of
+        tuple ->
+            Es = wrangler_syntax:tuple_elements(Left),
+            EsWithIndex =lists:zip(lists:seq(1, length(Es)), Es),
+            Underscores=[Index||{Index, E}<-EsWithIndex,
+                                wrangler_syntax:type(E)==underscore],
+            case Underscores of 
+                [] ->
+                    Expr;
+                _ ->
+                    {NewRight, RemovedIndexes}=do_simplify_match_expr(Right, Underscores, NewVars),
+                    case RemovedIndexes of 
+                        [] ->
+                            Expr;
+                        _ ->
+                            NewLeft=[E||{Index, E}<-EsWithIndex, 
+                                        not lists:member(Index, RemovedIndexes)],
+                            case NewLeft of 
+                                [E] -> wrangler_syntax:match_expr(E, NewRight);
+                                _ -> wrangler_syntax:match_expr(
+                                       wrangler_syntax:tuple(NewLeft), NewRight)
+                            end
+                    end
+            end;
+        _ -> Expr
+    end.
+
+simplify_expr_2(Expr, Vars)->
+    Expr1=wrangler_syntax_lib:annotate_expr(wrangler_misc:reset_ann(Expr)),
+    F = fun(Node, _Others) ->
+                case wrangler_syntax:type(Node) of 
+                    variable ->
+                        VarName = wrangler_syntax:variable_name(Node),
+                        case api_refac:var_refs(Node) ==[] andalso lists:member(VarName, Vars) of 
+                            true ->
+                                {wrangler_syntax:underscore(), true};
+                            false ->
+                                {Node, false}
+                        end;
+                    match_expr -> 
+                        Pattern = wrangler_syntax:match_expr_pattern(Node),
+                        case wrangler_syntax:type(Pattern) of 
+                            underscore ->
+                                {wrangler_syntax:empty_node(),true};
+                            tuple ->
+                                Es = wrangler_syntax:tuple_elements(Pattern),
+                                case lists:all(fun(E)-> 
+                                                       wrangler_syntax:type(E)== underscore 
+                                               end, Es) of 
+                                    true ->
+                                        {wrangler_syntax:empty_node(),true};
+                                    false ->
+                                        {Node, false}
+                                end;
+                            _ -> {Node, false}
+                        end;
+                    _ ->
+                        {Node, false}
+                end
+        end,
+    element(1,api_ast_traverse:full_tdTP(F, Expr1, [])).
+
+                
+do_simplify_match_expr(MatchExprRight, Indexes, NewVars) ->
+    case wrangler_syntax:type(MatchExprRight) of
+        case_expr ->
+            Cs = wrangler_syntax:case_expr_clauses(MatchExprRight),
+            {NewCs, RmIndexes} = do_simplify_match_expr_1(Cs, Indexes, NewVars),
+            case RmIndexes of 
+                [] -> {MatchExprRight, []};
+                _ ->
+                    Arg = wrangler_syntax:case_expr_argument(MatchExprRight),
+                    {wrangler_syntax:case_expr(Arg, NewCs), RmIndexes}
+            end;
+        try_expr ->
+            Cs = wrangler_syntax:try_expr_clauses(MatchExprRight),
+            {NewCs, RmIndexes} = do_simplify_match_expr_1(Cs, Indexes, NewVars),
+            case RmIndexes of 
+                [] -> {MatchExprRight, []};
+                _ ->
+                    B = wrangler_syntax:try_expr_body(MatchExprRight),
+                    H = wrangler_syntax:try_expr_handlers(MatchExprRight),
+                    A = wrangler_syntax:try_expr_after(MatchExprRight),
+                    {wrangler_syntax:try_expr(B, NewCs, H, A), RmIndexes}
+            end;
+        _ ->
+            {MatchExprRight, []}
+    end.
+        
+do_simplify_match_expr_1(Cs, Is, NewVars) ->
+    do_simplify_match_expr_1(Cs, Is, NewVars, 0, []).
+
+do_simplify_match_expr_1(Cs, [], _NewVars, _Num, Rmd) ->
+    {Cs, Rmd};
+do_simplify_match_expr_1(Cs, [I], NewVars, Num, Rmd) ->
+    case do_simplify_match_expr_2(Cs, I, NewVars, Num) of 
+        false -> {Cs, Rmd};
+        NewCs ->
+            {NewCs, [I|Rmd]}
+    end;   
+do_simplify_match_expr_1(Cs,[I|Is], NewVars, Num, Rmd) ->
+    case do_simplify_match_expr_2(Cs, I, NewVars, Num) of 
+        false ->
+            do_simplify_match_expr_1(Cs, Is, NewVars,Num, Rmd);
+        NewCs ->
+            do_simplify_match_expr_1(NewCs, Is,NewVars, Num+1,[I|Rmd])
+    end.
+        
+
+do_simplify_match_expr_2(Cs, I, NewVars, Num) ->
+    Res=[do_simplify_match_expr_3(C,I, NewVars, Num)||C<-Cs],
+    case lists:member(false, Res) of 
+        true ->
+            false;
+        _ -> Res
+    end.
+
+do_simplify_match_expr_3(C, I, NewVars, Num) ->
+    Pats = wrangler_syntax:clause_patterns(C),
+    Body = wrangler_syntax:clause_body(C),
+    case lists:reverse(Body) of 
+        [_] ->
+            false;
+        [E|Es] ->
+            case wrangler_syntax:type(E) of 
+                tuple->
+                    TupleEs = wrangler_syntax:tuple_elements(E),
+                    NewTupleEs = lists:sublist(TupleEs, 1, I-Num-1)++
+                        lists:nthtail(I-Num, TupleEs),
+                    NewE=wrangler_syntax:tuple(NewTupleEs),
+                    Body1= wrangler_syntax:block_expr(Es++[NewE]),
+                    NewBody = wrangler_syntax:block_expr_body(
+                                simplify_expr_1(Body1, NewVars)),
+                    NewBody1 = [B||B<-NewBody, not is_empty_node(B)],
+                    case length(NewBody1) == length(Es)+1 of 
+                        true ->
+                            false;
+                        false ->
+                            
+                            wrangler_syntax:clause(Pats, none, NewBody1)
+                    end;
+                _ ->
+                    false
+            end
+    end.
+           
+bound_used_vars(Nodes) when is_list(Nodes) ->
+    lists:usort(lists:flatmap(fun (Node) -> 
+                                      bound_used_vars(Node) 
+                              end, Nodes));
+bound_used_vars(Node) ->
+    Fun = fun (N, Acc) ->
+                  Ann = wrangler_syntax:get_ann(N),
+                  case lists:keyfind(bound,1,Ann) of
+                      {bound, Vs} ->
+                          case lists:keyfind(use, 1, Ann) of 
+                              {use,Locs} ->
+                                 if length(Locs)>1 ->
+                                         Vs ++ Acc;
+                                    true -> Acc
+                                 end;
+                              false->
+                                  Acc
+                          end;
+                      false ->
+                          Acc 
+                  end
+          end, 
+    Vars=api_ast_traverse:fold(Fun, [], Node),
+    lists:usort(Vars).
+             
+        
+is_empty_node(Node) ->
+    is_tree(Node) andalso wrangler_syntax:type(Node) == empty_node.
+       
+is_tree(Node) ->
+    wrangler_syntax:is_tree(Node) orelse wrangler_syntax:is_wrapper(Node).
+

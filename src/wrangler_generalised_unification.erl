@@ -78,7 +78,7 @@ extended_case_expr_match(TempExp, {ExprArg, ExprCs}, Cond) ->
                               ||{V, E}<-S]||S<-[Subst0|Subst1]],
                     case extended_expr_match_cond_check(tl(Subst), Cond) of 
                         true ->
-                            {true, lists:flatten(Subst), [0|TempCsAcc]};
+                            {true, Subst, [0|TempCsAcc]};
                         false ->
                             false
                     end

@@ -191,7 +191,7 @@
 %%                     NewArgs@@@=delete(N, Args@@@),
 %%                     ?TO_AST("F@(NewArgs@@@)")
 %%                   end,
-%%                   refac_api:fun_define_info(F@) == {M, F, A}).
+%%                   api_refac:fun_define_info(F@) == {M, F, A}).
 %%
 %%        delete(N, List) ->
 %%            lists:sublist(List, N-1)++ lists:nthtail(N, List). '''
@@ -222,8 +222,8 @@
 %% `_This@', whose value if the entire subtree that pattern matches the template.
 %%
 %%         ```?COLLECT(?T("Body@@, V@=Expr@, V@"),
-%%                     {_File@, refac_api:start_end_loc(_This@)},
-%%                     refac_api:type(V@)==variable)'''
+%%                     {_File@, api_refac:start_end_loc(_This@)},
+%%                     api_refac:type(V@)==variable)'''
 %%
 %%</li>
 %%<li>
@@ -234,7 +234,7 @@
 %% same the example above.
 %% 
 %%         ```?COLLEC_LOC(?T("Body@@, V@=Expr@, V@"),
-%%                        refac_api:type(V@)==variable)'''
+%%                        api_refac:type(V@)==variable)'''
 %%
 %%</li>
 %%<li>
@@ -375,10 +375,8 @@
          extended_expr_match/3,
          search_and_transform/3,
          search_and_collect/3,
-         meta_apply_templates/1,
-         simplify_expr/2, 
-         re_order_cs/2]).
-
+         meta_apply_templates/1]).
+         
 -compile(export_all).
 
 -include("../include/wrangler.hrl").
@@ -518,7 +516,7 @@ syntax_context(Node) ->
             %% Should change to return an error message here!!!
             %% refac_io:format("Node:\n~p\n", [Node]),
             %% throw({error, "Wrangler internal error "
-            %%        "in refac_api:syntax_context/1"})
+            %%        "in api_refac:syntax_context/1"})
     end.
    
 %% ================================================================================
@@ -1095,7 +1093,7 @@ reverse_function_clause_1(FunDef) ->
 %%======================================================================
 -type (rule()::{rule, any(), any()}).
 -spec(search_and_transform([rule()], [filename()|dir()]|
-                           [{filename(), syntaxTree()}|syntaxTree()],
+                           [{filename(), syntaxTree()}|syntaxTree()]|syntaxTree(),
                            full_td_tp|full_bu_tp|stop_td_tp) ->
              {ok, [{{filename(),filename()}, syntaxTree()}]}|
              {ok, [{filename(), syntaxTree()}|syntaxTree()]}|
@@ -2034,7 +2032,7 @@ make_arity_qualifier(FunName, Arity) when
     wrangler_syntax:arity_qualifier(wrangler_syntax:atom(FunName),
                                      wrangler_syntax:integer(Arity));
 make_arity_qualifier(_FunName, _Arity) ->
-    erlang:error("badarg to function refac_api:make_arity_qualifier/2.").
+    erlang:error("badarg to function api_refac:make_arity_qualifier/2.").
 
    
 check_rules(Rules) when is_list(Rules)->
@@ -2443,108 +2441,4 @@ get_mfas(File, Order) ->
                 false ->
                     []
             end
-    end.
-
-
-simplify_expr(NewExpr, OldExpr) ->
-    NewExprStr = api_refac:pp(NewExpr),
-    NewExpr1 = wrangler_misc:parse_annotate_expr(NewExprStr),
-    {OldBoundVars,_} = lists:unzip(bound_used_vars(OldExpr)),
-    {NewBoundVars,_}= lists:unzip(bound_vars(NewExpr1)),
-    NewVars = NewBoundVars--OldBoundVars,
-    case NewVars of 
-         [] -> NewExpr;
-         _ ->
-            simplify_expr_1(NewExpr1, NewVars)
-    end.
-    
-simplify_expr_1(NewExpr, NewVars) ->
-    NewExpr1 = simplify_expr_2(NewExpr, NewVars),
-    case NewExpr1==NewExpr of 
-        true ->
-            NewExpr;
-        false ->
-            simplify_expr_1(NewExpr1, NewVars)
-    end.
-
-simplify_expr_2(Expr, Vars)->
-    Expr1=wrangler_syntax_lib:annotate_expr(wrangler_misc:reset_ann(Expr)),
-    F = fun(Node, _Others) ->
-                case wrangler_syntax:type(Node) of 
-                    variable ->
-                        VarName = wrangler_syntax:variable_name(Node),
-                        case var_refs(Node) ==[] andalso lists:member(VarName, Vars) of 
-                            true ->
-                                {wrangler_syntax:underscore(), true};
-                            false ->
-                                {Node, false}
-                        end;
-                    match_expr -> 
-                        Pattern = wrangler_syntax:match_expr_pattern(Node),
-                        case wrangler_syntax:type(Pattern) of 
-                            underscore ->
-                                {wrangler_syntax:empty_node(),true};
-                            tuple ->
-                                Es = wrangler_syntax:tuple_elements(Pattern),
-                                case lists:all(fun(E)-> 
-                                                       wrangler_syntax:type(E)== underscore 
-                                               end, Es) of 
-                                    true ->
-                                        {wrangler_syntax:empty_node(),true};
-                                    false ->
-                                        {Node, false}
-                                end;
-                            _ -> {Node, false}
-                        end;
-                    _ ->
-                        {Node, false}
-                end
-        end,
-    {Expr2,_}=api_ast_traverse:full_tdTP(F, Expr1, []),
-    Expr2.
-                
-bound_used_vars(Nodes) when is_list(Nodes) ->
-    lists:usort(lists:flatmap(fun (Node) -> 
-                                      bound_used_vars(Node) 
-                              end, Nodes));
-bound_used_vars(Node) ->
-    Fun = fun (N, Acc) ->
-                  Ann = wrangler_syntax:get_ann(N),
-                  case lists:keyfind(bound,1,Ann) of
-                      {bound, Vs} ->
-                          case lists:keyfind(use, 1, Ann) of 
-                              {use,Locs} ->
-                                 if length(Locs)>1 ->
-                                         Vs ++ Acc;
-                                    true -> Acc
-                                 end;
-                              false->
-                                  Acc
-                          end;
-                      false ->
-                          Acc
-                  end
-          end,
-    Vars=api_ast_traverse:fold(Fun, [], Node),
-    lists:usort(Vars).
-             
-                                 
-                         
-
-
-re_order_cs(Expr, NewOrder) ->
-    case wrangler_syntax:type(Expr) of 
-        case_expr ->
-            Arg = wrangler_syntax:case_expr_argument(Expr),
-            Cs = wrangler_syntax:case_expr_clauses(Expr),
-            NewCs = re_order_cs_1(Cs, NewOrder,[]),
-            wrangler_syntax:case_expr(Arg, NewCs);
-        _ ->
-            Expr
-    end.
-
-re_order_cs_1(Cs, [Index|Is], NewCs) ->
-    C=lists:nth(Index, Cs),
-    re_order_cs_1(Cs, Is, [C|NewCs]);
-re_order_cs_1(_Cs, [], NewCs) ->
-    lists:reverse(NewCs).
+    end. 

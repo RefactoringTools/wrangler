@@ -34,9 +34,10 @@ select_focus(_Args=#args{current_file_name=File,
     api_interface:pos_to_fun_def(File, Pos).
     
 %% Pre-condition checking. 
--spec (check_pre_cond/1::(#args{}) -> ok | {error, term()}).  
+-spec (check_pre_cond/1::(#args{}) -> ok).  
 check_pre_cond(_Args) ->
     ok.
+
 selective() ->
     false.
 
@@ -91,13 +92,8 @@ add_to_export(FileName, {FunName, Arity}, SearchPaths, Editor, TabWidth)->
                        focus_sel=FunDef,
                        search_paths=SearchPaths,
                        tabwidth=TabWidth},
-            case check_pre_cond(Args) of
-                ok -> 
-                    {ok, Res}=transform(Args),
-                    wrangler_write_file:write_refactored_files(Res,Editor,TabWidth,"");
-                {error, Reason} ->
-                    {error, Reason}
-            end;
+            {ok, Res}=transform(Args),
+            wrangler_write_file:write_refactored_files(Res,Editor,TabWidth,"");
         {error, Reason} ->
             {error, Reason}
     end.

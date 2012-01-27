@@ -379,6 +379,8 @@
      (("Generate API Migration Rules"  erl-refactor-generate-migration-rules)
       ("Apply API Migration to Current File" erl-refactor-apply-api-migration-file)
       ("Apply API Migration to Dirs" erl-refactor-apply-api-migration-dirs)
+      nil
+      ("From Regexp to Re"  erl-refactor-regexp-to-re) 
       ))
     nil
     ("Skeletons"
@@ -3971,6 +3973,33 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
               ))))             
     (message "Rule generation aborted."))))
 
+(defun erl-refactor-regexp-to-re()
+    "api migration from regexp to re"
+    (interactive) 
+    (let ((current-file-name (buffer-file-name))
+          (buffer (current-buffer))
+          (scope (if (yes-or-no-p "Only apply to the current file?")
+                     (list (buffer-file-name))
+                   wrangler-search-paths)))
+    (if (buffers-saved)
+        (erl-spawn
+          (erl-send-rpc wrangler-erl-node 'emacs_wrangler 'apply_refac 
+                        (list 'do_api_migration (list scope "refac_regexp_to_re" 
+                                                      wrangler-search-paths 'emacs tab-width)
+                              wrangler-search-paths))
+          (erl-receive (buffer current-file-name)
+              ((['rex ['badrpc rsn]]
+                     (message "Refactoring failed: %S" rsn))
+               (['rex ['error rsn]]
+                (message "Refactoring failed: %s" rsn))
+               (['rex ['ok modified]]
+                (if (equal modified nil)
+                    (message "API migration finished, and no file has been changed.")
+                  (preview-commit-cancel current-file-name modified nil))))))
+      (message "API migration aborted."))))
+
+         
+       
 (defun erl-refactor-apply-api-migration-file(name)
   "apply API migration rules."
   (interactive (list (read-string "API migration rule module: ")
@@ -3980,7 +4009,7 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
   (if (buffers-saved)
       (erl-spawn
 	(erl-send-rpc wrangler-erl-node 'emacs_wrangler 'apply_refac 
-                      (list 'do_api_migration (list current-file-name name 
+                      (list 'do_api_migration (list (list current-file-name) name 
                                                     wrangler-search-paths 'emacs tab-width)
                             wrangler-search-paths))
         (erl-receive (buffer current-file-name)
@@ -4003,7 +4032,7 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
   (if (buffers-saved)
       (erl-spawn
 	(erl-send-rpc wrangler-erl-node 'emacs_wrangler 'apply_refac 
-                      (list 'do_api_migration (list name wrangler-search-paths 'emacs tab-width)
+                      (list 'do_api_migration (list wrangler-search-paths name wrangler-search-paths 'emacs tab-width)
                             wrangler-search-paths))
         (erl-receive (buffer current-file-name)
 	    ((['rex ['badrpc rsn]]
