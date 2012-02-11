@@ -954,6 +954,8 @@ pp(Expr) when is_list(Expr) ->
 pp(Expr) ->
     wrangler_prettypr:format(wrangler_syntax:remove_comments(Expr)).
 
+pp_1([])->
+    "";
 pp_1([E]) ->
     wrangler_prettypr:format(E);
 pp_1([E|Es]) ->
@@ -2091,7 +2093,7 @@ start_end_loc(Tree) ->
                   fun_name ::syntaxTree(),
                   args     ::[syntaxTree()]|syntaxTree()}).
 
-%% @doc For a function application node that matches `?FUN_APPY(M,F,A)', 
+%% @doc For a function application node that matches `?FUN_APPLY(M,F,A)', 
 %%     get the part that represents the module name if M appears in 
 %%     the application; otherwise returns `none'.
 -spec get_app_mod(syntaxTree()) ->syntaxTree()|none.
