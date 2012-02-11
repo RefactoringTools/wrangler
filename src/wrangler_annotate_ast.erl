@@ -241,7 +241,10 @@ add_fun_def_info_in_apps(T, ModName, DefineModLoc) ->
 			true -> ?DEFAULT_LOC
 		     end,
 	    Ann ={fun_def, {M, FunName, Arity, Pos, DefLoc}},
-	    Op1 = update_ann(Op, Ann),
+            Fun1 = update_ann(Fun, Ann),
+	    Op1 = update_ann(
+                    rewrite(Op, wrangler_syntax:module_qualifier(Mod, Fun1)), 
+                    Ann),
 	    rewrite(T, wrangler_syntax:application(Op1, Args));
 	tuple ->
 	    case wrangler_syntax:tuple_elements(Op) of
