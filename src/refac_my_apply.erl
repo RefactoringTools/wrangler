@@ -6,27 +6,28 @@
 
 -compile(export_all).
 
-%% Note: test/1 does not accept a string ended with a dot, so 
-%% please remove the dot at the end of the string.
-%% eg: refac_my_apply("F=atom_to_list("aa)", F:bar()").
+%% Note: fuctions needed to redefined: apply/2, apply/3, spawn/1/2/3/4, 
+%% spawn_link/1/2/3/4, ...
+
+-spec test/1::(string()) ->string().              
 test(Str) -> transform(Str, {"my_mod", "my_apply", "my_spawn"}).
 
+-spec transform/2::(string(), {string(), string(), string()}) -> 
+                           {ok, string()} |{error, term()}.
 transform(Str, {MyMod, MyApply, MySpawn}) ->
     try 
-        Exprs =parse_annotate_expr(Str), 
+        Str1 =rm_dot(Str),
+        Exprs =parse_annotate_expr(Str1), 
         {ok, NewExprs}=do_transform(Exprs, {MyMod, MyApply, MySpawn}),
-        {ok, ?PP(NewExprs)}
+        {ok, ?PP(NewExprs)++"."}
     catch
         _E1:E2 ->
             {error, {E2, erlang:get_stacktrace()}}
     end.
             
-do_transform(Exprs, {MyMod, MyApply, MySpawn}) when is_list(Exprs)->
-    ?FULL_BU_TP([rule1(MyMod, MyApply, MySpawn)], Exprs);
-do_transform(Expr, {MyMod, MyApply, MySpawn}) ->
-    ?FULL_BU_TP([rule1(MyMod, MyApply, MySpawn)], [Expr]).
-
-  
+do_transform(Exprs, {MyMod, MyApply, MySpawn}) ->
+    ?FULL_BU_TP([rule1(MyMod, MyApply, MySpawn)], Exprs).
+ 
 rule1(MyMod, MyApply, MySpawn) ->
     ?RULE(?T("F@(Args@@)"), 
           case api_refac:fun_define_info(F@) of 
@@ -34,11 +35,13 @@ rule1(MyMod, MyApply, MySpawn) ->
                   ?TO_AST(MyMod++":"++MyApply++"("++?PP(Args@@)++")");
               {erlang, spawn, _} ->
                   ?TO_AST(MyMod++":"++MySpawn++"("++?PP(Args@@)++")");
+              {erlang, spawn_link, _} ->
+                  ?TO_AST(MyMod++":"++MySpawn++"_link"++"("++?PP(Args@@)++")");
               {erlang, _, _} ->
                   _This@;
               {M, F, _A} when M/='_' andalso F/='_' ->
-                  ?TO_AST(MyMod++":" ++ MyApply++"("++atom_to_list(M)++","
-                          ++atom_to_list(F)++", ["++?PP(Args@@)++"])");
+                        ?TO_AST(MyMod++":" ++ MyApply++"("++atom_to_list(M)++","
+                               ++atom_to_list(F)++", ["++?PP(Args@@)++"])");
               _ ->
                  case api_refac:type(F@) of 
                       module_qualifier ->
@@ -48,17 +51,20 @@ rule1(MyMod, MyApply, MySpawn) ->
                                   ++?PP(F)++", ["++?PP(Args@@)++"])");
                       _ -> _This@
                   end
-           end,
+            end,
           true).
           
 parse_annotate_expr(Str) ->
     Expr= wrangler_misc:parse_annotate_expr(Str),
-    case is_list(Expr) of 
-        true ->
-            [wrangler_annotate_ast:add_fun_def_info(E, '_', [], [])||
-                E<-Expr];
-        false ->
-            wrangler_annotate_ast:add_fun_def_info(Expr, '_', [], [])
-    end.
+    Expr1 = if is_list(Expr) -> Expr; true -> [Expr] end,
+    [wrangler_annotate_ast:add_fun_def_info(E, '_', [], [])||E<-Expr1].
      
+
+rm_dot(Str) ->
+    {ok, Toks, _} = wrangler_scan_with_layout:string(Str),
+    Toks1 = lists:takewhile(fun(T) ->element(1, T) /= dot end, Toks),
+    wrangler_misc:concat_toks(Toks1).
+                                   
+   
+                                  
 
