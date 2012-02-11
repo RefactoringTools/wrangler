@@ -102,6 +102,7 @@
               refac_specialise_a_function,
               refac_swap_function_arguments,
               refac_add_to_export,
+              refac_my_apply,
               regexp_re
               ]},            
     {registered, [wrangler_ast_server,
