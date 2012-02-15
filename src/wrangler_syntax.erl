@@ -477,9 +477,9 @@ type(Node) ->
       {rule, _, _, _, _} -> rule;
       {'try', _, _, _, _, _} -> try_expr;
       {type, _, _, _} -> type;     
+      {remote_type, _, _} -> remote_type;
       {tuple, _, _} -> tuple;
       {fake_parentheses, _} -> fake_parentheses;
-     %% {bc,_, _, _} -> bc;
         _ -> erlang:error({badarg, Node})
     end.
 
