@@ -132,7 +132,7 @@
 -module(gen_refac).
 
 -export([run_refac/2, 
-		 run_refac/3,
+         run_refac/3,
          input_par_prompts/1,
          apply_changes/3
         ]).
@@ -211,8 +211,10 @@ apply_changes(Module, Args, CandsNotToChange) ->
 run_refac(ModName, Args) ->
     run_refac(ModName, Args, emacs).
 
+
 %%@doc The interface function for invoking a refactoring defined 
 %% in module `ModName'.
+%%@private
 -spec(run_refac(Module::module()|string()|tuple(), Args::[term()], Editor::atom())->
              {ok, string()} | {ok, [{filename(), filename(), string()}]} | 
 			 {change_set, [{string(), string()}], module(), #args{}}|

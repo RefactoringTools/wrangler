@@ -840,10 +840,11 @@ test_tuple_args(SearchPaths, Lazy) ->
                end,
                2, 3, Lazy, SearchPaths).
 
-
+%%@private
 add_to_export(ModOrFile, FA, SearchPaths) ->
     add_to_export(ModOrFile, FA, true, SearchPaths).
 
+%%@doc Command generator for adding function names to the export list of a module.
 -spec add_to_export(ModOrFile::mod_or_file(),
                     Fa:: fa(),
                     Lazy :: boolean(),
@@ -1265,11 +1266,12 @@ test_refac_3({lazy_gen, Gen}) ->
     end.
 
 
-
+%%@private
 inline_var(ModOrFile, FA, Loc, SearchPaths) ->
     inline_var(ModOrFile, FA, Loc, true, SearchPaths).
 
-%% @doc Command generator for inlining variable names.
+
+%%@doc Command generator for inlining variable names.
 -spec inline_var(ModOrFile::mod_or_file(), 
                  FA::fa(),
                  MatchExprFilter::fun((MatchExpr::syntaxTree())-> boolean()),

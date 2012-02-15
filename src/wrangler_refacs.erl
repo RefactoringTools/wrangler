@@ -179,33 +179,37 @@ get_user_refactorings(Modules) ->
 
 %% ====================================================================================================
 %% @doc gen_refac refactorings - delegate functions in order to achieve more clear API (especially for Eclipse)
+%%private
 -spec(apply_changes_eclipse(Module::module(), Args::[term()], CandsNotToChange::[term()]) ->
              {ok, [{filename(), filename(), syntaxTree()}]} |
              {error, term()}).
 apply_changes_eclipse(Module, Args, CandsNotToChange) ->
 	gen_refac:apply_changes(Module, Args, CandsNotToChange).
 
+%%@private
 -spec(run_refac_eclipse(Module::module()|string()|tuple(), Args::[term()])->
              {ok, string()} | {change_set, [{string(), string()}], module(), tuple()}|
              {error, term()}).
 run_refac_eclipse(ModName, Args) ->
 	gen_refac:run_refac(ModName,Args, eclipse).
-
+%%@private
 -spec(input_par_prompts_eclipse(CallBackMod::module()) -> [string()]).
 input_par_prompts_eclipse(CallBackMod) ->
 	gen_refac:input_par_prompts(CallBackMod).
 
 %% ====================================================================================================
 %% @doc gen_composite_refac refactorings - delegate functions in order to achieve more clear API (especially for Eclipse)
+%%@private
 -spec(input_par_prompts_c_eclipse(CallBackMod::module()) -> [string()]).
 input_par_prompts_c_eclipse(CallBackMod) ->
 	gen_composite_refac:input_par_prompts(CallBackMod).
-
+%%@private
 -spec(init_composite_refac_eclipse(Module::module()|string()|tuple(), Args::[term()])->
 	{ok,pid()} | ignore |{error, term()}).
 init_composite_refac_eclipse(ModName, Args) ->
 	gen_composite_refac:init_composite_refac(ModName, Args).
 
+%%@private
 get_next_command_eclipse(PrevResult) ->
 	case gen_composite_refac:get_next_command(PrevResult) of
 		{ok, none, _ChangedFiles, [error, Reason]} ->
@@ -225,8 +229,6 @@ get_next_command_eclipse(PrevResult) ->
 		
 
 %% ====================================================================================================
-%% @doc user defined refactorings - common
-%%
 %% @doc load new callback module (ad hoc refactorings)
 -spec(load_callback_mod_eclipse(Module::module(), Path::string()) ->
 	ok | {error, Reason::term()}).
@@ -290,6 +292,7 @@ rename_var_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     try_refac(refac_rename_var, rename_var_eclipse, [FileName, Line, Col, NewName, SearchPaths, TabWidth]).
 
 %%-spec get_var_name_eclipse/5::(filename(), integer(), integer(), [dir()], integer()) -> string().
+%%@private
 get_var_name_eclipse(FileName, Line, Col, SearchPaths, TabWidth) ->
     try_refac(refac_rename_var, get_var_name, [FileName, Line, Col, SearchPaths, TabWidth]).
 
@@ -314,7 +317,7 @@ get_var_name_eclipse(FileName, Line, Col, SearchPaths, TabWidth) ->
 rename_fun(ModOrFileName, {OldFunName, Arity}, NewFunName, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_rename_fun, rename_fun_by_name, 
               [ModOrFileName, OldFunName, Arity, NewFunName, SearchPaths, Editor, TabWidth]).
-
+%%@private
 -spec(rename_fun/7::(string(), integer(), integer(), string(), [dir()], context(), integer()) ->
 	     {error, string()} |{warning, string()}| {ok, [filename()]}).
 rename_fun(FileName, Line, Col, NewName, SearchPaths, Context, TabWidth) ->
@@ -340,6 +343,7 @@ rename_fun_1_eclipse(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     try_refac(refac_rename_fun, rename_fun_1_eclipse, [FileName, Line, Col, NewName, SearchPaths, TabWidth]).
     
 
+%%@private
 %%-spec(get_fun_name_eclipse/5::(string(), integer(), integer(), [dir()], integer()) ->
 %% string().
 get_fun_name_eclipse(FileName, Line, Col, SearchPaths, TabWidth) ->
@@ -888,11 +892,11 @@ register_pid(FileName, _Start=[SLn, SCol], _End=[ELn, ECol], RegName, SearchPath
 	     {error, string()} | {ok, [filename()]}).
 tuple_funpar(FileName, _StartLoc=[SLn, SCol], _EndLoc=[ELn, ECol],SearchPaths, Context, TabWidth) ->
     try_refac(refac_tuple, tuple_funpar, [FileName, {SLn, SCol}, {ELn, ECol}, SearchPaths, Context, TabWidth]).
-
+%%@private
 tuple_funpar_1(FileName, _StartLoc=[SLn, SCol], _EndLoc=[ELn, ECol], SearchPaths, Context, TabWidth) ->
     try_refac(refac_tuple, tuple_funpar_1, [FileName, {SLn, SCol}, {ELn, ECol}, SearchPaths, Context, TabWidth]).
 
-
+%%@private
 tuple_args(ModOrFile, FA, Index1,Index2, SearchPaths, Context, TabWidth)->
     try_refac(refac_tuple, tuple_args, [ModOrFile, FA, Index1, Index2, SearchPaths, Context, TabWidth]).
 
@@ -1082,6 +1086,7 @@ intro_new_var_eclipse(FileName, Start, End, NewVarName, SearchPaths, TabWidth) -
 inline_var(FName, Line, Col, SearchPaths, Context, TabWidth) ->
     try_refac(refac_inline_var, inline_var, [FName, Line, Col, SearchPaths, Context, TabWidth]).
 
+%%@private
 -spec (inline_var_1/8::(FileName::filename(), Line::integer(), Col::integer(), 
 				Candidates::[{{StartLine::integer(), StartCol::integer()},{EndLine::integer(), EndCol::integer()}}], 
 				SearchPaths::[dir()], Editor::context(), TabWidth::integer(), LogMsg::string()) ->
@@ -1417,7 +1422,7 @@ partition_exports_eclipse(File, DistThreshold, SearchPaths, TabWidth)->
     try_refac(wrangler_modularity_inspection, partition_exports_eclipse,
 	      [File, DistThreshold, SearchPaths, TabWidth]).
 
-
+%%@private
 -spec(do_api_migration(Scope::[filename()|dir()],CallBackMod::string(), SearchPaths::[filename()|dir()], 
                        Editor::context(), TabWidth::integer()) -> 
              	 {error, string()}| {ok, [{filename(), filename(), string()}]}).   
@@ -1426,6 +1431,7 @@ do_api_migration(Scope, CallBackMod, SearchPaths, Editor, TabWidth)->
                                                       SearchPaths, Editor, TabWidth]).
 
 
+%%@private
 -spec(generate_rule_based_api_migration_mod(FileName::filename(), 
                                             NewModName::string()|atom()) ->
              {ok, filename()} | {error, term()}).

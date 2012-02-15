@@ -869,6 +869,7 @@ remove_from_import(Node, _FA={F,A}) ->
     end.
 
 %% =======================================================================
+%%@private
 add_to_export(Node, FAtoAdd) ->
     add_to_export_after(Node, FAtoAdd, none).
 
@@ -964,7 +965,7 @@ pp_1([E|Es]) ->
 %%@private
 quote(Str) ->    
     wrangler_misc:parse_annotate_expr(Str).
-
+%%@private
 anti_quote(Str) ->    
     wrangler_misc:parse_annotate_expr(Str).
 
@@ -2423,6 +2424,7 @@ meta_apply_templates(_MFA={M,F,A}) ->
 
 
 %% not tested yet.
+%%@private
 get_mfas(File, Order) ->
     case Order == td orelse Order == bu of
         true ->
