@@ -139,7 +139,9 @@ EXAMPLE_CODE = inspec_examples.erl \
     gen_refacs/refac_apply_to_remote_call.erl gen_refacs/refac_remove_an_argument.erl \
     gen_refacs/refac_remove_an_import_attribute.erl gen_refacs/refac_add_an_import_attribute.erl \
     gen_refacs/refac_specialise_a_function.erl gen_refacs/refac_keysearch_to_keyfind.erl gen_refacs/refac_swap_function_arguments.erl \
-    gen_composite_refacs/refac_batch_clone_elimination.erl 
+    gen_composite_refacs/refac_batch_clone_elimination.erl \
+    gen_composite_refacs/refac_batch_prefix_module.erl \
+    refac_batch_rename_fun.erl  
 
 docs:
 	$(ERL) -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS), {packages, false}])" -s init stop
