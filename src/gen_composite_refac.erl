@@ -38,7 +38,7 @@
 %%   refactoring. There should be one prompt string for each input.
 %% Callback function `composite_refac/1':
 %% ```composite_refac(Args::#args()) 
-%%       ===> composite_refac_script()'''
+%%       ===> composite_refac()|[]'''
 %%   `composite_refac' is the function in which the user could script a 
 %%   composite refactoring. The definition of record `args' is the same as the 
 %%   the record using by the `gen_refac' behaviour to be consistent, but the 
@@ -241,10 +241,10 @@
 %%<a href="file:refac_batch_clone_elimination.erl" >Batch clone elimination;</a>.
 %%</li>
 %%<li>
-%%<a href="file:refac_batch_tuple_args.erl" >Batch tupling of function arguments;</a>.
+%%<a href="file:refac_batch_rename_fun.erl">Batch renaming of function names from camelCase to camel_case. </a>
 %%</li>
 %%<li>
-%%<a href="file:refac_batch_rename_fun.erl">Batch renaming of functions. </a>
+%%<a href="file:refac_batch_prefix_module.erl">Add a prefix to Erlang module names. </a>
 %%</li>
 %%
 %% === How to apply an own-defined composite refactoring ===

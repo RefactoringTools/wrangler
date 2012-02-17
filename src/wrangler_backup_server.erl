@@ -143,14 +143,13 @@ do_recover_backups([], PreviewPairs, _RecoverdFiles) ->
 do_recover_backups([Pid|Fs], PreviewPairs, RecoveredFiles) when is_pid(Pid) ->
     do_recover_backups(Fs, PreviewPairs, RecoveredFiles);
 do_recover_backups([{{FileName, NewFileName, false}, Content}|Fs], PreviewPairs, RecoveredFiles) ->
-    SwpFileName = filename:join([filename:rootname(NewFileName) ++ ".erl.swp"]),
-    case filelib:is_regular(SwpFileName) of 
-        true -> 
-            %% make sure only the lastest version is copied to the .swp file.
-            ok;
-        _ ->
-            file:copy(FileName, SwpFileName) 
-    end,
+    SwpFileName = filename:join([filename:rootname(FileName) ++ ".erl.swp"]),
+    Res=case filelib:is_regular(SwpFileName) of 
+            true -> 
+                ok;
+            _ ->
+                file:copy(NewFileName, SwpFileName) 
+        end,
     %% make sure only the oldest version is copied to the file.
     NewRecoveredFiles=case lists:member(FileName, RecoveredFiles) of 
                           true ->
@@ -160,11 +159,17 @@ do_recover_backups([{{FileName, NewFileName, false}, Content}|Fs], PreviewPairs,
                               [FileName|RecoveredFiles]
                       end,
     NewPreviewPairs=update_preview_pairs({FileName, NewFileName, SwpFileName}, PreviewPairs),
+    if FileName /= NewFileName -> file:delete(NewFileName);
+       true -> ok
+    end,
     do_recover_backups(Fs, NewPreviewPairs, NewRecoveredFiles);  
 do_recover_backups([{{FileName, NewFileName, true}, _Content}|Fs], PreviewPairs,RecoveredFiles) ->
-    SwpFileName = filename:join([filename:rootname(NewFileName) ++ ".erl.swp"]),
-    file:copy(FileName, SwpFileName),
+    SwpFileName = filename:join([filename:rootname(FileName) ++ ".erl.swp"]),
+    file:copy(NewFileName, SwpFileName),
     NewPreviewPairs=[{{FileName, NewFileName, true}, SwpFileName}|PreviewPairs],
+    if FileName /= NewFileName -> file:delete(NewFileName);
+       true -> ok
+    end,
     do_recover_backups(Fs, NewPreviewPairs,[FileName| RecoveredFiles]).
 
 update_preview_pairs({FileName, NewFileName, SwpFileName},PreviewPairs) ->

@@ -247,5 +247,18 @@
 -define(refac_(RefacName, Args, SearchPaths),
         {refac_, RefacName, fun()->Args++[SearchPaths] end}).
 
+              
 -define(current(M,F,A),
         wrangler_cmd_server:update_entity({M,F,A})).
+
+
+-type(elementary_refac()::{refac_, atom, [term()]}).
+
+-type (qualifier():: atomic | non_atomic).
+
+-type(composite_refac()::elementary_refac() | 
+                         {interactive, qualifier(), [elementary_refac()]} |
+                         {repeat_interactive, qualifier(), [elementary_refac()]} | 
+                         {if_then, function(), composite_refac()} |
+                         {while, function(), qualifier(), composite_refac()} |
+                         {qualifier, [composite_refac()]}).

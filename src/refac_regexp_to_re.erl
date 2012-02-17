@@ -1,4 +1,3 @@
-
 %%@private
 -module(refac_regexp_to_re). 
 

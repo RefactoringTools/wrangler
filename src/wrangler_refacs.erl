@@ -179,20 +179,19 @@ get_user_refactorings(Modules) ->
 
 %% ====================================================================================================
 %% @doc gen_refac refactorings - delegate functions in order to achieve more clear API (especially for Eclipse)
-%%private
 -spec(apply_changes_eclipse(Module::module(), Args::[term()], CandsNotToChange::[term()]) ->
              {ok, [{filename(), filename(), syntaxTree()}]} |
              {error, term()}).
 apply_changes_eclipse(Module, Args, CandsNotToChange) ->
 	gen_refac:apply_changes(Module, Args, CandsNotToChange).
 
-%%@private
+%%@
 -spec(run_refac_eclipse(Module::module()|string()|tuple(), Args::[term()])->
              {ok, string()} | {change_set, [{string(), string()}], module(), tuple()}|
              {error, term()}).
 run_refac_eclipse(ModName, Args) ->
 	gen_refac:run_refac(ModName,Args, eclipse).
-%%@private
+
 -spec(input_par_prompts_eclipse(CallBackMod::module()) -> [string()]).
 input_par_prompts_eclipse(CallBackMod) ->
 	gen_refac:input_par_prompts(CallBackMod).
@@ -203,12 +202,12 @@ input_par_prompts_eclipse(CallBackMod) ->
 -spec(input_par_prompts_c_eclipse(CallBackMod::module()) -> [string()]).
 input_par_prompts_c_eclipse(CallBackMod) ->
 	gen_composite_refac:input_par_prompts(CallBackMod).
+
 %%@private
 -spec(init_composite_refac_eclipse(Module::module()|string()|tuple(), Args::[term()])->
 	{ok,pid()} | ignore |{error, term()}).
 init_composite_refac_eclipse(ModName, Args) ->
 	gen_composite_refac:init_composite_refac(ModName, Args).
-
 %%@private
 get_next_command_eclipse(PrevResult) ->
 	case gen_composite_refac:get_next_command(PrevResult) of
@@ -230,6 +229,7 @@ get_next_command_eclipse(PrevResult) ->
 
 %% ====================================================================================================
 %% @doc load new callback module (ad hoc refactorings)
+%%@private
 -spec(load_callback_mod_eclipse(Module::module(), Path::string()) ->
 	ok | {error, Reason::term()}).
 load_callback_mod_eclipse(Module, Path) ->
@@ -244,6 +244,7 @@ load_callback_mod_eclipse(Module, Path) ->
 
 %% @doc load user's own refactorings from my_gen_refac
 -spec(load_user_refactorings(Path::string()) -> ok).
+%%@private
 load_user_refactorings(Path) ->
 	MyRefacs = filename:join(Path, "my_gen_refac"),
 	MyCRefacs = filename:join(Path, "my_gen_composite_refac"),

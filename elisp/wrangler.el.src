@@ -271,19 +271,6 @@
 (add-hook 'ediff-quit-hook 'my-ediff-qh)
 
 
-(defvar gen-refac-menu-items
-  `(("Batch Clone Elimination" refac_batch_clone_removal)))
-
-(defvar gen-composite-refac-menu-items
-  `(("Batch Clone Elimination" refac_batch_clone_removal)))
-
-(defvar my-gen-refac-menu-items
-   `(("Batch Clone Elimination" refac_batch_clone_removal)))
-
-(defvar my-gen-composite-refac-menu-items
-  `(("Batch Clone Elimination" refac_batch_clone_removal)))
-
-
 (defvar refactor-menu-items
   `(("Rename Variable Name" erl-refactor-rename-var)
     ("Rename Function Name" erl-refactor-rename-fun)
@@ -385,6 +372,7 @@
     nil
     ("Skeletons"
      (("gen_refac Skeleton"  tempo-template-gen-refac)
+      ("gen_composite_refac Skeleton" tempo-template-gen-composite-refac)
       ))
     nil
     ("Customize Wrangler" wrangler-customize)
@@ -682,7 +670,9 @@
 	        (setq buffer (car list)))
             (progn
               (set-buffer buffer)
-              (revert-buffer t t t)
+              (if (file-exists-p (buffer-file-name buffer))
+                  (revert-buffer t t t)
+                nil)
               (setq list (cdr list))
               (setq buffer (car list)))))))
     
@@ -1157,7 +1147,6 @@
              (if warning
                  (setq has-warning warning)
                nil)
-             (message "Refactoring succeeded %s" modified)
              ;;(update-buffers modified)
              (revert-all-buffers)
              (apply-refac-cmds current-file-name (list 'ok modified)))
@@ -1166,6 +1155,7 @@
              (setq name_change (elt result 1))
              (message "Refactoring succeeded %s" modified)
              ;;(update-buffers modified)
+             (message "current: %s" current-file-name)
              (revert-all-buffers)
              (apply-refac-cmds current-file-name (list (list 'ok modified) name_change)))
             (t
@@ -1204,13 +1194,13 @@
           ((equal result ['abort])
            (message "Refactoring aborted.")))))
           
-                               
+                       
 
 ;; redefined get-file-buffer to handle the difference between
 ;; unix and windows filepath seperator.
 (defun get-file-buffer (filename)
  (let ((buffer)
-	(bs (buffer-list)))
+       (bs (buffer-list)))
         (while (and (not buffer) (not (equal bs nil)))
 	   (let ((b (car bs)))
 	     (if (and (buffer-file-name b)
@@ -3859,8 +3849,8 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
              (if (equal modified nil)
                  (message "Refactoring finished, and no file has been changed.")
                (revert-all-buffers)
-               (with-current-buffer (get-file-buffer-1 current-file-name)
-                nil)
+             ;;  (with-current-buffer (get-file-buffer-1 current-file-name)
+              ;;  nil)
                (preview-commit-cancel current-file-name modified nil)
                (message "Refactoring finished."))))
          (['rex ['ok ['refactoring cmd args]]]
@@ -3894,8 +3884,8 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
                           (append newargs (list tab-width))))
       (erl-receive(current-file-name)
           ((['rex result]
-            (process-result current-file-name result 0 0 t)))
-        )))
+            (process-result (buffer-file-name) result 0 0 t))
+        ))))
   )
 
 (defvar refac-cmd-name-map
@@ -4126,4 +4116,128 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
   "*The template of a gen_refac.
 Please see the function `tempo-define-template'.")
 
+
+(tempo-define-template "gen-composite-refac"
+  '((erlang-skel-include erlang-skel-large-header)
+    "-behaviour(gen_composite_refac)." n n
+   
+    "%% Include files" n 
+    "-include_lib(\"wrangler/include/wrangler.hrl\")." n n
+    (erlang-skel-double-separator-start 3)
+    "%% gen_composite_refac callbacks" n
+    "-export([input_par_prompts/0,select_focus/1, " n>
+    "composite_refac/1])." n n 
+
+    (erlang-skel-double-separator-start 3)
+    "%%% gen_composite_refac callbacks" n
+    (erlang-skel-double-separator-end 3)
+    n
+    (erlang-skel-separator-start 2)
+    "%% @private" n 
+    "%% @doc" n
+    "%% Prompts for parameter inputs" n
+    "%%" n
+    "%% @spec input_par_prompts() -> [string()]" n
+    (erlang-skel-separator-end 2)
+    "input_par_prompts() ->" n>
+    "[]." n
+    n
+    (erlang-skel-separator-start 2)
+    "%% @private" n
+    "%% @doc" n
+    "%% Select the focus of the refactoring." n
+    "%%" n
+    "%% @spec select_focus(Args::#args{}) ->" n
+    "%%                {ok, syntaxTree()} |" n
+    "%%                {ok, none}" n
+    (erlang-skel-separator-end 2)
+    "select_focus(_Args) ->" n>
+    "{ok, none}." n>
+     n
+    (erlang-skel-separator-start 2)
+    "%% @private" n
+    "%% @doc" n
+    "%% This function defines the composite refactoring script." n
+    "%%" n
+    "%% @spec composite_refac(Args::#args{}) -> composite_refac()|[]. " n
+    (erlang-skel-separator-end 2)
+    "composite_refac(_Args) -> []." n>
+    n
+    (erlang-skel-double-separator-start 3)
+    "%%% Internal functions" n
+    (erlang-skel-double-separator-end 3)
+    )
+  "*The template of a gen_refac.
+Please see the function `tempo-define-template'.")
+
+
+(defvar gen_composite_refac_menu_items
+`(("Batch Inline Vars" refac_batch_inline_vars)
+ ("Batch Clone Elimination" refac_batch_clone_elimination)
+ ("Batch Prefix Module" refac_batch_prefix_module)
+))
+
+(defvar gen_refac_menu_items
+`(("Swap Function Arguments" refac_swap_function_arguments)
+("Specialise A Function" refac_specialise_a_function)
+("Remove An Import Attribute" refac_remove_an_import_attribute)
+("Remove An Argument" refac_remove_an_argument)
+("Keysearch To Keyfind" refac_keysearch_to_keyfind)
+("Apply To Remote Call" refac_apply_to_remote_call)
+("Add To Export" refac_add_to_export)
+("Add An Import Attribute" refac_add_an_import_attribute)
+))
+
+
+(defun refac_batch_inline_vars()
+  (interactive)
+  (apply-composite-refac 'refac_batch_inline_vars))
+
+
+(defun refac_batch_clone_elimination()
+  (interactive)
+  (apply-composite-refac 'refac_batch_clone_elimination))
+
+(defun refac_batch_prefix_module()
+  (interactive)
+  (apply-composite-refac 'refac_batch_prefix_module))
+
+(defun refac_swap_function_arguments()
+  (interactive)
+  (apply-adhoc-refac 'refac_swap_function_arguments))
+
+
+(defun refac_specialise_a_function()
+  (interactive)
+  (apply-adhoc-refac 'refac_specialise_a_function))
+
+
+(defun refac_remove_an_import_attribute()
+  (interactive)
+  (apply-adhoc-refac 'refac_remove_an_import_attribute))
+
+
+(defun refac_remove_an_argument()
+  (interactive)
+  (apply-adhoc-refac 'refac_remove_an_argument))
+
+
+(defun refac_keysearch_to_keyfind()
+  (interactive)
+  (apply-adhoc-refac 'refac_keysearch_to_keyfind))
+
+
+(defun refac_apply_to_remote_call()
+  (interactive)
+  (apply-adhoc-refac 'refac_apply_to_remote_call))
+
+
+(defun refac_add_to_export()
+  (interactive)
+  (apply-adhoc-refac 'refac_add_to_export))
+
+
+(defun refac_add_an_import_attribute()
+  (interactive)
+  (apply-adhoc-refac 'refac_add_an_import_attribute))
 

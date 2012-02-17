@@ -61,21 +61,22 @@ rule1(MyMod) ->
                   ?TO_AST(MyMod++":spawn_link("++?PP(Args@@)++")");
               {erlang, _, _} ->
                   _This@;
-                      {M, F, _A} when M/='_' andalso F/='_' ->
+              {M, F, _A} when M/='_' andalso F/='_' ->
                                      Str = MyMod++":apply("++atom_to_list(M)++","
-                                             ++atom_to_list(F)++", ["++?PP(Args@@)++"])",
-                                     ?TO_AST(MyMod++":apply("++atom_to_list(M)++","
-                                             ++atom_to_list(F)++", ["++?PP(Args@@)++"])");
-                      _ ->
-                 case api_refac:type(F@) of 
+                                         ++atom_to_list(F)++", ["++?PP(Args@@)++"])",
+                                     ?TO_AST(Str);
+               _ ->
+                  case api_refac:type(F@) of 
                       module_qualifier ->
                           M = wrangler_syntax:module_qualifier_argument(F@),
                           F= wrangler_syntax:module_qualifier_body(F@),
                           ?TO_AST(MyMod++":apply("++?PP(M)++","
                                   ++?PP(F)++", ["++?PP(Args@@)++"])");
-                      _ -> _This@
+                      _ -> 
+                          ?TO_AST(MyMod++":apply("++?PP(F@)++","
+                                 ++ "["++?PP(Args@@)++"])")
                   end
-            end,
+             end,
           true).
 
 parse_annotate_expr(Str) ->

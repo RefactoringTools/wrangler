@@ -48,12 +48,6 @@
 
 -include("../include/wrangler.hrl").
 
--type (refac_name():: atom()).
-
--type (pars():: [term()]).
-
--type (elementary_refac()::{refactoring, refac_name(), pars()}).
-
 -type (file_filter()::{file,fun((File::filename()) -> boolean())}).
 
 -type (module_filter():: {module, fun((Mod::atom()) -> boolean())}).
@@ -205,10 +199,10 @@ rename_mod(ModOrFile, NewModName, SearchPaths) ->
 
 %%@doc Command generator for renaming module names.
 -spec rename_mod(ModOrFile::mod_or_file(),
-                 NewModName::{generator, fun((M::atom())->atom())}
+                 NewModName::{generator, fun((M::atom()|filename())->string())}
                            | {user_input, Prompt::fun((M::atom())->
                                                              string())}
-                           |atom(),
+                           |string(),
                  Lazy :: boolean(),
                  SearchPaths::search_paths()) ->
                         [elementary_refac()]|lazy_refac().
@@ -227,7 +221,7 @@ rename_mod(ModOrFile, NewModName, true, SearchPaths) ->
     end.
 
 rename_mod_1(File, NewModName, SearchPaths) ->
-    {refactoring, rename_mod_by_name, 
+    {refactoring, rename_mod, 
      [File, new_name_gen(File, NewModName), SearchPaths, ?context]}.
  
    
