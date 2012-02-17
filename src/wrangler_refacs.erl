@@ -225,8 +225,6 @@ get_next_command_eclipse(PrevResult) ->
 		
 
 %% ====================================================================================================
-%% @doc user defined refactorings - common
-%%
 %% @doc load new callback module (ad hoc refactorings)
 -spec(load_callback_mod_eclipse(Module::module(), Path::string()) ->
 	ok | {error, Reason::term()}).

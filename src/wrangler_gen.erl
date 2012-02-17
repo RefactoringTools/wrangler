@@ -48,12 +48,6 @@
 
 -include("../include/wrangler.hrl").
 
--type (refac_name():: atom()).
-
--type (pars():: [term()]).
-
--type (elementary_refac()::{refactoring, refac_name(), pars()}).
-
 -type (file_filter()::{file,fun((File::filename()) -> boolean())}).
 
 -type (module_filter():: {module, fun((Mod::atom()) -> boolean())}).
