@@ -132,6 +132,7 @@
 -module(gen_refac).
 
 -export([run_refac/2, 
+		 run_refac/3,
          input_par_prompts/1,
          apply_changes/3
         ]).
@@ -207,10 +208,19 @@ apply_changes(Module, Args, CandsNotToChange) ->
 -spec(run_refac(Module::module()|string()|tuple(), Args::[term()])->
              {ok, string()} | {change_set, [{string(), string()}], module(), #args{}}|
              {error, term()}).
+run_refac(ModName, Args) ->
+    run_refac(ModName, Args, emacs).
+
+%%@doc The interface function for invoking a refactoring defined 
+%% in module `ModName'.
+-spec(run_refac(Module::module()|string()|tuple(), Args::[term()], Editor::atom())->
+             {ok, string()} | {ok, [{filename(), filename(), string()}]} | 
+			 {change_set, [{string(), string()}], module(), #args{}}|
+             {error, term()}).
 run_refac(ModName, Args=[CurFileName, [Line,Col],
                          [[StartLine, StartCol],
                           [EndLn, EndCol]], UserInputs,
-                         SearchPaths, TabWidth]) ->
+                         SearchPaths, TabWidth], Editor) ->
     ?wrangler_io("\nCMD: ~p:run_refac(~p,~p).\n",
 		 [?MODULE, ModName, Args]),
     Module = if is_list(ModName) ->
@@ -230,7 +240,12 @@ run_refac(ModName, Args=[CurFileName, [Line,Col],
             Args1 = Args0#args{focus_sel=Sel},
             case check_pre_cond(Module, Args1) of
                 ok -> 
-                    Selective=selective(Module),
+                    Selective = case Editor of
+								   eclipse ->
+									   false;
+							   	   _ ->
+									   selective(Module)
+							   end,
                     wrangler_gen_refac_server:set_flag({self(), Selective}),
                     Args2 = Args1#args{selective=Selective},
                     if is_boolean(Selective) ->
@@ -248,7 +263,7 @@ run_refac(ModName, Args=[CurFileName, [Line,Col],
                                     case apply(Module, transform, [Args2]) of
                                         {ok, Res} ->
                                             wrangler_gen_refac_server:delete_flag(self()),
-                                            wrangler_write_file:write_refactored_files(Res,emacs,TabWidth,"");
+                                            wrangler_write_file:write_refactored_files(Res,Editor,TabWidth,"");
                                         {error, Reason} ->
                                             wrangler_gen_refac_server:delete_flag(self()),
                                             {error, Reason}

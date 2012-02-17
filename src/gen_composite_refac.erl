@@ -38,7 +38,7 @@
 %%   refactoring. There should be one prompt string for each input.
 %% Callback function `composite_refac/1':
 %% ```composite_refac(Args::#args()) 
-%%       ===> composite_refac_script()'''
+%%       ===> composite_refac()|[]'''
 %%   `composite_refac' is the function in which the user could script a 
 %%   composite refactoring. The definition of record `args' is the same as the 
 %%   the record using by the `gen_refac' behaviour to be consistent, but the 

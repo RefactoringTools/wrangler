@@ -268,17 +268,23 @@ do_rename_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, C
 		      _ -> ClientFiles1
 		  end,
     Results = rename_mod_in_client_modules(ClientFiles, OldModName, OldNewModPairs, SearchPaths, TabWidth, Pid),
-    case Editor of
-	emacs ->
-	    HasWarningMsg = wrangler_atom_utils:has_warning_msg(Pid),
-	    case HasWarningMsg of
-		true ->
-		    output_atom_warning_msg(Pid, not_renamed_warn_msg(OldModNames), renamed_warn_msg(OldModNames));
-		false ->
-		    ok
-	    end,
-	    stop_atom_process(Pid),
-	    wrangler_write_file:write_refactored_files_for_preview([{{FileName, NewFileName}, AnnAST1}| TestModRes ++ Results], TabWidth, Cmd),
+    HasWarningMsg = wrangler_atom_utils:has_warning_msg(Pid),
+    case HasWarningMsg of
+        true ->
+            output_atom_warning_msg(Pid, not_renamed_warn_msg(OldModNames), renamed_warn_msg(OldModNames));
+        false ->
+            ok
+    end,
+    stop_atom_process(Pid),
+    case Editor==emacs orelse Editor == composite_emacs of
+	true ->
+            Results1 = [{{FileName, NewFileName}, AnnAST1}| TestModRes ++ Results],
+            case Editor of 
+                 emacs ->
+                     wrangler_write_file:write_refactored_files_for_preview(Results1, TabWidth, Cmd);
+                 _ -> 
+                     wrangler_write_file:write_refactored_files(Results1, Editor, TabWidth, "")
+             end,
 	    ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
 	    ChangedFiles = case length(OldNewModPairs) of
 			       2 -> [FileName, TestFileName| ChangedClientFiles];

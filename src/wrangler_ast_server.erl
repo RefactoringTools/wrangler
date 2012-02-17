@@ -135,7 +135,6 @@ handle_call({get_fun_def, {File, MFA}}, _From, State)->
             {reply, {ok, none}, State1}
     end.
 
-
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
 %%                                      {noreply, State, Timeout} |
@@ -189,6 +188,7 @@ get_ast({FileName, false, SearchPaths, TabWidth, FileFormat}, State) ->
     {ok, {AnnAST, Info}} = parse_annotate_file(FileName, false, SearchPaths, TabWidth, FileFormat),
     log_errors(FileName, Info),
     {{ok, {zlib:zip(term_to_binary(AnnAST)), Info}}, State};
+
 get_ast({FileName, ByPassPreP, SearchPaths, TabWidth, FileFormat}, State = #state{ets_tab=EtsTab}) ->
     NewChecksum = wrangler_misc:filehash(FileName),
     case ets:lookup(EtsTab, FileName) of

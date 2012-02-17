@@ -17,15 +17,18 @@
 -export([long_functions/2, 
          large_modules/2,
          calls_to_specific_function/2,
+         calls_to_specific_functions/2,
          classify_pattern_match/1, 
-         nested_if_exprs/2,
+         nested_if_exprs/2, 
          nested_case_exprs/2,
          nested_receive_exprs/2,
          not_flush_unknown_messages/1,
          top_level_if/1,
          unnecessary_match/1,
          append_two_lists/1,
-         non_tail_recursive_function/1
+         non_tail_recursive_function/1,
+         use_of_specific_ops/2,
+         use_of_export_all/1
         ]).
 
 -export([test/1,
@@ -158,6 +161,78 @@ calls_to_specific_function({M, F, A}, SearchPaths) ->
          end ||{File,{{Line, _}, _}}<-Calls],
     {ok, Res}.
 
+-spec calls_to_specific_functions([mfa()], [dir()|filename()]) ->    
+                                        {ok, [{message(), [{tag(), list()}]}]}.
+calls_to_specific_functions(MFAs, SearchPaths) ->
+    {ok, Calls} = wrangler_code_inspector_lib:calls_to_specific_functions(
+                    MFAs, SearchPaths),
+    Res=[begin
+             Msg=lists:flatten(
+                   io_lib:format("Oops. You've called the blacklisted function ~p:~p/~p at line ~p.",
+                                 [M, F, A, Line])),
+             {Msg, [{file, File}, 
+                    {line, integer_to_list(Line)}]}
+         end ||{File,{M, F, A}, {{Line, _}, _}}<-Calls],
+    {ok, Res}.
+
+-type (op():: atom()).
+-spec use_of_specific_ops([op()], [dir()|filename()]) ->    
+                                 {ok, [{message(), [{tag(), list()}]}]}.
+use_of_specific_ops(Ops, SearchPaths) ->
+    {ok, Calls} = use_of_specific_ops_1(Ops, SearchPaths),
+    Res=[begin
+             Msg=lists:flatten(
+                   io_lib:format("Oops. You've used the blacklisted operaotr ~p.",
+                                 [Op])),
+             {Msg, [{file, File}, 
+                    {line, integer_to_list(Line)}]}
+         end ||{File,Op, {{Line, _}, _}}<-Calls],
+    {ok, Res}.
+
+use_of_specific_ops_1(Ops, SearchPaths) ->
+    {ok, ?FULL_TD_TU([?COLLECT(?T("E@"),
+                               {_File@, get_operator(E@),api_refac:start_end_loc(_This@)},
+                               lists:member(api_refac:type(E@),
+                                            [infix_expr, prefix_expr]) andalso
+                               lists:member(get_operator(E@), Ops))],
+                     [SearchPaths])}.
+
+get_operator(Expr) ->
+    Op=case api_refac:type(Expr) of 
+        infix_expr ->
+               wrangler_syntax:infix_expr_operator(Expr);
+        prefix_expr ->
+               wrangler_syntax:prefix_expr_operator(Expr)
+       end,
+    wrangler_syntax:operator_name(Op).
+     
+-spec use_of_export_all([dir()|filename()]) ->    
+                               {ok, [{message(), [{tag(), list()}]}]}.
+use_of_export_all(SearchPaths) ->
+    {ok, Uses} = use_of_export_all_1(SearchPaths),
+    Res=[begin
+             Msg="Oops. You've used the 'export_all' directive.",
+             {Msg, [{file, File}]}                  
+         end ||File<-Uses],
+    {ok, Res}.
+
+use_of_export_all_1(SearchPaths) ->
+    Files = wrangler_misc:expand_files(SearchPaths, ".erl"),
+    {ok, [File||File<-Files, use_of_export_all_2(File)]}.
+
+use_of_export_all_2(File)->
+    try wrangler_ast_server:parse_annotate_file(File, false) of 
+        {ok, {_, ModInfo}} ->
+            case lists:keysearch(attributes, 1, ModInfo) of
+                {value, {attributes, Attrs}} -> 
+                    lists:member({compile, export_all}, Attrs);
+                false -> false
+            end
+    catch _E1:_E2 ->
+            false
+    end.            
+        
+
 %% Give the type (according to syntax_tools) of the patterns
 %% in a function definition.
 
@@ -273,7 +348,6 @@ unnecessary_match(SearchPaths) ->
                       {line, integer_to_list(Ln)}]}
            end || {File, {{Ln, _}, _}}<-Funs],
     {ok, Res}.
-
 
 -spec append_two_lists([dir()|filename()]) ->
                               {ok, [{message(), [{tag(), list()}]}]}.

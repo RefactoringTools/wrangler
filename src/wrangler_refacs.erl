@@ -123,7 +123,12 @@
 	 gen_fsm_to_record_eclipse/3,gen_fsm_to_record_1_eclipse/7,
 	 partition_exports_eclipse/4, intro_new_var_eclipse/6,
 	 inline_var_eclipse/5, inline_var_eclipse_1/6,
-         get_var_name_eclipse/5, get_fun_name_eclipse/5
+         get_var_name_eclipse/5, get_fun_name_eclipse/5,
+	 run_refac_eclipse/2, input_par_prompts_eclipse/1,
+     apply_changes_eclipse/3, load_callback_mod_eclipse/2,
+	 input_par_prompts_c_eclipse/1, init_composite_refac_eclipse/2,
+     get_next_command_eclipse/1, 
+	 get_user_refactorings/1, load_user_refactorings/1
 	]).
  
 -export([do_api_migration/5,
@@ -136,6 +141,127 @@
 -include("../include/wrangler_internal.hrl").
 
 -type(context():: emacs | composite_emacs).
+
+%% ====================================================================================================
+%% @doc get all user refactoring modules (gen_refac and gen_composite_refac)
+
+get_user_refactorings(Modules) ->
+	Refacs = lists:foldl(fun(Module, Acc) ->
+						  Attrs = proplists:get_value(attributes, apply(list_to_atom(Module), module_info, [])),
+						  Behs = case proplists:get_value(behaviour, Attrs) of
+							 		 undefined ->
+										  case proplists:get_value(behavior, Attrs) of
+									 		 undefined ->
+												  undefined;
+									 		 Beh ->
+										  		  Beh
+								  		  end;
+						  	  	     Beh ->
+								 	  	  Beh
+						  		 end,
+						  case Behs of
+							  undefined ->
+								  Acc;
+							  _ ->
+								  case { lists:member(gen_refac, Behs), lists:member(gen_composite_refac, Behs)} of
+							  			{true, _} ->
+								  			[{gen_refac, list_to_atom(Module)} |Acc];
+							  			{_, true} ->
+								  			[{gen_composite_refac, list_to_atom(Module)} | Acc];
+							  			_ ->
+								  			Acc
+						  		  end
+						  end
+				  end, [], Modules),
+	[{gen_refac, proplists:append_values(gen_refac, Refacs)},
+	 {gen_composite_refac, proplists:append_values(gen_composite_refac, Refacs)}].
+
+
+%% ====================================================================================================
+%% @doc gen_refac refactorings - delegate functions in order to achieve more clear API (especially for Eclipse)
+-spec(apply_changes_eclipse(Module::module(), Args::[term()], CandsNotToChange::[term()]) ->
+             {ok, [{filename(), filename(), syntaxTree()}]} |
+             {error, term()}).
+apply_changes_eclipse(Module, Args, CandsNotToChange) ->
+	gen_refac:apply_changes(Module, Args, CandsNotToChange).
+
+-spec(run_refac_eclipse(Module::module()|string()|tuple(), Args::[term()])->
+             {ok, string()} | {change_set, [{string(), string()}], module(), tuple()}|
+             {error, term()}).
+run_refac_eclipse(ModName, Args) ->
+	gen_refac:run_refac(ModName,Args, eclipse).
+
+-spec(input_par_prompts_eclipse(CallBackMod::module()) -> [string()]).
+input_par_prompts_eclipse(CallBackMod) ->
+	gen_refac:input_par_prompts(CallBackMod).
+
+%% ====================================================================================================
+%% @doc gen_composite_refac refactorings - delegate functions in order to achieve more clear API (especially for Eclipse)
+-spec(input_par_prompts_c_eclipse(CallBackMod::module()) -> [string()]).
+input_par_prompts_c_eclipse(CallBackMod) ->
+	gen_composite_refac:input_par_prompts(CallBackMod).
+
+-spec(init_composite_refac_eclipse(Module::module()|string()|tuple(), Args::[term()])->
+	{ok,pid()} | ignore |{error, term()}).
+init_composite_refac_eclipse(ModName, Args) ->
+	gen_composite_refac:init_composite_refac(ModName, Args).
+
+get_next_command_eclipse(PrevResult) ->
+	case gen_composite_refac:get_next_command(PrevResult) of
+		{ok, none, _ChangedFiles, [error, Reason]} ->
+			%revert buffers
+			{error, io_lib:format("Composite refactoring failed: %s", Reason)};
+		{ok, none, ChangedFiles, _Msg} ->
+			{ok, ChangedFiles}; % do sth with them
+		{ok, Command} ->
+			{next, Command};
+		{error, Reason} ->
+			{error, io_lib:format("Refactoring failed: %s", Reason)};
+		{badrpc, Reason} ->
+			{error, io_lib:format("Refactoring failed: %s", Reason)};
+		Reasult ->
+			{error, io_lib:format("Unexpectedd result: %s", Reasult)}
+	end.
+		
+
+%% ====================================================================================================
+%% @doc user defined refactorings - common
+%%
+%% @doc load new callback module (ad hoc refactorings)
+-spec(load_callback_mod_eclipse(Module::module(), Path::string()) ->
+	ok | {error, Reason::term()}).
+load_callback_mod_eclipse(Module, Path) ->
+	code:add_patha(Path),
+	code:purge(list_to_atom(Module)),
+	case code:load_file(list_to_atom(Module)) of
+		{module, Module} ->
+ 				ok;
+		Error ->
+				Error	
+	end.
+
+%% @doc load user's own refactorings from my_gen_refac
+-spec(load_user_refactorings(Path::string()) -> ok).
+load_user_refactorings(Path) ->
+	MyRefacs = filename:join(Path, "my_gen_refac"),
+	MyCRefacs = filename:join(Path, "my_gen_composite_refac"),
+	code:add_patha(MyRefacs),
+	code:add_patha(MyCRefacs),
+	load_from_dir(MyRefacs),
+	load_from_dir(MyCRefacs),
+	[MyRefacs, MyCRefacs].
+
+-spec(load_from_dir(Dir::string()) -> ok).
+load_from_dir(Dir) ->
+	case file:list_dir(Dir) of
+		{ok, Filenames} ->
+			lists:foreach(fun(Name) ->
+								  code:load_file(list_to_atom(filename:basename(Name, ".beam")))
+						  end, Filenames);
+		_ ->
+			ok
+	end.
+	
 
 %% ====================================================================================================
 %% @doc Rename a variable.
