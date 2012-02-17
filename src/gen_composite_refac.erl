@@ -238,13 +238,13 @@
 %%
 %%%% Some example composite refactorings:
 %%<li>
-%%<a href="file:refac_batch_clone_removal.erl" >Batch clone elimination;</a>.
+%%<a href="file:refac_batch_clone_elimination.erl" >Batch clone elimination;</a>.
 %%</li>
 %%<li>
-%%<a href="file:examples/refac_batch_tuple_args.erl" >Batch tupling of function arguments;</a>.
+%%<a href="file:refac_batch_tuple_args.erl" >Batch tupling of function arguments;</a>.
 %%</li>
 %%<li>
-%%<a href="file:examples/refac_batch_rename_fun.erl">Batch renaming of functions. </a>
+%%<a href="file:refac_batch_rename_fun.erl">Batch renaming of functions. </a>
 %%</li>
 %%
 %% === How to apply an own-defined composite refactoring ===
