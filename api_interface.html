@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module api_interface</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module api_interface</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>This module provides API functions that map the textual selection of a code fragment to
+  its internal represenation.
+
+<p><b>Authors:</b> Huiqing Li (<a href="mailto:H.Li@kent.ac.uk"><tt>H.Li@kent.ac.uk</tt></a>).</p>
+
+<h2><a name="description">Description</a></h2>This module provides API functions that map the textual selection of a code fragment to
+  its internal represenation.
+ 
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#expr_to_fun-2">expr_to_fun/2</a></td><td>Return the AST of the function to which Exp (an expression node) belongs.</td></tr>
+<tr><td valign="top"><a href="#pos_to_expr-3">pos_to_expr/3</a></td><td>Returns the largest, left-most expression enclosed by the start and end locations.</td></tr>
+<tr><td valign="top"><a href="#pos_to_expr_list-2">pos_to_expr_list/2</a></td><td>Return the expression sequence enclosed by start and end locations.</td></tr>
+<tr><td valign="top"><a href="#pos_to_fun_def-2">pos_to_fun_def/2</a></td><td>Returns the AST representation of the function definition in which the
+  location specified by <code>Pos</code> falls.</td></tr>
+<tr><td valign="top"><a href="#pos_to_fun_name-2">pos_to_fun_name/2</a></td><td>Returns information about the function name which occurs at the specified
+  position in the code.</td></tr>
+<tr><td valign="top"><a href="#pos_to_node-3">pos_to_node/3</a></td><td>Returns the outmost Node which encloses the cursor and
+      makes Pred(Node) return <code>true</code>.</td></tr>
+<tr><td valign="top"><a href="#pos_to_var-2">pos_to_var/2</a></td><td>Returns the variable node at position <code>Pos</code>.</td></tr>
+<tr><td valign="top"><a href="#pos_to_var_name-2">pos_to_var_name/2</a></td><td>Returns the variable name that occurs at the position specified by position <code>Pos</code>.</td></tr>
+<tr><td valign="top"><a href="#range_to_node-3">range_to_node/3</a></td><td>Returns the largest, left-most Node which is enclosed by the location range specified,
+       and also makes Pred(Node) return <code>true</code>.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="expr_to_fun-2">expr_to_fun/2</a></h3>
+<div class="spec">
+<p><tt>expr_to_fun(Tree::<a href="#type-syntaxTree">syntaxTree()</a>, Exp::<a href="#type-syntaxTree">syntaxTree()</a>) -&gt; {ok, <a href="#type-syntaxTree">syntaxTree()</a>} | {error, none}</tt><br></p>
+</div><p>Return the AST of the function to which Exp (an expression node) belongs.
+ -spec(expr_to_fun(Tree::syntaxTree(), Exp::syntaxTree())-&gt;{ok, syntaxTree()} | {error, none}).</p>
+
+<h3 class="function"><a name="pos_to_expr-3">pos_to_expr/3</a></h3>
+<div class="spec">
+<p><tt>pos_to_expr(Tree::<a href="#type-syntaxTree">syntaxTree()</a>, Start::Pos, End::Pos) -&gt; {ok, <a href="#type-syntaxTree">syntaxTree()</a>} | {error, string()}</tt>
+<ul class="definitions"><li><tt>Pos = {integer(), integer()}</tt></li></ul></p>
+</div><p>Returns the largest, left-most expression enclosed by the start and end locations.
+ </p>
+<p><b>See also:</b> <a href="#pos_to_fun_def-2">pos_to_fun_def/2</a>, <a href="#pos_to_fun_name-2">pos_to_fun_name/2</a>.</p>
+
+<h3 class="function"><a name="pos_to_expr_list-2">pos_to_expr_list/2</a></h3>
+<div class="spec">
+<p><tt>pos_to_expr_list(FileOrTree::<a href="#type-filename">filename()</a> | <a href="#type-syntaxTree">syntaxTree()</a>, X2::{Start::<a href="#type-pos">pos()</a>, End::<a href="#type-pos">pos()</a>}) -&gt; [<a href="#type-syntaxTree">syntaxTree()</a>]</tt><br></p>
+</div><p>Return the expression sequence enclosed by start and end locations.
+  ====================================================================</p>
+
+<h3 class="function"><a name="pos_to_fun_def-2">pos_to_fun_def/2</a></h3>
+<div class="spec">
+<p><tt>pos_to_fun_def(FileOrTree::any(), Pos::<a href="#type-pos">pos()</a>) -&gt; {ok, <a href="#type-syntaxTree">syntaxTree()</a>} | {error, string()}</tt><br></p>
+</div><p>Returns the AST representation of the function definition in which the
+  location specified by <code>Pos</code> falls.
+ </p>
+<p><b>See also:</b> <a href="#pos_to_fun_name-2">pos_to_fun_name/2</a>.</p>
+
+<h3 class="function"><a name="pos_to_fun_name-2">pos_to_fun_name/2</a></h3>
+<div class="spec">
+<p><tt>pos_to_fun_name(Node::<a href="#type-syntaxTree">syntaxTree()</a>, Pos::{integer(), integer()}) -&gt; {ok, {Mod, Fun, Arity, OccurPos, DefPos}} | {error, string()}</tt>
+<ul class="definitions"><li><tt>Mod = atom()</tt></li><li><tt>Fun = atom()</tt></li><li><tt>Arity = integer()</tt></li><li><tt>OccurPos = {integer(), integer()}</tt></li><li><tt>DefPos = {integer(), integer()}</tt></li></ul></p>
+</div><p>Returns information about the function name which occurs at the specified
+  position in the code. If successful, the returned information contains:
+  the module in which the function is defined, the function name, the
+  function's arity, the occurrence position (same as Pos), and the defining
+  position of this function.
+ </p>
+<p><b>See also:</b> <a href="#pos_to_expr-3">pos_to_expr/3</a>, <a href="#pos_to_fun_def-2">pos_to_fun_def/2</a>, <a href="#pos_to_var_name-2">pos_to_var_name/2</a>.</p>
+
+<h3 class="function"><a name="pos_to_node-3">pos_to_node/3</a></h3>
+<div class="spec">
+<p><tt>pos_to_node(FileOrTree::<a href="#type-filename">filename()</a> | <a href="#type-syntaxTree">syntaxTree()</a>, Pos::<a href="#type-pos">pos()</a>, Cond::function()) -&gt; {ok, <a href="#type-syntaxTree">syntaxTree()</a>} | {error, string()}</tt><br></p>
+</div><p>Returns the outmost Node which encloses the cursor and
+      makes Pred(Node) return <code>true</code>.
+  =================================================================================</p>
+
+<h3 class="function"><a name="pos_to_var-2">pos_to_var/2</a></h3>
+<div class="spec">
+<p><tt>pos_to_var(Node::<a href="#type-syntaxTree">syntaxTree()</a>, Pos::<a href="#type-pos">pos()</a>) -&gt; {ok, <a href="#type-syntaxTree">syntaxTree()</a>} | {error, string()}</tt><br></p>
+</div><p>Returns the variable node at position <code>Pos</code>.</p>
+
+<h3 class="function"><a name="pos_to_var_name-2">pos_to_var_name/2</a></h3>
+<div class="spec">
+<p><tt>pos_to_var_name(Node::<a href="#type-syntaxTree">syntaxTree()</a>, Pos::{integer(), integer()}) -&gt; {ok, {VarName, DefPos}} | {error, string()}</tt>
+<ul class="definitions"><li><tt>VarName = atom()</tt></li><li><tt>DefPos = [{integer(), integer()}]</tt></li></ul></p>
+</div><p>Returns the variable name that occurs at the position specified by position <code>Pos</code>.</p>
+<p><b>See also:</b> <a href="#pos_to_expr-3">pos_to_expr/3</a>, <a href="#pos_to_fun_def-2">pos_to_fun_def/2</a>, <a href="#pos_to_fun_name-2">pos_to_fun_name/2</a>.</p>
+
+<h3 class="function"><a name="range_to_node-3">range_to_node/3</a></h3>
+<div class="spec">
+<p><tt>range_to_node(FileOrTree::<a href="#type-filename">filename()</a> | <a href="#type-syntaxTree">syntaxTree()</a>, Range::{<a href="#type-pos">pos()</a>, <a href="#type-pos">pos()</a>}, Cond::Pred) -&gt; <a href="#type-syntaxTree">syntaxTree()</a> | {error, string()}</tt><br></p>
+</div><p>Returns the largest, left-most Node which is enclosed by the location range specified,
+       and also makes Pred(Node) return <code>true</code>.
+ ===========================================================================================</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Mar 6 2012, 02:38:55.</i></p>
+</body>
+</html>
