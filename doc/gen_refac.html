@@ -1,0 +1,134 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module gen_refac</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module gen_refac</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>This module defines the <code>gen_refac</code> behaviour.
+
+<p><b>Authors:</b> Huiqing Li (<a href="mailto:H.Li@kent.ac.uk"><tt>H.Li@kent.ac.uk</tt></a>).</p>
+
+<h2><a name="description">Description</a></h2><p>This module defines the <code>gen_refac</code> behaviour. It provides a  
+high-level abstraction of the logic work-flow of a refactoring  
+process. A user-interactive refactoring  
+process in Emacs generally works in the following way : the user first  
+selects the focus of interest by either pointing the cursor to a  
+particular program entity or by highlighting, then invokes the  
+refactoring command; in case that the refactoring needs certain  
+initial inputs from the user, it will prompt the user to input  
+the values from the mini-buffer. After all these interactions,  
+the refactor engine starts the pre-condition checking to  
+make sure that performing the refactoring initiated by the user  
+will not change the behaviour of the program; the refactorer  
+continues to carry out the program transformation if the pre-condition  
+passes, otherwise aborts the refactoring process and returns the reason  
+for failure.</p>
+ 
+  <p>The idea behind this module is that the user module provides functions
+  to handle different parts of the refactoring process that is particular
+  to that refactoring, while <code>gen_refac</code> handles the parts that are common  
+to all refactorings.</p>
+ 
+  The user module should export:
+  <pre>     input_par_prompts()
+       ===&gt; [string()]</pre>
+   <code>input_par_prompts</code> returns the list of prompt strings to be used when
+    the refactorer asks the user for input. There should be one
+    prompt string for each input.
+  <pre>     select_focus(Args::#args{})
+        ===&gt; none|{ok, term()}|{error, Reason}</pre>
+   <code>select_pars</code> returns the focus of interest selected by the user.
+    This function should return <code>none</code> if no focus selection is needed;
+    <code>{error, Reason}</code> if the user didn't select the kind of entity
+    expected; or <code>{ok, term()</code> when a valid focus of interest has been
+    selected.
+   <pre>      check_pre_cond(Args::#args{})
+        ===&gt; ok | {error, Reason}</pre>
+    This function checks whether the pre-conditions of the refactoring
+    hold, and returns <code>ok</code> if the pre-condition checking passes, otherwise
+    <code>{error, Reason}</code>.
+   <pre>      selective()
+        ===&gt; true | false</pre>
+    This function should returns <code>true</code> if the user is allowed to browse
+    through and select the changes to be made.
+  <pre>     transform(Args::#args())
+       ===&gt; {ok, [{{filename(),filename()} syntaxTree()}] | {error, Reason}}</pre><p>
+    Function <code>transform</code> carries out the transformation part of the
+    refactorings. If the refactoring succeeds, it returns the list of
+    file names together with their new AST (only files that have been
+    changed need to be returned); otherwise <code>{error, Reason}</code>.</p>
+ 
+  Record <code>args</code> defines the data structure that is passed through, and also modified by, the different phases
+  of the refactoring.
+   <pre>      -record(args,{current_file_name :: filename(),         %% the file name of the current Erlang buffer.
+                    cursor_pos        :: pos(),              %% the current cursor position.
+                    highlight_range   :: {pos(), pos()},     %% the start and end location of the highlighted code if there is any.
+                    user_inputs       :: [string()],         %% the data inputted by the user.
+                    focus_sel         :: any(),              %% the focus of interest selected by the user.
+                    selective         :: boolean(),          %% selective refactoring or not.
+                    search_paths      ::[dir()|filename()],  %% the list of directories or files which specify the scope of the project.
+                    tabwidth =8        ::integer()           %% the number of white spaces denoted by a tab key.
+                   }).</pre>
+ 
+  <p>Some example refactorings implemented using the Wrangler API:
+ <li>
+ <a href="file:refac_swap_function_arguments.erl">Swap arguments of a function;</a>.
+ </li>
+ <li>
+ <a href="file:refac_remove_an_argument.erl">Remove an argument of a function;</a>.
+ </li>
+ <li>
+ <a href="file:refac_keysearch_to_keyfind.erl">Replace the uses of lists:keysearch/3 with lists:keyfind/3; </a>
+ </li>
+ <li>
+ <a href="file:refac_specialise_a_function.erl">Specialise a function definition; </a>
+ </li>
+ <li>
+ <a href="file:refac_apply_to_remote_call.erl">Apply to remote function call; </a>
+ </li>
+ <li>
+ <a href="file:refac_add_an_import_attribute.erl">Introduce an import attribute; </a>
+ </li>
+ <li>
+ <a href="file:refac_remove_an_import_attribute.erl">Remove an import attribute;</a>
+ </li>
+ <li>
+ <a href="file:refac_batch_rename_fun.erl">Batch renaming of function names from camelCaseto camel_case. </a>
+ </li>
+ <li>
+ <a href="file:inspec_examples.erl">A collection of code inspectors written using the Wrangler API. </a>
+ </li></p>
+ 
+  <h4><a name="How_to_apply_an_own-defined_refactoring">How to apply an own-defined refactoring</a></h4><p>
+  To invoke a user's own-defined <code>gen_refac</code> refactoring, select menu item Wrangler -&gt; Refactor -&gt; Apply Adhoc Refactoring,  
+Wrangler will then prompt you to input the name of the callback module, and the values for parameters needed by the  
+refactoring.</p>
+ 
+  <h4><a name="How_to_add_an_own-defined_refactoring_to_the_menu">How to add an own-defined refactoring to the menu</a></h4>
+  To add a user-defined <code>gen_refac</code> refactoring to the <code>My gen_refac Refacs</code> menu, set the file buffer implementing the
+  refactoring as the current buffer, then select Wrangler -&gt; Refactor -&gt; Add to My gen_refac Refacs.
+ 
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#run_refac-2">run_refac/2</a></td><td>The interface function for invoking a refactoring defined
+  in module <code>ModName</code>.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="run_refac-2">run_refac/2</a></h3>
+<div class="spec">
+<p><tt>run_refac(Module::module() | string() | tuple(), Args::[term()]) -&gt; {ok, string()} | {change_set, [{string(), string()}], module(), #args{}} | {error, term()}</tt><br></p>
+</div><p>The interface function for invoking a refactoring defined
+  in module <code>ModName</code>.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Mar 6 2012, 02:38:55.</i></p>
+</body>
+</html>
