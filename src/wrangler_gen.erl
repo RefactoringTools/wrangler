@@ -30,6 +30,10 @@
 %%
 %% =====================================================================
 %% @doc This module specifies a suite of refactoring command generators.
+%% The command generators provided by this modules are used for scripting
+%% composite refactorings. For details on how to script composite 
+%% refactorings, see <a href="gen_composite_refac.html">Gen_Composite_Refac</a>
+
 -module(wrangler_gen).
 
 -export([rename_fun/4, rename_fun/5,

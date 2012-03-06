@@ -163,7 +163,7 @@
 %% bottom-up order.
 %%
 %% For the type specification of refactoring command generators, please see 
-%% <a href="wrangler_extended.html">wrangler_extended</a>.
+%% <a href="wrangler_gen.html">wrangler command generators</a>.
 %%
 %% To allow fine control over the generation of refactoring commands and the way a refactoring command 
 %% to be run, we have defined a small language for scripting composite refactorings. The DSL, as shown 

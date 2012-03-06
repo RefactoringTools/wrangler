@@ -24,6 +24,12 @@
 %% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+%%@author  Huiqing Li <H.Li@kent.ac.uk>
+%%
+%%
+%%@doc This module provides API functions that map the textual selection of a code fragment to
+%% its internal represenation.
+%%  
 
 -module(api_interface).
 

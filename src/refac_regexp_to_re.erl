@@ -15,7 +15,7 @@ meta_rule_set() ->
      first_match_match_rule(), matches_meta_rule(), matches_match_rule(),
      sub_meta_rule(), sub_match_rule(), gsub_meta_rule(), gsub_match_rule(),
      split_meta_rule()].
-
+  
 simple_rule_set() ->
     [match_rule(), first_match_rule(), matches_rule(), sub_rule(),
      gsub_rule(), split_rule(), parse_rule()].
@@ -492,3 +492,5 @@ split_rule() ->
 parse_rule() ->
     ?RULE(?T("regexp:parse(RegExp@)"), ?TO_AST("re:compile(RegExp@)"),
           true).
+
+
