@@ -185,13 +185,14 @@ get_user_refactorings(Modules) ->
 apply_changes_eclipse(Module, Args, CandsNotToChange) ->
 	gen_refac:apply_changes(Module, Args, CandsNotToChange).
 
-%%@
+%%@private
 -spec(run_refac_eclipse(Module::module()|string()|tuple(), Args::[term()])->
              {ok, string()} | {change_set, [{string(), string()}], module(), tuple()}|
              {error, term()}).
 run_refac_eclipse(ModName, Args) ->
 	gen_refac:run_refac(ModName,Args, eclipse).
 
+%%@private
 -spec(input_par_prompts_eclipse(CallBackMod::module()) -> [string()]).
 input_par_prompts_eclipse(CallBackMod) ->
 	gen_refac:input_par_prompts(CallBackMod).
