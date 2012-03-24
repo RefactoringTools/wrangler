@@ -3,7 +3,9 @@ Installation
 -------------
 
 Requirements: In order to use Wrangler, you must first have working
-	      installations of Erlang and Emacs (or XEmacs).
+	      installations of Erlang and Emacs (or XEmacs). If you use
+		  Mac OS X 10.7 (Lion), you will need to use the flag 
+		  --enable-darwin-64bit in building Erlang.
 
 Step 1) Build and optionally install the software in the usual way:
 
