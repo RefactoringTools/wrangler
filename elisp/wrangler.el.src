@@ -336,10 +336,6 @@
     ("Nested Receive Expression" erl-wrangler-code-inspector-nested-receives)
     ("Long Functions" erl-wrangler-code-inspector-long-funs)
     ("Large Modules" erl-wrangler-code-inspector-large-mods)
-    ("Generate Function Callgraph" erl-wrangler-code-inspector-callgraph)
-    ("Generate Module Graph" erl-wrangler-code-inspector-module-graph)
-    ("Cyclic Module Dependency" erl-wrangler-code-inspector-cyclic-graph)
-    ("Module Dependency via Only Internal Functions" erl-wrangler-code-inspector-improper-module-dependency)
     ;;("Component Extraction Suggestion" erl-wrangler-code-component-extraction)
     ("Show Non Tail Recursive Servers" erl-wrangler-code-inspector-non-tail-recursive-servers)
     ("Incomplete Receive Patterns" erl-wrangler-code-inspector-no-flush)
@@ -361,6 +357,12 @@
       ;;  ("Detect Similar Code in Current Buffer (Old)" erl-refactor-sim-code-detection-in-buffer)
       ;;  ("Detect Similar Code in Dirs (Old)" erl-refactor-sim-code-detection-in-dirs)
       ))
+     nil
+     ("Module Structure"
+      (("Generate Function Callgraph" erl-wrangler-code-inspector-callgraph)
+       ("Generate Module Graph" erl-wrangler-code-inspector-module-graph)
+       ("Cyclic Module Dependency" erl-wrangler-code-inspector-cyclic-graph)
+       ("Module Dependency via Only Internal Functions" erl-wrangler-code-inspector-improper-module-dependency)))
     nil
     ("API Migration"
      (("Generate API Migration Rules"  erl-refactor-generate-migration-rules)
@@ -3776,7 +3778,7 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
   (setq unopened-files nil)
   candidates-not-to-change)  
 
-(defun apply-composite-refac(callback-module-name) 
+(defun apply-adhoc-composite-refac(callback-module-name) 
   "Apply a composite refactoring defined by behaviour gen_composite_refac"
   (interactive (list (read-string "Refactoring Callback module name: ")))       
   (let* ((buffer (current-buffer))
