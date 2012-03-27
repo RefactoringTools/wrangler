@@ -1,0 +1,269 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>How to use: refactorings</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<ol>
+  <li><a href="#Refactorings">Basic Refactorings</a></li>
+  <li><a href="#QuickCheckRefactorings">QuickCheck Refactorings</a></li>
+  <li><a href="#CodeInspection">Code Inspection</a></li>
+  <li><a href="#SimilarCodeDetection">Similar Code Detection</a></li>
+  <li><a href="#API_migration">API Migration</a></li>
+  <li><a href="#Module Structure">Module Structure</a></li>
+  <li><a href="#Manage_self-defined_refactorings">Manage self-defined refactorings<a></li>
+ </ol>
+
+<h3><a name="Refactorings">Basic Refactorings</a></h3>
+<dl>
+ <dt>Rename variable/function</dt>
+ <dd>Place cursor at the identifier to be renamed; you'll be prompted for a
+     new name.
+ </dd>
+ <dt>Rename module</dt>
+ <dd>Place cursor anywhere within the module; you'll be prompted for a new
+     name.
+ </dd>
+ <dt>Generalise definition</dt>
+ <dd>Highlight the expression on which the function is going to be
+     generalised, you'll be prompted for a new parameter name.
+ </dd>
+ <dt>Move a function definition to another module</dt>
+ <dd>Place cursor anywhere within the function definition; you'll be
+     prompted for the target module name.
+ </dd>
+ <dt>Function extraction</dt>
+ <dd>Highlight the expression/expression sequence that you wish to extract, 
+     you'll be prompted for a new function name.
+ </dd> 
+ <dt>Introduce a new variable</dt>
+ <dd>Highlight the expression of interest, then select <em>Introduce New
+     Variable</em> from the Refactor menu; Wrangler will then prompt for the
+     new variable name.
+ </dd>
+ <dt>Inline a variable</dt>
+ <dd>To unfold a particular use instance of a variable, point the cursor to
+     that instance, and then select <em>Inline Variable</em> from
+     the <em>Refactor</em> menu. To unfold all (or some) uses of a variable,
+     point the cursor to the defining occurrence of the variable and select
+     the refactoring command. Wrangler will then search for uses of the
+     selected variable, and let you choose which instances to unfold. Only
+     variables defined via a match expression of the format `VarName = Expr'
+     can currently be inlined.
+ </dd>
+ <dt>Fold expression against function</dt>
+ <dd>Place cursor anywhere within the function clause. Wrangler will guide
+     you through the possible candidates one by one, and ask whether you
+     want to fold it or not. If you would like to fold expressions against a 
+	 function defined in another module, answer 'no' to the first question asked, 
+	 and you'll be prompted for the module name, name and arity of the 
+	 function and also the index (starting from 1) of the clause to be folded against.
+ </dd>
+ <dt>Tuple function arguments</dt>
+ <dd>Highlight the sequence of parameters to be grouped into a tuple from
+     the function definition, then select the refactoring command from the
+     menu.
+ </dd>
+ <dt>Unfold a function application</dt>
+ <dd>Place the cursor at the function name part of the function application,
+     then select the <em>Unfold Function Application</em> command.
+ </dd>
+ <dt>Introduce new macro</dt>
+ <dd>Highlight the expression/pattern that you wish to replace with macro
+     application, and you'll be prompted from a new macro name.
+ </dd>
+ <dt>Fold against macro definition</dt>
+ <dd>Place cursor anywhere within the function definition. Wrangler will
+     direct you through the possible candidates one by one, and for each
+     candidate ask whether you want to fold it or not.
+ </dd>
+ <dt>Rename a process</dt>
+ <dd>Place the cursor at the process name to be renamed, and you will be
+     prompted for the new name.
+ </dd>
+ <dt>Register a process</dt>
+ <dd>Highlight the match expression whose right-hand side is the spawn
+     expression that creates the process, and left-hand side is the process
+     identifier, and you will be prompted for the new process name.
+ </dd>
+ <dt>From fun to process</dt>
+ <dd>Place the cursor at the function name of the function definition to be
+     refactored, and you will be prompted for the new process name.
+ </dd>
+ <dt>Add tag to messages</dt>
+ <dd>Place the cursor at the function whose body contains the receive
+     expression of the server process, and you will be prompted for the tag
+     name.
+ </dd>
+ <dt> Normalise Record Expression </dt>
+ <dd> Place the cursor at the record expression of interest, then select the 
+      refactoring command.
+ <dt> Partition Export Functions </dt>
+ <dd> Select the refactoring command, and you will be prompted for an instance 
+      threshold value between 0.1 and 1.0</dd>
+ <dt> gen_fsm State to Record</dt>
+ <dd>Select the refactoring command, and Wrangler will check the current
+     type of the state machine, and prompt you to input the record and field
+     names if Wrangler is able to process the refactoring.
+ </dd>
+ </dl>
+ 
+<h3><a name="QuickCheckRefactorings">QuickCheck Refactorings</a></h3>
+ <dl>
+ <dt>Introduce a ?LET</dt>
+ <dd>Highlight the expression which should be a QC generator, then select
+     the refactoring command; you will be prompted for the pattern variable
+     name.
+ </dd>
+ <dt>Merge ?LETs</dt>
+ <dd>Select the refactoring command, and Wrangler will guide you through the
+     possible candidates one by one, and ask whether you want to merge it or
+     not.
+ </dd>
+ <dt>Merge ?FORALLs</dt>
+ <dd>Select the refactoring command, and Wrangler will guide you through the
+     possible candidates one by one, and ask whether you want to merge it or
+     not.
+ </dd>
+ <dt>eqc_statem State to Record</dt>
+ <dd>Select the refactoring command, and Wrangler will check the current
+     type of the state machine, and prompt you to input the record and field
+     names if Wrangler is able to proceed the refactoring.
+ </dd>
+ <dt>eqc_fsm State to Record</dt>
+ <dd>Select the refactoring command, and Wrangler will check the current
+     type of the state machine, and prompt you to input the record and field
+     names if Wrangler is able to process the refactoring.
+ </dd>
+ <dt> Test Cases to Property </dt>
+ <dd> Place the cursor at the function definition of interest, then select the 
+      refactoring command. </dd>
+ <dt> Refactor Bug PreCond </dt>
+ <dd> Select the refactoring command, and Wrangler will do the transformation; no 
+      user input is needed. </dd>
+ </dl>
+<h3><a name="CodeInspection">Code Inspection</a></h3>
+<dl>
+<dt> Instances of a Variable </dt>
+<dd> Place the cursor at one instance of the variable, select the command, and Wrangler 
+     will highlight all the instances of this variable. An instance highlighted in blue
+	 is a use-instance of the variable, and an instance highlighted in orange is a 
+	 define-instance of the variable. Type 'Ctrl-c Ctrl-w e' to remove highlighting. </dd>
+<dt> Calls to a Function </dt>
+<dd> Place the cursor the function definition of interest, then select the command.</dd>
+<dt> Dependencies of a Module </dt>
+     <dd>Just select the command; no user-input is needed.</dd>
+<dt> Nested If Expressions </dt>
+     <dd>Select the command, the you'll be prompted to input the minimum nest level. </dd>
+<dt> Nested Case Expressions </dt>
+     <dd>Select the command, the you'll be prompted to input the minimum nest level. </dd>
+<dt> Nested Receive Expressions </dt>
+     <dd>Select the command, the you'll be prompted to input the minimum nest level. </dd>
+<dt> Long Functions </dt>
+     <dd>Select the command, then you'll be prompted to input the minimum  number of 
+	 lines of code for a function to be considered as a long function. </dd>
+<dt> Large Modules </dt>
+     <dd>Select the command, then you'll be prompted to input the minimum  number of 
+	 lines of code for a module to be considered as a large module. </dd>
+<dt> Show Non Tail Recursive Servers </dt>
+     <dd>Select the command, and Wrangler will ask you whether to check the current 
+	 buffer only, or the whole application. </dd>
+<dt> Incomplete Receive Patterns </dt>  
+     <dd>Select the command, and Wrangler will ask you whether to check the current 
+	 buffer only, or the whole application.</dd>
+</dl>
+<h3><a name="SimilarCodeDetection">Similar Code Detection</a></h3>
+<dl>
+ <dt>Similar code in current buffer</dt>
+ <dd>Select the refactoring command from the menu, and you'll be prompted
+     for 5 parameters, i.e. i.e. the minimum number of expressions in a
+     expression sequence, the minimum number of tokens, the minimum number of 
+	 duplication, the maximum number of New_Vars, and a similarity score.
+ </dd>
+ 
+ <dt>Similar code in dirs</dt>
+ <dd>Select the refactoring command from the menu, and you'll be prompted
+     for 5 parameters, i.e. i.e. the minimum number of expressions in a
+     expression sequence, the minimum number of tokens, the minimum number of 
+	 duplication, the maximum number of New_Vars, and a similarity score.
+     Wrangler searches similar code in the directories specified by the
+     search-paths (see Customize Wrangler).
+ </dd>
+ 
+ <dt>Similar expression search in current buffer</dt>
+ <dd>Highlight the expression/expression sequence you are interested, select
+     the command from the menu, and Wrangler will prompt you to input a
+     similarity score.
+ </dd>
+ 
+ <dt>Similar expression search in Dirs</dt>
+ <dd>Highlight the expression/expression sequence you are interested, select
+     the command from the menu, and Wrangler will prompt you to input a
+     similarity score. Wrangler searches similar expressions in the directories specified by the
+     search-paths (see Customize Wrangler).
+ </dd>
+ </dl>
+ <h3><a name="API_migration">API Migration</a></h3>
+<dl>
+<dt> Generate API Migration Rules </dt>
+<dd>Make sure that the current buffer is an Erlang module implementing a set of 'adaptor' functions, select the 
+    command, and you'll be prompt for a new file name where the new rules generated will be saved.</dd>
+<dt> Apply API Migration to Current File </dt>
+<dd>Select the command from the menu, and you'll be prompted for the name of the module containing the API migration rules.
+Make sure that the API migration module has been compiled before use. </dd>
+<dt> Apply API Migration to Dirs </dt>
+<dd>Select the command from the menu, and you'll be prompted for the name of the module containing the API migration rules.
+Make sure that the API migration module has been compiled before use. </dd>
+<dt> From Regexp to RE </dt>
+<dd>Select the command from the menu, and you'll be able to choose whether to apply the migration to the current
+buffer only or to the whole application </d>
+
+</dl>
+<h3><a name="Module Structure">Module Structure</a></h3>
+<dl>
+<dt> Generate Function Callgraph </dt>
+<dd>Select the command, and you'll be prompted for the name of the file where the callgraph is going 
+to be stored. The file generated is a .dot file, and you need to compile it using Graphviz to generate 
+the graph image.</dd>
+<dt> Generate Module Graph </dt>
+<dd>Select the command, and you'll be prompted for the name of the file where the callgraph is going 
+to be stored. Wrangler ask to confirm the directories to be search, and whether to label the edges with 
+names of functions called. The file generated is a .dot file, and you need to compile it using Graphviz to generate 
+the graph image.</dd>
+<dt> Cyclic Module Dependency </dt>
+<dd>Select the command, and you'll be prompted for the name of the file where the callgraph is going 
+to be stored. Wrangler ask to confirm the directories to be search, and whether to label the edges with 
+names of functions called. The file generated is a .dot file, and you need to compile it using Graphviz to generate 
+the graph image.</dd>
+<dt> Module Dependency via only Internal Functions</dt>
+<dd>Select the command, and you'll be prompted for the name of the file where the callgraph is going 
+to be stored. Wrangler ask to confirm the directories to be search, and whether to label the edges with 
+names of functions called. The file generated is a .dot file, and you need to compile it using Graphviz to generate 
+the graph image.</dd>
+</dl>
+<h3><a name="Manage_self-defined_refactorings">Manage Self-defined Refactorings</a></h3>
+<dl> 
+<dt> Apply Adhoc Refactoring </dt>
+<dd> Select the command from the menu, and you'll be prompted for the name of the callback module implementing
+a <em>gen_refac </em> behaviour. Please make sure that the callback module is compiled before use.</dd>
+<dt> Apply Adhoc Composite Refactoring </dt>
+<dd> Select the command from the menu, and you'll be prompted for the name of the callback module implementing
+a <em>gen_composite_refac</em> behaviour. Please make sure that the callback module is compiled before use.</dd>
+<dt> Add to My <em>gen_refac</em> Refactorings </dt>
+<dd> Make sure that the current buffer is an Erlang module implementing a <em> gen_refac </em> behaviour, then 
+     select the command from the menu. </dd>
+<dt> Add to My <em>gen_composite_refac</em> Refactorings </dt>
+<dd> Make sure that the current buffer is an Erlang module implementing a <em> gen_composite_refac </em> behaviour, then 
+     select the command from the menu. </dd>
+<dt> Remove from My <em>gen_refac</em> Refactorings </dt>
+<dd> Select the command from the menu, and you'll be prompted for the menu item name to be removed. </dd>
+<dt> Remove from My <em>gen_composite_refac</em> Refactorings </dt>
+<dd> Select the command from the menu, and you'll be prompted for the menu item name to be removed </dd>
+<dt> 
+</dl>
+</html>

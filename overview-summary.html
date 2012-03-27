@@ -23,7 +23,7 @@ refactoring of Erlang programs.</p>
   <li><a href="#Download">Download</a></li>
   <li><a href="#How_to_Use_Wrangler">How to Use Wrangler</a></li>
   <li><a href="#References">References</a></li>
-  <li><a href="#Acknowledgements">Acknowledgements</a></li>
+  <li><a href="#Acknowledgments">Acknowledgments</a></li>
 </ol>
 
 <h3><a name="Introduction">Introduction</a></h3>
@@ -84,10 +84,7 @@ refactoring, undo and so on. </p>
 package, Wrangler is embedded in the Emacs/Xemacs editing environment, and
 makes use of the functionalities provided by Distel, an Emacs-based user
 interface toolkit for Erlang, to manage the communication between the
-refactoring tool and Emacs.</p>
-
-
-<p>Wrangler is integrated within Emacs -- including XEmacs -- and also within 
+refactoring tool and Emacs. Wrangler is also integrated within
 Eclipse, as a part of the ErlIDE plugin for Erlang. </p>
 
 <h3><a name="The_Interface_of_Wrangler">The Interface of Wrangler</a></h3>
@@ -129,7 +126,7 @@ activities after the refactoring.</p>
 <h4><a name="Wrangler_in_Eclipse">Wrangler in Eclipse</a></h4><p>
 Below is a snapshot of Wrangler embedded in Eclipse + Erlide.</p>
 
-<p><img src="Erlide.jpg" alt="snapshot of Wrangler embedded in Eclipse with Erlide"> </p>
+<p><img src="Erlide.png" alt="snapshot of Wrangler embedded in Eclipse with Erlide"> </p>
 
 <h3><a name="Support_for_Macros">Support for Macros</a></h3>
 
@@ -150,51 +147,253 @@ parts of the program are given after the refactoring.</p>
 
 <h3><a name="Download">Download</a></h3>
 
-<p>Wrangler is downloadable from Github: <a href="https://github.com/RefactoringTools" target="_top"><tt>https://github.com/RefactoringTools</tt></a></p>
+<p>Wrangler is downloadable from Github: <a href="https://github.com/RefactoringTools" target="_top"><tt>https://github.com/RefactoringTools</tt></a>, and also 
+from <a href="http://www.cs.kent.ac.uk/projects/wrangler" target="_top"><tt>http://www.cs.kent.ac.uk/projects/wrangler</tt></a></p>
 
 <h3><a name="How_to_Use_Wrangler">How to Use Wrangler</a></h3>
 
 <ol>
- <li>Open an Erlang source file in the Emacs editor. You should now have a
-     menu called <em>Erlang</em>, if you have configured Emacs properly to
-     use the Erlang-mode (see the file INSTALL otherwise).
+ <li><p>Open an Erlang source file in the Emacs editor. You should now have a
+     menu called <em>Erlang</em>, if you have configured Emacs properly to     
+use the Erlang-mode (see the file INSTALL otherwise).</p>
+	 
  </li>
- <li>To start Wrangler, type: <code>M-x erlang-wrangler-on</code>, or
-     alternatively <code>Ctrl-c Ctrl-r</code>. After that, new menu <em>Wrangler</em>should appear in the
-     menu bar (see INSTALL otherwise).
+ <li><p>To start Wrangler, type: <code>M-x erlang-wrangler-on</code>, or
+     alternatively <code>Ctrl-c Ctrl-r</code>. After that, new menu <em>Wrangler</em> should appear in the     
+menu bar (see INSTALL otherwise).</p>
+	 
  </li>
- <li>To stop Wrangler, type <code>M-x erlang-wrangler-off</code>, or
-     alternatively use <code>Ctrl-c Ctrl-r</code> again. The Refactor and Inspector
-     menus will disappear from the menu bar.
+ <li><p>To stop Wrangler, type <code>M-x erlang-wrangler-off</code>, or
+     alternatively use <code>Ctrl-c Ctrl-r</code> again. The Refactor and Inspector     
+menus will disappear from the menu bar.</p>
+	 
  </li>
- <li>You can use <code>Ctrl-c Ctrl-r</code> to toggle Wrangler on or off.
+ <li><p>You can use <code>Ctrl-c Ctrl-r</code> to toggle Wrangler on or off.</p>
+ 
  </li>
- <li>For most refactorings, the editor interface will pass the current
-     filename (should be the module name, as well), the refactoring command,
-     and the current cursor position. For some refactorings, you'll also
-     need to highlight an expression, or enter a new name.
+ <li><p>For most refactorings, the editor interface will pass the current     
+filename (should be the module name, as well), the refactoring command,     
+and the current cursor position. For some refactorings, you'll also     
+need to highlight an expression, or enter a new name.</p>
+	 
  </li>
- <li>The <em>Customize Wrangler</em> menu in the Wrangler submenu allows you
-     to specify the boundary of the system by giving the list of directories
-     to search for Erlang source files/header files that could be affected
-     by a refactoring.
- </li>
+ <li><p>The <em>Customize Wrangler</em> menu in the Wrangler submenu allows you     
+to specify the boundary of the system by giving the list of directories     
+to search for Erlang source files/header files that could be affected     
+by a refactoring.</p>
+	 
+ </li> 
+ <li><p>For most refactorings, the editor interface will pass the current filename      
+(should be the module name, as well), the refactoring command, and the current 	 
+cursor position. For some refactorings, you'll also need to highlight an      
+expression, or enter a new name. </p>
+	 
+	 How to use:
+	 <ul>
+	 <li>
+      <a href="how_to_use.htm#Refactorings"> Basic Refactorings</a>.
+     </li>
+	 <li>
+      <a href="how_to_use.htm#QuickCheckRefactorings"> QuickCheck Refactorings</a>.
+     </li>
+     <li>
+       <a href="how_to_use.htm#CodeInspection"> Code Inspection</a>. 
+	 </li>
+	  <li>
+       <a href="how_to_use.htm#SimilarCodeDetection"> Similar Code Detection</a>. 
+	 </li>
+	  <li>
+       <a href="how_to_use.htm#API_migration"> API Migration</a>. 
+	 </li>
+	  <li>
+       <a href="how_to_use.htm#Module Structure"> Module Structure</a>. 
+	 </li>
+     <li>
+       <a href="how_to_use.htm#Manage_self-defined_refactorings"> Manage Self-defined Refactorings</a>. 
+	 </li>
+     </ul>
+  </li>
 </ol>
-
-
-
-<h3><a name="Monoitor_Refactorings_with_Version_Control_Systems">Monoitor Refactorings with Version Control Systems</a></h3>
 
 <h3><a name="References">References</a></h3>
 
-<p>Our <a href="http://www.cs.kent.ac.uk/projects/refactor-fp/">Refactoring
+Our <a href="http://www.cs.kent.ac.uk/projects/refactor-fp/">Refactoring
 Functional Programs</a> project website contains more information and
 references about refactoring functional, especially Haskell, programs; and
 our progress and ideas about refactoring Erlang programs are available at
 our <a href="http://www.cs.kent.ac.uk/projects/wrangler/"> Wrangler </a> project
-webpage.</p>
+webpage. Here are some publications related to Wrangler:
+<ul>
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2011/3172/index.html">A
+  Domain-Specific Language for Scripting Refactorings in
+  Erlang</a>.
+Huiqing Li and Simon Thompson. FASE 2012, Tallinn, Estonia.
+</li>
 
-<h3><a name="Acknowledgements">Acknowledgements</a></h3>
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2011/3171/index.html">A
+  User-extensible Refactoring Tool for Erlang Programs</a>.
+Huiqing Li and Simon Thompson.
+Technical Report 4-11, University of Kent, October 2011.
+</li>
+
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2011/3086/index.html">Extracting
+  Properties from Test Cases by Refactoring</a>.
+Huiqing Li, Simon Thompson, and Thomas Arts.
+In Steve Counsell, editor, <em> Proceedings of the Refactoring and Testing
+  Workshop (RefTest 2011)</em>, page 2. IEEE digital library, March 2011.
+</li>
+
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2011/3087/index.html">Incremental Code Clone Detection and Elimination for Erlang Programs</a>.
+Huiqing Li and Simon Thompson.
+In Dimitra Giannakopoulou and Fernando Orejas, editors, <em> Proceedings of
+  the Conference on Fundamental Approaches to Software Engineering
+  (FASE'11)</em>, Lecture Notes in Computer Science. Springer, March 2011.
+</li>
+
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2010/3039/index.html">Improved
+  Testing Through Refactoring: Experience from the ProTest project</a>.
+Huiqing Li and Simon Thompson.
+In Leonardo Bottaci and Gordon Fraser, editors, <em> Testing - Practice and
+  Research Techniques: 5th International Academic and Industrial Conference,
+  TAIC PART 2010</em>, volume 6303 of <em> Lecture Notes in Computer
+  Science</em>, pages 198-202. Springer, September 2010.
+</li>
+
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2010/3040/index.html">Refactoring Support for Modularity Maintenance in Erlang</a>.
+Huiqing Li and Simon Thompson.
+In Jurgen Vunju and Cristina Marinescu, editors, <em> Tenth IEEE International
+  Working Conference on Source Code Analysis and Manipulation</em>, pages
+  157-166. IEEE Computer Society, September 2010.
+</li>
+
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2010/3009/index.html">An
+  Expression Processor: A Case Study in Refactoring Haskell Programs</a>.
+Christopher Brown, Huiqing Li, and Simon Thompson.
+In Rex Page, editor, <em> Eleventh Symposium on Trends in Functional
+  Programming</em>, page 15pp, May 2010.
+</li>
+
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2010/2975/index.html">Similar
+  Code Detection and Elimination for Erlang Programs</a>.
+Huiqing Li and Simon Thompson.
+In Manuel Carro and Ricardo Pena, editors, <em> Practical Aspects of
+  Declarative languages 2010</em>, number 5937 in Lecture Notes in Computer
+  Science, pages 104-118. Springer, January 2010.
+</li>
+
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2009/2965/index.html">Testing-framework-aware Refactoring</a>.
+Huiqing Li and Simon Thompson.
+In <em> The Third ACM Workshop on Refactoring Tools</em>, pages 1-4, Orlando,
+  Florida, October 2009.
+</li>
+
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2009/2888/index.html">Clone
+  Detection and Removal for Erlang/OTP within a Refactoring
+  Environment</a>.
+Huiqing Li and Simon Thompson.
+In Massimiliano Di Penta and Jens Knodel, editors, <em> Third International
+  Workshop on Detection of Software Clones</em>, page 1pp, Kaiserslautern,
+  Germany, March 2009.
+</li>
+
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2009/2871/index.html">Clone
+  Detection and Removal for Erlang/OTP within a Refactoring
+  Environment</a>.
+Huiqing Li and Simon Thompson.
+In <em> ACM SIGPLAN Workshop on Partial Evaluation and Program Manipulation
+  (PEPM'09)</em>, Savannah, Georgia, USA, January 2009.
+</li>
+
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2008/2843/index.html">Tool
+  Support for Refactoring Functional Programs</a>.
+Huiqing Li and Simon Thompson.
+In Danny Dig, Robert Fuhrer, and Ralph Johnson, editors, <em> Proceedings of
+  the Second ACM SIGPLAN Workshop on Refactoring Tools</em>, page 4pp,
+  Nashville, Tennessee, USA, October 2008.
+</li>
+
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2008/2815/index.html">Refactoring with Wrangler, updated: Data and process refactorings, and integration with
+  Eclipse</a>.
+Huiqing Li, Simon Thompson, George Orosz, and Melinda Toth.
+In Zoltan Horvath and Tee Teoh, editors, <em> Proceedings of the Seventh ACM
+  SIGPLAN Erlang Workshop</em>, page 12pp. ACM Press, September 2008.
+</li>
+
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2008/2814/index.html">Refactoring with Wrangler, updated</a>.
+Huiqing Li, Simon Thompson, Gy"orgy Orosz, and Melinda T"oth.
+In <em> ACM SIGPLAN Erlang Workshop 2008, Victoria, British Columbia,
+  Canada</em>, September 2008.
+</li>
+
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2008/2777/index.html">Clone
+  Detection and Removal for Erlang/OTP within a Refactoring
+  Environment</a>.
+Huiqing Li and Simon Thompson.
+In P. Achten, P. Koopman, and M. T. Moraz?n, editors, <em> Draft Proceedings of
+  the Ninth Symposium on Trends in Functional Programming(TFP)</em>, The
+  Netherlands, May 2008.
+</li>
+
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2008/2634/index.html">Tool
+  Support for Refactoring Functional Programs</a>.
+Huiqing Li and Simon Thompson.
+In <em> Partial Evaluation and Program Manipulation</em>, San Francisco,
+  California, USA, January 2008.
+</li>
+
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2007/2607/index.html">Testing
+  Erlang Refactorings with QuickCheck</a>.
+{Huiqing Li and Simon Thompson.
+In <em> Draft Proceedings of the 19th International Symposium on
+  Implementation and Application of Functional Languages, IFL 2007</em>,
+  Freiburg, Germany, September 2007.
+</li>
+
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2007/2648/index.html">Testing
+  Erlang Refactorings with QuickCheck</a>.
+Huiqing Li and Simon Thompson.
+In <em> the 19th International Symposium on Implementation and Application of
+  Functional Languages, IFL 2007, LNCS</em>, Freiburg, Germany, September 2007.
+</li>
+
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2006/2455/index.html">Refactoring
+  erlang programs</a>.
+Huiqing Li, Simon Thompson, L?szl? L?vei, Zolt?n Horv?th, Tam?s Kozsik, Anik?
+  V?g, and Tam?s Nagy.
+In <em> The Proceedings of 12th International Erlang/OTP User Conference</em>,
+  Stockholm, Sweden, November 2006.
+</li>
+
+<li>
+<a href="http://www.cs.kent.ac.uk/pubs/2006/2439/index.html">A
+  comparative study of refactoring haskell and erlang programs</a>.
+Huiqing Li and Simon Thompson.
+In Massimiliano Di Penta and Leon Moonen, editors, <em> Sixth IEEE
+  International Workshop on Source Code Analysis and Manipulation (SCAM
+  2006)</em>, pages 197-206. IEEE, September 2006.
+</li>
+</ul>
+
+<h3><a name="Acknowledgments">Acknowledgments</a></h3>
 
 The work was initially supported by EPSRC in the UK, and is now by the
 European Commission. We are very grateful that we were able to build the
@@ -206,6 +405,6 @@ SyntaxTools</a>, and make use some of the ideas from
 
 <hr>
 <div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, Mar 6 2012, 02:38:55.</i></p>
+<p><i>Generated by EDoc, Mar 27 2012, 16:43:59.</i></p>
 </body>
 </html>
