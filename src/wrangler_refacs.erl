@@ -30,7 +30,7 @@
 %%
 %% =====================================================================
 
-%% @copyright 2006-2011 Huiqing Li, Simon Thompson
+%% @copyright 2006-2012 Huiqing Li, Simon Thompson
 %%
 %% @author Huiqing Li, Simon Thompson
 %%   [http://www.cs.kent.ac.uk/projects/wrangler]
