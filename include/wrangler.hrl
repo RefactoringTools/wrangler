@@ -252,7 +252,7 @@
         wrangler_cmd_server:update_entity({M,F,A})).
 
 
--type(elementary_refac()::{refac_, atom, [term()]}).
+-type(elementary_refac()::{refac_, atom(), term()}).
 
 -type (qualifier():: atomic | non_atomic).
 
@@ -261,4 +261,6 @@
                          {repeat_interactive, qualifier(), [elementary_refac()]} | 
                          {if_then, function(), composite_refac()} |
                          {while, function(), qualifier(), composite_refac()} |
-                         {qualifier, [composite_refac()]}).
+                         {qualifier(), [composite_refac()]}).
+                          
+                        
