@@ -1,4 +1,4 @@
 {application,wrangler}.
 {packages,[]}.
 {modules,[api_interface,api_refac,api_wrangler,gen_composite_refac,gen_refac,
-          inspec_lib,wrangler_gen,wrangler_refacs]}.
+          inspec_lib,refac_api_migration,wrangler_gen,wrangler_refacs]}.
