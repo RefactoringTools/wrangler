@@ -103,7 +103,8 @@
                                    {true, _W_Bind1_, CsOrder} ->
                                        _This@=_W_Node_,
                                        _File@=_W_File_,
-                                       _W_After_ = fun()-> After end(),
+                                       _W_After_ = fun()-> _W_Bind2_ = lists:append(_W_Bind1_),
+                                                           api_refac:make_cond(After,_W_Bind2_) end(),
                                        _W_After_SubTrees_=lists:append(wrangler_syntax:subtrees(_W_After_)),
                                        [_W_Arg_|_W_Cs]=[begin
                                                             api_refac:generate_bindings_1(Before,'_W_SubBind_'),
