@@ -9,7 +9,7 @@
 %% Note: fuctions needed to redefined: apply/2, apply/3, spawn/1/2/3/4, 
 %% spawn_link/1/2/3/4, ...
 
--spec test/1::(string()) ->string().              
+-spec test/1::(string()) ->{ok, string()} |{error, term()}.              
 test(Str) -> transform(Str, "my_mod").
 
 -spec transform/2::(string(), string()) -> 
