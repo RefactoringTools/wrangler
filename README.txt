@@ -32,6 +32,10 @@ needs to implement an adapter function in Erlang, which defines the old API
 functions in terms of the new. From this definition we automatically generate 
 rules to transform the client code to make use of the new API rather than 
 the old. 
+ 
+--------------------------------- Documentation -------------------------------
+
+Wrangler online documentation is available from http://refactoringtools.github.com/wrangler
 
 -------------------------------- Wrangler Installation ------------------------
          
