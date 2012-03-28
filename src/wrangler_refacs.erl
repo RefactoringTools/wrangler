@@ -193,14 +193,14 @@ run_refac_eclipse(ModName, Args) ->
 	gen_refac:run_refac(ModName,Args, eclipse).
 
 %%@private
--spec(input_par_prompts_eclipse(CallBackMod::module()) -> [string()]).
+-spec(input_par_prompts_eclipse(CallBackMod::module()) -> {ok, [string()]}).
 input_par_prompts_eclipse(CallBackMod) ->
 	gen_refac:input_par_prompts(CallBackMod).
 
 %% ====================================================================================================
 %% @doc gen_composite_refac refactorings - delegate functions in order to achieve more clear API (especially for Eclipse)
 %%@private
--spec(input_par_prompts_c_eclipse(CallBackMod::module()) -> [string()]).
+%%-spec(input_par_prompts_c_eclipse(CallBackMod::module()) -> [string()]).
 input_par_prompts_c_eclipse(CallBackMod) ->
 	gen_composite_refac:input_par_prompts(CallBackMod).
 
@@ -231,20 +231,16 @@ get_next_command_eclipse(PrevResult) ->
 %% ====================================================================================================
 %% @doc load new callback module (ad hoc refactorings)
 %%@private
--spec(load_callback_mod_eclipse(Module::module(), Path::string()) ->
-	ok | {error, Reason::term()}).
 load_callback_mod_eclipse(Module, Path) ->
-	code:add_patha(Path),
-	code:purge(list_to_atom(Module)),
-	case code:load_file(list_to_atom(Module)) of
-		{module, Module} ->
- 				ok;
-		Error ->
-				Error	
-	end.
+    code:add_patha(Path),
+    code:purge(list_to_atom(Module)),
+    case code:load_file(list_to_atom(Module)) of
+        {module, Module} ->
+            ok;
+        Error ->
+            Error	
+    end.
 
-%% @doc load user's own refactorings from my_gen_refac
--spec(load_user_refactorings(Path::string()) -> ok).
 %%@private
 load_user_refactorings(Path) ->
 	MyRefacs = filename:join(Path, "my_gen_refac"),
