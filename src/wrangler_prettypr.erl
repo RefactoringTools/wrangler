@@ -442,7 +442,7 @@ lay_precomments(Cs,D, {DStartLine, DStartCol}) ->
 lay_postcomments_1([], D, _) -> D;
 lay_postcomments_1(Cs, D, DEndLn) ->
     {PostCsLn, _} = wrangler_syntax:get_pos(hd(Cs)),
-    case PostCsLn >= DEndLn + 1 of
+    case PostCsLn >= DEndLn + 1  andalso DEndLn /=0 of
         true ->
             lay_postcomments(Cs, above(D, text("")));
         false ->
