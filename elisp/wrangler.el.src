@@ -316,7 +316,7 @@
     ("My gen_composite_refac Refacs" (my_gen_composite_refac_menu_items))
     nil
     ("Apply Adhoc Refactoring"  apply-adhoc-refac)    
-    ("Apply Composite Refactoring" apply-composite-refac)
+    ("Apply Composite Refactoring" apply-adhoc-composite-refac)
     nil
     ("Add/Remove Menu Items"
      (           
@@ -4193,16 +4193,16 @@ Please see the function `tempo-define-template'.")
 
 (defun refac_batch_inline_vars()
   (interactive)
-  (apply-composite-refac 'refac_batch_inline_vars))
+  (apply-adhoc-composite-refac 'refac_batch_inline_vars))
 
 
 (defun refac_batch_clone_elimination()
   (interactive)
-  (apply-composite-refac 'refac_batch_clone_elimination))
+  (apply-adhoc-composite-refac 'refac_batch_clone_elimination))
 
 (defun refac_batch_prefix_module()
   (interactive)
-  (apply-composite-refac 'refac_batch_prefix_module))
+  (apply-adhoc-composite-refac 'refac_batch_prefix_module))
 
 (defun refac_swap_function_arguments()
   (interactive)
