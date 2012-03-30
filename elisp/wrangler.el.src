@@ -316,7 +316,7 @@
     ("My gen_composite_refac Refacs" (my_gen_composite_refac_menu_items))
     nil
     ("Apply Adhoc Refactoring"  apply-adhoc-refac)    
-    ("Apply Composite Refactoring" apply-adhoc-composite-refac)
+    ("Apply Composite Refactoring" apply-composite-refac)
     nil
     ("Add/Remove Menu Items"
      (           
@@ -3778,7 +3778,7 @@ Based on the hash function in http://www.haible.de/bruno/hashfunc.html."
   (setq unopened-files nil)
   candidates-not-to-change)  
 
-(defun apply-adhoc-composite-refac(callback-module-name) 
+(defun apply-composite-refac(callback-module-name) 
   "Apply a composite refactoring defined by behaviour gen_composite_refac"
   (interactive (list (read-string "Refactoring Callback module name: ")))       
   (let* ((buffer (current-buffer))
@@ -4193,16 +4193,16 @@ Please see the function `tempo-define-template'.")
 
 (defun refac_batch_inline_vars()
   (interactive)
-  (apply-adhoc-composite-refac 'refac_batch_inline_vars))
+  (apply-composite-refac 'refac_batch_inline_vars))
 
 
 (defun refac_batch_clone_elimination()
   (interactive)
-  (apply-adhoc-composite-refac 'refac_batch_clone_elimination))
+  (apply-composite-refac 'refac_batch_clone_elimination))
 
 (defun refac_batch_prefix_module()
   (interactive)
-  (apply-adhoc-composite-refac 'refac_batch_prefix_module))
+  (apply-composite-refac 'refac_batch_prefix_module))
 
 (defun refac_swap_function_arguments()
   (interactive)
