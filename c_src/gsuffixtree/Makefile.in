@@ -1,3 +1,4 @@
+CC          = @CC@
 ERL_CFLAGS  = @ERL_CFLAGS@
 ERL_LIB     = @ERL_LIB@
 CFLAGS      = @CFLAGS@
@@ -9,13 +10,13 @@ ERL_LDFLAGS= $(LDFLAGS) $(ERL_LIB)
 
 
 $(OUTDIR)/gsuffixtree:	main.o gsuffix_tree.o
-	gcc  $(ERL_LDFLAGS) main.o gsuffix_tree.o -lerl_interface -lei -lpthread -o $(OUTDIR)/gsuffixtree
+	$(CC)  $(ERL_LDFLAGS) main.o gsuffix_tree.o -lerl_interface -lei -lpthread -o $(OUTDIR)/gsuffixtree
 
 gsuffix_tree.o:	gsuffix_tree.c gsuffix_tree.h
-	gcc $(CFLAGS) $(ERL_CFLAGS) -o gsuffix_tree.o -c gsuffix_tree.c
+	$(CC) $(CFLAGS) $(ERL_CFLAGS) -o gsuffix_tree.o -c gsuffix_tree.c
 
 main.o:	gsuffix_tree.h 
-	gcc $(CFLAGS) $(ERL_CFLAGS) -o main.o -c main.c 
+	$(CC) $(CFLAGS) $(ERL_CFLAGS) -o main.o -c main.c
 
 clean:
 	@-rm -f *.o
