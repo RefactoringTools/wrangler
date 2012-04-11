@@ -36,13 +36,13 @@
 %%   [http://www.cs.kent.ac.uk/projects/wrangler]
 
 %% @end
-%%
+%% 
 %% @doc This module describes the refactoring commands that can be run in an Erlang shell.
 %% <p>All refactorings commands should be run in the context of a Wrangler application. 
-%% Use wrangler_api:start() to start a Wrangler application, and wrangler_api:stop() the 
+%% Use api_wrangler:start() to start a Wrangler application, and api_wrangler:stop() to the 
 %% application.
-%% </p>
-
+%% </p> 
+ 
 -module(api_wrangler).
 
 -export([rename_mod/3, rename_fun/5, move_fun/5, similar_code/7]).
@@ -61,12 +61,12 @@
 %% @doc Start a Wrangler application.
 %%@spec start() -> {ok, Pid}|{error, Reason}
 start() ->
-    application:start(wrangler_app).
+    application:start(wrangler).
 
 %% @doc Stop a Wrangler application.
 %%@spec stop()-> ok
 stop() ->
-    application:stop(wrangler_app).
+    application:stop(wrangler).
 
 %% @doc Undo the previous refactoring. This only works within a Wrangler application.
 %%@spec undo()-> {ok, FilesChanged::[filename()]}|{error, Reason}
@@ -93,7 +93,7 @@ rename_mod(ModOrFileName, NewModName, SearchPaths) ->
 %%				       {ok, FilesChanged::[filename()]}|{error,Reason}
 rename_fun(ModOrFileName, FunName, Arity, NewFunName, SearchPaths) ->
     try_apply(refac_rename_fun, rename_fun_by_name, 
-	      [ModOrFileName, FunName, Arity, NewFunName, SearchPaths]).
+	      [ModOrFileName, FunName, Arity, NewFunName, SearchPaths,command,8]).
 
 
 %%===================================================================================
