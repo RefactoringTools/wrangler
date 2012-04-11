@@ -39,7 +39,7 @@
 %% 
 %% @doc This module describes the refactoring commands that can be run in an Erlang shell.
 %% <p>All refactorings commands should be run in the context of a Wrangler application. 
-%% Use api_wrangler:start() to start a Wrangler application, and api_wrangler:stop() to the 
+%% Use api_wrangler:start() to start a Wrangler application, and api_wrangler:stop() to stop the 
 %% application.
 %% </p> 
  
