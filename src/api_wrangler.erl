@@ -47,6 +47,8 @@
 
 -export([rename_mod/3, rename_fun/5, move_fun/5, similar_code/7]).
 
+-export([refac_bug_cond/1]).
+
 -export([start/0, stop/0, undo/0]).
 
 -export([test_similar_code/1]).
@@ -130,6 +132,11 @@ similar_code(DirFileList,MinLen,MinToks,MinFreq,MaxVars,SimiScore,SearchPaths) -
     try_apply(refac_inc_sim_code, inc_sim_code_detection_command,
 	      [DirFileList,MinLen,MinToks,MinFreq,MaxVars,SimiScore,SearchPaths,8]).
 
+%%@doc For QuickCheck only.
+%%@private.
+-spec refac_bug_cond([filename()|dir()]) -> {ok, string()} |{error, term()}.
+refac_bug_cond(DirOrFileList) ->
+    try_apply(refac_bug_cond, refac_bug_cond, [DirOrFileList, command, 8]).
 
 
 try_apply(Mod, Fun, Args) -> 
@@ -138,9 +145,9 @@ try_apply(Mod, Fun, Args) ->
 	throw:Error -> 
 	    Error;   
 	exit:Reason->
-	    {'EXIT',Reason};
+	    {error,Reason};
 	error:Reason -> 
-	    {'EXIT',{Reason,erlang:get_stacktrace()}}
+	    {error,{Reason,erlang:get_stacktrace()}}
     end.
 
 
