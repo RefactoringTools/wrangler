@@ -6,7 +6,7 @@
 
 -export([input_par_prompts/0, select_focus/1,
          check_pre_cond/1, selective/0,
-         transform/1]).
+         transform/1, refac_bug_cond/3]).
 
 -include("../include/wrangler.hrl").
 
@@ -28,23 +28,25 @@ selective() ->
 
 -spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}).
 transform(_Args=#args{current_file_name=File})->
-    ?FULL_BU_TP([replace_bug_cond_macro_rule(),
-                 logic_rule_1(),
-                 logic_rule_2(),
-                 logic_rule_3(),
-                 list_rule_1(),
-                 list_rule_2(),
-                 list_rule_3(),
-                 list_rule_4(),
-                 imply_rule_1(),
-                 if_rule_1(),
-                 case_rule_1(),
-                 case_rule_2(),
-                 case_rule_3(),
-                 guard_rule_1()
-                ],
-                [File]).
+    ?FULL_BU_TP(rules(),[File]).
 
+rules() ->
+    [replace_bug_cond_macro_rule(),
+     logic_rule_1(),
+     logic_rule_2(),
+     logic_rule_3(),
+     list_rule_1(),
+     list_rule_2(),
+     list_rule_3(),
+     list_rule_4(),
+     imply_rule_1(),
+     if_rule_1(),
+     case_rule_1(),
+     case_rule_2(),
+     case_rule_3(),
+     guard_rule_1()
+    ].
+    
 replace_bug_cond_macro_rule() ->
     ?RULE(?T("Expr@"),
           ?TO_AST("false"),
@@ -135,7 +137,8 @@ case_rule_3() ->
 
 is_bug_cond_macro(Expr) ->
     api_refac:type(Expr) == macro andalso 
-        is_bug_cond_name(?PP(Expr)).
+        is_bug_cond_name(?PP(wrangler_misc:reset_attrs(Expr))).
+    
 
 is_bug_cond_name(Str) ->
     Len = length(Str), 
@@ -161,3 +164,9 @@ eval_expr_1('andalso', {E1, "false"}, _) -> E1;
 eval_expr_1('andalso', {E1,_}, {_, "true"}) -> E1;
 eval_expr_1('andalso', _, {E2, "false"}) -> E2.
 
+
+-spec refac_bug_cond/3::([filename()|dir()], editor(), integer())->{ok, string()}.
+refac_bug_cond(FileOrDirs, Editor, TabWidth) ->
+    Files = wrangler_misc:expand_files(FileOrDirs, ".erl"),
+    {ok, Res}=?FULL_BU_TP(rules(), Files),
+    wrangler_write_file:write_refactored_files(Res,Editor,TabWidth,"").
