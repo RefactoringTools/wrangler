@@ -866,7 +866,7 @@ lay_2(Node, Ctxt) ->
 	    D = lay_elems(fun wrangler_prettypr_0:par/1, Es, Fields, Ctxt1),
 	    beside(floating(text("<<")), beside(D, floating(text(">>"))));
 	binary_field ->
-	    Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
+	    Ctxt1 = reset_check_bracket(set_prec(Ctxt, max_prec())),
 	    D1 = lay(wrangler_syntax:binary_field_body(Node), Ctxt1),
 	    D2 = case wrangler_syntax:binary_field_types(Node) of
 		     [] -> 
@@ -953,9 +953,9 @@ lay_2(Node, Ctxt) ->
                           Ctxt2 = case length(Args) of
                                       1 ->
                                            Ctxt1#ctxt{check_bracket=true};
-                                      _ -> reset_check_bracket(Ctxt1)
+                                      _ -> reset_check_bracket(set_prec(Ctxt1, max_prec()))
                                   end,
-                          As=seq_1(Args, floating(text(Sep)), reset_prec(Ctxt2), fun lay/2),
+                          As=seq_1(Args, floating(text(Sep)), Ctxt2, fun lay/2),
                           ArgsD=lay_elems(fun wrangler_prettypr_0:par/1, As, Args, Ctxt1),
 			  OpEndLoc = get_end_loc_with_comment(N),
 			  ArgsD1=make_args(Args, ArgsD,Ctxt1,OpEndLoc,'(',')'),
