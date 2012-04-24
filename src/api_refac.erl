@@ -1193,7 +1193,7 @@ search_and_transform_4(File,Rules,Tree,Fun,Selective) ->
                                 {{SLn, SCol}, {ELn, ECol}}=start_end_loc(Node),
                                 MD5 = erlang:md5(wrangler_prettypr:format(Node)),
                                 ChangeCand={{File, SLn, SCol, ELn, ECol, MD5},
-                                            wrangler_prettypr:format(NewExprAfter)},
+                                            format_new_code(NewExprAfter)},
                                 wrangler_gen_refac_server:add_change_cand(self(), ChangeCand),
                                 {NewExprAfter, true};
                             {false, []} ->
@@ -2446,3 +2446,11 @@ get_mfas(File, Order) ->
                     []
             end
     end. 
+
+
+format_new_code([Code])->
+    wrangler_prettypr:format(Code);
+format_new_code(Code) when is_list(Code) ->
+    wrangler_prettypr:format(wranglersyntax:block_expr(Code));
+format_new_code(Code) ->
+    wrangler_prettypr:format(Code).
