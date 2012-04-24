@@ -130,6 +130,8 @@ write_refactored_files_eclipse(Results, TabWidth) ->
 		    end,Results),
     {ok,Res}.
   
+write_refactored_files_command_line([], _) ->
+    {ok, []};
 write_refactored_files_command_line(Results, TabWidth) ->
     FilesToWrite = [FileTuple || {FileTuple, _} <- Results],
     lists:foreach(fun (FileTuple) ->
