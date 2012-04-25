@@ -91,6 +91,16 @@ if_rule_1() ->
                  true -> Body2@@
               end"), Body2@@, true).
 
+if_rule_2() ->
+   ?RULE(?T("if Pats1@@@ -> Body1@@@;
+                false, Cond@@ -> Body2@@;
+                Pats3@@@  -> Body3@@@
+             end"),
+         ?TO_AST("if Pats1@@@ -> Body1@@@;
+                     Pats3@@@ -> Body3@@@
+                  end"),
+         true).
+
 guard_rule_1()->
     ?RULE(?T("f@(Args@@) when true, Guards@@ -> Body@@;"),
           ?TO_AST("f@(Args@@) when Guards@@ -> Body@@;"), true).
