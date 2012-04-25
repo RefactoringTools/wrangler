@@ -1872,31 +1872,50 @@ expand_meta_list_1(Node, _OtherInfo) ->
     end.
 
 expand_meta_clause(Clause) ->
-    case is_meta_clause(Clause) of 
+    case is_meta_case_clause(Clause) of 
         true->
-            [Pat] = wrangler_syntax:clause_patterns(Clause),
-            case revert_clause_guard(wrangler_syntax:clause_guard(Clause)) of
-                [[]] ->
-                    [Body] = wrangler_syntax:clause_body(Clause),
-                    ZippedPB = lists:zip(Pat, Body),
-                    [wrangler_syntax:clause(P, none, B)||
-                           {P, B} <- ZippedPB];
-                [[Guard]] ->
-                    [[Guard]] = revert_clause_guard(wrangler_syntax:clause_guard(Clause)),
-                    [Body] = wrangler_syntax:clause_body(Clause),
-                    ZippedPGB = lists:zip3(Pat, Guard, Body),
-                    [case G of 
-                         [] -> wrangler_syntax:clause(P, none, B);
-                         _ ->
-                             wrangler_syntax:clause(P, G, B)
-                     end
-                     ||{P, G, B} <-ZippedPGB]
-            end;
-        false ->
-            [Clause]
+            expand_meta_case_clause(Clause);
+        false->
+            case is_meta_if_clause(Clause) of 
+                true ->
+                    expand_meta_if_clause(Clause);
+                false ->
+                    [Clause]
+            end
     end.
 
+expand_meta_case_clause(Clause) ->
+    [Pat] = wrangler_syntax:clause_patterns(Clause),
+    case revert_clause_guard(wrangler_syntax:clause_guard(Clause)) of
+        [[]] ->
+            [Body] = wrangler_syntax:clause_body(Clause),
+            ZippedPB = lists:zip(Pat, Body),
+            [wrangler_syntax:clause(P, none, B)||
+                {P, B} <- ZippedPB];
+        [[Guard]] ->
+            [Body] = wrangler_syntax:clause_body(Clause),
+            ZippedPGB = lists:zip3(Pat, Guard, Body),
+            [case G of 
+                 [] -> wrangler_syntax:clause(P, none, B);
+                 _ ->
+                     wrangler_syntax:clause(P, G, B)
+             end
+             ||{P, G, B} <-ZippedPGB]
+    end.
+
+expand_meta_if_clause(Clause) ->
+    [[Guard]]=revert_clause_guard(wrangler_syntax:clause_guard(Clause)),
+    [Body] = wrangler_syntax:clause_body(Clause),
+    ZippedGB = lists:zip(Guard, Body),
+    [wrangler_syntax:clause([], G, B)||{G, B} <-ZippedGB].
+    
+        
+
 is_meta_clause(Clause)->
+    is_meta_case_clause(Clause) orelse
+        is_meta_if_clause(Clause).
+     
+is_meta_case_clause(Clause) ->
     Pat = wrangler_syntax:clause_patterns(Clause),
     Guard = wrangler_syntax:clause_guard(Clause),
     Body = wrangler_syntax:clause_body(Clause),
@@ -1927,6 +1946,30 @@ is_meta_clause(Clause)->
                     end;
                 false ->
                     false
+            end;
+        _ ->
+            false
+    end.
+        
+is_meta_if_clause(Clause) ->
+    Pat = wrangler_syntax:clause_patterns(Clause),
+    Guard = wrangler_syntax:clause_guard(Clause),
+    Body = wrangler_syntax:clause_body(Clause),
+    case Pat of 
+        [] ->
+            case revert_clause_guard(Guard) of
+                [[G]] ->
+                    case is_list_of_lists(G) of 
+                        true ->
+                            case Body of
+                                [B]->
+                                    is_list_of_lists(B);
+                                _ ->
+                                    false
+                            end;
+                        false -> false
+                    end;
+                _ -> false
             end;
         _ -> false
     end.
