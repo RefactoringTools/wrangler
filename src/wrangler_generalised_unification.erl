@@ -375,11 +375,10 @@ create_sub_for_clause(MetaClause, ClauseList) ->
             [false];
         true ->
             T11=case wrangler_syntax:type(MetaClause) of
-            function_clause ->
+                    function_clause ->
                         wrangler_syntax:function_clause(MetaClause);
-            _ -> MetaClause
+                    _ -> MetaClause
                 end,
-            [Pat]= wrangler_syntax:clause_patterns(T11),
             T2List1=[case wrangler_syntax:type(T2) of
                          function_clause ->
                              wrangler_syntax:function_clause(T2);
@@ -393,6 +392,7 @@ create_sub_for_clause(MetaClause, ClauseList) ->
                             [Body]= wrangler_syntax:clause_body(T11),
                             T2Pats=[wrangler_syntax:clause_patterns(T2)||T2 <- T2List1],
                             T2Body=[wrangler_syntax:clause_body(T2)||T2 <- T2List1],
+                            [Pat]= wrangler_syntax:clause_patterns(T11),
                             [{true, [{Pat, T2Pats},{Body, T2Body}]}];
                         _ -> [false]
                     end;
@@ -401,7 +401,12 @@ create_sub_for_clause(MetaClause, ClauseList) ->
                     T2Pats=[wrangler_syntax:clause_patterns(T2)||T2 <- T2List1],
                     T2Gs=[G2||T2 <- T2List1, G2 <- clause_guard(T2)],
                     T2Body=[wrangler_syntax:clause_body(T2)||T2 <- T2List1],
-                    [{true, [{Pat, T2Pats}, {Guard, T2Gs}, {Body, T2Body}]}]
+                    case wrangler_syntax:clause_patterns(T11) of 
+                        [Pat] ->
+                            [{true, [{Pat, T2Pats}, {Guard, T2Gs}, {Body, T2Body}]}];
+                        [] ->
+                            [{true, [{Guard, T2Gs}, {Body, T2Body}]}]
+                    end
             end
     end.
           
@@ -507,7 +512,7 @@ same_type_unification(Exp1, Exp2) ->
                     end
             end;
         _ ->
-	    SubTrees1 = subtrees(Exp1),
+            SubTrees1 = subtrees(Exp1),
             SubTrees2 = subtrees(Exp2),
             case length(SubTrees1) == length(SubTrees2) of
 		true ->
@@ -544,6 +549,7 @@ var_binding_structure(ASTList) ->
 is_meta_list(Node) ->
     is_meta_list_variable(Node) orelse is_meta_clause_list(Node) orelse
         is_meta_function_arity_list(Node).
+  
 
 is_meta_clause_list(C) ->
     T = wrangler_syntax:type(C),
@@ -577,11 +583,23 @@ is_meta_clause_list(C) ->
                             end;
                         _ -> false
                     end;
+                [] ->
+                    case Guard of
+                        [[G]] ->
+                            case Body of 
+                                [B] ->
+                                    is_meta_meta_list_variable(G) andalso
+                                        is_meta_meta_list_variable(B);  
+                                _ -> false
+                            end;
+                        _ -> false
+                    end;
                 _ ->
                     false
             end;
         _ -> false
     end.
+   
 
 is_meta_function_arity_list(Node) ->
     case wrangler_syntax:type(Node) of
