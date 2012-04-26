@@ -41,6 +41,7 @@ rules() ->
      list_rule_4(),
      imply_rule_1(),
      if_rule_1(),
+     if_rule_2(),
      case_rule_1(),
      case_rule_2(),
      case_rule_3(),
