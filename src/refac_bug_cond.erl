@@ -41,16 +41,19 @@ rules() ->
      list_rule_4(),
      imply_rule_1(),
      if_rule_1(),
+     if_rule_2(),
      case_rule_1(),
      case_rule_2(),
      case_rule_3(),
-     guard_rule_1()
+     guard_rule_1(),
+     guard_rule_2()
     ].
     
 replace_bug_cond_macro_rule() ->
     ?RULE(?T("Expr@"),
           ?TO_AST("false"),
           is_bug_cond_macro(Expr@)).
+
 
 logic_rule_1() ->
     ?RULE(?T("not false"),?TO_AST("true"),true).
@@ -89,9 +92,23 @@ if_rule_1() ->
                  true -> Body2@@
               end"), Body2@@, true).
 
+if_rule_2() ->
+   ?RULE(?T("if Pats1@@@ -> Body1@@@;
+                false, Cond@@ -> Body2@@;
+                Pats3@@@  -> Body3@@@
+             end"),
+         ?TO_AST("if Pats1@@@ -> Body1@@@;
+                     Pats3@@@ -> Body3@@@
+                  end"),
+         true).
+
 guard_rule_1()->
     ?RULE(?T("f@(Args@@) when true, Guards@@ -> Body@@;"),
           ?TO_AST("f@(Args@@) when Guards@@ -> Body@@;"), true).
+
+guard_rule_2()->
+    ?RULE(?T("f@(Args@@) when false, Guards@@ -> Body@@;"),
+          ?TO_AST(""), true).
 
 imply_rule_1() ->
     ?RULE(?T("?IMPL(false, Expr@)"), 
