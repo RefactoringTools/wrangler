@@ -28,7 +28,7 @@ start_counter_process() ->
 
 %%-spec start_counter_process(set()) -> pid(). 
 start_counter_process(UsedNames) ->
-    spawn_link(fun () -> counter_loop({1, UsedNames, []}) end).
+    spawn_link(fun()->counter_loop({1, UsedNames, []}) end).
 
 %%-spec stop_counter_process(atom() | pid() | port() | {atom(),atom()}) -> 'stop'.
 stop_counter_process(Pid) ->
@@ -354,10 +354,10 @@ generalisable(Node) ->
                                   query_expr, try_expr, catch_expr, cond_expr,
                                   block_expr]) andalso 
                 wrangler_misc:exported_vars(Node) == []
-                %% andalso 
-		%% %% %% generalise expressions with free variables need to 
-		%% %% %% wrap the expression with a fun expression; we try to 
-		%% %% %% avoid this case.
-            %% (refac_util:get_free_vars(Node) == [] orelse  T==variable)
+                andalso 
+            %% %% %% generalise expressions with free variables need to 
+            %% %% %% wrap the expression with a fun expression; we try to 
+            %% %% %% avoid this case.
+                  (api_refac:free_vars(Node) == [] orelse  T==variable)
     end.
 
