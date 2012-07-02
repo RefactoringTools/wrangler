@@ -525,6 +525,7 @@
 
 (defun wrangler-menu-init()
   "Init Wrangler menus."
+  (interactive)
   (define-key erlang-mode-map "\C-c\C-w_"  'erl-refactor-undo)
   (define-key erlang-mode-map "\C-c\C-wb" 'erl-wrangler-code-inspector-var-instances)
   (define-key erlang-mode-map "\C-c\C-we" 'remove-highlights)
