@@ -13,21 +13,21 @@
 %%       derived from this software without specific prior written permission.
 %%
 %% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ''AS IS''
-%% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
-%% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
-%% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
-%% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
-%% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
-%% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
-%% BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
-%% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
-%% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
+%% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+%% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+%% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+%% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+%% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+%% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+%% BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+%% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+%% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %%%-------------------------------------------------------------------
 %%% File    : wrangler_undo_server.erl
 %%% Author  :  <Huiqing>
 %% Author contact: hl@kent.ac.uk, sjt@kent.ac.uk
-%%%------------------------------------------------------------------- 
+%%%-------------------------------------------------------------------
 %%@private
 -module(wrangler_backup_server).
 
@@ -35,7 +35,7 @@
 
 %% API
 -export([start_backup_server/0,
-         add_to_backups/1, 
+         add_to_backups/1,
          add_atomic_cr_start_point/1,
          recover_backups/0,
          rollback_atomic_cr/1,
@@ -106,7 +106,7 @@ handle_call({rollback_atomic_cr, Pid}, _From, State=#state{backups=BackUps}) ->
         true->
             {BackUps1, BackUps2} = lists:splitwith(fun(E)-> E/=Pid end, BackUps),
             lists:foreach(fun({{FileName, NewFileName, IsNew}, Content})->
-                                  case IsNew of 
+                                  case IsNew of
                                       true -> file:delete(NewFileName);
                                       false ->
                                           file:write_file(FileName, Content)
@@ -144,14 +144,14 @@ do_recover_backups([Pid|Fs], PreviewPairs, RecoveredFiles) when is_pid(Pid) ->
     do_recover_backups(Fs, PreviewPairs, RecoveredFiles);
 do_recover_backups([{{FileName, NewFileName, false}, Content}|Fs], PreviewPairs, RecoveredFiles) ->
     SwpFileName = filename:join([filename:rootname(FileName) ++ ".erl.swp"]),
-    Res=case filelib:is_regular(SwpFileName) of 
-            true -> 
+    _Res=case filelib:is_regular(SwpFileName) of
+            true ->
                 ok;
             _ ->
-                file:copy(NewFileName, SwpFileName) 
+                file:copy(NewFileName, SwpFileName)
         end,
     %% make sure only the oldest version is copied to the file.
-    NewRecoveredFiles=case lists:member(FileName, RecoveredFiles) of 
+    NewRecoveredFiles=case lists:member(FileName, RecoveredFiles) of
                           true ->
                               RecoveredFiles;
                           false ->
@@ -162,7 +162,7 @@ do_recover_backups([{{FileName, NewFileName, false}, Content}|Fs], PreviewPairs,
     if FileName /= NewFileName -> file:delete(NewFileName);
        true -> ok
     end,
-    do_recover_backups(Fs, NewPreviewPairs, NewRecoveredFiles);  
+    do_recover_backups(Fs, NewPreviewPairs, NewRecoveredFiles);
 do_recover_backups([{{FileName, NewFileName, true}, _Content}|Fs], PreviewPairs,RecoveredFiles) ->
     SwpFileName = filename:join([filename:rootname(FileName) ++ ".erl.swp"]),
     file:copy(NewFileName, SwpFileName),
@@ -173,7 +173,7 @@ do_recover_backups([{{FileName, NewFileName, true}, _Content}|Fs], PreviewPairs,
     do_recover_backups(Fs, NewPreviewPairs,[FileName| RecoveredFiles]).
 
 update_preview_pairs({FileName, NewFileName, SwpFileName},PreviewPairs) ->
-    case [FName||{{_F, FName, _IsNew},_Swp}<-PreviewPairs, FName==FileName] of 
+    case [FName||{{_F, FName, _IsNew},_Swp}<-PreviewPairs, FName==FileName] of
         [] -> [{{FileName, NewFileName, false}, SwpFileName}|PreviewPairs];
         _ ->
             lists:map(fun(Pair) ->
@@ -185,7 +185,7 @@ update_preview_pairs({FileName, NewFileName, SwpFileName},PreviewPairs) ->
                               end
                       end, PreviewPairs)
     end.
-   
+
 %%-------------------------------------------------------------------
 %% Function: handle_info(Info, State) -> {noreply, State} |
 %%                                       {noreply, State, Timeout} |
