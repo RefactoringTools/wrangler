@@ -13,9 +13,19 @@ DOC_OPTS={def,{version,\"$(VERSION)\"}}
 ########################################
 ## Main part
 
-BUILD_FIRST = ebin/wrangler_parse.beam ebin/wrangler_expand_rule.beam \
-   ebin/wrangler_scan.beam ebin/wrangler_epp_dodger.beam ebin/wrangler_syntax.beam \
-   ebin/wrangler_syntax_lib.beam ebin/wrangler_misc.beam ebin/api_ast_traverse.beam ebin/api_refac.beam
+YRL = src/wrangler_parse.yrl
+
+YRL_ERL =  $(patsubst src/%.yrl,src/%.erl, $(YRL)))
+
+FIRST_ERL = src/wrangler_expand_rule.erl \
+   src/wrangler_scan.erl src/wrangler_epp_dodger.erl \
+   src/wrangler_syntax.erl src/wrangler_syntax_lib.erl \
+   src/wrangler_misc.erl src/api_ast_traverse.erl src/api_refac.erl
+
+FIRST_SRC= $(FIRST_YRL) $(FIRST_ERL)
+
+BUILD_FIRST = $(patsubst src/%.yrl,ebin/%.beam, $(YRL)) \
+                $(patsubst src/%.erl,ebin/%.beam, $(FIRST_ERL))
 
 ERL_SRC = $(wildcard src/*.erl)
 
@@ -27,11 +37,19 @@ ERL_GEN_COMP_SRC = $(wildcard src/gen_composite_refacs/*.erl)
 
 ERL_MY_GEN_COMP_SRC = $(wildcard src/my_gen_composite_refacs/*.erl)
 
-ERL_OBJ = $(BUILD_FIRST) $(patsubst src/%.erl,ebin/%.beam,$(ERL_SRC)) \
+LAST_SRC = $(filter-out $(FIRST_SRC), $(ERL_SRC)) $(ERL_GEN_REFACS_SRC) \
+   $(ERL_MY_GEN_REFACS_SRC) $(ERL_GEN_COMP_SRC) $(ERL_MY_GEN_COMP_SRC)
+
+ERL_LAST = $(patsubst src/%.erl,ebin/%.beam,$(ERL_SRC)) \
 	$(patsubst src/gen_refacs/%.erl, ebin/%.beam, $(ERL_GEN_REFACS_SRC)) \
-	$(patsubst src/my_gen_refacs/%.erl, ebin/%.beam, $(ERL_MY_GEN_REFACS_SRC)) \
-	$(patsubst src/gen_composite_refacs/%.erl, ebin/%.beam, $(ERL_GEN_COMP_SRC)) \
-	$(patsubst src/my_gen_composite_refacs/%.erl, ebin/%.beam, $(ERL_MY_GEN_COMP_SRC))		
+	$(patsubst src/my_gen_refacs/%.erl, ebin/%.beam, \
+	  $(ERL_MY_GEN_REFACS_SRC)) \
+	$(patsubst src/gen_composite_refacs/%.erl, ebin/%.beam, \
+	  $(ERL_GEN_COMP_SRC)) \
+	$(patsubst src/my_gen_composite_refacs/%.erl, ebin/%.beam, \
+	  $(ERL_MY_GEN_COMP_SRC))
+
+ERL_OBJ = $(BUILD_FIRST) $(ERL_LAST)
 
 .PHONY: default all conf erl c elisp
 
@@ -65,6 +83,21 @@ $(CONF_OBJ): configure $(CONF_SRC)
 .SUFFIXES: .erl .yrl
 
 ## Erlang
+
+## Parallel dependencies
+src/api_refac.erl: ebin/wrangler_expand_rule.beam ebin/wrangler_syntax.beam
+
+$(FIRST_ERL): ebin/wrangler_parse.beam
+
+$(LAST_SRC): $(BUILD_FIRST)
+
+$(ERL_GEN_REFACS_SRC) $(ERL_MY_GEN_REFACS_SRC): ebin/gen_refac.beam
+
+src/refac_batch_rename_fun.erl $(ERL_GEN_COMP_SRC) \
+   $(ERL_MY_GEN_COMP_SRC): ebin/gen_composite_refac.beam
+
+##
+
 ebin/%.beam: src/%.erl
 	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
 
@@ -85,8 +118,8 @@ ebin/%.beam: include/wrangler.hrl include/wrangler_internal.hrl
 src/%.erl: src/%.yrl
 	$(ERLC) -o src $<
 
-$(ELISP_OBJ): $(ELISP_SRC) 
-	cp $(ELISP_SRC) $(ELISP_OBJ);   
+$(ELISP_OBJ): $(ELISP_SRC)
+	cp $(ELISP_SRC) $(ELISP_OBJ);
 	escript ebin/dynamic_menu_items >>$(ELISP_OBJ)
 
 ########################################
@@ -95,7 +128,7 @@ $(ELISP_OBJ): $(ELISP_SRC)
 clean:
 	@cd ./c_src; make clean; cd ../..
 	@-rm -f ${ERL_OBJ} src/wrangler_parse.erl
-	@-rm -f $(ELISP_OBJ)	
+	@-rm -f $(ELISP_OBJ)
 	@-rm -f priv/suffixtree priv/gsuffixtree
 	@-rm -f doc/*.html doc/edoc-info doc/erlang.png doc/stylesheet.css
 	@-rm -f doc/*.erl
@@ -136,15 +169,20 @@ wc:
 	@wc -l */*.c | sort -nr
 
 EXAMPLE_CODE = inspec_examples.erl \
-    gen_refacs/refac_apply_to_remote_call.erl gen_refacs/refac_remove_an_argument.erl \
-    gen_refacs/refac_remove_an_import_attribute.erl gen_refacs/refac_add_an_import_attribute.erl \
-    gen_refacs/refac_specialise_a_function.erl  gen_refacs/refac_swap_function_arguments.erl \
+    gen_refacs/refac_apply_to_remote_call.erl \
+    gen_refacs/refac_remove_an_argument.erl \
+    gen_refacs/refac_remove_an_import_attribute.erl \
+    gen_refacs/refac_add_an_import_attribute.erl \
+    gen_refacs/refac_specialise_a_function.erl \
+    gen_refacs/refac_swap_function_arguments.erl \
     gen_composite_refacs/refac_batch_clone_elimination.erl \
     gen_composite_refacs/refac_batch_prefix_module.erl \
-    refac_batch_rename_fun.erl regexp_re.erl keysearch_keyfind.erl  
+    refac_batch_rename_fun.erl regexp_re.erl keysearch_keyfind.erl
 
 docs:
-	$(ERL) -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS), {packages, false}])" -s init stop
+	$(ERL) -noshell -eval \
+	"edoc:application($(APPNAME), \".\", [$(DOC_OPTS), {packages, false}])"\
+	-s init stop
 	(cd src ; cp $(EXAMPLE_CODE) ../doc/)
 
 privdocs:
