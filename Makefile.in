@@ -115,8 +115,8 @@ ebin/%.beam: include/wrangler.hrl include/wrangler_internal.hrl
 src/%.erl: src/%.yrl
 	$(ERLC) -o src $<
 
-$(ELISP_OBJ): $(ELISP_SRC) 
-	cp $(ELISP_SRC) $(ELISP_OBJ);   
+$(ELISP_OBJ): $(ELISP_SRC)
+	cp $(ELISP_SRC) $(ELISP_OBJ);
 	escript ebin/dynamic_menu_items >>$(ELISP_OBJ)
 
 ########################################
@@ -125,7 +125,7 @@ $(ELISP_OBJ): $(ELISP_SRC)
 clean:
 	@cd ./c_src; make clean; cd ../..
 	@-rm -f ${ERL_OBJ} src/wrangler_parse.erl
-	@-rm -f $(ELISP_OBJ)	
+	@-rm -f $(ELISP_OBJ)
 	@-rm -f priv/suffixtree priv/gsuffixtree
 	@-rm -f doc/*.html doc/edoc-info doc/erlang.png doc/stylesheet.css
 	@-rm -f doc/*.erl
@@ -171,7 +171,7 @@ EXAMPLE_CODE = inspec_examples.erl \
     gen_refacs/refac_specialise_a_function.erl  gen_refacs/refac_swap_function_arguments.erl \
     gen_composite_refacs/refac_batch_clone_elimination.erl \
     gen_composite_refacs/refac_batch_prefix_module.erl \
-    refac_batch_rename_fun.erl regexp_re.erl keysearch_keyfind.erl  
+    refac_batch_rename_fun.erl regexp_re.erl keysearch_keyfind.erl
 
 docs:
 	$(ERL) -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS), {packages, false}])" -s init stop
