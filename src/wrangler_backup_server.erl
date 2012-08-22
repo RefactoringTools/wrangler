@@ -144,7 +144,7 @@ do_recover_backups([Pid|Fs], PreviewPairs, RecoveredFiles) when is_pid(Pid) ->
     do_recover_backups(Fs, PreviewPairs, RecoveredFiles);
 do_recover_backups([{{FileName, NewFileName, false}, Content}|Fs], PreviewPairs, RecoveredFiles) ->
     SwpFileName = filename:join([filename:rootname(FileName) ++ ".erl.swp"]),
-    Res=case filelib:is_regular(SwpFileName) of
+    _Res=case filelib:is_regular(SwpFileName) of
             true ->
                 ok;
             _ ->
