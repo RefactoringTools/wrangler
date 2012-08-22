@@ -42,9 +42,12 @@ LAST_SRC = $(filter-out $(FIRST_SRC), $(ERL_SRC)) $(ERL_GEN_REFACS_SRC) \
 
 ERL_LAST = $(patsubst src/%.erl,ebin/%.beam,$(ERL_SRC)) \
 	$(patsubst src/gen_refacs/%.erl, ebin/%.beam, $(ERL_GEN_REFACS_SRC)) \
-	$(patsubst src/my_gen_refacs/%.erl, ebin/%.beam, $(ERL_MY_GEN_REFACS_SRC)) \
-	$(patsubst src/gen_composite_refacs/%.erl, ebin/%.beam, $(ERL_GEN_COMP_SRC)) \
-	$(patsubst src/my_gen_composite_refacs/%.erl, ebin/%.beam, $(ERL_MY_GEN_COMP_SRC))		
+	$(patsubst src/my_gen_refacs/%.erl, ebin/%.beam, \
+	  $(ERL_MY_GEN_REFACS_SRC)) \
+	$(patsubst src/gen_composite_refacs/%.erl, ebin/%.beam, \
+	  $(ERL_GEN_COMP_SRC)) \
+	$(patsubst src/my_gen_composite_refacs/%.erl, ebin/%.beam, \
+	  $(ERL_MY_GEN_COMP_SRC))
 
 ERL_OBJ = $(BUILD_FIRST) $(ERL_LAST)
 
@@ -166,15 +169,20 @@ wc:
 	@wc -l */*.c | sort -nr
 
 EXAMPLE_CODE = inspec_examples.erl \
-    gen_refacs/refac_apply_to_remote_call.erl gen_refacs/refac_remove_an_argument.erl \
-    gen_refacs/refac_remove_an_import_attribute.erl gen_refacs/refac_add_an_import_attribute.erl \
-    gen_refacs/refac_specialise_a_function.erl  gen_refacs/refac_swap_function_arguments.erl \
+    gen_refacs/refac_apply_to_remote_call.erl \
+    gen_refacs/refac_remove_an_argument.erl \
+    gen_refacs/refac_remove_an_import_attribute.erl \
+    gen_refacs/refac_add_an_import_attribute.erl \
+    gen_refacs/refac_specialise_a_function.erl \
+    gen_refacs/refac_swap_function_arguments.erl \
     gen_composite_refacs/refac_batch_clone_elimination.erl \
     gen_composite_refacs/refac_batch_prefix_module.erl \
     refac_batch_rename_fun.erl regexp_re.erl keysearch_keyfind.erl
 
 docs:
-	$(ERL) -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS), {packages, false}])" -s init stop
+	$(ERL) -noshell -eval \
+	"edoc:application($(APPNAME), \".\", [$(DOC_OPTS), {packages, false}])"\
+	-s init stop
 	(cd src ; cp $(EXAMPLE_CODE) ../doc/)
 
 privdocs:
