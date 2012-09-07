@@ -1303,6 +1303,10 @@ get_gen_fsm_state_functions_2(TypeInfo, StateNames) ->
 				[{c, atom, [next_state], _},
 				 {c, atom, S, _}| _T] ->
 				    S;
+				[{c, atom, [reply], _},
+				 _,
+				 {c, atom, S, _}| _T] ->
+				    S;
 				_ ->
 				      throw({error, "Wrangler failed to infer the next state of '"
 						    ++ atom_to_list(F) ++ "'."})
