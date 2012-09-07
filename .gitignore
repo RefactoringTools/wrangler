@@ -5,3 +5,4 @@ autom4te.cache
 elisp/wrangler.el
 *.beam
 *~
+tags
