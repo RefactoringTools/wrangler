@@ -442,13 +442,23 @@ stop_ast_process(Pid)->
 %% Insert a sequence of expressions into the AST table. 
 %% The sequence of expressions to be inserted are from 
 %% the same expression body (clause_expr, block_expr, try_expr).
-insert_to_ast_tab(Pid, {{M, F, A}, ExprASTs, StartLine}) ->
-    Pid ! {add, {{M, F, A}, ExprASTs, StartLine}}.
+insert_to_ast_tab(Pid, {{M, F, A}, ExprASTs, Index, StartLine}) ->
+    Self=self(),
+    Pid ! {add, {{M, F, A}, ExprASTs, Index,  StartLine}, Self},
+    receive
+        {Pid, Self, done} ->
+            ok
+    end.
 
 %% Quick hash only updates the location information, as the 
 %% actual entries already exist.
 quick_hash_function(Pid, {{FName, FunName, Arity}, StartLine}) ->
-    Pid ! {quick_hash, {{FName, FunName, Arity}, StartLine}}.
+    Self=self(),
+    Pid ! {quick_hash, {{FName, FunName, Arity}, StartLine}, Self},
+    receive
+        {Pid, Self, done} ->
+            ok
+    end.
 
 %% Get initial clone candidates.    
 get_clone_candidates(Pid, Thresholds, Dir) ->
@@ -576,13 +586,28 @@ stop_hash_process(Pid) ->
     Pid!stop.
 
 insert_hash(Pid, {{M, F, A}, HashExprPairs}) ->
-    Pid ! {add, {{M, F, A}, HashExprPairs}}.
+    Self=self(),
+    Pid ! {add, {{M, F, A}, HashExprPairs}, Self},
+    receive
+        {Pid, Self, done} ->
+            ok
+    end.
 
 update_hash(Pid, {{FileName, FunName, Arity}, StartLine})->
-    Pid ! {quick_hash,{{FileName, FunName, Arity}, StartLine}}.
+    Self=self(),
+    Pid ! {quick_hash,{{FileName, FunName, Arity}, StartLine}, Self},
+    receive
+        {Pid, Self, done} ->
+            ok
+    end.
 
 remove_entry(Pid, {M, F, A}) ->
-    Pid !{remove_entry, {M, F, A}}.
+    Self=self(),
+    Pid !{remove_entry, {M, F, A}, Self},
+    receive
+         {Pid, Self, done} ->
+            ok
+    end.
 
 get_index(ExpHashTab, Key) ->
     case ets:lookup(ExpHashTab, Key) of 
@@ -597,13 +622,14 @@ get_index(ExpHashTab, Key) ->
 hash_loop({NextSeqNo, ExpHashTab, NewData},Inc) ->
     receive
 	%% add a new entry.
-	{add, {{M, F, A}, KeyExprPairs}} ->
+	{add, {{M, F, A}, KeyExprPairs}, From} ->
 	    KeyExprPairs1 =
 		[{{Index1, NumOfToks, StartEndLoc, StartLine, true}, HashIndex}
 		 || {Key, {Index1, NumOfToks, StartEndLoc, StartLine}} <- KeyExprPairs,
 		    HashIndex <- [get_index(ExpHashTab, Key)]],
+            From ! {self(), From, done},
 	    hash_loop({NextSeqNo+1, ExpHashTab, [{NextSeqNo, {M,F,A}, KeyExprPairs1}| NewData]},Inc);
-	{quick_hash,{{FileName, FunName, Arity}, StartLine}} ->
+	{quick_hash,{{FileName, FunName, Arity}, StartLine}, From} ->
 	    NewData1 = [case {M, F, A} of
 			    {FileName, FunName, Arity} ->
 				{Seq, {M, F, A}, [{{Index1, NumOfToks, StartEndLoc, StartLine, false}, HashKey}
@@ -611,6 +637,7 @@ hash_loop({NextSeqNo, ExpHashTab, NewData},Inc) ->
 			    _ ->
 				{Seq, {M, F, A}, KeyExprPairs}
 			end || {Seq, {M, F, A}, KeyExprPairs} <- NewData],
+            From ! {self(), From, done},
 	    hash_loop({NextSeqNo, ExpHashTab, NewData1},Inc);
 	{get_clone_candidates, From, Thresholds, Dir} ->
 	    {ok, OutFileName} = search_for_clones(Dir, lists:reverse(NewData), Thresholds),
@@ -632,7 +659,7 @@ hash_loop({NextSeqNo, ExpHashTab, NewData},Inc) ->
 	    C1 = {[F0(R, Len) || R <- Ranges], {Len, Freq}},
 	    From ! {self(), C1},
 	    hash_loop({NextSeqNo, ExpHashTab, NewData},Inc);
-	{remove_entry, {M, F, A}} ->
+	{remove_entry, {M, F, A}, From} ->
 	    NewData1 = [case {M,F,A}/={M1, F1, A1} of
 			    true ->
 				{Seq, {M1, F1, A1}, KeyExprPairs};
@@ -640,6 +667,7 @@ hash_loop({NextSeqNo, ExpHashTab, NewData},Inc) ->
 				{Seq, {M1, F1, A1}, []}
 			end
 			|| {Seq, {M1, F1, A1}, KeyExprPairs} <- NewData],
+            From ! {self(), From, done},
 	    hash_loop({NextSeqNo, ExpHashTab, NewData1},Inc);
 	stop ->
 	    %%file:write_file(?ExpSeqFile, term_to_binary(NewData)),
