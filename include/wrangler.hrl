@@ -56,7 +56,9 @@
         fun()->
                 api_refac:check_collect_template(Before, 'RULE'),
                 {rule, fun(_W_File_, _W_Node_) ->
-                               _W_NewCond=fun(_W_Bind_) -> 
+                               _W_NewCond=fun(_W_Bind_) ->
+                                                  _This@=_W_Node_,
+                                                  _File@=_W_File_,
                                                   api_refac:make_cond(Cond, _W_Bind_)
                                           end,
                                case api_refac:match(Before, _W_Node_, _W_NewCond) of
@@ -77,6 +79,8 @@
                 api_refac:check_collect_template(Before, 'RULE'),
                 {rule, fun(_W_File_, _W_Node_) ->
                                _W_NewCond=fun(_W_Bind_) -> 
+                                                  _This@=_W_Node_,
+                                                  _File@=_W_File_,
                                                   api_refac:make_cond(Cond, _W_Bind_)
                                           end,
                                case api_refac:match(Before, _W_Node_, _W_NewCond) of
