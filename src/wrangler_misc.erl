@@ -1033,7 +1033,7 @@ parse_annotate_expr(ExprStr, StartLoc) when is_integer(StartLoc) ->
     parse_annotate_expr(ExprStr, {StartLoc, 1});
 parse_annotate_expr(ExprStr, StartLoc) when is_tuple(StartLoc) ->
     case wrangler_scan:string(ExprStr, StartLoc) of
-        {ok, Toks, _} ->
+        {ok, Toks, L1} ->
             [T|Ts] = lists:reverse(Toks),
             Toks1 = case T of 
                         {dot, _} -> Toks;
@@ -1041,7 +1041,8 @@ parse_annotate_expr(ExprStr, StartLoc) when is_tuple(StartLoc) ->
                         _ -> Toks++[{dot, 999}]
                     end,
             Toks2 = wrangler_epp_dodger:scan_macros(Toks1,[]),
-            case wrangler_parse:parse_form(Toks2) of 
+            %% case wrangler_parse:parse_form(Toks1) of 
+            case parse_form(Toks1, L1) of  %% keep macros in AST; does this affect other things?
                 {ok, AbsForm} ->
                     case wrangler_syntax:type(AbsForm) of
                         function ->
@@ -1065,7 +1066,7 @@ parse_annotate_expr(ExprStr, StartLoc) when is_tuple(StartLoc) ->
                        {';',_} -> 
                            throw({error, Reason});
                        _ ->
-                           case wrangler_parse:parse_exprs(Toks2) of
+                           case wrangler_parse:parse_exprs(Toks2) of   %% does not work with macros in string.
                                {ok, Exprs} ->
                                    Exprs1 =wrangler_epp_dodger:rewrite_list(Exprs),
                                    Exprs2 = make_tree({block, StartLoc, Exprs1}),
@@ -1094,6 +1095,34 @@ make_tree(Tree) ->
     end.
 
 
+parse_form(Ts, L1) ->
+    case catch {ok, wrangler_epp_dodger:normal_parser(Ts, [])} of
+        {'EXIT', Term} ->
+            {error, {io_error(L1, {unknown, Term}), {start_pos(Ts, L1),end_pos(Ts,L1)}}, L1};
+        {error, Term} ->
+            IoErr = io_error(L1, Term),
+            {error, {IoErr, {start_pos(Ts, L1), end_pos(Ts, L1)}}};
+        {parse_error, IoErr} ->
+            {error, {IoErr, {start_pos(Ts, L1), end_pos(Ts, L1)}}};
+        {parse_error, IoErr, Range} ->
+            {error, {IoErr, Range}};
+        {ok, F} ->
+            {ok, F}
+    end.
+
+io_error(L, Desc) ->
+    {L, ?MODULE, Desc}.
+
+start_pos([T | _Ts], _L) ->
+    element(2, T);
+start_pos([], L) ->
+    L.
+
+
+end_pos([], L) ->
+    L;
+end_pos(Ts, _L) ->
+    element(2, lists:last(Ts)).
 
 %%================================================================
 %%@spec(extend_function_clause(Tree::syntaxTree()) -> syntaxTree()).
