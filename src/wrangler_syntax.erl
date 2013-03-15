@@ -177,7 +177,6 @@
 	 warning_marker/1, warning_marker_info/1,
 	 default_literals_vars/2, empty_node/0]).
 	
-
 %% =====================================================================
 %% IMPLEMENTATION NOTES:
 %%
@@ -3099,7 +3098,7 @@ qualified_name_segments(Node) ->
 %%	`erl_parse' clauses.
 
 function(Name, Clauses) ->
-    case syntax_tools_vsn() >= "1.6.9" of 
+    case syntax_tools_vsn() >= [1,6,9] of 
         true ->
             tree(function,
                  #func{name = update_ann({syntax_path, function_name}, Name), 
@@ -3149,7 +3148,7 @@ function_name(Node) ->
     case unwrap(Node) of
       {function, Pos, Name, _, _} -> set_pos(atom(Name), Pos);
       Node1 -> 
-            case syntax_tools_vsn() >= "1.6.9" of 
+            case syntax_tools_vsn() >= [1,6,9] of 
                 true ->
                     (data(Node1))#func.name;
                 _ ->
@@ -3173,7 +3172,7 @@ function_clauses(Node) ->
     case unwrap(Node) of
       {function, _, _, _, Clauses} -> Clauses;
       Node1 -> 
-            case syntax_tools_vsn() >= "1.6.9" of 
+            case syntax_tools_vsn() >= [1,6,9] of 
                 true ->
                     (data(Node1))#func.clauses;
                 false ->
@@ -6572,8 +6571,17 @@ default_literals_vars(Node, Value) ->
 syntax_tools_vsn() -> 
     Dir=code:lib_dir(syntax_tools),
     Prefix=lists:takewhile(fun(C)-> C/=$- end, lists:reverse(Dir)),
-    lists:reverse(Prefix).
+    syntax_tools_vsn_nums(lists:reverse(Prefix),[]).
+   
     
+syntax_tools_vsn_nums([], Nums) -> lists:reverse(Nums);
+syntax_tools_vsn_nums(Str, Nums) ->
+    {Prefix, Str1}=lists:splitwith(fun(C)-> C/=$. end, Str),
+    case Str1 of 
+        [] -> lists:reverse([list_to_integer(Prefix)|Nums]);
+        _ ->
+            syntax_tools_vsn_nums(tl(Str1), [list_to_integer(Prefix)|Nums])
+    end.
                               
 
 %%TODO:
