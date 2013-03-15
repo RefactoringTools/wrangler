@@ -69,7 +69,6 @@ parse_transform(Forms, Options) ->
                               fun(Form, _Context) ->
                                       generate_subst(Form)
                               end, annotate_forms(Forms7), Options),
-   %% wrangler_io:format("Form6:\n~s\n", [[erl_prettypr:format(F)++"\n\n"||F <- Forms8]]),
     Forms8.
 
 
