@@ -1,4 +1,4 @@
-;;; wrangler.el --- Top level of wrangler package, loads all subparts
+;; wrangler.el --- Top level of wrangler package, loads all subparts
 
 ;; Prerequisites
 
@@ -504,8 +504,7 @@
   (setq opts (list "-name" wrangler-erl-node-string
                    "-pa" (expand-file-name (concat (getenv "HOME") "/.wrangler/ebin"))
 		   "-setcookie" (erl-cookie)
-                   "+R" "9"
-		   "-newshell" "-env" "TERM" "vt100"))
+                   "-newshell" "-env" "TERM" "vt100"))
   (setq wrangler-erlang-buffer 
  	(apply 'make-comint
 	       "Wrangler-Erl-Shell" "erl" 
