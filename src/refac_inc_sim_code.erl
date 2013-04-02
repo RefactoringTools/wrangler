@@ -442,13 +442,8 @@ stop_ast_process(Pid)->
 %% Insert a sequence of expressions into the AST table. 
 %% The sequence of expressions to be inserted are from 
 %% the same expression body (clause_expr, block_expr, try_expr).
-insert_to_ast_tab(Pid, {{M, F, A}, ExprASTs, Index, StartLine}) ->
-    Self=self(),
-    Pid ! {add, {{M, F, A}, ExprASTs, Index,  StartLine}, Self},
-    receive
-        {Pid, Self, done} ->
-            ok
-    end.
+insert_to_ast_tab(Pid, {{M, F, A}, ExprASTs, StartLine}) ->
+    Pid ! {add, {{M, F, A}, ExprASTs, StartLine}}.
 
 %% Quick hash only updates the location information, as the 
 %% actual entries already exist.
