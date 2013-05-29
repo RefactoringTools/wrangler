@@ -6571,7 +6571,15 @@ default_literals_vars(Node, Value) ->
 syntax_tools_vsn() -> 
     Dir=code:lib_dir(syntax_tools),
     Prefix=lists:takewhile(fun(C)-> C/=$- end, lists:reverse(Dir)),
-    syntax_tools_vsn_nums(lists:reverse(Prefix),[]).
+    try
+        syntax_tools_vsn_nums(lists:reverse(Prefix),[])
+    catch
+        _E1:_E2 -> [1,6,9] %% wrangler couldn't infer the version
+                           %% of syntax tools being used.
+                           %% Just a quick fix here; if the user
+                           %% is using an older version of Erlang,
+                           %% then an upgrade is needed.
+    end.
    
     
 syntax_tools_vsn_nums([], Nums) -> lists:reverse(Nums);
