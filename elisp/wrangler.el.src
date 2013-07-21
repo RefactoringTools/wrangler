@@ -403,19 +403,45 @@
 
 (defun start-wrangler-app()
   (interactive)
-  (erl-spawn
-    (erl-send-rpc wrangler-erl-node 'application 'start (list 'wrangler))
-    (erl-receive()
-	((['rex 'ok]
-	  (wrangler-menu-init)
-	  (message "Wrangler started.")
-          )
-	 (['rex ['error ['already_started app]]]
-          (message "Wrangler failed to start: another Wrangler application is running.")
-          )	 
-	 (['rex ['error rsn]]
-	  (message "Wrangler failed to start:%s" rsn)
-	)))))
+  ;; If we can figure out where wrangler.app is, let's add that to the
+  ;; load path as a convenience for the user.  It's probably somewhere
+  ;; near wrangler.el, so let's try a few alternatives.
+  (let ((potential-ebin-dirs '("ebin" "../ebin"))
+	(where-is-wrangler
+	 (and (locate-library "wrangler")
+	      (file-name-directory (locate-library "wrangler"))))
+	ebin-dir)
+    (when where-is-wrangler
+      (while (and potential-ebin-dirs (not ebin-dir))
+	(let ((maybe-here
+	       (expand-file-name (pop potential-ebin-dirs) where-is-wrangler)))
+	  (when (and (file-directory-p maybe-here)
+		     (file-exists-p (expand-file-name "wrangler.app" maybe-here)))
+	    (setq ebin-dir maybe-here)))))
+
+    (erl-spawn
+      ;; ebin-dir might be nil here, but that causes nothing worse
+      ;; than an error return.
+      (erl-send-rpc wrangler-erl-node 'code 'add_path
+		    (list ebin-dir))
+      (erl-receive (ebin-dir)
+	  ((['rex 'true]
+	    t)
+	   (['rex error]
+	    (when ebin-dir
+	      (message "Cannot add wrangler dir `%s' to load path: %s" ebin-dir error))))
+	(erl-send-rpc wrangler-erl-node 'application 'start (list 'wrangler))
+	(erl-receive()
+	    ((['rex 'ok]
+	      (wrangler-menu-init)
+	      (message "Wrangler started.")
+	      )
+	     (['rex ['error ['already_started app]]]
+	      (message "Wrangler failed to start: another Wrangler application is running.")
+	      )
+	     (['rex ['error rsn]]
+	      (message "Wrangler failed to start:%s" rsn)
+	      )))))))
 
 (defun erlang-wrangler-off()
   (interactive)
@@ -468,12 +494,33 @@
     (wrangler-erlang-shell))
   (sleep-for 1.0)
   (erl-spawn
-    (erl-send-rpc wrangler-erl-node 'code 'ensure_loaded (list 'distel))
-    (erl-receive()
-        ((['rex res]
-          t))))
-  (sleep-for 1.0)
-  (start-wrangler-app))
+    (let ((parent erl-self))
+      (erl-spawn (wrangler--wait-backend-loaded parent 200)))
+    (erl-receive ()
+	(('backend_loaded
+	  (start-wrangler-app))
+	 ('backend_not_loaded
+	  (warn "Distel backend not loaded; giving up starting Wrangler"))))))
+
+(defun wrangler--wait-backend-loaded (parent n)
+  "Wait for distel to be loaded in the node.
+This is done concurrently by `&erl-load-backend-modules'.
+The initial value of `n' should be greater than the number
+of BEAM files being loaded."
+  (erl-send-rpc wrangler-erl-node 'code 'ensure_loaded (list 'distel))
+  (erl-receive (parent n)
+      ((['rex ['module _]]
+	(erl-send parent 'backend_loaded))
+       (['rex other]
+	(decf n)
+	;; The RPC call may fail since distel:rpc_entry is not (yet)
+	;; defined.  Let's display the error if it's our last attempt.
+	(if (zerop n)
+	    (progn
+	      (message "ensure_loaded: %s" other)
+	      (erl-send parent 'backend_not_loaded))
+	  (erl-continue #'wrangler--wait-backend-loaded parent n)
+	  (erl-reschedule))))))
   
 
 (defun wrangler-erlang-shell()
