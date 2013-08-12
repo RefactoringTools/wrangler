@@ -233,10 +233,10 @@ add_fun_def_info_in_apps(T, ModName, DefineModLoc) ->
 	    Op1 = update_ann(Op,Ann),
 	    rewrite(T, wrangler_syntax:application(Op1, Args));
 	module_qualifier ->
-	    Mod = wrangler_syntax:module_qualifier_argument(Op),
+            Mod = wrangler_syntax:module_qualifier_argument(Op),
 	    Fun = wrangler_syntax:module_qualifier_body(Op),
 	    {M, FunName, Arity} = get_mod_fun_arg_info(Mod, Fun, Args, ModName),
-	    DefLoc = if M == ModName ->
+            DefLoc = if M == ModName ->
 			     element(2, DefineModLoc(FunName, Arity));
 			true -> ?DEFAULT_LOC
 		     end,
@@ -318,17 +318,23 @@ add_fun_def_info_in_implicit_funs(T, ModName, DefineModLoc) ->
 
 get_mod_fun_arg_info(Mod, Fun, Args, CurModName) ->
     M = case wrangler_syntax:type(Mod) of
-	  atom -> wrangler_syntax:atom_value(Mod);
-	  macro -> MacroName = wrangler_syntax:macro_name(Mod),
-		   case wrangler_syntax:type(MacroName) of
-		     variable ->
-			 case wrangler_syntax:variable_name(MacroName) of
-			   'MODULE' -> CurModName;
-			   _ -> '_'
-			 end;
-		     _ -> '_'
-		   end;
-	  _ -> '_'
+            atom -> wrangler_syntax:atom_value(Mod);
+            macro -> MacroName = wrangler_syntax:macro_name(Mod),
+                     case wrangler_syntax:type(MacroName) of
+                         variable ->
+                             case wrangler_syntax:variable_name(MacroName) of
+                                 'MODULE' -> CurModName;
+                                 _ -> 
+                                     As = wrangler_syntax:get_ann(Mod),
+                                     case lists:keyfind(value, 1, As) of 
+                                         {value, {{literal, V}, _}} ->
+                                             V;
+                                         _ -> '_'
+                                     end
+                             end;
+                         _ -> '_'
+                     end;
+            _ -> '_'
 	end,
     F = case wrangler_syntax:type(Fun) of
 		 atom -> wrangler_syntax:atom_value(Fun);

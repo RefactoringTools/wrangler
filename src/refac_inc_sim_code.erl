@@ -98,7 +98,7 @@ get_temp_file_path(Tab) ->
     list_to_atom(case find_homedir() of
                      false ->
                          "none";
-                     Dir ->
+                      Dir ->
                          filename:join([Dir, ".wrangler","temp", Tab])
                  end).
 -record(tabs, 
@@ -1838,7 +1838,7 @@ hash_ranges(Ranges) ->
 
 create_temp_dir()->
     case find_homedir() of 
-        none ->
+        false ->
             {error, "Wrangler could not infer home directory"};
         Path ->
             DotWranglerDir=filename:join(Path, ".wrangler"),

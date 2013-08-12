@@ -139,7 +139,7 @@ get_next_command(PrevResult, {CmdServerPid, NameTrackerPid}) ->
 handle_cast(stop, State={CmdServerPid, NameTrackerPid}) ->
     CmdServerPid ! stop,
     NameTrackerPid ! stop,
-    {noreply, normal, State}.
+    {noreply,State}.
 
 handle_info(Info,State=State={CmdServerPid, NameTrackerPid}) ->
     CmdServerPid ! stop,
