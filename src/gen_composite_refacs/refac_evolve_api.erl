@@ -47,6 +47,6 @@ composite_refac(_Args=#args{current_file_name=File})->
                                2,"{call, ?MODULE, find_all_rooms, []},\n", [File], 'emacs']},
         {refactoring, add_op_arg, [File,"find_devices","SortBy","3", "gen_sort_by",[File], 'emacs']},
         {refactoring, add_op_arg, [File,"find_devices","Order","4", "gen_order",[File], 'emacs']},
-        {refactoring, add_op_arg, [File,"find_devices","Query","5", "gen_query",[File], 'emacs']},
+        {refactoring, add_op_arg, [File,"find_devices","Query","5", "gen_query",[File], 'emacs']}
        ]).
 
