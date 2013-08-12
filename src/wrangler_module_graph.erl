@@ -112,6 +112,8 @@ do_collect_called_mods(AnnAST, ModNames) ->
 			       {value, {type, m_atom}} ->
 				   ModName = wrangler_syntax:atom_value(T),
 				   ordsets:add_element(ModName, Acc);
+                               {value, {type, {f_atom, [M, _F, _A]}}} ->
+                                   ordsets:add_element(M, Acc);
 			       _ -> Acc
 			   end;
 		       _ -> Acc
@@ -120,7 +122,7 @@ do_collect_called_mods(AnnAST, ModNames) ->
     CalledMods = api_ast_traverse:fold(Fun1, ordsets:new(), AnnAST),
     UnSures = wrangler_atom_utils:collect_unsure_atoms_in_file(AnnAST, ModNames, m_atom),
     UnSures1 = [Name || {atom, _Pos, Name} <- UnSures,
-			 not  lists:member(Name, CalledMods)],
+                        not  lists:member(Name, CalledMods)],
     {CalledMods, ordsets:from_list(UnSures1)}.
 
 
