@@ -4,6 +4,8 @@
 
 -export([parse_transform/2]).
 
+-compile(export_all).
+
 %% -define(ERROR(R, T, F, I),
 %% 	begin
 %% 	    rpt_error(R, T, F, I),
@@ -349,14 +351,14 @@ is_meta_atom(Node) ->
 
 parse_str(Str, StartLoc) ->
     {ok, Toks, _} = erl_scan:string(Str, StartLoc),
-    case erl_parse:parse_exprs(Toks++[{dot, {999,0}}]) of
-        {ok, Exprs} ->
+    case erl_parse:parse_exprs(Toks++[{dot,{999,1}}]) of  
+         {ok, Exprs} ->
             Exprs0 = erl_recomment:recomment_forms(Exprs,[]),
             Exprs1=erl_syntax:form_list_elements(
                      wrangler_syntax_lib:annotate_bindings(Exprs0)),
             hd(Exprs1);
         _ ->
-            erlang:error("Wrangler internal error in function: expand_rule:parse_str/2.")
+            throw({error, "Wrangler internal error in function: expand_rule:parse_str/2."})
     end.
 
 
