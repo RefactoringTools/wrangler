@@ -85,7 +85,6 @@ transform(_Args=#args{current_file_name=File,
     F = list_to_atom(F0),
     A = list_to_integer(A0),
     Nth = list_to_integer(Nth0),
-    io:format("MFANth:~p\n", [{M, F, A, Nth, NewPar}]),
     ?STOP_TD_TP([rule1({M, F, A}, Nth, NewPar),
                  rule2({M, F, A}, Nth, NewPar)
                 ],
