@@ -125,9 +125,9 @@
 	 inline_var_eclipse/5, inline_var_eclipse_1/6,
          get_var_name_eclipse/5, get_fun_name_eclipse/5,
 	 run_refac_eclipse/2, input_par_prompts_eclipse/1,
-     apply_changes_eclipse/3, load_callback_mod_eclipse/2,
+         apply_changes_eclipse/3, load_callback_mod_eclipse/2,
 	 input_par_prompts_c_eclipse/1, init_composite_refac_eclipse/2,
-     get_next_command_eclipse/1, 
+         get_next_command_eclipse/1, 
 	 get_user_refactorings/1, load_user_refactorings/1
 	]).
  
@@ -138,6 +138,8 @@
 
 -export([init_eclipse/0]).
 
+-compile(export_all).
+
 -include("../include/wrangler_internal.hrl").
 
 -type(context():: emacs | composite_emacs).
@@ -147,34 +149,34 @@
 
 get_user_refactorings(Modules) ->
 	Refacs = lists:foldl(fun(Module, Acc) ->
-						  Attrs = proplists:get_value(attributes, apply(list_to_atom(Module), module_info, [])),
-						  Behs = case proplists:get_value(behaviour, Attrs) of
-							 		 undefined ->
-										  case proplists:get_value(behavior, Attrs) of
-									 		 undefined ->
-												  undefined;
-									 		 Beh ->
-										  		  Beh
-								  		  end;
-						  	  	     Beh ->
-								 	  	  Beh
-						  		 end,
-						  case Behs of
-							  undefined ->
-								  Acc;
-							  _ ->
-								  case { lists:member(gen_refac, Behs), lists:member(gen_composite_refac, Behs)} of
-							  			{true, _} ->
-								  			[{gen_refac, list_to_atom(Module)} |Acc];
-							  			{_, true} ->
-								  			[{gen_composite_refac, list_to_atom(Module)} | Acc];
-							  			_ ->
-								  			Acc
-						  		  end
-						  end
-				  end, [], Modules),
-	[{gen_refac, proplists:append_values(gen_refac, Refacs)},
-	 {gen_composite_refac, proplists:append_values(gen_composite_refac, Refacs)}].
+                                     Attrs = proplists:get_value(attributes, apply(list_to_atom(Module), module_info, [])),
+                                     Behs = case proplists:get_value(behaviour, Attrs) of
+                                                undefined ->
+                                                    case proplists:get_value(behavior, Attrs) of
+                                                        undefined ->
+                                                            undefined;
+                                                        Beh ->
+                                                            Beh
+                                                    end;
+                                                Beh ->
+                                                    Beh
+                                            end,
+                                     case Behs of
+                                         undefined ->
+                                             Acc;
+                                         _ ->
+                                             case { lists:member(gen_refac, Behs), lists:member(gen_composite_refac, Behs)} of
+                                                 {true, _} ->
+                                                     [{gen_refac, list_to_atom(Module)} |Acc];
+                                                 {_, true} ->
+                                                     [{gen_composite_refac, list_to_atom(Module)} | Acc];
+                                                 _ ->
+                                                     Acc
+                                             end
+                                     end
+                             end, [], Modules),
+    [{gen_refac, proplists:append_values(gen_refac, Refacs)},
+     {gen_composite_refac, proplists:append_values(gen_composite_refac, Refacs)}].
 
 
 %% ====================================================================================================
@@ -256,12 +258,12 @@ load_from_dir(Dir) ->
 	case file:list_dir(Dir) of
 		{ok, Filenames} ->
 			lists:foreach(fun(Name) ->
-								  code:load_file(list_to_atom(filename:basename(Name, ".beam")))
-						  end, Filenames);
-		_ ->
-			ok
+                                              code:load_file(list_to_atom(filename:basename(Name, ".beam")))
+                                      end, Filenames);
+            _ ->
+                ok
 	end.
-	
+
 
 %% ====================================================================================================
 %% @doc Rename a variable.
@@ -1482,4 +1484,21 @@ get_log_msg() ->
 	    Msg1++Msg2 ++ lists:flatten(WarningMsg)
     end.
  
- 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%          only for experimental purpose                        %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%@private
+rm_operation(FileName, OpName,SearchPaths, Editor, TabWidth) ->
+    try_refac(refac_rm_operation, rm_op, 
+              [FileName, OpName, SearchPaths, Editor, TabWidth]).
+rm_op_arg(FileName, OpName, Index, SearchPaths, Editor, TabWidth) ->
+    try_refac(refac_rm_op_arg, rm_op_arg, 
+              [FileName, OpName, Index, SearchPaths, Editor, TabWidth]).
+add_op_arg(FileName, OpName, NewArgName, Index, NewArgGen, SearchPaths, Editor, TabWidth) ->
+    try_refac(refac_add_op_arg, add_op_arg, 
+              [FileName, OpName, NewArgName, Index, NewArgGen, SearchPaths, Editor, TabWidth]).
+add_op(FileName, NextStateIndex, NextState, PreCondIndex, PreCondCode, 
+       PostCondIndex, PostCondCode, CmdIndex, CmdCode,SearchPaths, Editor, TabWidth) ->
+    try_refac(refac_add_operation, add_op, 
+              [FileName, NextStateIndex, NextState, PreCondIndex, PreCondCode, 
+               PostCondIndex, PostCondCode, CmdIndex, CmdCode, SearchPaths, Editor, TabWidth]).
