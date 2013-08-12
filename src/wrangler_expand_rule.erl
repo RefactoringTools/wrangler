@@ -65,12 +65,16 @@ parse_transform(Forms, Options) ->
                              fun(Form, _Context) ->
                                      expand_quote(Form)
                              end, annotate_forms(Forms6), Options),
-    Forms8=parse_transform_1({api_refac, generate_subst, 1},
+    Forms8=parse_transform_1({api_refac, quote, 2},
+                             fun(Form, _Context) ->
+                                     expand_quote_1(Form)
+                             end, annotate_forms(Forms7), Options),
+    Forms9=parse_transform_1({api_refac, generate_subst, 1},
                               fun(Form, _Context) ->
                                       generate_subst(Form)
-                              end, annotate_forms(Forms7), Options),
-    Forms8.
-
+                              end, annotate_forms(Forms8), Options),
+   %% io:format("Form:~s\n",[[erl_prettypr:format(F)||F<-Forms9]]),
+    Forms9.
 
 annotate_forms(Forms) ->
     [begin
@@ -171,6 +175,19 @@ expand_quote(QuoteApp) ->
     erl_syntax:application(Op1,[App, Binds]).
    
 
+expand_quote_1(QuoteApp) ->
+    [Temp, Pos] = erl_syntax:application_arguments(QuoteApp),
+    Op= erl_syntax:module_qualifier(erl_syntax:atom(wrangler_misc), erl_syntax:atom(parse_annotate_expr)),
+    App =erl_syntax:application(Op, [Temp, Pos]),
+    EnvVars = element(1, lists:unzip(env_vars(Temp))),
+    Binds=erl_syntax:list([erl_syntax:tuple([erl_syntax:atom(VarName),
+                                             erl_syntax:variable(VarName)])
+                           ||VarName<-EnvVars, 
+                             is_meta_variable_name(VarName),
+                             not is_meta_variable_value_name(VarName)]),
+    Op1 = erl_syntax:module_qualifier(erl_syntax:atom(api_refac), erl_syntax:atom(subst)),
+    erl_syntax:application(Op1,[App, Binds]).
+   
 generate_subst(QuoteApp) ->
     [Temp] = erl_syntax:application_arguments(QuoteApp),
     EnvVars = element(1, lists:unzip(env_vars(Temp))),
@@ -268,10 +285,8 @@ expand_match(Temp, Node, Cond) ->
     {MetaVars, MetaAtoms} =  collect_meta_vars_and_atoms(TempAST),
     MatchExprs = lists:append([make_match_expr_1(V, P, NewVar2)||{V,P} <- MetaVars]),
     MetaAtomMatchExprs=lists:append([make_match_expr_for_meta_atom_1(V, P,NewVar2)|| {V,P}<-MetaAtoms]),
-    NewCode=erl_syntax:block_expr([MatchExpr|MatchExprs]++MetaAtomMatchExprs++[erl_syntax:variable(NewVar0)]),
-   %% refac_io:format("Newcode:\n~s\n", [erl_prettypr:format(NewCode)]),
-    NewCode.
-
+    erl_syntax:block_expr([MatchExpr|MatchExprs]++MetaAtomMatchExprs++[erl_syntax:variable(NewVar0)]).
+   
 
 env_vars(Node) ->
     Ann = wrangler_syntax:get_ann(Node),
