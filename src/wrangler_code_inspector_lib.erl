@@ -134,7 +134,7 @@ get_enclosed(Cur, Rs) ->
 %%-spec(calls_to_fun(FileName::filename(), Line::integer(), Col::integer(), SearchPaths::[dir()], TabWidth::integer()) ->
 %%	     {ok, {[{modulename(), functionname(), functionarity()}]}}).
 calls_to_fun(FName, Line, Col, SearchPaths, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:caller_funs(~p, ~p, ~p,~p,~p).\n",
+    ?wrangler_io("\nCMD: ~p:calls_to_fun(~p, ~p, ~p,~p,~p).\n",
 		 [?MODULE, FName, Line, Col, SearchPaths, TabWidth]),
     check_search_paths(FName, SearchPaths),
     {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
