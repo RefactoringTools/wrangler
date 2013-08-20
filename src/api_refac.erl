@@ -1163,7 +1163,8 @@ search_and_transform_1(Rules, {File, Tree}, Fun) ->
     Res=search_and_transform_4(File, Rules, Tree, Fun, Selective),
     {File, element(1, Res)};
 search_and_transform_1(Rules, Tree, Fun) ->
-    element(1, search_and_transform_4(none, Rules, Tree, Fun, {false,[]})).
+    Tree1=wrangler_misc:extend_function_clause(Tree),
+    element(1, search_and_transform_4(none, Rules, Tree1, Fun, {false,[]})).
     
 
 search_and_transform_2(Rules, FileOrDirs, Fun) ->
