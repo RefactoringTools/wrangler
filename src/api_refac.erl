@@ -1912,7 +1912,7 @@ expand_meta_list_1(Node, _OtherInfo) ->
                     end
             end;
         disjunction -> 
-            {repair_guard_expr(Node), false};
+            {repair_guard_expr(Node),false};
         _ -> {Node, false}
     end.
 
@@ -1949,7 +1949,7 @@ expand_meta_case_clause(Clause) ->
     end.
 
 expand_meta_if_clause(Clause) ->
-    [[Guard]]=revert_clause_guard(wrangler_syntax:clause_guard(Clause)),
+    [Guard]=revert_clause_guard(wrangler_syntax:clause_guard(Clause)),
     [Body] = wrangler_syntax:clause_body(Clause),
     ZippedGB = lists:zip(Guard, Body),
     [wrangler_syntax:clause([], G, B)||{G, B} <-ZippedGB].
@@ -2005,6 +2005,17 @@ is_meta_if_clause(Clause) ->
             case revert_clause_guard(Guard) of
                 [[G]] ->
                     case is_list_of_lists(G) of 
+                        true ->
+                            case Body of
+                                [B]->
+                                    is_list_of_lists(B);
+                                _ ->
+                                    false
+                            end;
+                        false -> false
+                    end;
+                [G] -> 
+                     case is_list_of_lists(G) of 
                         true ->
                             case Body of
                                 [B]->
