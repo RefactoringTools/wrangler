@@ -255,7 +255,9 @@ test_rename_mod(SearchPaths, Lazy) ->
 %% @doc Command generator for renaming variable names.
 %%@hidden
 rename_var(ModOrFile, FA, OldVarName, NewVarName, SearchPaths) ->
-    rename_var(ModOrFile, FA, OldVarName, NewVarName, true, SearchPaths).
+    Res=rename_var(ModOrFile, FA, OldVarName, NewVarName, true, SearchPaths),
+    io:format("Res:~p\n", [Res]),
+    Res.
 
 %% @doc Command generator for renaming variable names.
 -spec rename_var(ModOrFile::mod_or_file(), 
@@ -275,8 +277,11 @@ rename_var(ModOrFile, FA, OldVarName, NewVarName, false, SearchPaths) ->
               ||File<-Files],
     lists:append(CmdLists);
 rename_var(ModOrFile, FA, OldVarName, NewVarName, true, SearchPaths) ->
-    case gen_file_names(ModOrFile, true, SearchPaths) of
-        [] -> [];
+    File=gen_file_names(ModOrFile, true, SearchPaths),
+    io:format("File:~p\n", [File]),
+    case File of
+        [] -> 
+            [];
         [F] ->get_next_rename_var_command(
                 {F, none}, FA, OldVarName, NewVarName, SearchPaths, -1);
         {F, NextFileGen} ->
@@ -321,6 +326,7 @@ get_next_rename_var_command({File, NextFileGen}, FA,
  
 rename_var_1(File, FA, VarFilter, NewVarName, SearchPaths) ->
     FAs= get_fun_arity(File, FA),
+    io:format("FAs:~p\n", [FAs]),
     [{refactoring, rename_var, 
       [File, {F, A}, V, new_name_gen(File, {F, A}, V, NewVarName), 
        SearchPaths, ?context]}
@@ -1083,7 +1089,10 @@ get_next_fun_arity([{F,A}|Fs], FA)->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                         
   
+get_vars(File, FunName, Arity, Range={range, _,_}) ->
+    [Range];
 get_vars(File, FunName, Arity, VarFilter) ->
+    io:format("getvars:~p\n", [{File, FunName, Arity, VarFilter}]),
     ModName=list_to_atom(filename:basename(File, ".erl")),
     FunDef=api_refac:mfa_to_fun_def(File, {ModName, FunName, Arity}),
     case FunDef of 
@@ -1099,7 +1108,8 @@ get_vars(File, FunName, Arity, VarFilter) ->
                              atom ->
                                  atom_to_list(VarFilter)==?PP(V@);
                              _ when is_function(VarFilter) ->
-                                 VarFilter(list_to_atom(?PP(V@)));
+                                 VarFilter(FunDef, V@);
+                             %% VarFilter(list_to_atom(?PP(V@)));
                              _ -> false
                          end)], FunDef)
     end.
@@ -1218,6 +1228,8 @@ new_name_gen(File, FA, {range, {_File, _Loc}, V}, NewName) ->
         {user_input, GenPrompt} ->
             {prompt, GenPrompt({ModName, FA,V})};
         _ when is_atom(NewName) ->
+            NewName;
+        _ when is_list(NewName) ->
             NewName;
         _ ->
             throw({error, "Invalid new variable name."})
