@@ -55,7 +55,7 @@
 %% @end
 %%--------------------------------------------------------------------
 input_par_prompts() ->
-    ["operation name:", "new argument name:",  "new argument index:", "generator:"].
+    ["operation name:", "new argument name:",  "new argument index:"].
 
 %%--------------------------------------------------------------------
 %% @private
@@ -103,16 +103,15 @@ selective() ->
 %% @end
 %%--------------------------------------------------------------------
 transform(_Args=#args{current_file_name=File, 
-                      user_inputs=[OpName, NewArgName,Index, NewArgGen]}) ->
-    Op  = list_to_atom(OpName),
+                      user_inputs=[OpName, NewArgName,Index]}) ->
     Nth = list_to_integer(Index),
-    ?FULL_TD_TP([rule1(Op, NewArgName, Nth),
-                 rule2(Op, NewArgName, Nth),
-                 rule3(Op, NewArgName, Nth),
-                 rule4(Op, NewArgGen, Nth)
+    NewArgGen="gen_"++camelCase_to_camel_case(NewArgName),
+    ?FULL_TD_TP([rule1(OpName, NewArgName, Nth),
+                 rule2(OpName, NewArgName, Nth),
+                 rule3(OpName, NewArgName, Nth),
+                 rule4(OpName, NewArgGen, Nth)
                 ],
                 [File]).
-
 
 rule1(Op, NewArg, Nth) ->
     ?RULE(?T("f@(Args@@) -> Body@@;"),
@@ -122,8 +121,8 @@ rule1(Op, NewArg, Nth) ->
               ?TO_AST("f@(Args01@@,"++NewArg++", Args02@@) ->
                             Body@@;")
           end,
-          element(2,api_refac:fun_define_info(f@))==Op).
-
+          ?PP(f@)==Op).
+        
 rule2(Op, NewArg, Nth) ->
      ?RULE(?T("M@:F@(Args@@)"),
           begin
@@ -131,8 +130,8 @@ rule2(Op, NewArg, Nth) ->
               Args02@@=lists:nthtail(Nth-1, Args@@),
               ?TO_AST("M@:F@(Args01@@,"++NewArg++", Args02@@)")
           end,
-           element(2,api_refac:fun_define_info(F@))==Op
-           ).
+           ?PP(F@)==Op
+          ).
 
 rule3(Op, NewArg, Nth) ->
     ?RULE(?T("{call, M@, F@, [Args@@]}"),
@@ -142,8 +141,7 @@ rule3(Op, NewArg, Nth) ->
               ?TO_AST("{call, M@, F@, [Args1@@,"++NewArg++", Args2@@]}",
                       wrangler_syntax:get_pos(_This@))
           end,
-          element(2, api_refac:fun_define_info(F@))==Op andalso
-          api_refac:is_pattern(_This@)).
+          ?PP(F@)==Op andalso api_refac:is_pattern(_This@)).
 
 rule4(Op, NewArgGen, Nth) ->
     ?RULE(?T("{call, M@, F@, [Args@@]}"),
@@ -153,8 +151,7 @@ rule4(Op, NewArgGen, Nth) ->
               ?TO_AST("{call, M@, F@, [Args1@@,"++NewArgGen++"(), Args2@@]}",
                      wrangler_syntax:get_pos(_This@))
           end,
-          element(2, api_refac:fun_define_info(F@))==Op andalso
-          api_refac:is_expr(_This@)).
+           ?PP(F@)==Op andalso api_refac:is_expr(_This@)).
 
 
 add_op_arg(FileName, OpName, NewArgName, Index, NewArgGen, SearchPaths, Editor, TabWidth) ->
@@ -171,14 +168,34 @@ add_op_arg(FileName, OpName, NewArgName, Index, NewArgGen, SearchPaths, Editor, 
     end.
     
 
-%% %% this is still some layout problems.
-%% rule1({M, F, A}, Nth, NewPar) ->
-%%     ?RULE(?T("f@(Args@@) when Guard@@ -> Bs@@;"),
-%%           begin
-%%               Args1@@=lists:sublist(Args@@, Nth-1),
-%%               Args2@@=lists:nthtail(Nth-1, Args@@),
-%%               ?TO_AST("f@(Args1@@,"++NewPar++", Args2@@) when Guard@@-> Bs@@;", 
-%%                       wrangler_syntax:get_pos(_This@))
-%%           end,
-%%           api_refac:fun_define_info(f@) == {M, F, A} andalso
-%%           length(Args@@)==A).
+camelCase_to_camel_case(Name) when is_atom(Name) ->
+    camelCase_to_camel_case(atom_to_list(Name));
+camelCase_to_camel_case(Name) ->
+    case Name of 
+        [H|T] when (H >= 65) and (90 >= H)->
+            camelCase_to_camel_case_1([H+32|T],[]);
+        [H|T] when H==45 ->
+            camelCase_to_camel_case_1([95|T],[]);
+        _  ->
+            camelCase_to_camel_case_1(Name,[])
+    end.
+
+camelCase_to_camel_case_1([], Acc) ->
+    lists:reverse(Acc);
+camelCase_to_camel_case_1([H|T], Acc)
+  when  (H >= 65) and (90 >= H)->
+    case Acc of 
+        [95|_] ->
+            camelCase_to_camel_case_1(T, [H + (97 - 65) |Acc]);
+        _ ->
+            camelCase_to_camel_case_1(T, [H + (97 - 65), 95|Acc])
+    end;
+camelCase_to_camel_case_1([H|T], Acc) when H==45->
+    camelCase_to_camel_case_1(T, [95|Acc]);
+camelCase_to_camel_case_1([H|T], Acc)->
+    camelCase_to_camel_case_1(T, [H|Acc]).
+    
+
+%%Notes: 
+%% 1) actual generator is not generated;
+%% 2).name conflict is not checked yet.
