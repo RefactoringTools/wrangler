@@ -1085,29 +1085,33 @@ reverse_function_clause(Node) ->
 reverse_function_clause_1(FunDef) ->
     FunName = wrangler_syntax:function_name(FunDef),
     Cs = wrangler_syntax:function_clauses(FunDef),
-    case [C||C <- Cs, wrangler_syntax:type(C) == function_clause] of
-        [] -> FunDef;
-        Cs1->
-            Msg ="Wrangler internal error: unconsistent transformation.",
-            case length(Cs)==length(Cs1) of 
-                true ->
-                    NameCs = [{wrangler_syntax:function_clause_name(C),
-                               wrangler_syntax:function_clause(C)}||C <- Cs1],
-                    {Names, Cs2} =lists:unzip(NameCs),
-                    NameVals =[wrangler_syntax:atom_value(Name)||Name <- Names],
-                    case lists:usort(NameVals) of 
-                        [_] ->
-                            NewFunName = wrangler_misc:rewrite(FunName, hd(Names)),
-                            NewFunDef = wrangler_syntax:function(NewFunName, Cs2),
-                            wrangler_misc:rewrite(FunDef,NewFunDef);
-                        _ ->
-                            erlang:error(Msg)
-                    end;
-                false ->
+    Cs1=lists:append(
+          [case wrangler_syntax:type(C) of
+               function_clause -> [C];
+               block_expr -> wrangler_syntax:block_expr_body(C)
+           end||C<-Cs]),
+    AllFunClause=lists:all(fun(C) ->
+                                   wrangler_syntax:type(C)==function_clause 
+                           end, Cs1),
+    Msg ="Wrangler internal error: unconsistent transformation.",
+    case AllFunClause of 
+        true ->
+            NameCs = [{wrangler_syntax:function_clause_name(C),
+                       wrangler_syntax:function_clause(C)}||C <- Cs1],
+            {Names, Cs2} =lists:unzip(NameCs),
+            NameVals =[wrangler_syntax:atom_value(Name)||Name <- Names],
+            case lists:usort(NameVals) of 
+                [_] ->
+                    NewFunName = wrangler_misc:rewrite(FunName, hd(Names)),
+                    NewFunDef = wrangler_syntax:function(NewFunName, Cs2),
+                    wrangler_misc:rewrite(FunDef,NewFunDef);
+                _ ->
                     erlang:error(Msg)
-            end
+            end;
+        _ -> 
+            erlang:error(Msg)
     end.
-
+   
 %%======================================================================
 -type (rule()::{rule, any(), any()}).
 -spec(search_and_transform([rule()], [filename()|dir()]|
@@ -1244,7 +1248,7 @@ search_and_transform_4(File,Rules,Tree,Fun,Selective) ->
             extended_stop_tdTP(F, Tree, CandsNotToChange)
     end.
 
-    
+   
 %% pre_order
 extended_full_tdTP(Fun, Node, Others) ->
     {Node1, C} =extended_full_tdTP_1(Fun, Node, Others),
