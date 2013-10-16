@@ -255,9 +255,8 @@ test_rename_mod(SearchPaths, Lazy) ->
 %% @doc Command generator for renaming variable names.
 %%@hidden
 rename_var(ModOrFile, FA, OldVarName, NewVarName, SearchPaths) ->
-    Res=rename_var(ModOrFile, FA, OldVarName, NewVarName, true, SearchPaths),
-    io:format("Res:~p\n", [Res]),
-    Res.
+    rename_var(ModOrFile, FA, OldVarName, NewVarName, true, SearchPaths).
+    
 
 %% @doc Command generator for renaming variable names.
 -spec rename_var(ModOrFile::mod_or_file(), 
@@ -278,7 +277,6 @@ rename_var(ModOrFile, FA, OldVarName, NewVarName, false, SearchPaths) ->
     lists:append(CmdLists);
 rename_var(ModOrFile, FA, OldVarName, NewVarName, true, SearchPaths) ->
     File=gen_file_names(ModOrFile, true, SearchPaths),
-    io:format("File:~p\n", [File]),
     case File of
         [] -> 
             [];
@@ -326,7 +324,6 @@ get_next_rename_var_command({File, NextFileGen}, FA,
  
 rename_var_1(File, FA, VarFilter, NewVarName, SearchPaths) ->
     FAs= get_fun_arity(File, FA),
-    io:format("FAs:~p\n", [FAs]),
     [{refactoring, rename_var, 
       [File, {F, A}, V, new_name_gen(File, {F, A}, V, NewVarName), 
        SearchPaths, ?context]}
@@ -1092,7 +1089,6 @@ get_next_fun_arity([{F,A}|Fs], FA)->
 get_vars(File, FunName, Arity, Range={range, _,_}) ->
     [Range];
 get_vars(File, FunName, Arity, VarFilter) ->
-    io:format("getvars:~p\n", [{File, FunName, Arity, VarFilter}]),
     ModName=list_to_atom(filename:basename(File, ".erl")),
     FunDef=api_refac:mfa_to_fun_def(File, {ModName, FunName, Arity}),
     case FunDef of 
