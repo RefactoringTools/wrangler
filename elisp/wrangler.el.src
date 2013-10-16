@@ -296,6 +296,7 @@
       ("eqc_fsm State Data to Record" erl-refactor-eqc-fsm-to-record)
       ("Test Cases to Property"  erl-refactor-test-cases-to-property)
       ("Refactor Bug PreCond"  erl-refactor-bug-precond)
+      ("Rename WS opertation argument" erl-refactor-rename-op-arg)
       ))
     nil
     ("Process Refactorings (Beta)"
@@ -2636,6 +2637,14 @@
   "Remove bug preconditions."           
   (interactive)                 
   (apply-adhoc-refac 'refac_bug_cond))
+
+
+
+
+(defun erl-refactor-rename-op-arg()
+  (interactive)
+  (apply-composite-refac 'refac_rename_op_arg))
+
 
 
 ;;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
