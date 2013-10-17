@@ -297,6 +297,11 @@
       ("Test Cases to Property"  erl-refactor-test-cases-to-property)
       ("Refactor Bug PreCond"  erl-refactor-bug-precond)
       ("Rename WS opertation argument" erl-refactor-rename-op-arg)
+      ("Add a WS opertation argument" erl-refactor-add-op-arg)
+      ("Remove a WS opertation argument" erl-refactor-remove-op-arg)  
+      ("Add a WS opertation" erl-refactor-add-op)
+      ("Remove a WS opertation" erl-refactor-remove-op) 
+      ("Add a WS opertation" erl-refactor-add-op)           
       ))
     nil
     ("Process Refactorings (Beta)"
@@ -2645,6 +2650,26 @@
   (interactive)
   (apply-composite-refac 'refac_rename_op_arg))
 
+
+(defun erl-refactor-rename-op-arg()
+  (interactive)
+  (apply-adhoc-refac 'refac_rename_op_arg))
+
+(defun erl-refactor-add-op-arg()
+  (interactive)
+  (apply-adhoc-refac 'refac_add_op_arg))
+
+(defun erl-refactor-remove-op-arg()
+  (interactive)
+  (apply-adhoc-refac 'refac_remove_op_arg))
+
+(defun erl-refactor-add-op()
+  (interactive)
+  (apply-adhoc-refac 'refac_add_op))
+
+(defun erl-refactor-remove-op()
+  (interactive)
+  (apply-adhoc-refac 'refac_remove_op))
 
 
 ;;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
