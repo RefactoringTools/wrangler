@@ -2661,7 +2661,7 @@
 
 (defun erl-refactor-remove-op-arg()
   (interactive)
-  (apply-adhoc-refac 'refac_remove_op_arg))
+  (apply-adhoc-refac 'refac_rm_op_arg))
 
 (defun erl-refactor-add-op()
   (interactive)
@@ -2669,7 +2669,7 @@
 
 (defun erl-refactor-remove-op()
   (interactive)
-  (apply-adhoc-refac 'refac_remove_op))
+  (apply-adhoc-refac 'refac_rm_op))
 
 
 ;;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
