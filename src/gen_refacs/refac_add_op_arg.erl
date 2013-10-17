@@ -25,8 +25,13 @@
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 %%@author  Huiqing Li <H.Li@kent.ac.uk>
-%% @hidden
-%% @private
+%%@doc This refactoring can be used when a new parameter has been added to a
+%%     WS operation.To invoke this refactoring, point the cursor to wrapper 
+%%     function for this operation, then select  
+%%    'add a WS operation argument' from the 'Refactorings for QuickCheck' sub-menu.
+%%    This refactoring does not work with ```eqc_statem''' group syntax yet.
+%%@hidden
+%%@private
 -module(refac_add_op_arg).
 
 -behaviour(gen_refac).
@@ -55,7 +60,7 @@
 %% @end
 %%--------------------------------------------------------------------
 input_par_prompts() ->
-    ["operation name:", "new argument name:",  "new argument index:"].
+    ["New argument name:",  "New argument index (starting from 1):"].
 
 %%--------------------------------------------------------------------
 %% @private
@@ -67,8 +72,15 @@ input_par_prompts() ->
 %%                {ok, none}
 %% @end
 %%--------------------------------------------------------------------
-select_focus(_Args) -> 
-    {ok, none}.
+select_focus(_Args=#args{current_file_name=File,
+                         cursor_pos=Pos}) -> 
+    case api_interface:pos_to_fun_def(File, Pos) of 
+        {ok, FunDef} -> 
+            {_M, F, A} = api_refac:fun_define_info(FunDef),
+            {ok, {F, A}};
+        {error, Msg} ->
+            throw({error, Msg})
+    end. 
     
 %%--------------------------------------------------------------------
 %% @private
@@ -78,8 +90,25 @@ select_focus(_Args) ->
 %% @spec check_pre_cond(Args::#args{}) -> ok | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-check_pre_cond(_Args) ->
-    ok.
+check_pre_cond(_Args=#args{
+                 focus_sel = {_FunName, Arity},
+                 user_inputs=[NewArgName, Index0]}) ->
+    case api_refac:is_var_name(NewArgName) of 
+        true ->
+            Index = try list_to_integer(Index0)
+                    catch
+                        {_E1, _E2} -> 
+                            throw({error, "Invalid index: "++Index0++"."})
+                    end,
+            case Index>0 andalso Index<Arity+2 of 
+                true ->
+                    ok;
+                false ->
+                    {error, "Invalid index: "++Index0++"."}
+            end;
+        false ->
+            {error, "Invalid parameter name:" ++ NewArgName++"."}
+    end.
       
 %%--------------------------------------------------------------------
 %% @private
@@ -103,47 +132,134 @@ selective() ->
 %% @end
 %%--------------------------------------------------------------------
 transform(_Args=#args{current_file_name=File, 
-                      user_inputs=[OpName, NewArgName,Index]}) ->
+                      focus_sel = {OpName0, Arity},
+                      user_inputs=[NewArgName,Index]}) ->
     Nth = list_to_integer(Index),
     NewArgGen="gen_"++camelCase_to_camel_case(NewArgName),
-    ?FULL_TD_TP([rule1(OpName, NewArgName, Nth),
-                 rule2(OpName, NewArgName, Nth),
-                 rule3(OpName, NewArgName, Nth),
-                 rule4(OpName, NewArgGen, Nth)
+    Style = check_style(File),
+    OpName = atom_to_list(OpName0),
+    ?FULL_TD_TP([rule11(OpName, NewArgName, Nth, Arity, Style),
+                 rule12(OpName, NewArgName, Nth, Arity, Style),
+                 rule13(OpName, NewArgName, Nth, Arity, Style),
+                 rule2(OpName, NewArgName, Nth, Arity),
+                 rule31(OpName, NewArgName, Nth, Arity, Style),
+                 rule32(OpName, NewArgName, Nth, Arity, Style),
+                 rule33(OpName, NewArgName, Nth, Arity, Style),
+                 rule51(OpName, NewArgGen, Nth, Arity, Style),
+                 rule52(OpName, NewArgGen, Nth, Arity, Style)
                 ],
                 [File]).
 
-rule1(Op, NewArg, Nth) ->
-    ?RULE(?T("f@(Args@@) -> Body@@;"),
+
+check_style(File) ->
+    Styles=?STOP_TD_TU(
+              [?COLLECT(?T("{call, M@, F@, [{Args@@}]}"),
+                           tuple, api_refac:is_pattern(_This@)),
+               ?COLLECT(?T("{call, M@, F@, [Args@@]}"),
+                           non_tuple, api_refac:is_pattern(_This@))],
+              [File]),
+    case lists:usort(Styles) of 
+        [tuple] -> tuple;
+        [non_tuple] -> non_tuple;
+        [non_tuple, tuple] ->
+            throw({error, "Mixed coding style used."});
+        [] ->
+            tuple
+    end.
+                 
+ 
+rule11(Op, NewArg, _Nth, Arity, Style) ->
+    ?RULE(?T("f@() -> Body@@;"),
+          case Style of 
+              tuple ->
+                  ?TO_AST("f@({"++NewArg++"}) ->Body@@;");
+              non_tuple ->
+                  ?TO_AST("f@("++NewArg++") ->Body@@;")
+          end,
+          ?PP(f@)==Op andalso Arity==0).
+
+rule12(Op, NewArg, Nth, Arity, Style) ->
+    ?RULE(?T("f@({Args@@}) -> Body@@;"),
+          begin
+              Args01@@=lists:sublist(Args@@, Nth-1),
+              Args02@@=lists:nthtail(Nth-1, Args@@),
+              ?TO_AST("f@({Args01@@,"++NewArg++", Args02@@}) ->
+                            Body@@;")
+          end,
+          ?PP(f@)==Op andalso Arity==1 andalso
+          Style==tuple).
+
+rule13(Op, NewArg, Nth,  Arity, Style) ->
+    ?RULE(?T("f@(Args@@)-> Body@@;"),
           begin
               Args01@@=lists:sublist(Args@@, Nth-1),
               Args02@@=lists:nthtail(Nth-1, Args@@),
               ?TO_AST("f@(Args01@@,"++NewArg++", Args02@@) ->
                             Body@@;")
           end,
-          ?PP(f@)==Op).
+          ?PP(f@)==Op andalso length(Args@@)==Arity andalso
+          Style == non_tuple).
         
-rule2(Op, NewArg, Nth) ->
+rule2(Op, NewArg, Nth, _Arity) ->
      ?RULE(?T("M@:F@(Args@@)"),
           begin
               Args01@@=lists:sublist(Args@@, Nth-1),
               Args02@@=lists:nthtail(Nth-1, Args@@),
               ?TO_AST("M@:F@(Args01@@,"++NewArg++", Args02@@)")
           end,
-           ?PP(F@)==Op
-          ).
+           ?PP(F@)==Op).
 
-rule3(Op, NewArg, Nth) ->
-    ?RULE(?T("{call, M@, F@, [Args@@]}"),
+rule31(Op, NewArg, _Nth, Arity, Style) ->
+    ?RULE(?T("{call, M@, F@, []}"),
+          case Style of 
+              tuple ->
+                  ?TO_AST("{call, M@, F@, [{"++"_"++NewArg++"}]}",
+                          wrangler_syntax:get_pos(_This@));
+              non_tuple ->
+                  ?TO_AST("{call, M@, F@, ["++"_"++NewArg++"]}",
+                          wrangler_syntax:get_pos(_This@))
+          end,
+          ?PP(F@)==Op andalso Arity==0 
+          andalso api_refac:is_pattern(_This@)).
+
+rule32(Op, NewArg, Nth, Arity, Style) ->
+    ?RULE(?T("{call, M@, F@, [{Args@@}]}"),
           begin
               Args1@@=lists:sublist(Args@@, Nth-1),
               Args2@@=lists:nthtail(Nth-1, Args@@),
-              ?TO_AST("{call, M@, F@, [Args1@@,"++NewArg++", Args2@@]}",
+              ?TO_AST("{call, M@, F@, [{Args1@@,"++"_"++NewArg++", Args2@@}]}",
                       wrangler_syntax:get_pos(_This@))
           end,
-          ?PP(F@)==Op andalso api_refac:is_pattern(_This@)).
+          ?PP(F@)==Op andalso Arity==1 
+          andalso api_refac:is_pattern(_This@) andalso
+          Style==tuple).
 
-rule4(Op, NewArgGen, Nth) ->
+rule33(Op, NewArg, Nth, Arity, Style) ->
+     ?RULE(?T("{call, M@, F@, [Args@@]}"),
+           begin
+               Args1@@=lists:sublist(Args@@, Nth-1),
+               Args2@@=lists:nthtail(Nth-1, Args@@),
+               ?TO_AST("{call, M@, F@, [Args1@@,"++"_"++NewArg++", Args2@@]}",
+                       wrangler_syntax:get_pos(_This@))
+           end,
+           ?PP(F@)==Op andalso length(Args@@)==Arity andalso
+           api_refac:is_pattern(_This@) andalso Style==non_tuple).
+
+
+rule51(Op, NewArgGen, _Nth, Arity, Style) ->
+    ?RULE(?T("{call, M@, F@, []}"),
+          case Style of 
+              tuple ->
+                  ?TO_AST("{call, M@, F@, [{"++NewArgGen++"()}]}",
+                          wrangler_syntax:get_pos(_This@));
+              non_tuple ->
+                  ?TO_AST("{call, M@, F@, ["++NewArgGen++"()]}",
+                          wrangler_syntax:get_pos(_This@))
+          end,
+          ?PP(F@)==Op andalso Arity==0 andalso
+          api_refac:is_expr(_This@)).
+
+rule52(Op, NewArgGen, Nth, Arity,  Style) ->
     ?RULE(?T("{call, M@, F@, [Args@@]}"),
           begin
               Args1@@=lists:sublist(Args@@, Nth-1),
@@ -151,7 +267,8 @@ rule4(Op, NewArgGen, Nth) ->
               ?TO_AST("{call, M@, F@, [Args1@@,"++NewArgGen++"(), Args2@@]}",
                      wrangler_syntax:get_pos(_This@))
           end,
-           ?PP(F@)==Op andalso api_refac:is_expr(_This@)).
+          ?PP(F@)==Op andalso length(Args@@)==Arity andalso 
+          api_refac:is_expr(_This@) andalso Style==non_tuple).
 
 
 add_op_arg(FileName, OpName, NewArgName, Index, NewArgGen, SearchPaths, Editor, TabWidth) ->
