@@ -28,8 +28,8 @@
 %%
 %%@doc This refactoring can be used when a parameter of a WS operation has 
 %%     been renamed. To invoke this refactoring, point the cursor to the original 
-%%     variable name in the wrapper function, then select the 
-%%    'rename WS operation argument' for the 'Refactorings for QuickCheck' sub-menu.
+%%     variable name in the wrapper function, then select  
+%%    'rename WS operation argument' from the 'Refactorings for QuickCheck' sub-menu.
 %%    This refactoring does not work with ```eqc_statem''' group syntax yet.
 %%@hidden
 %%@private
