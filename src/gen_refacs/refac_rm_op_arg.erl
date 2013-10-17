@@ -1,5 +1,39 @@
-%% @hidden
-%% @private
+%% Copyright (c) 2013, Huiqing Li, Simon Thompson
+%% All rights reserved.
+%%
+%% Redistribution and use in source and binary forms, with or without
+%% modification, are permitted provided that the following conditions are met:
+%%     %% Redistributions of source code must retain the above copyright
+%%       notice, this list of conditions and the following disclaimer.
+%%     %% Redistributions in binary form must reproduce the above copyright
+%%       notice, this list of conditions and the following disclaimer in the
+%%       documentation and/or other materials provided with the distribution.
+%%     %% Neither the name of the copyright holders nor the
+%%       names of its contributors may be used to endorse or promote products
+%%       derived from this software without specific prior written permission.
+%%
+%% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ''AS IS''
+%% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+%% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
+%% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+%% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
+%% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
+%% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
+%% BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
+%% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
+%% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
+%% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+%%@author  Huiqing Li <H.Li@kent.ac.uk>
+%%@doc This refactoring can be used when a  parameter has been removed from a
+%%     WS operation.To invoke this refactoring, point the cursor to wrapper 
+%%     function for this operation, then select  
+%%    'remove a WS operation argument' from the 'Refactorings for QuickCheck' sub-menu.
+%%    1) This refactoring forces the removal of the parameter, hence could lead to 
+%%       code that does not compile.
+%%    2) This refactoring does not work with ```eqc_statem''' group syntax yet.
+%%@hidden
+%%@private
 -module(refac_rm_op_arg).
 
 -behaviour(gen_refac).
@@ -28,7 +62,7 @@
 %% @end
 %%--------------------------------------------------------------------
 input_par_prompts() ->
-    ["operation name: ", "parameter name: ", "parameter index: "].
+    [].
 
 %%--------------------------------------------------------------------
 %% @private
@@ -40,9 +74,27 @@ input_par_prompts() ->
 %%                {ok, none}
 %% @end
 %%--------------------------------------------------------------------
-select_focus(_Args) -> 
-    {ok, none}.
-    
+select_focus(_Args=#args{current_file_name=File, 
+                         cursor_pos=Pos}) ->
+    Msg ="You have not selected an operation parameter!",
+    case api_interface:pos_to_fun_def(File, Pos) of 
+        {ok, FunDef} ->
+            case  api_interface:pos_to_var_name(FunDef, Pos) of 
+                {ok, {VarName, _}}->
+                    {_M, F, A} = api_refac:fun_define_info(FunDef),
+                    Index = collect_arg_index(FunDef, atom_to_list(F), atom_to_list(VarName)),
+                    case Index of 
+                        [] ->
+                            throw({error, Msg});
+                        [I] ->
+                            {ok,{F,A,I}}
+                    end;
+                {error, _} ->
+                    throw({error, Msg})
+            end;
+        {error, Msg} ->
+            throw({error, Msg})
+    end.
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -77,35 +129,76 @@ selective() ->
 %%--------------------------------------------------------------------
 
 transform(_Args=#args{current_file_name=File,
-                      user_inputs=[OpName, Index]})->
-    Op = list_to_atom(OpName),
-    Nth =list_to_integer(Index),
-    ?STOP_TD_TP([rule1(Op, Nth),
-                 rule2(Op, Nth)
+                      focus_sel = {OpName0, Arity, Index}})->
+    Style = check_style(File),
+    OpName = atom_to_list(OpName0),
+    ?FULL_TD_TP([rule11(OpName, Index, Arity, Style),
+                 rule12(OpName, Index, Arity, Style),
+                 rule21(OpName,  Index, Arity),
+                 rule31(OpName, Index, Arity, Style),
+                 rule32(OpName, Index, Arity, Style)
                 ],
                 [File]).
   
-rule1(Op, Ith) ->
-    ?RULE(?T("f@(Args@@) -> sut_result(?SUT:f@(Args1@@))."),
-          begin
-              NewArgs@@ = delete(Ith, Args@@),
-              NewArgs1@@= delete(Ith, Args1@@),
-              ?TO_AST("f@(NewArgs@@) ->
-                            sut_result(?SUT:f@(NewArgs1@@)).")
+
+
+rule11(Op, Index, Arity, Style) ->
+    ?RULE(?T("f@({Args@@}) -> Body@@;"),
+          case length(Args@@) of 
+              1 ->
+                  ?TO_AST("f@()->Body@@;", 
+                         wrangler_syntax:get_pos(_This@));
+              _ ->
+                  NewArgs@@ = delete(Index, Args@@),
+                  ?TO_AST("f@({NewArgs@@})->Body@@;", 
+                          wrangler_syntax:get_pos(_This@))
           end,
-          element(2,api_refac:fun_define_info(f@))==Op). 
+          ?PP(f@)==Op andalso Arity==1 andalso
+          Style==tuple).
 
+rule12(Op, Index, Arity, Style) ->
+    ?RULE(?T("f@(Args@@)-> Body@@;"),
+          begin
+              NewArgs@@ = delete(Index, Args@@),
+              ?TO_AST("f@(NewArgs@@)->Body@@;", 
+                      wrangler_syntax:get_pos(_This@))
+          end,
+          ?PP(f@)==Op andalso length(Args@@)==Arity andalso
+          Style == non_tuple).
+        
+rule21(Op, Index, _Arity) ->
+     ?RULE(?T("M@:F@(Args@@)"),
+          begin
+              NewArgs@@ = delete(Index, Args@@),
+              ?TO_AST("M@:F@(NewArgs@@)")
+          end,
+           ?PP(F@)==Op).
 
-rule2(Op, Ith) ->
-     ?RULE(?T("{call, M@, F@, [Args@@]}"),
+rule31(Op, Index, Arity, Style) ->
+    ?RULE(?T("{call, M@, F@, [{Args@@}]}"),
+          case length(Args@@) of 
+              1 ->
+                  ?TO_AST("{call, M@, F@, []}",
+                          wrangler_syntax:get_pos(_This@));
+              _ ->
+                  NewArgs@@ = delete(Index, Args@@),
+                  ?TO_AST("{call, M@, F@, [{NewArgs@@}]}",
+                          wrangler_syntax:get_pos(_This@))
+          end,
+          ?PP(F@)==Op andalso Arity==1 
+          andalso api_refac:is_pattern(_This@) andalso
+          Style==tuple).
+
+rule32(Op, Index, Arity, Style) ->
+    ?RULE(?T("{call, M@, F@, [Args@@]}"),
            begin
-               NewArgs@@ = delete(Ith, Args@@),
-               ?TO_AST("{call, M@, F@, [NewArgs@@]}", 
-                       wrangler_syntax:get_pos(_This@))
-           end,
-           element(2,api_refac:fun_define_info(F@))==Op). 
-
-          
+               NewArgs@@ = delete(Index, Args@@),
+               ?TO_AST("{call, M@, F@, [NewArgs@@]}",
+                      wrangler_syntax:get_pos(_This@))
+            end,
+           ?PP(F@)==Op andalso length(Args@@)==Arity 
+           andalso Style==non_tuple).
+        
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
@@ -135,5 +228,33 @@ rm_op_arg(FileName, OpName, Index, SearchPaths, Editor, TabWidth) ->
             {error, Reason}
     end.
     
+collect_arg_index(FunDef, OpName, VarName) ->
+        ?STOP_TD_TU(
+           [?COLLECT(?T("f@(Args1@@, OldVarName@, Args2@@) when Guards@@ -> Body@@;"),
+                     length(Args1@@)+1,
+                     ?PP(f@)==OpName andalso api_refac:type(OldVarName@) == variable  andalso
+                     ?PP(OldVarName@)==VarName),
+            ?COLLECT(?T("f@({Args1@@, OldVarName@, Args2@@}) when Guards@@ -> Body@@;"),
+                     length(Args1@@)+1,
+                     ?PP(f@)==OpName andalso api_refac:type(OldVarName@) == variable  andalso
+                     ?PP(OldVarName@)==VarName)
+           ],FunDef).
+        
+ 
 
-
+check_style(File) ->
+    Styles=?STOP_TD_TU(
+              [?COLLECT(?T("{call, M@, F@, [{Args@@}]}"),
+                           tuple, api_refac:is_pattern(_This@)),
+               ?COLLECT(?T("{call, M@, F@, [Args@@]}"),
+                           non_tuple, api_refac:is_pattern(_This@))],
+              [File]),
+    case lists:usort(Styles) of 
+        [tuple] -> tuple;
+        [non_tuple] -> non_tuple;
+        [non_tuple, tuple] ->
+            throw({error, "Mixed coding style used."});
+        [] ->
+            tuple
+    end.
+                 
