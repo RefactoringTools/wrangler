@@ -1,6 +1,6 @@
 
                     Wrangler -- An Erlang Refactorer
-                           28/03/2012
+                           21/10/2013
               http://www.cs.kent.ac.uk/projects/wrangler/
 
 ---------------------------------------------------------------------------
