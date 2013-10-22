@@ -328,7 +328,7 @@ while_refac_loop(Parent, State=#state{cmds={while, Cond, Qual, CmdGen},
                                 [] ->
                                     From !{get_next_command, Parent, 
                                            [ok, sets:to_list(ModifiedSoFar)]};
-                                [CR|Others] ->
+                                [CR, Gen] ->
                                     Pid = process_one_cr(self(), Qual==atomic, undefined, CR),  %%TODO: TEST THIS!!!
                                     From ! {get_next_command, Pid, [ok, []]},
                                     while_refac_loop(Parent, State#state{cmds={while, Cond, Qual, CmdGen},
@@ -433,7 +433,7 @@ generate_a_cmd(Cmd={refac_,RefacName, Args0})->
                     Cmds
             catch
                 _E1:_E2 ->
-                    error(format_msg("Illegal command generator:\n~p\n", Cmd))  
+                    error(format_msg("Illegal command generator:\n~p\n", {_E1,_E2,Cmd}))  
             end;
         false ->
             error(format_msg("Illegal command generator:\n~p\n", Cmd))  
@@ -443,6 +443,8 @@ generate_a_cmd(Cmd={interactive, _, _}) ->
 generate_a_cmd(Cmd={repeat_interactive, _, _}) ->
     Cmd;
 generate_a_cmd(Cmd={while, _, _}) ->
+    Cmd;
+generate_a_cmd(Cmd={while, _, _, _}) ->
     Cmd;
 generate_a_cmd(Cmd={if_then, _, _}) ->
     Cmd;
@@ -455,7 +457,7 @@ generate_a_cmd(Cmd) ->
 
 update_state(State=#state{changed_files=Changes}, PrevResult) ->
     State#state{changed_files= update_modified_files(PrevResult,Changes)}.
-  
+ 
 make_loop_name(CR) ->
     case CR of 
         {refactoring,  _Name, _Args} ->

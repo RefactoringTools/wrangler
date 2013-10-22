@@ -67,7 +67,9 @@
                                        _File@=_W_File_,
                                        api_refac:generate_bindings(Before, '_W_Bind1_'),
                                        _W_After = api_refac:subst(fun()->After end(), _W_Bind1_),
-                                       {wrangler_misc:reset_pos_and_range(_W_After), true};
+                                       {api_refac:reset_pos_and_range(
+                                          wrangler_misc:rewrite(_This@, _W_After))                                        
+                                        , true};
                                    false ->{_W_Node_, false}
                                end 
                        end, Before} 
@@ -139,6 +141,8 @@
 -define(T(Template), api_refac:template(Template)).
  
 -define(TO_AST(Str), api_refac:quote(Str)).
+
+-define(TO_AST(Str, StartLoc), api_refac:quote(Str,StartLoc )).
 
 -define(PP(Node), api_refac:pp(Node)).
 

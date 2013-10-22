@@ -23,9 +23,11 @@
 %% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
 %% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+%%@author  Huiqing Li <H.Li@kent.ac.uk>
 %% @hidden
 %% @private
--module(refac_remove_an_argument).
+-module(refac_force_remove_arg).
 
 -behaviour(gen_refac).
 
@@ -98,12 +100,7 @@ check_pre_cond_1(_Args=#args{focus_sel=FunDef,
                         FunDef),
     case lists:all(fun(A) -> api_refac:type(A) == variable end, IthArgs) of
         true ->  
-            case lists:all(fun(A) -> length(api_refac:var_refs(A)) == 0 end, IthArgs) of
-                true ->
-                    ok;
-                _ ->
-                    {error, "Parameter is used."}
-            end;
+            ok; %% force the removal of an argument even if it is used.
         _  ->
             {error, "The parameter selectted is not a variable."}
     end.

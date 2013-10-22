@@ -23,16 +23,23 @@
 %% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
 %% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-%% @hidden
-%% @private
--module(refac_remove_an_argument).
+
+%%@author  Huiqing Li <H.Li@kent.ac.uk>
+%%@doc This refactoring can be used when a WS operation has been removed from a
+%%     WS. To invoke this refactoring, point the cursor to the wrapper function 
+%%     of thie operation, then select 'remove a WS operation' from the 
+%%     Refactorings for QuickCheck' sub-menu.
+%%    This refactoring does not work with ```eqc_statem''' group syntax yet.
+%%@hidden
+%%@private
+-module(refac_rm_op).
 
 -behaviour(gen_refac).
 
 -compile(export_all).
 
 %% Include files
--include("../../include/wrangler.hrl").
+-include_lib("../../include/wrangler.hrl").
 
 %%%===================================================================
 %% gen_refac callbacks
@@ -53,7 +60,7 @@
 %% @end
 %%--------------------------------------------------------------------
 input_par_prompts() ->
-    ["Parameter Index : "].
+    [].
 
 %%--------------------------------------------------------------------
 %% @private
@@ -67,7 +74,28 @@ input_par_prompts() ->
 %%--------------------------------------------------------------------
 select_focus(_Args=#args{current_file_name=File, 
                          cursor_pos=Pos}) ->
-    api_interface:pos_to_fun_def(File, Pos).
+    Msg ="You have not selected an operation wrapper function!",
+    case api_interface:pos_to_fun_def(File, Pos) of 
+        {ok, FunDef} ->
+            case is_a_wrapper_fun(FunDef) of 
+                true -> 
+                    {_M, F, A} = api_refac:fun_define_info(FunDef),
+                    {ok, {F,A}};
+                false ->
+                    {error, Msg}
+            end;
+        {error, Msg} ->
+            {error, Msg}
+    end.
+        
+is_a_wrapper_fun(F) ->
+    Res=?STOP_TD_TU(
+           [?COLLECT(?T("M@:F@(Args@@)"),
+                     true,
+                     ?PP(M@)=="?SUT"
+                    )],
+           F),
+    lists:usort(Res)==[true].
 
 %%--------------------------------------------------------------------
 %% @private
@@ -77,38 +105,9 @@ select_focus(_Args=#args{current_file_name=File,
 %% @spec check_pre_cond(Args::#args{}) -> ok | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-check_pre_cond(Args=#args{focus_sel=FunDef,
-                          user_inputs=[I]}) ->
-    Ith=list_to_integer(I),
-    {_M,_F,A} = api_refac:fun_define_info(FunDef),
-    case Ith>=1 andalso Ith=<A of 
-        true ->
-            check_pre_cond_1(Args);
-        false ->
-            {error, "Index is invalid."}
-    end.
-   
-
-check_pre_cond_1(_Args=#args{focus_sel=FunDef,
-                          user_inputs=[I]}) ->
-    Ith=list_to_integer(I),
-    IthArgs=?FULL_TD_TU([?COLLECT(?T("f@(Args@@)when Guard@@-> Bs@@;"),
-                                  lists:nth(Ith, Args@@),
-                                  true)],
-                        FunDef),
-    case lists:all(fun(A) -> api_refac:type(A) == variable end, IthArgs) of
-        true ->  
-            case lists:all(fun(A) -> length(api_refac:var_refs(A)) == 0 end, IthArgs) of
-                true ->
-                    ok;
-                _ ->
-                    {error, "Parameter is used."}
-            end;
-        _  ->
-            {error, "The parameter selectted is not a variable."}
-    end.
-   
-
+check_pre_cond(_Args) ->
+    ok.
+      
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -130,77 +129,43 @@ selective() ->
 %%            {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-transform(Args=#args{current_file_name=File,focus_sel=FunDef, 
-                     user_inputs=[I]}) ->
-    {M,F,A} = api_refac:fun_define_info(FunDef),
-    Ith = list_to_integer(I),
-    {ok, Res}=transform_in_cur_file(Args, {M,F,A}, Ith),
-    case api_refac:is_exported({F,A}, File) of
-        true ->
-            {ok, Res1}=transform_in_client_files(Args, {M,F,A}, Ith),
-            {ok, Res++Res1};
-        false ->
-            {ok, Res}
-    end.
 
-transform_in_cur_file(_Args=#args{current_file_name=File}, MFA, I) ->
-    ?FULL_TD_TP([rule1(MFA,I),
-                 rule2(MFA,I),
-                 rule3(MFA),
-                 rule4(MFA, I)],
+transform(_Args=#args{current_file_name=File,
+                      focus_sel={F, _A}})->
+    OpName = atom_to_list(F),
+    ?STOP_TD_TP([rule0(next_state, OpName),
+                 rule0(precondition, OpName),
+                 rule0(postcondition,OpName),
+                 rule1(OpName),
+                 rule2(OpName)
+                ],
                 [File]).
+  
+rule0(FunName, OpName) ->
+    ?RULE(?T("f@(Args1@@, {call, M@, Op@, As@}, Args2@@) when Guards@@ -> Bs@@;"),
+          wrangler_syntax:empty_node(),
+          ?PP(Op@)==OpName andalso wrangler_syntax:is_atom(f@, FunName)).
 
+rule1(OpName) ->
+    ?RULE(?T("{call, M@, F@, Args@@}"),
+          wrangler_syntax:empty_node(),
+          api_refac:is_expr(_This@) andalso ?PP(F@)==OpName).
 
-transform_in_client_files(_Args=#args{current_file_name=File,
-                                      search_paths=SearchPaths}, 
-                          MFA, I) ->
-    ?FULL_TD_TP([rule2(MFA,I),
-                 rule3(MFA)],
-                api_refac:client_files(File, SearchPaths)).
+rule2(OpName) ->
+    ?RULE(?T("f@(Args@@@) when Guards@@@ -> Bs@@@."),
+          wrangler_syntax:empty_node(),
+          ?PP(f@)==OpName).
 
-
-rule1({M,F,A}, Ith) ->
-    ?RULE(?T("f@(Args@@) when Guard@@ -> Bs@@;"), 
-          begin NewArgs@@=delete(Ith, Args@@),
-                ?TO_AST("f@(NewArgs@@) when Guard@@->Bs@@;")
-          end,
-          api_refac:fun_define_info(f@) == {M, F, A}
-         ).
-
-%% Transform the different kinds of function applications.
-rule2({M,F,A}, Ith) ->
-    ?RULE(?FUN_APPLY(M,F,A),
-          begin
-              Args = api_refac:get_app_args(_This@),
-              NewArgs=delete(Ith, Args),
-              api_refac:update_app_args(_This@, NewArgs)
-          end,
-          true).
-
-rule3({M,F,A}) ->
-    ?RULE(?T("F@"),
-          api_refac:make_arity_qualifier(F, A - 1),
-          api_refac:type(F@) == arity_qualifier andalso
-          api_refac:fun_define_info(F@) == {M, F, A}).
-
-rule4({_M, F, A}, Ith) ->
-    ?RULE(?T("Spec@"), 
-          api_spec:rm_arg_type_from_spec(_This@, Ith),
-          api_spec:is_type_spec(Spec@, {F, A})).
-
-
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
-
-delete(Ith, Args) when is_list(Args) ->
-    lists:sublist(Args, Ith-1)++ lists:nthtail(Ith, Args);
-delete(Ith, Arg) ->
-    Str=lists:flatten(
-          io_lib:format(
-            "fun(ArgList) ->
-                    lists:sublist(ArgList, ~p-1) ++
-                      lists:nthtail(~p, ArgList)
-            end(~s)", [Ith, Ith, ?PP(Arg)])),
-    ?TO_AST(Str).
-
+rm_operation(FileName, OpName, SearchPaths, Editor, TabWidth) ->
+    Args=#args{current_file_name=FileName,
+               user_inputs=[OpName],
+               search_paths=SearchPaths,
+               tabwidth=TabWidth},
+    case check_pre_cond(Args) of
+        ok -> 
+            {ok, Res}=transform(Args),
+            wrangler_write_file:write_refactored_files(Res,Editor,TabWidth,"");
+        {error, Reason} ->
+            {error, Reason}
+    end.
+    

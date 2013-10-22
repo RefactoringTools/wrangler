@@ -296,6 +296,13 @@
       ("eqc_fsm State Data to Record" erl-refactor-eqc-fsm-to-record)
       ("Test Cases to Property"  erl-refactor-test-cases-to-property)
       ("Refactor Bug PreCond"  erl-refactor-bug-precond)
+      ("Rename a WS opertation argument" erl-refactor-rename-op-arg)
+      ("Add a WS opertation argument" erl-refactor-add-op-arg)
+      ("Remove a WS opertation argument" erl-refactor-remove-op-arg)  
+      ("Add a WS opertation" erl-refactor-add-op)
+      ("Add a WS opertation" erl-refactor-add-op)       
+      ("Remove a WS opertation" erl-refactor-remove-op) 
+      ("Re-order WS operation parameters" erl-refactor-swap-op-args)           
       ))
     nil
     ("Process Refactorings (Beta)"
@@ -2683,6 +2690,33 @@ of BEAM files being loaded."
   "Remove bug preconditions."           
   (interactive)                 
   (apply-adhoc-refac 'refac_bug_cond))
+
+
+
+
+(defun erl-refactor-rename-op-arg()
+  (interactive)
+  (apply-composite-refac 'refac_rename_op_arg))
+
+(defun erl-refactor-add-op-arg()
+  (interactive)
+  (apply-adhoc-refac 'refac_add_op_arg))
+
+(defun erl-refactor-remove-op-arg()
+  (interactive)
+  (apply-adhoc-refac 'refac_rm_op_arg))
+
+(defun erl-refactor-add-op()
+  (interactive)
+  (apply-adhoc-refac 'refac_add_op))
+
+(defun erl-refactor-remove-op()
+  (interactive)
+  (apply-adhoc-refac 'refac_rm_op))
+
+(defun erl-refactor-swap-op-args()
+  (interactive)
+  (apply-adhoc-refac 'refac_swap_op_args))
 
 
 ;;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

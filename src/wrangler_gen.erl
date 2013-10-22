@@ -256,6 +256,7 @@ test_rename_mod(SearchPaths, Lazy) ->
 %%@hidden
 rename_var(ModOrFile, FA, OldVarName, NewVarName, SearchPaths) ->
     rename_var(ModOrFile, FA, OldVarName, NewVarName, true, SearchPaths).
+    
 
 %% @doc Command generator for renaming variable names.
 -spec rename_var(ModOrFile::mod_or_file(), 
@@ -275,8 +276,10 @@ rename_var(ModOrFile, FA, OldVarName, NewVarName, false, SearchPaths) ->
               ||File<-Files],
     lists:append(CmdLists);
 rename_var(ModOrFile, FA, OldVarName, NewVarName, true, SearchPaths) ->
-    case gen_file_names(ModOrFile, true, SearchPaths) of
-        [] -> [];
+    File=gen_file_names(ModOrFile, true, SearchPaths),
+    case File of
+        [] -> 
+            [];
         [F] ->get_next_rename_var_command(
                 {F, none}, FA, OldVarName, NewVarName, SearchPaths, -1);
         {F, NextFileGen} ->
@@ -1083,6 +1086,8 @@ get_next_fun_arity([{F,A}|Fs], FA)->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                         
   
+get_vars(File, FunName, Arity, Range={range, _,_}) ->
+    [Range];
 get_vars(File, FunName, Arity, VarFilter) ->
     ModName=list_to_atom(filename:basename(File, ".erl")),
     FunDef=api_refac:mfa_to_fun_def(File, {ModName, FunName, Arity}),
@@ -1099,7 +1104,8 @@ get_vars(File, FunName, Arity, VarFilter) ->
                              atom ->
                                  atom_to_list(VarFilter)==?PP(V@);
                              _ when is_function(VarFilter) ->
-                                 VarFilter(list_to_atom(?PP(V@)));
+                                 VarFilter(FunDef, V@);
+                             %% VarFilter(list_to_atom(?PP(V@)));
                              _ -> false
                          end)], FunDef)
     end.
@@ -1218,6 +1224,8 @@ new_name_gen(File, FA, {range, {_File, _Loc}, V}, NewName) ->
         {user_input, GenPrompt} ->
             {prompt, GenPrompt({ModName, FA,V})};
         _ when is_atom(NewName) ->
+            NewName;
+        _ when is_list(NewName) ->
             NewName;
         _ ->
             throw({error, "Invalid new variable name."})
