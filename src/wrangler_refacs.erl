@@ -1484,21 +1484,67 @@ get_log_msg() ->
 	    Msg1++Msg2 ++ lists:flatten(WarningMsg)
     end.
  
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%          only for experimental purpose                        %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%@private
-rm_operation(FileName, OpName,SearchPaths, Editor, TabWidth) ->
-    try_refac(refac_rm_operation, rm_op, 
-              [FileName, OpName, SearchPaths, Editor, TabWidth]).
+%%@doc Remove an operation input elememt.
+%%<p>
+%%   This refactoring can be used when a parameter has been removed from a
+%%   WS operation. To invoke this refactoring, point the cursor to the parameter to 
+%%   be removed in the wrapper function for this operation, then select  
+%%   'remove a WS operation argument' from the 'Refactorings for QuickCheck' sub-menu.
+%%   Note that This refactoring forces the removal of the parameter, hence could 
+%%   lead to code that does not compile. This refactoring does not work with 
+%%   ```eqc_statem''' group syntax yet.
+%%</p>
 rm_op_arg(FileName, OpName, Index, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_rm_op_arg, rm_op_arg, 
               [FileName, OpName, Index, SearchPaths, Editor, TabWidth]).
+
+%%@doc Add an input element to a WS operation.
+%% <p>
+%% This refactoring can be used when a new parameter has been added to a
+%% WS operation. To invoke this refactoring, point the cursor to wrapper 
+%% function for this operation, select 'add a WS operation argument' 
+%% from the 'Refactorings for QuickCheck' sub-menu, the you will be prompted
+%% to input the new parameter name in the mini-buffer.
+%% This refactoring does not work with ```eqc_statem''' group syntax yet.
+%% </p>
 add_op_arg(FileName, OpName, NewArgName, Index, NewArgGen, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_add_op_arg, add_op_arg, 
               [FileName, OpName, NewArgName, Index, NewArgGen, SearchPaths, Editor, TabWidth]).
-add_op(FileName, NextStateIndex, NextState, PreCondIndex, PreCondCode, 
-       PostCondIndex, PostCondCode, CmdIndex, CmdCode,SearchPaths, Editor, TabWidth) ->
-    try_refac(refac_add_operation, add_op, 
-              [FileName, NextStateIndex, NextState, PreCondIndex, PreCondCode, 
-               PostCondIndex, PostCondCode, CmdIndex, CmdCode, SearchPaths, Editor, TabWidth]).
+
+%%@doc Add an WS operation.
+%%<p>
+%%   This refactoring can be used when a new WS operation has been added to a WS. 
+%%   To invoke this refactoring, select 'add a WS operation' from the 
+%%   'Refactorings for QuickCheck' sub-menu, then you will be prompted to input the 
+%%   name of the operation and its parameters. This refactoring does not work with 
+%%   ```eqc_statem''' group syntax yet
+%%</p>
+add_op(FileName, OpName, Args,SearchPaths, Editor, TabWidth) ->
+    try_refac(refac_add_op, add_op, 
+              [FileName, OpName, Args, SearchPaths, Editor, TabWidth]).
+
+
+%%@doc Remove an operation.
+%%<p>
+%%   This refactoring can be used when an operation has been removed from a
+%%   WS. To invoke this refactoring, point the cursor to the wrapper function of 
+%%   operation to be removed, then select 'remove a WS operation' from the 
+%%   'Refactorings for QuickCheck' sub-menu.
+%%    This refactoring does not work with ```eqc_statem''' group syntax yet.
+%%</p>
+rm_op(FileName, OpName,SearchPaths, Editor, TabWidth) ->
+    try_refac(refac_rm_op, rm_op, 
+              [FileName, OpName, SearchPaths, Editor, TabWidth]).
+
+%%@doc Re-order operation parameters.
+%%<p>
+%%  This refactoring can be used when the sequence of input elements have 
+%%  been re-ordered. To invoke this refactoring, point the cursor to the 
+%%  wrapper function of the operation, select `re-order WS operation parameters'
+%%  from the `Refactorings for QuickCheck' sub-menu, then you will be prompted
+%%  to input the new order of parameters using the indexes of current parameters.
+%%  e.g. to reverse the order of three parameters, you could input: 3,2,1.
+%%</p>
+swap_op_args(FileName, OpName, NewOrder, SearchPaths, Editor, TabWidth) ->
+    try_refac(refac_swap_op_args, swap_op_args, 
+              [FileName, OpName, NewOrder, SearchPaths, Editor, TabWidth]).
