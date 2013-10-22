@@ -26,8 +26,8 @@
 
 %%@author  Huiqing Li <H.Li@kent.ac.uk>
 %%@doc This refactoring can be used when a  parameter has been removed from a
-%%     WS operation.To invoke this refactoring, point the cursor to wrapper 
-%%     function for this operation, then select  
+%%     WS operation. To invoke this refactoring, point the cursor to the parameter to 
+%%     be removed in the wrapper function for this operation, then select  
 %%    'remove a WS operation argument' from the 'Refactorings for QuickCheck' sub-menu.
 %%    1) This refactoring forces the removal of the parameter, hence could lead to 
 %%       code that does not compile.

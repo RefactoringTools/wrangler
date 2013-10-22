@@ -24,8 +24,14 @@
 %% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-%% @hidden
-%% @private
+%%@author  Huiqing Li <H.Li@kent.ac.uk>
+%%@doc This refactoring can be used when a WS operation has been removed from a
+%%     WS. To invoke this refactoring, point the cursor to the wrapper function 
+%%     of thie operation, then select 'remove a WS operation' from the 
+%%     Refactorings for QuickCheck' sub-menu.
+%%    This refactoring does not work with ```eqc_statem''' group syntax yet.
+%%@hidden
+%%@private
 -module(refac_rm_op).
 
 -behaviour(gen_refac).
@@ -54,7 +60,7 @@
 %% @end
 %%--------------------------------------------------------------------
 input_par_prompts() ->
-    ["operation name to be removed:"].
+    [].
 
 %%--------------------------------------------------------------------
 %% @private
@@ -66,9 +72,31 @@ input_par_prompts() ->
 %%                {ok, none}
 %% @end
 %%--------------------------------------------------------------------
-select_focus(_Args) -> 
-    {ok, none}.
-    
+select_focus(_Args=#args{current_file_name=File, 
+                         cursor_pos=Pos}) ->
+    Msg ="You have not selected an operation wrapper function!",
+    case api_interface:pos_to_fun_def(File, Pos) of 
+        {ok, FunDef} ->
+            case is_a_wrapper_fun(FunDef) of 
+                true -> 
+                    {_M, F, A} = api_refac:fun_define_info(FunDef),
+                    {ok, {F,A}};
+                false ->
+                    {error, Msg}
+            end;
+        {error, Msg} ->
+            {error, Msg}
+    end.
+        
+is_a_wrapper_fun(F) ->
+    Res=?STOP_TD_TU(
+           [?COLLECT(?T("M@:F@(Args@@)"),
+                     true,
+                     ?PP(M@)=="?SUT"
+                    )],
+           F),
+    lists:usort(Res)==[true].
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -103,7 +131,8 @@ selective() ->
 %%--------------------------------------------------------------------
 
 transform(_Args=#args{current_file_name=File,
-                      user_inputs=[OpName]})->
+                      focus_sel={F, _A}})->
+    OpName = atom_to_list(F),
     ?STOP_TD_TP([rule0(next_state, OpName),
                  rule0(precondition, OpName),
                  rule0(postcondition,OpName),
@@ -113,7 +142,7 @@ transform(_Args=#args{current_file_name=File,
                 [File]).
   
 rule0(FunName, OpName) ->
-    ?RULE(?T("f@(Args1@@, {call, M@, Op@, As@}) when Guards@@ -> Bs@@;"),
+    ?RULE(?T("f@(Args1@@, {call, M@, Op@, As@}, Args2@@) when Guards@@ -> Bs@@;"),
           wrangler_syntax:empty_node(),
           ?PP(Op@)==OpName andalso wrangler_syntax:is_atom(f@, FunName)).
 
