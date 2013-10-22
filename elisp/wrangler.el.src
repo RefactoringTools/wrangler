@@ -296,13 +296,12 @@
       ("eqc_fsm State Data to Record" erl-refactor-eqc-fsm-to-record)
       ("Test Cases to Property"  erl-refactor-test-cases-to-property)
       ("Refactor Bug PreCond"  erl-refactor-bug-precond)
-      ("Rename a WS opertation argument" erl-refactor-rename-op-arg)
-      ("Add a WS opertation argument" erl-refactor-add-op-arg)
-      ("Remove a WS opertation argument" erl-refactor-remove-op-arg)  
-      ("Add a WS opertation" erl-refactor-add-op)
-      ("Add a WS opertation" erl-refactor-add-op)       
-      ("Remove a WS opertation" erl-refactor-remove-op) 
-      ("Re-order WS operation parameters" erl-refactor-swap-op-args)           
+      ("Rename an operation argument" erl-refactor-rename-op-arg)
+      ("Add an operation argument" erl-refactor-add-op-arg)
+      ("Remove an operation argument" erl-refactor-remove-op-arg)  
+      ("Add an operation" erl-refactor-add-op)       
+      ("Remove an operation" erl-refactor-remove-op) 
+      ("Re-order operation parameters" erl-refactor-swap-op-args)           
       ))
     nil
     ("Process Refactorings (Beta)"
@@ -572,9 +571,9 @@ of BEAM files being loaded."
 
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 1.0")) 
+  (message "Wrangler version 1.1")) 
 
-(setq wrangler-version  "(wrangler-1.0) ")
+(setq wrangler-version  "(wrangler-1.1) ")
 
 (defun wrangler-menu-init()
   "Init Wrangler menus."
