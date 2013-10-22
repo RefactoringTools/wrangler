@@ -240,7 +240,7 @@ unification(Exp1, Exp2) ->
 list_unification_1(Exp1, Exp2)->
     LEs1 = [E||E<-Exp1,is_list(E)],
     LEs2 = [E||E<-Exp2,is_list(E)],
-    case LEs1==[] andalso LEs2==[] of 
+    case LEs1==[] andalso LEs2==[] of
         false ->
             case  has_meta_list(Exp1) of
                 false ->
@@ -251,7 +251,6 @@ list_unification_1(Exp1, Exp2)->
         true ->
             list_unification_3(Exp1, Exp2)
     end.
-    
 
 has_meta_list(NodeList) ->
     [E ||E<-NodeList, is_meta_list(E)]/=[].
@@ -303,7 +302,7 @@ list_unification_3(T, []) ->
     end;
 list_unification_3([], _) ->
     [false];
-list_unification_3(List1=[H1|T1], List2=[H2|T2]) ->
+list_unification_3(_List1=[H1|T1], List2=[H2|T2]) ->
     case is_meta_list(H1) of
         true ->
             T11= [T||T<-T1, not is_meta_list(T)],
@@ -316,7 +315,7 @@ list_unification_3(List1=[H1|T1], List2=[H2|T2]) ->
                              H1Sub = create_sub(H1, lists:sublist(List2, I)),
                              Res=list_unification_1(T1, lists:nthtail(I, List2)),
                              combine_unification_results(H1Sub, Res)
-                         end||I<-lists:seq(1,Len2-Len1)],
+                         end||I<-lists:seq(0,Len2-Len1)],
                     lists:append(Res)
             end;
         false ->
@@ -613,13 +612,6 @@ is_meta_clause_list(C) ->
                 [] ->
                     case Guard of
                         [[G]] ->
-                            case Body of 
-                                [B] ->
-                                    is_meta_meta_list_variable(G) andalso
-                                        is_meta_meta_list_variable(B);  
-                                _ -> false
-                            end;
-                         [G] -> %% temporay fix.
                             case Body of 
                                 [B] ->
                                     is_meta_meta_list_variable(G) andalso
