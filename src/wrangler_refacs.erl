@@ -1511,7 +1511,7 @@ add_op_arg(FileName, OpName, NewArgName, Index, NewArgGen, SearchPaths, Editor, 
     try_refac(refac_add_op_arg, add_op_arg, 
               [FileName, OpName, NewArgName, Index, NewArgGen, SearchPaths, Editor, TabWidth]).
 
-%%@doc Add an WS operation.
+%%@doc Add a WS operation.
 %%<p>
 %%   This refactoring can be used when a new WS operation has been added to a WS. 
 %%   To invoke this refactoring, select 'add a WS operation' from the 
@@ -1548,4 +1548,3 @@ rm_op(FileName, OpName,SearchPaths, Editor, TabWidth) ->
 swap_op_args(FileName, OpName, NewOrder, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_swap_op_args, swap_op_args, 
               [FileName, OpName, NewOrder, SearchPaths, Editor, TabWidth]).
->>>>>>> wrangler_ws
