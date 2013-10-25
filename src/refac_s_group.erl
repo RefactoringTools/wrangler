@@ -1,6 +1,7 @@
--module(refac_s_group). 
+-module(refac_s_group).
 
--include_lib("wrangler/include/wrangler.hrl"). 
+%-include_lib("wrangler/include/wrangler.hrl").
+-include("wrangler.hrl").
 
 -export([meta_rule_set/0, simple_rule_set/0, old_apis/0]).
 
