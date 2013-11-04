@@ -1961,10 +1961,19 @@ expand_meta_if_clause(Clause) ->
         
 
 is_meta_clause(Clause)->
-    is_meta_case_clause(Clause) orelse
-        is_meta_if_clause(Clause).
+    wrangler_syntax:type(Clause)==clause andalso 
+        (is_meta_case_clause(Clause) orelse
+        is_meta_if_clause(Clause)).
      
 is_meta_case_clause(Clause) ->
+    case wrangler_syntax:type(Clause)==clause of 
+        true ->
+            is_meta_case_clause_1(Clause);
+        false ->
+            false
+    end.
+
+is_meta_case_clause_1(Clause) ->
     Pat = wrangler_syntax:clause_patterns(Clause),
     Guard = wrangler_syntax:clause_guard(Clause),
     Body = wrangler_syntax:clause_body(Clause),
@@ -2001,6 +2010,12 @@ is_meta_case_clause(Clause) ->
     end.
         
 is_meta_if_clause(Clause) ->
+    case wrangler_syntax:type(Clause)==clause of 
+        true -> is_meta_if_clause_1(Clause);
+        false-> false
+    end.
+
+is_meta_if_clause_1(Clause) ->
     Pat = wrangler_syntax:clause_patterns(Clause),
     Guard = wrangler_syntax:clause_guard(Clause),
     Body = wrangler_syntax:clause_body(Clause),
