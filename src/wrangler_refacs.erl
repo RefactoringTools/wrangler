@@ -40,7 +40,7 @@
 %% @doc This module describes the refactorings that are currently supported by Wrangler.
 %%     The refactoring functions listed in this module are NOT supposed to be run in an 
 %%     Erlang shell. Interface for refactorings that can be run in an Erlang shell are 
-%%     documented in module <a href="wrangler_api.html">wrangler_api</a>. 
+%%     documented in module <a href="api_wrangler.html">api_wrangler</a>. 
 -module(wrangler_refacs).
 
 -export([rename_var/7, 
