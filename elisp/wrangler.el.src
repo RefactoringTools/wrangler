@@ -571,9 +571,9 @@ of BEAM files being loaded."
 
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 1.1")) 
+  (message "Wrangler version 1.1.01")) 
 
-(setq wrangler-version  "(wrangler-1.1) ")
+(setq wrangler-version  "(wrangler-1.1.01) ")
 
 (defun wrangler-menu-init()
   "Init Wrangler menus."
