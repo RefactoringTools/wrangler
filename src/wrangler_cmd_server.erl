@@ -328,7 +328,7 @@ while_refac_loop(Parent, State=#state{cmds={while, Cond, Qual, CmdGen},
                                 [] ->
                                     From !{get_next_command, Parent, 
                                            [ok, sets:to_list(ModifiedSoFar)]};
-                                [CR, Gen] ->
+                                [CR, _Gen] ->
                                     Pid = process_one_cr(self(), Qual==atomic, undefined, CR),  %%TODO: TEST THIS!!!
                                     From ! {get_next_command, Pid, [ok, []]},
                                     while_refac_loop(Parent, State#state{cmds={while, Cond, Qual, CmdGen},
