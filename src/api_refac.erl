@@ -983,7 +983,8 @@ subst(Expr, Subst) when is_list(Expr) ->
     [subst(E, Subst)||E<-Expr];
 
 subst(Expr, Subst) ->
-    {Expr1, _} =api_ast_traverse:stop_tdTP(fun do_subst/2, Expr, Subst),
+    {Expr1, _} =api_ast_traverse:stop_tdTP(fun(N, S) -> do_subst(N, S) end, 
+                                           Expr, Subst),
     Expr2=expand_meta_list(Expr1),
     remove_fake_begin_end(Expr2).
    
@@ -1803,7 +1804,9 @@ is_tree(Node) ->
     wrangler_syntax:is_tree(Node) orelse wrangler_syntax:is_wrapper(Node).
 
 expand_meta_list(Tree) ->
-    {Tree1, _}  = api_ast_traverse:full_tdTP(fun expand_meta_list_1/2, Tree, {}),
+    {Tree1, _}  = api_ast_traverse:full_tdTP(fun(N, I) ->
+                                                     expand_meta_list_1(N, I)
+                                             end, Tree, {}),
     Tree1.
 
 expand_meta_list_1(Node, _OtherInfo) ->
