@@ -5370,11 +5370,14 @@ implicit_fun_name(Node) ->
 	{'fun', Pos, {function, Atom, Arity}} ->
 	    arity_qualifier(set_pos(atom(Atom), Pos),
 			    set_pos(integer(Arity), Pos));
-	{'fun', Pos, {function, Module, Atom, Arity}} ->
+	{'fun', Pos, {function, Module, Atom, Arity}} 
+          when is_atom(Atom), is_integer(Arity) ->
 	    module_qualifier(set_pos(atom(Module), Pos),
 			     arity_qualifier(
 			       set_pos(atom(Atom), Pos),
 			       set_pos(integer(Arity), Pos)));
+	{'fun', Pos, {function, Module, Atom, Arity}} ->
+            module_qualifier(Module, arity_qualifier(Atom, Arity));
 	Node1 ->
 	    data(Node1)
     end.
