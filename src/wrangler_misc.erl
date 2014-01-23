@@ -927,11 +927,11 @@ exported_vars(Node) ->
 
 exported_vars_1(Node, {StartLoc, EndLoc}) ->
     Fun = fun (N, Acc) ->
-                  case wrangler_syntax:type(Node) of
+                  case wrangler_syntax:type(N) of
                       variable ->
                           Ann = wrangler_syntax:get_ann(N),
                           case lists:keyfind(bound, 1, Ann) of 
-                              {use, Bound} when Bound/=[] ->
+                              {bound, Bound} when Bound/=[] ->
                                   case lists:keyfind(use,1,Ann) of 
                                       {use, Locs} ->
                                           case [L||L<-Locs, L>EndLoc orelse L < StartLoc] of
