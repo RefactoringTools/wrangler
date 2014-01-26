@@ -75,7 +75,7 @@ parse_transform(Forms, Options) ->
                               fun(Form, _Context) ->
                                       generate_subst(Form)
                               end, annotate_forms(Forms8), Options),
-   %% io:format("Form:~s\n",[[erl_prettypr:format(F)||F<-Forms9]]),
+    %% io:format("Form:~s\n",[[erl_prettypr:format(F)||F<-Forms9]]),
     Forms9.
 
 annotate_forms(Forms) ->
@@ -165,7 +165,9 @@ check_template_syntax(Template) ->
 expand_quote(QuoteApp) ->
     [Temp] = erl_syntax:application_arguments(QuoteApp),
     Pos = erl_syntax:get_pos(Temp),
-    Op= erl_syntax:module_qualifier(erl_syntax:atom(wrangler_misc), erl_syntax:atom(parse_annotate_expr)),
+    Op= erl_syntax:module_qualifier(
+          erl_syntax:atom(wrangler_misc), 
+          erl_syntax:atom(extended_parse_annotate_expr)),
     App =erl_syntax:application(Op, [Temp, erl_syntax:integer(Pos)]),
     EnvVars = element(1, lists:unzip(env_vars(Temp))),
     Binds=erl_syntax:list([erl_syntax:tuple([erl_syntax:atom(VarName),
@@ -179,7 +181,9 @@ expand_quote(QuoteApp) ->
 
 expand_quote_1(QuoteApp) ->
     [Temp, Pos] = erl_syntax:application_arguments(QuoteApp),
-    Op= erl_syntax:module_qualifier(erl_syntax:atom(wrangler_misc), erl_syntax:atom(parse_annotate_expr)),
+    Op= erl_syntax:module_qualifier(
+          erl_syntax:atom(wrangler_misc), 
+          erl_syntax:atom(extended_parse_annotate_expr)),
     App =erl_syntax:application(Op, [Temp, Pos]),
     EnvVars = element(1, lists:unzip(env_vars(Temp))),
     Binds=erl_syntax:list([erl_syntax:tuple([erl_syntax:atom(VarName),

@@ -964,18 +964,18 @@ pp_1([E|Es]) ->
 
 %%@private
 quote(Str, Pos) ->    
-   wrangler_misc:parse_annotate_expr(Str, Pos).
+   wrangler_misc:extend_parse_annotate_expr(Str, Pos).
    
 %%@private
 anti_quote(Str, Pos) ->    
-    wrangler_misc:parse_annotate_expr(Str, Pos).
+    wrangler_misc:extended_parse_annotate_expr(Str, Pos).
 
 %%@private
 quote(Str) ->    
-    wrangler_misc:parse_annotate_expr(Str).
+    wrangler_misc:extended_parse_annotate_expr(Str).
 %%@private
 anti_quote(Str) ->    
-    wrangler_misc:parse_annotate_expr(Str).
+    wrangler_misc:extended_parse_annotate_expr(Str).
 
 %%=================================================================
 %%@private
