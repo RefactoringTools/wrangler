@@ -159,13 +159,9 @@ rule2(OpName) ->
 rm_operation(FileName, OpName, SearchPaths, Editor, TabWidth) ->
     Args=#args{current_file_name=FileName,
                user_inputs=[OpName],
+               focus_sel = {OpName,0}, 
                search_paths=SearchPaths,
                tabwidth=TabWidth},
-    case check_pre_cond(Args) of
-        ok -> 
-            {ok, Res}=transform(Args),
-            wrangler_write_file:write_refactored_files(Res,Editor,TabWidth,"");
-        {error, Reason} ->
-            {error, Reason}
-    end.
-    
+    {ok, Res}=transform(Args),
+    wrangler_write_file:write_refactored_files(Res,Editor,TabWidth,"").
+ 

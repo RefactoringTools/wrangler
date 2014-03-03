@@ -241,9 +241,10 @@ check_style(File) ->
                  
  
 
-swap_op_args(FileName, OpName, NewArgsOrder, SearchPaths, Editor, TabWidth) ->
+swap_op_args(FileName, OpName, Arity, NewArgsOrder, SearchPaths, Editor, TabWidth) ->
     Args=#args{current_file_name=FileName,
-               user_inputs=[OpName, NewArgsOrder],
+               focus_sel = {OpName, Arity},
+               user_inputs=[NewArgsOrder],
                search_paths=SearchPaths,
                tabwidth=TabWidth},
     case check_pre_cond(Args) of

@@ -112,7 +112,9 @@ selective()->
     false.
 
 %% Do the actual program transformation here.
--spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}).                                    
+-spec (transform/1::(#args{}) -> {ok, [{{filename(), filename()}, syntaxTree()}]}
+                                     |{error, term()}).
+                             
 transform(Args=#args{current_file_name=File,
                      focus_sel={{_M,F,A},_Expr, _Nth}})->
     InscopeFuns = api_refac:inscope_funs(File),
