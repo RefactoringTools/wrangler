@@ -765,7 +765,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                 add_range_to_body(Node, Es, "refac_util:do_add_range, form_list",
 			      "refac_util:do_add_range, form_list");
              named_fun_expr ->
-                Cs = wrangler_syntax:fun_expr_clauses(Node),
+                Cs = wrangler_syntax:named_fun_expr_clauses(Node),
                 S = wrangler_syntax:get_pos(Node),
                 Lc = wrangler_misc:glast("refac_util:do_add_range, fun_expr", Cs),
                 {_S1, E1} = get_range(Lc),
