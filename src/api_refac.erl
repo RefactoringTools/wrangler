@@ -964,7 +964,7 @@ pp_1([E|Es]) ->
 
 %%@private
 quote(Str, Pos) ->    
-   wrangler_misc:extend_parse_annotate_expr(Str, Pos).
+   wrangler_misc:extended_parse_annotate_expr(Str, Pos).
    
 %%@private
 anti_quote(Str, Pos) ->    
