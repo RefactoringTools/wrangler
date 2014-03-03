@@ -316,7 +316,7 @@ parse_annotate_file(FName, true, SearchPaths, TabWidth, FileFormat) ->
             {Info0, Ms} = case wrangler_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
 			      {ok, Fs, {MDefs, MUses}} ->
                                   ST = wrangler_recomment:recomment_forms(Fs, []),
-				  Info1 = wrangler_syntax_lib:analyze_forms(ST),
+                                  Info1 = wrangler_syntax_lib:analyze_forms(ST),
 				  Ms1 = {dict:from_list(MDefs), dict:from_list(MUses)},
 				  {Info1, Ms1};
 			      _ -> {[], {dict:from_list([]), dict:from_list([])}}
@@ -757,13 +757,42 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 		false ->
 		    update_ann(Node, {range, {S1, E1}})
 	    end;
-	match_expr ->
-	    calc_and_add_range_to_node(Node, match_expr_pattern, match_expr_body);
-	form_list ->
-	    Es = wrangler_syntax:form_list_elements(Node),
-	    
-	    add_range_to_body(Node, Es, "refac_util:do_add_range, form_list",
+             match_expr ->
+                calc_and_add_range_to_node(Node, match_expr_pattern, match_expr_body);
+             form_list ->
+                Es = wrangler_syntax:form_list_elements(Node),
+                
+                add_range_to_body(Node, Es, "refac_util:do_add_range, form_list",
 			      "refac_util:do_add_range, form_list");
+             named_fun_expr ->
+                Cs = wrangler_syntax:fun_expr_clauses(Node),
+                S = wrangler_syntax:get_pos(Node),
+                Lc = wrangler_misc:glast("refac_util:do_add_range, fun_expr", Cs),
+                {_S1, E1} = get_range(Lc),
+                E11 = extend_backwards(Toks, E1,'end'),   
+                update_ann(Node, {range, {S, E11}});
+             map  ->
+                Es = wrangler_syntax:map_elements(Node),
+                case Es /=[] of 
+                    true ->
+                        Last = lists:last(Es),
+                        {_, E2} = get_range(Last),
+                        E21 = extend_backwards(Toks, E2, '}'),
+                        update_ann(Node, {range, {{L, C}, E21}});
+                    false ->
+                      E21 = extend_backwards(Toks, {L, C}, '}'),
+                        update_ann(Node, {range, {{L, C}, E21}})
+                end;
+             map_field_assoc -> 
+                [K, V] = wrangler_syntax:map_field_elements(Node),
+                {S, _} = get_range(K),
+                {_, E} = get_range(V),
+                update_ann(Node, {range, {S, E}});
+             map_field_exact -> 
+                [K, V] = wrangler_syntax:map_field_elements(Node),
+                {S, _} = get_range(K),
+                {_, E} = get_range(V),
+                update_ann(Node, {range, {S, E}});
 	parentheses ->
 	    B = wrangler_syntax:parentheses_body(Node),
 	    {S, E} = get_range(B),
@@ -863,10 +892,11 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                     _ ->
                         update_ann(Node, {range, {{L, C}, {L, C}}})
                 end;
+
 	type   %% This is not correct, and need to be fixed!!
 	     ->
             update_ann(Node, {range, {{L, C}, {L, C}}});
-	_ ->
+             _ ->
 	    %% refac_io:format("Node;\n~p\n",[Node]),
 	    %% ?wrangler_io("Unhandled syntax category:\n~p\n", [refac_syntax:type(Node)]),
 	    Node
