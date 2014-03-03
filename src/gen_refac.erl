@@ -142,7 +142,7 @@
 -callback check_pre_cond(Args::#args{}) -> ok |{error, term()}.
 -callback selective() -> true | false.
 -callback transform(Args::#args{}) ->
-     {ok, [{{filename(),filename()},syntaxTree()}] | {error, term()}}.
+     {ok, [{{filename(),filename()},syntaxTree()}]} | {error, term()}.
     
      
 -spec(select_focus(Module::module(), Args::args()) ->
