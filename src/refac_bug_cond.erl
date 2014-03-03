@@ -26,7 +26,8 @@ check_pre_cond(_Args) ->
 selective() ->
     false.
 
--spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}).
+-spec (transform/1::(#args{}) -> {ok, [{{filename(), filename()}, syntaxTree()}]} 
+                                     |{error, term()}).
 transform(_Args=#args{current_file_name=File})->
     ?FULL_BU_TP(rules(),[File]).
 
