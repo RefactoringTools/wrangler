@@ -142,7 +142,7 @@
 
 -include("../include/wrangler_internal.hrl").
 
--type(context():: emacs | composite_emacs).
+-type(context():: emacs |composite_emacs |command).
 
 %% ====================================================================================================
 %% @doc get all user refactoring modules (gen_refac and gen_composite_refac)
@@ -1507,9 +1507,9 @@ rm_op_arg(FileName, OpName, Index, SearchPaths, Editor, TabWidth) ->
 %% to input the new parameter name in the mini-buffer.
 %% This refactoring does not work with ```eqc_statem''' group syntax yet.
 %% </p>
-add_op_arg(FileName, OpName, NewArgName, Index, NewArgGen, SearchPaths, Editor, TabWidth) ->
+add_op_arg(FileName, OpName, Arity, NewArgName, Index, NewArgGen, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_add_op_arg, add_op_arg, 
-              [FileName, OpName, NewArgName, Index, NewArgGen, SearchPaths, Editor, TabWidth]).
+              [FileName, OpName, Arity, NewArgName, Index, NewArgGen, SearchPaths, Editor, TabWidth]).
 
 %%@doc Add a WS operation.
 %%<p>
@@ -1532,9 +1532,9 @@ add_op(FileName, OpName, Args,SearchPaths, Editor, TabWidth) ->
 %%   'Refactorings for QuickCheck' sub-menu.
 %%    This refactoring does not work with ```eqc_statem''' group syntax yet.
 %%</p>
-rm_op(FileName, OpName,SearchPaths, Editor, TabWidth) ->
+rm_op(FileName, OpName, Arity, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_rm_op, rm_op, 
-              [FileName, OpName, SearchPaths, Editor, TabWidth]).
+              [FileName, OpName, Arity, SearchPaths, Editor, TabWidth]).
 
 %%@doc Re-order operation parameters.
 %%<p>
@@ -1545,6 +1545,6 @@ rm_op(FileName, OpName,SearchPaths, Editor, TabWidth) ->
 %%  to input the new order of parameters using the indexes of current parameters.
 %%  e.g. to reverse the order of three parameters, you could input: 3,2,1.
 %%</p>
-swap_op_args(FileName, OpName, NewOrder, SearchPaths, Editor, TabWidth) ->
+swap_op_args(FileName, OpName, Arity, NewOrder, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_swap_op_args, swap_op_args, 
-              [FileName, OpName, NewOrder, SearchPaths, Editor, TabWidth]).
+              [FileName, OpName, Arity, NewOrder, SearchPaths, Editor, TabWidth]).
