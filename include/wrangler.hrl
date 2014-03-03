@@ -270,6 +270,6 @@
                          {repeat_interactive, qualifier(), [elementary_refac()]} | 
                          {if_then, function(), composite_refac()} |
                          {while, function(), qualifier(), composite_refac()} |
-                         {qualifier(), [composite_refac()]}).
+                         {qualifier(), composite_refac()|[composite_refac()]}).
                           
                         
