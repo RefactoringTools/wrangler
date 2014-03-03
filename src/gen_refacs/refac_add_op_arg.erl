@@ -90,8 +90,7 @@ select_focus(_Args=#args{current_file_name=File,
 %% @spec check_pre_cond(Args::#args{}) -> ok | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-check_pre_cond(_Args=#args{
-                 focus_sel = {_FunName, Arity},
+check_pre_cond(_Args=#args{focus_sel = {_FunName, Arity},
                  user_inputs=[NewArgName, Index0]}) ->
     case api_refac:is_var_name(NewArgName) of 
         true ->
@@ -271,9 +270,10 @@ rule52(Op, NewArgGen, Nth, Arity,  Style) ->
           api_refac:is_expr(_This@) andalso Style==non_tuple).
 
 
-add_op_arg(FileName, OpName, NewArgName, Index, NewArgGen, SearchPaths, Editor, TabWidth) ->
+add_op_arg(FileName, OpName, Arity,  NewArgName, Index, NewArgGen, SearchPaths, Editor, TabWidth) ->
     Args=#args{current_file_name=FileName,
-               user_inputs=[OpName, NewArgName, Index, NewArgGen],
+               focus_sel={OpName, Arity},
+               user_inputs=[NewArgName, Index],
                search_paths=SearchPaths,
                tabwidth=TabWidth},
     case check_pre_cond(Args) of
