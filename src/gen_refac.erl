@@ -134,17 +134,17 @@
          apply_changes/3
         ]).
 
--export([behaviour_info/1]).
-
 -include("../include/wrangler.hrl").
 
-%%@private
--spec behaviour_info(atom()) ->[{atom(), arity()}].
-behaviour_info(callbacks) ->
-    [{input_par_prompts,0}, {select_focus,1}, 
-     {check_pre_cond, 1}, {transform, 1},
-     {selective, 0}].
 
+-callback input_par_prompts() -> [string()].
+-callback select_focus(Args::#args{}) ->{ok, term()}|{error, term()}.
+-callback check_pre_cond(Args::#args{}) -> ok |{error, term()}.
+-callback selective() -> true | false.
+-callback transform(Args::#args{}) ->
+     {ok, [{{filename(),filename()},syntaxTree()}] | {error, term()}}.
+    
+     
 -spec(select_focus(Module::module(), Args::args()) ->
              {ok, term()} | {error, term()}).
 select_focus(Module, Args) ->

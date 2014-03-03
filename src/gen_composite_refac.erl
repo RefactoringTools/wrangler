@@ -37,7 +37,7 @@
 %%   the refactorer asks the user for input at the very beginning of the composite 
 %%   refactoring. There should be one prompt string for each input.
 %% Callback function `composite_refac/1':
-%% ```composite_refac(Args::#args()) 
+%% ```composite_refac(Args::#args{}) 
 %%       ===> composite_refac()|[]'''
 %%   `composite_refac' is the function in which the user could script a 
 %%   composite refactoring. The definition of record `args' is the same as the 
@@ -262,19 +262,14 @@
          get_next_command/1, 
          input_par_prompts/1]).
 
--export([behaviour_info/1]).
-
 -compile(export_all).
 
 -include("../include/wrangler.hrl").
 
-%%@private
--spec behaviour_info(atom()) ->[{atom(), arity()}].
-behaviour_info(callbacks) ->
-    [{composite_refac,1}, 
-     {input_par_prompts, 0},
-     {select_focus,1}].
-
+-callback composite_refac(Args::#args{}) -> composite_refac()|[].
+-callback input_par_prompts()->[string()].
+-callback select_focus(Args::#args{}) -> {ok, term()}|{error, term()}.   
+       
 %%@private
 input_par_prompts(CallBackMod) ->
     Res =input_pars_1(CallBackMod),
