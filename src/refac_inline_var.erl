@@ -72,7 +72,7 @@ inline_var_1(FName, Line, Col, SearchPaths, Editor, TabWidth) ->
 	{ok, VarNode} ->
 	    {ok, MatchExpr} = get_var_define_match_expr(Form, VarNode),
 	    cond_check(MatchExpr, VarNode),
-	    case is_use_instance(VarNode) of
+            case is_use_instance(VarNode) of
 		true ->
 		    AnnAST1 = inline(AnnAST, Form, MatchExpr, VarNode, [wrangler_misc:start_end_loc(VarNode)]),
 		    wrangler_write_file:write_refactored_files([{{FName,FName},AnnAST1}], Editor, TabWidth, Cmd1);
@@ -255,15 +255,21 @@ pos_to_match_expr_1(Node, DefinePos) ->
 	    Pattern = wrangler_syntax:match_expr_pattern(Node),
 	    case wrangler_syntax:type(Pattern) of
 		variable ->
-		    case lists:keysearch(def, 1, wrangler_syntax:get_ann(Pattern)) of
+		    Ann = wrangler_syntax:get_ann(Pattern),
+                    case lists:keysearch(def, 1, Ann) of
 			{value, {def, DefinePos}} ->
-                            Body = wrangler_syntax:match_expr_body(Node),
-                            case wrangler_syntax:type(Body) of
-                                match_expr ->
-                                    Body1 = get_match_expr_body(Node),
-                                    {wrangler_syntax:match_expr(Pattern, Body1), true};
-                                _ ->
-                                    {Node, true}
+                            case lists:keysearch(bound, 1, Ann) of 
+                                {value, {bound, [_]}} ->
+                                    Body = wrangler_syntax:match_expr_body(Node),
+                                    case wrangler_syntax:type(Body) of
+                                        match_expr ->
+                                            Body1 = get_match_expr_body(Node),
+                                            {wrangler_syntax:match_expr(Pattern, Body1), true};
+                                        _ ->
+                                            {Node, true}
+                                    end;
+                                _ -> 
+                                    {[], false}
                             end;
 			_ ->
 			   {[], false}
