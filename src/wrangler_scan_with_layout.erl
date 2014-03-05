@@ -22,27 +22,7 @@
 %% For handling ISO 8859-1 (Latin-1) we use the following type
 %% information:
 %%
-%% 000 - 037	NUL - US	control
-%% 040 - 057	SPC - /		punctuation
-%% 060 - 071	0 - 9		digit
-%% 072 - 100	: - @		punctuation
-%% 101 - 132	A - Z		uppercase
-%% 133 - 140	[ - `		punctuation
-%% 141 - 172	a - z		lowercase
-%% 173 - 176	{ - ~		punctuation
-%% 177		DEL		control
-%% 200 - 237			control
-%% 240 - 277	NBSP - ¿	punctuation
-%% 300 - 326	À - Ö		uppercase
-%% 327		×		punctuation
-%% 330 - 336	Ø - Þ		uppercase
-%% 337 - 366	ß - ö		lowercase
-%% 367		÷		punctuation
-%% 370 - 377	ø - ÿ		lowercase
-%%
-%% Many punctuation characters region have special meaning.  Must
-%% watch using × \327, bvery close to x \170
-
+%
 %% @hidden
 %% @private
 -module(wrangler_scan_with_layout).
