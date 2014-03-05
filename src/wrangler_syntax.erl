@@ -5539,10 +5539,11 @@ named_fun_expr(Name, Clauses) ->
 revert_named_fun_expr(Node) ->
     Pos = get_pos(Node),
     Name = named_fun_expr_name(Node),
-    Clauses = [revert_clause(C) || C <- named_fun_expr_clauses(Node)],
+    Cs = named_fun_expr_clauses(Node),
+    Clauses = [revert_clause(C) || C <- Cs],
     case type(Name) of
 	variable ->
-	    {named_fun, Pos, variable_name(Name), Clauses};
+            {named_fun, Pos, variable_name(Name), Clauses};
 	_ ->
 	    Node
     end.
@@ -5557,9 +5558,11 @@ revert_named_fun_expr(Node) ->
 
 named_fun_expr_name(Node) ->
     case unwrap(Node) of
-	{named_fun, Pos, Name, _} ->
-	    %%set_pos(variable(Name), Pos);
-            {var, Pos, Name};
+	{named_fun, _Pos, Name, Cs} ->
+            Cs = named_fun_expr_clauses(Node),
+            NamePos = get_pos(hd(Cs)),
+	    %%set_pos(variable(Name), NamePos);
+            {var, NamePos, Name};
 	Node1 ->
 	    (data(Node1))#named_fun_expr.name
     end.
