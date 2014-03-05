@@ -419,10 +419,11 @@ vann_named_fun_expr(Tree, Env, Ms, VI, Pid) ->
         vann_pattern(Name, Env, Ms, VI, Pid),
     Env1 = ordsets:union(Env, Bound1),
     Cs = wrangler_syntax:named_fun_expr_clauses(Tree),
-    {Cs1, {_, Free}} = vann_fun_expr_clauses(Cs, Env1, Ms, VI, Pid),
+    {Cs1, {_Bound2, Free2}} = vann_fun_expr_clauses(Cs, Env1, Ms, VI, Pid),
+    Free = ordsets:union(Free1, ordsets:subtract(Free2, Bound1)),
     Tree1 = rewrite(Tree, wrangler_syntax:named_fun_expr(Name1,Cs1)),
-    Bound = [],
-    {ann_bindings(Tree1, Env, Bound1, Free1), Bound, Free}.
+    Bound =[],
+    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
 vann_match_expr(Tree, Env, Ms, VI, Pid) ->
     E = wrangler_syntax:match_expr_body(Tree),
