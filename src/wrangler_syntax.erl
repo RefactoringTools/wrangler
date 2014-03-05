@@ -5558,7 +5558,8 @@ revert_named_fun_expr(Node) ->
 named_fun_expr_name(Node) ->
     case unwrap(Node) of
 	{named_fun, Pos, Name, _} ->
-	    set_pos(variable(Name), Pos);
+	    %%set_pos(variable(Name), Pos);
+            {var, Pos, Name};
 	Node1 ->
 	    (data(Node1))#named_fun_expr.name
     end.

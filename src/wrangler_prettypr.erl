@@ -857,8 +857,8 @@ lay_2(Node, Ctxt) ->
             Name =wrangler_syntax:named_fun_expr_name(Node),
             D1 = lay(Name, Ctxt),
 	    Cs=wrangler_syntax:named_fun_expr_clauses(Node),
-	    D2 = lay_clauses(Cs, fun_expr, reset_check_bracket(Ctxt1)),
-	    append_keywords("fun", "end", beside(D1, D2), Cs, Ctxt1);
+	    D2 = lay_clauses(Cs, {function, D1}, reset_check_bracket(Ctxt1)),
+	    append_keywords("fun", "end", D2, Cs, Ctxt1);
 	module_qualifier -> 
 	    %% Done;
 	    {PrecL, _Prec, PrecR} = inop_prec(':'),
