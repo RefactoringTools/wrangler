@@ -956,6 +956,8 @@ abstract(T) ->
 
 abstract(T, Line) when is_integer(Line) ->
     abstract(T, Line, epp:default_encoding());
+abstract(T, {Line, Col}) when is_integer(Line)andalso is_integer(Col) ->  %% clause added by HL.
+    abstract(T, Line, epp:default_encoding());
 abstract(T, Options) when is_list(Options) ->
     Line = proplists:get_value(line, Options, 0),
     Encoding = proplists:get_value(encoding, Options,epp:default_encoding()),
