@@ -34,8 +34,10 @@
 -module(api_interface).
 
 -export([pos_to_node/3, range_to_node/3,
-         pos_to_fun_name/2,pos_to_fun_def/2,pos_to_var_name/2,pos_to_var/2,pos_to_expr/3,
-	 pos_to_expr_list/2,pos_to_expr_list/3,pos_to_expr_or_pat_list/3,expr_to_fun/2]).
+         pos_to_fun_name/2,pos_to_fun_def/2,pos_to_var_name/2,
+         pos_to_var/2,pos_to_expr/3, pos_to_expr1/3,
+	 pos_to_expr_list/2,pos_to_expr_list/3,
+         pos_to_expr_or_pat_list/3,expr_to_fun/2]).
 
 -include("../include/wrangler_internal.hrl").
 
@@ -331,6 +333,16 @@ pos_to_expr(Tree, Start, End) ->
       [] -> {error, "You have not selected an expression, "
 		    "or the function containing the expression selected does not parse."};
       _ -> {ok, hd(Es)}
+    end.
+
+
+pos_to_expr1(FileOrTree, Start, End) when is_list(FileOrTree) ->
+    case filelib:is_regular(FileOrTree) of 
+        true ->
+            {ok, {AnnAST, _}} = wrangler_ast_server:parse_annotate_file(FileOrTree, true),
+            pos_to_expr(AnnAST, Start, End);
+        false ->
+            throw({error, "Badarg to function interface_api:pos_to_expr1/3"})
     end.
 
 pos_to_expr_1(Tree, Start, End) ->
