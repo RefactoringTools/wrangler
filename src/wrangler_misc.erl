@@ -1139,6 +1139,20 @@ extend_function_clause_1(Node, _OtherInfo) ->
         function ->
             Node1=extend_function_clause_2(Node),
             {Node1, true};
+        clause ->
+            Ann = wrangler_syntax:get_ann(Node),
+            case lists:keysearch(syntax_path, 1, Ann) of 
+                {value, {syntax_path, function_clause}} ->
+                    case lists:keyfind(fun_def, 1, Ann) of
+                        {fun_def, {_, FunName, _, _, _}} ->
+                            Node1 = rewrite(Node, wrangler_syntax:function_clause(
+                                                    wrangler_syntax:atom(FunName), Node)),
+                            {Node1, true};
+                        _ ->
+                            {Node, true}
+                    end;
+                _ -> {Node, false}
+            end;
         _ ->
             {Node, false}
     end.
