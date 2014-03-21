@@ -287,6 +287,14 @@
     ("Introduce a Macro" erl-refactor-new-macro)
     ("Fold Against Macro Definition" erl-refactor-fold-against-macro)
     nil
+    ("Refactorings for Parallelisation"
+    (
+     ("Task Chunking"  erl-refactor-task-chunking)
+     ("Farm Introduction" erl-refactor-farm-intro)
+     ("Map Introduction"  erl-refactor-map-intro)
+     ("Pipe Introduncton" erl-refactor-pipe-intro)
+    ))
+    nil
     ("Refactorings for QuickCheck"  
      (
       ("Introduce ?LET" erl-refactor-introduce-let)
@@ -4329,4 +4337,23 @@ Please see the function `tempo-define-template'.")
 (defun refac_add_an_import_attribute()
   (interactive)
   (apply-adhoc-refac 'refac_add_an_import_attribute))
+
+(defun erl-refactor-task-chunking()
+  (interactive)
+  (apply-adhoc-refac 'refac_chunking))
+
+
+(defun erl-refactor-farm-intro()
+  (interactive)
+  (apply-adhoc-refac 'refac_farm_intro))
+
+
+(defun erl-refactor-map-intro()
+  (interactive)
+  (apply-adhoc-refac 'refac_map_intro))
+
+
+(defun erl-refactor-pipe-intro()
+  (interactive)
+  (apply-adhoc-refac 'refac_pipe_intro))
 
