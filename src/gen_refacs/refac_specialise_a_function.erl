@@ -60,7 +60,7 @@ input_par_prompts()->
 -spec (select_focus/1::(args()) -> {ok, {{atom(), atom(), integer()},syntaxTree(),integer()}}).
 select_focus(#args{current_file_name=File, 
                    highlight_range={Start, End}}) ->
-    {ok, Expr}=api_interface:range_to_node(File, {Start,End}, fun is_expr/1),
+    {ok, Expr}=api_interface:range_to_node(File, {Start,End}, fun(E) ->is_expr(E) end),
     {ok, App}= api_interface:pos_to_node(
                  File, Start, fun(Node)->
                                       is_the_enclosing_app(Node, Expr)
@@ -112,7 +112,9 @@ selective()->
     false.
 
 %% Do the actual program transformation here.
--spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}).                                    
+-spec (transform/1::(#args{}) -> {ok, [{{filename(), filename()}, syntaxTree()}]}
+                                     |{error, term()}).
+                             
 transform(Args=#args{current_file_name=File,
                      focus_sel={{_M,F,A},_Expr, _Nth}})->
     InscopeFuns = api_refac:inscope_funs(File),

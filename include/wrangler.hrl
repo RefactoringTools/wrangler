@@ -67,8 +67,8 @@
                                        _File@=_W_File_,
                                        api_refac:generate_bindings(Before, '_W_Bind1_'),
                                        _W_After = api_refac:subst(fun()->After end(), _W_Bind1_),
-                                       {api_refac:reset_pos_and_range(
-                                          wrangler_misc:rewrite(_This@, _W_After))                                        
+                                       {api_refac:reset_pos_and_range(_W_After)
+                                        %%  wrangler_misc:rewrite(_This@, _W_After)) %% layout doesn't always work!                                       
                                         , true};
                                    false ->{_W_Node_, false}
                                end 
@@ -270,6 +270,6 @@
                          {repeat_interactive, qualifier(), [elementary_refac()]} | 
                          {if_then, function(), composite_refac()} |
                          {while, function(), qualifier(), composite_refac()} |
-                         {qualifier(), [composite_refac()]}).
+                         {qualifier(), composite_refac()|[composite_refac()]}).
                           
                         

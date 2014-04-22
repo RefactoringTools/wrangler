@@ -289,9 +289,9 @@ gen_cmd_generator_code(OpName, Args, Style)->
     
 
 
-add_op(File, OpName, Args, SearchPaths, Editor, TabWidth) ->
+add_op(File, OpName, OpArgs, SearchPaths, Editor, TabWidth) ->
     Args=#args{current_file_name=File, 
-                user_inputs=[OpName, Args],
+                user_inputs=[OpName, OpArgs],
                 search_paths=SearchPaths,
                 tabwidth=TabWidth},
     case check_pre_cond(Args) of

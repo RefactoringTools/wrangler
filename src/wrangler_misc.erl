@@ -927,11 +927,11 @@ exported_vars(Node) ->
 
 exported_vars_1(Node, {StartLoc, EndLoc}) ->
     Fun = fun (N, Acc) ->
-                  case wrangler_syntax:type(Node) of
+                  case wrangler_syntax:type(N) of
                       variable ->
                           Ann = wrangler_syntax:get_ann(N),
                           case lists:keyfind(bound, 1, Ann) of 
-                              {use, Bound} when Bound/=[] ->
+                              {bound, Bound} when Bound/=[] ->
                                   case lists:keyfind(use,1,Ann) of 
                                       {use, Locs} ->
                                           case [L||L<-Locs, L>EndLoc orelse L < StartLoc] of
@@ -1139,6 +1139,20 @@ extend_function_clause_1(Node, _OtherInfo) ->
         function ->
             Node1=extend_function_clause_2(Node),
             {Node1, true};
+        clause ->
+            Ann = wrangler_syntax:get_ann(Node),
+            case lists:keysearch(syntax_path, 1, Ann) of 
+                {value, {syntax_path, function_clause}} ->
+                    case lists:keyfind(fun_def, 1, Ann) of
+                        {fun_def, {_, FunName, _, _, _}} ->
+                            Node1 = rewrite(Node, wrangler_syntax:function_clause(
+                                                    wrangler_syntax:atom(FunName), Node)),
+                            {Node1, true};
+                        _ ->
+                            {Node, true}
+                    end;
+                _ -> {Node, false}
+            end;
         _ ->
             {Node, false}
     end.

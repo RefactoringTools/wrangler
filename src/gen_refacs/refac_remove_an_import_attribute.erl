@@ -68,7 +68,7 @@ selective()->
     false.
 
 %%Do the actual program transformation here.
--spec (transform/1::(#args{}) -> {ok, [{filename(), filename(), syntaxTree()}]}).                                     
+-spec (transform/1::(#args{}) -> {ok, [{{filename(), filename()}, syntaxTree()}]}|{error, term()}).
 transform(Args=#args{current_file_name=File})->
     ?FULL_TD_TP([rule1(Args),
                  rule2(Args)], [File]).

@@ -964,18 +964,18 @@ pp_1([E|Es]) ->
 
 %%@private
 quote(Str, Pos) ->    
-   wrangler_misc:parse_annotate_expr(Str, Pos).
+   wrangler_misc:extended_parse_annotate_expr(Str, Pos).
    
 %%@private
 anti_quote(Str, Pos) ->    
-    wrangler_misc:parse_annotate_expr(Str, Pos).
+    wrangler_misc:extended_parse_annotate_expr(Str, Pos).
 
 %%@private
 quote(Str) ->    
-    wrangler_misc:parse_annotate_expr(Str).
+    wrangler_misc:extended_parse_annotate_expr(Str).
 %%@private
 anti_quote(Str) ->    
-    wrangler_misc:parse_annotate_expr(Str).
+    wrangler_misc:extended_parse_annotate_expr(Str).
 
 %%=================================================================
 %%@private
@@ -983,7 +983,8 @@ subst(Expr, Subst) when is_list(Expr) ->
     [subst(E, Subst)||E<-Expr];
 
 subst(Expr, Subst) ->
-    {Expr1, _} =api_ast_traverse:stop_tdTP(fun do_subst/2, Expr, Subst),
+    {Expr1, _} =api_ast_traverse:stop_tdTP(fun(N, S) -> do_subst(N, S) end, 
+                                           Expr, Subst),
     Expr2=expand_meta_list(Expr1),
     remove_fake_begin_end(Expr2).
    
@@ -1167,7 +1168,8 @@ search_and_transform_1(Rules, {File, Tree}, Fun) ->
     Res=search_and_transform_4(File, Rules, Tree, Fun, Selective),
     {File, element(1, Res)};
 search_and_transform_1(Rules, Tree, Fun) ->
-    element(1, search_and_transform_4(none, Rules, Tree, Fun, {false,[]})).
+    Tree1=wrangler_misc:extend_function_clause(Tree),
+    element(1, search_and_transform_4(none, Rules, Tree1, Fun, {false,[]})).
     
 
 search_and_transform_2(Rules, FileOrDirs, Fun) ->
@@ -1802,7 +1804,9 @@ is_tree(Node) ->
     wrangler_syntax:is_tree(Node) orelse wrangler_syntax:is_wrapper(Node).
 
 expand_meta_list(Tree) ->
-    {Tree1, _}  = api_ast_traverse:full_tdTP(fun expand_meta_list_1/2, Tree, {}),
+    {Tree1, _}  = api_ast_traverse:full_tdTP(fun(N, I) ->
+                                                     expand_meta_list_1(N, I)
+                                             end, Tree, {}),
     Tree1.
 
 expand_meta_list_1(Node, _OtherInfo) ->
@@ -1915,7 +1919,7 @@ expand_meta_list_1(Node, _OtherInfo) ->
                     end
             end;
         disjunction -> 
-            {repair_guard_expr(Node), false};
+            {repair_guard_expr(Node),false};
         _ -> {Node, false}
     end.
 
@@ -1952,7 +1956,7 @@ expand_meta_case_clause(Clause) ->
     end.
 
 expand_meta_if_clause(Clause) ->
-    [[Guard]]=revert_clause_guard(wrangler_syntax:clause_guard(Clause)),
+    [Guard]=revert_clause_guard(wrangler_syntax:clause_guard(Clause)),
     [Body] = wrangler_syntax:clause_body(Clause),
     ZippedGB = lists:zip(Guard, Body),
     [wrangler_syntax:clause([], G, B)||{G, B} <-ZippedGB].
@@ -1960,10 +1964,19 @@ expand_meta_if_clause(Clause) ->
         
 
 is_meta_clause(Clause)->
-    is_meta_case_clause(Clause) orelse
-        is_meta_if_clause(Clause).
+    wrangler_syntax:type(Clause)==clause andalso 
+        (is_meta_case_clause(Clause) orelse
+        is_meta_if_clause(Clause)).
      
 is_meta_case_clause(Clause) ->
+    case wrangler_syntax:type(Clause)==clause of 
+        true ->
+            is_meta_case_clause_1(Clause);
+        false ->
+            false
+    end.
+
+is_meta_case_clause_1(Clause) ->
     Pat = wrangler_syntax:clause_patterns(Clause),
     Guard = wrangler_syntax:clause_guard(Clause),
     Body = wrangler_syntax:clause_body(Clause),
@@ -2000,6 +2013,12 @@ is_meta_case_clause(Clause) ->
     end.
         
 is_meta_if_clause(Clause) ->
+    case wrangler_syntax:type(Clause)==clause of 
+        true -> is_meta_if_clause_1(Clause);
+        false-> false
+    end.
+
+is_meta_if_clause_1(Clause) ->
     Pat = wrangler_syntax:clause_patterns(Clause),
     Guard = wrangler_syntax:clause_guard(Clause),
     Body = wrangler_syntax:clause_body(Clause),
@@ -2008,6 +2027,17 @@ is_meta_if_clause(Clause) ->
             case revert_clause_guard(Guard) of
                 [[G]] ->
                     case is_list_of_lists(G) of 
+                        true ->
+                            case Body of
+                                [B]->
+                                    is_list_of_lists(B);
+                                _ ->
+                                    false
+                            end;
+                        false -> false
+                    end;
+                [G] -> 
+                     case is_list_of_lists(G) of 
                         true ->
                             case Body of
                                 [B]->

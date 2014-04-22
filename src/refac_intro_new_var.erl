@@ -86,15 +86,8 @@ intro_new_var_1(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewVarName0,
 
 intro_new_var_1(FileName, AnnAST, Fun, Expr, NewVarName, Editor, TabWidth, Cmd) ->
     AnnAST1 = do_intro_new_var(AnnAST, Fun, Expr, NewVarName),
-    case Editor of
-	emacs ->
-	    Res = [{{FileName, FileName}, AnnAST1}],
-	    wrangler_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd),
-	    {ok, [FileName]};
-	eclipse ->
-            wrangler_write_file:write_refactored_files(
-                      [{{FileName, FileName}, AnnAST1}], Editor, TabWidth, "")
-    end.
+    Res = [{{FileName, FileName}, AnnAST1}],
+    wrangler_write_file:write_refactored_files(Res, Editor, TabWidth, Cmd).
 
 cond_check(Form, Expr, NewVarName) ->
     ok=variable_replaceable(Expr),

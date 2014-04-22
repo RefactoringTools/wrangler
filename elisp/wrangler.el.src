@@ -287,13 +287,21 @@
     ("Introduce a Macro" erl-refactor-new-macro)
     ("Fold Against Macro Definition" erl-refactor-fold-against-macro)
     nil
+    ("Refactorings for Parallelisation"
+    (
+     ("Task Chunking"  erl-refactor-task-chunking)
+     ("Farm Introduction" erl-refactor-farm-intro)
+     ("Map Introduction"  erl-refactor-map-intro)
+     ("Pipe Introduncton" erl-refactor-pipe-intro)
+    ))
+    nil
     ("Refactorings for QuickCheck"  
      (
       ("Introduce ?LET" erl-refactor-introduce-let)
       ("Merge ?LETs"    erl-refactor-merge-let)
       ("Merge ?FORALLs"   erl-refactor-merge-forall)
-      ("eqc_statem State Data to Record" erl-refactor-eqc-statem-to-record)
-      ("eqc_fsm State Data to Record" erl-refactor-eqc-fsm-to-record)
+     ;; ("eqc_statem State Data to Record" erl-refactor-eqc-statem-to-record)
+     ;; ("eqc_fsm State Data to Record" erl-refactor-eqc-fsm-to-record)
       ("Test Cases to Property"  erl-refactor-test-cases-to-property)
       ("Refactor Bug PreCond"  erl-refactor-bug-precond)
       ("Rename a WS opertation argument" erl-refactor-rename-op-arg)
@@ -346,6 +354,7 @@
     ;;("Component Extraction Suggestion" erl-wrangler-code-component-extraction)
     ("Show Non Tail Recursive Servers" erl-wrangler-code-inspector-non-tail-recursive-servers)
     ("Incomplete Receive Patterns" erl-wrangler-code-inspector-no-flush)
+    ("Backward intra-function slice" erl-wrangler-code-inspector-backward-slice) 
     nil
     ("Apply Adhoc Code Inspection" apply-my-code-inspection)
     ))
@@ -534,11 +543,12 @@
   (interactive)
   (define-key erlang-mode-map "\C-c\C-w_"  'erl-refactor-undo)
   (define-key erlang-mode-map "\C-c\C-wb" 'erl-wrangler-code-inspector-var-instances)
+  (define-key erlang-mode-map "\C-c\C-wx" 'erl-wrangler-code-inspector-backward-slice)  
   (define-key erlang-mode-map "\C-c\C-we" 'remove-highlights)
   (define-key erlang-mode-map "\C-c\C-wrv" 'erl-refactor-rename-var)
   (define-key erlang-mode-map "\C-c\C-wrf"  'erl-refactor-rename-fun)
   (define-key erlang-mode-map "\C-c\C-wrm"  'erl-refactor-rename-mod)
-  (define-key erlang-mode-map "\C-c\C-g"    'erl-refactor-generalisation)
+  (define-key erlang-mode-map "\C-c\C-wg"    'erl-refactor-generalisation)
   (define-key erlang-mode-map "\C-c\C-wm"   'erl-refactor-move-fun)
   (define-key erlang-mode-map "\C-c\C-wnv"  'erl-refactor-new-variable)
   (define-key erlang-mode-map "\C-c\C-wi"  'erl-refactor-inline-variable)
@@ -2119,15 +2129,19 @@
   "Overlay for highlighting.")
 
 (defface highlight-region-face
-  '((t (:background "CornflowerBlue")))
+  '((t (:background "LightSkyBlue")))
     "Face used to highlight current line.")
 
 (defface def-instance-face
-   '((t (:background "Orange")))
+   '((t (:background "Yellow")))
     "Face used to highlight def instance.")
 
 (defface use-instance-face
-   '((t (:background "CornflowerBlue")))
+   '((t (:background "LightSkyBlue")))
+    "Face used to highlight def instance.")
+
+(defface maybe-instance-face
+   '((t (:background "Orange")))
     "Face used to highlight def instance.")
 
 
@@ -2702,6 +2716,38 @@
 				       		
 	    ))))))
 
+
+(defun erl-wrangler-code-inspector-backward-slice()
+  "Intra-function backward slice"
+  (interactive)
+  (let* ((buffer (current-buffer))
+        (current-file-name (buffer-file-name))
+        (region-begin      (my-region-beginning))
+        (region-end        (my-region-end))
+        (start-line-no (line-no-pos region-begin))
+        (start-col-no  (current-column-pos region-begin))
+        (end-line-no   (line-no-pos region-end))
+        (end-col-no    (current-column-pos region-end)))
+    (remove-highlights)
+    (save-buffer)
+    (erl-spawn
+      (erl-send-rpc wrangler-erl-node 'wrangler_slice_new 'backward_intra_fun_slice 
+			  (list current-file-name start-line-no start-col-no 
+                          end-line-no end-col-no wrangler-search-paths tab-width))
+      (erl-receive (buffer)
+	  ((['rex ['badrpc rsn]]
+	    (message "Error: %S" rsn))
+	   (['rex ['error rsn]]
+	    (message "Error: %s" rsn))
+	   (['rex ['ok regions maybe-ranges defpos]]
+	    (with-current-buffer buffer 
+            (highlight-instances regions defpos buffer)
+            (highlight-maybe-instances maybe-ranges defpos buffer)
+            (message "\nUse 'C-c C-w e' to remove highlights.\n")
+	                         	          )
+				       		
+	    ))))))
+
 (defun remove-highlights()
   "remove highligths in the buffer"
   (interactive)
@@ -2731,6 +2777,12 @@
      (highlight-region line1 col1 line2 col2 buffer)
        ))
     
+(defun highlight-maybe-instances(regions defpos buffer)
+  "highlight regions in the buffer"
+  (dolist (r regions)
+      (highlight-maybe-instance r buffer)))
+
+
 (defun highlight-instances(regions defpos buffer)
   "highlight regions in the buffer"
   (dolist (r regions)
@@ -2754,6 +2806,15 @@
 	  (col2 (elt (elt region 1) 1)))
      (highlight-region-with-face line1 col1 line2 col2 buffer 'def-instance-face)))
     
+
+(defun highlight-maybe-instance(region buffer)
+   "highlight one region in the buffer"
+   (let ((line1 (elt (elt region 0) 0))
+	  (col1 (elt (elt region 0) 1))
+	  (line2 (elt (elt region 1) 0))
+	  (col2 (elt (elt region 1) 1)))
+     (highlight-region-with-face line1 col1 line2 col2 buffer 'maybe-instance-face)))
+ 
 
 (defun highlight-use-instance(region buffer)
    "highlight one region in the buffer"
@@ -2901,7 +2962,7 @@
 
 
 (defun erl-wrangler-code-inspector-caller-called-mods()
-  "Sematic search of instances of a variable"
+  "search for the dependencies of a module"
   (interactive)
   (let ((current-file-name (buffer-file-name))
 	(line-no           (current-line-no))
@@ -4276,4 +4337,23 @@ Please see the function `tempo-define-template'.")
 (defun refac_add_an_import_attribute()
   (interactive)
   (apply-adhoc-refac 'refac_add_an_import_attribute))
+
+(defun erl-refactor-task-chunking()
+  (interactive)
+  (apply-adhoc-refac 'refac_chunking))
+
+
+(defun erl-refactor-farm-intro()
+  (interactive)
+  (apply-adhoc-refac 'refac_farm_intro))
+
+
+(defun erl-refactor-map-intro()
+  (interactive)
+  (apply-adhoc-refac 'refac_map_intro))
+
+
+(defun erl-refactor-pipe-intro()
+  (interactive)
+  (apply-adhoc-refac 'refac_pipe_intro))
 

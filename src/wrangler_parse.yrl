@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,7 +26,7 @@ attribute attr_val
 function function_clauses function_clause
 clause_args clause_guard clause_body
 expr expr_100 expr_150 expr_160 expr_200 expr_300 expr_400 expr_500
-expr_600 expr_700 expr_800 expr_900
+expr_600 expr_700 expr_800
 expr_max
 list tail
 list_comprehension lc_expr lc_exprs
@@ -34,9 +34,10 @@ binary_comprehension
 tuple
 %struct
 record_expr record_tuple record_field record_fields
+map_expr map_tuple map_field map_field_assoc map_field_exact map_fields map_key
 if_expr if_clause if_clauses case_expr cr_clause cr_clauses receive_expr
-fun_expr fun_clause fun_clauses
-try_expr try_catch try_clause try_clauses query_expr
+fun_expr fun_clause fun_clauses atom_or_var integer_or_var
+try_expr try_catch try_clause try_clauses
 function_call argument_list
 exprs guard
 atomic strings
@@ -47,6 +48,7 @@ opt_bit_size_expr bit_size_expr opt_bit_type_list bit_type_list bit_type
 top_type top_type_100 top_types type typed_expr typed_attr_val
 type_sig type_sigs type_guard type_guards fun_type fun_type_100 binary_type
 type_spec spec_fun typed_exprs typed_record_fields field_types field_type
+map_pair_types map_pair_type
 bin_base_type bin_unit_type type_200 type_300 type_400 type_500.
 
 Terminals
@@ -54,15 +56,15 @@ char integer float atom string var
 
 '(' ')' ',' '->' ':-' '{' '}' '[' ']' '|' '||' '<-' ';' ':' '#' '.'
 'after' 'begin' 'case' 'try' 'catch' 'end' 'fun' 'if' 'of' 'receive' 'when'
-'andalso' 'orelse' 'query'
+'andalso' 'orelse'
 'bnot' 'not'
 '*' '/' 'div' 'rem' 'band' 'and'
 '+' '-' 'bor' 'bxor' 'bsl' 'bsr' 'or' 'xor'
 '++' '--'
-'==' '/=' '=<' '<' '>=' '>' '=:=' '=/=' '<='
+'==' '/=' '=<' '<' '>=' '>' '=:=' '=/=' '<=' '=>' ':='
 '<<' '>>'
 '!' '=' '::' '..' '...'
-'spec' % helper
+'spec' 'callback' % helper
 dot.
 
 Expect 2.
@@ -77,6 +79,7 @@ attribute -> '-' atom attr_val               : build_attribute('$2', '$3').
 attribute -> '-' atom typed_attr_val         : build_typed_attribute('$2','$3').
 attribute -> '-' atom '(' typed_attr_val ')' : build_typed_attribute('$2','$4').
 attribute -> '-' 'spec' type_spec            : build_type_spec('$2', '$3').
+attribute -> '-' 'callback' type_spec        : build_type_spec('$2', '$3').
 
 type_spec -> spec_fun type_sigs : {'$1', '$2'}.
 type_spec -> '(' spec_fun type_sigs ')' : {'$2', '$3'}.
@@ -153,6 +156,8 @@ type -> '[' ']'                           : {type, ?line('$1'), nil, []}.
 type -> '[' top_type ']'                  : {type, ?line('$1'), list, ['$2']}.
 type -> '[' top_type ',' '...' ']'        : {type, ?line('$1'),
                                              nonempty_list, ['$2']}.
+type -> '#' '{' '}'                       : {type, ?line('$1'), map, []}.
+type -> '#' '{' map_pair_types '}'        : {type, ?line('$1'), map, '$3'}.
 type -> '{' '}'                           : {type, ?line('$1'), tuple, []}.
 type -> '{' top_types '}'                 : {type, ?line('$1'), tuple, '$2'}.
 type -> '#' atom '{' '}'                  : {type, ?line('$1'), record, ['$2']}.
@@ -173,6 +178,10 @@ fun_type -> '(' ')' '->' top_type  : {type, ?line('$1'), 'fun',
 fun_type -> '(' top_types ')' '->' top_type
                                    : {type, ?line('$1'), 'fun',
                                       [{type, ?line('$1'), product, '$2'},'$5']}.
+
+map_pair_types -> map_pair_type                    : ['$1'].
+map_pair_types -> map_pair_type ',' map_pair_types : ['$1'|'$3'].
+map_pair_type  -> top_type '=>' top_type           : {type, ?line('$2'), map_field_assoc,'$1','$3'}.
 
 field_types -> field_type                 : ['$1'].
 field_types -> field_type ',' field_types : ['$1'|'$3'].
@@ -246,21 +255,16 @@ expr_500 -> expr_600 : '$1'.
 
 expr_600 -> prefix_op expr_700 :
 	?mkop1('$1', '$2').
+expr_600 -> map_expr : '$1'.
 expr_600 -> expr_700 : '$1'.
 
 expr_700 -> function_call : '$1'.
 expr_700 -> record_expr : '$1'.
 expr_700 -> expr_800 : '$1'.
 
-expr_800 -> expr_900 ':' expr_max :
+expr_800 -> expr_max ':' expr_max :
 	{remote,?line('$2'),'$1','$3'}.
-expr_800 -> expr_900 : '$1'.
-
-expr_900 -> '.' atom :
-	{record_field,?line('$1'),{atom,?line('$1'),''},'$2'}.
-expr_900 -> expr_900 '.' atom :
-	{record_field,?line('$2'),'$1','$3'}.
-expr_900 -> expr_max : '$1'.
+expr_800 -> expr_max : '$1'.
 
 expr_max -> var : '$1'.
 expr_max -> atomic : '$1'.
@@ -277,7 +281,6 @@ expr_max -> case_expr : '$1'.
 expr_max -> receive_expr : '$1'.
 expr_max -> fun_expr : '$1'.
 expr_max -> try_expr : '$1'.
-expr_max -> query_expr : '$1'.
 
 
 list -> '[' ']' : {nil,?line('$1')}.
@@ -332,6 +335,30 @@ tuple -> '{' exprs '}' : {tuple,?line('$1'),'$2'}.
 
 %%struct -> atom tuple :
 %%	{struct,?line('$1'),element(3, '$1'),element(3, '$2')}.
+
+map_expr -> '#' map_tuple :
+	{map, ?line('$1'),'$2'}.
+map_expr -> expr_max '#' map_tuple :
+	{map, ?line('$2'),'$1','$3'}.
+map_expr -> map_expr '#' map_tuple :
+	{map, ?line('$2'),'$1','$3'}.
+
+map_tuple -> '{' '}' : [].
+map_tuple -> '{' map_fields '}' : '$2'.
+
+map_fields -> map_field : ['$1'].
+map_fields -> map_field ',' map_fields : ['$1' | '$3'].
+
+map_field -> map_field_assoc : '$1'.
+map_field -> map_field_exact : '$1'.
+
+map_field_assoc -> map_key '=>' expr :
+	{map_field_assoc,?line('$1'),'$1','$3'}.
+
+map_field_exact -> map_key ':=' expr :
+	{map_field_exact,?line('$1'),'$1','$3'}.
+
+map_key -> expr : '$1'.
 
 
 %% N.B. This is called from expr_700.
@@ -394,10 +421,16 @@ receive_expr -> 'receive' cr_clauses 'after' expr clause_body 'end' :
 
 fun_expr -> 'fun' atom '/' integer :
 	{'fun',?line('$1'),{function,element(3, '$2'),element(3, '$4')}}.
-fun_expr -> 'fun' atom ':' atom '/' integer :
-	{'fun',?line('$1'),{function,element(3, '$2'),element(3, '$4'),element(3,'$6')}}.
+fun_expr -> 'fun' atom_or_var ':' atom_or_var '/' integer_or_var :
+	{'fun',?line('$1'),{function,'$2','$4','$6'}}.
 fun_expr -> 'fun' fun_clauses 'end' :
 	build_fun(?line('$1'), '$2').
+
+atom_or_var -> atom : '$1'.
+atom_or_var -> var : '$1'.
+
+integer_or_var -> integer : '$1'.
+integer_or_var -> var : '$1'.
 
 fun_clauses -> fun_clause : ['$1'].
 fun_clauses -> fun_clause ';' fun_clauses : ['$1' | '$3'].
@@ -405,6 +438,9 @@ fun_clauses -> fun_clause ';' fun_clauses : ['$1' | '$3'].
 fun_clause -> argument_list clause_guard clause_body :
 	{Args,Pos} = '$1',
 	{clause,Pos,'fun',Args,'$2','$3'}.
+
+fun_clause -> var argument_list clause_guard clause_body :
+	{clause,element(2, '$1'),element(3, '$1'),element(1, '$2'),'$3','$4'}.
 
 try_expr -> 'try' exprs 'of' cr_clauses try_catch :
 	build_try(?line('$1'),'$2','$4','$5').
@@ -430,9 +466,6 @@ try_clause -> atom ':' expr clause_guard clause_body :
 try_clause -> var ':' expr clause_guard clause_body :
 	L = ?line('$1'),
 	{clause,L,[{tuple,L,['$1','$3',{var,L,'_'}]}],'$4','$5'}.
-
-query_expr -> 'query' list_comprehension 'end' :
-	{'query',?line('$1'),'$2'}.
 
 
 argument_list -> '(' ')' : {[],?line('$1')}.
@@ -503,7 +536,7 @@ Erlang code.
 
 -export([parse_form/1,parse_exprs/1,parse_term/1]).
 -export([normalise/1,abstract/1,tokens/1,tokens/2]).
--export([abstract/2, package_segments/1]).
+-export([abstract/2]).
 -export([inop_prec/1,preop_prec/1,func_prec/0,max_prec/0]).
 -export([set_line/2,get_attribute/2,get_attributes/1]).
 
@@ -519,7 +552,7 @@ Erlang code.
 -type abstract_form() :: term().
 -type error_description() :: term().
 -type error_info() :: {erl_scan:line(), module(), error_description()}.
--type token() :: {Tag :: atom(), Line :: erl_scan:line()}.
+-type token() :: erl_scan:token().
 
 %% mkop(Op, Arg) -> {op,Line,Op,Arg}.
 %% mkop(Left, Op, Right) -> {op,Line,Op,Left,Right}.
@@ -549,6 +582,8 @@ Erlang code.
       ErrorInfo :: error_info().
 parse_form([{'-',L1},{atom,L2,spec}|Tokens]) ->
     parse([{'-',L1},{'spec',L2}|Tokens]);
+parse_form([{'-',L1},{atom,L2,callback}|Tokens]) ->
+    parse([{'-',L1},{'callback',L2}|Tokens]);
 parse_form(Tokens) ->
     parse(Tokens).
 
@@ -603,7 +638,8 @@ build_typed_attribute({atom,La,Attr},_) ->
         _      -> ret_err(La, "bad attribute")
     end.
 
-build_type_spec({spec,La}, {SpecFun, TypeSpecs}) ->
+build_type_spec({Kind,La}, {SpecFun, TypeSpecs})
+  when (Kind =:= spec) or (Kind =:= callback) ->
     NewSpecFun =
 	case SpecFun of
 	    {atom, _, Fun} ->
@@ -617,7 +653,7 @@ build_type_spec({spec,La}, {SpecFun, TypeSpecs}) ->
 		%% Old style spec. Allow this for now.
 		{Mod,Fun,Arity}
 	    end,
-    {attribute,La,spec,{NewSpecFun, TypeSpecs}}.
+    {attribute,La,Kind,{NewSpecFun, TypeSpecs}}.
 
 find_arity_from_specs([Spec|_]) ->
     %% Use the first spec to find the arity. If all are not the same,
@@ -645,6 +681,8 @@ skip_paren(Type) ->
 
 build_gen_type({atom, La, tuple}) ->
     {type, La, tuple, any};
+build_gen_type({atom, La, map}) ->
+    {type, La, map, any};
 build_gen_type({atom, La, Name}) ->
     {type, La, Name, []}.
 
@@ -669,20 +707,6 @@ build_attribute({atom,La,module}, Val) ->
 	    {attribute,La,module,Module};
 	[{atom,_Lm,Module},ExpList] ->
 	    {attribute,La,module,{Module,var_list(ExpList)}};
-	[Name] ->
-	    case package_segments(Name) of
-		error ->
-		    error_bad_decl(La, module);
-		Module ->
-		    {attribute,La,module,Module}
-	    end;
-	[Name,ExpList] ->
-	    case package_segments(Name) of
-		error ->
-		    error_bad_decl(La, module);
-		Module ->
-		    {attribute,La,module,{Module,var_list(ExpList)}}
-	    end;
 	_Other ->
 	    error_bad_decl(La, module)
     end;
@@ -694,22 +718,8 @@ build_attribute({atom,La,export}, Val) ->
     end;
 build_attribute({atom,La,import}, Val) ->
     case Val of
-	[Name] ->
-	    case package_segments(Name) of
-		error ->
-		    error_bad_decl(La, import);
-		Module ->
-		    {attribute,La,import,Module}
-	    end;
 	[{atom,_Lm,Mod},ImpList] ->
 	    {attribute,La,import,{Mod,farity_list(ImpList)}};
-	[Name, ImpList] ->
-	    case package_segments(Name) of
-		error ->
-		    error_bad_decl(La, import);
-		Module ->
-		    {attribute,La,import,{Module,farity_list(ImpList)}}
-	    end;
 	_Other -> error_bad_decl(La, import)
     end;
 build_attribute({atom,La,record}, Val) ->
@@ -732,11 +742,13 @@ build_attribute({atom,La,Attr}, Val) ->
 	_Other -> ret_err(La, "bad attribute")
     end.
 
+%% var_list({cons,_Lc,{var,_,V},Tail}) ->
+%%     [V|var_list(Tail)];
 var_list({cons,_Lc,{var,L,V},Tail}) ->
     [{var, L, V}|var_list(Tail)];  %% Modified by Huiqing Li (hl@kent.ac.uk).
 var_list({nil,_Ln}) -> [];
 var_list(Other) ->
-    return_error(?line(Other), "bad variable list").
+    ret_err(?line(Other), "bad variable list").
 
 attribute_farity({cons,L,H,T}) ->
     {cons,L,attribute_farity(H),attribute_farity(T)};
@@ -755,6 +767,8 @@ attribute_farity_list(Args) ->
 error_bad_decl(L, S) ->
     ret_err(L, io_lib:format("bad ~w declaration", [S])).
 
+%% farity_list({cons,_Lc,{op,_Lo,'/',{atom,_La,A},{integer,_Li,I}},Tail}) ->
+%%     [{A,I}|farity_list(Tail)];
 farity_list({cons,_Lc,{op,_Lo,'/',{atom,La,A},{integer,Li,I}},Tail}) ->
     [{{atom, La,A},{integer, Li, I}}|farity_list(Tail)];     %% Modified by Huiqing Li.
 farity_list({cons,Lc,{op,_Lo,'/',{var,La,A},{var,Li,I}},Tail}) ->
@@ -768,6 +782,7 @@ farity_list({nil,_Ln}) -> [];
 farity_list(Other) ->
     ret_err(?line(Other), "bad function arity").
 
+%% function added by HL.
 is_meta_farity(F, A) ->
     FStr = lists:reverse(atom_to_list(F)),
     AStr = lists:reverse(atom_to_list(A)),
@@ -829,18 +844,6 @@ term(Expr) ->
     catch _:_R -> ret_err(?line(Expr), "bad attribute")
     end.
 
-package_segments(Name) ->
-    package_segments(Name, [], []).
-
-package_segments({record_field, _, F1, F2}, Fs, As) ->
-    package_segments(F1, [F2 | Fs], As);
-package_segments({atom, _, A}, [F | Fs], As) ->
-    package_segments(F, Fs, [A | As]);
-package_segments({atom, _, A}, [], As) ->
-    lists:reverse([A | As]);
-package_segments(_, _, _) ->
-    error.
-
 %% build_function([Clause]) -> {function,Line,Name,Arity,[Clause]}
 
 build_function(Cs) ->
@@ -858,8 +861,15 @@ build_rule(Cs) ->
 %% build_fun(Line, [Clause]) -> {'fun',Line,{clauses,[Clause]}}.
 
 build_fun(Line, Cs) ->
+    Name = element(3, hd(Cs)),
     Arity = length(element(4, hd(Cs))),
-    {'fun',Line,{clauses,check_clauses(Cs, 'fun', Arity)}}.
+    CheckedCs = check_clauses(Cs, Name, Arity),
+    case Name of
+        'fun' ->
+            {'fun',Line,{clauses,CheckedCs}};
+        Name ->
+            {named_fun,Line,Name,CheckedCs}
+    end.
 
 check_clauses(Cs, Name, Arity) ->
      mapl(fun ({clause,L,N,As,G,B}) when N =:= Name, length(As) =:= Arity ->
@@ -909,12 +919,12 @@ normalise({cons,_,Head,Tail}) ->
     [normalise(Head)|normalise(Tail)];
 normalise({tuple,_,Args}) ->
     list_to_tuple(normalise_list(Args));
-%% Atom dot-notation, as in 'foo.bar.baz'
-normalise({record_field,_,_,_}=A) ->
-    case package_segments(A) of
-	error -> erlang:error({badarg, A});
-	As -> list_to_atom(packages:concat(As))
-    end;
+normalise({map,_,Pairs}=M) ->
+    maps:from_list(lists:map(fun
+		%% only allow '=>'
+		({map_field_assoc,_,K,V}) -> {normalise(K),normalise(V)};
+		(_) -> erlang:error({badarg,M})
+	    end, Pairs));
 %% Special case for unary +/-.
 normalise({op,_,'+',{char,_,I}}) -> I;
 normalise({op,_,'+',{integer,_,I}}) -> I;
@@ -932,73 +942,80 @@ normalise_list([]) ->
 -spec abstract(Data) -> AbsTerm when
       Data :: term(),
       AbsTerm :: abstract_expr().
-abstract(T) when is_integer(T) -> {integer,0,T};
-abstract(T) when is_float(T) -> {float,0,T};
-abstract(T) when is_atom(T) -> {atom,0,T};
-abstract([]) -> {nil,0};
-abstract(B) when is_bitstring(B) ->
-    {bin, 0, [abstract_byte(Byte, 0) || Byte <- bitstring_to_list(B)]};
-abstract([C|T]) when is_integer(C), 0 =< C, C < 256 ->
-    abstract_string(T, [C]);
-abstract([H|T]) ->
-    {cons,0,abstract(H),abstract(T)};
-abstract(Tuple) when is_tuple(Tuple) ->
-    {tuple,0,abstract_list(tuple_to_list(Tuple))}.
+abstract(T) ->
+    abstract(T, 0, epp:default_encoding()).
 
-abstract_string([C|T], String) when is_integer(C), 0 =< C, C < 256 ->
-    abstract_string(T, [C|String]);
-abstract_string([], String) ->
-    {string, 0, lists:reverse(String)};
-abstract_string(T, String) ->
-    not_string(String, abstract(T)).
+%%% abstract/2 takes line and encoding options
+-spec abstract(Data, Options) -> AbsTerm when
+      Data :: term(),
+      Options :: Line | [Option],
+      Option :: {line, Line} | {encoding, Encoding},
+      Encoding :: latin1 | unicode | utf8,
+      Line :: erl_scan:line(),
+      AbsTerm :: abstract_expr().
 
-not_string([C|T], Result) ->
-    not_string(T, {cons, 0, {integer, 0, C}, Result});
-not_string([], Result) ->
+abstract(T, Line) when is_integer(Line) ->
+    abstract(T, Line, epp:default_encoding());
+abstract(T, {Line, Col}) when is_integer(Line)andalso is_integer(Col) ->  %% clause added by HL.
+    abstract(T, Line, epp:default_encoding());
+abstract(T, Options) when is_list(Options) ->
+    Line = proplists:get_value(line, Options, 0),
+    Encoding = proplists:get_value(encoding, Options,epp:default_encoding()),
+    abstract(T, Line, Encoding).
+
+-define(UNICODE(C),
+        is_integer(C) andalso
+         (C >= 0 andalso C < 16#D800 orelse
+          C > 16#DFFF andalso C < 16#FFFE orelse
+          C > 16#FFFF andalso C =< 16#10FFFF)).
+
+abstract(T, L, _E) when is_integer(T) -> {integer,L,T};
+abstract(T, L, _E) when is_float(T) -> {float,L,T};
+abstract(T, L, _E) when is_atom(T) -> {atom,L,T};
+abstract([], L, _E) -> {nil,L};
+abstract(B, L, _E) when is_bitstring(B) ->
+    {bin, L, [abstract_byte(Byte, L) || Byte <- bitstring_to_list(B)]};
+abstract([C|T], L, unicode=E) when ?UNICODE(C) ->
+    abstract_unicode_string(T, [C], L, E);
+abstract([C|T], L, utf8=E) when ?UNICODE(C) ->
+    abstract_unicode_string(T, [C], L, E);
+abstract([C|T], L, latin1=E) when is_integer(C), 0 =< C, C < 256 ->
+    abstract_string(T, [C], L, E);
+abstract([H|T], L, E) ->
+    {cons,L,abstract(H, L, E),abstract(T, L, E)};
+abstract(Tuple, L, E) when is_tuple(Tuple) ->
+    {tuple,L,abstract_list(tuple_to_list(Tuple), L, E)}.
+
+abstract_string([C|T], String, L, E) when is_integer(C), 0 =< C, C < 256 ->
+    abstract_string(T, [C|String], L, E);
+abstract_string([], String, L, _E) ->
+    {string, L, lists:reverse(String)};
+abstract_string(T, String, L, E) ->
+    not_string(String, abstract(T, L, E), L, E).
+
+abstract_unicode_string([C|T], String, L, E) when ?UNICODE(C) ->
+    abstract_unicode_string(T, [C|String], L, E);
+abstract_unicode_string([], String, L, _E) ->
+    {string, L, lists:reverse(String)};
+abstract_unicode_string(T, String, L, E) ->
+    not_string(String, abstract(T, L, E), L, E).
+
+not_string([C|T], Result, L, E) ->
+    not_string(T, {cons, L, {integer, L, C}, Result}, L, E);
+not_string([], Result, _L, _E) ->
     Result.
 
-abstract_list([H|T]) ->
-    [abstract(H)|abstract_list(T)];
-abstract_list([]) ->
+abstract_list([H|T], L, E) ->
+    [abstract(H, L, E)|abstract_list(T, L, E)];
+abstract_list([], _L, _E) ->
     [].
 
-abstract_byte(Byte, Line) when is_integer(Byte) ->
-    {bin_element, Line, {integer, Line, Byte}, default, default};
-abstract_byte(Bits, Line) ->
+abstract_byte(Byte, L) when is_integer(Byte) ->
+    {bin_element, L, {integer, L, Byte}, default, default};
+abstract_byte(Bits, L) ->
     Sz = bit_size(Bits),
     <<Val:Sz>> = Bits,
-    {bin_element, Line, {integer, Line, Val}, {integer, Line, Sz}, default}.
-
-%%% abstract/2 keeps the line number
-abstract(T, Line) when is_integer(T) -> {integer,Line,T};
-abstract(T, Line) when is_float(T) -> {float,Line,T};
-abstract(T, Line) when is_atom(T) -> {atom,Line,T};
-abstract([], Line) -> {nil,Line};
-abstract(B, Line) when is_bitstring(B) ->
-    {bin, Line, [abstract_byte(Byte, Line) || Byte <- bitstring_to_list(B)]};
-abstract([C|T], Line) when is_integer(C), 0 =< C, C < 256 ->
-    abstract_string(T, [C], Line);
-abstract([H|T], Line) ->
-    {cons,Line,abstract(H, Line),abstract(T, Line)};
-abstract(Tuple, Line) when is_tuple(Tuple) ->
-    {tuple,Line,abstract_list(tuple_to_list(Tuple), Line)}.
-
-abstract_string([C|T], String, Line) when is_integer(C), 0 =< C, C < 256 ->
-    abstract_string(T, [C|String], Line);
-abstract_string([], String, Line) ->
-    {string, Line, lists:reverse(String)};
-abstract_string(T, String, Line) ->
-    not_string(String, abstract(T, Line), Line).
-
-not_string([C|T], Result, Line) ->
-    not_string(T, {cons, Line, {integer, Line, C}, Result}, Line);
-not_string([], Result, _Line) ->
-    Result.
-
-abstract_list([H|T], Line) ->
-    [abstract(H, Line)|abstract_list(T, Line)];
-abstract_list([], _Line) ->
-    [].
+    {bin_element, L, {integer, L, Val}, {integer, L, Sz}, default}.
 
 %%  Generate a list of tokens representing the abstract term.
 
@@ -1088,9 +1105,9 @@ preop_prec('#') -> {700,800}.
 
 func_prec() -> {800,700}.
 
--spec max_prec() -> 1000.
+-spec max_prec() -> 900.
 
-max_prec() -> 1000.
+max_prec() -> 900.
 
 %%% [Experimental]. The parser just copies the attributes of the
 %%% scanner tokens to the abstract format. This design decision has
@@ -1110,3 +1127,5 @@ get_attribute(L, Name) ->
 
 get_attributes(L) ->
     erl_scan:attributes_info(L).
+
+%% vim: ft=erlang

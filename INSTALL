@@ -15,6 +15,11 @@ Step 1) Build and optionally install the software in the usual way:
 	to install Wrangler in a different directory, you need to explicitly
 	specify the directory using the '--prefix=...' flag of 'configure'.)
 
+	As long as the Emacs Lisp source files are installed together with
+	the compiled BEAM files, then Wrangler should be able to
+	configure the code path automatically.  Otherwise, you may need
+	to set the code path explicitly as follows.
+
         If you do not install Wrangler as part of your existing Erlang
         installation (the default location), then please make sure that
         Erlang can find Wrangler in its code path. This can e.g. be done by

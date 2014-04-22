@@ -1086,7 +1086,7 @@ get_next_fun_arity([{F,A}|Fs], FA)->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                         
   
-get_vars(File, FunName, Arity, Range={range, _,_}) ->
+get_vars(_File, _FunName, _Arity, Range={range, _,_}) ->
     [Range];
 get_vars(File, FunName, Arity, VarFilter) ->
     ModName=list_to_atom(filename:basename(File, ".erl")),
@@ -1104,8 +1104,11 @@ get_vars(File, FunName, Arity, VarFilter) ->
                              atom ->
                                  atom_to_list(VarFilter)==?PP(V@);
                              _ when is_function(VarFilter) ->
-                                 VarFilter(FunDef, V@);
-                             %% VarFilter(list_to_atom(?PP(V@)));
+                                 %%  VarFilter(FunDef, V@);
+                                 %% The previous line does not work for rename_var
+                                 %% TODO: need to check if the next line cause 
+                                 %% problems for other refactorings.
+                                 VarFilter(list_to_atom(?PP(V@)));
                              _ -> false
                          end)], FunDef)
     end.

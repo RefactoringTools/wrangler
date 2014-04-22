@@ -573,7 +573,47 @@ lay_2(Node, Ctxt) ->
                             above(D1, nest(EndCol - StartCol, text("}")))
                     end
             end;
-	list -> 
+        map ->
+            Es0 = wrangler_syntax:map_elements(Node),
+	    {Sep,_} = get_separator(Es0, Ctxt, ","),
+	    Es = seq(Es0, floating(text(Sep)), reset_check_bracket(reset_prec(Ctxt)), fun lay/2),
+	    Es1=lay_elems(fun wrangler_prettypr_0:par/1, Es, Es0, Ctxt),
+            {{StartLn, StartCol}, {EndLn, EndCol}} = get_start_end_loc(Node),
+            case Es0 of
+                [] ->
+                   beside(text("#{"), text("}"));
+                _ ->
+                    {HdStartLn, HdStartCol} = 
+                        get_start_loc_with_comment(hd(Es0)),
+                    {LastEndLn, _LastEndCol} = 
+                        get_end_loc_with_comment(lists:last(Es0)),
+                    N = HdStartLn - StartLn,
+                    Offset = HdStartCol - StartCol, 
+                    D1 =case N=<0 orelse HdStartLn==0 orelse StartLn==0 of 
+                            true ->
+                                Pad = HdStartCol-StartCol-2,
+                                case Pad>0 andalso HdStartCol/=0 andalso StartCol/=0 of 
+                                    true ->
+                                        beside(text("#{"), beside(text(spaces(Pad)), Es1));
+                                    _ ->
+                                        beside(text("#{"), Es1)
+                                end;
+                            _ ->
+                                above(text("#{"), nest(Offset, Es1))
+                        end,
+                    N1 = EndLn - LastEndLn,
+                    case N1=<0  orelse HdStartLn==0 orelse StartLn==0 of 
+                        true ->
+                            beside(D1, text("}"));
+                        false ->
+                            above(D1, nest(EndCol - StartCol, text("}")))
+                    end
+            end;
+        map_field_assoc -> 
+            lay_map_field(Node, Ctxt);
+        map_field_exact -> 
+            lay_map_field(Node, Ctxt);
+    	list -> 
             lay_list(Node, Ctxt);
 	operator ->
 	    Op = wrangler_syntax:operator_literal(Node),
@@ -811,6 +851,14 @@ lay_2(Node, Ctxt) ->
 	    Cs=wrangler_syntax:fun_expr_clauses(Node),
 	    D = lay_clauses(Cs, fun_expr, reset_check_bracket(Ctxt1)),
 	    append_keywords("fun", "end", D, Cs, Ctxt1);
+        named_fun_expr ->
+            %% Done;
+	    Ctxt1 = reset_prec(Ctxt),
+            Name =wrangler_syntax:named_fun_expr_name(Node),
+            D1 = lay(Name, Ctxt),
+	    Cs=wrangler_syntax:named_fun_expr_clauses(Node),
+	    D2 = lay_clauses(Cs, {function, D1}, reset_check_bracket(Ctxt1)),
+	    append_keywords("fun", "end", D2, Cs, Ctxt1);
 	module_qualifier -> 
 	    %% Done;
 	    {PrecL, _Prec, PrecR} = inop_prec(':'),
@@ -1150,6 +1198,19 @@ lay_2(Node, Ctxt) ->
         empty_node->
             empty()
     end.
+
+lay_map_field(Node, Ctxt) ->
+    [Left, Right] = wrangler_syntax:map_field_elements(Node),
+    D1 = lay(Left, reset_check_bracket(reset_prec(Ctxt))),
+    D2 = lay(Right, reset_check_bracket(reset_prec(Ctxt))),
+    {LStart, LEnd} = get_start_end_loc(Left),
+    {RStart, REnd} = get_start_end_loc(Right),
+    EqLoc = get_keyword_loc_after('=>', Ctxt, LEnd),
+    LeftEq=append_elems(fun wrangler_prettypr_0:horizontal/1,
+                        {D1, {LStart, LEnd}}, {text("=>"), {EqLoc, EqLoc}}),
+    append_elems(fun wrangler_prettypr_0:horizontal/1,
+		    {LeftEq, {LStart, EqLoc}},
+                    {D2,{RStart, REnd}}).
 
 lay_list(Node, Ctxt) ->
     Ctxt1 = reset_check_bracket(reset_prec(Ctxt)),
