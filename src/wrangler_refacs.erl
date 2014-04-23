@@ -1521,8 +1521,14 @@ add_op_arg(FileName, OpName, Arity, NewArgName, Index, NewArgGen, SearchPaths, E
 %%</p>
 add_op(FileName, OpName, Args,SearchPaths, Editor, TabWidth) ->
     try_refac(refac_add_op, add_op, 
-              [FileName, OpName, Args, SearchPaths, Editor, TabWidth]).
+              [FileName, OpName, concat_args(Args), SearchPaths, Editor, TabWidth]).
 
+concat_args([]) ->
+    "";
+concat_args([A]) ->
+    A;
+concat_args([A|As]) ->
+    A++","++concat_args(As).
 
 %%@doc Remove an operation.
 %%<p>
