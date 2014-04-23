@@ -126,51 +126,95 @@ selective() ->
 
 
 transform(_Args=#args{current_file_name=File, 
-                      user_inputs=[OpName, OpArgs]})->
+                      user_inputs=[OpName, OpArgs],
+                      tabwidth=TabWidth})->
     Params =string:tokens(OpArgs, [$,]),
     Style = check_style(File),
-    StateCode = gen_state_code(OpName, Params, Style),
-    PreCondCode = gen_precondition_code(OpName, Params, Style),
-    PostCondCode = gen_postcondition_code(OpName,Params, Style),
-    CmdCode = gen_cmd_generator_code(OpName, Params, Style),
     WrapperCode = gen_adaptor_fun(OpName, Params, Style),
-    {ok, [{F, AST}]}=?STOP_TD_TP([rule1(StateCode),
-                                  rule2(PreCondCode),
-                                  rule3(PostCondCode),
-                                  rule4(CmdCode)
-                                 ],[File]),
-    NewAST=insert_wrapper_fun(AST, WrapperCode),
-    {ok, [{F, NewAST}]}.
+    {ok, {AST, _}} = wrangler_ast_server:parse_annotate_file(File, true, [], TabWidth),
+    Forms = wrangler_syntax:form_list_elements(AST),
+    NewForms=[process_a_form(F, OpName, Params, Style)||F<-Forms],
+    AST1 = wrangler_syntax:form_list(NewForms),
+    NewAST=insert_wrapper_fun(AST1, WrapperCode),
+    {ok, [{{File,File}, NewAST}]}.
+
+process_a_form(F, OpName, Params, Style) ->
+    case api_refac:type(F) of 
+        function ->
+            case api_refac:fun_define_info(F) of 
+                {_, next_state, 3} -> 
+                    NextStateCode = gen_state_code(OpName, Params, Style),
+                    add_new_clause(NextStateCode, F, 3);
+                {_, precondition, 2} ->
+                    PreCondCode = gen_precondition_code(OpName, Params, Style),
+                    add_new_clause(PreCondCode, F, 2);
+                {_, postcondition,3} -> 
+                    PostCondCode = gen_postcondition_code(OpName,Params, Style),
+                    add_new_clause(PostCondCode, F, 2);                
+                {_, command, 1} ->
+                    CmdCode = gen_cmd_generator_code(OpName, Params, Style),
+                    {ok, F1} =?STOP_TD_TP([rule4(CmdCode)],F),
+                    F1;
+                _ -> F
+            end;
+        _ -> F
+    end.
 
 rule1(NextStateCode) ->
-    ?RULE(?T("next_state(S@, R@,Cmd@)-> Body@@;"),
-           (api_refac:make_fake_block_expr([?TO_AST(NextStateCode),_This@])),
-          (lists:member(api_refac:type(Cmd@), [variable,underscore]))).
+    ?RULE(?T("next_state(Args@@@) when Guard@@@-> Body@@@."),
+          add_new_clause(NextStateCode, _This@, 3),
+          true).
         
-
 rule2(PreCondCode) ->
-    ?RULE(?T("precondition(S@, Cmd@)-> Body@@;"),
-           (api_refac:make_fake_block_expr([?TO_AST(PreCondCode),_This@])),
-           (lists:member(api_refac:type(Cmd@), [variable,underscore]))).
+    ?RULE(?T("precondition(Args@@@) when Guard@@@ -> Body@@@."),
+          add_new_clause(PreCondCode,_This@,2),
+          true).
+
 
 rule3(PostCondCode) ->
-    ?RULE(?T("postcondition(S@, Cmd@, _Res@)-> Body@@;"),
-          (api_refac:make_fake_block_expr([?TO_AST(PostCondCode),_This@])),
-          (lists:member(api_refac:type(Cmd@), [variable,underscore]))).
+    ?RULE(?T("postcondition(Args@@@) when Guard@@@ -> Body@@@."),
+          add_new_clause(PostCondCode, _This@, 2),
+          true).
 
+
+add_new_clause(PreCondCode,_This@,Nth) ->
+    FunName = wrangler_syntax:function_name(_This@),
+    Cs = wrangler_syntax:function_clauses(_This@),
+    [Last|Cs1]=lists:reverse(Cs),
+    LastC = case wrangler_syntax:type(Last) of
+                function_clause -> wrangler_syntax:function_clause(Last);
+                _ -> Last
+            end,
+    Cmd = lists:nth(Nth, wrangler_syntax:clause_patterns(LastC)),
+    NewPreCondCode=?TO_AST(PreCondCode),
+    NewCs=case lists:member(api_refac:type(Cmd), [variable, underscore]) of
+              true ->
+                  [Last, NewPreCondCode|Cs1];
+              false ->
+                  [NewPreCondCode, Last|Cs1]
+          end,
+    wrangler_misc:rewrite(_This@,
+                              wrangler_syntax:function(
+                                FunName, lists:reverse(NewCs))).
+        
 rule4(CmdCode) ->
     ?RULE(?T("[Cmds@@,{call, M@, F@, Args@@}]"),
-          (wrangler_syntax:list(
-             wrangler_syntax:list_elements(_This@),
-             ?TO_AST(CmdCode,
-                     (element(2, api_refac:start_end_loc(_This@)))))),
+          begin
+              Es = wrangler_syntax:list_elements(_This@),
+              {{_, C},{L, _}} = api_refac:start_end_loc(lists:last(Es)),
+              NewCode = wrangler_syntax:add_ann(
+                          {range, {{L+1, C}, {L+1, C}}},
+                          ?TO_AST(CmdCode,{L+1, C})),
+              wrangler_misc:rewrite(_This@, wrangler_syntax:list(
+                                       lists:reverse([NewCode|lists:reverse(Es)])))
+          end,
           (api_refac:is_expr(_This@))).
 
 gen_state_code(OpName, Args, Style) ->
     ArgStr=gen_arg_string(Args, Style, "_"),
     lists:flatten(
-       io_lib:format(
-         "next_state(S, _R, {call, ?MODULE, ~s, ~s}) ->S;\n",[OpName, ArgStr])).
+      io_lib:format(
+        "next_state(S, _R, {call, ?MODULE, ~s, ~s}) ->S;\n",[OpName, ArgStr])).
 
 gen_precondition_code(OpName, Args, Style) ->
     ArgStr=gen_arg_string(Args, Style, "_"),
@@ -291,7 +335,7 @@ gen_cmd_generator_code(OpName, Args, Style)->
 
 add_op(File, OpName, OpArgs, SearchPaths, Editor, TabWidth) ->
     Args=#args{current_file_name=File, 
-                user_inputs=[OpName, OpArgs],
+                user_inputs=[OpName,OpArgs],
                 search_paths=SearchPaths,
                 tabwidth=TabWidth},
     case check_pre_cond(Args) of
