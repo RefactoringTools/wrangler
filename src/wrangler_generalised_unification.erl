@@ -618,6 +618,14 @@ is_meta_clause_list(C) ->
                                         is_meta_meta_list_variable(B);  
                                 _ -> false
                             end;
+                        [G] -> %% temporay fix.
+                            case Body of 
+                                [B] ->
+                                    is_meta_meta_list_variable(G) andalso
+                                        is_meta_meta_list_variable(B);  
+                                _ -> false
+                                         
+                            end;
                         _ -> false
                     end;
                 _ ->
