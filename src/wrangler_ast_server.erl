@@ -334,19 +334,20 @@ parse_annotate_file(FName, false, SearchPaths, TabWidth, FileFormat) ->
     DefaultIncl2 = [filename:join(Dir, X) || X <- wrangler_misc:default_incls()],
     Includes = SearchPaths ++ DefaultIncl2,
     case wrangler_epp:parse_file(FName, Includes, [], TabWidth, FileFormat) of
-	{ok, Forms, Ms} -> Forms1 = lists:filter(fun (F) ->
-							 case F of
-							     {attribute, _, file, _} -> false;
-							     {attribute, _, type, {{record, _}, _, _}} -> false;
-							     _ -> true
-							 end
-						 end, Forms),
-			   %% I wonder whether the all the following is needed;
-			   %% we should never perform a transformation on an AnnAST from resulted from refac_epp;
-			   SyntaxTree = wrangler_recomment:recomment_forms(Forms1, []),
-			   Info = wrangler_syntax_lib:analyze_forms(SyntaxTree),
-			   AnnAST0 = annotate_bindings(FName, SyntaxTree, Info, Ms, TabWidth),
-			   {ok, {AnnAST0, Info}};
+	{ok, Forms, Ms} -> 
+            Forms1 = lists:filter(fun (F) ->
+                                          case F of
+                                              {attribute, _, file, _} -> false;
+                                              {attribute, _, type, {{record, _}, _, _}} -> false;
+                                              _ -> true
+                                          end
+                                  end, Forms),
+            %% I wonder whether the all the following is needed;
+            %% we should never perform a transformation on an AnnAST from resulted from refac_epp;
+            SyntaxTree = wrangler_recomment:recomment_forms(Forms1, []),
+            Info = wrangler_syntax_lib:analyze_forms(SyntaxTree),
+            AnnAST0 = annotate_bindings(FName, SyntaxTree, Info, Ms, TabWidth),
+            {ok, {AnnAST0, Info}};
 	{error, Reason} -> erlang:error(Reason)
     end.
 
@@ -744,19 +745,19 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 		    calc_and_add_range_to_node_1(Node, Toks, Hd, Last, '<<', '>>')
 	    end;
 	binary_field ->
-	    Body = wrangler_syntax:binary_field_body(Node),
-	    Types = wrangler_syntax:binary_field_types(Node),
-	    {S1, E1} = get_range(Body),
-	    {_S2, E2} = if Types == [] -> {S1, E1};
-			   true -> get_range(wrangler_misc:glast("refac_util:do_add_range,binary_field", Types))
-			end,
-	    case E2 > E1  %%Temporal fix; need to change refac_syntax to make the pos info correct.
+                Body = wrangler_syntax:binary_field_body(Node),
+                Types = wrangler_syntax:binary_field_types(Node),
+                {S1, E1} = get_range(Body),
+                {_S2, E2} = if Types == [] -> {S1, E1};
+                               true -> get_range(wrangler_misc:glast("refac_util:do_add_range,binary_field", Types))
+                            end,
+                case E2 > E1  %%Temporal fix; need to change refac_syntax to make the pos info correct.
 		of
-		true ->
-		    update_ann(Node, {range, {S1, E2}});
-		false ->
-		    update_ann(Node, {range, {S1, E1}})
-	    end;
+                    true ->
+                        update_ann(Node, {range, {S1, E2}});
+                    false ->
+                        update_ann(Node, {range, {S1, E1}})
+                end;
              match_expr ->
                 calc_and_add_range_to_node(Node, match_expr_pattern, match_expr_body);
              form_list ->
@@ -771,25 +772,32 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                 {_S1, E1} = get_range(Lc),
                 E11 = extend_backwards(Toks, E1,'end'),   
                 update_ann(Node, {range, {S, E11}});
-             map  ->
-                Es = wrangler_syntax:map_elements(Node),
+             map_expr  ->
+                Arg = wrangler_syntax:map_expr_argument(Node),
+                StartLoc = case Arg of 
+                               none -> {L, C};
+                               _ -> wrangler_syntax:get_pos(Arg)
+                           end,
+                Es = wrangler_syntax:map_expr_fields(Node),
                 case Es /=[] of 
                     true ->
                         Last = lists:last(Es),
                         {_, E2} = get_range(Last),
                         E21 = extend_backwards(Toks, E2, '}'),
-                        update_ann(Node, {range, {{L, C}, E21}});
+                        update_ann(Node, {range, {StartLoc, E21}});
                     false ->
-                      E21 = extend_backwards(Toks, {L, C}, '}'),
-                        update_ann(Node, {range, {{L, C}, E21}})
+                        E21 = extend_backwards(Toks, {L, C}, '}'),
+                        update_ann(Node, {range, {StartLoc, E21}})
                 end;
              map_field_assoc -> 
-                [K, V] = wrangler_syntax:map_field_elements(Node),
+                K = wrangler_syntax:map_field_assoc_name(Node),
+                V = wrangler_syntax:map_field_assoc_value(Node),
                 {S, _} = get_range(K),
                 {_, E} = get_range(V),
                 update_ann(Node, {range, {S, E}});
              map_field_exact -> 
-                [K, V] = wrangler_syntax:map_field_elements(Node),
+                K = wrangler_syntax:map_field_exact_name(Node),
+                V = wrangler_syntax:map_field_exact_value(Node),
                 {S, _} = get_range(K),
                 {_, E} = get_range(V),
                 update_ann(Node, {range, {S, E}});
