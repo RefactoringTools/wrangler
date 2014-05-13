@@ -492,6 +492,7 @@ type(Node) ->
       {remote_type, _, _} -> remote_type;
       {tuple, _, _} -> tuple;
       {fake_parentheses, _} -> fake_parentheses;
+      {paren_type, _, _} -> paren_type;
         _ -> erlang:error({badarg, Node})
     end.
 
