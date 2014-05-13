@@ -1632,7 +1632,13 @@ append_guard_1(G, D, CsNode, Ctxt) ->
     {{StartLn, StartCol},{_EndLn, _EndCol}}=get_start_end_loc(Guard),
     {WhenLn, WhenCol}=get_prev_keyword_loc(Ctxt#ctxt.tokens, {StartLn, StartCol}, 'when'),
     Pats = wrangler_syntax:clause_patterns(CsNode),
-    {{_PStartLn, _PStartCol}, {PEndLn, _PEndCol}}=get_start_end_loc(Pats),
+    PEndLn =case Pats of 
+                [] -> WhenLn;  %% no location info is available here.
+                _ ->
+                    {{_PStartLn, _PStartCol}, {PEndLn1, _PEndCol}}
+                        =get_start_end_loc(Pats),
+                    PEndLn1
+            end,
     {_,CsStartCol} = get_start_loc_with_comment(CsNode),
     D1= case WhenLn-PEndLn==1 of 
 	    true ->
