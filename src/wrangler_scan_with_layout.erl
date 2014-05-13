@@ -186,6 +186,10 @@ scan("=/" = Cs, Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) -
     more(Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth, FileFormat,fun scan/8);
 scan("=<" ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     scan(Cs, Stack, [{'=<', {Line, Col}} | Toks], {Line, Col + 2}, State, Errors, TabWidth,FileFormat);
+scan("=>" ++ Cs, Stack, Toks, {Line, Col}, State,Errors, TabWidth,FileFormat) ->
+    scan(Cs, Stack, [{'=>', {Line, Col}} | Toks], {Line, Col + 2}, State, Errors, TabWidth,FileFormat);
+scan(":=" ++ Cs, Stack, Toks, {Line, Col}, State,Errors, TabWidth,FileFormat) ->
+    scan(Cs, Stack, [{':=', {Line, Col}} | Toks], {Line, Col + 2}, State, Errors, TabWidth,FileFormat);
 scan("==" ++ Cs, Stack, Toks, {Line, Col}, State, Errors, TabWidth,FileFormat) ->
     scan(Cs, Stack, [{'==', {Line, Col}} | Toks], {Line, Col + 2}, State, Errors, TabWidth,FileFormat);
 scan("=" = Cs, Stack, Toks, {Line, Col}, State,  Errors, TabWidth,FileFormat) ->
