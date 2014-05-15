@@ -682,7 +682,7 @@ examine_a_clone_candidate_1(_C={Ranges, _Len, _Freq}, Thresholds, Tabs) ->
     ClonesWithAU = [begin
 		        FromSameFile=refac_inc_sim_code:from_same_file(Rs),
 			AU = get_anti_unifier(Info, FromSameFile),
-			{Rs1, AU1} = refac_inc_com_code:attach_fun_call_to_range(Rs, AU, FromSameFile),
+			{Rs1, AU1} = refac_inc_sim_code:attach_fun_call_to_range(Rs, AU, FromSameFile),
 			{Rs1, Len, Freq, AU1}
 		    end
 		    || {Rs, Len, Freq, Info} <- Clones],
@@ -709,7 +709,7 @@ examine_clone_class_members(RangesWithExprAST, Thresholds,Tabs, Acc) ->
     %% try to anti_unify each of the remaining candidate clone members 
     %% with the first candidate clone member.
 
-    Res = [crefac_inc_sim_code:do_anti_unification(RangeWithExprAST1, RangeWithExprAST2)
+    Res = [refac_inc_sim_code:do_anti_unification(RangeWithExprAST1, RangeWithExprAST2)
 	   || RangeWithExprAST2<-Rs],
 
 

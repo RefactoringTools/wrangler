@@ -2586,6 +2586,6 @@ get_mfas(File, Order) ->
 format_new_code([Code])->
     wrangler_prettypr:format(Code);
 format_new_code(Code) when is_list(Code) ->
-    wrangler_prettypr:format(wranglersyntax:block_expr(Code));
+    wrangler_prettypr:format(wrangler_syntax:block_expr(Code));
 format_new_code(Code) ->
     wrangler_prettypr:format(Code).

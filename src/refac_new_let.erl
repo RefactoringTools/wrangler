@@ -102,7 +102,7 @@ new_let_2(FileName, AnnAST, NewPatName, Expr, ParentExpr, LetMacro, Editor, Cmd,
 	    wrangler_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd),
 	    {ok, [FileName]};
 	eclipse ->
-            wrangelr_write_file:write_refactored_files(
+            wrangler_write_file:write_refactored_files(
               [{{FileName, FileName}, AnnAST1}], Editor, TabWidth, "")
     end.
 
@@ -492,7 +492,7 @@ merge_1(FileName, Candidates, SearchPaths, TabWidth, Cmd, Editor, TabWidth) ->
 	    wrangler_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd),
 	    {ok, [FileName]};
 	eclipse ->
-            wrangelr_write_file:write_refactored_files(
+            wrangler_write_file:write_refactored_files(
               [{{FileName, FileName}, AnnAST1}], Editor, TabWidth, "")
     end.
 
