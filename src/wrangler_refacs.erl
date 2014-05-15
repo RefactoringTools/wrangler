@@ -237,7 +237,7 @@ load_callback_mod_eclipse(Module, Path) ->
     code:add_patha(Path),
     code:purge(list_to_atom(Module)),
     case code:load_file(list_to_atom(Module)) of
-        {module, Module} ->
+        {module, _} ->
             ok;
         Error ->
             Error	
