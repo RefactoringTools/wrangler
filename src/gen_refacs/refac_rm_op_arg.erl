@@ -49,6 +49,8 @@
          check_pre_cond/1, selective/0, 
          transform/1]).
 
+-export([rm_op_arg/7]).
+
 %%%===================================================================
 %%% gen_refac callbacks
 %%%===================================================================
@@ -215,16 +217,7 @@ delete(Ith, Arg) ->
     ?TO_AST(Str).
 
 
-rm_op_arg(FileName, OpName, Arity, Index, SearchPaths, Editor, TabWidth) ->
-    Args=#args{current_file_name=FileName,
-               user_inputs=[OpName, Index],
-               focus_sel = {OpName, Arity, Index},
-               search_paths=SearchPaths,
-               tabwidth=TabWidth},
-    {ok, Res}=transform(Args),
-    wrangler_write_file:write_refactored_files(Res,Editor,TabWidth,"").
   
-    
 collect_arg_index(FunDef, OpName, VarName) ->
         ?STOP_TD_TU(
            [?COLLECT(?T("f@(Args1@@, OldVarName@, Args2@@) when Guards@@ -> Body@@;"),
@@ -255,3 +248,12 @@ check_style(File) ->
             tuple
     end.
                  
+
+rm_op_arg(FileName, OpName, Arity, Index, SearchPaths, Editor, TabWidth) ->
+    Args=#args{current_file_name=FileName,
+               user_inputs=[OpName, Index],
+               focus_sel = {OpName, Arity, Arity-Index+1},
+               search_paths=SearchPaths,
+               tabwidth=TabWidth},
+    {ok, Res}=transform(Args),
+    wrangler_write_file:write_refactored_files(Res,Editor,TabWidth,"").
