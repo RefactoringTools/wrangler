@@ -1047,19 +1047,17 @@ do_subst(Node, Subst) ->
 	_ -> {Node, false}
     end.
                
-reset_pos_and_range(Node) ->                    
-         Node.
-%% reset_pos_and_range(Node) when is_list(Node) ->
-%%     [reset_pos_and_range(N)||N<-Node];
-%% reset_pos_and_range(Node) ->
-%%     case is_tree(Node) of 
-%%         true ->
-%%             wrangler_syntax:set_pos(
-%%                  wrangler_misc:update_ann(Node, {range, {{0,0},{0,0}}}),
-%%                  {0,0});
-%%         false ->
-%%             Node
-%%     end.
+reset_pos_and_range(Node) when is_list(Node) ->
+    [reset_pos_and_range(N)||N<-Node];
+reset_pos_and_range(Node) ->
+    case is_tree(Node) of 
+        true ->
+            wrangler_syntax:set_pos(
+                 wrangler_misc:update_ann(Node, {range, {{0,0},{0,0}}}),
+                 {0,0});
+        false ->
+            Node
+    end.
 
 copy_pos_and_attrs(Node1, Node2) ->
     Ann=wrangler_syntax:get_ann(Node1),
