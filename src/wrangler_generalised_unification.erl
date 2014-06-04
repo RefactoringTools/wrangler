@@ -664,15 +664,19 @@ is_meta_atom(Node) ->
             false
     end.
         
+is_meta_list_variable(Var) when is_list(Var) ->
+    false;
 is_meta_list_variable(Var) ->
-   case wrangler_syntax:type(Var) of
-       variable ->
-           VarName = wrangler_syntax:variable_name(Var),
-           lists:prefix("@@", lists:reverse(atom_to_list(VarName)));
-       _ ->
+    case wrangler_syntax:type(Var) of
+        variable ->
+            VarName = wrangler_syntax:variable_name(Var),
+            lists:prefix("@@", lists:reverse(atom_to_list(VarName)));
+        _ ->
            false
    end.
 
+is_meta_meta_list_variable(Var) when is_list(Var) ->
+    false;
 is_meta_meta_list_variable(Var) ->
     case wrangler_syntax:type(Var) of
         variable ->
