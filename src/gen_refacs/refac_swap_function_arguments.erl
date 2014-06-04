@@ -128,10 +128,12 @@ transform_in_client_files(_Args=#args{current_file_name=File,
 %% transform the function definition itself.
 rule1({M,F,A}, I, J) ->
     ?RULE(?T("f@(Args@@) when Guard@@ -> Bs@@;"), 
-          begin NewArgs@@=swap(Args@@,I,J),
-                ?TO_AST("f@(NewArgs@@) when Guard@@->Bs@@;")
+          begin 
+              NewArgs@@=swap(Args@@,I,J),
+              ?TO_AST("f@(NewArgs@@) when Guard@@->Bs@@;")
           end,
-          api_refac:fun_define_info(f@) == {M, F, A}).
+          api_refac:fun_define_info(_This@) == {M, F, A}
+         ).
 
 %% Transform the different kinds of function applications.
 rule2({M,F,A}, I, J) ->
