@@ -291,7 +291,7 @@ zip_unification_results(Res=[R|Rs]) ->
 -spec(list_unification_3/2::([syntaxTree()], [syntaxTree()]) ->
                                [{true, [tuple()]}]|[false]).
 list_unification_3([], []) ->
-    [];
+    [{true, []}];
 list_unification_3(T, []) ->
     NonMetaList=[T1||T1<-T, not is_meta_list(T1)],
     case NonMetaList of 
