@@ -233,7 +233,7 @@ process_match_expr_1({Pat, Body}, SubExpr) ->
      
 
 process_tuple_elements(_, [], []) ->
-    wrangler_syntax:empty();
+    wrangler_syntax:empty_node();
 process_tuple_elements(_SubExpr, [], Acc) ->
     {Pats, Exprs} = lists:unzip(lists:reverse(Acc)),
     Expr=case {Pats, Exprs} of 
@@ -264,7 +264,7 @@ process_tuple_elements(SubExpr,[{P,E}|PEs], Acc) ->
 
 
 process_list_elements(_, [], []) ->
-    wrangler_syntax:empty();
+    wrangler_syntax:empty_node();
 process_list_elements(_SubExpr, [], Acc) ->
     {Pats, Exprs} = lists:unzip(lists:reverse(Acc)),
     Expr=case {Pats, Exprs} of 
