@@ -367,7 +367,7 @@ map_like_dict() ->
      {dict,erase,2},
      {dict,store, 3},
      {dict,fold,3},
-     {list,map,3}].
+     {dict,map,3}].
 
 non_map_like_dict() ->
     [{dict,append,3},
@@ -375,7 +375,7 @@ non_map_like_dict() ->
      {dict,update,3},
      {dict,update,4},
      {dict,update_counter,3},
-     {lists,filter,2},
-     {list,merge,3}].
+     {dict,filter,2},
+     {dict,merge,3}].
 
     
