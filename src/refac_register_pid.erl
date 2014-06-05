@@ -67,53 +67,57 @@ register_pid_eclipse(FName, Start, End, RegName, SearchPaths, TabWidth) ->
 register_pid(FName, Start = {Line1, Col1}, End = {Line2, Col2}, RegName, SearchPaths, Editor, TabWidth) ->
      ?wrangler_io("\nCMD: ~p:register_pid(~p, {~p,~p}, {~p,~p}, ~p,~p,~p, ~p).\n",
 		  [?MODULE, FName, Line1, Col1, Line2, Col2, RegName, SearchPaths, Editor, TabWidth]),
-     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":register_pid(" ++ "\"" ++
-	     FName ++ "\", {" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++
-	       "{" ++ integer_to_list(Line2) ++ ", " ++ integer_to_list(Col2) ++ "}," ++ "\"" ++ RegName ++ "\","
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":register_pid(" ++ "\"" ++
+        FName ++ "\", {" ++ integer_to_list(Line1) ++ ", " ++ integer_to_list(Col1) ++ "}," ++
+        "{" ++ integer_to_list(Line2) ++ ", " ++ integer_to_list(Col2) ++ "}," ++ "\"" ++ RegName ++ "\","
         ++ "[" ++ wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     case is_process_name(RegName) of
-	true -> {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-		case pos_to_spawn_match_expr(AnnAST, Start, End) of
-		    {ok, _MatchExpr1} ->
-			{value, {module, ModName}} = lists:keysearch(module, 1, Info),
-			RegName1 = list_to_atom(RegName),
-			_Res = wrangler_annotate_pid:ann_pid_info(SearchPaths, TabWidth),
-			%% get the AST with pid information.
-                        {ok, {AnnAST1, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
-                        case pos_to_spawn_match_expr(AnnAST1, Start, End) of
-			    {ok, MatchExpr} ->
-				case pre_cond_check(ModName, AnnAST1, Start, MatchExpr, RegName1, Info, SearchPaths, TabWidth) of
-				    ok -> 
-					Pid = wrangler_syntax:match_expr_pattern(MatchExpr),
-					case do_register(FName, AnnAST1, MatchExpr, Pid, RegName1, SearchPaths, TabWidth) of
-					    {ok, Results} ->
-						case Editor of
-						    emacs ->
-							wrangler_write_file:write_refactored_files_for_preview(Results, TabWidth, Cmd),
-							ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-							?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
-								     [ChangedFiles]),
-							{ok, ChangedFiles};
-						    eclipse ->
-							Res = lists:map(fun ({{OldFName, NewFName}, AST}) ->
-										{OldFName, NewFName,
-										 wrangler_prettypr:print_ast(wrangler_misc:file_format(OldFName), AST, TabWidth)}
-									end, Results),
-							{ok, Res}
-						end;
-					    {error, Reason} -> {error, Reason}
-					end;
-				    {unknown_pnames, _UnKnownPNames, RegPids} ->
-					{unknown_pnames, RegPids, Cmd};
-				    {unknown_pids, UnKnownPids} ->
-					{unknown_pids, UnKnownPids, Cmd};
-				    {error, Reason} -> {error, Reason}
-				end;
-			    {error, Reason} -> {error, Reason}
-			end;
-		    {error, Reason} -> {error, Reason}
-		end;
-	false -> {error, "Invalid process name."}
+	true -> 
+            {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
+            case pos_to_spawn_match_expr(AnnAST, Start, End) of
+                {ok, _MatchExpr1} ->
+                    {value, {module, ModName}} = lists:keysearch(module, 1, Info),
+                    RegName1 = list_to_atom(RegName),
+                    _Res = wrangler_annotate_pid:ann_pid_info(SearchPaths, TabWidth),
+                    %% get the AST with pid information.
+                    {ok, {AnnAST1, _Info}} = wrangler_ast_server:parse_annotate_file(FName, true, SearchPaths, TabWidth),
+                    case pos_to_spawn_match_expr(AnnAST1, Start, End) of
+                        {ok, MatchExpr} ->
+                            case pre_cond_check(ModName, AnnAST1, Start, MatchExpr, RegName1, Info, SearchPaths, TabWidth) of
+                                ok -> 
+                                    Pid = wrangler_syntax:match_expr_pattern(MatchExpr),
+                                    case do_register(FName, AnnAST1, MatchExpr, Pid, RegName1, SearchPaths, TabWidth) of
+                                        {ok, Results} ->
+                                            write_refactored_files(Editor,TabWidth,Cmd,Results);
+                                        {error, Reason} -> {error, Reason}
+                                     end;
+                                {unknown_pnames, _UnKnownPNames, RegPids} ->
+                                    {unknown_pnames, RegPids, Cmd};
+                                {unknown_pids, UnKnownPids} ->
+                                    {unknown_pids, UnKnownPids, Cmd};
+                                {error, Reason} -> {error, Reason}
+                            end;
+                        {error, Reason} -> {error, Reason}
+                    end;
+                {error, Reason} -> {error, Reason}
+            end;
+         false -> {error, "Invalid process name."}
+     end.
+
+write_refactored_files(Editor, TabWidth, Cmd, Results) ->
+    case Editor of
+        emacs ->
+            wrangler_write_file:write_refactored_files_for_preview(Results, TabWidth, Cmd),
+            ChangedFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+            ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n",
+                         [ChangedFiles]),
+            {ok, ChangedFiles};
+        eclipse ->
+            Res = lists:map(fun ({{OldFName, NewFName}, AST}) ->
+                                    {OldFName, NewFName,
+                                     wrangler_prettypr:print_ast(wrangler_misc:file_format(OldFName), AST, TabWidth)}
+                            end, Results),
+            {ok, Res}
     end.
 
 %%-spec (register_pid_1(FName::filename(), StartLine::integer(), StartCol::integer(),EndLine::integer(), EndCol::integer(),
@@ -188,47 +192,69 @@ pre_cond_check(ModName, AnnAST, Start, MatchExpr, RegName, _Info, SearchPaths, T
     Arity = wrangler_syntax:function_arity(FunDef),
     case is_recursive_fun(SearchPaths, {ModName, FunName, Arity, FunDef}) of
 	true -> {error, "The function containing the spawn  expression is a recursive function"};
-	_ -> case pos_to_receive_expr(FunDef, Start) of
-		 true -> {error, "Wrangler do not support registering a process spawned in a received expression\n"};
-		 _ -> case pos_to_list_comp_expr(FunDef, Start) of
-			  true -> {error, "The spawn expression selected in part of a list comprehension expression\n"};
-			  _ -> {RegPids, {ExistingProcessNames, UnKnowns}} = collect_registered_names_and_pids(SearchPaths, TabWidth),
-			       %%   ?wrangler_io("registeredd:\n~p\n", [{ExistingProcessNames, UnKnowns}]),
-			       case lists:member(RegName, ExistingProcessNames) of
-				   true -> {error, "The process name provided is already in use, please choose another name."};
-				   _ -> case UnKnowns of
-					    [] ->
-						Res = check_registration(MatchExpr, SearchPaths, RegPids),
-						case Res of
-						    ok -> ok;
-						    {registered, RegExprs1} ->
-							{{_M, F, A}, _R} = hd(RegExprs1),
-							{error, "The process is already registered in function " ++ atom_to_list(F) ++ "/" ++ integer_to_list(A) ++ "\n"};
-						    {unknown_pids, RegExprs} ->
-							?wrangler_io("Wrangler could not decide the processe(s) registered by the followling expression(s):\n", []),
-							lists:foreach(fun ({{_M, _F, _A}, PidExpr}) ->
-									      {{_Ln, _}, _} = wrangler_misc:start_end_loc(PidExpr),
-									      ?wrangler_io("Location: module:~p, function: ~p/~p, line: ~p\n ", [_M, _F, _A, _Ln])
-								      end,
-								      %% ?wrangler_io(refac_prettypr:format(PidExpr)++"\n") 
-								      RegExprs),
-							{unknown_pids, RegExprs}
-						end;
-					    _ -> ?wrangler_io("Wrangler could not decide the process name(s) used by the following register expression(s):\n", []),
-						 UnKnowns1 = lists:map(fun ({_, V}) -> V end, UnKnowns),
-						 lists:foreach(fun
-								   ({_M, _F, _A, {_L, _}}) -> ?wrangler_io("Location: module: ~p, function:~p/~p, line:~p\n", [_M, _F, _A, _L])
-							       end, UnKnowns1),
-						 {unknown_pnames, UnKnowns, RegPids}
-					end
-			       end
-		      end
-	     end
+	_ ->
+            pre_cond_check_1(FunDef, Start, MatchExpr, RegName, SearchPaths, TabWidth)
     end.
 
-    
-   
+pre_cond_check_1(FunDef, Start, MatchExpr, RegName, SearchPaths, TabWidth) ->
+    case pos_to_receive_expr(FunDef, Start) of
+        true ->
+            {error, "Wrangler do not support registering a process "
+             "spawned in a received expression\n"};
+        _ ->
+            pre_cond_check_2(FunDef, Start, MatchExpr, RegName, SearchPaths,TabWidth)
+    end.
 
+pre_cond_check_2(FunDef, Start, MatchExpr, RegName, SearchPaths,TabWidth) ->
+    case pos_to_list_comp_expr(FunDef, Start) of
+        true -> {error, "The spawn expression selected in part of a "
+                 "list comprehension expression\n"};
+        _ -> 
+            pre_cond_check_3(MatchExpr, RegName, SearchPaths, TabWidth)
+    end.
+
+pre_cond_check_3(MatchExpr, RegName, SearchPaths, TabWidth) ->
+    {RegPids, {ExistingProcessNames, UnKnowns}} =
+        collect_registered_names_and_pids(SearchPaths, TabWidth),
+    case lists:member(RegName, ExistingProcessNames) of
+        true ->
+            {error, "The process name provided is already in use, "
+             "please choose another name."};
+        _ ->
+            case UnKnowns of
+                 [] ->
+                    Res = check_registration(MatchExpr, SearchPaths, RegPids),
+                    case Res of
+                        ok -> ok;
+                        {registered, RegExprs1} ->
+                            {{_M, F, A}, _R} = hd(RegExprs1),
+                            {error, "The process is already registered in function "
+                             ++ atom_to_list(F) ++ "/" ++ integer_to_list(A) ++ "\n"};
+                        {unknown_pids, RegExprs} ->
+                            ?wrangler_io("Wrangler could not decide the processe(s) "
+                                         "registered by the followling expression(s):\n", []),
+                            lists:foreach(
+                              fun ({{_M, _F, _A}, PidExpr}) ->
+                                      {{_Ln, _}, _} = wrangler_misc:start_end_loc(PidExpr),
+                                      ?wrangler_io("Location: module:~p, function: ~p/~p, line: ~p\n ", [_M, _F, _A, _Ln])
+                              end,
+                              RegExprs),
+                            {unknown_pids, RegExprs}
+                    end;
+		 _ -> ?wrangler_io("Wrangler could not decide the process name(s) "
+                                   "used by the following register expression(s):\n", []),
+		      UnKnowns1 = lists:map(fun ({_, V}) -> V end, UnKnowns),
+		      lists:foreach(
+                        fun({_M, _F, _A, {_L, _}}) -> 
+                                ?wrangler_io("Location: module: ~p, function:~p/~p, line:~p\n", 
+                                             [_M, _F, _A, _L])
+                        end, UnKnowns1),
+	              {unknown_pnames, UnKnowns, RegPids}
+            end
+    end.
+
+   
+   
 check_registration(MatchExpr, SearchPaths, RegPids) ->
     Pid = wrangler_syntax:match_expr_pattern(MatchExpr),
     {value, {pid, PidInfo}} = lists:keysearch(pid, 1, wrangler_syntax:get_ann(Pid)),
@@ -324,9 +350,8 @@ is_recursive_fun(Files, {ModName, FunName, Arity, FunDef}) ->
 %% The only way to register a process is to use register/2.
 %% This function checks all the applications of 'register/2'.
 %% -spec(collect_registered_names_and_pids/1::([dir()])->
-%%               {[{{modulename(), functionname(), functionarity()},syntaxTree()}], [atom()], [{unknown, {modulename(), functionname(), functionarity(), pos()}}]}).
-
-
+%%               {[{{modulename(), functionname(), functionarity()},syntaxTree()}], [atom()],
+%%                 [{unknown, {modulename(), functionname(), functionarity(), pos()}}]}).
 collect_registered_names_and_pids(DirList, TabWidth) ->
     Files = wrangler_misc:expand_files(DirList, ".erl"),
     F = fun (File, FileAcc) ->
@@ -398,44 +423,50 @@ refactor_send_exprs(FName, AnnAST, PidInfo, RegName, SearchPaths, TabWidth) ->
     {AnnAST1, _} = api_ast_traverse:stop_tdTP(fun do_refactor_send_exprs/2, AnnAST, {PidInfo, RegName}),
     %%This can be refined to check the client and parent modules of the current module.
     Files = wrangler_misc:expand_files(SearchPaths, ".erl") -- [FName],
-    Results = lists:flatmap(fun (File) ->
-				    ?wrangler_io("The current file under refactoring is:\n~p\n", [File]),
-				    {ok, {AnnAST2, _Info}} = wrangler_ast_server:parse_annotate_file(File, true, SearchPaths, TabWidth),
-				    {AnnAST3, Changed} = api_ast_traverse:stop_tdTP(fun do_refactor_send_exprs/2, AnnAST2, {PidInfo, RegName}),
-				    if Changed ->
-					   [{{File, File}, AnnAST3}];
-				       true -> []
-				    end
-			    end, Files),
+    Results = 
+        lists:flatmap(
+          fun (File) ->
+                  ?wrangler_io("The current file under refactoring is:\n~p\n", [File]),
+                  {ok, {AnnAST2, _Info}} = wrangler_ast_server:parse_annotate_file(
+                                             File, true, SearchPaths, TabWidth),
+                  {AnnAST3, Changed} = api_ast_traverse:stop_tdTP(
+                                               fun do_refactor_send_exprs/2, AnnAST2, {PidInfo, RegName}),
+                  if Changed ->
+                          [{{File, File}, AnnAST3}];
+                     true -> []
+                  end
+          end, Files),
     [{{FName, FName}, AnnAST1}| Results].
 
 do_refactor_send_exprs(Node, {PidInfo, RegName}) ->
      case wrangler_syntax:type(Node) of
-	infix_expr -> Dest = wrangler_syntax:infix_expr_left(Node),
-		      Op = wrangler_syntax:infix_expr_operator(Node),
-		      Msg = wrangler_syntax:infix_expr_right(Node),
-		      Ann = wrangler_syntax:get_ann(Dest),
-		      case lists:keysearch(pid, 1, Ann) of 
-			  {value, PidInfo} ->
-			      Node1 = wrangler_syntax:infix_expr(wrangler_syntax:atom(RegName), Op, Msg),
-			      {wrangler_syntax:copy_attrs(Node, Node1), true};
-			  _ -> {Node, false}
-		      end;
-	application -> Operator = wrangler_syntax:application_operator(Node),
-		       Ann = wrangler_syntax:get_ann(Operator),
-		       case lists:keysearch(fun_def,1,Ann) of 
-			   {value, {fun_def, {erlang, send, 2, _, _}}} ->
-			       [ReceiverPid, Msg]=wrangler_syntax:application_arguments(Node),
-			       Ann = wrangler_syntax:get_ann(ReceiverPid),
-			       case lists:keysearch(pid,1,Ann) of 
-				   {value, PidInfo} ->
-				       Node1 = wrangler_syntax:application(Operator, [wrangler_syntax:atom(RegName), Msg]),
-				       {wrangler_syntax:copy_attrs(Node, Node1), true};
-				   _ -> {Node,false}
-			       end;
-			   _ -> {Node,false}
-		       end;
-	_  -> {Node, false}
+	infix_expr -> 
+             Dest = wrangler_syntax:infix_expr_left(Node),
+             Op = wrangler_syntax:infix_expr_operator(Node),
+             Msg = wrangler_syntax:infix_expr_right(Node),
+             Ann = wrangler_syntax:get_ann(Dest),
+             case lists:keysearch(pid, 1, Ann) of 
+                 {value, PidInfo} ->
+                     Node1 = wrangler_syntax:infix_expr(wrangler_syntax:atom(RegName), Op, Msg),
+                     {wrangler_syntax:copy_attrs(Node, Node1), true};
+                 _ -> {Node, false}
+             end;
+         application ->
+             Operator = wrangler_syntax:application_operator(Node),
+             Ann = wrangler_syntax:get_ann(Operator),
+             case lists:keysearch(fun_def,1,Ann) of 
+                 {value, {fun_def, {erlang, send, 2, _, _}}} ->
+                     [ReceiverPid, Msg]=wrangler_syntax:application_arguments(Node),
+                     Ann = wrangler_syntax:get_ann(ReceiverPid),
+                     case lists:keysearch(pid,1,Ann) of 
+                         {value, PidInfo} ->
+                             Node1 = wrangler_syntax:application(Operator, [wrangler_syntax:atom(RegName), Msg]),
+                             {wrangler_syntax:copy_attrs(Node, Node1), true};
+                         _ -> {Node,false}
+                     end;
+                 _ -> {Node,false}
+             end;
+         _  -> {Node, false}
     end.
 add_register_expr(AnnAST, MatchExpr, RegName) ->
     Pid = wrangler_syntax:match_expr_pattern(MatchExpr),
@@ -487,28 +518,29 @@ evaluate_expr(Files, ModName, AnnAST, FunDef, Expr) ->
     lists:map(F, Exprs).
 
 funs_called(Node) ->
-    HandleSpecialFuns = fun (Arguments, S) ->
-				case Arguments of
-				    [M, F, A] ->
-					case {wrangler_syntax:type(M), wrangler_syntax:type(F), wrangler_syntax:type(A)} of
-					    {atom, atom, list} ->
-						ModName = wrangler_syntax:atom_value(M),
-						FunName = wrangler_syntax:atom_value(F),
-						Arity = wrangler_syntax:list_length(A),
-						ordsets:add_element({ModName, FunName, Arity}, S);
-					    _ -> S
-					end;
-				    [M, F, A, _O] ->
-					case {wrangler_syntax:type(M), wrangler_syntax:type(F), wrangler_syntax:type(A)} of
-					    {atom, atom, list} ->
-						ModName = wrangler_syntax:atom_value(M),
-						FunName = wrangler_syntax:atom_value(F),
-						Arity = wrangler_syntax:list_length(A),
-						ordsets:add_element({ModName, FunName, Arity}, S);
-					    _ -> S
-					end
-				end
-			end,
+    HandleSpecialFuns = 
+        fun (Arguments, S) ->
+                case Arguments of
+                    [M, F, A] ->
+                        case {wrangler_syntax:type(M), wrangler_syntax:type(F), wrangler_syntax:type(A)} of
+                            {atom, atom, list} ->
+                                ModName = wrangler_syntax:atom_value(M),
+                                FunName = wrangler_syntax:atom_value(F),
+                                Arity = wrangler_syntax:list_length(A),
+                                ordsets:add_element({ModName, FunName, Arity}, S);
+                            _ -> S
+                        end;
+                    [M, F, A, _O] ->
+                        case {wrangler_syntax:type(M), wrangler_syntax:type(F), wrangler_syntax:type(A)} of
+                            {atom, atom, list} ->
+                                ModName = wrangler_syntax:atom_value(M),
+                                FunName = wrangler_syntax:atom_value(F),
+                                Arity = wrangler_syntax:list_length(A),
+                                ordsets:add_element({ModName, FunName, Arity}, S);
+                            _ -> S
+                        end
+                end
+        end,
     F2 = fun (T, S) ->
 		 case wrangler_syntax:type(T) of
 		     application ->
@@ -533,7 +565,8 @@ funs_called(Node) ->
     lists:usort(api_ast_traverse:fold(F2, [], Node)).
 
 pos_to_spawn_match_expr(AnnAST, Start, End) ->
-    Message = "You have not selected a match expression whose left-hand side is a PID, and right-hand side is a spawn expression!",
+    Message = "You have not selected a match expression whose left-hand side is a PID, "
+        "and right-hand side is a spawn expression!",
     case api_interface:pos_to_expr(AnnAST, Start, End) of
 	{ok, Expr} ->
 	    case wrangler_syntax:type(Expr) of
