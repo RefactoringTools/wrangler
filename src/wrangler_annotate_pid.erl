@@ -47,10 +47,14 @@ ann_pid_info(DirList, TabWidth) ->
     Files = wrangler_misc:expand_files(DirList, ".erl"),
     SortedFuns = sort_funs(DirList),
     start_counter_process(),
-    Pid = start_fun_typesig_process([]),            %% Refactor this USING WRANGLER:  register a process, and remove the uses of Pid.
+    Pid = start_fun_typesig_process([]),  
+    %% Refactor this USING WRANGLER:  
+    %% register a process, and remove the uses of Pid.
     SortedFuns1 = do_ann_pid_info(SortedFuns, Pid),
     stop_counter_process(),
-    lists:foreach(fun (File) -> {File, update_function(File, SortedFuns1, DirList, TabWidth)} end, Files),
+    lists:foreach(fun (File) -> 
+           {File, update_function(File, SortedFuns1, DirList, TabWidth)} end,
+                  Files),
     ok.
     
 
@@ -121,8 +125,9 @@ update_function(File, FunList, DirList, TabWidth) ->
 		end
 	end,
     {AnnAST1, _} = api_ast_traverse:stop_tdTP(F, AnnAST, []),
+    Ann = wrangler_syntax:get_ann(AnnAST1),
     wrangler_ast_server:update_ast({File, true, DirList, TabWidth, wrangler_misc:file_format(File)}, 
-                                   {AnnAST1, Info, wrangler_misc:filehash(File)}),
+                                   {AnnAST1, Info, wrangler_misc:filehash(File),Ann}),
     ok.
 
 annotate_within_fun(Node, {_ModName, FunName, Arity, EnvPid, TypeSigPid}) ->
@@ -338,7 +343,8 @@ annotate_within_fun_1({{ModName, FunName, Arity}, FunDef}, TypeSigPid) ->
 		      FunDef0 = wrangler_syntax:copy_attrs(FunDef, wrangler_syntax:function(FunName1, Cs1)),
 		      api_ast_traverse:full_buTP(fun annotate_within_fun/2, FunDef0, {ModName, FunName, Arity, EnvPid, TypeSigPid});
 		  
-		  _ -> %% refac_util:full_buTP(fun annotate_within_fun/2, FunDef, {ModName, FunName, Arity, EnvPid, TypeSigPid})
+		  _ -> %%api_ast_traverse:full_buTP(fun annotate_within_fun/2, FunDef, 
+                      %% {ModName, FunName, Arity, EnvPid, TypeSigPid})
 		      FunDef
 	      end,
     EnvPid ! stop,
@@ -543,9 +549,7 @@ trim_scc([Scc | Sccs], CallerCallee, PFunAcc, Acc) ->
     end.
 
 is_process_related_fun(FunDef) ->
-    ProcessFuns = [{erlang, register, 2}, {erlang, self, 0}, {erlang, spawn, 1}, {erlang, spawn, 2}, {erlang, spawn, 3}, {erlang, process_info, 1},
-		   {erlang, spawn, 4}, {erlang, spawn_link, 1}, {erlang, spawn_link, 2}, {erlang, spawn_link, 3}, {erlang, spawn_link, 4},
-		   {erlang, send, 2}, {erlang, send, 3}, {erlang, send_after, 3}, {erlang, send_nosuspend, 2}, {erlang, send_nosuspend, 3}],
+    ProcessFuns = process_funs(),
     F = fun (Node, _Others) ->
 		case wrangler_syntax:type(Node) of
 		  infix_expr ->
@@ -587,6 +591,24 @@ is_process_related_fun(FunDef) ->
       {_, false} -> false;
       {_R, true} -> true
     end.
+
+process_funs() ->
+    [{erlang, register, 2},
+     {erlang, self, 0},
+     {erlang, spawn, 1},
+     {erlang, spawn, 2},
+     {erlang, spawn, 3},
+     {erlang, process_info, 1},
+     {erlang, spawn, 4},
+     {erlang, spawn_link, 1},
+     {erlang, spawn_link, 2},
+     {erlang, spawn_link, 3},
+     {erlang, spawn_link, 4},
+     {erlang, send, 2},
+     {erlang, send, 3},
+     {erlang, send_after, 3},
+     {erlang, send_nosuspend, 2},
+     {erlang, send_nosuspend, 3}].
 
 start_fun_typesig_process(State) ->
     spawn(fun() ->fun_typesig_loop(State) end).
