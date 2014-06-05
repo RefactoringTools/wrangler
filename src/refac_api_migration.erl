@@ -296,7 +296,7 @@ generate_rule_based_api_migration_mod(FileName, NewModName) ->
                                                      [ModName])}
                             catch
                                 _E1:E2 ->
-                                    {E2, erlang:get_stacktrace()}
+                                    {error, {E2, erlang:get_stacktrace()}}
                             end;
                         _ -> {error, "Wrangler could not infer the module name of the file supplied"}                
                     end
@@ -440,6 +440,8 @@ do_process_api_interface_funs_2(OldAPIModName, Form) ->
     [B] = wrangler_syntax:clause_body(C),
     case wrangler_syntax:type(B) of 
         application ->
+            do_generate_rule_for_application({OldAPIModName,F,A},Pats, B);
+        infix_expr ->
             do_generate_rule_for_application({OldAPIModName,F,A},Pats, B);
         case_expr->
             Cs = wrangler_syntax:case_expr_clauses(B),
