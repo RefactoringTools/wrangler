@@ -534,9 +534,9 @@
 
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 1.0")) 
+  (message "Wrangler version 1.1.01")) 
 
-(setq wrangler-version  "(wrangler-1.0) ")
+(setq wrangler-version  "(wrangler-1.1.01) ")
 
 (defun wrangler-menu-init()
   "Init Wrangler menus."
