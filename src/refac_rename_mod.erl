@@ -139,8 +139,8 @@ rename_mod_1_eclipse(FileName, NewName, SearchPaths, TabWidth, RenameTestMod) ->
     rename_mod_1(FileName, NewName, SearchPaths, TabWidth, RenameTestMod, eclipse).
 
 rename_mod(FileName, NewName, SearchPaths, Editor, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:rename_mod(~p, ~p,~p, ~p).\n",
-		 [?MODULE, FileName, NewName, SearchPaths, TabWidth]),
+    ?wrangler_io("\nCMD: ~p:rename_mod(~p, ~p,~p, ~p, ~p).\n",
+		 [?MODULE, FileName, NewName, SearchPaths, Editor, TabWidth]),
     Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":rename_mod(" ++ "\"" ++ 
 	    FileName ++ "\", " ++ NewName ++ "\"," ++ "[" ++ 
 	      wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
