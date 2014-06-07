@@ -940,11 +940,15 @@ normalise_list([H|T]) ->
 normalise_list([]) ->
     [].
 
+%% added by HL to remove the dependency on epp.
+default_encoding() ->
+    utf8.
+
 -spec abstract(Data) -> AbsTerm when
       Data :: term(),
       AbsTerm :: abstract_expr().
 abstract(T) ->
-    abstract(T, 0, epp:default_encoding()).
+    abstract(T, 0, default_encoding()).
 
 %%% abstract/2 takes line and encoding options
 -spec abstract(Data, Options) -> AbsTerm when
@@ -956,12 +960,12 @@ abstract(T) ->
       AbsTerm :: abstract_expr().
 
 abstract(T, Line) when is_integer(Line) ->
-    abstract(T, Line, epp:default_encoding());
+    abstract(T, Line, default_encoding());
 abstract(T, {Line, Col}) when is_integer(Line)andalso is_integer(Col) ->  %% clause added by HL.
-    abstract(T, Line, epp:default_encoding());
+    abstract(T, Line, default_encoding());
 abstract(T, Options) when is_list(Options) ->
     Line = proplists:get_value(line, Options, 0),
-    Encoding = proplists:get_value(encoding, Options,epp:default_encoding()),
+    Encoding = proplists:get_value(encoding, Options,default_encoding()),
     abstract(T, Line, Encoding).
 
 -define(UNICODE(C),
