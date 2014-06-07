@@ -116,7 +116,7 @@ top_level_if(_Args=#args{search_paths=SearchPaths})->
     ?FULL_TD_TU([?COLLECT(?T("f@(Args@@) when Guard@@ ->Body@."), 
                           api_refac:fun_define_info(f@),
                           api_refac:type(Body@) == if_expr)],
-                [SearchPaths]).
+                SearchPaths).
 
 %%=====================================================================
 %% Collects the uses of `lists:append/2' in the project, and returns 
@@ -145,7 +145,7 @@ calls_to_specific_function(_Args=#args{user_inputs=[M,F,A],
                                        search_paths=SearchPaths}) ->
     {M1, F1, A1}={list_to_atom(M), list_to_atom(F), list_to_integer(A)},                              
     ?FULL_TD_TU([?COLLECT_LOC(?FUN_APPLY(M1, F1, A1), true)],
-                [SearchPaths]).
+                SearchPaths).
 
  
 %%===================================================================
@@ -183,7 +183,7 @@ non_tail_recursive_function(_Args=#args{search_paths=SearchPaths}) ->
     ?FULL_TD_TU([?COLLECT(?T("f@(Args@@@) when Guard@@@-> Body@@@."), 
                           fun_define_info(f@),
                           is_non_tail_recursive(_This@))],
-                [SearchPaths]).
+                SearchPaths).
 
 %% Returns `true' if a recursive function definition is not tail recursive. 
 is_non_tail_recursive(FunDef) ->
@@ -262,7 +262,7 @@ test(_Args=#args{search_paths=SearchPaths}) ->
     ?FULL_TD_TU([?COLLECT(?T("f@(Args@@) when Guard@@-> First@, Second@,Body@@;"),
                           api_refac:fun_define_info(f@),
                           true)],
-                [SearchPaths]).
+                SearchPaths).
 
 
 %%===================================================================
@@ -274,7 +274,7 @@ test1(_Args=#args{search_paths=SearchPaths}) ->
      ?FULL_TD_TU([?COLLECT(?T("f@(Args@@@) when Guard@@@-> Body@@@."),
                            api_refac:fun_define_info(f@),
                           true)],
-                 [SearchPaths]).
+                 SearchPaths).
 
 %%===================================================================
 %% Collects all function clauses, and returns the MFA info of each 
@@ -286,7 +286,7 @@ test2(_Args=#args{search_paths=SearchPaths}) ->
     ?FULL_TD_TU([?COLLECT(?T("f@(Args@@)when Guard@@-> Body@@;"),
                          api_refac:fun_define_info(f@),
                          true)],
-                [SearchPaths]).
+                SearchPaths).
 
 %%===================================================================
 %% Collects all function clause without guards, and returns the MFA 
@@ -298,7 +298,7 @@ test3(_Args=#args{search_paths=SearchPaths}) ->
     ?FULL_TD_TU([?COLLECT(?T("f@(Args@@)-> Body@@;"),
                           api_refac:fun_define_info(f@),
                           true)],
-                [SearchPaths]).
+                SearchPaths).
 
 
 %%@private 
@@ -314,7 +314,7 @@ test4(_Args=#args{search_paths=SearchPaths}) ->
                  ?COLLECT(?T("f@(Args@@) when Guard@@ ->Body@."), 
                           api_refac:fun_define_info(f@),
                           api_refac:type(Body@) == if_expr)],
-                [SearchPaths]).
+                SearchPaths).
 
 
 
@@ -326,33 +326,32 @@ test5(_Args=#args{current_file_name=CurFileName}) ->
                 [CurFileName]).
 
 
-
 find_map_like_dict(input_par_prompts) ->
     [];
 find_map_like_dict(_Args=#args{search_paths=SearchPaths}) ->
     ?FULL_TD_TU(
        [?COLLECT(
            ?T("F@(Args@@)"),
-           {_File@, ?PP(_This@)},
+           {_File@, api_refac:start_end_loc(_This@)},
            lists:member(
              api_refac:fun_define_info(F@), 
              map_like_dict())
           )],
-       [SearchPaths]).
+       SearchPaths).
 
 
 find_non_map_like_dict(input_par_prompts) ->
     [];
 find_non_map_like_dict(_Args=#args{search_paths=SearchPaths}) ->
-    ?FULL_TD_TU(
+     ?FULL_TD_TU(
        [?COLLECT(
            ?T("F@(Args@@)"),
-           {_File@, ?PP(_This@)},
+           {_File@, api_refac:start_end_loc(_This@)},
            lists:member(
              api_refac:fun_define_info(F@), 
              non_map_like_dict()) 
           )],
-       [SearchPaths]).
+       SearchPaths).
 
 map_like_dict() ->
     [{dict,new,0}, 
