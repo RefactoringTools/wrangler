@@ -1640,6 +1640,10 @@ full_td_collect(FileName, AST, Fun) ->
     lists:reverse(api_ast_traverse:full_tdTU(F, [], AST)).
   
 %%@private
+-spec search_and_collect(list(),[file:name()|filename()]|
+                         [{file:name(), term()}],
+                         full_td_tu|stop_td_tu) ->
+                                list()|no_return.
 search_and_collect(Collectors, Input, TraverseStrategy) 
   when is_list(Input) ->
     check_collectors(Collectors),
@@ -1647,17 +1651,18 @@ search_and_collect(Collectors, Input, TraverseStrategy)
                            filelib:is_file(I) 
                    end, Input) of 
         true -> 
-            search_and_collect_2(Collectors, Input, TraverseStrategy);
+            search_and_collect_2(
+              Collectors, Input, TraverseStrategy);
         false ->
-            case lists:all(fun(I) ->
-                                   case I of 
-                                       {_File, Tree} ->
-                                           %%filelib:is_file(File) andalso is_tree(Tree);
-                                           is_tree(Tree); %% allow File to be data other than file?
-                                       _ ->
-                                           is_tree(I)
-                                   end
-                           end, Input) of 
+            case lists:all(
+                   fun(I) ->
+                           case I of 
+                               {_File, Tree} ->
+                                   is_tree(Tree); 
+                               _ ->
+                                   is_tree(I)
+                           end
+                   end, Input) of 
                 true ->
                     Res=[search_and_collect_1(Collectors,I,TraverseStrategy)||I <- Input],
                     lists:append(Res);
