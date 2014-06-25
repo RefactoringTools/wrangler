@@ -185,6 +185,7 @@ is_special_form(Form) ->
             case wrangler_syntax:atom_value(AtrName) of
 		type -> true;
                 opaque -> true;
+                callback -> true;
                 record -> 
                     [_R, FieldTuple] = wrangler_syntax:attribute_arguments(Form),
                     Fields = wrangler_syntax:tuple_elements(FieldTuple),
