@@ -95,7 +95,6 @@
               wrangler_sup,
               wrangler_syntax,
               wrangler_syntax_lib,
-              wrangler_type_info,
               wrangler_undo_server,
               wrangler_unification,
               wrangler_write_file,
@@ -112,7 +111,6 @@
               refac_specialise_a_function,
               refac_swap_function_arguments,
               refac_add_to_export,
-              refac_my_apply,
               regexp_re
               ]},            
     {registered, [wrangler_ast_server,
