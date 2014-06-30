@@ -53,7 +53,6 @@
               refac_swap_op_args,
               refac_sim_code,
               refac_sim_expr_search,
-              refac_state_to_record,
               refac_tuple,
               refac_unfold_fun_app,
               wrangler,
