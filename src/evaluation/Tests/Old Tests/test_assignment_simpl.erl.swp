@@ -1,9 +1,0 @@
--module(test_assignment_simpl).
-
--export([test/0]).
-test() ->
-    B = 2,
-    C,
-    C = 3,
-    D,
-    C = 1 + B + C.
