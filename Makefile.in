@@ -50,10 +50,9 @@ ERL_LAST = $(patsubst src/%.erl,ebin/%.beam,$(ERL_SRC)) \
 	$(patsubst src/gen_composite_refacs/%.erl, ebin/%.beam, \
 	  $(ERL_GEN_COMP_SRC)) \
 	$(patsubst src/my_gen_composite_refacs/%.erl, ebin/%.beam, \
-	  $(ERL_MY_GEN_COMP_SRC))
- 	$(patsubst src/evaluation/%.erl, ebin/%.beam, \
+	  $(ERL_MY_GEN_COMP_SRC)) \
+	$(patsubst src/evaluation/%.erl, ebin/%.beam, \
 	  $(ERL_EVAL_SRC))
-
 
 ERL_OBJ = $(BUILD_FIRST) $(ERL_LAST)
 
