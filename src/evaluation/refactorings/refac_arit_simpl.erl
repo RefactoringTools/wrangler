@@ -87,12 +87,3 @@ selective() ->
 transform(Args)-> 
     io:format("Transform?~n"),
     refac:try_call_transform(Args, fun core_arit_simpl:rules/2).
-
-
-
-
-
-
-
-
-

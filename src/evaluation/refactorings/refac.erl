@@ -36,7 +36,6 @@ try_call_transform(_Args=#args{current_file_name=File,
 		true ->       		    
 		    ?FULL_TD_TP((body_rules(RulesFun, {CheckedFileBool, unknown}, TimeOut, FunArgs)),[File]);
 		false ->
-		    io:format("Here I am~n"),
 		    MFA = api_refac:fun_define_info(FunDef),
 		    if
 			MFA /= unknown ->
@@ -60,7 +59,6 @@ str_to_bool(_) -> maybe.
 %% @end
 %%--------------------------------------------------------------------   
 body_rule(RulesFun, {RefacWholeFile, MFA}, TimeOut, FunArgs) ->
-    io:format("Body rule...~n"),
     ?RULE(
        ?T("f@(Args@@) when Guards@@ -> Body@@;"),
        begin	   
@@ -68,7 +66,6 @@ body_rule(RulesFun, {RefacWholeFile, MFA}, TimeOut, FunArgs) ->
            ?TO_AST("f@(Args@@) when Guards@@ -> NewBody@@;")
        end, 
        begin
-	   io:format("Condition of body rules...~n"),
 	   FunInfo = api_refac:fun_define_info(_This@),%%FunInfo = api_refac:fun_define_info(f@),
 	   RefacWholeFile == true orelse	   
 	   FunInfo == MFA andalso
@@ -106,7 +103,6 @@ checkTimeOut(TimeOutStr) ->
 try_transform_manager(Node, RulesFun, FunArgs, FunDefInfo, MainPid) ->
             NewBody = utils_transform:transform_body(Node, RulesFun, FunArgs, FunDefInfo),
 	    MainPid ! {result, NewBody}.
-
 
 
 
