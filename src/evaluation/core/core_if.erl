@@ -20,24 +20,21 @@ if_cond([NodeList | T], Scope) ->
     atom_value_case_cond(Result, T, Scope).
 
 if_transform([CondNodeList | TCond], [BodyNode | TBody], Scope) ->
-   io:format("If transform~n"),
    [[CondNode | []] | []] = CondNodeList,
-   io:format("Call Evaluate guards expression~n"),
    Result = utils_guards:evaluateGuardsExpression(CondNode, Scope),
-   io:format("Returned from Guards~n"),
    atom_value_case_transf({Result, BodyNode}, {TCond, TBody}, Scope);
 if_transform(_,_,_) -> {error, 'No transformation can be done!'}.
 	    
 atom_value_case_cond(NodeValue, T, Scope) ->
     case NodeValue of
-          true -> io:format("Sucessfull condition~n"),true;
+          true -> true;
           false -> if_cond(T, Scope);
           _ -> false
    end.
 
 atom_value_case_transf({NodeValue, BodyNode}, {TCond, TBody}, Scope) ->
     case NodeValue of
-		true -> io:format("Transforming if...~n"),BodyNode;
+		true -> BodyNode;
 		false -> if_transform(TCond, TBody, Scope);
 		_ -> {error, 'No transformation can be done!'}
 	    end.
