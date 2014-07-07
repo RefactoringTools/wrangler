@@ -118,7 +118,7 @@ ebin/%.beam: src/gen_composite_refacs/%.erl
 ebin/%.beam: src/my_gen_composite_refacs/%.erl
 	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
 
-ebin/%.beam: src/my_evaluation/%.erl
+ebin/%.beam: src/evaluation/%.erl
 	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
 
 ebin/%.beam: include/wrangler.hrl include/wrangler_internal.hrl
