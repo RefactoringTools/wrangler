@@ -9,7 +9,7 @@ rules({_,Scope},_) ->
 if_rule(Scope) ->
     ?RULE(
        ?T("if Cond@@@ -> Body@@@ end"),
-       if_transform(Cond@@@, Body@@@,Scope),
+       api_refac:reset_pos_and_range(if_transform(Cond@@@, Body@@@,Scope)),
        if_cond(Cond@@@, Scope)
     ).
 
