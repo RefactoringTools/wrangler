@@ -128,7 +128,7 @@ functionCall_rule_2(Info, FunDefInfo) ->
 	      {match,Patt,Body} = utils_match:firstMatch(Info,{M,F,A},Args@@),
 	      utils_subst:subst(Body, Patt, Args@@)
 	  end,
-	  begin	     	      	      
+	  begin	     	      	
 	      FunInfo = api_refac:fun_define_info(F@),
 	      case FunInfo of
 		  {M,F,A} ->

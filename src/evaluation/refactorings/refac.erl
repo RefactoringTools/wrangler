@@ -40,7 +40,7 @@ try_call_transform(_Args=#args{current_file_name=File,
 		    if
 			MFA /= unknown ->
 			     ?FULL_TD_TP((body_rules(RulesFun, {CheckedFileBool, MFA}, TimeOut, FunArgs)),[File]);
-			 true -> io:format("The reason is unknown~n"),{error, "Please, place the mouse cursor on the desired function!"}
+			 true -> {error, "Please, place the mouse cursor on the desired function!"}
 		    end;
 		_ -> {error, "Please, answer 'y' or 'n'!"}
 	    end

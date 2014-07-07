@@ -37,11 +37,15 @@ ERL_GEN_COMP_SRC = $(wildcard src/gen_composite_refacs/*.erl)
 
 ERL_MY_GEN_COMP_SRC = $(wildcard src/my_gen_composite_refacs/*.erl)
 
-ERL_EVAL_SRC = $(wildcard src/evaluation/*.erl)
+ERL_EVAL_SRC = $(wildcard src/evaluation/evaluator/*.erl)
+ERL_CORE_SRC = $(wildcard src/evaluation/core/*.erl)
+ERL_REFAC_SRC = $(wildcard src/evaluation/refactorings/*.erl)
+ERL_UTILS_SRC = $(wildcard src/evaluation/utils/*.erl)
 
 LAST_SRC = $(filter-out $(FIRST_SRC), $(ERL_SRC)) $(ERL_GEN_REFACS_SRC) \
    $(ERL_MY_GEN_REFACS_SRC) $(ERL_GEN_COMP_SRC) $(ERL_MY_GEN_COMP_SRC) \
-	$(ERL_EVAL_SRC)
+	$(ERL_EVAL_SRC) $(ERL_CORE_SRC) $(ERL_REFAC_SRC) \
+		$(ERL_UTILS_SRC) 
 
 ERL_LAST = $(patsubst src/%.erl,ebin/%.beam,$(ERL_SRC)) \
 	$(patsubst src/gen_refacs/%.erl, ebin/%.beam, $(ERL_GEN_REFACS_SRC)) \
@@ -51,8 +55,14 @@ ERL_LAST = $(patsubst src/%.erl,ebin/%.beam,$(ERL_SRC)) \
 	  $(ERL_GEN_COMP_SRC)) \
 	$(patsubst src/my_gen_composite_refacs/%.erl, ebin/%.beam, \
 	  $(ERL_MY_GEN_COMP_SRC)) \
-	$(patsubst src/evaluation/%.erl, ebin/%.beam, \
-	  $(ERL_EVAL_SRC))
+	$(patsubst src/evaluation/evaluator/%.erl, ebin/%.beam, \
+	  $(ERL_EVAL_SRC)) \
+	$(patsubst src/evaluation/core/%.erl, ebin/%.beam, \
+	  $(ERL_CORE_SRC)) \
+	$(patsubst src/evaluation/refactorings/%.erl, ebin/%.beam, \
+	  $(ERL_REFAC_SRC)) \
+	$(patsubst src/evaluation/utils/%.erl, ebin/%.beam, \
+	  $(ERL_UTILS_SRC))
 
 ERL_OBJ = $(BUILD_FIRST) $(ERL_LAST)
 
@@ -118,7 +128,16 @@ ebin/%.beam: src/gen_composite_refacs/%.erl
 ebin/%.beam: src/my_gen_composite_refacs/%.erl
 	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
 
-ebin/%.beam: src/evaluation/%.erl
+ebin/%.beam: src/evaluation/evaluator/%.erl
+	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
+
+ebin/%.beam: src/evaluation/core/%.erl
+	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
+
+ebin/%.beam: src/evaluation/refactorings/%.erl
+	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
+
+ebin/%.beam: src/evaluation/utils/%.erl
 	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
 
 ebin/%.beam: include/wrangler.hrl include/wrangler_internal.hrl

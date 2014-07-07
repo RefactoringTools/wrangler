@@ -15,7 +15,6 @@ transform_body(Node, RulesFun, Scope) ->
 %%--------------------------------------------------------------------  
 -spec(transform_body(Node::[syntaxTree()] | syntaxTree(),RulesFun::fun((_) -> any()),Info::[{{modulename(),functionname(),arity()},syntaxTree(),syntaxTree() | [syntaxTree()]}], FunDefInfo::{modulename(),functionname(),arity()}) -> [syntaxTree()] | syntaxTree()).
 transform_body(Node,RulesFun,FunArgsWithScope,FunDefInfo) ->
-    io:format("Transform body...~n"),
     {FunArgs,Scope} = FunArgsWithScope,
     Subst = ?STOP_TD_TP((RulesFun(FunArgsWithScope, FunDefInfo)), Node),
     case Subst of
