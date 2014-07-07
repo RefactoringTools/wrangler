@@ -37,8 +37,11 @@ ERL_GEN_COMP_SRC = $(wildcard src/gen_composite_refacs/*.erl)
 
 ERL_MY_GEN_COMP_SRC = $(wildcard src/my_gen_composite_refacs/*.erl)
 
+ERL_EVAL_SRC = $(wildcard src/evaluation/*.erl)
+
 LAST_SRC = $(filter-out $(FIRST_SRC), $(ERL_SRC)) $(ERL_GEN_REFACS_SRC) \
-   $(ERL_MY_GEN_REFACS_SRC) $(ERL_GEN_COMP_SRC) $(ERL_MY_GEN_COMP_SRC)
+   $(ERL_MY_GEN_REFACS_SRC) $(ERL_GEN_COMP_SRC) $(ERL_MY_GEN_COMP_SRC) \
+	$(ERL_EVAL_SRC)
 
 ERL_LAST = $(patsubst src/%.erl,ebin/%.beam,$(ERL_SRC)) \
 	$(patsubst src/gen_refacs/%.erl, ebin/%.beam, $(ERL_GEN_REFACS_SRC)) \
@@ -48,6 +51,9 @@ ERL_LAST = $(patsubst src/%.erl,ebin/%.beam,$(ERL_SRC)) \
 	  $(ERL_GEN_COMP_SRC)) \
 	$(patsubst src/my_gen_composite_refacs/%.erl, ebin/%.beam, \
 	  $(ERL_MY_GEN_COMP_SRC))
+ 	$(patsubst src/evaluation/%.erl, ebin/%.beam, \
+	  $(ERL_EVAL_SRC))
+
 
 ERL_OBJ = $(BUILD_FIRST) $(ERL_LAST)
 
@@ -111,6 +117,9 @@ ebin/%.beam: src/gen_composite_refacs/%.erl
 	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
 
 ebin/%.beam: src/my_gen_composite_refacs/%.erl
+	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
+
+ebin/%.beam: src/my_evaluation/%.erl
 	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
 
 ebin/%.beam: include/wrangler.hrl include/wrangler_internal.hrl
