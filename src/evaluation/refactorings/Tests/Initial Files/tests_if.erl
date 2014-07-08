@@ -1,6 +1,6 @@
 -module(tests_if).
 -compile([export_all]).
-%%remove the location information
+
 test1() ->
     if
 	true -> [2];

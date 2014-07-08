@@ -47,8 +47,8 @@ collect(File, InternalDefinitions) ->
 collector(ExportedFuns, InternalDefinitions)->
     ?COLLECT(
        ?T("f@(ArgPatt@@) when Guard@@ -> Body@@;"),
-       {api_refac:fun_define_info(f@),ArgPatt@@,Guard@@,Body@@},
-       InternalDefinitions orelse funIsExported(f@, ExportedFuns)
+       {api_refac:fun_define_info(_This@),ArgPatt@@,Guard@@,Body@@},
+       InternalDefinitions orelse funIsExported(_This@, ExportedFuns)%%InternalDefinitions orelse funIsExported(f@, ExportedFuns)
      ).
 
 %%--------------------------------------------------------------------

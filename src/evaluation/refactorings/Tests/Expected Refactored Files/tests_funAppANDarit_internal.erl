@@ -20,15 +20,13 @@ testTupleAndApp2(X) -> 2 * X.
 
 testTupleAndApp3(X) -> X + 7.
 
-testIdentityAndApp(X) ->	       
-      2 * X.
+testIdentityAndApp(X) -> 2 * X.
 
 testLists1() -> 30.
 
 testHugeList() -> 2550.
 
-testFootle(Y) ->
-     3 + (2 + (1 + Y)).
+testFootle(Y) -> 3 + (2 + (1 + Y)).
 
 testFootle2(X) ->
     footle(X,3).

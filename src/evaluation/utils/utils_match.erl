@@ -69,8 +69,7 @@ matchList([H1 | T1],[H2 | T2])->
 %% @end
 %%--------------------------------------------------------------------
 -spec(firstMatch([{{modulename(),functionname(),arity()},syntaxTree(),syntaxTree()}],{modulename(),functionname(),arity()},syntaxTree()) -> noMatch | {match,syntaxTree(),syntaxTree()}).
-firstMatch([],_,_) -> noMatch;
-firstMatch([{{M2,F2,A2},ArgPatt,Guards,Body} | T],{M,F,A},Arg) ->    
+firstMatch([{{M2,F2,A2},ArgPatt,Guards,Body} | T],{M,F,A},Arg) ->   
     Matches = M == M2 andalso F == F2 andalso A == A2,    
     if
 	Matches ->
@@ -88,4 +87,6 @@ firstMatch([{{M2,F2,A2},ArgPatt,Guards,Body} | T],{M,F,A},Arg) ->
 		true  -> firstMatch(T,{M,F,A},Arg)
 	    end;
 	true  -> firstMatch(T,{M,F,A},Arg)
-    end.
+    end;
+firstMatch(_,_,_) -> noMatch.
+    
