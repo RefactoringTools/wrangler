@@ -148,7 +148,7 @@ install: default
 	install -m 775 ebin/*.beam $(LIB_DIR)/ebin
 	install -m 775 ebin/*.app $(LIB_DIR)/ebin
 	install -m 775 -d $(LIB_DIR)/src
-	install -m 775 src/*.erl $(LIB_DIR)/src
+	install -m 775 src/*/*.erl $(LIB_DIR)/src
 	install -m 775 -d $(LIB_DIR)/include
 	install -m 775 include/*.hrl $(LIB_DIR)/include
 	install -m 775 -d $(LIB_DIR)/priv
