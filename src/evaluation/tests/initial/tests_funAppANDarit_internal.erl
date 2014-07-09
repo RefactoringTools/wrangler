@@ -13,6 +13,8 @@ footle(0,Y) -> Y;
 footle(X,Y) ->
     X + footle(X - 1, Y).
 
+infinite_loop(X) -> X + 1.
+
 %%TESTS
 testTupleAndApp1() -> addTupleElems({1,2}).
 

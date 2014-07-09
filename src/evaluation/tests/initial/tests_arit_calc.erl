@@ -51,3 +51,5 @@ testAlternate(X) -> X + 1 + X.
 testAlternate2(X,Y,Z) -> X + Y + Z + X.
 
 testAlternate3(X) -> 1 + X + 2.
+
+foo(X) -> X.
