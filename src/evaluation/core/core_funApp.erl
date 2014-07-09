@@ -31,8 +31,9 @@ getCollectFile(ModuleName, _, SearchPaths) ->
 %%--------------------------------------------------------------------
 collect(File, InternalDefinitions) ->
     ExportedFuns = api_refac:exported_funs(File),
+    ExportedAll = exported_all(File),
     ?FULL_TD_TU(    
-       [collector(ExportedFuns, InternalDefinitions)],
+       [collector({ExportedAll, ExportedFuns}, InternalDefinitions)],
        [File]
       ).
 %%--------------------------------------------------------------------
@@ -44,11 +45,11 @@ collect(File, InternalDefinitions) ->
 %%   -The AST representation of the body
 %% @end
 %%--------------------------------------------------------------------
-collector(ExportedFuns, InternalDefinitions)->
+collector(ExportTuple, InternalDefinitions)->
     ?COLLECT(
        ?T("f@(ArgPatt@@) when Guard@@ -> Body@@;"),
        {api_refac:fun_define_info(_This@),ArgPatt@@,Guard@@,Body@@},
-       InternalDefinitions orelse funIsExported(_This@, ExportedFuns)%%InternalDefinitions orelse funIsExported(f@, ExportedFuns)
+       InternalDefinitions orelse funIsExported(_This@, ExportTuple)%%InternalDefinitions orelse funIsExported(f@, ExportTuple)
      ).
 
 %%--------------------------------------------------------------------
@@ -57,8 +58,9 @@ collector(ExportedFuns, InternalDefinitions)->
 %% @private
 %% @end
 %%--------------------------------------------------------------------
-funIsExported(Fun, ExportedFuns) ->
+funIsExported(Fun, {ExportedAll, ExportedFuns}) ->
     {_, F, A} = api_refac:fun_define_info(Fun),
+    ExportedAll orelse
     lists:any(fun({F2, A2}) ->  F == F2 andalso A == A2 end, ExportedFuns).
 
 %%--------------------------------------------------------------------
@@ -180,6 +182,20 @@ getFunDefineInfo(_, _,_,_) -> unknown.
 getErrorMsg(false) -> 'No simplification was done!';
 getErrorMsg(true) -> 'No refactoring was done!';
 getErrorMsg(_) -> 'Unexpected Error!'.
+
+-spec(exported_all/1::(File::filename()) -> boolean()).
+exported_all(File) ->
+    {ok, {_, Info}} = wrangler_ast_server:parse_annotate_file(File, true),
+    case lists:keysearch(attributes, 1, Info) of
+	{value, {attributes, ListOfAttributes}} ->
+	    case lists:keysearch(compile, 1, ListOfAttributes) of
+		{value, {compile, ListCompile}} ->
+		    lists:filter(fun(X) -> X == export_all end, ListCompile) /= [];
+		_ -> false
+	    end;
+	_ -> false
+   end.
+
     
 
 

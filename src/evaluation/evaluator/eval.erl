@@ -141,8 +141,9 @@ get_old_steps([_|T],NSteps) -> get_old_steps(T,NSteps-1).
 %% This function returns the current node and updates the number of evaluations done.
 %% @end
 %%--------------------------------------------------------------------
-evaluation_ended(File,Transform,NRefacsDone,Pid,NewBody,Steps) -> 
+evaluation_ended(SearchPath,Transform,NRefacsDone,Pid,NewBody,Steps) -> 
                                 if Transform ->
+					[File | _] = SearchPath,
                                         FileName = File ++ "/results.txt",
                                         if Pid /= "" ->  OldSteps = get_temp_info_steps(Pid),
                                                          LengthOld = length(OldSteps),

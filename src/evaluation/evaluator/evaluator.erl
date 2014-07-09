@@ -23,7 +23,8 @@ composite_refac(_Args=#args{
                   current_file_name = File,
                   user_inputs = [E],
                   search_paths=SearchPaths}) ->
-    ResultFile = SearchPaths ++ "/results.txt",
+    [FirstPath | _] = SearchPaths,
+    ResultFile = FirstPath ++ "/results.txt",
     file:delete(ResultFile),
     {ok,_} = file:open(ResultFile, [append]),
     Pid = spawn(eval, keep_temp_info, [0,[?TO_AST(E)]]),
