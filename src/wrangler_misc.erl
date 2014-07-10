@@ -1139,6 +1139,8 @@ extend_function_clause_1(Node, _OtherInfo) ->
         function ->
             Node1=extend_function_clause_2(Node),
             {Node1, true};
+        function_clause ->
+            {Node, true};
         clause ->
             Ann = wrangler_syntax:get_ann(Node),
             case lists:keysearch(syntax_path, 1, Ann) of 
