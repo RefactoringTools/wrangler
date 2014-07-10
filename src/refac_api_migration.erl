@@ -257,7 +257,7 @@ collect_apps(MFAs, FunDef) ->
 reparse_form(Form, ModName) ->
     FormStr = wrangler_prettypr:pp_a_form(Form, 'unix', [], 8),
     Pos = wrangler_syntax:get_pos(Form),
-    {ok, Toks, _} =wrangler_scan_with_layout:string(FormStr, Pos), 
+    {ok, Toks, _} =wrangler_scan:string_with_layout(FormStr, Pos), 
     FormAST=wrangler_misc:parse_annotate_expr(FormStr, Pos),
     FormAST1 = wrangler_ast_server:add_range(
                  wrangler_syntax:add_ann({toks, Toks}, FormAST),Toks),
