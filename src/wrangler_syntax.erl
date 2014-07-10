@@ -1508,7 +1508,15 @@ float_value(Node) ->
 %%
 %% @see float/1
 
-float_literal(Node) -> io_lib:write(float_value(Node)).
+float_literal(Node) -> 
+    V=case unwrap(Node)of
+          {float, _, Value} -> Value;
+          Node1 -> data(Node1)
+      end,
+    case is_list(V) of 
+        true -> V;
+        false -> io_lib:write(V)
+    end.
 
 %% =====================================================================
 %% @spec char(Value::char()) -> syntaxTree()
