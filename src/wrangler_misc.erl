@@ -253,7 +253,7 @@ reset_attrs(Node) ->
                       wrangler_syntax:set_pos(T, {0,0}), []),
               wrangler_syntax:remove_comments(T1)
       end, Node, {}).
-		
+
 
 %% =====================================================================
 %% @spec update_ann(Node::syntaxTree(), {Key::atom(), Val::term()}) -> syntaxTree()
@@ -347,7 +347,7 @@ modname_to_filename(ModName, Dirs) ->
 	    {ok, FileName};
 	_ -> {error, "Multiple files found: " ++  format_file_names(Fs)++"\n"}
     end.
-			   
+
 
 format_file_names(Fs) when Fs/=[] ->
     "[" ++ format_file_names_1(Fs).
@@ -376,7 +376,7 @@ funname_to_defpos(AnnAST, {M, F, A}) ->
 	_ ->
 	    {error, lists:flatten(io_lib:format("Function ~p/~p is defined more than once in module ~p", [F, A, M]))}
     end.
-		 
+
    
 is_spawn_app(Tree) ->
     SpawnFuns1 =  spawn_funs(),
@@ -1139,6 +1139,8 @@ extend_function_clause_1(Node, _OtherInfo) ->
         function ->
             Node1=extend_function_clause_2(Node),
             {Node1, true};
+        function_clause ->
+            {Node, true};
         clause ->
             Ann = wrangler_syntax:get_ann(Node),
             case lists:keysearch(syntax_path, 1, Ann) of 

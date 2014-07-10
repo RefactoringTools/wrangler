@@ -62,11 +62,11 @@ body_rule(RulesFun, {RefacWholeFile, MFA}, TimeOut, FunArgs) ->
     ?RULE(
        ?T("f@(Args@@) when Guards@@ -> Body@@;"),
        begin	   
-	   NewBody@@ = utils_transform:transform_body(Body@@,RulesFun,{FunArgs, _This@},api_refac:fun_define_info(_This@)),%%api_refac:fun_define_info(f@)),
+	   NewBody@@ = utils_transform:transform_body(Body@@,RulesFun,{FunArgs, _This@},api_refac:fun_define_info(f@)),	      
            ?TO_AST("f@(Args@@) when Guards@@ -> NewBody@@;")
        end, 
        begin
-	   FunInfo = api_refac:fun_define_info(_This@),%%FunInfo = api_refac:fun_define_info(f@),
+           FunInfo = api_refac:fun_define_info(f@),
 	   RefacWholeFile == true orelse	   
 	   FunInfo == MFA andalso
 	   begin

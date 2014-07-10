@@ -48,8 +48,8 @@ collect(File, InternalDefinitions) ->
 collector(ExportTuple, InternalDefinitions)->
     ?COLLECT(
        ?T("f@(ArgPatt@@) when Guard@@ -> Body@@;"),
-       {api_refac:fun_define_info(_This@),ArgPatt@@,Guard@@,Body@@},
-       InternalDefinitions orelse funIsExported(_This@, ExportTuple)%%InternalDefinitions orelse funIsExported(f@, ExportTuple)
+       {api_refac:fun_define_info(f@),ArgPatt@@,Guard@@,Body@@},
+       api_refac:fun_define_info(f@) /= unknown andalso (InternalDefinitions orelse funIsExported(f@, ExportTuple))
      ).
 
 %%--------------------------------------------------------------------
@@ -189,8 +189,9 @@ exported_all(File) ->
     case lists:keysearch(attributes, 1, Info) of
 	{value, {attributes, ListOfAttributes}} ->
 	    case lists:keysearch(compile, 1, ListOfAttributes) of
-		{value, {compile, ListCompile}} ->
-		    lists:filter(fun(X) -> X == export_all end, ListCompile) /= [];
+		{value, {compile, CompileDirective}} ->
+		    CompileDirective == export_all orelse 
+		    CompileDirective == [export_all];
 		_ -> false
 	    end;
 	_ -> false
