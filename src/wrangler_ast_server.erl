@@ -509,15 +509,28 @@ do_add_range(Node, {Toks, QAtomPs}) ->
 	    Len = length(wrangler_syntax:variable_literal(Node)),
 	    update_ann(Node, {range, {{L, C}, {L, C + Len - 1}}});
 	atom ->
+            AtomValue = atom_to_list(wrangler_syntax:atom_value(Node)),
+            {NumOfLines, LastLen}= split_lines(AtomValue),
             case lists:member({L,C}, QAtomPs) orelse 
                 lists:member({L,C+1}, QAtomPs) of  
                 true ->
-                    Len = length(atom_to_list(wrangler_syntax:atom_value(Node))),
                     Node1 = update_ann(Node, {qatom, true}),
-                    update_ann(Node1, {range, {{L, C}, {L, C + Len + 1}}});
+                    case NumOfLines of 
+                        1 ->
+                            update_ann(Node1, {range, {{L, C}, {L, C + LastLen + 1}}});
+                        _ ->
+                            update_ann(Node1, {range, {{L, C}, 
+                                                       {L+NumOfLines-1,
+                                                       LastLen+2}}})
+                    end;
                 false ->
-                    Len = length(atom_to_list(wrangler_syntax:atom_value(Node))),
-                    update_ann(Node, {range, {{L, C}, {L, C + Len - 1}}})
+                    case NumOfLines of 
+                        1 ->
+                            update_ann(Node, {range, {{L, C}, {L, C + LastLen - 1}}});
+                        _ ->
+                            update_ann(Node, {range, {{L, C}, {L+NumOfLines-1,
+                                                               LastLen+1}}})
+                    end
 	    end;
         operator ->
 	    Len = length(atom_to_list(wrangler_syntax:atom_value(Node))),
@@ -539,14 +552,7 @@ do_add_range(Node, {Toks, QAtomPs}) ->
                       [] -> wrangler_syntax:string_value(Node);
                       _ -> element(3, lists:last(Toks3))
                   end,
-            Lines = wrangler_syntax_lib:split_lines(Str),
-            {NumOfLines, LastLen}= 
-                case Lines of 
-                    [] -> 
-                        {1, 0};
-                    _ ->
-                        {length(Lines),length(lists:last(Lines))}
-                end,
+            {NumOfLines, LastLen}= split_lines(Str), 
             case Toks3 of 
                 [] ->  %% this might happen with attributes when the loc info is not accurate.
                     Range = {{L, C}, {L+NumOfLines-1, C+LastLen+1}},
@@ -963,6 +969,17 @@ extend_backwards(Toks, EndLoc, Val) ->
 	  {Ln, Col} = token_loc(hd(Toks2)),
 	  {Ln, Col + length(atom_to_list(Val)) - 1}
     end.
+
+-spec(split_lines(string()) -> {integer(), integer()}).
+split_lines(Str)->
+    Lines = wrangler_syntax_lib:split_lines(Str),
+    case Lines of 
+        [] -> 
+            {1, 0};
+        _ ->
+            {length(Lines),length(lists:last(Lines))}
+    end.
+                
 
 token_loc(T) ->
     case T of
