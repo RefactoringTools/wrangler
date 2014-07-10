@@ -1154,7 +1154,7 @@ num_of_tokens(Exprs) ->
 
 
 num_of_tokens_in_string(Str) ->
-    case wrangler_scan:string(Str, {1,1}, 8, 'unix') of
+    case wrangler_scan:string_without_layout(Str, {1,1}) of
 	{ok, Ts, _} -> 
             Ts1 = [T||T<-Ts],
 	    length(Ts1);
