@@ -272,7 +272,7 @@ rpc_fun(NewFunName, RpcFunName) ->
 		    receive
 		      {RegName, Response} -> Response
 		 end.",
-    {ok, Toks, _} = wrangler_scan:string(RpcFun),
+    {ok, Toks, _} = erl_scan:string(RpcFun),
     {ok, Form} =erl_parse:parse_form(Toks),
     hd(wrangler_syntax:form_list_elements(
 	    wrangler_recomment:recomment_forms([Form], []))).
