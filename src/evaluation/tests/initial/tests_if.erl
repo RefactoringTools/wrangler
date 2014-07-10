@@ -1,6 +1,9 @@
 -module(tests_if).
 -compile([export_all]).
 
+is_even(N) when is_number(N) ->
+    N rem 2 == 0.
+
 test1() ->
     if
 	true -> [2];
@@ -108,8 +111,9 @@ funIf(X) ->
 testFunIf() ->
     funIf(3).
  	    	     
-is_even(N) when is_number(N) ->
-    N rem 2 == 0.
+
+testCallTest4() ->
+    test4().
 
 
 

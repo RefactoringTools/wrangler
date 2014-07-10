@@ -47,8 +47,13 @@ elemSubstitution(NodeElem,NodeValue) ->
 %% @end
 %%--------------------------------------------------------------------	  
 -spec(subst([syntaxTree()] | syntaxTree(),syntaxTree(), syntaxTree()) -> [syntaxTree()] | syntaxTree()). 
-subst(Expr, ArgPatt, Arg) ->
+subst(Expr, ArgPatt, Arg) when is_list(Expr) ->
     Subst = substsList(ArgPatt,Arg),
+    [subst(E, Subst)||E<-Expr];
+subst(Expr, ArgPatt, Arg) ->
+    subst(Expr, substsList(ArgPatt,Arg)).
+
+subst(Expr, Subst) ->
     {Expr1, _} = api_ast_traverse:stop_tdTP(fun do_subst/2, Expr, Subst),
     Expr1.
 
@@ -60,8 +65,7 @@ subst(Expr, ArgPatt, Arg) ->
 %% @end
 %%--------------------------------------------------------------------   
 -spec(do_subst(syntaxTree(),[{string(),syntaxTree()}]) -> {syntaxTree(),boolean()}).
-do_subst(Node0, Subst) ->  
-    Node = getNode(Node0),
+do_subst(Node, Subst) ->  
     NodeType = api_refac:type(Node),
     if
 	NodeType == variable orelse NodeType == match_expr ->
