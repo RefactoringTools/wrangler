@@ -10,7 +10,7 @@ case_rule() ->
       begin
 	  Result = case_transf(Expr@,Pats@@@,Guards@@@,Body@@@),
 	  case Result of
-	      {ok, AST} -> AST;
+	      {ok, {Body,Patt,Args}} -> utils_subst:subst(Body, Patt, Args);
 	      _ -> Result
 	  end
       end,
@@ -28,9 +28,8 @@ case_transf(Expr,[HPattList|TPatt],[HGuard|TGuard],[HBody|TBody]) ->
     HPatt = utils_subst:getNode(HPattList),
     case utils_match:match(Expr, HPatt) of
 	true ->
-	    io:format("Match~n"),
 	    case utils_guards:guardsSuceed(Expr,HPatt,HGuard) of
-                 true -> {ok,HBody};
+                 true -> {ok,{HBody,HPatt,Expr}};
                  false -> case_transf(Expr,TPatt,TGuard,TBody);
                  _ -> {error,"Guards failed!"} 
              end;

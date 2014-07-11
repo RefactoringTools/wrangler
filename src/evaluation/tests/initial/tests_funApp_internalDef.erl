@@ -48,6 +48,13 @@ strangeGuard(N) -> N.
 is_even(N) when is_number(N) ->
     N rem 2 == 0.
     
+addTuple({A,B}) -> A + B.
+
+firstOfTuple({A,B}) ->
+     A.
+
+firstOfTuple2({hello,world}) ->
+     hello.
 %%TESTS
 
 test_funAppRecord() -> record_book().
@@ -116,11 +123,24 @@ testStrangeGuard() -> strangeGuard(hello).
 testAssignFun() ->
     X = is_even(2),
     X.
+
+%%BUG
+testIsEven() ->
+    X = 2,
+    is_even(X).
     
+testAddTuple() ->
+    addTuple({1,2}).
+
+testFirstOfTuple() ->
+    firstOfTuple({hello,world}).
+
+testFirstOfTuple2() ->
+    firstOfTuple2({hello,world}).
+
+%%Not WORKING PROPERLY
 testFunAppAssign() ->
     X = 3,
     testAssignFun().
     
-
-
 

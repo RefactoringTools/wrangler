@@ -44,14 +44,12 @@ test7() ->
 	_ -> bye
     end.
 
-%%BUG
 test8() ->
     case {hello,world} of
 	{hello,world} -> helloWorld;
 	_ -> bye
     end.
 
-%%BUG
 test9() ->
     case [1,2] of
     	 Var -> Var;
@@ -65,42 +63,49 @@ test10() ->
     end.
 
 test11() ->
+    X = true,
+     case X of 
+	true -> X;
+	_ -> bye
+   end.
+
+test12() ->
     case is_even(2) of 
 	true -> hello;
 	_ -> bye
    end.
 
-test12() ->
+test13() ->
     case is_even(1) of 
 	true -> hello;
 	_ -> bye
    end.
 
-test13() ->
+test14() ->
     X = is_even(1),
      case X of 
 	true -> hello;
 	_ -> bye
    end.
 
-test14() ->
+test15() ->
     X = is_even(4),
      case X of 
 	true -> hello;
 	_ -> bye
    end.
 
-test15(X) ->
+test16(X) ->
    case X of 
 	true -> hello;
 	_ -> bye
    end.
 
-test16() ->
-    test15(true).
-
 test17() ->
-    test15(false).
+    test16(true).
+
+test18() ->
+    test16(false).
 
 is_even(N) when is_number(N) ->
     N rem 2 == 0.

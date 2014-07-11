@@ -31,9 +31,13 @@ matchElem(Node1,Node2) ->
     Node2Type = api_refac:type(Node2),
     if
 	Node1Type == nil andalso Node2Type == nil -> true;
-	Node1Type == infix_expr orelse Node1Type == application orelse (Node2Type == integer andalso Node1Type == variable) -> maybe;
+	Node1Type == infix_expr orelse Node1Type == application  -> maybe;
 	Node2Type == variable orelse Node2Type == underscore -> true;
-	Node1Type == integer andalso Node2Type == integer ->  ?PP(Node1) == ?PP(Node2);
+	Node1Type == variable  -> maybe;
+	Node1Type == integer andalso Node2Type == integer -> utils_convert:convert_elem(Node1) == utils_convert:convert_elem(Node2);
+	Node1Type == atom andalso Node2Type == atom -> utils_convert:convert_elem(Node1) == utils_convert:convert_elem(Node2);
+        Node1Type == string andalso Node2Type == string -> utils_convert:convert_elem(Node1) == utils_convert:convert_elem(Node2);
+	Node1Type == float andalso Node2Type == float -> utils_convert:convert_elem(Node1) == utils_convert:convert_elem(Node2);
 	Node1Type == list andalso Node2Type == list -> 
 	    matchElem(wrangler_syntax:list_head(Node1),wrangler_syntax:list_head(Node2)) andalso 
 	    matchElem(wrangler_syntax:list_tail(Node1),wrangler_syntax:list_tail(Node2));
