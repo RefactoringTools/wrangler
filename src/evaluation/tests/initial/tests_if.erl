@@ -111,7 +111,7 @@ funIf(X) ->
 testFunIf() ->
     funIf(3).
  	    	     
-
+%%can be done in 2 stages
 testCallTest4() ->
     test4().
 

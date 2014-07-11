@@ -117,6 +117,10 @@ testAssignFun() ->
     X = is_even(2),
     X.
     
+testFunAppAssign() ->
+    X = 3,
+    testAssignFun().
+    
 
 
 
