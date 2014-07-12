@@ -1,7 +1,7 @@
 %%% @author Roberto Souto Maior de Barros Filho <>
 %%% @copyright (C) 2014, Roberto S. M. de Barros Filho, Simon  Thompson
 -module(utils_guards).
--export([guardsSuceed/3, guardsSuceed/4, rules/2, pos_to_node/2, evaluateGuardsExpression/2]).
+-export([guardsSuceed/3, guardsSuceed/4, rules/2, pos_to_node/2, evaluateGuardsExpression/2,get_variable/2]).
 
 %% Include files
 -include_lib("wrangler/include/wrangler.hrl").
@@ -58,7 +58,11 @@ evaluateGuardsExpression(Node, Scope)->
 				maybe
 			end
 	     end;
-	NodeType == variable -> get_variable(Node, Scope);
+	NodeType == variable -> 
+	    case get_variable(Node, Scope) of
+		{value, Expr@} -> evaluateGuardsExpression(Expr@, Scope);
+		Other -> Other
+	    end;
 	true -> 
 	    Convert = utils_convert:convert_elem(Node),
 	    case Convert of
@@ -81,7 +85,7 @@ get_variable(Var, Scope) ->
 				   {ok, Node} ->
 				       Match = ?MATCH(?T("Var@ = Expr@"), Node) andalso VarDefPos == api_refac:variable_define_pos(Var@),
 				       if
-					   Match -> evaluateGuardsExpression(Expr@, Scope);
+					   Match -> {value,Expr@};
 					   true -> {expr, Var}
 				       end;
 				   _ -> {expr, Var}

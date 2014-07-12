@@ -1,4 +1,4 @@
--module(tests_case).
+-module(tests_funApp_arit_case).
 -compile([export_all]).
 
 test1() ->

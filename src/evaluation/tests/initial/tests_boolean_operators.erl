@@ -1,6 +1,6 @@
 -module(tests_boolean_operators).
 -compile([export_all]).
--export([test/0,test2/0,test3/0,test4/0]).
+
 test() ->
     1 > 2.
 
