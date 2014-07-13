@@ -24,8 +24,8 @@ rules(_,_) ->
      is_number_rule(),
      is_boolean_rule(),
      is_atom_rule(),
-     is_tuple_rule()%%,
-    %% is_function_rule()
+     is_tuple_rule(),
+     is_function_rule()
     ]. 
 %%------------------------------------------------------------------
 equal_rule() ->
@@ -254,7 +254,7 @@ is_tuple_rule() ->
 is_function_rule() ->
     ?RULE(
          ?T("is_function(Args@@)"),
-         utils_guards:evaluateIsFun(Args@@),
+         wrangler_syntax:atom(utils_guards:evaluateIsFun(Args@@)),
          true
 	).
 

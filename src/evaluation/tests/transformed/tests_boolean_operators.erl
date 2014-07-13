@@ -135,17 +135,13 @@ test_is_atom_3() -> true.
 
 test_is_atom_4() -> false.
 
-test_is_function_1() ->
-    is_function(hello).
+test_is_function_1() -> false.
 
-test_is_function_2() ->
-    is_function(fun(X) -> 1 + X end).
+test_is_function_2() -> true.
 
-test_is_function_3() ->
-    is_function(fun(X) -> 1 + X end(3)).
+test_is_function_3() -> false.
 
-test_is_function_4() ->
-    is_function(fun def:test_is_function_1/0).
+test_is_function_4() -> true.
 
 test200() ->
        X = 10,
