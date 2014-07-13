@@ -91,6 +91,62 @@ test_not_2() -> false.
 test_not_3() ->
     not(maybe).
 
+test_is_list_1() -> true.
+
+test_is_list_2() -> true.
+
+test_is_list_3() -> false.
+
+test_is_tuple_1() -> true.
+
+test_is_tuple_2() -> true.
+
+test_is_tuple_3() -> false.
+
+test_is_integer_1() -> true.
+
+test_is_integer_2() -> false.
+
+test_is_integer_3() -> false.
+
+test_is_float_1() -> false.
+
+test_is_float_2() -> true.
+
+test_is_float_3() -> false.
+
+test_is_number_1() -> true.
+
+test_is_number_2() -> true.
+
+test_is_number_3() -> false.
+
+test_is_boolean_1() -> false.
+
+test_is_boolean_2() -> true.
+
+test_is_boolean_3() -> true.
+
+test_is_atom_1() -> true.
+
+test_is_atom_2() -> true.
+
+test_is_atom_3() -> true.
+
+test_is_atom_4() -> false.
+
+test_is_function_1() ->
+    is_function(hello).
+
+test_is_function_2() ->
+    is_function(fun(X) -> 1 + X end).
+
+test_is_function_3() ->
+    is_function(fun(X) -> 1 + X end(3)).
+
+test_is_function_4() ->
+    is_function(fun def:test_is_function_1/0).
+
 test200() ->
        X = 10,
        X > 5.

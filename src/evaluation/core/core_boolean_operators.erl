@@ -2,15 +2,6 @@
 -include_lib("wrangler/include/wrangler.hrl").
 -export([rules/2]).
 
-%% andalso, and, orelse, or, xor
-%% not, 
-%%is_list, is_integer, is_float, is_number, is_boolean, is_atom, is_tuple,is_function
-%%
-
-%%andalso,and,orelse,or,xor
-%%not,
-%%is_list,is_integer,is_float,is_number,is_boolean,is_atom,is_tuple,is_function
-
 rules(_,_) ->
     [   
      gt_rule(),
@@ -26,7 +17,15 @@ rules(_,_) ->
      or_rule(),
      orelse_rule(),
      xor_rule(),
-     not_rule()
+     not_rule(),
+     is_list_rule(),
+     is_integer_rule(),
+     is_float_rule(),
+     is_number_rule(),
+     is_boolean_rule(),
+     is_atom_rule(),
+     is_tuple_rule()%%,
+    %% is_function_rule()
     ]. 
 %%------------------------------------------------------------------
 equal_rule() ->
@@ -180,6 +179,83 @@ not_rule() ->
 	     wrangler_syntax:atom(not(Op_conv))
 	 end,
          is_boolean(utils_convert:convert_elem(Op@))
+	).
+
+is_list_rule() ->
+    ?RULE(
+         ?T("is_list(Op@)"),
+         begin
+	     Op_conv = utils_convert:convert_elem(Op@),
+	     wrangler_syntax:atom(is_list(Op_conv))
+	 end,
+         utils_convert:convertable_type(Op@)
+	).
+
+is_integer_rule() ->
+    ?RULE(
+         ?T("is_integer(Op@)"),
+         begin
+	     Op_conv = utils_convert:convert_elem(Op@),
+	     wrangler_syntax:atom(is_integer(Op_conv))
+	 end,
+         utils_convert:convertable_type(Op@)
+	).
+
+is_float_rule() ->
+    ?RULE(
+         ?T("is_float(Op@)"),
+         begin
+	     Op_conv = utils_convert:convert_elem(Op@),
+	     wrangler_syntax:atom(is_float(Op_conv))
+	 end,
+         utils_convert:convertable_type(Op@)
+	).
+
+is_number_rule() ->
+    ?RULE(
+         ?T("is_number(Op@)"),
+         begin
+	     Op_conv = utils_convert:convert_elem(Op@),
+	     wrangler_syntax:atom(is_number(Op_conv))
+	 end,
+         utils_convert:convertable_type(Op@)
+	).
+
+is_boolean_rule() ->
+    ?RULE(
+         ?T("is_boolean(Op@)"),
+         begin
+	     Op_conv = utils_convert:convert_elem(Op@),
+	     wrangler_syntax:atom(is_boolean(Op_conv))
+	 end,
+         utils_convert:convertable_type(Op@)
+	).
+
+is_atom_rule() ->
+    ?RULE(
+         ?T("is_atom(Op@)"),
+         begin
+	     Op_conv = utils_convert:convert_elem(Op@),
+	     wrangler_syntax:atom(is_atom(Op_conv))
+	 end,
+         utils_convert:convertable_type(Op@)
+	).
+
+is_tuple_rule() ->
+    ?RULE(
+         ?T("is_tuple(Op@)"),
+         begin
+	     Op_conv = utils_convert:convert_elem(Op@),
+	     wrangler_syntax:atom(is_tuple(Op_conv))
+	 end,
+         utils_convert:convertable_type(Op@)
+	).
+
+is_function_rule() ->
+    ?RULE(
+         ?T("is_function(Args@@)"),
+         utils_guards:evaluateIsFun(Args@@),
+         true
 	).
 
 boolean_cond(Op1@,Op2@) ->

@@ -133,6 +133,84 @@ test_not_2() ->
 test_not_3() ->
     not(maybe).
 
+test_is_list_1() ->
+    is_list([]).
+
+test_is_list_2() ->
+    is_list([1,2,3]).
+
+test_is_list_3() ->
+    is_list({1,2,3}).
+
+test_is_tuple_1() ->
+    is_tuple({}).
+
+test_is_tuple_2() ->
+    is_tuple({1,2,3}).
+
+test_is_tuple_3() ->
+    is_tuple([1,2,3]).
+
+test_is_integer_1() ->
+    is_integer(1).
+
+test_is_integer_2() ->
+    is_integer(1.0).
+
+test_is_integer_3() ->
+    is_integer(hello).
+
+test_is_float_1() ->
+    is_float(1).
+
+test_is_float_2() ->
+    is_float(1.0).
+
+test_is_float_3() ->
+    is_float(hello).
+
+test_is_number_1() ->
+    is_number(1).
+
+test_is_number_2() ->
+    is_number(1.0).
+
+test_is_number_3() ->
+    is_number(hello).
+
+test_is_boolean_1() ->
+    is_boolean(atom).
+
+test_is_boolean_2() ->
+    is_boolean(true).
+
+test_is_boolean_3() ->
+    is_boolean(false).
+
+test_is_atom_1() ->
+    is_atom(atom).
+
+test_is_atom_2() ->
+    is_atom(true).
+
+test_is_atom_3() ->
+    is_atom(false).
+
+test_is_atom_4() ->
+    is_atom([hello,world]).
+
+test_is_function_1() ->
+    is_function(hello).
+
+test_is_function_2() ->
+    is_function(fun(X) -> 1 + X end).
+
+test_is_function_3() ->
+    is_function(fun(X) -> 1 + X end(3)).
+
+test_is_function_4() ->
+    is_function(fun def:test_is_function_1/0).
+
 test200() ->
        X = 10,
        X > 5.

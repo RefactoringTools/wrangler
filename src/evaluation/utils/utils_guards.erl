@@ -1,7 +1,7 @@
 %%% @author Roberto Souto Maior de Barros Filho <>
 %%% @copyright (C) 2014, Roberto S. M. de Barros Filho, Simon  Thompson
 -module(utils_guards).
--export([guardsSuceed/3, guardsSuceed/4, rules/2, pos_to_node/2, evaluateGuardsExpression/2,get_variable/2]).
+-export([guardsSuceed/3, guardsSuceed/4, rules/2, pos_to_node/2, evaluateGuardsExpression/2,get_variable/2,evaluateIsFun/1]).
 
 %% Include files
 -include_lib("wrangler/include/wrangler.hrl").

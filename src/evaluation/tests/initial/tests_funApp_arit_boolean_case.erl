@@ -31,7 +31,6 @@ test5() ->
 	_ -> bye
     end.
 
-%%NOT WORKING -- extend boolean operators refactoring
 test6() ->
     case is_atom(hello) of
 	true -> hello;
