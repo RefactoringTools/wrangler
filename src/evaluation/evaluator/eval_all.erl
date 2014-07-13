@@ -144,6 +144,8 @@ checkNumberSteps(_Args=#args{current_file_name=_,user_inputs=_, search_paths=Sea
                       eval:start_evaluation(SearchPaths,{File,Scope},Info,"",fun core_arithmetics:rules/2,E, NSteps, TypedF);
              eval_if ->
                       eval:start_evaluation(SearchPaths,{File,Scope},Info,"",fun core_if:rules/2,E, NSteps, TypedF);
+             eval_case ->
+                      eval:start_evaluation(SearchPaths,{File,Scope},Info,"",fun core_case:rules/2,E, NSteps, TypedF);
              eval_lists -> 
                       eval:start_evaluation(SearchPaths,{File,Scope},Info,"",fun core_lists_concat:rules/2,E,NSteps,TypedF);
              _ -> {error, "Invalid refactoring type."}
@@ -160,12 +162,13 @@ checkNumberSteps(_Args=#args{current_file_name=_,user_inputs=_, search_paths=Sea
 %% This function calls all the rules from the other refactorings.
 %%--------------------------------------------------------------------
 rules({File,Scope},Info) ->
-     
+
      core_arithmetics:rules(empty,empty) ++
      core_lists_concat:rules(empty,empty) ++
      eval_funApp:rules({File,Scope},Info) ++
      core_boolean_operators:rules(nil,nil) ++
-     core_if:rules({File,Scope},Info)      
+     core_if:rules({File,Scope},Info) ++
+     core_case:rules({File,Scope},Info)      
    .    
 
 

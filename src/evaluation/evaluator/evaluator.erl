@@ -23,20 +23,23 @@ composite_refac(_Args=#args{
                   current_file_name = File,
                   user_inputs = [E],
                   search_paths=SearchPaths}) ->
-    [FirstPath | _] = SearchPaths,
-    ResultFile = FirstPath ++ "/results.txt",
-    file:delete(ResultFile),
-    {ok,_} = file:open(ResultFile, [append]),
-    Pid = spawn(eval, keep_temp_info, [0,[?TO_AST(E)]]),
-    Term = [ ?repeat_interactive(
-               ?refac_(eval_all,
-                       [File,
-                        E,
-                        Pid,
-                        {user_input, fun() ->"Type N to execute N steps or 'f' to execute all steps: " end},
-                        SearchPaths]
-                      )
-                )
-          ],
-          ?atomic(Term).
+    case SearchPaths of
+	    [FirstPath | _] ->
+		    ResultFile = FirstPath ++ "/results.txt",
+		    file:delete(ResultFile),
+		    {ok,_} = file:open(ResultFile, [append]),
+		    Pid = spawn(eval, keep_temp_info, [0,[?TO_AST(E)]]),
+		    Term = [ ?repeat_interactive(
+			       ?refac_(eval_all,
+				       [File,
+				        E,
+				        Pid,
+				        {user_input, fun() ->"Type N to execute N steps or 'f' to execute all steps: " end},
+				        SearchPaths]
+				      )
+				)
+			  ],
+		   ?atomic(Term);
+    	     _ -> {error, "Invalid Wrangler Search Paths"}
+    end.
 
