@@ -9,24 +9,24 @@
 %% This function represents a rule that tries to perform substitution rules in a function body only if the function information matches the function chosen by the user in the case of a Composite Refactoring.
 %% @end
 %%--------------------------------------------------------------------   
-start_evaluation(SearchPaths,File,Info,Pid,RulesFun,Expression,NSteps, TypedF) ->
+start_evaluation(SearchPaths,{File,Scope},Info,Pid,RulesFun,Expression,NSteps, TypedF) ->
 	    if Pid /= "" ->
 		    	Steps = get_temp_info_steps(Pid),
 		    	Body = lists:last(Steps),
-		   	NewBody = evaluate(SearchPaths,Pid,Body,File,Info,RulesFun,false,NSteps,TypedF,0,[Body]),
+		   	NewBody = evaluate(SearchPaths,Pid,Body,{File,Scope},Info,RulesFun,false,NSteps,TypedF,0,[Body]),
                         Change = ?PP(NewBody) /= ?PP(Body);
                true ->  Body = ?TO_AST(Expression),
-           		Change = ?PP(evaluate(SearchPaths,"",Body,File,Info,RulesFun,false, NSteps,TypedF,0,[Body])) /= Expression
+           		Change = ?PP(evaluate(SearchPaths,"",Body,{File,Scope},Info,RulesFun,false, NSteps,TypedF,0,[Body])) /= Expression
             end,
             if
-		Change -> PidEvaluation = spawn(eval,try_evaluate, [SearchPaths,Pid,Body,File,Info,RulesFun,true,NSteps,TypedF,0,[Body],self()]),
+		Change -> PidEvaluation = spawn(eval,try_evaluate, [SearchPaths,Pid,Body,{File,Scope},Info,RulesFun,true,NSteps,TypedF,0,[Body],self()]),
                           timeout_manager(PidEvaluation,Body,1000);
 		true -> 
                           {error,"No evaluation done"}   
        	    end.  
 
-try_evaluate(SearchPaths,Pid,Body,File,Info,RulesFun,true,NSteps,TypedF,NRefacsDone,Steps,MainPid) ->
-            Result = evaluate(SearchPaths,Pid,Body,File,Info,RulesFun,true,NSteps,TypedF,NRefacsDone,Steps),
+try_evaluate(SearchPaths,Pid,Body,{File,Scope},Info,RulesFun,true,NSteps,TypedF,NRefacsDone,Steps,MainPid) ->
+            Result = evaluate(SearchPaths,Pid,Body,{File,Scope},Info,RulesFun,true,NSteps,TypedF,NRefacsDone,Steps),
 	    MainPid ! {result, Result}.
 
 timeout_manager(Pid,Node,TimeOut) -> 
@@ -83,8 +83,8 @@ get_temp_info_nSteps(Pid) -> Pid ! {ask_nSteps,self()},
 %% @end
 %%--------------------------------------------------------------------  
 -spec(evaluate(string(),string(),[syntaxTree()] | syntaxTree(),string(),[{{modulename(),functionname(),arity()},syntaxTree(),syntaxTree() | [syntaxTree()]}],RulesFun::fun((_) -> any()), boolean(), string(), boolean(),integer(),[syntaxTree]) -> [syntaxTree()] | syntaxTree()).
-evaluate(SearchPaths,Pid, CurrentNode,File,Info,RulesFun, Transform, Input_Steps,TypedF,NRefacsDone,Steps) -> 
-    {ok, NewNode} = ?STOP_TD_TP(RulesFun(File,Info), CurrentNode),
+evaluate(SearchPaths,Pid, CurrentNode,{File,Scope},Info,RulesFun, Transform, Input_Steps,TypedF,NRefacsDone,Steps) -> 
+    {ok, NewNode} = ?STOP_TD_TP(RulesFun({File,Scope},Info), CurrentNode),
     Changed = ?PP(CurrentNode) /= ?PP(NewNode),
     if
        Changed ->  NRefacsDoneI = NRefacsDone + 1,
@@ -95,7 +95,8 @@ evaluate(SearchPaths,Pid, CurrentNode,File,Info,RulesFun, Transform, Input_Steps
     if TypedF ->
                 if
    	            Transform andalso Changed -> 
-                	evaluate(SearchPaths,Pid, NewNode,File,Info,RulesFun, Transform, Input_Steps, TypedF,NRefacsDoneI,NewSteps);
+                        
+                	evaluate(SearchPaths,Pid, NewNode,{File,Scope},Info,RulesFun, Transform, Input_Steps, TypedF,NRefacsDoneI,NewSteps);
    		    true -> 
                              evaluation_ended(SearchPaths,Transform,NRefacsDoneI,Pid,NewNode,NewSteps)
     		end;
@@ -103,7 +104,7 @@ evaluate(SearchPaths,Pid, CurrentNode,File,Info,RulesFun, Transform, Input_Steps
                 Input_Steps_Int = list_to_integer(Input_Steps),
                 if
    	            Transform andalso Changed andalso Input_Steps_Int > 1 -> 
-                	evaluate(SearchPaths,Pid, NewNode,File,Info,RulesFun, Transform, integer_to_list(Input_Steps_Int - 1), 					TypedF,NRefacsDoneI,NewSteps);
+                	evaluate(SearchPaths,Pid, NewNode,{File,Scope},Info,RulesFun, Transform, integer_to_list(Input_Steps_Int - 1), 					TypedF,NRefacsDoneI,NewSteps);
                     Input_Steps_Int < 0 -> 
                                    go_back_steps(SearchPaths,Pid,Input_Steps_Int,Transform);
                     true ->  evaluation_ended(SearchPaths,Transform,NRefacsDoneI,Pid,NewNode,NewSteps)
@@ -117,18 +118,22 @@ evaluate(SearchPaths,Pid, CurrentNode,File,Info,RulesFun, Transform, Input_Steps
 %%--------------------------------------------------------------------
 go_back_steps(SearchPaths,Pid,Input_Int,Transform) ->
    TotalSteps = get_temp_info_nSteps(Pid), 
+   case SearchPaths of 
+        [FirstPath|_] -> 
                          if
                               TotalSteps >= Input_Int * (-1)  ->					
 		                   Steps = get_temp_info_steps(Pid),
 		                   [_|NewSteps] = get_back_steps(lists:reverse(Steps),Input_Int * (-1) + 1),
                                    OldSteps = get_old_steps(lists:reverse(Steps),Input_Int * (-1)),
-                                   FileName = SearchPaths ++ "/results.txt",
+                                   FileName = FirstPath ++ "/results.txt",
                                    if Transform ->
                                                 Pid ! {refactoring_finished,Input_Int,OldSteps},
                                    		write_result(NewSteps,FileName,lists:last(NewSteps));
                                       true -> lists:last(NewSteps)
                                    end
-                            end.
+                            end;
+        _ -> {error, "Invalid Wrangler Search Path"}
+   end.
 
 get_back_steps(_, 0) -> [];
 get_back_steps([H|T],NSteps) -> [H|get_back_steps(T,NSteps -1)].  
@@ -143,20 +148,23 @@ get_old_steps([_|T],NSteps) -> get_old_steps(T,NSteps-1).
 %%--------------------------------------------------------------------
 evaluation_ended(SearchPath,Transform,NRefacsDone,Pid,NewBody,Steps) -> 
                                 if Transform ->
-					[File | _] = SearchPath,
-                                        FileName = File ++ "/results.txt",
-                                        if Pid /= "" ->  OldSteps = get_temp_info_steps(Pid),
-                                                         LengthOld = length(OldSteps),
-                                                         if LengthOld == 1 ->
-		                                                 write_result(Steps, FileName, NewBody),
-		                                                 Pid ! {refactoring_finished,NRefacsDone,Steps};
-                                                         true -> write_result(OldSteps ++ Steps, FileName, NewBody),
-                                                         	 Pid ! {refactoring_finished,NRefacsDone,OldSteps ++ Steps}
-                                                         end,
-                                                         NewBody;
-                                           true -> 
-                                                   write_result(Steps, FileName, NewBody)
-                                        end;
+                                        case SearchPath of
+					    [File | _] ->
+		                                FileName = File ++ "/results.txt",
+		                                if Pid /= "" ->  OldSteps = get_temp_info_steps(Pid),
+		                                                 LengthOld = length(OldSteps),
+		                                                 if LengthOld == 1 ->
+				                                         write_result(Steps, FileName, NewBody),
+				                                         Pid ! {refactoring_finished,NRefacsDone,Steps};
+		                                                 true -> write_result(OldSteps ++ Steps, FileName, NewBody),
+		                                                 	 Pid ! {refactoring_finished,NRefacsDone,OldSteps ++ Steps}
+		                                                 end,
+		                                                 NewBody;
+		                                   true -> 
+		                                           write_result(Steps, FileName, NewBody)
+		                                end;
+                                             _ -> {error, "Invalid Wrangler Search Paths"}
+                                         end;
                                     true ->
                                         NewBody
                                  end.

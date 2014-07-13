@@ -14,7 +14,7 @@ if_rule(Scope) ->
     ).
 
 if_cond([], _) -> false; 
-if_cond([NodeList | T], Scope) ->
+if_cond([NodeList | T], Scope) -> 
     [[Node | []] | []] = NodeList,
     Result = utils_guards:evaluateGuardsExpression(Node, Scope),
     atom_value_case_cond(Result, T, Scope).
