@@ -1,4 +1,4 @@
--module(tests_funApp_arit_boolean_case).
+-module(tests_all_case).
 -compile([export_all]).
 
 test1() ->

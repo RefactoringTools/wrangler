@@ -12,6 +12,7 @@
 -export([input_par_prompts/0,select_focus/1, 
 	 check_pre_cond/1, selective/0, 
 	 transform/1]).
+-export([second_transform/5,transform_unref_assign/3]).
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -74,25 +75,28 @@ selective() ->
 %%--------------------------------------------------------------------
 transform(_Args=#args{current_file_name=File,
 		     user_inputs=[EntireFileStr],focus_sel=FunDef}) -> 
-	    CheckedFileBool = refac:str_to_bool(EntireFileStr),
+    transform_unref_assign(File,EntireFileStr,FunDef).
+	    
+
+transform_unref_assign(File,EntireFileStr, FunDef) ->
+    CheckedFileBool = refac:str_to_bool(EntireFileStr),
 	    if
-		CheckedFileBool == true orelse CheckedFileBool == false ->
-		    MFA = 
-			if
-			    CheckedFileBool == true -> notrelevant;
-			    true -> api_refac:fun_define_info(FunDef)
-			 end,		    
+		CheckedFileBool orelse CheckedFileBool == false ->
+		    MFA = fun_define_info(CheckedFileBool, FunDef),		    
 		    if
 			 MFA /= unknown ->
 			    CollectResult = collect(File),
 			    Result = ?STOP_TD_TP(rules(CollectResult, {CheckedFileBool, MFA}), [File]),
-			    second_transform(Result,File,CheckedFileBool,MFA);
+			    second_transform(Result,File,CheckedFileBool,MFA,false);
 			 true -> {error, "Please, place the mouse cursor on the desired function!"}
 		    end;
 		true -> {error, "Please, answer 'y' or 'n'!"}
 	    end.
 
-second_transform(Result,File,CheckedFileBool,MFA) ->
+fun_define_info(true, _) -> notrelevant;
+fun_define_info(_, FunDef) -> api_refac:fun_define_info(FunDef). 
+    
+second_transform(Result,File,CheckedFileBool,MFA,IsFirst) ->
     case Result of
 	{ok, [{{FileName, FileName}, Node}]} -> 
 	      FileNode = api_refac:get_ast(File),
@@ -100,7 +104,7 @@ second_transform(Result,File,CheckedFileBool,MFA) ->
 		   {error, _Reason} -> 
 		      Result;
 		   _ ->
-		      try_transform_recursively(FileNode /= Node, Node, FileName, {CheckedFileBool, MFA})
+		      try_transform_recursively(IsFirst orelse FileNode /= Node, Node, FileName, {CheckedFileBool, MFA})
 	      end;
 	 _ ->
 	      Result

@@ -1,4 +1,4 @@
--module(tests_funAppANDarit_external).
+-module(tests_funApp_external).
 -compile([export_all]).
 
 testTwiceX(X) -> def:twice(X).
@@ -19,31 +19,25 @@ testTwiceTimesTriple(X,Y) ->
 testTwiceOfTriple(X) ->
    def:twice(def:triple(X)).
 
-testOfTwice() ->
+testTwiceOfTwice(X)->
+    def:twice(def:twice(X)).
+
+testOfTwice2() ->
     def:twice(def:twice(4)).
 
-testNestedApps() ->  def:add(def:twice(def:twice(3)),def:triple(4)).
+testNestedApps(X) ->  def:add(def:twice(def:twice(3)),def:triple(X)).
 
 testLists2(X) -> def:f([X,2,3,4,5]).
 
 testFac10() ->
     def:fac(10).
-
-testMap() -> def:map(fun(X) -> 2 * X end,[0,1,2,3]).
+    
+testMap() -> def:map(fun(X) -> 2 * X end,[1,2,3]).
 
 testMap2() -> def:map(fun(X) -> 2 * X end,[]).
 
-testMap3() -> def:map(fun def:twice/1,[0,1,2,3]).
+testMap3() -> def:map(fun def:twice/1,[1,2,3]).
 
 testMap4() -> def:map(fun def:twice/1,[]).
-    
-testFilter() -> def:filter(fun(X) -> X > 10 end, [2,4,6,10,15,19]).
-
-testWrongFilter() -> def:filter(fun(X) -> X + 10 end, [2,4,6,10,15,19]).
-
-
-
-
-    
 
 

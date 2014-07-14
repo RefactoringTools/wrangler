@@ -1,4 +1,4 @@
--module(tests_funAppANDarit_external).
+-module(tests_all_external).
 -compile([export_all]).
 
 testTwiceX(X) -> def:twice(X).
@@ -30,9 +30,6 @@ testFac10() -> 3628800.
 testMap() ->
     [0,2,4,6].
     
-testMap() ->
-    [0,2,4,6].
-
 testMap2() -> [].
 
 testMap3() ->

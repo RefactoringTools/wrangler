@@ -1,4 +1,4 @@
--module(tests_funApp_arit_if).
+-module(tests_all_if).
 -compile([export_all]).
 
 is_even(N) when is_number(N) ->
@@ -13,33 +13,23 @@ test2() ->
 test3() -> [].
 
 test4() ->
-    X = true,
     [2].
 
 test5() ->
-    X = false,
     [].
 
 test6() ->
-    X = false,
-    Y = true,
     [3].
 
 test7() ->
-    X = 4,
     [2].
 
 test8() ->
-    Y = 4,
-    X = Y > 2,
     [2].
 
 test9() -> [3].
 
-test10() ->
-    Y = 1,
-    X = Y > 2,
-    [3].
+test10() -> [3].
 
 test11(X) ->
     if
@@ -47,17 +37,13 @@ test11(X) ->
 	true -> []
     end.
 
-test12() ->
-    Aux = 0 == 0,
-    [2].
+test12() -> [2].
 
-test13() ->
-    Aux = 1 == 0,
-    [].
+test13() -> [].
 
 test14()->
     if
-	2 < 1 -> 42;
+	false -> 42;
 	false -> 37
     end.
 	    

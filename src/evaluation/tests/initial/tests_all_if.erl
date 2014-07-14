@@ -1,4 +1,4 @@
--module(tests_funApp_arit_if).
+-module(tests_all_if).
 -compile([export_all]).
 
 is_even(N) when is_number(N) ->

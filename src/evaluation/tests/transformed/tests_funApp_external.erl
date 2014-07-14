@@ -1,4 +1,4 @@
--module(tests_funApp_externalDef).
+-module(tests_funApp_external).
 -compile([export_all]).
 
 testTwiceX(X) -> def:twice(X).

@@ -1,4 +1,4 @@
--module(tests_funAppANDarit_internal).
+-module(tests_all_internal).
 -compile([export_all]).
 
 %%INTERNAL DEFINITIONS
@@ -23,6 +23,8 @@ testTupleAndApp3(X) -> X + 7.
 testIdentityAndApp(X) -> 2 * X.
 
 testLists1() -> 30.
+
+testLists2() -> 110.
 
 testHugeList() -> 2550.
 

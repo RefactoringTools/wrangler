@@ -1,4 +1,4 @@
--module(tests_funApp_internalDef).
+-module(tests_funApp_internal).
 -record(book, {name,
 		authors,
 		year,

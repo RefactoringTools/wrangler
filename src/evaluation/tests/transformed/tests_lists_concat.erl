@@ -1,4 +1,4 @@
--module(test_lists).
+-module(tests_lists_concat).
 
 test() -> [1,2,3,4].
 

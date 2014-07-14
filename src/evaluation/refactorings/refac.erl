@@ -67,8 +67,7 @@ body_rule(RulesFun, {RefacWholeFile, MFA}, TimeOut, FunArgs) ->
        end, 
        begin
            FunInfo = api_refac:fun_define_info(f@),
-	   RefacWholeFile == true orelse	   
-	   FunInfo == MFA andalso
+	   (RefacWholeFile orelse FunInfo == MFA) andalso
 	   begin
 	       Result = try_transform_body(Body@@, RulesFun, {FunArgs, _This@}, FunInfo, TimeOut),
 	       case Result of
@@ -80,8 +79,8 @@ body_rule(RulesFun, {RefacWholeFile, MFA}, TimeOut, FunArgs) ->
       end
        ).
 
-try_transform_body(Node, RulesFun, FunArgs, FunDefInfo, TimeOut) ->
-	    Pid = spawn(refac, try_transform_manager, [Node, RulesFun, FunArgs, FunDefInfo, self()]),
+try_transform_body(Node, RulesFun, FunArgs, FunDefInfo, TimeOut) ->   
+    Pid = spawn(refac, try_transform_manager, [Node, RulesFun, FunArgs, FunDefInfo, self()]),
 	    receive
 		{result, NewNode} -> NewNode
 	    after 
