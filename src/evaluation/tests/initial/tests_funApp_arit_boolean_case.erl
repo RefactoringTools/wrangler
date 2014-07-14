@@ -113,6 +113,13 @@ test18() ->
 test19() ->
     test17(false).
 
+test20() ->
+    X = is_even(3),
+    if
+	X -> test17(true);
+	true -> test17(false) 
+    end.
+	    
 is_even(N) when is_number(N) ->
     N rem 2 == 0.
 	    

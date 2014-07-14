@@ -60,4 +60,7 @@ test19() ->
 test20() ->
     [ "Hello" ++ " " ++ "World!"]++[ "Hello" ++ " " ++ "World!"].
 
+test21() ->
+    [test16()] ++ [test16()].
+
 

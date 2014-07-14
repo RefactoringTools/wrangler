@@ -86,22 +86,25 @@ transform(_Args=#args{current_file_name=File,
 			 MFA /= unknown ->
 			    CollectResult = collect(File),
 			    Result = ?STOP_TD_TP(rules(CollectResult, {CheckedFileBool, MFA}), [File]),
-			    case Result of
-				{ok, [{{FileName, FileName}, Node}]} -> 
-				    FileNode = api_refac:get_ast(File),
-				    case FileNode of
-					{error, _Reason} -> 
-					    Result;
-					_ ->
-					    try_transform_recursively(FileNode /= Node, Node, FileName, {CheckedFileBool, MFA})
-				    end;
-				_ ->
-				    Result
-			    end;
+			    second_transform(Result,File,CheckedFileBool,MFA);
 			 true -> {error, "Please, place the mouse cursor on the desired function!"}
 		    end;
 		true -> {error, "Please, answer 'y' or 'n'!"}
 	    end.
+
+second_transform(Result,File,CheckedFileBool,MFA) ->
+    case Result of
+	{ok, [{{FileName, FileName}, Node}]} -> 
+	      FileNode = api_refac:get_ast(File),
+	      case FileNode of
+		   {error, _Reason} -> 
+		      Result;
+		   _ ->
+		      try_transform_recursively(FileNode /= Node, Node, FileName, {CheckedFileBool, MFA})
+	      end;
+	 _ ->
+	      Result
+   end.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -146,12 +149,12 @@ variable_assignment_rule(CollectResult, {RefacWholeFile, MFA}) ->
        (RefacWholeFile orelse
 	MFA == api_refac:fun_define_info(f@)
        ) andalso
-       lists:filter(fun(Elem) -> Elem == Var@ end, CollectResult) == []
+       lists:filter(fun(Elem) -> Elem == api_refac:bound_vars(Var@) end, CollectResult) == []
    ).
 
 collect(Scope) ->
     ?FULL_TD_TU(    
-       [collect_variables_occurrences(Scope)],
+       [collect_variables_occurrences()],
        [Scope]
       ).
 
@@ -163,30 +166,11 @@ collect(Scope) ->
 %%   -The AST representation of the body
 %% @end
 %%--------------------------------------------------------------------
-collect_variables_occurrences(Scope)->
+collect_variables_occurrences()->
     ?COLLECT(
        ?T("Var@"),
-       begin
-	   [Pos | _] = api_refac:variable_define_pos(Var@),
-	   {ok, Node} = pos_to_node(Scope, Pos),
-	   ?MATCH(?T("Var2@ = Exp2@"), Node),
-	   Var2@
-       end,
-       api_refac:type(Var@) == variable andalso
-       collect_condition(Var@, Scope)
+       api_refac:free_vars(Var@),
+       api_refac:type(Var@) == variable andalso 
+       api_refac:variable_define_pos(Var@) /= [{0,0}] andalso 
+       api_refac:bound_vars(Var@) == []
      ).
-
-collect_condition(Var, Scope) ->    
-    case api_refac:variable_define_pos(Var) of
-	[DefPos | _] -> 
-	    Result = pos_to_node(Scope, DefPos),
-	    case Result of
-		{ok, Node} -> 
-		    ?MATCH(?T("Var@ = Expr@"), Node) andalso Var /= Var@;
-		_ -> false
-	    end;
-	_ -> false
-    end.
-    
-pos_to_node(Scope, Pos) -> 
-    api_interface:pos_to_node(Scope, Pos, fun(Node) -> ?MATCH(?T("Var@ = Exp@"), Node) end).
