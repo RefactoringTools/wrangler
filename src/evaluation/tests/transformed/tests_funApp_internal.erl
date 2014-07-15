@@ -44,6 +44,18 @@ guardsFun(_) -> last.
 
 strangeGuard(N) when [] -> N + 2;
 strangeGuard(N) -> N.
+
+is_even(N) when is_number(N) ->
+    N rem 2 == 0.
+
+firstOfTuple({A,B}) ->
+     A.
+
+firstOfTuple2({hello,world}) ->
+     hello.
+
+f2([X]) -> X;
+f2([X | Xs]) -> X + f2(Xs). 
     
 %%TESTS
 test_funAppRecord() ->
@@ -113,6 +125,19 @@ testStrangeGuard() -> hello.
 testAssignFun() ->
     X = 2 rem 2 == 0,
     X.
-    
 
+testIsEven() ->
+    X = 2,
+    is_even(X).
+
+testAddTuple() ->
+    1 + 2.
+
+testFirstOfTuple() -> hello.
+
+testFirstOfTuple2() -> hello.
+    
+testf2() -> 1 + 2 + 3.
+    
+test2f2() -> f2([]).
 

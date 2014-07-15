@@ -55,6 +55,9 @@ firstOfTuple({A,B}) ->
 
 firstOfTuple2({hello,world}) ->
      hello.
+
+f2([X]) -> X;
+f2([X | Xs]) -> X + f2(Xs). 
 %%TESTS
 
 test_funAppRecord() -> record_book().
@@ -124,7 +127,6 @@ testAssignFun() ->
     X = is_even(2),
     X.
 
-%%BUG
 testIsEven() ->
     X = 2,
     is_even(X).
@@ -137,6 +139,10 @@ testFirstOfTuple() ->
 
 testFirstOfTuple2() ->
     firstOfTuple2({hello,world}).
+
+testf2() -> f2([1,2,3]).
+
+test2f2() -> f2([]).
 
 %%Not WORKING PROPERLY
 testFunAppAssign() ->
