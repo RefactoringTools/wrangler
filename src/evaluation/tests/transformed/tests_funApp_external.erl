@@ -41,4 +41,6 @@ testMap3() ->
 testMap4() ->
     [].
 
-
+testFunAppAssign() ->
+    X = 3,
+    def:testAssignFun().

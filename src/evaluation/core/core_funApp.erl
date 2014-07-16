@@ -5,7 +5,7 @@
 
 %%%===================================================================
 %% gen_refac callbacks
--compile([export_all]).
+-export([getCollectFile/3,collect/2,length_rule/0,anonymousCall_rule/0,addModuleName_rule/1,functionCall_rule/5,functionCall_cond/5]).
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
@@ -145,7 +145,7 @@ addModuleName_rule(Module) ->
 %% This rule only applies a rewriting if exists a matching between the function clause being evaluated and any element from <i>Info</i>. Otherwise, nothing is done. </p>
 %% @end
 %%--------------------------------------------------------------------
-functionCall_rule(Info, FunDefInfo, RulesList, IsRefactoring) ->
+functionCall_rule(Info, FunDefInfo, RulesList, IsRefactoring, BoundVars) ->
     ?RULE(
           ?T("M@:F@(Args@@)"),
 	  begin
@@ -160,20 +160,27 @@ functionCall_rule(Info, FunDefInfo, RulesList, IsRefactoring) ->
 	  end,
 	  begin	     
 	      FunInfo = getFunDefineInfo(IsRefactoring, M@, F@, Args@@),
-	      case FunInfo of
+	      functionCall_cond(FunInfo,FunDefInfo,Info,Args@@,BoundVars)	      
+	  end
+	  ).
+
+functionCall_cond(FunInfo,FunDefInfo,Info,Args@@,BoundVars) ->
+    case FunInfo of
 		  {M,F,A} ->
 		      FunInfo /= FunDefInfo andalso
 		      begin
 			  FirstMatch = utils_match:firstMatch(Info,{M,F,A},Args@@),
 			  if
 			      FirstMatch == noMatch -> false;
-			      true -> true
+			      true -> 
+				   {match,Patt,Body} = FirstMatch,
+				  Subst = utils_subst:subst(Body,Patt,Args@@),
+				  variablesAreValid(BoundVars,api_refac:bound_vars(Subst))
 			  end
 		      end;
 		  _ -> false
-	      end	      
-	  end
-	  ).
+	      end.
+    
 
 getFunDefineInfo(false, M@, F@, Args@@) -> {list_to_atom(?PP(M@)),list_to_atom(?PP(F@)),length(Args@@)};
 getFunDefineInfo(true,_,F@,_) -> api_refac:fun_define_info(F@);			   
@@ -196,6 +203,14 @@ exported_all(File) ->
 	    end;
 	_ -> false
    end.
+
+variablesAreValid([],_) -> true;
+variablesAreValid(_,[]) -> true; 
+variablesAreValid([{Var,_} | T],NewBoundVars) ->
+    case lists:keyfind(Var,1,NewBoundVars) of
+	false -> variablesAreValid(T,NewBoundVars);
+	_ -> false
+    end.
 
     
 

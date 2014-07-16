@@ -1,7 +1,7 @@
 -module(core_if).
 -include_lib("wrangler/include/wrangler.hrl").
 -export([rules/2]).
-rules({_,Scope},_) ->
+rules({_,Scope,_},_) ->
     [
      if_rule(Scope)
     ].

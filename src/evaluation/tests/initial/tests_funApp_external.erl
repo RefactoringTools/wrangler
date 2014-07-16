@@ -40,4 +40,6 @@ testMap3() -> def:map(fun def:twice/1,[1,2,3]).
 
 testMap4() -> def:map(fun def:twice/1,[]).
 
-
+testFunAppAssign() ->
+    X = 3,
+    def:testAssignFun().

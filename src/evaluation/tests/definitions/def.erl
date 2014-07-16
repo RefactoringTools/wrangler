@@ -1,5 +1,5 @@
 -module(def).
--export([triple/1, twice/1, f/1, g/1, h/1, fac/1, externalCall/1, map/2,filter/2]).
+-export([triple/1, twice/1, f/1, g/1, h/1, fac/1, externalCall/1, map/2,filter/2,testAssignFun/0]).
 
 triple(X) ->
      3 * X.
@@ -33,3 +33,7 @@ map(F, []) when is_function(F, 1) -> [].
       T :: term().
 filter(Pred, List) when is_function(Pred, 1) ->
     [ E || E <- List, Pred(E) ].
+
+testAssignFun() ->
+    X = 2 rem 2 == 0,
+    X.

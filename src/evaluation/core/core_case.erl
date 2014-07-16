@@ -1,7 +1,7 @@
 -module(core_case).
 -include_lib("wrangler/include/wrangler.hrl").
 -export([rules/2]).
-rules({_,Scope},_) ->
+rules({_,Scope,_},_) ->
     [case_rule(Scope)].
 
 case_rule(Scope) ->

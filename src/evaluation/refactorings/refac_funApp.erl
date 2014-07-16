@@ -100,11 +100,11 @@ transform_funApp(Args=#args{current_file_name=File, search_paths=SearchPaths,use
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-rules({{ModuleName,RefacModule,Info},_}, FunDefInfo) ->
+rules({{ModuleName,RefacModule,Info},_,BoundVars}, FunDefInfo) ->
     [   
     	core_funApp:length_rule(),
-	core_funApp:functionCall_rule(Info, FunDefInfo, module_rules(ModuleName, RefacModule) ,true),
-	functionCall_rule_2(Info, FunDefInfo),
+	core_funApp:functionCall_rule(Info, FunDefInfo, module_rules(ModuleName, RefacModule) ,true, BoundVars),
+	functionCall_rule_2(Info, FunDefInfo,BoundVars),
 	core_funApp:anonymousCall_rule()
     ]. 
 
@@ -120,7 +120,7 @@ module_rules(ModuleName, RefacModule) ->
 %% This rule only applies a rewriting if exists a matching between the function clause being evaluated and any element from <i>Info</i>. Otherwise, nothing is done. </p>
 %% @end
 %%--------------------------------------------------------------------
-functionCall_rule_2(Info, FunDefInfo) ->
+functionCall_rule_2(Info, FunDefInfo,BoundVars) ->
     ?RULE(
           ?T("F@(Args@@)"),
 	  begin
@@ -130,18 +130,7 @@ functionCall_rule_2(Info, FunDefInfo) ->
 	  end,
 	  begin	     	      	
 	      FunInfo = api_refac:fun_define_info(F@),
-	      case FunInfo of
-		  {M,F,A} ->
-		      FunInfo /= FunDefInfo andalso
-		      begin
-			  FirstMatch = utils_match:firstMatch(Info,{M,F,A},Args@@),
-			  if
-			      FirstMatch == noMatch -> false;
-			      true -> true
-			  end
-		      end;
-		  _ -> false
-	      end	      
+	      core_funApp:functionCall_cond(FunInfo,FunDefInfo,Info,Args@@,BoundVars)
 	  end
 	  ).
 
@@ -160,6 +149,7 @@ removeModuleName_rule(RefacModule) ->
 ).
 
 
+    
 
 
 

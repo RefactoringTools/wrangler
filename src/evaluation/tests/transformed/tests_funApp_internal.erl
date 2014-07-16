@@ -141,3 +141,6 @@ testf2() -> 1 + 2 + 3.
     
 test2f2() -> f2([]).
 
+testFunAppAssign() ->
+    X = 3,
+    testAssignFun().

@@ -4,7 +4,7 @@
 %% Include files
 -include_lib("wrangler/include/wrangler.hrl").
 transform_body(Node, RulesFun, Scope) ->   
-    transform_body(Node, RulesFun, {[], Scope}, unknown).
+    transform_body(Node, RulesFun, {[], Scope,[]}, unknown).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -15,7 +15,7 @@ transform_body(Node, RulesFun, Scope) ->
 %%--------------------------------------------------------------------  
 -spec(transform_body(Node::[syntaxTree()] | syntaxTree(),RulesFun::fun((_) -> any()),Info::[{{modulename(),functionname(),arity()},syntaxTree(),syntaxTree() | [syntaxTree()]}], FunDefInfo::{modulename(),functionname(),arity()}) -> [syntaxTree()] | syntaxTree()).
 transform_body(Node,RulesFun,FunArgsWithScope,FunDefInfo) ->
-    {FunArgs,Scope} = FunArgsWithScope,
+    {FunArgs,Scope,BoundVars} = FunArgsWithScope,
     Subst = ?STOP_TD_TP((RulesFun(FunArgsWithScope, FunDefInfo)), Node),
     case Subst of
 	{ok, NewNode@@} ->
@@ -26,7 +26,7 @@ transform_body(Node,RulesFun,FunArgsWithScope,FunDefInfo) ->
 		    if
 			Match ->
 			    NewScope = ?TO_AST("f@(Args@@) when Guards@@ -> NewNode@@;"),
-			    transform_body(NewNode@@, RulesFun, {FunArgs, NewScope}, FunDefInfo);
+			    transform_body(NewNode@@, RulesFun, {FunArgs, NewScope,BoundVars}, FunDefInfo);
 			true -> transform_body(NewNode@@, RulesFun, FunArgsWithScope, FunDefInfo)
 		    end;
 		true -> NewNode@@
