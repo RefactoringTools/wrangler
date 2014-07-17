@@ -73,7 +73,7 @@ matchList([H1 | T1],[H2 | T2])->
 %% @end
 %%--------------------------------------------------------------------
 -spec(firstMatch([{{modulename(),functionname(),arity()},syntaxTree(),syntaxTree()}],{modulename(),functionname(),arity()},syntaxTree()) -> noMatch | {match,syntaxTree(),syntaxTree()}).
-firstMatch([{{M2,F2,A2},ArgPatt,Guards,Body} | T],{M,F,A},Arg) ->   
+findFirstMatch([{{M2,F2,A2},ArgPatt,Guards,Body} | T],{M,F,A},Arg) ->   
     Matches = M == M2 andalso F == F2 andalso A == A2,    
     if
 	Matches ->
@@ -84,13 +84,21 @@ firstMatch([{{M2,F2,A2},ArgPatt,Guards,Body} | T],{M,F,A},Arg) ->
 		    if
 			GuardsSuceed == maybe -> noMatch;
 			GuardsSuceed -> {match,ArgPatt,Body};      
-			true -> firstMatch(T,{M,F,A},Arg)
+			true -> findFirstMatch(T,{M,F,A},Arg)
 		    end;
 
 		Match == maybe -> noMatch;
-		true  -> firstMatch(T,{M,F,A},Arg)
+		true  -> findFirstMatch(T,{M,F,A},Arg)
 	    end;
-	true  -> firstMatch(T,{M,F,A},Arg)
+	true  -> findFirstMatch(T,{M,F,A},Arg)
     end;
-firstMatch(_,_,_) -> noMatch.
+findFirstMatch(_,_,_) -> noMatch.
+    
+firstMatch({list, List}, {M,F,A},Arg) ->
+    case lists:keyfind(M,1,List) of
+	false -> [];
+	{_,Info} -> findFirstMatch(Info, {M,F,A}, Arg)
+    end;
+firstMatch(Info, FunInfo, Arg) -> findFirstMatch(Info, FunInfo, Arg).
+
     

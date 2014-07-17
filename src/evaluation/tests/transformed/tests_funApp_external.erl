@@ -1,5 +1,6 @@
 -module(tests_funApp_external).
--compile([export_all]).
+%%-compile([export_all]).
+-export([internalCall2/1]).
 
 testTwiceX(X) -> def:twice(X).
 
@@ -44,3 +45,19 @@ testMap4() ->
 testFunAppAssign() ->
     X = 3,
     def:testAssignFun().
+
+testBar() ->
+    [0, 1 + def2:bar(1 - 1), 2 + def2:bar(2 - 1), 3 + def2:bar(3 - 1)].
+
+testExternalCall() -> 3 + tests_funApp_external:internalCall(3 - 1).
+
+testExternalCall2() -> 3 + internalCall2(3 - 1).
+
+testInternalCall()->
+    tests_funApp_external:internalCall(3).
+
+internalCall(X) when X > 0 -> 2 * X + internalCall(X - 1); 
+internalCall(0) -> 10. 
+
+internalCall2(X) when X > 0 -> 2 * X + internalCall(X - 1); 
+internalCall2(0) -> 10. 

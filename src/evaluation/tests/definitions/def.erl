@@ -1,5 +1,5 @@
 -module(def).
--export([triple/1, twice/1, f/1, g/1, h/1, fac/1, externalCall/1, map/2,filter/2,testAssignFun/0]).
+-export([triple/1, twice/1, f/1, g/1, h/1, fac/1, externalCall/1, map/2,filter/2,testAssignFun/0,externalCall2/1]).
 
 triple(X) ->
      3 * X.
@@ -20,7 +20,10 @@ fac(1) -> 1;
 fac(X) when X > 1 -> X * fac(X - 1).  
 
 externalCall(0) -> 0;
-externalCall(X) -> X + tests_funApp:externalCall(X - 1).
+externalCall(X) -> X + tests_funApp_external:internalCall(X - 1).
+
+externalCall2(0) -> 0;
+externalCall2(X) -> X + tests_funApp_external:internalCall2(X - 1).
 
 map(F, [H|T]) ->
     [F(H)|map(F, T)];

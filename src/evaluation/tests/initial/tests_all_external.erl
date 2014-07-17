@@ -41,7 +41,11 @@ testFilter() -> def:filter(fun(X) -> X > 10 end, [2,4,6,10,15,19]).
 
 testWrongFilter() -> def:filter(fun(X) -> X + 10 end, [2,4,6,10,15,19]).
 
+testBar() ->
+    def:map(fun(X) -> def2:bar(X) end, [0,1,2,3]).
 
+testCase() ->
+    def3:case_refac(4).
 
 
     

@@ -41,7 +41,9 @@ testFilter() -> [E || E <- [2,4,6,10,15,19],E > 10].
 
 testWrongFilter() -> [E || E <- [2,4,6,10,15,19],E + 10].
 
+testBar() -> [0, 1, 3, 6].
 
+testCase() -> even.
 
 
     

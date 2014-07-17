@@ -4,7 +4,7 @@
 %% Include files
 -include_lib("wrangler/include/wrangler.hrl").
 transform_body(Node, RulesFun, Scope) ->   
-    transform_body(Node, RulesFun, {[], Scope,[]}, unknown).
+    transform_body(Node, RulesFun, {{[],[]}, Scope,[]}, unknown).
 
 %%--------------------------------------------------------------------
 %% @private

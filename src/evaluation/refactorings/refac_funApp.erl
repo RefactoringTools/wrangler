@@ -33,7 +33,7 @@
 %% @spec input_par_prompts() -> [string()]
 %% @end
 %%--------------------------------------------------------------------
-input_par_prompts() -> refac:input_par_prompts() ++ ["Please, inform the name of the file with the definitions:"].
+input_par_prompts() -> refac:input_par_prompts() ++ ["Please, inform the name of the files with the definitions (the names should by separated spaces):"].
 
 %%--------------------------------------------------------------------
 %% @private
@@ -82,34 +82,76 @@ selective() ->
 transform(_Args)-> 
     transform_funApp(_Args, fun refac_funApp:rules/2).
 
-transform_funApp(Args=#args{current_file_name=File, search_paths=SearchPaths,user_inputs=[_,_,ModuleName]}, Fun) ->
-    CollectFile = core_funApp:getCollectFile(ModuleName, File, SearchPaths),
+transform_funApp(Args=#args{current_file_name=File, search_paths=SearchPaths,user_inputs=[_,_,ModuleNamesStr]}, Fun) ->
+    RefacModuleInfo = api_refac:module_name(File),
+    case RefacModuleInfo of
+	  {ok, RefacModule} -> 
+	                Result = getInfoList(ModuleNamesStr, File, SearchPaths,RefacModule),
+	                case Result of
+		             {error, _} -> Result;
+		             InfoList -> 
+				refac:try_call_transform(Args, Fun, {RefacModule, InfoList})
+	                end;
+        _ -> {error, "Refactoring failed!"}
+    end.
+
+collector()->
+    ?COLLECT(
+       ?T("f@(ArgPatt@@) when Guard@@ -> Body@@;"),
+       {api_refac:fun_define_info(f@),ArgPatt@@,Guard@@,Body@@},
+       api_refac:fun_define_info(f@) /= unknown 
+     ).
+
+collect(File) ->
+    ?FULL_TD_TU(    
+       [collector()],
+       [File]
+      ).
+
+filterError({error,_}) -> true;
+filterError(_) -> false.
+
+getInfoList([],File,_,_) -> {collect(File),[]};
+getInfoList(ModuleNamesStr,File, SearchPaths,RefacModule) ->
+    ModuleNames = string:tokens(ModuleNamesStr, " "),
+    CollectFiles = lists:map(fun(ModName) -> collectFile(ModName,File,SearchPaths) end, ModuleNames),
+    WrongFiles = lists:filter(fun(X) -> filterError(X) end, CollectFiles),
+	                case WrongFiles of
+		             [H | _] -> H;
+		             _ -> 
+				{getInternalInfo(CollectFiles,RefacModule),{list,lists:map(fun(X) -> getExternalInfoElem(X) end, CollectFiles)}}
+	                end.
+getExternalInfoElem({ok, DefinitionsFile,ModName}) ->
+    Info = core_funApp:collect(DefinitionsFile),
+    {list_to_atom(ModName), Info}.
+
+getInternalInfo([],_) -> [];
+getInternalInfo([{ok, DefinitionsFile,ModName} | T],RefacModule) ->
+    DefinitionsModule = list_to_atom(ModName),    
+    case DefinitionsModule == RefacModule of
+	    true ->
+		collect(DefinitionsFile);
+	    _ -> getInternalInfo(T,RefacModule)
+    end.
+
+collectFile(ModName,File,SearchPaths) ->
+    CollectFile = core_funApp:getCollectFile(ModName,File,SearchPaths),
     case CollectFile of
-	{ok, DefinitionsFile} ->
-	    RefacModuleInfo = api_refac:module_name(File),
-	    case RefacModuleInfo of
-		{ok, RefacModule} ->
-		    DefinitionsModule = list_to_atom(ModuleName),
-		    Info = core_funApp:collect(DefinitionsFile, ModuleName == "" orelse DefinitionsModule == RefacModule),
-		    refac:try_call_transform(Args, Fun, {DefinitionsModule,RefacModule, Info});
-		_ -> {error, "Refactoring failed!"}
-	    end;
-	_ -> {error, "Definitions file doesn't exist!"}
+	{ok, DefinitionsFile} -> {ok, DefinitionsFile, ModName};
+	_ -> {error, "Definitions file '" ++ ModName ++ "' doesn't exist!"}
     end.
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-rules({{ModuleName,RefacModule,Info},_,BoundVars}, FunDefInfo) ->
+rules({{RefacModule,{InternalInfo,ExternalInfo}},_,BoundVars}, FunDefInfo) ->
     [   
     	core_funApp:length_rule(),
-	core_funApp:functionCall_rule(Info, FunDefInfo, module_rules(ModuleName, RefacModule) ,true, BoundVars),
-	functionCall_rule_2(Info, FunDefInfo,BoundVars),
+	core_funApp:functionCall_rule(ExternalInfo, FunDefInfo, RefacModule ,true, BoundVars),
+	functionCall_rule_2(InternalInfo, FunDefInfo,BoundVars),
 	core_funApp:anonymousCall_rule()
-    ]. 
-
-module_rules(ModuleName, RefacModule) ->
-    [core_funApp:addModuleName_rule(ModuleName), removeModuleName_rule(RefacModule)].
+    ].
+    
   
 %%--------------------------------------------------------------------
 %% @doc
@@ -120,33 +162,20 @@ module_rules(ModuleName, RefacModule) ->
 %% This rule only applies a rewriting if exists a matching between the function clause being evaluated and any element from <i>Info</i>. Otherwise, nothing is done. </p>
 %% @end
 %%--------------------------------------------------------------------
-functionCall_rule_2(Info, FunDefInfo,BoundVars) ->
+functionCall_rule_2(InfoList, FunDefInfo,BoundVars) ->
     ?RULE(
           ?T("F@(Args@@)"),
 	  begin
 	      {M,F,A} = api_refac:fun_define_info(F@),
-	      {match,Patt,Body} = utils_match:firstMatch(Info,{M,F,A},Args@@),
+	      {match,Patt,Body} = utils_match:firstMatch(InfoList,{M,F,A},Args@@),
 	      utils_subst:subst(Body, Patt, Args@@)
 	  end,
-	  begin	     	      	
+	  begin	     
 	      FunInfo = api_refac:fun_define_info(F@),
-	      core_funApp:functionCall_cond(FunInfo,FunDefInfo,Info,Args@@,BoundVars)
+	      api_refac:is_fun_name(?PP(F@)) andalso core_funApp:functionCall_cond(FunInfo,FunDefInfo,InfoList,Args@@,BoundVars,api_refac:bound_vars(_This@))
 	  end
 	  ).
 
-removeModuleName_rule(RefacModule) ->  
-      ?RULE(
-          ?T("M@:F@(Args@@)"),
-	  ?TO_AST("F@(Args@@)"),
-      begin
-	  FunInfo = api_refac:fun_define_info(F@),
-	  case FunInfo of
-	      {M,_,_} ->
-		  M == RefacModule;
-	      _ -> false
-	  end	  
-      end
-).
 
 
     

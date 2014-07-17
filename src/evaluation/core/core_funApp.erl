@@ -5,7 +5,7 @@
 
 %%%===================================================================
 %% gen_refac callbacks
--export([getCollectFile/3,collect/2,length_rule/0,anonymousCall_rule/0,addModuleName_rule/1,functionCall_rule/5,functionCall_cond/5]).
+-export([getCollectFile/3,collect/1,length_rule/0,anonymousCall_rule/0,addModuleName_rule/1,functionCall_rule/5,functionCall_cond/6]).
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
@@ -21,7 +21,7 @@
 getCollectFile([], File, _) -> {ok, File};
 getCollectFile(ModuleName, _, SearchPaths) -> 
     wrangler_misc:modname_to_filename(list_to_atom(ModuleName), SearchPaths).
-    
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -29,11 +29,11 @@ getCollectFile(ModuleName, _, SearchPaths) ->
 %% All collectors defined in this file should be called here.
 %% @end
 %%--------------------------------------------------------------------
-collect(File, InternalDefinitions) ->
+collect(File) ->
     ExportedFuns = api_refac:exported_funs(File),
     ExportedAll = exported_all(File),
     ?FULL_TD_TU(    
-       [collector({ExportedAll, ExportedFuns}, InternalDefinitions)],
+       [collector({ExportedAll, ExportedFuns})],
        [File]
       ).
 %%--------------------------------------------------------------------
@@ -45,13 +45,12 @@ collect(File, InternalDefinitions) ->
 %%   -The AST representation of the body
 %% @end
 %%--------------------------------------------------------------------
-collector(ExportTuple, InternalDefinitions)->
+collector(ExportTuple)->
     ?COLLECT(
        ?T("f@(ArgPatt@@) when Guard@@ -> Body@@;"),
        {api_refac:fun_define_info(f@),ArgPatt@@,Guard@@,Body@@},
-       api_refac:fun_define_info(f@) /= unknown andalso (InternalDefinitions orelse funIsExported(f@, ExportTuple))
+       api_refac:fun_define_info(f@) /= unknown andalso funIsExported(f@, ExportTuple)
      ).
-
 %%--------------------------------------------------------------------
 %% @doc
 %% Auxiliary function that checks if a function is exported in a module.
@@ -119,22 +118,8 @@ anonymousCall_rule() ->
     ?RULE(
       ?T("fun(Patt@@) -> Body@@ end(Args@@)"),
       utils_subst:subst(Body@@, Patt@@, Args@@),
-      utils_match:match(Args@@, Patt@@) == true
+     utils_match:match(Args@@, Patt@@)
     ).
-
-addModuleName_rule(Module) ->  
-      ?RULE(
-          ?T("F@(Args@@)"),
-      ?TO_AST(atom_to_list(Module) ++ ":F@(Args@@)"),
-      begin
-	  FunInfo = api_refac:fun_define_info(F@),
-	  case FunInfo of
-	      {M,_,_} ->
-		  M == Module;
-	      _ -> false
-	  end
-      end
-).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -145,14 +130,14 @@ addModuleName_rule(Module) ->
 %% This rule only applies a rewriting if exists a matching between the function clause being evaluated and any element from <i>Info</i>. Otherwise, nothing is done. </p>
 %% @end
 %%--------------------------------------------------------------------
-functionCall_rule(Info, FunDefInfo, RulesList, IsRefactoring, BoundVars) ->
+functionCall_rule(InfoList, FunDefInfo, RefacModule, IsRefactoring, BoundVars) ->
     ?RULE(
           ?T("M@:F@(Args@@)"),
 	  begin
 	      {M,F,A} = getFunDefineInfo(IsRefactoring, M@, F@, Args@@),
-	      {match,Patt,Body} = utils_match:firstMatch(Info,{M,F,A},Args@@),
+	      {match,Patt,Body} = utils_match:firstMatch(InfoList,{M,F,A},Args@@),
 	      NewBody = utils_subst:subst(Body, Patt, Args@@),
-	      Result = ?FULL_TD_TP(RulesList,NewBody),
+	      Result = ?FULL_TD_TP(module_rules(utils_convert:convert_elem(M@), RefacModule, IsRefactoring,InfoList), NewBody),
 	      case Result of
 		  {ok, FinalNode} -> FinalNode;
 		  _ -> {error, getErrorMsg(IsRefactoring)}
@@ -160,22 +145,22 @@ functionCall_rule(Info, FunDefInfo, RulesList, IsRefactoring, BoundVars) ->
 	  end,
 	  begin	     
 	      FunInfo = getFunDefineInfo(IsRefactoring, M@, F@, Args@@),
-	      functionCall_cond(FunInfo,FunDefInfo,Info,Args@@,BoundVars)	      
+	      functionCall_cond(FunInfo,FunDefInfo,InfoList,Args@@,BoundVars,api_refac:bound_vars(_This@))
 	  end
 	  ).
 
-functionCall_cond(FunInfo,FunDefInfo,Info,Args@@,BoundVars) ->
+functionCall_cond(FunInfo,FunDefInfo,InfoList,Args@@,BoundVars,BoundVarsThis) ->
     case FunInfo of
 		  {M,F,A} ->
 		      FunInfo /= FunDefInfo andalso
 		      begin
-			  FirstMatch = utils_match:firstMatch(Info,{M,F,A},Args@@),
+			  FirstMatch = utils_match:firstMatch(InfoList,{M,F,A},Args@@),
 			  if
 			      FirstMatch == noMatch -> false;
 			      true -> 
-				   {match,Patt,Body} = FirstMatch,
-				  Subst = utils_subst:subst(Body,Patt,Args@@),
-				  variablesAreValid(BoundVars,api_refac:bound_vars(Subst))
+				  {match,Patt,Body} = FirstMatch,
+				  Subst = utils_subst:subst(Body,Patt,Args@@),	       
+				  variablesAreValid(BoundVars,api_refac:bound_vars(Subst),BoundVarsThis)
 			  end
 		      end;
 		  _ -> false
@@ -204,17 +189,61 @@ exported_all(File) ->
 	_ -> false
    end.
 
-variablesAreValid([],_) -> true;
-variablesAreValid(_,[]) -> true; 
-variablesAreValid([{Var,_} | T],NewBoundVars) ->
+variablesAreValid([],_,_) -> true;
+variablesAreValid(_,[],_) -> true; 
+variablesAreValid([{Var,DefPos} | T],NewBoundVars,OldBoundVars) ->
     case lists:keyfind(Var,1,NewBoundVars) of
-	false -> variablesAreValid(T,NewBoundVars);
+	false -> variablesAreValid(T,NewBoundVars,OldBoundVars);
+	{Var,DefPos} ->
+	    case lists:keyfind(Var,1,OldBoundVars) of
+		false -> false;
+		_ -> variablesAreValid(T,NewBoundVars,OldBoundVars)
+	    end;
 	_ -> false
     end.
 
-    
+module_rules(ModuleName, RefacModule,IsRefactoring,Info) ->
+    if
+	IsRefactoring ->
+	        [addModuleName_rule(ModuleName), removeModuleName_rule(RefacModule,Info)];
+	true -> [addModuleName_rule(ModuleName)]
+    end.
 
+removeModuleName_rule(RefacModule,{list,InfoList}) ->  
+      ?RULE(
+          ?T("M@:F@(Args@@)"),
+	  ?TO_AST("F@(Args@@)"),
+      begin
+	  FunInfo = api_refac:fun_define_info(F@),
+	  case FunInfo of
+	      {M,F,A} ->
+		  M == RefacModule andalso 
+		      case lists:keyfind(M,1,InfoList) of
+			  false -> false;
+			  {_,Info} ->
+			      case lists:keyfind({M,F,A},1,Info) of
+				  false -> false;
+				  _ -> true
+			      end
+		      end;
+	      _ -> false
+	  end	  
+      end
+). 
 
+addModuleName_rule(Module) ->  
+      ?RULE(
+          ?T("F@(Args@@)"),
+	  ?TO_AST(atom_to_list(Module) ++  ":F@(Args@@)"),
+	  begin
+	     FunInfo = api_refac:fun_define_info(F@),
+	     case FunInfo of
+		 {M,_,_} ->
+		     M == Module;
+		 _ -> false
+	     end
+	  end
+).
 
 
 
