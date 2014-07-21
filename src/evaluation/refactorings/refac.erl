@@ -3,7 +3,7 @@
 %% Auxiliar Module that is used when the refactorings contains similaraties.
 %% This module is responsible for the timeout for example.
 -module(refac).
--export([try_call_transform/2, try_call_transform/3, body_rules/4, try_transform_manager/5, checkTimeOut/1, get_refac_scope/1, select_focus/1, input_par_prompts/0,get_files/3,filterError/1,input_refac_scope_message/0]).
+-export([try_call_transform/2, try_call_transform/3, body_rules/4, try_transform_manager/5, checkTimeOut/1, get_refac_scope/1, select_focus/1, select_focus/2, input_par_prompts/0,get_files/3,filterError/1,input_refac_scope_message/0]).
 
 %% Include files
 -include_lib("wrangler/include/wrangler.hrl").
@@ -31,7 +31,6 @@ try_call_transform(Args, RulesFun) ->
 
 try_call_transform(_Args=#args{current_file_name=File,
 		     user_inputs=InputsList, focus_sel=FunDef,search_paths=SearchPaths}, RulesFun, FunArgs) -> 
-   
     TimeOutStr = lists:nth(1, InputsList),
     EntireFileStr = lists:nth(2, InputsList),
     TimeOut = checkTimeOut(TimeOutStr),
