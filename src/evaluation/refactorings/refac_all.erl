@@ -78,15 +78,15 @@ selective() ->
 %% @end
 %%--------------------------------------------------------------------
 transform(Args=#args{current_file_name=File,
-		     user_inputs=[_,EntireFileStr,_],focus_sel=FunDef})-> 
+		     user_inputs=[_,EntireFileStr,_],focus_sel=FunDef,search_paths=SearchPaths})-> 
     Result = refac_funApp:transform_funApp(Args, fun refac_all:rules/2),
     case Result of
 	{ok,[]} -> 
-	    refac_unreferenced_assign:transform_unref_assign(File,EntireFileStr,FunDef);	    
+	    refac_unreferenced_assign:transform_unref_assign(File,EntireFileStr,FunDef,SearchPaths);	    
 	_ ->	    
-	   CheckedFileBool = refac:str_to_bool(EntireFileStr),
-	   refac_unreferenced_assign:second_transform(Result,File,CheckedFileBool,api_refac:fun_define_info(FunDef),true)
-     end.
+	   RefacScope = refac:get_refac_scope(EntireFileStr),
+	   refac_unreferenced_assign:second_transform(Result,RefacScope,api_refac:fun_define_info(FunDef),true)
+    end.
 
 %%--------------------------------------------------------------------
 %% @private

@@ -12,7 +12,7 @@
 -export([input_par_prompts/0,select_focus/1, 
 	 check_pre_cond/1, selective/0, 
 	 transform/1]).
--export([second_transform/5,transform_unref_assign/3]).
+-export([second_transform/4,transform_unref_assign/4]).
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -21,7 +21,7 @@
 %% @spec input_par_prompts() -> [string()]
 %% @end
 %%--------------------------------------------------------------------
-input_par_prompts() -> ["Would you like to apply this refactoring to the entire file? (y/n)"].
+input_par_prompts() -> [refac:input_refac_scope_message()].
 
 %%--------------------------------------------------------------------
 %% @private
@@ -33,13 +33,8 @@ input_par_prompts() -> ["Would you like to apply this refactoring to the entire 
 %%                {ok, none}
 %% @end
 %%--------------------------------------------------------------------
-select_focus(_Args=#args{current_file_name=File, 
-                         cursor_pos=Pos, user_inputs=[EntireFileStr]}) ->
-    RefacBool = refac:str_to_bool(EntireFileStr),
-    case RefacBool of
-	true -> {ok, none};
-	_ -> api_interface:pos_to_fun_def(File, Pos)
-    end.
+select_focus(Args=#args{user_inputs=[EntireFileStr]}) ->
+    refac:select_focus(Args,EntireFileStr).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -74,41 +69,54 @@ selective() ->
 %% @end
 %%--------------------------------------------------------------------
 transform(_Args=#args{current_file_name=File,
-		     user_inputs=[EntireFileStr],focus_sel=FunDef}) -> 
-    transform_unref_assign(File,EntireFileStr,FunDef).
+		     user_inputs=[EntireFileStr],focus_sel=FunDef,search_paths=SearchPaths}) -> 
+    transform_unref_assign(File,EntireFileStr,FunDef,SearchPaths).
 	    
 
-transform_unref_assign(File,EntireFileStr, FunDef) ->
-    CheckedFileBool = refac:str_to_bool(EntireFileStr),
+transform_unref_assign(File,EntireFileStr, FunDef,SearchPaths) ->
+    RefacScope = refac:get_refac_scope(EntireFileStr),
+    if
+	RefacScope == project orelse RefacScope == file orelse RefacScope == function ->
+	    MFA = fun_define_info(RefacScope, FunDef),
 	    if
-		CheckedFileBool orelse CheckedFileBool == false ->
-		    MFA = fun_define_info(CheckedFileBool, FunDef),		    
-		    if
-			 MFA /= unknown ->
-			    CollectResult = collect(File),
-			    Result = ?STOP_TD_TP(rules(CollectResult, {CheckedFileBool, MFA}), [File]),
-			    second_transform(Result,File,CheckedFileBool,MFA,false);
-			 true -> {error, "Please, place the mouse cursor on the desired function!"}
+		 MFA /= unknown ->
+		    Files = refac:get_files(RefacScope,SearchPaths,File),
+		    RefacModuleInfoList = lists:map(fun(CurFile) -> api_refac:module_name(CurFile) end,Files),
+		    case lists:filter(fun(Tuple) -> refac:filterError(Tuple) end, RefacModuleInfoList) of
+			[_ | _] -> {error, "Refactoring failed!"};
+			_ ->
+			    CollectResult = collect(Files),
+			    Result = ?STOP_TD_TP((rules(CollectResult, {RefacScope, MFA})), Files),
+			    second_transform(Result,RefacScope,MFA,false)
 		    end;
-		true -> {error, "Please, answer 'y' or 'n'!"}
-	    end.
+		 true -> {error, "Please, place the mouse cursor on the desired function!"}
+	    end;
+	true -> {error, "Please, answer 'y', 'Y' or 'n'!"}
+    end.
 
-fun_define_info(true, _) -> notrelevant;
-fun_define_info(_, FunDef) -> api_refac:fun_define_info(FunDef). 
+fun_define_info(function, FunDef) -> api_refac:fun_define_info(FunDef);
+fun_define_info(_,_) -> notrelevant.
     
-second_transform(Result,File,CheckedFileBool,MFA,IsFirst) ->
+second_transform(Result,RefacScope,MFA,IsFirst) ->
     case Result of
-	{ok, [{{FileName, FileName}, Node}]} -> 
-	      FileNode = api_refac:get_ast(File),
-	      case FileNode of
-		   {error, _Reason} -> 
+	{ok, ListOfRefacs} ->
+	    {ok, lists:map(fun(FileTuple) -> second_transform_file(Result,FileTuple,RefacScope,MFA,IsFirst) end, ListOfRefacs)};	   
+	 _ ->
+	    Result
+   end.
+
+second_transform_file(Result,{{FileName,FileName}, Node},RefacScope,MFA,IsFirst) ->
+       FileNode = api_refac:get_ast(FileName),
+       case FileNode of
+	      {error, _Reason} -> 
 		      Result;
 		   _ ->
-		      try_transform_recursively(IsFirst orelse FileNode /= Node, Node, FileName, {CheckedFileBool, MFA})
-	      end;
-	 _ ->
-	      Result
-   end.
+		      try_transform_recursively(IsFirst orelse FileNode /= Node, Node, FileName, {RefacScope, MFA})
+       end;
+second_transform_file(Result,_,_,_,_) -> Result.
+
+    
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -116,14 +124,14 @@ second_transform(Result,File,CheckedFileBool,MFA,IsFirst) ->
 %% Tries to apply the transformation as much as possible.
 %% @end
 %%--------------------------------------------------------------------
-transform_recursively([{{FileName, FileName}, Scope}], FunInfo) ->
-    CollectResult = collect(Scope),
+transform_recursively({{FileName, FileName}, Scope}, FunInfo) ->
+    CollectResult = collect_file(Scope,FileName),
     Result = ?STOP_TD_TP(rules(CollectResult, FunInfo), Scope),
     case Result of
 	{ok, Node} -> 	       
 	    try_transform_recursively(?PP(Node) /= ?PP(Scope), Node, FileName, FunInfo);
 	_ ->
-	 {ok, [{{FileName, FileName},Scope}]}
+	 {{FileName, FileName},Scope}
     end.
 
 %%--------------------------------------------------------------------
@@ -133,34 +141,54 @@ transform_recursively([{{FileName, FileName}, Scope}], FunInfo) ->
 %% @end
 %%--------------------------------------------------------------------
 try_transform_recursively(Changed, Node, FileName, FunInfo) ->
-    TransformResult = [{{FileName, FileName}, Node}],
+    TransformResult = {{FileName, FileName}, Node},
     if
 	Changed -> transform_recursively(TransformResult, FunInfo);
-	true -> {ok, TransformResult}
+	true -> TransformResult
     end.
 	    
 rules(CollectResult, FunInfo) ->    
     [variable_assignment_rule(CollectResult, FunInfo)].
 
-variable_assignment_rule(CollectResult, {RefacWholeFile, MFA}) ->
+variable_assignment_rule(CollectResult, {RefacScope, MFA}) ->
     ?RULE(
        ?T("f@(Args@@) when Guards@@ -> Stmt0@@, Var@ = Expr@, Stmt@@;"),
        case Stmt@@ of	   
 	   [] -> ?TO_AST("f@(Args@@) when Guards@@ -> Stmt0@@, Expr@;");
 	   _ -> ?TO_AST("f@(Args@@) when Guards@@ -> Stmt0@@, Stmt@@;")
        end,
-        api_refac:type(Var@) == variable andalso
-       (RefacWholeFile orelse
-	MFA == api_refac:fun_define_info(f@)
-       ) andalso
-       lists:filter(fun(Elem) -> Elem == api_refac:bound_vars(Var@) end, CollectResult) == []
+       begin
+	FunMFA = api_refac:fun_define_info(f@),
+        (FunMFA /= unknown andalso
+	  api_refac:type(Var@) == variable andalso
+         (RefacScope /= function orelse
+	  MFA == FunMFA)
+         andalso
+	 begin
+	     {M,_,_} = FunMFA,
+	     case lists:keyfind(M,1,CollectResult) of
+		 {M,Info} -> 
+		     lists:filter(fun(Elem) -> Elem == api_refac:bound_vars(Var@) end, Info) == [];
+		 _ -> false
+	     end
+         end)
+      end
    ).
 
-collect(Scope) ->
+collect(Files) ->
+    lists:map(fun(Scope) -> 
+		      {ok,RefacModule} = api_refac:module_name(Scope),
+		      {RefacModule,collect_file_traversal(Scope)} end, Files).
+
+collect_file(Scope,FileName) ->
+    {ok,RefacModule} = api_refac:module_name(FileName),
+    [{RefacModule, collect_file_traversal(Scope)}].
+
+collect_file_traversal(Scope) ->
     ?FULL_TD_TU(    
-       [collect_variables_occurrences()],
-       [Scope]
-      ).
+		[collect_variables_occurrences()],
+		[Scope]
+    ).
 
 %%--------------------------------------------------------------------
 %% @doc

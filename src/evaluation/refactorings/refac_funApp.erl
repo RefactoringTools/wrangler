@@ -82,17 +82,20 @@ selective() ->
 transform(_Args)-> 
     transform_funApp(_Args, fun refac_funApp:rules/2).
 
-transform_funApp(Args=#args{current_file_name=File, search_paths=SearchPaths,user_inputs=[_,_,ModuleNamesStr]}, Fun) ->
-    RefacModuleInfo = api_refac:module_name(File),
-    case RefacModuleInfo of
-	  {ok, RefacModule} -> 
-	                Result = getInfoList(ModuleNamesStr, File, SearchPaths,RefacModule),
-	                case Result of
-		             {error, _} -> Result;
-		             InfoList -> 
-				refac:try_call_transform(Args, Fun, {RefacModule, InfoList})
-	                end;
-        _ -> {error, "Refactoring failed!"}
+transform_funApp(Args=#args{current_file_name=File, search_paths=SearchPaths,user_inputs=[_,RefacScopeStr,ModuleNamesStr]}, Fun) ->
+    RefacScope = refac:get_refac_scope(RefacScopeStr),
+    Files = refac:get_files(RefacScope,SearchPaths,File),
+    RefacModuleInfoList = lists:map(fun(CurFile) -> api_refac:module_name(CurFile) end,Files),
+    case lists:filter(fun(Tuple) -> refac:filterError(Tuple) end, RefacModuleInfoList) of
+         [_ | _] -> {error, "Refactoring failed!"};
+         _ ->
+              RefacModules = lists:map(fun({ok, RefacModule}) -> RefacModule end, RefacModuleInfoList),
+              Result = getInfoList(ModuleNamesStr, Files, SearchPaths),
+              case Result of
+			{error, _} -> Result;
+			InfoList -> 
+			    refac:try_call_transform(Args, Fun, {RefacModules, InfoList})
+	      end
     end.
 
 collector()->
@@ -102,37 +105,25 @@ collector()->
        api_refac:fun_define_info(f@) /= unknown 
      ).
 
-collect(File) ->
+collect(Files) ->
     ?FULL_TD_TU(    
        [collector()],
-       [File]
+       Files
       ).
 
-filterError({error,_}) -> true;
-filterError(_) -> false.
-
-getInfoList([],File,_,_) -> {collect(File),[]};
-getInfoList(ModuleNamesStr,File, SearchPaths,RefacModule) ->
+getInfoList([],Files,_) -> {collect(Files),[]};
+getInfoList(ModuleNamesStr,Files, SearchPaths) ->
     ModuleNames = string:tokens(ModuleNamesStr, " "),
-    CollectFiles = lists:map(fun(ModName) -> collectFile(ModName,File,SearchPaths) end, ModuleNames),
-    WrongFiles = lists:filter(fun(X) -> filterError(X) end, CollectFiles),
+    CollectFiles = lists:map(fun(ModName) -> collectFile(ModName,[],SearchPaths) end, ModuleNames),
+    WrongFiles = lists:filter(fun(X) -> refac:filterError(X) end, CollectFiles),
 	                case WrongFiles of
 		             [H | _] -> H;
 		             _ -> 
-				{getInternalInfo(CollectFiles,RefacModule),{list,lists:map(fun(X) -> getExternalInfoElem(X) end, CollectFiles)}}
+				{collect(Files),{list,lists:map(fun(X) -> getExternalInfoElem(X) end, CollectFiles)}}
 	                end.
 getExternalInfoElem({ok, DefinitionsFile,ModName}) ->
     Info = core_funApp:collect(DefinitionsFile),
     {list_to_atom(ModName), Info}.
-
-getInternalInfo([],_) -> [];
-getInternalInfo([{ok, DefinitionsFile,ModName} | T],RefacModule) ->
-    DefinitionsModule = list_to_atom(ModName),    
-    case DefinitionsModule == RefacModule of
-	    true ->
-		collect(DefinitionsFile);
-	    _ -> getInternalInfo(T,RefacModule)
-    end.
 
 collectFile(ModName,File,SearchPaths) ->
     CollectFile = core_funApp:getCollectFile(ModName,File,SearchPaths),
@@ -144,10 +135,10 @@ collectFile(ModName,File,SearchPaths) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-rules({{RefacModule,{InternalInfo,ExternalInfo}},_,BoundVars}, FunDefInfo) ->
+rules({{RefacModules,{InternalInfo,ExternalInfo}},_,BoundVars}, FunDefInfo) ->
     [   
     	core_funApp:length_rule(),
-	core_funApp:functionCall_rule(ExternalInfo, FunDefInfo, RefacModule ,true, BoundVars),
+	core_funApp:functionCall_rule(ExternalInfo, FunDefInfo, RefacModules ,true, BoundVars),
 	functionCall_rule_2(InternalInfo, FunDefInfo,BoundVars),
 	core_funApp:anonymousCall_rule()
     ].
