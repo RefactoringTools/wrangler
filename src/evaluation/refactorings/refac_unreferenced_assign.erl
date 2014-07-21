@@ -12,7 +12,7 @@
 -export([input_par_prompts/0,select_focus/1, 
 	 check_pre_cond/1, selective/0, 
 	 transform/1]).
--export([second_transform/4,transform_unref_assign/4]).
+-export([second_transform/4,transform_unref_assign/3]).
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -68,33 +68,24 @@ selective() ->
 %%            {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-transform(_Args=#args{current_file_name=File,
-		     user_inputs=[EntireFileStr],focus_sel=FunDef,search_paths=SearchPaths}) -> 
-    transform_unref_assign({file,File},EntireFileStr,FunDef,SearchPaths).
+transform(Args=#args{current_file_name=File,
+		     user_inputs=[RefacScopeStr]}) ->
+    transform_unref_assign({file,File},RefacScopeStr,Args).
 	    
 
-transform_unref_assign({files,Files},EntireFileStr, FunDef,_) ->
-    RefacScope = refac:get_refac_scope(EntireFileStr),
-    if
-	RefacScope == project orelse RefacScope == file orelse RefacScope == function ->
+transform_unref_assign({files,Files},RefacScopeStr,Args=#args{focus_sel=FunDef}) ->
+    case refac:validate_refac_scope(RefacScopeStr,Args) of
+	{error,Reason} -> {error, Reason};
+	_ ->
+	    RefacScope = refac:get_refac_scope(RefacScopeStr),
+	    CollectResult = collector(Files),
 	    MFA = fun_define_info(RefacScope, FunDef),
-	    if
-		 MFA /= unknown ->
-		    RefacModuleInfoList = lists:map(fun(CurFile) -> api_refac:module_name(CurFile) end,Files),
-		    case lists:filter(fun(Tuple) -> refac:filterError(Tuple) end, RefacModuleInfoList) of
-			[_ | _] -> {error, "Refactoring failed!"};
-			_ ->
-			    CollectResult = collector(Files),
-			    Result = ?STOP_TD_TP((rules(CollectResult, {RefacScope, MFA})), Files),
-			    second_transform(Result,RefacScope,MFA,false)
-		    end;
-		 true -> {error, "Please, place the mouse cursor on the desired function!"}
-	    end;
-	true -> {error, "Please, answer 'y', 'Y' or 'n'!"}
+	    Result = ?STOP_TD_TP((rules(CollectResult, {RefacScope, MFA})), Files),
+	    second_transform(Result,RefacScope,MFA,false)
     end;
-transform_unref_assign({file,File},EntireFileStr, FunDef,SearchPaths) ->
+transform_unref_assign({file,File},EntireFileStr, Args=#args{search_paths=SearchPaths}) ->
     Files = refac:get_files(refac:get_refac_scope(EntireFileStr),SearchPaths,File),
-    transform_unref_assign({files,Files},EntireFileStr,FunDef,SearchPaths).
+    transform_unref_assign({files,Files},EntireFileStr,Args).
 
 fun_define_info(function, FunDef) -> api_refac:fun_define_info(FunDef);
 fun_define_info(_,_) -> notrelevant.

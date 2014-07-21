@@ -78,27 +78,27 @@ selective() ->
 %% @end
 %%--------------------------------------------------------------------
 transform(Args=#args{current_file_name=File,
-		     user_inputs=[_,EntireFileStr,_],focus_sel=FunDef,search_paths=SearchPaths})-> 
+		     user_inputs=[TimeOutStr,RefacScopeStr,_],focus_sel=FunDef,search_paths=SearchPaths}) ->
     Result = refac_funApp:transform_funApp(Args, fun refac_all:rules/2),
     case Result of
 	{ok,[]} -> 
-	    refac_unreferenced_assign:transform_unref_assign({file,File},EntireFileStr,FunDef,SearchPaths);	    
+	    refac_unreferenced_assign:transform_unref_assign({file,File},RefacScopeStr,Args);
 	{error,_} -> Result;
 	_ ->	    
-	   RefacScope = refac:get_refac_scope(EntireFileStr),
+	   RefacScope = refac:get_refac_scope(RefacScopeStr),
 	   Result2 = refac_unreferenced_assign:second_transform(Result,RefacScope,api_refac:fun_define_info(FunDef),true),
 	    case Result2 of
 		{ok,ListOfResults} when is_list(ListOfResults) ->
 		    Files = refac:get_files(RefacScope,SearchPaths,File),
 		    FilteredFiles = lists:filter(fun(FileName) -> lists:keyfind({FileName, FileName},1,ListOfResults) == false end,Files),
-		    Result3 = refac_unreferenced_assign:transform_unref_assign({files,FilteredFiles},EntireFileStr,FunDef,SearchPaths),
-		    case Result3 of
-			{ok,ListOfResults2} when is_list(ListOfResults2) ->
-			    {ok, ListOfResults ++ ListOfResults2};
-			_ -> Result3
-		    end;
-		_ -> Result2
-	    end		
+		   Result3 = refac_unreferenced_assign:transform_unref_assign({files,FilteredFiles},RefacScopeStr,Args),
+		   case Result3 of
+		       {ok,ListOfResults2} when is_list(ListOfResults2) ->
+			   {ok, ListOfResults ++ ListOfResults2};
+		       _ -> Result3
+		   end;
+	       _ -> Result2
+	   end
     end.
 
 %%--------------------------------------------------------------------

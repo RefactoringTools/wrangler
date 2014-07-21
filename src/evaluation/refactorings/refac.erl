@@ -3,7 +3,7 @@
 %% Auxiliar Module that is used when the refactorings contains similaraties.
 %% This module is responsible for the timeout for example.
 -module(refac).
--export([try_call_transform/2, try_call_transform/3, body_rules/4, try_transform_manager/5, checkTimeOut/1, get_refac_scope/1, select_focus/1, select_focus/2, input_par_prompts/0,get_files/3,filterError/1,input_refac_scope_message/0]).
+-export([try_call_transform/2, try_call_transform/3, body_rules/4, try_transform_manager/5, checkTimeOut/1, get_refac_scope/1, select_focus/1, select_focus/2, input_par_prompts/0,get_files/3,filterError/1,input_refac_scope_message/0,validation_with_timeout/3,validate_refac_scope/2,start_transformation/5,validate_all/4,validate_definitions_str/2,collectFile/3]).
 
 %% Include files
 -include_lib("wrangler/include/wrangler.hrl").
@@ -29,30 +29,79 @@ select_focus(_Args=#args{current_file_name=File,
 try_call_transform(Args, RulesFun) ->
     try_call_transform(Args, RulesFun, []).
 
-try_call_transform(_Args=#args{current_file_name=File,
-		     user_inputs=InputsList, focus_sel=FunDef,search_paths=SearchPaths}, RulesFun, FunArgs) -> 
+try_call_transform(Args=#args{user_inputs=InputsList}, RulesFun, FunArgs) -> 
     TimeOutStr = lists:nth(1, InputsList),
-    EntireFileStr = lists:nth(2, InputsList),
-    TimeOut = checkTimeOut(TimeOutStr),
-    case TimeOut of
-	{error, _} -> {error, "invalid timeout input!"};
+    RefacScopeStr = lists:nth(2, InputsList),
+    Validation = validation_with_timeout(TimeOutStr,RefacScopeStr,Args),
+    case Validation of
+	{error, Reason} -> {error, Reason};
 	_ ->
-	    RefacScope = get_refac_scope(EntireFileStr),
+	    start_transformation(RefacScopeStr,RulesFun,TimeOutStr,FunArgs,Args)
+    end.
+
+start_transformation(RefacScopeStr,RulesFun,TimeOutStr,FunArgs,_Args=#args{current_file_name=File, focus_sel=FunDef,search_paths=SearchPaths}) ->
+    TimeOut = checkTimeOut(TimeOutStr),
+    RefacScope = get_refac_scope(RefacScopeStr),
 	    case RefacScope of
 		file ->       		    
 		    ?FULL_TD_TP((body_rules(RulesFun, {RefacScope, unknown}, TimeOut, FunArgs)),[File]);
 		function ->
 		    MFA = api_refac:fun_define_info(FunDef),
-		    if
-			MFA /= unknown ->
-			     ?FULL_TD_TP((body_rules(RulesFun, {RefacScope, MFA}, TimeOut, FunArgs)),[File]);
-			true -> {error, "Please, place the mouse cursor on the desired function!"}
-		    end;
+		    ?FULL_TD_TP((body_rules(RulesFun, {RefacScope, MFA}, TimeOut, FunArgs)),[File]);
+			
 		project ->		 
 		     Files = wrangler_misc:expand_files(SearchPaths, ".erl"),
-		     ?FULL_TD_TP((body_rules(RulesFun, {RefacScope, unknown}, TimeOut, FunArgs)),Files);
-		_ -> {error, "Please, answer 'y', 'Y' or 'n'!"}
-	    end
+		     ?FULL_TD_TP((body_rules(RulesFun, {RefacScope, unknown}, TimeOut, FunArgs)),Files)
+	    end.
+    
+validate_refac_scope(RefacScopeStr, _Args=#args{focus_sel=FunDef,search_paths=SearchPaths}) ->
+    case get_refac_scope(RefacScopeStr) of
+	file -> ok;
+	function ->
+	    MFA = api_refac:fun_define_info(FunDef),
+	    if 
+		MFA /= unknown -> ok;
+		true -> {error, "Please, place the mouse cursor on the desired function!"}
+	    end;
+	project ->
+	    Files = wrangler_misc:expand_files(SearchPaths, ".erl"),
+	    RefacModuleInfoList = lists:map(fun(CurFile) -> api_refac:module_name(CurFile) end,Files),
+	    case lists:filter(fun(Tuple) -> filterError(Tuple) end, RefacModuleInfoList) of
+		[_ | _] -> {error, "Invalid file!"};
+		_ -> ok
+	    end;
+	_ -> {error, "Please, answer 'y', 'Y' or 'n' to define the scope of the refactoring!"}
+    end.
+			
+validation_with_timeout(TimeOutStr,RefacScopeStr,Args) ->
+    case checkTimeOut(TimeOutStr) of
+	{error, _} -> {error, "invalid timeout input!"};
+	_ ->
+	    validate_refac_scope(RefacScopeStr,Args)
+    end.
+
+validate_all(TimeOutStr,RefacScopeStr,DefinitionsStr, Args) ->
+    case validation_with_timeout(TimeOutStr,RefacScopeStr,Args) of
+	{error, Reason} -> {error, Reason};
+	_ -> validate_definitions_str(DefinitionsStr, Args)
+    end.
+
+validate_definitions_str([],_) -> ok;
+validate_definitions_str(DefinitionsStr, _Args=#args{search_paths=SearchPaths}) -> 
+    Definitions = string:tokens(DefinitionsStr, " "),
+    CollectFiles = lists:map(fun(DefinitionFile) -> collectFile(DefinitionFile,[],SearchPaths) end, Definitions),
+    WrongFiles = lists:filter(fun(X) -> filterError(X) end, CollectFiles),
+    case WrongFiles of
+	[H | _] -> H;
+	_ -> 
+	    ok
+    end.
+
+collectFile(ModName,File,SearchPaths) ->
+    CollectFile = core_funApp:getCollectFile(ModName,File,SearchPaths),
+    case CollectFile of
+	{ok, DefinitionsFile} -> {ok, DefinitionsFile, ModName};
+	_ -> {error, "Definitions file '" ++ ModName ++ "' doesn't exist!"}
     end.
 
 body_rules(RulesFun, RefacType, TimeOut, Info) -> [body_rule(RulesFun, RefacType, TimeOut, Info)].
