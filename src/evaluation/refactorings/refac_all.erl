@@ -81,8 +81,6 @@ transform(Args=#args{current_file_name=File,
 		     user_inputs=[TimeOutStr,RefacScopeStr,_],focus_sel=FunDef,search_paths=SearchPaths}) ->
     Result = refac_funApp:transform_funApp(Args, fun refac_all:rules/2),
     case Result of
-	{ok,[]} -> 
-	    refac_unreferenced_assign:transform_unref_assign({file,File},RefacScopeStr,Args);
 	{error,_} -> Result;
 	_ ->	    
 	   RefacScope = refac:get_refac_scope(RefacScopeStr),
