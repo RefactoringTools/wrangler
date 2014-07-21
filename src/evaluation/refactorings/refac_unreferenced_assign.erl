@@ -70,17 +70,16 @@ selective() ->
 %%--------------------------------------------------------------------
 transform(_Args=#args{current_file_name=File,
 		     user_inputs=[EntireFileStr],focus_sel=FunDef,search_paths=SearchPaths}) -> 
-    transform_unref_assign(File,EntireFileStr,FunDef,SearchPaths).
+    transform_unref_assign({file,File},EntireFileStr,FunDef,SearchPaths).
 	    
 
-transform_unref_assign(File,EntireFileStr, FunDef,SearchPaths) ->
+transform_unref_assign({files,Files},EntireFileStr, FunDef,_) ->
     RefacScope = refac:get_refac_scope(EntireFileStr),
     if
 	RefacScope == project orelse RefacScope == file orelse RefacScope == function ->
 	    MFA = fun_define_info(RefacScope, FunDef),
 	    if
 		 MFA /= unknown ->
-		    Files = refac:get_files(RefacScope,SearchPaths,File),
 		    RefacModuleInfoList = lists:map(fun(CurFile) -> api_refac:module_name(CurFile) end,Files),
 		    case lists:filter(fun(Tuple) -> refac:filterError(Tuple) end, RefacModuleInfoList) of
 			[_ | _] -> {error, "Refactoring failed!"};
@@ -92,7 +91,10 @@ transform_unref_assign(File,EntireFileStr, FunDef,SearchPaths) ->
 		 true -> {error, "Please, place the mouse cursor on the desired function!"}
 	    end;
 	true -> {error, "Please, answer 'y', 'Y' or 'n'!"}
-    end.
+    end;
+transform_unref_assign({file,File},EntireFileStr, FunDef,SearchPaths) ->
+    Files = refac:get_files(refac:get_refac_scope(EntireFileStr),SearchPaths,File),
+    transform_unref_assign({files,Files},EntireFileStr,FunDef,SearchPaths).
 
 fun_define_info(function, FunDef) -> api_refac:fun_define_info(FunDef);
 fun_define_info(_,_) -> notrelevant.
@@ -100,10 +102,13 @@ fun_define_info(_,_) -> notrelevant.
 second_transform(Result,RefacScope,MFA,IsFirst) ->
     case Result of
 	{ok, ListOfRefacs} ->
-	    {ok, lists:map(fun(FileTuple) -> second_transform_file(Result,FileTuple,RefacScope,MFA,IsFirst) end, ListOfRefacs)};	   
+	    {ok, second_transform_fun(Result, RefacScope, MFA,IsFirst,ListOfRefacs)};  
 	 _ ->
 	    Result
    end.
+
+second_transform_fun(Result, RefacScope, MFA,IsFirst,ListOfRefacs) ->
+    lists:map(fun(FileTuple) -> second_transform_file(Result,FileTuple,RefacScope,MFA,IsFirst) end, ListOfRefacs).
 
 second_transform_file(Result,{{FileName,FileName}, Node},RefacScope,MFA,IsFirst) ->
        FileNode = api_refac:get_ast(FileName),
@@ -114,9 +119,6 @@ second_transform_file(Result,{{FileName,FileName}, Node},RefacScope,MFA,IsFirst)
 		      try_transform_recursively(IsFirst orelse FileNode /= Node, Node, FileName, {RefacScope, MFA})
        end;
 second_transform_file(Result,_,_,_,_) -> Result.
-
-    
-
 
 %%--------------------------------------------------------------------
 %% @private
