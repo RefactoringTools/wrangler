@@ -69,11 +69,12 @@ selective() ->
 %% @end
 %%--------------------------------------------------------------------
 transform(Args=#args{current_file_name=File,
-		     user_inputs=[RefacScopeStr]}) ->
-    transform_unref_assign({file,File},RefacScopeStr,Args).
+		     user_inputs=[RefacScopeStr],search_paths=SearchPaths}) ->
+    Files = refac:get_files(refac:get_refac_scope(RefacScopeStr),SearchPaths,File),
+    transform_unref_assign(Files,RefacScopeStr,Args).
 	    
 
-transform_unref_assign({files,Files},RefacScopeStr,Args=#args{focus_sel=FunDef}) ->
+transform_unref_assign(Files,RefacScopeStr,Args=#args{focus_sel=FunDef}) ->
     case refac:validate_refac_scope(RefacScopeStr,Args) of
 	{error,Reason} -> {error, Reason};
 	_ ->
@@ -82,10 +83,7 @@ transform_unref_assign({files,Files},RefacScopeStr,Args=#args{focus_sel=FunDef})
 	    MFA = fun_define_info(RefacScope, FunDef),
 	    Result = ?STOP_TD_TP((rules(CollectResult, {RefacScope, MFA})), Files),
 	    second_transform(Result,RefacScope,MFA,false)
-    end;
-transform_unref_assign({file,File},EntireFileStr, Args=#args{search_paths=SearchPaths}) ->
-    Files = refac:get_files(refac:get_refac_scope(EntireFileStr),SearchPaths,File),
-    transform_unref_assign({files,Files},EntireFileStr,Args).
+    end.
 
 fun_define_info(function, FunDef) -> api_refac:fun_define_info(FunDef);
 fun_define_info(_,_) -> notrelevant.

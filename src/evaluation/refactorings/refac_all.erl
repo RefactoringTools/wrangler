@@ -89,7 +89,7 @@ transform(Args=#args{current_file_name=File,
 		{ok,ListOfResults} when is_list(ListOfResults) ->
 		    Files = refac:get_files(RefacScope,SearchPaths,File),
 		    FilteredFiles = lists:filter(fun(FileName) -> lists:keyfind({FileName, FileName},1,ListOfResults) == false end,Files),
-		   Result3 = refac_unreferenced_assign:transform_unref_assign({files,FilteredFiles},RefacScopeStr,Args),
+		   Result3 = refac_unreferenced_assign:transform_unref_assign(FilteredFiles,RefacScopeStr,Args),
 		   case Result3 of
 		       {ok,ListOfResults2} when is_list(ListOfResults2) ->
 			   {ok, ListOfResults ++ ListOfResults2};
