@@ -84,7 +84,6 @@ testFunAppAssign5() ->
 testFunAppAssign6(X) ->
     testAssignFun().
 
-%%SHOULD UNFOLD MORE
 testEvaluator() ->
     testFunAppAssign().
     
