@@ -23,11 +23,12 @@ transform_body(Node,RulesFun,FunArgsWithScope,FunDefInfo) ->
 	    if
 		Changed -> 
 		    Match = ?MATCH(?T("f@(Args@@) when Guards@@ -> Body@@;"), Scope),
+		    
 		    if
 			Match ->
 			    NewScope = ?TO_AST("f@(Args@@) when Guards@@ -> NewNode@@;"),
-			    transform_body(NewNode@@, RulesFun, {FunArgs, NewScope,BoundVars}, FunDefInfo);
-			true -> transform_body(NewNode@@, RulesFun, FunArgsWithScope, FunDefInfo)
+			    transform_body(NewNode@@, RulesFun, {FunArgs, NewScope, api_refac:bound_vars(NewScope)}, FunDefInfo);
+			true -> transform_body(NewNode@@, RulesFun, {FunArgs, Scope,BoundVars}, FunDefInfo)
 		    end;
 		true -> NewNode@@
 	    end;

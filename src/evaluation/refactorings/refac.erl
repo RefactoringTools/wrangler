@@ -134,7 +134,7 @@ body_rule(RulesFun, {RefacScope, MFA}, TimeOut, FunArgs) ->
            FunInfo = api_refac:fun_define_info(f@),
 	   (RefacScope /= function orelse FunInfo == MFA) andalso
 	 begin
-	     Result = try_transform_body(Body@@, RulesFun, {FunArgs, _This@, api_refac:bound_vars(Body@@)}, FunInfo, TimeOut),
+	     Result = try_transform_body(Body@@, RulesFun, {FunArgs, _This@, api_refac:bound_vars(_This@)}, FunInfo, TimeOut),
 	     case Result of
 		  {error, _Reason} -> false;
 		  _ -> true

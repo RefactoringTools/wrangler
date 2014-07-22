@@ -160,3 +160,15 @@ testFunAppAssign4() ->
     Y = X + 1,
     Z = testAssignFun(),
     X + 2 + Z.
+
+testFunAppAssign5() ->
+    X = 3,
+    testAssignFun(),
+    X + 2.
+
+testFunAppAssign6(X) ->
+    testAssignFun().
+
+testEvaluator() ->
+    X = 3,
+    testAssignFun().
