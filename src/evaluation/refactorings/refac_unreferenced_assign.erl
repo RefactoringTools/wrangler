@@ -84,13 +84,10 @@ transform_unref_assign(Files,RefacScopeStr,Args) ->
 first_transform(Files,RefacScopeStr,_Args=#args{focus_sel=FunDef}) ->
     RefacScope = refac:get_refac_scope(RefacScopeStr),
     CollectResult = collector(Files),
-    MFA = fun_define_info(RefacScope, FunDef),
+    MFA = refac:fun_define_info(RefacScope, FunDef),
     Result = ?STOP_TD_TP((rules(CollectResult, {RefacScope, MFA})), Files),
     second_transform(Result,RefacScope,MFA,false).
 
-fun_define_info(function, FunDef) -> api_refac:fun_define_info(FunDef);
-fun_define_info(_,_) -> notrelevant.
-    
 second_transform(Result,RefacScope,MFA,IsFirst) ->
     case Result of
 	{ok, ListOfRefacs} ->

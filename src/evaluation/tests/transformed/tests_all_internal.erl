@@ -13,6 +13,11 @@ footle(0,Y) -> Y;
 footle(X,Y) ->
     X + footle(X - 1, Y).
 
+infinite_loop(X) -> infinite_loop(X + 1).
+
+is_even(N) when is_number(N) ->
+    N rem 2 == 0.
+
 %%TESTS
 testTupleAndApp1() -> 3.
 
@@ -43,5 +48,23 @@ testFootle5(Y) ->
 testInfiniteLoop() ->
     infinite_loop(1000).
     
+testAssignFun() ->
+    X = true,
+    X.
 
+testFunAppAssign() ->
+    X = true,
+    X.
+
+testFunAppAssign2() ->
+    X = true,
+    X.
+
+testFunAppAssign3() ->
+    1 + testAssignFun().
+
+testFunAppAssign4() ->
+    X = 3,
+    Z = testAssignFun(),
+    X + 2 + Z.
 

@@ -144,3 +144,19 @@ test2f2() -> f2([]).
 testFunAppAssign() ->
     X = 3,
     testAssignFun().
+
+testFunAppAssign2() ->
+    X = 3,
+    Y = X + 1,
+    testAssignFun().
+
+testFunAppAssign3() ->
+    X = 3,
+    Y = X + 1,
+    1 + testAssignFun().
+
+testFunAppAssign4() ->
+    X = 3,
+    Y = X + 1,
+    Z = testAssignFun(),
+    X + 2 + Z.

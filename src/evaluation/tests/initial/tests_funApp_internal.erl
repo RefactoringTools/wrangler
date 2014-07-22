@@ -112,7 +112,7 @@ testG5() -> g(4.1).
 
 testG6(X) -> g(X).
 
-testLength() ->
+testLength() -> 
     length([1,2,3]).
 
 testBar() -> bar(3).
@@ -144,9 +144,24 @@ testf2() -> f2([1,2,3]).
 
 test2f2() -> f2([]).
 
-%%Not WORKING PROPERLY
 testFunAppAssign() ->
     X = 3,
     testAssignFun().
-    
+
+testFunAppAssign2() ->
+    X = 3,
+    Y = X + 1,
+    testAssignFun().
+
+testFunAppAssign3() ->
+    X = 3,
+    Y = X + 1,
+    1 + testAssignFun().
+
+testFunAppAssign4() ->
+    X = 3,
+    Y = X + 1,
+    Z = testAssignFun(),
+    X + 2 + Z.
+     
 

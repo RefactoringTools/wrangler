@@ -3,7 +3,7 @@
 %% Auxiliar Module that is used when the refactorings contains similaraties.
 %% This module is responsible for the timeout for example.
 -module(refac).
--export([try_call_transform/2, try_call_transform/3, body_rules/4, try_transform_manager/5, checkTimeOut/1, get_refac_scope/1, select_focus/1, select_focus/2, input_par_prompts/0,get_files/3,filterError/1,input_refac_scope_message/0,validation_with_timeout/3,validate_refac_scope/2,start_transformation/5,validate_all/4,validate_definitions_str/2,collectFile/3]).
+-export([try_call_transform/2, try_call_transform/3, body_rules/4, try_transform_manager/5, checkTimeOut/1, get_refac_scope/1, select_focus/1, select_focus/2, input_par_prompts/0,get_files/3,filterError/1,input_refac_scope_message/0,validation_with_timeout/3,validate_refac_scope/2,start_transformation/5,start_transformation/6,validate_all/4,validate_definitions_str/2,collectFile/3,fun_define_info/2]).
 
 %% Include files
 -include_lib("wrangler/include/wrangler.hrl").
@@ -12,7 +12,7 @@ input_par_prompts() ->
    ["Please, choose a timeout value in miliseconds (default is 1000ms):",input_refac_scope_message()].
 
 input_refac_scope_message() ->
-     "Please choose y/n to apply this refactoring to this whole file or Y to apply it to the whole project (y,n or Y)".
+     "Do you want to apply this refactoring to the whole project (Y), the whole file (y), or just the selected function (n)?".
 
 select_focus(Args=#args{user_inputs=InputsList}) ->
     EntireFileStr = lists:nth(2, InputsList),
@@ -39,20 +39,26 @@ try_call_transform(Args=#args{user_inputs=InputsList}, RulesFun, FunArgs) ->
 	    start_transformation(RefacScopeStr,RulesFun,TimeOutStr,FunArgs,Args)
     end.
 
-start_transformation(RefacScopeStr,RulesFun,TimeOutStr,FunArgs,_Args=#args{current_file_name=File, focus_sel=FunDef,search_paths=SearchPaths}) ->
+start_transformation(RefacScopeStr,RulesFun,TimeOutStr,FunArgs,Args=#args{search_paths=SearchPaths}) ->
+     Files = wrangler_misc:expand_files(SearchPaths, ".erl"),
+     start_transformation(RefacScopeStr,RulesFun,TimeOutStr,FunArgs,Args,Files).
+
+start_transformation(RefacScopeStr,RulesFun,TimeOutStr,FunArgs,_Args=#args{current_file_name=File, focus_sel=FunDef},Files) ->
     TimeOut = checkTimeOut(TimeOutStr),
     RefacScope = get_refac_scope(RefacScopeStr),
-	    case RefacScope of
-		file ->       		    
-		    ?FULL_TD_TP((body_rules(RulesFun, {RefacScope, unknown}, TimeOut, FunArgs)),[File]);
-		function ->
-		    MFA = api_refac:fun_define_info(FunDef),
-		    ?FULL_TD_TP((body_rules(RulesFun, {RefacScope, MFA}, TimeOut, FunArgs)),[File]);
-			
-		project ->		 
-		     Files = wrangler_misc:expand_files(SearchPaths, ".erl"),
-		     ?FULL_TD_TP((body_rules(RulesFun, {RefacScope, unknown}, TimeOut, FunArgs)),Files)
-	    end.
+    MFA = fun_define_info(RefacScope,FunDef),
+    if
+		RefacScope == file orelse RefacScope == function ->       	    		?FULL_TD_TP((body_rules(RulesFun, {RefacScope, MFA}, TimeOut, FunArgs)),[File]);
+		RefacScope == project ->		 
+		     ?FULL_TD_TP((body_rules(RulesFun, {RefacScope, MFA}, TimeOut, FunArgs)),Files)
+    end.
+
+fun_define_info(RefacScope, FunDef) ->
+    case RefacScope of
+	function ->
+	    api_refac:fun_define_info(FunDef);
+	_ -> unknown
+    end.
     
 validate_refac_scope(RefacScopeStr, _Args=#args{focus_sel=FunDef,search_paths=SearchPaths}) ->
     case get_refac_scope(RefacScopeStr) of
