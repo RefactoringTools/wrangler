@@ -79,9 +79,9 @@ transform(Args=#args{current_file_name=_File,user_inputs=[E,I], search_paths=_Se
 %%% Internal functions
 %%%===================================================================
 %%@private
-rules({ModuleName,_},Info) ->
+rules(_,Info) ->
     [   
-        core_funApp:functionCall_rule(Info,unknown,[core_funApp:addModuleName_rule(ModuleName)],false),
+        core_funApp:functionCall_rule(Info,unknown,[],false,[]),
         core_funApp:anonymousCall_rule()
     ]. 
 

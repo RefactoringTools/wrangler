@@ -110,7 +110,7 @@ transform(Args=#args{current_file_name=File, user_inputs=_, search_paths=SearchP
 		        case CollectFile of 
 					{ok,DefinitionsFile} -> 
 				 				     DefinitionsModule = list_to_atom(ModuleName),
-								     Info = core_funApp:collect(DefinitionsFile,false),
+								     Info = core_funApp:collect(DefinitionsFile),
 								     checkNumberSteps(Args,E,I,{{DefinitionsModule,Info},Scope},TypeRefac,Pid);
 		                        _ -> {error,"Definitions file does not exist."}
 		 
@@ -118,7 +118,7 @@ transform(Args=#args{current_file_name=File, user_inputs=_, search_paths=SearchP
 	       _ ->     
                         case TypeRefac of
                               funApp -> {error,"Invalid expression."};
-                              _ -> %%Info = core_funApp:collect(File,false),
+                              _ -> %%Info = core_funApp:collect(File),
                                    checkNumberSteps(Args,E,I,{{File,empty},Scope},TypeRefac,Pid)
                         end
 	    end.   
@@ -168,8 +168,8 @@ rules({File,Scope},Info) ->
      core_lists_concat:rules(empty,empty) ++
      eval_funApp:rules({File,Scope},Info) ++
      core_boolean_operators:rules(nil,nil) ++
-     core_if:rules({File,Scope},Info) ++
-     core_case:rules({File,Scope},Info)      
+     core_if:rules({File,Scope,[]},Info) ++
+     core_case:rules({File,Scope,[]},Info)      
    .    
 
 
