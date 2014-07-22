@@ -1,5 +1,5 @@
 -module(eval).
--export([start_evaluation/8,keep_temp_info/2,try_evaluate/12]).
+-export([start_evaluation/7,keep_temp_info/3,try_evaluate/11]).
 
 %% Include files
 -include_lib("wrangler/include/wrangler.hrl").   
@@ -9,24 +9,41 @@
 %% This function represents a rule that tries to perform substitution rules in a function body only if the function information matches the function chosen by the user in the case of a Composite Refactoring.
 %% @end
 %%--------------------------------------------------------------------   
-start_evaluation(SearchPaths,{File,Scope},Info,Pid,RulesFun,Expression,NSteps, TypedF) ->
+start_evaluation({File,Scope},Info,Pid,RulesFun,Expression,NSteps, TypedF) ->
 	    if Pid /= "" ->
 		    	Steps = get_temp_info_steps(Pid),
-		    	Body = lists:last(Steps),
-		   	NewBody = evaluate(SearchPaths,Pid,Body,{File,Scope},Info,RulesFun,false,NSteps,TypedF,0,[Body]),
-                        Change = ?PP(NewBody) /= ?PP(Body);
+                        NRefacsDone = get_temp_info_nSteps(Pid),
+		    	Body = lists:nth(NRefacsDone+1,Steps),
+		   	NewBody = evaluate(Pid,Body,{File,Scope},Info,RulesFun,false,NSteps,TypedF,0,Steps),
+                        if TypedF == false -> 
+					NSteps_Int = list_to_integer(NSteps), 
+                                        if length(Steps) > NSteps_Int + NRefacsDone -> Change = true ;
+                                        true -> Change = ?PP(NewBody) /= ?PP(Body)
+                                        end;
+                           true ->  if length(Steps) - 1 > NRefacsDone -> Change = true;
+                                        true -> Change = ?PP(NewBody) /= ?PP(Body)
+                                    end
+                        end,
+                        if
+				Change -> 
+                                 	PidEvaluation = spawn(eval,try_evaluate, [Pid,Body,				          					 		{File,Scope},Info,RulesFun,true,NSteps,TypedF,0,Steps,self()]),
+                          	 	timeout_manager(PidEvaluation,Body,1000);
+				true -> 
+                          		{error,"No evaluation done"}   
+       	    		end; 
                true ->  Body = ?TO_AST(Expression),
-           		Change = ?PP(evaluate(SearchPaths,"",Body,{File,Scope},Info,RulesFun,false, NSteps,TypedF,0,[Body])) /= Expression
-            end,
-            if
-		Change -> PidEvaluation = spawn(eval,try_evaluate, [SearchPaths,Pid,Body,{File,Scope},Info,RulesFun,true,NSteps,TypedF,0,[Body],self()]),
-                          timeout_manager(PidEvaluation,Body,1000);
-		true -> 
-                          {error,"No evaluation done"}   
-       	    end.  
+           		Change = ?PP(evaluate("",Body,{File,Scope},Info,RulesFun,false, NSteps,TypedF,0,[Body])) /= Expression,
+                        if
+				Change -> 
+                                 	PidEvaluation = spawn(eval,try_evaluate, [Pid,Body,				          					 		{File,Scope},Info,RulesFun,true,NSteps,TypedF,0,[Body],self()]),
+                          	 	timeout_manager(PidEvaluation,Body,1000);
+				true -> 
+                          		{error,"No evaluation done"}   
+       	    		end
+            end.
 
-try_evaluate(SearchPaths,Pid,Body,{File,Scope},Info,RulesFun,true,NSteps,TypedF,NRefacsDone,Steps,MainPid) ->
-            Result = evaluate(SearchPaths,Pid,Body,{File,Scope},Info,RulesFun,true,NSteps,TypedF,NRefacsDone,Steps),
+try_evaluate(Pid,Body,{File,Scope},Info,RulesFun,true,NSteps,TypedF,NRefacsDone,Steps,MainPid) ->
+            Result = evaluate(Pid,Body,{File,Scope},Info,RulesFun,true,NSteps,TypedF,NRefacsDone,Steps),
 	    MainPid ! {result, Result}.
 
 timeout_manager(Pid,Node,TimeOut) -> 
@@ -45,17 +62,21 @@ timeout_manager(Pid,Node,TimeOut) ->
 %% This function computes how many steps were done, so that if the user wants to undo, this information will be used. A new thread was created to do this math.
 %% @end
 %%--------------------------------------------------------------------
-keep_temp_info(NSteps,Steps) -> 
+keep_temp_info(NSteps,Steps,Text) -> 
 	receive
-    		{refactoring_finished, NRefacsDone, NewSteps} -> 
-                                          keep_temp_info(NRefacsDone + NSteps, NewSteps);
+    		{refactoring_finished, NRefacsDone, NewSteps,NewText} -> 
+                                          keep_temp_info(NRefacsDone, NewSteps,NewText);
     		{ask_steps,MainPid} -> begin
                                           MainPid ! {value,Steps},
-                                          keep_temp_info(NSteps,Steps)
+                                          keep_temp_info(NSteps,Steps,Text)
                                       end;
                  {ask_nSteps,MainPid} -> begin
                                            MainPid ! {value,NSteps},
-                                           keep_temp_info(NSteps,Steps)
+                                           keep_temp_info(NSteps,Steps,Text)
+                                        end;
+                {ask_text,MainPid} ->  begin
+                                           MainPid ! {value,Text},
+                                           keep_temp_info(NSteps,Steps,Text)
                                         end;
         stop -> true
     	end.
@@ -74,6 +95,10 @@ get_temp_info_nSteps(Pid) -> Pid ! {ask_nSteps,self()},
            		 receive 
              			{value,NSteps} -> NSteps
                          end. 
+get_temp_info_text(Pid) -> Pid ! {ask_text,self()},
+                         receive 
+             			{value,Text} -> Text
+                         end. 
 
 %%--------------------------------------------------------------------
 %% @private
@@ -82,8 +107,8 @@ get_temp_info_nSteps(Pid) -> Pid ! {ask_nSteps,self()},
 %% @spec(transform_body_two_ways([syntaxTree()] | syntaxTree(),string(),[syntaxTree()] | syntaxTree(),[{{modulename(),functionname(),arity()},syntaxTree(),syntaxTree() | [syntaxTree()]}], boolean(), string(), boolean(), string(),integer(),string()) -> [syntaxTree()] | syntaxTree()).
 %% @end
 %%--------------------------------------------------------------------  
--spec(evaluate(string(),string(),[syntaxTree()] | syntaxTree(),string(),[{{modulename(),functionname(),arity()},syntaxTree(),syntaxTree() | [syntaxTree()]}],RulesFun::fun((_) -> any()), boolean(), string(), boolean(),integer(),[syntaxTree]) -> [syntaxTree()] | syntaxTree()).
-evaluate(SearchPaths,Pid, CurrentNode,{File,Scope},Info,RulesFun, Transform, Input_Steps,TypedF,NRefacsDone,Steps) -> 
+-spec(evaluate(string(),[syntaxTree()] | syntaxTree(),string(),[{{modulename(),functionname(),arity()},syntaxTree(),syntaxTree() | [syntaxTree()]}],RulesFun::fun((_) -> any()), boolean(), string(), boolean(),integer(),[syntaxTree]) -> [syntaxTree()] | syntaxTree()).
+evaluate(Pid, CurrentNode,{File,Scope},Info,RulesFun, Transform, Input_Steps,TypedF,NRefacsDone,Steps) -> 
     {ok, NewNode} = ?STOP_TD_TP(RulesFun({File,Scope},Info), CurrentNode),
     Changed = ?PP(CurrentNode) /= ?PP(NewNode),
     if
@@ -94,20 +119,30 @@ evaluate(SearchPaths,Pid, CurrentNode,{File,Scope},Info,RulesFun, Transform, Inp
     end,
     if TypedF ->
                 if
+                    Transform andalso length(Steps) - 1 > NRefacsDone -> 
+                         OldText = get_temp_info_text(Pid),
+                         evaluation_ended(Transform,length(Steps)-1, Pid,lists:last(Steps), [],OldText ++ get_text(Steps,NRefacsDone,Input_Steps));
    	            Transform andalso Changed -> 
-                        
-                	evaluate(SearchPaths,Pid, NewNode,{File,Scope},Info,RulesFun, Transform, Input_Steps, TypedF,NRefacsDoneI,NewSteps);
+                	evaluate(Pid, NewNode,{File,Scope},Info,RulesFun, Transform, Input_Steps, TypedF,NRefacsDoneI,NewSteps);
    		    true -> 
-                             evaluation_ended(SearchPaths,Transform,NRefacsDoneI,Pid,NewNode,NewSteps)
+                             NRefacsDoneBef = get_temp_info_nSteps(Pid),
+                             OldText = get_temp_info_text(Pid),
+                             evaluation_ended(Transform,NRefacsDoneBef + NRefacsDoneI,Pid,NewNode,NewSteps,OldText ++ get_text(NewSteps))
     		end;
        true ->
                 Input_Steps_Int = list_to_integer(Input_Steps),
                 if
-   	            Transform andalso Changed andalso Input_Steps_Int > 1 -> 
-                	evaluate(SearchPaths,Pid, NewNode,{File,Scope},Info,RulesFun, Transform, integer_to_list(Input_Steps_Int - 1), 					TypedF,NRefacsDoneI,NewSteps);
+                    Transform andalso (length(Steps) - 1 >= (NRefacsDone + Input_Steps_Int)) andalso Input_Steps_Int > 0 -> 
+                              NRefacsDoneBef = get_temp_info_nSteps(Pid),
+                              OldText = get_temp_info_text(Pid),
+                              evaluation_ended(Transform,NRefacsDoneBef + NRefacsDone + Input_Steps_Int, Pid,lists:last(Steps), [],OldText ++ get_text(Steps,NRefacsDone,Input_Steps));
+   	            Transform andalso Changed andalso Input_Steps_Int > 1 ->
+                	evaluate(Pid, NewNode,{File,Scope},Info,RulesFun, Transform, integer_to_list(Input_Steps_Int - 1), 					TypedF,NRefacsDoneI,NewSteps);
                     Input_Steps_Int < 0 -> 
-                                   go_back_steps(SearchPaths,Pid,Input_Steps_Int,Transform);
-                    true ->  evaluation_ended(SearchPaths,Transform,NRefacsDoneI,Pid,NewNode,NewSteps)
+                                   go_back_steps(Pid,Input_Steps_Int,Transform);
+                    true -> NRefacsDoneBef = get_temp_info_nSteps(Pid),
+                            OldText = get_temp_info_text(Pid),
+                            evaluation_ended(Transform,NRefacsDoneBef+NRefacsDoneI,Pid,NewNode,NewSteps,OldText++get_text(NewSteps))
     		end
     end.
 
@@ -116,66 +151,63 @@ evaluate(SearchPaths,Pid, CurrentNode,{File,Scope},Info,RulesFun, Transform, Inp
 %% This function start a new evaluation when the user chooses to undo steps.
 %% @end
 %%--------------------------------------------------------------------
-go_back_steps(SearchPaths,Pid,Input_Int,Transform) ->
-   TotalSteps = get_temp_info_nSteps(Pid), 
-   case SearchPaths of 
-        [FirstPath|_] -> 
+go_back_steps(Pid,Input_Int,Transform) ->
+   TotalSteps = get_temp_info_nSteps(Pid),  
                          if
                               TotalSteps >= Input_Int * (-1)  ->					
 		                   Steps = get_temp_info_steps(Pid),
-		                   [_|NewSteps] = get_back_steps(lists:reverse(Steps),Input_Int * (-1) + 1),
-                                   OldSteps = get_old_steps(lists:reverse(Steps),Input_Int * (-1)),
-                                   FileName = FirstPath ++ "/results.txt",
+                                   OldText = get_temp_info_text(Pid),
+		                   [_|NewSteps] = get_back_steps(lists:reverse(Steps),Input_Int * (-1) + 1,TotalSteps),
                                    if Transform ->
-                                                Pid ! {refactoring_finished,Input_Int,OldSteps},
-                                   		write_result(NewSteps,FileName,lists:last(NewSteps));
+                                                Pid ! {refactoring_finished,TotalSteps + Input_Int,Steps,OldText++get_text(NewSteps)},
+                                   		write_result(Pid,lists:last(NewSteps));
                                       true -> lists:last(NewSteps)
                                    end
-                            end;
-        _ -> {error, "Invalid Wrangler Search Path"}
-   end.
+                            end.
 
-get_back_steps(_, 0) -> [];
-get_back_steps([H|T],NSteps) -> [H|get_back_steps(T,NSteps -1)].  
 
-get_old_steps(T,0) -> lists:reverse(T);
-get_old_steps([_|T],NSteps) -> get_old_steps(T,NSteps-1).
+get_back_steps(_, 0,_) -> [];
+get_back_steps([H|T],NSteps,TotalSteps) -> if length(T) =< TotalSteps -> [H|get_back_steps(T,NSteps -1,TotalSteps)];
+                                              true -> get_back_steps(T,NSteps,TotalSteps)
+                                           end.  
 
 %%--------------------------------------------------------------------
 %% @doc
 %% This function returns the current node and updates the number of evaluations done.
 %% @end
 %%--------------------------------------------------------------------
-evaluation_ended(SearchPath,Transform,NRefacsDone,Pid,NewBody,Steps) -> 
+evaluation_ended(Transform,NRefacsDone,Pid,NewBody,Steps,Text) -> 
                                 if Transform ->
-                                        case SearchPath of
-					    [File | _] ->
-		                                FileName = File ++ "/results.txt",
 		                                if Pid /= "" ->  OldSteps = get_temp_info_steps(Pid),
 		                                                 LengthOld = length(OldSteps),
 		                                                 if LengthOld == 1 ->
-				                                         write_result(Steps, FileName, NewBody),
-				                                         Pid ! {refactoring_finished,NRefacsDone,Steps};
-		                                                 true -> write_result(OldSteps ++ Steps, FileName, NewBody),
-		                                                 	 Pid ! {refactoring_finished,NRefacsDone,OldSteps ++ Steps}
+				                                         Pid ! {refactoring_finished,NRefacsDone,Steps,Text},
+                                                                         write_result(Pid, NewBody);
+		                                                 true -> 
+		                                                 	 Pid ! {refactoring_finished,NRefacsDone,OldSteps ++ Steps,Text},
+                                                                         write_result(Pid, NewBody)
 		                                                 end,
 		                                                 NewBody;
 		                                   true -> 
-		                                           write_result(Steps, FileName, NewBody)
+		                                           write_result(Pid, NewBody)
 		                                end;
-                                             _ -> {error, "Invalid Wrangler Search Paths"}
-                                         end;
                                     true ->
                                         NewBody
                                  end.
 
 get_text([]) -> "";
-get_text([H|T]) -> ">" ++ ?PP(H) ++ "\n" ++ get_text(T).
+get_text([H|T]) -> "> " ++?PP(H) ++ "\n" ++ get_text(T).
 
-write_result(Steps, FileName, NewBody) -> 
-                  Text = get_text(Steps),
-                  {ok,_} = file:open(FileName, [append]),
-                  file:write_file(FileName, Text,[append]),
+get_text([],_,_) -> [];
+get_text(_,_,"0") -> [];
+get_text([H|T],0,Input) -> if Input /= "f" andalso Input /= "F" -> "> "++"\n" ++ get_text(T,0,integer_to_list(list_to_integer(Input)-1));
+                              true -> "> " ++ ?PP(H)++"\n" ++ get_text(T,0,Input)
+                           end;
+get_text([_|T],NSteps,Input) -> get_text(T,NSteps-1,Input).
+
+write_result(Pid,NewBody) -> 
+                  Text = get_temp_info_text(Pid),
+		  io:fwrite(Text),
                   NewBody.
 
 

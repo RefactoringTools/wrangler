@@ -70,7 +70,6 @@
          tuple_funpar_1/6,
          tuple_args/7,
          swap_args/7,
-         eval_all/7,
        	 register_pid/7, 
          fun_to_process/7,
 	 new_macro/7,
@@ -919,10 +918,6 @@ add_to_export(FileName, {FunName, Arity}, SearchPaths, Editor, TabWidth) ->
 %%@private
 swap_args(FileName, {FunName, Arity}, Index1, Index2, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_swap_function_arguments, swap_args, [FileName, {FunName, Arity}, Index1, Index2, SearchPaths, Editor, TabWidth]).
-
-eval_all(ModOrFile, OriginalNode,Pid, Input, SearchPaths, Editor, TabWidth)->
-    try_refac(eval_all, eval_all,
-    [ModOrFile, OriginalNode, Pid, Input, SearchPaths, Editor, TabWidth]).
 
 %%=========================================================================================
 %% @doc Turn a function into a server process (Beta).
