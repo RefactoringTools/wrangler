@@ -18,7 +18,7 @@
 %% gen_refac callbacks
 -export([input_par_prompts/0,select_focus/1, 
 	 check_pre_cond/1, selective/0, 
-	 transform/1,transform/3,transform/5,rules/2, eval_all/7]).
+	 transform/1,transform/3,transform/5,rules/2, eval_all/5]).
 
 %%%===================================================================
 %%% gen_refac callbacks
@@ -93,6 +93,7 @@ selective() ->
 %%            {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
+
 transform(Args=#args{current_file_name=_File, user_inputs=[E,I], search_paths=_SearchPaths})->
     transform(Args,E,I,refac_eval_single,nil).
 
@@ -122,32 +123,32 @@ transform(Args=#args{current_file_name=File, user_inputs=_, search_paths=SearchP
                         end
 	    end.   
 
-checkNumberSteps(_Args=#args{current_file_name=_,user_inputs=_, search_paths=SearchPaths},E,I,{{File,Info},Scope},TypeRefac,Pid) -> 
+checkNumberSteps(_Args=#args{current_file_name=_,user_inputs=_, search_paths=_SearchPaths},E,I,{{File,Info},Scope},TypeRefac,Pid) -> 
    if I == "" -> NSteps = "1";
       true -> NSteps = I
    end,
    TypedF = NSteps == "f" orelse NSteps == "F",
    case TypeRefac of 
              refac_eval_single ->  
-		     eval:start_evaluation(SearchPaths,{File,Scope},Info,"",fun eval_all:rules/2,E,NSteps, TypedF);
+		     eval:start_evaluation({File,Scope},Info,"",fun eval_all:rules/2,E,NSteps, TypedF);
              refac_eval_compos -> 
-		     eval:start_evaluation(SearchPaths,{File,Scope},Info,Pid,fun eval_all:rules/2, "",NSteps, TypedF);
+		     eval:start_evaluation({File,Scope},Info,Pid,fun eval_all:rules/2, "",NSteps, TypedF);
              eval_funApp -> 
-		      eval:start_evaluation(SearchPaths,{File,Scope},Info,"",fun eval_funApp:rules/2,E,NSteps, TypedF);
+		      eval:start_evaluation({File,Scope},Info,"",fun eval_funApp:rules/2,E,NSteps, TypedF);
              eval_arit_calc ->
-                      eval:start_evaluation(SearchPaths,{File,Scope},Info,"",fun core_arit_calc:rules/2, E, NSteps, TypedF);
+                      eval:start_evaluation({File,Scope},Info,"",fun core_arit_calc:rules/2, E, NSteps, TypedF);
              eval_arit_simpl ->
-                      eval:start_evaluation(SearchPaths,{File,Scope},Info,"",fun core_arit_simpl:rules/2,E, NSteps, TypedF);
+                      eval:start_evaluation({File,Scope},Info,"",fun core_arit_simpl:rules/2,E, NSteps, TypedF);
              eval_boolean_operators ->
-                      eval:start_evaluation(SearchPaths,{File,Scope},Info,"",fun core_boolean_operators:rules/2,E, NSteps, TypedF);
+                      eval:start_evaluation({File,Scope},Info,"",fun core_boolean_operators:rules/2,E, NSteps, TypedF);
              eval_arithmetics ->
-                      eval:start_evaluation(SearchPaths,{File,Scope},Info,"",fun core_arithmetics:rules/2,E, NSteps, TypedF);
+                      eval:start_evaluation({File,Scope},Info,"",fun core_arithmetics:rules/2,E, NSteps, TypedF);
              eval_if ->
-                      eval:start_evaluation(SearchPaths,{File,Scope},Info,"",fun core_if:rules/2,E, NSteps, TypedF);
+                      eval:start_evaluation({File,Scope},Info,"",fun core_if:rules/2,E, NSteps, TypedF);
              eval_case ->
-                      eval:start_evaluation(SearchPaths,{File,Scope},Info,"",fun core_case:rules/2,E, NSteps, TypedF);
+                      eval:start_evaluation({File,Scope},Info,"",fun core_case:rules/2,E, NSteps, TypedF);
              eval_lists -> 
-                      eval:start_evaluation(SearchPaths,{File,Scope},Info,"",fun core_lists_concat:rules/2,E,NSteps,TypedF);
+                      eval:start_evaluation({File,Scope},Info,"",fun core_lists_concat:rules/2,E,NSteps,TypedF);
              _ -> {error, "Invalid refactoring type."}
     end.
     
@@ -173,15 +174,13 @@ rules({File,Scope},Info) ->
 
 
 %%Composite Refactoring
-eval_all(FileName, OriginalNode, Pid, Input, SearchPaths,Editor, TabWidth) ->
+eval_all(FileName, OriginalNode, Pid, Input, SearchPaths) ->
             Args=#args{current_file_name=FileName,
                        user_inputs=[Input],
-                       search_paths=SearchPaths,
-                       tabwidth=TabWidth},
+                       search_paths=SearchPaths},
             case check_pre_cond(Args) of
                 ok ->
-                    {ok, Res}=transform(Args,OriginalNode,Pid),
-                    wrangler_write_file:write_refactored_files(Res,Editor,TabWidth,"");
+                    transform(Args,OriginalNode,Pid);
                 {error, Reason} ->
                     {error, Reason}
     end.

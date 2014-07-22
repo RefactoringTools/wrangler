@@ -40,14 +40,13 @@
          rename_var/5,     rename_var/6,
          rename_mod/3,     rename_mod/4,
          swap_args/5,      swap_args/6,
-         eval_all/5,       tuple_args/5, 
-         tuple_args/6,     fold_expr/5,  
-         fold_expr/6,      gen_fun/5,    
-         gen_fun/6,        gen_fun/7,    
-         move_fun/4,       move_fun/5, 
-         unfold_fun_app/4, unfold_fun_app/5, 
-         add_to_export/3,  add_to_export/4, 
-         inline_var/4]).
+         tuple_args/5,     tuple_args/6,     
+         fold_expr/5,      fold_expr/6,      
+         gen_fun/5,        gen_fun/6,        
+         gen_fun/7,        move_fun/4,       
+         move_fun/5,       unfold_fun_app/4, 
+         unfold_fun_app/5, add_to_export/3,  
+         add_to_export/4,  inline_var/4]).
 
 -compile(export_all).
 
@@ -787,10 +786,6 @@ test_swap_args(SearchPaths, Lazy) ->
                end,
                2, 3, Lazy, SearchPaths).
 
-%----refac_eval_all-----
-eval_all(ModOrFile, OriginalNode,Pid, Input, SearchPaths)->
-    [{refactoring, eval_all, [ModOrFile, OriginalNode, Pid,gen_input(Input), SearchPaths, ?context]}].
-
 gen_input({user_input, GenPrompt}) -> {prompt, GenPrompt()}.
     
 %%@hidden
@@ -1151,8 +1146,6 @@ gen_question(swap_args, [File,{F,A}|_]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to swap the parameters of function ~p:~p/~p?", 
                                 [M,F,A]));
-gen_question(eval_all, [_,_,_|_]) ->
-    lists:flatten(io_lib:format("Do you want to evaluate expressions? ",[]));
 gen_question(gen_fun, [File, {F, A}|_]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to generalise function ~p:~p/~p over the expression(s) highlighted?",
