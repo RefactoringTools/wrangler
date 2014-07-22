@@ -12,7 +12,7 @@
 -export([input_par_prompts/0,select_focus/1, 
 	 check_pre_cond/1, selective/0, 
 	 transform/1]).
--export([second_transform/4,transform_unref_assign/3]).
+-export([first_transform/3,second_transform/4,transform_unref_assign/3]).
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -74,16 +74,19 @@ transform(Args=#args{current_file_name=File,
     transform_unref_assign(Files,RefacScopeStr,Args).
 	    
 
-transform_unref_assign(Files,RefacScopeStr,Args=#args{focus_sel=FunDef}) ->
+transform_unref_assign(Files,RefacScopeStr,Args) ->
     case refac:validate_refac_scope(RefacScopeStr,Args) of
 	{error,Reason} -> {error, Reason};
 	_ ->
-	    RefacScope = refac:get_refac_scope(RefacScopeStr),
-	    CollectResult = collector(Files),
-	    MFA = fun_define_info(RefacScope, FunDef),
-	    Result = ?STOP_TD_TP((rules(CollectResult, {RefacScope, MFA})), Files),
-	    second_transform(Result,RefacScope,MFA,false)
+	    first_transform(Files, RefacScopeStr,Args)
     end.
+
+first_transform(Files,RefacScopeStr,_Args=#args{focus_sel=FunDef}) ->
+    RefacScope = refac:get_refac_scope(RefacScopeStr),
+    CollectResult = collector(Files),
+    MFA = fun_define_info(RefacScope, FunDef),
+    Result = ?STOP_TD_TP((rules(CollectResult, {RefacScope, MFA})), Files),
+    second_transform(Result,RefacScope,MFA,false).
 
 fun_define_info(function, FunDef) -> api_refac:fun_define_info(FunDef);
 fun_define_info(_,_) -> notrelevant.

@@ -23,7 +23,7 @@
 %% gen_refac callbacks
 -export([input_par_prompts/0,select_focus/1, 
 	 check_pre_cond/1, selective/0, 
-	 transform/1,rules/2, transform_funApp/2]).
+	 transform/1,rules/2, transform_funApp/2, start_transformation/3]).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -88,15 +88,18 @@ transform_funApp(Args=#args{current_file_name=File,search_paths=SearchPaths,user
 	_ ->
 	    RefacScope = refac:get_refac_scope(RefacScopeStr),
 	    Files = refac:get_files(RefacScope,SearchPaths,File),
-            RefacModules = lists:map(fun(CurFile) -> 
+            start_transformation(Files,Fun,Args)
+    end.
+
+start_transformation(Files,Fun,Args=#args{search_paths=SearchPaths,user_inputs=[TimeOutStr,RefacScopeStr,DefinitionsStr]}) ->
+    RefacModules = lists:map(fun(CurFile) -> 
 		     {ok, RefacModule} = api_refac:module_name(CurFile),
 		     RefacModule end, Files),
             case getInfoList(DefinitionsStr, Files, SearchPaths) of
 		      {error, Reason} -> {error,Reason};
 		      InfoList ->
 		            refac:start_transformation(RefacScopeStr,Fun,TimeOutStr,{RefacModules,InfoList},Args)
-	    end
-    end.
+	    end.
 
 collector()->
     ?COLLECT(
