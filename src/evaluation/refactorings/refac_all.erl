@@ -89,23 +89,18 @@ transform(Args=#args{current_file_name=File,
 		    Result2 = transform_refacs(ListOfResults,Files,Args),
 		    case Result2 of
 			{ok, ListOfResults2} when is_list(ListOfResults2) ->
-			     Result3 = refac_unreferenced_assign:second_transform(Result2,RefacScope,refac:fun_define_info(RefacScope,FunDef),true),
-			    case Result3 of
-				{ok,ListOfResults3} when is_list(ListOfResults3) ->
-				    FilteredFiles = filter_unused_files(ListOfResults3, Files),
-				    Result4 = refac_unreferenced_assign:first_transform(FilteredFiles,RefacScopeStr,Args),
-				    concat_results(ListOfResults3,Result4);
-				_ -> Result3
-			    end;
+			     refac_unreferenced_assign:second_transform(Result2,RefacScope,refac:fun_define_info(RefacScope,FunDef),true);			    
 			_ -> Result2
 		    end;
 		Result -> Result
 	    end
     end.
 
+%%refac_loop()
+
 concat_results(ListOfResults, NewResult) ->
     case NewResult of
-	{ok,ListOfResults2} when is_list(ListOfResults2) ->	  
+	{ok,ListOfResults2} when is_list(ListOfResults2) ->
 		{ok, ListOfResults ++ ListOfResults2};
 	_ -> NewResult
     end.
@@ -125,8 +120,7 @@ transform_refacs(ListOfResults,Files,Args=#args{user_inputs=[TimeOutStr,RefacSco
 	                     case Result2 of
 				{ok,ListOfResults2} when is_list(ListOfResults2) ->
 				    
-				     FilteredFiles = filter_unused_files(ListOfResults2, Files),
-				     io:format("Filtered length: ~p~n",[length(FilteredFiles)]),
+				     FilteredFiles = filter_unused_files(ListOfResults2, Files), 
 				     Result3 = case FilteredFiles of
 					 [] -> {ok,[]};
 					 _ ->
