@@ -81,7 +81,7 @@ transform(Args=#args{current_file_name=_File,user_inputs=[E,I], search_paths=_Se
 %%@private
 rules(_,Info) ->
     [   
-        core_funApp:functionCall_rule(Info,unknown,[],false,[]),
+        core_funApp:functionCall_rule(Info,unknown,false,[]),
         core_funApp:anonymousCall_rule()
     ]. 
 
