@@ -85,45 +85,40 @@ transform(Args=#args{current_file_name=File,
 	    RefacScope = refac:get_refac_scope(RefacScopeStr),
 	    Files = refac:get_files(RefacScope,SearchPaths,File),
 	    case refac_unreferenced_assign:first_transform(Files,RefacScopeStr,Args) of
-		{ok, ListOfResults} when is_list(ListOfResults) ->
-		    Result2 = transform_refacs(ListOfResults,Files,Args),
-		    case Result2 of
-			{ok, ListOfResults2} when is_list(ListOfResults2) ->
-			    call_refac_loop(Result2,ListOfResults2,RefacScope,Args);		
-			_ -> Result2
-		    end;
+		{ok, ListOfResults} when is_list(ListOfResults) ->	    
+		     case refac_funApp:getDefinitionsInfo(DefinitionsStr, SearchPaths) of
+			 {error, Reason} -> {error,Reason};
+			 DefinitionsInfo ->
+			     Result2 = transform_refacs(ListOfResults,Files,DefinitionsInfo,Args),
+			     case Result2 of
+				 {ok, ListOfResults2} when is_list(ListOfResults2) ->
+				     call_refac_loop(Result2,ListOfResults2,RefacScope, DefinitionsInfo,Args);	 
+				 _ -> Result2
+			     end
+		     end;
 		Result -> Result
 	    end
     end.
 
-call_refac_loop(Result,ListOfResults,RefacScope,Args=#args{user_inputs=[TimeOutStr,_,DefinitionsStr],search_paths=SearchPaths,focus_sel=FunDef}) ->
+call_refac_loop(Result,ListOfResults,RefacScope,DefinitionsInfo,_Args=#args{user_inputs=[TimeOutStr,_,_],focus_sel=FunDef}) ->
     MFA = refac:fun_define_info(RefacScope,FunDef),
-    case refac_funApp:getInfoList(DefinitionsStr, ListOfResults, SearchPaths) of
-	{error,_} -> 
-	    refac_unreferenced_assign:second_transform(Result,RefacScope,MFA,true);
-	_ ->
-	    RefacModules = get_refac_modules(ListOfResults),
-	    refac_loop(Result,RefacScope,MFA,refac:checkTimeOut(TimeOutStr),RefacModules,Args)
-    end.
+    RefacModules = refac_modules_from_tuple_list(ListOfResults),
+    refac_loop(Result,RefacScope,MFA,refac:checkTimeOut(TimeOutStr),RefacModules,DefinitionsInfo).
 			   
-refac_loop(Result,RefacScope,MFA,TimeOut,RefacModules,Args=#args{user_inputs=[_,_,DefinitionsStr],search_paths=SearchPaths}) ->
+refac_loop(Result,RefacScope,MFA,TimeOut,RefacModules,DefinitionsInfo) ->
      Result2 = refac_unreferenced_assign:second_transform(Result,RefacScope,MFA,true),
      case Result2 of
 	 {ok,ListOfResults2} ->
-	     case refac_funApp:getInfoList(DefinitionsStr, ListOfResults2, SearchPaths) of
-		      {error, Reason} -> {error,Reason};
-		      InfoList ->
-		               Result3 = ?FULL_TD_TP(refac:body_rules(fun refac_all:rules/2, {RefacScope, MFA}, TimeOut, {RefacModules,InfoList}),ListOfResults2),
+		     Result3 = ?FULL_TD_TP(refac:body_rules(fun refac_all:rules/2, {RefacScope, MFA}, TimeOut, {RefacModules,refac_funApp:getInfoList(ListOfResults2,DefinitionsInfo)}),ListOfResults2),
 		     case Result3 of
 			 {ok,_} ->
 			     if
 				 Result /= Result3 -> 
-				     refac_loop(Result3,RefacScope,MFA,TimeOut,RefacModules,Args);
+				     refac_loop(Result3,RefacScope,MFA,TimeOut,RefacModules,DefinitionsInfo);
 				 true -> Result3
 			     end;
 			  _ -> Result3
-		     end			 
-	      end;
+		     end;
 	 _ -> Result2
      end.
 
@@ -134,33 +129,29 @@ concat_results(ListOfResults, NewResult) ->
 	_ -> NewResult
     end.
 
-get_refac_modules(ListOfResults) ->
+refac_modules_from_tuple_list(ListOfResults) ->
     lists:map(fun(Result) -> 
 		     {{FileName, FileName}, _} = Result,
 		     {ok, RefacModule} = api_refac:module_name(FileName),
 		     RefacModule end, ListOfResults).
 
-transform_refacs(ListOfResults,Files,Args=#args{user_inputs=[TimeOutStr,RefacScopeStr,DefinitionsStr],search_paths=SearchPaths,focus_sel=FunDef}) ->
-    RefacModules = get_refac_modules(ListOfResults),
-    case refac_funApp:getInfoList(DefinitionsStr, ListOfResults, SearchPaths) of
-		      {error, Reason} -> {error,Reason};
-		      InfoList ->
-	                     TimeOut = refac:checkTimeOut(TimeOutStr),
-	                     RefacScope = refac:get_refac_scope(RefacScopeStr),
-                             MFA = refac:fun_define_info(RefacScope,FunDef),
-	                     Result2 = ?FULL_TD_TP(refac:body_rules(fun refac_all:rules/2, {RefacScope, MFA}, TimeOut, {RefacModules,InfoList}),ListOfResults),
-	                     case Result2 of
-				{ok,ListOfResults2} when is_list(ListOfResults2) ->
-				    
-				     FilteredFiles = filter_unused_files(ListOfResults2, Files), 
-				     Result3 = case FilteredFiles of
-					 [] -> {ok,[]};
-					 _ ->
-					   refac_funApp:start_transformation(FilteredFiles, fun refac_all:rules/2,Args)		
-				     end,
-				     concat_results(ListOfResults2, Result3);
-				 _ -> Result2
-			     end
+transform_refacs(ListOfResults,Files,DefinitionsInfo,Args=#args{user_inputs=[TimeOutStr,RefacScopeStr,_],focus_sel=FunDef}) ->
+    RefacModules = refac_modules_from_tuple_list(ListOfResults),
+    TimeOut = refac:checkTimeOut(TimeOutStr),
+    RefacScope = refac:get_refac_scope(RefacScopeStr),
+    MFA = refac:fun_define_info(RefacScope,FunDef),
+    Result2 = ?FULL_TD_TP((refac:body_rules(fun refac_all:rules/2, {RefacScope, MFA}, TimeOut, {RefacModules,refac_funApp:getInfoList(ListOfResults,DefinitionsInfo)})),ListOfResults),
+    case Result2 of
+       {ok,ListOfResults2} when is_list(ListOfResults2) ->
+	    FilteredFiles = filter_unused_files(ListOfResults2, Files),
+	    Result3 = case FilteredFiles of
+		[] -> {ok,[]};
+		_ ->		
+		      RefacModules2 = refac_funApp:refac_modules(FilteredFiles),
+		      refac:start_transformation(RefacScopeStr,fun refac_all:rules/2,TimeOutStr,{RefacModules2,refac_funApp:getInfoList(FilteredFiles,DefinitionsInfo)},Args,FilteredFiles)     
+		     end,
+	    concat_results(ListOfResults2, Result3);
+       _ -> Result2
     end.
 
 filter_unused_files(ListOfResults,Files) ->

@@ -23,7 +23,7 @@
 %% gen_refac callbacks
 -export([input_par_prompts/0,select_focus/1, 
 	 check_pre_cond/1, selective/0, 
-	 transform/1,rules/2, transform_funApp/2, start_transformation/3,getInfoList/3]).
+	 transform/1, rules/2, transform_funApp/2, start_transformation/3, getInfoList/2, getDefinitionsInfo/2, refac_modules/1]).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -91,14 +91,17 @@ transform_funApp(Args=#args{current_file_name=File,search_paths=SearchPaths,user
             start_transformation(Files,Fun,Args)
     end.
 
-start_transformation(Files,Fun,Args=#args{search_paths=SearchPaths,user_inputs=[TimeOutStr,RefacScopeStr,DefinitionsStr]}) ->
-    RefacModules = lists:map(fun(CurFile) -> 
+refac_modules(Files) ->
+    lists:map(fun(CurFile) -> 
 		     {ok, RefacModule} = api_refac:module_name(CurFile),
-		     RefacModule end, Files),
-            case getInfoList(DefinitionsStr, Files, SearchPaths) of
-		      {error, Reason} -> {error,Reason};
-		      InfoList ->
-		            refac:start_transformation(RefacScopeStr,Fun,TimeOutStr,{RefacModules,InfoList},Args,Files)
+		     RefacModule end, Files).
+
+start_transformation(Files,Fun,Args=#args{search_paths=SearchPaths,user_inputs=[TimeOutStr,RefacScopeStr,DefinitionsStr]}) ->
+    RefacModules = refac_modules(Files),
+    case getInfoList(DefinitionsStr, Files, SearchPaths) of
+	{error, Reason} -> {error,Reason};
+	 InfoList ->
+	         refac:start_transformation(RefacScopeStr,Fun,TimeOutStr,{RefacModules,InfoList},Args,Files)
 	    end.
 
 collector()->
@@ -114,11 +117,17 @@ collect(Files) ->
        Files
       ).
 
-getInfoList([],Files,_) -> {collect(Files),[]};
-getInfoList(ModuleNamesStr,Files, SearchPaths) ->
+getInfoList(ModulesNamesStr,Files,SearchPaths) ->
+    {collect(Files),getDefinitionsInfo(ModulesNamesStr,SearchPaths)}.
+
+getInfoList(Files,DefinitionsInfo) ->
+    {collect(Files),DefinitionsInfo}.
+
+getDefinitionsInfo([],_) -> [];
+getDefinitionsInfo(ModuleNamesStr, SearchPaths) ->
     ModuleNames = string:tokens(ModuleNamesStr, " "),
     CollectFiles = lists:map(fun(ModName) -> refac:collectFile(ModName,[],SearchPaths) end, ModuleNames),
-    {collect(Files),{list,lists:map(fun(X) -> getExternalInfoElem(X) end, CollectFiles)}}.
+    {list,lists:map(fun(X) -> getExternalInfoElem(X) end, CollectFiles)}.
 
 getExternalInfoElem({ok, DefinitionsFile,ModName}) ->
     Info = core_funApp:collect(DefinitionsFile),
