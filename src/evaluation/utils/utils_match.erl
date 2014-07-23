@@ -95,10 +95,11 @@ findFirstMatch([{{M2,F2,A2},ArgPatt,Guards,Body} | T],{M,F,A},Arg) ->
 findFirstMatch(_,_,_) -> noMatch.
     
 firstMatch({list, List}, {M,F,A},Arg) ->
-    case lists:keyfind(M,1,List) of
+    Info = case lists:keyfind(M,1,List) of
 	false -> [];
-	{_,Info} -> findFirstMatch(Info, {M,F,A}, Arg)
-    end;
+	{_,Var} -> Var 
+    end,
+    findFirstMatch(Info, {M,F,A}, Arg);
 firstMatch(Info, FunInfo, Arg) -> findFirstMatch(Info, FunInfo, Arg).
 
     

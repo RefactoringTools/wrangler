@@ -5,7 +5,7 @@
 
 %%%===================================================================
 %% gen_refac callbacks
--export([getCollectFile/3,collect/1,length_rule/0,anonymousCall_rule/0,addModuleName_rule/1,functionCall_rule/5,functionCall_cond/6]).
+-export([getCollectFile/3,collect/1,length_rule/0,anonymousCall_rule/0,addModuleName_rule/1,functionCall_rule/4,functionCall_cond/6]).
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
@@ -130,20 +130,20 @@ anonymousCall_rule() ->
 %% This rule only applies a rewriting if exists a matching between the function clause being evaluated and any element from <i>Info</i>. Otherwise, nothing is done. </p>
 %% @end
 %%--------------------------------------------------------------------
-functionCall_rule(InfoList, FunDefInfo, RefacModule, IsRefactoring, BoundVars) ->
+functionCall_rule(InfoList, FunDefInfo, IsRefactoring, BoundVars) ->
     ?RULE(
           ?T("M@:F@(Args@@)"),
 	  begin
 	      {M,F,A} = getFunDefineInfo(IsRefactoring, M@, F@, Args@@),
 	      {match,Patt,Body} = utils_match:firstMatch(InfoList,{M,F,A},Args@@),
 	      NewBody = utils_subst:subst(Body, Patt, Args@@),
-	      Result = ?FULL_TD_TP(module_rules(utils_convert:convert_elem(M@), RefacModule, IsRefactoring,InfoList), NewBody),
+	      Result = ?FULL_TD_TP(module_rules(utils_convert:convert_elem(M@)), NewBody),
 	      case Result of
 		  {ok, FinalNode} -> FinalNode;
 		  _ -> {error, getErrorMsg(IsRefactoring)}
 	      end
 	  end,
-	  begin	     
+	  begin	   
 	      FunInfo = getFunDefineInfo(IsRefactoring, M@, F@, Args@@),
 	      functionCall_cond(FunInfo,FunDefInfo,InfoList,Args@@,BoundVars,api_refac:bound_vars(_This@))
 	  end
@@ -155,12 +155,11 @@ functionCall_cond(FunInfo,FunDefInfo,InfoList,Args@@,BoundVars,BoundVarsThis) ->
 		      FunInfo /= FunDefInfo andalso
 		      begin
 			  FirstMatch = utils_match:firstMatch(InfoList,{M,F,A},Args@@),
-			  if
-			      FirstMatch == noMatch -> false;
-			      true -> 
-				  {match,Patt,Body} = FirstMatch,
-				  Subst = utils_subst:subst(Body,Patt,Args@@),	       
-				  variablesAreValid(BoundVars,api_refac:bound_vars(Subst),BoundVarsThis)
+			  case FirstMatch of
+			      {match,Patt,Body} -> 
+				  Subst = utils_subst:subst(Body,Patt,Args@@),
+				  variablesAreValid(BoundVars,api_refac:bound_vars(Subst),BoundVarsThis);
+			      _ -> false
 			  end
 		      end;
 		  _ -> false
@@ -202,34 +201,8 @@ variablesAreValid([{Var,DefPos} | T],NewBoundVars,OldBoundVars) ->
 	_ -> false
     end.
 
-module_rules(ModuleName, RefacModule,IsRefactoring,Info) ->
-    if
-	IsRefactoring ->
-	        [addModuleName_rule(ModuleName), removeModuleName_rule(RefacModule,Info)];
-	true -> [addModuleName_rule(ModuleName)]
-    end.
-
-removeModuleName_rule(RefacModule,{list,InfoList}) ->  
-      ?RULE(
-          ?T("M@:F@(Args@@)"),
-	  ?TO_AST("F@(Args@@)"),
-      begin
-	  FunInfo = api_refac:fun_define_info(F@),
-	  case FunInfo of
-	      {M,F,A} ->
-		  M == RefacModule andalso 
-		      case lists:keyfind(M,1,InfoList) of
-			  false -> false;
-			  {_,Info} ->
-			      case lists:keyfind({M,F,A},1,Info) of
-				  false -> false;
-				  _ -> true
-			      end
-		      end;
-	      _ -> false
-	  end	  
-      end
-). 
+module_rules(ModuleName) ->
+  [addModuleName_rule(ModuleName)].
 
 addModuleName_rule(Module) ->  
       ?RULE(

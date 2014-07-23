@@ -23,7 +23,7 @@
 %% gen_refac callbacks
 -export([input_par_prompts/0,select_focus/1, 
 	 check_pre_cond/1, selective/0, 
-	 transform/1, rules/2, transform_funApp/2, start_transformation/3, getInfoList/2, getDefinitionsInfo/2, refac_modules/1]).
+	 transform/1, rules/2, transform_funApp/2, start_transformation/3, getInfoList/2, getDefinitionsInfo/2]).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -91,17 +91,11 @@ transform_funApp(Args=#args{current_file_name=File,search_paths=SearchPaths,user
             start_transformation(Files,Fun,Args)
     end.
 
-refac_modules(Files) ->
-    lists:map(fun(CurFile) -> 
-		     {ok, RefacModule} = api_refac:module_name(CurFile),
-		     RefacModule end, Files).
-
 start_transformation(Files,Fun,Args=#args{search_paths=SearchPaths,user_inputs=[TimeOutStr,RefacScopeStr,DefinitionsStr]}) ->
-    RefacModules = refac_modules(Files),
     case getInfoList(DefinitionsStr, Files, SearchPaths) of
 	{error, Reason} -> {error,Reason};
 	 InfoList ->
-	         refac:start_transformation(RefacScopeStr,Fun,TimeOutStr,{RefacModules,InfoList},Args,Files)
+	         refac:start_transformation(RefacScopeStr,Fun,TimeOutStr,InfoList,Args,Files)
 	    end.
 
 collector()->
@@ -138,10 +132,10 @@ getExternalInfoElem({ok, DefinitionsFile,ModName}) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-rules({{RefacModules,{InternalInfo,ExternalInfo}},_,BoundVars}, FunDefInfo) ->
+rules({{InternalInfo,ExternalInfo},_,BoundVars}, FunDefInfo) ->
     [   
     	core_funApp:length_rule(),
-	core_funApp:functionCall_rule(ExternalInfo, FunDefInfo, RefacModules ,true, BoundVars),
+	core_funApp:functionCall_rule(ExternalInfo, FunDefInfo, true, BoundVars),
 	functionCall_rule_2(InternalInfo, FunDefInfo,BoundVars),
 	core_funApp:anonymousCall_rule()
     ].
