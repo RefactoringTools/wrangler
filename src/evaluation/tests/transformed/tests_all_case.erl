@@ -47,6 +47,8 @@ test18() -> hello.
 
 test19() -> bye.
 
+test20() -> bye.
+
 is_even(N) when is_number(N) ->
     N rem 2 == 0.
 	    

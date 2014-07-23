@@ -113,7 +113,6 @@ test18() ->
 test19() ->
     test17(false).
 
-%%bug
 test20() ->
     X = is_even(3),
     if
