@@ -70,10 +70,9 @@ selective() ->
 %%--------------------------------------------------------------------
 transform(Args=#args{current_file_name=File,
 		     user_inputs=[RefacScopeStr],search_paths=SearchPaths}) ->
-    Files = refac:get_files(refac:get_refac_scope(RefacScopeStr),SearchPaths,File),
+    Files = refac:get_files(RefacScopeStr,SearchPaths,File),
     transform_unref_assign(Files,RefacScopeStr,Args).
 	    
-
 transform_unref_assign(Files,RefacScopeStr,Args) ->
     case refac:validate_refac_scope(RefacScopeStr,Args) of
 	{error,Reason} -> {error, Reason};

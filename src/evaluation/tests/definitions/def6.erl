@@ -1,4 +1,4 @@
--module(funDefinitions).
+-module(def6).
 -export([sumList/1, fac/1]).
 
 sumList([]) -> 0;

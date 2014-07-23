@@ -3,7 +3,7 @@
 %% Auxiliar Module that is used when the refactorings contains similaraties.
 %% This module is responsible for the timeout for example.
 -module(refac).
--export([try_call_transform/2, try_call_transform/3, body_rules/4, try_transform_manager/5, checkTimeOut/1, get_refac_scope/1, select_focus/1, select_focus/2, input_par_prompts/0,get_files/3,filterError/1,input_refac_scope_message/0,validation_with_timeout/3,validate_refac_scope/2,start_transformation/5,start_transformation/6,validate_all/4,validate_definitions_str/2,collectFile/3,fun_define_info/2]).
+-export([try_call_transform/2, try_call_transform/3, body_rules/4, try_transform_manager/5, checkTimeOut/1, get_refac_scope/1, select_focus/1, select_focus/2, input_par_prompts/0,get_files/3,get_files/4,filterError/1,input_refac_scope_message/0,validation_with_timeout/3,validate_refac_scope/2,start_transformation/5,start_transformation/6,validate_all/4,validate_definitions_str/2,collectFile/3,fun_define_info/2]).
 
 %% Include files
 -include_lib("wrangler/include/wrangler.hrl").
@@ -39,8 +39,8 @@ try_call_transform(Args=#args{user_inputs=InputsList}, RulesFun, FunArgs) ->
 	    start_transformation(RefacScopeStr,RulesFun,TimeOutStr,FunArgs,Args)
     end.
 
-start_transformation(RefacScopeStr,RulesFun,TimeOutStr,FunArgs,Args=#args{search_paths=SearchPaths}) ->
-     Files = wrangler_misc:expand_files(SearchPaths, ".erl"),
+start_transformation(RefacScopeStr,RulesFun,TimeOutStr,FunArgs,Args=#args{current_file_name=File,search_paths=SearchPaths}) ->
+     Files = get_files(RefacScopeStr,SearchPaths,File),
      start_transformation(RefacScopeStr,RulesFun,TimeOutStr,FunArgs,Args,Files).
 
 start_transformation(RefacScopeStr,RulesFun,TimeOutStr,FunArgs,_Args=#args{current_file_name=File, focus_sel=FunDef},Files) ->
@@ -94,14 +94,26 @@ validate_all(TimeOutStr,RefacScopeStr,DefinitionsStr, Args) ->
 
 validate_definitions_str([],_) -> ok;
 validate_definitions_str(DefinitionsStr, _Args=#args{search_paths=SearchPaths}) -> 
-    Definitions = string:tokens(DefinitionsStr, " "),
-    CollectFiles = lists:map(fun(DefinitionFile) -> collectFile(DefinitionFile,[],SearchPaths) end, Definitions),
+    CollectFiles = get_definitions_tuplelist(DefinitionsStr,SearchPaths),
     WrongFiles = lists:filter(fun(X) -> filterError(X) end, CollectFiles),
     case WrongFiles of
 	[H | _] -> H;
 	_ -> 
 	    ok
     end.
+
+get_definitions_tuplelist("",_) -> [];
+get_definitions_tuplelist(DefinitionsStr,SearchPaths) ->
+    Definitions = string:tokens(DefinitionsStr, " "),
+    lists:map(fun(DefinitionFile) -> collectFile(DefinitionFile,[],SearchPaths) end, Definitions).
+
+get_definitions_list("",_) -> [];
+get_definitions_list(DefinitionsStr, SearchPaths) -> 
+    Definitions = string:tokens(DefinitionsStr, " "),
+    lists:map(fun(DefFileName) -> 
+		      {ok, DefinitionsFile} = core_funApp:getCollectFile(DefFileName,[],SearchPaths),
+		      DefinitionsFile
+    end, Definitions).
 
 collectFile(ModName,File,SearchPaths) ->
     CollectFile = core_funApp:getCollectFile(ModName,File,SearchPaths),
@@ -168,10 +180,15 @@ try_transform_manager(Node, RulesFun, FunArgs, FunDefInfo, MainPid) ->
             NewBody = utils_transform:transform_body(Node, RulesFun, FunArgs, FunDefInfo),
 	    MainPid ! {result, NewBody}.
 
-get_files(RefacScope,SearchPaths,File) ->
+get_files(RefacScopeStr,SearchPaths,File) ->
+    get_files(get_refac_scope(RefacScopeStr),SearchPaths,File,"").
+
+get_files(RefacScope,SearchPaths,File, DefinitionsStr) ->
      case RefacScope of
 	project ->
-	     wrangler_misc:expand_files(SearchPaths, ".erl");
+	     DefinitionsList = get_definitions_list(DefinitionsStr,SearchPaths),
+	     Files = wrangler_misc:expand_files(SearchPaths, ".erl"),
+	     lists:filter(fun(FileName) -> lists:any(fun(FileName2) -> FileName == FileName2 end,DefinitionsList) == false end,Files);
 	_ ->	    
 	     [File]
     end.

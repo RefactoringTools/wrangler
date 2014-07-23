@@ -87,7 +87,7 @@ transform_funApp(Args=#args{current_file_name=File,search_paths=SearchPaths,user
 	{error, Reason} -> {error,Reason};
 	_ ->
 	    RefacScope = refac:get_refac_scope(RefacScopeStr),
-	    Files = refac:get_files(RefacScope,SearchPaths,File),
+	    Files = refac:get_files(RefacScope,SearchPaths,File,DefinitionsStr),
             start_transformation(Files,Fun,Args)
     end.
 

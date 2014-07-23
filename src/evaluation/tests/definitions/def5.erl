@@ -1,10 +1,9 @@
--module(example).
+-module(def5).
 -compile([export_all]).
 
 add(X,Y) -> X + Y.
 
 addTupleElems({A,B}) -> A + B.                                                                             
-
 f([]) -> 0;
 f( [X | Xs] ) -> X + f(Xs).
 
