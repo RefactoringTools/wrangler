@@ -51,10 +51,16 @@ testBar() ->
 
 testExternalCall() -> 3 + tests_funApp_external:internalCall(3 - 1).
 
-testExternalCall2() -> 3 + internalCall2(3 - 1).
+testExternalCall2() -> 3 + tests_funApp_external:internalCall2(3 - 1).
 
 testInternalCall()->
     tests_funApp_external:internalCall(3).
+
+testInternalCall2()->
+    tests_funApp_external:internalCall2(3).
+
+testInternalCall3() ->
+    2 * 3 + internalCall(3 - 1).
 
 internalCall(X) when X > 0 -> 2 * X + internalCall(X - 1); 
 internalCall(0) -> 10. 
