@@ -86,7 +86,7 @@ transform(Args=#args{current_file_name=File,
 	    Files = refac:get_files(RefacScope,SearchPaths,File,DefinitionsStr),
 	    case refac_unreferenced_assign:first_transform(Files,RefacScopeStr,Args) of
 		{ok, ListOfResults} when is_list(ListOfResults) ->	    
-		     case refac_funApp:getDefinitionsInfo(DefinitionsStr, SearchPaths) of
+		     case refac_funApp:getDefinitionsInfo(refac:get_definitions_tuplelist(DefinitionsStr,SearchPaths)) of
 			 {error, Reason} -> {error,Reason};
 			 DefinitionsInfo ->
 			     Result2 = transform_refacs(ListOfResults,Files,DefinitionsInfo,Args),

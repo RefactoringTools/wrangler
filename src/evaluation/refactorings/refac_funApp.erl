@@ -23,7 +23,7 @@
 %% gen_refac callbacks
 -export([input_par_prompts/0,select_focus/1, 
 	 check_pre_cond/1, selective/0, 
-	 transform/1, rules/2, transform_funApp/2, start_transformation/3, getInfoList/2, getDefinitionsInfo/2]).
+	 transform/1, rules/2, transform_funApp/2, start_transformation/3, getInfoList/2, getDefinitionsInfo/1]).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -92,7 +92,8 @@ transform_funApp(Args=#args{current_file_name=File,search_paths=SearchPaths,user
     end.
 
 start_transformation(Files,Fun,Args=#args{search_paths=SearchPaths,user_inputs=[TimeOutStr,RefacScopeStr,DefinitionsStr]}) ->
-    case getInfoList(DefinitionsStr, Files, SearchPaths) of
+    DefsTupleList = refac:get_definitions_tuplelist(DefinitionsStr,SearchPaths),
+    case createInfoList(Files, DefsTupleList) of
 	{error, Reason} -> {error,Reason};
 	 InfoList ->
 	         refac:start_transformation(RefacScopeStr,Fun,TimeOutStr,InfoList,Args,Files)
@@ -111,16 +112,15 @@ collect(Files) ->
        Files
       ).
 
-getInfoList(ModulesNamesStr,Files,SearchPaths) ->
-    {collect(Files),getDefinitionsInfo(ModulesNamesStr,SearchPaths)}.
+createInfoList(Files,DefsTupleList) ->
+    {collect(Files),getDefinitionsInfo(DefsTupleList)}.
 
 getInfoList(Files,DefinitionsInfo) ->
     {collect(Files),DefinitionsInfo}.
 
-getDefinitionsInfo([],_) -> [];
-getDefinitionsInfo(DefinitionsStr, SearchPaths) ->
-    DefinitionsTupleList = refac:get_definitions_tuplelist(DefinitionsStr,SearchPaths),
-    {list,lists:map(fun(X) -> getExternalInfoElem(X) end, DefinitionsTupleList)}.
+getDefinitionsInfo([]) -> [];
+getDefinitionsInfo(DefsTupleList) ->
+    {list,lists:map(fun(X) -> getExternalInfoElem(X) end, DefsTupleList)}.
 
 getExternalInfoElem({ok, DefinitionsFile,ModName}) ->
     Info = core_funApp:collect(DefinitionsFile),
