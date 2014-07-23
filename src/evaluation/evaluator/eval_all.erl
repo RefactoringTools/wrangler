@@ -18,7 +18,7 @@
 %% gen_refac callbacks
 -export([input_par_prompts/0,select_focus/1, 
 	 check_pre_cond/1, selective/0, 
-	 transform/1,transform/3,transform/5,rules/2, eval_all/5]).
+	 transform/1,transform/4,transform/6,rules/2, eval_all/6]).
 
 %%%===================================================================
 %%% gen_refac callbacks
@@ -95,12 +95,12 @@ selective() ->
 %%--------------------------------------------------------------------
 
 transform(Args=#args{current_file_name=_File, user_inputs=[E,I], search_paths=_SearchPaths})->
-    transform(Args,E,I,refac_eval_single,nil).
+    transform(Args,E,I,refac_eval_single,nil,0).
 
-transform(Args=#args{current_file_name=_File,user_inputs=[I], search_paths=_SearchPaths}, OriginalNode, Pid)->
-    transform(Args,OriginalNode,I,refac_eval_compos,Pid).
+transform(Args=#args{current_file_name=_File,user_inputs=[I], search_paths=_SearchPaths}, OriginalNode, Pid,Timeout)->
+    transform(Args,OriginalNode,I,refac_eval_compos,Pid,Timeout).
 
-transform(Args=#args{current_file_name=File, user_inputs=_, search_paths=SearchPaths},E,I,TypeRefac,Pid) ->
+transform(Args=#args{current_file_name=File, user_inputs=_, search_paths=SearchPaths},E,I,TypeRefac,Pid,Timeout) ->
 	    Node = ?TO_AST(E),
 	    Match = ?MATCH(?T("M@:F@(Args@@)"),Node),
             {ok,Scope} = api_refac:get_ast(File),
@@ -111,7 +111,7 @@ transform(Args=#args{current_file_name=File, user_inputs=_, search_paths=SearchP
 					{ok,DefinitionsFile} -> 
 				 				     DefinitionsModule = list_to_atom(ModuleName),
 								     Info = core_funApp:collect(DefinitionsFile),
-								     checkNumberSteps(Args,E,I,{{DefinitionsModule,Info},Scope},TypeRefac,Pid);
+								     checkNumberSteps(Args,E,I,{{DefinitionsModule,Info},Scope},TypeRefac,Pid,Timeout);
 		                        _ -> {error,"Definitions file does not exist."}
 		 
 		        end;
@@ -119,36 +119,36 @@ transform(Args=#args{current_file_name=File, user_inputs=_, search_paths=SearchP
                         case TypeRefac of
                               funApp -> {error,"Invalid expression."};
                               _ -> %%Info = core_funApp:collect(File),
-                                   checkNumberSteps(Args,E,I,{{File,empty},Scope},TypeRefac,Pid)
+                                   checkNumberSteps(Args,E,I,{{File,empty},Scope},TypeRefac,Pid,Timeout)
                         end
 	    end.   
 
-checkNumberSteps(_Args=#args{current_file_name=_,user_inputs=_, search_paths=_SearchPaths},E,I,{{File,Info},Scope},TypeRefac,Pid) -> 
+checkNumberSteps(_Args=#args{current_file_name=_,user_inputs=_, search_paths=_SearchPaths},E,I,{{File,Info},Scope},TypeRefac,Pid,Timeout) -> 
    if I == "" -> NSteps = "1";
       true -> NSteps = I
    end,
    TypedF = NSteps == "f" orelse NSteps == "F",
    case TypeRefac of 
              refac_eval_single ->  
-		     eval:start_evaluation({File,Scope},Info,"",fun eval_all:rules/2,E,NSteps, TypedF);
+		     eval:start_evaluation({File,Scope},Info,"",fun eval_all:rules/2,E,NSteps, TypedF,Timeout);
              refac_eval_compos -> 
-		     eval:start_evaluation({File,Scope},Info,Pid,fun eval_all:rules/2, "",NSteps, TypedF);
+		     eval:start_evaluation({File,Scope},Info,Pid,fun eval_all:rules/2, "",NSteps, TypedF,Timeout);
              eval_funApp -> 
-		      eval:start_evaluation({File,Scope},Info,"",fun eval_funApp:rules/2,E,NSteps, TypedF);
+		      eval:start_evaluation({File,Scope},Info,"",fun eval_funApp:rules/2,E,NSteps, TypedF,Timeout);
              eval_arit_calc ->
-                      eval:start_evaluation({File,Scope},Info,"",fun core_arit_calc:rules/2, E, NSteps, TypedF);
+                      eval:start_evaluation({File,Scope},Info,"",fun core_arit_calc:rules/2, E, NSteps, TypedF,Timeout);
              eval_arit_simpl ->
-                      eval:start_evaluation({File,Scope},Info,"",fun core_arit_simpl:rules/2,E, NSteps, TypedF);
+                      eval:start_evaluation({File,Scope},Info,"",fun core_arit_simpl:rules/2,E, NSteps, TypedF,Timeout);
              eval_boolean_operators ->
-                      eval:start_evaluation({File,Scope},Info,"",fun core_boolean_operators:rules/2,E, NSteps, TypedF);
+                      eval:start_evaluation({File,Scope},Info,"",fun core_boolean_operators:rules/2,E, NSteps, TypedF,Timeout);
              eval_arithmetics ->
-                      eval:start_evaluation({File,Scope},Info,"",fun core_arithmetics:rules/2,E, NSteps, TypedF);
+                      eval:start_evaluation({File,Scope},Info,"",fun core_arithmetics:rules/2,E, NSteps, TypedF,Timeout);
              eval_if ->
-                      eval:start_evaluation({File,Scope},Info,"",fun core_if:rules/2,E, NSteps, TypedF);
+                      eval:start_evaluation({File,Scope},Info,"",fun core_if:rules/2,E, NSteps, TypedF,Timeout);
              eval_case ->
-                      eval:start_evaluation({File,Scope},Info,"",fun core_case:rules/2,E, NSteps, TypedF);
+                      eval:start_evaluation({File,Scope},Info,"",fun core_case:rules/2,E, NSteps, TypedF,Timeout);
              eval_lists -> 
-                      eval:start_evaluation({File,Scope},Info,"",fun core_lists_concat:rules/2,E,NSteps,TypedF);
+                      eval:start_evaluation({File,Scope},Info,"",fun core_lists_concat:rules/2,E,NSteps,TypedF,Timeout);
              _ -> {error, "Invalid refactoring type."}
     end.
     
@@ -169,18 +169,18 @@ rules({File,Scope},Info) ->
      eval_funApp:rules({File,Scope},Info) ++
      core_boolean_operators:rules(nil,nil) ++
      core_if:rules({File,Scope,[]},Info) ++
-     core_case:rules({File,Scope,[]},Info)      
+     core_case:rules({File,Scope,[]},Info)    
    .    
 
 
 %%Composite Refactoring
-eval_all(FileName, OriginalNode, Pid, Input, SearchPaths) ->
+eval_all(FileName, OriginalNode, Pid, Input, SearchPaths,Timeout) ->
             Args=#args{current_file_name=FileName,
                        user_inputs=[Input],
                        search_paths=SearchPaths},
             case check_pre_cond(Args) of
                 ok ->
-                    transform(Args,OriginalNode,Pid);
+                    transform(Args,OriginalNode,Pid,Timeout);
                 {error, Reason} ->
                     {error, Reason}
     end.

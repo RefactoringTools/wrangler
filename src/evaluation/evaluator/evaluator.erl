@@ -1,6 +1,6 @@
 -module(evaluator).
 
--export([evaluate/2]).
+-export([start/1,start/2]).
 -include_lib("wrangler/include/wrangler.hrl").
 
 %%--------------------------------------------------------------------
@@ -11,8 +11,13 @@
 %% the combination of the last three.
 %% @end
 %%--------------------------------------------------------------------
-evaluate(File,SearchPaths) -> evaluate(File,SearchPaths,"","").
-evaluate(File,SearchPaths,OldExpression,OldPid) ->
+start(ModName) -> start(ModName,0).
+start(ModName,Timeout) -> 
+        {ok,CurrDir} = file:get_cwd(),
+        SearchPaths = [CurrDir],
+        File = SearchPaths ++ "/"++ atom_to_list(ModName) ++ ".erl",
+	evaluate(ModName,File,SearchPaths,"","",Timeout).
+evaluate(ModName,File,SearchPaths,OldExpression,OldPid,Timeout) ->
 	case SearchPaths of
 	    [_ | _] ->
                     if OldExpression == "" ->
@@ -24,13 +29,17 @@ evaluate(File,SearchPaths,OldExpression,OldPid) ->
                     if OldPid == "" -> Pid = spawn(eval, keep_temp_info, [0,[?TO_AST(Expression)],""]);
                        true -> Pid = OldPid
                     end,
-                    eval_all:eval_all(File,Expression,Pid,NSteps,SearchPaths),
+                    Result = eval_all:eval_all(File,Expression,Pid,NSteps,SearchPaths,Timeout),
+                    case Result of
+                          {error,_} -> io:format("~p~n",[Result]);
+                           _ -> io:format("~n")
+                    end,
                     {ok, [Answer]} = io:fread("Do you wish to continue this evaluation? [y/n] ", "~s"),
-                    if Answer == "Y" orelse Answer == "y" orelse Answer == "Yes" -> evaluate(File,SearchPaths,Expression,Pid); 
+                    if Answer == "Y" orelse Answer == "y" orelse Answer == "Yes" -> evaluate(ModName,File,SearchPaths,Expression,Pid,Timeout); 
                        Answer == "N" orelse Answer == "n" orelse Answer == "No" -> 
                                   {ok, [Answer2]} = io:fread("Do you wish to start a new evaluation? [y/n] ", "~s"),
-                                  if Answer2 == "Y" orelse Answer2 == "y" orelse Answer2 == "Yes" -> evaluate(File,SearchPaths); 
-                       		     Answer2 == "N" orelse Answer2 == "n" orelse Answer2 == "No" ->  "Evaluator Stopped";
+                                  if Answer2 == "Y" orelse Answer2 == "y" orelse Answer2 == "Yes" -> start(ModName,Timeout); 
+                       		     Answer2 == "N" orelse Answer2 == "n" orelse Answer2 == "No" ->  {ok,"Evaluator Stopped"};
                                      true -> {error, "Please answer yes or no"}
                                   end;
                        true -> {error, "Please answer yes or no"}
