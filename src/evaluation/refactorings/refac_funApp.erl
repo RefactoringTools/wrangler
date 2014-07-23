@@ -118,10 +118,9 @@ getInfoList(Files,DefinitionsInfo) ->
     {collect(Files),DefinitionsInfo}.
 
 getDefinitionsInfo([],_) -> [];
-getDefinitionsInfo(ModuleNamesStr, SearchPaths) ->
-    ModuleNames = string:tokens(ModuleNamesStr, " "),
-    CollectFiles = lists:map(fun(ModName) -> refac:collectFile(ModName,[],SearchPaths) end, ModuleNames),
-    {list,lists:map(fun(X) -> getExternalInfoElem(X) end, CollectFiles)}.
+getDefinitionsInfo(DefinitionsStr, SearchPaths) ->
+    DefinitionsTupleList = refac:get_definitions_tuplelist(DefinitionsStr,SearchPaths),
+    {list,lists:map(fun(X) -> getExternalInfoElem(X) end, DefinitionsTupleList)}.
 
 getExternalInfoElem({ok, DefinitionsFile,ModName}) ->
     Info = core_funApp:collect(DefinitionsFile),
