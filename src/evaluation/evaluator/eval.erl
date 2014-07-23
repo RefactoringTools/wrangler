@@ -1,5 +1,5 @@
 -module(eval).
--export([start_evaluation/7,keep_temp_info/3,try_evaluate/11]).
+-export([start_evaluation/8,keep_temp_info/3,try_evaluate/11]).
 
 %% Include files
 -include_lib("wrangler/include/wrangler.hrl").   
@@ -9,7 +9,7 @@
 %% This function represents a rule that tries to perform substitution rules in a function body only if the function information matches the function chosen by the user in the case of a Composite Refactoring.
 %% @end
 %%--------------------------------------------------------------------   
-start_evaluation({File,Scope},Info,Pid,RulesFun,Expression,NSteps, TypedF) ->
+start_evaluation({File,Scope},Info,Pid,RulesFun,Expression,NSteps, TypedF,Timeout) ->
 	    if Pid /= "" ->
 		    	Steps = get_temp_info_steps(Pid),
                         NRefacsDone = get_temp_info_nSteps(Pid),
@@ -17,9 +17,9 @@ start_evaluation({File,Scope},Info,Pid,RulesFun,Expression,NSteps, TypedF) ->
 		   	NewBody = evaluate(Pid,Body,{File,Scope},Info,RulesFun,false,NSteps,TypedF,0,Steps),
                         if TypedF == false -> 
 					NSteps_Int = list_to_integer(NSteps), 
-                                        if length(Steps) > NSteps_Int + NRefacsDone -> Change = true ;
-                                        true -> Change = ?PP(NewBody) /= ?PP(Body)
-                                        end;
+				        if   length(Steps) > NSteps_Int + NRefacsDone -> Change = true;
+				             true -> Change = ?PP(NewBody) /= ?PP(Body)
+				        end;
                            true ->  if length(Steps) - 1 > NRefacsDone -> Change = true;
                                         true -> Change = ?PP(NewBody) /= ?PP(Body)
                                     end
@@ -27,7 +27,10 @@ start_evaluation({File,Scope},Info,Pid,RulesFun,Expression,NSteps, TypedF) ->
                         if
 				Change -> 
                                  	PidEvaluation = spawn(eval,try_evaluate, [Pid,Body,				          					 		{File,Scope},Info,RulesFun,true,NSteps,TypedF,0,Steps,self()]),
-                          	 	timeout_manager(PidEvaluation,Body,1000);
+                          	 	case Timeout of
+                                        	0 -> timeout_manager(PidEvaluation,Body,1000);
+                                                _ -> timeout_manager(PidEvaluation,Body,Timeout)
+                                        end;
 				true -> 
                           		{error,"No evaluation done"}   
        	    		end; 
@@ -36,7 +39,10 @@ start_evaluation({File,Scope},Info,Pid,RulesFun,Expression,NSteps, TypedF) ->
                         if
 				Change -> 
                                  	PidEvaluation = spawn(eval,try_evaluate, [Pid,Body,				          					 		{File,Scope},Info,RulesFun,true,NSteps,TypedF,0,[Body],self()]),
-                          	 	timeout_manager(PidEvaluation,Body,1000);
+                                        case Timeout of
+                                        	0 -> timeout_manager(PidEvaluation,Body,1000);
+                                                _ -> timeout_manager(PidEvaluation,Body,Timeout)
+                                        end;
 				true -> 
                           		{error,"No evaluation done"}   
        	    		end
@@ -109,7 +115,8 @@ get_temp_info_text(Pid) -> Pid ! {ask_text,self()},
 %%--------------------------------------------------------------------  
 -spec(evaluate(string(),[syntaxTree()] | syntaxTree(),string(),[{{modulename(),functionname(),arity()},syntaxTree(),syntaxTree() | [syntaxTree()]}],RulesFun::fun((_) -> any()), boolean(), string(), boolean(),integer(),[syntaxTree]) -> [syntaxTree()] | syntaxTree()).
 evaluate(Pid, CurrentNode,{File,Scope},Info,RulesFun, Transform, Input_Steps,TypedF,NRefacsDone,Steps) -> 
-    {ok, NewNode} = ?STOP_TD_TP(RulesFun({File,Scope},Info), CurrentNode),
+    {ok, NewNode0} = ?STOP_TD_TP(RulesFun({File,Scope},Info), CurrentNode),
+    {ok,NewNode} = ?FULL_TD_TP(core_rem_begin_end:rules(empty,empty),NewNode0),
     Changed = ?PP(CurrentNode) /= ?PP(NewNode),
     if
        Changed ->  NRefacsDoneI = NRefacsDone + 1,
@@ -151,20 +158,20 @@ evaluate(Pid, CurrentNode,{File,Scope},Info,RulesFun, Transform, Input_Steps,Typ
 %% This function start a new evaluation when the user chooses to undo steps.
 %% @end
 %%--------------------------------------------------------------------
-go_back_steps(Pid,Input_Int,Transform) ->
+go_back_steps(Pid,Input_Usr,Transform) ->
    TotalSteps = get_temp_info_nSteps(Pid),  
+   Steps = get_temp_info_steps(Pid),
                          if
-                              TotalSteps >= Input_Int * (-1)  ->					
-		                   Steps = get_temp_info_steps(Pid),
-                                   OldText = get_temp_info_text(Pid),
-		                   [_|NewSteps] = get_back_steps(lists:reverse(Steps),Input_Int * (-1) + 1,TotalSteps),
-                                   if Transform ->
-                                                Pid ! {refactoring_finished,TotalSteps + Input_Int,Steps,OldText++get_text(NewSteps)},
-                                   		write_result(Pid,lists:last(NewSteps));
-                                      true -> lists:last(NewSteps)
-                                   end
-                            end.
-
+                              TotalSteps >= Input_Usr * (-1)  -> Input = Input_Usr;
+                              true -> Input = TotalSteps * (-1)
+                         end,					
+                         OldText = get_temp_info_text(Pid),
+		         [_|NewSteps] = get_back_steps(lists:reverse(Steps),Input * (-1) + 1,TotalSteps),
+                         if Transform ->
+                                       Pid ! {refactoring_finished,TotalSteps + Input,Steps,OldText++get_text(NewSteps)},
+                                   	write_result(Pid,lists:last(NewSteps));
+                            true -> lists:last(NewSteps)
+                         end.
 
 get_back_steps(_, 0,_) -> [];
 get_back_steps([H|T],NSteps,TotalSteps) -> if length(T) =< TotalSteps -> [H|get_back_steps(T,NSteps -1,TotalSteps)];
@@ -208,6 +215,7 @@ get_text([_|T],NSteps,Input) -> get_text(T,NSteps-1,Input).
 write_result(Pid,NewBody) -> 
                   Text = get_temp_info_text(Pid),
 		  io:fwrite(Text),
+                  %%io:format("~p~n",[?PP(NewBody)]),
                   NewBody.
 
 
