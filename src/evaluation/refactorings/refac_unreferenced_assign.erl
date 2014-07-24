@@ -138,9 +138,73 @@ try_transform_recursively(Changed, Node, FileName, FunInfo) ->
     end.
 	    
 rules(CollectResult, FunInfo) ->    
-    [variable_assignment_rule(CollectResult, FunInfo)].
+    [variable_assignment_rule_clause(CollectResult, FunInfo),variable_assignment_rule_outer(CollectResult, FunInfo)].
 
-variable_assignment_rule(CollectResult, {RefacScope, MFA}) ->
+variable_assignment_rule_outer(CollectResult, {RefacScope, MFA}) ->
+    ?RULE(
+       ?T("f@(Args@@) when Guards@@ -> Body@@;"),
+       begin
+	   FunMFA = api_refac:fun_define_info(_This@),
+	   {M,_,_} = FunMFA,
+	   {_,InfoList} = lists:keyfind(M,1,CollectResult),
+	   {{M,_,_}, Info} = lists:keyfind(FunMFA,1,InfoList),
+	   NewBody@@ = variable_assignment_refactoring(Info,Body@@),
+	   ?TO_AST("f@(Args@@) when Guards@@ -> NewBody@@;")
+       end,
+       begin
+	FunMFA = api_refac:fun_define_info(f@),
+        (FunMFA /= unknown andalso
+        (RefacScope /= function orelse
+	  MFA == FunMFA)
+         andalso
+	 begin
+	     {M,F,A} = FunMFA,
+	     case lists:keyfind(M,1,CollectResult) of
+		 {M,InfoList} ->
+		     case lists:keyfind(FunMFA,1,InfoList) of
+			 {{M,F,A}, Info} ->
+			   final_cond_variable_assignment(Info,Body@@);
+			 _ -> false
+		     end;	       
+		 _ -> false
+	     end
+         end)
+      end
+    ).
+final_cond_variable_assignment(Info,Scope) ->
+          ?STOP_TD_TU([variable_assignment_collect_inner(Info)],Scope) /= [].
+
+variable_assignment_refactoring(Info,Scope) ->   
+    Result = ?STOP_TD_TP([variable_assignment_rule_inner(Info)],Scope),
+    case Result of
+	{ok, NewNode} -> NewNode;
+	_ -> Scope
+    end.
+
+variable_assignment_collect_inner(Info) ->
+    ?COLLECT(
+       ?T("Stmt0@@, Var@ = Expr@, Stmt@@"),
+       collected,
+       variable_assignment_inner_cond(Var@,Info)
+    ).
+
+variable_assignment_rule_inner(Info) ->
+    ?RULE(
+       ?T("Stmt0@@, Var@ = Expr@, Stmt@@"),
+      case Stmt@@ of	   
+	   [] ->
+	       ?TO_AST("Stmt0@@, Expr@");
+	   _ -> 	   
+	       ?TO_AST("Stmt0@@, Stmt@@")
+       end,
+      variable_assignment_inner_cond(Var@,Info)
+    ).
+
+variable_assignment_inner_cond(Var@,Info) ->
+    api_refac:type(Var@) == variable andalso
+    lists:filter(fun(Elem) -> Elem == api_refac:bound_vars(Var@) end, Info) == [].
+
+variable_assignment_rule_clause(CollectResult, {RefacScope, MFA}) ->
     ?RULE(
        ?T("f@(Args@@) when Guards@@ -> Stmt0@@, Var@ = Expr@, Stmt@@;"),
        case Stmt@@ of	   

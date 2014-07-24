@@ -24,8 +24,20 @@ test4() ->
     B = A + 1,
     C = B + 3.
 
-%%ALL THE ASSIGNMENTS ARE VALID
 test5() ->
+    A = 1.
+
+test6(X) ->
+    if
+	X -> 
+	    A = 1,
+	    2 + 3;
+	_ ->
+	    B = 1
+    end.
+
+%%ALL THE ASSIGNMENTS ARE VALID
+test7() ->
     A = 1,
     B = A + 2,
     B.

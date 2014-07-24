@@ -14,12 +14,18 @@ test4() ->
     B = A + 1,
     B + 3.
 
+test6(X) ->
+    if
+	X -> 
+	    2 + 3;
+	_ ->
+	    1
+    end.
+
 %%ALL THE ASSIGNMENTS ARE VALID
-test5() ->
+test7() ->
     A = 1,
     B = A + 2,
     B.
-
-
 
 
