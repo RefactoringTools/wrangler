@@ -101,16 +101,24 @@ transform(Args=#args{current_file_name=File,
     end.
 
 refac_loop(Result,RefacScope,MFA,TimeOut,DefinitionsInfo) ->
-     Result2 = refac_unreferenced_assign:second_transform(Result,RefacScope,MFA,true),
+    refac_loop(Result,RefacScope,MFA,TimeOut,DefinitionsInfo,[]).
+
+refac_loop({ok, ListOfResults},RefacScope,MFA,TimeOut,DefinitionsInfo,RemainingRefacs) when is_list(ListOfResults) ->
+     Result2 = refac_unreferenced_assign:second_transform({ok, ListOfResults},RefacScope,MFA,true),
      case Result2 of
 	 {ok,ListOfResults2} ->
 		     Result3 = ?FULL_TD_TP(refac:body_rules(fun refac_all:rules/2, {RefacScope, MFA}, TimeOut, refac_funApp:getInfoList(ListOfResults2,DefinitionsInfo)),ListOfResults2),
 		     case Result3 of
-			 {ok,_} ->
+			 {ok,ListOfResults3} ->
+			      {ListToRefac,RemainingRefacs2} = lists:partition(fun({FileNameTuple,Node}) -> 										
+										{FileNameTuple,Node2} = lists:keyfind(FileNameTuple,1,ListOfResults),
+										      
+										?PP(Node) /= ?PP(Node2)
+								     end,ListOfResults3),
 			     if
-				 Result /= Result3 -> 
-				     refac_loop(Result3,RefacScope,MFA,TimeOut,DefinitionsInfo);
-				 true -> Result3
+				 ListToRefac /= [] -> 			    
+				     refac_loop({ok,ListToRefac},RefacScope,MFA,TimeOut,DefinitionsInfo,RemainingRefacs ++ RemainingRefacs2);
+				 true -> {ok, RemainingRefacs ++ ListOfResults3}
 			     end;
 			  _ -> Result3
 		     end;
