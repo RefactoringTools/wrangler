@@ -14,18 +14,49 @@ test4() ->
     B = A + 1,
     B + 3.
 
+test5() -> 1.
+
 test6(X) ->
     if
 	X -> 
-	    2 + 3;
-	_ ->
+	    A = 3,
+	    B = A + 1,
+	    B + 3;
+	true ->
 	    1
     end.
 
+test7(X) ->
+    if
+	X -> 
+	    2 + 3;
+	true ->
+	    A = 10,
+	    A
+    end.
+
+test8(X) ->
+    if
+	X -> 
+	    A = 3,
+	    B = A + 1,
+	    B + 3;
+	true ->
+	    1
+    end.
+
+test9(0) -> 1;
+test9(1) ->
+    X = 1,
+    X.
+
 %%ALL THE ASSIGNMENTS ARE VALID
-test7() ->
+validTest() ->
     A = 1,
     B = A + 2,
     B.
+
+
+
 
 

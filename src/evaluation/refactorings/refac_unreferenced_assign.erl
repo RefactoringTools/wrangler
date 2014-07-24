@@ -84,7 +84,9 @@ first_transform(Files,RefacScopeStr,_Args=#args{focus_sel=FunDef}) ->
     RefacScope = refac:get_refac_scope(RefacScopeStr),
     CollectResult = collector(Files),
     MFA = refac:fun_define_info(RefacScope, FunDef),
-    Result = ?STOP_TD_TP((rules(CollectResult, {RefacScope, MFA})), Files),
+    Result = ?STOP_TD_TP(
+             (rules(CollectResult, {RefacScope, MFA})), 
+              Files),
     second_transform(Result,RefacScope,MFA,false).
 
 second_transform(Result,RefacScope,MFA,IsFirst) ->
@@ -138,17 +140,13 @@ try_transform_recursively(Changed, Node, FileName, FunInfo) ->
     end.
 	    
 rules(CollectResult, FunInfo) ->    
-    [variable_assignment_rule_clause(CollectResult, FunInfo),variable_assignment_rule_outer(CollectResult, FunInfo)].
+    [variable_assignment_rule_clause(CollectResult, FunInfo),variable_assignment_rule_outer(CollectResult,FunInfo)].
 
-variable_assignment_rule_outer(CollectResult, {RefacScope, MFA}) ->
+variable_assignment_rule_outer(CollectResult,{RefacScope, MFA}) ->
     ?RULE(
        ?T("f@(Args@@) when Guards@@ -> Body@@;"),
        begin
-	   FunMFA = api_refac:fun_define_info(_This@),
-	   {M,_,_} = FunMFA,
-	   {_,InfoList} = lists:keyfind(M,1,CollectResult),
-	   {{M,_,_}, Info} = lists:keyfind(FunMFA,1,InfoList),
-	   NewBody@@ = variable_assignment_refactoring(Info,Body@@),
+	   NewBody@@ = variable_assignment_refactoring(Body@@),
 	   ?TO_AST("f@(Args@@) when Guards@@ -> NewBody@@;")
        end,
        begin
@@ -162,8 +160,12 @@ variable_assignment_rule_outer(CollectResult, {RefacScope, MFA}) ->
 	     case lists:keyfind(M,1,CollectResult) of
 		 {M,InfoList} ->
 		     case lists:keyfind(FunMFA,1,InfoList) of
-			 {{M,F,A}, Info} ->
-			   final_cond_variable_assignment(Info,Body@@);
+			 {{M,F,A}, ArgsList,GuardsList,BodyInfoList} ->
+			   case  get_variable_occurrences(ArgsList,GuardsList,BodyInfoList,Args@@,Guards@@) of
+			    noMatch -> false;
+			    Info ->
+				   final_cond_variable_assignment(Info,Body@@)
+			   end;
 			 _ -> false
 		     end;	       
 		 _ -> false
@@ -171,13 +173,21 @@ variable_assignment_rule_outer(CollectResult, {RefacScope, MFA}) ->
          end)
       end
     ).
+
 final_cond_variable_assignment(Info,Scope) ->
           ?STOP_TD_TU([variable_assignment_collect_inner(Info)],Scope) /= [].
 
-variable_assignment_refactoring(Info,Scope) ->   
+variable_assignment_refactoring(Scope) ->   
+    Info = collector_variable_occurrences(Scope),
     Result = ?STOP_TD_TP([variable_assignment_rule_inner(Info)],Scope),
     case Result of
-	{ok, NewNode} -> NewNode;
+	{ok, NewNode} -> 
+	    Changed = ?PP(NewNode) /= ?PP(Scope),
+	    if
+		Changed -> 
+		    variable_assignment_refactoring(NewNode);
+		true -> Scope		    
+	    end;
 	_ -> Scope
     end.
 
@@ -210,7 +220,7 @@ variable_assignment_rule_clause(CollectResult, {RefacScope, MFA}) ->
        case Stmt@@ of	   
 	   [] ->
 	       ?TO_AST("f@(Args@@) when Guards@@ -> Stmt0@@, Expr@;");
-	   _ -> 	   
+	   _ -> 	  
 	       ?TO_AST("f@(Args@@) when Guards@@ -> Stmt0@@, Stmt@@;")
        end,
        begin
@@ -225,8 +235,9 @@ variable_assignment_rule_clause(CollectResult, {RefacScope, MFA}) ->
 	     case lists:keyfind(M,1,CollectResult) of
 		 {M,InfoList} ->
 		     case lists:keyfind(FunMFA,1,InfoList) of
-			 {{M,F,A}, Info} ->
-			     lists:filter(fun(Elem) -> Elem == api_refac:bound_vars(Var@) end, Info) == [];
+			 {{M,F,A}, ArgsList,GuardsList,BodyInfoList} ->
+			     check_variable_occurrences(ArgsList,GuardsList,BodyInfoList,Args@@,Guards@@,Var@);
+			     
 			 _ -> false
 		     end;
 		 _ -> false
@@ -234,6 +245,22 @@ variable_assignment_rule_clause(CollectResult, {RefacScope, MFA}) ->
          end)
       end
    ).
+
+check_variable_occurrences(ArgsList,GuardsList,BodyList,Args@@,Guards@@,Var@) ->
+    case get_variable_occurrences(ArgsList,GuardsList,BodyList,Args@@,Guards@@) of
+	noMatch -> false;
+	Info -> 
+	    lists:filter(fun(Elem) -> Elem == api_refac:bound_vars(Var@) end, Info) == []			
+    end.
+
+
+get_variable_occurrences([],[],[],_,_) -> noMatch;
+get_variable_occurrences([Args | ArgsTail],[Guards | GuardsTail],[Body | BodyTail],Args@@,Guards@@) ->
+    if 
+	Args == Args@@ andalso Guards == Guards@@ -> Body;
+	true ->
+	    get_variable_occurrences(ArgsTail, GuardsTail,BodyTail,Args@@,Guards@@)
+    end.
 
 collector(Files) ->
     lists:map(fun(Scope) -> 
@@ -275,7 +302,7 @@ collect_variables_occurrences()->
 
 collect() ->
     ?COLLECT(
-       ?T("f@(Args@@) when Guards@@ -> Body@@;"),
-       {api_refac:fun_define_info(f@), collector_variable_occurrences(Body@@)},
+       ?T("f@(Args@@@) when Guards@@@ -> Body@@@"),
+       {api_refac:fun_define_info(f@),Args@@@, Guards@@@, lists:map(fun(Body@@) -> collector_variable_occurrences(Body@@) end,Body@@@)},
        api_refac:fun_define_info(f@) /= unknown
     ).
