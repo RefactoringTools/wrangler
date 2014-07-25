@@ -71,29 +71,6 @@ evaluateGuardsExpression(Node, Scope)->
 	    end
    end.
 
-get_variable(Var, Scope) ->   
-    case Scope of
-	[] ->
-	    {expr, Var};
-	_ ->
-	    VarDefPos = api_refac:variable_define_pos(Var),
-		   case VarDefPos of
-			   [{0,0}] -> {expr, Var};
-			   [DefPos | _] -> 
-			       Result = pos_to_node(Scope, DefPos),
-			       case Result of
-				   {ok, Node} ->
-				       Match = ?MATCH(?T("Var@ = Expr@"), Node) andalso VarDefPos == api_refac:variable_define_pos(Var@),
-				       if
-					   Match -> {value,Expr@};
-					   true -> {expr, Var}
-				       end;
-				   _ -> {expr, Var}
-			       end;
-			   _ -> {expr, Var}
-		 end
-  end.
-
 findGuardApplication(Node, prefix_expr) ->
     Match = ?MATCH(?T("not(Single@)"), Node),
     if
@@ -376,8 +353,28 @@ do_arithmetic(Node) ->
 	_ -> error
     end.
 
+get_variable(Var, VarsInfo) ->   
+    case VarsInfo of
+	[] ->
+	    {expr, Var};
+	_ ->
+	    VarDefPos = api_refac:variable_define_pos(Var),
+		   case VarDefPos of
+			   [{0,0}] -> {expr, Var};
+			   [_ | _] -> 
+			       Result = lists:keyfind(api_refac:free_vars(Var),1,VarsInfo),
+			       case Result of
+				   {_,Expr@} ->
+				       {value,Expr@};
+				   _ -> {expr, Var}
+			       end;
+			   _ -> {expr, Var}
+		 end
+  end.
+
 pos_to_node(Scope, Pos) -> 
     api_interface:pos_to_node(Scope, Pos, fun(Node) -> ?MATCH(?T("Var@ = Exp@"), Node) end).
+
 
 
 
