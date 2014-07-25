@@ -116,7 +116,7 @@ get_temp_info_text(Pid) -> Pid ! {ask_text,self()},
 -spec(evaluate(string(),[syntaxTree()] | syntaxTree(),string(),[{{modulename(),functionname(),arity()},syntaxTree(),syntaxTree() | [syntaxTree()]}],RulesFun::fun((_) -> any()), boolean(), string(), boolean(),integer(),[syntaxTree]) -> [syntaxTree()] | syntaxTree()).
 evaluate(Pid, CurrentNode,{File,Scope},Info,RulesFun, Transform, Input_Steps,TypedF,NRefacsDone,Steps) -> 
     RemoveUnrefInfo = core_unreferenced_assign:collector_variable_occurrences(CurrentNode),
-    {ok, NewNode0} = ?STOP_TD_TP(RulesFun({File,Scope},{Info,RemoveUnrefInfo}), CurrentNode),
+    {ok, NewNode0} = ?STOP_TD_TP(RulesFun({File,Scope,api_refac:bound_vars(CurrentNode)},{Info,RemoveUnrefInfo}), CurrentNode),
     {ok,NewNode} = 
 	case eval_rem_begin_end:collector(CurrentNode) of
 	    [] ->
