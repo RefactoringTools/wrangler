@@ -162,8 +162,9 @@ checkNumberSteps(_Args=#args{current_file_name=_,user_inputs=_, search_paths=_Se
 %% @doc
 %% This function calls all the rules from the other refactorings.
 %%--------------------------------------------------------------------
-rules({File,Scope},Info) ->
-
+rules({File,Scope},{Info,RemoveInfo}) ->
+     core_unreferenced_assign:rules(empty,RemoveInfo) ++
+     core_rem_begin_end:rules(empty,empty) ++
      core_arithmetics:rules(empty,empty) ++
      core_lists_concat:rules(empty,empty) ++
      eval_funApp:rules({File,Scope},Info) ++

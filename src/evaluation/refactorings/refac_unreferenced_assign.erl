@@ -146,7 +146,7 @@ variable_assignment_rule_outer(CollectResult,{RefacScope, MFA}) ->
     ?RULE(
        ?T("f@(Args@@) when Guards@@ -> Body@@;"),
        begin
-	   NewBody@@ = variable_assignment_refactoring(Body@@),
+	   NewBody@@ = variable_assignment_refactoring(Body@@, fun core_unreferenced_assign:variable_assignment_rule/1,0),
 	   ?TO_AST("f@(Args@@) when Guards@@ -> NewBody@@;")
        end,
        begin
@@ -177,16 +177,22 @@ variable_assignment_rule_outer(CollectResult,{RefacScope, MFA}) ->
 final_cond_variable_assignment(Info,Scope) ->
           ?STOP_TD_TU([variable_assignment_collect_inner(Info)],Scope) /= [].
 
-variable_assignment_refactoring(Scope) ->   
-    Info = collector_variable_occurrences(Scope),
-    Result = ?STOP_TD_TP([variable_assignment_rule_inner(Info)],Scope),
+variable_assignment_refactoring(Scope,Fun,LoopInt) ->   
+    Info = core_unreferenced_assign:collector_variable_occurrences(Scope),
+    Result = ?STOP_TD_TP([Fun(Info)],Scope),
     case Result of
 	{ok, NewNode} -> 
 	    Changed = ?PP(NewNode) /= ?PP(Scope),
 	    if
 		Changed -> 
-		    variable_assignment_refactoring(NewNode);
-		true -> Scope		    
+		    variable_assignment_refactoring(NewNode, Fun, LoopInt);
+		true -> 
+		    case LoopInt of
+			0 -> 
+			    variable_assignment_refactoring(Scope, fun core_unreferenced_assign:variable_assignment_rule_begin/1, 1);
+			_ ->
+			    Scope
+		    end
 	    end;
 	_ -> Scope
     end.
@@ -195,24 +201,8 @@ variable_assignment_collect_inner(Info) ->
     ?COLLECT(
        ?T("Stmt0@@, Var@ = Expr@, Stmt@@"),
        collected,
-       variable_assignment_inner_cond(Var@,Info)
+       core_unreferenced_assign:variable_assignment_cond(Var@,Info)
     ).
-
-variable_assignment_rule_inner(Info) ->
-    ?RULE(
-       ?T("Stmt0@@, Var@ = Expr@, Stmt@@"),
-      case Stmt@@ of	   
-	   [] ->
-	       ?TO_AST("Stmt0@@, Expr@");
-	   _ -> 	   
-	       ?TO_AST("Stmt0@@, Stmt@@")
-       end,
-      variable_assignment_inner_cond(Var@,Info)
-    ).
-
-variable_assignment_inner_cond(Var@,Info) ->
-    api_refac:type(Var@) == variable andalso
-    lists:filter(fun(Elem) -> Elem == api_refac:bound_vars(Var@) end, Info) == [].
 
 variable_assignment_rule_clause(CollectResult, {RefacScope, MFA}) ->
     ?RULE(
@@ -277,32 +267,9 @@ collector_file_traversal(Scope) ->
 		Scope
     ).
 
-collector_variable_occurrences(Scope) ->
-    ?FULL_TD_TU(    
-		[collect_variables_occurrences()],
-		Scope
-    ).
-
-%%--------------------------------------------------------------------
-%% @doc
-%% For all Function Clauses in the file collects:
-%%   -The function info: Module name, function name and arity
-%%   -The AST representation of the pattern clause
-%%   -The AST representation of the body
-%% @end
-%%--------------------------------------------------------------------
-collect_variables_occurrences()->
-    ?COLLECT(
-       ?T("Var@"),
-       api_refac:free_vars(Var@),
-       api_refac:type(Var@) == variable andalso 
-       api_refac:variable_define_pos(Var@) /= [{0,0}] andalso 
-       api_refac:bound_vars(Var@) == []
-     ).
-
 collect() ->
     ?COLLECT(
        ?T("f@(Args@@@) when Guards@@@ -> Body@@@"),
-       {api_refac:fun_define_info(f@),Args@@@, Guards@@@, lists:map(fun(Body@@) -> collector_variable_occurrences(Body@@) end,Body@@@)},
+       {api_refac:fun_define_info(f@),Args@@@, Guards@@@, lists:map(fun(Body@@) -> core_unreferenced_assign:collector_variable_occurrences(Body@@) end,Body@@@)},
        api_refac:fun_define_info(f@) /= unknown
     ).
