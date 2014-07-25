@@ -12,7 +12,7 @@
 -export([input_par_prompts/0,select_focus/1, 
 	 check_pre_cond/1, selective/0, 
 	 transform/1]).
--export([first_transform/3,second_transform/4,transform_unref_assign/3]).
+-export([first_transform/3,second_transform/4,transform_unref_assign/3,collector/1,rules/2]).
 %%--------------------------------------------------------------------
 %% @private
 %% @doc

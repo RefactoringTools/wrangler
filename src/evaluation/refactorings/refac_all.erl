@@ -79,27 +79,27 @@ selective() ->
 %%--------------------------------------------------------------------
 transform(Args=#args{current_file_name=File,
 		     user_inputs=[TimeOutStr,RefacScopeStr,DefinitionsStr],search_paths=SearchPaths,focus_sel=FunDef}) ->
-    case refac:validate_all(TimeOutStr, RefacScopeStr,DefinitionsStr, Args) of
+     case refac:validate_all(TimeOutStr, RefacScopeStr,DefinitionsStr, Args) of
 	{error, Reason} -> {error, Reason};
 	_ ->
 	    RefacScope = refac:get_refac_scope(RefacScopeStr),
 	    Files = refac:get_files(RefacScope,SearchPaths,File,DefinitionsStr),
-	    case refac_unreferenced_assign:first_transform(Files,RefacScopeStr,Args) of
-		{ok, ListOfResults} when is_list(ListOfResults) ->	    
-		     case refac_funApp:getDefinitionsInfo(refac:get_definitions_tuplelist(DefinitionsStr,SearchPaths)) of
-			 {error, Reason} -> {error,Reason};
-			 DefinitionsInfo ->
-			     Result2 = transform_refacs(ListOfResults,Files,DefinitionsInfo,Args),
-			     case Result2 of
-				 {ok, ListOfResults2} when is_list(ListOfResults2) ->
-					  refac_loop(Result2,RefacScope,refac:fun_define_info(RefacScope,FunDef),refac:checkTimeOut(TimeOutStr),DefinitionsInfo);	 
-				 _ -> Result2
-			     end
-		     end;
-		Result -> Result
+	    CollectResult = refac_unreferenced_assign:collector(Files),
+            MFA = refac:fun_define_info(RefacScope, FunDef),
+	    case refac_funApp:getDefinitionsInfo(refac:get_definitions_tuplelist(DefinitionsStr,SearchPaths)) of
+		{error, Reason} -> {error,Reason};
+		DefinitionsInfo ->
+		    TimeOut = refac:checkTimeOut(TimeOutStr),
+		    InfoList = refac_funApp:getInfoList(Files,DefinitionsInfo),
+		    Result = ?STOP_TD_TP(rules_all({fun refac_all:rules/2,TimeOut,InfoList},CollectResult,{RefacScope,MFA}),Files),
+		    case Result of
+			{ok, ListOfResults} when is_list(ListOfResults) ->
+			    refac_loop(Result,RefacScope,MFA,TimeOut,DefinitionsInfo);
+			_ -> Result
+		    end 
 	    end
-    end.
-
+     end.
+    							
 refac_loop(Result,RefacScope,MFA,TimeOut,DefinitionsInfo) ->
     refac_loop(Result,RefacScope,MFA,TimeOut,DefinitionsInfo,[]).
 
@@ -125,32 +125,8 @@ refac_loop({ok, ListOfResults},RefacScope,MFA,TimeOut,DefinitionsInfo,RemainingR
 	 _ -> Result2
      end.
 
-concat_results(ListOfResults, NewResult) ->
-    case NewResult of
-	{ok,ListOfResults2} when is_list(ListOfResults2) ->
-		{ok, ListOfResults ++ ListOfResults2};
-	_ -> NewResult
-    end.
-
-transform_refacs(ListOfResults,Files,DefinitionsInfo,Args=#args{user_inputs=[TimeOutStr,RefacScopeStr,_],focus_sel=FunDef}) ->
-    TimeOut = refac:checkTimeOut(TimeOutStr),
-    RefacScope = refac:get_refac_scope(RefacScopeStr),
-    MFA = refac:fun_define_info(RefacScope,FunDef),
-    Result2 = ?FULL_TD_TP(refac:body_rules(fun refac_all:rules/2, {RefacScope, MFA}, TimeOut, refac_funApp:getInfoList(ListOfResults,DefinitionsInfo)),ListOfResults),
-    case Result2 of
-       {ok,ListOfResults2} when is_list(ListOfResults2) ->
-	    FilteredFiles = filter_unused_files(ListOfResults2, Files),
-	    Result3 = case FilteredFiles of
-		[] -> {ok,[]};
-		_ ->		
-		      refac:start_transformation(RefacScopeStr,fun refac_all:rules/2,TimeOutStr,refac_funApp:getInfoList(FilteredFiles,DefinitionsInfo),Args,FilteredFiles)   
-		     end,
-	    concat_results(ListOfResults2, Result3);
-       _ -> Result2
-    end.
-
-filter_unused_files(ListOfResults,Files) ->
-    lists:filter(fun(FileName) -> lists:keyfind({FileName, FileName},1,ListOfResults) == false end,Files).
+rules_all({RulesFun, TimeOut,Info}, UnrefArgs,FunInfo) ->
+    refac:body_rules(RulesFun,FunInfo,TimeOut,Info) ++ refac_unreferenced_assign:rules(UnrefArgs,FunInfo).
 
 %%--------------------------------------------------------------------
 %% @private
