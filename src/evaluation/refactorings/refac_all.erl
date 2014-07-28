@@ -89,25 +89,28 @@ transform(Args=#args{current_file_name=File,
 	    case refac_funApp:getDefinitionsInfo(refac:get_definitions_tuplelist(DefinitionsStr,SearchPaths)) of
 		{error, Reason} -> {error,Reason};
 		DefinitionsInfo ->
+		    Pid = spawn(refac, timeout_manager, [[]]),
 		    TimeOut = refac:checkTimeOut(TimeOutStr),
 		    InfoList = refac_funApp:getInfoList(Files,DefinitionsInfo),
-		    Result = ?STOP_TD_TP(rules_all({fun refac_all:rules/2,TimeOut,InfoList},CollectResult,{RefacScope,MFA}),Files),
-		    case Result of
+		    Result = ?STOP_TD_TP(rules_all({fun refac_all:rules/2,TimeOut,InfoList},CollectResult,{RefacScope,MFA},Pid),Files),
+		    FinalResult = case Result of
 			{ok, ListOfResults} when is_list(ListOfResults) ->
-			    refac_loop(Result,RefacScope,MFA,TimeOut,DefinitionsInfo);
+			    refac_loop(Result,RefacScope,MFA,TimeOut,DefinitionsInfo,Pid);
 			_ -> Result
-		    end 
+		    end,
+		    Pid ! finished,
+		    FinalResult	    
 	    end
      end.
     							
-refac_loop(Result,RefacScope,MFA,TimeOut,DefinitionsInfo) ->
-    refac_loop(Result,RefacScope,MFA,TimeOut,DefinitionsInfo,[]).
+refac_loop(Result,RefacScope,MFA,TimeOut,DefinitionsInfo,ManagerPid) ->
+    refac_loop(Result,RefacScope,MFA,TimeOut,DefinitionsInfo,ManagerPid,[]).
 
-refac_loop({ok, ListOfResults},RefacScope,MFA,TimeOut,DefinitionsInfo,RemainingRefacs) when is_list(ListOfResults) ->
+refac_loop({ok, ListOfResults},RefacScope,MFA,TimeOut,DefinitionsInfo,ManagerPid,RemainingRefacs) when is_list(ListOfResults) ->
      Result2 = refac_unreferenced_assign:second_transform({ok, ListOfResults},RefacScope,MFA,true),
      case Result2 of
 	 {ok,ListOfResults2} ->
-		     Result3 = ?FULL_TD_TP(refac:body_rules(fun refac_all:rules/2, {RefacScope, MFA}, TimeOut, refac_funApp:getInfoList(ListOfResults2,DefinitionsInfo)),ListOfResults2),
+		     Result3 = ?FULL_TD_TP(refac:body_rules(fun refac_all:rules/2, {RefacScope, MFA}, TimeOut, refac_funApp:getInfoList(ListOfResults2,DefinitionsInfo),ManagerPid),ListOfResults2),
 		     case Result3 of
 			 {ok,ListOfResults3} ->
 			      {ListToRefac,RemainingRefacs2} = lists:partition(fun({FileNameTuple,Node}) -> 										
@@ -117,7 +120,7 @@ refac_loop({ok, ListOfResults},RefacScope,MFA,TimeOut,DefinitionsInfo,RemainingR
 								     end,ListOfResults3),
 			     if
 				 ListToRefac /= [] -> 			    
-				     refac_loop({ok,ListToRefac},RefacScope,MFA,TimeOut,DefinitionsInfo,RemainingRefacs ++ RemainingRefacs2);
+				     refac_loop({ok,ListToRefac},RefacScope,MFA,TimeOut,DefinitionsInfo,ManagerPid,RemainingRefacs ++ RemainingRefacs2);
 				 true -> {ok, RemainingRefacs ++ ListOfResults3}
 			     end;
 			  _ -> Result3
@@ -125,8 +128,8 @@ refac_loop({ok, ListOfResults},RefacScope,MFA,TimeOut,DefinitionsInfo,RemainingR
 	 _ -> Result2
      end.
 
-rules_all({RulesFun, TimeOut,Info}, UnrefArgs,FunInfo) ->
-    refac:body_rules(RulesFun,FunInfo,TimeOut,Info) ++ refac_unreferenced_assign:rules(UnrefArgs,FunInfo).
+rules_all({RulesFun, TimeOut,Info}, UnrefArgs,FunInfo,ManagerPid) ->
+    refac:body_rules(RulesFun,FunInfo,TimeOut,Info,ManagerPid) ++ refac_unreferenced_assign:rules(UnrefArgs,FunInfo).
 
 %%--------------------------------------------------------------------
 %% @private

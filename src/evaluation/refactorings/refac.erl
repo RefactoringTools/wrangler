@@ -3,7 +3,7 @@
 %% Auxiliar Module that is used when the refactorings contains similaraties.
 %% This module is responsible for the timeout for example.
 -module(refac).
--export([try_call_transform/2, try_call_transform/3, body_rules/4, try_transform_manager/5, checkTimeOut/1, get_refac_scope/1, select_focus/1, select_focus/2, input_par_prompts/0,get_files/3,get_files/4,filterError/1,input_refac_scope_message/0,validation_with_timeout/3,validate_refac_scope/2,start_transformation/5,start_transformation/6,validate_all/4,validate_definitions_str/2,collectFile/3,fun_define_info/2,get_definitions_tuplelist/2]).
+-export([try_call_transform/2, try_call_transform/3, body_rules/5, try_transform_manager/5, checkTimeOut/1, get_refac_scope/1, select_focus/1, select_focus/2, input_par_prompts/0,get_files/3,get_files/4,filterError/1,input_refac_scope_message/0,validation_with_timeout/3,validate_refac_scope/2,start_transformation/5,start_transformation/6,validate_all/4,validate_definitions_str/2,collectFile/3,fun_define_info/2,get_definitions_tuplelist/2,timeout_manager/1]).
 
 %% Include files
 -include_lib("wrangler/include/wrangler.hrl").
@@ -39,19 +39,55 @@ try_call_transform(Args=#args{user_inputs=InputsList}, RulesFun, FunArgs) ->
 	    start_transformation(RefacScopeStr,RulesFun,TimeOutStr,FunArgs,Args)
     end.
 
+timeout_manager(List) when is_list(List) ->
+    receive
+	{timeout, {File, MFA, Exp}} ->
+	    MFAList = get_list(lists:keyfind(File,1,List)),
+	    ExpList = get_list(lists:keyfind(MFA,1,MFAList)),
+	    NewExpList = lists:keystore(Exp,1,ExpList,{Exp}),
+	    NewMFAList = lists:keystore(MFA,1,MFAList,{MFA,NewExpList}),
+	    NewList = lists:keystore(File,1,List,{File,NewMFAList}),
+	    timeout_manager(NewList);
+	finished ->
+	    case List of
+		[_ | _] ->
+		    io:format("TIMEOUTS SUMMARY~n"),
+		    lists:foreach(fun({File,FList}) ->
+					  io:format("Timeouts in file: ~p~n",[File]),
+					  lists:foreach(fun({{M,F,A},MFAList}) ->
+								MFA = atom_to_list(M) ++ ":" ++ atom_to_list(F) ++ "/" ++ integer_to_list(A),
+								io:format("   Timeouts in function: ~p~n",[MFA]),
+								lists:foreach(fun({Exp}) ->
+										     io:format("      Timeout in expression: ~p~n",[Exp])
+									      end, MFAList)
+							end,FList) 
+				  end,List);
+		_ -> io:format("No timeout occurred!~n")
+	    end
+		     
+    end.
+
+get_list({_,List}) when is_list(List) -> List;
+get_list(_) -> [].
+
+					 
 start_transformation(RefacScopeStr,RulesFun,TimeOutStr,FunArgs,Args=#args{current_file_name=File,search_paths=SearchPaths}) ->
      Files = get_files(RefacScopeStr,SearchPaths,File),
      start_transformation(RefacScopeStr,RulesFun,TimeOutStr,FunArgs,Args,Files).
 
 start_transformation(RefacScopeStr,RulesFun,TimeOutStr,FunArgs,_Args=#args{current_file_name=File, focus_sel=FunDef},Files) ->
+    Pid = spawn(refac, timeout_manager, [[]]),
     TimeOut = checkTimeOut(TimeOutStr),
     RefacScope = get_refac_scope(RefacScopeStr),
     MFA = fun_define_info(RefacScope,FunDef),
-    if
-		RefacScope == file orelse RefacScope == function ->       	    		?FULL_TD_TP((body_rules(RulesFun, {RefacScope, MFA}, TimeOut, FunArgs)),[File]);
+    Result = if
+		RefacScope == file orelse RefacScope == function ->       	    		
+		     ?FULL_TD_TP((body_rules(RulesFun, {RefacScope, MFA}, TimeOut, FunArgs, Pid)),[File]);
 		RefacScope == project ->		 
-		     ?FULL_TD_TP((body_rules(RulesFun, {RefacScope, MFA}, TimeOut, FunArgs)),Files)
-    end.
+		     ?FULL_TD_TP((body_rules(RulesFun, {RefacScope, MFA}, TimeOut, FunArgs, Pid)),Files)
+    end,
+    Pid ! finished,
+    Result.
 
 fun_define_info(RefacScope, FunDef) ->
     case RefacScope of
@@ -122,7 +158,7 @@ collectFile(ModName,File,SearchPaths) ->
 	_ -> {error, "Definitions file '" ++ ModName ++ "' doesn't exist!"}
     end.
 
-body_rules(RulesFun, RefacType, TimeOut, Info) -> [body_rule(RulesFun, RefacType, TimeOut, Info)].
+body_rules(RulesFun, RefacType, TimeOut, Info,ManagerPid) -> [body_rule(RulesFun, RefacType, TimeOut, Info,ManagerPid)].
 
 get_refac_scope("y") -> file;
 get_refac_scope("Y") -> project;
@@ -135,7 +171,7 @@ get_refac_scope(_) -> maybe.
 %% This function represents a rule that tries to perform substitution rules in a function body only if the function information matches the function chosen by the user.
 %% @end
 %%--------------------------------------------------------------------   
-body_rule(RulesFun, {RefacScope, MFA}, TimeOut, FunArgs) ->
+body_rule(RulesFun, {RefacScope, MFA}, TimeOut, FunArgs,ManagerPid) ->
     ?RULE(
        ?T("f@(Args@@) when Guards@@ -> Body@@;"),
        begin	   
@@ -144,9 +180,10 @@ body_rule(RulesFun, {RefacScope, MFA}, TimeOut, FunArgs) ->
        end, 
        begin
            FunInfo = api_refac:fun_define_info(f@),
+	   FunInfo /= unknown andalso
 	   (RefacScope /= function orelse FunInfo == MFA) andalso
 	 begin
-	     Result = try_transform_body(Body@@, RulesFun, {FunArgs, _This@, api_refac:bound_vars(_This@)}, FunInfo, TimeOut),
+	     Result = try_transform_body(Body@@, RulesFun, {FunArgs, _This@, api_refac:bound_vars(_This@)}, FunInfo, TimeOut,get_file(_File@),ManagerPid),
 	     case Result of
 		  {error, _Reason} -> false;
 		  _ -> true
@@ -156,14 +193,19 @@ body_rule(RulesFun, {RefacScope, MFA}, TimeOut, FunArgs) ->
       end
        ).
 
-try_transform_body(Node, RulesFun, FunArgs, FunDefInfo, TimeOut) ->   
+get_file({FileName,FileName}) -> FileName;
+get_file(FileName) -> FileName. 
+
+try_transform_body(Node, RulesFun, FunArgs, FunDefInfo, TimeOut,File,ManagerPid) ->   
     Pid = spawn(refac, try_transform_manager, [Node, RulesFun, FunArgs, FunDefInfo, self()]),
 	    receive
 		{result, NewNode} -> NewNode
 	    after 
 		TimeOut -> 
 		    exit(Pid,kill),
-		    io:format("TIMEOUT in expression: ~p~n",[?PP(Node)]),
+		    Exp = ?PP(Node),
+		    ManagerPid ! {timeout,{File,FunDefInfo,Exp}},
+		    io:format("TIMEOUT in expression: ~p~n",[Exp]),
 		    {error, timeOut}
 	    end.
 
