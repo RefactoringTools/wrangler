@@ -23,7 +23,7 @@
 %% gen_refac callbacks
 -export([input_par_prompts/0,select_focus/1, 
 	 check_pre_cond/1, selective/0, 
-	 transform/1, rules/2, transform_funApp/2, start_transformation/3, getInfoList/2, getDefinitionsInfo/1]).
+	 transform/1, rules/2, transform_funApp/2, getInfoList/2, getDefinitionsInfo/1, getInternalFiles/3]).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -88,12 +88,13 @@ transform_funApp(Args=#args{current_file_name=File,search_paths=SearchPaths,user
 	_ ->
 	    RefacScope = refac:get_refac_scope(RefacScopeStr),
 	    Files = refac:get_files(RefacScope,SearchPaths,File,DefinitionsStr),
-            start_transformation(Files,Fun,Args)
+            start_transformation(Files,Fun,RefacScope,Args)
     end.
 
-start_transformation(Files,Fun,Args=#args{search_paths=SearchPaths,user_inputs=[TimeOutStr,RefacScopeStr,DefinitionsStr]}) ->
+start_transformation(Files,Fun,RefacScope,Args=#args{search_paths=SearchPaths,user_inputs=[TimeOutStr,RefacScopeStr,DefinitionsStr]}) ->
     DefsTupleList = refac:get_definitions_tuplelist(DefinitionsStr,SearchPaths),
-    case createInfoList(Files, DefsTupleList) of
+    InternalFiles = getInternalFiles(Files,DefsTupleList,RefacScope),
+    case createInfoList(InternalFiles, DefsTupleList) of
 	{error, Reason} -> {error,Reason};
 	 InfoList ->
 	         refac:start_transformation(RefacScopeStr,Fun,TimeOutStr,InfoList,Args,Files)
@@ -112,11 +113,16 @@ collect(Files) ->
        Files
       ).
 
-createInfoList(Files,DefsTupleList) ->
-    {collect(Files),getDefinitionsInfo(DefsTupleList)}.
+createInfoList(InternalFiles,DefsTupleList) ->
+    {collect(InternalFiles),getDefinitionsInfo(DefsTupleList)}.
 
-getInfoList(Files,DefinitionsInfo) ->
-    {collect(Files),DefinitionsInfo}.
+getInfoList(InternalFiles,DefinitionsInfo) ->
+    {collect(InternalFiles),DefinitionsInfo}.
+
+getInternalFiles(_,_,project) -> [];
+getInternalFiles(Files, DefsTupleList,_) when is_list(Files) andalso length(Files) == 1 ->
+    lists:filter(fun(File) -> lists:keyfind(File,2,DefsTupleList) /= false end, Files);
+getInternalFiles(Files,_,_) -> Files.
 
 getDefinitionsInfo([]) -> [];
 getDefinitionsInfo(DefsTupleList) ->

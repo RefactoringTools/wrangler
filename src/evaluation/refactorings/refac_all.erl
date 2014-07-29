@@ -86,31 +86,38 @@ transform(Args=#args{current_file_name=File,
 	    Files = refac:get_files(RefacScope,SearchPaths,File,DefinitionsStr),
 	    CollectResult = refac_unreferenced_assign:collector(Files),
             MFA = refac:fun_define_info(RefacScope, FunDef),
-	    case refac_funApp:getDefinitionsInfo(refac:get_definitions_tuplelist(DefinitionsStr,SearchPaths)) of
+	    DefsTupleList = refac:get_definitions_tuplelist(DefinitionsStr,SearchPaths),
+	    case refac_funApp:getDefinitionsInfo(DefsTupleList) of
 		{error, Reason} -> {error,Reason};
 		DefinitionsInfo ->
 		    Pid = spawn(refac, timeout_manager, [[]]),
 		    TimeOut = refac:checkTimeOut(TimeOutStr),
-		    InfoList = refac_funApp:getInfoList(Files,DefinitionsInfo),
+		    InternalFiles = refac_funApp:getInternalFiles(Files,DefsTupleList,RefacScope),
+		    InfoList = refac_funApp:getInfoList(InternalFiles,DefinitionsInfo),
 		    Result = ?STOP_TD_TP(rules_all({fun refac_all:rules/2,TimeOut,InfoList},CollectResult,{RefacScope,MFA},Pid),Files),
 		    FinalResult = case Result of
 			{ok, ListOfResults} when is_list(ListOfResults) ->
-			    refac_loop(Result,RefacScope,MFA,TimeOut,DefinitionsInfo,Pid);
+			    refac_loop(Result,RefacScope,MFA,TimeOut,DefinitionsInfo,InternalFiles,Pid);
 			_ -> Result
 		    end,
 		    Pid ! finished,
 		    FinalResult	    
 	    end
      end.
-    							
-refac_loop(Result,RefacScope,MFA,TimeOut,DefinitionsInfo,ManagerPid) ->
-    refac_loop(Result,RefacScope,MFA,TimeOut,DefinitionsInfo,ManagerPid,[]).
 
-refac_loop({ok, ListOfResults},RefacScope,MFA,TimeOut,DefinitionsInfo,ManagerPid,RemainingRefacs) when is_list(ListOfResults) ->
+get_internal_results(project,_,_) -> [];
+get_internal_results(_,ListOfResults,InternalFiles) ->
+    lists:filter(fun({{FileName,FileName},_}) -> lists:any(fun(FileName2) -> FileName == FileName2 end,InternalFiles) end,ListOfResults).
+    							
+refac_loop(Result,RefacScope,MFA,TimeOut,DefinitionsInfo,InternalFiles,ManagerPid) ->
+    refac_loop(Result,RefacScope,MFA,TimeOut,DefinitionsInfo,InternalFiles,ManagerPid,[]).
+
+refac_loop({ok, ListOfResults},RefacScope,MFA,TimeOut,DefinitionsInfo,InternalFiles,ManagerPid,RemainingRefacs) when is_list(ListOfResults) ->
      Result2 = refac_unreferenced_assign:second_transform({ok, ListOfResults},RefacScope,MFA,true),
      case Result2 of
 	 {ok,ListOfResults2} ->
-		     Result3 = ?FULL_TD_TP(refac:body_rules(fun refac_all:rules/2, {RefacScope, MFA}, TimeOut, refac_funApp:getInfoList(ListOfResults2,DefinitionsInfo),ManagerPid),ListOfResults2),
+	             FilteredResults = get_internal_results(RefacScope,ListOfResults2,InternalFiles),
+		     Result3 = ?FULL_TD_TP(refac:body_rules(fun refac_all:rules/2, {RefacScope, MFA}, TimeOut, refac_funApp:getInfoList(FilteredResults,DefinitionsInfo),ManagerPid),ListOfResults2),
 		     case Result3 of
 			 {ok,ListOfResults3} ->
 			      {ListToRefac,RemainingRefacs2} = lists:partition(fun({FileNameTuple,Node}) -> 										
@@ -120,7 +127,7 @@ refac_loop({ok, ListOfResults},RefacScope,MFA,TimeOut,DefinitionsInfo,ManagerPid
 								     end,ListOfResults3),
 			     if
 				 ListToRefac /= [] -> 			    
-				     refac_loop({ok,ListToRefac},RefacScope,MFA,TimeOut,DefinitionsInfo,ManagerPid,RemainingRefacs ++ RemainingRefacs2);
+				     refac_loop({ok,ListToRefac},RefacScope,MFA,TimeOut,DefinitionsInfo,InternalFiles,ManagerPid,RemainingRefacs ++ RemainingRefacs2);
 				 true -> {ok, RemainingRefacs ++ ListOfResults3}
 			     end;
 			  _ -> Result3
