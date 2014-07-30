@@ -21,7 +21,7 @@ evaluate(ModName,File,SearchPaths,OldExpression,OldPid,Timeout) ->
 	case SearchPaths of
 	    [_ | _] ->
                     if OldExpression == "" ->
-                    			 {ok, [Expression]} = io:fread("Type an expression: ", "~s");
+                    			 Expression = io:get_line("Type an expression: ");
                     true -> Expression = OldExpression
                     end,
                     {ok, Input2} = io:fread("Type N to execute N steps or 'f' to execute all steps: ", "~s"),
