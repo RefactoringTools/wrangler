@@ -66,6 +66,14 @@ test14()->
 	2 < 1 -> 42;
 	false -> 37
     end.
+
+test15() -> 37.
+
+test16() -> 37.
+
+test17() -> 37.
+
+test18() -> 37.
 	    
 funIf(X) ->
     if

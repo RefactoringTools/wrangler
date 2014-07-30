@@ -101,6 +101,30 @@ test14()->
 	2 < 1 -> 42;
 	false -> 37
     end.
+
+test15() ->
+    if
+	1 -> 42;
+	true -> 37
+    end.
+
+test16() ->
+    if
+	atom -> 42;
+	true -> 37
+    end.
+
+test17() ->
+    if
+	[] -> 42;
+	true -> 37
+    end.
+
+test18() ->
+    if
+	{1,2} -> 42;
+	true -> 37
+    end.
 	    
 funIf(X) ->
     if
