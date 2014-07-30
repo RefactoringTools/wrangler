@@ -1,6 +1,6 @@
 -module(core_unreferenced_assign).
 -include_lib("wrangler/include/wrangler.hrl").
--export([rules/2,collector_variable_occurrences/1,variable_assignment_cond/2,variable_assignment_rule/1,variable_assignment_rule_begin/1,collector_var_expr_value/1]).
+-export([rules/2,collector_variable_occurrences/1,variable_assignment_cond/2,variable_assignment_rule/1,variable_assignment_rule_begin/1,collector_var_expr_value/1,is_variable_use/1]).
 
 rules(_,Info) ->
     [variable_assignment_rule(Info),
@@ -54,10 +54,13 @@ collect_variables_occurrences()->
     ?COLLECT(
        ?T("Var@"),
        api_refac:free_vars(Var@),
-       api_refac:type(Var@) == variable andalso 
-       api_refac:variable_define_pos(Var@) /= [{0,0}] andalso 
-       api_refac:bound_vars(Var@) == []
+       is_variable_use(Var@)
      ).
+
+is_variable_use(Var@) ->
+     api_refac:type(Var@) == variable andalso 
+     api_refac:variable_define_pos(Var@) /= [{0,0}] andalso 
+     api_refac:bound_vars(Var@) == [].
 
 collector_var_expr_value(Scope) -> 
     ?FULL_TD_TU([collect_variable_assignment()],Scope).

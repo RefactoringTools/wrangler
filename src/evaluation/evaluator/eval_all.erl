@@ -163,14 +163,15 @@ checkNumberSteps(_Args=#args{current_file_name=_,user_inputs=_, search_paths=_Se
 %% This function calls all the rules from the other refactorings.
 %%--------------------------------------------------------------------
 rules(RulesArgs,{Info,RemoveInfo}) ->
+     eval_inline_variable:rules(RulesArgs,Info) ++
      core_unreferenced_assign:rules(empty,RemoveInfo) ++
      core_rem_begin_end:rules(empty,empty) ++
      core_arithmetics:rules(empty,empty) ++
      core_lists_concat:rules(empty,empty) ++
      eval_funApp:rules(RulesArgs,Info) ++
      core_boolean_operators:rules(nil,nil) ++
-     core_if:rules(RulesArgs,Info) ++
-     core_case:rules(RulesArgs,Info)    
+     core_if:rules({empty,[],empty},Info) ++
+     core_case:rules({empty,[],empty},Info)    
    .    
 
 
