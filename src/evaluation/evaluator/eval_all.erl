@@ -171,8 +171,7 @@ rules(RulesArgs,{Info,RemoveInfo}) ->
      eval_funApp:rules(RulesArgs,Info) ++
      core_boolean_operators:rules(nil,nil) ++
      core_if:rules({empty,[],empty},Info) ++
-     core_case:rules({empty,[],empty},Info)    
-   .    
+     core_case:rules({empty,[],empty},Info).    
 
 
 %%Composite Refactoring

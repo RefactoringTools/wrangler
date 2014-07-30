@@ -8,13 +8,7 @@
 -export([rules/2]).
 
 rules({_,VarsInfo,_},_) ->
-    [
-     inline_variable_rule(VarsInfo)
-    %% inline_variable_rule(VarsInfo),
-    %% inline_variable_rule_2(VarsInfo),
-   %% inline_variable_rule_3(VarsInfo),
-   %% inline_variable_rule_4(VarsInfo)
-    ].
+    [inline_variable_rule(VarsInfo)].
 
 inline_variable_rule(VarsInfo) ->
     ?RULE(
@@ -24,50 +18,6 @@ inline_variable_rule(VarsInfo) ->
 	  Expr@
        end,
        inline_variable_cond(Var@,VarsInfo)
-    ).
-
-inline_variable_rule_0(VarsInfo) ->
-    io:format("Inline variable rule~n"),
-    ?RULE(
-       ?T("begin Stmt0@@, Var@, Stmt@@ end"),
-       begin
-	  Expr@ = get_assignment_value(Var@,VarsInfo),
-	  ?TO_AST("begin Stmt0@@, Expr@, Stmt@@ end")
-       end,
-       inline_variable_cond(Var@,VarsInfo)
-    ).
-
-inline_variable_rule_2(VarsInfo) ->
-    io:format("Inline variable rule 2~n"),
-    ?RULE(
-       ?T("Stmt0@@, Var@, Stmt@@"),
-       begin
-	  Expr@ = get_assignment_value(Var@,VarsInfo),
-	  ?TO_AST("Stmt0@@, Expr@, Stmt@@")
-       end,
-       inline_variable_cond(Var@,VarsInfo)
-    ).
-
-inline_variable_rule_3(VarsInfo) ->
-    io:format("Inline variable rule 3~n"),
-    ?RULE(
-       ?T("Var@"),
-       begin
-	  Expr@ = get_assignment_value(Var@,VarsInfo),
-	  ?TO_AST("Stmt0@@, Expr@, Stmt@@")
-       end,
-       inline_variable_cond(Var@,VarsInfo)
-    ).
-
-inline_variable_rule_4(VarsInfo) ->
-    io:format("Inline variable rule 4~n"),
-    ?RULE(
-       ?T("begin Stmt0@@, Var@ = Expr@, Stmt@@ end"),
-       _This@,
-       begin
-	   io:format("MAS PQ?~n"),
-	   false
-       end
     ).
 
 inline_variable_cond(Var@,VarsInfo) ->
