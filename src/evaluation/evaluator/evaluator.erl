@@ -51,18 +51,23 @@ get_def_files([FileName | T], SearchPaths,Acc) when is_atom(FileName) ->
     case wrangler_misc:modname_to_filename(FileName, SearchPaths) of
 	{ok, FullFileName} ->
 	    get_def_files(T,SearchPaths, Acc ++ [{ok,FullFileName,FileName}]);
-	_ ->  {error,"Definitions file "++ atom_to_list(FileName) ++ " not found in the provided list of search paths!"}
+	_ ->  {error,"Definitions file not found in the provided list of search paths: " ++ atom_to_list(FileName)}
     end;
 get_def_files(_,_,_) -> {error,"Invalid input for the list of definitions files, please inform a list of atoms corresponding to valid definitions files"}. 
 			 
 validateSearchPaths([]) -> ok;    
-validateSearchPaths([H | T]) ->
-    case filelib:is_dir(H) of
-	true -> 
-	    validateSearchPaths(T);
-	_ -> {error, H ++ " is not a directory"}
+validateSearchPaths(List) when is_list(List) ->
+    case io_lib:printable_list(List) of
+	true -> {error,"Invalid list of search paths. Please inform a list of strings containg valid directories!"};
+	_ ->
+	    [H | T] = List,
+	    case filelib:is_dir(H) of
+		true -> 
+		    validateSearchPaths(T);
+		_ -> {error, H ++ " is not a directory"}
+	    end
     end;
-validateSearchPaths(_) -> {error,"Invalid list of search paths! Please inform a list of strings containg valid directories (or use the current directory by default)!"}.
+validateSearchPaths(_) -> {error,"Invalid list of search paths. Please inform a list of strings containg valid directories!"}.
 			
 evaluate(DefFiles,SearchPaths,OldExpression,OldPid,Timeout) ->
 	case SearchPaths of
