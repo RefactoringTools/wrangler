@@ -5,7 +5,7 @@
 
 %%%===================================================================
 %% gen_refac callbacks
--export([getCollectFile/3,collect/1,length_rule/0,anonymousCall_rule/0,addModuleName_rule/1,functionCall_rule/4,functionCall_cond/6]).
+-export([getCollectFile/3,collect/1,length_rule/0,anonymousCall_rule/0,addModuleName_rule/1,functionCall_rule/4,functionCall_cond/6,collectFromDefsList/1]).
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
@@ -218,6 +218,13 @@ addModuleName_rule(Module) ->
 	  end
 ).
 
+collectFromDefsList([]) -> [];
+collectFromDefsList(DefsTupleList) ->
+    {list,lists:map(fun(X) -> getExternalInfoElem(X) end, DefsTupleList)}.
+
+getExternalInfoElem({ok, DefinitionsFile,ModName}) ->
+    Info = collect(DefinitionsFile),
+    {ModName, Info}.
 
 
 

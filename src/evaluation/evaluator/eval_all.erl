@@ -94,61 +94,38 @@ selective() ->
 %% @end
 %%--------------------------------------------------------------------
 
-transform(Args=#args{current_file_name=_File, user_inputs=[E,I], search_paths=_SearchPaths})->
+transform(Args=#args{current_file_name=_DefFiles, user_inputs=[E,I], search_paths=_SearchPaths}) ->
     transform(Args,E,I,refac_eval_single,nil,0).
 
-transform(Args=#args{current_file_name=_File,user_inputs=[I], search_paths=_SearchPaths}, OriginalNode, Pid,Timeout)->
+transform(Args=#args{current_file_name=_DefFiles,user_inputs=[I], search_paths=_SearchPaths}, OriginalNode, Pid,Timeout)->
     transform(Args,OriginalNode,I,refac_eval_compos,Pid,Timeout).
 
-transform(Args=#args{current_file_name=File, user_inputs=_, search_paths=SearchPaths},E,I,TypeRefac,Pid,Timeout) ->
+transform(Args=#args{current_file_name=DefFiles},E,I,TypeRefac,Pid,Timeout) ->
 	    Node = ?TO_AST(E),
 	    Match = ?MATCH(?T("M@:F@(Args@@)"),Node),
-            {ok,Scope} = api_refac:get_ast(File),
+            Scope = nil,
 	    case Match of
-	       true ->  ModuleName = ?PP(M@),
-		        CollectFile = core_funApp:getCollectFile(ModuleName,File,SearchPaths),
-		        case CollectFile of 
-					{ok,DefinitionsFile} -> 
-				 				     DefinitionsModule = list_to_atom(ModuleName),
-								     Info = core_funApp:collect(DefinitionsFile),
-								     checkNumberSteps(Args,E,I,{{DefinitionsModule,Info},Scope},TypeRefac,Pid,Timeout);
-		                        _ -> {error,"Definitions file does not exist."}
-		 
-		        end;
+	       true ->  
+			Info = core_funApp:collectFromDefsList(DefFiles),
+			checkNumberSteps(Args,I,{{empty,Info},empty},TypeRefac,Pid,Timeout);
+		               
 	       _ ->     
                         case TypeRefac of
                               funApp -> {error,"Invalid expression."};
-                              _ -> %%Info = core_funApp:collect(File),
-                                   checkNumberSteps(Args,E,I,{{File,empty},Scope},TypeRefac,Pid,Timeout)
+                              _ %%Info = core_funApp:collect(File),
+                                ->
+                                   checkNumberSteps(Args,I,{{DefFiles,empty},Scope},TypeRefac,Pid,Timeout)
                         end
 	    end.   
 
-checkNumberSteps(_Args=#args{current_file_name=_,user_inputs=_, search_paths=_SearchPaths},E,I,{{File,Info},Scope},TypeRefac,Pid,Timeout) -> 
+checkNumberSteps(_Args=#args{current_file_name=_, user_inputs=_, search_paths=_SearchPaths},I,{{DefFiles,Info},Scope},TypeRefac,Pid,Timeout) ->
    if I == "" -> NSteps = "1";
       true -> NSteps = I
    end,
    TypedF = NSteps == "f" orelse NSteps == "F",
    case TypeRefac of 
-             refac_eval_single ->  
-		     eval:start_evaluation({File,Scope},Info,"",fun eval_all:rules/2,E,NSteps, TypedF,Timeout);
              refac_eval_compos -> 
-		     eval:start_evaluation({File,Scope},Info,Pid,fun eval_all:rules/2, "",NSteps, TypedF,Timeout);
-             eval_funApp -> 
-		      eval:start_evaluation({File,Scope},Info,"",fun eval_funApp:rules/2,E,NSteps, TypedF,Timeout);
-             eval_arit_calc ->
-                      eval:start_evaluation({File,Scope},Info,"",fun core_arit_calc:rules/2, E, NSteps, TypedF,Timeout);
-             eval_arit_simpl ->
-                      eval:start_evaluation({File,Scope},Info,"",fun core_arit_simpl:rules/2,E, NSteps, TypedF,Timeout);
-             eval_boolean_operators ->
-                      eval:start_evaluation({File,Scope},Info,"",fun core_boolean_operators:rules/2,E, NSteps, TypedF,Timeout);
-             eval_arithmetics ->
-                      eval:start_evaluation({File,Scope},Info,"",fun core_arithmetics:rules/2,E, NSteps, TypedF,Timeout);
-             eval_if ->
-                      eval:start_evaluation({File,Scope},Info,"",fun core_if:rules/2,E, NSteps, TypedF,Timeout);
-             eval_case ->
-                      eval:start_evaluation({File,Scope},Info,"",fun core_case:rules/2,E, NSteps, TypedF,Timeout);
-             eval_lists -> 
-                      eval:start_evaluation({File,Scope},Info,"",fun core_lists_concat:rules/2,E,NSteps,TypedF,Timeout);
+		     eval:start_evaluation({DefFiles,Scope},Info,Pid,fun eval_all:rules/2,"",NSteps,TypedF,Timeout);
              _ -> {error, "Invalid refactoring type."}
     end.
     
@@ -175,8 +152,8 @@ rules(RulesArgs,{Info,RemoveInfo}) ->
 
 
 %%Composite Refactoring
-eval_all(FileName, OriginalNode, Pid, Input, SearchPaths,Timeout) ->
-            Args=#args{current_file_name=FileName,
+eval_all(DefFiles, OriginalNode, Pid, Input, SearchPaths, Timeout) ->
+            Args=#args{current_file_name=DefFiles,
                        user_inputs=[Input],
                        search_paths=SearchPaths},
             case check_pre_cond(Args) of

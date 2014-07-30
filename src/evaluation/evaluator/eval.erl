@@ -9,36 +9,36 @@
 %% This function represents a rule that tries to perform substitution rules in a function body only if the function information matches the function chosen by the user in the case of a Composite Refactoring.
 %% @end
 %%--------------------------------------------------------------------   
-start_evaluation({File,Scope},Info,Pid,RulesFun,Expression,NSteps, TypedF,Timeout) ->
+start_evaluation({DefFiles,Scope},Info,Pid,RulesFun,Expression,NSteps,TypedF,Timeout) ->
 	    if Pid /= "" ->
 		    	Steps = get_temp_info_steps(Pid),
                         NRefacsDone = get_temp_info_nSteps(Pid),
 		    	Body = lists:nth(NRefacsDone+1,Steps),
-		   	NewBody = evaluate(Pid,Body,{File,Scope},Info,RulesFun,false,NSteps,TypedF,0,Steps),
-                        if TypedF == false -> 
-					NSteps_Int = list_to_integer(NSteps), 
-				        if   length(Steps) > NSteps_Int + NRefacsDone -> Change = true;
-				             true -> Change = ?PP(NewBody) /= ?PP(Body)
-				        end;
-                           true ->  if length(Steps) - 1 > NRefacsDone -> Change = true;
-                                        true -> Change = ?PP(NewBody) /= ?PP(Body)
-                                    end
-                        end,
-                        if
-				Change -> 
-                                 	PidEvaluation = spawn(eval,try_evaluate, [Pid,Body,				          					 		{File,Scope},Info,RulesFun,true,NSteps,TypedF,0,Steps,self()]),
-                          	 	case Timeout of
-                                        	0 -> timeout_manager(PidEvaluation,Body,1000);
-                                                _ -> timeout_manager(PidEvaluation,Body,Timeout)
-                                        end;
-				true -> 
-                          		{error,"No evaluation done"}   
-       	    		end; 
+		            NewBody = evaluate(Pid,Body,{DefFiles,Scope},Info,RulesFun,false,NSteps,TypedF,0,Steps),
+                            if TypedF == false ->
+					    NSteps_Int = list_to_integer(NSteps),
+				            if   length(Steps) > NSteps_Int + NRefacsDone -> Change = true;
+				                 true -> Change = ?PP(NewBody) /= ?PP(Body)
+				            end;
+                               true -> if length(Steps) - 1 > NRefacsDone -> Change = true;
+                                          true -> Change = ?PP(NewBody) /= ?PP(Body)
+                                       end
+                            end,
+                            if
+				    Change ->
+                                             PidEvaluation = spawn(eval, try_evaluate, [Pid,Body,{DefFiles,Scope},Info,RulesFun,true,NSteps,TypedF,0,Steps,self()]),
+                                             case Timeout of
+                                                  0 -> timeout_manager(PidEvaluation,Body,1000);
+                                                  _ -> timeout_manager(PidEvaluation,Body,Timeout)
+                                             end;
+				    true ->
+                                              {error,"No evaluation done"}
+                            end;
                true ->  Body = ?TO_AST(Expression),
-           		Change = ?PP(evaluate("",Body,{File,Scope},Info,RulesFun,false, NSteps,TypedF,0,[Body])) /= Expression,
-                        if
-				Change -> 
-                                 	PidEvaluation = spawn(eval,try_evaluate, [Pid,Body,				          					 		{File,Scope},Info,RulesFun,true,NSteps,TypedF,0,[Body],self()]),
+                       Change = ?PP(evaluate("",Body,{DefFiles,Scope},Info,RulesFun,false,NSteps,TypedF,0,[Body])) /= Expression,
+                       if
+			       Change ->
+                                        PidEvaluation = spawn(eval, try_evaluate, [Pid,Body,{DefFiles,Scope},Info,RulesFun,true,NSteps,TypedF,0,[Body],self()]),
                                         case Timeout of
                                         	0 -> timeout_manager(PidEvaluation,Body,1000);
                                                 _ -> timeout_manager(PidEvaluation,Body,Timeout)
@@ -114,14 +114,14 @@ get_temp_info_text(Pid) -> Pid ! {ask_text,self()},
 %% @end
 %%--------------------------------------------------------------------  
 -spec(evaluate(string(),[syntaxTree()] | syntaxTree(),string(),[{{modulename(),functionname(),arity()},syntaxTree(),syntaxTree() | [syntaxTree()]}],RulesFun::fun((_) -> any()), boolean(), string(), boolean(),integer(),[syntaxTree]) -> [syntaxTree()] | syntaxTree()).
-evaluate(Pid, CurrentNode,{File,Scope},Info,RulesFun, Transform, Input_Steps,TypedF,NRefacsDone,Steps) -> 
+evaluate(Pid,CurrentNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,TypedF,NRefacsDone,Steps) ->
     RemoveUnrefInfo = core_unreferenced_assign:collector_variable_occurrences(CurrentNode),
     VarsInfo = core_unreferenced_assign:collector_var_expr_value(CurrentNode),
-    {ok, NewNode0} = ?STOP_TD_TP(RulesFun({File,VarsInfo,api_refac:bound_vars(CurrentNode)},{Info,RemoveUnrefInfo}), CurrentNode),
+    {ok, NewNode0} = ?STOP_TD_TP((RulesFun({DefFiles,VarsInfo,api_refac:bound_vars(CurrentNode)},{Info,RemoveUnrefInfo})), CurrentNode),
     {ok,NewNode} = 
 	case eval_rem_begin_end:collector(CurrentNode) of
 	    [] ->
-		?FULL_TD_TP(core_rem_begin_end:rules(empty,empty),NewNode0);
+		?FULL_TD_TP((core_rem_begin_end:rules(empty,empty)),NewNode0);
 	    _ -> 
 		{ok,NewNode0}
 	 end,
@@ -138,12 +138,12 @@ evaluate(Pid, CurrentNode,{File,Scope},Info,RulesFun, Transform, Input_Steps,Typ
                          OldText = get_temp_info_text(Pid),
                          evaluation_ended(Transform,length(Steps)-1, Pid,lists:last(Steps), [],OldText ++ get_text(Steps,NRefacsDone,Input_Steps));
    	            Transform andalso Changed -> 
-                	evaluate(Pid, NewNode,{File,Scope},Info,RulesFun, Transform, Input_Steps, TypedF,NRefacsDoneI,NewSteps);
-   		    true -> 
-                             NRefacsDoneBef = get_temp_info_nSteps(Pid),
-                             OldText = get_temp_info_text(Pid),
-                             evaluation_ended(Transform,NRefacsDoneBef + NRefacsDoneI,Pid,NewNode,NewSteps,OldText ++ get_text(NewSteps))
-    		end;
+                     evaluate(Pid,NewNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,TypedF,NRefacsDoneI,NewSteps);
+                    true ->
+                          NRefacsDoneBef = get_temp_info_nSteps(Pid),
+                          OldText = get_temp_info_text(Pid),
+                          evaluation_ended(Transform,NRefacsDoneBef + NRefacsDoneI,Pid,NewNode,NewSteps,OldText ++ get_text(NewSteps))
+                end;
        true ->
                 Input_Steps_Int = list_to_integer(Input_Steps),
                 if
@@ -152,7 +152,7 @@ evaluate(Pid, CurrentNode,{File,Scope},Info,RulesFun, Transform, Input_Steps,Typ
                               OldText = get_temp_info_text(Pid),
                               evaluation_ended(Transform,NRefacsDoneBef + NRefacsDone + Input_Steps_Int, Pid,lists:last(Steps), [],OldText ++ get_text(Steps,NRefacsDone,Input_Steps));
    	            Transform andalso Changed andalso Input_Steps_Int > 1 ->
-                	evaluate(Pid, NewNode,{File,Scope},Info,RulesFun, Transform, integer_to_list(Input_Steps_Int - 1), 					TypedF,NRefacsDoneI,NewSteps);
+                     evaluate(Pid,NewNode,{DefFiles,Scope},Info,RulesFun,Transform,integer_to_list(Input_Steps_Int - 1),TypedF,NRefacsDoneI,NewSteps);
                     Input_Steps_Int < 0 -> 
                                    go_back_steps(Pid,Input_Steps_Int,Transform);
                     true -> NRefacsDoneBef = get_temp_info_nSteps(Pid),
