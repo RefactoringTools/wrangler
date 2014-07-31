@@ -4283,10 +4283,15 @@ Please see the function `tempo-define-template'.")
 ("Apply To Remote Call" refac_apply_to_remote_call)
 ("Add To Export" refac_add_to_export)
 ("Add An Import Attribute" refac_add_an_import_attribute)
-("Other gen_refacs Refacs"  (gen_refac_other_items))
+("Other Refacs"  (gen_refac_other_items))
 ))
 
 (defvar gen_refac_other_items
+`(("Regular Refacs" (gen_refac_other_non_selective))
+("Selective Refacs"  (gen_refac_other_selective))
+))
+
+(defvar gen_refac_other_non_selective
 `(("Arithmetics" refac_arithmetics)
 ("Boolean Operators" refac_boolean_operators)
 ("Case" refac_case)
@@ -4295,6 +4300,10 @@ Please see the function `tempo-define-template'.")
 ("Remove Unreferenced Assignments" refac_unreferenced_assign)
 ("Unfold Function Application" refac_funApp)
 ("All" refac_all)
+))
+
+(defvar gen_refac_other_selective
+`(("Inline Variable"  refac_inline_variable)
 ))
 
 
@@ -4381,6 +4390,10 @@ Please see the function `tempo-define-template'.")
 (defun refac_all()
   (interactive)
   (apply-adhoc-refac 'refac_all))
+
+(defun refac_inline_variable()
+  (interactive)
+  (apply-adhoc-refac 'refac_inline_variable))
 
 (defun erl-refactor-task-chunking()
   (interactive)
