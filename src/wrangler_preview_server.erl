@@ -109,17 +109,20 @@ handle_call(commit, _From, #state{files=Files, logmsg=LogMsg}) ->
     lists:foreach(fun ({{F1, F2, _IsNew}, Swp}) ->
      			  case file:copy(Swp, F1) of 
      			      {ok,_} -> ok;
-     			      Err1 ->
-				  throw(Err1)
-     			  end,
+     			      {error, Reason1} ->
+                                  Msg1 = io_lib:format("Wrangler could not write to file ~s: ~w \n",
+                                                      [F1, Reason1]),
+                                  throw({error, lists:flatten(Msg1)})
+                          end,
      			  case F1==F2 of 
      			      true -> ok; 
      			      false ->
      				  case file:rename(F1, F2) of 
      				      ok -> ok;
-     				      Err2 ->
-					  %% refac_io:format("Rename failed.\n"),
-    					  throw(Err2)
+     				      {error, Reason2} ->
+                                          Msg2 = io_lib:format("Wrangler could not rename file ~s: ~w \n",
+                                                              [F2, Reason2]),
+                                          throw({error, lists:flatten(Msg2)})
      				  end
      			  end
      		  end,Files),
