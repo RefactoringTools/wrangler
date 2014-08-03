@@ -35,7 +35,13 @@ start(DefFilesNames,SearchPaths,Timeout) ->
 		{ok,DefFiles} ->
 		    case is_integer(Timeout) of
 			    true -> 
-				 evaluate(DefFiles,SearchPaths,"","",Timeout);
+			         case application:start(wrangler) of
+				     ok -> 
+					 evaluate(DefFiles,SearchPaths,"","",Timeout);
+				     {error, {already_started,wrangler}} ->
+					 evaluate(DefFiles,SearchPaths,"","",Timeout);
+				     _ -> {error, "Please start Wrangler!"}
+				 end;
 			    _ -> {error,"Invalid Timeout! Please inform an integer for the timeout (or use the default timeout of 1000ms)!"}
 		    end;
 	        {error,Reason} -> {error,Reason}
