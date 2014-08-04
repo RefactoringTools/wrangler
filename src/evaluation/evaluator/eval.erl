@@ -1,5 +1,5 @@
 -module(eval).
--export([start_evaluation/8,keep_temp_info/3,try_evaluate/11]).
+-export([start_evaluation/8,keep_temp_info/3,try_evaluate/12]).
 
 %% Include files
 -include_lib("wrangler/include/wrangler.hrl").   
@@ -11,45 +11,101 @@
 %%--------------------------------------------------------------------   
 start_evaluation({DefFiles,Scope},Info,Pid,RulesFun,Expression,NSteps,TypedF,Timeout) ->
 	    if Pid /= "" ->
-		    	Steps = get_temp_info_steps(Pid),
-                        NRefacsDone = get_temp_info_nSteps(Pid),
-		    	Body = lists:nth(NRefacsDone+1,Steps),
-		            NewBody = evaluate(Pid,Body,{DefFiles,Scope},Info,RulesFun,false,NSteps,TypedF,0,Steps),
-                            if TypedF == false ->
-					    NSteps_Int = list_to_integer(NSteps),
-				            if   length(Steps) > NSteps_Int + NRefacsDone -> Change = true;
-				                 true -> Change = ?PP(NewBody) /= ?PP(Body)
-				            end;
-                               true -> if length(Steps) - 1 > NRefacsDone -> Change = true;
-                                          true -> Change = ?PP(NewBody) /= ?PP(Body)
-                                       end
-                            end,
-                            if
-				    Change ->
-                                             PidEvaluation = spawn(eval, try_evaluate, [Pid,Body,{DefFiles,Scope},Info,RulesFun,true,NSteps,TypedF,0,Steps,self()]),
-                                             case Timeout of
-                                                  0 -> timeout_manager(PidEvaluation,Body,1000);
-                                                  _ -> timeout_manager(PidEvaluation,Body,Timeout)
-                                             end;
-				    true ->
-                                              {error,"No evaluation done"}
-                            end;
-               true ->  Body = ?TO_AST(Expression),
+		            continue_evaluation(DefFiles, Scope, Info, Pid,
+                                                RulesFun, NSteps, TypedF,
+		                                Timeout);
+               true ->
+		    Body = ?TO_AST(Expression),
                        Change = ?PP(evaluate("",Body,{DefFiles,Scope},Info,RulesFun,false,NSteps,TypedF,0,[Body])) /= Expression,
                        if
 			       Change ->
-                                        PidEvaluation = spawn(eval, try_evaluate, [Pid,Body,{DefFiles,Scope},Info,RulesFun,true,NSteps,TypedF,0,[Body],self()]),
-                                        case Timeout of
-                                        	0 -> timeout_manager(PidEvaluation,Body,1000);
-                                                _ -> timeout_manager(PidEvaluation,Body,Timeout)
-                                        end;
+			                call_try_evaluate(DefFiles,Scope,Info,Pid,RulesFun,NSteps,TypedF,Timeout,[Body],0,Body);
 				true -> 
                           		{error,"No evaluation done"}   
        	    		end
             end.
 
-try_evaluate(Pid,Body,{File,Scope},Info,RulesFun,true,NSteps,TypedF,NRefacsDone,Steps,MainPid) ->
-            Result = evaluate(Pid,Body,{File,Scope},Info,RulesFun,true,NSteps,TypedF,NRefacsDone,Steps),
+call_try_evaluate(DefFiles, Scope, Info, Pid, RulesFun, NSteps, TypedF,
+	          Timeout, Steps, NRefacsDone, Body) ->
+    call_try_evaluate(DefFiles, Scope, Info, Pid, RulesFun, NSteps, TypedF,
+	          Timeout, Steps, NRefacsDone, Body,"").
+
+call_try_evaluate(DefFiles, Scope, Info, Pid, RulesFun, NSteps, TypedF,
+	          Timeout, Steps, NRefacsDone, Body,IText) ->
+    PidEvaluation = spawn(eval, try_evaluate, [Pid,Body,{DefFiles,Scope},Info,RulesFun,true,NSteps,TypedF,NRefacsDone,Steps,self(),IText]),
+    case Timeout of
+	0 -> timeout_manager(PidEvaluation,Body,1000);
+        _ -> timeout_manager(PidEvaluation,Body,Timeout)
+    end.
+
+continue_evaluation(DefFiles, Scope, Info, Pid, RulesFun, NSteps,
+                    TypedF, Timeout) ->
+    Steps = get_temp_info_steps(Pid),
+    NRefacsDone = get_temp_info_nSteps(Pid),
+    Body = lists:nth(NRefacsDone + 1,Steps),
+		           
+    Change = if TypedF == false ->
+		     NSteps_Int = list_to_integer(NSteps),
+		     if
+			NSteps_Int < 0 andalso NRefacsDone /= 0 -> go_back_steps(Pid,NSteps_Int,true),ok;
+			NSteps_Int < 0 -> false;
+		        length(Steps) - 1 > NRefacsDone andalso NSteps_Int > 0 -> true;
+			true ->
+				   checkForTransformation(DefFiles,Scope,Info,Pid,RulesFun,NSteps,TypedF,
+                                                          Steps,NRefacsDone,Body)
+                     end;
+                true -> if 
+			   length(Steps) - 1 > NRefacsDone -> true;
+                           true -> checkForTransformation(DefFiles,Scope,Info,Pid,RulesFun,NSteps,TypedF,
+                                                          Steps,NRefacsDone,Body)
+                        end
+             end,
+    if
+	    Change ->
+                     evaluate_if_necessary(DefFiles, Scope, Info, Pid, RulesFun, NSteps,
+                                           TypedF, Timeout, Steps, NRefacsDone, Body, []);
+	    Change == ok -> {ok,[]};
+	    true ->
+                      {error,"No evaluation done"}
+    end.
+
+evaluate_if_necessary(DefFiles, Scope, Info, Pid, RulesFun, NSteps, TypedF,
+                      Timeout, Steps, NRefacsDone, Body, ChangedSteps) ->
+    if
+	TypedF andalso length(Steps) - 1 > NRefacsDone ->
+	       NRefacsDoneI = NRefacsDone + 1,
+	       NewBody = lists:nth(NRefacsDoneI + 1,Steps),
+	       NewChangedSteps = ChangedSteps ++ [NewBody],
+	       evaluate_if_necessary(DefFiles, Scope, Info, Pid, RulesFun, NSteps, TypedF, Timeout, Steps, NRefacsDoneI, NewBody, NewChangedSteps);
+	TypedF -> call_try_evaluate(DefFiles, Scope, Info, Pid, RulesFun,
+		                       NSteps, TypedF, Timeout, Steps,
+			               NRefacsDone, Body,get_text(ChangedSteps));
+	true ->
+		     NSteps_Int = list_to_integer(NSteps),
+	   if
+		     NSteps_Int == 0 ->
+		     evaluation_ended(true,NRefacsDone,Pid, Body,Steps,get_text(ChangedSteps)),
+		     {ok,[]};
+			   length(Steps) - 1 > NRefacsDone andalso NSteps_Int > 0 ->
+		     NewNSteps_Int = NSteps_Int - 1,
+		     NRefacsDoneI = NRefacsDone + 1,
+		     NewBody = lists:nth(NRefacsDoneI + 1,Steps),
+		     NewChangedSteps = ChangedSteps ++ [NewBody],
+		         evaluate_if_necessary(DefFiles, Scope, Info, Pid, RulesFun, integer_to_list(NewNSteps_Int), TypedF, Timeout, Steps, NRefacsDoneI, NewBody, NewChangedSteps);
+			       true ->
+		             call_try_evaluate(DefFiles, Scope, Info, Pid, RulesFun,
+		                           NSteps, TypedF, Timeout, Steps,
+			                   NRefacsDone, Body,get_text(ChangedSteps))
+		     end
+    end.
+
+checkForTransformation(DefFiles, Scope, Info, Pid, RulesFun, NSteps, TypedF, Steps,
+                       NRefacsDone, Body) ->
+    NewBody = evaluate(Pid,Body,{DefFiles,Scope},Info,RulesFun,false,NSteps,TypedF,NRefacsDone,Steps),
+    ?PP(NewBody) /= ?PP(Body).
+
+try_evaluate(Pid,Body,{File,Scope},Info,RulesFun,true,NSteps,TypedF,NRefacsDone,Steps,MainPid,IText) ->
+            Result = evaluate(Pid,Body,{File,Scope},Info,RulesFun,true,NSteps,TypedF,NRefacsDone,Steps,IText),
 	    MainPid ! {result, Result}.
 
 timeout_manager(Pid,Node,TimeOut) -> 
@@ -106,6 +162,15 @@ get_temp_info_text(Pid) -> Pid ! {ask_text,self()},
              			{value,Text} -> Text
                          end. 
 
+evaluate(Pid,CurrentNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,TypedF,NRefacsDone,Steps) ->
+     evaluate(Pid,CurrentNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,TypedF,NRefacsDone,Steps,"").
+
+evaluate(Pid,CurrentNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,TypedF,NRefacsDone,Steps,IText) when is_list(Steps) andalso length(Steps) == 1 ->
+    evaluate(Pid,CurrentNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,TypedF,NRefacsDone,[],IText,Steps);
+evaluate(Pid,CurrentNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,TypedF,NRefacsDone,Steps,IText) -> 
+    evaluate(Pid,CurrentNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,TypedF,NRefacsDone,Steps,IText,[]).
+
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -113,8 +178,8 @@ get_temp_info_text(Pid) -> Pid ! {ask_text,self()},
 %% @spec(transform_body_two_ways([syntaxTree()] | syntaxTree(),string(),[syntaxTree()] | syntaxTree(),[{{modulename(),functionname(),arity()},syntaxTree(),syntaxTree() | [syntaxTree()]}], boolean(), string(), boolean(), string(),integer(),string()) -> [syntaxTree()] | syntaxTree()).
 %% @end
 %%--------------------------------------------------------------------  
--spec(evaluate(string(),[syntaxTree()] | syntaxTree(),string(),[{{modulename(),functionname(),arity()},syntaxTree(),syntaxTree() | [syntaxTree()]}],RulesFun::fun((_) -> any()), boolean(), string(), boolean(),integer(),[syntaxTree]) -> [syntaxTree()] | syntaxTree()).
-evaluate(Pid,CurrentNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,TypedF,NRefacsDone,Steps) ->
+-spec(evaluate(string(),[syntaxTree()] | syntaxTree(),string(),[{{modulename(),functionname(),arity()},syntaxTree(),syntaxTree() | [syntaxTree()]}],RulesFun::fun((_) -> any()), boolean(), string(), boolean(),integer(),[syntaxTree],[syntaxTree]) -> [syntaxTree()] | syntaxTree()).
+evaluate(Pid,CurrentNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,TypedF,NRefacsDone,Steps,IText,NewSteps) ->
     RemoveUnrefInfo = core_unreferenced_assign:collector_variable_occurrences(CurrentNode),
     VarsInfo = core_unreferenced_assign:collector_var_expr_value(CurrentNode),
     {ok, NewNode0} = ?STOP_TD_TP((RulesFun({DefFiles,VarsInfo,api_refac:bound_vars(CurrentNode)},{Info,RemoveUnrefInfo})), CurrentNode),
@@ -128,36 +193,25 @@ evaluate(Pid,CurrentNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,Ty
     Changed = ?PP(CurrentNode) /= ?PP(NewNode),
     if
        Changed ->  NRefacsDoneI = NRefacsDone + 1,
-                   NewSteps = Steps ++ [NewNode];
+                  NewStepsMod = NewSteps ++ [NewNode];
        true -> NRefacsDoneI = NRefacsDone,
-               NewSteps = Steps
+               NewStepsMod = NewSteps
     end,
+    NewCompleteSteps = Steps ++ NewStepsMod, 
     if TypedF ->
-                if
-                    Transform andalso length(Steps) - 1 > NRefacsDone -> 
-                         OldText = get_temp_info_text(Pid),
-                         evaluation_ended(Transform,length(Steps)-1, Pid,lists:last(Steps), [],OldText ++ get_text(Steps,NRefacsDone,Input_Steps));
+                if                    
    	            Transform andalso Changed -> 
-                     evaluate(Pid,NewNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,TypedF,NRefacsDoneI,NewSteps);
+                     evaluate(Pid,NewNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,TypedF,NRefacsDoneI,Steps,IText,NewStepsMod);
                     true ->
-                          NRefacsDoneBef = get_temp_info_nSteps(Pid),
-                          OldText = get_temp_info_text(Pid),
-                          evaluation_ended(Transform,NRefacsDoneBef + NRefacsDoneI,Pid,NewNode,NewSteps,OldText ++ get_text(NewSteps))
+                          evaluation_ended(Transform,NRefacsDoneI,Pid,NewNode,NewCompleteSteps, IText ++ get_text(NewStepsMod))
                 end;
        true ->
                 Input_Steps_Int = list_to_integer(Input_Steps),
-                if
-                    Transform andalso (length(Steps) - 1 >= (NRefacsDone + Input_Steps_Int)) andalso Input_Steps_Int > 0 -> 
-                              NRefacsDoneBef = get_temp_info_nSteps(Pid),
-                              OldText = get_temp_info_text(Pid),
-                              evaluation_ended(Transform,NRefacsDoneBef + NRefacsDone + Input_Steps_Int, Pid,lists:last(Steps), [],OldText ++ get_text(Steps,NRefacsDone,Input_Steps));
+                if                    
    	            Transform andalso Changed andalso Input_Steps_Int > 1 ->
-                     evaluate(Pid,NewNode,{DefFiles,Scope},Info,RulesFun,Transform,integer_to_list(Input_Steps_Int - 1),TypedF,NRefacsDoneI,NewSteps);
-                    Input_Steps_Int < 0 -> 
-                                   go_back_steps(Pid,Input_Steps_Int,Transform);
-                    true -> NRefacsDoneBef = get_temp_info_nSteps(Pid),
-                            OldText = get_temp_info_text(Pid),
-                            evaluation_ended(Transform,NRefacsDoneBef+NRefacsDoneI,Pid,NewNode,NewSteps,OldText++get_text(NewSteps))
+                     evaluate(Pid,NewNode,{DefFiles,Scope},Info,RulesFun,Transform,integer_to_list(Input_Steps_Int - 1),TypedF,NRefacsDoneI,Steps,IText,NewStepsMod);
+                    true ->
+                        evaluation_ended(Transform,NRefacsDoneI,Pid,NewNode,NewCompleteSteps,IText ++ get_text(NewStepsMod))
     		end
     end.
 
@@ -193,16 +247,11 @@ get_back_steps([H|T],NSteps,TotalSteps) -> if length(T) =< TotalSteps -> [H|get_
 %%--------------------------------------------------------------------
 evaluation_ended(Transform,NRefacsDone,Pid,NewBody,Steps,Text) -> 
                                 if Transform ->
-		                                if Pid /= "" ->  OldSteps = get_temp_info_steps(Pid),
-		                                                 LengthOld = length(OldSteps),
-		                                                 if LengthOld == 1 ->
-				                                         Pid ! {refactoring_finished,NRefacsDone,Steps,Text},
-                                                                         write_result(Pid, NewBody);
-		                                                 true -> 
-		                                                 	 Pid ! {refactoring_finished,NRefacsDone,OldSteps ++ Steps,Text},
-                                                                         write_result(Pid, NewBody)
-		                                                 end,
-		                                                 NewBody;
+		                                if Pid /= "" ->  
+							OldText = get_temp_info_text(Pid),	  
+				                        Pid ! {refactoring_finished,NRefacsDone,Steps,OldText ++ Text},
+                                                        write_result(Pid, NewBody),
+		                                        NewBody;
 		                                   true -> 
 		                                           write_result(Pid, NewBody)
 		                                end;
@@ -213,27 +262,8 @@ evaluation_ended(Transform,NRefacsDone,Pid,NewBody,Steps,Text) ->
 get_text([]) -> "";
 get_text([H|T]) -> "> " ++?PP(H) ++ "\n" ++ get_text(T).
 
-get_text([],_,_) -> [];
-get_text(_,_,"0") -> [];
-get_text([H|T],0,Input) -> if Input /= "f" andalso Input /= "F" -> "> "++"\n" ++ get_text(T,0,integer_to_list(list_to_integer(Input)-1));
-                              true -> "> " ++ ?PP(H)++"\n" ++ get_text(T,0,Input)
-                           end;
-get_text([_|T],NSteps,Input) -> get_text(T,NSteps-1,Input).
-
 write_result(Pid,NewBody) -> 
                   Text = get_temp_info_text(Pid),
 		  io:fwrite(Text),
                   %%io:format("~p~n",[?PP(NewBody)]),
                   NewBody.
-
-
-
-
-
-
-
-
-
-
-
-
