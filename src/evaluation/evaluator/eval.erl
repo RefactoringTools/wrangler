@@ -9,26 +9,10 @@
 %% This function represents a rule that tries to perform substitution rules in a function body only if the function information matches the function chosen by the user in the case of a Composite Refactoring.
 %% @end
 %%--------------------------------------------------------------------   
-start_evaluation({DefFiles,Scope},Info,Pid,RulesFun,Expression,NSteps,TypedF,Timeout) ->
-	    if Pid /= "" ->
+start_evaluation({DefFiles,Scope},Info,Pid,RulesFun,_,NSteps,TypedF,Timeout) ->
 		            continue_evaluation(DefFiles, Scope, Info, Pid,
                                                 RulesFun, NSteps, TypedF,
-		                                Timeout);
-               true ->
-		    Body = ?TO_AST(Expression),
-                       Change = ?PP(evaluate("",Body,{DefFiles,Scope},Info,RulesFun,false,NSteps,TypedF,0,[Body])) /= Expression,
-                       if
-			       Change ->
-			                call_try_evaluate(DefFiles,Scope,Info,Pid,RulesFun,NSteps,TypedF,Timeout,[Body],0,Body);
-				true -> 
-                          		{error,"No evaluation done"}   
-       	    		end
-            end.
-
-call_try_evaluate(DefFiles, Scope, Info, Pid, RulesFun, NSteps, TypedF,
-	          Timeout, Steps, NRefacsDone, Body) ->
-    call_try_evaluate(DefFiles, Scope, Info, Pid, RulesFun, NSteps, TypedF,
-	          Timeout, Steps, NRefacsDone, Body,"").
+		                                Timeout).
 
 call_try_evaluate(DefFiles, Scope, Info, Pid, RulesFun, NSteps, TypedF,
 	          Timeout, Steps, NRefacsDone, Body,IText) ->
