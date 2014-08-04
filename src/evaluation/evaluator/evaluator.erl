@@ -74,13 +74,20 @@ validateSearchPaths(List) when is_list(List) ->
 	    end
     end;
 validateSearchPaths(_) -> {error,"Invalid list of search paths. Please inform a list of strings containg valid directories!"}.
-			
+
+get_expression_input() ->
+    case io:get_line("Type an expression: ") of
+	"\n" -> get_expression_input();
+	Result -> Result
+    end.
+	    			
 evaluate(DefFiles,SearchPaths,OldExpression,OldPid,Timeout) ->
 	case SearchPaths of
 	    [_ | _] ->
-                    if OldExpression == "" ->
-                    			 Expression = io:get_line("Type an expression: ");
-                    true -> Expression = OldExpression
+                    Expression = if 
+				     OldExpression == "" ->
+                    			  get_expression_input();
+				     true -> OldExpression
                     end,
                     {ok, Input2} = io:fread("Type N to execute N steps or 'f' to execute all steps: ", "~s"),
                     [NSteps|_] = Input2,
