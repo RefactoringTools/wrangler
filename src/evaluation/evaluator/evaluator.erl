@@ -76,11 +76,20 @@ validateSearchPaths(List) when is_list(List) ->
 validateSearchPaths(_) -> {error,"Invalid list of search paths. Please inform a list of strings containg valid directories!"}.
 
 get_expression_input() ->
-    case io:get_line("Type an expression: ") of
+    Line = io:get_line("Type an expression: "),
+    case Line of
 	"\n" -> get_expression_input();
-	Result -> Result
+	".\n" -> get_expression_input();
+	Result -> 
+	    LenLine = string:len(Line),
+	    case string:substr(Line,LenLine - 1) of
+		".\n" ->  		    
+		    string:substr(Line,1,LenLine - 2) ++ "\n";
+		_ ->
+		    Result
+	    end		
     end.
-	    			
+	    		       
 evaluate(DefFiles,SearchPaths,OldExpression,OldPid,Timeout) ->
 	case SearchPaths of
 	    [_ | _] ->
