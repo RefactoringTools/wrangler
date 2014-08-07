@@ -45,6 +45,11 @@ guardsFun(_) -> last.
 strangeGuard(N) when [] -> N + 2;
 strangeGuard(N) -> N.
 
+strangeGuard2() when false -> false;
+strangeGuard2() when atom -> false2;
+strangeGuard2() when true -> true; 
+strangeGuard2() -> other. 
+    
 is_even(N) when is_number(N) ->
     N rem 2 == 0.
     
@@ -175,4 +180,4 @@ testFunAppAssign6(X) ->
 testEvaluator() ->
     testFunAppAssign().
      
-
+testStrangeGuard2() -> strangeGuard2().

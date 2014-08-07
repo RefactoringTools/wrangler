@@ -113,6 +113,14 @@ test18() ->
 test19() ->
     test17(false).
 
+test20() ->
+    X = true,
+    case X of 
+	true when false -> first;
+	true when true -> second;
+	_ -> last
+    end.
+
 is_even(N) when is_number(N) ->
     N rem 2 == 0.
 	    
