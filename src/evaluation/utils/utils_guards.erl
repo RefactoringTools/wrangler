@@ -16,7 +16,9 @@ guardsSuceed(Arg, ArgPatt, [[Guards | []] | []],Scope) ->
 	Type == infix_expr orelse Type == prefix_expr orelse Type == application -> 
 	    NewGuards = utils_subst:subst(Guards, ArgPatt, Arg),
 	    FinalGuards = utils_transform:transform_body(NewGuards, fun utils_guards:rules/2, Scope),
-	    evaluateGuardsExpression(FinalGuards, Scope);	      
+	    evaluateGuardsExpression(FinalGuards, Scope);
+	Type == atom ->
+	    evaluateGuardsExpression(Guards, Scope);
 	true -> false
    end;
 guardsSuceed(_,_,_,_) ->
