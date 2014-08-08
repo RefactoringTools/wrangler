@@ -31,8 +31,9 @@ matchElem(Node1,Node2) ->
     Node2Type = api_refac:type(Node2),
     if
 	Node1Type == nil andalso Node2Type == nil -> true;
-	Node1Type == infix_expr orelse Node1Type == application  -> maybe;
+	Node1Type == application  -> maybe;
 	Node2Type == variable orelse Node2Type == underscore -> true;
+	Node1Type == infix_expr  -> maybe;
 	Node1Type == variable  -> maybe;
 	Node1Type == integer andalso Node2Type == integer -> utils_convert:convert_elem(Node1) == utils_convert:convert_elem(Node2);
 	Node1Type == atom andalso Node2Type == atom -> utils_convert:convert_elem(Node1) == utils_convert:convert_elem(Node2);

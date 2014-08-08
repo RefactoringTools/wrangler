@@ -94,10 +94,9 @@ testFootle3() ->
 
 testFootle4() -> 3 + footle(3 - 1, 4).
 
-testFootle5(Y) ->
-    footle(3,Y + 1).
+testFootle5(Y) -> 3 + footle(3 - 1,Y + 1).
 
-testInfiniteLoop() -> 1000 + infinite_loop(1000 - 1).
+testInfiniteLoop() -> infinite_loop(1000).
 
 testH1() -> 0.
 testH2() -> 2.
@@ -119,7 +118,7 @@ testG6(X) -> g(X).
 
 testLength() -> 3.
 
-testBar() -> 3 + bar(3 - 1).
+testBar() -> 3 + (3 - 1 + (3 - 1 - 1 + bar(3 - 1 - 1 - 1))).
 
 testBar(X) -> bar(X).
 
