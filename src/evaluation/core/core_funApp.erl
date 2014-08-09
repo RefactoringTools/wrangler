@@ -71,48 +71,12 @@ funIsExported(Fun, {ExportedAll, ExportedFuns}) ->
 length_rule() ->
     ?RULE(?T("length(List@)"),
 	  begin
-	     Length = length(ast_to_list(List@,[])),
+	     Length = length(utils_convert:ast_to_list(List@,[])),
 	     ?TO_AST(integer_to_list(Length))
 	  end,
 	  api_refac:type(List@) == list andalso
-	  ast_to_list(List@,[]) /= error
+	  utils_convert:ast_to_list(List@,[]) /= error
 	).
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Auxiliar function that receives an AST and returns a list.
-%% @end
-%% @private
-%%--------------------------------------------------------------------
-ast_to_list(none, List) -> List;
-ast_to_list(ListNode, List) -> 
-    Head = convert_elem(wrangler_syntax:list_prefix(ListNode)),
-    case Head of
-	error -> error;
-	_ ->  
-	    ast_to_list(wrangler_syntax:list_suffix(ListNode), 
-			List ++ [Head])
-    end.
-
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Auxiliar function that converts an element depending on its type.
-%% @end
-%% @private
-%%--------------------------------------------------------------------
-convert_elem([Elem | _T]) ->
-    ElemStr = ?PP(Elem),
-    ElemType = api_refac:type(Elem),
-    case ElemType of
-	integer -> list_to_integer(ElemStr);
-	atom -> list_to_atom(ElemStr);
-	tuple -> list_to_tuple(ElemStr);
-	list -> ElemStr;
-	variable -> ElemStr;
-	_ -> error
-    end;
-convert_elem(_) -> error.
 
 anonymousCall_rule() ->
     ?RULE(
