@@ -28,7 +28,12 @@ case_transf(Expr,Patt,Guards,Body,VarsInfo) ->
 	variable ->
 		 case utils_guards:get_variable(Expr,VarsInfo) of
 		     {expr,Expr} -> Expr;
-		     {value,OtherExpr} -> OtherExpr;
+		     {value,OtherExpr} -> 
+			 Convert = utils_convert:convert_elem(OtherExpr),
+			 case Convert of
+			     error -> Expr;
+			     _ -> OtherExpr
+			 end;
 		     Other -> Other
 		 end;
 	_ -> Expr
