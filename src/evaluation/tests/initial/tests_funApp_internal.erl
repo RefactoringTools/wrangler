@@ -63,8 +63,9 @@ firstOfTuple2({hello,world}) ->
 
 f2([X]) -> X;
 f2([X | Xs]) -> X + f2(Xs). 
-%%TESTS
 
+plusOne(X) -> X + 1.
+%%TESTS
 test_funAppRecord() -> record_book().
 
 testAdd(W,Z) ->
@@ -181,3 +182,7 @@ testEvaluator() ->
     testFunAppAssign().
      
 testStrangeGuard2() -> strangeGuard2().
+
+plusOnePlusOne(X) -> plusOne(X + 1).
+
+testPlusOnePlusOne() -> plusOnePlusOne(2).

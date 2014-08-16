@@ -61,7 +61,8 @@ firstOfTuple2({hello,world}) ->
 
 f2([X]) -> X;
 f2([X | Xs]) -> X + f2(Xs). 
-    
+
+plusOne(X) -> X + 1.    
 %%TESTS
 test_funAppRecord() ->
     #book{name = "Erlang Programming",
@@ -178,3 +179,7 @@ testEvaluator() ->
     testAssignFun().
 
 testStrangeGuard2() -> true.
+
+plusOnePlusOne(X) -> X + 1 + 1.
+
+testPlusOnePlusOne() -> 2 + 1 + 1.
