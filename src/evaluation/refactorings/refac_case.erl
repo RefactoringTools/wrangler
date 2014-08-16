@@ -1,3 +1,49 @@
+%%%-------------------------------------------------------------------
+%%% @author Roberto Souto Maior de Barros Filho <>
+%%% @copyright (C) 2014, Roberto S. M. de Barros Filho, Simon  Thompson
+%%% @doc 
+%% Case - Where possible, simplifies case expressions by the result of their evaluation. This refactoring uses Wrangler API and can be found in <em>Wrangler -> Refactor -> gen_refac Refacs -> Symbolic Evaluation -> Case</em>.
+%%
+%% Examples of usage:
+%% <ul>
+%% <li>
+%% <em>
+%%case [1,2] of<br/>
+%%<div class="first_align">
+%%[H | T] -> ok;<br/>
+%%_ -> error<br/>
+%%</div>
+%%end.<br/>
+%% </em>
+%% <strong>is simplified to</strong> <em>ok</em>.
+%% </li>
+%% <li>
+%% <em>
+%% begin <br/>
+%% <div class="first_align">
+%%    X = true,<br/>
+%%    case X of<br/>
+%% <div class="second_align">
+%%	true -> first;<br/>
+%%	_ -> second<br/>
+%% </div>
+%%    end<br/>
+%% </div>
+%% end.<br/>
+%% </em>
+%% <strong>becomes</strong> <br/>
+%% <em>
+%% begin <br/>
+%% <div class="first_align">
+%%    X = true,<br/>
+%%    first<br/>
+%% </div>
+%% end.<br/>
+%% </em>
+%% </li>
+%% </ul>
+%%
+%%@end
 -module(refac_case).
 -behaviour(gen_refac).
 

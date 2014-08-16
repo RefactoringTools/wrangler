@@ -1,5 +1,14 @@
 %%% @author Roberto Souto Maior de Barros Filho <>
 %%% @copyright (C) 2014, Roberto S. M. de Barros Filho, Simon  Thompson
+%% @doc 
+%% Inline Variable - Inline a variable definition. This refactoring uses Wrangler API and can be found in <em>Wrangler -> Refactor -> gen_refac Refacs -> Inline Variable</em>.
+%% <p>
+%% To unfold instances of a variable, point the cursor to the variable assignment and the select
+%% <em>Inline Variable</em> from the item <em>gen_refacs</em> in the Wrangler <em>Refactor </em> menu.
+%% After that, Wrangler will search for the occurrences of the selected variable and let you choose which instance to unfold. 
+%% Only variables defined via a match expression of the format: <em>VarName = Expr</em> can be inlined. 
+%% </p>
+%% @end
 -module(refac_inline_variable).
 
 -behaviour(gen_refac).
@@ -89,6 +98,9 @@ check_pre_cond(_Args=#args{current_file_name=File,
 selective() ->
     true.
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------
 collect(Var,Scope) ->
     ?FULL_TD_TU(    
        [collect_variables_occurrences(Var)],

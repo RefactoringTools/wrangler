@@ -1,3 +1,17 @@
+%%%-------------------------------------------------------------------
+%%% @author Roberto Souto Maior de Barros Filho <>
+%%% @copyright (C) 2014, Roberto S. M. de Barros Filho, Simon  Thompson
+%%% @doc 
+%% Lists Concatenation - Simplifies lists concatenations. This refactoring uses Wrangler API and can be found in <em>Wrangler -> Refactor -> gen_refac Refacs -> Symbolic Evaluation -> Lists Concatenation</em>. Examples:
+%% <ul>
+%% <li>
+%% <i>"abc" ++ "def"</i> is transformed to <i>"abcdef"</i>.
+%% </li>
+%% <li>
+%% <i>[1,2,3] ++ [4,5,6]</i> becomes <i>[1,2,3,4,5,6]</i>.
+%% </li>
+%% </ul>
+%%@end
 -module(refac_lists_concat).
 
 -behaviour(gen_refac).
