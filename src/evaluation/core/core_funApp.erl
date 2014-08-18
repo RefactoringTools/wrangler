@@ -1,3 +1,29 @@
+%%%-------------------------------------------------------------------
+%%% @author Gabriela Cunha Sampaio, Roberto Souto Maior de Barros Filho <>
+%%% @copyright (C) 2013, Gabriela C. Sampaio, Roberto S. M. de Barros Filho, Simon  Thompson
+%%% @doc Unfold Function Application Core - Substitute function calls by its application. 
+%%
+%% There are three types of transformations in this module:
+%%<ul> 
+%%<li> <b>Length</b> -  Replaces function calls to the function <i>length/1</i> from the standard by the length of the list passed as parameter. For instance, <em>length([10,20,30])</em> is transformed to <em>3</em>.</li>
+%%<li> 
+%%<b>External calls</b> - Function application for function calls from external modules. For example, consider the following module <em>def</em>:<br/><br/>
+%%<em>
+%%module(def).<br/>
+%%export([sumList/1]).<br/>
+%%<br/>
+%%sumList([]) -> 0;<br/>
+%%sumList([H | T]) when is_number(H) -> H + sumList(T).<br/><br/>
+%%</em>
+%%A call to <em>def:sumList([1,2,3])</em> can be simplified to <em>1 + (2 + (3 + 0))</em>.
+%%</li>
+%%<li>
+%%<b>Parametrized Anonymous Calls</b> - This transformation is responsible for modifications in parametrized function calls of anonymous functions. For example:
+%%<em>fun(X) -> 2 * X end(1)</em> is simplified to <em>2 * 1</em>.
+%%</li>
+%%</ul>
+%%% @end
+%%%-------------------------------------------------------------------
 -module(core_funApp).
 
 %% Include files
@@ -67,6 +93,7 @@ funIsExported(Fun, {ExportedAll, ExportedFuns}) ->
 %% Substitutes a call to the length rule, of the standard, with a list as a parameter
 %% by the length of the list.
 %% @end
+%% @private
 %%--------------------------------------------------------------------
 length_rule() ->
     ?RULE(?T("length(List@)"),
@@ -78,6 +105,7 @@ length_rule() ->
 	  utils_convert:ast_to_list(List@,[]) /= error
 	).
 
+%%@private
 anonymousCall_rule() ->
     ?RULE(
       ?T("fun(Patt@@) -> Body@@ end(Args@@)"),
@@ -93,6 +121,7 @@ anonymousCall_rule() ->
 %% <p>
 %% This rule only applies a rewriting if exists a matching between the function clause being evaluated and any element from <i>Info</i>. Otherwise, nothing is done. </p>
 %% @end
+%% @private
 %%--------------------------------------------------------------------
 functionCall_rule(InfoList, FunDefInfo, IsRefactoring, BoundVars) ->
     ?RULE(
@@ -113,6 +142,7 @@ functionCall_rule(InfoList, FunDefInfo, IsRefactoring, BoundVars) ->
 	  end
 	  ).
 
+%%@private
 functionCall_cond(FunInfo,FunDefInfo,InfoList,Args@@,BoundVars,BoundVarsThis) ->
     case FunInfo of
 		  {M,F,A} ->
@@ -168,6 +198,7 @@ variablesAreValid([{Var,DefPos} | T],NewBoundVars,OldBoundVars) ->
 module_rules(ModuleName) ->
   [addModuleName_rule(ModuleName)].
 
+%%@private
 addModuleName_rule(Module) ->  
       ?RULE(
           ?T("F@(Args@@)"),
@@ -182,10 +213,12 @@ addModuleName_rule(Module) ->
 	  end
 ).
 
+%%@private
 collectFromDefsList([]) -> [];
 collectFromDefsList(DefsTupleList) ->
     {list,lists:map(fun(X) -> getExternalInfoElem(X) end, DefsTupleList)}.
 
+%%@private
 getExternalInfoElem({ok, DefinitionsFile,ModName}) ->
     Info = collect(DefinitionsFile),
     {ModName, Info}.

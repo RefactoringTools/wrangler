@@ -1,6 +1,53 @@
+%%%-------------------------------------------------------------------
+%%% @author Gabriela Cunha Sampaio, Roberto Souto Maior de Barros Filho <>
+%%% @copyright (C) 2014, Gabriela C. Sampaio, Roberto S. M. de Barros Filho, Simon  Thompson
+%%% @doc 
+%% If Core - Where possible, simplifies if expressions by the result of their evaluation.
+%%
+%% Examples of usage:
+%% <ul>
+%% <li>
+%% <em>
+%%if<br/>
+%%<div class="first_align">
+%%false -> [2];<br/>
+%%true -> []<br/>
+%%</div>
+%%end.<br/>
+%% </em>
+%% <strong>is simplified to</strong> <em>[]</em>.
+%% </li>
+%% <li>
+%% <em>
+%% begin <br/>
+%% <div class="first_align">
+%%    X = true,<br/>
+%%    if<br/>
+%% <div class="second_align">
+%%	X -> [2];<br/>
+%%	true -> []<br/>
+%% </div>
+%%    end<br/>
+%% </div>
+%% end.<br/>
+%% </em>
+%% <strong>becomes</strong> <br/>
+%% <em>
+%% begin <br/>
+%% <div class="first_align">
+%%    X = true,<br/>
+%%    [2]<br/>
+%% </div>
+%% end.<br/>
+%% </em>
+%% </li>
+%% </ul>
+%%
+%%@end
 -module(core_if).
 -include_lib("wrangler/include/wrangler.hrl").
 -export([rules/2]).
+%% @private
 rules({_,VarsInfo,_},_) ->
     [
      if_rule(VarsInfo)

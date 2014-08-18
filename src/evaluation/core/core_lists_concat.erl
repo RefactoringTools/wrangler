@@ -1,3 +1,17 @@
+%%%-------------------------------------------------------------------
+%%% @author Gabriela Cunha Sampaio, Roberto Souto Maior de Barros Filho <>
+%%% @copyright (C) 2014, Gabriela C. Sampaio, Roberto S. M. de Barros Filho, Simon  Thompson
+%%% @doc 
+%% Lists Concatenation Core - Simplifies lists concatenations. Examples:
+%% <ul>
+%% <li>
+%% <i>"abc" ++ "def"</i> is transformed to <i>"abcdef"</i>.
+%% </li>
+%% <li>
+%% <i>[1,2,3] ++ [4,5,6]</i> becomes <i>[1,2,3,4,5,6]</i>.
+%% </li>
+%% </ul>
+%%@end
 -module(core_lists_concat).
 -include_lib("wrangler/include/wrangler.hrl").
 

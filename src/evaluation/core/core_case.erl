@@ -1,6 +1,53 @@
+%%%-------------------------------------------------------------------
+%%% @author Gabriela Cunha Sampaio, Roberto Souto Maior de Barros Filho <>
+%%% @copyright (C) 2014, Gabriela C. Sampaio, Roberto S. M. de Barros Filho, Simon  Thompson
+%%% @doc 
+%% Case Core - Where possible, simplifies case expressions by the result of their evaluation. 
+%%
+%% Examples of usage:
+%% <ul>
+%% <li>
+%% <em>
+%%case [1,2] of<br/>
+%%<div class="first_align">
+%%[H | T] -> ok;<br/>
+%%_ -> error<br/>
+%%</div>
+%%end.<br/>
+%% </em>
+%% <strong>is simplified to</strong> <em>ok</em>.
+%% </li>
+%% <li>
+%% <em>
+%% begin <br/>
+%% <div class="first_align">
+%%    X = true,<br/>
+%%    case X of<br/>
+%% <div class="second_align">
+%%	true -> first;<br/>
+%%	_ -> second<br/>
+%% </div>
+%%    end<br/>
+%% </div>
+%% end.<br/>
+%% </em>
+%% <strong>becomes</strong> <br/>
+%% <em>
+%% begin <br/>
+%% <div class="first_align">
+%%    X = true,<br/>
+%%    first<br/>
+%% </div>
+%% end.<br/>
+%% </em>
+%% </li>
+%% </ul>
+%%
+%%@end
 -module(core_case).
 -include_lib("wrangler/include/wrangler.hrl").
 -export([rules/2]).
+%%@private
 rules({_,VarsInfo,_},_) ->
     [case_rule(VarsInfo)].
 
