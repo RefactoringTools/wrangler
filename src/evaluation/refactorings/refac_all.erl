@@ -1,10 +1,8 @@
 %%%-------------------------------------------------------------------
 %%% @author Roberto Souto Maior de Barros Filho <>
 %%% @copyright (C) 2013, Roberto S. M. de Barros Filho, Simon  Thompson
-%%% @doc 
-%%This module was created with the aim of <b>composing some refactorings and applying all their rules toghether</b>. Thus, this refactoring just calls others refactorings (arithmetics and function applications). 
-%%% @end
-%%% Created : 18 Oct 2013 by Gabriela Cunha, Roberto Souto <>
+%%% @doc All - Composed refactoring of all the other refactorings in <em>Wrangler -> Refactor -> gen_refac Refacs -> Symbolic Evaluation</em>. This refactoring uses Wrangler API and can be found in <em>Wrangler -> Refactor -> gen_refac Refacs -> Symbolic Evaluation -> All</em>.
+%% @end
 %%%-------------------------------------------------------------------
 -module(refac_all).
 

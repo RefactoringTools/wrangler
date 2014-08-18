@@ -1,17 +1,16 @@
 %%%-------------------------------------------------------------------
 %%% @author Roberto Souto Maior de Barros Filho <>
 %%% @copyright (C) 2013, Roberto S. M. de Barros Filho, Simon  Thompson
-%%% @doc This module contains refactorings that substitute function calls by its application. 
-%%<p>There are three refactoring rules on this module:
-%%<ul> 
-%%<li> <b>length_rule/1</b> -  Replaces function calls to the function <i>length/1</i> from the standard by the length of the list passed as parameter.</li>
-%%<li> <b>functionCall_rule/1</b> - Function application for function calls from external modules.</li>
-%%<li> <b>functionCall_rule_2/1</b> - Function application for function calls from internal modules. </li>
-%%</ul>
-%%</p> 
-%%%
+%%% @doc Unfold Function Application - Substitute function calls by its application. This refactoring uses Wrangler API and can be found in <em>Wrangler -> Refactor -> gen_refac Refacs -> Symbolic Evaluation -> Unfold Function Application</em>.
+%%
+%% Most of the transformation in this module are from <a href="core_funApp.html">Unfold Function Application Core</a>.
+%%
+%% Nevertheless, the following simplification is also done in this module: 
+%%
+%%<b>Internal calls</b> - Function application for function calls from internal modules. To illustrate, consider the following definition of the function <em>double/1</em>: <br/><br/>
+%%<em>double(X) when is_number(X) -> 2 * X.</em><br/><br/>
+%%A call to <em>double(2)</em>, within the same module that <em>double/1</em> was defined, is modified to <em>2 * 2</em>.
 %%% @end
-%%% Created : 05 Dec 2013 by Roberto S. M. de Barros Filho <>
 %%%-------------------------------------------------------------------
 -module(refac_funApp).
 -behaviour(gen_refac).
@@ -82,6 +81,9 @@ selective() ->
 transform(_Args)-> 
     transform_funApp(_Args, fun refac_funApp:rules/2).
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------
 transform_funApp(Args=#args{current_file_name=File,search_paths=SearchPaths,user_inputs=[TimeOutStr,RefacScopeStr,DefinitionsStr]}, Fun) ->
     case refac:validate_all(TimeOutStr,RefacScopeStr, DefinitionsStr, Args) of
 	{error, Reason} -> {error,Reason};
@@ -91,6 +93,9 @@ transform_funApp(Args=#args{current_file_name=File,search_paths=SearchPaths,user
             start_transformation(Files,Fun,RefacScope,Args)
     end.
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------
 start_transformation(Files,Fun,RefacScope,Args=#args{search_paths=SearchPaths,user_inputs=[TimeOutStr,RefacScopeStr,DefinitionsStr]}) ->
     DefsTupleList = refac:get_definitions_tuplelist(DefinitionsStr,SearchPaths),
     InternalFiles = getInternalFiles(Files,DefsTupleList,RefacScope),
@@ -100,6 +105,9 @@ start_transformation(Files,Fun,RefacScope,Args=#args{search_paths=SearchPaths,us
 	         refac:start_transformation(RefacScopeStr,Fun,TimeOutStr,InfoList,Args,Files)
 	    end.
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------
 collector()->
     ?COLLECT(
        ?T("f@(ArgPatt@@) when Guard@@ -> Body@@;"),
@@ -107,36 +115,52 @@ collector()->
        api_refac:fun_define_info(f@) /= unknown 
      ).
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------
 collect(Files) ->
     ?FULL_TD_TU(    
        [collector()],
        Files
       ).
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------
 createInfoList(InternalFiles,DefsTupleList) ->
     {collect(InternalFiles),getDefinitionsInfo(DefsTupleList)}.
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------
 getInfoList(InternalFiles,DefinitionsInfo) ->
     {collect(InternalFiles),DefinitionsInfo}.
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------
 getInternalFiles(_,_,project) -> [];
 getInternalFiles(Files, DefsTupleList,_) when is_list(Files) andalso length(Files) == 1 ->
     lists:filter(fun(File) -> lists:keyfind(File,2,DefsTupleList) /= false end, Files);
 getInternalFiles(Files,_,_) -> Files.
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------
 getDefinitionsInfo([]) -> [];
 getDefinitionsInfo(DefsTupleList) ->
     {list,lists:map(fun(X) -> getExternalInfoElem(X) end, DefsTupleList)}.
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------
 getExternalInfoElem({ok, DefinitionsFile,ModName}) ->
     Info = core_funApp:collect(DefinitionsFile),
     {list_to_atom(ModName), Info}.
 
-
-
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------
 rules({{InternalInfo,ExternalInfo},_,BoundVars}, FunDefInfo) ->
     [   
     	core_funApp:length_rule(),
@@ -154,6 +178,7 @@ rules({{InternalInfo,ExternalInfo},_,BoundVars}, FunDefInfo) ->
 %% <p>
 %% This rule only applies a rewriting if exists a matching between the function clause being evaluated and any element from <i>Info</i>. Otherwise, nothing is done. </p>
 %% @end
+%% @private
 %%--------------------------------------------------------------------
 functionCall_rule_2(InfoList, FunDefInfo,BoundVars) ->
     ?RULE(

@@ -4,45 +4,7 @@
 %%% @doc 
 %% If - Where possible, simplifies if expressions by the result of their evaluation. This refactoring uses Wrangler API and can be found in <em>Wrangler -> Refactor -> gen_refac Refacs -> Symbolic Evaluation -> If</em>.
 %%
-%% Examples of usage:
-%% <ul>
-%% <li>
-%% <em>
-%%if<br/>
-%%<div class="first_align">
-%%false -> [2];<br/>
-%%true -> []<br/>
-%%</div>
-%%end.<br/>
-%% </em>
-%% <strong>is simplified to</strong> <em>[]</em>.
-%% </li>
-%% <li>
-%% <em>
-%% begin <br/>
-%% <div class="first_align">
-%%    X = true,<br/>
-%%    if<br/>
-%% <div class="second_align">
-%%	X -> [2];<br/>
-%%	true -> []<br/>
-%% </div>
-%%    end<br/>
-%% </div>
-%% end.<br/>
-%% </em>
-%% <strong>becomes</strong> <br/>
-%% <em>
-%% begin <br/>
-%% <div class="first_align">
-%%    X = true,<br/>
-%%    [2]<br/>
-%% </div>
-%% end.<br/>
-%% </em>
-%% </li>
-%% </ul>
-%%
+%% For examples of simplifications, please refer to <a href="core_if.html">If Core</a>.
 %%@end
 -module(refac_if).
 -behaviour(gen_refac).

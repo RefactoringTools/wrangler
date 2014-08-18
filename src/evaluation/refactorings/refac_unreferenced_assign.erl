@@ -1,5 +1,30 @@
 %%% @author Roberto Souto Maior de Barros Filho <>
 %%% @copyright (C) 2014, Roberto S. M. de Barros Filho, Simon  Thompson
+%%% @doc 
+%% Remove Unreferenced Assignments - Removes assignments when the variables are not used afterwards. This refactoring uses Wrangler API and can be found in <em>Wrangler -> Refactor -> gen_refac Refacs -> Symbolic Evaluation -> Remove Unreferenced Assignments</em>.
+%%
+%% For example, the expression: <br/>
+%% <em>
+%% begin <br/>
+%% <div class="first_align">
+%%  A = 10, <br/>
+%%  B = 20, <br/>
+%%  C = 30, <br/>
+%%  E = A + B + C, <br/>
+%%  A <br/>
+%% </div>
+%% end. <br/>
+%% </em>
+%% can be simplified by this refactoring to: <br/>
+%% <em>
+%% begin <br/>
+%% <div class="first_align">
+%%  A = 10, <br/>
+%%  A <br/>
+%% </div>
+%% end. <br/>
+%% </em>
+%% @end
 -module(refac_unreferenced_assign).
 
 -behaviour(gen_refac).
@@ -72,7 +97,10 @@ transform(Args=#args{current_file_name=File,
 		     user_inputs=[RefacScopeStr],search_paths=SearchPaths}) ->
     Files = refac:get_files(RefacScopeStr,SearchPaths,File),
     transform_unref_assign(Files,RefacScopeStr,Args).
-	    
+
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------	    
 transform_unref_assign(Files,RefacScopeStr,Args) ->
     case refac:validate_refac_scope(RefacScopeStr,Args) of
 	{error,Reason} -> {error, Reason};
@@ -80,6 +108,9 @@ transform_unref_assign(Files,RefacScopeStr,Args) ->
 	    first_transform(Files, RefacScopeStr,Args)
     end.
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------	 
 first_transform(Files,RefacScopeStr,_Args=#args{focus_sel=FunDef}) ->
     RefacScope = refac:get_refac_scope(RefacScopeStr),
     CollectResult = collector(Files),
@@ -89,6 +120,9 @@ first_transform(Files,RefacScopeStr,_Args=#args{focus_sel=FunDef}) ->
               Files),
     second_transform(Result,RefacScope,MFA,false).
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------	 
 second_transform(Result,RefacScope,MFA,IsFirst) ->
     case Result of
 	{ok, ListOfRefacs} ->
@@ -97,9 +131,15 @@ second_transform(Result,RefacScope,MFA,IsFirst) ->
 	    Result
    end.
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------	 
 second_transform_fun(Result, RefacScope, MFA,IsFirst,ListOfRefacs) ->
     lists:map(fun(FileTuple) -> second_transform_file(Result,FileTuple,RefacScope,MFA,IsFirst) end, ListOfRefacs).
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------	 
 second_transform_file(Result,{{FileName,FileName}, Node},RefacScope,MFA,IsFirst) ->
        FileNode = api_refac:get_ast(FileName),
        case FileNode of
@@ -138,10 +178,16 @@ try_transform_recursively(Changed, Node, FileName, FunInfo) ->
 	Changed -> transform_recursively(TransformResult, FunInfo);
 	true -> TransformResult
     end.
-	    
+	
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------	     
 rules(CollectResult, FunInfo) ->    
     [variable_assignment_rule_clause(CollectResult, FunInfo),variable_assignment_rule_outer(CollectResult,FunInfo)].
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------	 
 variable_assignment_rule_outer(CollectResult,{RefacScope, MFA}) ->
     ?RULE(
        ?T("f@(Args@@) when Guards@@ -> Body@@;"),
@@ -174,9 +220,15 @@ variable_assignment_rule_outer(CollectResult,{RefacScope, MFA}) ->
       end
     ).
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------	 
 final_cond_variable_assignment(Info,Scope) ->
           ?STOP_TD_TU([variable_assignment_collect_inner(Info)],Scope) /= [].
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------	 
 variable_assignment_refactoring(Scope,Fun,LoopInt) ->   
     Info = core_unreferenced_assign:collector_variable_occurrences(Scope),
     Result = ?STOP_TD_TP([Fun(Info)],Scope),
@@ -197,6 +249,9 @@ variable_assignment_refactoring(Scope,Fun,LoopInt) ->
 	_ -> Scope
     end.
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------	 
 variable_assignment_collect_inner(Info) ->
     ?COLLECT(
        ?T("Stmt0@@, Var@ = Expr@, Stmt@@"),
@@ -204,6 +259,9 @@ variable_assignment_collect_inner(Info) ->
        core_unreferenced_assign:variable_assignment_cond(Var@,Info)
     ).
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------	 
 variable_assignment_rule_clause(CollectResult, {RefacScope, MFA}) ->
     ?RULE(
        ?T("f@(Args@@) when Guards@@ -> Stmt0@@, Var@ = Expr@, Stmt@@;"),
@@ -236,6 +294,9 @@ variable_assignment_rule_clause(CollectResult, {RefacScope, MFA}) ->
       end
    ).
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------	 
 check_variable_occurrences(ArgsList,GuardsList,BodyList,Args@@,Guards@@,Var@) ->
     case get_variable_occurrences(ArgsList,GuardsList,BodyList,Args@@,Guards@@) of
 	noMatch -> false;
@@ -243,7 +304,9 @@ check_variable_occurrences(ArgsList,GuardsList,BodyList,Args@@,Guards@@,Var@) ->
 	    lists:filter(fun(Elem) -> Elem == api_refac:bound_vars(Var@) end, Info) == []			
     end.
 
-
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------	 
 get_variable_occurrences([],[],[],_,_) -> noMatch;
 get_variable_occurrences([Args | ArgsTail],[Guards | GuardsTail],[Body | BodyTail],Args@@,Guards@@) ->
     if 
@@ -252,21 +315,33 @@ get_variable_occurrences([Args | ArgsTail],[Guards | GuardsTail],[Body | BodyTai
 	    get_variable_occurrences(ArgsTail, GuardsTail,BodyTail,Args@@,Guards@@)
     end.
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------	 
 collector(Files) ->
     lists:map(fun(Scope) -> 
 		      {ok,RefacModule} = api_refac:module_name(Scope),
 		      {RefacModule,collector_file_traversal([Scope])} end, Files).
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------	 
 collector_file(Scope,FileName) ->
     {ok,RefacModule} = api_refac:module_name(FileName),
     [{RefacModule, collector_file_traversal(Scope)}].
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------	 
 collector_file_traversal(Scope) ->
     ?FULL_TD_TU(    
 		[collect()],
 		Scope
     ).
 
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------	 
 collect() ->
     ?COLLECT(
        ?T("f@(Args@@@) when Guards@@@ -> Body@@@"),
