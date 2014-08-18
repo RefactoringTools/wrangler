@@ -151,7 +151,6 @@ rules(RulesArgs,{Info,RemoveInfo}) ->
      core_case:rules({empty,[],empty},Info).    
 
 
-%%Composite Refactoring
 eval_all(DefFiles, OriginalNode, Pid, Input, SearchPaths, Timeout) ->
             Args=#args{current_file_name=DefFiles,
                        user_inputs=[Input],
