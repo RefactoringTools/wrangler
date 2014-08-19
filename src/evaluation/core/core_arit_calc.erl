@@ -1,6 +1,6 @@
 %%%-------------------------------------------------------------------
-%%% @author Roberto Souto Maior de Barros Filho, Gabriela Cunha Sampaio <>
-%%% @copyright (C) 2013, Roberto S. M. de Barros Filho, Gabriela Cunha Sampaio, Simon  Thompson
+%%% @author  Gabriela Cunha Sampaio, Roberto Souto Maior de Barros Filho <>
+%%% @copyright (C) 2013, Gabriela Cunha Sampaio, Roberto S. M. de Barros Filho, Simon  Thompson
 %%% @doc 
 %% Arithmetic Calculations Core - Simplification of arithmetic operations involving integer literals or arbitrary expressions. 
 %% 
