@@ -3,15 +3,30 @@
 
 %%--------------------------------------------------------------------
 %% @doc
-%% This module simplifies variables definitions. When a variable is created and used after, the varible evaluates to its value. Only variables 
-%% defined via a match expression of the format: VarName = Expr can be inlined. Consider the function below:<br/>
-%% <i> f() -> X = 1,  <br/>
-%%            X. </i> <br/>
-%% If the user chooses to simplify the function f/0, the Wrangler tool will identify that there is a variable declaration <i>(X=1)</i> and the 
-%% variable X in the second clause will be simplified to 1. 
+%% This modules substitutes variable occurrences by their value. 
+%%
+%% Only variables defined via a match expression of the format: <em>VarName = Expr</em> can be inlined. Consider the code below:<br/>
+%% <em> 
+%%begin <br/>
+%%<div class="first_align">
+%%X = 1,  <br/>
+%%Y = X + 2,  <br/>
+%%Y + 3  <br/>
+%%</div>
+%%end. <br/>
+%%</em>
+%% This module, will simplify the previous expression to:<br/>
+%% <em> 
+%%begin <br/>
+%%<div class="first_align">
+%%X = 1,  <br/>
+%%Y = 1 + 2,  <br/>
+%%1 + 2 + 3  <br/>
+%%</div>
+%%end. <br/>
+%%</em>
 %% @end
 %%--------------------------------------------------------------------
-
 -module(eval_inline_variable).
 
 %% Include files
