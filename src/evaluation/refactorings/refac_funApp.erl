@@ -159,8 +159,18 @@ getExternalInfoElem({ok, DefinitionsFile,ModName}) ->
     {list_to_atom(ModName), Info}.
 
 %%--------------------------------------------------------------------
-%% @private
+%%@doc
+%% Return the list of rules for the function application refactoring. This is formed by:
+%%<ul>
+%%<li>core_funApp:length_rule/0</li>
+%%<li>core_funApp:functionCall_rule/4</li>
+%%<li>Internal calls rule</li>
+%%<li>core_funApp:anonymousCall_rule/0</li>
+%%</ul>
+%% @spec rules({{InternalInfo::[{mfa(),syntaxTree(),[syntaxTree()],syntaxTree()}],ExternalInfo::[{mfa(),syntaxTree(),[syntaxTree()],syntaxTree()}] | [{list, [{modulename(),[{mfa(),syntaxTree(),[syntaxTree()],syntaxTree()}]}]}]},term(),BoundVars::[{atom(), pos()}]},FunDefInfo::mfa() | unknown) -> [rule()]
+%% @end
 %%--------------------------------------------------------------------
+-spec(rules({{InternalInfo::[{mfa(),syntaxTree(),[syntaxTree()],syntaxTree()}],ExternalInfo::[{mfa(),syntaxTree(),[syntaxTree()],syntaxTree()}] | [{list, [{modulename(),[{mfa(),syntaxTree(),[syntaxTree()],syntaxTree()}]}]}]},_,BoundVars::[{atom(), pos()}]},FunDefInfo::mfa() | unknown) -> [{'rule',fun(),list() | tuple()},...]).
 rules({{InternalInfo,ExternalInfo},_,BoundVars}, FunDefInfo) ->
     [   
     	core_funApp:length_rule(),

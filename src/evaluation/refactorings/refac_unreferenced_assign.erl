@@ -180,8 +180,16 @@ try_transform_recursively(Changed, Node, FileName, FunInfo) ->
     end.
 	
 %%--------------------------------------------------------------------
-%% @private
-%%--------------------------------------------------------------------	     
+%%@doc
+%%List of rules that remove unreferenced assignments for this refactoring. The following rules exist:
+%%<ul>
+%%<li>Removes unreferenced assignments in the list of steps of the function clause.</li>
+%%<li>Removes unreferenced assignments in more internal structures, like list of steps within if/case expressions.</li>
+%%</ul>
+%%@spec rules(CollectResult::{modulename(),{mfa() | unknown,[syntaxTree()],[[syntaxTree()]],[[{atom(), pos()}]],[syntaxTree()]}}, FunInfo::{function | project | file, mfa() | unknown}) -> [rule()]
+%%@end
+%%--------------------------------------------------------------------	  
+-spec(rules(CollectResult::{modulename(),{mfa() | unknown,[syntaxTree()],[[syntaxTree()]],[[{atom(), pos()}]],[syntaxTree()]}}, FunInfo::{function | project | file, mfa() | unknown}) -> [{'rule',fun(),list() | tuple()},...]).   
 rules(CollectResult, FunInfo) ->    
     [variable_assignment_rule_clause(CollectResult, FunInfo),variable_assignment_rule_outer(CollectResult,FunInfo)].
 

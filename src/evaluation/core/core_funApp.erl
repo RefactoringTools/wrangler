@@ -31,30 +31,31 @@
 
 %%%===================================================================
 %% gen_refac callbacks
--export([getCollectFile/3,collect/1,length_rule/0,anonymousCall_rule/0,addModuleName_rule/1,functionCall_rule/4,functionCall_cond/6,collectFromDefsList/1]).
+-export([getCollectFile/3,collect/1,length_rule/0,anonymousCall_rule/0,functionCall_rule/4,functionCall_cond/6,collectFromDefsList/1]).
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @private
+%%@private
 %% @doc
-%% Auxiliary function to get the definitions file.
+%% Auxiliary function that returns the filename with the full path.
 %%
-%% @spec getCollectFile(modulename(), filename(), [paths()]) -> {ok, filename()} | {error, Reason} 
+%% @spec getCollectFile(string(), filename(), [paths()]) -> {ok, filename()} | {error, Reason} 
 %% @end
 %%--------------------------------------------------------------------
+-spec(getCollectFile(string(), filename(), [string()]) -> {ok, filename()} | {error,[[any()] | char(),...]}).
 getCollectFile([], File, _) -> {ok, File};
 getCollectFile(ModuleName, _, SearchPaths) -> 
     wrangler_misc:modname_to_filename(list_to_atom(ModuleName), SearchPaths).
 
 %%--------------------------------------------------------------------
-%% @private
 %% @doc
-%% This function represents the collects info from the file.
-%% All collectors defined in this file should be called here.
+%% Collects info from the exported functions in the file.
+%% @spec collect(filename()) -> [{mfa(),syntaxTree(),[syntaxTree()],syntaxTree()}]
 %% @end
 %%--------------------------------------------------------------------
+-spec(collect(filename()) -> [{mfa(),syntaxTree(),[syntaxTree()],syntaxTree()}]).
 collect(File) ->
     ExportedFuns = api_refac:exported_funs(File),
     ExportedAll = exported_all(File),
@@ -90,11 +91,11 @@ funIsExported(Fun, {ExportedAll, ExportedFuns}) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Substitutes a call to the length rule, of the standard, with a list as a parameter
-%% by the length of the list.
+%% Rule that substitutes call to length/1 from the standard.
+%%@spec length_rule() -> rule()
 %% @end
-%% @private
 %%--------------------------------------------------------------------
+-spec(length_rule() -> {'rule',fun(),list() | tuple()}).
 length_rule() ->
     ?RULE(?T("length(List@)"),
 	  begin
@@ -105,7 +106,13 @@ length_rule() ->
 	  utils_convert:ast_to_list(List@,[]) /= error
 	).
 
-%%@private
+%%--------------------------------------------------------------------
+%% @doc
+%% Rule that substitutes parametrized anonymous calls.
+%%@spec anonymousCall_rule() -> rule()
+%% @end
+%%--------------------------------------------------------------------
+-spec(anonymousCall_rule() -> {'rule',fun(),list() | tuple()}).
 anonymousCall_rule() ->
     ?RULE(
       ?T("fun(Patt@@) -> Body@@ end(Args@@)"),
@@ -115,14 +122,11 @@ anonymousCall_rule() ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%This function represents a rule that substitutes a function call from a external module by the appropriate body. 
-%% <p>The parameter <i>Info</i> is the list returned by the collector.
-%%</p>
-%% <p>
-%% This rule only applies a rewriting if exists a matching between the function clause being evaluated and any element from <i>Info</i>. Otherwise, nothing is done. </p>
+%% Rule that substitutes external function calls.
+%%@spec functionCall_rule(InfoList::[{mfa(),syntaxTree(),[syntaxTree()],syntaxTree()}] | [{list, [{modulename(),[{mfa(),syntaxTree(),[syntaxTree()],syntaxTree()}]}]}], FunDefInfo::mfa() | unknown, IsRefactoring::boolean(), BoundVars::[{atom(), pos()}]) -> rule()
 %% @end
-%% @private
 %%--------------------------------------------------------------------
+-spec(functionCall_rule(InfoList::[{mfa(),syntaxTree(),[syntaxTree()],syntaxTree()}] | [{list, [{modulename(),[{mfa(),syntaxTree(),[syntaxTree()],syntaxTree()}]}]}], FunDefInfo::mfa() | unknown, IsRefactoring::boolean(), BoundVars::[{atom(), pos()}]) -> {'rule',fun(),list() | tuple()}).
 functionCall_rule(InfoList, FunDefInfo, IsRefactoring, BoundVars) ->
     ?RULE(
           ?T("M@:F@(Args@@)"),
@@ -142,7 +146,10 @@ functionCall_rule(InfoList, FunDefInfo, IsRefactoring, BoundVars) ->
 	  end
 	  ).
 
-%%@private
+%%@doc
+%%Boolean condition to execute the function application transformations.
+%%@end
+-spec(functionCall_cond(FunInfo::mfa() | unknown, FunDefInfo::mfa() | unknown, InfoList::[{mfa(),syntaxTree(),[syntaxTree()],syntaxTree()}] | [{list, [{modulename(),[{mfa(),syntaxTree(),[syntaxTree()],syntaxTree()}]}]}], Args::syntaxTree(),BoundVars::[{atom(), pos()}], BoundVarsThis::[{atom(), pos()}]) -> boolean()).
 functionCall_cond(FunInfo,FunDefInfo,InfoList,Args@@,BoundVars,BoundVarsThis) ->
     case FunInfo of
 		  {M,F,A} ->
@@ -212,7 +219,6 @@ addModuleName_rule(Module) ->
 	     end
 	  end
 ).
-
 %%@private
 collectFromDefsList([]) -> [];
 collectFromDefsList(DefsTupleList) ->

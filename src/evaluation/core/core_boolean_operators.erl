@@ -6,14 +6,14 @@
 %% <p>
 %% The following list of boolean operators that receives parameters of any type was implemented: 
 %% <i>
-%% "`>'",
-%% "`<'",
-%% "`>='",
-%% "`=<'", 
-%% "`/='", 
-%% "`=/='", 
-%% "`=='", 
-%% "`=:='", 
+%% `>',
+%% `<',
+%% `>=',
+%% `=<', 
+%% `/=', 
+%% `=/=', 
+%% `==', 
+%% `=:=', 
 %% is_atom/1, is_boolean/1, is_integer/1, is_float/1, is_function/1, is_function/2, is_list/1, is_number/1, is_tuple/1.
 %% </i>
 %% </p>
@@ -36,7 +36,38 @@
 -module(core_boolean_operators).
 -include_lib("wrangler/include/wrangler.hrl").
 -export([rules/2]).
-%% @private
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns the list of boolean operators rules. The returned list of rules has the following order:
+%%<ul>
+%%<li>greater than</li>
+%%<li>greater than or equal to</li>
+%%<li>less than</li>
+%%<li>less than or equal to</li>
+%%<li>equal to</li>
+%%<li>not equal to</li>
+%%<li>exactly equal to</li>
+%%<li>exactly not equal to</li>
+%%<li>and</li>
+%%<li>andalso</li>
+%%<li>or</li>
+%%<li>orelse</li>
+%%<li>xor</li>
+%%<li>not</li>
+%%<li>is_list</li>
+%%<li>is_integer</li>
+%%<li>is_float</li>
+%%<li>is_number</li>
+%%<li>is_boolean</li>
+%%<li>is_atom</li>
+%%<li>is_tuple</li>
+%%<li>is_function</li>
+%%</ul>
+%% @spec rules(term(), term()) -> [rule()]
+%% @end
+%%--------------------------------------------------------------------
+-spec(rules(_,_) -> [{'rule',fun(),list() | tuple()},...]).
 rules(_,_) ->
     [   
      gt_rule(),

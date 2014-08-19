@@ -47,7 +47,14 @@
 -module(core_case).
 -include_lib("wrangler/include/wrangler.hrl").
 -export([rules/2]).
-%%@private
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns a list with a single rule for the case simplification.
+%% @spec rules({term(), VarsInfo::[{[{atom(), pos()}], syntaxTree()}],term()},term()) -> [rule()]
+%% @end
+%%--------------------------------------------------------------------
+-spec(rules({_,VarsInfo::[{[{atom(), pos()}], syntaxTree()}],_},_) -> [{'rule',fun(),list() | tuple()},...]).
 rules({_,VarsInfo,_},_) ->
     [case_rule(VarsInfo)].
 

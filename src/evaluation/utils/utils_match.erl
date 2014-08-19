@@ -73,7 +73,7 @@ matchList([H1 | T1],[H2 | T2])->
 %% @spec(firstMatch([{{modulename(),functionname(),arity()},syntaxTree(),syntaxTree()}],{modulename(),functionname(),arity()},syntaxTree()) -> noMatch | {match,syntaxTree(),syntaxTree()})
 %% @end
 %%--------------------------------------------------------------------
--spec(firstMatch([{{modulename(),functionname(),arity()},syntaxTree(),syntaxTree()}],{modulename(),functionname(),arity()},syntaxTree()) -> noMatch | {match,syntaxTree(),syntaxTree()}).
+-spec(firstMatch([{{modulename(),functionname(),arity()},syntaxTree(),[syntaxTree()],syntaxTree()}],{modulename(),functionname(),arity()},syntaxTree()) -> noMatch | {match,syntaxTree(),syntaxTree()}).
 findFirstMatch([{{M2,F2,A2},ArgPatt,Guards,Body} | T],{M,F,A},Arg) ->   
     Matches = M == M2 andalso F == F2 andalso A == A2,    
     if

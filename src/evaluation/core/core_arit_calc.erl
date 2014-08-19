@@ -2,13 +2,18 @@
 %%% @author Roberto Souto Maior de Barros Filho, Gabriela Cunha Sampaio <>
 %%% @copyright (C) 2013, Roberto S. M. de Barros Filho, Gabriela Cunha Sampaio, Simon  Thompson
 %%% @doc 
-%%This module covers refactorings with arithmetic expressions. These expressions may contain <b>variables and/or integers</b>.
-%%<p>
-%% Unfortunately, there are some cases that are still not being  covered.  
-%%<ul><li>For instance, if an expression contains integers and variables interchanged, as <i>"1 + X + 1"</i>. In this case, this expression is not simplified anymore.</li>
-%%<li> Multiplication and division between variables is also not covered.</li> </ul></p>
-%%<p>However, if the expression contains integers and variables but they are not mixed, as in <i>"1 + 2 + 3 + X + 2*X + Y"</i>, the refactoring can be done and the expression would become <i>"6 + 3 * X + Y"</i> for this example.</p>
-
+%% Arithmetic Calculations Core - Simplification of arithmetic operations involving integer literals or arbitrary expressions. 
+%% 
+%% The four basic arithmetic operators plus the operator <i> rem </i> are covered for integers, while only <i> + </i> and <i> - </i> are simplified for arbitrary expressions.
+%% Some examples of simplifications are given below:
+%% <ul>
+%% <li>
+%% <i>(1 + 2 * 3 - 2) div 1</i> becomes <i>5</i>.
+%%</li>
+%% <li>
+%%<i>foo(X) + 2 * foo(X)</i> is simplified to <i>3 * foo(X)</i>.
+%%</li>
+%% </ul>
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
@@ -185,10 +190,21 @@ variable_sub_rule_4() ->
      ).
 
 %%--------------------------------------------------------------------
-%% @private
 %% @doc
-%% List of Rules that are applied to the expressions.
+%% Returns the list of arithmetics calculations rules. The rules are organised in the following order:
+%%<ul>
+%%<li>Integer sum</li>
+%%<li>Integer subtraction</li>
+%%<li>Integer multiplication</li>
+%%<li>Integer division</li>
+%%<li>Integer rem</li>
+%%<li>Arbitrary expressions sum</li>
+%%<li>Arbitrary expressions subtraction</li>
+%%</ul>
+%% @spec rules(term(), term()) -> [rule()]
+%% @end
 %%--------------------------------------------------------------------
+-spec(rules(_,_) -> [{'rule',fun(),list() | tuple()},...]).
 rules(_,_) ->
     [   
 	sum_rule(),

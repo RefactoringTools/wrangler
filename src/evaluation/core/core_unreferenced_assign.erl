@@ -15,7 +15,7 @@
 %% </div>
 %% end. <br/>
 %% </em>
-%% can be simplified by this refactoring to: <br/>
+%% can be simplified by these transformations to: <br/>
 %% <em>
 %% begin <br/>
 %% <div class="first_align">
@@ -29,16 +29,29 @@
 -include_lib("wrangler/include/wrangler.hrl").
 -export([rules/2,collector_variable_occurrences/1,variable_assignment_cond/2,variable_assignment_rule/1,variable_assignment_rule_begin/1,collector_var_expr_value/1,is_variable_use/1]).
 %%--------------------------------------------------------------------
-%% @private
-%%--------------------------------------------------------------------	 
+%%@doc
+%%List of rules to remove unreferenced assignments. This list contains the following rules:
+%%<ul>
+%%<li><a href="#variable_assignment_rule-1">variable_assignment_rule/1</a></li>
+%%<li><a href="#variable_assignment_rule_begin-1">variable_assignment_rule_begin/1</a></li>
+%%<li>Rule to remove the assignment, when it is the only expression. In that case, the bounding <em>Var@ = Expr@</em> becomes <em>Expr@</em>.</li>
+%%</ul>
+%%@spec rules(term(),Info::[{atom(), pos()}]) -> [rule()]
+%%@end
+%%--------------------------------------------------------------------	
+-spec(rules(_,Info::[{atom(), pos()}]) -> [{'rule',fun(),list() | tuple()},...]). 
 rules(_,Info) ->
     [variable_assignment_rule(Info),
      variable_assignment_rule_begin(Info),
      variable_assignment_rule_single(Info)].
 
 %%--------------------------------------------------------------------
-%% @private
-%%--------------------------------------------------------------------	 
+%%@doc
+%% Removes unreferenced assignments in a list of steps.
+%%@spec variable_assignment_rule(Info::[{atom(), pos()}]) -> rule()
+%%@end
+%%--------------------------------------------------------------------	
+-spec(variable_assignment_rule(Info::[{atom(), pos()}]) -> {'rule',fun(),list() | tuple()}).  
 variable_assignment_rule(Info) ->
     ?RULE(
        ?T("Stmt0@@, Var@ = Expr@, Stmt@@"),
@@ -52,8 +65,12 @@ variable_assignment_rule(Info) ->
     ).    
 
 %%--------------------------------------------------------------------
-%% @private
+%%@doc
+%% Removes unreferenced assignments in a list of steps within a <em>begin/end</em> block.
+%%@spec variable_assignment_rule_begin(Info::[{atom(), pos()}]) -> rule()
+%%@end
 %%--------------------------------------------------------------------	 
+-spec(variable_assignment_rule_begin(Info::[{atom(), pos()}]) -> {'rule',fun(),list() | tuple()}). 
 variable_assignment_rule_begin(Info) ->
     ?RULE(
        ?T("begin Stmt0@@, Var@ = Expr@, Stmt@@ end"),
@@ -79,15 +96,21 @@ variable_assignment_rule_single(Info) ->
     ).   
 
 %%--------------------------------------------------------------------
-%% @private
+%%@doc
+%% Returns <em>true</em> if the variable is unused and <em>false</em> otherwise.
+%%@end
 %%--------------------------------------------------------------------	 
+-spec(variable_assignment_cond(Var@::syntaxTree(), Info::[{atom(), pos()}]) -> boolean()).  
 variable_assignment_cond(Var@,Info) ->
     api_refac:type(Var@) == variable andalso
     lists:filter(fun(Elem) -> Elem == api_refac:bound_vars(Var@) end, Info) == [].
 
 %%--------------------------------------------------------------------
-%% @private
+%%@doc
+%%Collects all the variable occurrences within <em>Scope</em>.
+%%@end
 %%--------------------------------------------------------------------	 
+-spec(collector_variable_occurrences(Scope::syntaxTree()) -> [{atom(), pos()}]).     
 collector_variable_occurrences(Scope) ->
     ?FULL_TD_TU(    
 		[collect_variables_occurrences()],
@@ -113,13 +136,16 @@ is_variable_use(Var@) ->
      api_refac:bound_vars(Var@) == [].
 
 %%--------------------------------------------------------------------
-%% @private
+%%@doc
+%%Collects all the assignments within <em>Scope</em>.
+%%@end
 %%--------------------------------------------------------------------	 
+-spec(collector_var_expr_value(Scope::syntaxTree()) -> [{[{atom(), pos()}],syntaxTree()}]).
 collector_var_expr_value(Scope) -> 
     ?FULL_TD_TU([collect_variable_assignment()],Scope).
 
 %%--------------------------------------------------------------------
-%% @private
+%%@private
 %%--------------------------------------------------------------------	 
 collect_variable_assignment() ->
     ?COLLECT(

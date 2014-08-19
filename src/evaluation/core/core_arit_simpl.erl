@@ -1,19 +1,18 @@
 %%%-------------------------------------------------------------------
-%%% @author Roberto Souto Maior de Barros Filho, Gabriela Cunha Sampaio <>
-%%% @copyright (C) 2013, Roberto S. M. de Barros Filho, Gabriela Cunha Sampaio, Simon  Thompson
+%%% @author Gabriela Cunha Sampaio, Roberto Souto Maior de Barros Filho <>
+%%% @copyright (C) 2013, Gabriela C. Sampaio, Roberto S. M. de Barros Filho, Simon  Thompson
 %%% @doc
-%% These refactoring does arithmetic simplification modifications.
-%% <p>We can include here the following cases:
+%% Arithmetic Simplifications Core - Basic straightforward arithmetic simplifications. The following simplifications are covered: 
 %% <ul>
-%%<li>Sum by zero - Expressions of type "Exp + 0" and "0 + Exp" are transformed into "Exp". For example, <i>X + 0</i> is modified to <i>X</i>.</li>
-%%<li>Subtraction by zero - Subtractions with zero as the second operand are modified. For instance, <i>Y - 0</i> becomes <i>Y</i>. </li>
-%%<li>Subtraction from zero - Expressions that match "0 - Exp" are altered to "-Exp". To exemplify, <i>0 - Y</i> is changed to <i>-Y</i>. </li>
-%%<li>Multiplication by one -  Expressions of the formats "Exp * 1" and "1 * Exp" are simplified to "Exp". To illustrate, <i>Z * 1</i> is modified to <i>Z</i>.</li>
-%%<li>Multiplication by zero - Multiplications containing zero as an operand are simplified to zero.</li>
-%%<li>Division by one - Divisions by one, using the operator <i>(div)</i>, are replaced by the numerator. For example, <i>3 div 1</i> is transformed to <i>3</i>.</li>
+%%<li><b>Sum by zero</b> - Expressions of type <i>Exp + 0</i> and <i>0 + Exp</i> are transformed into <i>Exp</i>. For example, <i>X + 0</i> is modified to <i>X</i>.</li>
+%%<li><b>Subtraction by zero</b> - Subtractions with zero as the second operand are modified. For instance, <i>Y - 0</i> becomes <i>Y</i>. </li>
+%%<li><b>Subtraction from zero</b> - Expressions that match <i>0 - Exp</i> are altered to <i>-Exp</i>. To exemplify, <i>0 - Y</i> is changed to <i>-Y</i>. </li>
+%%<li><b>Multiplication by one</b> -  Expressions of the formats <i>Exp * 1</i> and <i>1 * Exp</i> are simplified to <i>Exp</i>. To illustrate, <i>Z * 1</i> is modified to <i>Z</i>.</li>
+%%<li><b>Multiplication by zero</b> - Multiplications containing zero as an operand are simplified to zero.</li>
+%%<li><b>Division by one</b> - Divisions by one, using the operator <i>(div)</i>, are replaced by the numerator. For example, <i>3 div 1</i> is transformed to <i>3</i>.</li>
 %% </ul>
-%%%</p>
-%%<p>These refactorings can only by applied to integers, variables and expressions formed by these two types.</p>
+%%
+%% These simplifications can by applied to any valid Erlang expression.
 %%% @end
 %%%-------------------------------------------------------------------
 -module(core_arit_simpl).
@@ -32,9 +31,10 @@
 %%<li>Multiplication by zero </li>
 %%<li>Division by one </li>
 %%</ul>
+%% @spec rules(term(), term()) -> [rule()]
 %% @end
-%% @private
 %%--------------------------------------------------------------------
+-spec(rules(_,_) -> [{'rule',fun(),list() | tuple()},...]).
 rules(_,_) ->
     [   
      subZero_rule_1(),
