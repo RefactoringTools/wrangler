@@ -1,11 +1,9 @@
 %%%-------------------------------------------------------------------
-%%% @author Gabriela Cunha Sampaio, Roberto Souto Maior de Barros Filho <>
-%%% @copyright (C) 2013, Simon  Thompson
-%%% @doc This module contains refactorings that substitute function calls by its application. 
-%%<p>In the present, there is only one refactoring rule on this module: <b>functionCall_rule/1</b></p> 
+%%% @author Gabriela Cunha Sampaio<>
+%%% @copyright (C) 2014, Simon  Thompson
+%%% @doc This module represents an evaluator that simplifies function calls by its application.  
 %%%
 %%% @end
-%%% Created : 18 Oct 2013 by Gabriela Cunha Sampaio, Roberto Souto Maior de Barros F <>
 %%%-------------------------------------------------------------------
 -module(eval_funApp).
 

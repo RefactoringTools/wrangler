@@ -1,6 +1,6 @@
 @author Gabriela Cunha Sampaio, Roberto Souto Maior de Barros Filho <>
 @copyright (C) 2014, Gabriela C. Sampaio, Roberto S. M. de Barros Filho, Simon  Thompson
-@title Symbolic Evaluation Core! 
+@title Symbolic Evaluation Core
 @doc
 The core files, use Wrangler, to propose a number of simplifications that perform symbolic evaluation in Erlang. More specifically, the following modules belong to these group:
 <ul>
@@ -13,7 +13,10 @@ The core files, use Wrangler, to propose a number of simplifications that perfor
 <li><a href="core_funApp.html">Unfold Function Application Core</a></li>
 </ul>
 
-
+<ul>
+<li><a href="../evaluator/index.html">Symbolic Evaluation Teaching Tool</a></li>
+<li><a href="../refactorings/index.html">Symbolic Evaluation Refactorings</a></li>
+</ul>
 
 
 

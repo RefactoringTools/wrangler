@@ -27,14 +27,14 @@ Symbolic transformations were created using Wrangler API. Wrangler is the refact
 == Symbolic Transformations ==
 Some symbolic transformations were created in the project. Expressions are simplified according to this set of transformations. To make the tool more organized and easier to understand, we divided the transformations into eight categories:
 <ul>
-<li><a href="core_arithmetics.html">Arithmetic Operators</a></li>
-<li><a href="core_boolean_operators.html">Boolean Operators</a></li>
-<li><a href="core_case.html">Case Blocks</a></li>
-<li><a href="core_funApp.html">Function Calls</a></li>
-<li><a href="core_if.html">If Blocks</a></li>
+<li><a href="../core/core_arithmetics.html">Arithmetic Operators</a></li>
+<li><a href="../core/core_boolean_operators.html">Boolean Operators</a></li>
+<li><a href="../core/core_case.html">Case Blocks</a></li>
+<li><a href="../core/core_funApp.html">Function Calls</a></li>
+<li><a href="../core/core_if.html">If Blocks</a></li>
 <li><a href="eval_inline_variable.html">Inline Variable</a></li>
-<li><a href="core_lists_concat.html">Lists Concatenations</a></li>
-<li><a href="core_unreferenced_assign.html">Unreferenced Assignments</a></li>
+<li><a href="../core/core_lists_concat.html">Lists Concatenations</a></li>
+<li><a href="../core/core_unreferenced_assign.html">Unreferenced Assignments</a></li>
 </ul>
 
 These simplifications are always used together. Thus, if the user types an expression that can be simplified by more than one type of evaluator, they are both used and each one simplifies a part of the expression. 

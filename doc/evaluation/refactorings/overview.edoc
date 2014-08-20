@@ -1,6 +1,6 @@
 @author Roberto Souto Maior de Barros Filho <>
 @copyright (C) 2014, Roberto S. M. de Barros Filho, Simon  Thompson
-@title Symbolic Evaluation Refactorings!
+@title Symbolic Evaluation Refactorings
 @see gen_refac 
 @doc
 This set of refactorings, uses Wrangler API, to propose a number of simplifications that perform symbolic evaluation in Erlang. More specifically, the following refactorings belong to these group:
