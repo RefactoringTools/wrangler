@@ -1,0 +1,5 @@
+%% encoding: UTF-8
+{packages,[]}.
+{modules,[refac_all,refac_arithmetics,refac_boolean_operators,refac_case,
+          refac_funApp,refac_if,refac_inline_variable,refac_lists_concat,
+          refac_unreferenced_assign]}.
