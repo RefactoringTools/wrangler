@@ -4,7 +4,7 @@
 %%% @doc 
 %% Arithmetic Operators - Covers arithmetic expressions. This refactoring uses Wrangler API and can be found in <em>Wrangler -> Refactor -> gen_refac Refacs -> Symbolic Evaluation -> Arithmetic Operators</em>.
 %%
-%% For more details of the simplifications performed, please refer to <a href="core_arithmetics.html">Arithmetics Operators Core</a>.
+%% For more details of the simplifications performed, please refer to <a href="../core/core_arithmetics.html">Arithmetics Operators Core</a>.
 %% @end
 %%%-------------------------------------------------------------------
 -module(refac_arithmetics).

@@ -3,7 +3,7 @@
 %%% @copyright (C) 2013, Roberto S. M. de Barros Filho, Simon  Thompson
 %%% @doc Unfold Function Application - Substitute function calls by its application. This refactoring uses Wrangler API and can be found in <em>Wrangler -> Refactor -> gen_refac Refacs -> Symbolic Evaluation -> Unfold Function Application</em>.
 %%
-%% Most of the transformation in this module are from <a href="core_funApp.html">Unfold Function Application Core</a>.
+%% Most of the transformation in this module are from <a href="../core/core_funApp.html">Unfold Function Application Core</a>.
 %%
 %% Nevertheless, the following simplification is also done in this module: 
 %%

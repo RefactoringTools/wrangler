@@ -4,7 +4,7 @@
 %%% @doc 
 %% Boolean Operators - Simplifies the defined boolean operators to <i>true</i> or <i>false</i>. This refactoring uses Wrangler API and can be found in <em>Wrangler -> Refactor -> gen_refac Refacs -> Symbolic Evaluation -> Boolean Operators</em>.
 %% 
-%% For more details of the transformation, please see <a href="core_boolean_operators.html">Boolean Operators Core</a>.
+%% For more details of the transformation, please see <a href="../core/core_boolean_operators.html">Boolean Operators Core</a>.
 %%@end
 %%
 %%

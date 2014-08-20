@@ -5,11 +5,11 @@
 %% The rules of this refactoring, respect the following order:
 %%<ul>
 %%<li><em>refac_funApp:rules/2</em> in <a href="refac_funApp.html">Unfold Function Application Refactoring</a></li>
-%%<li><em>core_arithmetics:rules/2</em> in <a href="core_arithmetics.html">Arithmetic Operators Core</a></li>
-%%<li><em>core_boolean_operators:rules/2 in <a href="core_boolean_operators.html">Boolean Operators Core</a></em></li>
-%%<li><em>core_lists_concat:rules/2 in <a href="core_lists_concat.html">Lists Concatenation Core</a></em></li>
-%%<li><em>core_if:rules/2 in <a href="core_if.html">If Core</a></em></li>
-%%<li><em>core_case:rules/2 in <a href="core_case.html">Case Core</a></em></li>
+%%<li><em>core_arithmetics:rules/2</em> in <a href="../core/core_arithmetics.html">Arithmetic Operators Core</a></li>
+%%<li><em>core_boolean_operators:rules/2 in <a href="../core/core_boolean_operators.html">Boolean Operators Core</a></em></li>
+%%<li><em>core_lists_concat:rules/2 in <a href="../core/core_lists_concat.html">Lists Concatenation Core</a></em></li>
+%%<li><em>core_if:rules/2 in <a href="../core/core_if.html">If Core</a></em></li>
+%%<li><em>core_case:rules/2 in <a href="../core/core_case.html">Case Core</a></em></li>
 %%<li>refac_unreferenced_assign:rules/2 in <a href="refac_unreferenced_assign.html">Remove Unreferenced Assignments Refactoring</a></li>
 %%</ul>
 %% @end

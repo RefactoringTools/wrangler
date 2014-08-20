@@ -4,7 +4,7 @@
 %%% @doc 
 %% If - Where possible, simplifies if expressions by the result of their evaluation. This refactoring uses Wrangler API and can be found in <em>Wrangler -> Refactor -> gen_refac Refacs -> Symbolic Evaluation -> If</em>.
 %%
-%% For examples of simplifications, please refer to <a href="core_if.html">If Core</a>.
+%% For examples of simplifications, please refer to <a href="../core/core_if.html">If Core</a>.
 %%@end
 -module(refac_if).
 -behaviour(gen_refac).

@@ -4,7 +4,7 @@
 %%% @doc 
 %% Case - Where possible, simplifies case expressions by the result of their evaluation. This refactoring uses Wrangler API and can be found in <em>Wrangler -> Refactor -> gen_refac Refacs -> Symbolic Evaluation -> Case</em>.
 %%
-%% For more details on the alterations, please refer to <a href="core_case.html">Case Core</a>.
+%% For more details on the alterations, please refer to <a href="../core/core_case.html">Case Core</a>.
 %%@end
 -module(refac_case).
 -behaviour(gen_refac).

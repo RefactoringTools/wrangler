@@ -4,7 +4,7 @@
 %%% @doc 
 %% Lists Concatenation - Simplifies lists concatenations. This refactoring uses Wrangler API and can be found in <em>Wrangler -> Refactor -> gen_refac Refacs -> Symbolic Evaluation -> Lists Concatenation</em>. 
 %%
-%% For more details of the transformation, please refer to <a href="core_lists_concat.html">Lists Concatenation Core</a>.
+%% For more details of the transformation, please refer to <a href="../core/core_lists_concat.html">Lists Concatenation Core</a>.
 %%@end
 -module(refac_lists_concat).
 
