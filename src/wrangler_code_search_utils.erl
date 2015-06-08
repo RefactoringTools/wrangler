@@ -339,7 +339,7 @@ generalisable(Node) ->
 	{value, {category, record_type}} -> false;
 	{value, {category, guard_expression}} -> false;
 	{value, {category, generator}} -> false;
-        {value, {category, operaotor}} -> false;
+        {value, {category, operator}} -> false;
       	{value, {category, macro_name}} -> false;
         {value, {category, pattern}} ->
             %% refac_syntax:is_literal(Node) orelse ;; in theory it is ok.
