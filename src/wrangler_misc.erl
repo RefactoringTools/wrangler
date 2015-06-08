@@ -51,7 +51,7 @@
          concat_toks/1, get_toks/1, tokenize/3,
          format_search_paths/1,
          free_vars/1, exported_vars/1, bound_vars/1,
-         modname_to_filename/2, funname_to_defpos/2,
+         modname_to_filename/2, funname_to_defpos/2, funname_arities/2,
          group_by/2,filehash/1,apply_style_funs/0,
          try_eval/4, is_macro_name/1, is_literal/1,
          is_fun_name/1, is_var_name/1]).
@@ -376,7 +376,15 @@ funname_to_defpos(AnnAST, {M, F, A}) ->
 	_ ->
 	    {error, lists:flatten(io_lib:format("Function ~p/~p is defined more than once in module ~p", [F, A, M]))}
     end.
-		 
+
+funname_arities(AnnAST, FunName) ->
+    Forms=wrangler_syntax:form_list_elements(AnnAST),
+    lists:usort(lists:append(
+		  [case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Form)) of
+		       {value, {fun_def, {_, FunName, Arity, _, _}}} ->
+			   [Arity];
+			     _ -> []
+		   end||Form <- Forms, wrangler_syntax:type(Form) == function])).		 
    
 is_spawn_app(Tree) ->
     SpawnFuns1 =  spawn_funs(),
