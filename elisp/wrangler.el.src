@@ -324,6 +324,11 @@
     ("Partition Exported Functions"  erl-wrangler-code-inspector-partition-exports)
     ("gen_fsm State Data to Record" erl-refactor-gen-fsm-to-record)
     nil
+    ("Behaviour Refactorings (Beta)"
+     (
+      ("Add function name to behaviour_info" refac_add_callback)
+      ))
+    nil
     ("gen_refac Refacs"  (gen_refac_menu_items))
     ("gen_composite_refac Refacs" (gen_composite_refac_menu_items))
     nil
@@ -1594,6 +1599,11 @@
       (message "Refactoring aborted."))))
 		  
 	
+
+(defun refac_add_callback()
+  (interactive)
+  (apply-adhoc-refac 'refac_add_callback))
+
 (defun erl-refactor-new-macro(name start end)
   "Introduce a new marco to represent an user-selected syntax phrase."
   (interactive (list (read-string "New macro name: ")

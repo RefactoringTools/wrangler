@@ -384,8 +384,8 @@ funname_arities(AnnAST, FunName) ->
 		       {value, {fun_def, {_, FunName, Arity, _, _}}} ->
 			   [Arity];
 			     _ -> []
-		   end||Form <- Forms, wrangler_syntax:type(Form) == function])).		 
-   
+		   end||Form <- Forms, wrangler_syntax:type(Form) == function])).
+
 is_spawn_app(Tree) ->
     SpawnFuns1 =  spawn_funs(),
     case wrangler_syntax:type(Tree) of
