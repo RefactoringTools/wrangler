@@ -327,6 +327,7 @@
     ("Behaviour Refactorings (Beta)"
      (
       ("Add function name to behaviour_info" refac_add_callback)
+      ("Expression to behaviour instance" erl-refactor-to-behav-instance)
       ))
     nil
     ("gen_refac Refacs"  (gen_refac_menu_items))
@@ -1604,6 +1605,10 @@
   (interactive)
   (apply-adhoc-refac 'refac_add_callback))
 
+(defun erl-refactor-to-behav-instance()
+  (interactive)
+  (apply-composite-refac 'refac_to_behav_instance))
+
 (defun erl-refactor-new-macro(name start end)
   "Introduce a new marco to represent an user-selected syntax phrase."
   (interactive (list (read-string "New macro name: ")
@@ -1755,7 +1760,6 @@
 			(goto-line line-no)
 			(goto-column column-no))))))))
 	  )))))
-
 
 (defun get-candidates-to-fold (candidates buffer) 
   (setq candidates-to-fold nil)
