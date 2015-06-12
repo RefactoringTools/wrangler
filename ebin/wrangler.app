@@ -53,7 +53,6 @@
               refac_swap_op_args,
               refac_sim_code,
               refac_sim_expr_search,
-              refac_state_to_record,
               refac_tuple,
               refac_unfold_fun_app,
               wrangler,
@@ -96,7 +95,6 @@
               wrangler_sup,
               wrangler_syntax,
               wrangler_syntax_lib,
-              wrangler_type_info,
               wrangler_undo_server,
               wrangler_unification,
               wrangler_write_file,
@@ -113,7 +111,6 @@
               refac_specialise_a_function,
               refac_swap_function_arguments,
               refac_add_to_export,
-              refac_my_apply,
               refac_add_callback,
               refac_to_behav_instance,
               regexp_re
