@@ -1169,7 +1169,15 @@ gen_question(tuple_args, [File, {F,A}, Index1, Index2|_]) ->
 gen_question(add_to_export, [File, {F, A}|_]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to function ~p:~p/~p to the export list?",
-                                [M, F, A])).
+                                [M, F, A]));
+gen_question(add_callback, [File, FunctionName|_]) ->
+    M=filename:basename(File, ".erl"),
+    lists:flatten(io_lib:format("Do you want to add all functions with name ~s in ~s to the callback list in behaviour_info? ",
+                                [M, FunctionName]));
+gen_question(instantiate_calls, [File, ModuleName, ArgList|_]) ->
+    M=list_to_atom(filename:basename(File, ".erl")),
+    lists:flatten(io_lib:format("Do you want to point all dynamic qualified calls in ~p to ~p for the following functions: ~s? ",
+				[M, ModuleName, ArgList])).
 
 index_gen(Index, PreArgs) ->
     case Index of
