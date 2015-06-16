@@ -326,8 +326,10 @@
     nil
     ("Behaviour Refactorings (Beta)"
      (
-      ("Add function name to behaviour_info" refac_add_callback)
       ("Expression to behaviour instance" erl-refactor-to-behav-instance)
+      nil
+      ("Add function name to behaviour_info" refac_add_callback)
+      ("Instantiate dynamic module from calls" refac_instantiate_calls)
       ))
     nil
     ("gen_refac Refacs"  (gen_refac_menu_items))
@@ -1608,6 +1610,10 @@
 (defun erl-refactor-to-behav-instance()
   (interactive)
   (apply-composite-refac 'refac_to_behav_instance))
+
+(defun refac_instantiate_callback()
+  (interactive)
+  (apply-adhoc-refac 'refac_instantiate_calls))
 
 (defun erl-refactor-new-macro(name start end)
   "Introduce a new marco to represent an user-selected syntax phrase."

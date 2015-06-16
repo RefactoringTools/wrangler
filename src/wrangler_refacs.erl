@@ -1444,6 +1444,10 @@ add_callback(FileName, FunName, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_add_callback, add_callback, [FileName, FunName, SearchPaths, Editor, TabWidth]).
 
 %%@private
+instantiate_calls(FileName, ModuleName, ArgList, SearchPaths, Editor, TabWidth) ->
+    try_refac(refac_instantiate_calls, instantiate_calls, [FileName, ModuleName, ArgList, SearchPaths, Editor, TabWidth]).
+
+%%@private
 try_to_apply(Mod, Fun, Args, Msg) -> 
     try apply(Mod, Fun, Args)
      catch

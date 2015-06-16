@@ -113,6 +113,7 @@
               refac_add_to_export,
               refac_add_callback,
               refac_to_behav_instance,
+	      refac_instantiate_calls,
               regexp_re
               ]},            
     {registered, [wrangler_ast_server,
