@@ -327,6 +327,7 @@
     ("Behaviour Refactorings (Beta)"
      (
       ("Expression to behaviour instance" erl-refactor-to-behav-instance)
+      ("Unfold behaviour instance" erl-refactor-unfold-behav-instance)
       nil
       ("Add function name to behaviour_info" refac_add_callback)
       ("Instantiate dynamic module from calls" refac_instantiate_calls)
@@ -1610,6 +1611,10 @@
 (defun erl-refactor-to-behav-instance()
   (interactive)
   (apply-composite-refac 'refac_to_behav_instance))
+
+(defun erl-refactor-unfold-behav-instance()
+  (interactive)
+  (apply-composite-refac 'refac_unfold_behav_instance))
 
 (defun refac_instantiate_callback()
   (interactive)
