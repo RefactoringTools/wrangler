@@ -743,6 +743,8 @@ fun_extraction_1_eclipse(FileName, Start, End, FunName, TabWidth) ->
 
 -spec(unfold_fun_app/5::(FileName::filename(), Pos::[integer()], SearchPaths::[dir()], context(), TabWidth::integer)
       ->{error, string()} |{'ok', [string()]}).
+unfold_fun_app(FileName, _Pos={Ln, Col}, SearchPaths, Context, TabWidth) ->
+    try_refac(refac_unfold_fun_app, unfold_fun_app, [FileName, {Ln, Col}, SearchPaths, Context, TabWidth]);
 unfold_fun_app(FileName, _Pos=[Ln, Col], SearchPaths, Context, TabWidth) ->
     try_refac(refac_unfold_fun_app, unfold_fun_app, [FileName, {Ln, Col}, SearchPaths, Context, TabWidth]).
 
