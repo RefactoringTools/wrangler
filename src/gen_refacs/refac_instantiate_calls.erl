@@ -35,8 +35,7 @@
 %% @end
 %%--------------------------------------------------------------------
 input_par_prompts() ->
-    ["Instance module name : ",
-     "List of functions [{Fun, Arity}, ... ] : "].
+    ["Instance module name : "].
 
 %%--------------------------------------------------------------------
 %% @private
@@ -84,9 +83,9 @@ selective() ->
 %% @end
 %%--------------------------------------------------------------------
 transform(#args{current_file_name = File,
-		user_inputs = [ModuleName, StrArgList]} = _Args) ->
-    ArgList = wrangler_syntax:concrete(
-		wrangler_misc:parse_annotate_expr(StrArgList)),
+		user_inputs = [ModuleName]} = _Args) ->
+    [ASTFuncs|_] = collect_callbacks(File),
+    ArgList = hd(lists:map(fun wrangler_syntax:concrete/1, ASTFuncs)),
     ?STOP_TD_TP([?RULE(
 		    ?T("Mod@:Func@(Args@@)"),
 		    begin
@@ -114,3 +113,8 @@ instantiate_calls(FileName, ModuleName, ArgList, SearchPaths, Editor, TabWidth) 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+collect_callbacks(File) ->
+    ?FULL_TD_TU([?COLLECT(?T("behaviour_info(callbacks) -> Funcs@@;"),
+			  Funcs@@, true)],
+		[File]).
