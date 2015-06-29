@@ -322,35 +322,9 @@ do_rename_mod_2(Tree, {_FileName, OldNewModPairs, _Pid}) ->
 		      Args1 = lists:map(F, Args),
 		      Tree1 = copy_pos_attrs(Tree, wrangler_syntax:attribute(AttrName, Args1)),
 		      {Tree1, Tree =/= Tree1};
-	    import -> Args = wrangler_syntax:attribute_arguments(Tree),
-		      case Args of
-			[H| T] ->
-			    case wrangler_syntax:type(H) of
-			      atom ->
-				  M = wrangler_syntax:atom_value(H),
-				  case lists:keysearch(M, 1, OldNewModPairs) of
-				    {value, {_OldModName, NewModName}} ->
-					H1 = copy_pos_attrs(H, wrangler_syntax:atom(NewModName)),
-					Tree1 = copy_pos_attrs(Tree, wrangler_syntax:attribute(AttrName, [H1| T])),
-					{Tree1, true};
-				    _ -> {Tree, false}
-				  end;
-			      qualified_name ->
-				  M = list_to_atom(packages:concat(
-						     [wrangler_syntax:atom_value(A)
-						      || A <- wrangler_syntax:qualified_name_segments(H)])),
-				  case lists:keysearch(M, 1, OldNewModPairs) of
-				    {value, {_OldModName, NewModName}} ->
-					H1 = copy_pos_attrs(H, wrangler_syntax:qualified_name(
-								    [wrangler_syntax:atom(NewModName)])),
-					Tree1 = copy_pos_attrs(Tree, wrangler_syntax:attribute(AttrName, [H1| T])),
-					{Tree1, true};
-				    _ -> {Tree, false}
-				  end;
-			      _ -> {Tree, false}
-			    end;
-			_ -> {Tree, false}
-		      end;
+	    behaviour -> update_behaviour_attrib(Tree, OldNewModPairs, AttrName);
+	    behavior -> update_behaviour_attrib(Tree, OldNewModPairs, AttrName);
+	    import -> update_import_attrib(Tree, OldNewModPairs, AttrName);
 	    _ -> {Tree, false}
 	  end;
       module_qualifier ->
@@ -382,6 +356,57 @@ do_rename_mod_2(Tree, {_FileName, OldNewModPairs, _Pid}) ->
 	  end;
 	_ -> {Tree, false}
     end.
+
+update_import_attrib(Tree, OldNewModPairs, AttrName) ->
+    Args = wrangler_syntax:attribute_arguments(Tree),
+    case Args of
+      [H| T] ->
+	  case wrangler_syntax:type(H) of
+	    atom ->
+		M = wrangler_syntax:atom_value(H),
+		case lists:keysearch(M, 1, OldNewModPairs) of
+		  {value, {_OldModName, NewModName}} ->
+		      H1 = copy_pos_attrs(H, wrangler_syntax:atom(NewModName)),
+		      Tree1 = copy_pos_attrs(Tree, wrangler_syntax:attribute(AttrName, [H1| T])),
+		      {Tree1, true};
+		  _ -> {Tree, false}
+		end;
+	    qualified_name ->
+		M = list_to_atom(packages:concat(
+				   [wrangler_syntax:atom_value(A)
+				    || A <- wrangler_syntax:qualified_name_segments(H)])),
+		case lists:keysearch(M, 1, OldNewModPairs) of
+		  {value, {_OldModName, NewModName}} ->
+		      H1 = copy_pos_attrs(H, wrangler_syntax:qualified_name(
+					          [wrangler_syntax:atom(NewModName)])),
+		      Tree1 = copy_pos_attrs(Tree, wrangler_syntax:attribute(AttrName, [H1| T])),
+		      {Tree1, true};
+		  _ -> {Tree, false}
+		end;
+	    _ -> {Tree, false}
+	  end;
+      _ -> {Tree, false}
+    end.
+
+update_behaviour_attrib(Tree, OldNewModPairs, AttrName) ->
+    Args = wrangler_syntax:attribute_arguments(Tree),
+    case Args of
+      [H] ->
+	  case wrangler_syntax:type(H) of
+	    atom ->
+		M = wrangler_syntax:atom_value(H),
+		case lists:keysearch(M, 1, OldNewModPairs) of
+		  {value, {_OldModName, NewModName}} ->
+		      H1 = copy_pos_attrs(H, wrangler_syntax:atom(NewModName)),
+		      Tree1 = copy_pos_attrs(Tree, wrangler_syntax:attribute(AttrName, [H1])),
+		      {Tree1, true};
+		  _ -> {Tree, false}
+		end;
+	    _ -> {Tree, false}
+	  end;
+      _ -> {Tree, false}
+    end.
+
 rename_mod_in_client_modules(Files, OldModName, OldNewModPairs, SearchPaths, TabWidth, Pid) ->
     case Files of 
         [] -> [];
