@@ -44,6 +44,7 @@
               refac_register_pid,
               refac_rename_fun,
               refac_rename_mod,
+              refac_copy_mod,
               refac_rename_op_arg,
               refac_rename_process,
               refac_rename_var,

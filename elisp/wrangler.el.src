@@ -329,6 +329,7 @@
       ("Expression to behaviour instance" erl-refactor-to-behav-instance)
       ("Unfold behaviour instance" erl-refactor-unfold-behav-instance)
       nil
+      ("Copy Module" erl-refactor-copy-mod)
       ("Add function name to behaviour_info" refac_add_callback)
       ("Instantiate dynamic module from calls" refac_instantiate_calls)
       ))
@@ -907,6 +908,81 @@
 	    (progn
 	      (setq has-warning warning)
 	      (preview-commit-cancel current-file-name modified renamed)
+	      )))))
+    (message "Refactoring aborted."))))
+
+(defun erl-refactor-copy-mod (name)
+  "Copy the current module."
+  (interactive (list (read-string "New module name: ")
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer)))
+  (if (buffers-saved)
+      (erl-spawn
+	(erl-send-rpc wrangler-erl-node 'emacs_wrangler 'apply_refac 
+                      (list 'copy_mod (list current-file-name name wrangler-search-paths 'emacs tab-width)
+                            wrangler-search-paths))
+        (erl-receive (buffer name current-file-name)
+	    ((['rex ['badrpc rsn]]
+	      (message "Refactoring failed: %S" rsn))
+	     (['rex ['error rsn]]
+	      (message "Refactoring failed: %s" rsn))
+	     (['rex ['warning msg]]
+	      (progn
+		(if (y-or-n-p msg)
+		    (erl-spawn
+		      (erl-send-rpc wrangler-erl-node 'wrangler_refacs 'try_refac
+                                    (list 'refac_copy_mod 'copy_mod_1
+                                          (list current-file-name name wrangler-search-paths tab-width 'false 'emacs)))
+		      (erl-receive (current-file-name)
+			  ((['rex ['badrpc rsn]]
+			    (message "Refactoring failed: %S" rsn))
+			   (['rex ['error rsn]]
+			    (message "Refactoring failed: %s" rsn))
+			   (['rex ['ok modified copied  warning]]
+			    (progn 
+			      (setq has-warning warning)
+			      (preview-commit-cancel current-file-name modified copied)
+			    )))
+		      (message "Refactoring aborted.")
+		      )))))
+	     (['rex ['question msg]]
+	      (progn
+		(if (y-or-n-p msg)
+		  (erl-spawn
+		    (erl-send-rpc wrangler-erl-node 'wrangler_refacs 'try_refac
+                                  (list 'refac_copy_mod 'copy_mod_1
+                                        (list current-file-name name wrangler-search-paths tab-width 'true 'emacs)))
+		    (erl-receive (current-file-name)
+			((['rex ['badrpc rsn]]
+			  (message "Refactoring failed: %S" rsn))
+			 (['rex ['error rsn]]
+			  (message "Refactoring failed: %s" rsn))
+			 (['rex ['ok modified copied warning]]
+			  (progn 
+			    (setq has-warning warning)
+			    (preview-commit-cancel current-file-name modified copied))
+			  ))))
+		(erl-spawn
+		  (erl-send-rpc wrangler-erl-node 'wrangler_refacs 'try_refac
+                                (list 'refac_copy_mod 'copy_mod_1 
+                                      (list current-file-name name wrangler-search-paths tab-width 'false 'emacs)))
+		    (erl-receive (current-file-name)
+			((['rex ['badrpc rsn]]
+			  (message "Refactoring failed: %S" rsn))
+			 (['rex ['error rsn]]
+			  (message "Refactoring failed: %s" rsn))
+			 (['rex ['ok modified copied warning]]
+			  (progn 
+			    (setq has-warning warning)
+			    (preview-commit-cancel current-file-name modified copied)
+			    )))))
+			   
+		)))
+	   (['rex ['ok modified copied warning]]
+	    (progn
+	      (setq has-warning warning)
+	      (preview-commit-cancel current-file-name modified copied)
 	      )))))
     (message "Refactoring aborted."))))
 

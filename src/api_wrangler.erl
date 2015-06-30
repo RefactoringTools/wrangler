@@ -45,7 +45,7 @@
  
 -module(api_wrangler).
 
--export([rename_mod/3, rename_fun/5, move_fun/5, similar_code/7]).
+-export([rename_mod/3, copy_mod/3, rename_fun/5, move_fun/5, similar_code/7]).
 
 -export([refac_bug_cond/1]).
 
@@ -84,6 +84,17 @@ undo() ->
 %%			   {ok, FilesChanged::[filename()]}|{error,Reason}
 rename_mod(ModOrFileName, NewModName, SearchPaths) ->
     try_apply(refac_rename_mod, rename_mod_command, [ModOrFileName, NewModName, SearchPaths]).
+
+%%===================================================================================
+%% @doc Copy a module.
+%% <p> This refactoring affects all those modules in which the module name is used, 
+%%     and returns either ok with the list of files affected by this 
+%%     refactoring, or an error message. </p>
+%%@spec copy_mod(ModorFileName::modulename()|filename(), NewModName::modulename(), SearchPaths::[dir()]) -> 
+%%			   {ok, FilesChanged::[filename()]}|{error,Reason}
+copy_mod(ModOrFileName, NewModName, SearchPaths) ->
+    try_apply(refac_copy_mod, copy_mod_command, [ModOrFileName, NewModName, SearchPaths]).
+
 
 %%===================================================================================
 %% @doc Rename a function.

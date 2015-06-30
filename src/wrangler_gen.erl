@@ -252,6 +252,62 @@ test_rename_mod(SearchPaths, Lazy) ->
                 SearchPaths).
  
 
+% @doc Command generator for copying module names.
+%%@hidden
+copy_mod(ModOrFile, NewModName, SearchPaths) ->
+    copy_mod(ModOrFile, NewModName, true, SearchPaths).
+
+%%@doc Command generator for copying module names.
+-spec copy_mod(ModOrFile::mod_or_file(),
+                 NewModName::{generator, fun((M::atom()|filename())->string())}
+                           | {user_input, Prompt::fun((M::atom())->
+                                                             string())}
+                           |string(),
+                 Lazy :: boolean(),
+                 SearchPaths::search_paths()) ->
+                        [elementary_refac()]|lazy_refac().
+copy_mod(ModOrFile, NewModName, false, SearchPaths) ->
+    Files= gen_file_names(ModOrFile, SearchPaths),
+    [copy_mod_1(File, NewModName, SearchPaths)
+              ||File<-Files];
+copy_mod(ModOrFile, NewModName, true, SearchPaths) ->
+    case gen_file_names(ModOrFile, true, SearchPaths) of
+        [] -> [];
+        [F] ->get_next_copy_mod_command(
+                 {F, none}, NewModName, SearchPaths);
+        {F, NextFileGen} ->
+            get_next_copy_mod_command(
+              {F, NextFileGen}, NewModName, SearchPaths)
+    end.
+
+copy_mod_1(File, NewModName, SearchPaths) ->
+    {refactoring, copy_mod, 
+     [File, new_name_gen(File, NewModName), SearchPaths, ?context]}.
+ 
+   
+get_next_copy_mod_command({File, NextFileGen}, NewFunName, SearchPaths) ->
+    Refac= copy_mod_1(File, NewFunName, SearchPaths), 
+    case NextFileGen of 
+        {lazy_file_gen, Gen} ->
+            case Gen() of 
+                [] -> [Refac];
+                {File1, Gen1} ->
+                    {Refac, {lazy_gen, fun()-> get_next_copy_mod_command(
+                                                 {File1, Gen1}, NewFunName, SearchPaths)
+                                       end}}
+            end;
+        _ -> [Refac]
+    end.
+   
+test_copy_mod(SearchPaths, Lazy) ->
+    copy_mod({file, fun(_File)-> true end}, 
+               {generator, fun(M) -> 
+                                   list_to_atom(lists:reverse(atom_to_list(M)))
+                           end},
+               Lazy,
+                SearchPaths).
+ 
+
 %% @doc Command generator for renaming variable names.
 %%@hidden
 rename_var(ModOrFile, FA, OldVarName, NewVarName, SearchPaths) ->
@@ -1137,6 +1193,9 @@ gen_question(rename_fun,[File,{F,A}|_]) ->
 gen_question(rename_mod,[File|_]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to rename module '~p'?", [M]));
+gen_question(copy_mod,[File|_]) ->
+    M=list_to_atom(filename:basename(File, ".erl")),
+    lists:flatten(io_lib:format("Do you want to copy module '~p'?", [M]));
 gen_question(rename_var,[File,{F,A},{range, {_File, _Loc}, V}|_]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to rename variable ~s in function ~p:~p/~p?", [V,M,F,A]));

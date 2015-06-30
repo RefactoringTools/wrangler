@@ -48,6 +48,7 @@
          rename_fun/7, 
          rename_fun_1/7,
          rename_mod/5,
+         copy_mod/5,
 	 rename_process/7, 
          generalise/7, 
          gen_fun_1/12, 
@@ -97,7 +98,8 @@
 
 -export([rename_var_eclipse/6, rename_fun_eclipse/6,
 	 rename_fun_1_eclipse/6, rename_mod_eclipse/4,
-	 rename_mod_1_eclipse/5, generalise_eclipse/6,
+	 rename_mod_1_eclipse/5, copy_mod_eclipse/4,
+	 copy_mod_1_eclipse/5, generalise_eclipse/6,
 	 move_fun_eclipse/6, move_fun_1_eclipse/6,
 	 fun_extraction_eclipse/5, fun_extraction_1_eclipse/5,
 	 gen_fun_1_eclipse/11, gen_fun_clause_eclipse/10,
@@ -383,6 +385,39 @@ rename_mod_eclipse(FileName, NewName, SearchPaths, TabWidth) ->
       ->{ok, [{filename(), filename(), string()}]}).
 rename_mod_1_eclipse(FileName, NewName, SearchPaths, TabWidth, RenameTestMod) ->
     try_refac(refac_rename_mod, rename_mod_1_eclipse, [FileName, NewName, SearchPaths, TabWidth, RenameTestMod]).
+
+%%======================================================================================
+%% @doc Copy a module.
+%% <p> This refactoring affects all those modules in which the module name is used.
+%% </p>
+%% <p>
+%% The following <em> side-conditions </em> apply to this refactoring:
+%% <li> The new module name should not have been used as a module name in the program under consideration. </li>
+%% <li> This refactoring assume that the file basename is always the same as the module name, therefore this 
+%% refactoring changes the filename as well. </li>
+%% </p>
+%% <p> Usage: to apply this refactoring, point the cursor anywhere in the module to be copied, then select 
+%% <em> Copy Module </em> from the <em> Refactor </em> menu, after that, the refactorer will prompt to enter 
+%% the new module name in the mini-buffer.
+%% </p>
+
+-spec(copy_mod/5::(filename(), string(), [dir()], context(), integer()) -> 
+	     {error, string()} | {question, string()} | {warning, string()} |{ok, [filename()]}).
+copy_mod(FileName, NewName, SearchPaths, Context, TabWidth) ->
+    try_refac(refac_copy_mod, copy_mod, [FileName, NewName, SearchPaths, Context, TabWidth]).
+
+%%@private
+-spec(copy_mod_eclipse/4::(FileName::filename(), NewName::string(), SearchPaths::[dir()], TabWidth::integer()) ->
+	     {error, string()} | {question, string()} | {warning, string()} |
+		 {ok, [{filename(), filename(), string()}]}).
+copy_mod_eclipse(FileName, NewName, SearchPaths, TabWidth) ->
+    try_refac(refac_copy_mod, copy_mod_eclipse, [FileName, NewName, SearchPaths, TabWidth]).
+
+%%@private
+-spec(copy_mod_1_eclipse/5::(FileName::filename(), NewName::string(), SearchPaths::[dir()], TabWith::integer(), CopyTestMod::boolean())
+      ->{ok, [{filename(), filename(), string()}]}).
+copy_mod_1_eclipse(FileName, NewName, SearchPaths, TabWidth, CopyTestMod) ->
+    try_refac(refac_copy_mod, copy_mod_1_eclipse, [FileName, NewName, SearchPaths, TabWidth, CopyTestMod]).
 
 %% ==========================================================================================
 %% @doc  Generalise a function definition.
