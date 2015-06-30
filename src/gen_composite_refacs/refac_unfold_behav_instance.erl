@@ -30,7 +30,7 @@
 %% @end
 %%--------------------------------------------------------------------
 input_par_prompts() ->
-    [].
+    ["Name for the output module : "].
 
 %%--------------------------------------------------------------------
 %% @private
@@ -54,24 +54,30 @@ select_focus(_Args) ->
 %% @end
 %%--------------------------------------------------------------------
 composite_refac(#args{current_file_name = FileName,
-		      user_inputs = [],
+		      user_inputs = [NewModuleNameStr],
 		      search_paths = SearchPaths,
 		      tabwidth = _TabWidth} = _Args) ->
     DefModuleStr = ?PP(hd(find_behaviour_module(FileName))),
     DefModule = list_to_atom(DefModuleStr),
+    NewModule = list_to_atom(NewModuleNameStr),
     [DefModuleFile] = wrangler_gen:gen_file_names(DefModule, SearchPaths),
     [ASTFuncs|_] = collect_callbacks(DefModuleFile),
     Funcs = hd(lists:map(fun wrangler_syntax:concrete/1, ASTFuncs)),
-    ?atomic([
+    ?atomic([?refac_(copy_mod,
+		     [DefModule,
+		      NewModule,
+		      [FileName],
+		      false,
+		      SearchPaths]),
 	     ?refac_(move_fun,
 		     [FileName,
 		      fun (_FA) -> true end,
-		      DefModule,
+		      NewModule,
 		      false,
 		      SearchPaths
 		     ]),
 	     ?refac_(unfold_fun_app,
-		     [DefModule,
+		     [NewModule,
 		      fun (FA) -> not lists:member(FA, Funcs) end,
 		      fun ({D, F, A}) -> D =:= DefModule andalso
 					     lists:member({F, A}, Funcs) end,

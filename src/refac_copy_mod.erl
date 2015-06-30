@@ -60,7 +60,7 @@
 %% @private
 -module(refac_copy_mod).
 
--export([copy_mod/5, copy_mod_1/6, 
+-export([copy_mod/5, copy_mod/6, copy_mod_1/6, 
 	 copy_mod_eclipse/4, copy_mod_1_eclipse/5,
 	 copy_mod_command/3]).
 
@@ -107,8 +107,9 @@ copy_mod_command(OldFileName, NewModName, SearchPaths, TabWidth) ->
     copy_mod_command_precond_check(OldFileName, NewModName, Info, SearchPaths),
     {value, {module, OldModName}} = lists:keysearch(module, 1, Info),
     NewModNameAtom = list_to_atom(NewModName),
-    do_copy_mod(OldFileName, [{OldModName, NewModNameAtom}], AnnAST,
-		  SearchPaths, command, TabWidth, "").
+    do_copy_mod(OldFileName, [{OldModName, NewModNameAtom}],
+		               {any}, AnnAST,
+                                      SearchPaths, command, TabWidth, "").
 
 copy_mod_command_precond_check(OldFileName, NewModName, Info, SearchPaths) ->
     case api_refac:is_fun_name(NewModName) of
@@ -131,7 +132,7 @@ copy_mod_command_precond_check(OldFileName, NewModName, Info, SearchPaths) ->
 %%	     {error, string()} | {question, string()} | {warning, string()} |
 %%		 {ok, [{filename(), filename(), string()}]}).
 copy_mod_eclipse(FileName, NewName, SearchPaths, TabWidth) ->
-    copy_mod(FileName, NewName, SearchPaths, eclipse, TabWidth).
+    copy_mod(FileName, NewName, {any}, SearchPaths, eclipse, TabWidth).
 
 %%-spec(copy_mod_1_eclipse/5::(filename(), string(), [dir()], integer(),boolean()) ->
 %%				    {ok, [{filename(), filename(), string()}]}).
@@ -139,31 +140,45 @@ copy_mod_1_eclipse(FileName, NewName, SearchPaths, TabWidth, CopyTestMod) ->
     copy_mod_1(FileName, NewName, SearchPaths, TabWidth, CopyTestMod, eclipse).
 
 copy_mod(FileName, NewName, SearchPaths, Editor, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:copy_mod(~p, ~p,~p, ~p, ~p).\n",
+    ?wrangler_io("\nCMD: ~p:copy_mod(~p, ~p, ~p, ~p, ~p).\n",
 		 [?MODULE, FileName, NewName, SearchPaths, Editor, TabWidth]),
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":copy_mod(" ++ "\"" ++ 
-	    FileName ++ "\", " ++ NewName ++ "\"," ++ "[" ++ 
-	      wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":copy_mod(" ++ "\"" ++
+	FileName ++ "\", \"" ++ NewName ++ "\"," ++ "[" ++
+	wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    copy_mod_both(FileName, NewName, {any}, SearchPaths, Editor, TabWidth, Cmd).
+
+copy_mod(FileName, NewName, UpdateFileNames, SearchPaths, Editor, TabWidth) ->
+    ?wrangler_io("\nCMD: ~p:copy_mod(~p, ~p, ~p, ~p, ~p, ~p).\n",
+		 [?MODULE, FileName, NewName, UpdateFileNames, SearchPaths, Editor, TabWidth]),
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":copy_mod(" ++ "\"" ++
+	FileName ++ "\", \"" ++ NewName ++ "\", [" ++
+	wrangler_misc:format_search_paths(UpdateFileNames) ++ "], " ++ "[" ++
+	wrangler_misc:format_search_paths(SearchPaths) ++ "], " ++
+	integer_to_list(TabWidth) ++ ").",
+    copy_mod_both(FileName, NewName, UpdateFileNames, SearchPaths, Editor,
+		  TabWidth, Cmd).
+
+copy_mod_both(FileName, NewName, UpdateFileNames, SearchPaths, Editor, TabWidth, Cmd) ->
     case api_refac:is_fun_name(NewName) of
 	true ->
 	    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
 	    case lists:keysearch(module, 1, Info) of
 		{value, {module, OldModName}} ->
 		    case is_tuple(OldModName) of
-			true -> throw({error, "Renaming of parameterised module is not supported yet."});
-			false -> ok
+		        true -> throw({error, "Renaming of parameterised module is not supported yet."});
+		        false -> ok
 		    end,
 		    NewModName = list_to_atom(NewName),
 		    TestFrameWorkUsed = wrangler_misc:test_framework_used(FileName),
 		    case pre_cond_check(FileName, OldModName, NewModName, TestFrameWorkUsed, SearchPaths) of
 			ok ->
-			    do_copy_mod(FileName, [{OldModName, NewModName}],
-					  AnnAST, SearchPaths, Editor, TabWidth, Cmd);
-			Other -> Other
-		    end;
-		false -> {error, "Wrangler could not infer the current module name."}
-	    end;
-	false -> {error, "Invalid new module name!"}
+			    do_copy_mod(FileName,[{OldModName, NewModName}],
+		                                 UpdateFileNames,AnnAST,SearchPaths,Editor,TabWidth,Cmd);
+		        Other -> Other
+	            end;
+	        false -> {error, "Wrangler could not infer the current module name."}
+            end;
+        false -> {error, "Invalid new module name!"}
     end.
 
 parse_file_with_type_ann(FileName, SearchPaths, TabWidth) ->
@@ -219,9 +234,9 @@ pre_cond_test_file_checking(OldModName, NewModName,TestFrameWorkUsed, SearchPath
 copy_mod_1(FileName, NewName, SearchPaths, TabWidth, CopyTestMod, Editor) ->
     ?wrangler_io("\nCMD: ~p:copy_mod_1(~p, ~p,~p, ~p, ~p, ~p).\n",
 		 [?MODULE, FileName, NewName, SearchPaths, TabWidth, CopyTestMod, Editor]),
-    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":copy_mod(" ++ "\"" ++ 
-	    FileName ++ "\", " ++ NewName ++ "\"," ++ "[" ++ 
-	      wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
+    Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":copy_mod(" ++ "\"" ++
+	FileName ++ "\", \"" ++ NewName ++ "\"," ++ "[" ++
+	wrangler_misc:format_search_paths(SearchPaths) ++ "]," ++ integer_to_list(TabWidth) ++ ").",
     {AnnAST, Info} = parse_file_with_type_ann(FileName, SearchPaths, TabWidth),
     {value, {module, OldModName}} = lists:keysearch(module, 1, Info),
     NewModName = list_to_atom(NewName),
@@ -231,76 +246,86 @@ copy_mod_1(FileName, NewName, SearchPaths, TabWidth, CopyTestMod, Editor) ->
 	    TestModName = list_to_atom(atom_to_list(OldModName) ++ "_tests"),
 	    NewTestModName = list_to_atom(NewName ++ "_tests"),
 	    do_copy_mod(FileName, [{OldModName, NewModName}, {TestModName, NewTestModName}],
-			  AnnAST, SearchPaths, Editor, TabWidth, Cmd);
+			{any}, AnnAST, SearchPaths, Editor, TabWidth, Cmd);
 	false ->
-	    do_copy_mod(FileName, [{OldModName, NewModName}], AnnAST, SearchPaths, Editor, TabWidth, Cmd)
+	    do_copy_mod(FileName, [{OldModName, NewModName}], {any}, AnnAST,
+			SearchPaths, Editor, TabWidth, Cmd)
     end.
 
-do_copy_mod(FileName, OldNewModPairs, AnnAST, SearchPaths, Editor, TabWidth, Cmd) ->
-    {OldModName, NewModName} = hd(OldNewModPairs),
-    NewFileName = filename:dirname(FileName) ++ "/" ++ atom_to_list(NewModName) ++ ".erl",
-    {TestFileName, NewTestFileName} =
-	case find_eunit_test_file(OldModName, SearchPaths) of
-	    [F] -> {F, filename:dirname(F) ++ "/" ++ atom_to_list(NewModName) ++ "_tests.erl"};
-	    _ -> {none, none}
-	end,
-    Pid = start_atom_process(),
-    ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
-    {AnnAST1, _C1} = do_rename_mod_1(AnnAST, {FileName, OldNewModPairs, Pid}),
-    OldModNames = element(1, lists:unzip(OldNewModPairs)),
-    check_unsure_atoms(FileName, AnnAST1, OldModNames, m_atom, Pid),
-    TestModRes = case length(OldNewModPairs) of
-		     2 -> ?wrangler_io("The current file under refactoring is:\n~p\n", [TestFileName]),
-			  {TestAnnAST, _Info} = parse_file_with_type_ann(TestFileName, SearchPaths, TabWidth),
-			  {TestAnnAST1, _C2} = do_rename_mod_1(TestAnnAST, {FileName, OldNewModPairs, Pid}),
-			  check_unsure_atoms(FileName, TestAnnAST1, OldModNames, m_atom, Pid),
-			  [{{NewTestFileName, NewTestFileName}, TestAnnAST1}];
-		     _ -> []
-		 end,
-    ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
-    ClientFiles1 = wrangler_modulegraph_server:get_client_files(FileName, SearchPaths),
-    ClientFiles2 = case length(OldNewModPairs) == 2 of
-		       true -> wrangler_modulegraph_server:get_client_files(TestFileName, SearchPaths);
-		       _ -> []
-		   end,
-    ClientFiles = case length(OldNewModPairs) of
-		      2 -> lists:usort(ClientFiles1 ++ ClientFiles2) -- [FileName, TestFileName];
-		      _ -> ClientFiles1
-		  end,
-    Results = rename_mod_in_client_modules(ClientFiles, OldModName, OldNewModPairs, SearchPaths, TabWidth, Pid),
-    HasWarningMsg = wrangler_atom_utils:has_warning_msg(Pid),
-    case HasWarningMsg of
-        true ->
-            output_atom_warning_msg(Pid, not_renamed_warn_msg(OldModNames), renamed_warn_msg(OldModNames));
-        false ->
-            ok
-    end,
-    stop_atom_process(Pid),
-    Results1 = [{{NewFileName, NewFileName}, AnnAST1}| TestModRes ++ Results],
-    case create_files([NewFileName] ++ [TF || {{TF, _}, _} <- TestModRes]) of
-	ok ->
-	    case Editor==emacs orelse Editor == composite_emacs of
-		true ->
-		    case Editor of 
-			emacs -> wrangler_write_file:write_refactored_files_for_preview(Results1, TabWidth, Cmd);
-			_ -> 
-			    wrangler_write_file:write_refactored_files(Results1, Editor, TabWidth, "")
-		    end,
-		    ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
-		    ChangedFiles = case length(OldNewModPairs) of
-				       2 -> [FileName, TestFileName| ChangedClientFiles];
-				       1 -> [FileName| ChangedClientFiles]
-				   end,
-		    RenamedFiles = [{NewFileName, NewFileName}]++[{F1, F2} || {{F1,F2}, _} <- TestModRes],
-		    ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n", [ChangedFiles]),
-		    {ok, ChangedFiles, RenamedFiles, HasWarningMsg};
-		_ ->
-		    wrangler_write_file:write_refactored_files(Results1, Editor, TabWidth, "")
-	    end;
-	{error, File, Reason} -> 
-	    Msg = io_lib:format("Wrangler could not write to file ~s: ~w \n",
-				[File, Reason]),
-	    throw({error, Msg})
+do_copy_mod(FileName, OldNewModPairs, UpdateFileNames, AnnAST, SearchPaths, Editor, TabWidth, Cmd) ->
+         {OldModName, NewModName} = hd(OldNewModPairs),
+         NewFileName = filename:dirname(FileName) ++ "/" ++ atom_to_list(NewModName) ++ ".erl",
+         {TestFileName, NewTestFileName} =
+	     case find_eunit_test_file(OldModName, SearchPaths) of
+	         [F] -> {F, filename:dirname(F) ++ "/" ++ atom_to_list(NewModName) ++ "_tests.erl"};
+	         _ -> {none, none}
+	     end,
+         Pid = start_atom_process(),
+         ?wrangler_io("The current file under refactoring is:\n~p\n", [FileName]),
+         {AnnAST1, _C1} = do_rename_mod_1(AnnAST, {FileName, OldNewModPairs, Pid}),
+         OldModNames = element(1, lists:unzip(OldNewModPairs)),
+         check_unsure_atoms(FileName, AnnAST1, OldModNames, m_atom, Pid),
+         TestModRes = case length(OldNewModPairs) of
+		          2 -> ?wrangler_io("The current file under refactoring is:\n~p\n", [TestFileName]),
+			       {TestAnnAST, _Info} = parse_file_with_type_ann(TestFileName, SearchPaths, TabWidth),
+			       {TestAnnAST1, _C2} = do_rename_mod_1(TestAnnAST, {FileName, OldNewModPairs, Pid}),
+			       check_unsure_atoms(FileName, TestAnnAST1, OldModNames, m_atom, Pid),
+			       [{{NewTestFileName, NewTestFileName}, TestAnnAST1}];
+		          _ -> []
+		      end,
+         ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
+         ClientFiles1 = wrangler_modulegraph_server:get_client_files(FileName, SearchPaths),
+         ClientFiles2 = case length(OldNewModPairs) == 2 of
+		            true -> wrangler_modulegraph_server:get_client_files(TestFileName, SearchPaths);
+		            _ -> []
+		        end,
+         ClientFiles = case length(OldNewModPairs) of
+		           2 -> lists:usort(ClientFiles1 ++ ClientFiles2) -- [FileName, TestFileName];
+		           _ -> ClientFiles1
+		       end,
+         Results = filter_updated_modules(
+		     rename_mod_in_client_modules(ClientFiles, OldModName, OldNewModPairs, SearchPaths, TabWidth, Pid),
+		     UpdateFileNames),
+         HasWarningMsg = wrangler_atom_utils:has_warning_msg(Pid),
+         case HasWarningMsg of
+             true ->
+                 output_atom_warning_msg(Pid, not_renamed_warn_msg(OldModNames), renamed_warn_msg(OldModNames));
+             false ->
+                 ok
+         end,
+         stop_atom_process(Pid),
+         Results1 = [{{NewFileName, NewFileName}, AnnAST1}| TestModRes ++ Results],
+         case create_files([NewFileName] ++ [TF || {{TF, _}, _} <- TestModRes]) of
+	     ok ->
+	         case Editor == emacs orelse Editor == composite_emacs of
+		     true ->
+		         case Editor of
+			     emacs -> wrangler_write_file:write_refactored_files_for_preview(Results1, TabWidth, Cmd);
+			     _ ->
+			         wrangler_write_file:write_refactored_files(Results1, Editor, TabWidth, "")
+		         end,
+		         ChangedClientFiles = lists:map(fun ({{F, _F}, _AST}) -> F end, Results),
+		         ChangedFiles = case length(OldNewModPairs) of
+				            2 -> [FileName, TestFileName| ChangedClientFiles];
+				            1 -> [FileName| ChangedClientFiles]
+				        end,
+		         RenamedFiles = [{NewFileName, NewFileName}] ++ [{F1, F2} || {{F1,F2}, _} <- TestModRes],
+		         ?wrangler_io("The following files are to be changed by this refactoring:\n~p\n", [ChangedFiles]),
+		         {ok, ChangedFiles, RenamedFiles, HasWarningMsg};
+		     _ ->
+		         wrangler_write_file:write_refactored_files(Results1, Editor, TabWidth, "")
+	         end;
+	     {error, File, Reason} ->
+	         Msg = io_lib:format("Wrangler could not write to file ~s: ~w \n",
+				     [File, Reason]),
+	         throw({error, Msg})
+         end.
+filter_updated_modules([], _) -> [];
+filter_updated_modules(Any, {any}) -> Any;
+filter_updated_modules([{{F,F}, _} = Head|Tail], List) ->
+    case lists:member(F, List) of
+	true -> [Head|filter_updated_modules(Tail, List)];
+	false -> filter_updated_modules(Tail, List)
     end.
 
 create_files([]) -> ok;

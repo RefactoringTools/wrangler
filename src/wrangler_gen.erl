@@ -254,46 +254,51 @@ test_rename_mod(SearchPaths, Lazy) ->
 
 % @doc Command generator for copying module names.
 %%@hidden
-copy_mod(ModOrFile, NewModName, SearchPaths) ->
-    copy_mod(ModOrFile, NewModName, true, SearchPaths).
+copy_mod(ModOrFile, NewModName, FilesToUpdate, SearchPaths) ->
+    copy_mod(ModOrFile, NewModName, FilesToUpdate, true, SearchPaths).
 
 %%@doc Command generator for copying module names.
 -spec copy_mod(ModOrFile::mod_or_file(),
                  NewModName::{generator, fun((M::atom()|filename())->string())}
                            | {user_input, Prompt::fun((M::atom())->
                                                              string())}
-                           |string(),
+                           | string(),
+                 FilesToUpdate::{generator, fun((M::atom()|filename())-> [string()])}
+                           | {user_input, Prompt::fun((M::atom())-> [string()])}
+                           | [string()] | {any}, % {any} means that all files must be updated
                  Lazy :: boolean(),
                  SearchPaths::search_paths()) ->
                         [elementary_refac()]|lazy_refac().
-copy_mod(ModOrFile, NewModName, false, SearchPaths) ->
+copy_mod(ModOrFile, NewModName, FilesToUpdate, false, SearchPaths) ->
     Files= gen_file_names(ModOrFile, SearchPaths),
-    [copy_mod_1(File, NewModName, SearchPaths)
-              ||File<-Files];
-copy_mod(ModOrFile, NewModName, true, SearchPaths) ->
+    [copy_mod_1(File, NewModName, FilesToUpdate, SearchPaths)
+     ||File<-Files];
+copy_mod(ModOrFile, NewModName, FilesToUpdate, true, SearchPaths) ->
     case gen_file_names(ModOrFile, true, SearchPaths) of
         [] -> [];
         [F] ->get_next_copy_mod_command(
-                 {F, none}, NewModName, SearchPaths);
+                 {F, none}, NewModName, FilesToUpdate, SearchPaths);
         {F, NextFileGen} ->
             get_next_copy_mod_command(
-              {F, NextFileGen}, NewModName, SearchPaths)
+              {F, NextFileGen}, NewModName, FilesToUpdate, SearchPaths)
     end.
 
-copy_mod_1(File, NewModName, SearchPaths) ->
+copy_mod_1(File, NewModName, FilesToUpdate, SearchPaths) ->
     {refactoring, copy_mod, 
-     [File, new_name_gen(File, NewModName), SearchPaths, ?context]}.
- 
-   
-get_next_copy_mod_command({File, NextFileGen}, NewFunName, SearchPaths) ->
-    Refac= copy_mod_1(File, NewFunName, SearchPaths), 
+     [File, new_mod_gen(File, NewModName),
+      mod_name_list_gen(File, FilesToUpdate), %% Must return a list of modules to update
+      SearchPaths, ?context]}.
+
+get_next_copy_mod_command({File, NextFileGen}, NewFunName, FilesToUpdate, SearchPaths) ->
+    Refac= copy_mod_1(File, NewFunName, FilesToUpdate, SearchPaths), 
     case NextFileGen of 
         {lazy_file_gen, Gen} ->
             case Gen() of 
                 [] -> [Refac];
                 {File1, Gen1} ->
                     {Refac, {lazy_gen, fun()-> get_next_copy_mod_command(
-                                                 {File1, Gen1}, NewFunName, SearchPaths)
+                                                 {File1, Gen1}, NewFunName,
+						 FilesToUpdate, SearchPaths)
                                        end}}
             end;
         _ -> [Refac]
@@ -304,9 +309,10 @@ test_copy_mod(SearchPaths, Lazy) ->
                {generator, fun(M) -> 
                                    list_to_atom(lists:reverse(atom_to_list(M)))
                            end},
-               Lazy,
-                SearchPaths).
- 
+               {generator, fun(_M) -> [] end},
+	     Lazy,
+	     SearchPaths).
+
 
 %% @doc Command generator for renaming variable names.
 %%@hidden
@@ -1260,6 +1266,19 @@ pos_gen(PosGen) ->
             PosGen()
     end.
 
+mod_name_list_gen(File, NewName) ->
+    ModName=list_to_atom(filename:basename(File, ".erl")),
+    case NewName of
+        {generator, GenFun} ->
+            GenFun(ModName);
+        {user_input, GenPrompt} ->
+            {prompt, GenPrompt(ModName)};
+        {any} -> {any};
+        _ when is_list(NewName) -> NewName;
+        _ ->
+            throw({error, "Invalid module list."})
+    end.
+
 new_name_gen(File, NewName) ->
     ModName=list_to_atom(filename:basename(File, ".erl")),
     case NewName of
@@ -1269,6 +1288,19 @@ new_name_gen(File, NewName) ->
             {prompt, GenPrompt(ModName)};
         _ when is_atom(NewName) ->
             NewName;
+        _ ->
+            throw({error, "Invalid new funname."})
+    end.
+
+new_mod_gen(File, NewName) ->
+    ModName=list_to_atom(filename:basename(File, ".erl")),
+    case NewName of
+        {generator, GenFun} ->
+            GenFun(ModName);
+        {user_input, GenPrompt} ->
+            {prompt, GenPrompt(ModName)};
+        _ when is_atom(NewName) ->
+            atom_to_list(NewName);
         _ ->
             throw({error, "Invalid new funname."})
     end.

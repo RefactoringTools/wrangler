@@ -406,6 +406,11 @@ rename_mod_1_eclipse(FileName, NewName, SearchPaths, TabWidth, RenameTestMod) ->
 copy_mod(FileName, NewName, SearchPaths, Context, TabWidth) ->
     try_refac(refac_copy_mod, copy_mod, [FileName, NewName, SearchPaths, Context, TabWidth]).
 
+-spec(copy_mod/6::(filename(), string(), [string()], [dir()], context(), integer()) -> 
+	     {error, string()} | {question, string()} | {warning, string()} |{ok, [filename()]}).
+copy_mod(FileName, NewName, UpdateFiles, SearchPaths, Context, TabWidth) ->
+    try_refac(refac_copy_mod, copy_mod, [FileName, NewName, UpdateFiles, SearchPaths, Context, TabWidth]).
+
 %%@private
 -spec(copy_mod_eclipse/4::(FileName::filename(), NewName::string(), SearchPaths::[dir()], TabWidth::integer()) ->
 	     {error, string()} | {question, string()} | {warning, string()} |
