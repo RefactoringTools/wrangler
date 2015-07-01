@@ -61,13 +61,13 @@ composite_refac(#args{current_file_name = FileName,
 		      user_inputs = [DestModule],
 		      search_paths = SearchPaths,
 		      tabwidth = _TabWidth} = _Args) ->
-    {_M, F, _A} = api_refac:fun_define_info(FunDef),
+    {_M, F, A} = api_refac:fun_define_info(FunDef),
     ?atomic([
 	     {refactoring, add_callback,
-	      [FileName, atom_to_list(F), SearchPaths, composite_emacs]},
+	      [FileName, atom_to_list(F), integer_to_list(A), SearchPaths, composite_emacs]},
 	     ?refac_(move_fun,
 		     [FileName,
-		      fun ({Name, _Arity}) -> Name =:= F;
+		      fun ({Name, Arity}) -> Name =:= F andalso Arity =:= A;
 			  (_Else) -> false
 		      end,
 		      list_to_atom(DestModule),
