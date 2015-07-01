@@ -113,6 +113,7 @@
               refac_swap_function_arguments,
               refac_add_to_export,
               refac_add_callback,
+              refac_add_callbacks,
               refac_to_behav_instance,
 	      refac_instantiate_calls,
               regexp_re

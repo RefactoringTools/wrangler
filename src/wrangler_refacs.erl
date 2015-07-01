@@ -131,7 +131,8 @@
 	 input_par_prompts_c_eclipse/1, init_composite_refac_eclipse/2,
          get_next_command_eclipse/1, 
 	 get_user_refactorings/1, load_user_refactorings/1,
-	 add_callback/5
+	 add_callback/6,
+	 add_callbacks/5
 	]).
  
 -export([do_api_migration/5,
@@ -1482,8 +1483,11 @@ generate_rule_based_api_migration_mod(FileName, NewModName) ->
     try_refac(refac_api_migration, generate_rule_based_api_migration_mod, [FileName, NewModName]).
 
 %%@private
-add_callback(FileName, FunName, SearchPaths, Editor, TabWidth) ->
-    try_refac(refac_add_callback, add_callback, [FileName, FunName, SearchPaths, Editor, TabWidth]).
+add_callback(FileName, FunName, Arity, SearchPaths, Editor, TabWidth) ->
+    try_refac(refac_add_callback, add_callback, [FileName, FunName, Arity, SearchPaths, Editor, TabWidth]).
+%%@private
+add_callbacks(FileName, FunName, SearchPaths, Editor, TabWidth) ->
+    try_refac(refac_add_callback, add_callbacks, [FileName, FunName, SearchPaths, Editor, TabWidth]).
 
 %%@private
 instantiate_calls(FileName, ModuleName, SearchPaths, Editor, TabWidth) ->

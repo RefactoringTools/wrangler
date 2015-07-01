@@ -1288,7 +1288,11 @@ gen_question(add_to_export, [File, {F, A}|_]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to function ~p:~p/~p to the export list?",
                                 [M, F, A]));
-gen_question(add_callback, [File, FunctionName|_]) ->
+gen_question(add_callback, [File, FunctionName, Arity|_]) ->
+    M=filename:basename(File, ".erl"),
+    lists:flatten(io_lib:format("Do you want to add the function ~s/~p in ~s to the callback list in behaviour_info? ",
+                                [M, FunctionName, Arity]));
+gen_question(add_callbacks, [File, FunctionName|_]) ->
     M=filename:basename(File, ".erl"),
     lists:flatten(io_lib:format("Do you want to add all functions with name ~s in ~s to the callback list in behaviour_info? ",
                                 [M, FunctionName]));

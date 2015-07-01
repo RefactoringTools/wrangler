@@ -331,7 +331,8 @@
       ("Unfold behaviour instance" erl-refactor-unfold-behav-instance)
       nil
       ("Copy Module" erl-refactor-copy-mod)
-      ("Add function name to behaviour_info" refac_add_callback)
+      ("Add function to behaviour_info" refac_add_callback)
+      ("Add function name to behaviour_info" refac_add_callbacks)
       ("Instantiate dynamic module from calls" refac_instantiate_calls)
       ))
     nil
@@ -1684,6 +1685,10 @@
 (defun refac_add_callback()
   (interactive)
   (apply-adhoc-refac 'refac_add_callback))
+
+(defun refac_add_callbacks()
+  (interactive)
+  (apply-adhoc-refac 'refac_add_callbacks))
 
 (defun erl-refactor-func-to-behav-instance()
   (interactive)

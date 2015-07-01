@@ -3,11 +3,11 @@
 %%% @copyright (C) 2015, Pablo Lamela
 %%% @doc
 %%% Adds a callback declaration for the function with the name
-%%% and arity specified.
+%%% specified.
 %%% @end
 %%% Created : 10 Jun 2015 by Pablo Lamela
 %%%-------------------------------------------------------------------
--module(refac_add_callback).
+-module(refac_add_callbacks).
 
 -behaviour(gen_refac).
 
@@ -20,7 +20,7 @@
 	 check_pre_cond/1, selective/0, 
 	 transform/1]).
 
--export([add_callback/6]).
+-export([add_callbacks/5]).
 
 %%%===================================================================
 %%% gen_refac callbacks
@@ -35,8 +35,7 @@
 %% @end
 %%--------------------------------------------------------------------
 input_par_prompts() ->
-    ["Name of the function to which add callback declaration : ",
-     "Arity of the function to which add callback declaration : "].
+    ["Name of the function to which add callback declaration : "].
 
 %%--------------------------------------------------------------------
 %% @private
@@ -84,10 +83,14 @@ selective() ->
 %% @end
 %%--------------------------------------------------------------------
 transform(#args{current_file_name = File,
-		user_inputs = [FunctionName, Arity]} = _Args) ->
+		user_inputs = [FunctionName]} = _Args) ->
     FAs = [wrangler_syntax:tuple(
 	     [wrangler_syntax:atom(FunctionName),
-	      wrangler_syntax:integer(list_to_integer(Arity))])],
+	      wrangler_syntax:integer(Use)])
+	   || Use <- lists:usort(
+		       lists:map(
+			 fun length/1,
+			 collect_uses(FunctionName, File)))],
     case collect_callbacks(File) of
 	[] -> case add_to_export(File) of
 		  {ok, [{_, AST}]} -> {ok, [{{File, File}, insert_attribute(FAs, AST)}]};
@@ -114,6 +117,11 @@ generate_callback(FAs) ->
                              undefined.",
 			[lists:flatten(?PP(wrangler_syntax:list(FAs)))])),
     ?TO_AST(Template).
+
+collect_uses(FunctionName, File) ->
+    ?FULL_TD_TU([?COLLECT(?T("f@(Args@@) -> Body@@;"),
+			  Args@@ , ?PP(f@) == FunctionName)],
+		[File]).
 
 add_to_export(File) ->
     F = "behaviour_info",
@@ -172,10 +180,10 @@ collect_callbacks(File) ->
 		[File]).
 
 
-add_callback(FileName, FunName, FunArity, SearchPaths, Editor, TabWidth) ->
+add_callbacks(FileName, FunName, SearchPaths, Editor, TabWidth) ->
     Args=#args{current_file_name=FileName,
 	       search_paths=SearchPaths,
-	       user_inputs = [FunName, FunArity],
+	       user_inputs = [FunName],
 	       tabwidth=TabWidth},
     {ok, Res}=transform(Args),
     wrangler_write_file:write_refactored_files(Res,Editor,TabWidth,"").
