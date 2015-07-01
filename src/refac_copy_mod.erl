@@ -330,7 +330,9 @@ filter_updated_modules([{{F,F}, _} = Head|Tail], List) ->
 
 create_files([]) -> ok;
 create_files([File|Tail]) ->
-    case file:write_file(File, "") of
+    TargetModName = list_to_atom(filename:basename(File, ".erl")),
+    S = "-module("++atom_to_list(TargetModName)++").",
+    case file:write_file(File, list_to_binary(S)) of
 	ok -> create_files(Tail);
 	{error, Reason} -> {error, File, Reason}
     end.

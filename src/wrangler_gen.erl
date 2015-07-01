@@ -193,8 +193,61 @@ remove_underscore([H|T], Acc) ->
         95 -> remove_underscore(T, Acc);
         _ -> remove_underscore(T, [H|Acc])
     end.
-  
 
+% @doc Command generator for instantiating dynamic calls to a behaviour instance.
+%%@hidden
+instantiate_calls(ModOrFile, InstanceModName, SearchPaths) ->
+    instantiate_calls(ModOrFile, InstanceModName, true, SearchPaths).
+
+%%@doc Command generator for instantiating dynamic calls to a behaviour instance.
+-spec instantiate_calls(ModOrFile::mod_or_file(),
+                 InstanceModName::{generator, fun((M::atom()|filename())->string())}
+                           | {user_input, Prompt::fun((M::atom())->
+                                                             string())}
+                           |string(),
+                 Lazy :: boolean(),
+                 SearchPaths::search_paths()) ->
+                        [elementary_refac()]|lazy_refac().
+instantiate_calls(ModOrFile, InstanceModName, false, SearchPaths) ->
+    Files= gen_file_names(ModOrFile, SearchPaths),
+    [instantiate_calls_1(File, InstanceModName, SearchPaths)
+              ||File<-Files];
+instantiate_calls(ModOrFile, InstanceModName, true, SearchPaths) ->
+    case gen_file_names(ModOrFile, true, SearchPaths) of
+        [] -> [];
+        [F] ->get_next_instantiate_calls_command(
+                 {F, none}, InstanceModName, SearchPaths);
+        {F, NextFileGen} ->
+            get_next_instantiate_calls_command(
+              {F, NextFileGen}, InstanceModName, SearchPaths)
+    end.
+
+instantiate_calls_1(File, InstanceModName, SearchPaths) ->
+    {refactoring, instantiate_calls, 
+     [File, new_mod_gen(File, InstanceModName), SearchPaths, ?context]}.
+ 
+   
+get_next_instantiate_calls_command({File, NextFileGen}, NewFunName, SearchPaths) ->
+    Refac= instantiate_calls_1(File, NewFunName, SearchPaths), 
+    case NextFileGen of 
+        {lazy_file_gen, Gen} ->
+            case Gen() of 
+                [] -> [Refac];
+                {File1, Gen1} ->
+                    {Refac, {lazy_gen, fun()-> get_next_instantiate_calls_command(
+                                                 {File1, Gen1}, NewFunName, SearchPaths)
+                                       end}}
+            end;
+        _ -> [Refac]
+    end.
+   
+test_instantiate_calls(SearchPaths, Lazy) ->
+    instantiate_calls({file, fun(_File) -> true end},
+		      {generator, fun(M) -> 
+					  list_to_atom(lists:reverse(atom_to_list(M)))
+				  end},
+		      Lazy,
+		      SearchPaths).
 
 % @doc Command generator for renaming module names.
 %%@hidden
@@ -1302,7 +1355,7 @@ new_mod_gen(File, NewName) ->
         _ when is_atom(NewName) ->
             atom_to_list(NewName);
         _ ->
-            throw({error, "Invalid new funname."})
+            throw({error, "Invalid new module name."})
     end.
         
 new_name_gen(File, FA, NewName) ->

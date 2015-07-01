@@ -60,25 +60,25 @@ composite_refac(#args{current_file_name = FileName,
     DefModuleStr = ?PP(hd(find_behaviour_module(FileName))),
     DefModule = list_to_atom(DefModuleStr),
     NewModule = list_to_atom(NewModuleNameStr),
-    [DefModuleFile] = wrangler_gen:gen_file_names(DefModule, SearchPaths),
-    [ASTFuncs|_] = collect_callbacks(DefModuleFile),
-    Funcs = hd(lists:map(fun wrangler_syntax:concrete/1, ASTFuncs)),
+    %[DefModuleFile] = wrangler_gen:gen_file_names(DefModule, SearchPaths),
+    %% [ASTFuncs|_] = collect_callbacks(DefModuleFile),
+    %% Funcs = hd(lists:map(fun wrangler_syntax:concrete/1, ASTFuncs)),
     ?atomic([?refac_(copy_mod,
 		     [DefModule,
-		      NewModule,
-		      [FileName],
-		      false,
-		      SearchPaths]),
-	     ?interactive(
-		[{refactoring, instantiate_calls,
-		  [NewModuleNameStr ++ ".erl",
-		   filename:basename(FileName, ".erl"),
-		   SearchPaths, composite_emacs]}]),
+	     	      NewModule,
+	     	      [FileName],
+	     	      true,
+	     	      SearchPaths]),
+	     ?interactive(atomic,
+	     	[?refac_(instantiate_calls,
+	     	  [NewModuleNameStr ++ ".erl",
+	     	   {generator, fun (_) -> filename:basename(FileName, ".erl") end},
+	     	   true, SearchPaths])]),
 	     ?refac_(move_fun,
 		     [FileName,
 		      fun (_FA) -> true end,
 		      NewModule,
-		      false,
+		      true,
 		      SearchPaths
 		     ])
 	    %% , ?interactive(
@@ -92,10 +92,10 @@ composite_refac(#args{current_file_name = FileName,
 	    %% 		 ])])
 	    ]).
 
-collect_callbacks(File) ->
-    ?FULL_TD_TU([?COLLECT(?T("behaviour_info(callbacks) -> Funcs@@;"),
-			  Funcs@@, true)],
-		[File]).
+%% collect_callbacks(File) ->
+%%     ?FULL_TD_TU([?COLLECT(?T("behaviour_info(callbacks) -> Funcs@@;"),
+%% 			  Funcs@@, true)],
+%% 		[File]).
 
 find_behaviour_module(File) ->
     ?FULL_TD_TU([?COLLECT(?T("-behaviour(module@)."),
