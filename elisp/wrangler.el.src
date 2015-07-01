@@ -326,7 +326,8 @@
     nil
     ("Behaviour Refactorings (Beta)"
      (
-      ("Expression to behaviour instance" erl-refactor-to-behav-instance)
+      ("Function to behaviour instance" erl-refactor-func-to-behav-instance)
+      ("Expression to behaviour instance" erl-refactor-expr-to-behav-instance)
       ("Unfold behaviour instance" erl-refactor-unfold-behav-instance)
       nil
       ("Copy Module" erl-refactor-copy-mod)
@@ -1684,9 +1685,13 @@
   (interactive)
   (apply-adhoc-refac 'refac_add_callback))
 
-(defun erl-refactor-to-behav-instance()
+(defun erl-refactor-func-to-behav-instance()
   (interactive)
-  (apply-composite-refac 'refac_to_behav_instance))
+  (apply-composite-refac 'refac_func_to_behav_instance))
+
+(defun erl-refactor-expr-to-behav-instance()
+  (interactive)
+  (apply-composite-refac 'refac_expr_to_behav_instance))
 
 (defun erl-refactor-unfold-behav-instance()
   (interactive)

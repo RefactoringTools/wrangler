@@ -6,7 +6,7 @@
 %%% @end
 %%% Created :  5 Jun 2015 by Pablo Lamela
 %%%-------------------------------------------------------------------
--module(refac_to_behav_instance).
+-module(refac_func_to_behav_instance).
 
 -behaviour(gen_composite_refac).
 
@@ -30,7 +30,7 @@
 %% @end
 %%--------------------------------------------------------------------
 input_par_prompts() ->
-    ["Destination module : ", "Name for the new callback : "].
+    ["Destination module : "].
 
 %%--------------------------------------------------------------------
 %% @private
@@ -43,14 +43,10 @@ input_par_prompts() ->
 %% @end
 %%--------------------------------------------------------------------
 select_focus(#args{current_file_name=File,
-		   highlight_range={Sta, End},
-		   tabwidth = TabWidth,
-		   user_inputs = [_DestModule, CallbackName]} = _Args) ->
-    {ok, {AnnASTD, _InfoD}} = wrangler_ast_server:parse_annotate_file(File, true, [], TabWidth),
-    case wrangler_misc:funname_arities(AnnASTD, list_to_atom(CallbackName)) of
-	[] -> api_interface:pos_to_expr1(File,Sta,End);
-	_  -> {error, "There exists a function with the provided name in this module, please choose another name!"}
-    end.
+		   cursor_pos=Pos,
+		   tabwidth = _TabWidth,
+		   user_inputs = [_DestModule]} = _Args) ->
+    api_interface:pos_to_fun_def(File, Pos).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -61,21 +57,17 @@ select_focus(#args{current_file_name=File,
 %% @end
 %%--------------------------------------------------------------------
 composite_refac(#args{current_file_name = FileName,
-		      highlight_range = {Start, End},
-		      user_inputs = [DestModule, CallbackName],
+		      focus_sel = FunDef,
+		      user_inputs = [DestModule],
 		      search_paths = SearchPaths,
 		      tabwidth = _TabWidth} = _Args) ->
-    TupleCallbackName = list_to_atom(CallbackName),
+    {_M, F, _A} = api_refac:fun_define_info(FunDef),
     ?atomic([
-	     
-	     {refactoring, fun_extraction,
-	      [FileName, tuple_to_list(Start), tuple_to_list(End),
-	       CallbackName, composite_emacs]},
 	     {refactoring, add_callback,
-	      [FileName, CallbackName, SearchPaths, composite_emacs]},
+	      [FileName, atom_to_list(F), SearchPaths, composite_emacs]},
 	     ?refac_(move_fun,
 		     [FileName,
-		      fun ({Name, _}) -> Name =:= TupleCallbackName;
+		      fun ({Name, _Arity}) -> Name =:= F;
 			  (_Else) -> false
 		      end,
 		      list_to_atom(DestModule),
