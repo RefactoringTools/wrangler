@@ -20,7 +20,7 @@
 	 check_pre_cond/1, selective/0, 
 	 transform/1]).
 
--export([instantiate_calls/6]).
+-export([instantiate_calls/5]).
 
 %%%===================================================================
 %%% gen_refac callbacks
@@ -100,10 +100,10 @@ transform(#args{current_file_name = File,
 		    end)],
 		[File]).
 
-instantiate_calls(FileName, ModuleName, ArgList, SearchPaths, Editor, TabWidth) ->
+instantiate_calls(FileName, ModuleName, SearchPaths, Editor, TabWidth) ->
     Args=#args{current_file_name=FileName,
 	       search_paths=SearchPaths,
-	       user_inputs = [ModuleName, ArgList],
+	       user_inputs = [ModuleName],
 	       tabwidth=TabWidth},
     {ok, Res}=transform(Args),
     wrangler_write_file:write_refactored_files(Res,Editor,TabWidth,"").

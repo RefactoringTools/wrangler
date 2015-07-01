@@ -69,21 +69,27 @@ composite_refac(#args{current_file_name = FileName,
 		      [FileName],
 		      false,
 		      SearchPaths]),
+	     ?interactive(
+		[{refactoring, instantiate_calls,
+		  [NewModuleNameStr ++ ".erl",
+		   filename:basename(FileName, ".erl"),
+		   SearchPaths, composite_emacs]}]),
 	     ?refac_(move_fun,
 		     [FileName,
 		      fun (_FA) -> true end,
 		      NewModule,
 		      false,
 		      SearchPaths
-		     ]),
-	     ?refac_(unfold_fun_app,
-		     [NewModule,
-		      fun (FA) -> not lists:member(FA, Funcs) end,
-		      fun ({D, F, A}) -> D =:= DefModule andalso
-					     lists:member({F, A}, Funcs) end,
-		      true,
-		      SearchPaths
 		     ])
+	    %% , ?interactive(
+	    %% 	[?refac_(unfold_fun_app,
+	    %% 		 [NewModule,
+	    %% 		  fun (FA) -> not lists:member(FA, Funcs) end,
+	    %% 		  fun ({D, F, A}) -> D =:= NewModule andalso
+	    %% 					 lists:member({F, A}, Funcs) end,
+	    %% 		  true,
+	    %% 		  SearchPaths
+	    %% 		 ])])
 	    ]).
 
 collect_callbacks(File) ->

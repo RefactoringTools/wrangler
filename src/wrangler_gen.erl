@@ -1,4 +1,4 @@
-%% Copyright (c) 2010, Huiqing Li, Simon Thompson 
+ %% Copyright (c) 2010, Huiqing Li, Simon Thompson 
 %% All rights reserved. 
 %%
 %% Redistribution and use in source and binary forms, with or without
@@ -1239,10 +1239,10 @@ gen_question(add_callback, [File, FunctionName|_]) ->
     M=filename:basename(File, ".erl"),
     lists:flatten(io_lib:format("Do you want to add all functions with name ~s in ~s to the callback list in behaviour_info? ",
                                 [M, FunctionName]));
-gen_question(instantiate_calls, [File, ModuleName, ArgList|_]) ->
+gen_question(instantiate_calls, [File, ModuleName|_]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
-    lists:flatten(io_lib:format("Do you want to point all dynamic qualified calls in ~p to ~p for the following functions: ~s? ",
-				[M, ModuleName, ArgList])).
+    lists:flatten(io_lib:format("Do you want to point all dynamic qualified callbacks in ~p to ~p? ",
+				[M, ModuleName])).
 
 index_gen(Index, PreArgs) ->
     case Index of
