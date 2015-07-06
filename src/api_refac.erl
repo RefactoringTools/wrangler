@@ -1090,7 +1090,7 @@ reverse_function_clause_1(FunDef) ->
                block_expr -> wrangler_syntax:block_expr_body(C)
            end||C<-Cs]),
     AllFunClause=lists:all(fun(C) ->
-                                   wrangler_syntax:type(C)==function_clause 
+                                   wrangler_syntax:type(C)==function_clause
                            end, Cs1),
     Msg ="Wrangler internal error: unconsistent transformation.",
     case AllFunClause of 
@@ -1104,6 +1104,7 @@ reverse_function_clause_1(FunDef) ->
                     NewFunName = wrangler_misc:rewrite(FunName, hd(Names)),
                     NewFunDef = wrangler_syntax:function(NewFunName, Cs2),
                     wrangler_misc:rewrite(FunDef,NewFunDef);
+		[] -> wrangler_syntax:empty_node();
                 _ ->
                     erlang:error(Msg)
             end;
