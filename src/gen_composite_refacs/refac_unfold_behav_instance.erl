@@ -81,7 +81,8 @@ composite_refac(#args{current_file_name = FileName,
 		      NewModule,
 		      true,
 		      SearchPaths
-		     ])
+		     ]),
+	     {refactoring, remove_behav_dec, [NewFileName, SearchPaths, composite_emacs]}
 	    %% , ?interactive(
 	    %% 	[?refac_(unfold_fun_app,
 	    %% 		 [NewModule,
