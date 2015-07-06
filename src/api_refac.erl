@@ -1071,6 +1071,82 @@ copy_pos_and_attrs(Node1, Node2) ->
       wrangler_syntax:copy_pos(
         Node1,wrangler_misc:update_ann(Node2, {range, Range}))).
 
+compute_deleted_funcs(NewFuncs, OldFuncs) ->
+    NewFuncsSet = get_func_set(NewFuncs),
+    OldFuncsSet = get_func_set(OldFuncs),
+    sets:subtract(OldFuncsSet, NewFuncsSet).
+
+get_func_set(List) -> get_func_set(List, sets:new()).
+get_func_set([], Set) -> Set;
+get_func_set([H|T], Set) ->
+    NewSet =
+	case wrangler_syntax:type(H) of
+	    function -> lists:foldl(
+			  fun (Clause, S) ->
+				  FName = wrangler_syntax:atom_value(
+					   wrangler_syntax:function_name(H)),
+				  get_func_set(FName, Clause, S)
+			  end, Set, wrangler_syntax:function_clauses(H));
+	    _ -> Set
+	end,
+    get_func_set(T, NewSet).
+get_func_set(FName, Clause, Set) ->
+    case wrangler_syntax:type(Clause) of
+	clause -> Arity = length(wrangler_syntax:clause_patterns(Clause)),
+		  sets:add_element({FName, Arity}, Set);
+	_ -> Set
+    end.
+
+remove_funcs_from_exports(DeletedSet, List) ->
+    lists:map(fun (El) -> remove_funcs_from_export(El, DeletedSet) end, List).
+remove_funcs_from_export(Export, DeletedSet) ->
+    case wrangler_syntax:type(Export) of
+	attribute -> remove_funcs_from_export_2(Export, DeletedSet);
+	_ -> Export
+    end.
+remove_funcs_from_export_2(Export, DeletedSet) ->
+    NameAST = wrangler_syntax:attribute_name(Export),
+    ArgumentsAST = wrangler_syntax:attribute_arguments(Export),
+    case wrangler_syntax:atom_value(NameAST) of
+	export -> NewArgumentsAST = remove_funcs_from_export_3(ArgumentsAST, DeletedSet),
+		  case {is_empty_export(ArgumentsAST),
+			is_empty_export(NewArgumentsAST)} of
+		      {true, true} -> Export;
+		      {false, true} -> wrangler_syntax:empty_node();
+		      {_, _} -> wrangler_syntax:attribute(NameAST, NewArgumentsAST)
+		  end;
+	_ -> Export
+    end.
+is_empty_export([AST]) ->
+    wrangler_syntax:is_proper_list(AST)
+	andalso (wrangler_syntax:list_length(AST) =:= 0);
+is_empty_export(_) -> false.
+remove_funcs_from_export_3([ArgumentsAST], DeletedSet) ->
+    case wrangler_syntax:is_proper_list(ArgumentsAST) of
+	true -> {Result, DeletedSet} =
+		    lists:foldl(fun remove_funcs_from_export_4/2,
+				{[], DeletedSet},
+				wrangler_syntax:list_elements(ArgumentsAST)),
+		[wrangler_syntax:list(lists:reverse(Result))];
+	false -> [ArgumentsAST]
+    end;
+remove_funcs_from_export_3(ArgumentsAST, _DeletedSet) ->
+    ArgumentsAST.
+remove_funcs_from_export_4(FuncDec, {List, DeletedSet}) ->
+    CFuncDec = case erl_syntax:type(FuncDec) of
+		   arity_qualifier -> arity_qualifier_to_tuple(FuncDec);
+		   _ -> invalid
+	       end,
+    case sets:is_element(CFuncDec, DeletedSet) of
+	false -> {[FuncDec|List], DeletedSet};
+	true -> {List, DeletedSet}
+    end.
+arity_qualifier_to_tuple(ArityQualifier) ->
+    Body = wrangler_syntax:arity_qualifier_body(ArityQualifier),
+    Arg = wrangler_syntax:arity_qualifier_argument(ArityQualifier),
+    {wrangler_syntax:concrete(Body),
+     wrangler_syntax:concrete(Arg)}.
+
 %%=================================================================
 %%-spec(reverse_function_clause(Tree::syntaxTree()) -> syntaxTree()).   
 %%@private            
@@ -1188,13 +1264,17 @@ search_and_transform_2(Rules, FileOrDirs, Fun) ->
 search_and_transform_3(Rules, File, Fun, Selective) ->
     ?wrangler_io("The current file under refactoring is:\n~p\n", [File]),
     {ok, {AST, _}} = wrangler_ast_server:parse_annotate_file(File, true, [], 8),
+    OldList = wrangler_syntax:form_list_elements(AST),
     Res=[search_and_transform_4(File, Rules, wrangler_misc:extend_function_clause(Form),
                                 Fun, Selective)
-         || Form<-wrangler_syntax:form_list_elements(AST)],
+         || Form<-OldList],
     {Forms, Changes} = lists:unzip(Res),
     Changed = lists:member(true, Changes),
     if Changed andalso Selective/=true ->
-            AST1 = wrangler_syntax:form_list([reverse_function_clause(F)||F<-Forms]),
+	    NewList = [reverse_function_clause(F)||F<-Forms],
+	    DeletedFuncs = compute_deleted_funcs(NewList, OldList),
+	    FixedNewList = remove_funcs_from_exports(DeletedFuncs, NewList),
+            AST1 = wrangler_syntax:form_list(FixedNewList),
             [{{File, File}, AST1}];
        true ->
             if Changed->
