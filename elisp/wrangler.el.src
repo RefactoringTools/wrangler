@@ -333,6 +333,7 @@
       ("Copy Module" erl-refactor-copy-mod)
       ("Add function to behaviour_info" refac_add_callback)
       ("Add function name to behaviour_info" refac_add_callbacks)
+      ("Remove behaviour_info function" refac_remove_behav_dec)
       ("Instantiate dynamic module from calls" refac_instantiate_calls)
       ))
     nil
@@ -1689,6 +1690,10 @@
 (defun refac_add_callbacks()
   (interactive)
   (apply-adhoc-refac 'refac_add_callbacks))
+
+(defun refac_remove_behav_dec()
+  (interactive)
+  (apply-adhoc-refac 'refac_remove_behav_dec))
 
 (defun erl-refactor-func-to-behav-instance()
   (interactive)
