@@ -63,6 +63,8 @@ composite_refac(#args{current_file_name = FileName,
 		      tabwidth = _TabWidth} = _Args) ->
     {_M, F, A} = api_refac:fun_define_info(FunDef),
     ?atomic([
+	     {refactoring, create_behav_instance,
+	      [FileName, list_to_atom(DestModule), SearchPaths, composite_emacs]},
 	     {refactoring, add_callback,
 	      [FileName, atom_to_list(F), integer_to_list(A), SearchPaths, composite_emacs]},
 	     ?refac_(move_fun,

@@ -1487,10 +1487,13 @@ add_callback(FileName, FunName, Arity, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_add_callback, add_callback, [FileName, FunName, Arity, SearchPaths, Editor, TabWidth]).
 %%@private
 add_callbacks(FileName, FunName, SearchPaths, Editor, TabWidth) ->
-    try_refac(refac_add_callback, add_callbacks, [FileName, FunName, SearchPaths, Editor, TabWidth]).
+    try_refac(refac_add_callbacks, add_callbacks, [FileName, FunName, SearchPaths, Editor, TabWidth]).
 %%@private
 remove_behav_dec(FileName, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_remove_behav_dec, remove_behav_dec, [FileName, SearchPaths, Editor, TabWidth]).
+%%@private
+create_behav_instance(FileName, DestModule, SearchPaths, Editor, TabWidth) ->
+    try_refac(refac_create_behav_instance, create_behav_instance, [FileName, DestModule, SearchPaths, Editor, TabWidth]).
 %%@private
 instantiate_calls(FileName, ModuleName, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_instantiate_calls, instantiate_calls, [FileName, ModuleName, SearchPaths, Editor, TabWidth]).

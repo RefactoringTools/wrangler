@@ -76,6 +76,8 @@
 
 -export([extend_function_clause/1]).
 
+-export([create_files/1]).
+
 -include("../include/wrangler_internal.hrl"). 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1178,3 +1180,13 @@ extend_function_clause_2(Node) ->
           end
           ||C<-Cs],
     rewrite(Node, wrangler_syntax:function(Name, Cs1)).
+
+
+create_files([]) -> ok;
+create_files([File|Tail]) ->
+    TargetModName = list_to_atom(filename:basename(File, ".erl")),
+    S = "-module("++atom_to_list(TargetModName)++").",
+    case file:write_file(File, list_to_binary(S)) of
+	ok -> create_files(Tail);
+	{error, Reason} -> {error, File, Reason}
+    end.

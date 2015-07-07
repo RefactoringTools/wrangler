@@ -67,10 +67,12 @@ composite_refac(#args{current_file_name = FileName,
 		      tabwidth = _TabWidth} = _Args) ->
     TupleCallbackName = list_to_atom(CallbackName),
     ?atomic([
+	     {refactoring, create_behav_instance,
+	      [FileName, list_to_atom(DestModule), SearchPaths, composite_emacs]},
 	     {refactoring, fun_extraction,
 	      [FileName, tuple_to_list(Start), tuple_to_list(End),
 	       CallbackName, composite_emacs]},
-	     {refactoring, add_callback,
+	     {refactoring, add_callbacks,
 	      [FileName, CallbackName, SearchPaths, composite_emacs]},
 	     ?refac_(move_fun,
 		     [FileName,

@@ -295,7 +295,7 @@ do_copy_mod(FileName, OldNewModPairs, UpdateFileNames, AnnAST, SearchPaths, Edit
          end,
          stop_atom_process(Pid),
          Results1 = [{{NewFileName, NewFileName}, AnnAST1}| TestModRes ++ Results],
-         case create_files([NewFileName] ++ [TF || {{TF, _}, _} <- TestModRes]) of
+         case wrangler_misc:create_files([NewFileName] ++ [TF || {{TF, _}, _} <- TestModRes]) of
 	     ok ->
 	         case Editor == emacs orelse Editor == composite_emacs of
 		     true ->
@@ -326,15 +326,6 @@ filter_updated_modules([{{F,F}, _} = Head|Tail], List) ->
     case lists:member(F, List) of
 	true -> [Head|filter_updated_modules(Tail, List)];
 	false -> filter_updated_modules(Tail, List)
-    end.
-
-create_files([]) -> ok;
-create_files([File|Tail]) ->
-    TargetModName = list_to_atom(filename:basename(File, ".erl")),
-    S = "-module("++atom_to_list(TargetModName)++").",
-    case file:write_file(File, list_to_binary(S)) of
-	ok -> create_files(Tail);
-	{error, Reason} -> {error, File, Reason}
     end.
 
 do_rename_mod_1(Tree, {FileName, OldNewModPairs, Pid}) ->

@@ -331,6 +331,7 @@
       ("Unfold behaviour instance" erl-refactor-unfold-behav-instance)
       nil
       ("Copy Module" erl-refactor-copy-mod)
+      ("Create behaviour instance file" refac_create_behav_instance)
       ("Add function to behaviour_info" refac_add_callback)
       ("Add function name to behaviour_info" refac_add_callbacks)
       ("Remove behaviour_info function" refac_remove_behav_dec)
@@ -1690,6 +1691,10 @@
 (defun refac_add_callbacks()
   (interactive)
   (apply-adhoc-refac 'refac_add_callbacks))
+
+(defun refac_create_behav_instance()
+  (interactive)
+  (apply-adhoc-refac 'refac_create_behav_instance))
 
 (defun refac_remove_behav_dec()
   (interactive)

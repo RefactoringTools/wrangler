@@ -337,6 +337,7 @@
          is_guard_expr/1,
          is_pattern/1, 
          is_exported/2,
+	 is_behaviour_instance_of/2,
          is_attribute/2,
          is_import/2,
          exported_funs/1,
@@ -713,6 +714,24 @@ is_exported_1({FunName, Arity}, ModInfo) ->
 		    _ -> false
 		end,
     ImpExport or ExpExport.
+
+%% =====================================================================
+%%@doc Returns true if the Erlang module
+%%     defined in `File' is a behaviour instance of the module `Mod'.
+%%@spec is_behaviour_instance_of(File::string(), Mod::atom()) -> boolean()
+-spec (is_behaviour_instance_of(Mod::atom(), File::string())
+       -> boolean()).
+is_behaviour_instance_of(File, Mod) ->
+    {ok, {_, ModInfo}} = wrangler_ast_server:parse_annotate_file(File, true),
+    is_behaviour_instance_of_1(Mod, ModInfo).
+
+is_behaviour_instance_of_1(Module, ModInfo) ->
+    case lists:keysearch(attributes, 1, ModInfo) of
+	{value, {attributes, Attrs}} -> 
+	    lists:member({behaviour, Module}, Attrs)
+		orelse lists:member({behaviour, Module}, Attrs);
+	false -> false
+    end.
 
 %% =====================================================================
 %%@doc Returns `true' if `Node' represents an attribute 
