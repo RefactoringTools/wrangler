@@ -2,7 +2,12 @@
 %%% @author Pablo Lamela Seijas <P.Lamela-Seijas>
 %%% @copyright (C) 2015, Pablo Lamela
 %%% @doc
-%%% Generalises an expresion to behaviour callback in another module.
+%%% Parametrises an expression by moving it to another module as
+%%% a behaviour callback. If the destination does not exist it is
+%%% created. If the destination module is not a behaviour instance
+%%% of this module, it is transformed into one.
+%%% The new callback is added to the behaviour_info(callback)
+%%% function, which is created if it does not exist.
 %%% @end
 %%% Created :  5 Jun 2015 by Pablo Lamela
 %%%-------------------------------------------------------------------

@@ -379,6 +379,12 @@ funname_to_defpos(AnnAST, {M, F, A}) ->
 	    {error, lists:flatten(io_lib:format("Function ~p/~p is defined more than once in module ~p", [F, A, M]))}
     end.
 
+
+%% =====================================================================
+%% @spec funname_arities(AnnAST :: syntaxTree(), FunName :: string()) ->
+%%               [integer()]
+%% @doc Find all the definitions of functions with name FunName in the
+%% annotated AST AnnAST and return a sorted list with their arities.
 funname_arities(AnnAST, FunName) ->
     Forms=wrangler_syntax:form_list_elements(AnnAST),
     lists:usort(lists:append(
@@ -1182,6 +1188,11 @@ extend_function_clause_2(Node) ->
     rewrite(Node, wrangler_syntax:function(Name, Cs1)).
 
 
+%% =====================================================================
+%% @spec create_files(FileNames :: [string()]) ->
+%%            ok | {error, FileName :: string(), Reason :: any()}
+%% @doc Find all the definitions of functions with name FunName in the
+%% annotated AST AnnAST and return a sorted list with their arities.
 create_files([]) -> ok;
 create_files([File|Tail]) ->
     TargetModName = list_to_atom(filename:basename(File, ".erl")),

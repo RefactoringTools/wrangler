@@ -56,7 +56,7 @@ select_focus(_Args) ->
 %% @doc
 %% Check the pre-conditions of the refactoring.
 %%
-%% @spec check_pre_cond(Args#args{}) -> ok | {error, Reason}
+%% @spec check_pre_cond(Args :: #args{}) -> ok | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
 check_pre_cond(_Args) ->
@@ -171,7 +171,17 @@ collect_callbacks(File) ->
 			  Funcs@@, true)],
 		[File]).
 
-
+%%--------------------------------------------------------------------
+%% @doc
+%% Adds a callback declaration for the function with the name
+%% and arity specified.
+%% @spec add_callback(TargetFileName :: string(), FunctionName :: string(),
+%%                    Arity :: string(), SearchPaths :: [string()],
+%%                    Editor :: wrangler_refacs:context(),
+%%                    TabWidth :: integer()) ->
+%%                           {'ok', UpdatedFiles :: [string()]}
+%% @end
+%%--------------------------------------------------------------------
 add_callback(FileName, FunName, FunArity, SearchPaths, Editor, TabWidth) ->
     Args=#args{current_file_name=FileName,
 	       search_paths=SearchPaths,

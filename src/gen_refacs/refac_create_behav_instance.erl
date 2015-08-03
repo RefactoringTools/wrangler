@@ -42,7 +42,7 @@ input_par_prompts() ->
 %% @doc
 %% Select the focus of the refactoring.
 %%
-%% @spec select_focus(Args::#args{}) ->
+%% @spec select_focus(Args :: #args{}) ->
 %%                {ok, syntaxTree()} |
 %%                {ok, none}
 %% @end
@@ -55,7 +55,7 @@ select_focus(_Args) ->
 %% @doc
 %% Check the pre-conditions of the refactoring.
 %%
-%% @spec check_pre_cond(Args#args{}) -> ok | {error, Reason}
+%% @spec check_pre_cond(Args :: #args{}) -> ok | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
 check_pre_cond(_Args) ->
@@ -77,7 +77,7 @@ selective() ->
 %% @doc
 %% This function does the actual transformation.
 %%
-%% @spec transform(Args::#args{}) -> 
+%% @spec transform(Args :: #args{}) -> 
 %%            {ok, [{filename(), filename(), syntaxTree()}]} |
 %%            {error, Reason}
 %% @end
@@ -106,6 +106,18 @@ create_behav_use_declaration(OriMod) ->
     wrangler_syntax:attribute(wrangler_syntax:atom(behaviour),
                               [wrangler_syntax:atom(OriMod)]).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Creates a file with the skeleton of a behaviour instance.
+%% It adds the behaviour declaration if it is not there already.
+%% @spec create_behav_instance(TargetFileName :: string(),
+%%                             DestModule :: atom(),
+%%                             SearchPaths :: [string()],
+%%                             Editor :: wrangler_refacs:context(),
+%%                             TabWidth :: integer()) ->
+%%                                 {'ok', UpdatedFiles :: [string()]}
+%% @end
+%%--------------------------------------------------------------------
 create_behav_instance(FileName, DestModule, SearchPaths, Editor, TabWidth) ->
     Args=#args{current_file_name=FileName,
 	       search_paths=SearchPaths,

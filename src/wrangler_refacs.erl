@@ -1482,19 +1482,78 @@ do_api_migration(Scope, CallBackMod, SearchPaths, Editor, TabWidth)->
 generate_rule_based_api_migration_mod(FileName, NewModName) ->
     try_refac(refac_api_migration, generate_rule_based_api_migration_mod, [FileName, NewModName]).
 
-%%@private
+%%--------------------------------------------------------------------
+%% @doc
+%% Adds a callback declaration for the function with the name
+%% and arity specified.
+%% @spec add_callback(TargetFileName :: string(), FunctionName :: string(),
+%%                    Arity :: string(), SearchPaths :: [string()],
+%%                    Editor :: wrangler_refacs:context(),
+%%                    TabWidth :: integer()) ->
+%%                           {'ok', UpdatedFiles :: [string()]}
+%% @end
+%%--------------------------------------------------------------------
 add_callback(FileName, FunName, Arity, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_add_callback, add_callback, [FileName, FunName, Arity, SearchPaths, Editor, TabWidth]).
-%%@private
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Adds a callback declaration for the functions with the name
+%% specified.
+%% @spec add_callbacks(TargetFileName :: string(),
+%%                     FunctionName :: string(),
+%%                     SearchPaths :: [string()],
+%%                     Editor :: wrangler_refacs:context(),
+%%                     TabWidth :: integer()) ->
+%%                            {'ok', UpdatedFiles :: [string()]}
+%% @end
+%%--------------------------------------------------------------------
 add_callbacks(FileName, FunName, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_add_callbacks, add_callbacks, [FileName, FunName, SearchPaths, Editor, TabWidth]).
-%%@private
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Removes the callback declaration from a module
+%% and arity specified.
+%% @spec remove_behav_dec(TargetFileName :: string(),
+%%                        SearchPaths :: [string()],
+%%                        Editor :: wrangler_refacs:context(),
+%%                        TabWidth :: integer()) ->
+%%                               {'ok', UpdatedFiles :: [string()]}
+%% @end
+%%--------------------------------------------------------------------
 remove_behav_dec(FileName, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_remove_behav_dec, remove_behav_dec, [FileName, SearchPaths, Editor, TabWidth]).
-%%@private
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Creates a file with the skeleton of a behaviour instance.
+%% It adds the behaviour declaration if it is not there already.
+%% @spec create_behav_instance(TargetFileName :: string(),
+%%                             DestModule :: atom(),
+%%                             SearchPaths :: [string()],
+%%                             Editor :: wrangler_refacs:context(),
+%%                             TabWidth :: integer()) ->
+%%                                 {'ok', UpdatedFiles :: [string()]}
+%% @end
+%%--------------------------------------------------------------------
 create_behav_instance(FileName, DestModule, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_create_behav_instance, create_behav_instance, [FileName, DestModule, SearchPaths, Editor, TabWidth]).
-%%@private
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Searches the reflected calls to the functions whose name correspond
+%% to one of the functions declared in the behaviour_info(callbacks)
+%% function of the file FileName, and statically hardcodes them to
+%% point to ModuleName.
+%% @spec instantiate_calls(TargetFileName :: string(),
+%%                         DestModule :: string(),
+%%                         SearchPaths :: [string()],
+%%                         Editor :: wrangler_refacs:context(),
+%%                         TabWidth :: integer()) ->
+%%                             {'ok', UpdatedFiles :: [string()]}
+%% @end
+%%--------------------------------------------------------------------
 instantiate_calls(FileName, ModuleName, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_instantiate_calls, instantiate_calls, [FileName, ModuleName, SearchPaths, Editor, TabWidth]).
 

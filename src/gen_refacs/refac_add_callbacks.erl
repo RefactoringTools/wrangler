@@ -179,7 +179,18 @@ collect_callbacks(File) ->
 			  Funcs@@, true)],
 		[File]).
 
-
+%%--------------------------------------------------------------------
+%% @doc
+%% Adds a callback declaration for the functions with the name
+%% specified.
+%% @spec add_callbacks(TargetFileName :: string(),
+%%                     FunctionName :: string(),
+%%                     SearchPaths :: [string()],
+%%                     Editor :: wrangler_refacs:context(),
+%%                     TabWidth :: integer()) ->
+%%                            {'ok', UpdatedFiles :: [string()]}
+%% @end
+%%--------------------------------------------------------------------
 add_callbacks(FileName, FunName, SearchPaths, Editor, TabWidth) ->
     Args=#args{current_file_name=FileName,
 	       search_paths=SearchPaths,

@@ -42,7 +42,7 @@
 %% The following <em> side-conditions </em> apply to this refactoring:
 %% <li> The new module name should be a fresh name. </li>
 %% <li> This refactoring assume that the file basename is always the same as the 
-%%  module name, therefore this refactoring changes the filename as well. </li>
+%%  module name </li>
 %% </p>
 %% @end
 %% =====================================================================

@@ -2,8 +2,9 @@
 %%% @author Pablo Lamela Seijas <P.Lamela-Seijas@kent.ac.uk>
 %%% @copyright (C) 2015, Pablo Lamela
 %%% @doc
-%%% Searches the reflected calls to the list of functions
-%%% provided and replaces them with concrete calls.
+%%% Searches the reflected calls to the functions whose name correspond
+%%% to one of the functions declared in the behaviour_info(callbacks)
+%%% and instantiates them.
 %%% @end
 %%% Created : 16 Jun 2015 by Pablo Lamela
 %%%-------------------------------------------------------------------
@@ -100,6 +101,20 @@ transform(#args{current_file_name = File,
 		    end)],
 		[File]).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Searches the reflected calls to the functions whose name correspond
+%% to one of the functions declared in the behaviour_info(callbacks)
+%% function of the file FileName, and statically hardcodes them to
+%% point to ModuleName.
+%% @spec instantiate_calls(TargetFileName :: string(),
+%%                         DestModule :: string(),
+%%                         SearchPaths :: [string()],
+%%                         Editor :: wrangler_refacs:context(),
+%%                         TabWidth :: integer()) ->
+%%                             {'ok', UpdatedFiles :: [string()]}
+%% @end
+%%--------------------------------------------------------------------
 instantiate_calls(FileName, ModuleName, SearchPaths, Editor, TabWidth) ->
     Args=#args{current_file_name=FileName,
 	       search_paths=SearchPaths,

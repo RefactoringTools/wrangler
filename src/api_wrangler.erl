@@ -90,7 +90,7 @@ rename_mod(ModOrFileName, NewModName, SearchPaths) ->
 %% <p> This refactoring affects all those modules in which the module name is used, 
 %%     and returns either ok with the list of files affected by this 
 %%     refactoring, or an error message. </p>
-%%@spec copy_mod(ModorFileName::modulename()|filename(), NewModName::modulename(), SearchPaths::[dir()]) -> 
+%%@spec copy_mod(ModOrFileName::modulename()|filename(), NewModName::modulename(), SearchPaths::[dir()]) -> 
 %%			   {ok, FilesChanged::[filename()]}|{error,Reason}
 copy_mod(ModOrFileName, NewModName, SearchPaths) ->
     try_apply(refac_copy_mod, copy_mod_command, [ModOrFileName, NewModName, SearchPaths]).

@@ -2,7 +2,13 @@
 %%% @author Pablo Lamela Seijas <P.Lamela-Seijas@kent.ac.uk>
 %%% @copyright (C) 2015, Pablo Lamela
 %%% @doc
-%%% Unfold an instance of a behaviour into its behaviour definition
+%%% Unfold an instance of a behaviour into its behaviour definition.
+%%% In order to prevent other instances from working, the refactoring
+%%% makes a copy of the behaviour definition previous to the unfolding.
+%%% Optionally, the dynamic calls from the behaviour definition to
+%%% the behaviour instance can be instanciated, but this process may
+%%% instanciate the wrong calls if they have the same name than
+%%% any of the behaviour callbacks.
 %%% @end
 %%% Created : 16 Jun 2015 by Pablo Lamela
 %%%-------------------------------------------------------------------

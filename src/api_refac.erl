@@ -1,4 +1,4 @@
-%% Copyright (c) 2012, Huiqing Li, Simon Thompson
+ %% Copyright (c) 2012, Huiqing Li, Simon Thompson
 %% All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
@@ -718,7 +718,7 @@ is_exported_1({FunName, Arity}, ModInfo) ->
 %% =====================================================================
 %%@doc Returns true if the Erlang module
 %%     defined in `File' is a behaviour instance of the module `Mod'.
-%%@spec is_behaviour_instance_of(File::string(), Mod::atom()) -> boolean()
+%%@spec is_behaviour_instance_of(Mod::atom(), File::string()) -> boolean()
 -spec (is_behaviour_instance_of(Mod::atom(), File::string())
        -> boolean()).
 is_behaviour_instance_of(File, Mod) ->

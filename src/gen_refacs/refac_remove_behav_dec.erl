@@ -55,7 +55,7 @@ select_focus(_Args) ->
 %% @doc
 %% Check the pre-conditions of the refactoring.
 %%
-%% @spec check_pre_cond(Args#args{}) -> ok | {error, Reason}
+%% @spec check_pre_cond(Args :: #args{}) -> ok | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
 check_pre_cond(_Args) ->
@@ -77,7 +77,7 @@ selective() ->
 %% @doc
 %% This function does the actual transformation.
 %%
-%% @spec transform(Args::#args{}) -> 
+%% @spec transform(Args :: #args{}) -> 
 %%            {ok, [{filename(), filename(), syntaxTree()}]} |
 %%            {error, Reason}
 %% @end
@@ -91,6 +91,17 @@ transform(#args{current_file_name = File} = _Args) ->
 		    true)],
 		[File]).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Removes the callback declaration from a module
+%% and arity specified.
+%% @spec remove_behav_dec(TargetFileName :: string(),
+%%                        SearchPaths :: [string()],
+%%                        Editor :: wrangler_refacs:context(),
+%%                        TabWidth :: integer()) ->
+%%                               {'ok', UpdatedFiles :: [string()]}
+%% @end
+%%--------------------------------------------------------------------
 remove_behav_dec(FileName, SearchPaths, Editor, TabWidth) ->
     Args=#args{current_file_name=FileName,
 	       search_paths=SearchPaths,
