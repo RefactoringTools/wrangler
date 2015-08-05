@@ -39,7 +39,7 @@
 %% API
 -export([parse_annotate_file/2, parse_annotate_file/3,
 	 parse_annotate_file/4, parse_annotate_file/5,
-	 quick_parse_annotate_file/3, 
+	 quick_parse_annotate_file/3, add_category/1,
          mfa_to_fun_def/2]).
 %% API
 -export([start_ast_server/0, update_ast/2, add_range/2]).
