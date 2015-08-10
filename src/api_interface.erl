@@ -47,6 +47,7 @@
 %%    Pred = fun(Elem) -> bool().
 %%@doc Returns the outmost Node which encloses the cursor and 
 %%     makes Pred(Node) return `true'.
+%%@end
 %% =================================================================================
 -spec (pos_to_node(FileOrTree::filename()|syntaxTree(), Pos::pos(), Cond::function()) ->
 	      {ok, syntaxTree()}|{error, string()}).      
@@ -92,6 +93,7 @@ pos_to_node_2(Node, {Pos, Pred}) ->
 %%   ->syntaxTree() | {error, string()}
 %% @doc Returns the largest, left-most Node which is enclosed by the location range specified,
 %%      and also makes Pred(Node) return `true'.
+%% @end
 %%===========================================================================================
 range_to_node(FileOrTree, Pos, Pred) ->
     case filelib:is_regular(FileOrTree) of 
@@ -369,6 +371,7 @@ pos_to_expr_1(Tree, Start, End) ->
 %% @spec(pos_to_expr_list(filename()|syntaxTree(), {Start::pos(), End::pos()}) ->
 %%	     [syntaxTree()])
 %% @doc Return the expression sequence enclosed by start and end locations.
+%% @end
 %% ====================================================================
 -spec(pos_to_expr_list(filename()|syntaxTree(), {Start::pos(), End::pos()}) ->
 	     [syntaxTree()]).
