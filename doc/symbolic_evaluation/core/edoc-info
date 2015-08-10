@@ -1,5 +1,0 @@
-%% encoding: UTF-8
-{packages,[]}.
-{modules,[core_arit_calc,core_arit_simpl,core_arithmetics,
-          core_boolean_operators,core_case,core_funApp,core_if,
-          core_lists_concat,core_unreferenced_assign]}.

@@ -215,7 +215,7 @@ EXAMPLE_CODE = inspec_examples.erl \
 
 docs:
 	$(ERL) -noshell -eval \
-	"edoc:application($(APPNAME), \".\", [$(DOC_OPTS), {packages, false}])" \
+	"edoc:application($(APPNAME), \".\", [$(DOC_OPTS), {sub_packages, false}])" \
 	-s init stop
 	(cd src ; cp $(EXAMPLE_CODE) ../doc/)
 
