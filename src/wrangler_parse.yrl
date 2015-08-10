@@ -539,7 +539,9 @@ Erlang code.
 -export([normalise/1,abstract/1,tokens/1,tokens/2]).
 -export([abstract/2]).
 -export([inop_prec/1,preop_prec/1,func_prec/0,max_prec/0]).
--export([set_line/2,get_attribute/2,get_attributes/1]).
+%% -export([type_inop_prec/1,type_preop_prec/1]).
+%% -export([map_anno/2, fold_anno/3, mapfold_anno/3,
+%%          new_anno/1, anno_to_term/1, anno_from_term/1]).
 
 %% The following directive is needed for (significantly) faster compilation
 %% of the generated .erl file by the HiPE compiler.  Please do not remove.
@@ -552,7 +554,7 @@ Erlang code.
 -type abstract_expr() :: term().
 -type abstract_form() :: term().
 -type error_description() :: term().
--type error_info() :: {erl_scan:line(), module(), error_description()}.
+-type error_info() :: {erl_anno:line(), module(), error_description()}.
 -type token() :: erl_scan:token().
 
 %% mkop(Op, Arg) -> {op,Line,Op,Arg}.
@@ -883,7 +885,7 @@ build_try(L,Es,Scs,{Ccs,As}) ->
 
 -spec ret_err(_, _) -> no_return().
 ret_err(L, S) ->
-    {location,Location} = get_attribute(L, location),
+    Location = erl_anno:location(L),
     return_error(Location, S).
 
 %% mapl(F,List)
@@ -956,7 +958,7 @@ abstract(T) ->
       Options :: Line | [Option],
       Option :: {line, Line} | {encoding, Encoding},
       Encoding :: latin1 | unicode | utf8,
-      Line :: erl_scan:line(),
+      Line :: erl_anno:line(),
       AbsTerm :: abstract_expr().
 
 abstract(T, Line) when is_integer(Line) ->
@@ -1123,14 +1125,6 @@ max_prec() -> 900.
 %%% (of course) be set to any value, but then these functions no
 %%% longer apply. To get all present attributes as a property list
 %%% get_attributes() should be used.
-
-set_line(L, F) ->
-    erl_scan:set_attribute(line, L, F).
-
-get_attribute(L, Name) ->
-    erl_scan:attributes_info(L, Name).
-
-get_attributes(L) ->
-    erl_scan:attributes_info(L).
+  
 
 %% vim: ft=erlang
