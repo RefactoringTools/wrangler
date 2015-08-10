@@ -165,6 +165,7 @@ clean:
 	@-rm -f $(ELISP_OBJ)
 	@-rm -f priv/suffixtree priv/gsuffixtree
 	@-rm -f doc/*.html doc/edoc-info doc/erlang.png doc/stylesheet.css
+	@-rm -f doc/*/*/*.html doc/*/*/edoc-info doc/*/*/erlang.png doc/*/*/stylesheet.css
 	@-rm -f doc/*.erl
 
 distclean: clean
@@ -213,9 +214,15 @@ EXAMPLE_CODE = inspec_examples.erl \
     gen_composite_refacs/refac_batch_prefix_module.erl \
     refac_batch_rename_fun.erl regexp_re.erl keysearch_keyfind.erl
 
-docs:
+docs-se-%: doc/symbolic_evaluation/%/overview.edoc
 	$(ERL) -noshell -eval \
-	"edoc:application($(APPNAME), \".\", [$(DOC_OPTS), {sub_packages, false}])" \
+	"edoc:application($*, \"src/symbolic_evaluation/$*\", [$(DOC_OPTS), {dir, \"doc/symbolic_evaluation/$*\"}, {overview, \"$<\"}, no_subpackages])" \
+	-s init stop
+	(cd src ; cp $(EXAMPLE_CODE) ../doc/)
+
+docs: docs-se-core docs-se-evaluator docs-se-refactorings
+	$(ERL) -noshell -eval \
+	"edoc:application($(APPNAME), \".\", [$(DOC_OPTS), no_subpackages])" \
 	-s init stop
 	(cd src ; cp $(EXAMPLE_CODE) ../doc/)
 
