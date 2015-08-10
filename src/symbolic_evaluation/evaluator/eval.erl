@@ -149,6 +149,7 @@ get_temp_info_text(Pid) -> Pid ! {ask_text,self()},
 evaluate(Pid,CurrentNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,TypedF,NRefacsDone,Steps) ->
      evaluate(Pid,CurrentNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,TypedF,NRefacsDone,Steps,"").
 
+-spec(evaluate(string(),[syntaxTree()] | syntaxTree(),string(),[{{modulename(),functionname(),arity()},syntaxTree(),syntaxTree() | [syntaxTree()]}],RulesFun::fun((_) -> any()), boolean(), string(), boolean(),integer(),[syntaxTree],[syntaxTree]) -> [syntaxTree()] | syntaxTree()).
 evaluate(Pid,CurrentNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,TypedF,NRefacsDone,Steps,IText) when is_list(Steps) andalso length(Steps) == 1 ->
     evaluate(Pid,CurrentNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,TypedF,NRefacsDone,[],IText,Steps);
 evaluate(Pid,CurrentNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,TypedF,NRefacsDone,Steps,IText) -> 
@@ -159,10 +160,8 @@ evaluate(Pid,CurrentNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,Ty
 %% @private
 %% @doc
 %% This function tries to transform the body as much as possible in the case of a composite refactoring.
-%% @spec(transform_body_two_ways([syntaxTree()] | syntaxTree(),string(),[syntaxTree()] | syntaxTree(),[{{modulename(),functionname(),arity()},syntaxTree(),syntaxTree() | [syntaxTree()]}], boolean(), string(), boolean(), string(),integer(),string()) -> [syntaxTree()] | syntaxTree()).
 %% @end
-%%--------------------------------------------------------------------  
--spec(evaluate(string(),[syntaxTree()] | syntaxTree(),string(),[{{modulename(),functionname(),arity()},syntaxTree(),syntaxTree() | [syntaxTree()]}],RulesFun::fun((_) -> any()), boolean(), string(), boolean(),integer(),[syntaxTree],[syntaxTree]) -> [syntaxTree()] | syntaxTree()).
+%%--------------------------------------------------------------------
 evaluate(Pid,CurrentNode,{DefFiles,Scope},Info,RulesFun,Transform,Input_Steps,TypedF,NRefacsDone,Steps,IText,NewSteps) ->
     RemoveUnrefInfo = core_unreferenced_assign:collector_variable_occurrences(CurrentNode),
     VarsInfo = core_unreferenced_assign:collector_var_expr_value(CurrentNode),
