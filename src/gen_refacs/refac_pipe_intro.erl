@@ -1,3 +1,4 @@
+%% @private
 -module(refac_pipe_intro).
 
 -behaviour(gen_refac).

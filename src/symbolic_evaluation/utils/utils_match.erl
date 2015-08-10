@@ -1,3 +1,4 @@
+%% @private
 -module(utils_match).
 -export([match/2, matchElem/2, matchList/2, firstMatch/3]).
 

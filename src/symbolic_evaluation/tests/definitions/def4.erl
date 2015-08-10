@@ -1,3 +1,4 @@
+%% @private
 -module(def4).
 -export([is_even/1]).
 

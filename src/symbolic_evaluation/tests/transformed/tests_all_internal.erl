@@ -1,3 +1,4 @@
+%% @private
 -module(tests_all_internal).
 -compile([export_all]).
 

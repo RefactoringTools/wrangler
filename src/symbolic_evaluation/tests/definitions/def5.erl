@@ -1,3 +1,4 @@
+%% @private
 -module(def5).
 -compile([export_all]).
 

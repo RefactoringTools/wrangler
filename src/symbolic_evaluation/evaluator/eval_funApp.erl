@@ -2,7 +2,7 @@
 %%% @author Gabriela Cunha Sampaio<>
 %%% @copyright (C) 2014, Simon  Thompson
 %%% @doc This module represents an evaluator that simplifies function calls by its application.  
-%%%
+%%% @private
 %%% @end
 %%%-------------------------------------------------------------------
 -module(eval_funApp).

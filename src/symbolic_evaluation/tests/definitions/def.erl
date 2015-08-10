@@ -1,3 +1,4 @@
+%% @private
 -module(def).
 -export([triple/1, twice/1, f/1, g/1, h/1, fac/1, externalCall/1, map/2,filter/2,testAssignFun/0,externalCall2/1]).
 

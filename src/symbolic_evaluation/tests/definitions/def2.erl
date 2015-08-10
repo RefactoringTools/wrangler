@@ -1,3 +1,4 @@
+%% @private
 -module(def2).
 -export([bar/1]).
 

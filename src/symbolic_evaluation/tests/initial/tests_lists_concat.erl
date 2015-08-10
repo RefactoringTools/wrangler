@@ -1,3 +1,4 @@
+%% @private
 -module(tests_lists_concat).
 
 test() ->

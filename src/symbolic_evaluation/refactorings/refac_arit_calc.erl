@@ -9,7 +9,6 @@
 %%<li> Multiplication and division between variables is also not covered.</li> </ul></p>
 %%<p>However, if the expression contains integers and variables but they are not mixed, as in <i>"1 + 2 + 3 + X + 2*X + Y"</i>, the refactoring can be done and the expression would become <i>"6 + 3 * X + Y"</i> for this example.</p>
 
-%%%
 %%% @end
 %%%-------------------------------------------------------------------
 -module(refac_arit_calc).

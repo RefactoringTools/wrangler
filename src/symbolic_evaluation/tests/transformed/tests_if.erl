@@ -1,3 +1,4 @@
+%% @private
 -module(tests_if).
 -compile([export_all]).
 

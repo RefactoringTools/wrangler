@@ -1,3 +1,4 @@
+%% @private
 -module(utils_subst).
 -export([subst/3,getNode/1]).
 

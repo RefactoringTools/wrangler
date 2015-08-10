@@ -1,3 +1,4 @@
+%% @private
 -module(def6).
 -export([sumList/1, fac/1]).
 

@@ -1,3 +1,4 @@
+%% @private
 -module(def3).
 -export([case_refac/1]).
 

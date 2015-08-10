@@ -1,3 +1,4 @@
+%% @private
 %%% @author Roberto Souto Maior de Barros Filho <>
 %%% @copyright (C) 2013, Roberto S. M. de Barros Filho, Simon  Thompson
 %% Auxiliar Module that is used when the refactorings contains similaraties.

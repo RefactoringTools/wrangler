@@ -1,3 +1,4 @@
+%% @private
 -module(utils_convert).
 %% Include files
 -include_lib("wrangler/include/wrangler.hrl").

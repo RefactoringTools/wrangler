@@ -1,3 +1,4 @@
+%% @private
 -module(test_inline_variable).
 -export([test/0]).
 

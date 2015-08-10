@@ -1,3 +1,4 @@
+%% @private
 -module(eval).
 -export([start_evaluation/8,keep_temp_info/3,try_evaluate/12]).
 

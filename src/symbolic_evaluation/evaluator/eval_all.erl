@@ -3,7 +3,7 @@
 %%% @copyright (C) 2013, Simon  Thompson
 %%% @doc 
 %%This module was created with the aim of <b>mixing some refactorings and applying all their rules toghether</b>. Thus, this refactoring just call the others refactorings (arithmetics, identity and function applications). <p>For instance, the code <i>"f(X) ->  X + 0 + 1 + 2"</i> would be transformed into <i>"f(X) -> X + 3"</i>. This would be done by the refactorings that substitute identity expressions (E.g.: "X + 0", which return "X") and also the refactoring which manipulates with operations between integers and variables (this refactoring would substitute <i>"1 + 2"</i> to <i>"3"</i>. Then the final result is <i>"f(X) -> X + 3"</i>. </p><p>That's why this refactoring is important, to integrate the others three refactorings and create a more powerful single refactoring that contains the other three.</p>  
-%%%
+%%% @private
 %%% @end
 %%% Created : 18 Oct 2013 by Gabriela Cunha, Roberto Souto <>
 %%%-------------------------------------------------------------------

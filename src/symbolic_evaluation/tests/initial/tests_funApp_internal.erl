@@ -1,3 +1,4 @@
+%% @private
 -module(tests_funApp_internal).
 -record(book, {name,
 		authors,

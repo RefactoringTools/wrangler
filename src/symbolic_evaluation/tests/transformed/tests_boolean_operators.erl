@@ -1,3 +1,4 @@
+%% @private
 -module(tests_boolean_operators).
 -compile([export_all]).
 

@@ -1,3 +1,4 @@
+%% @private
 -module(test_unreferenced_assign).
 -compile([export_all]).
 

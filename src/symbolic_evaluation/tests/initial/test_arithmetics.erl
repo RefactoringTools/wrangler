@@ -1,3 +1,4 @@
+%% @private
 -module(test_arithmetics).
 -compile([export_all]).
 

@@ -1,3 +1,4 @@
+%% @private
 -module(tests_all_case).
 -compile([export_all]).
 

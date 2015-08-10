@@ -1,3 +1,4 @@
+%% @private
 -module(tests_funApp_external).
 %%-compile([export_all]).
 -export([internalCall2/1]).

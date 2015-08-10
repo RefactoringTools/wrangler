@@ -3,6 +3,7 @@
 %%% @copyright (C) 2013, Gabriela C. Sampaio, Roberto S. M. de Barros Filho, Simon  Thompson
 %%% @doc
 %% Remove Begin/End Core - Removes begin/end blocks when a single steps is inside them.
+%%% @private
 %%% @end
 %%%-------------------------------------------------------------------
 -module(core_rem_begin_end).

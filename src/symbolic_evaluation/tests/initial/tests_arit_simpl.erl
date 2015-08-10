@@ -1,3 +1,4 @@
+%% @private
 -module(tests_arit_simpl).
 -compile([export_all]).
 

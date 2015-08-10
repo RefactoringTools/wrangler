@@ -1,3 +1,4 @@
+%% @private
 %%% @author Roberto Souto Maior de Barros Filho <>
 %%% @copyright (C) 2014, Roberto S. M. de Barros Filho, Simon  Thompson
 -module(utils_guards).
