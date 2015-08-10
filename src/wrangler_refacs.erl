@@ -918,6 +918,7 @@ add_to_export(FileName, {FunName, Arity}, SearchPaths, Editor, TabWidth) ->
 %%@private
 swap_args(FileName, {FunName, Arity}, Index1, Index2, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_swap_function_arguments, swap_args, [FileName, {FunName, Arity}, Index1, Index2, SearchPaths, Editor, TabWidth]).
+
 %%=========================================================================================
 %% @doc Turn a function into a server process (Beta).
 %%<p>

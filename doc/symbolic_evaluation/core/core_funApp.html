@@ -1,0 +1,88 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module core_funApp</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module core_funApp</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>Unfold Function Application Core - Substitute function calls by its application.
+<p>Copyright © (C) 2013, Gabriela C. Sampaio, Roberto S. M. de Barros Filho, Simon  Thompson</p>
+
+<p><b>Authors:</b> Gabriela Cunha Sampaio, Roberto Souto Maior de Barros Filho.</p>
+
+<h2><a name="description">Description</a></h2><p>Unfold Function Application Core - Substitute function calls by its application.</p>
+ 
+  There are three types of transformations in this module:
+ <ul>
+ <li> <b>Length</b> -  Replaces function calls to the function <i>length/1</i> from the standard by the length of the list passed as parameter. For instance, <em>length([10,20,30])</em> is transformed to <em>3</em>.</li>
+ <li>
+ <b>External calls</b> - Function application for function calls from external modules. For example, consider the following module <em>def</em>:<br><br>
+ <em>
+ module(def).<br>
+ export([sumList/1]).<br>
+ <br>
+ sumList([]) -&gt; 0;<br>
+ sumList([H | T]) when is_number(H) -&gt; H + sumList(T).<br><br>
+ </em>
+ A call to <em>def:sumList([1,2,3])</em> can be simplified to <em>1 + (2 + (3 + 0))</em>.
+ </li>
+ <li>
+ <b>Parametrized Anonymous Calls</b> - This transformation is responsible for modifications in parametrized function calls of anonymous functions. For example:
+ <em>fun(X) -&gt; 2 * X end(1)</em> is simplified to <em>2 * 1</em>.
+ </li>
+ </ul>
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#anonymousCall_rule-0">anonymousCall_rule/0</a></td><td>
+  Rule that substitutes parametrized anonymous calls.</td></tr>
+<tr><td valign="top"><a href="#collect-1">collect/1</a></td><td>
+  Collects info from the exported functions in the file.</td></tr>
+<tr><td valign="top"><a href="#functionCall_cond-6">functionCall_cond/6</a></td><td>
+ Boolean condition to execute the function application transformations.</td></tr>
+<tr><td valign="top"><a href="#functionCall_rule-4">functionCall_rule/4</a></td><td>
+  Rule that substitutes external function calls.</td></tr>
+<tr><td valign="top"><a href="#length_rule-0">length_rule/0</a></td><td>
+  Rule that substitutes call to length/1 from the standard.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="anonymousCall_rule-0">anonymousCall_rule/0</a></h3>
+<div class="spec">
+<p><tt>anonymousCall_rule() -&gt; <a href="#type-rule">rule()</a></tt><br></p>
+</div><p>
+  Rule that substitutes parametrized anonymous calls.</p>
+
+<h3 class="function"><a name="collect-1">collect/1</a></h3>
+<div class="spec">
+<p><tt>collect(File::<a href="#type-filename">filename()</a>) -&gt; [{mfa(), <a href="#type-syntaxTree">syntaxTree()</a>, [<a href="#type-syntaxTree">syntaxTree()</a>], <a href="#type-syntaxTree">syntaxTree()</a>}]</tt><br></p>
+</div><p>
+  Collects info from the exported functions in the file.</p>
+
+<h3 class="function"><a name="functionCall_cond-6">functionCall_cond/6</a></h3>
+<div class="spec">
+<p><tt>functionCall_cond(FunInfo::mfa() | unknown, FunDefInfo::mfa() | unknown, InfoList::[{mfa(), <a href="#type-syntaxTree">syntaxTree()</a>, [<a href="#type-syntaxTree">syntaxTree()</a>], <a href="#type-syntaxTree">syntaxTree()</a>}] | [{list, [{<a href="#type-modulename">modulename()</a>, [{mfa(), <a href="#type-syntaxTree">syntaxTree()</a>, [<a href="#type-syntaxTree">syntaxTree()</a>], <a href="#type-syntaxTree">syntaxTree()</a>}]}]}], Args::<a href="#type-syntaxTree">syntaxTree()</a>, BoundVars::[{atom(), <a href="#type-pos">pos()</a>}], BoundVarsThis::[{atom(), <a href="#type-pos">pos()</a>}]) -&gt; boolean()</tt><br></p>
+</div><p>
+ Boolean condition to execute the function application transformations.</p>
+
+<h3 class="function"><a name="functionCall_rule-4">functionCall_rule/4</a></h3>
+<div class="spec">
+<p><tt>functionCall_rule(InfoList::[{mfa(), <a href="#type-syntaxTree">syntaxTree()</a>, [<a href="#type-syntaxTree">syntaxTree()</a>], <a href="#type-syntaxTree">syntaxTree()</a>}] | [{list, [{<a href="#type-modulename">modulename()</a>, [{mfa(), <a href="#type-syntaxTree">syntaxTree()</a>, [<a href="#type-syntaxTree">syntaxTree()</a>], <a href="#type-syntaxTree">syntaxTree()</a>}]}]}], FunDefInfo::mfa() | unknown, IsRefactoring::boolean(), BoundVars::[{atom(), <a href="#type-pos">pos()</a>}]) -&gt; <a href="#type-rule">rule()</a></tt><br></p>
+</div><p>
+  Rule that substitutes external function calls.</p>
+
+<h3 class="function"><a name="length_rule-0">length_rule/0</a></h3>
+<div class="spec">
+<p><tt>length_rule() -&gt; <a href="#type-rule">rule()</a></tt><br></p>
+</div><p>
+  Rule that substitutes call to length/1 from the standard.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Aug 20 2014, 17:07:44.</i></p>
+</body>
+</html>

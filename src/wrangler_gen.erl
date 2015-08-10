@@ -36,17 +36,17 @@
 
 -module(wrangler_gen).
 
--export([rename_fun/4, rename_fun/5,
-         rename_var/5, rename_var/6,
-         rename_mod/3, rename_mod/4,
-         swap_args/5,  swap_args/6,
-         tuple_args/5, tuple_args/6,
-         fold_expr/5,  fold_expr/6,
-         gen_fun/5,    gen_fun/6,gen_fun/7,    
-         move_fun/4,   move_fun/5,
-         unfold_fun_app/4,unfold_fun_app/5,
-         add_to_export/3, add_to_export/4,
-         inline_var/4]).
+-export([rename_fun/4,     rename_fun/5,
+         rename_var/5,     rename_var/6,
+         rename_mod/3,     rename_mod/4,
+         swap_args/5,      swap_args/6,
+         tuple_args/5,     tuple_args/6,     
+         fold_expr/5,      fold_expr/6,      
+         gen_fun/5,        gen_fun/6,        
+         gen_fun/7,        move_fun/4,       
+         move_fun/5,       unfold_fun_app/4, 
+         unfold_fun_app/5, add_to_export/3,  
+         add_to_export/4,  inline_var/4]).
 
 -compile(export_all).
 
@@ -785,6 +785,8 @@ test_swap_args(SearchPaths, Lazy) ->
                        A>= 3 
                end,
                2, 3, Lazy, SearchPaths).
+
+gen_input({user_input, GenPrompt}) -> {prompt, GenPrompt()}.
     
 %%@hidden
 tuple_args(ModOrFile, FA, Index1,Index2, SearchPaths)->
