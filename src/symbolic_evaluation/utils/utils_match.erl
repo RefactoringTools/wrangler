@@ -3,7 +3,7 @@
 -export([match/2, matchElem/2, matchList/2, firstMatch/3]).
 
 %% Include files
--include_lib("wrangler/include/wrangler.hrl").
+-include_lib("../../../include/wrangler.hrl").
 
 %%--------------------------------------------------------------------
 %% @private
