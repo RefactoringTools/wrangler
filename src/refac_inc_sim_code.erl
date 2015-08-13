@@ -221,7 +221,7 @@ inc_sim_code_detection(Files, {MinLen, MinToks, MinFreq, MaxVars, SimiScore},
 inc_sim_code_detection(Files, Thresholds, Tabs, SearchPaths, TabWidth, Editor, Inc) ->
     {FilesDeleted, _FilesChanged, _NewFiles} = get_file_status_info(Files, Tabs, Thresholds),
     ?debug("FileChanged: ~p\n", [length(FilesDeleted++_FilesChanged++_NewFiles)]),
-    _Time1 = time(),
+    %% _Time1 = time(),
     ?debug("Time1:\n~p\n", [_Time1]),
     
     %% remove information related to files that no longer exist from ets tables.
@@ -255,7 +255,7 @@ inc_sim_code_detection(Files, Thresholds, Tabs, SearchPaths, TabWidth, Editor, I
     CloneCheckerPid = start_clone_check_process(Tabs),
     %% examine each clone candiate and filter false positives.
     Cs2 = examine_clone_candidates(Cs, Thresholds, Tabs, CloneCheckerPid, ASTPid, 1),
-    _Time2 = time(),
+    %% _Time2 = time(),
     Cs3 = combine_clones_by_au(Cs2),
     Cs4 =[{R, L, F, C}||{R, L, F, C}<-Cs3, length(R)>=2],
     %% ?debug("\n Time Used: ~p\n", [{Time1, Time2}]),

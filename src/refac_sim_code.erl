@@ -70,13 +70,13 @@ sim_code_detection(DirFileList, MinLen1, MinFreq1, SimiScore1, SearchPaths, TabW
 		  [] -> ?wrangler_io("Warning: No files found in the searchpaths specified.", []),
 			[];
 		  _ ->
-		      _Time1 = now(),
+		      % _Time1 = now(),
 		      ?wrangler_io("Searching for initial clone candidates...\n", []),
 		      Cs = get_initial_clone_candidates(Files, MinLen, MinFreq, ASTTab, VarTab, RangeTab, SearchPaths,TabWidth),
 		      ?wrangler_io("\nNumber of initial clone candidates: ~p\n", [length(Cs)]),
 		      CloneCheckPid = start_clone_check_process(),
 		      Cs2 = examine_clone_sets(Cs, MinFreq, SimiScore, ASTTab, VarTab, RangeTab, CloneCheckPid, 1),
-		      _Time2 = now(),
+		      % _Time2 = now(),
 		      stop_clone_check_process(CloneCheckPid),
 		      ets:delete(ASTTab),
 		      ets:delete(VarTab),
