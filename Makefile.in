@@ -37,8 +37,17 @@ ERL_GEN_COMP_SRC = $(wildcard src/gen_composite_refacs/*.erl)
 
 ERL_MY_GEN_COMP_SRC = $(wildcard src/my_gen_composite_refacs/*.erl)
 
+ERL_EVAL_SRC = $(wildcard src/symbolic_evaluation/evaluator/*.erl)
+ERL_CORE_SRC = $(wildcard src/symbolic_evaluation/core/*.erl)
+ERL_REFAC_SRC = $(wildcard src/symbolic_evaluation/refactorings/*.erl)
+ERL_UTILS_SRC = $(wildcard src/symbolic_evaluation/utils/*.erl)
+ERL_DEF_SRC = $(wildcard src/symbolic_evaluation/tests/definitions/*.erl)
+
 LAST_SRC = $(filter-out $(FIRST_SRC), $(ERL_SRC)) $(ERL_GEN_REFACS_SRC) \
-   $(ERL_MY_GEN_REFACS_SRC) $(ERL_GEN_COMP_SRC) $(ERL_MY_GEN_COMP_SRC)
+   $(ERL_MY_GEN_REFACS_SRC) $(ERL_GEN_COMP_SRC) $(ERL_MY_GEN_COMP_SRC) \
+	$(ERL_EVAL_SRC) $(ERL_CORE_SRC) $(ERL_REFAC_SRC) \
+		$(ERL_UTILS_SRC) \
+			$(ERL_DEF_SRC)  
 
 ERL_LAST = $(patsubst src/%.erl,ebin/%.beam,$(ERL_SRC)) \
 	$(patsubst src/gen_refacs/%.erl, ebin/%.beam, $(ERL_GEN_REFACS_SRC)) \
@@ -47,7 +56,17 @@ ERL_LAST = $(patsubst src/%.erl,ebin/%.beam,$(ERL_SRC)) \
 	$(patsubst src/gen_composite_refacs/%.erl, ebin/%.beam, \
 	  $(ERL_GEN_COMP_SRC)) \
 	$(patsubst src/my_gen_composite_refacs/%.erl, ebin/%.beam, \
-	  $(ERL_MY_GEN_COMP_SRC))
+	  $(ERL_MY_GEN_COMP_SRC)) \
+	$(patsubst src/symbolic_evaluation/evaluator/%.erl, ebin/%.beam, \
+	  $(ERL_EVAL_SRC)) \
+	$(patsubst src/symbolic_evaluation/core/%.erl, ebin/%.beam, \
+	  $(ERL_CORE_SRC)) \
+	$(patsubst src/symbolic_evaluation/refactorings/%.erl, ebin/%.beam, \
+	  $(ERL_REFAC_SRC)) \
+	$(patsubst src/symbolic_evaluation/utils/%.erl, ebin/%.beam, \
+	  $(ERL_UTILS_SRC)) \
+	$(patsubst src/symbolic_evaluation/tests/definitions/%.erl, ebin/%.beam, \
+	  $(ERL_DEF_SRC))
 
 ERL_OBJ = $(BUILD_FIRST) $(ERL_LAST)
 
@@ -113,6 +132,21 @@ ebin/%.beam: src/gen_composite_refacs/%.erl
 ebin/%.beam: src/my_gen_composite_refacs/%.erl
 	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
 
+ebin/%.beam: src/symbolic_evaluation/evaluator/%.erl
+	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
+
+ebin/%.beam: src/symbolic_evaluation/core/%.erl
+	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
+
+ebin/%.beam: src/symbolic_evaluation/refactorings/%.erl
+	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
+
+ebin/%.beam: src/symbolic_evaluation/utils/%.erl
+	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
+
+ebin/%.beam: src/symbolic_evaluation/tests/definitions/%.erl
+	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
+
 ebin/%.beam: include/wrangler.hrl include/wrangler_internal.hrl
 
 src/%.erl: src/%.yrl
@@ -131,6 +165,7 @@ clean:
 	@-rm -f $(ELISP_OBJ)
 	@-rm -f priv/suffixtree priv/gsuffixtree
 	@-rm -f doc/*.html doc/edoc-info doc/erlang.png doc/stylesheet.css
+	@-rm -f doc/*/*/*.html doc/*/*/edoc-info doc/*/*/erlang.png doc/*/*/stylesheet.css
 	@-rm -f doc/*.erl
 
 distclean: clean
@@ -179,9 +214,15 @@ EXAMPLE_CODE = inspec_examples.erl \
     gen_composite_refacs/refac_batch_prefix_module.erl \
     refac_batch_rename_fun.erl regexp_re.erl keysearch_keyfind.erl
 
-docs:
+docs-se-%: doc/symbolic_evaluation/%/overview.edoc
 	$(ERL) -noshell -eval \
-	"edoc:application($(APPNAME), \".\", [$(DOC_OPTS), {packages, false}])"\
+	"edoc:application($*, \"src/symbolic_evaluation/$*\", [$(DOC_OPTS), {dir, \"doc/symbolic_evaluation/$*\"}, {overview, \"$<\"}, no_subpackages])" \
+	-s init stop
+	(cd src ; cp $(EXAMPLE_CODE) ../doc/)
+
+docs: docs-se-core docs-se-evaluator docs-se-refactorings
+	$(ERL) -noshell -eval \
+	"edoc:application($(APPNAME), \".\", [$(DOC_OPTS), no_subpackages])" \
 	-s init stop
 	(cd src ; cp $(EXAMPLE_CODE) ../doc/)
 

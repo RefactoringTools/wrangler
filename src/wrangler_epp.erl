@@ -1000,6 +1000,9 @@ expand_var1(NewName) ->
     true = Value =/= false,
     {ok, filename:join([Value | Rest])}.
 
+loc(Token) ->
+    erl_scan:location(Token).
+
 %% epp has always output -file attributes when entering and leaving
 %% included files (-include, -include_lib). Starting with R11B the
 %% -file attribute is also recognized in the input file. This is
@@ -1050,14 +1053,12 @@ interpret_file_attr([{attribute,_AL,file,{File,_Line}}=Form | Forms],
              [Form | interpret_file_attr(Forms, 0, [File, Delta | Fs])]
      end;
 interpret_file_attr([Form0 | Forms], Delta, Fs) ->
-     Form = erl_lint:modify_line(Form0, fun(L) -> {abs(element(1, L)) + Delta, element(2, L)} end),
-     [Form | interpret_file_attr(Forms, Delta, Fs)];
+    F = fun(Anno) ->
+                Line = erl_anno:line(Anno),
+                erl_anno:set_line(Line + Delta, Anno)
+        end,
+    Form = erl_parse:map_anno(F, Form0),
+    [Form | interpret_file_attr(Forms, Delta, Fs)];
 interpret_file_attr([], _Delta, _Fs) ->
-     [].
-
-loc(T) ->
-    case T of
-        {_, L, _V} -> L;
-        {_, L1} -> L1
-    end.
+    [].
 

@@ -1,3 +1,4 @@
+%% @private
 -module(refac_intro_parallel).
 
 -compile(export_all).

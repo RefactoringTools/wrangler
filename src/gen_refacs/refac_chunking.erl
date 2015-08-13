@@ -1,3 +1,4 @@
+%% @private
 -module(refac_chunking).
 
 -behaviour(gen_refac).

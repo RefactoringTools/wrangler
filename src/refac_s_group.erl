@@ -1,3 +1,4 @@
+%% @private
 -module(refac_s_group).
 
 -include("wrangler.hrl").

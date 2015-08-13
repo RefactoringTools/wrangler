@@ -1,3 +1,4 @@
+%% @private
 -module(refac_map_intro).
 
 -behaviour(gen_refac).
