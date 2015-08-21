@@ -63,8 +63,9 @@
          eqc_fsm_callback_funs/0,
          commontest_callback_funs/0]).
 
--export([collect_var_names/1, 
+-export([collect_var_names/1,
          collect_used_macros/1,
+         collect_used_macros_with_arity/1,
          collect_used_records/1,
 	 collect_non_qualified_fun_refs/1,
          collect_var_source_def_pos_info/1]).
@@ -758,6 +759,28 @@ collect_used_macros(Node) ->
 		end
 	end,
     lists:usort(api_ast_traverse:fold(F, [], Node)).
+
+%%-spec collect_used_macros_with_arity(syntaxTree()) ->
+%%				        [{atom(), integer()}].
+collect_used_macros_with_arity(Node) ->
+    F = fun (T, S) ->
+		case wrangler_syntax:type(T) of
+		    macro ->
+			Name = wrangler_syntax:macro_name(T),
+			Args = wrangler_syntax:macro_arguments(T),
+			NameAtom = case wrangler_syntax:type(Name) of
+				       variable -> wrangler_syntax:variable_name(Name);
+				       atom -> wrangler_syntax:atom_value(Name)
+				   end,
+			ArgsInt = case Args of
+				      none -> 0;
+				      List when is_list(List) -> length(List)
+				  end,
+			ordsets:add_element({NameAtom, ArgsInt}, S);
+		    _ -> S
+		end
+	end,
+    ordsets:to_list(api_ast_traverse:fold(F, ordsets:new(), Node)).
 
 %%-spec collect_used_records(syntaxTree())-> [atom()].
 collect_used_records(Node) ->
