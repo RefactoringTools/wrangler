@@ -66,6 +66,7 @@
 -export([collect_var_names/1, 
          collect_used_macros/1,
          collect_used_records/1,
+	 collect_non_qualified_fun_refs/1,
          collect_var_source_def_pos_info/1]).
 
 -export([test_framework_used/1]).
@@ -781,6 +782,38 @@ collect_used_records(Node) ->
 			  case wrangler_syntax:type(Type) of
 			      atom ->
 				  ordsets:add_element(wrangler_syntax:atom_value(Type), S);
+			      _ -> S
+			  end;
+		      _ -> S
+		  end
+	  end,
+    ordsets:to_list(api_ast_traverse:fold(Fun, ordsets:new(), Node)).
+
+%%-spec collect_non_qualified_fun_refs(syntaxTree())-> [{atom(), integer()}].
+collect_non_qualified_fun_refs(Node) ->
+    Fun = fun (T, S) ->
+		  case wrangler_syntax:type(T) of
+		      application ->
+			  Operator = wrangler_syntax:application_operator(T),
+			  Arguments = wrangler_syntax:application_arguments(T),
+			  case wrangler_syntax:type(Operator) of
+			      atom ->
+				  ordsets:add_element({wrangler_syntax:atom_value(Operator),
+						       length(Arguments)}, S);
+			      _ -> S
+			  end;
+		      implicit_fun ->
+			  Name = wrangler_syntax:implicit_fun_name(T),
+			  case wrangler_syntax:type(Name) of
+			      arity_qualifier ->
+				  FunName = wrangler_syntax:arity_qualifier_body(Name),
+				  Arity = wrangler_syntax:arity_qualifier_argument(Name),
+				  case {wrangler_syntax:type(FunName), wrangler_syntax:type(Arity)} of
+				      {atom, integer} ->
+					  ordsets:add_element({wrangler_syntax:atom_value(FunName),
+							       wrangler_syntax:integer_value(Arity)}, S);
+				      _ -> S
+				  end;
 			      _ -> S
 			  end;
 		      _ -> S
