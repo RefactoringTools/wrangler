@@ -30,7 +30,7 @@
 -module(eval_inline_variable).
 
 %% Include files
--include_lib("wrangler/include/wrangler.hrl").
+-include_lib("../../../include/wrangler.hrl").
 
 -export([rules/2]).
 

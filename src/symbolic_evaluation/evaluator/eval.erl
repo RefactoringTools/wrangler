@@ -3,7 +3,7 @@
 -export([start_evaluation/8,keep_temp_info/3,try_evaluate/12]).
 
 %% Include files
--include_lib("wrangler/include/wrangler.hrl").   
+-include_lib("../../../include/wrangler.hrl").   
 
 %%--------------------------------------------------------------------
 %% @doc

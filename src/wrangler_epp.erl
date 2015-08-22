@@ -1000,8 +1000,11 @@ expand_var1(NewName) ->
     true = Value =/= false,
     {ok, filename:join([Value | Rest])}.
 
-loc(Token) ->
-    erl_scan:location(Token).
+loc(T) ->
+    case T of
+	{_, L, _V} -> L;
+	{_, L1} -> L1
+    end.
 
 %% epp has always output -file attributes when entering and leaving
 %% included files (-include, -include_lib). Starting with R11B the
