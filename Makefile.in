@@ -175,22 +175,22 @@ distclean: clean
 
 install: default
 	@echo "* Installing Emacs Lisp Library"
-	install -m 775 -d $(LIB_DIR)/elisp
-	install -m 775 elisp/*.el $(LIB_DIR)/elisp
+	install -m 775 -d $(DESTDIR)$(LIB_DIR)/elisp
+	install -m 775 elisp/*.el $(DESTDIR)$(LIB_DIR)/elisp
 	@echo
 	@echo "* Installing Erlang Library"
-	install -m 775 -d $(LIB_DIR)/ebin
-	install -m 775 ebin/*.beam $(LIB_DIR)/ebin
-	install -m 775 ebin/*.app $(LIB_DIR)/ebin
-	install -m 775 -d $(LIB_DIR)/src
-	install -m 775 src/*/*.erl $(LIB_DIR)/src
-	install -m 775 -d $(LIB_DIR)/include
-	install -m 775 include/*.hrl $(LIB_DIR)/include
-	install -m 775 -d $(LIB_DIR)/priv
-	install -m 775 priv/suffixtree* $(LIB_DIR)/priv
-	install -m 755 priv/gsuffixtree* $(LIB_DIR)/priv
-	install -m 775 priv/side_effect_plt $(LIB_DIR)/priv
-	install -m 775 priv/dialyzer_plt $(LIB_DIR)/priv
+	install -m 775 -d $(DESTDIR)$(LIB_DIR)/ebin
+	install -m 775 ebin/*.beam $(DESTDIR)$(LIB_DIR)/ebin
+	install -m 775 ebin/*.app $(DESTDIR)$(LIB_DIR)/ebin
+	install -m 775 -d $(DESTDIR)$(LIB_DIR)/src
+	install -m 775 src/*/*.erl $(DESTDIR)$(LIB_DIR)/src
+	install -m 775 -d $(DESTDIR)$(LIB_DIR)/include
+	install -m 775 include/*.hrl $(DESTDIR)$(LIB_DIR)/include
+	install -m 775 -d $(DESTDIR)$(LIB_DIR)/priv
+	install -m 775 priv/suffixtree* $(DESTDIR)$(LIB_DIR)/priv
+	install -m 755 priv/gsuffixtree* $(DESTDIR)$(LIB_DIR)/priv
+	install -m 775 priv/side_effect_plt $(DESTDIR)$(LIB_DIR)/priv
+	install -m 775 priv/dialyzer_plt $(DESTDIR)$(LIB_DIR)/priv
 	@echo
 	@echo "*** Successfully installed. See README for usage instructions."
 	@echo
