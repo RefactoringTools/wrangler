@@ -1,0 +1,8 @@
+@author Pablo Lamela Seijas <P.Lamela-Seijas@kent.ac.uk>
+@author Simon Thompson <S.J.Thompson@kent.ac.uk>
+@copyright (C) 2015 Pablo Lamela, Simon Thompson
+@title Automatic behaviour inference
+@doc
+This package provides support for automatic generation of behaviour from two existing modules with similar implementations.
+The common code detected will be moved to a new module which will be configured as a behaviour definition, and the original
+modules will be configured as behaviour instances of the new module.

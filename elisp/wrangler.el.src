@@ -330,6 +330,8 @@
       ("Expression to behaviour instance" erl-refactor-expr-to-behav-instance)
       ("Unfold behaviour instance" erl-refactor-unfold-behav-instance)
       nil
+      ("Infer behaviour from two modules" erl-refactor-infer-behaviour)
+      nil
       ("Copy Module" erl-refactor-copy-mod)
       ("Create behaviour instance file" refac_create_behav_instance)
       ("Add function to behaviour_info" refac_add_callback)
@@ -1682,7 +1684,29 @@
 		  )))
       (message "Refactoring aborted."))))
 		  
-	
+
+(defun erl-refactor-infer-behaviour(leftmod rightmod destmod)
+  "Infer a new behaviour from two similar modules."
+ (interactive (list (read-string "First module to compare: ")
+		    (read-string "Second module to compare: ")
+		    (read-string "Dest module (must not exist):")
+		    ))
+  (let ((current-file-name (buffer-file-name)))
+    (erl-spawn
+	 (erl-send-rpc wrangler-erl-node 'wrangler_refacs 'try_refac (list 'infer_behaviour 'infer_behaviour
+				    (list leftmod rightmod destmod wrangler-search-paths 'emacs tab-width)))
+	  (erl-receive (current-file-name)
+	      ((['rex ['badrpc rsn]]
+		(message "Refactoring failed: %S" rsn))
+	       (['rex ['error rsn]]
+		(message "Refactoring failed: %s" rsn))
+	       (['rex ['ok modified]]
+		(progn
+		  (if (equal modified nil)
+		      (message "Refactoring finished, and no file has been changed.")
+		    (preview-commit-cancel current-file-name modified nil)
+		    )))))
+      (message "Refactoring aborted."))))
 
 (defun refac_add_callback()
   (interactive)

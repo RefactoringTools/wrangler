@@ -1,6 +1,7 @@
 %%%-------------------------------------------------------------------
 %%% @author Pablo Lamela Seijas <P.Lamela-Seijas@kent.ac.uk>
-%%% @copyright (C) 2015, Pablo Lamela
+%%% @author Simon Thompson <S.J.Thompson@kent.ac.uk>
+%%% @copyright (C) 2015, Pablo Lamela, Simon Thompson
 %%% @doc
 %%% Adds a callback declaration for the function with the name
 %%% specified.

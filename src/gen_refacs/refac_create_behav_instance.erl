@@ -1,6 +1,7 @@
 %%%-------------------------------------------------------------------
 %%% @author Pablo Lamela Seijas <P.Lamela-Seijas@kent.ac.uk>
-%%% @copyright (C) 2015, Pablo Lamela
+%%% @author Simon Thompson <S.J.Thompson@kent.ac.uk>
+%%% @copyright (C) 2015, Pablo Lamela, Simon Thompson
 %%% @doc
 %%% Creates a file with the skeleton of a behaviour instance.
 %%% It adds the behaviour declaration if it is not there already.

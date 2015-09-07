@@ -1,6 +1,7 @@
 %%%-------------------------------------------------------------------
 %%% @author Pablo Lamela Seijas <P.Lamela-Seijas@kent.ac.uk>
-%%% @copyright (C) 2015, Pablo Lamela
+%%% @author Simon Thompson <S.J.Thompson@kent.ac.uk>
+%%% @copyright (C) 2015, Pablo Lamela, Simon Thompson
 %%% @doc
 %%% Unfold an instance of a behaviour into its behaviour definition.
 %%% In order to prevent other instances from working, the refactoring

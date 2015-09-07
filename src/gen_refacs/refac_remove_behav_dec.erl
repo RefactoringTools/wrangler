@@ -1,6 +1,7 @@
 %%%-------------------------------------------------------------------
 %%% @author Pablo Lamela Seijas <P.Lamela-Seijas@kent.ac.uk>
-%%% @copyright (C) 2015, Pablo Lamela
+%%% @author Simon Thompson <S.J.Thompson@kent.ac.uk>
+%%% @copyright (C) 2015, Pablo Lamela, Simon Thompson
 %%% @doc
 %%% Removes the callback declaration from a module
 %%% and arity specified.

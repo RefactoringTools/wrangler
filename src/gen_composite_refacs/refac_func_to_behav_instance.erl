@@ -1,6 +1,7 @@
 %%%-------------------------------------------------------------------
 %%% @author Pablo Lamela Seijas <P.Lamela-Seijas>
-%%% @copyright (C) 2015, Pablo Lamela
+%%% @author Simon Thompson <S.J.Thompson@kent.ac.uk>
+%%% @copyright (C) 2015, Pablo Lamela, Simon Thompson
 %%% @doc
 %%% Moves the function to another module as
 %%% a behaviour callback. If the destination does not exist it is

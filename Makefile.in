@@ -29,6 +29,8 @@ BUILD_FIRST = $(patsubst src/%.yrl,ebin/%.beam, $(YRL)) \
 
 ERL_SRC = $(wildcard src/*.erl)
 
+ERL_BEH_EXTRACTION_SRC = $(wildcard src/behaviour_extraction/*.erl)
+
 ERL_GEN_REFACS_SRC = $(wildcard src/gen_refacs/*.erl)
 
 ERL_MY_GEN_REFACS_SRC= $(wildcard src/my_gen_refacs/*.erl)
@@ -46,10 +48,11 @@ ERL_DEF_SRC = $(wildcard src/symbolic_evaluation/tests/definitions/*.erl)
 LAST_SRC = $(filter-out $(FIRST_SRC), $(ERL_SRC)) $(ERL_GEN_REFACS_SRC) \
    $(ERL_MY_GEN_REFACS_SRC) $(ERL_GEN_COMP_SRC) $(ERL_MY_GEN_COMP_SRC) \
 	$(ERL_EVAL_SRC) $(ERL_CORE_SRC) $(ERL_REFAC_SRC) \
-		$(ERL_UTILS_SRC) \
+		$(ERL_UTILS_SRC) $(ERL_BEH_EXTRACTION_SRC) \
 			$(ERL_DEF_SRC)  
 
 ERL_LAST = $(patsubst src/%.erl,ebin/%.beam,$(ERL_SRC)) \
+	$(patsubst src/behaviour_extraction/%.erl, ebin/%.beam, $(ERL_BEH_EXTRACTION_SRC)) \
 	$(patsubst src/gen_refacs/%.erl, ebin/%.beam, $(ERL_GEN_REFACS_SRC)) \
 	$(patsubst src/my_gen_refacs/%.erl, ebin/%.beam, \
 	  $(ERL_MY_GEN_REFACS_SRC)) \
@@ -120,6 +123,9 @@ src/refac_batch_rename_fun.erl $(ERL_GEN_COMP_SRC) \
 ebin/%.beam: src/%.erl
 	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
 
+ebin/%.beam: src/behaviour_extraction/%.erl
+	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
+
 ebin/%.beam: src/gen_refacs/%.erl
 	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
 
@@ -165,6 +171,7 @@ clean:
 	@-rm -f $(ELISP_OBJ)
 	@-rm -f priv/suffixtree priv/gsuffixtree
 	@-rm -f doc/*.html doc/edoc-info doc/erlang.png doc/stylesheet.css
+	@-rm -f doc/*/*.html doc/*/edoc-info doc/*/erlang.png doc/*/stylesheet.css
 	@-rm -f doc/*/*/*.html doc/*/*/edoc-info doc/*/*/erlang.png doc/*/*/stylesheet.css
 	@-rm -f doc/*.erl
 
@@ -220,7 +227,14 @@ docs-se-%: doc/symbolic_evaluation/%/overview.edoc
 	-s init stop
 	(cd src ; cp $(EXAMPLE_CODE) ../doc/)
 
-docs: docs-se-core docs-se-evaluator docs-se-refactorings
+docs-be: doc/behaviour_extraction/overview.edoc
+	$(ERL) -noshell -eval \
+	"edoc:application(behaviour_extraction, \"src/behaviour_extraction\", [$(DOC_OPTS), {dir, \"doc/behaviour_extraction\"}, {overview, \"$<\"}, no_subpackages])" \
+	-s init stop
+	(cd src ; cp $(EXAMPLE_CODE) ../doc/)
+
+
+docs: docs-se-core docs-se-evaluator docs-se-refactorings docs-be
 	$(ERL) -noshell -eval \
 	"edoc:application($(APPNAME), \".\", [$(DOC_OPTS), no_subpackages])" \
 	-s init stop
