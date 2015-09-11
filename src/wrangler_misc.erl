@@ -1252,7 +1252,10 @@ create_files([]) -> ok;
 create_files([File|Tail]) ->
     TargetModName = list_to_atom(filename:basename(File, ".erl")),
     S = "-module("++atom_to_list(TargetModName)++").",
-    case file:write_file(File, list_to_binary(S)) of
-	ok -> create_files(Tail);
-	{error, Reason} -> {error, File, Reason}
+    case filelib:is_regular(File) of
+	false -> case file:write_file(File, list_to_binary(S)) of
+		    ok -> create_files(Tail);
+		    {error, Reason} -> {error, File, Reason}
+		end;
+	true -> create_files(Tail) %% It already exists, don't create
     end.
