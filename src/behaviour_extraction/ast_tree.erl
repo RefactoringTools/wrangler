@@ -14,7 +14,7 @@
 	 get_left_if_node_pair/1, get_right_if_node_pair/1, value/1,
 	 reparse/1, replace_in_node/2, tree_to_ast/1,
 	 tree_to_ast/2, show_node/1, breaks_funname/2,
-	 get_macros_list/1, get_macro_info/1]).
+	 get_macros_list/1, get_macro_info/1, is_function_or_macro/1]).
 
 -export([get_file_name/1, get_search_paths/1, get_tab_width/1,
 	 get_inscope_funs/1, get_module_info/1]).
@@ -269,6 +269,25 @@ reverse_zip_aux([], [], Acc) -> Acc.
 -spec is_expression_or_function(Node :: tree:tree_node()) ->  boolean().
 is_expression_or_function(TreeNode) ->
     is_expression(TreeNode) orelse is_a_function(TreeNode).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns true if the node is a macro of a function application,
+%% (for both its alternatives).
+%% @end
+%%--------------------------------------------------------------------
+-spec is_function_or_macro(Node :: tree:tree_node()) ->  boolean().
+is_function_or_macro(TreeNode) ->
+    case tree:is_node_pair(TreeNode) of
+	true -> {Node1, Node2} = tree:get_pair_tuple(TreeNode),
+		is_function_or_macro(Node1) and is_function_or_macro(Node2);
+	false -> Node = tree:get_value(TreeNode),
+		 case wrangler_syntax:type(Node) of
+		     application -> true;
+		     macro -> true;
+		     _ -> false
+		 end
+    end.
 
 %%%--------------------------------------------------------------------
 %% @doc

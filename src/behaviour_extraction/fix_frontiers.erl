@@ -430,6 +430,7 @@ delete_trivial_clusters({Comm, Mapping}) ->
     {TrivialClusters, NewComm} = cluster_dict:extract_trivial_clusters(Comm),
     {NewComm,
      lists:foldl(fun (X, Y) ->
-			 {Node1, _Node2} = tree:get_pair_tuple(cluster:get_root(X)),
+			 {Node1, _Node2} = tree:get_pair_tuple(X),
 			 da_map:delete_by_key(Node1, Y)
-		 end, Mapping, TrivialClusters)}.
+		 end, Mapping, lists:flatmap(fun cluster:get_nodes/1,
+					     TrivialClusters))}.

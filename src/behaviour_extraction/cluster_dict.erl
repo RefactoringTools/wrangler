@@ -137,5 +137,9 @@ show_cluster_dict(Fun, #cluster_dict{cluster_list = List}) ->
 				      {[cluster:cluster(NodeType)],
 				       cluster_dict(NodeType)}.
 extract_trivial_clusters(#cluster_dict{cluster_list = List}) ->
-    {Trivial, NonTrivial} = lists:partition(fun (X) -> cluster:size(X) =< 1 end, List),
+    {Trivial, NonTrivial} = lists:partition(fun (X) ->
+						    (cluster:size(X) =< 1) orelse
+							(ast_tree:is_function_or_macro(cluster:get_root(X))
+							 andalso (cluster:size(X) =< 3))
+					    end, List),
     {Trivial, #cluster_dict{cluster_list = NonTrivial}}.
