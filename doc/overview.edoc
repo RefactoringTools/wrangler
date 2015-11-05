@@ -216,6 +216,17 @@ from [http://www.cs.kent.ac.uk/projects/wrangler]
      </ul>
   </li>
 </ol>
+<ol>
+  Extensions:
+  <ul>
+    <li>
+      <a href="symbolic_evaluation/core/index.html" target="_parent">Symbolic Evaluation</a>.
+    </li>
+    <li>
+      <a href="behaviour_extraction/index.html" target="_parent">Behaviour refactorings</a>. 
+    </li>
+  </ul>
+</ol>
 
 == References ==
 
