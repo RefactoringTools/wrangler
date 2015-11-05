@@ -1,3 +1,23 @@
+------------------------Major changes from Wrangler-1.1.01------
+-- Added "Symbolic evaluation" refactorings
+-- Added "Behaviour refactorings"
+-- Added "Backward intra-function slice" inspector
+-- Added support for $(DESTDIR) in Makefile
+-- Fixed typos, rewrited, added typespecs, and cleaned up some parts of the code
+-- Fixed problems:
+   ++ With prettyprinter when patterns are empty but there is a guard
+   ++ In "Add a WS operation" transformation
+   ++ In "Remove a WS opertation argument" transformation
+   ++ In "Swap Function Arguments" refactoring
+   ++ In removal of functions from custom refactorings
+   ++ In error message of API migration
+   ++ In "Rename module" command output
+   ++ With atoms that span multiple lines
+   ++ With callback attribute
+   ++ With maps
+-- Added check for lists in generalised unification
+-- Restored function api_refac:reset_pos_and_range/1
+-- Removed dependency on r17 eep
 ------------------------Major changes from Wrangler-0.9.3-------
 -- A DSL for composing composite refactorings froom elementary ones.
 -- Consistent refactoring of type specs when a function interface is changed.
