@@ -234,7 +234,7 @@ Our <a href="http://www.cs.kent.ac.uk/projects/refactor-fp/">Refactoring
 Functional Programs</a> project website contains more information and
 references about refactoring functional, especially Haskell, programs; and
 our progress and ideas about refactoring Erlang programs are available at
-our <a href="http://www.cs.kent.ac.uk/projects/wrangler/"> Wrangler </a> project
+our <a href="http://www.cs.kent.ac.uk/projects/wrangler/">Wrangler</a> project
 webpage. Here are some publications related to Wrangler:
 <ul>
 <li>
@@ -347,7 +347,7 @@ In Zoltan Horvath and Tee Teoh, editors, <em> Proceedings of the Seventh ACM
 
 <li>
 <a href="http://www.cs.kent.ac.uk/pubs/2008/2814/index.html">Refactoring with Wrangler, updated</a>.
-Huiqing Li, Simon Thompson, Gy"orgy Orosz, and Melinda T"oth.
+Huiqing Li, Simon Thompson, György Orosz, and Melinda Töth.
 In <em> ACM SIGPLAN Erlang Workshop 2008, Victoria, British Columbia,
   Canada</em>, September 2008.
 </li>
@@ -357,7 +357,7 @@ In <em> ACM SIGPLAN Erlang Workshop 2008, Victoria, British Columbia,
   Detection and Removal for Erlang/OTP within a Refactoring
   Environment</a>.
 Huiqing Li and Simon Thompson.
-In P. Achten, P. Koopman, and M. T. Moraz?n, editors, <em> Draft Proceedings of
+In P. Achten, P. Koopman, and M. T. Morazán, editors, <em> Draft Proceedings of
   the Ninth Symposium on Trends in Functional Programming(TFP)</em>, The
   Netherlands, May 2008.
 </li>
@@ -373,7 +373,7 @@ In <em> Partial Evaluation and Program Manipulation</em>, San Francisco,
 <li>
 <a href="http://www.cs.kent.ac.uk/pubs/2007/2607/index.html">Testing
   Erlang Refactorings with QuickCheck</a>.
-{Huiqing Li and Simon Thompson.
+Huiqing Li and Simon Thompson.
 In <em> Draft Proceedings of the 19th International Symposium on
   Implementation and Application of Functional Languages, IFL 2007</em>,
   Freiburg, Germany, September 2007.
@@ -389,16 +389,16 @@ In <em> the 19th International Symposium on Implementation and Application of
 
 <li>
 <a href="http://www.cs.kent.ac.uk/pubs/2006/2455/index.html">Refactoring
-  erlang programs</a>.
-Huiqing Li, Simon Thompson, L?szl? L?vei, Zolt?n Horv?th, Tam?s Kozsik, Anik?
-  V?g, and Tam?s Nagy.
+  Erlang Programs</a>.
+Huiqing Li, Simon Thompson, László Lövei, Zoltán Horváth, Tamás Kozsik, Anikó
+  Víg, and Tamás Nagy.
 In <em> The Proceedings of 12th International Erlang/OTP User Conference</em>,
   Stockholm, Sweden, November 2006.
 </li>
 
 <li>
 <a href="http://www.cs.kent.ac.uk/pubs/2006/2439/index.html">A
-  comparative study of refactoring haskell and erlang programs</a>.
+  Comparative Study of Refactoring Haskell and Erlang Programs</a>.
 Huiqing Li and Simon Thompson.
 In Massimiliano Di Penta and Leon Moonen, editors, <em> Sixth IEEE
   International Workshop on Source Code Analysis and Manipulation (SCAM
