@@ -1,0 +1,274 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Module ast_tree</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module ast_tree</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
+   Implements functions to convert between Wrangler AST and tree.
+<p>Copyright © (C) 2015, Pablo Lamela, Simon Thompson</p>
+
+<p><b>Authors:</b> Pablo Lamela Seijas (<a href="mailto:P.Lamela-Seijas@kent.ac.uk"><tt>P.Lamela-Seijas@kent.ac.uk</tt></a>), Simon Thompson (<a href="mailto:S.J.Thompson@kent.ac.uk"><tt>S.J.Thompson@kent.ac.uk</tt></a>).</p>
+
+<h2><a name="description">Description</a></h2>
+   Implements functions to convert between Wrangler AST and tree
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#ast_to_tree-5">ast_to_tree/5</a></td><td>
+  Transforms a Syntax Tree into a tree with isolated nodes for
+  easier manipulation.</td></tr>
+<tr><td valign="top"><a href="#breaks_funname-2">breaks_funname/2</a></td><td>
+  Returns true if separating Node from ParentNode (assuming ParentNode is the parent node of Node),
+  would separate a function call (in some form) from the indicator of the name/arity/module of
+  the destination function.</td></tr>
+<tr><td valign="top"><a href="#get_file_name-1">get_file_name/1</a></td><td>
+  Gets the filename from the tree metadata record.</td></tr>
+<tr><td valign="top"><a href="#get_fun_name-2">get_fun_name/2</a></td><td>
+  If the node represents a function it returns a tuple with the
+  name of the function as a string and the arity as a number.</td></tr>
+<tr><td valign="top"><a href="#get_inscope_funs-1">get_inscope_funs/1</a></td><td>
+  Gets the list of functions in scope from the tree metadata record.</td></tr>
+<tr><td valign="top"><a href="#get_left_if_node_pair-1">get_left_if_node_pair/1</a></td><td>
+  Returns the left node if it is a node pair.</td></tr>
+<tr><td valign="top"><a href="#get_macro_info-1">get_macro_info/1</a></td><td>
+  Parses the AST in Tree in order to extract information about the macros defined and
+  used.</td></tr>
+<tr><td valign="top"><a href="#get_macros_list-1">get_macros_list/1</a></td><td>
+  Gets a list of the AST blocks containing macros and information about
+  the macros, records, and imports provided by them.</td></tr>
+<tr><td valign="top"><a href="#get_module_info-1">get_module_info/1</a></td><td>
+  Gets the module info from the tree metadata record.</td></tr>
+<tr><td valign="top"><a href="#get_placeholders_from_node-1">get_placeholders_from_node/1</a></td><td>
+  Extracts placeholders from the node.</td></tr>
+<tr><td valign="top"><a href="#get_right_if_node_pair-1">get_right_if_node_pair/1</a></td><td>
+  Returns the right node if it is a node pair.</td></tr>
+<tr><td valign="top"><a href="#get_search_paths-1">get_search_paths/1</a></td><td>
+  Gets the list of paths in the search path from the tree metadata record.</td></tr>
+<tr><td valign="top"><a href="#get_tab_width-1">get_tab_width/1</a></td><td>
+  Gets the tab width from the tree metadata record.</td></tr>
+<tr><td valign="top"><a href="#is_a_function-1">is_a_function/1</a></td><td>
+  It returns <code>true</code> if the node represents a function, otherwise
+  it returns <code>false</code>.</td></tr>
+<tr><td valign="top"><a href="#is_expression_or_function-1">is_expression_or_function/1</a></td><td>
+  Checks the category of the Node and returns true if it is
+  "expression" or if the node is a function declaration.</td></tr>
+<tr><td valign="top"><a href="#is_function_or_macro-1">is_function_or_macro/1</a></td><td>
+  Returns true if the node is a macro of a function application,
+  (for both its alternatives).</td></tr>
+<tr><td valign="top"><a href="#reparse-1">reparse/1</a></td><td>
+  Reparses the AST in Tree to renew its information (like attributes).</td></tr>
+<tr><td valign="top"><a href="#replace_in_node-2">replace_in_node/2</a></td><td>
+  Replaces the list of nodes Replacements in the subtrees of Node.</td></tr>
+<tr><td valign="top"><a href="#set_file_name-2">set_file_name/2</a></td><td>
+  Sets the filename in the tree metadata record.</td></tr>
+<tr><td valign="top"><a href="#set_inscope_funs-2">set_inscope_funs/2</a></td><td>
+  Sets the list of functions in scope in the tree metadata record.</td></tr>
+<tr><td valign="top"><a href="#set_module_info-2">set_module_info/2</a></td><td>
+  Sets the module info in the tree metadata record.</td></tr>
+<tr><td valign="top"><a href="#set_search_paths-2">set_search_paths/2</a></td><td>
+  Sets the list of paths in the search path in the tree metadata record.</td></tr>
+<tr><td valign="top"><a href="#set_tab_width-2">set_tab_width/2</a></td><td>
+  Sets the tab width in the tree metadata record.</td></tr>
+<tr><td valign="top"><a href="#show_node-1">show_node/1</a></td><td>
+  Transforms a node or node pair into a compact representation for debugging.</td></tr>
+<tr><td valign="top"><a href="#tree_to_ast-1">tree_to_ast/1</a></td><td>
+  Extracts an AST from a Tree that contains an AST.</td></tr>
+<tr><td valign="top"><a href="#tree_to_ast-2">tree_to_ast/2</a></td><td>
+  Extracts an AST from a Tree that contains an AST, taking Node as the root node.</td></tr>
+<tr><td valign="top"><a href="#value-1">value/1</a></td><td>
+  Returns a "semantic" representation of the node, (which is used for
+  comparing two nodes and decide if they can be mergerd).</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="ast_to_tree-5">ast_to_tree/5</a></h3>
+<div class="spec">
+<p><tt>ast_to_tree(AST::wrangler_syntax:syntaxTree(), FileName::string(), ModuleInfo::[{atom(), term()}], SearchPaths::[string()], TabWidth::integer()) -&gt; <a href="tree.html#type-tree">tree:tree()</a></tt><br></p>
+</div><p>
+  Transforms a Syntax Tree into a tree with isolated nodes for
+  easier manipulation.</p>
+
+<h3 class="function"><a name="breaks_funname-2">breaks_funname/2</a></h3>
+<div class="spec">
+<p><tt>breaks_funname(NodePair::<a href="tree.html#type-tree_node">tree:tree_node()</a>, ParentNode::<a href="tree.html#type-tree_node">tree:tree_node()</a>) -&gt; boolean()</tt><br></p>
+</div><p>
+  Returns true if separating Node from ParentNode (assuming ParentNode is the parent node of Node),
+  would separate a function call (in some form) from the indicator of the name/arity/module of
+  the destination function.</p>
+
+<h3 class="function"><a name="get_file_name-1">get_file_name/1</a></h3>
+<div class="spec">
+<p><tt>get_file_name(Tree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; string()</tt><br></p>
+</div><p>
+  Gets the filename from the tree metadata record.</p>
+
+<h3 class="function"><a name="get_fun_name-2">get_fun_name/2</a></h3>
+<div class="spec">
+<p><tt>get_fun_name(Node::<a href="tree.html#type-tree_node">tree:tree_node()</a>, Tree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; {ok, {string(), non_neg_integer()}} | error</tt><br></p>
+</div><p>
+  If the node represents a function it returns a tuple with the
+  name of the function as a string and the arity as a number.
+  The Tree must match the node if exclusive or be the left tree
+  if common.</p>
+
+<h3 class="function"><a name="get_inscope_funs-1">get_inscope_funs/1</a></h3>
+<div class="spec">
+<p><tt>get_inscope_funs(Tree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; [{atom(), atom(), integer()}]</tt><br></p>
+</div><p>
+  Gets the list of functions in scope from the tree metadata record.</p>
+
+<h3 class="function"><a name="get_left_if_node_pair-1">get_left_if_node_pair/1</a></h3>
+<div class="spec">
+<p><tt>get_left_if_node_pair(Node::<a href="tree.html#type-tree_node">tree:tree_node()</a>) -&gt; <a href="tree.html#type-tree_node">tree:tree_node()</a></tt><br></p>
+</div><p>
+  Returns the left node if it is a node pair.</p>
+
+<h3 class="function"><a name="get_macro_info-1">get_macro_info/1</a></h3>
+<div class="spec">
+<p><tt>get_macro_info(Tree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; {[{wrangler_syntax:syntaxTree(), term()}], [term()]}</tt><br></p>
+</div><p>
+  Parses the AST in Tree in order to extract information about the macros defined and
+  used. It returns the macro information gathered by <code>wrangler_epp:parse_file/5</code>.</p>
+
+<h3 class="function"><a name="get_macros_list-1">get_macros_list/1</a></h3>
+<div class="spec">
+<p><tt>get_macros_list(Tree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; [{MacroAST::wrangler_syntax:syntaxTree(), MacroInfo::[term()]}]</tt><br></p>
+</div><p>
+  Gets a list of the AST blocks containing macros and information about
+  the macros, records, and imports provided by them.</p>
+
+<h3 class="function"><a name="get_module_info-1">get_module_info/1</a></h3>
+<div class="spec">
+<p><tt>get_module_info(Tree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; [{atom(), term()}]</tt><br></p>
+</div><p>
+  Gets the module info from the tree metadata record.</p>
+
+<h3 class="function"><a name="get_placeholders_from_node-1">get_placeholders_from_node/1</a></h3>
+<div class="spec">
+<p><tt>get_placeholders_from_node(Nodes::Node) -&gt; [PH]</tt>
+<ul class="definitions"><li><tt>Node = <a href="tree.html#type-tree_node">tree:tree_node()</a></tt></li><li><tt>PH = term()</tt></li></ul></p>
+</div><p>
+  Extracts placeholders from the node. It may be a node pair or
+  a simple node. If it is a node pair it uses the left alternative.
+  It uses the wrangler_tools to accumulate them.</p>
+
+<h3 class="function"><a name="get_right_if_node_pair-1">get_right_if_node_pair/1</a></h3>
+<div class="spec">
+<p><tt>get_right_if_node_pair(Node::<a href="tree.html#type-tree_node">tree:tree_node()</a>) -&gt; <a href="tree.html#type-tree_node">tree:tree_node()</a></tt><br></p>
+</div><p>
+  Returns the right node if it is a node pair.</p>
+
+<h3 class="function"><a name="get_search_paths-1">get_search_paths/1</a></h3>
+<div class="spec">
+<p><tt>get_search_paths(Tree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; [string()]</tt><br></p>
+</div><p>
+  Gets the list of paths in the search path from the tree metadata record.</p>
+
+<h3 class="function"><a name="get_tab_width-1">get_tab_width/1</a></h3>
+<div class="spec">
+<p><tt>get_tab_width(Tree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; integer()</tt><br></p>
+</div><p>
+  Gets the tab width from the tree metadata record.</p>
+
+<h3 class="function"><a name="is_a_function-1">is_a_function/1</a></h3>
+<div class="spec">
+<p><tt>is_a_function(Node::<a href="tree.html#type-tree_node">tree:tree_node()</a>) -&gt; boolean()</tt><br></p>
+</div><p>
+  It returns <code>true</code> if the node represents a function, otherwise
+  it returns <code>false</code>.</p>
+
+<h3 class="function"><a name="is_expression_or_function-1">is_expression_or_function/1</a></h3>
+<div class="spec">
+<p><tt>is_expression_or_function(Node::<a href="tree.html#type-tree_node">tree:tree_node()</a>) -&gt; boolean()</tt><br></p>
+</div><p>
+  Checks the category of the Node and returns true if it is
+  "expression" or if the node is a function declaration.
+  It returns false otherwise.</p>
+
+<h3 class="function"><a name="is_function_or_macro-1">is_function_or_macro/1</a></h3>
+<div class="spec">
+<p><tt>is_function_or_macro(Node::<a href="tree.html#type-tree_node">tree:tree_node()</a>) -&gt; boolean()</tt><br></p>
+</div><p>
+  Returns true if the node is a macro of a function application,
+  (for both its alternatives).</p>
+
+<h3 class="function"><a name="reparse-1">reparse/1</a></h3>
+<div class="spec">
+<p><tt>reparse(Tree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; <a href="tree.html#type-tree">tree:tree()</a></tt><br></p>
+</div><p>
+  Reparses the AST in Tree to renew its information (like attributes). It
+  copies the node properties stored in the previous node. It requires that
+  the AST topology before and after reparsing is the same.</p>
+
+<h3 class="function"><a name="replace_in_node-2">replace_in_node/2</a></h3>
+<div class="spec">
+<p><tt>replace_in_node(Replacements::[wrangler_syntax:syntaxTree()], Node::wrangler_syntax:syntaxTree()) -&gt; wrangler_syntax:syntaxTree()</tt><br></p>
+</div><p>
+  Replaces the list of nodes Replacements in the subtrees of Node.</p>
+
+<h3 class="function"><a name="set_file_name-2">set_file_name/2</a></h3>
+<div class="spec">
+<p><tt>set_file_name(FileName::string(), Tree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; <a href="tree.html#type-tree">tree:tree()</a></tt><br></p>
+</div><p>
+  Sets the filename in the tree metadata record.</p>
+
+<h3 class="function"><a name="set_inscope_funs-2">set_inscope_funs/2</a></h3>
+<div class="spec">
+<p><tt>set_inscope_funs(InscopeFuns::[{atom(), atom(), integer()}], Tree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; <a href="tree.html#type-tree">tree:tree()</a></tt><br></p>
+</div><p>
+  Sets the list of functions in scope in the tree metadata record.</p>
+
+<h3 class="function"><a name="set_module_info-2">set_module_info/2</a></h3>
+<div class="spec">
+<p><tt>set_module_info(ModuleInfo::[{atom(), term()}], Tree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; <a href="tree.html#type-tree">tree:tree()</a></tt><br></p>
+</div><p>
+  Sets the module info in the tree metadata record.</p>
+
+<h3 class="function"><a name="set_search_paths-2">set_search_paths/2</a></h3>
+<div class="spec">
+<p><tt>set_search_paths(SearchPaths::[string()], Tree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; <a href="tree.html#type-tree">tree:tree()</a></tt><br></p>
+</div><p>
+  Sets the list of paths in the search path in the tree metadata record.</p>
+
+<h3 class="function"><a name="set_tab_width-2">set_tab_width/2</a></h3>
+<div class="spec">
+<p><tt>set_tab_width(TabWidth::integer(), Tree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; <a href="tree.html#type-tree">tree:tree()</a></tt><br></p>
+</div><p>
+  Sets the tab width in the tree metadata record.</p>
+
+<h3 class="function"><a name="show_node-1">show_node/1</a></h3>
+<div class="spec">
+<p><tt>show_node(Node::<a href="tree.html#type-tree_node">tree:tree_node()</a>) -&gt; {{node, <a href="tree.html#type-tree_ph">tree:tree_ph()</a>} | {node_pair, <a href="tree.html#type-tree_ph">tree:tree_ph()</a>, <a href="tree.html#type-tree_ph">tree:tree_ph()</a>}, any()}</tt><br></p>
+</div><p>
+  Transforms a node or node pair into a compact representation for debugging.</p>
+
+<h3 class="function"><a name="tree_to_ast-1">tree_to_ast/1</a></h3>
+<div class="spec">
+<p><tt>tree_to_ast(Tree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; AST::wrangler_syntax:syntaxTree()</tt><br></p>
+</div><p>
+  Extracts an AST from a Tree that contains an AST.</p>
+
+<h3 class="function"><a name="tree_to_ast-2">tree_to_ast/2</a></h3>
+<div class="spec">
+<p><tt>tree_to_ast(Node::<a href="tree.html#type-tree_node">tree:tree_node()</a>, Tree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; wrangler_syntax:syntaxTree()</tt><br></p>
+</div><p>
+  Extracts an AST from a Tree that contains an AST, taking Node as the root node.</p>
+
+<h3 class="function"><a name="value-1">value/1</a></h3>
+<div class="spec">
+<p><tt>value(Node::<a href="tree.html#type-tree_node">tree:tree_node()</a>) -&gt; any()</tt><br></p>
+</div><p>
+  Returns a "semantic" representation of the node, (which is used for
+  comparing two nodes and decide if they can be mergerd).</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 5 2015, 16:30:19.</i></p>
+</body>
+</html>

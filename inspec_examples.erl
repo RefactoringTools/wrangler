@@ -79,7 +79,7 @@
 %% Source code for this module:
 %%<ul>
 %%<li>
-%%<a href="file:code_inspector_examples.erl" > code_inspector_examples.erl.</a>.
+%%</code_inspector_examples.erl" > code_inspector_examples.erl.</a>.
 %%</li>
 %%</ul>
 
@@ -95,6 +95,8 @@
          calls_to_specific_function/1]).
          
 -export([test/1,test1/1,test2/1,test3/1,test4/1, test5/1]).
+
+-compile(export_all).
 
 -import(api_refac, [fun_define_info/1]).
 
@@ -114,7 +116,7 @@ top_level_if(_Args=#args{search_paths=SearchPaths})->
     ?FULL_TD_TU([?COLLECT(?T("f@(Args@@) when Guard@@ ->Body@."), 
                           api_refac:fun_define_info(f@),
                           api_refac:type(Body@) == if_expr)],
-                [SearchPaths]).
+                SearchPaths).
 
 %%=====================================================================
 %% Collects the uses of `lists:append/2' in the project, and returns 
@@ -143,7 +145,7 @@ calls_to_specific_function(_Args=#args{user_inputs=[M,F,A],
                                        search_paths=SearchPaths}) ->
     {M1, F1, A1}={list_to_atom(M), list_to_atom(F), list_to_integer(A)},                              
     ?FULL_TD_TU([?COLLECT_LOC(?FUN_APPLY(M1, F1, A1), true)],
-                [SearchPaths]).
+                SearchPaths).
 
  
 %%===================================================================
@@ -181,7 +183,7 @@ non_tail_recursive_function(_Args=#args{search_paths=SearchPaths}) ->
     ?FULL_TD_TU([?COLLECT(?T("f@(Args@@@) when Guard@@@-> Body@@@."), 
                           fun_define_info(f@),
                           is_non_tail_recursive(_This@))],
-                [SearchPaths]).
+                SearchPaths).
 
 %% Returns `true' if a recursive function definition is not tail recursive. 
 is_non_tail_recursive(FunDef) ->
@@ -260,7 +262,7 @@ test(_Args=#args{search_paths=SearchPaths}) ->
     ?FULL_TD_TU([?COLLECT(?T("f@(Args@@) when Guard@@-> First@, Second@,Body@@;"),
                           api_refac:fun_define_info(f@),
                           true)],
-                [SearchPaths]).
+                SearchPaths).
 
 
 %%===================================================================
@@ -272,7 +274,7 @@ test1(_Args=#args{search_paths=SearchPaths}) ->
      ?FULL_TD_TU([?COLLECT(?T("f@(Args@@@) when Guard@@@-> Body@@@."),
                            api_refac:fun_define_info(f@),
                           true)],
-                 [SearchPaths]).
+                 SearchPaths).
 
 %%===================================================================
 %% Collects all function clauses, and returns the MFA info of each 
@@ -284,7 +286,7 @@ test2(_Args=#args{search_paths=SearchPaths}) ->
     ?FULL_TD_TU([?COLLECT(?T("f@(Args@@)when Guard@@-> Body@@;"),
                          api_refac:fun_define_info(f@),
                          true)],
-                [SearchPaths]).
+                SearchPaths).
 
 %%===================================================================
 %% Collects all function clause without guards, and returns the MFA 
@@ -296,7 +298,7 @@ test3(_Args=#args{search_paths=SearchPaths}) ->
     ?FULL_TD_TU([?COLLECT(?T("f@(Args@@)-> Body@@;"),
                           api_refac:fun_define_info(f@),
                           true)],
-                [SearchPaths]).
+                SearchPaths).
 
 
 %%@private 
@@ -312,7 +314,7 @@ test4(_Args=#args{search_paths=SearchPaths}) ->
                  ?COLLECT(?T("f@(Args@@) when Guard@@ ->Body@."), 
                           api_refac:fun_define_info(f@),
                           api_refac:type(Body@) == if_expr)],
-                [SearchPaths]).
+                SearchPaths).
 
 
 
@@ -322,3 +324,57 @@ test5(_Args=#args{current_file_name=CurFileName}) ->
     ?FULL_TD_TU([?COLLECT_LOC(?T("[1,2,F@]"),
                               true)],
                 [CurFileName]).
+
+
+find_map_like_dict(input_par_prompts) ->
+    [];
+find_map_like_dict(_Args=#args{search_paths=SearchPaths}) ->
+    ?FULL_TD_TU(
+       [?COLLECT(
+           ?T("F@(Args@@)"),
+           {_File@, api_refac:start_end_loc(_This@)},
+           lists:member(
+             api_refac:fun_define_info(F@), 
+             map_like_dict())
+          )],
+       SearchPaths).
+
+
+find_non_map_like_dict(input_par_prompts) ->
+    [];
+find_non_map_like_dict(_Args=#args{search_paths=SearchPaths}) ->
+     ?FULL_TD_TU(
+       [?COLLECT(
+           ?T("F@(Args@@)"),
+           {_File@, api_refac:start_end_loc(_This@)},
+           lists:member(
+             api_refac:fun_define_info(F@), 
+             non_map_like_dict()) 
+          )],
+       SearchPaths).
+
+map_like_dict() ->
+    [{dict,new,0}, 
+     {dict,is_key,0},
+     {dict,to_list,1},
+     {dict,from_list,1},
+     {dict,size,1},
+     {dict,is_empty,1},
+     {dict,fetch,2}, 
+     {dict,find,2}, 
+     {dict,fetch_keys,1},
+     {dict,erase,2},
+     {dict,store, 3},
+     {dict,fold,3},
+     {dict,map,3}].
+
+non_map_like_dict() ->
+    [{dict,append,3},
+     {dict,append_list,3},
+     {dict,update,3},
+     {dict,update,4},
+     {dict,update_counter,3},
+     {dict,filter,2},
+     {dict,merge,3}].
+
+    

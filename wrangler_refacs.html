@@ -1,17 +1,17 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <title>Module wrangler_refacs</title>
 <link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
 </head>
 <body bgcolor="white">
-<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
 <hr>
 
 <h1>Module wrangler_refacs</h1>
 <ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>This module describes the refactorings that are currently supported by Wrangler.
-<p>Copyright © 2006-2012 Huiqing Li, Simon Thompson
+<p>Copyright Â© 2006-2012 Huiqing Li, Simon Thompson
  </p>
 
 <p><b>Authors:</b> Huiqing Li, Simon Thompson [<em>web site:</em> <tt><a href="http://www.cs.kent.ac.uk/projects/wrangler" target="_top">http://www.cs.kent.ac.uk/projects/wrangler</a></tt>].</p>
@@ -23,12 +23,19 @@
 <h2><a name="types">Data Types</a></h2>
 
 <h3 class="typedecl"><a name="type-context">context()</a></h3>
-<p><tt>context() = emacs | composite_emacs</tt></p>
+<p><tt>context() = emacs | composite_emacs | command</tt></p>
 
 
 <h2><a name="index">Function Index</a></h2>
 <table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#add_a_tag-7">add_a_tag/7</a></td><td>Add a tag to all the messages received by a server process (Beta).</td></tr>
+<tr><td valign="top"><a href="#add_callback-6">add_callback/6</a></td><td>
+  Adds a callback declaration for the function with the name
+  and arity specified.</td></tr>
+<tr><td valign="top"><a href="#add_callbacks-5">add_callbacks/5</a></td><td>
+  Adds a callback declaration for the functions with the name
+  specified.</td></tr>
 <tr><td valign="top"><a href="#apply_changes_eclipse-3">apply_changes_eclipse/3</a></td><td>gen_refac refactorings - delegate functions in order to achieve more clear API (especially for Eclipse).</td></tr>
+<tr><td valign="top"><a href="#copy_mod-5">copy_mod/5</a></td><td>Copy a module.</td></tr>
 <tr><td valign="top"><a href="#eqc_fsm_to_record-4">eqc_fsm_to_record/4</a></td><td>Turn a non-record representation of eqc_fsm state into a record representation.</td></tr>
 <tr><td valign="top"><a href="#eqc_statem_to_record-4">eqc_statem_to_record/4</a></td><td>Turn a non-record representation of eqc_statem state into a record representation.</td></tr>
 <tr><td valign="top"><a href="#fold_against_macro-6">fold_against_macro/6</a></td><td>Fold expressions/patterns against a macro definition.</td></tr>
@@ -81,10 +88,41 @@
   enter the tag.
  </p></p>
 
+<h3 class="function"><a name="add_callback-6">add_callback/6</a></h3>
+<div class="spec">
+<p><tt>add_callback(TargetFileName::string(), FunctionName::string(), Arity::string(), SearchPaths::[string()], Editor::<a href="wrangler_refacs.html#type-context">wrangler_refacs:context()</a>, TabWidth::integer()) -&gt; {ok, UpdatedFiles::[string()]}</tt><br></p>
+</div><p>
+  Adds a callback declaration for the function with the name
+  and arity specified.</p>
+
+<h3 class="function"><a name="add_callbacks-5">add_callbacks/5</a></h3>
+<div class="spec">
+<p><tt>add_callbacks(TargetFileName::string(), FunctionName::string(), SearchPaths::[string()], Editor::<a href="wrangler_refacs.html#type-context">wrangler_refacs:context()</a>, TabWidth::integer()) -&gt; {ok, UpdatedFiles::[string()]}</tt><br></p>
+</div><p>
+  Adds a callback declaration for the functions with the name
+  specified.</p>
+
 <h3 class="function"><a name="apply_changes_eclipse-3">apply_changes_eclipse/3</a></h3>
 <div class="spec">
 <p><tt>apply_changes_eclipse(Module::module(), Args::[term()], CandsNotToChange::[term()]) -&gt; {ok, [{<a href="#type-filename">filename()</a>, <a href="#type-filename">filename()</a>, <a href="#type-syntaxTree">syntaxTree()</a>}]} | {error, term()}</tt><br></p>
 </div><p>gen_refac refactorings - delegate functions in order to achieve more clear API (especially for Eclipse)</p>
+
+<h3 class="function"><a name="copy_mod-5">copy_mod/5</a></h3>
+<div class="spec">
+<p><tt>copy_mod(FileName::<a href="#type-filename">filename()</a>, NewName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {question, string()} | {warning, string()} | {ok, [<a href="#type-filename">filename()</a>]}</tt><br></p>
+</div><p>Copy a module.
+  <p> This refactoring affects all those modules in which the module name is used.
+  </p>
+  <p>
+  The following <em> side-conditions </em> apply to this refactoring:
+  <li> The new module name should not have been used as a module name in the program under consideration. </li>
+  <li> This refactoring assume that the file basename is always the same as the module name, therefore this
+  refactoring changes the filename as well. </li>
+  </p>
+  <p> Usage: to apply this refactoring, point the cursor anywhere in the module to be copied, then select
+  <em> Copy Module </em> from the <em> Refactor </em> menu, after that, the refactorer will prompt to enter
+  the new module name in the mini-buffer.
+  </p></p>
 
 <h3 class="function"><a name="eqc_fsm_to_record-4">eqc_fsm_to_record/4</a></h3>
 <div class="spec">
@@ -580,7 +618,7 @@
   </p></p>
 <hr>
 
-<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, Nov 24 2013, 22:37:06.</i></p>
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 5 2015, 16:30:21.</i></p>
 </body>
 </html>

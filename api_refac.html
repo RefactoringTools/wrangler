@@ -1,12 +1,12 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <title>Module api_refac</title>
 <link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
 </head>
 <body bgcolor="white">
-<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
 <hr>
 
 <h1>Module api_refac</h1>
@@ -47,7 +47,7 @@ used by the refactoring tool;</p>
   <p>-- A collection of API functions, such as API functions for abstract syntax tree
   traversal, API functions for retrieving context information from AST nodes, API
   functions for mapping the textual selection of program source to its internal
-  representation (see <a href="interface_api.html">interface_api</a>), etc.</p>
+  representation (see <a href="api_interface.html">api_interface</a>), etc.</p>
  
   Here are some macros that can be used to expression transformation rules and/or
   information collectors:
@@ -272,34 +272,34 @@ continued to be traversed.</p>
   Some example refactorings implemented using the Wrangler API:
  <ul>
  <li>
- <a href="file:refac_swap_function_arguments.erl"> Swap arguments of a function;</a>.
+ </refac_swap_function_arguments.erl"> Swap arguments of a function;</a>.
  </li>
  <li>
- <a href="file:refac_remove_an_argument.erl"> Remove an argument of a function;</a>.
+ </refac_remove_an_argument.erl"> Remove an argument of a function;</a>.
  </li>
  <li>
- <a href="file:refac_specialise_a_function.erl"> Specialise a function definition; </a>
+ </refac_specialise_a_function.erl"> Specialise a function definition; </a>
  </li>
  <li>
- <a href="file:refac_apply_to_remote_call.erl"> Apply to remote function call; </a>
+ </refac_apply_to_remote_call.erl"> Apply to remote function call; </a>
  </li>
  <li>
- <a href="file:refac_add_an_import_attribute.erl">Introduce an import attribute; </a>
+ </refac_add_an_import_attribute.erl">Introduce an import attribute; </a>
  </li>
  <li>
- <a href="file:refac_remove_an_import_attribute.erl">Remove an import attribute;</a>
+ </refac_remove_an_import_attribute.erl">Remove an import attribute;</a>
  </li>
  <li>
- <a href="file:refac_batch_clone_elimination.erl">Batch clone elimination;</a>.
+ </refac_batch_clone_elimination.erl">Batch clone elimination;</a>.
  </li>
  <li>
- <a href="file:refac_batch_rename_fun.erl">Batch renaming of function names from camelCase to camel_case. </a>
+ </refac_batch_rename_fun.erl">Batch renaming of function names from camelCase to camel_case. </a>
  </li>
  <li>
- <a href="file:refac_batch_prefix_module.erl">Add a prefix to Erlang module names. </a>
+ </refac_batch_prefix_module.erl">Add a prefix to Erlang module names. </a>
  </li>
  <li>
- <a href="file:inspec_examples.erl"> A collection of code inspectors written using the Wrangler API. </a>
+ </inspec_examples.erl"> A collection of code inspectors written using the Wrangler API. </a>
  </li>
  </ul>
 <h2><a name="index">Function Index</a></h2>
@@ -342,6 +342,8 @@ continued to be traversed.</p>
 <tr><td valign="top"><a href="#insert_an_attr-2">insert_an_attr/2</a></td><td>Inserts an attribute before the first function definition.</td></tr>
 <tr><td valign="top"><a href="#is_attribute-2">is_attribute/2</a></td><td>Returns <code>true</code> if <code>Node</code> represents an attribute
       of name <code>Name</code>.</td></tr>
+<tr><td valign="top"><a href="#is_behaviour_instance_of-2">is_behaviour_instance_of/2</a></td><td>Returns true if the Erlang module
+      defined in <code>File</code> is a behaviour instance of the module <code>Mod</code>.</td></tr>
 <tr><td valign="top"><a href="#is_exported-2">is_exported/2</a></td><td>Returns true if <code>{FunName, Arity}</code> is exported by the Erlang module
       defined in <code>File</code>.</td></tr>
 <tr><td valign="top"><a href="#is_expr-1">is_expr/1</a></td><td>Returns <code>true</code> if <code>Node</code> represents an expression (either a general
@@ -516,6 +518,12 @@ continued to be traversed.</p>
 <p><tt>is_attribute(Node::<a href="#type-syntaxTree">syntaxTree()</a>, Name::atom()) -&gt; boolean()</tt><br></p>
 </div><p>Returns <code>true</code> if <code>Node</code> represents an attribute
       of name <code>Name</code>.</p>
+
+<h3 class="function"><a name="is_behaviour_instance_of-2">is_behaviour_instance_of/2</a></h3>
+<div class="spec">
+<p><tt>is_behaviour_instance_of(Mod::atom(), File::string()) -&gt; boolean()</tt><br></p>
+</div><p>Returns true if the Erlang module
+      defined in <code>File</code> is a behaviour instance of the module <code>Mod</code>.</p>
 
 <h3 class="function"><a name="is_exported-2">is_exported/2</a></h3>
 <div class="spec">
@@ -705,7 +713,7 @@ continued to be traversed.</p>
   not properly annotated.</p>
 <hr>
 
-<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, Nov 24 2013, 22:37:06.</i></p>
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 5 2015, 16:30:22.</i></p>
 </body>
 </html>
