@@ -79,7 +79,7 @@
 %% Source code for this module:
 %%<ul>
 %%<li>
-%%</code_inspector_examples.erl" > code_inspector_examples.erl.</a>.
+%%<a href="code_inspector_examples.erl" > code_inspector_examples.erl.</a>.
 %%</li>
 %%</ul>
 
