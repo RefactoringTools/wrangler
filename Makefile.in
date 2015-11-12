@@ -219,6 +219,9 @@ EXAMPLE_CODE = inspec_examples.erl \
     gen_refacs/refac_swap_function_arguments.erl \
     gen_composite_refacs/refac_batch_clone_elimination.erl \
     gen_composite_refacs/refac_batch_prefix_module.erl \
+    gen_composite_refacs/refac_func_to_behav_instance.erl \
+    gen_composite_refacs/refac_expr_to_behav_instance.erl \
+    gen_composite_refacs/refac_unfold_behav_instance.erl \
     refac_batch_rename_fun.erl regexp_re.erl keysearch_keyfind.erl
 
 docs-se-%: doc/symbolic_evaluation/%/overview.edoc

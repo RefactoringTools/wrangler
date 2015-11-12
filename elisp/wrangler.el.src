@@ -4417,6 +4417,9 @@ Please see the function `tempo-define-template'.")
 `(("Batch Inline Vars" refac_batch_inline_vars)
  ("Batch Clone Elimination" refac_batch_clone_elimination)
  ("Batch Prefix Module" refac_batch_prefix_module)
+ ("Function to behaviour instance" erl-refactor-func-to-behav-instance)
+ ("Expression to behaviour instance" erl-refactor-expr-to-behav-instance)
+ ("Unfold behaviour instance" erl-refactor-unfold-behav-instance)
 ))
 
 (defvar gen_refac_menu_items
