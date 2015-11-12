@@ -87,14 +87,16 @@ fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor, TabWid
     {FrVars, BdVars} = get_free_bd_vars(ExpList),
     VarsToExport = vars_to_export(Fun, End, BdVars),
     AnnAST1 = do_fun_extraction(FileName, AnnAST, ExpList, NewFunName, FrVars, VarsToExport, {FunName, FunArity, FunPos}),
+    Res = [{{FileName, FileName}, AnnAST1}],
     case Editor of
 	emacs ->
-	    Res = [{{FileName, FileName}, AnnAST1}],
 	    wrangler_write_file:write_refactored_files_for_preview(Res, TabWidth, Cmd),
 	    {ok, [FileName]};
+	composite_emacs ->
+	    wrangler_write_file:write_refactored_files(Res, false, Editor, TabWidth, Cmd);
 	eclipse ->
             wrangler_write_file:write_refactored_files(
-              [{{FileName, FileName}, AnnAST1}], Editor, TabWidth, "")
+              Res, Editor, TabWidth, "")
     end.
 
 get_free_bd_vars(ExpList) ->

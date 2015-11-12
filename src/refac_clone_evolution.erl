@@ -227,7 +227,7 @@ inc_sim_code_detection_1(Files, Thresholds, SearchPaths, TabWidth, OutFile) ->
     %%examine each clone candiate and filter false positives.
     %% refac_io:format("CurPreRevFileNameMap:\n~p\n", [CurPreRevFileNameMap]),
     Cs2 = examine_clone_candidates(Cs, Thresholds, Tabs, CloneCheckerPid, ASTPid, 1),
-    _Time2 = time(),
+    %% _Time2 = time(),
     Cs4 = update_file_name_in_clones(Cs2, CurPreRevFileNameMap),
     %% refac_io:format("Cs4:\n~p\n", [Cs4]),
     %% ?debug("\n Time Used: ~p\n", [{_Time1, _Time2}]),

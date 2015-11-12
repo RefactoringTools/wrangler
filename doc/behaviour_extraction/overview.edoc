@@ -1,0 +1,22 @@
+@author Pablo Lamela Seijas <P.Lamela-Seijas@kent.ac.uk>
+@author Simon Thompson <S.J.Thompson@kent.ac.uk>
+@copyright (C) 2015 Pablo Lamela, Simon Thompson
+@title Automatic behaviour inference
+@doc
+
+This package provides a mechanism that automatically creates an Erlang behaviour by merging two modules selected by the user, which are assumed to be structurally similar, and possibly the result of copying and modifying one of them to produce the other.
+
+The algorithm consists of four main stages:
+
+<ul>
+  <li>Tree matching ({@link tree_mapping}) - Compares the ASTs of the two input modules</li>
+  <li>Cluster construction ({@link tree_clustering}) - Divides the contiguous mapped subtrees into clusters</li>
+  <li>Cluster linking ({@link cluster_linking}) - Organises and links the clusters so that the order of execution from the original ASTs is preserved</li>
+  <li>Rendering ({@link cluster_mapping}) - Uses the information about clusters and links to construct the three final ASTs</li>
+</ul>
+
+The process starts with two modules which are assumed to be similar. First we find commonalities between their ASTs, group the contiguous commonalities, move the commonalities to a separate module, and link the pieces together with function calls in order to preserve the original behaviour. This way we are left with three modules: the remains of the original ones and a new module with the common parts. The module with the common code will be configured as a behaviour definition, and modules with the remainings of the original ones will be configured as behaviour instances of the new module.
+
+The top level module for the algorithm is {@link infer_behaviour}.
+
+<img src="modulegraph.png" alt="Module graph" style="width: 100%; min-width: 600px; max-width: 1444px" />

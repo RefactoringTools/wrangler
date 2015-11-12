@@ -1,0 +1,33 @@
+@author Roberto Souto Maior de Barros Filho <>
+@copyright (C) 2014, Roberto S. M. de Barros Filho, Simon  Thompson
+@title Symbolic Evaluation Refactorings
+@see gen_refac 
+@doc
+This set of refactorings, uses Wrangler API, to propose a number of simplifications that perform symbolic evaluation in Erlang. More specifically, the following refactorings belong to these group:
+<ul>
+<li>
+<b>Selective Refactorings: </b>
+<ul>
+<li>
+<a href="refac_inline_variable.html">Inline Variable</a>
+</li>
+</ul>
+</li>
+<li>
+<b>Non-Selective Refactorings:</b>
+<ul>
+<li><a href="refac_arithmetics.html">Arithmetic Operators</a></li>
+<li><a href="refac_boolean_operators.html">Boolean Operators</a></li>
+<li><a href="refac_case.html">Case</a></li>
+<li><a href="refac_if.html">If</a></li>
+<li><a href="refac_lists_concat.html">Lists Concatenation</a></li>
+<li><a href="refac_unreferenced_assign.html">Remove Unused Assignment</a> </li>
+<li><a href="refac_funApp.html">Unfold Function Application</a></li>
+<li><a href="refac_all.html">All</a></li>
+</ul>
+</li>
+</ul>
+
+
+
+

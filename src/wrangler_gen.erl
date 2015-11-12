@@ -1,4 +1,4 @@
-%% Copyright (c) 2010, Huiqing Li, Simon Thompson 
+ %% Copyright (c) 2010, Huiqing Li, Simon Thompson 
 %% All rights reserved. 
 %%
 %% Redistribution and use in source and binary forms, with or without
@@ -36,17 +36,17 @@
 
 -module(wrangler_gen).
 
--export([rename_fun/4, rename_fun/5,
-         rename_var/5, rename_var/6,
-         rename_mod/3, rename_mod/4,
-         swap_args/5,  swap_args/6,
-         tuple_args/5, tuple_args/6,
-         fold_expr/5,  fold_expr/6,
-         gen_fun/5,    gen_fun/6,gen_fun/7,    
-         move_fun/4,   move_fun/5,
-         unfold_fun_app/4,unfold_fun_app/5,
-         add_to_export/3, add_to_export/4,
-         inline_var/4]).
+-export([rename_fun/4,     rename_fun/5,
+         rename_var/5,     rename_var/6,
+         rename_mod/3,     rename_mod/4,
+         swap_args/5,      swap_args/6,
+         tuple_args/5,     tuple_args/6,     
+         fold_expr/5,      fold_expr/6,      
+         gen_fun/5,        gen_fun/6,        
+         gen_fun/7,        move_fun/4,       
+         move_fun/5,       unfold_fun_app/4, 
+         unfold_fun_app/5, add_to_export/3,  
+         add_to_export/4,  inline_var/4]).
 
 -compile(export_all).
 
@@ -193,8 +193,61 @@ remove_underscore([H|T], Acc) ->
         95 -> remove_underscore(T, Acc);
         _ -> remove_underscore(T, [H|Acc])
     end.
-  
 
+% @doc Command generator for instantiating dynamic calls to a behaviour instance.
+%%@hidden
+instantiate_calls(ModOrFile, InstanceModName, SearchPaths) ->
+    instantiate_calls(ModOrFile, InstanceModName, true, SearchPaths).
+
+%%@doc Command generator for instantiating dynamic calls to a behaviour instance.
+-spec instantiate_calls(ModOrFile::mod_or_file(),
+                 InstanceModName::{generator, fun((M::atom()|filename())->string())}
+                           | {user_input, Prompt::fun((M::atom())->
+                                                             string())}
+                           |string(),
+                 Lazy :: boolean(),
+                 SearchPaths::search_paths()) ->
+                        [elementary_refac()]|lazy_refac().
+instantiate_calls(ModOrFile, InstanceModName, false, SearchPaths) ->
+    Files= gen_file_names(ModOrFile, SearchPaths),
+    [instantiate_calls_1(File, InstanceModName, SearchPaths)
+              ||File<-Files];
+instantiate_calls(ModOrFile, InstanceModName, true, SearchPaths) ->
+    case gen_file_names(ModOrFile, true, SearchPaths) of
+        [] -> [];
+        [F] ->get_next_instantiate_calls_command(
+                 {F, none}, InstanceModName, SearchPaths);
+        {F, NextFileGen} ->
+            get_next_instantiate_calls_command(
+              {F, NextFileGen}, InstanceModName, SearchPaths)
+    end.
+
+instantiate_calls_1(File, InstanceModName, SearchPaths) ->
+    {refactoring, instantiate_calls, 
+     [File, new_mod_gen(File, InstanceModName), SearchPaths, ?context]}.
+ 
+   
+get_next_instantiate_calls_command({File, NextFileGen}, NewFunName, SearchPaths) ->
+    Refac= instantiate_calls_1(File, NewFunName, SearchPaths), 
+    case NextFileGen of 
+        {lazy_file_gen, Gen} ->
+            case Gen() of 
+                [] -> [Refac];
+                {File1, Gen1} ->
+                    {Refac, {lazy_gen, fun()-> get_next_instantiate_calls_command(
+                                                 {File1, Gen1}, NewFunName, SearchPaths)
+                                       end}}
+            end;
+        _ -> [Refac]
+    end.
+   
+test_instantiate_calls(SearchPaths, Lazy) ->
+    instantiate_calls({file, fun(_File) -> true end},
+		      {generator, fun(M) -> 
+					  list_to_atom(lists:reverse(atom_to_list(M)))
+				  end},
+		      Lazy,
+		      SearchPaths).
 
 % @doc Command generator for renaming module names.
 %%@hidden
@@ -251,6 +304,68 @@ test_rename_mod(SearchPaths, Lazy) ->
                Lazy,
                 SearchPaths).
  
+
+% @doc Command generator for copying module names.
+%%@hidden
+copy_mod(ModOrFile, NewModName, FilesToUpdate, SearchPaths) ->
+    copy_mod(ModOrFile, NewModName, FilesToUpdate, true, SearchPaths).
+
+%%@doc Command generator for copying module names.
+-spec copy_mod(ModOrFile::mod_or_file(),
+                 NewModName::{generator, fun((M::atom()|filename())->string())}
+                           | {user_input, Prompt::fun((M::atom())->
+                                                             string())}
+                           | string(),
+                 FilesToUpdate::{generator, fun((M::atom()|filename())-> [string()])}
+                           | {user_input, Prompt::fun((M::atom())-> [string()])}
+                           | [string()] | {any}, % {any} means that all files must be updated
+                 Lazy :: boolean(),
+                 SearchPaths::search_paths()) ->
+                        [elementary_refac()]|lazy_refac().
+copy_mod(ModOrFile, NewModName, FilesToUpdate, false, SearchPaths) ->
+    Files= gen_file_names(ModOrFile, SearchPaths),
+    [copy_mod_1(File, NewModName, FilesToUpdate, SearchPaths)
+     ||File<-Files];
+copy_mod(ModOrFile, NewModName, FilesToUpdate, true, SearchPaths) ->
+    case gen_file_names(ModOrFile, true, SearchPaths) of
+        [] -> [];
+        [F] ->get_next_copy_mod_command(
+                 {F, none}, NewModName, FilesToUpdate, SearchPaths);
+        {F, NextFileGen} ->
+            get_next_copy_mod_command(
+              {F, NextFileGen}, NewModName, FilesToUpdate, SearchPaths)
+    end.
+
+copy_mod_1(File, NewModName, FilesToUpdate, SearchPaths) ->
+    {refactoring, copy_mod, 
+     [File, new_mod_gen(File, NewModName),
+      mod_name_list_gen(File, FilesToUpdate), %% Must return a list of modules to update
+      SearchPaths, ?context]}.
+
+get_next_copy_mod_command({File, NextFileGen}, NewFunName, FilesToUpdate, SearchPaths) ->
+    Refac= copy_mod_1(File, NewFunName, FilesToUpdate, SearchPaths), 
+    case NextFileGen of 
+        {lazy_file_gen, Gen} ->
+            case Gen() of 
+                [] -> [Refac];
+                {File1, Gen1} ->
+                    {Refac, {lazy_gen, fun()-> get_next_copy_mod_command(
+                                                 {File1, Gen1}, NewFunName,
+						 FilesToUpdate, SearchPaths)
+                                       end}}
+            end;
+        _ -> [Refac]
+    end.
+   
+test_copy_mod(SearchPaths, Lazy) ->
+    copy_mod({file, fun(_File)-> true end}, 
+               {generator, fun(M) -> 
+                                   list_to_atom(lists:reverse(atom_to_list(M)))
+                           end},
+               {generator, fun(_M) -> [] end},
+	     Lazy,
+	     SearchPaths).
+
 
 %% @doc Command generator for renaming variable names.
 %%@hidden
@@ -785,6 +900,8 @@ test_swap_args(SearchPaths, Lazy) ->
                        A>= 3 
                end,
                2, 3, Lazy, SearchPaths).
+
+gen_input({user_input, GenPrompt}) -> {prompt, GenPrompt()}.
     
 %%@hidden
 tuple_args(ModOrFile, FA, Index1,Index2, SearchPaths)->
@@ -1137,6 +1254,9 @@ gen_question(rename_fun,[File,{F,A}|_]) ->
 gen_question(rename_mod,[File|_]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to rename module '~p'?", [M]));
+gen_question(copy_mod,[File|_]) ->
+    M=list_to_atom(filename:basename(File, ".erl")),
+    lists:flatten(io_lib:format("Do you want to copy module '~p'?", [M]));
 gen_question(rename_var,[File,{F,A},{range, {_File, _Loc}, V}|_]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to rename variable ~s in function ~p:~p/~p?", [V,M,F,A]));
@@ -1169,7 +1289,19 @@ gen_question(tuple_args, [File, {F,A}, Index1, Index2|_]) ->
 gen_question(add_to_export, [File, {F, A}|_]) ->
     M=list_to_atom(filename:basename(File, ".erl")),
     lists:flatten(io_lib:format("Do you want to function ~p:~p/~p to the export list?",
-                                [M, F, A])).
+                                [M, F, A]));
+gen_question(add_callback, [File, FunctionName, Arity|_]) ->
+    M=filename:basename(File, ".erl"),
+    lists:flatten(io_lib:format("Do you want to add the function ~s/~p in ~s to the callback list in behaviour_info? ",
+                                [M, FunctionName, Arity]));
+gen_question(add_callbacks, [File, FunctionName|_]) ->
+    M=filename:basename(File, ".erl"),
+    lists:flatten(io_lib:format("Do you want to add all functions with name ~s in ~s to the callback list in behaviour_info? ",
+                                [M, FunctionName]));
+gen_question(instantiate_calls, [File, ModuleName|_]) ->
+    M=list_to_atom(filename:basename(File, ".erl")),
+    lists:flatten(io_lib:format("Do you want to point all dynamic qualified callbacks in ~p to ~p? ",
+				[M, ModuleName])).
 
 index_gen(Index, PreArgs) ->
     case Index of
@@ -1193,6 +1325,19 @@ pos_gen(PosGen) ->
             PosGen()
     end.
 
+mod_name_list_gen(File, NewName) ->
+    ModName=list_to_atom(filename:basename(File, ".erl")),
+    case NewName of
+        {generator, GenFun} ->
+            GenFun(ModName);
+        {user_input, GenPrompt} ->
+            {prompt, GenPrompt(ModName)};
+        {any} -> {any};
+        _ when is_list(NewName) -> NewName;
+        _ ->
+            throw({error, "Invalid module list."})
+    end.
+
 new_name_gen(File, NewName) ->
     ModName=list_to_atom(filename:basename(File, ".erl")),
     case NewName of
@@ -1204,6 +1349,19 @@ new_name_gen(File, NewName) ->
             NewName;
         _ ->
             throw({error, "Invalid new funname."})
+    end.
+
+new_mod_gen(File, NewName) ->
+    ModName=list_to_atom(filename:basename(File, ".erl")),
+    case NewName of
+        {generator, GenFun} ->
+            GenFun(ModName);
+        {user_input, GenPrompt} ->
+            {prompt, GenPrompt(ModName)};
+        _ when is_atom(NewName) ->
+            atom_to_list(NewName);
+        _ ->
+            throw({error, "Invalid new module name."})
     end.
         
 new_name_gen(File, FA, NewName) ->

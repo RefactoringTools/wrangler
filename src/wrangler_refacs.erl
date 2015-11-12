@@ -48,6 +48,7 @@
          rename_fun/7, 
          rename_fun_1/7,
          rename_mod/5,
+         copy_mod/5,
 	 rename_process/7, 
          generalise/7, 
          gen_fun_1/12, 
@@ -97,7 +98,8 @@
 
 -export([rename_var_eclipse/6, rename_fun_eclipse/6,
 	 rename_fun_1_eclipse/6, rename_mod_eclipse/4,
-	 rename_mod_1_eclipse/5, generalise_eclipse/6,
+	 rename_mod_1_eclipse/5, copy_mod_eclipse/4,
+	 copy_mod_1_eclipse/5, generalise_eclipse/6,
 	 move_fun_eclipse/6, move_fun_1_eclipse/6,
 	 fun_extraction_eclipse/5, fun_extraction_1_eclipse/5,
 	 gen_fun_1_eclipse/11, gen_fun_clause_eclipse/10,
@@ -128,7 +130,9 @@
          apply_changes_eclipse/3, load_callback_mod_eclipse/2,
 	 input_par_prompts_c_eclipse/1, init_composite_refac_eclipse/2,
          get_next_command_eclipse/1, 
-	 get_user_refactorings/1, load_user_refactorings/1
+	 get_user_refactorings/1, load_user_refactorings/1,
+	 add_callback/6,
+	 add_callbacks/5
 	]).
  
 -export([do_api_migration/5,
@@ -382,6 +386,44 @@ rename_mod_eclipse(FileName, NewName, SearchPaths, TabWidth) ->
       ->{ok, [{filename(), filename(), string()}]}).
 rename_mod_1_eclipse(FileName, NewName, SearchPaths, TabWidth, RenameTestMod) ->
     try_refac(refac_rename_mod, rename_mod_1_eclipse, [FileName, NewName, SearchPaths, TabWidth, RenameTestMod]).
+
+%%======================================================================================
+%% @doc Copy a module.
+%% <p> This refactoring affects all those modules in which the module name is used.
+%% </p>
+%% <p>
+%% The following <em> side-conditions </em> apply to this refactoring:
+%% <li> The new module name should not have been used as a module name in the program under consideration. </li>
+%% <li> This refactoring assume that the file basename is always the same as the module name, therefore this 
+%% refactoring changes the filename as well. </li>
+%% </p>
+%% <p> Usage: to apply this refactoring, point the cursor anywhere in the module to be copied, then select 
+%% <em> Copy Module </em> from the <em> Refactor </em> menu, after that, the refactorer will prompt to enter 
+%% the new module name in the mini-buffer.
+%% </p>
+
+-spec(copy_mod/5::(filename(), string(), [dir()], context(), integer()) -> 
+	     {error, string()} | {question, string()} | {warning, string()} |{ok, [filename()]}).
+copy_mod(FileName, NewName, SearchPaths, Context, TabWidth) ->
+    try_refac(refac_copy_mod, copy_mod, [FileName, NewName, SearchPaths, Context, TabWidth]).
+
+-spec(copy_mod/6::(filename(), string(), [string()], [dir()], context(), integer()) -> 
+	     {error, string()} | {question, string()} | {warning, string()} |{ok, [filename()]}).
+copy_mod(FileName, NewName, UpdateFiles, SearchPaths, Context, TabWidth) ->
+    try_refac(refac_copy_mod, copy_mod, [FileName, NewName, UpdateFiles, SearchPaths, Context, TabWidth]).
+
+%%@private
+-spec(copy_mod_eclipse/4::(FileName::filename(), NewName::string(), SearchPaths::[dir()], TabWidth::integer()) ->
+	     {error, string()} | {question, string()} | {warning, string()} |
+		 {ok, [{filename(), filename(), string()}]}).
+copy_mod_eclipse(FileName, NewName, SearchPaths, TabWidth) ->
+    try_refac(refac_copy_mod, copy_mod_eclipse, [FileName, NewName, SearchPaths, TabWidth]).
+
+%%@private
+-spec(copy_mod_1_eclipse/5::(FileName::filename(), NewName::string(), SearchPaths::[dir()], TabWith::integer(), CopyTestMod::boolean())
+      ->{ok, [{filename(), filename(), string()}]}).
+copy_mod_1_eclipse(FileName, NewName, SearchPaths, TabWidth, CopyTestMod) ->
+    try_refac(refac_copy_mod, copy_mod_1_eclipse, [FileName, NewName, SearchPaths, TabWidth, CopyTestMod]).
 
 %% ==========================================================================================
 %% @doc  Generalise a function definition.
@@ -742,6 +784,8 @@ fun_extraction_1_eclipse(FileName, Start, End, FunName, TabWidth) ->
 
 -spec(unfold_fun_app/5::(FileName::filename(), Pos::[integer()], SearchPaths::[dir()], context(), TabWidth::integer)
       ->{error, string()} |{'ok', [string()]}).
+unfold_fun_app(FileName, _Pos={Ln, Col}, SearchPaths, Context, TabWidth) ->
+    try_refac(refac_unfold_fun_app, unfold_fun_app, [FileName, {Ln, Col}, SearchPaths, Context, TabWidth]);
 unfold_fun_app(FileName, _Pos=[Ln, Col], SearchPaths, Context, TabWidth) ->
     try_refac(refac_unfold_fun_app, unfold_fun_app, [FileName, {Ln, Col}, SearchPaths, Context, TabWidth]).
 
@@ -918,6 +962,7 @@ add_to_export(FileName, {FunName, Arity}, SearchPaths, Editor, TabWidth) ->
 %%@private
 swap_args(FileName, {FunName, Arity}, Index1, Index2, SearchPaths, Editor, TabWidth) ->
     try_refac(refac_swap_function_arguments, swap_args, [FileName, {FunName, Arity}, Index1, Index2, SearchPaths, Editor, TabWidth]).
+
 %%=========================================================================================
 %% @doc Turn a function into a server process (Beta).
 %%<p>
@@ -1438,6 +1483,80 @@ do_api_migration(Scope, CallBackMod, SearchPaths, Editor, TabWidth)->
 generate_rule_based_api_migration_mod(FileName, NewModName) ->
     try_refac(refac_api_migration, generate_rule_based_api_migration_mod, [FileName, NewModName]).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Adds a callback declaration for the function with the name
+%% and arity specified.
+%% @spec add_callback(TargetFileName :: string(), FunctionName :: string(),
+%%                    Arity :: string(), SearchPaths :: [string()],
+%%                    Editor :: wrangler_refacs:context(),
+%%                    TabWidth :: integer()) ->
+%%                           {'ok', UpdatedFiles :: [string()]}
+%% @end
+%%--------------------------------------------------------------------
+add_callback(FileName, FunName, Arity, SearchPaths, Editor, TabWidth) ->
+    try_refac(refac_add_callback, add_callback, [FileName, FunName, Arity, SearchPaths, Editor, TabWidth]).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Adds a callback declaration for the functions with the name
+%% specified.
+%% @spec add_callbacks(TargetFileName :: string(),
+%%                     FunctionName :: string(),
+%%                     SearchPaths :: [string()],
+%%                     Editor :: wrangler_refacs:context(),
+%%                     TabWidth :: integer()) ->
+%%                            {'ok', UpdatedFiles :: [string()]}
+%% @end
+%%--------------------------------------------------------------------
+add_callbacks(FileName, FunName, SearchPaths, Editor, TabWidth) ->
+    try_refac(refac_add_callbacks, add_callbacks, [FileName, FunName, SearchPaths, Editor, TabWidth]).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Removes the callback declaration from a module
+%% and arity specified.
+%% @spec remove_behav_dec(TargetFileName :: string(),
+%%                        SearchPaths :: [string()],
+%%                        Editor :: wrangler_refacs:context(),
+%%                        TabWidth :: integer()) ->
+%%                               {'ok', UpdatedFiles :: [string()]}
+%% @end
+%%--------------------------------------------------------------------
+remove_behav_dec(FileName, SearchPaths, Editor, TabWidth) ->
+    try_refac(refac_remove_behav_dec, remove_behav_dec, [FileName, SearchPaths, Editor, TabWidth]).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Creates a file with the skeleton of a behaviour instance.
+%% It adds the behaviour declaration if it is not there already.
+%% @spec create_behav_instance(TargetFileName :: string(),
+%%                             DestModule :: atom(),
+%%                             SearchPaths :: [string()],
+%%                             Editor :: wrangler_refacs:context(),
+%%                             TabWidth :: integer()) ->
+%%                                 {'ok', UpdatedFiles :: [string()]}
+%% @end
+%%--------------------------------------------------------------------
+create_behav_instance(FileName, DestModule, SearchPaths, Editor, TabWidth) ->
+    try_refac(refac_create_behav_instance, create_behav_instance, [FileName, DestModule, SearchPaths, Editor, TabWidth]).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Searches the reflected calls to the functions whose name correspond
+%% to one of the functions declared in the behaviour_info(callbacks)
+%% function of the file FileName, and statically hardcodes them to
+%% point to ModuleName.
+%% @spec instantiate_calls(TargetFileName :: string(),
+%%                         DestModule :: string(),
+%%                         SearchPaths :: [string()],
+%%                         Editor :: wrangler_refacs:context(),
+%%                         TabWidth :: integer()) ->
+%%                             {'ok', UpdatedFiles :: [string()]}
+%% @end
+%%--------------------------------------------------------------------
+instantiate_calls(FileName, ModuleName, SearchPaths, Editor, TabWidth) ->
+    try_refac(refac_instantiate_calls, instantiate_calls, [FileName, ModuleName, SearchPaths, Editor, TabWidth]).
 
 %%@private
 try_to_apply(Mod, Fun, Args, Msg) -> 

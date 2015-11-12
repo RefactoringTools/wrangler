@@ -37,6 +37,7 @@
 %% matching of bound variables.
 %% Timeout.
 %% Infix expression.
+%% @private
 -module(wrangler_slice_new). 
 
 -export([backward_intra_fun_slice/7, backward_slice/2]).

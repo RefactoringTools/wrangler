@@ -51,7 +51,7 @@
          concat_toks/1, get_toks/1, tokenize/3,
          format_search_paths/1,
          free_vars/1, exported_vars/1, bound_vars/1,
-         modname_to_filename/2, funname_to_defpos/2,
+         modname_to_filename/2, funname_to_defpos/2, funname_arities/2,
          group_by/2,filehash/1,apply_style_funs/0,
          try_eval/4, is_macro_name/1, is_literal/1,
          is_fun_name/1, is_var_name/1]).
@@ -63,9 +63,11 @@
          eqc_fsm_callback_funs/0,
          commontest_callback_funs/0]).
 
--export([collect_var_names/1, 
+-export([collect_var_names/1,
          collect_used_macros/1,
+         collect_used_macros_with_arity/1,
          collect_used_records/1,
+	 collect_non_qualified_fun_refs/1,
          collect_var_source_def_pos_info/1]).
 
 -export([test_framework_used/1]).
@@ -75,6 +77,8 @@
          extended_parse_annotate_expr/2]).
 
 -export([extend_function_clause/1]).
+
+-export([create_files/1]).
 
 -include("../include/wrangler_internal.hrl"). 
 
@@ -253,7 +257,7 @@ reset_attrs(Node) ->
                       wrangler_syntax:set_pos(T, {0,0}), []),
               wrangler_syntax:remove_comments(T1)
       end, Node, {}).
-		
+
 
 %% =====================================================================
 %% @spec update_ann(Node::syntaxTree(), {Key::atom(), Val::term()}) -> syntaxTree()
@@ -347,7 +351,7 @@ modname_to_filename(ModName, Dirs) ->
 	    {ok, FileName};
 	_ -> {error, "Multiple files found: " ++  format_file_names(Fs)++"\n"}
     end.
-			   
+
 
 format_file_names(Fs) when Fs/=[] ->
     "[" ++ format_file_names_1(Fs).
@@ -376,8 +380,21 @@ funname_to_defpos(AnnAST, {M, F, A}) ->
 	_ ->
 	    {error, lists:flatten(io_lib:format("Function ~p/~p is defined more than once in module ~p", [F, A, M]))}
     end.
-		 
-   
+
+%% =====================================================================
+%% @spec funname_arities(AnnAST :: syntaxTree(), FunName :: string()) ->
+%%               [integer()]
+%% @doc Find all the definitions of functions with name FunName in the
+%% annotated AST AnnAST and return a sorted list with their arities.
+funname_arities(AnnAST, FunName) ->
+    Forms=wrangler_syntax:form_list_elements(AnnAST),
+    lists:usort(lists:append(
+		  [case lists:keysearch(fun_def, 1, wrangler_syntax:get_ann(Form)) of
+		       {value, {fun_def, {_, FunName, Arity, _, _}}} ->
+			   [Arity];
+			     _ -> []
+		   end||Form <- Forms, wrangler_syntax:type(Form) == function])).
+
 is_spawn_app(Tree) ->
     SpawnFuns1 =  spawn_funs(),
     case wrangler_syntax:type(Tree) of
@@ -743,6 +760,28 @@ collect_used_macros(Node) ->
 	end,
     lists:usort(api_ast_traverse:fold(F, [], Node)).
 
+%%-spec collect_used_macros_with_arity(syntaxTree()) ->
+%%				        [{atom(), integer()}].
+collect_used_macros_with_arity(Node) ->
+    F = fun (T, S) ->
+		case wrangler_syntax:type(T) of
+		    macro ->
+			Name = wrangler_syntax:macro_name(T),
+			Args = wrangler_syntax:macro_arguments(T),
+			NameAtom = case wrangler_syntax:type(Name) of
+				       variable -> wrangler_syntax:variable_name(Name);
+				       atom -> wrangler_syntax:atom_value(Name)
+				   end,
+			ArgsInt = case Args of
+				      none -> 0;
+				      List when is_list(List) -> length(List)
+				  end,
+			ordsets:add_element({NameAtom, ArgsInt}, S);
+		    _ -> S
+		end
+	end,
+    ordsets:to_list(api_ast_traverse:fold(F, ordsets:new(), Node)).
+
 %%-spec collect_used_records(syntaxTree())-> [atom()].
 collect_used_records(Node) ->
     Fun = fun (T, S) ->
@@ -766,6 +805,38 @@ collect_used_records(Node) ->
 			  case wrangler_syntax:type(Type) of
 			      atom ->
 				  ordsets:add_element(wrangler_syntax:atom_value(Type), S);
+			      _ -> S
+			  end;
+		      _ -> S
+		  end
+	  end,
+    ordsets:to_list(api_ast_traverse:fold(Fun, ordsets:new(), Node)).
+
+%%-spec collect_non_qualified_fun_refs(syntaxTree())-> [{atom(), integer()}].
+collect_non_qualified_fun_refs(Node) ->
+    Fun = fun (T, S) ->
+		  case wrangler_syntax:type(T) of
+		      application ->
+			  Operator = wrangler_syntax:application_operator(T),
+			  Arguments = wrangler_syntax:application_arguments(T),
+			  case wrangler_syntax:type(Operator) of
+			      atom ->
+				  ordsets:add_element({wrangler_syntax:atom_value(Operator),
+						       length(Arguments)}, S);
+			      _ -> S
+			  end;
+		      implicit_fun ->
+			  Name = wrangler_syntax:implicit_fun_name(T),
+			  case wrangler_syntax:type(Name) of
+			      arity_qualifier ->
+				  FunName = wrangler_syntax:arity_qualifier_body(Name),
+				  Arity = wrangler_syntax:arity_qualifier_argument(Name),
+				  case {wrangler_syntax:type(FunName), wrangler_syntax:type(Arity)} of
+				      {atom, integer} ->
+					  ordsets:add_element({wrangler_syntax:atom_value(FunName),
+							       wrangler_syntax:integer_value(Arity)}, S);
+				      _ -> S
+				  end;
 			      _ -> S
 			  end;
 		      _ -> S
@@ -1170,3 +1241,21 @@ extend_function_clause_2(Node) ->
           end
           ||C<-Cs],
     rewrite(Node, wrangler_syntax:function(Name, Cs1)).
+
+
+%% =====================================================================
+%% @spec create_files(FileNames :: [string()]) ->
+%%            ok | {error, FileName :: string(), Reason :: any()}
+%% @doc Find all the definitions of functions with name FunName in the
+%% annotated AST AnnAST and return a sorted list with their arities.
+create_files([]) -> ok;
+create_files([File|Tail]) ->
+    TargetModName = list_to_atom(filename:basename(File, ".erl")),
+    S = "-module("++atom_to_list(TargetModName)++").",
+    case filelib:is_regular(File) of
+	false -> case file:write_file(File, list_to_binary(S)) of
+		    ok -> create_files(Tail);
+		    {error, Reason} -> {error, File, Reason}
+		end;
+	true -> create_files(Tail) %% It already exists, don't create
+    end.

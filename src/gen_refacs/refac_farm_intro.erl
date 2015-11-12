@@ -1,3 +1,4 @@
+%% @private
 -module(refac_farm_intro).
 
 -behaviour(gen_refac).

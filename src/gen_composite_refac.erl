@@ -238,15 +238,23 @@
 %%
 %%%% Some example composite refactorings:
 %%<li>
-%%<a href="file:refac_batch_clone_elimination.erl" >Batch clone elimination;</a>.
+%%<a href="refac_batch_clone_elimination.erl">Batch clone elimination. </a>
 %%</li>
 %%<li>
-%%<a href="file:refac_batch_rename_fun.erl">Batch renaming of function names from camelCase to camel_case. </a>
+%%<a href="refac_batch_rename_fun.erl">Batch renaming of function names from camelCase to camel_case. </a>
 %%</li>
 %%<li>
-%%<a href="file:refac_batch_prefix_module.erl">Add a prefix to Erlang module names. </a>
+%%<a href="refac_batch_prefix_module.erl">Add a prefix to Erlang module names. </a>
 %%</li>
-%%
+%%<li>
+%%<a href="refac_func_to_behav_instance.erl">Function to behaviour instance. </a>
+%%</li>
+%%<li>
+%%<a href="refac_expr_to_behav_instance.erl">Expression to behaviour instance. </a>
+%%</li>
+%%<li>
+%%<a href="refac_unfold_behav_instance.erl">Unfold behaviour instance. </a>
+%%</li>
 %% === How to apply an own-defined composite refactoring ===
 %% To invoke a user's own-defined `gen_composite_refac' refactoring, select menu item Wrangler -> Refactor -> Apply Composite Refactoring, 
 %% Wrangler will then prompt you to input the name of the callback module, and the values for parameters needed by the 

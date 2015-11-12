@@ -324,6 +324,22 @@
     ("Partition Exported Functions"  erl-wrangler-code-inspector-partition-exports)
     ("gen_fsm State Data to Record" erl-refactor-gen-fsm-to-record)
     nil
+    ("Behaviour Refactorings (Beta)"
+     (
+      ("Function to behaviour instance" erl-refactor-func-to-behav-instance)
+      ("Expression to behaviour instance" erl-refactor-expr-to-behav-instance)
+      ("Unfold behaviour instance" erl-refactor-unfold-behav-instance)
+      nil
+      ("Infer behaviour from two modules" erl-refactor-infer-behaviour)
+      nil
+      ("Copy Module" erl-refactor-copy-mod)
+      ("Create behaviour instance file" refac_create_behav_instance)
+      ("Add function to behaviour_info" refac_add_callback)
+      ("Add function name to behaviour_info" refac_add_callbacks)
+      ("Remove behaviour_info function" refac_remove_behav_dec)
+      ("Instantiate dynamic module from calls" refac_instantiate_calls)
+      ))
+    nil
     ("gen_refac Refacs"  (gen_refac_menu_items))
     ("gen_composite_refac Refacs" (gen_composite_refac_menu_items))
     nil
@@ -534,9 +550,9 @@
 
 (defun erl-refactor-version()
   (interactive)
-  (message "Wrangler version 1.1.01")) 
+  (message "Wrangler version 1.2.0")) 
 
-(setq wrangler-version  "(wrangler-1.1.01) ")
+(setq wrangler-version  "(wrangler-1.2.0) ")
 
 (defun wrangler-menu-init()
   "Init Wrangler menus."
@@ -898,6 +914,81 @@
 	    (progn
 	      (setq has-warning warning)
 	      (preview-commit-cancel current-file-name modified renamed)
+	      )))))
+    (message "Refactoring aborted."))))
+
+(defun erl-refactor-copy-mod (name)
+  "Copy the current module."
+  (interactive (list (read-string "New module name: ")
+		     ))
+  (let ((current-file-name (buffer-file-name))
+	(buffer (current-buffer)))
+  (if (buffers-saved)
+      (erl-spawn
+	(erl-send-rpc wrangler-erl-node 'emacs_wrangler 'apply_refac 
+                      (list 'copy_mod (list current-file-name name wrangler-search-paths 'emacs tab-width)
+                            wrangler-search-paths))
+        (erl-receive (buffer name current-file-name)
+	    ((['rex ['badrpc rsn]]
+	      (message "Refactoring failed: %S" rsn))
+	     (['rex ['error rsn]]
+	      (message "Refactoring failed: %s" rsn))
+	     (['rex ['warning msg]]
+	      (progn
+		(if (y-or-n-p msg)
+		    (erl-spawn
+		      (erl-send-rpc wrangler-erl-node 'wrangler_refacs 'try_refac
+                                    (list 'refac_copy_mod 'copy_mod_1
+                                          (list current-file-name name wrangler-search-paths tab-width 'false 'emacs)))
+		      (erl-receive (current-file-name)
+			  ((['rex ['badrpc rsn]]
+			    (message "Refactoring failed: %S" rsn))
+			   (['rex ['error rsn]]
+			    (message "Refactoring failed: %s" rsn))
+			   (['rex ['ok modified copied  warning]]
+			    (progn 
+			      (setq has-warning warning)
+			      (preview-commit-cancel current-file-name modified copied)
+			    )))
+		      (message "Refactoring aborted.")
+		      )))))
+	     (['rex ['question msg]]
+	      (progn
+		(if (y-or-n-p msg)
+		  (erl-spawn
+		    (erl-send-rpc wrangler-erl-node 'wrangler_refacs 'try_refac
+                                  (list 'refac_copy_mod 'copy_mod_1
+                                        (list current-file-name name wrangler-search-paths tab-width 'true 'emacs)))
+		    (erl-receive (current-file-name)
+			((['rex ['badrpc rsn]]
+			  (message "Refactoring failed: %S" rsn))
+			 (['rex ['error rsn]]
+			  (message "Refactoring failed: %s" rsn))
+			 (['rex ['ok modified copied warning]]
+			  (progn 
+			    (setq has-warning warning)
+			    (preview-commit-cancel current-file-name modified copied))
+			  ))))
+		(erl-spawn
+		  (erl-send-rpc wrangler-erl-node 'wrangler_refacs 'try_refac
+                                (list 'refac_copy_mod 'copy_mod_1 
+                                      (list current-file-name name wrangler-search-paths tab-width 'false 'emacs)))
+		    (erl-receive (current-file-name)
+			((['rex ['badrpc rsn]]
+			  (message "Refactoring failed: %S" rsn))
+			 (['rex ['error rsn]]
+			  (message "Refactoring failed: %s" rsn))
+			 (['rex ['ok modified copied warning]]
+			  (progn 
+			    (setq has-warning warning)
+			    (preview-commit-cancel current-file-name modified copied)
+			    )))))
+			   
+		)))
+	   (['rex ['ok modified copied warning]]
+	    (progn
+	      (setq has-warning warning)
+	      (preview-commit-cancel current-file-name modified copied)
 	      )))))
     (message "Refactoring aborted."))))
 
@@ -1593,7 +1684,62 @@
 		  )))
       (message "Refactoring aborted."))))
 		  
-	
+
+(defun erl-refactor-infer-behaviour(leftmod rightmod destmod)
+  "Infer a new behaviour from two similar modules."
+ (interactive (list (read-string "First module to compare: ")
+		    (read-string "Second module to compare: ")
+		    (read-string "Dest module (must not exist):")
+		    ))
+  (let ((current-file-name (buffer-file-name)))
+    (erl-spawn
+	 (erl-send-rpc wrangler-erl-node 'wrangler_refacs 'try_refac (list 'infer_behaviour 'infer_behaviour
+				    (list leftmod rightmod destmod wrangler-search-paths 'emacs tab-width)))
+	  (erl-receive (current-file-name)
+	      ((['rex ['badrpc rsn]]
+		(message "Refactoring failed: %S" rsn))
+	       (['rex ['error rsn]]
+		(message "Refactoring failed: %s" rsn))
+	       (['rex ['ok modified]]
+		(progn
+		  (if (equal modified nil)
+		      (message "Refactoring finished, and no file has been changed.")
+		    (preview-commit-cancel current-file-name modified nil)
+		    )))))
+      (message "Refactoring aborted."))))
+
+(defun refac_add_callback()
+  (interactive)
+  (apply-adhoc-refac 'refac_add_callback))
+
+(defun refac_add_callbacks()
+  (interactive)
+  (apply-adhoc-refac 'refac_add_callbacks))
+
+(defun refac_create_behav_instance()
+  (interactive)
+  (apply-adhoc-refac 'refac_create_behav_instance))
+
+(defun refac_remove_behav_dec()
+  (interactive)
+  (apply-adhoc-refac 'refac_remove_behav_dec))
+
+(defun erl-refactor-func-to-behav-instance()
+  (interactive)
+  (apply-composite-refac 'refac_func_to_behav_instance))
+
+(defun erl-refactor-expr-to-behav-instance()
+  (interactive)
+  (apply-composite-refac 'refac_expr_to_behav_instance))
+
+(defun erl-refactor-unfold-behav-instance()
+  (interactive)
+  (apply-composite-refac 'refac_unfold_behav_instance))
+
+(defun refac_instantiate_callback()
+  (interactive)
+  (apply-adhoc-refac 'refac_instantiate_calls))
+
 (defun erl-refactor-new-macro(name start end)
   "Introduce a new marco to represent an user-selected syntax phrase."
   (interactive (list (read-string "New macro name: ")
@@ -1745,7 +1891,6 @@
 			(goto-line line-no)
 			(goto-column column-no))))))))
 	  )))))
-
 
 (defun get-candidates-to-fold (candidates buffer) 
   (setq candidates-to-fold nil)
@@ -4272,6 +4417,9 @@ Please see the function `tempo-define-template'.")
 `(("Batch Inline Vars" refac_batch_inline_vars)
  ("Batch Clone Elimination" refac_batch_clone_elimination)
  ("Batch Prefix Module" refac_batch_prefix_module)
+ ("Function to behaviour instance" erl-refactor-func-to-behav-instance)
+ ("Expression to behaviour instance" erl-refactor-expr-to-behav-instance)
+ ("Unfold behaviour instance" erl-refactor-unfold-behav-instance)
 ))
 
 (defvar gen_refac_menu_items
@@ -4283,8 +4431,20 @@ Please see the function `tempo-define-template'.")
 ("Apply To Remote Call" refac_apply_to_remote_call)
 ("Add To Export" refac_add_to_export)
 ("Add An Import Attribute" refac_add_an_import_attribute)
+("Inline Variable"  refac_inline_variable)
+("Symbolic Evaluation"  (gen_refac_other_items))
 ))
 
+(defvar gen_refac_other_items
+`(("Arithmetic Operators" refac_arithmetics)
+("Boolean Operators" refac_boolean_operators)
+("Case" refac_case)
+("If" refac_if)
+("Lists Concatenation" refac_lists_concat)
+("Remove Unreferenced Assignments" refac_unreferenced_assign)
+("Unfold Function Application" refac_funApp)
+("All" refac_all)
+))
 
 (defun refac_batch_inline_vars()
   (interactive)
@@ -4337,6 +4497,42 @@ Please see the function `tempo-define-template'.")
 (defun refac_add_an_import_attribute()
   (interactive)
   (apply-adhoc-refac 'refac_add_an_import_attribute))
+
+(defun refac_arithmetics()
+  (interactive)
+  (apply-adhoc-refac 'refac_arithmetics))
+
+(defun refac_boolean_operators()
+  (interactive)
+  (apply-adhoc-refac 'refac_boolean_operators))
+
+(defun refac_case()
+  (interactive)
+  (apply-adhoc-refac 'refac_case))
+
+(defun refac_if()
+  (interactive)
+  (apply-adhoc-refac 'refac_if))
+
+(defun refac_lists_concat()
+  (interactive)
+  (apply-adhoc-refac 'refac_lists_concat))
+
+(defun refac_funApp()
+  (interactive)
+  (apply-adhoc-refac 'refac_funApp))
+
+(defun refac_unreferenced_assign()
+  (interactive)
+  (apply-adhoc-refac 'refac_unreferenced_assign))
+
+(defun refac_all()
+  (interactive)
+  (apply-adhoc-refac 'refac_all))
+
+(defun refac_inline_variable()
+  (interactive)
+  (apply-adhoc-refac 'refac_inline_variable))
 
 (defun erl-refactor-task-chunking()
   (interactive)
