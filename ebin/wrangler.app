@@ -1,6 +1,6 @@
 {application, wrangler,
   [ {description, "Wrangler: the Erlang refactorer"},
-    {vsn, "1.0"},
+    {vsn, "1.2.0"},
     {modules, [api_ast_traverse,
               api_interface,
               api_refac,
