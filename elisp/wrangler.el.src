@@ -435,19 +435,48 @@
 
 (defun start-wrangler-app()
   (interactive)
-  (erl-spawn
-    (erl-send-rpc wrangler-erl-node 'application 'start (list 'wrangler))
-    (erl-receive()
-	((['rex 'ok]
-	  (wrangler-menu-init)
-	  (message "Wrangler started.")
-          )
-	 (['rex ['error ['already_started app]]]
-          (message "Wrangler failed to start: another Wrangler application is running.")
-          )	 
-	 (['rex ['error rsn]]
-	  (message "Wrangler failed to start:%s" rsn)
-	)))))
+  ;; If we can figure out where wrangler.app is, let's add that to the
+  ;; load path as a convenience for the user.  It's probably somewhere
+  ;; near wrangler.el, so let's try a few alternatives.
+  (let ((potential-ebin-dirs '("ebin" "../ebin"))
+  (where-is-wrangler
+   (and (locate-library "wrangler")
+         (file-name-directory (locate-library "wrangler"))))
+	 		      ebin-dir)
+	     (when where-is-wrangler
+      (while (and potential-ebin-dirs (not ebin-dir))
+      (let ((maybe-here
+             (expand-file-name (pop potential-ebin-dirs) where-is-wrangler)))
+	       (when (and (file-directory-p maybe-here)
+	       	          (file-exists-p (expand-file-name "wrangler.app" maybe-here)))
+			      (setq ebin-dir maybe-here)))))
+
+    (erl-spawn
+      ;; ebin-dir might be nil here, but that causes nothing worse
+      ;; than an error return.
+      (erl-send-rpc wrangler-erl-node 'code 'add_path
+      		        (list ebin-dir))
+      (erl-receive (ebin-dir)
+        ((['rex 'true]
+	    t)
+	 (['rex error]
+	    (when ebin-dir
+	      (message "Cannot add wrangler dir `%s' to load path: %s" ebin-dir error))))
+	 (erl-send-rpc wrangler-erl-node 'application 'start (list 'wrangler))
+	 (erl-receive()
+	     ((['rex 'ok]
+	           (wrangler-menu-init)
+		         (message "Wrangler started.")
+	       )
+	   (['rex ['error ['already_started app]]]
+	       (message "Wrangler failed to start: another Wrangler application is running.")
+	   )
+	   (['rex ['error rsn]]
+	         (message "Wrangler failed to start:%s" rsn)
+	)))))))
+
+
+
 
 (defun erlang-wrangler-off()
   (interactive)
