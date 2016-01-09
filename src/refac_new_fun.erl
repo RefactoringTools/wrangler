@@ -96,7 +96,10 @@ fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor, TabWid
 	    wrangler_write_file:write_refactored_files(Res, false, Editor, TabWidth, Cmd);
 	eclipse ->
             wrangler_write_file:write_refactored_files(
-              Res, Editor, TabWidth, "")
+		Res, Editor, TabWidth, "");
+	command ->
+	    wrangler_write_file:write_refactored_files(
+		Res, Editor, TabWidth, Cmd)
     end.
 
 get_free_bd_vars(ExpList) ->
