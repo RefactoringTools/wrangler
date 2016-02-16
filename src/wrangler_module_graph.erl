@@ -325,7 +325,7 @@ is_scc_edge({V1, V2}, Sccs) ->
 	      end, Sccs).
 
 node_format(V, Sccs) ->
-    String = io_lib:format("~p", [V]),
+    String = io_lib:format("\"~p\"", [V]),
     {Width, Heigth} = calc_dim(String),
     W = (Width div 7 + 1) * 0.55,
     H = Heigth * 0.4,
@@ -353,29 +353,27 @@ edge_format([],_,_,_) ->
 edge_format(_,[],_,_) ->
     "";
 edge_format(V1, V2, Label, WithLabel) ->
-    String = [io_lib:format("~p", [V1]), " -> ",
-	      io_lib:format("~p", [V2])],
-    case WithLabel of 
+    String = [io_lib:format("\"~p\"", [V1]), " -> ",
+	      io_lib:format("\"~p\"", [V2])],
+    case WithLabel of
 	true ->
 	    [String, " [", "label=", "\"", format_label(Label),  "\"", "];\n"];
 	_ ->
 	    [String, " [", "];\n"]
     end.
-  
+
 
 format_label([]) ->
     "";
 format_label([{F,A}|T]) ->
-    case T of 
+    case T of
 	[] ->
 	    io_lib:format("~p/~p.", [F, A]);
 	[{F1, A1}|T1] ->
-	    case T1 of 
+	    case T1 of
 		[] ->
 		    io_lib:format("~p/~p,~p/~p,", [F, A, F1, A1])++format_label(T1);
 		_ ->
 		    io_lib:format("~p/~p,~p/~p,", [F, A, F1, A1])++"\\n"++format_label(T1)
 		end
     end.
-
-
