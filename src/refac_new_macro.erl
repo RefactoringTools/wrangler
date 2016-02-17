@@ -281,7 +281,10 @@ return_refac_result(FileName, AnnAST, Editor, Cmd, TabWidth) ->
 	    {ok, [FileName]};
 	eclipse ->
             wrangler_write_file:write_refactored_files(
-                [{{FileName, FileName}, AnnAST}], Editor, TabWidth, "")
+                [{{FileName, FileName}, AnnAST}], Editor, TabWidth, "");
+	_ ->
+	    wrangler_write_file:write_refactored_files(
+                [{{FileName, FileName}, AnnAST}], Editor, TabWidth, Cmd)
     end.
 
 rewrite(Source, Target) ->
