@@ -2819,8 +2819,8 @@ lay_type(_T={remote_type,_Line,[M,F,Ts]}, Ctxt) ->
     D1 = beside(lay(M, Ctxt), beside(text(":"), lay(F, Ctxt))),
     D2 = lay_type_args_1(Ts, Ctxt),
     beside(beside(D1, text("(")), beside(D2, text(")")));
-lay_type({atom, _, T}, _Ctxt) ->
-    text(atom_to_list(T));
+lay_type({atom, _, _T} = Atom, _Ctxt) ->
+    text(wrangler_syntax:atom_literal(Atom));
 lay_type(E, Ctxt)->
     lay(E, Ctxt).
 
