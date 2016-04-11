@@ -2785,7 +2785,7 @@ lay_type({type,_Line,tuple,any}, _Ctxt) ->
 lay_type({type,_Line,tuple,Ts}, Ctxt) ->
     Ds = seq(Ts, floating(text(",")), reset_prec(Ctxt), fun lay_type/2),
     D1 =lay_elems(fun wrangler_prettypr_0:par/1, Ds, Ts, Ctxt),
-    beside(text("{"), beside(D1, text("}")));    
+    beside(text("{"), beside(D1, text("}")));
 lay_type({type,_Line,record,[{atom,_,N}|Fs]}, Ctxt) ->
      lay_record_type(N, Fs,Ctxt);
 lay_type({type,_Line,range,[I1,I2]}, Ctxt) ->
@@ -2802,6 +2802,15 @@ lay_type({type,_,'fun',[{type,_,any},_]}=FunType, Ctxt) ->
 lay_type(_T={type,_Line,'fun',[{type,_,product,_},_]}=FunType, Ctxt) ->
     D1 = lay_fun_type(FunType, Ctxt),
     beside(text("fun"),beside(text("("),  beside(D1, text(")"))));
+lay_type({type,_Line,map,any}, _Ctxt) ->
+    text("map()");
+lay_type({type,_Line,map_field_assoc,T1,T2}, Ctxt) ->
+    D1 = lay_type(T1, Ctxt),
+    D2 = lay_type(T2, Ctxt),
+    beside(D1, beside(text(" => "), D2));
+lay_type({type,_Line,map,Ts}, Ctxt) ->
+    D1 = lay_type_args_1(Ts, Ctxt),
+    beside(text("#{"), beside(D1, text("}")));
 lay_type({type,_Line,T,Ts}, Ctxt) ->
     D1 =text(atom_to_list(T)),
     D2 = lay_type_args_1(Ts, Ctxt),
