@@ -132,7 +132,7 @@ get_enclosed(Cur, Rs) ->
 
 %%==========================================================================================
 %%-spec(calls_to_fun(FileName::filename(), Line::integer(), Col::integer(), SearchPaths::[dir()], TabWidth::integer()) ->
-%%	     {ok, {[{modulename(), functionname(), functionarity()}]}}).
+%%	     {ok, {[{{modulename(), functionname(), functionarity()}, {Line::integer(), Col::integer()}}]}}).
 calls_to_fun(FName, Line, Col, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:calls_to_fun(~p, ~p, ~p,~p,~p).\n",
 		 [?MODULE, FName, Line, Col, SearchPaths, TabWidth]),
@@ -150,7 +150,7 @@ calls_to_fun(FName, Line, Col, SearchPaths, TabWidth) ->
     end.
 
 %%-spec(calls_to_fun_1(FileName::filename(), FunctionName::functionname(), Arity::integer(), SearchPaths::[dir()], TabWidth::integer()) ->
-%%	     {ok, {[{modulename(), functionname(), functionarity()}]}}).
+%%	     {ok, {[{{modulename(), functionname(), functionarity()}, {Line::integer(), Col::integer()}}]}}).
 calls_to_fun_1(FName, FunctionName, Arity, SearchPaths, TabWidth) ->
     ?wrangler_io("\nCMD: ~p:caller_funs_1(~p, ~p, ~p,~p,~p).\n",
 		 [?MODULE, FName, FunctionName, Arity, SearchPaths, TabWidth]),
@@ -189,6 +189,7 @@ get_caller_funs(FileName, {M, F, A}, SearchPaths, TabWidth) ->
 		      function ->
 			  FunName = wrangler_syntax:data(wrangler_syntax:function_name(Node)),
 			  FunArity = wrangler_syntax:function_arity(Node),
+			  {Line, Col} = wrangler_syntax:get_pos(Node),
 			  case {ModName, FunName, FunArity} == {M, F, A} of
 			      false ->
 				  {Sure, UnSure} = collect_apps(FileName, Node, {M, F, A});
@@ -200,8 +201,8 @@ get_caller_funs(FileName, {M, F, A}, SearchPaths, TabWidth) ->
 			  case {Sure, UnSure} of
 			      {[], []} -> {S1, S2};
 			      {[], [_H| _]} -> {S1, UnSure ++ S2};
-			      {[_H| _], []} -> {[{FileName, FunName, FunArity}| S1], S2};
-			      _ -> {[{FileName, FunName, FunArity}| S1], UnSure ++ S2}
+			      {[_H| _], []} -> {[{{FileName, FunName, FunArity}, {Line, Col}}| S1], S2};
+			      _ -> {[{{FileName, FunName, FunArity}, {Line, Col}}| S1], UnSure ++ S2}
 			  end;
 		      _ -> {S1, S2}
 		  end

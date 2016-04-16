@@ -592,8 +592,8 @@ calls_to_fun_format_results(Callers)->
 	    ?wrangler_io("The function selected is not called by any other functions.\n", []);
 	_ ->
 	    ?wrangler_io("The function selected is called by the following function(s):\n", []),
-	    lists:foreach(fun ({_File, _F, _A}) ->
-                                  ?wrangler_io("File:~p, function/arity: ~p/~p\n", [_File, _F, _A])
+	    lists:foreach(fun ({{File, F, A}, {Line, _Col}}) ->
+                                  ?wrangler_io("~ts:~p: function/arity: ~p/~p\n", [File, Line, F, A])
                           end, Callers)
     end.
 
