@@ -2808,6 +2808,10 @@ lay_type({type,_Line,map_field_assoc,T1,T2}, Ctxt) ->
     D1 = lay_type(T1, Ctxt),
     D2 = lay_type(T2, Ctxt),
     beside(D1, beside(text(" => "), D2));
+lay_type({type,_Line,map_field_exact,T1,T2}, Ctxt) ->
+    D1 = lay_type(T1, Ctxt),
+    D2 = lay_type(T2, Ctxt),
+    beside(D1, beside(text(" := "), D2));
 lay_type({type,_Line,map,Ts}, Ctxt) ->
     D1 = lay_type_args_1(Ts, Ctxt),
     beside(text("#{"), beside(D1, text("}")));

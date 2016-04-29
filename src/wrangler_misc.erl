@@ -1028,9 +1028,7 @@ exported_vars_1(Node, {StartLoc, EndLoc}) ->
 %%@spec bound_vars([syntaxTree()]|syntaxTree())-> [{atom(),pos()}]
 -spec(bound_vars(Node::[syntaxTree()]|syntaxTree())-> [{atom(),pos()}]).
 bound_vars(Nodes) when is_list(Nodes) ->
-    lists:usort(lists:flatmap(fun (Node) -> 
-                                      bound_vars(Node) 
-                              end, Nodes));
+    lists:usort(lists:flatmap(fun bound_vars/1, Nodes));
 bound_vars(Node) ->
     Fun = fun (N, Acc) ->
                   Ann = wrangler_syntax:get_ann(N),
