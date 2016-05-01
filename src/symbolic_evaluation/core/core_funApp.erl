@@ -175,7 +175,7 @@ getErrorMsg(false) -> 'No simplification was done!';
 getErrorMsg(true) -> 'No refactoring was done!';
 getErrorMsg(_) -> 'Unexpected Error!'.
 
--spec(exported_all/1::(File::filename()) -> boolean()).
+-spec exported_all(File::filename()) -> boolean().
 exported_all(File) ->
     {ok, {_, Info}} = wrangler_ast_server:parse_annotate_file(File, true),
     case lists:keysearch(attributes, 1, Info) of

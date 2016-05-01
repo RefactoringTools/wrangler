@@ -141,13 +141,12 @@ get_a_match_clause([], _ExpC) ->
     false.
 
 
-    
--spec(expr_match/3::(syntaxTree()|[syntaxTree()], syntaxTree()|[syntaxTree()], function()) ->
-                          {true, [{atom(), syntaxTree()|[syntaxTree()]}]} | false).
+-spec expr_match(syntaxTree()|[syntaxTree()], syntaxTree()|[syntaxTree()], function()) ->
+    {true, [{atom(), syntaxTree()|[syntaxTree()]}]} | false.
 expr_match(Exp1, Exp2, Cond) ->
     Res = unification(Exp1, Exp2),
     post_unification_checking(Exp1, Cond, Res).
-   
+
 
 post_unification_checking(TempExpr, Cond, UnificationRes) ->
     PossibleMatches=[case static_semantics_check(Subst) of
@@ -207,9 +206,9 @@ static_semantics_check_1(Subst=[{V, S}|_]) ->
         _ ->
             false 
     end.
-        
--spec(unification/2::(syntaxTree()|[syntaxTree()], syntaxTree()|[syntaxTree()]) ->
-                           [{true, [tuple()]}]|[false]).
+
+-spec unification(syntaxTree() | [syntaxTree()], syntaxTree() | [syntaxTree()]) ->
+    [{true, [tuple()]}] | [false].
 unification(Exp1, Exp2) ->
     case {is_list(Exp1), is_list(Exp2)} of
         {true, true} ->   
@@ -235,8 +234,8 @@ unification(Exp1, Exp2) ->
         _ -> [false]
     end.
 
--spec(list_unification_1/2::([syntaxTree()|[syntaxTree()]], [syntaxTree()|[syntaxTree()]]) ->
-                                  [{true, [tuple()]}]|[false]).
+-spec list_unification_1([syntaxTree() | [syntaxTree()]], [syntaxTree() | [syntaxTree()]]) ->
+    [{true, [tuple()]}] | [false].
 list_unification_1(Exp1, Exp2)->
     LEs1 = [E||E<-Exp1,is_list(E)],
     LEs2 = [E||E<-Exp2,is_list(E)],
@@ -257,8 +256,8 @@ has_meta_list(NodeList) ->
 
 
 
--spec(list_unification_2/2::([syntaxTree()|[syntaxTree()]], [syntaxTree()|[syntaxTree()]]) ->
-                           [{true, [tuple()]}]|[false]).
+-spec list_unification_2([syntaxTree() | [syntaxTree()]], [syntaxTree() | [syntaxTree()]]) ->
+    [{true, [tuple()]}] | [false].
 list_unification_2(Exp1, Exp2) ->
     case length(Exp1) == length(Exp2) of
         true ->
@@ -285,11 +284,11 @@ zip_unification_results(Res=[R|Rs]) ->
                                      {true,E2}<-zip_unification_results(Rs)]
             end
     end.
-    
-          
-           
--spec(list_unification_3/2::([syntaxTree()], [syntaxTree()]) ->
-                               [{true, [tuple()]}]|[false]).
+
+
+
+-spec list_unification_3([syntaxTree()], [syntaxTree()]) ->
+    [{true, [tuple()]}] | [false].
 list_unification_3([], []) ->
     [{true, []}];
 list_unification_3(T, []) ->
@@ -297,7 +296,7 @@ list_unification_3(T, []) ->
     case NonMetaList of 
         [] ->
             lists:append([create_sub(T1,[])||T1<-T]);
-        _ -> 
+        _ ->
             [false]
     end;
 list_unification_3([], _) ->
@@ -419,12 +418,12 @@ create_sub_for_clause(MetaClause, ClauseList) ->
                             [{true, [{Pat, T2Pats}, {Guard, T2Gs}, {Body, T2Body}]}];
                         [] ->
                             [{true, [{Guard, T2Gs}, {Body, T2Body}]}]
-                    end                         
+                    end
             end
     end.
-          
--spec(same_type_unification/2::(syntaxTree(), syntaxTree()) ->
-                                     [{true, [tuple()]}]|[false]).
+
+-spec same_type_unification(syntaxTree(), syntaxTree()) ->
+    [{true, [tuple()]}] | [false].
 same_type_unification(Exp1, Exp2) ->
     T1 = wrangler_syntax:type(Exp1),
     case T1 of
@@ -437,8 +436,8 @@ same_type_unification(Exp1, Exp2) ->
                             [{true, []}];
                        true -> [false]
                     end;
-                false -> 
-                    case is_object_variable(Exp1) of 
+                false ->
+                    case is_object_variable(Exp1) of
                         true when Exp1Name==Exp2Name->
                             [{true, []}];
                         true ->

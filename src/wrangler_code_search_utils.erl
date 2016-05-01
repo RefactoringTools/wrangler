@@ -137,12 +137,12 @@ identifier_name(Exp) ->
 	_ ->throw({error, "Not an identifier"})
     end.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                      %%
 %%  Generate variable binding structure                                 %%
 %%                                                                      %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--spec(var_binding_structure/1::([syntaxTree()]) -> [{integer(), integer()}]).  
+-spec var_binding_structure(AST::[syntaxTree()]) -> [{integer(), integer()}].
 var_binding_structure(AST) when not is_list(AST) ->
     var_binding_structure([AST]);
 var_binding_structure(ASTList) ->

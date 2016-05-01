@@ -64,8 +64,8 @@ rename_var_composite(FileName, {_FunName, _Arity},
 rename_var(FileName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_var(FileName, Line, Col, NewName, SearchPaths, emacs, TabWidth).
 
--spec rename_var_eclipse/6::(filename(), integer(), integer(), string(), [dir()], integer()) ->
-	     {ok, [{filename(), filename(), string()}]}.
+-spec rename_var_eclipse(filename(), integer(), integer(), string(), [dir()], integer()) ->
+    {ok, [{filename(), filename(), string()}]}.
 rename_var_eclipse(FName, Line, Col, NewName, SearchPaths, TabWidth) ->
     rename_var(FName, Line, Col, NewName, SearchPaths, eclipse, TabWidth).
  

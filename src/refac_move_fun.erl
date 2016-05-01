@@ -81,21 +81,23 @@
                   info:: [{key(), any()}]}).
 %==========================================================================================
 
--spec(move_fun_eclipse/6::(filename(),integer(),integer(), string(),[dir()], integer())
-        ->  {ok, [{filename(), filename(), string()}]} | {question, string()}).
+-spec move_fun_eclipse(file:filename(),integer(),integer(), string(),[dir()], integer()) ->
+    {ok, [{filename(), filename(), string()}]}
+  | {question, string()}.
 move_fun_eclipse(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) ->
     move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, eclipse, TabWidth).
 
 
 %% THIS interface need to be changed; and should inform George of the changes.
--spec(move_fun_1_eclipse/6::(filename(),integer(),integer(), string(),[dir()], integer())
-        ->  {ok, [{filename(), filename(), string()}]}).
+-spec move_fun_1_eclipse(filename(),integer(),integer(), string(),[dir()], integer()) ->
+    {ok, [{file:filename(), file:filename(), string()}]}.
 move_fun_1_eclipse(FName, Line, Col, TargetModorFileName, SearchPaths, TabWidth) ->
     move_fun_1(FName, Line, Col, TargetModorFileName, true, SearchPaths, eclipse, TabWidth).
 
--spec(move_fun_by_name/6::(modulename()|filename(), {atom(), integer()}, modulename()|filename(),
-                           [dir()], atom(), integer())->
-                                {error, string()} | {ok, [filename()]}).
+-spec move_fun_by_name(modulename() | file:filename(),
+                       {atom(), integer()}, modulename() | file:filename(),
+                       [dir()], atom(), integer()) ->
+    {error, string()} | {ok, [filename()]}.
 move_fun_by_name(ModorFileName, {FunName, Arity}, TargetModorFileName, SearchPaths, Editor, TabWidth) ->
     move_fun_by_name_1(ModorFileName, FunName, Arity,TargetModorFileName, SearchPaths, Editor, TabWidth).
 
@@ -132,8 +134,9 @@ move_fun_by_name_1(ModorFileName, FunName, Arity,TargetModorFileName, SearchPath
 	    throw({error, Reason})
     end.
 
--spec(move_fun/7::(filename(),integer(),integer(), string(),[dir()], atom(), integer())
-                  ->  {ok, [{filename(), filename(), string()}]} | {question, string()}).
+-spec move_fun(file:filename(), integer(), integer(), string(), [dir()], atom(), integer()) ->
+    {ok, [{filename(), filename(), string()}]}
+  | {question, string()}.
 move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, Editor, TabWidth) ->
      ?wrangler_io("\nCMD: ~p:move_fun(~p, ~p, ~p, ~p, ~p,  ~p, ~p).\n",
 		  [?MODULE, FName, Line, Col, TargetModorFileName, SearchPaths, Editor, TabWidth]),
@@ -161,8 +164,8 @@ move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, Editor, TabWidth) -
              {question, "Target file " ++ TargetFName ++ " does not exist, create it?"}
      end.
 
--spec(move_fun_1/8::(filename(),integer(),integer(), string(), boolean(),[dir()], atom(), integer())
-                    ->  {ok, [{filename(), filename(), string()}]}).
+-spec move_fun_1(filename(), integer(), integer(), string(), boolean(), [dir()], atom(), integer()) ->
+    {ok, [{filename(), filename(), string()}]}.
 move_fun_1(FName, Line, Col, TargetModorFileName, CondCheck, SearchPaths, Editor, TabWidth) ->
      Cmd = "CMD: " ++ atom_to_list(?MODULE) ++ ":move_fun_1(" ++ "\"" ++
 	     FName ++ "\", " ++ integer_to_list(Line) ++
@@ -1002,8 +1005,9 @@ reset_attrs(Node, {M, F, A}) ->
 %%              Side Condition Checking. 
 %%================================================================================
 
--spec(analyze_file/3::(FName::filename(), SearchPaths::[dir()|filename()], integer()) ->
-                            #modinfo{}).
+-spec analyze_file(file:filename(), SearchPaths, TabWidth) -> #modinfo{}
+  when SearchPaths :: [dir() | file:filename()],
+       TabWidth    :: integer().
 analyze_file(FName, SearchPaths, TabWidth) ->
     Dir = filename:dirname(FName),
     DefaultIncls = [filename:join(Dir, X) || X <- wrangler_misc:default_incls()],
@@ -1074,8 +1078,8 @@ side_cond_check(FunDefs, CurModInfo, TargetModInfo, CheckCond) ->
     end,
     check_macros_records(FunDefs, CurModInfo, TargetModInfo, CheckCond).
 
--spec(check_macros_records/4::(FunDefs::[any()], #modinfo{}, #modinfo{}, boolean()) ->
-                                   {[atom()], [atom()]}).
+-spec check_macros_records(FunDefs::[any()], #modinfo{}, #modinfo{}, boolean()) ->
+    {[atom()], [atom()]}.
 check_macros_records(FunDefs, CurModInfo, TargetModInfo, CheckCond) ->
     CurRecordDefs=CurModInfo#modinfo.record_defs,
     TargetRecordDefs=TargetModInfo#modinfo.record_defs,
@@ -1112,7 +1116,7 @@ check_fun_name_clash(FunDefs=[{{ModName, _, _},_}|_T],TargetModInfo)->
 	    end
     end.
 
--spec(check_records/4::(FunDefs::[any()], [{atom(), any()}], [{atom(), any()}], boolean()) -> [atom()]).
+-spec check_records(FunDefs::[any()], [{atom(), any()}], [{atom(), any()}], boolean()) -> [atom()].
 check_records(FunDefs,CurRecordDefs,TargetRecordDefs, CheckCond) ->
     UsedRecords = lists:usort(lists:append([wrangler_misc:collect_used_records(FunDef) || {_, FunDef} <- FunDefs])),
     UsedRecordDefs = [{Name, lists:keysort(1, Fields)} || {Name, Fields} <- CurRecordDefs, lists:member(Name, UsedRecords)],
@@ -1164,7 +1168,7 @@ check_records(FunDefs,CurRecordDefs,TargetRecordDefs, CheckCond) ->
     end,
     UnDefinedRecords.
 
--spec(check_macros/4::([any()], [{atom(), any()}], [{atom(), any()}], boolean()) -> [atom()]).
+-spec check_macros([any()], [{atom(), any()}], [{atom(), any()}], boolean()) -> [atom()].
 check_macros(FunDefs, CurMacroDefs, TargetMacroDefs, CheckCond) ->
     UsedMacros = lists:usort(lists:append([wrangler_misc:collect_used_macros(FunDef) || {_, FunDef} <- FunDefs])),
     UsedMacroDefs = [{Name, {Args, Def}}
@@ -1208,7 +1212,7 @@ check_macros(FunDefs, CurMacroDefs, TargetMacroDefs, CheckCond) ->
     end,
     UnDefinedMacros.
 
--spec(get_mod_info_from_parse_tree/1::([any()]) ->module_info()).    
+-spec get_mod_info_from_parse_tree(AST::[any()]) -> module_info().
 get_mod_info_from_parse_tree(AST) ->
     AST1 = lists:filter(fun (F) ->
 				case F of

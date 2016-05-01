@@ -10,24 +10,24 @@
 
 -include("../include/wrangler.hrl").
 
--spec (input_par_prompts/0::() -> [string()]).
+-spec input_par_prompts() -> [string()].
 input_par_prompts() -> [].
-   
--spec (select_focus/1::(#args{}) -> 
-                             {ok, syntaxTree()}|{ok, none}).  
-select_focus(_Args) -> 
+
+-spec select_focus(#args{}) -> {ok, syntaxTree()} | {ok, none}.
+select_focus(_Args) ->
     {ok, none}.
 
--spec (check_pre_cond/1::(#args{}) -> ok).
+-spec check_pre_cond(#args{}) -> ok.
 check_pre_cond(_Args) ->
     ok.
 
--spec (selective/0::()-> boolean()). 
+-spec selective() -> boolean().
 selective() ->
     false.
 
--spec (transform/1::(#args{}) -> {ok, [{{filename(), filename()}, syntaxTree()}]} 
-                                     |{error, term()}).
+-spec transform(#args{}) ->
+    {ok, [{{filename(), filename()}, syntaxTree()}]}
+  | {error, term()}.
 transform(_Args=#args{current_file_name=File})->
     ?FULL_BU_TP(rules(),[File]).
 
@@ -49,7 +49,7 @@ rules() ->
      guard_rule_1(),
      guard_rule_2()
     ].
-    
+
 replace_bug_cond_macro_rule() ->
     ?RULE(?T("Expr@"),
           ?TO_AST("false"),
@@ -183,7 +183,10 @@ eval_expr_1('andalso', {E1,_}, {_, "true"}) -> E1;
 eval_expr_1('andalso', _, {E2, "false"}) -> E2.
 
 
--spec refac_bug_cond/3::([filename()|dir()], editor(), integer())->{ok, string()}.
+-spec refac_bug_cond(FileOrDirs, Editor, TabWidth) -> {ok, string()}
+  when FileOrDirs :: file:filename() | dir(),
+       Editor     :: editor(),
+       TabWidth   :: integer().
 refac_bug_cond(FileOrDirs, Editor, TabWidth) ->
     Files = wrangler_misc:expand_files(FileOrDirs, ".erl"),
     {ok, Res}=?FULL_BU_TP(rules(), Files),

@@ -51,12 +51,13 @@
 %% into a tupe as the second parameter.
 %%
 %% @see full_buTP/2
-%% @see stop_tdTP/3 		
+%% @see stop_tdTP/3
 %% @see refac_syntax_lib:fold/3.
 
--spec(once_tdTU/3::(fun((syntaxTree(), any()) ->
-			       {anyterm(), boolean()}), syntaxTree(), anyterm()) ->
-	     {anyterm(), boolean()}).
+-spec once_tdTU(Function, Node, Others) -> {any(), boolean()}
+  when Function :: fun((syntaxTree(), any()) -> {any(), boolean()}),
+       Node     :: syntaxTree(),
+       Others   :: term().
 once_tdTU(Function, Node, Others) ->
     case Function(Node, Others) of
       {R, true} -> {R, true};
@@ -73,12 +74,12 @@ once_tdTU(Function, Node, Others) ->
     end.
 
 
- until(_F, [], _Others) -> {[], false};
- until(F, [H| T], Others) ->
-     case once_tdTU(F, H, Others) of
-       {_R, true} -> {_R, true};
-       {_Rq, false} -> until(F, T, Others)
-     end.
+until(_F, [], _Others) -> {[], false};
+until(F, [H| T], Others) ->
+    case once_tdTU(F, H, Others) of
+      {_R, true} -> {_R, true};
+      {_Rq, false} -> until(F, T, Others)
+    end.
 
  %% =====================================================================
  %% @spec stop_tdTP(Function, Tree::syntaxTree(), Others::[term()])->  syntaxTree()
@@ -96,28 +97,30 @@ once_tdTU(Function, Node, Others) ->
  %% @see full_buTP/2
  %% @see once_tdTU/3
 
--spec(stop_tdTP/3::(fun((syntaxTree(), anyterm()) ->
- 			       {syntaxTree(), boolean()}), syntaxTree(), anyterm()) ->
- 	     {syntaxTree(), boolean()}).
+-spec stop_tdTP(Function, Node, Others) -> {syntaxTree(), boolean()}
+  when Function :: fun((syntaxTree(), any()) -> {syntaxTree(), boolean()}),
+       Node	:: syntaxTree(),
+       Others	:: any().
 stop_tdTP(Function, Node, Others) ->
-     case Function(Node, Others) of
-       {Node1, true} -> {Node1, true};
-       {Node1, false} ->
-           case wrangler_syntax:subtrees(Node1) of
-             [] -> {Node1, false};
-             Gs ->
-                 Gs1 = [[stop_tdTP(Function, T, Others) || T <- G] || G <- Gs],
-                 Gs2 = [[N || {N, _B} <- G] || G <- Gs1],
-                 G = [[B || {_N, B} <- G] || G <- Gs1],
-                 Node2 = wrangler_syntax:make_tree(wrangler_syntax:type(Node1), Gs2),
-                 {rewrite(Node1, Node2), lists:member(true, lists:flatten(G))}
-           end
-     end.
+    case Function(Node, Others) of
+      {Node1, true} -> {Node1, true};
+      {Node1, false} ->
+          case wrangler_syntax:subtrees(Node1) of
+            [] -> {Node1, false};
+            Gs ->
+                Gs1 = [[stop_tdTP(Function, T, Others) || T <- G] || G <- Gs],
+                Gs2 = [[N || {N, _B} <- G] || G <- Gs1],
+                G = [[B || {_N, B} <- G] || G <- Gs1],
+                Node2 = wrangler_syntax:make_tree(wrangler_syntax:type(Node1), Gs2),
+                {rewrite(Node1, Node2), lists:member(true, lists:flatten(G))}
+          end
+    end.
 
 
--spec(full_tdTP/3::(fun((syntaxTree(), anyterm()) ->
-			       {syntaxTree(), boolean()}), syntaxTree(), anyterm()) ->
-	     {syntaxTree(), boolean()}).
+-spec full_tdTP(Function, Node, Others) -> {syntaxTree(), boolean()}
+  when Function :: fun((syntaxTree(), any()) -> {syntaxTree(), boolean()}),
+       Node	:: syntaxTree(),
+       Others	:: any().
 full_tdTP(Function, Node, Others) ->
     case Function(Node, Others) of
       {Node1, Changed} ->
@@ -144,8 +147,10 @@ full_tdTP(Function, Node, Others) ->
 %% @see stop_tdTP/2
 %% @see once_tdTU/3
 
--spec(full_buTP/3::(fun((syntaxTree(), any()) -> syntaxTree()), syntaxTree(), anyterm())->
-	     syntaxTree()).       
+-spec full_buTP(Fun, Tree, Others) -> syntaxTree()
+  when Fun    :: fun((syntaxTree(), any()) -> syntaxTree()),
+       Tree   :: syntaxTree(),
+       Others :: any().
 full_buTP(Fun, Tree, Others) ->
     case wrangler_syntax:subtrees(Tree) of
       [] -> Fun(Tree, Others); 
