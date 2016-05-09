@@ -502,6 +502,7 @@ type(Node) ->
       {tuple, _, _} -> tuple;
       {fake_parentheses, _} -> fake_parentheses;
       {paren_type, _, _} -> paren_type;
+      {ann_type, _, _} -> ann_type;
         _ -> erlang:error({badarg, Node})
     end.
 
