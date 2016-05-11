@@ -80,8 +80,8 @@ new_let(FileName, Start = {Line, Col}, End = {Line1, Col1}, NewPatName, SearchPa
 	{error, _Reason} -> throw({error, "You have not selected an expresison."})
     end.
 
--spec(new_let_1/8::(filename(), string(), list(), list(), [dir()], atom(), integer(), string()) ->			 
-			 {ok,[filename()]}).
+-spec new_let_1(filename(), string(), list(), list(), [dir()], atom(), integer(), string()) ->
+     {ok, [filename()]}.
 new_let_1(FileName, NewPatName, Expr, ParentExpr, SearchPaths, Editor, TabWidth, Cmd) ->
     {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true, SearchPaths, TabWidth),
     Expr1 = list_to_term(Expr),

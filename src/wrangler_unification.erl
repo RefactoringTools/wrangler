@@ -39,8 +39,8 @@
 expr_match(Exp1, Exp2) ->
     expr_unification(Exp1, Exp2, syntax, false).
 
--spec(expr_unification/2::(syntaxTree()|[syntaxTree()], syntaxTree()|[syntaxTree()]) ->
-				{true, [{atom(), syntaxTree()|[syntaxTree()]}]} | false).
+-spec expr_unification(syntaxTree() | [syntaxTree()], syntaxTree() | [syntaxTree()]) ->
+    {true, [{atom(), syntaxTree() | [syntaxTree()]}]} | false.
 expr_unification(Exp1, Exp2) ->
     expr_unification(Exp1, Exp2, syntax, true).
 expr_unification_extended(Exp1, Exp2) ->

@@ -13,15 +13,15 @@
 %%       derived from this software without specific prior written permission.
 %%
 %% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ''AS IS''
-%% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
-%% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
-%% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
-%% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
-%% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
-%% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
-%% BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
-%% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
-%% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
+%% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+%% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+%% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+%% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+%% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+%% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+%% BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+%% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+%% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 %%@author  Huiqing Li <H.Li@kent.ac.uk>
@@ -37,18 +37,18 @@
 
 -include("../../include/wrangler.hrl").
 
-%% The Emacs mini-buffer prompts for the user input parameters. 
--spec (input_par_prompts/0::() -> [string()]).                           
+%% The Emacs mini-buffer prompts for the user input parameters.
+-spec input_par_prompts() -> [string()].
 input_par_prompts() -> [].
 
-%% Select the focus of interest. If no selection is neeeded, 
+%% Select the focus of interest. If no selection is neeeded,
 %% then return {ok, none}.
--spec (select_focus/1::(#args{}) -> {ok, syntaxTree()}|{ok, none}).  
+-spec select_focus(#args{}) -> {ok, syntaxTree()} | {ok, none}.
 select_focus(_Args) ->{ok, none}.
 
-%% Pre-condition checking to ensure that the refactoring preserves the 
+%% Pre-condition checking to ensure that the refactoring preserves the
 %% behaviour of the program.
--spec (check_pre_cond/1::(#args{}) -> ok).  
+-spec check_pre_cond(#args{}) -> ok.
 check_pre_cond(_Args) ->
     ok.
 
@@ -56,7 +56,7 @@ selective() ->
     true.
 
 %%Do the actual program transformation here.
--spec (transform/1::(#args{}) -> {ok, [{{filename(), filename()}, syntaxTree()}]}|{error, term()}).
+-spec transform(#args{}) -> {ok, [{{filename(), filename()}, syntaxTree()}]} | {error, term()}.
 transform(_Args=#args{search_paths=SearchPaths})->
     ?FULL_TD_TP([rule(),
                  rule1(),
@@ -67,12 +67,12 @@ rule() ->
     ?RULE(?T("Op@(N@@, M@, F@, [Args@@])"),
           ?TO_AST("M@:F@(Args@@)"),
           {erlang,apply,3} == api_refac:fun_define_info(Op@)).
-          
+
 rule1() ->
     ?RULE(?T("Op@(N@@, M@, F@, [])"),
           ?TO_AST("M@:F@()"),
-          {erlang,apply,3} == api_refac:fun_define_info(Op@)). 
-         
+          {erlang,apply,3} == api_refac:fun_define_info(Op@)).
+
 rule2() ->
     ?RULE(?T("Op@(Fun@, [Args@@])"),
           begin
@@ -82,7 +82,6 @@ rule2() ->
           case api_refac:fun_define_info(Fun@) of
               {_,_,_}->
                   true;
-              _ -> 
+              _ ->
                   false
           end).
-          

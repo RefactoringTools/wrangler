@@ -13,23 +13,23 @@
 %%       derived from this software without specific prior written permission.
 %%
 %% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ''AS IS''
-%% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
-%% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
-%% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
-%% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
-%% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
-%% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
-%% BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
-%% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
-%% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
+%% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+%% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+%% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+%% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+%% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+%% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+%% BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+%% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+%% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-%%@doc This module shows how to write refactorings 
-%% use the Wrangler API. 
+%%@doc This module shows how to write refactorings
+%% use the Wrangler API.
 
 %% The refactoring implemented in this module removes
 %% the import attributes importing a user specified
-%% module, and qualify the calls to those functions 
+%% module, and qualify the calls to those functions
 %% imported from that module.
 
 %% @hidden
@@ -45,20 +45,20 @@
 
 -include("../../include/wrangler.hrl").
 
-%% The user needs to input the module name. 
--spec (input_par_prompts/0::() -> [string()]).                           
+%% The user needs to input the module name.
+-spec input_par_prompts() -> [string()].
 input_par_prompts() -> ["Module name:"].
 
 %% No focus selection is needed.
--spec (select_focus/1::(#args{}) -> {ok, syntaxTree()}|{ok, none}).  
+-spec select_focus(#args{}) -> {ok, syntaxTree()} | {ok, none}.
 select_focus(_Args) ->{ok, none}.
 
 %% Pre-condition checking.
--spec (check_pre_cond/1::(#args{}) -> ok|{error, term()}).  
+-spec check_pre_cond(#args{}) -> ok | {error, term()}.
 check_pre_cond(_Args=#args{current_file_name=File,
                            user_inputs=[ModuleName]}) ->
-    case is_imported(File, ModuleName) of 
-        true -> 
+    case is_imported(File, ModuleName) of
+        true ->
             ok;
         false ->
             {error, "The module specified is not imported"}
@@ -68,7 +68,9 @@ selective()->
     false.
 
 %%Do the actual program transformation here.
--spec (transform/1::(#args{}) -> {ok, [{{filename(), filename()}, syntaxTree()}]}|{error, term()}).
+-spec transform(#args{}) ->
+    {ok, [{{filename(), filename()}, syntaxTree()}]}
+  | {error, term()}.
 transform(Args=#args{current_file_name=File})->
     ?FULL_TD_TP([rule1(Args),
                  rule2(Args)], [File]).
@@ -89,4 +91,3 @@ rule2(_Args=#args{user_inputs=[ModuleName]}) ->
 %%utility functions.
 is_imported(File, ModuleName) ->
     api_refac:imported_funs(File, ModuleName) /= [].
-

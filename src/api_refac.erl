@@ -567,7 +567,7 @@ is_pattern(Node) ->
 %%@doc Returns all the functions that are exported by an Erlang file.
 %%@spec exported_funs(filename()) -> [{atom(),integer()}]
 
--spec(exported_funs/1::(File::filename()) -> [{Function::atom(), Arity::integer()}]).
+-spec exported_funs(file:filename()) -> [{Function::atom(), Arity::integer()}].
 exported_funs(File) ->
     {ok, {_, Info}} = wrangler_ast_server:parse_annotate_file(File, true),
     case lists:keysearch(exports, 1, Info) of
@@ -606,13 +606,14 @@ imported_funs(File, ModuleName) ->
 %%      An in-scope function could be an (auto-)imported function, or a 
 %%      function that is defined in the current module.
 
--spec(inscope_funs/1::(filename()|module_info()) -> [{atom(),atom(),integer()}]).
+-spec inscope_funs(FileOrModInfo) -> [mfa()]
+  when FileOrModInfo :: file:filename() | module_info().
 inscope_funs(FileOrModInfo) ->
-    case FileOrModInfo of 
+    case FileOrModInfo of
         [{_Key, _}|_] ->
             inscope_funs_1(FileOrModInfo);
         _ ->
-            case filelib:is_regular(FileOrModInfo) of 
+            case filelib:is_regular(FileOrModInfo) of
                 true ->
                     {ok, {_, Info}} = wrangler_ast_server:parse_annotate_file(FileOrModInfo, true),
                     inscope_funs_1(Info);
@@ -620,7 +621,7 @@ inscope_funs(FileOrModInfo) ->
                     throw({error,badarg})
             end
     end.
-     
+
 inscope_funs_1(ModInfo) ->
     Imps = case lists:keysearch(imports, 1, ModInfo) of
                {value, {imports, I}} ->
@@ -652,7 +653,7 @@ inscope_funs_1(ModInfo) ->
 %% @doc Returns all the functions that are defined by an Erlang file.
 %%@spec defined_funs(filename()) -> [{atom(),integer()}]
 
--spec(defined_funs/1::(filename()) -> [{Function::atom(), Arity::integer()}]).
+-spec defined_funs(file:filename()) -> [{Function::atom(), Arity::integer()}].
 defined_funs(File) ->
     {ok, {_, Info}} = wrangler_ast_server:parse_annotate_file(File, true),
     case lists:keysearch(functions, 1, Info) of
@@ -1409,8 +1410,10 @@ extend_stop_tdTP(Fun, Node, Others) ->
             end
     end. 
 
--spec(extended_full_buTP/3::(fun((syntaxTree(), any()) -> syntaxTree()), syntaxTree(), anyterm())->
-	             {syntaxTree(), boolean()}).
+-spec extended_full_buTP(Fun, Node, Others) -> {syntaxTree(), boolean()}
+  when Fun    :: fun((syntaxTree(), any()) -> syntaxTree()),
+       Node   :: syntaxTree(),
+       Others :: any().
 extended_full_buTP(Fun, Node, Others) ->
     {Node1, C} =extended_full_buTP_1(Fun, Node, Others),
     if C -> {api_refac:remove_fake_begin_end(Node1),C};

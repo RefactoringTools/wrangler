@@ -59,17 +59,14 @@
 
 -include("../include/wrangler_internal.hrl").
 
--spec(tuple_funpar_eclipse/5::(filename(), pos(), pos(),
-                               [dir()], integer()) -> 
-                                  {error, string()}
-                                   | {ok,
-                                      [{filename(), filename(), string()}]}).
+-spec tuple_funpar_eclipse(filename(), pos(), pos(), [dir()], integer()) ->
+    {error, string()}
+  | {ok, [{filename(), filename(), string()}]}.
 tuple_funpar_eclipse(FileName, StartLoc, EndLoc,  SearchPaths, TabWidth)->
     tuple_funpar(FileName, StartLoc, EndLoc, SearchPaths, eclipse, TabWidth).
 
--spec(tuple_funpar_1_eclipse/5::(filename(), pos(),
-                                 pos(), [dir()], integer()) -> 
-                                    {error, string()}  | {ok, [filename()]}).
+-spec tuple_funpar_1_eclipse(filename(), pos(), pos(), [dir()], integer()) ->
+    {error, string()}  | {ok, [filename()]}.
 tuple_funpar_1_eclipse(FileName, StartLoc, EndLoc, SearchPaths, TabWidth)->
     tuple_funpar_1(FileName, StartLoc, EndLoc, SearchPaths, emacs, TabWidth).
 

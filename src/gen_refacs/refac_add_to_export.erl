@@ -13,26 +13,26 @@
 %%       derived from this software without specific prior written permission.
 %%
 %% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ''AS IS''
-%% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
-%% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
-%% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
-%% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
-%% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
-%% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
-%% BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
-%% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
-%% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
+%% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+%% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+%% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+%% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+%% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+%% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+%% BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+%% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+%% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 %%@author  Huiqing Li <H.Li@kent.ac.uk>
 %%
-%%@doc This module shows how to write refactorings 
-%% use the Wrangler API. 
+%%@doc This module shows how to write refactorings
+%% use the Wrangler API.
 
-%% The refactoring implemented in this module adds an 
-%% import attribute which explicitly imports the 
-%% functions which are defined in a user specified 
-%% module, and used in the current module by remote 
+%% The refactoring implemented in this module adds an
+%% import attribute which explicitly imports the
+%% functions which are defined in a user specified
+%% module, and used in the current module by remote
 %% function calls.
 %% @hidden
 %% @private
@@ -49,19 +49,19 @@
 
 -include("../../include/wrangler.hrl").
 
-%% Ask the user which module to import. 
--spec (input_par_prompts/0::() -> [string()]).                           
+%% Ask the user which module to import.
+-spec input_par_prompts() -> [string()].
 input_par_prompts() ->
     [].
 
 %% no focus selection is needed.
--spec (select_focus/1::(#args{}) -> {ok, syntaxTree()}|{ok, none}).  
+-spec select_focus(#args{}) -> {ok, syntaxTree()} | {ok, none}.
 select_focus(_Args=#args{current_file_name=File,
                          cursor_pos=Pos}) ->
     api_interface:pos_to_fun_def(File, Pos).
-    
-%% Pre-condition checking. 
--spec (check_pre_cond/1::(#args{}) -> ok).  
+
+%% Pre-condition checking.
+-spec check_pre_cond(#args{}) -> ok.
 check_pre_cond(_Args) ->
     ok.
 
@@ -69,15 +69,15 @@ selective() ->
     false.
 
 %%Do the actual program transformation here.
--spec (transform/1::(args()) -> {ok, [{{filename(), filename()}, syntaxTree()}]}).
+-spec transform(#args{}) -> {ok, [{{filename(), filename()}, syntaxTree()}]}.
 transform(_Args=#args{current_file_name=File,
                      focus_sel=FunDef}) ->
     {_M, F, A} = api_refac:fun_define_info(FunDef),
-    case api_refac:is_exported({F, A}, File) of 
+    case api_refac:is_exported({F, A}, File) of
         true ->
             {ok, []};
         false ->
-            case collect_exports(File) of 
+            case collect_exports(File) of
                 [] ->
                     {ok,AST} = api_refac:get_ast(File),
                     Export=make_export_attr({F,A}),
@@ -101,7 +101,7 @@ collect_exports(File) ->
                           _This@,
                           api_refac:is_attribute(Form@, export))],
                 [File]).
-                 
+
 make_export_attr(FA) ->
     ?TO_AST("-export(["++format_fa(FA)++"]).").
 

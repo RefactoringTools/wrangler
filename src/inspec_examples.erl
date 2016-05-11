@@ -108,8 +108,8 @@
 %% collect functions both with guard expressions and without guard 
 %% expression (i.e. `Guard@@' is `[]').
 
--spec(top_level_if/1::(#args{}) ->[{modulename(), functionname(), arity()}]).
-%% No user inputs needed.   
+-spec top_level_if(input_par_prompts|#args{}) -> [mfa()].
+%% No user inputs needed.
 top_level_if(input_par_prompts) ->
     [];
 top_level_if(_Args=#args{search_paths=SearchPaths})->
@@ -122,7 +122,8 @@ top_level_if(_Args=#args{search_paths=SearchPaths})->
 %% Collects the uses of `lists:append/2' in the project, and returns 
 %% the location information of each application instance found.
 
--spec(append_two_lists/1::(#args{}) ->[{filename(), {pos(),pos()}}]).
+-spec append_two_lists(input_par_prompts | #args{}) ->
+    [{file:filename(), {pos(), pos()}}].
 %% No user inputs needed.
 append_two_lists(input_par_prompts) -> [];
 append_two_lists(_Args=#args{search_paths=SearchPaths}) ->
@@ -137,37 +138,38 @@ append_two_lists(_Args=#args{search_paths=SearchPaths}) ->
 %% location information of each application instance found.
 
 %% Ask the user to input the MFA information of the function to check.
--spec(calls_to_specific_function/1::(#args{}) ->[{filename(), {pos(),pos()}}]).
+-spec calls_to_specific_function(input_par_prompts | #args{}) ->
+    [{file:filename(), {pos(), pos()}}].
 calls_to_specific_function(input_par_prompts) ->
     ["Module name: ", "Function name: ", "Arity: "];
 
 calls_to_specific_function(_Args=#args{user_inputs=[M,F,A], 
                                        search_paths=SearchPaths}) ->
-    {M1, F1, A1}={list_to_atom(M), list_to_atom(F), list_to_integer(A)},                              
+    {M1, F1, A1}={list_to_atom(M), list_to_atom(F), list_to_integer(A)},
     ?FULL_TD_TU([?COLLECT_LOC(?FUN_APPLY(M1, F1, A1), true)],
                 SearchPaths).
 
- 
+
 %%===================================================================
 %% Collects clause bodies that ends in the format of `Var=Expr, Var',
 %% and returns the location information of `Var=Expr, Var'.
 
 %% No user inputs are needed.
--spec(unnecessary_match/1::(#args{}) ->[{filename(), {pos(),pos()}}]).
-                                    
+-spec unnecessary_match(input_par_prompts | #args{}) ->
+    [{file:filename(), {pos(), pos()}}].
 unnecessary_match(input_par_prompts) ->[];
-  
+
 %% Instead of collecting the location of the whole matching node, this
 %% function only returns the location of the last two expressions; therefore
-%% we cannot use the ?COLLECT_LOC macro. `_File@' is a meta variable 
+%% we cannot use the ?COLLECT_LOC macro. `_File@' is a meta variable
 %% generated automatically  to represent the name of the file to which
-%% the matching code belong, and is visible to both the second and the third 
+%% the matching code belong, and is visible to both the second and the third
 %% arguments of the ?COLLECT macro.
-%% When the collector returns the data collected in the format of 
-%% {File,{StartPos, EndPos}}, Wrangler will display the result in such a way 
-%% that the location information is mouse clickable. 
+%% When the collector returns the data collected in the format of
+%% {File,{StartPos, EndPos}}, Wrangler will display the result in such a way
+%% that the location information is mouse clickable.
 unnecessary_match(_Args=#args{search_paths=SearchPaths}) ->
-    ?FULL_TD_TU([?COLLECT(?T("Body@@, V@=Expr@, V@"), 
+    ?FULL_TD_TU([?COLLECT(?T("Body@@, V@=Expr@, V@"),
                           {_File@, wrangler_misc:start_end_loc(lists:nthtail(length(Body@@), _This@))},
                           api_refac:type(V@) == variable)],
                 SearchPaths).
@@ -176,8 +178,7 @@ unnecessary_match(_Args=#args{search_paths=SearchPaths}) ->
 %%===================================================================
 %% Collects the recursive function definitions that are not tail-recursive,
 %% and returns the MFA information of those functions.
--spec(non_tail_recursive_function/1::(#args{}) ->[{modulename(), functionname(), arity()}]).
-                                
+-spec non_tail_recursive_function(input_par_prompts | #args{}) -> [mfa()].
 non_tail_recursive_function(input_par_prompts)-> [];
 non_tail_recursive_function(_Args=#args{search_paths=SearchPaths}) ->
     ?FULL_TD_TU([?COLLECT(?T("f@(Args@@@) when Guard@@@-> Body@@@."), 

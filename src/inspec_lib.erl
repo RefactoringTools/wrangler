@@ -659,13 +659,13 @@ try_inspector(Mod, Fun, Args) ->
 
 
 %%@private
-try_to_apply(Mod, Fun, Args, Msg) -> 
+try_to_apply(Mod, Fun, Args, Msg) ->
     try apply(Mod, Fun, Args)
      catch
-	 throw:Error -> 
+	 throw:Error ->
 	     Error;    %% wrangler always throws Error in the format of '{error, string()}';
-	 _E1:_E2->
-     	     %%refac_io:format("E1E2:\n~p\n", [{E1, E2}]),
+	 E1:E2->
+     	     wrangler_io:format("MFA: ~p\n~p\n", [{Mod, Fun, Args}, {E1, E2}]),
 	     {error, Msg}
      end.
 
