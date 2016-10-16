@@ -366,7 +366,7 @@ do_normalise_record_expr_1(Node, {RecordInfo, ShowDefault}) ->
     end.
 
 set_random_pos(Node) ->
-    wrangler_syntax:set_pos(Node, {-random:uniform(200), -random:uniform(200)}).
+    wrangler_syntax:set_pos(Node, {-rand:uniform(200), -rand:uniform(200)}).
  
 pos_to_record_expr(Tree, Pos) ->
     case
