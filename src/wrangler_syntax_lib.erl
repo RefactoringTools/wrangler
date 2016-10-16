@@ -172,7 +172,7 @@ start_range(S) ->
 %% order, but (pseudo-)randomly distributed over the range.
 
 generate(_Key, Range) ->
-    random:uniform(Range).    % works well
+    rand:uniform(Range).    % works well
 
 %% =====================================================================
 %% @spec new_variable_names(N::integer(), Used::set(atom())) -> [atom()]
