@@ -3,7 +3,5 @@ script:
 - ./configure
 - make
 otp_release:
-- 21.0
 - 19.3
 - 18.3
-- 17.5
