@@ -191,7 +191,15 @@
 	 variable/1, variable_literal/1, variable_name/1,
 	 warning_marker/1, warning_marker_info/1,
 	 default_literals_vars/2, empty_node/0]).
-	
+
+-ifndef(OTP_RELEASE).
+-else.
+-if(?OTP_RELEASE <20).
+-else.
+-export([class_qualifier/3,
+         class_qualifier_stacktrace/1]).
+-endif.
+-endif.
 %% =====================================================================
 %% IMPLEMENTATION NOTES:
 %%
@@ -3584,34 +3592,129 @@ revert_clause_disjunction(D) ->
 revert_try_clause(Node) ->
     fold_try_clause(revert_clause(Node)).
 
+-ifndef(OTP_RELEASE). 
+-record(class_qualifier, {class :: syntaxTree(),
+                          body :: syntaxTree()}).
 fold_try_clause({clause, Pos, [P], Guard, Body}) ->
     P1 = case type(P) of
-	   class_qualifier ->
-	       {tuple, Pos,
-		[class_qualifier_argument(P), class_qualifier_body(P),
-		 {var, Pos, '_'}]};
-	   _ ->
-	       {tuple, Pos, [P, {var, Pos, '_'}]}
+	     class_qualifier ->
+		 {tuple, Pos,
+		  [class_qualifier_argument(P), class_qualifier_body(P),
+		   {var, Pos, '_'}]};
+	     _ ->
+		 {tuple, Pos, [P, {var, Pos, '_'}]}
 	 end,
     {clause, Pos, [P1], Guard, Body}.
 
 unfold_try_clauses(Cs) ->
     [unfold_try_clause(C) || C <- Cs].
-
-unfold_try_clause({clause, Pos,  
- 		   [{tuple, _, [{atom, Pos1, throw}, V, _]}], Guard, Body}) ->
-    case Pos1 == get_pos(V) of 
-	true ->  {clause, Pos, [V], Guard, Body}; 
+unfold_try_clause({clause, Pos,
+		   [{tuple, _, [{atom, Pos1, throw}, V, _]}], Guard, Body}) ->
+    case Pos1 == get_pos(V) of
+        true ->
+	    {clause, Pos, [V], Guard, Body};
 	false -> {clause, Pos, [class_qualifier({atom, Pos1, throw}, V)], Guard, Body}
     end;
-
 unfold_try_clause({clause, Pos, [{tuple, _, [C, V,_]}],
- 		   Guard, Body}) ->
-     {clause, Pos, [class_qualifier(C, V)], Guard, Body};
-
+		   Guard, Body}) ->
+    {clause, Pos, [class_qualifier(C, V)], Guard, Body};
 unfold_try_clause({clause, Pos, [{tuple, _, [C, V]}],
 		   Guard, Body}) ->
     {clause, Pos, [class_qualifier(C, V)], Guard, Body}.
+
+class_qualifier(Class, Body) ->
+    tree(class_qualifier,
+         #class_qualifier{class = update_ann({syntax_path, class_qualifier_class},Class),
+                          body = update_ann({syntax_path, class_qualifier_body}, Body)}).
+-else. 
+-if(?OTP_RELEASE <20).
+-record(class_qualifier, {class :: syntaxTree(),
+                          body :: syntaxTree()}).
+fold_try_clause({clause, Pos, [P], Guard, Body}) ->
+    P1 = case type(P) of
+             class_qualifier ->
+                 {tuple, Pos,
+                  [class_qualifier_argument(P), class_qualifier_body(P),
+                   {var, Pos, '_'}]};
+	     _ ->
+		 {tuple, Pos, [P, {var, Pos, '_'}]}
+	 end,
+    {clause, Pos, [P1], Guard, Body}. 
+unfold_try_clauses(Cs) ->
+    [unfold_try_clause(C) || C <- Cs].
+unfold_try_clause({clause, Pos,
+                   [{tuple, _, [{atom, Pos1, throw}, V, _]}], Guard, Body}) ->
+    case Pos1 == get_pos(V) of
+        true ->
+            {clause, Pos, [V], Guard, Body};
+	false -> {clause, Pos, [class_qualifier({atom, Pos1, throw}, V)], Guard, Body}
+    end;
+unfold_try_clause({clause, Pos, [{tuple, _, [C, V,_]}],
+                   Guard, Body}) ->
+    {clause, Pos, [class_qualifier(C, V)], Guard, Body};
+unfold_try_clause({clause, Pos, [{tuple, _, [C, V]}],
+                   Guard, Body}) ->
+    {clause, Pos, [class_qualifier(C, V)], Guard, Body}.
+
+class_qualifier(Class, Body) ->
+    tree(class_qualifier,
+         #class_qualifier{class = update_ann({syntax_path, class_qualifier_class},Class),
+                          body = update_ann({syntax_path, class_qualifier_body}, Body)}).
+
+-else.
+
+-record(class_qualifier, {class :: syntaxTree(),
+                          body :: syntaxTree(),
+                          stacktrace :: syntaxTree()}).
+fold_try_clause({clause, Pos, [P], Guard, Body}) ->
+    P1 = case type(P) of
+             class_qualifier ->
+                 {tuple, Pos, [class_qualifier_argument(P),
+                               class_qualifier_body(P),
+                               class_qualifier_stacktrace(P)]};
+	     _ -> 
+		 {tuple, Pos, [{atom, Pos, throw}, P, {var, Pos, '_'}]}
+         end,
+    {clause, Pos, [P1], Guard, Body}.
+
+unfold_try_clauses(Cs) ->
+    [unfold_try_clause(C) || C <- Cs].
+unfold_try_clause({clause, Pos,  [{tuple, _, [{atom, Pos1, throw},
+                                              V, _]}], Guard, Body}) ->
+    case Pos1 == get_pos(V) of
+        true ->
+	    {clause, Pos, [V], Guard, Body};
+	false -> {clause, Pos, [class_qualifier({atom, Pos1, throw}, V)], Guard, Body}
+    end;
+unfold_try_clause({clause, Pos, [{tuple, _, [C={atom, _, throw}, V, [{var, _, '_'}]]}],
+                   Guard, Body}) ->
+     {clause, Pos, [class_qualifier(C, V)], Guard, Body};
+unfold_try_clause({clause, Pos, [{tuple, _, [C, V, Stacktrace]}],
+                   Guard, Body}) ->
+    {clause, Pos, [class_qualifier(C, V, Stacktrace)], Guard, Body}.
+
+class_qualifier(Class, Body) ->
+    Underscore = {var, get_pos(Body), '_'},
+        tree(class_qualifier,
+         #class_qualifier{class = update_ann({syntax_path, class_qualifier_class},Class),
+                          body = update_ann({syntax_path, class_qualifier_body}, Body),
+                          stacktrace = Underscore}).
+-spec class_qualifier(syntaxTree(), syntaxTree(), syntaxTree()) ->
+                             syntaxTree().
+
+class_qualifier(Class, Body, Stacktrace) ->
+    tree(class_qualifier,
+         #class_qualifier{class = update_ann({syntax_path, class_qualifier_class},Class),
+                          body =  update_ann({syntax_path, class_qualifier_body}, Body),
+                          stacktrace = update_ann({syntax_path, class_qualifier_stacktrace},
+                                                   Stacktrace)}).
+
+-spec class_qualifier_stacktrace(syntaxTree()) -> syntaxTree().
+class_qualifier_stacktrace(Node) ->
+    (data(Node))#class_qualifier.stacktrace.
+
+-endif.
+-endif.
 
 %% =====================================================================
 %% @spec clause_patterns(syntaxTree()) -> [syntaxTree()]
@@ -5479,17 +5582,34 @@ try_expr_after(Node) ->
 %% @see class_qualifier_body/1
 %% @see try_expr/4
 
--record(class_qualifier, {class, body}).
-
+%% -ifndef(OTP_RELEASE). 
+%% -record(class_qualifier, {class :: syntaxTree(),
+%%                           body :: syntaxTree()}).
+%% -else. 
+%% -if(?OTP_RELEASE <20).
+%% -record(class_qualifier, {class :: syntaxTree(),
+%%  			  body :: syntaxTree()}).
+%% -else.
+%% -record(class_qualifier, {class :: syntaxTree(),
+%%                           body :: syntaxTree(),
+%%                           stacktrace :: syntaxTree()}).
+%% -endif.
+%% -endif.
 %% type(Node) = class_qualifier
 %% data(Node) = #class_qualifier{class :: Class, body :: Body}
 %%
 %%	Class = Body = syntaxTree()
 
-class_qualifier(Class, Body) ->
-    tree(class_qualifier,
-	 #class_qualifier{class = update_ann({syntax_path, class_qualifier_class},Class), 
-                          body = update_ann({syntax_path, class_qualifier_body}, Body)}).
+%% -spec class_qualifier(syntaxTree(), syntaxTree(), syntaxTree()) ->
+%%                              syntaxTree().
+
+%% class_qualifier(Class, Body, Stacktrace) ->
+%%     tree(class_qualifier,
+%%          #class_qualifier{class = update_ann({syntax_path, class_qualifier_class},Class),
+%%                           body =  update_ann({syntax_path, class_qualifier_body}, Body),
+%%                           stacktrace = update_ann({syntax_path, class_qualifier_stacktrace},
+%% 						   Stacktrace)}).
+
 
 %% =====================================================================
 %% @spec class_qualifier_argument(syntaxTree()) -> syntaxTree()
@@ -5511,6 +5631,16 @@ class_qualifier_argument(Node) ->
 
 class_qualifier_body(Node) ->
     (data(Node))#class_qualifier.body.
+
+% =====================================================================
+%% @doc Returns the stacktrace subtree of a `class_qualifier' node.
+%%
+%% @see class_qualifier/2
+
+%% -spec class_qualifier_stacktrace(syntaxTree()) -> syntaxTree().
+
+%% class_qualifier_stacktrace(Node) ->
+%%     (data(Node))#class_qualifier.stacktrace.
 
 %% =====================================================================
 %% @spec implicit_fun(Name::syntaxTree(), Arity::syntaxTree()) ->
