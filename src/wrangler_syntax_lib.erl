@@ -129,14 +129,13 @@ new_variable_name(S) ->
 %% within a reasonably small range relative to the number of elements in
 %% the set.
 %%
-%% <p>This function uses the module <code>random</code> to generate new
+%% <p>This function uses the module <code>rand</code> to generate new
 %% keys. The seed it uses may be initialized by calling
-%% <code>random:seed/0</code> or <code>random:seed/3</code> before this
-%% function is first called.</p>
+%% <code>rand:seed/1</code> before this function is first called.</p>
 %%
 %% @see new_variable_name/1
 %% @see sets
-%% @see random
+%% @see rand
 
 new_variable_name(F, S) ->
     R = start_range(S), new_variable_name(R, F, S).
