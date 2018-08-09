@@ -2,6 +2,7 @@ language: erlang
 script:
 - ./configure
 - make
+- make docs
 - |
   git clean -xdff
   rebar3 compile
