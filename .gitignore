@@ -7,3 +7,4 @@ elisp/wrangler.el
 *.DS_Store
 *~
 tags
+src/wrangler_parse.erl
