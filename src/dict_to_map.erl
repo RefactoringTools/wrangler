@@ -1,7 +1,7 @@
 %%@private
 -module(dict_to_map). 
 
--include("../include/wrangler.hrl"). 
+-include("wrangler.hrl"). 
 
 -export([new/0, 
          is_key/2,

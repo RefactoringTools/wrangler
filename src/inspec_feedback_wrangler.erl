@@ -35,7 +35,7 @@
 	 collect_function_apps/2,
 	 collect_function_apps2/2]).
 
--include("../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 -type (message()::string()).
 -type (tag() :: atom()).

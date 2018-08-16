@@ -3,7 +3,7 @@
 -export([transform_body/3,transform_body/4]).
 
 %% Include files
--include_lib("../../../include/wrangler.hrl").
+-include("wrangler.hrl").
 transform_body(Node, RulesFun, Scope) ->   
     transform_body(Node, RulesFun, {{[],[]}, Scope,[]}, unknown).
 

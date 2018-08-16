@@ -4,7 +4,7 @@
 -module(evaluator).
 
 -export([start/1,start/2]).
--include_lib("../../../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 %%--------------------------------------------------------------------
 %% @doc

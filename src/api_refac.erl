@@ -380,7 +380,7 @@
          
 -compile(export_all).
 
--include("../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 
 %% ======================================================================

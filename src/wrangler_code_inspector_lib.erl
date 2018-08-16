@@ -38,7 +38,7 @@
          calls_to_specific_function/2,
          calls_to_specific_functions/2]).
 
--include("../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 %%==========================================================================================
 %%-spec(find_var_instances(FileName::filename(), Line::integer(), Col::integer(),

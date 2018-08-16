@@ -37,7 +37,7 @@
 
 -export([composite_refac/1, input_par_prompts/0, select_focus/1]).
 
--include("../../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 -behaviour(gen_composite_refac).
 

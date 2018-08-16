@@ -5,7 +5,7 @@
 -export([guardsSuceed/3, guardsSuceed/4, rules/2, pos_to_node/2, evaluateGuardsExpression/2,get_variable/2,evaluateIsFun/1]).
 
 %% Include files
--include_lib("../../../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 guardsSuceed(Arg1, Arg2, Arg3) ->
     guardsSuceed(Arg1, Arg2, Arg3, []).

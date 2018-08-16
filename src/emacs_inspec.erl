@@ -28,7 +28,7 @@
 %% @private
 -module(emacs_inspec).
 
--include("../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 -export([apply_code_inspection/1, input_par_prompts/2]).
 

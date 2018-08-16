@@ -1,7 +1,7 @@
 %% @private
 -module(utils_convert).
 %% Include files
--include_lib("../../../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 %%%===================================================================
 %% gen_refac callbacks

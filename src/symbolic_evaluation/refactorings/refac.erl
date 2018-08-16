@@ -7,7 +7,7 @@
 -export([try_call_transform/2, try_call_transform/3, body_rules/5, try_transform_manager/5, checkTimeOut/1, get_refac_scope/1, select_focus/1, select_focus/2, input_par_prompts/0,get_files/3,get_files/4,filterError/1,input_refac_scope_message/0,validation_with_timeout/3,validate_refac_scope/2,start_transformation/5,start_transformation/6,validate_all/4,validate_definitions_str/2,collectFile/3,fun_define_info/2,get_definitions_tuplelist/2,timeout_manager/1]).
 
 %% Include files
--include_lib("../../../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 input_par_prompts() ->
    ["Please, choose a timeout value in miliseconds (default is 1000ms):",input_refac_scope_message()].

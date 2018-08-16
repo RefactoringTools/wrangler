@@ -3,7 +3,7 @@
 
 -compile(export_all).
 
--include("../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 %% This function assumes that the function 
 %% is an acummulative tail-recursive function.

@@ -50,7 +50,7 @@
 
 -compile(export_all).
 
--include("../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 -type (file_filter()::{file,fun((File::filename()) -> boolean())}).
 

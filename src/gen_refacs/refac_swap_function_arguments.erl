@@ -50,7 +50,7 @@
 
 -export([swap_args/7]).
 
--include("../../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 -import(api_refac, [fun_define_info/1]).
 

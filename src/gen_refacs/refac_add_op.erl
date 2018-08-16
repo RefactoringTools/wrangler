@@ -38,7 +38,7 @@
 -compile(export_all).
 
 %% Include files
--include("../../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 %%%===================================================================
 %% gen_refac callbacks

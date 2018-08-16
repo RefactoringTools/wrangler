@@ -17,7 +17,7 @@
 
 -behaviour(gen_composite_refac).
 
--include("../../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 %%%===================================================================
 %% gen_composite_refac callbacks
