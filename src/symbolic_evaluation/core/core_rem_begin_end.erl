@@ -9,7 +9,7 @@
 -module(core_rem_begin_end).
 
 %% Include files
--include_lib("../../../include/wrangler.hrl").
+-include("wrangler.hrl").
 -export([rules/2]).
 %%--------------------------------------------------------------------
 %% @doc

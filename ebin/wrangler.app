@@ -114,10 +114,9 @@
               refac_add_to_export,
               refac_add_callback,
               refac_add_callbacks,
-              refac_to_behav_instance,
-	      refac_instantiate_calls,
+              refac_instantiate_calls,
               regexp_re
-              ]},            
+              ]},
     {registered, [wrangler_ast_server,
                   wrangler_callgraph_server,
                   wrangler_modulegraph_server,
@@ -127,5 +126,5 @@
                   wrangler_backup_server,
                   wrangler_cmd_server,
                   wrangler_gen_refac_server]},
-    {applications, [kernel, stdlib]},          
+    {applications, [kernel, stdlib]},
     {mod, {wrangler, []}}]}.

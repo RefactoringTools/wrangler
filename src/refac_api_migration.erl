@@ -115,7 +115,7 @@
 -export([mk_new_var/2, mk_str/2,
          simplify_expr/2, simplify_match_expr/2]).
 
--include("../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 -define(INTERNAL_RULE(Before, After, Cond),
         fun()->

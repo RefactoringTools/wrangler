@@ -47,7 +47,7 @@
 
 -export([add_to_export/5]).
 
--include("../../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 %% Ask the user which module to import.
 -spec input_par_prompts() -> [string()].

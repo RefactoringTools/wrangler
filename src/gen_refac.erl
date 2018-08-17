@@ -134,7 +134,7 @@
          apply_changes/3
         ]).
 
--include("../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 
 -callback input_par_prompts() -> [string()].

@@ -10,7 +10,7 @@
 
 -behaviour(gen_composite_refac).
 
--include_lib("../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 input_par_prompts() ->
     [].

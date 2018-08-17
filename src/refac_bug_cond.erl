@@ -8,7 +8,7 @@
          check_pre_cond/1, selective/0,
          transform/1, refac_bug_cond/3]).
 
--include("../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 -spec input_par_prompts() -> [string()].
 input_par_prompts() -> [].

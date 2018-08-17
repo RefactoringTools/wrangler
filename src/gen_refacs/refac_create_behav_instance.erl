@@ -13,7 +13,7 @@
 -behaviour(gen_refac).
 
 %% Include files
--include("../../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 %%%===================================================================
 %% gen_refac callbacks

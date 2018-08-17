@@ -26,7 +26,7 @@
 %% </em>
 %% @end
 -module(core_unreferenced_assign).
--include_lib("../../../include/wrangler.hrl").
+-include("wrangler.hrl").
 -export([rules/2,collector_variable_occurrences/1,variable_assignment_cond/2,variable_assignment_rule/1,variable_assignment_rule_begin/1,collector_var_expr_value/1,is_variable_use/1]).
 %%--------------------------------------------------------------------
 %%@doc

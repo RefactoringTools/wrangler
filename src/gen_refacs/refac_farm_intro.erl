@@ -5,7 +5,7 @@
 
 -compile(export_all).
 
--include("../..//include/wrangler.hrl").
+-include("wrangler.hrl").
 
 -export([input_par_prompts/0, select_focus/1, check_pre_cond/1, selective/0, transform/1]).
 

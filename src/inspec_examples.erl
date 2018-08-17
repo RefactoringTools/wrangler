@@ -85,7 +85,7 @@
 
 -module(inspec_examples).
 
--include("../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 -export([top_level_if/1, 
          append_two_lists/1,

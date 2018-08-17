@@ -27,7 +27,7 @@
 -module(core_funApp).
 
 %% Include files
--include_lib("../../../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 %%%===================================================================
 %% gen_refac callbacks

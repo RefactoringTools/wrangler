@@ -272,7 +272,7 @@
 
 -compile(export_all).
 
--include("../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 -callback composite_refac(Args::#args{}) -> composite_refac()|[].
 -callback input_par_prompts()->[string()].

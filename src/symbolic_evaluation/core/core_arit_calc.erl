@@ -19,7 +19,7 @@
 %%%-------------------------------------------------------------------
 -module(core_arit_calc).
 %% Include files
--include_lib("../../../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 -export([rules/2]).
 

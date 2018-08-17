@@ -34,7 +34,7 @@
 %% </ul>
 %%@end
 -module(core_boolean_operators).
--include_lib("../../../include/wrangler.hrl").
+-include("wrangler.hrl").
 -export([rules/2]).
 
 %%--------------------------------------------------------------------

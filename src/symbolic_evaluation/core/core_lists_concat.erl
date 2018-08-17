@@ -13,7 +13,7 @@
 %% </ul>
 %%@end
 -module(core_lists_concat).
--include_lib("../../../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 %%%===================================================================
 -export([rules/2]).

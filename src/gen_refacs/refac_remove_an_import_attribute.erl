@@ -43,7 +43,7 @@
          check_pre_cond/1, selective/0,
          transform/1]).
 
--include("../../include/wrangler.hrl").
+-include("wrangler.hrl").
 
 %% The user needs to input the module name.
 -spec input_par_prompts() -> [string()].

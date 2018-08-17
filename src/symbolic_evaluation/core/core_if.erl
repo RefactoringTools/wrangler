@@ -45,7 +45,7 @@
 %%
 %%@end
 -module(core_if).
--include_lib("../../../include/wrangler.hrl").
+-include("wrangler.hrl").
 -export([rules/2]).
 %%--------------------------------------------------------------------
 %% @doc
