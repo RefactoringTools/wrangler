@@ -70,6 +70,25 @@ erlcall_rename_mode(Mod, Ar) ->
                             0], 
                         command).
 
+my_own_fun(Mod, Ar) ->
+    gen_refac_2:run_refac(refac_new_dummy_argument2,
+                            [Mod, 
+                            [0,0],
+                            [[0, 0], [0, 0]], 
+                            Ar,
+                            ["/home/sm/erlang-project/wrangler/ebin"], 
+                            0], 
+                        command).
+my_own_fun2(Mod, Ar) ->
+    gen_refac_2:run_refac(refac_rename_function2,
+                            [Mod, 
+                            [0,0],
+                            [[0, 0], [0, 0]], 
+                            Ar,
+                            ["/home/sm/erlang-project/wrangler/ebin"], 
+                            0], 
+                        command).
+
 my_own_fun3(Mod, Ar) ->
     gen_refac:run_refac(refac_rename_function,
                             [Mod, 
