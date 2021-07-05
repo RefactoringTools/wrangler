@@ -1,5 +1,5 @@
-%% Copyright (c) 2010, Huiqing Li, Simon Thompson 
-%% All rights reserved. 
+%% Copyright (c) 2010, Huiqing Li, Simon Thompson
+%% All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
 %% modification, are permitted provided that the following conditions are met:
@@ -13,15 +13,15 @@
 %%       derived from this software without specific prior written permission.
 %%
 %% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ''AS IS''
-%% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
-%% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
-%% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
-%% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
-%% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
-%% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
-%% BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
-%% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
-%% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
+%% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+%% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+%% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+%% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+%% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+%% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+%% BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+%% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+%% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 %% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %% =====================================================================
 %% The refactoring command level API that can be run in an Erlang shell.
@@ -36,13 +36,13 @@
 %%   [http://www.cs.kent.ac.uk/projects/wrangler]
 
 %% @end
-%% 
+%%
 %% @doc This module describes the refactoring commands that can be run in an Erlang shell.
-%% <p>All refactorings commands should be run in the context of a Wrangler application. 
-%% Use api_wrangler:start() to start a Wrangler application, and api_wrangler:stop() to stop the 
+%% <p>All refactorings commands should be run in the context of a Wrangler application.
+%% Use api_wrangler:start() to start a Wrangler application, and api_wrangler:stop() to stop the
 %% application.
-%% </p> 
- 
+%% </p>
+
 -module(api_wrangler).
 
 -export([rename_mod/3, copy_mod/3, rename_fun/5, move_fun/5, similar_code/7]).
@@ -50,6 +50,7 @@
 -export([refac_bug_cond/1]).
 
 -export([start/0, stop/0, undo/0]).
+-export([erlcall_rename_mode/2, my_own_fun/2, my_own_fun2/2, my_own_fun3/2]).
 
 -export([test_similar_code/1]).
 
@@ -58,6 +59,27 @@
 %% @type(modulename()::atom()).
 %% @type(filename()::string()).
 %% @type(arity()::integer()).
+
+erlcall_rename_mode(Mod, Ar) ->
+    gen_refac:run_refac(refac_add_argument,
+                            [Mod, 
+                            [0,0],
+                            [[0, 0], [0, 0]], 
+                            Ar,
+                            [""], 
+                            0], 
+                        command).
+
+my_own_fun3(Mod, Ar) ->
+    gen_refac:run_refac(refac_rename_function,
+                            [Mod, 
+                            [0,0],
+                            [[0, 0], [0, 0]], 
+                            Ar,
+                            ["/home/sm/erlang-project/wrangler/ebin"], 
+                            0], 
+                        command).
+
 
 
 %% @doc Start a Wrangler application.
@@ -77,20 +99,20 @@ undo() ->
 
 %%===================================================================================
 %% @doc Rename a module.
-%% <p> This refactoring affects all those modules in which the module name is used, 
-%%     and returns either ok with the list of files affected by this 
+%% <p> This refactoring affects all those modules in which the module name is used,
+%%     and returns either ok with the list of files affected by this
 %%     refactoring, or an error message. </p>
-%%@spec rename_mod(ModorFileName::modulename()|filename(), NewModName::modulename(), SearchPaths::[dir()]) -> 
+%%@spec rename_mod(ModorFileName::modulename()|filename(), NewModName::modulename(), SearchPaths::[dir()]) ->
 %%			   {ok, FilesChanged::[filename()]}|{error,Reason}
 rename_mod(ModOrFileName, NewModName, SearchPaths) ->
     try_apply(refac_rename_mod, rename_mod_command, [ModOrFileName, NewModName, SearchPaths]).
 
 %%===================================================================================
 %% @doc Copy a module.
-%% <p> This refactoring affects all those modules in which the module name is used, 
-%%     and returns either ok with the list of files affected by this 
+%% <p> This refactoring affects all those modules in which the module name is used,
+%%     and returns either ok with the list of files affected by this
 %%     refactoring, or an error message. </p>
-%%@spec copy_mod(ModOrFileName::modulename()|filename(), NewModName::modulename(), SearchPaths::[dir()]) -> 
+%%@spec copy_mod(ModOrFileName::modulename()|filename(), NewModName::modulename(), SearchPaths::[dir()]) ->
 %%			   {ok, FilesChanged::[filename()]}|{error,Reason}
 copy_mod(ModOrFileName, NewModName, SearchPaths) ->
     try_apply(refac_copy_mod, copy_mod_command, [ModOrFileName, NewModName, SearchPaths]).
@@ -98,29 +120,29 @@ copy_mod(ModOrFileName, NewModName, SearchPaths) ->
 
 %%===================================================================================
 %% @doc Rename a function.
-%% <p> This refactoring affects all those modules in which the function renamed is 
-%%     used,  and returns either ok with the list of files affected by this 
-%%     refactoring, or an error message. 
+%% <p> This refactoring affects all those modules in which the function renamed is
+%%     used,  and returns either ok with the list of files affected by this
+%%     refactoring, or an error message.
 %%</p>
 %%@spec rename_fun(ModOrFileName::modulename()|filename(), atom(), integer(), atom(),[dir()])->
 %%				       {ok, FilesChanged::[filename()]}|{error,Reason}
 rename_fun(ModOrFileName, FunName, Arity, NewFunName, SearchPaths) ->
-    try_apply(refac_rename_fun, rename_fun_by_name, 
+    try_apply(refac_rename_fun, rename_fun_by_name,
 	      [ModOrFileName, FunName, Arity, NewFunName, SearchPaths,command,8]).
 
 
 %%===================================================================================
 %%@doc Move a function to another module.
-%% <p> This refactoring moves the function specified, together with functions that are only used 
-%%     by the function to be moved, to the target module. This refactorings affects all those 
-%%     modules in which the function to be moved is used, and returns either ok with the list of 
+%% <p> This refactoring moves the function specified, together with functions that are only used
+%%     by the function to be moved, to the target module. This refactorings affects all those
+%%     modules in which the function to be moved is used, and returns either ok with the list of
 %%     files affected by this refactoring, or an error message.
 %%</p>
-%%@spec move_fun(FromModOrFileName::modulename()|filename(), FunName::atom(), Arity::integer(), 
+%%@spec move_fun(FromModOrFileName::modulename()|filename(), FunName::atom(), Arity::integer(),
 %%		       ToModOrFileName::modulename()|filename(),SearchPaths::[dir()])->
 %%				  {ok, FilesChanged::[filename()]}|{error, Reason}
 move_fun(FromModOrFileName, FunName, Arity, ToModOrFileName, SearchPaths) ->
-    try_apply(refac_move_fun, move_fun_by_name, 
+    try_apply(refac_move_fun, move_fun_by_name,
 	      [FromModOrFileName, {FunName, Arity}, ToModOrFileName, SearchPaths, command, 8]).
 
 
@@ -128,7 +150,7 @@ move_fun(FromModOrFileName, FunName, Arity, ToModOrFileName, SearchPaths) ->
 %%@doc Similar code detection.
 %% <p> A similar code detector which takes an Erlang project (or just a collection of Erlang files) and
 %%     a set of parameters as input, performs clone detection, and reports the clone classes found.
-%%     Five parameters, which are of a conjunction relation, can be specified so that the user can 
+%%     Five parameters, which are of a conjunction relation, can be specified so that the user can
 %%     have control of the granularity of the clone classes reported. These parameters are: <br />
 %%     <span style="padding-left:20px">MinLen: the minimum number of expressions included in a code clone which is a sequence of expressions;</span> <br />
 %%     <span style="padding-left:20px">MinToks: the minimum number of tokens included in a code clone (minimum value: 20);</span><br />
@@ -137,7 +159,7 @@ move_fun(FromModOrFileName, FunName, Arity, ToModOrFileName, SearchPaths) ->
 %%     <span style="padding-left:20px">SimiScore: the similarity score threshold which is between 0.1 and 1.0. </span>
 %% </p>
 %%@spec similar_code(DirFileList::[filename()|dir()], MinLen::integer(), MinToks::integer(),
-%% 				     MinFreq::integer(),  MaxVars::integer(),SimiScore::float(), 
+%% 				     MinFreq::integer(),  MaxVars::integer(),SimiScore::float(),
 %% 				     SearchPaths::[dir()]) -> {ok, string()}|{error, Reason}
 similar_code(DirFileList,MinLen,MinToks,MinFreq,MaxVars,SimiScore,SearchPaths) ->
     try_apply(refac_inc_sim_code, inc_sim_code_detection_command,
@@ -150,14 +172,14 @@ refac_bug_cond(DirOrFileList) ->
     try_apply(refac_bug_cond, refac_bug_cond, [DirOrFileList, command, 8]).
 
 
-try_apply(Mod, Fun, Args) -> 
+try_apply(Mod, Fun, Args) ->
     try apply(Mod, Fun, Args)
     catch
-	throw:Error -> 
-	    Error;   
+	throw:Error ->
+	    Error;
 	exit:Reason->
 	    {error,Reason};
-	error:Reason -> 
+	error:Reason ->
 	    {error,{Reason,erlang:get_stacktrace()}}
     end.
 
