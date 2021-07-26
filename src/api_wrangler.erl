@@ -157,8 +157,8 @@ try_apply(Mod, Fun, Args) ->
 	    Error;   
 	exit:Reason->
 	    {error,Reason};
-	error:Reason -> 
-	    {error,{Reason,erlang:get_stacktrace()}}
+	error:Reason:StackTrace -> 
+	    {error,{Reason,StackTrace}}
     end.
 
 

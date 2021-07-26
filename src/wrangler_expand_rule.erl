@@ -536,10 +536,10 @@ transform(Forms, Before, After, Context) ->
                 Type2 = erl_syntax:type(Form2),
 		try After(Type2, Form2, Context)
 		catch
-		    error:Reason2 ->
+		    error:Reason2:StackTrace ->
 			?ERROR(Reason2, 'after', After, 
 			       [{type, Type2},
-				{context, {erlang:get_stacktrace(),Context}},
+				{context, {StackTrace,Context}},
 				{form, Form2}])
 		end
 	end,

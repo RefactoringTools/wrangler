@@ -164,8 +164,8 @@ do_api_migration(FileOrDirs, CallBackMod, SearchPaths, Editor, TabWidth)->
                                       ||File <- Files]),
                     wrangler_write_file:write_refactored_files(Res, Editor, TabWidth, "")
             catch
-                _E1:E2 ->
-                    {error, {E2, erlang:get_stacktrace()}}
+                _E1:E2:StackTrace ->
+                    {error, {E2, []}} %, StackTrace}} TODO
             end
     end.
 
@@ -217,8 +217,8 @@ do_api_migration_2(CallBackMod, OldMFAs, Form, ModName) ->
                  {ok, [{_,Form4}]}= ?FULL_TD_TP(SimpleRules, [{UsedVars, Form3}]),
                  {Form4, Form4/=Form}
             catch
-                _E1:E2 ->
-                    throw({error, {E2, erlang:get_stacktrace()}})
+                _E1:E2:StackTrace ->
+                    throw({error, {E2, []}}) %StackTrace}}) TODO
             end
     end.
     
@@ -295,8 +295,8 @@ generate_rule_based_api_migration_mod(FileName, NewModName) ->
                                                      "~p:old_api_module_name/0",
                                                      [ModName])}
                             catch
-                                _E1:E2 ->
-                                    {error, {E2, erlang:get_stacktrace()}}
+                                _E1:E2:StackTrace ->
+                                    {error, {E2, []}}% StackTrace}}
                             end;
                         _ -> {error, "Wrangler could not infer the module name of the file supplied"}                
                     end
