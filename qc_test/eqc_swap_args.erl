@@ -46,10 +46,10 @@ prop_swap({FName, {F, A}, Index1, Index2, SearchPaths, Editor, TabWidth}) ->
 		     io:format("\n~p\n", [{error,Msg}]),
 		     true	
 	     catch 
-		 throw:Error:StackTrace -> 
+		 throw:Error -> 
 		     io:format("Error:\n~\pn", [Error]),
 		     true;
-		   E1:E2 ->
+		 E1:E2:StackTrace ->
 		     io:format("E1:E2:\n~p\n", [{E1, E2, StackTrace}]),
 		     false
 	     end).

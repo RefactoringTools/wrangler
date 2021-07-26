@@ -60,8 +60,8 @@ apply_code_inspection(Args=[ModName, FunName, CurFileName,
     catch
         throw:Error -> 
             Error;   
-        _E1:E2:StackTrace -> {error, {E2, []}} %TODO
-            %{error, {E2, lists:flatten(io_lib:format("~p", [StackTrace]))}}
+        _E1:E2:StackTrace -> 
+	    {error, {E2, lists:flatten(io_lib:format("~p", []))}} %TODO [StackTrace]))}}
     end.
 
 input_par_prompts(ModName, FunName) ->
