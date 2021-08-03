@@ -66,6 +66,7 @@ Used for sending exit signals when the node goes down."))
 (defconst derl-flag-dist-monitor-name   #x20)
 (defconst derl-flag-hidden-atom-cache   #x40)
 (defconst derl-flag-new-fun-tags        #x80)
+(defconst derl-flag-big-creation       #x40000)
 (defconst derl-flag-extended-pids-ports #x100)
 (defconst derl-flag-utf8-atoms          #x10000) 
 ;; ------------------------------------------------------------
@@ -204,6 +205,8 @@ complete and we become live."
      (fsm-encode2 5)			; version
      (fsm-encode4 (logior derl-flag-extended-references
                           derl-flag-extended-pids-ports
+			  derl-flag-new-fun-tags
+			  derl-flag-big-creation
 			  derl-flag-utf8-atoms))
      (fsm-insert (symbol-name erl-node-name)))))
 
