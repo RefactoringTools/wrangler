@@ -165,7 +165,7 @@ do_api_migration(FileOrDirs, CallBackMod, SearchPaths, Editor, TabWidth)->
                     wrangler_write_file:write_refactored_files(Res, Editor, TabWidth, "")
             catch
                 _E1:E2:StackTrace ->
-                    {error, {E2, []}} %, StackTrace}} TODO
+                    {error, {E2, StackTrace}}
             end
     end.
 
@@ -218,7 +218,7 @@ do_api_migration_2(CallBackMod, OldMFAs, Form, ModName) ->
                  {Form4, Form4/=Form}
             catch
                 _E1:E2:StackTrace ->
-                    throw({error, {E2, []}}) %StackTrace}}) TODO
+                    throw({error, {E2, StackTrace}})
             end
     end.
     
@@ -296,7 +296,7 @@ generate_rule_based_api_migration_mod(FileName, NewModName) ->
                                                      [ModName])}
                             catch
                                 _E1:E2:StackTrace ->
-                                    {error, {E2, []}}% StackTrace}}
+                                    {error, {E2, StackTrace}}
                             end;
                         _ -> {error, "Wrangler could not infer the module name of the file supplied"}                
                     end

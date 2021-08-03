@@ -359,7 +359,7 @@ get_next_command(PrevResult) ->
         throw:Error -> 
             Error;   
         _E1:E2:StackTrace ->
-            {error, lists:flatten(io_lib:format("\n~p",[{E2, []}]))}%StackTrace}]))} TODO
+            {error, lists:flatten(io_lib:format("\n~p",[{E2, StackTrace}]))}
     end.
 get_next_command_1(PrevResult) ->
     case PrevResult of 

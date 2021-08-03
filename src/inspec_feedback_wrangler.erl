@@ -68,7 +68,7 @@ try_to_apply(Mod, Fun, Args) ->
             Error;    
         _E1:E2:StackTrace ->
             Reason=lists:flatten(
-                     io_lib:format("~p",[])), %TODO StackTrace])),
+                     io_lib:format("~p",[StackTrace])),
             {error, {E2,Reason}}
     end.
 
