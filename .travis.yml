@@ -2,9 +2,12 @@ language: erlang
 script:
 - ./configure
 - make
+- make docs || true
 - |
   git clean -xdff
   rebar3 compile
 otp_release:
+- 21.0
+- 20.3
 - 19.3
 - 18.3
