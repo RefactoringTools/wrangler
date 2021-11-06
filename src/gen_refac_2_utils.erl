@@ -5,7 +5,8 @@
          transform_simplify1/2, transform_simplify2/2,
          transform_exportlist/2,
          read_orig_functions/1, check_for_difference/2,
-         create_backups/1, restore_backups/1, clean_backups/1]).
+         create_backups/1, restore_backups/1,
+         create_backups/2, restore_backups/2, clean_backups/1]).
 
 -include("wrangler.hrl").
 
@@ -155,7 +156,22 @@ create_backup_before_refac(FileName) ->
 
 restore_backup_after_error(FileName) ->
     NewName = lists:concat(lists:join("_backupforrefac", string:split(FileName, ".erl"))),
-    file:copy(NewName, FileName).
+    file:copy(NewName, FileName),
+    file:delete(NewName).
+
+% for more flexible usage: additional parameter (for suffix)
+create_backup_before_refac(FileName, Ext) ->
+    % create a copy, which will be refactored
+    % run tests on orig & refactored file
+    % compare results
+    NewName = lists:concat(lists:join(Ext, string:split(FileName, ".erl"))),
+    file:copy(FileName, NewName).
+
+restore_backup_after_error(FileName, Ext) ->
+    NewName = lists:concat(lists:join(Ext, string:split(FileName, ".erl"))),
+    file:copy(NewName, FileName),
+    file:delete(NewName).
+
 
 create_backups(FileList) -> 
     ?wrangler_io("- Creating BACKUP files...:\n~p\n", [FileList]),
@@ -169,3 +185,11 @@ clean_backups(FileList) ->
     NewNameList = lists:map(fun (FileName) -> lists:concat(lists:join("_backupforrefac", string:split(FileName, ".erl"))) end, FileList),
     ?wrangler_io("- Deleting BACKUP files...:\n~p\n", [NewNameList]),
     lists:map(fun file:delete/1, NewNameList).
+
+create_backups(FileList, Ext) -> 
+    ?wrangler_io("- Creating BACKUP files...:\n~p\n", [FileList]),
+    lists:map(fun (F) -> create_backup_before_refac(F, Ext) end, FileList).
+
+restore_backups(FileList, Ext) ->
+    ?wrangler_io("- Restoring BACKUP files...:\n~p\n", [FileList]),
+    lists:map(fun (X) -> restore_backup_after_error(X, Ext) end, FileList).
