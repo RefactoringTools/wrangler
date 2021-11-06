@@ -50,7 +50,7 @@
 -export([refac_bug_cond/1]).
 
 -export([start/0, stop/0, undo/0]).
--export([erlcall_rename_mode/2, my_own_fun/2, my_own_fun2/2, my_own_fun3/2]).
+-export([new_dummy_new/3, new_dummy_old/3, rename_old/3, rename_new/3]).
 
 -export([test_similar_code/1]).
 
@@ -60,45 +60,49 @@
 %% @type(filename()::string()).
 %% @type(arity()::integer()).
 
-erlcall_rename_mode(Mod, Ar) ->
-    gen_refac:run_refac(refac_add_argument,
+% {ok, CurrentDirectory} = file:get_cwd().
+% 'Path' argument will be set to working directory,
+% this should work if wrangler application is started properly
+
+new_dummy_old(Mod, Ar, Path) ->
+    gen_refac:run_refac(refac_new_dummy_argument,
                             [Mod, 
                             [0,0],
                             [[0, 0], [0, 0]], 
                             Ar,
-                            [""], 
+                            [Path], 
                             0], 
                         command).
 
-my_own_fun(Mod, Ar) ->
+new_dummy_new(Mod, Ar, Path) ->
     gen_refac_2:run_refac(refac_new_dummy_argument2,
                             [Mod, 
                             [0,0],
                             [[0, 0], [0, 0]], 
                             Ar,
-                            ["/home/sm/erlang-project/wrangler/ebin"], 
-                            0], 
-                        command).
-my_own_fun2(Mod, Ar) ->
-    gen_refac_2:run_refac(refac_rename_function2,
-                            [Mod, 
-                            [0,0],
-                            [[0, 0], [0, 0]], 
-                            Ar,
-                            ["/home/sm/erlang-project/wrangler/ebin"], 
+                            [Path], 
                             0], 
                         command).
 
-my_own_fun3(Mod, Ar) ->
+rename_old(Mod, Ar, Path) ->
     gen_refac:run_refac(refac_rename_function,
                             [Mod, 
                             [0,0],
                             [[0, 0], [0, 0]], 
                             Ar,
-                            ["/home/sm/erlang-project/wrangler/ebin"], 
+                            [Path], 
                             0], 
                         command).
 
+rename_new(Mod, Ar, Path) ->
+    gen_refac_2:run_refac(refac_rename_function2,
+                            [Mod, 
+                            [0,0],
+                            [[0, 0], [0, 0]], 
+                            Ar,
+                            [Path], 
+                            0], 
+                        command).
 
 
 %% @doc Start a Wrangler application.
