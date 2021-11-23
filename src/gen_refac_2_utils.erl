@@ -1,6 +1,7 @@
 -module(gen_refac_2_utils).
 
 -export([generate_unique_vars/1,
+         transform_orig_file/2, transform_client_files/2,
          transform_extend1/1, transform_extend2/1,
          transform_simplify1/2, transform_simplify2/2,
          transform_exportlist/2,
@@ -18,6 +19,19 @@ generate_unique_vars(0, L) ->
 generate_unique_vars(N, L) ->
     Cur = list_to_atom("A" ++ integer_to_list(N)),
     generate_unique_vars(N - 1, [Cur] ++ L).
+
+
+% applications of rule_def and rule_appl rules in orig and clientfiles
+transform_orig_file(Mod, _Args=#args{current_file_name=File}) ->
+    ?FULL_TD_TP([Mod:rule_def(_Args),
+                 Mod:rule_appl(_Args)],
+                [File]).
+
+transform_client_files(Mod, _Args=#args{current_file_name=File,
+                 search_paths=SearchPaths}) ->
+    ?FULL_TD_TP([Mod:rule_appl(_Args)],
+                api_refac:client_files(File, SearchPaths)).
+
 
 % These transformations need to be called in the context of a gen_refac_2 behavior
 
