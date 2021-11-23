@@ -13,7 +13,7 @@
 %% gen_refac callbacks
 -export([input_par_prompts/0,select_focus/1,
          check_pre_cond/1, selective/0,
-         transform_orig_file/1, transform_client_files/1]).
+         rule_def/1, rule_appl/1]).
 
 %%%===================================================================
 %%% gen_refac callbacks
@@ -30,6 +30,7 @@
 input_par_prompts() ->
     ["Module:",
      "Function:",
+     "Arity:",
      "DummyPar:"].
 
 %%--------------------------------------------------------------------
@@ -100,26 +101,12 @@ selective() ->
 %%            {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-transform_orig_file(_Args=#args{current_file_name=File,
-                      user_inputs=[M0, F0, A0, DummyPar]}) ->
+
+
+rule_def(_Args=#args{user_inputs=[M0, F0, A0, DummyPar]}) ->
     M = list_to_atom(M0),
     F = list_to_atom(F0),
     A = list_to_integer(A0),
-    ?FULL_TD_TP([rule_def({M,F,A}, DummyPar),
-                rule_appl({M,F,A}, "0")],
-                [File]).
-
-transform_client_files(_Args=#args{current_file_name=File,
-                      search_paths=SearchPaths,
-                      user_inputs=[M0, F0, A0, DummyPar]}) ->
-    M = list_to_atom(M0),
-    F = list_to_atom(F0),
-    A = list_to_integer(A0),
-    ?FULL_TD_TP([rule_appl({M,F,A}, "0")],
-          api_refac:client_files(File, SearchPaths)).
-
-
-rule_def({M,F,A}, DummyPar) ->
     ?RULE(?T("f@(Args@@) when Guard@@ -> Bs@@;"),
           begin
               ?TO_AST("f@(Args@@,"++DummyPar++") when Guard@@-> Bs@@;",
@@ -127,7 +114,11 @@ rule_def({M,F,A}, DummyPar) ->
           end,
           api_refac:fun_define_info(f@) == {M, F, A}).
 
-rule_appl({M,F,A}, DummyVal) ->
+rule_appl(_Args=#args{user_inputs=[M0, F0, A0, DummyPar]}) ->
+    M = list_to_atom(M0),
+    F = list_to_atom(F0),
+    A = list_to_integer(A0),
+    DummyVal = "0",
     ?RULE(?FUN_APPLY(M,F,A),
           begin
               Args=api_refac:get_app_args(_This@),
