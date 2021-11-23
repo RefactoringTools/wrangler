@@ -141,9 +141,9 @@
 -callback select_focus(Args::#args{}) ->{ok, term()}|{error, term()}.
 -callback check_pre_cond(Args::#args{}) -> ok |{error, term()}.
 -callback selective() -> true | false.
--callback transform_orig_file(Args::#args{}) ->
+-callback rule_def(Args::#args{}) ->
      {ok, [{{filename(),filename()},syntaxTree()}]} | {error, term()}.
--callback transform_client_files(Args::#args{}) ->
+-callback rule_appl(Args::#args{}) ->
      {ok, [{{filename(),filename()},syntaxTree()}]} | {error, term()}.
 
 
@@ -252,13 +252,13 @@ run_refac(ModName, Args=[CurFileName, [Line,Col],
                     if is_boolean(Selective) ->
                             case Selective of
                                 true ->
-                                    case apply(Module, transform_orig_file, [Args2]) of
+                                    case apply(gen_refac_2_utils, transform_orig_file, [Module, Args2]) of
                                         {error, Reason} ->
                                             {error, Reason};
                                         _ ->
                                             {ok, ChangeSets}=wrangler_gen_refac_server:get_change_set(self()),
                                             %% wrangler_gen_refac_server:delete_change_set(self()),
-                                            case apply(Module, transform_application, [Args2]) of
+                                            case apply(gen_refac_2_utils, transform_client_files, [Args2]) of
                                                 {error, Reason2} ->
                                                     {error, Reason2};
                                                 _ ->
@@ -280,7 +280,7 @@ run_refac(ModName, Args=[CurFileName, [Line,Col],
                                         wrangler_write_file:write_refactored_files(ResExt1,Editor,TabWidth,""),
                                         
                                         ?wrangler_io("\n- Refactoring files...:\n", []),
-                                        {ok, ResOrig} = apply(Module, transform_orig_file, [Args2]),
+                                        {ok, ResOrig} = apply(gen_refac_2_utils, transform_orig_file, [Module, Args2]),
                                         wrangler_write_file:write_refactored_files(ResOrig,Editor,TabWidth,""),
                                         
                                         FileData2 = gen_refac_2_utils:read_orig_functions(CurFileName),
@@ -301,7 +301,7 @@ run_refac(ModName, Args=[CurFileName, [Line,Col],
                                                 {ok, ResExt2} = apply(gen_refac_2_utils, transform_extend2, [Args2]),
                                                 wrangler_write_file:write_refactored_files(ResExt2,Editor,TabWidth,""),
 
-                                                {ok, ResClient} = apply(Module, transform_client_files, [Args2]),
+                                                {ok, ResClient} = apply(gen_refac_2_utils, transform_client_files, [Module, Args2]),
                                                 wrangler_write_file:write_refactored_files(ResClient,Editor,TabWidth,""),
 
                                                 {ok, ResSimpl2} = apply(gen_refac_2_utils, transform_simplify2, [NewFormatData, Args2]),    
