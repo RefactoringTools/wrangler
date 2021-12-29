@@ -54,10 +54,7 @@ select_focus(_Args) ->
 %% @end
 %%--------------------------------------------------------------------
 check_pre_cond(_Args=#args{current_file_name=File,
-                      user_inputs=[M0, F0, A0, NewName]}) ->
-	M = list_to_atom(M0),
-	F = list_to_atom(F0),
-    A = list_to_integer(A0),
+                      user_inputs=[_M0, _F0, _A0, NewName]}) ->
 	NewNameAtom = list_to_atom(NewName),
     case api_refac:is_fun_name(NewName) of
         false ->
@@ -99,54 +96,72 @@ selective() ->
 %% @end
 %%--------------------------------------------------------------------
 transform(_Args=#args{current_file_name=File,
+                      search_paths=SearchPaths,
                       user_inputs=[M0, F0, A0, NewName]}) ->
     M = list_to_atom(M0),
     F = list_to_atom(F0),
     A = list_to_integer(A0),
     NewNameAtom = list_to_atom(NewName),
+    case api_refac:is_exported({F,A}, File) of
+        true ->
+            {ok, Res}=transform_in_client_files({M,F,A}, File, SearchPaths, NewNameAtom),
+            case Res of
+                [] ->
+                    %% no client files have been changed.
+                    transform_in_cur_file({M,F,A}, NewName, NewNameAtom, File, false);
+                _ ->
+                    %% some clients files have been changed.
+                    {ok, Res1}=transform_in_cur_file({M,F,A}, NewName, NewNameAtom, File, true),
+                    {ok, Res1++Res}
+            end;
+        false ->
+            %% function is not exported.
+            transform_in_cur_file({M,F,A}, NewName, NewNameAtom, File, false)
+    end.
 
-    ?FULL_TD_TP([rule1({M, F, A}, NewName, NewNameAtom),
-                 rule2({M, F, A}, NewNameAtom),
-                 %rule3({M, F, A}, NewNameAtom),
-                 rule4({M, F, A}, NewName)],
-                [File]).
+transform_in_cur_file({M,F,A}, NewName, NewNameAtom, File, true)->
+    ?FULL_TD_TP([rule1({M,F,A}, NewName, NewNameAtom),
+                 rule2({M,F,A}, NewNameAtom),
+                 rule3({M,F,A}, NewNameAtom),
+                 rule4({M,F,A})],
+                [File]);
+transform_in_cur_file({M,F,A}, NewName, NewNameAtom, File, false) ->
+    ?FULL_TD_TP([rule1({M,F,A}, NewName, NewNameAtom),
+                 rule2({M,F,A}, NewNameAtom),
+                 rule4({M,F,A})], [File]).
 
-add_to_export_rule(Export, {Fnew,Anew}, {Forig,Arig}) ->
-    ?RULE(?T("Form@"),
-          api_refac:add_to_export_after(Form@, {Fnew,Anew}, {Forig,Arig}),
-          Form@==Export).
+transform_in_client_files({M,F,A}, File, SearchPaths, NewFunName) ->
+    ?FULL_TD_TP([rule2({M,F,A}, NewFunName),
+                 rule4({M,F,A})],
+                api_refac:client_files(File, SearchPaths)).
 
-collect_exports(File) ->
-    ?STOP_TD_TU([?COLLECT(?T("Form@"),
-                             _This@,
-                             api_refac:is_attribute(Form@, export))],
-                [File]).
-
-
-rule1({M, F, A}, NewName, NewNameAtom) ->
+% definition
+rule1({M, F, A}, NewName, _NewNameAtom) ->
     ?RULE(?T("f@(Args@@) when Guard@@ -> Bs@@;"),
           begin
               % api_refac:make_arity_qualifier(NewNameAtom, A),
               ?TO_AST(NewName++"(Args@@) when Guard@@-> Bs@@;",
                       wrangler_syntax:get_pos(_This@))
           end,
-          api_refac:fun_define_info(f@) == {M, F, A}).
+          api_refac:fun_define_info(f@) == {M,F,A}).
 
+% application
 rule2({M,F,A}, NewNameAtom) ->
     ?RULE(?FUN_APPLY(M,F,A),
         begin
-            FunNode = api_refac:get_app_fun(_This@),
-            api_refac:update_app_fun(FunNode, wrangler_syntax:atom(NewNameAtom))
+            api_refac:update_app_fun(_This@, wrangler_syntax:atom(NewNameAtom))
         end,
         true).
 
+% export list handling
 rule3({M,F,A}, NewNameAtom) ->
     ?RULE(?T("F@"),
             api_refac:make_arity_qualifier(NewNameAtom, A),
             api_refac:type(F@) == arity_qualifier andalso
             api_refac:fun_define_info(F@) == {M, F, A}).
 
-rule4({M, F, A}, NewName) ->
+% expansion
+rule4({M, F, A}) ->
     ?RULE(?T("fun M@:f@/A@"),
           begin
               % ?TO_AST("fun M@:"++NewName++"/A@",
@@ -158,6 +173,22 @@ rule4({M, F, A}, NewName) ->
           end,
           api_refac:fun_define_info(f@) == {M, F, A}).
 
+% simplify
+rule5({M,F,A}) ->
+    ?RULE(?T("fun (Vars@@) -> M@:f@(Args@@) end"),
+          begin
+              ArgNames = lists:map(fun decode_value/1, Args@@),
+              A@ = wrangler_syntax:integer(length(ArgNames)),
+              ?TO_AST("fun M@:f@/A@", wrangler_syntax:get_pos(_This@))
+          end,
+          lists:map(fun decode_value/1, Args@@) == lists:map(fun decode_value/1, Vars@@) andalso
+          api_refac:fun_define_info(f@) == {M, F, A}).
+
+decode_value(Node) ->
+    case wrangler_syntax:revert(Node) of
+        {Type, _, Val} -> {Type, Val}
+    end.
+
 % utility functions
 generate_unique_vars(N) ->
   generate_unique_vars(N, []).
@@ -166,14 +197,3 @@ generate_unique_vars(0, L) ->
 generate_unique_vars(N, L) ->
   Cur = list_to_atom("A" ++ integer_to_list(N)),
   generate_unique_vars(N - 1, [Cur] ++ L).
-
-% try renaming to itself
-% trace back the templates, what removes the function from the export-list
-% create a table of function application forms - what's their patters,
-%   what's the example refactoring look like, etc.
-% move the arity qualifier rule and the "fun M@:f@/A@" rule to FUN_APPLY in general,
-% IF applicable
-
-% refactoring (rule4) - > simplification
-
-% if f was exported and modify -> handle it in export list
