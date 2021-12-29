@@ -7,13 +7,13 @@
 
 
 orig_fun_appl_ext() -> 
-    gen_refacs_2_testfile_orig_0:orig_fun(10).
+    gen_refacs_2_testfile_orig_0:orig_fun(1, 2).
 
 orig_fun_appl_ext_2() -> 
-    apply(gen_refacs_2_testfile_orig_0,orig_fun,[10]).
+    apply(gen_refacs_2_testfile_orig_0,orig_fun,[1, 2]).
 
 
 basic_test() ->
-    [?assert(orig_fun_appl_ext() =:= 15),
-     ?assert(orig_fun_appl_ext_2() =:= 15)
+    [?assert(orig_fun_appl_ext() =:= 3),
+     ?assert(orig_fun_appl_ext_2() =:= 3)
     ].
