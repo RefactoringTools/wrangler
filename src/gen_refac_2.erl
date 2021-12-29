@@ -284,8 +284,26 @@ run_refac(ModName, Args=[CurFileName, [Line,Col],
                                         wrangler_write_file:write_refactored_files(ResOrig,Editor,TabWidth,""),
                                         
                                         FileData2 = gen_refac_2_utils:read_orig_functions(CurFileName),
-                                        [OldFormatData] = gen_refac_2_utils:check_for_difference(FileData2, FileData1),
-                                        [NewFormatData] = gen_refac_2_utils:check_for_difference(FileData1, FileData2),
+                                        
+                                        % additional expecation: 2nd and 3rd entry in UserEntries is F/A
+                                        case apply(gen_refac_2_utils, check_for_difference, [FileData2, FileData1]) of
+                                                % No change in F/A format
+                                                [] ->
+                                                    OldFormatData = {lists:nth(2, UserInputs), lists:nth(3, UserInputs)};
+                                                Data1 ->
+                                                    OldFormatData = Data1
+                                            end,
+
+                                        case apply(gen_refac_2_utils, check_for_difference, [FileData1, FileData2]) of
+                                                % No change in F/A format
+                                                [] ->
+                                                    NewFormatData = {lists:nth(2, UserInputs), lists:nth(3, UserInputs)};
+                                                Data2 ->
+                                                    NewFormatData = Data2
+                                            end,
+                                        % [OldFormatData] = gen_refac_2_utils:check_for_difference(FileData2, FileData1),
+                                        % [NewFormatData] = gen_refac_2_utils:check_for_difference(FileData1, FileData2),
+                                        
                                         % debug prints
                                         ?wrangler_io("- Original functionform (F/A): ~p\n", [OldFormatData]),
                                         ?wrangler_io("- Modified functionform (F/A): ~p\n", [NewFormatData]),
@@ -314,6 +332,7 @@ run_refac(ModName, Args=[CurFileName, [Line,Col],
                                         end
                                     catch
                                         {error, Reason} ->
+                                            ?wrangler_io("\n- An ERROR occured!:\n", []),
                                             gen_refac_2_utils:restore_backups([CurFileName] ++ api_refac:client_files(CurFileName, SearchPaths)),
                                             {error, Reason};
                                         X ->
