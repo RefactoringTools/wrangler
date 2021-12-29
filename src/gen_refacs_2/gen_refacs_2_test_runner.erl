@@ -6,6 +6,38 @@
 -include("wrangler.hrl").
 
 
+swap_args_refac_call(Mod, Ar, Path) ->
+    gen_refac_2:run_refac(refac_swap_function_arguments2,
+                            [Mod, 
+                            [0,0],
+                            [[0, 0], [0, 0]], 
+                            Ar,
+                            [Path], 
+                            0], 
+                        command).
+
+
+rename_arg_call(Mod, Ar, Path) ->
+    gen_refac_2:run_refac(refac_rename_argument2,
+                            [Mod, 
+                            [0,0],
+                            [[0, 0], [0, 0]], 
+                            Ar,
+                            [Path], 
+                            0], 
+                        command).
+
+rename_old(Mod, Ar, Path) ->
+    gen_refac:run_refac(refac_rename_function,
+                            [Mod, 
+                            [0,0],
+                            [[0, 0], [0, 0]], 
+                            Ar,
+                            [Path], 
+                            0], 
+                        command).
+
+
 run_test_correctness() ->
     % Checking correctness of 1 refactoring (orig <-> refactored)
     % steps of testing:
@@ -27,7 +59,7 @@ run_test_correctness() ->
 
     gen_refac_2_utils:create_backups([TestFileOrig0,TestFileExt0], "_testrefac.txt"),
 
-    api_wrangler:new_dummy_old("gen_refacs_2_testfiles/gen_refacs_2_testfile_orig_0.erl",["gen_refacs_2_testfile_orig_0","orig_fun","1","Y"], CurrentDirectory),
+    rename_old("gen_refacs_2_testfiles/gen_refacs_2_testfile_orig_0.erl",["gen_refacs_2_testfile_orig_0","orig_fun","2", "asd_renamed"], CurrentDirectory),
 
     case compile:file(TestFileOrig0) of 
         {ok, CompiledOrig0} -> 
