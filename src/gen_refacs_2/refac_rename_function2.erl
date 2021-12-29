@@ -117,14 +117,3 @@ rule_appl(_Args=#args{user_inputs=[M0, F0, A0, NewName]}) ->
     ?RULE(?FUN_APPLY(M,F,A),
         api_refac:update_app_fun(_This@, wrangler_syntax:atom(NewNameAtom)),
         true).
-
-% try renaming to itself
-% trace back the templates, what removes the function from the export-list
-% create a table of function application forms - what's their patters,
-%   what's the example refactoring look like, etc.
-% move the arity qualifier rule and the "fun M@:f@/A@" rule to FUN_APPLY in general,
-% IF applicable
-
-% refactoring (rule4) - > simplification
-
-% if f was exported and modify -> handle it in export list
