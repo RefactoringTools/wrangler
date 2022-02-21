@@ -75,7 +75,7 @@ _EOF
    ERLANG_DIR=`cat conftest.out | tail -n 1`
 
    ERL_CFLAGS="-I$ERLANG_EI_DIR/include -I$ERLANG_DIR/usr/include"
-   ERL_LIB="-L$ERLANG_EI_LIB -lerl_interface -lei"
+   ERL_LIB="-L$ERLANG_EI_LIB -lei"
 
    AC_SUBST(ERL_CFLAGS)
    AC_SUBST(ERL_LIB)

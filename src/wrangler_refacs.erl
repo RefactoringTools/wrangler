@@ -1585,9 +1585,9 @@ try_to_apply(Mod, Fun, Args, Msg) ->
      catch
 	 throw:Error -> 
 	     Error;    %% wrangler always throws Error in the format of '{error, string()}';
-	_E1:E2 ->
+	_E1:E2:StackTrace ->
 	    %% ?wrangler_io("Error:\n~p\n", [{_E1,E2}]),
-             {error, Msg ++ lists:flatten(io_lib:format("\n~p",[{E2, erlang:get_stacktrace()}]))}
+             {error, Msg ++ lists:flatten(io_lib:format("\n~p",[{E2, StackTrace}]))}
     end.
 
 %%@private

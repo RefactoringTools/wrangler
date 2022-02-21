@@ -28,6 +28,10 @@ clause_args clause_guard clause_body
 expr expr_100 expr_150 expr_160 expr_200 expr_300 expr_400 expr_500
 expr_600 expr_700 expr_800
 expr_max
+pat_expr pat_expr_200 pat_expr_300 pat_expr_400 pat_expr_500
+pat_expr_600 pat_expr_700 pat_expr_800
+pat_expr_max map_pat_expr record_pat_expr
+pat_argument_list pat_exprs
 list tail
 list_comprehension lc_expr lc_exprs
 binary_comprehension
@@ -37,7 +41,7 @@ record_expr record_tuple record_field record_fields
 map_expr map_tuple map_field map_field_assoc map_field_exact map_fields map_key
 if_expr if_clause if_clauses case_expr cr_clause cr_clauses receive_expr
 fun_expr fun_clause fun_clauses atom_or_var integer_or_var
-try_expr try_catch try_clause try_clauses
+try_expr try_catch try_clause try_clauses try_opt_stacktrace
 function_call argument_list
 exprs guard
 atomic strings
@@ -67,7 +71,7 @@ char integer float atom string var
 'spec' 'callback' % helper
 dot.
 
-Expect 2.
+Expect 0.
 
 Rootsymbol form.
 
@@ -217,7 +221,7 @@ function_clause -> atom clause_args clause_guard clause_body :
 	{clause,?line('$1'),element(3, '$1'),'$2','$3','$4'}.
 
 
-clause_args -> argument_list : element(1, '$1').
+clause_args -> pat_argument_list : element(1, '$1').
 
 clause_guard -> 'when' guard : '$2'.
 clause_guard -> '$empty' : [].
@@ -282,6 +286,54 @@ expr_max -> case_expr : '$1'.
 expr_max -> receive_expr : '$1'.
 expr_max -> fun_expr : '$1'.
 expr_max -> try_expr : '$1'.
+
+pat_expr -> pat_expr_200 '=' pat_expr : {match,?line('$2'),'$1','$3'}.
+pat_expr -> pat_expr_200 : '$1'.
+
+pat_expr_200 -> pat_expr_300 comp_op pat_expr_300 :
+	?mkop2('$1', '$2', '$3').
+pat_expr_200 -> pat_expr_300 : '$1'.
+
+pat_expr_300 -> pat_expr_400 list_op pat_expr_300 :
+	?mkop2('$1', '$2', '$3').
+pat_expr_300 -> pat_expr_400 : '$1'.
+
+pat_expr_400 -> pat_expr_400 add_op pat_expr_500 :
+	?mkop2('$1', '$2', '$3').
+pat_expr_400 -> pat_expr_500 : '$1'.
+
+pat_expr_500 -> pat_expr_500 mult_op pat_expr_600 :
+	?mkop2('$1', '$2', '$3').
+pat_expr_500 -> pat_expr_600 : '$1'.
+
+pat_expr_600 -> prefix_op pat_expr_700 :
+	?mkop1('$1', '$2').
+pat_expr_600 -> map_pat_expr : '$1'.
+pat_expr_600 -> pat_expr_700 : '$1'.
+
+pat_expr_700 -> record_pat_expr : '$1'.
+pat_expr_700 -> pat_expr_800 : '$1'.
+
+pat_expr_800 -> pat_expr_max : '$1'.
+
+pat_expr_max -> var : '$1'.
+pat_expr_max -> atomic : '$1'.
+pat_expr_max -> list : '$1'.
+pat_expr_max -> binary : '$1'.
+pat_expr_max -> tuple : '$1'.
+pat_expr_max -> '(' pat_expr ')' : '$2'.
+
+map_pat_expr -> '#' map_tuple :
+	{map, ?line('$1'),'$2'}.
+map_pat_expr -> pat_expr_max '#' map_tuple :
+	{map, ?line('$2'),'$1','$3'}.
+map_pat_expr -> map_pat_expr '#' map_tuple :
+	{map, ?line('$2'),'$1','$3'}.
+
+record_pat_expr -> '#' atom '.' atom :
+	{record_index,?line('$1'),element(3, '$2'),'$4'}.
+record_pat_expr -> '#' atom record_tuple :
+	{record,?line('$1'),element(3, '$2'),'$3'}.
 
 
 list -> '[' ']' : {nil,?line('$1')}.
@@ -436,11 +488,11 @@ integer_or_var -> var : '$1'.
 fun_clauses -> fun_clause : ['$1'].
 fun_clauses -> fun_clause ';' fun_clauses : ['$1' | '$3'].
 
-fun_clause -> argument_list clause_guard clause_body :
+fun_clause -> pat_argument_list clause_guard clause_body :
 	{Args,Pos} = '$1',
 	{clause,Pos,'fun',Args,'$2','$3'}.
 
-fun_clause -> var argument_list clause_guard clause_body :
+fun_clause -> var pat_argument_list clause_guard clause_body :
 	{clause,element(2, '$1'),element(3, '$1'),element(1, '$2'),'$3','$4'}.
 
 try_expr -> 'try' exprs 'of' cr_clauses try_catch :
@@ -458,23 +510,30 @@ try_catch -> 'after' exprs 'end' :
 try_clauses -> try_clause : ['$1'].
 try_clauses -> try_clause ';' try_clauses : ['$1' | '$3'].
 
-try_clause -> expr clause_guard clause_body :
+try_clause -> pat_expr clause_guard clause_body :
 	L = ?line('$1'),
 	{clause,L,[{tuple,L,[{atom,L,throw},'$1',{var,L,'_'}]}],'$2','$3'}.
-try_clause -> atom ':' expr clause_guard clause_body :
+try_clause -> atom ':' pat_expr try_opt_stacktrace clause_guard clause_body :
 	L = ?line('$1'),
-	{clause,L,[{tuple,L,['$1','$3',{var,L,'_'}]}],'$4','$5'}.
-try_clause -> var ':' expr clause_guard clause_body :
+	{clause,L,[{tuple,L,['$1','$3',{var,L,'$4'}]}],'$5','$6'}.
+try_clause -> var ':' pat_expr try_opt_stacktrace clause_guard clause_body :
 	L = ?line('$1'),
-	{clause,L,[{tuple,L,['$1','$3',{var,L,'_'}]}],'$4','$5'}.
+	{clause,L,[{tuple,L,['$1','$3',{var,L,'$4'}]}],'$5','$6'}.
 
+try_opt_stacktrace -> ':' var : element(3, '$2').
+try_opt_stacktrace -> '$empty' : '_'.
 
 argument_list -> '(' ')' : {[],?line('$1')}.
 argument_list -> '(' exprs ')' : {'$2',?line('$1')}.
 
+pat_argument_list -> '(' ')' : {[],?line('$1')}.
+pat_argument_list -> '(' pat_exprs ')' : {'$2',?line('$1')}.
 
 exprs -> expr : ['$1'].
 exprs -> expr ',' exprs : ['$1' | '$3'].
+
+pat_exprs -> pat_expr : ['$1'].
+pat_exprs -> pat_expr ',' pat_exprs : ['$1' | '$3'].
 
 guard -> exprs : ['$1'].
 guard -> exprs ';' guard : ['$1'|'$3'].

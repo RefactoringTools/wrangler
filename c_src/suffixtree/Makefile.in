@@ -10,7 +10,7 @@ ERL_LDFLAGS= $(LDFLAGS) $(ERL_LIB)
 
 
 $(OUTDIR)/suffixtree:	main.o suffix_tree.o
-	$(CC)  $(ERL_LDFLAGS) main.o suffix_tree.o -lerl_interface -lei -lpthread -o $(OUTDIR)/suffixtree
+	$(CC)  $(ERL_LDFLAGS) main.o suffix_tree.o -lei -lpthread -o $(OUTDIR)/suffixtree
 
 suffix_tree.o:	suffix_tree.c suffix_tree.h
 	$(CC) $(CFLAGS) $(ERL_CFLAGS) -o suffix_tree.o -c suffix_tree.c
