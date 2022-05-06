@@ -87,6 +87,14 @@
 (setq my_gen_composite_refac_menu_items nil)
 (setq wrangler_ext (expand-file-name (concat (getenv "HOME") "/.wrangler/elisp/wrangler_ext.el")))
 
+(eval-and-compile
+  (defconst erlang-emacs-major-version
+    (if (boundp 'emacs-major-version)
+        emacs-major-version
+      (string-match "\\([0-9]+\\)\\.\\([0-9]+\\)" emacs-version)
+      (erlang-string-to-int (substring emacs-version
+                                       (match-beginning 1) (match-end 1))))
+    "Major version number of Emacs."))
 
 (defun wrangler-ediff(file1 file2)
   "run ediff on file1 ans file2"
@@ -606,7 +614,7 @@
   (define-key erlang-mode-map "\C-c\C-ws"  'erl-refactor-similar-expression-search)
   (define-key erlang-mode-map "\C-c\C-wcb"  'erl-refactor-inc-sim-code-detection-in-buffer)
   (define-key erlang-mode-map "\C-c\C-wcd"  'erl-refactor-inc-sim-code-detection-in-dirs)
-  (erlang-menu-install "Wrangler" wrangler-menu-items erlang-mode-map t)
+  (erlang-menu-install "Wrangler" wrangler-menu-items erlang-mode-map)
   )
 
 (if (file-exists-p wrangler_ext)

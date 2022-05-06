@@ -75,7 +75,7 @@ rename_mod_command(OldModOrFileName, NewModName, SearchPaths) ->
 	true ->
 	    ok;
 	false ->
-	    throw({error, "Invalud new module name."})
+	    throw({error, "Invalid new module name."})
     end,
     FileName = case is_list(OldModOrFileName) of
 		   true ->

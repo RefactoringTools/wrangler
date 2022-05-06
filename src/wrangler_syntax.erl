@@ -6445,7 +6445,8 @@ subtrees(T) ->
 	    catch_expr -> [[catch_expr_body(T)]];
 	    class_qualifier ->
 		[[class_qualifier_argument(T)],
-		 [class_qualifier_body(T)]];
+         [class_qualifier_body(T)],
+         [class_qualifier_stacktrace(T)]];
 	    clause ->
 		case clause_guard(T) of
 		  none -> [clause_patterns(T), clause_body(T)];
@@ -6604,6 +6605,7 @@ make_tree(case_expr, [[A], C]) -> case_expr(A, C);
 make_tree(catch_expr, [[B]]) -> catch_expr(B);
 make_tree(class_qualifier, [[A], [B]]) ->
     class_qualifier(A, B);
+make_tree(class_qualifier, [[A], [B], [C]]) -> class_qualifier(A, B, C);
 make_tree(clause, [P, B]) -> clause(P, none, B);
 make_tree(clause, [P, [G], B]) -> clause(P, G, B);
 make_tree(cond_expr, [C]) -> cond_expr(C);

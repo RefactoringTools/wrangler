@@ -66,9 +66,9 @@ try_to_apply(Mod, Fun, Args) ->
     catch
         throw:Error -> 
             Error;    
-        _E1:E2->
+        _E1:E2:StackTrace ->
             Reason=lists:flatten(
-                     io_lib:format("~p",[erlang:get_stacktrace()])),
+                     io_lib:format("~p",[StackTrace])),
             {error, {E2,Reason}}
     end.
 

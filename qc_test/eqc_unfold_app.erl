@@ -48,8 +48,8 @@ prop_new_fun({FName, Loc, SearchPaths, TabWidth}) ->
 	throw:Error -> 
 	    io:format("Error:\n~p\n", [Error]),
 	    true;
-	  E1:E2 ->
-	    io:format("E1:E2:\n~p\n", [{E1, E2, erlang:get_stacktrace()}]),
+	E1:E2:StackTrace ->
+	    io:format("E1:E2:\n~p\n", [{E1, E2, StackTrace}]),
 	    false
     end.
 	       

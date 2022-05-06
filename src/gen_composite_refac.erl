@@ -358,8 +358,8 @@ get_next_command(PrevResult) ->
     catch
         throw:Error -> 
             Error;   
-        _E1:E2 ->
-            {error, lists:flatten(io_lib:format("\n~p",[{E2, erlang:get_stacktrace()}]))}
+        _E1:E2:StackTrace ->
+            {error, lists:flatten(io_lib:format("\n~p",[{E2, StackTrace}]))}
     end.
 get_next_command_1(PrevResult) ->
     case PrevResult of 
