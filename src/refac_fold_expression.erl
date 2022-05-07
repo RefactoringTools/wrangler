@@ -1,3 +1,6 @@
+%! Wrangler refactor form.
+%! Choose some of the highlighted refactoring candidates then exit the form.
+%! Before exiting, do not edit the file manually.
 %% Copyright (c) 2010, Huiqing Li, Simon Thompson
 %% All rights reserved.
 %%
@@ -59,8 +62,12 @@
 	 fold_expr_1_eclipse/5,
 	 do_fold_expression/5,
          do_fold_expression/6,
+		 fold_candidate/6,
          fold_expr_by_name/8,
-         fold_expr_by_name_eclipse/7]).
+         fold_expr_by_name_eclipse/7,
+		 pos_to_fun_clause/2,
+		 get_fun_clause_def/4,
+		 search_candidate_exprs/4]).
 
 -export([fold_expression_1/5]).  %% used by tests.
 
@@ -70,8 +77,8 @@
 %%	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), 
 %%		    {filename(), atom(), syntaxTree(), integer()}}], string()}).
 fold_expr_by_loc(FileName, Line, Col, SearchPaths, Editor, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:fold_expr_by_loc(~p, ~p,~p,~p,~p, ~p).\n", 
-		 [?MODULE, FileName, Line, Col, SearchPaths, Editor, TabWidth]),
+    %?wrangler_io("\nCMD: ~p:fold_expr_by_loc(~p, ~p,~p,~p,~p, ~p).\n", 
+%		 [?MODULE, FileName, Line, Col, SearchPaths, Editor, TabWidth]),
     fold_expression(FileName, Line, Col, SearchPaths, Editor, TabWidth).
 
 %%-spec(fold_expr_by_loc_eclipse/5::(filename(), integer(), integer(), [dir()], integer()) ->
@@ -94,6 +101,7 @@ fold_expression(FileName, Line, Col, SearchPaths, Editor, TabWidth) ->
 	{error, _Reason} -> throw({error, "No function clause has been selected!"})
     end.
 
+-spec fold_expression_0([any()], [{_, _, _}], _, [any(), ...], 'command' | 'composite_emacs' | 'eclipse' | 'emacs', _, integer()) -> {'ok', [any(), ...] | {_, [any()]}} | {'ok', [{_, _, _, _, _, _, _}], [any(), ...]}.
 fold_expression_0(FileName, Candidates, FunClauseDef, Cmd, Editor, SearchPaths, TabWidth)->
     case Candidates of
 	[] when Editor /=composite_emacs->
@@ -112,13 +120,15 @@ fold_expression_0(FileName, Candidates, FunClauseDef, Cmd, Editor, SearchPaths, 
         command ->
             do_fold_expression(FileName, Regions, SearchPaths, command, TabWidth, "");
         composite_emacs ->
-            {ok, Regions, Cmd}
+            {ok, Regions, Cmd};
             %% do_fold_expression(FileName, Regions, SearchPaths, composite_emacs, TabWidth, "")
-    end.
+		wls ->
+			{ok, Regions}
+	end.
 
 fold_expr_by_name(FileName, ModName, FunName, Arity, ClauseIndex,SearchPaths, Editor, TabWidth) ->
-    ?wrangler_io("\nCMD: ~p:fold_expression_by_name(~p,~p,~p,~p,~p,~p, ~p, ~p).\n",
-                    [?MODULE, FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, Editor,TabWidth]),
+    %?wrangler_io("\nCMD: ~p:fold_expression_by_name(~p,~p,~p,~p,~p,~p, ~p, ~p).\n",
+    %                [?MODULE, FileName, ModName, FunName, Arity, ClauseIndex, SearchPaths, Editor,TabWidth]),
     fold_by_name_par_checking(ModName, FunName, Arity, ClauseIndex),
     fold_expr_by_name_1(FileName, list_to_atom(ModName), list_to_atom(FunName),
 		        list_to_integer(Arity), list_to_integer(ClauseIndex),
@@ -192,6 +202,10 @@ do_fold_expression(FileName, CandidatesToFold, SearchPaths, Editor, TabWidth, Lo
     wrangler_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}], Editor, TabWidth, LogMsg),
     {ok, [FileName]}.
 
+fold_candidate(AnnAST, Candidate, FileName, Editor, TabWidth, LogMsg) ->
+	AnnAST1 = fold_expression_1_1(AnnAST, [Candidate]),
+	wrangler_write_file:write_refactored_files([{{FileName, FileName}, AnnAST1}], Editor, TabWidth, LogMsg).
+
 fold_expression_1_1(AnnAST, []) ->
     AnnAST;
 fold_expression_1_1(AnnAST, [{StartLine, StartCol, EndLine, EndCol, Expr0, FunApp0, FunClauseDef0}| Tail]) ->
@@ -203,6 +217,8 @@ fold_expression_1_1(AnnAST, [{StartLine, StartCol, EndLine, EndCol, Expr0, FunAp
 		     fun do_replace_expr_with_fun_call/2,
 		     AnnAST, {Body, {{{StartLine, StartCol}, {EndLine, EndCol}}, Expr, FunApp}}),
     fold_expression_1_1(AnnAST1, Tail).
+
+
 
 %% =============================================================================================
 %% Side condition analysis.
@@ -634,25 +650,29 @@ pos_to_fun_clause(Node, Pos) ->
 
 pos_to_fun_clause_1(Node, Pos) ->
     case wrangler_syntax:type(Node) of
-      function ->
-	  {S, E} = get_start_end_locations(Node),
-	  if (S =< Pos) and (Pos =< E) ->
-		 Cs = wrangler_syntax:function_clauses(Node),
-		 NoOfCs = length(Cs),
-		 [{Index, C}] = [{I1, C1}
-				 || {I1, C1} <- lists:zip(lists:seq(1, NoOfCs), Cs),
-				    {S1, E1} <- [get_start_end_locations(C1)], S1 =< Pos,
-				    Pos =< E1],
-		 As = wrangler_syntax:get_ann(Node),
-		 case lists:keysearch(fun_def, 1, As) of
-		   {value, {fun_def, {Mod, FunName, Arity, _P1, _P2}}} ->
-		       {{Mod, FunName, Arity, C, Index}, true};
-		   _ -> {[], false}
-		 end;
-	     true -> {[], false}
-	  end;
-      _ ->
-	  {[], false}
+		function ->
+			{S, E} = get_start_end_locations(Node),
+			if (S =< Pos) and (Pos =< E) ->
+				Cs = wrangler_syntax:function_clauses(Node),
+				NoOfCs = length(Cs),
+				case [{I1, C1}
+					|| {I1, C1} <- lists:zip(lists:seq(1, NoOfCs), Cs),
+						{S1, E1} <- [get_start_end_locations(C1)], S1 =< Pos,
+						Pos =< E1] of
+					[{Index, C}] -> 
+						As = wrangler_syntax:get_ann(Node),
+						case lists:keysearch(fun_def, 1, As) of
+							{value, {fun_def, {Mod, FunName, Arity, _P1, _P2}}} ->
+								{{Mod, FunName, Arity, C, Index}, true};
+							_ -> {[], false}
+						end;
+						true -> {[], false};
+					[] -> {[], false}
+				end;
+				true -> {[], false}
+			end;
+      	_ ->
+	  		{[], false}
     end.
 
 %% ==================================================

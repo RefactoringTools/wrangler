@@ -62,7 +62,7 @@
 -module(refac_move_fun).
 
 -export([move_fun/7, move_fun_1/8, move_fun_eclipse/6, move_fun_1_eclipse/6,
-         move_fun_by_name/6]).
+         move_fun_by_name/6, pos_to_export/2]).
 
 -export([analyze_file/3]).
 
@@ -138,8 +138,8 @@ move_fun_by_name_1(ModorFileName, FunName, Arity,TargetModorFileName, SearchPath
     {ok, [{filename(), filename(), string()}]}
   | {question, string()}.
 move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, Editor, TabWidth) ->
-     ?wrangler_io("\nCMD: ~p:move_fun(~p, ~p, ~p, ~p, ~p,  ~p, ~p).\n",
-		  [?MODULE, FName, Line, Col, TargetModorFileName, SearchPaths, Editor, TabWidth]),
+     %?wrangler_io("\nCMD: ~p:move_fun(~p, ~p, ~p, ~p, ~p,  ~p, ~p).\n",
+	 %	  [?MODULE, FName, Line, Col, TargetModorFileName, SearchPaths, Editor, TabWidth]),
      TargetFName = get_target_file_name(FName, TargetModorFileName),
      case TargetFName of
 	 FName -> throw({error, "The target module is the same as the current module."});
@@ -238,7 +238,7 @@ move_fun_3(CurModInfo, TargetModInfo, MFAs, {UnDefinedMs, UnDefinedRs},
     
     Results = case ExportedMFAs/=[] of
 		  true ->
-		      ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
+		      %%?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
 		      ClientFiles = lists:delete(TargetFName, wrangler_modulegraph_server:get_client_files(FName, SearchPaths)),
 		      refactor_in_client_modules(ClientFiles, ExportedMFAs, TargetModName, SearchPaths, TabWidth, Pid);
 		  false ->
@@ -728,7 +728,7 @@ refactor_in_client_modules(ClientFiles, MFAs, TargetModName, SearchPaths, TabWid
     case ClientFiles of
 	[] -> [];
 	[F| Fs] ->
-	    ?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
+	    %?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
 	    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(F, true, SearchPaths, TabWidth),
 	    {AnnAST1, Changed} = refactor_in_client_module_1(F, {AnnAST, Info}, MFAs, TargetModName, SearchPaths, TabWidth, Pid),
 	    AtomsToCheck = lists:usort([FunName || {_M, FunName, _A} <- MFAs]),

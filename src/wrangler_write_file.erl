@@ -23,8 +23,10 @@ write_refactored_files(Results, HasWarningMsg, Editor, TabWidth, Cmd) ->
 	    write_refactored_files_eclipse(Results, TabWidth);
 	command ->
 	    write_refactored_files_command_line(Results, TabWidth);
-        composite_emacs ->
-            write_refactored_files_composite_emacs(Results, TabWidth)
+	composite_emacs ->
+		write_refactored_files_composite_emacs(Results, TabWidth);
+	wls ->
+		return_refactored_file_contents(Results, TabWidth)
     end.
 
 write_refactored_files(Results, Editor, TabWidth, Cmd) ->
@@ -35,8 +37,10 @@ write_refactored_files(Results, Editor, TabWidth, Cmd) ->
 	    write_refactored_files_eclipse(Results, TabWidth);
 	command ->
 	    write_refactored_files_command_line(Results, TabWidth);
-        composite_emacs ->
-            write_refactored_files_composite_emacs(Results, TabWidth)
+	composite_emacs ->
+		write_refactored_files_composite_emacs(Results, TabWidth);
+	wls ->
+		return_refactored_file_contents(Results, TabWidth)
     end.
 
 write_refactored_files_emacs(Results, TabWidth, Cmd) ->
@@ -129,7 +133,13 @@ write_refactored_files_eclipse(Results, TabWidth) ->
                              zlib:zip(term_to_binary(wrangler_prettypr:print_ast(FileFormat,AST,TabWidth)))}
 		    end,Results),
     {ok,Res}.
-  
+
+return_refactored_file_contents([], _) ->
+	{ok, []};
+return_refactored_file_contents(Results, TabWidth) ->
+	Res =[return_file_content({FileInfo, AST}, TabWidth) || {FileInfo, AST}<-Results],
+	{ok, Res}.
+
 write_refactored_files_command_line([], _) ->
     {ok, []};
 write_refactored_files_command_line(Results, TabWidth) ->
@@ -152,8 +162,8 @@ write_refactored_files_composite_emacs(Results, TabWidth) ->
 write_a_file({FileInfo, AST}, TabWidth) ->
     OldFileName = element(1, FileInfo),
     NewFileName = element(2, FileInfo),
-    FileFormat = wrangler_misc:file_format(OldFileName),
-    Bin = list_to_binary(wrangler_prettypr:print_ast(FileFormat, AST, TabWidth)),
+    FileFormat = wrangler_misc:file_format(OldFileName),    
+	Bin = list_to_binary(wrangler_prettypr:print_ast(FileFormat, AST, TabWidth)),
     case file:write_file(OldFileName, Bin) of
         ok when OldFileName == NewFileName ->
             OldFileName;
@@ -170,7 +180,13 @@ write_a_file({FileInfo, AST}, TabWidth) ->
                                 [NewFileName, Reason]),
             throw({error, lists:flatten(Msg)})
     end.
-  
+
+return_file_content({FileInfo, AST}, TabWidth) ->
+	OldFileName = element(1, FileInfo),
+    NewFileName = element(2, FileInfo),
+    FileFormat = wrangler_misc:file_format(OldFileName),
+    {OldFileName, NewFileName, list_to_binary(wrangler_prettypr:print_ast(FileFormat, AST, TabWidth))}.
+
 backup_files(Results) ->
     F0 = fun ({FileInfo,_AST}) ->
 		 case FileInfo of

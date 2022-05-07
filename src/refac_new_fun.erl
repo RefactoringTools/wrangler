@@ -99,6 +99,9 @@ fun_extraction_1(FileName, AnnAST, End, Fun, ExpList, NewFunName, Editor, TabWid
 		Res, Editor, TabWidth, "");
 	command ->
 	    wrangler_write_file:write_refactored_files(
+		Res, Editor, TabWidth, Cmd);
+    wls ->
+        wrangler_write_file:write_refactored_files(
 		Res, Editor, TabWidth, Cmd)
     end.
 
