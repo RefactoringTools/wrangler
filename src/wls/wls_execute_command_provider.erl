@@ -7,7 +7,7 @@
 -spec enabled_commands() -> [els_command:command_id()].
 enabled_commands() -> wls_code_actions:enabled_actions() 
                     ++ [ <<"form-exit">> 
-                       , <<"comment_out_spec">> ].
+                       , <<"comment-out-spec">> ].
 
 -spec execute_command(els_command:command_id(), [any()]) -> [map()].
 execute_command(<<"form-exit">>, [#{ <<"uri">> := Uri }]) -> 

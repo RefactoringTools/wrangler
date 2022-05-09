@@ -17,7 +17,7 @@ get_highlights(Uri, _Pos) ->
 
 
 calculate_highlights([]) -> [];
-calculate_highlights([{SLine, SCol, ELine, ECol, _Expr, _NewExp, _FunClauseDef} | Regions]) -> 
+calculate_highlights([{SLine, SCol, ELine, ECol} | Regions]) -> 
     document_highlight({SLine, SCol}, {ELine, ECol}) ++ calculate_highlights(Regions).
 
 % -spec calculate_highlights([wls_server:region()]) -> [map()].
