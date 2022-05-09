@@ -9,6 +9,9 @@
         , execute_command/1
         ]).
 
+-export([ calculate_regions/2
+        , recalculate_regions/2]).
+
 
 -include_lib("wls_core.hrl").
 -include_lib("kernel/include/logger.hrl").
@@ -34,7 +37,43 @@ precondition(Uri, Range) ->
     {ok, _} -> true;
     _ ->false
   end.
-  
+
+
+
+%%==============================================================================
+%% Calculate regions for the Wrangler Form
+%%==============================================================================
+
+calculate_regions(Path, Pos) ->
+  {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(Path, true, [wls_utils:root_folder()], wls_utils:tab_with()),
+  case refac_fold_expression:pos_to_fun_clause(AnnAST, Pos) of
+    {ok, {Mod, FunName, Arity, _FunClauseDef, ClauseIndex}} ->
+        recalculate_regions(Path, {Mod, FunName, Arity, ClauseIndex});
+    _ -> {error, "Could not find function clause"}
+  end.  
+
+recalculate_regions(Path, {Mod, FunName, Arity, ClauseIndex} = Data) ->
+  try refac_fold_expression:fold_expr_by_name(
+    Path, atom_to_list(Mod), atom_to_list(FunName), 
+    integer_to_list(Arity), integer_to_list(ClauseIndex), 
+    [wls_utils:root_folder()], wls, wls_utils:tab_with()) 
+    of
+      {ok, Candidates} -> 
+        {ok, make_regions(Candidates), Data};
+      {error, Msg} -> {error, Msg}
+    catch 
+      _:{error, Msg} -> {error, Msg}
+  end.
+
+make_regions([{SLine, SCol, ELine, ECol, _Expr, _NewExp, _FunClauseDef} | Rem]) -> 
+  [{SLine, SCol, ELine, ECol}] ++ make_regions(Rem).
+
+
+%%==============================================================================
+%% Execute commands
+%% - initiate the refactoring with Wrangler Form
+%% - Execute the selected refactoring 
+%%==============================================================================
 
 -spec execute_command([any()]) -> [map()].
 execute_command([#{ <<"range">> := Range
@@ -44,11 +83,11 @@ execute_command([#{ <<"range">> := Range
   {StartPos, _EndPos} = wls_utils:range(Range),             
   case wls_server:start_refactoring(Path, fold_expression, StartPos) of
     ok ->  wls_utils:send_info("Select the highlighted fold candidates you want to refactor.");
-    {error, Msg} -> wls_utils:send_info(Msg)
+    {error, Msg} -> wls_utils:send_warning(Msg)
   end,
   [];
 execute_command([#{ <<"uri">> := Uri
-                  , <<"candidate_num">> := Num}]) ->
+                  , <<"index">> := Num}]) ->
   Path = wls_utils:path(Uri),
   case wls_server:get_state(Path) of
     {under_refactoring, #{refactor := Refactor, regions := Regions}} ->

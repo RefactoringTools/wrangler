@@ -42,7 +42,8 @@
 -export([ enabled_actions/0
         , get_actions/2 
         , execute_command/2
-        ]).
+        , cb_module/1
+      ]).
 
 %%==============================================================================
 %% Includes

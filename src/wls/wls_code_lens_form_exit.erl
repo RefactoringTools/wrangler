@@ -29,6 +29,6 @@ title() ->
   <<"Exit">>.
 
 getPois([]) -> [els_poi:new(#{from => {1, 1}, to => {1, 2}}, dummy, dummy, dummy)];
-getPois([{SLine, SCol, ELine, ECol, _Expr, _NewExp, _FunClauseDef} | Regions]) ->
+getPois([{SLine, SCol, ELine, ECol} | Regions]) ->
   [els_poi:new(#{from => {SLine, SCol}, to => {ELine, ECol}}, dummy, dummy, dummy)] 
   ++ getPois(Regions).

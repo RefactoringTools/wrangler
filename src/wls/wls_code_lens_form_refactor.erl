@@ -14,7 +14,7 @@ command(Document, POI, _State) ->
   #{uri := Uri} = Document,
   #{data := #{counter := Num, refactor := Refactor}} = POI,
   Argument = #{ <<"uri">>  => Uri
-              , <<"candidate_num">> => Num},
+              , <<"index">> => Num},
   els_command:make_command(Title, re:replace(atom_to_binary(Refactor), "_", "-", [global, {return, binary}]), [Argument]).
 
 -spec pois(els_dt_document:item()) -> [els_core:poi()].
@@ -31,12 +31,13 @@ pois(Document) ->
 title() ->
   <<"Refactor this instance">>.
 
+-spec getPois(_, [{_, _, _, _}], pos_integer()) -> [any()].
 getPois(_, [], _ ) -> [];
-getPois(Refactor, [{SLine, SCol, ELine, ECol, _Expr, _NewExp, _FunClauseDef} | Regions], Counter) ->
+getPois(Refactor, [{SLine, SCol, ELine, ECol} | Regions], Index) ->
   [els_poi:new(
     #{from => {SLine, SCol}, to => {ELine, ECol}},
     dummy,
     dummy,
-    #{counter => Counter, refactor => Refactor}
+    #{counter => Index, refactor => Refactor}
   )] 
-  ++ getPois(Refactor, Regions, Counter + 1).
+ ++ getPois(Refactor, Regions, Index + 1).

@@ -1,3 +1,21 @@
+%%==============================================================================
+%% The server handles Wrangler Forms.
+%% Refactoring clients can use it`s API to create and refresh, exit forms.
+%% 
+%% The server uses ets to store the calculated regions where 
+%% 'refactor_this_candidate' and 'exit' code lenses appear.
+%% An ets record consists of:
+%%  key: Path
+%%  value: #{refactor => Refactor, regions => Regions, data => Data}}
+%% where 
+%%  Path is the path of the file under refactoring
+%%  Refactor is an atom identifying the refactoring
+%%  Regions is the list of regions where the refactoring can be applied.
+%%    It consists of {StartLine, EndLine, StartColumn, EndColumn} tuples.
+%%  Data is additional data associated with the refactoring or the form itself. 
+%%    It can be used to recalculate the form more easily. 
+%% 
+%%==============================================================================
 -module(wls_server).
 
 -behaviour(gen_server).
@@ -41,8 +59,8 @@ start() ->
 get_state(Path) ->
     gen_server:call(wls_server, {get_state, Path}, 50000).
 
-start_refactoring(Path, Refactor, Data) ->
-    gen_server:call(wls_server, {create_form, {Path, Refactor, Data}}, 50000).
+start_refactoring(Path, Refactor, Pos) ->
+    gen_server:call(wls_server, {create_form, {Path, Refactor, Pos}}, 50000).
 
 refresh(Path) ->
     gen_server:call(wls_server, {recalculate_form, Path}, 50000).
@@ -67,40 +85,24 @@ handle_call({get_state, Path}, _From, State = #state{ets_tab=EtsTab}) ->
             {reply, not_exists, State}
     end;
 
-handle_call({create_form, {Path, Refactor, Data}}, _From, State = #state{ets_tab=EtsTab}) ->
+handle_call({create_form, {Path, Refactor, {Line, Col}}}, _From, State = #state{ets_tab=EtsTab}) ->
     {ok, Text} = file:read_file(Path),
     delete_header(Path, Text),
     file:write_file(Path, erlang:iolist_to_binary([?header, Text])),
     case Refactor of
         fold_expression ->
-            {Line, Col} = Data,
-            {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(Path, true, [wls_utils:root_folder()], wls_utils:tab_with()),
-            case refac_fold_expression:pos_to_fun_clause(AnnAST, {Line+3, Col}) of
-                {ok, {Mod, FunName, Arity, _FunClauseDef, ClauseIndex}} ->
-                    try refac_fold_expression:fold_expr_by_name(
-                            Path, atom_to_list(Mod), atom_to_list(FunName), 
-                            integer_to_list(Arity), integer_to_list(ClauseIndex), 
-                            [wls_utils:root_folder()], wls, 8) 
-                    of
-                        {ok, []} -> 
-                            exit_form(Path),
-                            {reply, ok, State};
-                        {ok, Regions} -> 
-                            true=ets:insert(EtsTab, {Path, #{refactor => Refactor, regions => Regions, data => {Mod, FunName, Arity, ClauseIndex}}}),
-                            {reply, ok, State};
-                        {error, Msg} ->
-                            ?LOG_INFO("Error: ~p", [Msg]),
-                            delete_header(Path),
-                            {reply, {error, Msg}, State}
-                    catch 
-                        _:{error, Msg} ->
-                            delete_header(Path),
-                            {reply, {error, Msg}, State}
-                    end;
-                _ -> 
+            case wls_code_action_fold_expression:calculate_regions(Path, {Line+3, Col}) of
+                {ok, [], _} -> 
                     delete_header(Path),
-                    ?LOG_INFO("Could not find function clause"),
-                    {reply, {error, "Could not find function clause"}, State}
+                    ets:delete(EtsTab, Path),
+                    {reply, ok, State};
+                {ok, Candidates, Data} ->
+                    true=ets:insert(EtsTab, {Path, #{refactor => fold_expression, regions => Candidates, data => Data}}),
+                    {reply, ok, State};
+                {error, Msg} ->
+                    delete_header(Path),
+                    ets:delete(EtsTab, Path),
+                    {reply, {error, Msg}, State}
             end;
         _ ->
             delete_header(Path),
@@ -113,30 +115,27 @@ handle_call({recalculate_form, Path}, _From, State = #state{ets_tab=EtsTab}) ->
         [{Path, #{refactor := Refactor, data := Data }}] -> 
             case Refactor of
                 fold_expression ->
-                    {Mod, FunName, Arity, ClauseIndex} = Data,
-                    try refac_fold_expression:fold_expr_by_name(
-                        Path, atom_to_list(Mod), atom_to_list(FunName), 
-                        integer_to_list(Arity), integer_to_list(ClauseIndex), 
-                        [wls_utils:root_folder()], wls, 8) 
-                    of
-                        {ok, []} -> 
-                            exit_form(Path),
+                    case wls_code_action_fold_expression:recalculate_regions(Path, Data) of
+                        {ok, [], _} -> 
+                            delete_header(Path),
+                            ets:delete(EtsTab, Path),
                             {reply, ok, State};
-                        {ok, Regions} -> 
-                            true=ets:insert(EtsTab, {Path, #{refactor => Refactor, regions => Regions, data => {Mod, FunName, Arity, ClauseIndex}}}),
+                        {ok, Candidates, Data2} ->
+                            true=ets:insert(EtsTab, {Path, #{refactor => fold_expression, regions => Candidates, data => Data2}}),
                             {reply, ok, State};
                         {error, Msg} ->
-                            ?LOG_INFO("Error: ~p", [Msg]),
-                            {reply, {error, Msg}, State}
-                    catch 
-                        _:{error, Msg} -> 
+                            delete_header(Path),
+                            ets:delete(EtsTab, Path),
                             {reply, {error, Msg}, State}
                     end;
-                _ -> 
+                _ ->
+                    delete_header(Path),
+                    ets:delete(EtsTab, Path),
                     ?LOG_INFO("Unknown refactoring ~p", [Refactor]),
                     {reply, unknown_refactoring, State}
             end;
         _ -> 
+            delete_header(Path),
             ?LOG_INFO("Entry does not exist"),
             {reply, not_exists, State}
     end;
@@ -164,7 +163,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%==============================================================================
 %% Internal Functions
 %%==============================================================================
-
 
 
 -spec delete_header([char()]) -> 'ok' | {'error', atom()}.
