@@ -30,10 +30,7 @@ command_args(Uri, Range, _State) ->
 precondition(Uri, Range) ->
   Path = wls_utils:path(Uri),
   {StartPos, _EndPos} = wls_utils:range(Range),
-  case api_interface:pos_to_fun_name(Path, StartPos) of
-    {ok, _} -> true;
-    _ -> false
-  end.
+  refac_rename_fun:is_available_at(Path, StartPos).
 
 -spec execute_command([any()]) -> [map()].
 execute_command([#{ <<"range">> := Range

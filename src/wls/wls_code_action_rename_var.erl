@@ -29,12 +29,8 @@ command_args(Uri, Range, _State) ->
 precondition(Uri, Range) ->
   Path = wls_utils:path(Uri),
   {StartPos, _EndPos} = wls_utils:range(Range),
-  {ok, {AnnAST, _Info1}} = wrangler_ast_server:parse_annotate_file(Path, true),
-  case api_interface:pos_to_var_name(AnnAST, StartPos) of
-    {ok, {_VarName, [{0, 0}]}} -> false;
-    {ok, {_VarName, _DefinePos}} -> true;
-    _ -> false
-  end.
+  refac_rename_var:is_available_at(Path, StartPos).
+
 
 -spec execute_command([any()]) -> [map()].
 execute_command([#{ <<"range">> := Range

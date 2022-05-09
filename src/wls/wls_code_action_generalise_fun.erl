@@ -29,13 +29,7 @@ command_args(Uri, Range, _State) ->
 precondition(Uri, Range) ->
   Path = wls_utils:path(Uri),
   {StartPos, EndPos} = wls_utils:range(Range),
-  {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(Path, true),
-  case api_interface:pos_to_expr(AnnAST, StartPos, EndPos) of
-    {error, _} -> 
-      false;
-    _Exp ->
-      true
-  end.
+  refac_gen:is_available_at(Path, StartPos, EndPos).
 
 -spec execute_command([any()]) -> [map()].
 execute_command([#{ <<"range">> := Range

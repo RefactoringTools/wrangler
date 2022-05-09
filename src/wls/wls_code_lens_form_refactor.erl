@@ -6,7 +6,6 @@
          ,pois/1
         ]).
 
-
 -spec command(els_dt_document:item(), els_core:poi(), els_code_lens:state()) ->
                  els_command:command().
 command(Document, POI, _State) ->
@@ -31,7 +30,6 @@ pois(Document) ->
 title() ->
   <<"Refactor this instance">>.
 
--spec getPois(_, [{_, _, _, _}], pos_integer()) -> [any()].
 getPois(_, [], _ ) -> [];
 getPois(Refactor, [{SLine, SCol, ELine, ECol} | Regions], Index) ->
   [els_poi:new(
@@ -41,3 +39,14 @@ getPois(Refactor, [{SLine, SCol, ELine, ECol} | Regions], Index) ->
     #{counter => Index, refactor => Refactor}
   )] 
  ++ getPois(Refactor, Regions, Index + 1).
+
+% -spec getPois(atom(), [wls_server:region()], integer()) -> [any()].
+% getPois(_, [], _ ) -> [];
+% getPois(Refactor, [#{range := {StartPos, EndPos}} | Regions], Index) ->
+%   [els_poi:new(
+%     #{from => StartPos, to => EndPos},
+%     dummy,
+%     dummy,
+%     #{counter => Index, refactor => Refactor}
+%   )] 
+%  ++ getPois(Refactor, Regions, Index + 1).

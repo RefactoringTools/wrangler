@@ -30,5 +30,10 @@ title() ->
 
 getPois([]) -> [els_poi:new(#{from => {1, 1}, to => {1, 2}}, dummy, dummy, dummy)];
 getPois([{SLine, SCol, ELine, ECol} | Regions]) ->
-  [els_poi:new(#{from => {SLine, SCol}, to => {ELine, ECol}}, dummy, dummy, dummy)] 
+  [els_poi:new(#{from => {SLine, SCol}, to => {ELine, ECol}}, dummy, dummy, dummy)]
   ++ getPois(Regions).
+% -spec getPois(wls_server:region()) -> [any()].
+% getPois([]) -> [els_poi:new(#{from => {1, 1}, to => {1, 2}}, dummy, dummy, dummy)];
+% getPois([#{range := {StartPos, EndPos}} | Regions]) ->
+%   [els_poi:new(#{from => StartPos, to => EndPos}, dummy, dummy, dummy)] 
+%   ++ getPois(Regions).

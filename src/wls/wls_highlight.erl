@@ -20,6 +20,11 @@ calculate_highlights([]) -> [];
 calculate_highlights([{SLine, SCol, ELine, ECol, _Expr, _NewExp, _FunClauseDef} | Regions]) -> 
     document_highlight({SLine, SCol}, {ELine, ECol}) ++ calculate_highlights(Regions).
 
+% -spec calculate_highlights([wls_server:region()]) -> [map()].
+% calculate_highlights([]) -> [];
+% calculate_highlights([#{range := {StartPos, EndPos}} | Regions]) -> 
+%     document_highlight(StartPos, EndPos) ++ calculate_highlights(Regions).
+
 document_highlight({StartLine, StartCol}, {EndLine, EndCol}) ->
   [#{ range => 
         #{ start => #{line => StartLine - 1, character => StartCol - 1}

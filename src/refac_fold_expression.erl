@@ -1,6 +1,3 @@
-%! Wrangler refactor form.
-%! Choose some of the highlighted refactoring candidates then exit the form.
-%! Before exiting, do not edit the file manually.
 %% Copyright (c) 2010, Huiqing Li, Simon Thompson
 %% All rights reserved.
 %%
@@ -67,11 +64,20 @@
          fold_expr_by_name_eclipse/7,
 		 pos_to_fun_clause/2,
 		 get_fun_clause_def/4,
+		 is_available_at/2,
 		 search_candidate_exprs/4]).
 
 -export([fold_expression_1/5]).  %% used by tests.
 
 -include("../include/wrangler_internal.hrl").
+
+%%-spec available_at(filename(), pos()) -> boolean().
+is_available_at(FileName, Pos) ->
+	{ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true),
+	case refac_fold_expression:pos_to_fun_clause(AnnAST, Pos) of
+		{ok, _} -> true;
+		_ ->false
+	end.
 
 %%-spec(fold_expr_by_loc/5::(filename(), integer(), integer(), [dir()], atom(), integer())->
 %%	     {ok, [{integer(), integer(), integer(), integer(), syntaxTree(), 

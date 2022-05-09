@@ -4,23 +4,21 @@
 %% 
 %% The server uses ets to store the calculated regions where 
 %% 'refactor_this_candidate' and 'exit' code lenses appear.
-%% An ets record consists of:
-%%  key: Path
-%%  value: #{refactor => Refactor, regions => Regions, data => Data}}
-%% where 
-%%  Path is the path of the file under refactoring
-%%  Refactor is an atom identifying the refactoring
-%%  Regions is the list of regions where the refactoring can be applied.
-%%    It consists of {StartLine, EndLine, StartColumn, EndColumn} tuples.
-%%  Data is additional data associated with the refactoring or the form itself. 
-%%    It can be used to recalculate the form more easily. 
 %% 
 %%==============================================================================
 -module(wls_server).
 
 -behaviour(gen_server).
 -include_lib("kernel/include/logger.hrl").
+-include_lib("../../include/wrangler_internal.hrl").
 
+-type data() :: #{'refactor' => atom(), 
+                  'regions' => [region()],
+                  'data' => any()}.
+
+-type region() :: #{'range' => {pos(), pos()}, 'data' => any()}.
+
+-export_type([data/0, region/0]).
 %%==============================================================================
 %% Api
 %%==============================================================================
@@ -58,6 +56,7 @@ start() ->
 
 get_state(Path) ->
     gen_server:call(wls_server, {get_state, Path}, 50000).
+
 
 start_refactoring(Path, Refactor, Pos) ->
     gen_server:call(wls_server, {create_form, {Path, Refactor, Pos}}, 50000).

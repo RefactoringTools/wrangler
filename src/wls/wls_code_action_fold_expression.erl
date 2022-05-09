@@ -32,11 +32,7 @@ command_args(Uri, Range, _State) ->
 precondition(Uri, Range) ->
   Path = wls_utils:path(Uri),
   {StartPos, _EndPos} = wls_utils:range(Range),
-  {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(Path, true),
-  case refac_fold_expression:pos_to_fun_clause(AnnAST, StartPos) of
-    {ok, _} -> true;
-    _ ->false
-  end.
+  refac_fold_expression:is_available_at(Path, StartPos).
 
 
 
@@ -66,7 +62,15 @@ recalculate_regions(Path, {Mod, FunName, Arity, ClauseIndex} = Data) ->
   end.
 
 make_regions([{SLine, SCol, ELine, ECol, _Expr, _NewExp, _FunClauseDef} | Rem]) -> 
-  [{SLine, SCol, ELine, ECol}] ++ make_regions(Rem).
+  [{SLine, SCol, ELine, ECol}] ++ make_regions(Rem);
+make_regions([]) -> [].
+
+-spec make_regions2([any()]) -> [wls_server:region()].
+make_regions2([{SLine, SCol, ELine, ECol, Expr, NewExp, FunClauseDef} | Rem]) -> 
+  [#{range => {{SLine, SCol}, {ELine, ECol}}, 
+     data => {Expr, NewExp, FunClauseDef}}] 
+  ++ make_regions(Rem);
+make_regions2([]) -> [].
 
 
 %%==============================================================================
@@ -87,16 +91,18 @@ execute_command([#{ <<"range">> := Range
   end,
   [];
 execute_command([#{ <<"uri">> := Uri
-                  , <<"index">> := Num}]) ->
+                  , <<"index">> := Index}]) ->
   Path = wls_utils:path(Uri),
   case wls_server:get_state(Path) of
     {under_refactoring, #{refactor := Refactor, regions := Regions}} ->
       case Refactor of
-        fold_expression -> 
+        fold_expression ->
           {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(Path, true),
-          try lists:nth(Num, Regions) of
-            Region -> 
-              try refac_fold_expression:fold_candidate(AnnAST, Region, Path, wls, 8, "") of
+          try lists:nth(Index, Regions) of
+            Candidate ->
+            %#{range := {{StartLine, StartCol}, {EndLine, EndCol}}, data := {Expr, NewExp, FunClauseDef}} -> 
+              %Candidate = {StartLine, StartCol, EndLine, EndCol, Expr, NewExp, FunClauseDef},
+              try refac_fold_expression:fold_candidate(AnnAST, Candidate, Path, wls, wls_utils:tab_with(), "") of
                 {ok, [{OldPath, _NewPath, Text}]} -> 
                   file:write_file(OldPath, Text),
                   wls_server:refresh(OldPath);

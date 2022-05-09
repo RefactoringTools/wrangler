@@ -96,9 +96,21 @@
 
 -include("../include/wrangler_internal.hrl").
 
--export([generalise/7, gen_fun_1/12, gen_fun_clause/11]).
+-export([generalise/7, gen_fun_1/12, gen_fun_clause/11, is_available_at/3]).
 
 -export([generalise_eclipse/6, gen_fun_1_eclipse/11, gen_fun_clause_eclipse/10]).
+
+-spec is_available_at(filename(), pos(), pos()) -> boolean().
+is_available_at(FileName, Start, End) ->
+	{ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true),
+	case api_interface:pos_to_expr(AnnAST, Start, End) of
+		{ok, Exp} ->
+			case api_interface:expr_to_fun(AnnAST, Exp) of
+				{ok, _Fun} -> true;
+				{error, _} -> false
+			end;
+		{error, _} -> false
+	end.
 
 %%-spec generalise_eclipse(FileName::filename(), Start::pos(), End::pos(), ParName::string(),
 %%	                         SearchPaths::[dir()], TabWidth::integer()) ->

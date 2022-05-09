@@ -110,7 +110,6 @@ rename_new(Mod, Ar, Path) ->
 start() ->
     application:start(wrangler).
 
-%% @doc Start a Wrangler application.
 %%@spec start(map()) -> ok|{error, Reason}
 start(#{wls_server := true}) ->
     wls_server:start(),

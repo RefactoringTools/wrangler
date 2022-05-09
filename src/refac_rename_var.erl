@@ -48,11 +48,20 @@
 %% @private 
 -module(refac_rename_var).
 
--export([rename_var/6, rename_var/7, rename_var_composite/7, rename_var_eclipse/6]).
+-export([rename_var/6, rename_var/7, rename_var_composite/7, rename_var_eclipse/6, is_available_at/2]).
 
 -export([rename/3, cond_check/4, get_var_name/5]).
 
 -include("../include/wrangler_internal.hrl").
+
+-spec is_available_at(filename(), pos()) -> boolean().
+is_available_at(FileName, Pos) ->
+	{ok, {AnnAST, _Info1}} = wrangler_ast_server:parse_annotate_file(FileName, true),
+	case api_interface:pos_to_var_name(AnnAST, Pos) of
+	  {ok, {_VarName, [{0, 0}]}} -> false;
+	  {ok, {_VarName, _DefinePos}} -> true;
+	  _ -> false
+	end.
 
 rename_var_composite(FileName, {_FunName, _Arity}, 
                      {range, {_File, [{{Line, Col}, {_Line1, _Col1}}]}, _VarName}, 

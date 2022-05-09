@@ -34,10 +34,20 @@
 %% @private
 -module(refac_new_fun).
 
--export([fun_extraction/6, fun_extraction_1/6, fun_extraction_eclipse/5, fun_extraction_1_eclipse/5]).
+-export([fun_extraction/6, fun_extraction_1/6, fun_extraction_eclipse/5, fun_extraction_1_eclipse/5, is_available_at/3]).
 
 
 -include("../include/wrangler_internal.hrl").
+
+-spec is_available_at(filename(), pos(), pos()) -> boolean().
+is_available_at(FileName, StartPos, EndPos) ->
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true),
+    case api_interface:pos_to_expr_list(AnnAST, StartPos, EndPos) of
+      [] -> 
+        false;
+      _ExpList ->
+        true
+    end.
 
 %%-spec(fun_extraction_eclipse/5::(filename(), pos(), pos(), string(),integer()) ->
 %% 	      {ok, [{filename(), filename(), string()}]}).
