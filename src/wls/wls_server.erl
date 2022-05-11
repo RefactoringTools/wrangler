@@ -54,13 +54,17 @@
 start() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
+-spec get_state(path()) -> {'under_refactoring', data()} | 'not_exists'.
 get_state(Path) ->
     gen_server:call(wls_server, {get_state, Path}, 50000).
 
-
+%% Initiate a wrangler form.
+-spec start_refactoring(path(), atom(), pos()) -> 'ok' | {'error', any()} | 'unknown_refactoring'.
 start_refactoring(Path, Refactor, Pos) ->
     gen_server:call(wls_server, {create_form, {Path, Refactor, Pos}}, 50000).
 
+%% Refresh the wrangler form.
+-spec refresh(path()) -> 'ok' | {'error', any()} | 'not_exists' | 'unknown_refactoring'.
 refresh(Path) ->
     gen_server:call(wls_server, {recalculate_form, Path}, 50000).
 
@@ -97,6 +101,7 @@ handle_call({create_form, {Path, Refactor, {Line, Col}}}, _From, State = #state{
                     {reply, ok, State};
                 {ok, Candidates, Data} ->
                     true=ets:insert(EtsTab, {Path, #{refactor => fold_expression, regions => Candidates, data => Data}}),
+                    wls_utils:send_warning("Please do not modify the file manually."),
                     {reply, ok, State};
                 {error, Msg} ->
                     delete_header(Path),

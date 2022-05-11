@@ -22,21 +22,12 @@ semantic_tokens(Uri) ->
 %% Output format: [deltaLine, deltaStartChar, length, tokenTypeIndex, tokenModifierBitFlag, ...]
 -spec calculate_tokens([{integer(), integer(), integer(), integer()}], number()) -> [integer()].
 calculate_tokens([], _) -> [];
-calculate_tokens([{SLine, SCol, SLine, ECol} | Regions], PrevLines) -> 
+calculate_tokens([#{range := {SLine, SCol, SLine, ECol}} | Regions], PrevLines) -> 
     [SLine-1-PrevLines, SCol-1, ECol-SCol+1, 0, 0] ++ calculate_tokens(Regions, SLine-1);
 calculate_tokens([{SLine, SCol, ELine, ECol} | Regions], PrevLines) -> 
     [SLine-1-PrevLines, SCol-1, 100, 0, 0] %% First line of multiline expression
     ++ calculate_multiline_token(SLine + 1, ELine, ECol) %% Remaining lines of multiline expression
     ++ calculate_tokens(Regions, ELine-1). %% Remaining regions
-
-% -spec calculate_tokens([wls_server:region()], integer()) -> [integer()].
-% calculate_tokens([], _) -> [];
-% calculate_tokens([#{range := {{SLine, SCol}, {SLine, ECol}}} | Regions], PrevLines) -> 
-%     [SLine-1-PrevLines, SCol-1, ECol-SCol+1, 0, 0] ++ calculate_tokens(Regions, SLine-1);
-% calculate_tokens([#{range := {{SLine, SCol}, {ELine, ECol}}} | Regions], PrevLines) -> 
-    % [SLine-1-PrevLines, SCol-1, 100, 0, 0] %% First line of multiline expression
-    % ++ calculate_multiline_token(SLine + 1, ELine, ECol) %% Remaining lines of multiline expression
-    % ++ calculate_tokens(Regions, ELine-1). %% Remaining regions
 
 calculate_multiline_token(SLine, SLine, ECol) ->
     [1, 0, ECol, 0, 0];

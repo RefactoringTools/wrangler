@@ -31,7 +31,7 @@ title() ->
   <<"Refactor this instance">>.
 
 getPois(_, [], _ ) -> [];
-getPois(Refactor, [{SLine, SCol, ELine, ECol} | Regions], Index) ->
+getPois(Refactor, [#{range := {SLine, SCol, ELine, ECol}} | Regions], Index) ->
   [els_poi:new(
     #{from => {SLine, SCol}, to => {ELine, ECol}},
     dummy,
@@ -39,14 +39,3 @@ getPois(Refactor, [{SLine, SCol, ELine, ECol} | Regions], Index) ->
     #{counter => Index, refactor => Refactor}
   )] 
  ++ getPois(Refactor, Regions, Index + 1).
-
-% -spec getPois(atom(), [wls_server:region()], integer()) -> [any()].
-% getPois(_, [], _ ) -> [];
-% getPois(Refactor, [#{range := {StartPos, EndPos}} | Regions], Index) ->
-%   [els_poi:new(
-%     #{from => StartPos, to => EndPos},
-%     dummy,
-%     dummy,
-%     #{counter => Index, refactor => Refactor}
-%   )] 
-%  ++ getPois(Refactor, Regions, Index + 1).

@@ -61,16 +61,9 @@ recalculate_regions(Path, {Mod, FunName, Arity, ClauseIndex} = Data) ->
       _:{error, Msg} -> {error, Msg}
   end.
 
-make_regions([{SLine, SCol, ELine, ECol, _Expr, _NewExp, _FunClauseDef} | Rem]) -> 
-  [{SLine, SCol, ELine, ECol}] ++ make_regions(Rem);
+make_regions([{SLine, SCol, ELine, ECol, Expr, NewExp, FunClauseDef} | Rem]) -> 
+  [#{range => {SLine, SCol, ELine, ECol}, data => {Expr, NewExp, FunClauseDef}}] ++ make_regions(Rem);
 make_regions([]) -> [].
-
--spec make_regions2([any()]) -> [wls_server:region()].
-make_regions2([{SLine, SCol, ELine, ECol, Expr, NewExp, FunClauseDef} | Rem]) -> 
-  [#{range => {{SLine, SCol}, {ELine, ECol}}, 
-     data => {Expr, NewExp, FunClauseDef}}] 
-  ++ make_regions(Rem);
-make_regions2([]) -> [].
 
 
 %%==============================================================================
@@ -99,9 +92,9 @@ execute_command([#{ <<"uri">> := Uri
         fold_expression ->
           {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(Path, true),
           try lists:nth(Index, Regions) of
-            Candidate ->
-            %#{range := {{StartLine, StartCol}, {EndLine, EndCol}}, data := {Expr, NewExp, FunClauseDef}} -> 
-              %Candidate = {StartLine, StartCol, EndLine, EndCol, Expr, NewExp, FunClauseDef},
+            Region ->
+              #{range := {StartLine, StartCol, EndLine, EndCol}, data := {Expr, NewExp, FunClauseDef}} = Region,
+              Candidate = {StartLine, StartCol, EndLine, EndCol, Expr, NewExp, FunClauseDef},
               try refac_fold_expression:fold_candidate(AnnAST, Candidate, Path, wls, wls_utils:tab_with(), "") of
                 {ok, [{OldPath, _NewPath, Text}]} -> 
                   file:write_file(OldPath, Text),
@@ -110,13 +103,13 @@ execute_command([#{ <<"uri">> := Uri
                   wls_utils:send_error("Unknown error occurred. See logs for details."),
                   ?LOG_INFO("Error while doing fold: ~p", [Err])
                 catch
-                   _:{error, Message} -> wls_utils:send_warning(Message);
-                   _:E -> 
+                    _:{error, Message} -> wls_utils:send_warning(Message);
+                    _:E -> 
                     wls_utils:send_error("Unknown error occurred. See logs for details."),
                     ?LOG_INFO("Error while doing fold: ~p", [E])
-                end
-          catch _ ->
-            wls_utils:send_info("The selected candidate is not valid.")
+              end
+            catch 
+              _:_ -> wls_utils:send_info("Please wait while the form is being updated.")
           end;
         _ -> ?LOG_WARNING("Unknown refactoring: ~p", [Refactor])
       end;

@@ -17,13 +17,8 @@ get_highlights(Uri, _Pos) ->
 
 
 calculate_highlights([]) -> [];
-calculate_highlights([{SLine, SCol, ELine, ECol} | Regions]) -> 
+calculate_highlights([#{range := {SLine, SCol, ELine, ECol}} | Regions]) -> 
     document_highlight({SLine, SCol}, {ELine, ECol}) ++ calculate_highlights(Regions).
-
-% -spec calculate_highlights([wls_server:region()]) -> [map()].
-% calculate_highlights([]) -> [];
-% calculate_highlights([#{range := {StartPos, EndPos}} | Regions]) -> 
-%     document_highlight(StartPos, EndPos) ++ calculate_highlights(Regions).
 
 document_highlight({StartLine, StartCol}, {EndLine, EndCol}) ->
   [#{ range => 
