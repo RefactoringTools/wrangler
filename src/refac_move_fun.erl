@@ -253,7 +253,7 @@ move_fun_3(CurModInfo, TargetModInfo, MFAs, {UnDefinedMs, UnDefinedRs},
     
     Results = case ExportedMFAs/=[] of
 		  true ->
-		      %%?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
+		      ?wrangler_io("\nChecking client modules in the following search paths: \n~p\n", [SearchPaths]),
 		      ClientFiles = lists:delete(TargetFName, wrangler_modulegraph_server:get_client_files(FName, SearchPaths)),
 		      refactor_in_client_modules(ClientFiles, ExportedMFAs, TargetModName, SearchPaths, TabWidth, Pid);
 		  false ->
@@ -743,7 +743,7 @@ refactor_in_client_modules(ClientFiles, MFAs, TargetModName, SearchPaths, TabWid
     case ClientFiles of
 	[] -> [];
 	[F| Fs] ->
-	    %?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
+	    ?wrangler_io("The current file under refactoring is:\n~p\n", [F]),
 	    {ok, {AnnAST, Info}} = wrangler_ast_server:parse_annotate_file(F, true, SearchPaths, TabWidth),
 	    {AnnAST1, Changed} = refactor_in_client_module_1(F, {AnnAST, Info}, MFAs, TargetModName, SearchPaths, TabWidth, Pid),
 	    AtomsToCheck = lists:usort([FunName || {_M, FunName, _A} <- MFAs]),
