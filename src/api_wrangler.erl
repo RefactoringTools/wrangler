@@ -49,7 +49,7 @@
 
 -export([refac_bug_cond/1]).
 
--export([start/0, stop/0, undo/0]).
+-export([start/0, start/1, stop/0, undo/0]).
 -export([new_dummy_new/3, new_dummy_old/3, rename_old/3, rename_new/3]).
 
 -export([test_similar_code/1]).
@@ -109,6 +109,12 @@ rename_new(Mod, Ar, Path) ->
 %%@spec start() -> {ok, Pid}|{error, Reason}
 start() ->
     application:start(wrangler).
+
+%%@spec start(map()) -> ok|{error, Reason}
+start(#{wls_server := true}) ->
+    wls_server:start(),
+    application:start(wrangler).
+
 
 %% @doc Stop a Wrangler application.
 %%@spec stop()-> ok

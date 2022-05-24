@@ -35,11 +35,21 @@
 %% @private
 -module(refac_intro_new_var).
 
--export([intro_new_var/7, intro_new_var_eclipse/6]).
+-export([intro_new_var/7, intro_new_var_eclipse/6, is_available_at/3]).
 
 -export([do_intro_new_var_in_fun/3]).
 
 -include("../include/wrangler_internal.hrl").
+
+-spec is_available_at(filename(), pos(), pos()) -> boolean().
+is_available_at(FileName, Start, End) ->
+	{ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true),
+    case api_interface:pos_to_expr(AnnAST, Start, End) of
+        {error, _} -> 
+          false;
+        _Exp ->
+          true
+      end.
 
 %% =============================================================================================
 %%-spec(intro_new_var/6::(filename(), pos(), pos(), string(), [dir()],atom(), integer()) ->

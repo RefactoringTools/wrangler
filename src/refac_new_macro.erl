@@ -39,11 +39,22 @@
 %% @private
 -module(refac_new_macro).
 
--export([new_macro/7, new_macro_eclipse/6]).
+-export([new_macro/7, new_macro_eclipse/6, is_available_at/3]).
 
 -export([replace_expr_with_macro/3]).
 
 -include("../include/wrangler_internal.hrl").
+
+-spec is_available_at(filename(), pos(), pos()) -> boolean().
+is_available_at(FileName, StartPos, EndPos) ->
+    {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true),
+    case api_interface:pos_to_expr_or_pat_list(AnnAST, StartPos, EndPos) of
+      [] -> 
+        false;
+      _ExpList ->
+        true
+    end.
+
 
 %%-spec(new_macro_eclipse/6::(filename(), pos(), pos(), string(), [dir()], integer()) ->
 %%				 {ok, [{filename(), filename(), string()}]}).

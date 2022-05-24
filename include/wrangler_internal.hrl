@@ -84,14 +84,16 @@
 -type(functionname()::atom()).
 -type(functionarity()::integer()).
 -type(dir()::string()).
--type (syntaxTree() :: {tree, any(), any(), any()}| {wrapper, any(), any(), any()}).
--type(pos()::{integer(), integer()}).
+-type(path()::string()).
+-type(syntaxTree() :: {tree, any(), any(), any()}| {wrapper, any(), any(), any()}).
+-type(range()::{pos(), pos()}).
+-type(pos()::{line(), col()}).
 -type(line()::integer()).
 -type(col()::integer()).
 -type(key():: attributes | errors | exports | functions | imports | module_imports | module | records | rules | warnings).
 -type(module_info()::[{key(), any()}]).  
 -type(anyterm()::any()).
--type(editor()::emacs|eclipse).
+-type(editor()::emacs|eclipse|wls).
 -type(whitespace() :: '\t' | '\n' | ' ').
 -type(token() :: {'var', pos(), atom()} | {'integer', pos(), integer()} | {'string', pos(), string()}
 	       | {'float', pos(), float()} | {'char', pos(), char()}

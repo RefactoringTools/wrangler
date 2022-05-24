@@ -41,6 +41,8 @@ ERL_GEN_COMP_SRC = $(wildcard src/gen_composite_refacs/*.erl)
 
 ERL_MY_GEN_COMP_SRC = $(wildcard src/my_gen_composite_refacs/*.erl)
 
+ERL_WLS_SRC = $(wildcard src/wls/*.erl)
+
 ERL_EVAL_SRC = $(wildcard src/symbolic_evaluation/evaluator/*.erl)
 ERL_CORE_SRC = $(wildcard src/symbolic_evaluation/core/*.erl)
 ERL_REFAC_SRC = $(wildcard src/symbolic_evaluation/refactorings/*.erl)
@@ -51,7 +53,7 @@ LAST_SRC = $(filter-out $(FIRST_SRC), $(ERL_SRC)) $(ERL_GEN_REFACS_SRC) \
    $(ERL_MY_GEN_REFACS_SRC) $(ERL_GEN_COMP_SRC) $(ERL_MY_GEN_COMP_SRC) \
 	$(ERL_EVAL_SRC) $(ERL_CORE_SRC) $(ERL_REFAC_SRC) \
 		$(ERL_UTILS_SRC) $(ERL_BEH_EXTRACTION_SRC) \
-			$(ERL_DEF_SRC) $(ERL_GEN_REFACS_2_SRC)
+			$(ERL_DEF_SRC) $(ERL_GEN_REFACS_2_SRC) $(ERL_WLS_SRC)
 
 ERL_LAST = $(patsubst src/%.erl,ebin/%.beam,$(ERL_SRC)) \
 	$(patsubst src/behaviour_extraction/%.erl, ebin/%.beam, $(ERL_BEH_EXTRACTION_SRC)) \
@@ -61,6 +63,8 @@ ERL_LAST = $(patsubst src/%.erl,ebin/%.beam,$(ERL_SRC)) \
 	  $(ERL_MY_GEN_REFACS_SRC)) \
 	$(patsubst src/gen_composite_refacs/%.erl, ebin/%.beam, \
 	  $(ERL_GEN_COMP_SRC)) \
+	$(patsubst src/wls/%.erl, ebin/%.beam, \
+	  $(ERL_WLS_SRC)) \
 	$(patsubst src/my_gen_composite_refacs/%.erl, ebin/%.beam, \
 	  $(ERL_MY_GEN_COMP_SRC)) \
 	$(patsubst src/symbolic_evaluation/evaluator/%.erl, ebin/%.beam, \
@@ -136,6 +140,9 @@ ebin/%.beam: src/gen_refacs_2/%.erl
 	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
 
 ebin/%.beam: src/my_gen_refacs/%.erl
+	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
+
+ebin/%.beam: src/wls/%.erl
 	$(ERLC) -pa ebin -I include -W -o ebin +debug_info $<
 
 ebin/%.beam: src/gen_composite_refacs/%.erl

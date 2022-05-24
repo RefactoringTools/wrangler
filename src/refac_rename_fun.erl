@@ -56,12 +56,19 @@
  
 -export([rename_fun/7, rename_fun_1/6, rename_fun_1/7,
          rename_fun_eclipse/6, rename_fun_1_eclipse/6,
-         get_fun_name/5]).
+         get_fun_name/5, is_available_at/2]).
 
 -export([rename_fun_by_name/6, rename_fun_by_name/7]).
 
 -include("../include/wrangler_internal.hrl").
 
+
+-spec is_available_at(filename(), pos()) -> boolean().
+is_available_at(FileName, Pos) ->
+	case api_interface:pos_to_fun_name(FileName, Pos) of
+		{ok, _} -> true;
+		_ -> false
+	end.
 
 %%-spec(rename_fun_eclipse/6::(string(), integer(), integer(), string(), [dir()], integer()) ->
 %%				  {error, string()} | {warning, string()} | {ok, [{filename(), filename(), string()}]}).

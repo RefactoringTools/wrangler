@@ -62,7 +62,7 @@
 -module(refac_move_fun).
 
 -export([move_fun/7, move_fun_1/8, move_fun_eclipse/6, move_fun_1_eclipse/6,
-         move_fun_by_name/6]).
+         move_fun_by_name/6, is_available_at/2]).
 
 -export([analyze_file/3]).
 
@@ -80,6 +80,21 @@
                   ast :: syntaxTree(),
                   info:: [{key(), any()}]}).
 %==========================================================================================
+
+-spec is_available_at(filename(), pos()) -> boolean().
+is_available_at(FileName, Pos) ->
+	{ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true),
+	case api_interface:pos_to_fun_def(AnnAST, Pos) of
+	{ok, _Def} ->
+		true;
+	{error, _Reason} ->
+		case pos_to_export(AnnAST, Pos) of
+		{ok,_ExpAttr} ->
+			true;
+		{error, _} ->
+			false
+		end
+	end.
 
 -spec move_fun_eclipse(file:filename(),integer(),integer(), string(),[dir()], integer()) ->
     {ok, [{filename(), filename(), string()}]}
@@ -139,7 +154,7 @@ move_fun_by_name_1(ModorFileName, FunName, Arity,TargetModorFileName, SearchPath
   | {question, string()}.
 move_fun(FName, Line, Col, TargetModorFileName, SearchPaths, Editor, TabWidth) ->
      ?wrangler_io("\nCMD: ~p:move_fun(~p, ~p, ~p, ~p, ~p,  ~p, ~p).\n",
-		  [?MODULE, FName, Line, Col, TargetModorFileName, SearchPaths, Editor, TabWidth]),
+	 	  [?MODULE, FName, Line, Col, TargetModorFileName, SearchPaths, Editor, TabWidth]),
      TargetFName = get_target_file_name(FName, TargetModorFileName),
      case TargetFName of
 	 FName -> throw({error, "The target module is the same as the current module."});
