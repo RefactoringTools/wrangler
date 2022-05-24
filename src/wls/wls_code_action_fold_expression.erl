@@ -41,7 +41,7 @@ precondition(Uri, Range) ->
 %%==============================================================================
 
 calculate_regions(Path, Pos) ->
-  {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(Path, true, [wls_utils:root_folder()], wls_utils:tab_with()),
+  {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(Path, true, wls_utils:search_paths(), wls_utils:tab_with()),
   case refac_fold_expression:pos_to_fun_clause(AnnAST, Pos) of
     {ok, {Mod, FunName, Arity, _FunClauseDef, ClauseIndex}} ->
         recalculate_regions(Path, {Mod, FunName, Arity, ClauseIndex});
@@ -52,7 +52,7 @@ recalculate_regions(Path, {Mod, FunName, Arity, ClauseIndex} = Data) ->
   try refac_fold_expression:fold_expr_by_name(
     Path, atom_to_list(Mod), atom_to_list(FunName), 
     integer_to_list(Arity), integer_to_list(ClauseIndex), 
-    [wls_utils:root_folder()], wls, wls_utils:tab_with()) 
+    wls_utils:search_paths(), wls, wls_utils:tab_with()) 
     of
       {ok, Candidates} -> 
         {ok, make_regions(Candidates), Data};

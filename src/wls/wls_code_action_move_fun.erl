@@ -49,7 +49,7 @@ execute_command(_) ->
 %%==============================================================================
 
 move_fun(Path, {Line, Col}, TargetFile) ->
-  try refac_move_fun:move_fun(Path, Line, Col, TargetFile, [wls_utils:root_folder()], wls, 8) of
+  try refac_move_fun:move_fun(Path, Line, Col, TargetFile, wls_utils:search_paths(), wls, 8) of
     {ok, Changes} -> 
         wls_utils:apply_edit(Changes);
     Err -> wls_utils:send_error("Unknown error occurred. See logs for details."),

@@ -8,7 +8,7 @@
 -export([ range/1
         , pos/1
         , path/1
-        , root_folder/0
+        , search_paths/0
         , enabled_refactorings/0
         , tab_with/0
         , create_file/1
@@ -56,13 +56,10 @@ tab_with() ->
   Config = wrangler_handler:wrangler_config(),
   maps:get("tab_with", Config, 8).
 
-%%==============================================================================
-%% General utilities
-%%==============================================================================
-
--spec root_folder() -> string().
-root_folder() ->
-  binary_to_list(els_uri:path(els_config:get(root_uri))).
+-spec search_paths() -> [string()]. %default: the project directory
+search_paths() ->
+  Config = wrangler_handler:wrangler_config(),
+  maps:get("search_paths", Config, [binary_to_list(els_uri:path(els_config:get(root_uri)))]).
 
 
 %%==============================================================================

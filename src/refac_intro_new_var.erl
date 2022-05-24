@@ -47,13 +47,8 @@ is_available_at(FileName, Start, End) ->
     case api_interface:pos_to_expr(AnnAST, Start, End) of
         {error, _} -> 
           false;
-        Exp ->
-          case api_interface:expr_to_fun(AnnAST, Exp) of
-            {ok, _Fun} ->
-                true;
-            {error, _} ->
-                false
-          end
+        _Exp ->
+          true
       end.
 
 %% =============================================================================================

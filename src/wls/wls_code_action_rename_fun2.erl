@@ -50,7 +50,7 @@ execute_command(_) ->
 %%==============================================================================
 
 rename_fun(Path, {Line, Col}, NewName) ->
-  try refac_rename_fun:rename_fun(Path, Line, Col,  NewName, [wls_utils:root_folder()], wls, 8) of
+  try refac_rename_fun:rename_fun(Path, Line, Col,  NewName, wls_utils:search_paths(), wls, 8) of
     {ok, Changes} -> 
         wls_utils:apply_edit(Changes);
     {error, Message} -> wls_utils:send_warning(Message);
