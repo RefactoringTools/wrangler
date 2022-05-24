@@ -10,7 +10,7 @@
 
 -callback init(els_dt_document:item()) -> state().
 -callback command(els_dt_document:item(), els_core:poi(), state()) ->
-  els_command:command().
+  els_command:command(). % make sure to prefix the command with "wrangler-"
 -callback pois(els_dt_document:item()) -> [els_core:poi()].
 -callback precondition(els_dt_document:item()) -> boolean().
 -optional_callbacks([ init/1
@@ -25,10 +25,6 @@
         , enabled_lenses/0
         , lenses/2
         ]).
-
-%%==============================================================================
-%% Includes
-%%==============================================================================
 
 
 %%==============================================================================

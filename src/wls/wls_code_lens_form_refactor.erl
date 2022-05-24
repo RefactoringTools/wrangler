@@ -12,9 +12,10 @@ command(Document, POI, _State) ->
   Title = title(),
   #{uri := Uri} = Document,
   #{data := #{counter := Num, refactor := Refactor}} = POI,
-  Argument = #{ <<"uri">>  => Uri
-              , <<"index">> => Num},
-  els_command:make_command(Title, re:replace(atom_to_binary(Refactor), "_", "-", [global, {return, binary}]), [Argument]).
+  Argument = #{ <<"uri">>  => Uri,
+                <<"index">> => Num},
+  Cmd = re:replace(atom_to_binary(Refactor), "_", "-", [global, {return, binary}]),
+  els_command:make_command(Title, <<"wrangler-", Cmd/binary>>, [Argument]).
 
 -spec pois(els_dt_document:item()) -> [els_core:poi()].
 pois(Document) ->

@@ -8,7 +8,7 @@
 
 command(Document, _POI, _State) ->
     Title = <<"Comment out spec">>,
-    CommandId = <<"comment-out-spec">>,
+    CommandId = <<"wrangler-comment-out-spec">>,
     #{uri := Uri} = Document,
     CommandArgs = [#{ <<"uri">>  => Uri}],
     els_command:make_command(Title, CommandId, CommandArgs).

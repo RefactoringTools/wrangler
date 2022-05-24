@@ -67,7 +67,7 @@ available_actions() ->
   [ <<"generalise-fun">>
   , <<"new-macro">>
   , <<"new-var">>
-  , <<"rename-fun2">>
+  , <<"rename-fun">>
   , <<"fold-expression">>
   , <<"move-fun">>
   , <<"new-fun">>
@@ -108,9 +108,10 @@ execute_command(Command, Arguments) ->
 -spec make_action(module(), els_core:uri(), els_core:range(), state()) -> code_action().
 make_action(CbModule, Uri, Range, State) ->
   Title = CbModule:title(),
+  Id = CbModule:id(),
   #{ title       => <<"Wrangler: ", Title/binary>>
    , kind        => ?CODE_ACTION_KIND_REFACTOR
-   , command     => els_command:make_command(CbModule:title(), CbModule:id(), [CbModule:command_args(Uri, Range, State)])
+   , command     => els_command:make_command(CbModule:title(), <<"wrangler-", Id/binary>>, [CbModule:command_args(Uri, Range, State)])
   }.
 
 

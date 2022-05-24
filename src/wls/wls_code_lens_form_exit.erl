@@ -12,7 +12,7 @@ command(Document, _POI, _State) ->
   Title = title(),
   #{uri := Uri} = Document,
   Argument = #{ <<"uri">>  => Uri},
-  els_command:make_command(Title, <<"form-exit">>, [Argument]).
+  els_command:make_command(Title, <<"wrangler-form-exit">>, [Argument]).
 
 -spec pois(els_dt_document:item()) -> [els_core:poi()].
 pois(Document) ->

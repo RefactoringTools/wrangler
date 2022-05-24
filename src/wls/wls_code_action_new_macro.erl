@@ -23,7 +23,7 @@ id() -> <<"new-macro">>.
 command_args(Uri, Range, _State) ->
   #{ 'range' => Range
    , 'uri' => Uri
-   , 'user_input' => #{'type' => atom, 'text' => <<"Macro name">>}
+   , 'user_input' => #{'type' => macro, 'text' => <<"Macro name">>}
   }.
 
 -spec precondition(els_core:uri(), els_core:range()) -> boolean().
@@ -38,15 +38,15 @@ precondition(Uri, Range) ->
   end.
 
 -spec execute_command([any()]) -> [map()].
-execute_command([#{ <<"range">> := Range
-                  , <<"uri">>   := Uri
-                  , <<"user_input">> := #{<<"value">> := NewMacro}}]) ->
+execute_command([#{ <<"range">> := Range,
+                    <<"uri">>   := Uri,
+                    <<"user_input">> := #{<<"value">> := NewMacro}}]) ->
   {StartPos, EndPos} = wls_utils:range(Range),
   Path = wls_utils:path(Uri),
   new_macro(Path, StartPos, EndPos, binary_to_list(NewMacro)),
   [];
-execute_command([#{ <<"range">> := Range
-                  , <<"uri">>   := Uri 
+execute_command([#{ <<"range">> := Range,
+                    <<"uri">>   := Uri
                 }]) ->
   {StartPos, EndPos} = wls_utils:range(Range),
   Path = wls_utils:path(Uri),

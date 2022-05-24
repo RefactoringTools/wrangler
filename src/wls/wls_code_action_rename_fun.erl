@@ -1,5 +1,4 @@
--module(wls_code_action_rename_fun2).
-%% 2th in order to avoid name clash with ELS`s rename_fun.
+-module(wls_code_action_rename_fun).
 
 -behaviour(wls_code_actions).
 
@@ -17,7 +16,7 @@
 title() -> <<"Rename Function">>.
 
 -spec id() -> action_id().
-id() -> <<"rename-fun2">>.
+id() -> <<"rename-fun">>.
 
 -spec command_args(els_core:uri(), els_core:range(), state()) -> map().
 command_args(Uri, Range, _State) ->
