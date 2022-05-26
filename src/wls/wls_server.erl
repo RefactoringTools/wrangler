@@ -52,11 +52,23 @@
 %%==============================================================================
 
 start() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+    case gen_server:start_link({local, ?MODULE}, ?MODULE, [], []) of
+        {ok, _Pid} -> ok;
+        ignore -> ?LOG_WARNING("WLS server failed to start. Reason: ignore");
+        {error,{already_started, _OtherPid}} -> ?LOG_INFO("WLS server already started.");
+        {error, Reason} -> ?LOG_WARNING("WLS server failed to start. Reason: ~p", [Reason])
+    end.
+
 
 -spec get_state(path()) -> {'under_refactoring', data()} | 'not_exists'.
 get_state(Path) ->
-    gen_server:call(wls_server, {get_state, Path}, 50000).
+    try gen_server:call(wls_server, {get_state, Path}, 50000)
+    catch _:{noproc, E} -> 
+        wls_utils:send_info("Restarting WLS Server..."),
+        ?LOG_INFO("Restarting WLS Server: ~p", [E]),
+        start(),
+        get_state(Path)
+    end.
 
 %% Initiate a wrangler form.
 -spec start_refactoring(path(), atom(), pos()) -> 'ok' | {'error', any()} | 'unknown_refactoring'.
