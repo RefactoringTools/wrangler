@@ -52,12 +52,7 @@
 %%==============================================================================
 
 start() ->
-    case gen_server:start_link({local, ?MODULE}, ?MODULE, [], []) of
-        {ok, _Pid} -> ok;
-        ignore -> ?LOG_WARNING("WLS server failed to start. Reason: ignore");
-        {error,{already_started, _OtherPid}} -> ?LOG_INFO("WLS server already started.");
-        {error, Reason} -> ?LOG_WARNING("WLS server failed to start. Reason: ~p", [Reason])
-    end.
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 
 -spec get_state(path()) -> {'under_refactoring', data()} | 'not_exists'.
