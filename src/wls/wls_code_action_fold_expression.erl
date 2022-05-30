@@ -114,4 +114,5 @@ execute_command([#{ <<"uri">> := Uri
         _ -> ?LOG_WARNING("Unknown refactoring: ~p", [Refactor])
       end;
     State -> ?LOG_WARNING("Unknown state: ~p", [State])
-  end.
+  end,
+  [].

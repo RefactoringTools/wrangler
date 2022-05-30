@@ -54,6 +54,7 @@
 start() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
+
 -spec get_state(path()) -> {'under_refactoring', data()} | 'not_exists'.
 get_state(Path) ->
     gen_server:call(wls_server, {get_state, Path}, 50000).
