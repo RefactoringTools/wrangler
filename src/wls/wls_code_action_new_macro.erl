@@ -61,7 +61,7 @@ execute_command([#{ <<"range">> := Range,
 %%==============================================================================
 
 new_macro(Path, StartPos, EndPos, NewMacro) ->
-  try refac_new_macro:new_macro(Path, StartPos, EndPos, NewMacro, wls_utils:search_paths(), wls, 8) of
+  try refac_new_macro:new_macro(Path, StartPos, EndPos, NewMacro, wls_utils:search_paths(), wls, wls_utils:tab_width()) of
     {ok, Changes} -> 
         wls_utils:apply_edit(Changes);
     Err -> wls_utils:send_error("Unknown error occurred. See logs for details."),

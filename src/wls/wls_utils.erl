@@ -10,7 +10,7 @@
         , path/1
         , search_paths/0
         , enabled_refactorings/0
-        , tab_with/0
+        , tab_width/0
         , create_file/1
         , rename_file/2
         , apply_edit/1
@@ -51,10 +51,10 @@ enabled_refactorings() ->
   Config = wrangler_handler:wrangler_config(),
   maps:get("enabled_refactorings", Config, []).
 
--spec tab_with() -> integer().
-tab_with() ->
+-spec tab_width() ->  integer().
+tab_width() ->
   Config = wrangler_handler:wrangler_config(),
-  maps:get("tab_with", Config, 8).
+  maps:get("tab_width", Config, 8).
 
 -spec search_paths() -> [string()]. %default: the project directory
 search_paths() ->

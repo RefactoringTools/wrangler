@@ -50,7 +50,7 @@ execute_command(_) ->
 %%==============================================================================
 
 rename_var(Path, {Line, Col}, NewName) ->
-  try refac_rename_var:rename_var(Path, Line, Col,  NewName, wls_utils:search_paths(), wls, 8) of
+  try refac_rename_var:rename_var(Path, Line, Col,  NewName, wls_utils:search_paths(), wls, wls_utils:tab_width()) of
     {ok, Changes} -> 
         wls_utils:apply_edit(Changes);
     {error, Message} -> wls_utils:send_warning(Message);

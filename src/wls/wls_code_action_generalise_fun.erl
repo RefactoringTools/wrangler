@@ -53,7 +53,7 @@ execute_command([#{ <<"range">> := Range
 %%==============================================================================
 
 generalise(Path, StartPos, EndPos, NewVar) ->
-  try refac_gen:generalise(Path, StartPos, EndPos, NewVar, wls_utils:search_paths(), wls, 8) of
+  try refac_gen:generalise(Path, StartPos, EndPos, NewVar, wls_utils:search_paths(), wls, wls_utils:tab_width()) of
     {ok, Changes} -> 
         wls_utils:apply_edit(Changes);
     {unknown_side_effect, Details} -> wls_utils:send_warning("Unknown side effect."),
