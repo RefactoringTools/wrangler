@@ -55,7 +55,7 @@ execute_command([#{ <<"range">> := Range
 %%==============================================================================
 
 new_fun(Path, StartPos, EndPos, NewFun) ->
-    try refac_new_fun:fun_extraction(Path, StartPos, EndPos, NewFun, wls, 8) of
+    try refac_new_fun:fun_extraction(Path, StartPos, EndPos, NewFun, wls, wls_utils:tab_width()) of
       {ok, Changes} -> 
           wls_utils:apply_edit(Changes);
       Err -> wls_utils:send_error("Unknown error occurred. See logs for details."),

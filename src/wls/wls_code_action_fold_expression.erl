@@ -41,7 +41,7 @@ precondition(Uri, Range) ->
 %%==============================================================================
 
 calculate_regions(Path, Pos) ->
-  {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(Path, true, wls_utils:search_paths(), wls_utils:tab_with()),
+  {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(Path, true, wls_utils:search_paths(), wls_utils:tab_width()),
   case refac_fold_expression:pos_to_fun_clause(AnnAST, Pos) of
     {ok, {Mod, FunName, Arity, _FunClauseDef, ClauseIndex}} ->
         recalculate_regions(Path, {Mod, FunName, Arity, ClauseIndex});
@@ -52,8 +52,8 @@ recalculate_regions(Path, {Mod, FunName, Arity, ClauseIndex} = Data) ->
   try refac_fold_expression:fold_expr_by_name(
     Path, atom_to_list(Mod), atom_to_list(FunName), 
     integer_to_list(Arity), integer_to_list(ClauseIndex), 
-    wls_utils:search_paths(), wls, wls_utils:tab_with()) 
-    of
+    wls_utils:search_paths(), wls, wls_utils:tab_width())
+  of
       {ok, Candidates} -> 
         {ok, make_regions(Candidates), Data};
       {error, Msg} -> {error, Msg}
@@ -73,8 +73,8 @@ make_regions([]) -> [].
 %%==============================================================================
 
 -spec execute_command([any()]) -> [map()].
-execute_command([#{ <<"range">> := Range
-                    , <<"uri">> := Uri
+execute_command([#{ <<"range">> := Range,
+                      <<"uri">> := Uri
                    }]) ->
   Path = wls_utils:path(Uri),
   {StartPos, _EndPos} = wls_utils:range(Range),             
@@ -83,8 +83,8 @@ execute_command([#{ <<"range">> := Range
     {error, Msg} -> wls_utils:send_warning(Msg)
   end,
   [];
-execute_command([#{ <<"uri">> := Uri
-                  , <<"index">> := Index}]) ->
+execute_command([#{ <<"uri">> := Uri,
+                    <<"index">> := Index}]) ->
   Path = wls_utils:path(Uri),
   case wls_server:get_state(Path) of
     {under_refactoring, #{refactor := Refactor, regions := Regions}} ->
@@ -95,21 +95,21 @@ execute_command([#{ <<"uri">> := Uri
             Region ->
               #{range := {StartLine, StartCol, EndLine, EndCol}, data := {Expr, NewExp, FunClauseDef}} = Region,
               Candidate = {StartLine, StartCol, EndLine, EndCol, Expr, NewExp, FunClauseDef},
-              try refac_fold_expression:fold_candidate(AnnAST, Candidate, Path, wls, wls_utils:tab_with(), "") of
-                {ok, [{OldPath, _NewPath, Text}]} -> 
-                  file:write_file(OldPath, Text),
-                  wls_server:refresh(OldPath);
-                Err -> 
-                  wls_utils:send_error("Unknown error occurred. See logs for details."),
-                  ?LOG_INFO("Error while doing fold: ~p", [Err])
-                catch
-                    _:{error, Message} -> wls_utils:send_warning(Message);
-                    _:E -> 
+              try refac_fold_expression:fold_candidate(AnnAST, Candidate, Path, wls, wls_utils:tab_width(), "") of
+                  {ok, [{OldPath, _NewPath, Text}]} ->
+                    file:write_file(OldPath, Text),
+                    wls_server:refresh(OldPath);
+                  Err ->
                     wls_utils:send_error("Unknown error occurred. See logs for details."),
-                    ?LOG_INFO("Error while doing fold: ~p", [E])
+                    ?LOG_INFO("Error while doing fold: ~p", [Err])
+              catch
+                  _:{error, Message} -> wls_utils:send_warning(Message);
+                  _:E -> 
+                  wls_utils:send_error("Unknown error occurred. See logs for details."),
+                  ?LOG_INFO("Error while doing fold: ~p", [E])
               end
-            catch 
-              _:_ -> wls_utils:send_info("Please wait while the form is being updated.")
+          catch 
+            _:_ -> wls_utils:send_info("Please wait while the form is being updated.")
           end;
         _ -> ?LOG_WARNING("Unknown refactoring: ~p", [Refactor])
       end;
