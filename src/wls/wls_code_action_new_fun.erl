@@ -45,8 +45,8 @@ execute_command([#{ <<"range">> := Range
                 }]) ->
   {StartPos, EndPos} = wls_utils:range(Range),
   Path = wls_utils:path(Uri),
-  ?LOG_INFO("Using default variable name: NewFun"),
-  new_fun(Path, StartPos, EndPos, "NewFun"),
+  ?LOG_INFO("Using default function name: newFun"),
+  new_fun(Path, StartPos, EndPos, "newFun"),
   [].
 
 
