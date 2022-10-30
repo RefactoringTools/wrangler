@@ -109,6 +109,21 @@ handle_call({create_form, {Path, Refactor, {Line, Col}}}, _From, State = #state{
                     ets:delete(EtsTab, Path),
                     {reply, {error, Msg}, State}
             end;
+        inline_var ->
+            case wls_code_action_inline_var:calculate_regions(Path, {Line+3, Col}) of
+                {ok, [], _} -> 
+                    delete_header(Path),
+                    ets:delete(EtsTab, Path),
+                    {reply, ok, State};
+                {ok, Candidates, Data} ->
+                    true=ets:insert(EtsTab, {Path, #{refactor => inline_var, regions => Candidates, data => Data}}),
+                    wls_utils:send_warning("Please do not modify the file manually."),
+                    {reply, ok, State};
+                {error, Msg} ->
+                    delete_header(Path),
+                    ets:delete(EtsTab, Path),
+                    {reply, {error, Msg}, State}
+            end;
         _ ->
             delete_header(Path),
             ?LOG_INFO("Unknown refactoring ~p", [Refactor]),
@@ -127,6 +142,20 @@ handle_call({recalculate_form, Path}, _From, State = #state{ets_tab=EtsTab}) ->
                             {reply, ok, State};
                         {ok, Candidates, Data2} ->
                             true=ets:insert(EtsTab, {Path, #{refactor => fold_expression, regions => Candidates, data => Data2}}),
+                            {reply, ok, State};
+                        {error, Msg} ->
+                            delete_header(Path),
+                            ets:delete(EtsTab, Path),
+                            {reply, {error, Msg}, State}
+                    end;
+                inline_var ->
+                    case wls_code_action_inline_var:recalculate_regions(Path, Data) of
+                        {ok, [], _} -> 
+                            delete_header(Path),
+                            ets:delete(EtsTab, Path),
+                            {reply, ok, State};
+                        {ok, Candidates, Data2} ->
+                            true=ets:insert(EtsTab, {Path, #{refactor => inline_var, regions => Candidates, data => Data2}}),
                             {reply, ok, State};
                         {error, Msg} ->
                             delete_header(Path),

@@ -43,9 +43,22 @@
 -module(refac_inline_var).
 
 -export([inline_var/6, inline_var_eclipse/5,
-	 inline_var_1/8, inline_var_eclipse_1/6]).
+	 inline_var_1/8, inline_var_eclipse_1/6, pos_to_form/2, get_var_define_match_expr/2, search_for_unfold_candidates/3]).
+-export([is_available_at/2]).
 
 -include("../include/wrangler_internal.hrl").
+
+is_available_at(FileName, Pos) ->
+	{ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(FileName, true),
+	try pos_to_form(AnnAST, Pos) of
+		Form -> 
+			case api_interface:pos_to_var(Form, Pos) of
+				{ok, _} -> true;
+				_  -> false
+			end
+	catch
+		_ -> false
+	end.
 
 %%-spec (inline_var/5::(filename(), integer(), integer(),[dir()], atom(), integer()) ->
 %%			   {ok, string()}|
@@ -90,10 +103,12 @@ inline_var_1(FName, Line, Col, SearchPaths, Editor, TabWidth) ->
 				    {ok, Cands, Cmd1};
 				eclipse ->
 				    {ok, Cands};
-                                _ ->
-                                    AnnAST1 = inline(AnnAST, Form, MatchExpr, VarNode, Cands),
-                                    wrangler_write_file:write_refactored_files([{{FName,FName},AnnAST1}], 
-                                                                               Editor, TabWidth, Cmd1)
+				wls -> 
+					{candidates, Cands};
+				_ ->
+					AnnAST1 = inline(AnnAST, Form, MatchExpr, VarNode, Cands),
+					wrangler_write_file:write_refactored_files([{{FName,FName},AnnAST1}], 
+																Editor, TabWidth, Cmd1)
 			    end
 		    end
 	    end;

@@ -72,6 +72,7 @@ available_actions() ->
   , <<"move-fun">>
   , <<"new-fun">>
   , <<"rename-var">>
+  , <<"inline-var">>
 ].
 
 -spec enabled_actions() ->  [action_id()].
