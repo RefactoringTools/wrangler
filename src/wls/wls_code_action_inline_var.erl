@@ -46,16 +46,21 @@ calculate_regions(Path, Pos) ->
 recalculate_regions(Path, Pos) -> 
   {ok, {AnnAST, _Info}} = wrangler_ast_server:parse_annotate_file(Path, true, wls_utils:search_paths(), wls_utils:tab_width()),
   Form = refac_inline_var:pos_to_form(AnnAST, Pos),
-  case api_interface:pos_to_var(Form, Pos) of
+  try api_interface:pos_to_var(Form, Pos) of
     {ok, VarNode} ->
-      case refac_inline_var:get_var_define_match_expr(Form, VarNode) of
+      try refac_inline_var:get_var_define_match_expr(Form, VarNode) of
         {ok, MatchExpr} ->
           Cands = refac_inline_var:search_for_unfold_candidates(Form, MatchExpr, VarNode),
-          {ok, make_regions(Cands), Pos};
+          {ok, make_regions(Cands), Pos},
+          Cands;
         _ -> {ok, [], Pos}
+      catch
+        _:{error, Msg} -> {error, Msg}
       end;
     _ -> % Wrangler deletes the variable declaration after the last inline 
       {ok, [], Pos}
+    catch 
+      _:{error, Msg} -> {error, Msg}
   end.
 
 make_regions([{{SLine, SCol}, {ELine, ECol}}| Rem]) -> 
