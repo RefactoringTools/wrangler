@@ -93,51 +93,35 @@ handle_call({create_form, {Path, Refactor, {Line, Col}}}, _From, State = #state{
     {ok, Text} = file:read_file(Path),
     delete_header(Path, Text),
     file:write_file(Path, erlang:iolist_to_binary([?header, Text])),
-    case Refactor of
-        fold_expression ->
-            case wls_code_action_fold_expression:calculate_regions(Path, {Line+3, Col}) of
+    case (wls_code_actions:cb_module(atom_to_binary(Refactor))):calculate_regions(Path, {Line+3, Col}) of
+        {ok, [], _} -> 
+            delete_header(Path),
+            ets:delete(EtsTab, Path),
+            {reply, ok, State};
+        {ok, Candidates, Data} ->
+            true=ets:insert(EtsTab, {Path, #{refactor => Refactor, regions => Candidates, data => Data}}),
+            wls_utils:send_warning("Please do not modify the file manually."),
+            {reply, ok, State};
+        {error, Msg} ->
+            delete_header(Path),
+            ets:delete(EtsTab, Path),
+            {reply, {error, Msg}, State}
+    end;
+handle_call({recalculate_form, Path}, _From, State = #state{ets_tab=EtsTab}) ->
+    case ets:lookup(EtsTab, Path) of
+        [{Path, #{refactor := Refactor, data := Data}}] -> 
+            case (wls_code_actions:cb_module(atom_to_binary(Refactor))):calculate_regions(Path, Data) of
                 {ok, [], _} -> 
                     delete_header(Path),
                     ets:delete(EtsTab, Path),
                     {reply, ok, State};
-                {ok, Candidates, Data} ->
-                    true=ets:insert(EtsTab, {Path, #{refactor => fold_expression, regions => Candidates, data => Data}}),
-                    wls_utils:send_warning("Please do not modify the file manually."),
+                {ok, Candidates, CandidateData} ->
+                    true=ets:insert(EtsTab, {Path, #{refactor => Refactor, regions => Candidates, data => CandidateData}}),
                     {reply, ok, State};
                 {error, Msg} ->
                     delete_header(Path),
                     ets:delete(EtsTab, Path),
                     {reply, {error, Msg}, State}
-            end;
-        _ ->
-            delete_header(Path),
-            ?LOG_INFO("Unknown refactoring ~p", [Refactor]),
-            {reply, unknown_refactoring, State}
-    end;
-
-handle_call({recalculate_form, Path}, _From, State = #state{ets_tab=EtsTab}) ->
-    case ets:lookup(EtsTab, Path) of
-        [{Path, #{refactor := Refactor, data := Data }}] -> 
-            case Refactor of
-                fold_expression ->
-                    case wls_code_action_fold_expression:recalculate_regions(Path, Data) of
-                        {ok, [], _} -> 
-                            delete_header(Path),
-                            ets:delete(EtsTab, Path),
-                            {reply, ok, State};
-                        {ok, Candidates, Data2} ->
-                            true=ets:insert(EtsTab, {Path, #{refactor => fold_expression, regions => Candidates, data => Data2}}),
-                            {reply, ok, State};
-                        {error, Msg} ->
-                            delete_header(Path),
-                            ets:delete(EtsTab, Path),
-                            {reply, {error, Msg}, State}
-                    end;
-                _ ->
-                    delete_header(Path),
-                    ets:delete(EtsTab, Path),
-                    ?LOG_INFO("Unknown refactoring ~p", [Refactor]),
-                    {reply, unknown_refactoring, State}
             end;
         _ -> 
             delete_header(Path),
