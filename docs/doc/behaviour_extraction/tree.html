@@ -1,0 +1,301 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Module tree</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module tree</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
+   Implements an indexed tree with isolated nodes.
+<p>Copyright © (C) 2015, Pablo Lamela, Simon Thompson</p>
+
+<p><b>Authors:</b> Pablo Lamela Seijas (<a href="mailto:P.Lamela-Seijas@kent.ac.uk"><tt>P.Lamela-Seijas@kent.ac.uk</tt></a>), Simon Thompson (<a href="mailto:S.J.Thompson@kent.ac.uk"><tt>S.J.Thompson@kent.ac.uk</tt></a>).</p>
+
+<h2><a name="description">Description</a></h2>
+   Implements an indexed tree with isolated nodes.
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-tree">tree()</a></h3>
+<p><b>abstract datatype</b>: <tt>tree()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-tree_node">tree_node()</a></h3>
+<p><b>abstract datatype</b>: <tt>tree_node()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-tree_ph">tree_ph()</a></h3>
+<p><b>abstract datatype</b>: <tt>tree_ph()</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#breadth_fold-3">breadth_fold/3</a></td><td>
+  Folds a function through a tree in breadth first order.</td></tr>
+<tr><td valign="top"><a href="#collapse_node-2">collapse_node/2</a></td><td>
+  Removes the node from the tree, and attaches its children to
+  its parent in the place it was.</td></tr>
+<tr><td valign="top"><a href="#copy_properties-2">copy_properties/2</a></td><td>
+  Copies the properties stored in the nodes of OriTree into
+  the nodes of DestTree.</td></tr>
+<tr><td valign="top"><a href="#create_node_pair-2">create_node_pair/2</a></td><td>
+  Joins two nodes into a single node (node pair).</td></tr>
+<tr><td valign="top"><a href="#dict_get-3">dict_get/3</a></td><td>
+  Like <a href="http://www.erlang.org/doc/man/dict.html#fetch-2" target="_top"><code>dict:fetch/2</code></a> but allows to specify a default value.</td></tr>
+<tr><td valign="top"><a href="#get_child_ph-1">get_child_ph/1</a></td><td>
+  Generates a placeholder for a child of the node.</td></tr>
+<tr><td valign="top"><a href="#get_children-2">get_children/2</a></td><td>
+  Returns the children of Node in the Tree.</td></tr>
+<tr><td valign="top"><a href="#get_data-1">get_data/1</a></td><td>
+  Returns the extra information stored on the tree.</td></tr>
+<tr><td valign="top"><a href="#get_node-2">get_node/2</a></td><td>
+  Finds a node by using its placeholder.</td></tr>
+<tr><td valign="top"><a href="#get_pair_tuple-1">get_pair_tuple/1</a></td><td>
+  Splits a node pair into the original two nodes.</td></tr>
+<tr><td valign="top"><a href="#get_parent-2">get_parent/2</a></td><td>
+  Returns the parent of Node in the Tree.</td></tr>
+<tr><td valign="top"><a href="#get_ph-1">get_ph/1</a></td><td>
+  Returns the placeholder for a node or node pair Node.</td></tr>
+<tr><td valign="top"><a href="#get_pos_in_parent-2">get_pos_in_parent/2</a></td><td>
+  Finds the position of Node in the list of children
+  of Parent.</td></tr>
+<tr><td valign="top"><a href="#get_property-2">get_property/2</a></td><td>
+  Extracts the value of a property from a tree_node.</td></tr>
+<tr><td valign="top"><a href="#get_root_node-1">get_root_node/1</a></td><td>
+  Returns the root node of the Tree.</td></tr>
+<tr><td valign="top"><a href="#get_value-1">get_value/1</a></td><td>
+  Extracts the value from a tree_node.</td></tr>
+<tr><td valign="top"><a href="#group_children-5">group_children/5</a></td><td>
+  Moves the children with PH ChildrenPHs to a new node, and
+  puts the new node in the place of the children, it returns
+  both the new node and the updated tree.</td></tr>
+<tr><td valign="top"><a href="#index_by-2">index_by/2</a></td><td>
+  Returns a map with the nodes of the Tree as values and the
+  result of applying Fun to them as keys.</td></tr>
+<tr><td valign="top"><a href="#is_node_pair-1">is_node_pair/1</a></td><td>
+  Returns whether a node is a node pair.</td></tr>
+<tr><td valign="top"><a href="#new-0">new/0</a></td><td>
+  Creates a empty tree.</td></tr>
+<tr><td valign="top"><a href="#new_node_ph-1">new_node_ph/1</a></td><td>
+  Creates a node from a placeholder.</td></tr>
+<tr><td valign="top"><a href="#replace_with_elements-3">replace_with_elements/3</a></td><td>
+  Replaces the first occurrence of Pattern in List with the elements
+  in the list Replacement.</td></tr>
+<tr><td valign="top"><a href="#set_data-2">set_data/2</a></td><td>
+  Sets the extra information stored on the tree.</td></tr>
+<tr><td valign="top"><a href="#set_property-3">set_property/3</a></td><td>
+  Sets the value property for a tree_node.</td></tr>
+<tr><td valign="top"><a href="#set_value-2">set_value/2</a></td><td>
+  Sets the value for a tree_node.</td></tr>
+<tr><td valign="top"><a href="#store_node-2">store_node/2</a></td><td>
+  Adds a new node to the tree, or updates an existing one.</td></tr>
+<tr><td valign="top"><a href="#upgrade_node-2">upgrade_node/2</a></td><td>
+  Moves a node upwards a level.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="breadth_fold-3">breadth_fold/3</a></h3>
+<div class="spec">
+<p><tt>breadth_fold(Fun::FFun, AccIn::Acc, Tree::<a href="#type-tree">tree()</a>) -&gt; AccOut::Acc</tt>
+<ul class="definitions"><li><tt>FFun = fun((CurrNode::<a href="#type-tree_node">tree_node()</a>, Acc) -&gt; Acc)</tt></li><li><tt>Acc = term()</tt></li></ul></p>
+</div><p>
+  Folds a function through a tree in breadth first order.</p>
+
+<h3 class="function"><a name="collapse_node-2">collapse_node/2</a></h3>
+<div class="spec">
+<p><tt>collapse_node(Tree_node, Tree) -&gt; any()</tt></p>
+</div><p>
+  Removes the node from the tree, and attaches its children to
+  its parent in the place it was. It expects the value of the
+  parent to be updated appropriately.</p>
+
+<h3 class="function"><a name="copy_properties-2">copy_properties/2</a></h3>
+<div class="spec">
+<p><tt>copy_properties(OriTree::<a href="tree.html#type-tree">tree:tree()</a>, DestTree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; <a href="tree.html#type-tree">tree:tree()</a></tt><br></p>
+</div><p>
+  Copies the properties stored in the nodes of OriTree into
+  the nodes of DestTree. Both trees must have the same exact
+  topology.</p>
+
+<h3 class="function"><a name="create_node_pair-2">create_node_pair/2</a></h3>
+<div class="spec">
+<p><tt>create_node_pair(Node1::<a href="tree.html#type-tree_node">tree:tree_node()</a>, Node2::<a href="tree.html#type-tree_node">tree:tree_node()</a>) -&gt; <a href="tree.html#type-tree_node">tree:tree_node()</a></tt><br></p>
+</div><p>
+  Joins two nodes into a single node (node pair)</p>
+
+<h3 class="function"><a name="dict_get-3">dict_get/3</a></h3>
+<div class="spec">
+<p><tt>dict_get(Key::KeyType, Dict::<a href="http://www.erlang.org/doc/man/dict.html#type-dict" target="_top">dict:dict</a>(KeyType, ValueType), DefaultValue::ValueType) -&gt; ValueType</tt><br></p>
+</div><p>
+  Like <a href="http://www.erlang.org/doc/man/dict.html#fetch-2" target="_top"><code>dict:fetch/2</code></a> but allows to specify a default value.</p>
+
+<h3 class="function"><a name="get_child_ph-1">get_child_ph/1</a></h3>
+<div class="spec">
+<p><tt>get_child_ph(Tree_node::<a href="#type-tree_node">tree_node()</a>) -&gt; {<a href="#type-tree_node">tree_node()</a>, <a href="#type-tree_ph">tree_ph()</a>}</tt><br></p>
+</div><p>
+  Generates a placeholder for a child of the node. A child generated
+  with the placeholder will be linked automatically to the node.
+  For the link to be created, the version of the node updated by
+  this function must be stored in the tree afterwards,
+  <a href="#store_node-2"><code>store_node/2</code></a>, as well as the child generated with the
+  placeholder.</p>
+
+<h3 class="function"><a name="get_children-2">get_children/2</a></h3>
+<div class="spec">
+<p><tt>get_children(Node::<a href="tree.html#type-tree_node">tree:tree_node()</a>, Tree::<a href="#type-tree">tree()</a>) -&gt; [<a href="tree.html#type-tree_node">tree:tree_node()</a>]</tt><br></p>
+</div><p>
+  Returns the children of Node in the Tree.</p>
+
+<h3 class="function"><a name="get_data-1">get_data/1</a></h3>
+<div class="spec">
+<p><tt>get_data(Tree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; Data::any()</tt><br></p>
+</div><p>
+  Returns the extra information stored on the tree.
+  This can be any term and is stored with <a href="#set_data-2"><code>set_data/2</code></a>.</p>
+
+<h3 class="function"><a name="get_node-2">get_node/2</a></h3>
+<div class="spec">
+<p><tt>get_node(PH::<a href="#type-tree_ph">tree_ph()</a>, Tree::<a href="#type-tree">tree()</a>) -&gt; error | {ok, <a href="#type-tree_node">tree_node()</a>}</tt><br></p>
+</div><p>
+  Finds a node by using its placeholder. It returns <code>error</code> if it
+  cannot be found.</p>
+
+<h3 class="function"><a name="get_pair_tuple-1">get_pair_tuple/1</a></h3>
+<div class="spec">
+<p><tt>get_pair_tuple(NodePair::<a href="tree.html#type-tree_node">tree:tree_node()</a>) -&gt; {<a href="tree.html#type-tree_node">tree:tree_node()</a>, <a href="tree.html#type-tree_node">tree:tree_node()</a>}</tt><br></p>
+</div><p>
+  Splits a node pair into the original two nodes</p>
+
+<h3 class="function"><a name="get_parent-2">get_parent/2</a></h3>
+<div class="spec">
+<p><tt>get_parent(Node::<a href="tree.html#type-tree_node">tree:tree_node()</a>, Tree::<a href="#type-tree">tree()</a>) -&gt; error | {ok, <a href="tree.html#type-tree_node">tree:tree_node()</a>}</tt><br></p>
+</div><p>
+  Returns the parent of Node in the Tree.</p>
+
+<h3 class="function"><a name="get_ph-1">get_ph/1</a></h3>
+<div class="spec">
+<p><tt>get_ph(Node::<a href="tree.html#type-tree_node">tree:tree_node()</a>) -&gt; {node, <a href="tree.html#type-tree_ph">tree:tree_ph()</a>} | {node_pair, <a href="tree.html#type-tree_ph">tree:tree_ph()</a>, <a href="tree.html#type-tree_ph">tree:tree_ph()</a>}</tt><br></p>
+</div><p>
+  Returns the placeholder for a node or node pair Node. That is,
+  an unique identifier for the Node, that is used as placeholder
+  in the original position of the node in its parent.
+  If Node is a node pair, two placeholders are returned.</p>
+
+<h3 class="function"><a name="get_pos_in_parent-2">get_pos_in_parent/2</a></h3>
+<div class="spec">
+<p><tt>get_pos_in_parent(Node::<a href="tree.html#type-tree_node">tree:tree_node()</a>, Parent::<a href="tree.html#type-tree_node">tree:tree_node()</a>) -&gt; error | pos_integer()</tt><br></p>
+</div><p>
+  Finds the position of Node in the list of children
+  of Parent.</p>
+
+<h3 class="function"><a name="get_property-2">get_property/2</a></h3>
+<div class="spec">
+<p><tt>get_property(Key::term(), Node::<a href="#type-tree_node">tree_node()</a>) -&gt; {ok, Value::term()} | error</tt><br></p>
+</div><p>
+  Extracts the value of a property from a tree_node. Returns error
+  if it is not set.</p>
+
+<h3 class="function"><a name="get_root_node-1">get_root_node/1</a></h3>
+<div class="spec">
+<p><tt>get_root_node(Tree::<a href="#type-tree">tree()</a>) -&gt; <a href="tree.html#type-tree_node">tree:tree_node()</a></tt><br></p>
+</div><p>
+  Returns the root node of the Tree.</p>
+
+<h3 class="function"><a name="get_value-1">get_value/1</a></h3>
+<div class="spec">
+<p><tt>get_value(Tree_node::<a href="#type-tree_node">tree_node()</a>) -&gt; term()</tt><br></p>
+</div><p>
+  Extracts the value from a tree_node.</p>
+
+<h3 class="function"><a name="group_children-5">group_children/5</a></h3>
+<div class="spec">
+<p><tt>group_children(Tree_node::<a href="#type-tree_node">tree_node()</a>, ChildrenPHs::[<a href="#type-tree_ph">tree_ph()</a>], NewParentValueGen::fun((PH::<a href="#type-tree_node">tree_node()</a>) -&gt; Value), Value, Tree::<a href="#type-tree">tree()</a>) -&gt; {<a href="#type-tree_node">tree_node()</a>, <a href="tree.html#type-tree">tree:tree()</a>}</tt>
+<ul class="definitions"><li><tt>Value = term()</tt></li></ul></p>
+</div><p>
+  Moves the children with PH ChildrenPHs to a new node, and
+  puts the new node in the place of the children, it returns
+  both the new node and the updated tree.
+  A value, both for the parent and the new node which reflect
+  the changes, is required.
+  All nodes are assumed to NOT be node pairs, (before and after).</p>
+
+<h3 class="function"><a name="index_by-2">index_by/2</a></h3>
+<div class="spec">
+<p><tt>index_by(Fun::fun((Node) -&gt; Idx), Tree::<a href="#type-tree">tree()</a>) -&gt; <a href="http://www.erlang.org/doc/man/dict.html#type-dict" target="_top">dict:dict</a>(Idx, Node)</tt>
+<ul class="definitions"><li><tt>Node = <a href="tree.html#type-tree_node">tree:tree_node()</a></tt></li><li><tt>Idx = term()</tt></li></ul></p>
+</div><p>
+  Returns a map with the nodes of the Tree as values and the
+  result of applying Fun to them as keys.</p>
+
+<h3 class="function"><a name="is_node_pair-1">is_node_pair/1</a></h3>
+<div class="spec">
+<p><tt>is_node_pair(Node::<a href="tree.html#type-tree_node">tree:tree_node()</a>) -&gt; boolean()</tt><br></p>
+</div><p>
+  Returns whether a node is a node pair</p>
+
+<h3 class="function"><a name="new-0">new/0</a></h3>
+<div class="spec">
+<p><tt>new() -&gt; <a href="#type-tree">tree()</a></tt><br></p>
+</div><p>
+  Creates a empty tree</p>
+
+<h3 class="function"><a name="new_node_ph-1">new_node_ph/1</a></h3>
+<div class="spec">
+<p><tt>new_node_ph(PH::<a href="#type-tree_ph">tree_ph()</a>) -&gt; <a href="#type-tree_node">tree_node()</a></tt><br></p>
+</div><p>
+  Creates a node from a placeholder. See <a href="#get_child_ph-1"><code>get_child_ph/1</code></a>.</p>
+
+<h3 class="function"><a name="replace_with_elements-3">replace_with_elements/3</a></h3>
+<div class="spec">
+<p><tt>replace_with_elements(Pattern::[El], List::[El], Replacement::[El]) -&gt; [El]</tt>
+<ul class="definitions"><li><tt>El = term()</tt></li></ul></p>
+</div><p>
+  Replaces the first occurrence of Pattern in List with the elements
+  in the list Replacement. It assumes there no partial matches.</p>
+
+<h3 class="function"><a name="set_data-2">set_data/2</a></h3>
+<div class="spec">
+<p><tt>set_data(Data::any(), Tree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; NewTree::<a href="tree.html#type-tree">tree:tree()</a></tt><br></p>
+</div><p>
+  Sets the extra information stored on the tree.
+  This can be any term and is retrieved from the tree with
+  <a href="#get_data-1"><code>get_data/1</code></a>.</p>
+
+<h3 class="function"><a name="set_property-3">set_property/3</a></h3>
+<div class="spec">
+<p><tt>set_property(Key::term(), Value::term(), Node::<a href="#type-tree_node">tree_node()</a>) -&gt; <a href="#type-tree_node">tree_node()</a></tt><br></p>
+</div><p>
+  Sets the value property for a tree_node. It does not update the tree,
+  obviously. For updating the tree the node must be stored
+  afterwards, <a href="#store_node-2"><code>store_node/2</code></a>.</p>
+
+<h3 class="function"><a name="set_value-2">set_value/2</a></h3>
+<div class="spec">
+<p><tt>set_value(Value::term(), Node::<a href="#type-tree_node">tree_node()</a>) -&gt; <a href="#type-tree_node">tree_node()</a></tt><br></p>
+</div><p>
+  Sets the value for a tree_node. It does not update the tree,
+  obviously. For updating the tree the node must be stored
+  afterwards, <a href="#store_node-2"><code>store_node/2</code></a>.</p>
+
+<h3 class="function"><a name="store_node-2">store_node/2</a></h3>
+<div class="spec">
+<p><tt>store_node(Node::<a href="tree.html#type-tree_node">tree:tree_node()</a>, Tree::<a href="#type-tree">tree()</a>) -&gt; <a href="#type-tree">tree()</a></tt><br></p>
+</div><p>
+  Adds a new node to the tree, or updates an existing one.</p>
+
+<h3 class="function"><a name="upgrade_node-2">upgrade_node/2</a></h3>
+<div class="spec">
+<p><tt>upgrade_node(Tree_node, Tree) -&gt; any()</tt></p>
+</div><p>
+  Moves a node upwards a level. It expects the value of the
+  two ancestors to be updated appropriately.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 5 2015, 16:30:18.</i></p>
+</body>
+</html>

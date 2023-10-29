@@ -1,0 +1,149 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Module cluster</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module cluster</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
+   Implements a cluster of nodes.
+<p>Copyright © (C) 2015, Pablo Lamela, Simon Thompson</p>
+
+<p><b>Authors:</b> Pablo Lamela Seijas (<a href="mailto:P.Lamela-Seijas@kent.ac.uk"><tt>P.Lamela-Seijas@kent.ac.uk</tt></a>), Simon Thompson (<a href="mailto:S.J.Thompson@kent.ac.uk"><tt>S.J.Thompson@kent.ac.uk</tt></a>).</p>
+
+<h2><a name="description">Description</a></h2>
+   Implements a cluster of nodes. The clusters save information about
+   which parent-child relationships between its nodes. Clusters are
+   assumed to have tree hierarchy (no loops), and, as such, a single
+   root.
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-cluster">cluster()</a></h3>
+<p><b>abstract datatype</b>: <tt>cluster(NodeType)</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#get_nodes-1">get_nodes/1</a></td><td>
+  Returns a set with all the nodes in the Cluster.</td></tr>
+<tr><td valign="top"><a href="#get_root-1">get_root/1</a></td><td>
+  Returns the root node of the Cluster.</td></tr>
+<tr><td valign="top"><a href="#has_node-2">has_node/2</a></td><td>
+  Returns a boolean that indicates whether the Cluster contains the Node.</td></tr>
+<tr><td valign="top"><a href="#is_indirection_cluster-1">is_indirection_cluster/1</a></td><td>
+  Returns whether the cluster is an indirection "fake" cluster or not.</td></tr>
+<tr><td valign="top"><a href="#make_indirection_cluster-0">make_indirection_cluster/0</a></td><td>
+  Creates an indirection "fake" cluster.</td></tr>
+<tr><td valign="top"><a href="#merge_clusters-2">merge_clusters/2</a></td><td>
+  Takes two clusters and returns a new cluster containing all the nodes or the
+  atom <code>disjoint</code> if they have no common nodes.</td></tr>
+<tr><td valign="top"><a href="#new_cluster-1">new_cluster/1</a></td><td>
+  Creates a cluster with a single node.</td></tr>
+<tr><td valign="top"><a href="#new_parent_child_to_cluster-2">new_parent_child_to_cluster/2</a></td><td>
+  Creates a cluster with a Node and its ParentNode.</td></tr>
+<tr><td valign="top"><a href="#remove_split-2">remove_split/2</a></td><td>
+  Removes the Node from the Cluster an returns the resulting subclusters created,
+  (those that were hold together by the removed node).</td></tr>
+<tr><td valign="top"><a href="#show_cluster-1">show_cluster/1</a></td><td>
+  Returns a more readable version of custers.</td></tr>
+<tr><td valign="top"><a href="#show_cluster-2">show_cluster/2</a></td><td>
+  Returns a more readable version of custers and takes a function
+  that is suppoused to make the nodes in the clusters more readable.</td></tr>
+<tr><td valign="top"><a href="#size-1">size/1</a></td><td>
+  Returns the number of nodes that the cluster has.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="get_nodes-1">get_nodes/1</a></h3>
+<div class="spec">
+<p><tt>get_nodes(Cluster::<a href="#type-cluster">cluster</a>(NodeType)) -&gt; [NodeType]</tt><br></p>
+</div><p>
+  Returns a set with all the nodes in the Cluster.</p>
+
+<h3 class="function"><a name="get_root-1">get_root/1</a></h3>
+<div class="spec">
+<p><tt>get_root(Cluster::<a href="#type-cluster">cluster</a>(NodeType)) -&gt; OutNode::NodeType</tt><br></p>
+</div><p>
+  Returns the root node of the Cluster.</p>
+
+<h3 class="function"><a name="has_node-2">has_node/2</a></h3>
+<div class="spec">
+<p><tt>has_node(Node::NodeType, Cluster::<a href="#type-cluster">cluster</a>(NodeType)) -&gt; boolean()</tt>
+<ul class="definitions"><li><tt>NodeType = term()</tt></li></ul></p>
+</div><p>
+  Returns a boolean that indicates whether the Cluster contains the Node.</p>
+
+<h3 class="function"><a name="is_indirection_cluster-1">is_indirection_cluster/1</a></h3>
+<div class="spec">
+<p><tt>is_indirection_cluster(X1::<a href="#type-cluster">cluster</a>(term())) -&gt; false | {true, reference()}</tt><br></p>
+</div><p>
+  Returns whether the cluster is an indirection "fake" cluster or not.</p>
+
+<h3 class="function"><a name="make_indirection_cluster-0">make_indirection_cluster/0</a></h3>
+<div class="spec">
+<p><tt>make_indirection_cluster() -&gt; {reference(), <a href="#type-cluster">cluster</a>(term())}</tt><br></p>
+</div><p>
+  Creates an indirection "fake" cluster.</p>
+
+<h3 class="function"><a name="merge_clusters-2">merge_clusters/2</a></h3>
+<div class="spec">
+<p><tt>merge_clusters(Cluster::<a href="#type-cluster">cluster</a>(Node), X2::<a href="#type-cluster">cluster</a>(Node)) -&gt; {ok, <a href="#type-cluster">cluster</a>(Node)} | disjoint</tt><br></p>
+</div><p>
+  Takes two clusters and returns a new cluster containing all the nodes or the
+  atom <code>disjoint</code> if they have no common nodes. It assumes that the clusters
+  contain subtrees that belong to global tree, and, as such, nor the individual
+  clusters nor the result cluster should contain any loops, and no node should
+  have several parents.</p>
+
+<h3 class="function"><a name="new_cluster-1">new_cluster/1</a></h3>
+<div class="spec">
+<p><tt>new_cluster(Node::NodeType) -&gt; <a href="#type-cluster">cluster</a>(NodeType)</tt><br></p>
+</div><p>
+  Creates a cluster with a single node.</p>
+
+<h3 class="function"><a name="new_parent_child_to_cluster-2">new_parent_child_to_cluster/2</a></h3>
+<div class="spec">
+<p><tt>new_parent_child_to_cluster(Node::N, Node::N) -&gt; <a href="#type-cluster">cluster</a>(N)</tt>
+<ul class="definitions"><li><tt>N = term()</tt></li></ul></p>
+</div><p>
+  Creates a cluster with a Node and its ParentNode.</p>
+
+<h3 class="function"><a name="remove_split-2">remove_split/2</a></h3>
+<div class="spec">
+<p><tt>remove_split(Node::NodeType, Cluster::<a href="#type-cluster">cluster</a>(NodeType)) -&gt; [<a href="#type-cluster">cluster</a>(NodeType)]</tt><br></p>
+</div><p>
+  Removes the Node from the Cluster an returns the resulting subclusters created,
+  (those that were hold together by the removed node).</p>
+
+<h3 class="function"><a name="show_cluster-1">show_cluster/1</a></h3>
+<div class="spec">
+<p><tt>show_cluster(Clus::<a href="#type-cluster">cluster</a>(term())) -&gt; #{}</tt><br></p>
+</div><p>
+  Returns a more readable version of custers. This is done by
+  transforming dicts and sets into lists.</p>
+
+<h3 class="function"><a name="show_cluster-2">show_cluster/2</a></h3>
+<div class="spec">
+<p><tt>show_cluster(Fun::fun((NodeType) -&gt; any()), Cluster::<a href="#type-cluster">cluster</a>(NodeType)) -&gt; #{}</tt><br></p>
+</div><p>
+  Returns a more readable version of custers and takes a function
+  that is suppoused to make the nodes in the clusters more readable.
+  This is done by transforming dicts and sets into lists and by
+  applying the supplied function to the nodes.</p>
+
+<h3 class="function"><a name="size-1">size/1</a></h3>
+<div class="spec">
+<p><tt>size(Cluster::<a href="#type-cluster">cluster</a>(term())) -&gt; non_neg_integer()</tt><br></p>
+</div><p>
+  Returns the number of nodes that the cluster has.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 5 2015, 16:30:19.</i></p>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Module fun_blocks</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module fun_blocks</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
+   Tools to join several instructions in the same block.
+<p>Copyright © (C) 2015, Pablo Lamela, Simon Thompson</p>
+
+<p><b>Authors:</b> Pablo Lamela Seijas (<a href="mailto:P.Lamela-Seijas@kent.ac.uk"><tt>P.Lamela-Seijas@kent.ac.uk</tt></a>), Simon Thompson (<a href="mailto:S.J.Thompson@kent.ac.uk"><tt>S.J.Thompson@kent.ac.uk</tt></a>).</p>
+
+<h2><a name="description">Description</a></h2>
+   Tools to join several instructions in the same block.
+   This is done to avoid the creation of several contiguous functions
+   which could be expressed as a single one.
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#add_blocks_to_trees-6">add_blocks_to_trees/6</a></td><td>
+  Searches for functions with several consecutive mapped/unmapped
+  children in the frontier and groups them into block expressions.</td></tr>
+<tr><td valign="top"><a href="#create_artificial_block_value-2">create_artificial_block_value/2</a></td><td>
+  Creates a block expression with ChildrenPHs as subtrees and
+  sets the position and the range to something useful.</td></tr>
+<tr><td valign="top"><a href="#get_body-1">get_body/1</a></td><td>
+  Returns the body of a clause or block expression (ClauseOrBlock).</td></tr>
+<tr><td valign="top"><a href="#replace_children_in_body-3">replace_children_in_body/3</a></td><td>
+  Replaces the old subtrees (OldChildren) in the body of NodeValue
+  with the new subtrees (NewChildren), leaving the rest untouched.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="add_blocks_to_trees-6">add_blocks_to_trees/6</a></h3>
+<div class="spec">
+<p><tt>add_blocks_to_trees(LeftTree::<a href="tree.html#type-tree">tree:tree()</a>, RightTree::<a href="tree.html#type-tree">tree:tree()</a>, Mapping::<a href="da_map.html#type-da_map">da_map:da_map</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>, <a href="tree.html#type-tree_node">tree:tree_node()</a>), CommCluster::<a href="cluster_dict.html#type-cluster_dict">cluster_dict:cluster_dict</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>), ExLeftClus::<a href="cluster_dict.html#type-cluster_dict">cluster_dict:cluster_dict</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>), ExRightClus::<a href="cluster_dict.html#type-cluster_dict">cluster_dict:cluster_dict</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>)) -&gt; {<a href="tree.html#type-tree">tree:tree()</a>, <a href="tree.html#type-tree">tree:tree()</a>}</tt><br></p>
+</div><p>
+  Searches for functions with several consecutive mapped/unmapped
+  children in the frontier and groups them into block expressions.</p>
+
+<h3 class="function"><a name="create_artificial_block_value-2">create_artificial_block_value/2</a></h3>
+<div class="spec">
+<p><tt>create_artificial_block_value(Tree::<a href="tree.html#type-tree">tree:tree()</a>, ChildrenPHs::[<a href="tree.html#type-tree_ph">tree:tree_ph()</a>]) -&gt; wrangler_syntax:syntaxTree()</tt><br></p>
+</div><p>
+  Creates a block expression with ChildrenPHs as subtrees and
+  sets the position and the range to something useful.</p>
+
+<h3 class="function"><a name="get_body-1">get_body/1</a></h3>
+<div class="spec">
+<p><tt>get_body(ClauseOrBlock::wrangler_syntax:syntaxTree()) -&gt; [wrangler_syntax:syntaxTree()]</tt><br></p>
+</div><p>
+  Returns the body of a clause or block expression (ClauseOrBlock).</p>
+
+<h3 class="function"><a name="replace_children_in_body-3">replace_children_in_body/3</a></h3>
+<div class="spec">
+<p><tt>replace_children_in_body(OldChildren::[El], NewChildren::[El], NodeValue::wrangler_syntax:syntaxTree()) -&gt; wrangler_syntax:syntaxTree()</tt><br></p>
+</div><p>
+  Replaces the old subtrees (OldChildren) in the body of NodeValue
+  with the new subtrees (NewChildren), leaving the rest untouched.
+  It assumes that the node (NodeValue) is a clause or a block expression.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 5 2015, 16:30:18.</i></p>
+</body>
+</html>
