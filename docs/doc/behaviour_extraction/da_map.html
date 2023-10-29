@@ -1,0 +1,161 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Module da_map</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module da_map</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
+   It implements a double associative map.
+<p>Copyright © (C) 2015, Pablo Lamela, Simon Thompson</p>
+
+<p><b>Authors:</b> Pablo Lamela Seijas (<a href="mailto:P.Lamela-Seijas@kent.ac.uk"><tt>P.Lamela-Seijas@kent.ac.uk</tt></a>), Simon Thompson (<a href="mailto:S.J.Thompson@kent.ac.uk"><tt>S.J.Thompson@kent.ac.uk</tt></a>).</p>
+
+<h2><a name="description">Description</a></h2>
+   It implements a double associative map. It is a key-value
+   storage that can be queried through both the key and the
+   value.
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-da_map">da_map()</a></h3>
+<p><b>abstract datatype</b>: <tt>da_map(Key, Value)</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#delete_by_key-2">delete_by_key/2</a></td><td>
+  Remove the entry with Key as key from the DaMap if it exists.</td></tr>
+<tr><td valign="top"><a href="#delete_by_value-2">delete_by_value/2</a></td><td>
+  Remove the entry with Value as value from the DaMap if it exists.</td></tr>
+<tr><td valign="top"><a href="#find_key-2">find_key/2</a></td><td>
+  Returns <code>{ok, Key}</code> if there is an entry with Value as value
+  in the da_map, returns <code>error</code> otherwise.</td></tr>
+<tr><td valign="top"><a href="#find_value-2">find_value/2</a></td><td>
+  Returns <code>{ok, Value}</code> if there is an entry with Key as key in
+  the da_map, returns <code>error</code> otherwise.</td></tr>
+<tr><td valign="top"><a href="#fold-3">fold/3</a></td><td>
+  Folds the function Fun through all the entries of the DaMap.</td></tr>
+<tr><td valign="top"><a href="#has_key-2">has_key/2</a></td><td>
+  Returns true if there is an entry with Key as key in the da_map,
+  returns false otherwise.</td></tr>
+<tr><td valign="top"><a href="#has_pair-3">has_pair/3</a></td><td>
+  Returns true if there is an entry with Key as key and Value as
+  value in the DaMap, returns false otherwise.</td></tr>
+<tr><td valign="top"><a href="#has_value-2">has_value/2</a></td><td>
+  Returns true if there is an entry with Value as value in the
+  DaMap, returns false otherwise.</td></tr>
+<tr><td valign="top"><a href="#new-0">new/0</a></td><td>
+  It creates an empty da_map.</td></tr>
+<tr><td valign="top"><a href="#put-3">put/3</a></td><td>
+  Stores an entry with Key as key and Value as value in the DaMap.</td></tr>
+<tr><td valign="top"><a href="#size-1">size/1</a></td><td>
+  Returns the number of entries of the DaMap.</td></tr>
+<tr><td valign="top"><a href="#union-2">union/2</a></td><td>
+  Joins DaMap1 and DaMap2 by inserting all the entries of DaMap2 in
+  DaMap1.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="delete_by_key-2">delete_by_key/2</a></h3>
+<div class="spec">
+<p><tt>delete_by_key(Key, DaMap::<a href="#type-da_map">da_map</a>(Key, Value)) -&gt; <a href="#type-da_map">da_map</a>(Key, Value)</tt>
+<ul class="definitions"><li><tt>Key = any()</tt></li><li><tt>Value = any()</tt></li></ul></p>
+</div><p>
+  Remove the entry with Key as key from the DaMap if it exists.</p>
+
+<h3 class="function"><a name="delete_by_value-2">delete_by_value/2</a></h3>
+<div class="spec">
+<p><tt>delete_by_value(Value, DaMap::<a href="#type-da_map">da_map</a>(Key, Value)) -&gt; <a href="#type-da_map">da_map</a>(Key, Value)</tt>
+<ul class="definitions"><li><tt>Key = any()</tt></li><li><tt>Value = any()</tt></li></ul></p>
+</div><p>
+  Remove the entry with Value as value from the DaMap if it exists.</p>
+
+<h3 class="function"><a name="find_key-2">find_key/2</a></h3>
+<div class="spec">
+<p><tt>find_key(Value, DaMap::<a href="#type-da_map">da_map</a>(Key, Value)) -&gt; {ok, Key} | error</tt>
+<ul class="definitions"><li><tt>Key = any()</tt></li><li><tt>Value = any()</tt></li></ul></p>
+</div><p>
+  Returns <code>{ok, Key}</code> if there is an entry with Value as value
+  in the da_map, returns <code>error</code> otherwise.</p>
+
+<h3 class="function"><a name="find_value-2">find_value/2</a></h3>
+<div class="spec">
+<p><tt>find_value(Key, DaMap::<a href="#type-da_map">da_map</a>(Key, Value)) -&gt; {ok, Value} | error</tt>
+<ul class="definitions"><li><tt>Key = any()</tt></li><li><tt>Value = any()</tt></li></ul></p>
+</div><p>
+  Returns <code>{ok, Value}</code> if there is an entry with Key as key in
+  the da_map, returns <code>error</code> otherwise.</p>
+
+<h3 class="function"><a name="fold-3">fold/3</a></h3>
+<div class="spec">
+<p><tt>fold(Fun, AccIn::Acc, DaMap::<a href="#type-da_map">da_map</a>(Key, Value)) -&gt; AccOut::Acc</tt>
+<ul class="definitions"><li><tt>Fun = fun((Key, Value, Acc) -&gt; Acc)</tt></li><li><tt>Acc = term()</tt></li><li><tt>Key = any()</tt></li><li><tt>Value = any()</tt></li></ul></p>
+</div><p>
+  Folds the function Fun through all the entries of the DaMap.</p>
+<p><b>See also:</b> <a href="http://www.erlang.org/doc/man/dict.html#fold-3" target="_top">dict:fold/3</a>.</p>
+
+<h3 class="function"><a name="has_key-2">has_key/2</a></h3>
+<div class="spec">
+<p><tt>has_key(Key, DaMap::<a href="#type-da_map">da_map</a>(Key, any())) -&gt; boolean()</tt>
+<ul class="definitions"><li><tt>Key = any()</tt></li></ul></p>
+</div><p>
+  Returns true if there is an entry with Key as key in the da_map,
+  returns false otherwise.</p>
+
+<h3 class="function"><a name="has_pair-3">has_pair/3</a></h3>
+<div class="spec">
+<p><tt>has_pair(Key, Value, DaMap::<a href="#type-da_map">da_map</a>(Key, Value)) -&gt; boolean()</tt>
+<ul class="definitions"><li><tt>Key = any()</tt></li><li><tt>Value = any()</tt></li></ul></p>
+</div><p>
+  Returns true if there is an entry with Key as key and Value as
+  value in the DaMap, returns false otherwise.</p>
+
+<h3 class="function"><a name="has_value-2">has_value/2</a></h3>
+<div class="spec">
+<p><tt>has_value(Value, DaMap::<a href="#type-da_map">da_map</a>(any(), Value)) -&gt; boolean()</tt>
+<ul class="definitions"><li><tt>Value = any()</tt></li></ul></p>
+</div><p>
+  Returns true if there is an entry with Value as value in the
+  DaMap, returns false otherwise.</p>
+
+<h3 class="function"><a name="new-0">new/0</a></h3>
+<div class="spec">
+<p><tt>new() -&gt; <a href="#type-da_map">da_map</a>(any(), any())</tt><br></p>
+</div><p>
+  It creates an empty da_map.</p>
+
+<h3 class="function"><a name="put-3">put/3</a></h3>
+<div class="spec">
+<p><tt>put(Key, Value, DaMap::<a href="#type-da_map">da_map</a>(Key, Value)) -&gt; <a href="#type-da_map">da_map</a>(Key, Value)</tt>
+<ul class="definitions"><li><tt>Key = any()</tt></li><li><tt>Value = any()</tt></li></ul></p>
+</div><p>
+  Stores an entry with Key as key and Value as value in the DaMap.
+  It removes all existing entries with Key as key or Value as value.</p>
+
+<h3 class="function"><a name="size-1">size/1</a></h3>
+<div class="spec">
+<p><tt>size(DaMap::<a href="#type-da_map">da_map</a>(any(), any())) -&gt; non_neg_integer()</tt><br></p>
+</div><p>
+  Returns the number of entries of the DaMap.</p>
+
+<h3 class="function"><a name="union-2">union/2</a></h3>
+<div class="spec">
+<p><tt>union(DaMap1::<a href="#type-da_map">da_map</a>(Key, Value), DaMap2::<a href="#type-da_map">da_map</a>(Key, Value)) -&gt; <a href="#type-da_map">da_map</a>(Key, Value)</tt>
+<ul class="definitions"><li><tt>Key = any()</tt></li><li><tt>Value = any()</tt></li></ul></p>
+</div><p>throws <tt>da_maps_not_disjoint</tt></p>
+<p>
+  Joins DaMap1 and DaMap2 by inserting all the entries of DaMap2 in
+  DaMap1. It assumes DaMap1 and DaMap2 are disjoint in terms of both
+  their keys and their values. It throws da_maps_not_disjoint if
+  DaMap1 and DaMap2 are not disjoint in terms of keys or values.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 5 2015, 16:30:19.</i></p>
+</body>
+</html>

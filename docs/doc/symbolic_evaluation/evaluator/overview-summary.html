@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Erlang Teaching Tool for Symbolic Evaluation</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<h1>Erlang Teaching Tool for Symbolic Evaluation</h1>
+<p>Copyright © 2014 Gabriela Sampaio, Simon Thompson</p>
+<p><b>Authors:</b> Gabriela Sampaio (<a href="mailto:gaby.sampaio@gmail.com"><tt>gaby.sampaio@gmail.com</tt></a>), Simon Thompson (<a href="mailto:s.j.thompson@kent.ac.uk"><tt>s.j.thompson@kent.ac.uk</tt></a>).</p>
+<p>The Erlang Teaching Tool for Symbolic Evaluation was created 
+with the aim of teaching how expressions are evaluated in Erlang.</p>
+
+<h3><a name="Contents">Contents</a></h3>
+
+<ol>
+  <li><a href="#Introduction">Introduction</a></li>
+  <li><a href="#Download">Download</a></li>
+  <li><a href="#Symbolic_Transformations">Symbolic Transformations</a></li>
+  <li><a href="#How_to_use">How to use</a></li>
+</ol>
+
+<h3><a name="Introduction">Introduction</a></h3><p>
+Symbolic evaluation is a form of static program execution in which symbolic expressions are used to represent arbitrary values of program variables and computations. This tool was created with the aim of teaching how expressions are evaluated in Erlang. The tool is able to evaluate not only arbitrary expressions, but also symbolic ones. The tool can be used by any Erlang programmer, but is more useful for beginners or teachers in the area. The idea is that the user can interact with the application by evaluating an expression step-by-step. <br><br>
+Symbolic transformations were created using Wrangler API. Wrangler is the refactoring tool for Erlang and it is user-extensible, i.e., users can create their own refactorings. With this possibility, some simplifications were built and are used in this project. </p>
+
+<h3><a name="Symbolic_Transformations">Symbolic Transformations</a></h3>
+Some symbolic transformations were created in the project. Expressions are simplified according to this set of transformations. To make the tool more organized and easier to understand, we divided the transformations into eight categories:
+<ul>
+<li><a href="../core/core_arithmetics.html">Arithmetic Operators</a></li>
+<li><a href="../core/core_boolean_operators.html">Boolean Operators</a></li>
+<li><a href="../core/core_case.html">Case Blocks</a></li>
+<li><a href="../core/core_funApp.html">Function Calls</a></li>
+<li><a href="../core/core_if.html">If Blocks</a></li>
+<li><a href="eval_inline_variable.html">Inline Variable</a></li>
+<li><a href="../core/core_lists_concat.html">Lists Concatenations</a></li>
+<li><a href="../core/core_unreferenced_assign.html">Unreferenced Assignments</a></li>
+</ul>
+
+<p>These simplifications are always used together. Thus, if the user types an expression that can be simplified by more than one type of evaluator, they are both used and each one simplifies a part of the expression. </p>
+
+<h3><a name="Download">Download</a></h3><p>
+The tool is distributed with the Wrangler tool. The user needs to download Wrangler from the Github website <a href="https://github.com/RefactoringTools/Wrangler" target="_top"><tt>https://github.com/RefactoringTools/Wrangler</tt></a>, and run the evaluator in the Erlang shell.</p>
+
+<h3><a name="How_to_use">How to use</a></h3><p>
+To use the evaluator, the user needs to have Wrangler and Erlang installed. The application works in the Erlang shell. To start the evaluator, one of the functions <i>start/1</i> and <i>start/2</i> should be called. This function is described in the <a href="evaluator.html">Evaluator</a> module. After the evaluator is started, two inputs are needed: <br>
+- <b>An expression</b>: the user should write Erlang files containing definitions (modules, functions) and ideally, this expression should use these definitions. The expression can be a function call, an arithmetic calculation, a lists concatenation, etc.<br> 
+- <b>A number of steps</b>: the user can choose a number of steps to be applied in the evaluation process. This number can be:<br>
+     *A positive number: steps are applied "forward" in the evaluation process. <br>
+     *A negative number: the respective number of steps are undone. <br>
+     *"F" or "f" (for "full"): all steps are applied. <br></p>
+
+At the end of each iteration, the user has the chance to continue with the evaluation or start a new evaluation. If the user chooses to continue with the current evaluation, the only input requested is a new number of steps to be applied. Otherwise, the user chooses
+a new expression to be evaluated and a new evaluation is started.
+
+<hr>
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 5 2015, 16:30:16.</i></p>
+</body>
+</html>

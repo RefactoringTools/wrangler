@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Module core_unreferenced_assign</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module core_unreferenced_assign</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>  
+Remove Unreferenced Assignments - Removes assignments when the variables are not used afterwards.
+<p>Copyright © (C) 2014, Gabriela C. Sampaio, Roberto S. M. de Barros Filho, Simon  Thompson</p>
+
+<p><b>Authors:</b> Gabriela Cunha Sampaio, Roberto Souto Maior de Barros Filho.</p>
+
+<h2><a name="description">Description</a></h2><p>  
+Remove Unreferenced Assignments - Removes assignments when the variables are not used afterwards.</p>
+ 
+  For example, the expression: <br>
+  <em>
+  begin <br>
+  <div class="first_align">
+   A = 10, <br>
+   B = 20, <br>
+   C = 30, <br>
+   E = A + B + C, <br>
+   A <br>
+  </div>
+  end. <br>
+  </em>
+  can be simplified by these transformations to: <br>
+  <em>
+  begin <br>
+  <div class="first_align">
+   A = 10, <br>
+   A <br>
+  </div>
+  end. <br>
+  </em>
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#collector_var_expr_value-1">collector_var_expr_value/1</a></td><td>
+ Collects all the assignments within <em>Scope</em>.</td></tr>
+<tr><td valign="top"><a href="#collector_variable_occurrences-1">collector_variable_occurrences/1</a></td><td>
+ Collects all the variable occurrences within <em>Scope</em>.</td></tr>
+<tr><td valign="top"><a href="#rules-2">rules/2</a></td><td>
+ List of rules to remove unreferenced assignments.</td></tr>
+<tr><td valign="top"><a href="#variable_assignment_cond-2">variable_assignment_cond/2</a></td><td>
+  Returns <em>true</em> if the variable is unused and <em>false</em> otherwise.</td></tr>
+<tr><td valign="top"><a href="#variable_assignment_rule-1">variable_assignment_rule/1</a></td><td>
+  Removes unreferenced assignments in a list of steps.</td></tr>
+<tr><td valign="top"><a href="#variable_assignment_rule_begin-1">variable_assignment_rule_begin/1</a></td><td>
+  Removes unreferenced assignments in a list of steps within a <em>begin/end</em> block.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="collector_var_expr_value-1">collector_var_expr_value/1</a></h3>
+<div class="spec">
+<p><tt>collector_var_expr_value(Scope::<a href="#type-syntaxTree">syntaxTree()</a>) -&gt; [{[{atom(), <a href="#type-pos">pos()</a>}], <a href="#type-syntaxTree">syntaxTree()</a>}]</tt><br></p>
+</div><p>
+ Collects all the assignments within <em>Scope</em>.</p>
+
+<h3 class="function"><a name="collector_variable_occurrences-1">collector_variable_occurrences/1</a></h3>
+<div class="spec">
+<p><tt>collector_variable_occurrences(Scope::<a href="#type-syntaxTree">syntaxTree()</a>) -&gt; [{atom(), <a href="#type-pos">pos()</a>}]</tt><br></p>
+</div><p>
+ Collects all the variable occurrences within <em>Scope</em>.</p>
+
+<h3 class="function"><a name="rules-2">rules/2</a></h3>
+<div class="spec">
+<p><tt>rules(X1::term(), Info::[{atom(), <a href="#type-pos">pos()</a>}]) -&gt; [<a href="#type-rule">rule()</a>]</tt><br></p>
+</div><p>
+ List of rules to remove unreferenced assignments. This list contains the following rules:
+ <ul>
+ <li><a href="#variable_assignment_rule-1">variable_assignment_rule/1</a></li>
+ <li><a href="#variable_assignment_rule_begin-1">variable_assignment_rule_begin/1</a></li>
+ <li>Rule to remove the assignment, when it is the only expression. In that case, the bounding <em>Var@ = Expr@</em> becomes <em>Expr@</em>.</li>
+ </ul></p>
+
+<h3 class="function"><a name="variable_assignment_cond-2">variable_assignment_cond/2</a></h3>
+<div class="spec">
+<p><tt>variable_assignment_cond(Var@::<a href="#type-syntaxTree">syntaxTree()</a>, Info::[{atom(), <a href="#type-pos">pos()</a>}]) -&gt; boolean()</tt><br></p>
+</div><p>
+  Returns <em>true</em> if the variable is unused and <em>false</em> otherwise.</p>
+
+<h3 class="function"><a name="variable_assignment_rule-1">variable_assignment_rule/1</a></h3>
+<div class="spec">
+<p><tt>variable_assignment_rule(Info::[{atom(), <a href="#type-pos">pos()</a>}]) -&gt; <a href="#type-rule">rule()</a></tt><br></p>
+</div><p>
+  Removes unreferenced assignments in a list of steps.</p>
+
+<h3 class="function"><a name="variable_assignment_rule_begin-1">variable_assignment_rule_begin/1</a></h3>
+<div class="spec">
+<p><tt>variable_assignment_rule_begin(Info::[{atom(), <a href="#type-pos">pos()</a>}]) -&gt; <a href="#type-rule">rule()</a></tt><br></p>
+</div><p>
+  Removes unreferenced assignments in a list of steps within a <em>begin/end</em> block.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 5 2015, 16:30:15.</i></p>
+</body>
+</html>

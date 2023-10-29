@@ -1,0 +1,301 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Module cluster_folding</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module cluster_folding</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
+   Implements the functionality to traverse the clusters frontiers
+   in roughly breadth first order.
+<p>Copyright © (C) 2015, Pablo Lamela, Simon Thompson</p>
+
+<p><b>Authors:</b> Pablo Lamela Seijas (<a href="mailto:P.Lamela-Seijas@kent.ac.uk"><tt>P.Lamela-Seijas@kent.ac.uk</tt></a>), Simon Thompson (<a href="mailto:S.J.Thompson@kent.ac.uk"><tt>S.J.Thompson@kent.ac.uk</tt></a>).</p>
+
+<h2><a name="description">Description</a></h2>
+   Implements the functionality to traverse the clusters frontiers
+   in roughly breadth first order.
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-acc">acc()</a></h3>
+<p><tt>acc() = #acc{cluster_labels = <a href="da_map.html#type-da_map">da_map:da_map</a>({comm | {ex, 1 | 2}, string()}, <a href="cluster.html#type-cluster">cluster:cluster</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>)), exp_funs = <a href="http://www.erlang.org/doc/man/sets.html#type-set" target="_top">sets:set</a>({atom(), integer()})}</tt></p>
+<p>  Record for use as accumulator when folding through cluster borders.
+  Contains the following fields: <ul>
+  <li> <code>ph_map</code> - maps PH (tree place holders) to pairs
+                  {symmetric_type, cluster_name}
+                  (for creating function calls) </li>
+  <li> <code>cluster_order</code> - maps pairs {order_type, position} to
+                         clusters (function) names </li>
+  <li> <code>cluster_labels</code> - da_maps (function) names to clusters </li>
+  <li> <code>cluster_info</code> - maps (function) names to records
+                        with information about the cluster
+                        (<code>cluster_info</code> records) </li>
+  <li> <code>cluster_funname</code> - maps generated (function) names to the actual
+                           name that should be displayed in the file </li>
+  <li> <code>cluster_orifunname</code> - maps generated (function) names to the original
+                              name that it was suppoused to have </li>
+  <li> <code>cluster_dicts</code> - contains the cluster dictionaries
+                         (<code>cluster_dict</code> record) </li>
+  <li> <code>allocated_parents</code> - saves a set with the parents of clusters
+                             whose name will be assigned by a common
+                             cluster. This is checked in a first pass
+                             so that we minimise the numbre of dummy
+                             functions needed to balance exclusive
+                             clusters </li>
+  <li> <code>tree_info</code> - contains the trees and the mapping
+                     (<code>tree_info</code> record) </li>
+  <li> <code>exp_funs</code> - set with the local functions to export </li>
+  <li> <code>counters</code> - contains counters for function_name generation
+                    (<code>counters</code> record) </li>
+  <li> <code>out_module</code> - contains the output module name
+                      as an atom </li>
+  <li> <code>var_for_module</code> - name for the var that contains the
+                          module instance name, (guaranteed to
+                          be unique for both modules) </li>
+  <li> <code>root_for_new_exclusive_funnames</code> - prefix for the name of the generated
+                                           functions in exclusive modules, (all
+                                           existing functions are guaranteed to
+                                           not start by this prefix) </li>
+  <li> <code>root_for_new_common_funnames</code> - prefix for the name of the generated
+                                        functions in common module, (all existing
+                                        functions are guaranteed to not start by
+                                        this prefix) </li></ul></p>
+
+<h3 class="typedecl"><a name="type-cluster_counters">cluster_counters()</a></h3>
+<p><tt>cluster_counters() = #cluster_counters{}</tt></p>
+<p>  Record that keeps counters used for naming
+  functions and ordering them in the files.
+  Contains the following fields: <ul>
+  <li> <code>invisible_counter</code> - Contains the counter for the
+                             label identifiers used when the
+                             used label is already provided
+                             by the user </li>
+  <li> <code>common_counter</code> - Contains the counter for the
+                          labels of the common cluster </li>
+  <li> <code>common_pos_counter</code> - Contains the counter for the
+                              order of the common cluster </li>
+  <li> <code>exclusive_counter</code> - Contains the counter for the
+                             labels of the exclusive
+                             cluster </li>
+  <li> <code>exclusive_pos_counter_1</code> - Contains the counter for the
+                                 order of the left exclusive
+                                 clusters </li>
+  <li> <code>exclusive_pos_counter_2</code> - Contains the counter for the
+                                 order of the right exclusive
+                                 clusters </li></ul></p>
+
+<h3 class="typedecl"><a name="type-cluster_dicts">cluster_dicts()</a></h3>
+<p><tt>cluster_dicts() = #cluster_dicts{comm_clus = <a href="cluster_dict.html#type-cluster_dict">cluster_dict:cluster_dict</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>), ex_clus1 = <a href="cluster_dict.html#type-cluster_dict">cluster_dict:cluster_dict</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>), ex_clus2 = <a href="cluster_dict.html#type-cluster_dict">cluster_dict:cluster_dict</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>)}</tt></p>
+<p>  Record for keeping the updated cluster dictionaries.
+  Contains the following fields: <ul>
+  <li> <code>comm_clus</code> - Contains the cluster dictionary
+                     with the common clusters </li>
+  <li> <code>ex_clus1</code> - Contains the cluster dictionary with
+                    the exclusive clusters of side one </li>
+  <li> <code>ex_clus2</code> - Contains the cluster dictionary with
+                    the exclusive clusters of side two</li></ul></p>
+
+<h3 class="typedecl"><a name="type-cluster_info">cluster_info()</a></h3>
+<p><tt>cluster_info() = #cluster_info{}</tt></p>
+<p>  Record for keeping information about a particular
+  cluster. Contains the following fields: <ul>
+  <li> <code>cluster_type</code> - Whether the cluster is common,
+                        exclusive1, or exclusive2 </li>
+  <li> <code>environment_info</code> - Contains information like the free
+                            and bounded variables at the root
+                            of the cluster, (<code>environment_info</code>
+                            record) </li></ul></p>
+
+<h3 class="typedecl"><a name="type-environment_info">environment_info()</a></h3>
+<p><tt>environment_info() = #environment_info{}</tt></p>
+<p>  Record that contains environment information
+  like the free and bound variables at the root
+  of a cluster. Contains the following fields: <ul>
+  <li> <code>free_variables</code> - Contains a list with
+                          variables that are free</li>
+  <li> <code>free_left</code> - Contains a list with variables
+                     that were free in the left tree</li>
+  <li> <code>free_right</code> - Contains a list with variables
+                      that were free in the left tree</li>
+  <li> <code>export_variables</code> - Contains a list with
+                            variables that are exported</li>
+  <li> <code>export_left</code> - Contains a list with variables
+                       that are exported by the left tree</li>
+  <li> <code>export_right</code> - Contains a list with variables
+                        that are exported by the left tree</li>
+  <li> <code>is_left_leaf</code> - Weather the cluster has children
+                        from left side (in another cluster)</li>
+  <li> <code>is_right_leaf</code> - Weather the cluster has children
+                         from right side (in another cluster)</li></ul></p>
+
+<h3 class="typedecl"><a name="type-tree_info">tree_info()</a></h3>
+<p><tt>tree_info() = #tree_info{tree1 = <a href="tree.html#type-tree">tree:tree()</a>, tree2 = <a href="tree.html#type-tree">tree:tree()</a>, tree1_args = <a href="http://www.erlang.org/doc/man/dict.html#type-dict" target="_top">dict:dict</a>({FunName::string(), Arity::non_neg_integer()}, [ArgName::string()]), tree2_args = <a href="http://www.erlang.org/doc/man/dict.html#type-dict" target="_top">dict:dict</a>({FunName::string(), Arity::non_neg_integer()}, [ArgName::string()]), mapping = <a href="da_map.html#type-da_map">da_map:da_map</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>, <a href="tree.html#type-tree_node">tree:tree_node()</a>)}</tt></p>
+<p>  Record for keeping the tree and mapping information.
+  Contains the following fields: <ul>
+  <li> <code>tree1</code> - Contains the cluster dictionary
+                 with the common clusters </li>
+  <li> <code>tree2</code> - Contains the cluster dictionary with
+                 the exclusive clusters of side one </li>
+  <li> <code>tree1_args</code> - Contains a dictionary with good names
+                      for function arguments of tree1 </li>
+  <li> <code>tree2_args</code> - Contains a dictionary with good names
+                      for funciton arguments of tree2 </li>
+  <li> <code>mapping</code> - Contains the cluster dictionary with
+                   the exclusive clusters of side two</li></ul></p>
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#find_actual_exported_vars_for_asym_label-3">find_actual_exported_vars_for_asym_label/3</a></td><td>
+  Gets the exported variables for the top node of the cluster linked to AsymLabel,
+  considering only the tree specified by Pos.</td></tr>
+<tr><td valign="top"><a href="#find_actual_free_vars_for_asym_label-3">find_actual_free_vars_for_asym_label/3</a></td><td>
+  Gets the free variables for the top node of the cluster linked to AsymLabel,
+  considering only the tree specified by Pos.</td></tr>
+<tr><td valign="top"><a href="#find_exported_vars_for_sym_label-3">find_exported_vars_for_sym_label/3</a></td><td>
+  Gets the exported variables for the top nodes of the clusters linked to
+  the Name, with type SymType.</td></tr>
+<tr><td valign="top"><a href="#find_free_vars_for_sym_label-3">find_free_vars_for_sym_label/3</a></td><td>
+  Gets the free variables for the top nodes of the clusters linked to the Name,
+  with type SymType.</td></tr>
+<tr><td valign="top"><a href="#fold_clusters-4">fold_clusters/4</a></td><td>
+  Folds a function through the frontiers of the clusters in roughly
+  breadth first order.</td></tr>
+<tr><td valign="top"><a href="#get_children_from_node_list-5">get_children_from_node_list/5</a></td><td>
+  Gets all the children for a list of nodes and maps them to
+  the placeholders on the nodes, (their left alternative if common).</td></tr>
+<tr><td valign="top"><a href="#get_frontier_children_from_node_list-5">get_frontier_children_from_node_list/5</a></td><td>
+  Gets all the children for a list of nodes and maps them to
+  the placeholders on the nodes, (their left alternative if common).</td></tr>
+<tr><td valign="top"><a href="#get_leaf_as_is_or_default-3">get_leaf_as_is_or_default/3</a></td><td>
+  Obtains information about whether the cluster is a leaf or not.</td></tr>
+<tr><td valign="top"><a href="#get_type_list-2">get_type_list/2</a></td><td>
+  Returns a list with the correspondence of types, clusters, and trees.</td></tr>
+<tr><td valign="top"><a href="#is_in_scope-4">is_in_scope/4</a></td><td>
+  Returns true if the function specified (Name and Arity) is in
+  both of sets of inscope functions (Inscope1 and Inscope2), or
+  false if it is in none.</td></tr>
+<tr><td valign="top"><a href="#isolate_type_class-1">isolate_type_class/1</a></td><td>
+  Returns the symmetric cluster type.</td></tr>
+<tr><td valign="top"><a href="#merge_environments-2">merge_environments/2</a></td><td>
+  Merges the list of free vars of two nodes.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="find_actual_exported_vars_for_asym_label-3">find_actual_exported_vars_for_asym_label/3</a></h3>
+<div class="spec">
+<p><tt>find_actual_exported_vars_for_asym_label(AsymLabel::{ClustType, string()}, Pos::1 | 2, Acc::<a href="cluster_folding.html#type-acc">cluster_folding:acc()</a>) -&gt; [string()]</tt>
+<ul class="definitions"><li><tt>ClustType = comm | {ex, 1} | {ex, 2}</tt></li></ul></p>
+</div><p>
+  Gets the exported variables for the top node of the cluster linked to AsymLabel,
+  considering only the tree specified by Pos.
+  It first tries to get them from Acc, otherwise it infers it from the node itself.</p>
+
+<h3 class="function"><a name="find_actual_free_vars_for_asym_label-3">find_actual_free_vars_for_asym_label/3</a></h3>
+<div class="spec">
+<p><tt>find_actual_free_vars_for_asym_label(AsymLabel::{ClustType, string()}, Pos::1 | 2, Acc::<a href="cluster_folding.html#type-acc">cluster_folding:acc()</a>) -&gt; [string()]</tt>
+<ul class="definitions"><li><tt>ClustType = comm | {ex, 1} | {ex, 2}</tt></li></ul></p>
+</div><p>
+  Gets the free variables for the top node of the cluster linked to AsymLabel,
+  considering only the tree specified by Pos.
+  It first tries to get them from Acc, otherwise it infers it from the node itself.</p>
+
+<h3 class="function"><a name="find_exported_vars_for_sym_label-3">find_exported_vars_for_sym_label/3</a></h3>
+<div class="spec">
+<p><tt>find_exported_vars_for_sym_label(SymType::comm | ex, Name::string(), Name::<a href="cluster_folding.html#type-acc">cluster_folding:acc()</a>) -&gt; [string()]</tt><br></p>
+</div><p>
+  Gets the exported variables for the top nodes of the clusters linked to
+  the Name, with type SymType. It first tires to get them from Acc,
+  otherwise it infers it from the nodes themselves.</p>
+
+<h3 class="function"><a name="find_free_vars_for_sym_label-3">find_free_vars_for_sym_label/3</a></h3>
+<div class="spec">
+<p><tt>find_free_vars_for_sym_label(SymType::comm | ex, Name::string(), Name::<a href="cluster_folding.html#type-acc">cluster_folding:acc()</a>) -&gt; [string()]</tt><br></p>
+</div><p>
+  Gets the free variables for the top nodes of the clusters linked to the Name,
+  with type SymType. It first tires to get them from Acc, otherwise it infers
+  it from the nodes themselves.</p>
+
+<h3 class="function"><a name="fold_clusters-4">fold_clusters/4</a></h3>
+<div class="spec">
+<p><tt>fold_clusters(Fun, AccIn::Acc, ClustInfo, TreeInfo) -&gt; AccOut::Acc</tt>
+<ul class="definitions"><li><tt>Node = <a href="tree.html#type-tree_node">tree:tree_node()</a></tt></li><li><tt>ClustInfo = <a href="#type-cluster_dicts">cluster_dicts()</a></tt></li><li><tt>TreeInfo = <a href="#type-tree_info">tree_info()</a></tt></li><li><tt>Fun = fun(({comm | {ex, 1 | 2}, ClusterIn::<a href="cluster.html#type-cluster">cluster:cluster</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>), Tree::<a href="tree.html#type-tree">tree:tree()</a> | na}, leaf_node | local_calls | {ph, PH}, Children, Acc0::Acc) -&gt; Acc1::Acc)</tt></li><li><tt>Children = [Node | {atom(), non_neg_integer()}]</tt></li><li><tt>PH = term()</tt></li><li><tt>Acc = term()</tt></li></ul></p>
+</div><p>
+  Folds a function through the frontiers of the clusters in roughly
+  breadth first order.
+  The arguments of the function are: <ul>
+  <li> <code>ClusType</code> - A symbol that represents the type the of
+                    upper cluster of the frontier </li>
+  <li> <code>PH</code> - The place holder of the frontier </li>
+  <li> <code>Children</code> - A list of alternative nodes corresponding
+                    to the place holder of the frontier </li>
+  <li> <code>Acc0</code> - The accumulator of the folding </li></ul></p>
+
+<h3 class="function"><a name="get_children_from_node_list-5">get_children_from_node_list/5</a></h3>
+<div class="spec">
+<p><tt>get_children_from_node_list(ClustType, Cluster, Tree, TreeInfo, Nodes::[Node]) -&gt; [{PH, Children}]</tt>
+<ul class="definitions"><li><tt>ClustType = comm | {ex, 1} | {ex, 2}</tt></li><li><tt>Cluster = <a href="cluster.html#type-cluster">cluster:cluster</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>)</tt></li><li><tt>Tree = <a href="tree.html#type-tree">tree:tree()</a> | na</tt></li><li><tt>TreeInfo = <a href="#type-tree_info">tree_info()</a></tt></li><li><tt>Node = <a href="tree.html#type-tree_node">tree:tree_node()</a></tt></li><li><tt>PH = term()</tt></li><li><tt>Children = [Node]</tt></li></ul></p>
+</div><p>
+  Gets all the children for a list of nodes and maps them to
+  the placeholders on the nodes, (their left alternative if common).</p>
+
+<h3 class="function"><a name="get_frontier_children_from_node_list-5">get_frontier_children_from_node_list/5</a></h3>
+<div class="spec">
+<p><tt>get_frontier_children_from_node_list(ClustType, Cluster, Tree, TreeInfo, Nodes::[Node]) -&gt; [{PH, Children}]</tt>
+<ul class="definitions"><li><tt>ClustType = comm | {ex, 1} | {ex, 2}</tt></li><li><tt>Cluster = <a href="cluster.html#type-cluster">cluster:cluster</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>)</tt></li><li><tt>Tree = <a href="tree.html#type-tree">tree:tree()</a> | na</tt></li><li><tt>TreeInfo = <a href="#type-tree_info">tree_info()</a></tt></li><li><tt>Node = <a href="tree.html#type-tree_node">tree:tree_node()</a></tt></li><li><tt>PH = term()</tt></li><li><tt>Children = [Node]</tt></li></ul></p>
+</div><p>
+  Gets all the children for a list of nodes and maps them to
+  the placeholders on the nodes, (their left alternative if common).
+  It only gets the children that are in a different cluster, not the ones
+  that are in the same.</p>
+
+<h3 class="function"><a name="get_leaf_as_is_or_default-3">get_leaf_as_is_or_default/3</a></h3>
+<div class="spec">
+<p><tt>get_leaf_as_is_or_default(AsymLabel::{ClustType, string()}, Pos::1 | 2, Acc::<a href="cluster_folding.html#type-acc">cluster_folding:acc()</a>) -&gt; boolean()</tt>
+<ul class="definitions"><li><tt>ClustType = comm | {ex, 1} | {ex, 2}</tt></li></ul></p>
+</div><p>
+  Obtains information about whether the cluster is a leaf or not. If the
+  information is no there it defaults to false.</p>
+
+<h3 class="function"><a name="get_type_list-2">get_type_list/2</a></h3>
+<div class="spec">
+<p><tt>get_type_list(ClustInfo::<a href="#type-cluster_dicts">cluster_dicts()</a>, TreeInfo::<a href="#type-tree_info">tree_info()</a>) -&gt; [{ClustType, ClusterDict, Tree | na}]</tt>
+<ul class="definitions"><li><tt>ClustType = comm | {ex, 1} | {ex, 2}</tt></li><li><tt>ClusterDict = <a href="cluster_dict.html#type-cluster_dict">cluster_dict:cluster_dict</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>)</tt></li><li><tt>Tree = <a href="tree.html#type-tree">tree:tree()</a></tt></li></ul></p>
+</div><p>
+  Returns a list with the correspondence of types, clusters, and trees.
+  This can be used to find in which cluster and in which tree a node is.</p>
+
+<h3 class="function"><a name="is_in_scope-4">is_in_scope/4</a></h3>
+<div class="spec">
+<p><tt>is_in_scope(Name, Arity, Inscope1::<a href="http://www.erlang.org/doc/man/sets.html#type-set" target="_top">sets:set</a>({Name, Arity}), Inscope2::<a href="http://www.erlang.org/doc/man/sets.html#type-set" target="_top">sets:set</a>({Name, Arity})) -&gt; boolean()</tt><br></p>
+</div><p>
+  Returns true if the function specified (Name and Arity) is in
+  both of sets of inscope functions (Inscope1 and Inscope2), or
+  false if it is in none. This implementation does not contemplate
+  that it may be in scope for one and not inscope for another, since
+  that would cause wrong behaviour in the common module.</p>
+
+<h3 class="function"><a name="isolate_type_class-1">isolate_type_class/1</a></h3>
+<div class="spec">
+<p><tt>isolate_type_class(ClustType) -&gt; SymmetricType</tt>
+<ul class="definitions"><li><tt>ClustType = comm | {ex, 1} | {ex, 2}</tt></li><li><tt>SymmetricType = comm | ex</tt></li></ul></p>
+</div><p>
+  Returns the symmetric cluster type. That is, removes the information
+  about which exclusive cluster it is.</p>
+
+<h3 class="function"><a name="merge_environments-2">merge_environments/2</a></h3>
+<div class="spec">
+<p><tt>merge_environments(Env1::[string()], Env2::[string()]) -&gt; [string()]</tt><br></p>
+</div><p>
+  Merges the list of free vars of two nodes. It removes the repeated
+  ones.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 5 2015, 16:30:19.</i></p>
+</body>
+</html>

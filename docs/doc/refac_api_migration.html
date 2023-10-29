@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Module refac_api_migration</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module refac_api_migration</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>Wrangler's support for API migration.
+
+<p><b>Authors:</b> Huiqing Li and Simon Thompson (<a href="mailto:H.Li@kent.ac.uk"><tt>H.Li</tt></a>, <a href="mailto:S.J.Thompson@kent.ac.uk"><tt>S.J.Thompson@kent.ac.uk</tt></a>).</p>
+
+<h2><a name="description">Description</a></h2><p>Wrangler's support for API migration.  
+Most software evolves during its lifetime, and this will often change  
+the API of a library. A change of interface made to a library function could  
+potentially affect all client applications of the library. The  API  
+transformations required tend to be done manually by the maintainers  
+of the client code, and this process can be both tedious and error-prone.</p>
+ 
+  <p>Wrangler's support for API migration refactorings is  based on the template-
+  and rule-based technique; however, unlike general refactorings, an API migration
+  refactoring only requires the author to define adapter functions that implement
+  the <code>old</code> API functions using the <code>new</code> API functions.  Once the adapter module  
+has been defined, Wrangler can then take this as input, and generate the refactoring  
+code that implements the migration.</p>
+ 
+  <p>As a design principle, we try to limit the scope of changes as much as possible, so
+  that only the places where the <code>old</code> API function is called are affected, and  
+the remaining part of the code is unaffected.</p>
+ 
+  <p>To illustrate our approach, we take the migration from <code>regexp:match/2</code>
+  to <code>re:run/3</code> as an example, which represents one of the most complex API changes  
+we have seen in practice. Tthe change involves every aspect of the function interface,  
+namely the module name, function name, arguments and values returned.</p>
+ 
+  An <em>adapter</em> function is a single-clause function that implements the <code>old</code> API
+  function using the <code>new</code> API. The function shown below is the adapter function for
+  the migration from <code>regexp:match/2</code> to <code>re:run/3</code>.
+  <pre>      match(String, RegExp) -&gt;
+        case re:run(String, RegExp, [global]) of
+          {match, Match} -&gt;
+            {Start0, Len}=lists:last(lists:ukeysort(2, Match)),
+            Start = Start0+1,
+            {match, Start, Len};
+          nomatch -&gt; nomatch
+        end.</pre><p>
+  A <code>case</code> expression is needed by the definition of the adapter function if and only
+  if the value returned by the API function is affected by the migration, and the returned
+  value is of a <code>union</code> type, i.e. a type consists of a number of alternatives. Within
+  the <code>case</code> expression, each expression clause handles one possible alternative of the
+  return value, and the clause body defines how to derive the value that should be returned
+  by the <code>old</code> API function from the value returned by the <code>new</code> one.</p>
+ 
+  A guard expression can be used to enures the mutual exclusiveness of expression clauses. For
+  example, the adaptor function for the migration from lists:keysearch/3 to lists:keyfind/3 can
+  be defined as:
+  <pre>      keysearch(Key, N, TupleList) -&gt;
+        case lists:find(Key, N, TupleList) of
+           Tuple when is_tuple(Tuple)-&gt;
+               {value, Tuple};
+           false -&gt;
+              false
+        end.</pre>
+ 
+  <p>Obviously, for an API migration that does not affect the return value of the function,
+  a <code>case</code> expression is not needed. For the case in which only the name of the API function
+  has been changed, the body of the adapter function could be just a function application
+  of the <code>new</code> function.</p>
+ 
+  A number of constraints should be satisfied by adapter functions:
+  <ul>
+  <li> The definition should have only one clause, and the name/arity should be the
+   same as the <code>old</code> function. </li>
+  <li> The parameters of the function should all be variables. </li>
+  <li> If the function definition is a <code>case</code> expression, then the last expression of
+       every clause body of the <code>case</code> expression should be a simple expression
+       that syntactically can be used as a pattern expression. </li>
+  </ul><p>
+  Apart from the adaptor functions, an adaptor module should also export a special function
+  <code>old_api_module_name/0</code> which returns an atom representing  the name of the module to  
+which the old API functions belong. As a result, an adaptor module can only contain adaptor  
+functions for API functions from the same module.</p>
+ 
+  Some example adaptor modules:
+ <ul>
+ <li>
+ <a href="regexp_re.erl"> From regexp to re;</a>.
+ </li>
+ <li>
+ <a href="keysearch_keyfind.erl"> From lists:keysearch/3 to lists:keyfind/3.</a>.
+ </li>
+ </ul>
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#do_api_migration-5">do_api_migration/5</a></td><td></td></tr>
+<tr><td valign="top"><a href="#generate_rule_based_api_migration_mod-2">generate_rule_based_api_migration_mod/2</a></td><td></td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="do_api_migration-5">do_api_migration/5</a></h3>
+<div class="spec">
+<p><tt>do_api_migration(FileOrDirs::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>], CallBackMod::module(), SearchPaths::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>], Editor::atom(), TabWidth::integer()) -&gt; {error, string()} | {ok, [{<a href="#type-filename">filename()</a>, <a href="#type-filename">filename()</a>, string()}]}</tt><br></p>
+</div>
+
+<h3 class="function"><a name="generate_rule_based_api_migration_mod-2">generate_rule_based_api_migration_mod/2</a></h3>
+<div class="spec">
+<p><tt>generate_rule_based_api_migration_mod(FileName::<a href="#type-filename">filename()</a>, NewModName::string() | atom()) -&gt; {ok, <a href="#type-filename">filename()</a>} | {error, term()}</tt><br></p>
+</div>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 5 2015, 16:30:21.</i></p>
+</body>
+</html>

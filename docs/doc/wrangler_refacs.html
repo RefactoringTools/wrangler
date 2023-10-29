@@ -1,0 +1,624 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Module wrangler_refacs</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module wrangler_refacs</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>This module describes the refactorings that are currently supported by Wrangler.
+<p>Copyright © 2006-2012 Huiqing Li, Simon Thompson
+ </p>
+
+<p><b>Authors:</b> Huiqing Li, Simon Thompson [<em>web site:</em> <tt><a href="http://www.cs.kent.ac.uk/projects/wrangler" target="_top">http://www.cs.kent.ac.uk/projects/wrangler</a></tt>].</p>
+
+<h2><a name="description">Description</a></h2>This module describes the refactorings that are currently supported by Wrangler.
+      The refactoring functions listed in this module are NOT supposed to be run in an
+      Erlang shell. Interface for refactorings that can be run in an Erlang shell are
+      documented in module <a href="api_wrangler.html">api_wrangler</a>.
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-context">context()</a></h3>
+<p><tt>context() = emacs | composite_emacs | command</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#add_a_tag-7">add_a_tag/7</a></td><td>Add a tag to all the messages received by a server process (Beta).</td></tr>
+<tr><td valign="top"><a href="#add_callback-6">add_callback/6</a></td><td>
+  Adds a callback declaration for the function with the name
+  and arity specified.</td></tr>
+<tr><td valign="top"><a href="#add_callbacks-5">add_callbacks/5</a></td><td>
+  Adds a callback declaration for the functions with the name
+  specified.</td></tr>
+<tr><td valign="top"><a href="#apply_changes_eclipse-3">apply_changes_eclipse/3</a></td><td>gen_refac refactorings - delegate functions in order to achieve more clear API (especially for Eclipse).</td></tr>
+<tr><td valign="top"><a href="#copy_mod-5">copy_mod/5</a></td><td>Copy a module.</td></tr>
+<tr><td valign="top"><a href="#eqc_fsm_to_record-4">eqc_fsm_to_record/4</a></td><td>Turn a non-record representation of eqc_fsm state into a record representation.</td></tr>
+<tr><td valign="top"><a href="#eqc_statem_to_record-4">eqc_statem_to_record/4</a></td><td>Turn a non-record representation of eqc_statem state into a record representation.</td></tr>
+<tr><td valign="top"><a href="#fold_against_macro-6">fold_against_macro/6</a></td><td>Fold expressions/patterns against a macro definition.</td></tr>
+<tr><td valign="top"><a href="#fold_expr-1">fold_expr/1</a></td><td>Fold expressions against a function definition.</td></tr>
+<tr><td valign="top"><a href="#fun_extraction-6">fun_extraction/6</a></td><td>Introduce a new function to represent an expression or expression sequence.</td></tr>
+<tr><td valign="top"><a href="#fun_to_process-7">fun_to_process/7</a></td><td>Turn a function into a server process (Beta).</td></tr>
+<tr><td valign="top"><a href="#gen_fsm_to_record-4">gen_fsm_to_record/4</a></td><td>Turn a non-record representation of gen_fsm state into a record representation.</td></tr>
+<tr><td valign="top"><a href="#generalise-7">generalise/7</a></td><td> Generalise a function definition.</td></tr>
+<tr><td valign="top"><a href="#get_user_refactorings-1">get_user_refactorings/1</a></td><td>get all user refactoring modules (gen_refac and gen_composite_refac).</td></tr>
+<tr><td valign="top"><a href="#inline_var-6">inline_var/6</a></td><td>Inline a variable definition.</td></tr>
+<tr><td valign="top"><a href="#intro_new_var-7">intro_new_var/7</a></td><td>Introduce a new variable to represent an expression selected.</td></tr>
+<tr><td valign="top"><a href="#merge_forall-4">merge_forall/4</a></td><td>Merge nested but undependent ?FORALLs into one ?FORALL.</td></tr>
+<tr><td valign="top"><a href="#merge_let-4">merge_let/4</a></td><td>Merge nested but independent ?LETs into one ?LET.</td></tr>
+<tr><td valign="top"><a href="#move_fun-7">move_fun/7</a></td><td>Move a function definition from its current module to another.</td></tr>
+<tr><td valign="top"><a href="#new_let-7">new_let/7</a></td><td>Introduce ?LET.</td></tr>
+<tr><td valign="top"><a href="#new_macro-7">new_macro/7</a></td><td>Introduce a macro to represent a syntactically well-formed expression/pattern or a sequence of expressions/patterns.</td></tr>
+<tr><td valign="top"><a href="#normalise_record_expr-7">normalise_record_expr/7</a></td><td>Reorder the record fields in a record expression to be consistent with the record definition.</td></tr>
+<tr><td valign="top"><a href="#partition_exports-5">partition_exports/5</a></td><td>Partition the exports of a module.</td></tr>
+<tr><td valign="top"><a href="#register_pid-7">register_pid/7</a></td><td>Register a process (Beta).</td></tr>
+<tr><td valign="top"><a href="#rename_fun-6">rename_fun/6</a></td><td>Rename a function.</td></tr>
+<tr><td valign="top"><a href="#rename_mod-5">rename_mod/5</a></td><td>Rename a module.</td></tr>
+<tr><td valign="top"><a href="#rename_process-7">rename_process/7</a></td><td>Rename a registered process (Beta).</td></tr>
+<tr><td valign="top"><a href="#rename_var-7">rename_var/7</a></td><td>Rename a variable.</td></tr>
+<tr><td valign="top"><a href="#similar_code_detection-6">similar_code_detection/6</a></td><td>A similar code detector that searches for similar code across multiple Erlang modules.</td></tr>
+<tr><td valign="top"><a href="#similar_code_detection_in_buffer-6">similar_code_detection_in_buffer/6</a></td><td>A similar code detector that searches for similar code in the current Erlang buffer.</td></tr>
+<tr><td valign="top"><a href="#similar_expression_search_in_buffer-6">similar_expression_search_in_buffer/6</a></td><td>Search expression search in the current Erlang buffer.</td></tr>
+<tr><td valign="top"><a href="#similar_expression_search_in_dirs-6">similar_expression_search_in_dirs/6</a></td><td>Simiar expression search across multiple Erlang modules.</td></tr>
+<tr><td valign="top"><a href="#tuple_funpar-6">tuple_funpar/6</a></td><td>Group a consecutive sequence of parameters of a function into a tuple.</td></tr>
+<tr><td valign="top"><a href="#unfold_fun_app-5">unfold_fun_app/5</a></td><td>Unfold a function application to an instance of the function's body.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="add_a_tag-7">add_a_tag/7</a></h3>
+<div class="spec">
+<p><tt>add_a_tag(FileName::<a href="#type-filename">filename()</a>, Line::integer(), Col::integer(), Tag::string(), SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {ok, [<a href="#type-filename">filename()</a>]}</tt><br></p>
+</div><p>Add a tag to all the messages received by a server process (Beta).
+  <p> This refactoring should be initiated from the main receive function of a server process.
+  The current implementation is still in an experimental stage, and has a number of limitations:
+  <li> The current implementation assumes that the process does not send inquiries,
+       using the <code> send ... receive </code> pattern, to other processes
+  </li>
+  <li> The current implementation only handles processes spawned using <code>spawn</code>
+       or <code>spawn_link</code>
+  </li>
+  </p>
+ <p>
+  Usage: to apply this refactoring, point the cursor to the function name, then select <em> Add a
+  Tag to Messages </em> from the <em> Refactor </em> menu, Wrangler will then prompt to
+  enter the tag.
+ </p></p>
+
+<h3 class="function"><a name="add_callback-6">add_callback/6</a></h3>
+<div class="spec">
+<p><tt>add_callback(TargetFileName::string(), FunctionName::string(), Arity::string(), SearchPaths::[string()], Editor::<a href="wrangler_refacs.html#type-context">wrangler_refacs:context()</a>, TabWidth::integer()) -&gt; {ok, UpdatedFiles::[string()]}</tt><br></p>
+</div><p>
+  Adds a callback declaration for the function with the name
+  and arity specified.</p>
+
+<h3 class="function"><a name="add_callbacks-5">add_callbacks/5</a></h3>
+<div class="spec">
+<p><tt>add_callbacks(TargetFileName::string(), FunctionName::string(), SearchPaths::[string()], Editor::<a href="wrangler_refacs.html#type-context">wrangler_refacs:context()</a>, TabWidth::integer()) -&gt; {ok, UpdatedFiles::[string()]}</tt><br></p>
+</div><p>
+  Adds a callback declaration for the functions with the name
+  specified.</p>
+
+<h3 class="function"><a name="apply_changes_eclipse-3">apply_changes_eclipse/3</a></h3>
+<div class="spec">
+<p><tt>apply_changes_eclipse(Module::module(), Args::[term()], CandsNotToChange::[term()]) -&gt; {ok, [{<a href="#type-filename">filename()</a>, <a href="#type-filename">filename()</a>, <a href="#type-syntaxTree">syntaxTree()</a>}]} | {error, term()}</tt><br></p>
+</div><p>gen_refac refactorings - delegate functions in order to achieve more clear API (especially for Eclipse)</p>
+
+<h3 class="function"><a name="copy_mod-5">copy_mod/5</a></h3>
+<div class="spec">
+<p><tt>copy_mod(FileName::<a href="#type-filename">filename()</a>, NewName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {question, string()} | {warning, string()} | {ok, [<a href="#type-filename">filename()</a>]}</tt><br></p>
+</div><p>Copy a module.
+  <p> This refactoring affects all those modules in which the module name is used.
+  </p>
+  <p>
+  The following <em> side-conditions </em> apply to this refactoring:
+  <li> The new module name should not have been used as a module name in the program under consideration. </li>
+  <li> This refactoring assume that the file basename is always the same as the module name, therefore this
+  refactoring changes the filename as well. </li>
+  </p>
+  <p> Usage: to apply this refactoring, point the cursor anywhere in the module to be copied, then select
+  <em> Copy Module </em> from the <em> Refactor </em> menu, after that, the refactorer will prompt to enter
+  the new module name in the mini-buffer.
+  </p></p>
+
+<h3 class="function"><a name="eqc_fsm_to_record-4">eqc_fsm_to_record/4</a></h3>
+<div class="spec">
+<p><tt>eqc_fsm_to_record(FileName::<a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {ok, non_tuple, [{atom(), atom(), integer()}]} | {ok, {tuple, integer()}, [{atom(), atom(), integer()}]}</tt><br></p>
+</div><p>Turn a non-record representation of eqc_fsm state into a record representation.
+  <p> This refactoring introduce a record to represent the state used by eqc_fsm.
+  This refactoring is especially for QuickCheck users.
+  </p>
+  <p> Usage: Select the refactoring command, and Wrangler will check the current type of the state machine,
+  and prompt you to input the record and field names if Wrangler is able to proceed the refactoring.
+  </p></p>
+
+<h3 class="function"><a name="eqc_statem_to_record-4">eqc_statem_to_record/4</a></h3>
+<div class="spec">
+<p><tt>eqc_statem_to_record(FileName::<a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {ok, non_tuple, [{atom(), atom(), integer()}]} | {ok, {tuple, integer()}, [{atom(), atom(), integer()}]}</tt><br></p>
+</div><p>Turn a non-record representation of eqc_statem state into a record representation.
+  <p> This refactoring introduce a record to represent the state used by eqc_statem.
+  This refactoring is especially for QuickCheck users.
+  </p>
+  <p> Usage: Select the refactoring command, and Wrangler will check the current type of the state machine,
+  and prompt you to input the record and field names if Wrangler is able to proceed the refactoring.
+  </p></p>
+
+<h3 class="function"><a name="fold_against_macro-6">fold_against_macro/6</a></h3>
+<div class="spec">
+<p><tt>fold_against_macro(FileName::<a href="#type-filename">filename()</a>, Line::integer(), Col::integer(), SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {ok, [{integer(), integer(), integer(), integer(), <a href="#type-syntaxTree">syntaxTree()</a>, <a href="#type-syntaxTree">syntaxTree()</a>}], string()}</tt><br></p>
+</div><p>Fold expressions/patterns against a macro definition.
+  <p>
+  This refactoring replaces instances of the right-hand side of a macro definition by the corresponding
+  left-hand side with necessary parameter substitutions.
+  </p>
+  <p> Usage: to apply this refactoring, first point the cursor to the macro definition against which candidate
+   expressions/candidates will be folded; then select <em> Fold Against Macro Definition </em> from the
+  <em> Refactor </em> menu; after that, Wrangler will search the current module for expressions/patterns
+  which are instances of the right-hand side of the selected macro definition; and direct you through the
+  refactoring process.
+  </p></p>
+
+<h3 class="function"><a name="fold_expr-1">fold_expr/1</a></h3>
+<div class="spec">
+<p><tt>fold_expr(X1) -&gt; any()</tt></p>
+</div><p>Fold expressions against a function definition.
+  <p>
+  This refactoring replaces instances of the right-hand side of a function clause definition by
+  the corresponding left-hand side with necessary parameter substitutions. The function clause can
+  be defined in either the current module or another module.
+  </p>
+  <p> In the case that a candidate expression/expression sequence  needs to export some variables which
+  are used by the code following code, that expression/expression sequence will be replaced by a match
+  expression, whose left-hand side it the exported variable(s), and right-hand side is the function
+  application.
+ </p>
+  <p> This refactoring does not support folding against function clauses with guard expressions, or
+  function clauses with complex formal parameters, such as tuples, lists, or records.
+  </p>
+  <p> Usage: first point the cursor to the function clause against which expressions will be
+  folded if the function is defined in the current module, or leave the cursor anywhere if you would like to
+  fold against a function clause defined in another module; then select <em> Fold Expression Against Function </em>
+  from the <em> Refactor </em> menu; after that, Wrangler then asks to confirm that you want to fold against
+  the function clause pointed to by the cursor, if you answer 'no', Wrangler will prompt to provide the
+  module name, function name, arity of the function and the index of the function clause (starting from 1). After all these initial interaction,
+  Wrangler will search
+  the current module for expressions which are instances of the right-hand side of the selected function clause.
+  </p>
+  <p> If no candidate expression has been found, a message will be given, and the refactoring
+  finishes; otherwise, Wrangler will go through the found candidate expressions one by one, and ask
+  the user whether she/he wants to replace the expression with an application of selected function.
+  If the user answers 'yes' to one instance,  that instance will be replaced by function application,
+  otherwise it will remain unchanged.
+  </p></p>
+
+<h3 class="function"><a name="fun_extraction-6">fun_extraction/6</a></h3>
+<div class="spec">
+<p><tt>fun_extraction(FileName::<a href="#type-filename">filename()</a>, Start::[integer()], End::[integer()], FunName::string(), Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {warning, string()} | {ok, [<a href="#type-filename">filename()</a>]}</tt><br></p>
+</div><p>Introduce a new function to represent an expression or expression sequence.
+  <p> This refactoring allows the user to introduce a new function to represent a selected expression or expression
+  sequence, and replace the selected code with a call to the new function.  Free variables
+  within the selected code become the formal parameters of the function definition.
+  </p>
+  <p>
+  Usage: highlight the expression/expression sequence of interest, then selected the <em>Function Extraction</em>
+  from  <em>Refactor</em>, Wrangler will then prompt for the new function name.
+  </p></p>
+
+<h3 class="function"><a name="fun_to_process-7">fun_to_process/7</a></h3>
+<div class="spec">
+<p><tt>fun_to_process(FileName::<a href="#type-filename">filename()</a>, Line::integer(), Col::integer(), ProcessName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {ok, [<a href="#type-filename">filename()</a>]} | {undecidables, string()} | {error, string()}</tt><br></p>
+</div><p>Turn a function into a server process (Beta).
+ <p>
+  This refactoring turns a function into a server process.
+  Turning a function into a server process provides potential for memorisation of calculated values, adding states to the process, etc.
+  </p>
+  <p> The following example shows the application of this refactoring to the function <code>f/2</code> on the
+  left-hand side, and the result is shown on the right-hand side.
+     <pre>         f(add, X, Y) -&gt;  X + Y;                     f(add, X, Y) -&gt; f_rpc(f, {add, X, Y});
+         f(sub, X, Y) -&gt;  X - Y.                     f(sub, X, Y) -&gt; f_rpc(f, {sub, X, Y}).
+ 
+         g(X, Y) -&gt;                                  f() -&gt;
+              f(add, X, Y)*f(sub, X, Y).		   receive
+                                                           {From, {add, X, Y}} -&gt; From ! {f, X + Y}, f();
+                                                           {From, {sub, X, Y}} -&gt; From ! {f, X - Y}, f()
+                                                          end.
+ 
+                                                     f_rpc(RegName, Request) -&gt;
+                                                          Sender = self(),
+                                                          Fun = fun () -&gt;
+  		                                                    try
+  		                                                       register(RegName, self())
+  		                                                    of
+  		                                                      true -&gt; Sender ! {started, self()}, f()
+  		                                                    catch
+  		                                                      error:_ -&gt;
+  			                                                   Sender ! {already_running, self()},
+                                                                          already_running
+  		                                                    end
+  	                                                         end,
+                                                          Pid = spawn(Fun),
+                                                          receive {_, Pid} -&gt; ok end,
+                                                          RegName ! {self(), Request},
+                                                          receive {RegName, Response} -&gt; Response end.
+ 
+                                                     g(X, Y) -&gt;
+                                                          f(add, X, Y) *f(sub, X, Y).</pre>
+  </p>
+  The following side-conditions apply to this refactoring:
+  <p>
+  <li> The process name provided by the user should be lexically legal, and not conflict with existing process names. </li>
+  <li> The function should not be a recursive function, either directly or indirectly. </li>
+  <li> The current function or functions called by this function should not register the <code>Pid</code> returned by <code>self()</code>. </li>
+  </p>
+  <p>
+  Wrangler generates the new function name and the rpc function name automatically, but the user could always rename it afterwards.
+  Suppose the original function is <code>f/n</code>, then the new function name would be <code>f/0</code> and the <code>rpc</code>
+  function name would be <code>f_rpc/2</code>; if any conflicts occur, <code>'_i'</code> will be attached to the end of the function
+  name where <code>i</code> is a smallest number that makes the name fresh.
+  </p>
+  <p> Usage: To apply this refactoring, point the cursor to the function of interest, then select
+  <em> From Function to Process </em> from <em> Refactor</em>, after that Wrangler will prompt
+   to enter the process registration name  in the mini-buffer.
+  </p></p>
+
+<h3 class="function"><a name="gen_fsm_to_record-4">gen_fsm_to_record/4</a></h3>
+<div class="spec">
+<p><tt>gen_fsm_to_record(FileName::<a href="#type-filename">filename()</a>, SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {ok, non_tuple, [{atom(), atom(), integer()}]} | {ok, {tuple, integer()}, [{atom(), atom(), integer()}]}</tt><br></p>
+</div><p>Turn a non-record representation of gen_fsm state into a record representation.
+  <p> This refactoring introduce a record to represent the state used by eqc_statem.
+  </p>
+  <p> Usage: Select the refactoring command, and Wrangler will check the current type of the state machine,
+  and prompt you to input the record and field names if Wrangler is able to proceed the refactoring.
+  </p></p>
+
+<h3 class="function"><a name="generalise-7">generalise/7</a></h3>
+<div class="spec">
+<p><tt>generalise(FileName::<a href="#type-filename">filename()</a>, Start::[integer()], End::[integer()], ParName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {ok, [<a href="#type-filename">filename()</a>]} | {error, string()} | {multiple_instances, {atom(), atom(), integer(), <a href="#type-pos">pos()</a>, <a href="#type-syntaxTree">syntaxTree()</a>, boolean(), [{<a href="#type-pos">pos()</a>, <a href="#type-pos">pos()</a>}], string()}} | {unknown_side_effect, {atom(), atom(), integer(), <a href="#type-pos">pos()</a>, <a href="#type-syntaxTree">syntaxTree()</a>, integer(), [{<a href="#type-pos">pos()</a>, <a href="#type-pos">pos()</a>}], [{<a href="#type-pos">pos()</a>, <a href="#type-pos">pos()</a>}], string()}} | {more_than_one_clause, {atom(), atom(), integer(), <a href="#type-pos">pos()</a>, <a href="#type-syntaxTree">syntaxTree()</a>, boolean(), [{<a href="#type-pos">pos()</a>, <a href="#type-pos">pos()</a>}], [{<a href="#type-pos">pos()</a>, <a href="#type-pos">pos()</a>}], string()}}</tt><br></p>
+</div><p> Generalise a function definition.
+  <p>Generalise a function definition by selecting a sub-expression of its right-hand
+  side and making this the value of a new argument added to the definition of the function.
+  The sub-expression becomes the actual parameter at the call sites. </p>
+ 
+  <p> Here is an example of generalisation, in which the function <code> add_one </code> defined
+  on the left-hand side is generalised on the expression <code>1 </code>, and the result is
+  shown on the right-hand side.
+ 
+         <pre>                -module (test).                          -module (test).
+                -export([f/1]).                          -export([f/1]).
+ 
+                add_one ([H|T]) -&gt;                       add_one (N, [H|T]) -&gt;
+                   [H+1 | add_one(T)];                      [H+N | add_one(N,T)];
+                add_one ([]) -&gt; [].                      add_one (N, []) -&gt; [].
+ 
+                f(X) -&gt; add_one(X).                      f(X) -&gt; add_one(1,X)</pre>
+   </p>
+ 
+  <p> In the case that the selected expression has a side-effect, the refactorer will wrap this expression
+  in an function expression before passing it as the actual parameter to the call-sites. This is illustrated
+  in the following example, in which function <code>repeat/1</code> is generalised on the expression
+  <code>io:format("Hello\n")</code>.
+ 
+          <pre>                -module (test).                          -module (test).
+                -export([f/0]).                          -export([f/0]).
+ 
+                repeat(0) -&gt; ok;                         repeat(A, 0) -&gt; ok;
+                repeat(N) -&gt;                             repeat(A, N) -&gt;
+                  io:format("Hello\n"),                    A( ),
+                  repeat(N-1).                             repeat(A,N-1).
+ 
+                f() -&gt; repeat(5).                        f( ) -&gt;
+                                                            repeat (fun( )-&gt;io:format ("Hello\n") end, 5).</pre>
+  </p>
+ 
+  <p> This refactoring <em>only </em> affects the module in which the refactoring is initialised. In the case that
+  the generalised function is exported by the module, an auxiliary function will be created
+  to wrap the generalised function up, so that the module's interface is not changed.
+  </p>
+  <p> The following <em> side-conditions </em> apply to this refactoring:
+  <li> Suppose the function to be generalised is <code>foo/n </code>, then <code>foo/n+1</code> should not
+  be in scope before the generalisation;</li>
+  <li> The new parameter name provided by the user should not conflict with the existing parameters or
+  change the semantics of the function to be generalised. </li>
+  </p>
+  <p> Usage: to apply this refactoring, highlight the expression first, then  select
+  <em> Generalise Function Definitio5n </em> from the <em>Refactor</em> menu, after
+  that the refactorer will prompt to enter the parameter name in the mini-buffer. </p>
+ 
+  NOTE: in Erlang some literal expressions can not be replaced by variables. For example, the atom <code>fields</code>
+  in the expression <code>record_info(fields, Record)</code> should not be replaced by a variable or other expressions.
+  This kind of checking is NOT supported by Wrangler yet.</p>
+
+<h3 class="function"><a name="get_user_refactorings-1">get_user_refactorings/1</a></h3>
+<div class="spec">
+<p><tt>get_user_refactorings(Modules) -&gt; any()</tt></p>
+</div><p>get all user refactoring modules (gen_refac and gen_composite_refac)</p>
+
+<h3 class="function"><a name="inline_var-6">inline_var/6</a></h3>
+<div class="spec">
+<p><tt>inline_var(FName::<a href="#type-filename">filename()</a>, Line::integer(), Col::integer(), SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {ok, string()} | {ok, [{<a href="#type-pos">pos()</a>, <a href="#type-pos">pos()</a>}], string()}</tt><br></p>
+</div><p>Inline a variable definition.
+  <p> To unfold a particular use instance of a variable, point the cursor to that instance, and then select
+  <em> Inline Variable </em> from the <em> Refactor </em> menu; to unfold some, or all, use instances of
+  a variable, point the cursor to the define occurrence of the variable, then select <em> Inline Variable </em>
+  from the <em> Refactor </em> menu, Wrangler will search for the use occurrences of the variable selected, and
+  let you choose which instances to unfold. Only variables defined via a match expression of the
+  format: VarName=Expr can be inlined.
+  </p></p>
+
+<h3 class="function"><a name="intro_new_var-7">intro_new_var/7</a></h3>
+<div class="spec">
+<p><tt>intro_new_var(FileName::<a href="#type-filename">filename()</a>, Start::[integer()], End::[integer()], NewVarName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {ok, string()}</tt><br></p>
+</div><p>Introduce a new variable to represent an expression selected.
+  <p>
+  Usage: Highlight the expression of interest, then selected the <em>Introduce New Variable</em>
+  from <em>Refactor</em>, Wrangler will then prompt for the new variable name.
+  </p></p>
+
+<h3 class="function"><a name="merge_forall-4">merge_forall/4</a></h3>
+<div class="spec">
+<p><tt>merge_forall(FileName::filename, SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {not_found, string()} | {ok, [{integer(), integer(), integer(), integer(), string()}], string()}</tt><br></p>
+</div><p>Merge nested but undependent ?FORALLs into one ?FORALL.
+  <p> This refactoring combines multiple nested, but undependent, ?FORALLs into one; the latter representation has
+  better shrinking performance. This refactoring is especially for QuickCheck users.
+  </p>
+ <p>
+  Usage: Select the refactoring command, and Wrangler will search for candidates to merge automatically,
+  guide you through the candidates found one by one, and ask you to decide whether to merge.
+ </p></p>
+
+<h3 class="function"><a name="merge_let-4">merge_let/4</a></h3>
+<div class="spec">
+<p><tt>merge_let(FileName::filename, SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {not_found, string()} | {ok, [{integer(), integer(), integer(), integer(), string()}], string()}</tt><br></p>
+</div><p>Merge nested but independent ?LETs into one ?LET.
+  <p> This refactoring combines multiple nested, but undependent, ?LETs into one; the latter representation has
+  better shrinking performance. This refactoring is especially for QuickCheck users.
+  </p>
+ <p>
+  Usage: Select the refactoring command, and Wrangler will search for candidates to merge automatically,
+  guide you through the candidates found one by one, and ask you to decide whether to merge.
+ </p></p>
+
+<h3 class="function"><a name="move_fun-7">move_fun/7</a></h3>
+<div class="spec">
+<p><tt>move_fun(FileName::<a href="#type-filename">filename()</a>, Line::integer(), Col::integer(), TargetModName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {ok, [<a href="#type-filename">filename()</a>]} | {question, string()} | {error, string()}</tt><br></p>
+</div><p>Move a function definition from its current module to another.
+  <p> This refactoring has a global effect, i.e., it affects all the modules in which
+      the function is imported/used.
+  </p>
+  <p> This refactoring assumes that an Erlang module name always matches its file name.
+  </p>
+  <p> Suppose we move function <em> foo/n </em> from its current module <em> M </em>
+      to module <em> N </em>, then the following <em> side-conditions </em> apply to
+      this refactoring:
+  <li> If <em> foo/n </em> is already in scope in module <em> N </em>, then its defining
+       module should be  <em> M </em>.
+  </li>
+  <li> Function <em> foo/n </em> should not contain any uses of <em> implicit fun expressions </em> (Note: move a
+  collection of functions together to another module will be supported by another refactoring).
+  </li>
+  </p>
+  <p> Usage: to apply this refactoring, point the cursor at the function definition, then
+  select <em> Move Definition to Another Module</em> from the <em> Refactor </em> menu,
+  Wrangler will then  prompt to enter the target module name in the mini-buffer.
+  </p></p>
+
+<h3 class="function"><a name="new_let-7">new_let/7</a></h3>
+<div class="spec">
+<p><tt>new_let(FileName::<a href="#type-filename">filename()</a>, Start::[integer()], End::[integer()], PatName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {ok, [<a href="#type-filename">filename()</a>]} | {question, string(), list(), list(), string()}</tt><br></p>
+</div><p>Introduce ?LET.
+  <p>Bind the values generated by a generator to a variable, so that the values generated by
+  the generator can be referred by other generators. The refactoring helps to introduce dependency
+  between QuickCheck generators. This refactoring is especially for QuickCheck users.
+ </p>
+ <p>
+  Usage: highlight the expression, which should be a QuickCheck generator, then select the
+  refactoring command, you will be prompted for the pattern variable name.
+ </p></p>
+
+<h3 class="function"><a name="new_macro-7">new_macro/7</a></h3>
+<div class="spec">
+<p><tt>new_macro(FileName::<a href="#type-filename">filename()</a>, Start::[integer()], End::[integer()], MacroName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {ok, string()}</tt><br></p>
+</div><p>Introduce a macro to represent a syntactically well-formed expression/pattern or a sequence of expressions/patterns.
+  <p> This refactoring allows the user to define a new macro to represent a expression/pattern or sequence
+  of expressions/patterns selected by the user, and replace the selected code with an application of the macro.
+  Free variables within the selected code become the formal parameters of the macro definition.
+  </p>
+  <p>
+  Usage: Highlight the expression of interest, then selected the <em>Introduce a Macro</em>
+  from <em>Refactor</em>, Wrangler will then prompt for the new macro name.
+  </p></p>
+
+<h3 class="function"><a name="normalise_record_expr-7">normalise_record_expr/7</a></h3>
+<div class="spec">
+<p><tt>normalise_record_expr(FileName::<a href="#type-filename">filename()</a>, Line::integer(), Col::integer(), ShowDefault::boolean(), SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {ok, [<a href="#type-filename">filename()</a>]}</tt><br></p>
+</div><p>Reorder the record fields in a record expression to be consistent with the record definition.
+ <p>
+  Usage: point cursor to the record expression interested, then select <em>Normalise Record Expression</em> from <em>Refactor</em>.
+ </p></p>
+
+<h3 class="function"><a name="partition_exports-5">partition_exports/5</a></h3>
+<div class="spec">
+<p><tt>partition_exports(File::<a href="#type-filename">filename()</a>, DistTreshold::string(), SearchPaths::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {ok, [<a href="#type-filename">filename()</a>]}</tt><br></p>
+</div><p>Partition the exports of a module.</p>
+
+<h3 class="function"><a name="register_pid-7">register_pid/7</a></h3>
+<div class="spec">
+<p><tt>register_pid(FileName::<a href="#type-filename">filename()</a>, Start::[integer()], End::[integer()], RegName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {ok, [<a href="#type-filename">filename()</a>]}</tt><br></p>
+</div><p>Register a process (Beta).
+  <p>This refactoring registers a process id, <code>Pid</code> say, with a name, regname say, and replaces
+  the uses of <code>Pid ! Msg </code> with  <code>regname ! Msg</code> whenever it is possible.
+  </p>
+  <p>
+  The following side-conditions apply to this refactoring:
+  <li> The process name provided by the user should be lexically valid.</li>
+  <li>  The name provided by the user should not have been used as a process name. </li>
+  <li> The process under consideration should not have been registered. </li>
+  <li> Only one process spawned by the spawn expression selected should exist anytime during the running of the system. </li>
+  </p>
+  <p>
+  Usage: First select a match expression whose left-hand side is a process identifier, and right-hand side is a spawn expression,
+  then select <em> Register a Process</em> command from the <em>Refactor</em> menu, after that, Wrangler will prompt for the
+  process name.
+  </p></p>
+
+<h3 class="function"><a name="rename_fun-6">rename_fun/6</a></h3>
+<div class="spec">
+<p><tt>rename_fun(ModOrFileName, X2, NewFunName, SearchPaths, Editor, TabWidth) -&gt; any()</tt></p>
+</div><p>Rename a function.
+  <p>
+  When renaming an exported function, this refactoring has a global effect, that is,
+  it affects all those modules in which this function is imported/used.
+  </p>
+  <p> The following <em> side-conditions </em> (or <em>pre-conditions</em>}  apply to this refactoring:
+  <li> The new function name should not cause confliction with any of the functions which are in scope in the
+  current module;</li>
+  <li> In the case that the function to be renamed is imported by another module, the new function name (with the same
+  arity) should not be already in scope (either defined or imported) in that module. </li>
+  </p>
+  <p> Usage: to apply this refactoring, point the cursor to any occurrence of this
+  function name, then select <em> Rename Function Name </em> from the <em> Refactor </em> menu,
+  after that, Wrangler will prompt to enter  the new function name in the mini-buffer.
+  </p></p>
+
+<h3 class="function"><a name="rename_mod-5">rename_mod/5</a></h3>
+<div class="spec">
+<p><tt>rename_mod(FileName::<a href="#type-filename">filename()</a>, NewName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {question, string()} | {warning, string()} | {ok, [<a href="#type-filename">filename()</a>]}</tt><br></p>
+</div><p>Rename a module.
+  <p> This refactoring affects all those modules in which the module name is used.
+  </p>
+  <p>
+  The following <em> side-conditions </em> apply to this refactoring:
+  <li> The new module name should not have been used as a module name in the program under consideration. </li>
+  <li> This refactoring assume that the file basename is always the same as the module name, therefore this
+  refactoring changes the filename as well. </li>
+  </p>
+  <p> Usage: to apply this refactoring, point the cursor anywhere in the module to be renamed, then select
+  <em> Rename Module Name </em> from the <em> Refactor </em> menu, after that, the refactorer will prompt to enter
+  the new module name in the mini-buffer.
+  </p></p>
+
+<h3 class="function"><a name="rename_process-7">rename_process/7</a></h3>
+<div class="spec">
+<p><tt>rename_process(FileName::<a href="#type-filename">filename()</a>, Line::integer(), Col::integer(), NewName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {undecidables, string()} | {ok, [<a href="#type-filename">filename()</a>]}</tt><br></p>
+</div><p>Rename a registered process (Beta).
+  <p> This refactoring has a global effect, i.e. it needs to check the whole program for places where the
+  original process name is used.
+  </p>
+  <p> The following <em> side-conditions </em> apply to this refactoring:
+  <li> The new process name should not be the atom 'undefined' </li>
+  <li> The new process name should not have been used as a process name in the program under consideration.  </li>
+  <li> Since there are some cases where Wrangler cannot infer whether an atom represents a process name or not, for example,
+  a process name in a message, it would be help the refactoring process to select the process name from expressions, such as
+  registration expressions, where it is easier for Wrangler to infer that the atom is a process name.</li>
+  </p>
+  <p> Usage: To apply this refactoring, point the cursor to the process name, then select
+  <em> Rename a Process </em> from the  <em> Refactor </em> menu, after that, Wrangler will prompt
+  to enter the new process name in the mini-buffer.
+  </p></p>
+
+<h3 class="function"><a name="rename_var-7">rename_var/7</a></h3>
+<div class="spec">
+<p><tt>rename_var(FileName::<a href="#type-filename">filename()</a>, Line::integer(), Col::integer(), NewName::string(), SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {ok, <a href="#type-filename">filename()</a>}</tt><br></p>
+</div><p>Rename a variable.
+  <p> This refactoring has a local effect, i.e., it only affects the function clause in which the refactoring is initialized.
+  </p>
+  <p> The following <em> side-conditions </em> (or <em>pre-conditions</em>) apply to this refactoring:
+  <li> The new variable name should not conflict with any of the declared variable names in the same scope;</li>
+  <li> The new variable name should not shadow any of the existing variables in the outer scopes, or be shadowed by any
+  of existing variables in the inner scopes, i.e., renaming to the new name should not change the semantics of the
+  program.</li>
+  </p>
+  <p> Usage: to apply this refactoring, point the cursor to any occurrence of this variable, then select
+  <em> Rename Variable Name </em> from <em> Refactor </em>, after that, Wrangler will prompt
+  to enter the new variable name in the mini-buffer.
+  </p></p>
+
+<h3 class="function"><a name="similar_code_detection-6">similar_code_detection/6</a></h3>
+<div class="spec">
+<p><tt>similar_code_detection(DirFileList::[<a href="#type-filename">filename()</a> | <a href="#type-dir">dir()</a>], MinLen::string(), MinFreq::string(), MinScore::string(), SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {ok, string()}</tt><br></p>
+</div><p>A similar code detector that searches for similar code across multiple Erlang modules.
+  <p> This function reports similar expression sequences found in the directories specified, but does not
+  remove those clones though. The algorithm is based on the notion of anti-unification, or the least common generalisation.
+  The user needs to provide three parameters to be used by the clone detector, and
+  they are: the minimum length of an expression sequence, the minimum number of duplication times, and
+  a similarity score which should be between 0.1 and 1.0.
+  </p>
+  <p>
+  Usage: select <em> Detect Similar Code in Dirs </em> from <em> Similar Code Detection</em>, Wrangler will then prompt to
+  input the parameters needed.
+  </p></p>
+
+<h3 class="function"><a name="similar_code_detection_in_buffer-6">similar_code_detection_in_buffer/6</a></h3>
+<div class="spec">
+<p><tt>similar_code_detection_in_buffer(FileName::<a href="#type-filename">filename()</a>, MinLen::string(), MinFreq::string(), MinScore::string(), SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {ok, string()}</tt><br></p>
+</div><p>A similar code detector that searches for similar code in the current Erlang buffer.
+  <p> This function reports similar expression sequences found in the current Erlang buffer, but does not
+  remove those clones though. The user needs to provide three parameters to be used by the clone detector, and
+  they are: the minimum length of an expression sequence, the minimum number of duplication times, and
+  a similarity score which should be between 0.1 and 1.0.
+  </p>
+  <p>
+  Usage: select <em> Detect Similar Code in Buffer </em> from <em> Similar Code Detection</em>, Wrangler will then prompt to
+  input the parameters needed.
+  </p></p>
+
+<h3 class="function"><a name="similar_expression_search_in_buffer-6">similar_expression_search_in_buffer/6</a></h3>
+<div class="spec">
+<p><tt>similar_expression_search_in_buffer(FileName::<a href="#type-filename">filename()</a>, Start::[integer()], End::[integer()], SimiScore::string(), SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {ok, [{<a href="#type-filename">filename()</a>, {{integer(), integer()}, {integer(), integer()}}}]}</tt><br></p>
+</div><p>Search expression search in the current Erlang buffer.
+  <p> This functionality allows searching for expression sequence that are <em>similar</em> to the expression sequence selected.  In this context,
+  two expressions, A and B say, are similar if there exists an anti-unifier, say C,  of A and B, and C satisfies the similarity score specified
+  by the user (the calculation calculated of similarity score is going to be further explored).
+  </p>
+  Usage: highlight the expression sequence of interest, then selected  <em> Similar Expression Search in Current Buffer </em>
+  from  <em> Similar Code Detection </em>.</p>
+
+<h3 class="function"><a name="similar_expression_search_in_dirs-6">similar_expression_search_in_dirs/6</a></h3>
+<div class="spec">
+<p><tt>similar_expression_search_in_dirs(FileName::<a href="#type-filename">filename()</a>, Start::[integer()], End::[integer()], SimiScore::string(), SearchPaths::[<a href="#type-dir">dir()</a>], TabWidth::integer()) -&gt; {ok, [{<a href="#type-filename">filename()</a>, {{integer(), integer()}, {integer(), integer()}}}]}</tt><br></p>
+</div><p>Simiar expression search across multiple Erlang modules.
+  <p> This functionality allows searching for expression sequence that are <em>similar</em> to the expression sequence selected.  In this context,
+  two expressions, A and B say, are similar if there exists an anti-unifier, say C,  of A and B, and C satisfies the similarity score specified
+  by the user (the calculation calculated of similarity score is going to be further explored).
+  </p>
+  Usage: highlight the expression sequence of interest, then selected  <em> Similar Expression Search in Dirs</em> from  <em>Simiar Code Detection</em>.</p>
+
+<h3 class="function"><a name="tuple_funpar-6">tuple_funpar/6</a></h3>
+<div class="spec">
+<p><tt>tuple_funpar(FileName::<a href="#type-filename">filename()</a>, StartLoc::[integer()], EndLoc::[integer()], SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer()) -&gt; {error, string()} | {ok, [<a href="#type-filename">filename()</a>]}</tt><br></p>
+</div><p>Group a consecutive sequence of parameters of a function into a tuple.
+  <p>
+  When the function under consideration is exported by the module where it is defined, this refactoring has a global effect.
+  </p>
+  <p> Suppose the new function after refactoring is <code>f/n</code>, then the following <em> side-conditions </em> apply:
+  <li> <code> f/n</code> should not cause confliction with any of the functions which are in scope in the
+  current module;</li>
+  <li> In the case that the function is imported by another module, then <code>f/n</code>
+  should not be already in scope (either defined or imported) in that module. </li>
+  </p>
+  <p> Usage: to apply this refactoring, highlight the arguments to be grouped into a tuple from
+  the function definition, then select <em> Tuple Function Arguments </em> from <em> Refactor</em>.
+  </p></p>
+
+<h3 class="function"><a name="unfold_fun_app-5">unfold_fun_app/5</a></h3>
+<div class="spec">
+<p><tt>unfold_fun_app(FileName::<a href="#type-filename">filename()</a>, Pos::[integer()], SearchPaths::[<a href="#type-dir">dir()</a>], Context::<a href="#type-context">context()</a>, TabWidth::integer) -&gt; {error, string()} | {ok, [string()]}</tt><br></p>
+</div><p>Unfold a function application to an instance of the function's body.
+  <p> This refactoring replaces a function application with an instance of the function body.
+  With the current implementation, Wrangler unfolds a function application only if the function
+  is defined in the same module, and Wrangler could work out which function clause to use (in case
+  the function definition contains multiple function clauses).
+  </p>
+  <p>
+  Usage: Point the cursor to the function name in the function application to unfold, then
+  select <em>Unfold Function Application</em> from <em>Refactor</em>.
+  </p></p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 5 2015, 16:30:21.</i></p>
+</body>
+</html>

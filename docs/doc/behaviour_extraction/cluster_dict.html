@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Module cluster_dict</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module cluster_dict</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
+   Implements a data type that congregates and manages clusters of
+   nodes.
+<p>Copyright © (C) 2015, Pablo Lamela, Simon Thompson</p>
+
+<p><b>Authors:</b> Pablo Lamela Seijas (<a href="mailto:P.Lamela-Seijas@kent.ac.uk"><tt>P.Lamela-Seijas@kent.ac.uk</tt></a>), Simon Thompson (<a href="mailto:S.J.Thompson@kent.ac.uk"><tt>S.J.Thompson@kent.ac.uk</tt></a>).</p>
+
+<h2><a name="description">Description</a></h2>
+   Implements a data type that congregates and manages clusters of
+   nodes. It relies on the internal data type cluster.
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-cluster_dict">cluster_dict()</a></h3>
+<p><b>abstract datatype</b>: <tt>cluster_dict(Node)</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#extract_trivial_clusters-1">extract_trivial_clusters/1</a></td><td>
+  Removes clusters with only one node from the cluster dictionary.</td></tr>
+<tr><td valign="top"><a href="#get_cluster_for_node-2">get_cluster_for_node/2</a></td><td>
+  Finds the cluster that has the Node in the ClusterDict.</td></tr>
+<tr><td valign="top"><a href="#growing_map_fold-3">growing_map_fold/3</a></td><td>
+  Mapfolds a function through a clusters dictionary.</td></tr>
+<tr><td valign="top"><a href="#merge_cluster-2">merge_cluster/2</a></td><td>
+  Adds a Cluster to the ClusterDict and merges the new Cluster with
+  the clusters with common nodes in ClusterDict.</td></tr>
+<tr><td valign="top"><a href="#new-0">new/0</a></td><td>
+  Creates a new empty cluster dictionary.</td></tr>
+<tr><td valign="top"><a href="#show_cluster_dict-1">show_cluster_dict/1</a></td><td>
+  Returns a more readable version of custer dictionaries.</td></tr>
+<tr><td valign="top"><a href="#show_cluster_dict-2">show_cluster_dict/2</a></td><td>
+  Returns a more readable version of custer dictionaries and takes
+  a function that is suppoused to make the nodes in the clusters
+  more readable.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="extract_trivial_clusters-1">extract_trivial_clusters/1</a></h3>
+<div class="spec">
+<p><tt>extract_trivial_clusters(Cluster_dict::<a href="#type-cluster_dict">cluster_dict</a>(NodeType)) -&gt; {[<a href="cluster.html#type-cluster">cluster:cluster</a>(NodeType)], <a href="#type-cluster_dict">cluster_dict</a>(NodeType)}</tt><br></p>
+</div><p>
+  Removes clusters with only one node from the cluster dictionary.
+  It returns a list with the removed clusters.</p>
+
+<h3 class="function"><a name="get_cluster_for_node-2">get_cluster_for_node/2</a></h3>
+<div class="spec">
+<p><tt>get_cluster_for_node(Node::N, Cluster_dict::<a href="#type-cluster_dict">cluster_dict</a>(N)) -&gt; {ok, Cluster::<a href="cluster.html#type-cluster">cluster:cluster</a>(N)} | error</tt><br></p>
+</div><p>
+  Finds the cluster that has the Node in the ClusterDict.</p>
+
+<h3 class="function"><a name="growing_map_fold-3">growing_map_fold/3</a></h3>
+<div class="spec">
+<p><tt>growing_map_fold(Fun::fun((<a href="cluster.html#type-cluster">cluster:cluster</a>(N), Acc) -&gt; {[<a href="cluster.html#type-cluster">cluster:cluster</a>(N)], none | <a href="cluster.html#type-cluster">cluster:cluster</a>(N), Acc}), Acc, Cluster_dict::<a href="#type-cluster_dict">cluster_dict</a>(N)) -&gt; {<a href="#type-cluster_dict">cluster_dict</a>(N), Acc}</tt><br></p>
+</div><p>
+  Mapfolds a function through a clusters dictionary. As opposed to the
+  traditional mapfold, this one expects an extra element in the
+  returned tuple, (the first one), which specifies which new clusters
+  must be map_folded later, (in addition to the original ones
+  from the cluster dictionary). The updated cluster (second element of
+  the tuple returned by the function), can be the atom <code>none</code>, this
+  means that the Cluster will not be in the resulting list.</p>
+
+<h3 class="function"><a name="merge_cluster-2">merge_cluster/2</a></h3>
+<div class="spec">
+<p><tt>merge_cluster(Cluster::<a href="cluster.html#type-cluster">cluster:cluster</a>(N), ClusterDict::<a href="#type-cluster_dict">cluster_dict</a>(N)) -&gt; <a href="#type-cluster_dict">cluster_dict</a>(N)</tt><br></p>
+</div><p>
+  Adds a Cluster to the ClusterDict and merges the new Cluster with
+  the clusters with common nodes in ClusterDict.</p>
+
+<h3 class="function"><a name="new-0">new/0</a></h3>
+<div class="spec">
+<p><tt>new() -&gt; <a href="#type-cluster_dict">cluster_dict</a>(any())</tt><br></p>
+</div><p>
+  Creates a new empty cluster dictionary.</p>
+
+<h3 class="function"><a name="show_cluster_dict-1">show_cluster_dict/1</a></h3>
+<div class="spec">
+<p><tt>show_cluster_dict(Clus::<a href="#type-cluster_dict">cluster_dict</a>(term())) -&gt; #{}</tt><br></p>
+</div><p>
+  Returns a more readable version of custer dictionaries. This
+  is done by transforming dicts and sets into lists.</p>
+
+<h3 class="function"><a name="show_cluster_dict-2">show_cluster_dict/2</a></h3>
+<div class="spec">
+<p><tt>show_cluster_dict(Fun::fun((NodeType) -&gt; any()), Cluster_dict::<a href="#type-cluster_dict">cluster_dict</a>(NodeType)) -&gt; #{}</tt><br></p>
+</div><p>
+  Returns a more readable version of custer dictionaries and takes
+  a function that is suppoused to make the nodes in the clusters
+  more readable. This is done by transforming dicts and sets into
+  lists and by applying the supplied function to the nodes.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 5 2015, 16:30:18.</i></p>
+</body>
+</html>

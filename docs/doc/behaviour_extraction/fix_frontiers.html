@@ -1,0 +1,67 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Module fix_frontiers</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module fix_frontiers</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
+   Moves the frontiers of the clusters so that functions can
+   be extracted from them.
+<p>Copyright © (C) 2015, Pablo Lamela, Simon Thompson</p>
+
+<p><b>Authors:</b> Pablo Lamela Seijas (<a href="mailto:P.Lamela-Seijas@kent.ac.uk"><tt>P.Lamela-Seijas@kent.ac.uk</tt></a>), Simon Thompson (<a href="mailto:S.J.Thompson@kent.ac.uk"><tt>S.J.Thompson@kent.ac.uk</tt></a>).</p>
+
+<h2><a name="description">Description</a></h2>
+   Moves the frontiers of the clusters so that functions can
+   be extracted from them. This is done by reducing the size
+   of the common clusters, and expanding the size of the
+   exclusive clusters.
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#delete_trivial_clusters-1">delete_trivial_clusters/1</a></td><td>
+  Removes from the CommClusterDict and detaches from the Mapping every
+  cluster with a single node in it.</td></tr>
+<tr><td valign="top"><a href="#fix_frontiers-5">fix_frontiers/5</a></td><td>
+  Moves the frontiers of the clusters to places where function
+  calls can be used to divide the trees.</td></tr>
+<tr><td valign="top"><a href="#node_exports_vars-2">node_exports_vars/2</a></td><td>
+  Returns true if either Node (assumed to belong to Tree), exports
+  variables.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="delete_trivial_clusters-1">delete_trivial_clusters/1</a></h3>
+<div class="spec">
+<p><tt>delete_trivial_clusters(X1::{CommClusterDict::<a href="cluster_dict.html#type-cluster_dict">cluster_dict:cluster_dict</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>), Mapping::<a href="da_map.html#type-da_map">da_map:da_map</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>, <a href="tree.html#type-tree_node">tree:tree_node()</a>)}) -&gt; {<a href="cluster_dict.html#type-cluster_dict">cluster_dict:cluster_dict</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>), <a href="da_map.html#type-da_map">da_map:da_map</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>, <a href="tree.html#type-tree_node">tree:tree_node()</a>)}</tt><br></p>
+</div><p>
+  Removes from the CommClusterDict and detaches from the Mapping every
+  cluster with a single node in it.</p>
+
+<h3 class="function"><a name="fix_frontiers-5">fix_frontiers/5</a></h3>
+<div class="spec">
+<p><tt>fix_frontiers(Pass::1 | 2, Tree1::<a href="tree.html#type-tree">tree:tree()</a>, Tree2::<a href="tree.html#type-tree">tree:tree()</a>, Mapping::<a href="da_map.html#type-da_map">da_map:da_map</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>, <a href="tree.html#type-tree_node">tree:tree_node()</a>), CommCluster::<a href="cluster_dict.html#type-cluster_dict">cluster_dict:cluster_dict</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>)) -&gt; {<a href="cluster_dict.html#type-cluster_dict">cluster_dict:cluster_dict</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>), <a href="da_map.html#type-da_map">da_map:da_map</a>(<a href="tree.html#type-tree_node">tree:tree_node()</a>, <a href="tree.html#type-tree_node">tree:tree_node()</a>)}</tt><br></p>
+</div><p>
+  Moves the frontiers of the clusters to places where function
+  calls can be used to divide the trees.
+  This function updates both the Mapping and the CommCluster
+  dictionary. The right exclusive clusters are generated from the
+  fixed Mapping at <a href="tree_clustering.html#cluster-3"><code>tree_clustering:cluster/3</code></a></p>
+
+<h3 class="function"><a name="node_exports_vars-2">node_exports_vars/2</a></h3>
+<div class="spec">
+<p><tt>node_exports_vars(Node::<a href="tree.html#type-tree_node">tree:tree_node()</a>, Tree::<a href="tree.html#type-tree">tree:tree()</a>) -&gt; boolean()</tt><br></p>
+</div><p>
+  Returns true if either Node (assumed to belong to Tree), exports
+  variables.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/" target="_top"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 5 2015, 16:30:19.</i></p>
+</body>
+</html>
