@@ -1,7 +1,7 @@
 
                     Wrangler -- An Erlang Refactorer
                            21/10/2013
-              http://www.cs.kent.ac.uk/projects/wrangler/
+              https://refactoringtools.github.io/wrangler/
 
 ---------------------------------------------------------------------------
 Refactoring is the process of improving the design of a program without 
