@@ -2,6 +2,7 @@
 -module(refac_intro_parallel).
 
 -compile(export_all).
+-compile(nowarn_export_all).
 
 -include("wrangler.hrl").
 

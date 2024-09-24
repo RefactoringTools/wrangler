@@ -42,6 +42,7 @@
 -behaviour(gen_composite_refac).
 
 -compile(export_all).
+-compile(nowarn_export_all).
 
 input_par_prompts() ->["New parameter name: "].
 

@@ -37,6 +37,7 @@
 -behaviour(gen_refac).
 
 -compile(export_all).
+-compile(nowarn_export_all).
 
 %% Include files
 -include("wrangler.hrl").
@@ -270,7 +271,7 @@ rule52(Op, NewArgGen, Nth, Arity,  Style) ->
           api_refac:is_expr(_This@) andalso Style==non_tuple).
 
 
-add_op_arg(FileName, OpName, Arity,  NewArgName, Index, NewArgGen, SearchPaths, Editor, TabWidth) ->
+add_op_arg(FileName, OpName, Arity,  NewArgName, Index, _NewArgGen, SearchPaths, Editor, TabWidth) ->
     Args=#args{current_file_name=FileName,
                focus_sel={OpName, Arity},
                user_inputs=[NewArgName, Index],

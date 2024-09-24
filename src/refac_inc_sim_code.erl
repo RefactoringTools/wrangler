@@ -46,6 +46,8 @@
 
 %% do not remove this!
 -compile(export_all).
+-compile(nowarn_export_all).
+
 %%-define(debug, true).
 
 -define(INC, false).

@@ -143,6 +143,8 @@
 -export([init_eclipse/0]).
 
 -compile(export_all).
+-compile(nowarn_export_all).
+
 
 -include("../include/wrangler_internal.hrl").
 

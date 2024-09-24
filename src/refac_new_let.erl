@@ -344,7 +344,7 @@ returns_gen({eqc_gen, int, 0}) ->
     true;
 returns_gen({eqc_gen, list, 1}) ->
     true;
-returns_gen({eqc_gen, maybe, 1}) ->
+returns_gen({eqc_gen, 'maybe', 1}) ->
     true;
 returns_gen({eqc_gen, more_faulty, 2}) ->
     true;

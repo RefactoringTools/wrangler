@@ -26,6 +26,7 @@
 	 string/4, tokens/3]).
 
 -compile(export_all).
+-compile(nowarn_export_all).
 
 -import(lists, [member/2, reverse/1]).
 

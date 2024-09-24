@@ -1,6 +1,7 @@
 %% @private
 -module(def5).
 -compile([export_all]).
+-compile(nowarn_export_all).
 
 add(X,Y) -> X + Y.
 

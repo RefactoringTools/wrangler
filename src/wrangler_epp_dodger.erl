@@ -307,9 +307,9 @@ scan_form([{'-', _L}, {atom, La, ifdef} | Ts], Opt) ->
 scan_form([{'-', _L}, {atom, La, ifndef} | Ts], Opt) ->
     [{atom, La, ?pp_form}, {'(', La}, {')', La}, {'->', La},
      {atom, La, ifndef} | scan_macros(Ts, Opt)];
-scan_form([{'-', _L}, {atom, La, else} | Ts], Opt) ->
+scan_form([{'-', _L}, {atom, La, 'else'} | Ts], Opt) ->
     [{atom, La, ?pp_form}, {'(', La}, {')', La}, {'->', La},
-     {atom, La, else} | scan_macros(Ts, Opt)];
+     {atom, La, 'else'} | scan_macros(Ts, Opt)];
 scan_form([{'-', _L}, {atom, La, endif} | Ts], Opt) ->
     [{atom, La, ?pp_form}, {'(', La}, {')', La}, {'->', La},
      {atom, La, endif} | scan_macros(Ts, Opt)];

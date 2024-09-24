@@ -4,6 +4,7 @@
 -behaviour(gen_refac).
 
 -compile(export_all).
+-compile(nowarn_export_all).
 
 -include("wrangler.hrl").
 

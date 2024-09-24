@@ -511,8 +511,8 @@ get_all_ranges() ->
 add_ranges(Ranges)->
     backward_slicer ! {add, Ranges}.
 
-add_maybe_ranges(Ranges) ->
-    backward_slicer ! {add_maybe, Ranges}.
+%% add_maybe_ranges(Ranges) ->
+%%     backward_slicer ! {add_maybe, Ranges}.
 
 locs_loop(State={Ranges, MaybeRanges}) ->
     receive

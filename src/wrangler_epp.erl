@@ -323,7 +323,7 @@ scan_toks([{'-',_Lh},{atom,Li,ifdef}|Toks], From, St) ->
     scan_ifdef(Toks, Li, From, St);
 scan_toks([{'-',_Lh},{atom,Li,ifndef}|Toks], From, St) ->
     scan_ifndef(Toks, Li, From, St);
-scan_toks([{'-',_Lh},{atom,Le,else}|Toks], From, St) ->
+scan_toks([{'-',_Lh},{atom,Le,'else'}|Toks], From, St) ->
     scan_else(Toks, Le, From, St);
 scan_toks([{'-',_Lh},{atom,Le,'if'}|Toks], From, St) ->
     scan_if(Toks, Le, From, St);
@@ -592,17 +592,17 @@ scan_ifndef(_Toks, Li, From, St) ->
 
 scan_else([{dot,_Ld}], Le, From, St) ->
     case St#epp.istk of
-	[else|Cis] ->
-	    epp_reply(From, {error,{Le,epp,{illegal,"repeated",else}}}),
-	    wait_req_skip(St#epp{istk=Cis}, [else]);
+	['else'|Cis] ->
+	    epp_reply(From, {error,{Le,epp,{illegal,"repeated",'else'}}}),
+	    wait_req_skip(St#epp{istk=Cis}, ['else']);
 	[_I|Cis] ->
-	    skip_toks(From, St#epp{istk=Cis}, [else]);
+	    skip_toks(From, St#epp{istk=Cis}, ['else']);
 	[] ->
-	    epp_reply(From, {error,{Le,epp,{illegal,"unbalanced",else}}}),
+	    epp_reply(From, {error,{Le,epp,{illegal,"unbalanced",'else'}}}),
 	    wait_req_scan(St)
     end;
 scan_else(_Toks, Le, From, St) ->
-    epp_reply(From, {error,{Le,epp,{bad,else}}}),
+    epp_reply(From, {error,{Le,epp,{bad,'else'}}}),
     wait_req_scan(St).
 
 %% scan_if(Tokens, EndifLine, From, EppState)
@@ -666,7 +666,7 @@ skip_toks(From, St, [I|Sis]) ->
 	    skip_toks(From, St#epp{line=Cl}, [ifndef,I|Sis]);
 	{ok,[{'-',_Lh},{atom,_Li,'if'}|_Toks],Cl} ->
 	    skip_toks(From, St#epp{line=Cl}, ['if',I|Sis]);
-	{ok,[{'-',_Lh},{atom,Le,else}|_Toks],Cl}->
+	{ok,[{'-',_Lh},{atom,Le,'else'}|_Toks],Cl}->
 	    skip_else(Le, From, St#epp{line=Cl}, [I|Sis]);
 	{ok,[{'-',_Lh},{atom,_Le,endif}|_Toks],Cl} ->
 	    skip_toks(From, St#epp{line=Cl}, Sis);
@@ -683,11 +683,11 @@ skip_toks(From, St, [I|Sis]) ->
 skip_toks(From, St, []) ->
     scan_toks(From, St).
 
-skip_else(Le, From, St, [else|Sis]) ->
-    epp_reply(From, {error,{Le,epp,{illegal,"repeated",else}}}),
-    wait_req_skip(St, [else|Sis]);
+skip_else(Le, From, St, ['else'|Sis]) ->
+    epp_reply(From, {error,{Le,epp,{illegal,"repeated",'else'}}}),
+    wait_req_skip(St, ['else'|Sis]);
 skip_else(_Le, From, St, [_I]) ->
-    scan_toks (From, St#epp{istk=[else|St#epp.istk]});
+    scan_toks (From, St#epp{istk=['else'|St#epp.istk]});
 skip_else(_Le, From, St, Sis) ->
     skip_toks(From, St, Sis).
 

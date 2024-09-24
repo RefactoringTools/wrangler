@@ -31,6 +31,7 @@
 -export([expr_match/3, expr_match/2, extended_expr_match/3]).
 
 -compile(export_all).
+-compile(nowarn_export_all).
 
 -include("../include/wrangler_internal.hrl").
 

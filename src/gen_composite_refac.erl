@@ -271,6 +271,7 @@
          input_par_prompts/1]).
 
 -compile(export_all).
+-compile(nowarn_export_all).
 
 -include("wrangler.hrl").
 

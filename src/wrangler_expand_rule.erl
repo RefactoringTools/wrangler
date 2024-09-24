@@ -5,7 +5,7 @@
 -export([parse_transform/2]).
 
 -compile(export_all).
-
+-compile(nowarn_export_all).
 %% -define(ERROR(R, T, F, I),
 %% 	begin
 %% 	    rpt_error(R, T, F, I),
