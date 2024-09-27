@@ -2,9 +2,11 @@
 
 -export([run_test_correctness/0,
          run_test_comparison/0]).
-
+-compile(export_all).
+-compile(nowarn_export_all).
 -include("wrangler.hrl").
 
+-compile(nowarn_export_all).
 
 swap_args_refac_call(Mod, Ar, Path) ->
     gen_refac_2:run_refac(refac_swap_function_arguments2,

@@ -11,6 +11,7 @@
 	 remove_sub_clones/1, generalisable/1]).
 
 -compile(export_all).
+-compile(nowarn_export_all).
 
 -include("../include/wrangler_internal.hrl").
 

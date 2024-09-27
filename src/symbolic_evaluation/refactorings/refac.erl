@@ -164,7 +164,7 @@ body_rules(RulesFun, RefacType, TimeOut, Info,ManagerPid) -> [body_rule(RulesFun
 get_refac_scope("y") -> file;
 get_refac_scope("Y") -> project;
 get_refac_scope(Str) when Str == "n" orelse Str == "" -> function;
-get_refac_scope(_) -> maybe. 
+get_refac_scope(_) -> 'maybe'. 
     
 
 %%--------------------------------------------------------------------

@@ -5,7 +5,7 @@
 -export([old_api_module_name/0]).
 
 -compile(export_all).
-
+-compile(nowarn_export_all).
 old_api_module_name() ->
     lists.  
 

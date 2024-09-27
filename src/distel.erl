@@ -35,6 +35,7 @@
                    , basename/2]).
 
 -compile(export_all).
+-compile(nowarn_export_all).
 
 fmt(F, A) -> to_bin(io_lib:fwrite(F,A)).
 
@@ -643,7 +644,7 @@ attach_meta_cmd(up, Att = #attach{stack={Pos,Max}}) ->
             Att#attach.emacs ! {message, <<"already at top.">>},
             Att
     end;
-attach_meta_cmd(down, Att = #attach{stack={_Max,_Max}}) ->
+attach_meta_cmd(down, Att = #attach{stack={_Max1,_Max2}}) when _Max1==_Max2 ->
     Att#attach.emacs ! {message, <<"already at bottom">>},
     Att;
 attach_meta_cmd(down, Att = #attach{stack={Pos,Max}}) ->
@@ -678,7 +679,7 @@ attach_goto(A = #attach{stack={Pos,Max}},{Mod,Line},Bs) ->
     A#attach.emacs ! {variables, Vars},
     A#attach.emacs ! {location, Mod, Line, Pos, Max},
     A.
-stack_pos(#attach{stack={_X,_X}}) -> nostack;
+stack_pos(#attach{stack={_X1,_X2}}) when _X1==_X2-> nostack;
 stack_pos(#attach{stack={Pos,_Max}}) -> Pos.
 
 %% ----------------------------------------------------------------------

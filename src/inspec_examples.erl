@@ -97,6 +97,8 @@
 -export([test/1,test1/1,test2/1,test3/1,test4/1, test5/1]).
 
 -compile(export_all).
+-compile(nowarn_export_all).
+
 
 -import(api_refac, [fun_define_info/1]).
 

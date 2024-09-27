@@ -82,7 +82,7 @@ atom_value_case_cond(NodeValue, T, VarsInfo) ->
     case NodeValue of
           true -> true;
           false -> if_cond(T, VarsInfo);
-	  maybe -> false;
+	  'maybe' -> false;
 	  {expr,_} -> false;
 	  Other when is_number(Other) orelse is_list(Other) orelse is_atom(Other) orelse is_tuple(Other) -> if_cond(T,VarsInfo);
           _ -> false
@@ -92,7 +92,7 @@ atom_value_case_transf({NodeValue, BodyNode}, {TCond, TBody}, VarsInfo) ->
     case NodeValue of
 		true -> BodyNode;
 		false -> if_transform(TCond, TBody, VarsInfo);
-	        maybe -> false;
+	        'maybe' -> false;
 	        {expr,_} -> false;
 	        Other when is_number(Other) orelse is_list(Other) orelse is_atom(Other) orelse is_tuple(Other) -> if_transform(TCond,TBody,VarsInfo);
 		_ -> {error, 'No transformation can be done!'}

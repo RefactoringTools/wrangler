@@ -5,7 +5,7 @@
 -behaviour(gen_refac_2).
 
 -compile(export_all).
-
+-compile(nowarn_export_all).
 %% Include files
 -include("wrangler.hrl").
 
@@ -114,7 +114,7 @@ rule_def(_Args=#args{user_inputs=[M0, F0, A0, DummyPar]}) ->
           end,
           api_refac:fun_define_info(f@) == {M, F, A}).
 
-rule_appl(_Args=#args{user_inputs=[M0, F0, A0, DummyPar]}) ->
+rule_appl(_Args=#args{user_inputs=[M0, F0, A0, _DummyPar]}) ->
     M = list_to_atom(M0),
     F = list_to_atom(F0),
     A = list_to_integer(A0),

@@ -1,6 +1,7 @@
 %% @private
 -module(def7).
 -compile([export_all]).
+-compile(nowarn_export_all).
 
 listsFlatten([]) -> [];
 listsFlatten([H | T]) when is_list(H) ->

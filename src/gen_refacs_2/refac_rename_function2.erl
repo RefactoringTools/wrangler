@@ -5,6 +5,7 @@
 -behaviour(gen_refac_2).
 
 -compile(export_all).
+-compile(nowarn_export_all).
 
 %% Include files
 -include("wrangler.hrl").
@@ -54,11 +55,11 @@ select_focus(_Args) ->
 %% @end
 %%--------------------------------------------------------------------
 check_pre_cond(_Args=#args{current_file_name=File,
-                      user_inputs=[M0, F0, A0, NewName]}) ->
-	M = list_to_atom(M0),
-	F = list_to_atom(F0),
-    A = list_to_integer(A0),
-	NewNameAtom = list_to_atom(NewName),
+			   user_inputs=[M0, F0, A0, NewName]}) ->
+    _M = list_to_atom(M0),
+    _F = list_to_atom(F0),
+    _A = list_to_integer(A0),
+    NewNameAtom = list_to_atom(NewName),
     case api_refac:is_fun_name(NewName) of
         false ->
             {error, "New function name is invalid."};

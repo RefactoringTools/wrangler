@@ -32,10 +32,10 @@ matchElem(Node1,Node2) ->
     Node2Type = api_refac:type(Node2),
     if
 	Node1Type == nil andalso Node2Type == nil -> true;
-	Node1Type == application  -> maybe;
+	Node1Type == application  -> 'maybe';
 	Node2Type == variable orelse Node2Type == underscore -> true;
-	Node1Type == infix_expr  -> maybe;
-	Node1Type == variable  -> maybe;
+	Node1Type == infix_expr  -> 'maybe';
+	Node1Type == variable  -> 'maybe';
 	Node1Type == integer andalso Node2Type == integer -> utils_convert:convert_elem(Node1) == utils_convert:convert_elem(Node2);
 	Node1Type == atom andalso Node2Type == atom -> utils_convert:convert_elem(Node1) == utils_convert:convert_elem(Node2);
         Node1Type == string andalso Node2Type == string -> utils_convert:convert_elem(Node1) == utils_convert:convert_elem(Node2);
@@ -62,7 +62,7 @@ matchList([H1 | T1],[H2 | T2])->
     Match = matchElem(H1,H2),
     if
 	Match -> matchList(T1,T2);
-	Match == maybe -> maybe;
+	Match == 'maybe' -> 'maybe';
 	true -> false
     end.
 
@@ -84,12 +84,12 @@ findFirstMatch([{{M2,F2,A2},ArgPatt,Guards,Body} | T],{M,F,A},Arg) ->
 		Match ->
 		    GuardsSuceed = utils_guards:guardsSuceed(Arg, ArgPatt, Guards),
 		    if
-			GuardsSuceed == maybe -> noMatch;
+			GuardsSuceed == 'maybe' -> noMatch;
 			GuardsSuceed -> {match,ArgPatt,Body};      
 			true -> findFirstMatch(T,{M,F,A},Arg)
 		    end;
 
-		Match == maybe -> noMatch;
+		Match == 'maybe' -> noMatch;
 		true  -> findFirstMatch(T,{M,F,A},Arg)
 	    end;
 	true  -> findFirstMatch(T,{M,F,A},Arg)

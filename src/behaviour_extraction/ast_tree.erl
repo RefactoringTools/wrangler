@@ -581,7 +581,7 @@ is_import_record_or_macro(PartialAST) ->
 		     case wrangler_syntax:type(Name) of
 			 atom -> lists:member(wrangler_syntax:atom_value(Name),
 					      [include_lib, include, define, record,
-					       ifdef, ifndef, else, endif]);
+					       ifdef, ifndef, 'else', endif]);
 			 _ -> false
 		     end;
 	_ -> false

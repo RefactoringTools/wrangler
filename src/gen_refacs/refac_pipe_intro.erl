@@ -4,6 +4,7 @@
 -behaviour(gen_refac).
 
 -compile(export_all).
+-compile(nowarn_export_all).
 
 -include("wrangler.hrl").
 
@@ -44,7 +45,7 @@ transform(Args=#args{current_file_name=_File, focus_sel=Expr}) ->
     transform_in_cur_file(Args, Expr).
 
 transform_in_cur_file(_Args=#args{current_file_name=File}, Expr) ->
-    Start1 = api_refac:start_end_loc(Expr),
+    _Start1 = api_refac:start_end_loc(Expr),
     %Start2 = api_refac:start_end_loc(Args@),
     %Data2 = [1,2,3,{in_comp2, Start1}],
     %io:fwrite("transform~p~n",[Data2]),

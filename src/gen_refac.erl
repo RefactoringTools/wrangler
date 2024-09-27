@@ -144,7 +144,6 @@
 -callback transform(Args::#args{}) ->
      {ok, [{{filename(),filename()},syntaxTree()}]} | {error, term()}.
     
-     
 -spec(select_focus(Module::module(), Args::args()) ->
              {ok, term()} | {error, term()}).
 select_focus(Module, Args) ->

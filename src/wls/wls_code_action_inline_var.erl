@@ -51,7 +51,7 @@ recalculate_regions(Path, Pos) ->
       try refac_inline_var:get_var_define_match_expr(Form, VarNode) of
         {ok, MatchExpr} ->
           Cands = refac_inline_var:search_for_unfold_candidates(Form, MatchExpr, VarNode),
-          {ok, make_regions(Cands), Pos},
+      %%    {ok, make_regions(Cands), Pos},
           Cands;
         _ -> {ok, [], Pos}
       catch
@@ -63,9 +63,9 @@ recalculate_regions(Path, Pos) ->
       _:{error, Msg} -> {error, Msg}
   end.
 
-make_regions([{{SLine, SCol}, {ELine, ECol}}| Rem]) -> 
-  [#{range => {SLine, SCol, ELine, ECol}, data => {}}] ++ make_regions(Rem);
-make_regions([]) -> [].
+%% make_regions([{{SLine, SCol}, {ELine, ECol}}| Rem]) -> 
+%%   [#{range => {SLine, SCol, ELine, ECol}, data => {}}] ++ make_regions(Rem);
+%% make_regions([]) -> [].
 
 %%==============================================================================
 %% Execute commands

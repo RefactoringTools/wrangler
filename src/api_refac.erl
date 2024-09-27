@@ -379,6 +379,7 @@
          meta_apply_templates/1]).
          
 -compile(export_all).
+-compile(nowarn_export_all).
 
 -include("wrangler.hrl").
 

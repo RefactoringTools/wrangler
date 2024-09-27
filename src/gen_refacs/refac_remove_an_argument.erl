@@ -30,6 +30,7 @@
 -behaviour(gen_refac).
 
 -compile(export_all).
+-compile(nowarn_export_all).
 
 %% Include files
 -include("wrangler.hrl").

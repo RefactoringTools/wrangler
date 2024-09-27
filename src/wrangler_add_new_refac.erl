@@ -51,6 +51,7 @@
 -export([add/6, remove/6]).
 
 -compile(export_all).
+-compile(nowarn_export_all).
 
 -include("../include/wrangler_internal.hrl").
 

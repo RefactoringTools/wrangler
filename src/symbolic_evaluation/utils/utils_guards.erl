@@ -41,7 +41,7 @@ evaluateGuardsExpression(Node, Scope)->
 			       LeftEvaluated = evaluateGuardsExpression(Left, Scope),
 			       RightEvaluated = evaluateGuardsExpression(Right, Scope),
 			       evaluateBooleanBinaryExp(Operator, LeftEvaluated, RightEvaluated);
-			   _ -> maybe
+			   _ -> 'maybe'
 		       end
 	   end;
 	NodeType == prefix_expr orelse NodeType == application ->
@@ -58,7 +58,7 @@ evaluateGuardsExpression(Node, Scope)->
 				SingleEvaluated = evaluateGuardsExpression(Single, Scope),
 				evaluateBooleanApplication(Operator, SingleEvaluated);
 			    _ -> 
-				maybe
+				'maybe'
 			end
 	     end;
 	NodeType == variable -> 
@@ -230,12 +230,12 @@ evaluateBooleanBinaryExp(Operator, {expr, NodeLeft}, {expr, NodeRight}) ->
 	Equal ->
 	    evaluateBooleanBinaryExp(Operator, ?PP(NodeLeft), ?PP(NodeRight));
 	true ->
-	    maybe
+	    'maybe'
     end;
-evaluateBooleanBinaryExp(_Operator, {expr, _NodeLeft}, _A) -> maybe;
-evaluateBooleanBinaryExp(_Operator, _, {expr, _NodeRight})  -> maybe;
-evaluateBooleanBinaryExp(_Operator, maybe, _A) -> maybe;
-evaluateBooleanBinaryExp(_Operator, _, maybe)  -> maybe;
+evaluateBooleanBinaryExp(_Operator, {expr, _NodeLeft}, _A) ->'maybe';
+evaluateBooleanBinaryExp(_Operator, _, {expr, _NodeRight})  -> 'maybe';
+evaluateBooleanBinaryExp(_Operator, 'maybe', _A) -> 'maybe';
+evaluateBooleanBinaryExp(_Operator, _, 'maybe')  -> 'maybe';
 evaluateBooleanBinaryExp("==",Left,Right) -> Left == Right;
 evaluateBooleanBinaryExp("=:=",Left,Right) -> Left =:= Right;
 evaluateBooleanBinaryExp("/=",Left,Right) -> Left /= Right;
@@ -257,8 +257,8 @@ evaluateBooleanBinaryExp("xor",Left,Right) when is_boolean(Left) andalso is_bool
 evaluateBooleanBinaryExp(_,_,_) ->
     false.
 
-evaluateBooleanApplication(_Operator, {expr, _Node}) -> maybe;
-evaluateBooleanApplication(_Operator, maybe) -> maybe;
+evaluateBooleanApplication(_Operator, {expr, _Node}) -> 'maybe';
+evaluateBooleanApplication(_Operator, 'maybe') -> 'maybe';
 evaluateBooleanApplication("not",Single) when is_boolean(Single) -> not (Single);
 evaluateBooleanApplication("is_list",Single) -> is_list(Single);
 evaluateBooleanApplication("is_integer",Single) -> is_integer(Single);

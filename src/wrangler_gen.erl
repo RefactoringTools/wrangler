@@ -49,6 +49,7 @@
          add_to_export/4,  inline_var/4]).
 
 -compile(export_all).
+-compile(nowarn_export_all).
 
 -include("wrangler.hrl").
 
