@@ -35,7 +35,7 @@ the old.
  
 --------------------------------- Documentation -------------------------------
 
-Wrangler online documentation is available from http://refactoringtools.github.com/wrangler
+Wrangler online documentation is available from https://refactoringtools.github.io/wrangler/
 
 -------------------------------- Wrangler Installation ------------------------
          
